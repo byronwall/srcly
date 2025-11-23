@@ -21,13 +21,12 @@ body {
 .code-modal-content .shiki {
   border-radius: 0.5rem;
   font-size: 13px;
-  line-height: 13px;
+  line-height: 0.7;
   margin: 0;
 }
 
 .code-modal-content .shiki code {
   counter-reset: line;
-  line-height: 13px;
 }
 
 .code-modal-content pre,
@@ -43,11 +42,6 @@ body {
   position: relative;
   display: block;
   padding-left: 2.5rem;
-  line-height: 13px;
-}
-
-.code-modal-content .shiki span {
-  line-height: 13px;
 }
 
 .code-modal-content .shiki .line::before {
