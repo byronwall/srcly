@@ -23,5 +23,5 @@ packages = ["app"]
 
 [tool.hatch.build]
 include = [
-    "app/static/**",
+    "app/**",
 ]
