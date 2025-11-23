@@ -1,8 +1,21 @@
 from typing import Set
 
 IGNORE_DIRS: Set[str] = {
-    '.git', 'node_modules', 'venv', '__pycache__', 'dist', 'build', '.next', 
-    'coverage', '.idea', '.vscode', 'target', 'out', 'android', 'ios'
+    '.git',
+    'node_modules',
+    'venv',
+    '.venv',
+    '__pycache__',
+    'dist',
+    'build',
+    '.next',
+    'coverage',
+    '.idea',
+    '.vscode',
+    'target',
+    'out',
+    'android',
+    'ios',
 }
 
 IGNORE_FILES: Set[str] = {

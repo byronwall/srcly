@@ -1,4 +1,6 @@
 import { createSignal, Show } from "solid-js";
+import Toast from "./components/Toast";
+
 import FilePicker from "./components/FilePicker";
 import Treemap from "./components/Treemap";
 
@@ -6,6 +8,11 @@ function App() {
   const [visualizationData, setVisualizationData] = createSignal<any>(null);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [toastMessage, setToastMessage] = createSignal<string>("");
+  const [toastType, setToastType] = createSignal<"success" | "error">(
+    "success"
+  );
+  const [showToast, setShowToast] = createSignal(false);
 
   const handleFileSelect = async (path: string) => {
     setLoading(true);
@@ -17,9 +24,15 @@ function App() {
       }
       const data = await res.json();
       setVisualizationData(data);
+      setToastMessage("Analysis completed");
+      setToastType("success");
+      setShowToast(true);
     } catch (err) {
       console.error(err);
       setError(String(err));
+      setToastMessage(String(err));
+      setToastType("error");
+      setShowToast(true);
     } finally {
       setLoading(false);
     }
@@ -71,6 +84,9 @@ function App() {
           <Treemap data={visualizationData()} />
         </Show>
       </main>
+      <Show when={showToast()}>
+        <Toast message={toastMessage()} type={toastType()} duration={4000} />
+      </Show>
     </div>
   );
 }

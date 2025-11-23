@@ -1,5 +1,6 @@
 import os
 import lizard
+import concurrent.futures
 from pathlib import Path
 from app.models import Node, Metrics
 from app.config import IGNORE_DIRS, IGNORE_FILES, IGNORE_EXTENSIONS
@@ -66,24 +67,78 @@ def aggregate_metrics(node: Node) -> Metrics:
     
     return node.metrics
 
+def analyze_single_file(file_path: str):
+    """
+    Wrapper to analyze a single file safely.
+    Must be top-level for multiprocessing pickling.
+    """
+    try:
+        # We can't easily print from here to the main stdout without buffering issues in some envs,
+        # but returning the result allows the main process to log.
+        # However, for true parallelism, we might want to log here if we want to see it start.
+        # But 'done' log is more important.
+        return lizard.analyze_file(file_path)
+    except Exception as e:
+        # Return error info instead of crashing
+        return {"error": str(e), "filename": file_path}
+
 def scan_codebase(root_path: Path) -> Node:
-    print(f"🔍 Scanning: {root_path}")
+    print(f"🔍 Scanning: {root_path}", flush=True)
 
     files_to_scan = []
+    # Load .gitignore patterns if present
+    gitignore_path = root_path / ".gitignore"
+    gitignore_patterns = []
+    if gitignore_path.is_file():
+        with open(gitignore_path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    gitignore_patterns.append(line)
+    
     for root_dir, dirs, files in os.walk(root_path):
-        dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
+        # Apply ignore dirs from config and .gitignore (if pattern matches dir)
+        dirs[:] = [d for d in dirs if d not in IGNORE_DIRS and not any(Path(root_dir, d).match(p) for p in gitignore_patterns)]
         for file in files:
             if file in IGNORE_FILES: continue
             if Path(file).suffix in IGNORE_EXTENSIONS: continue
-            files_to_scan.append(str(Path(root_dir) / file))
+            file_path = Path(root_dir) / file
+            rel_path = file_path.relative_to(root_path)
+            # Skip if matches any .gitignore pattern
+            if any(rel_path.match(p) for p in gitignore_patterns):
+                continue
+            files_to_scan.append(str(file_path))
 
-    print(f"📂 Analyzing {len(files_to_scan)} source files...")
-    analysis = lizard.analyze_files(files_to_scan, threads=4)
+    print(f"📂 Analyzing {len(files_to_scan)} source files...", flush=True)
+    
+    analysis_results = []
+    
+    # Use ProcessPoolExecutor for better control and per-file error handling
+    # lizard.analyze_files was opaque and crashing the whole pool on one error
+    with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
+        future_to_file = {executor.submit(analyze_single_file, f): f for f in files_to_scan}
+        
+        completed_count = 0
+        total_count = len(files_to_scan)
+        
+        for future in concurrent.futures.as_completed(future_to_file):
+            file = future_to_file[future]
+            completed_count += 1
+            try:
+                result = future.result()
+                if isinstance(result, dict) and "error" in result:
+                    print(f"❌ [{completed_count}/{total_count}] Error analyzing {file}: {result['error']}", flush=True)
+                else:
+                    # Success
+                    print(f"✅ [{completed_count}/{total_count}] Analyzed {file}", flush=True)
+                    analysis_results.append(result)
+            except Exception as exc:
+                print(f"❌ [{completed_count}/{total_count}] Exception analyzing {file}: {exc}", flush=True)
 
     tree_root = create_node("root", "folder", str(root_path))
     node_map = {str(root_path): tree_root}
 
-    for file_info in analysis:
+    for file_info in analysis_results:
         path_obj = Path(file_info.filename)
         try: rel_path = path_obj.relative_to(root_path)
         except ValueError: continue
