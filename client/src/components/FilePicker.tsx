@@ -1,4 +1,11 @@
-import { createSignal, createEffect, For, Show } from "solid-js";
+import {
+  createSignal,
+  createEffect,
+  For,
+  Show,
+  onMount,
+  onCleanup,
+} from "solid-js";
 
 interface FileItem {
   name: string;
@@ -16,6 +23,7 @@ export default function FilePicker(props: FilePickerProps) {
   const [suggestions, setSuggestions] = createSignal<FileItem[]>([]);
   const [showSuggestions, setShowSuggestions] = createSignal(false);
   const [loading, setLoading] = createSignal(false);
+  let containerRef: HTMLDivElement | undefined;
 
   // Debounce logic could be added, but for local server it might be fast enough.
   // Let's fetch on every meaningful change or when path ends with /
@@ -47,6 +55,22 @@ export default function FilePicker(props: FilePickerProps) {
     fetchSuggestions(p);
   });
 
+  onMount(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!containerRef || !target) return;
+      if (!containerRef.contains(target)) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    onCleanup(() => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    });
+  });
+
   const handleInput = (e: InputEvent) => {
     const val = (e.target as HTMLInputElement).value;
     setPath(val);
@@ -66,7 +90,12 @@ export default function FilePicker(props: FilePickerProps) {
   };
 
   return (
-    <div class="relative w-full max-w-xl">
+    <div
+      class="relative w-full max-w-xl"
+      ref={(el) => {
+        containerRef = el ?? undefined;
+      }}
+    >
       <div class="flex gap-2">
         <input
           type="text"
