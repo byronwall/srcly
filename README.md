@@ -2,6 +2,16 @@
 
 Srcly is an interactive codebase treemap and metrics viewer. It scans your code with [Lizard](https://github.com/terryyin/lizard), builds a hierarchical model of folders, files, and functions, and renders an explorable treemap in your browser.
 
+To try it in your current folder, run:
+
+```
+uvx srcly
+```
+
+## Screenshot
+
+![Srcly UI](./docs/00-main.png)
+
 ## Run it with `uvx srcly`
 
 The easiest way to use Srcly is via [`uvx`](https://docs.astral.sh/uv/guides/tools/), no global install required.
@@ -79,7 +89,7 @@ For every node (folder, file, function, or glue-code fragment), Srcly computes a
 
 | Metric             | Description                               | Aggregation Logic                                                                              |
 | :----------------- | :---------------------------------------- | :--------------------------------------------------------------------------------------------- |
-| **LOC**            | Lines of Code (excluding comments/blanks) | **Sum** — folder LOC is the sum of all children                                               |
+| **LOC**            | Lines of Code (excluding comments/blanks) | **Sum** — folder LOC is the sum of all children                                                |
 | **Complexity**     | Cyclomatic Complexity                     | **Max** for folders (shows the worst case)<br>**Average** for files<br>**Exact** for functions |
 | **Function Count** | Number of functions detected              | **Sum**                                                                                        |
 
@@ -124,7 +134,3 @@ If you want to hack on Srcly itself instead of running the packaged tool:
    ```
 
 You can also use the `dev.sh` helper script in the repository root to start both the API server and the client dev server together (it assumes `pnpm` and `uv` are available).
-
-## Screenshot
-
-![Srcly UI](./docs/00-main.png)
