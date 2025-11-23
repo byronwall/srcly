@@ -16,9 +16,13 @@ export default function Treemap(props: TreemapProps) {
     .range(["#569cd6", "#dcdcaa", "#ce9178"])
     .clamp(true);
 
-  // Ported from code-viz.html
+  // Ported from code-viz.html, but adapted to our JSON:
+  // The backend always sends `children: []` for leaf nodes (functions and code_fragments),
+  // whereas the original prototype used `children === undefined` for leaves.
+  // We must treat both `undefined` and `[]` as "no children" so we do NOT
+  // try to re-aggregate metrics for leaves, otherwise LOC gets zeroed out.
   function filterNoise(node: any) {
-    if (!node.children) return node;
+    if (!node.children || node.children.length === 0) return node;
 
     // Aggressively remove very small functions/code fragments that cause visual noise
     node.children = node.children.filter((child: any) => {
@@ -52,6 +56,10 @@ export default function Treemap(props: TreemapProps) {
     const w = containerRef.clientWidth;
     const h = containerRef.clientHeight;
 
+    if (w === 0 || h === 0) {
+      return;
+    }
+
     // Clear previous
     d3.select(containerRef).html("");
 
@@ -75,11 +83,142 @@ export default function Treemap(props: TreemapProps) {
 
     // Cast to Rectangular node to access x0, y0, etc.
     const rootRect = root as d3.HierarchyRectangularNode<any>;
+    const allNodes = rootRect.descendants();
 
-    // 1. Draw Folder Backgrounds
+    // Separate nodes by semantic type so that the visual hierarchy is clear:
+    // - folders: container backgrounds for whole subtrees
+    // - files: boxes inside folders
+    // - code chunks (functions / misc): leaves inside files
+    const folderNodes = allNodes.filter(
+      (d) => d.depth > 0 && d.children && d.data.type === "folder"
+    );
+    const fileNodes = allNodes.filter(
+      (d) => d.depth > 0 && d.data.type === "file"
+    );
+    const leafNodes = allNodes.filter((d) => !d.children);
+
+    // Debug: prove that our hierarchy and layout line up with the data model
+    // This mirrors the "MRI Debug Logs" from the original HTML prototype.
+    console.groupCollapsed("🧭 Treemap layout (client)");
+    console.log("Total hierarchy nodes:", allNodes.length);
+    console.log(
+      "Folders:",
+      folderNodes.length,
+      "Files:",
+      fileNodes.length,
+      "Leaves (functions/fragments):",
+      leafNodes.length
+    );
+    console.log("Root node:", {
+      name: rootRect.data?.name,
+      type: rootRect.data?.type,
+      loc: rootRect.value,
+    });
+    const sampleFolder = folderNodes[0];
+    if (sampleFolder) {
+      console.log("Sample folder node", {
+        name: sampleFolder.data.name,
+        type: sampleFolder.data.type,
+        loc: sampleFolder.value,
+        depth: sampleFolder.depth,
+        layout: {
+          x0: sampleFolder.x0,
+          y0: sampleFolder.y0,
+          x1: sampleFolder.x1,
+          y1: sampleFolder.y1,
+        },
+      });
+      const childrenSummary = sampleFolder.children?.map((c) => ({
+        name: c.data.name,
+        type: c.data.type,
+        loc: c.value,
+        depth: c.depth,
+      }));
+      console.log("  └─ children of sample folder:", childrenSummary);
+    }
+    const sampleFile = fileNodes[0];
+    if (sampleFile) {
+      const fileLeaves = leafNodes.filter((l) => l.parent === sampleFile);
+      console.log("Sample file node", {
+        name: sampleFile.data.name,
+        type: sampleFile.data.type,
+        loc: sampleFile.value,
+        depth: sampleFile.depth,
+        layout: {
+          x0: sampleFile.x0,
+          y0: sampleFile.y0,
+          x1: sampleFile.x1,
+          y1: sampleFile.y1,
+        },
+        leafCountInFile: fileLeaves.length,
+      });
+
+      // Verify geometric containment: file is inside its folder, and leaves are inside the file.
+      const fileFolderAncestor =
+        sampleFile.ancestors().find((a) => a.data.type === "folder") ??
+        undefined;
+      if (fileFolderAncestor) {
+        const folderBox = {
+          x0: fileFolderAncestor.x0,
+          y0: fileFolderAncestor.y0,
+          x1: fileFolderAncestor.x1,
+          y1: fileFolderAncestor.y1,
+        };
+        const fileBox = {
+          x0: sampleFile.x0,
+          y0: sampleFile.y0,
+          x1: sampleFile.x1,
+          y1: sampleFile.y1,
+        };
+        const fileInsideFolder =
+          fileBox.x0 >= folderBox.x0 &&
+          fileBox.y0 >= folderBox.y0 &&
+          fileBox.x1 <= folderBox.x1 &&
+          fileBox.y1 <= folderBox.y1;
+        console.log("Geometric check (file inside folder):", {
+          folder: fileFolderAncestor.data.name,
+          file: sampleFile.data.name,
+          fileInsideFolder,
+        });
+      }
+
+      const sampleLeaves = fileLeaves.slice(0, 5);
+      if (sampleLeaves.length > 0) {
+        const leafSummaries = sampleLeaves.map((leaf) => {
+          const leafBox = {
+            x0: leaf.x0,
+            y0: leaf.y0,
+            x1: leaf.x1,
+            y1: leaf.y1,
+          };
+          const fileBox = {
+            x0: sampleFile.x0,
+            y0: sampleFile.y0,
+            x1: sampleFile.x1,
+            y1: sampleFile.y1,
+          };
+          const insideFile =
+            leafBox.x0 >= fileBox.x0 &&
+            leafBox.y0 >= fileBox.y0 &&
+            leafBox.x1 <= fileBox.x1 &&
+            leafBox.y1 <= fileBox.y1;
+          return {
+            name: leaf.data.name,
+            type: leaf.data.type,
+            loc: leaf.value,
+            depth: leaf.depth,
+            insideFile,
+          };
+        });
+        console.log("Sample leaves inside sample file:", leafSummaries);
+      }
+    }
+    console.groupEnd();
+
+    // 1. Draw Folder Backgrounds (outer-most grouping)
     svg
       .selectAll("rect.folder")
-      .data(rootRect.descendants().filter((d) => d.depth > 0 && d.children))
+      .data(folderNodes)
       .join("rect")
       .attr("class", "folder")
       .attr("x", (d) => d.x0)
@@ -90,10 +229,25 @@ export default function Treemap(props: TreemapProps) {
       .attr("stroke", "#2d2d2d")
       .attr("stroke-width", 0.5);
 
-    // 2. Draw Leaves
+    // 2. Draw File Boxes nested within folders
+    svg
+      .selectAll("rect.file")
+      .data(fileNodes)
+      .join("rect")
+      .attr("class", "file")
+      .attr("x", (d) => d.x0)
+      .attr("y", (d) => d.y0)
+      .attr("width", (d) => d.x1 - d.x0)
+      .attr("height", (d) => d.y1 - d.y0)
+      // Slightly lighter than folders so the hierarchy is visible
+      .attr("fill", "#202020")
+      .attr("stroke", "#3a3a3a")
+      .attr("stroke-width", 0.75);
+
+    // 3. Draw Code-Chunks / Functions as leaves inside files
     svg
       .selectAll("rect.leaf")
-      .data(rootRect.leaves())
+      .data(leafNodes)
       .join("rect")
       .attr("class", "leaf")
       .attr("x", (d) => d.x0)
@@ -113,9 +267,7 @@ export default function Treemap(props: TreemapProps) {
     // Text labels
     svg
       .selectAll("text.label")
-      .data(
-        rootRect.leaves().filter((d) => d.x1 - d.x0 > 40 && d.y1 - d.y0 > 15)
-      )
+      .data(leafNodes.filter((d) => d.x1 - d.x0 > 40 && d.y1 - d.y0 > 15))
       .join("text")
       .attr("class", "label")
       .attr("x", (d) => d.x0 + 5)
