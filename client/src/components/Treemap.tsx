@@ -386,7 +386,7 @@ export default function Treemap(props: TreemapProps) {
         if (!rawPath) return;
         const filePath = extractFilePath(rawPath, type);
         if (!filePath) return;
-        props.onFileSelect(filePath);
+        props.onFileSelect?.(filePath);
       };
       sidebarRef.addEventListener("click", handler);
       onCleanup(() => {
