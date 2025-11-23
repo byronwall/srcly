@@ -1,7 +1,10 @@
 from fastapi import APIRouter, HTTPException
 from pathlib import Path
+import os
+
 from app.models import Node
 from app.services import analysis, cache
+from app.config import IGNORE_DIRS
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
 
@@ -39,3 +42,36 @@ async def refresh_analysis():
     tree = analysis.scan_codebase(ROOT_PATH)
     cache.save_analysis(ROOT_PATH, tree)
     return tree
+
+
+@router.get("/context")
+async def get_analysis_context():
+    """
+    Return basic information about the current analysis root directory.
+
+    This is used by the client to offer a one-click "analyze current folder"
+    option on first load.
+    """
+    root = ROOT_PATH
+    file_count = 0
+    folder_count = 0
+
+    try:
+        for dirpath, dirnames, filenames in os.walk(root):
+            # Apply ignore rules for directories to keep the estimate reasonable
+            dirnames[:] = [
+                d for d in dirnames
+                if d not in IGNORE_DIRS and not d.startswith(".")
+            ]
+            folder_count += len(dirnames)
+            file_count += len(filenames)
+    except Exception:
+        # If anything goes wrong, fall back to zeros but still report the path.
+        file_count = 0
+        folder_count = 0
+
+    return {
+        "root_path": str(root),
+        "file_count": file_count,
+        "folder_count": folder_count,
+    }

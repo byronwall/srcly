@@ -1,4 +1,4 @@
-import { createSignal, Show } from "solid-js";
+import { createSignal, Show, onMount } from "solid-js";
 import Toast from "./components/Toast";
 
 import FilePicker from "./components/FilePicker";
@@ -18,12 +18,42 @@ function App() {
     null
   );
   const [isCodeModalOpen, setIsCodeModalOpen] = createSignal(false);
+  const [analysisContext, setAnalysisContext] = createSignal<{
+    rootPath: string;
+    fileCount: number;
+    folderCount: number;
+  } | null>(null);
+  const [contextLoading, setContextLoading] = createSignal(false);
+
+  onMount(async () => {
+    setContextLoading(true);
+    try {
+      const res = await fetch("/api/analysis/context");
+      if (res.ok) {
+        const data = await res.json();
+        setAnalysisContext({
+          rootPath: data.root_path ?? data.rootPath ?? "",
+          fileCount: data.file_count ?? data.fileCount ?? 0,
+          folderCount: data.folder_count ?? data.folderCount ?? 0,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to load analysis context", err);
+    } finally {
+      setContextLoading(false);
+    }
+  });
 
   const handleFileSelect = async (path: string) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/analysis?path=${encodeURIComponent(path)}`);
+      const trimmed = path?.trim();
+      const url =
+        trimmed && trimmed.length > 0
+          ? `/api/analysis?path=${encodeURIComponent(trimmed)}`
+          : "/api/analysis";
+      const res = await fetch(url);
       if (!res.ok) {
         throw new Error(`Failed to fetch analysis: ${res.statusText}`);
       }
@@ -86,10 +116,37 @@ function App() {
           when={visualizationData()}
           fallback={
             <div class="flex flex-col items-center justify-center h-full text-gray-500">
-              <p class="text-lg mb-2">No visualization data</p>
-              <p class="text-sm">
-                Enter a path above to visualize the codebase
-              </p>
+              <p class="text-lg mb-2">No visualization data yet</p>
+              <Show
+                when={analysisContext()}
+                fallback={
+                  <p class="text-sm">
+                    {contextLoading()
+                      ? "Loading current folder information..."
+                      : "Enter a path above to visualize the codebase"}
+                  </p>
+                }
+              >
+                {(ctx) => (
+                  <div class="text-center space-y-3">
+                    <p class="text-sm">Analyze the current server folder:</p>
+                    <p class="text-sm font-mono text-gray-300">
+                      {ctx().rootPath || "(unknown)"}
+                    </p>
+                    <p class="text-xs text-gray-400">
+                      Roughly {ctx().fileCount} files and {ctx().folderCount}{" "}
+                      folders will be included.
+                    </p>
+                    <button
+                      type="button"
+                      class="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-sm text-white rounded"
+                      onClick={() => handleFileSelect("")}
+                    >
+                      Analyze this folder
+                    </button>
+                  </div>
+                )}
+              </Show>
             </div>
           }
         >

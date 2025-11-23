@@ -124,7 +124,14 @@ export default function FilePicker(props: FilePickerProps) {
 
   const handleAnalyze = () => {
     const currentPath = path().trim();
-    if (!currentPath) return;
+    // If the path is empty, treat it as "current working directory"
+    // so that running via `uvx` with no path uses the CWD by default.
+    if (!currentPath) {
+      props.onSelect("");
+      setShowSuggestions(false);
+      setShowRecent(false);
+      return;
+    }
     props.onSelect(currentPath);
     addRecentPath(currentPath);
     setShowSuggestions(false);
