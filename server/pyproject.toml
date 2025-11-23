@@ -10,3 +10,6 @@ dependencies = [
     "pydantic>=2.12.4",
     "uvicorn>=0.38.0",
 ]
+
+[project.scripts]
+start = "app.run:main"

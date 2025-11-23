@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
 from app.routers import analysis, files
 
 app = FastAPI(
@@ -21,6 +23,12 @@ app.add_middleware(
 app.include_router(analysis.router)
 app.include_router(files.router)
 
-@app.get("/")
+# Serve SPA
+# Check if client dist exists to avoid errors in dev environments without build
+client_dist = "../client/dist"
+if os.path.exists(client_dist):
+    app.mount("/", StaticFiles(directory=client_dist, html=True), name="static")
+
+@app.get("/api-status")
 async def root():
     return {"message": "Code Steward Server is running. Visit /docs for API documentation."}

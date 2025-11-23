@@ -1,0 +1,1 @@
+> Implement the full treemap visuals from @code-viz.html into the main solid app.  Get it all working end to end.  Offer a file picker in the client to make it easy to find the file.  Have the server convey available folders based on the current input.  Make it a nice auto suggest thing which goes a folder at a time.
