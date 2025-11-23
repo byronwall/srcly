@@ -1,1 +1,0 @@
-> Go ahead and implement the client.  Do a single page app using SolidJS, tailwind, bare fetch calls for now.  Use a dev server that includes vite and proxying to the python server.  Update the main server to support static build files.  End goal is a single `uv run` tool type call that can kick off teh server which serves teh built client.  Do all that in one go here.

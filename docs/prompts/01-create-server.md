@@ -1,5 +1,0 @@
-# All Prompts Used
-
-## Create Python server
-
-> Convert the single python file over to a full server with API.  It should do the static analysis on the current host using absolute file paths.  It should cache the results to disk and then serve them via API.  It should also provide a set of endpoints to get the raw file contents to be viewable in the front end.  Create a README that documents all of its operation.  Do something to make it easy for the client to consume types automatically (or via code gen).  Do eveyrthing using uv and modern python project stuff.
