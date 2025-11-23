@@ -1,5 +1,7 @@
 # General
 .DS_Store
+node_modules/
+
 
 # Data files
 codebase_mri.json

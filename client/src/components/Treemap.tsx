@@ -3,6 +3,7 @@ import * as d3 from "d3";
 
 interface TreemapProps {
   data: any;
+  onFileSelect?: (path: string) => void;
 }
 
 export default function Treemap(props: TreemapProps) {
@@ -48,6 +49,29 @@ export default function Treemap(props: TreemapProps) {
     }
 
     return node;
+  }
+
+  function extractFilePath(
+    rawPath: string | undefined,
+    type: string | undefined
+  ) {
+    if (!rawPath) return null;
+    if (type === "folder") {
+      return null;
+    }
+    const [filePath] = rawPath.split("::");
+    return filePath || null;
+  }
+
+  function handleHierarchyClick(d: d3.HierarchyNode<any>) {
+    if (!props.onFileSelect) return;
+    const nodeType = d.data?.type as string | undefined;
+    const filePath = extractFilePath(
+      d.data?.path as string | undefined,
+      nodeType
+    );
+    if (!filePath) return;
+    props.onFileSelect(filePath);
   }
 
   function renderTreemap(root: d3.HierarchyNode<any>) {
@@ -242,7 +266,8 @@ export default function Treemap(props: TreemapProps) {
       // Slightly lighter than folders so the hierarchy is visible
       .attr("fill", "#202020")
       .attr("stroke", "#3a3a3a")
-      .attr("stroke-width", 0.75);
+      .attr("stroke-width", 0.75)
+      .on("click", (_, d) => handleHierarchyClick(d));
 
     // 3. Draw Code-Chunks / Functions as leaves inside files
     svg
@@ -262,7 +287,8 @@ export default function Treemap(props: TreemapProps) {
       .attr("stroke", (d) => (d.x1 - d.x0 > 10 ? "#121212" : "none"))
       .attr("stroke-width", 0.5)
       .on("mouseover", (e, d) => showTooltip(e, d))
-      .on("mouseout", hideTooltip);
+      .on("mouseout", hideTooltip)
+      .on("click", (_, d) => handleHierarchyClick(d));
 
     // Text labels
     svg
@@ -291,9 +317,9 @@ export default function Treemap(props: TreemapProps) {
     let color = colorScale(node.metrics?.complexity || 0);
     if (node.name === "(misc/imports)") color = "#444";
 
-    let html = `<div class="tree-node hover:bg-gray-700 cursor-pointer flex items-center text-gray-400 hover:text-white px-2 py-0.5 text-xs whitespace-nowrap overflow-hidden" style="padding-left:${
-      depth * 12
-    }px">
+    let html = `<div class="tree-node hover:bg-gray-700 cursor-pointer flex items-center text-gray-400 hover:text-white px-2 py-0.5 text-xs whitespace-nowrap overflow-hidden" data-path="${
+      node.path
+    }" data-type="${node.type}" style="padding-left:${depth * 12}px">
         <span style="opacity:0.7;margin-right:5px">${icon}</span>
         <span style="flex:1">${node.name}</span>
         <span style="font-family:monospace;font-size:10px;opacity:0.5">${
@@ -349,6 +375,25 @@ export default function Treemap(props: TreemapProps) {
 
   // Handle resize
   onMount(() => {
+    if (sidebarRef && props.onFileSelect) {
+      const handler = (event: MouseEvent) => {
+        const target = event.target as HTMLElement | null;
+        if (!target) return;
+        const nodeEl = target.closest(".tree-node") as HTMLElement | null;
+        if (!nodeEl) return;
+        const type = nodeEl.dataset.type;
+        const rawPath = nodeEl.dataset.path;
+        if (!rawPath) return;
+        const filePath = extractFilePath(rawPath, type);
+        if (!filePath) return;
+        props.onFileSelect(filePath);
+      };
+      sidebarRef.addEventListener("click", handler);
+      onCleanup(() => {
+        sidebarRef?.removeEventListener("click", handler);
+      });
+    }
+
     const resizeObserver = new ResizeObserver(() => {
       if (props.data && containerRef) {
         // Re-render on resize

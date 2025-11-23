@@ -23,7 +23,49 @@ export default function FilePicker(props: FilePickerProps) {
   const [suggestions, setSuggestions] = createSignal<FileItem[]>([]);
   const [showSuggestions, setShowSuggestions] = createSignal(false);
   const [loading, setLoading] = createSignal(false);
+  const [recentPaths, setRecentPaths] = createSignal<string[]>([]);
+  const [showRecent, setShowRecent] = createSignal(false);
   let containerRef: HTMLDivElement | undefined;
+
+  const RECENT_PATHS_KEY = "code-steward-recent-paths";
+
+  const saveRecentPaths = (paths: string[]) => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(RECENT_PATHS_KEY, JSON.stringify(paths));
+    } catch (err) {
+      console.error("Failed to save recent paths", err);
+    }
+  };
+
+  const addRecentPath = (newPath: string) => {
+    const trimmed = newPath.trim();
+    if (!trimmed) return;
+
+    setRecentPaths((prev) => {
+      const filtered = prev.filter((p) => p !== trimmed);
+      const updated = [trimmed, ...filtered].slice(0, 8);
+      saveRecentPaths(updated);
+      return updated;
+    });
+  };
+
+  const loadRecentPaths = () => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(RECENT_PATHS_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        const onlyStrings = parsed.filter(
+          (item: unknown): item is string => typeof item === "string"
+        );
+        setRecentPaths(onlyStrings);
+      }
+    } catch (err) {
+      console.error("Failed to load recent paths", err);
+    }
+  };
 
   // Debounce logic could be added, but for local server it might be fast enough.
   // Let's fetch on every meaningful change or when path ends with /
@@ -56,11 +98,14 @@ export default function FilePicker(props: FilePickerProps) {
   });
 
   onMount(() => {
+    loadRecentPaths();
+
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node | null;
       if (!containerRef || !target) return;
       if (!containerRef.contains(target)) {
         setShowSuggestions(false);
+        setShowRecent(false);
       }
     };
 
@@ -75,6 +120,15 @@ export default function FilePicker(props: FilePickerProps) {
     const val = (e.target as HTMLInputElement).value;
     setPath(val);
     setShowSuggestions(true);
+  };
+
+  const handleAnalyze = () => {
+    const currentPath = path().trim();
+    if (!currentPath) return;
+    props.onSelect(currentPath);
+    addRecentPath(currentPath);
+    setShowSuggestions(false);
+    setShowRecent(false);
   };
 
   const selectItem = (item: FileItem) => {
@@ -104,10 +158,18 @@ export default function FilePicker(props: FilePickerProps) {
           onFocus={() => setShowSuggestions(true)}
           // onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} // Delay to allow click
           placeholder="/path/to/codebase"
-          class="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 outline-none"
+          class="w-full px-3 py-3 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 outline-none text-base"
         />
         <button
-          onClick={() => props.onSelect(path())}
+          type="button"
+          onClick={() => setShowRecent((prev) => !prev)}
+          class="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-xs text-gray-200 rounded border border-gray-600 whitespace-nowrap"
+        >
+          Recent
+        </button>
+        <button
+          type="button"
+          onClick={handleAnalyze}
           class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
         >
           Analyze
@@ -115,7 +177,7 @@ export default function FilePicker(props: FilePickerProps) {
       </div>
 
       <Show when={showSuggestions() && (suggestions().length > 0 || loading())}>
-        <div class="absolute top-full left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded shadow-xl max-h-60 overflow-y-auto z-50">
+        <div class="absolute top-full left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded shadow-xl max-h-96 overflow-y-auto z-50">
           <Show when={loading()}>
             <div class="p-2 text-gray-400 italic">Loading...</div>
           </Show>
@@ -128,6 +190,30 @@ export default function FilePicker(props: FilePickerProps) {
                 <span>{item.type === "folder" ? "📁" : "📄"}</span>
                 <span>{item.name}</span>
               </div>
+            )}
+          </For>
+        </div>
+      </Show>
+      <Show when={showRecent() && recentPaths().length > 0}>
+        <div class="absolute top-full right-0 mt-1 bg-gray-900 border border-gray-700 rounded shadow-lg max-h-64 overflow-y-auto z-40 min-w-[16rem]">
+          <div class="px-3 py-2 text-xs uppercase tracking-wide text-gray-400 border-b border-gray-700">
+            Recent folders
+          </div>
+          <For each={recentPaths()}>
+            {(recentPath) => (
+              <button
+                type="button"
+                class="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 truncate"
+                onClick={() => {
+                  setPath(recentPath);
+                  props.onSelect(recentPath);
+                  addRecentPath(recentPath);
+                  setShowRecent(false);
+                  setShowSuggestions(false);
+                }}
+              >
+                {recentPath}
+              </button>
             )}
           </For>
         </div>

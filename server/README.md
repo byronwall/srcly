@@ -1,4 +1,4 @@
-# Code Steward Server
+# Srcly Server
 
 A FastAPI server for static code analysis using [lizard](https://github.com/terryyin/lizard).
 
@@ -13,10 +13,11 @@ A FastAPI server for static code analysis using [lizard](https://github.com/terr
 
 This project is managed with `uv`.
 
-1.  **Install dependencies**:
-    ```bash
-    uv sync
-    ```
+1. **Install dependencies**:
+
+   ```bash
+   uv sync
+   ```
 
 ## Running the Server
 

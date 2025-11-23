@@ -3,6 +3,7 @@ import Toast from "./components/Toast";
 
 import FilePicker from "./components/FilePicker";
 import Treemap from "./components/Treemap";
+import CodeModal from "./components/CodeModal";
 
 function App() {
   const [visualizationData, setVisualizationData] = createSignal<any>(null);
@@ -13,6 +14,10 @@ function App() {
     "success"
   );
   const [showToast, setShowToast] = createSignal(false);
+  const [selectedFilePath, setSelectedFilePath] = createSignal<string | null>(
+    null
+  );
+  const [isCodeModalOpen, setIsCodeModalOpen] = createSignal(false);
 
   const handleFileSelect = async (path: string) => {
     setLoading(true);
@@ -38,14 +43,21 @@ function App() {
     }
   };
 
+  const handleFileFromTreemap = (path: string) => {
+    setSelectedFilePath(path);
+    setIsCodeModalOpen(true);
+  };
+
   return (
     <div class="h-screen flex flex-col bg-[#121212] text-white overflow-hidden">
-      <header class="p-4 border-b border-[#333] flex items-center justify-between bg-[#1e1e1e]">
-        <div class="flex items-center gap-4">
-          <h1 class="text-xl font-bold text-blue-500">Code Steward</h1>
-          <FilePicker onSelect={handleFileSelect} />
+      <header class="px-4 py-2 border-b border-[#333] flex items-center justify-between bg-[#1e1e1e]">
+        <div class="flex items-center gap-3">
+          <h1 class="text-lg font-bold text-blue-500">Srcly</h1>
+          <div class="max-w-2xl w-full">
+            <FilePicker onSelect={handleFileSelect} />
+          </div>
         </div>
-        <div class="text-sm text-gray-400">
+        <div class="text-xs text-gray-400">
           {loading()
             ? "Loading..."
             : visualizationData()
@@ -81,12 +93,20 @@ function App() {
             </div>
           }
         >
-          <Treemap data={visualizationData()} />
+          <Treemap
+            data={visualizationData()}
+            onFileSelect={handleFileFromTreemap}
+          />
         </Show>
       </main>
       <Show when={showToast()}>
         <Toast message={toastMessage()} type={toastType()} duration={4000} />
       </Show>
+      <CodeModal
+        isOpen={isCodeModalOpen()}
+        filePath={selectedFilePath()}
+        onClose={() => setIsCodeModalOpen(false)}
+      />
     </div>
   );
 }

@@ -17,3 +17,49 @@ body {
   min-height: 100vh;
   @apply bg-gray-900 text-white;
 }
+
+.code-modal-content .shiki {
+  border-radius: 0.5rem;
+  font-size: 13px;
+  line-height: 13px;
+  margin: 0;
+}
+
+.code-modal-content .shiki code {
+  counter-reset: line;
+  line-height: 13px;
+}
+
+.code-modal-content pre,
+.code-modal-content code {
+  margin: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+.code-modal-content .shiki .line {
+  position: relative;
+  display: block;
+  padding-left: 2.5rem;
+  line-height: 13px;
+}
+
+.code-modal-content .shiki span {
+  line-height: 13px;
+}
+
+.code-modal-content .shiki .line::before {
+  counter-increment: line;
+  content: counter(line);
+  position: absolute;
+  left: 0.75rem;
+  top: 0;
+  color: rgba(156, 163, 175, 0.8);
+  text-align: right;
+  width: 1.75rem;
+  font-size: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}

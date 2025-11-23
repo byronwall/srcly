@@ -1,6 +1,6 @@
-# Code Tree
+# Srcly
 
-A tool for visualizing codebases using treemaps of static analysis results.
+Srcly is a tool for visualizing codebases using treemaps of static analysis results.
 
 ## How to Use
 
@@ -23,10 +23,12 @@ A tool for visualizing codebases using treemaps of static analysis results.
 The static code analysis is implemented in `server/code-steward.py` and primarily uses the **Lizard** library to parse and analyze source code.
 
 1. **Discovery & Traversal**:
+
    - Identifies the repository root by looking for a `.git` folder.
    - Recursively walks the directory tree, skipping defined ignore lists (e.g., `node_modules`, `dist`, `.git`) and non-code file extensions.
 
 2. **Analysis**:
+
    - Uses `lizard.analyze_files` to process valid source files in parallel.
    - Parses each file to extract function definitions and calculate metrics.
 
