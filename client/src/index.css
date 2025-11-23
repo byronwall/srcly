@@ -44,11 +44,16 @@ body {
   padding-left: 2.5rem;
 }
 
+.code-modal-content .shiki .line:empty::after {
+  content: "\00a0";
+  visibility: hidden;
+}
+
 .code-modal-content .shiki .line::before {
   counter-increment: line;
   content: counter(line);
   position: absolute;
-  left: 0.75rem;
+  left: 0;
   top: 0;
   color: rgba(156, 163, 175, 0.8);
   text-align: right;
