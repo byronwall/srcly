@@ -26,6 +26,10 @@ cp -R "$CLIENT_DIR/dist/"* "$STATIC_DIR/"
 
 echo "==> Building srcly Python package with uv"
 cd "$SERVER_DIR"
+
+# Clean previous build artifacts so we only publish the freshly built version
+rm -rf "$SERVER_DIR/dist"
+
 uv build
 
 echo "✅ Done. Built srcly frontend and Python package."
