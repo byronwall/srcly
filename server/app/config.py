@@ -25,5 +25,7 @@ IGNORE_FILES: Set[str] = {
 
 IGNORE_EXTENSIONS: Set[str] = {
     '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.pdf', 
-    '.zip', '.tar', '.gz', '.map', '.min.js', '.min.css', '.json', '.xml', '.txt', '.md'
+    '.zip', '.tar', '.gz', '.map', '.min.js', '.min.css', '.json', '.xml', '.txt', '.md',
+    '.ttf', '.woff', '.woff2', '.eot', '.otf', '.mp4', '.mp3', '.wav', '.webm', '.ogg',
+    '.exe', '.dll', '.so', '.dylib', '.bin', '.iso', '.dmg', '.pkg', '.deb', '.rpm'
 }

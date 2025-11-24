@@ -125,13 +125,16 @@ def scan_codebase(root_path: Path) -> Node:
             file = future_to_file[future]
             completed_count += 1
             try:
-                result = future.result()
+                # Add a timeout to prevent hanging on single files
+                result = future.result(timeout=5)
                 if isinstance(result, dict) and "error" in result:
                     print(f"❌ [{completed_count}/{total_count}] Error analyzing {file}: {result['error']}", flush=True)
                 else:
                     # Success
                     print(f"✅ [{completed_count}/{total_count}] Analyzed {file}", flush=True)
                     analysis_results.append(result)
+            except concurrent.futures.TimeoutError:
+                print(f"❌ [{completed_count}/{total_count}] Timeout analyzing {file} (skipped)", flush=True)
             except Exception as exc:
                 print(f"❌ [{completed_count}/{total_count}] Exception analyzing {file}: {exc}", flush=True)
 
