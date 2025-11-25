@@ -27,6 +27,11 @@ Consider showing things like file size or other meta data for binary files that 
 # New Items
 
 Backend: Fix LOC aggregation logic (sizes wrong across large differences)
+  - **Issue**: Currently, the backend might be double-counting LOC (summing children + self) or the frontend D3 treemap might be summing parent values that already include children sums. This causes large discrepancies where folders appear much larger than their contents.
+  - **Fix**: 
+    1. Ensure backend sends raw LOC for leaf nodes (functions/fragments) and files.
+    2. Frontend should rely on D3's `.sum()` to calculate folder totals from leaves up.
+    3. Verify that "misc/imports" or other synthetic nodes are correctly weighted.
 
 UI: Add file stats (LOC, CCN) to the Code Modal header
 
