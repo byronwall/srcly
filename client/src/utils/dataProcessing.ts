@@ -76,3 +76,39 @@ export function extractFilePath(
   const [filePath] = rawPath.split("::");
   return filePath || null;
 }
+
+export function filterByExtension(node: any, extensions: string[]): any {
+  if (!extensions || extensions.length === 0) return node;
+
+  const allowedExtensions = new Set(extensions.map((e) => e.toLowerCase()));
+
+  function recurse(n: any): any {
+    if (n.type === "file") {
+      const ext = n.name.split(".").pop()?.toLowerCase();
+      // If file has no extension, maybe keep it? Or strict filter?
+      // Let's assume strict filter for now.
+      return ext && allowedExtensions.has(ext) ? n : null;
+    }
+
+    if (!n.children || n.children.length === 0) return null;
+
+    const filteredChildren = n.children
+      .map(recurse)
+      .filter((c: any) => c !== null);
+
+    if (filteredChildren.length > 0) {
+      // Recalculate metrics for the folder based on filtered children
+      const newMetrics = { ...n.metrics };
+      newMetrics.loc = filteredChildren.reduce(
+        (acc: number, c: any) => acc + (c.metrics?.loc || 0),
+        0
+      );
+
+      return { ...n, children: filteredChildren, metrics: newMetrics };
+    }
+
+    return null;
+  }
+
+  return recurse(node);
+}
