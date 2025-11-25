@@ -16,6 +16,7 @@ interface Node {
   metrics?: {
     loc: number;
     complexity: number;
+    gitignored_count?: number;
   };
 }
 
@@ -26,6 +27,9 @@ interface ExplorerContextType {
   sortField: () => SortField;
   sortDirection: () => SortDirection;
   onSelect: (path: string) => void;
+  onZoom: (node: any) => void;
+  onToggleHidden: (path: string) => void;
+  hiddenPaths: string[];
   filter: string;
 }
 
@@ -74,13 +78,28 @@ const TreeNode = (props: { node: Node; depth: number }) => {
   const getIcon = () => {
     if (props.node.type === "folder") return "📁";
     if (props.node.name === "(misc/imports)") return "⚙️";
+    if (props.node.name === "(misc/imports)") return "⚙️";
     return "📄";
   };
+
+  const handleDrillDown = (e: MouseEvent) => {
+    e.stopPropagation();
+    ctx.onZoom(props.node);
+  };
+
+  const handleToggleHidden = (e: MouseEvent) => {
+    e.stopPropagation();
+    ctx.onToggleHidden(props.node.path);
+  };
+
+  const isHidden = () => ctx.hiddenPaths.includes(props.node.path);
 
   return (
     <>
       <div
-        class="flex items-center hover:bg-gray-800 cursor-pointer text-sm py-0.5 border-b border-gray-800/50 select-none"
+        class={`flex items-center hover:bg-gray-800 cursor-pointer text-sm py-0.5 border-b border-gray-800/50 select-none ${
+          isHidden() ? "opacity-50" : ""
+        }`}
         style={{ "padding-left": `${props.depth * 12}px` }}
         onClick={handleClick}
       >
@@ -98,12 +117,39 @@ const TreeNode = (props: { node: Node; depth: number }) => {
             <span class="opacity-0">.</span>
           )}
         </div>
-        <div class="flex-1 flex items-center gap-1 truncate text-gray-300 overflow-hidden">
+        <div class="flex-1 flex items-center gap-1 truncate text-gray-300 overflow-hidden group">
           <span class="opacity-70 text-xs">{getIcon()}</span>
           <span class="truncate" title={props.node.name}>
             {props.node.name}
           </span>
+          {/* Actions */}
+          <div class="hidden group-hover:flex items-center gap-1 ml-2">
+            <Show when={props.node.type === "folder"}>
+              <button
+                class="text-[10px] px-1 bg-blue-900/50 hover:bg-blue-800 text-blue-200 rounded"
+                title="Drill Down"
+                onClick={handleDrillDown}
+              >
+                🔍
+              </button>
+            </Show>
+            <button
+              class="text-[10px] px-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded"
+              title={isHidden() ? "Show" : "Hide"}
+              onClick={handleToggleHidden}
+            >
+              {isHidden() ? "👁️" : "🚫"}
+            </button>
+          </div>
         </div>
+        <Show when={props.node.metrics?.gitignored_count}>
+          <div
+            class="w-8 text-right text-gray-600 font-mono text-[10px] pr-1 shrink-0"
+            title="Gitignored files"
+          >
+            {props.node.metrics?.gitignored_count}
+          </div>
+        </Show>
         <div class="w-16 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
           {props.node.metrics?.loc || 0}
         </div>
@@ -123,8 +169,11 @@ const TreeNode = (props: { node: Node; depth: number }) => {
 export default function Explorer(props: {
   data: any;
   onFileSelect: (path: string) => void;
+  onZoom: (node: any) => void;
   filter: string;
   onFilterChange: (val: string) => void;
+  hiddenPaths: string[];
+  onToggleHidden: (path: string) => void;
 }) {
   const [sortField, setSortField] = createSignal<SortField>("loc");
   const [sortDirection, setSortDirection] = createSignal<SortDirection>("desc");
@@ -152,7 +201,10 @@ export default function Explorer(props: {
         sortField,
         sortDirection,
         onSelect: props.onFileSelect,
+        onZoom: props.onZoom,
         filter: props.filter,
+        hiddenPaths: props.hiddenPaths,
+        onToggleHidden: props.onToggleHidden,
       }}
     >
       <div class="flex flex-col h-full bg-[#1e1e1e] text-white border-l border-[#333] w-[400px]">

@@ -11,6 +11,8 @@ import { extractFilePath, filterByExtension } from "../utils/dataProcessing";
 
 interface TreemapProps {
   data: any;
+  currentRoot?: any;
+  onZoom?: (node: any) => void;
   onFileSelect?: (path: string) => void;
 }
 
@@ -23,16 +25,69 @@ export default function Treemap(props: TreemapProps) {
   const [currentRoot, setCurrentRoot] = createSignal<any>(null);
   const [breadcrumbs, setBreadcrumbs] = createSignal<any[]>([]);
   const [activeExtensions, setActiveExtensions] = createSignal<string[]>([]);
+  const [colorMode, setColorMode] = createSignal<
+    "complexity" | "last_modified" | "file_type"
+  >("complexity");
+  const [showLegend, setShowLegend] = createSignal(false);
 
-  const colorScale = d3
+  // Color scales
+  const complexityColor = d3
     .scaleLinear<string>()
     .domain([0, 10, 50])
     .range(["#569cd6", "#dcdcaa", "#ce9178"])
     .clamp(true);
 
+  const timeColor = d3
+    .scaleLinear<string>()
+    .domain([Date.now() / 1000 - 30 * 24 * 3600, Date.now() / 1000]) // 30 days ago to now
+    .range(["#555", "#4caf50"])
+    .clamp(true);
+
+  const fileTypeColors: Record<string, string> = {
+    ts: "#3178c6",
+    tsx: "#3178c6",
+    js: "#f1e05a",
+    jsx: "#f1e05a",
+    css: "#563d7c",
+    json: "#40d47e",
+    py: "#3572A5",
+    md: "#083fa1",
+    html: "#e34c26",
+  };
+
+  const getFileTypeColor = (name: string) => {
+    const ext = name.split(".").pop()?.toLowerCase() || "";
+    return fileTypeColors[ext] || "#888";
+  };
+
   // Initialize current root when data loads or updates
   createEffect(() => {
-    if (props.data) {
+    if (props.currentRoot) {
+      setCurrentRoot(props.currentRoot);
+      // Reconstruct breadcrumbs
+      const path: any[] = [];
+      const targetPath = props.currentRoot.path;
+
+      function findPath(root: any, target: string, current: any[]): boolean {
+        if (root.path === target) {
+          path.push(...current, root);
+          return true;
+        }
+        if (root.children) {
+          for (const child of root.children) {
+            if (findPath(child, target, [...current, root])) return true;
+          }
+        }
+        return false;
+      }
+
+      if (props.data && targetPath) {
+        findPath(props.data, targetPath, []);
+        setBreadcrumbs(path);
+      } else {
+        setBreadcrumbs([props.currentRoot]);
+      }
+    } else if (props.data) {
       setCurrentRoot(props.data);
       setBreadcrumbs([props.data]);
     }
@@ -53,7 +108,8 @@ export default function Treemap(props: TreemapProps) {
 
     // If it's a folder, zoom in (isolate)
     if (d.data.type === "folder") {
-      zoomToNode(d.data);
+      if (props.onZoom) props.onZoom(d.data);
+      else zoomToNode(d.data);
       return;
     }
 
@@ -72,6 +128,10 @@ export default function Treemap(props: TreemapProps) {
   }
 
   function zoomToNode(nodeData: any) {
+    if (props.onZoom) {
+      props.onZoom(nodeData);
+      return;
+    }
     setCurrentRoot(nodeData);
 
     // Reconstruct breadcrumbs path using path string matching
@@ -183,10 +243,25 @@ export default function Treemap(props: TreemapProps) {
       .attr("fill", (d) => {
         if (d.data.type === "folder") return "#1e1e1e";
         if (d.data.name === "(misc/imports)") return "#444";
-        return colorScale(d.data.metrics?.complexity || 0);
+
+        const mode = colorMode();
+        if (mode === "last_modified") {
+          return timeColor(d.data.metrics?.last_modified || 0);
+        } else if (mode === "file_type") {
+          return getFileTypeColor(d.data.name);
+        }
+        return complexityColor(d.data.metrics?.complexity || 0);
       })
-      .attr("stroke", (d) => (d.data.type === "folder" ? "#333" : "#121212"))
-      .attr("stroke-width", (d) => (d.data.type === "folder" ? 1 : 0.5))
+      .attr("stroke", (d) => {
+        // Only highlight files (not folders) that are large
+        if (d.data.type !== "folder" && d.data.metrics?.loc > 2000)
+          return "#ff0000";
+        return d.data.type === "folder" ? "#333" : "#121212";
+      })
+      .attr("stroke-width", (d) => {
+        if (d.data.type !== "folder" && d.data.metrics?.loc > 2000) return 2;
+        return d.data.type === "folder" ? 1 : 0.5;
+      })
       .style("cursor", (d) =>
         d.data.type === "folder" ? "zoom-in" : "pointer"
       )
@@ -224,8 +299,28 @@ export default function Treemap(props: TreemapProps) {
       .attr("y", 13)
       .text((d) => d.data.name)
       .attr("font-size", "10px")
+      .attr("font-size", "10px")
       .attr("fill", "rgba(255,255,255,0.9)")
       .style("pointer-events", "none");
+
+    // Code Chunk Labels (when zoomed in)
+    // We can check depth or size to decide when to show labels for smaller chunks
+    cell
+      .filter(
+        (d) =>
+          d.data.type !== "folder" &&
+          d.data.type !== "file" &&
+          d.x1 - d.x0 > 50 &&
+          d.y1 - d.y0 > 20
+      )
+      .append("text")
+      .attr("x", 2)
+      .attr("y", 10)
+      .text((d) => d.data.name)
+      .attr("font-size", "9px")
+      .attr("fill", "rgba(255,255,255,0.7)")
+      .style("pointer-events", "none")
+      .style("overflow", "hidden");
 
     // Isolate Button (small icon on hover? or just click folder to zoom?)
     // Click folder to zoom is implemented.
@@ -306,6 +401,90 @@ export default function Treemap(props: TreemapProps) {
             )}
           </For>
         </div>
+
+        {/* Color Mode */}
+        <div class="flex items-center gap-1 ml-4 relative">
+          <span
+            class="text-xs text-gray-500 mr-2 uppercase tracking-wider cursor-help hover:text-gray-300 border-b border-dotted border-gray-600"
+            onMouseEnter={() => setShowLegend(true)}
+            onMouseLeave={() => setShowLegend(false)}
+          >
+            Color:
+          </span>
+          <select
+            class="bg-[#252526] border border-[#3e3e42] text-gray-400 text-xs rounded px-1 py-0.5 outline-none"
+            value={colorMode()}
+            onChange={(e) => setColorMode(e.currentTarget.value as any)}
+          >
+            <option value="complexity">Complexity</option>
+            <option value="last_modified">Last Edited</option>
+            <option value="file_type">File Type</option>
+          </select>
+        </div>
+
+        {/* Legend Tooltip */}
+        <Show when={showLegend()}>
+          <div class="absolute top-10 right-4 z-50 bg-[#252526] border border-[#3e3e42] p-3 rounded shadow-xl text-xs w-64">
+            <div class="font-bold mb-2 text-gray-300 border-b border-[#3e3e42] pb-1">
+              {colorMode() === "complexity" && "Cyclomatic Complexity"}
+              {colorMode() === "last_modified" && "Last Modified"}
+              {colorMode() === "file_type" && "File Types"}
+            </div>
+
+            <Show when={colorMode() === "complexity"}>
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 bg-[#569cd6]"></div>{" "}
+                  <span>Low (0-10)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 bg-[#dcdcaa]"></div>{" "}
+                  <span>Medium (10-50)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 bg-[#ce9178]"></div>{" "}
+                  <span>High (&gt;50)</span>
+                </div>
+              </div>
+            </Show>
+
+            <Show when={colorMode() === "last_modified"}>
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 bg-[#4caf50]"></div>{" "}
+                  <span>Recent (&lt; 1 day)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 bg-[#555]"></div>{" "}
+                  <span>Old (&gt; 30 days)</span>
+                </div>
+                <div class="text-[10px] text-gray-500 mt-1">
+                  Gradient from green to grey
+                </div>
+              </div>
+            </Show>
+
+            <Show when={colorMode() === "file_type"}>
+              <div class="grid grid-cols-2 gap-1">
+                <For each={Object.entries(fileTypeColors)}>
+                  {([ext, color]) => (
+                    <div class="flex items-center gap-2">
+                      <div
+                        class="w-3 h-3"
+                        style={{ "background-color": color }}
+                      ></div>
+                      <span>.{ext}</span>
+                    </div>
+                  )}
+                </For>
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 bg-[#888]"></div>
+                  <span>other</span>
+                </div>
+              </div>
+            </Show>
+          </div>
+        </Show>
       </div>
 
       <div ref={containerRef} class="flex-1 relative overflow-hidden" />

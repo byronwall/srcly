@@ -7,6 +7,8 @@ class Metrics(BaseModel):
     # so we store it as a float to match the analysis values.
     complexity: float = 0.0
     function_count: int = 0
+    last_modified: float = 0.0
+    gitignored_count: int = 0
 
 class Node(BaseModel):
     name: str

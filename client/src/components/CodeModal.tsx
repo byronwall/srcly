@@ -59,6 +59,7 @@ export default function CodeModal(props: CodeModalProps) {
           );
         }
         const text = await res.text();
+        setRawCode(text);
         const lang = guessLangFromPath(path);
         const html = await codeToHtml(text, {
           lang,
@@ -100,6 +101,9 @@ export default function CodeModal(props: CodeModalProps) {
     return parts[parts.length - 1] || props.filePath;
   };
 
+  // We need to store raw code for copying
+  const [rawCode, setRawCode] = createSignal("");
+
   return (
     <Show when={props.isOpen && props.filePath}>
       <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
@@ -120,6 +124,23 @@ export default function CodeModal(props: CodeModalProps) {
             >
               Close
             </button>
+            <button
+              class="ml-2 rounded bg-blue-700 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-600"
+              onClick={() => {
+                navigator.clipboard.writeText(rawCode());
+                // Maybe show a toast?
+              }}
+            >
+              Copy
+            </button>
+            {/* Open in Editor (VS Code URL scheme) */}
+            <a
+              href={`vscode://file/${props.filePath}`}
+              class="ml-2 rounded bg-green-700 px-3 py-1 text-xs font-semibold text-white hover:bg-green-600 no-underline"
+              target="_blank"
+            >
+              Open
+            </a>
           </header>
           <main class="relative flex-1 overflow-auto bg-[#1e1e1e] p-4">
             <Show when={loading()}>

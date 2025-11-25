@@ -1,4 +1,10 @@
-import { createMemo, createSignal, onMount, Show } from "solid-js";
+import {
+  createMemo,
+  createSignal,
+  onMount,
+  Show,
+  createEffect,
+} from "solid-js";
 import Toast from "./components/Toast";
 
 import CodeModal from "./components/CodeModal";
@@ -27,6 +33,24 @@ function App() {
   } | null>(null);
   const [contextLoading, setContextLoading] = createSignal(false);
   const [filterQuery, setFilterQuery] = createSignal("");
+  const [currentRoot, setCurrentRoot] = createSignal<any>(null);
+  const [hiddenPaths, setHiddenPaths] = createSignal<string[]>([]);
+
+  // Reset current root when data changes
+  createEffect(() => {
+    if (visualizationData()) {
+      setCurrentRoot(visualizationData());
+    }
+  });
+
+  const toggleHiddenPath = (path: string) => {
+    const current = hiddenPaths();
+    if (current.includes(path)) {
+      setHiddenPaths(current.filter((p) => p !== path));
+    } else {
+      setHiddenPaths([...current, path]);
+    }
+  };
 
   onMount(async () => {
     setContextLoading(true);
@@ -86,6 +110,21 @@ function App() {
     if (!data) return null;
     // Clone and filter
     const clone = JSON.parse(JSON.stringify(data));
+
+    // Filter out hidden paths
+    const hidden = hiddenPaths();
+    if (hidden.length > 0) {
+      // Recursive filter function to remove hidden nodes
+      const removeHidden = (node: any) => {
+        if (!node.children) return;
+        node.children = node.children.filter(
+          (child: any) => !hidden.includes(child.path)
+        );
+        node.children.forEach(removeHidden);
+      };
+      removeHidden(clone);
+    }
+
     return filterTree(clone, filterQuery());
   });
 
@@ -164,14 +203,19 @@ function App() {
           <div class="flex-1 h-full overflow-hidden relative">
             <Treemap
               data={processedData()}
+              currentRoot={currentRoot()}
+              onZoom={setCurrentRoot}
               onFileSelect={handleFileFromTreemap}
             />
           </div>
           <Explorer
-            data={processedData()}
+            data={currentRoot() || processedData()}
             onFileSelect={handleFileFromTreemap}
+            onZoom={setCurrentRoot}
             filter={filterQuery()}
             onFilterChange={setFilterQuery}
+            hiddenPaths={hiddenPaths()}
+            onToggleHidden={toggleHiddenPath}
           />
         </Show>
       </main>

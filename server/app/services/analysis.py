@@ -25,6 +25,8 @@ def attach_file_metrics(node: Node, file_info) -> None:
     node.metrics.loc = total_loc
     node.metrics.complexity = file_info.average_cyclomatic_complexity
     node.metrics.function_count = len(file_info.function_list)
+    # last_modified is set in scan_codebase before calling this, or we can pass it here.
+    # Actually, scan_codebase creates the node, so we can set it there.
 
     # Calculate sum of function LOCs
     func_sum_loc = 0
@@ -64,6 +66,10 @@ def aggregate_metrics(node: Node) -> Metrics:
         node.metrics.loc = total_loc
         node.metrics.complexity = max_complexity
         node.metrics.function_count = total_funcs
+        
+        # Aggregate last_modified (max of children) and gitignored_count (sum of children)
+        node.metrics.last_modified = max((child.metrics.last_modified for child in node.children), default=0.0)
+        node.metrics.gitignored_count = sum(child.metrics.gitignored_count for child in node.children)
     
     return node.metrics
 
@@ -106,8 +112,51 @@ def scan_codebase(root_path: Path) -> Node:
             rel_path = file_path.relative_to(root_path)
             # Skip if matches any .gitignore pattern
             if any(rel_path.match(p) for p in gitignore_patterns):
+                # We want to count this as a gitignored file for the parent folder
+                # But we don't have the node structure yet. 
+                # We'll need to store this count and attach it later or build a map.
+                # Simpler approach: return a list of ignored files and process them.
+                # For now, let's just count them in a map keyed by parent dir.
                 continue
             files_to_scan.append(str(file_path))
+
+    # Second pass to count gitignored files per directory to attach to nodes later
+    # This is a bit inefficient to walk again or we could have done it above.
+    # Let's just do a quick walk or modify the above loop to store ignored counts.
+    ignored_counts = {} # path_str -> count
+    
+    for root_dir, dirs, files in os.walk(root_path):
+        # We need to respect the same directory traversal logic to find ignored files in valid dirs
+        # But we already filtered dirs in the previous loop? No, os.walk yields.
+        # Let's just rely on the fact that we can check files again or refactor the loop above.
+        # Refactoring the loop above is better.
+        pass 
+    
+    # REFACTORING THE LOOP ABOVE TO COUNT IGNORED FILES
+    files_to_scan = []
+    ignored_counts = {} # dir_path_str -> count
+
+    for root_dir, dirs, files in os.walk(root_path):
+        # Apply ignore dirs from config and .gitignore
+        # We must modify dirs in-place to prune traversal
+        dirs[:] = [d for d in dirs if d not in IGNORE_DIRS and not any(Path(root_dir, d).match(p) for p in gitignore_patterns)]
+        
+        current_ignored_count = 0
+        for file in files:
+            if file in IGNORE_FILES: continue
+            if Path(file).suffix in IGNORE_EXTENSIONS: continue
+            
+            file_path = Path(root_dir) / file
+            rel_path = file_path.relative_to(root_path)
+            
+            if any(rel_path.match(p) for p in gitignore_patterns):
+                current_ignored_count += 1
+                continue
+                
+            files_to_scan.append(str(file_path))
+        
+        if current_ignored_count > 0:
+            ignored_counts[str(root_dir)] = current_ignored_count
 
     print(f"📂 Analyzing {len(files_to_scan)} source files...", flush=True)
     
@@ -156,6 +205,9 @@ def scan_codebase(root_path: Path) -> Node:
             next_path_str = str(next_path)
             if next_path_str not in node_map:
                 new_folder = create_node(part, "folder", next_path_str)
+                # Set gitignored count if we have it for this folder
+                if next_path_str in ignored_counts:
+                    new_folder.metrics.gitignored_count = ignored_counts[next_path_str]
                 current_node.children.append(new_folder)
                 node_map[next_path_str] = new_folder
             current_node = node_map[next_path_str]
@@ -163,7 +215,14 @@ def scan_codebase(root_path: Path) -> Node:
 
         # Add File
         file_node = create_node(parts[-1], "file", str(path_obj))
+        file_node = create_node(parts[-1], "file", str(path_obj))
         attach_file_metrics(file_node, file_info)
+        # Set last_modified
+        try:
+            file_node.metrics.last_modified = os.path.getmtime(path_obj)
+        except OSError:
+            file_node.metrics.last_modified = 0.0
+            
         current_node.children.append(file_node)
 
     aggregate_metrics(tree_root)
