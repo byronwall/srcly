@@ -25,6 +25,7 @@ def attach_file_metrics(node: Node, file_info) -> None:
     node.metrics.loc = total_loc
     node.metrics.complexity = file_info.average_cyclomatic_complexity
     node.metrics.function_count = len(file_info.function_list)
+    node.metrics.file_count = 1
     # last_modified is set in scan_codebase before calling this, or we can pass it here.
     # Actually, scan_codebase creates the node, so we can set it there.
 
@@ -70,6 +71,8 @@ def aggregate_metrics(node: Node) -> Metrics:
         # Aggregate last_modified (max of children) and gitignored_count (sum of children)
         node.metrics.last_modified = max((child.metrics.last_modified for child in node.children), default=0.0)
         node.metrics.gitignored_count = sum(child.metrics.gitignored_count for child in node.children)
+        node.metrics.file_size = sum(child.metrics.file_size for child in node.children)
+        node.metrics.file_count = sum(child.metrics.file_count for child in node.children)
     
     return node.metrics
 
@@ -219,9 +222,12 @@ def scan_codebase(root_path: Path) -> Node:
         attach_file_metrics(file_node, file_info)
         # Set last_modified
         try:
-            file_node.metrics.last_modified = os.path.getmtime(path_obj)
+            stat = os.stat(path_obj)
+            file_node.metrics.last_modified = stat.st_mtime
+            file_node.metrics.file_size = stat.st_size
         except OSError:
             file_node.metrics.last_modified = 0.0
+            file_node.metrics.file_size = 0
             
         current_node.children.append(file_node)
 

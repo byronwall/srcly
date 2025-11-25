@@ -200,14 +200,6 @@ function App() {
             </div>
           }
         >
-          <div class="flex-1 h-full overflow-hidden relative">
-            <Treemap
-              data={processedData()}
-              currentRoot={currentRoot()}
-              onZoom={setCurrentRoot}
-              onFileSelect={handleFileFromTreemap}
-            />
-          </div>
           <Explorer
             data={currentRoot() || processedData()}
             onFileSelect={handleFileFromTreemap}
@@ -217,6 +209,14 @@ function App() {
             hiddenPaths={hiddenPaths()}
             onToggleHidden={toggleHiddenPath}
           />
+          <div class="flex-1 h-full overflow-hidden relative">
+            <Treemap
+              data={processedData()}
+              currentRoot={currentRoot()}
+              onZoom={setCurrentRoot}
+              onFileSelect={handleFileFromTreemap}
+            />
+          </div>
         </Show>
       </main>
       <Show when={showToast()}>

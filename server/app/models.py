@@ -9,6 +9,8 @@ class Metrics(BaseModel):
     function_count: int = 0
     last_modified: float = 0.0
     gitignored_count: int = 0
+    file_size: int = 0
+    file_count: int = 0
 
 class Node(BaseModel):
     name: str
