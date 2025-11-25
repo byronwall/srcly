@@ -51,55 +51,57 @@ export default function Treemap(props: TreemapProps) {
   function handleHierarchyClick(d: d3.HierarchyNode<any>) {
     if (!props.onFileSelect) return;
 
-    // If it's a file, select it
-    if (d.data.type === "file") {
-      const nodeType = d.data?.type as string | undefined;
-      const filePath = extractFilePath(
-        d.data?.path as string | undefined,
-        nodeType
-      );
-      if (!filePath) return;
-      props.onFileSelect(filePath);
-      return;
-    }
-
     // If it's a folder, zoom in (isolate)
     if (d.data.type === "folder") {
       zoomToNode(d.data);
+      return;
+    }
+
+    // If it's a file or a leaf node (function/chunk), select it
+    // Leaf nodes might not have a type, or might be "function" etc.
+    // We assume anything not a folder is selectable content.
+    const nodeType = d.data?.type as string | undefined;
+    const filePath = extractFilePath(
+      d.data?.path as string | undefined,
+      nodeType
+    );
+
+    if (filePath) {
+      props.onFileSelect(filePath);
     }
   }
 
   function zoomToNode(nodeData: any) {
     setCurrentRoot(nodeData);
 
-    // Reconstruct breadcrumbs path
-    // Since we don't have parent pointers in the raw data easily, we might need to track it.
-    // However, we can just append if we are going down.
-    // But if we jump around it's harder.
-    // Let's try to find the path from the original root to this node.
-    // Actually, simpler: just append to breadcrumbs if it's a child.
-    // But wait, if we click a folder deep down, we want the full path.
-
-    // Alternative: We can just use the path string if available, or just append for now.
-    // Let's try to find the path in the original tree.
+    // Reconstruct breadcrumbs path using path string matching
+    // because d3 creates a copy of the data, so object identity fails.
     const path: any[] = [];
+    const targetPath = nodeData.path;
 
-    function findPath(root: any, target: any, currentPath: any[]): boolean {
-      if (root === target) {
+    function findPath(
+      root: any,
+      targetPath: string,
+      currentPath: any[]
+    ): boolean {
+      if (root.path === targetPath) {
         path.push(...currentPath, root);
         return true;
       }
       if (root.children) {
         for (const child of root.children) {
-          if (findPath(child, target, [...currentPath, root])) return true;
+          if (findPath(child, targetPath, [...currentPath, root])) return true;
         }
       }
       return false;
     }
 
-    if (props.data) {
-      findPath(props.data, nodeData, []);
+    if (props.data && targetPath) {
+      findPath(props.data, targetPath, []);
       setBreadcrumbs(path);
+    } else if (props.data) {
+      // Fallback if no path (shouldn't happen for folders)
+      setBreadcrumbs([props.data]);
     }
   }
 
@@ -184,7 +186,8 @@ export default function Treemap(props: TreemapProps) {
         handleHierarchyClick(d);
       })
       .on("mouseover", (e, d) => {
-        if (d.data.type === "file") showTooltip(e, d);
+        // Show tooltip for files AND leaf nodes (anything not a folder)
+        if (d.data.type !== "folder") showTooltip(e, d);
       })
       .on("mouseout", hideTooltip);
 
