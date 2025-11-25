@@ -35,6 +35,8 @@ function App() {
   const [filterQuery, setFilterQuery] = createSignal("");
   const [currentRoot, setCurrentRoot] = createSignal<any>(null);
   const [hiddenPaths, setHiddenPaths] = createSignal<string[]>([]);
+  const [explorerWidth, setExplorerWidth] = createSignal(450);
+  const [isDragging, setIsDragging] = createSignal(false);
 
   // Reset current root when data changes
   createEffect(() => {
@@ -200,22 +202,48 @@ function App() {
             </div>
           }
         >
-          <Explorer
-            data={currentRoot() || processedData()}
-            onFileSelect={handleFileFromTreemap}
-            onZoom={setCurrentRoot}
-            filter={filterQuery()}
-            onFilterChange={setFilterQuery}
-            hiddenPaths={hiddenPaths()}
-            onToggleHidden={toggleHiddenPath}
-          />
-          <div class="flex-1 h-full overflow-hidden relative">
-            <Treemap
-              data={processedData()}
-              currentRoot={currentRoot()}
-              onZoom={setCurrentRoot}
-              onFileSelect={handleFileFromTreemap}
+          <div
+            class="flex h-full w-full overflow-hidden"
+            onMouseMove={(e) => {
+              if (isDragging()) {
+                const newWidth = e.clientX;
+                if (newWidth > 200 && newWidth < window.innerWidth - 200) {
+                  setExplorerWidth(newWidth);
+                }
+              }
+            }}
+            onMouseUp={() => setIsDragging(false)}
+            onMouseLeave={() => setIsDragging(false)}
+          >
+            <div
+              style={{ width: `${explorerWidth()}px` }}
+              class="h-full shrink-0"
+            >
+              <Explorer
+                data={currentRoot() || processedData()}
+                onFileSelect={handleFileFromTreemap}
+                onZoom={setCurrentRoot}
+                filter={filterQuery()}
+                onFilterChange={setFilterQuery}
+                hiddenPaths={hiddenPaths()}
+                onToggleHidden={toggleHiddenPath}
+              />
+            </div>
+
+            {/* Drag Handle */}
+            <div
+              class="w-1 bg-[#333] hover:bg-blue-500 cursor-col-resize transition-colors z-10"
+              onMouseDown={() => setIsDragging(true)}
             />
+
+            <div class="flex-1 h-full overflow-hidden relative">
+              <Treemap
+                data={processedData()}
+                currentRoot={currentRoot()}
+                onZoom={setCurrentRoot}
+                onFileSelect={handleFileFromTreemap}
+              />
+            </div>
           </div>
         </Show>
       </main>

@@ -327,7 +327,7 @@ export default function Explorer(props: {
         expandAllSignal,
       }}
     >
-      <div class="flex flex-col h-full bg-[#1e1e1e] text-white border-l border-[#333] w-[450px]">
+      <div class="flex flex-col h-full bg-[#1e1e1e] text-white border-l border-[#333] w-full">
         {/* Toolbar */}
         <div class="p-2 border-b border-[#333] bg-[#252526] flex flex-col gap-2">
           <div class="flex items-center gap-2">
