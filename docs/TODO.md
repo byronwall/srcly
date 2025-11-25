@@ -28,6 +28,8 @@ File type filter list should only show visible options (include file counts)
 
 Modal to close on outside click
 
+Export the current view using repomix - get the token count?
+
 ---
 
 # New Items
@@ -36,9 +38,9 @@ Backend: Fix LOC aggregation logic (sizes wrong across large differences)
 
 - **Issue**: Currently, the backend might be double-counting LOC (summing children + self) or the frontend D3 treemap might be summing parent values that already include children sums. This causes large discrepancies where folders appear much larger than their contents.
 - **Fix**:
-    1. Ensure backend sends raw LOC for leaf nodes (functions/fragments) and files.
-    2. Frontend should rely on D3's `.sum()` to calculate folder totals from leaves up.
-    3. Verify that "misc/imports" or other synthetic nodes are correctly weighted.
+  1. Ensure backend sends raw LOC for leaf nodes (functions/fragments) and files.
+  2. Frontend should rely on D3's `.sum()` to calculate folder totals from leaves up.
+  3. Verify that "misc/imports" or other synthetic nodes are correctly weighted.
 
 UI: Add file stats (LOC, CCN) to the Code Modal header
 

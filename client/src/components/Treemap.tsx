@@ -123,7 +123,7 @@ export default function Treemap(props: TreemapProps) {
             JSON.parse(JSON.stringify(rootData)),
             activeExtensions()
           )
-        : JSON.parse(JSON.stringify(rootData));
+        : rootData;
 
     if (!filteredData) {
       d3.select(containerRef)
@@ -135,8 +135,17 @@ export default function Treemap(props: TreemapProps) {
 
     const root = d3
       .hierarchy(filteredData)
-      .sum((d) => (d.metrics ? d.metrics.loc : 0))
+      // Only count LOC on leaf nodes so container values are the sum of their leaves
+      .sum((d: any) => {
+        if (!d) return 0;
+        if (d.children.length === 0) return d.metrics?.loc || 0;
+        console.log(d);
+        // file or folder with children  - will get value automatically from children
+        return 0;
+      })
       .sort((a, b) => (b.value || 0) - (a.value || 0));
+
+    console.log(filteredData, root);
 
     d3
       .treemap()
