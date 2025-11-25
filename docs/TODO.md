@@ -22,13 +22,20 @@ Do some sort of "extension summary" to understand what all it's trying to analyz
 
 Consider showing things like file size or other meta data for binary files that are ignored (full repo explorer)
 
+Need an expand all on the filter sidebar (folder tree)... not sure how useful the filtering is -- need to show highlight, maybe support fuzzy
+
+File type filter list should only show visible options (include file counts)
+
+Modal to close on outside click
+
 ---
 
 # New Items
 
 Backend: Fix LOC aggregation logic (sizes wrong across large differences)
-  - **Issue**: Currently, the backend might be double-counting LOC (summing children + self) or the frontend D3 treemap might be summing parent values that already include children sums. This causes large discrepancies where folders appear much larger than their contents.
-  - **Fix**: 
+
+- **Issue**: Currently, the backend might be double-counting LOC (summing children + self) or the frontend D3 treemap might be summing parent values that already include children sums. This causes large discrepancies where folders appear much larger than their contents.
+- **Fix**:
     1. Ensure backend sends raw LOC for leaf nodes (functions/fragments) and files.
     2. Frontend should rely on D3's `.sum()` to calculate folder totals from leaves up.
     3. Verify that "misc/imports" or other synthetic nodes are correctly weighted.
