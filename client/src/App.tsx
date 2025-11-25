@@ -86,8 +86,7 @@ function App() {
     if (!data) return null;
     // Clone and filter
     const clone = JSON.parse(JSON.stringify(data));
-    const noiseFiltered = filterNoise(clone);
-    return filterTree(noiseFiltered, filterQuery());
+    return filterTree(clone, filterQuery());
   });
 
   return (
