@@ -1,9 +1,11 @@
-import { createSignal, Show, onMount } from "solid-js";
+import { createSignal, Show, onMount, createMemo } from "solid-js";
 import Toast from "./components/Toast";
 
 import FilePicker from "./components/FilePicker";
 import Treemap from "./components/Treemap";
+import Explorer from "./components/Explorer";
 import CodeModal from "./components/CodeModal";
+import { filterNoise, filterTree } from "./utils/dataProcessing";
 
 function App() {
   const [visualizationData, setVisualizationData] = createSignal<any>(null);
@@ -24,6 +26,7 @@ function App() {
     folderCount: number;
   } | null>(null);
   const [contextLoading, setContextLoading] = createSignal(false);
+  const [filterQuery, setFilterQuery] = createSignal("");
 
   onMount(async () => {
     setContextLoading(true);
@@ -78,6 +81,15 @@ function App() {
     setIsCodeModalOpen(true);
   };
 
+  const processedData = createMemo(() => {
+    const data = visualizationData();
+    if (!data) return null;
+    // Clone and filter
+    const clone = JSON.parse(JSON.stringify(data));
+    const noiseFiltered = filterNoise(clone);
+    return filterTree(noiseFiltered, filterQuery());
+  });
+
   return (
     <div class="h-screen flex flex-col bg-[#121212] text-white overflow-hidden">
       <header class="px-4 py-2 border-b border-[#333] flex items-center justify-between bg-[#1e1e1e]">
@@ -96,7 +108,7 @@ function App() {
         </div>
       </header>
 
-      <main class="flex-1 relative overflow-hidden p-4">
+      <main class="flex-1 relative overflow-hidden flex">
         <Show when={error()}>
           <div class="absolute inset-0 flex items-center justify-center z-50 bg-black/50">
             <div class="bg-red-900/80 p-6 rounded text-white border border-red-700">
@@ -113,9 +125,9 @@ function App() {
         </Show>
 
         <Show
-          when={visualizationData()}
+          when={processedData()}
           fallback={
-            <div class="flex flex-col items-center justify-center h-full text-gray-500">
+            <div class="flex flex-col items-center justify-center h-full w-full text-gray-500">
               <p class="text-lg mb-2">No visualization data yet</p>
               <Show
                 when={analysisContext()}
@@ -150,9 +162,17 @@ function App() {
             </div>
           }
         >
-          <Treemap
-            data={visualizationData()}
+          <div class="flex-1 h-full overflow-hidden relative">
+            <Treemap
+              data={processedData()}
+              onFileSelect={handleFileFromTreemap}
+            />
+          </div>
+          <Explorer
+            data={processedData()}
             onFileSelect={handleFileFromTreemap}
+            filter={filterQuery()}
+            onFilterChange={setFilterQuery}
           />
         </Show>
       </main>

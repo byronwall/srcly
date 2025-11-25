@@ -165,7 +165,7 @@ export default function FilePicker(props: FilePickerProps) {
           onFocus={() => setShowSuggestions(true)}
           // onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} // Delay to allow click
           placeholder="/path/to/codebase"
-          class="w-full px-3 py-3 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 outline-none text-base"
+          class="w-full px-3 py-1.5 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 outline-none text-base"
         />
         <button
           type="button"
