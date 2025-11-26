@@ -42,6 +42,7 @@ interface ExplorerContextType {
   filter: string;
   visibleColumns: () => string[];
   expandAllSignal: () => boolean | null;
+  rootData: Node;
 }
 
 const ExplorerContext = createContext<ExplorerContextType>();
@@ -51,6 +52,20 @@ const formatSize = (bytes?: number) => {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const findNodeByPath = (root: Node, path: string): Node | null => {
+  if (root.path === path) return root;
+
+  if (root.children) {
+    for (const child of root.children) {
+      if (child.type === "folder") {
+        const found = findNodeByPath(child, path);
+        if (found) return found;
+      }
+    }
+  }
+  return null;
 };
 
 const TreeNode = (props: { node: Node; depth: number }) => {
@@ -219,19 +234,43 @@ const HotSpotItem = (props: { node: Node; rank: number }) => {
     if (path) ctx.onSelect(path);
   };
 
+  const handleZoomToParent = (e: MouseEvent) => {
+    e.stopPropagation();
+    const path = props.node.path;
+    const lastSlash = path.lastIndexOf("/");
+    if (lastSlash === -1) return;
+    const parentPath = path.substring(0, lastSlash);
+
+    const parentNode = findNodeByPath(ctx.rootData, parentPath);
+    if (parentNode) {
+      ctx.onZoom(parentNode);
+    }
+  };
+
   return (
     <div
-      class="flex items-center hover:bg-gray-800 cursor-pointer text-sm py-1 border-b border-gray-800/50 px-2"
+      class="flex items-center hover:bg-gray-800 cursor-pointer text-sm py-1 border-b border-gray-800/50 px-2 group"
       onClick={handleClick}
     >
       <div class="w-6 text-gray-500 text-xs font-mono">#{props.rank}</div>
-      <div class="flex-1 truncate text-gray-300">
-        <div class="truncate" title={props.node.path}>
-          {props.node.name}
+      <div class="flex-1 min-w-0 flex items-center gap-2">
+        <div class="flex-1 min-w-0">
+          <div class="truncate text-gray-300" title={props.node.name}>
+            {props.node.name}
+          </div>
+          <div class="text-[10px] text-gray-500 truncate">
+            {props.node.path}
+          </div>
         </div>
-        <div class="text-[10px] text-gray-500 truncate">{props.node.path}</div>
+        <button
+          class="hidden group-hover:block p-1 bg-blue-900/50 hover:bg-blue-800 text-blue-200 rounded text-xs"
+          title="Isolate Folder"
+          onClick={handleZoomToParent}
+        >
+          🔍
+        </button>
       </div>
-      <div class="flex flex-col items-end gap-0.5">
+      <div class="flex flex-col items-end gap-0.5 ml-2">
         <div class="text-xs text-red-400 font-mono" title="Complexity">
           CCN: {props.node.metrics?.complexity}
         </div>
@@ -325,6 +364,7 @@ export default function Explorer(props: {
         onToggleHidden: props.onToggleHidden,
         visibleColumns,
         expandAllSignal,
+        rootData: props.data,
       }}
     >
       <div class="flex flex-col h-full bg-[#1e1e1e] text-white border-l border-[#333] w-full">
