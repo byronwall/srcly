@@ -14,6 +14,10 @@ class FunctionMetrics:
     nloc: int
     start_line: int
     end_line: int
+    parameter_count: int = 0
+    max_nesting_depth: int = 0
+    comment_lines: int = 0
+    todo_count: int = 0
     children: List["FunctionMetrics"] = field(default_factory=list)
     # We store children to represent nested functions.
 
@@ -23,6 +27,13 @@ class FileMetrics:
     average_cyclomatic_complexity: float
     function_list: List[FunctionMetrics] = field(default_factory=list)
     filename: str = ""
+    comment_lines: int = 0
+    comment_density: float = 0.0
+    max_nesting_depth: int = 0
+    average_function_length: float = 0.0
+    parameter_count: int = 0
+    todo_count: int = 0
+    classes_count: int = 0
 
 class TreeSitterAnalyzer:
     def __init__(self):
@@ -48,11 +59,39 @@ class TreeSitterAnalyzer:
         if functions:
             avg_complexity = sum(f.cyclomatic_complexity for f in functions) / len(functions)
             
+        # Calculate new metrics
+        comment_lines, todo_count = self._count_comments_and_todos(tree.root_node, content)
+        comment_density = comment_lines / nloc if nloc > 0 else 0.0
+        
+        max_nesting_depth = self._calculate_max_nesting_depth(tree.root_node)
+        
+        classes_count = self._count_classes(tree.root_node)
+        
+        # Aggregate function metrics
+        total_function_length = sum(f.nloc for f in functions)
+        average_function_length = total_function_length / len(functions) if functions else 0.0
+        
+        # We need to extract parameter counts. 
+        # Since _extract_functions returns FunctionMetrics which doesn't currently have param count,
+        # we might need to update FunctionMetrics or calculate it separately.
+        # Let's update _extract_functions to also return parameter count if possible, 
+        # OR just traverse for it. Traversing again is safer for now to avoid breaking _extract_functions signature too much
+        # unless we update FunctionMetrics too. 
+        # Actually, let's update FunctionMetrics to include parameter_count, it's cleaner.
+        parameter_count = sum(f.parameter_count for f in functions)
+
         return FileMetrics(
             nloc=nloc,
             average_cyclomatic_complexity=avg_complexity,
             function_list=functions,
-            filename=file_path
+            filename=file_path,
+            comment_lines=comment_lines,
+            comment_density=comment_density,
+            max_nesting_depth=max_nesting_depth,
+            average_function_length=average_function_length,
+            parameter_count=parameter_count,
+            todo_count=todo_count,
+            classes_count=classes_count
         )
 
     def _extract_functions(self, root_node: Node, content: bytes) -> List[FunctionMetrics]:
@@ -92,12 +131,23 @@ class TreeSitterAnalyzer:
         # Complexity
         complexity = self._calculate_complexity(func_node)
         
+        # Parameter count
+        parameter_count = self._count_parameters(func_node)
+
+        # Calculate new metrics for function
+        comment_lines, todo_count = self._count_comments_and_todos(func_node, b"") # Content not needed for simple traversal if we access node.text
+        max_nesting_depth = self._calculate_max_nesting_depth(func_node)
+
         return FunctionMetrics(
             name=name,
             cyclomatic_complexity=complexity,
             nloc=nloc,
             start_line=start_line,
-            end_line=end_line
+            end_line=end_line,
+            parameter_count=parameter_count,
+            max_nesting_depth=max_nesting_depth,
+            comment_lines=comment_lines,
+            todo_count=todo_count
         )
 
     def _get_function_name(self, node: Node) -> str:
@@ -185,3 +235,102 @@ class TreeSitterAnalyzer:
 
         traverse(node)
         return complexity
+
+    def _count_comments_and_todos(self, node: Node, content: bytes) -> tuple[int, int]:
+        comment_lines = 0
+        todo_count = 0
+        
+        # Tree-sitter often puts comments as 'comment' nodes, but sometimes they are extras.
+        # We might need to traverse or query.
+        # A simple traversal for 'comment' type nodes works for many languages in tree-sitter.
+        
+        def traverse(n: Node):
+            nonlocal comment_lines, todo_count
+            if n.type == 'comment':
+                comment_lines += (n.end_point.row - n.start_point.row + 1)
+                text = n.text.decode('utf-8', errors='ignore')
+                if 'TODO' in text or 'FIXME' in text:
+                    todo_count += 1
+            
+            for child in n.children:
+                traverse(child)
+                
+        traverse(node)
+        return comment_lines, todo_count
+
+    def _calculate_max_nesting_depth(self, node: Node) -> int:
+        max_depth = 0
+        
+        nesting_types = {
+            'if_statement',
+            'for_statement',
+            'for_in_statement',
+            'for_of_statement',
+            'while_statement',
+            'do_statement',
+            'switch_statement',
+            'try_statement',
+            'catch_clause'
+        }
+
+        def traverse(n: Node, current_depth: int):
+            nonlocal max_depth
+            max_depth = max(max_depth, current_depth)
+            
+            for child in n.children:
+                next_depth = current_depth
+                if child.type in nesting_types:
+                    next_depth += 1
+                traverse(child, next_depth)
+        
+        traverse(node, 0)
+        return max_depth
+
+    def _count_classes(self, node: Node) -> int:
+        count = 0
+        class_types = {'class_declaration', 'class_expression'}
+        
+        def traverse(n: Node):
+            nonlocal count
+            if n.type in class_types:
+                count += 1
+            for child in n.children:
+                traverse(child)
+                
+        traverse(node)
+        return count
+
+    def _count_parameters(self, func_node: Node) -> int:
+        # This depends on the language grammar.
+        # For TS/JS:
+        # function_declaration -> formal_parameters -> [required_parameter, optional_parameter, ...]
+        # arrow_function -> formal_parameters OR identifier (single param)
+        
+        params_node = func_node.child_by_field_name('parameters')
+        if not params_node:
+            # Check if it's an arrow function with a single parameter (identifier)
+            if func_node.type == 'arrow_function':
+                # If the first child is an identifier and not a parenthesized list, it's a single param
+                # But tree-sitter-typescript might wrap it.
+                # Let's look for 'formal_parameters' child generally if 'parameters' field isn't set (though it should be)
+                pass
+        
+        if params_node:
+            # Count children that are parameters. 
+            # In tree-sitter, punctuation like '(' and ',' are also children.
+            # We should count named nodes that are not punctuation.
+            count = 0
+            for child in params_node.children:
+                if child.type not in {',', '(', ')', '{', '}'}:
+                    count += 1
+            return count
+            
+        # Fallback for arrow function with single param not in parens?
+        # In TS grammar, arrow_function parameters are usually in 'formal_parameters' or just a single 'identifier'
+        if func_node.type == 'arrow_function':
+             # If it has a child that is an identifier and it's the first child...
+             # Actually, let's just traverse children and see if we find 'formal_parameters'
+             pass
+
+        return 0
+

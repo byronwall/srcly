@@ -26,7 +26,7 @@ export default function Treemap(props: TreemapProps) {
   const [breadcrumbs, setBreadcrumbs] = createSignal<any[]>([]);
   const [activeExtensions, setActiveExtensions] = createSignal<string[]>([]);
   const [colorMode, setColorMode] = createSignal<
-    "complexity" | "last_modified" | "file_type"
+    "complexity" | "last_modified" | "file_type" | "comment_density" | "max_nesting_depth" | "todo_count"
   >("complexity");
   const [showLegend, setShowLegend] = createSignal(false);
 
@@ -114,6 +114,24 @@ export default function Treemap(props: TreemapProps) {
     md: "#083fa1",
     html: "#e34c26",
   };
+
+  const commentDensityColor = d3
+    .scaleLinear<string>()
+    .domain([0, 0.2, 0.5])
+    .range(["#ffcccc", "#ff9999", "#ff0000"]) // Light red to dark red
+    .clamp(true);
+
+  const nestingDepthColor = d3
+    .scaleLinear<string>()
+    .domain([0, 3, 8])
+    .range(["#e0f7fa", "#4dd0e1", "#006064"]) // Cyan gradient
+    .clamp(true);
+
+  const todoCountColor = d3
+    .scaleLinear<string>()
+    .domain([0, 1, 5])
+    .range(["#f1f8e9", "#aed581", "#33691e"]) // Green gradient (or maybe orange?)
+    .clamp(true);
 
   const getFileTypeColor = (name: string) => {
     const ext = name.split(".").pop()?.toLowerCase() || "";
@@ -317,6 +335,15 @@ export default function Treemap(props: TreemapProps) {
         if (mode === "file_type") {
           return getFileTypeColor(d.data.name);
         }
+        if (mode === "comment_density") {
+          return commentDensityColor(d.data.metrics?.comment_density || 0);
+        }
+        if (mode === "max_nesting_depth") {
+          return nestingDepthColor(d.data.metrics?.max_nesting_depth || 0);
+        }
+        if (mode === "todo_count") {
+          return todoCountColor(d.data.metrics?.todo_count || 0);
+        }
         return complexityColor(d.data.metrics?.complexity || 0);
       })
       .attr("stroke", (d) => {
@@ -381,6 +408,15 @@ export default function Treemap(props: TreemapProps) {
             if (mode === "file_type") {
               return getFileTypeColor(d.data.name);
             }
+            if (mode === "comment_density") {
+              return commentDensityColor(d.data.metrics?.comment_density || 0);
+            }
+            if (mode === "max_nesting_depth") {
+              return nestingDepthColor(d.data.metrics?.max_nesting_depth || 0);
+            }
+            if (mode === "todo_count") {
+              return todoCountColor(d.data.metrics?.todo_count || 0);
+            }
             return complexityColor(d.data.metrics?.complexity || 0);
           })()
         )
@@ -415,6 +451,15 @@ export default function Treemap(props: TreemapProps) {
             }
             if (mode === "file_type") {
               return getFileTypeColor(d.data.name);
+            }
+            if (mode === "comment_density") {
+              return commentDensityColor(d.data.metrics?.comment_density || 0);
+            }
+            if (mode === "max_nesting_depth") {
+              return nestingDepthColor(d.data.metrics?.max_nesting_depth || 0);
+            }
+            if (mode === "todo_count") {
+              return todoCountColor(d.data.metrics?.todo_count || 0);
             }
             return complexityColor(d.data.metrics?.complexity || 0);
           })(),
@@ -463,7 +508,11 @@ export default function Treemap(props: TreemapProps) {
     tooltipRef.style.top = e.pageY + 10 + "px";
     tooltipRef.innerHTML = `<strong>${d.data.name}</strong><br>LOC: ${
       d.value
-    }<br>Complexity: ${d.data.metrics?.complexity || 0}`;
+    }<br>Complexity: ${d.data.metrics?.complexity || 0}<br>Density: ${(
+      (d.data.metrics?.comment_density || 0) * 100
+    ).toFixed(0)}%<br>Depth: ${
+      d.data.metrics?.max_nesting_depth || 0
+    }<br>TODOs: ${d.data.metrics?.todo_count || 0}`;
   }
 
   function hideTooltip() {
@@ -549,6 +598,9 @@ export default function Treemap(props: TreemapProps) {
             <option value="complexity">Complexity</option>
             <option value="last_modified">Last Edited</option>
             <option value="file_type">File Type</option>
+            <option value="comment_density">Comment Density</option>
+            <option value="max_nesting_depth">Nesting Depth</option>
+            <option value="todo_count">TODO Count</option>
           </select>
         </div>
 
@@ -559,6 +611,9 @@ export default function Treemap(props: TreemapProps) {
               {colorMode() === "complexity" && "Cyclomatic Complexity"}
               {colorMode() === "last_modified" && "Last Modified"}
               {colorMode() === "file_type" && "File Types"}
+              {colorMode() === "comment_density" && "Comment Density"}
+              {colorMode() === "max_nesting_depth" && "Max Nesting Depth"}
+              {colorMode() === "todo_count" && "TODO Count"}
             </div>
 
             <Show when={colorMode() === "complexity"}>
@@ -610,6 +665,57 @@ export default function Treemap(props: TreemapProps) {
                 <div class="flex items-center gap-2">
                   <div class="w-3 h-3 bg-[#888]"></div>
                   <span>other</span>
+                </div>
+              </div>
+            </Show>
+
+            <Show when={colorMode() === "comment_density"}>
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 bg-[#ffcccc]"></div>{" "}
+                  <span>Low (0%)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 bg-[#ff9999]"></div>{" "}
+                  <span>Medium (20%)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 bg-[#ff0000]"></div>{" "}
+                  <span>High (>50%)</span>
+                </div>
+              </div>
+            </Show>
+
+            <Show when={colorMode() === "max_nesting_depth"}>
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 bg-[#e0f7fa]"></div>{" "}
+                  <span>Low (0-3)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 bg-[#4dd0e1]"></div>{" "}
+                  <span>Medium (3-8)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 bg-[#006064]"></div>{" "}
+                  <span>High (>8)</span>
+                </div>
+              </div>
+            </Show>
+
+            <Show when={colorMode() === "todo_count"}>
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 bg-[#f1f8e9]"></div>{" "}
+                  <span>None (0)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 bg-[#aed581]"></div>{" "}
+                  <span>Some (1-5)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 bg-[#33691e]"></div>{" "}
+                  <span>Many (>5)</span>
                 </div>
               </div>
             </Show>

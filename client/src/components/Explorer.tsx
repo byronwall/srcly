@@ -22,6 +22,13 @@ interface Node {
     gitignored_count?: number;
     file_size?: number;
     file_count?: number;
+    comment_lines?: number;
+    comment_density?: number;
+    max_nesting_depth?: number;
+    average_function_length?: number;
+    parameter_count?: number;
+    todo_count?: number;
+    classes_count?: number;
   };
 }
 
@@ -31,7 +38,11 @@ type SortField =
   | "complexity"
   | "file_size"
   | "file_count"
-  | "gitignored";
+  | "gitignored"
+  | "comment_density"
+  | "todo_count"
+  | "max_nesting_depth"
+  | "parameter_count";
 type SortDirection = "asc" | "desc";
 
 interface ExplorerContextType {
@@ -107,6 +118,18 @@ const TreeNode = (props: { node: Node; depth: number }) => {
       } else if (field === "gitignored") {
         valA = a.metrics?.gitignored_count || 0;
         valB = b.metrics?.gitignored_count || 0;
+      } else if (field === "comment_density") {
+        valA = a.metrics?.comment_density || 0;
+        valB = b.metrics?.comment_density || 0;
+      } else if (field === "todo_count") {
+        valA = a.metrics?.todo_count || 0;
+        valB = b.metrics?.todo_count || 0;
+      } else if (field === "max_nesting_depth") {
+        valA = a.metrics?.max_nesting_depth || 0;
+        valB = b.metrics?.max_nesting_depth || 0;
+      } else if (field === "parameter_count") {
+        valA = a.metrics?.parameter_count || 0;
+        valB = b.metrics?.parameter_count || 0;
       }
 
       if (valA < valB) return dir === "asc" ? -1 : 1;
@@ -225,7 +248,27 @@ const TreeNode = (props: { node: Node; depth: number }) => {
         </Show>
         <Show when={ctx.visibleColumns().includes("complexity")}>
           <div class="w-12 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
-            {props.node.metrics?.complexity || 0}
+            {props.node.metrics?.complexity?.toFixed(1) || 0}
+          </div>
+        </Show>
+        <Show when={ctx.visibleColumns().includes("comment_density")}>
+          <div class="w-12 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
+            {((props.node.metrics?.comment_density || 0) * 100).toFixed(0)}%
+          </div>
+        </Show>
+        <Show when={ctx.visibleColumns().includes("todo_count")}>
+          <div class="w-10 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
+            {props.node.metrics?.todo_count || ""}
+          </div>
+        </Show>
+        <Show when={ctx.visibleColumns().includes("max_nesting_depth")}>
+          <div class="w-10 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
+            {props.node.metrics?.max_nesting_depth || ""}
+          </div>
+        </Show>
+        <Show when={ctx.visibleColumns().includes("parameter_count")}>
+          <div class="w-10 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
+            {props.node.metrics?.parameter_count || ""}
           </div>
         </Show>
       </div>
@@ -502,6 +545,40 @@ export default function Explorer(props: {
                         />{" "}
                         Gitignored
                       </label>
+                      <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-white">
+                        <input
+                          type="checkbox"
+                          checked={visibleColumns().includes("comment_density")}
+                          onChange={() => toggleColumn("comment_density")}
+                        />{" "}
+                        Density
+                      </label>
+                      <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-white">
+                        <input
+                          type="checkbox"
+                          checked={visibleColumns().includes("todo_count")}
+                          onChange={() => toggleColumn("todo_count")}
+                        />{" "}
+                        TODOs
+                      </label>
+                      <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-white">
+                        <input
+                          type="checkbox"
+                          checked={visibleColumns().includes(
+                            "max_nesting_depth"
+                          )}
+                          onChange={() => toggleColumn("max_nesting_depth")}
+                        />{" "}
+                        Depth
+                      </label>
+                      <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-white">
+                        <input
+                          type="checkbox"
+                          checked={visibleColumns().includes("parameter_count")}
+                          onChange={() => toggleColumn("parameter_count")}
+                        />{" "}
+                        Params
+                      </label>
                     </div>
                   </div>
                 </Show>
@@ -569,6 +646,42 @@ export default function Explorer(props: {
                 onClick={() => handleHeaderClick("complexity")}
               >
                 CCN <SortIcon field="complexity" />
+              </div>
+            </Show>
+            <Show when={visibleColumns().includes("comment_density")}>
+              <div
+                class="w-12 text-right pr-2 cursor-pointer hover:text-white flex items-center justify-end"
+                onClick={() => handleHeaderClick("comment_density")}
+                title="Comment Density"
+              >
+                Den% <SortIcon field="comment_density" />
+              </div>
+            </Show>
+            <Show when={visibleColumns().includes("todo_count")}>
+              <div
+                class="w-10 text-right pr-2 cursor-pointer hover:text-white flex items-center justify-end"
+                onClick={() => handleHeaderClick("todo_count")}
+                title="TODO Count"
+              >
+                TODO <SortIcon field="todo_count" />
+              </div>
+            </Show>
+            <Show when={visibleColumns().includes("max_nesting_depth")}>
+              <div
+                class="w-10 text-right pr-2 cursor-pointer hover:text-white flex items-center justify-end"
+                onClick={() => handleHeaderClick("max_nesting_depth")}
+                title="Max Nesting Depth"
+              >
+                Dep <SortIcon field="max_nesting_depth" />
+              </div>
+            </Show>
+            <Show when={visibleColumns().includes("parameter_count")}>
+              <div
+                class="w-10 text-right pr-2 cursor-pointer hover:text-white flex items-center justify-end"
+                onClick={() => handleHeaderClick("parameter_count")}
+                title="Parameter Count"
+              >
+                Prm <SortIcon field="parameter_count" />
               </div>
             </Show>
           </div>

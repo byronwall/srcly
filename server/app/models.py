@@ -11,6 +11,15 @@ class Metrics(BaseModel):
     gitignored_count: int = 0
     file_size: int = 0
     file_count: int = 0
+    
+    # New metrics
+    comment_lines: int = 0
+    comment_density: float = 0.0
+    max_nesting_depth: int = 0
+    average_function_length: float = 0.0
+    parameter_count: int = 0
+    todo_count: int = 0
+    classes_count: int = 0
 
 class Node(BaseModel):
     name: str

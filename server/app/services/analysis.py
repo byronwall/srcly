@@ -36,7 +36,18 @@ def attach_file_metrics(node: Node, file_info) -> None:
     node.metrics.loc = total_loc
     node.metrics.complexity = file_info.average_cyclomatic_complexity
     node.metrics.function_count = len(file_info.function_list)
+    node.metrics.function_count = len(file_info.function_list)
     node.metrics.file_count = 1
+    
+    # New metrics
+    if hasattr(file_info, 'comment_lines'):
+        node.metrics.comment_lines = file_info.comment_lines
+        node.metrics.comment_density = file_info.comment_density
+        node.metrics.max_nesting_depth = file_info.max_nesting_depth
+        node.metrics.average_function_length = file_info.average_function_length
+        node.metrics.parameter_count = file_info.parameter_count
+        node.metrics.todo_count = file_info.todo_count
+        node.metrics.classes_count = file_info.classes_count
     
     # Set start/end line for the file (approximate, 1 to total lines)
     # We don't strictly have this from lizard always, but we can infer or leave 0.
@@ -48,7 +59,18 @@ def attach_file_metrics(node: Node, file_info) -> None:
     def convert_function(func, parent_path: str) -> Node:
         func_node = create_node(func.name, "function", f"{parent_path}::{func.name}")
         func_node.metrics.loc = func.nloc
+        func_node.metrics.loc = func.nloc
         func_node.metrics.complexity = func.cyclomatic_complexity
+        
+        # Safely get new metrics (Lizard functions won't have these)
+        func_node.metrics.parameter_count = getattr(func, 'parameter_count', 0)
+        func_node.metrics.max_nesting_depth = getattr(func, 'max_nesting_depth', 0)
+        func_node.metrics.comment_lines = getattr(func, 'comment_lines', 0)
+        func_node.metrics.todo_count = getattr(func, 'todo_count', 0)
+        
+        # Density for function
+        comment_lines = getattr(func, 'comment_lines', 0)
+        func_node.metrics.comment_density = comment_lines / func.nloc if func.nloc > 0 else 0.0
         
         if hasattr(func, 'start_line'):
             func_node.start_line = func.start_line
@@ -177,12 +199,34 @@ def aggregate_metrics(node: Node) -> Metrics:
     total_loc = 0
     max_complexity = 0
     total_funcs = 0
+    
+    # New metrics aggregation
+    total_comment_lines = 0
+    max_nesting_depth = 0
+    total_parameter_count = 0
+    total_todo_count = 0
+    total_classes_count = 0
+    
+    # For average function length, we need total function loc and total functions (already have total_funcs)
+    # But we need to sum function locs from children.
+    # Let's track total function loc separately if we want to be precise, 
+    # OR we can just use the child's average * child's function count.
+    total_function_loc = 0
 
     for child in node.children:
         child_metrics = aggregate_metrics(child)
         total_loc += child_metrics.loc
         max_complexity = max(max_complexity, child_metrics.complexity)
         total_funcs += child_metrics.function_count
+        
+        total_comment_lines += child_metrics.comment_lines
+        max_nesting_depth = max(max_nesting_depth, child_metrics.max_nesting_depth)
+        total_parameter_count += child_metrics.parameter_count
+        total_todo_count += child_metrics.todo_count
+        total_classes_count += child_metrics.classes_count
+        
+        # Reconstruct total function loc from average * count
+        total_function_loc += (child_metrics.average_function_length * child_metrics.function_count)
 
     # For Folders: Sum of children
     # For Files: We trust the attach_file_metrics logic (which includes __misc__)
@@ -196,6 +240,14 @@ def aggregate_metrics(node: Node) -> Metrics:
         node.metrics.gitignored_count = sum(child.metrics.gitignored_count for child in node.children)
         node.metrics.file_size = sum(child.metrics.file_size for child in node.children)
         node.metrics.file_count = sum(child.metrics.file_count for child in node.children)
+        
+        node.metrics.comment_lines = total_comment_lines
+        node.metrics.comment_density = total_comment_lines / total_loc if total_loc > 0 else 0.0
+        node.metrics.max_nesting_depth = max_nesting_depth
+        node.metrics.parameter_count = total_parameter_count
+        node.metrics.todo_count = total_todo_count
+        node.metrics.classes_count = total_classes_count
+        node.metrics.average_function_length = total_function_loc / total_funcs if total_funcs > 0 else 0.0
     
     return node.metrics
 
