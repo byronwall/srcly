@@ -60,11 +60,15 @@ export default function Treemap(props: TreemapProps) {
 
     if (clone.type === "function") {
       const loc = clone.metrics?.loc || 0;
+      const hasChildren =
+        Array.isArray(clone.children) && clone.children.length > 0;
       const alreadyHasBodyChild =
-        Array.isArray(clone.children) &&
+        hasChildren &&
         clone.children.some((child: any) => child?.type === "function_body");
 
-      if (loc > 0 && !alreadyHasBodyChild) {
+      // Only add a dummy body node if there are other children to displace.
+      // If there are no children, this node is a leaf and doesn't need a dummy body.
+      if (loc > 0 && hasChildren && !alreadyHasBodyChild) {
         const bodyChild = {
           name: "(body)",
           path: `${clone.path || clone.name || ""}::(body)`,
