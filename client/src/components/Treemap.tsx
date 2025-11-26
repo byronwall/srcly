@@ -13,7 +13,7 @@ interface TreemapProps {
   data: any;
   currentRoot?: any;
   onZoom?: (node: any) => void;
-  onFileSelect?: (path: string) => void;
+  onFileSelect?: (path: string, startLine?: number, endLine?: number) => void;
 }
 
 const EXTENSIONS = ["ts", "tsx", "js", "jsx", "css", "json", "py", "md"];
@@ -123,7 +123,9 @@ export default function Treemap(props: TreemapProps) {
     );
 
     if (filePath) {
-      props.onFileSelect(filePath);
+      const startLine = d.data?.start_line as number | undefined;
+      const endLine = d.data?.end_line as number | undefined;
+      props.onFileSelect(filePath, startLine, endLine);
     }
   }
 

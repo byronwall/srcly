@@ -4,6 +4,8 @@ import { codeToHtml } from "shiki";
 interface CodeModalProps {
   isOpen: boolean;
   filePath: string | null;
+  startLine?: number | null;
+  endLine?: number | null;
   onClose: () => void;
 }
 
@@ -33,8 +35,26 @@ export default function CodeModal(props: CodeModalProps) {
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [highlightedHtml, setHighlightedHtml] = createSignal<string>("");
+  const [rawCode, setRawCode] = createSignal("");
+  const [lineFilterEnabled, setLineFilterEnabled] = createSignal(false);
+  const [displayStartLine, setDisplayStartLine] = createSignal<number | null>(
+    null
+  );
+  const [displayEndLine, setDisplayEndLine] = createSignal<number | null>(null);
+  const [totalLines, setTotalLines] = createSignal<number | null>(null);
 
   let lastRequestId = 0;
+
+  // Reset line filter when a new file is opened
+  createEffect(() => {
+    if (!props.isOpen || !props.filePath) return;
+    const hasRange =
+      typeof props.startLine === "number" &&
+      typeof props.endLine === "number" &&
+      props.startLine > 0 &&
+      props.endLine >= props.startLine;
+    setLineFilterEnabled(hasRange);
+  });
 
   createEffect(() => {
     if (!props.isOpen || !props.filePath) {
@@ -43,6 +63,8 @@ export default function CodeModal(props: CodeModalProps) {
 
     const currentId = ++lastRequestId;
     const path = props.filePath;
+
+    const useLineFilter = lineFilterEnabled();
 
     setLoading(true);
     setError(null);
@@ -60,11 +82,57 @@ export default function CodeModal(props: CodeModalProps) {
         }
         const text = await res.text();
         setRawCode(text);
+
+        const lines = text.split(/\r?\n/);
+        setTotalLines(lines.length);
+
+        let displayText = text;
+        let start = 1;
+        let end = lines.length;
+
+        if (
+          useLineFilter &&
+          typeof props.startLine === "number" &&
+          typeof props.endLine === "number"
+        ) {
+          const clampedStart = Math.max(1, props.startLine);
+          const clampedEnd = Math.min(lines.length, props.endLine);
+          if (clampedEnd >= clampedStart) {
+            start = clampedStart;
+            end = clampedEnd;
+            displayText = lines.slice(start - 1, end).join("\n");
+          }
+        }
+
+        setDisplayStartLine(start);
+        setDisplayEndLine(end);
+
         const lang = guessLangFromPath(path);
-        const html = await codeToHtml(text, {
+        let html = await codeToHtml(displayText, {
           lang,
           theme: "github-dark",
         });
+
+        // Adjust line numbers so they reflect the actual file line numbers
+        // when we are limiting to a selection. We do this by setting the
+        // CSS counter-reset on the <code> element so that the first rendered
+        // line shows the correct line number.
+        if (useLineFilter && typeof props.startLine === "number") {
+          const counterStart = start > 0 ? start - 1 : 0;
+          html = html.replace(
+            /<code([^>]*)>/,
+            (_match: string, attrs: string) => {
+              if (/style=/.test(attrs)) {
+                return `<code${attrs.replace(
+                  /style="([^"]*)"/,
+                  (_m: string, styleVal: string) =>
+                    `style="${styleVal}; counter-reset: line ${counterStart};"`
+                )}>`;
+              }
+              return `<code${attrs} style="counter-reset: line ${counterStart};">`;
+            }
+          );
+        }
 
         if (currentId === lastRequestId) {
           setHighlightedHtml(html);
@@ -101,8 +169,20 @@ export default function CodeModal(props: CodeModalProps) {
     return parts[parts.length - 1] || props.filePath;
   };
 
-  // We need to store raw code for copying
-  const [rawCode, setRawCode] = createSignal("");
+  const hasLineRange = () =>
+    typeof props.startLine === "number" &&
+    typeof props.endLine === "number" &&
+    props.startLine > 0 &&
+    props.endLine >= props.startLine;
+
+  const effectiveDisplayRange = () => {
+    if (!totalLines()) return null;
+    return {
+      start: displayStartLine() ?? 1,
+      end: displayEndLine() ?? totalLines()!,
+      total: totalLines()!,
+    };
+  };
 
   return (
     <Show when={props.isOpen && props.filePath}>
@@ -116,6 +196,21 @@ export default function CodeModal(props: CodeModalProps) {
               <span class="truncate text-[11px] text-gray-400">
                 {props.filePath}
               </span>
+              <Show when={hasLineRange() && effectiveDisplayRange()}>
+                {(range) => (
+                  <span class="truncate text-[10px] text-gray-500">
+                    {lineFilterEnabled()
+                      ? `Showing lines ${range().start}-${range().end} of ${
+                          range().total
+                        }`
+                      : `Showing full file (${
+                          range().total
+                        } lines), selection ${props.startLine}-${
+                          props.endLine
+                        }`}
+                  </span>
+                )}
+              </Show>
             </div>
             <button
               class="ml-4 rounded bg-gray-700 px-3 py-1 text-xs font-semibold text-gray-200 hover:bg-gray-600"
@@ -134,6 +229,18 @@ export default function CodeModal(props: CodeModalProps) {
               Copy
             </button>
             {/* Open in Editor (VS Code URL scheme) */}
+            <Show when={hasLineRange()}>
+              <label class="ml-3 flex items-center gap-1 text-[11px] text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={lineFilterEnabled()}
+                  onChange={(e) =>
+                    setLineFilterEnabled(e.currentTarget.checked)
+                  }
+                />
+                Limit to selection
+              </label>
+            </Show>
             <a
               href={`vscode://file/${props.filePath}`}
               class="ml-2 rounded bg-green-700 px-3 py-1 text-xs font-semibold text-white hover:bg-green-600 no-underline"

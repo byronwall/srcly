@@ -25,6 +25,10 @@ function App() {
   const [selectedFilePath, setSelectedFilePath] = createSignal<string | null>(
     null
   );
+  const [selectedLineRange, setSelectedLineRange] = createSignal<{
+    start: number;
+    end: number;
+  } | null>(null);
   const [isCodeModalOpen, setIsCodeModalOpen] = createSignal(false);
   const [analysisContext, setAnalysisContext] = createSignal<{
     rootPath: string;
@@ -102,8 +106,22 @@ function App() {
     }
   };
 
-  const handleFileFromTreemap = (path: string) => {
+  const handleFileFromTreemap = (
+    path: string,
+    startLine?: number,
+    endLine?: number
+  ) => {
     setSelectedFilePath(path);
+    if (
+      typeof startLine === "number" &&
+      typeof endLine === "number" &&
+      startLine > 0 &&
+      endLine >= startLine
+    ) {
+      setSelectedLineRange({ start: startLine, end: endLine });
+    } else {
+      setSelectedLineRange(null);
+    }
     setIsCodeModalOpen(true);
   };
 
@@ -253,6 +271,8 @@ function App() {
       <CodeModal
         isOpen={isCodeModalOpen()}
         filePath={selectedFilePath()}
+        startLine={selectedLineRange()?.start ?? null}
+        endLine={selectedLineRange()?.end ?? null}
         onClose={() => setIsCodeModalOpen(false)}
       />
     </div>
