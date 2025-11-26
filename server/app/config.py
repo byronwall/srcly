@@ -28,5 +28,5 @@ IGNORE_EXTENSIONS: Set[str] = {
     '.zip', '.tar', '.gz', '.map', '.min.js', '.min.css', '.json', '.xml', '.txt', 
     '.ttf', '.woff', '.woff2', '.eot', '.otf', '.mp4', '.mp3', '.wav', '.webm', '.ogg',
     '.exe', '.dll', '.so', '.dylib', '.bin', '.iso', '.dmg', '.pkg', '.deb', '.rpm',
-    '.csv'
+    '.csv', '.lock'
 }
