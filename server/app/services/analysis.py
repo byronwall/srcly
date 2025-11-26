@@ -4,6 +4,15 @@ import concurrent.futures
 from pathlib import Path
 from app.models import Node, Metrics
 from app.config import IGNORE_DIRS, IGNORE_FILES, IGNORE_EXTENSIONS
+from app.services.tree_sitter_analysis import TreeSitterAnalyzer
+
+_ts_analyzer = None
+
+def get_ts_analyzer():
+    global _ts_analyzer
+    if _ts_analyzer is None:
+        _ts_analyzer = TreeSitterAnalyzer()
+    return _ts_analyzer
 
 def find_repo_root(start_path: Path) -> Path:
     current = start_path.resolve()
@@ -26,9 +35,11 @@ def attach_file_metrics(node: Node, file_info) -> None:
     node.metrics.complexity = file_info.average_cyclomatic_complexity
     node.metrics.function_count = len(file_info.function_list)
     node.metrics.file_count = 1
-    # last_modified is set in scan_codebase before calling this, or we can pass it here.
-    # Actually, scan_codebase creates the node, so we can set it there.
-
+    
+    # Set start/end line for the file (approximate, 1 to total lines)
+    # We don't strictly have this from lizard always, but we can infer or leave 0.
+    # For now, let's leave file start/end as 0 unless we want to read the file.
+    
     # Calculate sum of function LOCs
     func_sum_loc = 0
     
@@ -36,6 +47,13 @@ def attach_file_metrics(node: Node, file_info) -> None:
         func_node = create_node(func.name, "function", f"{node.path}::{func.name}")
         func_node.metrics.loc = func.nloc
         func_node.metrics.complexity = func.cyclomatic_complexity
+        
+        # Set line numbers
+        if hasattr(func, 'start_line'):
+            func_node.start_line = func.start_line
+        if hasattr(func, 'end_line'):
+            func_node.end_line = func.end_line
+            
         # Functions don't have children in this model
         node.children.append(func_node)
         func_sum_loc += func.nloc
@@ -82,11 +100,11 @@ def analyze_single_file(file_path: str):
     Must be top-level for multiprocessing pickling.
     """
     try:
-        # We can't easily print from here to the main stdout without buffering issues in some envs,
-        # but returning the result allows the main process to log.
-        # However, for true parallelism, we might want to log here if we want to see it start.
-        # But 'done' log is more important.
-        return lizard.analyze_file(file_path)
+        if file_path.endswith('.ts') or file_path.endswith('.tsx'):
+            analyzer = get_ts_analyzer()
+            return analyzer.analyze_file(file_path)
+        else:
+            return lizard.analyze_file(file_path)
     except Exception as e:
         # Return error info instead of crashing
         return {"error": str(e), "filename": file_path}

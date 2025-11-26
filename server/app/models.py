@@ -19,6 +19,8 @@ class Node(BaseModel):
     metrics: Metrics
     # Use default_factory to avoid sharing the same list across instances
     children: List["Node"] = Field(default_factory=list)
+    start_line: int = 0
+    end_line: int = 0
 
     model_config = {
         "populate_by_name": True
