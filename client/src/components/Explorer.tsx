@@ -49,16 +49,22 @@ type HotSpotMetricDef = {
   id: string;
   label: string;
   invert?: boolean;
+  color: string;
 };
 
 const HOTSPOT_METRICS: HotSpotMetricDef[] = [
-  { id: "complexity", label: "Complexity" },
-  { id: "loc", label: "LOC" },
-  { id: "file_size", label: "Size" },
-  { id: "comment_density", label: "Low Comments", invert: true },
-  { id: "todo_count", label: "TODOs" },
-  { id: "max_nesting_depth", label: "Nesting" },
-  { id: "parameter_count", label: "Params" },
+  { id: "complexity", label: "Complexity", color: "text-red-400" },
+  { id: "loc", label: "LOC", color: "text-blue-400" },
+  { id: "file_size", label: "Size", color: "text-purple-400" },
+  {
+    id: "comment_density",
+    label: "Low Comments",
+    invert: true,
+    color: "text-orange-400",
+  },
+  { id: "todo_count", label: "TODOs", color: "text-yellow-400" },
+  { id: "max_nesting_depth", label: "Nesting", color: "text-pink-400" },
+  { id: "parameter_count", label: "Params", color: "text-green-400" },
 ];
 
 interface ExplorerContextType {
@@ -372,12 +378,9 @@ const HotSpotItem = (props: {
           🔍
         </button>
       </div>
-      <div class="flex flex-col items-end gap-0.5 ml-2">
-        <div class="text-xs text-red-400 font-mono font-bold">
-          {props.score.toFixed(2)}
-        </div>
-        <div class="text-[10px] text-gray-500 font-mono flex flex-col items-end">
-          <For each={props.metrics.slice(0, 2)}>
+      <div class="flex items-center gap-2 ml-2">
+        <div class="text-[10px] font-mono flex items-center gap-3">
+          <For each={props.metrics}>
             {(m) => {
               const def = HOTSPOT_METRICS.find((x) => x.id === m);
               let val = (props.node.metrics as any)?.[m];
@@ -386,8 +389,8 @@ const HotSpotItem = (props: {
               else if (typeof val === "number" && !Number.isInteger(val))
                 val = val.toFixed(1);
               return (
-                <span>
-                  {def?.label}: {val}
+                <span class={def?.color} title={def?.label}>
+                  {val}
                 </span>
               );
             }}
