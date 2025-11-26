@@ -214,8 +214,10 @@ export default function Treemap(props: TreemapProps) {
       // Only count LOC on leaf nodes so container values are the sum of their leaves
       .sum((d: any) => {
         if (!d) return 0;
-        if (d.children.length === 0) return d.metrics?.loc || 0;
+        if (d.children.length === 0 || d.type === "function")
+          return d.metrics?.loc || 0;
         // file or folder with children  - will get value automatically from children
+        console.log(d);
         return 0;
       })
       .sort((a, b) => (b.value || 0) - (a.value || 0));
