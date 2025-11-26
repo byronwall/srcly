@@ -45,6 +45,22 @@ type SortField =
   | "parameter_count";
 type SortDirection = "asc" | "desc";
 
+type HotSpotMetricDef = {
+  id: string;
+  label: string;
+  invert?: boolean;
+};
+
+const HOTSPOT_METRICS: HotSpotMetricDef[] = [
+  { id: "complexity", label: "Complexity" },
+  { id: "loc", label: "LOC" },
+  { id: "file_size", label: "Size" },
+  { id: "comment_density", label: "Low Comments", invert: true },
+  { id: "todo_count", label: "TODOs" },
+  { id: "max_nesting_depth", label: "Nesting" },
+  { id: "parameter_count", label: "Params" },
+];
+
 interface ExplorerContextType {
   sortField: () => SortField;
   sortDirection: () => SortDirection;
@@ -281,7 +297,12 @@ const TreeNode = (props: { node: Node; depth: number }) => {
   );
 };
 
-const HotSpotItem = (props: { node: Node; rank: number }) => {
+const HotSpotItem = (props: {
+  node: Node;
+  rank: number;
+  score: number;
+  metrics: string[];
+}) => {
   const ctx = useContext(ExplorerContext)!;
 
   const handleClick = () => {
@@ -352,11 +373,25 @@ const HotSpotItem = (props: { node: Node; rank: number }) => {
         </button>
       </div>
       <div class="flex flex-col items-end gap-0.5 ml-2">
-        <div class="text-xs text-red-400 font-mono" title="Complexity">
-          CCN: {(props.node.metrics?.complexity ?? 0).toFixed(2)}
+        <div class="text-xs text-red-400 font-mono font-bold">
+          {props.score.toFixed(2)}
         </div>
-        <div class="text-[10px] text-gray-500 font-mono" title="LOC">
-          LOC: {props.node.metrics?.loc}
+        <div class="text-[10px] text-gray-500 font-mono flex flex-col items-end">
+          <For each={props.metrics.slice(0, 2)}>
+            {(m) => {
+              const def = HOTSPOT_METRICS.find((x) => x.id === m);
+              let val = (props.node.metrics as any)?.[m];
+              if (val === undefined) return null;
+              if (m === "comment_density") val = (val * 100).toFixed(0) + "%";
+              else if (typeof val === "number" && !Number.isInteger(val))
+                val = val.toFixed(1);
+              return (
+                <span>
+                  {def?.label}: {val}
+                </span>
+              );
+            }}
+          </For>
         </div>
       </div>
     </div>
@@ -376,6 +411,9 @@ export default function Explorer(props: {
   const [sortDirection, setSortDirection] = createSignal<SortDirection>("desc");
   const [viewMode, setViewMode] = createSignal<"tree" | "hotspots">("tree");
   const [showColumnPicker, setShowColumnPicker] = createSignal(false);
+  const [selectedHotSpotMetrics, setSelectedHotSpotMetrics] = createSignal<
+    string[]
+  >(["complexity"]);
   const [visibleColumns, setVisibleColumns] = createSignal<string[]>([
     "loc",
     "complexity",
@@ -410,10 +448,13 @@ export default function Explorer(props: {
   const hotSpots = createMemo(() => {
     if (!props.data) return [];
 
-    // Flatten tree to collect all nodes (containers and leaves) that have a complexity metric.
+    const selected = selectedHotSpotMetrics();
+    if (selected.length === 0) return [];
+
+    // Flatten tree to collect all nodes that have metrics
     const nodes: Node[] = [];
     const traverse = (node: Node) => {
-      if (node.metrics && typeof node.metrics.complexity === "number") {
+      if (node.metrics) {
         nodes.push(node);
       }
       if (node.children && node.children.length > 0) {
@@ -422,13 +463,65 @@ export default function Explorer(props: {
     };
     traverse(props.data);
 
-    // Sort by complexity desc so we surface the "hottest" spots at every level.
+    // Calculate max for each selected metric to normalize
+    const maxValues: Record<string, number> = {};
+    selected.forEach((m) => {
+      maxValues[m] = 0;
+      nodes.forEach((node) => {
+        let val = (node.metrics as any)?.[m] || 0;
+        // Handle inversion for max calculation
+        const metricDef = HOTSPOT_METRICS.find((def) => def.id === m);
+        if (metricDef?.invert) {
+          // For inverted metrics (e.g. comment density 0..1), we want to maximize "badness".
+          // Badness = 1 - density.
+          // So max badness is max(1 - density).
+          val = 1 - val;
+        }
+
+        // Protect against bad values
+        if (!isFinite(val)) val = 0;
+
+        if (val > maxValues[m]) maxValues[m] = val;
+      });
+    });
+
+    // Score and sort
     return nodes
-      .sort(
-        (a, b) => (b.metrics?.complexity || 0) - (a.metrics?.complexity || 0)
-      )
-      .slice(0, 50); // Top 50 across all levels
+      .map((node) => {
+        let score = 0;
+        selected.forEach((m) => {
+          let val = (node.metrics as any)?.[m] || 0;
+          const metricDef = HOTSPOT_METRICS.find((def) => def.id === m);
+
+          if (metricDef?.invert) {
+            val = 1 - val;
+          }
+
+          if (!isFinite(val)) val = 0;
+          if (val < 0) val = 0; // Ensure no negative contribution
+
+          const max = maxValues[m];
+          if (max > 0) {
+            score += val / max;
+          }
+        });
+        return { node, score };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 50);
   });
+
+  const toggleHotSpotMetric = (metricId: string) => {
+    const current = selectedHotSpotMetrics();
+    if (current.includes(metricId)) {
+      // Don't allow deselecting the last one
+      if (current.length > 1) {
+        setSelectedHotSpotMetrics(current.filter((m) => m !== metricId));
+      }
+    } else {
+      setSelectedHotSpotMetrics([...current, metricId]);
+    }
+  };
 
   const [expandAllSignal, setExpandAllSignal] = createSignal<boolean | null>(
     null
@@ -693,9 +786,32 @@ export default function Explorer(props: {
         </Show>
 
         <Show when={viewMode() === "hotspots"}>
+          <div class="p-2 border-b border-[#333] flex flex-wrap gap-1 bg-[#252526]">
+            <For each={HOTSPOT_METRICS}>
+              {(metric) => (
+                <button
+                  class={`px-2 py-0.5 text-[10px] rounded border transition-colors ${
+                    selectedHotSpotMetrics().includes(metric.id)
+                      ? "bg-red-900/50 border-red-700 text-red-200"
+                      : "bg-[#1e1e1e] border-[#333] text-gray-400 hover:border-gray-500 hover:text-gray-300"
+                  }`}
+                  onClick={() => toggleHotSpotMetric(metric.id)}
+                >
+                  {metric.label}
+                </button>
+              )}
+            </For>
+          </div>
           <div class="flex-1 overflow-y-auto overflow-x-hidden">
             <For each={hotSpots()}>
-              {(node, i) => <HotSpotItem node={node} rank={i() + 1} />}
+              {(item, i) => (
+                <HotSpotItem
+                  node={item.node}
+                  rank={i() + 1}
+                  score={item.score}
+                  metrics={selectedHotSpotMetrics()}
+                />
+              )}
             </For>
             <Show when={hotSpots().length === 0}>
               <div class="p-4 text-center text-gray-500 text-sm">
