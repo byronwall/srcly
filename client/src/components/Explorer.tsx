@@ -14,6 +14,8 @@ interface Node {
   path: string;
   type: "folder" | "file" | "function" | "class" | "misc";
   children?: Node[];
+  start_line?: number;
+  end_line?: number;
   metrics?: {
     loc: number;
     complexity: number;
@@ -35,7 +37,7 @@ type SortDirection = "asc" | "desc";
 interface ExplorerContextType {
   sortField: () => SortField;
   sortDirection: () => SortDirection;
-  onSelect: (path: string) => void;
+  onSelect: (path: string, startLine?: number, endLine?: number) => void;
   onZoom: (node: any) => void;
   onToggleHidden: (path: string) => void;
   hiddenPaths: string[];
@@ -57,14 +59,13 @@ const formatSize = (bytes?: number) => {
 const findNodeByPath = (root: Node, path: string): Node | null => {
   if (root.path === path) return root;
 
-  if (root.children) {
-    for (const child of root.children) {
-      if (child.type === "folder") {
-        const found = findNodeByPath(child, path);
-        if (found) return found;
-      }
-    }
+  if (!root.children || root.children.length === 0) return null;
+
+  for (const child of root.children) {
+    const found = findNodeByPath(child, path);
+    if (found) return found;
   }
+
   return null;
 };
 
@@ -120,8 +121,19 @@ const TreeNode = (props: { node: Node; depth: number }) => {
   };
 
   const handleClick = () => {
-    const path = extractFilePath(props.node.path, props.node.type);
-    if (path) ctx.onSelect(path);
+    const filePath = extractFilePath(props.node.path, props.node.type);
+    if (!filePath) return;
+
+    const startLine =
+      typeof props.node.start_line === "number" && props.node.start_line > 0
+        ? props.node.start_line
+        : undefined;
+    const endLine =
+      typeof props.node.end_line === "number" && props.node.end_line > 0
+        ? props.node.end_line
+        : undefined;
+
+    ctx.onSelect(filePath, startLine, endLine);
   };
 
   const getIcon = () => {
@@ -230,16 +242,28 @@ const HotSpotItem = (props: { node: Node; rank: number }) => {
   const ctx = useContext(ExplorerContext)!;
 
   const handleClick = () => {
-    const path = extractFilePath(props.node.path, props.node.type);
-    if (path) ctx.onSelect(path);
+    const filePath = extractFilePath(props.node.path, props.node.type);
+    if (!filePath) return;
+
+    const startLine =
+      typeof props.node.start_line === "number" && props.node.start_line > 0
+        ? props.node.start_line
+        : undefined;
+    const endLine =
+      typeof props.node.end_line === "number" && props.node.end_line > 0
+        ? props.node.end_line
+        : undefined;
+
+    ctx.onSelect(filePath, startLine, endLine);
   };
 
   const handleZoomToParent = (e: MouseEvent) => {
     e.stopPropagation();
-    const path = props.node.path;
-    const lastSlash = path.lastIndexOf("/");
+    const rawPath = props.node.path;
+    const fileOrFolderPath = rawPath.split("::")[0] || rawPath;
+    const lastSlash = fileOrFolderPath.lastIndexOf("/");
     if (lastSlash === -1) return;
-    const parentPath = path.substring(0, lastSlash);
+    const parentPath = fileOrFolderPath.substring(0, lastSlash);
 
     const parentNode = findNodeByPath(ctx.rootData, parentPath);
     if (parentNode) {
@@ -272,7 +296,7 @@ const HotSpotItem = (props: { node: Node; rank: number }) => {
       </div>
       <div class="flex flex-col items-end gap-0.5 ml-2">
         <div class="text-xs text-red-400 font-mono" title="Complexity">
-          CCN: {props.node.metrics?.complexity.toFixed(2)}
+          CCN: {(props.node.metrics?.complexity ?? 0).toFixed(2)}
         </div>
         <div class="text-[10px] text-gray-500 font-mono" title="LOC">
           LOC: {props.node.metrics?.loc}
@@ -284,7 +308,7 @@ const HotSpotItem = (props: { node: Node; rank: number }) => {
 
 export default function Explorer(props: {
   data: any;
-  onFileSelect: (path: string) => void;
+  onFileSelect: (path: string, startLine?: number, endLine?: number) => void;
   onZoom: (node: any) => void;
   filter: string;
   onFilterChange: (val: string) => void;
@@ -328,11 +352,14 @@ export default function Explorer(props: {
 
   const hotSpots = createMemo(() => {
     if (!props.data) return [];
-    // Flatten tree to find files with high complexity
-    const files: Node[] = [];
+    // Flatten tree to find leaf nodes (including children of files) with high complexity
+    const leaves: Node[] = [];
     const traverse = (node: Node) => {
-      if (node.type === "file") {
-        files.push(node);
+      if (!node.children || node.children.length === 0) {
+        if (node.metrics && typeof node.metrics.complexity === "number") {
+          leaves.push(node);
+        }
+        return;
       }
       if (node.children) {
         node.children.forEach(traverse);
@@ -341,7 +368,7 @@ export default function Explorer(props: {
     traverse(props.data);
 
     // Sort by complexity desc
-    return files
+    return leaves
       .sort(
         (a, b) => (b.metrics?.complexity || 0) - (a.metrics?.complexity || 0)
       )
