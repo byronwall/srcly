@@ -24,6 +24,11 @@ def test_anonymous_function_naming(analyzer, tmp_path):
         
         // Case 5: Deeply nested call
         foo.bar.baz(() => {});
+        
+        // Case 6: IIFE
+        const value = (() => {
+            return 42;
+        })();
     }
     """
     
@@ -35,8 +40,8 @@ def test_anonymous_function_naming(analyzer, tmp_path):
     main_func = metrics.function_list[0]
     children = main_func.children
     
-    # We expect 5 children corresponding to the 5 functions above
-    assert len(children) == 5
+    # We expect 6 children corresponding to the 6 functions above
+    assert len(children) == 6
     
     names = [c.name for c in children]
     
@@ -57,3 +62,6 @@ def test_anonymous_function_naming(analyzer, tmp_path):
     
     # Case 5: foo.bar.baz(() => {}) -> baz(ƒ)
     assert "baz(ƒ)" in names
+    
+    # Case 6: (() => { ... })() -> IIFE(ƒ)
+    assert "IIFE(ƒ)" in names

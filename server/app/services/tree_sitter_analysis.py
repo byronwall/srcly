@@ -174,12 +174,13 @@ class TreeSitterAnalyzer:
                 left = parent.child_by_field_name('left')
                 if left:
                     return left.text.decode('utf-8')
-            elif parent and parent.type == 'pair': # In object literal
+            elif parent and parent.type == 'pair':  # In object literal
                 key = parent.child_by_field_name('key')
                 if key:
                     return key.text.decode('utf-8')
-                    
-            elif parent and parent.type == 'arguments':
+
+            # Anonymous function passed as an argument: foo.bar(() => {}) -> bar(ƒ)
+            if parent and parent.type == 'arguments':
                 grandparent = parent.parent
                 if grandparent:
                     if grandparent.type == 'call_expression':
@@ -193,10 +194,19 @@ class TreeSitterAnalyzer:
                                 return f"{func_node.text.decode('utf-8')}(ƒ)"
                     elif grandparent.type == 'new_expression':
                         constructor = grandparent.child_by_field_name('constructor')
-                        if constructor:
-                            if constructor.type == 'identifier':
-                                return f"{constructor.text.decode('utf-8')}(ƒ)"
-                        
+                        if constructor and constructor.type == 'identifier':
+                            return f"{constructor.text.decode('utf-8')}(ƒ)"
+
+            # IIFE: (() => { ... })() or (function () { ... })()
+            if parent and parent.type == 'parenthesized_expression':
+                grandparent = parent.parent
+                if grandparent and grandparent.type == 'call_expression':
+                    func_node = grandparent.child_by_field_name('function')
+                    # In an IIFE the "function" is the parenthesized expression that wraps
+                    # our anonymous function.
+                    if func_node and func_node == parent:
+                        return "IIFE(ƒ)"
+
         return "(anonymous)"
             
         return "(unknown)"
