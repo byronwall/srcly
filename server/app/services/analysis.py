@@ -2,9 +2,11 @@ import os
 import lizard
 import concurrent.futures
 from pathlib import Path
+
 from app.models import Node, Metrics
 from app.config import IGNORE_DIRS, IGNORE_FILES, IGNORE_EXTENSIONS
 from app.services.tree_sitter_analysis import TreeSitterAnalyzer
+from pathspec import PathSpec
 
 _ts_analyzer = None
 
@@ -74,6 +76,101 @@ def attach_file_metrics(node: Node, file_info) -> None:
         misc_node.metrics.complexity = 0 # Glue code is usually simple
         node.children.append(misc_node)
 
+
+def _translate_gitignore_pattern(raw_line: str, base_rel: str) -> str | None:
+    """
+    Translate a single .gitignore pattern that lives in a directory `base_rel`
+    (relative to the repo root) into a repo-root-relative gitwildmatch pattern.
+
+    This approximates Git's semantics including:
+    - patterns starting with '!' (negation)
+    - patterns starting with '/' (anchored to the .gitignore directory)
+    - patterns without '/' applying within the directory subtree
+    """
+    line = raw_line.rstrip("\n")
+    if not line or line.lstrip().startswith("#"):
+        return None
+
+    negated = line.startswith("!")
+    body = line[1:] if negated else line
+
+    # Strip leading slash: anchored to the directory containing the .gitignore
+    if body.startswith("/"):
+        body = body[1:]
+
+    # Compute prefix for this .gitignore directory
+    prefix = f"{base_rel}/" if base_rel else ""
+
+    # If the pattern contains a slash, it's relative to the directory root.
+    # Otherwise, it should match that name anywhere under the directory.
+    if "/" in body:
+        pat = prefix + body
+    else:
+        if base_rel:
+            pat = f"{base_rel}/**/{body}"
+        else:
+            pat = f"**/{body}"
+
+    return f"!{pat}" if negated else pat
+
+
+def _load_gitignore_spec(root_path: Path) -> tuple[Path, PathSpec | None]:
+    """
+    Load a PathSpec representing .gitignore rules visible from the given
+    root path, honoring nested .gitignore files similarly to Git.
+
+    We treat the *repository root* (where .git lives) as the base for all
+    ignore patterns, so that scanning a subdirectory still respects repo-level
+    .gitignore files and nested ones.
+    """
+    repo_root = find_repo_root(root_path)
+
+    all_patterns: list[str] = []
+
+    for dirpath, dirnames, filenames in os.walk(repo_root):
+        # Never look inside the .git directory for ignore rules
+        if ".git" in dirnames:
+            dirnames.remove(".git")
+
+        if ".gitignore" not in filenames:
+            continue
+
+        gitignore_file = Path(dirpath) / ".gitignore"
+        base_rel = (
+            str(Path(dirpath).relative_to(repo_root).as_posix())
+            if Path(dirpath) != repo_root
+            else ""
+        )
+
+        with open(gitignore_file, "r") as f:
+            for raw in f:
+                translated = _translate_gitignore_pattern(raw, base_rel)
+                if translated is not None:
+                    all_patterns.append(translated)
+
+    if not all_patterns:
+        return repo_root, None
+
+    spec = PathSpec.from_lines("gitwildmatch", all_patterns)
+    return repo_root, spec
+
+
+def _is_gitignored(path: Path, ignore_root: Path, spec: PathSpec | None) -> bool:
+    """
+    Return True if the given path should be ignored according to the
+    provided PathSpec and root_path.
+    """
+    if spec is None:
+        return False
+
+    try:
+        rel = path.relative_to(ignore_root)
+    except ValueError:
+        rel = path
+
+    rel_str = rel.as_posix()
+    return spec.match_file(rel_str)
+
 def aggregate_metrics(node: Node) -> Metrics:
     if not node.children: return node.metrics
 
@@ -120,72 +217,45 @@ def analyze_single_file(file_path: str):
 def scan_codebase(root_path: Path) -> Node:
     print(f"🔍 Scanning: {root_path}", flush=True)
 
-    files_to_scan = []
-    # Load .gitignore patterns if present
-    gitignore_path = root_path / ".gitignore"
-    gitignore_patterns = []
-    if gitignore_path.is_file():
-        with open(gitignore_path, "r") as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    gitignore_patterns.append(line)
-    
-    for root_dir, dirs, files in os.walk(root_path):
-        # Apply ignore dirs from config and .gitignore (if pattern matches dir)
-        dirs[:] = [d for d in dirs if d not in IGNORE_DIRS and not any(Path(root_dir, d).match(p) for p in gitignore_patterns)]
-        for file in files:
-            if file in IGNORE_FILES: continue
-            if Path(file).suffix in IGNORE_EXTENSIONS: continue
-            file_path = Path(root_dir) / file
-            rel_path = file_path.relative_to(root_path)
-            # Skip if matches any .gitignore pattern
-            if any(rel_path.match(p) for p in gitignore_patterns):
-                # We want to count this as a gitignored file for the parent folder
-                # But we don't have the node structure yet. 
-                # We'll need to store this count and attach it later or build a map.
-                # Simpler approach: return a list of ignored files and process them.
-                # For now, let's just count them in a map keyed by parent dir.
-                continue
-            files_to_scan.append(str(file_path))
+    # Load .gitignore spec (repo-wide, with nested .gitignore support)
+    ignore_root, gitignore_spec = _load_gitignore_spec(root_path)
 
-    # Second pass to count gitignored files per directory to attach to nodes later
-    # This is a bit inefficient to walk again or we could have done it above.
-    # Let's just do a quick walk or modify the above loop to store ignored counts.
-    ignored_counts = {} # path_str -> count
-    
-    for root_dir, dirs, files in os.walk(root_path):
-        # We need to respect the same directory traversal logic to find ignored files in valid dirs
-        # But we already filtered dirs in the previous loop? No, os.walk yields.
-        # Let's just rely on the fact that we can check files again or refactor the loop above.
-        # Refactoring the loop above is better.
-        pass 
-    
-    # REFACTORING THE LOOP ABOVE TO COUNT IGNORED FILES
-    files_to_scan = []
-    ignored_counts = {} # dir_path_str -> count
+    files_to_scan: list[str] = []
+    ignored_counts: dict[str, int] = {}
 
     for root_dir, dirs, files in os.walk(root_path):
+        root_dir_path = Path(root_dir)
+
         # Apply ignore dirs from config and .gitignore
         # We must modify dirs in-place to prune traversal
-        dirs[:] = [d for d in dirs if d not in IGNORE_DIRS and not any(Path(root_dir, d).match(p) for p in gitignore_patterns)]
-        
+        pruned_dirs: list[str] = []
+        for d in dirs:
+            if d in IGNORE_DIRS:
+                continue
+            dir_path = root_dir_path / d
+            if _is_gitignored(dir_path, ignore_root, gitignore_spec):
+                # Entire directory is ignored; we skip traversing into it.
+                continue
+            pruned_dirs.append(d)
+        dirs[:] = pruned_dirs
+
         current_ignored_count = 0
         for file in files:
-            if file in IGNORE_FILES: continue
-            if Path(file).suffix in IGNORE_EXTENSIONS: continue
-            
-            file_path = Path(root_dir) / file
-            rel_path = file_path.relative_to(root_path)
-            
-            if any(rel_path.match(p) for p in gitignore_patterns):
+            if file in IGNORE_FILES:
+                continue
+            if Path(file).suffix in IGNORE_EXTENSIONS:
+                continue
+
+            file_path = root_dir_path / file
+
+            if _is_gitignored(file_path, ignore_root, gitignore_spec):
                 current_ignored_count += 1
                 continue
-                
+
             files_to_scan.append(str(file_path))
-        
+
         if current_ignored_count > 0:
-            ignored_counts[str(root_dir)] = current_ignored_count
+            ignored_counts[str(root_dir_path)] = current_ignored_count
 
     print(f"📂 Analyzing {len(files_to_scan)} source files...", flush=True)
     

@@ -26,11 +26,34 @@ def _open_browser_later(url: str, delay: float = 1.0) -> None:
     thread.start()
 
 
+def _find_repo_root(start_path: str) -> str:
+    """
+    Walk upwards from ``start_path`` to find a Git repository root.
+
+    Returns the first directory that contains a `.git` directory or file.
+    If none is found, the original ``start_path`` is returned.
+    """
+    current = os.path.abspath(start_path)
+
+    while True:
+        git_path = os.path.join(current, ".git")
+        if os.path.exists(git_path):
+            return current
+
+        parent = os.path.dirname(current)
+        if parent == current:
+            # Reached filesystem root; fall back to the original start path.
+            return os.path.abspath(start_path)
+
+        current = parent
+
+
 def main(argv: list[str] | None = None) -> None:
     """
     Entry point for the CLI.
 
-    - Uses the current working directory (or a provided path) as the codebase root.
+    - With no path argument, uses the enclosing Git repo root as the codebase root.
+    - If a path is provided (including "."), uses that as the codebase root.
     - Starts the FastAPI server.
     - Opens the default browser to the app URL.
     """
@@ -38,14 +61,17 @@ def main(argv: list[str] | None = None) -> None:
         prog="srcly",
         description=(
             "Interactive codebase treemap and metrics viewer. "
-            "By default, analyzes the current working directory."
+            "By default, analyzes the enclosing Git repository root."
         ),
     )
     parser.add_argument(
         "path",
         nargs="?",
-        default=".",
-        help="Path to the codebase to analyze (default: current directory).",
+        help=(
+            "Path to the codebase to analyze. "
+            "If omitted, the enclosing Git repo root is used. "
+            'Use "." explicitly to analyze the current directory.'
+        ),
     )
     parser.add_argument(
         "--host",
@@ -61,7 +87,11 @@ def main(argv: list[str] | None = None) -> None:
 
     args = parser.parse_args(argv)
 
-    target_path = os.path.abspath(args.path)
+    if args.path is None:
+        target_path = _find_repo_root(os.getcwd())
+    else:
+        target_path = os.path.abspath(args.path)
+
     if not os.path.exists(target_path):
         raise SystemExit(f"Path does not exist: {target_path}")
 
