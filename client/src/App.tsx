@@ -39,7 +39,7 @@ function App() {
   const [filterQuery, setFilterQuery] = createSignal("");
   const [currentRoot, setCurrentRoot] = createSignal<any>(null);
   const [hiddenPaths, setHiddenPaths] = createSignal<string[]>([]);
-  const [explorerWidth, setExplorerWidth] = createSignal(450);
+  const [explorerWidth, setExplorerWidth] = createSignal(280);
   const [isDragging, setIsDragging] = createSignal(false);
 
   // Reset current root when data changes
