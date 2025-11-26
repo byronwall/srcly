@@ -179,7 +179,25 @@ class TreeSitterAnalyzer:
                 if key:
                     return key.text.decode('utf-8')
                     
-            return "(anonymous)"
+            elif parent and parent.type == 'arguments':
+                grandparent = parent.parent
+                if grandparent:
+                    if grandparent.type == 'call_expression':
+                        func_node = grandparent.child_by_field_name('function')
+                        if func_node:
+                            if func_node.type == 'member_expression':
+                                prop = func_node.child_by_field_name('property')
+                                if prop:
+                                    return f"{prop.text.decode('utf-8')}(ƒ)"
+                            elif func_node.type == 'identifier':
+                                return f"{func_node.text.decode('utf-8')}(ƒ)"
+                    elif grandparent.type == 'new_expression':
+                        constructor = grandparent.child_by_field_name('constructor')
+                        if constructor:
+                            if constructor.type == 'identifier':
+                                return f"{constructor.text.decode('utf-8')}(ƒ)"
+                        
+        return "(anonymous)"
             
         return "(unknown)"
 

@@ -71,16 +71,15 @@ def test_tsx_analysis(tmp_path):
     
     assert metrics.nloc > 0
     
-    # App function and handleClick arrow function
-    assert len(metrics.function_list) >= 2
+    # We expect a single top-level function: App
+    assert len(metrics.function_list) == 1
     
     app_func = next(func for func in metrics.function_list if func.name == "App")
-    # App has handleClick defined inside it.
-    # Our analyzer extracts nested functions as separate entries.
+    # App has handleClick defined inside it, which should appear as a child function.
     # App itself has no control flow (complexity 1).
     assert app_func.cyclomatic_complexity == 1
     
-    handle_click = next(func for func in metrics.function_list if func.name == "handleClick")
+    handle_click = next(func for func in app_func.children if func.name == "handleClick")
     # 1 (base) + 1 (if) = 2
     assert handle_click.cyclomatic_complexity == 2
 
@@ -100,7 +99,7 @@ def test_nested_functions(tmp_path):
     metrics = analyzer.analyze_file(str(f))
     
     outer = next(func for func in metrics.function_list if func.name == "outer")
-    inner = next(func for func in metrics.function_list if func.name == "inner")
+    inner = next(func for func in outer.children if func.name == "inner")
     
     # Outer: 1 (base) + 1 (if) = 2. Should NOT count inner's if.
     assert outer.cyclomatic_complexity == 2

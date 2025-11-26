@@ -94,4 +94,4 @@ def test_tsx_handling(analyzer, tmp_path):
     assert len(component.children) == 1
     # It's an anonymous arrow function or argument to map
     child = component.children[0]
-    assert child.name == "(anonymous)" # Likely anonymous as it's an arg
+    assert child.name == "map(ƒ)" # Updated to use new naming convention
