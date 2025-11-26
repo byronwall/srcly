@@ -352,27 +352,25 @@ export default function Explorer(props: {
 
   const hotSpots = createMemo(() => {
     if (!props.data) return [];
-    // Flatten tree to find leaf nodes (including children of files) with high complexity
-    const leaves: Node[] = [];
+
+    // Flatten tree to collect all nodes (containers and leaves) that have a complexity metric.
+    const nodes: Node[] = [];
     const traverse = (node: Node) => {
-      if (!node.children || node.children.length === 0) {
-        if (node.metrics && typeof node.metrics.complexity === "number") {
-          leaves.push(node);
-        }
-        return;
+      if (node.metrics && typeof node.metrics.complexity === "number") {
+        nodes.push(node);
       }
-      if (node.children) {
+      if (node.children && node.children.length > 0) {
         node.children.forEach(traverse);
       }
     };
     traverse(props.data);
 
-    // Sort by complexity desc
-    return leaves
+    // Sort by complexity desc so we surface the "hottest" spots at every level.
+    return nodes
       .sort(
         (a, b) => (b.metrics?.complexity || 0) - (a.metrics?.complexity || 0)
       )
-      .slice(0, 50); // Top 50
+      .slice(0, 50); // Top 50 across all levels
   });
 
   const [expandAllSignal, setExpandAllSignal] = createSignal<boolean | null>(
