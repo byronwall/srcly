@@ -272,7 +272,7 @@ const HotSpotItem = (props: { node: Node; rank: number }) => {
       </div>
       <div class="flex flex-col items-end gap-0.5 ml-2">
         <div class="text-xs text-red-400 font-mono" title="Complexity">
-          CCN: {props.node.metrics?.complexity}
+          CCN: {props.node.metrics?.complexity.toFixed(2)}
         </div>
         <div class="text-[10px] text-gray-500 font-mono" title="LOC">
           LOC: {props.node.metrics?.loc}
