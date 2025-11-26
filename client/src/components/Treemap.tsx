@@ -30,6 +30,20 @@ export default function Treemap(props: TreemapProps) {
   >("complexity");
   const [showLegend, setShowLegend] = createSignal(false);
 
+  const getContrastingTextColor = (bgColor: string, alpha = 1) => {
+    const base = d3.hsl(bgColor);
+
+    // Drive text toward near-black or near-white while preserving hue for subtle color harmony.
+    // This strongly increases contrast versus the background.
+    const lightBackground = base.l >= 0.5;
+    const targetLightness = lightBackground ? 0.12 : 0.9;
+
+    const textColor = d3.hsl(base.h, base.s * 0.9, targetLightness).rgb();
+    return `rgba(${Math.round(textColor.r)}, ${Math.round(
+      textColor.g
+    )}, ${Math.round(textColor.b)}, ${alpha})`;
+  };
+
   // Color scales
   const complexityColor = d3
     .scaleLinear<string>()
@@ -240,13 +254,15 @@ export default function Treemap(props: TreemapProps) {
       .attr("width", (d) => Math.max(0, d.x1 - d.x0))
       .attr("height", (d) => Math.max(0, d.y1 - d.y0))
       .attr("fill", (d) => {
+        const mode = colorMode();
+
         if (d.data.type === "folder") return "#1e1e1e";
         if (d.data.name === "(misc/imports)") return "#444";
 
-        const mode = colorMode();
         if (mode === "last_modified") {
           return timeColor(d.data.metrics?.last_modified || 0);
-        } else if (mode === "file_type") {
+        }
+        if (mode === "file_type") {
           return getFileTypeColor(d.data.name);
         }
         return complexityColor(d.data.metrics?.complexity || 0);
@@ -299,7 +315,24 @@ export default function Treemap(props: TreemapProps) {
       .text((d) => d.data.name)
       .attr("font-size", "10px")
       .attr("font-size", "10px")
-      .attr("fill", "rgba(255,255,255,0.9)")
+      .attr("fill", (d) =>
+        getContrastingTextColor(
+          (() => {
+            const mode = colorMode();
+
+            if (d.data.type === "folder") return "#1e1e1e";
+            if (d.data.name === "(misc/imports)") return "#444";
+
+            if (mode === "last_modified") {
+              return timeColor(d.data.metrics?.last_modified || 0);
+            }
+            if (mode === "file_type") {
+              return getFileTypeColor(d.data.name);
+            }
+            return complexityColor(d.data.metrics?.complexity || 0);
+          })()
+        )
+      )
       .style("pointer-events", "none");
 
     // Code Chunk Labels (when zoomed in)
@@ -316,8 +349,26 @@ export default function Treemap(props: TreemapProps) {
       .attr("x", 2)
       .attr("y", 10)
       .text((d) => d.data.name)
-      .attr("font-size", "9px")
-      .attr("fill", "rgba(255,255,255,0.7)")
+      .attr("font-size", "11px")
+      .attr("fill", (d) =>
+        getContrastingTextColor(
+          (() => {
+            const mode = colorMode();
+
+            if (d.data.type === "folder") return "#1e1e1e";
+            if (d.data.name === "(misc/imports)") return "#444";
+
+            if (mode === "last_modified") {
+              return timeColor(d.data.metrics?.last_modified || 0);
+            }
+            if (mode === "file_type") {
+              return getFileTypeColor(d.data.name);
+            }
+            return complexityColor(d.data.metrics?.complexity || 0);
+          })(),
+          0.7
+        )
+      )
       .style("pointer-events", "none")
       .style("overflow", "hidden");
 
