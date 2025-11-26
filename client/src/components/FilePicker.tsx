@@ -34,7 +34,10 @@ export default function FilePicker(props: FilePickerProps) {
 
   // Keep local path in sync with an external value when provided.
   createEffect(() => {
-    if (typeof props.externalPath === "string" && props.externalPath !== path()) {
+    if (
+      typeof props.externalPath === "string" &&
+      props.externalPath !== path()
+    ) {
       setPath(props.externalPath);
     }
   });
