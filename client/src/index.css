@@ -62,3 +62,11 @@ body {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
 }
+
+.code-modal-content .shiki .non-focus-line {
+  color: #6b7280 !important; /* gray-500 */
+}
+
+.code-modal-content .shiki .non-focus-line span {
+  color: inherit !important;
+}

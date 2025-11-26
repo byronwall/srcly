@@ -37,6 +37,7 @@ export default function CodeModal(props: CodeModalProps) {
   const [highlightedHtml, setHighlightedHtml] = createSignal<string>("");
   const [rawCode, setRawCode] = createSignal("");
   const [lineFilterEnabled, setLineFilterEnabled] = createSignal(false);
+  const [lineOffset, setLineOffset] = createSignal(4);
   const [displayStartLine, setDisplayStartLine] = createSignal<number | null>(
     null
   );
@@ -65,6 +66,7 @@ export default function CodeModal(props: CodeModalProps) {
     const path = props.filePath;
 
     const useLineFilter = lineFilterEnabled();
+    const offset = lineOffset();
 
     setLoading(true);
     setError(null);
@@ -95,8 +97,11 @@ export default function CodeModal(props: CodeModalProps) {
           typeof props.startLine === "number" &&
           typeof props.endLine === "number"
         ) {
-          const clampedStart = Math.max(1, props.startLine);
-          const clampedEnd = Math.min(lines.length, props.endLine);
+          const safeOffset = Math.max(0, offset);
+          const rawStart = props.startLine - safeOffset;
+          const rawEnd = props.endLine + safeOffset;
+          const clampedStart = Math.max(1, rawStart);
+          const clampedEnd = Math.min(lines.length, rawEnd);
           if (clampedEnd >= clampedStart) {
             start = clampedStart;
             end = clampedEnd;
@@ -113,11 +118,15 @@ export default function CodeModal(props: CodeModalProps) {
           theme: "github-dark",
         });
 
-        // Adjust line numbers so they reflect the actual file line numbers
-        // when we are limiting to a selection. We do this by setting the
-        // CSS counter-reset on the <code> element so that the first rendered
-        // line shows the correct line number.
-        if (useLineFilter && typeof props.startLine === "number") {
+        // When limiting to a selection, adjust line numbers so they reflect the
+        // actual file line numbers by setting the CSS counter-reset on <code>.
+        // Also visually de-emphasize context lines outside the focused range
+        // by forcing them to a single gray color.
+        if (
+          useLineFilter &&
+          typeof props.startLine === "number" &&
+          typeof props.endLine === "number"
+        ) {
           const counterStart = start > 0 ? start - 1 : 0;
           html = html.replace(
             /<code([^>]*)>/,
@@ -132,6 +141,28 @@ export default function CodeModal(props: CodeModalProps) {
               return `<code${attrs} style="counter-reset: line ${counterStart};">`;
             }
           );
+
+          // Grey out lines that are outside the primary selection, while
+          // keeping the selected lines fully highlighted.
+          const focusStartFile = Math.max(start, props.startLine);
+          const focusEndFile = Math.min(end, props.endLine);
+
+          if (focusEndFile >= focusStartFile) {
+            const focusStartIndex = focusStartFile - start + 1;
+            const focusEndIndex = focusEndFile - start + 1;
+            let currentLine = 0;
+
+            html = html.replace(/<span class="line">/g, (match) => {
+              currentLine += 1;
+              if (
+                currentLine < focusStartIndex ||
+                currentLine > focusEndIndex
+              ) {
+                return '<span class="line non-focus-line">';
+              }
+              return match;
+            });
+          }
         }
 
         if (currentId === lastRequestId) {
@@ -238,7 +269,25 @@ export default function CodeModal(props: CodeModalProps) {
                     setLineFilterEnabled(e.currentTarget.checked)
                   }
                 />
-                Limit to selection
+                <span>Limit to selection</span>
+                <span class="ml-2 flex items-center gap-1">
+                  <span>±</span>
+                  <input
+                    type="number"
+                    min="0"
+                    class="w-12 bg-gray-800 border border-gray-600 rounded px-1 text-[11px] text-gray-200"
+                    value={lineOffset()}
+                    onInput={(e) => {
+                      const next = Number(e.currentTarget.value);
+                      if (Number.isNaN(next)) {
+                        setLineOffset(0);
+                      } else {
+                        setLineOffset(Math.max(0, Math.floor(next)));
+                      }
+                    }}
+                  />
+                  <span>lines</span>
+                </span>
               </label>
             </Show>
             <a
