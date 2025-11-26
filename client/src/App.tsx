@@ -163,17 +163,17 @@ function App() {
 
   return (
     <div class="h-screen flex flex-col bg-[#121212] text-white overflow-hidden">
-      <header class="px-4 py-2 border-b border-[#333] flex items-center justify-between bg-[#1e1e1e]">
-        <div class="flex items-center gap-3">
-          <h1 class="text-lg font-bold text-blue-500">Srcly</h1>
-          <div class="max-w-2xl w-full">
+      <header class="px-4 py-2 border-b border-[#333] flex items-center gap-4 bg-[#1e1e1e]">
+        <div class="flex items-center gap-3 flex-1 min-w-0">
+          <h1 class="text-lg font-bold text-blue-500 shrink-0">Srcly</h1>
+          <div class="w-full">
             <FilePickerWithExternal
               onSelect={handleFileSelect}
               externalPath={analysisPath()}
             />
           </div>
         </div>
-        <div class="text-xs text-gray-400">
+        <div class="text-xs text-gray-400 whitespace-nowrap">
           {loading()
             ? "Loading..."
             : visualizationData()

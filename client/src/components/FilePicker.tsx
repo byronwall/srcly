@@ -165,7 +165,7 @@ export default function FilePicker(props: FilePickerProps) {
 
   return (
     <div
-      class="relative w-full max-w-xl"
+      class="relative w-full"
       ref={(el) => {
         containerRef = el ?? undefined;
       }}
@@ -183,9 +183,21 @@ export default function FilePicker(props: FilePickerProps) {
         <button
           type="button"
           onClick={() => setShowRecent((prev) => !prev)}
-          class="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-xs text-gray-200 rounded border border-gray-600 whitespace-nowrap"
+          class="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-xs text-gray-200 rounded border border-gray-600 whitespace-nowrap flex items-center gap-1"
         >
-          Recent
+          <span>Recent</span>
+          <svg
+            class="w-3 h-3 text-gray-400"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.25a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08z"
+              clip-rule="evenodd"
+            />
+          </svg>
         </button>
         <button
           type="button"
