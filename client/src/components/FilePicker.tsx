@@ -13,13 +13,16 @@ interface FileItem {
   type: "file" | "folder";
 }
 
-interface FilePickerProps {
+export interface FilePickerProps {
   onSelect: (path: string) => void;
   initialPath?: string;
+  externalPath?: string;
 }
 
 export default function FilePicker(props: FilePickerProps) {
-  const [path, setPath] = createSignal(props.initialPath || "");
+  const [path, setPath] = createSignal(
+    props.externalPath ?? props.initialPath ?? ""
+  );
   const [suggestions, setSuggestions] = createSignal<FileItem[]>([]);
   const [showSuggestions, setShowSuggestions] = createSignal(false);
   const [loading, setLoading] = createSignal(false);
@@ -28,6 +31,13 @@ export default function FilePicker(props: FilePickerProps) {
   let containerRef: HTMLDivElement | undefined;
 
   const RECENT_PATHS_KEY = "code-steward-recent-paths";
+
+  // Keep local path in sync with an external value when provided.
+  createEffect(() => {
+    if (typeof props.externalPath === "string" && props.externalPath !== path()) {
+      setPath(props.externalPath);
+    }
+  });
 
   const saveRecentPaths = (paths: string[]) => {
     if (typeof window === "undefined") return;

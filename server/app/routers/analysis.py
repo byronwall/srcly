@@ -44,20 +44,18 @@ async def refresh_analysis():
     return tree
 
 
-@router.get("/context")
-async def get_analysis_context():
+def _estimate_counts(root: Path) -> tuple[int, int]:
     """
-    Return basic information about the current analysis root directory.
+    Return an estimated (file_count, folder_count) for a given root directory.
 
-    This is used by the client to offer a one-click "analyze current folder"
-    option on first load.
+    This applies the same ignore rules used during a full analysis to keep the
+    estimate reasonably fast while still informative.
     """
-    root = ROOT_PATH
     file_count = 0
     folder_count = 0
 
     try:
-        for dirpath, dirnames, filenames in os.walk(root):
+        for _, dirnames, filenames in os.walk(root):
             # Apply ignore rules for directories to keep the estimate reasonable
             dirnames[:] = [
                 d for d in dirnames
@@ -70,8 +68,32 @@ async def get_analysis_context():
         file_count = 0
         folder_count = 0
 
+    return file_count, folder_count
+
+
+@router.get("/context")
+async def get_analysis_context():
+    """
+    Return basic information about the current analysis root directory.
+
+    This is used by the client to offer one-click analysis options on first
+    load, for both the current working directory and the repository root.
+    """
+    current_root = ROOT_PATH
+    repo_root = current_root.parent
+
+    current_file_count, current_folder_count = _estimate_counts(current_root)
+
+    repo_file_count = 0
+    repo_folder_count = 0
+    if repo_root.exists():
+        repo_file_count, repo_folder_count = _estimate_counts(repo_root)
+
     return {
-        "root_path": str(root),
-        "file_count": file_count,
-        "folder_count": folder_count,
+        "root_path": str(current_root),
+        "file_count": current_file_count,
+        "folder_count": current_folder_count,
+        "repo_root_path": str(repo_root),
+        "repo_file_count": repo_file_count,
+        "repo_folder_count": repo_folder_count,
     }

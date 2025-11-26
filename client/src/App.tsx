@@ -13,6 +13,18 @@ import FilePicker from "./components/FilePicker";
 import Treemap from "./components/Treemap";
 import { filterTree } from "./utils/dataProcessing";
 
+type AnalysisContext = {
+  rootPath: string;
+  fileCount: number;
+  folderCount: number;
+  repoRootPath?: string;
+  repoFileCount?: number;
+  repoFolderCount?: number;
+};
+
+// Temporary wrapper to allow passing additional props to FilePicker
+const FilePickerWithExternal = FilePicker as any;
+
 function App() {
   const [visualizationData, setVisualizationData] = createSignal<any>(null);
   const [loading, setLoading] = createSignal(false);
@@ -30,17 +42,15 @@ function App() {
     end: number;
   } | null>(null);
   const [isCodeModalOpen, setIsCodeModalOpen] = createSignal(false);
-  const [analysisContext, setAnalysisContext] = createSignal<{
-    rootPath: string;
-    fileCount: number;
-    folderCount: number;
-  } | null>(null);
+  const [analysisContext, setAnalysisContext] =
+    createSignal<AnalysisContext | null>(null);
   const [contextLoading, setContextLoading] = createSignal(false);
   const [filterQuery, setFilterQuery] = createSignal("");
   const [currentRoot, setCurrentRoot] = createSignal<any>(null);
   const [hiddenPaths, setHiddenPaths] = createSignal<string[]>([]);
   const [explorerWidth, setExplorerWidth] = createSignal(280);
   const [isDragging, setIsDragging] = createSignal(false);
+  const [analysisPath, setAnalysisPath] = createSignal("");
 
   // Reset current root when data changes
   createEffect(() => {
@@ -68,6 +78,9 @@ function App() {
           rootPath: data.root_path ?? data.rootPath ?? "",
           fileCount: data.file_count ?? data.fileCount ?? 0,
           folderCount: data.folder_count ?? data.folderCount ?? 0,
+          repoRootPath: data.repo_root_path ?? data.repoRootPath ?? "",
+          repoFileCount: data.repo_file_count ?? data.repoFileCount ?? 0,
+          repoFolderCount: data.repo_folder_count ?? data.repoFolderCount ?? 0,
         });
       }
     } catch (err) {
@@ -154,7 +167,10 @@ function App() {
         <div class="flex items-center gap-3">
           <h1 class="text-lg font-bold text-blue-500">Srcly</h1>
           <div class="max-w-2xl w-full">
-            <FilePicker onSelect={handleFileSelect} />
+            <FilePickerWithExternal
+              onSelect={handleFileSelect}
+              externalPath={analysisPath()}
+            />
           </div>
         </div>
         <div class="text-xs text-gray-400">
@@ -198,22 +214,60 @@ function App() {
                 }
               >
                 {(ctx) => (
-                  <div class="text-center space-y-3">
-                    <p class="text-sm">Analyze the current server folder:</p>
-                    <p class="text-sm font-mono text-gray-300">
-                      {ctx().rootPath || "(unknown)"}
-                    </p>
-                    <p class="text-xs text-gray-400">
-                      Roughly {ctx().fileCount} files and {ctx().folderCount}{" "}
-                      folders will be included.
-                    </p>
-                    <button
-                      type="button"
-                      class="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-sm text-white rounded"
-                      onClick={() => handleFileSelect("")}
-                    >
-                      Analyze this folder
-                    </button>
+                  <div class="text-center space-y-4">
+                    <p class="text-sm">Choose what you want to analyze:</p>
+                    <div class="grid gap-4 sm:grid-cols-2 w-full max-w-xl">
+                      <div class="bg-black/20 border border-[#333] rounded p-3 text-left space-y-2">
+                        <div class="text-[10px] uppercase tracking-wide text-gray-400">
+                          Current directory
+                        </div>
+                        <p class="text-xs font-mono text-gray-200 break-all">
+                          {ctx().rootPath || "(unknown)"}
+                        </p>
+                        <p class="text-[11px] text-gray-400">
+                          Roughly {ctx().fileCount} files and{" "}
+                          {ctx().folderCount} folders will be included.
+                        </p>
+                        <button
+                          type="button"
+                          class="mt-2 w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-xs text-white rounded"
+                          onClick={() => {
+                            const target = ctx().rootPath || "";
+                            setAnalysisPath(target);
+                            void handleFileSelect(target);
+                          }}
+                        >
+                          Analyze current directory
+                        </button>
+                      </div>
+
+                      <Show when={ctx().repoRootPath}>
+                        <div class="bg-black/20 border border-[#333] rounded p-3 text-left space-y-2">
+                          <div class="text-[10px] uppercase tracking-wide text-gray-400">
+                            Repo root
+                          </div>
+                          <p class="text-xs font-mono text-gray-200 break-all">
+                            {ctx().repoRootPath}
+                          </p>
+                          <p class="text-[11px] text-gray-400">
+                            Roughly {ctx().repoFileCount} files and{" "}
+                            {ctx().repoFolderCount} folders will be included.
+                          </p>
+                          <button
+                            type="button"
+                            class="mt-2 w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-xs text-white rounded"
+                            onClick={() => {
+                              const target = ctx().repoRootPath || "";
+                              if (!target) return;
+                              setAnalysisPath(target);
+                              void handleFileSelect(target);
+                            }}
+                          >
+                            Analyze repo root
+                          </button>
+                        </div>
+                      </Show>
+                    </div>
                   </div>
                 )}
               </Show>
