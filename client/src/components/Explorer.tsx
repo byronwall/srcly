@@ -271,6 +271,22 @@ const HotSpotItem = (props: { node: Node; rank: number }) => {
     }
   };
 
+  const displayPath = () => {
+    const fullPath = props.node.path;
+    const [fileOrFolderPath, ...rest] = fullPath.split("::");
+    const rootPath = ctx.rootData?.path;
+
+    let relative = fileOrFolderPath;
+    if (rootPath && fileOrFolderPath.startsWith(rootPath)) {
+      relative = fileOrFolderPath.slice(rootPath.length);
+      if (relative.startsWith("/")) {
+        relative = relative.slice(1);
+      }
+    }
+
+    return rest.length > 0 ? `${relative}::${rest.join("::")}` : relative;
+  };
+
   return (
     <div
       class="flex items-center hover:bg-gray-800 cursor-pointer text-sm py-1 border-b border-gray-800/50 px-2 group"
@@ -282,9 +298,7 @@ const HotSpotItem = (props: { node: Node; rank: number }) => {
           <div class="truncate text-gray-300" title={props.node.name}>
             {props.node.name}
           </div>
-          <div class="text-[10px] text-gray-500 truncate">
-            {props.node.path}
-          </div>
+          <div class="text-[10px] text-gray-500 truncate">{displayPath()}</div>
         </div>
         <button
           class="hidden group-hover:block p-1 bg-blue-900/50 hover:bg-blue-800 text-blue-200 rounded text-xs"
