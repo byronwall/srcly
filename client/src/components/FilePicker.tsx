@@ -33,11 +33,10 @@ export default function FilePicker(props: FilePickerProps) {
   const RECENT_PATHS_KEY = "code-steward-recent-paths";
 
   // Keep local path in sync with an external value when provided.
+  // Only depend on `props.externalPath` so user typing doesn't get
+  // immediately overridden by this effect.
   createEffect(() => {
-    if (
-      typeof props.externalPath === "string" &&
-      props.externalPath !== path()
-    ) {
+    if (typeof props.externalPath === "string") {
       setPath(props.externalPath);
     }
   });
