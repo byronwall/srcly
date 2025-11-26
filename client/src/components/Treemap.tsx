@@ -319,8 +319,36 @@ export default function Treemap(props: TreemapProps) {
       .style("pointer-events", "none")
       .style("overflow", "hidden");
 
-    // Isolate Button (small icon on hover? or just click folder to zoom?)
-    // Click folder to zoom is implemented.
+    // Zoom Icon for nodes with children (folders or files with nested functions)
+    cell
+      .filter((d) => !!d.children && d.x1 - d.x0 > 35 && d.y1 - d.y0 > 35)
+      .append("g")
+      .attr("transform", (d) => `translate(${d.x1 - d.x0 - 20}, 4)`)
+      .style("cursor", "pointer")
+      .on("click", (e, d) => {
+        e.stopPropagation();
+        zoomToNode(d.data);
+      })
+      .call((g) => {
+        // Background
+        g.append("rect")
+          .attr("width", 16)
+          .attr("height", 16)
+          .attr("rx", 4)
+          .attr("fill", "rgba(0, 0, 0, 0.5)")
+          .attr("stroke", "rgba(255, 255, 255, 0.2)")
+          .attr("stroke-width", 1);
+
+        // Icon (Magnifying glass)
+        g.append("path")
+          .attr("d", "M6.5 3.5a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M8.5 8.5l2.5 2.5")
+          .attr("stroke", "white")
+          .attr("stroke-width", 1.5)
+          .attr("fill", "none")
+          .attr("transform", "translate(2, 2)");
+      })
+      .append("title")
+      .text("Zoom In");
   }
 
   function showTooltip(e: MouseEvent, d: d3.HierarchyNode<any>) {
