@@ -217,8 +217,14 @@ export default function CodeModal(props: CodeModalProps) {
 
   return (
     <Show when={props.isOpen && props.filePath}>
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-        <div class="flex h-[80vh] w-[90vw] max-w-5xl flex-col overflow-hidden rounded-lg border border-gray-700 bg-[#1e1e1e] shadow-2xl">
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+        onClick={() => props.onClose()}
+      >
+        <div
+          class="flex h-[80vh] w-[90vw] max-w-5xl flex-col overflow-hidden rounded-lg border border-gray-700 bg-[#1e1e1e] shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
           <header class="flex items-center justify-between border-b border-gray-700 bg-[#252526] px-4 py-2 text-sm">
             <div class="flex min-w-0 flex-col">
               <span class="truncate font-semibold text-gray-100">
