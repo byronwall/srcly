@@ -44,6 +44,52 @@ export default function Treemap(props: TreemapProps) {
     )}, ${Math.round(textColor.b)}, ${alpha})`;
   };
 
+  /**
+   * For each function node, add a synthetic "body" child that represents
+   * the function's own LOC so that nested children do not completely fill
+   * the function's rectangle in the treemap.
+   */
+  const addFunctionBodyDummyNodes = (node: any): any => {
+    if (!node) return node;
+
+    const clone: any = {
+      ...node,
+      // Always clone children array so we never mutate the original data.
+      children: Array.isArray(node.children) ? [...node.children] : [],
+    };
+
+    if (clone.type === "function") {
+      const loc = clone.metrics?.loc || 0;
+      const alreadyHasBodyChild =
+        Array.isArray(clone.children) &&
+        clone.children.some((child: any) => child?.type === "function_body");
+
+      if (loc > 0 && !alreadyHasBodyChild) {
+        const bodyChild = {
+          name: "(body)",
+          path: `${clone.path || clone.name || ""}::(body)`,
+          type: "function_body",
+          metrics: {
+            ...(clone.metrics || {}),
+            loc,
+          },
+          start_line: clone.start_line,
+          end_line: clone.end_line,
+          children: [],
+        };
+        clone.children.push(bodyChild);
+      }
+    }
+
+    if (clone.children && clone.children.length > 0) {
+      clone.children = clone.children.map((child: any) =>
+        addFunctionBodyDummyNodes(child)
+      );
+    }
+
+    return clone;
+  };
+
   // Color scales
   const complexityColor = d3
     .scaleLinear<string>()
@@ -209,15 +255,19 @@ export default function Treemap(props: TreemapProps) {
       return;
     }
 
+    // Add synthetic "body" children to function nodes so their own LOC
+    // is represented as area in the treemap, separate from nested children.
+    const hierarchyInput = addFunctionBodyDummyNodes(filteredData);
+
     const root = d3
-      .hierarchy(filteredData)
+      .hierarchy(hierarchyInput)
       // Only count LOC on leaf nodes so container values are the sum of their leaves
       .sum((d: any) => {
-        if (!d) return 0;
-        if (d.children.length === 0 || d.type === "function")
-          return d.metrics?.loc || 0;
-        // file or folder with children  - will get value automatically from children
-        console.log(d);
+        if (!d || !d.metrics) return 0;
+        const hasChildren = Array.isArray(d.children) && d.children.length > 0;
+        if (!hasChildren) {
+          return d.metrics.loc || 0;
+        }
         return 0;
       })
       .sort((a, b) => (b.value || 0) - (a.value || 0));
