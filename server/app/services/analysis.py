@@ -43,18 +43,26 @@ def attach_file_metrics(node: Node, file_info) -> None:
     # Calculate sum of function LOCs
     func_sum_loc = 0
     
-    for func in file_info.function_list:
-        func_node = create_node(func.name, "function", f"{node.path}::{func.name}")
+    def convert_function(func, parent_path: str) -> Node:
+        func_node = create_node(func.name, "function", f"{parent_path}::{func.name}")
         func_node.metrics.loc = func.nloc
         func_node.metrics.complexity = func.cyclomatic_complexity
         
-        # Set line numbers
         if hasattr(func, 'start_line'):
             func_node.start_line = func.start_line
         if hasattr(func, 'end_line'):
             func_node.end_line = func.end_line
             
-        # Functions don't have children in this model
+        # Process children if they exist (for TS/TSX)
+        if hasattr(func, 'children') and func.children:
+            for child in func.children:
+                child_node = convert_function(child, func_node.path)
+                func_node.children.append(child_node)
+        
+        return func_node
+
+    for func in file_info.function_list:
+        func_node = convert_function(func, node.path)
         node.children.append(func_node)
         func_sum_loc += func.nloc
 

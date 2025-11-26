@@ -14,8 +14,8 @@ class FunctionMetrics:
     nloc: int
     start_line: int
     end_line: int
-    # We can store children indices or something if we wanted true nesting in the future,
-    # but for now we follow the flat list pattern but ensure metrics are correct.
+    children: List["FunctionMetrics"] = field(default_factory=list)
+    # We store children to represent nested functions.
 
 @dataclass
 class FileMetrics:
@@ -56,13 +56,6 @@ class TreeSitterAnalyzer:
         )
 
     def _extract_functions(self, root_node: Node, content: bytes) -> List[FunctionMetrics]:
-        functions = []
-        
-        # We need to traverse the tree and find function-like nodes.
-        # We also need to handle nesting.
-        # Strategy: Find all function nodes. For each function node, calculate complexity
-        # by traversing its body BUT stopping at nested function boundaries.
-        
         function_types = {
             'function_declaration',
             'method_definition',
@@ -72,23 +65,21 @@ class TreeSitterAnalyzer:
             'generator_function_declaration'
         }
         
-        # Find all function nodes first
-        cursor = root_node.walk()
-        
-        # We'll use a recursive approach to find functions, but for complexity we'll be careful.
-        # Actually, we can just walk the whole tree to find functions.
-        
-        def find_funcs(node: Node):
-            if node.type in function_types:
-                # Calculate metrics for this function
-                metrics = self._calculate_function_metrics(node)
-                functions.append(metrics)
-                
+        def process_node(node: Node) -> List[FunctionMetrics]:
+            results = []
+            # Iterate over children to find functions or recurse
             for child in node.children:
-                find_funcs(child)
-                
-        find_funcs(root_node)
-        return functions
+                if child.type in function_types:
+                    metrics = self._calculate_function_metrics(child)
+                    # Recursively find nested functions inside this function
+                    metrics.children = process_node(child)
+                    results.append(metrics)
+                else:
+                    # Not a function, but might contain functions (e.g. Class, Block, IfStatement)
+                    results.extend(process_node(child))
+            return results
+
+        return process_node(root_node)
 
     def _calculate_function_metrics(self, func_node: Node) -> FunctionMetrics:
         name = self._get_function_name(func_node)
