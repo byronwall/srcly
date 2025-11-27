@@ -126,24 +126,6 @@ export default function Treemap(props: TreemapProps) {
     .range(["#569cd6", "#dcdcaa", "#ce9178"])
     .clamp(true);
 
-  const timeColor = d3
-    .scaleLinear<string>()
-    .domain([Date.now() / 1000 - 30 * 24 * 3600, Date.now() / 1000]) // 30 days ago to now
-    .range(["#555", "#4caf50"])
-    .clamp(true);
-
-  const fileTypeColors: Record<string, string> = {
-    ts: "#3178c6",
-    tsx: "#3178c6",
-    js: "#f1e05a",
-    jsx: "#f1e05a",
-    css: "#563d7c",
-    json: "#40d47e",
-    py: "#3572A5",
-    md: "#083fa1",
-    html: "#e34c26",
-  };
-
   const commentDensityColor = d3
     .scaleLinear<string>()
     .domain([0, 0.2, 0.5])
@@ -161,11 +143,6 @@ export default function Treemap(props: TreemapProps) {
     .domain([0, 1, 5])
     .range(["#f1f8e9", "#aed581", "#33691e"]) // Green gradient (or maybe orange?)
     .clamp(true);
-
-  const getFileTypeColor = (name: string) => {
-    const ext = name.split(".").pop()?.toLowerCase() || "";
-    return fileTypeColors[ext] || "#888";
-  };
 
   // Initialize current root when data loads or updates
   createEffect(() => {
