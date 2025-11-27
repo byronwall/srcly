@@ -8,6 +8,11 @@ import {
   createEffect,
 } from "solid-js";
 import { extractFilePath } from "../utils/dataProcessing";
+import {
+  HOTSPOT_METRICS,
+  type HotSpotMetricId,
+  useMetricsStore,
+} from "../utils/metricsStore";
 
 interface Node {
   name: string;
@@ -66,63 +71,6 @@ type SortField =
   | "tsx_hardcoded_string_volume"
   | "tsx_duplicated_string_count";
 type SortDirection = "asc" | "desc";
-
-type HotSpotMetricDef = {
-  id: string;
-  label: string;
-  invert?: boolean;
-  color: string;
-};
-
-const HOTSPOT_METRICS: HotSpotMetricDef[] = [
-  { id: "complexity", label: "Complexity", color: "text-red-400" },
-  { id: "loc", label: "LOC", color: "text-blue-400" },
-  { id: "file_size", label: "Size", color: "text-purple-400" },
-  {
-    id: "comment_density",
-    label: "Low Comments",
-    invert: true,
-    color: "text-orange-400",
-  },
-  { id: "todo_count", label: "TODOs", color: "text-yellow-400" },
-  { id: "max_nesting_depth", label: "Nesting", color: "text-pink-400" },
-  { id: "parameter_count", label: "Params", color: "text-green-400" },
-  // TS/TSX-specific hot spot metrics
-  { id: "tsx_nesting_depth", label: "TSX Nesting", color: "text-teal-400" },
-  {
-    id: "tsx_render_branching_count",
-    label: "Render Branches",
-    color: "text-indigo-400",
-  },
-  {
-    id: "tsx_react_use_effect_count",
-    label: "useEffect",
-    color: "text-lime-400",
-  },
-  {
-    id: "tsx_anonymous_handler_count",
-    label: "Inline Handlers",
-    color: "text-amber-400",
-  },
-  { id: "tsx_prop_count", label: "Props", color: "text-sky-400" },
-  { id: "ts_any_usage_count", label: "any Usage", color: "text-red-500" },
-  { id: "ts_ignore_count", label: "TS Ignores", color: "text-red-300" },
-  {
-    id: "ts_import_coupling_count",
-    label: "TS Imports",
-    color: "text-purple-300",
-  },
-  {
-    id: "tsx_hardcoded_string_volume",
-    label: "Hardcoded Text",
-    color: "text-orange-300",
-  },
-  {
-    id: "tsx_duplicated_string_count",
-    label: "Dup Text",
-    color: "text-pink-300",
-  },
-];
 
 interface ExplorerContextType {
   sortField: () => SortField;
@@ -495,9 +443,8 @@ export default function Explorer(props: {
   const [sortDirection, setSortDirection] = createSignal<SortDirection>("desc");
   const [viewMode, setViewMode] = createSignal<"tree" | "hotspots">("tree");
   const [showColumnPicker, setShowColumnPicker] = createSignal(false);
-  const [selectedHotSpotMetrics, setSelectedHotSpotMetrics] = createSignal<
-    string[]
-  >(["complexity"]);
+  const { selectedHotSpotMetrics, setSelectedHotSpotMetrics } =
+    useMetricsStore();
   const [visibleColumns, setVisibleColumns] = createSignal<string[]>([
     "loc",
     "complexity",
@@ -595,7 +542,7 @@ export default function Explorer(props: {
       .slice(0, 50);
   });
 
-  const toggleHotSpotMetric = (metricId: string) => {
+  const toggleHotSpotMetric = (metricId: HotSpotMetricId) => {
     const current = selectedHotSpotMetrics();
     if (current.includes(metricId)) {
       // Don't allow deselecting the last one

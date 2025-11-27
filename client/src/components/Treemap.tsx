@@ -8,6 +8,7 @@ import {
 } from "solid-js";
 import * as d3 from "d3";
 import { extractFilePath, filterByExtension } from "../utils/dataProcessing";
+import { HOTSPOT_METRICS, useMetricsStore } from "../utils/metricsStore";
 
 interface TreemapProps {
   data: any;
@@ -25,16 +26,12 @@ export default function Treemap(props: TreemapProps) {
   const [currentRoot, setCurrentRoot] = createSignal<any>(null);
   const [breadcrumbs, setBreadcrumbs] = createSignal<any[]>([]);
   const [activeExtensions, setActiveExtensions] = createSignal<string[]>([]);
-  const [colorMode, setColorMode] = createSignal<
-    | "complexity"
-    | "last_modified"
-    | "file_type"
-    | "comment_density"
-    | "max_nesting_depth"
-    | "todo_count"
-  >("complexity");
+  const { selectedHotSpotMetrics, setSelectedHotSpotMetrics } =
+    useMetricsStore();
+  const primaryMetric = () => selectedHotSpotMetrics()[0] || "complexity";
   const [showLegend, setShowLegend] = createSignal(false);
   const [isIsolateMode, setIsIsolateMode] = createSignal(false);
+  const [showMetricPopover, setShowMetricPopover] = createSignal(false);
 
   // Handle key modifiers for isolate mode
   onMount(() => {
@@ -367,27 +364,38 @@ export default function Treemap(props: TreemapProps) {
       .attr("width", (d) => Math.max(0, d.x1 - d.x0))
       .attr("height", (d) => Math.max(0, d.y1 - d.y0))
       .attr("fill", (d) => {
-        const mode = colorMode();
-
         if (d.data.type === "folder") return "#1e1e1e";
         if (d.data.name === "(misc/imports)") return "#444";
 
-        if (mode === "last_modified") {
-          return timeColor(d.data.metrics?.last_modified || 0);
+        const metricId = primaryMetric();
+        const metrics = d.data.metrics || {};
+        let rawVal = (metrics as any)[metricId] ?? 0;
+
+        const def = HOTSPOT_METRICS.find((m) => m.id === metricId);
+        if (def?.invert) {
+          rawVal = 1 - (rawVal || 0);
         }
-        if (mode === "file_type") {
-          return getFileTypeColor(d.data.name);
+
+        if (!isFinite(rawVal) || rawVal < 0) rawVal = 0;
+
+        // Map normalized-ish score into complexity-like palette.
+        // We don't know global max here, so we clamp a few reasonable breakpoints.
+        const scaled =
+          typeof rawVal === "number"
+            ? Math.min(rawVal, 50)
+            : Number(rawVal) || 0;
+
+        if (metricId === "comment_density") {
+          return commentDensityColor(metrics.comment_density || 0);
         }
-        if (mode === "comment_density") {
-          return commentDensityColor(d.data.metrics?.comment_density || 0);
+        if (metricId === "max_nesting_depth") {
+          return nestingDepthColor(metrics.max_nesting_depth || 0);
         }
-        if (mode === "max_nesting_depth") {
-          return nestingDepthColor(d.data.metrics?.max_nesting_depth || 0);
+        if (metricId === "todo_count") {
+          return todoCountColor(metrics.todo_count || 0);
         }
-        if (mode === "todo_count") {
-          return todoCountColor(d.data.metrics?.todo_count || 0);
-        }
-        return complexityColor(d.data.metrics?.complexity || 0);
+
+        return complexityColor(scaled);
       })
       .attr("stroke", (d) => {
         // Only highlight files (not folders) that are large
@@ -452,27 +460,22 @@ export default function Treemap(props: TreemapProps) {
       .attr("fill", (d) =>
         getContrastingTextColor(
           (() => {
-            const mode = colorMode();
-
             if (d.data.type === "folder") return "#1e1e1e";
             if (d.data.name === "(misc/imports)") return "#444";
 
-            if (mode === "last_modified") {
-              return timeColor(d.data.metrics?.last_modified || 0);
+            const metricId = primaryMetric();
+            const metrics = d.data.metrics || {};
+
+            if (metricId === "comment_density") {
+              return commentDensityColor(metrics.comment_density || 0);
             }
-            if (mode === "file_type") {
-              return getFileTypeColor(d.data.name);
+            if (metricId === "max_nesting_depth") {
+              return nestingDepthColor(metrics.max_nesting_depth || 0);
             }
-            if (mode === "comment_density") {
-              return commentDensityColor(d.data.metrics?.comment_density || 0);
+            if (metricId === "todo_count") {
+              return todoCountColor(metrics.todo_count || 0);
             }
-            if (mode === "max_nesting_depth") {
-              return nestingDepthColor(d.data.metrics?.max_nesting_depth || 0);
-            }
-            if (mode === "todo_count") {
-              return todoCountColor(d.data.metrics?.todo_count || 0);
-            }
-            return complexityColor(d.data.metrics?.complexity || 0);
+            return complexityColor(metrics[metricId] || 0);
           })()
         )
       )
@@ -496,27 +499,22 @@ export default function Treemap(props: TreemapProps) {
       .attr("fill", (d) =>
         getContrastingTextColor(
           (() => {
-            const mode = colorMode();
-
             if (d.data.type === "folder") return "#1e1e1e";
             if (d.data.name === "(misc/imports)") return "#444";
 
-            if (mode === "last_modified") {
-              return timeColor(d.data.metrics?.last_modified || 0);
+            const metricId = primaryMetric();
+            const metrics = d.data.metrics || {};
+
+            if (metricId === "comment_density") {
+              return commentDensityColor(metrics.comment_density || 0);
             }
-            if (mode === "file_type") {
-              return getFileTypeColor(d.data.name);
+            if (metricId === "max_nesting_depth") {
+              return nestingDepthColor(metrics.max_nesting_depth || 0);
             }
-            if (mode === "comment_density") {
-              return commentDensityColor(d.data.metrics?.comment_density || 0);
+            if (metricId === "todo_count") {
+              return todoCountColor(metrics.todo_count || 0);
             }
-            if (mode === "max_nesting_depth") {
-              return nestingDepthColor(d.data.metrics?.max_nesting_depth || 0);
-            }
-            if (mode === "todo_count") {
-              return todoCountColor(d.data.metrics?.todo_count || 0);
-            }
-            return complexityColor(d.data.metrics?.complexity || 0);
+            return complexityColor(metrics[metricId] || 0);
           })(),
           0.7
         )
@@ -605,142 +603,96 @@ export default function Treemap(props: TreemapProps) {
           </For>
         </div>
 
-        {/* Color Mode */}
+        {/* Color Metric (linked to Hot Spot metrics) */}
         <div class="flex items-center gap-1 ml-4 relative">
-          <span
+          <button
             class="text-xs text-gray-500 mr-2 uppercase tracking-wider cursor-help hover:text-gray-300 border-b border-dotted border-gray-600"
             onMouseEnter={() => setShowLegend(true)}
             onMouseLeave={() => setShowLegend(false)}
           >
             Color:
-          </span>
-          <select
-            class="bg-[#252526] border border-[#3e3e42] text-gray-400 text-xs rounded px-1 py-0.5 outline-none"
-            value={colorMode()}
-            onChange={(e) => setColorMode(e.currentTarget.value as any)}
+          </button>
+          <button
+            type="button"
+            class="bg-[#252526] border border-[#3e3e42] text-gray-400 text-xs rounded px-2 py-0.5 outline-none flex items-center gap-1 hover:border-blue-500 hover:text-blue-200"
+            onClick={() => setShowMetricPopover(!showMetricPopover())}
           >
-            <option value="complexity">Complexity</option>
-            <option value="last_modified">Last Edited</option>
-            <option value="file_type">File Type</option>
-            <option value="comment_density">Comment Density</option>
-            <option value="max_nesting_depth">Nesting Depth</option>
-            <option value="todo_count">TODO Count</option>
-          </select>
+            <span class="truncate max-w-[140px]">
+              {HOTSPOT_METRICS.find((m) => m.id === primaryMetric())?.label ??
+                "Select metric"}
+            </span>
+            <span class="text-[9px]">▼</span>
+          </button>
+          <Show when={showMetricPopover()}>
+            <div class="absolute right-0 top-7 mt-1 bg-[#252526] border border-[#3e3e42] rounded shadow-xl z-50 p-2 w-56">
+              <div class="text-xs font-bold text-gray-400 mb-2">
+                Hot Spot Metrics
+              </div>
+              <div class="max-h-64 overflow-y-auto space-y-1">
+                <For each={HOTSPOT_METRICS}>
+                  {(metric) => {
+                    const isSelected = () =>
+                      selectedHotSpotMetrics().includes(metric.id);
+                    const toggleMetric = () => {
+                      const current = selectedHotSpotMetrics();
+                      if (isSelected()) {
+                        if (current.length > 1) {
+                          setSelectedHotSpotMetrics(
+                            current.filter((m) => m !== metric.id)
+                          );
+                        }
+                      } else {
+                        setSelectedHotSpotMetrics([...current, metric.id]);
+                      }
+                    };
+                    return (
+                      <button
+                        type="button"
+                        class={`w-full flex items-center justify-between text-left text-[11px] px-2 py-1 rounded ${
+                          isSelected()
+                            ? "bg-blue-900/60 text-blue-100"
+                            : "text-gray-300 hover:bg-[#333]"
+                        }`}
+                        onClick={toggleMetric}
+                      >
+                        <span>{metric.label}</span>
+                        <span
+                          class={`ml-2 text-[10px] ${
+                            isSelected() ? metric.color : "text-gray-500"
+                          }`}
+                        >
+                          {isSelected() ? "●" : "○"}
+                        </span>
+                      </button>
+                    );
+                  }}
+                </For>
+              </div>
+            </div>
+          </Show>
         </div>
 
         {/* Legend Tooltip */}
         <Show when={showLegend()}>
           <div class="absolute top-10 right-4 z-50 bg-[#252526] border border-[#3e3e42] p-3 rounded shadow-xl text-xs w-64">
             <div class="font-bold mb-2 text-gray-300 border-b border-[#3e3e42] pb-1">
-              {colorMode() === "complexity" && "Cyclomatic Complexity"}
-              {colorMode() === "last_modified" && "Last Modified"}
-              {colorMode() === "file_type" && "File Types"}
-              {colorMode() === "comment_density" && "Comment Density"}
-              {colorMode() === "max_nesting_depth" && "Max Nesting Depth"}
-              {colorMode() === "todo_count" && "TODO Count"}
+              {HOTSPOT_METRICS.find((m) => m.id === primaryMetric())?.label ||
+                "Metric"}
             </div>
-
-            <Show when={colorMode() === "complexity"}>
-              <div class="space-y-1">
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-[#569cd6]"></div>{" "}
-                  <span>Low (0-10)</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-[#dcdcaa]"></div>{" "}
-                  <span>Medium (10-50)</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-[#ce9178]"></div>{" "}
-                  <span>High (&gt;50)</span>
-                </div>
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 bg-[#569cd6]"></div>
+                <span>Lower score</span>
               </div>
-            </Show>
-
-            <Show when={colorMode() === "last_modified"}>
-              <div class="space-y-1">
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-[#4caf50]"></div>{" "}
-                  <span>Recent (&lt; 1 day)</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-[#555]"></div>{" "}
-                  <span>Old (&gt; 30 days)</span>
-                </div>
-                <div class="text-[10px] text-gray-500 mt-1">
-                  Gradient from green to grey
-                </div>
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 bg-[#dcdcaa]"></div>
+                <span>Medium score</span>
               </div>
-            </Show>
-
-            <Show when={colorMode() === "file_type"}>
-              <div class="grid grid-cols-2 gap-1">
-                <For each={Object.entries(fileTypeColors)}>
-                  {([ext, color]) => (
-                    <div class="flex items-center gap-2">
-                      <div
-                        class="w-3 h-3"
-                        style={{ "background-color": color }}
-                      ></div>
-                      <span>.{ext}</span>
-                    </div>
-                  )}
-                </For>
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-[#888]"></div>
-                  <span>other</span>
-                </div>
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 bg-[#ce9178]"></div>
+                <span>Higher score</span>
               </div>
-            </Show>
-
-            <Show when={colorMode() === "comment_density"}>
-              <div class="space-y-1">
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-[#ffcccc]"></div> <span>Low (0%)</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-[#ff9999]"></div>{" "}
-                  <span>Medium (20%)</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-[#ff0000]"></div>{" "}
-                  <span>High (&gt;50%)</span>
-                </div>
-              </div>
-            </Show>
-
-            <Show when={colorMode() === "max_nesting_depth"}>
-              <div class="space-y-1">
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-[#e0f7fa]"></div>{" "}
-                  <span>Low (0-3)</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-[#4dd0e1]"></div>{" "}
-                  <span>Medium (3-8)</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-[#006064]"></div>{" "}
-                  <span>High (&gt;8)</span>
-                </div>
-              </div>
-            </Show>
-
-            <Show when={colorMode() === "todo_count"}>
-              <div class="space-y-1">
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-[#f1f8e9]"></div> <span>None (0)</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-[#aed581]"></div>{" "}
-                  <span>Some (1-5)</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-[#33691e]"></div>{" "}
-                  <span>Many (&gt;5)</span>
-                </div>
-              </div>
-            </Show>
+            </div>
           </div>
         </Show>
       </div>

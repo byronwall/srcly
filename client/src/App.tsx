@@ -12,6 +12,7 @@ import Explorer from "./components/Explorer";
 import FilePicker from "./components/FilePicker";
 import Treemap from "./components/Treemap";
 import { filterTree } from "./utils/dataProcessing";
+import { MetricsStoreProvider } from "./utils/metricsStore";
 
 type AnalysisContext = {
   rootPath: string;
@@ -162,7 +163,8 @@ function App() {
   });
 
   return (
-    <div class="h-screen flex flex-col bg-[#121212] text-white overflow-hidden">
+    <MetricsStoreProvider>
+      <div class="h-screen flex flex-col bg-[#121212] text-white overflow-hidden">
       <header class="px-4 py-2 border-b border-[#333] flex items-center gap-4 bg-[#1e1e1e]">
         <div class="flex items-center gap-3 flex-1 min-w-0">
           <h1 class="text-lg font-bold text-blue-500 shrink-0">Srcly</h1>
@@ -182,7 +184,7 @@ function App() {
         </div>
       </header>
 
-      <main class="flex-1 relative overflow-hidden flex">
+        <main class="flex-1 relative overflow-hidden flex">
         <Show when={error()}>
           <div class="absolute inset-0 flex items-center justify-center z-50 bg-black/50">
             <div class="bg-red-900/80 p-6 rounded text-white border border-red-700">
@@ -318,18 +320,19 @@ function App() {
             </div>
           </div>
         </Show>
-      </main>
-      <Show when={showToast()}>
-        <Toast message={toastMessage()} type={toastType()} duration={4000} />
-      </Show>
-      <CodeModal
-        isOpen={isCodeModalOpen()}
-        filePath={selectedFilePath()}
-        startLine={selectedLineRange()?.start ?? null}
-        endLine={selectedLineRange()?.end ?? null}
-        onClose={() => setIsCodeModalOpen(false)}
-      />
-    </div>
+        </main>
+        <Show when={showToast()}>
+          <Toast message={toastMessage()} type={toastType()} duration={4000} />
+        </Show>
+        <CodeModal
+          isOpen={isCodeModalOpen()}
+          filePath={selectedFilePath()}
+          startLine={selectedLineRange()?.start ?? null}
+          endLine={selectedLineRange()?.end ?? null}
+          onClose={() => setIsCodeModalOpen(false)}
+        />
+      </div>
+    </MetricsStoreProvider>
   );
 }
 
