@@ -179,6 +179,33 @@ class TreeSitterAnalyzer:
                 if key:
                     return key.text.decode('utf-8')
 
+            # TSX / JSX: function used as a JSX attribute value, e.g.
+            # <input onFocus={(e) => { ... }} />
+            # The arrow/function expression may be wrapped in nodes like
+            # 'parenthesized_expression' and 'jsx_expression' whose ancestor
+            # is a 'jsx_attribute' node. Walk up the tree and, if we find such
+            # an attribute, use its name.
+            current = node
+            hops = 0
+            while current is not None and hops < 10:
+                if current.type == 'jsx_attribute':
+                    # Prefer a dedicated 'name' field if present, otherwise fall back to
+                    # the first identifier-like child (e.g. 'property_identifier').
+                    name_node = current.child_by_field_name('name')
+                    if name_node is None:
+                        for c in current.children:
+                            if c.type in {"property_identifier", "identifier", "jsx_identifier"}:
+                                name_node = c
+                                break
+
+                    if name_node:
+                        return name_node.text.decode('utf-8')
+                    break
+                if current.type in {'program', 'statement_block'}:
+                    break
+                current = current.parent
+                hops += 1
+
             # Anonymous function passed as an argument: foo.bar(() => {}) -> bar(ƒ)
             if parent and parent.type == 'arguments':
                 grandparent = parent.parent
@@ -208,8 +235,6 @@ class TreeSitterAnalyzer:
                         return "IIFE(ƒ)"
 
         return "(anonymous)"
-            
-        return "(unknown)"
 
     def _calculate_complexity(self, node: Node) -> int:
         complexity = 1

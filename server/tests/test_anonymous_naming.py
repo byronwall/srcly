@@ -65,3 +65,36 @@ def test_anonymous_function_naming(analyzer, tmp_path):
     
     # Case 6: (() => { ... })() -> IIFE(ƒ)
     assert "IIFE(ƒ)" in names
+
+
+def test_tsx_attribute_function_naming(analyzer, tmp_path):
+    content = """
+    import React from 'react';
+
+    function App() {
+        return (
+            <input
+                onFocus={(e) => {
+                    if (window.innerWidth > 1024) {
+                        e.target.select();
+                    }
+                }}
+            />
+        );
+    }
+    """
+
+    test_file = tmp_path / "test_naming_tsx.tsx"
+    test_file.write_text(content, encoding="utf-8")
+
+    metrics = analyzer.analyze_file(str(test_file))
+
+    # In this simple example, we expect one top-level function: App
+    assert len(metrics.function_list) == 1
+
+    app_func = metrics.function_list[0]
+    children = app_func.children
+
+    # We expect a single child function for the onFocus handler
+    assert len(children) == 1
+    assert children[0].name == "onFocus"
