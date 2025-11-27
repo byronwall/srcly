@@ -99,6 +99,51 @@ def test_tsx_attribute_function_naming(analyzer, tmp_path):
     assert len(children) == 1
     assert children[0].name == "onFocus"
 
+
+def test_tsx_nested_attribute_handler_naming(analyzer, tmp_path):
+    content = """
+    import { createSignal } from 'solid-js';
+
+    function App() {
+        const [value, setValue] = createSignal('');
+
+        return (
+            <input
+                value={value()}
+                onChange={() =>
+                    run((ch) => {
+                        // TODO:AS_ANY, table chain commands come from table extension
+                        (ch as unknown as any).addColumnAfter();
+                        return ch;
+                    })
+                }
+            />
+        );
+    }
+    """
+
+    test_file = tmp_path / "test_nested_handler.tsx"
+    test_file.write_text(content, encoding="utf-8")
+
+    metrics = analyzer.analyze_file(str(test_file))
+
+    # One top-level component function: App
+    assert len(metrics.function_list) == 1
+    app_func = metrics.function_list[0]
+    assert app_func.name == "App"
+
+    # The first child should be the onChange handler
+    assert len(app_func.children) == 1
+    on_change = app_func.children[0]
+    assert on_change.name == "onChange"
+
+    # And its child should be the inner callback passed to run
+    assert len(on_change.children) == 1
+    inner = on_change.children[0]
+    # Currently this incorrectly comes back as "onChange"
+    # We want it to be named after the called function.
+    assert inner.name == "run(ƒ)"
+
 def test_tsx_component_child_naming(analyzer, tmp_path):
     content = """
     import { Show, For } from 'solid-js';

@@ -229,9 +229,19 @@ class TreeSitterAnalyzer:
             # The arrow/function expression may be wrapped in nodes like
             # 'parenthesized_expression' and 'jsx_expression' whose ancestor
             # is a 'jsx_attribute' node. Walk up the tree and, if we find such
-            # an attribute, use its name.
+            # an attribute, use its name – but **do not** cross another
+            # function boundary so that nested callbacks inside the handler
+            # body don't also inherit the JSX attribute name.
             current = node
             hops = 0
+            function_boundary_types = {
+                'function_declaration',
+                'method_definition',
+                'arrow_function',
+                'function_expression',
+                'generator_function',
+                'generator_function_declaration',
+            }
             while current is not None and hops < 10:
                 if current.type == 'jsx_attribute':
                     # Prefer a dedicated 'name' field if present, otherwise fall back to
@@ -242,10 +252,17 @@ class TreeSitterAnalyzer:
                             if c.type in {"property_identifier", "identifier", "jsx_identifier"}:
                                 name_node = c
                                 break
-
+                    
                     if name_node:
                         return name_node.text.decode('utf-8')
                     break
+
+                # Stop climbing once we leave the *current* function. This
+                # prevents inner callbacks like `run((ch) => { ... })` from
+                # being named after the outer JSX attribute such as `onChange`.
+                if current is not node and current.type in function_boundary_types:
+                    break
+
                 if current.type in {'program', 'statement_block'}:
                     break
                 current = current.parent
