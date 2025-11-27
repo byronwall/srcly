@@ -549,15 +549,28 @@ export default function Explorer(props: {
       .slice(0, 50);
   });
 
-  const toggleHotSpotMetric = (metricId: HotSpotMetricId) => {
+  const [isHotspotMultiSelectMode, setIsHotspotMultiSelectMode] =
+    createSignal(false);
+
+  const handleHotSpotMetricClick = (
+    e: MouseEvent,
+    metricId: HotSpotMetricId
+  ) => {
+    const isMulti = e.shiftKey || e.metaKey || e.ctrlKey;
     const current = selectedHotSpotMetrics();
-    if (current.includes(metricId)) {
-      // Don't allow deselecting the last one
-      if (current.length > 1) {
-        setSelectedHotSpotMetrics(current.filter((m) => m !== metricId));
+
+    if (isMulti) {
+      if (current.includes(metricId)) {
+        // Don't allow deselecting the last one
+        if (current.length > 1) {
+          setSelectedHotSpotMetrics(current.filter((m) => m !== metricId));
+        }
+      } else {
+        setSelectedHotSpotMetrics([...current, metricId]);
       }
     } else {
-      setSelectedHotSpotMetrics([...current, metricId]);
+      // Default behavior: pick a new single metric
+      setSelectedHotSpotMetrics([metricId]);
     }
   };
 
@@ -824,16 +837,26 @@ export default function Explorer(props: {
         </Show>
 
         <Show when={viewMode() === "hotspots"}>
-          <div class="p-2 border-b border-[#333] flex flex-wrap gap-1 bg-[#252526]">
+          <div
+            class="p-2 border-b border-[#333] flex flex-wrap gap-1 bg-[#252526]"
+            onMouseMove={(e) =>
+              setIsHotspotMultiSelectMode(e.shiftKey || e.metaKey || e.ctrlKey)
+            }
+            onMouseLeave={() => setIsHotspotMultiSelectMode(false)}
+          >
             <For each={HOTSPOT_METRICS}>
               {(metric) => (
                 <button
                   class={`px-2 py-0.5 text-[10px] rounded border transition-colors ${
+                    isHotspotMultiSelectMode()
+                      ? "cursor-copy"
+                      : "cursor-pointer"
+                  } ${
                     selectedHotSpotMetrics().includes(metric.id)
                       ? "bg-red-900/50 border-red-700 text-red-200"
                       : "bg-[#1e1e1e] border-[#333] text-gray-400 hover:border-gray-500 hover:text-gray-300"
                   }`}
-                  onClick={() => toggleHotSpotMetric(metric.id)}
+                  onClick={(e) => handleHotSpotMetricClick(e, metric.id)}
                 >
                   {metric.label}
                 </button>
