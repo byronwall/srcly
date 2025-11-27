@@ -26,9 +26,37 @@ export default function Treemap(props: TreemapProps) {
   const [breadcrumbs, setBreadcrumbs] = createSignal<any[]>([]);
   const [activeExtensions, setActiveExtensions] = createSignal<string[]>([]);
   const [colorMode, setColorMode] = createSignal<
-    "complexity" | "last_modified" | "file_type" | "comment_density" | "max_nesting_depth" | "todo_count"
+    | "complexity"
+    | "last_modified"
+    | "file_type"
+    | "comment_density"
+    | "max_nesting_depth"
+    | "todo_count"
   >("complexity");
   const [showLegend, setShowLegend] = createSignal(false);
+  const [isIsolateMode, setIsIsolateMode] = createSignal(false);
+
+  // Handle key modifiers for isolate mode
+  onMount(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Meta" || e.key === "Control") {
+        setIsIsolateMode(true);
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "Meta" || e.key === "Control") {
+        setIsIsolateMode(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    onCleanup(() => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    });
+  });
 
   const getContrastingTextColor = (bgColor: string, alpha = 1) => {
     const base = d3.hsl(bgColor);
@@ -185,10 +213,21 @@ export default function Treemap(props: TreemapProps) {
     }
   };
 
-  function handleHierarchyClick(d: d3.HierarchyNode<any>) {
+  function handleHierarchyClick(d: d3.HierarchyNode<any>, event: MouseEvent) {
+    // Check for modifier keys (CMD on Mac, CTRL on Windows/Linux)
+    const isModifierPressed = event.metaKey || event.ctrlKey;
+
+    if (isModifierPressed) {
+      // Isolate mode: Zoom into the node
+      if (props.onZoom) props.onZoom(d.data);
+      else zoomToNode(d.data);
+      return;
+    }
+
     if (!props.onFileSelect) return;
 
-    // If it's a folder, zoom in (isolate)
+    // Default behavior:
+    // If it's a folder, zoom in
     if (d.data.type === "folder") {
       if (props.onZoom) props.onZoom(d.data);
       else zoomToNode(d.data);
@@ -323,7 +362,7 @@ export default function Treemap(props: TreemapProps) {
       .attr("transform", (d) => `translate(${d.x0},${d.y0})`);
 
     // Draw rects
-    cell
+    const rects = cell
       .append("rect")
       .attr("width", (d) => Math.max(0, d.x1 - d.x0))
       .attr("height", (d) => Math.max(0, d.y1 - d.y0))
@@ -360,18 +399,30 @@ export default function Treemap(props: TreemapProps) {
         if (d.data.type !== "folder" && d.data.metrics?.loc > 2000) return 2;
         return d.data.type === "folder" ? 1 : 0.5;
       })
-      .style("cursor", (d) =>
-        d.data.type === "folder" ? "zoom-in" : "pointer"
-      )
       .on("click", (e, d) => {
         e.stopPropagation();
-        handleHierarchyClick(d);
+        handleHierarchyClick(d, e);
       })
       .on("mouseover", (e, d) => {
         // Show tooltip for files AND leaf nodes (anything not a folder)
         if (d.data.type !== "folder") showTooltip(e, d);
       })
       .on("mouseout", hideTooltip);
+
+    // Apply reactive styles for isolate mode
+    createEffect(() => {
+      const isolate = isIsolateMode();
+      rects.style("cursor", (d) => {
+        if (isolate) return "zoom-in";
+        return d.data.type === "folder" ? "zoom-in" : "pointer";
+      });
+
+      if (isolate) {
+        rects.attr("fill-opacity", 0.8); // Dim slightly to show "mode change"
+      } else {
+        rects.attr("fill-opacity", 1);
+      }
+    });
 
     // Folder Labels
     cell
@@ -472,37 +523,6 @@ export default function Treemap(props: TreemapProps) {
       )
       .style("pointer-events", "none")
       .style("overflow", "hidden");
-
-    // Zoom Icon for nodes with children (folders or files with nested functions)
-    cell
-      .filter((d) => !!d.children && d.x1 - d.x0 > 35 && d.y1 - d.y0 > 35)
-      .append("g")
-      .attr("transform", (d) => `translate(${d.x1 - d.x0 - 20}, 4)`)
-      .style("cursor", "pointer")
-      .on("click", (e, d) => {
-        e.stopPropagation();
-        zoomToNode(d.data);
-      })
-      .call((g) => {
-        // Background
-        g.append("rect")
-          .attr("width", 16)
-          .attr("height", 16)
-          .attr("rx", 4)
-          .attr("fill", "rgba(0, 0, 0, 0.5)")
-          .attr("stroke", "rgba(255, 255, 255, 0.2)")
-          .attr("stroke-width", 1);
-
-        // Icon (Magnifying glass)
-        g.append("path")
-          .attr("d", "M6.5 3.5a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M8.5 8.5l2.5 2.5")
-          .attr("stroke", "white")
-          .attr("stroke-width", 1.5)
-          .attr("fill", "none")
-          .attr("transform", "translate(2, 2)");
-      })
-      .append("title")
-      .text("Zoom In");
   }
 
   function showTooltip(e: MouseEvent, d: d3.HierarchyNode<any>) {
@@ -676,8 +696,7 @@ export default function Treemap(props: TreemapProps) {
             <Show when={colorMode() === "comment_density"}>
               <div class="space-y-1">
                 <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-[#ffcccc]"></div>{" "}
-                  <span>Low (0%)</span>
+                  <div class="w-3 h-3 bg-[#ffcccc]"></div> <span>Low (0%)</span>
                 </div>
                 <div class="flex items-center gap-2">
                   <div class="w-3 h-3 bg-[#ff9999]"></div>{" "}
@@ -685,7 +704,7 @@ export default function Treemap(props: TreemapProps) {
                 </div>
                 <div class="flex items-center gap-2">
                   <div class="w-3 h-3 bg-[#ff0000]"></div>{" "}
-                  <span>High (>50%)</span>
+                  <span>High (&gt;50%)</span>
                 </div>
               </div>
             </Show>
@@ -702,7 +721,7 @@ export default function Treemap(props: TreemapProps) {
                 </div>
                 <div class="flex items-center gap-2">
                   <div class="w-3 h-3 bg-[#006064]"></div>{" "}
-                  <span>High (>8)</span>
+                  <span>High (&gt;8)</span>
                 </div>
               </div>
             </Show>
@@ -710,8 +729,7 @@ export default function Treemap(props: TreemapProps) {
             <Show when={colorMode() === "todo_count"}>
               <div class="space-y-1">
                 <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-[#f1f8e9]"></div>{" "}
-                  <span>None (0)</span>
+                  <div class="w-3 h-3 bg-[#f1f8e9]"></div> <span>None (0)</span>
                 </div>
                 <div class="flex items-center gap-2">
                   <div class="w-3 h-3 bg-[#aed581]"></div>{" "}
@@ -719,7 +737,7 @@ export default function Treemap(props: TreemapProps) {
                 </div>
                 <div class="flex items-center gap-2">
                   <div class="w-3 h-3 bg-[#33691e]"></div>{" "}
-                  <span>Many (>5)</span>
+                  <span>Many (&gt;5)</span>
                 </div>
               </div>
             </Show>
