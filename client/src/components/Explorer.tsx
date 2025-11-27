@@ -45,6 +45,8 @@ interface Node {
     ts_import_coupling_count?: number;
     tsx_hardcoded_string_volume?: number;
     tsx_duplicated_string_count?: number;
+    ts_type_interface_count?: number;
+    ts_export_count?: number;
   };
 }
 
@@ -69,7 +71,9 @@ type SortField =
   | "ts_ignore_count"
   | "ts_import_coupling_count"
   | "tsx_hardcoded_string_volume"
-  | "tsx_duplicated_string_count";
+  | "tsx_duplicated_string_count"
+  | "ts_type_interface_count"
+  | "ts_export_count";
 type SortDirection = "asc" | "desc";
 
 interface ExplorerContextType {
@@ -142,6 +146,9 @@ const SORT_FIELD_ACCESSORS: Record<SortField, (node: Node) => string | number> =
       getMetricValue(node, "tsx_hardcoded_string_volume"),
     tsx_duplicated_string_count: (node) =>
       getMetricValue(node, "tsx_duplicated_string_count"),
+    ts_type_interface_count: (node) =>
+      getMetricValue(node, "ts_type_interface_count"),
+    ts_export_count: (node) => getMetricValue(node, "ts_export_count"),
   };
 
 const TreeNode = (props: { node: Node; depth: number }) => {

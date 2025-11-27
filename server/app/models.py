@@ -32,6 +32,8 @@ class Metrics(BaseModel):
     ts_import_coupling_count: int = 0
     tsx_hardcoded_string_volume: int = 0
     tsx_duplicated_string_count: int = 0
+    ts_type_interface_count: int = 0
+    ts_export_count: int = 0
 
 class Node(BaseModel):
     name: str

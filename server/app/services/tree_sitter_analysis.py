@@ -18,6 +18,8 @@ class FunctionMetrics:
     max_nesting_depth: int = 0
     comment_lines: int = 0
     todo_count: int = 0
+    # TS/TSX Specific Metrics (per-function)
+    ts_type_interface_count: int = 0
     children: List["FunctionMetrics"] = field(default_factory=list)
     # We store children to represent nested functions.
 
@@ -46,6 +48,8 @@ class FileMetrics:
     ts_import_coupling_count: int = 0
     tsx_hardcoded_string_volume: int = 0
     tsx_duplicated_string_count: int = 0
+    ts_type_interface_count: int = 0
+    ts_export_count: int = 0
 
 class TreeSitterAnalyzer:
     def __init__(self):
@@ -89,6 +93,8 @@ class TreeSitterAnalyzer:
         ts_ignore_count = self._count_ts_ignore(tree.root_node, content)
         ts_import_coupling_count = self._count_import_coupling(tree.root_node)
         tsx_hardcoded_string_volume, tsx_duplicated_string_count = self._calculate_string_metrics(tree.root_node)
+        ts_type_interface_count = self._count_types_and_interfaces(tree.root_node)
+        ts_export_count = self._count_exports(tree.root_node)
         
         # Aggregate function metrics
         total_function_length = sum(f.nloc for f in functions)
@@ -124,7 +130,9 @@ class TreeSitterAnalyzer:
             ts_ignore_count=ts_ignore_count,
             ts_import_coupling_count=ts_import_coupling_count,
             tsx_hardcoded_string_volume=tsx_hardcoded_string_volume,
-            tsx_duplicated_string_count=tsx_duplicated_string_count
+            tsx_duplicated_string_count=tsx_duplicated_string_count,
+            ts_type_interface_count=ts_type_interface_count,
+            ts_export_count=ts_export_count,
         )
 
     def _extract_functions(self, root_node: Node, content: bytes) -> List[FunctionMetrics]:
@@ -167,6 +175,9 @@ class TreeSitterAnalyzer:
         # Parameter count
         parameter_count = self._count_parameters(func_node)
 
+        # TS/TSX specific: count type/interface declarations within this function
+        ts_type_interface_count = self._count_types_and_interfaces(func_node)
+
         # Calculate new metrics for function
         comment_lines, todo_count = self._count_comments_and_todos(func_node, b"") # Content not needed for simple traversal if we access node.text
         max_nesting_depth = self._calculate_max_nesting_depth(func_node)
@@ -180,7 +191,8 @@ class TreeSitterAnalyzer:
             parameter_count=parameter_count,
             max_nesting_depth=max_nesting_depth,
             comment_lines=comment_lines,
-            todo_count=todo_count
+            todo_count=todo_count,
+            ts_type_interface_count=ts_type_interface_count,
         )
 
     def _get_function_name(self, node: Node) -> str:
@@ -599,6 +611,55 @@ class TreeSitterAnalyzer:
                 
         traverse(node)
         return len(unique_imports)
+
+    def _count_types_and_interfaces(self, node: Node) -> int:
+        """
+        Count the number of TypeScript type aliases and interfaces declared
+        within the given subtree.
+        """
+        count = 0
+
+        def traverse(n: Node):
+            nonlocal count
+            if n.type in {"type_alias_declaration", "interface_declaration"}:
+                count += 1
+            for child in n.children:
+                traverse(child)
+
+        traverse(node)
+        return count
+
+    def _count_exports(self, node: Node) -> int:
+        """
+        Count the number of exports in a file. For `export { foo, bar }` we
+        count individual specifiers; for `export default ...` and other forms
+        we count the statement as a single export.
+        """
+        count = 0
+
+        def traverse(n: Node):
+            nonlocal count
+            if n.type == "export_statement":
+                # tree-sitter-typescript represents `export { foo, bar }` via an
+                # export_clause child that contains export_specifier nodes.
+                clause = n.child_by_field_name("clause")
+                if clause and clause.type == "export_clause":
+                    specifiers = [
+                        c for c in clause.children if c.type == "export_specifier"
+                    ]
+                    if specifiers:
+                        count += len(specifiers)
+                    else:
+                        count += 1
+                else:
+                    # export default ..., export = ..., etc.
+                    count += 1
+
+            for child in n.children:
+                traverse(child)
+
+        traverse(node)
+        return count
 
     def _calculate_string_metrics(self, node: Node) -> tuple[int, int]:
         hardcoded_string_volume = 0

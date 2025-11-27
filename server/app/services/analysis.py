@@ -52,6 +52,8 @@ def attach_file_metrics(node: Node, file_info) -> None:
         node.metrics.ts_import_coupling_count = file_info.ts_import_coupling_count
         node.metrics.tsx_hardcoded_string_volume = file_info.tsx_hardcoded_string_volume
         node.metrics.tsx_duplicated_string_count = file_info.tsx_duplicated_string_count
+        node.metrics.ts_type_interface_count = file_info.ts_type_interface_count
+        node.metrics.ts_export_count = file_info.ts_export_count
     
     # New metrics
     if hasattr(file_info, 'comment_lines'):
@@ -81,6 +83,7 @@ def attach_file_metrics(node: Node, file_info) -> None:
         func_node.metrics.max_nesting_depth = getattr(func, 'max_nesting_depth', 0)
         func_node.metrics.comment_lines = getattr(func, 'comment_lines', 0)
         func_node.metrics.todo_count = getattr(func, 'todo_count', 0)
+        func_node.metrics.ts_type_interface_count = getattr(func, 'ts_type_interface_count', 0)
         
         # Density for function
         comment_lines = getattr(func, 'comment_lines', 0)
@@ -220,6 +223,8 @@ def aggregate_metrics(node: Node) -> Metrics:
     total_parameter_count = 0
     total_todo_count = 0
     total_classes_count = 0
+    total_type_interface_count = 0
+    total_export_count = 0
     
     # For average function length, we need total function loc and total functions (already have total_funcs)
     # But we need to sum function locs from children.
@@ -238,6 +243,8 @@ def aggregate_metrics(node: Node) -> Metrics:
         total_parameter_count += child_metrics.parameter_count
         total_todo_count += child_metrics.todo_count
         total_classes_count += child_metrics.classes_count
+        total_type_interface_count += child_metrics.ts_type_interface_count
+        total_export_count += child_metrics.ts_export_count
         
         # Reconstruct total function loc from average * count
         total_function_loc += (child_metrics.average_function_length * child_metrics.function_count)
@@ -262,6 +269,8 @@ def aggregate_metrics(node: Node) -> Metrics:
         node.metrics.todo_count = total_todo_count
         node.metrics.classes_count = total_classes_count
         node.metrics.average_function_length = total_function_loc / total_funcs if total_funcs > 0 else 0.0
+        node.metrics.ts_type_interface_count = total_type_interface_count
+        node.metrics.ts_export_count = total_export_count
     
     return node.metrics
 

@@ -22,7 +22,9 @@ export type HotSpotMetricId =
   | "ts_ignore_count"
   | "ts_import_coupling_count"
   | "tsx_hardcoded_string_volume"
-  | "tsx_duplicated_string_count";
+  | "tsx_duplicated_string_count"
+  | "ts_type_interface_count"
+  | "ts_export_count";
 
 export type HotSpotMetricDef = {
   id: HotSpotMetricId;
@@ -77,6 +79,16 @@ export const HOTSPOT_METRICS: HotSpotMetricDef[] = [
     id: "tsx_duplicated_string_count",
     label: "Dup Text",
     color: "text-pink-300",
+  },
+  {
+    id: "ts_type_interface_count",
+    label: "Types/Interfaces",
+    color: "text-emerald-300",
+  },
+  {
+    id: "ts_export_count",
+    label: "Exports",
+    color: "text-cyan-300",
   },
 ];
 
