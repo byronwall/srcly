@@ -38,6 +38,20 @@ def attach_file_metrics(node: Node, file_info) -> None:
     node.metrics.function_count = len(file_info.function_list)
     node.metrics.function_count = len(file_info.function_list)
     node.metrics.file_count = 1
+    # TS/TSX-specific metrics are only available for TypeScript/TSX files analyzed
+    # by the TreeSitterAnalyzer. Plain lizard FileInformation objects (e.g. for
+    # Python or other languages) won't have these attributes, so guard them.
+    if hasattr(file_info, "tsx_nesting_depth"):
+        node.metrics.tsx_nesting_depth = file_info.tsx_nesting_depth
+        node.metrics.tsx_render_branching_count = file_info.tsx_render_branching_count
+        node.metrics.tsx_react_use_effect_count = file_info.tsx_react_use_effect_count
+        node.metrics.tsx_anonymous_handler_count = file_info.tsx_anonymous_handler_count
+        node.metrics.tsx_prop_count = file_info.tsx_prop_count
+        node.metrics.ts_any_usage_count = file_info.ts_any_usage_count
+        node.metrics.ts_ignore_count = file_info.ts_ignore_count
+        node.metrics.ts_import_coupling_count = file_info.ts_import_coupling_count
+        node.metrics.tsx_hardcoded_string_volume = file_info.tsx_hardcoded_string_volume
+        node.metrics.tsx_duplicated_string_count = file_info.tsx_duplicated_string_count
     
     # New metrics
     if hasattr(file_info, 'comment_lines'):

@@ -29,6 +29,17 @@ interface Node {
     parameter_count?: number;
     todo_count?: number;
     classes_count?: number;
+    // TS/TSX-specific metrics
+    tsx_nesting_depth?: number;
+    tsx_render_branching_count?: number;
+    tsx_react_use_effect_count?: number;
+    tsx_anonymous_handler_count?: number;
+    tsx_prop_count?: number;
+    ts_any_usage_count?: number;
+    ts_ignore_count?: number;
+    ts_import_coupling_count?: number;
+    tsx_hardcoded_string_volume?: number;
+    tsx_duplicated_string_count?: number;
   };
 }
 
@@ -42,7 +53,18 @@ type SortField =
   | "comment_density"
   | "todo_count"
   | "max_nesting_depth"
-  | "parameter_count";
+  | "parameter_count"
+  // TS/TSX-specific sort fields
+  | "tsx_nesting_depth"
+  | "tsx_render_branching_count"
+  | "tsx_react_use_effect_count"
+  | "tsx_anonymous_handler_count"
+  | "tsx_prop_count"
+  | "ts_any_usage_count"
+  | "ts_ignore_count"
+  | "ts_import_coupling_count"
+  | "tsx_hardcoded_string_volume"
+  | "tsx_duplicated_string_count";
 type SortDirection = "asc" | "desc";
 
 type HotSpotMetricDef = {
@@ -65,6 +87,41 @@ const HOTSPOT_METRICS: HotSpotMetricDef[] = [
   { id: "todo_count", label: "TODOs", color: "text-yellow-400" },
   { id: "max_nesting_depth", label: "Nesting", color: "text-pink-400" },
   { id: "parameter_count", label: "Params", color: "text-green-400" },
+  // TS/TSX-specific hot spot metrics
+  { id: "tsx_nesting_depth", label: "TSX Nesting", color: "text-teal-400" },
+  {
+    id: "tsx_render_branching_count",
+    label: "Render Branches",
+    color: "text-indigo-400",
+  },
+  {
+    id: "tsx_react_use_effect_count",
+    label: "useEffect",
+    color: "text-lime-400",
+  },
+  {
+    id: "tsx_anonymous_handler_count",
+    label: "Inline Handlers",
+    color: "text-amber-400",
+  },
+  { id: "tsx_prop_count", label: "Props", color: "text-sky-400" },
+  { id: "ts_any_usage_count", label: "any Usage", color: "text-red-500" },
+  { id: "ts_ignore_count", label: "TS Ignores", color: "text-red-300" },
+  {
+    id: "ts_import_coupling_count",
+    label: "TS Imports",
+    color: "text-purple-300",
+  },
+  {
+    id: "tsx_hardcoded_string_volume",
+    label: "Hardcoded Text",
+    color: "text-orange-300",
+  },
+  {
+    id: "tsx_duplicated_string_count",
+    label: "Dup Text",
+    color: "text-pink-300",
+  },
 ];
 
 interface ExplorerContextType {
@@ -102,6 +159,43 @@ const findNodeByPath = (root: Node, path: string): Node | null => {
   return null;
 };
 
+const getMetricValue = (
+  node: Node,
+  metric: keyof NonNullable<Node["metrics"]>
+): number => {
+  return node.metrics?.[metric] ?? 0;
+};
+
+const SORT_FIELD_ACCESSORS: Record<SortField, (node: Node) => string | number> =
+  {
+    name: (node) => node.name.toLowerCase(),
+    loc: (node) => getMetricValue(node, "loc"),
+    complexity: (node) => getMetricValue(node, "complexity"),
+    file_size: (node) => getMetricValue(node, "file_size"),
+    file_count: (node) => getMetricValue(node, "file_count"),
+    gitignored: (node) => node.metrics?.gitignored_count ?? 0,
+    comment_density: (node) => getMetricValue(node, "comment_density"),
+    todo_count: (node) => getMetricValue(node, "todo_count"),
+    max_nesting_depth: (node) => getMetricValue(node, "max_nesting_depth"),
+    parameter_count: (node) => getMetricValue(node, "parameter_count"),
+    tsx_nesting_depth: (node) => getMetricValue(node, "tsx_nesting_depth"),
+    tsx_render_branching_count: (node) =>
+      getMetricValue(node, "tsx_render_branching_count"),
+    tsx_react_use_effect_count: (node) =>
+      getMetricValue(node, "tsx_react_use_effect_count"),
+    tsx_anonymous_handler_count: (node) =>
+      getMetricValue(node, "tsx_anonymous_handler_count"),
+    tsx_prop_count: (node) => getMetricValue(node, "tsx_prop_count"),
+    ts_any_usage_count: (node) => getMetricValue(node, "ts_any_usage_count"),
+    ts_ignore_count: (node) => getMetricValue(node, "ts_ignore_count"),
+    ts_import_coupling_count: (node) =>
+      getMetricValue(node, "ts_import_coupling_count"),
+    tsx_hardcoded_string_volume: (node) =>
+      getMetricValue(node, "tsx_hardcoded_string_volume"),
+    tsx_duplicated_string_count: (node) =>
+      getMetricValue(node, "tsx_duplicated_string_count"),
+  };
+
 const TreeNode = (props: { node: Node; depth: number }) => {
   const ctx = useContext(ExplorerContext)!;
   // Expand root by default, or if filtering is active
@@ -120,42 +214,29 @@ const TreeNode = (props: { node: Node; depth: number }) => {
     if (!props.node.children) return [];
     const field = ctx.sortField();
     const dir = ctx.sortDirection();
+    const multiplier = dir === "asc" ? 1 : -1;
+    const accessor =
+      SORT_FIELD_ACCESSORS[field] ?? SORT_FIELD_ACCESSORS["name"];
 
     return [...props.node.children].sort((a, b) => {
-      let valA: any = a.name;
-      let valB: any = b.name;
-
-      if (field === "loc") {
-        valA = a.metrics?.loc || 0;
-        valB = b.metrics?.loc || 0;
-      } else if (field === "complexity") {
-        valA = a.metrics?.complexity || 0;
-        valB = b.metrics?.complexity || 0;
-      } else if (field === "file_size") {
-        valA = a.metrics?.file_size || 0;
-        valB = b.metrics?.file_size || 0;
-      } else if (field === "file_count") {
-        valA = a.metrics?.file_count || 0;
-        valB = b.metrics?.file_count || 0;
-      } else if (field === "gitignored") {
-        valA = a.metrics?.gitignored_count || 0;
-        valB = b.metrics?.gitignored_count || 0;
-      } else if (field === "comment_density") {
-        valA = a.metrics?.comment_density || 0;
-        valB = b.metrics?.comment_density || 0;
-      } else if (field === "todo_count") {
-        valA = a.metrics?.todo_count || 0;
-        valB = b.metrics?.todo_count || 0;
-      } else if (field === "max_nesting_depth") {
-        valA = a.metrics?.max_nesting_depth || 0;
-        valB = b.metrics?.max_nesting_depth || 0;
-      } else if (field === "parameter_count") {
-        valA = a.metrics?.parameter_count || 0;
-        valB = b.metrics?.parameter_count || 0;
+      // Always keep folders grouped before non-folders for easier navigation
+      const aIsFolder = a.type === "folder";
+      const bIsFolder = b.type === "folder";
+      if (aIsFolder !== bIsFolder) {
+        return aIsFolder ? -1 : 1;
       }
 
-      if (valA < valB) return dir === "asc" ? -1 : 1;
-      if (valA > valB) return dir === "asc" ? 1 : -1;
+      const valA = accessor(a);
+      const valB = accessor(b);
+
+      if (valA < valB) return -1 * multiplier;
+      if (valA > valB) return 1 * multiplier;
+
+      // Stable, deterministic tie-breaker: always fall back to name (asc)
+      const nameA = SORT_FIELD_ACCESSORS.name(a) as string;
+      const nameB = SORT_FIELD_ACCESSORS.name(b) as string;
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
       return 0;
     });
   });

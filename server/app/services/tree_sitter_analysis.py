@@ -34,6 +34,18 @@ class FileMetrics:
     parameter_count: int = 0
     todo_count: int = 0
     classes_count: int = 0
+    
+    # TS/TSX Specific Metrics
+    tsx_nesting_depth: int = 0
+    tsx_render_branching_count: int = 0
+    tsx_react_use_effect_count: int = 0
+    tsx_anonymous_handler_count: int = 0
+    tsx_prop_count: int = 0
+    ts_any_usage_count: int = 0
+    ts_ignore_count: int = 0
+    ts_import_coupling_count: int = 0
+    tsx_hardcoded_string_volume: int = 0
+    tsx_duplicated_string_count: int = 0
 
 class TreeSitterAnalyzer:
     def __init__(self):
@@ -67,6 +79,17 @@ class TreeSitterAnalyzer:
         
         classes_count = self._count_classes(tree.root_node)
         
+        # TS/TSX Specific Metrics
+        tsx_nesting_depth = self._calculate_jsx_nesting_depth(tree.root_node)
+        tsx_render_branching_count = self._count_render_branching(tree.root_node)
+        tsx_react_use_effect_count = self._count_use_effects(tree.root_node)
+        tsx_anonymous_handler_count = self._count_anonymous_handlers(tree.root_node)
+        tsx_prop_count = self._count_props(tree.root_node)
+        ts_any_usage_count = self._count_any_usage(tree.root_node)
+        ts_ignore_count = self._count_ts_ignore(tree.root_node, content)
+        ts_import_coupling_count = self._count_import_coupling(tree.root_node)
+        tsx_hardcoded_string_volume, tsx_duplicated_string_count = self._calculate_string_metrics(tree.root_node)
+        
         # Aggregate function metrics
         total_function_length = sum(f.nloc for f in functions)
         average_function_length = total_function_length / len(functions) if functions else 0.0
@@ -91,7 +114,17 @@ class TreeSitterAnalyzer:
             average_function_length=average_function_length,
             parameter_count=parameter_count,
             todo_count=todo_count,
-            classes_count=classes_count
+            classes_count=classes_count,
+            tsx_nesting_depth=tsx_nesting_depth,
+            tsx_render_branching_count=tsx_render_branching_count,
+            tsx_react_use_effect_count=tsx_react_use_effect_count,
+            tsx_anonymous_handler_count=tsx_anonymous_handler_count,
+            tsx_prop_count=tsx_prop_count,
+            ts_any_usage_count=ts_any_usage_count,
+            ts_ignore_count=ts_ignore_count,
+            ts_import_coupling_count=ts_import_coupling_count,
+            tsx_hardcoded_string_volume=tsx_hardcoded_string_volume,
+            tsx_duplicated_string_count=tsx_duplicated_string_count
         )
 
     def _extract_functions(self, root_node: Node, content: bytes) -> List[FunctionMetrics]:
@@ -407,4 +440,195 @@ class TreeSitterAnalyzer:
              pass
 
         return 0
+
+    def _calculate_jsx_nesting_depth(self, node: Node) -> int:
+        max_depth = 0
+        
+        def traverse(n: Node, current_depth: int):
+            nonlocal max_depth
+            if n.type == 'jsx_element' or n.type == 'jsx_self_closing_element':
+                current_depth += 1
+                max_depth = max(max_depth, current_depth)
+            
+            for child in n.children:
+                traverse(child, current_depth)
+                
+        traverse(node, 0)
+        return max_depth
+
+    def _count_render_branching(self, node: Node) -> int:
+        count = 0
+        
+        def traverse(n: Node):
+            nonlocal count
+            # Check for ternaries or logical && inside JSX expressions
+            if n.type == 'jsx_expression':
+                # Check children for ternary or binary expression
+                for child in n.children:
+                    if child.type == 'ternary_expression':
+                        count += 1
+                    elif child.type == 'binary_expression':
+                        operator = child.child_by_field_name('operator')
+                        if operator and operator.text.decode('utf-8') == '&&':
+                            count += 1
+            
+            for child in n.children:
+                traverse(child)
+                
+        traverse(node)
+        return count
+
+    def _count_use_effects(self, node: Node) -> int:
+        count = 0
+        
+        def traverse(n: Node):
+            nonlocal count
+            if n.type == 'call_expression':
+                function_node = n.child_by_field_name('function')
+                if function_node:
+                    name = function_node.text.decode('utf-8')
+                    if name == 'useEffect' or name.endswith('.useEffect'):
+                        count += 1
+            
+            for child in n.children:
+                traverse(child)
+                
+        traverse(node)
+        return count
+
+    def _count_anonymous_handlers(self, node: Node) -> int:
+        count = 0
+        
+        def traverse(n: Node):
+            nonlocal count
+            if n.type == 'jsx_attribute':
+                # Check if it's an event handler (starts with 'on')
+                name_node = n.child_by_field_name('name')
+                if not name_node:
+                    # Fallback: find first identifier-like child
+                    for child in n.children:
+                        if child.type in {'property_identifier', 'jsx_identifier'}:
+                            name_node = child
+                            break
+                
+                if name_node:
+                    prop_name = name_node.text.decode('utf-8')
+                    if prop_name.startswith('on'):
+                        # Check value
+                        value_node = n.child_by_field_name('value')
+                        if not value_node:
+                            # Fallback: find jsx_expression child
+                            for child in n.children:
+                                if child.type == 'jsx_expression':
+                                    value_node = child
+                                    break
+                        
+                        if value_node and value_node.type == 'jsx_expression':
+                            # Check if the expression contains an inline function
+                            for child in value_node.children:
+                                if child.type in {'arrow_function', 'function_expression'}:
+                                    count += 1
+            
+            for child in n.children:
+                traverse(child)
+                
+        traverse(node)
+        return count
+
+    def _count_props(self, node: Node) -> int:
+        # Count of props passed to JSX elements.
+        count = 0
+        
+        def traverse(n: Node):
+            nonlocal count
+            if n.type == 'jsx_attribute':
+                count += 1
+            
+            for child in n.children:
+                traverse(child)
+                
+        traverse(node)
+        return count
+
+    def _count_any_usage(self, node: Node) -> int:
+        count = 0
+        
+        def traverse(n: Node):
+            nonlocal count
+            # Tree-sitter TypeScript represents `any` as a predefined type in most
+            # contexts (e.g. `predefined_type` with text "any"), but some versions
+            # may also expose a dedicated `any_keyword` node type. To be robust
+            # across grammar variants, treat both shapes as valid `any` usages.
+            if n.type in {'any_keyword', 'predefined_type'}:
+                text = n.text.decode('utf-8', errors='ignore')
+                if text == 'any':
+                    count += 1
+            
+            for child in n.children:
+                traverse(child)
+                
+        traverse(node)
+        return count
+
+    def _count_ts_ignore(self, node: Node, content: bytes) -> int:
+        # These are usually comments.
+        count = 0
+        
+        # We can scan the content or traverse comments if they are in the tree.
+        # Scanning content is safer for comments.
+        text = content.decode('utf-8', errors='ignore')
+        count += text.count('@ts-ignore')
+        count += text.count('@ts-expect-error')
+        
+        return count
+
+    def _count_import_coupling(self, node: Node) -> int:
+        unique_imports = set()
+        
+        def traverse(n: Node):
+            if n.type == 'import_statement':
+                # import ... from 'source'
+                source = n.child_by_field_name('source')
+                if source:
+                    # source is a string literal, remove quotes
+                    import_path = source.text.decode('utf-8').strip("'\"")
+                    unique_imports.add(import_path)
+            
+            for child in n.children:
+                traverse(child)
+                
+        traverse(node)
+        return len(unique_imports)
+
+    def _calculate_string_metrics(self, node: Node) -> tuple[int, int]:
+        hardcoded_string_volume = 0
+        string_counts = {}
+        
+        def traverse(n: Node):
+            nonlocal hardcoded_string_volume
+            # Check for JSX text or string literals inside JSX
+            if n.type == 'jsx_text':
+                text = n.text.decode('utf-8').strip()
+                if text:
+                    length = len(text)
+                    hardcoded_string_volume += length
+                    string_counts[text] = string_counts.get(text, 0) + 1
+            elif n.type == 'string_literal' or n.type == 'string':
+                # Check if it's inside a JSX attribute or expression
+                parent = n.parent
+                if parent and (parent.type == 'jsx_attribute' or parent.type == 'jsx_expression'):
+                     text = n.text.decode('utf-8').strip("'\"")
+                     if text:
+                        length = len(text)
+                        hardcoded_string_volume += length
+                        string_counts[text] = string_counts.get(text, 0) + 1
+
+            for child in n.children:
+                traverse(child)
+                
+        traverse(node)
+        
+        duplicated_string_count = sum(1 for count in string_counts.values() if count > 1)
+        
+        return hardcoded_string_volume, duplicated_string_count
 

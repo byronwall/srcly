@@ -20,6 +20,18 @@ class Metrics(BaseModel):
     parameter_count: int = 0
     todo_count: int = 0
     classes_count: int = 0
+    
+    # TS/TSX Specific Metrics
+    tsx_nesting_depth: int = 0
+    tsx_render_branching_count: int = 0
+    tsx_react_use_effect_count: int = 0
+    tsx_anonymous_handler_count: int = 0
+    tsx_prop_count: int = 0
+    ts_any_usage_count: int = 0
+    ts_ignore_count: int = 0
+    ts_import_coupling_count: int = 0
+    tsx_hardcoded_string_volume: int = 0
+    tsx_duplicated_string_count: int = 0
 
 class Node(BaseModel):
     name: str
