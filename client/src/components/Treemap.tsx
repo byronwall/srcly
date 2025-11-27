@@ -349,7 +349,8 @@ export default function Treemap(props: TreemapProps) {
 
     // Cast to Rectangular node
     const rootRect = root as d3.HierarchyRectangularNode<any>;
-    const allNodes = rootRect.descendants();
+    // Skip the synthetic/top-level root so the treemap starts at its children
+    const allNodes = rootRect.descendants().filter((d) => d.depth > 0);
 
     // Groups for folders
     const cell = svg
