@@ -457,7 +457,7 @@ export default function Explorer(props: {
     // Flatten tree to collect all nodes that have metrics
     const nodes: Node[] = [];
     const traverse = (node: Node) => {
-      if (node.metrics) {
+      if (node.metrics && node.type !== "folder") {
         nodes.push(node);
       }
       if (node.children && node.children.length > 0) {
