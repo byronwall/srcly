@@ -234,6 +234,27 @@ class TreeSitterAnalyzer:
                     if func_node and func_node == parent:
                         return "IIFE(ƒ)"
 
+            # TSX: Anonymous function as child of a JSX element (e.g. <Show>{() => ...}</Show>)
+            # Structure: jsx_element -> jsx_expression -> arrow_function
+            # Or: jsx_element -> jsx_expression -> parenthesized_expression -> arrow_function
+            current = node
+            hops = 0
+            while current is not None and hops < 5:
+                if current.type == 'jsx_expression':
+                    parent = current.parent
+                    if parent and parent.type == 'jsx_element':
+                        # Get the opening element
+                        opening = parent.child_by_field_name('open_tag')
+                        if opening:
+                            # Get the name of the tag
+                            name_node = opening.child_by_field_name('name')
+                            if name_node:
+                                return f"{name_node.text.decode('utf-8')}(ƒ)"
+                    break # Stop if we hit a jsx_expression but it wasn't a direct child of an element (unlikely but safe)
+                
+                current = current.parent
+                hops += 1
+
         return "(anonymous)"
 
     def _calculate_complexity(self, node: Node) -> int:

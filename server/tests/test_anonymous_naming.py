@@ -98,3 +98,60 @@ def test_tsx_attribute_function_naming(analyzer, tmp_path):
     # We expect a single child function for the onFocus handler
     assert len(children) == 1
     assert children[0].name == "onFocus"
+
+def test_tsx_component_child_naming(analyzer, tmp_path):
+    content = """
+    import { Show, For } from 'solid-js';
+
+    function Chat(props) {
+        return (
+            <Show when={props.thread()}>
+                {(th) => (
+                    <For each={th().messages}>
+                        {(m) => (
+                            <div class="border rounded p-3">
+                                {m.role}
+                            </div>
+                        )}
+                    </For>
+                )}
+            </Show>
+        );
+    }
+    """
+
+    test_file = tmp_path / "test_naming_solid.tsx"
+    test_file.write_text(content, encoding="utf-8")
+
+    metrics = analyzer.analyze_file(str(test_file))
+    
+    # Top level function Chat
+    assert len(metrics.function_list) == 1
+    chat_func = metrics.function_list[0]
+    assert chat_func.name == "Chat"
+    
+    children = chat_func.children
+    # We expect 2 nested functions:
+    # 1. The one inside <Show>
+    # 2. The one inside <For> (which is nested inside the first one)
+    
+    # However, my current logic flattens the list of children in the metrics object returned by analyze_file?
+    # No, analyze_file returns FileMetrics which has function_list (top level).
+    # Each FunctionMetrics has children.
+    
+    # The structure should be:
+    # Chat -> [ Show_func -> [ For_func ] ]
+    
+    assert len(children) == 1
+    show_func = children[0]
+    
+    # This is what we want to fix. Currently it probably returns "(anonymous)"
+    # We want "Show(ƒ)"
+    assert show_func.name == "Show(ƒ)"
+    
+    assert len(show_func.children) == 1
+    for_func = show_func.children[0]
+    
+    # We want "For(ƒ)"
+    assert for_func.name == "For(ƒ)"
+
