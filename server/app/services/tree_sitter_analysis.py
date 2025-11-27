@@ -249,7 +249,7 @@ class TreeSitterAnalyzer:
                             # Get the name of the tag
                             name_node = opening.child_by_field_name('name')
                             if name_node:
-                                return f"{name_node.text.decode('utf-8')}(ƒ)"
+                                return f"<{name_node.text.decode('utf-8')}>(ƒ)"
                     break # Stop if we hit a jsx_expression but it wasn't a direct child of an element (unlikely but safe)
                 
                 current = current.parent

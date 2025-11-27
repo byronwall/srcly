@@ -147,11 +147,11 @@ def test_tsx_component_child_naming(analyzer, tmp_path):
     
     # This is what we want to fix. Currently it probably returns "(anonymous)"
     # We want "Show(ƒ)"
-    assert show_func.name == "Show(ƒ)"
+    assert show_func.name == "<Show>(ƒ)"
     
     assert len(show_func.children) == 1
     for_func = show_func.children[0]
     
     # We want "For(ƒ)"
-    assert for_func.name == "For(ƒ)"
+    assert for_func.name == "<For>(ƒ)"
 
