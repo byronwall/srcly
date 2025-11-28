@@ -251,8 +251,19 @@ export default function DependencyGraph(props: DependencyGraphProps) {
       layoutOptions: {
         "elk.algorithm": "layered",
         "elk.direction": "DOWN",
-        "elk.spacing.nodeNode": "50",
-        "elk.layered.spacing.nodeNodeBetweenLayers": "50",
+        // Overall node spacing – keep reasonably roomy for main file nodes
+        "elk.spacing.nodeNode": "40",
+        // Vertical spacing between layers; tightened so dummy “super” circles
+        // sit closer to their associated file nodes.
+        "elk.layered.spacing.nodeNodeBetweenLayers": "28",
+        // Bring edges and nodes in adjacent layers closer together so the
+        // small circular dummy nodes are not pushed far away from their
+        // connected rectangles.
+        "elk.spacing.edgeNode": "10",
+        "elk.layered.spacing.edgeNodeBetweenLayers": "10",
+        // Ask the layered algorithm to more aggressively minimize edge length,
+        // which further encourages compact placement of the dummy circles.
+        "elk.layered.layerUnzipping.minimizeEdgeLength": "true",
       },
       children: data.nodes.map((n: any) => {
         const isDummy = n.type === "dummy";
