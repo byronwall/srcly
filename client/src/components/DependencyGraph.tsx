@@ -1,5 +1,6 @@
 import { createSignal, createEffect, Show, For } from "solid-js";
 import ELK from "elkjs/lib/elk.bundled.js";
+import { select, zoom, zoomIdentity } from "d3";
 
 interface DependencyGraphProps {
   path: string;
@@ -32,6 +33,10 @@ export default function DependencyGraph(props: DependencyGraphProps) {
   const [edges, setEdges] = createSignal<Edge[]>([]);
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
+
+  let svgRef: SVGSVGElement | undefined;
+  let gRef: SVGGElement | undefined;
+  let zoomBehavior: any;
 
   const elk = new ELK();
 
@@ -86,11 +91,64 @@ export default function DependencyGraph(props: DependencyGraphProps) {
       const layout = await elk.layout(elkGraph);
       setNodes(layout.children as Node[]);
       setEdges(layout.edges as Edge[]);
+
+      // Fit graph after layout update
+      setTimeout(fitGraph, 0);
     } catch (err) {
       console.error("Layout error:", err);
       setError("Failed to layout graph");
     }
   }
+
+  function setupZoom() {
+    if (!svgRef || !gRef) return;
+
+    zoomBehavior = zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.1, 4])
+      .on("zoom", (event) => {
+        select(gRef).attr("transform", event.transform);
+      });
+
+    select(svgRef).call(zoomBehavior);
+  }
+
+  function fitGraph() {
+    if (!svgRef || !gRef || nodes().length === 0 || !zoomBehavior) return;
+
+    const svg = select(svgRef);
+    const g = select(gRef);
+
+    // Get graph bounds
+    const bounds = g.node()?.getBBox();
+    if (!bounds) return;
+
+    const parent = svg.node()?.parentElement;
+    const width = parent?.clientWidth || 1000;
+    const height = parent?.clientHeight || 800;
+    const padding = 40;
+
+    const scale = Math.min(
+      (width - padding * 2) / bounds.width,
+      (height - padding * 2) / bounds.height
+    );
+
+    // Limit initial scale
+    const finalScale = Math.min(scale, 1);
+
+    const x = (width - bounds.width * finalScale) / 2 - bounds.x * finalScale;
+    const y = (height - bounds.height * finalScale) / 2 - bounds.y * finalScale;
+
+    const transform = zoomIdentity.translate(x, y).scale(finalScale);
+
+    svg.transition().duration(750).call(zoomBehavior.transform, transform);
+  }
+
+  // Initialize zoom when SVG becomes available
+  createEffect(() => {
+    if (!loading() && !error() && svgRef) {
+      setupZoom();
+    }
+  });
 
   return (
     <div class="absolute inset-0 bg-[#1e1e1e] z-50 flex flex-col">
@@ -98,15 +156,23 @@ export default function DependencyGraph(props: DependencyGraphProps) {
         <h2 class="text-sm font-bold text-gray-300">
           Dependency Graph: {props.path || "Root"}
         </h2>
-        <button
-          onClick={props.onClose}
-          class="px-3 py-1 text-xs bg-red-900/50 hover:bg-red-900 text-red-200 rounded border border-red-800 transition-colors"
-        >
-          Close
-        </button>
+        <div class="flex gap-2">
+          <button
+            onClick={fitGraph}
+            class="px-3 py-1 text-xs bg-[#3c3c3c] hover:bg-[#4c4c4c] text-gray-200 rounded border border-[#555] transition-colors"
+          >
+            Fit View
+          </button>
+          <button
+            onClick={props.onClose}
+            class="px-3 py-1 text-xs bg-red-900/50 hover:bg-red-900 text-red-200 rounded border border-red-800 transition-colors"
+          >
+            Close
+          </button>
+        </div>
       </div>
 
-      <div class="flex-1 overflow-auto relative">
+      <div class="flex-1 relative overflow-hidden">
         <Show when={loading()}>
           <div class="absolute inset-0 flex items-center justify-center text-gray-400">
             Loading dependency graph...
@@ -120,7 +186,10 @@ export default function DependencyGraph(props: DependencyGraphProps) {
         </Show>
 
         <Show when={!loading() && !error()}>
-          <svg class="w-full h-full min-w-[1000px] min-h-[1000px]">
+          <svg
+            ref={svgRef}
+            class="w-full h-full cursor-grab active:cursor-grabbing"
+          >
             <defs>
               <marker
                 id="arrowhead"
@@ -134,7 +203,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
               </marker>
             </defs>
 
-            <g transform="translate(20, 20)">
+            <g ref={gRef}>
               <For each={edges()}>
                 {(edge) => {
                   if (!edge.sections || edge.sections.length === 0) return null;
