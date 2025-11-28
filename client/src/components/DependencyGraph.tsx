@@ -11,11 +11,17 @@ interface DependencyGraphProps {
 interface Node {
   id: string;
   label: string;
-  type: "file" | "external";
+  type: "file" | "external" | "dummy";
   x?: number;
   y?: number;
   width?: number;
   height?: number;
+  // High in-degree (“super”) node visualization
+  assignmentCode?: string;
+  assignmentColor?: string;
+  isSuperNode?: boolean;
+  // For dummy nodes, which super node they stand in for
+  superNodeId?: string;
 }
 
 interface Edge {
@@ -34,6 +40,37 @@ interface GraphData {
   edges: any[];
 }
 
+interface SuperNodeAssignment {
+  nodeId: string;
+  label: string;
+  code: string;
+  color: string;
+}
+
+const MAX_INCOMING_LINKS = 5;
+
+const ASSIGNMENT_COLORS = [
+  "#ff6b6b",
+  "#feca57",
+  "#54a0ff",
+  "#5f27cd",
+  "#1dd1a1",
+  "#ff9ff3",
+  "#48dbfb",
+  "#ffaf40",
+  "#00d2d3",
+  "#c8d6e5",
+];
+
+function generateAssignmentCode(index: number): string {
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const first = Math.floor(index / letters.length);
+  const second = index % letters.length;
+  const safeFirst = Math.min(first, letters.length - 1);
+  const safeSecond = Math.min(second, letters.length - 1);
+  return `${letters[safeFirst]}${letters[safeSecond]}`;
+}
+
 export default function DependencyGraph(props: DependencyGraphProps) {
   const [nodes, setNodes] = createSignal<Node[]>([]);
   const [edges, setEdges] = createSignal<Edge[]>([]);
@@ -46,6 +83,9 @@ export default function DependencyGraph(props: DependencyGraphProps) {
   const [selectedFilePath, setSelectedFilePath] = createSignal<string | null>(
     null
   );
+  const [superNodeAssignments, setSuperNodeAssignments] = createSignal<
+    SuperNodeAssignment[]
+  >([]);
 
   let svgRef: SVGSVGElement | undefined;
   let gRef: SVGGElement | undefined;
@@ -94,6 +134,117 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     };
   }
 
+  function transformHighInDegreeNodes(data: GraphData): {
+    graph: GraphData;
+    assignments: SuperNodeAssignment[];
+  } {
+    if (!data.nodes || !data.edges) {
+      return { graph: data, assignments: [] };
+    }
+
+    const inDegree = new Map<string, number>();
+    for (const edge of data.edges) {
+      if (!edge || typeof edge.target !== "string") continue;
+      inDegree.set(edge.target, (inDegree.get(edge.target) ?? 0) + 1);
+    }
+
+    const candidateIds = Array.from(inDegree.entries())
+      .filter(([, count]) => count > MAX_INCOMING_LINKS)
+      .map(([id]) => id);
+
+    if (candidateIds.length === 0) {
+      return { graph: data, assignments: [] };
+    }
+
+    const nodeById = new Map<string, any>(
+      data.nodes.map((n: any) => [n.id as string, n])
+    );
+
+    // Stable ordering by label so assignments/codes are deterministic
+    const sortedSuperIds = [...candidateIds].sort((a, b) => {
+      const na = nodeById.get(a);
+      const nb = nodeById.get(b);
+      const la = (na?.label ?? "").toString().toLowerCase();
+      const lb = (nb?.label ?? "").toString().toLowerCase();
+      return la.localeCompare(lb);
+    });
+
+    const assignments: SuperNodeAssignment[] = [];
+    const assignmentById = new Map<string, SuperNodeAssignment>();
+
+    sortedSuperIds.forEach((id, index) => {
+      const node = nodeById.get(id);
+      if (!node) return;
+      const code = generateAssignmentCode(index);
+      const color =
+        ASSIGNMENT_COLORS[index % ASSIGNMENT_COLORS.length] ??
+        ASSIGNMENT_COLORS[ASSIGNMENT_COLORS.length - 1];
+      const assignment: SuperNodeAssignment = {
+        nodeId: id,
+        label: (node.label ?? id) as string,
+        code,
+        color,
+      };
+      assignments.push(assignment);
+      assignmentById.set(id, assignment);
+    });
+
+    if (assignments.length === 0) {
+      return { graph: data, assignments: [] };
+    }
+
+    const baseNodes = data.nodes.map((n: any) => {
+      const assignment = assignmentById.get(n.id as string);
+      if (!assignment) return n;
+      return {
+        ...n,
+        assignmentCode: assignment.code,
+        assignmentColor: assignment.color,
+        isSuperNode: true,
+      };
+    });
+
+    const newNodes: any[] = [...baseNodes];
+    const newEdges: any[] = [];
+
+    let dummyIndex = 0;
+    for (const edge of data.edges) {
+      const targetAssignment = assignmentById.get(edge.target as string);
+      if (!targetAssignment) {
+        newEdges.push(edge);
+        continue;
+      }
+
+      const baseEdgeId =
+        (edge.id as string | undefined) ??
+        `${String(edge.source)}->${String(edge.target)}`;
+      const dummyId = `__dummy__${baseEdgeId}__${dummyIndex++}`;
+
+      newNodes.push({
+        id: dummyId,
+        label: targetAssignment.code,
+        type: "dummy",
+        assignmentCode: targetAssignment.code,
+        assignmentColor: targetAssignment.color,
+        superNodeId: targetAssignment.nodeId,
+      });
+
+      newEdges.push({
+        ...edge,
+        id: `${baseEdgeId}__to_dummy`,
+        target: dummyId,
+      });
+    }
+
+    return {
+      graph: {
+        nodes: newNodes,
+        edges: newEdges,
+      },
+      assignments,
+    };
+  }
+
   async function layoutGraph(data: GraphData) {
     const elkGraph = {
       id: "root",
@@ -103,12 +254,19 @@ export default function DependencyGraph(props: DependencyGraphProps) {
         "elk.spacing.nodeNode": "50",
         "elk.layered.spacing.nodeNodeBetweenLayers": "50",
       },
-      children: data.nodes.map((n) => ({
-        width: Math.max(100, (n.label as string).length * 8),
-        height: 40,
-        labels: [{ text: n.label as string }],
-        ...n,
-      })),
+      children: data.nodes.map((n: any) => {
+        const isDummy = n.type === "dummy";
+        const width = isDummy
+          ? 26
+          : Math.max(100, String(n.label ?? "").length * 8);
+        const height = isDummy ? 26 : 40;
+        return {
+          width,
+          height,
+          labels: isDummy ? [] : [{ text: String(n.label ?? "") }],
+          ...n,
+        };
+      }),
       edges: data.edges.map((e) => ({
         sources: [e.source as string],
         targets: [e.target as string],
@@ -133,7 +291,10 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     const data = rawGraph();
     if (!data) return;
     const includeExternal = showExternal();
-    void layoutGraph(filterGraphByExternal(data, includeExternal));
+    const filtered = filterGraphByExternal(data, includeExternal);
+    const { graph, assignments } = transformHighInDegreeNodes(filtered);
+    setSuperNodeAssignments(assignments);
+    void layoutGraph(graph);
   });
 
   function setupZoom() {
@@ -187,6 +348,16 @@ export default function DependencyGraph(props: DependencyGraphProps) {
   });
 
   function handleNodeClick(node: Node) {
+    if (node.type === "dummy") {
+      if (node.superNodeId) {
+        setActiveNodeId(node.superNodeId);
+        setTimeout(() => {
+          setSelectedFilePath(node.superNodeId as string);
+        }, 50);
+      }
+      return;
+    }
+
     if (node.type !== "file") return;
     setActiveNodeId(node.id);
     // Slight delay so the active styling is visible before the modal appears
@@ -284,6 +455,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
 
               <For each={nodes()}>
                 {(node) => {
+                  const isDummy = node.type === "dummy";
                   const isActive = activeNodeId() === node.id;
                   const isHovered = hoveredNodeId() === node.id;
                   const isExternal = node.type === "external";
@@ -297,13 +469,18 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                     ? "#273955"
                     : "#1e1e1e";
 
-                  const stroke = isExternal
+                  const baseStroke = isExternal
                     ? isEmphasized
                       ? "#888"
                       : "#444"
                     : isEmphasized
                     ? "#9cdcfe"
                     : "#569cd6";
+
+                  const stroke =
+                    node.isSuperNode && node.assignmentColor
+                      ? node.assignmentColor
+                      : baseStroke;
 
                   const textFill = isExternal
                     ? isEmphasized
@@ -312,6 +489,51 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                     : isEmphasized
                     ? "#f3f3f3"
                     : "#d4d4d4";
+
+                  if (isDummy) {
+                    const radius =
+                      Math.min(node.width ?? 20, node.height ?? 20) / 2 - 2;
+                    const cx = (node.width ?? 20) / 2;
+                    const cy = (node.height ?? 20) / 2;
+
+                    return (
+                      <g
+                        transform={`translate(${node.x}, ${node.y})`}
+                        class="cursor-pointer"
+                        onClick={() => handleNodeClick(node)}
+                        onMouseEnter={() => setHoveredNodeId(node.id)}
+                        onMouseLeave={() => {
+                          if (hoveredNodeId() === node.id) {
+                            setHoveredNodeId(null);
+                          }
+                        }}
+                      >
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={radius}
+                          fill={node.assignmentColor || "#888"}
+                          stroke="#111"
+                          stroke-width="1.5"
+                        />
+                        <text
+                          x={cx}
+                          y={cy}
+                          dy="0.35em"
+                          text-anchor="middle"
+                          fill="#000"
+                          font-size="10px"
+                          class="pointer-events-none select-none font-mono"
+                        >
+                          {node.assignmentCode}
+                        </text>
+                      </g>
+                    );
+                  }
+
+                  const displayLabel = node.assignmentCode
+                    ? `[${node.assignmentCode}] ${node.label}`
+                    : node.label;
 
                   return (
                     <g
@@ -342,7 +564,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                         font-size="12px"
                         class="pointer-events-none select-none"
                       >
-                        {node.label}
+                        {displayLabel}
                       </text>
                     </g>
                   );
@@ -352,6 +574,33 @@ export default function DependencyGraph(props: DependencyGraphProps) {
           </svg>
         </Show>
       </div>
+      <Show when={superNodeAssignments().length > 0}>
+        <div class="absolute bottom-4 left-4 bg-[#1e1e1e]/95 border border-[#333] rounded px-3 py-2 text-xs text-gray-200 shadow-lg max-w-sm">
+          <div class="font-bold text-gray-300 text-[11px] mb-1 border-b border-[#333] pb-1">
+            High In-Degree Targets
+          </div>
+          <div class="space-y-1 max-h-40 overflow-y-auto">
+            <For each={superNodeAssignments()}>
+              {(item) => (
+                <div class="flex items-center gap-2">
+                  <div
+                    class="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-mono"
+                    style={{
+                      "background-color": item.color,
+                      color: "#000",
+                    }}
+                  >
+                    {item.code}
+                  </div>
+                  <span class="truncate max-w-[220px]" title={item.label}>
+                    {item.label}
+                  </span>
+                </div>
+              )}
+            </For>
+          </div>
+        </div>
+      </Show>
       <CodeModal
         isOpen={!!selectedFilePath()}
         filePath={selectedFilePath()}
