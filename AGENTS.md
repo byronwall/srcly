@@ -1,12 +1,23 @@
----
-trigger: always_on
----
+# Agents
+
+## Client Package Management
+
+Use `pnpm` for all package management operations.
+
+- Install: `pnpm install`
+- Add: `pnpm add <package>`
+- Run: `pnpm run <script>`
+- Direct run: `pnpm dlx ...`
+
+When adding deps, always call `pnpm add` instead of modifying package.json directly.
+
+## Python Guide
 
 Use `uv` for all Python operations
 Create proper tests for new functionality, using `pytest` instaed of ad hoc scripts.
 To run tests, `cd server && uv run pytest`.
 
-## Add / extend a metric (agent rule)
+### Add / extend a metric (agent rule)
 
 > When adding a new metric that should flow end-to-end (backend → API → frontend hotspots/treemap), follow this process:
 >
