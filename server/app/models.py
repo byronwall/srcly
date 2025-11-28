@@ -48,3 +48,19 @@ class Node(BaseModel):
     model_config = {
         "populate_by_name": True
     }
+
+class DependencyNode(BaseModel):
+    id: str
+    label: str
+    type: str = "file" # file, external
+    metrics: Metrics | None = None
+
+class DependencyEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+    label: str | None = None
+
+class DependencyGraph(BaseModel):
+    nodes: List[DependencyNode]
+    edges: List[DependencyEdge]

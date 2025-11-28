@@ -710,3 +710,99 @@ class TreeSitterAnalyzer:
         
         return hardcoded_string_volume, duplicated_string_count
 
+    def extract_imports_exports(self, file_path: str) -> tuple[List[str], List[str]]:
+        """
+        Extracts a list of imported module paths and a list of exported identifiers
+        from the given file.
+        """
+        with open(file_path, 'rb') as f:
+            content = f.read()
+        
+        is_tsx = file_path.endswith('x')
+        parser = self.tsx_parser if is_tsx else self.ts_parser
+        tree = parser.parse(content)
+        
+        imports = self._get_imports(tree.root_node)
+        exports = self._get_exports(tree.root_node)
+        
+        return imports, exports
+
+    def _get_imports(self, node: Node) -> List[str]:
+        imports = []
+        
+        def traverse(n: Node):
+            if n.type == 'import_statement':
+                # import ... from 'source'
+                source = n.child_by_field_name('source')
+                if source:
+                    # source is a string literal, remove quotes
+                    import_path = source.text.decode('utf-8').strip("'\"")
+                    imports.append(import_path)
+            elif n.type == 'export_statement':
+                # export ... from 'source'
+                source = n.child_by_field_name('source')
+                if source:
+                    import_path = source.text.decode('utf-8').strip("'\"")
+                    imports.append(import_path)
+            
+            for child in n.children:
+                traverse(child)
+                
+        traverse(node)
+        return imports
+
+    def _get_exports(self, node: Node) -> List[str]:
+        exports = []
+
+        def traverse(n: Node):
+            if n.type == "export_statement":
+                # export { foo, bar }
+                clause = None
+                for child in n.children:
+                    if child.type == "export_clause":
+                        clause = child
+                        break
+                
+                if clause:
+                    for c in clause.children:
+                        if c.type == "export_specifier":
+                            alias = c.child_by_field_name("alias")
+                            if alias:
+                                exports.append(alias.text.decode('utf-8'))
+                            else:
+                                name_node = c.child_by_field_name("name")
+                                if name_node:
+                                    exports.append(name_node.text.decode('utf-8'))
+                                else:
+                                    # fallback
+                                    exports.append(c.text.decode('utf-8'))
+                else:
+                    # export default ...
+                    # export const foo = ...
+                    # export function bar() ...
+                    # export class Baz ...
+                    
+                    # Check for declaration
+                    declaration = n.child_by_field_name("declaration")
+                    if declaration:
+                        if declaration.type in {"function_declaration", "generator_function_declaration", "class_declaration"}:
+                            name_node = declaration.child_by_field_name("name")
+                            if name_node:
+                                exports.append(name_node.text.decode('utf-8'))
+                        elif declaration.type == "lexical_declaration":
+                            # export const foo = ...
+                            for child in declaration.children:
+                                if child.type == "variable_declarator":
+                                    name_node = child.child_by_field_name("name")
+                                    if name_node:
+                                        exports.append(name_node.text.decode('utf-8'))
+                    
+                    # Check for default export
+                    if "default" in n.text.decode('utf-8'): # Crude check for now, can be refined
+                         exports.append("default")
+
+            for child in n.children:
+                traverse(child)
+
+        traverse(node)
+        return exports

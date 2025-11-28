@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException
 from pathlib import Path
 import os
 
-from app.models import Node
-from app.services import analysis, cache
+from app.models import Node, DependencyGraph, DependencyNode, DependencyEdge
+from app.services import analysis, cache, tree_sitter_analysis
 from app.config import IGNORE_DIRS
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
@@ -33,6 +33,113 @@ async def get_analysis(path: str = None):
     tree = analysis.scan_codebase(target_path)
     cache.save_analysis(target_path, tree)
     return tree
+
+@router.get("/dependencies", response_model=DependencyGraph)
+async def get_dependencies(path: str = None):
+    """
+    Build a dependency graph for the specified path.
+    """
+    target_path = Path(path) if path else ROOT_PATH
+    if not target_path.exists():
+        raise HTTPException(status_code=404, detail="Path not found")
+
+    analyzer = tree_sitter_analysis.TreeSitterAnalyzer()
+    nodes = []
+    edges = []
+    
+    # Map file path to node ID
+    file_to_id = {}
+    # Map node ID to file path
+    id_to_file = {}
+    
+    # 1. Scan files and create nodes
+    # We only care about TS/TSX files for now
+    files_to_process = []
+    if target_path.is_file():
+        if target_path.suffix in {'.ts', '.tsx'}:
+            files_to_process.append(target_path)
+    else:
+        for root, dirs, files in os.walk(target_path):
+            # Filter ignored dirs
+            dirs[:] = [d for d in dirs if d not in IGNORE_DIRS and not d.startswith(".")]
+            for file in files:
+                if file.endswith(('.ts', '.tsx')):
+                    files_to_process.append(Path(root) / file)
+
+    for file_path in files_to_process:
+        file_path = file_path.resolve()
+        node_id = str(file_path) # Use absolute path as ID for simplicity
+        label = file_path.name
+        
+        nodes.append(DependencyNode(id=node_id, label=label, type="file"))
+        file_to_id[file_path] = node_id
+        id_to_file[node_id] = file_path
+
+    # 2. Extract imports and create edges
+    for file_path in files_to_process:
+        file_path = file_path.resolve()
+        source_id = file_to_id[file_path]
+        try:
+            imports, _ = analyzer.extract_imports_exports(str(file_path))
+            
+            for import_path in imports:
+                # Resolve import
+                target_file = None
+                
+                if import_path.startswith("."):
+                    # Relative import
+                    resolved = (file_path.parent / import_path).resolve()
+                    
+                    # Try exact match first (unlikely for TS imports)
+                    if resolved in file_to_id:
+                        target_file = resolved
+                    else:
+                        # Try extensions
+                        for ext in ['.ts', '.tsx', '.d.ts', '/index.ts', '/index.tsx']:
+                            # Handle /index.ts case by appending
+                            if ext.startswith('/'):
+                                candidate = resolved / ext.lstrip('/')
+                            else:
+                                candidate = resolved.with_suffix(ext)
+                            
+                            if candidate in file_to_id:
+                                target_file = candidate
+                                break
+                
+                if target_file:
+                    target_id = file_to_id[target_file]
+                    edges.append(DependencyEdge(
+                        id=f"{source_id}-{target_id}",
+                        source=source_id,
+                        target=target_id,
+                        label=None
+                    ))
+                else:
+                    # External dependency or could not resolve
+                    # Create an external node if it doesn't exist?
+                    # For now, let's just add external nodes for non-relative imports
+                    # or unresolved relative imports.
+                    
+                    # To avoid clutter, maybe only add if it's a package import (not starting with .)
+                    if not import_path.startswith("."):
+                        ext_id = f"ext:{import_path}"
+                        # Check if we already added this external node
+                        if ext_id not in id_to_file:
+                            nodes.append(DependencyNode(id=ext_id, label=import_path, type="external"))
+                            id_to_file[ext_id] = "external"
+                        
+                        edges.append(DependencyEdge(
+                            id=f"{source_id}-{ext_id}",
+                            source=source_id,
+                            target=ext_id,
+                            label=None
+                        ))
+
+        except Exception as e:
+            print(f"Error analyzing dependencies for {file_path}: {e}")
+            continue
+
+    return DependencyGraph(nodes=nodes, edges=edges)
 
 @router.post("/refresh", response_model=Node)
 async def refresh_analysis():

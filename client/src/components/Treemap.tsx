@@ -9,6 +9,7 @@ import {
 import * as d3 from "d3";
 import { extractFilePath, filterByExtension } from "../utils/dataProcessing";
 import { HOTSPOT_METRICS, useMetricsStore } from "../utils/metricsStore";
+import DependencyGraph from "./DependencyGraph";
 
 interface TreemapProps {
   data: any;
@@ -32,6 +33,7 @@ export default function Treemap(props: TreemapProps) {
   const [showLegend, setShowLegend] = createSignal(false);
   const [isIsolateMode, setIsIsolateMode] = createSignal(false);
   const [showMetricPopover, setShowMetricPopover] = createSignal(false);
+  const [showDependencyGraph, setShowDependencyGraph] = createSignal(false);
 
   // Handle key modifiers for isolate mode
   onMount(() => {
@@ -521,7 +523,7 @@ export default function Treemap(props: TreemapProps) {
   }
 
   createEffect(() => {
-    if (currentRoot()) {
+    if (currentRoot() && !showDependencyGraph()) {
       renderTreemap(currentRoot());
     }
   });
@@ -529,7 +531,7 @@ export default function Treemap(props: TreemapProps) {
   // Handle resize
   onMount(() => {
     const resizeObserver = new ResizeObserver(() => {
-      if (currentRoot()) {
+      if (currentRoot() && !showDependencyGraph()) {
         renderTreemap(currentRoot());
       }
     });
@@ -538,7 +540,7 @@ export default function Treemap(props: TreemapProps) {
   });
 
   return (
-    <div class="flex flex-col w-full h-full overflow-hidden border border-gray-700 rounded bg-[#121212]">
+    <div class="flex flex-col w-full h-full overflow-hidden border border-gray-700 rounded bg-[#121212] relative">
       {/* Header Bar */}
       <div class="flex items-center justify-between px-3 py-2 bg-[#1e1e1e] border-b border-[#333]">
         {/* Breadcrumbs */}
@@ -650,6 +652,20 @@ export default function Treemap(props: TreemapProps) {
           </Show>
         </div>
 
+        {/* View Dependencies Button */}
+        <div class="ml-4 pl-4 border-l border-[#333]">
+          <button
+            class={`px-3 py-1 text-xs rounded border transition-colors ${
+              showDependencyGraph()
+                ? "bg-purple-900 border-purple-700 text-purple-100"
+                : "bg-[#252526] border-[#3e3e42] text-gray-400 hover:bg-[#2d2d2d]"
+            }`}
+            onClick={() => setShowDependencyGraph(!showDependencyGraph())}
+          >
+            View Dependencies
+          </button>
+        </div>
+
         {/* Legend Tooltip */}
         <Show when={showLegend()}>
           <div class="absolute top-10 right-4 z-50 bg-[#252526] border border-[#3e3e42] p-3 rounded shadow-xl text-xs w-64">
@@ -675,7 +691,14 @@ export default function Treemap(props: TreemapProps) {
         </Show>
       </div>
 
-      <div ref={containerRef} class="flex-1 relative overflow-hidden" />
+      <div ref={containerRef} class="flex-1 relative overflow-hidden">
+        <Show when={showDependencyGraph()}>
+          <DependencyGraph
+            path={currentRoot()?.path}
+            onClose={() => setShowDependencyGraph(false)}
+          />
+        </Show>
+      </div>
       <div
         ref={tooltipRef}
         class="fixed pointer-events-none opacity-0 bg-[#1e1e1e] p-2 border border-[#555] text-white z-50 shadow-lg transition-opacity duration-200 text-sm"
