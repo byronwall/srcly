@@ -69,8 +69,20 @@ async def get_dependencies(path: str = None):
     for file_path in files_to_process:
         file_path = file_path.resolve()
         node_id = str(file_path) # Use absolute path as ID for simplicity
-        label = file_path.name
-        
+
+        # If the file is an index.* file or uses a dynamic route-style name
+        # like [id].tsx, include its parent folder name to make the node
+        # label more informative (e.g. "components/index.tsx" or
+        # "posts/[id].tsx").
+        file_name = file_path.name
+        is_index = file_path.stem == "index"
+        has_brackets = ("[" in file_name) and ("]" in file_name)
+
+        if (is_index or has_brackets) and file_path.parent is not None:
+            label = f"{file_path.parent.name}/{file_name}"
+        else:
+            label = file_name
+
         nodes.append(DependencyNode(id=node_id, label=label, type="file"))
         file_to_id[file_path] = node_id
         id_to_file[node_id] = file_path

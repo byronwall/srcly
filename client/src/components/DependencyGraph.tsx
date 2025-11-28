@@ -1,4 +1,5 @@
 import { createSignal, createEffect, Show, For } from "solid-js";
+import CodeModal from "./CodeModal";
 import ELK from "elkjs/lib/elk.bundled.js";
 import { select, zoom, zoomIdentity } from "d3";
 
@@ -28,11 +29,23 @@ interface Edge {
   }[];
 }
 
+interface GraphData {
+  nodes: any[];
+  edges: any[];
+}
+
 export default function DependencyGraph(props: DependencyGraphProps) {
   const [nodes, setNodes] = createSignal<Node[]>([]);
   const [edges, setEdges] = createSignal<Edge[]>([]);
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
+  const [rawGraph, setRawGraph] = createSignal<GraphData | null>(null);
+  const [showExternal, setShowExternal] = createSignal(false);
+  const [hoveredNodeId, setHoveredNodeId] = createSignal<string | null>(null);
+  const [activeNodeId, setActiveNodeId] = createSignal<string | null>(null);
+  const [selectedFilePath, setSelectedFilePath] = createSignal<string | null>(
+    null
+  );
 
   let svgRef: SVGSVGElement | undefined;
   let gRef: SVGGElement | undefined;
@@ -54,8 +67,8 @@ export default function DependencyGraph(props: DependencyGraphProps) {
       const response = await fetch(url.toString());
       if (!response.ok) throw new Error("Failed to fetch dependencies");
 
-      const data = await response.json();
-      await layoutGraph(data);
+      const data = (await response.json()) as GraphData;
+      setRawGraph(data);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -63,7 +76,25 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     }
   }
 
-  async function layoutGraph(data: { nodes: any[]; edges: any[] }) {
+  function filterGraphByExternal(
+    data: GraphData,
+    includeExternal: boolean
+  ): GraphData {
+    if (includeExternal) return data;
+
+    const filteredNodes = data.nodes.filter((n) => n.type !== "external");
+    const allowedIds = new Set(filteredNodes.map((n) => n.id));
+    const filteredEdges = data.edges.filter(
+      (e) => allowedIds.has(e.source) && allowedIds.has(e.target)
+    );
+
+    return {
+      nodes: filteredNodes,
+      edges: filteredEdges,
+    };
+  }
+
+  async function layoutGraph(data: GraphData) {
     const elkGraph = {
       id: "root",
       layoutOptions: {
@@ -73,24 +104,22 @@ export default function DependencyGraph(props: DependencyGraphProps) {
         "elk.layered.spacing.nodeNodeBetweenLayers": "50",
       },
       children: data.nodes.map((n) => ({
-        id: n.id,
-        width: Math.max(100, n.label.length * 8),
+        width: Math.max(100, (n.label as string).length * 8),
         height: 40,
-        labels: [{ text: n.label }],
+        labels: [{ text: n.label as string }],
         ...n,
       })),
       edges: data.edges.map((e) => ({
-        id: e.id,
-        sources: [e.source],
-        targets: [e.target],
+        sources: [e.source as string],
+        targets: [e.target as string],
         ...e,
       })),
     };
 
     try {
-      const layout = await elk.layout(elkGraph);
+      const layout = await elk.layout(elkGraph as any);
       setNodes(layout.children as Node[]);
-      setEdges(layout.edges as Edge[]);
+      setEdges(layout.edges as unknown as Edge[]);
 
       // Fit graph after layout update
       setTimeout(fitGraph, 0);
@@ -99,6 +128,13 @@ export default function DependencyGraph(props: DependencyGraphProps) {
       setError("Failed to layout graph");
     }
   }
+
+  createEffect(() => {
+    const data = rawGraph();
+    if (!data) return;
+    const includeExternal = showExternal();
+    void layoutGraph(filterGraphByExternal(data, includeExternal));
+  });
 
   function setupZoom() {
     if (!svgRef || !gRef) return;
@@ -150,13 +186,31 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     }
   });
 
+  function handleNodeClick(node: Node) {
+    if (node.type !== "file") return;
+    setActiveNodeId(node.id);
+    // Slight delay so the active styling is visible before the modal appears
+    setTimeout(() => {
+      setSelectedFilePath(node.id);
+    }, 50);
+  }
+
   return (
     <div class="absolute inset-0 bg-[#1e1e1e] z-50 flex flex-col">
       <div class="flex items-center justify-between px-4 py-2 border-b border-[#333] bg-[#252526]">
         <h2 class="text-sm font-bold text-gray-300">
           Dependency Graph: {props.path || "Root"}
         </h2>
-        <div class="flex gap-2">
+        <div class="flex items-center gap-3">
+          <label class="flex items-center gap-1 text-xs text-gray-300">
+            <input
+              type="checkbox"
+              checked={showExternal()}
+              onChange={(e) => setShowExternal(e.currentTarget.checked)}
+            />
+            <span>Show external deps</span>
+          </label>
+          <div class="h-4 w-px bg-[#444]" />
           <button
             onClick={fitGraph}
             class="px-3 py-1 text-xs bg-[#3c3c3c] hover:bg-[#4c4c4c] text-gray-200 rounded border border-[#555] transition-colors"
@@ -229,34 +283,83 @@ export default function DependencyGraph(props: DependencyGraphProps) {
               </For>
 
               <For each={nodes()}>
-                {(node) => (
-                  <g transform={`translate(${node.x}, ${node.y})`}>
-                    <rect
-                      width={node.width}
-                      height={node.height}
-                      rx="4"
-                      fill={node.type === "external" ? "#2d2d2d" : "#1e1e1e"}
-                      stroke={node.type === "external" ? "#444" : "#569cd6"}
-                      stroke-width="1"
-                    />
-                    <text
-                      x={(node.width || 0) / 2}
-                      y={(node.height || 0) / 2}
-                      dy="0.35em"
-                      text-anchor="middle"
-                      fill={node.type === "external" ? "#888" : "#d4d4d4"}
-                      font-size="12px"
-                      class="pointer-events-none select-none"
+                {(node) => {
+                  const isActive = activeNodeId() === node.id;
+                  const isHovered = hoveredNodeId() === node.id;
+                  const isExternal = node.type === "external";
+                  const isEmphasized = isActive || isHovered;
+
+                  const fill = isExternal
+                    ? isEmphasized
+                      ? "#383838"
+                      : "#2d2d2d"
+                    : isEmphasized
+                    ? "#273955"
+                    : "#1e1e1e";
+
+                  const stroke = isExternal
+                    ? isEmphasized
+                      ? "#888"
+                      : "#444"
+                    : isEmphasized
+                    ? "#9cdcfe"
+                    : "#569cd6";
+
+                  const textFill = isExternal
+                    ? isEmphasized
+                      ? "#bbbbbb"
+                      : "#888"
+                    : isEmphasized
+                    ? "#f3f3f3"
+                    : "#d4d4d4";
+
+                  return (
+                    <g
+                      transform={`translate(${node.x}, ${node.y})`}
+                      class="cursor-pointer"
+                      onClick={() => handleNodeClick(node)}
+                      onMouseEnter={() => setHoveredNodeId(node.id)}
+                      onMouseLeave={() => {
+                        if (hoveredNodeId() === node.id) {
+                          setHoveredNodeId(null);
+                        }
+                      }}
                     >
-                      {node.label}
-                    </text>
-                  </g>
-                )}
+                      <rect
+                        width={node.width}
+                        height={node.height}
+                        rx="4"
+                        fill={fill}
+                        stroke={stroke}
+                        stroke-width={isEmphasized ? "2" : "1"}
+                      />
+                      <text
+                        x={(node.width || 0) / 2}
+                        y={(node.height || 0) / 2}
+                        dy="0.35em"
+                        text-anchor="middle"
+                        fill={textFill}
+                        font-size="12px"
+                        class="pointer-events-none select-none"
+                      >
+                        {node.label}
+                      </text>
+                    </g>
+                  );
+                }}
               </For>
             </g>
           </svg>
         </Show>
       </div>
+      <CodeModal
+        isOpen={!!selectedFilePath()}
+        filePath={selectedFilePath()}
+        onClose={() => {
+          setSelectedFilePath(null);
+          setActiveNodeId(null);
+        }}
+      />
     </div>
   );
 }
