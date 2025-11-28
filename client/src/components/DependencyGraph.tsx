@@ -2,11 +2,12 @@ import { createSignal, createEffect, Show, For } from "solid-js";
 import CodeModal from "./CodeModal";
 import ELK from "elkjs/lib/elk.bundled.js";
 import * as d3 from "d3";
-import { HOTSPOT_METRICS, useMetricsStore } from "../utils/metricsStore";
+import { HOTSPOT_METRICS, type HotSpotMetricId } from "../utils/metricsStore";
 
 interface DependencyGraphProps {
   path: string;
   onClose: () => void;
+  primaryMetricId: HotSpotMetricId;
   fileMetricsByName?: Map<string, any>;
 }
 
@@ -220,8 +221,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
   let zoomBehavior: any;
 
   const elk = new ELK();
-  const { selectedHotSpotMetrics } = useMetricsStore();
-  const primaryMetric = () => selectedHotSpotMetrics()[0] || "complexity";
+  const primaryMetric = () => props.primaryMetricId || "complexity";
 
   createEffect(() => {
     fetchGraph(props.path);
@@ -440,6 +440,11 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     void layoutGraph(graph);
   });
 
+  // Track changes to the primary metric so node rendering stays reactive.
+  createEffect(() => {
+    primaryMetric();
+  });
+
   function setupZoom() {
     if (!svgRef || !gRef) return;
 
@@ -599,128 +604,8 @@ export default function DependencyGraph(props: DependencyGraphProps) {
 
               <For each={nodes()}>
                 {(node) => {
-                  const isDummy = node.type === "dummy";
                   const isActive = activeNodeId() === node.id;
                   const isHovered = hoveredNodeId() === node.id;
-                  const isExternal = node.type === "external";
-                  const isEmphasized = isActive || isHovered;
-
-                  let metrics: any | undefined;
-                  if (!isDummy && !isExternal && props.fileMetricsByName) {
-                    const baseName = getFileBaseName(String(node.label ?? ""));
-                    metrics = props.fileMetricsByName.get(baseName);
-                  }
-
-                  const metricId = primaryMetric();
-                  let hotspotColor: string | null = null;
-                  if (metrics) {
-                    let rawVal = (metrics as any)[metricId] ?? 0;
-                    const def = HOTSPOT_METRICS.find((m) => m.id === metricId);
-                    if (def?.invert) {
-                      rawVal = 1 - (rawVal || 0);
-                    }
-                    if (!isFinite(rawVal) || rawVal < 0) rawVal = 0;
-                    const scaled =
-                      typeof rawVal === "number"
-                        ? Math.min(rawVal, 50)
-                        : Number(rawVal) || 0;
-
-                    if (metricId === "comment_density") {
-                      hotspotColor = commentDensityColor(
-                        metrics.comment_density || 0
-                      );
-                    } else if (metricId === "max_nesting_depth") {
-                      hotspotColor = nestingDepthColor(
-                        metrics.max_nesting_depth || 0
-                      );
-                    } else if (metricId === "todo_count") {
-                      hotspotColor = todoCountColor(metrics.todo_count || 0);
-                    } else {
-                      hotspotColor = complexityColor(scaled);
-                    }
-                  }
-
-                  const fill = isExternal
-                    ? isEmphasized
-                      ? "#383838"
-                      : "#2d2d2d"
-                    : hotspotColor
-                    ? hotspotColor
-                    : isEmphasized
-                    ? "#273955"
-                    : "#1e1e1e";
-
-                  const baseStroke = isExternal
-                    ? isEmphasized
-                      ? "#888"
-                      : "#444"
-                    : isEmphasized
-                    ? "#9cdcfe"
-                    : "#569cd6";
-
-                  const stroke =
-                    node.isSuperNode && node.assignmentColor
-                      ? node.assignmentColor
-                      : baseStroke;
-
-                  const textFill = isExternal
-                    ? isEmphasized
-                      ? "#bbbbbb"
-                      : "#888"
-                    : hotspotColor
-                    ? getContrastingTextColor(
-                        hotspotColor,
-                        isEmphasized ? 1 : 0.85
-                      )
-                    : isEmphasized
-                    ? "#f3f3f3"
-                    : "#d4d4d4";
-
-                  if (isDummy) {
-                    const radius =
-                      Math.min(node.width ?? 20, node.height ?? 20) / 2 - 2;
-                    const cx = (node.width ?? 20) / 2;
-                    const cy = (node.height ?? 20) / 2;
-
-                    return (
-                      <g
-                        transform={`translate(${node.x}, ${node.y})`}
-                        class="cursor-pointer"
-                        onClick={() => handleNodeClick(node)}
-                        onMouseEnter={() => setHoveredNodeId(node.id)}
-                        onMouseLeave={() => {
-                          if (hoveredNodeId() === node.id) {
-                            setHoveredNodeId(null);
-                          }
-                        }}
-                      >
-                        <circle
-                          cx={cx}
-                          cy={cy}
-                          r={radius}
-                          fill={node.assignmentColor || "#888"}
-                          stroke="#111"
-                          stroke-width="1.5"
-                        />
-                        <text
-                          x={cx}
-                          y={cy}
-                          dy="0.35em"
-                          text-anchor="middle"
-                          fill="#000"
-                          font-size="10px"
-                          class="pointer-events-none select-none font-mono"
-                        >
-                          {node.assignmentCode}
-                        </text>
-                      </g>
-                    );
-                  }
-
-                  const displayLabel = node.assignmentCode
-                    ? `[${node.assignmentCode}] ${node.label}`
-                    : node.label;
-
                   return (
                     <g
                       transform={`translate(${node.x}, ${node.y})`}
@@ -733,25 +618,153 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                         }
                       }}
                     >
-                      <rect
-                        width={node.width}
-                        height={node.height}
-                        rx="4"
-                        fill={fill}
-                        stroke={stroke}
-                        stroke-width={isEmphasized ? "2" : "1"}
-                      />
-                      <text
-                        x={(node.width || 0) / 2}
-                        y={(node.height || 0) / 2}
-                        dy="0.35em"
-                        text-anchor="middle"
-                        fill={textFill}
-                        font-size="12px"
-                        class="pointer-events-none select-none"
-                      >
-                        {displayLabel}
-                      </text>
+                      {/* Recompute hotspot-driven visuals based on current metric */}
+                      {(() => {
+                        const isDummy = node.type === "dummy";
+                        const isExternal = node.type === "external";
+                        const isEmphasized = isActive || isHovered;
+
+                        let metrics: any | undefined;
+                        if (
+                          !isDummy &&
+                          !isExternal &&
+                          props.fileMetricsByName
+                        ) {
+                          const baseName = getFileBaseName(
+                            String(node.label ?? "")
+                          );
+                          metrics = props.fileMetricsByName.get(baseName);
+                        }
+
+                        const metricId = primaryMetric();
+                        let hotspotColor: string | null = null;
+                        if (metrics) {
+                          let rawVal = (metrics as any)[metricId] ?? 0;
+                          const def = HOTSPOT_METRICS.find(
+                            (m) => m.id === metricId
+                          );
+                          if (def?.invert) {
+                            rawVal = 1 - (rawVal || 0);
+                          }
+                          if (!isFinite(rawVal) || rawVal < 0) rawVal = 0;
+                          const scaled =
+                            typeof rawVal === "number"
+                              ? Math.min(rawVal, 50)
+                              : Number(rawVal) || 0;
+
+                          if (metricId === "comment_density") {
+                            hotspotColor = commentDensityColor(
+                              metrics.comment_density || 0
+                            );
+                          } else if (metricId === "max_nesting_depth") {
+                            hotspotColor = nestingDepthColor(
+                              metrics.max_nesting_depth || 0
+                            );
+                          } else if (metricId === "todo_count") {
+                            hotspotColor = todoCountColor(
+                              metrics.todo_count || 0
+                            );
+                          } else {
+                            hotspotColor = complexityColor(scaled);
+                          }
+                        }
+
+                        const fill = isExternal
+                          ? isEmphasized
+                            ? "#383838"
+                            : "#2d2d2d"
+                          : hotspotColor
+                          ? hotspotColor
+                          : isEmphasized
+                          ? "#273955"
+                          : "#1e1e1e";
+
+                        const baseStroke = isExternal
+                          ? isEmphasized
+                            ? "#888"
+                            : "#444"
+                          : isEmphasized
+                          ? "#9cdcfe"
+                          : "#569cd6";
+
+                        const stroke =
+                          node.isSuperNode && node.assignmentColor
+                            ? node.assignmentColor
+                            : baseStroke;
+
+                        const textFill = isExternal
+                          ? isEmphasized
+                            ? "#bbbbbb"
+                            : "#888"
+                          : hotspotColor
+                          ? getContrastingTextColor(
+                              hotspotColor,
+                              isEmphasized ? 1 : 0.85
+                            )
+                          : isEmphasized
+                          ? "#f3f3f3"
+                          : "#d4d4d4";
+
+                        if (isDummy) {
+                          const radius =
+                            Math.min(node.width ?? 20, node.height ?? 20) / 2 -
+                            2;
+                          const cx = (node.width ?? 20) / 2;
+                          const cy = (node.height ?? 20) / 2;
+
+                          return (
+                            <>
+                              <circle
+                                cx={cx}
+                                cy={cy}
+                                r={radius}
+                                fill={node.assignmentColor || "#888"}
+                                stroke="#111"
+                                stroke-width="1.5"
+                              />
+                              <text
+                                x={cx}
+                                y={cy}
+                                dy="0.35em"
+                                text-anchor="middle"
+                                fill="#000"
+                                font-size="10px"
+                                class="pointer-events-none select-none font-mono"
+                              >
+                                {node.assignmentCode}
+                              </text>
+                            </>
+                          );
+                        }
+
+                        const displayLabel = node.assignmentCode
+                          ? `[${node.assignmentCode}] ${node.label}`
+                          : node.label;
+
+                        return (
+                          <>
+                            <rect
+                              width={node.width}
+                              height={node.height}
+                              rx="4"
+                              fill={fill}
+                              stroke={stroke}
+                              stroke-width={isEmphasized ? "2" : "1"}
+                            />
+                            <text
+                              x={(node.width || 0) / 2}
+                              y={(node.height || 0) / 2}
+                              dy="0.35em"
+                              text-anchor="middle"
+                              fill={textFill}
+                              font-size="12px"
+                              class="pointer-events-none select-none"
+                            >
+                              {displayLabel}
+                            </text>
+                          </>
+                        );
+                      })()}
                     </g>
                   );
                 }}

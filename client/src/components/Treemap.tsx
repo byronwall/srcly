@@ -546,8 +546,12 @@ export default function Treemap(props: TreemapProps) {
   }
 
   createEffect(() => {
-    if (currentRoot() && !showDependencyGraph()) {
-      renderTreemap(currentRoot());
+    const root = currentRoot();
+    const depsVisible = showDependencyGraph();
+    // Track metric changes so color updates are reactive in the treemap.
+    primaryMetric();
+    if (root && !depsVisible) {
+      renderTreemap(root);
     }
   });
 
@@ -718,6 +722,7 @@ export default function Treemap(props: TreemapProps) {
         <Show when={showDependencyGraph()}>
           <DependencyGraph
             path={currentRoot()?.path}
+            primaryMetricId={primaryMetric()}
             fileMetricsByName={fileMetricsByName()}
             onClose={() => setShowDependencyGraph(false)}
           />
