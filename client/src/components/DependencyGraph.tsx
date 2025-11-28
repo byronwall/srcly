@@ -62,13 +62,99 @@ const ASSIGNMENT_COLORS = [
   "#c8d6e5",
 ];
 
-function generateAssignmentCode(index: number): string {
-  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const first = Math.floor(index / letters.length);
-  const second = index % letters.length;
-  const safeFirst = Math.min(first, letters.length - 1);
-  const safeSecond = Math.min(second, letters.length - 1);
-  return `${letters[safeFirst]}${letters[safeSecond]}`;
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+/**
+ * Derive a stable, human-meaningful two-letter code from a file label.
+ *
+ * Rules (in priority order):
+ * - If the (normalized) file name is exactly two letters, use those.
+ * - If the file name has dashes/other splits, use the first letter of the
+ *   first two segments (e.g. "user-profile.tsx" -> "UP").
+ * - Otherwise, make a best guess based on the characters in the name.
+ * - Never reuse a two-letter code: if a candidate is already taken, walk
+ *   through additional candidates and finally fall back to any unused
+ *   AA..ZZ combination.
+ */
+function normalizeBaseName(label: string): string {
+  const lastSlash = label.lastIndexOf("/");
+  const filePart = lastSlash >= 0 ? label.slice(lastSlash + 1) : label;
+
+  const lastDot = filePart.lastIndexOf(".");
+  const withoutExt = lastDot > 0 ? filePart.slice(0, lastDot) : filePart;
+
+  return withoutExt.trim();
+}
+
+function buildCandidateCodes(label: string): string[] {
+  const base = normalizeBaseName(label).replace(/[\[\]]/g, "");
+  const letters = (base.toUpperCase().match(/[A-Z]/g) ?? []) as string[];
+  const candidates: string[] = [];
+
+  // 1. Exactly two letters: use those directly.
+  if (letters.length === 2) {
+    candidates.push(letters.join(""));
+  }
+
+  // 2. Dashes / other splits – take initials of first two meaningful segments.
+  const parts = base.split(/[-_\s]+/).filter(Boolean);
+  const partInitials = parts
+    .map((p) => (p.match(/[A-Za-z]/)?.[0] ?? "").toUpperCase())
+    .filter(Boolean);
+  if (partInitials.length >= 2) {
+    const code = `${partInitials[0]}${partInitials[1]}`;
+    if (!candidates.includes(code)) candidates.push(code);
+  }
+
+  // 3. Best-guess fallbacks from the letter sequence itself.
+  if (letters.length >= 2) {
+    const firstTwo = `${letters[0]}${letters[1]}`;
+    if (!candidates.includes(firstTwo)) candidates.push(firstTwo);
+
+    const firstLast = `${letters[0]}${letters[letters.length - 1]}`;
+    if (!candidates.includes(firstLast)) candidates.push(firstLast);
+  } else if (letters.length === 1) {
+    const doubled = `${letters[0]}${letters[0]}`;
+    if (!candidates.includes(doubled)) candidates.push(doubled);
+  }
+
+  // 4. Additional combinations of letters to improve chances of uniqueness.
+  for (let i = 0; i < letters.length && i < 4; i++) {
+    for (let j = i + 1; j < letters.length && j < i + 4; j++) {
+      const code = `${letters[i]}${letters[j]}`;
+      if (!candidates.includes(code)) candidates.push(code);
+    }
+  }
+
+  return candidates;
+}
+
+function generateAssignmentCodeFromLabel(
+  label: string,
+  usedCodes: Set<string>
+): string {
+  const candidates = buildCandidateCodes(label);
+
+  for (const code of candidates) {
+    if (code.length === 2 && !usedCodes.has(code)) {
+      usedCodes.add(code);
+      return code;
+    }
+  }
+
+  // Final fallback: scan the full AA..ZZ space for the first unused code.
+  for (let i = 0; i < LETTERS.length; i++) {
+    for (let j = 0; j < LETTERS.length; j++) {
+      const code = `${LETTERS[i]}${LETTERS[j]}`;
+      if (!usedCodes.has(code)) {
+        usedCodes.add(code);
+        return code;
+      }
+    }
+  }
+
+  // Extremely unlikely: all codes used. Still return something deterministic.
+  return "??";
 }
 
 export default function DependencyGraph(props: DependencyGraphProps) {
@@ -171,17 +257,19 @@ export default function DependencyGraph(props: DependencyGraphProps) {
 
     const assignments: SuperNodeAssignment[] = [];
     const assignmentById = new Map<string, SuperNodeAssignment>();
+    const usedCodes = new Set<string>();
 
     sortedSuperIds.forEach((id, index) => {
       const node = nodeById.get(id);
       if (!node) return;
-      const code = generateAssignmentCode(index);
+      const label = (node.label ?? id) as string;
+      const code = generateAssignmentCodeFromLabel(label, usedCodes);
       const color =
         ASSIGNMENT_COLORS[index % ASSIGNMENT_COLORS.length] ??
         ASSIGNMENT_COLORS[ASSIGNMENT_COLORS.length - 1];
       const assignment: SuperNodeAssignment = {
         nodeId: id,
-        label: (node.label ?? id) as string,
+        label,
         code,
         color,
       };
