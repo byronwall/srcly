@@ -1,11 +1,13 @@
 import { createSignal, createEffect, Show, For } from "solid-js";
 import CodeModal from "./CodeModal";
 import ELK from "elkjs/lib/elk.bundled.js";
-import { select, zoom, zoomIdentity } from "d3";
+import * as d3 from "d3";
+import { HOTSPOT_METRICS, useMetricsStore } from "../utils/metricsStore";
 
 interface DependencyGraphProps {
   path: string;
   onClose: () => void;
+  fileMetricsByName?: Map<string, any>;
 }
 
 interface Node {
@@ -63,6 +65,46 @@ const ASSIGNMENT_COLORS = [
 ];
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+function getFileBaseName(label: string): string {
+  const lastSlash = label.lastIndexOf("/");
+  return lastSlash >= 0 ? label.slice(lastSlash + 1) : label;
+}
+
+// Color scales: keep in sync with the treemap hotspot coloring.
+const complexityColor = d3
+  .scaleLinear<string>()
+  .domain([0, 10, 50])
+  .range(["#569cd6", "#dcdcaa", "#ce9178"])
+  .clamp(true);
+
+const commentDensityColor = d3
+  .scaleLinear<string>()
+  .domain([0, 0.2, 0.5])
+  .range(["#ffcccc", "#ff9999", "#ff0000"])
+  .clamp(true);
+
+const nestingDepthColor = d3
+  .scaleLinear<string>()
+  .domain([0, 3, 8])
+  .range(["#e0f7fa", "#4dd0e1", "#006064"])
+  .clamp(true);
+
+const todoCountColor = d3
+  .scaleLinear<string>()
+  .domain([0, 1, 5])
+  .range(["#f1f8e9", "#aed581", "#33691e"])
+  .clamp(true);
+
+const getContrastingTextColor = (bgColor: string, alpha = 1) => {
+  const base = d3.hsl(bgColor);
+  const lightBackground = base.l >= 0.5;
+  const targetLightness = lightBackground ? 0.12 : 0.9;
+  const textColor = d3.hsl(base.h, base.s * 0.9, targetLightness).rgb();
+  return `rgba(${Math.round(textColor.r)}, ${Math.round(
+    textColor.g
+  )}, ${Math.round(textColor.b)}, ${alpha})`;
+};
 
 /**
  * Derive a stable, human-meaningful two-letter code from a file label.
@@ -178,6 +220,8 @@ export default function DependencyGraph(props: DependencyGraphProps) {
   let zoomBehavior: any;
 
   const elk = new ELK();
+  const { selectedHotSpotMetrics } = useMetricsStore();
+  const primaryMetric = () => selectedHotSpotMetrics()[0] || "complexity";
 
   createEffect(() => {
     fetchGraph(props.path);
@@ -399,20 +443,21 @@ export default function DependencyGraph(props: DependencyGraphProps) {
   function setupZoom() {
     if (!svgRef || !gRef) return;
 
-    zoomBehavior = zoom<SVGSVGElement, unknown>()
+    zoomBehavior = d3
+      .zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.1, 4])
       .on("zoom", (event) => {
-        select(gRef).attr("transform", event.transform);
+        d3.select(gRef).attr("transform", event.transform);
       });
 
-    select(svgRef).call(zoomBehavior);
+    d3.select(svgRef).call(zoomBehavior);
   }
 
   function fitGraph() {
     if (!svgRef || !gRef || nodes().length === 0 || !zoomBehavior) return;
 
-    const svg = select(svgRef);
-    const g = select(gRef);
+    const svg = d3.select(svgRef);
+    const g = d3.select(gRef);
 
     // Get graph bounds
     const bounds = g.node()?.getBBox();
@@ -434,7 +479,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     const x = (width - bounds.width * finalScale) / 2 - bounds.x * finalScale;
     const y = (height - bounds.height * finalScale) / 2 - bounds.y * finalScale;
 
-    const transform = zoomIdentity.translate(x, y).scale(finalScale);
+    const transform = d3.zoomIdentity.translate(x, y).scale(finalScale);
 
     svg.transition().duration(750).call(zoomBehavior.transform, transform);
   }
@@ -560,10 +605,47 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                   const isExternal = node.type === "external";
                   const isEmphasized = isActive || isHovered;
 
+                  let metrics: any | undefined;
+                  if (!isDummy && !isExternal && props.fileMetricsByName) {
+                    const baseName = getFileBaseName(String(node.label ?? ""));
+                    metrics = props.fileMetricsByName.get(baseName);
+                  }
+
+                  const metricId = primaryMetric();
+                  let hotspotColor: string | null = null;
+                  if (metrics) {
+                    let rawVal = (metrics as any)[metricId] ?? 0;
+                    const def = HOTSPOT_METRICS.find((m) => m.id === metricId);
+                    if (def?.invert) {
+                      rawVal = 1 - (rawVal || 0);
+                    }
+                    if (!isFinite(rawVal) || rawVal < 0) rawVal = 0;
+                    const scaled =
+                      typeof rawVal === "number"
+                        ? Math.min(rawVal, 50)
+                        : Number(rawVal) || 0;
+
+                    if (metricId === "comment_density") {
+                      hotspotColor = commentDensityColor(
+                        metrics.comment_density || 0
+                      );
+                    } else if (metricId === "max_nesting_depth") {
+                      hotspotColor = nestingDepthColor(
+                        metrics.max_nesting_depth || 0
+                      );
+                    } else if (metricId === "todo_count") {
+                      hotspotColor = todoCountColor(metrics.todo_count || 0);
+                    } else {
+                      hotspotColor = complexityColor(scaled);
+                    }
+                  }
+
                   const fill = isExternal
                     ? isEmphasized
                       ? "#383838"
                       : "#2d2d2d"
+                    : hotspotColor
+                    ? hotspotColor
                     : isEmphasized
                     ? "#273955"
                     : "#1e1e1e";
@@ -585,6 +667,11 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                     ? isEmphasized
                       ? "#bbbbbb"
                       : "#888"
+                    : hotspotColor
+                    ? getContrastingTextColor(
+                        hotspotColor,
+                        isEmphasized ? 1 : 0.85
+                      )
                     : isEmphasized
                     ? "#f3f3f3"
                     : "#d4d4d4";

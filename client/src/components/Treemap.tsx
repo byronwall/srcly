@@ -3,6 +3,7 @@ import {
   onCleanup,
   onMount,
   createSignal,
+  createMemo,
   Show,
   For,
 } from "solid-js";
@@ -34,6 +35,28 @@ export default function Treemap(props: TreemapProps) {
   const [isIsolateMode, setIsIsolateMode] = createSignal(false);
   const [showMetricPopover, setShowMetricPopover] = createSignal(false);
   const [showDependencyGraph, setShowDependencyGraph] = createSignal(false);
+
+  // Build a lookup of file-name -> metrics so the dependency graph can
+  // reuse the same hotspot color scheme for its nodes.
+  const fileMetricsByName = createMemo(() => {
+    const root = props.data;
+    const map = new Map<string, any>();
+
+    if (!root) return map;
+
+    const visit = (node: any) => {
+      if (!node) return;
+      if (node.type === "file" && node.metrics) {
+        map.set(node.name, node.metrics);
+      }
+      if (Array.isArray(node.children) && node.children.length > 0) {
+        node.children.forEach(visit);
+      }
+    };
+
+    visit(root);
+    return map;
+  });
 
   // Handle key modifiers for isolate mode
   onMount(() => {
@@ -695,6 +718,7 @@ export default function Treemap(props: TreemapProps) {
         <Show when={showDependencyGraph()}>
           <DependencyGraph
             path={currentRoot()?.path}
+            fileMetricsByName={fileMetricsByName()}
             onClose={() => setShowDependencyGraph(false)}
           />
         </Show>
