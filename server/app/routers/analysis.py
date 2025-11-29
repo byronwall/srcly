@@ -152,19 +152,57 @@ def _resolve_internal_file(spec_path: Path, file_to_id: Dict[Path, str]) -> Opti
     if resolved in file_to_id:
         return resolved
 
-    # If the path has an extension that is NOT a standard JS/TS extension,
-    # we should not try to fuzzy-match it to a .ts/.tsx file.
-    # e.g. import './index.css' should not resolve to index.tsx
-    # We allow .js/.jsx because TS allows importing .js which resolves to .ts
-    if resolved.suffix and resolved.suffix not in {".js", ".jsx", ".ts", ".tsx", ".d.ts"}:
+    # If the path has an extension that is clearly a non-code asset (CSS,
+    # images, JSON etc.), do not try to map it onto a TS/TSX module.
+    # This prevents things like `import "./index.css"` from incorrectly
+    # resolving to `index.tsx`.
+    code_exts = {".js", ".jsx", ".ts", ".tsx", ".d.ts"}
+    asset_exts = {
+        ".css",
+        ".scss",
+        ".sass",
+        ".less",
+        ".styl",
+        ".json",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".svg",
+        ".ico",
+        ".webp",
+        ".bmp",
+        ".avif",
+    }
+
+    suffix = resolved.suffix
+
+    if suffix and suffix not in code_exts and suffix in asset_exts:
         return None
 
-    # Try common TypeScript/TSX extensions
+    # Try common TypeScript/TSX extensions based on the stem first, which
+    # covers imports like "./foo" or "./foo.js" -> "./foo.ts(x)".
     stem = resolved.with_suffix("")
     for ext in (".ts", ".tsx", ".d.ts"):
         candidate = stem.with_suffix(ext)
         if candidate in file_to_id:
             return candidate
+
+    # Special case: imports that include an extra "qualifier" segment in the
+    # filename such as "../data/docs.service". In many TS codebases this
+    # resolves to "docs.service.ts" or "docs.service.tsx". Tree-sitter gives
+    # us the literal specifier "docs.service" which Path.suffix reports as
+    # ".service", so the simple stem-based logic above would look for
+    # "docs.ts" instead of "docs.service.ts".
+    #
+    # For any non-asset suffix that isn't a recognised JS/TS extension,
+    # also try appending TS/TSX extensions to the *full* filename.
+    if suffix and suffix not in code_exts and suffix not in asset_exts:
+        base_name = resolved.name  # e.g. "docs.service"
+        for ext in (".ts", ".tsx", ".d.ts"):
+            candidate = (resolved.parent / f"{base_name}{ext}").resolve()
+            if candidate in file_to_id:
+                return candidate
 
     # Try index files in the target directory
     for index_name in ("index.ts", "index.tsx"):

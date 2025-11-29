@@ -408,3 +408,94 @@ def test_get_dependencies_api_with_tsconfig_aliases():
             not n["label"].startswith("@core") and not n["label"].startswith("@utils")
             for n in external_nodes
         )
+
+
+def test_relative_import_with_parent_directory_links_export_member():
+    """
+    A relative import that traverses up a directory ("../") to a file whose
+    name contains an extra dot segment (e.g. "docs.service.ts") should still
+    resolve to that file, and the specific exported member should be linked
+    in the dependency graph.
+    """
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    client = TestClient(app)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base = Path(tmpdir)
+
+        # Directory layout:
+        #   hooks/useDocs.ts               (imports from ../data/docs.service)
+        #   data/docs.service.ts           (exports searchDocs)
+        hooks_dir = base / "hooks"
+        data_dir = base / "data"
+        hooks_dir.mkdir()
+        data_dir.mkdir()
+
+        docs_service_ts = data_dir / "docs.service.ts"
+        use_docs_ts = hooks_dir / "useDocs.ts"
+
+        docs_service_ts.write_text(
+            """
+export function searchDocs(query: string) {
+  return query.length > 0;
+}
+""",
+            encoding="utf-8",
+        )
+
+        use_docs_ts.write_text(
+            """
+import { searchDocs } from "../data/docs.service";
+
+export function useDocs(q: string) {
+  return searchDocs(q);
+}
+""",
+            encoding="utf-8",
+        )
+
+        response = client.get(f"/api/analysis/dependencies?path={tmpdir}")
+        assert response.status_code == 200
+
+        data = response.json()
+        nodes = data["nodes"]
+        edges = data["edges"]
+
+        # File nodes
+        file_nodes = [n for n in nodes if n["type"] == "file"]
+        labels = {n["label"] for n in file_nodes}
+        assert "useDocs.ts" in labels
+        # The service file keeps its full name including the extra segment.
+        assert "docs.service.ts" in labels
+
+        use_docs_id = next(n["id"] for n in file_nodes if n["label"] == "useDocs.ts")
+        docs_service_id = next(
+            n["id"] for n in file_nodes if n["label"] == "docs.service.ts"
+        )
+
+        # There should be a file-to-file edge from the importer to the service file.
+        file_edges = [
+            e
+            for e in edges
+            if e["source"] == use_docs_id and e["target"] == docs_service_id
+        ]
+        assert len(file_edges) == 1
+
+        # And an export-level edge from the specific exported member `searchDocs`
+        # to the importing file node.
+        export_nodes = [n for n in nodes if n["type"] == "export"]
+        export_labels = {n["label"] for n in export_nodes}
+        assert "searchDocs" in export_labels
+
+        search_docs_id = next(
+            n["id"] for n in export_nodes if n["label"] == "searchDocs"
+        )
+
+        export_edges_into_use_docs = [
+            e
+            for e in edges
+            if e["source"] == search_docs_id and e["target"] == use_docs_id
+        ]
+        assert len(export_edges_into_use_docs) == 1
