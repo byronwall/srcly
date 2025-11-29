@@ -511,3 +511,27 @@ export function useDocs(q: string) {
             if e["source"] == search_docs_id and e["target"] == use_docs_id
         ]
         assert len(export_edges_into_use_docs) == 1
+
+def test_ignore_import_type(analyzer):
+    content = """
+    import type { UmapPoint } from "~/types/notes";
+    import { RealDependency } from "./real";
+    
+    export const a = 1;
+    """
+    
+    with tempfile.NamedTemporaryFile(suffix=".ts", delete=False) as f:
+        f.write(content.encode('utf-8'))
+        f.flush()
+        file_path = f.name
+        
+    try:
+        imports, exports = analyzer.extract_imports_exports(file_path)
+        
+        import_sources = {i["source"] for i in imports}
+        
+        # Should ignore "~/types/notes" because it is a type import
+        assert "~/types/notes" not in import_sources
+        assert "./real" in import_sources
+    finally:
+        os.remove(file_path)

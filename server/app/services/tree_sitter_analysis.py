@@ -736,6 +736,18 @@ class TreeSitterAnalyzer:
         
         def traverse(n: Node):
             if n.type == 'import_statement':
+                # Check if it is a type-only import: `import type ...`
+                # In tree-sitter-typescript, this appears as a 'type' keyword child in the import_statement.
+                # We want to ignore these completely for dependency analysis.
+                is_type_import = False
+                for child in n.children:
+                    if child.type == "type" and child.text == b"type":
+                        is_type_import = True
+                        break
+                
+                if is_type_import:
+                    return
+
                 # import ... from 'source'
                 source = n.child_by_field_name('source')
                 if source:
