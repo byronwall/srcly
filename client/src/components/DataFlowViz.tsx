@@ -366,11 +366,29 @@ export default function DataFlowViz(props: DataFlowVizProps) {
 
   const handleWheel = (event: WheelEvent) => {
     event.preventDefault();
-    const delta = event.deltaY;
-    const zoomFactor = delta < 0 ? 1.1 : 0.9;
-    setScale((prev) => {
-      const next = prev * zoomFactor;
-      return Math.min(Math.max(next, 0.1), 4);
+    if (!svgRef) return;
+
+    const rect = svgRef.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+
+    setScale((prevScale) => {
+      // Use a gentler zoom factor so touchpad scrolling feels less jumpy.
+      const zoomFactor = event.deltaY < 0 ? 1.05 : 0.95;
+      const rawScale = prevScale * zoomFactor;
+      const newScale = Math.min(Math.max(rawScale, 0.1), 4);
+
+      // If clamping changed the effective zoom factor, adjust so we still
+      // zoom relative to the mouse position.
+      const effectiveFactor = prevScale === 0 ? 1 : newScale / prevScale || 1;
+
+      setTranslate((prev) => {
+        const x = mouseX - (mouseX - prev.x) * effectiveFactor;
+        const y = mouseY - (mouseY - prev.y) * effectiveFactor;
+        return { x, y };
+      });
+
+      return newScale;
     });
   };
 
