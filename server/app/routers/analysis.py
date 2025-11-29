@@ -587,3 +587,22 @@ async def get_analysis_context():
         "repo_file_count": repo_file_count,
         "repo_folder_count": repo_folder_count,
     }
+
+@router.get("/data-flow")
+async def get_data_flow(path: str):
+    """
+    Analyze data flow for a specific file.
+    """
+    target_path = Path(path)
+    if not target_path.exists() or not target_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    from app.services.data_flow_analysis import DataFlowAnalyzer
+    analyzer = DataFlowAnalyzer()
+    
+    try:
+        graph = analyzer.analyze_file(str(target_path))
+        return graph
+    except Exception as e:
+        print(f"Error analyzing data flow for {path}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

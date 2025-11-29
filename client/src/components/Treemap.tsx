@@ -11,6 +11,7 @@ import * as d3 from "d3";
 import { extractFilePath, filterByExtension } from "../utils/dataProcessing";
 import { HOTSPOT_METRICS, useMetricsStore } from "../utils/metricsStore";
 import DependencyGraph from "./DependencyGraph";
+import DataFlowViz from "./DataFlowViz";
 
 interface TreemapProps {
   data: any;
@@ -35,6 +36,7 @@ export default function Treemap(props: TreemapProps) {
   const [isIsolateMode, setIsIsolateMode] = createSignal(false);
   const [showMetricPopover, setShowMetricPopover] = createSignal(false);
   const [showDependencyGraph, setShowDependencyGraph] = createSignal(false);
+  const [showDataFlow, setShowDataFlow] = createSignal(false);
 
   // Build a lookup of file-name -> metrics so the dependency graph can
   // reuse the same hotspot color scheme for its nodes.
@@ -680,16 +682,33 @@ export default function Treemap(props: TreemapProps) {
         </div>
 
         {/* View Dependencies Button */}
-        <div class="ml-4 pl-4 border-l border-[#333]">
+        <div class="ml-4 pl-4 border-l border-[#333] flex gap-2">
           <button
             class={`px-3 py-1 text-xs rounded border transition-colors ${
               showDependencyGraph()
                 ? "bg-purple-900 border-purple-700 text-purple-100"
                 : "bg-[#252526] border-[#3e3e42] text-gray-400 hover:bg-[#2d2d2d]"
             }`}
-            onClick={() => setShowDependencyGraph(!showDependencyGraph())}
+            onClick={() => {
+              setShowDependencyGraph(!showDependencyGraph());
+              setShowDataFlow(false);
+            }}
           >
             View Dependencies
+          </button>
+
+          <button
+            class={`px-3 py-1 text-xs rounded border transition-colors ${
+              showDataFlow()
+                ? "bg-teal-900 border-teal-700 text-teal-100"
+                : "bg-[#252526] border-[#3e3e42] text-gray-400 hover:bg-[#2d2d2d]"
+            }`}
+            onClick={() => {
+              setShowDataFlow(!showDataFlow());
+              setShowDependencyGraph(false);
+            }}
+          >
+            Data Flow
           </button>
         </div>
 
@@ -725,6 +744,12 @@ export default function Treemap(props: TreemapProps) {
             primaryMetricId={primaryMetric()}
             fileMetricsByName={fileMetricsByName()}
             onClose={() => setShowDependencyGraph(false)}
+          />
+        </Show>
+        <Show when={showDataFlow()}>
+          <DataFlowViz
+            path={currentRoot()?.path}
+            onClose={() => setShowDataFlow(false)}
           />
         </Show>
       </div>
