@@ -710,10 +710,14 @@ class TreeSitterAnalyzer:
         
         return hardcoded_string_volume, duplicated_string_count
 
-    def extract_imports_exports(self, file_path: str) -> tuple[List[str], List[str]]:
+    def extract_imports_exports(self, file_path: str) -> tuple[List[dict], List[dict]]:
         """
         Extracts a list of imported module paths and a list of exported identifiers
         from the given file.
+        
+        Returns:
+            imports: List of dicts { "source": str, "symbols": List[str] }
+            exports: List of dicts { "name": str, "type": str }
         """
         with open(file_path, 'rb') as f:
             content = f.read()
@@ -727,7 +731,7 @@ class TreeSitterAnalyzer:
         
         return imports, exports
 
-    def _get_imports(self, node: Node) -> List[str]:
+    def _get_imports(self, node: Node) -> List[dict]:
         imports = []
         
         def traverse(n: Node):
@@ -735,15 +739,65 @@ class TreeSitterAnalyzer:
                 # import ... from 'source'
                 source = n.child_by_field_name('source')
                 if source:
-                    # source is a string literal, remove quotes
                     import_path = source.text.decode('utf-8').strip("'\"")
-                    imports.append(import_path)
+                    symbols = []
+                    
+                    # Extract imported symbols
+                    clause = n.child_by_field_name('clause') # import_clause
+                    if clause:
+                        # Named imports: import { A, B } from ...
+                        named_imports = clause.child_by_field_name('named_imports')
+                        if named_imports:
+                            for child in named_imports.children:
+                                if child.type == 'import_specifier':
+                                    name_node = child.child_by_field_name('name')
+                                    if name_node:
+                                        symbols.append(name_node.text.decode('utf-8'))
+                                    else:
+                                        # Fallback if alias is used? import { A as B }
+                                        # child children: name, "as", alias
+                                        # We want the original name if possible to link to export, 
+                                        # but usually we want the local name for usage. 
+                                        # For dependency linking, we want the IMPORTED name (the one exported by the other file).
+                                        # In `import { A as B }`, 'A' is the name in the source.
+                                        
+                                        # Tree-sitter structure for `import { A as B }`:
+                                        # import_specifier -> name: (identifier "A"), alias: (identifier "B")
+                                        
+                                        # If we just have `import { A }`:
+                                        # import_specifier -> name: (identifier "A")
+                                        
+                                        # So we always want 'name'.
+                                        
+                                        # Let's check children manually if child_by_field_name fails (it shouldn't)
+                                        pass
+                                        
+                        # Default import: import A from ...
+                        # In tree-sitter-typescript:
+                        # import_clause -> children: identifier (default import), named_imports
+                        for child in clause.children:
+                            if child.type == 'identifier':
+                                symbols.append('default')
+
+                    imports.append({"source": import_path, "symbols": symbols})
+
             elif n.type == 'export_statement':
                 # export ... from 'source'
                 source = n.child_by_field_name('source')
                 if source:
                     import_path = source.text.decode('utf-8').strip("'\"")
-                    imports.append(import_path)
+                    symbols = []
+                    
+                    # export { foo } from 'bar'
+                    clause = n.child_by_field_name('clause')
+                    if clause and clause.type == 'export_clause':
+                        for child in clause.children:
+                            if child.type == 'export_specifier':
+                                name_node = child.child_by_field_name('name')
+                                if name_node:
+                                    symbols.append(name_node.text.decode('utf-8'))
+                    
+                    imports.append({"source": import_path, "symbols": symbols})
             
             for child in n.children:
                 traverse(child)
@@ -751,7 +805,7 @@ class TreeSitterAnalyzer:
         traverse(node)
         return imports
 
-    def _get_exports(self, node: Node) -> List[str]:
+    def _get_exports(self, node: Node) -> List[dict]:
         exports = []
 
         def traverse(n: Node):
@@ -767,17 +821,22 @@ class TreeSitterAnalyzer:
                     for c in clause.children:
                         if c.type == "export_specifier":
                             alias = c.child_by_field_name("alias")
+                            name_node = c.child_by_field_name("name")
+                            
+                            export_name = ""
                             if alias:
-                                exports.append(alias.text.decode('utf-8'))
+                                export_name = alias.text.decode('utf-8')
+                            elif name_node:
+                                export_name = name_node.text.decode('utf-8')
                             else:
-                                name_node = c.child_by_field_name("name")
-                                if name_node:
-                                    exports.append(name_node.text.decode('utf-8'))
-                                else:
-                                    # fallback
-                                    exports.append(c.text.decode('utf-8'))
+                                export_name = c.text.decode('utf-8')
+                            
+                            exports.append({"name": export_name, "type": "value"}) # simplified type
                 else:
                     # export default ...
+                    if any(child.text.decode('utf-8') == 'default' for child in n.children):
+                         exports.append({"name": "default", "type": "default"})
+                    
                     # export const foo = ...
                     # export function bar() ...
                     # export class Baz ...
@@ -788,18 +847,17 @@ class TreeSitterAnalyzer:
                         if declaration.type in {"function_declaration", "generator_function_declaration", "class_declaration"}:
                             name_node = declaration.child_by_field_name("name")
                             if name_node:
-                                exports.append(name_node.text.decode('utf-8'))
+                                exports.append({"name": name_node.text.decode('utf-8'), "type": "declaration"})
                         elif declaration.type == "lexical_declaration":
                             # export const foo = ...
                             for child in declaration.children:
                                 if child.type == "variable_declarator":
                                     name_node = child.child_by_field_name("name")
                                     if name_node:
-                                        exports.append(name_node.text.decode('utf-8'))
+                                        exports.append({"name": name_node.text.decode('utf-8'), "type": "variable"})
                     
                     # Check for default export
-                    if "default" in n.text.decode('utf-8'): # Crude check for now, can be refined
-                         exports.append("default")
+
 
             for child in n.children:
                 traverse(child)

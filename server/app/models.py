@@ -52,7 +52,10 @@ class Node(BaseModel):
 class DependencyNode(BaseModel):
     id: str
     label: str
-    type: str = "file" # file, external
+    # "file", "external", "export"
+    type: str = "file"
+    # For nested/compound graph layouts (e.g. exports inside file nodes)
+    parent: str | None = None
     metrics: Metrics | None = None
 
 class DependencyEdge(BaseModel):

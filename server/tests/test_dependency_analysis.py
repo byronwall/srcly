@@ -32,8 +32,11 @@ def test_extract_imports_exports_simple(analyzer):
     try:
         imports, exports = analyzer.extract_imports_exports(file_path)
         
-        assert set(imports) == {'./foo', 'bar'}
-        assert set(exports) == {'baz', 'qux'}
+        import_sources = {i["source"] for i in imports}
+        export_names = {e["name"] for e in exports}
+        
+        assert set(import_sources) == {'./foo', 'bar'}
+        assert set(export_names) == {'baz', 'qux'}
     finally:
         os.remove(file_path)
 
@@ -56,9 +59,12 @@ def test_extract_imports_exports_complex(analyzer):
         imports, exports = analyzer.extract_imports_exports(file_path)
         
         # Note: 'export ... from' counts as an import too in our logic
-        assert set(imports) == {'react', './utils'}
-        assert 'default' in exports
-        assert 'bar' in exports
+        import_sources = {i["source"] for i in imports}
+        export_names = {e["name"] for e in exports}
+        
+        assert set(import_sources) == {'react', './utils'}
+        assert 'default' in export_names
+        assert 'bar' in export_names
     finally:
         os.remove(file_path)
 
@@ -78,7 +84,8 @@ def test_extract_exports_various_forms(analyzer):
     try:
         imports, exports = analyzer.extract_imports_exports(file_path)
         
-        assert set(exports) == {'a', 'b', 'C'} 
+        export_names = {e["name"] for e in exports}
+        assert set(export_names) == {'a', 'b', 'C'} 
         # Note: We currently don't extract interface/type exports in _get_exports logic for 'export declaration'
         # Let's verify what we DO support. 
         # Looking at the code: function_declaration, generator_function_declaration, class_declaration, lexical_declaration
@@ -122,8 +129,7 @@ def test_get_dependencies_api():
         nodes = data["nodes"]
         edges = data["edges"]
 
-        # Verify nodes
-        # Should have 2 file nodes
+        # Verify file nodes
         file_nodes = [n for n in nodes if n["type"] == "file"]
         assert len(file_nodes) == 2
 
@@ -131,17 +137,29 @@ def test_get_dependencies_api():
         assert "main.ts" in filenames
         assert "utils.ts" in filenames
 
-        # Verify edges
-        # Should have 1 edge from main to utils
-        assert len(edges) == 1
-        edge = edges[0]
+        # There should be an export node for `foo` inside utils.ts
+        export_nodes = [n for n in nodes if n["type"] == "export"]
+        export_labels = {n["label"] for n in export_nodes}
+        assert "foo" in export_labels
 
         # Find IDs
         main_id = next(n["id"] for n in nodes if n["label"] == "main.ts")
         utils_id = next(n["id"] for n in nodes if n["label"] == "utils.ts")
+        foo_id = next(
+            n["id"] for n in export_nodes if n["label"] == "foo"
+        )
 
-        assert edge["source"] == main_id
-        assert edge["target"] == utils_id
+        # Verify file-to-file edge main -> utils still exists
+        file_edges = [
+            e for e in edges if e["source"] == main_id and e["target"] == utils_id
+        ]
+        assert len(file_edges) == 1
+
+        # And there should be a specific edge from the export `foo` to main.ts
+        export_edges = [
+            e for e in edges if e["source"] == foo_id and e["target"] == main_id
+        ]
+        assert len(export_edges) == 1
 
 
 def test_find_candidate_tsconfig_files_prefers_nearest(tmp_path):
@@ -258,18 +276,39 @@ def test_get_dependencies_api_with_tsconfig_aliases():
         assert "index.ts" in labels or "core/index.ts" in labels
         assert "math.ts" in labels
 
-        # There should be two edges from main.ts to the two internal files
+        # Collect IDs
         main_id = next(n["id"] for n in nodes if n["label"] == "main.ts")
-        target_ids = {
+        core_ids = {
             n["id"]
             for n in nodes
-            if n["label"] in {"index.ts", "core/index.ts", "math.ts"}
+            if n["label"] in {"index.ts", "core/index.ts"}
         }
+        math_id = next(n["id"] for n in nodes if n["label"] == "math.ts")
 
-        internal_edges = [
-            e for e in edges if e["source"] == main_id and e["target"] in target_ids
+        # There should be two file-to-file edges from main.ts to core and math
+        internal_file_edges = [
+            e
+            for e in edges
+            if e["source"] == main_id and e["target"] in core_ids | {math_id}
         ]
-        assert len(internal_edges) == 2
+        assert len(internal_file_edges) == 2
+
+        # And there should be export-level edges from the specific exports to main.ts
+        export_nodes = [n for n in nodes if n["type"] == "export"]
+        export_labels = {n["label"] for n in export_nodes}
+        assert "coreFn" in export_labels
+        assert "add" in export_labels
+
+        corefn_id = next(n["id"] for n in export_nodes if n["label"] == "coreFn")
+        add_id = next(n["id"] for n in export_nodes if n["label"] == "add")
+
+        export_edges = {
+            (e["source"], e["target"])
+            for e in edges
+            if e["target"] == main_id and e["source"] in {corefn_id, add_id}
+        }
+        assert (corefn_id, main_id) in export_edges
+        assert (add_id, main_id) in export_edges
 
         # Ensure we did not create external nodes for the alias imports
         external_nodes = [n for n in nodes if n["type"] == "external"]

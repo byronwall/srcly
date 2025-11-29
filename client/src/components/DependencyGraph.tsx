@@ -14,7 +14,8 @@ interface DependencyGraphProps {
 interface Node {
   id: string;
   label: string;
-  type: "file" | "external" | "dummy";
+  type: "file" | "external" | "dummy" | "export";
+  parent?: string;
   x?: number;
   y?: number;
   width?: number;
@@ -25,6 +26,7 @@ interface Node {
   isSuperNode?: boolean;
   // For dummy nodes, which super node they stand in for
   superNodeId?: string;
+  children?: Node[];
 }
 
 interface Edge {
@@ -207,6 +209,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
   const [error, setError] = createSignal<string | null>(null);
   const [rawGraph, setRawGraph] = createSignal<GraphData | null>(null);
   const [showExternal, setShowExternal] = createSignal(false);
+  const [showExportedMembers, setShowExportedMembers] = createSignal(false);
   const [hoveredNodeId, setHoveredNodeId] = createSignal<string | null>(null);
   const [activeNodeId, setActiveNodeId] = createSignal<string | null>(null);
   const [selectedFilePath, setSelectedFilePath] = createSignal<string | null>(
@@ -246,17 +249,71 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     }
   }
 
-  function filterGraphByExternal(
+  function filterGraph(
     data: GraphData,
-    includeExternal: boolean
+    includeExternal: boolean,
+    showExports: boolean
   ): GraphData {
-    if (includeExternal) return data;
+    let filteredNodes = data.nodes;
+    let filteredEdges = data.edges;
 
-    const filteredNodes = data.nodes.filter((n) => n.type !== "external");
-    const allowedIds = new Set(filteredNodes.map((n) => n.id));
-    const filteredEdges = data.edges.filter(
-      (e) => allowedIds.has(e.source) && allowedIds.has(e.target)
-    );
+    // 1. Filter external nodes if needed
+    if (!includeExternal) {
+      filteredNodes = filteredNodes.filter((n) => n.type !== "external");
+      const allowedIds = new Set(filteredNodes.map((n) => n.id));
+      filteredEdges = filteredEdges.filter(
+        (e) => allowedIds.has(e.source) && allowedIds.has(e.target)
+      );
+    }
+
+    // 2. Handle exported members
+    if (!showExports) {
+      // If NOT showing exports, we should filter out export nodes
+      // AND collapse edges to be file-to-file.
+
+      // Filter out export nodes
+      filteredNodes = filteredNodes.filter((n) => n.type !== "export");
+      const allowedIds = new Set(filteredNodes.map((n) => n.id));
+
+      // Remap edges: if source or target is an export node, map it to its parent file.
+      // Note: The server sends edges like ExportNode -> ImportingFile.
+      // If we hide exports, we want File(ExportParent) -> ImportingFile.
+      // Or rather ImportingFile -> File(ExportParent) (standard dependency direction).
+
+      // Wait, the server sends:
+      // 1. File -> File (standard)
+      // 2. Export -> File (if specific import found)
+
+      // If we have both, we might get duplicates if we just remap.
+      // But the server sends BOTH standard and specific edges?
+      // Let's check analysis.py again.
+      // Yes, it sends standard edges AND specific edges.
+
+      // So if showExports is FALSE, we just use the standard edges (File -> File).
+      // We filter out edges that involve export nodes.
+
+      // But wait, the server sends edges where source/target are IDs.
+      // Export nodes have IDs like "file_path::export_name".
+      // File nodes have IDs like "file_path".
+
+      // So we just need to filter out edges where source or target is NOT in allowedIds.
+      filteredEdges = filteredEdges.filter(
+        (e) => allowedIds.has(e.source) && allowedIds.has(e.target)
+      );
+    } else {
+      // If SHOWING exports:
+      // We want to keep export nodes.
+      // We want to keep edges from Export -> File.
+      // We might want to HIDE standard File -> File edges if they are redundant?
+      // Or maybe keep them as "general" dependencies?
+      // If we keep both, we get double arrows.
+      // Let's try to filter out standard File -> File edges IF there are specific Export -> File edges between the same files?
+      // That might be complex.
+      // For now, let's just show everything and see how it looks.
+      // The user said: "When that member is imported... edge from member box".
+      // However, we need to structure the nodes hierarchically for ELK.
+      // We'll do that in layoutGraph, but here we just pass the flat list.
+    }
 
     return {
       nodes: filteredNodes,
@@ -269,6 +326,29 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     assignments: SuperNodeAssignment[];
   } {
     if (!data.nodes || !data.edges) {
+      return { graph: data, assignments: [] };
+    }
+
+    // Only apply super node logic to FILE nodes, not export nodes.
+    // And only if we are NOT showing exports? Or maybe always?
+    // If showing exports, the edges go from Export -> File.
+    // So the "target" is the File (Importing).
+    // Wait, standard dependency: A imports B. Edge A -> B.
+    // My implementation: Export(B) -> A.
+    // So A is the target.
+    // So A has high IN-degree if it imports many things.
+    // Usually "Super Node" logic is for high IN-degree (many things depend on IT).
+    // Standard: B is imported by many. B has high in-degree.
+    // My new edges: B's exports point to A.
+    // So A (importer) has high in-degree.
+    // This reverses the meaning of "super node" visualization if we are not careful.
+
+    // If showExportedMembers is ON, the arrows flow Data -> Usage.
+    // So "Central" nodes are the ones using many things (God objects).
+    // In standard view (Usage -> Dep), "Central" nodes are the ones used by many (Utilities).
+
+    // For now, let's DISABLE super node logic when showing exported members to avoid confusion.
+    if (showExportedMembers()) {
       return { graph: data, assignments: [] };
     }
 
@@ -378,49 +458,149 @@ export default function DependencyGraph(props: DependencyGraphProps) {
   }
 
   async function layoutGraph(data: GraphData) {
+    // Construct ELK graph with hierarchy if needed
+
+    // Group nodes by parent
+    const nodesById = new Map<string, any>();
+    const rootNodes: any[] = [];
+
+    // First pass: create ELK node objects
+    data.nodes.forEach((n) => {
+      const isDummy = n.type === "dummy";
+      const isExport = n.type === "export";
+
+      let width = 0;
+      let height = 0;
+
+      if (isDummy) {
+        width = 26;
+        height = 26;
+      } else if (isExport) {
+        width = Math.max(60, String(n.label ?? "").length * 7);
+        height = 24;
+      } else {
+        // File node
+        width = Math.max(100, String(n.label ?? "").length * 8);
+        height = 40;
+      }
+
+      nodesById.set(n.id, {
+        id: n.id,
+        width,
+        height,
+        labels: isDummy ? [] : [{ text: String(n.label ?? "") }],
+        ...n,
+        children: [], // Initialize children array
+      });
+    });
+
+    // Second pass: build hierarchy
+    nodesById.forEach((n) => {
+      if (n.parent && nodesById.has(n.parent)) {
+        const parent = nodesById.get(n.parent);
+        parent.children.push(n);
+      } else {
+        rootNodes.push(n);
+      }
+    });
+
     const elkGraph = {
       id: "root",
       layoutOptions: {
         "elk.algorithm": "layered",
         "elk.direction": "DOWN",
-        // Overall node spacing – keep reasonably roomy for main file nodes
         "elk.spacing.nodeNode": "40",
-        // Vertical spacing between layers; tightened so dummy “super” circles
-        // sit closer to their associated file nodes.
-        "elk.layered.spacing.nodeNodeBetweenLayers": "28",
-        // Bring edges and nodes in adjacent layers closer together so the
-        // small circular dummy nodes are not pushed far away from their
-        // connected rectangles.
+        "elk.layered.spacing.nodeNodeBetweenLayers": "40",
         "elk.spacing.edgeNode": "10",
         "elk.layered.spacing.edgeNodeBetweenLayers": "10",
-        // Ask the layered algorithm to more aggressively minimize edge length,
-        // which further encourages compact placement of the dummy circles.
         "elk.layered.layerUnzipping.minimizeEdgeLength": "true",
+        "elk.hierarchyHandling": "INCLUDE_CHILDREN", // Enable hierarchy
       },
-      children: data.nodes.map((n: any) => {
-        const isDummy = n.type === "dummy";
-        const width = isDummy
-          ? 26
-          : Math.max(100, String(n.label ?? "").length * 8);
-        const height = isDummy ? 26 : 40;
-        return {
-          width,
-          height,
-          labels: isDummy ? [] : [{ text: String(n.label ?? "") }],
-          ...n,
-        };
-      }),
+      children: rootNodes,
       edges: data.edges.map((e) => ({
+        id: e.id,
         sources: [e.source as string],
         targets: [e.target as string],
-        ...e,
+        label: (e as any).label,
       })),
     };
 
     try {
       const layout = await elk.layout(elkGraph as any);
-      setNodes(layout.children as Node[]);
-      setEdges(layout.edges as unknown as Edge[]);
+
+      // Flatten the result back to a list of nodes for rendering
+      const flatNodes: Node[] = [];
+
+      function flatten(n: any, parentX = 0, parentY = 0) {
+        const x = parentX + (n.x || 0);
+        const y = parentY + (n.y || 0);
+
+        flatNodes.push({
+          ...n,
+          x,
+          y,
+        });
+
+        if (n.children) {
+          n.children.forEach((c: any) => flatten(c, x, y));
+        }
+      }
+
+      if (layout.children) {
+        layout.children.forEach((c) => flatten(c));
+      }
+
+      // Reposition export nodes so they sit inside their parent file boxes,
+      // below the file name, as pill-shaped labels.
+      const fileNodesById = new Map<string, Node>();
+      const exportsByFile = new Map<string, Node[]>();
+
+      for (const n of flatNodes) {
+        if (n.type === "file") {
+          fileNodesById.set(n.id, n);
+        } else if (n.type === "export" && n.parent) {
+          const arr = exportsByFile.get(n.parent) ?? [];
+          arr.push(n);
+          exportsByFile.set(n.parent, arr);
+        }
+      }
+
+      const H_PADDING = 16;
+      const V_PADDING = -8;
+      const H_GAP = 8;
+      const PILL_HEIGHT = 32;
+
+      exportsByFile.forEach((exports, fileId) => {
+        const fileNode = fileNodesById.get(fileId);
+        if (!fileNode) return;
+
+        const fileX = fileNode.x ?? 0;
+        const fileY = fileNode.y ?? 0;
+        const fileWidth = fileNode.width ?? 120;
+        const fileHeight = fileNode.height ?? 40;
+
+        let currentX = fileX + H_PADDING;
+        const baseY = fileY + fileHeight - PILL_HEIGHT - V_PADDING;
+
+        for (const exp of exports) {
+          const pillWidth = exp.width ?? 80;
+
+          // Simple wrapping if we run out of horizontal space.
+          if (currentX + pillWidth + H_PADDING > fileX + fileWidth) {
+            currentX = fileX + H_PADDING;
+          }
+
+          exp.x = currentX;
+          exp.y = baseY;
+
+          currentX += pillWidth + H_GAP;
+        }
+      });
+
+      setNodes(flatNodes);
+      // Use ELK's routed edges (with bend points) so lines remain smooth; edges
+      // are rendered after nodes so they appear on top of the file boxes.
+      setEdges((layout.edges ?? []) as unknown as Edge[]);
 
       // Fit graph after layout update
       setTimeout(fitGraph, 0);
@@ -434,7 +614,9 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     const data = rawGraph();
     if (!data) return;
     const includeExternal = showExternal();
-    const filtered = filterGraphByExternal(data, includeExternal);
+    const showExports = showExportedMembers();
+
+    const filtered = filterGraph(data, includeExternal, showExports);
     const { graph, assignments } = transformHighInDegreeNodes(filtered);
     setSuperNodeAssignments(assignments);
     void layoutGraph(graph);
@@ -530,6 +712,14 @@ export default function DependencyGraph(props: DependencyGraphProps) {
             />
             <span>Show external deps</span>
           </label>
+          <label class="flex items-center gap-1 text-xs text-gray-300">
+            <input
+              type="checkbox"
+              checked={showExportedMembers()}
+              onChange={(e) => setShowExportedMembers(e.currentTarget.checked)}
+            />
+            <span>Show exports</span>
+          </label>
           <div class="h-4 w-px bg-[#444]" />
           <button
             onClick={fitGraph}
@@ -578,34 +768,22 @@ export default function DependencyGraph(props: DependencyGraphProps) {
             </defs>
 
             <g ref={gRef}>
-              <For each={edges()}>
-                {(edge) => {
-                  if (!edge.sections || edge.sections.length === 0) return null;
-                  const section = edge.sections[0];
-                  let d = `M ${section.startPoint.x} ${section.startPoint.y}`;
-                  if (section.bendPoints) {
-                    section.bendPoints.forEach((p) => {
-                      d += ` L ${p.x} ${p.y}`;
-                    });
-                  }
-                  d += ` L ${section.endPoint.x} ${section.endPoint.y}`;
-
-                  return (
-                    <path
-                      d={d}
-                      stroke="#666"
-                      stroke-width="1"
-                      fill="none"
-                      marker-end="url(#arrowhead)"
-                    />
-                  );
-                }}
-              </For>
-
               <For each={nodes()}>
                 {(node) => {
                   const isActive = activeNodeId() === node.id;
                   const isHovered = hoveredNodeId() === node.id;
+                  const nodeType = node.type;
+
+                  // We render dummy, external, file and export nodes differently,
+                  // but skip any unknown node types defensively.
+                  if (
+                    nodeType !== "file" &&
+                    nodeType !== "external" &&
+                    nodeType !== "dummy" &&
+                    nodeType !== "export"
+                  ) {
+                    return null;
+                  }
                   return (
                     <g
                       transform={`translate(${node.x}, ${node.y})`}
@@ -622,12 +800,14 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                       {(() => {
                         const isDummy = node.type === "dummy";
                         const isExternal = node.type === "external";
+                        const isExport = node.type === "export";
                         const isEmphasized = isActive || isHovered;
 
                         let metrics: any | undefined;
                         if (
                           !isDummy &&
                           !isExternal &&
+                          !isExport &&
                           props.fileMetricsByName
                         ) {
                           const baseName = getFileBaseName(
@@ -673,6 +853,10 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                           ? isEmphasized
                             ? "#383838"
                             : "#2d2d2d"
+                          : isExport
+                          ? isEmphasized
+                            ? "#4a4a4a"
+                            : "#333333"
                           : hotspotColor
                           ? hotspotColor
                           : isEmphasized
@@ -683,6 +867,10 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                           ? isEmphasized
                             ? "#888"
                             : "#444"
+                          : isExport
+                          ? isEmphasized
+                            ? "#aaa"
+                            : "#666"
                           : isEmphasized
                           ? "#9cdcfe"
                           : "#569cd6";
@@ -696,6 +884,8 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                           ? isEmphasized
                             ? "#bbbbbb"
                             : "#888"
+                          : isExport
+                          ? "#cccccc"
                           : hotspotColor
                           ? getContrastingTextColor(
                               hotspotColor,
@@ -746,18 +936,22 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                             <rect
                               width={node.width}
                               height={node.height}
-                              rx="4"
+                              rx={isExport ? "10" : "4"}
                               fill={fill}
                               stroke={stroke}
                               stroke-width={isEmphasized ? "2" : "1"}
                             />
                             <text
                               x={(node.width || 0) / 2}
-                              y={(node.height || 0) / 2}
+                              y={
+                                isExport || isExternal
+                                  ? (node.height || 0) / 2
+                                  : 14
+                              }
                               dy="0.35em"
                               text-anchor="middle"
                               fill={textFill}
-                              font-size="12px"
+                              font-size={isExport ? "10px" : "12px"}
                               class="pointer-events-none select-none"
                             >
                               {displayLabel}
@@ -766,6 +960,32 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                         );
                       })()}
                     </g>
+                  );
+                }}
+              </For>
+
+              {/* Draw dependency edges last so they appear on top of file boxes while
+                  preserving ELK's bend points for smooth routing. */}
+              <For each={edges()}>
+                {(edge) => {
+                  if (!edge.sections || edge.sections.length === 0) return null;
+                  const section = edge.sections[0];
+                  let d = `M ${section.startPoint.x} ${section.startPoint.y}`;
+                  if (section.bendPoints) {
+                    section.bendPoints.forEach((p) => {
+                      d += ` L ${p.x} ${p.y}`;
+                    });
+                  }
+                  d += ` L ${section.endPoint.x} ${section.endPoint.y}`;
+
+                  return (
+                    <path
+                      d={d}
+                      stroke="#666"
+                      stroke-width="1"
+                      fill="none"
+                      marker-end="url(#arrowhead)"
+                    />
                   );
                 }}
               </For>

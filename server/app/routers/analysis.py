@@ -258,70 +258,137 @@ async def get_dependencies(path: str = None):
         ts_base_dir, ts_paths = _load_tsconfig_paths(tsconfig_candidates[0])
 
     # 3. Extract imports and create edges
+
+
+    # Refactored 2-pass approach
+    
+    # Pass 1: Analyze all files to get exports and build nodes
+    file_exports = {} # file_id -> { export_name: export_node_id }
+    
+    # We need to store imports for pass 2
+    file_imports = {} # file_id -> list of imports
+    
     for file_path in files_to_process:
         file_path = file_path.resolve()
-        source_id = file_to_id[file_path]
+        file_id = file_to_id[file_path]
+        
         try:
-            imports, _ = analyzer.extract_imports_exports(str(file_path))
-
-            for import_path in imports:
-                target_file: Optional[Path] = None
-
-                if import_path.startswith("."):
-                    # Relative import
-                    resolved = file_path.parent / import_path
-                    target_file = _resolve_internal_file(resolved, file_to_id)
-                else:
-                    # Non-relative import: first try tsconfig path aliases (if available)
-                    if ts_base_dir is not None and ts_paths:
-                        alias_candidates = _apply_tsconfig_paths(
-                            import_path,
-                            ts_base_dir,
-                            ts_paths,
-                        )
-                        for candidate in alias_candidates:
-                            target_file = _resolve_internal_file(candidate, file_to_id)
-                            if target_file is not None:
-                                break
-
-                if target_file is not None:
-                    target_id = file_to_id[target_file]
-                    edges.append(
-                        DependencyEdge(
-                            id=f"{source_id}-{target_id}",
-                            source=source_id,
-                            target=target_id,
-                            label=None,
-                        )
-                    )
-                else:
-                    # External dependency or could not resolve.
-                    # For now, add external nodes for non-relative imports.
-                    if not import_path.startswith("."):
-                        ext_id = f"ext:{import_path}"
-                        # Check if we already added this external node
-                        if ext_id not in id_to_file:
-                            nodes.append(
-                                DependencyNode(
-                                    id=ext_id,
-                                    label=import_path,
-                                    type="external",
-                                )
-                            )
-                            id_to_file[ext_id] = "external"
-
-                        edges.append(
-                            DependencyEdge(
-                                id=f"{source_id}-{ext_id}",
-                                source=source_id,
-                                target=ext_id,
-                                label=None,
-                            )
-                        )
-
+            imports, exports = analyzer.extract_imports_exports(str(file_path))
+            file_imports[file_id] = imports
+            
+            current_file_exports = {}
+            for exp in exports:
+                exp_name = exp["name"]
+                exp_id = f"{file_id}::{exp_name}"
+                
+                nodes.append(DependencyNode(
+                    id=exp_id,
+                    label=exp_name,
+                    type="export",
+                    parent=file_id 
+                ))
+                current_file_exports[exp_name] = exp_id
+            
+            file_exports[file_id] = current_file_exports
+            
         except Exception as e:
-            print(f"Error analyzing dependencies for {file_path}: {e}")
+            print(f"Error analyzing {file_path}: {e}")
             continue
+
+    # Pass 2: Build edges
+    for file_path in files_to_process:
+        file_path = file_path.resolve()
+        source_id = file_to_id[file_path] # This is the IMPORTING file
+        
+        imports = file_imports.get(source_id, [])
+        
+        for imp in imports:
+            import_path = imp["source"]
+            symbols = imp["symbols"]
+            
+            target_file: Optional[Path] = None
+            
+            # Resolve target
+            if import_path.startswith("."):
+                resolved = file_path.parent / import_path
+                target_file = _resolve_internal_file(resolved, file_to_id)
+            else:
+                if ts_base_dir is not None and ts_paths:
+                    alias_candidates = _apply_tsconfig_paths(import_path, ts_base_dir, ts_paths)
+                    for candidate in alias_candidates:
+                        target_file = _resolve_internal_file(candidate, file_to_id)
+                        if target_file is not None:
+                            break
+            
+            if target_file:
+                target_id = file_to_id[target_file] # This is the EXPORTING file
+                
+                # If we have symbols, try to link from specific export nodes
+                linked_symbols = False
+                if symbols:
+                    target_exports = file_exports.get(target_id, {})
+                    for sym in symbols:
+                        # Handle default import
+                        if sym == "default":
+                            # Look for a default export
+                            if "default" in target_exports:
+                                export_node_id = target_exports["default"]
+                                edges.append(DependencyEdge(
+                                    id=f"{export_node_id}-{source_id}",
+                                    source=export_node_id,
+                                    target=source_id,
+                                    label="default"
+                                ))
+                                linked_symbols = True
+                        elif sym in target_exports:
+                            export_node_id = target_exports[sym]
+                            edges.append(DependencyEdge(
+                                id=f"{export_node_id}-{source_id}",
+                                source=export_node_id,
+                                target=source_id,
+                                label=None
+                            ))
+                            linked_symbols = True
+
+                # Fallback: if we didn't extract any symbols for this import, or none
+                # of them matched known exports, connect *all* exports from the target
+                # file to the importing file. This preserves the "export-level" view
+                # even when our import symbol extraction is incomplete.
+                if (not symbols or not linked_symbols) and target_id in file_exports:
+                    for export_name, export_node_id in file_exports[target_id].items():
+                        edges.append(DependencyEdge(
+                            id=f"{export_node_id}-{source_id}",
+                            source=export_node_id,
+                            target=source_id,
+                            label=None,
+                        ))
+                
+                # Always include a standard file-to-file edge so the client can show
+                # high-level dependencies even when export-level edges are hidden.
+                edges.append(DependencyEdge(
+                    id=f"{source_id}-{target_id}", # Note: Standard direction A -> B (A depends on B)
+                    # Wait, standard direction is Source (Importer) -> Target (Imported).
+                    # My new edges are Export (Imported) -> Importer.
+                    # This is reverse direction.
+                    source=source_id,
+                    target=target_id,
+                    label=None
+                ))
+
+            else:
+                # External
+                if not import_path.startswith("."):
+                    ext_id = f"ext:{import_path}"
+                    if ext_id not in id_to_file:
+                        nodes.append(DependencyNode(id=ext_id, label=import_path, type="external"))
+                        id_to_file[ext_id] = "external"
+                    
+                    edges.append(DependencyEdge(
+                        id=f"{source_id}-{ext_id}",
+                        source=source_id,
+                        target=ext_id,
+                        label=None
+                    ))
 
     return DependencyGraph(nodes=nodes, edges=edges)
 
