@@ -278,16 +278,23 @@ def test_find_candidate_tsconfig_files_prefers_nearest(tmp_path):
 
 def test_load_tsconfig_paths_and_apply_aliases(tmp_path):
     tsconfig_path = tmp_path / "tsconfig.json"
-    config = {
-        "compilerOptions": {
-            "baseUrl": ".",
-            "paths": {
-                "@core": ["src/core/index.ts"],
-                "@utils/*": ["src/utils/*"],
-            },
+    # Simulate a real-world tsconfig.json that uses comments and alias paths.
+    tsconfig_text = """
+    {
+      // Top-level comment
+      "compilerOptions": {
+        /* Base URL for module resolution */
+        "baseUrl": ".",
+        /* Path aliases */
+        "paths": {
+          "@core": ["src/core/index.ts"],
+          "@utils/*": ["src/utils/*"],
+          "~/*": ["./src/*"]
         }
+      }
     }
-    tsconfig_path.write_text(json.dumps(config), encoding="utf-8")
+    """
+    tsconfig_path.write_text(tsconfig_text, encoding="utf-8")
 
     base_dir, paths = _load_tsconfig_paths(tsconfig_path)
 
@@ -305,6 +312,11 @@ def test_load_tsconfig_paths_and_apply_aliases(tmp_path):
     wildcard_candidates = _apply_tsconfig_paths("@utils/math", base_dir, paths)
     assert len(wildcard_candidates) == 1
     assert str(wildcard_candidates[0]).endswith("src/utils/math")
+
+    # Tilde alias with leading "./" in target
+    tilde_candidates = _apply_tsconfig_paths("~/components/SimpleTooltip", base_dir, paths)
+    assert len(tilde_candidates) == 1
+    assert str(tilde_candidates[0]).endswith("src/components/SimpleTooltip")
 
 
 def test_get_dependencies_api_with_tsconfig_aliases():

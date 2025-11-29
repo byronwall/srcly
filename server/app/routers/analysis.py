@@ -20,6 +20,88 @@ TSCONFIG_CANDIDATE_NAMES: Tuple[str, ...] = (
 )
 
 
+def _strip_json_comments(text: str) -> str:
+    """
+    Best-effort removal of `//` and `/* ... */` comments from a JSON-like file.
+
+    TypeScript config files (`tsconfig.json`, `tsconfig.app.json`, etc.) are
+    JSON-with-comments. The standard `json` module cannot parse them directly,
+    so we strip comments while preserving string literals as far as is
+    reasonably practical.
+
+    This is not a full JSONC parser but is sufficient for typical tsconfig
+    usage: it understands string literals (single or double quoted), escape
+    sequences, line comments and block comments.
+    """
+    result: list[str] = []
+    i = 0
+    n = len(text)
+    in_string = False
+    string_quote = ""
+    in_line_comment = False
+    in_block_comment = False
+
+    while i < n:
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < n else ""
+
+        if in_line_comment:
+            # End of line comment at newline; keep the newline itself.
+            if ch == "\n":
+                in_line_comment = False
+                result.append(ch)
+            i += 1
+            continue
+
+        if in_block_comment:
+            # End of block comment at */
+            if ch == "*" and nxt == "/":
+                in_block_comment = False
+                i += 2
+            else:
+                i += 1
+            continue
+
+        if in_string:
+            result.append(ch)
+            if ch == "\\":
+                # Preserve escaped character and skip over it.
+                if i + 1 < n:
+                    result.append(text[i + 1])
+                    i += 2
+                else:
+                    i += 1
+            elif ch == string_quote:
+                in_string = False
+                i += 1
+            else:
+                i += 1
+            continue
+
+        # Not currently in string or comment.
+        if ch in ("'", '"'):
+            in_string = True
+            string_quote = ch
+            result.append(ch)
+            i += 1
+            continue
+
+        if ch == "/" and nxt == "/":
+            in_line_comment = True
+            i += 2
+            continue
+
+        if ch == "/" and nxt == "*":
+            in_block_comment = True
+            i += 2
+            continue
+
+        result.append(ch)
+        i += 1
+
+    return "".join(result)
+
+
 def _find_candidate_tsconfig_files(start: Path) -> List[Path]:
     """
     Walk up from the given path and collect any nearby tsconfig-style files.
@@ -56,8 +138,15 @@ def _load_tsconfig_paths(tsconfig_path: Path) -> Tuple[Path, Dict[str, List[str]
     """
     try:
         with tsconfig_path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
+            raw = f.read()
+        # tsconfig files are JSON-with-comments; strip comments before parsing.
+        cleaned = _strip_json_comments(raw)
+        data = json.loads(cleaned)
     except Exception:
+        # On any failure, fall back to treating the tsconfig directory as the
+        # base and ignoring custom path mappings. This preserves previous
+        # behaviour while allowing us to handle commented configs when parsing
+        # succeeds.
         return tsconfig_path.parent, {}
 
     compiler = data.get("compilerOptions") or {}
