@@ -72,6 +72,7 @@ export default function DataFlowViz(props: DataFlowVizProps) {
   const [showPicker, setShowPicker] = createSignal(false);
   const [depth, setDepth] = createSignal(2);
   const [maxDepth, setMaxDepth] = createSignal(2);
+  const [showFileViewer, setShowFileViewer] = createSignal(true);
   const [selectedNode, setSelectedNode] = createSignal<SelectedNodeInfo | null>(
     null
   );
@@ -482,16 +483,28 @@ export default function DataFlowViz(props: DataFlowVizProps) {
               </div>
             </div>
 
-            <div class="relative">
-              <button
-                onClick={() => setShowPicker(!showPicker())}
-                class="px-3 py-1 text-sm border rounded bg-gray-50 hover:bg-gray-100 flex items-center gap-2 text-black"
-              >
-                <span class="truncate max-w-[300px]">
-                  {currentPath() || "Select File"}
-                </span>
-                <span class="text-xs">▼</span>
-              </button>
+            <div class="flex items-center gap-3">
+              <label class="inline-flex items-center gap-2 text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={showFileViewer()}
+                  onInput={(e) => setShowFileViewer(e.currentTarget.checked)}
+                  class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span>Show file view</span>
+              </label>
+
+              <div class="relative">
+                <button
+                  onClick={() => setShowPicker(!showPicker())}
+                  class="px-3 py-1 text-sm border rounded bg-gray-50 hover:bg-gray-100 flex items-center gap-2 text-black"
+                >
+                  <span class="truncate max-w-[300px]">
+                    {currentPath() || "Select File"}
+                  </span>
+                  <span class="text-xs">▼</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -608,13 +621,15 @@ export default function DataFlowViz(props: DataFlowVizProps) {
             </Show>
           </div>
 
-          <div class="w-[40%] max-w-[600px] border-l border-gray-300">
-            <InlineCodePreview
-              filePath={currentPath() || null}
-              startLine={selectedNode()?.startLine ?? undefined}
-              endLine={selectedNode()?.endLine ?? undefined}
-            />
-          </div>
+          <Show when={showFileViewer()}>
+            <div class="w-[40%] max-w-[600px] border-l border-gray-300">
+              <InlineCodePreview
+                filePath={currentPath() || null}
+                startLine={selectedNode()?.startLine ?? undefined}
+                endLine={selectedNode()?.endLine ?? undefined}
+              />
+            </div>
+          </Show>
         </div>
       </div>
     </div>
