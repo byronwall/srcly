@@ -1,6 +1,5 @@
 import { createSignal, createEffect, Show, For } from "solid-js";
 import ELK from "elkjs/lib/elk.bundled.js";
-import * as d3 from "d3";
 import FilePicker from "./FilePicker";
 import InlineCodePreview from "./InlineCodePreview";
 
@@ -47,6 +46,23 @@ interface SelectedNodeInfo {
   endLine?: number;
 }
 
+interface FlattenedNode {
+  id: string;
+  type?: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  label?: string;
+  startLine?: number;
+  endLine?: number;
+}
+
+interface RenderEdgePath {
+  id: string;
+  d: string;
+}
+
 export default function DataFlowViz(props: DataFlowVizProps) {
   const [currentPath, setCurrentPath] = createSignal(props.path);
   const [graph, setGraph] = createSignal<GraphData | null>(null);
@@ -59,6 +75,10 @@ export default function DataFlowViz(props: DataFlowVizProps) {
   const [selectedNode, setSelectedNode] = createSignal<SelectedNodeInfo | null>(
     null
   );
+  const [flatNodes, setFlatNodes] = createSignal<FlattenedNode[]>([]);
+  const [edgePaths, setEdgePaths] = createSignal<RenderEdgePath[]>([]);
+  const [scale, setScale] = createSignal(1);
+  const [translate, setTranslate] = createSignal({ x: 0, y: 0 });
 
   let svgRef: SVGSVGElement | undefined;
   let gRef: SVGGElement | undefined;
@@ -172,31 +192,18 @@ export default function DataFlowViz(props: DataFlowVizProps) {
     const data = graph();
     const isLoading = loading();
 
-    if (isLoading || !data || !svgRef || !gRef) return;
-
-    console.log("Rendering graph", data);
-
-    const svg = d3.select(svgRef);
-    const g = d3.select(gRef);
-
-    // Clear previous
-    g.selectAll("*").remove();
-
-    // Zoom behavior
-    const zoom = d3
-      .zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.1, 4])
-      .on("zoom", (event) => {
-        g.attr("transform", event.transform);
-      });
-
-    svg.call(zoom);
+    if (isLoading || !data) {
+      setFlatNodes([]);
+      setEdgePaths([]);
+      return;
+    }
 
     // Build a lookup table of absolute node positions (including nested scopes)
     const nodePositions = new Map<
       string,
       { x: number; y: number; width: number; height: number }
     >();
+    const newFlatNodes: FlattenedNode[] = [];
 
     const collectNodePositions = (
       node: ElkNode,
@@ -210,6 +217,19 @@ export default function DataFlowViz(props: DataFlowVizProps) {
 
       nodePositions.set(node.id, { x: absX, y: absY, width, height });
 
+      const labelText = node.labels?.[0]?.text;
+      newFlatNodes.push({
+        id: node.id,
+        type: node.type,
+        x: absX,
+        y: absY,
+        width,
+        height,
+        label: labelText,
+        startLine: node.startLine,
+        endLine: node.endLine,
+      });
+
       if (node.children) {
         for (const child of node.children) {
           collectNodePositions(child, absX, absY);
@@ -219,36 +239,7 @@ export default function DataFlowViz(props: DataFlowVizProps) {
 
     collectNodePositions(data, 0, 0);
 
-    const handleNodeClick = (node: ElkNode) => {
-      // Only variable/usage nodes participate in previews for now.
-      if (node.type === "variable" || node.type === "usage") {
-        const labelText = node.labels?.[0]?.text ?? node.id;
-        console.log("[DataFlowViz] node clicked", {
-          id: node.id,
-          type: node.type,
-          label: labelText,
-          startLine: node.startLine,
-          endLine: node.endLine,
-        });
-        setSelectedNode({
-          id: node.id,
-          type: node.type,
-          label: labelText,
-          startLine: node.startLine,
-          endLine: node.endLine,
-        });
-      } else {
-        setSelectedNode(null);
-      }
-    };
-
-    // Render nodes recursively
-    renderNode(g, data, handleNodeClick);
-
-    // Collect all edges and render them using the computed node positions.
-    // We ignore ELK's edge sections and instead draw simple orthogonal
-    // connector paths from the source node to the target node so that
-    // arrows clearly start/end at the correct boxes, even across nested scopes.
+    // Collect all edges and compute SVG paths using the computed node positions.
     const allEdges: ElkEdge[] = [];
     const collectEdges = (node: ElkNode) => {
       if (node.edges) {
@@ -262,99 +253,9 @@ export default function DataFlowViz(props: DataFlowVizProps) {
     };
     collectEdges(data);
 
-    if (allEdges.length > 0) {
-      renderEdges(g, allEdges, nodePositions);
-    }
+    const newEdgePaths: RenderEdgePath[] = [];
 
-    // Initial zoom to fit
-    const root = data;
-    const svgWidth = svgRef.clientWidth;
-    const svgHeight = svgRef.clientHeight;
-
-    if (root.width && root.height && svgWidth && svgHeight) {
-      const padding = 40;
-      const availableWidth = svgWidth - padding * 2;
-      const availableHeight = svgHeight - padding * 2;
-
-      const scale = Math.min(
-        availableWidth / root.width,
-        availableHeight / root.height
-      );
-
-      // Clamp scale to reasonable limits
-      const clampedScale = Math.min(Math.max(scale, 0.1), 2);
-
-      const x = (svgWidth - root.width * clampedScale) / 2;
-      const y = (svgHeight - root.height * clampedScale) / 2;
-
-      const transform = d3.zoomIdentity.translate(x, y).scale(clampedScale);
-
-      svg.call(zoom.transform, transform);
-    }
-  });
-
-  function renderNode(
-    parentG: d3.Selection<any, any, any, any>,
-    node: ElkNode,
-    onClick: (node: ElkNode) => void
-  ) {
-    const x = node.x || 0;
-    const y = node.y || 0;
-    const w = node.width || 0;
-    const h = node.height || 0;
-
-    const nodeGroup = parentG
-      .append("g")
-      .attr("transform", `translate(${x},${y})`)
-      .style(
-        "cursor",
-        node.type === "variable" || node.type === "usage"
-          ? "pointer"
-          : "default"
-      )
-      .on("click", () => onClick(node));
-
-    // Draw box
-    nodeGroup
-      .append("rect")
-      .attr("width", w)
-      .attr("height", h)
-      .attr("rx", 4)
-      .attr("ry", 4)
-      .attr("fill", getNodeColor(node.type))
-      .attr("stroke", "#333")
-      .attr("stroke-width", 1);
-
-    // Label
-    if (node.labels && node.labels.length > 0) {
-      nodeGroup
-        .append("text")
-        .attr("x", 5)
-        .attr("y", 15)
-        .text(node.labels[0].text)
-        .attr("font-size", "10px")
-        .attr("fill", "#000");
-    }
-
-    // Children
-    if (node.children) {
-      for (const child of node.children) {
-        renderNode(nodeGroup, child, onClick);
-      }
-    }
-  }
-
-  function renderEdges(
-    parentG: d3.Selection<any, any, any, any>,
-    edges: ElkEdge[],
-    nodePositions: Map<
-      string,
-      { x: number; y: number; width: number; height: number }
-    >
-  ) {
-    const edgeGroup = parentG.append("g").attr("class", "edges");
-
-    for (const edge of edges) {
+    for (const edge of allEdges) {
       const sourceId = edge.sources[0];
       const targetId = edge.targets[0];
 
@@ -373,15 +274,105 @@ export default function DataFlowViz(props: DataFlowVizProps) {
       const midY = (startY + endY) / 2;
       const pathData = `M${startX},${startY} L${startX},${midY} L${endX},${midY} L${endX},${endY}`;
 
-      edgeGroup
-        .append("path")
-        .attr("d", pathData)
-        .attr("stroke", "#555")
-        .attr("stroke-width", 1)
-        .attr("fill", "none")
-        .attr("marker-end", "url(#arrowhead)");
+      newEdgePaths.push({
+        id: edge.id || `${sourceId || "source"}->${targetId || "target"}`,
+        d: pathData,
+      });
+    }
+
+    setFlatNodes(newFlatNodes);
+    setEdgePaths(newEdgePaths);
+  });
+
+  createEffect(() => {
+    const data = graph();
+    const isLoading = loading();
+
+    if (isLoading || !data || !svgRef) return;
+
+    const svgWidth = svgRef.clientWidth;
+    const svgHeight = svgRef.clientHeight;
+
+    if (!data.width || !data.height || !svgWidth || !svgHeight) return;
+
+    const padding = 40;
+    const availableWidth = svgWidth - padding * 2;
+    const availableHeight = svgHeight - padding * 2;
+
+    const baseScale = Math.min(
+      availableWidth / data.width,
+      availableHeight / data.height
+    );
+
+    const clampedScale = Math.min(Math.max(baseScale, 0.1), 2);
+
+    const x = (svgWidth - data.width * clampedScale) / 2;
+    const y = (svgHeight - data.height * clampedScale) / 2;
+
+    setScale(clampedScale);
+    setTranslate({ x, y });
+  });
+
+  function handleNodeClick(node: FlattenedNode) {
+    // Only variable/usage nodes participate in previews for now.
+    if (node.type === "variable" || node.type === "usage") {
+      const labelText = node.label ?? node.id;
+      console.log("[DataFlowViz] node clicked", {
+        id: node.id,
+        type: node.type,
+        label: labelText,
+        startLine: node.startLine,
+        endLine: node.endLine,
+      });
+      setSelectedNode({
+        id: node.id,
+        type: node.type,
+        label: labelText,
+        startLine: node.startLine,
+        endLine: node.endLine,
+      });
+    } else {
+      setSelectedNode(null);
     }
   }
+
+  // Simple mouse-based pan/zoom implementation without d3.
+  let isPanning = false;
+  let lastPanX = 0;
+  let lastPanY = 0;
+
+  const handleMouseDown = (event: MouseEvent) => {
+    if (event.button !== 0) return;
+    isPanning = true;
+    lastPanX = event.clientX;
+    lastPanY = event.clientY;
+  };
+
+  const handleMouseMove = (event: MouseEvent) => {
+    if (!isPanning) return;
+    const dx = event.clientX - lastPanX;
+    const dy = event.clientY - lastPanY;
+    lastPanX = event.clientX;
+    lastPanY = event.clientY;
+    setTranslate((prev) => ({
+      x: prev.x + dx,
+      y: prev.y + dy,
+    }));
+  };
+
+  const handleMouseUpOrLeave = () => {
+    isPanning = false;
+  };
+
+  const handleWheel = (event: WheelEvent) => {
+    event.preventDefault();
+    const delta = event.deltaY;
+    const zoomFactor = delta < 0 ? 1.1 : 0.9;
+    setScale((prev) => {
+      const next = prev * zoomFactor;
+      return Math.min(Math.max(next, 0.1), 4);
+    });
+  };
 
   function getNodeColor(type?: string) {
     switch (type) {
@@ -496,7 +487,15 @@ export default function DataFlowViz(props: DataFlowVizProps) {
                   </div>
                 }
               >
-                <svg ref={svgRef} class="w-full h-full">
+                <svg
+                  ref={svgRef}
+                  class="w-full h-full cursor-grab active:cursor-grabbing"
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUpOrLeave}
+                  onMouseLeave={handleMouseUpOrLeave}
+                  onWheel={handleWheel}
+                >
                   <defs>
                     <marker
                       id="arrowhead"
@@ -509,7 +508,54 @@ export default function DataFlowViz(props: DataFlowVizProps) {
                       <polygon points="0 0, 10 3.5, 0 7" fill="#555" />
                     </marker>
                   </defs>
-                  <g ref={gRef} />
+                  <g
+                    ref={gRef}
+                    transform={`translate(${translate().x},${
+                      translate().y
+                    }) scale(${scale()})`}
+                  >
+                    {/* Edges behind nodes */}
+                    <For each={edgePaths()}>
+                      {(edge) => (
+                        <path
+                          d={edge.d}
+                          stroke="#555"
+                          stroke-width="1"
+                          fill="none"
+                          marker-end="url(#arrowhead)"
+                        />
+                      )}
+                    </For>
+                    {/* Nodes */}
+                    <For each={flatNodes()}>
+                      {(node) => (
+                        <g
+                          transform={`translate(${node.x},${node.y})`}
+                          class={
+                            node.type === "variable" || node.type === "usage"
+                              ? "cursor-pointer"
+                              : "cursor-default"
+                          }
+                          onClick={() => handleNodeClick(node)}
+                        >
+                          <rect
+                            width={node.width}
+                            height={node.height}
+                            rx={4}
+                            ry={4}
+                            fill={getNodeColor(node.type)}
+                            stroke="#333"
+                            stroke-width="1"
+                          />
+                          <Show when={node.label}>
+                            <text x={5} y={15} font-size="10px" fill="#000">
+                              {node.label}
+                            </text>
+                          </Show>
+                        </g>
+                      )}
+                    </For>
+                  </g>
                 </svg>
               </Show>
             </Show>
