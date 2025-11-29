@@ -313,9 +313,31 @@ export default function DataFlowViz(props: DataFlowVizProps) {
     setTranslate({ x, y });
   });
 
+  function isInteractiveNode(node: FlattenedNode) {
+    // Any node that has a stable line range should be previewable. In practice
+    // this includes variables/usages as well as containing scopes like
+    // functions, blocks, JSX scopes, classes, and the global scope.
+    const hasRange =
+      typeof node.startLine === "number" &&
+      typeof node.endLine === "number" &&
+      node.startLine > 0 &&
+      node.endLine >= node.startLine;
+
+    if (!hasRange) return false;
+
+    return (
+      node.type === "variable" ||
+      node.type === "usage" ||
+      node.type === "function" ||
+      node.type === "block" ||
+      node.type === "global" ||
+      node.type === "class" ||
+      node.type === "jsx"
+    );
+  }
+
   function handleNodeClick(node: FlattenedNode) {
-    // Only variable/usage nodes participate in previews for now.
-    if (node.type === "variable" || node.type === "usage") {
+    if (isInteractiveNode(node)) {
       const labelText = node.label ?? node.id;
       console.log("[DataFlowViz] node clicked", {
         id: node.id,
@@ -550,7 +572,7 @@ export default function DataFlowViz(props: DataFlowVizProps) {
                         <g
                           transform={`translate(${node.x},${node.y})`}
                           class={
-                            node.type === "variable" || node.type === "usage"
+                            isInteractiveNode(node)
                               ? "cursor-pointer"
                               : "cursor-default"
                           }
