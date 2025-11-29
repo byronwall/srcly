@@ -608,9 +608,9 @@ export default function DependencyGraph(props: DependencyGraphProps) {
       }
 
       const H_PADDING = 16;
-      const V_PADDING = -8;
+      const V_PADDING = 8;
       const H_GAP = 8;
-      const PILL_HEIGHT = 32;
+      const PILL_HEIGHT = 24;
 
       exportsByFile.forEach((exports, fileId) => {
         const fileNode = fileNodesById.get(fileId);

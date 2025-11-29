@@ -743,10 +743,25 @@ class TreeSitterAnalyzer:
                     symbols = []
                     
                     # Extract imported symbols
-                    clause = n.child_by_field_name('clause') # import_clause
+                    clause = n.child_by_field_name('clause')  # import_clause
+                    # Newer versions of tree-sitter-typescript don't always expose
+                    # the import clause via a 'clause' field; instead we see a
+                    # plain 'import_clause' child. Fall back to that shape.
+                    if clause is None:
+                        for child in n.children:
+                            if child.type == "import_clause":
+                                clause = child
+                                break
+
                     if clause:
                         # Named imports: import { A, B } from ...
                         named_imports = clause.child_by_field_name('named_imports')
+                        if named_imports is None:
+                            for child in clause.children:
+                                if child.type == "named_imports":
+                                    named_imports = child
+                                    break
+
                         if named_imports:
                             for child in named_imports.children:
                                 if child.type == 'import_specifier':
@@ -773,8 +788,11 @@ class TreeSitterAnalyzer:
                                         pass
                                         
                         # Default import: import A from ...
-                        # In tree-sitter-typescript:
-                        # import_clause -> children: identifier (default import), named_imports
+                        # In tree-sitter-typescript the import_clause children look like:
+                        #   - identifier (default import)
+                        #   - named_imports (optional)
+                        # For named-only imports (`import { A } from ...`) there is
+                        # only a `named_imports` child and no bare identifier.
                         for child in clause.children:
                             if child.type == 'identifier':
                                 symbols.append('default')
@@ -831,32 +849,57 @@ class TreeSitterAnalyzer:
                             else:
                                 export_name = c.text.decode('utf-8')
                             
-                            exports.append({"name": export_name, "type": "value"}) # simplified type
+                            exports.append({"name": export_name, "type": "value"})  # simplified type
                 else:
-                    # export default ...
-                    if any(child.text.decode('utf-8') == 'default' for child in n.children):
-                         exports.append({"name": "default", "type": "default"})
-                    
-                    # export const foo = ...
-                    # export function bar() ...
-                    # export class Baz ...
-                    
-                    # Check for declaration
-                    declaration = n.child_by_field_name("declaration")
-                    if declaration:
-                        if declaration.type in {"function_declaration", "generator_function_declaration", "class_declaration"}:
-                            name_node = declaration.child_by_field_name("name")
-                            if name_node:
-                                exports.append({"name": name_node.text.decode('utf-8'), "type": "declaration"})
-                        elif declaration.type == "lexical_declaration":
-                            # export const foo = ...
-                            for child in declaration.children:
-                                if child.type == "variable_declarator":
-                                    name_node = child.child_by_field_name("name")
-                                    if name_node:
-                                        exports.append({"name": name_node.text.decode('utf-8'), "type": "variable"})
-                    
-                    # Check for default export
+                    # For non-clause export statements we distinguish between
+                    # `export default ...` and named declaration exports.
+                    has_default = any(
+                        child.text.decode("utf-8", errors="ignore") == "default"
+                        for child in n.children
+                    )
+
+                    # `export default ...` – we represent this solely as a single
+                    # default export, even if the underlying declaration has a
+                    # name (e.g. `export default function Explorer() {}`).
+                    # In ES modules that declaration name is local-only and does
+                    # not create a separate named export, so modelling it as a
+                    # second export is misleading in the dependency graph.
+                    if has_default:
+                        exports.append({"name": "default", "type": "default"})
+                    else:
+                        # Named declaration exports:
+                        #   export const foo = ...
+                        #   export function bar() ...
+                        #   export class Baz ...
+                        declaration = n.child_by_field_name("declaration")
+                        if declaration:
+                            if declaration.type in {
+                                "function_declaration",
+                                "generator_function_declaration",
+                                "class_declaration",
+                            }:
+                                name_node = declaration.child_by_field_name("name")
+                                if name_node:
+                                    exports.append(
+                                        {
+                                            "name": name_node.text.decode("utf-8"),
+                                            "type": "declaration",
+                                        }
+                                    )
+                            elif declaration.type == "lexical_declaration":
+                                # export const foo = ...
+                                for child in declaration.children:
+                                    if child.type == "variable_declarator":
+                                        name_node = child.child_by_field_name("name")
+                                        if name_node:
+                                            exports.append(
+                                                {
+                                                    "name": name_node.text.decode(
+                                                        "utf-8"
+                                                    ),
+                                                    "type": "variable",
+                                                }
+                                            )
 
 
             for child in n.children:

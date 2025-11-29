@@ -350,18 +350,23 @@ async def get_dependencies(path: str = None):
                             ))
                             linked_symbols = True
 
-                # Fallback: if we didn't extract any symbols for this import, or none
-                # of them matched known exports, connect *all* exports from the target
-                # file to the importing file. This preserves the "export-level" view
-                # even when our import symbol extraction is incomplete.
-                if (not symbols or not linked_symbols) and target_id in file_exports:
+                # Fallback: if we didn't extract any symbols for this import, connect all
+                # exports from the target file to the importing file.
+                #
+                # IMPORTANT: we deliberately do *not* fall back when we have a non-empty
+                # symbol list but failed to match some of them. In that case we prefer
+                # to show only the edges for the symbols we could confidently resolve,
+                # instead of pretending that every export from the target is used.
+                if not symbols and target_id in file_exports:
                     for export_name, export_node_id in file_exports[target_id].items():
-                        edges.append(DependencyEdge(
-                            id=f"{export_node_id}-{source_id}",
-                            source=export_node_id,
-                            target=source_id,
-                            label=None,
-                        ))
+                        edges.append(
+                            DependencyEdge(
+                                id=f"{export_node_id}-{source_id}",
+                                source=export_node_id,
+                                target=source_id,
+                                label=None,
+                            )
+                        )
                 
                 # Always include a standard file-to-file edge so the client can show
                 # high-level dependencies even when export-level edges are hidden.

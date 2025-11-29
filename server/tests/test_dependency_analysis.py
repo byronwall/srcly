@@ -63,8 +63,12 @@ def test_extract_imports_exports_complex(analyzer):
         export_names = {e["name"] for e in exports}
         
         assert set(import_sources) == {'react', './utils'}
+        # For `export default function App() {}`, only the *default* binding is
+        # exported; the function name `App` is local. We should therefore see a
+        # single default export plus the re-exported alias `bar`.
         assert 'default' in export_names
         assert 'bar' in export_names
+        assert 'App' not in export_names
     finally:
         os.remove(file_path)
 
@@ -93,6 +97,94 @@ def test_extract_exports_various_forms(analyzer):
         # If we want to support them, we should update the code. For now, let's assert what is implemented.
     finally:
         os.remove(file_path)
+
+
+def test_default_import_only_links_default_export():
+    """
+    When a file exports a default plus additional named exports, and another file
+    imports *only* the default export, the dependency graph should create an
+    export-level edge exclusively from the default export node to the importing
+    file (plus the standard file-to-file edge).
+
+    It must NOT create edges from unrelated named exports in the target file to
+    the importer – we only want arrows for exports that are actually imported.
+    """
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    client = TestClient(app)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base = Path(tmpdir)
+
+        # Target file with a default export and two named exports
+        exports_ts = base / "exports.ts"
+        exports_ts.write_text(
+            """
+export default function DefaultThing() { return 1; }
+export function OtherThing() { return 2; }
+export const Also = 3;
+""",
+            encoding="utf-8",
+        )
+
+        # Importer that only uses the default export
+        main_ts = base / "main.ts"
+        main_ts.write_text(
+            """
+import DefaultThing from './exports';
+
+export function useIt() {
+  return DefaultThing();
+}
+""",
+            encoding="utf-8",
+        )
+
+        response = client.get(f"/api/analysis/dependencies?path={tmpdir}")
+        assert response.status_code == 200
+
+        data = response.json()
+        nodes = data["nodes"]
+        edges = data["edges"]
+
+        # Index nodes by id for convenience
+        nodes_by_id = {n["id"]: n for n in nodes}
+
+        # Find file node IDs
+        main_id = next(n["id"] for n in nodes if n["type"] == "file" and n["label"] == "main.ts")
+        exports_id = next(
+            n["id"] for n in nodes if n["type"] == "file" and n["label"] == "exports.ts"
+        )
+
+        # Verify there is exactly one file-to-file edge main -> exports
+        file_edges = [
+            e for e in edges if e["source"] == main_id and e["target"] == exports_id
+        ]
+        assert len(file_edges) == 1
+
+        # Collect export nodes for the exports.ts file
+        export_nodes = [
+            n for n in nodes if n["type"] == "export" and n.get("parent") == exports_id
+        ]
+        export_labels = {n["label"] for n in export_nodes}
+
+        # We should see three export nodes in total: default, OtherThing, Also
+        assert "default" in export_labels
+        assert "OtherThing" in export_labels
+        assert "Also" in export_labels
+
+        default_export_id = next(n["id"] for n in export_nodes if n["label"] == "default")
+
+        # Export-level edges into main.ts
+        export_edges_into_main = [
+            e for e in edges if e["target"] == main_id and nodes_by_id[e["source"]]["type"] == "export"
+        ]
+
+        # There should be exactly one export-level edge into main.ts and it must
+        # originate from the *default* export node.
+        assert len(export_edges_into_main) == 1
+        assert export_edges_into_main[0]["source"] == default_export_id
 
 def test_get_dependencies_api():
     # Integration test for the API endpoint logic (mocking the filesystem/request)
