@@ -337,6 +337,11 @@ export default function DataFlowViz(props: DataFlowVizProps) {
   }
 
   function handleNodeClick(node: FlattenedNode) {
+    // Ignore clicks that are really part of a pan/drag gesture.
+    if (hasPanMoved) {
+      return;
+    }
+
     if (isInteractiveNode(node)) {
       const labelText = node.label ?? node.id;
       console.log("[DataFlowViz] node clicked", {
@@ -362,10 +367,16 @@ export default function DataFlowViz(props: DataFlowVizProps) {
   let isPanning = false;
   let lastPanX = 0;
   let lastPanY = 0;
+  // Track whether we've moved the mouse enough to count as a drag since the
+  // last mouse down. This lets us ignore "clicks" that were actually part of
+  // a pan/drag gesture.
+  let hasPanMoved = false;
+  const PAN_MOVE_THRESHOLD_PX = 4;
 
   const handleMouseDown = (event: MouseEvent) => {
     if (event.button !== 0) return;
     isPanning = true;
+    hasPanMoved = false;
     lastPanX = event.clientX;
     lastPanY = event.clientY;
   };
@@ -374,6 +385,14 @@ export default function DataFlowViz(props: DataFlowVizProps) {
     if (!isPanning) return;
     const dx = event.clientX - lastPanX;
     const dy = event.clientY - lastPanY;
+    // Mark as a drag once we've moved far enough from the initial position.
+    if (!hasPanMoved) {
+      const distanceSq = dx * dx + dy * dy;
+      if (distanceSq > PAN_MOVE_THRESHOLD_PX * PAN_MOVE_THRESHOLD_PX) {
+        hasPanMoved = true;
+      }
+    }
+
     lastPanX = event.clientX;
     lastPanY = event.clientY;
     setTranslate((prev) => ({
