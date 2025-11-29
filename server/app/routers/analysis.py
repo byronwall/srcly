@@ -152,6 +152,13 @@ def _resolve_internal_file(spec_path: Path, file_to_id: Dict[Path, str]) -> Opti
     if resolved in file_to_id:
         return resolved
 
+    # If the path has an extension that is NOT a standard JS/TS extension,
+    # we should not try to fuzzy-match it to a .ts/.tsx file.
+    # e.g. import './index.css' should not resolve to index.tsx
+    # We allow .js/.jsx because TS allows importing .js which resolves to .ts
+    if resolved.suffix and resolved.suffix not in {".js", ".jsx", ".ts", ".tsx", ".d.ts"}:
+        return None
+
     # Try common TypeScript/TSX extensions
     stem = resolved.with_suffix("")
     for ext in (".ts", ".tsx", ".d.ts"):
