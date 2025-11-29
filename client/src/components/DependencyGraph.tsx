@@ -499,6 +499,173 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     };
   }
 
+  function transformHighInDegreeNodesWithExports(
+    data: GraphData,
+    showExports: boolean
+  ): {
+    graph: GraphData;
+    assignments: SuperNodeAssignment[];
+  } {
+    if (!showExports) {
+      return transformHighInDegreeNodes(data);
+    }
+
+    if (!data.nodes || !data.edges) {
+      return { graph: data, assignments: [] };
+    }
+
+    const nodeById = new Map<string, any>(
+      data.nodes.map((n: any) => [n.id as string, n])
+    );
+
+    // Count, for each individual export node, how many distinct files
+    // consume it. This is the “item” we’re interested in promoting to a
+    // super node when fan-in is high.
+    const exportToConsumers = new Map<string, Set<string>>();
+
+    for (const edge of data.edges) {
+      const sourceNode = nodeById.get(edge.source as string);
+      const targetNode = nodeById.get(edge.target as string);
+      if (!sourceNode || !targetNode) continue;
+
+      if (sourceNode.type === "export" && targetNode.type === "file") {
+        const exportId = sourceNode.id as string;
+        let consumers = exportToConsumers.get(exportId);
+        if (!consumers) {
+          consumers = new Set<string>();
+          exportToConsumers.set(exportId, consumers);
+        }
+        consumers.add(targetNode.id as string);
+      }
+    }
+
+    const candidateExportIds = Array.from(exportToConsumers.entries())
+      .filter(([, consumers]) => consumers.size > MAX_INCOMING_LINKS)
+      .map(([exportId]) => exportId);
+
+    if (candidateExportIds.length === 0) {
+      return { graph: data, assignments: [] };
+    }
+
+    // Stable ordering by export label so assignments/codes are deterministic.
+    const sortedSuperExportIds = [...candidateExportIds].sort((a, b) => {
+      const nodeA = nodeById.get(a);
+      const nodeB = nodeById.get(b);
+      const la = (nodeA?.label ?? "").toString().toLowerCase();
+      const lb = (nodeB?.label ?? "").toString().toLowerCase();
+      return la.localeCompare(lb);
+    });
+
+    const assignments: SuperNodeAssignment[] = [];
+    const assignmentByExportId = new Map<string, SuperNodeAssignment>();
+    const usedCodes = new Set<string>();
+
+    sortedSuperExportIds.forEach((exportId, index) => {
+      const node = nodeById.get(exportId);
+      if (!node) return;
+
+      const rawExportLabel = (node.label ?? exportId) as string;
+      const parentFileId = (node.parent as string | undefined) ?? "";
+      const parentFileNode = parentFileId
+        ? (nodeById.get(parentFileId) as Node | undefined)
+        : undefined;
+      const parentFileLabelSource =
+        (parentFileNode?.label as string | undefined) ?? parentFileId;
+      const parentBaseName = parentFileLabelSource
+        ? normalizeBaseName(parentFileLabelSource)
+        : "";
+
+      let legendLabel = rawExportLabel;
+      let codeSourceLabel = rawExportLabel;
+
+      // Special case: default exports.
+      // - Legend label: "<FileName>/default" (no extension)
+      // - Code: derived from the file name instead of the word "default".
+      if (rawExportLabel.trim() === "default" && parentBaseName) {
+        legendLabel = `${parentBaseName}/default`;
+        codeSourceLabel = parentBaseName;
+      } else if (parentBaseName) {
+        // Non-default exports: append file name in legend for extra context.
+        legendLabel = `${rawExportLabel} (${parentBaseName})`;
+      }
+
+      const code = generateAssignmentCodeFromLabel(codeSourceLabel, usedCodes);
+      const color =
+        ASSIGNMENT_COLORS[index % ASSIGNMENT_COLORS.length] ??
+        ASSIGNMENT_COLORS[ASSIGNMENT_COLORS.length - 1];
+      const assignment: SuperNodeAssignment = {
+        nodeId: exportId,
+        label: legendLabel,
+        code,
+        color,
+      };
+      assignments.push(assignment);
+      assignmentByExportId.set(exportId, assignment);
+    });
+
+    const baseNodes = data.nodes.map((n: any) => {
+      const assignment = assignmentByExportId.get(n.id as string);
+      if (!assignment) return n;
+      return {
+        ...n,
+        assignmentCode: assignment.code,
+        assignmentColor: assignment.color,
+        isSuperNode: true,
+      };
+    });
+
+    const newNodes: any[] = [...baseNodes];
+    const newEdges: any[] = [];
+    const dummyByConsumerAndSuper = new Map<string, string>();
+    let dummyIndex = 0;
+
+    for (const edge of data.edges) {
+      const sourceNode = nodeById.get(edge.source as string);
+      const targetNode = nodeById.get(edge.target as string);
+
+      if (
+        sourceNode?.type === "export" &&
+        targetNode?.type === "file" &&
+        assignmentByExportId.has(sourceNode.id as string)
+      ) {
+        const consumerId = targetNode.id as string;
+        const exportId = sourceNode.id as string;
+        const key = `${consumerId}::${exportId}`;
+
+        let dummyId = dummyByConsumerAndSuper.get(key);
+        if (!dummyId) {
+          const assignment = assignmentByExportId.get(exportId)!;
+          dummyId = `__dummy_export__${exportId}__${consumerId}__${dummyIndex++}`;
+          dummyByConsumerAndSuper.set(key, dummyId);
+
+          newNodes.push({
+            id: dummyId,
+            label: assignment.code,
+            type: "dummy",
+            assignmentCode: assignment.code,
+            assignmentColor: assignment.color,
+            // Clicking the badge should still open the file where the
+            // export is declared, so we keep the parent file id here.
+            superNodeId: (sourceNode.parent as string | undefined) ?? undefined,
+            parent: consumerId,
+          });
+        }
+
+        continue;
+      }
+
+      newEdges.push(edge);
+    }
+
+    return {
+      graph: {
+        nodes: newNodes,
+        edges: newEdges,
+      },
+      assignments,
+    };
+  }
+
   async function layoutGraph(data: GraphData) {
     // Construct ELK graph with hierarchy if needed
 
@@ -593,9 +760,11 @@ export default function DependencyGraph(props: DependencyGraphProps) {
       }
 
       // Reposition export nodes so they sit inside their parent file boxes,
-      // below the file name, as pill-shaped labels.
+      // below the file name, as pill-shaped labels, and position any
+      // dummy badges along the top of the consumer files.
       const fileNodesById = new Map<string, Node>();
       const exportsByFile = new Map<string, Node[]>();
+      const dummyBadgesByFile = new Map<string, Node[]>();
 
       for (const n of flatNodes) {
         if (n.type === "file") {
@@ -604,6 +773,10 @@ export default function DependencyGraph(props: DependencyGraphProps) {
           const arr = exportsByFile.get(n.parent) ?? [];
           arr.push(n);
           exportsByFile.set(n.parent, arr);
+        } else if (n.type === "dummy" && n.parent) {
+          const arr = dummyBadgesByFile.get(n.parent) ?? [];
+          arr.push(n);
+          dummyBadgesByFile.set(n.parent, arr);
         }
       }
 
@@ -639,6 +812,35 @@ export default function DependencyGraph(props: DependencyGraphProps) {
         }
       });
 
+      const BADGE_RADIUS = 10;
+      const BADGE_DIAMETER = BADGE_RADIUS * 2;
+      const BADGE_GAP = 6;
+
+      dummyBadgesByFile.forEach((badges, fileId) => {
+        const fileNode = fileNodesById.get(fileId);
+        if (!fileNode) return;
+
+        const fileX = fileNode.x ?? 0;
+        const fileY = fileNode.y ?? 0;
+        const fileWidth = fileNode.width ?? 120;
+
+        let currentX = fileX + H_PADDING;
+        const centerY = fileY + V_PADDING + BADGE_RADIUS;
+
+        for (const badge of badges) {
+          if (currentX + BADGE_DIAMETER + H_PADDING > fileX + fileWidth) {
+            currentX = fileX + H_PADDING;
+          }
+
+          badge.x = currentX;
+          badge.y = centerY - BADGE_RADIUS;
+          badge.width = BADGE_DIAMETER;
+          badge.height = BADGE_DIAMETER;
+
+          currentX += BADGE_DIAMETER + BADGE_GAP;
+        }
+      });
+
       setNodes(flatNodes);
       // Use ELK's routed edges (with bend points) so lines remain smooth; edges
       // are rendered after nodes so they appear on top of the file boxes.
@@ -659,7 +861,10 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     const showExports = showExportedMembers();
 
     const filtered = filterGraph(data, includeExternal, showExports);
-    const { graph, assignments } = transformHighInDegreeNodes(filtered);
+    const { graph, assignments } = transformHighInDegreeNodesWithExports(
+      filtered,
+      showExports
+    );
     setSuperNodeAssignments(assignments);
     void layoutGraph(graph);
   });
