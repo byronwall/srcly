@@ -302,17 +302,59 @@ export default function DependencyGraph(props: DependencyGraphProps) {
       );
     } else {
       // If SHOWING exports:
-      // We want to keep export nodes.
-      // We want to keep edges from Export -> File.
-      // We might want to HIDE standard File -> File edges if they are redundant?
-      // Or maybe keep them as "general" dependencies?
-      // If we keep both, we get double arrows.
-      // Let's try to filter out standard File -> File edges IF there are specific Export -> File edges between the same files?
-      // That might be complex.
-      // For now, let's just show everything and see how it looks.
-      // The user said: "When that member is imported... edge from member box".
-      // However, we need to structure the nodes hierarchically for ELK.
-      // We'll do that in layoutGraph, but here we just pass the flat list.
+      //
+      // The backend always emits two kinds of edges for internal TS/TSX deps:
+      //   1) File  -> File        (importer -> exported file)
+      //   2) Export -> File       (exported member -> importing file)
+      //
+      // When visualising exported members, we only want to show the
+      // "imported by" direction (2). Keeping (1) as well causes a second,
+      // opposite arrow between the same pair of files (what you're seeing
+      // between `App.tsx` and `src/index.tsx`).
+      //
+      // However, for files that *don't* have any exported-member nodes we
+      // still need their File -> File edges, otherwise they would disappear
+      // entirely in this view.
+      //
+      // Strategy:
+      //   - Compute the set of file IDs that own at least one `export` node.
+      //   - Drop any edge where both ends are file nodes *and* the target
+      //     file is in that set (its relationship will be expressed via
+      //     Export -> File edges instead).
+
+      const nodeById = new Map<string, any>(
+        filteredNodes.map((n: any) => [n.id as string, n])
+      );
+
+      const filesWithExports = new Set<string>();
+      for (const n of filteredNodes) {
+        if (n.type === "export" && typeof n.parent === "string") {
+          filesWithExports.add(n.parent);
+        }
+      }
+
+      filteredEdges = filteredEdges.filter((e) => {
+        const sourceNode = nodeById.get(e.source as string);
+        const targetNode = nodeById.get(e.target as string);
+
+        if (!sourceNode || !targetNode) return true;
+
+        const sourceIsFile = sourceNode.type === "file";
+        const targetIsFile = targetNode.type === "file";
+
+        if (
+          sourceIsFile &&
+          targetIsFile &&
+          filesWithExports.has(targetNode.id)
+        ) {
+          // Suppress redundant File -> File edge when we have export-level
+          // edges for the target file; this removes the "reverse" arrows
+          // while keeping higher-level edges for non-exporting files.
+          return false;
+        }
+
+        return true;
+      });
     }
 
     return {
