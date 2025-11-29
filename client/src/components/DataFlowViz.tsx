@@ -485,25 +485,13 @@ export default function DataFlowViz(props: DataFlowVizProps) {
             <div class="relative">
               <button
                 onClick={() => setShowPicker(!showPicker())}
-                class="px-3 py-1 text-sm border rounded bg-gray-50 hover:bg-gray-100 flex items-center gap-2"
+                class="px-3 py-1 text-sm border rounded bg-gray-50 hover:bg-gray-100 flex items-center gap-2 text-black"
               >
                 <span class="truncate max-w-[300px]">
                   {currentPath() || "Select File"}
                 </span>
                 <span class="text-xs">▼</span>
               </button>
-
-              <Show when={showPicker()}>
-                <div class="absolute top-full left-0 mt-1 w-[400px] z-50 bg-white shadow-xl border rounded-lg max-h-[400px] overflow-hidden">
-                  <FilePicker
-                    initialPath={props.path}
-                    onSelect={(path) => {
-                      setCurrentPath(path);
-                      setShowPicker(false);
-                    }}
-                  />{" "}
-                </div>
-              </Show>
             </div>
           </div>
 
@@ -573,18 +561,6 @@ export default function DataFlowViz(props: DataFlowVizProps) {
                       translate().y
                     }) scale(${scale()})`}
                   >
-                    {/* Edges behind nodes */}
-                    <For each={edgePaths()}>
-                      {(edge) => (
-                        <path
-                          d={edge.d}
-                          stroke="#555"
-                          stroke-width="1"
-                          fill="none"
-                          marker-end="url(#arrowhead)"
-                        />
-                      )}
-                    </For>
                     {/* Nodes */}
                     <For each={flatNodes()}>
                       {(node) => (
@@ -612,6 +588,18 @@ export default function DataFlowViz(props: DataFlowVizProps) {
                             </text>
                           </Show>
                         </g>
+                      )}
+                    </For>
+
+                    <For each={edgePaths()}>
+                      {(edge) => (
+                        <path
+                          d={edge.d}
+                          stroke="#555"
+                          stroke-width="1"
+                          fill="none"
+                          marker-end="url(#arrowhead)"
+                        />
                       )}
                     </For>
                   </g>
