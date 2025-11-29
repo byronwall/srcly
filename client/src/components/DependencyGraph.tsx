@@ -218,6 +218,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
   const [superNodeAssignments, setSuperNodeAssignments] = createSignal<
     SuperNodeAssignment[]
   >([]);
+  const [hideUnimported, setHideUnimported] = createSignal(false);
 
   let svgRef: SVGSVGElement | undefined;
   let gRef: SVGGElement | undefined;
@@ -252,7 +253,8 @@ export default function DependencyGraph(props: DependencyGraphProps) {
   function filterGraph(
     data: GraphData,
     includeExternal: boolean,
-    showExports: boolean
+    showExports: boolean,
+    hideUnimportedNodes: boolean
   ): GraphData {
     let filteredNodes = data.nodes;
     let filteredEdges = data.edges;
@@ -355,6 +357,75 @@ export default function DependencyGraph(props: DependencyGraphProps) {
 
         return true;
       });
+    }
+
+    if (hideUnimportedNodes) {
+      const nodeById = new Map<string, any>(
+        filteredNodes.map((n: any) => [n.id as string, n])
+      );
+
+      const fileImported = new Set<string>();
+      const exportUsed = new Set<string>();
+
+      // Map exports back to their parent file so we can keep files that
+      // only appear via export-level edges.
+      const exportParentById = new Map<string, string>();
+      for (const node of filteredNodes) {
+        if (node.type === "export" && typeof node.parent === "string") {
+          exportParentById.set(node.id as string, node.parent);
+        }
+      }
+
+      for (const edge of filteredEdges) {
+        const sourceNode = nodeById.get(edge.source as string);
+        const targetNode = nodeById.get(edge.target as string);
+        if (!sourceNode || !targetNode) continue;
+
+        const sourceType = sourceNode.type;
+        const targetType = targetNode.type;
+
+        // Standard file -> file edges: importer (source) -> imported file (target).
+        if (sourceType === "file" && targetType === "file") {
+          fileImported.add(targetNode.id as string);
+          continue;
+        }
+
+        // Export-level edges: export (source) -> importing file (target).
+        if (sourceType === "export" && targetType === "file") {
+          exportUsed.add(sourceNode.id as string);
+          const parentFileId = exportParentById.get(sourceNode.id as string) as
+            | string
+            | undefined;
+          if (parentFileId) {
+            fileImported.add(parentFileId);
+          }
+        }
+      }
+
+      const rootFileId = props.path;
+
+      filteredNodes = filteredNodes.filter((node: any) => {
+        if (node.type === "file") {
+          if (rootFileId && node.id === rootFileId) {
+            // Always keep the root file so there is a visible starting point.
+            return true;
+          }
+          return fileImported.has(node.id as string);
+        }
+        if (node.type === "export") {
+          return exportUsed.has(node.id as string);
+        }
+        // Never hide external or dummy nodes here; they are controlled by
+        // other toggles or the super-node transform.
+        return true;
+      });
+
+      const allowedIds = new Set(filteredNodes.map((n: any) => n.id as string));
+      filteredEdges = filteredEdges.filter(
+        (e) =>
+          allowedIds.has(e.source as string) &&
+          allowedIds.has(e.target as string)
+      );
     }
 
     return {
@@ -859,8 +930,14 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     if (!data) return;
     const includeExternal = showExternal();
     const showExports = showExportedMembers();
+    const hideUnused = hideUnimported();
 
-    const filtered = filterGraph(data, includeExternal, showExports);
+    const filtered = filterGraph(
+      data,
+      includeExternal,
+      showExports,
+      hideUnused
+    );
     const { graph, assignments } = transformHighInDegreeNodesWithExports(
       filtered,
       showExports
@@ -966,6 +1043,14 @@ export default function DependencyGraph(props: DependencyGraphProps) {
               onChange={(e) => setShowExportedMembers(e.currentTarget.checked)}
             />
             <span>Show exports</span>
+          </label>
+          <label class="flex items-center gap-1 text-xs text-gray-300">
+            <input
+              type="checkbox"
+              checked={hideUnimported()}
+              onChange={(e) => setHideUnimported(e.currentTarget.checked)}
+            />
+            <span>Hide unimported</span>
           </label>
           <div class="h-4 w-px bg-[#444]" />
           <button
