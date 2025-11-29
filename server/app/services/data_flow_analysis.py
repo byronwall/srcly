@@ -16,6 +16,7 @@ class VariableDef:
     name: str
     kind: str  # 'var', 'let', 'const', 'param', 'function', 'class', 'import'
     scope_id: str
+    # 1-based line numbers for the definition in the source file
     start_line: int
     end_line: int
 
@@ -25,15 +26,17 @@ class VariableUsage:
     name: str
     scope_id: str
     def_id: Optional[str]  # ID of the definition this usage points to
+    # 1-based line numbers for the usage in the source file
     start_line: int
     end_line: int
-    context: str # 'read', 'write', 'call', 'property_access'
+    context: str  # 'read', 'write', 'call', 'property_access'
 
 @dataclass
 class Scope:
     id: str
-    type: str  # 'global', 'function', 'block', 'class'
+    type: str  # 'global', 'function', 'block', 'class', 'jsx'
     parent_id: Optional[str]
+    # 1-based line numbers for the scope span in the source file
     start_line: int
     end_line: int
     # Human-friendly label for this scope, e.g. "Toast (function)" or "<Show>"
@@ -292,8 +295,10 @@ class DataFlowAnalyzer:
         # Convert to ELK JSON format
         # Nodes: Scopes (clusters) and Variables (nodes)
         # Edges: Flow (Def -> Usage)
-        
-        # elk_nodes = [] # Unused
+        #
+        # We enrich nodes and edges with 1-based line number metadata so the
+        # client can drive inline code previews without having to re-parse.
+
         elk_edges = []
         
         # Helper to recursively build scope nodes
@@ -307,7 +312,10 @@ class DataFlowAnalyzer:
                     "labels": [{"text": f"{var.name} ({var.kind})"}],
                     "width": 100,
                     "height": 40,
-                    "type": "variable"
+                    "type": "variable",
+                    # Line information for code preview
+                    "startLine": var.start_line,
+                    "endLine": var.end_line,
                 })
             
             # Add child scopes
@@ -322,15 +330,26 @@ class DataFlowAnalyzer:
                     "labels": [{"text": usage.name}],
                     "width": 60,
                     "height": 30,
-                    "type": "usage"
+                    "type": "usage",
+                    # Line information for code preview
+                    "startLine": usage.start_line,
+                    "endLine": usage.end_line,
                 })
                 
-                # Edge from Def to Usage
+                # Edge from Def to Usage. We attach line metadata for convenience:
+                # the "usageStartLine"/"usageEndLine" fields point at the read
+                # site (target), while "defStartLine"/"defEndLine" point at the
+                # defining declaration (source).
                 if usage.def_id:
+                    definition = self.definitions.get(usage.def_id)
                     elk_edges.append({
                         "id": f"edge-{usage.def_id}-{usage.id}",
                         "sources": [usage.def_id],
-                        "targets": [usage.id]
+                        "targets": [usage.id],
+                        "defStartLine": definition.start_line if definition else None,
+                        "defEndLine": definition.end_line if definition else None,
+                        "usageStartLine": usage.start_line,
+                        "usageEndLine": usage.end_line,
                     })
             
             return {
@@ -338,11 +357,14 @@ class DataFlowAnalyzer:
                 "labels": [{"text": scope.label or scope.type}],
                 "type": scope.type,
                 "children": children,
+                # Scope line range so the client can, if desired, preview scopes.
+                "startLine": scope.start_line,
+                "endLine": scope.end_line,
                 "layoutOptions": {
                     "elk.algorithm": "layered",
                     "elk.direction": "DOWN",
-                    "elk.padding": "[top=20,left=20,bottom=20,right=20]"
-                }
+                    "elk.padding": "[top=20,left=20,bottom=20,right=20]",
+                },
             }
 
         # root_scope = self.scopes[self.current_scope_stack[0].id] # Unused

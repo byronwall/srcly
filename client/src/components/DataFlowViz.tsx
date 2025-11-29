@@ -2,6 +2,7 @@ import { createSignal, createEffect, Show, For } from "solid-js";
 import ELK from "elkjs/lib/elk.bundled.js";
 import * as d3 from "d3";
 import FilePicker from "./FilePicker";
+import InlineCodePreview from "./InlineCodePreview";
 
 interface DataFlowVizProps {
   path: string;
@@ -18,6 +19,9 @@ interface ElkNode {
   x?: number;
   y?: number;
   type?: string; // 'variable', 'usage', 'function', 'block', 'global'
+  // Optional line metadata from the backend, used for code previews.
+  startLine?: number;
+  endLine?: number;
 }
 
 interface ElkEdge {
@@ -35,6 +39,14 @@ interface GraphData extends ElkNode {
   edges?: ElkEdge[];
 }
 
+interface SelectedNodeInfo {
+  id: string;
+  type?: string;
+  label: string;
+  startLine?: number;
+  endLine?: number;
+}
+
 export default function DataFlowViz(props: DataFlowVizProps) {
   const [currentPath, setCurrentPath] = createSignal(props.path);
   const [graph, setGraph] = createSignal<GraphData | null>(null);
@@ -44,6 +56,9 @@ export default function DataFlowViz(props: DataFlowVizProps) {
   const [showPicker, setShowPicker] = createSignal(false);
   const [depth, setDepth] = createSignal(2);
   const [maxDepth, setMaxDepth] = createSignal(2);
+  const [selectedNode, setSelectedNode] = createSignal<SelectedNodeInfo | null>(
+    null
+  );
 
   let svgRef: SVGSVGElement | undefined;
   let gRef: SVGGElement | undefined;
@@ -204,8 +219,31 @@ export default function DataFlowViz(props: DataFlowVizProps) {
 
     collectNodePositions(data, 0, 0);
 
+    const handleNodeClick = (node: ElkNode) => {
+      // Only variable/usage nodes participate in previews for now.
+      if (node.type === "variable" || node.type === "usage") {
+        const labelText = node.labels?.[0]?.text ?? node.id;
+        console.log("[DataFlowViz] node clicked", {
+          id: node.id,
+          type: node.type,
+          label: labelText,
+          startLine: node.startLine,
+          endLine: node.endLine,
+        });
+        setSelectedNode({
+          id: node.id,
+          type: node.type,
+          label: labelText,
+          startLine: node.startLine,
+          endLine: node.endLine,
+        });
+      } else {
+        setSelectedNode(null);
+      }
+    };
+
     // Render nodes recursively
-    renderNode(g, data);
+    renderNode(g, data, handleNodeClick);
 
     // Collect all edges and render them using the computed node positions.
     // We ignore ELK's edge sections and instead draw simple orthogonal
@@ -257,7 +295,8 @@ export default function DataFlowViz(props: DataFlowVizProps) {
 
   function renderNode(
     parentG: d3.Selection<any, any, any, any>,
-    node: ElkNode
+    node: ElkNode,
+    onClick: (node: ElkNode) => void
   ) {
     const x = node.x || 0;
     const y = node.y || 0;
@@ -266,7 +305,14 @@ export default function DataFlowViz(props: DataFlowVizProps) {
 
     const nodeGroup = parentG
       .append("g")
-      .attr("transform", `translate(${x},${y})`);
+      .attr("transform", `translate(${x},${y})`)
+      .style(
+        "cursor",
+        node.type === "variable" || node.type === "usage"
+          ? "pointer"
+          : "default"
+      )
+      .on("click", () => onClick(node));
 
     // Draw box
     nodeGroup
@@ -293,7 +339,7 @@ export default function DataFlowViz(props: DataFlowVizProps) {
     // Children
     if (node.children) {
       for (const child of node.children) {
-        renderNode(nodeGroup, child);
+        renderNode(nodeGroup, child, onClick);
       }
     }
   }
@@ -432,40 +478,50 @@ export default function DataFlowViz(props: DataFlowVizProps) {
           </button>
         </div>
 
-        <div class="flex-1 relative overflow-hidden bg-gray-50">
-          <Show
-            when={!loading()}
-            fallback={
-              <div class="absolute inset-0 flex items-center justify-center text-gray-500">
-                Loading analysis...
-              </div>
-            }
-          >
+        <div class="flex-1 flex overflow-hidden bg-gray-50">
+          <div class="relative flex-1 overflow-hidden">
             <Show
-              when={!error()}
+              when={!loading()}
               fallback={
-                <div class="absolute inset-0 flex items-center justify-center text-red-500">
-                  {error()}
+                <div class="absolute inset-0 flex items-center justify-center text-gray-500">
+                  Loading analysis...
                 </div>
               }
             >
-              <svg ref={svgRef} class="w-full h-full">
-                <defs>
-                  <marker
-                    id="arrowhead"
-                    markerWidth="10"
-                    markerHeight="7"
-                    refX="9"
-                    refY="3.5"
-                    orient="auto"
-                  >
-                    <polygon points="0 0, 10 3.5, 0 7" fill="#555" />
-                  </marker>
-                </defs>
-                <g ref={gRef} />
-              </svg>
+              <Show
+                when={!error()}
+                fallback={
+                  <div class="absolute inset-0 flex items-center justify-center text-red-500">
+                    {error()}
+                  </div>
+                }
+              >
+                <svg ref={svgRef} class="w-full h-full">
+                  <defs>
+                    <marker
+                      id="arrowhead"
+                      markerWidth="10"
+                      markerHeight="7"
+                      refX="9"
+                      refY="3.5"
+                      orient="auto"
+                    >
+                      <polygon points="0 0, 10 3.5, 0 7" fill="#555" />
+                    </marker>
+                  </defs>
+                  <g ref={gRef} />
+                </svg>
+              </Show>
             </Show>
-          </Show>
+          </div>
+
+          <div class="w-[40%] max-w-[600px] border-l border-gray-300">
+            <InlineCodePreview
+              filePath={currentPath() || null}
+              startLine={selectedNode()?.startLine ?? undefined}
+              endLine={selectedNode()?.endLine ?? undefined}
+            />
+          </div>
         </div>
       </div>
     </div>

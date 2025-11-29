@@ -28,6 +28,17 @@ def test_simple_variable_flow(tmp_path):
     usages = [c for c in children if c.get("type") == "usage"]
     assert len(usages) == 1
     assert usages[0]["labels"][0]["text"] == "x"
+
+    # Line number metadata should be present on both definitions and usages.
+    for v in vars:
+        assert "startLine" in v and "endLine" in v
+        assert isinstance(v["startLine"], int) and isinstance(v["endLine"], int)
+        assert v["startLine"] >= 1 and v["endLine"] >= v["startLine"]
+
+    for u in usages:
+        assert "startLine" in u and "endLine" in u
+        assert isinstance(u["startLine"], int) and isinstance(u["endLine"], int)
+        assert u["startLine"] >= 1 and u["endLine"] >= u["startLine"]
     
     # Should have edge from x def to x usage
     edges = graph["edges"]
@@ -104,6 +115,14 @@ def test_function_scope(tmp_path):
     
     edge = next((e for e in edges if e["sources"][0] == global_def["id"] and e["targets"][0] == global_usage["id"]), None)
     assert edge is not None
+
+    # Edge should carry line metadata for both definition and usage.
+    assert "defStartLine" in edge and "defEndLine" in edge
+    assert "usageStartLine" in edge and "usageEndLine" in edge
+    assert isinstance(edge["defStartLine"], int) and isinstance(edge["defEndLine"], int)
+    assert isinstance(edge["usageStartLine"], int) and isinstance(edge["usageEndLine"], int)
+    assert edge["defStartLine"] >= 1 and edge["defEndLine"] >= edge["defStartLine"]
+    assert edge["usageStartLine"] >= 1 and edge["usageEndLine"] >= edge["usageStartLine"]
 
 
 def test_tsx_jsx_scopes_and_labels(tmp_path):
