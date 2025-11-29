@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 import uuid
 
+from app.services.tree_sitter_analysis import TreeSitterAnalyzer
+
 # Load TypeScript and TSX grammars
 TYPESCRIPT_LANGUAGE = Language(tstypescript.language_typescript())
 TSX_LANGUAGE = Language(tstypescript.language_tsx())
@@ -34,6 +36,8 @@ class Scope:
     parent_id: Optional[str]
     start_line: int
     end_line: int
+    # Human-friendly label for this scope, e.g. "Toast (function)" or "<Show>"
+    label: str = ""
     variables: Dict[str, VariableDef] = field(default_factory=dict)
     children: List["Scope"] = field(default_factory=list)
 
@@ -45,6 +49,9 @@ class DataFlowAnalyzer:
         self.usages: List[VariableUsage] = []
         self.definitions: Dict[str, VariableDef] = {}
         self.current_scope_stack: List[Scope] = []
+        # Reuse the rich naming heuristics from TreeSitterAnalyzer so that
+        # function scopes and JSX-related constructs get meaningful labels.
+        self._ts_helper = TreeSitterAnalyzer()
 
     def analyze_file(self, file_path: str) -> Dict[str, Any]:
         with open(file_path, 'rb') as f:
@@ -66,7 +73,8 @@ class DataFlowAnalyzer:
             type='global',
             parent_id=None,
             start_line=tree.root_node.start_point.row + 1,
-            end_line=tree.root_node.end_point.row + 1
+            end_line=tree.root_node.end_point.row + 1,
+            label='global',
         )
         self.scopes[global_scope.id] = global_scope
         self.current_scope_stack.append(global_scope)
@@ -79,12 +87,14 @@ class DataFlowAnalyzer:
         # Handle Scope Creation
         scope_created = False
         if self._is_scope_boundary(node):
+            scope_type = self._get_scope_type(node)
             new_scope = Scope(
                 id=str(uuid.uuid4()),
-                type=self._get_scope_type(node),
+                type=scope_type,
                 parent_id=self.current_scope_stack[-1].id,
                 start_line=node.start_point.row + 1,
-                end_line=node.end_point.row + 1
+                end_line=node.end_point.row + 1,
+                label=self._get_scope_label(node, scope_type),
             )
             self.scopes[new_scope.id] = new_scope
             self.current_scope_stack[-1].children.append(new_scope)
@@ -107,16 +117,77 @@ class DataFlowAnalyzer:
 
     def _is_scope_boundary(self, node: Node) -> bool:
         return node.type in {
-            'function_declaration', 'function_expression', 'arrow_function',
-            'method_definition', 'class_declaration', 'statement_block'
+            'function_declaration',
+            'function_expression',
+            'arrow_function',
+            'method_definition',
+            'class_declaration',
+            'statement_block',
+            # Treat each JSX element as its own scope so that attributes and
+            # children appear at a deeper nesting level in the data-flow graph.
+            'jsx_element',
+            'jsx_self_closing_element',
         }
 
     def _get_scope_type(self, node: Node) -> str:
-        if node.type in {'function_declaration', 'function_expression', 'arrow_function', 'method_definition'}:
+        if node.type in {
+            'function_declaration',
+            'function_expression',
+            'arrow_function',
+            'method_definition',
+        }:
             return 'function'
         if node.type == 'class_declaration':
             return 'class'
+        if node.type in {'jsx_element', 'jsx_self_closing_element'}:
+            return 'jsx'
         return 'block'
+
+    def _get_scope_label(self, node: Node, scope_type: str) -> str:
+        """
+        Produce a human-friendly label for scopes.
+
+        For functions we delegate to TreeSitterAnalyzer._get_function_name so
+        that anonymous callbacks, JSX handlers, etc. get descriptive names.
+        For JSX elements we show the tag name (e.g. "<Show>").
+        """
+        try:
+            if scope_type == 'function':
+                name = self._ts_helper._get_function_name(node)
+                if name and name != "(anonymous)":
+                    return f"{name} (function)"
+                return "function"
+
+            if scope_type == 'class':
+                name_node = node.child_by_field_name('name')
+                if name_node:
+                    name = name_node.text.decode('utf-8')
+                    return f"{name} (class)"
+                return "class"
+
+            if scope_type == 'jsx':
+                tag_name = None
+                if node.type == 'jsx_element':
+                    # In TSX grammar the opening tag is exposed via the 'open_tag'
+                    # field; we then fetch its 'name' field.
+                    open_tag = node.child_by_field_name('open_tag')
+                    if open_tag:
+                        name_node = open_tag.child_by_field_name('name')
+                        if name_node:
+                            tag_name = name_node.text.decode('utf-8')
+                elif node.type == 'jsx_self_closing_element':
+                    name_node = node.child_by_field_name('name')
+                    if name_node:
+                        tag_name = name_node.text.decode('utf-8')
+
+                if tag_name:
+                    return f"<{tag_name}>"
+                return "JSX"
+        except Exception:
+            # Naming is best-effort; fall through to a basic label on errors.
+            pass
+
+        return scope_type
 
     def _handle_definitions(self, node: Node):
         # Variable Declarations (var, let, const)
@@ -264,7 +335,7 @@ class DataFlowAnalyzer:
             
             return {
                 "id": scope.id,
-                "labels": [{"text": f"{scope.type}"}],
+                "labels": [{"text": scope.label or scope.type}],
                 "type": scope.type,
                 "children": children,
                 "layoutOptions": {

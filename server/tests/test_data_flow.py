@@ -104,3 +104,83 @@ def test_function_scope(tmp_path):
     
     edge = next((e for e in edges if e["sources"][0] == global_def["id"] and e["targets"][0] == global_usage["id"]), None)
     assert edge is not None
+
+
+def test_tsx_jsx_scopes_and_labels(tmp_path):
+    analyzer = DataFlowAnalyzer()
+
+    code = """
+    import { Show, createSignal, onCleanup } from "solid-js";
+
+    export default function Toast(props) {
+      const [visible, setVisible] = createSignal(true);
+      const duration = props.duration ?? 3000;
+
+      const hide = () => setVisible(false);
+      const timer = setTimeout(hide, duration);
+      onCleanup(() => clearTimeout(timer));
+
+      return (
+        <Show when={visible()}>
+          <div>{props.message}</div>
+        </Show>
+      );
+    }
+    """
+
+    f = tmp_path / "Toast.tsx"
+    f.write_text(code, encoding="utf-8")
+
+    graph = analyzer.analyze_file(str(f))
+
+    # Root should be the global scope.
+    assert graph["type"] == "global"
+    assert graph["labels"][0]["text"] == "global"
+
+    # Find the Toast function scope.
+    root_children = graph["children"]
+    func_scopes = [c for c in root_children if c.get("type") == "function"]
+    assert func_scopes
+    toast_scope = func_scopes[0]
+
+    # Function scope label should use the richer naming helper.
+    toast_label = toast_scope["labels"][0]["text"]
+    assert "Toast" in toast_label
+    assert "(function)" in toast_label
+
+    # Inside the function scope we expect a block scope for the body.
+    func_children = toast_scope["children"]
+    block_scopes = [c for c in func_children if c.get("type") == "block"]
+    assert block_scopes
+    body_scope = block_scopes[0]
+
+    # Within the body we should see a JSX scope for <Show>.
+    body_children = body_scope["children"]
+    jsx_scopes = [c for c in body_children if c.get("type") == "jsx"]
+    assert jsx_scopes
+    show_scope = jsx_scopes[0]
+    show_label = show_scope["labels"][0]["text"]
+    assert "<Show>" in show_label
+
+    # And inside <Show> we should see another JSX scope for the <div>.
+    show_children = show_scope["children"]
+    inner_jsx_scopes = [c for c in show_children if c.get("type") == "jsx"]
+    assert inner_jsx_scopes
+    div_scope = inner_jsx_scopes[0]
+    div_label = div_scope["labels"][0]["text"]
+    assert "<div>" in div_label
+
+    # Verify that usages inside JSX (e.g. props.message, visible) are attached
+    # somewhere beneath the JSX scopes, giving us the extra nesting depth.
+    def collect_usages(node):
+        found = []
+        children = node.get("children") or []
+        for child in children:
+            if child.get("type") == "usage":
+                found.append(child)
+            found.extend(collect_usages(child))
+        return found
+
+    jsx_usages = collect_usages(show_scope)
+    usage_names = {u["labels"][0]["text"] for u in jsx_usages}
+    assert "visible" in usage_names or "props" in usage_names
