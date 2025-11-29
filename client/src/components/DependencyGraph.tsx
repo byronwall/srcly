@@ -1,4 +1,4 @@
-import { createSignal, createEffect, Show, For } from "solid-js";
+import { createSignal, createEffect, Show, For, createMemo } from "solid-js";
 import CodeModal from "./CodeModal";
 import ELK from "elkjs/lib/elk.bundled.js";
 import * as d3 from "d3";
@@ -219,6 +219,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     SuperNodeAssignment[]
   >([]);
   const [hideUnimported, setHideUnimported] = createSignal(false);
+  const [exportFilter, setExportFilter] = createSignal("");
 
   let svgRef: SVGSVGElement | undefined;
   let gRef: SVGGElement | undefined;
@@ -226,6 +227,83 @@ export default function DependencyGraph(props: DependencyGraphProps) {
 
   const elk = new ELK();
   const primaryMetric = () => props.primaryMetricId || "complexity";
+
+  const sidebarGroups = createMemo(() => {
+    const filter = exportFilter().trim().toLowerCase();
+    const currentNodes = nodes();
+    const includeExports = showExportedMembers();
+
+    const files: Node[] = [];
+    const exportsByFileId = new Map<string, Node[]>();
+
+    for (const n of currentNodes) {
+      if (n.type === "file") {
+        files.push(n);
+      } else if (includeExports && n.type === "export" && n.parent) {
+        const arr = exportsByFileId.get(n.parent) ?? [];
+        arr.push(n);
+        exportsByFileId.set(n.parent, arr);
+      }
+    }
+
+    const sortedFiles = [...files].sort((a, b) =>
+      String(a.label ?? a.id).localeCompare(String(b.label ?? b.id))
+    );
+
+    const groups: {
+      fileId: string;
+      fileLabel: string;
+      exports: Node[];
+    }[] = [];
+
+    for (const file of sortedFiles) {
+      const fileId = file.id;
+      const fileLabel = String(file.label ?? fileId);
+      const normalizedFile = fileLabel.toLowerCase();
+
+      if (!includeExports) {
+        // Files-only mode: list files, filter by file name.
+        if (filter && !normalizedFile.includes(filter)) {
+          continue;
+        }
+        groups.push({
+          fileId,
+          fileLabel,
+          exports: [],
+        });
+        continue;
+      }
+
+      const allExports = [...(exportsByFileId.get(fileId) ?? [])].sort((a, b) =>
+        String(a.label ?? "").localeCompare(String(b.label ?? ""))
+      );
+
+      const filteredExports = allExports.filter((expNode) => {
+        if (!filter) return true;
+        const exportLabel = String(expNode.label ?? "");
+        const combined = `${exportLabel} ${fileLabel}`.toLowerCase();
+        return combined.includes(filter);
+      });
+
+      const hasAnyMatch =
+        !filter ||
+        normalizedFile.includes(filter) ||
+        filteredExports.length > 0;
+
+      if (!hasAnyMatch) {
+        continue;
+      }
+
+      groups.push({
+        fileId,
+        fileLabel,
+        // When filtering, only show matching exports; otherwise show all.
+        exports: filter ? filteredExports : allExports,
+      });
+    }
+
+    return groups;
+  });
 
   createEffect(() => {
     fetchGraph(props.path);
@@ -995,6 +1073,36 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     svg.transition().duration(750).call(zoomBehavior.transform, transform);
   }
 
+  function panToNode(nodeId: string) {
+    if (!svgRef || !gRef || !zoomBehavior) return;
+
+    const target = nodes().find((n) => n.id === nodeId);
+    if (!target || target.x == null || target.y == null) return;
+
+    const svg = d3.select(svgRef);
+    const parent = svg.node()?.parentElement;
+    const width = parent?.clientWidth || 1000;
+    const height = parent?.clientHeight || 800;
+
+    const currentTransform =
+      (d3.zoomTransform(svgRef as unknown as any) as any) ?? d3.zoomIdentity;
+    const scale =
+      typeof currentTransform.k === "number" && currentTransform.k > 0
+        ? currentTransform.k
+        : 1;
+
+    const nodeCenterX = (target.x ?? 0) + (target.width ?? 0) / 2;
+    const nodeCenterY = (target.y ?? 0) + (target.height ?? 0) / 2;
+
+    const x = width / 2 - nodeCenterX * scale;
+    const y = height / 2 - nodeCenterY * scale;
+
+    const nextTransform = d3.zoomIdentity.translate(x, y).scale(scale);
+
+    svg.transition().duration(600).call(zoomBehavior.transform, nextTransform);
+    setActiveNodeId(nodeId);
+  }
+
   // Initialize zoom when SVG becomes available
   createEffect(() => {
     if (!loading() && !error() && svgRef) {
@@ -1082,247 +1190,317 @@ export default function DependencyGraph(props: DependencyGraphProps) {
         </Show>
 
         <Show when={!loading() && !error()}>
-          <svg
-            ref={svgRef}
-            class="w-full h-full cursor-grab active:cursor-grabbing"
-          >
-            <defs>
-              <marker
-                id="arrowhead"
-                markerWidth="10"
-                markerHeight="7"
-                refX="9"
-                refY="3.5"
-                orient="auto"
+          <div class="flex h-full">
+            <div class="w-72 border-r border-[#333] bg-[#252526]/95 text-xs text-gray-200 flex flex-col">
+              <div class="px-3 py-2 border-b border-[#333]">
+                <div class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  {showExportedMembers() ? "Files & Exports" : "Files"}
+                </div>
+                <input
+                  type="text"
+                  value={exportFilter()}
+                  onInput={(e) => setExportFilter(e.currentTarget.value)}
+                  placeholder={
+                    showExportedMembers()
+                      ? "Filter files or exports..."
+                      : "Filter files..."
+                  }
+                  class="mt-1 w-full rounded bg-[#1e1e1e] border border-[#3c3c3c] px-2 py-1 text-[11px] text-gray-200 placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-[#007acc]"
+                />
+              </div>
+              <div class="flex-1 overflow-y-auto px-2 py-2 space-y-2">
+                <Show
+                  when={sidebarGroups().length > 0}
+                  fallback={
+                    <div class="px-1 py-1 text-[11px] text-gray-500">
+                      No matching{" "}
+                      {showExportedMembers() ? "files or exports" : "files"}.
+                    </div>
+                  }
+                >
+                  <For each={sidebarGroups()}>
+                    {(group) => (
+                      <div>
+                        <button
+                          type="button"
+                          class="w-full text-left px-2 py-1 text-[11px] font-semibold text-gray-300 truncate hover:bg-[#3a3d41] rounded focus:outline-none focus:ring-1 focus:ring-[#007acc]"
+                          title={group.fileLabel}
+                          onClick={() => panToNode(group.fileId)}
+                        >
+                          {group.fileLabel}
+                        </button>
+                        <Show
+                          when={
+                            showExportedMembers() && group.exports.length > 0
+                          }
+                        >
+                          <div class="space-y-0.5 mt-0.5">
+                            <For each={group.exports}>
+                              {(exp) => (
+                                <button
+                                  type="button"
+                                  class="w-full text-left px-4 py-1 rounded text-[11px] hover:bg-[#3a3d41] focus:outline-none focus:ring-1 focus:ring-[#007acc] truncate"
+                                  title={String(exp.label ?? "")}
+                                  onClick={() => panToNode(exp.id as string)}
+                                >
+                                  {String(exp.label ?? "")}
+                                </button>
+                              )}
+                            </For>
+                          </div>
+                        </Show>
+                      </div>
+                    )}
+                  </For>
+                </Show>
+              </div>
+            </div>
+            <div class="flex-1">
+              <svg
+                ref={svgRef}
+                class="w-full h-full cursor-grab active:cursor-grabbing"
               >
-                <polygon points="0 0, 10 3.5, 0 7" fill="#666" />
-              </marker>
-            </defs>
+                <defs>
+                  <marker
+                    id="arrowhead"
+                    markerWidth="10"
+                    markerHeight="7"
+                    refX="9"
+                    refY="3.5"
+                    orient="auto"
+                  >
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#666" />
+                  </marker>
+                </defs>
 
-            <g ref={gRef}>
-              <For each={nodes()}>
-                {(node) => {
-                  const isActive = activeNodeId() === node.id;
-                  const isHovered = hoveredNodeId() === node.id;
-                  const nodeType = node.type;
+                <g ref={gRef}>
+                  <For each={nodes()}>
+                    {(node) => {
+                      const isActive = activeNodeId() === node.id;
+                      const isHovered = hoveredNodeId() === node.id;
+                      const nodeType = node.type;
 
-                  // We render dummy, external, file and export nodes differently,
-                  // but skip any unknown node types defensively.
-                  if (
-                    nodeType !== "file" &&
-                    nodeType !== "external" &&
-                    nodeType !== "dummy" &&
-                    nodeType !== "export"
-                  ) {
-                    return null;
-                  }
-                  return (
-                    <g
-                      transform={`translate(${node.x}, ${node.y})`}
-                      class="cursor-pointer"
-                      onClick={() => handleNodeClick(node)}
-                      onMouseEnter={() => setHoveredNodeId(node.id)}
-                      onMouseLeave={() => {
-                        if (hoveredNodeId() === node.id) {
-                          setHoveredNodeId(null);
-                        }
-                      }}
-                    >
-                      {/* Recompute hotspot-driven visuals based on current metric */}
-                      {(() => {
-                        const isDummy = node.type === "dummy";
-                        const isExternal = node.type === "external";
-                        const isExport = node.type === "export";
-                        const isEmphasized = isActive || isHovered;
+                      // We render dummy, external, file and export nodes differently,
+                      // but skip any unknown node types defensively.
+                      if (
+                        nodeType !== "file" &&
+                        nodeType !== "external" &&
+                        nodeType !== "dummy" &&
+                        nodeType !== "export"
+                      ) {
+                        return null;
+                      }
+                      return (
+                        <g
+                          transform={`translate(${node.x}, ${node.y})`}
+                          class="cursor-pointer"
+                          onClick={() => handleNodeClick(node)}
+                          onMouseEnter={() => setHoveredNodeId(node.id)}
+                          onMouseLeave={() => {
+                            if (hoveredNodeId() === node.id) {
+                              setHoveredNodeId(null);
+                            }
+                          }}
+                        >
+                          {/* Recompute hotspot-driven visuals based on current metric */}
+                          {(() => {
+                            const isDummy = node.type === "dummy";
+                            const isExternal = node.type === "external";
+                            const isExport = node.type === "export";
+                            const isEmphasized = isActive || isHovered;
 
-                        let metrics: any | undefined;
-                        if (
-                          !isDummy &&
-                          !isExternal &&
-                          !isExport &&
-                          props.fileMetricsByName
-                        ) {
-                          const baseName = getFileBaseName(
-                            String(node.label ?? "")
-                          );
-                          metrics = props.fileMetricsByName.get(baseName);
-                        }
+                            let metrics: any | undefined;
+                            if (
+                              !isDummy &&
+                              !isExternal &&
+                              !isExport &&
+                              props.fileMetricsByName
+                            ) {
+                              const baseName = getFileBaseName(
+                                String(node.label ?? "")
+                              );
+                              metrics = props.fileMetricsByName.get(baseName);
+                            }
 
-                        const metricId = primaryMetric();
-                        let hotspotColor: string | null = null;
-                        if (metrics) {
-                          let rawVal = (metrics as any)[metricId] ?? 0;
-                          const def = HOTSPOT_METRICS.find(
-                            (m) => m.id === metricId
-                          );
-                          if (def?.invert) {
-                            rawVal = 1 - (rawVal || 0);
-                          }
-                          if (!isFinite(rawVal) || rawVal < 0) rawVal = 0;
-                          const scaled =
-                            typeof rawVal === "number"
-                              ? Math.min(rawVal, 50)
-                              : Number(rawVal) || 0;
-
-                          if (metricId === "comment_density") {
-                            hotspotColor = commentDensityColor(
-                              metrics.comment_density || 0
-                            );
-                          } else if (metricId === "max_nesting_depth") {
-                            hotspotColor = nestingDepthColor(
-                              metrics.max_nesting_depth || 0
-                            );
-                          } else if (metricId === "todo_count") {
-                            hotspotColor = todoCountColor(
-                              metrics.todo_count || 0
-                            );
-                          } else {
-                            hotspotColor = complexityColor(scaled);
-                          }
-                        }
-
-                        const fill = isExternal
-                          ? isEmphasized
-                            ? "#383838"
-                            : "#2d2d2d"
-                          : isExport
-                          ? isEmphasized
-                            ? "#4a4a4a"
-                            : "#333333"
-                          : hotspotColor
-                          ? hotspotColor
-                          : isEmphasized
-                          ? "#273955"
-                          : "#1e1e1e";
-
-                        const baseStroke = isExternal
-                          ? isEmphasized
-                            ? "#888"
-                            : "#444"
-                          : isExport
-                          ? isEmphasized
-                            ? "#aaa"
-                            : "#666"
-                          : isEmphasized
-                          ? "#9cdcfe"
-                          : "#569cd6";
-
-                        const stroke =
-                          node.isSuperNode && node.assignmentColor
-                            ? node.assignmentColor
-                            : baseStroke;
-
-                        const textFill = isExternal
-                          ? isEmphasized
-                            ? "#bbbbbb"
-                            : "#888"
-                          : isExport
-                          ? "#cccccc"
-                          : hotspotColor
-                          ? getContrastingTextColor(
-                              hotspotColor,
-                              isEmphasized ? 1 : 0.85
-                            )
-                          : isEmphasized
-                          ? "#f3f3f3"
-                          : "#d4d4d4";
-
-                        if (isDummy) {
-                          const radius =
-                            Math.min(node.width ?? 20, node.height ?? 20) / 2 -
-                            2;
-                          const cx = (node.width ?? 20) / 2;
-                          const cy = (node.height ?? 20) / 2;
-
-                          return (
-                            <>
-                              <circle
-                                cx={cx}
-                                cy={cy}
-                                r={radius}
-                                fill={node.assignmentColor || "#888"}
-                                stroke="#111"
-                                stroke-width="1.5"
-                              />
-                              <text
-                                x={cx}
-                                y={cy}
-                                dy="0.35em"
-                                text-anchor="middle"
-                                fill="#000"
-                                font-size="10px"
-                                class="pointer-events-none select-none font-mono"
-                              >
-                                {node.assignmentCode}
-                              </text>
-                            </>
-                          );
-                        }
-
-                        const displayLabel = node.assignmentCode
-                          ? `[${node.assignmentCode}] ${node.label}`
-                          : node.label;
-
-                        return (
-                          <>
-                            <rect
-                              width={node.width}
-                              height={node.height}
-                              rx={isExport ? "10" : "4"}
-                              fill={fill}
-                              stroke={stroke}
-                              stroke-width={isEmphasized ? "2" : "1"}
-                            />
-                            <text
-                              x={(node.width || 0) / 2}
-                              y={
-                                isExport || isExternal
-                                  ? (node.height || 0) / 2
-                                  : 14
+                            const metricId = primaryMetric();
+                            let hotspotColor: string | null = null;
+                            if (metrics) {
+                              let rawVal = (metrics as any)[metricId] ?? 0;
+                              const def = HOTSPOT_METRICS.find(
+                                (m) => m.id === metricId
+                              );
+                              if (def?.invert) {
+                                rawVal = 1 - (rawVal || 0);
                               }
-                              dy="0.35em"
-                              text-anchor="middle"
-                              fill={textFill}
-                              font-size={isExport ? "10px" : "12px"}
-                              class="pointer-events-none select-none"
-                            >
-                              {displayLabel}
-                            </text>
-                          </>
-                        );
-                      })()}
-                    </g>
-                  );
-                }}
-              </For>
+                              if (!isFinite(rawVal) || rawVal < 0) rawVal = 0;
+                              const scaled =
+                                typeof rawVal === "number"
+                                  ? Math.min(rawVal, 50)
+                                  : Number(rawVal) || 0;
 
-              {/* Draw dependency edges last so they appear on top of file boxes while
+                              if (metricId === "comment_density") {
+                                hotspotColor = commentDensityColor(
+                                  metrics.comment_density || 0
+                                );
+                              } else if (metricId === "max_nesting_depth") {
+                                hotspotColor = nestingDepthColor(
+                                  metrics.max_nesting_depth || 0
+                                );
+                              } else if (metricId === "todo_count") {
+                                hotspotColor = todoCountColor(
+                                  metrics.todo_count || 0
+                                );
+                              } else {
+                                hotspotColor = complexityColor(scaled);
+                              }
+                            }
+
+                            const fill = isExternal
+                              ? isEmphasized
+                                ? "#383838"
+                                : "#2d2d2d"
+                              : isExport
+                              ? isEmphasized
+                                ? "#4a4a4a"
+                                : "#333333"
+                              : hotspotColor
+                              ? hotspotColor
+                              : isEmphasized
+                              ? "#273955"
+                              : "#1e1e1e";
+
+                            const baseStroke = isExternal
+                              ? isEmphasized
+                                ? "#888"
+                                : "#444"
+                              : isExport
+                              ? isEmphasized
+                                ? "#aaa"
+                                : "#666"
+                              : isEmphasized
+                              ? "#9cdcfe"
+                              : "#569cd6";
+
+                            const stroke =
+                              node.isSuperNode && node.assignmentColor
+                                ? node.assignmentColor
+                                : baseStroke;
+
+                            const textFill = isExternal
+                              ? isEmphasized
+                                ? "#bbbbbb"
+                                : "#888"
+                              : isExport
+                              ? "#cccccc"
+                              : hotspotColor
+                              ? getContrastingTextColor(
+                                  hotspotColor,
+                                  isEmphasized ? 1 : 0.85
+                                )
+                              : isEmphasized
+                              ? "#f3f3f3"
+                              : "#d4d4d4";
+
+                            if (isDummy) {
+                              const radius =
+                                Math.min(node.width ?? 20, node.height ?? 20) /
+                                  2 -
+                                2;
+                              const cx = (node.width ?? 20) / 2;
+                              const cy = (node.height ?? 20) / 2;
+
+                              return (
+                                <>
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={radius}
+                                    fill={node.assignmentColor || "#888"}
+                                    stroke="#111"
+                                    stroke-width="1.5"
+                                  />
+                                  <text
+                                    x={cx}
+                                    y={cy}
+                                    dy="0.35em"
+                                    text-anchor="middle"
+                                    fill="#000"
+                                    font-size="10px"
+                                    class="pointer-events-none select-none font-mono"
+                                  >
+                                    {node.assignmentCode}
+                                  </text>
+                                </>
+                              );
+                            }
+
+                            const displayLabel = node.assignmentCode
+                              ? `[${node.assignmentCode}] ${node.label}`
+                              : node.label;
+
+                            return (
+                              <>
+                                <rect
+                                  width={node.width}
+                                  height={node.height}
+                                  rx={isExport ? "10" : "4"}
+                                  fill={fill}
+                                  stroke={stroke}
+                                  stroke-width={isEmphasized ? "2" : "1"}
+                                />
+                                <text
+                                  x={(node.width || 0) / 2}
+                                  y={
+                                    isExport || isExternal
+                                      ? (node.height || 0) / 2
+                                      : 14
+                                  }
+                                  dy="0.35em"
+                                  text-anchor="middle"
+                                  fill={textFill}
+                                  font-size={isExport ? "10px" : "12px"}
+                                  class="pointer-events-none select-none"
+                                >
+                                  {displayLabel}
+                                </text>
+                              </>
+                            );
+                          })()}
+                        </g>
+                      );
+                    }}
+                  </For>
+
+                  {/* Draw dependency edges last so they appear on top of file boxes while
                   preserving ELK's bend points for smooth routing. */}
-              <For each={edges()}>
-                {(edge) => {
-                  if (!edge.sections || edge.sections.length === 0) return null;
-                  const section = edge.sections[0];
-                  let d = `M ${section.startPoint.x} ${section.startPoint.y}`;
-                  if (section.bendPoints) {
-                    section.bendPoints.forEach((p) => {
-                      d += ` L ${p.x} ${p.y}`;
-                    });
-                  }
-                  d += ` L ${section.endPoint.x} ${section.endPoint.y}`;
+                  <For each={edges()}>
+                    {(edge) => {
+                      if (!edge.sections || edge.sections.length === 0)
+                        return null;
+                      const section = edge.sections[0];
+                      let d = `M ${section.startPoint.x} ${section.startPoint.y}`;
+                      if (section.bendPoints) {
+                        section.bendPoints.forEach((p) => {
+                          d += ` L ${p.x} ${p.y}`;
+                        });
+                      }
+                      d += ` L ${section.endPoint.x} ${section.endPoint.y}`;
 
-                  return (
-                    <path
-                      d={d}
-                      stroke="#666"
-                      stroke-width="1"
-                      fill="none"
-                      marker-end="url(#arrowhead)"
-                    />
-                  );
-                }}
-              </For>
-            </g>
-          </svg>
+                      return (
+                        <path
+                          d={d}
+                          stroke="#666"
+                          stroke-width="1"
+                          fill="none"
+                          marker-end="url(#arrowhead)"
+                        />
+                      );
+                    }}
+                  </For>
+                </g>
+              </svg>
+            </div>
+          </div>
         </Show>
       </div>
       <Show when={superNodeAssignments().length > 0}>
