@@ -224,8 +224,6 @@ export default function DataFlowViz(props: DataFlowVizProps) {
       const width = node.width || 0;
       const height = node.height || 0;
 
-      nodePositions.set(node.id, { x: absX, y: absY, width, height });
-
       const labelText = node.labels?.[0]?.text;
       const startLine = node.startLine;
       const endLine = node.endLine;
@@ -235,7 +233,8 @@ export default function DataFlowViz(props: DataFlowVizProps) {
         if (seenUsageKeys.has(key)) {
           // Skip duplicate visual nodes that refer to the exact same usage
           // span; edges that target this node will be ignored later because we
-          // never record a position for the duplicate ID.
+          // never record a position for the duplicate ID. We still walk its
+          // children so any nested scopes/layout continue to be represented.
           if (node.children) {
             for (const child of node.children) {
               collectNodePositions(child, absX, absY);
@@ -245,6 +244,8 @@ export default function DataFlowViz(props: DataFlowVizProps) {
         }
         seenUsageKeys.add(key);
       }
+
+      nodePositions.set(node.id, { x: absX, y: absY, width, height });
 
       newFlatNodes.push({
         id: node.id,

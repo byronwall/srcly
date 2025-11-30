@@ -601,7 +601,13 @@ class DataFlowAnalyzer:
                 "layoutOptions": {
                     "elk.algorithm": "layered",
                     "elk.direction": "DOWN",
-                    "elk.padding": "[top=20,left=20,bottom=20,right=20]",
+                    # Use tighter padding and spacing so nested control-flow
+                    # structures (like `if`/`else` clusters) render more
+                    # compactly in the client.
+                    "elk.padding": "[top=20,left=20,bottom=10,right=10]",
+                    "elk.spacing.nodeNode": "16",
+                    "elk.layered.spacing.nodeNodeBetweenLayers": "16",
+                    "elk.spacing.edgeNode": "8",
                 },
             }
 
