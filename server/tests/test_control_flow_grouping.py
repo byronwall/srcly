@@ -30,7 +30,7 @@ def test_control_flow_grouping(tmp_path):
     f.write_text(code, encoding="utf-8")
     
     graph = analyzer.analyze_file(str(f))
-    
+
     # Helper to find scopes by type
     def find_scopes(node, type_name):
         found = []
@@ -40,20 +40,31 @@ def test_control_flow_grouping(tmp_path):
             found.extend(find_scopes(child, type_name))
         return found
 
-    # Currently, we expect these to NOT be found or be generic blocks
-    # But we want to assert that we CAN find them after our changes.
-    
     # Check for 'if' scope
     if_scopes = find_scopes(graph, "if")
-    assert len(if_scopes) >= 1 # This will fail currently
+    assert len(if_scopes) >= 1
     
     # Check for 'try' scope
     try_scopes = find_scopes(graph, "try")
-    assert len(try_scopes) == 1 # This will fail currently
+    assert len(try_scopes) == 1
     
     # Check for 'catch' scope
     catch_scopes = find_scopes(graph, "catch")
-    assert len(catch_scopes) == 1 # This will fail currently
+    assert len(catch_scopes) == 1
+
+    # Verify there is a control-flow edge linking the try and catch scopes.
+    try_node = try_scopes[0]
+    catch_node = catch_scopes[0]
+
+    edges = graph.get("edges", [])
+    control_flow_edges = [
+        e
+        for e in edges
+        if e.get("type") == "control-flow"
+        and e.get("sources") == [try_node["id"]]
+        and e.get("targets") == [catch_node["id"]]
+    ]
+    assert control_flow_edges, "Expected a control-flow edge from try to catch"
 
     print(f"Found if scopes: {len(if_scopes)}")
     print(f"Found try scopes: {len(try_scopes)}")

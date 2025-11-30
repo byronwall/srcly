@@ -133,7 +133,7 @@ class DataFlowAnalyzer:
             'jsx_self_closing_element',
             'if_statement',
             'for_statement',
-            'try_statement',
+            # 'try_statement', # Flatten try/catch
             'catch_clause',
             'switch_statement',
             'switch_case',
@@ -158,8 +158,10 @@ class DataFlowAnalyzer:
             return 'if'
         if node.type == 'for_statement':
             return 'for'
-        if node.type == 'try_statement':
-            return 'try'
+        if node.type == 'for_statement':
+            return 'for'
+        # if node.type == 'try_statement':
+        #     return 'try'
         if node.type == 'catch_clause':
             return 'catch'
         if node.type == 'switch_statement':
@@ -171,7 +173,12 @@ class DataFlowAnalyzer:
         if node.type == 'do_statement':
             return 'do'
             
-        return 'block'
+        if node.type == 'block' or node.type == 'statement_block':
+            # Check if this block is the body of a try statement
+            if node.parent and node.parent.type == 'try_statement':
+                # In tree-sitter-typescript, the body of a try_statement is a statement_block
+                return 'try'
+            return 'block'
 
     def _get_scope_label(self, node: Node, scope_type: str) -> str:
         """
@@ -456,6 +463,20 @@ class DataFlowAnalyzer:
                         "usageEndLine": usage.end_line,
                     })
             
+            # Add control flow edges between sibling nodes (e.g. try -> catch)
+            for i in range(len(children) - 1):
+                curr = children[i]
+                next_node = children[i+1]
+                
+                # Check for try -> catch
+                if curr.get("type") == "try" and next_node.get("type") == "catch":
+                    elk_edges.append({
+                        "id": f"flow-{curr['id']}-{next_node['id']}",
+                        "sources": [curr['id']],
+                        "targets": [next_node['id']],
+                        "type": "control-flow",
+                    })
+
             return {
                 "id": scope.id,
                 "labels": [{"text": scope.label or scope.type}],

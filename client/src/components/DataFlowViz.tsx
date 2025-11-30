@@ -27,6 +27,7 @@ interface ElkEdge {
   id: string;
   sources: string[];
   targets: string[];
+  type?: string;
   sections?: {
     startPoint: { x: number; y: number };
     endPoint: { x: number; y: number };
@@ -61,6 +62,7 @@ interface FlattenedNode {
 interface RenderEdgePath {
   id: string;
   d: string;
+  type?: string;
 }
 
 export default function DataFlowViz(props: DataFlowVizProps) {
@@ -273,11 +275,25 @@ export default function DataFlowViz(props: DataFlowVizProps) {
 
       // Simple orthogonal (elbow) connector: down from source, across, then up/down to target.
       const midY = (startY + endY) / 2;
-      const pathData = `M${startX},${startY} L${startX},${midY} L${endX},${midY} L${endX},${endY}`;
+      let pathData = `M${startX},${startY} L${startX},${midY} L${endX},${midY} L${endX},${endY}`;
+
+      if (edge.type === "control-flow") {
+        // For control flow (try -> catch), draw a distinct path
+        // From bottom-left of source to top-left of target, to show sequence
+        const srcLeft = sourcePos.x + 10;
+        const srcBottom = sourcePos.y + sourcePos.height;
+        const tgtLeft = targetPos.x + 10;
+        const tgtTop = targetPos.y;
+
+        // Draw a "step" line
+        const midY = (srcBottom + tgtTop) / 2;
+        pathData = `M${srcLeft},${srcBottom} L${srcLeft},${midY} L${tgtLeft},${midY} L${tgtLeft},${tgtTop}`;
+      }
 
       newEdgePaths.push({
         id: edge.id || `${sourceId || "source"}->${targetId || "target"}`,
         d: pathData,
+        type: edge.type,
       });
     }
 
@@ -626,8 +642,15 @@ export default function DataFlowViz(props: DataFlowVizProps) {
                       {(edge) => (
                         <path
                           d={edge.d}
-                          stroke="#555"
-                          stroke-width="1"
+                          stroke={
+                            edge.type === "control-flow" ? "#d97706" : "#555"
+                          }
+                          stroke-width={
+                            edge.type === "control-flow" ? "2" : "1"
+                          }
+                          stroke-dasharray={
+                            edge.type === "control-flow" ? "4 2" : "none"
+                          }
                           fill="none"
                           marker-end="url(#arrowhead)"
                         />
