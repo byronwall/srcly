@@ -208,10 +208,9 @@ export default function DataFlowViz(props: DataFlowVizProps) {
     >();
     const newFlatNodes: FlattenedNode[] = [];
     // Some identifiers can appear in multiple nested scopes that overlap on the
-    // same source span (for example when we introduce a dedicated `if_condition`
-    // scope for an `if` statement). To avoid rendering duplicate usage boxes
-    // for the exact same variable occurrence, we keep track of (type, label,
-    // startLine, endLine) combinations we've already emitted.
+    // same source span. To avoid rendering duplicate usage boxes for the exact
+    // same variable occurrence, we keep track of (type, label, startLine,
+    // endLine) combinations we've already emitted.
     const seenUsageKeys = new Set<string>();
 
     const collectNodePositions = (
@@ -377,7 +376,6 @@ export default function DataFlowViz(props: DataFlowVizProps) {
       node.type === "class" ||
       node.type === "jsx" ||
       node.type === "if" ||
-      node.type === "if_condition" ||
       node.type === "if_branch" ||
       node.type === "else_branch" ||
       node.type === "for" ||
@@ -505,7 +503,6 @@ export default function DataFlowViz(props: DataFlowVizProps) {
       case "global":
         return "#ffffff";
       case "if":
-      case "if_condition":
       case "if_branch":
       case "else_branch":
       case "for":

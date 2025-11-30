@@ -119,9 +119,9 @@ def test_if_else_control_flow_grouping(tmp_path):
 
 def test_if_condition_grouping(tmp_path):
     """
-    Variables that participate in an `if` condition should be grouped inside a
-    dedicated `if_condition` scope so the client can render them at the top of
-    the surrounding `if` block.
+    Variables that participate in an `if` condition should still be represented
+    as usage nodes within the surrounding `if` scope so the client can show
+    them alongside the branches.
     """
     analyzer = DataFlowAnalyzer()
 
@@ -143,34 +143,33 @@ def test_if_condition_grouping(tmp_path):
 
     graph = analyzer.analyze_file(str(f))
 
-    # Find an `if` scope that has both a condition scope and an if-branch child.
-    def find_if_with_condition(node):
-        children = node.get("children", []) or []
-        types = [c.get("type") for c in children]
-        if "if_condition" in types and "if_branch" in types:
-            return node, children
-        for child in children:
-            found_parent, found_children = find_if_with_condition(child)
-            if found_parent is not None:
-                return found_parent, found_children
-        return None, None
+    # We should not render any dedicated `if_condition` scopes now that
+    # condition expressions are attached directly to the surrounding `if`.
+    assert not _find_scopes(graph, "if_condition")
 
-    if_scope, children = find_if_with_condition(graph)
-    assert if_scope is not None, "Expected to find an `if` scope with condition + branch"
+    # Collect all usage labels that live under any `if` scope. The exact
+    # nesting (direct child vs. nested block) is an implementation detail; we
+    # just care that the condition variables are present somewhere within the
+    # relevant `if` cluster.
+    def _collect_usage_labels(node):
+        labels = set()
+        for child in node.get("children", []) or []:
+            if child.get("type") == "usage":
+                text = (child.get("labels") or [{}])[0].get("text")
+                labels.add(text)
+            labels |= _collect_usage_labels(child)
+        return labels
 
-    condition_scope = next(c for c in children if c.get("type") == "if_condition")
+    if_scopes = _find_scopes(graph, "if")
+    assert if_scopes, "Expected to find at least one `if` scope in the graph"
 
-    # The `if_condition` scope should contain usages for both containerRef and target.
-    condition_usages = [
-        c
-        for c in condition_scope.get("children", []) or []
-        if c.get("type") == "usage"
-    ]
-    labels = {u.get("labels", [{}])[0].get("text") for u in condition_usages}
+    all_usage_labels = set()
+    for if_scope in if_scopes:
+        all_usage_labels |= _collect_usage_labels(if_scope)
 
     # Usage node labels are either just the identifier name or "attr: name" for JSX.
-    assert any("containerRef" in (label or "") for label in labels)
-    assert any("target" in (label or "") for label in labels)
+    assert any("containerRef" in (label or "") for label in all_usage_labels)
+    assert any("target" in (label or "") for label in all_usage_labels)
 
 
 def test_if_condition_has_single_if_label(tmp_path):
@@ -197,27 +196,37 @@ def test_if_condition_has_single_if_label(tmp_path):
 
     graph = analyzer.analyze_file(str(f))
 
-    # Find an `if` scope that has both a condition and an if-branch child.
-    def find_if_with_condition_and_branch(node):
+    # There should be exactly one scope in the graph labelled \"if\" for this
+    # single `if` statement.
+    def _collect_if_labels(node):
+        labels = []
+        if node.get("type") == "if":
+            labels.append((node.get("labels") or [{}])[0].get("text"))
+        for child in node.get("children", []) or []:
+            labels.extend(_collect_if_labels(child))
+        return labels
+
+    if_labels = _collect_if_labels(graph)
+    assert if_labels.count("if") == 1
+
+    # We still expect the primary body of the `if` to be represented as a
+    # \"then\" branch under that scope so users see a single \"if\" box with a
+    # clearly named body.
+    def find_if_with_branch(node):
         children = node.get("children", []) or []
         types = [c.get("type") for c in children]
-        if "if_condition" in types and "if_branch" in types:
+        if "if_branch" in types:
             return node, children
         for child in children:
-            found_parent, found_children = find_if_with_condition_and_branch(child)
+            found_parent, found_children = find_if_with_branch(child)
             if found_parent is not None:
                 return found_parent, found_children
         return None, None
 
-    if_scope, children = find_if_with_condition_and_branch(graph)
-    assert if_scope is not None, "Expected to find an `if` scope with condition + branch"
-
-    # The outer scope is labelled \"if\" and the inner branch is labelled
-    # \"then\" so that the visualisation shows a single \"if\" box with a
-    # clearly named body.
+    if_scope, children = find_if_with_branch(graph)
+    assert if_scope is not None, "Expected to find an `if` scope with a then-branch"
     assert (if_scope.get("labels") or [{}])[0].get("text") == "if"
     child_labels = [
         (c.get("labels") or [{}])[0].get("text") for c in children if c.get("labels")
     ]
     assert "then" in child_labels
-    assert "condition" in child_labels

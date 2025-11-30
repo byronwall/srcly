@@ -112,15 +112,8 @@ class DataFlowAnalyzer:
         self._handle_usages(node)
 
         # Recurse
-        if node.type == "if_statement":
-            # For `if` statements, we want to treat the condition expression as a
-            # first-class child scope so that variables used in the condition
-            # (e.g. `containerRef` or `target`) can be grouped visually at the
-            # top of the `if` cluster in the data-flow graph.
-            self._traverse_if_statement_children(node)
-        else:
-            for child in node.children:
-                self._traverse(child)
+        for child in node.children:
+            self._traverse(child)
 
         # Pop Scope
         if scope_created:
@@ -296,9 +289,6 @@ class DataFlowAnalyzer:
                 # the outer `if` scope remains the only box labelled "if" for a
                 # given `if` statement.
                 return "then"
-
-            if scope_type == 'if_condition':
-                return "condition"
 
             if scope_type == 'else_branch':
                 return "else"
