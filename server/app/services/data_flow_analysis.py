@@ -131,6 +131,14 @@ class DataFlowAnalyzer:
             # children appear at a deeper nesting level in the data-flow graph.
             'jsx_element',
             'jsx_self_closing_element',
+            'if_statement',
+            'for_statement',
+            'try_statement',
+            'catch_clause',
+            'switch_statement',
+            'switch_case',
+            'while_statement',
+            'do_statement',
         }
 
     def _get_scope_type(self, node: Node) -> str:
@@ -145,6 +153,24 @@ class DataFlowAnalyzer:
             return 'class'
         if node.type in {'jsx_element', 'jsx_self_closing_element'}:
             return 'jsx'
+        
+        if node.type == 'if_statement':
+            return 'if'
+        if node.type == 'for_statement':
+            return 'for'
+        if node.type == 'try_statement':
+            return 'try'
+        if node.type == 'catch_clause':
+            return 'catch'
+        if node.type == 'switch_statement':
+            return 'switch'
+        if node.type == 'switch_case':
+            return 'case'
+        if node.type == 'while_statement':
+            return 'while'
+        if node.type == 'do_statement':
+            return 'do'
+            
         return 'block'
 
     def _get_scope_label(self, node: Node, scope_type: str) -> str:
@@ -187,6 +213,33 @@ class DataFlowAnalyzer:
                 if tag_name:
                     return f"<{tag_name}>"
                 return "JSX"
+            
+            if scope_type == 'if':
+                # Check if it's an else-if (not easily distinguishable in tree-sitter without checking parent)
+                # For now, just "if"
+                return "if"
+            
+            if scope_type == 'for':
+                return "for"
+            
+            if scope_type == 'try':
+                return "try"
+            
+            if scope_type == 'catch':
+                return "catch"
+            
+            if scope_type == 'switch':
+                return "switch"
+            
+            if scope_type == 'case':
+                return "case"
+                
+            if scope_type == 'while':
+                return "while"
+                
+            if scope_type == 'do':
+                return "do"
+
         except Exception:
             # Naming is best-effort; fall through to a basic label on errors.
             pass
