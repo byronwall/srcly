@@ -305,19 +305,20 @@ class DataFlowAnalyzer:
         # Variable Declarations (var, let, const)
         if node.type == 'variable_declarator':
             name_node = node.child_by_field_name('name')
-            if name_node and name_node.type == 'identifier':
-                self._add_definition(name_node, 'variable')
-            elif name_node:
-                 # It might be an array/object pattern, but for now let's just see if we missed it
-                 pass
+            if name_node:
+                # Simple identifier: const x = ...
+                if name_node.type == 'identifier':
+                    self._add_definition(name_node, 'variable')
+                else:
+                    # Destructured patterns: const [a, b] = ..., const { x, y: z } = ...
+                    for ident in self._collect_pattern_identifiers(name_node):
+                        self._add_definition(ident, 'variable')
         
         # Function Parameters
         if node.type in {'required_parameter', 'optional_parameter'}:
-            # Check for pattern (destructuring) or simple identifier
-            # Simple case: identifier
-            for child in node.children:
-                if child.type == 'identifier':
-                    self._add_definition(child, 'param')
+            # Parameters can be simple identifiers or destructured patterns.
+            for ident in self._collect_pattern_identifiers(node):
+                self._add_definition(ident, 'param')
         
         # Function Declarations (name)
         if node.type == 'function_declaration':
@@ -350,6 +351,51 @@ class DataFlowAnalyzer:
                 return
             if parent.type == 'property_identifier': # e.g. obj.prop - prop is property_identifier, not identifier usually
                 return
+
+            # Skip identifiers that participate in binding patterns on the
+            # left-hand side of declarations or parameters, such as:
+            #   const [a, b] = ...
+            #   const { x, y: z } = ...
+            #   function fn({ foo, bar }) { ... }
+            curr = node
+            while curr is not None:
+                p = curr.parent
+                if p is None:
+                    break
+
+                # Destructured variable declarator: the pattern lives under the
+                # "name" field of a variable_declarator.
+                if p.type == 'variable_declarator':
+                    name_node = p.child_by_field_name('name')
+                    if name_node:
+                        # Walk upward from the identifier until we either hit
+                        # the name_node (binding position) or escape the
+                        # variable_declarator.
+                        check = node
+                        while check is not None and check is not p:
+                            if check is name_node:
+                                return
+                            check = check.parent
+
+                # Destructured parameters: any identifier within the parameter
+                # subtree is a binding.
+                if p.type in {'required_parameter', 'optional_parameter', 'rest_parameter'}:
+                    return
+
+                # Stop walking once we reach a clear non-binding boundary such
+                # as a statement block, function, or the program root.
+                if p.type in {
+                    'program',
+                    'statement_block',
+                    'function_declaration',
+                    'function_expression',
+                    'arrow_function',
+                    'method_definition',
+                    'class_declaration',
+                }:
+                    break
+
+                curr = p
             
             # It's a usage
             self._add_usage(node)
@@ -443,6 +489,41 @@ class DataFlowAnalyzer:
         )
         self.usages.append(usage)
 
+    def _collect_pattern_identifiers(self, node: Node) -> List[Node]:
+        """
+        Recursively collect identifier-like nodes that represent variable names
+        in binding patterns (array/object destructuring, parameter lists, etc.).
+
+        We intentionally limit this to identifier-bearing nodes that are valid
+        binding targets so we don't accidentally treat property names in
+        non-pattern contexts as definitions.
+        """
+        identifiers: List[Node] = []
+
+        def walk(n: Node):
+            # Plain identifiers and shorthand properties inside patterns.
+            if n.type in {"identifier", "shorthand_property_identifier"}:
+                identifiers.append(n)
+                return
+
+            # Skip over non-pattern contexts where identifiers should not be
+            # treated as new bindings.
+            if n.type in {
+                "member_expression",
+                "call_expression",
+                "property_identifier",
+                "jsx_opening_element",
+                "jsx_closing_element",
+                "jsx_self_closing_element",
+            }:
+                return
+
+            for child in n.children:
+                walk(child)
+
+        walk(node)
+        return identifiers
+
     def _traverse_if_statement_children(self, node: Node) -> None:
         """
         Custom traversal for `if_statement` nodes.
@@ -500,54 +581,163 @@ class DataFlowAnalyzer:
         
         # Helper to recursively build scope nodes
         def build_scope_node(scope: Scope) -> Dict[str, Any]:
-            children = []
-            
-            # Add variables as nodes
+            children: List[Dict[str, Any]] = []
+
+            # First, materialize variables/usages/scopes as separate collections
+            # so we can form "declaration" clusters that visually group a
+            # left-hand-side variable definition with any immediate RHS usages
+            # that live on the same source line (e.g. `const current =
+            # visibleColumns();`).
+            var_nodes: List[Dict[str, Any]] = []
             for var in scope.variables.values():
-                children.append({
-                    "id": var.id,
-                    "labels": [{"text": f"{var.name} ({var.kind})"}],
-                    "width": 100,
-                    "height": 40,
-                    "type": "variable",
-                    # Line information for code preview
-                    "startLine": var.start_line,
-                    "endLine": var.end_line,
-                })
-            
-            # Add child scopes
-            for child_scope in scope.children:
-                children.append(build_scope_node(child_scope))
-                
-            # Add usages in this scope
+                var_nodes.append(
+                    {
+                        "id": var.id,
+                        "labels": [{"text": f"{var.name} ({var.kind})"}],
+                        "width": 100,
+                        "height": 40,
+                        "type": "variable",
+                        "startLine": var.start_line,
+                        "endLine": var.end_line,
+                    }
+                )
+
+            child_scope_nodes: List[Dict[str, Any]] = [
+                build_scope_node(child_scope) for child_scope in scope.children
+            ]
+
+            usage_nodes: List[Dict[str, Any]] = []
             scope_usages = [u for u in self.usages if u.scope_id == scope.id]
             for usage in scope_usages:
-                children.append({
-                    "id": usage.id,
-                    "labels": [{"text": f"{usage.attribute_name}: {usage.name}" if usage.attribute_name else usage.name}],
-                    "width": 60,
-                    "height": 30,
-                    "type": "usage",
-                    # Line information for code preview
-                    "startLine": usage.start_line,
-                    "endLine": usage.end_line,
-                })
-                
+                definition = self.definitions.get(usage.def_id) if usage.def_id else None
+
+                # Suppress visual nodes for usages that are effectively part of
+                # the same declaration as their defining variable – i.e. when
+                # the definition and usage share the same scope and line. This
+                # avoids duplicate red boxes for patterns like:
+                #   const [value, setValue] = createSignal(value());
+                suppress_visual_node = (
+                    definition is not None
+                    and definition.scope_id == usage.scope_id
+                    and definition.start_line == usage.start_line
+                )
+
+                if not suppress_visual_node:
+                    usage_nodes.append(
+                        {
+                            "id": usage.id,
+                            "labels": [
+                                {
+                                    "text": f"{usage.attribute_name}: {usage.name}"
+                                    if usage.attribute_name
+                                    else usage.name
+                                }
+                            ],
+                            "width": 60,
+                            "height": 30,
+                            "type": "usage",
+                            "startLine": usage.start_line,
+                            "endLine": usage.end_line,
+                        }
+                    )
+
                 # Edge from Def to Usage. We attach line metadata for convenience:
                 # the "usageStartLine"/"usageEndLine" fields point at the read
                 # site (target), while "defStartLine"/"defEndLine" point at the
                 # defining declaration (source).
                 if usage.def_id:
-                    definition = self.definitions.get(usage.def_id)
-                    elk_edges.append({
-                        "id": f"edge-{usage.def_id}-{usage.id}",
-                        "sources": [usage.def_id],
-                        "targets": [usage.id],
-                        "defStartLine": definition.start_line if definition else None,
-                        "defEndLine": definition.end_line if definition else None,
-                        "usageStartLine": usage.start_line,
-                        "usageEndLine": usage.end_line,
-                    })
+                    elk_edges.append(
+                        {
+                            "id": f"edge-{usage.def_id}-{usage.id}",
+                            "sources": [usage.def_id],
+                            "targets": [usage.id],
+                            "defStartLine": definition.start_line if definition else None,
+                            "defEndLine": definition.end_line if definition else None,
+                            "usageStartLine": usage.start_line,
+                            "usageEndLine": usage.end_line,
+                        }
+                    )
+
+            # Group variables + usages that share the same line into a synthetic
+            # "declaration" cluster so statements like `const current =
+            # visibleColumns();` show up as a single boxed unit instead of
+            # loosely scattered siblings.
+            line_buckets: Dict[int, List[Dict[str, Any]]] = {}
+            standalone_children: List[Dict[str, Any]] = []
+
+            def _bucket_child(node: Dict[str, Any]) -> None:
+                line = node.get("startLine")
+                if isinstance(line, int):
+                    line_buckets.setdefault(line, []).append(node)
+                else:
+                    standalone_children.append(node)
+
+            for n in var_nodes:
+                _bucket_child(n)
+            for n in usage_nodes:
+                _bucket_child(n)
+
+            # Turn buckets into either declaration-clusters or individual
+            # children, then add the nested scope nodes.
+            for line, nodes_on_line in sorted(line_buckets.items()):
+                has_var = any(n.get("type") == "variable" for n in nodes_on_line)
+                has_usage = any(n.get("type") == "usage" for n in nodes_on_line)
+
+                # Only create a declaration cluster when there's at least one
+                # variable and one usage on the same line – this typically
+                # corresponds to a declaration with an RHS expression.
+                if has_var and has_usage and len(nodes_on_line) >= 2:
+                    # Order within the declaration: variables first, then usages.
+                    def _inner_sort(node: Dict[str, Any]) -> Any:
+                        t = node.get("type")
+                        if t == "variable":
+                            rank = 0
+                        elif t == "usage":
+                            rank = 1
+                        else:
+                            rank = 2
+                        return (rank, node.get("id", ""))
+
+                    nodes_on_line.sort(key=_inner_sort)
+
+                    decl_id = f"decl-{scope.id}-{line}"
+                    children.append(
+                        {
+                            "id": decl_id,
+                            "labels": [{"text": f"line {line}"}],
+                            "type": "declaration",
+                            "children": nodes_on_line,
+                            "startLine": line,
+                            "endLine": line,
+                        }
+                    )
+                else:
+                    children.extend(nodes_on_line)
+
+            # Add any nodes that didn't have a stable line association (e.g.
+            # scopes without explicit ranges) and the nested child scopes
+            # themselves.
+            children.extend(standalone_children)
+            children.extend(child_scope_nodes)
+
+            # Sort children so that, within a given scope, declarations/variables
+            # appear before their dependent usages and everything is roughly
+            # ordered by source location.
+            def _child_sort_key(child: Dict[str, Any]) -> Any:
+                start_line = child.get("startLine")
+                t = child.get("type")
+                if t in {"declaration"}:
+                    type_rank = 0
+                elif t == "variable":
+                    type_rank = 1
+                elif t == "usage":
+                    type_rank = 2
+                else:
+                    type_rank = 3
+                line_key = start_line if isinstance(start_line, int) else float("inf")
+                return (line_key, type_rank, child.get("id", ""))
+
+            children.sort(key=_child_sort_key)
             
             # Add control flow edges between sibling nodes (e.g. try -> catch)
             for i in range(len(children) - 1):

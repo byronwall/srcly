@@ -388,7 +388,8 @@ export default function DataFlowViz(props: DataFlowVizProps) {
       node.type === "case" ||
       node.type === "default" ||
       node.type === "while" ||
-      node.type === "do"
+      node.type === "do" ||
+      node.type === "declaration"
     );
   }
 
@@ -499,6 +500,8 @@ export default function DataFlowViz(props: DataFlowVizProps) {
         return "#e2e2e2"; // Light Gray
       case "block":
         return "#f0f0f0"; // Very Light Gray
+      case "declaration":
+        return "#e8f4ff"; // Very Light Blue for grouped declarations
       case "global":
         return "#ffffff";
       case "if":
