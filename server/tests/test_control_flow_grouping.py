@@ -115,3 +115,109 @@ def test_if_else_control_flow_grouping(tmp_path):
     assert (
         control_flow_edges
     ), "Expected a control-flow edge from if-branch to else-branch"
+
+
+def test_if_condition_grouping(tmp_path):
+    """
+    Variables that participate in an `if` condition should be grouped inside a
+    dedicated `if_condition` scope so the client can render them at the top of
+    the surrounding `if` block.
+    """
+    analyzer = DataFlowAnalyzer()
+
+    code = """
+    let containerRef: HTMLDivElement | null = null;
+
+    const handleClickOutside = (event: MouseEvent) => {
+        const target = event.target as Node | null;
+        if (!containerRef || !target) return;
+        if (!containerRef.contains(target)) {
+            setShowSuggestions(false);
+            setShowRecent(false);
+        }
+    };
+    """
+
+    f = tmp_path / "if_condition_grouping.tsx"
+    f.write_text(code, encoding="utf-8")
+
+    graph = analyzer.analyze_file(str(f))
+
+    # Find an `if` scope that has both a condition scope and an if-branch child.
+    def find_if_with_condition(node):
+        children = node.get("children", []) or []
+        types = [c.get("type") for c in children]
+        if "if_condition" in types and "if_branch" in types:
+            return node, children
+        for child in children:
+            found_parent, found_children = find_if_with_condition(child)
+            if found_parent is not None:
+                return found_parent, found_children
+        return None, None
+
+    if_scope, children = find_if_with_condition(graph)
+    assert if_scope is not None, "Expected to find an `if` scope with condition + branch"
+
+    condition_scope = next(c for c in children if c.get("type") == "if_condition")
+
+    # The `if_condition` scope should contain usages for both containerRef and target.
+    condition_usages = [
+        c
+        for c in condition_scope.get("children", []) or []
+        if c.get("type") == "usage"
+    ]
+    labels = {u.get("labels", [{}])[0].get("text") for u in condition_usages}
+
+    # Usage node labels are either just the identifier name or "attr: name" for JSX.
+    assert any("containerRef" in (label or "") for label in labels)
+    assert any("target" in (label or "") for label in labels)
+
+
+def test_if_condition_has_single_if_label(tmp_path):
+    """
+    For a single `if` statement we should only render one scope labelled \"if\".
+    The primary body of the `if` is represented as a \"then\" branch so users
+    don't see two nested \"if\" blocks for the same statement.
+    """
+    analyzer = DataFlowAnalyzer()
+
+    code = """
+    function demo(parsed: unknown) {
+        if (Array.isArray(parsed)) {
+            const onlyStrings = parsed.filter(
+                (item: unknown): item is string => typeof item === "string"
+            );
+            setRecentPaths(onlyStrings);
+        }
+    }
+    """
+
+    f = tmp_path / "if_single_label.ts"
+    f.write_text(code, encoding="utf-8")
+
+    graph = analyzer.analyze_file(str(f))
+
+    # Find an `if` scope that has both a condition and an if-branch child.
+    def find_if_with_condition_and_branch(node):
+        children = node.get("children", []) or []
+        types = [c.get("type") for c in children]
+        if "if_condition" in types and "if_branch" in types:
+            return node, children
+        for child in children:
+            found_parent, found_children = find_if_with_condition_and_branch(child)
+            if found_parent is not None:
+                return found_parent, found_children
+        return None, None
+
+    if_scope, children = find_if_with_condition_and_branch(graph)
+    assert if_scope is not None, "Expected to find an `if` scope with condition + branch"
+
+    # The outer scope is labelled \"if\" and the inner branch is labelled
+    # \"then\" so that the visualisation shows a single \"if\" box with a
+    # clearly named body.
+    assert (if_scope.get("labels") or [{}])[0].get("text") == "if"
+    child_labels = [
+        (c.get("labels") or [{}])[0].get("text") for c in children if c.get("labels")
+    ]
+    assert "then" in child_labels
+    assert "condition" in child_labels

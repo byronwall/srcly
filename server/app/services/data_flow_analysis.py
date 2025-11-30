@@ -112,8 +112,15 @@ class DataFlowAnalyzer:
         self._handle_usages(node)
 
         # Recurse
-        for child in node.children:
-            self._traverse(child)
+        if node.type == "if_statement":
+            # For `if` statements, we want to treat the condition expression as a
+            # first-class child scope so that variables used in the condition
+            # (e.g. `containerRef` or `target`) can be grouped visually at the
+            # top of the `if` cluster in the data-flow graph.
+            self._traverse_if_statement_children(node)
+        else:
+            for child in node.children:
+                self._traverse(child)
 
         # Pop Scope
         if scope_created:
@@ -140,6 +147,9 @@ class DataFlowAnalyzer:
             'switch_default',
             'while_statement',
             'do_statement',
+            # The full `if` statement becomes a scope so we can group its
+            # condition and branches together visually.
+            'if_statement',
         }
 
     def _get_scope_type(self, node: Node) -> str:
@@ -268,7 +278,13 @@ class DataFlowAnalyzer:
                 return "default"
 
             if scope_type == 'if_branch':
-                return "if"
+                # Represent the body of an `if` as a distinct "then" branch so
+                # the outer `if` scope remains the only box labelled "if" for a
+                # given `if` statement.
+                return "then"
+
+            if scope_type == 'if_condition':
+                return "condition"
 
             if scope_type == 'else_branch':
                 return "else"
@@ -426,6 +442,44 @@ class DataFlowAnalyzer:
             attribute_name=attribute_name
         )
         self.usages.append(usage)
+
+    def _traverse_if_statement_children(self, node: Node) -> None:
+        """
+        Custom traversal for `if_statement` nodes.
+
+        We treat the condition expression as its own nested scope (`if_condition`)
+        so that identifier usages that participate in the condition can be
+        grouped visually at the top of the `if` cluster in the client.
+        """
+        # At this point (inside _traverse), if this `if_statement` is a scope
+        # boundary then the current scope on the stack is the enclosing "if"
+        # scope. If not, we simply treat the condition as a child scope of
+        # whatever the current scope is.
+        condition_node = node.child_by_field_name("condition")
+
+        if condition_node is not None:
+            condition_scope = Scope(
+                id=str(uuid.uuid4()),
+                type="if_condition",
+                parent_id=self.current_scope_stack[-1].id,
+                start_line=condition_node.start_point.row + 1,
+                end_line=condition_node.end_point.row + 1,
+                label=self._get_scope_label(condition_node, "if_condition"),
+            )
+            self.scopes[condition_scope.id] = condition_scope
+            self.current_scope_stack[-1].children.append(condition_scope)
+            self.current_scope_stack.append(condition_scope)
+            # Traverse the condition expression within the dedicated scope so
+            # that all identifiers used there are attached to it.
+            self._traverse(condition_node)
+            self.current_scope_stack.pop()
+
+        # Traverse the remaining children (consequence / alternative) using the
+        # normal traversal logic.
+        for child in node.children:
+            if child is condition_node:
+                continue
+            self._traverse(child)
 
     def _resolve_variable(self, name: str) -> Optional[str]:
         # Walk up the scope stack

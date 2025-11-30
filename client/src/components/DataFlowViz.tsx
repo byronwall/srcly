@@ -207,6 +207,12 @@ export default function DataFlowViz(props: DataFlowVizProps) {
       { x: number; y: number; width: number; height: number }
     >();
     const newFlatNodes: FlattenedNode[] = [];
+    // Some identifiers can appear in multiple nested scopes that overlap on the
+    // same source span (for example when we introduce a dedicated `if_condition`
+    // scope for an `if` statement). To avoid rendering duplicate usage boxes
+    // for the exact same variable occurrence, we keep track of (type, label,
+    // startLine, endLine) combinations we've already emitted.
+    const seenUsageKeys = new Set<string>();
 
     const collectNodePositions = (
       node: ElkNode,
@@ -221,6 +227,25 @@ export default function DataFlowViz(props: DataFlowVizProps) {
       nodePositions.set(node.id, { x: absX, y: absY, width, height });
 
       const labelText = node.labels?.[0]?.text;
+      const startLine = node.startLine;
+      const endLine = node.endLine;
+
+      if (node.type === "usage") {
+        const key = `${labelText ?? ""}|${startLine ?? 0}|${endLine ?? 0}`;
+        if (seenUsageKeys.has(key)) {
+          // Skip duplicate visual nodes that refer to the exact same usage
+          // span; edges that target this node will be ignored later because we
+          // never record a position for the duplicate ID.
+          if (node.children) {
+            for (const child of node.children) {
+              collectNodePositions(child, absX, absY);
+            }
+          }
+          return;
+        }
+        seenUsageKeys.add(key);
+      }
+
       newFlatNodes.push({
         id: node.id,
         type: node.type,
@@ -229,8 +254,8 @@ export default function DataFlowViz(props: DataFlowVizProps) {
         width,
         height,
         label: labelText,
-        startLine: node.startLine,
-        endLine: node.endLine,
+        startLine,
+        endLine,
       });
 
       if (node.children) {
@@ -351,6 +376,7 @@ export default function DataFlowViz(props: DataFlowVizProps) {
       node.type === "class" ||
       node.type === "jsx" ||
       node.type === "if" ||
+      node.type === "if_condition" ||
       node.type === "if_branch" ||
       node.type === "else_branch" ||
       node.type === "for" ||
@@ -475,6 +501,7 @@ export default function DataFlowViz(props: DataFlowVizProps) {
       case "global":
         return "#ffffff";
       case "if":
+      case "if_condition":
       case "if_branch":
       case "else_branch":
       case "for":
