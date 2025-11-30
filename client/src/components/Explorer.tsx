@@ -1,20 +1,13 @@
-import {
-  createSignal,
-  createMemo,
-  For,
-  Show,
-  createContext,
-  useContext,
-  createEffect,
-} from "solid-js";
-import { extractFilePath } from "../utils/dataProcessing";
+import { createSignal, createMemo, For, Show, createContext } from "solid-js";
 import {
   HOTSPOT_METRICS,
   type HotSpotMetricId,
   useMetricsStore,
 } from "../utils/metricsStore";
+import { HotSpotItem } from "./HotSpotItem";
+import { TreeNode } from "./TreeNode";
 
-interface Node {
+export interface Node {
   name: string;
   path: string;
   type: "folder" | "file" | "function" | "class" | "misc";
@@ -89,16 +82,16 @@ interface ExplorerContextType {
   rootData: Node;
 }
 
-const ExplorerContext = createContext<ExplorerContextType>();
+export const ExplorerContext = createContext<ExplorerContextType>();
 
-const formatSize = (bytes?: number) => {
+export const formatSize = (bytes?: number) => {
   if (bytes === undefined) return "";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const findNodeByPath = (root: Node, path: string): Node | null => {
+export const findNodeByPath = (root: Node, path: string): Node | null => {
   if (root.path === path) return root;
 
   if (!root.children || root.children.length === 0) return null;
@@ -118,323 +111,39 @@ const getMetricValue = (
   return node.metrics?.[metric] ?? 0;
 };
 
-const SORT_FIELD_ACCESSORS: Record<SortField, (node: Node) => string | number> =
-  {
-    name: (node) => node.name.toLowerCase(),
-    loc: (node) => getMetricValue(node, "loc"),
-    complexity: (node) => getMetricValue(node, "complexity"),
-    file_size: (node) => getMetricValue(node, "file_size"),
-    file_count: (node) => getMetricValue(node, "file_count"),
-    gitignored: (node) => node.metrics?.gitignored_count ?? 0,
-    comment_density: (node) => getMetricValue(node, "comment_density"),
-    todo_count: (node) => getMetricValue(node, "todo_count"),
-    max_nesting_depth: (node) => getMetricValue(node, "max_nesting_depth"),
-    parameter_count: (node) => getMetricValue(node, "parameter_count"),
-    tsx_nesting_depth: (node) => getMetricValue(node, "tsx_nesting_depth"),
-    tsx_render_branching_count: (node) =>
-      getMetricValue(node, "tsx_render_branching_count"),
-    tsx_react_use_effect_count: (node) =>
-      getMetricValue(node, "tsx_react_use_effect_count"),
-    tsx_anonymous_handler_count: (node) =>
-      getMetricValue(node, "tsx_anonymous_handler_count"),
-    tsx_prop_count: (node) => getMetricValue(node, "tsx_prop_count"),
-    ts_any_usage_count: (node) => getMetricValue(node, "ts_any_usage_count"),
-    ts_ignore_count: (node) => getMetricValue(node, "ts_ignore_count"),
-    ts_import_coupling_count: (node) =>
-      getMetricValue(node, "ts_import_coupling_count"),
-    tsx_hardcoded_string_volume: (node) =>
-      getMetricValue(node, "tsx_hardcoded_string_volume"),
-    tsx_duplicated_string_count: (node) =>
-      getMetricValue(node, "tsx_duplicated_string_count"),
-    ts_type_interface_count: (node) =>
-      getMetricValue(node, "ts_type_interface_count"),
-    ts_export_count: (node) => getMetricValue(node, "ts_export_count"),
-  };
-
-const TreeNode = (props: { node: Node; depth: number }) => {
-  const ctx = useContext(ExplorerContext)!;
-  // Expand root by default, or if filtering is active
-  const [expanded, setExpanded] = createSignal(props.depth < 1 || !!ctx.filter);
-
-  createEffect(() => {
-    const signal = ctx.expandAllSignal();
-    if (signal !== null) {
-      setExpanded(signal);
-    }
-  });
-
-  const hasChildren = props.node.children && props.node.children.length > 0;
-
-  const sortedChildren = createMemo(() => {
-    if (!props.node.children) return [];
-    const field = ctx.sortField();
-    const dir = ctx.sortDirection();
-    const multiplier = dir === "asc" ? 1 : -1;
-    const accessor =
-      SORT_FIELD_ACCESSORS[field] ?? SORT_FIELD_ACCESSORS["name"];
-
-    return [...props.node.children].sort((a, b) => {
-      // Always keep folders grouped before non-folders for easier navigation
-      const aIsFolder = a.type === "folder";
-      const bIsFolder = b.type === "folder";
-      if (aIsFolder !== bIsFolder) {
-        return aIsFolder ? -1 : 1;
-      }
-
-      const valA = accessor(a);
-      const valB = accessor(b);
-
-      if (valA < valB) return -1 * multiplier;
-      if (valA > valB) return 1 * multiplier;
-
-      // Stable, deterministic tie-breaker: always fall back to name (asc)
-      const nameA = SORT_FIELD_ACCESSORS.name(a) as string;
-      const nameB = SORT_FIELD_ACCESSORS.name(b) as string;
-      if (nameA < nameB) return -1;
-      if (nameA > nameB) return 1;
-      return 0;
-    });
-  });
-
-  const toggle = (e: MouseEvent) => {
-    e.stopPropagation();
-    if (hasChildren) setExpanded(!expanded());
-  };
-
-  const handleClick = () => {
-    const filePath = extractFilePath(props.node.path, props.node.type);
-    if (!filePath) return;
-
-    const startLine =
-      typeof props.node.start_line === "number" && props.node.start_line > 0
-        ? props.node.start_line
-        : undefined;
-    const endLine =
-      typeof props.node.end_line === "number" && props.node.end_line > 0
-        ? props.node.end_line
-        : undefined;
-
-    ctx.onSelect(filePath, startLine, endLine);
-  };
-
-  const getIcon = () => {
-    if (props.node.type === "folder") return "📁";
-    if (props.node.name === "(misc/imports)") return "⚙️";
-    return "📄";
-  };
-
-  const handleDrillDown = (e: MouseEvent) => {
-    e.stopPropagation();
-    ctx.onZoom(props.node);
-  };
-
-  const handleToggleHidden = (e: MouseEvent) => {
-    e.stopPropagation();
-    ctx.onToggleHidden(props.node.path);
-  };
-
-  const isHidden = () => ctx.hiddenPaths.includes(props.node.path);
-
-  return (
-    <>
-      <div
-        class={`flex items-center hover:bg-gray-800 cursor-pointer text-sm py-0.5 border-b border-gray-800/50 select-none ${
-          isHidden() ? "opacity-50" : ""
-        }`}
-        style={{ "padding-left": `${props.depth * 12}px` }}
-        onClick={handleClick}
-      >
-        <div
-          class="w-6 text-center text-gray-500 hover:text-white cursor-pointer"
-          onClick={toggle}
-        >
-          {hasChildren ? (
-            expanded() ? (
-              "▼"
-            ) : (
-              "▶"
-            )
-          ) : (
-            <span class="opacity-0">.</span>
-          )}
-        </div>
-        <div class="flex-1 flex items-center gap-1 truncate text-gray-300 overflow-hidden group">
-          <span class="opacity-70 text-xs">{getIcon()}</span>
-          <span class="truncate" title={props.node.name}>
-            {props.node.name}
-          </span>
-          {/* Actions */}
-          <div class="hidden group-hover:flex items-center gap-1 ml-2">
-            <Show when={props.node.type === "folder"}>
-              <button
-                class="text-[10px] px-1 bg-blue-900/50 hover:bg-blue-800 text-blue-200 rounded"
-                title="Drill Down"
-                onClick={handleDrillDown}
-              >
-                🔍
-              </button>
-            </Show>
-            <button
-              class="text-[10px] px-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded"
-              title={isHidden() ? "Show" : "Hide"}
-              onClick={handleToggleHidden}
-            >
-              {isHidden() ? "👁️" : "🚫"}
-            </button>
-          </div>
-        </div>
-
-        <Show when={ctx.visibleColumns().includes("gitignored")}>
-          <div class="w-10 text-right text-gray-600 font-mono text-[10px] pr-1 shrink-0">
-            {props.node.metrics?.gitignored_count || ""}
-          </div>
-        </Show>
-        <Show when={ctx.visibleColumns().includes("file_count")}>
-          <div class="w-12 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
-            {props.node.metrics?.file_count || ""}
-          </div>
-        </Show>
-        <Show when={ctx.visibleColumns().includes("file_size")}>
-          <div class="w-16 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
-            {formatSize(props.node.metrics?.file_size)}
-          </div>
-        </Show>
-        <Show when={ctx.visibleColumns().includes("loc")}>
-          <div class="w-16 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
-            {props.node.metrics?.loc || 0}
-          </div>
-        </Show>
-        <Show when={ctx.visibleColumns().includes("complexity")}>
-          <div class="w-12 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
-            {props.node.metrics?.complexity?.toFixed(1) || 0}
-          </div>
-        </Show>
-        <Show when={ctx.visibleColumns().includes("comment_density")}>
-          <div class="w-12 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
-            {((props.node.metrics?.comment_density || 0) * 100).toFixed(0)}%
-          </div>
-        </Show>
-        <Show when={ctx.visibleColumns().includes("todo_count")}>
-          <div class="w-10 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
-            {props.node.metrics?.todo_count || ""}
-          </div>
-        </Show>
-        <Show when={ctx.visibleColumns().includes("max_nesting_depth")}>
-          <div class="w-10 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
-            {props.node.metrics?.max_nesting_depth || ""}
-          </div>
-        </Show>
-        <Show when={ctx.visibleColumns().includes("parameter_count")}>
-          <div class="w-10 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
-            {props.node.metrics?.parameter_count || ""}
-          </div>
-        </Show>
-      </div>
-      <Show when={expanded() && hasChildren}>
-        <For each={sortedChildren()}>
-          {(child) => <TreeNode node={child} depth={props.depth + 1} />}
-        </For>
-      </Show>
-    </>
-  );
-};
-
-const HotSpotItem = (props: {
-  node: Node;
-  rank: number;
-  score: number;
-  metrics: string[];
-}) => {
-  const ctx = useContext(ExplorerContext)!;
-
-  const handleClick = () => {
-    const filePath = extractFilePath(props.node.path, props.node.type);
-    if (!filePath) return;
-
-    const startLine =
-      typeof props.node.start_line === "number" && props.node.start_line > 0
-        ? props.node.start_line
-        : undefined;
-    const endLine =
-      typeof props.node.end_line === "number" && props.node.end_line > 0
-        ? props.node.end_line
-        : undefined;
-
-    ctx.onSelect(filePath, startLine, endLine);
-  };
-
-  const handleZoomToParent = (e: MouseEvent) => {
-    e.stopPropagation();
-    const rawPath = props.node.path;
-    const fileOrFolderPath = rawPath.split("::")[0] || rawPath;
-    const lastSlash = fileOrFolderPath.lastIndexOf("/");
-    if (lastSlash === -1) return;
-    const parentPath = fileOrFolderPath.substring(0, lastSlash);
-
-    const parentNode = findNodeByPath(ctx.rootData, parentPath);
-    if (parentNode) {
-      ctx.onZoom(parentNode);
-    }
-  };
-
-  const displayPath = () => {
-    const fullPath = props.node.path;
-    const [fileOrFolderPath, ...rest] = fullPath.split("::");
-    const rootPath = ctx.rootData?.path;
-
-    let relative = fileOrFolderPath;
-    if (rootPath && fileOrFolderPath.startsWith(rootPath)) {
-      relative = fileOrFolderPath.slice(rootPath.length);
-      if (relative.startsWith("/")) {
-        relative = relative.slice(1);
-      }
-    }
-
-    return rest.length > 0 ? `${relative}::${rest.join("::")}` : relative;
-  };
-
-  return (
-    <div
-      class="flex items-center hover:bg-gray-800 cursor-pointer text-sm py-1 border-b border-gray-800/50 px-2 group"
-      onClick={handleClick}
-    >
-      <div class="w-6 text-gray-500 text-xs font-mono">#{props.rank}</div>
-      <div class="flex-1 min-w-0 flex items-center gap-2">
-        <div class="flex-1 min-w-0">
-          <div class="truncate text-gray-300" title={props.node.name}>
-            {props.node.name}
-          </div>
-          <div class="text-[10px] text-gray-500 truncate">{displayPath()}</div>
-        </div>
-        <button
-          class="hidden group-hover:block p-1 bg-blue-900/50 hover:bg-blue-800 text-blue-200 rounded text-xs"
-          title="Isolate Folder"
-          onClick={handleZoomToParent}
-        >
-          🔍
-        </button>
-      </div>
-      <div class="flex items-center gap-2 ml-2">
-        <div class="text-[10px] font-mono flex items-center gap-3">
-          <For each={props.metrics}>
-            {(m) => {
-              const def = HOTSPOT_METRICS.find((x) => x.id === m);
-              let val = (props.node.metrics as any)?.[m];
-              if (val === undefined) return null;
-              if (m === "comment_density") val = (val * 100).toFixed(0) + "%";
-              else if (typeof val === "number" && !Number.isInteger(val))
-                val = val.toFixed(1);
-              return (
-                <span class={def?.color} title={def?.label}>
-                  {val}
-                </span>
-              );
-            }}
-          </For>
-        </div>
-      </div>
-    </div>
-  );
+export const SORT_FIELD_ACCESSORS: Record<
+  SortField,
+  (node: Node) => string | number
+> = {
+  name: (node) => node.name.toLowerCase(),
+  loc: (node) => getMetricValue(node, "loc"),
+  complexity: (node) => getMetricValue(node, "complexity"),
+  file_size: (node) => getMetricValue(node, "file_size"),
+  file_count: (node) => getMetricValue(node, "file_count"),
+  gitignored: (node) => node.metrics?.gitignored_count ?? 0,
+  comment_density: (node) => getMetricValue(node, "comment_density"),
+  todo_count: (node) => getMetricValue(node, "todo_count"),
+  max_nesting_depth: (node) => getMetricValue(node, "max_nesting_depth"),
+  parameter_count: (node) => getMetricValue(node, "parameter_count"),
+  tsx_nesting_depth: (node) => getMetricValue(node, "tsx_nesting_depth"),
+  tsx_render_branching_count: (node) =>
+    getMetricValue(node, "tsx_render_branching_count"),
+  tsx_react_use_effect_count: (node) =>
+    getMetricValue(node, "tsx_react_use_effect_count"),
+  tsx_anonymous_handler_count: (node) =>
+    getMetricValue(node, "tsx_anonymous_handler_count"),
+  tsx_prop_count: (node) => getMetricValue(node, "tsx_prop_count"),
+  ts_any_usage_count: (node) => getMetricValue(node, "ts_any_usage_count"),
+  ts_ignore_count: (node) => getMetricValue(node, "ts_ignore_count"),
+  ts_import_coupling_count: (node) =>
+    getMetricValue(node, "ts_import_coupling_count"),
+  tsx_hardcoded_string_volume: (node) =>
+    getMetricValue(node, "tsx_hardcoded_string_volume"),
+  tsx_duplicated_string_count: (node) =>
+    getMetricValue(node, "tsx_duplicated_string_count"),
+  ts_type_interface_count: (node) =>
+    getMetricValue(node, "ts_type_interface_count"),
+  ts_export_count: (node) => getMetricValue(node, "ts_export_count"),
 };
 
 export default function Explorer(props: {
