@@ -1,6 +1,15 @@
 from app.services.data_flow_analysis import DataFlowAnalyzer
 
 
+def _collect_nodes(node, type_name):
+    found = []
+    for child in node.get("children", []) or []:
+        if child.get("type") == type_name:
+            found.append(child)
+        found.extend(_collect_nodes(child, type_name))
+    return found
+
+
 def test_destructured_signal_declaration(tmp_path):
     analyzer = DataFlowAnalyzer()
 
@@ -17,9 +26,9 @@ def test_destructured_signal_declaration(tmp_path):
 
     # We should get variable nodes for both destructured bindings so they render
     # as blue "definition" boxes in the client, without spurious "usage" boxes
-    # for the same identifiers on the left-hand side.
-    root_children = graph["children"]
-    vars_ = [c for c in root_children if c.get("type") == "variable"]
+    # for the same identifiers on the left-hand side. Variables and usages may
+    # be wrapped inside a "declaration" cluster, so traverse recursively.
+    vars_ = _collect_nodes(graph, "variable")
     var_labels = {v["labels"][0]["text"] for v in vars_}
 
     assert any("showColumnPicker" in label for label in var_labels)
@@ -27,7 +36,7 @@ def test_destructured_signal_declaration(tmp_path):
 
     # There should be no usage nodes for the destructured binding identifiers
     # themselves; they only appear as definitions on the left-hand side.
-    usages = [c for c in root_children if c.get("type") == "usage"]
+    usages = _collect_nodes(graph, "usage")
     usage_labels = {u["labels"][0]["text"] for u in usages}
     assert not any("showColumnPicker" in label for label in usage_labels)
     assert not any("setShowColumnPicker" in label for label in usage_labels)
@@ -43,10 +52,23 @@ def test_destructured_signal_declaration(tmp_path):
 
     assert isinstance(decl_line, int)
 
+    # Find the synthetic declaration cluster for this line.
+    def _find_declaration_cluster(node, line):
+        for child in node.get("children", []) or []:
+            if child.get("type") == "declaration" and child.get("startLine") == line:
+                return child
+            found = _find_declaration_cluster(child, line)
+            if found is not None:
+                return found
+        return None
+
+    decl_cluster = _find_declaration_cluster(graph, decl_line)
+    assert decl_cluster is not None, "Expected a declaration cluster for the signal line"
+
     same_line_children = [
         c
-        for c in root_children
-        if c.get("startLine") == decl_line and c.get("type") in {"variable", "usage"}
+        for c in decl_cluster.get("children", [])
+        if c.get("type") in {"variable", "usage"}
     ]
     assert same_line_children, "Expected at least variable + usage on declaration line"
 

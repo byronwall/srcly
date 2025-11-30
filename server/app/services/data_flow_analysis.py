@@ -127,29 +127,43 @@ class DataFlowAnalyzer:
             self.current_scope_stack.pop()
 
     def _is_scope_boundary(self, node: Node) -> bool:
+        # Treat the body of a function as part of the function scope instead of
+        # introducing an extra "block" cluster. This keeps function visuals
+        # compact (function -> locals/usages) while still using statement blocks
+        # for control-flow constructs like `if`, `try` and loops.
+        if node.type in {"block", "statement_block"}:
+            parent = node.parent
+            if parent and parent.type in {
+                "function_declaration",
+                "function_expression",
+                "arrow_function",
+                "method_definition",
+            }:
+                return False
+
         return node.type in {
-            'function_declaration',
-            'function_expression',
-            'arrow_function',
-            'method_definition',
-            'class_declaration',
-            'statement_block',
+            "function_declaration",
+            "function_expression",
+            "arrow_function",
+            "method_definition",
+            "class_declaration",
+            "statement_block",
             # Treat each JSX element as its own scope so that attributes and
             # children appear at a deeper nesting level in the data-flow graph.
-            'jsx_element',
-            'jsx_self_closing_element',
-            'for_statement',
-            # 'try_statement', # Flatten try/catch
-            'catch_clause',
-            'finally_clause',
-            'switch_statement',
-            'switch_case',
-            'switch_default',
-            'while_statement',
-            'do_statement',
+            "jsx_element",
+            "jsx_self_closing_element",
+            "for_statement",
+            # "try_statement", # Flatten try/catch
+            "catch_clause",
+            "finally_clause",
+            "switch_statement",
+            "switch_case",
+            "switch_default",
+            "while_statement",
+            "do_statement",
             # The full `if` statement becomes a scope so we can group its
             # condition and branches together visually.
-            'if_statement',
+            "if_statement",
         }
 
     def _get_scope_type(self, node: Node) -> str:
@@ -303,16 +317,28 @@ class DataFlowAnalyzer:
 
     def _handle_definitions(self, node: Node):
         # Variable Declarations (var, let, const)
-        if node.type == 'variable_declarator':
-            name_node = node.child_by_field_name('name')
+        if node.type == "variable_declarator":
+            name_node = node.child_by_field_name("name")
             if name_node:
+                # When a variable declarator directly initializes a function
+                # (e.g. `const handleClickOutside = (event) => { ... }`) we
+                # still record a definition for reference resolution, but we
+                # mark it as a "function" so the visual graph can choose not to
+                # render an extra variable box next to the function scope.
+                value_node = node.child_by_field_name("value")
+                is_function_initializer = value_node is not None and value_node.type in {
+                    "arrow_function",
+                    "function_expression",
+                }
+
                 # Simple identifier: const x = ...
-                if name_node.type == 'identifier':
-                    self._add_definition(name_node, 'variable')
+                if name_node.type == "identifier":
+                    kind = "function" if is_function_initializer else "variable"
+                    self._add_definition(name_node, kind)
                 else:
                     # Destructured patterns: const [a, b] = ..., const { x, y: z } = ...
                     for ident in self._collect_pattern_identifiers(name_node):
-                        self._add_definition(ident, 'variable')
+                        self._add_definition(ident, "variable")
         
         # Function Parameters
         if node.type in {'required_parameter', 'optional_parameter'}:
@@ -590,6 +616,14 @@ class DataFlowAnalyzer:
             # visibleColumns();`).
             var_nodes: List[Dict[str, Any]] = []
             for var in scope.variables.values():
+                # Function definitions (either declared via `function foo() {}` or
+                # created via `const foo = () => {}`) already have a dedicated
+                # scope cluster in the graph. Skipping a separate "variable"
+                # node for these keeps the visualisation from showing two
+                # overlapping boxes for the same logical function.
+                if var.kind == "function":
+                    continue
+
                 var_nodes.append(
                     {
                         "id": var.id,
@@ -762,14 +796,25 @@ class DataFlowAnalyzer:
                         "type": "control-flow",
                     })
 
-                # If / else branches: link then/else blocks that appear as siblings.
-                if curr_type == "if_branch" and next_type == "else_branch":
-                    elk_edges.append({
-                        "id": f"flow-{curr['id']}-{next_node['id']}",
-                        "sources": [curr['id']],
-                        "targets": [next_node['id']],
-                        "type": "control-flow",
-                    })
+                # If / else branches: link the primary `then` branch to a sibling
+                # `else_branch` if one exists, even if other children such as the
+                # `if_condition` scope sit between them in the child list.
+                if curr_type == "if_branch":
+                    target_else = None
+                    for j in range(i + 1, len(children)):
+                        candidate = children[j]
+                        if candidate.get("type") == "else_branch":
+                            target_else = candidate
+                            break
+                    if target_else is not None:
+                        elk_edges.append(
+                            {
+                                "id": f"flow-{curr['id']}-{target_else['id']}",
+                                "sources": [curr["id"]],
+                                "targets": [target_else["id"]],
+                                "type": "control-flow",
+                            }
+                        )
 
                 # Switch / case / default sequences: link consecutive cases for clarity.
                 if scope.type == "switch" and curr_type in {"case", "default"} and next_type in {"case", "default"}:
