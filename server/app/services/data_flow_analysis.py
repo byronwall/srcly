@@ -30,6 +30,7 @@ class VariableUsage:
     start_line: int
     end_line: int
     context: str  # 'read', 'write', 'call', 'property_access'
+    attribute_name: Optional[str] = None
 
 @dataclass
 class Scope:
@@ -245,6 +246,50 @@ class DataFlowAnalyzer:
             # It's a usage
             self._add_usage(node)
 
+    def _is_jsx_tag_name(self, node: Node) -> bool:
+        """
+        Check if the node is the name of a JSX opening/closing/self-closing element.
+        """
+        parent = node.parent
+        if not parent:
+            return False
+        
+        # <Tag ...>
+        if parent.type == 'jsx_opening_element' and parent.child_by_field_name('name') == node:
+            return True
+        # </Tag>
+        if parent.type == 'jsx_closing_element' and parent.child_by_field_name('name') == node:
+            return True
+        # <Tag />
+        if parent.type == 'jsx_self_closing_element' and parent.child_by_field_name('name') == node:
+            return True
+            
+        return False
+
+    def _get_jsx_attribute_name(self, node: Node) -> Optional[str]:
+        """
+        Walk up to find if we are inside a jsx_attribute, and if so return its property name.
+        """
+        curr = node
+        while curr:
+            if curr.type == 'jsx_attribute':
+                # Try field name first
+                prop = curr.child_by_field_name('property')
+                if prop:
+                    return prop.text.decode('utf-8')
+                
+                # Fallback: look for property_identifier child
+                for child in curr.children:
+                    if child.type == 'property_identifier':
+                        return child.text.decode('utf-8')
+                return None
+
+            # Stop if we hit a scope boundary or something that definitely isn't an attribute
+            if self._is_scope_boundary(curr):
+                break
+            curr = curr.parent
+        return None
+
     def _add_definition(self, node: Node, kind: str, scope_offset: int = 0):
         name = node.text.decode('utf-8')
         scope_idx = -1 + scope_offset
@@ -267,11 +312,16 @@ class DataFlowAnalyzer:
         self.definitions[def_id] = definition
 
     def _add_usage(self, node: Node):
+        if self._is_jsx_tag_name(node):
+            return
+
         name = node.text.decode('utf-8')
         current_scope = self.current_scope_stack[-1]
         
         # Resolve definition
         def_id = self._resolve_variable(name)
+        
+        attribute_name = self._get_jsx_attribute_name(node)
         
         usage = VariableUsage(
             id=str(uuid.uuid4()),
@@ -280,7 +330,8 @@ class DataFlowAnalyzer:
             def_id=def_id,
             start_line=node.start_point.row + 1,
             end_line=node.end_point.row + 1,
-            context='read' # TODO: refine context
+            context='read', # TODO: refine context
+            attribute_name=attribute_name
         )
         self.usages.append(usage)
 
@@ -327,7 +378,7 @@ class DataFlowAnalyzer:
             for usage in scope_usages:
                 children.append({
                     "id": usage.id,
-                    "labels": [{"text": usage.name}],
+                    "labels": [{"text": f"{usage.attribute_name}: {usage.name}" if usage.attribute_name else usage.name}],
                     "width": 60,
                     "height": 30,
                     "type": "usage",
