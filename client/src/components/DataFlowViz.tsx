@@ -348,15 +348,18 @@ export default function DataFlowViz(props: DataFlowVizProps) {
       node.type === "function" ||
       node.type === "block" ||
       node.type === "global" ||
-      node.type === "global" ||
       node.type === "class" ||
       node.type === "jsx" ||
       node.type === "if" ||
+      node.type === "if_branch" ||
+      node.type === "else_branch" ||
       node.type === "for" ||
       node.type === "try" ||
       node.type === "catch" ||
+      node.type === "finally" ||
       node.type === "switch" ||
       node.type === "case" ||
+      node.type === "default" ||
       node.type === "while" ||
       node.type === "do"
     );
@@ -472,11 +475,15 @@ export default function DataFlowViz(props: DataFlowVizProps) {
       case "global":
         return "#ffffff";
       case "if":
+      case "if_branch":
+      case "else_branch":
       case "for":
       case "try":
       case "catch":
+      case "finally":
       case "switch":
       case "case":
+      case "default":
       case "while":
       case "do":
         return "#fff3cd"; // Light Yellow/Orange for control flow

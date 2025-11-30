@@ -131,12 +131,13 @@ class DataFlowAnalyzer:
             # children appear at a deeper nesting level in the data-flow graph.
             'jsx_element',
             'jsx_self_closing_element',
-            'if_statement',
             'for_statement',
             # 'try_statement', # Flatten try/catch
             'catch_clause',
+            'finally_clause',
             'switch_statement',
             'switch_case',
+            'switch_default',
             'while_statement',
             'do_statement',
         }
@@ -164,20 +165,39 @@ class DataFlowAnalyzer:
         #     return 'try'
         if node.type == 'catch_clause':
             return 'catch'
+        if node.type == 'finally_clause':
+            return 'finally'
         if node.type == 'switch_statement':
             return 'switch'
         if node.type == 'switch_case':
             return 'case'
+        if node.type == 'switch_default':
+            return 'default'
         if node.type == 'while_statement':
             return 'while'
         if node.type == 'do_statement':
             return 'do'
             
         if node.type == 'block' or node.type == 'statement_block':
-            # Check if this block is the body of a try statement
-            if node.parent and node.parent.type == 'try_statement':
-                # In tree-sitter-typescript, the body of a try_statement is a statement_block
-                return 'try'
+            # Check if this block is the body of a structured control-flow construct.
+            if node.parent:
+                if node.parent.type == 'try_statement':
+                    # In tree-sitter-typescript, the body of a try_statement is a statement_block
+                    return 'try'
+                # In the TS grammar, the primary if-body is a statement_block
+                # with parent type 'if_statement' and field 'consequence', while
+                # the else-body lives under an 'else_clause' whose parent is the
+                # same if_statement.
+                if node.parent.type == 'if_statement':
+                    consequence = node.parent.child_by_field_name('consequence')
+                    if (
+                        consequence
+                        and consequence.start_byte == node.start_byte
+                        and consequence.end_byte == node.end_byte
+                    ):
+                        return 'if_branch'
+                if node.parent.type == 'else_clause' and node.parent.parent and node.parent.parent.type == 'if_statement':
+                    return 'else_branch'
             return 'block'
 
     def _get_scope_label(self, node: Node, scope_type: str) -> str:
@@ -231,15 +251,27 @@ class DataFlowAnalyzer:
             
             if scope_type == 'try':
                 return "try"
-            
+
             if scope_type == 'catch':
                 return "catch"
+            
+            if scope_type == 'finally':
+                return "finally"
             
             if scope_type == 'switch':
                 return "switch"
             
             if scope_type == 'case':
                 return "case"
+            
+            if scope_type == 'default':
+                return "default"
+
+            if scope_type == 'if_branch':
+                return "if"
+
+            if scope_type == 'else_branch':
+                return "else"
                 
             if scope_type == 'while':
                 return "while"
@@ -467,9 +499,36 @@ class DataFlowAnalyzer:
             for i in range(len(children) - 1):
                 curr = children[i]
                 next_node = children[i+1]
-                
-                # Check for try -> catch
-                if curr.get("type") == "try" and next_node.get("type") == "catch":
+                curr_type = curr.get("type")
+                next_type = next_node.get("type")
+
+                # Try/catch/finally sequences: keep related handlers visually linked.
+                if curr_type == "try" and next_type in {"catch", "finally"}:
+                    elk_edges.append({
+                        "id": f"flow-{curr['id']}-{next_node['id']}",
+                        "sources": [curr['id']],
+                        "targets": [next_node['id']],
+                        "type": "control-flow",
+                    })
+                if curr_type == "catch" and next_type == "finally":
+                    elk_edges.append({
+                        "id": f"flow-{curr['id']}-{next_node['id']}",
+                        "sources": [curr['id']],
+                        "targets": [next_node['id']],
+                        "type": "control-flow",
+                    })
+
+                # If / else branches: link then/else blocks that appear as siblings.
+                if curr_type == "if_branch" and next_type == "else_branch":
+                    elk_edges.append({
+                        "id": f"flow-{curr['id']}-{next_node['id']}",
+                        "sources": [curr['id']],
+                        "targets": [next_node['id']],
+                        "type": "control-flow",
+                    })
+
+                # Switch / case / default sequences: link consecutive cases for clarity.
+                if scope.type == "switch" and curr_type in {"case", "default"} and next_type in {"case", "default"}:
                     elk_edges.append({
                         "id": f"flow-{curr['id']}-{next_node['id']}",
                         "sources": [curr['id']],
