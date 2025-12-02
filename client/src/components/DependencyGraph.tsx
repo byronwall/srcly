@@ -226,11 +226,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
   let zoomBehavior: any;
   // Track pointer movement so that node clicks only fire when there has been
   // effectively no mouse movement (i.e. not part of a drag/zoom gesture).
-  let pointerDown = false;
-  let pointerDownX = 0;
-  let pointerDownY = 0;
   let pointerMovedSinceDown = false;
-  const CLICK_MOVE_THRESHOLD_PX = 4;
 
   const elk = new ELK();
   const primaryMetric = () => props.primaryMetricId || "complexity";
@@ -315,30 +311,6 @@ export default function DependencyGraph(props: DependencyGraphProps) {
   createEffect(() => {
     fetchGraph(props.path);
   });
-
-  const handleSvgMouseDown = (event: MouseEvent) => {
-    if (event.button !== 0) return;
-    pointerDown = true;
-    pointerMovedSinceDown = false;
-    pointerDownX = event.clientX;
-    pointerDownY = event.clientY;
-  };
-
-  const handleSvgMouseMove = (event: MouseEvent) => {
-    if (!pointerDown) return;
-    const dx = event.clientX - pointerDownX;
-    const dy = event.clientY - pointerDownY;
-    if (!pointerMovedSinceDown) {
-      const distanceSq = dx * dx + dy * dy;
-      if (distanceSq > CLICK_MOVE_THRESHOLD_PX * CLICK_MOVE_THRESHOLD_PX) {
-        pointerMovedSinceDown = true;
-      }
-    }
-  };
-
-  const handleSvgMouseUpOrLeave = () => {
-    pointerDown = false;
-  };
 
   async function fetchGraph(path: string) {
     setLoading(true);
