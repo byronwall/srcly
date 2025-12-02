@@ -71,7 +71,48 @@ def attach_file_metrics(node: Node, file_info) -> None:
     
     # Calculate sum of function LOCs
     func_sum_loc = 0
-    
+
+    def _compute_function_body_loc(func_node: Node) -> int:
+        """
+        Compute the LOC that belongs to the *body* of a function node,
+        excluding any lines that are already covered by child scopes.
+
+        Conceptually:
+            body_loc = lines_in_parent_scope
+                       - union_of(lines_of_all_child_scopes)
+
+        This ensures we only count leftover lines in the parent scope that
+        are not associated with a nested child block, avoiding double
+        counting in visuals like the treemap.
+        """
+        # We need valid line information and at least one child scope to
+        # compute a meaningful body range.
+        if func_node.start_line <= 0 or func_node.end_line <= 0:
+            return 0
+        if not func_node.children:
+            return 0
+
+        parent_start = func_node.start_line
+        parent_end = func_node.end_line
+        if parent_end < parent_start:
+            return 0
+
+        covered_lines: set[int] = set()
+        for child in func_node.children:
+            # Only consider children that have a valid, overlapping range.
+            if child.start_line <= 0 or child.end_line <= 0:
+                continue
+            start = max(parent_start, child.start_line)
+            end = min(parent_end, child.end_line)
+            if end < start:
+                continue
+            for line in range(start, end + 1):
+                covered_lines.add(line)
+
+        total_lines = parent_end - parent_start + 1
+        body_lines = total_lines - len(covered_lines)
+        return max(0, body_lines)
+
     def convert_function(func, parent_path: str) -> Node:
         func_node = create_node(func.name, "function", f"{parent_path}::{func.name}")
         func_node.metrics.loc = func.nloc
@@ -99,7 +140,22 @@ def attach_file_metrics(node: Node, file_info) -> None:
             for child in func.children:
                 child_node = convert_function(child, func_node.path)
                 func_node.children.append(child_node)
-        
+
+        # After all child scopes are attached, compute a synthetic "(body)"
+        # fragment that represents only the leftover lines in this function
+        # that are not part of any child scope. This keeps treemap areas
+        # from double-counting lines that already belong to nested children.
+        body_loc = _compute_function_body_loc(func_node)
+        if body_loc > 0 and func_node.children:
+            body_node = create_node("(body)", "function_body", f"{func_node.path}::(body)")
+            body_node.metrics.loc = body_loc
+            # Any additional cyclomatic complexity should already be counted
+            # on the nested child scopes; keep the glue code at 0.
+            body_node.metrics.complexity = 0.0
+            body_node.start_line = func_node.start_line
+            body_node.end_line = func_node.end_line
+            func_node.children.append(body_node)
+
         return func_node
 
     for func in file_info.function_list:
