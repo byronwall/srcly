@@ -12,6 +12,7 @@ import { extractFilePath, filterByExtension } from "../utils/dataProcessing";
 import { HOTSPOT_METRICS, useMetricsStore } from "../utils/metricsStore";
 import DependencyGraph from "./DependencyGraph";
 import DataFlowViz from "./DataFlowViz";
+import FileTypeFilter from "./FileTypeFilter";
 
 interface TreemapProps {
   data: any;
@@ -19,8 +20,6 @@ interface TreemapProps {
   onZoom?: (node: any) => void;
   onFileSelect?: (path: string, startLine?: number, endLine?: number) => void;
 }
-
-const EXTENSIONS = ["ts", "tsx", "js", "jsx", "css", "json", "py", "md"];
 
 export default function Treemap(props: TreemapProps) {
   let containerRef: HTMLDivElement | undefined;
@@ -613,24 +612,12 @@ export default function Treemap(props: TreemapProps) {
         </div>
 
         {/* Filters */}
-        <div class="flex items-center gap-1 ml-4">
-          <span class="text-xs text-gray-500 mr-2 uppercase tracking-wider">
-            Filter:
-          </span>
-          <For each={EXTENSIONS}>
-            {(ext) => (
-              <button
-                class={`px-2 py-0.5 text-xs rounded border transition-colors ${
-                  activeExtensions().includes(ext)
-                    ? "bg-blue-900 border-blue-700 text-blue-100"
-                    : "bg-[#252526] border-[#3e3e42] text-gray-400 hover:bg-[#2d2d2d]"
-                }`}
-                onClick={() => toggleExtension(ext)}
-              >
-                .{ext}
-              </button>
-            )}
-          </For>
+        <div class="ml-4">
+          <FileTypeFilter
+            data={props.data}
+            activeExtensions={activeExtensions()}
+            onToggleExtension={toggleExtension}
+          />
         </div>
 
         {/* Color Metric (linked to Hot Spot metrics) */}
