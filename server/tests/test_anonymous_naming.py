@@ -40,7 +40,7 @@ def test_anonymous_function_naming(analyzer, tmp_path):
     main_func = metrics.function_list[0]
     children = main_func.children
     
-    # We expect 6 children corresponding to the 6 functions above
+    # We expect 6 children corresponding to the 6 function sites above
     assert len(children) == 6
     
     names = [c.name for c in children]
@@ -57,8 +57,11 @@ def test_anonymous_function_naming(analyzer, tmp_path):
     # Case 3: const myFunc = ... -> myFunc
     assert "myFunc" in names
     
-    # Case 4: myMethod: ... -> myMethod
-    assert "myMethod" in names
+    # Case 4: myMethod: ... -> myMethod (nested under the object scope)
+    assert "obj (object)" in names
+    obj_scope = next(c for c in children if c.name == "obj (object)")
+    obj_child_names = [c.name for c in obj_scope.children]
+    assert "myMethod" in obj_child_names
     
     # Case 5: foo.bar.baz(() => {}) -> baz(ƒ)
     assert "baz(ƒ)" in names
@@ -95,9 +98,18 @@ def test_tsx_attribute_function_naming(analyzer, tmp_path):
     app_func = metrics.function_list[0]
     children = app_func.children
 
-    # We expect a single child function for the onFocus handler
+    # We expect a single TSX root child representing the <input /> element.
     assert len(children) == 1
-    assert children[0].name == "onFocus"
+    tsx_root = children[0]
+    assert tsx_root.name == "<input />"
+
+    # Under that root we expect the real <input /> scope with the onFocus handler.
+    assert len(tsx_root.children) == 1
+    input_scope = tsx_root.children[0]
+    assert input_scope.name == "<input />"
+
+    handler_names = [c.name for c in input_scope.children]
+    assert "onFocus" in handler_names
 
 
 def test_tsx_nested_attribute_handler_naming(analyzer, tmp_path):
@@ -132,9 +144,19 @@ def test_tsx_nested_attribute_handler_naming(analyzer, tmp_path):
     app_func = metrics.function_list[0]
     assert app_func.name == "App"
 
-    # The first child should be the onChange handler
+    # The first child should be the TSX root for the <input /> element.
     assert len(app_func.children) == 1
-    on_change = app_func.children[0]
+    tsx_root = app_func.children[0]
+    assert tsx_root.name == "<input />"
+
+    # Within that root, we expect the real <input /> scope, which in turn has
+    # an onChange handler child.
+    assert len(tsx_root.children) == 1
+    input_scope = tsx_root.children[0]
+    assert input_scope.name == "<input />"
+
+    assert len(input_scope.children) == 1
+    on_change = input_scope.children[0]
     assert on_change.name == "onChange"
 
     # And its child should be the inner callback passed to run
@@ -176,27 +198,33 @@ def test_tsx_component_child_naming(analyzer, tmp_path):
     assert chat_func.name == "Chat"
     
     children = chat_func.children
-    # We expect 2 nested functions:
-    # 1. The one inside <Show>
-    # 2. The one inside <For> (which is nested inside the first one)
-    
-    # However, my current logic flattens the list of children in the metrics object returned by analyze_file?
-    # No, analyze_file returns FileMetrics which has function_list (top level).
-    # Each FunctionMetrics has children.
-    
-    # The structure should be:
-    # Chat -> [ Show_func -> [ For_func ] ]
-    
+
+    # With TSX grouping, the top-level child of Chat is a virtual TSX root
+    # representing the <Show> block.
     assert len(children) == 1
-    show_func = children[0]
-    
-    # This is what we want to fix. Currently it probably returns "(anonymous)"
-    # We want "Show(ƒ)"
+    tsx_root = children[0]
+    assert tsx_root.name == "<Show>"
+
+    # Under that root we expect the real <Show> container scope.
+    assert any(c.name == "<Show>" for c in tsx_root.children)
+    show_scope = next(c for c in tsx_root.children if c.name == "<Show>")
+
+    # Inside the <Show> scope we expect the callback function named "<Show>(ƒ)".
+    assert len(show_scope.children) == 1
+    show_func = show_scope.children[0]
     assert show_func.name == "<Show>(ƒ)"
-    
+
+    # Inside that function we expect a single TSX root for the <For> block.
     assert len(show_func.children) == 1
-    for_func = show_func.children[0]
-    
-    # We want "For(ƒ)"
+    for_tsx_root = show_func.children[0]
+    assert for_tsx_root.name == "<For>"
+
+    # Under that root, we expect the real <For> container scope.
+    assert any(c.name == "<For>" for c in for_tsx_root.children)
+    for_scope = next(c for c in for_tsx_root.children if c.name == "<For>")
+
+    # And under <For>, we expect the callback named "<For>(ƒ)".
+    assert len(for_scope.children) == 1
+    for_func = for_scope.children[0]
     assert for_func.name == "<For>(ƒ)"
 

@@ -52,11 +52,12 @@ def test_nested_functions(analyzer, tmp_path):
     #   inner -> finds arrow
     #   MyClass -> finds method
     
-    # So outer should have children: inner, method
+    # So outer should at least have children: inner, MyClass (class)
+    # and the MyClass node should in turn have the method as a child.
     # Let's verify the names of children
     child_names = [c.name for c in outer.children]
     assert "inner" in child_names
-    assert "method" in child_names
+    assert "MyClass (class)" in child_names
     
     # Check inner's children
     inner = next(c for c in outer.children if c.name == "inner")
@@ -67,6 +68,10 @@ def test_nested_functions(analyzer, tmp_path):
     # If parent is variable_declarator, it gets the name.
     # So it should be "arrow".
     assert inner.children[0].name == "arrow"
+
+    # Check MyClass children (method)
+    my_class = next(c for c in outer.children if c.name == "MyClass (class)")
+    assert any(child.name == "method" for child in my_class.children)
 
 def test_tsx_handling(analyzer, tmp_path):
     tsx_content = """
@@ -88,10 +93,11 @@ def test_tsx_handling(analyzer, tmp_path):
     assert len(metrics.function_list) == 1
     component = metrics.function_list[0]
     assert component.name == "Component"
-    
-    # The arrow function inside map might be a child
-    # items.map(item => ...)
-    assert len(component.children) == 1
-    # It's an anonymous arrow function or argument to map
-    child = component.children[0]
-    assert child.name == "map(ƒ)" # Updated to use new naming convention
+
+    # The component should now expose a virtual TSX root that groups TSX scopes,
+    # plus the arrow function used in items.map(...). The virtual root should be
+    # named after the real top-level TSX element (<div>) rather than a generic
+    # "<fragment>" label.
+    names = [c.name for c in component.children]
+    assert "<div>" in names
+    assert "map(ƒ)" in names

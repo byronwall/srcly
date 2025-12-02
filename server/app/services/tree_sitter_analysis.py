@@ -20,6 +20,14 @@ class FunctionMetrics:
     todo_count: int = 0
     # TS/TSX Specific Metrics (per-function)
     ts_type_interface_count: int = 0
+    # TSX structure helpers
+    contains_tsx: bool = False
+    tsx_start_line: int = 0
+    tsx_end_line: int = 0
+    tsx_root_name: str = ""
+    tsx_root_is_fragment: bool = False
+    origin_type: str = ""
+    is_jsx_container: bool = False
     children: List["FunctionMetrics"] = field(default_factory=list)
     # We store children to represent nested functions.
 
@@ -70,6 +78,11 @@ class TreeSitterAnalyzer:
         nloc = len([l for l in lines if l.strip()])
         
         functions = self._extract_functions(tree.root_node, content)
+        # Post-process TSX scopes so that each function containing TSX gets a
+        # single virtual root "<fragment>" node that groups all JSX container
+        # scopes beneath it. This keeps TSX scopes together without changing
+        # when real scopes (functions/objects/JSX containers) are created.
+        self._attach_tsx_fragments(functions)
         
         avg_complexity = 0.0
         if functions:
@@ -194,6 +207,12 @@ class TreeSitterAnalyzer:
         # TS/TSX specific: count type/interface declarations within this function
         ts_type_interface_count = self._count_types_and_interfaces(func_node)
 
+        # TSX structure info for this function / container
+        contains_tsx, tsx_start, tsx_end = self._compute_tsx_bounds(func_node)
+        tsx_root_name, tsx_root_is_fragment = self._find_tsx_root_name(func_node)
+        is_jsx_container = func_node.type in {'jsx_element', 'jsx_self_closing_element'}
+        origin_type = func_node.type
+
         # Calculate new metrics for function
         comment_lines, todo_count = self._count_comments_and_todos(func_node, b"") # Content not needed for simple traversal if we access node.text
         max_nesting_depth = self._calculate_max_nesting_depth(func_node)
@@ -209,6 +228,13 @@ class TreeSitterAnalyzer:
             comment_lines=comment_lines,
             todo_count=todo_count,
             ts_type_interface_count=ts_type_interface_count,
+            contains_tsx=contains_tsx,
+            tsx_start_line=tsx_start,
+            tsx_end_line=tsx_end,
+            tsx_root_name=tsx_root_name,
+            tsx_root_is_fragment=tsx_root_is_fragment,
+            origin_type=origin_type,
+            is_jsx_container=is_jsx_container,
         )
 
     def _get_function_name(self, node: Node) -> str:
@@ -554,6 +580,90 @@ class TreeSitterAnalyzer:
         traverse(node, 0)
         return max_depth
 
+    def _find_tsx_root_name(self, node: Node) -> tuple[str, bool]:
+        """
+        Find the first (top-most in source order) TSX node within the given
+        subtree and derive a human-friendly display name for it.
+
+        Returns:
+            (name, is_fragment)
+        """
+        root_tsx_node: Node | None = None
+
+        def is_before(a: Node, b: Node) -> bool:
+            if a.start_point.row != b.start_point.row:
+                return a.start_point.row < b.start_point.row
+            return a.start_point.column < b.start_point.column
+
+        def traverse(n: Node):
+            nonlocal root_tsx_node
+            if n.type in {'jsx_element', 'jsx_self_closing_element', 'jsx_fragment'}:
+                if root_tsx_node is None or is_before(n, root_tsx_node):
+                    root_tsx_node = n
+            for child in n.children:
+                traverse(child)
+
+        traverse(node)
+
+        if root_tsx_node is None:
+            return "", False
+
+        if root_tsx_node.type == 'jsx_fragment':
+            # This corresponds to a real `<>...</>` fragment.
+            return "<fragment>", True
+
+        # Delegate to the existing JSX naming logic so tags like <Show> or <Item />
+        # are rendered consistently.
+        return self._get_function_name(root_tsx_node), False
+
+    def _compute_tsx_bounds(self, node: Node) -> tuple[bool, int, int]:
+        """
+        For a given function/container node, determine whether it contains any
+        TSX/JSX elements and, if so, return the min/max line span that
+        encloses all such elements within that function.
+        """
+        has_tsx = False
+        start_line: int | None = None
+        end_line: int | None = None
+
+        # Mirror the notion of a “function boundary” used in other visitors so
+        # that TSX in *nested* functions doesn’t accidentally extend the TSX
+        # range of the parent container. Each function/arrow gets its own
+        # `_compute_tsx_bounds` call, so we only want to consider TSX nodes that
+        # actually belong to this node’s body.
+        function_boundary_types = {
+            "function_declaration",
+            "method_definition",
+            "arrow_function",
+            "function_expression",
+            "generator_function",
+            "generator_function_declaration",
+        }
+
+        def traverse(n: Node):
+            nonlocal has_tsx, start_line, end_line
+
+            # Don’t walk into nested functions when computing bounds for the
+            # current one – they will get their own TSX ranges.
+            if n is not node and n.type in function_boundary_types:
+                return
+
+            if n.type in {'jsx_element', 'jsx_self_closing_element', 'jsx_fragment'}:
+                has_tsx = True
+                s = n.start_point.row + 1
+                e = n.end_point.row + 1
+                if start_line is None or s < start_line:
+                    start_line = s
+                if end_line is None or e > end_line:
+                    end_line = e
+            for child in n.children:
+                traverse(child)
+
+        traverse(node)
+        if not has_tsx:
+            return False, 0, 0
+        return True, start_line or 0, end_line or 0
+
     def _count_classes(self, node: Node) -> int:
         count = 0
         class_types = {'class_declaration', 'class_expression'}
@@ -841,6 +951,116 @@ class TreeSitterAnalyzer:
         duplicated_string_count = sum(1 for count in string_counts.values() if count > 1)
         
         return hardcoded_string_volume, duplicated_string_count
+
+    def _attach_tsx_fragments(self, functions: List[FunctionMetrics]) -> None:
+        """
+        For each function/container that contains TSX, insert a synthetic
+        "<fragment>" child that groups any JSX container scopes beneath it.
+        This keeps all TSX scopes listed together under a single top-level
+        node per function while still only creating real scopes for actual
+        functions/objects/JSX containers.
+        """
+
+        def process(func: FunctionMetrics) -> None:
+            # Recurse first so nested scopes are processed before their parents.
+            for child in func.children:
+                process(child)
+
+            # Skip if this scope doesn't contain TSX at all.
+            if not getattr(func, "contains_tsx", False):
+                return
+
+            # Don't create fragments for pure JSX container scopes or for
+            # already-synthetic virtual roots.
+            origin = getattr(func, "origin_type", "")
+            if origin in {"jsx_element", "jsx_self_closing_element", "jsx_fragment", "jsx_virtual_root"}:
+                return
+
+            # Collect direct children that are JSX container scopes.
+            jsx_children = [c for c in func.children if getattr(c, "is_jsx_container", False)]
+
+            # Decide what name to use for the synthetic TSX root. By default we
+            # keep "<fragment>", but if this function's TSX actually starts with
+            # a JSX element (e.g. <div> or <Show>) we prefer that tag name so
+            # the scopes view reflects the real top-level TSX structure. We only
+            # keep the "fragment" label when the true root is a `<>` fragment.
+            tsx_root_name = getattr(func, "tsx_root_name", "") or ""
+            tsx_root_is_fragment = getattr(func, "tsx_root_is_fragment", False)
+
+            display_name = "<fragment>"
+            if tsx_root_name and not tsx_root_is_fragment:
+                display_name = tsx_root_name
+
+            # Determine the span of the TSX region this fragment represents.
+            #
+            # IMPORTANT: we always anchor the virtual root to the *full* TSX
+            # region inside the parent function/container, not just the nested
+            # JSX scopes that we chose to promote as individual children.
+            #
+            # Otherwise, if the only JSX scopes are event-handler containers
+            # like `<button onClick={...}>` or `<Item onSelect={...} />`, the
+            # virtual root would start on the first such element instead of the
+            # actual TSX root line (e.g. the enclosing `<div>`). That makes the
+            # scopes view and inline preview appear a few lines “too low” when
+            # users click the TSX group node.
+            #
+            # By using the recorded TSX bounds we ensure that clicking the TSX
+            # group always highlights the same top-level TSX region the user
+            # sees in the source file.
+            tsx_start = getattr(func, "tsx_start_line", 0) or func.start_line
+            tsx_end = getattr(func, "tsx_end_line", 0) or func.end_line
+            start_line = tsx_start
+            end_line = tsx_end
+
+            nloc = max(0, end_line - start_line + 1) if end_line >= start_line else 0
+
+            fragment = FunctionMetrics(
+                name=display_name,
+                cyclomatic_complexity=0,
+                nloc=nloc,
+                start_line=start_line,
+                end_line=end_line,
+                parameter_count=0,
+                max_nesting_depth=0,
+                comment_lines=0,
+                todo_count=0,
+                ts_type_interface_count=0,
+                contains_tsx=True,
+                tsx_start_line=start_line,
+                tsx_end_line=end_line,
+                 # For virtual roots, propagate/root the TSX name metadata so
+                 # nested processing (and UI consumers) can still understand
+                 # what this scope represents.
+                tsx_root_name=tsx_root_name or display_name,
+                tsx_root_is_fragment=tsx_root_is_fragment,
+                origin_type="jsx_virtual_root",
+                is_jsx_container=True,
+            )
+
+            if jsx_children:
+                # Move JSX container scopes under the fragment.
+                fragment.children = jsx_children
+                first_idx = min(func.children.index(c) for c in jsx_children)
+                new_children = []
+                inserted = False
+                for idx, child in enumerate(func.children):
+                    if child in jsx_children:
+                        if not inserted and idx == first_idx:
+                            new_children.append(fragment)
+                            inserted = True
+                        # Skip moved child
+                        continue
+                    new_children.append(child)
+                if not inserted:
+                    new_children.insert(first_idx, fragment)
+                func.children = new_children
+            else:
+                # No JSX container scopes: just prepend the fragment so that
+                # TSX content is still represented as a single virtual node.
+                func.children.insert(0, fragment)
+
+        for f in functions:
+            process(f)
 
     def extract_imports_exports(self, file_path: str) -> tuple[List[dict], List[dict]]:
         """
