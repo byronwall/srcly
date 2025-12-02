@@ -77,17 +77,38 @@ export function extractFilePath(
   return filePath || null;
 }
 
-export function filterByExtension(node: any, extensions: string[]): any {
-  if (!extensions || extensions.length === 0) return node;
+export interface FilterOptions {
+  extensions?: string[];
+  maxLoc?: number;
+}
 
-  const allowedExtensions = new Set(extensions.map((e) => e.toLowerCase()));
+export function filterData(node: any, options: FilterOptions): any {
+  const { extensions, maxLoc } = options;
+
+  // If no filters are active, return original node
+  if ((!extensions || extensions.length === 0) && maxLoc === undefined) {
+    return node;
+  }
+
+  const allowedExtensions =
+    extensions && extensions.length > 0
+      ? new Set(extensions.map((e) => e.toLowerCase()))
+      : null;
 
   function recurse(n: any): any {
     if (n.type === "file") {
-      const ext = n.name.split(".").pop()?.toLowerCase();
-      // If file has no extension, maybe keep it? Or strict filter?
-      // Let's assume strict filter for now.
-      return ext && allowedExtensions.has(ext) ? n : null;
+      // Extension filter
+      if (allowedExtensions) {
+        const ext = n.name.split(".").pop()?.toLowerCase();
+        if (!ext || !allowedExtensions.has(ext)) return null;
+      }
+
+      // LOC filter
+      if (maxLoc !== undefined && (n.metrics?.loc || 0) > maxLoc) {
+        return null;
+      }
+
+      return n;
     }
 
     if (!n.children || n.children.length === 0) return null;

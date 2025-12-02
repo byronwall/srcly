@@ -8,7 +8,7 @@ import {
   For,
 } from "solid-js";
 import * as d3 from "d3";
-import { extractFilePath, filterByExtension } from "../utils/dataProcessing";
+import { extractFilePath, filterData } from "../utils/dataProcessing";
 import { HOTSPOT_METRICS, useMetricsStore } from "../utils/metricsStore";
 import DependencyGraph from "./DependencyGraph";
 import DataFlowViz from "./DataFlowViz";
@@ -21,13 +21,106 @@ interface TreemapProps {
   onFileSelect?: (path: string, startLine?: number, endLine?: number) => void;
 }
 
+// --- Helper Functions ---
+
+const getContrastingTextColor = (bgColor: string, alpha = 1) => {
+  const base = d3.hsl(bgColor);
+
+  // Drive text toward near-black or near-white while preserving hue for subtle color harmony.
+  // This strongly increases contrast versus the background.
+  const lightBackground = base.l >= 0.5;
+  const targetLightness = lightBackground ? 0.12 : 0.9;
+
+  const textColor = d3.hsl(base.h, base.s * 0.9, targetLightness).rgb();
+  return `rgba(${Math.round(textColor.r)}, ${Math.round(
+    textColor.g
+  )}, ${Math.round(textColor.b)}, ${alpha})`;
+};
+
+/**
+ * For each function node, add a synthetic "body" child that represents
+ * the function's own LOC so that nested children do not completely fill
+ * the function's rectangle in the treemap.
+ */
+const addFunctionBodyDummyNodes = (node: any): any => {
+  if (!node) return node;
+
+  const clone: any = {
+    ...node,
+    // Always clone children array so we never mutate the original data.
+    children: Array.isArray(node.children) ? [...node.children] : [],
+  };
+
+  if (clone.type === "function") {
+    const loc = clone.metrics?.loc || 0;
+    const hasChildren =
+      Array.isArray(clone.children) && clone.children.length > 0;
+    const alreadyHasBodyChild =
+      hasChildren &&
+      clone.children.some((child: any) => child?.type === "function_body");
+
+    // Only add a dummy body node if there are other children to displace.
+    // If there are no children, this node is a leaf and doesn't need a dummy body.
+    if (loc > 0 && hasChildren && !alreadyHasBodyChild) {
+      const bodyChild = {
+        name: "(body)",
+        path: `${clone.path || clone.name || ""}::(body)`,
+        type: "function_body",
+        metrics: {
+          ...(clone.metrics || {}),
+          loc,
+        },
+        start_line: clone.start_line,
+        end_line: clone.end_line,
+        children: [],
+      };
+      clone.children.push(bodyChild);
+    }
+  }
+
+  if (clone.children && clone.children.length > 0) {
+    clone.children = clone.children.map((child: any) =>
+      addFunctionBodyDummyNodes(child)
+    );
+  }
+
+  return clone;
+};
+
+// --- Color Scales ---
+const complexityColor = d3
+  .scaleLinear<string>()
+  .domain([0, 10, 50])
+  .range(["#569cd6", "#dcdcaa", "#ce9178"])
+  .clamp(true);
+
+const commentDensityColor = d3
+  .scaleLinear<string>()
+  .domain([0, 0.2, 0.5])
+  .range(["#ffcccc", "#ff9999", "#ff0000"]) // Light red to dark red
+  .clamp(true);
+
+const nestingDepthColor = d3
+  .scaleLinear<string>()
+  .domain([0, 3, 8])
+  .range(["#e0f7fa", "#4dd0e1", "#006064"]) // Cyan gradient
+  .clamp(true);
+
+const todoCountColor = d3
+  .scaleLinear<string>()
+  .domain([0, 1, 5])
+  .range(["#f1f8e9", "#aed581", "#33691e"]) // Green gradient
+  .clamp(true);
+
 export default function Treemap(props: TreemapProps) {
   let containerRef: HTMLDivElement | undefined;
   let tooltipRef: HTMLDivElement | undefined;
 
+  const [dimensions, setDimensions] = createSignal({ width: 0, height: 0 });
   const [currentRoot, setCurrentRoot] = createSignal<any>(null);
   const [breadcrumbs, setBreadcrumbs] = createSignal<any[]>([]);
   const [activeExtensions, setActiveExtensions] = createSignal<string[]>([]);
+  const [maxLoc, setMaxLoc] = createSignal<number | undefined>(undefined);
   const { selectedHotSpotMetrics, setSelectedHotSpotMetrics } =
     useMetricsStore();
   const primaryMetric = () => selectedHotSpotMetrics()[0] || "complexity";
@@ -81,94 +174,20 @@ export default function Treemap(props: TreemapProps) {
     });
   });
 
-  const getContrastingTextColor = (bgColor: string, alpha = 1) => {
-    const base = d3.hsl(bgColor);
-
-    // Drive text toward near-black or near-white while preserving hue for subtle color harmony.
-    // This strongly increases contrast versus the background.
-    const lightBackground = base.l >= 0.5;
-    const targetLightness = lightBackground ? 0.12 : 0.9;
-
-    const textColor = d3.hsl(base.h, base.s * 0.9, targetLightness).rgb();
-    return `rgba(${Math.round(textColor.r)}, ${Math.round(
-      textColor.g
-    )}, ${Math.round(textColor.b)}, ${alpha})`;
-  };
-
-  /**
-   * For each function node, add a synthetic "body" child that represents
-   * the function's own LOC so that nested children do not completely fill
-   * the function's rectangle in the treemap.
-   */
-  const addFunctionBodyDummyNodes = (node: any): any => {
-    if (!node) return node;
-
-    const clone: any = {
-      ...node,
-      // Always clone children array so we never mutate the original data.
-      children: Array.isArray(node.children) ? [...node.children] : [],
-    };
-
-    if (clone.type === "function") {
-      const loc = clone.metrics?.loc || 0;
-      const hasChildren =
-        Array.isArray(clone.children) && clone.children.length > 0;
-      const alreadyHasBodyChild =
-        hasChildren &&
-        clone.children.some((child: any) => child?.type === "function_body");
-
-      // Only add a dummy body node if there are other children to displace.
-      // If there are no children, this node is a leaf and doesn't need a dummy body.
-      if (loc > 0 && hasChildren && !alreadyHasBodyChild) {
-        const bodyChild = {
-          name: "(body)",
-          path: `${clone.path || clone.name || ""}::(body)`,
-          type: "function_body",
-          metrics: {
-            ...(clone.metrics || {}),
-            loc,
-          },
-          start_line: clone.start_line,
-          end_line: clone.end_line,
-          children: [],
-        };
-        clone.children.push(bodyChild);
+  // Handle resize
+  onMount(() => {
+    if (!containerRef) return;
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setDimensions({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        });
       }
-    }
-
-    if (clone.children && clone.children.length > 0) {
-      clone.children = clone.children.map((child: any) =>
-        addFunctionBodyDummyNodes(child)
-      );
-    }
-
-    return clone;
-  };
-
-  // Color scales
-  const complexityColor = d3
-    .scaleLinear<string>()
-    .domain([0, 10, 50])
-    .range(["#569cd6", "#dcdcaa", "#ce9178"])
-    .clamp(true);
-
-  const commentDensityColor = d3
-    .scaleLinear<string>()
-    .domain([0, 0.2, 0.5])
-    .range(["#ffcccc", "#ff9999", "#ff0000"]) // Light red to dark red
-    .clamp(true);
-
-  const nestingDepthColor = d3
-    .scaleLinear<string>()
-    .domain([0, 3, 8])
-    .range(["#e0f7fa", "#4dd0e1", "#006064"]) // Cyan gradient
-    .clamp(true);
-
-  const todoCountColor = d3
-    .scaleLinear<string>()
-    .domain([0, 1, 5])
-    .range(["#f1f8e9", "#aed581", "#33691e"]) // Green gradient (or maybe orange?)
-    .clamp(true);
+    });
+    resizeObserver.observe(containerRef);
+    onCleanup(() => resizeObserver.disconnect());
+  });
 
   // Initialize current root when data loads or updates
   createEffect(() => {
@@ -288,40 +307,32 @@ export default function Treemap(props: TreemapProps) {
     }
   }
 
-  function renderTreemap(rootData: any) {
-    if (!containerRef || !rootData) return;
+  // --- Layout Calculation ---
 
-    const w = containerRef.clientWidth;
-    const h = containerRef.clientHeight;
+  const processedData = createMemo(() => {
+    const rootData = currentRoot();
+    if (!rootData) return null;
 
-    if (w === 0 || h === 0) return;
+    // Apply filters
+    const filteredData = filterData(JSON.parse(JSON.stringify(rootData)), {
+      extensions: activeExtensions(),
+      maxLoc: maxLoc(),
+    });
 
-    // Clear previous
-    d3.select(containerRef).html("");
+    if (!filteredData) return null;
 
-    // Apply extension filter
-    const filteredData =
-      activeExtensions().length > 0
-        ? filterByExtension(
-            JSON.parse(JSON.stringify(rootData)),
-            activeExtensions()
-          )
-        : rootData;
+    // Add synthetic "body" children
+    return addFunctionBodyDummyNodes(filteredData);
+  });
 
-    if (!filteredData) {
-      d3.select(containerRef)
-        .append("div")
-        .attr("class", "flex items-center justify-center h-full text-gray-500")
-        .text("No files match the selected filters");
-      return;
-    }
+  const layoutRoot = createMemo(() => {
+    const data = processedData();
+    const { width, height } = dimensions();
 
-    // Add synthetic "body" children to function nodes so their own LOC
-    // is represented as area in the treemap, separate from nested children.
-    const hierarchyInput = addFunctionBodyDummyNodes(filteredData);
+    if (!data || width === 0 || height === 0) return null;
 
     const root = d3
-      .hierarchy(hierarchyInput)
+      .hierarchy(data)
       // Only count LOC on leaf nodes so container values are the sum of their leaves
       .sum((d: any) => {
         if (!d || !d.metrics) return 0;
@@ -347,27 +358,23 @@ export default function Treemap(props: TreemapProps) {
 
     d3
       .treemap()
-      .size([w, h])
+      .size([width, height])
       .paddingOuter(4)
       .paddingTop(20) // Space for folder labels
       .paddingInner(2)
       .round(true)
       .tile(d3.treemapBinary)(root);
 
-    const svg = d3
-      .select(containerRef)
-      .append("svg")
-      .attr("width", w)
-      .attr("height", h)
-      .style("shape-rendering", "crispEdges")
-      .style("font-family", "sans-serif");
+    return root as d3.HierarchyRectangularNode<any>;
+  });
 
-    // Cast to Rectangular node
-    const rootRect = root as d3.HierarchyRectangularNode<any>;
+  const nodes = createMemo(() => {
+    const root = layoutRoot();
+    if (!root) return [];
     // Skip the synthetic/top-level root so the treemap starts at its children.
     // Also skip synthetic "(body)" function-body nodes so they still reserve
     // area in the layout but are not actually rendered.
-    const allNodes = rootRect
+    return root
       .descendants()
       .filter(
         (d) =>
@@ -375,178 +382,9 @@ export default function Treemap(props: TreemapProps) {
           d.data?.type !== "function_body" &&
           d.data?.name !== "(body)"
       );
+  });
 
-    // Groups for folders
-    const cell = svg
-      .selectAll("g")
-      .data(allNodes)
-      .join("g")
-      .attr("transform", (d) => `translate(${d.x0},${d.y0})`);
-
-    // Draw rects
-    const rects = cell
-      .append("rect")
-      .attr("width", (d) => Math.max(0, d.x1 - d.x0))
-      .attr("height", (d) => Math.max(0, d.y1 - d.y0))
-      .attr("fill", (d) => {
-        if (d.data.type === "folder") return "#1e1e1e";
-        if (d.data.name === "(misc/imports)") return "#444";
-
-        const metricId = primaryMetric();
-        const metrics = d.data.metrics || {};
-        let rawVal = (metrics as any)[metricId] ?? 0;
-
-        const def = HOTSPOT_METRICS.find((m) => m.id === metricId);
-        if (def?.invert) {
-          rawVal = 1 - (rawVal || 0);
-        }
-
-        if (!isFinite(rawVal) || rawVal < 0) rawVal = 0;
-
-        // Map normalized-ish score into complexity-like palette.
-        // We don't know global max here, so we clamp a few reasonable breakpoints.
-        const scaled =
-          typeof rawVal === "number"
-            ? Math.min(rawVal, 50)
-            : Number(rawVal) || 0;
-
-        if (metricId === "comment_density") {
-          return commentDensityColor(metrics.comment_density || 0);
-        }
-        if (metricId === "max_nesting_depth") {
-          return nestingDepthColor(metrics.max_nesting_depth || 0);
-        }
-        if (metricId === "todo_count") {
-          return todoCountColor(metrics.todo_count || 0);
-        }
-
-        return complexityColor(scaled);
-      })
-      .attr("stroke", (d) => {
-        // Only highlight files (not folders) that are large
-        if (d.data.type !== "folder" && d.data.metrics?.loc > 2000)
-          return "#ff0000";
-        return d.data.type === "folder" ? "#333" : "#121212";
-      })
-      .attr("stroke-width", (d) => {
-        if (d.data.type !== "folder" && d.data.metrics?.loc > 2000) return 2;
-        return d.data.type === "folder" ? 1 : 0.5;
-      })
-      .on("click", (e, d) => {
-        e.stopPropagation();
-        handleHierarchyClick(d, e);
-      })
-      .on("mouseover", (e, d) => {
-        // Show tooltip for files AND leaf nodes (anything not a folder)
-        if (d.data.type !== "folder") showTooltip(e, d);
-      })
-      .on("mouseout", hideTooltip);
-
-    // Apply reactive styles for isolate mode
-    createEffect(() => {
-      const isolate = isIsolateMode();
-      rects.style("cursor", (d) => {
-        if (isolate) return "zoom-in";
-        return d.data.type === "folder" ? "zoom-in" : "pointer";
-      });
-
-      if (isolate) {
-        rects.attr("fill-opacity", 0.8); // Dim slightly to show "mode change"
-      } else {
-        rects.attr("fill-opacity", 1);
-      }
-    });
-
-    // Folder Labels
-    cell
-      .filter(
-        (d) => d.data.type === "folder" && d.x1 - d.x0 > 30 && d.y1 - d.y0 > 20
-      )
-      .append("text")
-      .attr("x", 4)
-      .attr("y", 13)
-      .text((d) => d.data.name)
-      .attr("font-size", "11px")
-      .attr("font-weight", "bold")
-      .attr("fill", "#888")
-      .style("pointer-events", "none");
-
-    // File Labels
-    cell
-      .filter(
-        (d) => d.data.type === "file" && d.x1 - d.x0 > 40 && d.y1 - d.y0 > 15
-      )
-      .append("text")
-      .attr("x", 4)
-      .attr("y", 13)
-      .text((d) => d.data.name)
-      .attr("font-size", "10px")
-      .attr("font-size", "10px")
-      .attr("fill", (d) =>
-        getContrastingTextColor(
-          (() => {
-            if (d.data.type === "folder") return "#1e1e1e";
-            if (d.data.name === "(misc/imports)") return "#444";
-
-            const metricId = primaryMetric();
-            const metrics = d.data.metrics || {};
-
-            if (metricId === "comment_density") {
-              return commentDensityColor(metrics.comment_density || 0);
-            }
-            if (metricId === "max_nesting_depth") {
-              return nestingDepthColor(metrics.max_nesting_depth || 0);
-            }
-            if (metricId === "todo_count") {
-              return todoCountColor(metrics.todo_count || 0);
-            }
-            return complexityColor(metrics[metricId] || 0);
-          })()
-        )
-      )
-      .style("pointer-events", "none");
-
-    // Code Chunk Labels (when zoomed in)
-    // We can check depth or size to decide when to show labels for smaller chunks
-    cell
-      .filter(
-        (d) =>
-          d.data.type !== "folder" &&
-          d.data.type !== "file" &&
-          d.x1 - d.x0 > 50 &&
-          d.y1 - d.y0 > 20
-      )
-      .append("text")
-      .attr("x", 2)
-      .attr("y", 10)
-      .text((d) => d.data.name)
-      .attr("font-size", "11px")
-      .attr("fill", (d) =>
-        getContrastingTextColor(
-          (() => {
-            if (d.data.type === "folder") return "#1e1e1e";
-            if (d.data.name === "(misc/imports)") return "#444";
-
-            const metricId = primaryMetric();
-            const metrics = d.data.metrics || {};
-
-            if (metricId === "comment_density") {
-              return commentDensityColor(metrics.comment_density || 0);
-            }
-            if (metricId === "max_nesting_depth") {
-              return nestingDepthColor(metrics.max_nesting_depth || 0);
-            }
-            if (metricId === "todo_count") {
-              return todoCountColor(metrics.todo_count || 0);
-            }
-            return complexityColor(metrics[metricId] || 0);
-          })(),
-          0.7
-        )
-      )
-      .style("pointer-events", "none")
-      .style("overflow", "hidden");
-  }
+  // --- Tooltip ---
 
   function showTooltip(e: MouseEvent, d: d3.HierarchyNode<any>) {
     if (!tooltipRef) return;
@@ -567,26 +405,89 @@ export default function Treemap(props: TreemapProps) {
     tooltipRef.style.opacity = "0";
   }
 
-  createEffect(() => {
-    const root = currentRoot();
-    const depsVisible = showDependencyGraph();
-    // Track metric changes so color updates are reactive in the treemap.
-    primaryMetric();
-    if (root && !depsVisible) {
-      renderTreemap(root);
-    }
-  });
+  // --- Color Logic ---
+  const getNodeColor = (d: d3.HierarchyNode<any>) => {
+    if (d.data.type === "folder") return "#1e1e1e";
+    if (d.data.name === "(misc/imports)") return "#444";
 
-  // Handle resize
-  onMount(() => {
-    const resizeObserver = new ResizeObserver(() => {
-      if (currentRoot() && !showDependencyGraph()) {
-        renderTreemap(currentRoot());
-      }
-    });
-    if (containerRef) resizeObserver.observe(containerRef);
-    onCleanup(() => resizeObserver.disconnect());
-  });
+    const metricId = primaryMetric();
+    const metrics = d.data.metrics || {};
+    let rawVal = (metrics as any)[metricId] ?? 0;
+
+    const def = HOTSPOT_METRICS.find((m) => m.id === metricId);
+    if (def?.invert) {
+      rawVal = 1 - (rawVal || 0);
+    }
+
+    if (!isFinite(rawVal) || rawVal < 0) rawVal = 0;
+
+    const scaled =
+      typeof rawVal === "number" ? Math.min(rawVal, 50) : Number(rawVal) || 0;
+
+    if (metricId === "comment_density") {
+      return commentDensityColor(metrics.comment_density || 0);
+    }
+    if (metricId === "max_nesting_depth") {
+      return nestingDepthColor(metrics.max_nesting_depth || 0);
+    }
+    if (metricId === "todo_count") {
+      return todoCountColor(metrics.todo_count || 0);
+    }
+
+    return complexityColor(scaled);
+  };
+
+  const getNodeStroke = (d: d3.HierarchyNode<any>) => {
+    if (d.data.type !== "folder" && d.data.metrics?.loc > 2000)
+      return "#ff0000";
+    return d.data.type === "folder" ? "#333" : "#121212";
+  };
+
+  const getNodeStrokeWidth = (d: d3.HierarchyNode<any>) => {
+    if (d.data.type !== "folder" && d.data.metrics?.loc > 2000) return 2;
+    return d.data.type === "folder" ? 1 : 0.5;
+  };
+
+  const getNodeTextColor = (d: d3.HierarchyNode<any>) => {
+    if (d.data.type === "folder") return "#1e1e1e"; // Not used for folder labels usually
+    if (d.data.name === "(misc/imports)") return "#444";
+
+    const metricId = primaryMetric();
+    const metrics = d.data.metrics || {};
+
+    let color;
+    if (metricId === "comment_density") {
+      color = commentDensityColor(metrics.comment_density || 0);
+    } else if (metricId === "max_nesting_depth") {
+      color = nestingDepthColor(metrics.max_nesting_depth || 0);
+    } else if (metricId === "todo_count") {
+      color = todoCountColor(metrics.todo_count || 0);
+    } else {
+      color = complexityColor(metrics[metricId] || 0);
+    }
+    return getContrastingTextColor(color);
+  };
+
+  const getChunkLabelColor = (d: d3.HierarchyNode<any>) => {
+    // Similar to getNodeTextColor but with alpha
+    if (d.data.type === "folder") return "#1e1e1e";
+    if (d.data.name === "(misc/imports)") return "#444";
+
+    const metricId = primaryMetric();
+    const metrics = d.data.metrics || {};
+
+    let color;
+    if (metricId === "comment_density") {
+      color = commentDensityColor(metrics.comment_density || 0);
+    } else if (metricId === "max_nesting_depth") {
+      color = nestingDepthColor(metrics.max_nesting_depth || 0);
+    } else if (metricId === "todo_count") {
+      color = todoCountColor(metrics.todo_count || 0);
+    } else {
+      color = complexityColor(metrics[metricId] || 0);
+    }
+    return getContrastingTextColor(color, 0.7);
+  };
 
   return (
     <div class="flex flex-col w-full h-full overflow-hidden border border-gray-700 rounded bg-[#121212] relative">
@@ -617,6 +518,8 @@ export default function Treemap(props: TreemapProps) {
             data={props.data}
             activeExtensions={activeExtensions()}
             onToggleExtension={toggleExtension}
+            maxLoc={maxLoc()}
+            onMaxLocChange={setMaxLoc}
           />
         </div>
 
@@ -759,6 +662,114 @@ export default function Treemap(props: TreemapProps) {
             path={currentRoot()?.path}
             onClose={() => setShowDataFlow(false)}
           />
+        </Show>
+        <Show
+          when={!showDependencyGraph() && !showDataFlow() && processedData()}
+        >
+          <svg
+            width={dimensions().width}
+            height={dimensions().height}
+            style={{
+              "shape-rendering": "crispEdges",
+              "font-family": "sans-serif",
+            }}
+          >
+            <For each={nodes()}>
+              {(d) => (
+                <g transform={`translate(${d.x0},${d.y0})`}>
+                  <rect
+                    width={Math.max(0, d.x1 - d.x0)}
+                    height={Math.max(0, d.y1 - d.y0)}
+                    fill={getNodeColor(d)}
+                    stroke={getNodeStroke(d)}
+                    stroke-width={getNodeStrokeWidth(d)}
+                    style={{
+                      cursor: isIsolateMode()
+                        ? "zoom-in"
+                        : d.data.type === "folder"
+                        ? "zoom-in"
+                        : "pointer",
+                      "fill-opacity": isIsolateMode() ? 0.8 : 1,
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleHierarchyClick(d, e);
+                    }}
+                    onMouseEnter={(e) => {
+                      if (d.data.type !== "folder") showTooltip(e, d);
+                    }}
+                    onMouseLeave={hideTooltip}
+                  />
+                  {/* Folder Labels */}
+                  <Show
+                    when={
+                      d.data.type === "folder" &&
+                      d.x1 - d.x0 > 30 &&
+                      d.y1 - d.y0 > 20
+                    }
+                  >
+                    <text
+                      x={4}
+                      y={13}
+                      font-size="11px"
+                      font-weight="bold"
+                      fill="#888"
+                      style={{ "pointer-events": "none" }}
+                    >
+                      {d.data.name}
+                    </text>
+                  </Show>
+                  {/* File Labels */}
+                  <Show
+                    when={
+                      d.data.type === "file" &&
+                      d.x1 - d.x0 > 40 &&
+                      d.y1 - d.y0 > 15
+                    }
+                  >
+                    <text
+                      x={4}
+                      y={13}
+                      font-size="10px"
+                      fill={getNodeTextColor(d)}
+                      style={{ "pointer-events": "none" }}
+                    >
+                      {d.data.name}
+                    </text>
+                  </Show>
+                  {/* Code Chunk Labels */}
+                  <Show
+                    when={
+                      d.data.type !== "folder" &&
+                      d.data.type !== "file" &&
+                      d.x1 - d.x0 > 50 &&
+                      d.y1 - d.y0 > 20
+                    }
+                  >
+                    <text
+                      x={2}
+                      y={10}
+                      font-size="11px"
+                      fill={getChunkLabelColor(d)}
+                      style={{
+                        "pointer-events": "none",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {d.data.name}
+                    </text>
+                  </Show>
+                </g>
+              )}
+            </For>
+          </svg>
+        </Show>
+        <Show
+          when={!processedData() && !showDependencyGraph() && !showDataFlow()}
+        >
+          <div class="flex items-center justify-center h-full text-gray-500">
+            No files match the selected filters
+          </div>
         </Show>
       </div>
       <div
