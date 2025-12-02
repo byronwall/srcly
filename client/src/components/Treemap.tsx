@@ -692,6 +692,7 @@ export default function Treemap(props: TreemapProps) {
                     fill={getNodeColor(d)}
                     stroke={getNodeStroke(d)}
                     stroke-width={getNodeStrokeWidth(d)}
+                    class="transition-all duration-100 hover:brightness-110 hover:stroke-gray-300 hover:stroke-[1.5px]"
                     style={{
                       cursor: isIsolateMode()
                         ? "zoom-in"
