@@ -391,13 +391,25 @@ export default function Treemap(props: TreemapProps) {
     tooltipRef.style.opacity = "1";
     tooltipRef.style.left = e.pageX + 10 + "px";
     tooltipRef.style.top = e.pageY + 10 + "px";
-    tooltipRef.innerHTML = `<strong>${d.data.name}</strong><br>LOC: ${
-      d.value
-    }<br>Complexity: ${d.data.metrics?.complexity || 0}<br>Density: ${(
-      (d.data.metrics?.comment_density || 0) * 100
-    ).toFixed(0)}%<br>Depth: ${
-      d.data.metrics?.max_nesting_depth || 0
-    }<br>TODOs: ${d.data.metrics?.todo_count || 0}`;
+
+    if (d.data.type === "folder") {
+      const subFolders = d
+        .descendants()
+        .filter((n) => n.data.type === "folder" && n !== d).length;
+      const subFiles = d
+        .descendants()
+        .filter((n) => n.data.type === "file").length;
+
+      tooltipRef.innerHTML = `<strong>${d.data.name}</strong><br>Total LOC: ${d.value}<br>Sub-folders: ${subFolders}<br>Sub-files: ${subFiles}`;
+    } else {
+      tooltipRef.innerHTML = `<strong>${d.data.name}</strong><br>LOC: ${
+        d.value
+      }<br>Complexity: ${d.data.metrics?.complexity || 0}<br>Density: ${(
+        (d.data.metrics?.comment_density || 0) * 100
+      ).toFixed(0)}%<br>Depth: ${
+        d.data.metrics?.max_nesting_depth || 0
+      }<br>TODOs: ${d.data.metrics?.todo_count || 0}`;
+    }
   }
 
   function hideTooltip() {
@@ -693,7 +705,7 @@ export default function Treemap(props: TreemapProps) {
                       handleHierarchyClick(d, e);
                     }}
                     onMouseEnter={(e) => {
-                      if (d.data.type !== "folder") showTooltip(e, d);
+                      showTooltip(e, d);
                     }}
                     onMouseLeave={hideTooltip}
                   />
