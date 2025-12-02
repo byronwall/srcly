@@ -438,13 +438,10 @@ export default function Treemap(props: TreemapProps) {
   };
 
   const getNodeStroke = (d: d3.HierarchyNode<any>) => {
-    if (d.data.type !== "folder" && d.data.metrics?.loc > 2000)
-      return "#ff0000";
     return d.data.type === "folder" ? "#333" : "#121212";
   };
 
   const getNodeStrokeWidth = (d: d3.HierarchyNode<any>) => {
-    if (d.data.type !== "folder" && d.data.metrics?.loc > 2000) return 2;
     return d.data.type === "folder" ? 1 : 0.5;
   };
 
