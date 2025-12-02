@@ -85,7 +85,9 @@ class DataFlowAnalyzer:
 
         self._traverse(tree.root_node)
 
-        return self._build_graph()
+        graph = self._build_graph()
+        graph["path"] = file_path
+        return graph
 
     def _traverse(self, node: Node):
         # Handle Scope Creation
@@ -797,14 +799,12 @@ class DataFlowAnalyzer:
                             target_else = candidate
                             break
                     if target_else is not None:
-                        elk_edges.append(
-                            {
-                                "id": f"flow-{curr['id']}-{target_else['id']}",
-                                "sources": [curr["id"]],
-                                "targets": [target_else["id"]],
-                                "type": "control-flow",
-                            }
-                        )
+                        elk_edges.append({
+                            "id": f"flow-{curr['id']}-{target_else['id']}",
+                            "sources": [curr['id']],
+                            "targets": [target_else['id']],
+                            "type": "control-flow",
+                        })
 
                 # Switch / case / default sequences: link consecutive cases for clarity.
                 if scope.type == "switch" and curr_type in {"case", "default"} and next_type in {"case", "default"}:
@@ -823,6 +823,7 @@ class DataFlowAnalyzer:
                 # Scope line range so the client can, if desired, preview scopes.
                 "startLine": scope.start_line,
                 "endLine": scope.end_line,
+                "params": [v.name for v in scope.variables.values() if v.kind == 'param'],
                 "layoutOptions": {
                     "elk.algorithm": "layered",
                     "elk.direction": "DOWN",
@@ -836,7 +837,6 @@ class DataFlowAnalyzer:
                 },
             }
 
-        # root_scope = self.scopes[self.current_scope_stack[0].id] # Unused
         # The root is the one with no parent.
         root = next(s for s in self.scopes.values() if s.parent_id is None)
         

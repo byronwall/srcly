@@ -1,189 +1,451 @@
 import { createSignal, createEffect, Show, For } from "solid-js";
-import ELK from "elkjs/lib/elk.bundled.js";
-import FilePicker from "./FilePicker";
-import InlineCodePreview from "./InlineCodePreview";
+import { codeToHtml } from "shiki";
 
 interface DataFlowVizProps {
   path: string;
   onClose: () => void;
+  onFileSelect?: (path: string, startLine?: number, endLine?: number) => void;
 }
 
-interface ElkNode {
+// --- Data Types ---
+
+interface NodeData {
   id: string;
   labels?: { text: string }[];
-  children?: ElkNode[];
-  edges?: ElkEdge[];
-  width?: number;
-  height?: number;
-  x?: number;
-  y?: number;
-  type?: string; // 'variable', 'usage', 'function', 'block', 'global'
-  // Optional line metadata from the backend, used for code previews.
+  children?: NodeData[];
+  edges?: EdgeData[];
+  type?: string;
   startLine?: number;
   endLine?: number;
+  path?: string; // File path if different from root
+  params?: string[];
 }
 
-interface ElkEdge {
+interface EdgeData {
   id: string;
   sources: string[];
   targets: string[];
   type?: string;
-  sections?: {
-    startPoint: { x: number; y: number };
-    endPoint: { x: number; y: number };
-    bendPoints?: { x: number; y: number }[];
-  }[];
 }
 
-interface GraphData extends ElkNode {
-  edges?: ElkEdge[];
-}
-
-interface SelectedNodeInfo {
-  id: string;
-  type?: string;
-  label: string;
-  startLine?: number;
-  endLine?: number;
-}
-
-interface FlattenedNode {
-  id: string;
-  type?: string;
+interface LayoutNode extends NodeData {
   x: number;
   y: number;
   width: number;
   height: number;
-  label?: string;
-  startLine?: number;
-  endLine?: number;
+  children: LayoutNode[];
+  absX: number;
+  absY: number;
+  // Grouping info
+  isGroup?: boolean; // If true, this is a synthetic group (e.g. if/else)
+  groupType?: string; // 'if-chain', 'try-chain'
 }
 
-interface RenderEdgePath {
+interface RenderEdge {
   id: string;
   d: string;
   type?: string;
 }
 
+// --- Constants & Config ---
+
+const CONSTANTS = {
+  FONT_SIZE: 12,
+  CHAR_WIDTH: 7.5,
+  LINE_HEIGHT: 20,
+  PADDING_X: 12,
+  PADDING_Y: 8,
+  HEADER_HEIGHT: 28,
+  CHILD_GAP: 8,
+  COLUMN_GAP: 12,
+  MIN_WIDTH: 100,
+  MAX_COLS: 3,
+};
+
+// --- Layout Engine ---
+
+function measureText(text: string): number {
+  return Math.max(text.length * CONSTANTS.CHAR_WIDTH, 40);
+}
+
+// Helper to group control flow nodes (if/else, try/catch)
+function groupControlFlowNodes(nodes: NodeData[]): NodeData[] {
+  const grouped: NodeData[] = [];
+  let i = 0;
+  while (i < nodes.length) {
+    const node = nodes[i];
+
+    // Check for If/Else chain
+    if (node.type === "if") {
+      const chain = [node];
+      let j = i + 1;
+      while (j < nodes.length) {
+        const next = nodes[j];
+        if (next.type === "else_branch" || next.type === "else") {
+          chain.push(next);
+          j++;
+        } else {
+          break;
+        }
+      }
+      if (chain.length > 1) {
+        grouped.push({
+          id: `group-${node.id}`,
+          type: "group",
+          labels: [{ text: "If/Else Group" }], // Internal label
+          children: chain,
+          // Propagate edges? For now assume edges are on children
+        } as any); // Type cast for synthetic node
+        i = j;
+        continue;
+      }
+    }
+
+    // Check for Try/Catch/Finally chain
+    if (node.type === "try") {
+      const chain = [node];
+      let j = i + 1;
+      while (j < nodes.length) {
+        const next = nodes[j];
+        if (next.type === "catch" || next.type === "finally") {
+          chain.push(next);
+          j++;
+        } else {
+          break;
+        }
+      }
+      if (chain.length > 1) {
+        grouped.push({
+          id: `group-${node.id}`,
+          type: "group",
+          labels: [{ text: "Try/Catch Group" }],
+          children: chain,
+        } as any);
+        i = j;
+        continue;
+      }
+    }
+
+    grouped.push(node);
+    i++;
+  }
+  return grouped;
+}
+
+function calculateLayout(node: NodeData, absX = 0, absY = 0): LayoutNode {
+  const label = node.labels?.[0]?.text || node.id;
+  const isLeaf = !node.children || node.children.length === 0;
+
+  // Synthetic group handling
+  const isSyntheticGroup = (node as any).type === "group";
+
+  let contentWidth = 0;
+  let contentHeight = 0;
+  const childrenLayout: LayoutNode[] = [];
+
+  if (!isLeaf && node.children) {
+    // 1. Preprocess children (grouping) - ONLY if not already a group
+    // If we are already a group, our children are the chain items, don't re-group them.
+    const rawChildren = isSyntheticGroup
+      ? node.children
+      : groupControlFlowNodes(node.children);
+
+    // Sort children by startLine if not a synthetic group (groups preserve order)
+    const sortedChildren = isSyntheticGroup
+      ? rawChildren
+      : [...rawChildren].sort(
+          (a, b) => (a.startLine || 0) - (b.startLine || 0)
+        );
+
+    // 2. Layout Children recursively
+    const layouts = sortedChildren.map((child) => calculateLayout(child, 0, 0));
+
+    // 3. Position Children
+    if (isSyntheticGroup) {
+      // Vertical Stack with 0 gap (overlap borders by 1px)
+      let currentY = 0;
+      let maxWidth = 0;
+      for (const child of layouts) {
+        child.x = 0;
+        child.y = currentY;
+        currentY += child.height - 1; // Overlap borders
+        maxWidth = Math.max(maxWidth, child.width);
+      }
+      // Stretch children to max width
+      for (const child of layouts) {
+        child.width = maxWidth;
+      }
+      contentWidth = maxWidth;
+      contentHeight = currentY + 1; // Add back the last pixel
+    } else {
+      // Masonry Layout
+      const maxChildWidth = layouts.reduce(
+        (max, l) => Math.max(max, l.width),
+        0
+      );
+      const isWide = maxChildWidth > 500;
+      const count = layouts.length;
+
+      let numCols = 1;
+      if (!isWide && count > 1) {
+        numCols = count > 4 ? 3 : 2;
+      }
+
+      const cols: LayoutNode[][] = Array.from({ length: numCols }, () => []);
+      const colHeights = new Array(numCols).fill(0);
+
+      // Distribute children to shortest column
+      for (const child of layouts) {
+        let minH = colHeights[0];
+        let colIdx = 0;
+        for (let i = 1; i < numCols; i++) {
+          if (colHeights[i] < minH) {
+            minH = colHeights[i];
+            colIdx = i;
+          }
+        }
+        cols[colIdx].push(child);
+        colHeights[colIdx] += child.height + CONSTANTS.CHILD_GAP;
+      }
+
+      // Position children
+      const colWidths = cols.map((col) =>
+        col.reduce((max, node) => Math.max(max, node.width), 0)
+      );
+
+      let currentX = CONSTANTS.PADDING_X;
+      let maxH = 0;
+
+      for (let i = 0; i < numCols; i++) {
+        let currentY = CONSTANTS.HEADER_HEIGHT + CONSTANTS.PADDING_Y;
+        for (const node of cols[i]) {
+          node.x = currentX;
+          node.y = currentY;
+          currentY += node.height + CONSTANTS.CHILD_GAP;
+        }
+        if (cols[i].length > 0) currentY -= CONSTANTS.CHILD_GAP;
+        maxH = Math.max(maxH, currentY);
+
+        currentX += colWidths[i] + CONSTANTS.COLUMN_GAP;
+      }
+
+      contentWidth = Math.max(
+        0,
+        currentX - CONSTANTS.COLUMN_GAP + CONSTANTS.PADDING_X
+      );
+      contentHeight = maxH + CONSTANTS.PADDING_Y;
+
+      childrenLayout.push(...layouts);
+    }
+
+    if (isSyntheticGroup) {
+      childrenLayout.push(...layouts);
+    }
+  } else {
+    // Leaf
+    contentWidth = measureText(label);
+    contentHeight = CONSTANTS.LINE_HEIGHT;
+  }
+
+  // Final Dimensions
+  let width = 0;
+  let height = 0;
+
+  if (isSyntheticGroup) {
+    width = contentWidth;
+    height = contentHeight;
+  } else {
+    width = Math.max(
+      contentWidth + CONSTANTS.PADDING_X * 2,
+      measureText(label) + CONSTANTS.PADDING_X * 2 + 40,
+      CONSTANTS.MIN_WIDTH
+    );
+    height = Math.max(contentHeight, CONSTANTS.HEADER_HEIGHT);
+  }
+
+  return {
+    ...node,
+    children: childrenLayout,
+    x: 0,
+    y: 0,
+    width,
+    height,
+    absX,
+    absY,
+    isGroup: isSyntheticGroup,
+  };
+}
+
+function updateAbsolutePositions(
+  node: LayoutNode,
+  parentAbsX: number,
+  parentAbsY: number
+) {
+  node.absX = parentAbsX + node.x;
+  node.absY = parentAbsY + node.y;
+  for (const child of node.children) {
+    updateAbsolutePositions(child, node.absX, node.absY);
+  }
+}
+
+function flattenGraph(root: LayoutNode): Map<string, LayoutNode> {
+  const map = new Map<string, LayoutNode>();
+  const traverse = (n: LayoutNode) => {
+    if (!n.isGroup) map.set(n.id, n);
+    n.children.forEach(traverse);
+  };
+  traverse(root);
+  return map;
+}
+
+// --- Sidebar Code Preview ---
+
+function guessLangFromPath(path: string): string {
+  const lower = path.toLowerCase();
+  if (lower.endsWith(".tsx")) return "tsx";
+  if (lower.endsWith(".ts")) return "ts";
+  if (lower.endsWith(".jsx")) return "jsx";
+  if (lower.endsWith(".js")) return "js";
+  if (lower.endsWith(".json")) return "json";
+  if (lower.endsWith(".py")) return "py";
+  if (lower.endsWith(".md")) return "md";
+  return "txt";
+}
+
+const CodeSidebar = (props: {
+  path: string;
+  startLine?: number;
+  endLine?: number;
+  onClose: () => void;
+}) => {
+  const [html, setHtml] = createSignal("");
+  const [loading, setLoading] = createSignal(false);
+
+  createEffect(() => {
+    const path = props.path;
+    if (!path) return;
+    setLoading(true);
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/files/content?path=${encodeURIComponent(path)}`
+        );
+        if (!res.ok) throw new Error("Failed to load");
+        const text = await res.text();
+
+        const lang = guessLangFromPath(path);
+        let codeHtml = await codeToHtml(text, {
+          lang,
+          theme: "github-dark",
+        });
+
+        setHtml(codeHtml);
+
+        // Scroll to line
+        setTimeout(() => {
+          if (props.startLine) {
+            // Shiki output usually has lines in spans, but not IDs.
+            // We rely on the user manually finding it or we could add IDs.
+            // For now, simple scroll to percentage? No, lines are better.
+            // Let's just leave it as is for now, user can scroll.
+          }
+        }, 100);
+      } catch (e) {
+        console.error(e);
+        setHtml("<div class='text-red-500'>Failed to load code</div>");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  });
+
+  return (
+    <div class="w-1/3 h-full border-l border-gray-700 bg-[#1e1e1e] flex flex-col">
+      <div class="flex justify-between items-center p-2 border-b border-gray-700 bg-[#252526]">
+        <span class="text-xs font-mono truncate px-2">
+          {props.path.split("/").pop()}
+        </span>
+        <button
+          onClick={props.onClose}
+          class="text-gray-400 hover:text-white px-2"
+        >
+          ×
+        </button>
+      </div>
+      <div class="flex-1 overflow-auto p-4 text-xs">
+        <Show
+          when={!loading()}
+          fallback={<div class="text-gray-500">Loading...</div>}
+        >
+          <div innerHTML={html()} />
+        </Show>
+      </div>
+    </div>
+  );
+};
+
+// --- Main Component ---
+
 export default function DataFlowViz(props: DataFlowVizProps) {
-  const [currentPath, setCurrentPath] = createSignal(props.path);
-  const [graph, setGraph] = createSignal<GraphData | null>(null);
-  const [rawGraph, setRawGraph] = createSignal<GraphData | null>(null);
+  const [rootNode, setRootNode] = createSignal<LayoutNode | null>(null);
+  const [nodeMap, setNodeMap] = createSignal<Map<string, LayoutNode>>(
+    new Map()
+  );
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
-  const [showPicker, setShowPicker] = createSignal(false);
-  const [depth, setDepth] = createSignal(2);
-  const [maxDepth, setMaxDepth] = createSignal(2);
-  const [showFileViewer, setShowFileViewer] = createSignal(true);
-  const [selectedNode, setSelectedNode] = createSignal<SelectedNodeInfo | null>(
-    null
-  );
-  const [flatNodes, setFlatNodes] = createSignal<FlattenedNode[]>([]);
-  const [edgePaths, setEdgePaths] = createSignal<RenderEdgePath[]>([]);
+
+  // Viewport
   const [scale, setScale] = createSignal(1);
   const [translate, setTranslate] = createSignal({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = createSignal(false);
+  const [hasDragged, setHasDragged] = createSignal(false);
 
-  let svgRef: SVGSVGElement | undefined;
-  let gRef: SVGGElement | undefined;
+  // Selection
+  const [selectedNode, setSelectedNode] = createSignal<{
+    path: string;
+    startLine?: number;
+    endLine?: number;
+  } | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = createSignal<string | null>(null);
 
-  const elk = new ELK();
+  let containerRef: HTMLDivElement | undefined;
 
   createEffect(() => {
-    if (currentPath()) {
-      fetchDataFlow(currentPath());
-    }
+    if (props.path) fetchData(props.path);
   });
 
-  createEffect(() => {
-    const raw = rawGraph();
-    const d = depth();
-    if (raw) {
-      processGraph(raw, d);
-    }
-  });
-
-  async function fetchDataFlow(path: string) {
+  async function fetchData(path: string) {
     setLoading(true);
     setError(null);
     try {
       const url = new URL("http://localhost:8000/api/analysis/data-flow");
       url.searchParams.append("path", path);
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error("Failed to fetch data flow");
+      const data: NodeData = await res.json();
 
-      const response = await fetch(url.toString());
-      if (!response.ok) throw new Error("Failed to fetch data flow analysis");
+      const layoutRoot = calculateLayout(data, 0, 0);
+      updateAbsolutePositions(layoutRoot, 0, 0);
 
-      const data = await response.json();
-      setRawGraph(data);
+      setRootNode(layoutRoot);
+      setNodeMap(flattenGraph(layoutRoot));
 
-      // Calculate max depth
-      const calculateMaxDepth = (
-        node: ElkNode,
-        currentDepth: number
-      ): number => {
-        if (!node.children || node.children.length === 0) return currentDepth;
-        return Math.max(
-          ...node.children.map((c) => calculateMaxDepth(c, currentDepth + 1))
+      // Initial fit
+      if (containerRef) {
+        const cw = containerRef.clientWidth;
+        const ch = containerRef.clientHeight;
+        const scale = Math.min(
+          (cw - 100) / layoutRoot.width,
+          (ch - 100) / layoutRoot.height,
+          1
         );
-      };
-      setMaxDepth(calculateMaxDepth(data, 0));
-    } catch (err) {
-      setError((err as Error).message);
-      setLoading(false);
-    }
-  }
-
-  async function processGraph(data: GraphData, maxDepthLevel: number) {
-    setLoading(true);
-    try {
-      // Filter graph based on depth
-      const filterNode = (
-        node: ElkNode,
-        currentDepth: number
-      ): ElkNode | null => {
-        if (currentDepth > maxDepthLevel) return null;
-
-        const newNode = { ...node };
-        if (node.children) {
-          newNode.children = node.children
-            .map((c) => filterNode(c, currentDepth + 1))
-            .filter((c): c is ElkNode => c !== null);
-        }
-
-        return newNode;
-      };
-
-      const filteredRoot = filterNode(data, 0);
-      if (!filteredRoot) {
-        setGraph(null);
-        setLoading(false);
-        return;
+        setScale(Math.max(scale, 0.2));
+        setTranslate({
+          x: (cw - layoutRoot.width * scale) / 2,
+          y: (ch - layoutRoot.height * scale) / 2,
+        });
       }
-
-      // Collect all valid IDs
-      const validIds = new Set<string>();
-      const collectIds = (node: ElkNode) => {
-        validIds.add(node.id);
-        node.children?.forEach(collectIds);
-      };
-      collectIds(filteredRoot);
-
-      // Filter edges at the root (since rawGraph has them at root)
-      // Note: ELK might move edges to children during layout, but initially they are at root.
-      if (filteredRoot.edges) {
-        filteredRoot.edges = filteredRoot.edges.filter(
-          (e) =>
-            e.sources.every((s) => validIds.has(s)) &&
-            e.targets.every((t) => validIds.has(t))
-        );
-      }
-
-      // Layout with ELK. We cast to `any` because our local `ElkNode` / `ElkEdge`
-      // interfaces are a simplified view of ELK's richer types, but at runtime
-      // the shape is compatible.
-      const layoutedGraph = (await elk.layout(
-        filteredRoot as any
-      )) as GraphData;
-      setGraph(layoutedGraph);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -191,520 +453,315 @@ export default function DataFlowViz(props: DataFlowVizProps) {
     }
   }
 
-  createEffect(() => {
-    const data = graph();
-    const isLoading = loading();
+  // --- Interaction ---
 
-    if (isLoading || !data) {
-      setFlatNodes([]);
-      setEdgePaths([]);
-      return;
+  const handleWheel = (e: WheelEvent) => {
+    e.preventDefault();
+    const zoomSensitivity = 0.001;
+    const delta = -e.deltaY * zoomSensitivity;
+    const newScale = Math.min(Math.max(scale() + delta, 0.1), 3);
+
+    // Zoom towards mouse pointer
+    const rect = containerRef!.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const scaleRatio = newScale / scale();
+    const newX = mouseX - (mouseX - translate().x) * scaleRatio;
+    const newY = mouseY - (mouseY - translate().y) * scaleRatio;
+
+    setScale(newScale);
+    setTranslate({ x: newX, y: newY });
+  };
+
+  const handleMouseDown = (e: MouseEvent) => {
+    if (e.button === 0) {
+      setIsPanning(true);
+      setHasDragged(false);
     }
+  };
 
-    // Build a lookup table of absolute node positions (including nested scopes)
-    const nodePositions = new Map<
-      string,
-      { x: number; y: number; width: number; height: number }
-    >();
-    const newFlatNodes: FlattenedNode[] = [];
-    // Some identifiers can appear in multiple nested scopes that overlap on the
-    // same source span. To avoid rendering duplicate usage boxes for the exact
-    // same variable occurrence, we keep track of (type, label, startLine,
-    // endLine) combinations we've already emitted.
-    const seenUsageKeys = new Set<string>();
+  const handleMouseMove = (e: MouseEvent) => {
+    if (isPanning()) {
+      setHasDragged(true);
+      setTranslate((p) => ({ x: p.x + e.movementX, y: p.y + e.movementY }));
+    }
+  };
 
-    const collectNodePositions = (
-      node: ElkNode,
-      offsetX: number,
-      offsetY: number
-    ) => {
-      const absX = (node.x || 0) + offsetX;
-      const absY = (node.y || 0) + offsetY;
-      const width = node.width || 0;
-      const height = node.height || 0;
+  const handleMouseUp = () => setIsPanning(false);
 
-      const labelText = node.labels?.[0]?.text;
-      const startLine = node.startLine;
-      const endLine = node.endLine;
+  // --- Rendering Helpers ---
 
-      if (node.type === "usage") {
-        const key = `${labelText ?? ""}|${startLine ?? 0}|${endLine ?? 0}`;
-        if (seenUsageKeys.has(key)) {
-          // Skip duplicate visual nodes that refer to the exact same usage
-          // span; edges that target this node will be ignored later because we
-          // never record a position for the duplicate ID. We still walk its
-          // children so any nested scopes/layout continue to be represented.
-          if (node.children) {
-            for (const child of node.children) {
-              collectNodePositions(child, absX, absY);
-            }
+  function getNodeStyle(type?: string) {
+    switch (type) {
+      case "function":
+        return { border: "#3b82f6", bg: "#1e3a8a33", label: "fn" };
+      case "if":
+        return { border: "#22c55e", bg: "#14532d33", label: "if" };
+      case "else":
+      case "else_branch":
+        return { border: "#22c55e", bg: "#14532d33", label: "else" };
+      case "try":
+        return { border: "#ef4444", bg: "#7f1d1d33", label: "try" };
+      case "catch":
+        return { border: "#ef4444", bg: "#7f1d1d33", label: "catch" };
+      case "finally":
+        return { border: "#ef4444", bg: "#7f1d1d33", label: "finally" };
+      case "variable":
+      case "usage":
+        return { border: "#94a3b8", bg: "#334155", label: "var" };
+      default:
+        return { border: "#64748b", bg: "#1e293b", label: type || "block" };
+    }
+  }
+
+  // --- Arrows ---
+
+  const activeEdges = () => {
+    const hovered = hoveredNodeId();
+    const root = rootNode();
+    const map = nodeMap();
+    if (!hovered || !root || !map) return [];
+
+    const edges: RenderEdge[] = [];
+    const visited = new Set<string>();
+
+    // Find all edges connected to hovered node
+    map.forEach((node) => {
+      node.edges?.forEach((edge) => {
+        if (edge.sources.includes(hovered) || edge.targets.includes(hovered)) {
+          if (visited.has(edge.id)) return;
+          visited.add(edge.id);
+
+          const source = map.get(edge.sources[0]);
+          const target = map.get(edge.targets[0]);
+
+          if (source && target) {
+            // Calculate path
+            const sx = source.absX + source.width / 2;
+            const sy = source.absY + source.height / 2;
+            const tx = target.absX + target.width / 2;
+            const ty = target.absY + target.height / 2;
+
+            // Curved path
+            const dx = tx - sx;
+            const dy = ty - sy;
+            const controlPointOffset =
+              Math.max(Math.abs(dx), Math.abs(dy)) * 0.5;
+
+            // Simple cubic bezier
+            const d = `M ${sx} ${sy} C ${sx + controlPointOffset} ${sy}, ${
+              tx - controlPointOffset
+            } ${ty}, ${tx} ${ty}`;
+
+            edges.push({ id: edge.id, d, type: edge.type });
           }
-          return;
         }
-        seenUsageKeys.add(key);
-      }
-
-      nodePositions.set(node.id, { x: absX, y: absY, width, height });
-
-      newFlatNodes.push({
-        id: node.id,
-        type: node.type,
-        x: absX,
-        y: absY,
-        width,
-        height,
-        label: labelText,
-        startLine,
-        endLine,
       });
+    });
 
-      if (node.children) {
-        for (const child of node.children) {
-          collectNodePositions(child, absX, absY);
-        }
-      }
-    };
+    return edges;
+  };
 
-    collectNodePositions(data, 0, 0);
+  const NodeRenderer = (props: { node: LayoutNode }) => {
+    const style = getNodeStyle(props.node.type);
+    const isPill =
+      props.node.type === "variable" || props.node.type === "usage";
+    const isGroup = props.node.isGroup;
 
-    // Collect all edges and compute SVG paths using the computed node positions.
-    const allEdges: ElkEdge[] = [];
-    const collectEdges = (node: ElkNode) => {
-      if (node.edges) {
-        allEdges.push(...node.edges);
-      }
-      if (node.children) {
-        for (const child of node.children) {
-          collectEdges(child);
-        }
-      }
-    };
-    collectEdges(data);
-
-    const newEdgePaths: RenderEdgePath[] = [];
-
-    for (const edge of allEdges) {
-      const sourceId = edge.sources[0];
-      const targetId = edge.targets[0];
-
-      const sourcePos = nodePositions.get(sourceId);
-      const targetPos = nodePositions.get(targetId);
-
-      if (!sourcePos || !targetPos) continue;
-
-      // Start at bottom-center of source box, end at top-center of target box.
-      const startX = sourcePos.x + sourcePos.width / 2;
-      const startY = sourcePos.y + sourcePos.height;
-      const endX = targetPos.x + targetPos.width / 2;
-      const endY = targetPos.y;
-
-      // Simple orthogonal (elbow) connector: down from source, across, then up/down to target.
-      const midY = (startY + endY) / 2;
-      let pathData = `M${startX},${startY} L${startX},${midY} L${endX},${midY} L${endX},${endY}`;
-
-      if (edge.type === "control-flow") {
-        // For control flow (try -> catch), draw a distinct path
-        // From bottom-left of source to top-left of target, to show sequence
-        const srcLeft = sourcePos.x + 10;
-        const srcBottom = sourcePos.y + sourcePos.height;
-        const tgtLeft = targetPos.x + 10;
-        const tgtTop = targetPos.y;
-
-        // Draw a "step" line
-        const midY = (srcBottom + tgtTop) / 2;
-        pathData = `M${srcLeft},${srcBottom} L${srcLeft},${midY} L${tgtLeft},${midY} L${tgtLeft},${tgtTop}`;
-      }
-
-      newEdgePaths.push({
-        id: edge.id || `${sourceId || "source"}->${targetId || "target"}`,
-        d: pathData,
-        type: edge.type,
-      });
+    if (isGroup) {
+      return (
+        <div
+          class="absolute"
+          style={{
+            left: `${props.node.x}px`,
+            top: `${props.node.y}px`,
+            width: `${props.node.width}px`,
+            height: `${props.node.height}px`,
+          }}
+        >
+          <For each={props.node.children}>
+            {(child) => <NodeRenderer node={child} />}
+          </For>
+        </div>
+      );
     }
 
-    setFlatNodes(newFlatNodes);
-    setEdgePaths(newEdgePaths);
-  });
-
-  createEffect(() => {
-    const data = graph();
-    const isLoading = loading();
-
-    if (isLoading || !data || !svgRef) return;
-
-    const svgWidth = svgRef.clientWidth;
-    const svgHeight = svgRef.clientHeight;
-
-    if (!data.width || !data.height || !svgWidth || !svgHeight) return;
-
-    const padding = 40;
-    const availableWidth = svgWidth - padding * 2;
-    const availableHeight = svgHeight - padding * 2;
-
-    const baseScale = Math.min(
-      availableWidth / data.width,
-      availableHeight / data.height
-    );
-
-    const clampedScale = Math.min(Math.max(baseScale, 0.1), 2);
-
-    const x = (svgWidth - data.width * clampedScale) / 2;
-    const y = (svgHeight - data.height * clampedScale) / 2;
-
-    setScale(clampedScale);
-    setTranslate({ x, y });
-  });
-
-  function isInteractiveNode(node: FlattenedNode) {
-    // Any node that has a stable line range should be previewable. In practice
-    // this includes variables/usages as well as containing scopes like
-    // functions, blocks, JSX scopes, classes, and the global scope.
-    const hasRange =
-      typeof node.startLine === "number" &&
-      typeof node.endLine === "number" &&
-      node.startLine > 0 &&
-      node.endLine >= node.startLine;
-
-    if (!hasRange) return false;
+    // Header Content
+    const label = props.node.labels?.[0]?.text || props.node.id;
 
     return (
-      node.type === "variable" ||
-      node.type === "usage" ||
-      node.type === "function" ||
-      node.type === "block" ||
-      node.type === "global" ||
-      node.type === "class" ||
-      node.type === "jsx" ||
-      node.type === "if" ||
-      node.type === "if_branch" ||
-      node.type === "else_branch" ||
-      node.type === "for" ||
-      node.type === "try" ||
-      node.type === "catch" ||
-      node.type === "finally" ||
-      node.type === "switch" ||
-      node.type === "case" ||
-      node.type === "default" ||
-      node.type === "while" ||
-      node.type === "do" ||
-      node.type === "declaration"
-    );
-  }
-
-  function handleNodeClick(node: FlattenedNode) {
-    // Ignore clicks that are really part of a pan/drag gesture.
-    if (hasPanMoved) {
-      return;
-    }
-
-    if (isInteractiveNode(node)) {
-      const labelText = node.label ?? node.id;
-      console.log("[DataFlowViz] node clicked", {
-        id: node.id,
-        type: node.type,
-        label: labelText,
-        startLine: node.startLine,
-        endLine: node.endLine,
-      });
-      setSelectedNode({
-        id: node.id,
-        type: node.type,
-        label: labelText,
-        startLine: node.startLine,
-        endLine: node.endLine,
-      });
-    } else {
-      setSelectedNode(null);
-    }
-  }
-
-  // Simple mouse-based pan/zoom implementation without d3.
-  let isPanning = false;
-  let lastPanX = 0;
-  let lastPanY = 0;
-  // Track whether we've moved the mouse enough to count as a drag since the
-  // last mouse down. This lets us ignore "clicks" that were actually part of
-  // a pan/drag gesture.
-  let hasPanMoved = false;
-  const PAN_MOVE_THRESHOLD_PX = 4;
-
-  const handleMouseDown = (event: MouseEvent) => {
-    if (event.button !== 0) return;
-    isPanning = true;
-    hasPanMoved = false;
-    lastPanX = event.clientX;
-    lastPanY = event.clientY;
-  };
-
-  const handleMouseMove = (event: MouseEvent) => {
-    if (!isPanning) return;
-    const dx = event.clientX - lastPanX;
-    const dy = event.clientY - lastPanY;
-    // Mark as a drag once we've moved far enough from the initial position.
-    if (!hasPanMoved) {
-      const distanceSq = dx * dx + dy * dy;
-      if (distanceSq > PAN_MOVE_THRESHOLD_PX * PAN_MOVE_THRESHOLD_PX) {
-        hasPanMoved = true;
-      }
-    }
-
-    lastPanX = event.clientX;
-    lastPanY = event.clientY;
-    setTranslate((prev) => ({
-      x: prev.x + dx,
-      y: prev.y + dy,
-    }));
-  };
-
-  const handleMouseUpOrLeave = () => {
-    isPanning = false;
-  };
-
-  const handleWheel = (event: WheelEvent) => {
-    event.preventDefault();
-    if (!svgRef) return;
-
-    const rect = svgRef.getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
-
-    setScale((prevScale) => {
-      // Use a gentler zoom factor so touchpad scrolling feels less jumpy.
-      const zoomFactor = event.deltaY < 0 ? 1.05 : 0.95;
-      const rawScale = prevScale * zoomFactor;
-      const newScale = Math.min(Math.max(rawScale, 0.1), 4);
-
-      // If clamping changed the effective zoom factor, adjust so we still
-      // zoom relative to the mouse position.
-      const effectiveFactor = prevScale === 0 ? 1 : newScale / prevScale || 1;
-
-      setTranslate((prev) => {
-        const x = mouseX - (mouseX - prev.x) * effectiveFactor;
-        const y = mouseY - (mouseY - prev.y) * effectiveFactor;
-        return { x, y };
-      });
-
-      return newScale;
-    });
-  };
-
-  function getNodeColor(type?: string) {
-    switch (type) {
-      case "variable":
-        return "#a8d5e2"; // Light Blue
-      case "usage":
-        return "#f5a9b8"; // Light Red/Pink
-      case "function":
-        return "#e2e2e2"; // Light Gray
-      case "block":
-        return "#f0f0f0"; // Very Light Gray
-      case "declaration":
-        return "#e8f4ff"; // Very Light Blue for grouped declarations
-      case "global":
-        return "#ffffff";
-      case "if":
-      case "if_branch":
-      case "else_branch":
-      case "for":
-      case "try":
-      case "catch":
-      case "finally":
-      case "switch":
-      case "case":
-      case "default":
-      case "while":
-      case "do":
-        return "#fff3cd"; // Light Yellow/Orange for control flow
-      default:
-        return "#ffffff";
-    }
-  }
-
-  // log out analysis deets and grpah layut
-  createEffect(() => {
-    console.log("Analysis Data:", graph());
-  });
-
-  return (
-    <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-      <div class="bg-white rounded-lg shadow-xl w-[90vw] h-[90vh] flex flex-col overflow-hidden">
-        <div class="flex justify-between items-center p-4 border-b border-gray-200">
-          <div class="flex items-center gap-4">
-            <h2 class="text-lg font-semibold text-gray-800">Data Flow</h2>
-
-            <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-600">Depth:</span>
-              <div class="flex border rounded overflow-hidden">
-                <For each={Array.from({ length: maxDepth() + 1 }, (_, i) => i)}>
-                  {(i) => (
-                    <button
-                      onClick={() => setDepth(i)}
-                      class={`px-3 py-1 text-sm ${
-                        depth() === i
-                          ? "bg-blue-500 text-white"
-                          : "bg-gray-50 text-gray-700 hover:bg-gray-100"
-                      } border-r last:border-r-0`}
-                    >
-                      {i}
-                    </button>
-                  )}
-                </For>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-3">
-              <label class="inline-flex items-center gap-2 text-sm text-gray-600">
-                <input
-                  type="checkbox"
-                  checked={showFileViewer()}
-                  onInput={(e) => setShowFileViewer(e.currentTarget.checked)}
-                  class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span>Show file view</span>
-              </label>
-
-              <div class="relative">
-                <button
-                  onClick={() => setShowPicker(!showPicker())}
-                  class="px-3 py-1 text-sm border rounded bg-gray-50 hover:bg-gray-100 flex items-center gap-2 text-black"
-                >
-                  <span class="truncate max-w-[300px]">
-                    {currentPath() || "Select File"}
-                  </span>
-                  <span class="text-xs">▼</span>
-                </button>
-              </div>
-            </div>
+      <div
+        class="absolute transition-colors duration-200"
+        style={{
+          left: `${props.node.x}px`,
+          top: `${props.node.y}px`,
+          width: `${props.node.width}px`,
+          height: `${props.node.height}px`,
+          border: `1px solid ${style.border}`,
+          "background-color":
+            hoveredNodeId() === props.node.id ? style.bg : "transparent",
+          "border-radius": isPill ? "9999px" : "6px",
+          "z-index": isPill ? 10 : 1,
+        }}
+        onMouseEnter={(e) => {
+          e.stopPropagation();
+          setHoveredNodeId(props.node.id);
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (hasDragged()) return;
+          if (props.node.startLine) {
+            setSelectedNode({
+              path: props.node.path || rootNode()?.path || "",
+              startLine: props.node.startLine,
+              endLine: props.node.endLine,
+            });
+          }
+        }}
+      >
+        {/* Header */}
+        <div
+          class="flex flex-col px-2 py-1 border-b border-white/10"
+          style={{
+            "border-color": style.border,
+            "background-color": isPill ? style.bg : `${style.border}22`,
+            "border-radius": isPill ? "9999px" : "5px 5px 0 0",
+          }}
+        >
+          <div class="flex justify-between items-center">
+            <span class="font-mono text-xs font-bold text-gray-200 truncate">
+              {props.node.type === "if" ? "if" : label}
+            </span>
+            {!isPill && (
+              <span class="text-[10px] opacity-60">{style.label}</span>
+            )}
           </div>
 
-          <button
-            onClick={props.onClose}
-            class="text-gray-500 hover:text-gray-700"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
+          {/* Extra Header Info */}
+          <Show when={props.node.type === "function"}>
+            <span class="text-[10px] text-gray-400 font-mono pl-2 truncate">
+              {props.node.params && props.node.params.length > 0
+                ? `(${props.node.params.join(", ")})`
+                : "()"}
+            </span>
+          </Show>
+          <Show when={props.node.type === "if"}>
+            <span class="text-[10px] text-gray-400 font-mono pl-2">
+              {label !== "if" ? label : ""}
+            </span>
+          </Show>
         </div>
 
-        <div class="flex-1 flex overflow-hidden bg-gray-50">
-          <div class="relative flex-1 overflow-hidden">
+        {/* Children */}
+        <Show when={props.node.children.length > 0}>
+          <For each={props.node.children}>
+            {(child) => <NodeRenderer node={child} />}
+          </For>
+        </Show>
+      </div>
+    );
+  };
+
+  return (
+    <div class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-sm">
+      <div class="bg-[#0f172a] rounded-xl shadow-2xl w-[95vw] h-[95vh] flex flex-col overflow-hidden border border-gray-800">
+        {/* Toolbar */}
+        <div class="flex justify-between items-center p-4 border-b border-gray-800 bg-[#1e293b]">
+          <h2 class="text-lg font-semibold text-gray-100">Data Flow Viz</h2>
+          <div class="flex gap-4">
+            <button
+              onClick={props.onClose}
+              class="text-gray-400 hover:text-white"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+
+        {/* Main Content Area (Split Pane) */}
+        <div class="flex-1 flex overflow-hidden">
+          {/* Graph Canvas */}
+          <div
+            ref={containerRef}
+            class="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing bg-[#0b1120]"
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          >
             <Show
               when={!loading()}
-              fallback={
-                <div class="absolute inset-0 flex items-center justify-center text-gray-500">
-                  Loading analysis...
-                </div>
-              }
+              fallback={<div class="text-white p-10">Loading...</div>}
             >
               <Show
-                when={!error()}
+                when={rootNode()}
                 fallback={
-                  <div class="absolute inset-0 flex items-center justify-center text-red-500">
-                    {error()}
-                  </div>
+                  <div class="text-red-400 p-10">{error() || "No data"}</div>
                 }
               >
-                <svg
-                  ref={svgRef}
-                  class="w-full h-full cursor-grab active:cursor-grabbing"
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUpOrLeave}
-                  onMouseLeave={handleMouseUpOrLeave}
-                  onWheel={handleWheel}
-                >
-                  <defs>
-                    <marker
-                      id="arrowhead"
-                      markerWidth="10"
-                      markerHeight="7"
-                      refX="9"
-                      refY="3.5"
-                      orient="auto"
-                    >
-                      <polygon points="0 0, 10 3.5, 0 7" fill="#555" />
-                    </marker>
-                  </defs>
-                  <g
-                    ref={gRef}
-                    transform={`translate(${translate().x},${
+                <div
+                  style={{
+                    transform: `translate(${translate().x}px, ${
                       translate().y
-                    }) scale(${scale()})`}
-                  >
-                    {/* Nodes */}
-                    <For each={flatNodes()}>
-                      {(node) => (
-                        <g
-                          transform={`translate(${node.x},${node.y})`}
-                          class={
-                            isInteractiveNode(node)
-                              ? "cursor-pointer"
-                              : "cursor-default"
-                          }
-                          onClick={() => handleNodeClick(node)}
-                        >
-                          <rect
-                            width={node.width}
-                            height={node.height}
-                            rx={4}
-                            ry={4}
-                            fill={getNodeColor(node.type)}
-                            stroke="#333"
-                            stroke-width="1"
-                          />
-                          <Show when={node.label}>
-                            <text x={5} y={15} font-size="10px" fill="#000">
-                              {node.label}
-                            </text>
-                          </Show>
-                        </g>
-                      )}
-                    </For>
+                    }px) scale(${scale()})`,
+                    "transform-origin": "0 0",
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                  }}
+                >
+                  {/* 1. Render Nodes (DOM) */}
+                  <NodeRenderer node={rootNode()!} />
 
-                    <For each={edgePaths()}>
+                  {/* 2. Render Arrows (SVG Overlay) */}
+                  <svg
+                    class="absolute top-0 left-0 pointer-events-none overflow-visible"
+                    style={{
+                      width: `${rootNode()!.width}px`,
+                      height: `${rootNode()!.height}px`,
+                      "z-index": 100,
+                    }}
+                  >
+                    <defs>
+                      <marker
+                        id="arrowhead"
+                        markerWidth="10"
+                        markerHeight="7"
+                        refX="9"
+                        refY="3.5"
+                        orient="auto"
+                      >
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#60a5fa" />
+                      </marker>
+                    </defs>
+                    <For each={activeEdges()}>
                       {(edge) => (
                         <path
                           d={edge.d}
-                          stroke={
-                            edge.type === "control-flow" ? "#d97706" : "#555"
-                          }
-                          stroke-width={
-                            edge.type === "control-flow" ? "2" : "1"
-                          }
-                          stroke-dasharray={
-                            edge.type === "control-flow" ? "4 2" : "none"
-                          }
+                          stroke="#60a5fa"
+                          stroke-width="2"
                           fill="none"
                           marker-end="url(#arrowhead)"
+                          class="drop-shadow-md"
                         />
                       )}
                     </For>
-                  </g>
-                </svg>
+                  </svg>
+                </div>
               </Show>
             </Show>
           </div>
 
-          <Show when={showFileViewer()}>
-            <div class="w-[40%] max-w-[600px] border-l border-gray-300">
-              <InlineCodePreview
-                filePath={currentPath() || null}
-                startLine={selectedNode()?.startLine ?? undefined}
-                endLine={selectedNode()?.endLine ?? undefined}
-              />
-            </div>
+          {/* Sidebar */}
+          <Show when={selectedNode()}>
+            <CodeSidebar
+              path={selectedNode()!.path}
+              startLine={selectedNode()!.startLine}
+              endLine={selectedNode()!.endLine}
+              onClose={() => setSelectedNode(null)}
+            />
           </Show>
         </div>
       </div>
