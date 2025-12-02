@@ -148,6 +148,8 @@ class TreeSitterAnalyzer:
             'interface_declaration',
             'type_alias_declaration',
             'object', # Object literal
+            'jsx_element',
+            'jsx_self_closing_element',
         }
         
         def process_node(node: Node) -> List[FunctionMetrics]:
@@ -155,6 +157,14 @@ class TreeSitterAnalyzer:
             # Iterate over children to find functions or recurse
             for child in node.children:
                 if child.type in function_types:
+                    # Special handling for JSX elements: only create a scope if they "define functions"
+                    if child.type in {'jsx_element', 'jsx_self_closing_element'}:
+                        is_scope = self._is_jsx_scope(child)
+                        if not is_scope:
+                            # Flatten: recurse but don't create a metrics node for this element
+                            results.extend(process_node(child))
+                            continue
+
                     metrics = self._calculate_function_metrics(child)
                     # Recursively find nested functions inside this function
                     metrics.children = process_node(child)
@@ -249,6 +259,20 @@ class TreeSitterAnalyzer:
                     if key:
                         return f"{key.text.decode('utf-8')} (object)"
             return "object"
+
+        elif node.type == 'jsx_element':
+            opening = node.child_by_field_name('open_tag')
+            if opening:
+                name_node = opening.child_by_field_name('name')
+                if name_node:
+                    return f"<{name_node.text.decode('utf-8')}>"
+            return "<div>" # Fallback
+        
+        elif node.type == 'jsx_self_closing_element':
+            name_node = node.child_by_field_name('name')
+            if name_node:
+                return f"<{name_node.text.decode('utf-8')} />"
+            return "<div />"
 
         elif node.type == 'arrow_function' or node.type == 'function_expression':
             # Often anonymous, but might be assigned to a variable.
@@ -362,6 +386,70 @@ class TreeSitterAnalyzer:
                 hops += 1
 
         return "(anonymous)"
+
+    def _is_jsx_scope(self, node: Node) -> bool:
+        """
+        Determines if a JSX element should be a scope.
+        It is a scope if it has any attributes that define functions (inline functions),
+        or if it has children that are inline functions (e.g. {() => ...}).
+        """
+        # Check attributes
+        if node.type == 'jsx_element':
+            opening = node.child_by_field_name('open_tag')
+            if opening:
+                for child in opening.children:
+                    if child.type == 'jsx_attribute':
+                        if self._attribute_defines_function(child):
+                            return True
+            
+            # Check children (body)
+            for child in node.children:
+                if child.type == 'jsx_expression':
+                    if self._expression_defines_function(child):
+                        return True
+        
+        elif node.type == 'jsx_self_closing_element':
+            for child in node.children:
+                if child.type == 'jsx_attribute':
+                    if self._attribute_defines_function(child):
+                        return True
+                        
+        return False
+
+    def _attribute_defines_function(self, attr_node: Node) -> bool:
+        value_node = attr_node.child_by_field_name('value')
+        if not value_node:
+            # Fallback: look for jsx_expression in children
+            for child in attr_node.children:
+                if child.type == 'jsx_expression':
+                    value_node = child
+                    break
+        
+        if not value_node:
+            return False
+        
+        if value_node.type == 'jsx_expression':
+            return self._expression_defines_function(value_node)
+        
+        return False
+
+    def _expression_defines_function(self, expr_node: Node) -> bool:
+        # Check if the expression contains an inline function definition
+        # It might be wrapped in parenthesized_expression
+        
+        def has_func(n: Node):
+            if n.type in {'arrow_function', 'function_expression'}:
+                return True
+            if n.type == 'parenthesized_expression':
+                for c in n.children:
+                    if has_func(c):
+                        return True
+            return False
+
+        for child in expr_node.children:
+            if has_func(child):
+                return True
+        return False
 
     def _calculate_complexity(self, node: Node) -> int:
         complexity = 1
