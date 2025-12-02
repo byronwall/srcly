@@ -91,3 +91,55 @@ def test_tsx_scopes_simple(tmp_path):
     assert fragment.end_line == 6
     assert len(fragment.children) == 0, "Simple TSX root should have no nested scopes"
 
+
+def test_tsx_scopes_nested_show_does_not_rename_root(tmp_path):
+    """
+    When a component defines an inner helper that returns <Show> before the main
+    TSX return block, the virtual TSX root for the outer component should still
+    be named after the true top-level element (<ExplorerContext.Provider>), not
+    the inner <Show>.
+    """
+    analyzer = TreeSitterAnalyzer()
+
+    code = """
+    function Explorer() {
+        const SortIcon = (p) => (
+            <Show when={true}>
+                <span>Icon</span>
+            </Show>
+        );
+
+        return (
+            <ExplorerContext.Provider value={{}}>
+                <div>
+                    <Show when={true}>
+                        <span>Body</span>
+                    </Show>
+                </div>
+            </ExplorerContext.Provider>
+        );
+    }
+    """
+
+    f = tmp_path / "explorer_like.tsx"
+    f.write_text(code, encoding="utf-8")
+
+    metrics = analyzer.analyze_file(str(f))
+
+    explorer = next((fn for fn in metrics.function_list if fn.name == "Explorer"), None)
+    assert explorer is not None
+
+    # The Explorer component should expose a single virtual TSX root child named
+    # after the real top-level element (<ExplorerContext.Provider>), even though
+    # there is an inner helper that returns <Show>.
+    tsx_root = next((c for c in explorer.children if c.origin_type == "jsx_virtual_root"), None)
+    assert tsx_root is not None, "Expected a virtual TSX root for Explorer"
+    assert tsx_root.name == "<ExplorerContext.Provider>"
+
+    # The inner helper SortIcon should still have its own TSX root named <Show>.
+    sort_icon = next((c for c in explorer.children if c.name == "SortIcon"), None)
+    assert sort_icon is not None, "Expected SortIcon helper function"
+    sort_icon_tsx = next((c for c in sort_icon.children if c.origin_type == "jsx_virtual_root"), None)
+    assert sort_icon_tsx is not None, "Expected a virtual TSX root for SortIcon"
+    assert sort_icon_tsx.name == "<Show>"
+

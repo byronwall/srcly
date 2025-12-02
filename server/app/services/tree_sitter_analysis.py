@@ -595,8 +595,28 @@ class TreeSitterAnalyzer:
                 return a.start_point.row < b.start_point.row
             return a.start_point.column < b.start_point.column
 
+        # Mirror the notion of a “function boundary” used in other visitors so
+        # that TSX inside nested functions (e.g. inner helpers that return
+        # `<Show>`) does not accidentally become the “root” TSX node for the
+        # parent component’s virtual TSX group.
+        function_boundary_types = {
+            "function_declaration",
+            "method_definition",
+            "arrow_function",
+            "function_expression",
+            "generator_function",
+            "generator_function_declaration",
+        }
+
         def traverse(n: Node):
             nonlocal root_tsx_node
+
+            # Do not walk into nested functions when computing the TSX root
+            # for this container; those functions will compute their own TSX
+            # roots independently.
+            if n is not node and n.type in function_boundary_types:
+                return
+
             if n.type in {'jsx_element', 'jsx_self_closing_element', 'jsx_fragment'}:
                 if root_tsx_node is None or is_before(n, root_tsx_node):
                     root_tsx_node = n
