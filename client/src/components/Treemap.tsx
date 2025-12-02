@@ -332,7 +332,19 @@ export default function Treemap(props: TreemapProps) {
         }
         return 0;
       })
-      .sort((a, b) => (b.value || 0) - (a.value || 0));
+      .sort((a, b) => {
+        const aIsBody =
+          a.data?.type === "function_body" || a.data?.name === "(body)";
+        const bIsBody =
+          b.data?.type === "function_body" || b.data?.name === "(body)";
+
+        // Always place synthetic body nodes last so their (hidden) rectangles
+        // cluster toward the bottom-left, and visible children pack toward
+        // the top-left of each parent.
+        if (aIsBody && !bIsBody) return 1;
+        if (!aIsBody && bIsBody) return -1;
+        return (b.value || 0) - (a.value || 0);
+      });
 
     d3
       .treemap()
@@ -353,8 +365,17 @@ export default function Treemap(props: TreemapProps) {
 
     // Cast to Rectangular node
     const rootRect = root as d3.HierarchyRectangularNode<any>;
-    // Skip the synthetic/top-level root so the treemap starts at its children
-    const allNodes = rootRect.descendants().filter((d) => d.depth > 0);
+    // Skip the synthetic/top-level root so the treemap starts at its children.
+    // Also skip synthetic "(body)" function-body nodes so they still reserve
+    // area in the layout but are not actually rendered.
+    const allNodes = rootRect
+      .descendants()
+      .filter(
+        (d) =>
+          d.depth > 0 &&
+          d.data?.type !== "function_body" &&
+          d.data?.name !== "(body)"
+      );
 
     // Groups for folders
     const cell = svg
