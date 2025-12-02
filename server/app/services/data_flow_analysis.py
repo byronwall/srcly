@@ -159,6 +159,9 @@ class DataFlowAnalyzer:
             # The full `if` statement becomes a scope so we can group its
             # condition and branches together visually.
             "if_statement",
+            # Object literals should be scopes so their properties (which may be functions)
+            # are grouped together.
+            "object",
         }
 
     def _get_scope_type(self, node: Node) -> str:
@@ -171,6 +174,8 @@ class DataFlowAnalyzer:
             return 'function'
         if node.type == 'class_declaration':
             return 'class'
+        if node.type == 'object':
+            return 'object'
         if node.type in {'jsx_element', 'jsx_self_closing_element'}:
             return 'jsx'
         
@@ -240,6 +245,30 @@ class DataFlowAnalyzer:
                     name = name_node.text.decode('utf-8')
                     return f"{name} (class)"
                 return "class"
+            
+            if scope_type == 'object':
+                # Try to find the name from the parent assignment or property
+                parent = node.parent
+                if parent:
+                    # const obj = { ... }
+                    if parent.type == 'variable_declarator':
+                        name_node = parent.child_by_field_name('name')
+                        if name_node:
+                            return f"{name_node.text.decode('utf-8')} (object)"
+                    
+                    # obj = { ... }
+                    elif parent.type == 'assignment_expression':
+                        left = parent.child_by_field_name('left')
+                        if left:
+                            return f"{left.text.decode('utf-8')} (object)"
+                    
+                    # nested: { ... }
+                    elif parent.type == 'pair':
+                        key = parent.child_by_field_name('key')
+                        if key:
+                            return f"{key.text.decode('utf-8')} (object)"
+                            
+                return "object"
 
             if scope_type == 'jsx':
                 tag_name = None
