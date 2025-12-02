@@ -142,7 +142,12 @@ class TreeSitterAnalyzer:
             'arrow_function',
             'function_expression',
             'generator_function',
-            'generator_function_declaration'
+            'generator_function_declaration',
+            # New container types
+            'class_declaration',
+            'interface_declaration',
+            'type_alias_declaration',
+            'object', # Object literal
         }
         
         def process_node(node: Node) -> List[FunctionMetrics]:
@@ -155,7 +160,8 @@ class TreeSitterAnalyzer:
                     metrics.children = process_node(child)
                     results.append(metrics)
                 else:
-                    # Not a function, but might contain functions (e.g. Class, Block, IfStatement)
+                    # Not a function, but might contain functions (e.g. Block, IfStatement)
+                    # Note: Class, Interface, Object are now in function_types, so they are handled in the if block
                     results.extend(process_node(child))
             return results
 
@@ -206,6 +212,44 @@ class TreeSitterAnalyzer:
             name_node = node.child_by_field_name('name')
             if name_node:
                 return name_node.text.decode('utf-8')
+        elif node.type == 'class_declaration':
+            name_node = node.child_by_field_name('name')
+            if name_node:
+                return f"{name_node.text.decode('utf-8')} (class)"
+            return "class"
+        elif node.type == 'interface_declaration':
+            name_node = node.child_by_field_name('name')
+            if name_node:
+                return f"{name_node.text.decode('utf-8')} (interface)"
+            return "interface"
+        elif node.type == 'type_alias_declaration':
+            name_node = node.child_by_field_name('name')
+            if name_node:
+                return f"{name_node.text.decode('utf-8')} (type)"
+            return "type"
+        elif node.type == 'object':
+             # Try to find the name from the parent assignment or property
+            parent = node.parent
+            if parent:
+                # const obj = { ... }
+                if parent.type == 'variable_declarator':
+                    name_node = parent.child_by_field_name('name')
+                    if name_node:
+                        return f"{name_node.text.decode('utf-8')} (object)"
+                
+                # obj = { ... }
+                elif parent.type == 'assignment_expression':
+                    left = parent.child_by_field_name('left')
+                    if left:
+                        return f"{left.text.decode('utf-8')} (object)"
+                
+                # nested: { ... }
+                elif parent.type == 'pair':
+                    key = parent.child_by_field_name('key')
+                    if key:
+                        return f"{key.text.decode('utf-8')} (object)"
+            return "object"
+
         elif node.type == 'arrow_function' or node.type == 'function_expression':
             # Often anonymous, but might be assigned to a variable.
             # Tree-sitter doesn't link to the parent variable automatically in a way that gives us the name easily
