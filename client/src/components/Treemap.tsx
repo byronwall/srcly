@@ -692,14 +692,17 @@ export default function Treemap(props: TreemapProps) {
                     fill={getNodeColor(d)}
                     stroke={getNodeStroke(d)}
                     stroke-width={getNodeStrokeWidth(d)}
-                    class="transition-all duration-100 hover:brightness-110 hover:stroke-gray-300 hover:stroke-[1.5px]"
+                    class={`transition-all duration-100 ${
+                      isIsolateMode()
+                        ? "hover:brightness-125 hover:stroke-white hover:stroke-[2px]"
+                        : "hover:brightness-110 hover:stroke-gray-300 hover:stroke-[1.5px]"
+                    }`}
                     style={{
                       cursor: isIsolateMode()
                         ? "zoom-in"
                         : d.data.type === "folder"
                         ? "zoom-in"
                         : "pointer",
-                      "fill-opacity": isIsolateMode() ? 0.8 : 1,
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
