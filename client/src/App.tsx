@@ -91,6 +91,9 @@ function AppContent() {
   });
 
   const handleFileSelect = async (path: string) => {
+    // Clear existing analysis data immediately so we don't show stale visuals
+    setVisualizationData(null);
+    setCurrentRoot(null);
     setLoading(true);
     setError(null);
     try {
@@ -202,74 +205,88 @@ function AppContent() {
           when={processedData()}
           fallback={
             <div class="flex flex-col items-center justify-center h-full w-full text-gray-500">
-              <p class="text-lg mb-2">No visualization data yet</p>
               <Show
-                when={analysisContext()}
+                when={loading()}
                 fallback={
-                  <p class="text-sm">
-                    {contextLoading()
-                      ? "Loading current folder information..."
-                      : "Enter a path above to visualize the codebase"}
-                  </p>
+                  <>
+                    <p class="text-lg mb-2">No visualization data yet</p>
+                    <Show
+                      when={analysisContext()}
+                      fallback={
+                        <p class="text-sm">
+                          {contextLoading()
+                            ? "Loading current folder information..."
+                            : "Enter a path above to visualize the codebase"}
+                        </p>
+                      }
+                    >
+                      {(ctx) => (
+                        <div class="text-center space-y-4">
+                          <p class="text-sm">Choose what you want to analyze:</p>
+                          <div class="grid gap-4 sm:grid-cols-2 w-full max-w-xl">
+                            <div class="bg-black/20 border border-[#333] rounded p-3 text-left space-y-2">
+                              <div class="text-[10px] uppercase tracking-wide text-gray-400">
+                                Current directory
+                              </div>
+                              <p class="text-xs font-mono text-gray-200 break-all">
+                                {ctx().rootPath || "(unknown)"}
+                              </p>
+                              <p class="text-[11px] text-gray-400">
+                                Roughly {ctx().fileCount} files and{" "}
+                                {ctx().folderCount} folders will be included.
+                              </p>
+                              <button
+                                type="button"
+                                class="mt-2 w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-xs text-white rounded"
+                                onClick={() => {
+                                  const target = ctx().rootPath || "";
+                                  setAnalysisPath(target);
+                                  void handleFileSelect(target);
+                                }}
+                              >
+                                Analyze current directory
+                              </button>
+                            </div>
+
+                            <Show when={ctx().repoRootPath}>
+                              <div class="bg-black/20 border border-[#333] rounded p-3 text-left space-y-2">
+                                <div class="text-[10px] uppercase tracking-wide text-gray-400">
+                                  Repo root
+                                </div>
+                                <p class="text-xs font-mono text-gray-200 break-all">
+                                  {ctx().repoRootPath}
+                                </p>
+                                <p class="text-[11px] text-gray-400">
+                                  Roughly {ctx().repoFileCount} files and{" "}
+                                  {ctx().repoFolderCount} folders will be included.
+                                </p>
+                                <button
+                                  type="button"
+                                  class="mt-2 w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-xs text-white rounded"
+                                  onClick={() => {
+                                    const target = ctx().repoRootPath || "";
+                                    if (!target) return;
+                                    setAnalysisPath(target);
+                                    void handleFileSelect(target);
+                                  }}
+                                >
+                                  Analyze repo root
+                                </button>
+                              </div>
+                            </Show>
+                          </div>
+                        </div>
+                      )}
+                    </Show>
+                  </>
                 }
               >
-                {(ctx) => (
-                  <div class="text-center space-y-4">
-                    <p class="text-sm">Choose what you want to analyze:</p>
-                    <div class="grid gap-4 sm:grid-cols-2 w-full max-w-xl">
-                      <div class="bg-black/20 border border-[#333] rounded p-3 text-left space-y-2">
-                        <div class="text-[10px] uppercase tracking-wide text-gray-400">
-                          Current directory
-                        </div>
-                        <p class="text-xs font-mono text-gray-200 break-all">
-                          {ctx().rootPath || "(unknown)"}
-                        </p>
-                        <p class="text-[11px] text-gray-400">
-                          Roughly {ctx().fileCount} files and{" "}
-                          {ctx().folderCount} folders will be included.
-                        </p>
-                        <button
-                          type="button"
-                          class="mt-2 w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-xs text-white rounded"
-                          onClick={() => {
-                            const target = ctx().rootPath || "";
-                            setAnalysisPath(target);
-                            void handleFileSelect(target);
-                          }}
-                        >
-                          Analyze current directory
-                        </button>
-                      </div>
-
-                      <Show when={ctx().repoRootPath}>
-                        <div class="bg-black/20 border border-[#333] rounded p-3 text-left space-y-2">
-                          <div class="text-[10px] uppercase tracking-wide text-gray-400">
-                            Repo root
-                          </div>
-                          <p class="text-xs font-mono text-gray-200 break-all">
-                            {ctx().repoRootPath}
-                          </p>
-                          <p class="text-[11px] text-gray-400">
-                            Roughly {ctx().repoFileCount} files and{" "}
-                            {ctx().repoFolderCount} folders will be included.
-                          </p>
-                          <button
-                            type="button"
-                            class="mt-2 w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-xs text-white rounded"
-                            onClick={() => {
-                              const target = ctx().repoRootPath || "";
-                              if (!target) return;
-                              setAnalysisPath(target);
-                              void handleFileSelect(target);
-                            }}
-                          >
-                            Analyze repo root
-                          </button>
-                        </div>
-                      </Show>
-                    </div>
-                  </div>
-                )}
+                <div class="flex flex-col items-center justify-center">
+                  <p class="text-lg mb-2">Loading analysis...</p>
+                  <p class="text-sm text-gray-400">
+                    This may take a moment for larger codebases.
+                  </p>
+                </div>
               </Show>
             </div>
           }
