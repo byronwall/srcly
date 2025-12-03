@@ -222,7 +222,9 @@ function AppContent() {
                     >
                       {(ctx) => (
                         <div class="text-center space-y-4">
-                          <p class="text-sm">Choose what you want to analyze:</p>
+                          <p class="text-sm">
+                            Choose what you want to analyze:
+                          </p>
                           <div class="grid gap-4 sm:grid-cols-2 w-full max-w-xl">
                             <div class="bg-black/20 border border-[#333] rounded p-3 text-left space-y-2">
                               <div class="text-[10px] uppercase tracking-wide text-gray-400">
@@ -258,7 +260,8 @@ function AppContent() {
                                 </p>
                                 <p class="text-[11px] text-gray-400">
                                   Roughly {ctx().repoFileCount} files and{" "}
-                                  {ctx().repoFolderCount} folders will be included.
+                                  {ctx().repoFolderCount} folders will be
+                                  included.
                                 </p>
                                 <button
                                   type="button"
