@@ -8,6 +8,9 @@ from app.config import IGNORE_DIRS, IGNORE_FILES, IGNORE_EXTENSIONS
 from app.services.tree_sitter_analysis import TreeSitterAnalyzer
 from pathspec import PathSpec
 
+# Maximum time allowed for analyzing a single file in a worker process.
+PER_FILE_ANALYSIS_TIMEOUT_SECONDS: float = 10.0
+
 _ts_analyzer = None
 
 def get_ts_analyzer():
@@ -405,7 +408,7 @@ def scan_codebase(root_path: Path) -> Node:
             completed_count += 1
             try:
                 # Add a timeout to prevent hanging on single files
-                result = future.result(timeout=5)
+                result = future.result(timeout=PER_FILE_ANALYSIS_TIMEOUT_SECONDS)
                 if isinstance(result, dict) and "error" in result:
                     print(f"❌ [{completed_count}/{total_count}] Error analyzing {file}: {result['error']}", flush=True)
                 else:
@@ -421,7 +424,15 @@ def scan_codebase(root_path: Path) -> Node:
     node_map = {str(root_path): tree_root}
 
     for file_info in analysis_results:
-        path_obj = Path(file_info.filename)
+        # Be defensive: if we ever get back an unexpected object from the
+        # worker (e.g. a dict without "error", or something without a
+        # ``filename`` attribute), skip it instead of crashing the whole scan.
+        filename = getattr(file_info, "filename", None)
+        if not filename:
+            print(f"⚠️ Skipping unexpected analysis result without filename: {file_info!r}", flush=True)
+            continue
+
+        path_obj = Path(filename)
         try: rel_path = path_obj.relative_to(root_path)
         except ValueError: continue
 
