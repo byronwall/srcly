@@ -1,4 +1,4 @@
-import { createSignal, createMemo, Show, For, onMount } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import { useMetricsStore } from "../utils/metricsStore";
 import Popover from "./Popover";
 
