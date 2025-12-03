@@ -95,6 +95,8 @@ export const HOTSPOT_METRICS: HotSpotMetricDef[] = [
 type MetricsStoreContextType = {
   selectedHotSpotMetrics: Accessor<HotSpotMetricId[]>;
   setSelectedHotSpotMetrics: (ids: HotSpotMetricId[]) => void;
+  excludedPaths: Accessor<string[]>;
+  toggleExcludedPath: (path: string) => void;
 };
 
 const MetricsStoreContext = createContext<MetricsStoreContextType>();
@@ -103,12 +105,24 @@ export const MetricsStoreProvider = (props: { children: any }) => {
   const [selectedHotSpotMetrics, setSelectedHotSpotMetrics] = createSignal<
     HotSpotMetricId[]
   >(["complexity"]);
+  const [excludedPaths, setExcludedPaths] = createSignal<string[]>([]);
+
+  const toggleExcludedPath = (path: string) => {
+    const current = excludedPaths();
+    if (current.includes(path)) {
+      setExcludedPaths(current.filter((p) => p !== path));
+    } else {
+      setExcludedPaths([...current, path]);
+    }
+  };
 
   return (
     <MetricsStoreContext.Provider
       value={{
         selectedHotSpotMetrics,
         setSelectedHotSpotMetrics,
+        excludedPaths,
+        toggleExcludedPath,
       }}
     >
       {props.children}

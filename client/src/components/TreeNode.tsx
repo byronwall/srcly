@@ -13,6 +13,7 @@ import {
   SORT_FIELD_ACCESSORS,
   formatSize,
 } from "./Explorer";
+import { useMetricsStore } from "../utils/metricsStore";
 
 export function TreeNode(props: { node: Node; depth: number }) {
   const ctx = useContext(ExplorerContext)!;
@@ -64,7 +65,22 @@ export function TreeNode(props: { node: Node; depth: number }) {
     if (hasChildren) setExpanded(!expanded());
   };
 
-  const handleClick = () => {
+  const { excludedPaths, toggleExcludedPath } = useMetricsStore();
+
+  const handleToggleHidden = (e: MouseEvent) => {
+    e.stopPropagation();
+    toggleExcludedPath(props.node.path);
+  };
+
+  const isHidden = () => excludedPaths().includes(props.node.path);
+
+  const handleClick = (e: MouseEvent) => {
+    if (e.altKey) {
+      e.stopPropagation();
+      toggleExcludedPath(props.node.path);
+      return;
+    }
+
     const filePath = extractFilePath(props.node.path, props.node.type);
     if (!filePath) return;
 
@@ -90,13 +106,6 @@ export function TreeNode(props: { node: Node; depth: number }) {
     e.stopPropagation();
     ctx.onZoom(props.node);
   };
-
-  const handleToggleHidden = (e: MouseEvent) => {
-    e.stopPropagation();
-    ctx.onToggleHidden(props.node.path);
-  };
-
-  const isHidden = () => ctx.hiddenPaths.includes(props.node.path);
 
   return (
     <>

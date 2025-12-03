@@ -1,4 +1,5 @@
 import { createSignal, createMemo, For, Show, createContext } from "solid-js";
+import Popover from "./Popover";
 import {
   HOTSPOT_METRICS,
   type HotSpotMetricId,
@@ -74,8 +75,6 @@ interface ExplorerContextType {
   sortDirection: () => SortDirection;
   onSelect: (path: string, startLine?: number, endLine?: number) => void;
   onZoom: (node: any) => void;
-  onToggleHidden: (path: string) => void;
-  hiddenPaths: string[];
   filter: string;
   visibleColumns: () => string[];
   expandAllSignal: () => boolean | null;
@@ -152,8 +151,6 @@ export default function Explorer(props: {
   onZoom: (node: any) => void;
   filter: string;
   onFilterChange: (val: string) => void;
-  hiddenPaths: string[];
-  onToggleHidden: (path: string) => void;
 }) {
   const [sortField, setSortField] = createSignal<SortField>("loc");
   const [sortDirection, setSortDirection] = createSignal<SortDirection>("desc");
@@ -295,8 +292,6 @@ export default function Explorer(props: {
         onSelect: props.onFileSelect,
         onZoom: props.onZoom,
         filter: props.filter,
-        hiddenPaths: props.hiddenPaths,
-        onToggleHidden: props.onToggleHidden,
         visibleColumns,
         expandAllSignal,
         rootData: props.data,
@@ -345,15 +340,23 @@ export default function Explorer(props: {
                 [-]
               </button>
               <div class="relative">
-                <button
-                  class="p-1 hover:bg-[#333] rounded text-gray-400 hover:text-white"
-                  title="Columns"
-                  onClick={() => setShowColumnPicker(!showColumnPicker())}
+                <Popover
+                  isOpen={showColumnPicker()}
+                  onOpenChange={setShowColumnPicker}
+                  placement="bottom-end"
+                  offset={{ x: 0, y: 4 }}
+                  trigger={(triggerProps) => (
+                    <button
+                      ref={triggerProps.ref}
+                      class="p-1 hover:bg-[#333] rounded text-gray-400 hover:text-white"
+                      title="Columns"
+                      onClick={(e) => triggerProps.onClick(e)}
+                    >
+                      ⚙️
+                    </button>
+                  )}
                 >
-                  ⚙️
-                </button>
-                <Show when={showColumnPicker()}>
-                  <div class="absolute right-0 top-full mt-1 bg-[#252526] border border-[#333] rounded shadow-xl z-50 p-2 w-40">
+                  <div class="bg-[#252526] border border-[#333] rounded shadow-xl z-50 p-2 w-40">
                     <div class="text-xs font-bold text-gray-400 mb-2">
                       Visible Columns
                     </div>
@@ -434,7 +437,7 @@ export default function Explorer(props: {
                       </label>
                     </div>
                   </div>
-                </Show>
+                </Popover>
               </div>
             </div>
           </div>

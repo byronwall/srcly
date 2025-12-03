@@ -12,7 +12,7 @@ import Explorer from "./components/Explorer";
 import FilePicker from "./components/FilePicker";
 import Treemap from "./components/Treemap";
 import { filterTree } from "./utils/dataProcessing";
-import { MetricsStoreProvider } from "./utils/metricsStore";
+import { MetricsStoreProvider, useMetricsStore } from "./utils/metricsStore";
 
 type AnalysisContext = {
   rootPath: string;
@@ -27,6 +27,14 @@ type AnalysisContext = {
 const FilePickerWithExternal = FilePicker as any;
 
 function App() {
+  return (
+    <MetricsStoreProvider>
+      <AppContent />
+    </MetricsStoreProvider>
+  );
+}
+
+function AppContent() {
   const [visualizationData, setVisualizationData] = createSignal<any>(null);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
@@ -48,7 +56,7 @@ function App() {
   const [contextLoading, setContextLoading] = createSignal(false);
   const [filterQuery, setFilterQuery] = createSignal("");
   const [currentRoot, setCurrentRoot] = createSignal<any>(null);
-  const [hiddenPaths, setHiddenPaths] = createSignal<string[]>([]);
+  const { excludedPaths } = useMetricsStore();
   const [explorerWidth, setExplorerWidth] = createSignal(280);
   const [isDragging, setIsDragging] = createSignal(false);
   const [analysisPath, setAnalysisPath] = createSignal("");
@@ -59,15 +67,6 @@ function App() {
       setCurrentRoot(visualizationData());
     }
   });
-
-  const toggleHiddenPath = (path: string) => {
-    const current = hiddenPaths();
-    if (current.includes(path)) {
-      setHiddenPaths(current.filter((p) => p !== path));
-    } else {
-      setHiddenPaths([...current, path]);
-    }
-  };
 
   onMount(async () => {
     setContextLoading(true);
@@ -146,7 +145,7 @@ function App() {
     const clone = JSON.parse(JSON.stringify(data));
 
     // Filter out hidden paths
-    const hidden = hiddenPaths();
+    const hidden = excludedPaths();
     if (hidden.length > 0) {
       // Recursive filter function to remove hidden nodes
       const removeHidden = (node: any) => {
@@ -163,176 +162,172 @@ function App() {
   });
 
   return (
-    <MetricsStoreProvider>
-      <div class="h-screen flex flex-col bg-[#121212] text-white overflow-hidden">
-        <header class="px-4 py-2 border-b border-[#333] flex items-center gap-4 bg-[#1e1e1e]">
-          <div class="flex items-center gap-3 flex-1 min-w-0">
-            <h1 class="text-lg font-bold text-blue-500 shrink-0">Srcly</h1>
-            <div class="w-full">
-              <FilePickerWithExternal
-                onSelect={handleFileSelect}
-                externalPath={analysisPath()}
-              />
+    <div class="h-screen flex flex-col bg-[#121212] text-white overflow-hidden">
+      <header class="px-4 py-2 border-b border-[#333] flex items-center gap-4 bg-[#1e1e1e]">
+        <div class="flex items-center gap-3 flex-1 min-w-0">
+          <h1 class="text-lg font-bold text-blue-500 shrink-0">Srcly</h1>
+          <div class="w-full">
+            <FilePickerWithExternal
+              onSelect={handleFileSelect}
+              externalPath={analysisPath()}
+            />
+          </div>
+        </div>
+        <div class="text-xs text-gray-400 whitespace-nowrap">
+          {loading()
+            ? "Loading..."
+            : visualizationData()
+            ? "Analysis Loaded"
+            : "Select a folder to analyze"}
+        </div>
+      </header>
+
+      <main class="flex-1 relative overflow-hidden flex">
+        <Show when={error()}>
+          <div class="absolute inset-0 flex items-center justify-center z-50 bg-black/50">
+            <div class="bg-red-900/80 p-6 rounded text-white border border-red-700">
+              <h3 class="font-bold text-lg mb-2">Error</h3>
+              <p>{error()}</p>
+              <button
+                class="mt-4 px-4 py-2 bg-red-700 hover:bg-red-600 rounded"
+                onClick={() => setError(null)}
+              >
+                Close
+              </button>
             </div>
           </div>
-          <div class="text-xs text-gray-400 whitespace-nowrap">
-            {loading()
-              ? "Loading..."
-              : visualizationData()
-              ? "Analysis Loaded"
-              : "Select a folder to analyze"}
-          </div>
-        </header>
+        </Show>
 
-        <main class="flex-1 relative overflow-hidden flex">
-          <Show when={error()}>
-            <div class="absolute inset-0 flex items-center justify-center z-50 bg-black/50">
-              <div class="bg-red-900/80 p-6 rounded text-white border border-red-700">
-                <h3 class="font-bold text-lg mb-2">Error</h3>
-                <p>{error()}</p>
-                <button
-                  class="mt-4 px-4 py-2 bg-red-700 hover:bg-red-600 rounded"
-                  onClick={() => setError(null)}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </Show>
+        <Show
+          when={processedData()}
+          fallback={
+            <div class="flex flex-col items-center justify-center h-full w-full text-gray-500">
+              <p class="text-lg mb-2">No visualization data yet</p>
+              <Show
+                when={analysisContext()}
+                fallback={
+                  <p class="text-sm">
+                    {contextLoading()
+                      ? "Loading current folder information..."
+                      : "Enter a path above to visualize the codebase"}
+                  </p>
+                }
+              >
+                {(ctx) => (
+                  <div class="text-center space-y-4">
+                    <p class="text-sm">Choose what you want to analyze:</p>
+                    <div class="grid gap-4 sm:grid-cols-2 w-full max-w-xl">
+                      <div class="bg-black/20 border border-[#333] rounded p-3 text-left space-y-2">
+                        <div class="text-[10px] uppercase tracking-wide text-gray-400">
+                          Current directory
+                        </div>
+                        <p class="text-xs font-mono text-gray-200 break-all">
+                          {ctx().rootPath || "(unknown)"}
+                        </p>
+                        <p class="text-[11px] text-gray-400">
+                          Roughly {ctx().fileCount} files and{" "}
+                          {ctx().folderCount} folders will be included.
+                        </p>
+                        <button
+                          type="button"
+                          class="mt-2 w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-xs text-white rounded"
+                          onClick={() => {
+                            const target = ctx().rootPath || "";
+                            setAnalysisPath(target);
+                            void handleFileSelect(target);
+                          }}
+                        >
+                          Analyze current directory
+                        </button>
+                      </div>
 
-          <Show
-            when={processedData()}
-            fallback={
-              <div class="flex flex-col items-center justify-center h-full w-full text-gray-500">
-                <p class="text-lg mb-2">No visualization data yet</p>
-                <Show
-                  when={analysisContext()}
-                  fallback={
-                    <p class="text-sm">
-                      {contextLoading()
-                        ? "Loading current folder information..."
-                        : "Enter a path above to visualize the codebase"}
-                    </p>
-                  }
-                >
-                  {(ctx) => (
-                    <div class="text-center space-y-4">
-                      <p class="text-sm">Choose what you want to analyze:</p>
-                      <div class="grid gap-4 sm:grid-cols-2 w-full max-w-xl">
+                      <Show when={ctx().repoRootPath}>
                         <div class="bg-black/20 border border-[#333] rounded p-3 text-left space-y-2">
                           <div class="text-[10px] uppercase tracking-wide text-gray-400">
-                            Current directory
+                            Repo root
                           </div>
                           <p class="text-xs font-mono text-gray-200 break-all">
-                            {ctx().rootPath || "(unknown)"}
+                            {ctx().repoRootPath}
                           </p>
                           <p class="text-[11px] text-gray-400">
-                            Roughly {ctx().fileCount} files and{" "}
-                            {ctx().folderCount} folders will be included.
+                            Roughly {ctx().repoFileCount} files and{" "}
+                            {ctx().repoFolderCount} folders will be included.
                           </p>
                           <button
                             type="button"
                             class="mt-2 w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-xs text-white rounded"
                             onClick={() => {
-                              const target = ctx().rootPath || "";
+                              const target = ctx().repoRootPath || "";
+                              if (!target) return;
                               setAnalysisPath(target);
                               void handleFileSelect(target);
                             }}
                           >
-                            Analyze current directory
+                            Analyze repo root
                           </button>
                         </div>
-
-                        <Show when={ctx().repoRootPath}>
-                          <div class="bg-black/20 border border-[#333] rounded p-3 text-left space-y-2">
-                            <div class="text-[10px] uppercase tracking-wide text-gray-400">
-                              Repo root
-                            </div>
-                            <p class="text-xs font-mono text-gray-200 break-all">
-                              {ctx().repoRootPath}
-                            </p>
-                            <p class="text-[11px] text-gray-400">
-                              Roughly {ctx().repoFileCount} files and{" "}
-                              {ctx().repoFolderCount} folders will be included.
-                            </p>
-                            <button
-                              type="button"
-                              class="mt-2 w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-xs text-white rounded"
-                              onClick={() => {
-                                const target = ctx().repoRootPath || "";
-                                if (!target) return;
-                                setAnalysisPath(target);
-                                void handleFileSelect(target);
-                              }}
-                            >
-                              Analyze repo root
-                            </button>
-                          </div>
-                        </Show>
-                      </div>
+                      </Show>
                     </div>
-                  )}
-                </Show>
-              </div>
-            }
+                  </div>
+                )}
+              </Show>
+            </div>
+          }
+        >
+          <div
+            class="flex h-full w-full overflow-hidden"
+            onMouseMove={(e) => {
+              if (isDragging()) {
+                const newWidth = e.clientX;
+                if (newWidth > 200 && newWidth < window.innerWidth - 200) {
+                  setExplorerWidth(newWidth);
+                }
+              }
+            }}
+            onMouseUp={() => setIsDragging(false)}
+            onMouseLeave={() => setIsDragging(false)}
           >
             <div
-              class="flex h-full w-full overflow-hidden"
-              onMouseMove={(e) => {
-                if (isDragging()) {
-                  const newWidth = e.clientX;
-                  if (newWidth > 200 && newWidth < window.innerWidth - 200) {
-                    setExplorerWidth(newWidth);
-                  }
-                }
-              }}
-              onMouseUp={() => setIsDragging(false)}
-              onMouseLeave={() => setIsDragging(false)}
+              style={{ width: `${explorerWidth()}px` }}
+              class="h-full shrink-0"
             >
-              <div
-                style={{ width: `${explorerWidth()}px` }}
-                class="h-full shrink-0"
-              >
-                <Explorer
-                  data={currentRoot() || processedData()}
-                  onFileSelect={handleFileFromTreemap}
-                  onZoom={setCurrentRoot}
-                  filter={filterQuery()}
-                  onFilterChange={setFilterQuery}
-                  hiddenPaths={hiddenPaths()}
-                  onToggleHidden={toggleHiddenPath}
-                />
-              </div>
-
-              {/* Drag Handle */}
-              <div
-                class="w-1 bg-[#333] hover:bg-blue-500 cursor-col-resize transition-colors z-10"
-                onMouseDown={() => setIsDragging(true)}
+              <Explorer
+                data={currentRoot() || processedData()}
+                onFileSelect={handleFileFromTreemap}
+                onZoom={setCurrentRoot}
+                filter={filterQuery()}
+                onFilterChange={setFilterQuery}
               />
-
-              <div class="flex-1 h-full overflow-hidden relative">
-                <Treemap
-                  data={processedData()}
-                  currentRoot={currentRoot()}
-                  onZoom={setCurrentRoot}
-                  onFileSelect={handleFileFromTreemap}
-                />
-              </div>
             </div>
-          </Show>
-        </main>
-        <Show when={showToast()}>
-          <Toast message={toastMessage()} type={toastType()} duration={4000} />
+
+            {/* Drag Handle */}
+            <div
+              class="w-1 bg-[#333] hover:bg-blue-500 cursor-col-resize transition-colors z-10"
+              onMouseDown={() => setIsDragging(true)}
+            />
+
+            <div class="flex-1 h-full overflow-hidden relative">
+              <Treemap
+                data={processedData()}
+                currentRoot={currentRoot()}
+                onZoom={setCurrentRoot}
+                onFileSelect={handleFileFromTreemap}
+              />
+            </div>
+          </div>
         </Show>
-        <CodeModal
-          isOpen={isCodeModalOpen()}
-          filePath={selectedFilePath()}
-          startLine={selectedLineRange()?.start ?? null}
-          endLine={selectedLineRange()?.end ?? null}
-          onClose={() => setIsCodeModalOpen(false)}
-        />
-      </div>
-    </MetricsStoreProvider>
+      </main>
+      <Show when={showToast()}>
+        <Toast message={toastMessage()} type={toastType()} duration={4000} />
+      </Show>
+      <CodeModal
+        isOpen={isCodeModalOpen()}
+        filePath={selectedFilePath()}
+        startLine={selectedLineRange()?.start ?? null}
+        endLine={selectedLineRange()?.end ?? null}
+        onClose={() => setIsCodeModalOpen(false)}
+      />
+    </div>
   );
 }
 

@@ -1,11 +1,6 @@
-import {
-  createSignal,
-  createMemo,
-  Show,
-  For,
-  onCleanup,
-  onMount,
-} from "solid-js";
+import { createSignal, createMemo, Show, For, onMount } from "solid-js";
+import { useMetricsStore } from "../utils/metricsStore";
+import Popover from "./Popover";
 
 interface FileTypeFilterProps {
   data: any;
@@ -18,22 +13,7 @@ interface FileTypeFilterProps {
 export default function FileTypeFilter(props: FileTypeFilterProps) {
   const [isOpen, setIsOpen] = createSignal(false);
   const [locInput, setLocInput] = createSignal(10000);
-  let containerRef: HTMLDivElement | undefined;
-
-  // Close on click outside
-  const handleClickOutside = (e: MouseEvent) => {
-    if (containerRef && !containerRef.contains(e.target as Node)) {
-      setIsOpen(false);
-    }
-  };
-
-  onMount(() => {
-    document.addEventListener("mousedown", handleClickOutside);
-    onCleanup(() =>
-      document.removeEventListener("mousedown", handleClickOutside)
-    );
-  });
-
+  const { excludedPaths, toggleExcludedPath } = useMetricsStore();
   // Analyze data to find extensions and counts
   const extensionStats = createMemo(() => {
     const stats = new Map<string, number>();
@@ -86,25 +66,32 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
   };
 
   return (
-    <div class="relative" ref={containerRef}>
-      <button
-        class={`flex items-center gap-2 px-2 py-1 text-xs rounded border transition-colors ${
-          activeCount() > 0 || isLocActive()
-            ? "bg-blue-900 border-blue-700 text-blue-100"
-            : "bg-[#252526] border-[#3e3e42] text-gray-400 hover:bg-[#2d2d2d]"
-        }`}
-        onClick={() => setIsOpen(!isOpen())}
+    <div class="relative">
+      <Popover
+        isOpen={isOpen()}
+        onOpenChange={setIsOpen}
+        placement="bottom-end"
+        offset={{ x: 0, y: 4 }}
+        trigger={(triggerProps) => (
+          <button
+            ref={triggerProps.ref}
+            class={`flex items-center gap-2 px-2 py-1 text-xs rounded border transition-colors ${
+              activeCount() > 0 || isLocActive()
+                ? "bg-blue-900 border-blue-700 text-blue-100"
+                : "bg-[#252526] border-[#3e3e42] text-gray-400 hover:bg-[#2d2d2d]"
+            }`}
+            onClick={(e) => triggerProps.onClick(e)}
+          >
+            <span class="uppercase tracking-wider font-semibold">
+              {activeCount() > 0 || isLocActive()
+                ? `Filter (${activeCount() + (isLocActive() ? 1 : 0)})`
+                : "Filter: All"}
+            </span>
+            <span class="text-[9px]">▼</span>
+          </button>
+        )}
       >
-        <span class="uppercase tracking-wider font-semibold">
-          {activeCount() > 0 || isLocActive()
-            ? `Filter (${activeCount() + (isLocActive() ? 1 : 0)})`
-            : "Filter: All"}
-        </span>
-        <span class="text-[9px]">▼</span>
-      </button>
-
-      <Show when={isOpen()}>
-        <div class="absolute right-0 top-full mt-1 bg-[#252526] border border-[#3e3e42] rounded shadow-xl z-50 p-3 w-[450px] max-h-[400px] overflow-hidden flex gap-4">
+        <div class="bg-[#252526] border border-[#3e3e42] rounded shadow-xl z-50 p-3 w-[450px] max-h-[400px] overflow-hidden flex gap-4">
           {/* Left Column: File Types */}
           <div class="flex-1 flex flex-col min-h-0">
             <div class="text-xs font-bold text-gray-400 mb-2 px-1">
@@ -214,10 +201,40 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
                   />
                 </div>
               </div>
+
+              {/* Excluded Paths Section */}
+              <Show when={excludedPaths().length > 0}>
+                <div class="pt-2 border-t border-[#3e3e42]">
+                  <div class="text-[10px] font-bold text-gray-400 mb-2">
+                    Excluded Paths
+                  </div>
+                  <div class="space-y-1 max-h-[150px] overflow-y-auto">
+                    <For each={excludedPaths()}>
+                      {(path) => (
+                        <div class="flex items-center justify-between text-[10px] bg-[#1e1e1e] border border-[#3e3e42] rounded px-2 py-1 group hover:border-red-900/50">
+                          <span
+                            class="truncate text-gray-400 max-w-[140px]"
+                            title={path}
+                          >
+                            {path.split("/").pop()}
+                          </span>
+                          <button
+                            class="text-gray-500 hover:text-red-400 ml-2"
+                            onClick={() => toggleExcludedPath(path)}
+                            title="Remove exclusion"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                </div>
+              </Show>
             </div>
           </div>
         </div>
-      </Show>
+      </Popover>
     </div>
   );
 }

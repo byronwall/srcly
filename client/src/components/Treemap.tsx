@@ -13,6 +13,7 @@ import { HOTSPOT_METRICS, useMetricsStore } from "../utils/metricsStore";
 import DependencyGraph from "./DependencyGraph";
 import DataFlowViz from "./DataFlowViz";
 import FileTypeFilter from "./FileTypeFilter";
+import Popover from "./Popover";
 
 interface TreemapProps {
   data: any;
@@ -191,15 +192,21 @@ export default function Treemap(props: TreemapProps) {
 
   // Initialize current root when data loads or updates
   createEffect(() => {
-    if (props.currentRoot) {
-      setCurrentRoot(props.currentRoot);
-      // Reconstruct breadcrumbs
+    const dataRoot = props.data;
+    const requestedRoot = props.currentRoot;
+
+    // When a specific currentRoot is requested (e.g. via zoom), try to
+    // re-resolve it inside the *filtered* tree that Treemap receives as
+    // props.data so that excluded paths really disappear from the view.
+    if (requestedRoot && dataRoot) {
+      const targetPath = requestedRoot.path;
       const path: any[] = [];
-      const targetPath = props.currentRoot.path;
+      let resolvedNode: any = null;
 
       function findPath(root: any, target: string, current: any[]): boolean {
         if (root.path === target) {
           path.push(...current, root);
+          resolvedNode = root;
           return true;
         }
         if (root.children) {
@@ -210,15 +217,28 @@ export default function Treemap(props: TreemapProps) {
         return false;
       }
 
-      if (props.data && targetPath) {
-        findPath(props.data, targetPath, []);
+      if (targetPath && findPath(dataRoot, targetPath, [])) {
+        setCurrentRoot(resolvedNode);
         setBreadcrumbs(path);
-      } else {
-        setBreadcrumbs([props.currentRoot]);
+        return;
       }
-    } else if (props.data) {
-      setCurrentRoot(props.data);
-      setBreadcrumbs([props.data]);
+
+      // If the requested root no longer exists in the filtered tree (for
+      // example because its path is excluded), fall back to the top-level root.
+      // This also makes it easy to debug path mismatches.
+      // eslint-disable-next-line no-console
+      console.debug(
+        "[Treemap] Requested currentRoot path not found in filtered data, falling back to root",
+        {
+          targetPath,
+          dataRootPath: dataRoot.path,
+        }
+      );
+    }
+
+    if (dataRoot) {
+      setCurrentRoot(dataRoot);
+      setBreadcrumbs([dataRoot]);
     }
   });
 
@@ -541,19 +561,27 @@ export default function Treemap(props: TreemapProps) {
           >
             Color:
           </button>
-          <button
-            type="button"
-            class="bg-[#252526] border border-[#3e3e42] text-gray-400 text-xs rounded px-2 py-0.5 outline-none flex items-center gap-1 hover:border-blue-500 hover:text-blue-200"
-            onClick={() => setShowMetricPopover(!showMetricPopover())}
+          <Popover
+            isOpen={showMetricPopover()}
+            onOpenChange={setShowMetricPopover}
+            placement="bottom-end"
+            offset={{ x: 0, y: 4 }}
+            trigger={(triggerProps) => (
+              <button
+                ref={triggerProps.ref}
+                type="button"
+                class="bg-[#252526] border border-[#3e3e42] text-gray-400 text-xs rounded px-2 py-0.5 outline-none flex items-center gap-1 hover:border-blue-500 hover:text-blue-200"
+                onClick={(e) => triggerProps.onClick(e)}
+              >
+                <span class="truncate max-w-[140px]">
+                  {HOTSPOT_METRICS.find((m) => m.id === primaryMetric())
+                    ?.label ?? "Select metric"}
+                </span>
+                <span class="text-[9px]">▼</span>
+              </button>
+            )}
           >
-            <span class="truncate max-w-[140px]">
-              {HOTSPOT_METRICS.find((m) => m.id === primaryMetric())?.label ??
-                "Select metric"}
-            </span>
-            <span class="text-[9px]">▼</span>
-          </button>
-          <Show when={showMetricPopover()}>
-            <div class="absolute right-0 top-7 mt-1 bg-[#252526] border border-[#3e3e42] rounded shadow-xl z-50 p-2 w-56">
+            <div class="bg-[#252526] border border-[#3e3e42] rounded shadow-xl z-50 p-2 w-56">
               <div class="text-xs font-bold text-gray-400 mb-2">
                 Hot Spot Metrics
               </div>
@@ -598,7 +626,7 @@ export default function Treemap(props: TreemapProps) {
                 </For>
               </div>
             </div>
-          </Show>
+          </Popover>
         </div>
 
         {/* View Dependencies Button */}
