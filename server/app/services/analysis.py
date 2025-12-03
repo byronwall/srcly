@@ -5,10 +5,8 @@ from pathlib import Path
 
 from app.models import Node, Metrics
 from app.config import IGNORE_DIRS, IGNORE_FILES, IGNORE_EXTENSIONS
-from app.services.tree_sitter_analysis import (
-    TreeSitterAnalyzer,
-    MarkdownTreeSitterAnalyzer,
-)
+from app.services.tree_sitter_analysis import TreeSitterAnalyzer
+from app.services.markdown_analysis import MarkdownTreeSitterAnalyzer
 from app.services.ipynb_analysis import NotebookAnalyzer
 from pathspec import PathSpec
 
