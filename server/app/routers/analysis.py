@@ -570,7 +570,14 @@ async def get_analysis_context():
     load, for both the current working directory and the repository root.
     """
     current_root = ROOT_PATH
-    repo_root = current_root.parent
+    # Use the same repository root detection logic as the analysis layer so that
+    # the client sees a consistent "repo root" regardless of how the server was
+    # started (uvx, direct CLI, dev mode, etc.).
+    #
+    # This mirrors the behaviour of the CLI helper that walks upwards from the
+    # current directory to the enclosing `.git` root, falling back to the
+    # starting directory when no repository is found.
+    repo_root = analysis.find_repo_root(current_root)
 
     current_file_count, current_folder_count = _estimate_counts(current_root)
 
