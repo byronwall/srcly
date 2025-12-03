@@ -8,6 +8,7 @@ from app.config import IGNORE_DIRS, IGNORE_FILES, IGNORE_EXTENSIONS
 from app.services.tree_sitter_analysis import TreeSitterAnalyzer
 from app.services.markdown_analysis import MarkdownTreeSitterAnalyzer
 from app.services.ipynb_analysis import NotebookAnalyzer
+from app.services.css_analysis import CssTreeSitterAnalyzer
 from pathspec import PathSpec
 
 # Maximum time allowed for analyzing a single file in a worker process.
@@ -16,6 +17,7 @@ PER_FILE_ANALYSIS_TIMEOUT_SECONDS: float = 10.0
 _ts_analyzer = None
 _md_analyzer = None
 _ipynb_analyzer = None
+_css_analyzer = None
 
 
 def get_ts_analyzer():
@@ -37,6 +39,13 @@ def get_ipynb_analyzer():
     if _ipynb_analyzer is None:
         _ipynb_analyzer = NotebookAnalyzer()
     return _ipynb_analyzer
+
+
+def get_css_analyzer():
+    global _css_analyzer
+    if _css_analyzer is None:
+        _css_analyzer = CssTreeSitterAnalyzer()
+    return _css_analyzer
 
 def find_repo_root(start_path: Path) -> Path:
     current = start_path.resolve()
@@ -292,6 +301,36 @@ def _is_gitignored(path: Path, ignore_root: Path, spec: PathSpec | None) -> bool
     rel_str = rel.as_posix()
     return spec.match_file(rel_str)
 
+
+def _should_log_file_progress(completed_count: int, total_count: int) -> bool:
+    """
+    Decide whether to emit a per-file progress log.
+
+    Rules:
+    - If there are fewer than 10 files, log every file.
+    - Otherwise:
+      - Log the first 10 files.
+      - Log at 15 and 20.
+      - Log every 25th file after that (25, 50, 75, ...).
+      - Always log the final file when done.
+    """
+    if total_count < 10:
+        return True
+
+    if completed_count <= 10:
+        return True
+
+    if completed_count in (15, 20):
+        return True
+
+    if completed_count % 25 == 0:
+        return True
+
+    if completed_count == total_count:
+        return True
+
+    return False
+
 def aggregate_metrics(node: Node) -> Metrics:
     if not node.children: return node.metrics
 
@@ -367,6 +406,9 @@ def analyze_single_file(file_path: str):
     try:
         if file_path.endswith(".ts") or file_path.endswith(".tsx"):
             analyzer = get_ts_analyzer()
+            return analyzer.analyze_file(file_path)
+        if file_path.endswith(".css") or file_path.endswith(".scss"):
+            analyzer = get_css_analyzer()
             return analyzer.analyze_file(file_path)
         if file_path.endswith(".md") or file_path.endswith(".markdown"):
             analyzer = get_md_analyzer()
@@ -444,7 +486,8 @@ def scan_codebase(root_path: Path) -> Node:
                     print(f"❌ [{completed_count}/{total_count}] Error analyzing {file}: {result['error']}", flush=True)
                 else:
                     # Success
-                    print(f"✅ [{completed_count}/{total_count}] Analyzed {file}", flush=True)
+                    if _should_log_file_progress(completed_count, total_count):
+                        print(f"✅ [{completed_count}/{total_count}] Analyzed {file}", flush=True)
                     analysis_results.append(result)
             except concurrent.futures.TimeoutError:
                 print(f"❌ [{completed_count}/{total_count}] Timeout analyzing {file} (skipped)", flush=True)
