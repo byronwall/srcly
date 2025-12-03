@@ -5,19 +5,40 @@ from pathlib import Path
 
 from app.models import Node, Metrics
 from app.config import IGNORE_DIRS, IGNORE_FILES, IGNORE_EXTENSIONS
-from app.services.tree_sitter_analysis import TreeSitterAnalyzer
+from app.services.tree_sitter_analysis import (
+    TreeSitterAnalyzer,
+    MarkdownTreeSitterAnalyzer,
+)
+from app.services.ipynb_analysis import NotebookAnalyzer
 from pathspec import PathSpec
 
 # Maximum time allowed for analyzing a single file in a worker process.
 PER_FILE_ANALYSIS_TIMEOUT_SECONDS: float = 10.0
 
 _ts_analyzer = None
+_md_analyzer = None
+_ipynb_analyzer = None
+
 
 def get_ts_analyzer():
     global _ts_analyzer
     if _ts_analyzer is None:
         _ts_analyzer = TreeSitterAnalyzer()
     return _ts_analyzer
+
+
+def get_md_analyzer():
+    global _md_analyzer
+    if _md_analyzer is None:
+        _md_analyzer = MarkdownTreeSitterAnalyzer()
+    return _md_analyzer
+
+
+def get_ipynb_analyzer():
+    global _ipynb_analyzer
+    if _ipynb_analyzer is None:
+        _ipynb_analyzer = NotebookAnalyzer()
+    return _ipynb_analyzer
 
 def find_repo_root(start_path: Path) -> Path:
     current = start_path.resolve()
@@ -57,6 +78,9 @@ def attach_file_metrics(node: Node, file_info) -> None:
         node.metrics.tsx_duplicated_string_count = file_info.tsx_duplicated_string_count
         node.metrics.ts_type_interface_count = file_info.ts_type_interface_count
         node.metrics.ts_export_count = file_info.ts_export_count
+    # Markdown-specific metrics
+    if hasattr(file_info, "md_data_url_count"):
+        node.metrics.md_data_url_count = file_info.md_data_url_count
     
     # New metrics
     if hasattr(file_info, 'comment_lines'):
@@ -128,6 +152,7 @@ def attach_file_metrics(node: Node, file_info) -> None:
         func_node.metrics.comment_lines = getattr(func, 'comment_lines', 0)
         func_node.metrics.todo_count = getattr(func, 'todo_count', 0)
         func_node.metrics.ts_type_interface_count = getattr(func, 'ts_type_interface_count', 0)
+        func_node.metrics.md_data_url_count = getattr(func, 'md_data_url_count', 0)
         
         # Density for function
         comment_lines = getattr(func, 'comment_lines', 0)
@@ -284,6 +309,7 @@ def aggregate_metrics(node: Node) -> Metrics:
     total_classes_count = 0
     total_type_interface_count = 0
     total_export_count = 0
+    total_md_data_url_count = 0
     
     # For average function length, we need total function loc and total functions (already have total_funcs)
     # But we need to sum function locs from children.
@@ -304,6 +330,7 @@ def aggregate_metrics(node: Node) -> Metrics:
         total_classes_count += child_metrics.classes_count
         total_type_interface_count += child_metrics.ts_type_interface_count
         total_export_count += child_metrics.ts_export_count
+        total_md_data_url_count += child_metrics.md_data_url_count
         
         # Reconstruct total function loc from average * count
         total_function_loc += (child_metrics.average_function_length * child_metrics.function_count)
@@ -330,6 +357,7 @@ def aggregate_metrics(node: Node) -> Metrics:
         node.metrics.average_function_length = total_function_loc / total_funcs if total_funcs > 0 else 0.0
         node.metrics.ts_type_interface_count = total_type_interface_count
         node.metrics.ts_export_count = total_export_count
+        node.metrics.md_data_url_count = total_md_data_url_count
     
     return node.metrics
 
@@ -339,11 +367,16 @@ def analyze_single_file(file_path: str):
     Must be top-level for multiprocessing pickling.
     """
     try:
-        if file_path.endswith('.ts') or file_path.endswith('.tsx'):
+        if file_path.endswith(".ts") or file_path.endswith(".tsx"):
             analyzer = get_ts_analyzer()
             return analyzer.analyze_file(file_path)
-        else:
-            return lizard.analyze_file(file_path)
+        if file_path.endswith(".md") or file_path.endswith(".markdown"):
+            analyzer = get_md_analyzer()
+            return analyzer.analyze_file(file_path)
+        if file_path.endswith(".ipynb"):
+            analyzer = get_ipynb_analyzer()
+            return analyzer.analyze_file(file_path)
+        return lizard.analyze_file(file_path)
     except Exception as e:
         # Return error info instead of crashing
         return {"error": str(e), "filename": file_path}

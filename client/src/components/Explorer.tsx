@@ -41,6 +41,7 @@ export interface Node {
     tsx_duplicated_string_count?: number;
     ts_type_interface_count?: number;
     ts_export_count?: number;
+    md_data_url_count?: number;
   };
 }
 
@@ -67,7 +68,8 @@ type SortField =
   | "tsx_hardcoded_string_volume"
   | "tsx_duplicated_string_count"
   | "ts_type_interface_count"
-  | "ts_export_count";
+  | "ts_export_count"
+  | "md_data_url_count";
 type SortDirection = "asc" | "desc";
 
 interface ExplorerContextType {
@@ -143,6 +145,7 @@ export const SORT_FIELD_ACCESSORS: Record<
   ts_type_interface_count: (node) =>
     getMetricValue(node, "ts_type_interface_count"),
   ts_export_count: (node) => getMetricValue(node, "ts_export_count"),
+  md_data_url_count: (node) => getMetricValue(node, "md_data_url_count"),
 };
 
 export default function Explorer(props: {

@@ -34,6 +34,8 @@ class Metrics(BaseModel):
     tsx_duplicated_string_count: int = 0
     ts_type_interface_count: int = 0
     ts_export_count: int = 0
+    # Markdown-specific metrics
+    md_data_url_count: int = 0
 
 class Node(BaseModel):
     name: str

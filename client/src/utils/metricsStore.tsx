@@ -24,7 +24,8 @@ export type HotSpotMetricId =
   | "tsx_hardcoded_string_volume"
   | "tsx_duplicated_string_count"
   | "ts_type_interface_count"
-  | "ts_export_count";
+  | "ts_export_count"
+  | "md_data_url_count";
 
 export type HotSpotMetricDef = {
   id: HotSpotMetricId;
@@ -89,6 +90,11 @@ export const HOTSPOT_METRICS: HotSpotMetricDef[] = [
     id: "ts_export_count",
     label: "Exports",
     color: "text-cyan-300",
+  },
+  {
+    id: "md_data_url_count",
+    label: "Markdown Data URLs",
+    color: "text-fuchsia-300",
   },
 ];
 
