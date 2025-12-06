@@ -5,10 +5,10 @@ from pathlib import Path
 
 from app.models import Node, Metrics
 from app.config import IGNORE_DIRS, IGNORE_FILES, IGNORE_EXTENSIONS
-from app.services.tree_sitter_analysis import TreeSitterAnalyzer
+from app.services.typescript.typescript_analysis import TreeSitterAnalyzer
 from app.services.markdown.markdown_analysis import MarkdownTreeSitterAnalyzer
 from app.services.ipynb.ipynb_analysis import NotebookAnalyzer
-from app.services.css_analysis import CssTreeSitterAnalyzer
+from app.services.css.css_analysis import CssTreeSitterAnalyzer
 from pathspec import PathSpec
 
 # Maximum time allowed for analyzing a single file in a worker process.

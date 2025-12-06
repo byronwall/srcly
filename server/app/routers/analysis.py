@@ -5,7 +5,8 @@ import os
 from typing import Dict, List, Optional, Tuple
 
 from app.models import Node, DependencyGraph, DependencyNode, DependencyEdge
-from app.services import analysis, cache, tree_sitter_analysis
+from app.services import analysis, cache
+from app.services.typescript import typescript_analysis
 from app.config import IGNORE_DIRS
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
@@ -333,7 +334,7 @@ async def get_dependencies(path: str = None):
     if not target_path.exists():
         raise HTTPException(status_code=404, detail="Path not found")
 
-    analyzer = tree_sitter_analysis.TreeSitterAnalyzer()
+    analyzer = typescript_analysis.TreeSitterAnalyzer()
     nodes = []
     edges = []
     

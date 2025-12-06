@@ -1,4 +1,4 @@
-from app.services.tree_sitter_analysis import TreeSitterAnalyzer
+from app.services.typescript.typescript_analysis import TreeSitterAnalyzer
 
 # Create a simple TypeScript code snippet
 TYPESCRIPT_CODE = """

@@ -2,7 +2,7 @@ import textwrap
 from pathlib import Path
 
 from app.services.analysis import scan_codebase
-from app.services.css_analysis import CssTreeSitterAnalyzer
+from app.services.css.css_analysis import CssTreeSitterAnalyzer
 
 
 def write(tmp_path: Path, name: str, content: str) -> Path:

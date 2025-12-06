@@ -1,5 +1,5 @@
 
-from app.services.tree_sitter_analysis import TreeSitterAnalyzer
+from app.services.typescript.typescript_analysis import TreeSitterAnalyzer
 
 def test_treemap_scopes(tmp_path):
     analyzer = TreeSitterAnalyzer()

@@ -1,4 +1,4 @@
-from app.services.tree_sitter_analysis import TreeSitterAnalyzer
+from app.services.typescript.typescript_analysis import TreeSitterAnalyzer
 from app.services.analysis import attach_file_metrics, create_node
 from pathlib import Path
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 import uuid
 
-from app.services.tree_sitter_analysis import TreeSitterAnalyzer
+from app.services.typescript.typescript_analysis import TreeSitterAnalyzer
 
 # Load TypeScript and TSX grammars
 TYPESCRIPT_LANGUAGE = Language(tstypescript.language_typescript())
