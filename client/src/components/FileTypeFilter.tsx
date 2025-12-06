@@ -200,6 +200,18 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
                     min="0"
                     step="100"
                   />
+                  <div class="flex gap-1.5 mt-2 flex-wrap">
+                    <For each={[1000, 2000, 5000, 10000, 20000]}>
+                      {(val) => (
+                        <button
+                          class="text-[9px] px-1.5 py-0.5 rounded border border-[#3e3e42] bg-[#252526] text-gray-400 hover:text-gray-200 hover:border-gray-500 transition-colors"
+                          onClick={() => handleLocInputChange(val)}
+                        >
+                          {val >= 1000 ? `${val / 1000}k` : val}
+                        </button>
+                      )}
+                    </For>
+                  </div>
                 </div>
               </div>
 
