@@ -570,6 +570,7 @@ export default function Treemap(props: TreemapProps) {
             data={props.data}
             activeExtensions={activeExtensions()}
             onToggleExtension={toggleExtension}
+            onClearExtensions={() => setActiveExtensions([])}
             maxLoc={maxLoc()}
             onMaxLocChange={setMaxLoc}
           />

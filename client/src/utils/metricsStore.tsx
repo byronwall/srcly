@@ -103,6 +103,7 @@ type MetricsStoreContextType = {
   setSelectedHotSpotMetrics: (ids: HotSpotMetricId[]) => void;
   excludedPaths: Accessor<string[]>;
   toggleExcludedPath: (path: string) => void;
+  clearExcludedPaths: () => void;
 };
 
 const MetricsStoreContext = createContext<MetricsStoreContextType>();
@@ -129,6 +130,7 @@ export const MetricsStoreProvider = (props: { children: any }) => {
         setSelectedHotSpotMetrics,
         excludedPaths,
         toggleExcludedPath,
+        clearExcludedPaths: () => setExcludedPaths([]),
       }}
     >
       {props.children}
