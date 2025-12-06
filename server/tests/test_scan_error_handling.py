@@ -1,7 +1,6 @@
 from pathlib import Path
 import types
 
-import pytest
 
 from app.services import analysis
 
@@ -11,11 +10,14 @@ def test_analyze_single_file_wraps_exceptions(monkeypatch, tmp_path: Path) -> No
     bad_file = tmp_path / "bad.py"
     bad_file.write_text("print('hi')\n")
 
-    def boom(path: str):
-        raise RuntimeError("boom")
+    # Force get_python_analyzer().analyze_file to fail for .py paths.
+    def get_boom_analyzer():
+        class BoomAnalyzer:
+            def analyze_file(self, path: str):
+                raise RuntimeError("boom")
+        return BoomAnalyzer()
 
-    # Force lizard.analyze_file to fail for non-TS paths.
-    monkeypatch.setattr(analysis.lizard, "analyze_file", boom)
+    monkeypatch.setattr(analysis, "get_python_analyzer", get_boom_analyzer)
 
     result = analysis.analyze_single_file(str(bad_file))
 
