@@ -41,6 +41,7 @@ export interface Node {
     tsx_duplicated_string_count?: number;
     ts_type_interface_count?: number;
     ts_export_count?: number;
+    python_import_count?: number;
     md_data_url_count?: number;
   };
 }
@@ -69,6 +70,7 @@ type SortField =
   | "tsx_duplicated_string_count"
   | "ts_type_interface_count"
   | "ts_export_count"
+  | "python_import_count"
   | "md_data_url_count";
 type SortDirection = "asc" | "desc";
 
@@ -145,6 +147,7 @@ export const SORT_FIELD_ACCESSORS: Record<
   ts_type_interface_count: (node) =>
     getMetricValue(node, "ts_type_interface_count"),
   ts_export_count: (node) => getMetricValue(node, "ts_export_count"),
+  python_import_count: (node) => getMetricValue(node, "python_import_count"),
   md_data_url_count: (node) => getMetricValue(node, "md_data_url_count"),
 };
 

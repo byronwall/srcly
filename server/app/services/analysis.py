@@ -47,6 +47,14 @@ def get_css_analyzer():
         _css_analyzer = CssTreeSitterAnalyzer()
     return _css_analyzer
 
+_python_analyzer = None
+def get_python_analyzer():
+    global _python_analyzer
+    if _python_analyzer is None:
+        from app.services.python.python_analysis import PythonTreeSitterAnalyzer
+        _python_analyzer = PythonTreeSitterAnalyzer()
+    return _python_analyzer
+
 def find_repo_root(start_path: Path) -> Path:
     current = start_path.resolve()
     for parent in [current, *current.parents]:
@@ -98,6 +106,9 @@ def attach_file_metrics(node: Node, file_info) -> None:
         node.metrics.parameter_count = file_info.parameter_count
         node.metrics.todo_count = file_info.todo_count
         node.metrics.classes_count = file_info.classes_count
+    
+    if hasattr(file_info, 'python_import_count'):
+        node.metrics.python_import_count = file_info.python_import_count
     
     # Set start/end line for the file (approximate, 1 to total lines)
     # We don't strictly have this from lizard always, but we can infer or leave 0.
@@ -368,6 +379,12 @@ def aggregate_metrics(node: Node) -> Metrics:
         total_type_interface_count += child_metrics.ts_type_interface_count
         total_export_count += child_metrics.ts_export_count
         total_md_data_url_count += child_metrics.md_data_url_count
+        if hasattr(child_metrics, 'python_import_count'):
+             # Metric model has it, but child_metrics is a Metrics object so it should have it
+             total_python_import_count = getattr(child_metrics, 'python_import_count', 0)
+             # Should we add a local var for this? Yes
+             pass
+        
         
         # Reconstruct total function loc from average * count
         total_function_loc += (child_metrics.average_function_length * child_metrics.function_count)
@@ -393,8 +410,10 @@ def aggregate_metrics(node: Node) -> Metrics:
         node.metrics.classes_count = total_classes_count
         node.metrics.average_function_length = total_function_loc / total_funcs if total_funcs > 0 else 0.0
         node.metrics.ts_type_interface_count = total_type_interface_count
+        node.metrics.ts_type_interface_count = total_type_interface_count
         node.metrics.ts_export_count = total_export_count
         node.metrics.md_data_url_count = total_md_data_url_count
+        node.metrics.python_import_count = total_python_import_count
     
     return node.metrics
 
@@ -416,6 +435,12 @@ def analyze_single_file(file_path: str):
         if file_path.endswith(".ipynb"):
             analyzer = get_ipynb_analyzer()
             return analyzer.analyze_file(file_path)
+        if file_path.endswith(".py"):
+             # We can cache it similarly if we want, or just instantiate. 
+             # For consistency let's add a getter or just instantiate for now to avoid circular imports / global clutter
+             # actually lets follow pattern
+             return get_python_analyzer().analyze_file(file_path)
+            
         return lizard.analyze_file(file_path)
     except Exception as e:
         # Return error info instead of crashing

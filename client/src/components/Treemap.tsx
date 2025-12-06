@@ -443,7 +443,7 @@ export default function Treemap(props: TreemapProps) {
 
       tooltipRef.innerHTML = `<strong>${d.data.name}</strong><br>Total LOC: ${d.value}<br>Sub-folders: ${subFolders}<br>Sub-files: ${subFiles}`;
     } else {
-      tooltipRef.innerHTML = `<strong>${d.data.name}</strong><br>LOC: ${
+      let content = `<strong>${d.data.name}</strong><br>LOC: ${
         d.value
       }<br>Complexity: ${(d.data.metrics?.complexity || 0).toFixed(
         1
@@ -452,6 +452,30 @@ export default function Treemap(props: TreemapProps) {
       )}%<br>Depth: ${d.data.metrics?.max_nesting_depth || 0}<br>TODOs: ${
         d.data.metrics?.todo_count || 0
       }`;
+
+      const metricId = primaryMetric();
+      const standardMetrics = [
+        "loc",
+        "complexity",
+        "comment_density",
+        "max_nesting_depth",
+        "todo_count",
+      ];
+      if (!standardMetrics.includes(metricId)) {
+        const val = (d.data.metrics as any)?.[metricId];
+        if (val !== undefined) {
+          const label =
+            HOTSPOT_METRICS.find((m) => m.id === metricId)?.label || metricId;
+          // Format number if needed
+          const displayVal =
+            typeof val === "number" && !Number.isInteger(val)
+              ? val.toFixed(2)
+              : val;
+          content += `<br>${label}: ${displayVal}`;
+        }
+      }
+
+      tooltipRef.innerHTML = content;
     }
   }
 

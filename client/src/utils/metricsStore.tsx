@@ -25,6 +25,7 @@ export type HotSpotMetricId =
   | "tsx_duplicated_string_count"
   | "ts_type_interface_count"
   | "ts_export_count"
+  | "python_import_count"
   | "md_data_url_count";
 
 export type HotSpotMetricDef = {
@@ -90,6 +91,11 @@ export const HOTSPOT_METRICS: HotSpotMetricDef[] = [
     id: "ts_export_count",
     label: "Exports",
     color: "text-cyan-300",
+  },
+  {
+    id: "python_import_count",
+    label: "Python Imports",
+    color: "text-blue-300",
   },
   {
     id: "md_data_url_count",
