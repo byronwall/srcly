@@ -79,3 +79,24 @@ def test_ipynb_integration_with_attach_file_metrics(tmp_path):
     assert child_locs == [2, 2]
 
 
+
+def test_get_virtual_content(tmp_path):
+    path = _write_notebook(tmp_path)
+    
+    analyzer = NotebookAnalyzer()
+    virtual_content = analyzer.get_virtual_content(str(path))
+    
+    # We expect the non-empty source lines joined by newlines.
+    # From _write_notebook:
+    # Cell 1: "# Title\n", "\n", "Some text\n" -> "# Title", "Some text"
+    # Cell 2: "print('hi')\n", "\n", "x = 1\n" -> "print('hi')", "x = 1"
+    # Cell 3: empty source -> skipped
+    
+    expected_lines = [
+        "# Title",
+        "Some text",
+        "print('hi')",
+        "x = 1"
+    ]
+    
+    assert virtual_content == "\n".join(expected_lines)

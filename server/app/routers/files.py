@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, Query
 from pathlib import Path
 from fastapi.responses import PlainTextResponse
 
+from app.services.analysis import get_ipynb_analyzer
+
 router = APIRouter(prefix="/api/files", tags=["files"])
 
 @router.get("/content", response_class=PlainTextResponse)
@@ -21,6 +23,8 @@ async def get_file_content(path: str = Query(..., description="Absolute path to 
     # For this local tool, we'll allow reading any file as requested, but maybe warn?
     
     try:
+        if file_path.suffix == ".ipynb":
+            return get_ipynb_analyzer().get_virtual_content(str(file_path))
         return file_path.read_text(encoding="utf-8")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")

@@ -16,7 +16,7 @@ function guessLangFromPath(path: string): string {
   if (lower.endsWith(".jsx")) return "jsx";
   if (lower.endsWith(".js")) return "js";
   if (lower.endsWith(".json")) return "json";
-  if (lower.endsWith(".py")) return "py";
+  if (lower.endsWith(".py") || lower.endsWith(".ipynb")) return "python";
   if (lower.endsWith(".md")) return "md";
   if (lower.endsWith(".html") || lower.endsWith(".htm")) return "html";
   if (lower.endsWith(".css")) return "css";

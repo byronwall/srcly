@@ -86,4 +86,44 @@ class NotebookAnalyzer:
             # TS/TSX-specific metrics remain at their defaults (all zeros) for notebooks.
         )
 
+    def _get_non_empty_lines(self, cells: list) -> list[str]:
+        """
+        Helper to extract all non-empty lines from valid cells, exactly as
+        analyze_file does for counting LOC.
+        """
+        all_lines = []
+        for cell in cells:
+            source = cell.get("source", "")
+            if isinstance(source, list):
+                text = "".join(source)
+            else:
+                text = str(source)
+            
+            lines = text.splitlines()
+            non_empty = [ln for ln in lines if ln.strip()]
+            
+            # analyze_file skips cells with 0 LOC entirely
+            if not non_empty:
+                continue
+                
+            all_lines.extend(non_empty)
+            
+        return all_lines
+
+    def get_virtual_content(self, file_path: str) -> str:
+        """
+        Returns the "virtual" file content that corresponds to the
+        analysis metrics (line numbers, etc).
+        
+        For notebooks, this is the concatenation of all non-empty
+        lines from all cells, joined by newlines.
+        """
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        cells = data.get("cells") or []
+        lines = self._get_non_empty_lines(cells)
+        return "\n".join(lines)
+
+
 
