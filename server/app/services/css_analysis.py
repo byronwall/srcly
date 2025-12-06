@@ -5,7 +5,7 @@ import tree_sitter_css as tscss
 import tree_sitter_scss as tsscss
 from tree_sitter import Language, Node, Parser
 
-from app.services.tree_sitter_analysis import FileMetrics, FunctionMetrics
+from app.services.analysis_types import FileMetrics, FunctionMetrics
 
 
 CSS_LANGUAGE = Language(tscss.language())
