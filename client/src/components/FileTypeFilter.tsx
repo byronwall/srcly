@@ -44,7 +44,8 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
       .sort((a, b) => b.count - a.count);
   });
 
-  const activeCount = () => props.activeExtensions.length;
+  const activeCount = () =>
+    props.activeExtensions.length + excludedPaths().length;
   const isLocActive = () => props.maxLoc !== undefined;
 
   // Helper to check if an extension is active
