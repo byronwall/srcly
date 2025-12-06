@@ -122,10 +122,15 @@ export default function Treemap(props: TreemapProps) {
   const [breadcrumbs, setBreadcrumbs] = createSignal<any[]>([]);
   const [activeExtensions, setActiveExtensions] = createSignal<string[]>([]);
   const [maxLoc, setMaxLoc] = createSignal<number | undefined>(undefined);
-  const { selectedHotSpotMetrics, setSelectedHotSpotMetrics } =
-    useMetricsStore();
+  const {
+    selectedHotSpotMetrics,
+    setSelectedHotSpotMetrics,
+    toggleExcludedPath,
+    excludedPaths,
+  } = useMetricsStore();
   const primaryMetric = () => selectedHotSpotMetrics()[0] || "complexity";
   const [showLegend, setShowLegend] = createSignal(false);
+  const [isAltPressed, setIsAltPressed] = createSignal(false);
   const [isIsolateMode, setIsIsolateMode] = createSignal(false);
   const [showMetricPopover, setShowMetricPopover] = createSignal(false);
   const [showDependencyGraph, setShowDependencyGraph] = createSignal(false);
@@ -159,10 +164,16 @@ export default function Treemap(props: TreemapProps) {
       if (e.key === "Meta" || e.key === "Control") {
         setIsIsolateMode(true);
       }
+      if (e.key === "Alt") {
+        setIsAltPressed(true);
+      }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === "Meta" || e.key === "Control") {
         setIsIsolateMode(false);
+      }
+      if (e.key === "Alt") {
+        setIsAltPressed(false);
       }
     };
 
@@ -255,6 +266,15 @@ export default function Treemap(props: TreemapProps) {
   function handleHierarchyClick(d: d3.HierarchyNode<any>, event: MouseEvent) {
     // Check for modifier keys (CMD on Mac, CTRL on Windows/Linux)
     const isModifierPressed = event.metaKey || event.ctrlKey;
+    const isAlt = event.altKey;
+
+    if (isAlt) {
+      // Exclude item
+      if (d.data.path) {
+        toggleExcludedPath(d.data.path);
+      }
+      return;
+    }
 
     if (isModifierPressed) {
       // Isolate mode: Zoom into the node
@@ -337,6 +357,7 @@ export default function Treemap(props: TreemapProps) {
     const filteredData = filterData(JSON.parse(JSON.stringify(rootData)), {
       extensions: activeExtensions(),
       maxLoc: maxLoc(),
+      excludedPaths: excludedPaths(),
     });
 
     if (!filteredData) return null;
@@ -424,11 +445,13 @@ export default function Treemap(props: TreemapProps) {
     } else {
       tooltipRef.innerHTML = `<strong>${d.data.name}</strong><br>LOC: ${
         d.value
-      }<br>Complexity: ${d.data.metrics?.complexity || 0}<br>Density: ${(
-        (d.data.metrics?.comment_density || 0) * 100
-      ).toFixed(0)}%<br>Depth: ${
-        d.data.metrics?.max_nesting_depth || 0
-      }<br>TODOs: ${d.data.metrics?.todo_count || 0}`;
+      }<br>Complexity: ${(d.data.metrics?.complexity || 0).toFixed(
+        1
+      )}<br>Density: ${((d.data.metrics?.comment_density || 0) * 100).toFixed(
+        0
+      )}%<br>Depth: ${d.data.metrics?.max_nesting_depth || 0}<br>TODOs: ${
+        d.data.metrics?.todo_count || 0
+      }`;
     }
   }
 
@@ -723,11 +746,15 @@ export default function Treemap(props: TreemapProps) {
                     class={`transition-all duration-100 ${
                       isIsolateMode()
                         ? "hover:brightness-125 hover:stroke-white hover:stroke-[2px]"
+                        : isAltPressed()
+                        ? "hover:stroke-red-500 hover:stroke-[3px] hover:opacity-80" // Red border on Alt hover
                         : "hover:brightness-110 hover:stroke-gray-300 hover:stroke-[1.5px]"
                     }`}
                     style={{
                       cursor: isIsolateMode()
                         ? "zoom-in"
+                        : isAltPressed()
+                        ? "not-allowed" // Cursor for Alt mode
                         : d.data.type === "folder"
                         ? "zoom-in"
                         : "pointer",

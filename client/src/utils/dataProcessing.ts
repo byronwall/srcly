@@ -80,13 +80,18 @@ export function extractFilePath(
 export interface FilterOptions {
   extensions?: string[];
   maxLoc?: number;
+  excludedPaths?: string[];
 }
 
 export function filterData(node: any, options: FilterOptions): any {
-  const { extensions, maxLoc } = options;
+  const { extensions, maxLoc, excludedPaths } = options;
 
   // If no filters are active, return original node
-  if ((!extensions || extensions.length === 0) && maxLoc === undefined) {
+  if (
+    (!extensions || extensions.length === 0) &&
+    maxLoc === undefined &&
+    (!excludedPaths || excludedPaths.length === 0)
+  ) {
     return node;
   }
 
@@ -95,7 +100,15 @@ export function filterData(node: any, options: FilterOptions): any {
       ? new Set(extensions.map((e) => e.toLowerCase()))
       : null;
 
+  const excludedPathSet =
+    excludedPaths && excludedPaths.length > 0 ? new Set(excludedPaths) : null;
+
   function recurse(n: any): any {
+    // Check if path is excluded
+    if (excludedPathSet && n.path && excludedPathSet.has(n.path)) {
+      return null;
+    }
+
     if (n.type === "file") {
       // Extension filter
       if (allowedExtensions) {
