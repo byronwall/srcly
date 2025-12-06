@@ -76,20 +76,12 @@ class PythonTreeSitterAnalyzer:
         # - Functions (def)
         # - Classes (class)
         # - Lambdas (lambda)
-        # - Control Blocks (if, for, while, try, with, match)
         
         scope_types = {
             'function_definition',
             'class_definition',
             'lambda',
-            'async_function_definition',
-            # Control blocks
-            'if_statement',
-            'for_statement',
-            'while_statement',
-            'try_statement',
-            'with_statement',
-            'match_statement'
+            'async_function_definition'
         }
 
         def process_node(node: Node) -> List[FunctionMetrics]:
@@ -141,19 +133,6 @@ class PythonTreeSitterAnalyzer:
         
         elif node.type == 'lambda':
             return "(lambda)"
-        
-        elif node.type == 'if_statement':
-            return "(if)"
-        elif node.type == 'for_statement':
-            return "(for)"
-        elif node.type == 'while_statement':
-            return "(while)"
-        elif node.type == 'try_statement':
-            return "(try)"
-        elif node.type == 'with_statement':
-            return "(with)"
-        elif node.type == 'match_statement':
-            return "(match)"
             
         return "(anonymous)"
 
@@ -164,75 +143,34 @@ class PythonTreeSitterAnalyzer:
             'for_statement',
             'while_statement',
             'except_clause',
-            'with_statement', # minimal complexity add?
+            'with_statement', 
             'match_statement',
-            'try_statement',
             'case_pattern'
+            # try_statement itself is not usually a branch, except_clauses are
         }
-        
-        # Look for boolean operators: and, or
-        # In Python they are 'boolean_operator' with child operators 'and' / 'or'
         
         scope_boundary_types = {
             'function_definition',
             'class_definition',
             'lambda',
-            'async_function_definition',
-            # We are treating control blocks as scopes, so we should NOT recurse into them 
-            # when calculating complexity for the PARENT, to avoid double counting?
-            # Wait, if `if` is a scope, then the complexity of the function containing it 
-            # should probably just count the `if` itself (1), and the `if` scope will have its own complexity?
-            # Standard Cyclomatic Complexity is for the FUNCTION unit.
-            # If we break `if` out as a separate node in the tree, we have a visual representation issue.
-            # Usually CC is sum of branches.
-            # If I have:
-            # def foo():
-            #   if a: ...
-            # 
-            # Tree: function foo -> if (scope)
-            # 
-            # If I attribute complexity to the `if` scope, then `foo` has complexity 1 (base) + 1 (child node existence?) or just 1?
-            # Existing TS implementation: recurses but STOPS at nested function boundaries.
-            # But TS implementation DOES recurse into `if`.
-            # HERE, we are making `if` a SCOPE.
-            # So `foo` metrics should probably NOT count the internals of `if`.
-            # But `foo` SHOULD count the `if` statement itself as a branch point.
-            
-            'if_statement',
-            'for_statement',
-            'while_statement',
-            'try_statement',
-            'with_statement',
-            'match_statement'
+            'async_function_definition'
         }
 
         def traverse(n: Node):
             nonlocal complexity
+            # Stop if we hit a nested function/class scope (metrics are calculated separately for them)
             if n != node and n.type in scope_boundary_types:
-                # We found a nested scope.
-                # If it is a control flow structure (if/for/etc), we count it as +1 complexity for the CURRENT scope,
-                # but we do NOT traverse inside it (its internal complexity belongs to IT).
-                if n.type in complexity_node_types:
-                    complexity += 1
                 return
             
-            # If it's a boolean operator (and/or), it adds complexity to the current scope
-            # even if it's inside a condition, UNLESS it's inside a nested scope (handled by early return above)
+            if n.type in complexity_node_types:
+                complexity += 1
+            
+            # Check for boolean operators
             if n.type == 'boolean_operator':
-                op = n.child_by_field_name('operator') # Might default to text if not named field?
-                # actually tree-sitter-python often uses 'and' / 'or' as keywords or hidden tokens
-                # let's check text
                 text = n.text.decode('utf-8')
                 if 'and' in text or 'or' in text:
                     complexity += 1
             
-            # 'except_clause' is a child of try_statement. If try is a scope, except is inside it? 
-            # Actually try_statement children: body, handlers(except_clause).
-            # If try is a scope, then except is a branch OF that scope.
-            # So if we are IN the try scope, we count except clauses.
-            if n != node and n.type == 'except_clause':
-                complexity += 1
-
             for child in n.children:
                 traverse(child)
 

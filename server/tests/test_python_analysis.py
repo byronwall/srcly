@@ -47,18 +47,15 @@ def test_python_analysis_basics(tmp_path):
     # Expected top-level scopes:
     # - MyClass (class)
     # - independent_function (function)
-    # - if (control block)
     # - lambda (lambda)
+    # Note: "if __name__ == '__main__':" is at top level but is a control block, 
+    # so it should NOT appear in function_list.
     
-    # We might have nested scopes inside those.
-    
-    # Flatten function_list to find names? Or walk safely?
-    # root children:
     top_level_names = [f.name for f in metrics.function_list]
     assert "(class) MyClass" in top_level_names
     assert "independent_function" in top_level_names
-    assert "(if)" in top_level_names
     assert "(lambda)" in top_level_names
+    assert "(if)" not in top_level_names
     
     # Check MyClass children
     my_class = next(f for f in metrics.function_list if f.name == "(class) MyClass")
@@ -67,41 +64,32 @@ def test_python_analysis_basics(tmp_path):
     assert "__init__" in class_children_names
     
     # Check increment complexity
-    # 1 (base) + 1 (if) = 2?
-    # Wait, our complexity logic counts "if" as +1 complexity for the PARENT. 
-    # But we also create a scope for "if". 
-    # If we create a scope for "if", does the "if" scope count usage inside it?
     increment = next(c for c in my_class.children if c.name == "increment")
-    # Complexity of 'increment' should count the 'if' statement presence.
-    # It should not recurse into the 'if' body for further complexity (unless we decide otherwise).
-    # Based on implementation:
-    # It counts `if_statement` as +1.
-    # It stops traversal at `if_statement` because it's in `scope_boundary_types`.
-    # So `increment` complexity = 1 (base) + 1 (if) = 2.
+    # Complexity: 1 (base) + 1 (if) = 2.
     assert increment.cyclomatic_complexity == 2
     
     # Check independent_function
     # def independent_function(x):
-    #     try: ...
-    # complexity: 1 (base) + 1 (try) = 2.
-    # Inside try: if ...
-    # The 'try' is a new scope.
+    #     try:
+    #         if x > 10:
+    #             return x * 2
+    #     except Exception:
+    #         pass
+    #     return x
+    # Complexity:
+    # 1 (base)
+    # + 0 (try - not a branch usually, but maybe we count it? 
+    #      Our implementation does NOT count 'try' as complexity in complexity_node_types 
+    #      (removed from list or kept? I kept it removed based on typical CC rules, but let's check code).
+    #      Wait, in my edit I removed 'try_statement' from complexity_node_types but kept 'except_clause'.
+    # + 1 (if)
+    # + 1 (except)
+    # Total = 3
     indep = next(f for f in metrics.function_list if f.name == "independent_function")
-    assert indep.cyclomatic_complexity == 2
+    assert indep.cyclomatic_complexity == 3
     
-    # Check try scope complexity
-    # Inside try, we have `if`.
-    # The 'try' scope is unnamed or "(try)"?
-    # Let's find "(try)" inside indep children
-    try_scope = next(c for c in indep.children if c.name == "(try)")
-    # Complexity of try scope: 1 (base) + 1 (if) + 1 (except) = 3.
-    assert try_scope.cyclomatic_complexity == 3
-    
-    # Inside "if" scope logic? 
-    # if x > 10: return x * 2
-    # Complexity: 1 (base). No nested complexity.
-    if_scope = next(c for c in try_scope.children if c.name == "(if)")
-    assert if_scope.cyclomatic_complexity == 1
+    # Verify no Scope children for try/if inside independent_function
+    assert len(indep.children) == 0
 
 
 def test_python_control_blocks(tmp_path):
@@ -120,13 +108,10 @@ def foo():
     foo = metrics.function_list[0]
     assert foo.name == "foo"
     
-    # foo has 1 child: (for)
-    assert len(foo.children) == 1
-    for_scope = foo.children[0]
-    assert for_scope.name == "(for)"
+    # foo should have NO children (scopes), because 'for' and 'if' are not scopes anymore
+    assert len(foo.children) == 0
     
-    # (for) has 1 child: (if)
-    assert len(for_scope.children) == 1
-    if_scope = for_scope.children[0]
-    assert if_scope.name == "(if)"
+    # Complexity of foo:
+    # 1 (base) + 1 (for) + 1 (if) = 3
+    assert foo.cyclomatic_complexity == 3
     
