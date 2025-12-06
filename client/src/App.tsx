@@ -313,6 +313,7 @@ function AppContent() {
             >
               <Explorer
                 data={currentRoot() || processedData()}
+                fullData={processedData()}
                 onFileSelect={handleFileFromTreemap}
                 onZoom={setCurrentRoot}
                 filter={filterQuery()}

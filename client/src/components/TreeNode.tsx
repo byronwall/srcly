@@ -81,6 +81,11 @@ export function TreeNode(props: { node: Node; depth: number }) {
       return;
     }
 
+    if (props.node.type === "folder") {
+      ctx.onZoom(props.node);
+      return;
+    }
+
     const filePath = extractFilePath(props.node.path, props.node.type);
     if (!filePath) return;
 
@@ -100,11 +105,6 @@ export function TreeNode(props: { node: Node; depth: number }) {
     if (props.node.type === "folder") return "📁";
     if (props.node.name === "(misc/imports)") return "⚙️";
     return "📄";
-  };
-
-  const handleDrillDown = (e: MouseEvent) => {
-    e.stopPropagation();
-    ctx.onZoom(props.node);
   };
 
   return (
@@ -137,15 +137,6 @@ export function TreeNode(props: { node: Node; depth: number }) {
           </span>
           {/* Actions */}
           <div class="hidden group-hover:flex items-center gap-1 ml-2">
-            <Show when={props.node.type === "folder"}>
-              <button
-                class="text-[10px] px-1 bg-blue-900/50 hover:bg-blue-800 text-blue-200 rounded"
-                title="Drill Down"
-                onClick={handleDrillDown}
-              >
-                🔍
-              </button>
-            </Show>
             <button
               class="text-[10px] px-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded"
               title={isHidden() ? "Show" : "Hide"}

@@ -107,6 +107,21 @@ export const findNodeByPath = (root: Node, path: string): Node | null => {
   return null;
 };
 
+export const findParentNode = (root: Node, targetPath: string): Node | null => {
+  if (root.path === targetPath) return null; // Root has no parent in this context
+  if (!root.children || root.children.length === 0) return null;
+
+  for (const child of root.children) {
+    if (child.path === targetPath) {
+      return root;
+    }
+    const found = findParentNode(child, targetPath);
+    if (found) return found;
+  }
+
+  return null;
+};
+
 const getMetricValue = (
   node: Node,
   metric: keyof NonNullable<Node["metrics"]>
@@ -153,6 +168,7 @@ export const SORT_FIELD_ACCESSORS: Record<
 
 export default function Explorer(props: {
   data: any;
+  fullData?: any;
   onFileSelect: (path: string, startLine?: number, endLine?: number) => void;
   onZoom: (node: any) => void;
   filter: string;
@@ -461,11 +477,42 @@ export default function Explorer(props: {
 
         <Show when={viewMode() === "tree"}>
           <div class="flex items-center bg-[#252526] text-xs font-bold text-gray-400 py-2 border-b border-[#333] select-none">
-            <div
-              class="pl-8 flex-1 cursor-pointer hover:text-white flex items-center"
-              onClick={() => handleHeaderClick("name")}
-            >
-              Name <SortIcon field="name" />
+            <div class="pl-2 flex-1 flex items-center gap-2">
+              <button
+                class={`text-xs px-1.5 py-0.5 rounded transition-colors ${
+                  props.data &&
+                  props.fullData &&
+                  props.data.path !== props.fullData.path
+                    ? "hover:bg-gray-700 text-gray-400 hover:text-white cursor-pointer"
+                    : "opacity-0 pointer-events-none cursor-default"
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (
+                    !props.data ||
+                    !props.fullData ||
+                    props.data.path === props.fullData.path
+                  )
+                    return;
+
+                  const parent = findParentNode(
+                    props.fullData,
+                    props.data.path
+                  );
+                  if (parent) {
+                    props.onZoom(parent);
+                  }
+                }}
+                title="Go Up One Level"
+              >
+                ⬆
+              </button>
+              <div
+                class="cursor-pointer hover:text-white flex items-center"
+                onClick={() => handleHeaderClick("name")}
+              >
+                Name <SortIcon field="name" />
+              </div>
             </div>
 
             <Show when={visibleColumns().includes("gitignored")}>
