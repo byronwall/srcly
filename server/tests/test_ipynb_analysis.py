@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 
-from app.services.ipynb_analysis import NotebookAnalyzer
+from app.services.ipynb.ipynb_analysis import NotebookAnalyzer
 from app.services.analysis import create_node, attach_file_metrics
 
 

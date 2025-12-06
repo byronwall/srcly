@@ -1,7 +1,7 @@
 import json
 from typing import List
 
-from app.services.tree_sitter_analysis import FileMetrics, FunctionMetrics
+from app.services.analysis_types import FileMetrics, FunctionMetrics
 
 
 class NotebookAnalyzer:

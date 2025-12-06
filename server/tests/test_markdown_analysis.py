@@ -1,7 +1,7 @@
 import textwrap
 from pathlib import Path
 
-from app.services.markdown_analysis import MarkdownTreeSitterAnalyzer
+from app.services.markdown.markdown_analysis import MarkdownTreeSitterAnalyzer
 from app.services.analysis import scan_codebase
 
 

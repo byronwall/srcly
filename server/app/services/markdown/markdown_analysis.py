@@ -4,7 +4,7 @@ from typing import List
 import tree_sitter_markdown as tsmarkdown
 from tree_sitter import Language, Node, Parser
 
-from app.services.tree_sitter_analysis import FileMetrics, FunctionMetrics
+from app.services.analysis_types import FileMetrics, FunctionMetrics
 
 
 MARKDOWN_LANGUAGE = Language(tsmarkdown.language())
