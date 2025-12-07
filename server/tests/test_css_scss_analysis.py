@@ -139,3 +139,33 @@ def test_scan_codebase_includes_css_and_scss_scopes(tmp_path):
     assert scss_node.children
 
 
+
+def test_scss_include_with_block(tmp_path):
+    analyzer = CssTreeSitterAnalyzer()
+
+    scss = write(
+        tmp_path,
+        "media.scss",
+        """
+        .sidebar {
+            width: 300px;
+            @include media-query(mobile) {
+                width: 100%;
+            }
+        }
+        """,
+    )
+
+    metrics = analyzer.analyze_file(str(scss))
+    
+    # We expect .sidebar to be a scope
+    sidebar_scope = next((f for f in metrics.function_list if ".sidebar" in f.name), None)
+    assert sidebar_scope is not None
+
+    # We expect @include media-query(mobile) to be a child scope
+    # Note: We need to see what the name looks like, but it should be there.
+    include_scopes = [c for c in sidebar_scope.children if "@include" in c.name or "media-query" in c.name]
+    
+    # This assertion is expected to FAIL currently
+    assert len(include_scopes) > 0, "Expected an @include scope with a block"
+    assert include_scopes[0].nloc >= 3

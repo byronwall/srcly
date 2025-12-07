@@ -164,6 +164,11 @@ class CssTreeSitterAnalyzer:
             ):
                 return True
 
+            if t == "include_statement":
+                # Only treat @include as a scope if it has a content block ie { ... }
+                # otherwise it's just a one-line mixin call.
+                return any(child.type == "block" for child in node.children)
+
         return False
 
     def _build_scope_metrics(
