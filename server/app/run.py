@@ -1,5 +1,6 @@
 import argparse
 import os
+import socket
 import threading
 import time
 import webbrowser
@@ -81,8 +82,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--port",
         type=int,
-        default=8000,
-        help="Port to run the server on (default: 8000).",
+        default=None,
+        help="Port to run the server on (default: random free port).",
     )
 
     args = parser.parse_args(argv)
@@ -99,7 +100,14 @@ def main(argv: list[str] | None = None) -> None:
     os.chdir(target_path)
     print(f"📂 Analyzing codebase at: {target_path}")
 
-    url = f"http://{args.host}:{args.port}"
+    port = args.port
+    if port is None:
+        # Find a random free port
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("", 0))
+            port = s.getsockname()[1]
+
+    url = f"http://{args.host}:{port}"
     print(f"🚀 Starting server at {url}")
     print("   Press Ctrl+C to stop.")
 
@@ -108,7 +116,7 @@ def main(argv: list[str] | None = None) -> None:
     uvicorn.run(
         "app.main:app",
         host=args.host,
-        port=args.port,
+        port=port,
         reload=False,
     )
 
