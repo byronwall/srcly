@@ -23,6 +23,64 @@ type AnalysisContext = {
   repoFolderCount?: number;
 };
 
+// Helper to find nodes in the tree
+function findNodes(
+  root: any,
+  filePath: string | null,
+  lineRange: { start: number; end: number } | null
+): { fileNode: any; scopeNode: any } {
+  let fileNode: any = null;
+  let scopeNode: any = null;
+
+  if (!root || !filePath) return { fileNode, scopeNode };
+
+  const visit = (node: any) => {
+    if (fileNode && scopeNode) return; // Found both
+
+    // Check if this is the file
+    // The path in `node.path` might be absolute or relative, but `filePath` from selection usually matches it
+    // or we might need to be more fuzzy. For now assuming exact or endsWith match if consistent.
+    if (!fileNode && node.type === "file" && node.path === filePath) {
+      fileNode = node;
+    }
+
+    // Check if this is a scope within the file
+    if (
+      lineRange &&
+      fileNode &&
+      node.path === filePath &&
+      node.start_line === lineRange.start &&
+      node.end_line === lineRange.end
+    ) {
+      scopeNode = node;
+    }
+
+    // Also checking children for scope if we already found the file
+    // Scopes are children of the file node
+    if (node.children) {
+      // If we found the file, we only need to look inside it for the scope
+      if (fileNode && !scopeNode && node === fileNode) {
+        const findScope = (n: any) => {
+          if (
+            n.start_line === lineRange?.start &&
+            n.end_line === lineRange?.end
+          ) {
+            scopeNode = n;
+            return;
+          }
+          if (n.children) n.children.forEach(findScope);
+        };
+        node.children.forEach(findScope);
+      } else {
+        node.children.forEach(visit);
+      }
+    }
+  };
+
+  visit(root);
+  return { fileNode, scopeNode };
+}
+
 // Temporary wrapper to allow passing additional props to FilePicker
 const FilePickerWithExternal = FilePicker as any;
 
@@ -162,6 +220,14 @@ function AppContent() {
     }
 
     return filterTree(clone, filterQuery());
+  });
+
+  const selectedNodes = createMemo(() => {
+    return findNodes(
+      visualizationData(),
+      selectedFilePath(),
+      selectedLineRange()
+    );
   });
 
   return (
@@ -347,6 +413,8 @@ function AppContent() {
         startLine={selectedLineRange()?.start ?? null}
         endLine={selectedLineRange()?.end ?? null}
         onClose={() => setIsCodeModalOpen(false)}
+        fileNode={selectedNodes().fileNode}
+        scopeNode={selectedNodes().scopeNode}
       />
     </div>
   );

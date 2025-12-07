@@ -1,5 +1,13 @@
-import { Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
+import {
+  Show,
+  createEffect,
+  createSignal,
+  onCleanup,
+  onMount,
+  For,
+} from "solid-js";
 import { codeToHtml } from "shiki";
+import { HOTSPOT_METRICS } from "../utils/metricsStore";
 
 interface CodeModalProps {
   isOpen: boolean;
@@ -7,6 +15,8 @@ interface CodeModalProps {
   startLine?: number | null;
   endLine?: number | null;
   onClose: () => void;
+  fileNode?: any;
+  scopeNode?: any;
 }
 
 function guessLangFromPath(path: string): string {
@@ -220,6 +230,46 @@ export default function CodeModal(props: CodeModalProps) {
     };
   };
 
+  const MetricItem = (props: {
+    label: string;
+    value: any;
+    colorClass: string;
+  }) => (
+    <div class="flex items-center justify-between text-xs py-1 border-b border-gray-800 last:border-0">
+      <span class="text-gray-400">{props.label}</span>
+      <span class={`${props.colorClass} font-mono`}>
+        {typeof props.value === "number" && !Number.isInteger(props.value)
+          ? props.value.toFixed(2)
+          : props.value}
+      </span>
+    </div>
+  );
+
+  const MetricsSection = (props: { title: string; node: any }) => {
+    return (
+      <div class="mb-6">
+        <h3 class="text-xs font-bold text-gray-300 uppercase tracking-widest mb-3 pb-1 border-b border-gray-700">
+          {props.title}
+        </h3>
+        <div class="space-y-1">
+          <For each={HOTSPOT_METRICS}>
+            {(metric) => {
+              const val = props.node.metrics?.[metric.id];
+              if (val === undefined || val === null) return null;
+              return (
+                <MetricItem
+                  label={metric.label}
+                  value={val}
+                  colorClass={metric.color}
+                />
+              );
+            }}
+          </For>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Show when={props.isOpen && props.filePath}>
       <div
@@ -309,23 +359,41 @@ export default function CodeModal(props: CodeModalProps) {
               Open
             </a>
           </header>
-          <main class="relative flex-1 overflow-auto bg-[#1e1e1e] p-4">
-            <Show when={loading()}>
-              <div class="flex h-full items-center justify-center text-sm text-gray-400">
-                Loading file…
-              </div>
-            </Show>
-            <Show when={!loading() && error()}>
-              <div class="rounded border border-red-700 bg-red-900/70 px-3 py-2 text-sm text-red-100">
-                {error()}
-              </div>
-            </Show>
-            <Show when={!loading() && !error() && highlightedHtml()}>
-              <div
-                class="code-modal-content"
-                innerHTML={highlightedHtml() || ""}
-              />
-            </Show>
+          <main class="relative flex-1 overflow-hidden flex bg-[#1e1e1e]">
+            {/* Metrics Sidebar */}
+            <div class="w-64 shrink-0 border-r border-gray-700 bg-[#1e1e1e] p-4 overflow-y-auto">
+              <Show when={props.scopeNode}>
+                <MetricsSection title="Scope Metrics" node={props.scopeNode} />
+              </Show>
+              <Show when={props.fileNode}>
+                <MetricsSection title="File Metrics" node={props.fileNode} />
+              </Show>
+              <Show when={!props.fileNode && !props.scopeNode}>
+                <div class="text-xs text-gray-500 italic">
+                  No metrics available for this file.
+                </div>
+              </Show>
+            </div>
+
+            {/* Code Content */}
+            <div class="flex-1 overflow-auto p-4">
+              <Show when={loading()}>
+                <div class="flex h-full items-center justify-center text-sm text-gray-400">
+                  Loading file…
+                </div>
+              </Show>
+              <Show when={!loading() && error()}>
+                <div class="rounded border border-red-700 bg-red-900/70 px-3 py-2 text-sm text-red-100">
+                  {error()}
+                </div>
+              </Show>
+              <Show when={!loading() && !error() && highlightedHtml()}>
+                <div
+                  class="code-modal-content"
+                  innerHTML={highlightedHtml() || ""}
+                />
+              </Show>
+            </div>
           </main>
         </div>
       </div>
