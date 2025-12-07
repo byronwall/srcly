@@ -118,6 +118,11 @@ export default function CodeModal(props: CodeModalProps) {
           theme: "github-dark",
         });
 
+        // SHIKI FIX: Shiki adds newlines inside the <pre> block which, combined
+        // with display: block on .line, causes double spacing when copying text.
+        // We strip these newlines here.
+        html = html.replace(/\n<span class="line">/g, '<span class="line">');
+
         // When limiting to a selection, adjust line numbers so they reflect the
         // actual file line numbers by setting the CSS counter-reset on <code>.
         // Also visually de-emphasize context lines outside the focused range
