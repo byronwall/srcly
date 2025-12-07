@@ -203,6 +203,8 @@ export default function CodeModal(props: CodeModalProps) {
   const [viewMode, setViewMode] = createSignal<"code" | "preview">("code");
 
   let lastRequestId = 0;
+  let contentScrollRef: HTMLDivElement | undefined;
+  let hasAutoScrolledToSelection = false;
 
   // Reset line filter when a new file is opened
   createEffect(() => {
@@ -385,6 +387,46 @@ export default function CodeModal(props: CodeModalProps) {
         }
       }
     })();
+  });
+
+  // When opening in markdown preview mode with a highlighted range, scroll the
+  // content area so that the selected block is visible.
+  createEffect(() => {
+    const isOpen = props.isOpen;
+    const mode = viewMode();
+    const hasSelection =
+      lineFilterEnabled() &&
+      typeof props.startLine === "number" &&
+      typeof props.endLine === "number";
+
+    const isLoading = loading();
+
+    // Depend on rawCode / highlightedHtml so this effect re-runs after new content loads
+    // and the markdown preview or code view has been re-rendered.
+    // eslint-disable-next-line solid/reactivity
+    rawCode();
+    // eslint-disable-next-line solid/reactivity
+    highlightedHtml();
+
+    if (!isOpen || mode !== "preview" || !hasSelection || isLoading) {
+      hasAutoScrolledToSelection = false;
+      return;
+    }
+
+    if (hasAutoScrolledToSelection) return;
+
+    queueMicrotask(() => {
+      const container = contentScrollRef;
+      if (!container) return;
+
+      const target = container.querySelector(
+        ".md-selected-range"
+      ) as HTMLElement | null;
+      if (!target) return;
+
+      hasAutoScrolledToSelection = true;
+      target.scrollIntoView({ block: "center" });
+    });
   });
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -614,7 +656,7 @@ export default function CodeModal(props: CodeModalProps) {
             </div>
 
             {/* Code Content */}
-            <div class="flex-1 overflow-auto p-4">
+            <div class="flex-1 overflow-auto p-4" ref={contentScrollRef}>
               <Show when={loading()}>
                 <div class="flex h-full items-center justify-center text-sm text-gray-400">
                   Loading file…
