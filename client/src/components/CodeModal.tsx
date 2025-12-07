@@ -53,6 +53,8 @@ export default function CodeModal(props: CodeModalProps) {
   );
   const [displayEndLine, setDisplayEndLine] = createSignal<number | null>(null);
   const [totalLines, setTotalLines] = createSignal<number | null>(null);
+  const [reduceIndentation, setReduceIndentation] = createSignal(true);
+  const [wasIndentationReduced, setWasIndentationReduced] = createSignal(false);
 
   let lastRequestId = 0;
 
@@ -77,10 +79,12 @@ export default function CodeModal(props: CodeModalProps) {
 
     const useLineFilter = lineFilterEnabled();
     const offset = lineOffset();
+    const shouldReduceIndent = reduceIndentation();
 
     setLoading(true);
     setError(null);
     setHighlightedHtml("");
+    setWasIndentationReduced(false);
 
     (async () => {
       try {
@@ -101,6 +105,7 @@ export default function CodeModal(props: CodeModalProps) {
         let displayText = text;
         let start = 1;
         let end = lines.length;
+        let linesToDisplay = lines;
 
         if (
           useLineFilter &&
@@ -115,7 +120,41 @@ export default function CodeModal(props: CodeModalProps) {
           if (clampedEnd >= clampedStart) {
             start = clampedStart;
             end = clampedEnd;
-            displayText = lines.slice(start - 1, end).join("\n");
+            linesToDisplay = lines.slice(start - 1, end);
+            displayText = linesToDisplay.join("\n");
+          }
+        }
+
+        if (shouldReduceIndent) {
+          let minIndent = Infinity;
+          let hasNonEmptyLine = false;
+
+          for (const line of linesToDisplay) {
+            if (!line.trim()) continue;
+
+            hasNonEmptyLine = true;
+            const match = line.match(/^(\s*)/);
+            if (match) {
+              minIndent = Math.min(minIndent, match[1].length);
+            } else {
+              minIndent = 0;
+            }
+          }
+
+          if (hasNonEmptyLine && minIndent > 0 && minIndent !== Infinity) {
+            // Keep a small visual indent (e.g. 2 spaces) if original indent was deep
+            if (minIndent > 2) {
+              const strings = linesToDisplay.map((line) => {
+                if (!line.trim()) return "";
+                if (line.length >= minIndent) {
+                  return "  " + line.slice(minIndent);
+                }
+                return line;
+              });
+
+              displayText = strings.join("\n");
+              setWasIndentationReduced(true);
+            }
           }
         }
 
@@ -321,43 +360,63 @@ export default function CodeModal(props: CodeModalProps) {
               Copy
             </button>
             {/* Open in Editor (VS Code URL scheme) */}
-            <Show when={hasLineRange()}>
-              <label class="ml-3 flex items-center gap-1 text-[11px] text-gray-300">
+            <div class="flex items-center">
+              <Show when={wasIndentationReduced()}>
+                <span class="ml-4 text-[10px] text-yellow-500/80 italic animate-pulse">
+                  Indentation reduced
+                </span>
+              </Show>
+              <label class="ml-3 flex items-center gap-1 text-[11px] text-gray-300 cursor-pointer select-none">
                 <input
                   type="checkbox"
-                  checked={lineFilterEnabled()}
+                  checked={reduceIndentation()}
                   onChange={(e) =>
-                    setLineFilterEnabled(e.currentTarget.checked)
+                    setReduceIndentation(e.currentTarget.checked)
                   }
                 />
-                <span>Limit to selection</span>
-                <span class="ml-2 flex items-center gap-1">
-                  <span>±</span>
-                  <input
-                    type="number"
-                    min="0"
-                    class="w-12 bg-gray-800 border border-gray-600 rounded px-1 text-[11px] text-gray-200"
-                    value={lineOffset()}
-                    onInput={(e) => {
-                      const next = Number(e.currentTarget.value);
-                      if (Number.isNaN(next)) {
-                        setLineOffset(0);
-                      } else {
-                        setLineOffset(Math.max(0, Math.floor(next)));
-                      }
-                    }}
-                  />
-                  <span>lines</span>
+                <span title="Strip common indentation to save horizontal space">
+                  Reduce indent
                 </span>
               </label>
-            </Show>
-            <a
-              href={`vscode://file/${props.filePath}`}
-              class="ml-2 rounded bg-green-700 px-3 py-1 text-xs font-semibold text-white hover:bg-green-600 no-underline"
-              target="_blank"
-            >
-              Open
-            </a>
+
+              <Show when={hasLineRange()}>
+                <label class="ml-3 flex items-center gap-1 text-[11px] text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={lineFilterEnabled()}
+                    onChange={(e) =>
+                      setLineFilterEnabled(e.currentTarget.checked)
+                    }
+                  />
+                  <span>Limit to selection</span>
+                  <span class="ml-2 flex items-center gap-1">
+                    <span>±</span>
+                    <input
+                      type="number"
+                      min="0"
+                      class="w-12 bg-gray-800 border border-gray-600 rounded px-1 text-[11px] text-gray-200"
+                      value={lineOffset()}
+                      onInput={(e) => {
+                        const next = Number(e.currentTarget.value);
+                        if (Number.isNaN(next)) {
+                          setLineOffset(0);
+                        } else {
+                          setLineOffset(Math.max(0, Math.floor(next)));
+                        }
+                      }}
+                    />
+                    <span>lines</span>
+                  </span>
+                </label>
+              </Show>
+              <a
+                href={`vscode://file/${props.filePath}`}
+                class="ml-2 rounded bg-green-700 px-3 py-1 text-xs font-semibold text-white hover:bg-green-600 no-underline"
+                target="_blank"
+              >
+                Open
+              </a>
+            </div>
           </header>
           <main class="relative flex-1 overflow-hidden flex bg-[#1e1e1e]">
             {/* Metrics Sidebar */}
