@@ -484,6 +484,27 @@ export default function Treemap(props: TreemapProps) {
     tooltipRef.style.opacity = "0";
   }
 
+  const applyDepthEffect = (color: string, depth: number) => {
+    // We want deeper nodes to be lighter/brighter to simulate being "higher".
+    // We skip depth 0 (root) or just treat it as base.
+    // Using a small factor per depth level.
+    const c = d3.color(color);
+    if (!c) return color;
+    // A factor of 0.15 per level provides a noticeable but not washing-out gradient.
+    return c.brighter(depth * 0.15).formatHex();
+  };
+
+  const getRelativeDepth = (d: d3.HierarchyNode<any>) => {
+    let curr: d3.HierarchyNode<any> | null = d;
+    while (curr) {
+      if (curr.data.type === "file") {
+        return d.depth - curr.depth;
+      }
+      curr = curr.parent;
+    }
+    return d.depth;
+  };
+
   // --- Color Logic ---
   const getNodeColor = (d: d3.HierarchyNode<any>) => {
     if (d.data.type === "folder") return "#1e1e1e";
@@ -503,17 +524,18 @@ export default function Treemap(props: TreemapProps) {
     const scaled =
       typeof rawVal === "number" ? Math.min(rawVal, 50) : Number(rawVal) || 0;
 
+    let baseColor;
     if (metricId === "comment_density") {
-      return commentDensityColor(metrics.comment_density || 0);
-    }
-    if (metricId === "max_nesting_depth") {
-      return nestingDepthColor(metrics.max_nesting_depth || 0);
-    }
-    if (metricId === "todo_count") {
-      return todoCountColor(metrics.todo_count || 0);
+      baseColor = commentDensityColor(metrics.comment_density || 0);
+    } else if (metricId === "max_nesting_depth") {
+      baseColor = nestingDepthColor(metrics.max_nesting_depth || 0);
+    } else if (metricId === "todo_count") {
+      baseColor = todoCountColor(metrics.todo_count || 0);
+    } else {
+      baseColor = complexityColor(scaled);
     }
 
-    return complexityColor(scaled);
+    return applyDepthEffect(baseColor, getRelativeDepth(d));
   };
 
   const getNodeStroke = (d: d3.HierarchyNode<any>) => {
@@ -541,7 +563,10 @@ export default function Treemap(props: TreemapProps) {
     } else {
       color = complexityColor(metrics[metricId] || 0);
     }
-    return getContrastingTextColor(color);
+
+    // Apply the same depth effect so the text contrast calculation matches the actual background
+    const bg = applyDepthEffect(color, getRelativeDepth(d));
+    return getContrastingTextColor(bg);
   };
 
   const getChunkLabelColor = (d: d3.HierarchyNode<any>) => {
@@ -562,7 +587,10 @@ export default function Treemap(props: TreemapProps) {
     } else {
       color = complexityColor(metrics[metricId] || 0);
     }
-    return getContrastingTextColor(color, 0.7);
+
+    // Apply same depth effect
+    const bg = applyDepthEffect(color, getRelativeDepth(d));
+    return getContrastingTextColor(bg, 0.7);
   };
 
   return (
