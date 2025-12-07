@@ -7,6 +7,8 @@ import {
   For,
 } from "solid-js";
 import { codeToHtml } from "shiki";
+import { SolidMarkdown } from "solid-markdown";
+import remarkGfm from "remark-gfm";
 import { HOTSPOT_METRICS } from "../utils/metricsStore";
 
 interface CodeModalProps {
@@ -55,6 +57,7 @@ export default function CodeModal(props: CodeModalProps) {
   const [totalLines, setTotalLines] = createSignal<number | null>(null);
   const [reduceIndentation, setReduceIndentation] = createSignal(true);
   const [wasIndentationReduced, setWasIndentationReduced] = createSignal(false);
+  const [viewMode, setViewMode] = createSignal<"code" | "preview">("code");
 
   let lastRequestId = 0;
 
@@ -67,6 +70,13 @@ export default function CodeModal(props: CodeModalProps) {
       props.startLine > 0 &&
       props.endLine >= props.startLine;
     setLineFilterEnabled(hasRange);
+
+    // Default to preview mode for markdown
+    if (props.filePath && guessLangFromPath(props.filePath) === "md") {
+      setViewMode("preview");
+    } else {
+      setViewMode("code");
+    }
   });
 
   createEffect(() => {
@@ -359,6 +369,32 @@ export default function CodeModal(props: CodeModalProps) {
             >
               Copy
             </button>
+
+            <Show when={guessLangFromPath(props.filePath || "") === "md"}>
+              <div class="ml-4 flex items-center rounded bg-gray-700 p-0.5">
+                <button
+                  class={`px-3 py-0.5 text-xs font-semibold rounded-sm transition-colors ${
+                    viewMode() === "code"
+                      ? "bg-gray-600 text-white shadow-sm"
+                      : "text-gray-400 hover:text-gray-200"
+                  }`}
+                  onClick={() => setViewMode("code")}
+                >
+                  Code
+                </button>
+                <button
+                  class={`px-3 py-0.5 text-xs font-semibold rounded-sm transition-colors ${
+                    viewMode() === "preview"
+                      ? "bg-gray-600 text-white shadow-sm"
+                      : "text-gray-400 hover:text-gray-200"
+                  }`}
+                  onClick={() => setViewMode("preview")}
+                >
+                  Preview
+                </button>
+              </div>
+            </Show>
+
             {/* Open in Editor (VS Code URL scheme) */}
             <div class="flex items-center">
               <Show when={wasIndentationReduced()}>
@@ -447,10 +483,70 @@ export default function CodeModal(props: CodeModalProps) {
                 </div>
               </Show>
               <Show when={!loading() && !error() && highlightedHtml()}>
-                <div
-                  class="code-modal-content"
-                  innerHTML={highlightedHtml() || ""}
-                />
+                <Show
+                  when={viewMode() === "preview"}
+                  fallback={
+                    <div
+                      class="code-modal-content"
+                      innerHTML={highlightedHtml() || ""}
+                    />
+                  }
+                >
+                  <div class="markdown-preview p-4 prose prose-invert max-w-none">
+                    <SolidMarkdown
+                      children={rawCode()}
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        img: (imgProps) => {
+                          if (!imgProps.src) return null;
+                          let src = imgProps.src;
+                          // If relative path, resolve against current file path
+                          if (
+                            !src.startsWith("http") &&
+                            !src.startsWith("/") &&
+                            props.filePath
+                          ) {
+                            const dir = props.filePath.substring(
+                              0,
+                              props.filePath.lastIndexOf("/")
+                            );
+                            // Handle ../ etc? The server is simple, let's just construct absolute path blindly for now
+                            // or better, use URL logic if we could. But simple concatenation usually works for
+                            // sibling or subdir files.
+
+                            // Actually we need to be careful about matching how browser resolves relative URLs.
+                            // But here we are resolving file system paths.
+                            // Let's try to construct an absolute path.
+                            // We can't use node path module easily in browser without polyfill.
+                            // Simple approach:
+                            const parts = dir.split("/");
+                            const relParts = src.split("/");
+
+                            for (const part of relParts) {
+                              if (part === ".") continue;
+                              if (part === "..") {
+                                parts.pop();
+                              } else {
+                                parts.push(part);
+                              }
+                            }
+                            const absPath = parts.join("/");
+                            src = `/api/files/content?path=${encodeURIComponent(
+                              absPath
+                            )}`;
+                          }
+                          return (
+                            <img
+                              {...imgProps}
+                              src={src}
+                              class="max-w-full rounded-lg border border-gray-700 my-4"
+                            />
+                          );
+                        },
+                      }}
+                    />
+                  </div>
+                </Show>
               </Show>
             </div>
           </main>

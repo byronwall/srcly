@@ -18,6 +18,110 @@ body {
   @apply bg-gray-900 text-white;
 }
 
+.markdown-preview {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #e5e7eb; /* gray-200 */
+}
+
+.markdown-preview > *:first-child {
+  margin-top: 0;
+}
+
+.markdown-preview > *:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3,
+.markdown-preview h4 {
+  font-weight: 600;
+  line-height: 1.25;
+  color: #f9fafb; /* gray-50 */
+}
+
+.markdown-preview h1 {
+  font-size: 1.5rem;
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+
+.markdown-preview h2 {
+  font-size: 1.25rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #374151; /* gray-700 */
+  padding-bottom: 0.25rem;
+}
+
+.markdown-preview h3 {
+  font-size: 1.05rem;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.markdown-preview p {
+  margin: 0.25rem 0 0.5rem;
+}
+
+.markdown-preview ul,
+.markdown-preview ol {
+  margin: 0.25rem 0 0.75rem;
+  padding-left: 1.25rem;
+}
+
+.markdown-preview li + li {
+  margin-top: 0.15rem;
+}
+
+.markdown-preview strong {
+  color: #f9fafb;
+}
+
+.markdown-preview a {
+  color: #38bdf8; /* sky-400 */
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown-preview code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 0.85em;
+  background-color: #111827; /* gray-900 */
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.35rem;
+}
+
+.markdown-preview pre {
+  background-color: #020617; /* gray-950 */
+  border-radius: 0.5rem;
+  border: 1px solid #1f2937; /* gray-800 */
+  padding: 0.75rem 0.9rem;
+  margin: 0.75rem 0;
+  overflow-x: auto;
+}
+
+.markdown-preview pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.markdown-preview hr {
+  border: none;
+  border-top: 1px solid #374151;
+  margin: 1.5rem 0;
+}
+
+.markdown-preview blockquote {
+  border-left: 3px solid #4b5563; /* gray-600 */
+  padding-left: 0.75rem;
+  margin: 0.75rem 0;
+  color: #d1d5db; /* gray-300 */
+  font-style: italic;
+}
+
 .code-modal-content .shiki {
   border-radius: 0.5rem;
   font-size: 14px;
