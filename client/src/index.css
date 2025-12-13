@@ -122,6 +122,30 @@ body {
   font-style: italic;
 }
 
+.markdown-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  margin: 0.75rem 0;
+}
+
+.markdown-preview th,
+.markdown-preview td {
+  border: 1px solid rgba(75, 85, 99, 0.65); /* gray-600 */
+  padding: 0.45rem 0.6rem;
+  vertical-align: top;
+}
+
+.markdown-preview th {
+  background: rgba(31, 41, 55, 0.7); /* gray-800 */
+  color: #f9fafb; /* gray-50 */
+  font-weight: 600;
+}
+
+.markdown-preview tbody tr:nth-child(even) td {
+  background: rgba(17, 24, 39, 0.35); /* gray-900 */
+}
+
 .markdown-preview .md-selected-range {
   position: relative;
   background: rgba(59, 130, 246, 0.12); /* blue-500 with low opacity */
