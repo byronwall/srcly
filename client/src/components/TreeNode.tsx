@@ -103,7 +103,6 @@ export function TreeNode(props: { node: Node; depth: number }) {
 
   const getIcon = () => {
     if (props.node.type === "folder") return "📁";
-    if (props.node.name === "(misc/imports)") return "⚙️";
     return "📄";
   };
 

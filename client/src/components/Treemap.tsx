@@ -39,11 +39,11 @@ const getContrastingTextColor = (bgColor: string, alpha = 1) => {
 };
 
 /**
- * For each function node, add a synthetic "body" child that represents
- * the function's own LOC so that nested children do not completely fill
- * the function's rectangle in the treemap.
+ * Add synthetic "(body)" children for scopes that have children, so that
+ * the treemap can account for "scope-local" lines that are not represented
+ * by nested child nodes.
  */
-const addFunctionBodyDummyNodes = (node: any): any => {
+const addScopeBodyDummyNodes = (node: any): any => {
   if (!node) return node;
 
   const clone: any = {
@@ -52,36 +52,67 @@ const addFunctionBodyDummyNodes = (node: any): any => {
     children: Array.isArray(node.children) ? [...node.children] : [],
   };
 
+  const hasChildren = Array.isArray(clone.children) && clone.children.length > 0;
+
+  // Function scopes: server typically provides a precise (body) node; only add if absent.
   if (clone.type === "function") {
-    const loc = clone.metrics?.loc || 0;
-    const hasChildren =
-      Array.isArray(clone.children) && clone.children.length > 0;
     const alreadyHasBodyChild =
       hasChildren &&
-      clone.children.some((child: any) => child?.type === "function_body");
+      clone.children.some(
+        (child: any) => child?.type === "function_body" || child?.name === "(body)"
+      );
 
-    // Only add a dummy body node if there are other children to displace.
-    // If there are no children, this node is a leaf and doesn't need a dummy body.
-    if (loc > 0 && hasChildren && !alreadyHasBodyChild) {
-      const bodyChild = {
-        name: "(body)",
-        path: `${clone.path || clone.name || ""}::(body)`,
-        type: "function_body",
-        metrics: {
-          ...(clone.metrics || {}),
-          loc,
-        },
-        start_line: clone.start_line,
-        end_line: clone.end_line,
-        children: [],
-      };
-      clone.children.push(bodyChild);
+    if (hasChildren && !alreadyHasBodyChild) {
+      const loc = clone.metrics?.loc || 0;
+      if (loc > 0) {
+        const bodyChild = {
+          name: "(body)",
+          path: `${clone.path || clone.name || ""}::(body)`,
+          type: "function_body",
+          metrics: {
+            ...(clone.metrics || {}),
+            loc,
+          },
+          start_line: clone.start_line,
+          end_line: clone.end_line,
+          children: [],
+        };
+        clone.children.push(bodyChild);
+      }
+    }
+  }
+
+  // File/module scopes: represent top-level (non-function) LOC as a hidden "(body)" leaf.
+  if (clone.type === "file") {
+    const alreadyHasBodyChild =
+      hasChildren && clone.children.some((child: any) => child?.name === "(body)");
+
+    if (hasChildren && !alreadyHasBodyChild) {
+      const totalLoc = clone.metrics?.loc || 0;
+      const functionLoc = clone.children.reduce((acc: number, c: any) => {
+        return acc + (c?.type === "function" ? c?.metrics?.loc || 0 : 0);
+      }, 0);
+      const remainder = Math.max(0, totalLoc - functionLoc);
+
+      if (remainder > 0) {
+        const bodyChild = {
+          name: "(body)",
+          path: `${clone.path || clone.name || ""}::(body)`,
+          type: "file_body",
+          metrics: {
+            ...(clone.metrics || {}),
+            loc: remainder,
+          },
+          children: [],
+        };
+        clone.children.push(bodyChild);
+      }
     }
   }
 
   if (clone.children && clone.children.length > 0) {
     clone.children = clone.children.map((child: any) =>
-      addFunctionBodyDummyNodes(child)
+      addScopeBodyDummyNodes(child)
     );
   }
 
@@ -362,8 +393,8 @@ export default function Treemap(props: TreemapProps) {
 
     if (!filteredData) return null;
 
-    // Add synthetic "body" children
-    return addFunctionBodyDummyNodes(filteredData);
+    // Add synthetic "body" children for scopes (functions/files)
+    return addScopeBodyDummyNodes(filteredData);
   });
 
   const layoutRoot = createMemo(() => {
@@ -508,7 +539,6 @@ export default function Treemap(props: TreemapProps) {
   // --- Color Logic ---
   const getNodeColor = (d: d3.HierarchyNode<any>) => {
     if (d.data.type === "folder") return "#1e1e1e";
-    if (d.data.name === "(misc/imports)") return "#444";
 
     const metricId = primaryMetric();
     const metrics = d.data.metrics || {};
@@ -548,7 +578,6 @@ export default function Treemap(props: TreemapProps) {
 
   const getNodeTextColor = (d: d3.HierarchyNode<any>) => {
     if (d.data.type === "folder") return "#1e1e1e"; // Not used for folder labels usually
-    if (d.data.name === "(misc/imports)") return "#444";
 
     const metricId = primaryMetric();
     const metrics = d.data.metrics || {};
@@ -572,7 +601,6 @@ export default function Treemap(props: TreemapProps) {
   const getChunkLabelColor = (d: d3.HierarchyNode<any>) => {
     // Similar to getNodeTextColor but with alpha
     if (d.data.type === "folder") return "#1e1e1e";
-    if (d.data.name === "(misc/imports)") return "#444";
 
     const metricId = primaryMetric();
     const metrics = d.data.metrics || {};

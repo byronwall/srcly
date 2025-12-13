@@ -68,7 +68,6 @@ The backend lives in the `server/app` package and is exposed as a FastAPI app.
     - **Folders**: nested directory structure.
     - **Files**: each source file is a node.
     - **Functions**: each function inside a file becomes a child node.
-    - **Glue code**: Srcly adds a `(misc/imports)` node for code outside functions (imports, module-level code), computed as `file LOC - sum(function LOCs)`.
   - Aggregates metrics up the tree so every folder and file has useful rollups.
 - **Caching**
   - Stores the full tree as `codebase_mri.json` in the analyzed root directory.

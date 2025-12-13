@@ -224,13 +224,9 @@ def attach_file_metrics(node: Node, file_info) -> None:
         node.children.append(func_node)
         func_sum_loc += func.nloc
 
-    # CRITICAL FIX: Add a virtual node for the "Glue Code" (Imports, Exports, Global Vars)
-    remainder = total_loc - func_sum_loc
-    if remainder > 0:
-        misc_node = create_node("(misc/imports)", "code_fragment", f"{node.path}::__misc__")
-        misc_node.metrics.loc = remainder
-        misc_node.metrics.complexity = 0 # Glue code is usually simple
-        node.children.append(misc_node)
+    # NOTE: We no longer create a synthetic child node for module-level "glue".
+    # Any top-level/module lines should be represented as the (body) of the
+    # file/module scope (handled by the newer scope-body attribution logic).
 
 
 def _translate_gitignore_pattern(raw_line: str, base_rel: str) -> str | None:
@@ -405,7 +401,7 @@ def aggregate_metrics(node: Node) -> Metrics:
         total_function_loc += (child_metrics.average_function_length * child_metrics.function_count)
 
     # For Folders: Sum of children
-    # For Files: We trust the attach_file_metrics logic (which includes __misc__)
+    # For Files: We trust the attach_file_metrics logic.
     if node.type == "folder":
         node.metrics.loc = total_loc
         node.metrics.complexity = max_complexity
