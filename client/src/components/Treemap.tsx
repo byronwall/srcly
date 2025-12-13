@@ -38,6 +38,91 @@ const getContrastingTextColor = (bgColor: string, alpha = 1) => {
   )}, ${Math.round(textColor.b)}, ${alpha})`;
 };
 
+// --- SVG Text Truncation Helpers ---
+// We need to truncate SVG labels because SVG text doesn't support CSS ellipsis.
+// This uses a shared offscreen canvas for measuring text width and then
+// truncates with "…" (or "..." fallback) to fit within a max pixel width.
+const makeTextMeasurer = () => {
+  // In SSR / no-DOM cases, fall back to a naive estimator.
+  if (typeof document === "undefined") {
+    return {
+      measure: (text: string) => text.length * 6,
+      setFont: (_font: string) => {},
+    };
+  }
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  return {
+    measure: (text: string) => (ctx ? ctx.measureText(text).width : text.length * 6),
+    setFont: (font: string) => {
+      if (ctx) ctx.font = font;
+    },
+  };
+};
+
+const stableHash = (input: string) => {
+  // Simple, stable, non-crypto hash for DOM ids (djb2-ish).
+  let h = 5381;
+  for (let i = 0; i < input.length; i++) {
+    h = (h * 33) ^ input.charCodeAt(i);
+  }
+  // Ensure positive and base36 for compactness.
+  return (h >>> 0).toString(36);
+};
+
+const ELLIPSIS = "…";
+
+const truncateTextToWidth = (() => {
+  const measurer = makeTextMeasurer();
+  const cache = new Map<string, string>();
+
+  return (text: string, maxWidthPx: number, font: string) => {
+    const maxWidth = Number.isFinite(maxWidthPx) ? maxWidthPx : 0;
+    if (!text || maxWidth <= 0) return "";
+
+    const cacheKey = `${font}::${maxWidth}::${text}`;
+    const cached = cache.get(cacheKey);
+    if (cached !== undefined) return cached;
+
+    measurer.setFont(font);
+
+    // Fast path: already fits
+    if (measurer.measure(text) <= maxWidth) {
+      cache.set(cacheKey, text);
+      return text;
+    }
+
+    // Ensure even the ellipsis fits; otherwise return empty.
+    const ellipsis = measurer.measure(ELLIPSIS) <= maxWidth ? ELLIPSIS : "...";
+    const ellipsisWidth = measurer.measure(ellipsis);
+    if (ellipsisWidth > maxWidth) {
+      cache.set(cacheKey, "");
+      return "";
+    }
+
+    // Binary search for the longest prefix that fits when suffixed with ellipsis.
+    let lo = 0;
+    let hi = text.length;
+    let best = "";
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      const candidate = text.slice(0, mid);
+      const w = measurer.measure(candidate) + ellipsisWidth;
+      if (w <= maxWidth) {
+        best = candidate;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+
+    const result = best.length > 0 ? `${best}${ellipsis}` : ellipsis;
+    cache.set(cacheKey, result);
+    return result;
+  };
+})();
+
 /**
  * Add synthetic "(body)" children for scopes that have children, so that
  * the treemap can account for "scope-local" lines that are not represented
@@ -621,6 +706,31 @@ export default function Treemap(props: TreemapProps) {
     return getContrastingTextColor(bg, 0.7);
   };
 
+  const getNodeClipId = (d: d3.HierarchyNode<any>) => {
+    const key = `${d.data?.path || ""}::${d.data?.type || ""}::${d.data?.name || ""}::${d.depth}`;
+    return `tm-clip-${stableHash(key)}`;
+  };
+
+  const getLabel = (
+    d: d3.HierarchyNode<any>,
+    kind: "folder" | "file" | "chunk"
+  ) => {
+    const name = String(d.data?.name ?? "");
+    const w = Math.max(0, (d as any).x1 - (d as any).x0);
+    // Padding inside the rect (match x used by <text>)
+    const padLeft = kind === "chunk" ? 2 : 4;
+    const padRight = 4;
+    const maxWidth = w - padLeft - padRight;
+
+    // These match the rendered attributes below + global svg font-family.
+    const fontSize = kind === "file" ? 10 : 11;
+    const fontWeight = kind === "folder" ? "700" : "400";
+    const fontFamily = "sans-serif";
+    const font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+
+    return truncateTextToWidth(name, maxWidth, font);
+  };
+
   return (
     <div class="flex flex-col w-full h-full overflow-hidden border border-gray-700 rounded bg-[#121212] relative">
       {/* Header Bar */}
@@ -815,6 +925,20 @@ export default function Treemap(props: TreemapProps) {
               "font-family": "sans-serif",
             }}
           >
+            <defs>
+              <For each={nodes()}>
+                {(d) => (
+                  <clipPath id={getNodeClipId(d)}>
+                    <rect
+                      width={Math.max(0, d.x1 - d.x0)}
+                      height={Math.max(0, d.y1 - d.y0)}
+                      rx="0"
+                      ry="0"
+                    />
+                  </clipPath>
+                )}
+              </For>
+            </defs>
             <For each={nodes()}>
               {(d) => (
                 <g transform={`translate(${d.x0},${d.y0})`}>
@@ -863,9 +987,12 @@ export default function Treemap(props: TreemapProps) {
                       font-size="11px"
                       font-weight="bold"
                       fill="#888"
-                      style={{ "pointer-events": "none" }}
+                      style={{
+                        "pointer-events": "none",
+                        "clip-path": `url(#${getNodeClipId(d)})`,
+                      }}
                     >
-                      {d.data.name}
+                      {getLabel(d, "folder")}
                     </text>
                   </Show>
                   {/* File Labels */}
@@ -881,9 +1008,12 @@ export default function Treemap(props: TreemapProps) {
                       y={13}
                       font-size="10px"
                       fill={getNodeTextColor(d)}
-                      style={{ "pointer-events": "none" }}
+                      style={{
+                        "pointer-events": "none",
+                        "clip-path": `url(#${getNodeClipId(d)})`,
+                      }}
                     >
-                      {d.data.name}
+                      {getLabel(d, "file")}
                     </text>
                   </Show>
                   {/* Code Chunk Labels */}
@@ -903,9 +1033,10 @@ export default function Treemap(props: TreemapProps) {
                       style={{
                         "pointer-events": "none",
                         overflow: "hidden",
+                        "clip-path": `url(#${getNodeClipId(d)})`,
                       }}
                     >
-                      {d.data.name}
+                      {getLabel(d, "chunk")}
                     </text>
                   </Show>
                 </g>
