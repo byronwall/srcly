@@ -24,6 +24,9 @@ async def get_file_content(path: str = Query(..., description="Absolute path to 
     # For this local tool, we'll allow reading any file as requested, but maybe warn?
     
     try:
+        # Log every file read request before processing so hangs/crashes are attributable.
+        print(f"📄 Reading file content: {file_path}", flush=True)
+
         if file_path.suffix == ".ipynb":
             return get_ipynb_analyzer().get_virtual_content(str(file_path))
         

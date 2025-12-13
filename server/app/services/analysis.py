@@ -1,6 +1,7 @@
 import os
 import lizard
-import concurrent.futures
+import multiprocessing
+import time
 from pathlib import Path
 
 from app.models import Node, Metrics
@@ -13,6 +14,20 @@ from pathspec import PathSpec
 
 # Maximum time allowed for analyzing a single file in a worker process.
 PER_FILE_ANALYSIS_TIMEOUT_SECONDS: float = 10.0
+
+# Max parallel workers for per-file analysis. Each file is analyzed in its own
+# subprocess so we can enforce a *hard* timeout and terminate hung analysis.
+def _default_max_workers() -> int:
+    """
+    Pick a reasonable default worker count close to available CPU cores.
+
+    We keep 1 core of headroom so the main process / OS remains responsive.
+    """
+    cpu = os.cpu_count() or 4
+    return max(1, cpu - 1)
+
+
+MAX_ANALYSIS_WORKERS: int = _default_max_workers()
 
 _ts_analyzer = None
 _md_analyzer = None
@@ -446,6 +461,147 @@ def analyze_single_file(file_path: str):
         # Return error info instead of crashing
         return {"error": str(e), "filename": file_path}
 
+
+def _analyze_file_in_subprocess(file_path: str, send_conn) -> None:
+    """
+    Child-process entry point. Runs analysis and sends the result back over a pipe.
+    Must be top-level for multiprocessing pickling.
+    """
+    try:
+        result = analyze_single_file(file_path)
+    except Exception as e:
+        result = {"error": str(e), "filename": file_path}
+    try:
+        send_conn.send(result)
+    except Exception:
+        # If sending fails, there's nothing useful we can do here.
+        pass
+    finally:
+        try:
+            send_conn.close()
+        except Exception:
+            pass
+
+
+def _run_file_analyses_with_hard_timeouts(
+    files_to_scan: list[str],
+    timeout_seconds: float,
+    max_workers: int,
+) -> list:
+    """
+    Analyze files with a *hard* per-file timeout by running each file in its own
+    subprocess. This avoids the common pitfall where a ProcessPoolExecutor can
+    hang forever if a worker gets stuck, because individual tasks cannot be
+    force-killed reliably.
+    """
+    if not files_to_scan:
+        return []
+
+    ctx = multiprocessing.get_context("spawn")
+    total_count = len(files_to_scan)
+    completed_count = 0
+
+    # Active entries: (process, file_path, start_time, recv_conn)
+    active: list[tuple[multiprocessing.Process, str, float, object]] = []
+    results: list = []
+
+    next_index = 0
+    while next_index < total_count or active:
+        # Fill up worker slots.
+        while next_index < total_count and len(active) < max_workers:
+            file_path = files_to_scan[next_index]
+            next_index += 1
+
+            # Log every file *before* it is processed so we can identify the
+            # last-started file if analysis hangs or crashes.
+            print(f"➡️ [{next_index}/{total_count}] Starting analysis: {file_path}", flush=True)
+
+            recv_conn, send_conn = ctx.Pipe(duplex=False)
+            proc = ctx.Process(
+                target=_analyze_file_in_subprocess,
+                args=(file_path, send_conn),
+                daemon=True,
+            )
+            start_time = time.time()
+            proc.start()
+            # Close the child end in the parent process to avoid leaks.
+            try:
+                send_conn.close()
+            except Exception:
+                pass
+
+            active.append((proc, file_path, start_time, recv_conn))
+
+        # Check running workers for completion or timeout.
+        still_active: list[tuple[multiprocessing.Process, str, float, object]] = []
+        now = time.time()
+
+        for proc, file_path, start_time, recv_conn in active:
+            elapsed = now - start_time
+
+            if proc.is_alive() and elapsed <= timeout_seconds:
+                still_active.append((proc, file_path, start_time, recv_conn))
+                continue
+
+            # Either finished, or timed out.
+            if proc.is_alive() and elapsed > timeout_seconds:
+                completed_count += 1
+                print(
+                    f"❌ [{completed_count}/{total_count}] Timeout analyzing {file_path} after {elapsed:.2f}s (terminated)",
+                    flush=True,
+                )
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
+                try:
+                    proc.join(timeout=1.0)
+                except Exception:
+                    pass
+                try:
+                    recv_conn.close()
+                except Exception:
+                    pass
+                continue
+
+            # Process finished; collect result if possible.
+            try:
+                proc.join(timeout=0.0)
+            except Exception:
+                pass
+
+            completed_count += 1
+            result = None
+            try:
+                # If the child crashed before sending anything, recv may raise EOFError.
+                result = recv_conn.recv()
+            except Exception as exc:
+                result = {"error": str(exc), "filename": file_path}
+            finally:
+                try:
+                    recv_conn.close()
+                except Exception:
+                    pass
+
+            if isinstance(result, dict) and "error" in result:
+                print(
+                    f"❌ [{completed_count}/{total_count}] Error analyzing {file_path}: {result.get('error')}",
+                    flush=True,
+                )
+            else:
+                if _should_log_file_progress(completed_count, total_count):
+                    print(f"✅ [{completed_count}/{total_count}] Analyzed {file_path}", flush=True)
+                results.append(result)
+
+        active = still_active
+
+        # Avoid busy-looping when workers are running.
+        if active and (next_index < total_count or active):
+            time.sleep(0.02)
+
+    return results
+
+
 def scan_codebase(root_path: Path) -> Node:
     print(f"🔍 Scanning: {root_path}", flush=True)
 
@@ -489,35 +645,16 @@ def scan_codebase(root_path: Path) -> Node:
         if current_ignored_count > 0:
             ignored_counts[str(root_dir_path)] = current_ignored_count
 
-    print(f"📂 Analyzing {len(files_to_scan)} source files...", flush=True)
-    
-    analysis_results = []
-    
-    # Use ProcessPoolExecutor for better control and per-file error handling
-    # lizard.analyze_files was opaque and crashing the whole pool on one error
-    with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
-        future_to_file = {executor.submit(analyze_single_file, f): f for f in files_to_scan}
-        
-        completed_count = 0
-        total_count = len(files_to_scan)
-        
-        for future in concurrent.futures.as_completed(future_to_file):
-            file = future_to_file[future]
-            completed_count += 1
-            try:
-                # Add a timeout to prevent hanging on single files
-                result = future.result(timeout=PER_FILE_ANALYSIS_TIMEOUT_SECONDS)
-                if isinstance(result, dict) and "error" in result:
-                    print(f"❌ [{completed_count}/{total_count}] Error analyzing {file}: {result['error']}", flush=True)
-                else:
-                    # Success
-                    if _should_log_file_progress(completed_count, total_count):
-                        print(f"✅ [{completed_count}/{total_count}] Analyzed {file}", flush=True)
-                    analysis_results.append(result)
-            except concurrent.futures.TimeoutError:
-                print(f"❌ [{completed_count}/{total_count}] Timeout analyzing {file} (skipped)", flush=True)
-            except Exception as exc:
-                print(f"❌ [{completed_count}/{total_count}] Exception analyzing {file}: {exc}", flush=True)
+    print(
+        f"📂 Analyzing {len(files_to_scan)} source files... (workers={MAX_ANALYSIS_WORKERS}, timeout={PER_FILE_ANALYSIS_TIMEOUT_SECONDS}s)",
+        flush=True,
+    )
+
+    analysis_results = _run_file_analyses_with_hard_timeouts(
+        files_to_scan=files_to_scan,
+        timeout_seconds=PER_FILE_ANALYSIS_TIMEOUT_SECONDS,
+        max_workers=MAX_ANALYSIS_WORKERS,
+    )
 
     tree_root = create_node("root", "folder", str(root_path))
     node_map = {str(root_path): tree_root}

@@ -42,52 +42,27 @@ def test_scan_codebase_skips_error_results(monkeypatch, tmp_path: Path) -> None:
     bad_file = root / "bad.py"
     bad_file.write_text("print('bad')\n")
 
-    class DummyFuture:
-        def __init__(self, value=None, exc: Exception | None = None):
-            self._value = value
-            self._exc = exc
-
-        def result(self, timeout: float | None = None):
-            if self._exc is not None:
-                raise self._exc
-            return self._value
-
-    class DummyExecutor:
-        def __init__(self, max_workers: int | None = None):
-            self._futures: list[DummyFuture] = []
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-        def submit(self, fn, file_path: str):
-            # For the "good" file, return a minimal file_info-like object.
-            # For the "bad" file, return the same shape that analyze_single_file
-            # uses for errors.
+    def fake_runner(files_to_scan: list[str], timeout_seconds: float, max_workers: int):
+        # Return a mix of successful and error results, matching the shapes
+        # scan_codebase expects to be defensive about.
+        out = []
+        for file_path in files_to_scan:
             path = Path(file_path)
             if path.name == "good.py":
-                file_info = types.SimpleNamespace(
-                    filename=str(path),
-                    nloc=1,
-                    average_cyclomatic_complexity=1.0,
-                    function_list=[],
+                out.append(
+                    types.SimpleNamespace(
+                        filename=str(path),
+                        nloc=1,
+                        average_cyclomatic_complexity=1.0,
+                        function_list=[],
+                    )
                 )
-                fut = DummyFuture(value=file_info)
             else:
-                fut = DummyFuture(value={"error": "boom", "filename": str(path)})
-            self._futures.append(fut)
-            return fut
+                out.append({"error": "boom", "filename": str(path)})
+        return out
 
-    def fake_as_completed(futures):
-        # Just yield the futures in the order they were submitted.
-        for fut in futures:
-            yield fut
-
-    # Patch the concurrency primitives inside the analysis module.
-    monkeypatch.setattr(analysis.concurrent.futures, "ProcessPoolExecutor", DummyExecutor)
-    monkeypatch.setattr(analysis.concurrent.futures, "as_completed", fake_as_completed)
+    # Patch the hard-timeout runner so this test stays fast and deterministic.
+    monkeypatch.setattr(analysis, "_run_file_analyses_with_hard_timeouts", fake_runner)
 
     root_node = analysis.scan_codebase(root)
 
