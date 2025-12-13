@@ -93,9 +93,10 @@ def test_tsx_attribute_function_naming(analyzer, tmp_path):
     metrics = analyzer.analyze_file(str(test_file))
 
     # In this simple example, we expect one top-level function: App
-    assert len(metrics.function_list) == 1
+    function_scopes = [fn for fn in metrics.function_list if fn.name != "(imports)"]
+    assert len(function_scopes) == 1
 
-    app_func = metrics.function_list[0]
+    app_func = function_scopes[0]
     children = app_func.children
 
     # We expect a single TSX root child representing the <input /> element.
@@ -140,8 +141,9 @@ def test_tsx_nested_attribute_handler_naming(analyzer, tmp_path):
     metrics = analyzer.analyze_file(str(test_file))
 
     # One top-level component function: App
-    assert len(metrics.function_list) == 1
-    app_func = metrics.function_list[0]
+    function_scopes = [fn for fn in metrics.function_list if fn.name != "(imports)"]
+    assert len(function_scopes) == 1
+    app_func = function_scopes[0]
     assert app_func.name == "App"
 
     # The first child should be the TSX root for the <input /> element.
@@ -193,8 +195,9 @@ def test_tsx_component_child_naming(analyzer, tmp_path):
     metrics = analyzer.analyze_file(str(test_file))
     
     # Top level function Chat
-    assert len(metrics.function_list) == 1
-    chat_func = metrics.function_list[0]
+    function_scopes = [fn for fn in metrics.function_list if fn.name != "(imports)"]
+    assert len(function_scopes) == 1
+    chat_func = function_scopes[0]
     assert chat_func.name == "Chat"
     
     children = chat_func.children

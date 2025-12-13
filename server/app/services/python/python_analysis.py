@@ -22,6 +22,9 @@ class PythonTreeSitterAnalyzer:
 
         # Extract functions, classes, and other scopes
         functions = self._extract_scopes(tree.root_node)
+        import_scope = self._compute_import_scope(tree.root_node)
+        if import_scope is not None:
+            functions.insert(0, import_scope)
 
         avg_complexity = 0.0
         if functions:
@@ -69,6 +72,59 @@ class PythonTreeSitterAnalyzer:
             ts_type_interface_count=0,
             ts_export_count=0,
             md_data_url_count=0
+        )
+
+    def _compute_import_scope(self, root_node: Node) -> FunctionMetrics | None:
+        """
+        Create a synthetic top-level scope representing import statements.
+
+        - nloc: total LOC occupied by *all* import statements in the file
+        - start/end_line: span of the largest contiguous block of imports
+        """
+        import_spans: List[tuple[int, int]] = []
+
+        def traverse(n: Node) -> None:
+            if n.type in {"import_statement", "import_from_statement"}:
+                start_line = n.start_point.row + 1
+                end_line = n.end_point.row + 1
+                import_spans.append((start_line, end_line))
+            for child in n.children:
+                traverse(child)
+
+        traverse(root_node)
+
+        if not import_spans:
+            return None
+
+        import_spans.sort(key=lambda s: (s[0], s[1]))
+        total_import_loc = sum(e - s + 1 for s, e in import_spans)
+
+        blocks: List[tuple[int, int, int]] = []  # (block_start, block_end, block_loc_sum)
+        cur_s, cur_e = import_spans[0]
+        cur_loc = cur_e - cur_s + 1
+        for s, e in import_spans[1:]:
+            if s <= cur_e + 1:
+                cur_e = max(cur_e, e)
+                cur_loc += (e - s + 1)
+            else:
+                blocks.append((cur_s, cur_e, cur_loc))
+                cur_s, cur_e = s, e
+                cur_loc = e - s + 1
+        blocks.append((cur_s, cur_e, cur_loc))
+
+        block_s, block_e, _ = max(blocks, key=lambda b: (b[2], -b[0]))
+
+        return FunctionMetrics(
+            name="(imports)",
+            cyclomatic_complexity=0,
+            nloc=total_import_loc,
+            start_line=block_s,
+            end_line=block_e,
+            parameter_count=0,
+            max_nesting_depth=0,
+            comment_lines=0,
+            todo_count=0,
+            origin_type="imports",
         )
 
     def _extract_scopes(self, root_node: Node) -> List[FunctionMetrics]:

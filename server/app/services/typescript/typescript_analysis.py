@@ -27,6 +27,11 @@ class TreeSitterAnalyzer:
         nloc = len([l for l in lines if l.strip()])
         
         functions = self._extract_functions(tree.root_node, content)
+        import_scope = self._compute_import_scope(tree.root_node)
+        if import_scope is not None:
+            # Make imports visible as a top-level "scope" in treemap/scopes views.
+            functions.insert(0, import_scope)
+
         # Post-process TSX scopes so that each function containing TSX gets a
         # single virtual root "<fragment>" node that groups all JSX container
         # scopes beneath it. This keeps TSX scopes together without changing
@@ -95,6 +100,62 @@ class TreeSitterAnalyzer:
             tsx_duplicated_string_count=tsx_duplicated_string_count,
             ts_type_interface_count=ts_type_interface_count,
             ts_export_count=ts_export_count,
+        )
+
+    def _compute_import_scope(self, root_node: Node) -> FunctionMetrics | None:
+        """
+        Create a synthetic top-level scope representing import statements.
+
+        - nloc: total LOC occupied by *all* import statements in the file
+        - start/end_line: span of the largest contiguous block of imports
+        """
+        import_spans: List[tuple[int, int]] = []
+
+        def traverse(n: Node) -> None:
+            if n.type == "import_statement":
+                start_line = n.start_point.row + 1
+                end_line = n.end_point.row + 1
+                import_spans.append((start_line, end_line))
+            for child in n.children:
+                traverse(child)
+
+        traverse(root_node)
+
+        if not import_spans:
+            return None
+
+        import_spans.sort(key=lambda s: (s[0], s[1]))
+        total_import_loc = sum(e - s + 1 for s, e in import_spans)
+
+        # Merge adjacent import statements into contiguous blocks.
+        blocks: List[tuple[int, int, int]] = []  # (block_start, block_end, block_loc_sum)
+        cur_s, cur_e = import_spans[0]
+        cur_loc = cur_e - cur_s + 1
+        for s, e in import_spans[1:]:
+            if s <= cur_e + 1:
+                cur_e = max(cur_e, e)
+                cur_loc += (e - s + 1)
+            else:
+                blocks.append((cur_s, cur_e, cur_loc))
+                cur_s, cur_e = s, e
+                cur_loc = e - s + 1
+        blocks.append((cur_s, cur_e, cur_loc))
+
+        # Pick the largest block (by LOC, then by earliest start line for stability).
+        block_s, block_e, _ = max(blocks, key=lambda b: (b[2], -b[0]))
+
+        return FunctionMetrics(
+            name="(imports)",
+            cyclomatic_complexity=0,
+            nloc=total_import_loc,
+            start_line=block_s,
+            end_line=block_e,
+            parameter_count=0,
+            max_nesting_depth=0,
+            comment_lines=0,
+            todo_count=0,
+            ts_type_interface_count=0,
+            origin_type="imports",
         )
 
     def _extract_functions(self, root_node: Node, content: bytes) -> List[FunctionMetrics]:

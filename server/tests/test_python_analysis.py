@@ -45,6 +45,7 @@ def test_python_analysis_basics(tmp_path):
     
     # Check scopes
     # Expected top-level scopes:
+    # - (imports) (synthetic)
     # - MyClass (class)
     # - independent_function (function)
     # - lambda (lambda)
@@ -52,6 +53,7 @@ def test_python_analysis_basics(tmp_path):
     # so it should NOT appear in function_list.
     
     top_level_names = [f.name for f in metrics.function_list]
+    assert "(imports)" in top_level_names
     assert "(class) MyClass" in top_level_names
     assert "independent_function" in top_level_names
     assert "(lambda)" in top_level_names
@@ -105,7 +107,8 @@ def foo():
     analyzer = PythonTreeSitterAnalyzer()
     metrics = analyzer.analyze_file(str(f))
     
-    foo = metrics.function_list[0]
+    function_scopes = [fn for fn in metrics.function_list if fn.name != "(imports)"]
+    foo = function_scopes[0]
     assert foo.name == "foo"
     
     # foo should have NO children (scopes), because 'for' and 'if' are not scopes anymore
@@ -114,4 +117,27 @@ def foo():
     # Complexity of foo:
     # 1 (base) + 1 (for) + 1 (if) = 3
     assert foo.cyclomatic_complexity == 3
+
+
+def test_python_import_scope_loc_and_largest_block(tmp_path):
+    code = """import os
+import sys
+import math
+
+def run():
+    return 1
+"""
+    f = tmp_path / "imports.py"
+    f.write_text(code, encoding="utf-8")
+
+    analyzer = PythonTreeSitterAnalyzer()
+    metrics = analyzer.analyze_file(str(f))
+
+    imp = next((fn for fn in metrics.function_list if fn.name == "(imports)"), None)
+    assert imp is not None
+    # Total import LOC: 3 single-line import statements across file.
+    assert imp.nloc == 3
+    # Largest contiguous block is the 3-line import header at lines 1-3.
+    assert imp.start_line == 1
+    assert imp.end_line == 3
     
