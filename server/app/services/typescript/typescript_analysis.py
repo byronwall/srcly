@@ -27,7 +27,7 @@ class TreeSitterAnalyzer:
         nloc = len([l for l in lines if l.strip()])
         
         functions = self._extract_functions(tree.root_node, content)
-        import_scope = self._compute_import_scope(tree.root_node)
+        import_scope = self._compute_import_scope(tree.root_node, content)
         if import_scope is not None:
             # Make imports visible as a top-level "scope" in treemap/scopes views.
             functions.insert(0, import_scope)
@@ -102,7 +102,7 @@ class TreeSitterAnalyzer:
             ts_export_count=ts_export_count,
         )
 
-    def _compute_import_scope(self, root_node: Node) -> FunctionMetrics | None:
+    def _compute_import_scope(self, root_node: Node, content: bytes) -> FunctionMetrics | None:
         """
         Create a synthetic top-level scope representing import statements.
 
@@ -110,6 +110,22 @@ class TreeSitterAnalyzer:
         - start/end_line: span of the largest contiguous block of imports
         """
         import_spans: List[tuple[int, int]] = []
+        lines = content.splitlines()
+
+        def only_blank_lines_between(end_line: int, start_line: int) -> bool:
+            """
+            Returns True if every line strictly between end_line and start_line
+            is blank/whitespace-only. Lines are 1-based.
+            """
+            if start_line <= end_line + 1:
+                return True
+            # Between (end_line+1) and (start_line-1), inclusive.
+            for line_no in range(end_line + 1, start_line):
+                idx = line_no - 1
+                if 0 <= idx < len(lines):
+                    if lines[idx].strip():
+                        return False
+            return True
 
         def traverse(n: Node) -> None:
             if n.type == "import_statement":
@@ -132,7 +148,8 @@ class TreeSitterAnalyzer:
         cur_s, cur_e = import_spans[0]
         cur_loc = cur_e - cur_s + 1
         for s, e in import_spans[1:]:
-            if s <= cur_e + 1:
+            # Allow blank lines between imports to still count as one contiguous block.
+            if only_blank_lines_between(cur_e, s):
                 cur_e = max(cur_e, e)
                 cur_loc += (e - s + 1)
             else:

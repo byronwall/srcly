@@ -137,3 +137,24 @@ export function run() { return z; }
         assert imp.nloc == 4  # 1 import at top + 3 in the contiguous block
         assert imp.start_line == 3
         assert imp.end_line == 5
+
+
+def test_import_scope_allows_blank_lines_in_block_ts(tmp_path):
+    code = """import A from 'a';
+
+import { B } from 'b';
+const x = 1;
+"""
+    f = tmp_path / "blank_imports.ts"
+    f.write_text(code, encoding="utf-8")
+
+    analyzer = TreeSitterAnalyzer()
+    metrics = analyzer.analyze_file(str(f))
+
+    imp = next((fn for fn in metrics.function_list if fn.name == "(imports)"), None)
+    assert imp is not None
+    # Total import LOC counts only import statements (not the blank line).
+    assert imp.nloc == 2
+    # The "largest contiguous import block" should span across the blank line.
+    assert imp.start_line == 1
+    assert imp.end_line == 3
