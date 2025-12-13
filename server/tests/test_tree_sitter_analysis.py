@@ -98,6 +98,17 @@ def test_tsx_handling(analyzer, tmp_path):
     # plus the arrow function used in items.map(...). The virtual root should be
     # named after the real top-level TSX element (<div>) rather than a generic
     # "<fragment>" label.
-    names = [c.name for c in component.children]
-    assert "<div>" in names
-    assert "map(ƒ)" in names
+    tsx_root = next(
+        c
+        for c in component.children
+        if getattr(c, "origin_type", "") == "jsx_virtual_root" and c.name == "<div>"
+    )
+    # The real <div> container scope should exist and contain the map callback.
+    div_scope = next(c for c in tsx_root.children if c.name == "<div>")
+
+    def _has_descendant_named(node, name: str) -> bool:
+        if node.name == name:
+            return True
+        return any(_has_descendant_named(ch, name) for ch in getattr(node, "children", []) or [])
+
+    assert _has_descendant_named(div_scope, "map(ƒ)")

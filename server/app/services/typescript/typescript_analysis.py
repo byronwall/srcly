@@ -213,7 +213,41 @@ class TreeSitterAnalyzer:
                 return f"{name_node.text.decode('utf-8')} (type)"
             return "type"
         elif node.type == 'object':
-             # Try to find the name from the parent assignment or property
+            # TSX / JSX: object literal used inside a JSX attribute expression, e.g.
+            #   <TapestryNode class={classy(..., { wireframe: () => ... })} />
+            # Prefer naming after the owning attribute: "class (obj)".
+            current = node
+            hops = 0
+            function_boundary_types = {
+                'function_declaration',
+                'method_definition',
+                'arrow_function',
+                'function_expression',
+                'generator_function',
+                'generator_function_declaration',
+            }
+            while current is not None and hops < 12:
+                if current.type == 'jsx_attribute':
+                    name_node = current.child_by_field_name('name')
+                    if name_node is None:
+                        for c in current.children:
+                            if c.type in {"property_identifier", "identifier", "jsx_identifier"}:
+                                name_node = c
+                                break
+                    if name_node:
+                        return f"{name_node.text.decode('utf-8')} (obj)"
+                    break
+
+                # Don't cross into a nested function/container; if the object literal
+                # is inside a callback, it should be named by its local context instead.
+                if current is not node and current.type in function_boundary_types:
+                    break
+                if current.type in {'program', 'statement_block'}:
+                    break
+                current = current.parent
+                hops += 1
+
+            # Try to find the name from the parent assignment or property
             parent = node.parent
             if parent:
                 # const obj = { ... }
@@ -410,21 +444,19 @@ class TreeSitterAnalyzer:
 
     def _expression_defines_function(self, expr_node: Node) -> bool:
         # Check if the expression contains an inline function definition
-        # It might be wrapped in parenthesized_expression
+        # It might be wrapped in parenthesized_expression, and it may be nested
+        # inside other expressions (e.g. call arguments, object literals) like:
+        #   class={classy(..., { wireframe: () => ... })}
         
-        def has_func(n: Node):
-            if n.type in {'arrow_function', 'function_expression'}:
+        def has_func(n: Node) -> bool:
+            if n.type in {"arrow_function", "function_expression"}:
                 return True
-            if n.type == 'parenthesized_expression':
-                for c in n.children:
-                    if has_func(c):
-                        return True
+            for c in n.children:
+                if has_func(c):
+                    return True
             return False
 
-        for child in expr_node.children:
-            if has_func(child):
-                return True
-        return False
+        return has_func(expr_node)
 
     def _calculate_complexity(self, node: Node) -> int:
         complexity = 1
