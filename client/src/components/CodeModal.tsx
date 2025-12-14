@@ -493,6 +493,118 @@ export default function CodeModal(props: CodeModalProps) {
     };
   };
 
+  const isSyntheticBodyNode = (n: any) =>
+    n?.name === "(body)" ||
+    n?.type === "function_body" ||
+    n?.type === "file_body";
+
+  function getEffectiveChildren(node: any) {
+    if (!node || !Array.isArray(node.children)) return [];
+
+    // The backend/treemap pipeline uses "(body)" as a *synthetic leaf* that represents
+    // leftover LOC, not a container for real structure. For the Structure panel we
+    // want to hide it, not unwrap into its (usually empty) children.
+    const structural = node.children.filter(
+      (c: any) => !isSyntheticBodyNode(c)
+    );
+
+    // Defensive: if some analyzer ever wraps real structure inside a synthetic body container,
+    // only then treat it as a container.
+    if (structural.length === 0) {
+      const bodyContainer = node.children.find(
+        (c: any) =>
+          isSyntheticBodyNode(c) &&
+          Array.isArray(c.children) &&
+          c.children.length > 0
+      );
+      if (bodyContainer) {
+        return bodyContainer.children.filter(
+          (c: any) => !isSyntheticBodyNode(c)
+        );
+      }
+    }
+
+    return structural;
+  }
+
+  const breadcrumbPath = () => {
+    const root = props.fileNode;
+    if (!root) return [];
+
+    // If no specific lines selected, just show root
+    // But we want the path logic to handle "root is selected" appropriately
+    // If targetStartLine is null, we are conceptually at root
+    const s = targetStartLine();
+    const e = targetEndLine();
+
+    if (s === null || e === null) {
+      return [root];
+    }
+
+    // Helper to find deepest path
+    const path: any[] = [root];
+    let current = root;
+
+    // Safety break
+    let iterations = 0;
+    while (iterations < 100) {
+      iterations++;
+      const children = getEffectiveChildren(current);
+      if (!children || !children.length) break;
+
+      const bestMatch = children.reduce((best: any, c: any) => {
+        if (
+          !c ||
+          typeof c.start_line !== "number" ||
+          typeof c.end_line !== "number"
+        ) {
+          return best;
+        }
+
+        const contains = c.start_line <= s && c.end_line >= e;
+        if (!contains) return best;
+        if (!best) return c;
+
+        const bestSpan = best.end_line - best.start_line;
+        const cSpan = c.end_line - c.start_line;
+        if (cSpan < bestSpan) return c;
+        if (cSpan > bestSpan) return best;
+
+        const bestExact = best.start_line === s && best.end_line === e;
+        const cExact = c.start_line === s && c.end_line === e;
+        if (cExact !== bestExact) return cExact ? c : best;
+
+        return best;
+      }, null);
+
+      if (!bestMatch) break;
+
+      // Avoid drifting into wrapper/equal-span nodes: only descend if the match
+      // is strictly narrower than the current node's span.
+      const currentSpan =
+        typeof current?.start_line === "number" &&
+        typeof current?.end_line === "number"
+          ? current.end_line - current.start_line
+          : Number.POSITIVE_INFINITY;
+      const matchSpan = bestMatch.end_line - bestMatch.start_line;
+      if (matchSpan >= currentSpan) break;
+
+      path.push(bestMatch);
+      current = bestMatch;
+    }
+
+    return path;
+  };
+
+  const activeStructureNode = () => {
+    const path = breadcrumbPath();
+    const active =
+      path.length > 0
+        ? path[path.length - 1]
+        : props.scopeNode || props.fileNode;
+    return active;
+  };
+
   const MetricItem = (props: {
     label: string;
     value: any;
@@ -534,15 +646,16 @@ export default function CodeModal(props: CodeModalProps) {
   };
 
   function SidebarTree(props: {
-    node: any;
+    node: () => any;
     depth: number;
     onSelect: (start: number, end: number) => void;
   }) {
     // Determine early if this node should simply be hidden
-    if (props.node.name === "(body)") return null;
+    if (props.node()?.name === "(body)") return null;
 
     const [expanded, setExpanded] = createSignal(props.depth < 1);
-    const hasChildren = props.node.children && props.node.children.length > 0;
+    const children = () => getEffectiveChildren(props.node());
+    const hasChildren = () => children().length > 0;
 
     const toggle = (e: MouseEvent) => {
       e.stopPropagation();
@@ -551,22 +664,22 @@ export default function CodeModal(props: CodeModalProps) {
 
     const handleClick = (e: MouseEvent) => {
       e.stopPropagation();
-      console.log("SidebarTree clicked node:", props.node);
+      console.log("SidebarTree clicked node:", props.node());
 
       if (
-        typeof props.node.start_line === "number" &&
-        typeof props.node.end_line === "number"
+        typeof props.node()?.start_line === "number" &&
+        typeof props.node()?.end_line === "number"
       ) {
-        props.onSelect(props.node.start_line, props.node.end_line);
-      } else if (hasChildren) {
+        props.onSelect(props.node().start_line, props.node().end_line);
+      } else if (hasChildren()) {
         setExpanded(!expanded());
       }
     };
 
     const getIcon = () => {
-      if (props.node.type === "function") return "ƒ";
-      if (props.node.type === "class") return "C";
-      if (props.node.type === "folder") return "📁";
+      if (props.node()?.type === "function") return "ƒ";
+      if (props.node()?.type === "class") return "C";
+      if (props.node()?.type === "folder") return "📁";
       return "•";
     };
 
@@ -581,20 +694,23 @@ export default function CodeModal(props: CodeModalProps) {
             class="w-4 h-4 flex items-center justify-center text-[10px] text-gray-500 hover:text-white"
             onClick={toggle}
           >
-            {hasChildren ? (expanded() ? "▼" : "▶") : ""}
+            {hasChildren() ? (expanded() ? "▼" : "▶") : ""}
           </span>
           <span class="font-mono text-[10px] opacity-70">{getIcon()}</span>
-          <span class="truncate">{props.node.name}</span>
+          <span class="truncate">{props.node()?.name}</span>
         </div>
-        <Show when={expanded() && hasChildren}>
-          <For each={props.node.children}>
-            {(child) => (
-              <SidebarTree
-                node={child}
-                depth={props.depth + 1}
-                onSelect={props.onSelect}
-              />
-            )}
+        <Show when={expanded() && hasChildren()}>
+          <For each={children()}>
+            {(child) => {
+              const childNode = () => child;
+              return (
+                <SidebarTree
+                  node={childNode}
+                  depth={props.depth + 1}
+                  onSelect={props.onSelect}
+                />
+              );
+            }}
           </For>
         </Show>
       </div>
@@ -740,20 +856,88 @@ export default function CodeModal(props: CodeModalProps) {
               <div class="flex-1 overflow-y-auto p-4">
                 <Show when={props.scopeNode || props.fileNode}>
                   <div class="mb-6">
+                    <Show when={breadcrumbPath().length > 1}>
+                      <div class="mb-4 flex flex-col items-start gap-1">
+                        <For
+                          each={breadcrumbPath().filter(
+                            (n) => n.name !== "(body)"
+                          )}
+                        >
+                          {(node, i) => {
+                            const n = () => node;
+                            return (
+                              <div class="flex items-center gap-1 w-full">
+                                <span class="text-gray-600 text-[10px] w-3 flex justify-center">
+                                  {i() > 0 ? "↳" : ""}
+                                </span>
+                                <button
+                                  class={`text-xs truncate hover:underline text-left flex-1 ${
+                                    i() ===
+                                    breadcrumbPath().filter(
+                                      (n) => n.name !== "(body)"
+                                    ).length -
+                                      1
+                                      ? "font-bold text-gray-200 cursor-default hover:no-underline"
+                                      : "text-blue-400 hover:text-blue-300"
+                                  }`}
+                                  onClick={() => {
+                                    const displayPath = breadcrumbPath().filter(
+                                      (n) => n.name !== "(body)"
+                                    );
+                                    if (i() === displayPath.length - 1) return;
+
+                                    if (i() === 0) {
+                                      setTargetStartLine(null);
+                                      setTargetEndLine(null);
+                                      setLineFilterEnabled(false);
+                                    } else {
+                                      setTargetStartLine(n().start_line);
+                                      setTargetEndLine(n().end_line);
+                                      setLineFilterEnabled(true);
+                                    }
+                                    hasAutoScrolledToSelection = false;
+                                  }}
+                                >
+                                  {i() === 0 ? baseName() : n().name}
+                                </button>
+                              </div>
+                            );
+                          }}
+                        </For>
+                      </div>
+                    </Show>
                     <h3 class="text-xs font-bold text-gray-300 uppercase tracking-widest mb-3 pb-1 border-b border-gray-700">
                       Structure
                     </h3>
-                    <SidebarTree
-                      node={props.scopeNode || props.fileNode}
-                      depth={0}
-                      onSelect={(start, end) => {
-                        setTargetStartLine(start);
-                        setTargetEndLine(end);
-                        setLineFilterEnabled(true);
-                        // Auto-scroll logic will trigger because of target lines changing
-                        hasAutoScrolledToSelection = false;
-                      }}
-                    />
+                    <div class="space-y-1">
+                      <For each={getEffectiveChildren(activeStructureNode())}>
+                        {(child) => {
+                          const childNode = () => child;
+                          return (
+                            <SidebarTree
+                              node={childNode}
+                              depth={0}
+                              onSelect={(start, end) => {
+                                setTargetStartLine(start);
+                                setTargetEndLine(end);
+                                setLineFilterEnabled(true);
+                                // Auto-scroll logic will trigger because of target lines changing
+                                hasAutoScrolledToSelection = false;
+                              }}
+                            />
+                          );
+                        }}
+                      </For>
+                      <Show
+                        when={
+                          !getEffectiveChildren(activeStructureNode())?.length
+                        }
+                      >
+                        <div class="text-xs text-gray-500 italic px-2">
+                          No sub-items
+                        </div>
+                      </Show>
+                    </div>
                   </div>
                 </Show>
 
