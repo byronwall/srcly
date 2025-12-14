@@ -191,6 +191,12 @@ export default function CodeModal(props: CodeModalProps) {
   const [error, setError] = createSignal<string | null>(null);
   const [highlightedHtml, setHighlightedHtml] = createSignal<string>("");
   const [rawCode, setRawCode] = createSignal("");
+  const [targetStartLine, setTargetStartLine] = createSignal<number | null>(
+    props.startLine ?? null
+  );
+  const [targetEndLine, setTargetEndLine] = createSignal<number | null>(
+    props.endLine ?? null
+  );
   const [lineFilterEnabled, setLineFilterEnabled] = createSignal(false);
   const [lineOffset, setLineOffset] = createSignal(4);
   const [displayStartLine, setDisplayStartLine] = createSignal<number | null>(
@@ -206,14 +212,22 @@ export default function CodeModal(props: CodeModalProps) {
   let contentScrollRef: HTMLDivElement | undefined;
   let hasAutoScrolledToSelection = false;
 
+  // Sync state with props when they change
+  createEffect(() => {
+    setTargetStartLine(props.startLine ?? null);
+    setTargetEndLine(props.endLine ?? null);
+  });
+
   // Reset line filter when a new file is opened
   createEffect(() => {
     if (!props.isOpen || !props.filePath) return;
+    const sLine = targetStartLine();
+    const eLine = targetEndLine();
     const hasRange =
-      typeof props.startLine === "number" &&
-      typeof props.endLine === "number" &&
-      props.startLine > 0 &&
-      props.endLine >= props.startLine;
+      typeof sLine === "number" &&
+      typeof eLine === "number" &&
+      sLine > 0 &&
+      eLine >= sLine;
     setLineFilterEnabled(hasRange);
 
     // Default to preview mode for markdown
@@ -235,6 +249,9 @@ export default function CodeModal(props: CodeModalProps) {
     const useLineFilter = lineFilterEnabled();
     const offset = lineOffset();
     const shouldReduceIndent = reduceIndentation();
+    // Track these signals synchronously so the effect re-runs when they change
+    const tStart = targetStartLine();
+    const tEnd = targetEndLine();
 
     setLoading(true);
     setError(null);
@@ -264,12 +281,12 @@ export default function CodeModal(props: CodeModalProps) {
 
         if (
           useLineFilter &&
-          typeof props.startLine === "number" &&
-          typeof props.endLine === "number"
+          typeof tStart === "number" &&
+          typeof tEnd === "number"
         ) {
           const safeOffset = Math.max(0, offset);
-          const rawStart = props.startLine - safeOffset;
-          const rawEnd = props.endLine + safeOffset;
+          const rawStart = tStart! - safeOffset;
+          const rawEnd = tEnd! + safeOffset;
           const clampedStart = Math.max(1, rawStart);
           const clampedEnd = Math.min(lines.length, rawEnd);
           if (clampedEnd >= clampedStart) {
@@ -333,8 +350,8 @@ export default function CodeModal(props: CodeModalProps) {
         // by forcing them to a single gray color.
         if (
           useLineFilter &&
-          typeof props.startLine === "number" &&
-          typeof props.endLine === "number"
+          typeof tStart === "number" &&
+          typeof tEnd === "number"
         ) {
           const counterStart = start > 0 ? start - 1 : 0;
           html = html.replace(
@@ -353,8 +370,8 @@ export default function CodeModal(props: CodeModalProps) {
 
           // Grey out lines that are outside the primary selection, while
           // keeping the selected lines fully highlighted.
-          const focusStartFile = Math.max(start, props.startLine);
-          const focusEndFile = Math.min(end, props.endLine);
+          const focusStartFile = Math.max(start, tStart!);
+          const focusEndFile = Math.min(end, tEnd!);
 
           if (focusEndFile >= focusStartFile) {
             const focusStartIndex = focusStartFile - start + 1;
@@ -396,8 +413,8 @@ export default function CodeModal(props: CodeModalProps) {
     const mode = viewMode();
     const hasSelection =
       lineFilterEnabled() &&
-      typeof props.startLine === "number" &&
-      typeof props.endLine === "number";
+      typeof targetStartLine() === "number" &&
+      typeof targetEndLine() === "number";
 
     const isLoading = loading();
 
@@ -450,10 +467,10 @@ export default function CodeModal(props: CodeModalProps) {
   };
 
   const hasLineRange = () =>
-    typeof props.startLine === "number" &&
-    typeof props.endLine === "number" &&
-    props.startLine > 0 &&
-    props.endLine >= props.startLine;
+    typeof targetStartLine() === "number" &&
+    typeof targetEndLine() === "number" &&
+    targetStartLine()! > 0 &&
+    targetEndLine()! >= targetStartLine()!;
 
   const effectiveDisplayRange = () => {
     if (!totalLines()) return null;
@@ -504,6 +521,74 @@ export default function CodeModal(props: CodeModalProps) {
     );
   };
 
+  function SidebarTree(props: {
+    node: any;
+    depth: number;
+    onSelect: (start: number, end: number) => void;
+  }) {
+    // Determine early if this node should simply be hidden
+    if (props.node.name === "(body)") return null;
+
+    const [expanded, setExpanded] = createSignal(props.depth < 1);
+    const hasChildren = props.node.children && props.node.children.length > 0;
+
+    const toggle = (e: MouseEvent) => {
+      e.stopPropagation();
+      setExpanded(!expanded());
+    };
+
+    const handleClick = (e: MouseEvent) => {
+      e.stopPropagation();
+      console.log("SidebarTree clicked node:", props.node);
+
+      if (
+        typeof props.node.start_line === "number" &&
+        typeof props.node.end_line === "number"
+      ) {
+        props.onSelect(props.node.start_line, props.node.end_line);
+      } else if (hasChildren) {
+        setExpanded(!expanded());
+      }
+    };
+
+    const getIcon = () => {
+      if (props.node.type === "function") return "ƒ";
+      if (props.node.type === "class") return "C";
+      if (props.node.type === "folder") return "📁";
+      return "•";
+    };
+
+    return (
+      <div class="select-none">
+        <div
+          class="flex items-center gap-1 py-1 px-2 text-xs text-gray-400 hover:text-white hover:bg-gray-800 cursor-pointer rounded"
+          style={{ "padding-left": `${props.depth * 12 + 8}px` }}
+          onClick={handleClick}
+        >
+          <span
+            class="w-4 h-4 flex items-center justify-center text-[10px] text-gray-500 hover:text-white"
+            onClick={toggle}
+          >
+            {hasChildren ? (expanded() ? "▼" : "▶") : ""}
+          </span>
+          <span class="font-mono text-[10px] opacity-70">{getIcon()}</span>
+          <span class="truncate">{props.node.name}</span>
+        </div>
+        <Show when={expanded() && hasChildren}>
+          <For each={props.node.children}>
+            {(child) => (
+              <SidebarTree
+                node={child}
+                depth={props.depth + 1}
+                onSelect={props.onSelect}
+              />
+            )}
+          </For>
+        </Show>
+      </div>
+    );
+  }
+
   return (
     <Show when={props.isOpen && props.filePath}>
       <div
@@ -531,9 +616,7 @@ export default function CodeModal(props: CodeModalProps) {
                         }`
                       : `Showing full file (${
                           range().total
-                        } lines), selection ${props.startLine}-${
-                          props.endLine
-                        }`}
+                        } lines), selection ${targetStartLine()}-${targetEndLine()}`}
                   </span>
                 )}
               </Show>
@@ -641,18 +724,42 @@ export default function CodeModal(props: CodeModalProps) {
           </header>
           <main class="relative flex-1 overflow-hidden flex bg-[#1e1e1e]">
             {/* Metrics Sidebar */}
-            <div class="w-64 shrink-0 border-r border-gray-700 bg-[#1e1e1e] p-4 overflow-y-auto">
-              <Show when={props.scopeNode}>
-                <MetricsSection title="Scope Metrics" node={props.scopeNode} />
-              </Show>
-              <Show when={props.fileNode}>
-                <MetricsSection title="File Metrics" node={props.fileNode} />
-              </Show>
-              <Show when={!props.fileNode && !props.scopeNode}>
-                <div class="text-xs text-gray-500 italic">
-                  No metrics available for this file.
-                </div>
-              </Show>
+            <div class="w-64 shrink-0 border-r border-gray-700 bg-[#1e1e1e] flex flex-col overflow-hidden">
+              <div class="flex-1 overflow-y-auto p-4">
+                <Show when={props.scopeNode || props.fileNode}>
+                  <div class="mb-6">
+                    <h3 class="text-xs font-bold text-gray-300 uppercase tracking-widest mb-3 pb-1 border-b border-gray-700">
+                      Structure
+                    </h3>
+                    <SidebarTree
+                      node={props.scopeNode || props.fileNode}
+                      depth={0}
+                      onSelect={(start, end) => {
+                        setTargetStartLine(start);
+                        setTargetEndLine(end);
+                        setLineFilterEnabled(true);
+                        // Auto-scroll logic will trigger because of target lines changing
+                        hasAutoScrolledToSelection = false;
+                      }}
+                    />
+                  </div>
+                </Show>
+
+                <Show when={props.scopeNode}>
+                  <MetricsSection
+                    title="Scope Metrics"
+                    node={props.scopeNode}
+                  />
+                </Show>
+                <Show when={props.fileNode}>
+                  <MetricsSection title="File Metrics" node={props.fileNode} />
+                </Show>
+                <Show when={!props.fileNode && !props.scopeNode}>
+                  <div class="text-xs text-gray-500 italic">
+                    No metrics available for this file.
+                  </div>
+                </Show>
+              </div>
             </div>
 
             {/* Code Content */}
@@ -682,15 +789,15 @@ export default function CodeModal(props: CodeModalProps) {
                       children={rawCode()}
                       remarkPlugins={
                         lineFilterEnabled() &&
-                        typeof props.startLine === "number" &&
-                        typeof props.endLine === "number"
+                        typeof targetStartLine() === "number" &&
+                        typeof targetEndLine() === "number"
                           ? [
                               remarkGfm,
                               [
                                 remarkHighlightSelection,
                                 {
-                                  startLine: props.startLine,
-                                  endLine: props.endLine,
+                                  startLine: targetStartLine(),
+                                  endLine: targetEndLine(),
                                 },
                               ],
                             ]
