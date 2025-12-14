@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+When creating render functions inside a <For>, all variables must be reactive functions. Either wrap with () => or use createMemo.

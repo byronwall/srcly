@@ -4,9 +4,12 @@ import {
   onMount,
   createSignal,
   createMemo,
+  untrack,
   Show,
   For,
+  batch,
 } from "solid-js";
+import { createMutable } from "solid-js/store";
 import * as d3 from "d3";
 import { extractFilePath, filterData } from "../utils/dataProcessing";
 import { HOTSPOT_METRICS, useMetricsStore } from "../utils/metricsStore";
@@ -54,21 +57,12 @@ const makeTextMeasurer = () => {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   return {
-    measure: (text: string) => (ctx ? ctx.measureText(text).width : text.length * 6),
+    measure: (text: string) =>
+      ctx ? ctx.measureText(text).width : text.length * 6,
     setFont: (font: string) => {
       if (ctx) ctx.font = font;
     },
   };
-};
-
-const stableHash = (input: string) => {
-  // Simple, stable, non-crypto hash for DOM ids (djb2-ish).
-  let h = 5381;
-  for (let i = 0; i < input.length; i++) {
-    h = (h * 33) ^ input.charCodeAt(i);
-  }
-  // Ensure positive and base36 for compactness.
-  return (h >>> 0).toString(36);
 };
 
 const ELLIPSIS = "…";
@@ -137,14 +131,16 @@ const addScopeBodyDummyNodes = (node: any): any => {
     children: Array.isArray(node.children) ? [...node.children] : [],
   };
 
-  const hasChildren = Array.isArray(clone.children) && clone.children.length > 0;
+  const hasChildren =
+    Array.isArray(clone.children) && clone.children.length > 0;
 
   // Function scopes: server typically provides a precise (body) node; only add if absent.
   if (clone.type === "function") {
     const alreadyHasBodyChild =
       hasChildren &&
       clone.children.some(
-        (child: any) => child?.type === "function_body" || child?.name === "(body)"
+        (child: any) =>
+          child?.type === "function_body" || child?.name === "(body)"
       );
 
     if (hasChildren && !alreadyHasBodyChild) {
@@ -170,7 +166,8 @@ const addScopeBodyDummyNodes = (node: any): any => {
   // File/module scopes: represent top-level (non-function) LOC as a hidden "(body)" leaf.
   if (clone.type === "file") {
     const alreadyHasBodyChild =
-      hasChildren && clone.children.some((child: any) => child?.name === "(body)");
+      hasChildren &&
+      clone.children.some((child: any) => child?.name === "(body)");
 
     if (hasChildren && !alreadyHasBodyChild) {
       const totalLoc = clone.metrics?.loc || 0;
@@ -204,6 +201,48 @@ const addScopeBodyDummyNodes = (node: any): any => {
   return clone;
 };
 
+/**
+ * Produce a stable, collision-resistant key for a rendered treemap node.
+ *
+ * Why: some nodes (especially non-file scopes) may not have a `path`, and we used
+ * to fall back to `name` which can collide across siblings when zooming out
+ * (causing DOM remounts and transitions to "snap" instead of animate).
+ */
+const getStableNodeKey = (d: any): string => {
+  const directPath = d?.data?.path;
+  if (typeof directPath === "string" && directPath.length > 0) {
+    return "node-" + directPath;
+  }
+
+  // Build a key from (nearest-ancestor path) + type/name + line range if present.
+  // This remains stable across zoom levels because the nearest ancestor with a
+  // `path` (typically the file) is stable, even if depth changes.
+  const parts: string[] = [];
+  let curr: any = d;
+  let guard = 0;
+  let anchorPath: string | null = null;
+
+  while (curr && guard++ < 50) {
+    const cd = curr.data || {};
+    const t = cd.type || "node";
+    const n = cd.name || "";
+    const sl = cd.start_line ?? "";
+    const el = cd.end_line ?? "";
+    const loc = sl !== "" || el !== "" ? `@${sl}-${el}` : "";
+    parts.push(`${t}:${n}${loc}`);
+
+    const p = cd.path;
+    if (typeof p === "string" && p.length > 0) {
+      anchorPath = p;
+      break;
+    }
+    curr = curr.parent;
+  }
+
+  const anchor = anchorPath ? `path=${anchorPath}` : "path=?";
+  return "node-" + anchor + "/" + parts.reverse().join("/");
+};
+
 // --- Color Scales ---
 const complexityColor = d3
   .scaleLinear<string>()
@@ -228,6 +267,10 @@ const todoCountColor = d3
   .domain([0, 1, 5])
   .range(["#f1f8e9", "#aed581", "#33691e"]) // Green gradient
   .clamp(true);
+
+const NOMINAL_NODE_SIZE_PX = 100;
+const clamp = (v: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, v));
 
 export default function Treemap(props: TreemapProps) {
   let containerRef: HTMLDivElement | undefined;
@@ -525,20 +568,174 @@ export default function Treemap(props: TreemapProps) {
     return root as d3.HierarchyRectangularNode<any>;
   });
 
+  // Cache to maintain stable object references for CSS transitions
+  const nodeCache = new Map<string, any>();
+
   const nodes = createMemo(() => {
     const root = layoutRoot();
     if (!root) return [];
-    // Skip the synthetic/top-level root so the treemap starts at its children.
-    // Also skip synthetic "(body)" function-body nodes so they still reserve
-    // area in the layout but are not actually rendered.
-    return root
+
+    const descendants = root
       .descendants()
       .filter(
-        (d) =>
-          d.depth > 0 &&
-          d.data?.type !== "function_body" &&
-          d.data?.name !== "(body)"
+        (d) => d.data?.type !== "function_body" && d.data?.name !== "(body)"
       );
+
+    const newCache = new Map<string, any>();
+    const result: any[] = [];
+
+    // Use batch to effectively group updates (though strictly reactive graph handles this)
+    batch(() => {
+      for (const d of descendants) {
+        const key = getStableNodeKey(d);
+
+        let node = nodeCache.get(key);
+        if (node) {
+          // Update existing mutable node in-place
+          Object.assign(node, d);
+          node.data = d.data;
+        } else {
+          // Create new mutable node
+          node = createMutable(d);
+          nodeCache.set(key, node);
+        }
+        node.__key = key;
+        newCache.set(key, node);
+        result.push(node);
+      }
+    });
+
+    // Prune cache of removed nodes
+    for (const k of nodeCache.keys()) {
+      if (!newCache.has(k)) {
+        nodeCache.delete(k);
+      }
+    }
+
+    return result;
+  });
+
+  // --- Enter/Exit animation helpers ---
+  // Problem: when zooming "out" across big hierarchy jumps (e.g. from inside a file
+  // straight to an ancestor folder), most nodes are brand new. They previously just
+  // popped in/out. We keep the existing per-node transform transitions, but add:
+  // - entering nodes: start at the center of their final rect w/ tiny scale, then
+  //   on next RAF animate to final position/scale.
+  // - exiting nodes: keep old nodes around briefly and collapse them to center.
+  const TRANSITION_MS = 500;
+  const TINY_SCALE = 0.001;
+
+  const [enteringKeys, setEnteringKeys] = createSignal<Set<string>>(new Set());
+  const [exitingNodes, setExitingNodes] = createSignal<any[]>([]);
+  const [collapsedExitKeys, setCollapsedExitKeys] = createSignal<Set<string>>(
+    new Set()
+  );
+
+  let prevKeys = new Set<string>();
+  let prevNodesByKey = new Map<string, any>();
+  let animToken = 0;
+
+  createEffect(() => {
+    const currentNodes = nodes();
+    const currKeys = new Set<string>();
+    const currByKey = new Map<string, any>();
+
+    for (const n of currentNodes) {
+      const k = (n as any).__key ?? getStableNodeKey(n);
+      (n as any).__key = k;
+      currKeys.add(k);
+      currByKey.set(k, n);
+    }
+
+    // If a key reappears while it's still exiting, drop the exiting copy.
+    const existingExits = untrack(() => exitingNodes());
+    if (existingExits.length) {
+      const filtered = existingExits.filter((n) => !currKeys.has(n.__key));
+      if (filtered.length !== existingExits.length) {
+        setExitingNodes(filtered);
+        setCollapsedExitKeys((prev) => {
+          const next = new Set(prev);
+          for (const n of existingExits) {
+            if (!filtered.includes(n)) next.delete(n.__key);
+          }
+          return next;
+        });
+      }
+    }
+
+    const newKeys: string[] = [];
+    for (const k of currKeys) {
+      if (!prevKeys.has(k)) newKeys.push(k);
+    }
+
+    const removedKeys: string[] = [];
+    for (const k of prevKeys) {
+      if (!currKeys.has(k)) removedKeys.push(k);
+    }
+
+    // ENTER: apply initial center/tiny scale, then animate to final on next frame.
+    if (newKeys.length) {
+      setEnteringKeys(new Set<string>(newKeys));
+      const token = ++animToken;
+      requestAnimationFrame(() => {
+        if (token !== animToken) return;
+        setEnteringKeys(new Set<string>());
+      });
+    }
+
+    // EXIT: keep removed nodes around and collapse them to center, then remove.
+    if (removedKeys.length) {
+      const removedNodes = removedKeys
+        .map((k) => prevNodesByKey.get(k))
+        .filter(Boolean)
+        .map((n) => {
+          n.__key = n.__key || "node-" + (n.data?.path || n.data?.name);
+          n.__exit = true;
+          return n;
+        });
+
+      if (removedNodes.length) {
+        setExitingNodes((prev) => {
+          const seen = new Set(prev.map((n) => n.__key));
+          const merged = [...prev];
+          for (const n of removedNodes) {
+            if (!seen.has(n.__key)) merged.push(n);
+          }
+          return merged;
+        });
+
+        const token = ++animToken;
+        requestAnimationFrame(() => {
+          if (token !== animToken) return;
+          setCollapsedExitKeys((prev) => {
+            const next = new Set(prev);
+            for (const k of removedKeys) next.add(k);
+            return next;
+          });
+        });
+
+        setTimeout(() => {
+          setExitingNodes((prev) =>
+            prev.filter((n) => !removedKeys.includes(n.__key))
+          );
+          setCollapsedExitKeys((prev) => {
+            const next = new Set(prev);
+            for (const k of removedKeys) next.delete(k);
+            return next;
+          });
+        }, TRANSITION_MS + 30);
+      }
+    }
+
+    prevKeys = currKeys;
+    prevNodesByKey = currByKey;
+  });
+
+  const renderNodes = createMemo(() => {
+    // Render exiting nodes too so they can animate out.
+    const exits = exitingNodes();
+    const all = exits.length ? [...exits, ...nodes()] : nodes();
+    return all;
   });
 
   // --- Tooltip ---
@@ -706,29 +903,50 @@ export default function Treemap(props: TreemapProps) {
     return getContrastingTextColor(bg, 0.7);
   };
 
-  const getNodeClipId = (d: d3.HierarchyNode<any>) => {
-    const key = `${d.data?.path || ""}::${d.data?.type || ""}::${d.data?.name || ""}::${d.depth}`;
-    return `tm-clip-${stableHash(key)}`;
-  };
-
   const getLabel = (
     d: d3.HierarchyNode<any>,
     kind: "folder" | "file" | "chunk"
   ) => {
     const name = String(d.data?.name ?? "");
     const w = Math.max(0, (d as any).x1 - (d as any).x0);
+    const h = Math.max(0, (d as any).y1 - (d as any).y0);
     // Padding inside the rect (match x used by <text>)
     const padLeft = kind === "chunk" ? 2 : 4;
     const padRight = 4;
     const maxWidth = w - padLeft - padRight;
 
-    // These match the rendered attributes below + global svg font-family.
-    const fontSize = kind === "file" ? 10 : 11;
+    // Size text from the *real* dimensions (not the nominal scaled box).
+    // Keep within a conservative range to avoid noisy size changes.
+    const minDim = Math.min(w, h);
+    const fontSize =
+      kind === "folder"
+        ? clamp(minDim / 6, 9, 14)
+        : kind === "file"
+        ? clamp(minDim / 7, 8, 12)
+        : clamp(minDim / 6, 8, 13);
+    const roundedFontSize = Math.round(fontSize * 2) / 2;
     const fontWeight = kind === "folder" ? "700" : "400";
     const fontFamily = "sans-serif";
-    const font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+    const font = `${fontWeight} ${roundedFontSize}px ${fontFamily}`;
 
     return truncateTextToWidth(name, maxWidth, font);
+  };
+
+  const getLabelFontSizePx = (
+    d: d3.HierarchyNode<any>,
+    kind: "folder" | "file" | "chunk"
+  ) => {
+    const w = Math.max(0, (d as any).x1 - (d as any).x0);
+    const h = Math.max(0, (d as any).y1 - (d as any).y0);
+    const minDim = Math.min(w, h);
+    const fontSize =
+      kind === "folder"
+        ? clamp(minDim / 6, 9, 14)
+        : kind === "file"
+        ? clamp(minDim / 7, 8, 12)
+        : clamp(minDim / 6, 8, 13);
+    // Round a bit for more stable layout / measuring cache hits.
+    return Math.round(fontSize * 2) / 2;
   };
 
   return (
@@ -925,122 +1143,155 @@ export default function Treemap(props: TreemapProps) {
               "font-family": "sans-serif",
             }}
           >
-            <defs>
-              <For each={nodes()}>
-                {(d) => (
-                  <clipPath id={getNodeClipId(d)}>
-                    <rect
-                      width={Math.max(0, d.x1 - d.x0)}
-                      height={Math.max(0, d.y1 - d.y0)}
-                      rx="0"
-                      ry="0"
-                    />
-                  </clipPath>
-                )}
-              </For>
-            </defs>
-            <For each={nodes()}>
-              {(d) => (
-                <g transform={`translate(${d.x0},${d.y0})`}>
-                  <rect
-                    width={Math.max(0, d.x1 - d.x0)}
-                    height={Math.max(0, d.y1 - d.y0)}
-                    fill={getNodeColor(d)}
-                    stroke={getNodeStroke(d)}
-                    stroke-width={getNodeStrokeWidth(d)}
-                    class={`transition-all duration-100 ${
-                      isIsolateMode()
-                        ? "hover:brightness-125 hover:stroke-white hover:stroke-[2px]"
-                        : isAltPressed()
-                        ? "hover:stroke-red-500 hover:stroke-[3px] hover:opacity-80" // Red border on Alt hover
-                        : "hover:brightness-110 hover:stroke-gray-300 hover:stroke-[1.5px]"
-                    }`}
+            <For each={renderNodes()}>
+              {(d) => {
+                const w = () => Math.max(0, d.x1 - d.x0);
+                const h = () => Math.max(0, d.y1 - d.y0);
+
+                // Avoid division-by-zero; also keeps transforms stable for very tiny nodes.
+                const sx = () => Math.max(0.001, w() / NOMINAL_NODE_SIZE_PX);
+                const sy = () => Math.max(0.001, h() / NOMINAL_NODE_SIZE_PX);
+
+                const key = () => (d as any).__key ?? getStableNodeKey(d);
+                const isEntering = () => enteringKeys().has(key());
+                const isExiting = () => Boolean((d as any).__exit);
+                const isExitCollapsed = () => collapsedExitKeys().has(key());
+                const isRootNode = () => d.depth === 0;
+
+                const tx = () =>
+                  isEntering() || (isExiting() && isExitCollapsed())
+                    ? d.x0 + w() / 2
+                    : d.x0;
+                const ty = () =>
+                  isEntering() || (isExiting() && isExitCollapsed())
+                    ? d.y0 + h() / 2
+                    : d.y0;
+
+                const scaleX = () =>
+                  isEntering() || (isExiting() && isExitCollapsed())
+                    ? TINY_SCALE
+                    : sx();
+                const scaleY = () =>
+                  isEntering() || (isExiting() && isExitCollapsed())
+                    ? TINY_SCALE
+                    : sy();
+
+                const opacity = () =>
+                  isEntering() || (isExiting() && isExitCollapsed()) ? 0 : 1;
+
+                return (
+                  <g
+                    transform={`translate(${tx()},${ty()})`}
                     style={{
-                      cursor: isIsolateMode()
-                        ? "zoom-in"
-                        : isAltPressed()
-                        ? "not-allowed" // Cursor for Alt mode
-                        : d.data.type === "folder"
-                        ? "zoom-in"
-                        : "pointer",
+                      transition: "transform 0.5s ease-in-out",
+                      "will-change": "transform",
+                      opacity: String(opacity()),
+                      "pointer-events":
+                        isExiting() || isRootNode() ? "none" : "auto",
+                      "transition-property": "transform, opacity",
+                      "transition-duration": "0.5s",
+                      "transition-timing-function": "ease-in-out",
                     }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleHierarchyClick(d, e);
-                    }}
-                    onMouseEnter={(e) => {
-                      showTooltip(e, d);
-                    }}
-                    onMouseLeave={hideTooltip}
-                  />
-                  {/* Folder Labels */}
-                  <Show
-                    when={
-                      d.data.type === "folder" &&
-                      d.x1 - d.x0 > 30 &&
-                      d.y1 - d.y0 > 20
-                    }
                   >
-                    <text
-                      x={4}
-                      y={13}
-                      font-size="11px"
-                      font-weight="bold"
-                      fill="#888"
+                    <g
+                      transform={`scale(${scaleX()},${scaleY()})`}
                       style={{
-                        "pointer-events": "none",
-                        "clip-path": `url(#${getNodeClipId(d)})`,
+                        transition: "transform 0.5s ease-in-out",
                       }}
                     >
-                      {getLabel(d, "folder")}
-                    </text>
-                  </Show>
-                  {/* File Labels */}
-                  <Show
-                    when={
-                      d.data.type === "file" &&
-                      d.x1 - d.x0 > 40 &&
-                      d.y1 - d.y0 > 15
-                    }
-                  >
-                    <text
-                      x={4}
-                      y={13}
-                      font-size="10px"
-                      fill={getNodeTextColor(d)}
+                      <rect
+                        width={NOMINAL_NODE_SIZE_PX}
+                        height={NOMINAL_NODE_SIZE_PX}
+                        style={{
+                          cursor: isIsolateMode()
+                            ? "zoom-in"
+                            : isAltPressed()
+                            ? "not-allowed"
+                            : d.data.type === "folder"
+                            ? "zoom-in"
+                            : "pointer",
+                        }}
+                        fill={getNodeColor(d)}
+                        stroke={getNodeStroke(d)}
+                        stroke-width={getNodeStrokeWidth(d)}
+                        vector-effect="non-scaling-stroke"
+                        class={`transition-colors duration-100 ${
+                          isIsolateMode()
+                            ? "hover:brightness-125 hover:stroke-white hover:stroke-[2px]"
+                            : isAltPressed()
+                            ? "hover:stroke-red-500 hover:stroke-[3px] hover:opacity-80" // Red border on Alt hover
+                            : "hover:brightness-110 hover:stroke-gray-300 hover:stroke-[1.5px]"
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleHierarchyClick(d, e);
+                        }}
+                        onMouseEnter={(e) => {
+                          showTooltip(e, d);
+                        }}
+                        onMouseLeave={hideTooltip}
+                      />
+                    </g>
+
+                    {/* Labels are rendered in unscaled px space so they don't get stretched
+                        during non-uniform scale transitions. */}
+                    <g
                       style={{
                         "pointer-events": "none",
-                        "clip-path": `url(#${getNodeClipId(d)})`,
                       }}
                     >
-                      {getLabel(d, "file")}
-                    </text>
-                  </Show>
-                  {/* Code Chunk Labels */}
-                  <Show
-                    when={
-                      d.data.type !== "folder" &&
-                      d.data.type !== "file" &&
-                      d.x1 - d.x0 > 50 &&
-                      d.y1 - d.y0 > 20
-                    }
-                  >
-                    <text
-                      x={2}
-                      y={10}
-                      font-size="11px"
-                      fill={getChunkLabelColor(d)}
-                      style={{
-                        "pointer-events": "none",
-                        overflow: "hidden",
-                        "clip-path": `url(#${getNodeClipId(d)})`,
-                      }}
-                    >
-                      {getLabel(d, "chunk")}
-                    </text>
-                  </Show>
-                </g>
-              )}
+                      {/* Folder Labels */}
+                      <Show
+                        when={d.data.type === "folder" && w() > 30 && h() > 20}
+                      >
+                        <text
+                          x={4}
+                          y={13}
+                          font-size={`${getLabelFontSizePx(d, "folder")}px`}
+                          font-weight="bold"
+                          fill="#888"
+                        >
+                          {getLabel(d, "folder")}
+                        </text>
+                      </Show>
+                      {/* File Labels */}
+                      <Show
+                        when={d.data.type === "file" && w() > 40 && h() > 15}
+                      >
+                        <text
+                          x={4}
+                          y={13}
+                          font-size={`${getLabelFontSizePx(d, "file")}px`}
+                          fill={getNodeTextColor(d)}
+                        >
+                          {getLabel(d, "file")}
+                        </text>
+                      </Show>
+                      {/* Code Chunk Labels */}
+                      <Show
+                        when={
+                          d.data.type !== "folder" &&
+                          d.data.type !== "file" &&
+                          w() > 50 &&
+                          h() > 20
+                        }
+                      >
+                        <text
+                          x={2}
+                          y={10}
+                          font-size={`${getLabelFontSizePx(d, "chunk")}px`}
+                          fill={getChunkLabelColor(d)}
+                          style={{
+                            overflow: "hidden",
+                          }}
+                        >
+                          {getLabel(d, "chunk")}
+                        </text>
+                      </Show>
+                    </g>
+                  </g>
+                );
+              }}
             </For>
           </svg>
         </Show>
