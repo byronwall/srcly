@@ -238,23 +238,22 @@ export default function CodeModal(props: CodeModalProps) {
     }
   });
 
+  let lastProcessId = 0;
+
+  // 1. Fetch File Content Effect
   createEffect(() => {
     if (!props.isOpen || !props.filePath) {
+      setRawCode("");
+      setHighlightedHtml("");
       return;
     }
 
-    const currentId = ++lastRequestId;
     const path = props.filePath;
-
-    const useLineFilter = lineFilterEnabled();
-    const offset = lineOffset();
-    const shouldReduceIndent = reduceIndentation();
-    // Track these signals synchronously so the effect re-runs when they change
-    const tStart = targetStartLine();
-    const tEnd = targetEndLine();
+    const currentId = ++lastRequestId;
 
     setLoading(true);
     setError(null);
+    setRawCode("");
     setHighlightedHtml("");
     setWasIndentationReduced(false);
 
@@ -263,145 +262,158 @@ export default function CodeModal(props: CodeModalProps) {
         const res = await fetch(
           `/api/files/content?path=${encodeURIComponent(path)}`
         );
+        if (currentId !== lastRequestId) return;
+
         if (!res.ok) {
           throw new Error(
             `Failed to load file: ${res.status} ${res.statusText}`
           );
         }
+
         const text = await res.text();
         setRawCode(text);
+        setTotalLines(text.split(/\r?\n/).length);
+        setLoading(false);
+      } catch (e) {
+        if (currentId !== lastRequestId) return;
+        setError((e as Error).message ?? String(e));
+        setLoading(false);
+      }
+    })();
+  });
 
-        const lines = text.split(/\r?\n/);
-        setTotalLines(lines.length);
+  // 2. Process/Highlight Content Effect
+  createEffect(() => {
+    const text = rawCode();
+    const path = props.filePath;
 
-        let displayText = text;
-        let start = 1;
-        let end = lines.length;
-        let linesToDisplay = lines;
+    // Dependencies
+    const useLineFilter = lineFilterEnabled();
+    const offset = lineOffset();
+    const shouldReduceIndent = reduceIndentation();
+    const tStart = targetStartLine();
+    const tEnd = targetEndLine();
 
-        if (
-          useLineFilter &&
-          typeof tStart === "number" &&
-          typeof tEnd === "number"
-        ) {
-          const safeOffset = Math.max(0, offset);
-          const rawStart = tStart! - safeOffset;
-          const rawEnd = tEnd! + safeOffset;
-          const clampedStart = Math.max(1, rawStart);
-          const clampedEnd = Math.min(lines.length, rawEnd);
-          if (clampedEnd >= clampedStart) {
-            start = clampedStart;
-            end = clampedEnd;
-            linesToDisplay = lines.slice(start - 1, end);
-            displayText = linesToDisplay.join("\n");
+    if (!text || !path) {
+      return;
+    }
+
+    const currentProcessId = ++lastProcessId;
+
+    (async () => {
+      const lines = text.split(/\r?\n/);
+
+      let displayText = text;
+      let start = 1;
+      let end = lines.length;
+      let linesToDisplay = lines;
+
+      if (
+        useLineFilter &&
+        typeof tStart === "number" &&
+        typeof tEnd === "number"
+      ) {
+        const safeOffset = Math.max(0, offset);
+        const rawStart = tStart! - safeOffset;
+        const rawEnd = tEnd! + safeOffset;
+        const clampedStart = Math.max(1, rawStart);
+        const clampedEnd = Math.min(lines.length, rawEnd);
+        if (clampedEnd >= clampedStart) {
+          start = clampedStart;
+          end = clampedEnd;
+          linesToDisplay = lines.slice(start - 1, end);
+          displayText = linesToDisplay.join("\n");
+        }
+      }
+
+      let isReduced = false;
+      if (shouldReduceIndent) {
+        let minIndent = Infinity;
+        let hasNonEmptyLine = false;
+
+        for (const line of linesToDisplay) {
+          if (!line.trim()) continue;
+
+          hasNonEmptyLine = true;
+          const match = line.match(/^(\s*)/);
+          if (match) {
+            minIndent = Math.min(minIndent, match[1].length);
+          } else {
+            minIndent = 0;
           }
         }
 
-        if (shouldReduceIndent) {
-          let minIndent = Infinity;
-          let hasNonEmptyLine = false;
+        if (hasNonEmptyLine && minIndent > 0 && minIndent !== Infinity) {
+          // Keep a small visual indent (e.g. 2 spaces) if original indent was deep
+          if (minIndent > 2) {
+            const strings = linesToDisplay.map((line) => {
+              if (!line.trim()) return "";
+              if (line.length >= minIndent) {
+                return "  " + line.slice(minIndent);
+              }
+              return line;
+            });
 
-          for (const line of linesToDisplay) {
-            if (!line.trim()) continue;
-
-            hasNonEmptyLine = true;
-            const match = line.match(/^(\s*)/);
-            if (match) {
-              minIndent = Math.min(minIndent, match[1].length);
-            } else {
-              minIndent = 0;
-            }
-          }
-
-          if (hasNonEmptyLine && minIndent > 0 && minIndent !== Infinity) {
-            // Keep a small visual indent (e.g. 2 spaces) if original indent was deep
-            if (minIndent > 2) {
-              const strings = linesToDisplay.map((line) => {
-                if (!line.trim()) return "";
-                if (line.length >= minIndent) {
-                  return "  " + line.slice(minIndent);
-                }
-                return line;
-              });
-
-              displayText = strings.join("\n");
-              setWasIndentationReduced(true);
-            }
+            displayText = strings.join("\n");
+            isReduced = true;
           }
         }
+      }
 
+      const lang = guessLangFromPath(path);
+      let html = await codeToHtml(displayText, {
+        lang,
+        theme: "github-dark",
+      });
+
+      // SHIKI FIX: Shiki adds newlines inside the <pre> block
+      html = html.replace(/\n<span class="line">/g, '<span class="line">');
+
+      // Adjust line numbers and gray out non-focused lines
+      if (
+        useLineFilter &&
+        typeof tStart === "number" &&
+        typeof tEnd === "number"
+      ) {
+        const counterStart = start > 0 ? start - 1 : 0;
+        html = html.replace(
+          /<code([^>]*)>/,
+          (_match: string, attrs: string) => {
+            if (/style=/.test(attrs)) {
+              return `<code${attrs.replace(
+                /style="([^"]*)"/,
+                (_m: string, styleVal: string) =>
+                  `style="${styleVal}; counter-reset: line ${counterStart};"`
+              )}>`;
+            }
+            return `<code${attrs} style="counter-reset: line ${counterStart};">`;
+          }
+        );
+
+        // Grey out lines that are outside the primary selection
+        const focusStartFile = Math.max(start, tStart!);
+        const focusEndFile = Math.min(end, tEnd!);
+
+        if (focusEndFile >= focusStartFile) {
+          const focusStartIndex = focusStartFile - start + 1;
+          const focusEndIndex = focusEndFile - start + 1;
+          let currentLine = 0;
+
+          html = html.replace(/<span class="line">/g, (match) => {
+            currentLine += 1;
+            if (currentLine < focusStartIndex || currentLine > focusEndIndex) {
+              return '<span class="line non-focus-line">';
+            }
+            return match;
+          });
+        }
+      }
+
+      if (currentProcessId === lastProcessId) {
+        setHighlightedHtml(html);
         setDisplayStartLine(start);
         setDisplayEndLine(end);
-
-        const lang = guessLangFromPath(path);
-        let html = await codeToHtml(displayText, {
-          lang,
-          theme: "github-dark",
-        });
-
-        // SHIKI FIX: Shiki adds newlines inside the <pre> block which, combined
-        // with display: block on .line, causes double spacing when copying text.
-        // We strip these newlines here.
-        html = html.replace(/\n<span class="line">/g, '<span class="line">');
-
-        // When limiting to a selection, adjust line numbers so they reflect the
-        // actual file line numbers by setting the CSS counter-reset on <code>.
-        // Also visually de-emphasize context lines outside the focused range
-        // by forcing them to a single gray color.
-        if (
-          useLineFilter &&
-          typeof tStart === "number" &&
-          typeof tEnd === "number"
-        ) {
-          const counterStart = start > 0 ? start - 1 : 0;
-          html = html.replace(
-            /<code([^>]*)>/,
-            (_match: string, attrs: string) => {
-              if (/style=/.test(attrs)) {
-                return `<code${attrs.replace(
-                  /style="([^"]*)"/,
-                  (_m: string, styleVal: string) =>
-                    `style="${styleVal}; counter-reset: line ${counterStart};"`
-                )}>`;
-              }
-              return `<code${attrs} style="counter-reset: line ${counterStart};">`;
-            }
-          );
-
-          // Grey out lines that are outside the primary selection, while
-          // keeping the selected lines fully highlighted.
-          const focusStartFile = Math.max(start, tStart!);
-          const focusEndFile = Math.min(end, tEnd!);
-
-          if (focusEndFile >= focusStartFile) {
-            const focusStartIndex = focusStartFile - start + 1;
-            const focusEndIndex = focusEndFile - start + 1;
-            let currentLine = 0;
-
-            html = html.replace(/<span class="line">/g, (match) => {
-              currentLine += 1;
-              if (
-                currentLine < focusStartIndex ||
-                currentLine > focusEndIndex
-              ) {
-                return '<span class="line non-focus-line">';
-              }
-              return match;
-            });
-          }
-        }
-
-        if (currentId === lastRequestId) {
-          setHighlightedHtml(html);
-        }
-      } catch (e) {
-        if (currentId === lastRequestId) {
-          setError((e as Error).message ?? String(e));
-        }
-      } finally {
-        if (currentId === lastRequestId) {
-          setLoading(false);
-        }
+        setWasIndentationReduced(isReduced);
       }
     })();
   });
@@ -764,7 +776,12 @@ export default function CodeModal(props: CodeModalProps) {
 
             {/* Code Content */}
             <div class="flex-1 overflow-auto p-4" ref={contentScrollRef}>
-              <Show when={loading()}>
+              <Show
+                when={
+                  loading() ||
+                  (!highlightedHtml() && !error() && viewMode() === "code")
+                }
+              >
                 <div class="flex h-full items-center justify-center text-sm text-gray-400">
                   Loading file…
                 </div>
