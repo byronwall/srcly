@@ -23,6 +23,12 @@ interface TreemapProps {
   currentRoot?: any;
   onZoom?: (node: any) => void;
   onFileSelect?: (path: string, startLine?: number, endLine?: number) => void;
+  /**
+   * Minimum on-screen size (in px) for a treemap node to be rendered into the DOM.
+   * Nodes smaller than this in either dimension are skipped, but will appear once
+   * zooming/layout makes them large enough.
+   */
+  minNodeRenderSizePx?: number;
 }
 
 // --- Helper Functions ---
@@ -949,6 +955,8 @@ export default function Treemap(props: TreemapProps) {
     return Math.round(fontSize * 2) / 2;
   };
 
+  const minNodeRenderSizePx = () => props.minNodeRenderSizePx ?? 4;
+
   return (
     <div class="flex flex-col w-full h-full overflow-hidden border border-gray-700 rounded bg-[#121212] relative">
       {/* Header Bar */}
@@ -1147,6 +1155,12 @@ export default function Treemap(props: TreemapProps) {
               {(d) => {
                 const w = () => Math.max(0, d.x1 - d.x0);
                 const h = () => Math.max(0, d.y1 - d.y0);
+
+                // Skip tiny nodes entirely to keep the DOM light. They will naturally
+                // appear later when zooming makes their rectangles larger.
+                const shouldRender = () =>
+                  w() >= minNodeRenderSizePx() && h() >= minNodeRenderSizePx();
+                if (!shouldRender()) return null;
 
                 // Avoid division-by-zero; also keeps transforms stable for very tiny nodes.
                 const sx = () => Math.max(0.001, w() / NOMINAL_NODE_SIZE_PX);
