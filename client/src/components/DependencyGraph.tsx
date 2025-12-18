@@ -1,5 +1,5 @@
 import { createSignal, createEffect, Show, For, createMemo } from "solid-js";
-import CodeModal from "./CodeModal";
+import CodeModal from "./CodeModal/CodeModal.tsx";
 import ELK from "elkjs/lib/elk.bundled.js";
 import * as d3 from "d3";
 import { HOTSPOT_METRICS, type HotSpotMetricId } from "../utils/metricsStore";

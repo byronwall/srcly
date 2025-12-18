@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
     "@types/d3": "^7.4.3",
@@ -15,7 +16,8 @@
     "remark-gfm": "^4.0.1",
     "shiki": "^3.15.0",
     "solid-js": "^1.9.10",
-    "solid-markdown": "^2.1.1"
+    "solid-markdown": "^2.1.1",
+    "vitest": "^4.0.16"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.17",

@@ -1,5 +1,6 @@
 import { createSignal, createEffect, Show, For } from "solid-js";
-import { codeToHtml } from "shiki";
+import { useFileContent } from "../hooks/useFileContent";
+import { useHighlightedCode } from "../hooks/useHighlightedCode";
 
 interface DataFlowVizProps {
   path: string;
@@ -300,64 +301,25 @@ function flattenGraph(root: LayoutNode): Map<string, LayoutNode> {
 
 // --- Sidebar Code Preview ---
 
-function guessLangFromPath(path: string): string {
-  const lower = path.toLowerCase();
-  if (lower.endsWith(".tsx")) return "tsx";
-  if (lower.endsWith(".ts")) return "ts";
-  if (lower.endsWith(".jsx")) return "jsx";
-  if (lower.endsWith(".js")) return "js";
-  if (lower.endsWith(".json")) return "json";
-  if (lower.endsWith(".py")) return "py";
-  if (lower.endsWith(".md")) return "md";
-  return "txt";
-}
-
 const CodeSidebar = (props: {
   path: string;
   startLine?: number;
   endLine?: number;
   onClose: () => void;
 }) => {
-  const [html, setHtml] = createSignal("");
-  const [loading, setLoading] = createSignal(false);
+  const { rawCode, loading, error } = useFileContent({
+    isOpen: () => true,
+    filePath: () => props.path,
+  });
 
-  createEffect(() => {
-    const path = props.path;
-    if (!path) return;
-    setLoading(true);
-
-    (async () => {
-      try {
-        const res = await fetch(
-          `/api/files/content?path=${encodeURIComponent(path)}`
-        );
-        if (!res.ok) throw new Error("Failed to load");
-        const text = await res.text();
-
-        const lang = guessLangFromPath(path);
-        let codeHtml = await codeToHtml(text, {
-          lang,
-          theme: "github-dark",
-        });
-
-        setHtml(codeHtml);
-
-        // Scroll to line
-        setTimeout(() => {
-          if (props.startLine) {
-            // Shiki output usually has lines in spans, but not IDs.
-            // We rely on the user manually finding it or we could add IDs.
-            // For now, simple scroll to percentage? No, lines are better.
-            // Let's just leave it as is for now, user can scroll.
-          }
-        }, 100);
-      } catch (e) {
-        console.error(e);
-        setHtml("<div class='text-red-500'>Failed to load code</div>");
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const { highlightedHtml } = useHighlightedCode({
+    rawCode,
+    filePath: () => props.path,
+    lineFilterEnabled: () => false,
+    lineOffset: () => 0,
+    targetStart: () => null,
+    targetEnd: () => null,
+    reduceIndentation: () => false,
   });
 
   return (
@@ -375,10 +337,15 @@ const CodeSidebar = (props: {
       </div>
       <div class="flex-1 overflow-auto p-4 text-xs">
         <Show
-          when={!loading()}
+          when={!loading() && !error()}
           fallback={<div class="text-gray-500">Loading...</div>}
         >
-          <div innerHTML={html()} />
+          <div class="code-modal-content" innerHTML={highlightedHtml() || ""} />
+        </Show>
+        <Show when={!loading() && error()}>
+          <div class="rounded border border-red-700 bg-red-900/70 px-3 py-2 text-red-100">
+            {error()}
+          </div>
         </Show>
       </div>
     </div>

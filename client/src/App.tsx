@@ -7,7 +7,7 @@ import {
 } from "solid-js";
 import Toast from "./components/Toast";
 
-import CodeModal from "./components/CodeModal";
+import CodeModal from "./components/CodeModal/CodeModal.tsx";
 import Explorer from "./components/Explorer";
 import FilePicker from "./components/FilePicker";
 import Treemap from "./components/Treemap";

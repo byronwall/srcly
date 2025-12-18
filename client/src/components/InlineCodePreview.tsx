@@ -1,32 +1,11 @@
-import { Show, createEffect, createSignal } from "solid-js";
-import { codeToHtml } from "shiki";
+import { Show, createMemo, createSignal } from "solid-js";
+import { useFileContent } from "../hooks/useFileContent";
+import { useHighlightedCode } from "../hooks/useHighlightedCode";
 
 interface InlineCodePreviewProps {
   filePath: string | null;
   startLine?: number | null;
   endLine?: number | null;
-}
-
-function guessLangFromPath(path: string): string {
-  const lower = path.toLowerCase();
-  if (lower.endsWith(".tsx")) return "tsx";
-  if (lower.endsWith(".ts")) return "ts";
-  if (lower.endsWith(".jsx")) return "jsx";
-  if (lower.endsWith(".js")) return "js";
-  if (lower.endsWith(".json")) return "json";
-  if (lower.endsWith(".py") || lower.endsWith(".ipynb")) return "python";
-  if (lower.endsWith(".md")) return "md";
-  if (lower.endsWith(".html") || lower.endsWith(".htm")) return "html";
-  if (lower.endsWith(".css")) return "css";
-  if (lower.endsWith(".yaml") || lower.endsWith(".yml")) return "yaml";
-  if (lower.endsWith(".toml")) return "toml";
-  if (
-    lower.endsWith(".sh") ||
-    lower.endsWith(".bash") ||
-    lower.endsWith(".zsh")
-  )
-    return "bash";
-  return "txt";
 }
 
 /**
@@ -35,179 +14,34 @@ function guessLangFromPath(path: string): string {
  * appearing in its own modal.
  */
 export default function InlineCodePreview(props: InlineCodePreviewProps) {
-  const [loading, setLoading] = createSignal(false);
-  const [error, setError] = createSignal<string | null>(null);
-  const [highlightedHtml, setHighlightedHtml] = createSignal<string>("");
-  const [totalLines, setTotalLines] = createSignal<number | null>(null);
   // Start with filtering enabled by default; the user can turn it off.
   const [lineFilterEnabled, setLineFilterEnabled] = createSignal(true);
   const [lineOffset, setLineOffset] = createSignal(2);
-  const [displayStartLine, setDisplayStartLine] = createSignal<number | null>(
-    null
-  );
-  const [displayEndLine, setDisplayEndLine] = createSignal<number | null>(null);
-
-  let lastRequestId = 0;
-
-  createEffect(() => {
-    const path = props.filePath;
-    if (!path) {
-      setHighlightedHtml("");
-      setError(null);
-      setTotalLines(null);
-      return;
-    }
-
-    // Take a stable snapshot of the current selection for this effect run so
-    // that we don't get into weird states if props change while an async
-    // request is in flight.
-    const selectionStart =
-      typeof props.startLine === "number" ? props.startLine : null;
-    const selectionEnd =
-      typeof props.endLine === "number" ? props.endLine : null;
-
-    const hasRange =
-      selectionStart !== null &&
-      selectionEnd !== null &&
-      selectionStart > 0 &&
-      selectionEnd >= selectionStart;
-
-    const useLineFilter = lineFilterEnabled();
-    const offset = lineOffset();
-
-    // Only run the focused preview logic when we actually have a valid range.
-    if (!hasRange) {
-      console.log("[InlineCodePreview] skipping fetch, no valid range", {
-        path,
-        startLine: selectionStart,
-        endLine: selectionEnd,
-        lineFilterEnabled: useLineFilter,
-        offset,
-      });
-      return;
-    }
-
-    const currentId = ++lastRequestId;
-
-    console.log("[InlineCodePreview] fetch effect", {
-      path,
-      startLine: selectionStart,
-      endLine: selectionEnd,
-      lineFilterEnabled: useLineFilter,
-      offset,
-    });
-
-    setLoading(true);
-    setError(null);
-    setHighlightedHtml("");
-
-    (async () => {
-      try {
-        const res = await fetch(
-          `/api/files/content?path=${encodeURIComponent(path)}`
-        );
-        if (!res.ok) {
-          throw new Error(
-            `Failed to load file: ${res.status} ${res.statusText}`
-          );
-        }
-        const text = await res.text();
-        const lines = text.split(/\r?\n/);
-        setTotalLines(lines.length);
-
-        let displayText = text;
-        let start = 1;
-        let end = lines.length;
-
-        if (useLineFilter && hasRange) {
-          const safeOffset = Math.max(0, offset);
-          const rawStart = selectionStart! - safeOffset;
-          const rawEnd = selectionEnd! + safeOffset;
-          const clampedStart = Math.max(1, rawStart);
-          const clampedEnd = Math.min(lines.length, rawEnd);
-          if (clampedEnd >= clampedStart) {
-            start = clampedStart;
-            end = clampedEnd;
-            displayText = lines.slice(start - 1, end).join("\n");
-          }
-        }
-
-        setDisplayStartLine(start);
-        setDisplayEndLine(end);
-
-        console.log("[InlineCodePreview] computed display range", {
-          totalLines: lines.length,
-          start,
-          end,
-          useLineFilter,
-          hasRange,
-        });
-
-        const lang = guessLangFromPath(path);
-        let html = await codeToHtml(displayText, {
-          lang,
-          theme: "github-dark",
-        });
-
-        if (useLineFilter && hasRange) {
-          const counterStart = start > 0 ? start - 1 : 0;
-          html = html.replace(
-            /<code([^>]*)>/,
-            (_match: string, attrs: string) => {
-              if (/style=/.test(attrs)) {
-                return `<code${attrs.replace(
-                  /style="([^"]*)"/,
-                  (_m: string, styleVal: string) =>
-                    `style="${styleVal}; counter-reset: line ${counterStart};"`
-                )}>`;
-              }
-              return `<code${attrs} style="counter-reset: line ${counterStart};">`;
-            }
-          );
-
-          // Grey out lines that are outside the primary selection while
-          // keeping the selected lines fully highlighted.
-          const focusStartFile = Math.max(start, props.startLine!);
-          const focusEndFile = Math.min(end, props.endLine!);
-
-          if (focusEndFile >= focusStartFile) {
-            const focusStartIndex = focusStartFile - start + 1;
-            const focusEndIndex = focusEndFile - start + 1;
-            let currentLine = 0;
-
-            html = html.replace(/<span class="line">/g, (match) => {
-              currentLine += 1;
-              if (
-                currentLine < focusStartIndex ||
-                currentLine > focusEndIndex
-              ) {
-                return '<span class="line non-focus-line">';
-              }
-              return match;
-            });
-          }
-        }
-
-        if (currentId === lastRequestId) {
-          setHighlightedHtml(html);
-        }
-      } catch (e) {
-        if (currentId === lastRequestId) {
-          setError((e as Error).message ?? String(e));
-        }
-      } finally {
-        if (currentId === lastRequestId) {
-          setLoading(false);
-        }
-      }
-    })();
+  const hasValidSelection = createMemo(() => {
+    const s = typeof props.startLine === "number" ? props.startLine : null;
+    const e = typeof props.endLine === "number" ? props.endLine : null;
+    return s !== null && e !== null && s > 0 && e >= s;
   });
 
-  const hasSelection = () =>
-    typeof props.startLine === "number" &&
-    typeof props.endLine === "number" &&
-    props.startLine > 0 &&
-    props.endLine >= props.startLine;
+  const isOpen = () => !!props.filePath && hasValidSelection();
+
+  const { rawCode, loading, error, totalLines } = useFileContent({
+    isOpen,
+    filePath: () => props.filePath,
+  });
+
+  const { highlightedHtml, displayStartLine, displayEndLine } = useHighlightedCode(
+    {
+      rawCode,
+      filePath: () => props.filePath,
+      lineFilterEnabled,
+      lineOffset,
+      targetStart: () =>
+        typeof props.startLine === "number" ? props.startLine : null,
+      targetEnd: () => (typeof props.endLine === "number" ? props.endLine : null),
+      reduceIndentation: () => false,
+    }
+  );
 
   const effectiveDisplayRange = () => {
     if (!totalLines()) return null;
@@ -224,7 +58,7 @@ export default function InlineCodePreview(props: InlineCodePreviewProps) {
         <div class="truncate font-semibold text-gray-100">
           {props.filePath || "No file selected"}
         </div>
-        <Show when={hasSelection() && effectiveDisplayRange()}>
+        <Show when={hasValidSelection() && effectiveDisplayRange()}>
           {(range) => (
             <div class="mt-0.5 text-[10px] text-gray-400">
               {lineFilterEnabled()
@@ -237,7 +71,7 @@ export default function InlineCodePreview(props: InlineCodePreviewProps) {
             </div>
           )}
         </Show>
-        <Show when={hasSelection()}>
+        <Show when={hasValidSelection()}>
           <div class="mt-1 flex items-center gap-2 text-[10px] text-gray-300">
             <label class="flex items-center gap-1">
               <input
