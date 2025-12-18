@@ -13,10 +13,13 @@ import { createMutable } from "solid-js/store";
 import * as d3 from "d3";
 import { extractFilePath, filterData } from "../utils/dataProcessing";
 import { HOTSPOT_METRICS, useMetricsStore } from "../utils/metricsStore";
-import { getContrastingTextColor } from "../utils/color";
 import { truncateTextToWidth } from "../utils/svgText";
 import { addScopeBodyDummyNodes } from "../viz/treemap/utils/tree";
 import { resolveNodeByPath } from "../viz/treemap/utils/path";
+import {
+  treemapFillColor,
+  treemapLabelColor,
+} from "../viz/treemap/utils/colors";
 import DependencyGraph from "./DependencyGraph";
 import DataFlowViz from "./DataFlowViz";
 import FileTypeFilter from "./FileTypeFilter";
@@ -76,31 +79,6 @@ const getStableNodeKey = (d: any): string => {
   const anchor = anchorPath ? `path=${anchorPath}` : "path=?";
   return "node-" + anchor + "/" + parts.reverse().join("/");
 };
-
-// --- Color Scales ---
-const complexityColor = d3
-  .scaleLinear<string>()
-  .domain([0, 10, 50])
-  .range(["#569cd6", "#dcdcaa", "#ce9178"])
-  .clamp(true);
-
-const commentDensityColor = d3
-  .scaleLinear<string>()
-  .domain([0, 0.2, 0.5])
-  .range(["#ffcccc", "#ff9999", "#ff0000"]) // Light red to dark red
-  .clamp(true);
-
-const nestingDepthColor = d3
-  .scaleLinear<string>()
-  .domain([0, 3, 8])
-  .range(["#e0f7fa", "#4dd0e1", "#006064"]) // Cyan gradient
-  .clamp(true);
-
-const todoCountColor = d3
-  .scaleLinear<string>()
-  .domain([0, 1, 5])
-  .range(["#f1f8e9", "#aed581", "#33691e"]) // Green gradient
-  .clamp(true);
 
 const NOMINAL_NODE_SIZE_PX = 100;
 const clamp = (v: number, min: number, max: number) =>
@@ -599,16 +577,6 @@ export default function Treemap(props: TreemapProps) {
     tooltipRef.style.opacity = "0";
   }
 
-  const applyDepthEffect = (color: string, depth: number) => {
-    // We want deeper nodes to be lighter/brighter to simulate being "higher".
-    // We skip depth 0 (root) or just treat it as base.
-    // Using a small factor per depth level.
-    const c = d3.color(color);
-    if (!c) return color;
-    // A factor of 0.15 per level provides a noticeable but not washing-out gradient.
-    return c.brighter(depth * 0.15).formatHex();
-  };
-
   const getRelativeDepth = (d: d3.HierarchyNode<any>) => {
     let curr: d3.HierarchyNode<any> | null = d;
     while (curr) {
@@ -626,30 +594,7 @@ export default function Treemap(props: TreemapProps) {
 
     const metricId = primaryMetric();
     const metrics = d.data.metrics || {};
-    let rawVal = (metrics as any)[metricId] ?? 0;
-
-    const def = HOTSPOT_METRICS.find((m) => m.id === metricId);
-    if (def?.invert) {
-      rawVal = 1 - (rawVal || 0);
-    }
-
-    if (!isFinite(rawVal) || rawVal < 0) rawVal = 0;
-
-    const scaled =
-      typeof rawVal === "number" ? Math.min(rawVal, 50) : Number(rawVal) || 0;
-
-    let baseColor;
-    if (metricId === "comment_density") {
-      baseColor = commentDensityColor(metrics.comment_density || 0);
-    } else if (metricId === "max_nesting_depth") {
-      baseColor = nestingDepthColor(metrics.max_nesting_depth || 0);
-    } else if (metricId === "todo_count") {
-      baseColor = todoCountColor(metrics.todo_count || 0);
-    } else {
-      baseColor = complexityColor(scaled);
-    }
-
-    return applyDepthEffect(baseColor, getRelativeDepth(d));
+    return treemapFillColor(metricId, metrics, getRelativeDepth(d));
   };
 
   const getNodeStroke = (d: d3.HierarchyNode<any>) => {
@@ -665,21 +610,7 @@ export default function Treemap(props: TreemapProps) {
 
     const metricId = primaryMetric();
     const metrics = d.data.metrics || {};
-
-    let color;
-    if (metricId === "comment_density") {
-      color = commentDensityColor(metrics.comment_density || 0);
-    } else if (metricId === "max_nesting_depth") {
-      color = nestingDepthColor(metrics.max_nesting_depth || 0);
-    } else if (metricId === "todo_count") {
-      color = todoCountColor(metrics.todo_count || 0);
-    } else {
-      color = complexityColor(metrics[metricId] || 0);
-    }
-
-    // Apply the same depth effect so the text contrast calculation matches the actual background
-    const bg = applyDepthEffect(color, getRelativeDepth(d));
-    return getContrastingTextColor(bg);
+    return treemapLabelColor(metricId, metrics, getRelativeDepth(d));
   };
 
   const getChunkLabelColor = (d: d3.HierarchyNode<any>) => {
@@ -688,21 +619,7 @@ export default function Treemap(props: TreemapProps) {
 
     const metricId = primaryMetric();
     const metrics = d.data.metrics || {};
-
-    let color;
-    if (metricId === "comment_density") {
-      color = commentDensityColor(metrics.comment_density || 0);
-    } else if (metricId === "max_nesting_depth") {
-      color = nestingDepthColor(metrics.max_nesting_depth || 0);
-    } else if (metricId === "todo_count") {
-      color = todoCountColor(metrics.todo_count || 0);
-    } else {
-      color = complexityColor(metrics[metricId] || 0);
-    }
-
-    // Apply same depth effect
-    const bg = applyDepthEffect(color, getRelativeDepth(d));
-    return getContrastingTextColor(bg, 0.7);
+    return treemapLabelColor(metricId, metrics, getRelativeDepth(d), 0.7);
   };
 
   const getLabel = (
