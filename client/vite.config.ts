@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, type UserConfig } from "vite";
 import solid from "vite-plugin-solid";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -22,4 +22,4 @@ export default defineConfig({
     // https://github.com/andi23rosca/solid-markdown/issues/33#issuecomment-2612454745
     include: ["solid-markdown > micromark", "solid-markdown > unified"],
   },
-});
+} as UserConfig);
