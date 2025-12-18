@@ -13,6 +13,10 @@ import { createMutable } from "solid-js/store";
 import * as d3 from "d3";
 import { extractFilePath, filterData } from "../utils/dataProcessing";
 import { HOTSPOT_METRICS, useMetricsStore } from "../utils/metricsStore";
+import { getContrastingTextColor } from "../utils/color";
+import { truncateTextToWidth } from "../utils/svgText";
+import { addScopeBodyDummyNodes } from "../viz/treemap/utils/tree";
+import { resolveNodeByPath } from "../viz/treemap/utils/path";
 import DependencyGraph from "./DependencyGraph";
 import DataFlowViz from "./DataFlowViz";
 import FileTypeFilter from "./FileTypeFilter";
@@ -30,182 +34,6 @@ interface TreemapProps {
    */
   minNodeRenderSizePx?: number;
 }
-
-// --- Helper Functions ---
-
-const getContrastingTextColor = (bgColor: string, alpha = 1) => {
-  const base = d3.hsl(bgColor);
-
-  // Drive text toward near-black or near-white while preserving hue for subtle color harmony.
-  // This strongly increases contrast versus the background.
-  const lightBackground = base.l >= 0.5;
-  const targetLightness = lightBackground ? 0.12 : 0.9;
-
-  const textColor = d3.hsl(base.h, base.s * 0.9, targetLightness).rgb();
-  return `rgba(${Math.round(textColor.r)}, ${Math.round(
-    textColor.g
-  )}, ${Math.round(textColor.b)}, ${alpha})`;
-};
-
-// --- SVG Text Truncation Helpers ---
-// We need to truncate SVG labels because SVG text doesn't support CSS ellipsis.
-// This uses a shared offscreen canvas for measuring text width and then
-// truncates with "…" (or "..." fallback) to fit within a max pixel width.
-const makeTextMeasurer = () => {
-  // In SSR / no-DOM cases, fall back to a naive estimator.
-  if (typeof document === "undefined") {
-    return {
-      measure: (text: string) => text.length * 6,
-      setFont: (_font: string) => {},
-    };
-  }
-
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  return {
-    measure: (text: string) =>
-      ctx ? ctx.measureText(text).width : text.length * 6,
-    setFont: (font: string) => {
-      if (ctx) ctx.font = font;
-    },
-  };
-};
-
-const ELLIPSIS = "…";
-
-const truncateTextToWidth = (() => {
-  const measurer = makeTextMeasurer();
-  const cache = new Map<string, string>();
-
-  return (text: string, maxWidthPx: number, font: string) => {
-    const maxWidth = Number.isFinite(maxWidthPx) ? maxWidthPx : 0;
-    if (!text || maxWidth <= 0) return "";
-
-    const cacheKey = `${font}::${maxWidth}::${text}`;
-    const cached = cache.get(cacheKey);
-    if (cached !== undefined) return cached;
-
-    measurer.setFont(font);
-
-    // Fast path: already fits
-    if (measurer.measure(text) <= maxWidth) {
-      cache.set(cacheKey, text);
-      return text;
-    }
-
-    // Ensure even the ellipsis fits; otherwise return empty.
-    const ellipsis = measurer.measure(ELLIPSIS) <= maxWidth ? ELLIPSIS : "...";
-    const ellipsisWidth = measurer.measure(ellipsis);
-    if (ellipsisWidth > maxWidth) {
-      cache.set(cacheKey, "");
-      return "";
-    }
-
-    // Binary search for the longest prefix that fits when suffixed with ellipsis.
-    let lo = 0;
-    let hi = text.length;
-    let best = "";
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1;
-      const candidate = text.slice(0, mid);
-      const w = measurer.measure(candidate) + ellipsisWidth;
-      if (w <= maxWidth) {
-        best = candidate;
-        lo = mid + 1;
-      } else {
-        hi = mid - 1;
-      }
-    }
-
-    const result = best.length > 0 ? `${best}${ellipsis}` : ellipsis;
-    cache.set(cacheKey, result);
-    return result;
-  };
-})();
-
-/**
- * Add synthetic "(body)" children for scopes that have children, so that
- * the treemap can account for "scope-local" lines that are not represented
- * by nested child nodes.
- */
-const addScopeBodyDummyNodes = (node: any): any => {
-  if (!node) return node;
-
-  const clone: any = {
-    ...node,
-    // Always clone children array so we never mutate the original data.
-    children: Array.isArray(node.children) ? [...node.children] : [],
-  };
-
-  const hasChildren =
-    Array.isArray(clone.children) && clone.children.length > 0;
-
-  // Function scopes: server typically provides a precise (body) node; only add if absent.
-  if (clone.type === "function") {
-    const alreadyHasBodyChild =
-      hasChildren &&
-      clone.children.some(
-        (child: any) =>
-          child?.type === "function_body" || child?.name === "(body)"
-      );
-
-    if (hasChildren && !alreadyHasBodyChild) {
-      const loc = clone.metrics?.loc || 0;
-      if (loc > 0) {
-        const bodyChild = {
-          name: "(body)",
-          path: `${clone.path || clone.name || ""}::(body)`,
-          type: "function_body",
-          metrics: {
-            ...(clone.metrics || {}),
-            loc,
-          },
-          start_line: clone.start_line,
-          end_line: clone.end_line,
-          children: [],
-        };
-        clone.children.push(bodyChild);
-      }
-    }
-  }
-
-  // File/module scopes: represent top-level (non-function) LOC as a hidden "(body)" leaf.
-  if (clone.type === "file") {
-    const alreadyHasBodyChild =
-      hasChildren &&
-      clone.children.some((child: any) => child?.name === "(body)");
-
-    if (hasChildren && !alreadyHasBodyChild) {
-      const totalLoc = clone.metrics?.loc || 0;
-      const functionLoc = clone.children.reduce((acc: number, c: any) => {
-        return acc + (c?.type === "function" ? c?.metrics?.loc || 0 : 0);
-      }, 0);
-      const remainder = Math.max(0, totalLoc - functionLoc);
-
-      if (remainder > 0) {
-        const bodyChild = {
-          name: "(body)",
-          path: `${clone.path || clone.name || ""}::(body)`,
-          type: "file_body",
-          metrics: {
-            ...(clone.metrics || {}),
-            loc: remainder,
-          },
-          children: [],
-        };
-        clone.children.push(bodyChild);
-      }
-    }
-  }
-
-  if (clone.children && clone.children.length > 0) {
-    clone.children = clone.children.map((child: any) =>
-      addScopeBodyDummyNodes(child)
-    );
-  }
-
-  return clone;
-};
 
 /**
  * Produce a stable, collision-resistant key for a rendered treemap node.
@@ -376,26 +204,10 @@ export default function Treemap(props: TreemapProps) {
     // props.data so that excluded paths really disappear from the view.
     if (requestedRoot && dataRoot) {
       const targetPath = requestedRoot.path;
-      const path: any[] = [];
-      let resolvedNode: any = null;
-
-      function findPath(root: any, target: string, current: any[]): boolean {
-        if (root.path === target) {
-          path.push(...current, root);
-          resolvedNode = root;
-          return true;
-        }
-        if (root.children) {
-          for (const child of root.children) {
-            if (findPath(child, target, [...current, root])) return true;
-          }
-        }
-        return false;
-      }
-
-      if (targetPath && findPath(dataRoot, targetPath, [])) {
-        setCurrentRoot(resolvedNode);
-        setBreadcrumbs(path);
+      const resolved = resolveNodeByPath(dataRoot, targetPath);
+      if (resolved) {
+        setCurrentRoot(resolved.node);
+        setBreadcrumbs(resolved.breadcrumbs);
         return;
       }
 
@@ -481,31 +293,15 @@ export default function Treemap(props: TreemapProps) {
     }
     setCurrentRoot(nodeData);
 
-    // Reconstruct breadcrumbs path using path string matching
-    // because d3 creates a copy of the data, so object identity fails.
-    const path: any[] = [];
+    // Reconstruct breadcrumbs path using path string matching because d3 creates a copy
+    // of the data, so object identity fails.
     const targetPath = nodeData.path;
-
-    function findPath(
-      root: any,
-      targetPath: string,
-      currentPath: any[]
-    ): boolean {
-      if (root.path === targetPath) {
-        path.push(...currentPath, root);
-        return true;
-      }
-      if (root.children) {
-        for (const child of root.children) {
-          if (findPath(child, targetPath, [...currentPath, root])) return true;
-        }
-      }
-      return false;
-    }
-
     if (props.data && targetPath) {
-      findPath(props.data, targetPath, []);
-      setBreadcrumbs(path);
+      const resolved = resolveNodeByPath(props.data, targetPath);
+      if (resolved) {
+        setBreadcrumbs(resolved.breadcrumbs);
+        return;
+      }
     } else if (props.data) {
       // Fallback if no path (shouldn't happen for folders)
       setBreadcrumbs([props.data]);
