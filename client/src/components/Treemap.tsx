@@ -11,7 +11,7 @@ import {
 import { createMutable } from "solid-js/store";
 import * as d3 from "d3";
 import { extractFilePath, filterData } from "../utils/dataProcessing";
-import { HOTSPOT_METRICS, useMetricsStore } from "../utils/metricsStore";
+import { useMetricsStore } from "../utils/metricsStore";
 import { truncateTextToWidth } from "../utils/svgText";
 import { addScopeBodyDummyNodes } from "../viz/treemap/utils/tree";
 import { resolveNodeByPath } from "../viz/treemap/utils/path";
@@ -21,8 +21,10 @@ import {
 } from "../viz/treemap/utils/colors";
 import TreemapSvg from "../viz/treemap/components/TreemapSvg";
 import TreemapHeader from "../viz/treemap/components/TreemapHeader";
+import TreemapTooltip from "../viz/treemap/components/TreemapTooltip";
 import DependencyGraph from "./DependencyGraph";
 import DataFlowViz from "./DataFlowViz";
+import { useTreemapTooltip } from "../viz/treemap/hooks/useTreemapTooltip";
 
 interface TreemapProps {
   data: any;
@@ -85,7 +87,6 @@ const clamp = (v: number, min: number, max: number) =>
 
 export default function Treemap(props: TreemapProps) {
   let containerRef: HTMLDivElement | undefined;
-  let tooltipRef: HTMLDivElement | undefined;
 
   const [dimensions, setDimensions] = createSignal({ width: 0, height: 0 });
   const [currentRoot, setCurrentRoot] = createSignal<any>(null);
@@ -105,6 +106,14 @@ export default function Treemap(props: TreemapProps) {
   const [showMetricPopover, setShowMetricPopover] = createSignal(false);
   const [showDependencyGraph, setShowDependencyGraph] = createSignal(false);
   const [showDataFlow, setShowDataFlow] = createSignal(false);
+
+  const {
+    tooltip,
+    show: showTooltip,
+    hide: hideTooltip,
+  } = useTreemapTooltip({
+    primaryMetricId: primaryMetric,
+  });
 
   // Build a lookup of file-name -> metrics so the dependency graph can
   // reuse the same hotspot color scheme for its nodes.
@@ -517,65 +526,6 @@ export default function Treemap(props: TreemapProps) {
     return all;
   });
 
-  // --- Tooltip ---
-
-  function showTooltip(e: MouseEvent, d: d3.HierarchyNode<any>) {
-    if (!tooltipRef) return;
-    tooltipRef.style.opacity = "1";
-    tooltipRef.style.left = e.pageX + 10 + "px";
-    tooltipRef.style.top = e.pageY + 10 + "px";
-
-    if (d.data.type === "folder") {
-      const subFolders = d
-        .descendants()
-        .filter((n) => n.data.type === "folder" && n !== d).length;
-      const subFiles = d
-        .descendants()
-        .filter((n) => n.data.type === "file").length;
-
-      tooltipRef.innerHTML = `<strong>${d.data.name}</strong><br>Total LOC: ${d.value}<br>Sub-folders: ${subFolders}<br>Sub-files: ${subFiles}`;
-    } else {
-      let content = `<strong>${d.data.name}</strong><br>LOC: ${
-        d.value
-      }<br>Complexity: ${(d.data.metrics?.complexity || 0).toFixed(
-        1
-      )}<br>Density: ${((d.data.metrics?.comment_density || 0) * 100).toFixed(
-        0
-      )}%<br>Depth: ${d.data.metrics?.max_nesting_depth || 0}<br>TODOs: ${
-        d.data.metrics?.todo_count || 0
-      }`;
-
-      const metricId = primaryMetric();
-      const standardMetrics = [
-        "loc",
-        "complexity",
-        "comment_density",
-        "max_nesting_depth",
-        "todo_count",
-      ];
-      if (!standardMetrics.includes(metricId)) {
-        const val = (d.data.metrics as any)?.[metricId];
-        if (val !== undefined) {
-          const label =
-            HOTSPOT_METRICS.find((m) => m.id === metricId)?.label || metricId;
-          // Format number if needed
-          const displayVal =
-            typeof val === "number" && !Number.isInteger(val)
-              ? val.toFixed(2)
-              : val;
-          content += `<br>${label}: ${displayVal}`;
-        }
-      }
-
-      tooltipRef.innerHTML = content;
-    }
-  }
-
-  function hideTooltip() {
-    if (!tooltipRef) return;
-    tooltipRef.style.opacity = "0";
-  }
-
   const getRelativeDepth = (d: d3.HierarchyNode<any>) => {
     let curr: d3.HierarchyNode<any> | null = d;
     while (curr) {
@@ -744,10 +694,7 @@ export default function Treemap(props: TreemapProps) {
           </div>
         </Show>
       </div>
-      <div
-        ref={tooltipRef}
-        class="fixed pointer-events-none opacity-0 bg-[#1e1e1e] p-2 border border-[#555] text-white z-50 shadow-lg transition-opacity duration-200 text-sm"
-      />
+      <TreemapTooltip model={tooltip} />
     </div>
   );
 }
