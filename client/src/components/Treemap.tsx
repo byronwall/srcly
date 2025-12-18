@@ -20,6 +20,7 @@ import {
   treemapFillColor,
   treemapLabelColor,
 } from "../viz/treemap/utils/colors";
+import TreemapSvg from "../viz/treemap/components/TreemapSvg";
 import DependencyGraph from "./DependencyGraph";
 import DataFlowViz from "./DataFlowViz";
 import FileTypeFilter from "./FileTypeFilter";
@@ -856,171 +857,29 @@ export default function Treemap(props: TreemapProps) {
         <Show
           when={!showDependencyGraph() && !showDataFlow() && processedData()}
         >
-          <svg
+          <TreemapSvg
             width={dimensions().width}
             height={dimensions().height}
-            style={{
-              "shape-rendering": "crispEdges",
-              "font-family": "sans-serif",
-            }}
-          >
-            <For each={renderNodes()}>
-              {(d) => {
-                const w = () => Math.max(0, d.x1 - d.x0);
-                const h = () => Math.max(0, d.y1 - d.y0);
-
-                // Skip tiny nodes entirely to keep the DOM light. They will naturally
-                // appear later when zooming makes their rectangles larger.
-                const shouldRender = () =>
-                  w() >= minNodeRenderSizePx() && h() >= minNodeRenderSizePx();
-                if (!shouldRender()) return null;
-
-                // Avoid division-by-zero; also keeps transforms stable for very tiny nodes.
-                const sx = () => Math.max(0.001, w() / NOMINAL_NODE_SIZE_PX);
-                const sy = () => Math.max(0.001, h() / NOMINAL_NODE_SIZE_PX);
-
-                const key = () => (d as any).__key ?? getStableNodeKey(d);
-                const isEntering = () => enteringKeys().has(key());
-                const isExiting = () => Boolean((d as any).__exit);
-                const isExitCollapsed = () => collapsedExitKeys().has(key());
-                const isRootNode = () => d.depth === 0;
-
-                const tx = () =>
-                  isEntering() || (isExiting() && isExitCollapsed())
-                    ? d.x0 + w() / 2
-                    : d.x0;
-                const ty = () =>
-                  isEntering() || (isExiting() && isExitCollapsed())
-                    ? d.y0 + h() / 2
-                    : d.y0;
-
-                const scaleX = () =>
-                  isEntering() || (isExiting() && isExitCollapsed())
-                    ? TINY_SCALE
-                    : sx();
-                const scaleY = () =>
-                  isEntering() || (isExiting() && isExitCollapsed())
-                    ? TINY_SCALE
-                    : sy();
-
-                const opacity = () =>
-                  isEntering() || (isExiting() && isExitCollapsed()) ? 0 : 1;
-
-                return (
-                  <g
-                    transform={`translate(${tx()},${ty()})`}
-                    style={{
-                      transition: "transform 0.5s ease-in-out",
-                      "will-change": "transform",
-                      opacity: String(opacity()),
-                      "pointer-events":
-                        isExiting() || isRootNode() ? "none" : "auto",
-                      "transition-property": "transform, opacity",
-                      "transition-duration": "0.5s",
-                      "transition-timing-function": "ease-in-out",
-                    }}
-                  >
-                    <g
-                      transform={`scale(${scaleX()},${scaleY()})`}
-                      style={{
-                        transition: "transform 0.5s ease-in-out",
-                      }}
-                    >
-                      <rect
-                        width={NOMINAL_NODE_SIZE_PX}
-                        height={NOMINAL_NODE_SIZE_PX}
-                        style={{
-                          cursor: isIsolateMode()
-                            ? "zoom-in"
-                            : isAltPressed()
-                            ? "not-allowed"
-                            : d.data.type === "folder"
-                            ? "zoom-in"
-                            : "pointer",
-                        }}
-                        fill={getNodeColor(d)}
-                        stroke={getNodeStroke(d)}
-                        stroke-width={getNodeStrokeWidth(d)}
-                        vector-effect="non-scaling-stroke"
-                        class={`transition-colors duration-100 ${
-                          isIsolateMode()
-                            ? "hover:brightness-125 hover:stroke-white hover:stroke-[2px]"
-                            : isAltPressed()
-                            ? "hover:stroke-red-500 hover:stroke-[3px] hover:opacity-80" // Red border on Alt hover
-                            : "hover:brightness-110 hover:stroke-gray-300 hover:stroke-[1.5px]"
-                        }`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleHierarchyClick(d, e);
-                        }}
-                        onMouseEnter={(e) => {
-                          showTooltip(e, d);
-                        }}
-                        onMouseLeave={hideTooltip}
-                      />
-                    </g>
-
-                    {/* Labels are rendered in unscaled px space so they don't get stretched
-                        during non-uniform scale transitions. */}
-                    <g
-                      style={{
-                        "pointer-events": "none",
-                      }}
-                    >
-                      {/* Folder Labels */}
-                      <Show
-                        when={d.data.type === "folder" && w() > 30 && h() > 20}
-                      >
-                        <text
-                          x={4}
-                          y={13}
-                          font-size={`${getLabelFontSizePx(d, "folder")}px`}
-                          font-weight="bold"
-                          fill="#888"
-                        >
-                          {getLabel(d, "folder")}
-                        </text>
-                      </Show>
-                      {/* File Labels */}
-                      <Show
-                        when={d.data.type === "file" && w() > 40 && h() > 15}
-                      >
-                        <text
-                          x={4}
-                          y={13}
-                          font-size={`${getLabelFontSizePx(d, "file")}px`}
-                          fill={getNodeTextColor(d)}
-                        >
-                          {getLabel(d, "file")}
-                        </text>
-                      </Show>
-                      {/* Code Chunk Labels */}
-                      <Show
-                        when={
-                          d.data.type !== "folder" &&
-                          d.data.type !== "file" &&
-                          w() > 50 &&
-                          h() > 20
-                        }
-                      >
-                        <text
-                          x={2}
-                          y={10}
-                          font-size={`${getLabelFontSizePx(d, "chunk")}px`}
-                          fill={getChunkLabelColor(d)}
-                          style={{
-                            overflow: "hidden",
-                          }}
-                        >
-                          {getLabel(d, "chunk")}
-                        </text>
-                      </Show>
-                    </g>
-                  </g>
-                );
-              }}
-            </For>
-          </svg>
+            renderNodes={renderNodes}
+            minNodeRenderSizePx={minNodeRenderSizePx}
+            nominalNodeSizePx={NOMINAL_NODE_SIZE_PX}
+            tinyScale={TINY_SCALE}
+            isAltPressed={isAltPressed}
+            isIsolateMode={isIsolateMode}
+            enteringKeys={enteringKeys}
+            collapsedExitKeys={collapsedExitKeys}
+            getStableNodeKey={getStableNodeKey}
+            getNodeColor={getNodeColor}
+            getNodeStroke={getNodeStroke}
+            getNodeStrokeWidth={getNodeStrokeWidth}
+            getNodeTextColor={getNodeTextColor}
+            getChunkLabelColor={getChunkLabelColor}
+            getLabel={getLabel}
+            getLabelFontSizePx={getLabelFontSizePx}
+            onNodeClick={handleHierarchyClick}
+            onNodeMouseEnter={showTooltip}
+            onNodeMouseLeave={hideTooltip}
+          />
         </Show>
         <Show
           when={!processedData() && !showDependencyGraph() && !showDataFlow()}
