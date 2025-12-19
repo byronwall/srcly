@@ -410,8 +410,30 @@ def compute_focus_overlay(
         idents: List[Node] = []
 
         def walk(x: Node) -> None:
+            # Plain identifiers and shorthand properties inside patterns.
             if x.type in {"identifier", "shorthand_property_identifier"}:
                 idents.append(x)
+                return
+
+            # Tree-sitter-typescript represents object destructuring shorthand bindings
+            # as `shorthand_property_identifier_pattern` nodes whose text is the binding
+            # name (and they often have no identifier children).
+            #
+            # Example: `const { extensions } = options;`
+            #   object_pattern -> shorthand_property_identifier_pattern ("extensions")
+            if x.type == "shorthand_property_identifier_pattern":
+                idents.append(x)
+                return
+
+            # For `{ key: value }` patterns, only the value side introduces bindings.
+            # (The key is just a property name.)
+            if x.type == "pair_pattern":
+                value = x.child_by_field_name("value")
+                if value is not None:
+                    walk(value)
+                else:
+                    for c in x.children:
+                        walk(c)
                 return
 
             # Skip contexts where identifiers are not bindings.
@@ -619,6 +641,32 @@ def compute_focus_overlay(
                     scope_type=parent_scope.type,
                 )
 
+        # Loop introductions:
+        # In our tree-sitter-typescript version, `for (const x of xs) { ... }`
+        # parses as `for_in_statement` with children including `const`, `of`,
+        # and `left` as a bare identifier (not a variable_declarator).
+        if n.type == "for_in_statement":
+            # Only treat as an introduction when it's a declaration (const/let/var).
+            is_decl = any(c.type in {"const", "let", "var"} for c in n.children)
+            if is_decl:
+                left = n.child_by_field_name("left")
+                if left is not None:
+                    if left.type == "identifier":
+                        _add_def(
+                            name_node=left,
+                            kind="local",
+                            scope=scope_stack[-1],
+                            scope_type=scope_stack[-1].type,
+                        )
+                    else:
+                        for ident in _collect_pattern_identifiers(left):
+                            _add_def(
+                                name_node=ident,
+                                kind="local",
+                                scope=scope_stack[-1],
+                                scope_type=scope_stack[-1].type,
+                            )
+
         # Usages: resolve identifiers while we still have the right scope stack.
         if n.type == "identifier":
             parent = n.parent
@@ -631,6 +679,13 @@ def compute_focus_overlay(
                 elif parent.type == "class_declaration" and parent.child_by_field_name("name") == n:
                     pass
                 elif parent.type in {"required_parameter", "optional_parameter", "rest_parameter"}:
+                    pass
+                elif (
+                    parent.type == "for_in_statement"
+                    and parent.child_by_field_name("left") == n
+                    and any(c.type in {"const", "let", "var"} for c in parent.children)
+                ):
+                    # `for (const x of xs)` introduces `x` as a binding.
                     pass
                 elif parent.type == "property_identifier":
                     pass

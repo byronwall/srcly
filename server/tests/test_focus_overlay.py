@@ -1,6 +1,12 @@
 from app.services.focus_overlay import compute_focus_overlay
 
 
+def _token_text(code: str, token) -> str:
+    lines = code.splitlines()
+    line = lines[token.fileLine - 1]
+    return line[token.startCol : token.endCol]
+
+
 def test_focus_overlay_categories_and_imports(tmp_path):
     code = """\
 import { join as j } from "path";
@@ -64,5 +70,79 @@ function f() {
     )
 
     assert any(t.category == "importInternal" for t in overlay.tokens)
+
+
+def test_focus_overlay_for_of_introduces_loop_binding(tmp_path):
+    code = """\
+function f(nodes: any[]) {
+  for (const node of nodes) {
+    const len = node.data.length;
+    return len;
+  }
+}
+"""
+    f = tmp_path / "loop.ts"
+    f.write_text(code, encoding="utf-8")
+
+    # Focus on the member access `node.data.length` line.
+    overlay = compute_focus_overlay(
+        file_path=str(f),
+        slice_start_line=1,
+        slice_end_line=200,
+        focus_start_line=3,
+        focus_end_line=3,
+    )
+
+    node_tokens = [t for t in overlay.tokens if _token_text(code, t) == "node"]
+    assert node_tokens, "Expected at least one overlay token for `node`"
+    assert not any(t.category == "unresolved" for t in node_tokens)
+
+
+def test_focus_overlay_object_destructuring_shorthand_binds_locals(tmp_path):
+    code = """\
+export function filterData(node: any, options: any): any {
+  const { extensions, maxLoc, excludedPaths } = options;
+  return (extensions?.length ?? 0) + (maxLoc ?? 0) + excludedPaths.length + node.x;
+}
+"""
+    f = tmp_path / "destructure.ts"
+    f.write_text(code, encoding="utf-8")
+
+    overlay = compute_focus_overlay(
+        file_path=str(f),
+        slice_start_line=1,
+        slice_end_line=200,
+        focus_start_line=3,
+        focus_end_line=3,
+    )
+
+    for name in ("extensions", "maxLoc", "excludedPaths"):
+        toks = [t for t in overlay.tokens if _token_text(code, t) == name]
+        assert toks, f"Expected overlay tokens for `{name}`"
+        assert not any(t.category == "unresolved" for t in toks)
+
+
+def test_focus_overlay_array_destructuring_binds_locals(tmp_path):
+    code = """\
+function h(pair: any[]) {
+  const [a, b] = pair;
+  return a + b;
+}
+"""
+    f = tmp_path / "array.ts"
+    f.write_text(code, encoding="utf-8")
+
+    overlay = compute_focus_overlay(
+        file_path=str(f),
+        slice_start_line=1,
+        slice_end_line=200,
+        focus_start_line=3,
+        focus_end_line=3,
+    )
+
+    for name in ("a", "b"):
+        toks = [t for t in overlay.tokens if _token_text(code, t) == name]
+        assert toks, f"Expected overlay tokens for `{name}`"
+        assert not any(t.category == "unresolved" for t in toks)
 
 
