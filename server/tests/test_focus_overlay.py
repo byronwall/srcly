@@ -146,3 +146,20 @@ function h(pair: any[]) {
         assert not any(t.category == "unresolved" for t in toks)
 
 
+def test_focus_overlay_unsupported_file_types_noop(tmp_path):
+    # Focus overlay currently supports only TypeScript/TSX sources.
+    # For unsupported languages it should no-op (return no tokens) instead of erroring.
+    code = "def f(x):\n    return x\n"
+    f = tmp_path / "example.py"
+    f.write_text(code, encoding="utf-8")
+
+    overlay = compute_focus_overlay(
+        file_path=str(f),
+        slice_start_line=1,
+        slice_end_line=50,
+        focus_start_line=1,
+        focus_end_line=2,
+    )
+
+    assert overlay.tokens == []
+

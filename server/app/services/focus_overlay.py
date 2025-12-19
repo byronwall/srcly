@@ -14,6 +14,29 @@ from app.models import FocusOverlayResponse, OverlayToken
 TYPESCRIPT_LANGUAGE = Language(tstypescript.language_typescript())
 TSX_LANGUAGE = Language(tstypescript.language_tsx())
 
+_SUPPORTED_TYPESCRIPT_SUFFIXES: set[str] = {
+    ".ts",
+    ".tsx",
+    ".mts",
+    ".cts",
+}
+
+
+def _is_supported_typescript_file(path: Path) -> bool:
+    """
+    Focus overlay currently only supports TypeScript/TSX sources.
+
+    For all other file types we no-op (return an empty overlay) to avoid
+    confusing errors when the client requests overlays for unsupported languages.
+    """
+    suffix = path.suffix.lower()
+    if suffix in _SUPPORTED_TYPESCRIPT_SUFFIXES:
+        return True
+    # `.d.ts` is still TypeScript; keep an explicit check for clarity/future-proofing.
+    if path.name.lower().endswith(".d.ts"):
+        return True
+    return False
+
 
 @dataclass(frozen=True)
 class _Def:
@@ -330,6 +353,10 @@ def compute_focus_overlay(
     path = Path(file_path)
     if not path.exists() or not path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
+
+    # No-op for unsupported languages / file types (currently only TS/TSX are supported).
+    if not _is_supported_typescript_file(path):
+        return FocusOverlayResponse(tokens=[])
 
     slice_start_line = max(1, int(slice_start_line))
     slice_end_line = max(slice_start_line, int(slice_end_line))
