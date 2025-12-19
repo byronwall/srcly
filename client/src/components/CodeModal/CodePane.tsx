@@ -1,4 +1,5 @@
 import { Show } from "solid-js";
+import { FlowOverlayCode } from "../FlowOverlayCode";
 
 export function CodePane(props: {
   loading: () => boolean;
@@ -7,7 +8,9 @@ export function CodePane(props: {
 }) {
   return (
     <>
-      <Show when={props.loading() || (!props.highlightedHtml() && !props.error())}>
+      <Show
+        when={props.loading() || (!props.highlightedHtml() && !props.error())}
+      >
         <div class="flex h-full items-center justify-center text-sm text-gray-400">
           Loading file…
         </div>
@@ -19,11 +22,11 @@ export function CodePane(props: {
         </div>
       </Show>
 
-      <Show when={!props.loading() && !props.error() && props.highlightedHtml()}>
-        <div class="code-modal-content" innerHTML={props.highlightedHtml() || ""} />
+      <Show
+        when={!props.loading() && !props.error() && props.highlightedHtml()}
+      >
+        <FlowOverlayCode html={() => props.highlightedHtml() || ""} />
       </Show>
     </>
   );
 }
-
-

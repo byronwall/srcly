@@ -207,3 +207,45 @@ body {
 .code-modal-content .shiki .non-focus-line span {
   color: inherit !important;
 }
+
+/* --- Phase 1 flow overlays (identifier provenance highlighting) --- */
+.code-modal-content .flow {
+  border-radius: 3px;
+  padding-inline: 1px;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.code-modal-content .flow-hovered {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.code-modal-content .flow-pinned {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 0 0 1px rgba(17, 24, 39, 0.6);
+}
+
+.code-modal-content .flow-param {
+  background: rgba(59, 130, 246, 0.18);
+}
+.code-modal-content .flow-local {
+  background: rgba(34, 197, 94, 0.16);
+}
+.code-modal-content .flow-capture {
+  background: rgba(168, 85, 247, 0.16);
+}
+.code-modal-content .flow-module {
+  background: rgba(120, 113, 108, 0.18);
+}
+.code-modal-content .flow-importInternal {
+  background: rgba(249, 115, 22, 0.14);
+}
+.code-modal-content .flow-importExternal {
+  background: rgba(234, 179, 8, 0.16);
+}
+.code-modal-content .flow-builtin {
+  background: rgba(14, 165, 233, 0.12);
+}
+.code-modal-content .flow-unresolved {
+  background: rgba(239, 68, 68, 0.12);
+}

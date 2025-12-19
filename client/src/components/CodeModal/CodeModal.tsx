@@ -136,7 +136,9 @@ export default function CodeModal(props: CodeModalProps) {
     if (!range || !hasLineRange()) return null;
     return lineFilterEnabled()
       ? `Showing lines ${range.start}-${range.end} of ${range.total}`
-      : `Showing full file (${range.total} lines), selection ${targetStartLine()}-${targetEndLine()}`;
+      : `Showing full file (${
+          range.total
+        } lines), selection ${targetStartLine()}-${targetEndLine()}`;
   };
 
   const breadcrumbPath = () => {
@@ -146,7 +148,9 @@ export default function CodeModal(props: CodeModalProps) {
     const s = targetStartLine();
     const e = targetEndLine();
     const selection =
-      s === null || e === null ? null : { start: s as number, end: e as number };
+      s === null || e === null
+        ? null
+        : { start: s as number, end: e as number };
     return computeBreadcrumbPath(root, selection);
   };
 
@@ -154,7 +158,9 @@ export default function CodeModal(props: CodeModalProps) {
     getActiveStructureNode(breadcrumbPath(), props.scopeNode || props.fileNode);
 
   return (
-    <Show when={props.isOpen && props.filePath}>
+    // Keyed so switching `filePath` remounts the modal content and avoids a one-frame
+    // flash of stale highlighted HTML before the async loaders reset state.
+    <Show when={props.isOpen && props.filePath} keyed>
       <div
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
         onClick={() => props.onClose()}
@@ -237,5 +243,3 @@ export default function CodeModal(props: CodeModalProps) {
     </Show>
   );
 }
-
-

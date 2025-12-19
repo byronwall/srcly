@@ -73,3 +73,24 @@ class DependencyEdge(BaseModel):
 class DependencyGraph(BaseModel):
     nodes: List[DependencyNode]
     edges: List[DependencyEdge]
+
+
+class FocusOverlayRequest(BaseModel):
+    path: str
+    sliceStartLine: int
+    sliceEndLine: int
+    focusStartLine: int | None = None
+    focusEndLine: int | None = None
+
+
+class OverlayToken(BaseModel):
+    fileLine: int
+    startCol: int
+    endCol: int
+    category: str
+    symbolId: str
+    tooltip: str
+
+
+class FocusOverlayResponse(BaseModel):
+    tokens: List[OverlayToken] = Field(default_factory=list)

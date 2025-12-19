@@ -1,7 +1,7 @@
 export function reduceCommonIndent(
   lines: string[],
   opts?: { keepIndent?: number }
-): { lines: string[]; reduced: boolean } {
+): { lines: string[]; reduced: boolean; removedIndentByLine: number[] } {
   const keepIndent = Math.max(0, Math.floor(opts?.keepIndent ?? 2));
 
   let minIndent = Number.POSITIVE_INFINITY;
@@ -15,17 +15,25 @@ export function reduceCommonIndent(
   }
 
   if (!hasNonEmptyLine || !Number.isFinite(minIndent) || minIndent <= keepIndent) {
-    return { lines, reduced: false };
+    return { lines, reduced: false, removedIndentByLine: lines.map(() => 0) };
   }
 
   const kept = " ".repeat(keepIndent);
-  const next = lines.map((line) => {
-    if (!line.trim()) return "";
-    if (line.length < minIndent) return line;
-    return kept + line.slice(minIndent);
+  const removed = Math.max(0, minIndent - keepIndent);
+  const removedIndentByLine = lines.map((line) => {
+    if (!line.trim()) return 0;
+    return Math.min(removed, line.match(/^(\s*)/)?.[1]?.length ?? 0);
   });
 
-  return { lines: next, reduced: true };
+  const next = lines.map((line, i) => {
+    if (!line.trim()) return "";
+    const r = removedIndentByLine[i] ?? 0;
+    if (r <= 0) return line;
+    // Preserve keepIndent spaces on non-empty lines.
+    return kept + line.slice(r + keepIndent);
+  });
+
+  return { lines: next, reduced: true, removedIndentByLine };
 }
 
 

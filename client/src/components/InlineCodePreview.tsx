@@ -1,6 +1,7 @@
 import { Show, createMemo, createSignal } from "solid-js";
 import { useFileContent } from "../hooks/useFileContent";
 import { useHighlightedCode } from "../hooks/useHighlightedCode";
+import { FlowOverlayCode } from "./FlowOverlayCode";
 
 interface InlineCodePreviewProps {
   filePath: string | null;
@@ -30,18 +31,18 @@ export default function InlineCodePreview(props: InlineCodePreviewProps) {
     filePath: () => props.filePath,
   });
 
-  const { highlightedHtml, displayStartLine, displayEndLine } = useHighlightedCode(
-    {
+  const { highlightedHtml, displayStartLine, displayEndLine } =
+    useHighlightedCode({
       rawCode,
       filePath: () => props.filePath,
       lineFilterEnabled,
       lineOffset,
       targetStart: () =>
         typeof props.startLine === "number" ? props.startLine : null,
-      targetEnd: () => (typeof props.endLine === "number" ? props.endLine : null),
+      targetEnd: () =>
+        typeof props.endLine === "number" ? props.endLine : null,
       reduceIndentation: () => false,
-    }
-  );
+    });
 
   const effectiveDisplayRange = () => {
     if (!totalLines()) return null;
@@ -117,7 +118,7 @@ export default function InlineCodePreview(props: InlineCodePreviewProps) {
         </Show>
 
         <Show when={!loading() && !error() && highlightedHtml()}>
-          <div class="code-modal-content" innerHTML={highlightedHtml() || ""} />
+          <FlowOverlayCode html={() => highlightedHtml() || ""} />
         </Show>
 
         <Show when={!loading() && !error() && !highlightedHtml()}>

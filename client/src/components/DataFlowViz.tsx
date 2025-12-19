@@ -1,6 +1,7 @@
 import { createSignal, createEffect, Show, For } from "solid-js";
 import { useFileContent } from "../hooks/useFileContent";
 import { useHighlightedCode } from "../hooks/useHighlightedCode";
+import { FlowOverlayCode } from "./FlowOverlayCode";
 
 interface DataFlowVizProps {
   path: string;
@@ -340,7 +341,12 @@ const CodeSidebar = (props: {
           when={!loading() && !error()}
           fallback={<div class="text-gray-500">Loading...</div>}
         >
-          <div class="code-modal-content" innerHTML={highlightedHtml() || ""} />
+          <Show
+            when={highlightedHtml()}
+            fallback={<div class="text-gray-500">Rendering…</div>}
+          >
+            <FlowOverlayCode html={() => highlightedHtml() || ""} />
+          </Show>
         </Show>
         <Show when={!loading() && error()}>
           <div class="rounded border border-red-700 bg-red-900/70 px-3 py-2 text-red-100">
@@ -722,7 +728,7 @@ export default function DataFlowViz(props: DataFlowVizProps) {
           </div>
 
           {/* Sidebar */}
-          <Show when={selectedNode()}>
+          <Show when={selectedNode()} keyed>
             <CodeSidebar
               path={selectedNode()!.path}
               startLine={selectedNode()!.startLine}

@@ -8,6 +8,7 @@ from app.models import Node, DependencyGraph, DependencyNode, DependencyEdge
 from app.services import analysis, cache
 from app.services.typescript import typescript_analysis
 from app.config import IGNORE_DIRS
+from app.models import FocusOverlayRequest, FocusOverlayResponse
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
 
@@ -613,4 +614,37 @@ async def get_data_flow(path: str):
         return graph
     except Exception as e:
         print(f"Error analyzing data flow for {path}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/focus/overlay", response_model=FocusOverlayResponse)
+async def get_focus_overlay(req: FocusOverlayRequest):
+    """
+    Return a minimal overlay model for a single file and a focus range.
+
+    The client uses this to decorate Shiki-rendered HTML with subtle identifier
+    background highlights + provenance tooltips.
+    """
+    target_path = Path(req.path)
+    if not target_path.exists() or not target_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # If no focus is provided, return an empty overlay.
+    if req.focusStartLine is None or req.focusEndLine is None:
+        return FocusOverlayResponse(tokens=[])
+
+    from app.services.focus_overlay import compute_focus_overlay
+
+    try:
+        return compute_focus_overlay(
+            file_path=str(target_path),
+            slice_start_line=req.sliceStartLine,
+            slice_end_line=req.sliceEndLine,
+            focus_start_line=req.focusStartLine,
+            focus_end_line=req.focusEndLine,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error computing focus overlay for {req.path}: {e}")
         raise HTTPException(status_code=500, detail=str(e))

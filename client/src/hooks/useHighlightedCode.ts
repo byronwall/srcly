@@ -8,6 +8,10 @@ import {
   markNonFocusLines,
   stripShikiPreNewlines,
 } from "../utils/shikiHtml";
+import {
+  applyFlowDecorations,
+  type OverlayToken,
+} from "../utils/flowDecorations";
 
 export function useHighlightedCode(args: {
   rawCode: () => string;
@@ -61,11 +65,13 @@ export function useHighlightedCode(args: {
 
       let linesToDisplay = slice.linesToDisplay;
       let isReduced = false;
+      let removedIndentByLine: number[] | null = null;
 
       if (shouldReduceIndent) {
         const reduced = reduceCommonIndent(linesToDisplay, { keepIndent: 2 });
         linesToDisplay = reduced.lines;
         isReduced = reduced.reduced;
+        removedIndentByLine = (reduced as any).removedIndentByLine ?? null;
       }
 
       const displayText = linesToDisplay.join("\n");
@@ -94,6 +100,34 @@ export function useHighlightedCode(args: {
         }
       }
 
+      // NEW: fetch and apply flow overlay decorations for the selection.
+      if (target) {
+        try {
+          const res = await fetch("/api/analysis/focus/overlay", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              path,
+              sliceStartLine: slice.start,
+              sliceEndLine: slice.end,
+              focusStartLine: target.start,
+              focusEndLine: target.end,
+            }),
+          });
+          if (res.ok) {
+            const data = (await res.json()) as { tokens: OverlayToken[] };
+            if (Array.isArray(data?.tokens) && data.tokens.length) {
+              html = applyFlowDecorations(html, data.tokens, {
+                sliceStartLine: slice.start,
+                removedIndentByLine,
+              });
+            }
+          }
+        } catch {
+          // Overlay failures should never block showing syntax-highlighted code.
+        }
+      }
+
       if (currentProcessId === lastProcessId) {
         setHighlightedHtml(html);
         setDisplayStartLine(slice.start);
@@ -110,5 +144,3 @@ export function useHighlightedCode(args: {
     wasIndentationReduced,
   };
 }
-
-
