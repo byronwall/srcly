@@ -830,8 +830,10 @@ def compute_focus_overlay(
                 # Deterministic symbol ID based on definition location.
                 symbol_id = f"def:{file_path}:{d.def_line}:{d.def_col}:{d.name}"
 
-                # Param is always param for the containing focus function.
-                if d.kind == "param" and d.scope_id == focus_fn_scope.id:
+                # Parameters should always be classified as parameters, independent
+                # of the current focus scope (e.g. when focusing an outer function
+                # that contains a nested function).
+                if d.kind == "param":
                     category = "param"
                     tooltip = "Parameter"
                 else:
