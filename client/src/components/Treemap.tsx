@@ -6,9 +6,7 @@ import {
   createMemo,
   untrack,
   Show,
-  batch,
 } from "solid-js";
-import { createMutable } from "solid-js/store";
 import * as d3 from "d3";
 import { extractFilePath, filterData } from "../utils/dataProcessing";
 import { useMetricsStore } from "../utils/metricsStore";
@@ -19,7 +17,9 @@ import {
   treemapFillColor,
   treemapLabelColor,
 } from "../viz/treemap/utils/colors";
-import TreemapSvg from "../viz/treemap/components/TreemapSvg";
+import TreemapSvg, {
+  type TreemapRenderNode,
+} from "../viz/treemap/components/TreemapSvg";
 import TreemapHeader from "../viz/treemap/components/TreemapHeader";
 import TreemapTooltip from "../viz/treemap/components/TreemapTooltip";
 import DependencyGraph from "./DependencyGraph";
@@ -226,7 +226,7 @@ export default function Treemap(props: TreemapProps) {
     }
   };
 
-  function handleHierarchyClick(d: d3.HierarchyNode<any>, event: MouseEvent) {
+  function handleHierarchyClick(d: TreemapRenderNode, event: MouseEvent) {
     // Check for modifier keys (CMD on Mac, CTRL on Windows/Linux)
     const isModifierPressed = event.metaKey || event.ctrlKey;
     const isAlt = event.altKey;
@@ -356,12 +356,22 @@ export default function Treemap(props: TreemapProps) {
     return root as d3.HierarchyRectangularNode<any>;
   });
 
-  // Cache to maintain stable object references for CSS transitions
-  const nodeCache = new Map<string, any>();
+  // Key -> d3 node lookup (kept outside the renderer, used for tooltip only).
+  const d3NodeByKey = new Map<string, d3.HierarchyNode<any>>();
 
-  const nodes = createMemo(() => {
+  // Cache to maintain stable object identity (plain objects) for transitions
+  const nodeCache = new Map<string, TreemapRenderNode>();
+  const [nodes, setNodes] = createSignal<TreemapRenderNode[]>([]);
+  const [layoutTick, setLayoutTick] = createSignal(0);
+
+  // Imperatively update cached node fields once per layout and bump a single tick
+  createEffect(() => {
     const root = layoutRoot();
-    if (!root) return [];
+    if (!root) {
+      setNodes([]);
+      setLayoutTick((t) => t + 1);
+      return;
+    }
 
     const descendants = root
       .descendants()
@@ -369,38 +379,61 @@ export default function Treemap(props: TreemapProps) {
         (d) => d.data?.type !== "function_body" && d.data?.name !== "(body)"
       );
 
-    const newCache = new Map<string, any>();
-    const result: any[] = [];
+    const newCache = new Map<string, TreemapRenderNode>();
+    const result: TreemapRenderNode[] = new Array(descendants.length);
 
-    // Use batch to effectively group updates (though strictly reactive graph handles this)
-    batch(() => {
-      for (const d of descendants) {
-        const key = getStableNodeKey(d);
+    // Map d3 nodes -> render nodes for this layout pass (for parent linking).
+    const byD3 = new Map<any, TreemapRenderNode>();
+    d3NodeByKey.clear();
 
-        let node = nodeCache.get(key);
-        if (node) {
-          // Update existing mutable node in-place
-          Object.assign(node, d);
-          node.data = d.data;
-        } else {
-          // Create new mutable node
-          node = createMutable(d);
-          nodeCache.set(key, node);
-        }
-        node.__key = key;
-        newCache.set(key, node);
-        result.push(node);
+    // 1) ensure nodes exist + update fields (hot path: plain assignments)
+    let i = 0;
+    for (const d of descendants) {
+      const key = getStableNodeKey(d);
+
+      let n = nodeCache.get(key);
+      if (!n) {
+        n = {
+          __key: key,
+          x0: 0,
+          y0: 0,
+          x1: 0,
+          y1: 0,
+          depth: 0,
+          data: null,
+          parent: null,
+        };
+        nodeCache.set(key, n);
       }
-    });
 
-    // Prune cache of removed nodes
-    for (const k of nodeCache.keys()) {
-      if (!newCache.has(k)) {
-        nodeCache.delete(k);
-      }
+      n.x0 = (d as any).x0;
+      n.y0 = (d as any).y0;
+      n.x1 = (d as any).x1;
+      n.y1 = (d as any).y1;
+      n.depth = d.depth;
+      n.data = d.data;
+
+      // Keep __exit if it was set by the enter/exit animation logic.
+
+      newCache.set(key, n);
+      byD3.set(d, n);
+      d3NodeByKey.set(key, d);
+      result[i++] = n;
     }
 
-    return result;
+    // 2) parent linking (only needed because getRelativeDepth walks parents)
+    for (const d of descendants) {
+      const n = byD3.get(d)!;
+      n.parent = d.parent ? byD3.get(d.parent) ?? null : null;
+    }
+
+    // 3) prune removed
+    for (const k of nodeCache.keys()) {
+      if (!newCache.has(k)) nodeCache.delete(k);
+    }
+
+    setNodes(result);
+    setLayoutTick((t) => t + 1);
   });
 
   // --- Enter/Exit animation helpers ---
@@ -429,8 +462,7 @@ export default function Treemap(props: TreemapProps) {
     const currByKey = new Map<string, any>();
 
     for (const n of currentNodes) {
-      const k = (n as any).__key ?? getStableNodeKey(n);
-      (n as any).__key = k;
+      const k = n.__key;
       currKeys.add(k);
       currByKey.set(k, n);
     }
@@ -477,7 +509,6 @@ export default function Treemap(props: TreemapProps) {
         .map((k) => prevNodesByKey.get(k))
         .filter(Boolean)
         .map((n) => {
-          n.__key = n.__key || "node-" + (n.data?.path || n.data?.name);
           n.__exit = true;
           return n;
         });
@@ -526,8 +557,8 @@ export default function Treemap(props: TreemapProps) {
     return all;
   });
 
-  const getRelativeDepth = (d: d3.HierarchyNode<any>) => {
-    let curr: d3.HierarchyNode<any> | null = d;
+  const getRelativeDepth = (d: TreemapRenderNode) => {
+    let curr: TreemapRenderNode | null = d;
     while (curr) {
       if (curr.data.type === "file") {
         return d.depth - curr.depth;
@@ -538,7 +569,7 @@ export default function Treemap(props: TreemapProps) {
   };
 
   // --- Color Logic ---
-  const getNodeColor = (d: d3.HierarchyNode<any>) => {
+  const getNodeColor = (d: TreemapRenderNode) => {
     if (d.data.type === "folder") return "#1e1e1e";
 
     const metricId = primaryMetric();
@@ -546,15 +577,15 @@ export default function Treemap(props: TreemapProps) {
     return treemapFillColor(metricId, metrics, getRelativeDepth(d));
   };
 
-  const getNodeStroke = (d: d3.HierarchyNode<any>) => {
+  const getNodeStroke = (d: TreemapRenderNode) => {
     return d.data.type === "folder" ? "#333" : "#121212";
   };
 
-  const getNodeStrokeWidth = (d: d3.HierarchyNode<any>) => {
+  const getNodeStrokeWidth = (d: TreemapRenderNode) => {
     return d.data.type === "folder" ? 1 : 0.5;
   };
 
-  const getNodeTextColor = (d: d3.HierarchyNode<any>) => {
+  const getNodeTextColor = (d: TreemapRenderNode) => {
     if (d.data.type === "folder") return "#1e1e1e"; // Not used for folder labels usually
 
     const metricId = primaryMetric();
@@ -562,7 +593,7 @@ export default function Treemap(props: TreemapProps) {
     return treemapLabelColor(metricId, metrics, getRelativeDepth(d));
   };
 
-  const getChunkLabelColor = (d: d3.HierarchyNode<any>) => {
+  const getChunkLabelColor = (d: TreemapRenderNode) => {
     // Similar to getNodeTextColor but with alpha
     if (d.data.type === "folder") return "#1e1e1e";
 
@@ -572,12 +603,12 @@ export default function Treemap(props: TreemapProps) {
   };
 
   const getLabel = (
-    d: d3.HierarchyNode<any>,
+    d: TreemapRenderNode,
     kind: "folder" | "file" | "chunk"
   ) => {
     const name = String(d.data?.name ?? "");
-    const w = Math.max(0, (d as any).x1 - (d as any).x0);
-    const h = Math.max(0, (d as any).y1 - (d as any).y0);
+    const w = Math.max(0, d.x1 - d.x0);
+    const h = Math.max(0, d.y1 - d.y0);
     // Padding inside the rect (match x used by <text>)
     const padLeft = kind === "chunk" ? 2 : 4;
     const padRight = 4;
@@ -601,11 +632,11 @@ export default function Treemap(props: TreemapProps) {
   };
 
   const getLabelFontSizePx = (
-    d: d3.HierarchyNode<any>,
+    d: TreemapRenderNode,
     kind: "folder" | "file" | "chunk"
   ) => {
-    const w = Math.max(0, (d as any).x1 - (d as any).x0);
-    const h = Math.max(0, (d as any).y1 - (d as any).y0);
+    const w = Math.max(0, d.x1 - d.x0);
+    const h = Math.max(0, d.y1 - d.y0);
     const minDim = Math.min(w, h);
     const fontSize =
       kind === "folder"
@@ -666,6 +697,7 @@ export default function Treemap(props: TreemapProps) {
             width={dimensions().width}
             height={dimensions().height}
             renderNodes={renderNodes}
+            layoutTick={layoutTick}
             minNodeRenderSizePx={minNodeRenderSizePx}
             nominalNodeSizePx={NOMINAL_NODE_SIZE_PX}
             tinyScale={TINY_SCALE}
@@ -673,7 +705,6 @@ export default function Treemap(props: TreemapProps) {
             isIsolateMode={isIsolateMode}
             enteringKeys={enteringKeys}
             collapsedExitKeys={collapsedExitKeys}
-            getStableNodeKey={getStableNodeKey}
             getNodeColor={getNodeColor}
             getNodeStroke={getNodeStroke}
             getNodeStrokeWidth={getNodeStrokeWidth}
@@ -682,7 +713,11 @@ export default function Treemap(props: TreemapProps) {
             getLabel={getLabel}
             getLabelFontSizePx={getLabelFontSizePx}
             onNodeClick={handleHierarchyClick}
-            onNodeMouseEnter={showTooltip}
+            onNodeMouseEnter={(e, n) => {
+              const d3Node = d3NodeByKey.get(n.__key);
+              if (!d3Node) return;
+              showTooltip(e, d3Node);
+            }}
             onNodeMouseLeave={hideTooltip}
           />
         </Show>
