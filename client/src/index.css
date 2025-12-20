@@ -249,8 +249,16 @@ body {
   background: rgba(239, 68, 68, 0.12);
 }
 
+.code-modal-content.cmd-pressed
+  .flow:hover:not(.flow-importInternal):not(.flow-importExternal):not(
+    .flow-builtin
+  ):not(.flow-unresolved) {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .code-modal-content .flow-jump-link {
   text-decoration: underline;
   text-underline-offset: 3px;
-  cursor: pointer;
 }

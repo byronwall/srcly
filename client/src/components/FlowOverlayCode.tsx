@@ -321,6 +321,7 @@ export function FlowOverlayCode(props: {
       <div
         ref={(el) => (containerRef = el)}
         class="code-modal-content"
+        classList={{ "cmd-pressed": isCmdPressed() }}
         onPointerMove={onPointerMove}
         onPointerLeave={onPointerLeave}
         onClick={onClick}
