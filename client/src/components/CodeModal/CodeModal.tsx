@@ -166,7 +166,7 @@ export default function CodeModal(props: CodeModalProps) {
         onClick={() => props.onClose()}
       >
         <div
-          class="flex h-[80vh] w-[90vw] max-w-5xl flex-col overflow-hidden rounded-lg border border-gray-700 bg-[#1e1e1e] shadow-2xl"
+          class="flex h-[92vh] w-[96vw] max-w-[1600px] flex-col overflow-hidden rounded-lg border border-gray-700 bg-[#1e1e1e] shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
           <CodeModalHeader
