@@ -961,15 +961,36 @@ def compute_focus_overlay(
 
     # --- Find focus function scope (preferred boundary for param/local/capture semantics) ---
     def smallest_containing_function_scope() -> _Scope:
+        selection_len = max(1, focus_end_line - focus_start_line + 1)
         candidates: List[_Scope] = []
         for s in scopes.values():
             if s.type != "function":
                 continue
-            if s.start_line <= focus_start_line and s.end_line >= focus_end_line:
+            
+            # Coverage heuristic: pick functions that overlap with at least 50% of the selection.
+            # This handles "loose" selections that might include trailing newlines or braces
+            # outside the strict function node range.
+            overlap = max(0, min(s.end_line, focus_end_line) - max(s.start_line, focus_start_line) + 1)
+            if (overlap / selection_len) >= 0.5:
                 candidates.append(s)
-        if not candidates:
-            return global_scope
-        return min(candidates, key=lambda s: (s.end_line - s.start_line, s.start_line))
+        
+        if candidates:
+             # Return the smallest such scope.
+             return min(candidates, key=lambda s: (s.end_line - s.start_line, s.start_line))
+
+        # Fallback: if no function matches the 50% heuristic, try to find the smallest
+        # function that strictly contains the START of the focus range.
+        fallback_candidates: List[_Scope] = []
+        for s in scopes.values():
+            if s.type != "function":
+                continue
+            if s.start_line <= focus_start_line <= s.end_line:
+                fallback_candidates.append(s)
+        
+        if fallback_candidates:
+             return min(fallback_candidates, key=lambda s: (s.end_line - s.start_line, s.start_line))
+
+        return global_scope
 
     focus_fn_scope = smallest_containing_function_scope()
     focus_fn_chain = set(_ancestor_chain(focus_fn_scope.id))  # includes global
