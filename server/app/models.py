@@ -92,6 +92,8 @@ class OverlayToken(BaseModel):
     tooltip: str
     definitionSnippet: str | None = None
     definitionLine: int | None = None
+    scopeSnippet: str | None = None
+    scopeLine: int | None = None
 
 
 class FocusOverlayResponse(BaseModel):

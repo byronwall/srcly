@@ -28,6 +28,8 @@ export function FlowOverlayCode(props: {
     text: string;
     snippet?: string;
     defLine?: string;
+    scopeSnippet?: string;
+    scopeLine?: string;
   } | null>(null);
   const [tooltipPos, setTooltipPos] = createSignal({ x: 0, y: 0 });
   const [overlayTokens, setOverlayTokens] = createSignal<OverlayToken[]>([]);
@@ -71,6 +73,8 @@ export function FlowOverlayCode(props: {
       text: el.dataset.tip || "",
       snippet: el.dataset.snippet,
       defLine: el.dataset.defLine,
+      scopeSnippet: el.dataset.scopeSnippet,
+      scopeLine: el.dataset.scopeLine,
     });
   };
 

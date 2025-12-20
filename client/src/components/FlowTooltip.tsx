@@ -12,7 +12,13 @@ export function FlowTooltip(props: {
   isOpen: () => boolean;
   x: () => number;
   y: () => number;
-  data: () => { text: string; snippet?: string; defLine?: string } | null;
+  data: () => {
+    text: string;
+    snippet?: string;
+    defLine?: string;
+    scopeSnippet?: string;
+    scopeLine?: string;
+  } | null;
 }) {
   const [pos, setPos] = createSignal({ left: 0, top: 0 });
   let contentRef: HTMLDivElement | undefined;
@@ -74,7 +80,20 @@ export function FlowTooltip(props: {
           </Show>
           <Show when={props.data()?.defLine}>
             <div class="mt-1 text-[10px] text-gray-500">
-              Line {props.data()?.defLine}
+              Defined at Line {props.data()?.defLine}
+            </div>
+          </Show>
+          <Show when={props.data()?.scopeSnippet}>
+            <div class="mt-3 text-[10px] font-semibold text-purple-300">
+              Captured from:
+            </div>
+            <div class="mt-1 rounded bg-gray-900 p-2 font-mono text-[10px] text-gray-300 border border-gray-700 whitespace-pre-wrap">
+              {props.data()?.scopeSnippet}
+            </div>
+          </Show>
+          <Show when={props.data()?.scopeLine}>
+            <div class="mt-1 text-[10px] text-gray-500">
+              Scope Line {props.data()?.scopeLine}
             </div>
           </Show>
         </div>

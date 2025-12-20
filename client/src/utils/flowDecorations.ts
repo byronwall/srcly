@@ -7,6 +7,8 @@ export type OverlayToken = {
   tooltip: string;
   definitionSnippet?: string | null;
   definitionLine?: number | null;
+  scopeSnippet?: string | null;
+  scopeLine?: number | null;
 };
 
 // Keep wrapTextRangeInLine exported so it can be used by other functions in this file or elsewhere if needed.
@@ -20,6 +22,8 @@ export function wrapTextRangeInLine(
     tooltip: string;
     definitionSnippet?: string | null;
     definitionLine?: number | null;
+    scopeSnippet?: string | null;
+    scopeLine?: number | null;
   }
 ) {
   if (endCol <= startCol) return;
@@ -80,6 +84,12 @@ export function wrapTextRangeInLine(
     }
     if (attrs.definitionLine) {
       wrapper.dataset.defLine = String(attrs.definitionLine);
+    }
+    if (attrs.scopeSnippet) {
+      wrapper.dataset.scopeSnippet = attrs.scopeSnippet;
+    }
+    if (attrs.scopeLine) {
+      wrapper.dataset.scopeLine = String(attrs.scopeLine);
     }
 
     parent.insertBefore(wrapper, afterRef);
@@ -144,6 +154,8 @@ export function applyFlowDecorations(
         tooltip: t.tooltip,
         definitionSnippet: t.definitionSnippet,
         definitionLine: t.definitionLine,
+        scopeSnippet: t.scopeSnippet,
+        scopeLine: t.scopeLine,
       });
     }
   }
@@ -193,6 +205,8 @@ export function applyFlowDecorationsToEl(
         tooltip: t.tooltip,
         definitionSnippet: t.definitionSnippet,
         definitionLine: t.definitionLine,
+        scopeSnippet: t.scopeSnippet,
+        scopeLine: t.scopeLine,
       });
     }
   }

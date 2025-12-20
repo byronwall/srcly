@@ -60,6 +60,7 @@ class _Scope:
     parent_id: str | None
     start_line: int
     end_line: int
+    def_line: int  # Line of the node that created the scope
     vars: Dict[str, _Def]
 
 
@@ -480,6 +481,7 @@ def compute_focus_overlay(
             parent_id=parent.id if parent else None,
             start_line=start_line,
             end_line=end_line,
+            def_line=start_line,
             vars={},
         )
         scopes[scope.id] = scope
@@ -1075,6 +1077,16 @@ def compute_focus_overlay(
             if 0 <= d.def_line - 1 < len(source_lines):
                  definition_snippet = source_lines[d.def_line - 1].strip()
 
+        scope_snippet: str | None = None
+        scope_line: int | None = None
+
+        if category == "capture" and d:
+            def_scope = scopes.get(d.scope_id)
+            if def_scope:
+                scope_line = def_scope.def_line
+                if 0 <= scope_line - 1 < len(source_lines):
+                    scope_snippet = source_lines[scope_line - 1].strip()
+
         tokens.append(
             OverlayToken(
                 fileLine=u_line,
@@ -1085,6 +1097,8 @@ def compute_focus_overlay(
                 tooltip=tooltip,
                 definitionSnippet=definition_snippet,
                 definitionLine=definition_line,
+                scopeSnippet=scope_snippet,
+                scopeLine=scope_line,
             )
         )
 
