@@ -21,11 +21,16 @@ export function CodeModalHeader(props: {
   setLineFilterEnabled: (next: boolean) => void;
   lineOffset: () => number;
   setLineOffset: (next: number) => void;
+
+  dataFlowEnabled: () => boolean;
+  setDataFlowEnabled: (next: boolean) => void;
 }) {
   return (
     <header class="flex items-center justify-between border-b border-gray-700 bg-[#252526] px-4 py-2 text-sm">
       <div class="flex min-w-0 flex-col">
-        <span class="truncate font-semibold text-gray-100">{props.baseName}</span>
+        <span class="truncate font-semibold text-gray-100">
+          {props.baseName}
+        </span>
         <span class="truncate text-[11px] text-gray-400">{props.filePath}</span>
         <Show when={props.hasLineRange() && props.rangeLabel()}>
           {(label) => (
@@ -87,10 +92,23 @@ export function CodeModalHeader(props: {
           <input
             type="checkbox"
             checked={props.reduceIndentation()}
-            onChange={(e) => props.setReduceIndentation(e.currentTarget.checked)}
+            onChange={(e) =>
+              props.setReduceIndentation(e.currentTarget.checked)
+            }
           />
           <span title="Strip common indentation to save horizontal space">
             Reduce indent
+          </span>
+        </label>
+
+        <label class="ml-3 flex items-center gap-1 text-[11px] text-gray-300 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={props.dataFlowEnabled()}
+            onChange={(e) => props.setDataFlowEnabled(e.currentTarget.checked)}
+          />
+          <span title="Highlight data flow, usages, and show tooltips">
+            Data flow
           </span>
         </label>
 
@@ -99,7 +117,9 @@ export function CodeModalHeader(props: {
             <input
               type="checkbox"
               checked={props.lineFilterEnabled()}
-              onChange={(e) => props.setLineFilterEnabled(e.currentTarget.checked)}
+              onChange={(e) =>
+                props.setLineFilterEnabled(e.currentTarget.checked)
+              }
             />
             <span>Limit to selection</span>
             <span class="ml-2 flex items-center gap-1">
@@ -130,5 +150,3 @@ export function CodeModalHeader(props: {
     </header>
   );
 }
-
-

@@ -35,6 +35,7 @@ export default function CodeModal(props: CodeModalProps) {
   const [lineOffset, setLineOffset] = createSignal(4);
   const [reduceIndentation, setReduceIndentation] = createSignal(true);
   const [viewMode, setViewMode] = createSignal<"code" | "preview">("code");
+  const [dataFlowEnabled, setDataFlowEnabled] = createSignal(true);
 
   let contentScrollRef: HTMLDivElement | undefined;
   const contentContainerEl = () => contentScrollRef;
@@ -187,6 +188,8 @@ export default function CodeModal(props: CodeModalProps) {
             setLineFilterEnabled={setLineFilterEnabled}
             lineOffset={lineOffset}
             setLineOffset={(n) => setLineOffset(Math.max(0, Math.floor(n)))}
+            dataFlowEnabled={dataFlowEnabled}
+            setDataFlowEnabled={setDataFlowEnabled}
           />
 
           <main class="relative flex-1 overflow-hidden flex bg-[#1e1e1e]">
@@ -232,6 +235,7 @@ export default function CodeModal(props: CodeModalProps) {
                     targetEndLine={targetEndLine}
                     removedIndentByLine={removedIndentByLine}
                     lineFilterEnabled={lineFilterEnabled}
+                    dataFlowEnabled={dataFlowEnabled}
                   />
                 }
               >

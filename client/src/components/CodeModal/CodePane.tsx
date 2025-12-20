@@ -11,6 +11,7 @@ export function CodePane(props: {
   targetEndLine: () => number | null;
   removedIndentByLine: () => number[] | null;
   lineFilterEnabled: () => boolean;
+  dataFlowEnabled: () => boolean;
 }) {
   return (
     <>
@@ -45,6 +46,7 @@ export function CodePane(props: {
           }}
           removedIndentByLine={props.removedIndentByLine}
           lineFilterEnabled={props.lineFilterEnabled}
+          dataFlowEnabled={props.dataFlowEnabled}
         />
       </Show>
     </>

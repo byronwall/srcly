@@ -19,6 +19,7 @@ export function FlowOverlayCode(props: {
   focusRange?: () => LineRange | null;
   removedIndentByLine?: () => number[] | null;
   lineFilterEnabled?: () => boolean;
+  dataFlowEnabled?: () => boolean;
 }) {
   let containerRef: HTMLDivElement | undefined;
 
@@ -112,8 +113,9 @@ export function FlowOverlayCode(props: {
     const sliceStart = props.sliceStartLine?.() ?? 1;
     const focus = props.focusRange?.() ?? null;
     const filterEnabled = props.lineFilterEnabled?.() ?? true;
+    const flowEnabled = props.dataFlowEnabled?.() ?? true;
 
-    if (!path) {
+    if (!path || !flowEnabled) {
       setOverlayTokens([]);
       return;
     }
@@ -157,9 +159,16 @@ export function FlowOverlayCode(props: {
 
   createEffect(() => {
     const tokens = overlayTokens();
-    const _h = props.html(); // Depend on HTML too
-    void _h;
-    if (!containerRef || !tokens.length) return;
+    const flowEnabled = props.dataFlowEnabled?.() ?? true;
+    const html = props.html();
+    if (!containerRef) return;
+
+    // Reset to base HTML first to clear any existing decorations.
+    // This ensures that if flowEnabled is false or tokens is empty,
+    // we revert to the original syntax-highlighted code.
+    containerRef.innerHTML = html || "";
+
+    if (!tokens.length || !flowEnabled) return;
 
     // Apply decorations to the DOM directly.
     applyFlowDecorationsToEl(containerRef, tokens, {
@@ -169,7 +178,7 @@ export function FlowOverlayCode(props: {
   });
 
   const onPointerMove = (e: PointerEvent) => {
-    if (!containerRef) return;
+    if (!containerRef || !(props.dataFlowEnabled?.() ?? true)) return;
     if (pinnedSym()) {
       // Keep tooltip positioned near the cursor, but don't change selection.
       if (tooltipData())
@@ -203,7 +212,7 @@ export function FlowOverlayCode(props: {
   };
 
   const onClick = (e: MouseEvent) => {
-    if (!containerRef) return;
+    if (!containerRef || !(props.dataFlowEnabled?.() ?? true)) return;
     const el = getFlowEl(e.target);
     if (!el) return;
     const sym = el.dataset.sym || null;
@@ -231,7 +240,6 @@ export function FlowOverlayCode(props: {
       <div
         ref={(el) => (containerRef = el)}
         class="code-modal-content"
-        innerHTML={props.html() || ""}
         onPointerMove={onPointerMove}
         onPointerLeave={onPointerLeave}
         onClick={onClick}
