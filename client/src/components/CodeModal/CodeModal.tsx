@@ -124,7 +124,8 @@ export default function CodeModal(props: CodeModalProps) {
     }
 
     // Wait for the new code to be rendered, then scroll to the specific line.
-    if (target.scrollTarget) {
+    const scrollTarget = target.scrollTarget;
+    if (typeof scrollTarget === "number") {
       setTimeout(() => {
         const container = contentScrollRef;
         if (!container) return;
@@ -134,7 +135,7 @@ export default function CodeModal(props: CodeModalProps) {
         const displaySlice = effectiveDisplayRange();
         if (!displaySlice) return;
 
-        const lineIndex = target.scrollTarget - displaySlice.start + 1;
+        const lineIndex = scrollTarget - displaySlice.start + 1;
         const lineEls = container.querySelectorAll(".line");
         const targetEl = lineEls[lineIndex - 1] as HTMLElement | null;
 
