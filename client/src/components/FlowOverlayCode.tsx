@@ -24,13 +24,17 @@ export function FlowOverlayCode(props: {
 
   const [hoveredSym, setHoveredSym] = createSignal<string | null>(null);
   const [pinnedSym, setPinnedSym] = createSignal<string | null>(null);
-  const [tooltipText, setTooltipText] = createSignal("");
+  const [tooltipData, setTooltipData] = createSignal<{
+    text: string;
+    snippet?: string;
+    defLine?: string;
+  } | null>(null);
   const [tooltipPos, setTooltipPos] = createSignal({ x: 0, y: 0 });
   const [overlayTokens, setOverlayTokens] = createSignal<OverlayToken[]>([]);
 
   const clearHover = () => {
     setHoveredSym(null);
-    if (!pinnedSym()) setTooltipText("");
+    if (!pinnedSym()) setTooltipData(null);
     if (!containerRef) return;
     containerRef
       .querySelectorAll(".flow-hovered")
@@ -39,7 +43,7 @@ export function FlowOverlayCode(props: {
 
   const clearPin = () => {
     setPinnedSym(null);
-    setTooltipText("");
+    setTooltipData(null);
     if (!containerRef) return;
     containerRef
       .querySelectorAll(".flow-pinned")
@@ -63,7 +67,11 @@ export function FlowOverlayCode(props: {
 
   const setTooltipFromEl = (el: HTMLElement, x: number, y: number) => {
     setTooltipPos({ x: x + 12, y: y + 12 });
-    setTooltipText(el.dataset.tip || "");
+    setTooltipData({
+      text: el.dataset.tip || "",
+      snippet: el.dataset.snippet,
+      defLine: el.dataset.defLine,
+    });
   };
 
   const getFlowEl = (target: EventTarget | null): HTMLElement | null => {
@@ -160,7 +168,7 @@ export function FlowOverlayCode(props: {
     if (!containerRef) return;
     if (pinnedSym()) {
       // Keep tooltip positioned near the cursor, but don't change selection.
-      if (tooltipText())
+      if (tooltipData())
         setTooltipPos({ x: e.clientX + 12, y: e.clientY + 12 });
       return;
     }
@@ -227,10 +235,10 @@ export function FlowOverlayCode(props: {
 
       {/* Important: keep Solid-managed children OUTSIDE the innerHTML container */}
       <FlowTooltip
-        isOpen={() => !!tooltipText()}
+        isOpen={() => !!tooltipData()}
         x={() => tooltipPos().x}
         y={() => tooltipPos().y}
-        text={tooltipText}
+        data={tooltipData}
       />
     </div>
   );

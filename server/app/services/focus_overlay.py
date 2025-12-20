@@ -448,6 +448,7 @@ def compute_focus_overlay(
     focus_end_line = max(focus_start_line, int(focus_end_line))
 
     content = path.read_bytes()
+    source_lines = content.decode("utf-8", errors="replace").splitlines()
     is_tsx = path.suffix.lower() == ".tsx" or path.name.endswith(".tsx")
     parser = Parser(TSX_LANGUAGE if is_tsx else TYPESCRIPT_LANGUAGE)
     tree = parser.parse(content)
@@ -1046,6 +1047,13 @@ def compute_focus_overlay(
                                 category = "local"
                                 tooltip = f"Local declaration (line {d.def_line})"
 
+        definition_snippet: str | None = None
+        definition_line: int | None = None
+        if d:
+            definition_line = d.def_line
+            if 0 <= d.def_line - 1 < len(source_lines):
+                 definition_snippet = source_lines[d.def_line - 1].strip()
+
         tokens.append(
             OverlayToken(
                 fileLine=u_line,
@@ -1054,6 +1062,8 @@ def compute_focus_overlay(
                 category=category,
                 symbolId=symbol_id,
                 tooltip=tooltip,
+                definitionSnippet=definition_snippet,
+                definitionLine=definition_line,
             )
         )
 

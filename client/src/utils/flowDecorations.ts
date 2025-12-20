@@ -5,6 +5,8 @@ export type OverlayToken = {
   category: string;
   symbolId: string;
   tooltip: string;
+  definitionSnippet?: string | null;
+  definitionLine?: number | null;
 };
 
 // Keep wrapTextRangeInLine exported so it can be used by other functions in this file or elsewhere if needed.
@@ -12,7 +14,13 @@ export function wrapTextRangeInLine(
   lineEl: Element,
   startCol: number,
   endCol: number,
-  attrs: { category: string; symbolId: string; tooltip: string }
+  attrs: {
+    category: string;
+    symbolId: string;
+    tooltip: string;
+    definitionSnippet?: string | null;
+    definitionLine?: number | null;
+  }
 ) {
   if (endCol <= startCol) return;
 
@@ -67,6 +75,12 @@ export function wrapTextRangeInLine(
     wrapper.dataset.sym = attrs.symbolId;
     wrapper.dataset.tip = attrs.tooltip;
     wrapper.dataset.cat = attrs.category;
+    if (attrs.definitionSnippet) {
+      wrapper.dataset.snippet = attrs.definitionSnippet;
+    }
+    if (attrs.definitionLine) {
+      wrapper.dataset.defLine = String(attrs.definitionLine);
+    }
 
     parent.insertBefore(wrapper, afterRef);
     wrapper.appendChild(middle);
@@ -128,6 +142,8 @@ export function applyFlowDecorations(
         category: t.category,
         symbolId: t.symbolId,
         tooltip: t.tooltip,
+        definitionSnippet: t.definitionSnippet,
+        definitionLine: t.definitionLine,
       });
     }
   }
@@ -175,6 +191,8 @@ export function applyFlowDecorationsToEl(
         category: t.category,
         symbolId: t.symbolId,
         tooltip: t.tooltip,
+        definitionSnippet: t.definitionSnippet,
+        definitionLine: t.definitionLine,
       });
     }
   }

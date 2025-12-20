@@ -1,11 +1,18 @@
-import { Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
+import {
+  Show,
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+  onMount,
+} from "solid-js";
 import { Portal } from "solid-js/web";
 
 export function FlowTooltip(props: {
   isOpen: () => boolean;
   x: () => number;
   y: () => number;
-  text: () => string;
+  data: () => { text: string; snippet?: string; defLine?: string } | null;
 }) {
   const [pos, setPos] = createSignal({ left: 0, top: 0 });
   let contentRef: HTMLDivElement | undefined;
@@ -43,26 +50,35 @@ export function FlowTooltip(props: {
   });
 
   return (
-    <Show when={props.isOpen()}>
+    <Show when={props.isOpen() && props.data()}>
       <Portal>
         <div
           ref={(el) => (contentRef = el)}
-          class="rounded border border-gray-700 bg-[#111827] px-2 py-1 text-[11px] text-gray-100 shadow-xl"
+          class="rounded border border-gray-700 bg-[#111827] px-3 py-2 text-xs text-gray-100 shadow-xl"
           style={{
             position: "fixed",
             left: `${pos().left}px`,
             top: `${pos().top}px`,
             "z-index": 10000,
-            "max-width": "min(420px, calc(100vw - 16px))",
+            "max-width": "min(600px, calc(100vw - 16px))",
             "pointer-events": "none",
-            "white-space": "pre-wrap",
           }}
         >
-          {props.text()}
+          <div class="mb-1 font-semibold text-blue-200">
+            {props.data()?.text}
+          </div>
+          <Show when={props.data()?.snippet}>
+            <div class="mt-2 rounded bg-gray-900 p-2 font-mono text-[10px] text-gray-300 border border-gray-700 whitespace-pre-wrap">
+              {props.data()?.snippet}
+            </div>
+          </Show>
+          <Show when={props.data()?.defLine}>
+            <div class="mt-1 text-[10px] text-gray-500">
+              Line {props.data()?.defLine}
+            </div>
+          </Show>
         </div>
       </Portal>
     </Show>
   );
 }
-
-

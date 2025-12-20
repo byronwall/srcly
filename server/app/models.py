@@ -90,6 +90,8 @@ class OverlayToken(BaseModel):
     category: str
     symbolId: str
     tooltip: str
+    definitionSnippet: str | None = None
+    definitionLine: int | None = None
 
 
 class FocusOverlayResponse(BaseModel):
