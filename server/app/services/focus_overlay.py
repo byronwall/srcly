@@ -833,7 +833,7 @@ def compute_focus_overlay(
             next_scope = scope_boundary_map[n.id]
 
         # Usages: resolve identifiers
-        if n.type in {"identifier", "undefined", "null", "true", "false"}:
+        if n.type in {"identifier", "jsx_identifier", "undefined", "null", "true", "false"}:
             parent = n.parent
             if parent is not None:
                 # Skip identifier occurrences that are themselves definitions.
@@ -855,9 +855,24 @@ def compute_focus_overlay(
                     pass
                 elif parent.type == "property_identifier":
                     pass
-                elif parent.type in {"jsx_opening_element", "jsx_closing_element", "jsx_self_closing_element"}:
+                
+                # SPECIAL HANDLING FOR JSX
+                # 1. Skip if it is an attribute name
+                elif (n.type in {"identifier", "jsx_identifier"}) and parent.type == "jsx_attribute" and parent.child_by_field_name("name") == n:
                     pass
+                # 2. Skip intrinsic elements (lowercase tag names)
+                # If text is uppercase, the condition below fails, so we fall through to 'else'
+                # and process it as a component usage.
+                elif (
+                    n.type in {"identifier", "jsx_identifier"} 
+                    and parent.type in {"jsx_opening_element", "jsx_closing_element", "jsx_self_closing_element"}
+                    and parent.child_by_field_name("name") == n
+                    and n.text.decode("utf-8", errors="ignore")[0].islower()
+                ):
+                    pass
+
                 else:
+                    # Skip identifiers inside binding patterns (destructuring LHS / params)
                     # Skip identifiers inside binding patterns (destructuring LHS / params)
                     # We need to be careful not to skip usages on the RHS.
                     # e.g. `const { x: y } = z` -> x is prop (skipped), y is def (skipped), z is usage.
