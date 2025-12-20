@@ -313,15 +313,16 @@ const CodeSidebar = (props: {
     filePath: () => props.path,
   });
 
-  const { highlightedHtml } = useHighlightedCode({
-    rawCode,
-    filePath: () => props.path,
-    lineFilterEnabled: () => false,
-    lineOffset: () => 0,
-    targetStart: () => null,
-    targetEnd: () => null,
-    reduceIndentation: () => false,
-  });
+  const { highlightedHtml, displayStartLine, removedIndentByLine } =
+    useHighlightedCode({
+      rawCode,
+      filePath: () => props.path,
+      lineFilterEnabled: () => false,
+      lineOffset: () => 0,
+      targetStart: () => null,
+      targetEnd: () => null,
+      reduceIndentation: () => false,
+    });
 
   return (
     <div class="w-1/3 h-full border-l border-gray-700 bg-[#1e1e1e] flex flex-col">
@@ -345,7 +346,22 @@ const CodeSidebar = (props: {
             when={highlightedHtml()}
             fallback={<div class="text-gray-500">Rendering…</div>}
           >
-            <FlowOverlayCode html={() => highlightedHtml() || ""} />
+            <FlowOverlayCode
+              html={() => highlightedHtml() || ""}
+              filePath={() => props.path}
+              sliceStartLine={() => displayStartLine() ?? 1}
+              focusRange={() => {
+                if (
+                  typeof props.startLine === "number" &&
+                  typeof props.endLine === "number"
+                ) {
+                  return { start: props.startLine, end: props.endLine };
+                }
+                return null;
+              }}
+              removedIndentByLine={removedIndentByLine}
+              lineFilterEnabled={() => false}
+            />
           </Show>
         </Show>
         <Show when={!loading() && error()}>

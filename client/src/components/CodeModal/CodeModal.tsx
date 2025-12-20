@@ -49,6 +49,7 @@ export default function CodeModal(props: CodeModalProps) {
     displayStartLine,
     displayEndLine,
     wasIndentationReduced,
+    removedIndentByLine,
   } = useHighlightedCode({
     rawCode,
     filePath: () => props.filePath,
@@ -225,6 +226,12 @@ export default function CodeModal(props: CodeModalProps) {
                     loading={loading}
                     error={error}
                     highlightedHtml={highlightedHtml}
+                    filePath={() => props.filePath}
+                    displayStartLine={() => displayStartLine() ?? 1}
+                    targetStartLine={targetStartLine}
+                    targetEndLine={targetEndLine}
+                    removedIndentByLine={removedIndentByLine}
+                    lineFilterEnabled={lineFilterEnabled}
                   />
                 }
               >

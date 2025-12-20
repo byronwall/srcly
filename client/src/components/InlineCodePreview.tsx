@@ -31,18 +31,21 @@ export default function InlineCodePreview(props: InlineCodePreviewProps) {
     filePath: () => props.filePath,
   });
 
-  const { highlightedHtml, displayStartLine, displayEndLine } =
-    useHighlightedCode({
-      rawCode,
-      filePath: () => props.filePath,
-      lineFilterEnabled,
-      lineOffset,
-      targetStart: () =>
-        typeof props.startLine === "number" ? props.startLine : null,
-      targetEnd: () =>
-        typeof props.endLine === "number" ? props.endLine : null,
-      reduceIndentation: () => false,
-    });
+  const {
+    highlightedHtml,
+    displayStartLine,
+    displayEndLine,
+    removedIndentByLine,
+  } = useHighlightedCode({
+    rawCode,
+    filePath: () => props.filePath,
+    lineFilterEnabled,
+    lineOffset,
+    targetStart: () =>
+      typeof props.startLine === "number" ? props.startLine : null,
+    targetEnd: () => (typeof props.endLine === "number" ? props.endLine : null),
+    reduceIndentation: () => false,
+  });
 
   const effectiveDisplayRange = () => {
     if (!totalLines()) return null;
@@ -118,7 +121,21 @@ export default function InlineCodePreview(props: InlineCodePreviewProps) {
         </Show>
 
         <Show when={!loading() && !error() && highlightedHtml()}>
-          <FlowOverlayCode html={() => highlightedHtml() || ""} />
+          <FlowOverlayCode
+            html={() => highlightedHtml() || ""}
+            filePath={() => props.filePath}
+            sliceStartLine={() => displayStartLine() ?? 1}
+            focusRange={() => {
+              const s = props.startLine;
+              const e = props.endLine;
+              if (typeof s === "number" && typeof e === "number") {
+                return { start: s, end: e };
+              }
+              return null;
+            }}
+            removedIndentByLine={removedIndentByLine}
+            lineFilterEnabled={lineFilterEnabled}
+          />
         </Show>
 
         <Show when={!loading() && !error() && !highlightedHtml()}>

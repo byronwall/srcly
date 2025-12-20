@@ -5,6 +5,12 @@ export function CodePane(props: {
   loading: () => boolean;
   error: () => string | null;
   highlightedHtml: () => string;
+  filePath: () => string | null;
+  displayStartLine: () => number;
+  targetStartLine: () => number | null;
+  targetEndLine: () => number | null;
+  removedIndentByLine: () => number[] | null;
+  lineFilterEnabled: () => boolean;
 }) {
   return (
     <>
@@ -25,7 +31,21 @@ export function CodePane(props: {
       <Show
         when={!props.loading() && !props.error() && props.highlightedHtml()}
       >
-        <FlowOverlayCode html={() => props.highlightedHtml() || ""} />
+        <FlowOverlayCode
+          html={() => props.highlightedHtml() || ""}
+          filePath={props.filePath}
+          sliceStartLine={props.displayStartLine}
+          focusRange={() => {
+            const s = props.targetStartLine?.();
+            const e = props.targetEndLine?.();
+            if (typeof s === "number" && typeof e === "number") {
+              return { start: s, end: e };
+            }
+            return null;
+          }}
+          removedIndentByLine={props.removedIndentByLine}
+          lineFilterEnabled={props.lineFilterEnabled}
+        />
       </Show>
     </>
   );

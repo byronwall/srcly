@@ -8,10 +8,7 @@ import {
   markNonFocusLines,
   stripShikiPreNewlines,
 } from "../utils/shikiHtml";
-import {
-  applyFlowDecorations,
-  type OverlayToken,
-} from "../utils/flowDecorations";
+// (imports)
 
 export function useHighlightedCode(args: {
   rawCode: () => string;
@@ -28,6 +25,9 @@ export function useHighlightedCode(args: {
   );
   const [displayEndLine, setDisplayEndLine] = createSignal<number | null>(null);
   const [wasIndentationReduced, setWasIndentationReduced] = createSignal(false);
+  const [removedIndentByLine, setRemovedIndentByLine] = createSignal<
+    number[] | null
+  >(null);
 
   let lastProcessId = 0;
 
@@ -100,39 +100,12 @@ export function useHighlightedCode(args: {
         }
       }
 
-      // NEW: fetch and apply flow overlay decorations for the selection.
-      if (target) {
-        try {
-          const res = await fetch("/api/analysis/focus/overlay", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              path,
-              sliceStartLine: slice.start,
-              sliceEndLine: slice.end,
-              focusStartLine: target.start,
-              focusEndLine: target.end,
-            }),
-          });
-          if (res.ok) {
-            const data = (await res.json()) as { tokens: OverlayToken[] };
-            if (Array.isArray(data?.tokens) && data.tokens.length) {
-              html = applyFlowDecorations(html, data.tokens, {
-                sliceStartLine: slice.start,
-                removedIndentByLine,
-              });
-            }
-          }
-        } catch {
-          // Overlay failures should never block showing syntax-highlighted code.
-        }
-      }
-
       if (currentProcessId === lastProcessId) {
         setHighlightedHtml(html);
         setDisplayStartLine(slice.start);
         setDisplayEndLine(slice.end);
         setWasIndentationReduced(isReduced);
+        setRemovedIndentByLine(removedIndentByLine);
       }
     })();
   });
@@ -142,5 +115,6 @@ export function useHighlightedCode(args: {
     displayStartLine,
     displayEndLine,
     wasIndentationReduced,
+    removedIndentByLine,
   };
 }

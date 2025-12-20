@@ -1,5 +1,10 @@
 import { createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import { FlowTooltip } from "./FlowTooltip";
+import {
+  applyFlowDecorationsToEl,
+  type OverlayToken,
+} from "../utils/flowDecorations";
+import { type LineRange } from "../utils/lineRange";
 
 function cssEscape(value: string) {
   // CSS.escape is widely supported in modern browsers; provide a tiny fallback.
@@ -7,41 +12,53 @@ function cssEscape(value: string) {
   return typeof esc === "function" ? esc(value) : value.replace(/"/g, '\\"');
 }
 
-export function FlowOverlayCode(props: { html: () => string }) {
+export function FlowOverlayCode(props: {
+  html: () => string;
+  filePath?: () => string | null;
+  sliceStartLine?: () => number;
+  focusRange?: () => LineRange | null;
+  removedIndentByLine?: () => number[] | null;
+  lineFilterEnabled?: () => boolean;
+}) {
   let containerRef: HTMLDivElement | undefined;
 
   const [hoveredSym, setHoveredSym] = createSignal<string | null>(null);
   const [pinnedSym, setPinnedSym] = createSignal<string | null>(null);
   const [tooltipText, setTooltipText] = createSignal("");
   const [tooltipPos, setTooltipPos] = createSignal({ x: 0, y: 0 });
+  const [overlayTokens, setOverlayTokens] = createSignal<OverlayToken[]>([]);
 
   const clearHover = () => {
     setHoveredSym(null);
     if (!pinnedSym()) setTooltipText("");
     if (!containerRef) return;
-    containerRef.querySelectorAll(".flow-hovered").forEach((el) =>
-      el.classList.remove("flow-hovered")
-    );
+    containerRef
+      .querySelectorAll(".flow-hovered")
+      .forEach((el) => el.classList.remove("flow-hovered"));
   };
 
   const clearPin = () => {
     setPinnedSym(null);
     setTooltipText("");
     if (!containerRef) return;
-    containerRef.querySelectorAll(".flow-pinned").forEach((el) =>
-      el.classList.remove("flow-pinned")
-    );
+    containerRef
+      .querySelectorAll(".flow-pinned")
+      .forEach((el) => el.classList.remove("flow-pinned"));
   };
 
   const highlightAll = (symId: string, className: string) => {
     if (!containerRef) return;
     const sel = `[data-sym="${cssEscape(symId)}"]`;
-    containerRef.querySelectorAll(sel).forEach((el) => el.classList.add(className));
+    containerRef
+      .querySelectorAll(sel)
+      .forEach((el) => el.classList.add(className));
   };
 
   const removeAll = (className: string) => {
     if (!containerRef) return;
-    containerRef.querySelectorAll(`.${className}`).forEach((el) => el.classList.remove(className));
+    containerRef
+      .querySelectorAll(`.${className}`)
+      .forEach((el) => el.classList.remove(className));
   };
 
   const setTooltipFromEl = (el: HTMLElement, x: number, y: number) => {
@@ -78,11 +95,73 @@ export function FlowOverlayCode(props: { html: () => string }) {
     clearHover();
   });
 
+  createEffect(() => {
+    const path = props.filePath?.() ?? null;
+    const sliceStart = props.sliceStartLine?.() ?? 1;
+    const focus = props.focusRange?.() ?? null;
+    const filterEnabled = props.lineFilterEnabled?.() ?? true;
+
+    if (!path) {
+      setOverlayTokens([]);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    // Default to whole file if no focus range OR if filtering is disabled.
+    const fStart = filterEnabled && focus ? focus.start : 1;
+    const fEnd = filterEnabled && focus ? focus.end : 1000000;
+
+    // Clear tokens immediately to prevent stale overlays when switching contexts
+    setOverlayTokens([]);
+
+    (async () => {
+      try {
+        const res = await fetch("/api/analysis/focus/overlay", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            path,
+            sliceStartLine: sliceStart,
+            sliceEndLine: sliceStart + 10000, // Roughly cover the slice
+            focusStartLine: fStart,
+            focusEndLine: fEnd,
+          }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { tokens: OverlayToken[] };
+          setOverlayTokens(data?.tokens || []);
+        }
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          setOverlayTokens([]);
+        }
+      }
+    })();
+
+    onCleanup(() => controller.abort());
+  });
+
+  createEffect(() => {
+    const tokens = overlayTokens();
+    const _h = props.html(); // Depend on HTML too
+    void _h;
+    if (!containerRef || !tokens.length) return;
+
+    // Apply decorations to the DOM directly.
+    applyFlowDecorationsToEl(containerRef, tokens, {
+      sliceStartLine: props.sliceStartLine?.() ?? 1,
+      removedIndentByLine: props.removedIndentByLine?.() ?? null,
+    });
+  });
+
   const onPointerMove = (e: PointerEvent) => {
     if (!containerRef) return;
     if (pinnedSym()) {
       // Keep tooltip positioned near the cursor, but don't change selection.
-      if (tooltipText()) setTooltipPos({ x: e.clientX + 12, y: e.clientY + 12 });
+      if (tooltipText())
+        setTooltipPos({ x: e.clientX + 12, y: e.clientY + 12 });
       return;
     }
 
@@ -156,5 +235,3 @@ export function FlowOverlayCode(props: { html: () => string }) {
     </div>
   );
 }
-
-
