@@ -895,7 +895,7 @@ def compute_focus_overlay(
                                 check = n
                                 # Walk up from n to p. If we hit name_node, we are inside the definition side.
                                 while check is not None and check is not p:
-                                    if check is name_node:
+                                    if check == name_node:
                                         is_definition_part = True
                                         break
                                     check = check.parent

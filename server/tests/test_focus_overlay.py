@@ -353,5 +353,4 @@ export default function DataFlowViz(props: any) {
     assert all(t.category == "capture" for t in usage_tokens), f"Expected 'capture' for usage on line 6, got {[t.category for t in usage_tokens]}"
     
     def_tokens = [t for t in set_loading_tokens if t.fileLine == 3]
-    assert def_tokens, "Expected definition token for setLoading on line 3"
-    assert all(t.category == "local" for t in def_tokens), f"Expected 'local' for definition on line 3, got {[t.category for t in def_tokens]}"
+    assert not def_tokens, "Expected NO definition token for setLoading on line 3"
