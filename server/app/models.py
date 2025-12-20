@@ -94,6 +94,7 @@ class OverlayToken(BaseModel):
     definitionLine: int | None = None
     scopeSnippet: str | None = None
     scopeLine: int | None = None
+    scopeEndLine: int | None = None
 
 
 class FocusOverlayResponse(BaseModel):

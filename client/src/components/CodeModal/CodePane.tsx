@@ -24,6 +24,11 @@ export function CodePane(props: {
   removedIndentByLine: () => number[] | null;
   lineFilterEnabled: () => boolean;
   dataFlowEnabled: () => boolean;
+  onJumpToLine: (target: {
+    start?: number;
+    end?: number;
+    scrollTarget?: number;
+  }) => void;
 }) {
   const [tokens, setTokens] = createSignal<OverlayToken[]>([]);
 
@@ -72,6 +77,7 @@ export function CodePane(props: {
             lineFilterEnabled={props.lineFilterEnabled}
             dataFlowEnabled={props.dataFlowEnabled}
             onTokensChange={setTokens}
+            onJumpToLine={props.onJumpToLine}
           />
         </Show>
       </div>

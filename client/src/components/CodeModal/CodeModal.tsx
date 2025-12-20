@@ -112,6 +112,45 @@ export default function CodeModal(props: CodeModalProps) {
     });
   });
 
+  const handleJumpToLine = (target: {
+    start?: number;
+    end?: number;
+    scrollTarget?: number;
+  }) => {
+    if (typeof target.start === "number" && typeof target.end === "number") {
+      setTargetStartLine(target.start);
+      setTargetEndLine(target.end);
+      setLineFilterEnabled(true);
+    }
+
+    // Wait for the new code to be rendered, then scroll to the specific line.
+    if (target.scrollTarget) {
+      setTimeout(() => {
+        const container = contentScrollRef;
+        if (!container) return;
+
+        // Find the line element or a marker for that line.
+        // In Shiki, we can look for line content or use line index if we know the display range.
+        const displaySlice = effectiveDisplayRange();
+        if (!displaySlice) return;
+
+        const lineIndex = target.scrollTarget - displaySlice.start + 1;
+        const lineEls = container.querySelectorAll(".line");
+        const targetEl = lineEls[lineIndex - 1] as HTMLElement | null;
+
+        if (targetEl) {
+          targetEl.scrollIntoView({ block: "center", behavior: "smooth" });
+          // Highlight it briefly
+          targetEl.style.transition = "background-color 500ms";
+          targetEl.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+          setTimeout(() => {
+            targetEl.style.backgroundColor = "";
+          }, 2000);
+        }
+      }, 100);
+    }
+  };
+
   const baseName = () => {
     if (!props.filePath) return "";
     const parts = props.filePath.split(/[\\/]/);
@@ -236,6 +275,7 @@ export default function CodeModal(props: CodeModalProps) {
                     removedIndentByLine={removedIndentByLine}
                     lineFilterEnabled={lineFilterEnabled}
                     dataFlowEnabled={dataFlowEnabled}
+                    onJumpToLine={handleJumpToLine}
                   />
                 }
               >

@@ -1055,11 +1055,13 @@ def compute_focus_overlay(
 
         scope_snippet: str | None = None
         scope_line: int | None = None
+        scope_end_line: int | None = None
 
         if category == "capture" and d:
             def_scope = scopes.get(d.scope_id)
             if def_scope:
                 scope_line = def_scope.def_line
+                scope_end_line = def_scope.end_line
                 if 0 <= scope_line - 1 < len(source_lines):
                     scope_snippet = source_lines[scope_line - 1].strip()
 
@@ -1075,6 +1077,7 @@ def compute_focus_overlay(
                 definitionLine=definition_line,
                 scopeSnippet=scope_snippet,
                 scopeLine=scope_line,
+                scopeEndLine=scope_end_line,
             )
         )
 

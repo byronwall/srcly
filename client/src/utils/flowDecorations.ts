@@ -9,6 +9,7 @@ export type OverlayToken = {
   definitionLine?: number | null;
   scopeSnippet?: string | null;
   scopeLine?: number | null;
+  scopeEndLine?: number | null;
 };
 
 // Keep wrapTextRangeInLine exported so it can be used by other functions in this file or elsewhere if needed.
@@ -24,6 +25,7 @@ export function wrapTextRangeInLine(
     definitionLine?: number | null;
     scopeSnippet?: string | null;
     scopeLine?: number | null;
+    scopeEndLine?: number | null;
   }
 ) {
   if (endCol <= startCol) return;
@@ -91,6 +93,9 @@ export function wrapTextRangeInLine(
     if (attrs.scopeLine) {
       wrapper.dataset.scopeLine = String(attrs.scopeLine);
     }
+    if (attrs.scopeEndLine) {
+      wrapper.dataset.scopeEndLine = String(attrs.scopeEndLine);
+    }
 
     parent.insertBefore(wrapper, afterRef);
     wrapper.appendChild(middle);
@@ -156,6 +161,7 @@ export function applyFlowDecorations(
         definitionLine: t.definitionLine,
         scopeSnippet: t.scopeSnippet,
         scopeLine: t.scopeLine,
+        scopeEndLine: t.scopeEndLine,
       });
     }
   }
@@ -207,6 +213,7 @@ export function applyFlowDecorationsToEl(
         definitionLine: t.definitionLine,
         scopeSnippet: t.scopeSnippet,
         scopeLine: t.scopeLine,
+        scopeEndLine: t.scopeEndLine,
       });
     }
   }

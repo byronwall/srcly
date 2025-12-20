@@ -21,6 +21,11 @@ export function FlowOverlayCode(props: {
   lineFilterEnabled?: () => boolean;
   dataFlowEnabled?: () => boolean;
   onTokensChange?: (tokens: OverlayToken[]) => void;
+  onJumpToLine?: (target: {
+    start?: number;
+    end?: number;
+    scrollTarget?: number;
+  }) => void;
 }) {
   let containerRef: HTMLDivElement | undefined;
 
@@ -85,8 +90,14 @@ export function FlowOverlayCode(props: {
     return target.closest(".flow") as HTMLElement | null;
   };
 
+  const [isCmdPressed, setIsCmdPressed] = createSignal(false);
+
   onMount(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Meta" || e.key === "Control") {
+        setIsCmdPressed(true);
+      }
+
       if (e.key !== "Escape") return;
       if (pinnedSym()) {
         e.preventDefault();
@@ -96,9 +107,23 @@ export function FlowOverlayCode(props: {
       }
     };
 
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "Meta" || e.key === "Control") {
+        setIsCmdPressed(false);
+        removeAll("flow-jump-link");
+      }
+    };
+
     // Capture phase so we can intercept ESC before CodeModal closes.
     window.addEventListener("keydown", onKeyDown, true);
-    onCleanup(() => window.removeEventListener("keydown", onKeyDown, true));
+    window.addEventListener("keyup", onKeyUp, true);
+    window.addEventListener("blur", () => setIsCmdPressed(false), true);
+
+    onCleanup(() => {
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("keyup", onKeyUp, true);
+      window.removeEventListener("blur", () => setIsCmdPressed(false), true);
+    });
   });
 
   createEffect(() => {
@@ -184,6 +209,27 @@ export function FlowOverlayCode(props: {
 
   const onPointerMove = (e: PointerEvent) => {
     if (!containerRef || !(props.dataFlowEnabled?.() ?? true)) return;
+
+    const el = getFlowEl(e.target);
+
+    // Update jump link highlighting
+    if (isCmdPressed()) {
+      removeAll("flow-jump-link");
+      if (el) {
+        const sym = el.dataset.sym;
+        const cat = el.dataset.cat;
+        if (
+          sym &&
+          cat &&
+          !cat.startsWith("import") &&
+          cat !== "builtin" &&
+          cat !== "unresolved"
+        ) {
+          highlightAll(sym, "flow-jump-link");
+        }
+      }
+    }
+
     if (pinnedSym()) {
       // Keep tooltip positioned near the cursor, but don't change selection.
       if (tooltipData())
@@ -191,7 +237,6 @@ export function FlowOverlayCode(props: {
       return;
     }
 
-    const el = getFlowEl(e.target);
     if (!el) {
       clearHover();
       return;
@@ -214,6 +259,7 @@ export function FlowOverlayCode(props: {
 
   const onPointerLeave = () => {
     if (!pinnedSym()) clearHover();
+    removeAll("flow-jump-link");
   };
 
   const onClick = (e: MouseEvent) => {
@@ -222,6 +268,36 @@ export function FlowOverlayCode(props: {
     if (!el) return;
     const sym = el.dataset.sym || null;
     if (!sym) return;
+
+    if (isCmdPressed()) {
+      const defLine = el.dataset.defLine ? parseInt(el.dataset.defLine) : null;
+      const cat = el.dataset.cat;
+
+      if (defLine && cat && !cat.startsWith("import")) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const scopeLine = el.dataset.scopeLine
+          ? parseInt(el.dataset.scopeLine)
+          : null;
+        const scopeEndLine = el.dataset.scopeEndLine
+          ? parseInt(el.dataset.scopeEndLine)
+          : null;
+
+        if (cat === "capture" && scopeLine && scopeEndLine) {
+          props.onJumpToLine?.({
+            start: scopeLine,
+            end: scopeEndLine,
+            scrollTarget: defLine,
+          });
+        } else {
+          props.onJumpToLine?.({
+            scrollTarget: defLine,
+          });
+        }
+        return;
+      }
+    }
 
     e.stopPropagation();
 
