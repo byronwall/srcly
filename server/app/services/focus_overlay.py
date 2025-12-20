@@ -744,6 +744,16 @@ def compute_focus_overlay(
                     scope_type=next_scope.type,
                 )
         
+        elif n.type == "identifier" and n.parent and n.parent.type == "arrow_function":
+            # In arrow functions like `tile => { ... }`, the parameter `tile`
+            # is a direct identifier child of the arrow_function node.
+            _add_def(
+                name_node=n,
+                kind="param",
+                scope=next_scope,
+                scope_type=next_scope.type,
+            )
+        
         elif n.type == "catch_clause":
              # catch (err) ...
              param = n.child_by_field_name("parameter")
