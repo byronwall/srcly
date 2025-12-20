@@ -20,6 +20,7 @@ export function FlowOverlayCode(props: {
   removedIndentByLine?: () => number[] | null;
   lineFilterEnabled?: () => boolean;
   dataFlowEnabled?: () => boolean;
+  onTokensChange?: (tokens: OverlayToken[]) => void;
 }) {
   let containerRef: HTMLDivElement | undefined;
 
@@ -155,6 +156,10 @@ export function FlowOverlayCode(props: {
     })();
 
     onCleanup(() => controller.abort());
+  });
+
+  createEffect(() => {
+    props.onTokensChange?.(overlayTokens());
   });
 
   createEffect(() => {
