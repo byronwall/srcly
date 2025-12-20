@@ -277,7 +277,7 @@ wheels = [
 
 [[package]]
 name = "srcly"
-version = "0.1.24"
+version = "0.1.26"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
