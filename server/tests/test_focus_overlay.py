@@ -311,7 +311,7 @@ def test_focus_overlay_new_builtins(tmp_path):
     f.write_text(code, encoding="utf-8")
     overlay = compute_focus_overlay(file_path=str(f), slice_start_line=1, slice_end_line=100, focus_start_line=1, focus_end_line=100)
 
-    for name in ["navigator", "Intl", "AggregateError", "undefined", "NaN"]:
+    for name in ["navigator", "Intl", "AggregateError", "NaN"]:
         toks = [t for t in overlay.tokens if _token_text(code, t) == name]
         assert toks, f"Missing token for {name}"
         assert toks[0].category == "builtin", f"{name} was unexpectedly resolved to {toks[0].category}"

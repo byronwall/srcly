@@ -837,7 +837,7 @@ def compute_focus_overlay(
             next_scope = scope_boundary_map[n.id]
 
         # Usages: resolve identifiers
-        if n.type in {"identifier", "jsx_identifier", "undefined", "null", "true", "false"}:
+        if n.type in {"identifier", "jsx_identifier"}:
             parent = n.parent
             if parent is not None:
                 # Skip identifier occurrences that are themselves definitions.
