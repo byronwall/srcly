@@ -209,3 +209,109 @@ def test_focus_overlay_unsupported_file_types_noop(tmp_path):
 
     assert overlay.tokens == []
 
+
+def test_focus_overlay_missing_globals(tmp_path):
+    code = """
+    function f() {
+        Object.keys({});
+        requestAnimationFrame(() => {});
+        cancelAnimationFrame(0);
+        localStorage.getItem("x");
+        confirm("ok?");
+        const filter = NodeFilter.SHOW_ELEMENT;
+    }
+    """
+    f = tmp_path / "globals.ts"
+    f.write_text(code, encoding="utf-8")
+    overlay = compute_focus_overlay(file_path=str(f), slice_start_line=1, slice_end_line=100, focus_start_line=1, focus_end_line=100)
+
+    def get_tokens(name):
+        return [t for t in overlay.tokens if _token_text(code, t) == name]
+
+    for name in ["Object", "requestAnimationFrame", "cancelAnimationFrame", "localStorage", "confirm", "NodeFilter"]:
+        toks = get_tokens(name)
+        assert toks, f"Missing token for {name}"
+        assert toks[0].category == "builtin", f"{name} was unexpectedly resolved to {toks[0].category}"
+
+
+def test_focus_overlay_jsx_div(tmp_path):
+    code = """
+    function Comp() {
+        return <div className="foo">text</div>;
+    }
+    """
+    f = tmp_path / "comp.tsx"
+    f.write_text(code, encoding="utf-8")
+    overlay = compute_focus_overlay(file_path=str(f), slice_start_line=1, slice_end_line=100, focus_start_line=1, focus_end_line=100)
+
+    div_tokens = [t for t in overlay.tokens if _token_text(code, t) == "div"]
+    # We expect 'div' tokens in JSX to be skipped or treated as something other than unresolved.
+    # Current implementation skips them.
+    assert not div_tokens, f"Expected no tokens for JSX 'div', but found: {div_tokens}"
+
+
+def test_focus_overlay_hoisting(tmp_path):
+    code = """
+    function main() {
+        hoisted();
+    }
+    function hoisted() { return 1; }
+    """
+    f = tmp_path / "hoist.ts"
+    f.write_text(code, encoding="utf-8")
+    overlay = compute_focus_overlay(file_path=str(f), slice_start_line=1, slice_end_line=100, focus_start_line=1, focus_end_line=100)
+
+    toks = [t for t in overlay.tokens if _token_text(code, t) == "hoisted"]
+    assert toks, "Missing tokens for hoisted"
+    assert toks[0].category in ("module", "local"), f"Category was {toks[0].category}"
+
+
+def test_focus_overlay_catch_param(tmp_path):
+    code = """
+    try {
+    } catch (err) {
+        console.log(err);
+    }
+    """
+    f = tmp_path / "catch.ts"
+    f.write_text(code, encoding="utf-8")
+    overlay = compute_focus_overlay(file_path=str(f), slice_start_line=1, slice_end_line=100, focus_start_line=1, focus_end_line=100)
+
+    toks = [t for t in overlay.tokens if _token_text(code, t) == "err"]
+    assert toks, "Missing err tokens"
+    # The usage inside console.log(err) should be resolved to the 'param' in catch.
+    assert all(t.category == "param" for t in toks)
+
+
+def test_focus_overlay_destructuring_binding_noise(tmp_path):
+    # Tests that destructuring bindings themselves don't produce usage tokens.
+    code = """
+    const { x } = { x: 1 };
+    """
+    f = tmp_path / "dest.ts"
+    f.write_text(code, encoding="utf-8")
+    overlay = compute_focus_overlay(file_path=str(f), slice_start_line=1, slice_end_line=100, focus_start_line=1, focus_end_line=100)
+
+    x_tokens = [t for t in overlay.tokens if _token_text(code, t) == "x"]
+    # The 'x' in `{ x }` is a binding, and the 'x' in `{ x: 1 }` is a property identifier.
+    # Neither should be surfaced as a usage token in this context.
+    assert not x_tokens, f"Found unexpected usage tokens for 'x': {x_tokens}"
+
+
+def test_focus_overlay_new_builtins(tmp_path):
+    code = """
+    function test() {
+        const nav = navigator.userAgent;
+        const fmt = new Intl.NumberFormat();
+        const err = new AggregateError([]);
+        if (nav === undefined) return NaN;
+    }
+    """
+    f = tmp_path / "new_builtins.ts"
+    f.write_text(code, encoding="utf-8")
+    overlay = compute_focus_overlay(file_path=str(f), slice_start_line=1, slice_end_line=100, focus_start_line=1, focus_end_line=100)
+
+    for name in ["navigator", "Intl", "AggregateError", "undefined", "NaN"]:
+        toks = [t for t in overlay.tokens if _token_text(code, t) == name]
+        assert toks, f"Missing token for {name}"
+        assert toks[0].category == "builtin", f"{name} was unexpectedly resolved to {toks[0].category}"
