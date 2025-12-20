@@ -71,6 +71,7 @@ class _Usage:
     start_col: int  # 0-based
     end_col: int  # exclusive
     resolved: _Def | None
+    containing_fn_scope_id: str  # Added to track where this usage occurs
 
 
 _BUILTINS: set[str] = {
@@ -941,6 +942,12 @@ def compute_focus_overlay(
                             if resolved is None and name not in _BUILTINS:
                                 unresolved_counts[name] = unresolved_counts.get(name, 0) + 1
                                 
+                            # Find the immediate containing function scope for this usage.
+                            # This is crucial for per-token "capture" vs "local" classification.
+                            usage_fn_scope = next_scope
+                            while usage_fn_scope and usage_fn_scope.type != "function" and usage_fn_scope.parent_id:
+                                usage_fn_scope = scopes[usage_fn_scope.parent_id]
+                            
                             usages.append(
                                 _Usage(
                                     name=name,
@@ -948,6 +955,7 @@ def compute_focus_overlay(
                                     start_col=n.start_point.column,
                                     end_col=n.end_point.column,
                                     resolved=resolved,
+                                    containing_fn_scope_id=usage_fn_scope.id if usage_fn_scope else global_scope.id,
                                 )
                             )
 
@@ -960,42 +968,6 @@ def compute_focus_overlay(
         # Log top unresolved identifiers to help identify missing builtins/globals
         sorted_unresolved = sorted(unresolved_counts.items(), key=lambda x: x[1], reverse=True)
         logger.info(f"Focus overlay unresolved symbols for {path.name}: {sorted_unresolved[:20]}")
-
-    # --- Find focus function scope (preferred boundary for param/local/capture semantics) ---
-    def smallest_containing_function_scope() -> _Scope:
-        selection_len = max(1, focus_end_line - focus_start_line + 1)
-        candidates: List[_Scope] = []
-        for s in scopes.values():
-            if s.type != "function":
-                continue
-            
-            # Coverage heuristic: pick functions that overlap with at least 50% of the selection.
-            # This handles "loose" selections that might include trailing newlines or braces
-            # outside the strict function node range.
-            overlap = max(0, min(s.end_line, focus_end_line) - max(s.start_line, focus_start_line) + 1)
-            if (overlap / selection_len) >= 0.5:
-                candidates.append(s)
-        
-        if candidates:
-             # Return the smallest such scope.
-             return min(candidates, key=lambda s: (s.end_line - s.start_line, s.start_line))
-
-        # Fallback: if no function matches the 50% heuristic, try to find the smallest
-        # function that strictly contains the START of the focus range.
-        fallback_candidates: List[_Scope] = []
-        for s in scopes.values():
-            if s.type != "function":
-                continue
-            if s.start_line <= focus_start_line <= s.end_line:
-                fallback_candidates.append(s)
-        
-        if fallback_candidates:
-             return min(fallback_candidates, key=lambda s: (s.end_line - s.start_line, s.start_line))
-
-        return global_scope
-
-    focus_fn_scope = smallest_containing_function_scope()
-    focus_fn_chain = set(_ancestor_chain(focus_fn_scope.id))  # includes global
 
     # --- Build tokens ---
     tokens: List[OverlayToken] = []
@@ -1051,7 +1023,6 @@ def compute_focus_overlay(
                 else:
                     def_scope = scopes.get(d.scope_id)
                     if def_scope is None:
-                        # Should not happen if d.scope_id is valid
                         category = "local"
                         tooltip = f"Declaration (line {d.def_line})"
                     else:
@@ -1059,11 +1030,16 @@ def compute_focus_overlay(
                             category = "module"
                             tooltip = f"Module scope (line {d.def_line})"
                         else:
+                            # Classify relative to the token's immediate containing function scope
+                            usage_fn_scope_id = u.containing_fn_scope_id
+                            usage_fn_chain = set(_ancestor_chain(usage_fn_scope_id))
+                            
                             def_chain = set(_ancestor_chain(def_scope.id))
-                            if focus_fn_scope.id in def_chain:
+                            
+                            if usage_fn_scope_id in def_chain:
                                 category = "local"
                                 tooltip = f"Local declaration (line {d.def_line})"
-                            elif def_scope.id in focus_fn_chain and def_scope.id != global_scope.id:
+                            elif def_scope.id in usage_fn_chain and def_scope.id != global_scope.id:
                                 category = "capture"
                                 tooltip = f"Captured from outer scope (line {d.def_line})"
                             else:

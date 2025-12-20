@@ -315,3 +315,43 @@ def test_focus_overlay_new_builtins(tmp_path):
         toks = [t for t in overlay.tokens if _token_text(code, t) == name]
         assert toks, f"Missing token for {name}"
         assert toks[0].category == "builtin", f"{name} was unexpectedly resolved to {toks[0].category}"
+
+
+def test_focus_overlay_nested_capture_with_large_focus(tmp_path):
+    # Regression test for per-token scope resolution.
+    # Previously, a large focus range would cause the heuristic to pick the outermost 
+    # function scope, making captured variables in nested functions appear as "local".
+    code = """
+export default function DataFlowViz(props: any) {
+  const [loading, setLoading] = createSignal(true);
+  
+  async function fetchData(path: string) {
+    setLoading(true);
+  }
+}
+"""
+    f = tmp_path / "large_focus.tsx"
+    f.write_text(code, encoding="utf-8")
+
+    # Focus spans the entire component.
+    overlay = compute_focus_overlay(
+        file_path=str(f),
+        slice_start_line=1,
+        slice_end_line=200,
+        focus_start_line=1,
+        focus_end_line=200,
+    )
+
+    # 'setLoading' appears twice in the focused range:
+    # 1. The definition on line 3 (category: local)
+    # 2. The usage on line 6 (category: capture)
+    set_loading_tokens = [t for t in overlay.tokens if _token_text(code, t) == "setLoading"]
+    assert set_loading_tokens, "Expected token for setLoading"
+    
+    usage_tokens = [t for t in set_loading_tokens if t.fileLine == 6]
+    assert usage_tokens, "Expected usage token for setLoading on line 6"
+    assert all(t.category == "capture" for t in usage_tokens), f"Expected 'capture' for usage on line 6, got {[t.category for t in usage_tokens]}"
+    
+    def_tokens = [t for t in set_loading_tokens if t.fileLine == 3]
+    assert def_tokens, "Expected definition token for setLoading on line 3"
+    assert all(t.category == "local" for t in def_tokens), f"Expected 'local' for definition on line 3, got {[t.category for t in def_tokens]}"
