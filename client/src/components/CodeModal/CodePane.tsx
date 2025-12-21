@@ -14,7 +14,7 @@ const LEGEND_ITEMS = [
   { category: "unresolved", label: "Unresolved" },
 ];
 
-export function CodePane(props: {
+export type CodePaneProps = {
   loading: () => boolean;
   error: () => string | null;
   highlightedHtml: () => string;
@@ -33,7 +33,9 @@ export function CodePane(props: {
     end?: number;
     scrollTarget?: number;
   }) => void;
-}) {
+};
+
+export function CodePane(props: CodePaneProps) {
   const [tokens, setTokens] = createSignal<OverlayToken[]>([]);
   const [currentTopLine, setCurrentTopLine] = createSignal(1);
   let scrollRef: HTMLDivElement | undefined;

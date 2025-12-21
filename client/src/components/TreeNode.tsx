@@ -98,7 +98,7 @@ export function TreeNode(props: { node: Node; depth: number }) {
         ? props.node.end_line
         : undefined;
 
-    ctx.onSelect(filePath, startLine, endLine);
+    ctx.onSelect(filePath, startLine, endLine, props.node);
   };
 
   const getIcon = () => {

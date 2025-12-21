@@ -30,7 +30,12 @@ interface TreemapProps {
   data: any;
   currentRoot?: any;
   onZoom?: (node: any) => void;
-  onFileSelect?: (path: string, startLine?: number, endLine?: number) => void;
+  onFileSelect?: (
+    path: string,
+    startLine?: number,
+    endLine?: number,
+    node?: any
+  ) => void;
   /**
    * Minimum on-screen size (in px) for a treemap node to be rendered into the DOM.
    * Nodes smaller than this in either dimension are skipped, but will appear once
@@ -268,7 +273,7 @@ export default function Treemap(props: TreemapProps) {
     if (filePath) {
       const startLine = d.data?.start_line as number | undefined;
       const endLine = d.data?.end_line as number | undefined;
-      props.onFileSelect(filePath, startLine, endLine);
+      props.onFileSelect(filePath, startLine, endLine, d.data);
     }
   }
 

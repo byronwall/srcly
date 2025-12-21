@@ -104,6 +104,7 @@ function AppContent() {
   const [selectedFilePath, setSelectedFilePath] = createSignal<string | null>(
     null
   );
+  const [explicitScopeNode, setExplicitScopeNode] = createSignal<any>(null);
   const [selectedLineRange, setSelectedLineRange] = createSignal<{
     start: number;
     end: number;
@@ -183,7 +184,8 @@ function AppContent() {
   const handleFileFromTreemap = (
     path: string,
     startLine?: number,
-    endLine?: number
+    endLine?: number,
+    node?: any
   ) => {
     setSelectedFilePath(path);
     if (
@@ -196,6 +198,15 @@ function AppContent() {
     } else {
       setSelectedLineRange(null);
     }
+    setExplicitScopeNode(node || null);
+    // eslint-disable-next-line no-console
+    console.log("[App] handleFileFromTreemap", {
+      path,
+      startLine,
+      endLine,
+      node,
+      explicit: node || null,
+    });
     setIsCodeModalOpen(true);
   };
 
@@ -223,11 +234,37 @@ function AppContent() {
   });
 
   const selectedNodes = createMemo(() => {
-    return findNodes(
+    if (explicitScopeNode()) {
+      // If we have an explicit node, try to find the file node if possible, or just use what we have.
+      // Usually explicitScopeNode IS the scope node.
+      // We still need the file node for the modal to work well (breadcrumb root).
+      // We can try to find the file node via path.
+      const { fileNode } = findNodes(
+        visualizationData(),
+        selectedFilePath(),
+        null // We don't need line range for file lookup if we trust the path
+      );
+      // eslint-disable-next-line no-console
+      console.log("[App] selectedNodes explicit", {
+        fileNode: fileNode?.name,
+        scopeNode: explicitScopeNode()?.name,
+      });
+      return { fileNode, scopeNode: explicitScopeNode() };
+    }
+
+    const res = findNodes(
       visualizationData(),
       selectedFilePath(),
       selectedLineRange()
     );
+    // eslint-disable-next-line no-console
+    console.log("[App] selectedNodes filtered", {
+      path: selectedFilePath(),
+      range: selectedLineRange(),
+      foundFile: res.fileNode?.name,
+      foundScope: res.scopeNode?.name,
+    });
+    return res;
   });
 
   return (

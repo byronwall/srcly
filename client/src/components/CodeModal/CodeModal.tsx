@@ -64,11 +64,28 @@ export default function CodeModal(props: CodeModalProps) {
     reduceIndentation,
   });
 
+  // Sync internal selection state from external props (treemap/graph selection).
+  // Important: do this in an effect so we don't reset selection on every render.
   createEffect(() => {
-    setTargetStartLine(props.startLine ?? null);
-    setTargetEndLine(props.endLine ?? null);
-    // Clear stale selection when external selection changes / file changes.
-    setSelectedScopeNode(null);
+    // Touch dependencies
+    const fp = props.filePath;
+    const s = props.startLine ?? null;
+    const e = props.endLine ?? null;
+    const scope = props.scopeNode ?? null;
+    const file = props.fileNode ?? null;
+
+    setTargetStartLine(s);
+    setTargetEndLine(e);
+    setSelectedScopeNode(scope);
+
+    // eslint-disable-next-line no-console
+    console.log("[CodeModal] props sync", {
+      filePath: fp,
+      startLine: s,
+      endLine: e,
+      scopeNode: scope ? { name: scope?.name, type: scope?.type } : null,
+      fileNode: file ? { name: file?.name, type: file?.type } : null,
+    });
   });
 
   createEffect(() => {
@@ -267,7 +284,9 @@ export default function CodeModal(props: CodeModalProps) {
     console.log("[breadcrumb] modal state", {
       isOpen: props.isOpen,
       filePath: props.filePath ?? null,
-      fileNode: props.fileNode ? { name: props.fileNode?.name, type: props.fileNode?.type } : null,
+      fileNode: props.fileNode
+        ? { name: props.fileNode?.name, type: props.fileNode?.type }
+        : null,
       scopeNode: props.scopeNode
         ? { name: props.scopeNode?.name, type: props.scopeNode?.type }
         : null,

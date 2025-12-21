@@ -77,7 +77,12 @@ type SortDirection = "asc" | "desc";
 interface ExplorerContextType {
   sortField: () => SortField;
   sortDirection: () => SortDirection;
-  onSelect: (path: string, startLine?: number, endLine?: number) => void;
+  onSelect: (
+    path: string,
+    startLine?: number,
+    endLine?: number,
+    node?: any
+  ) => void;
   onZoom: (node: any) => void;
   filter: string;
   visibleColumns: () => string[];
@@ -169,7 +174,12 @@ export const SORT_FIELD_ACCESSORS: Record<
 export default function Explorer(props: {
   data: any;
   fullData?: any;
-  onFileSelect: (path: string, startLine?: number, endLine?: number) => void;
+  onFileSelect: (
+    path: string,
+    startLine?: number,
+    endLine?: number,
+    node?: any
+  ) => void;
   onZoom: (node: any) => void;
   filter: string;
   onFilterChange: (val: string) => void;
