@@ -1,4 +1,11 @@
-import { Show, For, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import {
+  Show,
+  For,
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+} from "solid-js";
 import { FlowOverlayCode } from "../FlowOverlayCode";
 import { type OverlayToken } from "../../utils/flowDecorations";
 import { StickyBreadcrumb } from "./StickyBreadcrumb";
@@ -120,7 +127,10 @@ export function CodePane(props: CodePaneProps) {
       filePath: props.filePath?.() ?? null,
       displayStartLine: props.displayStartLine(),
       currentTopLine: currentTopLine(),
-      target: { start: props.targetStartLine?.() ?? null, end: props.targetEndLine?.() ?? null },
+      target: {
+        start: props.targetStartLine?.() ?? null,
+        end: props.targetEndLine?.() ?? null,
+      },
       hasFileNode: !!props.fileNode?.(),
     });
   });
@@ -128,7 +138,7 @@ export function CodePane(props: CodePaneProps) {
   return (
     <div class="flex h-full min-h-0">
       <div class="flex-1 min-w-0 overflow-auto" ref={(el) => (scrollRef = el)}>
-        <div ref={(el) => (breadcrumbRef = el)}>
+        <div class="sticky top-0 z-20" ref={(el) => (breadcrumbRef = el)}>
           <StickyBreadcrumb
             root={props.fileNode}
             selectedNode={props.selectedScopeNode}
@@ -137,7 +147,8 @@ export function CodePane(props: CodePaneProps) {
             selection={() => {
               const s = props.targetStartLine?.();
               const e = props.targetEndLine?.();
-              if (typeof s === "number" && typeof e === "number") return { start: s, end: e };
+              if (typeof s === "number" && typeof e === "number")
+                return { start: s, end: e };
               return null;
             }}
             onSelectScope={props.onSelectScope}
