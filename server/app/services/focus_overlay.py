@@ -1034,9 +1034,16 @@ def compute_focus_overlay(
                             usage_fn_scope_id = u.containing_fn_scope_id
                             usage_fn_chain = set(_ancestor_chain(usage_fn_scope_id))
                             
+                            
                             def_chain = set(_ancestor_chain(def_scope.id))
                             
-                            if usage_fn_scope_id in def_chain:
+                            # START FIX: If the definition is within the current focus range, treat as local.
+                            definition_in_focus = (focus_start_line <= d.def_line <= focus_end_line)
+                            
+                            if definition_in_focus:
+                                category = "local"
+                                tooltip = f"Local declaration (line {d.def_line})"
+                            elif usage_fn_scope_id in def_chain:
                                 category = "local"
                                 tooltip = f"Local declaration (line {d.def_line})"
                             elif def_scope.id in usage_fn_chain and def_scope.id != global_scope.id:
