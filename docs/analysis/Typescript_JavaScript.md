@@ -64,3 +64,29 @@ The analyzer extracts import and export statements to understand module coupling
 
 - **Imports**: Resolves source paths and imported symbols (named or default). Ignores `import type` to focus on runtime dependencies.
 - **Exports**: Identifies named exports (`export const x = ...`) and default exports.
+
+## Optimization & Extensibility
+
+### Single-Pass Analysis
+
+The analysis engine uses a **single-pass visitor pattern** to maximize performance. Instead of traversing the AST multiple times for different metrics (which becomes exponentially slower with large files), the `_scan_tree` method visits each node exactly once.
+
+During this single traversal, it:
+
+1. Updates file-level metrics (e.g., classes, exports, imports).
+2. Maintains a stack of `active_scopes` to attribute code to the correct function/container.
+3. Calculates complexity, nesting, and TSX-specific metrics for the current scope.
+4. Detects new scopes (functions, interfaces, etc.) and pushes them onto the stack.
+
+### How to Add a New Metric
+
+To add a new metric, you must integrate it into the single-pass traversal. Do **not** create a new recursive method.
+
+1. **Define the Metric**: Add the field to `FunctionMetrics` or `FileMetrics` in `app/services/analysis_types.py`.
+2. **Initialize**:
+    - For file-level metrics: Initialize the counter in `TreeSitterAnalyzer.analyze_file` (e.g. `self._file_new_metric = 0`).
+    - For scope-level metrics: Initialize in `_create_scope_metrics`.
+3. **Implement Logic in `_scan_tree`**:
+    - Locate the `node_type` check relevant to your metric.
+    - Update the file-level counter or `active_scopes[-1]['metrics'].new_metric`.
+4. **Expose**: Update the return value in `analyze_file` to include your new file-level metric.
