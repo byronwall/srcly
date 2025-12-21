@@ -1,6 +1,6 @@
 import tree_sitter_python as tspython
 from tree_sitter import Language, Parser, Node
-from typing import List, Tuple
+from typing import List
 
 from app.services.analysis_types import FileMetrics, FunctionMetrics
 
@@ -11,7 +11,7 @@ class PythonTreeSitterAnalyzer:
     def __init__(self):
         self.parser = Parser(PYTHON_LANGUAGE)
 
-    def analyze_file(self, file_path: str) -> FileMetrics: # dictionary or FileMetrics? based on other analyzers it returns FileMetrics
+    def analyze_file(self, file_path: str) -> FileMetrics:
         with open(file_path, 'rb') as f:
             content = f.read()
 
@@ -20,43 +20,50 @@ class PythonTreeSitterAnalyzer:
         lines = content.splitlines()
         nloc = len([l for l in lines if l.strip()])
 
-        # Extract functions, classes, and other scopes
-        functions = self._extract_scopes(tree.root_node)
+        # Initialize file-level counters
+        self._file_comment_lines = 0
+        self._file_todo_count = 0
+        self._file_classes_count = 0
+        self._file_python_import_count = 0
+        self._file_max_nesting_depth = 0
+
+        # Run single-pass traversal
+        top_level_functions = []
+        self._scan_tree(tree.root_node, top_level_functions, [], 0)
+        
+        # Calculate imports separately (logic is distinct and fast enough to keep separate/clean)
         import_scope = self._compute_import_scope(tree.root_node, content)
         if import_scope is not None:
-            functions.insert(0, import_scope)
+             top_level_functions.insert(0, import_scope)
 
+        # Average complexity (top-level only, matching original behavior)
         avg_complexity = 0.0
-        if functions:
-            avg_complexity = sum(f.cyclomatic_complexity for f in functions) / len(functions)
+        if top_level_functions:
+            avg_complexity = sum(f.cyclomatic_complexity for f in top_level_functions) / len(top_level_functions)
+            
+        # File level comment density
+        comment_density = self._file_comment_lines / nloc if nloc > 0 else 0.0
 
-        # Calculate file-level metrics
-        comment_lines, todo_count = self._count_comments_and_todos(tree.root_node)
-        comment_density = comment_lines / nloc if nloc > 0 else 0.0
-        
-        max_nesting_depth = self._calculate_max_nesting_depth(tree.root_node)
-        classes_count = self._count_classes(tree.root_node)
-        
-        # New metrics specific to Python or general
-        # Replicating TS metrics where applicable
-        
-        # Aggregate function metrics
-        total_function_length = sum(f.nloc for f in functions)
-        average_function_length = total_function_length / len(functions) if functions else 0.0
-        parameter_count = sum(f.parameter_count for f in functions)
+        # Aggregate function metrics for file summary
+        # Note: Previous implementation calculated avg function length based on top-level functions?
+        # "total_function_length = sum(f.nloc for f in functions)"
+        # Yes, purely top-level iteration.
+        total_function_length = sum(f.nloc for f in top_level_functions)
+        average_function_length = total_function_length / len(top_level_functions) if top_level_functions else 0.0
+        parameter_count = sum(f.parameter_count for f in top_level_functions)
 
         return FileMetrics(
             nloc=nloc,
             average_cyclomatic_complexity=avg_complexity,
-            function_list=functions,
+            function_list=top_level_functions,
             filename=file_path,
-            comment_lines=comment_lines,
+            comment_lines=self._file_comment_lines,
             comment_density=comment_density,
-            max_nesting_depth=max_nesting_depth,
+            max_nesting_depth=self._file_max_nesting_depth,
             average_function_length=average_function_length,
             parameter_count=parameter_count,
-            todo_count=todo_count,
-            classes_count=classes_count,
+            todo_count=self._file_todo_count,
+            classes_count=self._file_classes_count,
             # Initialize other fields to valid defaults
             tsx_nesting_depth=0,
             tsx_render_branching_count=0,
@@ -66,7 +73,7 @@ class PythonTreeSitterAnalyzer:
             ts_any_usage_count=0,
             ts_ignore_count=0,
             ts_import_coupling_count=0,
-            python_import_count=self._count_imports(tree.root_node),
+            python_import_count=self._file_python_import_count,
             tsx_hardcoded_string_volume=0,
             tsx_duplicated_string_count=0,
             ts_type_interface_count=0,
@@ -74,12 +81,179 @@ class PythonTreeSitterAnalyzer:
             md_data_url_count=0
         )
 
+    def _scan_tree(
+        self, 
+        node: Node, 
+        parent_list: List[FunctionMetrics], 
+        active_scopes: List[dict], 
+        current_nesting: int
+    ):
+        """
+        Single-pass visitor to collect metrics.
+        
+        parent_list: List to append new FunctionMetrics to (children of parent scope or top level).
+        active_scopes: Stack of dicts: {'metrics': FunctionMetrics, 'base_nesting': int}
+        current_nesting: Current nesting depth relative to file root.
+        """
+        
+        node_type = node.type
+        
+        # 1. Update File Metrics
+        if node_type == 'class_definition':
+            self._file_classes_count += 1
+        elif node_type in {'import_statement', 'import_from_statement'}:
+            self._file_python_import_count += 1
+            
+        # 2. Check Nesting Depth for File
+        # File max nesting is just max of current_nesting encountered
+        # Wait, if we are at 'if' (nesting), current_nesting is passed as incremented.
+        # But we need to record it.
+        # Actually, let's track max seen.
+        is_nesting_node = node_type in {
+            'if_statement', 'for_statement', 'while_statement', 'try_statement', 
+            'with_statement', 'match_statement'
+        }
+        
+        # Update nesting for next recursion
+        next_nesting = current_nesting
+        if is_nesting_node:
+            next_nesting += 1
+
+        if next_nesting > self._file_max_nesting_depth:
+            self._file_max_nesting_depth = next_nesting
+
+        # 3. Update Active Scopes (Nesting & Comments)
+        if node_type == 'comment':
+            lines = (node.end_point.row - node.start_point.row + 1)
+            text = node.text.decode('utf-8', errors='ignore')
+            is_todo = 'TODO' in text or 'FIXME' in text
+            
+            self._file_comment_lines += lines
+            if is_todo:
+                self._file_todo_count += 1
+                
+            for scope in active_scopes:
+                scope['metrics'].comment_lines += lines
+                if is_todo:
+                    scope['metrics'].todo_count += 1
+        
+        # Update Max Nesting for Scopes
+        if is_nesting_node:
+             for scope in active_scopes:
+                 # Depth relative to where the scope started
+                 depth = next_nesting - scope['base_nesting']
+                 if depth > scope['metrics'].max_nesting_depth:
+                     scope['metrics'].max_nesting_depth = depth
+
+        # 4. Complexity (Applies to immediate scope only)
+        # Complexity types
+        if active_scopes:
+            current_scope = active_scopes[-1]['metrics']
+            if node_type in {
+                'if_statement', 'for_statement', 'while_statement', 'except_clause',
+                'with_statement', 'match_statement', 'case_pattern'
+            }:
+                current_scope.cyclomatic_complexity += 1
+            elif node_type == 'boolean_operator':
+                # Check text for 'and'/'or'
+                # Optimization: check text content
+                text = node.text.decode('utf-8')
+                if 'and' in text or 'or' in text:
+                     current_scope.cyclomatic_complexity += 1
+        
+        # 5. Handle Scope Creation
+        scope_created = False
+        target_list_for_children = parent_list
+        
+        # Define scope types
+        is_scope = node_type in {
+            'function_definition',
+            'class_definition',
+            'lambda',
+            'async_function_definition'
+        }
+        
+        if is_scope:
+            new_metrics = self._create_scope_metrics(node)
+            parent_list.append(new_metrics)
+            
+            # Function complexity default is 1
+            new_metrics.cyclomatic_complexity = 1
+            
+            new_scope_ctx = {
+                'metrics': new_metrics,
+                'base_nesting': current_nesting 
+                # Note: 'base_nesting' is the ambient nesting level AT the function definition.
+                # Content inside will start contributing to depth from there.
+            }
+            active_scopes.append(new_scope_ctx)
+            target_list_for_children = new_metrics.children
+            scope_created = True
+
+        # Recurse
+        for child in node.children:
+            # Optimization: If we just created a scope, we are passing its children list.
+            # But we must treat the child as children of the node.
+            # The 'target_list_for_children' is where the child's *scopes* should act effectively.
+            # Wait, `scan_tree` adds *scopes* to `parent_list`.
+            # If `child` is an `if_statement` (not a scope), it shouldn't be added to `parent_list`.
+            # `scan_tree` ONLY appends to `parent_list` IF `is_scope` is true.
+            # So passing `target_list_for_children` is safe.
+            self._scan_tree(child, target_list_for_children, active_scopes, next_nesting)
+
+        if scope_created:
+            active_scopes.pop()
+
+    def _create_scope_metrics(self, node: Node) -> FunctionMetrics:
+        name = self._get_scope_name(node)
+        start_line = node.start_point.row + 1
+        end_line = node.end_point.row + 1
+        nloc = end_line - start_line + 1
+        
+        # Parameter count is fast enough to compute locally
+        parameter_count = self._count_parameters(node)
+
+        return FunctionMetrics(
+            name=name,
+            cyclomatic_complexity=0, # Will be accumulated
+            nloc=nloc,
+            start_line=start_line,
+            end_line=end_line,
+            parameter_count=parameter_count,
+            max_nesting_depth=0, # Will be accumulated
+            comment_lines=0, # Will be accumulated
+            todo_count=0, # Will be accumulated
+            origin_type=node.type
+        )
+
+    def _get_scope_name(self, node: Node) -> str:
+        if node.type in {'function_definition', 'class_definition', 'async_function_definition'}:
+            name_node = node.child_by_field_name('name')
+            if name_node:
+                prefix = ""
+                if node.type == 'class_definition': prefix = "(class) "
+                if node.type == 'async_function_definition': prefix = "(async) "
+                return f"{prefix}{name_node.text.decode('utf-8')}"
+        
+        elif node.type == 'lambda':
+            return "(lambda)"
+            
+        return "(anonymous)"
+
+    def _count_parameters(self, node: Node) -> int:
+        params_node = node.child_by_field_name('parameters') 
+        if params_node:
+            count = 0
+            for child in params_node.children:
+                if child.type in {'identifier', 'typed_parameter', 'default_parameter', 'typed_default_parameter', 'list_splat_pattern', 'dictionary_splat_pattern'}:
+                     count += 1
+            return count
+        return 0
+
     def _compute_import_scope(self, root_node: Node, content: bytes) -> FunctionMetrics | None:
         """
         Create a synthetic top-level scope representing import statements.
-
-        - nloc: total LOC occupied by *all* import statements in the file
-        - start/end_line: span of the largest contiguous block of imports
+        Kept separate as it requires specific logic for contiguous block merging.
         """
         import_spans: List[tuple[int, int]] = []
         lines = content.splitlines()
@@ -110,11 +284,10 @@ class PythonTreeSitterAnalyzer:
         import_spans.sort(key=lambda s: (s[0], s[1]))
         total_import_loc = sum(e - s + 1 for s, e in import_spans)
 
-        blocks: List[tuple[int, int, int]] = []  # (block_start, block_end, block_loc_sum)
+        blocks: List[tuple[int, int, int]] = []
         cur_s, cur_e = import_spans[0]
         cur_loc = cur_e - cur_s + 1
         for s, e in import_spans[1:]:
-            # Allow blank lines between imports to still count as one contiguous block.
             if only_blank_lines_between(cur_e, s):
                 cur_e = max(cur_e, e)
                 cur_loc += (e - s + 1)
@@ -138,180 +311,3 @@ class PythonTreeSitterAnalyzer:
             todo_count=0,
             origin_type="imports",
         )
-
-    def _extract_scopes(self, root_node: Node) -> List[FunctionMetrics]:
-        # We want to capture:
-        # - Functions (def)
-        # - Classes (class)
-        # - Lambdas (lambda)
-        
-        scope_types = {
-            'function_definition',
-            'class_definition',
-            'lambda',
-            'async_function_definition'
-        }
-
-        def process_node(node: Node) -> List[FunctionMetrics]:
-            results = []
-            for child in node.children:
-                if child.type in scope_types:
-                    metrics = self._calculate_scope_metrics(child)
-                    metrics.children = process_node(child)
-                    results.append(metrics)
-                else:
-                    # Recurse but don't create scope
-                    results.extend(process_node(child))
-            return results
-
-        return process_node(root_node)
-
-    def _calculate_scope_metrics(self, node: Node) -> FunctionMetrics:
-        name = self._get_scope_name(node)
-        start_line = node.start_point.row + 1
-        end_line = node.end_point.row + 1
-        nloc = end_line - start_line + 1
-        
-        complexity = self._calculate_complexity(node)
-        parameter_count = self._count_parameters(node)
-        max_nesting_depth = self._calculate_max_nesting_depth(node)
-        comment_lines, todo_count = self._count_comments_and_todos(node)
-
-        return FunctionMetrics(
-            name=name,
-            cyclomatic_complexity=complexity,
-            nloc=nloc,
-            start_line=start_line,
-            end_line=end_line,
-            parameter_count=parameter_count,
-            max_nesting_depth=max_nesting_depth,
-            comment_lines=comment_lines,
-            todo_count=todo_count,
-            origin_type=node.type
-        )
-
-    def _get_scope_name(self, node: Node) -> str:
-        if node.type in {'function_definition', 'class_definition', 'async_function_definition'}:
-            name_node = node.child_by_field_name('name')
-            if name_node:
-                prefix = ""
-                if node.type == 'class_definition': prefix = "(class) "
-                if node.type == 'async_function_definition': prefix = "(async) "
-                return f"{prefix}{name_node.text.decode('utf-8')}"
-        
-        elif node.type == 'lambda':
-            return "(lambda)"
-            
-        return "(anonymous)"
-
-    def _calculate_complexity(self, node: Node) -> int:
-        complexity = 1
-        complexity_node_types = {
-            'if_statement',
-            'for_statement',
-            'while_statement',
-            'except_clause',
-            'with_statement', 
-            'match_statement',
-            'case_pattern'
-            # try_statement itself is not usually a branch, except_clauses are
-        }
-        
-        scope_boundary_types = {
-            'function_definition',
-            'class_definition',
-            'lambda',
-            'async_function_definition'
-        }
-
-        def traverse(n: Node):
-            nonlocal complexity
-            # Stop if we hit a nested function/class scope (metrics are calculated separately for them)
-            if n != node and n.type in scope_boundary_types:
-                return
-            
-            if n.type in complexity_node_types:
-                complexity += 1
-            
-            # Check for boolean operators
-            if n.type == 'boolean_operator':
-                text = n.text.decode('utf-8')
-                if 'and' in text or 'or' in text:
-                    complexity += 1
-            
-            for child in n.children:
-                traverse(child)
-
-        traverse(node)
-        return complexity
-
-    def _count_comments_and_todos(self, node: Node) -> Tuple[int, int]:
-        comment_lines = 0
-        todo_count = 0
-        
-        def traverse(n: Node):
-            nonlocal comment_lines, todo_count
-            if n.type == 'comment':
-                comment_lines += (n.end_point.row - n.start_point.row + 1)
-                text = n.text.decode('utf-8', errors='ignore')
-                if 'TODO' in text or 'FIXME' in text:
-                    todo_count += 1
-            for child in n.children:
-                traverse(child)
-        
-        traverse(node)
-        return comment_lines, todo_count
-
-    def _calculate_max_nesting_depth(self, node: Node) -> int:
-        max_depth = 0
-        nesting_types = {
-            'if_statement', 'for_statement', 'while_statement', 'try_statement', 'with_statement', 'match_statement'
-            # function/class are also nesting, but we treat them as scopes usually
-        }
-        
-        def traverse(n: Node, current_depth: int):
-            nonlocal max_depth
-            max_depth = max(max_depth, current_depth)
-            for child in n.children:
-                next_depth = current_depth
-                if child.type in nesting_types:
-                    next_depth += 1
-                traverse(child, next_depth)
-                
-        traverse(node, 0)
-        return max_depth
-
-    def _count_classes(self, node: Node) -> int:
-        count = 0
-        def traverse(n: Node):
-            nonlocal count
-            if n.type == 'class_definition':
-                count += 1
-            for child in n.children:
-                traverse(child)
-        traverse(node)
-        return count
-
-    def _count_parameters(self, node: Node) -> int:
-        # Check for 'parameters' field
-        params_node = node.child_by_field_name('parameters') 
-
-        if params_node:
-            count = 0
-            for child in params_node.children:
-                # Filter punctuation
-                if child.type in {'identifier', 'typed_parameter', 'default_parameter', 'typed_default_parameter', 'list_splat_pattern', 'dictionary_splat_pattern'}:
-                     count += 1
-            return count
-        return 0
-
-    def _count_imports(self, node: Node) -> int:
-        count = 0
-        def traverse(n: Node):
-            nonlocal count
-            if n.type == 'import_statement' or n.type == 'import_from_statement':
-                count += 1
-            for child in n.children:
-                traverse(child)
-        traverse(node)
-        return count
