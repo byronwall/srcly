@@ -31,6 +31,9 @@ export default function CodeModal(props: CodeModalProps) {
   const [targetEndLine, setTargetEndLine] = createSignal<number | null>(
     props.endLine ?? null
   );
+  const [selectedScopeNode, setSelectedScopeNode] = createSignal<any | null>(
+    null
+  );
   const [lineFilterEnabled, setLineFilterEnabled] = createSignal(false);
   const [lineOffset, setLineOffset] = createSignal(4);
   const [reduceIndentation, setReduceIndentation] = createSignal(true);
@@ -64,6 +67,8 @@ export default function CodeModal(props: CodeModalProps) {
   createEffect(() => {
     setTargetStartLine(props.startLine ?? null);
     setTargetEndLine(props.endLine ?? null);
+    // Clear stale selection when external selection changes / file changes.
+    setSelectedScopeNode(null);
   });
 
   createEffect(() => {
@@ -152,6 +157,64 @@ export default function CodeModal(props: CodeModalProps) {
     }
   };
 
+  const coerceLine = (v: unknown): number | null => {
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string" && v.trim()) {
+      const n = Number(v);
+      if (Number.isFinite(n)) return n;
+    }
+    return null;
+  };
+
+  const applySelectionFromNode = (node: any) => {
+    const s = coerceLine(node?.start_line);
+    const e = coerceLine(node?.end_line);
+    if (s === null || e === null) return;
+    setTargetStartLine(s);
+    setTargetEndLine(e);
+    setLineFilterEnabled(true);
+    setSelectedScopeNode(node);
+
+    // eslint-disable-next-line no-console
+    console.log("[breadcrumb] applySelectionFromNode", {
+      file: props.filePath ?? null,
+      node: {
+        name: node?.name ?? null,
+        type: node?.type ?? null,
+        start_line: node?.start_line ?? null,
+        end_line: node?.end_line ?? null,
+      },
+      coerced: { start: s, end: e },
+    });
+  };
+
+  const clearSelection = () => {
+    setTargetStartLine(null);
+    setTargetEndLine(null);
+    setLineFilterEnabled(false);
+    setSelectedScopeNode(null);
+    // eslint-disable-next-line no-console
+    console.log("[breadcrumb] clearSelection");
+  };
+
+  const handleSelectScopeFromBreadcrumb = (node: any | null) => {
+    if (!node) {
+      clearSelection();
+      // Scroll to top after re-render.
+      handleJumpToLine({ scrollTarget: 1 });
+      return;
+    }
+
+    applySelectionFromNode(node);
+    const s = coerceLine(node?.start_line) ?? 1;
+    // Ensure we both select the scope range and scroll to its start.
+    handleJumpToLine({
+      start: coerceLine(node?.start_line) ?? undefined,
+      end: coerceLine(node?.end_line) ?? undefined,
+      scrollTarget: s,
+    });
+  };
+
   const baseName = () => {
     if (!props.filePath) return "";
     const parts = props.filePath.split(/[\\/]/);
@@ -199,6 +262,21 @@ export default function CodeModal(props: CodeModalProps) {
   const activeStructureNode = () =>
     getActiveStructureNode(breadcrumbPath(), props.scopeNode || props.fileNode);
 
+  createEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log("[breadcrumb] modal state", {
+      isOpen: props.isOpen,
+      filePath: props.filePath ?? null,
+      fileNode: props.fileNode ? { name: props.fileNode?.name, type: props.fileNode?.type } : null,
+      scopeNode: props.scopeNode
+        ? { name: props.scopeNode?.name, type: props.scopeNode?.type }
+        : null,
+      target: { start: targetStartLine(), end: targetEndLine() },
+      lineFilterEnabled: lineFilterEnabled(),
+      viewMode: viewMode(),
+    });
+  });
+
   return (
     // Keyed so switching `filePath` remounts the modal content and avoids a one-frame
     // flash of stale highlighted HTML before the async loaders reset state.
@@ -243,25 +321,26 @@ export default function CodeModal(props: CodeModalProps) {
               isHidden={isSyntheticBodyNode}
               onSelectBreadcrumbIndex={(index, node) => {
                 if (index === 0) {
-                  setTargetStartLine(null);
-                  setTargetEndLine(null);
-                  setLineFilterEnabled(false);
+                  clearSelection();
                 } else {
-                  setTargetStartLine(node.start_line);
-                  setTargetEndLine(node.end_line);
-                  setLineFilterEnabled(true);
+                  applySelectionFromNode(node);
                 }
                 resetAutoScroll();
               }}
               onSelectNode={(n) => {
-                setTargetStartLine(n.start_line);
-                setTargetEndLine(n.end_line);
-                setLineFilterEnabled(true);
+                applySelectionFromNode(n);
                 resetAutoScroll();
               }}
             />
 
-            <div class="flex-1 overflow-auto p-4" ref={contentScrollRef}>
+            <div
+              class="flex-1 min-h-0 p-4"
+              classList={{
+                "overflow-auto": viewMode() === "preview",
+                "overflow-hidden": viewMode() !== "preview",
+              }}
+              ref={contentScrollRef}
+            >
               <Show
                 when={viewMode() === "preview"}
                 fallback={
@@ -270,6 +349,9 @@ export default function CodeModal(props: CodeModalProps) {
                     error={error}
                     highlightedHtml={highlightedHtml}
                     filePath={() => props.filePath}
+                    fileNode={() => props.fileNode ?? null}
+                    selectedScopeNode={selectedScopeNode}
+                    onSelectScope={handleSelectScopeFromBreadcrumb}
                     displayStartLine={() => displayStartLine() ?? 1}
                     targetStartLine={targetStartLine}
                     targetEndLine={targetEndLine}

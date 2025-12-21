@@ -7,6 +7,15 @@ export type StructureNode = {
   [key: string]: unknown;
 };
 
+function coerceLineNumber(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim()) {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
 export function isSyntheticBodyNode(node: unknown): boolean {
   const n = node as any;
   return (
@@ -58,21 +67,27 @@ export function computeBreadcrumbPath(
     if (!children?.length) break;
 
     const bestMatch = children.reduce((best: any, c: any) => {
-      if (!c || typeof c.start_line !== "number" || typeof c.end_line !== "number") {
+      const cs = coerceLineNumber((c as any)?.start_line);
+      const ce = coerceLineNumber((c as any)?.end_line);
+      if (!c || cs === null || ce === null) {
         return best;
       }
 
-      const contains = c.start_line <= s && c.end_line >= e;
+      const contains = cs <= s && ce >= e;
       if (!contains) return best;
       if (!best) return c;
 
-      const bestSpan = best.end_line - best.start_line;
-      const cSpan = c.end_line - c.start_line;
+      const bs = coerceLineNumber((best as any)?.start_line);
+      const be = coerceLineNumber((best as any)?.end_line);
+      if (bs === null || be === null) return c;
+
+      const bestSpan = be - bs;
+      const cSpan = ce - cs;
       if (cSpan < bestSpan) return c;
       if (cSpan > bestSpan) return best;
 
-      const bestExact = best.start_line === s && best.end_line === e;
-      const cExact = c.start_line === s && c.end_line === e;
+      const bestExact = bs === s && be === e;
+      const cExact = cs === s && ce === e;
       if (cExact !== bestExact) return cExact ? c : best;
 
       return best;
@@ -80,15 +95,34 @@ export function computeBreadcrumbPath(
 
     if (!bestMatch) break;
 
-    const currentSpan =
-      typeof current?.start_line === "number" && typeof current?.end_line === "number"
-        ? current.end_line - current.start_line
-        : Number.POSITIVE_INFINITY;
-    const matchSpan = bestMatch.end_line - bestMatch.start_line;
+    const currS = coerceLineNumber((current as any)?.start_line);
+    const currE = coerceLineNumber((current as any)?.end_line);
+    const matchS = coerceLineNumber((bestMatch as any)?.start_line);
+    const matchE = coerceLineNumber((bestMatch as any)?.end_line);
 
-    // Avoid drifting into wrapper/equal-span nodes: only descend if the match
-    // is strictly narrower than the current node's span.
-    if (matchSpan >= currentSpan) break;
+    const currentSpan =
+      currS !== null && currE !== null ? currE - currS : Number.POSITIVE_INFINITY;
+    const matchSpan =
+      matchS !== null && matchE !== null ? matchE - matchS : Number.POSITIVE_INFINITY;
+
+    // Avoid drifting into wrapper/equal-span nodes: prefer strictly narrower matches.
+    // However, some analyzers emit wrapper nodes whose span equals the parent (e.g. a
+    // single top-level container). In that case, allow descending *only if* doing so
+    // exposes a strictly narrower descendant that still contains the selection.
+    if (matchSpan > currentSpan) break;
+    if (matchSpan === currentSpan) {
+      const nextChildren = getEffectiveChildren(bestMatch);
+      const hasNarrowerDescendant = nextChildren.some((c: any) => {
+        const cs = coerceLineNumber(c?.start_line);
+        const ce = coerceLineNumber(c?.end_line);
+        if (!c || cs === null || ce === null) return false;
+        const contains = cs <= s && ce >= e;
+        if (!contains) return false;
+        const span = ce - cs;
+        return span < matchSpan;
+      });
+      if (!hasNarrowerDescendant) break;
+    }
 
     path.push(bestMatch);
     current = bestMatch;
@@ -99,6 +133,49 @@ export function computeBreadcrumbPath(
 
 export function getActiveStructureNode(path: any[], fallback: unknown): any {
   return path.length > 0 ? path[path.length - 1] : (fallback as any);
+}
+
+function nodeKey(n: any): string {
+  if (!n) return "";
+  return `${n?.type ?? ""}|${n?.name ?? ""}|${n?.start_line ?? ""}|${n?.end_line ?? ""}`;
+}
+
+function sameNode(a: any, b: any): boolean {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  // Fallback for cases where nodes are structurally identical but not the same reference.
+  return nodeKey(a) !== "" && nodeKey(a) === nodeKey(b);
+}
+
+export function findPathToNode(root: unknown, target: unknown): any[] | null {
+  if (!root || !target) return null;
+
+  const path: any[] = [];
+  const visited = new Set<any>();
+
+  const dfs = (node: any): boolean => {
+    if (!node || visited.has(node)) return false;
+    visited.add(node);
+
+    if (sameNode(node, target)) {
+      path.push(node);
+      return true;
+    }
+
+    const children = getEffectiveChildren(node);
+    for (const child of children) {
+      if (dfs(child)) {
+        path.push(node);
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  const found = dfs(root as any);
+  if (!found) return null;
+  return path.reverse();
 }
 
 

@@ -23,7 +23,35 @@ export function SidebarTree(props: {
     e.stopPropagation();
     const n = props.node();
 
-    if (typeof n?.start_line === "number" && typeof n?.end_line === "number") {
+    const s = n?.start_line;
+    const eLine = n?.end_line;
+    const hasSpan =
+      (typeof s === "number" && typeof eLine === "number") ||
+      (typeof s === "string" &&
+        typeof eLine === "string" &&
+        s.trim() !== "" &&
+        eLine.trim() !== "" &&
+        Number.isFinite(Number(s)) &&
+        Number.isFinite(Number(eLine)));
+
+    // eslint-disable-next-line no-console
+    console.log("[breadcrumb] sidebar click", {
+      name: n?.name ?? null,
+      type: n?.type ?? null,
+      start_line: s ?? null,
+      end_line: eLine ?? null,
+      hasSpan,
+      depth: props.depth,
+      childCount: (() => {
+        try {
+          return props.getChildren(n)?.length ?? 0;
+        } catch {
+          return null;
+        }
+      })(),
+    });
+
+    if (hasSpan) {
       props.onSelect(n);
     } else if (hasChildren()) {
       setExpanded(!expanded());

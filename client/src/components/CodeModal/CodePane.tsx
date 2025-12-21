@@ -1,6 +1,7 @@
-import { Show, For, createSignal, createMemo } from "solid-js";
+import { Show, For, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import { FlowOverlayCode } from "../FlowOverlayCode";
 import { type OverlayToken } from "../../utils/flowDecorations";
+import { StickyBreadcrumb } from "./StickyBreadcrumb";
 
 const LEGEND_ITEMS = [
   { category: "param", label: "Parameter" },
@@ -18,6 +19,9 @@ export function CodePane(props: {
   error: () => string | null;
   highlightedHtml: () => string;
   filePath: () => string | null;
+  fileNode: () => any | null;
+  selectedScopeNode: () => any | null;
+  onSelectScope: (node: any | null) => void;
   displayStartLine: () => number;
   targetStartLine: () => number | null;
   targetEndLine: () => number | null;
@@ -31,6 +35,9 @@ export function CodePane(props: {
   }) => void;
 }) {
   const [tokens, setTokens] = createSignal<OverlayToken[]>([]);
+  const [currentTopLine, setCurrentTopLine] = createSignal(1);
+  let scrollRef: HTMLDivElement | undefined;
+  let breadcrumbRef: HTMLDivElement | undefined;
 
   const counts = createMemo(() => {
     const map = new Map<string, number>();
@@ -43,9 +50,97 @@ export function CodePane(props: {
   const showCode = () =>
     !props.loading() && !props.error() && props.highlightedHtml();
 
+  const updateCurrentTopLine = () => {
+    const scroller = scrollRef;
+    if (!scroller) return;
+
+    const lineEls = scroller.querySelectorAll("span.line");
+    if (!lineEls.length) return;
+
+    const first = lineEls[0] as HTMLElement;
+    const lh = first.getBoundingClientRect().height || 16;
+    const headerH = breadcrumbRef?.offsetHeight ?? 0;
+    const topBoundary = scroller.getBoundingClientRect().top + headerH + 2;
+
+    let guess = Math.floor(scroller.scrollTop / lh);
+    guess = Math.max(0, Math.min(lineEls.length - 1, guess));
+
+    const start = Math.max(0, guess - 30);
+    const end = Math.min(lineEls.length - 1, guess + 30);
+
+    let bestIdx = guess;
+    for (let i = start; i <= end; i++) {
+      const r = (lineEls[i] as HTMLElement).getBoundingClientRect();
+      if (r.bottom > topBoundary) {
+        bestIdx = i;
+        break;
+      }
+    }
+
+    setCurrentTopLine(props.displayStartLine() + bestIdx);
+  };
+
+  createEffect(() => {
+    // Recompute when content changes (new file, new slice).
+    props.highlightedHtml();
+    queueMicrotask(() => updateCurrentTopLine());
+  });
+
+  createEffect(() => {
+    // Also recompute if slice start changes.
+    props.displayStartLine();
+    queueMicrotask(() => updateCurrentTopLine());
+  });
+
+  createEffect(() => {
+    const scroller = scrollRef;
+    if (!scroller) return;
+
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        updateCurrentTopLine();
+      });
+    };
+
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    onCleanup(() => {
+      scroller.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    });
+  });
+
+  createEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log("[breadcrumb] codepane inputs", {
+      filePath: props.filePath?.() ?? null,
+      displayStartLine: props.displayStartLine(),
+      currentTopLine: currentTopLine(),
+      target: { start: props.targetStartLine?.() ?? null, end: props.targetEndLine?.() ?? null },
+      hasFileNode: !!props.fileNode?.(),
+    });
+  });
+
   return (
     <div class="flex h-full min-h-0">
-      <div class="flex-1 min-w-0 overflow-auto">
+      <div class="flex-1 min-w-0 overflow-auto" ref={(el) => (scrollRef = el)}>
+        <div ref={(el) => (breadcrumbRef = el)}>
+          <StickyBreadcrumb
+            root={props.fileNode}
+            selectedNode={props.selectedScopeNode}
+            filePath={props.filePath}
+            currentLine={currentTopLine}
+            selection={() => {
+              const s = props.targetStartLine?.();
+              const e = props.targetEndLine?.();
+              if (typeof s === "number" && typeof e === "number") return { start: s, end: e };
+              return null;
+            }}
+            onSelectScope={props.onSelectScope}
+          />
+        </div>
         <Show
           when={props.loading() || (!props.highlightedHtml() && !props.error())}
         >
