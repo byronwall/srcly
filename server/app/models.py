@@ -99,3 +99,34 @@ class OverlayToken(BaseModel):
 
 class FocusOverlayResponse(BaseModel):
     tokens: List[OverlayToken] = Field(default_factory=list)
+
+
+# --- Scope Graph Models ---
+
+class ScopeGraphRequest(BaseModel):
+    path: str
+    focusStartLine: int
+    focusEndLine: int
+
+class SymbolNode(BaseModel):
+    id: str  # e.g. "var:expanded:L12:C5" or just a unique ID
+    name: str
+    kind: str  # "var", "func", "param", "class", "jsx_comp", etc.
+    declLine: int
+    isCaptured: bool = False
+    isDeclaredHere: bool = False
+
+class ScopeNode(BaseModel):
+    id: str
+    kind: str  # "function", "jsx", "block", "root"
+    name: str | None = None
+    startLine: int
+    endLine: int
+    children: List["ScopeNode"] = Field(default_factory=list)
+    declared: List[SymbolNode] = Field(default_factory=list)
+    captured: List[SymbolNode] = Field(default_factory=list)
+
+class ScopeGraph(BaseModel):
+    root: ScopeNode
+    # We might want edges later, but for MVP, nested scopes + lists are enough.
+

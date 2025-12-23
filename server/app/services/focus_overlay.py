@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from fastapi import HTTPException
 from tree_sitter import Language, Node, Parser
 import tree_sitter_typescript as tstypescript
 
 from app.models import FocusOverlayResponse, OverlayToken
+
+if TYPE_CHECKING:
+    from app.models import ScopeGraph
 
 
 TYPESCRIPT_LANGUAGE = Language(tstypescript.language_typescript())
@@ -62,6 +65,8 @@ class _Scope:
     end_line: int
     def_line: int  # Line of the node that created the scope
     vars: Dict[str, _Def]
+    children_ids: List[str] = field(default_factory=list)  # IDs of direct child scopes
+    name: str | None = None  # Display name of the scope (e.g. function name)
 
 
 @dataclass(frozen=True)
@@ -208,7 +213,7 @@ def _strip_json_comments(text: str) -> str:
         nxt = text[i + 1] if i + 1 < n else ""
 
         if in_line_comment:
-            if ch == "\n":
+            if ch == "\\n":
                 in_line_comment = False
                 result.append(ch)
             i += 1
@@ -224,7 +229,7 @@ def _strip_json_comments(text: str) -> str:
 
         if in_string:
             result.append(ch)
-            if ch == "\\":
+            if ch == "\\\\":
                 if i + 1 < n:
                     result.append(text[i + 1])
                     i += 2
@@ -428,54 +433,54 @@ def _classify_import_source(
     return False, None
 
 
-def compute_focus_overlay(
-    *,
-    file_path: str,
-    slice_start_line: int,
-    slice_end_line: int,
-    focus_start_line: int,
-    focus_end_line: int,
-) -> FocusOverlayResponse:
-    path = Path(file_path)
-    if not path.exists() or not path.is_file():
-        raise HTTPException(status_code=404, detail="File not found")
+# --- FocusAnalyzer ---
 
-    # No-op for unsupported languages / file types (currently only TS/TSX are supported).
-    if not _is_supported_typescript_file(path):
-        return FocusOverlayResponse(tokens=[])
+class FocusAnalyzer:
+    def __init__(self, path: Path, content: bytes):
+        self.path = path
+        self.content = content
+        self.source_lines = content.decode("utf-8", errors="replace").splitlines()
+        self.is_tsx = path.suffix.lower() == ".tsx" or path.name.endswith(".tsx")
+        
+        parser = Parser(TSX_LANGUAGE if self.is_tsx else TYPESCRIPT_LANGUAGE)
+        self.tree = parser.parse(content)
+        self.file_total_lines = self.tree.root_node.end_point.row + 1
+        
+        self.scopes: Dict[str, _Scope] = {}
+        self.usages: List[_Usage] = []
+        self.unresolved_counts: Dict[str, int] = {}
+        self.global_scope: _Scope | None = None
+        self.scope_boundary_map: Dict[int, _Scope] = {} # node_id -> scope
 
-    slice_start_line = max(1, int(slice_start_line))
-    slice_end_line = max(slice_start_line, int(slice_end_line))
-    focus_start_line = max(1, int(focus_start_line))
-    focus_end_line = max(focus_start_line, int(focus_end_line))
+        self._scope_counter = 0
 
-    content = path.read_bytes()
-    source_lines = content.decode("utf-8", errors="replace").splitlines()
-    is_tsx = path.suffix.lower() == ".tsx" or path.name.endswith(".tsx")
-    parser = Parser(TSX_LANGUAGE if is_tsx else TYPESCRIPT_LANGUAGE)
-    tree = parser.parse(content)
+    def analyze(self):
+        """Run Phase 1 (Scopes/Defs) and Phase 2 (Usages)."""
+        self._scope_counter = 0
+        self.global_scope = self._new_scope("global", self.tree.root_node, None)
+        
+        # Phase 1
+        self._phase1_traverse(self.tree.root_node, self.global_scope)
+        
+        # Phase 2
+        self._phase2_traverse(self.tree.root_node, self.global_scope)
+        
+        if self.unresolved_counts:
+            sorted_unresolved = sorted(self.unresolved_counts.items(), key=lambda x: x[1], reverse=True)
+            logger.info(f"Focus overlay unresolved symbols for {self.path.name}: {sorted_unresolved[:20]}")
 
-    file_total_lines = tree.root_node.end_point.row + 1
-    focus_start_line = min(focus_start_line, file_total_lines)
-    focus_end_line = min(focus_end_line, file_total_lines)
-    slice_start_line = min(slice_start_line, file_total_lines)
-    slice_end_line = min(slice_end_line, file_total_lines)
-
-    scopes: Dict[str, _Scope] = {}
-    
-    # Deterministic scope IDs based on start/end lines + a monotonic counter for collisions.
-    scope_counter = 0
-
-    def new_scope(scope_type: str, node: Node | None, parent: _Scope | None) -> _Scope:
-        nonlocal scope_counter
-        scope_counter += 1
+    def _new_scope(self, scope_type: str, node: Node | None, parent: _Scope | None) -> _Scope:
+        self._scope_counter += 1
         if node is None:
             start_line = 1
-            end_line = file_total_lines
+            end_line = self.file_total_lines
         else:
             start_line = node.start_point.row + 1
             end_line = node.end_point.row + 1
-        sid = f"{scope_type}:{start_line}:{end_line}:{scope_counter}"
+        sid = f"{scope_type}:{start_line}:{end_line}:{self._scope_counter}"
+        
+        scope_name = self._get_scope_name(node) if node else None
+        
         scope = _Scope(
             id=sid,
             type=scope_type,
@@ -484,14 +489,57 @@ def compute_focus_overlay(
             end_line=end_line,
             def_line=start_line,
             vars={},
+            children_ids=[],
+            name=scope_name,
         )
-        scopes[scope.id] = scope
+        if parent:
+            parent.children_ids.append(scope.id)
+            
+        self.scopes[scope.id] = scope
         return scope
 
-    global_scope = new_scope("global", tree.root_node, None)
+    def _get_scope_name(self, node: Node) -> str | None:
+        if node.type in {"function_declaration", "generator_function_declaration", "class_declaration", "method_definition"}:
+            name_node = node.child_by_field_name("name")
+            if name_node:
+                return name_node.text.decode("utf-8", errors="ignore")
+        
+        if node.type in {"arrow_function", "function_expression"}:
+            # Check parent for assignment
+            p = node.parent
+            if p:
+                if p.type == "variable_declarator":
+                    name_node = p.child_by_field_name("name")
+                    if name_node:
+                        return name_node.text.decode("utf-8", errors="ignore")
+                elif p.type == "pair_pattern" or p.type == "pair": # Object assignment
+                     key_node = p.child_by_field_name("key")
+                     if key_node:
+                        # key might be property_identifier or string
+                        return key_node.text.decode("utf-8", errors="ignore").strip("\"'")
+                elif p.type == "assignment_expression":
+                    left = p.child_by_field_name("left")
+                    if left:
+                        # left might be identifier or member_expression
+                        return left.text.decode("utf-8", errors="ignore")
+                elif p.type == "jsx_expression": # const x = <div onClick={() => ...} />
+                    # grand parent
+                    gp = p.parent
+                    if gp and gp.type == "jsx_attribute":
+                         attr_name = gp.child_by_field_name("name")
+                         if not attr_name:
+                             # Fallback: find first property_identifier or jsx_identifier child
+                             for child in gp.children:
+                                 if child.type in {"property_identifier", "jsx_identifier"}:
+                                     attr_name = child
+                                     break
+                         if attr_name:
+                             return attr_name.text.decode("utf-8", errors="ignore")
 
-    # --- Helpers ---
-    def _is_function_node(n: Node) -> bool:
+        return None
+
+
+    def _is_function_node(self, n: Node) -> bool:
         return n.type in {
             "function_declaration",
             "function_expression",
@@ -501,53 +549,37 @@ def compute_focus_overlay(
             "generator_function_declaration",
         }
     
-    def _is_catch_clause(n: Node) -> bool:
+    def _is_catch_clause(self, n: Node) -> bool:
         return n.type == "catch_clause"
 
-    def _is_scope_boundary(n: Node) -> bool:
-        # Mirror the data-flow analyzer behavior: don't create a redundant block
-        # scope for function bodies.
+    def _is_scope_boundary(self, n: Node) -> bool:
         if n.type in {"block", "statement_block"}:
             parent = n.parent
-            if parent and (_is_function_node(parent) or _is_catch_clause(parent)):
+            if parent and (self._is_function_node(parent) or self._is_catch_clause(parent)):
                 return False
             return True
-        
-        if _is_catch_clause(n):
+        if self._is_catch_clause(n):
             return True
+        return self._is_function_node(n)
 
-        return _is_function_node(n)
-
-    def _scope_type(n: Node) -> str:
-        if _is_function_node(n):
+    def _scope_type(self, n: Node) -> str:
+        if self._is_function_node(n):
             return "function"
-        if _is_catch_clause(n):
+        if self._is_catch_clause(n):
             return "catch"
         if n.type in {"block", "statement_block"}:
             return "block"
         return "block"
 
-    def _collect_pattern_identifiers(n: Node) -> List[Node]:
+    def _collect_pattern_identifiers(self, n: Node) -> List[Node]:
         idents: List[Node] = []
-
         def walk(x: Node) -> None:
-            # Plain identifiers and shorthand properties inside patterns.
             if x.type in {"identifier", "shorthand_property_identifier"}:
                 idents.append(x)
                 return
-
-            # Tree-sitter-typescript represents object destructuring shorthand bindings
-            # as `shorthand_property_identifier_pattern` nodes whose text is the binding
-            # name (and they often have no identifier children).
-            #
-            # Example: `const { extensions } = options;`
-            #   object_pattern -> shorthand_property_identifier_pattern ("extensions")
             if x.type == "shorthand_property_identifier_pattern":
                 idents.append(x)
                 return
-
-            # For `{ key: value }` patterns, only the value side introduces bindings.
-            # (The key is just a property name.)
             if x.type == "pair_pattern":
                 value = x.child_by_field_name("value")
                 if value is not None:
@@ -556,8 +588,6 @@ def compute_focus_overlay(
                     for c in x.children:
                         walk(c)
                 return
-
-            # Skip contexts where identifiers are not bindings.
             if x.type in {
                 "member_expression",
                 "call_expression",
@@ -567,14 +597,13 @@ def compute_focus_overlay(
                 "jsx_self_closing_element",
             }:
                 return
-
             for c in x.children:
                 walk(c)
-
         walk(n)
         return idents
 
     def _add_def(
+        self,
         *,
         name_node: Node,
         kind: str,
@@ -600,45 +629,36 @@ def compute_focus_overlay(
         )
         scope.vars[name] = d
 
-    def _resolve(name: str, start_scope: _Scope) -> _Def | None:
+    def _resolve(self, name: str, start_scope: _Scope) -> _Def | None:
         curr = start_scope
         while curr:
             if name in curr.vars:
                 return curr.vars[name]
             if curr.parent_id:
-                curr = scopes[curr.parent_id]
+                curr = self.scopes[curr.parent_id]
             else:
                 break
         return None
 
-    def _ancestor_chain(scope_id: str) -> List[str]:
+    def _ancestor_chain(self, scope_id: str) -> List[str]:
         chain: List[str] = []
-        curr = scopes.get(scope_id)
+        curr = self.scopes.get(scope_id)
         while curr is not None:
             chain.append(curr.id)
             if curr.parent_id is None:
                 break
-            curr = scopes.get(curr.parent_id)
+            curr = self.scopes.get(curr.parent_id)
         return chain
 
-    # --- Phase 1: Create scopes and record definitions ---
-    
-    # We maintain a mapping of node_id -> created_scope so we can look them up in Phase 2
-    # `scope_boundary_map[id(node)] = scope`
-    scope_boundary_map: Dict[int, _Scope] = {}
-    
-    def phase1_traverse(n: Node, current_scope: _Scope) -> None:
+    def _phase1_traverse(self, n: Node, current_scope: _Scope) -> None:
         next_scope = current_scope
-        if _is_scope_boundary(n):
-            # If we are effectively creating a new scope
-            # Ensure we don't recreate global scope if n is root
-            if n != tree.root_node:
-                next_scope = new_scope(_scope_type(n), n, current_scope)
-                scope_boundary_map[n.id] = next_scope
+        if self._is_scope_boundary(n):
+            if n != self.tree.root_node:
+                next_scope = self._new_scope(self._scope_type(n), n, current_scope)
+                self.scope_boundary_map[n.id] = next_scope
 
         # Definitions
         if n.type == "import_statement":
-            # Skip `import type ...` statements.
             is_type_import = any(c.type == "type" and c.text == b"type" for c in n.children)
             if not is_type_import:
                 source_node = n.child_by_field_name("source")
@@ -648,7 +668,7 @@ def compute_focus_overlay(
                     else ""
                 )
                 is_internal, _resolved = _classify_import_source(
-                    importing_file=path, import_path=import_source
+                    importing_file=self.path, import_path=import_source
                 )
 
                 clause = n.child_by_field_name("clause")
@@ -659,19 +679,16 @@ def compute_focus_overlay(
                             break
 
                 if clause is not None:
-                    # Default import: import Foo from "x"
                     for child in clause.children:
                         if child.type == "identifier":
-                            _add_def(
+                            self._add_def(
                                 name_node=child,
                                 kind="import",
-                                scope=global_scope,
-                                scope_type=global_scope.type,
+                                scope=self.global_scope,
+                                scope_type=self.global_scope.type,
                                 import_source=import_source,
                                 import_is_internal=is_internal,
                             )
-
-                    # Namespace import: import * as ns from "x"
                     for child in clause.children:
                         if child.type == "namespace_import":
                             name_node = child.child_by_field_name("name")
@@ -681,16 +698,15 @@ def compute_focus_overlay(
                                         name_node = c
                                         break
                             if name_node is not None:
-                                _add_def(
+                                self._add_def(
                                     name_node=name_node,
                                     kind="import",
-                                    scope=global_scope,
-                                    scope_type=global_scope.type,
+                                    scope=self.global_scope,
+                                    scope_type=self.global_scope.type,
                                     import_source=import_source,
                                     import_is_internal=is_internal,
                                 )
 
-                    # Named imports: import { A, B as C, type T } from "x"
                     named_imports = clause.child_by_field_name("named_imports")
                     if named_imports is None:
                         for child in clause.children:
@@ -701,7 +717,6 @@ def compute_focus_overlay(
                         for spec in named_imports.children:
                             if spec.type != "import_specifier":
                                 continue
-                            # Skip `type` specifiers: { type Foo }
                             if any(
                                 c.type == "type" and c.text == b"type"
                                 for c in spec.children
@@ -711,11 +726,11 @@ def compute_focus_overlay(
                             name_node = spec.child_by_field_name("name")
                             local = alias or name_node
                             if local is not None:
-                                _add_def(
+                                self._add_def(
                                     name_node=local,
                                     kind="import",
-                                    scope=global_scope,
-                                    scope_type=global_scope.type,
+                                    scope=self.global_scope,
+                                    scope_type=self.global_scope.type,
                                     import_source=import_source,
                                     import_is_internal=is_internal,
                                 )
@@ -724,15 +739,15 @@ def compute_focus_overlay(
             name_node = n.child_by_field_name("name")
             if name_node is not None:
                 if name_node.type == "identifier":
-                    _add_def(
+                    self._add_def(
                         name_node=name_node,
                         kind="local",
                         scope=next_scope,
                         scope_type=next_scope.type,
                     )
                 else:
-                    for ident in _collect_pattern_identifiers(name_node):
-                        _add_def(
+                    for ident in self._collect_pattern_identifiers(name_node):
+                        self._add_def(
                             name_node=ident,
                             kind="local",
                             scope=next_scope,
@@ -740,8 +755,8 @@ def compute_focus_overlay(
                         )
 
         elif n.type in {"required_parameter", "optional_parameter", "rest_parameter"}:
-            for ident in _collect_pattern_identifiers(n):
-                _add_def(
+            for ident in self._collect_pattern_identifiers(n):
+                self._add_def(
                     name_node=ident,
                     kind="param",
                     scope=next_scope,
@@ -749,9 +764,7 @@ def compute_focus_overlay(
                 )
         
         elif n.type == "identifier" and n.parent and n.parent.type == "arrow_function":
-            # In arrow functions like `tile => { ... }`, the parameter `tile`
-            # is a direct identifier child of the arrow_function node.
-            _add_def(
+            self._add_def(
                 name_node=n,
                 kind="param",
                 scope=next_scope,
@@ -759,29 +772,20 @@ def compute_focus_overlay(
             )
         
         elif n.type == "catch_clause":
-             # catch (err) ...
              param = n.child_by_field_name("parameter")
              if param:
-                # The parameter node might be an identifier or a pattern (destructuring)
-                # But it is physically outside the 'body' block.
-                # Since we created a 'catch' scope for this catch_clause node, we can add it there.
-                
-                # In tree-sitter-typescript, the parameter field of catch_clause serves as the binding.
                 if param.type == "identifier":
-                    _add_def(name_node=param, kind="param", scope=next_scope, scope_type="catch")
+                    self._add_def(name_node=param, kind="param", scope=next_scope, scope_type="catch")
                 else:
-                    for ident in _collect_pattern_identifiers(param):
-                         _add_def(name_node=ident, kind="param", scope=next_scope, scope_type="catch")
+                    for ident in self._collect_pattern_identifiers(param):
+                         self._add_def(name_node=ident, kind="param", scope=next_scope, scope_type="catch")
 
 
         elif n.type == "function_declaration":
             name_node = n.child_by_field_name("name")
             if name_node is not None:
-                # Define function name in parent scope (if any).
-                # `next_scope` IS the function scope.
-                # So we want the scope enclosing `n`, which is `current_scope`.
-                
-                _add_def(
+                # Define function name in parent scope
+                self._add_def(
                     name_node=name_node,
                     kind="local" if current_scope.type != "global" else "module",
                     scope=current_scope,
@@ -791,56 +795,48 @@ def compute_focus_overlay(
         elif n.type == "class_declaration":
             name_node = n.child_by_field_name("name")
             if name_node is not None:
-                _add_def(
+                self._add_def(
                     name_node=name_node,
                     kind="local" if current_scope.type != "global" else "module",
                     scope=current_scope,
                     scope_type=current_scope.type,
                 )
 
-        # Loop introductions:
         elif n.type == "for_in_statement":
-            # Only treat as an introduction when it's a declaration (const/let/var).
             is_decl = any(c.type in {"const", "let", "var"} for c in n.children)
             if is_decl:
                 left = n.child_by_field_name("left")
                 if left is not None:
                     if left.type == "identifier":
-                        _add_def(
+                        self._add_def(
                             name_node=left,
                             kind="local",
                             scope=next_scope,
                             scope_type=next_scope.type,
                         )
                     else:
-                        for ident in _collect_pattern_identifiers(left):
-                            _add_def(
+                        for ident in self._collect_pattern_identifiers(left):
+                            self._add_def(
                                 name_node=ident,
                                 kind="local",
                                 scope=next_scope,
                                 scope_type=next_scope.type,
                             )
-
+        
+        # Recurse
         for c in n.children:
-            phase1_traverse(c, next_scope)
+            self._phase1_traverse(c, next_scope)
 
-    phase1_traverse(tree.root_node, global_scope)
-
-    # --- Phase 2: Record usages ---
-    usages: List[_Usage] = []
-    
-    unresolved_counts: Dict[str, int] = {}
-    
-    def phase2_traverse(n: Node, current_scope: _Scope) -> None:
+    def _phase2_traverse(self, n: Node, current_scope: _Scope) -> None:
         next_scope = current_scope
-        if n.id in scope_boundary_map:
-            next_scope = scope_boundary_map[n.id]
+        if n.id in self.scope_boundary_map:
+            next_scope = self.scope_boundary_map[n.id]
 
         # Usages: resolve identifiers
         if n.type in {"identifier", "jsx_identifier"}:
             parent = n.parent
             if parent is not None:
-                # Skip identifier occurrences that are themselves definitions.
+                # Same skips as before
                 if parent.type == "variable_declarator" and parent.child_by_field_name("name") == n:
                     pass
                 elif parent.type == "function_declaration" and parent.child_by_field_name("name") == n:
@@ -859,14 +855,8 @@ def compute_focus_overlay(
                     pass
                 elif parent.type == "property_identifier":
                     pass
-                
-                # SPECIAL HANDLING FOR JSX
-                # 1. Skip if it is an attribute name
                 elif (n.type in {"identifier", "jsx_identifier"}) and parent.type == "jsx_attribute" and parent.child_by_field_name("name") == n:
                     pass
-                # 2. Skip intrinsic elements (lowercase tag names)
-                # If text is uppercase, the condition below fails, so we fall through to 'else'
-                # and process it as a component usage.
                 elif (
                     n.type in {"identifier", "jsx_identifier"} 
                     and parent.type in {"jsx_opening_element", "jsx_closing_element", "jsx_self_closing_element"}
@@ -874,26 +864,17 @@ def compute_focus_overlay(
                     and n.text.decode("utf-8", errors="ignore")[0].islower()
                 ):
                     pass
-
                 else:
-                    # Skip identifiers inside binding patterns (destructuring LHS / params)
-                    # Skip identifiers inside binding patterns (destructuring LHS / params)
-                    # We need to be careful not to skip usages on the RHS.
-                    # e.g. `const { x: y } = z` -> x is prop (skipped), y is def (skipped), z is usage.
                     curr = n
                     is_definition_part = False
-                    
                     while curr is not None:
                         p = curr.parent
                         if p is None:
                             break
-                        
-                        # Variable declarator: `name` field is the pattern/identifier being defined.
                         if p.type == "variable_declarator":
                             name_node = p.child_by_field_name("name")
                             if name_node is not None:
                                 check = n
-                                # Walk up from n to p. If we hit name_node, we are inside the definition side.
                                 while check is not None and check is not p:
                                     if check == name_node:
                                         is_definition_part = True
@@ -901,14 +882,11 @@ def compute_focus_overlay(
                                     check = check.parent
                                 if is_definition_part:
                                     break
-                            
                         if p.type in {"required_parameter", "optional_parameter", "rest_parameter"}:
                             is_definition_part = True
                             break
-                        
                         if p.type == "catch_clause":
                             param = p.child_by_field_name("parameter")
-                             # If we are inside the parameter node
                             if param:
                                 check = n
                                 while check is not None and check is not p:
@@ -918,8 +896,6 @@ def compute_focus_overlay(
                                     check = check.parent
                             if is_definition_part:
                                 break
-
-                        # Boundaries where definition context definitely ends
                         if p.type in {
                             "program",
                             "statement_block",
@@ -930,7 +906,6 @@ def compute_focus_overlay(
                             "class_declaration",
                         }:
                             break
-                        
                         curr = p
                         if is_definition_part:
                             break
@@ -938,41 +913,57 @@ def compute_focus_overlay(
                     if not is_definition_part:
                         name = n.text.decode("utf-8", errors="ignore")
                         if name:
-                            resolved = _resolve(name, next_scope)
+                            resolved = self._resolve(name, next_scope)
                             if resolved is None and name not in _BUILTINS:
-                                unresolved_counts[name] = unresolved_counts.get(name, 0) + 1
-                                
-                            # Find the immediate containing function scope for this usage.
-                            # This is crucial for per-token "capture" vs "local" classification.
+                                self.unresolved_counts[name] = self.unresolved_counts.get(name, 0) + 1
+                            
                             usage_fn_scope = next_scope
                             while usage_fn_scope and usage_fn_scope.type != "function" and usage_fn_scope.parent_id:
-                                usage_fn_scope = scopes[usage_fn_scope.parent_id]
+                                usage_fn_scope = self.scopes[usage_fn_scope.parent_id]
                             
-                            usages.append(
+                            self.usages.append(
                                 _Usage(
                                     name=name,
                                     line=n.start_point.row + 1,
                                     start_col=n.start_point.column,
                                     end_col=n.end_point.column,
                                     resolved=resolved,
-                                    containing_fn_scope_id=usage_fn_scope.id if usage_fn_scope else global_scope.id,
+                                    containing_fn_scope_id=usage_fn_scope.id if usage_fn_scope else self.global_scope.id,
                                 )
                             )
 
         for c in n.children:
-            phase2_traverse(c, next_scope)
+            self._phase2_traverse(c, next_scope)
 
-    phase2_traverse(tree.root_node, global_scope)
 
-    if unresolved_counts:
-        # Log top unresolved identifiers to help identify missing builtins/globals
-        sorted_unresolved = sorted(unresolved_counts.items(), key=lambda x: x[1], reverse=True)
-        logger.info(f"Focus overlay unresolved symbols for {path.name}: {sorted_unresolved[:20]}")
+def compute_focus_overlay(
+    *,
+    file_path: str,
+    slice_start_line: int,
+    slice_end_line: int,
+    focus_start_line: int,
+    focus_end_line: int,
+) -> FocusOverlayResponse:
+    path = Path(file_path)
+    if not path.exists() or not path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    if not _is_supported_typescript_file(path):
+        return FocusOverlayResponse(tokens=[])
+
+    slice_start_line = max(1, int(slice_start_line))
+    slice_end_line = max(slice_start_line, int(slice_end_line))
+    focus_start_line = max(1, int(focus_start_line))
+    focus_end_line = max(focus_start_line, int(focus_end_line))
+
+    content = path.read_bytes()
+    analyzer = FocusAnalyzer(path, content)
+    analyzer.analyze()
 
     # --- Build tokens ---
     tokens: List[OverlayToken] = []
 
-    for u in usages:
+    for u in analyzer.usages:
         u_line = u.line
         if u_line < slice_start_line or u_line > slice_end_line:
             continue
@@ -1011,17 +1002,12 @@ def compute_focus_overlay(
                     category = "importExternal"
                     tooltip = f"Import (external): {d.import_source}"
             else:
-                # Deterministic symbol ID based on definition location.
                 symbol_id = f"def:{file_path}:{d.def_line}:{d.def_col}:{d.name}"
-
-                # Parameters should always be classified as parameters, independent
-                # of the current focus scope (e.g. when focusing an outer function
-                # that contains a nested function).
                 if d.kind == "param":
                     category = "param"
                     tooltip = "Parameter"
                 else:
-                    def_scope = scopes.get(d.scope_id)
+                    def_scope = analyzer.scopes.get(d.scope_id)
                     if def_scope is None:
                         category = "local"
                         tooltip = f"Declaration (line {d.def_line})"
@@ -1030,14 +1016,11 @@ def compute_focus_overlay(
                             category = "module"
                             tooltip = f"Module scope (line {d.def_line})"
                         else:
-                            # Classify relative to the token's immediate containing function scope
                             usage_fn_scope_id = u.containing_fn_scope_id
-                            usage_fn_chain = set(_ancestor_chain(usage_fn_scope_id))
                             
+                            def_chain = set(analyzer._ancestor_chain(def_scope.id))
+                            usage_fn_chain = set(analyzer._ancestor_chain(usage_fn_scope_id))
                             
-                            def_chain = set(_ancestor_chain(def_scope.id))
-                            
-                            # START FIX: If the definition is within the current focus range, treat as local.
                             definition_in_focus = (focus_start_line <= d.def_line <= focus_end_line)
                             
                             if definition_in_focus:
@@ -1046,7 +1029,7 @@ def compute_focus_overlay(
                             elif usage_fn_scope_id in def_chain:
                                 category = "local"
                                 tooltip = f"Local declaration (line {d.def_line})"
-                            elif def_scope.id in usage_fn_chain and def_scope.id != global_scope.id:
+                            elif def_scope.id in usage_fn_chain and def_scope.id != analyzer.global_scope.id:
                                 category = "capture"
                                 tooltip = f"Captured from outer scope (line {d.def_line})"
                             else:
@@ -1057,20 +1040,20 @@ def compute_focus_overlay(
         definition_line: int | None = None
         if d:
             definition_line = d.def_line
-            if 0 <= d.def_line - 1 < len(source_lines):
-                 definition_snippet = source_lines[d.def_line - 1].strip()
+            if 0 <= d.def_line - 1 < len(analyzer.source_lines):
+                 definition_snippet = analyzer.source_lines[d.def_line - 1].strip()
 
         scope_snippet: str | None = None
         scope_line: int | None = None
         scope_end_line: int | None = None
 
         if category == "capture" and d:
-            def_scope = scopes.get(d.scope_id)
+            def_scope = analyzer.scopes.get(d.scope_id)
             if def_scope:
                 scope_line = def_scope.def_line
                 scope_end_line = def_scope.end_line
-                if 0 <= scope_line - 1 < len(source_lines):
-                    scope_snippet = source_lines[scope_line - 1].strip()
+                if 0 <= scope_line - 1 < len(analyzer.source_lines):
+                    scope_snippet = analyzer.source_lines[scope_line - 1].strip()
 
         tokens.append(
             OverlayToken(
@@ -1089,3 +1072,131 @@ def compute_focus_overlay(
         )
 
     return FocusOverlayResponse(tokens=tokens)
+
+
+def compute_scope_graph(
+    *,
+    file_path: str,
+    focus_start_line: int,
+    focus_end_line: int,
+) -> "ScopeGraph":
+    from app.models import ScopeGraph, ScopeNode, SymbolNode
+
+    path = Path(file_path)
+    if not path.exists() or not path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    content = path.read_bytes()
+    analyzer = FocusAnalyzer(path, content)
+    analyzer.analyze()
+
+    # 1. Find the best matching "focused scope"
+    
+    def fits(s: _Scope) -> bool:
+        return s.start_line <= focus_start_line and s.end_line >= focus_end_line
+
+    current = analyzer.global_scope
+    while True:
+        found_better = False
+        for child_id in current.children_ids:
+            child = analyzer.scopes[child_id]
+            if fits(child):
+                current = child
+                found_better = True
+                break
+        if not found_better:
+            break
+    
+    root_scope = current
+    
+    # 2. Build the ScopeNode tree starting from root_scope
+    
+    def build_node(s: _Scope) -> Optional[ScopeNode]:
+        declared_nodes: List[SymbolNode] = []
+        for d in s.vars.values():
+             if d.kind != "import":
+                declared_nodes.append(SymbolNode(
+                    id=f"def:{s.id}:{d.name}",
+                    name=d.name,
+                    kind=d.kind,
+                    declLine=d.def_line,
+                    isDeclaredHere=True,
+                    isCaptured=False
+                ))
+        
+        captured_map: Dict[str, _Def] = {} 
+        
+        descendant_ids = {s.id}
+        queue = [s.id]
+        while queue:
+            curr_id = queue.pop(0)
+            curr_s = analyzer.scopes[curr_id]
+            descendant_ids.add(curr_id)
+            queue.extend(curr_s.children_ids)
+            
+        ancestor_ids = set(analyzer._ancestor_chain(s.id))
+        if s.id in ancestor_ids:
+            ancestor_ids.remove(s.id)
+            
+        for u in analyzer.usages:
+            if u.containing_fn_scope_id in descendant_ids:
+                d = u.resolved
+                if d and d.scope_id in ancestor_ids and d.name not in _BUILTINS:
+                    if d.kind != "import" and d.scope_type != "global":
+                        captured_map[d.name] = d
+
+        captured_nodes: List[SymbolNode] = []
+        for d in captured_map.values():
+            captured_nodes.append(SymbolNode(
+                id=f"cap:{s.id}:{d.name}",
+                name=d.name,
+                kind=d.kind,
+                declLine=d.def_line,
+                isDeclaredHere=False,
+                isCaptured=True
+            ))
+
+        child_nodes: List[ScopeNode] = []
+        for child_id in s.children_ids:
+            child_scope = analyzer.scopes[child_id]
+            node = build_node(child_scope)
+            if node:
+                child_nodes.append(node)
+        
+        # Prune empty nodes
+        if not declared_nodes and not captured_nodes and not child_nodes:
+            # But keep the root of our request? 
+            # The function `compute_scope_graph` returns `ScopeGraph(root=...)`.
+            # If the top-level scope itself is empty, we must return *something* or handle it.
+            # We'll handle the root check at the call site.
+            return None
+
+        return ScopeNode(
+            id=s.id,
+            kind=s.type,
+            name=s.name or f"{s.type}@{s.start_line}", 
+            startLine=s.start_line,
+            endLine=s.end_line,
+            children=child_nodes,
+            declared=sorted(declared_nodes, key=lambda x: x.name),
+            captured=sorted(captured_nodes, key=lambda x: x.name),
+        )
+
+    scope_tree_root = build_node(root_scope)
+    
+    if scope_tree_root is None:
+        # Fallback if root is pruned (totally empty scope)
+        # Create an empty node for the root scope so we respect the return type
+        scope_tree_root = ScopeNode(
+            id=root_scope.id,
+            kind=root_scope.type,
+            name=root_scope.name or f"{root_scope.type}@{root_scope.start_line}",
+            startLine=root_scope.start_line,
+            endLine=root_scope.end_line,
+            children=[],
+            declared=[],
+            captured=[]
+        )
+
+    
+    return ScopeGraph(root=scope_tree_root)

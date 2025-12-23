@@ -8,7 +8,7 @@ from app.models import Node, DependencyGraph, DependencyNode, DependencyEdge
 from app.services import analysis, cache
 from app.services.typescript import typescript_analysis
 from app.config import IGNORE_DIRS
-from app.models import FocusOverlayRequest, FocusOverlayResponse
+from app.models import FocusOverlayRequest, FocusOverlayResponse, ScopeGraphRequest, ScopeGraph
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
 
@@ -647,4 +647,28 @@ async def get_focus_overlay(req: FocusOverlayRequest):
         raise
     except Exception as e:
         print(f"Error computing focus overlay for {req.path}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/focus/scope-graph", response_model=ScopeGraph)
+async def get_scope_graph(req: ScopeGraphRequest):
+    """
+    Return the nested scope graph for a focused region.
+    """
+    target_path = Path(req.path)
+    if not target_path.exists() or not target_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    from app.services.focus_overlay import compute_scope_graph
+
+    try:
+        return compute_scope_graph(
+            file_path=str(target_path),
+            focus_start_line=req.focusStartLine,
+            focus_end_line=req.focusEndLine,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error computing scope graph for {req.path}: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -9,6 +9,7 @@ import {
 import { FlowOverlayCode } from "../FlowOverlayCode";
 import { type OverlayToken } from "../../utils/flowDecorations";
 import { StickyBreadcrumb } from "./StickyBreadcrumb";
+import { ScopeFlowPane } from "./ScopeFlowPane";
 
 const LEGEND_ITEMS = [
   { category: "param", label: "Parameter" },
@@ -191,6 +192,12 @@ export function CodePane(props: CodePaneProps) {
       </div>
 
       <Show when={props.dataFlowEnabled() && showCode()}>
+        <ScopeFlowPane
+          filePath={props.filePath()}
+          targetStartLine={props.targetStartLine()}
+          targetEndLine={props.targetEndLine()}
+          onJumpToLine={props.onJumpToLine}
+        />
         <div class="w-48 shrink-0 border-l border-gray-800 bg-gray-900/20 p-4 overflow-y-auto">
           <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">
             Data Flow
