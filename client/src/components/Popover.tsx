@@ -30,12 +30,22 @@ export default function Popover(props: PopoverProps) {
   );
 
   const [internalIsOpen, setInternalIsOpen] = createSignal(false);
+  // Mirror `props.isOpen` into a local signal so event listeners (scroll/resize/click)
+  // don't evaluate parent JSX prop getters outside a reactive owner.
+  const [controlledIsOpen, setControlledIsOpen] = createSignal(false);
   const [position, setPosition] = createSignal({ top: 0, left: 0 });
   let triggerRef: HTMLElement | undefined;
   let contentRef: HTMLDivElement | undefined;
 
-  const isOpen = () =>
-    props.isOpen !== undefined ? props.isOpen : internalIsOpen();
+  // Treat controlled/uncontrolled as stable for the lifetime of this component.
+  // (This avoids reading a reactive prop getter from event handlers.)
+  const isControlled = props.isOpen !== undefined;
+
+  createEffect(() => {
+    if (isControlled) setControlledIsOpen(props.isOpen as boolean);
+  });
+
+  const isOpen = () => (isControlled ? controlledIsOpen() : internalIsOpen());
 
   const toggle = (e: MouseEvent) => {
     e.stopPropagation(); // Prevent immediate close by document listener
@@ -109,9 +119,6 @@ export default function Popover(props: PopoverProps) {
       window.removeEventListener("scroll", handleScroll, true);
     });
   });
-
-  // Update position when opening
-  createSignal(isOpen()); // track dependency
 
   // We need to update position AFTER render when it opens
   createEffect(() => {
