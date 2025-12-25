@@ -41,6 +41,8 @@ export type CodePaneProps = {
     end?: number;
     scrollTarget?: number;
   }) => void;
+  isScopeMaximized: () => boolean;
+  onToggleMaximizeScope: () => void;
 };
 
 export function CodePane(props: CodePaneProps) {
@@ -138,58 +140,63 @@ export function CodePane(props: CodePaneProps) {
 
   return (
     <div class="flex h-full min-h-0">
-      <div class="flex-1 min-w-0 overflow-auto" ref={(el) => (scrollRef = el)}>
-        <div class="sticky top-0 z-20" ref={(el) => (breadcrumbRef = el)}>
-          <StickyBreadcrumb
-            root={props.fileNode}
-            selectedNode={props.selectedScopeNode}
-            filePath={props.filePath}
-            currentLine={currentTopLine}
-            selection={() => {
-              const s = props.targetStartLine?.();
-              const e = props.targetEndLine?.();
-              if (typeof s === "number" && typeof e === "number")
-                return { start: s, end: e };
-              return null;
-            }}
-            onSelectScope={props.onSelectScope}
-          />
-        </div>
-        <Show
-          when={props.loading() || (!props.highlightedHtml() && !props.error())}
+      <Show when={!props.isScopeMaximized()}>
+        <div
+          class="flex-1 min-w-0 overflow-auto"
+          ref={(el) => (scrollRef = el)}
         >
-          <div class="flex h-full items-center justify-center text-sm text-gray-400">
-            Loading file…
+          <div class="sticky top-0 z-20" ref={(el) => (breadcrumbRef = el)}>
+            <StickyBreadcrumb
+              root={props.fileNode}
+              selectedNode={props.selectedScopeNode}
+              filePath={props.filePath}
+              currentLine={currentTopLine}
+              selection={() => {
+                const s = props.targetStartLine?.();
+                const e = props.targetEndLine?.();
+                if (typeof s === "number" && typeof e === "number")
+                  return { start: s, end: e };
+                return null;
+              }}
+              onSelectScope={props.onSelectScope}
+            />
           </div>
-        </Show>
-
-        <Show when={!props.loading() && props.error()}>
-          <div class="rounded border border-red-700 bg-red-900/70 px-3 py-2 text-sm text-red-100">
-            {props.error()}
-          </div>
-        </Show>
-
-        <Show when={showCode()}>
-          <FlowOverlayCode
-            html={() => props.highlightedHtml() || ""}
-            filePath={props.filePath}
-            sliceStartLine={props.displayStartLine}
-            focusRange={() => {
-              const s = props.targetStartLine?.();
-              const e = props.targetEndLine?.();
-              if (typeof s === "number" && typeof e === "number") {
-                return { start: s, end: e };
-              }
-              return null;
-            }}
-            removedIndentByLine={props.removedIndentByLine}
-            lineFilterEnabled={props.lineFilterEnabled}
-            dataFlowEnabled={props.dataFlowEnabled}
-            onTokensChange={setTokens}
-            onJumpToLine={props.onJumpToLine}
-          />
-        </Show>
-      </div>
+          <Show
+            when={
+              props.loading() || (!props.highlightedHtml() && !props.error())
+            }
+          >
+            <div class="flex h-full items-center justify-center text-sm text-gray-400">
+              Loading file…
+            </div>
+          </Show>
+          <Show when={!props.loading() && props.error()}>
+            <div class="rounded border border-red-700 bg-red-900/70 px-3 py-2 text-sm text-red-100">
+              {props.error()}
+            </div>
+          </Show>
+          <Show when={showCode()}>
+            <FlowOverlayCode
+              html={() => props.highlightedHtml() || ""}
+              filePath={props.filePath}
+              sliceStartLine={props.displayStartLine}
+              focusRange={() => {
+                const s = props.targetStartLine?.();
+                const e = props.targetEndLine?.();
+                if (typeof s === "number" && typeof e === "number") {
+                  return { start: s, end: e };
+                }
+                return null;
+              }}
+              removedIndentByLine={props.removedIndentByLine}
+              lineFilterEnabled={props.lineFilterEnabled}
+              dataFlowEnabled={props.dataFlowEnabled}
+              onTokensChange={setTokens}
+              onJumpToLine={props.onJumpToLine}
+            />
+          </Show>
+        </div>
+      </Show>
 
       <Show when={props.dataFlowEnabled() && showCode()}>
         <ScopeFlowPane
@@ -197,46 +204,50 @@ export function CodePane(props: CodePaneProps) {
           targetStartLine={props.targetStartLine()}
           targetEndLine={props.targetEndLine()}
           onJumpToLine={props.onJumpToLine}
+          isMaximized={props.isScopeMaximized}
+          onToggleMaximize={props.onToggleMaximizeScope}
         />
-        <div class="w-48 shrink-0 border-l border-gray-800 bg-gray-900/20 p-4 overflow-y-auto">
-          <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">
-            Data Flow
-          </h3>
-          <div class="space-y-3 code-modal-content">
-            <For each={LEGEND_ITEMS}>
-              {(item) => {
-                const count = () => counts().get(item.category) || 0;
-                return (
-                  <div
-                    class="flex items-center justify-between group cursor-default"
-                    title={`${item.label}: ${count()} occurrences`}
-                  >
-                    <div class="flex items-center gap-2">
-                      <div
-                        class={`w-3.5 h-3.5 rounded-sm border border-white/5 flow flow-${item.category}`}
-                        aria-hidden="true"
-                      />
-                      <span class="text-[11px] text-gray-400 font-medium group-hover:text-gray-200 transition-colors">
-                        {item.label}
-                      </span>
+        <Show when={!props.isScopeMaximized()}>
+          <div class="w-48 shrink-0 border-l border-gray-800 bg-gray-900/20 p-4 overflow-y-auto">
+            <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">
+              Data Flow
+            </h3>
+            <div class="space-y-3 code-modal-content">
+              <For each={LEGEND_ITEMS}>
+                {(item) => {
+                  const count = () => counts().get(item.category) || 0;
+                  return (
+                    <div
+                      class="flex items-center justify-between group cursor-default"
+                      title={`${item.label}: ${count()} occurrences`}
+                    >
+                      <div class="flex items-center gap-2">
+                        <div
+                          class={`w-3.5 h-3.5 rounded-sm border border-white/5 flow flow-${item.category}`}
+                          aria-hidden="true"
+                        />
+                        <span class="text-[11px] text-gray-400 font-medium group-hover:text-gray-200 transition-colors">
+                          {item.label}
+                        </span>
+                      </div>
+                      <Show when={count() > 0}>
+                        <span class="text-[10px] font-mono text-gray-600 group-hover:text-gray-400 tabular-nums">
+                          {count()}
+                        </span>
+                      </Show>
                     </div>
-                    <Show when={count() > 0}>
-                      <span class="text-[10px] font-mono text-gray-600 group-hover:text-gray-400 tabular-nums">
-                        {count()}
-                      </span>
-                    </Show>
-                  </div>
-                );
-              }}
-            </For>
-          </div>
+                  );
+                }}
+              </For>
+            </div>
 
-          <div class="mt-8 pt-6 border-t border-gray-800/50">
-            <p class="text-[10px] leading-relaxed text-gray-600 italic">
-              Tracing {tokens().length} identifiers in the current view.
-            </p>
+            <div class="mt-8 pt-6 border-t border-gray-800/50">
+              <p class="text-[10px] leading-relaxed text-gray-600 italic">
+                Tracing {tokens().length} identifiers in the current view.
+              </p>
+            </div>
           </div>
-        </div>
+        </Show>
       </Show>
     </div>
   );

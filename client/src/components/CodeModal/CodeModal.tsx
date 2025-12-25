@@ -39,6 +39,7 @@ export default function CodeModal(props: CodeModalProps) {
   const [reduceIndentation, setReduceIndentation] = createSignal(true);
   const [viewMode, setViewMode] = createSignal<"code" | "preview">("code");
   const [dataFlowEnabled, setDataFlowEnabled] = createSignal(true);
+  const [scopeMaximized, setScopeMaximized] = createSignal(false);
 
   let contentScrollRef: HTMLDivElement | undefined;
   const contentContainerEl = () => contentScrollRef;
@@ -330,27 +331,29 @@ export default function CodeModal(props: CodeModalProps) {
           />
 
           <main class="relative flex-1 overflow-hidden flex bg-[#1e1e1e]">
-            <MetricsSidebar
-              fileNode={props.fileNode}
-              scopeNode={props.scopeNode}
-              baseName={baseName}
-              breadcrumbPath={breadcrumbPath}
-              activeStructureNode={activeStructureNode}
-              getChildren={getEffectiveChildren}
-              isHidden={isSyntheticBodyNode}
-              onSelectBreadcrumbIndex={(index, node) => {
-                if (index === 0) {
-                  clearSelection();
-                } else {
-                  applySelectionFromNode(node);
-                }
-                resetAutoScroll();
-              }}
-              onSelectNode={(n) => {
-                applySelectionFromNode(n);
-                resetAutoScroll();
-              }}
-            />
+            <Show when={!scopeMaximized()}>
+              <MetricsSidebar
+                fileNode={props.fileNode}
+                scopeNode={props.scopeNode}
+                baseName={baseName}
+                breadcrumbPath={breadcrumbPath}
+                activeStructureNode={activeStructureNode}
+                getChildren={getEffectiveChildren}
+                isHidden={isSyntheticBodyNode}
+                onSelectBreadcrumbIndex={(index, node) => {
+                  if (index === 0) {
+                    clearSelection();
+                  } else {
+                    applySelectionFromNode(node);
+                  }
+                  resetAutoScroll();
+                }}
+                onSelectNode={(n) => {
+                  applySelectionFromNode(n);
+                  resetAutoScroll();
+                }}
+              />
+            </Show>
 
             <div
               class="flex-1 min-h-0 p-4"
@@ -377,6 +380,10 @@ export default function CodeModal(props: CodeModalProps) {
                     removedIndentByLine={removedIndentByLine}
                     lineFilterEnabled={lineFilterEnabled}
                     dataFlowEnabled={dataFlowEnabled}
+                    isScopeMaximized={scopeMaximized}
+                    onToggleMaximizeScope={() =>
+                      setScopeMaximized(!scopeMaximized())
+                    }
                     onJumpToLine={handleJumpToLine}
                   />
                 }

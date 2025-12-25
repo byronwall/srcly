@@ -257,6 +257,8 @@ export interface ScopeFlowPaneProps {
   targetStartLine: number | null;
   targetEndLine: number | null;
   onJumpToLine: (target: { scrollTarget: number }) => void;
+  isMaximized: () => boolean;
+  onToggleMaximize: () => void;
 }
 
 export function ScopeFlowPane(props: ScopeFlowPaneProps) {
@@ -303,10 +305,62 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
   );
 
   return (
-    <div class="w-96 shrink-0 border-l border-gray-800 bg-gray-900/10 p-4 overflow-y-auto overflow-x-hidden flex flex-col gap-4">
-      <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest sticky top-0 bg-[#1e1e1e] pb-2 z-10 border-b border-gray-800/50 mb-2">
-        Scope Flow
-      </h3>
+    <div
+      class="shrink-0 border-l border-gray-800 bg-gray-900/10 p-4 overflow-y-auto overflow-x-hidden flex flex-col gap-4"
+      classList={{
+        "w-96": !props.isMaximized(),
+        "flex-1": props.isMaximized(),
+      }}
+    >
+      <div class="flex items-center justify-between sticky top-0 bg-[#1e1e1e] pb-2 z-10 border-b border-gray-800/50 mb-2">
+        <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+          Scope Flow
+        </h3>
+        <button
+          onClick={() => props.onToggleMaximize()}
+          class="p-1 hover:bg-gray-800 rounded transition-colors text-gray-500 hover:text-gray-300"
+          title={props.isMaximized() ? "Restore" : "Maximize"}
+        >
+          <Show
+            when={props.isMaximized()}
+            fallback={
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <polyline points="9 21 3 21 3 15"></polyline>
+                <line x1="21" y1="3" x2="14" y2="10"></line>
+                <line x1="3" y1="21" x2="10" y2="14"></line>
+              </svg>
+            }
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="4 14 10 14 10 20"></polyline>
+              <polyline points="20 10 14 10 14 4"></polyline>
+              <line x1="14" y1="10" x2="21" y2="3"></line>
+              <line x1="10" y1="14" x2="3" y2="21"></line>
+            </svg>
+          </Show>
+        </button>
+      </div>
 
       <Show when={data.loading}>
         <div class="text-[10px] text-gray-500 animate-pulse">
