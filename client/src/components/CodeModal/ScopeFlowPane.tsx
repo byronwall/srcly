@@ -111,6 +111,20 @@ const ScopeBox: Component<{
     props.onLayoutChange();
   });
 
+  // If a declaration also exists as a nested scope (e.g. a function with its own ScopeBox),
+  // hide it from the "Declared" pills. We only want non-scope declarations (vars, objects, etc.).
+  const descendantScopeNames = createMemo(() => {
+    const names = new Set<string>();
+    const walk = (n: ScopeNode) => {
+      for (const child of n.children) {
+        if (child.name) names.add(child.name);
+        walk(child);
+      }
+    };
+    walk(props.node);
+    return names;
+  });
+
   const allChildCapturedIds = createMemo(() => {
     const ids = new Set<string>();
     const traverse = (n: ScopeNode) => {
@@ -134,8 +148,11 @@ const ScopeBox: Component<{
   };
 
   const filteredDeclared = createMemo(() => {
+    const scopeNames = descendantScopeNames();
+    const isNonScopeDecl = (s: SymbolNode) => !scopeNames.has(s.name);
+
     if (expanded()) {
-      return props.node.declared;
+      return props.node.declared.filter(isNonScopeDecl);
     }
 
     if (props.depth === 0) {
@@ -151,8 +168,10 @@ const ScopeBox: Component<{
       };
       traverse(props.node);
 
-      return props.node.declared.filter((s) =>
-        descendantCapturedPairs.has(`${s.name}:${s.declLine}`)
+      return props.node.declared.filter(
+        (s) =>
+          isNonScopeDecl(s) &&
+          descendantCapturedPairs.has(`${s.name}:${s.declLine}`)
       );
     }
 
@@ -161,6 +180,7 @@ const ScopeBox: Component<{
 
   return (
     <div
+      data-scope-id={props.node.id}
       data-scope-depth={props.depth}
       class="relative flex flex-col gap-2 rounded border border-gray-800 bg-[#1e1e1e]/50 p-2"
       classList={{
@@ -290,6 +310,22 @@ export interface ScopeFlowPaneProps {
 type OverlayLine = { x1: number; y1: number; x2: number; y2: number };
 type OverlayRect = { left: number; top: number; width: number; height: number };
 
+const symbolKeyFromParts = (
+  id: string,
+  name: string | undefined,
+  declLine: number | null
+) => {
+  return name && typeof declLine === "number" && Number.isFinite(declLine)
+    ? `${name}:${declLine}`
+    : id;
+};
+
+const symbolKeyFromSymbol = (s: {
+  id: string;
+  name: string;
+  declLine: number;
+}) => symbolKeyFromParts(s.id, s.name, s.declLine);
+
 const LineOverlay: Component<{
   lines: OverlayLine[];
   height: number;
@@ -334,7 +370,11 @@ const LineOverlay: Component<{
 
 export function ScopeFlowPane(props: ScopeFlowPaneProps) {
   const [isModifierPressed, setIsModifierPressed] = createSignal(false);
-  const [arrowsEnabled, setArrowsEnabled] = createSignal(true);
+  // Inter-scopebox links: consuming scope -> declaring scope.
+  const [scopeLinksEnabled, setScopeLinksEnabled] = createSignal(true);
+  // Pill arrows connect "Declared" pills to matching "Captured" pills.
+  // Kept behind a toggle because they can get visually dense on large scopes.
+  const [pillArrowsEnabled, setPillArrowsEnabled] = createSignal(true);
 
   onMount(() => {
     // eslint-disable-next-line no-console
@@ -394,7 +434,8 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
     const el = containerRef;
     const graph = data();
 
-    if (!arrowsEnabled()) {
+    const anyArrowsEnabled = scopeLinksEnabled() || pillArrowsEnabled();
+    if (!anyArrowsEnabled) {
       setLines([]);
       return;
     }
@@ -410,24 +451,140 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
       return;
     }
 
+    const scrollT = el.scrollTop;
+    const scrollL = el.scrollLeft;
+
     // Size the overlay to cover the whole scrollable content.
     setOverlayHeight(el.scrollHeight);
+
+    const scopeBoxes = Array.from(
+      el.querySelectorAll<HTMLElement>("[data-scope-id][data-scope-depth]")
+    );
+    const scopeBoxById = new Map<
+      string,
+      OverlayRect & { scopeDepth: number }
+    >();
+    for (const box of scopeBoxes) {
+      const scopeId = box.dataset.scopeId;
+      const depthStr = box.dataset.scopeDepth;
+      const depth =
+        typeof depthStr === "string" && depthStr.trim()
+          ? parseInt(depthStr, 10)
+          : null;
+      if (!scopeId || depth == null || !Number.isFinite(depth)) continue;
+      const r = box.getBoundingClientRect();
+      scopeBoxById.set(scopeId, {
+        left: r.left - containerRect.left + scrollL,
+        top: r.top - containerRect.top + scrollT,
+        width: r.width,
+        height: r.height,
+        scopeDepth: depth,
+      });
+    }
+
+    // Build declaration ownership from the graph, so we can draw arrows even if the declaring
+    // scope is collapsed (and its declared pills aren't rendered).
+    const declaringScopesByKey = new Map<string, string[]>();
+    const scopeDepthById = new Map<string, number>();
+    const visit = (n: ScopeNode, depth: number) => {
+      scopeDepthById.set(n.id, depth);
+
+      // If a declared symbol also exists as a direct child scope (same name+line),
+      // don't treat it as a declaration owned by this scope. This prevents
+      // "DataFlowViz declares fetchData" when there's a FETCHDATA ScopeBox.
+      const directChildScopeNameLine = new Set<string>();
+      for (const child of n.children) {
+        if (child.name && Number.isFinite(child.startLine)) {
+          directChildScopeNameLine.add(`${child.name}:${child.startLine}`);
+        }
+      }
+
+      for (const s of n.declared) {
+        if (directChildScopeNameLine.has(`${s.name}:${s.declLine}`)) continue;
+        const key = symbolKeyFromSymbol(s);
+        const arr = declaringScopesByKey.get(key) ?? [];
+        arr.push(n.id);
+        declaringScopesByKey.set(key, arr);
+      }
+      for (const child of n.children) {
+        // Treat the child scope itself as a "declaration" so we can draw arrows from the
+        // scope box (e.g. FETCHDATA) to captured usages in other scopes.
+        if (
+          child.name &&
+          typeof child.startLine === "number" &&
+          Number.isFinite(child.startLine)
+        ) {
+          const scopeDeclKey = symbolKeyFromParts(
+            child.id,
+            child.name,
+            child.startLine
+          );
+          const arr = declaringScopesByKey.get(scopeDeclKey) ?? [];
+          arr.push(child.id);
+          declaringScopesByKey.set(scopeDeclKey, arr);
+        }
+
+        visit(child, depth + 1);
+      }
+    };
+    visit(graph.root, 0);
+
+    // Scope-to-scope edges derived from the graph itself.
+    // This is what enables "clear arrows between child scopes" even when declared pills are hidden.
+    const scopeEdges = new Map<
+      string,
+      { from: string; to: string; exampleKey: string }
+    >();
+    if (scopeLinksEnabled()) {
+      const buildScopeEdges = (n: ScopeNode) => {
+        for (const s of n.captured) {
+          const key = symbolKeyFromSymbol(s);
+          const declScopes = declaringScopesByKey.get(key) ?? [];
+          // Choose a single "best" declaring scope to avoid duplicate/mirror edges.
+          let bestDecl: string | null = null;
+          let bestDepth = -1;
+          for (const decl of declScopes) {
+            if (decl === n.id) continue;
+            // Never connect arrows to the root scope node (avoids the noisy "fan-in/fan-out"
+            // that tends to point at the top-left/root box like DataFlowViz).
+            if (decl === graph.root.id) continue;
+            const d = scopeDepthById.get(decl) ?? 0;
+            if (d > bestDepth) {
+              bestDepth = d;
+              bestDecl = decl;
+            }
+          }
+          if (!bestDecl) continue;
+
+          // Direction we want to visualize: consuming scope -> declaring scope.
+          const edgeId = `${n.id}→${bestDecl}`;
+          if (!scopeEdges.has(edgeId)) {
+            scopeEdges.set(edgeId, {
+              from: n.id,
+              to: bestDecl,
+              exampleKey: key,
+            });
+          }
+        }
+        for (const child of n.children) buildScopeEdges(child);
+      };
+      buildScopeEdges(graph.root);
+    }
 
     const pills = Array.from(
       el.querySelectorAll<HTMLElement>("[data-symbol-id][data-symbol-type]")
     );
-    if (pills.length === 0) {
-      setLines([]);
-      return;
-    }
 
-    // We only connect: root declared pills (depth=0) -> captured pills rendered in descendant scopes (depth>0).
-    // Note: captured symbol IDs may not match declared symbol IDs (depending on backend),
-    // so we also fallback-match by `${name}:${declLine}`.
-    const rootDeclaredByKey = new Map<string, OverlayRect>();
-    const capturedByKey = new Map<string, OverlayRect[]>();
-    const scrollT = el.scrollTop;
-    const scrollL = el.scrollLeft;
+    // Connect declarations -> captures across scopes.
+    // Primary match key is `${name}:${declLine}` (stable even if backend IDs differ);
+    // fallback to the backend symbol id when line/name are unavailable.
+    type PillRect = OverlayRect & {
+      scopeId: string | null;
+      scopeDepth: number;
+    };
+    const declaredByKey = new Map<string, PillRect[]>();
+    const capturedByKey = new Map<string, PillRect[]>();
+    const capturedByScopeAndKey = new Map<string, PillRect[]>();
 
     for (const pill of pills) {
       const id = pill.dataset.symbolId;
@@ -445,52 +602,156 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
         null;
       const scopeDepth =
         scopeDepthStr != null ? parseInt(scopeDepthStr, 10) : null;
+      if (scopeDepth == null || !Number.isFinite(scopeDepth)) continue;
+
+      const scopeId =
+        pill.closest<HTMLElement>("[data-scope-id]")?.dataset.scopeId ?? null;
 
       const r = pill.getBoundingClientRect();
-      const rect: OverlayRect = {
+      const rect: PillRect = {
         // Convert viewport coords -> scroll-content coords
         left: r.left - containerRect.left + scrollL,
         top: r.top - containerRect.top + scrollT,
         width: r.width,
         height: r.height,
+        scopeId,
+        scopeDepth,
       };
 
-      if (type === "declared" && scopeDepth === 0) {
-        rootDeclaredByKey.set(id, rect);
-        if (name && typeof declLine === "number" && Number.isFinite(declLine)) {
-          rootDeclaredByKey.set(`${name}:${declLine}`, rect);
-        }
+      const key = symbolKeyFromParts(id, name, declLine);
+
+      if (type === "declared") {
+        const group = declaredByKey.get(key) ?? [];
+        group.push(rect);
+        declaredByKey.set(key, group);
         continue;
       }
 
-      if (type === "captured" && scopeDepth != null && scopeDepth > 0) {
-        const keys: string[] = [id];
-        if (name && typeof declLine === "number" && Number.isFinite(declLine)) {
-          keys.push(`${name}:${declLine}`);
-        }
+      if (type === "captured") {
+        const group = capturedByKey.get(key) ?? [];
+        group.push(rect);
+        capturedByKey.set(key, group);
 
-        for (const k of keys) {
-          const group = capturedByKey.get(k) ?? [];
-          group.push(rect);
-          capturedByKey.set(k, group);
-        }
+        const scopeKey = `${scopeId ?? "null"}|${key}`;
+        const byScope = capturedByScopeAndKey.get(scopeKey) ?? [];
+        byScope.push(rect);
+        capturedByScopeAndKey.set(scopeKey, byScope);
       }
     }
 
     const newLines: OverlayLine[] = [];
+    const seen = new Set<string>();
+    let scopeEdgesDrawn = 0;
+    let scopeEdgesMissingSource = 0;
+    let scopeEdgesMissingTarget = 0;
     let overlapKeys = 0;
-    for (const [key, targets] of capturedByKey.entries()) {
-      const src = rootDeclaredByKey.get(key);
-      if (!src) continue;
-      overlapKeys++;
+    if (pillArrowsEnabled()) {
+      for (const [key, targets] of capturedByKey.entries()) {
+        const sources = declaredByKey.get(key) ?? [];
+        let keyHadAny = false;
+        for (const tgt of targets) {
+          // Prefer a declared pill source if available; otherwise fallback to the declaring scope box.
+          let bestSrc: PillRect | null = null;
+          let bestScore = Number.POSITIVE_INFINITY;
+          for (const src of sources) {
+            if (
+              src.scopeId != null &&
+              tgt.scopeId != null &&
+              src.scopeId === tgt.scopeId
+            )
+              continue;
+            const depthDiff = Math.abs(tgt.scopeDepth - src.scopeDepth);
+            // Prefer sources that are the same depth or closer in the tree.
+            // Slightly prefer sources that are at-or-above the target depth.
+            const score =
+              depthDiff + (src.scopeDepth <= tgt.scopeDepth ? 0 : 0.25);
+            if (score < bestScore) {
+              bestScore = score;
+              bestSrc = src;
+            }
+          }
 
-      for (const tgt of targets) {
-        newLines.push({
-          x1: src.left + src.width,
-          y1: src.top + src.height / 2,
-          x2: tgt.left,
-          y2: tgt.top + tgt.height / 2,
-        });
+          let x1: number | null = null;
+          let y1: number | null = null;
+          if (bestSrc) {
+            x1 = bestSrc.left + bestSrc.width;
+            y1 = bestSrc.top + bestSrc.height / 2;
+          } else {
+            const declScopes = declaringScopesByKey.get(key) ?? [];
+            let bestScope: (OverlayRect & { scopeDepth: number }) | null = null;
+            let bestScopeScore = Number.POSITIVE_INFINITY;
+            for (const scopeId of declScopes) {
+              if (tgt.scopeId != null && scopeId === tgt.scopeId) continue;
+              const scopeRect = scopeBoxById.get(scopeId);
+              if (!scopeRect) continue;
+              const depthDiff = Math.abs(tgt.scopeDepth - scopeRect.scopeDepth);
+              const score =
+                depthDiff + (scopeRect.scopeDepth <= tgt.scopeDepth ? 0 : 0.25);
+              if (score < bestScopeScore) {
+                bestScopeScore = score;
+                bestScope = scopeRect;
+              }
+            }
+            if (bestScope) {
+              // Anchor near the scope header/left (not the far-right of full-width boxes).
+              x1 = bestScope.left + 18;
+              // aim near the header of the scope box so arrows read as "scope -> usage"
+              y1 = bestScope.top + Math.min(18, bestScope.height / 2);
+            }
+          }
+
+          if (x1 == null || y1 == null) continue;
+          keyHadAny = true;
+          const x2 = tgt.left;
+          const y2 = tgt.top + tgt.height / 2;
+          const dedupeKey = `${Math.round(x1)}:${Math.round(y1)}->${Math.round(
+            x2
+          )}:${Math.round(y2)}`;
+          if (seen.has(dedupeKey)) continue;
+          seen.add(dedupeKey);
+
+          newLines.push({ x1, y1, x2, y2 });
+        }
+        if (keyHadAny) overlapKeys++;
+      }
+    }
+
+    // Draw scope->scope arrows: from the consuming captured pill (when available) -> declaring scope box.
+    if (scopeLinksEnabled()) {
+      for (const edge of scopeEdges.values()) {
+        // Extra safety: never render arrows to/from the root scope box.
+        if (edge.from === graph.root.id || edge.to === graph.root.id) continue;
+        const srcBox = scopeBoxById.get(edge.from) ?? null;
+        const tgtBox = scopeBoxById.get(edge.to) ?? null;
+
+        if (!srcBox) {
+          scopeEdgesMissingSource++;
+          continue;
+        }
+        if (!tgtBox) {
+          scopeEdgesMissingTarget++;
+          continue;
+        }
+
+        const scopeKey = `${edge.from}|${edge.exampleKey}`;
+        const srcPill = (capturedByScopeAndKey.get(scopeKey) ?? [])[0] ?? null;
+
+        // Anchor at the consuming pill (prevents everything starting from the pane's top-right).
+        const x1 = srcPill ? srcPill.left : srcBox.left + 18;
+        const y1 = srcPill
+          ? srcPill.top + srcPill.height / 2
+          : srcBox.top + Math.min(18, srcBox.height / 2);
+
+        // Target the declaring scope box header area (left side).
+        const x2 = tgtBox.left + 18;
+        const y2 = tgtBox.top + Math.min(18, tgtBox.height / 2);
+        const dedupeKey = `${Math.round(x1)}:${Math.round(y1)}->${Math.round(
+          x2
+        )}:${Math.round(y2)}`;
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+        scopeEdgesDrawn++;
+        newLines.push({ x1, y1, x2, y2 });
       }
     }
 
@@ -503,10 +764,16 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
       // eslint-disable-next-line no-console
       console.log(`${LOG_PREFIX} overlay`, {
         pills: pills.length,
-        rootDeclared: rootDeclaredByKey.size,
+        declaredGroups: declaredByKey.size,
         capturedGroups: capturedByKey.size,
+        scopeEdges: scopeEdges.size,
+        scopeEdgesDrawn,
+        scopeEdgesMissingSource,
+        scopeEdgesMissingTarget,
         overlapKeys,
         lines: newLines.length,
+        scopeLinksEnabled: scopeLinksEnabled(),
+        pillArrowsEnabled: pillArrowsEnabled(),
         scrollTop: scrollT,
         overlayHeight: el.scrollHeight,
       });
@@ -559,7 +826,7 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
         "flex-1": props.isMaximized(),
       }}
     >
-      <Show when={arrowsEnabled()}>
+      <Show when={scopeLinksEnabled() || pillArrowsEnabled()}>
         <LineOverlay lines={lines()} height={overlayHeight()} />
       </Show>
 
@@ -571,18 +838,22 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
           <div class="flex items-center gap-1">
             <button
               onClick={() => {
-                setArrowsEnabled(!arrowsEnabled());
+                setScopeLinksEnabled(!scopeLinksEnabled());
                 // eslint-disable-next-line no-console
-                console.log(`${LOG_PREFIX} arrows`, {
-                  enabled: !arrowsEnabled(),
+                console.log(`${LOG_PREFIX} scope-links`, {
+                  enabled: !scopeLinksEnabled(),
                 });
                 scheduleRecalculate();
               }}
               class="p-1 hover:bg-gray-800 rounded transition-colors text-gray-500 hover:text-gray-300"
-              title={arrowsEnabled() ? "Hide arrows" : "Show arrows"}
+              title={
+                scopeLinksEnabled()
+                  ? "Hide inter-scope links"
+                  : "Show inter-scope links"
+              }
             >
               <Show
-                when={arrowsEnabled()}
+                when={scopeLinksEnabled()}
                 fallback={
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -613,6 +884,59 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
                 >
                   <path d="M4 20L20 4" />
                   <path d="M14 4h6v6" />
+                </svg>
+              </Show>
+            </button>
+
+            <button
+              onClick={() => {
+                setPillArrowsEnabled(!pillArrowsEnabled());
+                // eslint-disable-next-line no-console
+                console.log(`${LOG_PREFIX} pill-arrows`, {
+                  enabled: !pillArrowsEnabled(),
+                });
+                scheduleRecalculate();
+              }}
+              class="p-1 hover:bg-gray-800 rounded transition-colors text-gray-500 hover:text-gray-300"
+              title={
+                pillArrowsEnabled()
+                  ? "Hide declared→captured pill arrows"
+                  : "Show declared→captured pill arrows"
+              }
+            >
+              <Show
+                when={pillArrowsEnabled()}
+                fallback={
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M10 13a5 5 0 0 0 7.54.54l1.92-1.92a5 5 0 0 0-7.07-7.07L11 5" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54L4.54 12.38a5 5 0 0 0 7.07 7.07L13 19" />
+                    <line x1="9" y1="15" x2="15" y2="9" />
+                  </svg>
+                }
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M10 13a5 5 0 0 0 7.54.54l1.92-1.92a5 5 0 0 0-7.07-7.07L11 5" />
+                  <path d="M14 11a5 5 0 0 0-7.54-.54L4.54 12.38a5 5 0 0 0 7.07 7.07L13 19" />
                 </svg>
               </Show>
             </button>
