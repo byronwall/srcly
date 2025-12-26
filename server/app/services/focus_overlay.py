@@ -76,6 +76,7 @@ class _Usage:
     start_col: int  # 0-based
     end_col: int  # exclusive
     resolved: _Def | None
+    containing_scope_id: str  # Closest scope boundary that contains this usage (includes JSX scopes)
     containing_fn_scope_id: str  # Added to track where this usage occurs
 
 
@@ -536,6 +537,39 @@ class FocusAnalyzer:
                          if attr_name:
                              return attr_name.text.decode("utf-8", errors="ignore")
 
+        # TSX/JSX scope naming: name scopes after their JSX tag so they can be explored as a tree.
+        if self.is_tsx and node.type in {"jsx_element", "jsx_self_closing_element", "jsx_fragment"}:
+            if node.type == "jsx_fragment":
+                return "<>"
+
+            opening = node.child_by_field_name("opening_element")
+            if opening is None:
+                for c in node.children:
+                    if c.type in {"jsx_opening_element", "jsx_self_closing_element"}:
+                        opening = c
+                        break
+
+            name_node = opening.child_by_field_name("name") if opening is not None else None
+            if name_node is None and opening is not None:
+                # Fallback: first plausible identifier-ish node under the opening element.
+                for c in opening.children:
+                    if c.type in {
+                        "jsx_identifier",
+                        "identifier",
+                        "property_identifier",
+                        "member_expression",
+                        "jsx_member_expression",
+                        "nested_identifier",
+                    }:
+                        name_node = c
+                        break
+
+            if name_node is not None:
+                raw = name_node.text.decode("utf-8", errors="ignore").strip()
+                if raw:
+                    return f"<{raw}>"
+            return "<jsx>"
+
         return None
 
 
@@ -553,6 +587,12 @@ class FocusAnalyzer:
         return n.type == "catch_clause"
 
     def _is_scope_boundary(self, n: Node) -> bool:
+        # TSX/JSX: every JSX element/fragment becomes its own nested "scope" layer.
+        # This is intentionally verbose so the client can expand/collapse JSX structure
+        # to guide refactors.
+        if self.is_tsx and n.type in {"jsx_element", "jsx_self_closing_element", "jsx_fragment"}:
+            return True
+
         if n.type in {"block", "statement_block"}:
             parent = n.parent
             if parent and (self._is_function_node(parent) or self._is_catch_clause(parent)):
@@ -563,6 +603,8 @@ class FocusAnalyzer:
         return self._is_function_node(n)
 
     def _scope_type(self, n: Node) -> str:
+        if self.is_tsx and n.type in {"jsx_element", "jsx_self_closing_element", "jsx_fragment"}:
+            return "jsx"
         if self._is_function_node(n):
             return "function"
         if self._is_catch_clause(n):
@@ -928,6 +970,7 @@ class FocusAnalyzer:
                                     start_col=n.start_point.column,
                                     end_col=n.end_point.column,
                                     resolved=resolved,
+                                    containing_scope_id=next_scope.id if next_scope else self.global_scope.id,
                                     containing_fn_scope_id=usage_fn_scope.id if usage_fn_scope else self.global_scope.id,
                                 )
                             )
@@ -1139,7 +1182,9 @@ def compute_scope_graph(
             ancestor_ids.remove(s.id)
             
         for u in analyzer.usages:
-            if u.containing_fn_scope_id in descendant_ids:
+            # Attribute captured variables to the closest scope boundary.
+            # This includes JSX scopes so each TSX element can show its own captures.
+            if u.containing_scope_id in descendant_ids:
                 d = u.resolved
                 if d and d.scope_id in ancestor_ids and d.name not in _BUILTINS:
                     if d.kind != "import" and d.scope_type != "global":
@@ -1163,8 +1208,8 @@ def compute_scope_graph(
             if node:
                 child_nodes.append(node)
         
-        # Prune empty nodes
-        if not declared_nodes and not captured_nodes and not child_nodes:
+        # Prune empty nodes (but never prune JSX scopes; we want the full JSX tree).
+        if s.type != "jsx" and not declared_nodes and not captured_nodes and not child_nodes:
             # But keep the root of our request? 
             # The function `compute_scope_graph` returns `ScopeGraph(root=...)`.
             # If the top-level scope itself is empty, we must return *something* or handle it.

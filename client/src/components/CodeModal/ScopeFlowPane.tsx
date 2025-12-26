@@ -104,7 +104,12 @@ const ScopeBox: Component<{
   onJumpToLine: (target: { scrollTarget: number }) => void;
   onLayoutChange: () => void;
 }> = (props) => {
-  const [expanded, setExpanded] = createSignal(props.depth < 1);
+  // Default behavior: root function scope expanded, everything else collapsed.
+  // For TSX/JSX, even if a JSX element becomes the root scope for the selected range,
+  // we want it to start collapsed so you can expand layer-by-layer.
+  const [expanded, setExpanded] = createSignal(
+    props.depth < 1 && props.node.kind !== "jsx"
+  );
 
   // Make sure the overlay gets a measurement pass once this box mounts.
   onMount(() => {

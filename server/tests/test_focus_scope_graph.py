@@ -52,6 +52,8 @@ def test_scope_graph_structure(tmp_path):
     children_names = [c.name for c in root.children]
     # handleIncrement is a function declaration, so it should be a child scope with name.
     assert "handleIncrement" in children_names
+    # TSX: every JSX element becomes its own scope layer
+    assert "<div>" in children_names
     
     # Find handleIncrement scope
     handle_inc = next(c for c in root.children if c.name == "handleIncrement")
@@ -89,9 +91,13 @@ def test_nested_jsx_callback(tmp_path):
     assert root.kind == "function"
     assert root.name == "Component"
     
-    # Should have child scope for arrow function
-    assert len(root.children) == 1
-    arrow = root.children[0]
+    # TSX: root should include a JSX scope layer (<div>), and the inline handler should
+    # be nested under that element.
+    assert "<div>" in [c.name for c in root.children]
+    div_scope = next(c for c in root.children if c.name == "<div>")
+    assert div_scope.kind == "jsx"
+    assert len(div_scope.children) == 1
+    arrow = div_scope.children[0]
     assert arrow.kind == "function"
     assert arrow.name == "onClick" # Should be named after the attribute
     
@@ -148,5 +154,86 @@ def test_module_scope_not_captured(tmp_path):
     # Ideally moduleVar is NOT captured because it's module-level
     cap_names = {c.name for c in root.captured}
     assert "moduleVar" not in cap_names
+
+
+def test_tsx_every_jsx_element_is_a_scope_layer(tmp_path):
+    code = """
+    function Simple() {
+        return (
+            <div>
+                <span>Hello</span>
+                <p>World</p>
+            </div>
+        );
+    }
+    """
+    f = tmp_path / "simple.tsx"
+    f.write_text(code, encoding="utf-8")
+
+    graph = compute_scope_graph(
+        file_path=str(f),
+        focus_start_line=2,
+        focus_end_line=9,
+    )
+
+    root = graph.root
+    assert root.kind == "function"
+    assert root.name == "Simple"
+
+    # The returned tree should include the JSX structure, even for leaf nodes.
+    assert "<div>" in [c.name for c in root.children]
+    div_scope = next(c for c in root.children if c.name == "<div>")
+    assert div_scope.kind == "jsx"
+
+    child_names = [c.name for c in div_scope.children]
+    assert "<span>" in child_names
+    assert "<p>" in child_names
+
+    span_scope = next(c for c in div_scope.children if c.name == "<span>")
+    p_scope = next(c for c in div_scope.children if c.name == "<p>")
+    assert span_scope.kind == "jsx"
+    assert p_scope.kind == "jsx"
+
+
+def test_tsx_inline_handler_still_tracks_declared_and_captured(tmp_path):
+    code = """
+    function WithHandler() {
+        const x = 1;
+        return (
+            <button onClick={() => {
+                const y = 2;
+                return x + y;
+            }}>
+                Click
+            </button>
+        );
+    }
+    """
+    f = tmp_path / "handler.tsx"
+    f.write_text(code, encoding="utf-8")
+
+    graph = compute_scope_graph(
+        file_path=str(f),
+        focus_start_line=2,
+        focus_end_line=12,
+    )
+
+    root = graph.root
+    assert root.kind == "function"
+    assert root.name == "WithHandler"
+
+    assert "<button>" in [c.name for c in root.children]
+    btn = next(c for c in root.children if c.name == "<button>")
+    assert btn.kind == "jsx"
+
+    # Inline arrow is nested under the JSX element.
+    arrow = next(c for c in btn.children if c.kind == "function")
+    assert arrow.name == "onClick"
+
+    decl_names = {d.name for d in arrow.declared}
+    assert "y" in decl_names
+
+    cap_names = {c.name for c in arrow.captured}
+    assert "x" in cap_names
 
 
