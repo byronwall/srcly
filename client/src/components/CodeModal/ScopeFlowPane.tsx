@@ -130,27 +130,41 @@ const ScopeBox: Component<{
     return names;
   });
 
-  const allChildCapturedIds = createMemo(() => {
-    const ids = new Set<string>();
-    const traverse = (n: ScopeNode) => {
-      for (const child of n.children) {
-        for (const s of child.captured) {
-          ids.add(s.id);
-        }
-        traverse(child);
+  type CapturedEntry = { symbol: SymbolNode; consumerScopeId: string };
+  const collectCapturedSubtree = (n: ScopeNode): CapturedEntry[] => {
+    // Dedupe by symbol key so collapsed scopes don't explode with repeated symbols.
+    // While collapsed, the parent is the visual "consumer boundary" (arrows/pills move down as you expand).
+    const byKey = new Map<string, CapturedEntry>();
+    const visit = (node: ScopeNode) => {
+      for (const s of node.captured) {
+        const key = symbolKeyFromSymbol(s);
+        if (!byKey.has(key))
+          byKey.set(key, { symbol: s, consumerScopeId: n.id });
       }
+      for (const child of node.children) visit(child);
     };
-    traverse(props.node);
-    return ids;
+    visit(n);
+    return Array.from(byKey.values()).sort((a, b) =>
+      a.symbol.name.localeCompare(b.symbol.name)
+    );
+  };
+
+  // Collapsed nodes act as an aggregation boundary: show captures from the whole hidden subtree.
+  // Expanded nodes show only the captures used directly in that scope; descendants render themselves.
+  const displayedCaptured = createMemo<CapturedEntry[]>(() => {
+    if (expanded()) {
+      const byKey = new Map<string, CapturedEntry>();
+      for (const s of props.node.captured) {
+        const key = symbolKeyFromSymbol(s);
+        if (!byKey.has(key))
+          byKey.set(key, { symbol: s, consumerScopeId: props.node.id });
+      }
+      return Array.from(byKey.values()).sort((a, b) =>
+        a.symbol.name.localeCompare(b.symbol.name)
+      );
+    }
+    return collectCapturedSubtree(props.node);
   });
-
-  const capturedInChildren = () => {
-    return props.node.captured.filter((s) => allChildCapturedIds().has(s.id));
-  };
-
-  const directCaptured = () => {
-    return props.node.captured.filter((s) => !allChildCapturedIds().has(s.id));
-  };
 
   const filteredDeclared = createMemo(() => {
     const scopeNames = descendantScopeNames();
@@ -242,40 +256,20 @@ const ScopeBox: Component<{
           </div>
         </Show>
 
-        <Show when={directCaptured().length > 0}>
+        <Show when={displayedCaptured().length > 0}>
           <div class="flex flex-col gap-1 w-full border-t border-gray-800/50 pt-1">
             <span class="text-[9px] text-gray-600">Captured</span>
             <div class="flex flex-wrap gap-1.5">
-              <For each={directCaptured()}>
-                {(s) => (
+              <Index each={displayedCaptured()}>
+                {(entry) => (
                   <SymbolPill
-                    symbol={s}
+                    symbol={entry().symbol}
                     type="captured"
                     isModifierPressed={props.isModifierPressed}
                     onJumpToLine={props.onJumpToLine}
                   />
                 )}
-              </For>
-            </div>
-          </div>
-        </Show>
-
-        <Show when={!expanded() && capturedInChildren().length > 0}>
-          <div class="flex flex-col gap-1 w-full border-t border-gray-800/50 pt-1">
-            <span class="text-[9px] text-gray-600">
-              Captured in child calls
-            </span>
-            <div class="flex flex-wrap gap-1.5">
-              <For each={capturedInChildren()}>
-                {(s) => (
-                  <SymbolPill
-                    symbol={s}
-                    type="captured"
-                    isModifierPressed={props.isModifierPressed}
-                    onJumpToLine={props.onJumpToLine}
-                  />
-                )}
-              </For>
+              </Index>
             </div>
           </div>
         </Show>
@@ -602,15 +596,24 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
       const type = pill.dataset.symbolType;
       if (!id || !type) continue;
 
-      const scopeDepthStr =
-        pill.closest<HTMLElement>("[data-scope-depth]")?.dataset.scopeDepth ??
-        null;
-      const scopeDepth =
-        scopeDepthStr != null ? parseInt(scopeDepthStr, 10) : null;
-      if (scopeDepth == null || !Number.isFinite(scopeDepth)) continue;
-
-      const scopeId =
+      const consumerScopeId = pill.dataset.consumerScopeId ?? null;
+      const closestScopeId =
         pill.closest<HTMLElement>("[data-scope-id]")?.dataset.scopeId ?? null;
+      const scopeId =
+        type === "captured" && consumerScopeId
+          ? consumerScopeId
+          : closestScopeId;
+
+      const scopeDepth =
+        type === "captured" && consumerScopeId
+          ? scopeDepthById.get(consumerScopeId) ?? null
+          : (() => {
+              const scopeDepthStr =
+                pill.closest<HTMLElement>("[data-scope-depth]")?.dataset
+                  .scopeDepth ?? null;
+              return scopeDepthStr != null ? parseInt(scopeDepthStr, 10) : null;
+            })();
+      if (scopeDepth == null || !Number.isFinite(scopeDepth)) continue;
 
       const r = pill.getBoundingClientRect();
       const rect: PillRect = {

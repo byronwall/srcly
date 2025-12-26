@@ -1167,16 +1167,8 @@ def compute_scope_graph(
                     isCaptured=False
                 ))
         
-        captured_map: Dict[str, _Def] = {} 
-        
-        descendant_ids = {s.id}
-        queue = [s.id]
-        while queue:
-            curr_id = queue.pop(0)
-            curr_s = analyzer.scopes[curr_id]
-            descendant_ids.add(curr_id)
-            queue.extend(curr_s.children_ids)
-            
+        captured_map: Dict[tuple, _Def] = {}
+
         ancestor_ids = set(analyzer._ancestor_chain(s.id))
         if s.id in ancestor_ids:
             ancestor_ids.remove(s.id)
@@ -1184,11 +1176,11 @@ def compute_scope_graph(
         for u in analyzer.usages:
             # Attribute captured variables to the closest scope boundary.
             # This includes JSX scopes so each TSX element can show its own captures.
-            if u.containing_scope_id in descendant_ids:
+            if u.containing_scope_id == s.id:
                 d = u.resolved
                 if d and d.scope_id in ancestor_ids and d.name not in _BUILTINS:
                     if d.kind != "import" and d.scope_type != "global":
-                        captured_map[d.name] = d
+                        captured_map[(d.name, d.def_line)] = d
 
         captured_nodes: List[SymbolNode] = []
         for d in captured_map.values():
