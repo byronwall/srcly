@@ -39,6 +39,7 @@ export default function CodeModal(props: CodeModalProps) {
   const [reduceIndentation, setReduceIndentation] = createSignal(true);
   const [viewMode, setViewMode] = createSignal<"code" | "preview">("code");
   const [dataFlowEnabled, setDataFlowEnabled] = createSignal(true);
+  const [scopeFlowEnabled, setScopeFlowEnabled] = createSignal(false);
   const [scopeMaximized, setScopeMaximized] = createSignal(false);
 
   let contentScrollRef: HTMLDivElement | undefined;
@@ -105,6 +106,11 @@ export default function CodeModal(props: CodeModalProps) {
     } else {
       setViewMode("code");
     }
+  });
+
+  createEffect(() => {
+    // Prevent blank UI states: if scope flow is disabled, it can't be maximized.
+    if (!scopeFlowEnabled()) setScopeMaximized(false);
   });
 
   const hasSelection = () =>
@@ -328,6 +334,8 @@ export default function CodeModal(props: CodeModalProps) {
             setLineOffset={(n) => setLineOffset(Math.max(0, Math.floor(n)))}
             dataFlowEnabled={dataFlowEnabled}
             setDataFlowEnabled={setDataFlowEnabled}
+            scopeFlowEnabled={scopeFlowEnabled}
+            setScopeFlowEnabled={setScopeFlowEnabled}
           />
 
           <main class="relative flex-1 overflow-hidden flex bg-[#1e1e1e]">
@@ -380,6 +388,7 @@ export default function CodeModal(props: CodeModalProps) {
                     removedIndentByLine={removedIndentByLine}
                     lineFilterEnabled={lineFilterEnabled}
                     dataFlowEnabled={dataFlowEnabled}
+                    scopeFlowEnabled={scopeFlowEnabled}
                     isScopeMaximized={scopeMaximized}
                     onToggleMaximizeScope={() =>
                       setScopeMaximized(!scopeMaximized())

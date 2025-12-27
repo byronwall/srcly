@@ -36,6 +36,7 @@ export type CodePaneProps = {
   removedIndentByLine: () => number[] | null;
   lineFilterEnabled: () => boolean;
   dataFlowEnabled: () => boolean;
+  scopeFlowEnabled: () => boolean;
   onJumpToLine: (target: {
     start?: number;
     end?: number;
@@ -140,7 +141,7 @@ export function CodePane(props: CodePaneProps) {
 
   return (
     <div class="flex h-full min-h-0">
-      <Show when={!props.isScopeMaximized()}>
+      <Show when={!props.isScopeMaximized() || !props.scopeFlowEnabled()}>
         <div
           class="flex-1 min-w-0 overflow-auto"
           ref={(el) => (scrollRef = el)}
@@ -198,8 +199,9 @@ export function CodePane(props: CodePaneProps) {
         </div>
       </Show>
 
-      <Show when={props.dataFlowEnabled() && showCode()}>
+      <Show when={props.scopeFlowEnabled() && showCode()}>
         <ScopeFlowPane
+          enabled={props.scopeFlowEnabled}
           filePath={props.filePath()}
           targetStartLine={props.targetStartLine()}
           targetEndLine={props.targetEndLine()}
@@ -207,47 +209,48 @@ export function CodePane(props: CodePaneProps) {
           isMaximized={props.isScopeMaximized}
           onToggleMaximize={props.onToggleMaximizeScope}
         />
-        <Show when={!props.isScopeMaximized()}>
-          <div class="w-48 shrink-0 border-l border-gray-800 bg-gray-900/20 p-4 overflow-y-auto">
-            <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">
-              Data Flow
-            </h3>
-            <div class="space-y-3 code-modal-content">
-              <For each={LEGEND_ITEMS}>
-                {(item) => {
-                  const count = () => counts().get(item.category) || 0;
-                  return (
-                    <div
-                      class="flex items-center justify-between group cursor-default"
-                      title={`${item.label}: ${count()} occurrences`}
-                    >
-                      <div class="flex items-center gap-2">
-                        <div
-                          class={`w-3.5 h-3.5 rounded-sm border border-white/5 flow flow-${item.category}`}
-                          aria-hidden="true"
-                        />
-                        <span class="text-[11px] text-gray-400 font-medium group-hover:text-gray-200 transition-colors">
-                          {item.label}
-                        </span>
-                      </div>
-                      <Show when={count() > 0}>
-                        <span class="text-[10px] font-mono text-gray-600 group-hover:text-gray-400 tabular-nums">
-                          {count()}
-                        </span>
-                      </Show>
-                    </div>
-                  );
-                }}
-              </For>
-            </div>
+      </Show>
 
-            <div class="mt-8 pt-6 border-t border-gray-800/50">
-              <p class="text-[10px] leading-relaxed text-gray-600 italic">
-                Tracing {tokens().length} identifiers in the current view.
-              </p>
-            </div>
+      <Show when={props.dataFlowEnabled() && showCode() && !props.isScopeMaximized()}>
+        <div class="w-48 shrink-0 border-l border-gray-800 bg-gray-900/20 p-4 overflow-y-auto">
+          <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">
+            Data Flow
+          </h3>
+          <div class="space-y-3 code-modal-content">
+            <For each={LEGEND_ITEMS}>
+              {(item) => {
+                const count = () => counts().get(item.category) || 0;
+                return (
+                  <div
+                    class="flex items-center justify-between group cursor-default"
+                    title={`${item.label}: ${count()} occurrences`}
+                  >
+                    <div class="flex items-center gap-2">
+                      <div
+                        class={`w-3.5 h-3.5 rounded-sm border border-white/5 flow flow-${item.category}`}
+                        aria-hidden="true"
+                      />
+                      <span class="text-[11px] text-gray-400 font-medium group-hover:text-gray-200 transition-colors">
+                        {item.label}
+                      </span>
+                    </div>
+                    <Show when={count() > 0}>
+                      <span class="text-[10px] font-mono text-gray-600 group-hover:text-gray-400 tabular-nums">
+                        {count()}
+                      </span>
+                    </Show>
+                  </div>
+                );
+              }}
+            </For>
           </div>
-        </Show>
+
+          <div class="mt-8 pt-6 border-t border-gray-800/50">
+            <p class="text-[10px] leading-relaxed text-gray-600 italic">
+              Tracing {tokens().length} identifiers in the current view.
+            </p>
+          </div>
+        </div>
       </Show>
     </div>
   );

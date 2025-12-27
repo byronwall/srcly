@@ -24,6 +24,9 @@ export function CodeModalHeader(props: {
 
   dataFlowEnabled: () => boolean;
   setDataFlowEnabled: (next: boolean) => void;
+
+  scopeFlowEnabled: () => boolean;
+  setScopeFlowEnabled: (next: boolean) => void;
 }) {
   return (
     <header class="flex items-center justify-between border-b border-gray-700 bg-[#252526] px-4 py-2 text-sm">
@@ -110,6 +113,17 @@ export function CodeModalHeader(props: {
           <span title="Highlight data flow, usages, and show tooltips">
             Data flow
           </span>
+        </label>
+
+        <label class="ml-3 flex items-center gap-1 text-[11px] text-gray-300 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={props.scopeFlowEnabled()}
+            onChange={(e) =>
+              props.setScopeFlowEnabled(e.currentTarget.checked)
+            }
+          />
+          <span title="Show/hide the Scope Flow pane">Scope flow</span>
         </label>
 
         <Show when={props.hasLineRange()}>

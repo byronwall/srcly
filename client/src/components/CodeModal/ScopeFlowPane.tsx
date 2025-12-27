@@ -298,6 +298,7 @@ const ScopeBox: Component<{
 };
 
 export interface ScopeFlowPaneProps {
+  enabled?: () => boolean;
   filePath: string | null;
   targetStartLine: number | null;
   targetEndLine: number | null;
@@ -368,6 +369,7 @@ const LineOverlay: Component<{
 };
 
 export function ScopeFlowPane(props: ScopeFlowPaneProps) {
+  const isEnabled = () => props.enabled?.() ?? true;
   const [isModifierPressed, setIsModifierPressed] = createSignal(false);
   // Inter-scopebox links: consuming scope -> declaring scope.
   const [scopeLinksEnabled, setScopeLinksEnabled] = createSignal(true);
@@ -409,6 +411,7 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
       const s = props.targetStartLine;
       const e = props.targetEndLine;
       if (
+        isEnabled() &&
         p &&
         typeof s === "number" &&
         typeof e === "number" &&
@@ -430,6 +433,10 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
   let lastDebugLogAt = 0;
 
   const recalculateLines = () => {
+    if (!isEnabled()) {
+      setLines([]);
+      return;
+    }
     const el = containerRef;
     const graph = data();
 
@@ -816,6 +823,10 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
   });
 
   createEffect(() => {
+    if (!isEnabled()) {
+      setLines([]);
+      return;
+    }
     const graph = data();
     if (!graph) {
       setLines([]);
@@ -825,44 +836,61 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
   });
 
   return (
-    <div
-      ref={(el) => (containerRef = el)}
-      onScroll={scheduleRecalculate}
-      class="relative shrink-0 border-l border-gray-800 bg-gray-900/10 p-4 overflow-y-auto overflow-x-hidden flex flex-col gap-4"
-      classList={{
-        "w-96": !props.isMaximized(),
-        "flex-1": props.isMaximized(),
-      }}
-    >
-      <Show when={scopeLinksEnabled() || pillArrowsEnabled()}>
-        <LineOverlay lines={lines()} height={overlayHeight()} />
-      </Show>
+    <Show when={isEnabled()}>
+      <div
+        ref={(el) => (containerRef = el)}
+        onScroll={scheduleRecalculate}
+        class="relative shrink-0 border-l border-gray-800 bg-gray-900/10 p-4 overflow-y-auto overflow-x-hidden flex flex-col gap-4"
+        classList={{
+          "w-96": !props.isMaximized(),
+          "flex-1": props.isMaximized(),
+        }}
+      >
+        <Show when={scopeLinksEnabled() || pillArrowsEnabled()}>
+          <LineOverlay lines={lines()} height={overlayHeight()} />
+        </Show>
 
-      <div class="relative z-10 flex flex-col gap-4">
-        <div class="flex items-center justify-between sticky top-0 bg-[#1e1e1e] pb-2 z-10 border-b border-gray-800/50 mb-2">
-          <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-            Scope Flow
-          </h3>
-          <div class="flex items-center gap-1">
-            <button
-              onClick={() => {
-                setScopeLinksEnabled(!scopeLinksEnabled());
-                // eslint-disable-next-line no-console
-                console.log(`${LOG_PREFIX} scope-links`, {
-                  enabled: !scopeLinksEnabled(),
-                });
-                scheduleRecalculate();
-              }}
-              class="p-1 hover:bg-gray-800 rounded transition-colors text-gray-500 hover:text-gray-300"
-              title={
-                scopeLinksEnabled()
-                  ? "Hide inter-scope links"
-                  : "Show inter-scope links"
-              }
-            >
-              <Show
-                when={scopeLinksEnabled()}
-                fallback={
+        <div class="relative z-10 flex flex-col gap-4">
+          <div class="flex items-center justify-between sticky top-0 bg-[#1e1e1e] pb-2 z-10 border-b border-gray-800/50 mb-2">
+            <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+              Scope Flow
+            </h3>
+            <div class="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  setScopeLinksEnabled(!scopeLinksEnabled());
+                  // eslint-disable-next-line no-console
+                  console.log(`${LOG_PREFIX} scope-links`, {
+                    enabled: !scopeLinksEnabled(),
+                  });
+                  scheduleRecalculate();
+                }}
+                class="p-1 hover:bg-gray-800 rounded transition-colors text-gray-500 hover:text-gray-300"
+                title={
+                  scopeLinksEnabled()
+                    ? "Hide inter-scope links"
+                    : "Show inter-scope links"
+                }
+              >
+                <Show
+                  when={scopeLinksEnabled()}
+                  fallback={
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M12 5v14" />
+                      <path d="M5 12h14" />
+                    </svg>
+                  }
+                >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="14"
@@ -874,47 +902,48 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
                     stroke-linecap="round"
                     stroke-linejoin="round"
                   >
-                    <path d="M12 5v14" />
-                    <path d="M5 12h14" />
+                    <path d="M4 20L20 4" />
+                    <path d="M14 4h6v6" />
                   </svg>
+                </Show>
+              </button>
+
+              <button
+                onClick={() => {
+                  setPillArrowsEnabled(!pillArrowsEnabled());
+                  // eslint-disable-next-line no-console
+                  console.log(`${LOG_PREFIX} pill-arrows`, {
+                    enabled: !pillArrowsEnabled(),
+                  });
+                  scheduleRecalculate();
+                }}
+                class="p-1 hover:bg-gray-800 rounded transition-colors text-gray-500 hover:text-gray-300"
+                title={
+                  pillArrowsEnabled()
+                    ? "Hide declared→captured pill arrows"
+                    : "Show declared→captured pill arrows"
                 }
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+                <Show
+                  when={pillArrowsEnabled()}
+                  fallback={
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M10 13a5 5 0 0 0 7.54.54l1.92-1.92a5 5 0 0 0-7.07-7.07L11 5" />
+                      <path d="M14 11a5 5 0 0 0-7.54-.54L4.54 12.38a5 5 0 0 0 7.07 7.07L13 19" />
+                      <line x1="9" y1="15" x2="15" y2="9" />
+                    </svg>
+                  }
                 >
-                  <path d="M4 20L20 4" />
-                  <path d="M14 4h6v6" />
-                </svg>
-              </Show>
-            </button>
-
-            <button
-              onClick={() => {
-                setPillArrowsEnabled(!pillArrowsEnabled());
-                // eslint-disable-next-line no-console
-                console.log(`${LOG_PREFIX} pill-arrows`, {
-                  enabled: !pillArrowsEnabled(),
-                });
-                scheduleRecalculate();
-              }}
-              class="p-1 hover:bg-gray-800 rounded transition-colors text-gray-500 hover:text-gray-300"
-              title={
-                pillArrowsEnabled()
-                  ? "Hide declared→captured pill arrows"
-                  : "Show declared→captured pill arrows"
-              }
-            >
-              <Show
-                when={pillArrowsEnabled()}
-                fallback={
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="14"
@@ -928,35 +957,36 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
                   >
                     <path d="M10 13a5 5 0 0 0 7.54.54l1.92-1.92a5 5 0 0 0-7.07-7.07L11 5" />
                     <path d="M14 11a5 5 0 0 0-7.54-.54L4.54 12.38a5 5 0 0 0 7.07 7.07L13 19" />
-                    <line x1="9" y1="15" x2="15" y2="9" />
                   </svg>
-                }
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M10 13a5 5 0 0 0 7.54.54l1.92-1.92a5 5 0 0 0-7.07-7.07L11 5" />
-                  <path d="M14 11a5 5 0 0 0-7.54-.54L4.54 12.38a5 5 0 0 0 7.07 7.07L13 19" />
-                </svg>
-              </Show>
-            </button>
+                </Show>
+              </button>
 
-            <button
-              onClick={() => props.onToggleMaximize()}
-              class="p-1 hover:bg-gray-800 rounded transition-colors text-gray-500 hover:text-gray-300"
-              title={props.isMaximized() ? "Restore" : "Maximize"}
-            >
-              <Show
-                when={props.isMaximized()}
-                fallback={
+              <button
+                onClick={() => props.onToggleMaximize()}
+                class="p-1 hover:bg-gray-800 rounded transition-colors text-gray-500 hover:text-gray-300"
+                title={props.isMaximized() ? "Restore" : "Maximize"}
+              >
+                <Show
+                  when={props.isMaximized()}
+                  fallback={
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <polyline points="15 3 21 3 21 9"></polyline>
+                      <polyline points="9 21 3 21 3 15"></polyline>
+                      <line x1="21" y1="3" x2="14" y2="10"></line>
+                      <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                  }
+                >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="14"
@@ -968,62 +998,45 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
                     stroke-linecap="round"
                     stroke-linejoin="round"
                   >
-                    <polyline points="15 3 21 3 21 9"></polyline>
-                    <polyline points="9 21 3 21 3 15"></polyline>
-                    <line x1="21" y1="3" x2="14" y2="10"></line>
-                    <line x1="3" y1="21" x2="10" y2="14"></line>
+                    <polyline points="4 14 10 14 10 20"></polyline>
+                    <polyline points="20 10 14 10 14 4"></polyline>
+                    <line x1="14" y1="10" x2="21" y2="3"></line>
+                    <line x1="10" y1="14" x2="3" y2="21"></line>
                   </svg>
-                }
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <polyline points="4 14 10 14 10 20"></polyline>
-                  <polyline points="20 10 14 10 14 4"></polyline>
-                  <line x1="14" y1="10" x2="21" y2="3"></line>
-                  <line x1="10" y1="14" x2="3" y2="21"></line>
-                </svg>
-              </Show>
-            </button>
+                </Show>
+              </button>
+            </div>
           </div>
+
+          <Show when={data.loading}>
+            <div class="text-[10px] text-gray-500 animate-pulse">
+              Analyzing scopes...
+            </div>
+          </Show>
+
+          <Show when={data.error}>
+            <div class="text-[10px] text-red-400">Error loading scope graph</div>
+          </Show>
+
+          <Show when={data()} keyed>
+            {(graph) => (
+              <ScopeBox
+                node={graph.root}
+                depth={0}
+                isModifierPressed={isModifierPressed}
+                onJumpToLine={props.onJumpToLine}
+                onLayoutChange={scheduleRecalculate}
+              />
+            )}
+          </Show>
+
+          <Show when={!data.loading && !data() && props.targetStartLine}>
+            <div class="text-[10px] text-gray-600">
+              No scope data available for this range.
+            </div>
+          </Show>
         </div>
-
-        <Show when={data.loading}>
-          <div class="text-[10px] text-gray-500 animate-pulse">
-            Analyzing scopes...
-          </div>
-        </Show>
-
-        <Show when={data.error}>
-          <div class="text-[10px] text-red-400">Error loading scope graph</div>
-        </Show>
-
-        <Show when={data()} keyed>
-          {(graph) => (
-            <ScopeBox
-              node={graph.root}
-              depth={0}
-              isModifierPressed={isModifierPressed}
-              onJumpToLine={props.onJumpToLine}
-              onLayoutChange={scheduleRecalculate}
-            />
-          )}
-        </Show>
-
-        <Show when={!data.loading && !data() && props.targetStartLine}>
-          <div class="text-[10px] text-gray-600">
-            No scope data available for this range.
-          </div>
-        </Show>
       </div>
-    </div>
+    </Show>
   );
 }
