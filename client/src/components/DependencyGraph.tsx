@@ -599,53 +599,100 @@ export default function DependencyGraph(props: DependencyGraphProps) {
       return { graph: data, assignments: [] };
     }
 
-    const baseNodes = data.nodes.map((n: any) => {
-      const assignment = assignmentById.get(n.id as string);
-      if (!assignment) return n;
-      return {
-        ...n,
-        assignmentCode: assignment.code,
-        assignmentColor: assignment.color,
-        isSuperNode: true,
-      };
-    });
+    const superNodeIds = new Set<string>(sortedSuperIds);
+    const rootFileId = props.path;
+
+    // We represent high in-degree targets as *badges inside the importing file*,
+    // rather than standalone dummy nodes with their own edges.
+    //
+    // Practical effect:
+    // - Drop edges that point to super nodes.
+    // - Add a badge (dummy child node) inside the edge's source file node.
+    // - Optionally hide the super-node file itself to avoid orphan boxes.
+    const baseNodes = data.nodes
+      .filter((n: any) => {
+        const id = n.id as string;
+        if (n.type !== "file") return true;
+        if (!superNodeIds.has(id)) return true;
+        // Keep the root visible even if it's a super-node candidate.
+        return !!(rootFileId && id === rootFileId);
+      })
+      .map((n: any) => {
+        const assignment = assignmentById.get(n.id as string);
+        if (!assignment) return n;
+        return {
+          ...n,
+          assignmentCode: assignment.code,
+          assignmentColor: assignment.color,
+          isSuperNode: true,
+        };
+      });
 
     const newNodes: any[] = [...baseNodes];
     const newEdges: any[] = [];
+    const badgeBySourceAndSuper = new Map<string, string>();
+    let badgeIndex = 0;
 
-    let dummyIndex = 0;
     for (const edge of data.edges) {
-      const targetAssignment = assignmentById.get(edge.target as string);
-      if (!targetAssignment) {
-        newEdges.push(edge);
+      const sourceId = String(edge.source);
+      const targetId = String(edge.target);
+      const targetAssignment = assignmentById.get(targetId);
+
+      // Collapse edges that point to super nodes into in-node badges.
+      if (targetAssignment) {
+        const sourceNode = nodeById.get(sourceId);
+        // Only attach badges to file nodes we are keeping.
+        if (sourceNode?.type === "file") {
+          const key = `${sourceId}::${targetAssignment.nodeId}`;
+          let badgeId = badgeBySourceAndSuper.get(key);
+          if (!badgeId) {
+            badgeId = `__badge__${
+              targetAssignment.nodeId
+            }__${sourceId}__${badgeIndex++}`;
+            badgeBySourceAndSuper.set(key, badgeId);
+            newNodes.push({
+              id: badgeId,
+              label: targetAssignment.code,
+              type: "dummy",
+              parent: sourceId,
+              assignmentCode: targetAssignment.code,
+              assignmentColor: targetAssignment.color,
+              // Clicking the badge should open the super target file.
+              superNodeId: targetAssignment.nodeId,
+            });
+          }
+        }
+        // Remove the edge to avoid a separate node+connection visual.
         continue;
       }
 
-      const baseEdgeId =
-        (edge.id as string | undefined) ??
-        `${String(edge.source)}->${String(edge.target)}`;
-      const dummyId = `__dummy__${baseEdgeId}__${dummyIndex++}`;
+      // If we hid a super-node file, ensure we don't keep edges that reference it.
+      if (
+        superNodeIds.has(sourceId) &&
+        !(rootFileId && sourceId === rootFileId)
+      ) {
+        continue;
+      }
+      if (
+        superNodeIds.has(targetId) &&
+        !(rootFileId && targetId === rootFileId)
+      ) {
+        continue;
+      }
 
-      newNodes.push({
-        id: dummyId,
-        label: targetAssignment.code,
-        type: "dummy",
-        assignmentCode: targetAssignment.code,
-        assignmentColor: targetAssignment.color,
-        superNodeId: targetAssignment.nodeId,
-      });
-
-      newEdges.push({
-        ...edge,
-        id: `${baseEdgeId}__to_dummy`,
-        target: dummyId,
-      });
+      newEdges.push(edge);
     }
+
+    const allowedIds = new Set(newNodes.map((n: any) => n.id as string));
+    const filteredEdges = newEdges.filter(
+      (e: any) =>
+        allowedIds.has(String(e.source)) && allowedIds.has(String(e.target))
+    );
 
     return {
       graph: {
         nodes: newNodes,
-        edges: newEdges,
+        edges: filteredEdges,
       },
       assignments,
     };
@@ -821,6 +868,26 @@ export default function DependencyGraph(props: DependencyGraphProps) {
   async function layoutGraph(data: GraphData) {
     // Construct ELK graph with hierarchy if needed
 
+    // Precompute child counts so file node sizing can account for badges/exports.
+    const exportChildCountByParent = new Map<string, number>();
+    const dummyChildCountByParent = new Map<string, number>();
+    for (const n of data.nodes ?? []) {
+      const parent = (n as any).parent as string | undefined;
+      const type = (n as any).type as string | undefined;
+      if (!parent || !type) continue;
+      if (type === "export") {
+        exportChildCountByParent.set(
+          parent,
+          (exportChildCountByParent.get(parent) ?? 0) + 1
+        );
+      } else if (type === "dummy") {
+        dummyChildCountByParent.set(
+          parent,
+          (dummyChildCountByParent.get(parent) ?? 0) + 1
+        );
+      }
+    }
+
     // Group nodes by parent
     const nodesById = new Map<string, any>();
     const rootNodes: any[] = [];
@@ -842,7 +909,15 @@ export default function DependencyGraph(props: DependencyGraphProps) {
       } else {
         // File node
         width = Math.max(100, String(n.label ?? "").length * 8);
-        height = 40;
+        const exportCount = exportChildCountByParent.get(n.id) ?? 0;
+        const dummyCount = dummyChildCountByParent.get(n.id) ?? 0;
+        const hasExports = exportCount > 0;
+        const hasBadges = dummyCount > 0;
+
+        // Base height + room for badge row and export pills (when present).
+        height = 44;
+        if (hasBadges) height += 28;
+        if (hasExports) height += 34;
       }
 
       nodesById.set(n.id, {
@@ -975,9 +1050,16 @@ export default function DependencyGraph(props: DependencyGraphProps) {
         const fileX = fileNode.x ?? 0;
         const fileY = fileNode.y ?? 0;
         const fileWidth = fileNode.width ?? 120;
+        const fileHeight = fileNode.height ?? 40;
 
         let currentX = fileX + H_PADDING;
-        const centerY = fileY + V_PADDING + BADGE_RADIUS;
+        // Place badges on a dedicated row below the file title.
+        // This keeps them visually "inside" the file box without overlapping the name.
+        const TITLE_ROW_HEIGHT = 22;
+        const centerY = Math.min(
+          fileY + TITLE_ROW_HEIGHT + BADGE_RADIUS + 6,
+          fileY + fileHeight - BADGE_RADIUS - 6
+        );
 
         for (const badge of badges) {
           if (currentX + BADGE_DIAMETER + H_PADDING > fileX + fileWidth) {
