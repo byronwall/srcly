@@ -74,6 +74,14 @@ function getFileBaseName(label: string): string {
   return lastSlash >= 0 ? label.slice(lastSlash + 1) : label;
 }
 
+function truncateLabel(label: string, maxChars: number): string {
+  const clean = String(label ?? "");
+  if (maxChars <= 0) return "";
+  if (clean.length <= maxChars) return clean;
+  if (maxChars <= 1) return "…";
+  return `${clean.slice(0, Math.max(1, maxChars - 1))}…`;
+}
+
 // Color scales: keep in sync with the treemap hotspot coloring.
 const complexityColor = d3
   .scaleLinear<string>()
@@ -215,6 +223,12 @@ export default function DependencyGraph(props: DependencyGraphProps) {
   const [selectedFilePath, setSelectedFilePath] = createSignal<string | null>(
     null
   );
+  const [compactLayout, setCompactLayout] = createSignal(true);
+  const [horizontalLayout, setHorizontalLayout] = createSignal(false);
+  const [layoutMode, setLayoutMode] = createSignal<"layered" | "force">(
+    "layered"
+  );
+  const [forceTightness, setForceTightness] = createSignal(70);
   const [superNodeAssignments, setSuperNodeAssignments] = createSignal<
     SuperNodeAssignment[]
   >([]);
@@ -230,6 +244,12 @@ export default function DependencyGraph(props: DependencyGraphProps) {
 
   const elk = new ELK();
   const primaryMetric = () => props.primaryMetricId || "complexity";
+
+  const nodeById = createMemo(() => {
+    const m = new Map<string, Node>();
+    for (const n of nodes()) m.set(n.id, n);
+    return m;
+  });
 
   const sidebarGroups = createMemo(() => {
     const filter = exportFilter().trim().toLowerCase();
@@ -868,6 +888,9 @@ export default function DependencyGraph(props: DependencyGraphProps) {
   async function layoutGraph(data: GraphData) {
     // Construct ELK graph with hierarchy if needed
 
+    const isCompact = compactLayout();
+    const isHorizontal = horizontalLayout();
+
     // Precompute child counts so file node sizing can account for badges/exports.
     const exportChildCountByParent = new Map<string, number>();
     const dummyChildCountByParent = new Map<string, number>();
@@ -901,23 +924,33 @@ export default function DependencyGraph(props: DependencyGraphProps) {
       let height = 0;
 
       if (isDummy) {
-        width = 26;
-        height = 26;
+        width = isCompact ? 20 : 26;
+        height = isCompact ? 20 : 26;
       } else if (isExport) {
-        width = Math.max(60, String(n.label ?? "").length * 7);
-        height = 24;
+        const label = String(n.label ?? "");
+        width = Math.max(
+          isCompact ? 46 : 60,
+          label.length * (isCompact ? 6 : 7)
+        );
+        height = isCompact ? 20 : 24;
       } else {
         // File node
-        width = Math.max(100, String(n.label ?? "").length * 8);
+        const rawLabel = String(n.label ?? "");
+        const sizingLabel = isCompact ? getFileBaseName(rawLabel) : rawLabel;
+        width = Math.max(
+          isCompact ? 84 : 100,
+          sizingLabel.length * (isCompact ? 6 : 8)
+        );
         const exportCount = exportChildCountByParent.get(n.id) ?? 0;
         const dummyCount = dummyChildCountByParent.get(n.id) ?? 0;
         const hasExports = exportCount > 0;
         const hasBadges = dummyCount > 0;
 
         // Base height + room for badge row and export pills (when present).
-        height = 44;
-        if (hasBadges) height += 28;
-        if (hasExports) height += 34;
+        height = isCompact ? 36 : 44;
+        // In compact mode, pack badges into the title row to avoid consuming extra height.
+        if (hasBadges && !isCompact) height += 28;
+        if (hasExports) height += isCompact ? 28 : 34;
       }
 
       nodesById.set(n.id, {
@@ -944,11 +977,12 @@ export default function DependencyGraph(props: DependencyGraphProps) {
       id: "root",
       layoutOptions: {
         "elk.algorithm": "layered",
-        "elk.direction": "DOWN",
-        "elk.spacing.nodeNode": "40",
-        "elk.layered.spacing.nodeNodeBetweenLayers": "40",
-        "elk.spacing.edgeNode": "10",
-        "elk.layered.spacing.edgeNodeBetweenLayers": "10",
+        // Default to vertical for readability; horizontal is opt-in.
+        "elk.direction": isHorizontal ? "RIGHT" : "DOWN",
+        "elk.spacing.nodeNode": isCompact ? "22" : "40",
+        "elk.layered.spacing.nodeNodeBetweenLayers": isCompact ? "22" : "40",
+        "elk.spacing.edgeNode": isCompact ? "6" : "10",
+        "elk.layered.spacing.edgeNodeBetweenLayers": isCompact ? "6" : "10",
         "elk.layered.layerUnzipping.minimizeEdgeLength": "true",
         "elk.hierarchyHandling": "INCLUDE_CHILDREN", // Enable hierarchy
       },
@@ -1007,10 +1041,10 @@ export default function DependencyGraph(props: DependencyGraphProps) {
         }
       }
 
-      const H_PADDING = 16;
-      const V_PADDING = 8;
-      const H_GAP = 8;
-      const PILL_HEIGHT = 24;
+      const H_PADDING = isCompact ? 10 : 16;
+      const V_PADDING = isCompact ? 6 : 8;
+      const H_GAP = isCompact ? 6 : 8;
+      const PILL_HEIGHT = isCompact ? 20 : 24;
 
       exportsByFile.forEach((exports, fileId) => {
         const fileNode = fileNodesById.get(fileId);
@@ -1039,9 +1073,9 @@ export default function DependencyGraph(props: DependencyGraphProps) {
         }
       });
 
-      const BADGE_RADIUS = 10;
+      const BADGE_RADIUS = isCompact ? 7 : 10;
       const BADGE_DIAMETER = BADGE_RADIUS * 2;
-      const BADGE_GAP = 6;
+      const BADGE_GAP = isCompact ? 4 : 6;
 
       dummyBadgesByFile.forEach((badges, fileId) => {
         const fileNode = fileNodesById.get(fileId);
@@ -1052,9 +1086,284 @@ export default function DependencyGraph(props: DependencyGraphProps) {
         const fileWidth = fileNode.width ?? 120;
         const fileHeight = fileNode.height ?? 40;
 
+        if (isCompact) {
+          // Pack badges into the title row, right-aligned, to avoid consuming extra height.
+          // If we run out of room, stop placing additional badges.
+          const centerY = fileY + 14;
+          let currentX = fileX + fileWidth - H_PADDING - BADGE_DIAMETER;
+
+          for (const badge of badges) {
+            if (currentX < fileX + H_PADDING) break;
+            badge.x = currentX;
+            badge.y = centerY - BADGE_RADIUS;
+            badge.width = BADGE_DIAMETER;
+            badge.height = BADGE_DIAMETER;
+
+            currentX -= BADGE_DIAMETER + BADGE_GAP;
+          }
+        } else {
+          let currentX = fileX + H_PADDING;
+          // Place badges on a dedicated row below the file title.
+          // This keeps them visually "inside" the file box without overlapping the name.
+          const TITLE_ROW_HEIGHT = 22;
+          const centerY = Math.min(
+            fileY + TITLE_ROW_HEIGHT + BADGE_RADIUS + 6,
+            fileY + fileHeight - BADGE_RADIUS - 6
+          );
+
+          for (const badge of badges) {
+            if (currentX + BADGE_DIAMETER + H_PADDING > fileX + fileWidth) {
+              currentX = fileX + H_PADDING;
+            }
+
+            badge.x = currentX;
+            badge.y = centerY - BADGE_RADIUS;
+            badge.width = BADGE_DIAMETER;
+            badge.height = BADGE_DIAMETER;
+
+            currentX += BADGE_DIAMETER + BADGE_GAP;
+          }
+        }
+      });
+
+      setNodes(flatNodes);
+      // Use ELK's routed edges (with bend points) so lines remain smooth; edges
+      // are rendered after nodes so they appear on top of the file boxes.
+      setEdges((layout.edges ?? []) as unknown as Edge[]);
+
+      // Fit graph after layout update
+      setTimeout(fitGraph, 0);
+    } catch (err) {
+      console.error("Layout error:", err);
+      setError("Failed to layout graph");
+    }
+  }
+
+  function lerp(a: number, b: number, t: number) {
+    return a + (b - a) * t;
+  }
+
+  async function layoutForceGraph(data: GraphData) {
+    const isCompact = compactLayout();
+    const tight = Math.max(0, Math.min(100, forceTightness()));
+    const t = tight / 100;
+
+    // Precompute child counts so file node sizing can account for badges/exports.
+    const exportChildCountByParent = new Map<string, number>();
+    const dummyChildCountByParent = new Map<string, number>();
+    for (const n of data.nodes ?? []) {
+      const parent = (n as any).parent as string | undefined;
+      const type = (n as any).type as string | undefined;
+      if (!parent || !type) continue;
+      if (type === "export") {
+        exportChildCountByParent.set(
+          parent,
+          (exportChildCountByParent.get(parent) ?? 0) + 1
+        );
+      } else if (type === "dummy") {
+        dummyChildCountByParent.set(
+          parent,
+          (dummyChildCountByParent.get(parent) ?? 0) + 1
+        );
+      }
+    }
+
+    // Build nodes with dimensions. We'll simulate only file/external nodes and
+    // then position export/dummy nodes relative to their parents.
+    const nodesById = new Map<string, Node>();
+    const simNodes: (Node & { vx?: number; vy?: number })[] = [];
+
+    for (const n of data.nodes ?? []) {
+      const type = (n as any).type as string | undefined;
+      const isDummy = type === "dummy";
+      const isExport = type === "export";
+      const isExternal = type === "external";
+
+      let width = 0;
+      let height = 0;
+
+      if (isDummy) {
+        width = isCompact ? 20 : 26;
+        height = isCompact ? 20 : 26;
+      } else if (isExport) {
+        const label = String((n as any).label ?? "");
+        width = Math.max(
+          isCompact ? 46 : 60,
+          label.length * (isCompact ? 6 : 7)
+        );
+        height = isCompact ? 20 : 24;
+      } else {
+        const rawLabel = String((n as any).label ?? "");
+        const sizingLabel = isCompact ? getFileBaseName(rawLabel) : rawLabel;
+        width = Math.max(
+          isCompact ? 84 : 100,
+          sizingLabel.length * (isCompact ? 6 : 8)
+        );
+        const exportCount =
+          exportChildCountByParent.get(String((n as any).id)) ?? 0;
+        const dummyCount =
+          dummyChildCountByParent.get(String((n as any).id)) ?? 0;
+        const hasExports = exportCount > 0;
+        const hasBadges = dummyCount > 0;
+
+        height = isCompact ? 36 : 44;
+        if (hasBadges && !isCompact) height += 28;
+        if (hasExports) height += isCompact ? 28 : 34;
+      }
+
+      const id = String((n as any).id);
+      const node: Node = {
+        ...(n as any),
+        id,
+        width,
+        height,
+        // Seed near origin; simulation will spread.
+        x: (Math.random() - 0.5) * 60,
+        y: (Math.random() - 0.5) * 60,
+      };
+
+      nodesById.set(id, node);
+
+      if (!isDummy && !isExport && (node.type === "file" || isExternal)) {
+        simNodes.push(node as any);
+      }
+    }
+
+    // Links between simulated nodes. If an edge references an export node,
+    // use its parent file for the force link (but keep rendering the edge).
+    const simIdSet = new Set(simNodes.map((n) => n.id));
+    const links: { source: string; target: string }[] = [];
+
+    for (const e of data.edges ?? []) {
+      const s = String((e as any).source);
+      const tt = String((e as any).target);
+      const sNode = nodesById.get(s);
+      const tNode = nodesById.get(tt);
+      if (!sNode || !tNode) continue;
+
+      const src =
+        sNode.type === "export" && sNode.parent ? String(sNode.parent) : s;
+      const dst =
+        tNode.type === "export" && tNode.parent ? String(tNode.parent) : tt;
+
+      if (src === dst) continue;
+      if (!simIdSet.has(src) || !simIdSet.has(dst)) continue;
+      links.push({ source: src, target: dst });
+    }
+
+    const linkDistance = lerp(140, 40, t);
+    const chargeStrength = lerp(-900, -220, t);
+    const collidePad = lerp(22, 10, t);
+
+    const sim = d3
+      .forceSimulation(simNodes as any)
+      .alpha(1)
+      .alphaDecay(0.035)
+      .force(
+        "link",
+        d3
+          .forceLink(links as any)
+          .id((d: any) => d.id)
+          .distance(linkDistance)
+          .strength(0.85)
+      )
+      .force("charge", d3.forceManyBody().strength(chargeStrength))
+      .force(
+        "collide",
+        d3
+          .forceCollide()
+          .radius(
+            (d: any) => Math.max(d.width ?? 0, d.height ?? 0) / 2 + collidePad
+          )
+          .iterations(2)
+      )
+      .force("center", d3.forceCenter(0, 0));
+
+    // Run to convergence synchronously so we get a stable layout.
+    for (let i = 0; i < 260; i++) sim.tick();
+    sim.stop();
+
+    // Position export pills and badges relative to their parent file boxes.
+    const flatNodes: Node[] = [...nodesById.values()];
+
+    const fileNodesById = new Map<string, Node>();
+    const exportsByFile = new Map<string, Node[]>();
+    const dummyBadgesByFile = new Map<string, Node[]>();
+
+    for (const n of flatNodes) {
+      if (n.type === "file") {
+        fileNodesById.set(n.id, n);
+      } else if (n.type === "export" && n.parent) {
+        const arr = exportsByFile.get(n.parent) ?? [];
+        arr.push(n);
+        exportsByFile.set(n.parent, arr);
+      } else if (n.type === "dummy" && n.parent) {
+        const arr = dummyBadgesByFile.get(n.parent) ?? [];
+        arr.push(n);
+        dummyBadgesByFile.set(n.parent, arr);
+      }
+    }
+
+    const H_PADDING = isCompact ? 10 : 16;
+    const V_PADDING = isCompact ? 6 : 8;
+    const H_GAP = isCompact ? 6 : 8;
+    const PILL_HEIGHT = isCompact ? 20 : 24;
+
+    exportsByFile.forEach((exports, fileId) => {
+      const fileNode = fileNodesById.get(fileId);
+      if (!fileNode) return;
+
+      const fileX = fileNode.x ?? 0;
+      const fileY = fileNode.y ?? 0;
+      const fileWidth = fileNode.width ?? 120;
+      const fileHeight = fileNode.height ?? 40;
+
+      let currentX = fileX + H_PADDING;
+      const baseY = fileY + fileHeight - PILL_HEIGHT - V_PADDING;
+
+      for (const exp of exports) {
+        const pillWidth = exp.width ?? 80;
+
+        // Simple wrapping if we run out of horizontal space.
+        if (currentX + pillWidth + H_PADDING > fileX + fileWidth) {
+          currentX = fileX + H_PADDING;
+        }
+
+        exp.x = currentX;
+        exp.y = baseY;
+
+        currentX += pillWidth + H_GAP;
+      }
+    });
+
+    const BADGE_RADIUS = isCompact ? 7 : 10;
+    const BADGE_DIAMETER = BADGE_RADIUS * 2;
+    const BADGE_GAP = isCompact ? 4 : 6;
+
+    dummyBadgesByFile.forEach((badges, fileId) => {
+      const fileNode = fileNodesById.get(fileId);
+      if (!fileNode) return;
+
+      const fileX = fileNode.x ?? 0;
+      const fileY = fileNode.y ?? 0;
+      const fileWidth = fileNode.width ?? 120;
+      const fileHeight = fileNode.height ?? 40;
+
+      if (isCompact) {
+        const centerY = fileY + 14;
+        let currentX = fileX + fileWidth - H_PADDING - BADGE_DIAMETER;
+
+        for (const badge of badges) {
+          if (currentX < fileX + H_PADDING) break;
+          badge.x = currentX;
+          badge.y = centerY - BADGE_RADIUS;
+          badge.width = BADGE_DIAMETER;
+          badge.height = BADGE_DIAMETER;
+
+          currentX -= BADGE_DIAMETER + BADGE_GAP;
+        }
+      } else {
         let currentX = fileX + H_PADDING;
-        // Place badges on a dedicated row below the file title.
-        // This keeps them visually "inside" the file box without overlapping the name.
         const TITLE_ROW_HEIGHT = 22;
         const centerY = Math.min(
           fileY + TITLE_ROW_HEIGHT + BADGE_RADIUS + 6,
@@ -1073,19 +1382,12 @@ export default function DependencyGraph(props: DependencyGraphProps) {
 
           currentX += BADGE_DIAMETER + BADGE_GAP;
         }
-      });
+      }
+    });
 
-      setNodes(flatNodes);
-      // Use ELK's routed edges (with bend points) so lines remain smooth; edges
-      // are rendered after nodes so they appear on top of the file boxes.
-      setEdges((layout.edges ?? []) as unknown as Edge[]);
-
-      // Fit graph after layout update
-      setTimeout(fitGraph, 0);
-    } catch (err) {
-      console.error("Layout error:", err);
-      setError("Failed to layout graph");
-    }
+    setNodes(flatNodes);
+    setEdges((data.edges ?? []) as unknown as Edge[]);
+    setTimeout(fitGraph, 0);
   }
 
   createEffect(() => {
@@ -1106,7 +1408,11 @@ export default function DependencyGraph(props: DependencyGraphProps) {
       showExports
     );
     setSuperNodeAssignments(assignments);
-    void layoutGraph(graph);
+    if (layoutMode() === "force") {
+      void layoutForceGraph(graph);
+    } else {
+      void layoutGraph(graph);
+    }
   });
 
   // Track changes to the primary metric so node rendering stays reactive.
@@ -1228,6 +1534,60 @@ export default function DependencyGraph(props: DependencyGraphProps) {
           Dependency Graph: {props.path || "Root"}
         </h2>
         <div class="flex items-center gap-3">
+          <label class="flex items-center gap-1 text-xs text-gray-300">
+            <span class="text-gray-400">Layout</span>
+            <select
+              value={layoutMode()}
+              onChange={(e) =>
+                setLayoutMode(e.currentTarget.value as "layered" | "force")
+              }
+              class="ml-1 rounded bg-[#1e1e1e] border border-[#3c3c3c] px-2 py-1 text-[11px] text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#007acc]"
+              title="Layered (tidy) or Force-directed (tighter clustering)"
+            >
+              <option value="layered">Layered</option>
+              <option value="force">Force</option>
+            </select>
+          </label>
+          <Show when={layoutMode() === "force"}>
+            <label class="flex items-center gap-2 text-xs text-gray-300">
+              <span class="text-gray-400">Tightness</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={forceTightness()}
+                onInput={(e) =>
+                  setForceTightness(Number(e.currentTarget.value))
+                }
+              />
+            </label>
+          </Show>
+          <label class="flex items-center gap-1 text-xs text-gray-300">
+            <input
+              type="checkbox"
+              checked={compactLayout()}
+              onChange={(e) => setCompactLayout(e.currentTarget.checked)}
+            />
+            <span>Compact</span>
+          </label>
+          <label class="flex items-center gap-1 text-xs text-gray-300">
+            <input
+              type="checkbox"
+              checked={horizontalLayout()}
+              onChange={(e) => setHorizontalLayout(e.currentTarget.checked)}
+              disabled={!compactLayout() || layoutMode() === "force"}
+              title={
+                layoutMode() === "force"
+                  ? "Not used in Force layout"
+                  : compactLayout()
+                  ? "Switch flow direction (can be harder to read)"
+                  : "Enable Compact first"
+              }
+            />
+            <span class={compactLayout() ? "" : "opacity-60"}>
+              Horizontal flow
+            </span>
+          </label>
           <label class="flex items-center gap-1 text-xs text-gray-300">
             <input
               type="checkbox"
@@ -1394,12 +1754,24 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                             }
                           }}
                         >
+                          <Show
+                            when={
+                              node.type === "file" || node.type === "export"
+                            }
+                          >
+                            <title>
+                              {node.type === "file"
+                                ? String(node.label ?? "")
+                                : String(node.label ?? "")}
+                            </title>
+                          </Show>
                           {/* Recompute hotspot-driven visuals based on current metric */}
                           {(() => {
                             const isDummy = node.type === "dummy";
                             const isExternal = node.type === "external";
                             const isExport = node.type === "export";
                             const isEmphasized = isActive || isHovered;
+                            const isCompact = compactLayout();
 
                             let metrics: any | undefined;
                             if (
@@ -1530,6 +1902,29 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                               ? `[${node.assignmentCode}] ${node.label}`
                               : node.label;
 
+                            const baseLabel =
+                              node.type === "file" && isCompact
+                                ? getFileBaseName(String(displayLabel ?? ""))
+                                : String(displayLabel ?? "");
+                            const approxCharPx =
+                              node.type === "export"
+                                ? isCompact
+                                  ? 5.5
+                                  : 6.5
+                                : isCompact
+                                ? 6
+                                : 7.5;
+                            const maxChars = Math.max(
+                              6,
+                              Math.floor(
+                                ((node.width ?? 0) - 14) / approxCharPx
+                              )
+                            );
+                            const shownLabel = truncateLabel(
+                              baseLabel,
+                              maxChars
+                            );
+
                             return (
                               <>
                                 <rect
@@ -1550,10 +1945,18 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                                   dy="0.35em"
                                   text-anchor="middle"
                                   fill={textFill}
-                                  font-size={isExport ? "10px" : "12px"}
+                                  font-size={
+                                    isExport
+                                      ? isCompact
+                                        ? "9px"
+                                        : "10px"
+                                      : isCompact
+                                      ? "11px"
+                                      : "12px"
+                                  }
                                   class="pointer-events-none select-none"
                                 >
-                                  {displayLabel}
+                                  {shownLabel}
                                 </text>
                               </>
                             );
@@ -1567,20 +1970,40 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                   preserving ELK's bend points for smooth routing. */}
                   <For each={edges()}>
                     {(edge) => {
-                      if (!edge.sections || edge.sections.length === 0)
-                        return null;
-                      const section = edge.sections[0];
-                      let d = `M ${section.startPoint.x} ${section.startPoint.y}`;
-                      if (section.bendPoints) {
-                        section.bendPoints.forEach((p) => {
-                          d += ` L ${p.x} ${p.y}`;
-                        });
+                      let d: string | null = null;
+
+                      if (edge.sections && edge.sections.length > 0) {
+                        const section = edge.sections[0];
+                        d = `M ${section.startPoint.x} ${section.startPoint.y}`;
+                        if (section.bendPoints) {
+                          section.bendPoints.forEach((p) => {
+                            d += ` L ${p.x} ${p.y}`;
+                          });
+                        }
+                        d += ` L ${section.endPoint.x} ${section.endPoint.y}`;
+                      } else {
+                        // Force layout: edges won't have ELK sections, so fall back to a straight line.
+                        const map = nodeById();
+                        const sourceId =
+                          (edge as any).source ??
+                          ((edge as any).sources?.[0] as string | undefined);
+                        const targetId =
+                          (edge as any).target ??
+                          ((edge as any).targets?.[0] as string | undefined);
+                        if (!sourceId || !targetId) return null;
+                        const s = map.get(String(sourceId));
+                        const t = map.get(String(targetId));
+                        if (!s || !t) return null;
+                        const sx = (s.x ?? 0) + (s.width ?? 0) / 2;
+                        const sy = (s.y ?? 0) + (s.height ?? 0) / 2;
+                        const tx = (t.x ?? 0) + (t.width ?? 0) / 2;
+                        const ty = (t.y ?? 0) + (t.height ?? 0) / 2;
+                        d = `M ${sx} ${sy} L ${tx} ${ty}`;
                       }
-                      d += ` L ${section.endPoint.x} ${section.endPoint.y}`;
 
                       return (
                         <path
-                          d={d}
+                          d={d ?? ""}
                           stroke="#666"
                           stroke-width="1"
                           fill="none"
