@@ -9,8 +9,11 @@ import Toast from "./components/Toast";
 
 import CodeModal from "./components/CodeModal/CodeModal.tsx";
 import Explorer from "./components/Explorer";
+import { DialogHeader, DialogShell } from "./components/dialog/DialogShell";
+import { EmptyState, ErrorState, LoadingState } from "./components/feedback/States";
 import FilePicker from "./components/FilePicker";
 import Treemap from "./components/Treemap";
+import { Button } from "./components/ui/Button";
 import { filterTree } from "./utils/dataProcessing";
 import { MetricsStoreProvider, useMetricsStore } from "./utils/metricsStore";
 
@@ -289,45 +292,53 @@ function AppContent() {
       </header>
 
       <main class="flex-1 relative overflow-hidden flex">
-        <Show when={error()}>
-          <div class="absolute inset-0 flex items-center justify-center z-50 bg-black/50">
-            <div class="bg-red-900/80 p-6 rounded text-white border border-red-700">
-              <h3 class="font-bold text-lg mb-2">Error</h3>
-              <p>{error()}</p>
-              <button
-                class="mt-4 px-4 py-2 bg-red-700 hover:bg-red-600 rounded"
-                onClick={() => setError(null)}
-              >
+        <DialogShell
+          open={Boolean(error())}
+          onClose={() => setError(null)}
+          size="md"
+          class="border-red-700 bg-red-950/95"
+        >
+          <DialogHeader
+            title="Error"
+            actions={
+              <Button variant="danger" onClick={() => setError(null)}>
                 Close
-              </button>
-            </div>
-          </div>
-        </Show>
+              </Button>
+            }
+          />
+          <ErrorState
+            message={error()}
+            class="min-h-40 px-6 py-5"
+            tone="error"
+          />
+        </DialogShell>
 
         <Show
           when={processedData()}
           fallback={
-            <div class="flex flex-col items-center justify-center h-full w-full text-gray-500">
+            <div class="h-full w-full">
               <Show
                 when={loading()}
                 fallback={
                   <>
-                    <p class="text-lg mb-2">No visualization data yet</p>
                     <Show
                       when={analysisContext()}
                       fallback={
-                        <p class="text-sm">
-                          {contextLoading()
-                            ? "Loading current folder information..."
-                            : "Enter a path above to visualize the codebase"}
-                        </p>
+                        contextLoading() ? (
+                          <LoadingState label="Loading current folder information..." />
+                        ) : (
+                          <EmptyState
+                            title="No visualization data yet"
+                            description="Enter a path above to visualize the codebase"
+                          />
+                        )
                       }
                     >
                       {(ctx) => (
-                        <div class="text-center space-y-4">
-                          <p class="text-sm">
-                            Choose what you want to analyze:
-                          </p>
+                        <EmptyState
+                          title="No visualization data yet"
+                          description="Choose what you want to analyze:"
+                          actions={
                           <div class="grid gap-4 sm:grid-cols-2 w-full max-w-xl">
                             <div class="bg-black/20 border border-[#333] rounded p-3 text-left space-y-2">
                               <div class="text-[10px] uppercase tracking-wide text-gray-400">
@@ -340,9 +351,10 @@ function AppContent() {
                                 Roughly {ctx().fileCount} files and{" "}
                                 {ctx().folderCount} folders will be included.
                               </p>
-                              <button
-                                type="button"
-                                class="mt-2 w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-xs text-white rounded"
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                class="mt-2 w-full"
                                 onClick={() => {
                                   const target = ctx().rootPath || "";
                                   setAnalysisPath(target);
@@ -350,7 +362,7 @@ function AppContent() {
                                 }}
                               >
                                 Analyze current directory
-                              </button>
+                              </Button>
                             </div>
 
                             <Show when={ctx().repoRootPath}>
@@ -366,9 +378,10 @@ function AppContent() {
                                   {ctx().repoFolderCount} folders will be
                                   included.
                                 </p>
-                                <button
-                                  type="button"
-                                  class="mt-2 w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-xs text-white rounded"
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  class="mt-2 w-full"
                                   onClick={() => {
                                     const target = ctx().repoRootPath || "";
                                     if (!target) return;
@@ -377,22 +390,27 @@ function AppContent() {
                                   }}
                                 >
                                   Analyze repo root
-                                </button>
+                                </Button>
                               </div>
                             </Show>
                           </div>
-                        </div>
+                          }
+                        />
                       )}
                     </Show>
                   </>
                 }
               >
-                <div class="flex flex-col items-center justify-center">
-                  <p class="text-lg mb-2">Loading analysis...</p>
-                  <p class="text-sm text-gray-400">
-                    This may take a moment for larger codebases.
-                  </p>
-                </div>
+                <LoadingState
+                  label={
+                    <div>
+                      <div class="text-lg text-gray-400">Loading analysis...</div>
+                      <div class="mt-2 text-sm text-gray-500">
+                        This may take a moment for larger codebases.
+                      </div>
+                    </div>
+                  }
+                />
               </Show>
             </div>
           }

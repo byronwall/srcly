@@ -1,4 +1,5 @@
 import { Show } from "solid-js";
+import { EmptyState } from "../feedback/States";
 import { MetricsSection } from "./MetricsSection";
 import { StructurePanel } from "./StructurePanel";
 
@@ -37,9 +38,11 @@ export function MetricsSidebar(props: {
           <MetricsSection title="File Metrics" node={props.fileNode} />
         </Show>
         <Show when={!props.fileNode && !props.scopeNode}>
-          <div class="text-xs text-gray-500 italic">
-            No metrics available for this file.
-          </div>
+          <EmptyState
+            title="No metrics available"
+            description="This file does not have metrics to inspect."
+            class="h-auto py-6 text-xs"
+          />
         </Show>
       </div>
     </div>

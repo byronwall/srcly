@@ -2,6 +2,11 @@ import { createSignal, createEffect, Show, For, createMemo } from "solid-js";
 import CodeModal from "./CodeModal/CodeModal.tsx";
 import ELK from "elkjs/lib/elk.bundled.js";
 import * as d3 from "d3";
+import { LoadingState, ErrorState } from "./feedback/States";
+import { PanelHeader } from "./layout/PanelHeader";
+import { Button } from "./ui/Button";
+import { CheckboxRow } from "./ui/CheckboxRow";
+import { TextInput } from "./ui/TextInput";
 import { HOTSPOT_METRICS, type HotSpotMetricId } from "../utils/metricsStore";
 
 interface DependencyGraphProps {
@@ -1529,11 +1534,10 @@ export default function DependencyGraph(props: DependencyGraphProps) {
 
   return (
     <div class="absolute inset-0 bg-[#1e1e1e] z-50 flex flex-col">
-      <div class="flex items-center justify-between px-4 py-2 border-b border-[#333] bg-[#252526]">
-        <h2 class="text-sm font-bold text-gray-300">
-          Dependency Graph: {props.path || "Root"}
-        </h2>
-        <div class="flex items-center gap-3">
+      <PanelHeader
+        title={<>Dependency Graph: {props.path || "Root"}</>}
+        actions={
+        <>
           <label class="flex items-center gap-1 text-xs text-gray-300">
             <span class="text-gray-400">Layout</span>
             <select
@@ -1562,83 +1566,63 @@ export default function DependencyGraph(props: DependencyGraphProps) {
               />
             </label>
           </Show>
-          <label class="flex items-center gap-1 text-xs text-gray-300">
-            <input
-              type="checkbox"
-              checked={compactLayout()}
-              onChange={(e) => setCompactLayout(e.currentTarget.checked)}
-            />
-            <span>Compact</span>
-          </label>
-          <label class="flex items-center gap-1 text-xs text-gray-300">
-            <input
-              type="checkbox"
-              checked={horizontalLayout()}
-              onChange={(e) => setHorizontalLayout(e.currentTarget.checked)}
-              disabled={!compactLayout() || layoutMode() === "force"}
-              title={
-                layoutMode() === "force"
-                  ? "Not used in Force layout"
-                  : compactLayout()
-                  ? "Switch flow direction (can be harder to read)"
-                  : "Enable Compact first"
-              }
-            />
-            <span class={compactLayout() ? "" : "opacity-60"}>
-              Horizontal flow
-            </span>
-          </label>
-          <label class="flex items-center gap-1 text-xs text-gray-300">
-            <input
-              type="checkbox"
-              checked={showExternal()}
-              onChange={(e) => setShowExternal(e.currentTarget.checked)}
-            />
-            <span>Show external deps</span>
-          </label>
-          <label class="flex items-center gap-1 text-xs text-gray-300">
-            <input
-              type="checkbox"
-              checked={showExportedMembers()}
-              onChange={(e) => setShowExportedMembers(e.currentTarget.checked)}
-            />
-            <span>Show exports</span>
-          </label>
-          <label class="flex items-center gap-1 text-xs text-gray-300">
-            <input
-              type="checkbox"
-              checked={hideUnimported()}
-              onChange={(e) => setHideUnimported(e.currentTarget.checked)}
-            />
-            <span>Hide unimported</span>
-          </label>
+          <CheckboxRow
+            checked={compactLayout()}
+            onChange={setCompactLayout}
+            label="Compact"
+          />
+          <CheckboxRow
+            checked={horizontalLayout()}
+            onChange={setHorizontalLayout}
+            disabled={!compactLayout() || layoutMode() === "force"}
+            title={
+              layoutMode() === "force"
+                ? "Not used in Force layout"
+                : compactLayout()
+                ? "Switch flow direction (can be harder to read)"
+                : "Enable Compact first"
+            }
+            label={<span class={compactLayout() ? "" : "opacity-60"}>Horizontal flow</span>}
+          />
+          <CheckboxRow
+            checked={showExternal()}
+            onChange={setShowExternal}
+            label="Show external deps"
+          />
+          <CheckboxRow
+            checked={showExportedMembers()}
+            onChange={setShowExportedMembers}
+            label="Show exports"
+          />
+          <CheckboxRow
+            checked={hideUnimported()}
+            onChange={setHideUnimported}
+            label="Hide unimported"
+          />
           <div class="h-4 w-px bg-[#444]" />
-          <button
-            onClick={fitGraph}
-            class="px-3 py-1 text-xs bg-[#3c3c3c] hover:bg-[#4c4c4c] text-gray-200 rounded border border-[#555] transition-colors"
-          >
+          <Button onClick={fitGraph}>
             Fit View
-          </button>
-          <button
-            onClick={props.onClose}
-            class="px-3 py-1 text-xs bg-red-900/50 hover:bg-red-900 text-red-200 rounded border border-red-800 transition-colors"
-          >
+          </Button>
+          <Button variant="danger" onClick={props.onClose}>
             Close
-          </button>
-        </div>
-      </div>
+          </Button>
+        </>
+        }
+      />
 
       <div class="flex-1 relative overflow-hidden">
         <Show when={loading()}>
-          <div class="absolute inset-0 flex items-center justify-center text-gray-400">
-            Loading dependency graph...
-          </div>
+          <LoadingState
+            label="Loading dependency graph..."
+            class="absolute inset-0"
+          />
         </Show>
 
         <Show when={error()}>
-          <div class="absolute inset-0 flex items-center justify-center text-red-400">
-            Error: {error()}
-          </div>
+          <ErrorState
+            message={<>Error: {error()}</>}
+            class="absolute inset-0"
+          />
         </Show>
 
         <Show when={!loading() && !error()}>
@@ -1648,7 +1632,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                 <div class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                   {showExportedMembers() ? "Files & Exports" : "Files"}
                 </div>
-                <input
+                <TextInput
                   type="text"
                   value={exportFilter()}
                   onInput={(e) => setExportFilter(e.currentTarget.value)}
@@ -1657,7 +1641,8 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                       ? "Filter files or exports..."
                       : "Filter files..."
                   }
-                  class="mt-1 w-full rounded bg-[#1e1e1e] border border-[#3c3c3c] px-2 py-1 text-[11px] text-gray-200 placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-[#007acc]"
+                  size="sm"
+                  class="mt-1 text-[11px]"
                 />
               </div>
               <div class="flex-1 overflow-y-auto px-2 py-2 space-y-2">

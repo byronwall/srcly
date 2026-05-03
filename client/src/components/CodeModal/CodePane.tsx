@@ -8,6 +8,7 @@ import {
 } from "solid-js";
 import { FlowOverlayCode } from "../FlowOverlayCode";
 import { type OverlayToken } from "../../utils/flowDecorations";
+import { ErrorState, LoadingState } from "../feedback/States";
 import { StickyBreadcrumb } from "./StickyBreadcrumb";
 import { ScopeFlowPane } from "./ScopeFlowPane";
 
@@ -167,14 +168,10 @@ export function CodePane(props: CodePaneProps) {
               props.loading() || (!props.highlightedHtml() && !props.error())
             }
           >
-            <div class="flex h-full items-center justify-center text-sm text-gray-400">
-              Loading file…
-            </div>
+            <LoadingState label="Loading file..." />
           </Show>
           <Show when={!props.loading() && props.error()}>
-            <div class="rounded border border-red-700 bg-red-900/70 px-3 py-2 text-sm text-red-100">
-              {props.error()}
-            </div>
+            <ErrorState message={props.error()} class="min-h-32" />
           </Show>
           <Show when={showCode()}>
             <FlowOverlayCode

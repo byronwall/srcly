@@ -1,7 +1,10 @@
 import { createSignal, createEffect, Show, For } from "solid-js";
 import { useFileContent } from "../hooks/useFileContent";
 import { useHighlightedCode } from "../hooks/useHighlightedCode";
+import { DialogHeader, DialogShell } from "./dialog/DialogShell";
+import { ErrorState, LoadingState } from "./feedback/States";
 import { FlowOverlayCode } from "./FlowOverlayCode";
+import { Button } from "./ui/Button";
 
 interface DataFlowVizProps {
   path: string;
@@ -653,20 +656,17 @@ export default function DataFlowViz(props: DataFlowVizProps) {
   };
 
   return (
-    <div class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-sm">
-      <div class="bg-[#0f172a] rounded-xl shadow-2xl w-[95vw] h-[95vh] flex flex-col overflow-hidden border border-gray-800">
-        {/* Toolbar */}
-        <div class="flex justify-between items-center p-4 border-b border-gray-800 bg-[#1e293b]">
-          <h2 class="text-lg font-semibold text-gray-100">Data Flow Viz</h2>
-          <div class="flex gap-4">
-            <button
-              onClick={props.onClose}
-              class="text-gray-400 hover:text-white"
-            >
-              Close
-            </button>
-          </div>
-        </div>
+    <DialogShell
+      open
+      onClose={props.onClose}
+      size="fullscreen"
+      class="border-gray-800 bg-[#0f172a]"
+    >
+        <DialogHeader
+          title="Data Flow Viz"
+          class="border-gray-800 bg-[#1e293b] p-4"
+          actions={<Button onClick={props.onClose}>Close</Button>}
+        />
 
         {/* Main Content Area (Split Pane) */}
         <div class="flex-1 flex overflow-hidden">
@@ -682,12 +682,16 @@ export default function DataFlowViz(props: DataFlowVizProps) {
           >
             <Show
               when={!loading()}
-              fallback={<div class="text-white p-10">Loading...</div>}
+              fallback={<LoadingState class="p-10" />}
             >
               <Show
                 when={rootNode()}
                 fallback={
-                  <div class="text-red-400 p-10">{error() || "No data"}</div>
+                  <ErrorState
+                    message={error() || "No data"}
+                    class="p-10"
+                    tone={error() ? "error" : "neutral"}
+                  />
                 }
               >
                 <div
@@ -753,7 +757,6 @@ export default function DataFlowViz(props: DataFlowVizProps) {
             />
           </Show>
         </div>
-      </div>
-    </div>
+    </DialogShell>
   );
 }

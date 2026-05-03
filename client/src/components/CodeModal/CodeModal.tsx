@@ -11,6 +11,7 @@ import {
 } from "../../utils/structureTree";
 import { CodeModalHeader } from "./CodeModalHeader";
 import { CodePane } from "./CodePane";
+import { DialogShell } from "../dialog/DialogShell";
 import { MarkdownPane } from "./MarkdownPane";
 import { MetricsSidebar } from "./MetricsSidebar";
 
@@ -307,14 +308,11 @@ export default function CodeModal(props: CodeModalProps) {
     // Keyed so switching `filePath` remounts the modal content and avoids a one-frame
     // flash of stale highlighted HTML before the async loaders reset state.
     <Show when={props.isOpen && props.filePath} keyed>
-      <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-        onClick={() => props.onClose()}
+      <DialogShell
+        open={Boolean(props.isOpen && props.filePath)}
+        onClose={props.onClose}
+        size="xl"
       >
-        <div
-          class="flex h-[92vh] w-[96vw] max-w-[1600px] flex-col overflow-hidden rounded-lg border border-gray-700 bg-[#1e1e1e] shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
           <CodeModalHeader
             filePath={props.filePath!}
             baseName={baseName()}
@@ -407,8 +405,7 @@ export default function CodeModal(props: CodeModalProps) {
               </Show>
             </div>
           </main>
-        </div>
-      </div>
+      </DialogShell>
     </Show>
   );
 }
