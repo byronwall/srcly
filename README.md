@@ -54,6 +54,12 @@ By default, `uvx srcly report` writes compact artifacts intended to be safe for 
 - `metrics.schema.json` — metric definitions and interpretation hints.
 - `agent-skill.md` — reusable guidance for agents consuming the report.
 
+`report` is quiet by default and prints only a compact artifact summary. Add `--verbose` when you want per-file scan progress on stderr:
+
+```bash
+uvx srcly report . --out .srcly --verbose
+```
+
 Use `uvx srcly scan . --out .srcly/tree.json` or `uvx srcly report . --include-tree` when you need the full raw tree. Use `--include-dependencies` to add the TypeScript/TSX dependency graph artifact.
 
 ## What Srcly shows you

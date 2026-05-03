@@ -171,9 +171,9 @@ def _run_headless(argv: list[str]) -> None:
     report_parser.add_argument("--refresh", action="store_true", help="Ignore cache when cache support is available.")
     report_parser.add_argument("--limit", type=int, default=50, help="Maximum ranked findings to emit.")
     report_parser.add_argument(
-        "--quiet",
+        "--verbose",
         action="store_true",
-        help="Suppress per-file scan progress and print only the report summary.",
+        help="Print per-file scan progress to stderr. Reports are quiet by default.",
     )
     report_parser.add_argument(
         "--agent-compact",
@@ -264,7 +264,7 @@ def _run_headless(argv: list[str]) -> None:
                 focus_paths=args.focus,
                 deprioritize_paths=_deprioritize_paths(args),
                 agent_compact=args.agent_compact,
-                verbose=not args.quiet,
+                verbose=args.verbose,
                 output_format=args.format,
             )
             print(reporting._json_dumps(payload))
@@ -285,14 +285,14 @@ def _run_headless(argv: list[str]) -> None:
                 focus_paths=args.focus,
                 deprioritize_paths=_deprioritize_paths(args),
                 agent_compact=args.agent_compact,
-                verbose=not args.quiet,
+                verbose=args.verbose,
             )
-            if args.quiet:
-                print(_format_quiet_report_summary(out_dir, written))
-            else:
+            if args.verbose:
                 print(f"Wrote Srcly report artifacts to {out_dir}")
                 for path in written.values():
                     print(f"- {path}")
+            else:
+                print(_format_quiet_report_summary(out_dir, written))
         if args.fail_on != "none":
             if args.stdout:
                 _enforce_fail_on_payload(payload["findings"], args.fail_on)

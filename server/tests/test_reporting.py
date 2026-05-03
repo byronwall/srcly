@@ -204,20 +204,28 @@ def test_cli_report_subcommand_writes_report_artifacts(
     root = tmp_path / "repo"
     root.mkdir()
     tree = _sample_tree(root)
-    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: tree)
+    scan_kwargs: dict[str, object] = {}
+
+    def fake_scan_tree(root_path: Path, **kwargs) -> Node:
+        scan_kwargs.update(kwargs)
+        return tree
+
+    monkeypatch.setattr(reporting, "scan_tree", fake_scan_tree)
 
     out_dir = tmp_path / ".srcly"
     main(["report", str(root), "--out", str(out_dir), "--profile", "frontend"])
 
     captured = capsys.readouterr()
-    assert "Wrote Srcly report artifacts" in captured.out
+    assert "Read first:" in captured.out
+    assert "Wrote Srcly report artifacts" not in captured.out
+    assert scan_kwargs["verbose"] is False
     assert (out_dir / "report.md").exists()
     assert (out_dir / "findings.json").exists()
     assert not (out_dir / "tree.json").exists()
     assert not (out_dir / "dependencies.json").exists()
 
 
-def test_cli_report_quiet_prints_compact_summary(
+def test_cli_report_verbose_prints_artifact_list(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -225,14 +233,21 @@ def test_cli_report_quiet_prints_compact_summary(
     root = tmp_path / "repo"
     root.mkdir()
     tree = _sample_tree(root)
-    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: tree)
+    scan_kwargs: dict[str, object] = {}
+
+    def fake_scan_tree(root_path: Path, **kwargs) -> Node:
+        scan_kwargs.update(kwargs)
+        return tree
+
+    monkeypatch.setattr(reporting, "scan_tree", fake_scan_tree)
 
     out_dir = tmp_path / ".srcly"
-    main(["report", str(root), "--out", str(out_dir), "--quiet"])
+    main(["report", str(root), "--out", str(out_dir), "--verbose"])
 
     captured = capsys.readouterr()
-    assert "Read first:" in captured.out
-    assert "Wrote Srcly report artifacts" not in captured.out
+    assert "Wrote Srcly report artifacts" in captured.out
+    assert "Read first:" not in captured.out
+    assert scan_kwargs["verbose"] is True
     assert (out_dir / "findings.top.json").exists()
     assert (out_dir / "action-plan.md").exists()
 

@@ -199,7 +199,7 @@ This is useful for humans running an interactive scan, but it is expensive and d
 
 Recommended improvements:
 
-- Add `--quiet` or make `report` quieter by default.
+- Make `report` quiet by default.
 - Emit one-line progress every N files or every few seconds.
 - Preserve detailed progress behind `--verbose`.
 - For agent-friendly mode, print only:
@@ -355,13 +355,17 @@ Implementation note: this does not need LLM interpretation initially. Start with
 
 ### P0: Add Agent-Quiet Mode
 
-Add:
+Default `report` output should be quiet:
 
 ```bash
-uvx srcly report . --out .srcly --format both --quiet
+uvx srcly report . --out .srcly --format both
 ```
 
-or make quiet behavior the default for `report`.
+Detailed progress should be opt-in:
+
+```bash
+uvx srcly report . --out .srcly --format both --verbose
+```
 
 Desired output:
 
@@ -535,7 +539,7 @@ In Product Grid, `SpatialMapScene.tsx` should probably rank high for policy rele
 
 Ship these first:
 
-- `--quiet` for `report`.
+- Quiet-by-default `report` output with detailed progress behind `--verbose`.
 - Artifact size metadata in `manifest.json`.
 - Relative paths in report tables and JSON.
 - `--limit-findings` and `--limit-hotspots`.
@@ -595,4 +599,3 @@ For a rerun on Product Grid, Srcly should be considered improved if:
 Srcly delivered real value in this first production run. It found useful hotspots, kept the review grounded in measurable evidence, and made the agent faster. The core analyzer and report shape are viable.
 
 The next level of utility is context. Agents rarely need a generic list of complex files alone; they need a prioritized, local-rule-aware work queue. The Product Grid run showed that Srcly should keep the compact metric report, but add policy-aware checks, quieter output, path relevance controls, and more concrete action planning.
-

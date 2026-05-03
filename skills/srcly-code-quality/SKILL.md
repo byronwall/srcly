@@ -47,7 +47,13 @@ Use `uvx srcly scan . --out -` only when a caller explicitly wants raw tree JSON
 - Full raw tree: `uvx srcly scan . --out .srcly/tree.json`
 - CI gate: `uvx srcly report . --out .srcly --fail-on high`
 
-Progress logs are expected on stderr. Machine-readable stdout is available through:
+Reports are quiet by default and print a compact artifact summary. Add `--verbose` when you need per-file progress on stderr:
+
+```bash
+uvx srcly report . --out .srcly --format both --verbose
+```
+
+Machine-readable stdout is available through:
 
 ```bash
 uvx srcly report . --stdout
