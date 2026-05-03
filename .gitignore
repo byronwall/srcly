@@ -5,6 +5,7 @@ node_modules/
 
 # Data files
 codebase_mri.json
+.srcly*/
 
 # Python
 __pycache__/

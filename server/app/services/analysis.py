@@ -1,6 +1,7 @@
 import os
 import lizard
 import multiprocessing
+import sys
 import time
 from pathlib import Path
 
@@ -369,6 +370,7 @@ def aggregate_metrics(node: Node) -> Metrics:
     total_type_interface_count = 0
     total_export_count = 0
     total_md_data_url_count = 0
+    total_python_import_count = 0
     
     # For average function length, we need total function loc and total functions (already have total_funcs)
     # But we need to sum function locs from children.
@@ -390,11 +392,7 @@ def aggregate_metrics(node: Node) -> Metrics:
         total_type_interface_count += child_metrics.ts_type_interface_count
         total_export_count += child_metrics.ts_export_count
         total_md_data_url_count += child_metrics.md_data_url_count
-        if hasattr(child_metrics, 'python_import_count'):
-             # Metric model has it, but child_metrics is a Metrics object so it should have it
-             total_python_import_count = getattr(child_metrics, 'python_import_count', 0)
-             # Should we add a local var for this? Yes
-             pass
+        total_python_import_count += child_metrics.python_import_count
         
         
         # Reconstruct total function loc from average * count
@@ -510,7 +508,7 @@ def _run_file_analyses_with_hard_timeouts(
 
             # Log every file *before* it is processed so we can identify the
             # last-started file if analysis hangs or crashes.
-            print(f"➡️ [{next_index}/{total_count}] Starting analysis: {file_path}", flush=True)
+            print(f"➡️ [{next_index}/{total_count}] Starting analysis: {file_path}", file=sys.stderr, flush=True)
 
             recv_conn, send_conn = ctx.Pipe(duplex=False)
             proc = ctx.Process(
@@ -544,6 +542,7 @@ def _run_file_analyses_with_hard_timeouts(
                 completed_count += 1
                 print(
                     f"❌ [{completed_count}/{total_count}] Timeout analyzing {file_path} after {elapsed:.2f}s (terminated)",
+                    file=sys.stderr,
                     flush=True,
                 )
                 try:
@@ -582,11 +581,12 @@ def _run_file_analyses_with_hard_timeouts(
             if isinstance(result, dict) and "error" in result:
                 print(
                     f"❌ [{completed_count}/{total_count}] Error analyzing {file_path}: {result.get('error')}",
+                    file=sys.stderr,
                     flush=True,
                 )
             else:
                 if _should_log_file_progress(completed_count, total_count):
-                    print(f"✅ [{completed_count}/{total_count}] Analyzed {file_path}", flush=True)
+                    print(f"✅ [{completed_count}/{total_count}] Analyzed {file_path}", file=sys.stderr, flush=True)
                 results.append(result)
 
         active = still_active
@@ -599,7 +599,7 @@ def _run_file_analyses_with_hard_timeouts(
 
 
 def scan_codebase(root_path: Path) -> Node:
-    print(f"🔍 Scanning: {root_path}", flush=True)
+    print(f"🔍 Scanning: {root_path}", file=sys.stderr, flush=True)
 
     # Load .gitignore spec (repo-wide, with nested .gitignore support)
     ignore_root, gitignore_spec = _load_gitignore_spec(root_path)
@@ -614,7 +614,7 @@ def scan_codebase(root_path: Path) -> Node:
         # We must modify dirs in-place to prune traversal
         pruned_dirs: list[str] = []
         for d in dirs:
-            if d in IGNORE_DIRS:
+            if d in IGNORE_DIRS or d.startswith(".srcly"):
                 continue
             dir_path = root_dir_path / d
             if _is_gitignored(dir_path, ignore_root, gitignore_spec):
@@ -643,6 +643,7 @@ def scan_codebase(root_path: Path) -> Node:
 
     print(
         f"📂 Analyzing {len(files_to_scan)} source files... (workers={MAX_ANALYSIS_WORKERS}, timeout={PER_FILE_ANALYSIS_TIMEOUT_SECONDS}s)",
+        file=sys.stderr,
         flush=True,
     )
 
@@ -661,7 +662,7 @@ def scan_codebase(root_path: Path) -> Node:
         # ``filename`` attribute), skip it instead of crashing the whole scan.
         filename = getattr(file_info, "filename", None)
         if not filename:
-            print(f"⚠️ Skipping unexpected analysis result without filename: {file_info!r}", flush=True)
+            print(f"⚠️ Skipping unexpected analysis result without filename: {file_info!r}", file=sys.stderr, flush=True)
             continue
 
         path_obj = Path(filename)

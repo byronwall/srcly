@@ -236,4 +236,3 @@ def test_tsx_inline_handler_still_tracks_declared_and_captured(tmp_path):
     cap_names = {c.name for c in arrow.captured}
     assert "x" in cap_names
 
-
