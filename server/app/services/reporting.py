@@ -16,6 +16,8 @@ ARTIFACT_VERSION = 1
 ProfileName = Literal["general", "frontend", "backend", "typescript", "python", "docs"]
 OutputFormat = Literal["markdown", "json", "both"]
 
+DEFAULT_DEPRIORITIZED_PATHS = (".agents/", "docs/idea/", "vendor/", "vendors/", "node_modules/")
+
 
 @dataclass(frozen=True)
 class MetricDefinition:
@@ -114,8 +116,8 @@ PROFILE_WEIGHTS: dict[str, dict[str, float]] = {
 }
 
 
-def scan_tree(root_path: Path) -> Node:
-    return analysis.scan_codebase(root_path)
+def scan_tree(root_path: Path, *, verbose: bool = True) -> Node:
+    return analysis.scan_codebase(root_path, verbose=verbose)
 
 
 def write_scan(root_path: Path, out_path: Path, *, refresh: bool = False) -> Path:
@@ -139,22 +141,31 @@ def build_report_payload(
     tree_top: int = 6,
     include_tree: bool = False,
     include_dependencies: bool = False,
+    focus_paths: Iterable[str] | None = None,
+    deprioritize_paths: Iterable[str] | None = DEFAULT_DEPRIORITIZED_PATHS,
+    agent_compact: bool = False,
+    verbose: bool = True,
+    output_format: OutputFormat = "both",
 ) -> dict[str, Any]:
     del refresh  # Cache support is currently a no-op in app.services.cache.
     if profile not in PROFILE_WEIGHTS:
         raise ValueError(f"Unknown profile: {profile}")
 
-    tree = scan_tree(root_path)
-    ranked = rank_nodes(tree, profile=profile)
+    tree = scan_tree(root_path, verbose=verbose)
+    ranked = rank_nodes(tree, profile=profile, root_path=root_path, focus_paths=focus_paths, deprioritize_paths=deprioritize_paths)
     findings = build_findings(ranked, limit=limit)
     summary_tree = summarize_tree(tree, ranked, root_path=root_path, max_depth=tree_depth, top_children=tree_top)
     manifest = build_manifest(root_path=root_path, profile=profile)
     metrics_schema = build_metrics_schema()
+    top_findings_limit = min(limit, 20 if agent_compact else 10)
+    top_findings = {"findings": findings[:top_findings_limit]}
+    action_plan_markdown = render_action_plan(findings=findings, profile=profile)
     payload = {
         "manifest": manifest,
         "tree_summary": summary_tree,
         "hotspots": {"rankings": [r for r in ranked[:limit]]},
         "findings": {"findings": findings},
+        "findings_top": top_findings,
         "metrics_schema": metrics_schema,
         "report_markdown": render_markdown_report(
             manifest=manifest,
@@ -162,13 +173,22 @@ def build_report_payload(
             ranked=ranked[:limit],
             summary_tree=summary_tree,
             profile=profile,
+            focus_paths=focus_paths,
+            deprioritize_paths=deprioritize_paths,
         ),
+        "action_plan_markdown": action_plan_markdown,
         "agent_skill_markdown": render_agent_skill(),
     }
     if include_tree:
         payload["tree"] = _node_to_json(tree)
     if include_dependencies:
         payload["dependencies"] = build_dependencies(root_path)
+    payload["manifest"] = enrich_manifest_with_artifacts(
+        payload,
+        output_format=output_format,
+        include_tree=include_tree,
+        include_dependencies=include_dependencies,
+    )
     return payload
 
 
@@ -184,6 +204,10 @@ def write_report(
     tree_top: int = 6,
     include_tree: bool = False,
     include_dependencies: bool = False,
+    focus_paths: Iterable[str] | None = None,
+    deprioritize_paths: Iterable[str] | None = DEFAULT_DEPRIORITIZED_PATHS,
+    agent_compact: bool = False,
+    verbose: bool = True,
 ) -> dict[str, Path]:
     payload = build_report_payload(
         root_path,
@@ -194,6 +218,11 @@ def write_report(
         tree_top=tree_top,
         include_tree=include_tree,
         include_dependencies=include_dependencies,
+        focus_paths=focus_paths,
+        deprioritize_paths=deprioritize_paths,
+        agent_compact=agent_compact,
+        verbose=verbose,
+        output_format=output_format,
     )
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -204,6 +233,7 @@ def write_report(
         written["tree_summary"] = _write_json(out_dir / "tree.summary.json", payload["tree_summary"])
         written["hotspots"] = _write_json(out_dir / "hotspots.json", payload["hotspots"])
         written["findings"] = _write_json(out_dir / "findings.json", payload["findings"])
+        written["findings_top"] = _write_json(out_dir / "findings.top.json", payload["findings_top"])
         written["metrics_schema"] = _write_json(out_dir / "metrics.schema.json", payload["metrics_schema"])
         if include_tree:
             written["tree"] = _write_json(out_dir / "tree.json", payload["tree"])
@@ -212,15 +242,25 @@ def write_report(
 
     if output_format in ("markdown", "both"):
         written["report"] = _write_text(out_dir / "report.md", payload["report_markdown"])
+        written["action_plan"] = _write_text(out_dir / "action-plan.md", payload["action_plan_markdown"])
         written["agent_skill"] = _write_text(out_dir / "agent-skill.md", payload["agent_skill_markdown"])
 
     return written
 
 
-def rank_nodes(root: Node, *, profile: str = "general") -> list[dict[str, Any]]:
+def rank_nodes(
+    root: Node,
+    *,
+    profile: str = "general",
+    root_path: Path | None = None,
+    focus_paths: Iterable[str] | None = None,
+    deprioritize_paths: Iterable[str] | None = DEFAULT_DEPRIORITIZED_PATHS,
+) -> list[dict[str, Any]]:
     weights = PROFILE_WEIGHTS.get(profile, PROFILE_WEIGHTS["general"])
     nodes = [node for node in iter_nodes(root) if node.type != "folder" and node.metrics is not None]
     maxima = _metric_maxima(nodes, weights.keys())
+    focus_prefixes = tuple(_normalize_path_filter(path) for path in (focus_paths or ()) if path)
+    deprioritize_prefixes = tuple(_normalize_path_filter(path) for path in (deprioritize_paths or ()) if path)
     ranked: list[dict[str, Any]] = []
 
     for node in nodes:
@@ -248,6 +288,9 @@ def rank_nodes(root: Node, *, profile: str = "general") -> list[dict[str, Any]]:
             continue
 
         score = weighted_sum / weight_sum
+        display_path = _display_path(node.path, root_path) if root_path is not None else node.path
+        path_priority = _path_priority(display_path, focus_prefixes=focus_prefixes, deprioritize_prefixes=deprioritize_prefixes)
+        adjusted_score = max(0.0, min(1.0, score * path_priority["multiplier"]))
         ranked.append(
             {
                 "path": node.path,
@@ -255,7 +298,9 @@ def rank_nodes(root: Node, *, profile: str = "general") -> list[dict[str, Any]]:
                 "node_type": node.type,
                 "start_line": node.start_line,
                 "end_line": node.end_line,
-                "score": round(score, 4),
+                "score": round(adjusted_score, 4),
+                "raw_score": round(score, 4),
+                "path_priority": path_priority["label"],
                 "drivers": sorted(drivers, key=lambda d: d["normalized"] * d["weight"], reverse=True)[:5],
                 "metrics": _metrics_subset(node.metrics, weights.keys()),
                 "reason": _reason_for_node(node),
@@ -294,9 +339,11 @@ def build_findings(ranked: list[dict[str, Any]], *, limit: int = 50) -> list[dic
                 "start_line": item["start_line"],
                 "end_line": item["end_line"],
                 "score": item["score"],
+                "raw_score": item.get("raw_score", item["score"]),
+                "path_priority": item.get("path_priority", "neutral"),
                 "title": title,
                 "evidence": metrics,
-                "suggested_action": _suggested_action(category),
+                "suggested_action": _suggested_action(category, item),
                 "agent_prompt": _agent_prompt(category),
             }
         )
@@ -357,6 +404,8 @@ def render_markdown_report(
     ranked: list[dict[str, Any]],
     summary_tree: dict[str, Any],
     profile: str,
+    focus_paths: Iterable[str] | None = None,
+    deprioritize_paths: Iterable[str] | None = DEFAULT_DEPRIORITIZED_PATHS,
 ) -> str:
     high_count = sum(1 for finding in findings if finding["priority"] == "high")
     medium_count = sum(1 for finding in findings if finding["priority"] == "medium")
@@ -369,18 +418,22 @@ def render_markdown_report(
         f"- Profile: `{profile}`",
         f"- Ranked hotspots: {len(ranked)}",
         f"- Findings: {len(findings)} total, {high_count} high, {medium_count} medium.",
+        f"- Focus paths: `{', '.join(focus_paths or []) or 'none'}`",
+        f"- Deprioritized paths: `{', '.join(deprioritize_paths or []) or 'none'}`",
+        "",
+        "Read first: `report.md`, then `findings.top.json`, then `action-plan.md`. Load full JSON artifacts only when you need detail beyond the top findings.",
         "",
         "## Top Targets",
         "",
-        "| Rank | Priority | Path | Why | Suggested next action |",
-        "| --- | --- | --- | --- | --- |",
+        "| Rank | Priority | Path priority | Path | Why | Suggested next action |",
+        "| --- | --- | --- | --- | --- | --- |",
     ]
 
     for finding in findings[:10]:
         location = _format_location(finding)
         evidence = ", ".join(f"{key}={value}" for key, value in finding["evidence"].items() if value) or "metric signal"
         lines.append(
-            f"| {finding['id']} | {finding['priority']} | `{location}` | {finding['title']} ({evidence}) | {finding['suggested_action']} |"
+            f"| {finding['id']} | {finding['priority']} | {finding.get('path_priority', 'neutral')} | `{location}` | {finding['title']} ({evidence}) | {finding['suggested_action']} |"
         )
 
     lines.extend(
@@ -437,6 +490,33 @@ When reporting back, include:
 """
 
 
+def render_action_plan(*, findings: list[dict[str, Any]], profile: str) -> str:
+    lines = [
+        "# Srcly Action Plan",
+        "",
+        f"Profile: `{profile}`",
+        "",
+        "## Suggested Work Queue",
+        "",
+    ]
+    for index, finding in enumerate(findings[:5], start=1):
+        location = _format_location(finding)
+        evidence = ", ".join(f"{key}={value}" for key, value in finding["evidence"].items() if value) or "metric signal"
+        lines.extend(
+            [
+                f"{index}. {finding['title']}",
+                f"   Evidence: `{location}`; {evidence}; priority={finding['priority']}; path_priority={finding.get('path_priority', 'neutral')}.",
+                f"   Safe first patch: {finding['suggested_action']}",
+                f"   Verify: inspect nearby tests first, then run the narrowest type-check or test command for the touched package.",
+                "",
+            ]
+        )
+    if not findings:
+        lines.append("No findings were generated for this scan.")
+        lines.append("")
+    return "\n".join(lines)
+
+
 def render_tree_lines(summary_tree: dict[str, Any], *, indent: int = 0) -> list[str]:
     prefix = "  " * indent
     name = summary_tree.get("path") or summary_tree.get("name") or "<unknown>"
@@ -463,6 +543,51 @@ def build_manifest(*, root_path: Path, profile: str) -> dict[str, Any]:
         "profiles": [profile],
         "artifact_version": ARTIFACT_VERSION,
     }
+
+
+def enrich_manifest_with_artifacts(
+    payload: dict[str, Any],
+    *,
+    output_format: OutputFormat,
+    include_tree: bool,
+    include_dependencies: bool,
+) -> dict[str, Any]:
+    manifest = dict(payload["manifest"])
+    artifact_specs: list[tuple[str, str, Any, int, str]] = []
+    if output_format in ("json", "both"):
+        artifact_specs.extend(
+            [
+                ("manifest", "manifest.json", manifest, 1, "full"),
+                ("tree_summary", "tree.summary.json", payload["tree_summary"], 4, "full"),
+                ("findings_top", "findings.top.json", payload["findings_top"], 2, "full"),
+                ("findings", "findings.json", payload["findings"], 5, "top_n"),
+                ("hotspots", "hotspots.json", payload["hotspots"], 6, "top_n"),
+                ("metrics_schema", "metrics.schema.json", payload["metrics_schema"], 7, "reference"),
+            ]
+        )
+        if include_tree:
+            artifact_specs.append(("tree", "tree.json", payload["tree"], 9, "avoid_full_load"))
+        if include_dependencies:
+            artifact_specs.append(("dependencies", "dependencies.json", payload["dependencies"], 8, "top_n"))
+    if output_format in ("markdown", "both"):
+        artifact_specs.extend(
+            [
+                ("report", "report.md", payload["report_markdown"], 1, "full"),
+                ("action_plan", "action-plan.md", payload["action_plan_markdown"], 3, "full"),
+                ("agent_skill", "agent-skill.md", payload["agent_skill_markdown"], 10, "reference"),
+            ]
+        )
+    manifest["artifacts"] = [
+        {
+            "name": name,
+            "path": path,
+            "bytes": len(_json_dumps(content).encode("utf-8")) if not isinstance(content, str) else len(content.encode("utf-8")),
+            "read_order": read_order,
+            "agent_load": agent_load,
+        }
+        for name, path, content, read_order, agent_load in sorted(artifact_specs, key=lambda item: (item[3], item[1]))
+    ]
+    return manifest
 
 
 def build_metrics_schema() -> dict[str, Any]:
@@ -572,9 +697,16 @@ def _title_for_category(category: str, item: dict[str, Any]) -> str:
     return labels.get(category, "Code quality hotspot") + f" in {item['name']}"
 
 
-def _suggested_action(category: str) -> str:
+def _suggested_action(category: str, item: dict[str, Any] | None = None) -> str:
+    path = str((item or {}).get("path", ""))
+    is_tsx = path.endswith(".tsx") or "::" in path and ".tsx" in path
     actions = {
-        "tsx": "Inspect rendering branches, state ownership, and extraction points; add focused UI tests before changing behavior.",
+        "tsx": (
+            "Look first for render-only child components, modal/dialog subtrees, action hooks, and derived selectors to extract; "
+            "verify with type-check and targeted UI coverage."
+            if is_tsx
+            else "Inspect rendering branches, state ownership, and extraction points; add focused UI tests before changing behavior."
+        ),
         "typing": "Review whether `any` or ignore directives can be replaced with precise types.",
         "coupling": "Inspect dependency boundaries and look for imports that can be inverted, localized, or simplified.",
         "docs": "Check whether large embedded data URLs should move to external assets.",
@@ -618,6 +750,25 @@ def _display_path(path: str, root_path: Path) -> str:
         return str(Path(path).resolve().relative_to(root_path.resolve()))
     except Exception:
         return path
+
+
+def _normalize_path_filter(path: str) -> str:
+    normalized = path.strip().replace("\\", "/").strip("/")
+    return f"{normalized}/" if normalized and not Path(normalized).suffix else normalized
+
+
+def _path_priority(
+    display_path: str,
+    *,
+    focus_prefixes: tuple[str, ...],
+    deprioritize_prefixes: tuple[str, ...],
+) -> dict[str, Any]:
+    normalized = display_path.replace("\\", "/").lstrip("/")
+    if focus_prefixes and any(normalized == prefix.rstrip("/") or normalized.startswith(prefix) for prefix in focus_prefixes):
+        return {"label": "focused", "multiplier": 1.25}
+    if any(normalized == prefix.rstrip("/") or normalized.startswith(prefix) for prefix in deprioritize_prefixes):
+        return {"label": "deprioritized", "multiplier": 0.55}
+    return {"label": "neutral", "multiplier": 1.0}
 
 
 def _node_identity(path: str, start_line: int, end_line: int, node_type: str) -> str:

@@ -328,14 +328,14 @@ const CodeSidebar = (props: {
     });
 
   return (
-    <div class="w-1/3 h-full border-l border-gray-700 bg-[#1e1e1e] flex flex-col">
-      <div class="flex justify-between items-center p-2 border-b border-gray-700 bg-[#252526]">
+    <div class="w-1/3 h-full border-l border-[var(--plc-border)] bg-[var(--plc-surface)] flex flex-col">
+      <div class="flex justify-between items-center p-2 border-b border-[var(--plc-border)] bg-[var(--plc-surface)]">
         <span class="text-xs font-mono truncate px-2">
           {props.path.split("/").pop()}
         </span>
         <button
           onClick={props.onClose}
-          class="text-gray-400 hover:text-white px-2"
+          class="text-[var(--plc-on-subtle)] hover:text-[var(--plc-on-surface)] px-2"
         >
           ×
         </button>
@@ -343,11 +343,11 @@ const CodeSidebar = (props: {
       <div class="flex-1 overflow-auto p-4 text-xs">
         <Show
           when={!loading() && !error()}
-          fallback={<div class="text-gray-500">Loading...</div>}
+          fallback={<div class="text-[var(--plc-on-subtle)]">Loading...</div>}
         >
           <Show
             when={highlightedHtml()}
-            fallback={<div class="text-gray-500">Rendering…</div>}
+            fallback={<div class="text-[var(--plc-on-subtle)]">Rendering…</div>}
           >
             <FlowOverlayCode
               html={() => highlightedHtml() || ""}
@@ -487,23 +487,23 @@ export default function DataFlowViz(props: DataFlowVizProps) {
   function getNodeStyle(type?: string) {
     switch (type) {
       case "function":
-        return { border: "#3b82f6", bg: "#1e3a8a33", label: "fn" };
+        return { border: "var(--plc-accent)", bg: "var(--plc-accent-subtle)", label: "fn" };
       case "if":
-        return { border: "#22c55e", bg: "#14532d33", label: "if" };
+        return { border: "var(--plc-success)", bg: "var(--plc-success-subtle)", label: "if" };
       case "else":
       case "else_branch":
-        return { border: "#22c55e", bg: "#14532d33", label: "else" };
+        return { border: "var(--plc-success)", bg: "var(--plc-success-subtle)", label: "else" };
       case "try":
-        return { border: "#ef4444", bg: "#7f1d1d33", label: "try" };
+        return { border: "#dc2626", bg: "#fef2f2", label: "try" };
       case "catch":
-        return { border: "#ef4444", bg: "#7f1d1d33", label: "catch" };
+        return { border: "#dc2626", bg: "#fef2f2", label: "catch" };
       case "finally":
-        return { border: "#ef4444", bg: "#7f1d1d33", label: "finally" };
+        return { border: "#dc2626", bg: "#fef2f2", label: "finally" };
       case "variable":
       case "usage":
-        return { border: "#94a3b8", bg: "#334155", label: "var" };
+        return { border: "#cbd5e1", bg: "#f8fafc", label: "var" };
       default:
-        return { border: "#64748b", bg: "#1e293b", label: type || "block" };
+        return { border: "#94a3b8", bg: "#f8fafc", label: type || "block" };
     }
   }
 
@@ -614,7 +614,7 @@ export default function DataFlowViz(props: DataFlowVizProps) {
       >
         {/* Header */}
         <div
-          class="flex flex-col px-2 py-1 border-b border-white/10"
+          class="flex flex-col px-2 py-1 border-b border-[var(--plc-border)]"
           style={{
             "border-color": style.border,
             "background-color": isPill ? style.bg : `${style.border}22`,
@@ -622,7 +622,7 @@ export default function DataFlowViz(props: DataFlowVizProps) {
           }}
         >
           <div class="flex justify-between items-center">
-            <span class="font-mono text-xs font-bold text-gray-200 truncate">
+            <span class="font-mono text-xs font-bold text-[var(--plc-on-surface)] truncate">
               {props.node.type === "if" ? "if" : label}
             </span>
             {!isPill && (
@@ -632,14 +632,14 @@ export default function DataFlowViz(props: DataFlowVizProps) {
 
           {/* Extra Header Info */}
           <Show when={props.node.type === "function"}>
-            <span class="text-[10px] text-gray-400 font-mono pl-2 truncate">
+            <span class="text-[10px] text-[var(--plc-on-muted)] font-mono pl-2 truncate">
               {props.node.params && props.node.params.length > 0
                 ? `(${props.node.params.join(", ")})`
                 : "()"}
             </span>
           </Show>
           <Show when={props.node.type === "if"}>
-            <span class="text-[10px] text-gray-400 font-mono pl-2">
+            <span class="text-[10px] text-[var(--plc-on-muted)] font-mono pl-2">
               {label !== "if" ? label : ""}
             </span>
           </Show>
@@ -660,11 +660,11 @@ export default function DataFlowViz(props: DataFlowVizProps) {
       open
       onClose={props.onClose}
       size="fullscreen"
-      class="border-gray-800 bg-[#0f172a]"
+      class="border-[var(--plc-border)] bg-[var(--plc-surface)]"
     >
         <DialogHeader
           title="Data Flow Viz"
-          class="border-gray-800 bg-[#1e293b] p-4"
+          class="border-[var(--plc-border)] bg-[var(--plc-surface)] p-4"
           actions={<Button onClick={props.onClose}>Close</Button>}
         />
 
@@ -673,7 +673,7 @@ export default function DataFlowViz(props: DataFlowVizProps) {
           {/* Graph Canvas */}
           <div
             ref={containerRef}
-            class="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing bg-[#0b1120]"
+            class="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing bg-[var(--plc-surface-inset)]"
             onWheel={handleWheel}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}

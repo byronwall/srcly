@@ -114,11 +114,11 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
         >
           {/* Header with Clear All inside Popover */}
           <Show when={activeCount() > 0 || isLocActive()}>
-            <div class="flex justify-end pb-2 border-b border-[#3e3e42]">
+            <div class="flex justify-end pb-2 border-b border-[var(--plc-border)]">
               <Button
                 variant="ghost"
                 size="xs"
-                class="text-red-400 hover:text-red-300"
+                class="text-[var(--plc-error)] hover:text-[var(--plc-error)]"
                 onClick={handleClearAll}
               >
                 <span>✕</span>
@@ -145,8 +145,8 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
                         <div
                           class={`w-3 h-3 rounded border flex items-center justify-center ${
                             isActive(item.ext)
-                              ? "bg-blue-600 border-blue-500"
-                              : "border-gray-600"
+                              ? "bg-[var(--plc-accent)] border-[var(--plc-accent)]"
+                              : "border-[var(--plc-border-strong)]"
                           }`}
                         >
                           <Show when={isActive(item.ext)}>
@@ -163,14 +163,14 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
                         </div>
                         <span class="font-mono">.{item.ext}</span>
                       </div>
-                      <span class="text-gray-500 text-[10px]">
+                      <span class="text-[var(--plc-on-subtle)] text-[10px]">
                         {item.count}
                       </span>
                     </OptionRow>
                   )}
                 </For>
                 <Show when={extensionStats().length === 0}>
-                  <div class="text-gray-500 text-xs p-2 text-center">
+                  <div class="text-[var(--plc-on-subtle)] text-xs p-2 text-center">
                     No file types found
                   </div>
                 </Show>
@@ -178,7 +178,7 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
             </div>
 
             {/* Divider */}
-            <div class="w-px bg-[#3e3e42]"></div>
+            <div class="w-px bg-[var(--plc-border)]"></div>
 
             {/* Right Column: Other Filters */}
             <div class="flex-1 flex flex-col">
@@ -198,7 +198,7 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
                       isLocActive() ? "opacity-100" : "opacity-50"
                     }`}
                   >
-                    <label class="text-[10px] text-gray-500 block mb-1">
+                    <label class="text-[10px] text-[var(--plc-on-subtle)] block mb-1">
                       Max Lines of Code (LOC)
                     </label>
                     <TextInput
@@ -210,7 +210,7 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
                         )
                       }
                       size="sm"
-                      class="text-xs text-gray-300"
+                      class="text-xs"
                       min="0"
                       step="100"
                     />
@@ -219,7 +219,7 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
                         {(val) => (
                           <Button
                             size="xs"
-                            class="px-1.5 py-0.5 text-[9px] hover:border-gray-500 hover:text-gray-200"
+                            class="px-1.5 py-0.5 text-[9px]"
                             onClick={() => handleLocInputChange(val)}
                           >
                             {val >= 1000 ? `${val / 1000}k` : val}
@@ -232,16 +232,16 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
 
                 {/* Excluded Paths Section */}
                 <Show when={excludedPaths().length > 0}>
-                  <div class="pt-2 border-t border-[#3e3e42]">
-                    <div class="text-[10px] font-bold text-gray-400 mb-2">
+                  <div class="pt-2 border-t border-[var(--plc-border)]">
+                    <div class="text-[10px] font-bold text-[var(--plc-on-muted)] mb-2">
                       Excluded Paths
                     </div>
                     <div class="space-y-1 max-h-[150px] overflow-y-auto">
                       <For each={excludedPaths()}>
                         {(path) => (
-                          <div class="flex items-center justify-between text-[10px] bg-[#1e1e1e] border border-[#3e3e42] rounded px-2 py-1 group hover:border-red-900/50">
+                          <div class="flex items-center justify-between text-[10px] bg-[var(--plc-surface-subtle)] border border-[var(--plc-border)] rounded px-2 py-1 group hover:border-[var(--plc-error-border)]">
                             <span
-                              class="truncate text-gray-400 max-w-[140px]"
+                              class="truncate text-[var(--plc-on-muted)] max-w-[140px]"
                               title={path}
                             >
                               {path.split("/").pop()}
@@ -249,7 +249,7 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
                             <Button
                               variant="ghost"
                               size="xs"
-                              class="ml-2 p-0 text-gray-500 hover:text-red-400"
+                              class="ml-2 p-0 text-[var(--plc-on-subtle)] hover:text-[var(--plc-error)]"
                               onClick={() => toggleExcludedPath(path)}
                               title="Remove exclusion"
                             >
@@ -271,7 +271,7 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
       <Show when={activeCount() > 0 || isLocActive()}>
         <Button
           size="xs"
-          class="absolute left-full ml-2 top-1/2 -translate-y-1/2 whitespace-nowrap text-gray-500 hover:border-red-900/50 hover:text-red-400"
+          class="absolute left-full ml-2 top-1/2 -translate-y-1/2 whitespace-nowrap text-[var(--plc-on-subtle)] hover:border-[var(--plc-error-border)] hover:text-[var(--plc-error)]"
           onClick={handleClearAll}
           title="Clear all filters"
         >

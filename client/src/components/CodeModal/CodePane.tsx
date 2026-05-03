@@ -209,8 +209,8 @@ export function CodePane(props: CodePaneProps) {
       </Show>
 
       <Show when={props.dataFlowEnabled() && showCode() && !props.isScopeMaximized()}>
-        <div class="w-48 shrink-0 border-l border-gray-800 bg-gray-900/20 p-4 overflow-y-auto">
-          <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">
+        <div class="w-48 shrink-0 border-l border-[var(--plc-border)] bg-[var(--plc-surface)] p-4 overflow-y-auto">
+          <h3 class="plc-label-caps mb-4 text-[var(--plc-on-muted)]">
             Data Flow
           </h3>
           <div class="space-y-3 code-modal-content">
@@ -224,15 +224,15 @@ export function CodePane(props: CodePaneProps) {
                   >
                     <div class="flex items-center gap-2">
                       <div
-                        class={`w-3.5 h-3.5 rounded-sm border border-white/5 flow flow-${item.category}`}
+                        class={`w-3.5 h-3.5 rounded-sm border border-[var(--plc-border)] flow flow-${item.category}`}
                         aria-hidden="true"
                       />
-                      <span class="text-[11px] text-gray-400 font-medium group-hover:text-gray-200 transition-colors">
+                      <span class="text-[11px] text-[var(--plc-on-muted)] font-medium group-hover:text-[var(--plc-on-surface)] transition-colors">
                         {item.label}
                       </span>
                     </div>
                     <Show when={count() > 0}>
-                      <span class="text-[10px] font-mono text-gray-600 group-hover:text-gray-400 tabular-nums">
+                      <span class="text-[10px] font-mono text-[var(--plc-on-subtle)] group-hover:text-[var(--plc-on-muted)] tabular-nums">
                         {count()}
                       </span>
                     </Show>
@@ -242,8 +242,8 @@ export function CodePane(props: CodePaneProps) {
             </For>
           </div>
 
-          <div class="mt-8 pt-6 border-t border-gray-800/50">
-            <p class="text-[10px] leading-relaxed text-gray-600 italic">
+          <div class="mt-8 pt-6 border-t border-[var(--plc-border)]">
+            <p class="text-[10px] leading-relaxed text-[var(--plc-on-subtle)] italic">
               Tracing {tokens().length} identifiers in the current view.
             </p>
           </div>

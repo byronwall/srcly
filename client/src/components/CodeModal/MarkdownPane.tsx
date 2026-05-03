@@ -40,7 +40,7 @@ export function MarkdownPane(props: {
               <img
                 {...imgProps}
                 src={src}
-                class="max-w-full rounded-lg border border-gray-700 my-4"
+                class="max-w-full rounded-lg border border-[var(--plc-border)] my-4"
               />
             );
           },
@@ -49,5 +49,4 @@ export function MarkdownPane(props: {
     </div>
   );
 }
-
 

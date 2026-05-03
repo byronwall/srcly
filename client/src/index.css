@@ -23,6 +23,7 @@
   --plc-surface-muted: #f1f5f9;
   --plc-surface-hover: #f8fafc;
   --plc-surface-selected: #eaf2ff;
+  --plc-surface-inset: #f6f8fb;
   --plc-border: #e2e8f0;
   --plc-border-strong: #cbd5e1;
   --plc-border-focus: #2563eb;
@@ -144,7 +145,7 @@ body {
 .markdown-preview {
   font-size: 0.9rem;
   line-height: 1.6;
-  color: #e5e7eb; /* gray-200 */
+  color: var(--plc-on-surface);
 }
 
 .markdown-preview > *:first-child {
@@ -161,7 +162,7 @@ body {
 .markdown-preview h4 {
   font-weight: 600;
   line-height: 1.25;
-  color: #f9fafb; /* gray-50 */
+  color: var(--plc-on-surface);
 }
 
 .markdown-preview h1 {
@@ -174,7 +175,7 @@ body {
   font-size: 1.25rem;
   margin-top: 1.5rem;
   margin-bottom: 0.5rem;
-  border-bottom: 1px solid #374151; /* gray-700 */
+  border-bottom: 1px solid var(--plc-border);
   padding-bottom: 0.25rem;
 }
 
@@ -199,11 +200,11 @@ body {
 }
 
 .markdown-preview strong {
-  color: #f9fafb;
+  color: var(--plc-on-surface);
 }
 
 .markdown-preview a {
-  color: #38bdf8; /* sky-400 */
+  color: var(--plc-accent);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -212,15 +213,17 @@ body {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
   font-size: 0.85em;
-  background-color: #111827; /* gray-900 */
+  background-color: var(--plc-code-bg);
+  color: var(--plc-code-text);
+  border: 1px solid var(--plc-border);
   border-radius: 0.25rem;
   padding: 0.1rem 0.35rem;
 }
 
 .markdown-preview pre {
-  background-color: #020617; /* gray-950 */
+  background-color: var(--plc-code-bg);
   border-radius: 0.5rem;
-  border: 1px solid #1f2937; /* gray-800 */
+  border: 1px solid var(--plc-border);
   padding: 0.75rem 0.9rem;
   margin: 0.75rem 0;
   overflow-x: auto;
@@ -228,20 +231,21 @@ body {
 
 .markdown-preview pre code {
   background: transparent;
+  border: 0;
   padding: 0;
 }
 
 .markdown-preview hr {
   border: none;
-  border-top: 1px solid #374151;
+  border-top: 1px solid var(--plc-border);
   margin: 1.5rem 0;
 }
 
 .markdown-preview blockquote {
-  border-left: 3px solid #4b5563; /* gray-600 */
+  border-left: 3px solid var(--plc-border-strong);
   padding-left: 0.75rem;
   margin: 0.75rem 0;
-  color: #d1d5db; /* gray-300 */
+  color: var(--plc-on-muted);
   font-style: italic;
 }
 
@@ -254,19 +258,19 @@ body {
 
 .markdown-preview th,
 .markdown-preview td {
-  border: 1px solid rgba(75, 85, 99, 0.65); /* gray-600 */
+  border: 1px solid var(--plc-border);
   padding: 0.45rem 0.6rem;
   vertical-align: top;
 }
 
 .markdown-preview th {
-  background: rgba(31, 41, 55, 0.7); /* gray-800 */
-  color: #f9fafb; /* gray-50 */
+  background: var(--plc-surface-subtle);
+  color: var(--plc-on-surface);
   font-weight: 600;
 }
 
 .markdown-preview tbody tr:nth-child(even) td {
-  background: rgba(17, 24, 39, 0.35); /* gray-900 */
+  background: var(--plc-surface-subtle);
 }
 
 .markdown-preview .md-selected-range {
@@ -283,6 +287,9 @@ body {
   font-size: 14px;
   line-height: 1.1;
   margin: 0;
+  border: 1px solid var(--plc-border);
+  background: var(--plc-code-bg) !important;
+  color: var(--plc-code-text);
 }
 
 .code-modal-content .shiki code {
@@ -315,7 +322,7 @@ body {
   position: absolute;
   left: 0;
   top: 0;
-  color: rgba(156, 163, 175, 0.8);
+  color: var(--plc-on-disabled);
   text-align: right;
   width: 1.75rem;
   font-size: 0.75rem;
@@ -324,7 +331,7 @@ body {
 }
 
 .code-modal-content .shiki .non-focus-line {
-  color: #6b7280 !important; /* gray-500 */
+  color: var(--plc-on-disabled) !important;
 }
 
 .code-modal-content .shiki .non-focus-line span {
@@ -339,12 +346,12 @@ body {
 }
 
 .code-modal-content .flow-hovered {
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.45);
 }
 
 .code-modal-content .flow-pinned {
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55),
-    0 0 0 1px rgba(17, 24, 39, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.65),
+    0 0 0 1px rgba(15, 23, 42, 0.12);
 }
 
 .code-modal-content .flow-param {

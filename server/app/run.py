@@ -171,6 +171,33 @@ def _run_headless(argv: list[str]) -> None:
     report_parser.add_argument("--refresh", action="store_true", help="Ignore cache when cache support is available.")
     report_parser.add_argument("--limit", type=int, default=50, help="Maximum ranked findings to emit.")
     report_parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress per-file scan progress and print only the report summary.",
+    )
+    report_parser.add_argument(
+        "--agent-compact",
+        action="store_true",
+        help="Expand compact agent artifacts from the default top 10 findings to the top 20.",
+    )
+    report_parser.add_argument(
+        "--focus",
+        action="append",
+        default=None,
+        help="Path prefix to promote in report ranking. May be repeated.",
+    )
+    report_parser.add_argument(
+        "--deprioritize",
+        action="append",
+        default=None,
+        help="Path prefix to lower in report ranking. May be repeated. Defaults include .agents and docs/idea.",
+    )
+    report_parser.add_argument(
+        "--no-default-deprioritize",
+        action="store_true",
+        help="Disable default report deprioritization for agent docs, vendored, and generated-like paths.",
+    )
+    report_parser.add_argument(
         "--profile",
         choices=["general", "frontend", "backend", "typescript", "python", "docs"],
         default="general",
@@ -234,6 +261,11 @@ def _run_headless(argv: list[str]) -> None:
                 tree_top=args.tree_top,
                 include_tree=args.include_tree,
                 include_dependencies=args.include_dependencies,
+                focus_paths=args.focus,
+                deprioritize_paths=_deprioritize_paths(args),
+                agent_compact=args.agent_compact,
+                verbose=not args.quiet,
+                output_format=args.format,
             )
             print(reporting._json_dumps(payload))
         else:
@@ -250,10 +282,17 @@ def _run_headless(argv: list[str]) -> None:
                 tree_top=args.tree_top,
                 include_tree=args.include_tree,
                 include_dependencies=args.include_dependencies,
+                focus_paths=args.focus,
+                deprioritize_paths=_deprioritize_paths(args),
+                agent_compact=args.agent_compact,
+                verbose=not args.quiet,
             )
-            print(f"Wrote Srcly report artifacts to {out_dir}")
-            for path in written.values():
-                print(f"- {path}")
+            if args.quiet:
+                print(_format_quiet_report_summary(out_dir, written))
+            else:
+                print(f"Wrote Srcly report artifacts to {out_dir}")
+                for path in written.values():
+                    print(f"- {path}")
         if args.fail_on != "none":
             if args.stdout:
                 _enforce_fail_on_payload(payload["findings"], args.fail_on)
@@ -293,6 +332,18 @@ def _profile_from_metrics(metrics: list[str] | None) -> str:
     weights = {metric: 1.0 for metric in metrics}
     reporting.PROFILE_WEIGHTS["_custom"] = weights
     return "_custom"
+
+
+def _deprioritize_paths(args) -> tuple[str, ...]:
+    if args.no_default_deprioritize:
+        return tuple(args.deprioritize or ())
+    return tuple(reporting.DEFAULT_DEPRIORITIZED_PATHS) + tuple(args.deprioritize or ())
+
+
+def _format_quiet_report_summary(out_dir: Path, written: dict[str, Path]) -> str:
+    names = ", ".join(path.name for path in written.values())
+    read_first = out_dir / "report.md"
+    return f"Wrote {len(written)} Srcly artifacts to {out_dir}: {names}\nRead first: {read_first}"
 
 
 def _enforce_fail_on(findings_path: Path, fail_on: str) -> None:

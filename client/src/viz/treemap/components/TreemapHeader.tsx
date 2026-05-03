@@ -192,15 +192,15 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
           </div>
           <div class="space-y-1">
             <div class="flex items-center gap-2">
-              <div class="w-3 h-3 bg-[#569cd6]"></div>
+              <div class="w-3 h-3 bg-[var(--plc-chart-1)]"></div>
               <span>Lower score</span>
             </div>
             <div class="flex items-center gap-2">
-              <div class="w-3 h-3 bg-[#dcdcaa]"></div>
+              <div class="w-3 h-3 bg-[var(--plc-chart-4)]"></div>
               <span>Medium score</span>
             </div>
             <div class="flex items-center gap-2">
-              <div class="w-3 h-3 bg-[#ce9178]"></div>
+              <div class="w-3 h-3 bg-[var(--plc-chart-5)]"></div>
               <span>Higher score</span>
             </div>
           </div>

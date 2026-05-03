@@ -336,7 +336,7 @@ export default function CodeModal(props: CodeModalProps) {
             setScopeFlowEnabled={setScopeFlowEnabled}
           />
 
-          <main class="relative flex-1 overflow-hidden flex bg-[#1e1e1e]">
+          <main class="relative flex-1 overflow-hidden flex bg-[var(--plc-surface)]">
             <Show when={!scopeMaximized()}>
               <MetricsSidebar
                 fileNode={props.fileNode}
@@ -362,7 +362,7 @@ export default function CodeModal(props: CodeModalProps) {
             </Show>
 
             <div
-              class="flex-1 min-h-0 p-4"
+              class="flex-1 min-h-0 bg-[var(--plc-surface-inset,var(--plc-surface-subtle))] p-3"
               classList={{
                 "overflow-auto": viewMode() === "preview",
                 "overflow-hidden": viewMode() !== "preview",

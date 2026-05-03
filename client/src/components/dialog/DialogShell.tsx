@@ -30,7 +30,7 @@ export function DialogShell(props: DialogShellProps) {
   return (
     <Show when={local.open}>
       <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(248,250,252,0.72)] backdrop-blur-[1px]"
         onClick={() => local.onClose()}
       >
         <div

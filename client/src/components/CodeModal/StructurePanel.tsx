@@ -22,14 +22,14 @@ export function StructurePanel(props: {
                 const n = () => node;
                 return (
                   <div class="flex items-center gap-1 w-full">
-                    <span class="text-gray-600 text-[10px] w-3 flex justify-center">
+                    <span class="text-[var(--plc-on-disabled)] text-[10px] w-3 flex justify-center">
                       {i() > 0 ? "↳" : ""}
                     </span>
                     <button
                       class={`text-xs truncate hover:underline text-left flex-1 ${
                         i() === displayPath().length - 1
-                          ? "font-bold text-gray-200 cursor-default hover:no-underline"
-                          : "text-blue-400 hover:text-blue-300"
+                          ? "font-bold text-[var(--plc-on-surface)] cursor-default hover:no-underline"
+                          : "text-[var(--plc-accent)] hover:text-[var(--plc-accent-hover)]"
                       }`}
                       onClick={() => {
                         if (i() === displayPath().length - 1) return;
@@ -45,7 +45,7 @@ export function StructurePanel(props: {
           </div>
         </Show>
 
-        <h3 class="text-xs font-bold text-gray-300 uppercase tracking-widest mb-3 pb-1 border-b border-gray-700">
+        <h3 class="plc-label-caps mb-3 border-b border-[var(--plc-border)] pb-1 text-[var(--plc-on-muted)]">
           Structure
         </h3>
 
@@ -72,12 +72,11 @@ export function StructurePanel(props: {
           </For>
 
           <Show when={!props.getChildren(props.activeNode())?.length}>
-            <div class="text-xs text-gray-500 italic px-2">No sub-items</div>
+            <div class="text-xs text-[var(--plc-on-subtle)] italic px-2">No sub-items</div>
           </Show>
         </div>
       </div>
     </Show>
   );
 }
-
 

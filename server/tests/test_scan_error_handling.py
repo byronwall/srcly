@@ -42,7 +42,7 @@ def test_scan_codebase_skips_error_results(monkeypatch, tmp_path: Path) -> None:
     bad_file = root / "bad.py"
     bad_file.write_text("print('bad')\n")
 
-    def fake_runner(files_to_scan: list[str], timeout_seconds: float, max_workers: int):
+    def fake_runner(files_to_scan: list[str], timeout_seconds: float, max_workers: int, **kwargs):
         # Return a mix of successful and error results, matching the shapes
         # scan_codebase expects to be defensive about.
         out = []
@@ -69,5 +69,4 @@ def test_scan_codebase_skips_error_results(monkeypatch, tmp_path: Path) -> None:
     # We should not crash, and only the "good.py" file should appear in the tree.
     files = [child for child in root_node.children if child.type == "file"]
     assert [f.name for f in files] == ["good.py"]
-
 

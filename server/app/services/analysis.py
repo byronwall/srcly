@@ -481,6 +481,8 @@ def _run_file_analyses_with_hard_timeouts(
     files_to_scan: list[str],
     timeout_seconds: float,
     max_workers: int,
+    *,
+    verbose: bool = True,
 ) -> list:
     """
     Analyze files with a *hard* per-file timeout by running each file in its own
@@ -508,7 +510,8 @@ def _run_file_analyses_with_hard_timeouts(
 
             # Log every file *before* it is processed so we can identify the
             # last-started file if analysis hangs or crashes.
-            print(f"➡️ [{next_index}/{total_count}] Starting analysis: {file_path}", file=sys.stderr, flush=True)
+            if verbose:
+                print(f"➡️ [{next_index}/{total_count}] Starting analysis: {file_path}", file=sys.stderr, flush=True)
 
             recv_conn, send_conn = ctx.Pipe(duplex=False)
             proc = ctx.Process(
@@ -540,11 +543,12 @@ def _run_file_analyses_with_hard_timeouts(
             # Either finished, or timed out.
             if proc.is_alive() and elapsed > timeout_seconds:
                 completed_count += 1
-                print(
-                    f"❌ [{completed_count}/{total_count}] Timeout analyzing {file_path} after {elapsed:.2f}s (terminated)",
-                    file=sys.stderr,
-                    flush=True,
-                )
+                if verbose:
+                    print(
+                        f"❌ [{completed_count}/{total_count}] Timeout analyzing {file_path} after {elapsed:.2f}s (terminated)",
+                        file=sys.stderr,
+                        flush=True,
+                    )
                 try:
                     proc.terminate()
                 except Exception:
@@ -579,13 +583,14 @@ def _run_file_analyses_with_hard_timeouts(
                     pass
 
             if isinstance(result, dict) and "error" in result:
-                print(
-                    f"❌ [{completed_count}/{total_count}] Error analyzing {file_path}: {result.get('error')}",
-                    file=sys.stderr,
-                    flush=True,
-                )
+                if verbose:
+                    print(
+                        f"❌ [{completed_count}/{total_count}] Error analyzing {file_path}: {result.get('error')}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
             else:
-                if _should_log_file_progress(completed_count, total_count):
+                if verbose and _should_log_file_progress(completed_count, total_count):
                     print(f"✅ [{completed_count}/{total_count}] Analyzed {file_path}", file=sys.stderr, flush=True)
                 results.append(result)
 
@@ -598,8 +603,9 @@ def _run_file_analyses_with_hard_timeouts(
     return results
 
 
-def scan_codebase(root_path: Path) -> Node:
-    print(f"🔍 Scanning: {root_path}", file=sys.stderr, flush=True)
+def scan_codebase(root_path: Path, *, verbose: bool = True) -> Node:
+    if verbose:
+        print(f"🔍 Scanning: {root_path}", file=sys.stderr, flush=True)
 
     # Load .gitignore spec (repo-wide, with nested .gitignore support)
     ignore_root, gitignore_spec = _load_gitignore_spec(root_path)
@@ -641,16 +647,18 @@ def scan_codebase(root_path: Path) -> Node:
         if current_ignored_count > 0:
             ignored_counts[str(root_dir_path)] = current_ignored_count
 
-    print(
-        f"📂 Analyzing {len(files_to_scan)} source files... (workers={MAX_ANALYSIS_WORKERS}, timeout={PER_FILE_ANALYSIS_TIMEOUT_SECONDS}s)",
-        file=sys.stderr,
-        flush=True,
-    )
+    if verbose:
+        print(
+            f"📂 Analyzing {len(files_to_scan)} source files... (workers={MAX_ANALYSIS_WORKERS}, timeout={PER_FILE_ANALYSIS_TIMEOUT_SECONDS}s)",
+            file=sys.stderr,
+            flush=True,
+        )
 
     analysis_results = _run_file_analyses_with_hard_timeouts(
         files_to_scan=files_to_scan,
         timeout_seconds=PER_FILE_ANALYSIS_TIMEOUT_SECONDS,
         max_workers=MAX_ANALYSIS_WORKERS,
+        verbose=verbose,
     )
 
     tree_root = create_node("root", "folder", str(root_path))

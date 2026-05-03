@@ -8,7 +8,7 @@ export type Metrics = Record<string, any>;
 const complexityColor = d3
   .scaleLinear<string>()
   .domain([0, 10, 50])
-  .range(["#569cd6", "#dcdcaa", "#ce9178"])
+  .range(["#dbeafe", "#fde68a", "#fecaca"])
   .clamp(true);
 
 const commentDensityColor = d3
@@ -20,13 +20,13 @@ const commentDensityColor = d3
 const nestingDepthColor = d3
   .scaleLinear<string>()
   .domain([0, 3, 8])
-  .range(["#e0f7fa", "#4dd0e1", "#006064"])
+  .range(["#e0f7fa", "#bae6fd", "#0891b2"])
   .clamp(true);
 
 const todoCountColor = d3
   .scaleLinear<string>()
   .domain([0, 1, 5])
-  .range(["#f1f8e9", "#aed581", "#33691e"])
+  .range(["#f1f8e9", "#bef264", "#65a30d"])
   .clamp(true);
 
 export function applyDepthEffect(color: string, depth: number): string {

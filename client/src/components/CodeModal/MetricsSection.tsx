@@ -5,7 +5,7 @@ import { MetricItem } from "./MetricItem";
 export function MetricsSection(props: { title: string; node: any }) {
   return (
     <div class="mb-6">
-      <h3 class="text-xs font-bold text-gray-300 uppercase tracking-widest mb-3 pb-1 border-b border-gray-700">
+      <h3 class="plc-label-caps mb-3 border-b border-[var(--plc-border)] pb-1 text-[var(--plc-on-muted)]">
         {props.title}
       </h3>
       <div class="space-y-1">
@@ -27,5 +27,4 @@ export function MetricsSection(props: { title: string; node: any }) {
     </div>
   );
 }
-
 

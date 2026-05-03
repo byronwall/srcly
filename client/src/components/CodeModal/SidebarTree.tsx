@@ -66,12 +66,12 @@ export function SidebarTree(props: {
   return (
     <div class="select-none">
       <div
-        class="flex items-center gap-1 py-1 px-2 text-xs text-gray-400 hover:text-white hover:bg-gray-800 cursor-pointer rounded"
+        class="flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--plc-on-muted)] hover:bg-[var(--plc-surface-hover)] hover:text-[var(--plc-on-surface)] cursor-pointer"
         style={{ "padding-left": `${props.depth * 12 + 8}px` }}
         onClick={handleClick}
       >
         <span
-          class="w-4 h-4 flex items-center justify-center text-[10px] text-gray-500 hover:text-white"
+          class="w-4 h-4 flex items-center justify-center text-[10px] text-[var(--plc-on-subtle)] hover:text-[var(--plc-on-surface)]"
           onClick={toggle}
         >
           {hasChildren() ? (expanded() ? "▼" : "▶") : ""}
@@ -99,5 +99,4 @@ export function SidebarTree(props: {
     </div>
   );
 }
-
 

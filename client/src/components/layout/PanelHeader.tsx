@@ -11,18 +11,18 @@ export function PanelHeader(props: {
   return (
     <div
       class={cx(
-        "flex items-center justify-between gap-4 border-b border-[#333] bg-[#252526] px-4 py-2",
+        "flex items-center justify-between gap-4 border-b border-[var(--plc-border)] bg-[var(--plc-surface)] px-4 py-2",
         props.class
       )}
     >
       <div class="min-w-0">
         <Show when={props.title}>
-          <div class="truncate text-sm font-bold text-gray-300">
+          <div class="truncate text-sm font-bold text-[var(--plc-on-surface)]">
             {props.title}
           </div>
         </Show>
         <Show when={props.subtitle}>
-          <div class="truncate text-[11px] text-gray-500">
+          <div class="truncate text-[11px] text-[var(--plc-on-subtle)]">
             {props.subtitle}
           </div>
         </Show>

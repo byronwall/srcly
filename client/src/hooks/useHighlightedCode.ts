@@ -79,7 +79,7 @@ export function useHighlightedCode(args: {
 
       let html = await codeToHtml(displayText, {
         lang,
-        theme: "github-dark",
+        theme: "github-light",
       });
 
       // Keep Shiki's span layout stable for our CSS counter rules.

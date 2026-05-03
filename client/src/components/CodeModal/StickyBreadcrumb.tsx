@@ -129,7 +129,7 @@ export function StickyBreadcrumb(props: {
 
   return (
     <Show when={path().length > 0}>
-      <div class="sticky top-0 z-20 border-b border-gray-800 bg-[#1e1e1e]/90 backdrop-blur px-3 py-2">
+      <div class="sticky top-0 z-20 border-b border-[var(--plc-border)] bg-[var(--plc-surface)]/95 backdrop-blur px-3 py-2">
         <div class="flex items-center gap-1 min-w-0">
           <For each={path()}>
             {(node, i) => {
@@ -143,8 +143,8 @@ export function StickyBreadcrumb(props: {
                   <button
                     class={`text-[11px] truncate max-w-[260px] ${
                       isLast()
-                        ? "text-gray-200 font-semibold cursor-default"
-                        : "text-blue-400 hover:text-blue-300 hover:underline"
+                        ? "text-[var(--plc-on-surface)] font-semibold cursor-default"
+                        : "text-[var(--plc-accent)] hover:text-[var(--plc-accent-hover)] hover:underline"
                     }`}
                     title={label()}
                     onClick={() => {
@@ -168,7 +168,7 @@ export function StickyBreadcrumb(props: {
                     {label()}
                   </button>
                   <Show when={!isLast()}>
-                    <span class="text-gray-600 text-[11px] select-none px-1">
+                    <span class="text-[var(--plc-on-disabled)] text-[11px] select-none px-1">
                       ›
                     </span>
                   </Show>
@@ -177,7 +177,7 @@ export function StickyBreadcrumb(props: {
             }}
           </For>
           <div class="flex-1" />
-          <span class="text-[10px] text-gray-500 font-mono tabular-nums">
+          <span class="text-[10px] text-[var(--plc-on-subtle)] font-mono tabular-nums">
             L{props.currentLine()}
           </span>
         </div>

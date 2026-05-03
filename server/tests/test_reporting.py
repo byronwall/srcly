@@ -68,11 +68,45 @@ def test_rank_nodes_prioritizes_metric_hotspots(tmp_path: Path) -> None:
     assert ranked[0]["rank"] == 1
 
 
+def test_rank_nodes_supports_focus_and_deprioritized_paths(tmp_path: Path) -> None:
+    focused = _sample_tree(tmp_path / "repo")
+    docs_file = Node(
+        name="SKILL.md",
+        type="file",
+        path=str(tmp_path / "repo/.agents/skills/SKILL.md"),
+        start_line=0,
+        end_line=0,
+        metrics=Metrics(loc=1000, complexity=1, file_count=1, file_size=9000),
+    )
+    focused.children.append(
+        Node(
+            name=".agents",
+            type="folder",
+            path=str(tmp_path / "repo/.agents"),
+            metrics=Metrics(loc=1000, complexity=1, file_count=1, file_size=9000),
+            children=[docs_file],
+        )
+    )
+
+    ranked = reporting.rank_nodes(
+        focused,
+        profile="general",
+        root_path=tmp_path / "repo",
+        focus_paths=["client/src"],
+    )
+
+    dashboard = next(item for item in ranked if item["name"] == "Dashboard.tsx")
+    skill_doc = next(item for item in ranked if item["name"] == "SKILL.md")
+    assert dashboard["path_priority"] == "focused"
+    assert skill_doc["path_priority"] == "deprioritized"
+    assert skill_doc["score"] < skill_doc["raw_score"]
+
+
 def test_write_report_creates_agent_artifacts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = tmp_path / "repo"
     root.mkdir()
     tree = _sample_tree(root)
-    monkeypatch.setattr(reporting, "scan_tree", lambda root_path: tree)
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: tree)
 
     out_dir = tmp_path / ".srcly"
     written = reporting.write_report(root, out_dir, profile="frontend", limit=5)
@@ -82,17 +116,23 @@ def test_write_report_creates_agent_artifacts(tmp_path: Path, monkeypatch: pytes
         "tree_summary",
         "hotspots",
         "findings",
+        "findings_top",
         "metrics_schema",
         "report",
+        "action_plan",
         "agent_skill",
     }
     assert expected == set(written)
     assert (out_dir / "report.md").exists()
+    assert (out_dir / "action-plan.md").exists()
     assert (out_dir / "agent-skill.md").exists()
 
     findings = json.loads((out_dir / "findings.json").read_text(encoding="utf-8"))
     assert findings["findings"]
     assert findings["findings"][0]["agent_prompt"]
+
+    compact_findings = json.loads((out_dir / "findings.top.json").read_text(encoding="utf-8"))
+    assert compact_findings["findings"]
 
     summary = json.loads((out_dir / "tree.summary.json").read_text(encoding="utf-8"))
     assert summary["children"]
@@ -103,7 +143,7 @@ def test_write_report_heavy_artifacts_are_opt_in(tmp_path: Path, monkeypatch: py
     root = tmp_path / "repo"
     root.mkdir()
     tree = _sample_tree(root)
-    monkeypatch.setattr(reporting, "scan_tree", lambda root_path: tree)
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: tree)
     monkeypatch.setattr(reporting, "build_dependencies", lambda root_path: {"nodes": [], "edges": []})
 
     out_dir = tmp_path / ".srcly"
@@ -128,7 +168,7 @@ def test_cli_scan_subcommand_writes_tree_json(
     root = tmp_path / "repo"
     root.mkdir()
     tree = _sample_tree(root)
-    monkeypatch.setattr(reporting, "scan_tree", lambda root_path: tree)
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: tree)
 
     out_path = tmp_path / "tree.json"
     main(["scan", str(root), "--out", str(out_path)])
@@ -147,7 +187,7 @@ def test_cli_scan_subcommand_can_write_tree_json_to_stdout(
     root = tmp_path / "repo"
     root.mkdir()
     tree = _sample_tree(root)
-    monkeypatch.setattr(reporting, "scan_tree", lambda root_path: tree)
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: tree)
 
     main(["scan", str(root), "--out", "-"])
 
@@ -164,7 +204,7 @@ def test_cli_report_subcommand_writes_report_artifacts(
     root = tmp_path / "repo"
     root.mkdir()
     tree = _sample_tree(root)
-    monkeypatch.setattr(reporting, "scan_tree", lambda root_path: tree)
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: tree)
 
     out_dir = tmp_path / ".srcly"
     main(["report", str(root), "--out", str(out_dir), "--profile", "frontend"])
@@ -177,6 +217,26 @@ def test_cli_report_subcommand_writes_report_artifacts(
     assert not (out_dir / "dependencies.json").exists()
 
 
+def test_cli_report_quiet_prints_compact_summary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    tree = _sample_tree(root)
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: tree)
+
+    out_dir = tmp_path / ".srcly"
+    main(["report", str(root), "--out", str(out_dir), "--quiet"])
+
+    captured = capsys.readouterr()
+    assert "Read first:" in captured.out
+    assert "Wrote Srcly report artifacts" not in captured.out
+    assert (out_dir / "findings.top.json").exists()
+    assert (out_dir / "action-plan.md").exists()
+
+
 def test_cli_hotspots_subcommand_prints_ranked_nodes(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -185,7 +245,7 @@ def test_cli_hotspots_subcommand_prints_ranked_nodes(
     root = tmp_path / "repo"
     root.mkdir()
     tree = _sample_tree(root)
-    monkeypatch.setattr(reporting, "scan_tree", lambda root_path: tree)
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: tree)
 
     main(["hotspots", str(root), "--metric", "complexity", "--limit", "1"])
 
@@ -204,7 +264,7 @@ def test_cli_explain_subcommand_prints_file_tree(
     file_path.parent.mkdir(parents=True)
     file_path.write_text("export function Dashboard() { return null }\n", encoding="utf-8")
     tree = _sample_tree(root)
-    monkeypatch.setattr(reporting, "scan_tree", lambda root_path: tree)
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: tree)
 
     main(["explain", str(root), "--file", str(file_path)])
 

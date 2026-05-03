@@ -91,7 +91,7 @@ function truncateLabel(label: string, maxChars: number): string {
 const complexityColor = d3
   .scaleLinear<string>()
   .domain([0, 10, 50])
-  .range(["#569cd6", "#dcdcaa", "#ce9178"])
+  .range(["#dbeafe", "#fde68a", "#fecaca"])
   .clamp(true);
 
 const commentDensityColor = d3
@@ -103,13 +103,13 @@ const commentDensityColor = d3
 const nestingDepthColor = d3
   .scaleLinear<string>()
   .domain([0, 3, 8])
-  .range(["#e0f7fa", "#4dd0e1", "#006064"])
+  .range(["#e0f7fa", "#bae6fd", "#0891b2"])
   .clamp(true);
 
 const todoCountColor = d3
   .scaleLinear<string>()
   .domain([0, 1, 5])
-  .range(["#f1f8e9", "#aed581", "#33691e"])
+  .range(["#f1f8e9", "#bef264", "#65a30d"])
   .clamp(true);
 
 const getContrastingTextColor = (bgColor: string, alpha = 1) => {
@@ -1533,19 +1533,19 @@ export default function DependencyGraph(props: DependencyGraphProps) {
   }
 
   return (
-    <div class="absolute inset-0 bg-[#1e1e1e] z-50 flex flex-col">
+    <div class="absolute inset-0 bg-[var(--plc-surface)] z-50 flex flex-col">
       <PanelHeader
         title={<>Dependency Graph: {props.path || "Root"}</>}
         actions={
         <>
-          <label class="flex items-center gap-1 text-xs text-gray-300">
-            <span class="text-gray-400">Layout</span>
+          <label class="flex items-center gap-1 text-xs text-[var(--plc-on-muted)]">
+            <span class="text-[var(--plc-on-muted)]">Layout</span>
             <select
               value={layoutMode()}
               onChange={(e) =>
                 setLayoutMode(e.currentTarget.value as "layered" | "force")
               }
-              class="ml-1 rounded bg-[#1e1e1e] border border-[#3c3c3c] px-2 py-1 text-[11px] text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#007acc]"
+              class="ml-1 rounded border border-[var(--plc-border-strong)] bg-[var(--plc-surface)] px-2 py-1 text-[11px] text-[var(--plc-on-surface)] focus:outline-none focus:ring-1 focus:ring-[var(--plc-border-focus)]"
               title="Layered (tidy) or Force-directed (tighter clustering)"
             >
               <option value="layered">Layered</option>
@@ -1553,8 +1553,8 @@ export default function DependencyGraph(props: DependencyGraphProps) {
             </select>
           </label>
           <Show when={layoutMode() === "force"}>
-            <label class="flex items-center gap-2 text-xs text-gray-300">
-              <span class="text-gray-400">Tightness</span>
+            <label class="flex items-center gap-2 text-xs text-[var(--plc-on-muted)]">
+              <span class="text-[var(--plc-on-muted)]">Tightness</span>
               <input
                 type="range"
                 min="0"
@@ -1599,7 +1599,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
             onChange={setHideUnimported}
             label="Hide unimported"
           />
-          <div class="h-4 w-px bg-[#444]" />
+          <div class="h-4 w-px bg-[var(--plc-border)]" />
           <Button onClick={fitGraph}>
             Fit View
           </Button>
@@ -1627,9 +1627,9 @@ export default function DependencyGraph(props: DependencyGraphProps) {
 
         <Show when={!loading() && !error()}>
           <div class="flex h-full">
-            <div class="w-72 border-r border-[#333] bg-[#252526]/95 text-xs text-gray-200 flex flex-col">
-              <div class="px-3 py-2 border-b border-[#333]">
-                <div class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+            <div class="w-72 border-r border-[var(--plc-border)] bg-[var(--plc-surface)] text-xs text-[var(--plc-on-surface)] flex flex-col">
+              <div class="px-3 py-2 border-b border-[var(--plc-border)]">
+                <div class="text-[11px] font-semibold uppercase tracking-wide text-[var(--plc-on-muted)]">
                   {showExportedMembers() ? "Files & Exports" : "Files"}
                 </div>
                 <TextInput
@@ -1649,7 +1649,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                 <Show
                   when={sidebarGroups().length > 0}
                   fallback={
-                    <div class="px-1 py-1 text-[11px] text-gray-500">
+                    <div class="px-1 py-1 text-[11px] text-[var(--plc-on-subtle)]">
                       No matching{" "}
                       {showExportedMembers() ? "files or exports" : "files"}.
                     </div>
@@ -1660,7 +1660,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                       <div>
                         <button
                           type="button"
-                          class="w-full text-left px-2 py-1 text-[11px] font-semibold text-gray-300 truncate hover:bg-[#3a3d41] rounded focus:outline-none focus:ring-1 focus:ring-[#007acc]"
+                          class="w-full text-left px-2 py-1 text-[11px] font-semibold text-[var(--plc-on-surface)] truncate hover:bg-[var(--plc-surface-hover)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--plc-border-focus)]"
                           title={group.fileLabel}
                           onClick={() => panToNode(group.fileId)}
                         >
@@ -1676,7 +1676,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
                               {(exp) => (
                                 <button
                                   type="button"
-                                  class="w-full text-left px-4 py-1 rounded text-[11px] hover:bg-[#3a3d41] focus:outline-none focus:ring-1 focus:ring-[#007acc] truncate"
+                                  class="w-full text-left px-4 py-1 rounded text-[11px] hover:bg-[var(--plc-surface-hover)] focus:outline-none focus:ring-1 focus:ring-[var(--plc-border-focus)] truncate"
                                   title={String(exp.label ?? "")}
                                   onClick={() => panToNode(exp.id as string)}
                                 >
@@ -1806,29 +1806,29 @@ export default function DependencyGraph(props: DependencyGraphProps) {
 
                             const fill = isExternal
                               ? isEmphasized
-                                ? "#383838"
-                                : "#2d2d2d"
+                                ? "#e2e8f0"
+                                : "#f1f5f9"
                               : isExport
                               ? isEmphasized
-                                ? "#4a4a4a"
-                                : "#333333"
+                                ? "#dbeafe"
+                                : "#eff6ff"
                               : hotspotColor
                               ? hotspotColor
                               : isEmphasized
-                              ? "#273955"
-                              : "#1e1e1e";
+                              ? "#dbeafe"
+                              : "#ffffff";
 
                             const baseStroke = isExternal
                               ? isEmphasized
-                                ? "#888"
-                                : "#444"
+                                ? "#64748b"
+                                : "#cbd5e1"
                               : isExport
                               ? isEmphasized
-                                ? "#aaa"
-                                : "#666"
+                                ? "var(--plc-accent)"
+                                : "var(--plc-accent-border)"
                               : isEmphasized
-                              ? "#9cdcfe"
-                              : "#569cd6";
+                              ? "var(--plc-accent-hover)"
+                              : "var(--plc-accent)";
 
                             const stroke =
                               node.isSuperNode && node.assignmentColor
@@ -1837,18 +1837,18 @@ export default function DependencyGraph(props: DependencyGraphProps) {
 
                             const textFill = isExternal
                               ? isEmphasized
-                                ? "#bbbbbb"
-                                : "#888"
+                                ? "#334155"
+                                : "#64748b"
                               : isExport
-                              ? "#cccccc"
+                              ? "var(--plc-accent-hover)"
                               : hotspotColor
                               ? getContrastingTextColor(
                                   hotspotColor,
                                   isEmphasized ? 1 : 0.85
                                 )
                               : isEmphasized
-                              ? "#f3f3f3"
-                              : "#d4d4d4";
+                              ? "var(--plc-on-surface)"
+                              : "#334155";
 
                             if (isDummy) {
                               const radius =
@@ -2004,8 +2004,8 @@ export default function DependencyGraph(props: DependencyGraphProps) {
         </Show>
       </div>
       <Show when={superNodeAssignments().length > 0}>
-        <div class="absolute bottom-4 left-4 bg-[#1e1e1e]/95 border border-[#333] rounded px-3 py-2 text-xs text-gray-200 shadow-lg max-w-sm">
-          <div class="font-bold text-gray-300 text-[11px] mb-1 border-b border-[#333] pb-1">
+        <div class="absolute bottom-4 left-4 bg-[var(--plc-surface)] border border-[var(--plc-border-strong)] rounded px-3 py-2 text-xs text-[var(--plc-on-surface)] shadow-[var(--plc-menu-shadow)] max-w-sm">
+          <div class="font-bold text-[var(--plc-on-surface)] text-[11px] mb-1 border-b border-[var(--plc-border)] pb-1">
             High In-Degree Targets
           </div>
           <div class="space-y-1 max-h-40 overflow-y-auto">

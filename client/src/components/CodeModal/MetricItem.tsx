@@ -4,8 +4,8 @@ export function MetricItem(props: {
   colorClass: string;
 }) {
   return (
-    <div class="flex items-center justify-between text-xs py-1 border-b border-gray-800 last:border-0">
-      <span class="text-gray-400">{props.label}</span>
+    <div class="flex items-center justify-between border-b border-[var(--plc-divider)] py-1 text-xs last:border-0">
+      <span class="text-[var(--plc-on-muted)]">{props.label}</span>
       <span class={`${props.colorClass} font-mono`}>
         {typeof props.value === "number" && !Number.isInteger(props.value)
           ? props.value.toFixed(2)
@@ -14,5 +14,4 @@ export function MetricItem(props: {
     </div>
   );
 }
-
 

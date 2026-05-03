@@ -57,14 +57,14 @@ export default function InlineCodePreview(props: InlineCodePreviewProps) {
   };
 
   return (
-    <div class="flex h-full flex-col bg-[#1e1e1e] text-xs text-gray-200">
-      <div class="border-b border-gray-700 px-3 py-2 text-[11px]">
-        <div class="truncate font-semibold text-gray-100">
+    <div class="flex h-full flex-col bg-[var(--plc-surface)] text-xs text-[var(--plc-on-surface)]">
+      <div class="border-b border-[var(--plc-border)] px-3 py-2 text-[11px]">
+        <div class="truncate font-semibold text-[var(--plc-on-surface)]">
           {props.filePath || "No file selected"}
         </div>
         <Show when={hasValidSelection() && effectiveDisplayRange()}>
           {(range) => (
-            <div class="mt-0.5 text-[10px] text-gray-400">
+            <div class="mt-0.5 text-[10px] text-[var(--plc-on-subtle)]">
               {lineFilterEnabled()
                 ? `Showing lines ${range().start}-${range().end} of ${
                     range().total
@@ -76,7 +76,7 @@ export default function InlineCodePreview(props: InlineCodePreviewProps) {
           )}
         </Show>
         <Show when={hasValidSelection()}>
-          <div class="mt-1 flex items-center gap-2 text-[10px] text-gray-300">
+          <div class="mt-1 flex items-center gap-2 text-[10px] text-[var(--plc-on-muted)]">
             <label class="flex items-center gap-1">
               <input
                 type="checkbox"
@@ -90,7 +90,7 @@ export default function InlineCodePreview(props: InlineCodePreviewProps) {
               <input
                 type="number"
                 min="0"
-                class="w-12 rounded border border-gray-600 bg-gray-800 px-1 text-[10px] text-gray-200"
+                class="w-12 rounded border border-[var(--plc-border-strong)] bg-[var(--plc-surface)] px-1 text-[10px] text-[var(--plc-on-surface)]"
                 value={lineOffset()}
                 onInput={(e) => {
                   const next = Number(e.currentTarget.value);
@@ -109,13 +109,13 @@ export default function InlineCodePreview(props: InlineCodePreviewProps) {
 
       <div class="relative flex-1 overflow-auto p-3">
         <Show when={loading()}>
-          <div class="flex h-full items-center justify-center text-gray-400">
+          <div class="flex h-full items-center justify-center text-[var(--plc-on-subtle)]">
             Loading code...
           </div>
         </Show>
 
         <Show when={!loading() && error()}>
-          <div class="rounded border border-red-700 bg-red-900/70 px-3 py-2 text-red-100">
+          <div class="rounded border border-[var(--plc-error-border)] bg-[var(--plc-error-subtle)] px-3 py-2 text-[var(--plc-error)]">
             {error()}
           </div>
         </Show>
@@ -139,7 +139,7 @@ export default function InlineCodePreview(props: InlineCodePreviewProps) {
         </Show>
 
         <Show when={!loading() && !error() && !highlightedHtml()}>
-          <div class="flex h-full items-center justify-center text-gray-500">
+          <div class="flex h-full items-center justify-center text-[var(--plc-on-subtle)]">
             Select a variable or usage node to preview its code.
           </div>
         </Show>

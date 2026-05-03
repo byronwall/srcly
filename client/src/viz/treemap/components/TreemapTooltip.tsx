@@ -12,7 +12,7 @@ export default function TreemapTooltip(props: { model: Accessor<TreemapTooltipMo
       <Match when={visibleModel()}>
         {(m) => (
         <div
-          class="fixed pointer-events-none bg-[#1e1e1e] p-2 border border-[#555] text-white z-50 shadow-lg transition-opacity duration-200 text-sm"
+          class="fixed pointer-events-none border border-[var(--plc-border-strong)] bg-[var(--plc-surface)] p-2 text-[var(--plc-on-surface)] z-50 shadow-[var(--plc-menu-shadow)] transition-opacity duration-200 text-sm"
           style={{
             left: `${m().x}px`,
             top: `${m().y}px`,
@@ -24,8 +24,8 @@ export default function TreemapTooltip(props: { model: Accessor<TreemapTooltipMo
             <For each={m().lines}>
               {(line: TooltipLine) => (
                 <div class="flex gap-2">
-                  <span class="text-gray-300">{line.label}:</span>
-                  <span class="text-white">{line.value}</span>
+                  <span class="text-[var(--plc-on-muted)]">{line.label}:</span>
+                  <span class="text-[var(--plc-on-surface)]">{line.value}</span>
                 </div>
               )}
             </For>
@@ -36,5 +36,4 @@ export default function TreemapTooltip(props: { model: Accessor<TreemapTooltipMo
     </Switch>
   );
 }
-
 

@@ -77,9 +77,9 @@ const SymbolPill: Component<{
       data-symbol-type={props.type}
       class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-mono leading-none border transition-all"
       classList={{
-        "bg-blue-900/30 text-blue-200 border-blue-800/50 hover:bg-blue-900/50":
+        "bg-[var(--plc-accent-subtle)] text-[var(--plc-accent)] border-[var(--plc-accent-border)] hover:border-[var(--plc-accent)]":
           props.type === "declared",
-        "bg-purple-900/30 text-purple-200 border-purple-800/50 hover:bg-purple-900/50":
+        "bg-violet-50 text-violet-700 border-violet-200 hover:border-violet-400":
           props.type === "captured",
         "cursor-pointer underline": props.isModifierPressed(),
         "cursor-default": !props.isModifierPressed(),
@@ -201,10 +201,10 @@ const ScopeBox: Component<{
     <div
       data-scope-id={props.node.id}
       data-scope-depth={props.depth}
-      class="relative flex flex-col gap-2 rounded border border-gray-800 bg-[#1e1e1e]/50 p-2"
+      class="relative flex flex-col gap-2 rounded border border-[var(--plc-border)] bg-[var(--plc-surface)] p-2"
       classList={{
         "ml-2": props.depth > 0,
-        "cursor-pointer hover:border-gray-700 transition-colors": true,
+        "cursor-pointer hover:border-[var(--plc-border-strong)] transition-colors": true,
       }}
       onClick={(e) => {
         e.stopPropagation();
@@ -219,7 +219,7 @@ const ScopeBox: Component<{
       }}
     >
       <div
-        class="flex items-center justify-between text-[11px] text-gray-500 font-semibold uppercase tracking-wider"
+        class="flex items-center justify-between text-[11px] text-[var(--plc-on-muted)] font-semibold uppercase tracking-wider"
         classList={{
           underline: props.isModifierPressed(),
         }}
@@ -240,7 +240,7 @@ const ScopeBox: Component<{
       <div class="flex flex-wrap gap-2">
         <Show when={filteredDeclared().length > 0}>
           <div class="flex flex-col gap-1 w-full">
-            <span class="text-[9px] text-gray-600">Declared</span>
+            <span class="text-[9px] text-[var(--plc-on-subtle)]">Declared</span>
             <div class="flex flex-wrap gap-1.5">
               <For each={filteredDeclared()}>
                 {(s) => (
@@ -257,8 +257,8 @@ const ScopeBox: Component<{
         </Show>
 
         <Show when={displayedCaptured().length > 0}>
-          <div class="flex flex-col gap-1 w-full border-t border-gray-800/50 pt-1">
-            <span class="text-[9px] text-gray-600">Captured</span>
+          <div class="flex flex-col gap-1 w-full border-t border-[var(--plc-border)] pt-1">
+            <span class="text-[9px] text-[var(--plc-on-subtle)]">Captured</span>
             <div class="flex flex-wrap gap-1.5">
               <Index each={displayedCaptured()}>
                 {(entry) => (
@@ -277,7 +277,7 @@ const ScopeBox: Component<{
 
       <Show when={expanded() && props.node.children.length > 0}>
         <div
-          class="flex flex-col gap-2 border-l border-gray-800 pl-2 pt-1"
+          class="flex flex-col gap-2 border-l border-[var(--plc-border)] pl-2 pt-1"
           onClick={(e) => e.stopPropagation()}
         >
           <For each={props.node.children}>
@@ -840,7 +840,7 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
       <div
         ref={(el) => (containerRef = el)}
         onScroll={scheduleRecalculate}
-        class="relative shrink-0 border-l border-gray-800 bg-gray-900/10 p-4 overflow-y-auto overflow-x-hidden flex flex-col gap-4"
+        class="relative shrink-0 border-l border-[var(--plc-border)] bg-[var(--plc-surface)] p-4 overflow-y-auto overflow-x-hidden flex flex-col gap-4"
         classList={{
           "w-96": !props.isMaximized(),
           "flex-1": props.isMaximized(),
@@ -851,8 +851,8 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
         </Show>
 
         <div class="relative z-10 flex flex-col gap-4">
-          <div class="flex items-center justify-between sticky top-0 bg-[#1e1e1e] pb-2 z-10 border-b border-gray-800/50 mb-2">
-            <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+          <div class="flex items-center justify-between sticky top-0 bg-[var(--plc-surface)] pb-2 z-10 border-b border-[var(--plc-border)] mb-2">
+            <h3 class="plc-label-caps text-[var(--plc-on-muted)]">
               Scope Flow
             </h3>
             <div class="flex items-center gap-1">
@@ -865,7 +865,7 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
                   });
                   scheduleRecalculate();
                 }}
-                class="p-1 hover:bg-gray-800 rounded transition-colors text-gray-500 hover:text-gray-300"
+                class="p-1 hover:bg-[var(--plc-surface-hover)] rounded transition-colors text-[var(--plc-on-subtle)] hover:text-[var(--plc-on-surface)]"
                 title={
                   scopeLinksEnabled()
                     ? "Hide inter-scope links"
@@ -917,7 +917,7 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
                   });
                   scheduleRecalculate();
                 }}
-                class="p-1 hover:bg-gray-800 rounded transition-colors text-gray-500 hover:text-gray-300"
+                class="p-1 hover:bg-[var(--plc-surface-hover)] rounded transition-colors text-[var(--plc-on-subtle)] hover:text-[var(--plc-on-surface)]"
                 title={
                   pillArrowsEnabled()
                     ? "Hide declared→captured pill arrows"
@@ -963,7 +963,7 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
 
               <button
                 onClick={() => props.onToggleMaximize()}
-                class="p-1 hover:bg-gray-800 rounded transition-colors text-gray-500 hover:text-gray-300"
+                class="p-1 hover:bg-[var(--plc-surface-hover)] rounded transition-colors text-[var(--plc-on-subtle)] hover:text-[var(--plc-on-surface)]"
                 title={props.isMaximized() ? "Restore" : "Maximize"}
               >
                 <Show
@@ -1009,13 +1009,13 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
           </div>
 
           <Show when={data.loading}>
-            <div class="text-[10px] text-gray-500 animate-pulse">
+            <div class="text-[10px] text-[var(--plc-on-subtle)] animate-pulse">
               Analyzing scopes...
             </div>
           </Show>
 
           <Show when={data.error}>
-            <div class="text-[10px] text-red-400">Error loading scope graph</div>
+            <div class="text-[10px] text-[var(--plc-error)]">Error loading scope graph</div>
           </Show>
 
           <Show when={data()} keyed>
@@ -1031,7 +1031,7 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
           </Show>
 
           <Show when={!data.loading && !data() && props.targetStartLine}>
-            <div class="text-[10px] text-gray-600">
+            <div class="text-[10px] text-[var(--plc-on-subtle)]">
               No scope data available for this range.
             </div>
           </Show>

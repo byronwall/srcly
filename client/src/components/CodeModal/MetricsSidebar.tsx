@@ -17,7 +17,7 @@ export function MetricsSidebar(props: {
   onSelectNode: (node: any) => void;
 }) {
   return (
-    <div class="w-64 shrink-0 border-r border-gray-700 bg-[#1e1e1e] flex flex-col overflow-hidden">
+    <div class="w-64 shrink-0 border-r border-[var(--plc-border)] bg-[var(--plc-surface)] flex flex-col overflow-hidden">
       <div class="flex-1 overflow-y-auto p-4">
         <Show when={props.scopeNode || props.fileNode}>
           <StructurePanel

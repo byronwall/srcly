@@ -591,7 +591,7 @@ export default function Treemap(props: TreemapProps) {
   };
 
   const getNodeTextColor = (d: TreemapRenderNode) => {
-    if (d.data.type === "folder") return "#0f172a"; // Not used for folder labels usually
+    if (d.data.type === "folder") return "var(--plc-on-surface)"; // Not used for folder labels usually
 
     const metricId = primaryMetric();
     const metrics = d.data.metrics || {};
@@ -600,7 +600,7 @@ export default function Treemap(props: TreemapProps) {
 
   const getChunkLabelColor = (d: TreemapRenderNode) => {
     // Similar to getNodeTextColor but with alpha
-    if (d.data.type === "folder") return "#0f172a";
+    if (d.data.type === "folder") return "var(--plc-on-surface)";
 
     const metricId = primaryMetric();
     const metrics = d.data.metrics || {};
