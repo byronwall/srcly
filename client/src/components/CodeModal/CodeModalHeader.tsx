@@ -1,4 +1,7 @@
 import { Show } from "solid-js";
+import { Button } from "../ui/Button";
+import { CheckboxRow } from "../ui/CheckboxRow";
+import { TextInput } from "../ui/TextInput";
 
 export function CodeModalHeader(props: {
   filePath: string;
@@ -42,45 +45,43 @@ export function CodeModalHeader(props: {
         </Show>
       </div>
 
-      <button
-        class="ml-4 rounded bg-gray-700 px-3 py-1 text-xs font-semibold text-gray-200 hover:bg-gray-600"
-        type="button"
+      <Button
+        class="ml-4 bg-gray-700 font-semibold text-gray-200 hover:bg-gray-600"
         onClick={props.onClose}
       >
         Close
-      </button>
+      </Button>
 
-      <button
-        class="ml-2 rounded bg-blue-700 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-600"
+      <Button
+        variant="primary"
+        class="ml-2 bg-blue-700 font-semibold hover:bg-blue-600"
         onClick={() => {
           navigator.clipboard.writeText(props.rawCode());
         }}
       >
         Copy
-      </button>
+      </Button>
 
       <Show when={props.isMarkdown()}>
         <div class="ml-4 flex items-center rounded bg-gray-700 p-0.5">
-          <button
-            class={`px-3 py-0.5 text-xs font-semibold rounded-sm transition-colors ${
-              props.viewMode() === "code"
-                ? "bg-gray-600 text-white shadow-sm"
-                : "text-gray-400 hover:text-gray-200"
-            }`}
+          <Button
+            variant="tab"
+            size="xs"
+            active={props.viewMode() === "code"}
+            class="rounded-sm px-3 font-semibold"
             onClick={() => props.setViewMode("code")}
           >
             Code
-          </button>
-          <button
-            class={`px-3 py-0.5 text-xs font-semibold rounded-sm transition-colors ${
-              props.viewMode() === "preview"
-                ? "bg-gray-600 text-white shadow-sm"
-                : "text-gray-400 hover:text-gray-200"
-            }`}
+          </Button>
+          <Button
+            variant="tab"
+            size="xs"
+            active={props.viewMode() === "preview"}
+            class="rounded-sm px-3 font-semibold"
             onClick={() => props.setViewMode("preview")}
           >
             Preview
-          </button>
+          </Button>
         </div>
       </Show>
 
@@ -91,40 +92,29 @@ export function CodeModalHeader(props: {
           </span>
         </Show>
 
-        <label class="ml-3 flex items-center gap-1 text-[11px] text-gray-300 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={props.reduceIndentation()}
-            onChange={(e) =>
-              props.setReduceIndentation(e.currentTarget.checked)
-            }
-          />
-          <span title="Strip common indentation to save horizontal space">
-            Reduce indent
-          </span>
-        </label>
+        <CheckboxRow
+          class="ml-3 text-[11px]"
+          checked={props.reduceIndentation()}
+          onChange={props.setReduceIndentation}
+          title="Strip common indentation to save horizontal space"
+          label="Reduce indent"
+        />
 
-        <label class="ml-3 flex items-center gap-1 text-[11px] text-gray-300 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={props.dataFlowEnabled()}
-            onChange={(e) => props.setDataFlowEnabled(e.currentTarget.checked)}
-          />
-          <span title="Highlight data flow, usages, and show tooltips">
-            Data flow
-          </span>
-        </label>
+        <CheckboxRow
+          class="ml-3 text-[11px]"
+          checked={props.dataFlowEnabled()}
+          onChange={props.setDataFlowEnabled}
+          title="Highlight data flow, usages, and show tooltips"
+          label="Data flow"
+        />
 
-        <label class="ml-3 flex items-center gap-1 text-[11px] text-gray-300 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={props.scopeFlowEnabled()}
-            onChange={(e) =>
-              props.setScopeFlowEnabled(e.currentTarget.checked)
-            }
-          />
-          <span title="Show/hide the Scope Flow pane">Scope flow</span>
-        </label>
+        <CheckboxRow
+          class="ml-3 text-[11px]"
+          checked={props.scopeFlowEnabled()}
+          onChange={props.setScopeFlowEnabled}
+          title="Show/hide the Scope Flow pane"
+          label="Scope flow"
+        />
 
         <Show when={props.hasLineRange()}>
           <label class="ml-3 flex items-center gap-1 text-[11px] text-gray-300">
@@ -138,12 +128,13 @@ export function CodeModalHeader(props: {
             <span>Limit to selection</span>
             <span class="ml-2 flex items-center gap-1">
               <span>±</span>
-              <input
-                type="number"
-                min="0"
-                class="w-12 bg-gray-800 border border-gray-600 rounded px-1 text-[11px] text-gray-200"
-                value={props.lineOffset()}
-                onInput={(e) => {
+            <TextInput
+              type="number"
+              min="0"
+              size="sm"
+              class="w-12 border-gray-600 bg-gray-800 px-1 text-[11px]"
+              value={props.lineOffset()}
+              onInput={(e) => {
                   const next = Number(e.currentTarget.value);
                   props.setLineOffset(Number.isNaN(next) ? 0 : next);
                 }}
@@ -155,7 +146,7 @@ export function CodeModalHeader(props: {
 
         <a
           href={`vscode://file/${props.filePath}`}
-          class="ml-2 rounded bg-green-700 px-3 py-1 text-xs font-semibold text-white hover:bg-green-600 no-underline"
+          class="ml-2 inline-flex items-center justify-center gap-1 rounded border border-green-700 bg-green-700 px-3 py-1 text-xs font-semibold text-white no-underline transition-colors hover:bg-green-600 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500"
           target="_blank"
         >
           Open

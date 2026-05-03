@@ -1,5 +1,10 @@
 import { createSignal, createMemo, For, Show, createContext } from "solid-js";
 import Popover from "./Popover";
+import { Button } from "./ui/Button";
+import { CheckboxRow } from "./ui/CheckboxRow";
+import { IconButton } from "./ui/IconButton";
+import { PopoverPanel, PopoverSectionTitle } from "./ui/PopoverPanel";
+import { TextInput } from "./ui/TextInput";
 import {
   HOTSPOT_METRICS,
   type HotSpotMetricId,
@@ -334,43 +339,39 @@ export default function Explorer(props: {
         <div class="p-2 border-b border-[#333] bg-[#252526] flex flex-col gap-2">
           <div class="flex items-center gap-2">
             <div class="flex bg-[#1e1e1e] rounded p-0.5 border border-[#333]">
-              <button
-                class={`px-2 py-1 text-xs rounded ${
-                  viewMode() === "tree"
-                    ? "bg-blue-900 text-white"
-                    : "text-gray-400 hover:text-white"
-                }`}
+              <Button
+                variant="tab"
+                active={viewMode() === "tree"}
+                size="sm"
+                class="px-2"
                 onClick={() => setViewMode("tree")}
               >
                 Tree
-              </button>
-              <button
-                class={`px-2 py-1 text-xs rounded ${
-                  viewMode() === "hotspots"
-                    ? "bg-blue-900 text-white"
-                    : "text-gray-400 hover:text-white"
-                }`}
+              </Button>
+              <Button
+                variant="tab"
+                active={viewMode() === "hotspots"}
+                size="sm"
+                class="px-2"
                 onClick={() => setViewMode("hotspots")}
               >
                 Hot Spots
-              </button>
+              </Button>
             </div>
 
             <div class="flex items-center gap-1 ml-auto">
-              <button
-                class="p-1 hover:bg-[#333] rounded text-gray-400 hover:text-white text-xs"
-                title="Expand All"
+              <IconButton
+                label="Expand All"
                 onClick={() => setExpandAllSignal(true)}
               >
                 [+]
-              </button>
-              <button
-                class="p-1 hover:bg-[#333] rounded text-gray-400 hover:text-white text-xs"
-                title="Collapse All"
+              </IconButton>
+              <IconButton
+                label="Collapse All"
                 onClick={() => setExpandAllSignal(false)}
               >
                 [-]
-              </button>
+              </IconButton>
               <div class="relative">
                 <Popover
                   isOpen={showColumnPicker()}
@@ -378,108 +379,77 @@ export default function Explorer(props: {
                   placement="bottom-end"
                   offset={{ x: 0, y: 4 }}
                   trigger={(triggerProps) => (
-                    <button
+                    <IconButton
                       ref={triggerProps.ref}
-                      class="p-1 hover:bg-[#333] rounded text-gray-400 hover:text-white"
-                      title="Columns"
+                      label="Columns"
                       onClick={(e) => triggerProps.onClick(e)}
                     >
                       ⚙️
-                    </button>
+                    </IconButton>
                   )}
                 >
-                  <div class="bg-[#252526] border border-[#333] rounded shadow-xl z-50 p-2 w-40">
-                    <div class="text-xs font-bold text-gray-400 mb-2">
+                  <PopoverPanel width="sm">
+                    <PopoverSectionTitle>
                       Visible Columns
-                    </div>
+                    </PopoverSectionTitle>
                     <div class="space-y-1">
-                      <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-white">
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns().includes("loc")}
-                          onChange={() => toggleColumn("loc")}
-                        />{" "}
-                        LOC
-                      </label>
-                      <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-white">
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns().includes("complexity")}
-                          onChange={() => toggleColumn("complexity")}
-                        />{" "}
-                        Complexity
-                      </label>
-                      <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-white">
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns().includes("file_size")}
-                          onChange={() => toggleColumn("file_size")}
-                        />{" "}
-                        Size
-                      </label>
-                      <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-white">
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns().includes("file_count")}
-                          onChange={() => toggleColumn("file_count")}
-                        />{" "}
-                        File Count
-                      </label>
-                      <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-white">
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns().includes("gitignored")}
-                          onChange={() => toggleColumn("gitignored")}
-                        />{" "}
-                        Gitignored
-                      </label>
-                      <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-white">
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns().includes("comment_density")}
-                          onChange={() => toggleColumn("comment_density")}
-                        />{" "}
-                        Density
-                      </label>
-                      <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-white">
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns().includes("todo_count")}
-                          onChange={() => toggleColumn("todo_count")}
-                        />{" "}
-                        TODOs
-                      </label>
-                      <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-white">
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns().includes(
-                            "max_nesting_depth"
-                          )}
-                          onChange={() => toggleColumn("max_nesting_depth")}
-                        />{" "}
-                        Depth
-                      </label>
-                      <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-white">
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns().includes("parameter_count")}
-                          onChange={() => toggleColumn("parameter_count")}
-                        />{" "}
-                        Params
-                      </label>
+                      <CheckboxRow
+                        checked={visibleColumns().includes("loc")}
+                        onChange={() => toggleColumn("loc")}
+                        label="LOC"
+                      />
+                      <CheckboxRow
+                        checked={visibleColumns().includes("complexity")}
+                        onChange={() => toggleColumn("complexity")}
+                        label="Complexity"
+                      />
+                      <CheckboxRow
+                        checked={visibleColumns().includes("file_size")}
+                        onChange={() => toggleColumn("file_size")}
+                        label="Size"
+                      />
+                      <CheckboxRow
+                        checked={visibleColumns().includes("file_count")}
+                        onChange={() => toggleColumn("file_count")}
+                        label="File Count"
+                      />
+                      <CheckboxRow
+                        checked={visibleColumns().includes("gitignored")}
+                        onChange={() => toggleColumn("gitignored")}
+                        label="Gitignored"
+                      />
+                      <CheckboxRow
+                        checked={visibleColumns().includes("comment_density")}
+                        onChange={() => toggleColumn("comment_density")}
+                        label="Density"
+                      />
+                      <CheckboxRow
+                        checked={visibleColumns().includes("todo_count")}
+                        onChange={() => toggleColumn("todo_count")}
+                        label="TODOs"
+                      />
+                      <CheckboxRow
+                        checked={visibleColumns().includes("max_nesting_depth")}
+                        onChange={() => toggleColumn("max_nesting_depth")}
+                        label="Depth"
+                      />
+                      <CheckboxRow
+                        checked={visibleColumns().includes("parameter_count")}
+                        onChange={() => toggleColumn("parameter_count")}
+                        label="Params"
+                      />
                     </div>
-                  </div>
+                  </PopoverPanel>
                 </Popover>
               </div>
             </div>
           </div>
 
-          <input
+          <TextInput
             type="text"
             placeholder={
               viewMode() === "tree" ? "Filter files..." : "Filter hot spots..."
             }
-            class="w-full bg-[#1e1e1e] border border-[#333] px-2 py-1.5 text-sm rounded focus:border-blue-500 outline-none text-gray-200 placeholder-gray-500"
             value={props.filter}
             onInput={(e) => props.onFilterChange(e.currentTarget.value)}
           />
@@ -488,7 +458,8 @@ export default function Explorer(props: {
         <Show when={viewMode() === "tree"}>
           <div class="flex items-center bg-[#252526] text-xs font-bold text-gray-400 py-2 border-b border-[#333] select-none">
             <div class="pl-2 flex-1 flex items-center gap-2">
-              <button
+              <Button
+                size="xs"
                 class={`text-xs px-1.5 py-0.5 rounded transition-colors ${
                   props.data &&
                   props.fullData &&
@@ -516,7 +487,7 @@ export default function Explorer(props: {
                 title="Go Up One Level"
               >
                 ⬆
-              </button>
+              </Button>
               <div
                 class="cursor-pointer hover:text-white flex items-center"
                 onClick={() => handleHeaderClick("name")}
@@ -621,20 +592,15 @@ export default function Explorer(props: {
           >
             <For each={HOTSPOT_METRICS}>
               {(metric) => (
-                <button
-                  class={`px-2 py-0.5 text-[10px] rounded border transition-colors ${
-                    isHotspotMultiSelectMode()
-                      ? "cursor-copy"
-                      : "cursor-pointer"
-                  } ${
-                    selectedHotSpotMetrics().includes(metric.id)
-                      ? "bg-red-900/50 border-red-700 text-red-200"
-                      : "bg-[#1e1e1e] border-[#333] text-gray-400 hover:border-gray-500 hover:text-gray-300"
-                  }`}
+                <Button
+                  variant="chip"
+                  active={selectedHotSpotMetrics().includes(metric.id)}
+                  size="xs"
+                  class={isHotspotMultiSelectMode() ? "cursor-copy" : ""}
                   onClick={(e) => handleHotSpotMetricClick(e, metric.id)}
                 >
                   {metric.label}
-                </button>
+                </Button>
               )}
             </For>
           </div>

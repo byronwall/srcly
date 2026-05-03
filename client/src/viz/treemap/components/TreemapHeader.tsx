@@ -5,6 +5,12 @@ import {
 } from "../../../utils/metricsStore";
 import FileTypeFilter from "../../../components/FileTypeFilter";
 import Popover from "../../../components/Popover";
+import { Button } from "../../../components/ui/Button";
+import {
+  OptionRow,
+  PopoverPanel,
+  PopoverSectionTitle,
+} from "../../../components/ui/PopoverPanel";
 
 export type TreemapHeaderProps = {
   data: any;
@@ -84,10 +90,10 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
           placement="bottom-end"
           offset={{ x: 0, y: 4 }}
           trigger={(triggerProps) => (
-            <button
+            <Button
               ref={triggerProps.ref}
-              type="button"
-              class="bg-[#252526] border border-[#3e3e42] text-gray-400 text-xs rounded px-2 py-0.5 outline-none flex items-center gap-1 hover:border-blue-500 hover:text-blue-200"
+              size="xs"
+              class="hover:border-blue-500 hover:text-blue-200"
               onClick={(e) => triggerProps.onClick(e)}
             >
               <span class="truncate max-w-[140px]">
@@ -95,13 +101,13 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
                   ?.label ?? "Select metric"}
               </span>
               <span class="text-[9px]">▼</span>
-            </button>
+            </Button>
           )}
         >
-          <div class="bg-[#252526] border border-[#3e3e42] rounded shadow-xl z-50 p-2 w-56">
-            <div class="text-xs font-bold text-gray-400 mb-2">
+          <PopoverPanel width="md">
+            <PopoverSectionTitle>
               Hot Spot Metrics
-            </div>
+            </PopoverSectionTitle>
             <div class="max-h-64 overflow-y-auto space-y-1">
               <For each={HOTSPOT_METRICS}>
                 {(metric) => {
@@ -120,13 +126,9 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
                     }
                   };
                   return (
-                    <button
-                      type="button"
-                      class={`w-full flex items-center justify-between text-left text-[11px] px-2 py-1 rounded ${
-                        isSelected()
-                          ? "bg-blue-900/60 text-blue-100"
-                          : "text-gray-300 hover:bg-[#333]"
-                      }`}
+                    <OptionRow
+                      selected={isSelected()}
+                      class="flex items-center justify-between"
                       onClick={toggleMetric}
                     >
                       <span>{metric.label}</span>
@@ -137,44 +139,46 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
                       >
                         {isSelected() ? "●" : "○"}
                       </span>
-                    </button>
+                    </OptionRow>
                   );
                 }}
               </For>
             </div>
-          </div>
+          </PopoverPanel>
         </Popover>
       </div>
 
       {/* View Dependencies Button */}
       <div class="ml-4 pl-4 border-l border-[#333] flex gap-2">
-        <button
-          class={`px-3 py-1 text-xs rounded border transition-colors ${
+        <Button
+          active={props.showDependencyGraph()}
+          class={
             props.showDependencyGraph()
-              ? "bg-purple-900 border-purple-700 text-purple-100"
-              : "bg-[#252526] border-[#3e3e42] text-gray-400 hover:bg-[#2d2d2d]"
-          }`}
+              ? "border-purple-700 bg-purple-900 text-purple-100"
+              : undefined
+          }
           onClick={() => {
             props.setShowDependencyGraph(!props.showDependencyGraph());
             props.setShowDataFlow(false);
           }}
         >
           View Dependencies
-        </button>
+        </Button>
 
-        <button
-          class={`px-3 py-1 text-xs rounded border transition-colors ${
+        <Button
+          active={props.showDataFlow()}
+          class={
             props.showDataFlow()
-              ? "bg-teal-900 border-teal-700 text-teal-100"
-              : "bg-[#252526] border-[#3e3e42] text-gray-400 hover:bg-[#2d2d2d]"
-          }`}
+              ? "border-teal-700 bg-teal-900 text-teal-100"
+              : undefined
+          }
           onClick={() => {
             props.setShowDataFlow(!props.showDataFlow());
             props.setShowDependencyGraph(false);
           }}
         >
           Data Flow
-        </button>
+        </Button>
       </div>
 
       {/* Legend Tooltip */}

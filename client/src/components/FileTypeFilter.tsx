@@ -1,6 +1,14 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
 import { useMetricsStore } from "../utils/metricsStore";
 import Popover from "./Popover";
+import { Button } from "./ui/Button";
+import { CheckboxRow } from "./ui/CheckboxRow";
+import {
+  OptionRow,
+  PopoverPanel,
+  PopoverSectionTitle,
+} from "./ui/PopoverPanel";
+import { TextInput } from "./ui/TextInput";
 
 interface FileTypeFilterProps {
   data: any;
@@ -82,13 +90,13 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
         placement="bottom-end"
         offset={{ x: 0, y: 4 }}
         trigger={(triggerProps) => (
-          <button
+          <Button
             ref={triggerProps.ref}
-            class={`flex items-center gap-2 px-2 py-1 text-xs rounded border transition-colors ${
+            class={
               activeCount() > 0 || isLocActive()
-                ? "bg-blue-900 border-blue-700 text-blue-100"
-                : "bg-[#252526] border-[#3e3e42] text-gray-400 hover:bg-[#2d2d2d]"
-            }`}
+                ? "border-blue-700 bg-blue-900 text-blue-100"
+                : undefined
+            }
             onClick={(e) => triggerProps.onClick(e)}
           >
             <span class="uppercase tracking-wider font-semibold">
@@ -97,38 +105,40 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
                 : "Filter: All"}
             </span>
             <span class="text-[9px]">▼</span>
-          </button>
+          </Button>
         )}
       >
-        <div class="bg-[#252526] border border-[#3e3e42] rounded shadow-xl z-50 p-3 w-[450px] max-h-[400px] overflow-hidden flex flex-col gap-2">
+        <PopoverPanel
+          width="xl"
+          class="max-h-[400px] overflow-hidden p-3 flex flex-col gap-2"
+        >
           {/* Header with Clear All inside Popover */}
           <Show when={activeCount() > 0 || isLocActive()}>
             <div class="flex justify-end pb-2 border-b border-[#3e3e42]">
-              <button
-                class="text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1"
+              <Button
+                variant="ghost"
+                size="xs"
+                class="text-red-400 hover:text-red-300"
                 onClick={handleClearAll}
               >
                 <span>✕</span>
                 <span>Clear all filters</span>
-              </button>
+              </Button>
             </div>
           </Show>
 
           <div class="flex gap-4 min-h-0 flex-1">
             {/* Left Column: File Types */}
             <div class="flex-1 flex flex-col min-h-0">
-              <div class="text-xs font-bold text-gray-400 mb-2 px-1">
+              <PopoverSectionTitle class="px-1">
                 File Types
-              </div>
+              </PopoverSectionTitle>
               <div class="overflow-y-auto flex-1 space-y-1 pr-1">
                 <For each={extensionStats()}>
                   {(item) => (
-                    <button
-                      class={`w-full flex items-center justify-between text-left text-[11px] px-2 py-1.5 rounded transition-colors ${
-                        isActive(item.ext)
-                          ? "bg-blue-900/40 text-blue-100"
-                          : "text-gray-300 hover:bg-[#333]"
-                      }`}
+                    <OptionRow
+                      selected={isActive(item.ext)}
+                      class="flex items-center justify-between py-1.5"
                       onClick={() => props.onToggleExtension(item.ext)}
                     >
                       <div class="flex items-center gap-2">
@@ -156,7 +166,7 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
                       <span class="text-gray-500 text-[10px]">
                         {item.count}
                       </span>
-                    </button>
+                    </OptionRow>
                   )}
                 </For>
                 <Show when={extensionStats().length === 0}>
@@ -172,41 +182,16 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
 
             {/* Right Column: Other Filters */}
             <div class="flex-1 flex flex-col">
-              <div class="text-xs font-bold text-gray-400 mb-2 px-1">
+              <PopoverSectionTitle class="px-1">
                 Limits & Exclusions
-              </div>
+              </PopoverSectionTitle>
               <div class="space-y-3 px-1">
                 <div class="flex flex-col gap-2">
-                  <label class="flex items-center gap-2 cursor-pointer group">
-                    <div
-                      class={`w-3 h-3 rounded border flex items-center justify-center transition-colors ${
-                        isLocActive()
-                          ? "bg-blue-600 border-blue-500"
-                          : "border-gray-600 group-hover:border-gray-500"
-                      }`}
-                    >
-                      <Show when={isLocActive()}>
-                        <svg
-                          viewBox="0 0 24 24"
-                          class="w-2.5 h-2.5 text-white"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="4"
-                        >
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      </Show>
-                    </div>
-                    <input
-                      type="checkbox"
-                      class="hidden"
-                      checked={isLocActive()}
-                      onChange={(e) => handleLocToggle(e.currentTarget.checked)}
-                    />
-                    <span class="text-xs text-gray-300">
-                      Exclude Large Files
-                    </span>
-                  </label>
+                  <CheckboxRow
+                    checked={isLocActive()}
+                    onChange={handleLocToggle}
+                    label="Exclude Large Files"
+                  />
 
                   <div
                     class={`pl-5 transition-opacity ${
@@ -216,7 +201,7 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
                     <label class="text-[10px] text-gray-500 block mb-1">
                       Max Lines of Code (LOC)
                     </label>
-                    <input
+                    <TextInput
                       type="number"
                       value={locInput()}
                       onInput={(e) =>
@@ -224,19 +209,21 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
                           parseInt(e.currentTarget.value) || 0
                         )
                       }
-                      class="w-full bg-[#1e1e1e] border border-[#3e3e42] text-gray-300 text-xs rounded px-2 py-1 focus:border-blue-500 focus:outline-none"
+                      size="sm"
+                      class="text-xs text-gray-300"
                       min="0"
                       step="100"
                     />
                     <div class="flex gap-1.5 mt-2 flex-wrap">
                       <For each={[1000, 2000, 5000, 10000, 20000]}>
                         {(val) => (
-                          <button
-                            class="text-[9px] px-1.5 py-0.5 rounded border border-[#3e3e42] bg-[#252526] text-gray-400 hover:text-gray-200 hover:border-gray-500 transition-colors"
+                          <Button
+                            size="xs"
+                            class="px-1.5 py-0.5 text-[9px] hover:border-gray-500 hover:text-gray-200"
                             onClick={() => handleLocInputChange(val)}
                           >
                             {val >= 1000 ? `${val / 1000}k` : val}
-                          </button>
+                          </Button>
                         )}
                       </For>
                     </div>
@@ -259,13 +246,15 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
                             >
                               {path.split("/").pop()}
                             </span>
-                            <button
-                              class="text-gray-500 hover:text-red-400 ml-2"
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              class="ml-2 p-0 text-gray-500 hover:text-red-400"
                               onClick={() => toggleExcludedPath(path)}
                               title="Remove exclusion"
                             >
                               ✕
-                            </button>
+                            </Button>
                           </div>
                         )}
                       </For>
@@ -275,18 +264,19 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
               </div>
             </div>
           </div>
-        </div>
+        </PopoverPanel>
       </Popover>
 
       {/* Clear All Button (Next to Trigger) */}
       <Show when={activeCount() > 0 || isLocActive()}>
-        <button
-          class="absolute left-full ml-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-500 hover:text-gray-300 whitespace-nowrap bg-[#252526] border border-[#3e3e42] px-2 py-0.5 rounded shadow-sm hover:border-red-900/50 hover:text-red-400"
+        <Button
+          size="xs"
+          class="absolute left-full ml-2 top-1/2 -translate-y-1/2 whitespace-nowrap text-gray-500 hover:border-red-900/50 hover:text-red-400"
           onClick={handleClearAll}
           title="Clear all filters"
         >
           ✕
-        </button>
+        </Button>
       </Show>
     </div>
   );

@@ -109,12 +109,21 @@ export default function Popover(props: PopoverProps) {
       if (isOpen()) updatePosition();
     };
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isOpen() || e.key !== "Escape") return;
+      e.stopPropagation();
+      close();
+      triggerRef?.focus();
+    };
+
     document.addEventListener("click", handleDocumentClick, true); // Use capture phase
+    document.addEventListener("keydown", handleKeyDown);
     window.addEventListener("resize", handleResize);
     window.addEventListener("scroll", handleScroll, true); // Capture phase for scrolling containers
 
     onCleanup(() => {
       document.removeEventListener("click", handleDocumentClick, true);
+      document.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("scroll", handleScroll, true);
     });

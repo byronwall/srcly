@@ -1,5 +1,8 @@
 import { createSignal, createEffect, For, Show, onMount } from "solid-js";
 import Popover from "./Popover";
+import { Button } from "./ui/Button";
+import { OptionRow, PopoverPanel, PopoverSectionTitle } from "./ui/PopoverPanel";
+import { TextInput } from "./ui/TextInput";
 
 interface FileItem {
   name: string;
@@ -149,33 +152,33 @@ export default function FilePicker(props: FilePickerProps) {
           placement="bottom-start"
           offset={{ x: 0, y: 4 }}
           trigger={(triggerProps) => (
-            <input
+            <TextInput
               ref={triggerProps.ref}
               type="text"
               value={path()}
               onInput={handleInput}
               onFocus={() => setShowSuggestions(true)}
               placeholder="/path/to/codebase"
-              class="w-full px-3 py-1.5 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 outline-none text-base"
+              class="bg-gray-700 text-base text-white"
             />
           )}
         >
-          <div class="bg-gray-800 border border-gray-700 rounded shadow-xl max-h-96 overflow-y-auto min-w-[300px]">
+          <PopoverPanel class="max-h-96 min-w-[300px] overflow-y-auto bg-gray-800">
             <Show when={loading()}>
               <div class="p-2 text-gray-400 italic">Loading...</div>
             </Show>
             <For each={suggestions()}>
               {(item) => (
-                <div
-                  class="p-2 hover:bg-gray-700 cursor-pointer flex items-center gap-2 text-gray-200"
+                <OptionRow
+                  class="flex items-center gap-2 p-2 text-sm hover:bg-gray-700"
                   onClick={() => selectItem(item)}
                 >
                   <span>{item.type === "folder" ? "📁" : "📄"}</span>
                   <span>{item.name}</span>
-                </div>
+                </OptionRow>
               )}
             </For>
-          </div>
+          </PopoverPanel>
         </Popover>
 
         <Popover
@@ -184,13 +187,14 @@ export default function FilePicker(props: FilePickerProps) {
           placement="bottom-end"
           offset={{ x: 0, y: 4 }}
           trigger={(triggerProps) => (
-            <button
+            <Button
               ref={triggerProps.ref}
-              type="button"
               onClick={(e) => {
                 triggerProps.onClick(e);
               }}
-              class="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-xs text-gray-200 rounded border border-gray-600 whitespace-nowrap flex items-center gap-1"
+              variant="default"
+              size="md"
+              class="whitespace-nowrap bg-gray-800 text-xs text-gray-200 hover:bg-gray-700"
             >
               <span>Recent</span>
               <svg
@@ -205,17 +209,16 @@ export default function FilePicker(props: FilePickerProps) {
                   clip-rule="evenodd"
                 />
               </svg>
-            </button>
+            </Button>
           )}
         >
-          <div class="bg-gray-900 border border-gray-700 rounded shadow-lg max-h-64 overflow-y-auto min-w-[16rem]">
-            <div class="px-3 py-2 text-xs uppercase tracking-wide text-gray-400 border-b border-gray-700">
+          <PopoverPanel class="max-h-64 min-w-[16rem] overflow-y-auto bg-gray-900 p-0">
+            <PopoverSectionTitle class="border-b border-gray-700 px-3 py-2 uppercase tracking-wide">
               Recent folders
-            </div>
+            </PopoverSectionTitle>
             <For each={recentPaths()}>
               {(recentPath) => (
-                <button
-                  type="button"
+                <OptionRow
                   class="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 truncate"
                   onClick={() => {
                     setPath(recentPath);
@@ -226,19 +229,19 @@ export default function FilePicker(props: FilePickerProps) {
                   }}
                 >
                   {recentPath}
-                </button>
+                </OptionRow>
               )}
             </For>
-          </div>
+          </PopoverPanel>
         </Popover>
 
-        <button
-          type="button"
+        <Button
           onClick={handleAnalyze}
-          class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
+          variant="primary"
+          size="md"
         >
           Analyze
-        </button>
+        </Button>
       </div>
     </div>
   );
