@@ -9,7 +9,8 @@ type IconButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
 
 export function IconButton(props: IconButtonProps) {
   const [local, rest] = splitProps(props, ["label", "size", "class"]);
-  const sizeClass = () => (local.size === "xs" ? "h-6 w-6 text-[10px]" : "h-7 w-7 text-xs");
+  const sizeClass = () =>
+    local.size === "xs" ? "h-6 w-6 text-[10px]" : "h-7 w-7 text-xs";
 
   return (
     <button
@@ -18,7 +19,7 @@ export function IconButton(props: IconButtonProps) {
       title={props.title ?? local.label}
       {...rest}
       class={cx(
-        "inline-flex items-center justify-center rounded text-gray-400 transition-colors hover:bg-[#333] hover:text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex items-center justify-center rounded-md text-[var(--plc-on-muted)] transition-colors hover:bg-[var(--plc-surface-hover)] hover:text-[var(--plc-on-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plc-border-focus)] focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50",
         sizeClass(),
         local.class
       )}

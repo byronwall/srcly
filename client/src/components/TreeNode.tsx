@@ -109,14 +109,14 @@ export function TreeNode(props: { node: Node; depth: number }) {
   return (
     <>
       <div
-        class={`flex items-center hover:bg-gray-800 cursor-pointer text-sm py-0.5 border-b border-gray-800/50 select-none ${
+        class={`plc-row plc-body-sm flex items-center cursor-pointer border-b select-none ${
           isHidden() ? "opacity-50" : ""
         }`}
         style={{ "padding-left": `${props.depth * 12}px` }}
         onClick={handleClick}
       >
         <div
-          class="w-6 text-center text-gray-500 hover:text-white cursor-pointer"
+          class="w-6 text-center text-[var(--plc-on-subtle)] hover:text-[var(--plc-on-surface)] cursor-pointer"
           onClick={toggle}
         >
           {hasChildren ? (
@@ -129,7 +129,7 @@ export function TreeNode(props: { node: Node; depth: number }) {
             <span class="opacity-0">.</span>
           )}
         </div>
-        <div class="flex-1 flex items-center gap-1 truncate text-gray-300 overflow-hidden group">
+        <div class="flex-1 flex items-center gap-1 truncate text-[var(--plc-on-surface)] overflow-hidden group">
           <span class="opacity-70 text-xs">{getIcon()}</span>
           <span class="truncate" title={props.node.name}>
             {props.node.name}
@@ -137,7 +137,7 @@ export function TreeNode(props: { node: Node; depth: number }) {
           {/* Actions */}
           <div class="hidden group-hover:flex items-center gap-1 ml-2">
             <button
-              class="text-[10px] px-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded"
+              class="text-[10px] px-1 bg-[var(--plc-surface-muted)] hover:bg-[var(--plc-surface-selected)] text-[var(--plc-on-muted)] rounded border border-[var(--plc-border)]"
               title={isHidden() ? "Show" : "Hide"}
               onClick={handleToggleHidden}
             >
@@ -147,47 +147,47 @@ export function TreeNode(props: { node: Node; depth: number }) {
         </div>
 
         <Show when={ctx.visibleColumns().includes("gitignored")}>
-          <div class="w-10 text-right text-gray-600 font-mono text-[10px] pr-1 shrink-0">
+          <div class="w-10 text-right text-[var(--plc-on-subtle)] plc-data-md text-[10px] pr-1 shrink-0">
             {props.node.metrics?.gitignored_count || ""}
           </div>
         </Show>
         <Show when={ctx.visibleColumns().includes("file_count")}>
-          <div class="w-12 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
+          <div class="w-12 text-right text-[var(--plc-on-subtle)] plc-data-md pr-2 shrink-0">
             {props.node.metrics?.file_count || ""}
           </div>
         </Show>
         <Show when={ctx.visibleColumns().includes("file_size")}>
-          <div class="w-16 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
+          <div class="w-16 text-right text-[var(--plc-on-subtle)] plc-data-md pr-2 shrink-0">
             {formatSize(props.node.metrics?.file_size)}
           </div>
         </Show>
         <Show when={ctx.visibleColumns().includes("loc")}>
-          <div class="w-16 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
+          <div class="w-16 text-right text-[var(--plc-on-subtle)] plc-data-md pr-2 shrink-0">
             {props.node.metrics?.loc || 0}
           </div>
         </Show>
         <Show when={ctx.visibleColumns().includes("complexity")}>
-          <div class="w-12 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
+          <div class="w-12 text-right text-[var(--plc-on-subtle)] plc-data-md pr-2 shrink-0">
             {props.node.metrics?.complexity?.toFixed(1) || 0}
           </div>
         </Show>
         <Show when={ctx.visibleColumns().includes("comment_density")}>
-          <div class="w-12 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
+          <div class="w-12 text-right text-[var(--plc-on-subtle)] plc-data-md pr-2 shrink-0">
             {((props.node.metrics?.comment_density || 0) * 100).toFixed(0)}%
           </div>
         </Show>
         <Show when={ctx.visibleColumns().includes("todo_count")}>
-          <div class="w-10 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
+          <div class="w-10 text-right text-[var(--plc-on-subtle)] plc-data-md pr-2 shrink-0">
             {props.node.metrics?.todo_count || ""}
           </div>
         </Show>
         <Show when={ctx.visibleColumns().includes("max_nesting_depth")}>
-          <div class="w-10 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
+          <div class="w-10 text-right text-[var(--plc-on-subtle)] plc-data-md pr-2 shrink-0">
             {props.node.metrics?.max_nesting_depth || ""}
           </div>
         </Show>
         <Show when={ctx.visibleColumns().includes("parameter_count")}>
-          <div class="w-10 text-right text-gray-500 font-mono text-xs pr-2 shrink-0">
+          <div class="w-10 text-right text-[var(--plc-on-subtle)] plc-data-md pr-2 shrink-0">
             {props.node.metrics?.parameter_count || ""}
           </div>
         </Show>

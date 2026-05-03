@@ -30,13 +30,13 @@ export function DialogShell(props: DialogShellProps) {
   return (
     <Show when={local.open}>
       <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20"
         onClick={() => local.onClose()}
       >
         <div
           {...rest}
           class={cx(
-            "flex flex-col overflow-hidden rounded-lg border border-gray-700 bg-[#1e1e1e] text-gray-100 shadow-2xl",
+            "flex flex-col overflow-hidden rounded-lg border border-[var(--plc-border)] bg-[var(--plc-surface)] text-[var(--plc-on-surface)] shadow-[var(--plc-dialog-shadow)]",
             sizeClasses[local.size ?? "lg"],
             local.class
           )}
@@ -58,14 +58,16 @@ export function DialogHeader(props: {
   return (
     <header
       class={cx(
-        "flex items-center justify-between gap-4 border-b border-gray-700 bg-[#252526] px-4 py-2 text-sm",
+        "flex min-h-10 items-center justify-between gap-4 border-b border-[var(--plc-border)] bg-[var(--plc-surface)] px-4 py-2 text-sm",
         props.class
       )}
     >
       <div class="min-w-0">
-        <div class="truncate font-semibold text-gray-100">{props.title}</div>
+        <div class="truncate font-semibold text-[var(--plc-on-surface)]">
+          {props.title}
+        </div>
         <Show when={props.subtitle}>
-          <div class="truncate text-[11px] text-gray-400">
+          <div class="truncate text-[11px] text-[var(--plc-on-subtle)]">
             {props.subtitle}
           </div>
         </Show>

@@ -334,11 +334,11 @@ export default function Explorer(props: {
         rootData: props.data,
       }}
     >
-      <div class="flex flex-col h-full bg-[#1e1e1e] text-white border-l border-[#333] w-full">
+      <div class="flex flex-col h-full plc-panel border-l border-y-0 border-r-0 rounded-none w-full">
         {/* Toolbar */}
-        <div class="p-2 border-b border-[#333] bg-[#252526] flex flex-col gap-2">
+        <div class="plc-toolbar p-2 border-b flex flex-col gap-2">
           <div class="flex items-center gap-2">
-            <div class="flex bg-[#1e1e1e] rounded p-0.5 border border-[#333]">
+            <div class="flex rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface-muted)] p-0.5">
               <Button
                 variant="tab"
                 active={viewMode() === "tree"}
@@ -456,7 +456,7 @@ export default function Explorer(props: {
         </div>
 
         <Show when={viewMode() === "tree"}>
-          <div class="flex items-center bg-[#252526] text-xs font-bold text-gray-400 py-2 border-b border-[#333] select-none">
+          <div class="plc-table-header plc-label-caps flex items-center border-b select-none">
             <div class="pl-2 flex-1 flex items-center gap-2">
               <Button
                 size="xs"
@@ -464,7 +464,7 @@ export default function Explorer(props: {
                   props.data &&
                   props.fullData &&
                   props.data.path !== props.fullData.path
-                    ? "hover:bg-gray-700 text-gray-400 hover:text-white cursor-pointer"
+                    ? "hover:bg-[var(--plc-surface-hover)] text-[var(--plc-on-muted)] hover:text-[var(--plc-on-surface)] cursor-pointer"
                     : "opacity-0 pointer-events-none cursor-default"
                 }`}
                 onClick={(e) => {
@@ -489,7 +489,7 @@ export default function Explorer(props: {
                 ⬆
               </Button>
               <div
-                class="cursor-pointer hover:text-white flex items-center"
+                class="cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center"
                 onClick={() => handleHeaderClick("name")}
               >
                 Name <SortIcon field="name" />
@@ -498,7 +498,7 @@ export default function Explorer(props: {
 
             <Show when={visibleColumns().includes("gitignored")}>
               <div
-                class="w-10 text-right pr-1 cursor-pointer hover:text-white flex items-center justify-end"
+                class="w-10 text-right pr-1 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
                 onClick={() => handleHeaderClick("gitignored")}
                 title="Gitignored Files"
               >
@@ -507,7 +507,7 @@ export default function Explorer(props: {
             </Show>
             <Show when={visibleColumns().includes("file_count")}>
               <div
-                class="w-12 text-right pr-2 cursor-pointer hover:text-white flex items-center justify-end"
+                class="w-12 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
                 onClick={() => handleHeaderClick("file_count")}
                 title="File Count"
               >
@@ -516,7 +516,7 @@ export default function Explorer(props: {
             </Show>
             <Show when={visibleColumns().includes("file_size")}>
               <div
-                class="w-16 text-right pr-2 cursor-pointer hover:text-white flex items-center justify-end"
+                class="w-16 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
                 onClick={() => handleHeaderClick("file_size")}
               >
                 Size <SortIcon field="file_size" />
@@ -524,7 +524,7 @@ export default function Explorer(props: {
             </Show>
             <Show when={visibleColumns().includes("loc")}>
               <div
-                class="w-16 text-right pr-2 cursor-pointer hover:text-white flex items-center justify-end"
+                class="w-16 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
                 onClick={() => handleHeaderClick("loc")}
               >
                 LOC <SortIcon field="loc" />
@@ -532,7 +532,7 @@ export default function Explorer(props: {
             </Show>
             <Show when={visibleColumns().includes("complexity")}>
               <div
-                class="w-12 text-right pr-2 cursor-pointer hover:text-white flex items-center justify-end"
+                class="w-12 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
                 onClick={() => handleHeaderClick("complexity")}
               >
                 CCN <SortIcon field="complexity" />
@@ -540,7 +540,7 @@ export default function Explorer(props: {
             </Show>
             <Show when={visibleColumns().includes("comment_density")}>
               <div
-                class="w-12 text-right pr-2 cursor-pointer hover:text-white flex items-center justify-end"
+                class="w-12 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
                 onClick={() => handleHeaderClick("comment_density")}
                 title="Comment Density"
               >
@@ -549,7 +549,7 @@ export default function Explorer(props: {
             </Show>
             <Show when={visibleColumns().includes("todo_count")}>
               <div
-                class="w-10 text-right pr-2 cursor-pointer hover:text-white flex items-center justify-end"
+                class="w-10 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
                 onClick={() => handleHeaderClick("todo_count")}
                 title="TODO Count"
               >
@@ -558,7 +558,7 @@ export default function Explorer(props: {
             </Show>
             <Show when={visibleColumns().includes("max_nesting_depth")}>
               <div
-                class="w-10 text-right pr-2 cursor-pointer hover:text-white flex items-center justify-end"
+                class="w-10 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
                 onClick={() => handleHeaderClick("max_nesting_depth")}
                 title="Max Nesting Depth"
               >
@@ -567,7 +567,7 @@ export default function Explorer(props: {
             </Show>
             <Show when={visibleColumns().includes("parameter_count")}>
               <div
-                class="w-10 text-right pr-2 cursor-pointer hover:text-white flex items-center justify-end"
+                class="w-10 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
                 onClick={() => handleHeaderClick("parameter_count")}
                 title="Parameter Count"
               >
@@ -584,7 +584,7 @@ export default function Explorer(props: {
 
         <Show when={viewMode() === "hotspots"}>
           <div
-            class="p-2 border-b border-[#333] flex flex-wrap gap-1 bg-[#252526]"
+            class="p-2 border-b border-[var(--plc-border)] flex flex-wrap gap-1 bg-[var(--plc-surface)]"
             onMouseMove={(e) =>
               setIsHotspotMultiSelectMode(e.shiftKey || e.metaKey || e.ctrlKey)
             }
@@ -616,7 +616,7 @@ export default function Explorer(props: {
               )}
             </For>
             <Show when={hotSpots().length === 0}>
-              <div class="p-4 text-center text-gray-500 text-sm">
+              <div class="p-4 text-center text-[var(--plc-on-subtle)] text-sm">
                 No hot spots found
               </div>
             </Show>

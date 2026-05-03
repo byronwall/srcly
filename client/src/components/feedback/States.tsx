@@ -6,14 +6,16 @@ import { cx } from "../ui/classes";
 type StateTone = "neutral" | "error";
 
 function stateToneClass(tone: StateTone) {
-  return tone === "error" ? "text-red-400" : "text-gray-400";
+  return tone === "error"
+    ? "text-[var(--plc-error)]"
+    : "text-[var(--plc-on-subtle)]";
 }
 
 export function LoadingState(props: { label?: JSX.Element; class?: string }) {
   return (
     <div
       class={cx(
-        "flex h-full w-full items-center justify-center text-sm text-gray-400",
+        "flex h-full w-full items-center justify-center text-sm text-[var(--plc-on-subtle)]",
         props.class
       )}
     >
@@ -31,13 +33,17 @@ export function EmptyState(props: {
   return (
     <div
       class={cx(
-        "flex h-full w-full flex-col items-center justify-center text-center text-gray-500",
+        "flex h-full w-full flex-col items-center justify-center text-center text-[var(--plc-on-subtle)]",
         props.class
       )}
     >
-      <div class="text-lg text-gray-400">{props.title}</div>
+      <div class="text-[17px] font-semibold text-[var(--plc-on-surface)]">
+        {props.title}
+      </div>
       <Show when={props.description}>
-        <div class="mt-2 text-sm text-gray-500">{props.description}</div>
+        <div class="mt-2 text-sm text-[var(--plc-on-subtle)]">
+          {props.description}
+        </div>
       </Show>
       <Show when={props.actions}>
         <div class="mt-4">{props.actions}</div>

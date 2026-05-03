@@ -9,13 +9,13 @@ type TextInputProps = JSX.InputHTMLAttributes<HTMLInputElement> & {
 export function TextInput(props: TextInputProps) {
   const [local, rest] = splitProps(props, ["class", "size"]);
   const sizeClass = () =>
-    local.size === "sm" ? "px-2 py-1 text-[11px]" : "px-2 py-1.5 text-sm";
+    local.size === "sm" ? "h-7 px-2 text-[12px]" : "h-8 px-2 text-[13px]";
 
   return (
     <input
       {...rest}
       class={cx(
-        "w-full rounded border border-[#3e3e42] bg-[#1e1e1e] text-gray-200 placeholder:text-gray-500 outline-none transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500",
+        "w-full rounded-md border border-[var(--plc-border-strong)] bg-[var(--plc-surface)] text-[var(--plc-on-surface)] placeholder:text-[var(--plc-on-disabled)] outline-none transition-colors focus:border-[var(--plc-border-focus)] focus:ring-2 focus:ring-[var(--plc-border-focus)]/15",
         sizeClass(),
         local.class
       )}

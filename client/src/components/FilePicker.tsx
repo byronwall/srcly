@@ -159,18 +159,17 @@ export default function FilePicker(props: FilePickerProps) {
               onInput={handleInput}
               onFocus={() => setShowSuggestions(true)}
               placeholder="/path/to/codebase"
-              class="bg-gray-700 text-base text-white"
             />
           )}
         >
-          <PopoverPanel class="max-h-96 min-w-[300px] overflow-y-auto bg-gray-800">
+          <PopoverPanel class="max-h-96 min-w-[300px] overflow-y-auto">
             <Show when={loading()}>
-              <div class="p-2 text-gray-400 italic">Loading...</div>
+              <div class="p-2 text-[var(--plc-on-subtle)] italic">Loading...</div>
             </Show>
             <For each={suggestions()}>
               {(item) => (
                 <OptionRow
-                  class="flex items-center gap-2 p-2 text-sm hover:bg-gray-700"
+                  class="flex items-center gap-2 p-2 text-sm"
                   onClick={() => selectItem(item)}
                 >
                   <span>{item.type === "folder" ? "📁" : "📄"}</span>
@@ -194,11 +193,11 @@ export default function FilePicker(props: FilePickerProps) {
               }}
               variant="default"
               size="md"
-              class="whitespace-nowrap bg-gray-800 text-xs text-gray-200 hover:bg-gray-700"
+              class="whitespace-nowrap"
             >
               <span>Recent</span>
               <svg
-                class="w-3 h-3 text-gray-400"
+                class="w-3 h-3 text-[var(--plc-on-subtle)]"
                 viewBox="0 0 20 20"
                 fill="currentColor"
                 aria-hidden="true"
@@ -212,14 +211,14 @@ export default function FilePicker(props: FilePickerProps) {
             </Button>
           )}
         >
-          <PopoverPanel class="max-h-64 min-w-[16rem] overflow-y-auto bg-gray-900 p-0">
-            <PopoverSectionTitle class="border-b border-gray-700 px-3 py-2 uppercase tracking-wide">
+          <PopoverPanel class="max-h-64 min-w-[16rem] overflow-y-auto p-0">
+            <PopoverSectionTitle class="border-b border-[var(--plc-border)] px-3 py-2">
               Recent folders
             </PopoverSectionTitle>
             <For each={recentPaths()}>
               {(recentPath) => (
                 <OptionRow
-                  class="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 truncate"
+                  class="w-full text-left px-3 py-2 text-sm truncate"
                   onClick={() => {
                     setPath(recentPath);
                     props.onSelect(recentPath);

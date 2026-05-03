@@ -60,19 +60,23 @@ export function HotSpotItem(props: {
 
   return (
     <div
-      class="flex items-center hover:bg-gray-800 cursor-pointer text-sm py-1 border-b border-gray-800/50 px-2 group"
+      class="plc-row plc-body-sm flex items-center cursor-pointer border-b px-2 group"
       onClick={handleClick}
     >
-      <div class="w-6 text-gray-500 text-xs font-mono">#{props.rank}</div>
+      <div class="w-6 text-[var(--plc-on-subtle)] plc-data-md">
+        #{props.rank}
+      </div>
       <div class="flex-1 min-w-0 flex items-center gap-2">
         <div class="flex-1 min-w-0">
-          <div class="truncate text-gray-300" title={props.node.name}>
+          <div class="truncate text-[var(--plc-on-surface)]" title={props.node.name}>
             {props.node.name}
           </div>
-          <div class="text-[10px] text-gray-500 truncate">{displayPath()}</div>
+          <div class="text-[10px] text-[var(--plc-on-subtle)] truncate">
+            {displayPath()}
+          </div>
         </div>
         <button
-          class="hidden group-hover:block p-1 bg-blue-900/50 hover:bg-blue-800 text-blue-200 rounded text-xs"
+          class="hidden group-hover:block rounded-md border border-[var(--plc-accent-border)] bg-[var(--plc-accent-subtle)] p-1 text-xs text-[var(--plc-accent)] hover:border-[var(--plc-accent)]"
           title="Isolate Folder"
           onClick={handleZoomToParent}
         >

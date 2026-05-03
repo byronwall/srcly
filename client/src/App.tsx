@@ -271,10 +271,12 @@ function AppContent() {
   });
 
   return (
-    <div class="h-screen flex flex-col bg-[#121212] text-white overflow-hidden">
-      <header class="px-4 py-2 border-b border-[#333] flex items-center gap-4 bg-[#1e1e1e]">
+    <div class="plc-app-shell h-screen flex flex-col overflow-hidden">
+      <header class="plc-topbar px-4 border-b flex items-center gap-4">
         <div class="flex items-center gap-3 flex-1 min-w-0">
-          <h1 class="text-lg font-bold text-blue-500 shrink-0">Srcly</h1>
+          <h1 class="text-[20px] leading-tight font-semibold text-[var(--plc-primary)] shrink-0">
+            Srcly
+          </h1>
           <div class="w-full">
             <FilePickerWithExternal
               onSelect={handleFileSelect}
@@ -282,7 +284,7 @@ function AppContent() {
             />
           </div>
         </div>
-        <div class="text-xs text-gray-400 whitespace-nowrap">
+        <div class="text-xs text-[var(--plc-on-subtle)] whitespace-nowrap">
           {loading()
             ? "Loading..."
             : visualizationData()
@@ -296,7 +298,7 @@ function AppContent() {
           open={Boolean(error())}
           onClose={() => setError(null)}
           size="md"
-          class="border-red-700 bg-red-950/95"
+          class="border-[var(--plc-error-border)] bg-[var(--plc-error-subtle)] text-[var(--plc-error)]"
         >
           <DialogHeader
             title="Error"
@@ -339,15 +341,15 @@ function AppContent() {
                           title="No visualization data yet"
                           description="Choose what you want to analyze:"
                           actions={
-                          <div class="grid gap-4 sm:grid-cols-2 w-full max-w-xl">
-                            <div class="bg-black/20 border border-[#333] rounded p-3 text-left space-y-2">
-                              <div class="text-[10px] uppercase tracking-wide text-gray-400">
+                          <div class="grid gap-3 sm:grid-cols-2 w-full max-w-xl">
+                            <div class="plc-panel border p-3 text-left space-y-2">
+                              <div class="plc-label-caps text-[var(--plc-on-subtle)]">
                                 Current directory
                               </div>
-                              <p class="text-xs font-mono text-gray-200 break-all">
+                              <p class="plc-data-md text-[var(--plc-on-surface)] break-all">
                                 {ctx().rootPath || "(unknown)"}
                               </p>
-                              <p class="text-[11px] text-gray-400">
+                              <p class="text-[11px] text-[var(--plc-on-subtle)]">
                                 Roughly {ctx().fileCount} files and{" "}
                                 {ctx().folderCount} folders will be included.
                               </p>
@@ -366,14 +368,14 @@ function AppContent() {
                             </div>
 
                             <Show when={ctx().repoRootPath}>
-                              <div class="bg-black/20 border border-[#333] rounded p-3 text-left space-y-2">
-                                <div class="text-[10px] uppercase tracking-wide text-gray-400">
+                              <div class="plc-panel border p-3 text-left space-y-2">
+                                <div class="plc-label-caps text-[var(--plc-on-subtle)]">
                                   Repo root
                                 </div>
-                                <p class="text-xs font-mono text-gray-200 break-all">
+                                <p class="plc-data-md text-[var(--plc-on-surface)] break-all">
                                   {ctx().repoRootPath}
                                 </p>
-                                <p class="text-[11px] text-gray-400">
+                                <p class="text-[11px] text-[var(--plc-on-subtle)]">
                                   Roughly {ctx().repoFileCount} files and{" "}
                                   {ctx().repoFolderCount} folders will be
                                   included.
@@ -404,8 +406,10 @@ function AppContent() {
                 <LoadingState
                   label={
                     <div>
-                      <div class="text-lg text-gray-400">Loading analysis...</div>
-                      <div class="mt-2 text-sm text-gray-500">
+                      <div class="text-[17px] font-semibold text-[var(--plc-on-surface)]">
+                        Loading analysis...
+                      </div>
+                      <div class="mt-2 text-sm text-[var(--plc-on-subtle)]">
                         This may take a moment for larger codebases.
                       </div>
                     </div>
@@ -444,7 +448,7 @@ function AppContent() {
 
             {/* Drag Handle */}
             <div
-              class="w-1 bg-[#333] hover:bg-blue-500 cursor-col-resize transition-colors z-10"
+              class="w-1 bg-[var(--plc-border)] hover:bg-[var(--plc-accent)] cursor-col-resize transition-colors z-10"
               onMouseDown={() => setIsDragging(true)}
             />
 

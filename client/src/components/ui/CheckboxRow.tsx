@@ -16,7 +16,7 @@ export function CheckboxRow(props: CheckboxRowProps) {
   return (
     <label
       class={cx(
-        "flex cursor-pointer select-none items-center gap-2 text-xs text-gray-300 hover:text-white",
+        "flex cursor-pointer select-none items-center gap-2 text-xs text-[var(--plc-on-muted)] hover:text-[var(--plc-on-surface)]",
         props.disabled && "cursor-not-allowed opacity-60",
         local.class
       )}
@@ -25,7 +25,7 @@ export function CheckboxRow(props: CheckboxRowProps) {
         type="checkbox"
         {...rest}
         onChange={(e) => local.onChange(e.currentTarget.checked)}
-        class="accent-blue-600"
+        class="accent-[var(--plc-accent)]"
       />
       <span>{local.label}</span>
     </label>

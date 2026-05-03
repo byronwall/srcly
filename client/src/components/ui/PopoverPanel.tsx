@@ -22,7 +22,7 @@ export function PopoverPanel(props: PopoverPanelProps) {
     <div
       {...rest}
       class={cx(
-        "rounded border border-[#3e3e42] bg-[#252526] p-2 text-xs text-gray-300 shadow-xl",
+        "plc-floating rounded-lg border p-2 text-xs",
         widthClasses[local.width ?? "md"],
         local.class
       )}
@@ -32,7 +32,12 @@ export function PopoverPanel(props: PopoverPanelProps) {
 
 export function PopoverSectionTitle(props: { children: JSX.Element; class?: string }) {
   return (
-    <div class={cx("mb-2 text-xs font-bold text-gray-400", props.class)}>
+    <div
+      class={cx(
+        "plc-label-caps mb-2 text-[var(--plc-on-subtle)]",
+        props.class
+      )}
+    >
       {props.children}
     </div>
   );
@@ -48,10 +53,10 @@ export function OptionRow(
       type="button"
       {...rest}
       class={cx(
-        "w-full rounded px-2 py-1 text-left text-[11px] transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500",
+        "w-full rounded-md px-2 py-1 text-left text-[12px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plc-border-focus)]",
         local.selected
-          ? "bg-blue-900/60 text-blue-100"
-          : "text-gray-300 hover:bg-[#333]",
+          ? "bg-[var(--plc-surface-selected)] text-[var(--plc-accent)]"
+          : "text-[var(--plc-on-surface)] hover:bg-[var(--plc-surface-hover)]",
         local.class
       )}
     />

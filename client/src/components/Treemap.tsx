@@ -575,7 +575,7 @@ export default function Treemap(props: TreemapProps) {
 
   // --- Color Logic ---
   const getNodeColor = (d: TreemapRenderNode) => {
-    if (d.data.type === "folder") return "#1e1e1e";
+    if (d.data.type === "folder") return "#ffffff";
 
     const metricId = primaryMetric();
     const metrics = d.data.metrics || {};
@@ -583,7 +583,7 @@ export default function Treemap(props: TreemapProps) {
   };
 
   const getNodeStroke = (d: TreemapRenderNode) => {
-    return d.data.type === "folder" ? "#333" : "#121212";
+    return d.data.type === "folder" ? "#cbd5e1" : "#ffffff";
   };
 
   const getNodeStrokeWidth = (d: TreemapRenderNode) => {
@@ -591,7 +591,7 @@ export default function Treemap(props: TreemapProps) {
   };
 
   const getNodeTextColor = (d: TreemapRenderNode) => {
-    if (d.data.type === "folder") return "#1e1e1e"; // Not used for folder labels usually
+    if (d.data.type === "folder") return "#0f172a"; // Not used for folder labels usually
 
     const metricId = primaryMetric();
     const metrics = d.data.metrics || {};
@@ -600,7 +600,7 @@ export default function Treemap(props: TreemapProps) {
 
   const getChunkLabelColor = (d: TreemapRenderNode) => {
     // Similar to getNodeTextColor but with alpha
-    if (d.data.type === "folder") return "#1e1e1e";
+    if (d.data.type === "folder") return "#0f172a";
 
     const metricId = primaryMetric();
     const metrics = d.data.metrics || {};
@@ -656,7 +656,7 @@ export default function Treemap(props: TreemapProps) {
   const minNodeRenderSizePx = () => props.minNodeRenderSizePx ?? 4;
 
   return (
-    <div class="flex flex-col w-full h-full overflow-hidden border border-gray-700 rounded bg-[#121212] relative">
+    <div class="plc-panel flex flex-col w-full h-full overflow-hidden border rounded-none relative">
       {/* Header Bar */}
       <TreemapHeader
         data={props.data}
@@ -729,7 +729,7 @@ export default function Treemap(props: TreemapProps) {
         <Show
           when={!processedData() && !showDependencyGraph() && !showDataFlow()}
         >
-          <div class="flex items-center justify-center h-full text-gray-500">
+          <div class="flex items-center justify-center h-full text-[var(--plc-on-subtle)]">
             No files match the selected filters
           </div>
         </Show>

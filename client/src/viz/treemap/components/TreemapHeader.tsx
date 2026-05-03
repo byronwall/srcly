@@ -43,20 +43,20 @@ export type TreemapHeaderProps = {
 
 export default function TreemapHeader(props: TreemapHeaderProps) {
   return (
-    <div class="flex items-center justify-between px-3 py-2 bg-[#1e1e1e] border-b border-[#333]">
+    <div class="plc-toolbar flex items-center gap-3 overflow-x-auto px-3 border-b">
       {/* Breadcrumbs */}
-      <div class="flex items-center gap-1 overflow-x-auto text-sm scrollbar-hide">
+      <div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto text-sm scrollbar-hide">
         <For each={props.breadcrumbs()}>
           {(node, i) => (
             <div class="flex items-center whitespace-nowrap">
               <button
-                class="hover:text-blue-400 hover:underline text-gray-300"
+                class="text-[var(--plc-on-muted)] hover:text-[var(--plc-accent)] hover:underline"
                 onClick={() => props.onBreadcrumbClick(node)}
               >
                 {node.name || "root"}
               </button>
               <Show when={i() < props.breadcrumbs().length - 1}>
-                <span class="mx-1 text-gray-600">/</span>
+                <span class="mx-1 text-[var(--plc-on-disabled)]">/</span>
               </Show>
             </div>
           )}
@@ -64,7 +64,7 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
       </div>
 
       {/* Filters */}
-      <div class="ml-4">
+      <div class="shrink-0">
         <FileTypeFilter
           data={props.data}
           activeExtensions={props.activeExtensions()}
@@ -76,9 +76,9 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
       </div>
 
       {/* Color Metric (linked to Hot Spot metrics) */}
-      <div class="flex items-center gap-1 ml-4 relative">
+      <div class="flex shrink-0 items-center gap-1 relative">
         <button
-          class="text-xs text-gray-500 mr-2 uppercase tracking-wider cursor-help hover:text-gray-300 border-b border-dotted border-gray-600"
+          class="plc-label-caps mr-2 cursor-help text-[var(--plc-on-subtle)] hover:text-[var(--plc-on-surface)] border-b border-dotted border-[var(--plc-border-strong)]"
           onMouseEnter={() => props.setShowLegend(true)}
           onMouseLeave={() => props.setShowLegend(false)}
         >
@@ -93,7 +93,7 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
             <Button
               ref={triggerProps.ref}
               size="xs"
-              class="hover:border-blue-500 hover:text-blue-200"
+              class="hover:border-[var(--plc-accent)] hover:text-[var(--plc-accent)]"
               onClick={(e) => triggerProps.onClick(e)}
             >
               <span class="truncate max-w-[140px]">
@@ -134,7 +134,9 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
                       <span>{metric.label}</span>
                       <span
                         class={`ml-2 text-[10px] ${
-                          isSelected() ? metric.color : "text-gray-500"
+                          isSelected()
+                            ? "text-[var(--plc-accent)]"
+                            : "text-[var(--plc-on-subtle)]"
                         }`}
                       >
                         {isSelected() ? "●" : "○"}
@@ -149,12 +151,12 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
       </div>
 
       {/* View Dependencies Button */}
-      <div class="ml-4 pl-4 border-l border-[#333] flex gap-2">
+      <div class="shrink-0 pl-4 border-l border-[var(--plc-border)] flex gap-2">
         <Button
           active={props.showDependencyGraph()}
           class={
             props.showDependencyGraph()
-              ? "border-purple-700 bg-purple-900 text-purple-100"
+              ? "border-[var(--plc-accent-border)] bg-[var(--plc-surface-selected)] text-[var(--plc-accent)]"
               : undefined
           }
           onClick={() => {
@@ -169,7 +171,7 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
           active={props.showDataFlow()}
           class={
             props.showDataFlow()
-              ? "border-teal-700 bg-teal-900 text-teal-100"
+              ? "border-[var(--plc-accent-border)] bg-[var(--plc-surface-selected)] text-[var(--plc-accent)]"
               : undefined
           }
           onClick={() => {
@@ -183,8 +185,8 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
 
       {/* Legend Tooltip */}
       <Show when={props.showLegend()}>
-        <div class="absolute top-10 right-4 z-50 bg-[#252526] border border-[#3e3e42] p-3 rounded shadow-xl text-xs w-64">
-          <div class="font-bold mb-2 text-gray-300 border-b border-[#3e3e42] pb-1">
+        <div class="plc-floating absolute top-10 right-4 z-50 border p-3 rounded-lg text-xs w-64">
+          <div class="font-semibold mb-2 text-[var(--plc-on-surface)] border-b border-[var(--plc-border)] pb-1">
             {HOTSPOT_METRICS.find((m) => m.id === props.primaryMetricId())
               ?.label || "Metric"}
           </div>
