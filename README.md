@@ -2,6 +2,8 @@
 
 Srcly is an interactive codebase treemap, metrics, and code-flow viewer. It combines [Lizard](https://github.com/terryyin/lizard) with tree-sitter analyzers for richer language-specific signals, builds a hierarchical model of folders, files, functions, and nested scopes, and renders explorable views in your browser.
 
+Project background and screenshots: [Srcly project page](https://byroni.us/projects/srcly).
+
 To try it in your current folder, run:
 
 ```
