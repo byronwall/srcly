@@ -60,8 +60,25 @@ Scores below are estimates from the implementation and interaction shape. They a
 
 Canvas keeps tile count out of the DOM and avoids per-tile transitions. It needs explicit hit testing, focus state, and keyboard behavior. Its text is not native selectable SVG text. The existing accessible Explorer remains the semantic, keyboard-friendly tree view. SVG offers native text and element inspection, but every visible tile adds DOM and rendering work. A hybrid can keep a small number of labels in SVG, but it adds a second coordinate system and hit-test rules. Current evidence does not justify that extra path.
 
-## Limits and next checks
+## Browser verification
+
+A separate browser pass used the production builds and the same 25,975-node fixture. The viewport was 1512 × 751 pixels.
+
+| Browser state | Original stack head | Performance build |
+| --- | ---: | ---: |
+| Initial DOM elements | 9,738 | 436 |
+| DOM elements after Expand all | 429,426 | 542 |
+
+The performance build mounted 27 Explorer rows after Expand all. It retained 69 SVG elements for interface icons. The treemap used one canvas. Expand all completed within the browser action. The original build expanded, but its action exceeded the tool's roughly 2.3-second limit. These action results do not establish paint or input latency.
+
+The large fixture passed expansion, sorting, metric columns, hotspot selection, scrolling, and filtering. A search after deep scrolling showed matching rows. Clearing a no-match search restored the tree. Source viewing, Markdown rendering, and keyboard tree navigation passed. Canvas pointer selection, hover metrics, keyboard activation, Alt-click hide, and Meta-click isolation passed. Controls remained usable at 900 × 650 pixels.
+
+A real API scan covered 67 client files. Both Layered and Force dependency layouts loaded. Layout settings, Fit View, and close/reopen worked. Source selection and line-range adjustment also worked. The fixture does not simulate dependency analysis, so this check used the real API.
+
+One very large automated scroll exceeded the tool's ten-second limit. The tree had scrolled 117,868 pixels and filtering still worked. Keyboard End reached distant rows. Treat the scroll result as an automation limit, not a measured application delay.
+
+## Measurement limits
 
 The browser has not measured first paint, memory, scroll latency, or canvas redraw time. D3 hierarchy and treemap layout still run on the main thread. The force worker returns final positions after 260 simulation ticks, so it does not animate intermediate states. Graph worker startup and serialization have costs for small graphs. The benchmark does not measure these browser costs.
 
-Use the local large-tree browser fixture to compare scroll, search, treemap hover, and graph layout on the integrated build. Keep any change only if those checks show a useful improvement without loss of reading, keyboard, or selection behavior.
+The checks cover the fixture and one local source tree. They do not establish performance for every repository or device.
