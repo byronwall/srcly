@@ -8,7 +8,7 @@ import os
 import signal
 import threading
 
-from app.routers import analysis, files
+from app.routers import analysis, files, scans
 from app.services.scan_workers import cancel_all_scans
 
 _SHUTDOWN_SIGNALS = (signal.SIGINT, signal.SIGTERM)
@@ -75,6 +75,7 @@ app.add_middleware(
 # Include Routers
 app.include_router(analysis.router)
 app.include_router(files.router)
+app.include_router(scans.router)
 
 
 def _find_static_dir() -> str | None:

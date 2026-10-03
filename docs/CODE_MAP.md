@@ -14,8 +14,10 @@ CLI (server/app/run.py)
 
 Browser
   App.tsx ── GET /api/analysis/context ──► routers/analysis.py:get_analysis_context
-          ── GET /api/analysis?path=   ──► routers/analysis.py:get_analysis
-                                              └─ services/analysis.py:scan_codebase
+          ── POST /api/scans            ──► routers/scans.py → services/scan_jobs.py (thread per job)
+          ── GET  /api/scans/{id}/events (SSE progress) ◄── ScanJob snapshots
+          ── GET  /api/scans/{id}/result ──► finished tree
+                                              └─ services/analysis.py:scan_codebase(observer=ScanJob)
                                                    ├─ walk + .gitignore filtering
                                                    ├─ per-file analysis in a killable worker pool (scan_workers.py)
                                                    │    └─ analyze_single_file → language analyzer
@@ -46,6 +48,8 @@ Browser
 | Ignore rules: nested `.gitignore` translation | `server/app/services/analysis.py` (`_load_gitignore_spec`, `_translate_gitignore_pattern`) |
 | Worker pool: reuse, hard per-file timeouts, crash recovery | `server/app/services/scan_workers.py` (`run_file_analyses`), wrapped by `analysis.py` (`_run_file_analyses_with_hard_timeouts`) |
 | Scan cancellation (`CancelToken`, `ScanCancelled`, `cancel_all_scans`) | `server/app/services/scan_workers.py` |
+| Scan progress hooks (`ScanObserver`) | `server/app/services/scan_progress.py`; called from `analysis.py` |
+| Background scan jobs, progress snapshots, dedupe by path | `server/app/services/scan_jobs.py` (`ScanJob`, `ScanJobManager`) |
 | Language dispatch by extension | `server/app/services/analysis.py` (`analyze_single_file`) |
 | TypeScript / TSX metrics + nested scopes | `server/app/services/typescript/typescript_analysis.py` |
 | Python metrics | `server/app/services/python/python_analysis.py` |
@@ -62,7 +66,12 @@ Browser
 
 | Endpoint | Handler | Notes |
 | --- | --- | --- |
-| `GET /api/analysis` | `routers/analysis.py:get_analysis` | Full Node tree for a path |
+| `POST /api/scans` | `routers/scans.py:start_scan` | Start (or join) a background scan; returns a progress snapshot |
+| `GET /api/scans/{id}/events` | `routers/scans.py:stream_scan` | SSE stream of snapshots, ending with `complete` / `failed` / `cancelled` |
+| `GET /api/scans/{id}` | `routers/scans.py:get_scan` | Snapshot (polling fallback) |
+| `GET /api/scans/{id}/result` | `routers/scans.py:get_scan_result` | Node tree once complete (409 before) |
+| `DELETE /api/scans/{id}` | `routers/scans.py:cancel_scan` | Cancel a scan |
+| `GET /api/analysis` | `routers/analysis.py:get_analysis` | Blocking one-shot scan (kept for API users; the UI uses `/api/scans`) |
 | `POST /api/analysis/refresh` | `routers/analysis.py:refresh_analysis` | Re-scan cwd root |
 | `GET /api/analysis/context` | `routers/analysis.py:get_analysis_context` | Cwd + repo root with rough file counts (first-run screen) |
 | `GET /api/analysis/dependencies` | `routers/analysis.py:get_dependencies` | TS/TSX import graph, tsconfig `paths` aliases |
@@ -100,7 +109,9 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Feature | Where |
 | --- | --- |
 | Mount + global CSS / design tokens | `client/src/index.tsx`, `client/src/index.css` |
-| App shell, analysis fetch, loading/empty/error states | `client/src/App.tsx` |
+| App shell, scan start/cancel, loading/empty/error states | `client/src/App.tsx` |
+| Scan API client (EventSource + polling fallback) | `client/src/services/scanJobs.ts` |
+| Scan progress panel | `client/src/components/feedback/ScanProgress.tsx`, view model in `client/src/utils/scanProgress.ts` |
 | Path bar with autocomplete + recent paths | `client/src/components/FilePicker.tsx` |
 | Loading / empty / error primitives | `client/src/components/feedback/States.tsx` |
 | Toasts | `client/src/components/Toast.tsx` |

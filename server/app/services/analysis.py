@@ -10,8 +10,12 @@ from app.services.typescript.typescript_analysis import TreeSitterAnalyzer
 from app.services.markdown.markdown_analysis import MarkdownTreeSitterAnalyzer
 from app.services.ipynb.ipynb_analysis import NotebookAnalyzer
 from app.services.css.css_analysis import CssTreeSitterAnalyzer
+from app.services.scan_progress import NULL_OBSERVER, ScanObserver
 from app.services.scan_workers import CancelToken, FileFailure, run_file_analyses, track_scan
 from pathspec import PathSpec
+
+# Report discovery progress every N directories walked.
+DISCOVERY_REPORT_EVERY_DIRS = 50
 
 # Maximum time allowed for analyzing a single file in a worker process.
 PER_FILE_ANALYSIS_TIMEOUT_SECONDS: float = 10.0
@@ -507,6 +511,7 @@ def _run_file_analyses_with_hard_timeouts(
     *,
     verbose: bool = True,
     cancel: Optional[CancelToken] = None,
+    observer: ScanObserver = NULL_OBSERVER,
 ) -> list:
     """
     Analyze files in a pool of worker processes with a *hard* per-file timeout.
@@ -516,12 +521,20 @@ def _run_file_analyses_with_hard_timeouts(
     """
 
     def on_file_start(index: int, total: int, path: str) -> None:
+        observer.file_started(path)
         # Log every file *before* it is processed so we can identify the
         # last-started file if analysis hangs or crashes.
         if verbose:
             print(f"➡️ [{index}/{total}] Starting analysis: {path}", file=sys.stderr, flush=True)
 
     def on_file_done(completed: int, total: int, path: str, failure: FileFailure | None) -> None:
+        observer.file_done(
+            completed,
+            total,
+            path,
+            failure.reason if failure else None,
+            failure.detail if failure else "",
+        )
         if not verbose:
             return
         if failure is None:
@@ -548,21 +561,29 @@ def scan_codebase(
     *,
     verbose: bool = True,
     cancel: Optional[CancelToken] = None,
+    observer: Optional[ScanObserver] = None,
 ) -> Node:
     """
     Scan ``root_path`` and return the analysis tree.
 
     Raises ``ScanCancelled`` if ``cancel`` fires (or ``cancel_all_scans`` is
     called) before the scan finishes; worker processes are always cleaned up.
+    ``observer`` receives progress callbacks (see ``scan_progress``).
     """
     token = cancel or CancelToken()
     with track_scan(token):
-        return _scan_codebase(root_path, verbose=verbose, cancel=token)
+        return _scan_codebase(
+            root_path, verbose=verbose, cancel=token, observer=observer or NULL_OBSERVER
+        )
 
 
-def _scan_codebase(root_path: Path, *, verbose: bool, cancel: CancelToken) -> Node:
+def _scan_codebase(
+    root_path: Path, *, verbose: bool, cancel: CancelToken, observer: ScanObserver
+) -> Node:
     if verbose:
         print(f"🔍 Scanning: {root_path}", file=sys.stderr, flush=True)
+
+    observer.discovering(0, str(root_path))
 
     # Load .gitignore spec (repo-wide, with nested .gitignore support)
     ignore_root, gitignore_spec = _load_gitignore_spec(root_path, cancel)
@@ -570,9 +591,11 @@ def _scan_codebase(root_path: Path, *, verbose: bool, cancel: CancelToken) -> No
     files_to_scan: list[str] = []
     ignored_counts: dict[str, int] = {}
 
-    for root_dir, dirs, files in os.walk(root_path):
+    for dirs_walked, (root_dir, dirs, files) in enumerate(os.walk(root_path)):
         cancel.raise_if_cancelled()
         root_dir_path = Path(root_dir)
+        if dirs_walked % DISCOVERY_REPORT_EVERY_DIRS == 0:
+            observer.discovering(len(files_to_scan), root_dir)
 
         # Apply ignore dirs from config and .gitignore
         # We must modify dirs in-place to prune traversal
@@ -612,14 +635,17 @@ def _scan_codebase(root_path: Path, *, verbose: bool, cancel: CancelToken) -> No
             flush=True,
         )
 
+    observer.analyzing(len(files_to_scan))
     analysis_results = _run_file_analyses_with_hard_timeouts(
         files_to_scan=files_to_scan,
         timeout_seconds=PER_FILE_ANALYSIS_TIMEOUT_SECONDS,
         max_workers=MAX_ANALYSIS_WORKERS,
         verbose=verbose,
         cancel=cancel,
+        observer=observer,
     )
     cancel.raise_if_cancelled()
+    observer.building()
 
     tree_root = create_node("root", "folder", str(root_path))
     node_map = {str(root_path): tree_root}
