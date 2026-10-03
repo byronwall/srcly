@@ -39,9 +39,6 @@ export default function CodeModal(props: CodeModalProps) {
   const [lineOffset, setLineOffset] = createSignal(4);
   const [reduceIndentation, setReduceIndentation] = createSignal(true);
   const [viewMode, setViewMode] = createSignal<"code" | "preview">("code");
-  const [dataFlowEnabled, setDataFlowEnabled] = createSignal(true);
-  const [scopeFlowEnabled, setScopeFlowEnabled] = createSignal(false);
-  const [scopeMaximized, setScopeMaximized] = createSignal(false);
 
   let contentScrollRef: HTMLDivElement | undefined;
   const contentContainerEl = () => contentScrollRef;
@@ -56,7 +53,6 @@ export default function CodeModal(props: CodeModalProps) {
     displayStartLine,
     displayEndLine,
     wasIndentationReduced,
-    removedIndentByLine,
   } = useHighlightedCode({
     rawCode,
     filePath: () => props.filePath,
@@ -99,11 +95,6 @@ export default function CodeModal(props: CodeModalProps) {
     } else {
       setViewMode("code");
     }
-  });
-
-  createEffect(() => {
-    // Prevent blank UI states: if scope flow is disabled, it can't be maximized.
-    if (!scopeFlowEnabled()) setScopeMaximized(false);
   });
 
   const hasSelection = () =>
@@ -292,15 +283,10 @@ export default function CodeModal(props: CodeModalProps) {
             setLineFilterEnabled={setLineFilterEnabled}
             lineOffset={lineOffset}
             setLineOffset={(n) => setLineOffset(Math.max(0, Math.floor(n)))}
-            dataFlowEnabled={dataFlowEnabled}
-            setDataFlowEnabled={setDataFlowEnabled}
-            scopeFlowEnabled={scopeFlowEnabled}
-            setScopeFlowEnabled={setScopeFlowEnabled}
           />
 
           <main class="relative flex-1 overflow-hidden flex bg-[var(--plc-surface)]">
-            <Show when={!scopeMaximized()}>
-              <MetricsSidebar
+            <MetricsSidebar
                 fileNode={props.fileNode}
                 scopeNode={props.scopeNode}
                 baseName={baseName}
@@ -321,7 +307,6 @@ export default function CodeModal(props: CodeModalProps) {
                   resetAutoScroll();
                 }}
               />
-            </Show>
 
             <div
               class="flex-1 min-h-0 bg-[var(--plc-surface-inset,var(--plc-surface-subtle))] p-3"
@@ -345,15 +330,6 @@ export default function CodeModal(props: CodeModalProps) {
                     displayStartLine={() => displayStartLine() ?? 1}
                     targetStartLine={targetStartLine}
                     targetEndLine={targetEndLine}
-                    removedIndentByLine={removedIndentByLine}
-                    lineFilterEnabled={lineFilterEnabled}
-                    dataFlowEnabled={dataFlowEnabled}
-                    scopeFlowEnabled={scopeFlowEnabled}
-                    isScopeMaximized={scopeMaximized}
-                    onToggleMaximizeScope={() =>
-                      setScopeMaximized(!scopeMaximized())
-                    }
-                    onJumpToLine={handleJumpToLine}
                   />
                 }
               >

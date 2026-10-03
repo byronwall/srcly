@@ -25,9 +25,6 @@ export function useHighlightedCode(args: {
   );
   const [displayEndLine, setDisplayEndLine] = createSignal<number | null>(null);
   const [wasIndentationReduced, setWasIndentationReduced] = createSignal(false);
-  const [removedIndentByLine, setRemovedIndentByLine] = createSignal<
-    number[] | null
-  >(null);
 
   let lastProcessId = 0;
 
@@ -65,13 +62,10 @@ export function useHighlightedCode(args: {
 
       let linesToDisplay = slice.linesToDisplay;
       let isReduced = false;
-      let removedIndentByLine: number[] | null = null;
-
       if (shouldReduceIndent) {
         const reduced = reduceCommonIndent(linesToDisplay, { keepIndent: 2 });
         linesToDisplay = reduced.lines;
         isReduced = reduced.reduced;
-        removedIndentByLine = (reduced as any).removedIndentByLine ?? null;
       }
 
       const displayText = linesToDisplay.join("\n");
@@ -105,7 +99,6 @@ export function useHighlightedCode(args: {
         setDisplayStartLine(slice.start);
         setDisplayEndLine(slice.end);
         setWasIndentationReduced(isReduced);
-        setRemovedIndentByLine(removedIndentByLine);
       }
     })();
   });
@@ -115,6 +108,5 @@ export function useHighlightedCode(args: {
     displayStartLine,
     displayEndLine,
     wasIndentationReduced,
-    removedIndentByLine,
   };
 }

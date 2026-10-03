@@ -1,27 +1,11 @@
 import {
   Show,
-  For,
   createEffect,
-  createMemo,
   createSignal,
   onCleanup,
 } from "solid-js";
-import { FlowOverlayCode } from "../FlowOverlayCode";
-import { type OverlayToken } from "../../utils/flowDecorations";
 import { ErrorState, LoadingState } from "../feedback/States";
 import { StickyBreadcrumb } from "./StickyBreadcrumb";
-import { ScopeFlowPane } from "./ScopeFlowPane";
-
-const LEGEND_ITEMS = [
-  { category: "param", label: "Parameter" },
-  { category: "local", label: "Local" },
-  { category: "capture", label: "Captured" },
-  { category: "module", label: "Module" },
-  { category: "importInternal", label: "Internal Import" },
-  { category: "importExternal", label: "External Import" },
-  { category: "builtin", label: "Built-in" },
-  { category: "unresolved", label: "Unresolved" },
-];
 
 export type CodePaneProps = {
   loading: () => boolean;
@@ -34,32 +18,12 @@ export type CodePaneProps = {
   displayStartLine: () => number;
   targetStartLine: () => number | null;
   targetEndLine: () => number | null;
-  removedIndentByLine: () => number[] | null;
-  lineFilterEnabled: () => boolean;
-  dataFlowEnabled: () => boolean;
-  scopeFlowEnabled: () => boolean;
-  onJumpToLine: (target: {
-    start?: number;
-    end?: number;
-    scrollTarget?: number;
-  }) => void;
-  isScopeMaximized: () => boolean;
-  onToggleMaximizeScope: () => void;
 };
 
 export function CodePane(props: CodePaneProps) {
-  const [tokens, setTokens] = createSignal<OverlayToken[]>([]);
   const [currentTopLine, setCurrentTopLine] = createSignal(1);
   let scrollRef: HTMLDivElement | undefined;
   let breadcrumbRef: HTMLDivElement | undefined;
-
-  const counts = createMemo(() => {
-    const map = new Map<string, number>();
-    for (const t of tokens()) {
-      map.set(t.category, (map.get(t.category) || 0) + 1);
-    }
-    return map;
-  });
 
   const showCode = () =>
     !props.loading() && !props.error() && props.highlightedHtml();
@@ -128,113 +92,38 @@ export function CodePane(props: CodePaneProps) {
 
   return (
     <div class="flex h-full min-h-0">
-      <Show when={!props.isScopeMaximized() || !props.scopeFlowEnabled()}>
-        <div
-          class="flex-1 min-w-0 overflow-auto"
-          ref={(el) => (scrollRef = el)}
+      <div class="flex-1 min-w-0 overflow-auto" ref={(el) => (scrollRef = el)}>
+        <div class="sticky top-0 z-20" ref={(el) => (breadcrumbRef = el)}>
+          <StickyBreadcrumb
+            root={props.fileNode}
+            selectedNode={props.selectedScopeNode}
+            filePath={props.filePath}
+            currentLine={currentTopLine}
+            selection={() => {
+              const s = props.targetStartLine?.();
+              const e = props.targetEndLine?.();
+              if (typeof s === "number" && typeof e === "number")
+                return { start: s, end: e };
+              return null;
+            }}
+            onSelectScope={props.onSelectScope}
+          />
+        </div>
+        <Show
+          when={props.loading() || (!props.highlightedHtml() && !props.error())}
         >
-          <div class="sticky top-0 z-20" ref={(el) => (breadcrumbRef = el)}>
-            <StickyBreadcrumb
-              root={props.fileNode}
-              selectedNode={props.selectedScopeNode}
-              filePath={props.filePath}
-              currentLine={currentTopLine}
-              selection={() => {
-                const s = props.targetStartLine?.();
-                const e = props.targetEndLine?.();
-                if (typeof s === "number" && typeof e === "number")
-                  return { start: s, end: e };
-                return null;
-              }}
-              onSelectScope={props.onSelectScope}
-            />
-          </div>
-          <Show
-            when={
-              props.loading() || (!props.highlightedHtml() && !props.error())
-            }
-          >
-            <LoadingState label="Loading file..." />
-          </Show>
-          <Show when={!props.loading() && props.error()}>
-            <ErrorState message={props.error()} class="min-h-32" />
-          </Show>
-          <Show when={showCode()}>
-            <FlowOverlayCode
-              html={() => props.highlightedHtml() || ""}
-              filePath={props.filePath}
-              sliceStartLine={props.displayStartLine}
-              focusRange={() => {
-                const s = props.targetStartLine?.();
-                const e = props.targetEndLine?.();
-                if (typeof s === "number" && typeof e === "number") {
-                  return { start: s, end: e };
-                }
-                return null;
-              }}
-              removedIndentByLine={props.removedIndentByLine}
-              lineFilterEnabled={props.lineFilterEnabled}
-              dataFlowEnabled={props.dataFlowEnabled}
-              onTokensChange={setTokens}
-              onJumpToLine={props.onJumpToLine}
-            />
-          </Show>
-        </div>
-      </Show>
-
-      <Show when={props.scopeFlowEnabled() && showCode()}>
-        <ScopeFlowPane
-          enabled={props.scopeFlowEnabled}
-          filePath={props.filePath()}
-          targetStartLine={props.targetStartLine()}
-          targetEndLine={props.targetEndLine()}
-          onJumpToLine={props.onJumpToLine}
-          isMaximized={props.isScopeMaximized}
-          onToggleMaximize={props.onToggleMaximizeScope}
-        />
-      </Show>
-
-      <Show when={props.dataFlowEnabled() && showCode() && !props.isScopeMaximized()}>
-        <div class="w-48 shrink-0 border-l border-[var(--plc-border)] bg-[var(--plc-surface)] p-4 overflow-y-auto">
-          <h3 class="plc-label-caps mb-4 text-[var(--plc-on-muted)]">
-            Data Flow
-          </h3>
-          <div class="space-y-3 code-modal-content">
-            <For each={LEGEND_ITEMS}>
-              {(item) => {
-                const count = () => counts().get(item.category) || 0;
-                return (
-                  <div
-                    class="flex items-center justify-between group cursor-default"
-                    title={`${item.label}: ${count()} occurrences`}
-                  >
-                    <div class="flex items-center gap-2">
-                      <div
-                        class={`w-3.5 h-3.5 rounded-sm border border-[var(--plc-border)] flow flow-${item.category}`}
-                        aria-hidden="true"
-                      />
-                      <span class="text-[11px] text-[var(--plc-on-muted)] font-medium group-hover:text-[var(--plc-on-surface)] transition-colors">
-                        {item.label}
-                      </span>
-                    </div>
-                    <Show when={count() > 0}>
-                      <span class="text-[10px] font-mono text-[var(--plc-on-subtle)] group-hover:text-[var(--plc-on-muted)] tabular-nums">
-                        {count()}
-                      </span>
-                    </Show>
-                  </div>
-                );
-              }}
-            </For>
-          </div>
-
-          <div class="mt-8 pt-6 border-t border-[var(--plc-border)]">
-            <p class="text-[10px] leading-relaxed text-[var(--plc-on-subtle)] italic">
-              Tracing {tokens().length} identifiers in the current view.
-            </p>
-          </div>
-        </div>
-      </Show>
+          <LoadingState label="Loading file..." />
+        </Show>
+        <Show when={!props.loading() && props.error()}>
+          <ErrorState message={props.error()} class="min-h-32" />
+        </Show>
+        <Show when={showCode()}>
+          <div
+            class="code-modal-content"
+            innerHTML={props.highlightedHtml()}
+          />
+        </Show>
+      </div>
     </div>
   );
 }

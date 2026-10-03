@@ -21,7 +21,7 @@ Srcly already produces a rich hierarchical model:
 - TypeScript/TSX metrics such as JSX nesting, render branches, `useEffect`, inline handlers, prop counts, `any`, `ts-ignore`, import coupling, hardcoded strings, duplicated strings, type/interface counts, and exports.
 - Python import counts.
 - Markdown data URL counts.
-- Dependency graph and data-flow/scope APIs for deeper TS/TSX inspection.
+- Dependency graph support for deeper TS/TSX inspection.
 
 The missing piece is a headless contract: a command that packages this information into ranked findings, a navigable tree, and explicit guidance for an agent.
 
@@ -398,10 +398,9 @@ uvx srcly report . --tree-depth 4 --tree-top 12
 - Add clearer finding deduplication so one file does not flood the report.
 - Add `--changed-only` later by comparing against Git diff paths.
 
-### Phase 3: Deeper Graph Artifacts
+### Phase 3: Deeper Analysis Artifacts
 
 - Add per-file `explain` output.
-- Add optional data-flow/scope graph artifacts for the top N TS/TSX findings.
 - Add import-boundary and cycle detection findings.
 
 ## Proposed Profiles

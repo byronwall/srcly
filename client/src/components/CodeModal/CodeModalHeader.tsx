@@ -24,12 +24,6 @@ export function CodeModalHeader(props: {
   setLineFilterEnabled: (next: boolean) => void;
   lineOffset: () => number;
   setLineOffset: (next: number) => void;
-
-  dataFlowEnabled: () => boolean;
-  setDataFlowEnabled: (next: boolean) => void;
-
-  scopeFlowEnabled: () => boolean;
-  setScopeFlowEnabled: (next: boolean) => void;
 }) {
   return (
     <header class="flex min-h-12 items-center justify-between border-b border-[var(--plc-border)] bg-[var(--plc-surface)] px-4 py-2 text-sm">
@@ -98,22 +92,6 @@ export function CodeModalHeader(props: {
           onChange={props.setReduceIndentation}
           title="Strip common indentation to save horizontal space"
           label="Reduce indent"
-        />
-
-        <CheckboxRow
-          class="ml-3 text-[11px]"
-          checked={props.dataFlowEnabled()}
-          onChange={props.setDataFlowEnabled}
-          title="Highlight data flow, usages, and show tooltips"
-          label="Data flow"
-        />
-
-        <CheckboxRow
-          class="ml-3 text-[11px]"
-          checked={props.scopeFlowEnabled()}
-          onChange={props.setScopeFlowEnabled}
-          title="Show/hide the Scope Flow pane"
-          label="Scope flow"
         />
 
         <Show when={props.hasLineRange()}>
