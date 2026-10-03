@@ -1,4 +1,4 @@
-import { createSignal, createMemo, For, Show, createContext } from "solid-js";
+import { createSignal, createMemo, For, Show, createContext, createEffect, onCleanup } from "solid-js";
 import {
   ArrowDown,
   ArrowUp,
@@ -21,6 +21,8 @@ import {
 } from "../utils/metricsStore";
 import { HotSpotItem } from "./HotSpotItem";
 import { TreeNode } from "./TreeNode";
+import { extractFilePath } from "../utils/dataProcessing";
+import { flattenExplorerTree, getVirtualTreeRange } from "../utils/explorerTree";
 
 export interface Node {
   name: string;
@@ -100,8 +102,12 @@ interface ExplorerContextType {
   onZoom: (node: any) => void;
   filter: string;
   visibleColumns: () => string[];
-  expandAllSignal: () => boolean | null;
-  rootData: Node;
+  rootData: Node | null;
+  focusedPath: () => string;
+  tabbablePath: () => string;
+  setFocusedPath: (path: string) => void;
+  toggleExpanded: (node: Node) => void;
+  onTreeKeyDown: (index: number, event: KeyboardEvent) => void;
 }
 
 export const ExplorerContext = createContext<ExplorerContextType>();
@@ -208,6 +214,143 @@ export default function Explorer(props: {
     "loc",
     "complexity",
   ]);
+  const [expandedPaths, setExpandedPaths] = createSignal<Set<string>>(new Set());
+  const [collapsedPaths, setCollapsedPaths] = createSignal<Set<string>>(new Set());
+  const [expandedMode, setExpandedMode] = createSignal<"manual" | "all" | "none">("manual");
+  const [focusedPath, setFocusedPath] = createSignal("");
+  const [scrollTop, setScrollTop] = createSignal(0);
+  const [viewportHeight, setViewportHeight] = createSignal(0);
+  let treeScroller: HTMLDivElement | undefined;
+  let lastRootPath: string | undefined;
+
+  createEffect(() => {
+    const rootPath = props.data?.path;
+    if (rootPath === lastRootPath) return;
+    lastRootPath = rootPath;
+    setExpandedPaths(rootPath ? new Set<string>([rootPath]) : new Set<string>());
+    setCollapsedPaths(new Set<string>());
+    setExpandedMode("manual");
+    setFocusedPath(rootPath ?? "");
+  });
+
+  const isExpanded = (node: Node) => {
+    if (!node.children?.length) return false;
+    if (collapsedPaths().has(node.path)) return false;
+    if (expandedMode() === "all") return true;
+    if (expandedMode() === "none") return expandedPaths().has(node.path);
+    return expandedPaths().has(node.path) || Boolean(props.filter.trim());
+  };
+
+  const treeRows = createMemo(() => {
+    const accessor = SORT_FIELD_ACCESSORS[sortField()] ?? SORT_FIELD_ACCESSORS.name;
+    return flattenExplorerTree(props.data, {
+      isExpanded,
+      getValue: accessor,
+      direction: sortDirection(),
+    });
+  });
+
+  const treeRange = createMemo(() =>
+    getVirtualTreeRange(scrollTop(), viewportHeight(), treeRows().length)
+  );
+  const visibleTreeRows = createMemo(() => {
+    const rows = treeRows();
+    const { start, end } = treeRange();
+    return rows.slice(start, end);
+  });
+  const tabbablePath = createMemo(() => {
+    const visible = visibleTreeRows();
+    return visible.some((row) => row.node.path === focusedPath())
+      ? focusedPath()
+      : visible[0]?.node.path ?? "";
+  });
+
+  createEffect(() => {
+    const rows = treeRows();
+    if (!rows.some((row) => row.node.path === focusedPath())) {
+      setFocusedPath(rows[0]?.node.path ?? "");
+    }
+  });
+
+  createEffect(() => {
+    viewMode();
+    const element = treeScroller;
+    if (!element) return;
+    const resizeObserver = new ResizeObserver(() => {
+      setViewportHeight(element.clientHeight);
+    });
+    resizeObserver.observe(element);
+    setViewportHeight(element.clientHeight);
+    onCleanup(() => resizeObserver.disconnect());
+  });
+
+  const toggleExpanded = (node: Node) => {
+    const path = node.path;
+    if (isExpanded(node)) {
+      setExpandedPaths((paths) => {
+        const next = new Set(paths);
+        next.delete(path);
+        return next;
+      });
+      setCollapsedPaths((paths) => new Set(paths).add(path));
+    } else {
+      setExpandedPaths((paths) => new Set(paths).add(path));
+      setCollapsedPaths((paths) => {
+        const next = new Set(paths);
+        next.delete(path);
+        return next;
+      });
+    }
+  };
+
+  const focusTreeRow = (index: number) => {
+    const rows = treeRows();
+    const row = rows[index];
+    if (!row) return;
+    setFocusedPath(row.node.path);
+    const rowTop = index * 32;
+    const top = treeScroller?.scrollTop ?? scrollTop();
+    const height = treeScroller?.clientHeight ?? viewportHeight();
+    if (treeScroller && rowTop < top) treeScroller.scrollTop = rowTop;
+    else if (treeScroller && rowTop + 32 > top + height) treeScroller.scrollTop = rowTop + 32 - height;
+    if (treeScroller) setScrollTop(treeScroller.scrollTop);
+    requestAnimationFrame(() => {
+      treeScroller?.querySelector<HTMLElement>(`[data-explorer-index="${index}"]`)?.focus();
+    });
+  };
+
+  const onTreeKeyDown = (index: number, event: KeyboardEvent) => {
+    const rows = treeRows();
+    const row = rows[index];
+    if (!row) return;
+    if (event.key === "ArrowDown") focusTreeRow(Math.min(rows.length - 1, index + 1));
+    else if (event.key === "ArrowUp") focusTreeRow(Math.max(0, index - 1));
+    else if (event.key === "Home") focusTreeRow(0);
+    else if (event.key === "End") focusTreeRow(rows.length - 1);
+    else if (event.key === "ArrowRight") {
+      if (row.hasChildren && !isExpanded(row.node)) toggleExpanded(row.node);
+      else if (rows[index + 1]?.depth > row.depth) focusTreeRow(index + 1);
+      else return;
+    } else if (event.key === "ArrowLeft") {
+      if (row.hasChildren && isExpanded(row.node)) toggleExpanded(row.node);
+      else {
+        for (let i = index - 1; i >= 0; i--) {
+          if (rows[i].depth < row.depth) {
+            focusTreeRow(i);
+            break;
+          }
+        }
+      }
+    } else if (event.key === "Enter" || event.key === " ") {
+      const node = row.node;
+      if (node.type === "folder") props.onZoom(node);
+      else {
+        const path = extractFilePath(node.path, node.type);
+        if (path) props.onFileSelect(path, node.start_line, node.end_line, node);
+      }
+    } else return;
+    event.preventDefault();
+  };
 
   const handleHeaderClick = (field: SortField) => {
     if (sortField() === field) {
@@ -301,10 +444,6 @@ export default function Explorer(props: {
       .slice(0, 50);
   });
 
-  const [expandAllSignal, setExpandAllSignal] = createSignal<boolean | null>(
-    null
-  );
-
   return (
     <ExplorerContext.Provider
       value={{
@@ -314,8 +453,12 @@ export default function Explorer(props: {
         onZoom: props.onZoom,
         filter: props.filter,
         visibleColumns,
-        expandAllSignal,
         rootData: props.data,
+        focusedPath,
+        tabbablePath,
+        setFocusedPath,
+        toggleExpanded,
+        onTreeKeyDown,
       }}
     >
       <div class="flex flex-col h-full plc-panel border-l border-y-0 border-r-0 rounded-none w-full">
@@ -346,13 +489,13 @@ export default function Explorer(props: {
             <div class="flex items-center gap-1 ml-auto">
               <IconButton
                 label="Expand all"
-                onClick={() => setExpandAllSignal(true)}
+                onClick={() => { setCollapsedPaths(new Set<string>()); setExpandedMode("all"); }}
               >
                 <ChevronsUpDown size={15} aria-hidden="true" />
               </IconButton>
               <IconButton
                 label="Collapse all"
-                onClick={() => setExpandAllSignal(false)}
+                onClick={() => { setExpandedPaths(new Set<string>()); setCollapsedPaths(new Set<string>()); setExpandedMode("none"); }}
               >
                 <ChevronsDownUp size={15} aria-hidden="true" />
               </IconButton>
@@ -557,9 +700,33 @@ export default function Explorer(props: {
               </div>
             </Show>
           </div>
-          <div class="flex-1 overflow-y-auto overflow-x-hidden">
-            <Show when={props.data}>
-              <TreeNode node={props.data} depth={0} />
+          <div
+            ref={(element) => (treeScroller = element)}
+            class="flex-1 overflow-y-auto overflow-x-hidden"
+            onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+          >
+            <Show
+              when={visibleTreeRows().length > 0}
+              fallback={
+                <div class="p-4 text-center text-[var(--plc-on-subtle)] text-sm">
+                  {props.filter.trim() ? "No files match this filter." : "No files to show."}
+                </div>
+              }
+            >
+              <div role="tree" aria-label="Codebase files">
+                <div role="presentation" aria-hidden="true" style={{ height: `${treeRange().top}px` }} />
+                <For each={visibleTreeRows()}>
+                  {(row, index) => (
+                    <TreeNode
+                      node={row.node}
+                      depth={row.depth}
+                      index={treeRange().start + index()}
+                      expanded={isExpanded(row.node)}
+                    />
+                  )}
+                </For>
+                <div role="presentation" aria-hidden="true" style={{ height: `${treeRange().bottom}px` }} />
+              </div>
             </Show>
           </div>
         </Show>

@@ -5,10 +5,10 @@ import {
   onMount,
   Show,
   createEffect,
+  lazy,
 } from "solid-js";
 import Toast from "./components/Toast";
 
-import CodeModal from "./components/CodeModal/CodeModal.tsx";
 import Explorer from "./components/Explorer";
 import { DialogHeader, DialogShell } from "./components/dialog/DialogShell";
 import { ScanProgress } from "./components/feedback/ScanProgress";
@@ -24,9 +24,11 @@ import {
   watchScan,
   type ScanSnapshot,
 } from "./services/scanJobs";
-import { filterTree } from "./utils/dataProcessing";
+import { filterTree, findTreeNodeByPath } from "./utils/dataProcessing";
 import { formatCount, formatDuration } from "./utils/scanProgress";
 import { MetricsStoreProvider, useMetricsStore } from "./utils/metricsStore";
+
+const CodeModal = lazy(() => import("./components/CodeModal/CodeModal.tsx"));
 
 type AnalysisContext = {
   rootPath: string;
@@ -309,25 +311,14 @@ function AppContent() {
 
   const processedData = createMemo(() => {
     const data = visualizationData();
-    if (!data) return null;
-    // Clone and filter
-    const clone = JSON.parse(JSON.stringify(data));
+    return data ? filterTree(data, filterQuery(), excludedPaths()) : null;
+  });
 
-    // Filter out hidden paths
-    const hidden = excludedPaths();
-    if (hidden.length > 0) {
-      // Recursive filter function to remove hidden nodes
-      const removeHidden = (node: any) => {
-        if (!node.children) return;
-        node.children = node.children.filter(
-          (child: any) => !hidden.includes(child.path)
-        );
-        node.children.forEach(removeHidden);
-      };
-      removeHidden(clone);
-    }
-
-    return filterTree(clone, filterQuery());
+  const explorerRoot = createMemo(() => {
+    const root = processedData();
+    if (!root) return null;
+    const selectedPath = currentRoot()?.path;
+    return selectedPath ? findTreeNodeByPath(root, selectedPath) ?? root : root;
   });
 
   const selectedNodes = createMemo(() => {
@@ -400,7 +391,7 @@ function AppContent() {
         </DialogShell>
 
         <Show
-          when={processedData()}
+          when={visualizationData()}
           fallback={
             <div class="h-full w-full">
               <Show
@@ -494,7 +485,7 @@ function AppContent() {
               class="h-full shrink-0"
             >
               <Explorer
-                data={currentRoot() || processedData()}
+                data={explorerRoot()}
                 fullData={processedData()}
                 onFileSelect={handleFileFromTreemap}
                 onZoom={setCurrentRoot}
@@ -523,15 +514,17 @@ function AppContent() {
       <Show when={showToast()}>
         <Toast message={toastMessage()} type={toastType()} duration={4000} />
       </Show>
-      <CodeModal
-        isOpen={isCodeModalOpen()}
-        filePath={selectedFilePath()}
-        startLine={selectedLineRange()?.start ?? null}
-        endLine={selectedLineRange()?.end ?? null}
-        onClose={() => setIsCodeModalOpen(false)}
-        fileNode={selectedNodes().fileNode}
-        scopeNode={selectedNodes().scopeNode}
-      />
+      <Show when={isCodeModalOpen()}>
+        <CodeModal
+          isOpen={true}
+          filePath={selectedFilePath()}
+          startLine={selectedLineRange()?.start ?? null}
+          endLine={selectedLineRange()?.end ?? null}
+          onClose={() => setIsCodeModalOpen(false)}
+          fileNode={selectedNodes().fileNode}
+          scopeNode={selectedNodes().scopeNode}
+        />
+      </Show>
     </div>
   );
 }

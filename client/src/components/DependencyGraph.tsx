@@ -1,6 +1,7 @@
-import { createSignal, createEffect, Show, For, createMemo } from "solid-js";
+import { createSignal, createEffect, Show, For, createMemo, onCleanup } from "solid-js";
 import CodeModal from "./CodeModal/CodeModal.tsx";
-import ELK from "elkjs/lib/elk.bundled.js";
+import ELK from "elkjs/lib/elk-api.js";
+import elkWorkerUrl from "elkjs/lib/elk-worker.min.js?url";
 import * as d3 from "d3";
 import { LoadingState, ErrorState } from "./feedback/States";
 import { PanelHeader } from "./layout/PanelHeader";
@@ -246,8 +247,21 @@ export default function DependencyGraph(props: DependencyGraphProps) {
   // Track pointer movement so that node clicks only fire when there has been
   // effectively no mouse movement (i.e. not part of a drag/zoom gesture).
   let pointerMovedSinceDown = false;
+  let forceLayoutWorker: Worker | undefined;
+  let layoutGeneration = 0;
+  let resolveForceLayout: ((positions: Array<{ id: string; x: number; y: number }> | null) => void) | undefined;
 
-  const elk = new ELK();
+  const cancelForceLayout = () => {
+    layoutGeneration++;
+    forceLayoutWorker?.terminate();
+    forceLayoutWorker = undefined;
+    resolveForceLayout?.(null);
+    resolveForceLayout = undefined;
+  };
+  onCleanup(cancelForceLayout);
+
+  const elk = new ELK({ workerUrl: elkWorkerUrl });
+  onCleanup(() => elk.terminateWorker());
   const primaryMetric = () => props.primaryMetricId || "complexity";
 
   const nodeById = createMemo(() => {
@@ -890,7 +904,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     };
   }
 
-  async function layoutGraph(data: GraphData) {
+  async function layoutGraph(data: GraphData, generation: number) {
     // Construct ELK graph with hierarchy if needed
 
     const isCompact = compactLayout();
@@ -1002,6 +1016,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
 
     try {
       const layout = await elk.layout(elkGraph as any);
+      if (generation !== layoutGeneration) return;
 
       // Flatten the result back to a list of nodes for rendering
       const flatNodes: Node[] = [];
@@ -1137,8 +1152,11 @@ export default function DependencyGraph(props: DependencyGraphProps) {
       setEdges((layout.edges ?? []) as unknown as Edge[]);
 
       // Fit graph after layout update
-      setTimeout(fitGraph, 0);
+      setTimeout(() => {
+        if (generation === layoutGeneration) fitGraph();
+      }, 0);
     } catch (err) {
+      if (generation !== layoutGeneration) return;
       console.error("Layout error:", err);
       setError("Failed to layout graph");
     }
@@ -1148,7 +1166,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     return a + (b - a) * t;
   }
 
-  async function layoutForceGraph(data: GraphData) {
+  async function layoutForceGraph(data: GraphData, generation: number) {
     const isCompact = compactLayout();
     const tight = Math.max(0, Math.min(100, forceTightness()));
     const t = tight / 100;
@@ -1260,33 +1278,53 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     const chargeStrength = lerp(-900, -220, t);
     const collidePad = lerp(22, 10, t);
 
-    const sim = d3
-      .forceSimulation(simNodes as any)
-      .alpha(1)
-      .alphaDecay(0.035)
-      .force(
-        "link",
-        d3
-          .forceLink(links as any)
-          .id((d: any) => d.id)
-          .distance(linkDistance)
-          .strength(0.85)
-      )
-      .force("charge", d3.forceManyBody().strength(chargeStrength))
-      .force(
-        "collide",
-        d3
-          .forceCollide()
-          .radius(
-            (d: any) => Math.max(d.width ?? 0, d.height ?? 0) / 2 + collidePad
-          )
-          .iterations(2)
-      )
-      .force("center", d3.forceCenter(0, 0));
+    const worker = new Worker(new URL("../workers/dependencyForce.worker.ts", import.meta.url), {
+      type: "module",
+    });
+    forceLayoutWorker = worker;
+    const positions = await new Promise<Array<{ id: string; x: number; y: number }> | null>((resolve) => {
+      resolveForceLayout = resolve;
+      worker.onmessage = (event: MessageEvent<{
+        id: number;
+        positions?: Array<{ id: string; x: number; y: number }>;
+        error?: string;
+      }>) => {
+        if (generation !== layoutGeneration) return;
+        worker.terminate();
+        forceLayoutWorker = undefined;
+        resolveForceLayout = undefined;
+        if (event.data.error) {
+          setError(`Force layout failed: ${event.data.error}`);
+          resolve(null);
+        } else {
+          resolve(event.data.positions ?? []);
+        }
+      };
+      worker.onerror = (event) => {
+        if (generation !== layoutGeneration) return;
+        setError(`Force layout failed: ${event.message}`);
+        cancelForceLayout();
+      };
+      worker.postMessage({
+        id: generation,
+        nodes: simNodes.map(({ id, x, y, width, height }) => ({ id, x, y, width, height })),
+        links,
+        linkDistance,
+        chargeStrength,
+        collidePad,
+        iterations: 260,
+      });
+    });
 
-    // Run to convergence synchronously so we get a stable layout.
-    for (let i = 0; i < 260; i++) sim.tick();
-    sim.stop();
+    if (generation !== layoutGeneration || !positions) return;
+    const positionById = new Map(positions.map((position) => [position.id, position]));
+    for (const node of simNodes) {
+      const position = positionById.get(node.id);
+      if (position) {
+        node.x = position.x;
+        node.y = position.y;
+      }
+    }
 
     // Position export pills and badges relative to their parent file boxes.
     const flatNodes: Node[] = [...nodesById.values()];
@@ -1397,7 +1435,9 @@ export default function DependencyGraph(props: DependencyGraphProps) {
 
   createEffect(() => {
     const data = rawGraph();
+    cancelForceLayout();
     if (!data) return;
+    const generation = layoutGeneration;
     const includeExternal = showExternal();
     const showExports = showExportedMembers();
     const hideUnused = hideUnimported();
@@ -1414,9 +1454,9 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     );
     setSuperNodeAssignments(assignments);
     if (layoutMode() === "force") {
-      void layoutForceGraph(graph);
+      void layoutForceGraph(graph, generation);
     } else {
-      void layoutGraph(graph);
+      void layoutGraph(graph, generation);
     }
   });
 

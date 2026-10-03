@@ -24,9 +24,9 @@ function makeTree() {
   const [folder] = root.children!;
   const [app, tiny] = folder.children!;
   Object.assign(root, { x0: 0, y0: 0, x1: 100, y1: 80 });
-  Object.assign(folder, { x0: 0, y0: 0, x1: 100, y1: 80 });
-  Object.assign(app, { x0: 0, y0: 0, x1: 70, y1: 80 });
-  Object.assign(tiny, { x0: 72, y0: 0, x1: 74, y1: 2 });
+  Object.assign(folder, { x0: 4, y0: 4, x1: 96, y1: 76 });
+  Object.assign(app, { x0: 4, y0: 4, x1: 70, y1: 76 });
+  Object.assign(tiny, { x0: 72, y0: 4, x1: 74, y1: 6 });
   return { root, folder, app, tiny };
 }
 
@@ -38,6 +38,7 @@ describe("treemap canvas hit testing", () => {
 
     expect(findTileAt(index, 20, 30, 100)).toBe(app);
     expect(findTileAt(index, 90, 30, 100)).toBe(folder);
+    expect(findTileAt(index, 1, 1, 100)).toBeNull();
   });
 
   it("culls tiles below the paint threshold", () => {
@@ -46,7 +47,7 @@ describe("treemap canvas hit testing", () => {
     const index = buildTileHitIndex(tiles, 100, 80);
 
     expect(tiles).not.toContain(tiny);
-    expect(findTileAt(index, 73, 1, 100)).toBe(root.children![0]);
+    expect(findTileAt(index, 73, 5, 100)).toBe(root.children![0]);
     expect(tiles).toContain(app);
   });
 });

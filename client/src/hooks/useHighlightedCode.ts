@@ -1,14 +1,5 @@
-import { codeToHtml } from "shiki";
-import { createEffect, createSignal } from "solid-js";
+import { createEffect, createSignal, onCleanup } from "solid-js";
 import { guessLangFromPath } from "../utils/guessLangFromPath";
-import { reduceCommonIndent } from "../utils/indentation";
-import { computeDisplaySlice, type LineRange } from "../utils/lineRange";
-import {
-  applyLineNumberCounterReset,
-  markNonFocusLines,
-  stripShikiPreNewlines,
-} from "../utils/shikiHtml";
-// (imports)
 
 export function useHighlightedCode(args: {
   rawCode: () => string;
@@ -20,13 +11,48 @@ export function useHighlightedCode(args: {
   reduceIndentation: () => boolean;
 }) {
   const [highlightedHtml, setHighlightedHtml] = createSignal("");
-  const [displayStartLine, setDisplayStartLine] = createSignal<number | null>(
-    null
-  );
+  const [displayStartLine, setDisplayStartLine] = createSignal<number | null>(null);
   const [displayEndLine, setDisplayEndLine] = createSignal<number | null>(null);
   const [wasIndentationReduced, setWasIndentationReduced] = createSignal(false);
+  const [highlightError, setHighlightError] = createSignal<string | null>(null);
+  let worker: Worker | undefined;
+  let requestId = 0;
 
-  let lastProcessId = 0;
+  const getWorker = () => {
+    if (worker) return worker;
+    worker = new Worker(new URL("../workers/highlight.worker.ts", import.meta.url), {
+      type: "module",
+    });
+    worker.onmessage = (event: MessageEvent<{
+      id: number;
+      html?: string;
+      start?: number;
+      end?: number;
+      wasIndentationReduced?: boolean;
+      error?: string;
+    }>) => {
+      const result = event.data;
+      if (result.id !== requestId) return;
+      if (result.error) {
+        setHighlightError(`Could not highlight this file: ${result.error}`);
+        setHighlightedHtml("");
+        return;
+      }
+      setHighlightError(null);
+      setHighlightedHtml(result.html ?? "");
+      setDisplayStartLine(result.start ?? null);
+      setDisplayEndLine(result.end ?? null);
+      setWasIndentationReduced(Boolean(result.wasIndentationReduced));
+    };
+    worker.onerror = (event) => {
+      requestId++;
+      worker?.terminate();
+      worker = undefined;
+      setHighlightError(`Syntax highlighting failed: ${event.message}`);
+      setHighlightedHtml("");
+    };
+    return worker;
+  };
 
   createEffect(() => {
     const text = args.rawCode();
@@ -36,6 +62,8 @@ export function useHighlightedCode(args: {
     const shouldReduceIndent = args.reduceIndentation();
     const tStart = args.targetStart();
     const tEnd = args.targetEnd();
+    const id = ++requestId;
+    setHighlightError(null);
 
     if (!text || !path) {
       setHighlightedHtml("");
@@ -45,62 +73,29 @@ export function useHighlightedCode(args: {
       return;
     }
 
-    const target: LineRange | null =
+    const target =
       typeof tStart === "number" && typeof tEnd === "number"
         ? { start: tStart, end: tEnd }
         : null;
 
-    const currentProcessId = ++lastProcessId;
-
-    (async () => {
-      const slice = computeDisplaySlice({
+    try {
+      getWorker().postMessage({
+        id,
         text,
+        language: guessLangFromPath(path),
         useLineFilter,
-        target,
         offset,
+        target,
+        reduceIndentation: shouldReduceIndent,
       });
+    } catch (error) {
+      setHighlightError(`Could not start syntax highlighting: ${String(error)}`);
+    }
+  });
 
-      let linesToDisplay = slice.linesToDisplay;
-      let isReduced = false;
-      if (shouldReduceIndent) {
-        const reduced = reduceCommonIndent(linesToDisplay, { keepIndent: 2 });
-        linesToDisplay = reduced.lines;
-        isReduced = reduced.reduced;
-      }
-
-      const displayText = linesToDisplay.join("\n");
-      const lang = guessLangFromPath(path);
-
-      let html = await codeToHtml(displayText, {
-        lang,
-        theme: "github-light",
-      });
-
-      // Keep Shiki's span layout stable for our CSS counter rules.
-      html = stripShikiPreNewlines(html);
-
-      // Adjust line numbers and gray out non-focused lines.
-      if (useLineFilter && target) {
-        const counterStart = slice.start > 0 ? slice.start - 1 : 0;
-        html = applyLineNumberCounterReset(html, counterStart);
-
-        const focusStartFile = Math.max(slice.start, target.start);
-        const focusEndFile = Math.min(slice.end, target.end);
-
-        if (focusEndFile >= focusStartFile) {
-          const focusStartIndex = focusStartFile - slice.start + 1;
-          const focusEndIndex = focusEndFile - slice.start + 1;
-          html = markNonFocusLines(html, focusStartIndex, focusEndIndex);
-        }
-      }
-
-      if (currentProcessId === lastProcessId) {
-        setHighlightedHtml(html);
-        setDisplayStartLine(slice.start);
-        setDisplayEndLine(slice.end);
-        setWasIndentationReduced(isReduced);
-      }
-    })();
+  onCleanup(() => {
+    requestId++;
+    worker?.terminate();
   });
 
   return {
@@ -108,5 +103,6 @@ export function useHighlightedCode(args: {
     displayStartLine,
     displayEndLine,
     wasIndentationReduced,
+    highlightError,
   };
 }

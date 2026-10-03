@@ -51,11 +51,6 @@ function tileKey(node: TreemapTile | null): string | null {
   return segments.reverse().join("/");
 }
 
-function cssColor(value: string, element: HTMLElement): string {
-  const variable = value.match(/^var\((--[^),]+)/)?.[1];
-  return variable ? getComputedStyle(element).getPropertyValue(variable).trim() || value : value;
-}
-
 function relativeDepth(node: TreemapTile): number {
   let current: TreemapTile | null = node;
   while (current) {
@@ -176,7 +171,7 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
                 relativeDepth(node),
                 label.kind === "chunk" ? 0.7 : 1
               );
-          context.fillStyle = cssColor(textColor, canvas);
+          context.fillStyle = textColor;
           context.fillText(text, node.x0 + label.x, node.y0 + label.y);
         }
       }

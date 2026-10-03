@@ -53,6 +53,7 @@ export default function CodeModal(props: CodeModalProps) {
     displayStartLine,
     displayEndLine,
     wasIndentationReduced,
+    highlightError,
   } = useHighlightedCode({
     rawCode,
     filePath: () => props.filePath,
@@ -321,7 +322,7 @@ export default function CodeModal(props: CodeModalProps) {
                 fallback={
                   <CodePane
                     loading={loading}
-                    error={error}
+                    error={() => error() ?? highlightError()}
                     highlightedHtml={highlightedHtml}
                     filePath={() => props.filePath}
                     fileNode={() => props.fileNode ?? null}
