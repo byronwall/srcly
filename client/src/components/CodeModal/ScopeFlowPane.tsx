@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-solid";
 import {
   createMemo,
   createResource,
@@ -35,7 +36,6 @@ interface ScopeGraph {
   root: ScopeNode;
 }
 
-const LOG_PREFIX = "[ScopeFlow]";
 
 const fetchScopeGraph = async (
   path: string,
@@ -44,8 +44,6 @@ const fetchScopeGraph = async (
 ): Promise<ScopeGraph> => {
   // Match the rest of the app's API calls (same-origin `/api/...`).
   // Hardcoding localhost breaks when the client is served elsewhere.
-  // eslint-disable-next-line no-console
-  console.log(`${LOG_PREFIX} fetch scope-graph`, { path, start, end });
   const res = await fetch("/api/analysis/focus/scope-graph", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -53,13 +51,6 @@ const fetchScopeGraph = async (
   });
   if (!res.ok) throw new Error("Failed to fetch scope graph");
   const json = (await res.json()) as ScopeGraph;
-  // eslint-disable-next-line no-console
-  console.log(`${LOG_PREFIX} scope-graph ok`, {
-    rootKind: json?.root?.kind ?? null,
-    rootChildren: json?.root?.children?.length ?? 0,
-    rootDeclared: json?.root?.declared?.length ?? 0,
-    rootCaptured: json?.root?.captured?.length ?? 0,
-  });
   return json;
 };
 
@@ -227,10 +218,10 @@ const ScopeBox: Component<{
         <div class="flex items-center gap-1.5">
           <Show when={props.node.children.length > 0}>
             <span
-              class="transition-transform duration-200"
+              class="flex transition-transform duration-200"
               classList={{ "rotate-90": expanded() }}
             >
-              ▶
+              <ChevronRight size={12} aria-hidden="true" />
             </span>
           </Show>
           <span>{props.node.name || props.node.kind}</span>
@@ -378,12 +369,6 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
   const [pillArrowsEnabled, setPillArrowsEnabled] = createSignal(true);
 
   onMount(() => {
-    // eslint-disable-next-line no-console
-    console.log(`${LOG_PREFIX} mount`, {
-      filePath: props.filePath,
-      targetStartLine: props.targetStartLine,
-      targetEndLine: props.targetEndLine,
-    });
   });
 
   onMount(() => {
@@ -776,22 +761,6 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
     const now = Date.now();
     if (now - lastDebugLogAt > 750) {
       lastDebugLogAt = now;
-      // eslint-disable-next-line no-console
-      console.log(`${LOG_PREFIX} overlay`, {
-        pills: pills.length,
-        declaredGroups: declaredByKey.size,
-        capturedGroups: capturedByKey.size,
-        scopeEdges: scopeEdges.size,
-        scopeEdgesDrawn,
-        scopeEdgesMissingSource,
-        scopeEdgesMissingTarget,
-        overlapKeys,
-        lines: newLines.length,
-        scopeLinksEnabled: scopeLinksEnabled(),
-        pillArrowsEnabled: pillArrowsEnabled(),
-        scrollTop: scrollT,
-        overlayHeight: el.scrollHeight,
-      });
     }
   };
 
@@ -859,10 +828,6 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
               <button
                 onClick={() => {
                   setScopeLinksEnabled(!scopeLinksEnabled());
-                  // eslint-disable-next-line no-console
-                  console.log(`${LOG_PREFIX} scope-links`, {
-                    enabled: !scopeLinksEnabled(),
-                  });
                   scheduleRecalculate();
                 }}
                 class="p-1 hover:bg-[var(--plc-surface-hover)] rounded transition-colors text-[var(--plc-on-subtle)] hover:text-[var(--plc-on-surface)]"
@@ -911,10 +876,6 @@ export function ScopeFlowPane(props: ScopeFlowPaneProps) {
               <button
                 onClick={() => {
                   setPillArrowsEnabled(!pillArrowsEnabled());
-                  // eslint-disable-next-line no-console
-                  console.log(`${LOG_PREFIX} pill-arrows`, {
-                    enabled: !pillArrowsEnabled(),
-                  });
                   scheduleRecalculate();
                 }}
                 class="p-1 hover:bg-[var(--plc-surface-hover)] rounded transition-colors text-[var(--plc-on-subtle)] hover:text-[var(--plc-on-surface)]"

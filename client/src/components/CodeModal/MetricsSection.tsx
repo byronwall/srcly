@@ -15,11 +15,7 @@ export function MetricsSection(props: { title: string; node: any }) {
             const val = props.node.metrics?.[m().id];
             if (val === undefined || val === null) return null;
             return (
-              <MetricItem
-                label={m().label}
-                value={val}
-                colorClass={m().color}
-              />
+              <MetricItem id={m().id} label={m().label} value={val} />
             );
           }}
         </For>

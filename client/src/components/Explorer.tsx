@@ -1,4 +1,13 @@
 import { createSignal, createMemo, For, Show, createContext } from "solid-js";
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Columns3,
+  CornerLeftUp,
+} from "lucide-solid";
+import { MetricPicker } from "./MetricPicker";
 import Popover from "./Popover";
 import { Button } from "./ui/Button";
 import { CheckboxRow } from "./ui/CheckboxRow";
@@ -220,8 +229,8 @@ export default function Explorer(props: {
 
   const SortIcon = (p: { field: SortField }) => (
     <Show when={sortField() === p.field}>
-      <span class="ml-1 text-[10px]">
-        {sortDirection() === "asc" ? "▲" : "▼"}
+      <span class="ml-0.5 inline-flex" aria-hidden="true">
+        {sortDirection() === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
       </span>
     </Show>
   );
@@ -292,31 +301,6 @@ export default function Explorer(props: {
       .slice(0, 50);
   });
 
-  const [isHotspotMultiSelectMode, setIsHotspotMultiSelectMode] =
-    createSignal(false);
-
-  const handleHotSpotMetricClick = (
-    e: MouseEvent,
-    metricId: HotSpotMetricId
-  ) => {
-    const isMulti = e.shiftKey || e.metaKey || e.ctrlKey;
-    const current = selectedHotSpotMetrics();
-
-    if (isMulti) {
-      if (current.includes(metricId)) {
-        // Don't allow deselecting the last one
-        if (current.length > 1) {
-          setSelectedHotSpotMetrics(current.filter((m) => m !== metricId));
-        }
-      } else {
-        setSelectedHotSpotMetrics([...current, metricId]);
-      }
-    } else {
-      // Default behavior: pick a new single metric
-      setSelectedHotSpotMetrics([metricId]);
-    }
-  };
-
   const [expandAllSignal, setExpandAllSignal] = createSignal<boolean | null>(
     null
   );
@@ -361,16 +345,16 @@ export default function Explorer(props: {
 
             <div class="flex items-center gap-1 ml-auto">
               <IconButton
-                label="Expand All"
+                label="Expand all"
                 onClick={() => setExpandAllSignal(true)}
               >
-                [+]
+                <ChevronsUpDown size={15} aria-hidden="true" />
               </IconButton>
               <IconButton
-                label="Collapse All"
+                label="Collapse all"
                 onClick={() => setExpandAllSignal(false)}
               >
-                [-]
+                <ChevronsDownUp size={15} aria-hidden="true" />
               </IconButton>
               <div class="relative">
                 <Popover
@@ -381,17 +365,15 @@ export default function Explorer(props: {
                   trigger={(triggerProps) => (
                     <IconButton
                       ref={triggerProps.ref}
-                      label="Columns"
+                      label="Choose columns"
                       onClick={(e) => triggerProps.onClick(e)}
                     >
-                      ⚙️
+                      <Columns3 size={15} aria-hidden="true" />
                     </IconButton>
                   )}
                 >
                   <PopoverPanel width="sm">
-                    <PopoverSectionTitle>
-                      Visible Columns
-                    </PopoverSectionTitle>
+                    <PopoverSectionTitle>Columns</PopoverSectionTitle>
                     <div class="space-y-1">
                       <CheckboxRow
                         checked={visibleColumns().includes("loc")}
@@ -448,7 +430,7 @@ export default function Explorer(props: {
           <TextInput
             type="text"
             placeholder={
-              viewMode() === "tree" ? "Filter files..." : "Filter hot spots..."
+              viewMode() === "tree" ? "Filter files…" : "Filter hot spots…"
             }
             value={props.filter}
             onInput={(e) => props.onFilterChange(e.currentTarget.value)}
@@ -458,15 +440,16 @@ export default function Explorer(props: {
         <Show when={viewMode() === "tree"}>
           <div class="plc-table-header plc-label-caps flex items-center border-b select-none">
             <div class="pl-2 flex-1 flex items-center gap-2">
-              <Button
+              <IconButton
                 size="xs"
-                class={`text-xs px-1.5 py-0.5 rounded transition-colors ${
+                label="Go up one level"
+                class={
                   props.data &&
                   props.fullData &&
                   props.data.path !== props.fullData.path
-                    ? "hover:bg-[var(--plc-surface-hover)] text-[var(--plc-on-muted)] hover:text-[var(--plc-on-surface)] cursor-pointer"
-                    : "opacity-0 pointer-events-none cursor-default"
-                }`}
+                    ? ""
+                    : "invisible"
+                }
                 onClick={(e) => {
                   e.stopPropagation();
                   if (
@@ -484,10 +467,9 @@ export default function Explorer(props: {
                     props.onZoom(parent);
                   }
                 }}
-                title="Go Up One Level"
               >
-                ⬆
-              </Button>
+                <CornerLeftUp size={13} aria-hidden="true" />
+              </IconButton>
               <div
                 class="cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center"
                 onClick={() => handleHeaderClick("name")}
@@ -583,26 +565,16 @@ export default function Explorer(props: {
         </Show>
 
         <Show when={viewMode() === "hotspots"}>
-          <div
-            class="p-2 border-b border-[var(--plc-border)] flex flex-wrap gap-1 bg-[var(--plc-surface)]"
-            onMouseMove={(e) =>
-              setIsHotspotMultiSelectMode(e.shiftKey || e.metaKey || e.ctrlKey)
-            }
-            onMouseLeave={() => setIsHotspotMultiSelectMode(false)}
-          >
-            <For each={HOTSPOT_METRICS}>
-              {(metric) => (
-                <Button
-                  variant="chip"
-                  active={selectedHotSpotMetrics().includes(metric.id)}
-                  size="xs"
-                  class={isHotspotMultiSelectMode() ? "cursor-copy" : ""}
-                  onClick={(e) => handleHotSpotMetricClick(e, metric.id)}
-                >
-                  {metric.label}
-                </Button>
-              )}
-            </For>
+          <div class="flex items-center gap-2 border-b border-[var(--plc-border)] px-2 py-1.5">
+            <MetricPicker
+              prefix="Rank by"
+              selected={selectedHotSpotMetrics()}
+              onChange={(ids: HotSpotMetricId[]) => setSelectedHotSpotMetrics(ids)}
+              class="flex-1"
+            />
+            <span class="plc-data-sm shrink-0 text-[var(--plc-on-subtle)]">
+              {hotSpots().length.toLocaleString("en-US")} results
+            </span>
           </div>
           <div class="flex-1 overflow-y-auto overflow-x-hidden">
             <For each={hotSpots()}>
@@ -617,7 +589,7 @@ export default function Explorer(props: {
             </For>
             <Show when={hotSpots().length === 0}>
               <div class="p-4 text-center text-[var(--plc-on-subtle)] text-sm">
-                No hot spots found
+                No hot spots match this filter.
               </div>
             </Show>
           </div>

@@ -29,9 +29,14 @@ export function ScanProgress(props: {
       >
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
-            <div class="plc-label-caps text-[var(--plc-on-subtle)]">Scanning</div>
+            <h2
+              id="scan-progress-title"
+              class="text-[15px] font-semibold leading-snug text-[var(--plc-on-surface)]"
+            >
+              {view().headline}
+            </h2>
             <p
-              class="plc-data-md mt-1 truncate text-[var(--plc-on-surface)]"
+              class="plc-data-sm mt-1 truncate text-[var(--plc-on-subtle)]"
               title={props.snapshot.path}
             >
               {props.snapshot.path || "Current directory"}
@@ -82,20 +87,9 @@ export function ScanProgress(props: {
         </ol>
 
         <div class="mt-4">
-          <div class="flex items-baseline justify-between gap-3">
-            <h2
-              id="scan-progress-title"
-              class="text-[15px] font-semibold text-[var(--plc-on-surface)]"
-            >
-              {view().headline}
-            </h2>
-            <Show when={percent() !== null}>
-              <span class="plc-data-md text-[var(--plc-on-muted)]">{percent()}%</span>
-            </Show>
-          </div>
-
+          <div class="flex items-center gap-3">
           <div
-            class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--plc-surface-muted)]"
+            class="h-1.5 flex-1 w-full overflow-hidden rounded-full bg-[var(--plc-surface-muted)]"
             role="progressbar"
             aria-labelledby="scan-progress-title"
             aria-valuemin={0}
@@ -111,6 +105,10 @@ export function ScanProgress(props: {
                 style={{ width: `${percent()}%` }}
               />
             </Show>
+          </div>
+            <span class="plc-data-md w-9 shrink-0 text-right text-[var(--plc-on-muted)]">
+              {percent() === null ? "" : `${percent()}%`}
+            </span>
           </div>
 
           <p

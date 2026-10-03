@@ -6,6 +6,7 @@ import {
   Show,
   For,
 } from "solid-js";
+import { Braces, ChevronRight, Eye, EyeOff, File, Folder, FolderOpen } from "lucide-solid";
 import { extractFilePath } from "../utils/dataProcessing";
 import {
   type Node,
@@ -101,9 +102,16 @@ export function TreeNode(props: { node: Node; depth: number }) {
     ctx.onSelect(filePath, startLine, endLine, props.node);
   };
 
-  const getIcon = () => {
-    if (props.node.type === "folder") return "📁";
-    return "📄";
+  const NodeIcon = () => {
+    if (props.node.type === "folder") {
+      return expanded() ? (
+        <FolderOpen size={14} aria-hidden="true" />
+      ) : (
+        <Folder size={14} aria-hidden="true" />
+      );
+    }
+    if (props.node.type === "file") return <File size={14} aria-hidden="true" />;
+    return <Braces size={13} aria-hidden="true" />;
   };
 
   return (
@@ -116,38 +124,42 @@ export function TreeNode(props: { node: Node; depth: number }) {
         onClick={handleClick}
       >
         <div
-          class="w-6 text-center text-[var(--plc-on-subtle)] hover:text-[var(--plc-on-surface)] cursor-pointer"
+          class="flex h-full w-6 shrink-0 items-center justify-center text-[var(--plc-on-subtle)] hover:text-[var(--plc-on-surface)]"
           onClick={toggle}
         >
-          {hasChildren ? (
-            expanded() ? (
-              "▼"
-            ) : (
-              "▶"
-            )
-          ) : (
-            <span class="opacity-0">.</span>
-          )}
+          <Show when={hasChildren}>
+            <ChevronRight
+              size={14}
+              aria-hidden="true"
+              class={`transition-transform duration-150 ${expanded() ? "rotate-90" : ""}`}
+            />
+          </Show>
         </div>
-        <div class="flex-1 flex items-center gap-1 truncate text-[var(--plc-on-surface)] overflow-hidden group">
-          <span class="opacity-70 text-xs">{getIcon()}</span>
+        <div class="group flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-[var(--plc-on-surface)]">
+          <span class="flex shrink-0 text-[var(--plc-on-subtle)]">
+            <NodeIcon />
+          </span>
           <span class="truncate" title={props.node.name}>
             {props.node.name}
           </span>
           {/* Actions */}
-          <div class="hidden group-hover:flex items-center gap-1 ml-2">
-            <button
-              class="text-[10px] px-1 bg-[var(--plc-surface-muted)] hover:bg-[var(--plc-surface-selected)] text-[var(--plc-on-muted)] rounded border border-[var(--plc-border)]"
-              title={isHidden() ? "Show" : "Hide"}
-              onClick={handleToggleHidden}
-            >
-              {isHidden() ? "👁️" : "🚫"}
-            </button>
-          </div>
+          <button
+            type="button"
+            class="ml-auto mr-1 hidden h-6 w-6 shrink-0 items-center justify-center rounded text-[var(--plc-on-subtle)] hover:bg-[var(--plc-surface-muted)] hover:text-[var(--plc-on-surface)] focus-visible:flex group-hover:flex"
+            title={isHidden() ? "Show in treemap" : "Hide from treemap"}
+            aria-label={isHidden() ? "Show in treemap" : "Hide from treemap"}
+            onClick={handleToggleHidden}
+          >
+            {isHidden() ? (
+              <Eye size={13} aria-hidden="true" />
+            ) : (
+              <EyeOff size={13} aria-hidden="true" />
+            )}
+          </button>
         </div>
 
         <Show when={ctx.visibleColumns().includes("gitignored")}>
-          <div class="w-10 text-right text-[var(--plc-on-subtle)] plc-data-md text-[10px] pr-1 shrink-0">
+          <div class="w-10 text-right text-[var(--plc-on-subtle)] plc-data-md pr-1 shrink-0">
             {props.node.metrics?.gitignored_count || ""}
           </div>
         </Show>

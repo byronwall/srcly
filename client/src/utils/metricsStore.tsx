@@ -28,81 +28,58 @@ export type HotSpotMetricId =
   | "python_import_count"
   | "md_data_url_count";
 
+export type HotSpotMetricGroup = "General" | "TypeScript / TSX" | "Python" | "Markdown";
+
 export type HotSpotMetricDef = {
   id: HotSpotMetricId;
   label: string;
+  group: HotSpotMetricGroup;
+  /** True when lower values are worse (e.g. comment density). */
   invert?: boolean;
-  color: string;
 };
 
-export const HOTSPOT_METRICS: HotSpotMetricDef[] = [
-  { id: "complexity", label: "Complexity", color: "text-red-400" },
-  { id: "loc", label: "LOC", color: "text-blue-400" },
-  { id: "file_size", label: "Size", color: "text-purple-400" },
-  {
-    id: "comment_density",
-    label: "Low Comments",
-    invert: true,
-    color: "text-orange-400",
-  },
-  { id: "todo_count", label: "TODOs", color: "text-yellow-400" },
-  { id: "max_nesting_depth", label: "Nesting", color: "text-pink-400" },
-  { id: "parameter_count", label: "Params", color: "text-green-400" },
-  { id: "tsx_nesting_depth", label: "TSX Nesting", color: "text-teal-400" },
-  {
-    id: "tsx_render_branching_count",
-    label: "Render Branches",
-    color: "text-indigo-400",
-  },
-  {
-    id: "tsx_react_use_effect_count",
-    label: "useEffect",
-    color: "text-lime-400",
-  },
-  {
-    id: "tsx_anonymous_handler_count",
-    label: "Inline Handlers",
-    color: "text-amber-400",
-  },
-  { id: "tsx_prop_count", label: "Props", color: "text-sky-400" },
-  { id: "ts_any_usage_count", label: "any Usage", color: "text-red-500" },
-  { id: "ts_ignore_count", label: "TS Ignores", color: "text-red-300" },
-  {
-    id: "ts_import_coupling_count",
-    label: "TS Imports",
-    color: "text-purple-300",
-  },
-  {
-    id: "tsx_hardcoded_string_volume",
-    label: "Hardcoded Text",
-    color: "text-orange-300",
-  },
-  {
-    id: "tsx_duplicated_string_count",
-    label: "Dup Text",
-    color: "text-pink-300",
-  },
-  {
-    id: "ts_type_interface_count",
-    label: "Types/Interfaces",
-    color: "text-emerald-300",
-  },
-  {
-    id: "ts_export_count",
-    label: "Exports",
-    color: "text-cyan-300",
-  },
-  {
-    id: "python_import_count",
-    label: "Python Imports",
-    color: "text-blue-300",
-  },
-  {
-    id: "md_data_url_count",
-    label: "Markdown Data URLs",
-    color: "text-fuchsia-300",
-  },
+export const HOTSPOT_METRIC_GROUPS: HotSpotMetricGroup[] = [
+  "General",
+  "TypeScript / TSX",
+  "Python",
+  "Markdown",
 ];
+
+export const HOTSPOT_METRICS: HotSpotMetricDef[] = [
+  { id: "complexity", label: "Complexity", group: "General" },
+  { id: "loc", label: "LOC", group: "General" },
+  { id: "file_size", label: "Size", group: "General" },
+  { id: "comment_density", label: "Low Comments", group: "General", invert: true },
+  { id: "todo_count", label: "TODOs", group: "General" },
+  { id: "max_nesting_depth", label: "Nesting", group: "General" },
+  { id: "parameter_count", label: "Params", group: "General" },
+  { id: "tsx_nesting_depth", label: "TSX Nesting", group: "TypeScript / TSX" },
+  { id: "tsx_render_branching_count", label: "Render Branches", group: "TypeScript / TSX" },
+  { id: "tsx_react_use_effect_count", label: "useEffect", group: "TypeScript / TSX" },
+  { id: "tsx_anonymous_handler_count", label: "Inline Handlers", group: "TypeScript / TSX" },
+  { id: "tsx_prop_count", label: "Props", group: "TypeScript / TSX" },
+  { id: "ts_any_usage_count", label: "any Usage", group: "TypeScript / TSX" },
+  { id: "ts_ignore_count", label: "TS Ignores", group: "TypeScript / TSX" },
+  { id: "ts_import_coupling_count", label: "TS Imports", group: "TypeScript / TSX" },
+  { id: "tsx_hardcoded_string_volume", label: "Hardcoded Text", group: "TypeScript / TSX" },
+  { id: "tsx_duplicated_string_count", label: "Duplicated Text", group: "TypeScript / TSX" },
+  { id: "ts_type_interface_count", label: "Types/Interfaces", group: "TypeScript / TSX" },
+  { id: "ts_export_count", label: "Exports", group: "TypeScript / TSX" },
+  { id: "python_import_count", label: "Python Imports", group: "Python" },
+  { id: "md_data_url_count", label: "Markdown Data URLs", group: "Markdown" },
+];
+
+export function hotSpotMetricLabel(id: HotSpotMetricId): string {
+  return HOTSPOT_METRICS.find((m) => m.id === id)?.label ?? id;
+}
+
+/** Display a metric value: percentages for density, one decimal for fractions. */
+export function formatMetricValue(id: string, value: unknown): string {
+  if (typeof value !== "number") return value == null ? "" : String(value);
+  if (id === "comment_density") return `${Math.round(value * 100)}%`;
+  if (!Number.isInteger(value)) return value.toFixed(1);
+  return value.toLocaleString("en-US");
+}
 
 type MetricsStoreContextType = {
   selectedHotSpotMetrics: Accessor<HotSpotMetricId[]>;
