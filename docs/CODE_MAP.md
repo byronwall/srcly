@@ -115,14 +115,14 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Toasts | `client/src/components/Toast.tsx` |
 | First-run screen (`AnalyzeTarget` cards) | `client/src/App.tsx` |
 | Global metric + exclusion state (context) | `client/src/utils/metricsStore.tsx` |
-| Tree filtering / noise removal | `client/src/utils/dataProcessing.ts` |
+| Immutable tree search + exclusions / noise removal | `client/src/utils/dataProcessing.ts` |
 
 ### Client: Explorer sidebar
 
 | Feature | Where |
 | --- | --- |
 | Tree / Hot Spots tabs, columns, sorting, filter box | `client/src/components/Explorer.tsx` |
-| Tree rows | `client/src/components/TreeNode.tsx` |
+| Virtual tree rows + keyboard navigation | `client/src/components/TreeNode.tsx`, `client/src/utils/explorerTree.ts` |
 | Hot spot rows | `client/src/components/HotSpotItem.tsx` |
 | File-type filter popover | `client/src/components/FileTypeFilter.tsx` |
 
@@ -132,10 +132,10 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | --- | --- |
 | Layout, zoom, isolate/exclude, view switching | `client/src/components/Treemap.tsx` |
 | Header toolbar (breadcrumb, filter, color metric, legend) | `client/src/viz/treemap/components/TreemapHeader.tsx` |
-| SVG rendering of rectangles + labels | `client/src/viz/treemap/components/TreemapSvg.tsx` |
+| Canvas tile rendering + keyboard selection | `client/src/viz/treemap/components/TreemapCanvas.tsx`, `viz/treemap/utils/hitTest.ts` |
 | Tooltip | `client/src/viz/treemap/components/TreemapTooltip.tsx`, `viz/treemap/hooks/useTreemapTooltip.ts` |
 | Color scales per metric (one shared `TREEMAP_RAMP`) | `client/src/viz/treemap/utils/colors.ts` |
-| Scope `(body)` dummy nodes, path lookup | `client/src/viz/treemap/utils/tree.ts`, `viz/treemap/utils/path.ts` |
+| Scope `(body)` nodes with shared unchanged branches, path lookup | `client/src/viz/treemap/utils/tree.ts`, `viz/treemap/utils/path.ts` |
 | Label text fitting | `client/src/utils/svgText.ts` |
 
 ### Client: Code viewer modal
@@ -143,7 +143,7 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Feature | Where |
 | --- | --- |
 | Modal composition + display controls | `client/src/components/CodeModal/CodeModal.tsx`, `CodeModalHeader.tsx` |
-| Highlighted source (Shiki) | `client/src/components/CodeModal/CodePane.tsx`, `hooks/useHighlightedCode.ts`, `utils/shikiHtml.ts` |
+| Highlighted source (Shiki worker) | `client/src/components/CodeModal/CodePane.tsx`, `hooks/useHighlightedCode.ts`, `workers/highlight.worker.ts`, `utils/shikiHtml.ts` |
 | Markdown rendering | `client/src/components/CodeModal/MarkdownPane.tsx`, `client/src/markdown/*` |
 | Structure tree (left) | `client/src/components/CodeModal/StructurePanel.tsx`, `SidebarTree.tsx`, `utils/structureTree.ts` |
 | Scope metrics (left, bottom) | `client/src/components/CodeModal/MetricsSidebar.tsx`, `MetricsSection.tsx`, `MetricItem.tsx` |
@@ -155,7 +155,7 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 
 | Feature | Where |
 | --- | --- |
-| Dependency graph (ELK layout) | `client/src/components/DependencyGraph.tsx` |
+| Dependency graph (ELK worker + force-layout worker) | `client/src/components/DependencyGraph.tsx`, `client/src/workers/dependencyForce.worker.ts` |
 
 ### Client: UI primitives
 
