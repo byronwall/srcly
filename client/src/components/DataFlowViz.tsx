@@ -411,7 +411,7 @@ export default function DataFlowViz(props: DataFlowVizProps) {
     setLoading(true);
     setError(null);
     try {
-      const url = new URL("http://localhost:8000/api/analysis/data-flow");
+      const url = new URL("/api/analysis/data-flow", window.location.origin);
       url.searchParams.append("path", path);
       const res = await fetch(url.toString());
       if (!res.ok) throw new Error("Failed to fetch data flow");

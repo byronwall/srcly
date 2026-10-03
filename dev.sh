@@ -56,7 +56,7 @@ check_and_kill_port "$CLIENT_PORT"
 echo "Starting API server on http://$SERVER_HOST:$SERVER_PORT"
 (
   cd "$ROOT_DIR/server"
-  uv run python -m uvicorn app.main:app --reload --host "$SERVER_HOST" --port "$SERVER_PORT"
+  uv run python -m uvicorn app.main:app --reload --timeout-graceful-shutdown 3 --host "$SERVER_HOST" --port "$SERVER_PORT"
 ) &
 server_pid="$!"
 

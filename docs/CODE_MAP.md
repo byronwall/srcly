@@ -17,7 +17,7 @@ Browser
           ── GET /api/analysis?path=   ──► routers/analysis.py:get_analysis
                                               └─ services/analysis.py:scan_codebase
                                                    ├─ walk + .gitignore filtering
-                                                   ├─ per-file analysis in worker processes
+                                                   ├─ per-file analysis in a killable worker pool (scan_workers.py)
                                                    │    └─ analyze_single_file → language analyzer
                                                    ├─ build folder/file/function Node tree
                                                    └─ aggregate_metrics (folder rollups)
@@ -33,6 +33,7 @@ Browser
 | CLI entry point, arg parsing, port pick, browser open | `server/app/run.py` (`main`) |
 | Headless commands (`scan`, `report`, `hotspots`, `explain`) | `server/app/run.py` (`_run_headless`) → `server/app/services/reporting.py` |
 | FastAPI app, CORS, static SPA mount | `server/app/main.py` |
+| Ctrl+C / SIGTERM: cancel running scans, then uvicorn shutdown | `server/app/main.py` (`lifespan`, `_install_scan_cancelling_signal_handlers`); CLI exit code in `server/app/run.py` (`main`) |
 | Dev loop (uvicorn reload + Vite) | `dev.sh`; Vite proxies `/api` → `:8000` in `client/vite.config.ts` |
 | Release build (client → `server/app/static` → wheel) | `build-srcly.sh`, `publish-srcly.sh` |
 
@@ -43,7 +44,8 @@ Browser
 | Scan orchestration (walk, filter, analyze, build tree) | `server/app/services/analysis.py` (`scan_codebase`) |
 | Ignore rules: built-in dirs/files/extensions | `server/app/config.py` |
 | Ignore rules: nested `.gitignore` translation | `server/app/services/analysis.py` (`_load_gitignore_spec`, `_translate_gitignore_pattern`) |
-| Per-file worker processes + hard timeouts | `server/app/services/analysis.py` (`_run_file_analyses_with_hard_timeouts`) |
+| Worker pool: reuse, hard per-file timeouts, crash recovery | `server/app/services/scan_workers.py` (`run_file_analyses`), wrapped by `analysis.py` (`_run_file_analyses_with_hard_timeouts`) |
+| Scan cancellation (`CancelToken`, `ScanCancelled`, `cancel_all_scans`) | `server/app/services/scan_workers.py` |
 | Language dispatch by extension | `server/app/services/analysis.py` (`analyze_single_file`) |
 | TypeScript / TSX metrics + nested scopes | `server/app/services/typescript/typescript_analysis.py` |
 | Python metrics | `server/app/services/python/python_analysis.py` |
