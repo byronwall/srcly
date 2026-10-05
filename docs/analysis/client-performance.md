@@ -82,3 +82,16 @@ One very large automated scroll exceeded the tool's ten-second limit. The tree h
 The browser has not measured first paint, memory, scroll latency, or canvas redraw time. D3 hierarchy and treemap layout still run on the main thread. The force worker returns final positions after 260 simulation ticks, so it does not animate intermediate states. Graph worker startup and serialization have costs for small graphs. The benchmark does not measure these browser costs.
 
 The checks cover the fixture and one local source tree. They do not establish performance for every repository or device.
+
+## Canvas zoom motion
+
+Hierarchy navigation uses 320 ms of scale and movement through a shared tile. The renderer paints the destination once. It copies the previous canvas into a temporary pixel buffer. Web Animations moves and fades both images. No tile layout, drawing, or text measurement runs on animation frames. Completion releases the temporary buffer. Reduced motion skips the spatial transition.
+
+A separate browser pass used the same 25,975-node fixture. A temporary frame probe recorded these intervals:
+
+| Navigation | Median frame interval | Largest frame interval | Canvas redraws during motion |
+| --- | ---: | ---: | ---: |
+| Folder zoom and breadcrumb return | 8.3 ms | 9.3 ms | 0 |
+| Three quick enter/return sequences | 8.3 ms | 33.4 ms | 1 per sequence |
+
+The quick sequences include interruption and a new view paint. These frame intervals describe one browser session. They do not measure initial layout time, GPU memory, or other devices. The second canvas temporarily adds one viewport-sized pixel buffer. The probe is not shipped.
