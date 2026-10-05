@@ -1,3 +1,4 @@
+import { X } from "lucide-solid";
 import { createSignal, createEffect, Show, For } from "solid-js";
 import { useFileContent } from "../hooks/useFileContent";
 import { useHighlightedCode } from "../hooks/useHighlightedCode";
@@ -334,10 +335,12 @@ const CodeSidebar = (props: {
           {props.path.split("/").pop()}
         </span>
         <button
+          type="button"
           onClick={props.onClose}
-          class="text-[var(--plc-on-subtle)] hover:text-[var(--plc-on-surface)] px-2"
+          aria-label="Close"
+          class="flex h-6 w-6 items-center justify-center rounded text-[var(--plc-on-subtle)] hover:bg-[var(--plc-surface-muted)] hover:text-[var(--plc-on-surface)]"
         >
-          ×
+          <X size={14} aria-hidden="true" />
         </button>
       </div>
       <div class="flex-1 overflow-auto p-4 text-xs">
@@ -368,7 +371,7 @@ const CodeSidebar = (props: {
           </Show>
         </Show>
         <Show when={!loading() && error()}>
-          <div class="rounded border border-red-700 bg-red-900/70 px-3 py-2 text-red-100">
+          <div class="rounded-md border border-[var(--plc-error-border)] bg-[var(--plc-error-subtle)] px-3 py-2 text-[var(--plc-error)]">
             {error()}
           </div>
         </Show>

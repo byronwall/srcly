@@ -1,16 +1,13 @@
 import { For, Show, type Accessor } from "solid-js";
+import { ChevronRight, GitFork, Workflow } from "lucide-solid";
 import {
-  HOTSPOT_METRICS,
+  hotSpotMetricLabel,
   type HotSpotMetricId,
 } from "../../../utils/metricsStore";
 import FileTypeFilter from "../../../components/FileTypeFilter";
-import Popover from "../../../components/Popover";
+import { MetricPicker } from "../../../components/MetricPicker";
+import { TREEMAP_RAMP } from "../utils/colors";
 import { Button } from "../../../components/ui/Button";
-import {
-  OptionRow,
-  PopoverPanel,
-  PopoverSectionTitle,
-} from "../../../components/ui/PopoverPanel";
 
 export type TreemapHeaderProps = {
   data: any;
@@ -45,23 +42,32 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
   return (
     <div class="plc-toolbar flex items-center gap-3 overflow-x-auto px-3 border-b">
       {/* Breadcrumbs */}
-      <div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto text-sm scrollbar-hide">
+      <nav
+        aria-label="Treemap location"
+        class="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto text-[13px] scrollbar-hide"
+      >
         <For each={props.breadcrumbs()}>
           {(node, i) => (
             <div class="flex items-center whitespace-nowrap">
               <button
-                class="text-[var(--plc-on-muted)] hover:text-[var(--plc-accent)] hover:underline"
+                type="button"
+                class={
+                  i() === props.breadcrumbs().length - 1
+                    ? "rounded px-1 font-semibold text-[var(--plc-on-surface)]"
+                    : "rounded px-1 text-[var(--plc-on-muted)] hover:bg-[var(--plc-surface-hover)] hover:text-[var(--plc-accent)]"
+                }
+                aria-current={i() === props.breadcrumbs().length - 1 ? "location" : undefined}
                 onClick={() => props.onBreadcrumbClick(node)}
               >
                 {node.name || "root"}
               </button>
               <Show when={i() < props.breadcrumbs().length - 1}>
-                <span class="mx-1 text-[var(--plc-on-disabled)]">/</span>
+                <ChevronRight size={13} class="text-[var(--plc-on-disabled)]" aria-hidden="true" />
               </Show>
             </div>
           )}
         </For>
-      </div>
+      </nav>
 
       {/* Filters */}
       <div class="shrink-0">
@@ -76,82 +82,23 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
       </div>
 
       {/* Color Metric (linked to Hot Spot metrics) */}
-      <div class="flex shrink-0 items-center gap-1 relative">
-        <button
-          class="plc-label-caps mr-2 cursor-help text-[var(--plc-on-subtle)] hover:text-[var(--plc-on-surface)] border-b border-dotted border-[var(--plc-border-strong)]"
-          onMouseEnter={() => props.setShowLegend(true)}
-          onMouseLeave={() => props.setShowLegend(false)}
-        >
-          Color:
-        </button>
-        <Popover
-          isOpen={props.showMetricPopover()}
-          onOpenChange={props.setShowMetricPopover}
+      <div
+        class="relative flex shrink-0 items-center gap-1.5"
+        onMouseEnter={() => props.setShowLegend(true)}
+        onMouseLeave={() => props.setShowLegend(false)}
+      >
+        <MetricPicker
+          prefix="Color"
           placement="bottom-end"
-          offset={{ x: 0, y: 4 }}
-          trigger={(triggerProps) => (
-            <Button
-              ref={triggerProps.ref}
-              size="xs"
-              class="hover:border-[var(--plc-accent)] hover:text-[var(--plc-accent)]"
-              onClick={(e) => triggerProps.onClick(e)}
-            >
-              <span class="truncate max-w-[140px]">
-                {HOTSPOT_METRICS.find((m) => m.id === props.primaryMetricId())
-                  ?.label ?? "Select metric"}
-              </span>
-              <span class="text-[9px]">▼</span>
-            </Button>
-          )}
-        >
-          <PopoverPanel width="md">
-            <PopoverSectionTitle>
-              Hot Spot Metrics
-            </PopoverSectionTitle>
-            <div class="max-h-64 overflow-y-auto space-y-1">
-              <For each={HOTSPOT_METRICS}>
-                {(metric) => {
-                  const isSelected = () =>
-                    props.selectedHotSpotMetrics().includes(metric.id);
-                  const toggleMetric = () => {
-                    const current = props.selectedHotSpotMetrics();
-                    if (isSelected()) {
-                      if (current.length > 1) {
-                        props.setSelectedHotSpotMetrics(
-                          current.filter((m) => m !== metric.id)
-                        );
-                      }
-                    } else {
-                      props.setSelectedHotSpotMetrics([...current, metric.id]);
-                    }
-                  };
-                  return (
-                    <OptionRow
-                      selected={isSelected()}
-                      class="flex items-center justify-between"
-                      onClick={toggleMetric}
-                    >
-                      <span>{metric.label}</span>
-                      <span
-                        class={`ml-2 text-[10px] ${
-                          isSelected()
-                            ? "text-[var(--plc-accent)]"
-                            : "text-[var(--plc-on-subtle)]"
-                        }`}
-                      >
-                        {isSelected() ? "●" : "○"}
-                      </span>
-                    </OptionRow>
-                  );
-                }}
-              </For>
-            </div>
-          </PopoverPanel>
-        </Popover>
+          selected={props.selectedHotSpotMetrics()}
+          onChange={props.setSelectedHotSpotMetrics}
+          onOpenChange={props.setShowMetricPopover}
+          class="max-w-[220px]"
+        />
       </div>
 
       {/* View Dependencies Button */}
-      <div class="shrink-0 pl-4 border-l border-[var(--plc-border)] flex gap-2">
+      <div class="flex shrink-0 gap-1.5 border-l border-[var(--plc-border)] pl-3">
         <Button
           active={props.showDependencyGraph()}
           class={
@@ -159,12 +106,14 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
               ? "border-[var(--plc-accent-border)] bg-[var(--plc-surface-selected)] text-[var(--plc-accent)]"
               : undefined
           }
+          aria-pressed={props.showDependencyGraph()}
           onClick={() => {
             props.setShowDependencyGraph(!props.showDependencyGraph());
             props.setShowDataFlow(false);
           }}
         >
-          View Dependencies
+          <GitFork size={14} aria-hidden="true" />
+          Dependencies
         </Button>
 
         <Button
@@ -174,35 +123,30 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
               ? "border-[var(--plc-accent-border)] bg-[var(--plc-surface-selected)] text-[var(--plc-accent)]"
               : undefined
           }
+          aria-pressed={props.showDataFlow()}
           onClick={() => {
             props.setShowDataFlow(!props.showDataFlow());
             props.setShowDependencyGraph(false);
           }}
         >
+          <Workflow size={14} aria-hidden="true" />
           Data Flow
         </Button>
       </div>
 
-      {/* Legend Tooltip */}
-      <Show when={props.showLegend()}>
-        <div class="plc-floating absolute top-10 right-4 z-50 border p-3 rounded-lg text-xs w-64">
-          <div class="font-semibold mb-2 text-[var(--plc-on-surface)] border-b border-[var(--plc-border)] pb-1">
-            {HOTSPOT_METRICS.find((m) => m.id === props.primaryMetricId())
-              ?.label || "Metric"}
+      {/* Legend: shown while hovering the Color control */}
+      <Show when={props.showLegend() && !props.showMetricPopover()}>
+        <div class="plc-floating pointer-events-none absolute right-3 top-11 z-50 w-56 rounded-lg border p-3 text-xs">
+          <div class="mb-2 font-semibold text-[var(--plc-on-surface)]">
+            {hotSpotMetricLabel(props.primaryMetricId())}
           </div>
-          <div class="space-y-1">
-            <div class="flex items-center gap-2">
-              <div class="w-3 h-3 bg-[var(--plc-chart-1)]"></div>
-              <span>Lower score</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <div class="w-3 h-3 bg-[var(--plc-chart-4)]"></div>
-              <span>Medium score</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <div class="w-3 h-3 bg-[var(--plc-chart-5)]"></div>
-              <span>Higher score</span>
-            </div>
+          <div
+            class="h-2.5 rounded-full border border-[var(--plc-border)]"
+            style={{ background: `linear-gradient(90deg, ${TREEMAP_RAMP.join(", ")})` }}
+          />
+          <div class="mt-1 flex justify-between text-[11px] text-[var(--plc-on-subtle)]">
+            <span>Fine</span>
+            <span>Needs attention</span>
           </div>
         </div>
       </Show>

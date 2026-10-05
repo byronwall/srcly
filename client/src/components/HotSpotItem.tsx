@@ -1,6 +1,7 @@
 import { useContext, For } from "solid-js";
+import { Focus } from "lucide-solid";
 import { extractFilePath } from "../utils/dataProcessing";
-import { HOTSPOT_METRICS } from "../utils/metricsStore";
+import { formatMetricValue, hotSpotMetricLabel, type HotSpotMetricId } from "../utils/metricsStore";
 import { ExplorerContext, findNodeByPath } from "./Explorer";
 import type { Node } from "./Explorer";
 
@@ -8,7 +9,7 @@ export function HotSpotItem(props: {
   node: Node;
   rank: number;
   score: number;
-  metrics: string[];
+  metrics: HotSpotMetricId[];
 }) {
   const ctx = useContext(ExplorerContext)!;
 
@@ -60,47 +61,44 @@ export function HotSpotItem(props: {
 
   return (
     <div
-      class="plc-row plc-body-sm flex items-center cursor-pointer border-b px-2 group"
+      class="plc-row plc-body-sm group flex cursor-pointer items-center gap-2 border-b px-2 py-1"
       onClick={handleClick}
     >
-      <div class="w-6 text-[var(--plc-on-subtle)] plc-data-md">
-        #{props.rank}
+      <div class="plc-data-sm w-7 shrink-0 text-right text-[var(--plc-on-disabled)]">
+        {props.rank}
       </div>
-      <div class="flex-1 min-w-0 flex items-center gap-2">
-        <div class="flex-1 min-w-0">
-          <div class="truncate text-[var(--plc-on-surface)]" title={props.node.name}>
-            {props.node.name}
-          </div>
-          <div class="text-[10px] text-[var(--plc-on-subtle)] truncate">
-            {displayPath()}
-          </div>
+      <div class="min-w-0 flex-1">
+        <div class="truncate text-[var(--plc-on-surface)]" title={props.node.name}>
+          {props.node.name}
         </div>
-        <button
-          class="hidden group-hover:block rounded-md border border-[var(--plc-accent-border)] bg-[var(--plc-accent-subtle)] p-1 text-xs text-[var(--plc-accent)] hover:border-[var(--plc-accent)]"
-          title="Isolate Folder"
-          onClick={handleZoomToParent}
-        >
-          🔍
-        </button>
+        <div class="plc-data-sm truncate text-[var(--plc-on-subtle)]" title={displayPath()}>
+          {displayPath()}
+        </div>
       </div>
-      <div class="flex items-center gap-2 ml-2">
-        <div class="text-[10px] font-mono flex items-center gap-3">
-          <For each={props.metrics}>
-            {(m) => {
-              const def = HOTSPOT_METRICS.find((x) => x.id === m);
-              let val = (props.node.metrics as any)?.[m];
-              if (val === undefined) return null;
-              if (m === "comment_density") val = (val * 100).toFixed(0) + "%";
-              else if (typeof val === "number" && !Number.isInteger(val))
-                val = val.toFixed(1);
-              return (
-                <span class={def?.color} title={def?.label}>
-                  {val}
-                </span>
-              );
-            }}
-          </For>
-        </div>
+      <button
+        type="button"
+        class="hidden h-6 w-6 shrink-0 items-center justify-center rounded text-[var(--plc-on-subtle)] hover:bg-[var(--plc-surface-muted)] hover:text-[var(--plc-accent)] focus-visible:flex group-hover:flex"
+        title="Zoom treemap to containing folder"
+        aria-label="Zoom treemap to containing folder"
+        onClick={handleZoomToParent}
+      >
+        <Focus size={13} aria-hidden="true" />
+      </button>
+      <div class="flex shrink-0 items-center gap-3">
+        <For each={props.metrics}>
+          {(m) => {
+            const val = (props.node.metrics as any)?.[m];
+            if (val === undefined) return null;
+            return (
+              <span
+                class="plc-data-md min-w-[2.5rem] text-right text-[var(--plc-on-muted)] first:font-semibold first:text-[var(--plc-on-surface)]"
+                title={hotSpotMetricLabel(m)}
+              >
+                {formatMetricValue(m, val)}
+              </span>
+            );
+          }}
+        </For>
       </div>
     </div>
   );

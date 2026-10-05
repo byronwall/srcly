@@ -92,9 +92,10 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | API model | `server/app/models.py` (`Metrics`) |
 | Copy into nodes / roll up | `server/app/services/analysis.py` (`attach_file_metrics`, `aggregate_metrics`) |
 | Report scoring + definitions | `server/app/services/reporting.py` (`METRIC_DEFINITIONS`, `PROFILE_WEIGHTS`) |
-| Client metric registry (labels, colors, hotspot ids) | `client/src/utils/metricsStore.tsx` (`HOTSPOT_METRICS`) |
+| Client metric registry (labels, groups, value formatting) | `client/src/utils/metricsStore.tsx` (`HOTSPOT_METRICS`, `formatMetricValue`) |
+| Metric picker (Hot Spots "Rank by" + treemap "Color") | `client/src/components/MetricPicker.tsx` |
 | Explorer sort/columns | `client/src/components/Explorer.tsx` (`SORT_FIELD_ACCESSORS`) |
-| Treemap color mapping | `client/src/viz/treemap/utils/colors.ts` |
+| Treemap color mapping | `client/src/viz/treemap/utils/colors.ts` (`TREEMAP_RAMP`, `ramp`) |
 
 ### Headless reports for agents
 
@@ -115,6 +116,7 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Path bar with autocomplete + recent paths | `client/src/components/FilePicker.tsx` |
 | Loading / empty / error primitives | `client/src/components/feedback/States.tsx` |
 | Toasts | `client/src/components/Toast.tsx` |
+| First-run screen (`AnalyzeTarget` cards) | `client/src/App.tsx` |
 | Global metric + exclusion state (context) | `client/src/utils/metricsStore.tsx` |
 | Tree filtering / noise removal | `client/src/utils/dataProcessing.ts` |
 
@@ -135,7 +137,7 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Header toolbar (breadcrumb, filter, color metric, legend) | `client/src/viz/treemap/components/TreemapHeader.tsx` |
 | SVG rendering of rectangles + labels | `client/src/viz/treemap/components/TreemapSvg.tsx` |
 | Tooltip | `client/src/viz/treemap/components/TreemapTooltip.tsx`, `viz/treemap/hooks/useTreemapTooltip.ts` |
-| Color scales per metric | `client/src/viz/treemap/utils/colors.ts` |
+| Color scales per metric (one shared `TREEMAP_RAMP`) | `client/src/viz/treemap/utils/colors.ts` |
 | Scope `(body)` dummy nodes, path lookup | `client/src/viz/treemap/utils/tree.ts`, `viz/treemap/utils/path.ts` |
 | Label text fitting | `client/src/utils/svgText.ts` |
 
@@ -170,6 +172,8 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Dialog shell | `client/src/components/dialog/DialogShell.tsx` |
 | Panel header | `client/src/components/layout/PanelHeader.tsx` |
 | Class join helper | `client/src/components/ui/classes.ts` |
+| Icons | `lucide-solid` (no emoji or unicode glyphs as icons) |
+| Fonts | Inter + IBM Plex Mono, self-hosted via `@fontsource`, wired to Tailwind `font-sans` / `font-mono` in `client/src/index.css` |
 | Design system spec | `DESIGN.md` (tokens mirrored as `--plc-*` CSS vars in `client/src/index.css`) |
 
 ## Tests

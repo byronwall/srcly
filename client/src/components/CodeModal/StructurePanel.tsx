@@ -1,3 +1,4 @@
+import { Box, Dot, Folder, SquareFunction } from "lucide-solid";
 import { For, Show } from "solid-js";
 import { SidebarTree } from "./SidebarTree";
 
@@ -60,10 +61,10 @@ export function StructurePanel(props: {
                   getChildren={props.getChildren}
                   isHidden={props.isHidden}
                   getIcon={(n) => {
-                    if (n?.type === "function") return "ƒ";
-                    if (n?.type === "class") return "C";
-                    if (n?.type === "folder") return "📁";
-                    return "•";
+                    if (n?.type === "function") return <SquareFunction size={13} aria-hidden="true" />;
+                    if (n?.type === "class") return <Box size={13} aria-hidden="true" />;
+                    if (n?.type === "folder") return <Folder size={13} aria-hidden="true" />;
+                    return <Dot size={13} aria-hidden="true" />;
                   }}
                   onSelect={props.onSelectNode}
                 />

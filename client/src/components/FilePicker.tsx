@@ -1,3 +1,4 @@
+import { File, Folder } from "lucide-solid";
 import { createSignal, createEffect, For, Show, onMount } from "solid-js";
 import Popover from "./Popover";
 import { Button } from "./ui/Button";
@@ -164,7 +165,7 @@ export default function FilePicker(props: FilePickerProps) {
         >
           <PopoverPanel class="max-h-96 min-w-[300px] overflow-y-auto">
             <Show when={loading()}>
-              <div class="p-2 text-[var(--plc-on-subtle)] italic">Loading...</div>
+              <div class="p-2 text-[var(--plc-on-subtle)]">Loading…</div>
             </Show>
             <For each={suggestions()}>
               {(item) => (
@@ -172,8 +173,14 @@ export default function FilePicker(props: FilePickerProps) {
                   class="flex items-center gap-2 p-2 text-sm"
                   onClick={() => selectItem(item)}
                 >
-                  <span>{item.type === "folder" ? "📁" : "📄"}</span>
-                  <span>{item.name}</span>
+                  <span class="flex shrink-0 text-[var(--plc-on-subtle)]">
+                    {item.type === "folder" ? (
+                      <Folder size={14} aria-hidden="true" />
+                    ) : (
+                      <File size={14} aria-hidden="true" />
+                    )}
+                  </span>
+                  <span class="truncate">{item.name}</span>
                 </OptionRow>
               )}
             </For>

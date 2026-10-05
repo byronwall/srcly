@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo } from "solid-js";
+import { For, Show, createMemo } from "solid-js";
 import {
   computeBreadcrumbPath,
   getEffectiveChildren,
@@ -95,38 +95,6 @@ export function StickyBreadcrumb(props: {
 
   const displayFileName = () => baseNameFromPath(props.filePath());
 
-  createEffect(() => {
-    const root = props.root();
-    const sel = props.selection?.() ?? null;
-    const line = props.currentLine();
-    const p = path();
-    // eslint-disable-next-line no-console
-    console.log("[breadcrumb] compute", {
-      file: props.filePath?.() ?? null,
-      line,
-      selection: sel,
-      selectedNode: props.selectedNode?.()
-        ? {
-            name: props.selectedNode?.()?.name ?? null,
-            type: props.selectedNode?.()?.type ?? null,
-            start_line: props.selectedNode?.()?.start_line ?? null,
-            end_line: props.selectedNode?.()?.end_line ?? null,
-          }
-        : null,
-      explicitPathFound:
-        (explicitPath() ?? null)?.map((n: any) => n?.name) ?? null,
-      rootName: root?.name ?? null,
-      rootType: root?.type ?? null,
-      rootSpan: root
-        ? [root?.start_line ?? null, root?.end_line ?? null]
-        : null,
-      childCount: Array.isArray(root?.children) ? root.children.length : null,
-      pathNames: p.map((n: any) => n?.name),
-      pathTypes: p.map((n: any) => n?.type),
-      pathSpans: p.map((n: any) => [n?.start_line, n?.end_line]),
-    });
-  });
-
   return (
     <Show when={path().length > 0}>
       <div class="sticky top-0 z-20 border-b border-[var(--plc-border)] bg-[var(--plc-surface)]/95 backdrop-blur px-3 py-2">
@@ -150,18 +118,6 @@ export function StickyBreadcrumb(props: {
                     onClick={() => {
                       if (isLast()) return;
                       const clicked = i() === 0 ? null : n();
-                      // eslint-disable-next-line no-console
-                      console.log("[breadcrumb] crumb click", {
-                        index: i(),
-                        name: clicked?.name ?? "(file)",
-                        type: clicked?.type ?? "file",
-                        span: clicked
-                          ? [
-                              clicked?.start_line ?? null,
-                              clicked?.end_line ?? null,
-                            ]
-                          : null,
-                      });
                       props.onSelectScope(clicked);
                     }}
                   >

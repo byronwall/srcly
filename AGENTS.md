@@ -48,14 +48,14 @@ To run tests, `cd server && uv run pytest`.
 >
 > - In `client/src/utils/metricsStore.tsx`:
 >   - Add the metric id to `HotSpotMetricId` (use the exact field name from `Metrics`).
->   - Add a corresponding entry to `HOTSPOT_METRICS` with a short label, stable color class, and `invert` if “lower is better”.
+>   - Add a corresponding entry to `HOTSPOT_METRICS` with a short label, its language `group` (drives the grouped metric picker), and `invert` if “lower is better”. Metric values render in neutral text; don't add per-metric colors.
 > - In `client/src/components/Explorer.tsx`:
 >   - Extend the `metrics` shape on the `Node` interface with the optional field.
 >   - Add the metric to the `SortField` union and wire an accessor into `SORT_FIELD_ACCESSORS` so it can be used for sorting.
 >   - Only add a new visible column if there’s a strong UX case; reuse the hotspot area for most TS/TSX-specific metrics.
 > - In `client/src/components/Treemap.tsx`:
 >   - Because color mapping is driven by `primaryMetric` + `HOTSPOT_METRICS`, most metrics will “just work”.
->   - If the metric needs special coloring behavior (like `comment_density`, `todo_count`, `max_nesting_depth`), add a dedicated branch in the color selection logic for rectangles and labels.
+>   - If the metric needs special coloring behavior (like `comment_density`, `todo_count`, `max_nesting_depth`), add a dedicated branch in `viz/treemap/utils/colors.ts` built with `ramp(...)`, so it shares `TREEMAP_RAMP` (and the legend) with every other metric.
 >
 > **4. UX / validation**
 >

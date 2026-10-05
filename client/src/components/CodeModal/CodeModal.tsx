@@ -70,25 +70,17 @@ export default function CodeModal(props: CodeModalProps) {
   // Sync internal selection state from external props (treemap/graph selection).
   // Important: do this in an effect so we don't reset selection on every render.
   createEffect(() => {
-    // Touch dependencies
-    const fp = props.filePath;
+    // Track the file too, so reopening a different file with the same
+    // line range still resets the selection.
+    void props.filePath;
+    void props.fileNode;
     const s = props.startLine ?? null;
     const e = props.endLine ?? null;
     const scope = props.scopeNode ?? null;
-    const file = props.fileNode ?? null;
 
     setTargetStartLine(s);
     setTargetEndLine(e);
     setSelectedScopeNode(scope);
-
-    // eslint-disable-next-line no-console
-    console.log("[CodeModal] props sync", {
-      filePath: fp,
-      startLine: s,
-      endLine: e,
-      scopeNode: scope ? { name: scope?.name, type: scope?.type } : null,
-      fileNode: file ? { name: file?.name, type: file?.type } : null,
-    });
   });
 
   createEffect(() => {
@@ -200,17 +192,6 @@ export default function CodeModal(props: CodeModalProps) {
     setLineFilterEnabled(true);
     setSelectedScopeNode(node);
 
-    // eslint-disable-next-line no-console
-    console.log("[breadcrumb] applySelectionFromNode", {
-      file: props.filePath ?? null,
-      node: {
-        name: node?.name ?? null,
-        type: node?.type ?? null,
-        start_line: node?.start_line ?? null,
-        end_line: node?.end_line ?? null,
-      },
-      coerced: { start: s, end: e },
-    });
   };
 
   const clearSelection = () => {
@@ -218,8 +199,6 @@ export default function CodeModal(props: CodeModalProps) {
     setTargetEndLine(null);
     setLineFilterEnabled(false);
     setSelectedScopeNode(null);
-    // eslint-disable-next-line no-console
-    console.log("[breadcrumb] clearSelection");
   };
 
   const handleSelectScopeFromBreadcrumb = (node: any | null) => {
@@ -286,23 +265,6 @@ export default function CodeModal(props: CodeModalProps) {
 
   const activeStructureNode = () =>
     getActiveStructureNode(breadcrumbPath(), props.scopeNode || props.fileNode);
-
-  createEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log("[breadcrumb] modal state", {
-      isOpen: props.isOpen,
-      filePath: props.filePath ?? null,
-      fileNode: props.fileNode
-        ? { name: props.fileNode?.name, type: props.fileNode?.type }
-        : null,
-      scopeNode: props.scopeNode
-        ? { name: props.scopeNode?.name, type: props.scopeNode?.type }
-        : null,
-      target: { start: targetStartLine(), end: targetEndLine() },
-      lineFilterEnabled: lineFilterEnabled(),
-      viewMode: viewMode(),
-    });
-  });
 
   return (
     // Keyed so switching `filePath` remounts the modal content and avoids a one-frame

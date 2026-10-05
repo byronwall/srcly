@@ -126,20 +126,6 @@ export function CodePane(props: CodePaneProps) {
     });
   });
 
-  createEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log("[breadcrumb] codepane inputs", {
-      filePath: props.filePath?.() ?? null,
-      displayStartLine: props.displayStartLine(),
-      currentTopLine: currentTopLine(),
-      target: {
-        start: props.targetStartLine?.() ?? null,
-        end: props.targetEndLine?.() ?? null,
-      },
-      hasFileNode: !!props.fileNode?.(),
-    });
-  });
-
   return (
     <div class="flex h-full min-h-0">
       <Show when={!props.isScopeMaximized() || !props.scopeFlowEnabled()}>

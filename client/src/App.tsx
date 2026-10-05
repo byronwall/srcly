@@ -95,6 +95,35 @@ function findNodes(
   return { fileNode, scopeNode };
 }
 
+function AnalyzeTarget(props: {
+  label: string;
+  path: string;
+  files: number;
+  folders: number;
+  primary?: boolean;
+  onAnalyze: () => void;
+}) {
+  return (
+    <div class="plc-panel flex items-center gap-4 border p-3">
+      <div class="min-w-0 flex-1">
+        <div class="plc-label-sm text-[var(--plc-on-subtle)]">{props.label}</div>
+        <p class="plc-data-md mt-1 break-all text-[var(--plc-on-surface)]">{props.path}</p>
+        <p class="mt-1 text-xs text-[var(--plc-on-subtle)]">
+          About {formatCount(props.files)} files in {formatCount(props.folders)} folders
+        </p>
+      </div>
+      <Button
+        variant={props.primary ? "primary" : "default"}
+        size="md"
+        class="shrink-0"
+        onClick={() => props.onAnalyze()}
+      >
+        Analyze
+      </Button>
+    </div>
+  );
+}
+
 // Temporary wrapper to allow passing additional props to FilePicker
 const FilePickerWithExternal = FilePicker as any;
 
@@ -130,7 +159,10 @@ function AppContent() {
   const [filterQuery, setFilterQuery] = createSignal("");
   const [currentRoot, setCurrentRoot] = createSignal<any>(null);
   const { excludedPaths } = useMetricsStore();
-  const [explorerWidth, setExplorerWidth] = createSignal(280);
+  // Half the viewport at most, so narrow windows keep room for the treemap.
+  const [explorerWidth, setExplorerWidth] = createSignal(
+    Math.min(280, Math.round(window.innerWidth * 0.5))
+  );
   const [isDragging, setIsDragging] = createSignal(false);
   const [analysisPath, setAnalysisPath] = createSignal("");
   const [scan, setScan] = createSignal<ScanSnapshot | null>(null);
@@ -272,14 +304,6 @@ function AppContent() {
       setSelectedLineRange(null);
     }
     setExplicitScopeNode(node || null);
-    // eslint-disable-next-line no-console
-    console.log("[App] handleFileFromTreemap", {
-      path,
-      startLine,
-      endLine,
-      node,
-      explicit: node || null,
-    });
     setIsCodeModalOpen(true);
   };
 
@@ -317,11 +341,6 @@ function AppContent() {
         selectedFilePath(),
         null // We don't need line range for file lookup if we trust the path
       );
-      // eslint-disable-next-line no-console
-      console.log("[App] selectedNodes explicit", {
-        fileNode: fileNode?.name,
-        scopeNode: explicitScopeNode()?.name,
-      });
       return { fileNode, scopeNode: explicitScopeNode() };
     }
 
@@ -330,13 +349,6 @@ function AppContent() {
       selectedFilePath(),
       selectedLineRange()
     );
-    // eslint-disable-next-line no-console
-    console.log("[App] selectedNodes filtered", {
-      path: selectedFilePath(),
-      range: selectedLineRange(),
-      foundFile: res.fileNode?.name,
-      foundScope: res.scopeNode?.name,
-    });
     return res;
   });
 
@@ -344,7 +356,8 @@ function AppContent() {
     <div class="plc-app-shell h-screen flex flex-col overflow-hidden">
       <header class="plc-topbar px-4 border-b flex items-center gap-4">
         <div class="flex items-center gap-3 flex-1 min-w-0">
-          <h1 class="text-[20px] leading-tight font-semibold text-[var(--plc-primary)] shrink-0">
+          <h1 class="flex shrink-0 items-center gap-2 text-[15px] font-semibold tracking-[-0.01em] text-[var(--plc-primary)]">
+            <img src="/favicon.svg" alt="" class="h-5 w-5" />
             Srcly
           </h1>
           <div class="w-full">
@@ -354,13 +367,14 @@ function AppContent() {
             />
           </div>
         </div>
-        <div class="text-xs text-[var(--plc-on-subtle)] whitespace-nowrap">
-          {loading()
-            ? "Scanning…"
-            : visualizationData()
-            ? "Analysis Loaded"
-            : "Select a folder to analyze"}
-        </div>
+        <Show when={!loading() && visualizationData()}>
+          {(data) => (
+            <div class="plc-data-sm hidden whitespace-nowrap text-[var(--plc-on-subtle)] md:block">
+              {formatCount(data().metrics?.file_count ?? 0)} files ·{" "}
+              {formatCount(data().metrics?.loc ?? 0)} LOC
+            </div>
+          )}
+        </Show>
       </header>
 
       <main class="flex-1 relative overflow-hidden flex">
@@ -406,69 +420,42 @@ function AppContent() {
                         )
                       }
                     >
-                      {(ctx) => (
-                        <EmptyState
-                          title="No visualization data yet"
-                          description="Choose what you want to analyze:"
-                          actions={
-                          <div class="grid gap-3 sm:grid-cols-2 w-full max-w-xl">
-                            <div class="plc-panel border p-3 text-left space-y-2">
-                              <div class="plc-label-caps text-[var(--plc-on-subtle)]">
-                                Current directory
+                      {(ctx) => {
+                        const analyze = (target: string) => {
+                          setAnalysisPath(target);
+                          void handleFileSelect(target);
+                        };
+                        const showRepoRoot = () =>
+                          Boolean(ctx().repoRootPath) &&
+                          ctx().repoRootPath !== ctx().rootPath;
+                        return (
+                          <EmptyState
+                            title="Map a codebase"
+                            description="Srcly sizes every file and function by lines of code and colors it by the metric you choose. Pick a folder, or type any path above."
+                            actions={
+                              <div class="flex w-full max-w-xl flex-col gap-3 text-left">
+                                <AnalyzeTarget
+                                  label="Current directory"
+                                  path={ctx().rootPath || "(unknown)"}
+                                  files={ctx().fileCount}
+                                  folders={ctx().folderCount}
+                                  primary
+                                  onAnalyze={() => analyze(ctx().rootPath || "")}
+                                />
+                                <Show when={showRepoRoot()}>
+                                  <AnalyzeTarget
+                                    label="Repository root"
+                                    path={ctx().repoRootPath ?? ""}
+                                    files={ctx().repoFileCount ?? 0}
+                                    folders={ctx().repoFolderCount ?? 0}
+                                    onAnalyze={() => analyze(ctx().repoRootPath ?? "")}
+                                  />
+                                </Show>
                               </div>
-                              <p class="plc-data-md text-[var(--plc-on-surface)] break-all">
-                                {ctx().rootPath || "(unknown)"}
-                              </p>
-                              <p class="text-[11px] text-[var(--plc-on-subtle)]">
-                                Roughly {ctx().fileCount} files and{" "}
-                                {ctx().folderCount} folders will be included.
-                              </p>
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                class="mt-2 w-full"
-                                onClick={() => {
-                                  const target = ctx().rootPath || "";
-                                  setAnalysisPath(target);
-                                  void handleFileSelect(target);
-                                }}
-                              >
-                                Analyze current directory
-                              </Button>
-                            </div>
-
-                            <Show when={ctx().repoRootPath}>
-                              <div class="plc-panel border p-3 text-left space-y-2">
-                                <div class="plc-label-caps text-[var(--plc-on-subtle)]">
-                                  Repo root
-                                </div>
-                                <p class="plc-data-md text-[var(--plc-on-surface)] break-all">
-                                  {ctx().repoRootPath}
-                                </p>
-                                <p class="text-[11px] text-[var(--plc-on-subtle)]">
-                                  Roughly {ctx().repoFileCount} files and{" "}
-                                  {ctx().repoFolderCount} folders will be
-                                  included.
-                                </p>
-                                <Button
-                                  variant="primary"
-                                  size="sm"
-                                  class="mt-2 w-full"
-                                  onClick={() => {
-                                    const target = ctx().repoRootPath || "";
-                                    if (!target) return;
-                                    setAnalysisPath(target);
-                                    void handleFileSelect(target);
-                                  }}
-                                >
-                                  Analyze repo root
-                                </Button>
-                              </div>
-                            </Show>
-                          </div>
-                          }
-                        />
-                      )}
+                            }
+                          />
+                        );
+                      }}
                     </Show>
                   </>
                 }
@@ -494,7 +481,7 @@ function AppContent() {
             onMouseMove={(e) => {
               if (isDragging()) {
                 const newWidth = e.clientX;
-                if (newWidth > 200 && newWidth < window.innerWidth - 200) {
+                if (newWidth > 160 && newWidth < window.innerWidth - 160) {
                   setExplorerWidth(newWidth);
                 }
               }
