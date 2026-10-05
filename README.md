@@ -180,3 +180,24 @@ If you want to hack on Srcly itself instead of running the packaged tool:
    ```
 
 You can also use the `dev.sh` helper script in the repository root to start both the API server and the client dev server together (it assumes `pnpm` and `uv` are available).
+
+## Releases
+
+GitHub Actions tests the client and server, builds the frontend into the Python package, and checks the installed wheel.
+Pull requests run these checks. A `v<version>` tag also publishes to PyPI and creates a GitHub release.
+The repository secret `PYPI_TOKEN` supplies the PyPI API token.
+
+To release:
+
+1. Update `version` in `server/pyproject.toml`.
+2. Run `cd server && uv lock` and commit both files through a pull request.
+3. After the pull request merges, tag that commit and push the tag:
+
+   ```bash
+   git tag v0.1.33
+   git push origin v0.1.33
+   ```
+
+Use the new version in the tag. The workflow rejects a tag that does not match the package version.
+Follow the [Release workflow](https://github.com/byronwall/srcly/actions/workflows/release.yml) to confirm publication.
+The local `publish-srcly.sh` script remains available for manual publication.
