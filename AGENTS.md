@@ -1,5 +1,9 @@
 # Agents
 
+## Finding code
+
+Start with `docs/CODE_MAP.md`: a feature → file index for the backend, API, and client. When you add, move, or remove a feature's main files, update the matching row in the same change.
+
 ## Client Package Management
 
 Use `pnpm` for all package management operations.
