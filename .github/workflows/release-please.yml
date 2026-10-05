@@ -1,0 +1,48 @@
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: googleapis/release-please-action@v5.0.0
+        id: release
+        with:
+          token: ${{ github.token }}
+      # GITHUB_TOKEN does not start tag workflows. Explicit dispatches do.
+      - name: Start release PR checks or publication
+        if: steps.release.outputs.prs_created == 'true' || steps.release.outputs.release_created == 'true'
+        uses: actions/github-script@v7
+        env:
+          RELEASE_PRS: ${{ steps.release.outputs.prs }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag_name }}
+        with:
+          script: |
+            for (const pr of JSON.parse(process.env.RELEASE_PRS || '[]')) {
+              for (const workflow_id of ['pr-title.yml', 'release.yml']) {
+                await github.rest.actions.createWorkflowDispatch({
+                  ...context.repo, workflow_id, ref: pr.headBranchName,
+                });
+              }
+            }
+            if (process.env.RELEASE_TAG) {
+              await github.rest.actions.createWorkflowDispatch({
+                ...context.repo, workflow_id: 'release.yml', ref: process.env.RELEASE_TAG,
+              });
+            }

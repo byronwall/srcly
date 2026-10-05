@@ -183,21 +183,11 @@ You can also use the `dev.sh` helper script in the repository root to start both
 
 ## Releases
 
-GitHub Actions tests the client and server, builds the frontend into the Python package, and checks the installed wheel.
-Pull requests run these checks. A `v<version>` tag also publishes to PyPI and creates a GitHub release.
-The repository secret `PYPI_TOKEN` supplies the PyPI API token.
+Use a Conventional Commit PR title, such as `fix: correct scan progress` or `feat: add a metric`.
+Squash merge the PR after its title and build checks pass.
 
-To release:
+[Release Please](https://github.com/byronwall/srcly/actions/workflows/release-please.yml) maintains a release PR with the version bump and changelog.
+Merge that PR when ready to publish. It creates the tag and GitHub release automatically.
+The [Release workflow](https://github.com/byronwall/srcly/actions/workflows/release.yml) tests and builds the package, then publishes it to PyPI.
 
-1. Update `version` in `server/pyproject.toml`.
-2. Run `cd server && uv lock` and commit both files through a pull request.
-3. After the pull request merges, tag that commit and push the tag:
-
-   ```bash
-   git tag v0.1.33
-   git push origin v0.1.33
-   ```
-
-Use the new version in the tag. The workflow rejects a tag that does not match the package version.
-Follow the [Release workflow](https://github.com/byronwall/srcly/actions/workflows/release.yml) to confirm publication.
-The local `publish-srcly.sh` script remains available for manual publication.
+See [release guidance](docs/releases.md) for version rules, credentials, and recovery steps.
