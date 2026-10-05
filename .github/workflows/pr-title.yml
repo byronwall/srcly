@@ -3,6 +3,7 @@ name: PR title
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 permissions:
   pull-requests: read
@@ -13,20 +14,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Read PR metadata only. Do not check out or run code from the PR.
-      - uses: amannn/action-semantic-pull-request@v5
+      - uses: actions/github-script@v7
         with:
-          types: |
-            feat
-            fix
-            perf
-            deps
-            revert
-            docs
-            refactor
-            test
-            build
-            ci
-            chore
-            style
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+          script: |
+            let pr = context.payload.pull_request;
+            if (!pr) {
+              const {data} = await github.rest.pulls.list({
+                ...context.repo,
+                head: `${context.repo.owner}:${context.ref.replace('refs/heads/', '')}`,
+                base: 'main', state: 'open',
+              });
+              if (data.length !== 1) {
+                throw new Error('Select a branch with one open PR to main.');
+              }
+              pr = data[0];
+            }
+            const pattern = /^(feat|fix|perf|deps|revert|docs|refactor|test|build|ci|chore|style)(\([^()\r\n]+\))?!?: \S.*$/;
+            if (!pattern.test(pr.title)) {
+              core.setFailed('Use a Conventional Commit title, such as fix(scan): stop cancelled scans or feat!: remove an API.');
+            }

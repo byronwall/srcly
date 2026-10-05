@@ -45,36 +45,38 @@ A GitHub release alone does not confirm PyPI publication.
 
 ## Credentials and repository settings
 
-The workflows need two Actions secrets:
+The only stored secret is `PYPI_TOKEN`, the PyPI API token used by `uv publish`.
+Release Please uses GitHub's temporary `GITHUB_TOKEN`. No GitHub user token is stored.
+Its job grants contents, issues, pull-request, and Actions write permissions.
 
-- `PYPI_TOKEN`: the PyPI API token used by `uv publish`.
-- `RELEASE_PLEASE_TOKEN`: a GitHub user token used by Release Please.
+GitHub does not automatically run tag workflows for tags created with `GITHUB_TOKEN`.
+Generated PR workflows can also need manual approval.
+Release Please explicitly dispatches title and build checks on its PR branch, and publication on its release tag.
+Dispatch events work with `GITHUB_TOKEN` and need no extra credential.
+The normal PR and tag triggers remain available.
 
-The GitHub token must allow repository contents, issues, and pull requests to be written.
-Updating workflow files also needs workflow permission for a classic token.
-Fine-grained tokens need the matching permissions on this repository.
-Use a user token so generated PRs and tags start other Actions workflows.
-The default `GITHUB_TOKEN` does not start those workflows.
-Set `RELEASE_PLEASE_TOKEN` before merging the workflow setup PR.
-
-Renew these secrets in repository Settings > Secrets and variables > Actions if the tokens expire or are revoked.
+Renew the PyPI secret in Settings > Secrets and variables > Actions if it expires or is revoked.
 Never print token values or commit them to the repository.
 
-Apply these repository settings after the owner approves them:
+Apply these repository settings after owner approval:
 
 - Allow squash merges. Disable merge commits and rebase merges.
 - Use the PR title as the squash commit title. Use no commit-message body.
 - Require the `PR title` and `build` checks on `main`, including for administrators.
 - Do not require extra reviews or an up-to-date branch.
+- Enable Settings > Actions > General > Allow GitHub Actions to create and approve pull requests.
 
+The Actions setting permits PR creation. This workflow does not approve or merge PRs.
 Until these settings are applied, the checks report failures but do not block merging.
-
 Use these commands to apply the approved settings:
 
 ```bash
 gh api --method PATCH repos/byronwall/srcly \
   -F allow_squash_merge=true -F allow_merge_commit=false -F allow_rebase_merge=false \
   -f squash_merge_commit_title=PR_TITLE -f squash_merge_commit_message=BLANK
+
+gh api --method PUT repos/byronwall/srcly/actions/permissions/workflow \
+  -f default_workflow_permissions=read -F can_approve_pull_request_reviews=true
 
 gh api --method PUT repos/byronwall/srcly/branches/main/protection --input - <<'JSON'
 {
@@ -91,6 +93,7 @@ JSON
 If no release PR appears, check the Release Please action.
 Hidden maintenance types do not create a release by themselves.
 Run Release Please manually on `main` to retry PR or tag creation.
+If dispatched PR checks fail to start, run PR title and Release manually on the release PR branch.
 
 If a PR title fails, edit it. The title check runs again on title edits.
 If a release PR fails the lock check, investigate the updater before merging.
