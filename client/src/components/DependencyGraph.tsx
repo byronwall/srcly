@@ -341,7 +341,7 @@ export default function DependencyGraph(props: DependencyGraphProps) {
     setLoading(true);
     setError(null);
     try {
-      const url = new URL("http://localhost:8000/api/analysis/dependencies");
+      const url = new URL("/api/analysis/dependencies", window.location.origin);
       if (path) url.searchParams.append("path", path);
 
       const response = await fetch(url.toString());

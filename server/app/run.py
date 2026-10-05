@@ -10,6 +10,12 @@ from pathlib import Path
 import uvicorn
 
 from app.services import reporting
+from app.services.scan_workers import ScanCancelled
+
+# Seconds uvicorn waits for open connections after Ctrl+C before closing them.
+GRACEFUL_SHUTDOWN_SECONDS = 3
+# Conventional exit status for a process stopped by SIGINT.
+EXIT_INTERRUPTED = 130
 
 
 def _open_browser_later(url: str, delay: float = 1.0) -> None:
@@ -54,8 +60,17 @@ def _find_repo_root(start_path: str) -> str:
 
 
 def main(argv: list[str] | None = None) -> None:
+    """CLI entry point. Ctrl+C exits promptly with status 130 and no traceback."""
+    try:
+        _main(argv)
+    except (KeyboardInterrupt, ScanCancelled):
+        print("\nStopped.", file=sys.stderr, flush=True)
+        raise SystemExit(EXIT_INTERRUPTED)
+
+
+def _main(argv: list[str] | None = None) -> None:
     """
-    Entry point for the CLI.
+    Parse arguments and dispatch.
 
     - With no path argument, uses the enclosing Git repo root as the codebase root.
     - If a path is provided (including "."), uses that as the codebase root.
@@ -127,6 +142,7 @@ def main(argv: list[str] | None = None) -> None:
         host=args.host,
         port=port,
         reload=False,
+        timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_SECONDS,
     )
 
 

@@ -1,9 +1,8 @@
 import os
 import lizard
-import multiprocessing
 import sys
-import time
 from pathlib import Path
+from typing import Optional
 
 from app.models import Node, Metrics
 from app.config import IGNORE_DIRS, IGNORE_FILES, IGNORE_EXTENSIONS
@@ -11,6 +10,7 @@ from app.services.typescript.typescript_analysis import TreeSitterAnalyzer
 from app.services.markdown.markdown_analysis import MarkdownTreeSitterAnalyzer
 from app.services.ipynb.ipynb_analysis import NotebookAnalyzer
 from app.services.css.css_analysis import CssTreeSitterAnalyzer
+from app.services.scan_workers import CancelToken, FileFailure, run_file_analyses, track_scan
 from pathspec import PathSpec
 
 # Maximum time allowed for analyzing a single file in a worker process.
@@ -267,7 +267,27 @@ def _translate_gitignore_pattern(raw_line: str, base_rel: str) -> str | None:
     return f"!{pat}" if negated else pat
 
 
-def _load_gitignore_spec(root_path: Path) -> tuple[Path, PathSpec | None]:
+def _read_gitignore_patterns(gitignore_file: Path, base_rel: str) -> list[str]:
+    try:
+        with open(gitignore_file, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+    except OSError:
+        return []
+    patterns: list[str] = []
+    for raw in lines:
+        translated = _translate_gitignore_pattern(raw, base_rel)
+        if translated is not None:
+            patterns.append(translated)
+    return patterns
+
+
+def _is_pruned_dir_name(name: str) -> bool:
+    return name in IGNORE_DIRS or name.startswith(".srcly")
+
+
+def _load_gitignore_spec(
+    root_path: Path, cancel: Optional[CancelToken] = None
+) -> tuple[Path, PathSpec | None]:
     """
     Load a PathSpec representing .gitignore rules visible from the given
     root path, honoring nested .gitignore files similarly to Git.
@@ -275,43 +295,65 @@ def _load_gitignore_spec(root_path: Path) -> tuple[Path, PathSpec | None]:
     We treat the *repository root* (where .git lives) as the base for all
     ignore patterns, so that scanning a subdirectory still respects repo-level
     .gitignore files and nested ones.
+
+    Only .gitignore files that can affect the scan are read: those in the
+    ancestors between the repo root and ``root_path``, and those inside the
+    ``root_path`` subtree. Directories the scan will never enter (built-in
+    ignore dirs such as ``node_modules``, or directories already gitignored by
+    a parent rule) are pruned, matching Git, which never re-includes files
+    beneath an excluded directory.
     """
     repo_root = find_repo_root(root_path)
+    root_path = root_path.resolve()
 
     all_patterns: list[str] = []
 
-    for dirpath, dirnames, filenames in os.walk(repo_root):
-        # Never look inside the .git directory for ignore rules
-        if ".git" in dirnames:
-            dirnames.remove(".git")
+    def rel_of(path: Path) -> str:
+        return "" if path == repo_root else path.relative_to(repo_root).as_posix()
 
-        if ".gitignore" not in filenames:
+    # Ancestors from the repo root down to (but excluding) root_path.
+    try:
+        ancestors = list(reversed(root_path.relative_to(repo_root).parents))
+    except ValueError:
+        ancestors = []
+    for rel in ancestors:
+        directory = repo_root / rel
+        if directory == root_path:
             continue
+        all_patterns.extend(_read_gitignore_patterns(directory / ".gitignore", rel_of(directory)))
 
-        gitignore_file = Path(dirpath) / ".gitignore"
-        base_rel = (
-            str(Path(dirpath).relative_to(repo_root).as_posix())
-            if Path(dirpath) != repo_root
-            else ""
-        )
+    spec = PathSpec.from_lines("gitwildmatch", all_patterns) if all_patterns else None
 
-        with open(gitignore_file, "r") as f:
-            for raw in f:
-                translated = _translate_gitignore_pattern(raw, base_rel)
-                if translated is not None:
-                    all_patterns.append(translated)
+    for dirpath, dirnames, filenames in os.walk(root_path):
+        if cancel is not None:
+            cancel.raise_if_cancelled()
+        current = Path(dirpath)
 
-    if not all_patterns:
-        return repo_root, None
+        if ".gitignore" in filenames:
+            added = _read_gitignore_patterns(current / ".gitignore", rel_of(current))
+            if added:
+                all_patterns.extend(added)
+                spec = PathSpec.from_lines("gitwildmatch", all_patterns)
 
-    spec = PathSpec.from_lines("gitwildmatch", all_patterns)
+        dirnames[:] = [
+            d
+            for d in dirnames
+            if not _is_pruned_dir_name(d)
+            and not _is_gitignored(current / d, repo_root, spec, is_dir=True)
+        ]
+
     return repo_root, spec
 
 
-def _is_gitignored(path: Path, ignore_root: Path, spec: PathSpec | None) -> bool:
+def _is_gitignored(
+    path: Path, ignore_root: Path, spec: PathSpec | None, *, is_dir: bool = False
+) -> bool:
     """
     Return True if the given path should be ignored according to the
     provided PathSpec and root_path.
+
+    Pass ``is_dir=True`` for directories: directory-only patterns such as
+    ``build/`` only match when the path carries a trailing slash.
     """
     if spec is None:
         return False
@@ -322,6 +364,8 @@ def _is_gitignored(path: Path, ignore_root: Path, spec: PathSpec | None) -> bool
         rel = path
 
     rel_str = rel.as_posix()
+    if is_dir:
+        rel_str += "/"
     return spec.match_file(rel_str)
 
 
@@ -456,174 +500,88 @@ def analyze_single_file(file_path: str):
         return {"error": str(e), "filename": file_path}
 
 
-def _analyze_file_in_subprocess(file_path: str, send_conn) -> None:
-    """
-    Child-process entry point. Runs analysis and sends the result back over a pipe.
-    Must be top-level for multiprocessing pickling.
-    """
-    try:
-        result = analyze_single_file(file_path)
-    except Exception as e:
-        result = {"error": str(e), "filename": file_path}
-    try:
-        send_conn.send(result)
-    except Exception:
-        # If sending fails, there's nothing useful we can do here.
-        pass
-    finally:
-        try:
-            send_conn.close()
-        except Exception:
-            pass
-
-
 def _run_file_analyses_with_hard_timeouts(
     files_to_scan: list[str],
     timeout_seconds: float,
     max_workers: int,
     *,
     verbose: bool = True,
+    cancel: Optional[CancelToken] = None,
 ) -> list:
     """
-    Analyze files with a *hard* per-file timeout by running each file in its own
-    subprocess. This avoids the common pitfall where a ProcessPoolExecutor can
-    hang forever if a worker gets stuck, because individual tasks cannot be
-    force-killed reliably.
+    Analyze files in a pool of worker processes with a *hard* per-file timeout.
+
+    Hung or crashed files are reported and skipped; see ``scan_workers`` for
+    the pool mechanics. Raises ``ScanCancelled`` if ``cancel`` fires.
     """
-    if not files_to_scan:
-        return []
 
-    ctx = multiprocessing.get_context("spawn")
-    total_count = len(files_to_scan)
-    completed_count = 0
+    def on_file_start(index: int, total: int, path: str) -> None:
+        # Log every file *before* it is processed so we can identify the
+        # last-started file if analysis hangs or crashes.
+        if verbose:
+            print(f"➡️ [{index}/{total}] Starting analysis: {path}", file=sys.stderr, flush=True)
 
-    # Active entries: (process, file_path, start_time, recv_conn)
-    active: list[tuple[multiprocessing.Process, str, float, object]] = []
-    results: list = []
+    def on_file_done(completed: int, total: int, path: str, failure: FileFailure | None) -> None:
+        if not verbose:
+            return
+        if failure is None:
+            if _should_log_file_progress(completed, total):
+                print(f"✅ [{completed}/{total}] Analyzed {path}", file=sys.stderr, flush=True)
+        elif failure.reason == "timeout":
+            print(f"❌ [{completed}/{total}] Timeout analyzing {path} after {failure.detail} (terminated)", file=sys.stderr, flush=True)
+        else:
+            print(f"❌ [{completed}/{total}] Error analyzing {path}: {failure.detail}", file=sys.stderr, flush=True)
 
-    next_index = 0
-    while next_index < total_count or active:
-        # Fill up worker slots.
-        while next_index < total_count and len(active) < max_workers:
-            file_path = files_to_scan[next_index]
-            next_index += 1
-
-            # Log every file *before* it is processed so we can identify the
-            # last-started file if analysis hangs or crashes.
-            if verbose:
-                print(f"➡️ [{next_index}/{total_count}] Starting analysis: {file_path}", file=sys.stderr, flush=True)
-
-            recv_conn, send_conn = ctx.Pipe(duplex=False)
-            proc = ctx.Process(
-                target=_analyze_file_in_subprocess,
-                args=(file_path, send_conn),
-                daemon=True,
-            )
-            start_time = time.time()
-            proc.start()
-            # Close the child end in the parent process to avoid leaks.
-            try:
-                send_conn.close()
-            except Exception:
-                pass
-
-            active.append((proc, file_path, start_time, recv_conn))
-
-        # Check running workers for completion or timeout.
-        still_active: list[tuple[multiprocessing.Process, str, float, object]] = []
-        now = time.time()
-
-        for proc, file_path, start_time, recv_conn in active:
-            elapsed = now - start_time
-
-            if proc.is_alive() and elapsed <= timeout_seconds:
-                still_active.append((proc, file_path, start_time, recv_conn))
-                continue
-
-            # Either finished, or timed out.
-            if proc.is_alive() and elapsed > timeout_seconds:
-                completed_count += 1
-                if verbose:
-                    print(
-                        f"❌ [{completed_count}/{total_count}] Timeout analyzing {file_path} after {elapsed:.2f}s (terminated)",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-                try:
-                    proc.terminate()
-                except Exception:
-                    pass
-                try:
-                    proc.join(timeout=1.0)
-                except Exception:
-                    pass
-                try:
-                    recv_conn.close()
-                except Exception:
-                    pass
-                continue
-
-            # Process finished; collect result if possible.
-            try:
-                proc.join(timeout=0.0)
-            except Exception:
-                pass
-
-            completed_count += 1
-            result = None
-            try:
-                # If the child crashed before sending anything, recv may raise EOFError.
-                result = recv_conn.recv()
-            except Exception as exc:
-                result = {"error": str(exc), "filename": file_path}
-            finally:
-                try:
-                    recv_conn.close()
-                except Exception:
-                    pass
-
-            if isinstance(result, dict) and "error" in result:
-                if verbose:
-                    print(
-                        f"❌ [{completed_count}/{total_count}] Error analyzing {file_path}: {result.get('error')}",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-            else:
-                if verbose and _should_log_file_progress(completed_count, total_count):
-                    print(f"✅ [{completed_count}/{total_count}] Analyzed {file_path}", file=sys.stderr, flush=True)
-                results.append(result)
-
-        active = still_active
-
-        # Avoid busy-looping when workers are running.
-        if active and (next_index < total_count or active):
-            time.sleep(0.02)
-
-    return results
+    outcome = run_file_analyses(
+        files_to_scan,
+        timeout_seconds=timeout_seconds,
+        max_workers=max_workers,
+        cancel=cancel,
+        on_file_start=on_file_start,
+        on_file_done=on_file_done,
+    )
+    return outcome.results
 
 
-def scan_codebase(root_path: Path, *, verbose: bool = True) -> Node:
+def scan_codebase(
+    root_path: Path,
+    *,
+    verbose: bool = True,
+    cancel: Optional[CancelToken] = None,
+) -> Node:
+    """
+    Scan ``root_path`` and return the analysis tree.
+
+    Raises ``ScanCancelled`` if ``cancel`` fires (or ``cancel_all_scans`` is
+    called) before the scan finishes; worker processes are always cleaned up.
+    """
+    token = cancel or CancelToken()
+    with track_scan(token):
+        return _scan_codebase(root_path, verbose=verbose, cancel=token)
+
+
+def _scan_codebase(root_path: Path, *, verbose: bool, cancel: CancelToken) -> Node:
     if verbose:
         print(f"🔍 Scanning: {root_path}", file=sys.stderr, flush=True)
 
     # Load .gitignore spec (repo-wide, with nested .gitignore support)
-    ignore_root, gitignore_spec = _load_gitignore_spec(root_path)
+    ignore_root, gitignore_spec = _load_gitignore_spec(root_path, cancel)
 
     files_to_scan: list[str] = []
     ignored_counts: dict[str, int] = {}
 
     for root_dir, dirs, files in os.walk(root_path):
+        cancel.raise_if_cancelled()
         root_dir_path = Path(root_dir)
 
         # Apply ignore dirs from config and .gitignore
         # We must modify dirs in-place to prune traversal
         pruned_dirs: list[str] = []
         for d in dirs:
-            if d in IGNORE_DIRS or d.startswith(".srcly"):
+            if _is_pruned_dir_name(d):
                 continue
             dir_path = root_dir_path / d
-            if _is_gitignored(dir_path, ignore_root, gitignore_spec):
+            if _is_gitignored(dir_path, ignore_root, gitignore_spec, is_dir=True):
                 # Entire directory is ignored; we skip traversing into it.
                 continue
             pruned_dirs.append(d)
@@ -659,7 +617,9 @@ def scan_codebase(root_path: Path, *, verbose: bool = True) -> Node:
         timeout_seconds=PER_FILE_ANALYSIS_TIMEOUT_SECONDS,
         max_workers=MAX_ANALYSIS_WORKERS,
         verbose=verbose,
+        cancel=cancel,
     )
+    cancel.raise_if_cancelled()
 
     tree_root = create_node("root", "folder", str(root_path))
     node_map = {str(root_path): tree_root}
@@ -696,7 +656,6 @@ def scan_codebase(root_path: Path, *, verbose: bool = True) -> Node:
             current_path = next_path
 
         # Add File
-        file_node = create_node(parts[-1], "file", str(path_obj))
         file_node = create_node(parts[-1], "file", str(path_obj))
         attach_file_metrics(file_node, file_info)
         # Set last_modified
