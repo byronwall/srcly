@@ -37,6 +37,7 @@ export function HotSpotItem(props: {
     if (lastSlash === -1) return;
     const parentPath = fileOrFolderPath.substring(0, lastSlash);
 
+    if (!ctx.rootData) return;
     const parentNode = findNodeByPath(ctx.rootData, parentPath);
     if (parentNode) {
       ctx.onZoom(parentNode);

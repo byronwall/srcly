@@ -27,42 +27,53 @@ export function filterNoise(node: any) {
   return node;
 }
 
-export function filterTree(node: any, query: string): any {
-  if (!query) return node;
+export function filterTree(
+  node: any,
+  query: string,
+  excludedPaths: readonly string[] = []
+): any {
+  if (!node) return null;
 
-  const lowerQuery = query.toLowerCase();
+  const lowerQuery = query.trim().toLowerCase();
+  if (!lowerQuery && excludedPaths.length === 0) return node;
 
-  // Helper to check if a node matches
-  const matches = (n: any) => n.name.toLowerCase().includes(lowerQuery);
+  const excluded = new Set(excludedPaths);
+  const matches = (n: any) =>
+    String(n.name ?? "").toLowerCase().includes(lowerQuery);
 
-  // Recursive filter
-  function recurse(n: any): any {
-    // If it's a file/leaf, check if it matches
-    if (!n.children || n.children.length === 0) {
-      return matches(n) ? n : null;
+  function recurse(n: any, isRoot = false): any {
+    if (!isRoot && n.path && excluded.has(n.path)) return null;
+
+    const children = Array.isArray(n.children) ? n.children : [];
+    if (children.length === 0) {
+      if (lowerQuery && !matches(n)) return null;
+      return n;
     }
 
-    // If it's a folder, filter children
-    const filteredChildren = n.children
-      .map(recurse)
-      .filter((c: any) => c !== null);
-
-    // If folder itself matches, return it with ALL children (or maybe just filtered? Let's say filtered for now, unless we want to show context)
-    // Actually, if a folder matches "src", we probably want to see everything inside?
-    // Or maybe just the folder node itself?
-    // Usually search filters items. If I search "src", I expect to see "src" folder.
-    // But if I search "App", I expect "App.tsx".
-    // Let's stick to: keep node if it matches OR has matching descendants.
-
-    if (matches(n) || filteredChildren.length > 0) {
-      // Return a copy with filtered children
-      return { ...n, children: filteredChildren };
+    const filteredChildren: any[] = [];
+    let changed = false;
+    for (const child of children) {
+      const filtered = recurse(child);
+      if (filtered) filteredChildren.push(filtered);
+      if (filtered !== child) changed = true;
     }
 
-    return null;
+    if (lowerQuery && !matches(n) && filteredChildren.length === 0) return null;
+    if (!changed && filteredChildren.length === children.length) return n;
+    return { ...n, children: filteredChildren };
   }
 
-  return recurse(node);
+  return recurse(node, true);
+}
+
+export function findTreeNodeByPath(node: any, path: string): any | null {
+  if (!node) return null;
+  if (node.path === path) return node;
+  for (const child of node.children ?? []) {
+    const found = findTreeNodeByPath(child, path);
+    if (found) return found;
+  }
+  return null;
 }
 
 export function extractFilePath(

@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [solid(), tailwindcss()],
+  worker: { format: "es" },
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
