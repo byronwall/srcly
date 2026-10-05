@@ -1,6 +1,7 @@
 import {
   createMemo,
   createSignal,
+  onCleanup,
   onMount,
   Show,
   createEffect,
@@ -10,11 +11,21 @@ import Toast from "./components/Toast";
 import CodeModal from "./components/CodeModal/CodeModal.tsx";
 import Explorer from "./components/Explorer";
 import { DialogHeader, DialogShell } from "./components/dialog/DialogShell";
+import { ScanProgress } from "./components/feedback/ScanProgress";
 import { EmptyState, ErrorState, LoadingState } from "./components/feedback/States";
 import FilePicker from "./components/FilePicker";
 import Treemap from "./components/Treemap";
 import { Button } from "./components/ui/Button";
+import {
+  cancelScan,
+  emptySnapshot,
+  fetchScanResult,
+  startScan,
+  watchScan,
+  type ScanSnapshot,
+} from "./services/scanJobs";
 import { filterTree } from "./utils/dataProcessing";
+import { formatCount, formatDuration } from "./utils/scanProgress";
 import { MetricsStoreProvider, useMetricsStore } from "./utils/metricsStore";
 
 type AnalysisContext = {
@@ -122,6 +133,13 @@ function AppContent() {
   const [explorerWidth, setExplorerWidth] = createSignal(280);
   const [isDragging, setIsDragging] = createSignal(false);
   const [analysisPath, setAnalysisPath] = createSignal("");
+  const [scan, setScan] = createSignal<ScanSnapshot | null>(null);
+  const [cancelling, setCancelling] = createSignal(false);
+  // Identifies the newest analysis request so late responses from a
+  // superseded scan are ignored.
+  let activeRequest = 0;
+  let stopWatching: (() => void) | null = null;
+  onCleanup(() => stopWatching?.());
 
   // Reset current root when data changes
   createEffect(() => {
@@ -152,36 +170,88 @@ function AppContent() {
     }
   });
 
+  const notify = (message: string, type: "success" | "error") => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(false);
+    queueMicrotask(() => setShowToast(true));
+  };
+
+  const finishScan = async (request: number, snapshot: ScanSnapshot) => {
+    if (request !== activeRequest) return;
+    try {
+      if (snapshot.phase === "complete") {
+        const data = await fetchScanResult<any>(snapshot.id);
+        if (request !== activeRequest) return;
+        setVisualizationData(data);
+        const skipped =
+          snapshot.files_failed > 0
+            ? ` (${formatCount(snapshot.files_failed)} skipped)`
+            : "";
+        notify(
+          `Analyzed ${formatCount(snapshot.files_total)} files in ${formatDuration(snapshot.elapsed_seconds)}${skipped}`,
+          "success"
+        );
+      } else if (snapshot.phase === "failed") {
+        setError(snapshot.error || "The scan failed.");
+      }
+      // "cancelled" needs no message: the user asked for it.
+    } catch (err) {
+      if (request !== activeRequest) return;
+      console.error(err);
+      setError(String(err));
+    } finally {
+      if (request === activeRequest) {
+        setLoading(false);
+        setScan(null);
+        setCancelling(false);
+      }
+    }
+  };
+
   const handleFileSelect = async (path: string) => {
+    const request = ++activeRequest;
+    stopWatching?.();
+    stopWatching = null;
+    const previous = scan();
+    if (previous) void cancelScan(previous.id);
+
     // Clear existing analysis data immediately so we don't show stale visuals
     setVisualizationData(null);
     setCurrentRoot(null);
     setLoading(true);
+    setCancelling(false);
     setError(null);
+
+    const trimmed = path?.trim() || null;
+    setScan(emptySnapshot("", trimmed ?? analysisContext()?.rootPath ?? ""));
     try {
-      const trimmed = path?.trim();
-      const url =
-        trimmed && trimmed.length > 0
-          ? `/api/analysis?path=${encodeURIComponent(trimmed)}`
-          : "/api/analysis";
-      const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error(`Failed to fetch analysis: ${res.statusText}`);
+      const started = await startScan(trimmed);
+      if (request !== activeRequest) {
+        void cancelScan(started.id);
+        return;
       }
-      const data = await res.json();
-      setVisualizationData(data);
-      setToastMessage("Analysis completed");
-      setToastType("success");
-      setShowToast(true);
+      setScan(started);
+      stopWatching = watchScan(started.id, {
+        onUpdate: (snapshot) => {
+          if (request === activeRequest) setScan(snapshot);
+        },
+        onDone: (snapshot) => void finishScan(request, snapshot),
+      });
     } catch (err) {
+      if (request !== activeRequest) return;
       console.error(err);
-      setError(String(err));
-      setToastMessage(String(err));
-      setToastType("error");
-      setShowToast(true);
-    } finally {
+      setError(String(err instanceof Error ? err.message : err));
       setLoading(false);
+      setScan(null);
     }
+  };
+
+  const handleCancelScan = () => {
+    const current = scan();
+    if (!current?.id) return;
+    setCancelling(true);
+    void cancelScan(current.id);
   };
 
   const handleFileFromTreemap = (
@@ -286,7 +356,7 @@ function AppContent() {
         </div>
         <div class="text-xs text-[var(--plc-on-subtle)] whitespace-nowrap">
           {loading()
-            ? "Loading..."
+            ? "Scanning…"
             : visualizationData()
             ? "Analysis Loaded"
             : "Select a folder to analyze"}
@@ -403,18 +473,18 @@ function AppContent() {
                   </>
                 }
               >
-                <LoadingState
-                  label={
-                    <div>
-                      <div class="text-[17px] font-semibold text-[var(--plc-on-surface)]">
-                        Loading analysis...
-                      </div>
-                      <div class="mt-2 text-sm text-[var(--plc-on-subtle)]">
-                        This may take a moment for larger codebases.
-                      </div>
-                    </div>
-                  }
-                />
+                <Show
+                  when={scan()}
+                  fallback={<LoadingState label="Loading analysis…" />}
+                >
+                  {(snapshot) => (
+                    <ScanProgress
+                      snapshot={snapshot()}
+                      onCancel={snapshot().id ? handleCancelScan : undefined}
+                      cancelling={cancelling()}
+                    />
+                  )}
+                </Show>
               </Show>
             </div>
           }

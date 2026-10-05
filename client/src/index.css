@@ -392,3 +392,25 @@ body {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* Scan progress: sliding bar while the total is still unknown. */
+@keyframes plc-progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
+.plc-progress-indeterminate {
+  animation: plc-progress-slide 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plc-progress-indeterminate {
+    animation: none;
+    width: 100%;
+    opacity: 0.35;
+  }
+}
