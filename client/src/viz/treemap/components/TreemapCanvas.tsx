@@ -93,6 +93,7 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
   let paintedNodes: TreemapTile[] = [];
   let paintedWidth = 0;
   let paintedHeight = 0;
+  let paintedMetric = "";
   let animations: Animation[] = [];
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -123,6 +124,10 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
     if (!canvas) return;
     const width = props.width();
     const height = props.height();
+    // Modifier release must not cut an isolation zoom short.
+    if (animations.length && paintedNodes === props.nodes() &&
+        paintedWidth === width && paintedHeight === height &&
+        paintedMetric === props.metricId()) return;
     finishMotion();
     const transforms = !reducedMotion.matches && width === paintedWidth && height === paintedHeight
       ? zoomTransforms(paintedNodes, props.nodes(), width, height)
@@ -218,6 +223,7 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
     paintedNodes = props.nodes();
     paintedWidth = width;
     paintedHeight = height;
+    paintedMetric = props.metricId();
 
     // Paint once per view. The compositor moves two images; no tile work runs per frame.
     if (transforms && snapshot) {
