@@ -6,6 +6,7 @@ import {
   onMount,
 } from "solid-js";
 import type { HierarchyRectangularNode } from "d3";
+import { zoomTransforms } from "../utils/zoom";
 import { truncateTextToWidth } from "../../../utils/svgText";
 import {
   treemapFillColor,
@@ -88,6 +89,22 @@ function labelStyle(node: TreemapTile) {
 
 export default function TreemapCanvas(props: TreemapCanvasProps) {
   let canvas: HTMLCanvasElement | undefined;
+  let snapshot: HTMLCanvasElement | undefined;
+  let paintedNodes: TreemapTile[] = [];
+  let paintedWidth = 0;
+  let paintedHeight = 0;
+  let animations: Animation[] = [];
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  function finishMotion() {
+    for (const animation of animations) animation.cancel();
+    animations = [];
+    if (snapshot) {
+      snapshot.hidden = true;
+      // Release the second pixel buffer between navigations.
+      snapshot.width = snapshot.height = 0;
+    }
+  }
   const [hovered, setHovered] = createSignal<TreemapTile | null>(null);
   const [activeKey, setActiveKey] = createSignal<string | null>(null);
 
@@ -106,6 +123,16 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
     if (!canvas) return;
     const width = props.width();
     const height = props.height();
+    finishMotion();
+    const transforms = !reducedMotion.matches && width === paintedWidth && height === paintedHeight
+      ? zoomTransforms(paintedNodes, props.nodes(), width, height)
+      : null;
+    if (transforms && snapshot) {
+      snapshot.width = canvas.width;
+      snapshot.height = canvas.height;
+      snapshot.getContext("2d")?.drawImage(canvas, 0, 0);
+      snapshot.hidden = false;
+    }
     const dpr = window.devicePixelRatio || 1;
     const backingWidth = Math.round(width * dpr);
     const backingHeight = Math.round(height * dpr);
@@ -188,6 +215,24 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
         Math.max(0, activeNode.y1 - activeNode.y0 - 2.5)
       );
     }
+    paintedNodes = props.nodes();
+    paintedWidth = width;
+    paintedHeight = height;
+
+    // Paint once per view. The compositor moves two images; no tile work runs per frame.
+    if (transforms && snapshot) {
+      const timing = { duration: 320, easing: "cubic-bezier(0.16, 1, 0.3, 1)" };
+      const incoming = canvas.animate([
+        { transform: transforms.incoming, opacity: 0.25 },
+        { transform: "none", opacity: 1 },
+      ], timing);
+      const outgoing = snapshot.animate([
+        { transform: "none", opacity: 1 },
+        { transform: transforms.outgoing, opacity: 0 },
+      ], timing);
+      animations = [incoming, outgoing];
+      incoming.onfinish = finishMotion;
+    }
   }
 
   let drawFrame = 0;
@@ -208,6 +253,7 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
   }
 
   function updateHover(event: PointerEvent) {
+    if (animations.length) return;
     const node = nodeAtEvent(event);
     if (canvas) {
       canvas.style.cursor = !node
@@ -225,6 +271,7 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
   }
 
   function handleKeyDown(event: KeyboardEvent) {
+    finishMotion();
     if (HIT_KEYS.has(event.key)) {
       event.preventDefault();
       const selectable = visibleNodes().filter((node) => node.depth > 0);
@@ -268,12 +315,17 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
 
   onMount(() => {
     const onWindowResize = () => schedulePaint();
+    reducedMotion.addEventListener("change", finishMotion);
     window.addEventListener("resize", onWindowResize);
-    onCleanup(() => window.removeEventListener("resize", onWindowResize));
+    onCleanup(() => {
+      window.removeEventListener("resize", onWindowResize);
+      reducedMotion.removeEventListener("change", finishMotion);
+    });
   });
 
   onCleanup(() => {
     if (drawFrame) cancelAnimationFrame(drawFrame);
+    finishMotion();
     props.onHover(null, null);
   });
 
@@ -286,13 +338,20 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
         aria-label="Treemap. Use arrow keys to select a tile and Enter to open it."
         aria-describedby="treemap-active-tile"
         tabIndex={0}
+        style={{ "transform-origin": "0 0" }}
         onPointerMove={updateHover}
         onPointerLeave={(event) => {
+          if (animations.length) return;
           setHovered(null);
           props.onHover(event, null);
           schedulePaint();
         }}
         onClick={(event) => {
+          // Moving pixels do not match the final hit index. Settle before accepting another click.
+          if (animations.length) {
+            finishMotion();
+            return;
+          }
           const node = nodeAtEvent(event);
           if (node) props.onActivate(node, event);
         }}
@@ -307,6 +366,15 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
       >
         Treemap view
       </canvas>
+      <canvas
+        ref={snapshot}
+        width={0}
+        height={0}
+        hidden
+        aria-hidden="true"
+        class="pointer-events-none absolute inset-0 h-full w-full"
+        style={{ "transform-origin": "0 0" }}
+      />
       <span id="treemap-active-tile" class="sr-only" aria-live="polite">
         {activeName()}
       </span>
