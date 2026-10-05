@@ -1,0 +1,29 @@
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check GitHub credential
+        run: |
+          if [ -z "$RELEASE_PLEASE_TOKEN" ]; then
+            echo "Set the RELEASE_PLEASE_TOKEN repository secret before running Release Please."
+            exit 1
+          fi
+        env:
+          RELEASE_PLEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+      - uses: googleapis/release-please-action@v5.0.0
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
