@@ -75,12 +75,9 @@ Browser
 | `POST /api/analysis/refresh` | `routers/analysis.py:refresh_analysis` | Re-scan cwd root |
 | `GET /api/analysis/context` | `routers/analysis.py:get_analysis_context` | Cwd + repo root with rough file counts (first-run screen) |
 | `GET /api/analysis/dependencies` | `routers/analysis.py:get_dependencies` | TS/TSX import graph, tsconfig `paths` aliases |
-| `GET /api/analysis/data-flow` | `routers/analysis.py:get_data_flow` → `services/data_flow_analysis.py` | Per-file variable def/use graph |
-| `POST /api/analysis/focus/overlay` | `routers/analysis.py:get_focus_overlay` → `services/focus_overlay.py` | Identifier provenance tokens for code viewer |
-| `POST /api/analysis/focus/scope-graph` | `routers/analysis.py:get_scope_graph` → `services/focus_overlay.py` | Nested scope graph for Scope Flow pane |
 | `GET /api/files/content` | `routers/files.py:get_file_content` | Raw file text |
 | `GET /api/files/suggest` | `routers/files.py:suggest_files` | Path autocomplete for the path bar |
-| Pydantic response models | `server/app/models.py` | `Node`, `Metrics`, graph + overlay models |
+| Pydantic response models | `server/app/models.py` | `Node`, `Metrics`, dependency graph models |
 
 ### Metrics end-to-end
 
@@ -145,14 +142,12 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 
 | Feature | Where |
 | --- | --- |
-| Modal composition + toggles (reduce indent, data flow, scope flow) | `client/src/components/CodeModal/CodeModal.tsx`, `CodeModalHeader.tsx` |
+| Modal composition + display controls | `client/src/components/CodeModal/CodeModal.tsx`, `CodeModalHeader.tsx` |
 | Highlighted source (Shiki) | `client/src/components/CodeModal/CodePane.tsx`, `hooks/useHighlightedCode.ts`, `utils/shikiHtml.ts` |
 | Markdown rendering | `client/src/components/CodeModal/MarkdownPane.tsx`, `client/src/markdown/*` |
 | Structure tree (left) | `client/src/components/CodeModal/StructurePanel.tsx`, `SidebarTree.tsx`, `utils/structureTree.ts` |
 | Scope metrics (left, bottom) | `client/src/components/CodeModal/MetricsSidebar.tsx`, `MetricsSection.tsx`, `MetricItem.tsx` |
 | Sticky scope breadcrumb | `client/src/components/CodeModal/StickyBreadcrumb.tsx` |
-| Data-flow identifier overlay + tooltips | `client/src/components/FlowOverlayCode.tsx`, `FlowTooltip.tsx`, `utils/flowDecorations.ts` |
-| Scope Flow pane | `client/src/components/CodeModal/ScopeFlowPane.tsx` |
 | File fetching | `client/src/services/fileContent.ts`, `hooks/useFileContent.ts` |
 | Line-range slicing / indent reduction | `client/src/utils/lineRange.ts`, `utils/indentation.ts` |
 
@@ -161,7 +156,6 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Feature | Where |
 | --- | --- |
 | Dependency graph (ELK layout) | `client/src/components/DependencyGraph.tsx` |
-| Data flow graph | `client/src/components/DataFlowViz.tsx` |
 
 ### Client: UI primitives
 

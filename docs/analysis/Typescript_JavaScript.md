@@ -48,16 +48,6 @@ Field-specific metrics are calculated and attached to the file and function node
 - **Render Branching**: Ternary or logical operators used within JSX expressions.
 - **Hardcoded Strings**: Volume of raw string literals inside JSX.
 
-## Dataflow Analysis
-
-A specialized `DataFlowAnalyzer` builds a graph of variable definitions and usages to support advanced visualization (e.g., flow charts).
-
-- **Scope Resolution**: Tracks variables across Global, Module, Function, and Block scopes.
-- **Variable Defs**: Identifies `var`, `let`, `const`, parameters, classes, and imports.
-- **Usages**: Links identifier usages back to their definitions.
-- **JSX Attributes**: Tracks which attributes (like `onClick`) capture which variables.
-- **Declaration Clustering**: visually groups variable definitions with their immediate usage on the same line (e.g. `const [val, setVal] = useState(0)`).
-
 ## Dependency Analysis
 
 The analyzer extracts import and export statements to understand module coupling:

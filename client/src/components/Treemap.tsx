@@ -23,7 +23,6 @@ import TreemapSvg, {
 import TreemapHeader from "../viz/treemap/components/TreemapHeader";
 import TreemapTooltip from "../viz/treemap/components/TreemapTooltip";
 import DependencyGraph from "./DependencyGraph";
-import DataFlowViz from "./DataFlowViz";
 import { useTreemapTooltip } from "../viz/treemap/hooks/useTreemapTooltip";
 
 interface TreemapProps {
@@ -110,7 +109,6 @@ export default function Treemap(props: TreemapProps) {
   const [isIsolateMode, setIsIsolateMode] = createSignal(false);
   const [showMetricPopover, setShowMetricPopover] = createSignal(false);
   const [showDependencyGraph, setShowDependencyGraph] = createSignal(false);
-  const [showDataFlow, setShowDataFlow] = createSignal(false);
 
   const {
     tooltip,
@@ -676,8 +674,6 @@ export default function Treemap(props: TreemapProps) {
         setShowMetricPopover={setShowMetricPopover}
         showDependencyGraph={showDependencyGraph}
         setShowDependencyGraph={setShowDependencyGraph}
-        showDataFlow={showDataFlow}
-        setShowDataFlow={setShowDataFlow}
       />
 
       <div ref={containerRef} class="flex-1 relative overflow-hidden">
@@ -689,14 +685,8 @@ export default function Treemap(props: TreemapProps) {
             onClose={() => setShowDependencyGraph(false)}
           />
         </Show>
-        <Show when={showDataFlow()}>
-          <DataFlowViz
-            path={currentRoot()?.path}
-            onClose={() => setShowDataFlow(false)}
-          />
-        </Show>
         <Show
-          when={!showDependencyGraph() && !showDataFlow() && processedData()}
+          when={!showDependencyGraph() && processedData()}
         >
           <TreemapSvg
             width={dimensions().width}
@@ -727,7 +717,7 @@ export default function Treemap(props: TreemapProps) {
           />
         </Show>
         <Show
-          when={!processedData() && !showDependencyGraph() && !showDataFlow()}
+          when={!processedData() && !showDependencyGraph()}
         >
           <div class="flex items-center justify-center h-full text-[var(--plc-on-subtle)]">
             No files match the selected filters

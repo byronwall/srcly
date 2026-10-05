@@ -1,5 +1,5 @@
 import { For, Show, type Accessor } from "solid-js";
-import { ChevronRight, GitFork, Workflow } from "lucide-solid";
+import { ChevronRight, GitFork } from "lucide-solid";
 import {
   hotSpotMetricLabel,
   type HotSpotMetricId,
@@ -34,8 +34,6 @@ export type TreemapHeaderProps = {
 
   showDependencyGraph: Accessor<boolean>;
   setShowDependencyGraph: (v: boolean) => void;
-  showDataFlow: Accessor<boolean>;
-  setShowDataFlow: (v: boolean) => void;
 };
 
 export default function TreemapHeader(props: TreemapHeaderProps) {
@@ -107,31 +105,12 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
               : undefined
           }
           aria-pressed={props.showDependencyGraph()}
-          onClick={() => {
-            props.setShowDependencyGraph(!props.showDependencyGraph());
-            props.setShowDataFlow(false);
-          }}
+          onClick={() => props.setShowDependencyGraph(!props.showDependencyGraph())}
         >
           <GitFork size={14} aria-hidden="true" />
           Dependencies
         </Button>
 
-        <Button
-          active={props.showDataFlow()}
-          class={
-            props.showDataFlow()
-              ? "border-[var(--plc-accent-border)] bg-[var(--plc-surface-selected)] text-[var(--plc-accent)]"
-              : undefined
-          }
-          aria-pressed={props.showDataFlow()}
-          onClick={() => {
-            props.setShowDataFlow(!props.showDataFlow());
-            props.setShowDependencyGraph(false);
-          }}
-        >
-          <Workflow size={14} aria-hidden="true" />
-          Data Flow
-        </Button>
       </div>
 
       {/* Legend: shown while hovering the Color control */}

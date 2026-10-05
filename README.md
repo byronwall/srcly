@@ -1,6 +1,6 @@
 # Srcly
 
-Srcly is an interactive codebase treemap, metrics, and code-flow viewer. It combines [Lizard](https://github.com/terryyin/lizard) with tree-sitter analyzers for richer language-specific signals, builds a hierarchical model of folders, files, functions, and nested scopes, and renders explorable views in your browser.
+Srcly is an interactive codebase treemap and metrics viewer. It combines [Lizard](https://github.com/terryyin/lizard) with tree-sitter analyzers for richer language-specific signals, builds a hierarchical model of folders, files, functions, and nested scopes, and renders explorable views in your browser.
 
 Project background and screenshots: [Srcly project page](https://byroni.us/projects/srcly).
 
@@ -81,11 +81,8 @@ Use `uvx srcly scan . --out .srcly/tree.json` or `uvx srcly report . --include-t
   - Uses [Shiki](https://github.com/shikijs/shiki) for fast, dark-theme syntax highlighting.
   - Supports common languages (`.py`, `.ts`, `.tsx`, `.js`, `.jsx`, `.html`, `.css`, `.json`, `.md`, shell, etc.).
   - Markdown files render as a preview, and notebooks are converted to virtual text for inspection.
-- **Scope and flow views**
-  - Focus overlays highlight symbols inside the selected source range and show definition/scope context in tooltips.
-  - Scope Flow renders nested lexical scopes with declared/captured symbols and optional arrows between related scopes.
-  - Dependency Graph shows TypeScript/TSX import relationships, including external packages and nearby `tsconfig` path aliases.
-  - Data Flow visualizes variable definitions and usages for a selected TypeScript/TSX file.
+- **Dependency graph**
+  - Shows TypeScript/TSX import relationships, including external packages and nearby `tsconfig` path aliases.
 - **Path picker and recent folders**
   - Autocomplete-backed path input that talks to the server (`/api/files/suggest`).
   - Maintains a small list of recently analyzed paths in local storage for quick switching.
@@ -121,9 +118,6 @@ The backend lives in the `server/app` package and is exposed as a FastAPI app.
   - `GET /api/analysis?path=/path/to/repo` — return the full analysis tree; uses `codebase_mri.json` if present, otherwise scans.
   - `GET /api/analysis/context` — return the current server root and detected repository root with estimated file/folder counts.
   - `GET /api/analysis/dependencies?path=/path/to/repo` — build a TypeScript/TSX dependency graph.
-  - `GET /api/analysis/data-flow?path=/absolute/path/to/file.tsx` — build a data-flow graph for one TS/TSX file.
-  - `POST /api/analysis/focus/overlay` — return symbol overlay tokens for a selected source range.
-  - `POST /api/analysis/focus/scope-graph` — return a nested scope graph for a selected source range.
   - `POST /api/analysis/refresh` — force a rescan of the current root.
 - **Files**
   - `GET /api/files/content?path=/absolute/path/to/file` — fetch raw file contents for the code viewer.
