@@ -122,6 +122,7 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Changed-files table (verdict, diffstat, before → after with magnitude bars; folders / most regressed / by metric; status, path, regressions filters; keyboard) | `client/src/compare/CompareTable.tsx`, row model in `client/src/compare/rows.ts` |
 | File inspector (worse / better / size moves, imports gained and lost, open before/after) | `client/src/compare/Inspector.tsx` |
 | Side-by-side treemaps on one union layout (√LOC tiles, fill-to-own-size, hatched absent slots, verdict outlines, linked hover/zoom) | `client/src/compare/CompareTreemap.tsx`, layout in `client/src/compare/treemapLayout.ts` |
+| Before/after dependency graphs on one union layout (changed files center, importers left, imports right; added/removed edges; ghosts for absent files; "used by N" hubs; linked pan/zoom; expand) | `client/src/compare/CompareGraph.tsx`, model in `client/src/compare/graphModel.ts` (feeds `viz/deps/layout.ts:layoutViewSync`) |
 | Shared bits (status icon, diffstat, health, magnitude and split bars), labels/formatting/health | `client/src/compare/bits.tsx`, `client/src/compare/metrics.ts` |
 
 ### Client: app shell and first run

@@ -4,11 +4,11 @@
     "title": "PR compare mode",
     "slug": "pr-compare",
     "scale": "capability",
-    "current_phase": "plan",
+    "current_phase": "execution",
     "last_updated": "2026-10-15",
     "summary": "Compare two git commits (PR base vs head) in srcly: focused before/after tree and dependency graph views limited to changed files by default, with per-metric better/worse deltas, all deterministic from disk and git.",
-    "status": "planned",
-    "next_action": "Start m1: snapshots service, SHA cache, pure compare module, srcly compare CLI; prove on aa3ed35."
+    "status": "active",
+    "next_action": "Review and squash-merge the stacked PRs in order: #37 docs → #38 CLI → #39 table → #40 treemap → #41 graph; then retire or extend the initiative"
   },
   "artifacts": {
     "intent_brief": {
@@ -284,7 +284,7 @@
     "open_decisions": []
   },
   "implementation": {
-    "status": "planned",
+    "status": "completed",
     "repository_snapshot": {
       "root": "/Users/byronwall/Projects/srcly",
       "revision": "11d098c",
@@ -321,8 +321,10 @@
         "proof": "pytest fixtures (rename/add/delete/inverted metric) + srcly compare aa3ed35^ aa3ed35 lists 15 files with hand-checked deltas; second run from cache; <=2x scan time.",
         "valid_intermediate_state": "New CLI subcommand only; UI untouched.",
         "rollback": "Remove the subcommand and compare package.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR byronwall/srcly#38; server/tests/test_compare_diff.py, test_compare_snapshots.py; aa3ed35^..aa3ed35 lists 15 files, 3.7s cold / 0.5s cached"
+        ]
       },
       {
         "id": "m2",
@@ -332,8 +334,10 @@
         "proof": "Browser check on aa3ed35 compare; vitest compare row model; pytest /api/compare.",
         "valid_intermediate_state": "Compare mode is a separate URL-gated view; single-scan view unchanged.",
         "rollback": "Remove the compare entry point.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR byronwall/srcly#39 (redesigned: scorecard rail, per-file verdicts, magnitude bars, inspector); server/tests/test_compare_api.py, client/src/compare/rows.test.ts"
+        ]
       },
       {
         "id": "m3",
@@ -343,8 +347,10 @@
         "proof": "vitest identical rects across sides; screenshots of aa3ed35 and 6687816.",
         "valid_intermediate_state": "Treemap tab added to compare mode; table still works alone.",
         "rollback": "Hide the treemap tab.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR byronwall/srcly#40; client/src/compare/treemapLayout.test.ts; screenshots of aa3ed35 and 6687816"
+        ]
       },
       {
         "id": "m4",
@@ -354,8 +360,10 @@
         "proof": "vitest identical box positions and zero edge-through-box on union; 88a48f1 compare visual check.",
         "valid_intermediate_state": "Graph tab added to compare mode.",
         "rollback": "Hide the graph tab.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR byronwall/srcly#41; client/src/compare/graphModel.test.ts incl. zero node crossings"
+        ]
       }
     ],
     "cut_line": [
@@ -367,10 +375,7 @@
       "source diff in code viewer",
       "more than two refs / branch over time"
     ],
-    "open_decisions": [
-      "Snapshot path fidelity: worktree under cache dir vs sibling of repo root (decided in m1)",
-      "Treemap max-weight readability with many adds/deletes (spike in m3)"
-    ]
+    "open_decisions": []
   },
   "history": [
     {
@@ -384,6 +389,10 @@
     {
       "date": "2026-10-15",
       "event": "Implementation plan written: CLI payload first (m1), then Explorer (m2), treemap (m3), dependency graph (m4). Headless compare moved from evaluate into m1."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "Implemented m1–m4 as stacked PRs #38–#41 on top of docs PR #37. Spikes resolved: snapshot graph identical to in-place (keep cache-dir worktrees); max-weight treemap readable on add-heavy 6687816 (no band fallback). Deviations: treemap tiles use √LOC so small edits stay visible; summed metrics judged like-for-like; compare table redesigned with scorecard, verdicts, inspector at user request."
     }
   ],
   "closure": null

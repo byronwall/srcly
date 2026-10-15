@@ -13,6 +13,7 @@ import {
 } from "./api";
 import { CompareProgress } from "./CompareProgress";
 import { CompareTable } from "./CompareTable";
+import { CompareGraph } from "./CompareGraph";
 import { CompareTreemap } from "./CompareTreemap";
 import { DEFAULT_COMPARE_COLUMNS } from "./metrics";
 import { RefBar } from "./RefBar";
@@ -28,10 +29,11 @@ const SORT_PARAM = "csort";
 const FILE_PARAM = "cfile";
 const VIEW_PARAM = "cview";
 
-type CompareView = "files" | "treemap";
+type CompareView = "files" | "treemap" | "graph";
 const VIEWS: { id: CompareView; label: string }[] = [
   { id: "files", label: "Files" },
   { id: "treemap", label: "Treemap" },
+  { id: "graph", label: "Dependencies" },
 ];
 
 function readParam(name: string): string | null {
@@ -250,7 +252,15 @@ export default function CompareApp() {
                       </For>
                     </div>
                     <div class="min-h-0 flex-1">
-                    <Show when={view() === "treemap"}>
+                    <Show when={view() === "graph"}>
+                        <CompareGraph
+                          payload={p()}
+                          selected={selected()}
+                          onSelect={select}
+                          onOpenFile={(path, side) => openSide(path, side)}
+                        />
+                      </Show>
+                      <Show when={view() === "treemap"}>
                       <CompareTreemap
                         payload={p()}
                         metric={colorMetric()}
