@@ -24,10 +24,15 @@ function formatNumberMaybe(val: unknown): string {
   return String(val);
 }
 
-// Files whose analyzer timed out or failed stay in the tree with a plain line
-// count; say so, since their other metrics are zero rather than measured.
-function notAnalyzedLines(metrics: any): TooltipLine[] {
+// Files whose analyzer timed out or failed, or that are over the size cap, stay
+// in the tree with a plain line count; say so, since their other metrics are
+// zero rather than measured.
+export function notAnalyzedLines(metrics: any): TooltipLine[] {
   const status = metrics?.analysis_status;
+  if (status === "too_large") {
+    const mb = Number(metrics?.file_size ?? 0) / 1e6;
+    return [{ label: "Not analyzed", value: `too large (${mb.toFixed(1)} MB); LOC is a line count` }];
+  }
   if (status && status !== "ok") {
     return [{ label: "Not analyzed", value: `${status}; LOC is a line count` }];
   }

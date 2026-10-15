@@ -1,4 +1,5 @@
 import os
+import subprocess
 import time
 from pathlib import Path
 
@@ -81,6 +82,61 @@ def test_fingerprint_ignores_pruned_directories(repo: Path) -> None:
     _touch(repo / ".git" / "HEAD", "ref: main\n")
     _touch(repo / ".srcly" / "report.json", "{}")
     assert fingerprint(repo) == original
+
+
+def _git(root: Path, *args: str) -> None:
+    subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+
+
+@pytest.fixture
+def git_repo(repo: Path) -> Path:
+    _git(repo, "init", "-q")
+    _touch(repo / ".gitignore", "build/\n*.log\n")
+    _touch(repo / ".git" / "info" / "exclude", ".claude/worktrees/\n")
+    _touch(repo / "build" / "out.js")
+    _touch(repo / ".claude" / "worktrees" / "agent" / "src" / "b.ts")
+    _git(repo, "add", "-A")
+    return repo
+
+
+def test_git_fingerprint_skips_ignored_and_excluded_trees(git_repo: Path) -> None:
+    original = fingerprint(git_repo)
+    # Edits under gitignored or .git/info/exclude'd trees can't change a scan.
+    _bump_mtime(git_repo / "build" / "out.js")
+    _touch(git_repo / ".claude" / "worktrees" / "other" / "x.py")
+    _bump_mtime(git_repo / ".claude" / "worktrees" / "agent" / "src" / "b.ts")
+    assert fingerprint(git_repo) == original
+
+    # Tracked and untracked-but-not-ignored files still count.
+    _bump_mtime(git_repo / "a.py")
+    edited = fingerprint(git_repo)
+    assert edited != original
+    _touch(git_repo / "src" / "new.ts")
+    assert fingerprint(git_repo) != edited
+
+
+def test_git_fingerprint_sees_ignore_rule_changes(git_repo: Path) -> None:
+    original = fingerprint(git_repo)
+    # Un-ignoring a tree via .git/info/exclude must invalidate the entry.
+    (git_repo / ".git" / "info" / "exclude").write_text("")
+    _bump_mtime(git_repo / ".git" / "info" / "exclude")
+    unexcluded = fingerprint(git_repo)
+    assert unexcluded != original
+
+    # So must editing .gitignore.
+    (git_repo / ".gitignore").write_text("*.log\n")
+    _bump_mtime(git_repo / ".gitignore")
+    assert fingerprint(git_repo) != unexcluded
+
+
+def test_git_fingerprint_tracks_gitignored_file_names(git_repo: Path) -> None:
+    # Ignored files in scanned folders feed gitignored_count, so adding one counts.
+    original = fingerprint(git_repo)
+    _touch(git_repo / "src" / "debug.log")
+    with_log = fingerprint(git_repo)
+    assert with_log != original
+    _bump_mtime(git_repo / "src" / "debug.log")
+    assert fingerprint(git_repo) == with_log
 
 
 def test_fingerprint_changes_with_srcly_version(repo: Path, monkeypatch) -> None:
