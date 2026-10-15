@@ -16,6 +16,7 @@ import type { ComparePayload } from "./types";
 type Side = "base" | "head";
 
 const FONT = "500 12px Inter, ui-sans-serif, system-ui, sans-serif";
+const SUBTITLE_FONT = "400 11px Inter, ui-sans-serif, system-ui, sans-serif";
 const REGION_TITLE: Record<Region, string> = { in: "Imported by", center: "Changed files", out: "Imports" };
 
 const EDGE_STYLE = {
@@ -183,10 +184,12 @@ function Pane(props: {
               const isSelected = () => Boolean(change() && change()!.path === props.selected);
               const health = () => (change() && props.side === "head" ? fileHealth(change()!.deltas) : null);
               const leaf = n.node.kind === "file" || n.node.kind === "external";
-              const countW = n.node.memberCount > 1 ? 26 : 0;
+              const countW = n.node.memberCount > 1 && !n.node.subtitle ? 26 : 0;
               const healthW = () => (health() && (health()!.worse.length || health()!.better.length) ? 46 : 0);
               const iconW = isCenter && change() ? 16 : 0;
               const room = () => n.width - 16 - countW - healthW() - iconW;
+              // Vertical middle of the first line (the whole box when there is no subtitle).
+              const mid = n.node.subtitle ? 12 : n.height / 2;
               return (
                 <g
                   transform={`translate(${n.x},${n.y})`}
@@ -215,11 +218,11 @@ function Pane(props: {
                     stroke-dasharray={shown() ? undefined : "4 3"}
                   />
                   <Show when={iconW}>
-                    <StatusGlyph status={change()!.status} x={13} y={n.height / 2} />
+                    <StatusGlyph status={change()!.status} x={13} y={mid} />
                   </Show>
                   <text
                     x={8 + iconW}
-                    y={n.height / 2 + 4}
+                    y={mid + 4}
                     class={cx(
                       "text-[12px] font-medium",
                       !shown() ? "fill-[var(--plc-on-disabled)]" : isCenter ? "fill-[var(--plc-on-surface)]" : "fill-[var(--plc-on-muted)]",
@@ -229,10 +232,15 @@ function Pane(props: {
                   >
                     {nodeLabel(n, room())}
                   </text>
+                  <Show when={n.node.subtitle}>
+                    <text x={8 + iconW} y={30} class="fill-[var(--plc-on-subtle)] text-[11px]">
+                      {truncateTextToWidth(n.node.subtitle!, room(), SUBTITLE_FONT)}
+                    </text>
+                  </Show>
                   <Show when={countW}>
                     <text
                       x={n.width - 8 - healthW()}
-                      y={n.height / 2 + 4}
+                      y={mid + 4}
                       text-anchor="end"
                       class="fill-[var(--plc-on-subtle)] font-mono text-[11px]"
                     >
@@ -244,7 +252,7 @@ function Pane(props: {
                       worse={health()!.worse.length}
                       better={health()!.better.length}
                       x={n.width - 8}
-                      y={n.height / 2}
+                      y={mid}
                     />
                   </Show>
                 </g>

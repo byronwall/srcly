@@ -11,7 +11,7 @@ import type { Region, ViewEdge, ViewModel, ViewNode } from "./viewModel";
 // to the same box share a track, which `bundleOffsets` spreads 1–2px apart.
 
 export const NODE_WIDTH = 196;
-export const NODE_HEIGHT = 28;
+export const NODE_HEIGHT = 40;
 const TRACK = 6;
 const CHANNEL_PAD = 10;
 const MIN_CHANNEL = 36;

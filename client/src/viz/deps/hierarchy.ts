@@ -123,3 +123,39 @@ export function displayName(index: GraphIndex, id: string): string {
   }
   return n.name || "(root)";
 }
+
+export interface FolderStats {
+  /** Files anywhere below the folder (after filters). */
+  files: number;
+  /** Folders directly inside it. */
+  folders: number;
+}
+
+const folderStatsCache = new WeakMap<GraphIndex, Map<string, FolderStats>>();
+
+/** File and subfolder counts for a folder, computed once per index. */
+export function folderStats(index: GraphIndex, id: string): FolderStats {
+  let all = folderStatsCache.get(index);
+  if (!all) {
+    all = new Map();
+    for (const n of index.graph.nodes) {
+      if (n.kind === "folder") {
+        const s = all.get(n.id) ?? { files: 0, folders: 0 };
+        all.set(n.id, s);
+        if (n.parent !== null && n.parent !== undefined) {
+          const p = all.get(n.parent) ?? { files: 0, folders: 0 };
+          p.folders++;
+          all.set(n.parent, p);
+        }
+      } else if (n.kind === "file") {
+        for (let p = n.parent; p !== null && p !== undefined; p = index.byId.get(p)?.parent ?? null) {
+          const s = all.get(p) ?? { files: 0, folders: 0 };
+          s.files++;
+          all.set(p, s);
+        }
+      }
+    }
+    folderStatsCache.set(index, all);
+  }
+  return all.get(id) ?? { files: 0, folders: 0 };
+}
