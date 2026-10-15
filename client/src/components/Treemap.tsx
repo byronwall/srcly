@@ -20,7 +20,7 @@ import type { TreemapTile } from "../viz/treemap/utils/hitTest";
 import TreemapHeader from "../viz/treemap/components/TreemapHeader";
 import TreemapTooltip from "../viz/treemap/components/TreemapTooltip";
 import { useTreemapTooltip } from "../viz/treemap/hooks/useTreemapTooltip";
-import { crumbsFor } from "../navigation/location";
+import { baseName, crumbsFor } from "../navigation/location";
 import { go, location } from "../navigation/store";
 
 const DependencyView = lazy(() => import("../viz/deps/DependencyView"));
@@ -258,7 +258,3 @@ export default function Treemap(props: TreemapProps) {
   );
 }
 
-function baseName(path: string): string {
-  const parts = path.split(/[\\/]/).filter(Boolean);
-  return parts[parts.length - 1] ?? path;
-}

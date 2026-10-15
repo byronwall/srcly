@@ -6,6 +6,7 @@ import {
   Show,
   createEffect,
   lazy,
+  untrack,
 } from "solid-js";
 import { GitCompare, RefreshCw } from "lucide-solid";
 import Toast from "./components/Toast";
@@ -17,24 +18,14 @@ import { EmptyState, ErrorState, LoadingState } from "./components/feedback/Stat
 import FilePicker from "./components/FilePicker";
 import Treemap from "./components/Treemap";
 import { Button } from "./components/ui/Button";
-import {
-  cancelScan,
-  emptySnapshot,
-  fetchScanResult,
-  startScan,
-  watchScan,
-  type ScanSnapshot,
-} from "./services/scanJobs";
 import { filterTree, findTreeNodeByPath } from "./utils/dataProcessing";
-import {
-  describeResult,
-  formatCount,
-  type ClientStage,
-} from "./utils/scanProgress";
+import { describeResult, formatCount } from "./utils/scanProgress";
 import { MetricsStoreProvider, useMetricsStore } from "./utils/metricsStore";
 import { atFromTreePath } from "./navigation/location";
 import { resolveTreeAt } from "./navigation/resolveTree";
 import { go, location, replace } from "./navigation/store";
+import { scanStore } from "./state/scanStore";
+import HistoryMenu from "./navigation/HistoryMenu";
 import { DEFAULT_BASE, DEFAULT_HEAD, navigateCompare, readCompareParam } from "./compare/api";
 
 const CodeModal = lazy(() => import("./components/CodeModal/CodeModal.tsx"));
@@ -43,18 +34,6 @@ const CompareApp = lazy(() => import("./compare/CompareApp.tsx"));
 // Stop waiting for the first treemap paint after this long (a hidden tab
 // gets no animation frames), so the loading state can never get stuck.
 const FIRST_PAINT_TIMEOUT_MS = 15_000;
-
-/** Resolves after the browser has painted a frame (or 100ms in a hidden tab). */
-const nextFrame = () =>
-  new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, 100);
-    requestAnimationFrame(() =>
-      setTimeout(() => {
-        clearTimeout(timer);
-        resolve();
-      }, 0)
-    );
-  });
 
 type AnalysisContext = {
   rootPath: string;
@@ -156,24 +135,35 @@ function AnalyzeTarget(props: {
 const FilePickerWithExternal = FilePicker as any;
 
 function App() {
-  // ?compare=<base>..<head> switches to PR compare mode.
+  // ?compare=<base>..<head> switches to PR compare mode. The normal view stays
+  // mounted (hidden) underneath, so its scan and place survive the round trip.
   const [comparing, setComparing] = createSignal(readCompareParam() !== null);
   const sync = () => setComparing(readCompareParam() !== null);
   onMount(() => window.addEventListener("popstate", sync));
   onCleanup(() => window.removeEventListener("popstate", sync));
   return (
     <MetricsStoreProvider>
-      <Show when={comparing()} fallback={<AppContent />}>
+      <div class={comparing() ? "hidden" : "contents"}>
+        <AppContent active={!comparing()} />
+      </div>
+      <Show when={comparing()}>
         <CompareApp />
       </Show>
     </MetricsStoreProvider>
   );
 }
 
-function AppContent() {
-  const [visualizationData, setVisualizationData] = createSignal<any>(null);
-  const [loading, setLoading] = createSignal(false);
-  const [error, setError] = createSignal<string | null>(null);
+function AppContent(props: { active: boolean }) {
+  const {
+    data: visualizationData,
+    loading,
+    error,
+    setError,
+    scan,
+    cancelling,
+    clientStage,
+    scannedPath,
+  } = scanStore;
   const [toastMessage, setToastMessage] = createSignal<string>("");
   const [toastType, setToastType] = createSignal<"success" | "error">(
     "success"
@@ -198,19 +188,9 @@ function AppContent() {
     Math.min(280, Math.round(window.innerWidth * 0.5))
   );
   const [isDragging, setIsDragging] = createSignal(false);
-  const [analysisPath, setAnalysisPath] = createSignal("");
-  const [scan, setScan] = createSignal<ScanSnapshot | null>(null);
-  const [cancelling, setCancelling] = createSignal(false);
-  const [clientStage, setClientStage] = createSignal<ClientStage | null>(null);
-  // Path of the last requested analysis ("" = server's current directory).
-  const [scannedPath, setScannedPath] = createSignal<string | null>(null);
+  const [analysisPath, setAnalysisPath] = createSignal(location().repo);
   let resolveTreemapPaint: (() => void) | null = null;
-  // Identifies the newest analysis request so late responses from a
-  // superseded scan are ignored.
-  let activeRequest = 0;
-  let stopWatching: (() => void) | null = null;
   let pendingNotice: string | null = null;
-  onCleanup(() => stopWatching?.());
 
   // The scan root's absolute path; locations are relative to it.
   const rootPath = () => visualizationData()?.path ?? "";
@@ -279,24 +259,14 @@ function AppContent() {
       resolveTreemapPaint = done;
     });
 
-  const finishScan = async (request: number, snapshot: ScanSnapshot) => {
-    if (request !== activeRequest) return;
-    try {
-      if (snapshot.phase === "complete") {
-        // Keep the progress panel up through download, parse and the first
-        // paint: on large repos those take seconds after the scan ends.
-        setClientStage("loading");
-        const data = await fetchScanResult<any>(snapshot.id);
-        if (request !== activeRequest) return;
-        setClientStage("rendering");
-        // Let the browser show "Drawing treemap" before the layout work
-        // below holds the main thread.
-        await nextFrame();
-        if (request !== activeRequest) return;
-        const painted = waitForTreemapPaint();
-        setVisualizationData(data);
-        await painted;
-        if (request !== activeRequest) return;
+  const analyze = (path: string, options: { force?: boolean } = {}) => {
+    pendingNotice = null;
+    setAnalysisPath(path);
+    void scanStore.start(path, {
+      ...options,
+      displayPath: analysisContext()?.rootPath,
+      waitForPaint: waitForTreemapPaint,
+      onComplete: (snapshot) => {
         const skipped =
           snapshot.files_failed > 0
             ? ` (${formatCount(snapshot.files_failed)} skipped)`
@@ -308,76 +278,30 @@ function AppContent() {
             "success"
           );
         pendingNotice = null;
-      } else if (snapshot.phase === "failed") {
-        setError(snapshot.error || "The scan failed.");
-      }
-      // "cancelled" needs no message: the user asked for it.
-    } catch (err) {
-      if (request !== activeRequest) return;
-      console.error(err);
-      setError(String(err));
-    } finally {
-      if (request === activeRequest) {
-        setLoading(false);
-        setScan(null);
-        setCancelling(false);
-        setClientStage(null);
-      }
-    }
+      },
+    });
   };
 
-  const handleFileSelect = async (
-    path: string,
-    options: { force?: boolean } = {}
-  ) => {
-    const request = ++activeRequest;
-    pendingNotice = null;
-    stopWatching?.();
-    stopWatching = null;
-    const previous = scan();
-    if (previous) void cancelScan(previous.id);
+  // The repo in the URL drives what is analyzed: refresh, a pasted link, or
+  // Back across repos all land here. The server's analysis cache makes a
+  // revisit fast. A URL with no repo keeps whatever is loaded.
+  createEffect(() => {
+    const repo = location().repo;
+    if (!props.active || !repo || repo === untrack(scannedPath)) return;
+    untrack(() => analyze(repo));
+  });
 
-    // Clear existing analysis data immediately so we don't show stale visuals
-    setVisualizationData(null);
-    setLoading(true);
-    setCancelling(false);
-    setClientStage(null);
-    setError(null);
-
-    const trimmed = path?.trim() || null;
-    // A different codebase starts at its root; a rescan keeps the place.
-    const previousPath = scannedPath();
-    if (previousPath !== null && previousPath !== (trimmed ?? "")) replace({ at: "" });
-    setScannedPath(trimmed ?? "");
-    setScan(emptySnapshot("", trimmed ?? analysisContext()?.rootPath ?? ""));
-    try {
-      const started = await startScan(trimmed, options);
-      if (request !== activeRequest) {
-        void cancelScan(started.id);
-        return;
-      }
-      setScan(started);
-      stopWatching = watchScan(started.id, {
-        onUpdate: (snapshot) => {
-          if (request === activeRequest) setScan(snapshot);
-        },
-        onDone: (snapshot) => void finishScan(request, snapshot),
-      });
-    } catch (err) {
-      if (request !== activeRequest) return;
-      console.error(err);
-      setError(String(err instanceof Error ? err.message : err));
-      setLoading(false);
-      setScan(null);
-    }
+  /** A codebase chosen in the picker or on the landing page. */
+  const handleFileSelect = (path: string) => {
+    const target = path.trim() || analysisContext()?.rootPath || "";
+    if (!target) return analyze("");
+    if (target === location().repo) return analyze(target);
+    // A different codebase starts at its root. A URL that had a place but no
+    // repo yet (an old link) keeps that place.
+    go(location().repo ? { repo: target, at: "" } : { repo: target });
   };
 
-  const handleCancelScan = () => {
-    const current = scan();
-    if (!current?.id) return;
-    setCancelling(true);
-    void cancelScan(current.id);
-  };
+  const handleCancelScan = () => scanStore.cancel();
 
   const handleFileFromTreemap = (
     path: string,
@@ -448,6 +372,7 @@ function AppContent() {
               externalPath={analysisPath()}
             />
           </div>
+          <HistoryMenu />
         </div>
         <Button
           variant="ghost"
@@ -469,7 +394,7 @@ function AppContent() {
                 variant="ghost"
                 class="shrink-0 gap-1.5"
                 title="Scan again, ignoring the saved analysis"
-                onClick={() => void handleFileSelect(scannedPath() ?? "", { force: true })}
+                onClick={() => analyze(scannedPath() ?? "", { force: true })}
               >
                 <RefreshCw size={13} aria-hidden="true" />
                 Rescan
@@ -523,10 +448,6 @@ function AppContent() {
                       }
                     >
                       {(ctx) => {
-                        const analyze = (target: string) => {
-                          setAnalysisPath(target);
-                          void handleFileSelect(target);
-                        };
                         const showRepoRoot = () =>
                           Boolean(ctx().repoRootPath) &&
                           ctx().repoRootPath !== ctx().rootPath;
@@ -542,7 +463,7 @@ function AppContent() {
                                   files={ctx().fileCount}
                                   folders={ctx().folderCount}
                                   primary
-                                  onAnalyze={() => analyze(ctx().rootPath || "")}
+                                  onAnalyze={() => handleFileSelect(ctx().rootPath || "")}
                                 />
                                 <Show when={showRepoRoot()}>
                                   <AnalyzeTarget
@@ -550,7 +471,7 @@ function AppContent() {
                                     path={ctx().repoRootPath ?? ""}
                                     files={ctx().repoFileCount ?? 0}
                                     folders={ctx().repoFolderCount ?? 0}
-                                    onAnalyze={() => analyze(ctx().repoRootPath ?? "")}
+                                    onAnalyze={() => handleFileSelect(ctx().repoRootPath ?? "")}
                                   />
                                 </Show>
                               </div>

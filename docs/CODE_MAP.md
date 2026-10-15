@@ -153,10 +153,13 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 
 | Feature | Where |
 | --- | --- |
-| Location model: `?at=&view=` parse/serialize, legacy `depFocus` alias, breadcrumbs, scan-path ↔ `at`, graph-id mapping | `client/src/navigation/location.ts` |
+| Location model: `?repo=&at=&view=` parse/serialize, legacy `depFocus` alias, breadcrumbs, scan-path ↔ `at`, graph-id mapping | `client/src/navigation/location.ts` |
 | `at` → scan-tree node (prefix descent, bare-symbol match, nearest-ancestor fallback) | `client/src/navigation/resolveTree.ts` |
-| Navigation store: `location()`, `go` (pushState), `replace`, popstate | `client/src/navigation/store.ts` |
-| Missing-path fallback + toast, treemap/explorer zoom → `go` | `client/src/App.tsx` (`resolved`, `zoomTo`) |
+| Navigation store: `location()`, `go` (pushState), `replace`, popstate, visit history (sessionStorage mirror) | `client/src/navigation/store.ts` |
+| Missing-path fallback + toast, treemap/explorer zoom → `go`, `?repo=` → analyze | `client/src/App.tsx` (`resolved`, `zoomTo`, `handleFileSelect`) |
+| History dropdown (last 30 places, MRU) | `client/src/navigation/HistoryMenu.tsx`, ring in `client/src/navigation/history.ts` |
+| Scan state that outlives the view (data, progress, cancel, superseded-request guard) | `client/src/state/scanStore.ts` |
+| Compare ⇄ normal without remount (normal view stays mounted, hidden) | `client/src/App.tsx` (`App`) |
 
 ### Client: Treemap
 

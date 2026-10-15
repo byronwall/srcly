@@ -15,12 +15,15 @@
 export type View = "treemap" | "graph";
 
 export interface Location {
+  /** Absolute path of the analyzed codebase; "" before one is chosen. */
+  repo: string;
   at: string;
   view: View;
 }
 
-export const ROOT_LOCATION: Location = { at: "", view: "treemap" };
+export const ROOT_LOCATION: Location = { repo: "", at: "", view: "treemap" };
 
+const REPO_PARAM = "repo";
 const AT_PARAM = "at";
 const VIEW_PARAM = "view";
 /** Pre-location graph focus parameter. Read as an alias of `at` + graph view. */
@@ -39,7 +42,7 @@ export function parseLocation(search: string): Location {
       : legacy !== null
         ? "graph"
         : "treemap";
-  return { at: normalizeAt(rawAt), view };
+  return { repo: params.get(REPO_PARAM) ?? "", at: normalizeAt(rawAt), view };
 }
 
 /**
@@ -50,8 +53,10 @@ export function parseLocation(search: string): Location {
 export function toSearch(loc: Location, currentSearch = ""): string {
   const params = new URLSearchParams(currentSearch);
   params.delete(LEGACY_FOCUS_PARAM);
+  params.delete(REPO_PARAM);
   params.delete(AT_PARAM);
   params.delete(VIEW_PARAM);
+  if (loc.repo) params.set(REPO_PARAM, loc.repo);
   if (loc.at) params.set(AT_PARAM, loc.at);
   if (loc.view !== "treemap") params.set(VIEW_PARAM, loc.view);
   const s = params.toString();
@@ -59,7 +64,7 @@ export function toSearch(loc: Location, currentSearch = ""): string {
 }
 
 export function sameLocation(a: Location, b: Location): boolean {
-  return a.at === b.at && a.view === b.view;
+  return a.repo === b.repo && a.at === b.at && a.view === b.view;
 }
 
 /** Trims slashes; the legacy graph param used "/" for the root. */
@@ -130,6 +135,12 @@ export function treePathFromAt(at: string, root: string): string {
  */
 export function normalizeScopeName(name: string): string {
   return name.replace(/\([^)]*\)/g, "").trim();
+}
+
+/** Last path segment ("/a/b/" → "b"). */
+export function baseName(path: string): string {
+  const parts = path.split(/[\\/]/).filter(Boolean);
+  return parts[parts.length - 1] ?? path;
 }
 
 export interface Crumb {
