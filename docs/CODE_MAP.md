@@ -203,7 +203,7 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Primitive | Where |
 | --- | --- |
 | Button, IconButton, TextInput, CheckboxRow | `client/src/components/ui/*` |
-| Popover (behavior) + PopoverPanel (styling) | `client/src/components/Popover.tsx`, `components/ui/PopoverPanel.tsx` |
+| Popover (behavior: one open at a time, flip/clamp placement, entry motion) + PopoverPanel (styling) | `client/src/components/Popover.tsx`, placement in `components/popoverPosition.ts`, `components/ui/PopoverPanel.tsx` |
 | Dialog shell | `client/src/components/dialog/DialogShell.tsx` |
 | Panel header | `client/src/components/layout/PanelHeader.tsx` |
 | Class join helper | `client/src/components/ui/classes.ts` |

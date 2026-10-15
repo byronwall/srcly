@@ -5,6 +5,7 @@ import {
   type HotSpotMetricId,
 } from "../../../utils/metricsStore";
 import FileTypeFilter from "../../../components/FileTypeFilter";
+import { isAnyPopoverOpen } from "../../../components/Popover";
 import { MetricPicker } from "../../../components/MetricPicker";
 import { TREEMAP_GRADIENT } from "../utils/colors";
 import type { Crumb, View } from "../../../navigation/location";
@@ -127,7 +128,7 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
       </div>
 
       {/* Legend: shown while hovering the Color control */}
-      <Show when={props.showLegend() && !props.showMetricPopover()}>
+      <Show when={props.showLegend() && !isAnyPopoverOpen()}>
         <div class="plc-floating pointer-events-none absolute right-3 top-11 z-50 w-56 rounded-lg border p-3 text-xs">
           <div class="mb-2 font-semibold text-[var(--plc-on-surface)]">
             {hotSpotMetricLabel(props.primaryMetricId())}
