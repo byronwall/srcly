@@ -783,16 +783,6 @@
 "isTest": false
 },
 {
-"id": "src/viz/deps/legacyAdapter.ts",
-"kind": "file",
-"name": "legacyAdapter.ts",
-"parent": "src/viz/deps",
-"path": "src/viz/deps/legacyAdapter.ts",
-"absPath": "/repo/client/src/viz/deps/legacyAdapter.ts",
-"language": "ts",
-"isTest": false
-},
-{
 "id": "src/viz/deps/viewModel.test.ts",
 "kind": "file",
 "name": "viewModel.test.ts",
@@ -945,6 +935,182 @@
 "parent": "ext:"
 },
 {
+"id": "src/App.tsx#FilePickerWithExternal",
+"kind": "symbol",
+"name": "FilePickerWithExternal",
+"parent": "src/App.tsx",
+"symbolKind": "variable",
+"line": 88
+},
+{
+"id": "src/components/FilePicker.tsx#FilePicker",
+"kind": "symbol",
+"name": "FilePicker",
+"parent": "src/components/FilePicker.tsx",
+"symbolKind": "function",
+"line": 19
+},
+{
+"id": "src/App.tsx#App",
+"kind": "symbol",
+"name": "App",
+"parent": "src/App.tsx",
+"symbolKind": "function",
+"line": 90
+},
+{
+"id": "src/utils/metricsStore.tsx#MetricsStoreProvider",
+"kind": "symbol",
+"name": "MetricsStoreProvider",
+"parent": "src/utils/metricsStore.tsx",
+"symbolKind": "function",
+"line": 117
+},
+{
+"id": "src/App.tsx#AppContent",
+"kind": "symbol",
+"name": "AppContent",
+"parent": "src/App.tsx",
+"symbolKind": "function",
+"line": 98
+},
+{
+"id": "src/components/ui/Button.tsx#Button",
+"kind": "symbol",
+"name": "Button",
+"parent": "src/components/ui/Button.tsx",
+"symbolKind": "function",
+"line": 57
+},
+{
+"id": "src/components/feedback/States.tsx#EmptyState",
+"kind": "symbol",
+"name": "EmptyState",
+"parent": "src/components/feedback/States.tsx",
+"symbolKind": "function",
+"line": 27
+},
+{
+"id": "src/components/CodeModal/CodeModal.tsx#CodeModal",
+"kind": "symbol",
+"name": "CodeModal",
+"parent": "src/components/CodeModal/CodeModal.tsx",
+"symbolKind": "function",
+"line": 28
+},
+{
+"id": "src/components/Explorer.tsx#Explorer",
+"kind": "symbol",
+"name": "Explorer",
+"parent": "src/components/Explorer.tsx",
+"symbolKind": "function",
+"line": 179
+},
+{
+"id": "src/utils/dataProcessing.ts#filterTree",
+"kind": "symbol",
+"name": "filterTree",
+"parent": "src/utils/dataProcessing.ts",
+"symbolKind": "function",
+"line": 30
+},
+{
+"id": "src/components/dialog/DialogShell.tsx#DialogHeader",
+"kind": "symbol",
+"name": "DialogHeader",
+"parent": "src/components/dialog/DialogShell.tsx",
+"symbolKind": "function",
+"line": 52
+},
+{
+"id": "src/components/dialog/DialogShell.tsx#DialogShell",
+"kind": "symbol",
+"name": "DialogShell",
+"parent": "src/components/dialog/DialogShell.tsx",
+"symbolKind": "function",
+"line": 21
+},
+{
+"id": "src/components/Toast.tsx#Toast",
+"kind": "symbol",
+"name": "Toast",
+"parent": "src/components/Toast.tsx",
+"symbolKind": "function",
+"line": 9
+},
+{
+"id": "src/components/feedback/States.tsx#LoadingState",
+"kind": "symbol",
+"name": "LoadingState",
+"parent": "src/components/feedback/States.tsx",
+"symbolKind": "function",
+"line": 14
+},
+{
+"id": "src/utils/metricsStore.tsx#useMetricsStore",
+"kind": "symbol",
+"name": "useMetricsStore",
+"parent": "src/utils/metricsStore.tsx",
+"symbolKind": "function",
+"line": 147
+},
+{
+"id": "src/components/feedback/States.tsx#ErrorState",
+"kind": "symbol",
+"name": "ErrorState",
+"parent": "src/components/feedback/States.tsx",
+"symbolKind": "function",
+"line": 55
+},
+{
+"id": "src/components/Treemap.tsx#Treemap",
+"kind": "symbol",
+"name": "Treemap",
+"parent": "src/components/Treemap.tsx",
+"symbolKind": "function",
+"line": 94
+},
+{
+"id": "src/components/DataFlowViz.tsx#CodeSidebar",
+"kind": "symbol",
+"name": "CodeSidebar",
+"parent": "src/components/DataFlowViz.tsx",
+"symbolKind": "function",
+"line": 308
+},
+{
+"id": "src/hooks/useHighlightedCode.ts#useHighlightedCode",
+"kind": "symbol",
+"name": "useHighlightedCode",
+"parent": "src/hooks/useHighlightedCode.ts",
+"symbolKind": "function",
+"line": 13
+},
+{
+"id": "src/hooks/useFileContent.ts#useFileContent",
+"kind": "symbol",
+"name": "useFileContent",
+"parent": "src/hooks/useFileContent.ts",
+"symbolKind": "function",
+"line": 4
+},
+{
+"id": "src/components/FlowOverlayCode.tsx#FlowOverlayCode",
+"kind": "symbol",
+"name": "FlowOverlayCode",
+"parent": "src/components/FlowOverlayCode.tsx",
+"symbolKind": "function",
+"line": 15
+},
+{
+"id": "src/components/DataFlowViz.tsx#DataFlowViz",
+"kind": "symbol",
+"name": "DataFlowViz",
+"parent": "src/components/DataFlowViz.tsx",
+"symbolKind": "function",
+"line": 382
+},
+{
 "id": "ext:elkjs",
 "kind": "external",
 "name": "elkjs",
@@ -955,6 +1121,406 @@
 "kind": "external",
 "name": "d3",
 "parent": "ext:"
+},
+{
+"id": "src/components/DependencyGraph.tsx#DependencyGraphProps",
+"kind": "symbol",
+"name": "DependencyGraphProps",
+"parent": "src/components/DependencyGraph.tsx",
+"symbolKind": "type",
+"line": 12
+},
+{
+"id": "src/utils/metricsStore.tsx#HotSpotMetricId",
+"kind": "symbol",
+"name": "HotSpotMetricId",
+"parent": "src/utils/metricsStore.tsx",
+"symbolKind": "type",
+"line": 8
+},
+{
+"id": "src/components/DependencyGraph.tsx#DependencyGraph",
+"kind": "symbol",
+"name": "DependencyGraph",
+"parent": "src/components/DependencyGraph.tsx",
+"symbolKind": "function",
+"line": 218
+},
+{
+"id": "src/components/ui/TextInput.tsx#TextInput",
+"kind": "symbol",
+"name": "TextInput",
+"parent": "src/components/ui/TextInput.tsx",
+"symbolKind": "function",
+"line": 9
+},
+{
+"id": "src/components/ui/CheckboxRow.tsx#CheckboxRow",
+"kind": "symbol",
+"name": "CheckboxRow",
+"parent": "src/components/ui/CheckboxRow.tsx",
+"symbolKind": "function",
+"line": 13
+},
+{
+"id": "src/components/layout/PanelHeader.tsx#PanelHeader",
+"kind": "symbol",
+"name": "PanelHeader",
+"parent": "src/components/layout/PanelHeader.tsx",
+"symbolKind": "function",
+"line": 5
+},
+{
+"id": "src/utils/metricsStore.tsx#HOTSPOT_METRICS",
+"kind": "symbol",
+"name": "HOTSPOT_METRICS",
+"parent": "src/utils/metricsStore.tsx",
+"symbolKind": "variable",
+"line": 38
+},
+{
+"id": "src/components/Popover.tsx#Popover",
+"kind": "symbol",
+"name": "Popover",
+"parent": "src/components/Popover.tsx",
+"symbolKind": "function",
+"line": 26
+},
+{
+"id": "src/components/ui/PopoverPanel.tsx#PopoverSectionTitle",
+"kind": "symbol",
+"name": "PopoverSectionTitle",
+"parent": "src/components/ui/PopoverPanel.tsx",
+"symbolKind": "function",
+"line": 33
+},
+{
+"id": "src/components/HotSpotItem.tsx#HotSpotItem",
+"kind": "symbol",
+"name": "HotSpotItem",
+"parent": "src/components/HotSpotItem.tsx",
+"symbolKind": "function",
+"line": 7
+},
+{
+"id": "src/components/TreeNode.tsx#TreeNode",
+"kind": "symbol",
+"name": "TreeNode",
+"parent": "src/components/TreeNode.tsx",
+"symbolKind": "function",
+"line": 18
+},
+{
+"id": "src/components/ui/PopoverPanel.tsx#PopoverPanel",
+"kind": "symbol",
+"name": "PopoverPanel",
+"parent": "src/components/ui/PopoverPanel.tsx",
+"symbolKind": "function",
+"line": 18
+},
+{
+"id": "src/components/ui/IconButton.tsx#IconButton",
+"kind": "symbol",
+"name": "IconButton",
+"parent": "src/components/ui/IconButton.tsx",
+"symbolKind": "function",
+"line": 10
+},
+{
+"id": "src/components/ui/PopoverPanel.tsx#OptionRow",
+"kind": "symbol",
+"name": "OptionRow",
+"parent": "src/components/ui/PopoverPanel.tsx",
+"symbolKind": "function",
+"line": 46
+},
+{
+"id": "src/components/FileTypeFilter.tsx#FileTypeFilter",
+"kind": "symbol",
+"name": "FileTypeFilter",
+"parent": "src/components/FileTypeFilter.tsx",
+"symbolKind": "function",
+"line": 22
+},
+{
+"id": "src/utils/lineRange.ts#LineRange",
+"kind": "symbol",
+"name": "LineRange",
+"parent": "src/utils/lineRange.ts",
+"symbolKind": "type",
+"line": 1
+},
+{
+"id": "src/components/FlowTooltip.tsx#FlowTooltip",
+"kind": "symbol",
+"name": "FlowTooltip",
+"parent": "src/components/FlowTooltip.tsx",
+"symbolKind": "function",
+"line": 11
+},
+{
+"id": "src/utils/flowDecorations.ts#applyFlowDecorationsToEl",
+"kind": "symbol",
+"name": "applyFlowDecorationsToEl",
+"parent": "src/utils/flowDecorations.ts",
+"symbolKind": "function",
+"line": 172
+},
+{
+"id": "src/utils/flowDecorations.ts#OverlayToken",
+"kind": "symbol",
+"name": "OverlayToken",
+"parent": "src/utils/flowDecorations.ts",
+"symbolKind": "type",
+"line": 1
+},
+{
+"id": "src/components/Explorer.tsx#ExplorerContext",
+"kind": "symbol",
+"name": "ExplorerContext",
+"parent": "src/components/Explorer.tsx",
+"symbolKind": "variable",
+"line": 98
+},
+{
+"id": "src/components/Explorer.tsx#findNodeByPath",
+"kind": "symbol",
+"name": "findNodeByPath",
+"parent": "src/components/Explorer.tsx",
+"symbolKind": "function",
+"line": 107
+},
+{
+"id": "src/components/Explorer.tsx#Node",
+"kind": "symbol",
+"name": "Node",
+"parent": "src/components/Explorer.tsx",
+"symbolKind": "type",
+"line": 16
+},
+{
+"id": "src/utils/dataProcessing.ts#extractFilePath",
+"kind": "symbol",
+"name": "extractFilePath",
+"parent": "src/utils/dataProcessing.ts",
+"symbolKind": "function",
+"line": 68
+},
+{
+"id": "src/components/InlineCodePreview.tsx#InlineCodePreview",
+"kind": "symbol",
+"name": "InlineCodePreview",
+"parent": "src/components/InlineCodePreview.tsx",
+"symbolKind": "function",
+"line": 17
+},
+{
+"id": "src/components/Explorer.tsx#SORT_FIELD_ACCESSORS",
+"kind": "symbol",
+"name": "SORT_FIELD_ACCESSORS",
+"parent": "src/components/Explorer.tsx",
+"symbolKind": "variable",
+"line": 142
+},
+{
+"id": "src/components/Explorer.tsx#formatSize",
+"kind": "symbol",
+"name": "formatSize",
+"parent": "src/components/Explorer.tsx",
+"symbolKind": "function",
+"line": 100
+},
+{
+"id": "src/utils/dataProcessing.ts#filterData",
+"kind": "symbol",
+"name": "filterData",
+"parent": "src/utils/dataProcessing.ts",
+"symbolKind": "function",
+"line": 86
+},
+{
+"id": "src/viz/treemap/components/TreemapHeader.tsx#TreemapHeader",
+"kind": "symbol",
+"name": "TreemapHeader",
+"parent": "src/viz/treemap/components/TreemapHeader.tsx",
+"symbolKind": "function",
+"line": 44
+},
+{
+"id": "src/viz/treemap/hooks/useTreemapTooltip.ts#useTreemapTooltip",
+"kind": "symbol",
+"name": "useTreemapTooltip",
+"parent": "src/viz/treemap/hooks/useTreemapTooltip.ts",
+"symbolKind": "function",
+"line": 27
+},
+{
+"id": "src/viz/deps/DependencyView.tsx#DependencyView",
+"kind": "symbol",
+"name": "DependencyView",
+"parent": "src/viz/deps/DependencyView.tsx",
+"symbolKind": "function",
+"line": 47
+},
+{
+"id": "src/viz/treemap/components/TreemapTooltip.tsx#TreemapTooltip",
+"kind": "symbol",
+"name": "TreemapTooltip",
+"parent": "src/viz/treemap/components/TreemapTooltip.tsx",
+"symbolKind": "function",
+"line": 4
+},
+{
+"id": "src/viz/treemap/utils/path.ts#resolveNodeByPath",
+"kind": "symbol",
+"name": "resolveNodeByPath",
+"parent": "src/viz/treemap/utils/path.ts",
+"symbolKind": "function",
+"line": 1
+},
+{
+"id": "src/utils/svgText.ts#truncateTextToWidth",
+"kind": "symbol",
+"name": "truncateTextToWidth",
+"parent": "src/utils/svgText.ts",
+"symbolKind": "variable",
+"line": 31
+},
+{
+"id": "src/viz/treemap/utils/tree.ts#addScopeBodyDummyNodes",
+"kind": "symbol",
+"name": "addScopeBodyDummyNodes",
+"parent": "src/viz/treemap/utils/tree.ts",
+"symbolKind": "function",
+"line": 6
+},
+{
+"id": "src/viz/treemap/utils/colors.ts#treemapLabelColor",
+"kind": "symbol",
+"name": "treemapLabelColor",
+"parent": "src/viz/treemap/utils/colors.ts",
+"symbolKind": "function",
+"line": 98
+},
+{
+"id": "src/viz/treemap/components/TreemapSvg.tsx#TreemapSvg",
+"kind": "symbol",
+"name": "TreemapSvg",
+"parent": "src/viz/treemap/components/TreemapSvg.tsx",
+"symbolKind": "function",
+"line": 53
+},
+{
+"id": "src/viz/treemap/components/TreemapSvg.tsx#TreemapRenderNode",
+"kind": "symbol",
+"name": "TreemapRenderNode",
+"parent": "src/viz/treemap/components/TreemapSvg.tsx",
+"symbolKind": "type",
+"line": 5
+},
+{
+"id": "src/viz/treemap/utils/colors.ts#treemapFillColor",
+"kind": "symbol",
+"name": "treemapFillColor",
+"parent": "src/viz/treemap/utils/colors.ts",
+"symbolKind": "function",
+"line": 65
+},
+{
+"id": "src/utils/structureTree.ts#getActiveStructureNode",
+"kind": "symbol",
+"name": "getActiveStructureNode",
+"parent": "src/utils/structureTree.ts",
+"symbolKind": "function",
+"line": 134
+},
+{
+"id": "src/utils/structureTree.ts#isSyntheticBodyNode",
+"kind": "symbol",
+"name": "isSyntheticBodyNode",
+"parent": "src/utils/structureTree.ts",
+"symbolKind": "function",
+"line": 19
+},
+{
+"id": "src/utils/structureTree.ts#getEffectiveChildren",
+"kind": "symbol",
+"name": "getEffectiveChildren",
+"parent": "src/utils/structureTree.ts",
+"symbolKind": "function",
+"line": 26
+},
+{
+"id": "src/components/CodeModal/CodePane.tsx#CodePane",
+"kind": "symbol",
+"name": "CodePane",
+"parent": "src/components/CodeModal/CodePane.tsx",
+"symbolKind": "function",
+"line": 50
+},
+{
+"id": "src/components/CodeModal/MarkdownPane.tsx#MarkdownPane",
+"kind": "symbol",
+"name": "MarkdownPane",
+"parent": "src/components/CodeModal/MarkdownPane.tsx",
+"symbolKind": "function",
+"line": 7
+},
+{
+"id": "src/components/CodeModal/MetricsSidebar.tsx#MetricsSidebar",
+"kind": "symbol",
+"name": "MetricsSidebar",
+"parent": "src/components/CodeModal/MetricsSidebar.tsx",
+"symbolKind": "function",
+"line": 6
+},
+{
+"id": "src/utils/structureTree.ts#computeBreadcrumbPath",
+"kind": "symbol",
+"name": "computeBreadcrumbPath",
+"parent": "src/utils/structureTree.ts",
+"symbolKind": "function",
+"line": 50
+},
+{
+"id": "src/utils/guessLangFromPath.ts#guessLangFromPath",
+"kind": "symbol",
+"name": "guessLangFromPath",
+"parent": "src/utils/guessLangFromPath.ts",
+"symbolKind": "function",
+"line": 1
+},
+{
+"id": "src/hooks/useAutoScrollSelection.ts#useAutoScrollSelection",
+"kind": "symbol",
+"name": "useAutoScrollSelection",
+"parent": "src/hooks/useAutoScrollSelection.ts",
+"symbolKind": "function",
+"line": 3
+},
+{
+"id": "src/components/CodeModal/CodeModalHeader.tsx#CodeModalHeader",
+"kind": "symbol",
+"name": "CodeModalHeader",
+"parent": "src/components/CodeModal/CodeModalHeader.tsx",
+"symbolKind": "function",
+"line": 6
+},
+{
+"id": "src/components/CodeModal/ScopeFlowPane.tsx#ScopeFlowPane",
+"kind": "symbol",
+"name": "ScopeFlowPane",
+"parent": "src/components/CodeModal/ScopeFlowPane.tsx",
+"symbolKind": "function",
+"line": 371
+},
+{
+"id": "src/components/CodeModal/StickyBreadcrumb.tsx#StickyBreadcrumb",
+"kind": "symbol",
+"name": "StickyBreadcrumb",
+"parent": "src/components/CodeModal/StickyBreadcrumb.tsx",
+"symbolKind": "function",
+"line": 54
 },
 {
 "id": "ext:solid-markdown",
@@ -969,16 +1535,592 @@
 "parent": "ext:"
 },
 {
+"id": "src/markdown/remarkHighlightSelection.ts#remarkHighlightSelection",
+"kind": "symbol",
+"name": "remarkHighlightSelection",
+"parent": "src/markdown/remarkHighlightSelection.ts",
+"symbolKind": "function",
+"line": 6
+},
+{
+"id": "src/utils/markdownImageSrc.ts#resolveMarkdownImageSrc",
+"kind": "symbol",
+"name": "resolveMarkdownImageSrc",
+"parent": "src/utils/markdownImageSrc.ts",
+"symbolKind": "function",
+"line": 13
+},
+{
+"id": "src/markdown/rehypeWrapSelection.ts#rehypeWrapSelection",
+"kind": "symbol",
+"name": "rehypeWrapSelection",
+"parent": "src/markdown/rehypeWrapSelection.ts",
+"symbolKind": "function",
+"line": 1
+},
+{
+"id": "src/components/CodeModal/MetricsSection.tsx#MetricsSection",
+"kind": "symbol",
+"name": "MetricsSection",
+"parent": "src/components/CodeModal/MetricsSection.tsx",
+"symbolKind": "function",
+"line": 5
+},
+{
+"id": "src/components/CodeModal/MetricItem.tsx#MetricItem",
+"kind": "symbol",
+"name": "MetricItem",
+"parent": "src/components/CodeModal/MetricItem.tsx",
+"symbolKind": "function",
+"line": 1
+},
+{
+"id": "src/components/CodeModal/StructurePanel.tsx#StructurePanel",
+"kind": "symbol",
+"name": "StructurePanel",
+"parent": "src/components/CodeModal/StructurePanel.tsx",
+"symbolKind": "function",
+"line": 4
+},
+{
+"id": "src/components/CodeModal/StickyBreadcrumb.tsx#findPathToNodeLocal",
+"kind": "symbol",
+"name": "findPathToNodeLocal",
+"parent": "src/components/CodeModal/StickyBreadcrumb.tsx",
+"symbolKind": "function",
+"line": 27
+},
+{
+"id": "src/components/CodeModal/SidebarTree.tsx#SidebarTree",
+"kind": "symbol",
+"name": "SidebarTree",
+"parent": "src/components/CodeModal/SidebarTree.tsx",
+"symbolKind": "function",
+"line": 3
+},
+{
+"id": "src/components/ui/classes.ts#cx",
+"kind": "symbol",
+"name": "cx",
+"parent": "src/components/ui/classes.ts",
+"symbolKind": "function",
+"line": 1
+},
+{
+"id": "src/services/fileContent.ts#fetchFileContent",
+"kind": "symbol",
+"name": "fetchFileContent",
+"parent": "src/services/fileContent.ts",
+"symbolKind": "function",
+"line": 1
+},
+{
 "id": "ext:shiki",
 "kind": "external",
 "name": "shiki",
 "parent": "ext:"
 },
 {
+"id": "src/utils/indentation.ts#reduceCommonIndent",
+"kind": "symbol",
+"name": "reduceCommonIndent",
+"parent": "src/utils/indentation.ts",
+"symbolKind": "function",
+"line": 1
+},
+{
+"id": "src/utils/shikiHtml.ts#applyLineNumberCounterReset",
+"kind": "symbol",
+"name": "applyLineNumberCounterReset",
+"parent": "src/utils/shikiHtml.ts",
+"symbolKind": "function",
+"line": 7
+},
+{
+"id": "src/utils/shikiHtml.ts#stripShikiPreNewlines",
+"kind": "symbol",
+"name": "stripShikiPreNewlines",
+"parent": "src/utils/shikiHtml.ts",
+"symbolKind": "function",
+"line": 1
+},
+{
+"id": "src/utils/lineRange.ts#computeDisplaySlice",
+"kind": "symbol",
+"name": "computeDisplaySlice",
+"parent": "src/utils/lineRange.ts",
+"symbolKind": "function",
+"line": 3
+},
+{
+"id": "src/utils/shikiHtml.ts#markNonFocusLines",
+"kind": "symbol",
+"name": "markNonFocusLines",
+"parent": "src/utils/shikiHtml.ts",
+"symbolKind": "function",
+"line": 24
+},
+{
 "id": "ext:vitest",
 "kind": "external",
 "name": "vitest",
 "parent": "ext:"
+},
+{
+"id": "src/utils/flowDecorations.ts#applyFlowDecorations",
+"kind": "symbol",
+"name": "applyFlowDecorations",
+"parent": "src/utils/flowDecorations.ts",
+"symbolKind": "function",
+"line": 117
+},
+{
+"id": "src/utils/shikiHtml.ts#decorateShikiHtmlForRange",
+"kind": "symbol",
+"name": "decorateShikiHtmlForRange",
+"parent": "src/utils/shikiHtml.ts",
+"symbolKind": "function",
+"line": 42
+},
+{
+"id": "src/viz/deps/DependencyCanvas.tsx#REGION_TITLE",
+"kind": "symbol",
+"name": "REGION_TITLE",
+"parent": "src/viz/deps/DependencyCanvas.tsx",
+"symbolKind": "variable",
+"line": 17
+},
+{
+"id": "src/viz/deps/viewModel.ts#Region",
+"kind": "symbol",
+"name": "Region",
+"parent": "src/viz/deps/viewModel.ts",
+"symbolKind": "type",
+"line": 10
+},
+{
+"id": "src/viz/deps/DependencyCanvas.tsx#edgePath",
+"kind": "symbol",
+"name": "edgePath",
+"parent": "src/viz/deps/DependencyCanvas.tsx",
+"symbolKind": "function",
+"line": 23
+},
+{
+"id": "src/viz/deps/layout.ts#PositionedEdge",
+"kind": "symbol",
+"name": "PositionedEdge",
+"parent": "src/viz/deps/layout.ts",
+"symbolKind": "type",
+"line": 33
+},
+{
+"id": "src/viz/deps/DependencyCanvas.tsx#KindGlyph",
+"kind": "symbol",
+"name": "KindGlyph",
+"parent": "src/viz/deps/DependencyCanvas.tsx",
+"symbolKind": "function",
+"line": 32
+},
+{
+"id": "src/viz/deps/viewModel.ts#ViewNode",
+"kind": "symbol",
+"name": "ViewNode",
+"parent": "src/viz/deps/viewModel.ts",
+"symbolKind": "type",
+"line": 12
+},
+{
+"id": "src/viz/deps/DependencyCanvas.tsx#DependencyCanvas",
+"kind": "symbol",
+"name": "DependencyCanvas",
+"parent": "src/viz/deps/DependencyCanvas.tsx",
+"symbolKind": "function",
+"line": 52
+},
+{
+"id": "src/viz/deps/layout.ts#PositionedNode",
+"kind": "symbol",
+"name": "PositionedNode",
+"parent": "src/viz/deps/layout.ts",
+"symbolKind": "type",
+"line": 27
+},
+{
+"id": "src/viz/deps/geometry.ts#boundsOf",
+"kind": "symbol",
+"name": "boundsOf",
+"parent": "src/viz/deps/geometry.ts",
+"symbolKind": "function",
+"line": 95
+},
+{
+"id": "src/viz/deps/layout.ts#MAX_SCALE",
+"kind": "symbol",
+"name": "MAX_SCALE",
+"parent": "src/viz/deps/layout.ts",
+"symbolKind": "variable",
+"line": 25
+},
+{
+"id": "src/viz/deps/layout.ts#ViewLayout",
+"kind": "symbol",
+"name": "ViewLayout",
+"parent": "src/viz/deps/layout.ts",
+"symbolKind": "type",
+"line": 37
+},
+{
+"id": "src/viz/deps/DependencyCanvas.tsx#NodeCard",
+"kind": "symbol",
+"name": "NodeCard",
+"parent": "src/viz/deps/DependencyCanvas.tsx",
+"symbolKind": "function",
+"line": 316
+},
+{
+"id": "src/viz/deps/DependencyCanvas.tsx#EdgeCard",
+"kind": "symbol",
+"name": "EdgeCard",
+"parent": "src/viz/deps/DependencyCanvas.tsx",
+"symbolKind": "function",
+"line": 338
+},
+{
+"id": "src/viz/deps/DependencyView.tsx#fetchGraph",
+"kind": "symbol",
+"name": "fetchGraph",
+"parent": "src/viz/deps/DependencyView.tsx",
+"symbolKind": "function",
+"line": 39
+},
+{
+"id": "src/viz/deps/contract.ts#DependencyGraphContract",
+"kind": "symbol",
+"name": "DependencyGraphContract",
+"parent": "src/viz/deps/contract.ts",
+"symbolKind": "type",
+"line": 39
+},
+{
+"id": "src/viz/deps/viewModel.ts#buildViewModel",
+"kind": "symbol",
+"name": "buildViewModel",
+"parent": "src/viz/deps/viewModel.ts",
+"symbolKind": "function",
+"line": 71
+},
+{
+"id": "src/viz/deps/DependencyCanvas.tsx#CanvasApi",
+"kind": "symbol",
+"name": "CanvasApi",
+"parent": "src/viz/deps/DependencyCanvas.tsx",
+"symbolKind": "type",
+"line": 13
+},
+{
+"id": "src/viz/deps/hierarchy.ts#applyFilters",
+"kind": "symbol",
+"name": "applyFilters",
+"parent": "src/viz/deps/hierarchy.ts",
+"symbolKind": "function",
+"line": 22
+},
+{
+"id": "src/viz/deps/hierarchy.ts#collapseChain",
+"kind": "symbol",
+"name": "collapseChain",
+"parent": "src/viz/deps/hierarchy.ts",
+"symbolKind": "function",
+"line": 97
+},
+{
+"id": "src/viz/deps/hierarchy.ts#buildIndex",
+"kind": "symbol",
+"name": "buildIndex",
+"parent": "src/viz/deps/hierarchy.ts",
+"symbolKind": "function",
+"line": 59
+},
+{
+"id": "src/viz/deps/viewModel.ts#DEFAULT_BUDGET",
+"kind": "symbol",
+"name": "DEFAULT_BUDGET",
+"parent": "src/viz/deps/viewModel.ts",
+"symbolKind": "variable",
+"line": 57
+},
+{
+"id": "src/viz/deps/hierarchy.ts#DEFAULT_FILTERS",
+"kind": "symbol",
+"name": "DEFAULT_FILTERS",
+"parent": "src/viz/deps/hierarchy.ts",
+"symbolKind": "variable",
+"line": 9
+},
+{
+"id": "src/viz/deps/hierarchy.ts#FilterOptions",
+"kind": "symbol",
+"name": "FilterOptions",
+"parent": "src/viz/deps/hierarchy.ts",
+"symbolKind": "type",
+"line": 3
+},
+{
+"id": "src/viz/deps/layout.ts#layoutView",
+"kind": "symbol",
+"name": "layoutView",
+"parent": "src/viz/deps/layout.ts",
+"symbolKind": "function",
+"line": 184
+},
+{
+"id": "src/viz/deps/hierarchy.ts#GraphIndex",
+"kind": "symbol",
+"name": "GraphIndex",
+"parent": "src/viz/deps/hierarchy.ts",
+"symbolKind": "type",
+"line": 15
+},
+{
+"id": "src/viz/deps/contract.ts#GraphEdge",
+"kind": "symbol",
+"name": "GraphEdge",
+"parent": "src/viz/deps/contract.ts",
+"symbolKind": "type",
+"line": 27
+},
+{
+"id": "src/viz/deps/contract.ts#GraphNode",
+"kind": "symbol",
+"name": "GraphNode",
+"parent": "src/viz/deps/contract.ts",
+"symbolKind": "type",
+"line": 9
+},
+{
+"id": "src/viz/deps/layout.test.ts#idx",
+"kind": "symbol",
+"name": "idx",
+"parent": "src/viz/deps/layout.test.ts",
+"symbolKind": "variable",
+"line": 9
+},
+{
+"id": "src/viz/deps/layout.ts#NODE_WIDTH",
+"kind": "symbol",
+"name": "NODE_WIDTH",
+"parent": "src/viz/deps/layout.ts",
+"symbolKind": "variable",
+"line": 13
+},
+{
+"id": "src/viz/deps/layout.ts#bundleOffsets",
+"kind": "symbol",
+"name": "bundleOffsets",
+"parent": "src/viz/deps/layout.ts",
+"symbolKind": "function",
+"line": 580
+},
+{
+"id": "src/viz/deps/geometry.ts#isOrthogonal",
+"kind": "symbol",
+"name": "isOrthogonal",
+"parent": "src/viz/deps/geometry.ts",
+"symbolKind": "function",
+"line": 34
+},
+{
+"id": "src/viz/deps/geometry.ts#countEdgeCrossings",
+"kind": "symbol",
+"name": "countEdgeCrossings",
+"parent": "src/viz/deps/geometry.ts",
+"symbolKind": "function",
+"line": 70
+},
+{
+"id": "src/viz/deps/geometry.ts#countNodeCrossings",
+"kind": "symbol",
+"name": "countNodeCrossings",
+"parent": "src/viz/deps/geometry.ts",
+"symbolKind": "function",
+"line": 55
+},
+{
+"id": "src/viz/deps/layout.ts#NODE_HEIGHT",
+"kind": "symbol",
+"name": "NODE_HEIGHT",
+"parent": "src/viz/deps/layout.ts",
+"symbolKind": "variable",
+"line": 14
+},
+{
+"id": "src/viz/deps/geometry.ts#Box",
+"kind": "symbol",
+"name": "Box",
+"parent": "src/viz/deps/geometry.ts",
+"symbolKind": "type",
+"line": 6
+},
+{
+"id": "src/viz/deps/viewModel.ts#ViewEdge",
+"kind": "symbol",
+"name": "ViewEdge",
+"parent": "src/viz/deps/viewModel.ts",
+"symbolKind": "type",
+"line": 28
+},
+{
+"id": "src/viz/deps/geometry.ts#Polyline",
+"kind": "symbol",
+"name": "Polyline",
+"parent": "src/viz/deps/geometry.ts",
+"symbolKind": "type",
+"line": 14
+},
+{
+"id": "src/viz/deps/layout.ts#Route",
+"kind": "symbol",
+"name": "Route",
+"parent": "src/viz/deps/layout.ts",
+"symbolKind": "type",
+"line": 53
+},
+{
+"id": "src/viz/deps/layout.ts#sideDepths",
+"kind": "symbol",
+"name": "sideDepths",
+"parent": "src/viz/deps/layout.ts",
+"symbolKind": "function",
+"line": 77
+},
+{
+"id": "src/viz/deps/viewModel.ts#ViewModel",
+"kind": "symbol",
+"name": "ViewModel",
+"parent": "src/viz/deps/viewModel.ts",
+"symbolKind": "type",
+"line": 39
+},
+{
+"id": "src/viz/deps/layout.ts#layoutViewSync",
+"kind": "symbol",
+"name": "layoutViewSync",
+"parent": "src/viz/deps/layout.ts",
+"symbolKind": "function",
+"line": 188
+},
+{
+"id": "src/viz/deps/geometry.ts#Point",
+"kind": "symbol",
+"name": "Point",
+"parent": "src/viz/deps/geometry.ts",
+"symbolKind": "type",
+"line": 1
+},
+{
+"id": "src/viz/deps/layout.ts#simplify",
+"kind": "symbol",
+"name": "simplify",
+"parent": "src/viz/deps/layout.ts",
+"symbolKind": "function",
+"line": 554
+},
+{
+"id": "src/viz/deps/viewModel.test.ts#srcly",
+"kind": "symbol",
+"name": "srcly",
+"parent": "src/viz/deps/viewModel.test.ts",
+"symbolKind": "function",
+"line": 7
+},
+{
+"id": "src/viz/deps/viewModel.test.ts#wideRepo",
+"kind": "symbol",
+"name": "wideRepo",
+"parent": "src/viz/deps/viewModel.test.ts",
+"symbolKind": "function",
+"line": 11
+},
+{
+"id": "src/viz/deps/contract.ts#GraphNodeKind",
+"kind": "symbol",
+"name": "GraphNodeKind",
+"parent": "src/viz/deps/contract.ts",
+"symbolKind": "type",
+"line": 7
+},
+{
+"id": "src/viz/deps/hierarchy.ts#displayName",
+"kind": "symbol",
+"name": "displayName",
+"parent": "src/viz/deps/hierarchy.ts",
+"symbolKind": "function",
+"line": 117
+},
+{
+"id": "src/viz/deps/hierarchy.ts#owningFile",
+"kind": "symbol",
+"name": "owningFile",
+"parent": "src/viz/deps/hierarchy.ts",
+"symbolKind": "function",
+"line": 111
+},
+{
+"id": "src/viz/deps/hierarchy.ts#isAncestorOrSelf",
+"kind": "symbol",
+"name": "isAncestorOrSelf",
+"parent": "src/viz/deps/hierarchy.ts",
+"symbolKind": "function",
+"line": 83
+},
+{
+"id": "src/viz/deps/hierarchy.ts#ancestors",
+"kind": "symbol",
+"name": "ancestors",
+"parent": "src/viz/deps/hierarchy.ts",
+"symbolKind": "function",
+"line": 73
+},
+{
+"id": "src/viz/deps/viewModel.ts#disambiguateLabels",
+"kind": "symbol",
+"name": "disambiguateLabels",
+"parent": "src/viz/deps/viewModel.ts",
+"symbolKind": "function",
+"line": 384
+},
+{
+"id": "src/viz/treemap/components/TreemapHeader.tsx#TreemapHeaderProps",
+"kind": "symbol",
+"name": "TreemapHeaderProps",
+"parent": "src/viz/treemap/components/TreemapHeader.tsx",
+"symbolKind": "type",
+"line": 15
+},
+{
+"id": "src/viz/treemap/hooks/useTreemapTooltip.ts#TooltipLine",
+"kind": "symbol",
+"name": "TooltipLine",
+"parent": "src/viz/treemap/hooks/useTreemapTooltip.ts",
+"symbolKind": "type",
+"line": 5
+},
+{
+"id": "src/viz/treemap/hooks/useTreemapTooltip.ts#TreemapTooltipModel",
+"kind": "symbol",
+"name": "TreemapTooltipModel",
+"parent": "src/viz/treemap/hooks/useTreemapTooltip.ts",
+"symbolKind": "type",
+"line": 10
+},
+{
+"id": "src/utils/color.ts#getContrastingTextColor",
+"kind": "symbol",
+"name": "getContrastingTextColor",
+"parent": "src/utils/color.ts",
+"symbolKind": "function",
+"line": 3
 }
 ],
 "edges": [
@@ -1016,77 +2158,101 @@
 ]
 },
 {
-"source": "src/App.tsx",
-"target": "src/components/Toast.tsx",
+"source": "src/App.tsx#FilePickerWithExternal",
+"target": "src/components/FilePicker.tsx#FilePicker",
 "symbols": [
 "default"
 ]
 },
 {
-"source": "src/App.tsx",
-"target": "src/components/CodeModal/CodeModal.tsx",
+"source": "src/App.tsx#App",
+"target": "src/utils/metricsStore.tsx#MetricsStoreProvider",
 "symbols": [
-"default"
+"MetricsStoreProvider"
 ]
 },
 {
-"source": "src/App.tsx",
-"target": "src/components/Explorer.tsx",
-"symbols": [
-"default"
-]
-},
-{
-"source": "src/App.tsx",
-"target": "src/components/dialog/DialogShell.tsx",
-"symbols": [
-"DialogHeader",
-"DialogShell"
-]
-},
-{
-"source": "src/App.tsx",
-"target": "src/components/feedback/States.tsx",
-"symbols": [
-"EmptyState",
-"ErrorState",
-"LoadingState"
-]
-},
-{
-"source": "src/App.tsx",
-"target": "src/components/FilePicker.tsx",
-"symbols": [
-"default"
-]
-},
-{
-"source": "src/App.tsx",
-"target": "src/components/Treemap.tsx",
-"symbols": [
-"default"
-]
-},
-{
-"source": "src/App.tsx",
-"target": "src/components/ui/Button.tsx",
+"source": "src/App.tsx#AppContent",
+"target": "src/components/ui/Button.tsx#Button",
 "symbols": [
 "Button"
 ]
 },
 {
-"source": "src/App.tsx",
-"target": "src/utils/dataProcessing.ts",
+"source": "src/App.tsx#AppContent",
+"target": "src/components/feedback/States.tsx#EmptyState",
+"symbols": [
+"EmptyState"
+]
+},
+{
+"source": "src/App.tsx#AppContent",
+"target": "src/components/CodeModal/CodeModal.tsx#CodeModal",
+"symbols": [
+"default"
+]
+},
+{
+"source": "src/App.tsx#AppContent",
+"target": "src/components/Explorer.tsx#Explorer",
+"symbols": [
+"default"
+]
+},
+{
+"source": "src/App.tsx#AppContent",
+"target": "src/utils/dataProcessing.ts#filterTree",
 "symbols": [
 "filterTree"
 ]
 },
 {
-"source": "src/App.tsx",
-"target": "src/utils/metricsStore.tsx",
+"source": "src/App.tsx#AppContent",
+"target": "src/components/dialog/DialogShell.tsx#DialogHeader",
 "symbols": [
-"MetricsStoreProvider",
+"DialogHeader"
+]
+},
+{
+"source": "src/App.tsx#AppContent",
+"target": "src/components/dialog/DialogShell.tsx#DialogShell",
+"symbols": [
+"DialogShell"
+]
+},
+{
+"source": "src/App.tsx#AppContent",
+"target": "src/components/Toast.tsx#Toast",
+"symbols": [
+"default"
+]
+},
+{
+"source": "src/App.tsx#AppContent",
+"target": "src/components/feedback/States.tsx#LoadingState",
+"symbols": [
+"LoadingState"
+]
+},
+{
+"source": "src/App.tsx#AppContent",
+"target": "src/utils/metricsStore.tsx#useMetricsStore",
+"symbols": [
 "useMetricsStore"
+]
+},
+{
+"source": "src/App.tsx#AppContent",
+"target": "src/components/feedback/States.tsx#ErrorState",
+"symbols": [
+"ErrorState"
+]
+},
+{
+"source": "src/App.tsx#AppContent",
+"target": "src/components/Treemap.tsx#Treemap",
+"symbols": [
+"default"
 ]
 },
 {
@@ -1098,7 +2264,7 @@
 },
 {
 "source": "src/index.tsx",
-"target": "src/App.tsx",
+"target": "src/App.tsx#App",
 "symbols": [
 "default"
 ]
@@ -1114,47 +2280,59 @@
 ]
 },
 {
-"source": "src/components/DataFlowViz.tsx",
-"target": "src/hooks/useFileContent.ts",
-"symbols": [
-"useFileContent"
-]
-},
-{
-"source": "src/components/DataFlowViz.tsx",
-"target": "src/hooks/useHighlightedCode.ts",
+"source": "src/components/DataFlowViz.tsx#CodeSidebar",
+"target": "src/hooks/useHighlightedCode.ts#useHighlightedCode",
 "symbols": [
 "useHighlightedCode"
 ]
 },
 {
-"source": "src/components/DataFlowViz.tsx",
-"target": "src/components/dialog/DialogShell.tsx",
+"source": "src/components/DataFlowViz.tsx#CodeSidebar",
+"target": "src/hooks/useFileContent.ts#useFileContent",
 "symbols": [
-"DialogHeader",
-"DialogShell"
+"useFileContent"
 ]
 },
 {
-"source": "src/components/DataFlowViz.tsx",
-"target": "src/components/feedback/States.tsx",
-"symbols": [
-"ErrorState",
-"LoadingState"
-]
-},
-{
-"source": "src/components/DataFlowViz.tsx",
-"target": "src/components/FlowOverlayCode.tsx",
+"source": "src/components/DataFlowViz.tsx#CodeSidebar",
+"target": "src/components/FlowOverlayCode.tsx#FlowOverlayCode",
 "symbols": [
 "FlowOverlayCode"
 ]
 },
 {
-"source": "src/components/DataFlowViz.tsx",
-"target": "src/components/ui/Button.tsx",
+"source": "src/components/DataFlowViz.tsx#DataFlowViz",
+"target": "src/components/ui/Button.tsx#Button",
 "symbols": [
 "Button"
+]
+},
+{
+"source": "src/components/DataFlowViz.tsx#DataFlowViz",
+"target": "src/components/dialog/DialogShell.tsx#DialogHeader",
+"symbols": [
+"DialogHeader"
+]
+},
+{
+"source": "src/components/DataFlowViz.tsx#DataFlowViz",
+"target": "src/components/dialog/DialogShell.tsx#DialogShell",
+"symbols": [
+"DialogShell"
+]
+},
+{
+"source": "src/components/DataFlowViz.tsx#DataFlowViz",
+"target": "src/components/feedback/States.tsx#LoadingState",
+"symbols": [
+"LoadingState"
+]
+},
+{
+"source": "src/components/DataFlowViz.tsx#DataFlowViz",
+"target": "src/components/feedback/States.tsx#ErrorState",
+"symbols": [
+"ErrorState"
 ]
 },
 {
@@ -1166,13 +2344,6 @@
 "Show",
 "For",
 "createMemo"
-]
-},
-{
-"source": "src/components/DependencyGraph.tsx",
-"target": "src/components/CodeModal/CodeModal.tsx",
-"symbols": [
-"default"
 ]
 },
 {
@@ -1190,47 +2361,67 @@
 ]
 },
 {
-"source": "src/components/DependencyGraph.tsx",
-"target": "src/components/feedback/States.tsx",
+"source": "src/components/DependencyGraph.tsx#DependencyGraphProps",
+"target": "src/utils/metricsStore.tsx#HotSpotMetricId",
+"typeOnly": true,
 "symbols": [
-"LoadingState",
-"ErrorState"
+"HotSpotMetricId"
 ]
 },
 {
-"source": "src/components/DependencyGraph.tsx",
-"target": "src/components/layout/PanelHeader.tsx",
-"symbols": [
-"PanelHeader"
-]
-},
-{
-"source": "src/components/DependencyGraph.tsx",
-"target": "src/components/ui/Button.tsx",
+"source": "src/components/DependencyGraph.tsx#DependencyGraph",
+"target": "src/components/ui/Button.tsx#Button",
 "symbols": [
 "Button"
 ]
 },
 {
-"source": "src/components/DependencyGraph.tsx",
-"target": "src/components/ui/CheckboxRow.tsx",
+"source": "src/components/DependencyGraph.tsx#DependencyGraph",
+"target": "src/components/feedback/States.tsx#ErrorState",
 "symbols": [
-"CheckboxRow"
+"ErrorState"
 ]
 },
 {
-"source": "src/components/DependencyGraph.tsx",
-"target": "src/components/ui/TextInput.tsx",
+"source": "src/components/DependencyGraph.tsx#DependencyGraph",
+"target": "src/components/CodeModal/CodeModal.tsx#CodeModal",
+"symbols": [
+"default"
+]
+},
+{
+"source": "src/components/DependencyGraph.tsx#DependencyGraph",
+"target": "src/components/ui/TextInput.tsx#TextInput",
 "symbols": [
 "TextInput"
 ]
 },
 {
-"source": "src/components/DependencyGraph.tsx",
-"target": "src/utils/metricsStore.tsx",
+"source": "src/components/DependencyGraph.tsx#DependencyGraph",
+"target": "src/components/feedback/States.tsx#LoadingState",
 "symbols": [
-"HOTSPOT_METRICS",
-"HotSpotMetricId"
+"LoadingState"
+]
+},
+{
+"source": "src/components/DependencyGraph.tsx#DependencyGraph",
+"target": "src/components/ui/CheckboxRow.tsx#CheckboxRow",
+"symbols": [
+"CheckboxRow"
+]
+},
+{
+"source": "src/components/DependencyGraph.tsx#DependencyGraph",
+"target": "src/components/layout/PanelHeader.tsx#PanelHeader",
+"symbols": [
+"PanelHeader"
+]
+},
+{
+"source": "src/components/DependencyGraph.tsx#DependencyGraph",
+"target": "src/utils/metricsStore.tsx#HOTSPOT_METRICS",
+"symbols": [
+"HOTSPOT_METRICS"
 ]
 },
 {
@@ -1245,69 +2436,88 @@
 ]
 },
 {
-"source": "src/components/Explorer.tsx",
-"target": "src/components/Popover.tsx",
+"source": "src/components/Explorer.tsx#Explorer",
+"target": "src/components/Popover.tsx#Popover",
 "symbols": [
 "default"
 ]
 },
 {
-"source": "src/components/Explorer.tsx",
-"target": "src/components/ui/Button.tsx",
+"source": "src/components/Explorer.tsx#Explorer",
+"target": "src/components/ui/Button.tsx#Button",
 "symbols": [
 "Button"
 ]
 },
 {
-"source": "src/components/Explorer.tsx",
-"target": "src/components/ui/CheckboxRow.tsx",
+"source": "src/components/Explorer.tsx#Explorer",
+"target": "src/utils/metricsStore.tsx#HOTSPOT_METRICS",
 "symbols": [
-"CheckboxRow"
+"HOTSPOT_METRICS"
 ]
 },
 {
-"source": "src/components/Explorer.tsx",
-"target": "src/components/ui/IconButton.tsx",
+"source": "src/components/Explorer.tsx#Explorer",
+"target": "src/components/ui/PopoverPanel.tsx#PopoverSectionTitle",
 "symbols": [
-"IconButton"
-]
-},
-{
-"source": "src/components/Explorer.tsx",
-"target": "src/components/ui/PopoverPanel.tsx",
-"symbols": [
-"PopoverPanel",
 "PopoverSectionTitle"
 ]
 },
 {
-"source": "src/components/Explorer.tsx",
-"target": "src/components/ui/TextInput.tsx",
+"source": "src/components/Explorer.tsx#Explorer",
+"target": "src/components/ui/TextInput.tsx#TextInput",
 "symbols": [
 "TextInput"
 ]
 },
 {
-"source": "src/components/Explorer.tsx",
-"target": "src/utils/metricsStore.tsx",
-"symbols": [
-"HOTSPOT_METRICS",
-"HotSpotMetricId",
-"useMetricsStore"
-]
-},
-{
-"source": "src/components/Explorer.tsx",
-"target": "src/components/HotSpotItem.tsx",
+"source": "src/components/Explorer.tsx#Explorer",
+"target": "src/components/HotSpotItem.tsx#HotSpotItem",
 "symbols": [
 "HotSpotItem"
 ]
 },
 {
-"source": "src/components/Explorer.tsx",
-"target": "src/components/TreeNode.tsx",
+"source": "src/components/Explorer.tsx#Explorer",
+"target": "src/components/TreeNode.tsx#TreeNode",
 "symbols": [
 "TreeNode"
+]
+},
+{
+"source": "src/components/Explorer.tsx#Explorer",
+"target": "src/components/ui/PopoverPanel.tsx#PopoverPanel",
+"symbols": [
+"PopoverPanel"
+]
+},
+{
+"source": "src/components/Explorer.tsx#Explorer",
+"target": "src/utils/metricsStore.tsx#HotSpotMetricId",
+"typeOnly": true,
+"symbols": [
+"HotSpotMetricId"
+]
+},
+{
+"source": "src/components/Explorer.tsx#Explorer",
+"target": "src/utils/metricsStore.tsx#useMetricsStore",
+"symbols": [
+"useMetricsStore"
+]
+},
+{
+"source": "src/components/Explorer.tsx#Explorer",
+"target": "src/components/ui/CheckboxRow.tsx#CheckboxRow",
+"symbols": [
+"CheckboxRow"
+]
+},
+{
+"source": "src/components/Explorer.tsx#Explorer",
+"target": "src/components/ui/IconButton.tsx#IconButton",
+"symbols": [
+"IconButton"
 ]
 },
 {
@@ -1322,33 +2532,45 @@
 ]
 },
 {
-"source": "src/components/FilePicker.tsx",
-"target": "src/components/Popover.tsx",
+"source": "src/components/FilePicker.tsx#FilePicker",
+"target": "src/components/Popover.tsx#Popover",
 "symbols": [
 "default"
 ]
 },
 {
-"source": "src/components/FilePicker.tsx",
-"target": "src/components/ui/Button.tsx",
+"source": "src/components/FilePicker.tsx#FilePicker",
+"target": "src/components/ui/Button.tsx#Button",
 "symbols": [
 "Button"
 ]
 },
 {
-"source": "src/components/FilePicker.tsx",
-"target": "src/components/ui/PopoverPanel.tsx",
+"source": "src/components/FilePicker.tsx#FilePicker",
+"target": "src/components/ui/PopoverPanel.tsx#PopoverSectionTitle",
 "symbols": [
-"OptionRow",
-"PopoverPanel",
 "PopoverSectionTitle"
 ]
 },
 {
-"source": "src/components/FilePicker.tsx",
-"target": "src/components/ui/TextInput.tsx",
+"source": "src/components/FilePicker.tsx#FilePicker",
+"target": "src/components/ui/TextInput.tsx#TextInput",
 "symbols": [
 "TextInput"
+]
+},
+{
+"source": "src/components/FilePicker.tsx#FilePicker",
+"target": "src/components/ui/PopoverPanel.tsx#PopoverPanel",
+"symbols": [
+"PopoverPanel"
+]
+},
+{
+"source": "src/components/FilePicker.tsx#FilePicker",
+"target": "src/components/ui/PopoverPanel.tsx#OptionRow",
+"symbols": [
+"OptionRow"
 ]
 },
 {
@@ -1362,47 +2584,59 @@
 ]
 },
 {
-"source": "src/components/FileTypeFilter.tsx",
-"target": "src/utils/metricsStore.tsx",
-"symbols": [
-"useMetricsStore"
-]
-},
-{
-"source": "src/components/FileTypeFilter.tsx",
-"target": "src/components/Popover.tsx",
+"source": "src/components/FileTypeFilter.tsx#FileTypeFilter",
+"target": "src/components/Popover.tsx#Popover",
 "symbols": [
 "default"
 ]
 },
 {
-"source": "src/components/FileTypeFilter.tsx",
-"target": "src/components/ui/Button.tsx",
+"source": "src/components/FileTypeFilter.tsx#FileTypeFilter",
+"target": "src/components/ui/Button.tsx#Button",
 "symbols": [
 "Button"
 ]
 },
 {
-"source": "src/components/FileTypeFilter.tsx",
-"target": "src/components/ui/CheckboxRow.tsx",
+"source": "src/components/FileTypeFilter.tsx#FileTypeFilter",
+"target": "src/components/ui/PopoverPanel.tsx#PopoverSectionTitle",
+"symbols": [
+"PopoverSectionTitle"
+]
+},
+{
+"source": "src/components/FileTypeFilter.tsx#FileTypeFilter",
+"target": "src/components/ui/TextInput.tsx#TextInput",
+"symbols": [
+"TextInput"
+]
+},
+{
+"source": "src/components/FileTypeFilter.tsx#FileTypeFilter",
+"target": "src/components/ui/PopoverPanel.tsx#PopoverPanel",
+"symbols": [
+"PopoverPanel"
+]
+},
+{
+"source": "src/components/FileTypeFilter.tsx#FileTypeFilter",
+"target": "src/utils/metricsStore.tsx#useMetricsStore",
+"symbols": [
+"useMetricsStore"
+]
+},
+{
+"source": "src/components/FileTypeFilter.tsx#FileTypeFilter",
+"target": "src/components/ui/CheckboxRow.tsx#CheckboxRow",
 "symbols": [
 "CheckboxRow"
 ]
 },
 {
-"source": "src/components/FileTypeFilter.tsx",
-"target": "src/components/ui/PopoverPanel.tsx",
+"source": "src/components/FileTypeFilter.tsx#FileTypeFilter",
+"target": "src/components/ui/PopoverPanel.tsx#OptionRow",
 "symbols": [
-"OptionRow",
-"PopoverPanel",
-"PopoverSectionTitle"
-]
-},
-{
-"source": "src/components/FileTypeFilter.tsx",
-"target": "src/components/ui/TextInput.tsx",
-"symbols": [
-"TextInput"
+"OptionRow"
 ]
 },
 {
@@ -1416,26 +2650,33 @@
 ]
 },
 {
-"source": "src/components/FlowOverlayCode.tsx",
-"target": "src/components/FlowTooltip.tsx",
+"source": "src/components/FlowOverlayCode.tsx#FlowOverlayCode",
+"target": "src/utils/lineRange.ts#LineRange",
+"typeOnly": true,
+"symbols": [
+"LineRange"
+]
+},
+{
+"source": "src/components/FlowOverlayCode.tsx#FlowOverlayCode",
+"target": "src/components/FlowTooltip.tsx#FlowTooltip",
 "symbols": [
 "FlowTooltip"
 ]
 },
 {
-"source": "src/components/FlowOverlayCode.tsx",
-"target": "src/utils/flowDecorations.ts",
+"source": "src/components/FlowOverlayCode.tsx#FlowOverlayCode",
+"target": "src/utils/flowDecorations.ts#applyFlowDecorationsToEl",
 "symbols": [
-"applyFlowDecorationsToEl",
-"OverlayToken"
+"applyFlowDecorationsToEl"
 ]
 },
 {
-"source": "src/components/FlowOverlayCode.tsx",
-"target": "src/utils/lineRange.ts",
+"source": "src/components/FlowOverlayCode.tsx#FlowOverlayCode",
+"target": "src/utils/flowDecorations.ts#OverlayToken",
 "typeOnly": true,
 "symbols": [
-"LineRange"
+"OverlayToken"
 ]
 },
 {
@@ -1460,26 +2701,39 @@
 ]
 },
 {
-"source": "src/components/HotSpotItem.tsx",
-"target": "src/utils/dataProcessing.ts",
+"source": "src/components/HotSpotItem.tsx#HotSpotItem",
+"target": "src/components/Explorer.tsx#ExplorerContext",
+"symbols": [
+"ExplorerContext"
+]
+},
+{
+"source": "src/components/HotSpotItem.tsx#HotSpotItem",
+"target": "src/components/Explorer.tsx#findNodeByPath",
+"symbols": [
+"findNodeByPath"
+]
+},
+{
+"source": "src/components/HotSpotItem.tsx#HotSpotItem",
+"target": "src/components/Explorer.tsx#Node",
+"typeOnly": true,
+"symbols": [
+"Node"
+]
+},
+{
+"source": "src/components/HotSpotItem.tsx#HotSpotItem",
+"target": "src/utils/dataProcessing.ts#extractFilePath",
 "symbols": [
 "extractFilePath"
 ]
 },
 {
-"source": "src/components/HotSpotItem.tsx",
-"target": "src/utils/metricsStore.tsx",
+"source": "src/components/HotSpotItem.tsx#HotSpotItem",
+"target": "src/utils/metricsStore.tsx#HOTSPOT_METRICS",
 "symbols": [
 "HOTSPOT_METRICS"
-]
-},
-{
-"source": "src/components/HotSpotItem.tsx",
-"target": "src/components/Explorer.tsx",
-"symbols": [
-"ExplorerContext",
-"findNodeByPath",
-"Node"
 ]
 },
 {
@@ -1492,22 +2746,22 @@
 ]
 },
 {
-"source": "src/components/InlineCodePreview.tsx",
-"target": "src/hooks/useFileContent.ts",
-"symbols": [
-"useFileContent"
-]
-},
-{
-"source": "src/components/InlineCodePreview.tsx",
-"target": "src/hooks/useHighlightedCode.ts",
+"source": "src/components/InlineCodePreview.tsx#InlineCodePreview",
+"target": "src/hooks/useHighlightedCode.ts#useHighlightedCode",
 "symbols": [
 "useHighlightedCode"
 ]
 },
 {
-"source": "src/components/InlineCodePreview.tsx",
-"target": "src/components/FlowOverlayCode.tsx",
+"source": "src/components/InlineCodePreview.tsx#InlineCodePreview",
+"target": "src/hooks/useFileContent.ts#useFileContent",
+"symbols": [
+"useFileContent"
+]
+},
+{
+"source": "src/components/InlineCodePreview.tsx#InlineCodePreview",
+"target": "src/components/FlowOverlayCode.tsx#FlowOverlayCode",
 "symbols": [
 "FlowOverlayCode"
 ]
@@ -1548,27 +2802,46 @@
 ]
 },
 {
-"source": "src/components/TreeNode.tsx",
-"target": "src/utils/dataProcessing.ts",
+"source": "src/components/TreeNode.tsx#TreeNode",
+"target": "src/components/Explorer.tsx#SORT_FIELD_ACCESSORS",
 "symbols": [
-"extractFilePath"
+"SORT_FIELD_ACCESSORS"
 ]
 },
 {
-"source": "src/components/TreeNode.tsx",
-"target": "src/components/Explorer.tsx",
+"source": "src/components/TreeNode.tsx#TreeNode",
+"target": "src/components/Explorer.tsx#ExplorerContext",
 "symbols": [
-"Node",
-"ExplorerContext",
-"SORT_FIELD_ACCESSORS",
+"ExplorerContext"
+]
+},
+{
+"source": "src/components/TreeNode.tsx#TreeNode",
+"target": "src/components/Explorer.tsx#formatSize",
+"symbols": [
 "formatSize"
 ]
 },
 {
-"source": "src/components/TreeNode.tsx",
-"target": "src/utils/metricsStore.tsx",
+"source": "src/components/TreeNode.tsx#TreeNode",
+"target": "src/utils/metricsStore.tsx#useMetricsStore",
 "symbols": [
 "useMetricsStore"
+]
+},
+{
+"source": "src/components/TreeNode.tsx#TreeNode",
+"target": "src/components/Explorer.tsx#Node",
+"typeOnly": true,
+"symbols": [
+"Node"
+]
+},
+{
+"source": "src/components/TreeNode.tsx#TreeNode",
+"target": "src/utils/dataProcessing.ts#extractFilePath",
+"symbols": [
+"extractFilePath"
 ]
 },
 {
@@ -1592,97 +2865,116 @@
 ]
 },
 {
-"source": "src/components/Treemap.tsx",
-"target": "src/utils/dataProcessing.ts",
+"source": "src/components/Treemap.tsx#Treemap",
+"target": "src/utils/dataProcessing.ts#filterData",
 "symbols": [
-"extractFilePath",
 "filterData"
 ]
 },
 {
-"source": "src/components/Treemap.tsx",
-"target": "src/utils/metricsStore.tsx",
+"source": "src/components/Treemap.tsx#Treemap",
+"target": "src/viz/treemap/components/TreemapHeader.tsx#TreemapHeader",
 "symbols": [
-"useMetricsStore"
+"default"
 ]
 },
 {
-"source": "src/components/Treemap.tsx",
-"target": "src/utils/svgText.ts",
+"source": "src/components/Treemap.tsx#Treemap",
+"target": "src/viz/treemap/hooks/useTreemapTooltip.ts#useTreemapTooltip",
 "symbols": [
-"truncateTextToWidth"
+"useTreemapTooltip"
 ]
 },
 {
-"source": "src/components/Treemap.tsx",
-"target": "src/viz/treemap/utils/tree.ts",
+"source": "src/components/Treemap.tsx#Treemap",
+"target": "src/viz/deps/DependencyView.tsx#DependencyView",
 "symbols": [
-"addScopeBodyDummyNodes"
+"default"
 ]
 },
 {
-"source": "src/components/Treemap.tsx",
-"target": "src/viz/treemap/utils/path.ts",
+"source": "src/components/Treemap.tsx#Treemap",
+"target": "src/components/DependencyGraph.tsx#DependencyGraph",
+"symbols": [
+"default"
+]
+},
+{
+"source": "src/components/Treemap.tsx#Treemap",
+"target": "src/viz/treemap/components/TreemapTooltip.tsx#TreemapTooltip",
+"symbols": [
+"default"
+]
+},
+{
+"source": "src/components/Treemap.tsx#Treemap",
+"target": "src/viz/treemap/utils/path.ts#resolveNodeByPath",
 "symbols": [
 "resolveNodeByPath"
 ]
 },
 {
-"source": "src/components/Treemap.tsx",
-"target": "src/viz/treemap/utils/colors.ts",
+"source": "src/components/Treemap.tsx#Treemap",
+"target": "src/components/DataFlowViz.tsx#DataFlowViz",
 "symbols": [
-"treemapFillColor",
+"default"
+]
+},
+{
+"source": "src/components/Treemap.tsx#Treemap",
+"target": "src/utils/svgText.ts#truncateTextToWidth",
+"symbols": [
+"truncateTextToWidth"
+]
+},
+{
+"source": "src/components/Treemap.tsx#Treemap",
+"target": "src/viz/treemap/utils/tree.ts#addScopeBodyDummyNodes",
+"symbols": [
+"addScopeBodyDummyNodes"
+]
+},
+{
+"source": "src/components/Treemap.tsx#Treemap",
+"target": "src/viz/treemap/utils/colors.ts#treemapLabelColor",
+"symbols": [
 "treemapLabelColor"
 ]
 },
 {
-"source": "src/components/Treemap.tsx",
-"target": "src/viz/treemap/components/TreemapSvg.tsx",
+"source": "src/components/Treemap.tsx#Treemap",
+"target": "src/utils/metricsStore.tsx#useMetricsStore",
 "symbols": [
-"default",
+"useMetricsStore"
+]
+},
+{
+"source": "src/components/Treemap.tsx#Treemap",
+"target": "src/viz/treemap/components/TreemapSvg.tsx#TreemapSvg",
+"symbols": [
+"default"
+]
+},
+{
+"source": "src/components/Treemap.tsx#Treemap",
+"target": "src/viz/treemap/components/TreemapSvg.tsx#TreemapRenderNode",
+"typeOnly": true,
+"symbols": [
 "TreemapRenderNode"
 ]
 },
 {
-"source": "src/components/Treemap.tsx",
-"target": "src/viz/treemap/components/TreemapHeader.tsx",
+"source": "src/components/Treemap.tsx#Treemap",
+"target": "src/utils/dataProcessing.ts#extractFilePath",
 "symbols": [
-"default"
+"extractFilePath"
 ]
 },
 {
-"source": "src/components/Treemap.tsx",
-"target": "src/viz/treemap/components/TreemapTooltip.tsx",
+"source": "src/components/Treemap.tsx#Treemap",
+"target": "src/viz/treemap/utils/colors.ts#treemapFillColor",
 "symbols": [
-"default"
-]
-},
-{
-"source": "src/components/Treemap.tsx",
-"target": "src/components/DependencyGraph.tsx",
-"symbols": [
-"default"
-]
-},
-{
-"source": "src/components/Treemap.tsx",
-"target": "src/viz/deps/DependencyView.tsx",
-"symbols": [
-"default"
-]
-},
-{
-"source": "src/components/Treemap.tsx",
-"target": "src/components/DataFlowViz.tsx",
-"symbols": [
-"default"
-]
-},
-{
-"source": "src/components/Treemap.tsx",
-"target": "src/viz/treemap/hooks/useTreemapTooltip.ts",
-"symbols": [
-"useTreemapTooltip"
+"treemapFillColor"
 ]
 },
 {
@@ -1697,76 +2989,94 @@
 ]
 },
 {
-"source": "src/components/CodeModal/CodeModal.tsx",
-"target": "src/hooks/useAutoScrollSelection.ts",
-"symbols": [
-"useAutoScrollSelection"
-]
-},
-{
-"source": "src/components/CodeModal/CodeModal.tsx",
-"target": "src/hooks/useFileContent.ts",
-"symbols": [
-"useFileContent"
-]
-},
-{
-"source": "src/components/CodeModal/CodeModal.tsx",
-"target": "src/hooks/useHighlightedCode.ts",
+"source": "src/components/CodeModal/CodeModal.tsx#CodeModal",
+"target": "src/hooks/useHighlightedCode.ts#useHighlightedCode",
 "symbols": [
 "useHighlightedCode"
 ]
 },
 {
-"source": "src/components/CodeModal/CodeModal.tsx",
-"target": "src/utils/guessLangFromPath.ts",
+"source": "src/components/CodeModal/CodeModal.tsx#CodeModal",
+"target": "src/utils/structureTree.ts#getActiveStructureNode",
 "symbols": [
-"guessLangFromPath"
+"getActiveStructureNode"
 ]
 },
 {
-"source": "src/components/CodeModal/CodeModal.tsx",
-"target": "src/utils/structureTree.ts",
+"source": "src/components/CodeModal/CodeModal.tsx#CodeModal",
+"target": "src/utils/structureTree.ts#isSyntheticBodyNode",
 "symbols": [
-"computeBreadcrumbPath",
-"getActiveStructureNode",
-"getEffectiveChildren",
 "isSyntheticBodyNode"
 ]
 },
 {
-"source": "src/components/CodeModal/CodeModal.tsx",
-"target": "src/components/CodeModal/CodeModalHeader.tsx",
+"source": "src/components/CodeModal/CodeModal.tsx#CodeModal",
+"target": "src/utils/structureTree.ts#getEffectiveChildren",
 "symbols": [
-"CodeModalHeader"
+"getEffectiveChildren"
 ]
 },
 {
-"source": "src/components/CodeModal/CodeModal.tsx",
-"target": "src/components/CodeModal/CodePane.tsx",
-"symbols": [
-"CodePane"
-]
-},
-{
-"source": "src/components/CodeModal/CodeModal.tsx",
-"target": "src/components/dialog/DialogShell.tsx",
+"source": "src/components/CodeModal/CodeModal.tsx#CodeModal",
+"target": "src/components/dialog/DialogShell.tsx#DialogShell",
 "symbols": [
 "DialogShell"
 ]
 },
 {
-"source": "src/components/CodeModal/CodeModal.tsx",
-"target": "src/components/CodeModal/MarkdownPane.tsx",
+"source": "src/components/CodeModal/CodeModal.tsx#CodeModal",
+"target": "src/components/CodeModal/CodePane.tsx#CodePane",
+"symbols": [
+"CodePane"
+]
+},
+{
+"source": "src/components/CodeModal/CodeModal.tsx#CodeModal",
+"target": "src/components/CodeModal/MarkdownPane.tsx#MarkdownPane",
 "symbols": [
 "MarkdownPane"
 ]
 },
 {
-"source": "src/components/CodeModal/CodeModal.tsx",
-"target": "src/components/CodeModal/MetricsSidebar.tsx",
+"source": "src/components/CodeModal/CodeModal.tsx#CodeModal",
+"target": "src/components/CodeModal/MetricsSidebar.tsx#MetricsSidebar",
 "symbols": [
 "MetricsSidebar"
+]
+},
+{
+"source": "src/components/CodeModal/CodeModal.tsx#CodeModal",
+"target": "src/hooks/useFileContent.ts#useFileContent",
+"symbols": [
+"useFileContent"
+]
+},
+{
+"source": "src/components/CodeModal/CodeModal.tsx#CodeModal",
+"target": "src/utils/structureTree.ts#computeBreadcrumbPath",
+"symbols": [
+"computeBreadcrumbPath"
+]
+},
+{
+"source": "src/components/CodeModal/CodeModal.tsx#CodeModal",
+"target": "src/utils/guessLangFromPath.ts#guessLangFromPath",
+"symbols": [
+"guessLangFromPath"
+]
+},
+{
+"source": "src/components/CodeModal/CodeModal.tsx#CodeModal",
+"target": "src/hooks/useAutoScrollSelection.ts#useAutoScrollSelection",
+"symbols": [
+"useAutoScrollSelection"
+]
+},
+{
+"source": "src/components/CodeModal/CodeModal.tsx#CodeModal",
+"target": "src/components/CodeModal/CodeModalHeader.tsx#CodeModalHeader",
+"symbols": [
+"CodeModalHeader"
 ]
 },
 {
@@ -1777,24 +3087,24 @@
 ]
 },
 {
-"source": "src/components/CodeModal/CodeModalHeader.tsx",
-"target": "src/components/ui/Button.tsx",
+"source": "src/components/CodeModal/CodeModalHeader.tsx#CodeModalHeader",
+"target": "src/components/ui/TextInput.tsx#TextInput",
 "symbols": [
-"Button"
+"TextInput"
 ]
 },
 {
-"source": "src/components/CodeModal/CodeModalHeader.tsx",
-"target": "src/components/ui/CheckboxRow.tsx",
+"source": "src/components/CodeModal/CodeModalHeader.tsx#CodeModalHeader",
+"target": "src/components/ui/CheckboxRow.tsx#CheckboxRow",
 "symbols": [
 "CheckboxRow"
 ]
 },
 {
-"source": "src/components/CodeModal/CodeModalHeader.tsx",
-"target": "src/components/ui/TextInput.tsx",
+"source": "src/components/CodeModal/CodeModalHeader.tsx#CodeModalHeader",
+"target": "src/components/ui/Button.tsx#Button",
 "symbols": [
-"TextInput"
+"Button"
 ]
 },
 {
@@ -1810,40 +3120,46 @@
 ]
 },
 {
-"source": "src/components/CodeModal/CodePane.tsx",
-"target": "src/components/FlowOverlayCode.tsx",
+"source": "src/components/CodeModal/CodePane.tsx#CodePane",
+"target": "src/components/CodeModal/ScopeFlowPane.tsx#ScopeFlowPane",
 "symbols": [
-"FlowOverlayCode"
+"ScopeFlowPane"
 ]
 },
 {
-"source": "src/components/CodeModal/CodePane.tsx",
-"target": "src/utils/flowDecorations.ts",
+"source": "src/components/CodeModal/CodePane.tsx#CodePane",
+"target": "src/utils/flowDecorations.ts#OverlayToken",
 "typeOnly": true,
 "symbols": [
 "OverlayToken"
 ]
 },
 {
-"source": "src/components/CodeModal/CodePane.tsx",
-"target": "src/components/feedback/States.tsx",
+"source": "src/components/CodeModal/CodePane.tsx#CodePane",
+"target": "src/components/feedback/States.tsx#LoadingState",
 "symbols": [
-"ErrorState",
 "LoadingState"
 ]
 },
 {
-"source": "src/components/CodeModal/CodePane.tsx",
-"target": "src/components/CodeModal/StickyBreadcrumb.tsx",
+"source": "src/components/CodeModal/CodePane.tsx#CodePane",
+"target": "src/components/FlowOverlayCode.tsx#FlowOverlayCode",
 "symbols": [
-"StickyBreadcrumb"
+"FlowOverlayCode"
 ]
 },
 {
-"source": "src/components/CodeModal/CodePane.tsx",
-"target": "src/components/CodeModal/ScopeFlowPane.tsx",
+"source": "src/components/CodeModal/CodePane.tsx#CodePane",
+"target": "src/components/feedback/States.tsx#ErrorState",
 "symbols": [
-"ScopeFlowPane"
+"ErrorState"
+]
+},
+{
+"source": "src/components/CodeModal/CodePane.tsx#CodePane",
+"target": "src/components/CodeModal/StickyBreadcrumb.tsx#StickyBreadcrumb",
+"symbols": [
+"StickyBreadcrumb"
 ]
 },
 {
@@ -1861,24 +3177,24 @@
 ]
 },
 {
-"source": "src/components/CodeModal/MarkdownPane.tsx",
-"target": "src/markdown/rehypeWrapSelection.ts",
-"symbols": [
-"rehypeWrapSelection"
-]
-},
-{
-"source": "src/components/CodeModal/MarkdownPane.tsx",
-"target": "src/markdown/remarkHighlightSelection.ts",
+"source": "src/components/CodeModal/MarkdownPane.tsx#MarkdownPane",
+"target": "src/markdown/remarkHighlightSelection.ts#remarkHighlightSelection",
 "symbols": [
 "remarkHighlightSelection"
 ]
 },
 {
-"source": "src/components/CodeModal/MarkdownPane.tsx",
-"target": "src/utils/markdownImageSrc.ts",
+"source": "src/components/CodeModal/MarkdownPane.tsx#MarkdownPane",
+"target": "src/utils/markdownImageSrc.ts#resolveMarkdownImageSrc",
 "symbols": [
 "resolveMarkdownImageSrc"
+]
+},
+{
+"source": "src/components/CodeModal/MarkdownPane.tsx#MarkdownPane",
+"target": "src/markdown/rehypeWrapSelection.ts#rehypeWrapSelection",
+"symbols": [
+"rehypeWrapSelection"
 ]
 },
 {
@@ -1889,17 +3205,17 @@
 ]
 },
 {
-"source": "src/components/CodeModal/MetricsSection.tsx",
-"target": "src/utils/metricsStore.tsx",
+"source": "src/components/CodeModal/MetricsSection.tsx#MetricsSection",
+"target": "src/components/CodeModal/MetricItem.tsx#MetricItem",
 "symbols": [
-"HOTSPOT_METRICS"
+"MetricItem"
 ]
 },
 {
-"source": "src/components/CodeModal/MetricsSection.tsx",
-"target": "src/components/CodeModal/MetricItem.tsx",
+"source": "src/components/CodeModal/MetricsSection.tsx#MetricsSection",
+"target": "src/utils/metricsStore.tsx#HOTSPOT_METRICS",
 "symbols": [
-"MetricItem"
+"HOTSPOT_METRICS"
 ]
 },
 {
@@ -1910,24 +3226,24 @@
 ]
 },
 {
-"source": "src/components/CodeModal/MetricsSidebar.tsx",
-"target": "src/components/feedback/States.tsx",
+"source": "src/components/CodeModal/MetricsSidebar.tsx#MetricsSidebar",
+"target": "src/components/CodeModal/StructurePanel.tsx#StructurePanel",
+"symbols": [
+"StructurePanel"
+]
+},
+{
+"source": "src/components/CodeModal/MetricsSidebar.tsx#MetricsSidebar",
+"target": "src/components/feedback/States.tsx#EmptyState",
 "symbols": [
 "EmptyState"
 ]
 },
 {
-"source": "src/components/CodeModal/MetricsSidebar.tsx",
-"target": "src/components/CodeModal/MetricsSection.tsx",
+"source": "src/components/CodeModal/MetricsSidebar.tsx#MetricsSidebar",
+"target": "src/components/CodeModal/MetricsSection.tsx#MetricsSection",
 "symbols": [
 "MetricsSection"
-]
-},
-{
-"source": "src/components/CodeModal/MetricsSidebar.tsx",
-"target": "src/components/CodeModal/StructurePanel.tsx",
-"symbols": [
-"StructurePanel"
 ]
 },
 {
@@ -1966,11 +3282,23 @@
 ]
 },
 {
-"source": "src/components/CodeModal/StickyBreadcrumb.tsx",
-"target": "src/utils/structureTree.ts",
+"source": "src/components/CodeModal/StickyBreadcrumb.tsx#findPathToNodeLocal",
+"target": "src/utils/structureTree.ts#getEffectiveChildren",
 "symbols": [
-"computeBreadcrumbPath",
-"getEffectiveChildren",
+"getEffectiveChildren"
+]
+},
+{
+"source": "src/components/CodeModal/StickyBreadcrumb.tsx#StickyBreadcrumb",
+"target": "src/utils/structureTree.ts#computeBreadcrumbPath",
+"symbols": [
+"computeBreadcrumbPath"
+]
+},
+{
+"source": "src/components/CodeModal/StickyBreadcrumb.tsx#StickyBreadcrumb",
+"target": "src/utils/structureTree.ts#isSyntheticBodyNode",
+"symbols": [
 "isSyntheticBodyNode"
 ]
 },
@@ -1983,8 +3311,8 @@
 ]
 },
 {
-"source": "src/components/CodeModal/StructurePanel.tsx",
-"target": "src/components/CodeModal/SidebarTree.tsx",
+"source": "src/components/CodeModal/StructurePanel.tsx#StructurePanel",
+"target": "src/components/CodeModal/SidebarTree.tsx#SidebarTree",
 "symbols": [
 "SidebarTree"
 ]
@@ -1999,8 +3327,15 @@
 ]
 },
 {
-"source": "src/components/dialog/DialogShell.tsx",
-"target": "src/components/ui/classes.ts",
+"source": "src/components/dialog/DialogShell.tsx#DialogShell",
+"target": "src/components/ui/classes.ts#cx",
+"symbols": [
+"cx"
+]
+},
+{
+"source": "src/components/dialog/DialogShell.tsx#DialogHeader",
+"target": "src/components/ui/classes.ts#cx",
 "symbols": [
 "cx"
 ]
@@ -2014,20 +3349,34 @@
 ]
 },
 {
-"source": "src/components/feedback/States.tsx",
-"target": "src/components/ui/Button.tsx",
+"source": "src/components/feedback/States.tsx#LoadingState",
+"target": "src/components/ui/classes.ts#cx",
+"symbols": [
+"cx"
+]
+},
+{
+"source": "src/components/feedback/States.tsx#EmptyState",
+"target": "src/components/ui/classes.ts#cx",
+"symbols": [
+"cx"
+]
+},
+{
+"source": "src/components/feedback/States.tsx#ErrorState",
+"target": "src/components/ui/classes.ts#cx",
+"symbols": [
+"cx"
+]
+},
+{
+"source": "src/components/feedback/States.tsx#ErrorState",
+"target": "src/components/ui/Button.tsx#Button",
 "symbols": [
 "Button"
 ]
 },
 {
-"source": "src/components/feedback/States.tsx",
-"target": "src/components/ui/classes.ts",
-"symbols": [
-"cx"
-]
-},
-{
 "source": "src/components/layout/PanelHeader.tsx",
 "target": "ext:solid-js",
 "symbols": [
@@ -2036,8 +3385,8 @@
 ]
 },
 {
-"source": "src/components/layout/PanelHeader.tsx",
-"target": "src/components/ui/classes.ts",
+"source": "src/components/layout/PanelHeader.tsx#PanelHeader",
+"target": "src/components/ui/classes.ts#cx",
 "symbols": [
 "cx"
 ]
@@ -2051,8 +3400,8 @@
 ]
 },
 {
-"source": "src/components/ui/Button.tsx",
-"target": "src/components/ui/classes.ts",
+"source": "src/components/ui/Button.tsx#Button",
+"target": "src/components/ui/classes.ts#cx",
 "symbols": [
 "cx"
 ]
@@ -2066,8 +3415,8 @@
 ]
 },
 {
-"source": "src/components/ui/CheckboxRow.tsx",
-"target": "src/components/ui/classes.ts",
+"source": "src/components/ui/CheckboxRow.tsx#CheckboxRow",
+"target": "src/components/ui/classes.ts#cx",
 "symbols": [
 "cx"
 ]
@@ -2081,8 +3430,8 @@
 ]
 },
 {
-"source": "src/components/ui/IconButton.tsx",
-"target": "src/components/ui/classes.ts",
+"source": "src/components/ui/IconButton.tsx#IconButton",
+"target": "src/components/ui/classes.ts#cx",
 "symbols": [
 "cx"
 ]
@@ -2096,8 +3445,22 @@
 ]
 },
 {
-"source": "src/components/ui/PopoverPanel.tsx",
-"target": "src/components/ui/classes.ts",
+"source": "src/components/ui/PopoverPanel.tsx#PopoverPanel",
+"target": "src/components/ui/classes.ts#cx",
+"symbols": [
+"cx"
+]
+},
+{
+"source": "src/components/ui/PopoverPanel.tsx#PopoverSectionTitle",
+"target": "src/components/ui/classes.ts#cx",
+"symbols": [
+"cx"
+]
+},
+{
+"source": "src/components/ui/PopoverPanel.tsx#OptionRow",
+"target": "src/components/ui/classes.ts#cx",
 "symbols": [
 "cx"
 ]
@@ -2111,8 +3474,8 @@
 ]
 },
 {
-"source": "src/components/ui/TextInput.tsx",
-"target": "src/components/ui/classes.ts",
+"source": "src/components/ui/TextInput.tsx#TextInput",
+"target": "src/components/ui/classes.ts#cx",
 "symbols": [
 "cx"
 ]
@@ -2135,8 +3498,8 @@
 ]
 },
 {
-"source": "src/hooks/useFileContent.ts",
-"target": "src/services/fileContent.ts",
+"source": "src/hooks/useFileContent.ts#useFileContent",
+"target": "src/services/fileContent.ts#fetchFileContent",
 "symbols": [
 "fetchFileContent"
 ]
@@ -2157,34 +3520,53 @@
 ]
 },
 {
-"source": "src/hooks/useHighlightedCode.ts",
-"target": "src/utils/guessLangFromPath.ts",
-"symbols": [
-"guessLangFromPath"
-]
-},
-{
-"source": "src/hooks/useHighlightedCode.ts",
-"target": "src/utils/indentation.ts",
+"source": "src/hooks/useHighlightedCode.ts#useHighlightedCode",
+"target": "src/utils/indentation.ts#reduceCommonIndent",
 "symbols": [
 "reduceCommonIndent"
 ]
 },
 {
-"source": "src/hooks/useHighlightedCode.ts",
-"target": "src/utils/lineRange.ts",
+"source": "src/hooks/useHighlightedCode.ts#useHighlightedCode",
+"target": "src/utils/shikiHtml.ts#applyLineNumberCounterReset",
 "symbols": [
-"computeDisplaySlice",
+"applyLineNumberCounterReset"
+]
+},
+{
+"source": "src/hooks/useHighlightedCode.ts#useHighlightedCode",
+"target": "src/utils/lineRange.ts#LineRange",
+"typeOnly": true,
+"symbols": [
 "LineRange"
 ]
 },
 {
-"source": "src/hooks/useHighlightedCode.ts",
-"target": "src/utils/shikiHtml.ts",
+"source": "src/hooks/useHighlightedCode.ts#useHighlightedCode",
+"target": "src/utils/shikiHtml.ts#stripShikiPreNewlines",
 "symbols": [
-"applyLineNumberCounterReset",
-"markNonFocusLines",
 "stripShikiPreNewlines"
+]
+},
+{
+"source": "src/hooks/useHighlightedCode.ts#useHighlightedCode",
+"target": "src/utils/lineRange.ts#computeDisplaySlice",
+"symbols": [
+"computeDisplaySlice"
+]
+},
+{
+"source": "src/hooks/useHighlightedCode.ts#useHighlightedCode",
+"target": "src/utils/guessLangFromPath.ts#guessLangFromPath",
+"symbols": [
+"guessLangFromPath"
+]
+},
+{
+"source": "src/hooks/useHighlightedCode.ts#useHighlightedCode",
+"target": "src/utils/shikiHtml.ts#markNonFocusLines",
+"symbols": [
+"markNonFocusLines"
 ]
 },
 {
@@ -2205,7 +3587,7 @@
 },
 {
 "source": "src/utils/flowDecorations.test.ts",
-"target": "src/utils/flowDecorations.ts",
+"target": "src/utils/flowDecorations.ts#applyFlowDecorations",
 "symbols": [
 "applyFlowDecorations"
 ]
@@ -2221,7 +3603,7 @@
 },
 {
 "source": "src/utils/guessLangFromPath.test.ts",
-"target": "src/utils/guessLangFromPath.ts",
+"target": "src/utils/guessLangFromPath.ts#guessLangFromPath",
 "symbols": [
 "guessLangFromPath"
 ]
@@ -2237,7 +3619,7 @@
 },
 {
 "source": "src/utils/indentation.test.ts",
-"target": "src/utils/indentation.ts",
+"target": "src/utils/indentation.ts#reduceCommonIndent",
 "symbols": [
 "reduceCommonIndent"
 ]
@@ -2253,7 +3635,7 @@
 },
 {
 "source": "src/utils/lineRange.test.ts",
-"target": "src/utils/lineRange.ts",
+"target": "src/utils/lineRange.ts#computeDisplaySlice",
 "symbols": [
 "computeDisplaySlice"
 ]
@@ -2269,7 +3651,7 @@
 },
 {
 "source": "src/utils/markdownImageSrc.test.ts",
-"target": "src/utils/markdownImageSrc.ts",
+"target": "src/utils/markdownImageSrc.ts#resolveMarkdownImageSrc",
 "symbols": [
 "resolveMarkdownImageSrc"
 ]
@@ -2295,12 +3677,30 @@
 },
 {
 "source": "src/utils/shikiHtml.test.ts",
-"target": "src/utils/shikiHtml.ts",
+"target": "src/utils/shikiHtml.ts#decorateShikiHtmlForRange",
 "symbols": [
-"applyLineNumberCounterReset",
-"decorateShikiHtmlForRange",
-"markNonFocusLines",
+"decorateShikiHtmlForRange"
+]
+},
+{
+"source": "src/utils/shikiHtml.test.ts",
+"target": "src/utils/shikiHtml.ts#stripShikiPreNewlines",
+"symbols": [
 "stripShikiPreNewlines"
+]
+},
+{
+"source": "src/utils/shikiHtml.test.ts",
+"target": "src/utils/shikiHtml.ts#markNonFocusLines",
+"symbols": [
+"markNonFocusLines"
+]
+},
+{
+"source": "src/utils/shikiHtml.test.ts",
+"target": "src/utils/shikiHtml.ts#applyLineNumberCounterReset",
+"symbols": [
+"applyLineNumberCounterReset"
 ]
 },
 {
@@ -2314,11 +3714,23 @@
 },
 {
 "source": "src/utils/structureTree.test.ts",
-"target": "src/utils/structureTree.ts",
+"target": "src/utils/structureTree.ts#getEffectiveChildren",
 "symbols": [
-"computeBreadcrumbPath",
-"getEffectiveChildren",
+"getEffectiveChildren"
+]
+},
+{
+"source": "src/utils/structureTree.test.ts",
+"target": "src/utils/structureTree.ts#isSyntheticBodyNode",
+"symbols": [
 "isSyntheticBodyNode"
+]
+},
+{
+"source": "src/utils/structureTree.test.ts",
+"target": "src/utils/structureTree.ts#computeBreadcrumbPath",
+"symbols": [
+"computeBreadcrumbPath"
 ]
 },
 {
@@ -2342,36 +3754,128 @@
 ]
 },
 {
-"source": "src/viz/deps/DependencyCanvas.tsx",
-"target": "src/utils/svgText.ts",
+"source": "src/viz/deps/DependencyCanvas.tsx#REGION_TITLE",
+"target": "src/viz/deps/viewModel.ts#Region",
+"typeOnly": true,
+"symbols": [
+"Region"
+]
+},
+{
+"source": "src/viz/deps/DependencyCanvas.tsx#edgePath",
+"target": "src/viz/deps/layout.ts#PositionedEdge",
+"typeOnly": true,
+"symbols": [
+"PositionedEdge"
+]
+},
+{
+"source": "src/viz/deps/DependencyCanvas.tsx#KindGlyph",
+"target": "src/viz/deps/viewModel.ts#ViewNode",
+"typeOnly": true,
+"symbols": [
+"ViewNode"
+]
+},
+{
+"source": "src/viz/deps/DependencyCanvas.tsx#DependencyCanvas",
+"target": "src/utils/svgText.ts#truncateTextToWidth",
 "symbols": [
 "truncateTextToWidth"
 ]
 },
 {
-"source": "src/viz/deps/DependencyCanvas.tsx",
-"target": "src/viz/deps/geometry.ts",
+"source": "src/viz/deps/DependencyCanvas.tsx#DependencyCanvas",
+"target": "src/viz/deps/layout.ts#PositionedEdge",
+"typeOnly": true,
+"symbols": [
+"PositionedEdge"
+]
+},
+{
+"source": "src/viz/deps/DependencyCanvas.tsx#DependencyCanvas",
+"target": "src/viz/deps/layout.ts#PositionedNode",
+"typeOnly": true,
+"symbols": [
+"PositionedNode"
+]
+},
+{
+"source": "src/viz/deps/DependencyCanvas.tsx#DependencyCanvas",
+"target": "src/viz/deps/viewModel.ts#ViewNode",
+"typeOnly": true,
+"symbols": [
+"ViewNode"
+]
+},
+{
+"source": "src/viz/deps/DependencyCanvas.tsx#DependencyCanvas",
+"target": "src/viz/deps/viewModel.ts#Region",
+"typeOnly": true,
+"symbols": [
+"Region"
+]
+},
+{
+"source": "src/viz/deps/DependencyCanvas.tsx#DependencyCanvas",
+"target": "src/viz/deps/geometry.ts#boundsOf",
 "symbols": [
 "boundsOf"
 ]
 },
 {
-"source": "src/viz/deps/DependencyCanvas.tsx",
-"target": "src/viz/deps/layout.ts",
+"source": "src/viz/deps/DependencyCanvas.tsx#DependencyCanvas",
+"target": "src/viz/deps/layout.ts#MAX_SCALE",
 "symbols": [
-"MAX_SCALE",
-"PositionedEdge",
-"PositionedNode",
+"MAX_SCALE"
+]
+},
+{
+"source": "src/viz/deps/DependencyCanvas.tsx#DependencyCanvas",
+"target": "src/viz/deps/layout.ts#ViewLayout",
+"typeOnly": true,
+"symbols": [
 "ViewLayout"
 ]
 },
 {
-"source": "src/viz/deps/DependencyCanvas.tsx",
-"target": "src/viz/deps/viewModel.ts",
+"source": "src/viz/deps/DependencyCanvas.tsx#NodeCard",
+"target": "src/viz/deps/viewModel.ts#ViewNode",
 "typeOnly": true,
 "symbols": [
-"Region",
 "ViewNode"
+]
+},
+{
+"source": "src/viz/deps/DependencyCanvas.tsx#NodeCard",
+"target": "src/viz/deps/layout.ts#ViewLayout",
+"typeOnly": true,
+"symbols": [
+"ViewLayout"
+]
+},
+{
+"source": "src/viz/deps/DependencyCanvas.tsx#NodeCard",
+"target": "src/viz/deps/layout.ts#PositionedEdge",
+"typeOnly": true,
+"symbols": [
+"PositionedEdge"
+]
+},
+{
+"source": "src/viz/deps/DependencyCanvas.tsx#EdgeCard",
+"target": "src/viz/deps/layout.ts#PositionedNode",
+"typeOnly": true,
+"symbols": [
+"PositionedNode"
+]
+},
+{
+"source": "src/viz/deps/DependencyCanvas.tsx#EdgeCard",
+"target": "src/viz/deps/layout.ts#PositionedEdge",
+"typeOnly": true,
+"symbols": [
+"PositionedEdge"
 ]
 },
 {
@@ -2387,95 +3891,197 @@
 ]
 },
 {
-"source": "src/viz/deps/DependencyView.tsx",
-"target": "src/components/CodeModal/CodeModal.tsx",
+"source": "src/viz/deps/DependencyView.tsx#fetchGraph",
+"target": "src/viz/deps/contract.ts#DependencyGraphContract",
+"typeOnly": true,
 "symbols": [
-"default"
+"DependencyGraphContract"
 ]
 },
 {
-"source": "src/viz/deps/DependencyView.tsx",
-"target": "src/components/feedback/States.tsx",
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/viz/deps/viewModel.ts#buildViewModel",
 "symbols": [
-"EmptyState",
-"ErrorState",
-"LoadingState"
+"buildViewModel"
 ]
 },
 {
-"source": "src/viz/deps/DependencyView.tsx",
-"target": "src/components/ui/Button.tsx",
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/components/feedback/States.tsx#EmptyState",
+"symbols": [
+"EmptyState"
+]
+},
+{
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/components/ui/Button.tsx#Button",
 "symbols": [
 "Button"
 ]
 },
 {
-"source": "src/viz/deps/DependencyView.tsx",
-"target": "src/components/ui/CheckboxRow.tsx",
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/viz/deps/layout.ts#ViewLayout",
+"typeOnly": true,
+"symbols": [
+"ViewLayout"
+]
+},
+{
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/components/CodeModal/CodeModal.tsx#CodeModal",
+"symbols": [
+"default"
+]
+},
+{
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/viz/deps/DependencyCanvas.tsx#CanvasApi",
+"typeOnly": true,
+"symbols": [
+"CanvasApi"
+]
+},
+{
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/viz/deps/hierarchy.ts#applyFilters",
+"symbols": [
+"applyFilters"
+]
+},
+{
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/components/feedback/States.tsx#LoadingState",
+"symbols": [
+"LoadingState"
+]
+},
+{
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/viz/deps/hierarchy.ts#collapseChain",
+"symbols": [
+"collapseChain"
+]
+},
+{
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/viz/deps/hierarchy.ts#buildIndex",
+"symbols": [
+"buildIndex"
+]
+},
+{
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/components/ui/CheckboxRow.tsx#CheckboxRow",
 "symbols": [
 "CheckboxRow"
 ]
 },
 {
-"source": "src/viz/deps/DependencyView.tsx",
-"target": "src/viz/deps/contract.ts",
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/viz/deps/viewModel.ts#ViewNode",
+"typeOnly": true,
+"symbols": [
+"ViewNode"
+]
+},
+{
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/viz/deps/viewModel.ts#DEFAULT_BUDGET",
+"symbols": [
+"DEFAULT_BUDGET"
+]
+},
+{
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/viz/deps/hierarchy.ts#DEFAULT_FILTERS",
+"symbols": [
+"DEFAULT_FILTERS"
+]
+},
+{
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/viz/deps/DependencyCanvas.tsx#DependencyCanvas",
+"symbols": [
+"DependencyCanvas"
+]
+},
+{
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/viz/deps/hierarchy.ts#FilterOptions",
+"typeOnly": true,
+"symbols": [
+"FilterOptions"
+]
+},
+{
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/components/feedback/States.tsx#ErrorState",
+"symbols": [
+"ErrorState"
+]
+},
+{
+"source": "src/viz/deps/DependencyView.tsx#DependencyView",
+"target": "src/viz/deps/layout.ts#layoutView",
+"symbols": [
+"layoutView"
+]
+},
+{
+"source": "src/viz/deps/hierarchy.ts#GraphIndex",
+"target": "src/viz/deps/contract.ts#GraphEdge",
+"typeOnly": true,
+"symbols": [
+"GraphEdge"
+]
+},
+{
+"source": "src/viz/deps/hierarchy.ts#GraphIndex",
+"target": "src/viz/deps/contract.ts#GraphNode",
+"typeOnly": true,
+"symbols": [
+"GraphNode"
+]
+},
+{
+"source": "src/viz/deps/hierarchy.ts#GraphIndex",
+"target": "src/viz/deps/contract.ts#DependencyGraphContract",
 "typeOnly": true,
 "symbols": [
 "DependencyGraphContract"
 ]
 },
 {
-"source": "src/viz/deps/DependencyView.tsx",
-"target": "src/viz/deps/DependencyCanvas.tsx",
-"symbols": [
-"DependencyCanvas",
-"CanvasApi"
-]
-},
-{
-"source": "src/viz/deps/DependencyView.tsx",
-"target": "src/viz/deps/hierarchy.ts",
-"symbols": [
-"applyFilters",
-"buildIndex",
-"collapseChain",
-"DEFAULT_FILTERS",
-"FilterOptions"
-]
-},
-{
-"source": "src/viz/deps/DependencyView.tsx",
-"target": "src/viz/deps/layout.ts",
-"symbols": [
-"layoutView",
-"ViewLayout"
-]
-},
-{
-"source": "src/viz/deps/DependencyView.tsx",
-"target": "src/viz/deps/legacyAdapter.ts",
-"symbols": [
-"legacyToContract",
-"LegacyGraph"
-]
-},
-{
-"source": "src/viz/deps/DependencyView.tsx",
-"target": "src/viz/deps/viewModel.ts",
-"symbols": [
-"buildViewModel",
-"DEFAULT_BUDGET",
-"ViewNode"
-]
-},
-{
-"source": "src/viz/deps/hierarchy.ts",
-"target": "src/viz/deps/contract.ts",
+"source": "src/viz/deps/hierarchy.ts#applyFilters",
+"target": "src/viz/deps/contract.ts#GraphNode",
 "typeOnly": true,
 "symbols": [
-"DependencyGraphContract",
-"GraphEdge",
 "GraphNode"
+]
+},
+{
+"source": "src/viz/deps/hierarchy.ts#applyFilters",
+"target": "src/viz/deps/contract.ts#DependencyGraphContract",
+"typeOnly": true,
+"symbols": [
+"DependencyGraphContract"
+]
+},
+{
+"source": "src/viz/deps/hierarchy.ts#buildIndex",
+"target": "src/viz/deps/contract.ts#GraphNode",
+"typeOnly": true,
+"symbols": [
+"GraphNode"
+]
+},
+{
+"source": "src/viz/deps/hierarchy.ts#buildIndex",
+"target": "src/viz/deps/contract.ts#DependencyGraphContract",
+"typeOnly": true,
+"symbols": [
+"DependencyGraphContract"
 ]
 },
 {
@@ -2488,77 +4094,208 @@
 ]
 },
 {
-"source": "src/viz/deps/layout.test.ts",
-"target": "src/viz/deps/geometry.ts",
+"source": "src/viz/deps/layout.test.ts#idx",
+"target": "src/viz/deps/hierarchy.ts#DEFAULT_FILTERS",
 "symbols": [
-"countEdgeCrossings",
-"countNodeCrossings",
-"isOrthogonal"
-]
-},
-{
-"source": "src/viz/deps/layout.test.ts",
-"target": "src/viz/deps/hierarchy.ts",
-"symbols": [
-"applyFilters",
-"buildIndex",
 "DEFAULT_FILTERS"
 ]
 },
 {
-"source": "src/viz/deps/layout.test.ts",
-"target": "src/viz/deps/layout.ts",
+"source": "src/viz/deps/layout.test.ts#idx",
+"target": "src/viz/deps/contract.ts#DependencyGraphContract",
+"typeOnly": true,
 "symbols": [
-"bundleOffsets",
-"layoutView",
-"NODE_HEIGHT",
+"DependencyGraphContract"
+]
+},
+{
+"source": "src/viz/deps/layout.test.ts#idx",
+"target": "src/viz/deps/hierarchy.ts#buildIndex",
+"symbols": [
+"buildIndex"
+]
+},
+{
+"source": "src/viz/deps/layout.test.ts#idx",
+"target": "src/viz/deps/hierarchy.ts#applyFilters",
+"symbols": [
+"applyFilters"
+]
+},
+{
+"source": "src/viz/deps/layout.test.ts",
+"target": "src/viz/deps/viewModel.ts#buildViewModel",
+"symbols": [
+"buildViewModel"
+]
+},
+{
+"source": "src/viz/deps/layout.test.ts",
+"target": "src/viz/deps/layout.ts#NODE_WIDTH",
+"symbols": [
 "NODE_WIDTH"
 ]
 },
 {
 "source": "src/viz/deps/layout.test.ts",
-"target": "src/viz/deps/legacyAdapter.ts",
+"target": "src/viz/deps/layout.ts#bundleOffsets",
 "symbols": [
-"legacyToContract",
-"LegacyGraph"
+"bundleOffsets"
 ]
 },
 {
 "source": "src/viz/deps/layout.test.ts",
-"target": "src/viz/deps/viewModel.ts",
+"target": "src/viz/deps/geometry.ts#isOrthogonal",
 "symbols": [
-"buildViewModel"
+"isOrthogonal"
 ]
 },
 {
-"source": "src/viz/deps/layout.ts",
-"target": "src/viz/deps/geometry.ts",
-"typeOnly": true,
+"source": "src/viz/deps/layout.test.ts",
+"target": "src/viz/deps/geometry.ts#countEdgeCrossings",
 "symbols": [
-"Box",
-"Point",
-"Polyline"
+"countEdgeCrossings"
 ]
 },
 {
-"source": "src/viz/deps/layout.ts",
-"target": "src/viz/deps/viewModel.ts",
+"source": "src/viz/deps/layout.test.ts",
+"target": "src/viz/deps/geometry.ts#countNodeCrossings",
+"symbols": [
+"countNodeCrossings"
+]
+},
+{
+"source": "src/viz/deps/layout.test.ts",
+"target": "src/viz/deps/layout.ts#NODE_HEIGHT",
+"symbols": [
+"NODE_HEIGHT"
+]
+},
+{
+"source": "src/viz/deps/layout.test.ts",
+"target": "src/viz/deps/layout.ts#layoutView",
+"symbols": [
+"layoutView"
+]
+},
+{
+"source": "src/viz/deps/layout.ts#PositionedNode",
+"target": "src/viz/deps/geometry.ts#Box",
 "typeOnly": true,
 "symbols": [
-"Region",
-"ViewEdge",
-"ViewModel",
+"Box"
+]
+},
+{
+"source": "src/viz/deps/layout.ts#PositionedNode",
+"target": "src/viz/deps/viewModel.ts#ViewNode",
+"typeOnly": true,
+"symbols": [
 "ViewNode"
 ]
 },
 {
-"source": "src/viz/deps/legacyAdapter.ts",
-"target": "src/viz/deps/contract.ts",
+"source": "src/viz/deps/layout.ts#PositionedEdge",
+"target": "src/viz/deps/viewModel.ts#ViewEdge",
+"typeOnly": true,
 "symbols": [
-"EXTERNAL_ROOT_ID",
-"DependencyGraphContract",
-"GraphEdge",
-"GraphNode"
+"ViewEdge"
+]
+},
+{
+"source": "src/viz/deps/layout.ts#PositionedEdge",
+"target": "src/viz/deps/geometry.ts#Polyline",
+"typeOnly": true,
+"symbols": [
+"Polyline"
+]
+},
+{
+"source": "src/viz/deps/layout.ts#Route",
+"target": "src/viz/deps/viewModel.ts#ViewEdge",
+"typeOnly": true,
+"symbols": [
+"ViewEdge"
+]
+},
+{
+"source": "src/viz/deps/layout.ts#sideDepths",
+"target": "src/viz/deps/viewModel.ts#ViewNode",
+"typeOnly": true,
+"symbols": [
+"ViewNode"
+]
+},
+{
+"source": "src/viz/deps/layout.ts#sideDepths",
+"target": "src/viz/deps/viewModel.ts#ViewEdge",
+"typeOnly": true,
+"symbols": [
+"ViewEdge"
+]
+},
+{
+"source": "src/viz/deps/layout.ts#layoutView",
+"target": "src/viz/deps/viewModel.ts#ViewModel",
+"typeOnly": true,
+"symbols": [
+"ViewModel"
+]
+},
+{
+"source": "src/viz/deps/layout.ts#layoutViewSync",
+"target": "src/viz/deps/viewModel.ts#Region",
+"typeOnly": true,
+"symbols": [
+"Region"
+]
+},
+{
+"source": "src/viz/deps/layout.ts#layoutViewSync",
+"target": "src/viz/deps/viewModel.ts#ViewNode",
+"typeOnly": true,
+"symbols": [
+"ViewNode"
+]
+},
+{
+"source": "src/viz/deps/layout.ts#layoutViewSync",
+"target": "src/viz/deps/geometry.ts#Point",
+"typeOnly": true,
+"symbols": [
+"Point"
+]
+},
+{
+"source": "src/viz/deps/layout.ts#layoutViewSync",
+"target": "src/viz/deps/viewModel.ts#ViewModel",
+"typeOnly": true,
+"symbols": [
+"ViewModel"
+]
+},
+{
+"source": "src/viz/deps/layout.ts#simplify",
+"target": "src/viz/deps/geometry.ts#Point",
+"typeOnly": true,
+"symbols": [
+"Point"
+]
+},
+{
+"source": "src/viz/deps/layout.ts#bundleOffsets",
+"target": "src/viz/deps/geometry.ts#Box",
+"typeOnly": true,
+"symbols": [
+"Box"
+]
+},
+{
+"source": "src/viz/deps/layout.ts#bundleOffsets",
+"target": "src/viz/deps/geometry.ts#Polyline",
+"typeOnly": true,
+"symbols": [
+"Polyline"
 ]
 },
 {
@@ -2571,8 +4308,37 @@
 ]
 },
 {
-"source": "src/viz/deps/viewModel.test.ts",
-"target": "src/viz/deps/contract.ts",
+"source": "src/viz/deps/viewModel.test.ts#srcly",
+"target": "src/viz/deps/hierarchy.ts#DEFAULT_FILTERS",
+"symbols": [
+"DEFAULT_FILTERS"
+]
+},
+{
+"source": "src/viz/deps/viewModel.test.ts#srcly",
+"target": "src/viz/deps/contract.ts#DependencyGraphContract",
+"typeOnly": true,
+"symbols": [
+"DependencyGraphContract"
+]
+},
+{
+"source": "src/viz/deps/viewModel.test.ts#srcly",
+"target": "src/viz/deps/hierarchy.ts#buildIndex",
+"symbols": [
+"buildIndex"
+]
+},
+{
+"source": "src/viz/deps/viewModel.test.ts#srcly",
+"target": "src/viz/deps/hierarchy.ts#applyFilters",
+"symbols": [
+"applyFilters"
+]
+},
+{
+"source": "src/viz/deps/viewModel.test.ts#wideRepo",
+"target": "src/viz/deps/contract.ts#DependencyGraphContract",
 "typeOnly": true,
 "symbols": [
 "DependencyGraphContract"
@@ -2580,44 +4346,97 @@
 },
 {
 "source": "src/viz/deps/viewModel.test.ts",
-"target": "src/viz/deps/hierarchy.ts",
-"symbols": [
-"applyFilters",
-"buildIndex",
-"DEFAULT_FILTERS"
-]
-},
-{
-"source": "src/viz/deps/viewModel.test.ts",
-"target": "src/viz/deps/legacyAdapter.ts",
-"symbols": [
-"legacyToContract",
-"LegacyGraph"
-]
-},
-{
-"source": "src/viz/deps/viewModel.test.ts",
-"target": "src/viz/deps/viewModel.ts",
+"target": "src/viz/deps/viewModel.ts#buildViewModel",
 "symbols": [
 "buildViewModel"
 ]
 },
 {
-"source": "src/viz/deps/viewModel.ts",
-"target": "src/viz/deps/contract.ts",
+"source": "src/viz/deps/viewModel.test.ts",
+"target": "src/viz/deps/hierarchy.ts#applyFilters",
+"symbols": [
+"applyFilters"
+]
+},
+{
+"source": "src/viz/deps/viewModel.test.ts",
+"target": "src/viz/deps/hierarchy.ts#buildIndex",
+"symbols": [
+"buildIndex"
+]
+},
+{
+"source": "src/viz/deps/viewModel.test.ts",
+"target": "src/viz/deps/hierarchy.ts#DEFAULT_FILTERS",
+"symbols": [
+"DEFAULT_FILTERS"
+]
+},
+{
+"source": "src/viz/deps/viewModel.test.ts",
+"target": "src/viz/deps/contract.ts#DependencyGraphContract",
+"typeOnly": true,
+"symbols": [
+"DependencyGraphContract"
+]
+},
+{
+"source": "src/viz/deps/viewModel.ts#ViewNode",
+"target": "src/viz/deps/contract.ts#GraphNodeKind",
 "typeOnly": true,
 "symbols": [
 "GraphNodeKind"
 ]
 },
 {
-"source": "src/viz/deps/viewModel.ts",
-"target": "src/viz/deps/hierarchy.ts",
+"source": "src/viz/deps/viewModel.ts#ViewModel",
+"target": "src/viz/deps/contract.ts#GraphNodeKind",
+"typeOnly": true,
 "symbols": [
-"ancestors",
-"displayName",
-"isAncestorOrSelf",
-"owningFile",
+"GraphNodeKind"
+]
+},
+{
+"source": "src/viz/deps/viewModel.ts#buildViewModel",
+"target": "src/viz/deps/hierarchy.ts#GraphIndex",
+"typeOnly": true,
+"symbols": [
+"GraphIndex"
+]
+},
+{
+"source": "src/viz/deps/viewModel.ts#buildViewModel",
+"target": "src/viz/deps/hierarchy.ts#displayName",
+"symbols": [
+"displayName"
+]
+},
+{
+"source": "src/viz/deps/viewModel.ts#buildViewModel",
+"target": "src/viz/deps/hierarchy.ts#owningFile",
+"symbols": [
+"owningFile"
+]
+},
+{
+"source": "src/viz/deps/viewModel.ts#buildViewModel",
+"target": "src/viz/deps/hierarchy.ts#isAncestorOrSelf",
+"symbols": [
+"isAncestorOrSelf"
+]
+},
+{
+"source": "src/viz/deps/viewModel.ts#buildViewModel",
+"target": "src/viz/deps/hierarchy.ts#ancestors",
+"symbols": [
+"ancestors"
+]
+},
+{
+"source": "src/viz/deps/viewModel.ts#disambiguateLabels",
+"target": "src/viz/deps/hierarchy.ts#GraphIndex",
+"typeOnly": true,
+"symbols": [
 "GraphIndex"
 ]
 },
@@ -2631,41 +4450,60 @@
 ]
 },
 {
-"source": "src/viz/treemap/components/TreemapHeader.tsx",
-"target": "src/utils/metricsStore.tsx",
+"source": "src/viz/treemap/components/TreemapHeader.tsx#TreemapHeaderProps",
+"target": "src/utils/metricsStore.tsx#HotSpotMetricId",
+"typeOnly": true,
 "symbols": [
-"HOTSPOT_METRICS",
 "HotSpotMetricId"
 ]
 },
 {
-"source": "src/viz/treemap/components/TreemapHeader.tsx",
-"target": "src/components/FileTypeFilter.tsx",
+"source": "src/viz/treemap/components/TreemapHeader.tsx#TreemapHeader",
+"target": "src/components/Popover.tsx#Popover",
 "symbols": [
 "default"
 ]
 },
 {
-"source": "src/viz/treemap/components/TreemapHeader.tsx",
-"target": "src/components/Popover.tsx",
-"symbols": [
-"default"
-]
-},
-{
-"source": "src/viz/treemap/components/TreemapHeader.tsx",
-"target": "src/components/ui/Button.tsx",
+"source": "src/viz/treemap/components/TreemapHeader.tsx#TreemapHeader",
+"target": "src/components/ui/Button.tsx#Button",
 "symbols": [
 "Button"
 ]
 },
 {
-"source": "src/viz/treemap/components/TreemapHeader.tsx",
-"target": "src/components/ui/PopoverPanel.tsx",
+"source": "src/viz/treemap/components/TreemapHeader.tsx#TreemapHeader",
+"target": "src/utils/metricsStore.tsx#HOTSPOT_METRICS",
 "symbols": [
-"OptionRow",
-"PopoverPanel",
+"HOTSPOT_METRICS"
+]
+},
+{
+"source": "src/viz/treemap/components/TreemapHeader.tsx#TreemapHeader",
+"target": "src/components/ui/PopoverPanel.tsx#PopoverSectionTitle",
+"symbols": [
 "PopoverSectionTitle"
+]
+},
+{
+"source": "src/viz/treemap/components/TreemapHeader.tsx#TreemapHeader",
+"target": "src/components/ui/PopoverPanel.tsx#PopoverPanel",
+"symbols": [
+"PopoverPanel"
+]
+},
+{
+"source": "src/viz/treemap/components/TreemapHeader.tsx#TreemapHeader",
+"target": "src/components/FileTypeFilter.tsx#FileTypeFilter",
+"symbols": [
+"default"
+]
+},
+{
+"source": "src/viz/treemap/components/TreemapHeader.tsx#TreemapHeader",
+"target": "src/components/ui/PopoverPanel.tsx#OptionRow",
+"symbols": [
+"OptionRow"
 ]
 },
 {
@@ -2688,11 +4526,18 @@
 ]
 },
 {
-"source": "src/viz/treemap/components/TreemapTooltip.tsx",
-"target": "src/viz/treemap/hooks/useTreemapTooltip.ts",
+"source": "src/viz/treemap/components/TreemapTooltip.tsx#TreemapTooltip",
+"target": "src/viz/treemap/hooks/useTreemapTooltip.ts#TooltipLine",
 "typeOnly": true,
 "symbols": [
-"TooltipLine",
+"TooltipLine"
+]
+},
+{
+"source": "src/viz/treemap/components/TreemapTooltip.tsx#TreemapTooltip",
+"target": "src/viz/treemap/hooks/useTreemapTooltip.ts#TreemapTooltipModel",
+"typeOnly": true,
+"symbols": [
 "TreemapTooltipModel"
 ]
 },
@@ -2711,10 +4556,17 @@
 ]
 },
 {
-"source": "src/viz/treemap/hooks/useTreemapTooltip.ts",
-"target": "src/utils/metricsStore.tsx",
+"source": "src/viz/treemap/hooks/useTreemapTooltip.ts#useTreemapTooltip",
+"target": "src/utils/metricsStore.tsx#HOTSPOT_METRICS",
 "symbols": [
-"HOTSPOT_METRICS",
+"HOTSPOT_METRICS"
+]
+},
+{
+"source": "src/viz/treemap/hooks/useTreemapTooltip.ts#useTreemapTooltip",
+"target": "src/utils/metricsStore.tsx#HotSpotMetricId",
+"typeOnly": true,
+"symbols": [
 "HotSpotMetricId"
 ]
 },
@@ -2726,15 +4578,15 @@
 ]
 },
 {
-"source": "src/viz/treemap/utils/colors.ts",
-"target": "src/utils/metricsStore.tsx",
+"source": "src/viz/treemap/utils/colors.ts#treemapFillColor",
+"target": "src/utils/metricsStore.tsx#HOTSPOT_METRICS",
 "symbols": [
 "HOTSPOT_METRICS"
 ]
 },
 {
-"source": "src/viz/treemap/utils/colors.ts",
-"target": "src/utils/color.ts",
+"source": "src/viz/treemap/utils/colors.ts#treemapLabelColor",
+"target": "src/utils/color.ts#getContrastingTextColor",
 "symbols": [
 "getContrastingTextColor"
 ]

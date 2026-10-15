@@ -193,6 +193,8 @@ export default function DependencyView(props: {
           {(l) => (
             <DependencyCanvas
               layout={l()}
+              focusLabel={viewModel()?.focusLabel}
+              focusIsGroup={viewModel()?.focusKind === "file" && (viewModel()?.nodes.some((n) => n.kind === "symbol" && n.region === "center") ?? false)}
               onFocus={onFocusNode}
               onOpen={onOpenNode}
               ref={(api) => (canvas = api)}

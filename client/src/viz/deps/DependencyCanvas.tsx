@@ -29,8 +29,18 @@ function strokeWidth(weight: number, faint: boolean): number {
   return Math.min(4.5, 1.25 + Math.log2(weight) * 0.75);
 }
 
+const SYMBOL_GLYPH: Record<string, string> = {
+  function: "ƒ",
+  class: "C",
+  type: "T",
+  enum: "E",
+  variable: "v",
+  value: "v",
+};
+
 function KindGlyph(props: { node: ViewNode; x: number; y: number }) {
   const k = () => props.node.kind;
+  const glyph = () => SYMBOL_GLYPH[props.node.symbolKind ?? ""] ?? "ƒ";
   return (
     <g transform={`translate(${props.x},${props.y})`} class="text-[var(--plc-on-subtle)]" aria-hidden="true">
       <Show when={k() === "folder"}>
@@ -43,7 +53,9 @@ function KindGlyph(props: { node: ViewNode; x: number; y: number }) {
         <path d="M1 3l5-2.5 5 2.5v6l-5 2.5-5-2.5z M1 3l5 2.5 5-2.5 M6 5.5v6" fill="none" stroke="currentColor" stroke-width="1.1" />
       </Show>
       <Show when={k() === "symbol"}>
-        <text x="1" y="10" font-size="11" font-style="italic" font-weight="600" fill="currentColor">ƒ</text>
+        <text x="1" y="10" font-size="11" font-weight="600" fill="currentColor" font-style={glyph() === "ƒ" ? "italic" : "normal"}>
+          {glyph()}
+        </text>
       </Show>
     </g>
   );
@@ -51,6 +63,9 @@ function KindGlyph(props: { node: ViewNode; x: number; y: number }) {
 
 export function DependencyCanvas(props: {
   layout: ViewLayout;
+  /** Name of the focused item; a focused file frames its symbols under this title. */
+  focusLabel?: string;
+  focusIsGroup?: boolean;
   onFocus: (node: ViewNode) => void;
   onOpen: (node: ViewNode) => void;
   ref?: (api: CanvasApi) => void;
@@ -126,18 +141,30 @@ export function DependencyCanvas(props: {
     return set;
   });
 
+  // Frame around a focused file's symbols.
+  const focusFrame = createMemo(() => {
+    const ns = props.layout.nodes.filter((n) => n.node.region === "center");
+    if (ns.length === 0) return null;
+    const pad = 6;
+    const x0 = Math.min(...ns.map((n) => n.x)) - pad;
+    const y0 = Math.min(...ns.map((n) => n.y)) - pad;
+    const x1 = Math.max(...ns.map((n) => n.x + n.width)) + pad;
+    const y1 = Math.max(...ns.map((n) => n.y + n.height)) + pad;
+    return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
+  });
+
   // Column headers above each region.
   const regionHeaders = createMemo(() => {
     const out: { region: Region; x: number; y: number; width: number }[] = [];
     const regions = new Set(props.layout.nodes.map((n) => n.node.region));
-    if (regions.size < 2) return out;
+    if (regions.size < 2 && !props.focusIsGroup) return out;
     const top = Math.min(...props.layout.nodes.map((n) => n.y));
     for (const region of ["in", "center", "out"] as Region[]) {
       const ns = props.layout.nodes.filter((n) => n.node.region === region);
       if (ns.length === 0) continue;
       const x0 = Math.min(...ns.map((n) => n.x));
       const x1 = Math.max(...ns.map((n) => n.x + n.width));
-      out.push({ region, x: x0, y: top - 14, width: x1 - x0 });
+      out.push({ region, x: x0, y: top - 16, width: x1 - x0 });
     }
     return out;
   });
@@ -176,13 +203,31 @@ export function DependencyCanvas(props: {
                 x={h.x + h.width / 2}
                 y={h.y}
                 text-anchor="middle"
-                class="fill-[var(--plc-on-subtle)] text-[11px] font-semibold uppercase tracking-wide"
+                class={
+                  h.region === "center" && props.focusIsGroup
+                    ? "fill-[var(--plc-accent-hover)] text-[12px] font-semibold"
+                    : "fill-[var(--plc-on-subtle)] text-[11px] font-semibold uppercase tracking-wide"
+                }
               >
-                {REGION_TITLE[h.region]}
+                {h.region === "center" && props.focusIsGroup && props.focusLabel ? props.focusLabel : REGION_TITLE[h.region]}
               </text>
             )}
           </For>
 
+          <Show when={props.focusIsGroup ? focusFrame() : null}>
+            {(f) => (
+              <rect
+                x={f().x}
+                y={f().y}
+                width={f().width}
+                height={f().height}
+                rx="6"
+                fill="var(--plc-accent-subtle)"
+                fill-opacity="0.55"
+                stroke="var(--plc-accent-border)"
+              />
+            )}
+          </Show>
           <g fill="none">
             <For each={props.layout.edges}>
               {(e) => {

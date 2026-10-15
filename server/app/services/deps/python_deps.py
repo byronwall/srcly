@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Set, Tuple
 import tree_sitter_python as tspython
 from tree_sitter import Language, Node, Parser
 
-from app.services.deps.common import DepEdge, SymbolDef
+from app.services.deps.common import DepEdge, ImportBinding, SymbolDef, emit_symbol_edges
 
 PY_EXTENSIONS = {".py"}
 _PY = Language(tspython.language())
@@ -28,6 +28,7 @@ class PyImport:
     type_only: bool = False
     is_from: bool = False
     line: int = 0
+    top_level: bool = True
 
 
 @dataclass
@@ -141,16 +142,16 @@ def parse_py_file(path: Path, module: str) -> PyFileInfo:
             for c in n.children_by_field_name("name"):
                 if c.type == "aliased_import":
                     name = _text(c.child_by_field_name("name"))
-                    info.imports.append(PyImport(module=name, local=_text(c.child_by_field_name("alias")), type_only=type_only, line=line))
+                    info.imports.append(PyImport(module=name, local=_text(c.child_by_field_name("alias")), type_only=type_only, line=line, top_level=top_level))
                 else:
-                    info.imports.append(PyImport(module=_text(c), type_only=type_only, line=line))
+                    info.imports.append(PyImport(module=_text(c), type_only=type_only, line=line, top_level=top_level))
             return
         if n.type == "import_from_statement":
             mod_node = n.child_by_field_name("module_name")
             if mod_node is None:
                 return
             mod = absolute(mod_node) if mod_node.type == "relative_import" else _text(mod_node)
-            imp = PyImport(module=mod, is_from=True, type_only=type_only, line=line)
+            imp = PyImport(module=mod, is_from=True, type_only=type_only, line=line, top_level=top_level)
             if any(c.type == "wildcard_import" for c in n.children):
                 imp.star = True
             for c in n.children_by_field_name("name"):
@@ -224,77 +225,128 @@ def build_py_edges(root: Path, files: List[Path]) -> Tuple[List[DepEdge], Dict[s
 
     defined: Dict[Path, Set[str]] = {f: {d.name for d in i.declarations} for f, i in infos.items()}
 
-    def find_definer(file: Path, name: str, depth: int = 0) -> Path:
+    def find_definer(file: Path, name: str, depth: int = 0) -> Tuple[Path, str]:
         """Pass names through package __init__ re-exports to the defining module."""
         info = infos.get(file)
         if info is None or depth > 10 or not info.is_package or name in defined.get(file, set()):
-            return file
+            return file, name
         src = info.imported_names.get(name)
         if src is None:
-            return file
+            return file, name
         mod, orig = src
         sub = index.resolve(f"{mod}.{orig}")
         if sub is not None and sub != file:
-            return sub  # re-exported submodule
+            return sub, ""  # re-exported submodule
         target = index.resolve(mod)
         if target is None or target == file:
-            return file
+            return file, name
         return find_definer(target, orig, depth + 1)
 
     stdlib = getattr(sys, "stdlib_module_names", frozenset())
     edges: List[DepEdge] = []
     for f, info in infos.items():
+        bindings: Dict[str, ImportBinding] = {}
+        ns_module: Dict[str, str] = {}  # namespace binding → dotted module name
         for imp in info.imports:
             if not imp.is_from:
                 target = index.resolve_prefix(imp.module)
-                if target is not None:
-                    if target != f:
+                if target is None:
+                    if imp.module:
+                        edges.append(DepEdge(source=f, target=_external(imp.module, stdlib), type_only=imp.type_only))
+                    continue
+                if target == f:
+                    continue
+                if imp.top_level:
+                    # `import a.b.c` binds `a`; `import a.b.c as x` binds x to a.b.c.
+                    local = imp.local or imp.module.split(".")[0]
+                    dotted = imp.module if imp.local else imp.module.split(".")[0]
+                    bound = index.resolve(dotted) or target
+                    bindings[local] = ImportBinding(target_file=bound, target_symbol=None, display=imp.module, type_only=imp.type_only, namespace=True)
+                    ns_module[local] = dotted
+                    if bound != target and not imp.local:
+                        # Keep the explicitly imported submodule even if only `a` is used.
                         edges.append(DepEdge(source=f, target=target, type_only=imp.type_only))
-                elif imp.module:
-                    edges.append(DepEdge(source=f, target=_external(imp.module, stdlib), type_only=imp.type_only))
+                else:
+                    edges.append(DepEdge(source=f, target=target, type_only=imp.type_only))
                 continue
 
             base = index.resolve(imp.module)
             if base is None:
                 if imp.module and not imp.module.startswith("."):
-                    # `from pkg import sub` where pkg has no __init__ (namespace package)
-                    hits = [index.resolve(f"{imp.module}.{n}") for n, _ in imp.names]
-                    hits = [h for h in hits if h is not None]
+                    hits = [(n, l, index.resolve(f"{imp.module}.{n}")) for n, l in imp.names]
+                    hits = [h for h in hits if h[2] is not None]
                     if hits:
-                        for h in hits:
-                            if h != f:
+                        for n, l, h in hits:
+                            if h == f:
+                                continue
+                            if imp.top_level:
+                                bindings[l] = ImportBinding(target_file=h, target_symbol=None, display=n, type_only=imp.type_only, namespace=True)
+                                ns_module[l] = f"{imp.module}.{n}"
+                            else:
                                 edges.append(DepEdge(source=f, target=h, type_only=imp.type_only))
                         continue
                     if index.resolve_prefix(imp.module) is None:
                         edges.append(
-                            DepEdge(
-                                source=f,
-                                target=_external(imp.module, stdlib),
-                                symbols=[n for n, _ in imp.names],
-                                type_only=imp.type_only,
-                            )
+                            DepEdge(source=f, target=_external(imp.module, stdlib), symbols=[n for n, _ in imp.names], type_only=imp.type_only)
                         )
                 continue
             if imp.star or not imp.names:
                 if base != f:
                     edges.append(DepEdge(source=f, target=base, symbols=["*"] if imp.star else [], type_only=imp.type_only))
                 continue
-            by_target: Dict[Path, List[str]] = {}
-            barrel: Dict[Path, bool] = {}
-            for name, _local in imp.names:
+            for name, local in imp.names:
                 sub = index.resolve(f"{imp.module}.{name}")
                 if sub is not None:
-                    t = sub  # `from pkg import submodule`
-                    barrel_flag = False
+                    t, t_sym, barrel_flag, is_ns = sub, None, False, True
+                    ns_module_name = f"{imp.module}.{name}"
                 else:
-                    t = find_definer(base, name)
-                    barrel_flag = t != base
-                by_target.setdefault(t, []).append(name)
-                barrel[t] = barrel.get(t, False) or barrel_flag
-            for t, names in by_target.items():
+                    t, t_sym = find_definer(base, name)
+                    barrel_flag, is_ns = t != base, t_sym == ""
+                    ns_module_name = index.name_of.get(t, "")
                 if t == f:
                     continue
-                edges.append(DepEdge(source=f, target=t, symbols=names, type_only=imp.type_only, via_barrel=barrel[t]))
+                if imp.top_level:
+                    bindings[local] = ImportBinding(
+                        target_file=t, target_symbol=t_sym or None, display=name,
+                        type_only=imp.type_only, via_barrel=barrel_flag, namespace=is_ns,
+                    )
+                    if is_ns:
+                        ns_module[local] = ns_module_name
+                else:
+                    edges.append(DepEdge(source=f, target=t, symbols=[name], type_only=imp.type_only, via_barrel=barrel_flag))
+
+        if bindings:
+            raw = collect_py_usages(info, set(bindings))
+            usages: Dict[Optional[str], Set[Tuple[str, Optional[str]]]] = {}
+            for user, refs in raw.items():
+                for local, chain in refs:
+                    b = bindings[local]
+                    if not (b.namespace and chain):
+                        usages.setdefault(user, set()).add((local, None))
+                        continue
+                    # `pkg.sub.func`: walk into the deepest submodule, then take the symbol.
+                    parts = chain.split(".")
+                    mod = ns_module.get(local, "")
+                    k = 0
+                    file_k = b.target_file
+                    for i in range(len(parts), 0, -1):
+                        hit = index.resolve(".".join([mod, *parts[:i]])) if mod else None
+                        if hit is not None:
+                            k, file_k = i, hit
+                            break
+                    key = local if k == 0 else f"{local}.{'.'.join(parts[:k])}"
+                    if key not in bindings:
+                        bindings[key] = ImportBinding(target_file=file_k, target_symbol=None, display=key, type_only=b.type_only, namespace=True)
+                    usages.setdefault(user, set()).add((key, parts[k] if k < len(parts) else None))
+            # A module binding reached only through deeper chains (`a.b.f`) is
+            # represented by the deeper key; drop the bare one so it does not
+            # also appear as an unused import.
+            direct = {local for refs in usages.values() for local, _ in refs}
+            for key in [k for k in bindings if "." in k]:
+                base_local = key.split(".")[0]
+                if base_local not in direct:
+                    bindings.pop(base_local, None)
+            edges.extend(emit_symbol_edges(f, bindings, usages, defined))
 
     symbols = {str(f): i.declarations for f, i in infos.items()}
     return edges, symbols, infos, index
@@ -302,3 +354,49 @@ def build_py_edges(root: Path, files: List[Path]) -> Tuple[List[DepEdge], Dict[s
 
 def _external(module: str, stdlib) -> str:
     return external_root(module)
+
+
+def collect_py_usages(info: PyFileInfo, locals_: Set[str]) -> Dict[Optional[str], Set[Tuple[str, Optional[str]]]]:
+    """Per top-level declaration, imported locals referenced (with attribute chains)."""
+    usages: Dict[Optional[str], Set[Tuple[str, Optional[str]]]] = {}
+    decl_ids = {n.id: name for name, n in info.decl_nodes.items()}
+
+    def chain_of(n: Node) -> Optional[List[str]]:
+        parts: List[str] = []
+        cur = n
+        while cur.type == "attribute":
+            attr = cur.child_by_field_name("attribute")
+            parts.append(_text(attr))
+            cur = cur.child_by_field_name("object")
+            if cur is None:
+                return None
+        if cur.type != "identifier":
+            return None
+        parts.append(_text(cur))
+        return list(reversed(parts))
+
+    def walk(root: Node, user: Optional[str]) -> None:
+        stack = [(root, user)]
+        while stack:
+            node, who = stack.pop()
+            if node.id in decl_ids:
+                who = decl_ids[node.id]
+            if node.type in ("import_statement", "import_from_statement"):
+                continue
+            if node.type == "attribute":
+                parts = chain_of(node)
+                if parts and parts[0] in locals_:
+                    usages.setdefault(who, set()).add((parts[0], ".".join(parts[1:]) or None))
+                    continue
+            elif node.type == "identifier":
+                name = _text(node)
+                if name in locals_:
+                    usages.setdefault(who, set()).add((name, None))
+                continue
+            for c in node.children:
+                stack.append((c, who))
+
+    if info.tree_root is not None:
+        for stmt in info.tree_root.named_children:
+            walk(stmt, None)
+    return usages

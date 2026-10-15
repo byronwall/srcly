@@ -11,7 +11,23 @@ def write(root: Path, rel: str, text: str) -> None:
 
 
 def edge_map(graph):
-    return {(e.source, e.target): e for e in graph.edges}
+    """File-level view of the graph: symbol endpoints (`file#name`) collapse to files."""
+    from app.models import DepGraphEdge
+
+    out = {}
+    for e in graph.edges:
+        key = (e.source.split("#")[0], e.target.split("#")[0])
+        cur = out.get(key)
+        if cur is None:
+            out[key] = DepGraphEdge(
+                source=key[0], target=key[1], symbols=list(e.symbols or []) or None,
+                type_only=e.type_only, via_barrel=e.via_barrel,
+            )
+        else:
+            cur.symbols = list(dict.fromkeys([*(cur.symbols or []), *(e.symbols or [])])) or None
+            cur.type_only = (cur.type_only and e.type_only) or None
+            cur.via_barrel = (cur.via_barrel or e.via_barrel) or None
+    return out
 
 
 def test_parse_jsonc_handles_line_comments_and_trailing_commas():

@@ -41,11 +41,11 @@ describe("buildViewModel", () => {
 
   it("puts importers left and imports right of a focused file", () => {
     const vm = buildViewModel(srcly(), { focusId: "src/components/Treemap.tsx", budget: 48 });
-    const byLabel = new Map(vm.nodes.map((n) => [n.label, n]));
-    expect(byLabel.get("Treemap.tsx")!.region).toBe("center");
-    expect(byLabel.get("Treemap.tsx")!.isFocus).toBe(true);
-    expect(byLabel.get("App.tsx")!.region).toBe("in");
-    expect(byLabel.get("metricsStore.tsx")!.region).toBe("out");
+    const regionsOf = (file: string) =>
+      new Set(vm.nodes.filter((n) => n.graphId === file || n.graphId.startsWith(file + "#")).map((n) => n.region));
+    expect([...regionsOf("src/components/Treemap.tsx")]).toEqual(["center"]);
+    expect([...regionsOf("src/App.tsx")]).toEqual(["in"]);
+    expect([...regionsOf("src/utils/metricsStore.tsx")]).toEqual(["out"]);
     for (const e of vm.edges) {
       if (e.faint) continue;
       const s = vm.nodes.find((n) => n.id === e.source)!;
@@ -58,7 +58,8 @@ describe("buildViewModel", () => {
     const idx = srcly();
     const focus = "src/utils/metricsStore.tsx";
     const vm = buildViewModel(idx, { focusId: focus, budget: 48 });
-    const touching = idx.edges.filter((e) => e.source === focus || e.target === focus).length;
+    const inFocus = (id: string) => id === focus || id.startsWith(focus + "#");
+    const touching = idx.edges.filter((e) => inFocus(e.source) !== inFocus(e.target)).length;
     const carried = vm.edges.filter((e) => !e.faint).reduce((a, e) => a + e.weight, 0);
     expect(carried).toBe(touching);
   });
@@ -91,6 +92,25 @@ describe("buildViewModel", () => {
     expect(filtered.nodes.some((n) => n.isTest || n.kind === "external")).toBe(false);
     const all = applyFilters(g, { showExternal: true, showTests: true, showTypeOnly: true });
     expect(all.nodes.some((n) => n.kind === "external")).toBe(true);
+  });
+
+  it("expands a focused file into its symbols and shows using functions", () => {
+    const vm = buildViewModel(srcly(), { focusId: "src/utils/metricsStore.tsx", budget: 48 });
+    const center = vm.nodes.filter((n) => n.region === "center");
+    expect(center.every((n) => n.kind === "symbol" && n.isFocus)).toBe(true);
+    expect(center.map((n) => n.label)).toContain("HOTSPOT_METRICS");
+    const explorer = vm.nodes.find((n) => n.label === "Explorer");
+    expect(explorer?.region).toBe("in");
+    const edge = vm.edges.find(
+      (e) => e.source === explorer!.id && e.target.endsWith("#HOTSPOT_METRICS"),
+    );
+    expect(edge).toBeDefined();
+  });
+
+  it("rolls side symbols up to their files when over budget", () => {
+    const vm = buildViewModel(srcly(), { focusId: "src/utils/metricsStore.tsx", budget: 12 });
+    expect(vm.nodes.length).toBeLessThanOrEqual(12);
+    expect(vm.nodes.some((n) => n.region === "in" && n.kind !== "symbol")).toBe(true);
   });
 
   it("disambiguates duplicate labels with parent folders", () => {
