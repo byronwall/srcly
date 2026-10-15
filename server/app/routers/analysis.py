@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 from pathlib import Path
 import json
 import os
@@ -302,7 +302,7 @@ def _resolve_internal_file(spec_path: Path, file_to_id: Dict[Path, str]) -> Opti
 
     return None
 
-def _scan_response(target_path: Path, force: bool = False) -> Response:
+def _scan_response(target_path: Path, request: Request, force: bool = False) -> Response:
     """
     Scan ``target_path`` through the shared job manager and return the tree.
 
@@ -321,7 +321,7 @@ def _scan_response(target_path: Path, force: bool = False) -> Response:
         raise HTTPException(status_code=503, detail="Scan cancelled")
     if job.phase != "complete":
         raise HTTPException(status_code=500, detail=job.error or f"Scan {job.phase}")
-    return Response(content=job.result_json(), media_type="application/json")
+    return scan_jobs.tree_response(job, request)
 
 
 # Scan endpoints are plain `def` on purpose: FastAPI runs them in a worker
@@ -329,7 +329,7 @@ def _scan_response(target_path: Path, force: bool = False) -> Response:
 # uvicorn from reacting to Ctrl+C). They return a `Response` directly, so
 # `response_model` only documents the shape.
 @router.get("", response_model=Node)
-def get_analysis(path: str = None):
+def get_analysis(request: Request, path: str = None):
     """
     Get the static analysis of the codebase.
     Returns the cached result if no files changed since it was taken,
@@ -343,7 +343,7 @@ def get_analysis(path: str = None):
              raise HTTPException(status_code=404, detail="Path not found")
          target_path = ROOT_PATH
 
-    return _scan_response(target_path)
+    return _scan_response(target_path, request)
 
 @router.get("/dependencies", response_model=DependencyGraph)
 def get_dependencies(path: str = None):
@@ -546,14 +546,14 @@ def get_dependencies(path: str = None):
     return DependencyGraph(nodes=nodes, edges=edges)
 
 @router.post("/refresh", response_model=Node)
-def refresh_analysis(path: str = None):
+def refresh_analysis(request: Request, path: str = None):
     """
     Force a re-scan of the codebase, ignoring (and replacing) the cache.
     """
     target_path = Path(path) if path else ROOT_PATH
     if not target_path.exists():
         raise HTTPException(status_code=404, detail="Path not found")
-    return _scan_response(target_path, force=True)
+    return _scan_response(target_path, request, force=True)
 
 
 def _estimate_counts(root: Path) -> tuple[int, int]:

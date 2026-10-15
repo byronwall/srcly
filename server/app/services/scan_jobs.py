@@ -10,6 +10,8 @@ needs to coordinate with the event loop.
 
 from __future__ import annotations
 
+import gzip
+import json
 import threading
 import time
 import uuid
@@ -17,6 +19,10 @@ from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Optional
+
+from pydantic_core import to_json
+from starlette.requests import Request
+from starlette.responses import Response
 
 from app.models import Node
 from app.services import analysis, cache
@@ -35,9 +41,65 @@ MAX_REPORTED_FAILURES = 20
 MAX_REPORTED_IN_PROGRESS = 5
 
 
+def child_path_separator(parent_type: str) -> str:
+    """How a child's ``path`` extends its parent's: ``/`` in folders, ``::`` in code."""
+    return "/" if parent_type == "folder" else "::"
+
+
 def serialize_tree(tree: Node) -> bytes:
-    """Encode a tree exactly as FastAPI would for ``response_model=Node``."""
-    return tree.model_dump_json(by_alias=True).encode()
+    """
+    Encode a tree compactly for the client.
+
+    - Fields at their default are left out. Most nodes are functions whose
+      metrics are nearly all zero.
+    - A child's ``path`` is left out when it is the parent's path, the
+      separator from ``child_path_separator``, and the child's name. Paths
+      are absolute, so this is half of what remains. Any other path (an
+      unusual separator, a renamed node) is kept as is.
+
+    On shadcn-ui (70k nodes) this takes 65 MB to 8.5 MB. The client puts the
+    defaults and paths back in ``normalizeTree``
+    (client/src/utils/normalizeTree.ts).
+    """
+    data = tree.model_dump(by_alias=True, exclude_defaults=True)
+    stack = [(data, data["path"])]
+    while stack:
+        node, path = stack.pop()
+        separator = child_path_separator(node["type"])
+        for child in node.get("children", ()):
+            child_path = child["path"]
+            if child_path == path + separator + child["name"]:
+                del child["path"]
+            stack.append((child, child_path))
+    return to_json(data)
+
+
+def expand_tree(data: bytes) -> Node:
+    """Read ``serialize_tree`` output back into a ``Node`` (the inverse)."""
+    root = json.loads(data)
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        separator = child_path_separator(node["type"])
+        for child in node.get("children", ()):
+            child.setdefault("path", node["path"] + separator + child["name"])
+            stack.append(child)
+    return Node.model_validate(root)
+
+
+def tree_response(job: "ScanJob", request: Request) -> Response:
+    """The job's tree, gzipped when the client accepts it (every browser does)."""
+    if "gzip" in request.headers.get("accept-encoding", "").lower():
+        return Response(
+            content=job.result_gzip(),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip", "Vary": "Accept-Encoding"},
+        )
+    return Response(
+        content=job.result_json(),
+        media_type="application/json",
+        headers={"Vary": "Accept-Encoding"},
+    )
 
 
 @dataclass
@@ -79,6 +141,7 @@ class ScanJob(ScanObserver):
     _done: threading.Event = field(default_factory=threading.Event)
     _result_json: Optional[bytes] = None
     _result_json_lock: threading.Lock = field(default_factory=threading.Lock)
+    _result_gzip: Optional[bytes] = None
 
     # -- state -------------------------------------------------------------
 
@@ -142,6 +205,14 @@ class ScanJob(ScanObserver):
                     raise ValueError(f"Scan {self.id} has no result (phase: {self.phase})")
                 self._result_json = serialize_tree(self.result)
             return self._result_json
+
+    def result_gzip(self) -> bytes:
+        """``result_json`` gzipped, compressed once (about 0.05s for 8 MB)."""
+        encoded = self.result_json()
+        with self._result_json_lock:
+            if self._result_gzip is None:
+                self._result_gzip = gzip.compress(encoded, compresslevel=6)
+            return self._result_gzip
 
     # -- ScanObserver --------------------------------------------------------
 

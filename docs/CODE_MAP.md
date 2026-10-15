@@ -50,6 +50,7 @@ Browser
 | Scan cancellation (`CancelToken`, `ScanCancelled`, `cancel_all_scans`) | `server/app/services/scan_workers.py` |
 | Scan progress hooks (`ScanObserver`) | `server/app/services/scan_progress.py`; called from `analysis.py` |
 | Background scan jobs, progress snapshots, dedupe by path | `server/app/services/scan_jobs.py` (`ScanJob`, `ScanJobManager`) |
+| Compact tree encoding (no defaults, derived child paths, gzip) | `server/app/services/scan_jobs.py` (`serialize_tree`, `tree_response`); client inverse `client/src/utils/normalizeTree.ts` |
 | Language dispatch by extension | `server/app/services/analysis.py` (`analyze_single_file`) |
 | TypeScript / TSX metrics + nested scopes | `server/app/services/typescript/typescript_analysis.py` |
 | Python metrics | `server/app/services/python/python_analysis.py` |
