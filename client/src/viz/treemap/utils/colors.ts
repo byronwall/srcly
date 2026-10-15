@@ -5,29 +5,22 @@ import { getContrastingTextColor } from "../../../utils/color";
 export type MetricId = string;
 export type Metrics = Record<string, any>;
 
-const complexityColor = d3
-  .scaleLinear<string>()
-  .domain([0, 10, 50])
-  .range(["#dbeafe", "#fde68a", "#fecaca"])
-  .clamp(true);
+/**
+ * One sequential "attention" ramp for every metric: calm blue (fine) through
+ * amber to rose (look here). Metrics differ only in where the stops sit, so a
+ * color means the same thing whichever metric drives the treemap. Exported
+ * so the legend renders the exact same stops.
+ */
+export const TREEMAP_RAMP = ["#dbeafe", "#fde68a", "#fecaca"] as const;
 
-const commentDensityColor = d3
-  .scaleLinear<string>()
-  .domain([0, 0.2, 0.5])
-  .range(["#ffcccc", "#ff9999", "#ff0000"])
-  .clamp(true);
+const ramp = (domain: [number, number, number]) =>
+  d3.scaleLinear<string>().domain(domain).range(TREEMAP_RAMP).clamp(true);
 
-const nestingDepthColor = d3
-  .scaleLinear<string>()
-  .domain([0, 3, 8])
-  .range(["#e0f7fa", "#bae6fd", "#0891b2"])
-  .clamp(true);
-
-const todoCountColor = d3
-  .scaleLinear<string>()
-  .domain([0, 1, 5])
-  .range(["#f1f8e9", "#bef264", "#65a30d"])
-  .clamp(true);
+const complexityColor = ramp([0, 10, 50]);
+// Inverted: little or no commenting is what deserves attention.
+const commentDensityColor = ramp([0.5, 0.2, 0]);
+const nestingDepthColor = ramp([0, 3, 8]);
+const todoCountColor = ramp([0, 1, 5]);
 
 export function applyDepthEffect(color: string, depth: number): string {
   // We want deeper nodes to be lighter/brighter to simulate being "higher".

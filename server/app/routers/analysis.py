@@ -6,9 +6,9 @@ from typing import Dict, List, Optional, Tuple
 
 from app.models import Node, DependencyGraph, DependencyNode, DependencyEdge
 from app.services import analysis, cache
+from app.services.scan_workers import ScanCancelled
 from app.services.typescript import typescript_analysis
 from app.config import IGNORE_DIRS
-from app.models import FocusOverlayRequest, FocusOverlayResponse, ScopeGraphRequest, ScopeGraph
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
 
@@ -303,8 +303,18 @@ def _resolve_internal_file(spec_path: Path, file_to_id: Dict[Path, str]) -> Opti
 
     return None
 
+def _scan_or_503(target_path: Path) -> Node:
+    try:
+        return analysis.scan_codebase(target_path)
+    except ScanCancelled:
+        raise HTTPException(status_code=503, detail="Scan cancelled (server shutting down)")
+
+
+# Scan endpoints are plain `def` on purpose: FastAPI runs them in a worker
+# thread, so a long scan never blocks the event loop (which would also stop
+# uvicorn from reacting to Ctrl+C).
 @router.get("", response_model=Node)
-async def get_analysis(path: str = None):
+def get_analysis(path: str = None):
     """
     Get the static analysis of the codebase.
     Returns cached result if available, otherwise triggers a scan.
@@ -321,13 +331,12 @@ async def get_analysis(path: str = None):
     if cached_tree:
         return cached_tree
     
-    # If no cache, run scan synchronously (for now, could be async/background)
-    tree = analysis.scan_codebase(target_path)
+    tree = _scan_or_503(target_path)
     cache.save_analysis(target_path, tree)
     return tree
 
 @router.get("/dependencies", response_model=DependencyGraph)
-async def get_dependencies(path: str = None):
+def get_dependencies(path: str = None):
     """
     Build a dependency graph for the specified path.
     """
@@ -527,11 +536,11 @@ async def get_dependencies(path: str = None):
     return DependencyGraph(nodes=nodes, edges=edges)
 
 @router.post("/refresh", response_model=Node)
-async def refresh_analysis():
+def refresh_analysis():
     """
     Force a re-scan of the codebase.
     """
-    tree = analysis.scan_codebase(ROOT_PATH)
+    tree = _scan_or_503(ROOT_PATH)
     cache.save_analysis(ROOT_PATH, tree)
     return tree
 
@@ -564,7 +573,7 @@ def _estimate_counts(root: Path) -> tuple[int, int]:
 
 
 @router.get("/context")
-async def get_analysis_context():
+def get_analysis_context():
     """
     Return basic information about the current analysis root directory.
 
@@ -596,79 +605,3 @@ async def get_analysis_context():
         "repo_file_count": repo_file_count,
         "repo_folder_count": repo_folder_count,
     }
-
-@router.get("/data-flow")
-async def get_data_flow(path: str):
-    """
-    Analyze data flow for a specific file.
-    """
-    target_path = Path(path)
-    if not target_path.exists() or not target_path.is_file():
-        raise HTTPException(status_code=404, detail="File not found")
-    
-    from app.services.data_flow_analysis import DataFlowAnalyzer
-    analyzer = DataFlowAnalyzer()
-    
-    try:
-        graph = analyzer.analyze_file(str(target_path))
-        return graph
-    except Exception as e:
-        print(f"Error analyzing data flow for {path}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/focus/overlay", response_model=FocusOverlayResponse)
-async def get_focus_overlay(req: FocusOverlayRequest):
-    """
-    Return a minimal overlay model for a single file and a focus range.
-
-    The client uses this to decorate Shiki-rendered HTML with subtle identifier
-    background highlights + provenance tooltips.
-    """
-    target_path = Path(req.path)
-    if not target_path.exists() or not target_path.is_file():
-        raise HTTPException(status_code=404, detail="File not found")
-
-    # If no focus is provided, return an empty overlay.
-    if req.focusStartLine is None or req.focusEndLine is None:
-        return FocusOverlayResponse(tokens=[])
-
-    from app.services.focus_overlay import compute_focus_overlay
-
-    try:
-        return compute_focus_overlay(
-            file_path=str(target_path),
-            slice_start_line=req.sliceStartLine,
-            slice_end_line=req.sliceEndLine,
-            focus_start_line=req.focusStartLine,
-            focus_end_line=req.focusEndLine,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Error computing focus overlay for {req.path}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/focus/scope-graph", response_model=ScopeGraph)
-async def get_scope_graph(req: ScopeGraphRequest):
-    """
-    Return the nested scope graph for a focused region.
-    """
-    target_path = Path(req.path)
-    if not target_path.exists() or not target_path.is_file():
-        raise HTTPException(status_code=404, detail="File not found")
-
-    from app.services.focus_overlay import compute_scope_graph
-
-    try:
-        return compute_scope_graph(
-            file_path=str(target_path),
-            focus_start_line=req.focusStartLine,
-            focus_end_line=req.focusEndLine,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Error computing scope graph for {req.path}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))

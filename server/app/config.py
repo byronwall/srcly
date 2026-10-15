@@ -19,6 +19,9 @@ IGNORE_DIRS: Set[str] = {
 }
 
 IGNORE_FILES: Set[str] = {
+    # In git worktrees and submodules `.git` is a pointer file, not a directory.
+    ".git",
+    ".DS_Store",
     "package-lock.json",
     "yarn.lock",
     "pnpm-lock.yaml",

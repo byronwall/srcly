@@ -1,17 +1,12 @@
-export function MetricItem(props: {
-  label: string;
-  value: any;
-  colorClass: string;
-}) {
+import { formatMetricValue } from "../../utils/metricsStore";
+
+export function MetricItem(props: { id: string; label: string; value: unknown }) {
   return (
-    <div class="flex items-center justify-between border-b border-[var(--plc-divider)] py-1 text-xs last:border-0">
+    <div class="flex items-center justify-between gap-3 border-b border-[var(--plc-divider)] py-1 text-xs last:border-0">
       <span class="text-[var(--plc-on-muted)]">{props.label}</span>
-      <span class={`${props.colorClass} font-mono`}>
-        {typeof props.value === "number" && !Number.isInteger(props.value)
-          ? props.value.toFixed(2)
-          : props.value}
+      <span class="plc-data-md text-[var(--plc-on-surface)]">
+        {formatMetricValue(props.id, props.value)}
       </span>
     </div>
   );
 }
-

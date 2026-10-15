@@ -1,4 +1,5 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
+import { ChevronDown, ListFilter, X } from "lucide-solid";
 import { useMetricsStore } from "../utils/metricsStore";
 import Popover from "./Popover";
 import { Button } from "./ui/Button";
@@ -83,7 +84,7 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
   };
 
   return (
-    <div class="relative">
+    <div class="relative flex items-center gap-1">
       <Popover
         isOpen={isOpen()}
         onOpenChange={setIsOpen}
@@ -92,19 +93,22 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
         trigger={(triggerProps) => (
           <Button
             ref={triggerProps.ref}
+            active={activeCount() > 0 || isLocActive()}
             class={
               activeCount() > 0 || isLocActive()
-                ? "border-blue-700 bg-blue-900 text-blue-100"
+                ? "border-[var(--plc-accent-border)] bg-[var(--plc-accent-subtle)] text-[var(--plc-accent)]"
                 : undefined
             }
+            aria-haspopup="dialog"
             onClick={(e) => triggerProps.onClick(e)}
           >
-            <span class="uppercase tracking-wider font-semibold">
+            <ListFilter size={14} aria-hidden="true" />
+            <span>
               {activeCount() > 0 || isLocActive()
-                ? `Filter (${activeCount() + (isLocActive() ? 1 : 0)})`
-                : "Filter: All"}
+                ? `Filters · ${activeCount() + (isLocActive() ? 1 : 0)}`
+                : "All files"}
             </span>
-            <span class="text-[9px]">▼</span>
+            <ChevronDown size={14} class="opacity-70" aria-hidden="true" />
           </Button>
         )}
       >
@@ -121,7 +125,7 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
                 class="text-[var(--plc-error)] hover:text-[var(--plc-error)]"
                 onClick={handleClearAll}
               >
-                <span>✕</span>
+                <X size={13} aria-hidden="true" />
                 <span>Clear all filters</span>
               </Button>
             </div>
@@ -252,8 +256,9 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
                               class="ml-2 p-0 text-[var(--plc-on-subtle)] hover:text-[var(--plc-error)]"
                               onClick={() => toggleExcludedPath(path)}
                               title="Remove exclusion"
+                              aria-label="Remove exclusion"
                             >
-                              ✕
+                              <X size={12} aria-hidden="true" />
                             </Button>
                           </div>
                         )}
@@ -271,11 +276,13 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
       <Show when={activeCount() > 0 || isLocActive()}>
         <Button
           size="xs"
-          class="absolute left-full ml-2 top-1/2 -translate-y-1/2 whitespace-nowrap text-[var(--plc-on-subtle)] hover:border-[var(--plc-error-border)] hover:text-[var(--plc-error)]"
+          variant="ghost"
+          class="w-7 px-0 text-[var(--plc-on-subtle)] hover:text-[var(--plc-error)]"
           onClick={handleClearAll}
           title="Clear all filters"
+          aria-label="Clear all filters"
         >
-          ✕
+          <X size={13} aria-hidden="true" />
         </Button>
       </Show>
     </div>

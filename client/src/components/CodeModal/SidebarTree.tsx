@@ -1,11 +1,12 @@
-import { createSignal, For, Show } from "solid-js";
+import { ChevronRight } from "lucide-solid";
+import { createSignal, For, Show, type JSX } from "solid-js";
 
 export function SidebarTree(props: {
   node: () => any;
   depth: number;
   getChildren: (node: any) => any[];
   isHidden?: (node: any) => boolean;
-  getIcon?: (node: any) => string;
+  getIcon?: (node: any) => JSX.Element;
   onSelect: (node: any) => void;
 }) {
   if (props.isHidden?.(props.node())) return null;
@@ -34,22 +35,6 @@ export function SidebarTree(props: {
         Number.isFinite(Number(s)) &&
         Number.isFinite(Number(eLine)));
 
-    // eslint-disable-next-line no-console
-    console.log("[breadcrumb] sidebar click", {
-      name: n?.name ?? null,
-      type: n?.type ?? null,
-      start_line: s ?? null,
-      end_line: eLine ?? null,
-      hasSpan,
-      depth: props.depth,
-      childCount: (() => {
-        try {
-          return props.getChildren(n)?.length ?? 0;
-        } catch {
-          return null;
-        }
-      })(),
-    });
 
     if (hasSpan) {
       props.onSelect(n);
@@ -60,7 +45,7 @@ export function SidebarTree(props: {
 
   const icon = () => {
     const n = props.node();
-    return props.getIcon?.(n) ?? "•";
+    return props.getIcon?.(n) ?? null;
   };
 
   return (
@@ -71,12 +56,18 @@ export function SidebarTree(props: {
         onClick={handleClick}
       >
         <span
-          class="w-4 h-4 flex items-center justify-center text-[10px] text-[var(--plc-on-subtle)] hover:text-[var(--plc-on-surface)]"
+          class="flex h-4 w-4 shrink-0 items-center justify-center text-[var(--plc-on-subtle)] hover:text-[var(--plc-on-surface)]"
           onClick={toggle}
         >
-          {hasChildren() ? (expanded() ? "▼" : "▶") : ""}
+          <Show when={hasChildren()}>
+            <ChevronRight
+              size={13}
+              aria-hidden="true"
+              class={`transition-transform duration-150 ${expanded() ? "rotate-90" : ""}`}
+            />
+          </Show>
         </span>
-        <span class="font-mono text-[10px] opacity-70">{icon()}</span>
+        <span class="flex shrink-0 text-[var(--plc-on-subtle)]">{icon()}</span>
         <span class="truncate">{props.node()?.name}</span>
       </div>
       <Show when={expanded() && hasChildren()}>

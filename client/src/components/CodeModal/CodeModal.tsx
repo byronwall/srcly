@@ -39,9 +39,6 @@ export default function CodeModal(props: CodeModalProps) {
   const [lineOffset, setLineOffset] = createSignal(4);
   const [reduceIndentation, setReduceIndentation] = createSignal(true);
   const [viewMode, setViewMode] = createSignal<"code" | "preview">("code");
-  const [dataFlowEnabled, setDataFlowEnabled] = createSignal(true);
-  const [scopeFlowEnabled, setScopeFlowEnabled] = createSignal(false);
-  const [scopeMaximized, setScopeMaximized] = createSignal(false);
 
   let contentScrollRef: HTMLDivElement | undefined;
   const contentContainerEl = () => contentScrollRef;
@@ -56,7 +53,7 @@ export default function CodeModal(props: CodeModalProps) {
     displayStartLine,
     displayEndLine,
     wasIndentationReduced,
-    removedIndentByLine,
+    highlightError,
   } = useHighlightedCode({
     rawCode,
     filePath: () => props.filePath,
@@ -70,25 +67,17 @@ export default function CodeModal(props: CodeModalProps) {
   // Sync internal selection state from external props (treemap/graph selection).
   // Important: do this in an effect so we don't reset selection on every render.
   createEffect(() => {
-    // Touch dependencies
-    const fp = props.filePath;
+    // Track the file too, so reopening a different file with the same
+    // line range still resets the selection.
+    void props.filePath;
+    void props.fileNode;
     const s = props.startLine ?? null;
     const e = props.endLine ?? null;
     const scope = props.scopeNode ?? null;
-    const file = props.fileNode ?? null;
 
     setTargetStartLine(s);
     setTargetEndLine(e);
     setSelectedScopeNode(scope);
-
-    // eslint-disable-next-line no-console
-    console.log("[CodeModal] props sync", {
-      filePath: fp,
-      startLine: s,
-      endLine: e,
-      scopeNode: scope ? { name: scope?.name, type: scope?.type } : null,
-      fileNode: file ? { name: file?.name, type: file?.type } : null,
-    });
   });
 
   createEffect(() => {
@@ -107,11 +96,6 @@ export default function CodeModal(props: CodeModalProps) {
     } else {
       setViewMode("code");
     }
-  });
-
-  createEffect(() => {
-    // Prevent blank UI states: if scope flow is disabled, it can't be maximized.
-    if (!scopeFlowEnabled()) setScopeMaximized(false);
   });
 
   const hasSelection = () =>
@@ -200,17 +184,6 @@ export default function CodeModal(props: CodeModalProps) {
     setLineFilterEnabled(true);
     setSelectedScopeNode(node);
 
-    // eslint-disable-next-line no-console
-    console.log("[breadcrumb] applySelectionFromNode", {
-      file: props.filePath ?? null,
-      node: {
-        name: node?.name ?? null,
-        type: node?.type ?? null,
-        start_line: node?.start_line ?? null,
-        end_line: node?.end_line ?? null,
-      },
-      coerced: { start: s, end: e },
-    });
   };
 
   const clearSelection = () => {
@@ -218,8 +191,6 @@ export default function CodeModal(props: CodeModalProps) {
     setTargetEndLine(null);
     setLineFilterEnabled(false);
     setSelectedScopeNode(null);
-    // eslint-disable-next-line no-console
-    console.log("[breadcrumb] clearSelection");
   };
 
   const handleSelectScopeFromBreadcrumb = (node: any | null) => {
@@ -287,23 +258,6 @@ export default function CodeModal(props: CodeModalProps) {
   const activeStructureNode = () =>
     getActiveStructureNode(breadcrumbPath(), props.scopeNode || props.fileNode);
 
-  createEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log("[breadcrumb] modal state", {
-      isOpen: props.isOpen,
-      filePath: props.filePath ?? null,
-      fileNode: props.fileNode
-        ? { name: props.fileNode?.name, type: props.fileNode?.type }
-        : null,
-      scopeNode: props.scopeNode
-        ? { name: props.scopeNode?.name, type: props.scopeNode?.type }
-        : null,
-      target: { start: targetStartLine(), end: targetEndLine() },
-      lineFilterEnabled: lineFilterEnabled(),
-      viewMode: viewMode(),
-    });
-  });
-
   return (
     // Keyed so switching `filePath` remounts the modal content and avoids a one-frame
     // flash of stale highlighted HTML before the async loaders reset state.
@@ -330,15 +284,10 @@ export default function CodeModal(props: CodeModalProps) {
             setLineFilterEnabled={setLineFilterEnabled}
             lineOffset={lineOffset}
             setLineOffset={(n) => setLineOffset(Math.max(0, Math.floor(n)))}
-            dataFlowEnabled={dataFlowEnabled}
-            setDataFlowEnabled={setDataFlowEnabled}
-            scopeFlowEnabled={scopeFlowEnabled}
-            setScopeFlowEnabled={setScopeFlowEnabled}
           />
 
           <main class="relative flex-1 overflow-hidden flex bg-[var(--plc-surface)]">
-            <Show when={!scopeMaximized()}>
-              <MetricsSidebar
+            <MetricsSidebar
                 fileNode={props.fileNode}
                 scopeNode={props.scopeNode}
                 baseName={baseName}
@@ -359,7 +308,6 @@ export default function CodeModal(props: CodeModalProps) {
                   resetAutoScroll();
                 }}
               />
-            </Show>
 
             <div
               class="flex-1 min-h-0 bg-[var(--plc-surface-inset,var(--plc-surface-subtle))] p-3"
@@ -374,7 +322,7 @@ export default function CodeModal(props: CodeModalProps) {
                 fallback={
                   <CodePane
                     loading={loading}
-                    error={error}
+                    error={() => error() ?? highlightError()}
                     highlightedHtml={highlightedHtml}
                     filePath={() => props.filePath}
                     fileNode={() => props.fileNode ?? null}
@@ -383,15 +331,6 @@ export default function CodeModal(props: CodeModalProps) {
                     displayStartLine={() => displayStartLine() ?? 1}
                     targetStartLine={targetStartLine}
                     targetEndLine={targetEndLine}
-                    removedIndentByLine={removedIndentByLine}
-                    lineFilterEnabled={lineFilterEnabled}
-                    dataFlowEnabled={dataFlowEnabled}
-                    scopeFlowEnabled={scopeFlowEnabled}
-                    isScopeMaximized={scopeMaximized}
-                    onToggleMaximizeScope={() =>
-                      setScopeMaximized(!scopeMaximized())
-                    }
-                    onJumpToLine={handleJumpToLine}
                   />
                 }
               >

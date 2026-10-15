@@ -33,20 +33,20 @@ export function EmptyState(props: {
   return (
     <div
       class={cx(
-        "flex h-full w-full flex-col items-center justify-center text-center text-[var(--plc-on-subtle)]",
+        "flex h-full w-full flex-col items-center justify-center p-4 text-center text-[var(--plc-on-subtle)]",
         props.class
       )}
     >
-      <div class="text-[17px] font-semibold text-[var(--plc-on-surface)]">
+      <h2 class="text-[20px] font-semibold leading-tight tracking-[-0.015em] text-[var(--plc-on-surface)] [text-wrap:balance]">
         {props.title}
-      </div>
+      </h2>
       <Show when={props.description}>
-        <div class="mt-2 text-sm text-[var(--plc-on-subtle)]">
+        <p class="mt-2 max-w-md text-sm leading-relaxed text-[var(--plc-on-subtle)] [text-wrap:pretty]">
           {props.description}
-        </div>
+        </p>
       </Show>
       <Show when={props.actions}>
-        <div class="mt-4">{props.actions}</div>
+        <div class="mt-6 flex w-full justify-center">{props.actions}</div>
       </Show>
     </div>
   );
@@ -68,7 +68,7 @@ export function ErrorState(props: {
       )}
     >
       <Show when={props.title}>
-        <div class="mb-2 text-lg font-bold">{props.title}</div>
+        <div class="mb-2 text-[15px] font-semibold">{props.title}</div>
       </Show>
       <div class="max-w-xl text-sm">{props.message}</div>
       <Show when={props.onDismiss}>
