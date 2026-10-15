@@ -1,0 +1,377 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Complementary evidence without another analyzer platform",
+    "slug": "imported-quality-evidence",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-15",
+    "summary": "Test original dependency edges and artifact-based clone, typed-finding and coverage workflows separately.",
+    "status": "planned",
+    "next_action": "After metric-trust, prove original dependency-edge witnesses without changing existing graph geometry."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    }
+  },
+  "sources": [
+    {
+      "id": "user",
+      "type": "conversation",
+      "location": "Current Codex chat",
+      "anchor": "2026-10-15 original unique-information request and full-process approval",
+      "authority": "user"
+    },
+    {
+      "id": "research",
+      "type": "research",
+      "location": "docs/research/metrics-2026-10-15/originals/recommendations.md",
+      "anchor": "R11, R12, R13, R14, R15, R16, R18",
+      "authority": "external proposals checked against baseline; not product intent"
+    },
+    {
+      "id": "repo",
+      "type": "repository",
+      "location": "server/app/services/deps/graph.py; server/app/services/deps/common.py; client/src/viz/deps/DependencyView.tsx; client/src/components/CodeModal/CodeModal.tsx; server/app/services/reporting.py",
+      "anchor": "83dcbf40879ca06ab07cdfcf365b5c0ccb7608a4",
+      "authority": "current source"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "Provide unique actionable information per metric.",
+        "kind": "outcome",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "user"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C2",
+        "statement": "Avoid several highly correlated metrics that add little information.",
+        "kind": "anti-goal",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "user"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C3",
+        "statement": "Review current metrics and the field including CRAP before proposing initiatives.",
+        "kind": "sequence",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "user"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C4",
+        "statement": "Research and planning are authorized; application implementation remains planned.",
+        "kind": "constraint",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "user"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C5",
+        "statement": "Test original dependency edges and artifact-based clone, typed-finding and coverage workflows separately.",
+        "kind": "implementation hypothesis",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "research",
+          "repo"
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "themes": [],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Small isolated local proofs; no enterprise infrastructure or compatibility layers.",
+    "problem": "Test original dependency edges and artifact-based clone, typed-finding and coverage workflows separately.",
+    "recommended_shape": "Complementary evidence without another analyzer platform",
+    "success_moves": [
+      "Reuse existing dependency focus and layout instead of another renderer.",
+      "Use one direct reader per pinned artifact before any plugin framework.",
+      "Require actual producer output after saved fixtures establish application behavior.",
+      "Stage file coverage before method joins and optional CRAP.",
+      "Allow each workflow to stop independently without losing source scanning."
+    ],
+    "first_proof": {
+      "question": "Can projected relationships explain their original declarations without overstating completeness?",
+      "artifact": "TS/Python import fixture graph, witness source and local view.",
+      "decision_rule": "Proceed only if original edges, unresolved/type-only distinctions and config-only invalidation agree while geometry remains valid."
+    },
+    "rabbit_holes": [],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/.codex/worktrees/46c0/srcly",
+      "revision": "83dcbf40879ca06ab07cdfcf365b5c0ccb7608a4",
+      "worktree_status": "Research/planning documents only; no application implementation.",
+      "subsystems": [
+        "server/app/services/deps/graph.py",
+        "server/app/services/deps/common.py",
+        "client/src/viz/deps/DependencyView.tsx",
+        "client/src/components/CodeModal/CodeModal.tsx",
+        "server/app/services/reporting.py"
+      ],
+      "test_commands": [
+        "cd server && uv run pytest tests/test_dependency_graph_ts.py tests/test_dependency_graph_py.py tests/test_dependency_graph_symbols.py",
+        "cd client && pnpm test",
+        "cd client && pnpm build"
+      ],
+      "deployment_surfaces": []
+    },
+    "dependencies": [
+      {
+        "id": "graph",
+        "name": "Existing dependency resolution",
+        "material": true,
+        "application_seam": "deps/graph.py declared edges before projection",
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "The initial outcome requires the actual existing graph builder and resolver, exercised on local fixture repositories."
+        },
+        "failure_modes": [
+          "unresolved import",
+          "type-only edge",
+          "barrel projection loss",
+          "stale config fingerprint"
+        ],
+        "proof_rungs": [
+          "local-fixture",
+          "contract-test",
+          "real-local-output"
+        ],
+        "local_proof": "Hand-declared TS/Python graphs with actual resolver and focused geometry tests.",
+        "live_proof": "Local fixture browser confirmation; no remote provider.",
+        "rollout": "Optional input or coherent commit; omit/revert without parallel API support."
+      },
+      {
+        "id": "clones",
+        "name": "Pinned clone output",
+        "material": true,
+        "application_seam": "direct clone artifact reader",
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "First graph proof needs no external artifact; add this input only in its isolated milestone."
+        },
+        "failure_modes": [
+          "stale source",
+          "missing eligibility",
+          "malformed record",
+          "overlapping locations"
+        ],
+        "proof_rungs": [
+          "local-fixture",
+          "contract-test",
+          "real-local-output"
+        ],
+        "local_proof": "Saved deterministic format fixtures and explicit mismatch states.",
+        "live_proof": "One real output from the pinned producer using an authorized report or temporary project outside Srcly.",
+        "rollout": "Optional input or coherent commit; omit/revert without parallel API support."
+      },
+      {
+        "id": "typed",
+        "name": "Existing typed diagnostics",
+        "material": true,
+        "application_seam": "direct typed artifact reader",
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "First graph proof needs no external artifact; add this input only in its isolated milestone."
+        },
+        "failure_modes": [
+          "stale source",
+          "missing eligibility",
+          "malformed record",
+          "overlapping locations"
+        ],
+        "proof_rungs": [
+          "local-fixture",
+          "contract-test",
+          "real-local-output"
+        ],
+        "local_proof": "Saved deterministic format fixtures and explicit mismatch states.",
+        "live_proof": "One real output from the pinned producer using an authorized report or temporary project outside Srcly.",
+        "rollout": "Optional input or coherent commit; omit/revert without parallel API support."
+      },
+      {
+        "id": "coverage",
+        "name": "Matched coverage output",
+        "material": true,
+        "application_seam": "file coverage reader and source-match check",
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "First graph proof needs no external artifact; add this input only in its isolated milestone."
+        },
+        "failure_modes": [
+          "stale source",
+          "missing eligibility",
+          "malformed record",
+          "overlapping locations"
+        ],
+        "proof_rungs": [
+          "local-fixture",
+          "contract-test",
+          "real-local-output"
+        ],
+        "local_proof": "Saved deterministic format fixtures and explicit mismatch states.",
+        "live_proof": "One real output from the pinned producer using an authorized report or temporary project outside Srcly.",
+        "rollout": "Optional input or coherent commit; omit/revert without parallel API support."
+      }
+    ],
+    "fast_local_loop": {
+      "command": "cd server && uv run pytest tests/test_dependency_graph_ts.py tests/test_dependency_graph_py.py tests/test_dependency_graph_symbols.py",
+      "network_required": false,
+      "shared_infrastructure_required": false,
+      "failure_injection": [
+        "unresolved import",
+        "type-only edge",
+        "barrel projection loss",
+        "stale config fingerprint",
+        "stale source",
+        "missing eligibility",
+        "malformed record",
+        "overlapping locations",
+        "stale source",
+        "missing eligibility",
+        "malformed record",
+        "overlapping locations",
+        "stale source",
+        "missing eligibility",
+        "malformed record",
+        "overlapping locations"
+      ],
+      "status": "Proposed commands for implementation; new scripts/tests do not exist yet."
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "Architecture observations explain their original edges",
+        "outcome": "Cycle and degree observations preserve original edges and completeness in the existing focus view.",
+        "dependencies_introduced": [],
+        "proof": "TS/Python cycle/type-only/barrel/lazy/unresolved fixtures, configuration invalidation and existing geometry tests.",
+        "valid_intermediate_state": "Cycle and degree observations preserve original edges and completeness in the existing focus view. Existing source-only scanning remains usable.",
+        "rollback": "Revert the scoped milestone commit or omit optional evidence; no stored-data migration.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m2",
+        "title": "Clone families reveal coordinated source changes",
+        "outcome": "A pinned clone artifact opens reproducible peer regions with intentional duplicates retained.",
+        "dependencies_introduced": [
+          "clones"
+        ],
+        "proof": "Three real clone families, two intentional cases, overlaps/stale input and one real pinned tool output.",
+        "valid_intermediate_state": "A pinned clone artifact opens reproducible peer regions with intentional duplicates retained. Existing source-only scanning remains usable.",
+        "rollback": "Revert the scoped milestone commit or omit optional evidence; no stored-data migration.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m3",
+        "title": "Typed diagnostics supply concrete rule evidence",
+        "outcome": "One typed report joins rule evidence without running a new engine.",
+        "dependencies_introduced": [
+          "typed"
+        ],
+        "proof": "Unsafe flow versus token count, expected errors, exact duplicates and a real configured report.",
+        "valid_intermediate_state": "One typed report joins rule evidence without running a new engine. Existing source-only scanning remains usable.",
+        "rollback": "Revert the scoped milestone commit or omit optional evidence; no stored-data migration.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m4",
+        "title": "Coverage gaps remain honest before CRAP is considered",
+        "outcome": "Matched coverage shows opportunities; method CRAP remains blocked until ownership and decision-value gates pass.",
+        "dependencies_introduced": [
+          "coverage"
+        ],
+        "proof": "Missing/stale/excluded/no-opportunity coverage, source hashes, nested method ownership and CRAP arithmetic/component comparison.",
+        "valid_intermediate_state": "Matched coverage shows opportunities; method CRAP remains blocked until ownership and decision-value gates pass. Existing source-only scanning remains usable.",
+        "rollback": "Revert the scoped milestone commit or omit optional evidence; no stored-data migration.",
+        "status": "planned",
+        "evidence": []
+      }
+    ],
+    "cut_line": [
+      "Test/mutation runners, hosted analysis, embedded clone engines and rule-pack redistribution.",
+      "Full call graphs, a replacement graph renderer, and dependency matrices without a failed focus task.",
+      "Mutation evidence until an existing targeted report shows a missed assertion beyond coverage.",
+      "Boundary rules until the project supplies a concrete allowed/forbidden relationship.",
+      "Trends, general plugin infrastructure and support for multiple artifact versions at once."
+    ],
+    "open_decisions": [],
+    "initiative_dependencies": [
+      {
+        "initiative": "metric-trust",
+        "gate": "milestone 1: source identity and availability"
+      },
+      {
+        "initiative": "metric-portfolio",
+        "gate": "Reuse evaluation protocol; candidate prototypes can precede its final catalog choice."
+      }
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-15",
+      "change": "Created planned initiative from collected Pro research and independent source checks. Application proofs remain unrun."
+    }
+  ],
+  "closure": null
+}

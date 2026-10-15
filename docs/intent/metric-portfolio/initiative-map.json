@@ -1,0 +1,267 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "A metric portfolio that earns its attention",
+    "slug": "metric-portfolio",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-15",
+    "summary": "Select a compact portfolio using stratified association and source-backed decision cases.",
+    "status": "planned",
+    "next_action": "After metric-trust milestone 2, prove evaluation behavior with deliberate counterexamples."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    }
+  },
+  "sources": [
+    {
+      "id": "user",
+      "type": "conversation",
+      "location": "Current Codex chat",
+      "anchor": "2026-10-15 original unique-information request and full-process approval",
+      "authority": "user"
+    },
+    {
+      "id": "research",
+      "type": "research",
+      "location": "docs/research/metrics-2026-10-15/originals/recommendations.md",
+      "anchor": "R08, R09, R17",
+      "authority": "external proposals checked against baseline; not product intent"
+    },
+    {
+      "id": "repo",
+      "type": "repository",
+      "location": "server/app/services/reporting.py; client/src/utils/metricsStore.tsx; client/src/components/MetricPicker.tsx",
+      "anchor": "83dcbf40879ca06ab07cdfcf365b5c0ccb7608a4",
+      "authority": "current source"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "Provide unique actionable information per metric.",
+        "kind": "outcome",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "user"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C2",
+        "statement": "Avoid several highly correlated metrics that add little information.",
+        "kind": "anti-goal",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "user"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C3",
+        "statement": "Review current metrics and the field including CRAP before proposing initiatives.",
+        "kind": "sequence",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "user"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C4",
+        "statement": "Research and planning are authorized; application implementation remains planned.",
+        "kind": "constraint",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "user"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C5",
+        "statement": "Select a compact portfolio using stratified association and source-backed decision cases.",
+        "kind": "implementation hypothesis",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "research",
+          "repo"
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "themes": [],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Small isolated local proofs; no enterprise infrastructure or compatibility layers.",
+    "problem": "Select a compact portfolio using stratified association and source-backed decision cases.",
+    "recommended_shape": "A metric portfolio that earns its attention",
+    "success_moves": [
+      "Use deterministic observation artifacts before scanning a broad corpus.",
+      "Start with three repositories and stop before twelve unless useful.",
+      "Compare compact and full catalogs so the favored approach can lose.",
+      "Keep Byron adjudication separate from automated case preparation."
+    ],
+    "first_proof": {
+      "question": "Does evaluation distinguish mathematical overlap, missing support and useful exceptions?",
+      "artifact": "Deterministic comparison Markdown/JSON with constant and equal-CCN cases.",
+      "decision_rule": "Reject the method if missing data earns independence or high correlation alone removes a useful exception."
+    },
+    "rabbit_holes": [],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/.codex/worktrees/46c0/srcly",
+      "revision": "83dcbf40879ca06ab07cdfcf365b5c0ccb7608a4",
+      "worktree_status": "Research/planning documents only; no application implementation.",
+      "subsystems": [
+        "server/app/services/reporting.py",
+        "client/src/utils/metricsStore.tsx",
+        "client/src/components/MetricPicker.tsx"
+      ],
+      "test_commands": [
+        "cd server && uv run python scripts/evaluate_metric_portfolio.py --manifest ../tmp/portfolio/manifest.json --out ../tmp/portfolio/results",
+        "cd client && pnpm test",
+        "cd client && pnpm build"
+      ],
+      "deployment_surfaces": []
+    },
+    "dependencies": [
+      {
+        "id": "corpus",
+        "name": "Corrected corpus observations and human decisions",
+        "material": true,
+        "application_seam": "Standalone evaluation input manifest and saved observations",
+        "first_proof_role": {
+          "mode": "local-substitute",
+          "rationale": "Deterministic counterexamples can reject the analysis method before any real corpus or human review."
+        },
+        "failure_modes": [
+          "constant series",
+          "unsupported measurements",
+          "overlapping populations",
+          "outlier dominance"
+        ],
+        "proof_rungs": [
+          "local-fixture",
+          "contract-test",
+          "real-local-output"
+        ],
+        "local_proof": "Fixed observation fixtures with known useful exceptions and missingness.",
+        "live_proof": "Three explicitly authorized pinned repositories and Byron action review; no hosted system.",
+        "rollout": "Optional input or coherent commit; omit/revert without parallel API support."
+      }
+    ],
+    "fast_local_loop": {
+      "command": "cd server && uv run python scripts/evaluate_metric_portfolio.py --manifest ../tmp/portfolio/manifest.json --out ../tmp/portfolio/results",
+      "network_required": false,
+      "shared_infrastructure_required": false,
+      "failure_injection": [
+        "constant series",
+        "unsupported measurements",
+        "overlapping populations",
+        "outlier dominance"
+      ],
+      "status": "Proposed commands for implementation; new scripts/tests do not exist yet."
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "The evaluation catches misleading metric relationships",
+        "outcome": "A deterministic report reveals undefined associations, support rates and useful exceptions.",
+        "dependencies_introduced": [],
+        "proof": "Known equal-size/equal-CCN, constant, unavailable and rare-exception cases reproduce.",
+        "valid_intermediate_state": "A deterministic report reveals undefined associations, support rates and useful exceptions. Existing source-only scanning remains usable.",
+        "rollback": "Revert the scoped milestone commit or omit optional evidence; no stored-data migration.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m2",
+        "title": "Three repositories yield a reviewable portfolio decision",
+        "outcome": "A pinned three-repository pilot records decisions for compact and full portfolios.",
+        "dependencies_introduced": [],
+        "proof": "Manifest, size/language strata, rank overlap and shuffled human action review; no broad validity claims.",
+        "valid_intermediate_state": "A pinned three-repository pilot records decisions for compact and full portfolios. Existing source-only scanning remains usable.",
+        "rollback": "Revert the scoped milestone commit or omit optional evidence; no stored-data migration.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m3",
+        "title": "Apply the proven catalog choice",
+        "outcome": "The UI and reports adopt only supported catalog changes.",
+        "dependencies_introduced": [],
+        "proof": "Catalog decision record plus local browser discoverability, client build and reporting tests.",
+        "valid_intermediate_state": "The UI and reports adopt only supported catalog changes. Existing source-only scanning remains usable.",
+        "rollback": "Revert the scoped milestone commit or omit optional evidence; no stored-data migration.",
+        "status": "planned",
+        "evidence": []
+      }
+    ],
+    "cut_line": [
+      "Twelve-repository expansion until the pilot earns it.",
+      "Default Maintainability Index, Halstead effort/bug forecasts, centrality-as-quality and people scoring.",
+      "Automated feature selection, universal defect thresholds and hosting infrastructure."
+    ],
+    "open_decisions": [],
+    "initiative_dependencies": [
+      {
+        "initiative": "metric-trust",
+        "gate": "milestone 2: reliable populations and units"
+      }
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-15",
+      "change": "Created planned initiative from collected Pro research and independent source checks. Application proofs remain unrun."
+    }
+  ],
+  "closure": null
+}

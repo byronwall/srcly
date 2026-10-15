@@ -1,0 +1,52 @@
+{
+  "conversation": "https://chatgpt.com/c/6ad06723-ca4c-83ea-b562-f6c191507ebc",
+  "retrieved_at": "2026-10-15T06:45:00Z",
+  "download_note": "Browser event timed out; actual Downloads ZIP verified before retry. Companions preserved from intact archive.",
+  "files": [
+    {
+      "path": "audit-validation.json",
+      "bytes": 8362,
+      "sha256": "c6e0d357322d01a8f10f9392dfe079ba5fe84db9855fd70b794e3da421dea91f"
+    },
+    {
+      "path": "candidate-metrics.json",
+      "bytes": 92635,
+      "sha256": "008feb9f84290544d807ada60041612ea99c284b4990c3f692e827d51be74675"
+    },
+    {
+      "path": "current-metrics.json",
+      "bytes": 349747,
+      "sha256": "e156d5b03e1284e082e48e5f9c07214f5c530e9ba96e7aa0851ead67906368a2"
+    },
+    {
+      "path": "reading-manifest.json",
+      "bytes": 33600,
+      "sha256": "5ebffc998d9a0fc36579f7f3ae7e679953aeb2eb10b606ffb7194f433fb4ab18"
+    },
+    {
+      "path": "recommendations.md",
+      "bytes": 40695,
+      "sha256": "0c09a10e00ea857c53c7de26af9506df804dd1c6f1fb87b4e475c84351fcde18"
+    },
+    {
+      "path": "research-report.md",
+      "bytes": 130037,
+      "sha256": "acf551aa397831412dd9ec2a13320403b3355da003f13f086fb9755a63084117"
+    },
+    {
+      "path": "sources.json",
+      "bytes": 14729,
+      "sha256": "353c1c041934e8441f659f5ebee686610ae57ca0ff0baf35bdbc51fb9b04bffb"
+    },
+    {
+      "path": "srcly-metrics-research.zip",
+      "bytes": 112480,
+      "sha256": "2e1eb39bb852b4b5e91dc8e5276a5a923c386da7f4024271fced6d60194c3fd6"
+    },
+    {
+      "path": "tool-survey.md",
+      "bytes": 22988,
+      "sha256": "41ec05f56efb90c83a0814459f7b2ee53f54e38d44d062283e3e4745783f5d49"
+    }
+  ]
+}

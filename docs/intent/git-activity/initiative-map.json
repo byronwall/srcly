@@ -1,0 +1,261 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Local activity as review context",
+    "slug": "git-activity",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-15",
+    "summary": "Test bounded file commit frequency as a distinct prioritization input beside source structure.",
+    "status": "planned",
+    "next_action": "After metric-trust scope/support is available, prove saved history parsing and real Git fixture fidelity."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    }
+  },
+  "sources": [
+    {
+      "id": "user",
+      "type": "conversation",
+      "location": "Current Codex chat",
+      "anchor": "2026-10-15 original unique-information request and full-process approval",
+      "authority": "user"
+    },
+    {
+      "id": "research",
+      "type": "research",
+      "location": "docs/research/metrics-2026-10-15/originals/recommendations.md",
+      "anchor": "R10",
+      "authority": "external proposals checked against baseline; not product intent"
+    },
+    {
+      "id": "repo",
+      "type": "repository",
+      "location": "server/app/services/analysis.py; server/app/models.py; server/app/services/reporting.py; client/src/components/Explorer.tsx",
+      "anchor": "83dcbf40879ca06ab07cdfcf365b5c0ccb7608a4",
+      "authority": "current source"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "Provide unique actionable information per metric.",
+        "kind": "outcome",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "user"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C2",
+        "statement": "Avoid several highly correlated metrics that add little information.",
+        "kind": "anti-goal",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "user"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C3",
+        "statement": "Review current metrics and the field including CRAP before proposing initiatives.",
+        "kind": "sequence",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "user"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C4",
+        "statement": "Research and planning are authorized; application implementation remains planned.",
+        "kind": "constraint",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "user"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C5",
+        "statement": "Test bounded file commit frequency as a distinct prioritization input beside source structure.",
+        "kind": "implementation hypothesis",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "research",
+          "repo"
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "themes": [],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Small isolated local proofs; no enterprise infrastructure or compatibility layers.",
+    "problem": "Test bounded file commit frequency as a distinct prioritization input beside source structure.",
+    "recommended_shape": "Local activity as review context",
+    "success_moves": [
+      "Parse saved Git output before adding UI.",
+      "Run the same cases against temporary real repositories.",
+      "Keep frequency and churn separate rather than adding correlated votes.",
+      "Keep activity optional and do not fetch missing history."
+    ],
+    "first_proof": {
+      "question": "Can the tool explain file frequency and history completeness under a bounded policy?",
+      "artifact": "History table and supporting commit list from temporary Git cases.",
+      "decision_rule": "Block UI integration if counts, rename/merge policy or shallow-history completeness cannot be explained."
+    },
+    "rabbit_holes": [],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/.codex/worktrees/46c0/srcly",
+      "revision": "83dcbf40879ca06ab07cdfcf365b5c0ccb7608a4",
+      "worktree_status": "Research/planning documents only; no application implementation.",
+      "subsystems": [
+        "server/app/services/analysis.py",
+        "server/app/models.py",
+        "server/app/services/reporting.py",
+        "client/src/components/Explorer.tsx"
+      ],
+      "test_commands": [
+        "cd server && uv run pytest tests/test_git_activity.py",
+        "cd client && pnpm test",
+        "cd client && pnpm build"
+      ],
+      "deployment_surfaces": []
+    },
+    "dependencies": [
+      {
+        "id": "git",
+        "name": "Local Git history",
+        "material": true,
+        "application_seam": "Proposed git_activity.py bounded history input/output",
+        "first_proof_role": {
+          "mode": "local-substitute",
+          "rationale": "Saved NUL-delimited output isolates counting from local Git protocol."
+        },
+        "failure_modes": [
+          "Git unavailable",
+          "shallow history",
+          "malformed paths/output",
+          "timeout"
+        ],
+        "proof_rungs": [
+          "local-fixture",
+          "contract-test",
+          "real-local-output"
+        ],
+        "local_proof": "Saved output fixtures followed by temporary real Git repositories.",
+        "live_proof": "Read-only smoke on three authorized local histories; no credentials, fetch or service.",
+        "rollout": "Optional input or coherent commit; omit/revert without parallel API support."
+      }
+    ],
+    "fast_local_loop": {
+      "command": "cd server && uv run pytest tests/test_git_activity.py",
+      "network_required": false,
+      "shared_infrastructure_required": false,
+      "failure_injection": [
+        "Git unavailable",
+        "shallow history",
+        "malformed paths/output",
+        "timeout"
+      ],
+      "status": "Proposed commands for implementation; new scripts/tests do not exist yet."
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "File histories produce correct, inspectable counts",
+        "outcome": "History counts reconcile with real Git under explicit traversal and completeness rules.",
+        "dependencies_introduced": [],
+        "proof": "Saved-output plus real temporary Git cases: merges, renames, bulk changes, unusual paths, shallow and missing history.",
+        "valid_intermediate_state": "History counts reconcile with real Git under explicit traversal and completeness rules. Existing source-only scanning remains usable.",
+        "rollback": "Revert the scoped milestone commit or omit optional evidence; no stored-data migration.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m2",
+        "title": "Activity changes justified review priorities",
+        "outcome": "An optional view adds useful prioritization in two pilot repositories or is rejected.",
+        "dependencies_introduced": [],
+        "proof": "Ten manually verified histories per repository; source-only versus activity-assisted decision review and runtime accounting.",
+        "valid_intermediate_state": "An optional view adds useful prioritization in two pilot repositories or is rejected. Existing source-only scanning remains usable.",
+        "rollback": "Revert the scoped milestone commit or omit optional evidence; no stored-data migration.",
+        "status": "planned",
+        "evidence": []
+      }
+    ],
+    "cut_line": [
+      "Function archaeology, remote fetch, author scores and ticket integration.",
+      "Co-change until frequency earns its cost. A later proof must show a hidden peer, an expected test pair, and a bulk-change false positive.",
+      "Universal churn thresholds or a combined health score."
+    ],
+    "open_decisions": [],
+    "initiative_dependencies": [
+      {
+        "initiative": "metric-trust",
+        "gate": "milestone 1: source identity and availability"
+      },
+      {
+        "initiative": "metric-portfolio",
+        "gate": "Reuse evaluation protocol; candidate prototypes can precede its final catalog choice."
+      }
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-15",
+      "change": "Created planned initiative from collected Pro research and independent source checks. Application proofs remain unrun."
+    }
+  ],
+  "closure": null
+}

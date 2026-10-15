@@ -9,7 +9,7 @@
 - Prompt: `docs/research/metrics-2026-10-15/pro-prompt.md`
 - Source packet: `tmp/metrics-research/source-packet.txt`; selected tracked source snapshot, not a runnable checkout.
 - Mode: research/review and artifact production. Full process authorized in this chat on 2026-10-15.
-- Phase: submitted and running; initial round 0. Hourly continuation active after direct user approval.
+- Phase: research collected and reconciled; four initiatives validated; preparing the review PR. Initial round 0; no follow-up submission needed.
 - Chrome: connected byroni.us profile; ChatGPT signed in; selector shows Pro, power 5 of 5.
 - Conversation: https://chatgpt.com/c/6ad06723-ca4c-83ea-b562-f6c191507ebc
 - Submission: verified by 2026-10-15 05:39:52 UTC (01:39:52 America/Indiana/Indianapolis). Both attachments appear in the sent message; ChatGPT shows Working/responding and Stop.
@@ -20,8 +20,12 @@
 - Intended first check: about 2026-10-15 06:40 UTC (02:40 local).
 - Heartbeat: `collect-srcly-metrics-research`, ACTIVE, attached to this chat. Created and verified on 2026-10-15 at about 05:46 UTC. Runs hourly at minute 40; first scheduled check 06:40 UTC (02:40 local).
 - Direct scheduling approval: Byron said, “Yes, schedule the hourly follow-up and finish the full process: collect the Pro results, create and validate the initiatives, push the research branch, and open the review PR.” Earlier rejected attempts created no automation; the approved attempt succeeded.
-- Latest observation: 2026-10-15 05:47 UTC, same Pro conversation shows Working and Stop. It has inspected analyzers, reporting, tests, and external sources. No final deliverables yet. Interim claims remain unverified until collection and independent review.
+- Collection check: 2026-10-15 at about 06:44 UTC. Pro completed after 55m 57s. Same conversation returned five requested deliverables plus three provenance/validation companions, all inside `srcly-metrics-research.zip`.
+- Download: browser event timed out; verified the actual ZIP in Downloads before retrying. Preserved ZIP and eight safely extracted originals under `originals/`. Integrity, JSON parsing and seven companion hashes passed; see `collection-manifest.json`.
+- Integration: `README.md`, `reconciliation.md`, `verification.md`; four planned initiatives under `docs/intent/{metric-trust,metric-portfolio,git-activity,imported-quality-evidence}/`.
+- Planning validation: all four maps passed the skill validator with zero warnings; heuristic audits found no requested improvements. App implementation and empirical evaluation remain unrun.
+- Independent review: exact 32/27/22 source inventory reconciliation; ranking arithmetic and CRAP cases; source inspection and primary-document checks recorded in `verification.md`. Broader competitor claims remain attributed research. No required deliverable gaps found.
 - Completion: collect readable originals; reconcile substantive recommendations; create and validate initiative intent/shape/plans; open, verify and attach PR; disable heartbeat.
 - Recovery: read this record and inspect the same conversation before sending anything. At most two bounded follow-up submissions.
 - Standing download authorization: user-invoked prepare-chatgpt-pro-repo-prompt skill authorizes all task assets from this Pro run, previews and file library. Inspect and hash downloads; do not execute downloaded programs.
-- Validation: baseline inventory inspected, packet manifest reviewed, repository visibility verified with `gh repo view`, hashes recorded; `git diff --check` passed before submission record update. Application tests unrun because this step changes research documents only.
+- Validation: packet and original hashes, inventory coverage, recommendation coverage, local source findings, primary-source checks, initiative validators/audits. Application tests unrun because this change contains research/planning documents only.

@@ -1,0 +1,265 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Trustworthy metrics and ranking",
+    "slug": "metric-trust",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-15",
+    "summary": "Correct measurement meaning, availability, ownership and comparison before adding metric families.",
+    "status": "planned",
+    "next_action": "Review the proposed scope, then execute the measured-zero versus unavailable scan proof."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    }
+  },
+  "sources": [
+    {
+      "id": "user",
+      "type": "conversation",
+      "location": "Current Codex chat",
+      "anchor": "2026-10-15 original unique-information request and full-process approval",
+      "authority": "user"
+    },
+    {
+      "id": "research",
+      "type": "research",
+      "location": "docs/research/metrics-2026-10-15/originals/recommendations.md",
+      "anchor": "R01, R02, R03, R04, R05, R06, R07, R08, R18",
+      "authority": "external proposals checked against baseline; not product intent"
+    },
+    {
+      "id": "repo",
+      "type": "repository",
+      "location": "server/app/models.py; server/app/services/analysis_types.py; server/app/services/analysis.py; server/app/services/reporting.py; client/src/components/Explorer.tsx; client/src/utils/metricsStore.tsx",
+      "anchor": "83dcbf40879ca06ab07cdfcf365b5c0ccb7608a4",
+      "authority": "current source"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "Provide unique actionable information per metric.",
+        "kind": "outcome",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "user"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C2",
+        "statement": "Avoid several highly correlated metrics that add little information.",
+        "kind": "anti-goal",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "user"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C3",
+        "statement": "Review current metrics and the field including CRAP before proposing initiatives.",
+        "kind": "sequence",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "user"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C4",
+        "statement": "Research and planning are authorized; application implementation remains planned.",
+        "kind": "constraint",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "user"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C5",
+        "statement": "Correct measurement meaning, availability, ownership and comparison before adding metric families.",
+        "kind": "implementation hypothesis",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "research",
+          "repo"
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "themes": [],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Small isolated local proofs; no enterprise infrastructure or compatibility layers.",
+    "problem": "Correct measurement meaning, availability, ownership and comparison before adding metric families.",
+    "recommended_shape": "Trustworthy metrics and ranking",
+    "success_moves": [
+      "Start with one real scan/report instead of redesigning all analyzers.",
+      "Use capability declarations and explicit exceptional states before per-value wrappers.",
+      "Use one current contract and direct ranking implementations with shared fixtures.",
+      "Reproduce area and selection failures before changing their code."
+    ],
+    "first_proof": {
+      "question": "Can one scan preserve executable ownership and distinguish zero from unavailable end to end?",
+      "artifact": "TS/Python scan fixture, report and explorer detail.",
+      "decision_rule": "Proceed only if all expected populations, states and maximum source locations agree."
+    },
+    "rabbit_holes": [],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/.codex/worktrees/46c0/srcly",
+      "revision": "83dcbf40879ca06ab07cdfcf365b5c0ccb7608a4",
+      "worktree_status": "Research/planning documents only; no application implementation.",
+      "subsystems": [
+        "server/app/models.py",
+        "server/app/services/analysis_types.py",
+        "server/app/services/analysis.py",
+        "server/app/services/reporting.py",
+        "client/src/components/Explorer.tsx",
+        "client/src/utils/metricsStore.tsx"
+      ],
+      "test_commands": [
+        "cd server && uv run pytest tests/test_complexity_semantics.py tests/test_synthetic_scopes.py tests/test_reporting.py",
+        "cd client && pnpm test",
+        "cd client && pnpm build"
+      ],
+      "deployment_surfaces": []
+    },
+    "dependencies": [
+      {
+        "id": "analyzers",
+        "name": "Existing analyzers and scope/area attribution",
+        "material": true,
+        "application_seam": "analysis_types.py scope identity and analysis.py node construction",
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "The first outcome depends on actual analyzer output; hand-built nodes alone cannot establish propagation."
+        },
+        "failure_modes": [
+          "unsupported syntax",
+          "parser partial result",
+          "skipped file",
+          "overlapping spans"
+        ],
+        "proof_rungs": [
+          "local-fixture",
+          "contract-test",
+          "real-local-output"
+        ],
+        "local_proof": "Small checked-in source fixtures with expected populations and exceptional analyzer outcomes.",
+        "live_proof": "No external provider; run installed analyzers in the local scan and browser fixture.",
+        "rollout": "Optional input or coherent commit; omit/revert without parallel API support."
+      }
+    ],
+    "fast_local_loop": {
+      "command": "cd server && uv run pytest tests/test_complexity_semantics.py tests/test_synthetic_scopes.py tests/test_reporting.py",
+      "network_required": false,
+      "shared_infrastructure_required": false,
+      "failure_injection": [
+        "unsupported syntax",
+        "parser partial result",
+        "skipped file",
+        "overlapping spans"
+      ],
+      "status": "Proposed commands for implementation; new scripts/tests do not exist yet."
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "A scan distinguishes executable evidence from unavailable data",
+        "outcome": "A scan/report/explorer distinguishes real executable scopes, measured zero and unsupported analysis.",
+        "dependencies_introduced": [],
+        "proof": "Focused pytest and local browser check on TS/Python plus skipped-file fixture.",
+        "valid_intermediate_state": "A scan/report/explorer distinguishes real executable scopes, measured zero and unsupported analysis. Existing source-only scanning remains usable.",
+        "rollback": "Revert the scoped milestone commit or omit optional evidence; no stored-data migration.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m2",
+        "title": "Measures conserve their declared units",
+        "outcome": "Source units, display area, counts and per-function summaries agree with hand-declared cases.",
+        "dependencies_introduced": [],
+        "proof": "Area-union fixtures, real-function denominator cases and all metric support assertions.",
+        "valid_intermediate_state": "Source units, display area, counts and per-function summaries agree with hand-declared cases. Existing source-only scanning remains usable.",
+        "rollback": "Revert the scoped milestone commit or omit optional evidence; no stored-data migration.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m3",
+        "title": "Ranking and selection tell one consistent story",
+        "outcome": "UI and report compare the same cohort with monotone scores and current selected evidence.",
+        "dependencies_introduced": [],
+        "proof": "Shared cohort UI/report parity, fixed-peer monotonicity, selected-scope/filter browser checks.",
+        "valid_intermediate_state": "UI and report compare the same cohort with monotone scores and current selected evidence. Existing source-only scanning remains usable.",
+        "rollback": "Revert the scoped milestone commit or omit optional evidence; no stored-data migration.",
+        "status": "planned",
+        "evidence": []
+      }
+    ],
+    "cut_line": [
+      "New metric families, general type checking, compatibility layers and registry generators.",
+      "Persistent review states, longitudinal identity, trend services and a visual redesign.",
+      "Automatic metric deletion or default selection based solely on correlation."
+    ],
+    "open_decisions": [],
+    "initiative_dependencies": []
+  },
+  "history": [
+    {
+      "date": "2026-10-15",
+      "change": "Created planned initiative from collected Pro research and independent source checks. Application proofs remain unrun."
+    }
+  ],
+  "closure": null
+}
