@@ -116,7 +116,9 @@ def test_manager_prunes_old_finished_jobs(fake_scan, tmp_path: Path) -> None:
         job = mgr.start(target)
         assert job.wait(5)
         ids.append(job.id)
-    mgr.start(tmp_path)  # pruning happens on start
+    # Pruning happens on start. Wait so the job can't outlive this test and
+    # pick up the next test's patched scan_codebase.
+    assert mgr.start(tmp_path).wait(5)
 
     assert mgr.get(ids[0]) is None
     assert mgr.get(ids[-1]) is not None

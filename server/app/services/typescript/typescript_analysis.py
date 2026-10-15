@@ -6,7 +6,7 @@ from typing import List, Set, Dict
 TYPESCRIPT_LANGUAGE = Language(tstypescript.language_typescript())
 TSX_LANGUAGE = Language(tstypescript.language_tsx())
 
-from app.services.analysis_types import FileMetrics, FunctionMetrics
+from app.services.analysis_types import FileMetrics, FunctionMetrics, is_synthetic_scope
 
 class TreeSitterAnalyzer:
     def __init__(self):
@@ -58,8 +58,9 @@ class TreeSitterAnalyzer:
         self._attach_tsx_fragments(top_level_functions)
         
         avg_complexity = 0.0
-        if top_level_functions:
-            avg_complexity = sum(f.cyclomatic_complexity for f in top_level_functions) / len(top_level_functions)
+        real_functions = [f for f in top_level_functions if not is_synthetic_scope(f)]
+        if real_functions:
+            avg_complexity = sum(f.cyclomatic_complexity for f in real_functions) / len(real_functions)
             
         comment_density = self._file_comment_lines / nloc if nloc > 0 else 0.0
         
@@ -68,8 +69,8 @@ class TreeSitterAnalyzer:
         duplicated_string_count = sum(1 for count in self._string_literals.values() if count > 1)
 
         # Aggregate function metrics
-        total_function_length = sum(f.nloc for f in top_level_functions)
-        average_function_length = total_function_length / len(top_level_functions) if top_level_functions else 0.0
+        total_function_length = sum(f.nloc for f in real_functions)
+        average_function_length = total_function_length / len(real_functions) if real_functions else 0.0
         parameter_count = sum(f.parameter_count for f in top_level_functions)
 
         return FileMetrics(
