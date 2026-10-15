@@ -4,6 +4,7 @@ import { Button } from "../../components/ui/Button";
 import { CheckboxRow } from "../../components/ui/CheckboxRow";
 import type { DependencyGraphContract } from "./contract";
 import { DependencyCanvas, type CanvasApi } from "./DependencyCanvas";
+import { DependencyLegend } from "./DependencyLegend";
 import {
   applyFilters,
   buildIndex,
@@ -132,15 +133,18 @@ export default function DependencyView(props: {
         </Show>
         <Show when={layout() && (viewModel()?.nodes.length ?? 0) > 0 ? layout() : null}>
           {(l) => (
-            <DependencyCanvas
-              layout={l()}
-              focusLabel={viewModel()?.focusLabel}
-              focusIsGroup={viewModel()?.focusKind === "file" && (viewModel()?.nodes.some((n) => n.kind === "symbol" && n.region === "center") ?? false)}
-              onFocus={onFocusNode}
-              onOpen={onOpenNode}
-              onMenu={openMenu}
-              ref={(api) => (canvas = api)}
-            />
+            <>
+              <DependencyCanvas
+                layout={l()}
+                focusLabel={viewModel()?.focusLabel}
+                focusIsGroup={viewModel()?.focusKind === "file" && (viewModel()?.nodes.some((n) => n.kind === "symbol" && n.region === "center") ?? false)}
+                onFocus={onFocusNode}
+                onOpen={onOpenNode}
+                onMenu={openMenu}
+                ref={(api) => (canvas = api)}
+              />
+              <DependencyLegend />
+            </>
           )}
         </Show>
       </div>

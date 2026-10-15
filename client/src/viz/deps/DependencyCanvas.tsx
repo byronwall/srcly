@@ -1,10 +1,17 @@
 import * as d3 from "d3";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { truncateTextToWidth } from "../../utils/svgText";
+import {
+  CONTEXT_EDGE_DASH,
+  CONTEXT_EDGE_OPACITY,
+  EDGE_OPACITY,
+  edgeStrokeWidth,
+  EXTERNAL_BOX_DASH,
+} from "./encoding";
 import { boundsOf } from "./geometry";
 import { createClickIntent, liveHover } from "./interaction";
 import { MAX_SCALE, type PositionedEdge, type PositionedNode, type ViewLayout } from "./layout";
-import type { Region, ViewNode } from "./viewModel";
+import type { ViewNode } from "./viewModel";
 
 const LABEL_FONT = "500 12px Inter, ui-sans-serif, system-ui, sans-serif";
 const PAD_X = 8;
@@ -17,19 +24,8 @@ export interface CanvasApi {
   fit: () => void;
 }
 
-const REGION_TITLE: Record<Region, string> = {
-  in: "Imported by",
-  center: "Focus",
-  out: "Imports",
-};
-
 function edgePath(e: PositionedEdge): string {
   return e.points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join("");
-}
-
-function strokeWidth(weight: number, faint: boolean): number {
-  if (faint) return 1;
-  return Math.min(4.5, 1.25 + Math.log2(weight) * 0.75);
 }
 
 const SYMBOL_GLYPH: Record<string, string> = {
@@ -181,22 +177,6 @@ export function DependencyCanvas(props: {
     return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
   });
 
-  // Column headers above each region.
-  const regionHeaders = createMemo(() => {
-    const out: { region: Region; x: number; y: number; width: number }[] = [];
-    const regions = new Set(props.layout.nodes.map((n) => n.node.region));
-    if (regions.size < 2 && !props.focusIsGroup) return out;
-    const top = Math.min(...props.layout.nodes.map((n) => n.y));
-    for (const region of ["in", "center", "out"] as Region[]) {
-      const ns = props.layout.nodes.filter((n) => n.node.region === region);
-      if (ns.length === 0) continue;
-      const x0 = Math.min(...ns.map((n) => n.x));
-      const x1 = Math.max(...ns.map((n) => n.x + n.width));
-      out.push({ region, x: x0, y: top - 16, width: x1 - x0 });
-    }
-    return out;
-  });
-
   const showCard = (ev: MouseEvent, payload: { node?: PositionedNode; edge?: PositionedEdge }) => {
     const host = svgRef.getBoundingClientRect();
     setCard({ x: ev.clientX - host.left + 14, y: ev.clientY - host.top + 14, ...payload });
@@ -232,23 +212,6 @@ export function DependencyCanvas(props: {
               </text>
             )}
           </For>
-          <For each={regionHeaders()}>
-            {(h) => (
-              <text
-                x={h.x + h.width / 2}
-                y={h.y}
-                text-anchor="middle"
-                class={
-                  h.region === "center" && props.focusIsGroup
-                    ? "fill-[var(--plc-accent-hover)] text-[12px] font-semibold"
-                    : "fill-[var(--plc-on-subtle)] text-[11px] font-semibold uppercase tracking-wide"
-                }
-              >
-                {h.region === "center" && props.focusIsGroup && props.focusLabel ? props.focusLabel : REGION_TITLE[h.region]}
-              </text>
-            )}
-          </For>
-
           <Show when={props.focusIsGroup ? focusFrame() : null}>
             {(f) => (
               <rect
@@ -263,6 +226,19 @@ export function DependencyCanvas(props: {
               />
             )}
           </Show>
+          {/* The focused file titles the frame around its symbols. */}
+          <Show when={props.focusIsGroup && props.focusLabel ? focusFrame() : null}>
+            {(f) => (
+              <text
+                x={f().x + f().width / 2}
+                y={f().y - 8}
+                text-anchor="middle"
+                class="fill-[var(--plc-accent-hover)] text-[12px] font-semibold"
+              >
+                {props.focusLabel}
+              </text>
+            )}
+          </Show>
           <g fill="none">
             <For each={props.layout.edges}>
               {(e) => {
@@ -273,9 +249,9 @@ export function DependencyCanvas(props: {
                     <path
                       d={edgePath(e)}
                       stroke={active() ? "var(--plc-accent)" : "var(--plc-tertiary)"}
-                      stroke-width={strokeWidth(e.edge.weight, e.edge.faint)}
-                      stroke-opacity={dimmed() ? 0.12 : e.edge.faint && !active() ? 0.35 : 0.9}
-                      stroke-dasharray={e.edge.faint ? "3 3" : undefined}
+                      stroke-width={edgeStrokeWidth(e.edge.weight, e.edge.faint)}
+                      stroke-opacity={dimmed() ? 0.12 : e.edge.faint && !active() ? CONTEXT_EDGE_OPACITY : EDGE_OPACITY}
+                      stroke-dasharray={e.edge.faint ? CONTEXT_EDGE_DASH : undefined}
                       stroke-linejoin="round"
                       marker-end={active() ? "url(#dv-arrow-active)" : "url(#dv-arrow)"}
                       style={{ transition: "stroke 140ms ease, stroke-opacity 140ms ease" }}
@@ -356,7 +332,7 @@ export function DependencyCanvas(props: {
                           : "var(--plc-border-strong)"
                     }
                     stroke-width={isFocus ? 1.5 : 1}
-                    stroke-dasharray={n.node.kind === "external" ? "4 2" : undefined}
+                    stroke-dasharray={n.node.kind === "external" ? EXTERNAL_BOX_DASH : undefined}
                     style={{ transition: "stroke 140ms ease" }}
                   />
                   <KindGlyph node={n.node} x={PAD_X} y={n.height / 2 - 6} />
