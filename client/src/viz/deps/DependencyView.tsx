@@ -12,6 +12,7 @@ import {
   type FilterOptions,
 } from "./hierarchy";
 import { layoutView, type ViewLayout } from "./layout";
+import { viewMetrics, type MetricsIndex } from "./metrics";
 import { buildViewModel, DEFAULT_BUDGET, type ViewNode } from "./viewModel";
 import { folderOf, graphIdFor } from "../../navigation/location";
 import NodeActionsMenu, { type NodeMenuTarget } from "../../navigation/NodeActionsMenu";
@@ -37,6 +38,10 @@ export default function DependencyView(props: {
    * also pass their line, so the viewer can land on them by position.
    */
   onOpen: (at: string, line?: number) => void;
+  /** Treemap nodes by absolute path, built once per scan: LOC and colors for the boxes. */
+  metricsIndex?: MetricsIndex;
+  /** The treemap's color metric, so the graph uses the same colors. */
+  colorMetric?: string;
 }) {
   const [graph] = createResource(() => props.rootPath, (p) => fetchGraph(p || undefined));
   const [layout, setLayout] = createSignal<ViewLayout | null>(null);
@@ -74,6 +79,14 @@ export default function DependencyView(props: {
     void layoutView(vm, { aspectRatio, viewport }).then((l) => {
       if (token === layoutToken) setLayout(l);
     });
+  });
+
+  // Metrics per box: follows the layout and the scan, never the color
+  // metric, so recoloring repaints without a relayout.
+  const boxMetrics = createMemo(() => {
+    const l = layout();
+    const idx = index();
+    return l && idx ? viewMetrics(idx, l.nodes.map((n) => n.node), props.metricsIndex) : undefined;
   });
 
   const onFocusNode = (n: ViewNode) => {
@@ -142,6 +155,8 @@ export default function DependencyView(props: {
                 onOpen={onOpenNode}
                 onMenu={openMenu}
                 ref={(api) => (canvas = api)}
+                metrics={boxMetrics()}
+                colorMetric={props.colorMetric}
               />
               <DependencyLegend />
             </>

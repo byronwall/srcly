@@ -8,6 +8,7 @@ import {
   edgeStrokeWidth,
   EXTERNAL_BOX_DASH,
 } from "./encoding";
+import { TREEMAP_RAMP } from "../treemap/utils/colors";
 
 const COLLAPSED_KEY = "srcly.depsLegendCollapsed";
 
@@ -66,6 +67,37 @@ function ExternalSwatch() {
   );
 }
 
+/** Folder box: heavier frame and a size bar along the bottom. */
+function FolderSwatch() {
+  return (
+    <svg width={SW} height={SH} viewBox={`0 0 ${SW} ${SH}`} aria-hidden="true">
+      <rect x="1" y="1" width={SW - 2} height={SH - 2} rx="2.5" fill="var(--plc-surface-muted)" stroke="var(--plc-on-disabled)" stroke-width="1.5" />
+      <rect x="2.5" y={SH - 4.5} width={(SW - 5) * 0.65} height="2" rx="1" fill="var(--plc-tertiary)" fill-opacity="0.45" />
+    </svg>
+  );
+}
+
+/** Package frame around neighbors from one folder. */
+function FrameSwatch() {
+  return (
+    <svg width={SW} height={SH} viewBox={`0 0 ${SW} ${SH}`} aria-hidden="true">
+      <rect x="0.5" y="0.5" width={SW - 1} height={SH - 1} rx="3" fill="var(--plc-surface)" stroke="var(--plc-border-strong)" />
+      <rect x="4" y="4.5" width={SW - 8} height="5" rx="1.5" fill="var(--plc-surface-muted)" stroke="var(--plc-border-strong)" stroke-width="0.75" />
+    </svg>
+  );
+}
+
+/** Box fill: the treemap's color ramp. */
+function FillSwatch() {
+  return (
+    <svg width={SW} height={SH} viewBox={`0 0 ${SW} ${SH}`} aria-hidden="true">
+      <For each={TREEMAP_RAMP}>
+        {(c, i) => <rect x={1 + i() * ((SW - 2) / TREEMAP_RAMP.length)} y="2" width={(SW - 2) / TREEMAP_RAMP.length} height={SH - 4} fill={c} />}
+      </For>
+    </svg>
+  );
+}
+
 const ITEMS: { swatch: () => JSX.Element; label: string }[] = [
   { swatch: () => <EdgeSwatch width={edgeStrokeWidth(1, false)} opacity={EDGE_OPACITY} />, label: "Imports (arrow points at the dependency)" },
   { swatch: () => <EdgeSwatch width={edgeStrokeWidth(8, false)} opacity={EDGE_OPACITY} />, label: "Thicker: more import links" },
@@ -74,6 +106,9 @@ const ITEMS: { swatch: () => JSX.Element; label: string }[] = [
     label: "Context: between neighbors, or inside the focus",
   },
   { swatch: () => <ExternalSwatch />, label: "External package" },
+  { swatch: () => <FolderSwatch />, label: "Folder; the bar shows its size (LOC)" },
+  { swatch: () => <FrameSwatch />, label: "Neighbors from one package" },
+  { swatch: () => <FillSwatch />, label: "Fill: the treemap's color metric" },
 ];
 
 /** Bottom-right key to the graph's visual encodings; collapses to an icon. */
