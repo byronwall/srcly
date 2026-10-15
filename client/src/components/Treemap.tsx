@@ -20,12 +20,16 @@ import type { TreemapTile } from "../viz/treemap/utils/hitTest";
 import TreemapHeader from "../viz/treemap/components/TreemapHeader";
 import TreemapTooltip from "../viz/treemap/components/TreemapTooltip";
 import { useTreemapTooltip } from "../viz/treemap/hooks/useTreemapTooltip";
+import { crumbsFor } from "../navigation/location";
+import { go, location } from "../navigation/store";
 
 const DependencyView = lazy(() => import("../viz/deps/DependencyView"));
 
 interface TreemapProps {
   data: any;
   currentRoot?: any;
+  /** Absolute path of the scan root; the graph is always fetched for it. */
+  rootPath: string;
   onZoom?: (node: any) => void;
   onFileSelect?: (
     path: string,
@@ -45,18 +49,16 @@ export default function Treemap(props: TreemapProps) {
   let containerRef: HTMLDivElement | undefined;
   const [dimensions, setDimensions] = createSignal({ width: 0, height: 0 });
   const [currentRoot, setCurrentRoot] = createSignal<any>(null);
-  const [breadcrumbs, setBreadcrumbs] = createSignal<any[]>([]);
   const [activeExtensions, setActiveExtensions] = createSignal<string[]>([]);
   const [maxLoc, setMaxLoc] = createSignal<number | undefined>(undefined);
   const [showLegend, setShowLegend] = createSignal(false);
   const [isAltPressed, setIsAltPressed] = createSignal(false);
   const [isIsolateMode, setIsIsolateMode] = createSignal(false);
   const [showMetricPopover, setShowMetricPopover] = createSignal(false);
-  // Reopen the dependency view after a refresh when its focus is in the URL.
-  const [showDependencyGraph, setShowDependencyGraph] = createSignal(
-    typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).has("depFocus"),
-  );
+  const showDependencyGraph = () => location().view === "graph";
+  const setShowDependencyGraph = (show: boolean) => go({ view: show ? "graph" : "treemap" });
+  // One breadcrumb for both views, built from the location itself.
+  const crumbs = createMemo(() => crumbsFor(location().at, baseName(props.rootPath)));
   const {
     selectedHotSpotMetrics,
     setSelectedHotSpotMetrics,
@@ -110,21 +112,10 @@ export default function Treemap(props: TreemapProps) {
     const requestedRoot = props.currentRoot;
     if (!dataRoot) {
       setCurrentRoot(null);
-      setBreadcrumbs([]);
       return;
     }
-    if (requestedRoot && dataRoot) {
-      const resolved = resolveNodeByPath(dataRoot, requestedRoot.path);
-      if (resolved) {
-        setCurrentRoot(resolved.node);
-        setBreadcrumbs(resolved.breadcrumbs);
-        return;
-      }
-    }
-    if (dataRoot) {
-      setCurrentRoot(dataRoot);
-      setBreadcrumbs([dataRoot]);
-    }
+    const resolved = requestedRoot ? resolveNodeByPath(dataRoot, requestedRoot.path) : null;
+    setCurrentRoot(resolved?.node ?? dataRoot);
   });
 
   const toggleExtension = (extension: string) => {
@@ -135,25 +126,13 @@ export default function Treemap(props: TreemapProps) {
     );
   };
 
-  function zoomToNode(nodeData: any) {
-    if (props.onZoom) {
-      props.onZoom(nodeData);
-      return;
-    }
-    setCurrentRoot(nodeData);
-    const resolved = resolveNodeByPath(props.data, nodeData.path);
-    if (resolved) setBreadcrumbs(resolved.breadcrumbs);
-    else if (props.data) setBreadcrumbs([props.data]);
-  }
-
   function handleHierarchyClick(node: TreemapTile, event: ActivationModifiers) {
     if (event.altKey) {
       if (node.data.path) toggleExcludedPath(node.data.path);
       return;
     }
     if (event.metaKey || event.ctrlKey || node.data.type === "folder") {
-      if (props.onZoom) props.onZoom(node.data);
-      else zoomToNode(node.data);
+      props.onZoom?.(node.data);
       return;
     }
     if (!props.onFileSelect) return;
@@ -227,8 +206,8 @@ export default function Treemap(props: TreemapProps) {
     <div class="plc-panel relative flex h-full w-full flex-col overflow-hidden rounded-none border">
       <TreemapHeader
         data={props.data}
-        breadcrumbs={breadcrumbs}
-        onBreadcrumbClick={zoomToNode}
+        crumbs={crumbs}
+        onCrumbClick={(at) => go({ at })}
         activeExtensions={activeExtensions}
         onToggleExtension={toggleExtension}
         onClearExtensions={() => setActiveExtensions([])}
@@ -248,10 +227,7 @@ export default function Treemap(props: TreemapProps) {
       <div ref={containerRef} class="relative flex-1 overflow-hidden">
         <Suspense fallback={<div class="p-3 text-[var(--plc-on-subtle)]">Loading dependencies…</div>}>
           <Show when={showDependencyGraph()}>
-            <DependencyView
-              path={currentRoot()?.path}
-              onClose={() => setShowDependencyGraph(false)}
-            />
+            <DependencyView rootPath={props.rootPath} />
           </Show>
         </Suspense>
         <Show when={!showDependencyGraph() && layoutRoot()}>
@@ -280,4 +256,9 @@ export default function Treemap(props: TreemapProps) {
       <TreemapTooltip model={tooltip} />
     </div>
   );
+}
+
+function baseName(path: string): string {
+  const parts = path.split(/[\\/]/).filter(Boolean);
+  return parts[parts.length - 1] ?? path;
 }
