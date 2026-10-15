@@ -109,23 +109,33 @@ The backend lives in the `server/app` package and is exposed as a FastAPI app.
     - **Body fragments**: leftover lines inside parent scopes are represented separately so treemap area does not double-count nested scopes.
   - Aggregates metrics up the tree so every folder and file has useful rollups.
 - **Caching**
-  - Stores the full tree as `codebase_mri.json` in the analyzed root directory.
-  - Subsequent requests reuse the cache until you explicitly refresh.
+  - Saves each finished analysis in your user cache directory, never in the analyzed repo:
+    - macOS: `~/Library/Caches/srcly/analysis`
+    - Linux: `$XDG_CACHE_HOME/srcly/analysis` (default `~/.cache/srcly/analysis`)
+    - Windows: `%LOCALAPPDATA%\srcly\Cache\analysis`
+    - Set `SRCLY_CACHE_DIR` to use another location.
+  - Entries are keyed by the resolved path and checked against a fingerprint of every file's path, modification time and size (skipping `node_modules`, `.git` and the other ignored directories) plus the Srcly version. Any change triggers a fresh scan; reopening an unchanged repo loads instantly.
+  - The 20 most recent repos are kept on disk (gzipped), and the last 2 also in memory. Delete the folder to clear it.
+  - `POST /api/analysis/refresh` or `POST /api/scans` with `"force": true` ignores the cache and rescans.
 
 ### API surface (used by the UI)
 
 - **Analysis**
-  - `GET /api/analysis?path=/path/to/repo` — return the full analysis tree; uses `codebase_mri.json` if present, otherwise scans.
+  - `GET /api/analysis?path=/path/to/repo` — return the full analysis tree; uses the cached analysis if no files changed, otherwise scans. Concurrent requests for one path share a single scan.
   - `GET /api/analysis/context` — return the current server root and detected repository root with estimated file/folder counts.
   - `GET /api/analysis/dependencies?path=/path/to/repo` — build a TypeScript/TSX dependency graph.
-  - `POST /api/analysis/refresh` — force a rescan of the current root.
+  - `POST /api/analysis/refresh?path=/path/to/repo` — force a rescan (defaults to the current root) and replace the cached analysis.
+- **Scan jobs** (what the UI uses, with live progress)
+  - `POST /api/scans` with `{"path": "...", "force": false}` — start a scan, join the running one for that path, or return an already-complete job when the cache is fresh (`"cached": true`).
+  - `GET /api/scans/{id}/events` — Server-Sent Events stream of progress snapshots; `GET /api/scans/{id}` polls the same snapshot.
+  - `GET /api/scans/{id}/result` — the analysis tree once complete; `DELETE /api/scans/{id}` cancels.
 - **Files**
   - `GET /api/files/content?path=/absolute/path/to/file` — fetch raw file contents for the code viewer.
   - `GET /api/files/suggest?path=/some/path` — return directory contents to power the path picker.
 
 ## Metrics
 
-For every node (folder, file, function, or glue-code fragment), Srcly computes a consistent set of metrics and aggregates them into the `codebase_mri.json` output:
+For every node (folder, file, function, or glue-code fragment), Srcly computes a consistent set of metrics and aggregates them into the analysis tree:
 
 | Metric              | Description                               | Aggregation Logic                                                                              |
 | :------------------ | :---------------------------------------- | :--------------------------------------------------------------------------------------------- |

@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 from app.models import Node
-from app.services import analysis
+from app.services import analysis, cache
 from app.services.scan_progress import ScanObserver
 from app.services.scan_workers import CancelToken, ScanCancelled
 
@@ -65,6 +65,10 @@ class ScanJob(ScanObserver):
     finished_monotonic: Optional[float] = None
     result: Optional[Node] = None
     version: int = 0
+    # True when the result came from the analysis cache instead of a scan.
+    cached: bool = False
+    # Fingerprint of the root taken before scanning, for the cache entry.
+    fingerprint: Optional[str] = None
 
     _failures: deque = field(default_factory=lambda: deque(maxlen=MAX_REPORTED_FAILURES))
     # path -> monotonic start time, insertion-ordered so the oldest is first.
@@ -103,6 +107,7 @@ class ScanJob(ScanObserver):
                 "current_path": self.current_path,
                 "elapsed_seconds": round(elapsed, 3),
                 "error": self.error,
+                "cached": self.cached,
                 "failures": [
                     {"path": f.path, "reason": f.reason, "detail": f.detail} for f in self._failures
                 ],
@@ -169,9 +174,32 @@ class ScanJob(ScanObserver):
 
     # -- execution -----------------------------------------------------------
 
+    @classmethod
+    def from_cache(cls, root_path: Path, entry: cache.CachedAnalysis) -> "ScanJob":
+        """A job that is already complete, serving a cached result."""
+        now = time.monotonic()
+        job = cls(
+            root_path=root_path,
+            phase="complete",
+            files_discovered=entry.files_total,
+            files_total=entry.files_total,
+            files_done=entry.files_total,
+            files_failed=entry.files_failed,
+            started_monotonic=now,
+            finished_monotonic=now,
+            cached=True,
+            fingerprint=entry.fingerprint,
+        )
+        job._result_json = entry.data
+        job._done.set()
+        return job
+
     def run(self) -> None:
         self._update(started_monotonic=time.monotonic())
         try:
+            # Taken before scanning: an edit made mid-scan then invalidates
+            # the entry instead of being silently baked into it.
+            self.fingerprint = cache.fingerprint(self.root_path)
             tree = analysis.scan_codebase(
                 self.root_path, verbose=False, cancel=self.cancel_token, observer=self
             )
@@ -181,6 +209,21 @@ class ScanJob(ScanObserver):
             self._finish("failed", error=f"{type(exc).__name__}: {exc}")
         else:
             self._finish("complete", result=tree)
+            self._save_to_cache()
+
+    def _save_to_cache(self) -> None:
+        try:
+            snapshot = self.snapshot()
+            cache.analysis_cache.save(
+                self.root_path,
+                self.fingerprint,
+                self.result_json(),
+                files_total=snapshot["files_total"],
+                files_failed=snapshot["files_failed"],
+                scan_seconds=snapshot["elapsed_seconds"],
+            )
+        except Exception as exc:  # noqa: BLE001 - the cache is best-effort
+            print(f"⚠️  Could not cache analysis of {self.root_path}: {exc}", flush=True)
 
     def _finish(self, phase: ScanPhase, **changes) -> None:
         with self._lock:
@@ -197,20 +240,40 @@ class ScanJobManager:
         self._lock = threading.Lock()
         self._max_finished = max_finished
 
-    def start(self, root_path: Path) -> ScanJob:
-        """Start a scan of ``root_path``, or return the one already running for it."""
+    def start(self, root_path: Path, force: bool = False) -> ScanJob:
+        """
+        Start a scan of ``root_path``, or return the one already running for it.
+
+        Unless ``force`` is set, an unchanged cached analysis is returned as an
+        already-complete job without scanning.
+        """
         resolved = root_path.resolve()
         with self._lock:
-            for job in self._jobs.values():
-                if job.root_path == resolved and not job.finished and not job.cancel_token.cancelled:
-                    return job
-            job = ScanJob(root_path=resolved)
+            running = self._running_locked(resolved)
+            if running is not None:
+                return running
+
+        # Checking the cache walks the tree, so do it outside the lock.
+        entry = None if force else cache.analysis_cache.load(resolved)
+
+        with self._lock:
+            running = self._running_locked(resolved)
+            if running is not None:
+                return running
+            job = ScanJob.from_cache(resolved, entry) if entry else ScanJob(root_path=resolved)
             self._jobs[job.id] = job
             self._prune_locked()
 
-        thread = threading.Thread(target=job.run, name=f"srcly-scan-{job.id}", daemon=True)
-        thread.start()
+        if not job.finished:
+            thread = threading.Thread(target=job.run, name=f"srcly-scan-{job.id}", daemon=True)
+            thread.start()
         return job
+
+    def _running_locked(self, resolved: Path) -> Optional[ScanJob]:
+        for job in self._jobs.values():
+            if job.root_path == resolved and not job.finished and not job.cancel_token.cancelled:
+                return job
+        return None
 
     def get(self, job_id: str) -> Optional[ScanJob]:
         with self._lock:

@@ -5,7 +5,7 @@ A FastAPI server for static code analysis using [lizard](https://github.com/terr
 ## Features
 
 - **Static Analysis**: Scans the codebase for cyclomatic complexity and LOC (Lines of Code).
-- **Caching**: Caches analysis results to `codebase_mri.json` to avoid redundant scans.
+- **Caching**: Caches analysis results in the user cache directory (see the main README) and reuses them until files change.
 - **File Serving**: Provides an API to read raw file contents (absolute paths).
 - **API Documentation**: Auto-generated Swagger UI at `/docs`.
 
@@ -33,8 +33,8 @@ The API will be available at `http://localhost:8000`.
 
 ### Analysis
 
-- `GET /api/analysis`: Get the analysis tree. Scans if no cache exists.
-- `POST /api/analysis/refresh`: Force a new scan.
+- `GET /api/analysis`: Get the analysis tree. Scans unless an unchanged cached analysis exists.
+- `POST /api/analysis/refresh`: Force a new scan and replace the cached analysis.
 
 ### Files
 

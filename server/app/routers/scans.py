@@ -42,6 +42,8 @@ CLIENT_RETRY_MS = 2000
 
 class StartScanRequest(BaseModel):
     path: Optional[str] = None
+    # Skip the analysis cache and rescan even if nothing changed.
+    force: bool = False
 
 
 def _job_or_404(job_id: str) -> ScanJob:
@@ -64,7 +66,7 @@ def start_scan(req: StartScanRequest) -> dict:
     target = Path(req.path) if req.path else analysis_router.ROOT_PATH
     if not target.exists():
         raise HTTPException(status_code=404, detail=f"Path not found: {target}")
-    return scan_jobs.manager.start(target).snapshot()
+    return scan_jobs.manager.start(target, force=req.force).snapshot()
 
 
 @router.get("/{job_id}")
@@ -82,7 +84,7 @@ def cancel_scan(job_id: str) -> dict:
 @router.get("/{job_id}/result", response_model=Node)
 def get_scan_result(job_id: str):
     job = _job_or_404(job_id)
-    if job.phase != "complete" or job.result is None:
+    if job.phase != "complete":
         raise HTTPException(status_code=409, detail=f"Scan is {job.phase}, not complete")
     # Pre-encoded bytes: serializing a large tree on the event loop would
     # block every other request (see ScanJob.result_json).
