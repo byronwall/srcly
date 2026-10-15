@@ -60,7 +60,7 @@ Browser
 | Analyzer result dataclasses | `server/app/services/analysis_types.py` |
 | Folder rollups of metrics | `server/app/services/analysis.py` (`aggregate_metrics`) |
 | Function/scope → Node conversion, `(body)` nodes | `server/app/services/analysis.py` (`attach_file_metrics`) |
-| Result cache (currently a no-op stub) | `server/app/services/cache.py` |
+| Analysis cache (user cache dir, fingerprint invalidation) | `server/app/services/cache.py`, used by `server/app/services/scan_jobs.py` |
 
 ### API surface
 
