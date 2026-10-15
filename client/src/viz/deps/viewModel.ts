@@ -2,6 +2,7 @@ import type { GraphNodeKind } from "./contract";
 import {
   ancestors,
   displayName,
+  folderStats,
   isAncestorOrSelf,
   owningFile,
   type GraphIndex,
@@ -24,6 +25,13 @@ export interface ViewNode {
   /** Parent file label for symbols shown on the sides. */
   context?: string;
   symbolKind?: string;
+  /**
+   * Second line under the label: where a symbol or file lives, or what a
+   * folder holds. Optional so other view models (compare) can omit it.
+   */
+  subtitle?: string;
+  /** For folders: files anywhere below it, used to draw relative size. */
+  fileCount?: number;
 }
 
 export interface ViewEdge {
@@ -350,21 +358,21 @@ export function buildViewModel(index: GraphIndex, opts: ViewOptions): ViewModel 
   for (const [key, u] of units) {
     const g = index.byId.get(u.graphId)!;
     const parentFile = g.kind === "symbol" && g.parent ? index.byId.get(g.parent) : undefined;
+    const stats = g.kind === "folder" ? folderStats(index, g.id) : undefined;
     nodes.push({
       id: key,
       graphId: u.graphId,
       region: u.region,
       kind: g.kind,
-      label:
-        g.kind === "symbol" && u.region !== "center" && parentFile
-          ? qualifiedSymbol(parentFile.name, g.name)
-          : displayName(index, u.graphId),
+      label: g.kind === "symbol" ? g.name : displayName(index, u.graphId),
       title: g.path ?? (parentFile ? `${parentFile.path ?? parentFile.name} › ${g.name}` : g.name),
       memberCount: u.members,
       // Inside a focused file, its symbols are the focus.
       isFocus: u.graphId === focusId || (u.region === "center" && focusKind !== "folder"),
       symbolKind: g.symbolKind,
       context: u.region !== "center" && parentFile ? displayName(index, parentFile.id) : undefined,
+      subtitle: subtitleFor(index, g.id, u.region, focusId),
+      fileCount: stats?.files,
     });
   }
   disambiguateLabels(index, nodes);
@@ -416,8 +424,49 @@ function disambiguateLabels(index: GraphIndex, nodes: ViewNode[]): void {
   }
 }
 
-/** `Explorer.SortHeader`, or just `Treemap` when the symbol is named after its file. */
-function qualifiedSymbol(fileName: string, symbol: string): string {
-  const stem = fileName.replace(/\.[^.]+$/, "");
-  return stem === symbol || stem === "__init__" || stem === "index" ? symbol : `${stem}.${symbol}`;
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/**
+ * The muted second line of a box.
+ * - symbol on a side: `module · file` (the folder and file it lives in)
+ * - symbol in a focused file: its kind and line (the file is the frame title)
+ * - file: the folder it lives in, relative to a focused folder that holds it
+ *   (none when it sits directly in the focus)
+ * - folder: what it holds, e.g. "12 files · 3 folders"
+ */
+export function subtitleFor(index: GraphIndex, id: string, region: Region, focusId?: string): string | undefined {
+  const g = index.byId.get(id);
+  if (!g) return undefined;
+  const parentName = (pid: string | null | undefined) => {
+    const p = pid !== null && pid !== undefined ? index.byId.get(pid) : undefined;
+    return p && p.id !== index.graph.root ? p.name : undefined;
+  };
+  switch (g.kind) {
+    case "symbol": {
+      const file = g.parent ? index.byId.get(g.parent) : undefined;
+      if (region === "center") {
+        return [g.symbolKind, g.line ? `line ${g.line}` : undefined].filter(Boolean).join(" · ") || undefined;
+      }
+      if (!file) return undefined;
+      return [parentName(file.parent), file.name].filter(Boolean).join(" · ");
+    }
+    case "file": {
+      const parent = g.parent !== null && g.parent !== undefined ? index.byId.get(g.parent) : undefined;
+      if (!parent) return undefined;
+      const focus = focusId !== undefined ? index.byId.get(focusId) : undefined;
+      if (region === "center" && focus?.kind === "folder" && isAncestorOrSelf(index, focus.id, parent.id)) {
+        if (parent.id === focus.id) return undefined;
+        const base = focus.path ?? "";
+        const path = parent.path ?? parent.name;
+        return base && path.startsWith(base + "/") ? path.slice(base.length + 1) : path;
+      }
+      return parent.id === index.graph.root ? "(repo root)" : (parent.path ?? parent.name);
+    }
+    case "folder": {
+      const { files, folders } = folderStats(index, id);
+      return [plural(files, "file"), folders > 0 ? plural(folders, "folder") : undefined].filter(Boolean).join(" · ");
+    }
+    case "external":
+      return "package";
+  }
 }

@@ -11,14 +11,29 @@ import {
 import { boundsOf } from "./geometry";
 import { createClickIntent, liveHover } from "./interaction";
 import { MAX_SCALE, type PositionedEdge, type PositionedNode, type ViewLayout } from "./layout";
-import type { ViewNode } from "./viewModel";
+import type { Region, ViewNode } from "./viewModel";
 
 const LABEL_FONT = "500 12px Inter, ui-sans-serif, system-ui, sans-serif";
+const SUBTITLE_FONT = "400 11px Inter, ui-sans-serif, system-ui, sans-serif";
 const PAD_X = 8;
 const ICON_W = 16;
-const COUNT_W = 30;
 const MENU_BTN_W = 20;
 const MENU_BTN_H = 16;
+/** Baselines of the two text lines inside a box. */
+const LINE1_Y = 16;
+const LINE2_Y = 30;
+const SIZE_BAR_H = 3;
+
+/** Fit a path by dropping leading segments: `…/viz/deps` rather than `client/src/vi…`. */
+function truncatePathStart(text: string, max: number, font: string): string {
+  if (truncateTextToWidth(text, max, font) === text) return text;
+  const parts = text.split("/");
+  for (let i = 1; i < parts.length; i++) {
+    const tail = `…/${parts.slice(i).join("/")}`;
+    if (truncateTextToWidth(tail, max, font) === tail) return tail;
+  }
+  return truncateTextToWidth(text, max, font);
+}
 
 export interface CanvasApi {
   fit: () => void;
@@ -182,11 +197,30 @@ export function DependencyCanvas(props: {
     setCard({ x: ev.clientX - host.left + 14, y: ev.clientY - host.top + 14, ...payload });
   };
 
-  const labelFor = (n: PositionedNode) => {
-    const hasCount = n.node.memberCount > 1;
-    const max = n.width - PAD_X * 2 - ICON_W - (hasCount ? COUNT_W : 0);
-    return truncateTextToWidth(n.node.label, max, LABEL_FONT);
+  const textRoom = (n: PositionedNode) => n.width - PAD_X * 2 - ICON_W;
+  // A box without a second line centers its label.
+  const line1Y = (n: PositionedNode) => (n.node.subtitle ? LINE1_Y : n.height / 2 + 4);
+  const labelFor = (n: PositionedNode) => truncateTextToWidth(n.node.label, textRoom(n), LABEL_FONT);
+  const subtitleFor = (n: PositionedNode) => {
+    const sub = n.node.subtitle ?? "";
+    return n.node.kind === "file" ? truncatePathStart(sub, textRoom(n), SUBTITLE_FONT) : truncateTextToWidth(sub, textRoom(n), SUBTITLE_FONT);
   };
+
+  // Folder size bars: log(files) against the largest folder on the same side.
+  const sizeBarFraction = createMemo(() => {
+    const max: Record<Region, number> = { in: 0, center: 0, out: 0 };
+    for (const n of props.layout.nodes) {
+      if (n.node.kind === "folder") max[n.node.region] = Math.max(max[n.node.region], n.node.fileCount ?? 0);
+    }
+    const out = new Map<string, number>();
+    for (const n of props.layout.nodes) {
+      const files = n.node.fileCount ?? 0;
+      const top = max[n.node.region];
+      if (n.node.kind !== "folder" || top === 0) continue;
+      out.set(n.id, Math.max(0.04, Math.log1p(files) / Math.log1p(top)));
+    }
+    return out;
+  });
 
   return (
     <div class="relative h-full w-full overflow-hidden bg-[var(--plc-surface-subtle)]">
@@ -280,6 +314,7 @@ export function DependencyCanvas(props: {
           <For each={props.layout.nodes}>
             {(n) => {
               const isFocus = n.node.isFocus;
+              const isFolder = n.node.kind === "folder";
               const dimmed = () => activeNodes() !== null && !activeNodes()!.has(n.id);
               return (
                 <g
@@ -323,42 +358,50 @@ export function DependencyCanvas(props: {
                     width={n.width}
                     height={n.height}
                     rx="4"
-                    fill={isFocus ? "var(--plc-accent-subtle)" : "var(--plc-surface)"}
+                    fill={isFocus ? "var(--plc-accent-subtle)" : isFolder ? "var(--plc-surface-muted)" : "var(--plc-surface)"}
                     stroke={
                       isFocus
                         ? "var(--plc-accent)"
                         : hoverNode() === n.id
                           ? "var(--plc-on-subtle)"
-                          : "var(--plc-border-strong)"
+                          : isFolder
+                            ? "var(--plc-on-disabled)"
+                            : "var(--plc-border-strong)"
                     }
-                    stroke-width={isFocus ? 1.5 : 1}
+                    stroke-width={isFocus || isFolder ? 1.5 : 1}
                     stroke-dasharray={n.node.kind === "external" ? EXTERNAL_BOX_DASH : undefined}
                     style={{ transition: "stroke 140ms ease" }}
                   />
-                  <KindGlyph node={n.node} x={PAD_X} y={n.height / 2 - 6} />
+                  <Show when={sizeBarFraction().get(n.id)}>
+                    {(f) => (
+                      <rect
+                        x={1.5}
+                        y={n.height - SIZE_BAR_H - 1.5}
+                        width={(n.width - 3) * f()}
+                        height={SIZE_BAR_H}
+                        rx={SIZE_BAR_H / 2}
+                        fill="var(--plc-tertiary)"
+                        fill-opacity="0.45"
+                      />
+                    )}
+                  </Show>
+                  <KindGlyph node={n.node} x={PAD_X} y={line1Y(n) - 10} />
                   <text
                     x={PAD_X + ICON_W}
-                    y={n.height / 2}
-                    dominant-baseline="central"
+                    y={line1Y(n)}
                     class="text-[12px] font-medium"
                     fill={isFocus ? "var(--plc-accent-hover)" : "var(--plc-on-surface)"}
                   >
                     {labelFor(n)}
                   </text>
-                  <Show when={n.node.memberCount > 1}>
-                    <text
-                      x={n.width - PAD_X}
-                      y={n.height / 2}
-                      dominant-baseline="central"
-                      text-anchor="end"
-                      class="fill-[var(--plc-on-subtle)] text-[11px] tabular-nums"
-                    >
-                      {n.node.memberCount}
+                  <Show when={n.node.subtitle}>
+                    <text x={PAD_X + ICON_W} y={LINE2_Y} class="fill-[var(--plc-on-subtle)] text-[11px]">
+                      {subtitleFor(n)}
                     </text>
                   </Show>
                   <Show when={props.onMenu && hoverNode() === n.id}>
                     <g
-                      transform={`translate(${n.width - MENU_BTN_W - 3},${(n.height - MENU_BTN_H) / 2})`}
+                      transform={`translate(${n.width - MENU_BTN_W - 3},${LINE1_Y - MENU_BTN_H + 4})`}
                       class="group/menu cursor-pointer"
                       role="button"
                       aria-label={`Actions for ${n.node.title || n.node.label}`}
@@ -424,8 +467,8 @@ function NodeCard(props: { node: ViewNode; layout: ViewLayout; id: string }) {
       <div class="break-all font-semibold">{props.node.title || props.node.label}</div>
       <div class="text-[var(--plc-on-muted)]">
         {props.node.kind}
-        {props.node.memberCount > 1 ? ` · ${props.node.memberCount} items` : ""}
-        {props.node.context ? ` · in ${props.node.context}` : ""}
+        {props.node.kind === "folder" && props.node.subtitle ? ` · ${props.node.subtitle}` : ""}
+        {props.node.region !== "center" && props.node.memberCount > 1 ? ` · ${props.node.memberCount} linked` : ""}
       </div>
       <div class="tabular-nums text-[var(--plc-on-muted)]">
         {sum(incoming())} in · {sum(outgoing())} out

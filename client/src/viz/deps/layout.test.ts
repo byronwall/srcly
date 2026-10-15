@@ -170,17 +170,18 @@ describe("viewport-shaped packing", () => {
 });
 
 /**
- * Edge-edge crossings per srcly focus after viewport-shaped packing. Later
- * layout changes compare against these, so a regression is a failing number.
+ * Edge-edge crossings per srcly focus with viewport-shaped packing and
+ * two-line (40px) boxes. Later layout changes compare against these, so a
+ * regression is a failing number.
  */
 const CROSSING_BASELINE: Record<string, number> = {
   "": 13,
   src: 14,
   "src/components": 221,
-  "src/utils": 87,
-  "src/viz": 63,
+  "src/utils": 135,
+  "src/viz": 69,
   "src/viz/treemap": 17,
-  "src/components/Treemap.tsx": 15,
+  "src/components/Treemap.tsx": 20,
   "src/utils/metricsStore.tsx": 31,
 };
 
@@ -220,8 +221,8 @@ describe("flow direction", () => {
     const vm = buildViewModel(idx, { focusId: "src", budget: 48 });
     const layout = await layoutView(vm, { aspectRatio: 1.7 });
     const x = (label: string) => layout.nodes.find((n) => n.node.label === label)!.x;
-    // Eight one-line boxes fill the viewport best as one column, so depth
-    // levels may share a column — but never run right to left.
+    // Eight boxes fill the viewport best in two columns, so adjacent depth
+    // levels may share a column — but flow never runs right to left.
     expect(x("src/index.tsx")).toBeLessThanOrEqual(x("App.tsx"));
     expect(x("App.tsx")).toBeLessThanOrEqual(x("components"));
   });

@@ -219,6 +219,13 @@ export function buildCompareGraph(
       memberCount: paths.length,
       isFocus: false,
       context: isHub ? `use ${basename(unit.slice(7))}` : undefined,
+      subtitle: isHub
+        ? `use ${basename(unit.slice(7))}`
+        : isExternal(unit)
+          ? "package"
+          : single
+            ? unit.slice(0, Math.max(0, unit.lastIndexOf("/"))) || "(repo root)"
+            : `${paths.length} file${paths.length === 1 ? "" : "s"}`,
     });
     const onBase = paths.some((p) => base.files.has(p) || isExternal(p));
     const onHead = paths.some((p) => head.files.has(p) || isExternal(p));

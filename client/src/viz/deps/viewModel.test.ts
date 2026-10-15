@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import fixture from "./__fixtures__/srcly-client.json";
 import type { DependencyGraphContract } from "./contract";
-import { applyFilters, buildIndex, DEFAULT_FILTERS } from "./hierarchy";
-import { buildViewModel } from "./viewModel";
+import { applyFilters, buildIndex, DEFAULT_FILTERS, folderStats } from "./hierarchy";
+import { buildViewModel, subtitleFor } from "./viewModel";
 
 const srcly = () =>
   buildIndex(applyFilters(fixture as DependencyGraphContract, DEFAULT_FILTERS));
@@ -137,5 +137,81 @@ describe("buildViewModel", () => {
     expect(hidden.edges.some((e) => e.typeOnly)).toBe(false);
     const shown = applyFilters(g, { showExternal: true, showTests: true, showTypeOnly: true });
     expect(shown.edges.filter((e) => e.typeOnly)).toHaveLength(typeOnly.length);
+  });
+
+  describe("two-line boxes", () => {
+    /** model_making/relationship_focus.py exports RelationshipFocus, used by pipeline.py. */
+    const g: DependencyGraphContract = {
+      root: "",
+      nodes: [
+        { id: "", kind: "folder", name: "repo", parent: null },
+        { id: "server", kind: "folder", name: "server", parent: "", path: "server" },
+        { id: "server/model_making", kind: "folder", name: "model_making", parent: "server", path: "server/model_making" },
+        { id: "server/model_making/sub", kind: "folder", name: "sub", parent: "server/model_making", path: "server/model_making/sub" },
+        {
+          id: "server/model_making/relationship_focus.py",
+          kind: "file",
+          name: "relationship_focus.py",
+          parent: "server/model_making",
+          path: "server/model_making/relationship_focus.py",
+        },
+        {
+          id: "server/model_making/relationship_focus.py#RelationshipFocus",
+          kind: "symbol",
+          name: "RelationshipFocus",
+          parent: "server/model_making/relationship_focus.py",
+          symbolKind: "class",
+          line: 12,
+        },
+        { id: "server/model_making/sub/a.py", kind: "file", name: "a.py", parent: "server/model_making/sub", path: "server/model_making/sub/a.py" },
+        { id: "server/pipeline.py", kind: "file", name: "pipeline.py", parent: "server", path: "server/pipeline.py" },
+      ],
+      edges: [
+        { source: "server/pipeline.py", target: "server/model_making/relationship_focus.py#RelationshipFocus" },
+        { source: "server/model_making/sub/a.py", target: "server/pipeline.py" },
+      ],
+    };
+    const index = buildIndex(g);
+
+    it("labels a side symbol by its bare name over module · file", () => {
+      const vm = buildViewModel(index, { focusId: "server/pipeline.py", budget: 48 });
+      const sym = vm.nodes.find((n) => n.kind === "symbol")!;
+      expect(sym.region).toBe("out");
+      expect(sym.label).toBe("RelationshipFocus");
+      expect(sym.subtitle).toBe("model_making · relationship_focus.py");
+    });
+
+    it("gives a focused file's symbols their kind and line", () => {
+      const vm = buildViewModel(index, { focusId: "server/model_making/relationship_focus.py", budget: 48 });
+      const sym = vm.nodes.find((n) => n.region === "center")!;
+      expect(sym.subtitle).toBe("class · line 12");
+    });
+
+    it("gives a center file its folder relative to the focus", () => {
+      const vm = buildViewModel(index, { focusId: "server", budget: 48 });
+      expect(vm.nodes.find((n) => n.graphId === "server/model_making/sub/a.py")!.subtitle).toBe("model_making/sub");
+    });
+
+    it("gives a file its folder", () => {
+      const vm = buildViewModel(index, { focusId: "server/pipeline.py", budget: 48 });
+      expect(vm.nodes.find((n) => n.graphId === "server/pipeline.py")!.subtitle).toBe("server");
+      expect(vm.nodes.find((n) => n.graphId === "server/model_making/sub/a.py")!.subtitle).toBe("server/model_making/sub");
+    });
+
+    it("tells a folder's files and subfolders", () => {
+      expect(subtitleFor(index, "server/model_making", "center")).toBe("2 files · 1 folder");
+      expect(subtitleFor(index, "server/model_making/sub", "in")).toBe("1 file");
+      expect(folderStats(index, "server")).toEqual({ files: 3, folders: 1 });
+    });
+
+    it("counts the big folders in srcly", () => {
+      const vm = buildViewModel(srcly(), { focusId: "src", budget: 48 });
+      const comp = vm.nodes.find((n) => n.label === "components")!;
+      expect(comp.subtitle).toMatch(/^\d+ files · \d+ folders$/);
+      expect(comp.fileCount).toBeGreaterThan(20);
+      for (const n of vm.nodes.filter((x) => x.kind === "folder")) expect(n.subtitle, n.label).toBeTruthy();
+      // Files directly in the focus need no folder line.
+      expect(vm.nodes.find((n) => n.label === "App.tsx")!.subtitle).toBeUndefined();
+    });
   });
 });
