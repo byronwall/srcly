@@ -882,6 +882,13 @@ def attach_fallback_metrics(node: Node, failure: dict) -> None:
     node.metrics.analysis_failed_count = 1
 
 
+def _result_filename(file_info) -> str | None:
+    if isinstance(file_info, dict):
+        # Only failure dicts are usable; any other dict is skipped.
+        return file_info.get("filename") if "error" in file_info else None
+    return getattr(file_info, "filename", None)
+
+
 def scan_codebase(
     root_path: Path,
     *,
@@ -942,15 +949,14 @@ def _scan_codebase(
     tree_root = create_node("root", "folder", str(root_path))
     node_map = {str(root_path): tree_root}
 
-    for file_info in analysis_results:
+    # Workers finish in any order and failures come back last; build the tree
+    # in path order so an unchanged repo always serializes to the same bytes.
+    for file_info in sorted(analysis_results, key=lambda r: str(_result_filename(r) or "")):
         # Failed files come back as dicts with an "error" key; they stay in the
         # tree with fallback metrics. Anything else unexpected (e.g. an object
         # without a ``filename``) is skipped instead of crashing the scan.
         failure = file_info if isinstance(file_info, dict) and "error" in file_info else None
-        if failure is not None:
-            filename = failure.get("filename")
-        else:
-            filename = getattr(file_info, "filename", None)
+        filename = _result_filename(file_info)
         if not filename:
             print(f"⚠️ Skipping unexpected analysis result without filename: {file_info!r}", file=sys.stderr, flush=True)
             continue
