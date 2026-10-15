@@ -101,6 +101,40 @@ export function fetchSource<K extends SourceKind>(
   return fetch(`/api/compare/sources?${params}`).then((r) => json<SectionOf[K]>(r));
 }
 
+// -- Commit stepping (GET /api/compare/commits, POST /api/compare/prewarm) -----
+
+export type StepCommit = {
+  sha: string;
+  short: string;
+  subject: string;
+  author: string;
+  date: number;
+  /** First parent: what this commit's step compares against. */
+  parent: string | null;
+};
+export type CommitList = {
+  base: { sha: string; label: string; subject: string };
+  head: { sha: string | null; label: string };
+  commits: StepCommit[];
+  total: number;
+  truncated: boolean;
+};
+
+export function fetchCommits(base: string, head: string): Promise<CommitList> {
+  const params = new URLSearchParams({ base, head });
+  const repo = compareRepo();
+  if (repo) params.set("path", repo);
+  return fetch(`/api/compare/commits?${params}`).then((r) => json<CommitList>(r));
+}
+
+/** Scan one commit side in the background so the next step is a cache hit. Best effort. */
+export const prewarm = (ref: string) =>
+  fetch("/api/compare/prewarm", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ref, path: compareRepo() ?? undefined }),
+  }).catch(() => undefined);
+
 export const DEFAULT_BASE = "merge-base";
 /** Base that follows the head: its open PR's base, else the merge-base with the default branch. */
 export const AUTO_BASE = "auto";
@@ -199,9 +233,28 @@ export function readCompareParam(search = window.location.search): { base: strin
 export function compareHref(base: string | null, head?: string): string {
   const url = new URL(window.location.href);
   url.searchParams.delete(PICK_PARAM);
+  url.searchParams.delete(RANGE_PARAM);
   if (base === null) url.searchParams.delete(COMPARE_PARAM);
   else url.searchParams.set(COMPARE_PARAM, `${base}..${head ?? DEFAULT_HEAD}`);
   return url.pathname + url.search;
+}
+
+/** While stepping commits: the whole range being stepped through (`<base>..<head>`, e.g. `pr:48..pr:48`). */
+export const RANGE_PARAM = "crange";
+
+export function readRangeParam(search = window.location.search): { base: string; head: string } | null {
+  const raw = new URLSearchParams(search).get(RANGE_PARAM);
+  const at = raw?.indexOf("..") ?? -1;
+  return raw && at > 0 ? { base: raw.slice(0, at), head: raw.slice(at + 2) } : null;
+}
+
+/** Navigate to a compare and set (or with `null`, clear) the stepped range. */
+export function navigateStep(base: string, head: string, range: { base: string; head: string } | null) {
+  const url = new URL(compareHref(base, head), window.location.origin);
+  if (range) url.searchParams.set(RANGE_PARAM, `${range.base}..${range.head}`);
+  else url.searchParams.delete(RANGE_PARAM);
+  window.history.pushState(null, "", url.pathname + url.search);
+  window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
 /** Asks CompareApp to open the picker once on arrival (set by the main app's Compare button). */

@@ -3,6 +3,8 @@ Compare two git refs (PR compare mode).
 
     GET    /api/compare/refs          branches + recent commits for the picker
     GET    /api/compare/sources       one picker section: prs | worktrees | branches
+    GET    /api/compare/commits       first-parent commits in base..head (commit stepper)
+    POST   /api/compare/prewarm       scan one commit side in the background
     POST   /api/compare               start (or join) a compare   -> snapshot
     GET    /api/compare/{id}          current snapshot (poll)
     GET    /api/compare/{id}/result   compare payload once complete
@@ -20,7 +22,16 @@ from pydantic import BaseModel
 
 from app.routers import analysis as analysis_router
 from app.services.compare import jobs, sources
-from app.services.compare.git_refs import GitError, default_branch, repo_root, run_git
+from app.services.compare.git_refs import (
+    AUTO,
+    GitError,
+    default_branch,
+    list_commits,
+    repo_root,
+    resolve_auto_base,
+    resolve_ref,
+    run_git,
+)
 from app.services.compare.service import DEFAULT_BASE, DEFAULT_HEAD
 
 router = APIRouter(prefix="/api/compare", tags=["compare"])
@@ -101,6 +112,37 @@ def list_sources(kind: str, path: Optional[str] = None, all: bool = False, refre
     except GitError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"repo": str(repo), **sources.load_source(repo, kind, mine=not all, refresh=refresh)}
+
+
+@router.get("/commits")
+def get_commits(base: str, head: str, path: Optional[str] = None) -> dict:
+    """The commits a stepper walks: ``base`` resolves as a base (``pr:<n>`` → its merge-base, ``auto``)."""
+    try:
+        repo = repo_root(_target(path))
+        head_ref = resolve_ref(repo, head, side="head")
+        base_ref = resolve_auto_base(repo, head, head_ref) if base == AUTO else resolve_ref(repo, base, side="base")
+        listing = list_commits(repo, base_ref, head_ref)
+    except GitError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "base": {"sha": base_ref.sha, "label": base_ref.label, "subject": base_ref.subject},
+        "head": {"sha": head_ref.sha, "label": head_ref.label},
+        **listing,
+    }
+
+
+class PrewarmRequest(BaseModel):
+    path: Optional[str] = None
+    ref: str
+
+
+@router.post("/prewarm", status_code=202)
+def prewarm(req: PrewarmRequest) -> dict:
+    try:
+        state = jobs.manager.prewarm(_target(req.path), req.ref.strip())
+    except GitError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ref": req.ref, "state": state}
 
 
 @router.post("", status_code=202)

@@ -310,6 +310,45 @@ def resolve_auto_base(repo: Path, head_input: str, head: ResolvedRef, branch: Op
     return ResolvedRef(ref=AUTO, sha=sha, label=sha[:7], subject=subject, pr=pr_context(pr) if pr else None)
 
 
+MAX_COMMITS = 100
+
+
+def list_commits(repo: Path, base: ResolvedRef, head: ResolvedRef, limit: int = MAX_COMMITS) -> dict[str, Any]:
+    """
+    First-parent commits in ``base..head``, oldest first, for stepping through
+    a PR or range, each with its first parent: a step compares a commit with
+    its parent. That is the previous commit in the list, except for the first
+    one when the branch merged its base in later (its parent predates ``base``).
+    A working-tree head lists up to its HEAD commit. Only the newest ``limit``
+    are kept.
+    """
+    if base.sha is None:
+        raise GitError("The base side must be a commit")
+    head_sha = head.sha or run_git(head.root(repo), "rev-parse", "HEAD").strip()
+    raw = run_git(
+        repo,
+        "log",
+        "--first-parent",
+        "--reverse",
+        "--format=%H%x00%h%x00%s%x00%an%x00%ct%x00%P",
+        f"{base.sha}..{head_sha}",
+    )
+    commits = []
+    for line in raw.splitlines():
+        sha, short, subject, author, date, parents = (line.split("\0") + [""] * 6)[:6]
+        commits.append(
+            {
+                "sha": sha,
+                "short": short,
+                "subject": subject,
+                "author": author,
+                "date": int(date) if date.isdigit() else 0,
+                "parent": parents.split(" ")[0] or None,
+            }
+        )
+    return {"commits": commits[-limit:], "total": len(commits), "truncated": len(commits) > limit}
+
+
 _STATUS = {"A": "added", "D": "removed", "M": "modified", "T": "modified", "R": "renamed", "C": "added"}
 
 
