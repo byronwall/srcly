@@ -68,3 +68,6 @@ venv.bak/
 # uv.lock is intentionally not ignored as this is an application
 
 .tmp
+
+# Local dependency-graph captures (may come from private repos)
+client/src/viz/deps/__fixtures__/local/

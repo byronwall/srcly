@@ -1,4 +1,4 @@
-import type { Box, Point, Polyline } from "./geometry";
+import { boundsOf, type Box, type Point, type Polyline } from "./geometry";
 import type { Region, ViewEdge, ViewModel, ViewNode } from "./viewModel";
 
 // Grid + channel layout.
@@ -121,27 +121,135 @@ function chunk<T>(items: T[], size: number): T[][] {
   return out;
 }
 
-function columnCount(n: number, rows: number) {
-  return n === 0 ? 0 : Math.ceil(n / rows);
+/** Approximate grid pitch used to estimate a packing's on-screen size. */
+const COL_PITCH = NODE_WIDTH + MIN_CHANNEL + 12;
+const ROW_PITCH = NODE_HEIGHT + MIN_GUTTER + 4;
+/** Unfold steps tried per region, from fully folded (0) to one column per depth level (1). */
+const UNFOLD_STEPS = [0, 0.25, 0.5, 0.75, 1];
+
+/** Depth levels grouped into `k` runs of adjacent levels (k ≤ levels). */
+function foldLevels<T>(levels: T[][], k: number): T[][] {
+  if (levels.length === 0) return [];
+  const groups: T[][] = Array.from({ length: k }, () => []);
+  levels.forEach((l, i) => groups[Math.floor((i * k) / levels.length)].push(...l));
+  return groups;
 }
 
-/** Pick the row count whose grid best matches the viewport aspect ratio. */
-export function chooseRows(counts: number[], aspectRatio: number): number {
-  const total = counts.reduce((a, b) => a + b, 0);
-  const colPitch = NODE_WIDTH + MIN_CHANNEL + 12;
-  const rowPitch = NODE_HEIGHT + MIN_GUTTER + 4;
-  let best = 1;
-  let bestScore = Infinity;
+/** Fewest runs of levels that still fit in `rows` rows' worth of columns. */
+function minFold(levelCounts: number[], rows: number): number {
+  const n = levelCounts.reduce((a, b) => a + b, 0);
+  return n === 0 ? 0 : Math.min(levelCounts.length, Math.max(1, Math.ceil(n / rows)));
+}
+
+export interface Packing {
+  rows: number;
+  /** Per region: how many runs of adjacent depth levels become column groups. */
+  folds: number[];
+  /** Estimated drawing size (px) and the zoom it fits the viewport at. */
+  width: number;
+  height: number;
+  scale: number;
+  /** Share of depth-level boundaries folded away (0 = one column group per level). */
+  foldLoss: number;
+  /** Some region with several depth levels is folded into a single column group. */
+  collapsesFlow: boolean;
+}
+
+/**
+ * How much a lost depth boundary costs against a shape off by e× (log scale).
+ * Folding everything into one column must cost more than a 2× aspect miss.
+ */
+const FOLD_WEIGHT = 0.7;
+
+/** Width:height within 0.5–2× the viewport's. */
+export function inAspectBand(aspect: number, target: number): boolean {
+  return Math.abs(Math.log(aspect / target)) <= Math.log(2);
+}
+
+/**
+ * The aspect band is a hard limit, except where meeting it would stack a
+ * region's whole multi-level flow into one column. A handful of one-line
+ * boxes can be viewport-shaped only that way, and showing the flow is worth
+ * more there than the shape: such views fit at full zoom regardless.
+ */
+function meetsBand(aspect: number, target: number, p: Pick<Packing, "collapsesFlow">): boolean {
+  return inAspectBand(aspect, target) && !p.collapsesFlow;
+}
+
+/** Extra cost of stacking a whole multi-level region in one column: its flow disappears. */
+const COLLAPSE_PENALTY = 1;
+
+/** Lower is better: distance from the viewport's shape, plus the flow folded away. */
+export function packingCost(aspect: number, target: number, p: Pick<Packing, "foldLoss" | "collapsesFlow">): number {
+  return Math.abs(Math.log(aspect / target)) + FOLD_WEIGHT * p.foldLoss + (p.collapsesFlow ? COLLAPSE_PENALTY : 0);
+}
+
+/**
+ * Rank row counts and per-region foldings of depth levels for a grid, best first.
+ *
+ * `levelCounts[r][d]` is the number of boxes at depth `d` of region `r`. Every
+ * (rows, unfold) option is sized from those counts. Options that fit at nearly
+ * the best readable zoom are all fine to read; among them the cost is how far
+ * the shape is from the viewport's (log scale) — so a compact, centered block
+ * beats a wide strip — plus a penalty for folding depth levels into shared
+ * columns, which hides the left-to-right flow.
+ */
+export function rankPackings(
+  levelCounts: number[][],
+  viewport: { width: number; height: number },
+): Packing[] {
+  const total = levelCounts.flat().reduce((a, b) => a + b, 0);
+  const target = Math.max(0.3, viewport.width / Math.max(1, viewport.height));
+  const boundaries = levelCounts.reduce((a, c) => a + Math.max(0, c.length - 1), 0);
+  const options: (Packing & { cost: number })[] = [];
   for (let rows = 1; rows <= Math.max(1, total); rows++) {
-    const cols = counts.reduce((a, c) => a + columnCount(c, rows), 0);
-    const ratio = (cols * colPitch) / (rows * rowPitch);
-    const score = Math.abs(Math.log(ratio / Math.max(0.3, aspectRatio)));
-    if (score < bestScore - 1e-9) {
-      bestScore = score;
-      best = rows;
+    for (const t of UNFOLD_STEPS) {
+      let cols = 0;
+      let tallest = 0;
+      let lost = 0;
+      let collapsesFlow = false;
+      const folds = levelCounts.map((counts) => {
+        const lo = minFold(counts, rows);
+        const k = Math.round(lo + t * (counts.length - lo));
+        lost += counts.length - k;
+        if (counts.length > 1 && k === 1) collapsesFlow = true;
+        for (const g of foldLevels(counts.map((c) => [c]), k)) {
+          const size = g.reduce((a, b) => a + b, 0);
+          cols += Math.ceil(size / rows);
+          tallest = Math.max(tallest, Math.min(rows, size));
+        }
+        return k;
+      });
+      const width = cols * COL_PITCH + 40;
+      const height = tallest * ROW_PITCH + 40;
+      const scale = Math.min(MAX_SCALE, viewport.width / width, viewport.height / height);
+      const foldLoss = boundaries === 0 ? 0 : lost / boundaries;
+      options.push({
+        rows,
+        folds,
+        width,
+        height,
+        scale,
+        foldLoss,
+        collapsesFlow,
+        cost: packingCost(width / height, target, { foldLoss, collapsesFlow }),
+      });
     }
   }
-  return best;
+  const bestScale = Math.max(...options.map((o) => o.scale));
+  const readable = options.filter((o) => o.scale >= bestScale * 0.9);
+  const tier = (o: Packing) => (meetsBand(o.width / o.height, target, o) ? 0 : 1);
+  readable.sort((a, b) => tier(a) - tier(b) || a.cost - b.cost || a.rows - b.rows);
+  // Options that differ only by empty rows produce the same grid; keep the first.
+  const seen = new Set<string>();
+  const out: Packing[] = [];
+  for (const { cost: _cost, ...p } of readable) {
+    const key = `${p.width}|${p.height}|${p.folds.join(",")}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(p);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -287,46 +395,56 @@ function layoutComponent(vm: ViewModel, opts: LayoutOptions): ViewLayout {
   const centerLevels = levels(byRegion.center, centerRank);
   const outLevels = levels(byRegion.out, outDepth);
 
-  const rows = chooseRows(
-    [byRegion.in.length, byRegion.center.length, byRegion.out.length],
-    opts.aspectRatio,
-  );
-
   // Fold depth levels into columns. Fewer columns pack tighter; more columns
-  // show the flow. Unfold toward full layering as long as the drawing still
-  // fits the viewport at nearly the best readable scale.
-  const foldInto = (lvls: ViewNode[][], k: number): ViewNode[][] => {
-    if (lvls.length === 0) return [];
-    const groups: ViewNode[][] = Array.from({ length: k }, () => []);
-    lvls.forEach((l, i) => groups[Math.floor((i * k) / lvls.length)].push(...l));
-    return groups.flatMap((g) => chunk(g, rows));
-  };
-  const minK = (lvls: ViewNode[][]) => {
-    const n = lvls.reduce((a, l) => a + l.length, 0);
-    return n === 0 ? 0 : Math.min(lvls.length, Math.max(1, Math.ceil(n / rows)));
-  };
+  // show the flow. `rankPackings` trades the two off against the viewport from
+  // box counts alone. Channel widths depend on routing, so a candidate is laid
+  // out for real and kept if its real shape meets the band; otherwise the next
+  // (up to `MAX_TRIES`) is tried and the best of them kept. Layout takes a few ms,
+  // and the first candidate usually passes.
   const viewport = opts.viewport ?? { width: 1600, height: 1600 / Math.max(0.3, opts.aspectRatio) };
-  const colPitch = NODE_WIDTH + MIN_CHANNEL + 12;
-  const rowPitch = NODE_HEIGHT + MIN_GUTTER + 4;
+  const target = Math.max(0.3, viewport.width / Math.max(1, viewport.height));
   const regions = [inLevels, centerLevels, outLevels];
-  const arrange = (t: number) => {
-    const cols = regions.map((lvls) => {
-      const lo = minK(lvls);
-      return foldInto(lvls, Math.round(lo + t * (lvls.length - lo)));
-    });
-    const all = cols.flat();
-    const height = Math.max(...all.map((c) => c.length)) * rowPitch + 40;
-    const width = all.length * colPitch + 40;
-    const scale = Math.min(MAX_SCALE, viewport.width / width, viewport.height / height);
-    return { cols, scale };
-  };
-  const options = [0, 0.25, 0.5, 0.75, 1].map((t) => arrange(t));
-  const bestScale = Math.max(...options.map((o) => o.scale));
-  const chosen = [...options].reverse().find((o) => o.scale >= bestScale * 0.9) ?? options[0];
-  const inCols = chosen.cols[0].reverse();
-  const centerCols = chosen.cols[1];
-  const outCols = chosen.cols[2];
-  const columns: ViewNode[][] = [...inCols, ...centerCols, ...outCols];
+  const ranked = rankPackings(
+    regions.map((lvls) => lvls.map((l) => l.length)),
+    viewport,
+  );
+  let best: { layout: ViewLayout; rank: number } | null = null;
+  for (const packing of ranked.slice(0, vm.nodes.length > 32 ? 2 : MAX_TRIES)) {
+    const [inCols, centerCols, outCols] = regions.map((lvls, r) =>
+      foldLevels(lvls, packing.folds[r]).flatMap((g) => chunk(g, packing.rows)),
+    );
+    inCols.reverse();
+    const layout = placeAndRoute(vm, byRegion, [...inCols, ...centerCols, ...outCols], packing.rows);
+    const aspect = aspectOf(layout);
+    const cost = packingCost(aspect, target, packing);
+    const rank = (meetsBand(aspect, target, packing) ? 0 : 100) + cost;
+    if (!best || rank < best.rank - 1e-9) best = { layout, rank };
+    // Candidates are ranked best first, so the first real fit is kept.
+    if (meetsBand(aspect, target, packing)) break;
+  }
+  return best!.layout;
+}
+
+/**
+ * Candidate packings laid out for real before settling for the best seen.
+ * Big views have many rows, so the estimate is close and each try costs more:
+ * they get two.
+ */
+const MAX_TRIES = 6;
+
+/** Width:height of what the canvas frames (boxes and edges). */
+export function aspectOf(layout: Pick<ViewLayout, "nodes" | "edges">): number {
+  const b = boundsOf(layout.nodes, layout.edges);
+  return b.height > 0 ? b.width / b.height : 1;
+}
+
+/** Order rows within columns, route every edge and materialize coordinates. */
+function placeAndRoute(
+  vm: ViewModel,
+  byRegion: Record<Region, ViewNode[]>,
+  columns: ViewNode[][],
+  rows: number,
+): ViewLayout {
   const C = columns.length;
 
   const colOf = new Map<string, number>();
