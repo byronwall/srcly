@@ -47,7 +47,6 @@ async function fetchGraph(path: string | undefined): Promise<DependencyGraphCont
 export default function DependencyView(props: {
   path?: string;
   onClose: () => void;
-  onLegacy?: () => void;
 }) {
   const [graph] = createResource(() => props.path ?? "", (p) => fetchGraph(p || undefined));
   const [filters, setFilters] = createSignal<FilterOptions>(DEFAULT_FILTERS);
@@ -157,11 +156,6 @@ export default function DependencyView(props: {
           <Button size="xs" onClick={() => canvas?.fit()}>
             Fit
           </Button>
-          <Show when={props.onLegacy}>
-            <Button size="xs" variant="ghost" onClick={() => props.onLegacy?.()}>
-              Legacy view
-            </Button>
-          </Show>
           <Button
             size="xs"
             variant="ghost"

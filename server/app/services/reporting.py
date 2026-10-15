@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import math
-import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -610,11 +609,12 @@ def build_metrics_schema() -> dict[str, Any]:
 
 
 def build_dependencies(root_path: Path) -> dict[str, Any]:
+    """Hierarchical dependency graph (same contract as /api/analysis/dependency-graph)."""
     try:
-        from app.routers import analysis as analysis_router
+        from app.services.deps.graph import build_dependency_graph
 
-        graph = asyncio.run(analysis_router.get_dependencies(str(root_path)))
-        return graph.model_dump(mode="json")
+        graph = build_dependency_graph(root_path)
+        return graph.model_dump(mode="json", by_alias=True, exclude_none=True)
     except Exception as exc:
         return {
             "nodes": [],

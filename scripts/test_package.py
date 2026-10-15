@@ -14,7 +14,7 @@ def test_bundled_client():
     static = Path(app.__file__).parent / "static"
     assert (static / "index.html").is_file()
     assert list((static / "assets").glob("highlight.worker-*.js"))
-    assert list((static / "assets").glob("dependencyForce.worker-*.js"))
+    assert list((static / "assets").glob("DependencyView-*.js"))
     with TestClient(api) as client:
         response = client.get("/")
         assert response.status_code == 200

@@ -197,6 +197,13 @@ export function DependencyCanvas(props: {
           </marker>
         </defs>
         <g ref={gRef}>
+          <For each={props.layout.groups ?? []}>
+            {(g) => (
+              <text x={g.x} y={g.y} class="fill-[var(--plc-on-muted)] text-[12px] font-semibold">
+                {g.label}
+              </text>
+            )}
+          </For>
           <For each={regionHeaders()}>
             {(h) => (
               <text
