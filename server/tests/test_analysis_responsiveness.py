@@ -4,6 +4,7 @@ concurrent requests for the same path must share one scan.
 """
 
 import asyncio
+import json
 import threading
 import time
 from pathlib import Path
@@ -114,7 +115,7 @@ def test_result_is_encoded_off_the_event_loop(blocking_scan, monkeypatch, tmp_pa
     assert encoded_on and all(name != loop_thread for name in encoded_on)
 
 
-def test_result_json_matches_fastapi_encoding(tmp_path: Path) -> None:
+def test_result_json_round_trips_without_defaults(tmp_path: Path) -> None:
     child = Node(name="a.py", type="file", path=str(tmp_path / "a.py"), metrics=Metrics(loc=3))
     tree = Node(name="root", type="folder", path=str(tmp_path), metrics=Metrics(), children=[child])
     job = scan_jobs.ScanJob(root_path=tmp_path)
@@ -122,6 +123,12 @@ def test_result_json_matches_fastapi_encoding(tmp_path: Path) -> None:
 
     encoded = job.result_json()
 
-    assert Node.model_validate_json(encoded) == tree
+    assert scan_jobs.expand_tree(encoded) == tree
+    raw = json.loads(encoded)
+    # Defaults and derivable child paths are left out; the root keeps its path.
+    assert raw["path"] == str(tmp_path)
+    assert raw["metrics"] == {}
+    assert "start_line" not in raw
+    assert raw["children"][0] == {"name": "a.py", "type": "file", "metrics": {"loc": 3}}
     # Encoded once and reused.
     assert job.result_json() is encoded

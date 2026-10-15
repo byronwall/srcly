@@ -6,6 +6,8 @@
  * if the stream is closed for good we fall back to polling the snapshot.
  */
 
+import { normalizeTree } from "../utils/normalizeTree";
+
 export type ScanPhase =
   | "queued"
   | "discovering"
@@ -101,9 +103,10 @@ export async function cancelScan(id: string): Promise<void> {
   await fetch(`/api/scans/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
+/** Fetch a finished scan's tree, with the defaults the server omits filled in. */
 export async function fetchScanResult<T>(id: string): Promise<T> {
   const res = await fetch(`/api/scans/${encodeURIComponent(id)}/result`);
-  return expectJson<T>(res);
+  return normalizeTree(await expectJson<T>(res));
 }
 
 /**

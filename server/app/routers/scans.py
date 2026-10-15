@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.models import Node
@@ -82,13 +82,13 @@ def cancel_scan(job_id: str) -> dict:
 
 
 @router.get("/{job_id}/result", response_model=Node)
-def get_scan_result(job_id: str):
+def get_scan_result(job_id: str, request: Request):
     job = _job_or_404(job_id)
     if job.phase != "complete":
         raise HTTPException(status_code=409, detail=f"Scan is {job.phase}, not complete")
     # Pre-encoded bytes: serializing a large tree on the event loop would
     # block every other request (see ScanJob.result_json).
-    return Response(content=job.result_json(), media_type="application/json")
+    return scan_jobs.tree_response(job, request)
 
 
 @router.get("/{job_id}/events")
