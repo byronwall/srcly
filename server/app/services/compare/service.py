@@ -80,6 +80,8 @@ def _side_meta(side: Side) -> dict[str, Any]:
     }
     if side.ref.pr is not None:
         meta["pr"] = side.ref.pr
+    if side.ref.dir is not None:
+        meta["dir"] = str(side.ref.dir)
     return meta
 
 

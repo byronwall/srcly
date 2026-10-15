@@ -225,7 +225,11 @@ def load_side(
     store = side_cache_ or side_cache
     repo = repo.resolve()
     if ref.is_worktree:
-        return _load_worktree(repo, ref, cancel=cancel, observer=observer, force=force, on_step=on_step)
+        # Another worktree is scanned in place, like the repo's own working
+        # tree; the analysis cache is keyed by its absolute path.
+        return _load_worktree(
+            ref.root(repo), ref, cancel=cancel, observer=observer, force=force, on_step=on_step, name=repo.name
+        )
 
     if not force:
         on_step("cache")
@@ -262,6 +266,7 @@ def _load_worktree(
     observer: ScanObserver,
     force: bool,
     on_step: Callable[[Optional[str]], None] = lambda _step: None,
+    name: Optional[str] = None,
 ) -> Side:
     started = time.monotonic()
     on_step("cache")
@@ -283,7 +288,7 @@ def _load_worktree(
     graph = graph_json(repo, keep_abs_paths=True, use_cache=True)
     return Side(
         ref=ref,
-        tree=relativize_tree(tree_json, repo, repo.name),
+        tree=relativize_tree(tree_json, repo, name or repo.name),
         graph=graph,
         files_total=files_total,
         scan_seconds=round(time.monotonic() - started, 3),
