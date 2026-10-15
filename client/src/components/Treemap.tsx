@@ -32,7 +32,7 @@ interface TreemapProps {
   /** Absolute path of the scan root; the graph is always fetched for it. */
   rootPath: string;
   /** Open a file or scope (by location) in the code viewer. */
-  onOpenAt: (at: string) => void;
+  onOpenAt: (at: string, line?: number) => void;
   onZoom?: (node: any) => void;
   onFileSelect?: (
     path: string,

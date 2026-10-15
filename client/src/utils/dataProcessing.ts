@@ -1,3 +1,5 @@
+import { normalizeScopeName } from "../navigation/location";
+
 export function filterNoise(node: any) {
   if (!node.children || node.children.length === 0) return node;
 
@@ -156,4 +158,44 @@ export function filterData(node: any, options: FilterOptions): any {
   }
 
   return recurse(node);
+}
+
+/** How far a scope's start may sit from a graph symbol's line (decorators, declarators). */
+const SYMBOL_LINE_TOLERANCE = 3;
+
+/**
+ * The treemap scope for a dependency-graph symbol, by line. Graph symbols
+ * carry a bare name and a start line; scopes decorate names by kind. Among
+ * scopes starting within a few lines, prefer a name match, then the closest
+ * line, then the outermost scope.
+ */
+export function findScopeForSymbol(
+  fileNode: any,
+  name: string | undefined,
+  line: number | undefined
+): any | null {
+  if (!fileNode || typeof line !== "number") return null;
+  let best: { node: any; nameMatch: boolean; distance: number; depth: number } | null = null;
+  const visit = (n: any, depth: number) => {
+    for (const child of n.children ?? []) {
+      const start = child.start_line;
+      if (typeof start === "number" && child.type !== "function_body" && child.name !== "(body)") {
+        const distance = Math.abs(start - line);
+        if (distance <= SYMBOL_LINE_TOLERANCE) {
+          const nameMatch = Boolean(name) && normalizeScopeName(String(child.name ?? "")) === name;
+          const better =
+            !best ||
+            (nameMatch !== best.nameMatch
+              ? nameMatch
+              : distance !== best.distance
+                ? distance < best.distance
+                : depth < best.depth);
+          if (better) best = { node: child, nameMatch, distance, depth };
+        }
+      }
+      visit(child, depth + 1);
+    }
+  };
+  visit(fileNode, 0);
+  return best ? (best as { node: any }).node : null;
 }
