@@ -8,7 +8,7 @@
     "last_updated": "2026-10-14",
     "summary": "Replace the crude TS-only file dependency graph with a multi-scale, focus-centered view for TypeScript and Python: folders/modules with bundled edges when zoomed out, accurate edges when zoomed in, 30-50 labeled items on screen, uniform boxes, rectilinear routing that never crosses nodes.",
     "status": "active",
-    "next_action": "M4: symbol focus + function-level usage"
+    "next_action": "M5: retire legacy view"
   },
   "artifacts": {
     "intent_brief": {
@@ -488,7 +488,11 @@
         "proof": "metricsStore fixture shows SortHeader -> HOTSPOT_METRICS; geometry checks pass",
         "valid_intermediate_state": "Without symbol edges, view falls back to file-level.",
         "rollback": "Omit symbol edges from contract.",
-        "status": "planned"
+        "status": "completed",
+        "evidence": [
+          "server/tests/test_dependency_graph_symbols.py (4 cases)",
+          "client viewModel tests for symbol expansion and rollup"
+        ]
       },
       {
         "id": "m5",

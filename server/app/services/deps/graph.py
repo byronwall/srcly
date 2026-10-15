@@ -71,15 +71,15 @@ def build_dependency_graph(root: Path, use_cache: bool = True) -> DepGraph:
             hit = _cache.get(root)
         if hit is not None and hit[0] == sig:
             return hit[1]
-    files, edges, _symbols = collect_edges(root)
-    graph = _assemble(root, files, edges)
+    files, edges, symbols = collect_edges(root)
+    graph = _assemble(root, files, edges, symbols)
     if use_cache:
         with _lock:
             _cache[root] = (sig, graph)
     return graph
 
 
-def _assemble(root: Path, files: List[Path], edges: List[DepEdge]) -> DepGraph:
+def _assemble(root: Path, files: List[Path], edges: List[DepEdge], symbols: Optional[Dict[str, list]] = None) -> DepGraph:
     nodes: Dict[str, DepGraphNode] = {}
     nodes[""] = DepGraphNode(id="", kind="folder", name=root.name or str(root), parent=None, path="", abs_path=str(root))
 
@@ -115,15 +115,33 @@ def _assemble(root: Path, files: List[Path], edges: List[DepEdge]) -> DepGraph:
             is_test=is_test_path(r),
         )
 
+    defs = {path: {d.name: d for d in ds} for path, ds in (symbols or {}).items()}
+
+    def symbol_node(file_path: Path, file_id: str, name: Optional[str]) -> str:
+        """Id of a symbol node (created on first use), or the file id."""
+        if not name:
+            return file_id
+        d = defs.get(str(file_path), {}).get(name)
+        if d is None:
+            return file_id
+        sid = f"{file_id}#{name}"
+        if sid not in nodes:
+            nodes[sid] = DepGraphNode(
+                id=sid, kind="symbol", name=name, parent=file_id, symbol_kind=d.kind, line=d.line
+            )
+        return sid
+
     merged: Dict[Tuple[str, str], DepGraphEdge] = {}
     for e in edges:
         s = rel(e.source) if isinstance(e.source, Path) else None
         if s is None or s not in nodes:
             continue
+        s = symbol_node(e.source, s, e.source_symbol)
         if isinstance(e.target, Path):
             t = rel(e.target)
             if t is None or t not in nodes:
                 continue
+            t = symbol_node(e.target, t, e.target_symbol)
         else:
             t = f"{EXTERNAL_ROOT_ID}{e.target}"
             if t not in nodes:

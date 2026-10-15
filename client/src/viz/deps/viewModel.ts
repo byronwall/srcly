@@ -23,6 +23,7 @@ export interface ViewNode {
   isFocus: boolean;
   /** Parent file label for symbols shown on the sides. */
   context?: string;
+  symbolKind?: string;
 }
 
 export interface ViewEdge {
@@ -39,6 +40,8 @@ export interface ViewEdge {
 export interface ViewModel {
   focusId: string;
   focusKind: GraphNodeKind;
+  /** Display name of the focus (file name for a focused file). */
+  focusLabel: string;
   breadcrumbs: { id: string; label: string }[];
   nodes: ViewNode[];
   edges: ViewEdge[];
@@ -352,10 +355,15 @@ export function buildViewModel(index: GraphIndex, opts: ViewOptions): ViewModel 
       graphId: u.graphId,
       region: u.region,
       kind: g.kind,
-      label: displayName(index, u.graphId),
+      label:
+        g.kind === "symbol" && u.region !== "center" && parentFile
+          ? qualifiedSymbol(parentFile.name, g.name)
+          : displayName(index, u.graphId),
       title: g.path ?? (parentFile ? `${parentFile.path ?? parentFile.name} › ${g.name}` : g.name),
       memberCount: u.members,
-      isFocus: u.graphId === focusId,
+      // Inside a focused file, its symbols are the focus.
+      isFocus: u.graphId === focusId || (u.region === "center" && focusKind !== "folder"),
+      symbolKind: g.symbolKind,
       context: u.region !== "center" && parentFile ? displayName(index, parentFile.id) : undefined,
     });
   }
@@ -370,6 +378,7 @@ export function buildViewModel(index: GraphIndex, opts: ViewOptions): ViewModel 
   return {
     focusId,
     focusKind,
+    focusLabel: displayName(index, focusId),
     breadcrumbs,
     nodes,
     edges: [...edgeMap.values()].sort((a, b) => a.id.localeCompare(b.id)),
@@ -405,4 +414,10 @@ function disambiguateLabels(index: GraphIndex, nodes: ViewNode[]): void {
     }
     if (!changed) break;
   }
+}
+
+/** `Explorer.SortHeader`, or just `Treemap` when the symbol is named after its file. */
+function qualifiedSymbol(fileName: string, symbol: string): string {
+  const stem = fileName.replace(/\.[^.]+$/, "");
+  return stem === symbol || stem === "__init__" || stem === "index" ? symbol : `${stem}.${symbol}`;
 }

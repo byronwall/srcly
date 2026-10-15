@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Set, Tuple
 import tree_sitter_typescript as tstypescript
 from tree_sitter import Language, Node, Parser
 
-from app.services.deps.common import DepEdge, SymbolDef
+from app.services.deps.common import DepEdge, ImportBinding, SymbolDef, emit_symbol_edges
 from app.services.deps.tsconfig import TsConfigResolver
 
 TS_EXTENSIONS = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts"}
@@ -45,7 +45,7 @@ class ImportedName:
 @dataclass
 class TsImport:
     source: str
-    kind: str  # "static" | "side_effect" | "namespace" | "reexport" | "reexport_all" | "dynamic"
+    kind: str  # "static" | "side_effect" | "namespace" | "reexport" | "reexport_ns" | "reexport_all" | "dynamic"
     names: List[ImportedName] = field(default_factory=list)
     type_only: bool = False
     line: int = 0
@@ -163,7 +163,7 @@ def _parse_export(stmt: Node, info: TsFileInfo, line: int) -> None:
             info.imports.append(imp)
         elif ns_export is not None:
             ident = next((x for x in ns_export.children if x.type == "identifier"), None)
-            info.imports.append(TsImport(source=spec, kind="namespace", names=[ImportedName("*", _text(ident))], line=line))
+            info.imports.append(TsImport(source=spec, kind="reexport_ns", names=[ImportedName("*", _text(ident))], line=line))
             info.reexports[_text(ident)] = (spec, "*")
         else:
             info.imports.append(TsImport(source=spec, kind="reexport_all", type_only=type_only, line=line))
@@ -362,8 +362,10 @@ def build_ts_edges(root: Path, files: List[Path]) -> Tuple[List[DepEdge], Dict[P
                 return t_file, t_name
         return file, name
 
+    declared: Dict[Path, Set[str]] = {f: {d.name for d in i.declarations} for f, i in infos.items()}
     edges: List[DepEdge] = []
     for f, info in infos.items():
+        bindings: Dict[str, ImportBinding] = {}
         for imp in info.imports:
             target = resolve(imp.source, f)
             if target is None:
@@ -379,31 +381,86 @@ def build_ts_edges(root: Path, files: List[Path]) -> Tuple[List[DepEdge], Dict[P
                 continue
             if target == f:
                 continue
-            if imp.kind in ("static", "reexport") and imp.names:
-                # Pass named imports through barrels to the defining file.
+            if imp.kind == "static" and imp.names:
+                # Bind each local name to its defining file (through barrels).
+                for n in imp.names:
+                    d_file, d_local = find_definer(target, n.imported)
+                    bindings[n.local] = ImportBinding(
+                        target_file=d_file,
+                        target_symbol=d_local,
+                        display=n.imported,
+                        type_only=imp.type_only or n.type_only,
+                        via_barrel=d_file != target,
+                    )
+            elif imp.kind == "namespace" and imp.names:
+                bindings[imp.names[0].local] = ImportBinding(
+                    target_file=target, target_symbol=None, display="*", type_only=imp.type_only, namespace=True
+                )
+            elif imp.kind == "reexport" and imp.names:
+                # A barrel depends on what it re-exports (file level).
                 by_definer: Dict[Path, List[ImportedName]] = {}
                 for n in imp.names:
                     d_file, _d_name = find_definer(target, n.imported)
                     by_definer.setdefault(d_file, []).append(n)
                 for d_file, names in by_definer.items():
-                    if d_file == f:
-                        continue
-                    edges.append(
-                        DepEdge(
-                            source=f,
-                            target=d_file,
-                            symbols=[n.imported for n in names],
-                            type_only=imp.type_only or all(n.type_only for n in names),
-                            via_barrel=d_file != target,
+                    if d_file != f:
+                        edges.append(
+                            DepEdge(
+                                source=f,
+                                target=d_file,
+                                symbols=[n.imported for n in names],
+                                type_only=imp.type_only or all(n.type_only for n in names),
+                                via_barrel=d_file != target,
+                            )
                         )
-                    )
             else:
                 edges.append(
-                    DepEdge(
-                        source=f,
-                        target=target,
-                        symbols=[n.imported for n in imp.names],
-                        type_only=imp.type_only,
-                    )
+                    DepEdge(source=f, target=target, symbols=[n.imported for n in imp.names], type_only=imp.type_only)
                 )
+        if bindings:
+            usages = collect_ts_usages(info, set(bindings))
+            edges.extend(emit_symbol_edges(f, bindings, usages, declared))
     return edges, infos
+
+
+_USAGE_SKIP = {"import_statement"}
+
+
+def collect_ts_usages(info: TsFileInfo, locals_: Set[str]) -> Dict[Optional[str], Set[Tuple[str, Optional[str]]]]:
+    """Per top-level declaration, the imported locals (and `ns.attr` pairs) it references."""
+    usages: Dict[Optional[str], Set[Tuple[str, Optional[str]]]] = {}
+    decl_ids = {n.id: name for name, n in info.decl_nodes.items()}
+
+    def walk(n: Node, user: Optional[str]) -> None:
+        stack = [(n, user)]
+        while stack:
+            node, who = stack.pop()
+            if node.id in decl_ids and node is not n:
+                who = decl_ids[node.id]
+            if node.type in _USAGE_SKIP:
+                continue
+            t = node.type
+            if t in ("member_expression", "nested_type_identifier"):
+                obj = node.child_by_field_name("object") if t == "member_expression" else node.child_by_field_name("module")
+                prop = node.child_by_field_name("property") if t == "member_expression" else node.child_by_field_name("name")
+                if obj is not None and obj.type == "identifier" and _text(obj) in locals_:
+                    usages.setdefault(who, set()).add((_text(obj), _text(prop) or None))
+                    if prop is not None:
+                        continue
+            elif t in ("identifier", "type_identifier", "shorthand_property_identifier"):
+                name = _text(node)
+                if name in locals_:
+                    usages.setdefault(who, set()).add((name, None))
+                continue
+            for c in node.children:
+                stack.append((c, who))
+
+    if info.tree_root is not None:
+        for stmt in info.tree_root.children:
+            if stmt.type == "import_statement":
+                continue
+            if stmt.type == "export_statement" and stmt.child_by_field_name("source") is not None:
+                continue
+            who = decl_ids.get(stmt.id)
+            walk(stmt, who)
+    return usages

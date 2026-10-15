@@ -6,7 +6,7 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set
 
 from app.config import IGNORE_DIRS
 
@@ -121,3 +121,71 @@ def unique(items: Iterable[str]) -> List[str]:
             seen.add(i)
             out.append(i)
     return out
+
+
+@dataclass
+class ImportBinding:
+    """A local name bound by an import statement."""
+
+    target_file: Path
+    # Declared name in the target file the binding refers to (None = module itself).
+    target_symbol: Optional[str]
+    display: str
+    type_only: bool = False
+    via_barrel: bool = False
+    # Namespace / module binding: `ns.attr` picks a symbol in target_file.
+    namespace: bool = False
+
+
+def emit_symbol_edges(
+    source: Path,
+    bindings: dict,
+    usages: dict,
+    declared: dict,
+) -> List[DepEdge]:
+    """
+    Turn import bindings plus per-declaration usages into the finest edges.
+
+    `usages` maps a top-level declaration name in `source` (None = module level)
+    to (local, attr) pairs it references. `declared` maps a file to the set of
+    names it declares. Bindings that are never referenced still produce a
+    file-level edge so no import disappears.
+    """
+    out: Dict[tuple, DepEdge] = {}
+    used: Set[str] = set()
+
+    def add(user: Optional[str], b: ImportBinding, target_symbol: Optional[str], name: str) -> None:
+        if target_symbol is not None and target_symbol not in declared.get(b.target_file, set()):
+            target_symbol = None
+        key = (user, b.target_file, target_symbol)
+        e = out.get(key)
+        if e is None:
+            out[key] = DepEdge(
+                source=source,
+                target=b.target_file,
+                symbols=[name],
+                type_only=b.type_only,
+                via_barrel=b.via_barrel,
+                source_symbol=user,
+                target_symbol=target_symbol,
+            )
+        else:
+            if name not in e.symbols:
+                e.symbols.append(name)
+            e.type_only = e.type_only and b.type_only
+            e.via_barrel = e.via_barrel or b.via_barrel
+
+    for user, refs in usages.items():
+        for local, attr in refs:
+            b = bindings.get(local)
+            if b is None or b.target_file == source:
+                continue
+            used.add(local)
+            if b.namespace:
+                add(user, b, attr, attr or b.display)
+            else:
+                add(user, b, b.target_symbol, b.display)
+    for local, b in bindings.items():
+        if local not in used and b.target_file != source:
+            add(None, b, b.target_symbol, b.display)
+    return list(out.values())

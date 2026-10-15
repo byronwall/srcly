@@ -10,7 +10,7 @@ import type { Region, ViewEdge, ViewModel, ViewNode } from "./viewModel";
 // aligned across columns, so gutters are free from end to end. Edges heading
 // to the same box share a track, which `bundleOffsets` spreads 1–2px apart.
 
-export const NODE_WIDTH = 176;
+export const NODE_WIDTH = 196;
 export const NODE_HEIGHT = 28;
 const TRACK = 6;
 const CHANNEL_PAD = 10;
@@ -327,8 +327,14 @@ export function layoutViewSync(vm: ViewModel, opts: LayoutOptions): ViewLayout {
       gutterGroup,
     };
   });
-  // Single-channel edges bundle by target.
-  for (const r of routes) if (r.gutter === null) r.exitGroup = r.entryGroup;
+  // Single-channel edges share a trunk at their busier end: fan-in bundles at
+  // the target, fan-out at the source.
+  for (const r of routes) {
+    if (r.gutter !== null) continue;
+    const fanOut = (degree.get(r.s) ?? 0) > (degree.get(r.t) ?? 0);
+    r.entryGroup = fanOut ? `S|${r.s}|${r.exitSide}|ch` : r.entryGroup;
+    r.exitGroup = r.entryGroup;
+  }
 
   // Ports: when a side carries both outgoing and incoming edges, split them.
   const sideUse = new Map<string, { out: boolean; in: boolean }>();
