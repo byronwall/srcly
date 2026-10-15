@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ancestorsOf,
+  baseName,
   atFromTreePath,
   crumbsFor,
   graphIdFor,
@@ -15,44 +16,57 @@ import { resolveTreeAt } from "./resolveTree";
 describe("parseLocation / toSearch", () => {
   it("round-trips folders, files and symbols", () => {
     for (const loc of [
-      { at: "client/src", view: "treemap" as const },
-      { at: "client/src/App.tsx", view: "graph" as const },
-      { at: "server/app/run.py#main", view: "graph" as const },
-      { at: "a.ts#Foo (class)::#secret", view: "treemap" as const },
-      { at: "ext:react", view: "graph" as const },
+      { repo: "", at: "client/src", view: "treemap" as const },
+      { repo: "/home/me/my repo", at: "client/src/App.tsx", view: "graph" as const },
+      { repo: "/r", at: "server/app/run.py#main", view: "graph" as const },
+      { repo: "", at: "a.ts#Foo (class)::#secret", view: "treemap" as const },
+      { repo: "C:\\code\\x", at: "ext:react", view: "graph" as const },
     ]) {
       expect(parseLocation(toSearch(loc))).toEqual(loc);
     }
   });
 
   it("treats the empty root treemap as a bare URL", () => {
-    expect(toSearch({ at: "", view: "treemap" })).toBe("");
-    expect(parseLocation("")).toEqual({ at: "", view: "treemap" });
-    expect(parseLocation("?view=graph")).toEqual({ at: "", view: "graph" });
+    expect(toSearch({ repo: "", at: "", view: "treemap" })).toBe("");
+    expect(parseLocation("")).toEqual({ repo: "", at: "", view: "treemap" });
+    expect(parseLocation("?view=graph")).toEqual({ repo: "", at: "", view: "graph" });
   });
 
   it("encodes the symbol fragment so it survives the URL", () => {
-    const search = toSearch({ at: "a.py#run", view: "graph" });
+    const search = toSearch({ repo: "", at: "a.py#run", view: "graph" });
     expect(search).toContain("a.py%23run");
     expect(new URL(`http://x/${search}`).hash).toBe("");
   });
 
   it("reads the legacy depFocus alias as the graph view", () => {
-    expect(parseLocation("?depFocus=server%2Fapp")).toEqual({ at: "server/app", view: "graph" });
-    expect(parseLocation("?depFocus=%2F")).toEqual({ at: "", view: "graph" });
-    expect(parseLocation("?depFocus=a&at=b&view=treemap")).toEqual({ at: "b", view: "treemap" });
+    expect(parseLocation("?depFocus=server%2Fapp")).toEqual({ repo: "", at: "server/app", view: "graph" });
+    expect(parseLocation("?depFocus=%2F")).toEqual({ repo: "", at: "", view: "graph" });
+    expect(parseLocation("?depFocus=a&at=b&view=treemap")).toEqual({ repo: "", at: "b", view: "treemap" });
   });
 
   it("keeps foreign params and drops the legacy one", () => {
-    const s = toSearch({ at: "x", view: "graph" }, "?compare=main..HEAD&depFocus=old");
+    const s = toSearch({ repo: "/r", at: "x", view: "graph" }, "?compare=main..HEAD&depFocus=old");
     const params = new URLSearchParams(s);
     expect(params.get("compare")).toBe("main..HEAD");
     expect(params.get("depFocus")).toBeNull();
     expect(params.get("at")).toBe("x");
+    expect(params.get("repo")).toBe("/r");
   });
 
   it("ignores an unknown view", () => {
     expect(parseLocation("?view=bogus&at=a").view).toBe("treemap");
+  });
+});
+
+describe("repo", () => {
+  it("puts the repo first and keeps it out when empty", () => {
+    expect(toSearch({ repo: "/r", at: "a", view: "graph" })).toBe("?repo=%2Fr&at=a&view=graph");
+    expect(parseLocation("?at=a").repo).toBe("");
+  });
+  it("names the repo by its folder", () => {
+    expect(baseName("/home/me/srcly")).toBe("srcly");
+    expect(baseName("/home/me/srcly/")).toBe("srcly");
+    expect(baseName("C:\\code\\x")).toBe("x");
   });
 });
 
