@@ -78,6 +78,13 @@ app.include_router(files.router)
 app.include_router(scans.router)
 
 
+@app.get("/api-status")
+async def root():
+    return {
+        "message": "Srcly server is running. Visit /docs for API documentation."
+    }
+
+
 def _find_static_dir() -> str | None:
     """
     Locate the directory that contains the built SPA assets.
@@ -111,14 +118,9 @@ def _find_static_dir() -> str | None:
     return None
 
 
-# Serve SPA if we can find built assets
+# Serve SPA if we can find built assets. Mounted last: a mount at "/" matches
+# every path, so routes declared after it would be unreachable.
 static_dir = _find_static_dir()
 if static_dir:
     app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 
-
-@app.get("/api-status")
-async def root():
-    return {
-        "message": "Srcly server is running. Visit /docs for API documentation."
-    }
