@@ -81,6 +81,7 @@ Browser
 | `GET /api/analysis/dependencies` | `routers/analysis.py:get_dependencies` | TS/TSX import graph, tsconfig `paths` aliases |
 | `GET /api/files/content` | `routers/files.py:get_file_content` | Raw file text; `ref=<sha>` reads it from a git commit (`git show`) |
 | `GET /api/compare/refs` | `routers/compare.py:list_refs` | Branches + recent commits for the compare ref picker |
+| `GET /api/compare/sources?kind=prs\|worktrees\|branches` | `routers/compare.py:list_sources` → `services/compare/sources.py` | One picker section each (PRs with worktree/needs-fetch context, live worktrees newest first, branches with ahead/behind); a source that can't load returns `available: false` + reason |
 | `POST /api/compare`, `GET /api/compare/{id}`, `GET /api/compare/{id}/result`, `DELETE /api/compare/{id}` | `routers/compare.py` → `services/compare/jobs.py` | Background compare job (polled), payload includes both trees + graphs |
 | `GET /api/files/suggest` | `routers/files.py:suggest_files` | Path autocomplete for the path bar |
 | Pydantic response models | `server/app/models.py` | `Node`, `Metrics`, dependency graph models |
@@ -118,8 +119,10 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Phase and per-side step timings (`StepTimer`: resolving/base/head/diffing; cache/checkout/scan/graph/cleanup) | `server/app/services/compare/service.py`, job snapshot in `jobs.py`, shown by `client/src/compare/CompareProgress.tsx` and `SummaryStrip.tsx` |
 | Commit snapshots (`git worktree add --detach` in the cache dir), SHA-keyed side cache, repo-relative paths | `server/app/services/compare/snapshots.py` |
 | Per-file metric deltas, better/worse direction table, edge diff, summary | `server/app/services/compare/diff.py` (`COMPARE_METRICS`, `diff_sides`) |
-| Compare mode shell (`?compare=<base>..<head>`, compared repo from the shared `repo` param, ref picker, progress, code viewer at a ref) | `client/src/compare/CompareApp.tsx`, `RefBar.tsx`, `CompareProgress.tsx`, `api.ts`; entry button in `client/src/App.tsx` |
-| Overview band (before/after refs, files, lines, imports, risk metrics) | `client/src/compare/SummaryStrip.tsx` |
+| Compare mode shell (`?compare=<base>..<head>`, compared repo from the shared `repo` param, progress, code viewer at a ref) | `client/src/compare/CompareApp.tsx`, `CompareProgress.tsx`, `api.ts`; entry button in `client/src/App.tsx` (`enterCompare`, opens the picker) |
+| Compare picker (PRs mine/all, worktrees, branches, search, keyboard, Advanced free-text refs; picks → `pr:<n>..pr:<n>` or `auto..<ref>`) | `client/src/compare/ComparePicker.tsx`, pure helpers in `client/src/compare/pickerModel.ts` |
+| `auto` base (head's open PR base via `gh pr list --head`, else merge-base with the default branch) | `server/app/services/compare/git_refs.py` (`resolve_auto_base`, `branch_of`), `github.py` (`pr_for_branch`) |
+| Overview band (PR context row with GitHub link, before/after refs with step timings, files, lines, imports, risk metrics) | `client/src/compare/SummaryStrip.tsx` |
 | Scorecard rail (risk metrics worst-first with better/worse file split, size metrics, new cross-folder imports) | `client/src/compare/Scorecard.tsx` |
 | Changed-files table (verdict, diffstat, before → after with magnitude bars; folders / most regressed / by metric; status, path, regressions filters; keyboard) | `client/src/compare/CompareTable.tsx`, row model in `client/src/compare/rows.ts` |
 | File inspector (worse / better / size moves, imports gained and lost, open before/after) | `client/src/compare/Inspector.tsx` |

@@ -12,6 +12,8 @@ WORKTREE = "WORKTREE"
 """Pseudo-ref for the files on disk, including uncommitted and untracked edits."""
 MERGE_BASE = "merge-base"
 """Pseudo-ref for ``git merge-base <default branch> HEAD``."""
+AUTO = "auto"
+"""Base pseudo-ref that follows the head: its open PR's base, else the merge-base with the default branch."""
 PR_REF = re.compile(r"^(?:pr:|#)(\d+)$")
 """``pr:<n>`` (or ``#<n>``): a GitHub PR. Head side is its head commit; base side is its merge-base."""
 
@@ -60,11 +62,12 @@ class FileChange:
         return None if self.status == "removed" else self.path
 
 
-def run_git(repo: Path, *args: str) -> str:
+def run_git(repo: Path, *args: str, input: Optional[str] = None) -> str:
     try:
         proc = subprocess.run(
             ["git", "-c", "core.quotepath=off", *args],
             cwd=repo,
+            input=input,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -200,20 +203,71 @@ def _resolve_pr(repo: Path, ref: str, number: int, side: Side) -> ResolvedRef:
         # GitHub diffs a PR against merge-base(base branch tip, head). The tip
         # GitHub reports is exact; local branch names are fallbacks for when
         # that commit can't be fetched.
-        sha = ""
-        for candidate in (base_oid, f"origin/{base_name}", base_name):
-            if not candidate:
-                continue
-            try:
-                sha = run_git(repo, "merge-base", candidate, head_sha).strip()
-                break
-            except GitError:
-                continue
-        if not sha:
-            raise GitError(f"Could not find PR #{number}'s base branch {base_name!r} locally")
+        sha = _pr_merge_base(repo, pr, head_sha)
         label = sha[:7]
         subject = run_git(repo, "log", "-1", "--format=%s", sha).strip()
     return ResolvedRef(ref=ref, sha=sha, label=label, subject=subject, pr=pr_context(pr))
+
+
+def _pr_merge_base(repo: Path, pr: dict[str, Any], head_sha: str) -> str:
+    """merge-base of the PR's base branch tip (GitHub's, else local names) and ``head_sha``."""
+    base_name = pr.get("baseRefName") or ""
+    for candidate in (pr.get("baseRefOid") or "", f"origin/{base_name}", base_name):
+        if not candidate:
+            continue
+        try:
+            return run_git(repo, "merge-base", candidate, head_sha).strip()
+        except GitError:
+            continue
+    raise GitError(f"Could not find PR #{pr.get('number')}'s base branch {base_name!r} locally")
+
+
+def branch_of(repo: Path, ref: str) -> Optional[str]:
+    """The branch name ``ref`` names (``feature``, ``origin/feature``), or None for a SHA, tag or expression."""
+    if ref in (WORKTREE, "HEAD"):
+        try:
+            name = run_git(repo, "symbolic-ref", "--quiet", "--short", "HEAD").strip()
+            return name or None
+        except GitError:
+            return None
+    try:
+        full = run_git(repo, "rev-parse", "--symbolic-full-name", ref).strip()
+    except GitError:
+        return None
+    if full.startswith("refs/heads/"):
+        return full[len("refs/heads/") :]
+    if full.startswith("refs/remotes/"):
+        # origin/feature -> feature
+        return full[len("refs/remotes/") :].partition("/")[2] or None
+    return None
+
+
+def resolve_auto_base(repo: Path, head_input: str, head: ResolvedRef, branch: Optional[str] = None) -> ResolvedRef:
+    """
+    The base for ``auto``: a PR head uses its PR base; a branch with an open
+    PR uses that PR's base (so stacked branches show only their own changes);
+    anything else uses the merge-base with the default branch. ``gh`` being
+    unavailable just means no PR is found.
+    """
+    match = PR_REF.match(head_input.strip())
+    if match:
+        return resolve_ref(repo, head_input, side="base")
+    head_commit = head.sha or run_git(repo, "rev-parse", "HEAD").strip()
+    branch = branch or branch_of(repo, head_input)
+    pr = None
+    if branch:
+        from app.services.compare import github
+
+        try:
+            pr = github.pr_for_branch(repo, branch)
+        except github.GhUnavailable:
+            pr = None
+    if pr is not None:
+        sha = _pr_merge_base(repo, pr, head_commit)
+    else:
+        sha = run_git(repo, "merge-base", default_branch(repo), head_commit).strip()
+    subject = run_git(repo, "log", "-1", "--format=%s", sha).strip()
+    return ResolvedRef(ref=AUTO, sha=sha, label=sha[:7], subject=subject, pr=pr_context(pr) if pr else None)
 
 
 _STATUS = {"A": "added", "D": "removed", "M": "modified", "T": "modified", "R": "renamed", "C": "added"}

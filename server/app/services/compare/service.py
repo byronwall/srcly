@@ -8,7 +8,15 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from app.services.compare.diff import diff_sides
-from app.services.compare.git_refs import MERGE_BASE, WORKTREE, list_changes, repo_root, resolve_ref
+from app.services.compare.git_refs import (
+    AUTO,
+    MERGE_BASE,
+    WORKTREE,
+    list_changes,
+    repo_root,
+    resolve_auto_base,
+    resolve_ref,
+)
 from app.services.compare.snapshots import Side, load_side
 from app.services.scan_progress import NULL_OBSERVER, ScanObserver
 from app.services.scan_workers import CancelToken
@@ -101,8 +109,8 @@ def build_compare(
 
     repo = repo_root(path)
     phase("resolving")
-    base_ref = resolve_ref(repo, base, side="base")
     head_ref = resolve_ref(repo, head, side="head")
+    base_ref = resolve_auto_base(repo, head, head_ref) if base == AUTO else resolve_ref(repo, base, side="base")
     changes = list_changes(repo, base_ref, head_ref)
 
     observers = observers or {}

@@ -97,7 +97,11 @@ def fake_gh(monkeypatch, stacked):
     def run_gh(repo, *args, timeout=github.DEFAULT_TIMEOUT):
         calls.append(args)
         if args[:2] == ("pr", "list"):
-            return list(stacked["prs"].values())
+            prs = list(stacked["prs"].values())
+            if "--head" in args:
+                branch = args[args.index("--head") + 1]
+                prs = [p for p in prs if p["headRefName"] == branch]
+            return prs
         if args[:2] == ("pr", "view"):
             return stacked["prs"][int(args[2])]
         raise AssertionError(f"unexpected gh call {args}")

@@ -26,7 +26,7 @@ import { resolveTreeAt } from "./navigation/resolveTree";
 import { go, location, replace } from "./navigation/store";
 import { scanStore } from "./state/scanStore";
 import HistoryMenu from "./navigation/HistoryMenu";
-import { DEFAULT_BASE, DEFAULT_HEAD, navigateCompare, readCompareParam } from "./compare/api";
+import { enterCompare, readCompareParam } from "./compare/api";
 
 const CodeModal = lazy(() => import("./components/CodeModal/CodeModal.tsx"));
 const CompareApp = lazy(() => import("./compare/CompareApp.tsx"));
@@ -413,7 +413,7 @@ function AppContent(props: { active: boolean }) {
           variant="ghost"
           class="shrink-0 gap-1.5"
           title="Compare two git refs: what a branch or PR changed, and whether metrics got better or worse"
-          onClick={() => navigateCompare(DEFAULT_BASE, DEFAULT_HEAD)}
+          onClick={() => enterCompare()}
         >
           <GitCompare size={13} aria-hidden="true" />
           Compare
