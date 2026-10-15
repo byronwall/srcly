@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.3.0](https://github.com/byronwall/srcly/compare/v0.2.0...v0.3.0) (2026-10-15)
+
+
+### Features
+
+* **code-viewer:** one metrics table with only the metrics that apply ([#57](https://github.com/byronwall/srcly/issues/57)) ([26b66cb](https://github.com/byronwall/srcly/commit/26b66cbc2659a86b4a654d5d3467ee7faf35baaa))
+* **compare:** compare another worktree's files on disk as the head ([#54](https://github.com/byronwall/srcly/issues/54)) ([f7a4d39](https://github.com/byronwall/srcly/commit/f7a4d39174339424b53221c979937f13af9662a0))
+* **compare:** picker over open PRs, worktrees and branches ([#52](https://github.com/byronwall/srcly/issues/52)) ([54f596a](https://github.com/byronwall/srcly/commit/54f596a2edbab2b2d9b9ff52a1b26a6a554de510))
+* **compare:** resolve pr:&lt;n&gt; refs through a gh seam, with phase timings ([#47](https://github.com/byronwall/srcly/issues/47)) ([4de9f89](https://github.com/byronwall/srcly/commit/4de9f896b334c28ab29d02efebe6dc4cf936f6a2))
+* **compare:** step through a PR commit by commit ([#59](https://github.com/byronwall/srcly/issues/59)) ([30a412c](https://github.com/byronwall/srcly/commit/30a412c3b24d370fd93aa018cc88bb83bd8047f9))
+* **deps:** drop graph side headers and add a legend ([#48](https://github.com/byronwall/srcly/issues/48)) ([9e5c3c1](https://github.com/byronwall/srcly/commit/9e5c3c11389e5539292ebda47adfc6caea34ea30))
+* **deps:** group neighbors by package, then file, in labeled frames ([#58](https://github.com/byronwall/srcly/issues/58)) ([2eccad7](https://github.com/byronwall/srcly/commit/2eccad76b02ff452a1cfd78258d5d68ca189496d))
+* **deps:** pack mid-level dependency views to the viewport's shape ([#50](https://github.com/byronwall/srcly/issues/50)) ([9c6f368](https://github.com/byronwall/srcly/commit/9c6f368be0aea2088be67a4847c22727ea3440ad))
+* **deps:** spread edge bundles by their edge count ([#61](https://github.com/byronwall/srcly/issues/61)) ([eaf30a2](https://github.com/byronwall/srcly/commit/eaf30a227bc561bb7507ddb0d2c8bfcca6cfd2b0))
+* **deps:** tint dependency boxes with the treemap's color and show LOC ([#60](https://github.com/byronwall/srcly/issues/60)) ([07ba975](https://github.com/byronwall/srcly/commit/07ba975632bee5843e2628ec2269d85ef5a3418b))
+* **deps:** two-line boxes with visibly different, size-aware folders ([#56](https://github.com/byronwall/srcly/issues/56)) ([f1d8cea](https://github.com/byronwall/srcly/commit/f1d8cea22013aa638d4b638558908cf56898cb50))
+* **nav:** one location for treemap zoom and graph focus, with real Back ([#45](https://github.com/byronwall/srcly/issues/45)) ([af2a0be](https://github.com/byronwall/srcly/commit/af2a0be92e94c6a03adf811c5725e6de4590dbd2))
+* **nav:** one Treemap | Graph switch and visible node actions ([#55](https://github.com/byronwall/srcly/issues/55)) ([0e0381c](https://github.com/byronwall/srcly/commit/0e0381cf5f418f1f5278af3946f4d0480c3a769e))
+* **nav:** refresh and compare keep the repo; History dropdown ([#49](https://github.com/byronwall/srcly/issues/49)) ([d2b65c9](https://github.com/byronwall/srcly/commit/d2b65c906c0d0df88e63d6b277f68f316adb0b68))
+* **treemap:** dark mono labels, a stronger color ramp, tighter tiles and a richer tooltip ([#51](https://github.com/byronwall/srcly/issues/51)) ([34868e4](https://github.com/byronwall/srcly/commit/34868e4c0e02df8c3882daf0f9eb3c9fd2ac1592))
+
+
+### Bug Fixes
+
+* **deps:** open graph symbols in the app's code viewer and clear stale hover ([#46](https://github.com/byronwall/srcly/issues/46)) ([6e7f82b](https://github.com/byronwall/srcly/commit/6e7f82bf654c21e0dcbd8546f48dbe6ac9ef6044))
+* **ui:** one popover open at a time, placed before paint, with origin-aware motion ([#53](https://github.com/byronwall/srcly/issues/53)) ([385243c](https://github.com/byronwall/srcly/commit/385243c419b608c2ad6de70e71e6f403149f6d7f))
+
+
+### Documentation
+
+* **intent:** shape and plan four follow-up initiatives from 2026-10-15 voiceover ([#43](https://github.com/byronwall/srcly/issues/43)) ([1042dd2](https://github.com/byronwall/srcly/commit/1042dd2ce99086fdfc2f646ec48ef08d7831a3db))
+
 ## [0.2.0](https://github.com/byronwall/srcly/compare/v0.1.34...v0.2.0) (2026-10-15)
 
 
