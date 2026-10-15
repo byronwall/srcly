@@ -67,7 +67,7 @@ To run tests, `cd server && uv run pytest`.
 >
 > - In `client/src/utils/metricsStore.tsx`:
 >   - Add the metric id to `HotSpotMetricId` (use the exact field name from `Metrics`).
->   - Add a corresponding entry to `HOTSPOT_METRICS` with a short label, its language `group` (drives the grouped metric picker), and `invert` if “lower is better”. Metric values render in neutral text; don't add per-metric colors.
+>   - Add a corresponding entry to `HOTSPOT_METRICS` with a short label, its language `group` (drives the grouped metric picker), and `invert` if “lower is better”. Set `scope: "file"` when `convert_function` doesn't copy it onto scope nodes, and `languages` when it applies to fewer languages than its group (e.g. `["tsx"]`); the code viewer's metrics table uses these to hide rows that don't apply. Metric values render in neutral text; don't add per-metric colors.
 > - In `client/src/components/Explorer.tsx`:
 >   - Extend the `metrics` shape on the `Node` interface with the optional field.
 >   - Add the metric to the `SortField` union and wire an accessor into `SORT_FIELD_ACCESSORS` so it can be used for sorting.

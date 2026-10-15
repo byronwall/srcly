@@ -292,7 +292,7 @@ export default function CodeModal(props: CodeModalProps) {
           <main class="relative flex-1 overflow-hidden flex bg-[var(--plc-surface)]">
             <MetricsSidebar
                 fileNode={props.fileNode}
-                scopeNode={props.scopeNode}
+                scopeNode={selectedScopeNode()}
                 baseName={baseName}
                 breadcrumbPath={breadcrumbPath}
                 activeStructureNode={activeStructureNode}
