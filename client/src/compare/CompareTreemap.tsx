@@ -2,7 +2,7 @@ import { ChevronRight } from "lucide-solid";
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { CheckboxRow } from "../components/ui/CheckboxRow";
 import { cx } from "../components/ui/classes";
-import { TREEMAP_RAMP, treemapFillColor } from "../viz/treemap/utils/colors";
+import { TREEMAP_GRADIENT, treemapFillColor } from "../viz/treemap/utils/colors";
 import { DiffStat, StatusIcon } from "./bits";
 import { compareMetricLabel, formatDelta, formatValue, STATUS_COLOR, STATUS_LABEL, VERDICT_TEXT } from "./metrics";
 import { collectFiles, indexFiles } from "./rows";
@@ -293,7 +293,7 @@ export function CompareTreemap(props: {
           low
           <span
             class="h-2 w-16 rounded-sm"
-            style={{ background: `linear-gradient(90deg, ${TREEMAP_RAMP.join(", ")})` }}
+            style={{ background: TREEMAP_GRADIENT }}
           />
           high
         </span>

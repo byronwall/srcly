@@ -197,9 +197,9 @@ export default function Treemap(props: TreemapProps) {
     d3
       .treemap()
       .size([width, height])
-      .paddingOuter(4)
+      .paddingOuter(3)
       .paddingTop(20)
-      .paddingInner(2)
+      .paddingInner(1)
       .round(true)
       .tile(d3.treemapBinary)(root);
     return root as d3.HierarchyRectangularNode<any>;
