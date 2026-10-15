@@ -10,9 +10,10 @@ Entries live in the user's cache directory, never in the analyzed repo:
 
 Each analyzed root (by resolved path) gets a gzipped JSON tree plus a small
 meta file. An entry is valid only while the root's fingerprint matches: a hash
-of every file's relative path, mtime and size under the same pruned
-directories the scan skips, plus the srcly version. Walking that list is cheap
-(~0.2s for 7k files) compared to a scan, and any edit, add, delete or upgrade
+of the relative path, mtime and size of every file discovery would consider
+(the ``git ls-files`` listing in a repo, otherwise every file outside the
+pruned directories), plus the srcly version. Checking it is cheap (~50ms for
+2.5k files) compared to a scan, and any edit, add, delete or upgrade
 invalidates the entry. The most recent entries are also kept in memory so a
 reload skips the disk read and gunzip.
 
@@ -35,6 +36,7 @@ from pathlib import Path
 from typing import Optional
 
 from app.config import IGNORE_DIRS
+from app.services import analysis
 
 # Bump when the stored tree's shape changes in a way old entries can't serve.
 CACHE_FORMAT = 1
@@ -89,9 +91,12 @@ def fingerprint(root: Path) -> str:
     """
     Hash of everything a scan of ``root`` could depend on.
 
-    Deliberately a superset of what the scan reads: gitignored files under
-    walked directories count too, so a change can only cause a spurious
-    rescan, never a stale result.
+    Inside a git work tree this hashes the same listing discovery uses, plus
+    the ignore-rule files and the names of gitignored files, so editing an
+    ignored or excluded tree (build output, agent worktrees) leaves the entry
+    valid. Elsewhere it walks every file outside the pruned directories, a
+    superset of what the scan reads. Either way a change can only cause a
+    spurious rescan, never a stale result.
     """
     root = root.resolve()
     digest = hashlib.blake2b(digest_size=20)
@@ -99,6 +104,15 @@ def fingerprint(root: Path) -> str:
     if root.is_file():
         st = root.stat()
         digest.update(f"{root.name}\0{st.st_mtime_ns}\0{st.st_size}\n".encode())
+        return digest.hexdigest()
+
+    inputs = analysis.git_fingerprint_inputs(root)
+    if inputs is not None:
+        for path in sorted(inputs.stats):
+            st = inputs.stats[path]
+            digest.update(f"{os.path.relpath(path, root)}\0{st.st_mtime_ns}\0{st.st_size}\n".encode())
+        for name in sorted(set(inputs.names)):
+            digest.update(f"ignored\0{os.path.relpath(name, root)}\n".encode())
         return digest.hexdigest()
 
     for dirpath, dirnames, filenames in os.walk(root):

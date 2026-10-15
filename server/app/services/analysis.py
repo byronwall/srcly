@@ -1,4 +1,5 @@
 import os
+import stat
 import subprocess
 import sys
 
@@ -11,6 +12,7 @@ import lizard  # noqa: E402
 
 sys.path[:] = [p for p in sys.path if p in _sys_path_before_lizard]
 del _sys_path_before_lizard
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -503,29 +505,40 @@ def _is_inside_git_work_tree(root_path: Path) -> bool:
     return proc.returncode == 0 and proc.stdout.strip() == b"true"
 
 
-def _discover_with_git(
-    root_path: Path,
-    result: DiscoveryResult,
-    cancel: Optional[CancelToken],
-    observer: ScanObserver,
-) -> bool:
-    """
-    List files with ``git ls-files --cached --others --exclude-standard``.
+@dataclass
+class _GitListing:
+    """One repository's ``git ls-files`` view, before classification."""
 
-    Returns False (leaving ``result`` untouched) if git cannot list the tree,
-    so the caller can fall back to the pathspec walk. Nested repositories and
-    submodules show up as directories; they are listed with their own git.
+    files: list[str]
+    """Existing candidate files (absolute), outside pruned directories."""
+    stats: list[os.stat_result]
+    """``os.stat`` of each entry in ``files``, in the same order."""
+    nested: list[Path]
+    """Checked-out submodules and nested repositories, listed with their own git."""
+    ignored: list[str]
+    """Ignored entries relative to the root; wholly ignored trees end in "/"."""
+
+
+def _list_with_git(root_path: Path, cancel: Optional[CancelToken] = None) -> _GitListing | None:
     """
-    listed = _git_ls_files(root_path, "--cached", "--others", "--exclude-standard")
+    List ``root_path`` with ``git ls-files --cached --others --exclude-standard``.
+
+    Returns None if git cannot list the tree. Nested repositories and
+    submodules show up as directories and are returned in ``nested``.
+    """
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        # --directory collapses wholly ignored trees (node_modules, build output)
+        # into one "dir/" entry; listing every file in them costs seconds on big
+        # repos. (--no-empty-directory is avoided: some git versions then list nothing.)
+        ignored_future = pool.submit(
+            _git_ls_files, root_path, "--others", "--ignored", "--exclude-standard", "--directory"
+        )
+        listed = _git_ls_files(root_path, "--cached", "--others", "--exclude-standard")
+        ignored = ignored_future.result()
     if listed is None:
-        return False
-    # --directory collapses wholly ignored trees (node_modules, build output)
-    # into one "dir/" entry; listing every file in them costs seconds on big
-    # repos. (--no-empty-directory is avoided: some git versions then list nothing.)
-    ignored = _git_ls_files(root_path, "--others", "--ignored", "--exclude-standard", "--directory")
+        return None
 
-    files: list[str] = []
-    nested: list[Path] = []
+    listing = _GitListing(files=[], stats=[], nested=[], ignored=list(dict.fromkeys(ignored or [])))
     seen: set[str] = set()
     for rel in listed:
         if cancel is not None:
@@ -539,19 +552,47 @@ def _discover_with_git(
         if not rel or _has_pruned_component(rel_path.parts[:-1]):
             continue
         full = root_path / rel_path
-        if full.is_dir() and not full.is_symlink():
+        # One stat per file: the fingerprint reuses it, and repos list thousands.
+        try:
+            st = os.stat(full)
+        except OSError:
+            # Tracked but deleted in the working tree, or a dangling symlink.
+            continue
+        if stat.S_ISDIR(st.st_mode):
             # Submodule (gitlink) or untracked nested repository. Only descend
             # into ones that are checked out; an uninitialized submodule is an
             # empty directory that git would resolve back to this repo.
-            if not _is_pruned_dir_name(rel_path.name) and (full / ".git").exists():
-                nested.append(full)
+            if (
+                not full.is_symlink()
+                and not _is_pruned_dir_name(rel_path.name)
+                and (full / ".git").exists()
+            ):
+                listing.nested.append(full)
             continue
-        if not full.is_file():
-            # Tracked but deleted in the working tree, or a dangling symlink.
+        if not stat.S_ISREG(st.st_mode):
             continue
-        files.append(str(full))
+        listing.files.append(str(full))
+        listing.stats.append(st)
+    return listing
 
-    for full_str in files:
+
+def _discover_with_git(
+    root_path: Path,
+    result: DiscoveryResult,
+    cancel: Optional[CancelToken],
+    observer: ScanObserver,
+) -> bool:
+    """
+    Discover files with ``_list_with_git``.
+
+    Returns False (leaving ``result`` untouched) if git cannot list the tree,
+    so the caller can fall back to the pathspec walk.
+    """
+    listing = _list_with_git(root_path, cancel)
+    if listing is None:
+        return False
+
+    for full_str in listing.files:
         verdict = classify_candidate(Path(full_str))
         if verdict == "ok":
             result.files.append(full_str)
@@ -561,7 +602,7 @@ def _discover_with_git(
             result.skipped_minified += 1
     observer.discovering(len(result.files), str(root_path))
 
-    for rel in dict.fromkeys(ignored or []):
+    for rel in listing.ignored:
         if rel.endswith("/"):
             # A wholly ignored directory; like the walk, count only files
             # sitting in directories the scan actually enters.
@@ -572,9 +613,89 @@ def _discover_with_git(
         parent = str((root_path / rel_path).parent)
         result.ignored_counts[parent] = result.ignored_counts.get(parent, 0) + 1
 
-    for nested_root in nested:
+    for nested_root in listing.nested:
         _discover_into(nested_root, result, cancel, observer)
     return True
+
+
+def _git_info_exclude(root_path: Path) -> Path | None:
+    """The repo's .git/info/exclude (shared by worktrees), or None if ``root_path`` isn't in a work tree."""
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree", "--git-path", "info/exclude"],
+            cwd=root_path,
+            capture_output=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    lines = proc.stdout.decode("utf-8", "surrogateescape").splitlines()
+    if proc.returncode != 0 or len(lines) != 2 or lines[0] != "true":
+        return None
+    # Printed relative to the cwd unless it lives outside it (worktrees).
+    return root_path / lines[1]
+
+
+def _git_global_excludes_file(root_path: Path) -> Path:
+    try:
+        proc = subprocess.run(
+            ["git", "config", "--path", "core.excludesFile"],
+            cwd=root_path,
+            capture_output=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        proc = None
+    if proc is not None and proc.returncode == 0 and proc.stdout.strip():
+        return Path(proc.stdout.decode("utf-8", "surrogateescape").strip()).expanduser()
+    config_home = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
+    return Path(config_home) / "git" / "ignore"
+
+
+@dataclass
+class FingerprintInputs:
+    """What a git-based scan of a root depends on, for the analysis cache."""
+
+    stats: dict[str, os.stat_result] = field(default_factory=dict)
+    """Files whose path, mtime and size matter: candidates plus ignore-rule files."""
+    names: list[str] = field(default_factory=list)
+    """Entries whose presence alone matters: gitignored files (shown as counts)."""
+
+
+def git_fingerprint_inputs(root_path: Path) -> FingerprintInputs | None:
+    """
+    The files a scan of ``root_path`` reads, from the same git listing as discovery.
+
+    Includes every candidate (before binary/minified checks), each tracked or
+    untracked .gitignore, .git/info/exclude and the global excludes file, so a
+    file that becomes un-ignored still changes the result. Returns None when
+    ``root_path`` (or a nested repository) can't be listed with git; callers
+    then fall back to walking the tree.
+    """
+    root_path = root_path.resolve()
+    inputs = FingerprintInputs()
+    rule_files: list[Path] = []
+    pending = [root_path]
+    while pending:
+        repo = pending.pop()
+        info_exclude = _git_info_exclude(repo)
+        if info_exclude is None:
+            return None
+        if not rule_files:
+            rule_files.append(_git_global_excludes_file(repo))
+        listing = _list_with_git(repo)
+        if listing is None:
+            return None
+        rule_files.append(info_exclude)
+        inputs.stats.update(zip(listing.files, listing.stats))
+        inputs.names.extend(str(repo / rel) for rel in listing.ignored)
+        pending.extend(listing.nested)
+    for path in rule_files:
+        try:
+            inputs.stats[str(path)] = os.stat(path)
+        except OSError:
+            continue
+    return inputs
 
 
 def _discover_with_walk(
@@ -982,9 +1103,9 @@ def _scan_codebase(
             attach_file_metrics(file_node, file_info)
         # Set last_modified
         try:
-            stat = os.stat(path_obj)
-            file_node.metrics.last_modified = stat.st_mtime
-            file_node.metrics.file_size = stat.st_size
+            st = os.stat(path_obj)
+            file_node.metrics.last_modified = st.st_mtime
+            file_node.metrics.file_size = st.st_size
         except OSError:
             file_node.metrics.last_modified = 0.0
             file_node.metrics.file_size = 0
