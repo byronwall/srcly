@@ -44,7 +44,20 @@ export interface MetricTotal extends MetricDelta {
   filesWorse: number;
 }
 
+/** PR context on a side resolved from `pr:<n>` or an `auto` base that found the head's PR. */
+export interface ComparePrMeta {
+  number: number;
+  title: string;
+  url: string;
+  headRefName: string;
+  baseRefName: string;
+  author: string;
+  isDraft: boolean;
+  changedFiles: number | null;
+}
+
 export interface CompareSideMeta {
+  pr?: ComparePrMeta;
   ref: string;
   sha: string | null;
   label: string;

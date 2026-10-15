@@ -32,15 +32,78 @@ export type CompareSnapshot = {
   timings?: CompareTimings;
 };
 
-export type RefList = {
-  repo: string;
-  current: string;
-  defaultBranch: string | null;
-  branches: { name: string; sha: string; date: string }[];
-  commits: { sha: string; subject: string; date: string }[];
+
+// -- Picker sources (GET /api/compare/sources) ---------------------------------
+
+export type PrSource = {
+  number: number;
+  title: string;
+  url: string;
+  headRefName: string;
+  baseRefName: string;
+  headRefOid: string;
+  isDraft: boolean;
+  reviewDecision: "APPROVED" | "CHANGES_REQUESTED" | "REVIEW_REQUIRED" | null;
+  checks: "pass" | "fail" | "pending" | null;
+  updatedAt: string | null;
+  author: string;
+  changedFiles: number | null;
+  /** Path of a local worktree that has the PR's head branch checked out. */
+  worktree: string | null;
+  /** False when the head commit isn't local yet; comparing fetches it (objects only). */
+  local: boolean;
+  crossRepository: boolean;
 };
 
+export type WorktreeSource = {
+  path: string;
+  branch: string | null;
+  sha: string;
+  /** Unix seconds of the HEAD commit. */
+  date: number;
+  subject: string;
+  locked: boolean;
+  /** This is the repo being analyzed. */
+  current: boolean;
+};
+
+export type BranchSource = {
+  name: string;
+  remote: boolean;
+  sha: string;
+  date: number;
+  subject: string;
+  upstream: string | null;
+  /** A local branch whose remote branch is the same commit (that remote row is folded into this one). */
+  pushed: boolean;
+  worktree: string | null;
+  /** Commits ahead of / behind the default branch (null on git < 2.41). */
+  ahead: number | null;
+  behind: number | null;
+};
+
+type SourceBase = { repo: string; available: boolean; reason: string | null };
+export type PrSection = SourceBase & { kind: "prs"; mine: boolean; items: PrSource[] };
+export type WorktreeSection = SourceBase & { kind: "worktrees"; items: WorktreeSource[] };
+export type BranchSection = SourceBase & { kind: "branches"; defaultBranch: string | null; items: BranchSource[] };
+export type SourceKind = "prs" | "worktrees" | "branches";
+type SectionOf = { prs: PrSection; worktrees: WorktreeSection; branches: BranchSection };
+
+export function fetchSource<K extends SourceKind>(
+  kind: K,
+  opts: { all?: boolean; refresh?: boolean } = {}
+): Promise<SectionOf[K]> {
+  const params = new URLSearchParams({ kind });
+  const repo = compareRepo();
+  if (repo) params.set("path", repo);
+  if (opts.all) params.set("all", "true");
+  if (opts.refresh) params.set("refresh", "true");
+  return fetch(`/api/compare/sources?${params}`).then((r) => json<SectionOf[K]>(r));
+}
+
 export const DEFAULT_BASE = "merge-base";
+/** Base that follows the head: its open PR's base, else the merge-base with the default branch. */
+export const AUTO_BASE = "auto";
 export const DEFAULT_HEAD = "WORKTREE";
 const TERMINAL: ComparePhase[] = ["complete", "failed", "cancelled"];
 const POLL_MS = 250;
@@ -58,13 +121,6 @@ async function json<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-/** `?path=` for the analyzed repo, or nothing to use the server's root. */
-const repoQuery = () => {
-  const repo = compareRepo();
-  return repo ? `?${new URLSearchParams({ path: repo })}` : "";
-};
-
-export const fetchRefs = () => fetch(`/api/compare/refs${repoQuery()}`).then((r) => json<RefList>(r));
 
 export const startCompare = (base: string, head: string, force = false) =>
   fetch("/api/compare", {
@@ -142,9 +198,21 @@ export function readCompareParam(search = window.location.search): { base: strin
 
 export function compareHref(base: string | null, head?: string): string {
   const url = new URL(window.location.href);
+  url.searchParams.delete(PICK_PARAM);
   if (base === null) url.searchParams.delete(COMPARE_PARAM);
   else url.searchParams.set(COMPARE_PARAM, `${base}..${head ?? DEFAULT_HEAD}`);
   return url.pathname + url.search;
+}
+
+/** Asks CompareApp to open the picker once on arrival (set by the main app's Compare button). */
+export const PICK_PARAM = "cpick";
+
+/** Enter compare mode from the main app: default compare running on the current `repo`, picker open. */
+export function enterCompare() {
+  const url = new URL(compareHref(DEFAULT_BASE, DEFAULT_HEAD), window.location.origin);
+  url.searchParams.set(PICK_PARAM, "1");
+  window.history.pushState(null, "", url.pathname + url.search);
+  window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
 /** Push a new compare URL and notify listeners (App switches modes on it). */

@@ -6,6 +6,7 @@ import {
   cancelCompare,
   fetchCompareResult,
   navigateCompare,
+  PICK_PARAM,
   readCompareParam,
   startCompare,
   watchCompare,
@@ -16,7 +17,7 @@ import { CompareTable } from "./CompareTable";
 import { CompareGraph } from "./CompareGraph";
 import { CompareTreemap } from "./CompareTreemap";
 import { DEFAULT_COMPARE_COLUMNS } from "./metrics";
-import { RefBar } from "./RefBar";
+import { ComparePicker } from "./ComparePicker";
 import { Inspector } from "./Inspector";
 import { buildRows, collectFiles, indexFiles, type FileRow, type RowSort } from "./rows";
 import { Scorecard } from "./Scorecard";
@@ -60,6 +61,9 @@ export default function CompareApp() {
   const [view, setView] = createSignal<CompareView>((readParam(VIEW_PARAM) as CompareView) ?? "files");
   const [colorMetric, setColorMetric] = createSignal("complexity");
   const [openFile, setOpenFile] = createSignal<{ path: string; side: "base" | "head" } | null>(null);
+  // Arriving from the main app's Compare button opens the picker once.
+  const [picking, setPicking] = createSignal(readParam(PICK_PARAM) !== null);
+  if (picking()) writeParam(PICK_PARAM, null);
   let request = 0;
   let stop: (() => void) | null = null;
 
@@ -178,10 +182,13 @@ export default function CompareApp() {
           Srcly
           <span class="font-normal text-[var(--plc-on-subtle)]">compare</span>
         </h1>
-        <RefBar
+        <ComparePicker
           base={refs().base}
           head={refs().head}
           busy={Boolean(snapshot())}
+          payload={payload()}
+          open={picking()}
+          onOpenChange={setPicking}
           onCompare={compare}
         />
         <div class="flex-1" />

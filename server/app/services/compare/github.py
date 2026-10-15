@@ -145,6 +145,22 @@ def pr_info(repo: Path, number: int) -> dict[str, Any]:
     return pr
 
 
+def pr_for_branch(repo: Path, branch: str) -> Optional[dict[str, Any]]:
+    """The open PR whose head branch is ``branch``, or None. Uses a fresh list when one is cached."""
+    for mine in (True, False):
+        for pr in _cache.get((str(repo), "list", mine)) or []:
+            if pr.get("headRefName") == branch:
+                return pr
+    key = (str(repo), "head", branch)
+    hit = _cache.get(key)
+    if hit is not None:
+        return hit or None
+    prs = run_gh(repo, "pr", "list", "--state", "open", "--head", branch, "--limit", "1", "--json", PR_FIELDS)
+    pr = prs[0] if isinstance(prs, list) and prs else None
+    _cache.put(key, pr or {})
+    return pr
+
+
 def checks_summary(pr: dict[str, Any]) -> Optional[str]:
     """``pass`` / ``fail`` / ``pending`` from ``statusCheckRollup``, or None when there are no checks."""
     rollup = pr.get("statusCheckRollup") or []

@@ -2,6 +2,7 @@
 Compare two git refs (PR compare mode).
 
     GET    /api/compare/refs          branches + recent commits for the picker
+    GET    /api/compare/sources       one picker section: prs | worktrees | branches
     POST   /api/compare               start (or join) a compare   -> snapshot
     GET    /api/compare/{id}          current snapshot (poll)
     GET    /api/compare/{id}/result   compare payload once complete
@@ -18,7 +19,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.routers import analysis as analysis_router
-from app.services.compare import jobs
+from app.services.compare import jobs, sources
 from app.services.compare.git_refs import GitError, default_branch, repo_root, run_git
 from app.services.compare.service import DEFAULT_BASE, DEFAULT_HEAD
 
@@ -84,6 +85,22 @@ def list_refs(path: Optional[str] = None) -> dict:
         "branches": branches,
         "commits": commits,
     }
+
+
+@router.get("/sources")
+def list_sources(kind: str, path: Optional[str] = None, all: bool = False, refresh: bool = False) -> dict:
+    """
+    One picker section. Each kind is its own request so worktrees and branches
+    render while ``gh`` is still answering. A source that can't load (no gh,
+    not signed in, offline) comes back with ``available: false`` and a reason.
+    """
+    if kind not in ("prs", "worktrees", "branches"):
+        raise HTTPException(status_code=400, detail=f"Unknown source kind: {kind}")
+    try:
+        repo = repo_root(_target(path))
+    except GitError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"repo": str(repo), **sources.load_source(repo, kind, mine=not all, refresh=refresh)}
 
 
 @router.post("", status_code=202)
