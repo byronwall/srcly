@@ -141,3 +141,28 @@ def run():
     assert imp.start_line == 1
     assert imp.end_line == 3
     
+
+
+def test_node_positions_are_ints_for_every_node():
+    """
+    Regression for issue #11: tree-sitter 0.26.0 corrupted memory when reading
+    Node.start_point/end_point, crashing analysis (malloc errors) or yielding
+    bytes where ints were expected. Walk every node to catch binding regressions.
+    """
+    from pathlib import Path
+
+    analyzer = PythonTreeSitterAnalyzer()
+    source = Path(__file__).resolve().parents[1].joinpath("app", "run.py").read_bytes()
+    tree = analyzer.parser.parse(source)
+
+    stack = [tree.root_node]
+    visited = 0
+    while stack:
+        node = stack.pop()
+        visited += 1
+        assert isinstance(node.start_point.row, int)
+        assert isinstance(node.end_point.row, int)
+        assert node.start_point.row <= node.end_point.row
+        stack.extend(node.children)
+
+    assert visited > 100
