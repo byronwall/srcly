@@ -49,6 +49,7 @@ Browser
 | Ignore rules: nested `.gitignore` translation (walk fallback only) | `server/app/services/analysis.py` (`_load_gitignore_spec`, `_translate_gitignore_pattern`) |
 | Worker pool: reuse, hard per-file timeouts, crash recovery | `server/app/services/scan_workers.py` (`run_file_analyses`), wrapped by `analysis.py` (`_run_file_analyses_with_hard_timeouts`) |
 | Failed files (timeout/crash/error) kept with line-count LOC + `analysis_status` | `server/app/services/analysis.py` (`attach_fallback_metrics`); tooltip line in `client/src/viz/treemap/hooks/useTreemapTooltip.ts` |
+| Size cap: files over `MAX_ANALYZED_FILE_BYTES` skip dispatch, kept as `too_large` (not counted as failed) | `server/app/config.py`; `analysis.py` (`split_oversized_files`, `attach_fallback_metrics`); tooltip in `useTreemapTooltip.ts` (`notAnalyzedLines`) |
 | Scan cancellation (`CancelToken`, `ScanCancelled`, `cancel_all_scans`) | `server/app/services/scan_workers.py` |
 | Scan progress hooks (`ScanObserver`) | `server/app/services/scan_progress.py`; called from `analysis.py` |
 | Background scan jobs, progress snapshots, dedupe by path | `server/app/services/scan_jobs.py` (`ScanJob`, `ScanJobManager`) |
@@ -58,7 +59,8 @@ Browser
 | CSS / SCSS metrics | `server/app/services/css/css_analysis.py` |
 | Markdown metrics | `server/app/services/markdown/markdown_analysis.py` |
 | Jupyter notebook metrics | `server/app/services/ipynb/ipynb_analysis.py` |
-| Everything else (generic) | `lizard.analyze_file` fallback in `analyze_single_file` |
+| Everything else lizard has a reader for (Go, PHP, JS, …) | `lizard.analyze_file` fallback in `analyze_single_file` |
+| No reader (YAML, MDX, shell, HTML, dotfiles): streaming line count, no lizard | `analysis.py` (`count_lizard_style_nloc`) |
 | Analyzer result dataclasses | `server/app/services/analysis_types.py` |
 | Folder rollups of metrics | `server/app/services/analysis.py` (`aggregate_metrics`) |
 | Function/scope → Node conversion, `(body)` nodes | `server/app/services/analysis.py` (`attach_file_metrics`) |

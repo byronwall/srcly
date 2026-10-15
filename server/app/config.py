@@ -129,3 +129,11 @@ MINIFIED_CHECK_EXTENSIONS: Set[str] = {".js", ".mjs", ".cjs", ".css"}
 MINIFIED_SNIFF_BYTES = 64 * 1024
 # Hand-written code averages well under 80 characters per line.
 MINIFIED_MIN_AVG_LINE_LENGTH = 200
+
+# Files larger than this skip their analyzer and stay in the tree with a line
+# count and size only (analysis_status "too_large"). The scan checks this before
+# dispatch, so no worker is spent on them. Peak worker memory grows about 80 MB
+# per MB of input on the heaviest paths (tree-sitter on generated TSX, CSS,
+# lizard on HTML with data URLs), so 2 MiB keeps a worker near 220 MB. The
+# largest real source files in the repos measured are under 1 MB.
+MAX_ANALYZED_FILE_BYTES = 2 * 1024 * 1024
