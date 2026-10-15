@@ -35,6 +35,11 @@ MAX_REPORTED_FAILURES = 20
 MAX_REPORTED_IN_PROGRESS = 5
 
 
+def serialize_tree(tree: Node) -> bytes:
+    """Encode a tree exactly as FastAPI would for ``response_model=Node``."""
+    return tree.model_dump_json(by_alias=True).encode()
+
+
 @dataclass
 class _Failure:
     path: str
@@ -66,6 +71,8 @@ class ScanJob(ScanObserver):
     _in_progress: dict = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
     _done: threading.Event = field(default_factory=threading.Event)
+    _result_json: Optional[bytes] = None
+    _result_json_lock: threading.Lock = field(default_factory=threading.Lock)
 
     # -- state -------------------------------------------------------------
 
@@ -111,6 +118,22 @@ class ScanJob(ScanObserver):
 
     def cancel(self) -> None:
         self.cancel_token.cancel()
+
+    def result_json(self) -> bytes:
+        """
+        The result tree as JSON bytes, encoded once and shared by every reader.
+
+        Large repos produce trees of tens of MB. Letting FastAPI serialize a
+        ``Node`` response runs the encoding on the event loop, which stalls
+        every other request for seconds. Callers run this in a worker thread
+        (a plain ``def`` endpoint) and return the bytes as-is.
+        """
+        with self._result_json_lock:
+            if self._result_json is None:
+                if self.result is None:
+                    raise ValueError(f"Scan {self.id} has no result (phase: {self.phase})")
+                self._result_json = serialize_tree(self.result)
+            return self._result_json
 
     # -- ScanObserver --------------------------------------------------------
 

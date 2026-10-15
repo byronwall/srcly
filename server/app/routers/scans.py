@@ -25,12 +25,13 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 from app.models import Node
 from app.routers import analysis as analysis_router
-from app.services.scan_jobs import TERMINAL_PHASES, ScanJob, manager
+from app.services import scan_jobs
+from app.services.scan_jobs import TERMINAL_PHASES, ScanJob
 
 router = APIRouter(prefix="/api/scans", tags=["scans"])
 
@@ -44,7 +45,7 @@ class StartScanRequest(BaseModel):
 
 
 def _job_or_404(job_id: str) -> ScanJob:
-    job = manager.get(job_id)
+    job = scan_jobs.manager.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Scan not found")
     return job
@@ -63,7 +64,7 @@ def start_scan(req: StartScanRequest) -> dict:
     target = Path(req.path) if req.path else analysis_router.ROOT_PATH
     if not target.exists():
         raise HTTPException(status_code=404, detail=f"Path not found: {target}")
-    return manager.start(target).snapshot()
+    return scan_jobs.manager.start(target).snapshot()
 
 
 @router.get("/{job_id}")
@@ -83,7 +84,9 @@ def get_scan_result(job_id: str):
     job = _job_or_404(job_id)
     if job.phase != "complete" or job.result is None:
         raise HTTPException(status_code=409, detail=f"Scan is {job.phase}, not complete")
-    return job.result
+    # Pre-encoded bytes: serializing a large tree on the event loop would
+    # block every other request (see ScanJob.result_json).
+    return Response(content=job.result_json(), media_type="application/json")
 
 
 @router.get("/{job_id}/events")
