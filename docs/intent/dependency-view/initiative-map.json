@@ -1,0 +1,639 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Multi-scale dependency view",
+    "slug": "dependency-view",
+    "scale": "capability",
+    "current_phase": "execution",
+    "last_updated": "2026-10-14",
+    "summary": "Replace the crude TS-only file dependency graph with a multi-scale, focus-centered view for TypeScript and Python: folders/modules with bundled edges when zoomed out, accurate edges when zoomed in, 30-50 labeled items on screen, uniform boxes, rectilinear routing that never crosses nodes.",
+    "status": "active",
+    "next_action": "M2: graph contract endpoint + full TS resolution"
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-14"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-14"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-14"
+    }
+  },
+  "sources": [
+    {
+      "id": "req-1",
+      "type": "request",
+      "location": "conversation",
+      "anchor": "initial request 2026-10-14",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "repo-server-deps",
+      "type": "repository",
+      "location": "server/app/routers/analysis.py",
+      "anchor": "get_dependencies",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-client-graph",
+      "type": "repository",
+      "location": "client/src/components/DependencyGraph.tsx",
+      "anchor": "layoutGraph / filterGraph / super-node logic",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-python",
+      "type": "repository",
+      "location": "server/app/services/python/python_analysis.py",
+      "anchor": "import counting only",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "qa-round-1",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "1",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "qa-round-1b",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "1 (re-asked)",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "qa-round-2",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "2",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "qa-round-3",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "3",
+      "authority": "direct current intent"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "Zoomed out, the view shows folders/modules with bundled aggregate edges; spaghetti must be avoided.",
+        "kind": "requirement",
+        "strength": "must",
+        "sources": [
+          "req-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C2",
+        "statement": "When zoomed to something specific, render accurate edges to every relevant place.",
+        "kind": "requirement",
+        "strength": "must",
+        "sources": [
+          "req-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C3",
+        "statement": "Aim for 30-50 labeled items on screen; smaller items may render unlabeled.",
+        "kind": "requirement",
+        "strength": "should",
+        "sources": [
+          "req-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C4",
+        "statement": "Focus-centered layout: whatever the user expressed interest in sits in the center.",
+        "kind": "requirement",
+        "strength": "should",
+        "sources": [
+          "req-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C5",
+        "statement": "Flows render left-to-right or top-to-bottom; call-chain/hop rendering is deferred. Current goal is immediate seams.",
+        "kind": "scope",
+        "strength": "should",
+        "sources": [
+          "req-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C6",
+        "statement": "Uniform box sizes, clean text, rectilinear edges that never cross nodes, minimized crossings, bundled edges sharing a path (1-2px apart).",
+        "kind": "requirement",
+        "strength": "must",
+        "sources": [
+          "req-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C7",
+        "statement": "Must work for both TypeScript and Python.",
+        "kind": "requirement",
+        "strength": "must",
+        "sources": [
+          "req-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C8",
+        "statement": "Zoomed out, collapse many real edges into a few aggregate edges showing broad themes; detail appears only as the user zooms in.",
+        "kind": "requirement",
+        "strength": "must",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C9",
+        "statement": "Grouping levels come from folders or module boundaries (not auto-clustering).",
+        "kind": "decision",
+        "strength": "must",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C10",
+        "statement": "Focused layout is three columns: dependents left, focus center, dependencies right (resolves X1).",
+        "kind": "decision",
+        "strength": "must",
+        "sources": [
+          "qa-round-1b"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C11",
+        "statement": "Detail changes by click-to-drill: clicking a folder expands it and makes it the focus, splitting its bundled edges; breadcrumbs go back out; scroll only magnifies.",
+        "kind": "decision",
+        "strength": "must",
+        "sources": [
+          "qa-round-1b"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C12",
+        "statement": "The focused item expands into symbols. On the other side of each edge, show the specific symbols involved when they fit; otherwise keep them bundled as files.",
+        "kind": "requirement",
+        "strength": "must",
+        "sources": [
+          "qa-round-1b"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C13",
+        "statement": "Focus is set from the treemap selection or by clicking in the graph.",
+        "kind": "decision",
+        "strength": "must",
+        "sources": [
+          "qa-round-1b"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C14",
+        "statement": "Future: a symbol-focused explorer/search (e.g. popular or commonly used symbols) that the treemap cannot offer. Not in the first version, but the design must not preclude it.",
+        "kind": "later",
+        "strength": "later",
+        "sources": [
+          "qa-round-1b"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C15",
+        "statement": "The other side of focus edges shows the specific function/symbol in the importing file that uses the focus symbol (usage tracking in bodies, TS and Python).",
+        "kind": "requirement",
+        "strength": "must",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C16",
+        "statement": "Fill the screen with nodes. More than 3 columns is allowed: incoming on the left, outgoing on the right, positioned by interconnectedness. Group by folder or aggregate only when it still does not fit. Goal: exploring how ALL things interconnect.",
+        "kind": "requirement",
+        "strength": "must",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C17",
+        "statement": "Neighbor-to-neighbor edges (not touching focus) are drawn faintly.",
+        "kind": "decision",
+        "strength": "should",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C18",
+        "statement": "Hidden/collapsed by default: external packages, tests, type-only imports; barrel/__init__ re-exports are passed through to the defining file.",
+        "kind": "decision",
+        "strength": "should",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C19",
+        "statement": "Extra columns come from layering within each side: still 1-hop only, and a dependent that imports another dependent sits further out.",
+        "kind": "decision",
+        "strength": "must",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C20",
+        "statement": "Target stays ~30-50 boxes, packed to the screen aspect ratio. Use as many columns as needed (e.g. 5); do not waste width holding to 3 strict columns; the focus column can be narrow when it holds one node.",
+        "kind": "requirement",
+        "strength": "must",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C21",
+        "statement": "First proof: layout + routing on existing TS data (folder overview, drill, focus columns, orthogonal bundled routing). Then Python resolution, then symbol usage.",
+        "kind": "decision",
+        "strength": "must",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C22",
+        "statement": "Must stay fast on ~2k-file repos; graph built on first open and cached with the existing analysis cache.",
+        "kind": "constraint",
+        "strength": "must",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      }
+    ],
+    "themes": [
+      "multi-scale aggregation",
+      "focus+context",
+      "routing quality",
+      "language coverage"
+    ],
+    "conflicts": [
+      {
+        "id": "X1",
+        "statement": "Focus-centered (radial-ish) layout vs. directional L->R/T->B flow.",
+        "status": "resolved: three columns (C10)"
+      },
+      {
+        "id": "X2",
+        "statement": "Fill the screen with nodes (C16) vs. 30-50 labeled items (C3).",
+        "status": "resolved: ~30-50 boxes packed to aspect ratio across as many layered columns as needed (C20)"
+      }
+    ],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Replacement dependency view plus one language-neutral graph contract (TS + Python). No call-graph/data-flow beyond which function references an imported name.",
+    "problem": "The current view is a flat TS-only file graph laid out in one ELK pass with post-layout repositioning; it spaghettis, crosses nodes, and has no hierarchy, Python, or usage data.",
+    "recommended_shape": "Server emits finest-level hierarchical graph (folder>file>symbol, flagged edges); client does roll-up/budget view model -> ELK layered with partitions, fixed sizes, orthogonal routing, mergeEdges -> bundling offsets -> render. New component behind toggle until parity.",
+    "success_moves": [
+      {
+        "id": "S1",
+        "move": "Split into three pure stages (view model, layout, routing/render) and never reposition after layout.",
+        "benefit": "Removes main cause of node-crossing edges; each stage fixture-testable in vitest."
+      },
+      {
+        "id": "S2",
+        "move": "Client-side roll-up over one finest-level graph contract shared by TS and Python.",
+        "benefit": "Drill is local and instant; languages differ only in extraction."
+      },
+      {
+        "id": "S3",
+        "move": "First proof on existing TS /dependencies data with no backend change.",
+        "benefit": "Proves the riskiest part (routing quality) before investing in Python/usage extraction."
+      },
+      {
+        "id": "S4",
+        "move": "Exhaust ELK options (partitioning, mergeEdges, fixed sizes, orthogonal) before a custom router; libavoid-js/custom router is a gated spike.",
+        "benefit": "Avoids building a router unless evidence demands it."
+      },
+      {
+        "id": "S5",
+        "move": "Automated geometry assertions: edge-node intersections = 0, crossing count, box count, aspect fill.",
+        "benefit": "Turns visual goals into regressions tests rather than eyeballing."
+      },
+      {
+        "id": "S6",
+        "move": "Ship new view behind a toggle beside the old component.",
+        "benefit": "Rollback is a toggle; old view retired at parity."
+      }
+    ],
+    "first_proof": {
+      "question": "Can ELK layered (partitions, fixed sizes, orthogonal, mergeEdges) plus a bundling offset pass produce 0 node-crossing, bundled, <=50-box focus and overview layouts on real TS data?",
+      "artifact": "View model + rollup + ELK layout on current /dependencies data for srcly; focus fixtures client/src/components and metricsStore.tsx; geometry checks + screenshots",
+      "decision_rule": "0 node crossings and readable bundling at <=50 boxes -> keep ELK, proceed to graph contract + Python. Otherwise run the router spike before more work."
+    },
+    "rabbit_holes": [
+      "ELK layered may not pack sides to viewport aspect ratio; may need custom column wrapping",
+      "mergeEdges gives overlap, not 1-2px offset bundles; offset pass needed",
+      "Python absolute import resolution across package roots / src layouts",
+      "Function-level usage tracking (name references in bodies, aliasing, attribute access on module imports)",
+      "Compound focus (symbols inside file box) with ELK hierarchy handling"
+    ],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/Projects/srcly",
+      "revision": "2000a03",
+      "worktree_status": "dirty (App.tsx, Explorer.tsx, HotSpotItem.tsx)",
+      "subsystems": [
+        "server/app/routers/analysis.py:get_dependencies",
+        "client/src/components/DependencyGraph.tsx"
+      ],
+      "test_commands": [
+        "cd server && uv run pytest"
+      ],
+      "deployment_surfaces": []
+    },
+    "dependencies": [
+      {
+        "id": "D1",
+        "name": "Custom grid + channel layout (replaced elkjs)",
+        "material": true,
+        "application_seam": "layoutView(viewModel) -> positioned geometry (client/src/viz/deps/layout.ts)",
+        "failure_modes": [
+          "edges cross nodes",
+          "poor packing to aspect ratio",
+          "no 1-2px bundle offsets"
+        ],
+        "proof_rungs": [
+          "geometry assertions on fixtures",
+          "screenshots in running app"
+        ],
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "The library itself is the risk under test."
+        },
+        "local_proof": "vitest geometry checks",
+        "live_proof": "n/a (client-only)",
+        "rollout": "behind New dependency view toggle; swappable behind layoutView"
+      }
+    ],
+    "fast_local_loop": {
+      "command": "pnpm --dir client test -- deps; cd server && uv run pytest -k dependency_graph",
+      "starts": "nothing (pure functions over fixture JSON)",
+      "network": false,
+      "failure_injection": "synthetic fixtures (80-neighbor rollup, barrel chains, odd python layouts)",
+      "fidelity_proof": "screenshots of running app on srcly at 1440/1024px"
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "New focus view renders today's TS data with clean routing",
+        "outcome": "Toggle shows folder overview + three-sided focus on srcly with 0 node crossings, <=50 boxes.",
+        "dependencies_introduced": [
+          "D1"
+        ],
+        "proof": "vitest view-model + geometry checks on fixtures; screenshots",
+        "valid_intermediate_state": "New view behind toggle; old view default.",
+        "rollback": "Turn toggle off.",
+        "status": "completed",
+        "evidence": [
+          "client/src/viz/deps/*.test.ts: 0 node crossings on 5 focus fixtures",
+          "Spike P1 resolved: ELK dropped for custom layout after user steer + measurements"
+        ]
+      },
+      {
+        "id": "m2",
+        "title": "Language-neutral graph contract with full TS resolution",
+        "outcome": "New /dependency-graph endpoint with hierarchy and flagged importer->imported edges; barrels resolved; filters.",
+        "dependencies_introduced": [],
+        "proof": "pytest per resolution case; M1 geometry tests on contract fixtures",
+        "valid_intermediate_state": "Old /dependencies untouched.",
+        "rollback": "Point client back to adapted /dependencies payload.",
+        "status": "planned"
+      },
+      {
+        "id": "m3",
+        "title": "Python fills the same contract",
+        "outcome": "Python repos render with correct seams and counts.",
+        "dependencies_introduced": [],
+        "proof": "pytest on synthetic layouts + srcly server/",
+        "valid_intermediate_state": "Python simply absent if extractor disabled.",
+        "rollback": "Disable python extractor.",
+        "status": "planned"
+      },
+      {
+        "id": "m4",
+        "title": "Focus expands into symbols with function-level usage",
+        "outcome": "Focused file shows symbols; other side shows using functions when budget allows.",
+        "dependencies_introduced": [],
+        "proof": "metricsStore fixture shows SortHeader -> HOTSPOT_METRICS; geometry checks pass",
+        "valid_intermediate_state": "Without symbol edges, view falls back to file-level.",
+        "rollback": "Omit symbol edges from contract.",
+        "status": "planned"
+      },
+      {
+        "id": "m5",
+        "title": "Retire the old view",
+        "outcome": "Single dependency view; old component, toggle, and route removed.",
+        "dependencies_introduced": [],
+        "proof": "tests pass; reports unaffected",
+        "valid_intermediate_state": "n/a",
+        "rollback": "git revert",
+        "status": "planned"
+      }
+    ],
+    "cut_line": [
+      "symbol explorer",
+      "multi-hop flows / call chains / semantic zoom",
+      "incremental indexing for 10k+ repos",
+      "cross-language and CSS edges",
+      "animations, focus in URL"
+    ],
+    "open_decisions": [
+      {
+        "id": "P2",
+        "decision": "Python package-root detection",
+        "evidence": "M3 fixtures",
+        "fallback": "srcly config listing roots"
+      }
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-14",
+      "event": "Initiative created from request plus repository survey."
+    },
+    {
+      "date": "2026-10-14",
+      "event": "Shape brief written; ELK-first with gated router spike; first proof on existing TS data."
+    },
+    {
+      "date": "2026-10-14",
+      "event": "Implementation plan written: 5 milestones, M1 client-only routing proof."
+    },
+    {
+      "date": "2026-10-14",
+      "event": "M1 built. ELK tried, then replaced with custom grid+channel layout (user steer: avoid endless parameter tuning). Spike P1 resolved."
+    }
+  ],
+  "closure": null,
+  "question_rounds": {
+    "focus": "dependency view intent",
+    "per_round": 5,
+    "planned_rounds": 3,
+    "status": "complete",
+    "rounds": [
+      {
+        "round": 1,
+        "theme": "goals and stakes",
+        "source": "qa-round-1",
+        "questions": [
+          {
+            "n": 1,
+            "question": "Focused layout: 3 columns / radial / layered T-B?",
+            "answer": "unanswered",
+            "effect": "carried to round 2"
+          },
+          {
+            "n": 2,
+            "question": "Zoom model: click drill / continuous semantic / both?",
+            "answer": "Implied zoom drives aggregation (edges collapse when zoomed out)",
+            "effect": "carried to round 2 as understanding check"
+          },
+          {
+            "n": 3,
+            "question": "Zoomed-out boxes: folders / language modules / auto-cluster?",
+            "answer": "Folders or module boundaries",
+            "effect": "C9"
+          },
+          {
+            "n": 4,
+            "question": "Finest node: file / symbol / symbol-for-focus?",
+            "answer": "unanswered",
+            "effect": "carried to round 2"
+          },
+          {
+            "n": 5,
+            "question": "(re-asked) layout/zoom/finest/focus source",
+            "answer": "3 columns; click to drill; focus expands to symbols, receiving side shows symbols if possible else files; focus from treemap + graph click; symbol explorer later",
+            "effect": "C10-C14"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "theme": "behavior and limits",
+        "source": "qa-round-2",
+        "questions": [
+          {
+            "n": 6,
+            "question": "Other side shows using function?",
+            "answer": "Yes, user symbol",
+            "effect": "C15"
+          },
+          {
+            "n": 7,
+            "question": "Column overflow",
+            "answer": "Fill screen, >3 columns ok, position by interconnectedness, aggregate last",
+            "effect": "C16, X2"
+          },
+          {
+            "n": 8,
+            "question": "Neighbor edges",
+            "answer": "Show faintly",
+            "effect": "C17"
+          },
+          {
+            "n": 9,
+            "question": "Hidden by default",
+            "answer": "externals, tests, type-only, barrel pass-through",
+            "effect": "C18"
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "theme": "boundaries and confirmation",
+        "source": "qa-round-3",
+        "questions": [
+          {
+            "n": 10,
+            "question": "What makes extra columns?",
+            "answer": "Layered within a side",
+            "effect": "C19"
+          },
+          {
+            "n": 11,
+            "question": "Fill screen vs label cap",
+            "answer": "Keep 30-50 boxes; pack columns to aspect ratio, e.g. 5 columns; no wasted space for strict 3",
+            "effect": "C20, X2 resolved"
+          },
+          {
+            "n": 12,
+            "question": "First proof",
+            "answer": "Layout + routing on TS",
+            "effect": "C21"
+          },
+          {
+            "n": 13,
+            "question": "Repo size",
+            "answer": "~2k files",
+            "effect": "C22"
+          }
+        ]
+      }
+    ]
+  }
+}

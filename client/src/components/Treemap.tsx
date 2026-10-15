@@ -22,6 +22,7 @@ import TreemapTooltip from "../viz/treemap/components/TreemapTooltip";
 import { useTreemapTooltip } from "../viz/treemap/hooks/useTreemapTooltip";
 
 const DependencyGraph = lazy(() => import("./DependencyGraph"));
+const DependencyView = lazy(() => import("../viz/deps/DependencyView"));
 
 interface TreemapProps {
   data: any;
@@ -52,7 +53,12 @@ export default function Treemap(props: TreemapProps) {
   const [isAltPressed, setIsAltPressed] = createSignal(false);
   const [isIsolateMode, setIsIsolateMode] = createSignal(false);
   const [showMetricPopover, setShowMetricPopover] = createSignal(false);
-  const [showDependencyGraph, setShowDependencyGraph] = createSignal(false);
+  // Reopen the dependency view after a refresh when its focus is in the URL.
+  const [showDependencyGraph, setShowDependencyGraph] = createSignal(
+    typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).has("depFocus"),
+  );
+  const [useLegacyDeps, setUseLegacyDeps] = createSignal(false);
   const {
     selectedHotSpotMetrics,
     setSelectedHotSpotMetrics,
@@ -226,7 +232,9 @@ export default function Treemap(props: TreemapProps) {
   const minNodeRenderSizePx = () => props.minNodeRenderSizePx ?? 4;
 
   createEffect(() => {
-    if (props.data && !processedData()) props.onPaint?.();
+    // Nothing to draw (or the dependency view covers the treemap): release the
+    // loading state now instead of waiting for a canvas paint that won't come.
+    if (props.data && (!processedData() || showDependencyGraph())) props.onPaint?.();
   });
 
   return (
@@ -253,12 +261,22 @@ export default function Treemap(props: TreemapProps) {
 
       <div ref={containerRef} class="relative flex-1 overflow-hidden">
         <Suspense fallback={<div class="p-3 text-[var(--plc-on-subtle)]">Loading dependencies…</div>}>
-          <Show when={showDependencyGraph()}>
+          <Show when={showDependencyGraph() && !useLegacyDeps()}>
+            <DependencyView
+              path={currentRoot()?.path}
+              onClose={() => setShowDependencyGraph(false)}
+              onLegacy={() => setUseLegacyDeps(true)}
+            />
+          </Show>
+          <Show when={showDependencyGraph() && useLegacyDeps()}>
             <DependencyGraph
               path={currentRoot()?.path}
               primaryMetricId={primaryMetric()}
               fileMetricsByName={fileMetricsByName()}
-              onClose={() => setShowDependencyGraph(false)}
+              onClose={() => {
+                setUseLegacyDeps(false);
+                setShowDependencyGraph(false);
+              }}
             />
           </Show>
         </Suspense>
