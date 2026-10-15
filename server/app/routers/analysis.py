@@ -547,29 +547,18 @@ def refresh_analysis():
 
 def _estimate_counts(root: Path) -> tuple[int, int]:
     """
-    Return an estimated (file_count, folder_count) for a given root directory.
+    Return the (file_count, folder_count) a scan of ``root`` will analyze.
 
-    This applies the same ignore rules used during a full analysis to keep the
-    estimate reasonably fast while still informative.
+    Uses the scan's own discovery (git ls-files or the .gitignore walk, plus
+    the built-in, binary, and minified filters) so the landing page matches
+    the scan.
     """
-    file_count = 0
-    folder_count = 0
-
     try:
-        for _, dirnames, filenames in os.walk(root):
-            # Apply ignore rules for directories to keep the estimate reasonable
-            dirnames[:] = [
-                d for d in dirnames
-                if d not in IGNORE_DIRS and not d.startswith(".")
-            ]
-            folder_count += len(dirnames)
-            file_count += len(filenames)
+        discovery = analysis.discover_files(root)
     except Exception:
         # If anything goes wrong, fall back to zeros but still report the path.
-        file_count = 0
-        folder_count = 0
-
-    return file_count, folder_count
+        return 0, 0
+    return len(discovery.files), discovery.folder_count
 
 
 @router.get("/context")

@@ -72,3 +72,60 @@ IGNORE_EXTENSIONS: Set[str] = {
     ".csv",
     ".lock",
 }
+
+# Binary formats that are never worth analyzing. Files without a listed
+# extension are still caught by a null-byte sniff (see BINARY_SNIFF_BYTES).
+BINARY_EXTENSIONS: Set[str] = {
+    ".wasm",
+    ".o",
+    ".a",
+    ".lib",
+    ".obj",
+    ".pdb",
+    ".class",
+    ".jar",
+    ".war",
+    ".pyc",
+    ".pyo",
+    ".node",
+    ".webp",
+    ".avif",
+    ".bmp",
+    ".tif",
+    ".tiff",
+    ".psd",
+    ".heic",
+    ".icns",
+    ".mov",
+    ".avi",
+    ".mkv",
+    ".flac",
+    ".m4a",
+    ".aac",
+    ".7z",
+    ".bz2",
+    ".xz",
+    ".zst",
+    ".rar",
+    ".tgz",
+    ".sqlite",
+    ".sqlite3",
+    ".db",
+    ".npy",
+    ".npz",
+    ".pkl",
+    ".parquet",
+    ".onnx",
+    ".pt",
+    ".safetensors",
+}
+
+# How much of each candidate file to read when sniffing for binary content.
+BINARY_SNIFF_BYTES = 8 * 1024
+
+# Minified/bundled JS and CSS: checked by content, since built bundles rarely
+# carry a ``.min`` suffix (e.g. Vite's ``assets/index-<hash>.js``).
+MINIFIED_CHECK_EXTENSIONS: Set[str] = {".js", ".mjs", ".cjs", ".css"}
+MINIFIED_SNIFF_BYTES = 64 * 1024
+# Hand-written code averages well under 80 characters per line.
+MINIFIED_MIN_AVG_LINE_LENGTH = 200

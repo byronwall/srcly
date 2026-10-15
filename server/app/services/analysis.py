@@ -1,11 +1,22 @@
 import os
+import subprocess
 import lizard
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
 from app.models import Node, Metrics
-from app.config import IGNORE_DIRS, IGNORE_FILES, IGNORE_EXTENSIONS
+from app.config import (
+    BINARY_EXTENSIONS,
+    BINARY_SNIFF_BYTES,
+    IGNORE_DIRS,
+    IGNORE_EXTENSIONS,
+    IGNORE_FILES,
+    MINIFIED_CHECK_EXTENSIONS,
+    MINIFIED_MIN_AVG_LINE_LENGTH,
+    MINIFIED_SNIFF_BYTES,
+)
 from app.services.typescript.typescript_analysis import TreeSitterAnalyzer
 from app.services.markdown.markdown_analysis import MarkdownTreeSitterAnalyzer
 from app.services.ipynb.ipynb_analysis import NotebookAnalyzer
@@ -373,6 +384,259 @@ def _is_gitignored(
     return spec.match_file(rel_str)
 
 
+@dataclass
+class DiscoveryResult:
+    """Files a scan should analyze, plus what discovery left out."""
+
+    files: list[str] = field(default_factory=list)
+    # Directory path -> number of gitignored files directly inside it.
+    ignored_counts: dict[str, int] = field(default_factory=dict)
+    skipped_binary: int = 0
+    skipped_minified: int = 0
+    # True when the listing came from ``git ls-files`` (honoring
+    # .git/info/exclude and global excludes), False for the pathspec walk.
+    used_git: bool = False
+
+    root: str = ""
+
+    @property
+    def folder_count(self) -> int:
+        """Folders the scan tree will have below the root (ancestors of listed files)."""
+        folders: set[str] = set()
+        for f in self.files:
+            parent = os.path.dirname(f)
+            while parent != self.root and parent not in folders and len(parent) > len(self.root):
+                folders.add(parent)
+                parent = os.path.dirname(parent)
+        return len(folders)
+
+
+def _has_ignored_extension(name: str) -> bool:
+    lower = name.lower()
+    # endswith rather than Path.suffix so multi-part entries like ".min.js" match.
+    return any(lower.endswith(ext) for ext in IGNORE_EXTENSIONS)
+
+
+def _looks_minified(chunk: bytes) -> bool:
+    if len(chunk) < 2048:
+        return False
+    lines = chunk.count(b"\n") + 1
+    return len(chunk) / lines >= MINIFIED_MIN_AVG_LINE_LENGTH
+
+
+def classify_candidate(path: Path) -> str:
+    """
+    Decide whether a discovered file should be analyzed.
+
+    Returns "ok", "ignored" (built-in ignore lists), "binary", or "minified".
+    Only "binary" and "minified" need to read the file, and only its head.
+    """
+    name = path.name
+    if name in IGNORE_FILES or _has_ignored_extension(name):
+        return "ignored"
+    suffix = path.suffix.lower()
+    if suffix in BINARY_EXTENSIONS:
+        return "binary"
+    check_minified = suffix in MINIFIED_CHECK_EXTENSIONS
+    try:
+        with open(path, "rb") as f:
+            chunk = f.read(MINIFIED_SNIFF_BYTES if check_minified else BINARY_SNIFF_BYTES)
+    except OSError:
+        # Unreadable now; let the analyzer report it so it shows up flagged.
+        return "ok"
+    if b"\0" in chunk[:BINARY_SNIFF_BYTES]:
+        return "binary"
+    if check_minified and _looks_minified(chunk):
+        return "minified"
+    return "ok"
+
+
+def _has_pruned_component(rel_parts: tuple[str, ...]) -> bool:
+    return any(_is_pruned_dir_name(part) for part in rel_parts)
+
+
+def _git_ls_files(root_path: Path, *args: str) -> list[str] | None:
+    """Run ``git ls-files -z`` in ``root_path``; None if git is unavailable or fails."""
+    try:
+        proc = subprocess.run(
+            ["git", "-c", "core.quotepath=off", "ls-files", "-z", *args],
+            cwd=root_path,
+            capture_output=True,
+            timeout=120,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    return [p for p in proc.stdout.decode("utf-8", "surrogateescape").split("\0") if p]
+
+
+def _is_inside_git_work_tree(root_path: Path) -> bool:
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            cwd=root_path,
+            capture_output=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return proc.returncode == 0 and proc.stdout.strip() == b"true"
+
+
+def _discover_with_git(
+    root_path: Path,
+    result: DiscoveryResult,
+    cancel: Optional[CancelToken],
+    observer: ScanObserver,
+) -> bool:
+    """
+    List files with ``git ls-files --cached --others --exclude-standard``.
+
+    Returns False (leaving ``result`` untouched) if git cannot list the tree,
+    so the caller can fall back to the pathspec walk. Nested repositories and
+    submodules show up as directories; they are listed with their own git.
+    """
+    listed = _git_ls_files(root_path, "--cached", "--others", "--exclude-standard")
+    if listed is None:
+        return False
+    # --directory collapses wholly ignored trees (node_modules, build output)
+    # into one "dir/" entry; listing every file in them costs seconds on big
+    # repos. (--no-empty-directory is avoided: some git versions then list nothing.)
+    ignored = _git_ls_files(root_path, "--others", "--ignored", "--exclude-standard", "--directory")
+
+    files: list[str] = []
+    nested: list[Path] = []
+    seen: set[str] = set()
+    for rel in listed:
+        if cancel is not None:
+            cancel.raise_if_cancelled()
+        rel = rel.rstrip("/")
+        # A path can appear twice (e.g. tracked but with merge stages).
+        if rel in seen:
+            continue
+        seen.add(rel)
+        rel_path = Path(rel)
+        if not rel or _has_pruned_component(rel_path.parts[:-1]):
+            continue
+        full = root_path / rel_path
+        if full.is_dir() and not full.is_symlink():
+            # Submodule (gitlink) or untracked nested repository. Only descend
+            # into ones that are checked out; an uninitialized submodule is an
+            # empty directory that git would resolve back to this repo.
+            if not _is_pruned_dir_name(rel_path.name) and (full / ".git").exists():
+                nested.append(full)
+            continue
+        if not full.is_file():
+            # Tracked but deleted in the working tree, or a dangling symlink.
+            continue
+        files.append(str(full))
+
+    for full_str in files:
+        verdict = classify_candidate(Path(full_str))
+        if verdict == "ok":
+            result.files.append(full_str)
+        elif verdict == "binary":
+            result.skipped_binary += 1
+        elif verdict == "minified":
+            result.skipped_minified += 1
+    observer.discovering(len(result.files), str(root_path))
+
+    for rel in dict.fromkeys(ignored or []):
+        if rel.endswith("/"):
+            # A wholly ignored directory; like the walk, count only files
+            # sitting in directories the scan actually enters.
+            continue
+        rel_path = Path(rel)
+        if _has_pruned_component(rel_path.parts[:-1]):
+            continue
+        parent = str((root_path / rel_path).parent)
+        result.ignored_counts[parent] = result.ignored_counts.get(parent, 0) + 1
+
+    for nested_root in nested:
+        _discover_into(nested_root, result, cancel, observer)
+    return True
+
+
+def _discover_with_walk(
+    root_path: Path,
+    result: DiscoveryResult,
+    cancel: Optional[CancelToken],
+    observer: ScanObserver,
+) -> None:
+    """Fallback discovery: os.walk plus translated nested .gitignore files."""
+    ignore_root, gitignore_spec = _load_gitignore_spec(root_path, cancel)
+
+    for dirs_walked, (root_dir, dirs, files) in enumerate(os.walk(root_path)):
+        if cancel is not None:
+            cancel.raise_if_cancelled()
+        root_dir_path = Path(root_dir)
+        if dirs_walked % DISCOVERY_REPORT_EVERY_DIRS == 0:
+            observer.discovering(len(result.files), root_dir)
+
+        # Prune ignored directories in place so os.walk skips them.
+        dirs[:] = [
+            d
+            for d in dirs
+            if not _is_pruned_dir_name(d)
+            and not _is_gitignored(root_dir_path / d, ignore_root, gitignore_spec, is_dir=True)
+        ]
+
+        current_ignored_count = 0
+        for file in files:
+            file_path = root_dir_path / file
+            if file in IGNORE_FILES or _has_ignored_extension(file):
+                continue
+            if _is_gitignored(file_path, ignore_root, gitignore_spec):
+                current_ignored_count += 1
+                continue
+            verdict = classify_candidate(file_path)
+            if verdict == "ok":
+                result.files.append(str(file_path))
+            elif verdict == "binary":
+                result.skipped_binary += 1
+            elif verdict == "minified":
+                result.skipped_minified += 1
+
+        if current_ignored_count > 0:
+            result.ignored_counts[str(root_dir_path)] = current_ignored_count
+
+
+def _discover_into(
+    root_path: Path,
+    result: DiscoveryResult,
+    cancel: Optional[CancelToken],
+    observer: ScanObserver,
+) -> None:
+    if _is_inside_git_work_tree(root_path) and _discover_with_git(root_path, result, cancel, observer):
+        result.used_git = True
+        return
+    _discover_with_walk(root_path, result, cancel, observer)
+
+
+def discover_files(
+    root_path: Path,
+    *,
+    cancel: Optional[CancelToken] = None,
+    observer: ScanObserver = NULL_OBSERVER,
+) -> DiscoveryResult:
+    """
+    Find the files a scan of ``root_path`` will analyze.
+
+    Inside a git work tree this asks git (``ls-files --cached --others
+    --exclude-standard``), so .gitignore, .git/info/exclude, and the global
+    excludes file all apply. Elsewhere, or if git fails, it walks the tree and
+    applies translated .gitignore patterns. Either way the built-in ignore
+    lists in ``config`` apply, and binary and minified files are skipped.
+
+    Shared by the scan and the landing-page estimate so the two agree.
+    """
+    root_path = root_path.resolve()
+    result = DiscoveryResult(root=str(root_path))
+    _discover_into(root_path, result, cancel, observer)
+    return result
+
+
 def _should_log_file_progress(completed_count: int, total_count: int) -> bool:
     """
     Decide whether to emit a per-file progress log.
@@ -453,9 +717,9 @@ def aggregate_metrics(node: Node) -> Metrics:
         node.metrics.complexity = max_complexity
         node.metrics.function_count = total_funcs
         
-        # Aggregate last_modified (max of children) and gitignored_count (sum of children)
+        # last_modified is the max of children; gitignored_count is assigned
+        # after aggregation from discovery (see _assign_gitignored_counts).
         node.metrics.last_modified = max((child.metrics.last_modified for child in node.children), default=0.0)
-        node.metrics.gitignored_count = sum(child.metrics.gitignored_count for child in node.children)
         node.metrics.file_size = sum(child.metrics.file_size for child in node.children)
         node.metrics.file_count = sum(child.metrics.file_count for child in node.children)
         node.metrics.analysis_failed_count = sum(
@@ -623,48 +887,14 @@ def _scan_codebase(
 
     observer.discovering(0, str(root_path))
 
-    # Load .gitignore spec (repo-wide, with nested .gitignore support)
-    ignore_root, gitignore_spec = _load_gitignore_spec(root_path, cancel)
-
-    files_to_scan: list[str] = []
-    ignored_counts: dict[str, int] = {}
-
-    for dirs_walked, (root_dir, dirs, files) in enumerate(os.walk(root_path)):
-        cancel.raise_if_cancelled()
-        root_dir_path = Path(root_dir)
-        if dirs_walked % DISCOVERY_REPORT_EVERY_DIRS == 0:
-            observer.discovering(len(files_to_scan), root_dir)
-
-        # Apply ignore dirs from config and .gitignore
-        # We must modify dirs in-place to prune traversal
-        pruned_dirs: list[str] = []
-        for d in dirs:
-            if _is_pruned_dir_name(d):
-                continue
-            dir_path = root_dir_path / d
-            if _is_gitignored(dir_path, ignore_root, gitignore_spec, is_dir=True):
-                # Entire directory is ignored; we skip traversing into it.
-                continue
-            pruned_dirs.append(d)
-        dirs[:] = pruned_dirs
-
-        current_ignored_count = 0
-        for file in files:
-            if file in IGNORE_FILES:
-                continue
-            if Path(file).suffix in IGNORE_EXTENSIONS:
-                continue
-
-            file_path = root_dir_path / file
-
-            if _is_gitignored(file_path, ignore_root, gitignore_spec):
-                current_ignored_count += 1
-                continue
-
-            files_to_scan.append(str(file_path))
-
-        if current_ignored_count > 0:
-            ignored_counts[str(root_dir_path)] = current_ignored_count
+    discovery = discover_files(root_path, cancel=cancel, observer=observer)
+    files_to_scan = discovery.files
+    if verbose and (discovery.skipped_binary or discovery.skipped_minified):
+        print(
+            f"⏭️ Skipped {discovery.skipped_binary} binary and {discovery.skipped_minified} minified files",
+            file=sys.stderr,
+            flush=True,
+        )
 
     if verbose:
         print(
@@ -715,9 +945,6 @@ def _scan_codebase(
             next_path_str = str(next_path)
             if next_path_str not in node_map:
                 new_folder = create_node(part, "folder", next_path_str)
-                # Set gitignored count if we have it for this folder
-                if next_path_str in ignored_counts:
-                    new_folder.metrics.gitignored_count = ignored_counts[next_path_str]
                 current_node.children.append(new_folder)
                 node_map[next_path_str] = new_folder
             current_node = node_map[next_path_str]
@@ -741,4 +968,32 @@ def _scan_codebase(
         current_node.children.append(file_node)
 
     aggregate_metrics(tree_root)
+    _assign_gitignored_counts(tree_root, root_path, discovery.ignored_counts)
     return tree_root
+
+
+def _assign_gitignored_counts(tree_root: Node, root_path: Path, ignored_counts: dict[str, int]) -> None:
+    """
+    Set each folder's ``gitignored_count`` to the ignored files anywhere below
+    it. Counts are rolled up from every directory that had ignored files, even
+    ones with no analyzed files (and so no node of their own).
+    """
+    totals: dict[str, int] = {}
+    root_str = str(root_path)
+    for dir_path, count in ignored_counts.items():
+        current = Path(dir_path)
+        while True:
+            key = str(current)
+            totals[key] = totals.get(key, 0) + count
+            if key == root_str or current.parent == current:
+                break
+            current = current.parent
+
+    def visit(node: Node) -> None:
+        if node.type != "folder":
+            return
+        node.metrics.gitignored_count = totals.get(node.path, 0)
+        for child in node.children:
+            visit(child)
+
+    visit(tree_root)

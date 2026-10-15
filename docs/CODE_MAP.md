@@ -18,7 +18,7 @@ Browser
           ── GET  /api/scans/{id}/events (SSE progress) ◄── ScanJob snapshots
           ── GET  /api/scans/{id}/result ──► finished tree
                                               └─ services/analysis.py:scan_codebase(observer=ScanJob)
-                                                   ├─ walk + .gitignore filtering
+                                                   ├─ discover_files (git ls-files, or walk + .gitignore)
                                                    ├─ per-file analysis in a killable worker pool (scan_workers.py)
                                                    │    └─ analyze_single_file → language analyzer
                                                    ├─ build folder/file/function Node tree
@@ -44,8 +44,9 @@ Browser
 | Feature | Where |
 | --- | --- |
 | Scan orchestration (walk, filter, analyze, build tree) | `server/app/services/analysis.py` (`scan_codebase`) |
-| Ignore rules: built-in dirs/files/extensions | `server/app/config.py` |
-| Ignore rules: nested `.gitignore` translation | `server/app/services/analysis.py` (`_load_gitignore_spec`, `_translate_gitignore_pattern`) |
+| File discovery (scan + landing-page estimate): `git ls-files` in repos, walk fallback | `server/app/services/analysis.py` (`discover_files`); estimate in `server/app/routers/analysis.py` (`_estimate_counts`) |
+| Ignore rules: built-in dirs/files/extensions, binary + minified skips | `server/app/config.py`; `analysis.py` (`classify_candidate`) |
+| Ignore rules: nested `.gitignore` translation (walk fallback only) | `server/app/services/analysis.py` (`_load_gitignore_spec`, `_translate_gitignore_pattern`) |
 | Worker pool: reuse, hard per-file timeouts, crash recovery | `server/app/services/scan_workers.py` (`run_file_analyses`), wrapped by `analysis.py` (`_run_file_analyses_with_hard_timeouts`) |
 | Failed files (timeout/crash/error) kept with line-count LOC + `analysis_status` | `server/app/services/analysis.py` (`attach_fallback_metrics`); tooltip line in `client/src/viz/treemap/hooks/useTreemapTooltip.ts` |
 | Scan cancellation (`CancelToken`, `ScanCancelled`, `cancel_all_scans`) | `server/app/services/scan_workers.py` |
