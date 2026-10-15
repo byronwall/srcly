@@ -180,3 +180,14 @@ export function graphIdFor(at: string, has: (id: string) => boolean): string {
   for (const id of ancestorsOf(at)) if (has(id)) return id;
   return "";
 }
+
+/**
+ * The folder that holds `at`: a scope's or file's folder, a folder's parent.
+ * The root (and external packages) show the root.
+ */
+export function folderOf(at: string): string {
+  if (!at || isExternal(at)) return "";
+  const { file } = splitAt(at);
+  const slash = file.lastIndexOf("/");
+  return slash < 0 ? "" : file.slice(0, slash);
+}

@@ -155,9 +155,11 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | --- | --- |
 | Location model: `?repo=&at=&view=` parse/serialize, legacy `depFocus` alias, breadcrumbs, scan-path ↔ `at`, graph-id mapping | `client/src/navigation/location.ts` |
 | `at` → scan-tree node (prefix descent, bare-symbol match, nearest-ancestor fallback) | `client/src/navigation/resolveTree.ts` |
-| Navigation store: `location()`, `go` (pushState), `replace`, popstate, visit history (sessionStorage mirror) | `client/src/navigation/store.ts` |
+| Navigation store: `location()`, `go` (pushState), `replace`, popstate, visit history (sessionStorage mirror), graph filters that survive view toggles | `client/src/navigation/store.ts` |
 | Missing-path fallback + toast, treemap/explorer zoom → `go`, `?repo=` → analyze | `client/src/App.tsx` (`resolved`, `zoomTo`, `handleFileSelect`) |
 | History dropdown (last 30 places, MRU) | `client/src/navigation/HistoryMenu.tsx`, ring in `client/src/navigation/history.ts` |
+| Node actions menu (Focus · Open code · Show folder; right-click in both views, hover "⋯" on graph nodes) | `client/src/navigation/NodeActionsMenu.tsx`, availability rules in `client/src/navigation/nodeActions.ts` |
+| Open any location in the code viewer (scope, graph symbol, file) | `client/src/App.tsx` (`openAt`) |
 | Scan state that outlives the view (data, progress, cancel, superseded-request guard) | `client/src/state/scanStore.ts` |
 | Compare ⇄ normal without remount (normal view stays mounted, hidden) | `client/src/App.tsx` (`App`) |
 
@@ -165,8 +167,8 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 
 | Feature | Where |
 | --- | --- |
-| Layout, zoom, isolate/exclude, view switching | `client/src/components/Treemap.tsx` |
-| Header toolbar (shared location breadcrumb, filter, color metric, legend) | `client/src/viz/treemap/components/TreemapHeader.tsx` |
+| Layout, zoom, isolate/exclude, tile context menu | `client/src/components/Treemap.tsx` |
+| Header toolbar (Treemap \| Graph switch, shared location breadcrumb, filter, color metric, legend) | `client/src/viz/treemap/components/TreemapHeader.tsx` |
 | Canvas tile rendering + keyboard selection | `client/src/viz/treemap/components/TreemapCanvas.tsx`, `viz/treemap/utils/hitTest.ts` |
 | Canvas zoom motion through a shared tile | `client/src/viz/treemap/utils/zoom.ts`, `viz/treemap/components/TreemapCanvas.tsx` |
 | Tooltip | `client/src/viz/treemap/components/TreemapTooltip.tsx`, `viz/treemap/hooks/useTreemapTooltip.ts` |

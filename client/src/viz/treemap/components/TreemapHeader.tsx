@@ -1,5 +1,5 @@
 import { For, Show, type Accessor } from "solid-js";
-import { ChevronRight, GitFork } from "lucide-solid";
+import { ChevronRight, GitFork, LayoutGrid } from "lucide-solid";
 import {
   hotSpotMetricLabel,
   type HotSpotMetricId,
@@ -7,7 +7,7 @@ import {
 import FileTypeFilter from "../../../components/FileTypeFilter";
 import { MetricPicker } from "../../../components/MetricPicker";
 import { TREEMAP_RAMP } from "../utils/colors";
-import type { Crumb } from "../../../navigation/location";
+import type { Crumb, View } from "../../../navigation/location";
 import { Button } from "../../../components/ui/Button";
 
 export type TreemapHeaderProps = {
@@ -33,13 +33,42 @@ export type TreemapHeaderProps = {
   showMetricPopover: Accessor<boolean>;
   setShowMetricPopover: (v: boolean) => void;
 
-  showDependencyGraph: Accessor<boolean>;
-  setShowDependencyGraph: (v: boolean) => void;
+  view: Accessor<View>;
+  onViewChange: (view: View) => void;
 };
+
+const VIEWS: { id: View; label: string; icon: typeof GitFork }[] = [
+  { id: "treemap", label: "Treemap", icon: LayoutGrid },
+  { id: "graph", label: "Graph", icon: GitFork },
+];
 
 export default function TreemapHeader(props: TreemapHeaderProps) {
   return (
     <div class="plc-toolbar flex items-center gap-3 overflow-x-auto px-3 border-b">
+      {/* One switch for both projections of the same place. */}
+      <div
+        role="radiogroup"
+        aria-label="View"
+        class="flex shrink-0 rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface-muted)] p-0.5"
+      >
+        <For each={VIEWS}>
+          {(v) => (
+            <Button
+              variant="tab"
+              size="sm"
+              role="radio"
+              aria-checked={props.view() === v.id}
+              active={props.view() === v.id}
+              class="gap-1.5 px-2"
+              onClick={() => props.onViewChange(v.id)}
+            >
+              <v.icon size={13} aria-hidden="true" />
+              {v.label}
+            </Button>
+          )}
+        </For>
+      </div>
+
       {/* Breadcrumbs */}
       <nav
         aria-label="Location"
@@ -95,24 +124,6 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
           onOpenChange={props.setShowMetricPopover}
           class="max-w-[220px]"
         />
-      </div>
-
-      {/* View Dependencies Button */}
-      <div class="flex shrink-0 gap-1.5 border-l border-[var(--plc-border)] pl-3">
-        <Button
-          active={props.showDependencyGraph()}
-          class={
-            props.showDependencyGraph()
-              ? "border-[var(--plc-accent-border)] bg-[var(--plc-surface-selected)] text-[var(--plc-accent)]"
-              : undefined
-          }
-          aria-pressed={props.showDependencyGraph()}
-          onClick={() => props.setShowDependencyGraph(!props.showDependencyGraph())}
-        >
-          <GitFork size={14} aria-hidden="true" />
-          Dependencies
-        </Button>
-
       </div>
 
       {/* Legend: shown while hovering the Color control */}
