@@ -145,3 +145,20 @@ def test_endpoint_serializes_camel_case(tmp_path: Path):
     file_a = next(n for n in body["nodes"] if n["id"] == "a.test.ts")
     assert file_a["isTest"] is True and "absPath" in file_a
     assert body["edges"][0]["typeOnly"] is True
+
+
+def test_parent_directory_relative_imports(tmp_path: Path):
+    write(tmp_path, "src/lib/math.ts", "export const add = (a: number, b: number) => a + b;\n")
+    write(tmp_path, "src/features/calc/view.ts", 'import { add } from "../../lib/math";\nexport const run = () => add(1, 2);\n')
+    g = build_dependency_graph(tmp_path, use_cache=False)
+    assert ("src/features/calc/view.ts#run", "src/lib/math.ts#add") in {(e.source, e.target) for e in g.edges}
+
+
+def test_reporting_dependencies_use_new_contract(tmp_path: Path):
+    from app.services.reporting import build_dependencies
+
+    write(tmp_path, "a.ts", 'import { b } from "./b";\nexport const a = () => b;\n')
+    write(tmp_path, "b.ts", "export const b = 1;\n")
+    payload = build_dependencies(tmp_path)
+    assert payload["root"] == ""
+    assert {"source": "a.ts#a", "target": "b.ts#b", "symbols": ["b"]} in payload["edges"]

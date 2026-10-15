@@ -66,26 +66,6 @@ class Node(BaseModel):
         "populate_by_name": True
     }
 
-class DependencyNode(BaseModel):
-    id: str
-    label: str
-    # "file", "external", "export"
-    type: str = "file"
-    # For nested/compound graph layouts (e.g. exports inside file nodes)
-    parent: str | None = None
-    metrics: Metrics | None = None
-
-class DependencyEdge(BaseModel):
-    id: str
-    source: str
-    target: str
-    label: str | None = None
-
-class DependencyGraph(BaseModel):
-    nodes: List[DependencyNode]
-    edges: List[DependencyEdge]
-
-
 # --- Hierarchical dependency graph contract (client/src/viz/deps/contract.ts) ---
 
 class DepGraphNode(BaseModel):

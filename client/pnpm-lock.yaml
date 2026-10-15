@@ -20,9 +20,6 @@ importers:
       d3:
         specifier: ^7.9.0
         version: 7.9.0
-      elkjs:
-        specifier: ^0.11.0
-        version: 0.11.0
       lucide-solid:
         specifier: ^1.49.0
         version: 1.49.0(solid-js@1.9.10)
@@ -1011,9 +1008,6 @@ packages:
 
   electron-to-chromium@1.5.259:
     resolution: {integrity: sha512-I+oLXgpEJzD6Cwuwt1gYjxsDmu/S/Kd41mmLA3O+/uH2pFRO/DvOjUyGozL8j3KeLV6WyZ7ssPwELMsXCcsJAQ==}
-
-  elkjs@0.11.0:
-    resolution: {integrity: sha512-u4J8h9mwEDaYMqo0RYJpqNMFDoMK7f+pu4GjcV+N8jIC7TRdORgzkfSjTJemhqONFfH6fBI3wpysgWbhgVWIXw==}
 
   enhanced-resolve@5.18.3:
     resolution: {integrity: sha512-d4lC8xfavMeBjzGr2vECC3fsGXziXZQyJxD868h2M/mBI3PwAuODxAkLkq5HYuvrPYcUtiLzsTo8U3PgX3Ocww==}
@@ -2621,8 +2615,6 @@ snapshots:
       dequal: 2.0.3
 
   electron-to-chromium@1.5.259: {}
-
-  elkjs@0.11.0: {}
 
   enhanced-resolve@5.18.3:
     dependencies:

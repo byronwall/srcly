@@ -34,11 +34,19 @@ export interface PositionedEdge extends Polyline {
   edge: ViewEdge;
 }
 
+export interface LayoutGroup {
+  label: string;
+  x: number;
+  y: number;
+}
+
 export interface ViewLayout {
   nodes: PositionedNode[];
   edges: PositionedEdge[];
   width: number;
   height: number;
+  /** Titles for separately laid-out connected components. */
+  groups?: LayoutGroup[];
 }
 
 export interface LayoutOptions {
@@ -185,7 +193,76 @@ export async function layoutView(vm: ViewModel, opts: LayoutOptions): Promise<Vi
   return layoutViewSync(vm, opts);
 }
 
+const COMPONENT_GAP = 36;
+
+/**
+ * Lay out each connected component on its own and stack them, titled by the
+ * folder they share. Unrelated parts of a repo (a TS client and a Python
+ * server) then never interleave in the same columns.
+ */
 export function layoutViewSync(vm: ViewModel, opts: LayoutOptions): ViewLayout {
+  const comps = connectedComponents(vm);
+  if (comps.length <= 1) return layoutComponent(vm, opts);
+
+  const viewport = opts.viewport ?? { width: 1600, height: 1600 / Math.max(0.3, opts.aspectRatio) };
+  const total = vm.nodes.length;
+  const nodes: PositionedNode[] = [];
+  const edges: PositionedEdge[] = [];
+  const groups: LayoutGroup[] = [];
+  let y = 0;
+  let width = 0;
+  for (const comp of comps) {
+    const share = comp.nodes.length / total;
+    const sub = layoutComponent(comp, {
+      aspectRatio: viewport.width / Math.max(80, viewport.height * share),
+      viewport: { width: viewport.width, height: Math.max(80, viewport.height * share) },
+    });
+    const top = Math.min(...sub.nodes.map((n) => n.y));
+    const dy = y - top + 18;
+    for (const n of sub.nodes) nodes.push({ ...n, y: n.y + dy });
+    for (const e of sub.edges) edges.push({ ...e, points: e.points.map((p) => ({ x: p.x, y: p.y + dy })) });
+    const label = commonFolder(comp.nodes);
+    if (label) groups.push({ label, x: Math.min(...sub.nodes.map((n) => n.x)), y: y + 8 });
+    y += sub.height - top + COMPONENT_GAP;
+    width = Math.max(width, sub.width);
+  }
+  return { nodes, edges, width, height: y, groups };
+}
+
+function connectedComponents(vm: ViewModel): ViewModel[] {
+  const parent = new Map(vm.nodes.map((n) => [n.id, n.id]));
+  const find = (x: string): string => {
+    while (parent.get(x) !== x) {
+      parent.set(x, parent.get(parent.get(x)!)!);
+      x = parent.get(x)!;
+    }
+    return x;
+  };
+  for (const e of vm.edges) parent.set(find(e.source), find(e.target));
+  const byRoot = new Map<string, ViewNode[]>();
+  for (const n of vm.nodes) byRoot.set(find(n.id), [...(byRoot.get(find(n.id)) ?? []), n]);
+  const multi = [...byRoot.values()].filter((c) => c.length > 1).sort((a, b) => b.length - a.length);
+  const singles = [...byRoot.values()].filter((c) => c.length === 1).flat();
+  // Focus views keep their single centered layout; only split views of a folder's contents.
+  if (multi.length <= 1 || vm.nodes.some((n) => n.region !== "center")) return [vm];
+  const parts = singles.length ? [...multi, singles] : multi;
+  return parts.map((ns) => {
+    const ids = new Set(ns.map((n) => n.id));
+    return { ...vm, nodes: ns, edges: vm.edges.filter((e) => ids.has(e.source) && ids.has(e.target)) };
+  });
+}
+
+/** Deepest folder shared by every node in a component ("" when nothing is shared). */
+function commonFolder(nodes: ViewNode[]): string {
+  const paths = nodes.map((n) => n.title.split("/"));
+  if (paths.length < 2) return "";
+  const first = paths[0];
+  let k = 0;
+  while (k < first.length - 1 && paths.every((p) => p.length - 1 > k && p[k] === first[k])) k++;
+  return first.slice(0, k).join("/");
+}
+
+function layoutComponent(vm: ViewModel, opts: LayoutOptions): ViewLayout {
   if (vm.nodes.length === 0) return { nodes: [], edges: [], width: 0, height: 0 };
 
   const byRegion: Record<Region, ViewNode[]> = { in: [], center: [], out: [] };

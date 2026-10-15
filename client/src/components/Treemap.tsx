@@ -21,7 +21,6 @@ import TreemapHeader from "../viz/treemap/components/TreemapHeader";
 import TreemapTooltip from "../viz/treemap/components/TreemapTooltip";
 import { useTreemapTooltip } from "../viz/treemap/hooks/useTreemapTooltip";
 
-const DependencyGraph = lazy(() => import("./DependencyGraph"));
 const DependencyView = lazy(() => import("../viz/deps/DependencyView"));
 
 interface TreemapProps {
@@ -58,7 +57,6 @@ export default function Treemap(props: TreemapProps) {
     typeof window !== "undefined" &&
       new URLSearchParams(window.location.search).has("depFocus"),
   );
-  const [useLegacyDeps, setUseLegacyDeps] = createSignal(false);
   const {
     selectedHotSpotMetrics,
     setSelectedHotSpotMetrics,
@@ -68,18 +66,6 @@ export default function Treemap(props: TreemapProps) {
   const primaryMetric = () => selectedHotSpotMetrics()[0] || "complexity";
   const { tooltip, show: showTooltip, hide: hideTooltip } = useTreemapTooltip({
     primaryMetricId: primaryMetric,
-  });
-
-  const fileMetricsByName = createMemo(() => {
-    const map = new Map<string, any>();
-    if (!showDependencyGraph()) return map;
-    const visit = (node: any) => {
-      if (!node) return;
-      if (node.type === "file" && node.metrics) map.set(node.name, node.metrics);
-      node.children?.forEach(visit);
-    };
-    visit(props.data);
-    return map;
   });
 
   onMount(() => {
@@ -261,22 +247,10 @@ export default function Treemap(props: TreemapProps) {
 
       <div ref={containerRef} class="relative flex-1 overflow-hidden">
         <Suspense fallback={<div class="p-3 text-[var(--plc-on-subtle)]">Loading dependencies…</div>}>
-          <Show when={showDependencyGraph() && !useLegacyDeps()}>
+          <Show when={showDependencyGraph()}>
             <DependencyView
               path={currentRoot()?.path}
               onClose={() => setShowDependencyGraph(false)}
-              onLegacy={() => setUseLegacyDeps(true)}
-            />
-          </Show>
-          <Show when={showDependencyGraph() && useLegacyDeps()}>
-            <DependencyGraph
-              path={currentRoot()?.path}
-              primaryMetricId={primaryMetric()}
-              fileMetricsByName={fileMetricsByName()}
-              onClose={() => {
-                setUseLegacyDeps(false);
-                setShowDependencyGraph(false);
-              }}
             />
           </Show>
         </Suspense>

@@ -83,3 +83,37 @@ describe("flow direction", () => {
     expect(x("App.tsx")).toBeLessThan(x("components"));
   });
 });
+
+describe("connected components", () => {
+  it("stacks unrelated parts of a repo under their shared folder", async () => {
+    const node = (id: string, kind: "folder" | "file", parent: string) => ({
+      id,
+      kind,
+      name: id.split("/").pop()!,
+      parent,
+      path: id,
+    });
+    const g = {
+      root: "",
+      nodes: [
+        { id: "", kind: "folder" as const, name: "repo", parent: null },
+        node("client", "folder", ""),
+        node("client/a.ts", "file", "client"),
+        node("client/b.ts", "file", "client"),
+        node("server", "folder", ""),
+        node("server/x.py", "file", "server"),
+        node("server/y.py", "file", "server"),
+      ],
+      edges: [
+        { source: "client/a.ts", target: "client/b.ts" },
+        { source: "server/x.py", target: "server/y.py" },
+      ],
+    };
+    const vm = buildViewModel(buildIndex(g), { focusId: "", budget: 48 });
+    const layout = await layoutView(vm, { aspectRatio: 1.7 });
+    expect(layout.groups?.map((x) => x.label).sort()).toEqual(["client", "server"]);
+    const ys = (prefix: string) => layout.nodes.filter((n) => n.node.title.startsWith(prefix)).map((n) => n.y);
+    expect(Math.max(...ys("client"))).toBeLessThan(Math.min(...ys("server")));
+    expect(countNodeCrossings(layout.edges, layout.nodes).count).toBe(0);
+  });
+});
