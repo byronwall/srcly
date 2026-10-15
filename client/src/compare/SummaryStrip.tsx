@@ -1,11 +1,17 @@
 import { Show, type JSX } from "solid-js";
 import { DiffStat } from "./bits";
+import { stepText } from "./CompareProgress";
 import type { ComparePayload, CompareSideMeta } from "./types";
 
-function Side(props: { label: string; side: CompareSideMeta }) {
+function Side(props: { label: string; side: CompareSideMeta; steps?: Record<string, number> }) {
   return (
     <div class="min-w-0">
-      <div class="plc-label-caps text-[var(--plc-on-subtle)]">{props.label}</div>
+      <div class="flex items-baseline gap-2">
+        <span class="plc-label-caps text-[var(--plc-on-subtle)]">{props.label}</span>
+        <span class="plc-data-sm truncate text-[var(--plc-on-subtle)]" title="Where this side's time went">
+          {stepText(props.steps)}
+        </span>
+      </div>
       <div class="mt-1 flex min-w-0 items-baseline gap-2">
         <span class="plc-data-md shrink-0 font-semibold text-[var(--plc-on-surface)]">{props.side.label}</span>
         <Show when={props.side.subject}>
@@ -30,8 +36,8 @@ export function SummaryStrip(props: { payload: ComparePayload }) {
   const s = () => props.payload.summary;
   return (
     <div class="grid shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-start gap-x-8 border-b border-[var(--plc-border)] bg-[var(--plc-surface)] px-4 py-2.5">
-      <Side label="Before" side={props.payload.base} />
-      <Side label="After" side={props.payload.head} />
+      <Side label="Before" side={props.payload.base} steps={props.payload.timings?.base} />
+      <Side label="After" side={props.payload.head} steps={props.payload.timings?.head} />
       <div class="flex items-start gap-7">
         <Kpi label="Files">
           {s().files.total}

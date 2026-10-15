@@ -24,7 +24,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any, Callable, Iterator, Optional
 
 from app.models import Node
 from app.services import analysis, cache
@@ -215,23 +215,33 @@ def load_side(
     observer: ScanObserver = NULL_OBSERVER,
     force: bool = False,
     side_cache_: Optional[SideCache] = None,
+    on_step: Callable[[Optional[str]], None] = lambda _step: None,
 ) -> Side:
-    """Scan one side, from cache when possible."""
+    """
+    Scan one side, from cache when possible. ``on_step`` hears each step as it
+    starts (``cache``, ``checkout``, ``scan``, ``graph``, ``cleanup``) so callers
+    can time where a cold side spends its time.
+    """
     store = side_cache_ or side_cache
     repo = repo.resolve()
     if ref.is_worktree:
-        return _load_worktree(repo, ref, cancel=cancel, observer=observer, force=force)
+        return _load_worktree(repo, ref, cancel=cancel, observer=observer, force=force, on_step=on_step)
 
     if not force:
+        on_step("cache")
         hit = store.load(repo, ref)
         if hit is not None:
             return hit
 
     started = time.monotonic()
+    on_step("checkout")
     with snapshot_checkout(repo, ref.sha) as checkout:
+        on_step("scan")
         tree = analysis.scan_codebase(checkout, verbose=False, cancel=cancel, observer=observer)
+        on_step("graph")
         graph = graph_json(checkout, keep_abs_paths=False, use_cache=False)
         tree_json = relativize_tree(_tree_json(tree), checkout, repo.name)
+        on_step("cleanup")
     side = Side(
         ref=ref,
         tree=tree_json,
@@ -251,14 +261,17 @@ def _load_worktree(
     cancel: Optional[CancelToken],
     observer: ScanObserver,
     force: bool,
+    on_step: Callable[[Optional[str]], None] = lambda _step: None,
 ) -> Side:
     started = time.monotonic()
+    on_step("cache")
     entry = None if force else cache.analysis_cache.load(repo)
     if entry is not None:
         tree_json = json.loads(entry.data)
         files_total, cached = entry.files_total, True
     else:
         fingerprint = cache.fingerprint(repo)
+        on_step("scan")
         tree = analysis.scan_codebase(repo, verbose=False, cancel=cancel, observer=observer)
         data = tree.model_dump_json(by_alias=True).encode()
         files_total = int(tree.metrics.file_count)
@@ -266,10 +279,12 @@ def _load_worktree(
             repo, fingerprint, data, files_total=files_total, scan_seconds=time.monotonic() - started
         )
         tree_json, cached = json.loads(data), False
+    on_step("graph")
+    graph = graph_json(repo, keep_abs_paths=True, use_cache=True)
     return Side(
         ref=ref,
         tree=relativize_tree(tree_json, repo, repo.name),
-        graph=graph_json(repo, keep_abs_paths=True, use_cache=True),
+        graph=graph,
         files_total=files_total,
         scan_seconds=round(time.monotonic() - started, 3),
         cached=cached,

@@ -14,6 +14,13 @@ export type ComparePhase =
 
 export type SideProgress = { files_total: number; files_done: number; current_path: string | null };
 
+/** Seconds per phase (`phases`) and per step inside each side (`base`, `head`). */
+export type CompareTimings = {
+  phases?: Record<string, number>;
+  base?: Record<string, number>;
+  head?: Record<string, number>;
+};
+
 export type CompareSnapshot = {
   id: string;
   base: string;
@@ -22,6 +29,7 @@ export type CompareSnapshot = {
   error: string | null;
   elapsed_seconds: number;
   sides: { base: SideProgress; head: SideProgress };
+  timings?: CompareTimings;
 };
 
 export type RefList = {
@@ -50,13 +58,19 @@ async function json<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export const fetchRefs = () => fetch("/api/compare/refs").then((r) => json<RefList>(r));
+/** `?path=` for the analyzed repo, or nothing to use the server's root. */
+const repoQuery = () => {
+  const repo = compareRepo();
+  return repo ? `?${new URLSearchParams({ path: repo })}` : "";
+};
+
+export const fetchRefs = () => fetch(`/api/compare/refs${repoQuery()}`).then((r) => json<RefList>(r));
 
 export const startCompare = (base: string, head: string, force = false) =>
   fetch("/api/compare", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ base, head, force }),
+    body: JSON.stringify({ base, head, force, path: compareRepo() ?? undefined }),
   }).then((r) => json<CompareSnapshot>(r));
 
 export const cancelCompare = (id: string) =>
@@ -107,6 +121,16 @@ const emptySide = (): SideProgress => ({ files_total: 0, files_done: 0, current_
 // -- URL state: ?compare=<base>..<head> ---------------------------------------
 
 export const COMPARE_PARAM = "compare";
+/**
+ * The analyzed repo, shared with the main app's location (`navigation/location.ts`).
+ * Compare URLs keep it, so the compare runs on the repo the user is looking at
+ * rather than the server's root.
+ */
+export const REPO_PARAM = "repo";
+
+export function compareRepo(search = window.location.search): string | null {
+  return new URLSearchParams(search).get(REPO_PARAM) || null;
+}
 
 export function readCompareParam(search = window.location.search): { base: string; head: string } | null {
   const raw = new URLSearchParams(search).get(COMPARE_PARAM);

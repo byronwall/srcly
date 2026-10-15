@@ -34,6 +34,8 @@ def test_compare_job_returns_payload_with_sides(repo: Path):  # noqa: F811
     snap = _wait(client, started.json()["id"])
     assert snap["phase"] == "complete", snap
     assert snap["sides"]["base"]["files_total"] > 0
+    assert set(snap["timings"]["phases"]) == {"resolving", "base", "head", "diffing"}
+    assert "scan" in snap["timings"]["base"] or set(snap["timings"]["base"]) == {"cache"}
 
     payload = client.get(f"/api/compare/{snap['id']}/result").json()
     assert payload["summary"]["files"]["total"] == 3

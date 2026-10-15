@@ -67,6 +67,8 @@ export interface TreeNode {
 
 export interface ComparePayload {
   format: number;
+  /** Seconds per phase and per side step (see `CompareTimings` in api.ts). */
+  timings?: { phases?: Record<string, number>; base?: Record<string, number>; head?: Record<string, number> };
   repo: { root: string; name: string };
   base: CompareSideMeta;
   head: CompareSideMeta;
