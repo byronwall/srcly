@@ -202,10 +202,13 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 
 | Feature | Where |
 | --- | --- |
-| Dependency view (whole-repo graph fetched once; focus = location `at`) | `client/src/viz/deps/DependencyView.tsx`, model/layout in `viz/deps/viewModel.ts`, `viz/deps/layout.ts` |
+| Dependency view (whole-repo graph fetched once; focus = location `at`) | `client/src/viz/deps/DependencyView.tsx`; graph contract in `viz/deps/contract.ts`, hierarchy/filters in `viz/deps/hierarchy.ts` |
+| Dependency view model (focus → in / center / out boxes, roll-up to the box budget) | `client/src/viz/deps/viewModel.ts` |
+| Dependency grid layout (viewport-shaped packing in `rankPackings`, channel/gutter edge routing) | `client/src/viz/deps/layout.ts` |
 | Dependency graph canvas (hover, click to focus, double/middle/⌘-click to open) | `client/src/viz/deps/DependencyCanvas.tsx`, pointer logic in `viz/deps/interaction.ts` |
 | Dependency graph legend (edge/box encodings, collapsible) | `client/src/viz/deps/DependencyLegend.tsx`; shared stroke constants in `viz/deps/encoding.ts` |
 | Open code from the graph (graph symbol → treemap scope by name, then by line) | `App.tsx` (`openAt`) → `navigation/resolveTree.ts`; line fallback `utils/dataProcessing.ts` (`findScopeForSymbol`) |
+| Local dependency-graph fixtures for layout tests (gitignored `__fixtures__/local/`) | `scripts/capture-dep-graph.sh` |
 
 ### Client: UI primitives
 
@@ -226,6 +229,7 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | --- | --- | --- |
 | Backend | `server/tests/test_*.py` | `cd server && uv run pytest` |
 | Client utils | `client/src/utils/*.test.ts` | `cd client && pnpm test` |
+| Dependency view geometry (aspect band, box crossings, crossing baseline) | `client/src/viz/deps/*.test.ts` | `cd client && pnpm test -- viz/deps compare/graphModel` |
 
 ## Other docs
 

@@ -1,16 +1,97 @@
 import type { DependencyGraphContract } from "./contract";
 import { describe, expect, it } from "vitest";
 import fixture from "./__fixtures__/srcly-client.json";
-import { countEdgeCrossings, countNodeCrossings, isOrthogonal } from "./geometry";
-import { applyFilters, buildIndex, DEFAULT_FILTERS } from "./hierarchy";
-import { bundleOffsets, layoutView, NODE_HEIGHT, NODE_WIDTH } from "./layout";
+import { boundsOf, countEdgeCrossings, countNodeCrossings, isOrthogonal } from "./geometry";
+import { applyFilters, buildIndex, collapseChain, DEFAULT_FILTERS, type GraphIndex } from "./hierarchy";
+import {
+  aspectOf,
+  bundleOffsets,
+  layoutView,
+  layoutViewSync,
+  MAX_SCALE,
+  NODE_HEIGHT,
+  NODE_WIDTH,
+  rankPackings,
+  type ViewLayout,
+} from "./layout";
 import { buildViewModel } from "./viewModel";
 
 const idx = buildIndex(
   applyFilters(fixture as DependencyGraphContract, DEFAULT_FILTERS),
 );
 
-const FOCI = ["", "components", "utils", "src/utils/metricsStore.tsx", "components/Treemap.tsx"];
+const FOCI = ["", "src/components", "src/utils", "src/utils/metricsStore.tsx", "src/components/Treemap.tsx"];
+
+/** The dependency pane on a 1440×900 screen with the sidebar open. */
+const VIEWPORT = { width: 1155, height: 770 };
+const VIEW_ASPECT = VIEWPORT.width / VIEWPORT.height;
+
+/**
+ * Graphs captured from other (possibly private) repos with
+ * `scripts/capture-dep-graph.sh`. The folder is gitignored, so these tests
+ * only run on machines that have captures.
+ */
+const LOCAL_CAPTURES = Object.values(
+  import.meta.glob("./__fixtures__/local/*.json", { eager: true, import: "default" }),
+) as { name: string; foci: string[]; graph: DependencyGraphContract }[];
+
+function layoutFocus(index: GraphIndex, focus: string) {
+  const vm = buildViewModel(index, { focusId: collapseChain(index, focus), budget: 48 });
+  return { vm, layout: layoutViewSync(vm, { aspectRatio: VIEW_ASPECT, viewport: VIEWPORT }) };
+}
+
+/**
+ * A `server`-shaped folder: 15 children (folders and files) importing each
+ * other across 5 depth levels, three per level.
+ */
+function layeredFolder(): DependencyGraphContract {
+  const nodes: DependencyGraphContract["nodes"] = [
+    { id: "", kind: "folder", name: "repo", parent: null },
+    { id: "server", kind: "folder", name: "server", parent: "" },
+  ];
+  const edges: DependencyGraphContract["edges"] = [];
+  const child = (i: number) => (i % 3 === 0 ? `server/pkg${i}/mod.py` : `server/m${i}.py`);
+  for (let i = 0; i < 15; i++) {
+    if (i % 3 === 0) {
+      nodes.push({ id: `server/pkg${i}`, kind: "folder", name: `pkg${i}`, parent: "server" });
+      for (const f of ["mod.py", "util.py"]) {
+        nodes.push({ id: `server/pkg${i}/${f}`, kind: "file", name: f, parent: `server/pkg${i}` });
+      }
+      edges.push({ source: `server/pkg${i}/mod.py`, target: `server/pkg${i}/util.py` });
+    } else {
+      nodes.push({ id: child(i), kind: "file", name: `m${i}.py`, parent: "server" });
+    }
+  }
+  // Level L (children 3L..3L+2) imports every child on level L+1.
+  for (let level = 0; level < 4; level++) {
+    for (let a = 0; a < 3; a++) {
+      for (let b = 0; b < 3; b++) edges.push({ source: child(level * 3 + a), target: child(level * 3 + 3 + b) });
+    }
+  }
+  return { root: "", nodes, edges };
+}
+
+/** Below this many boxes, keeping the flow may beat filling the screen. */
+const SMALL_VIEW = 16;
+
+/**
+ * Width:height is within 0.5–2× the viewport's. A small view may instead keep
+ * its left-to-right flow (rather than stacking every depth level in one
+ * column) as long as it still fits the viewport at a readable zoom (90% of
+ * full, the same threshold `rankPackings` uses).
+ */
+function expectViewportShaped(layout: ViewLayout, what: string) {
+  const aspect = aspectOf(layout);
+  const msg = `${what}: aspect ${aspect.toFixed(2)} vs viewport ${VIEW_ASPECT.toFixed(2)}`;
+  const inBand = aspect >= VIEW_ASPECT / 2 && aspect <= VIEW_ASPECT * 2;
+  if (inBand || layout.nodes.length >= SMALL_VIEW) {
+    expect(aspect, msg).toBeGreaterThanOrEqual(VIEW_ASPECT / 2);
+    expect(aspect, msg).toBeLessThanOrEqual(VIEW_ASPECT * 2);
+    return;
+  }
+  const b = boundsOf(layout.nodes, layout.edges);
+  expect(b.width * MAX_SCALE * 0.9, `${msg}, and too wide to read`).toBeLessThanOrEqual(VIEWPORT.width);
+}
 
 describe("layoutView geometry", () => {
   for (const focus of FOCI) {
@@ -42,11 +123,71 @@ describe("layoutView geometry", () => {
       expect(countEdgeCrossings(layout.edges)).toBeGreaterThanOrEqual(0);
     });
   }
+});
 
-  it("packs wide rather than tall", async () => {
-    const vm = buildViewModel(idx, { focusId: "src/components", budget: 48 });
-    const layout = await layoutView(vm, { aspectRatio: 1.7 });
-    expect(layout.width / layout.height).toBeGreaterThan(1.2);
+describe("viewport-shaped packing", () => {
+  const FOLDER_FOCI = ["", "src", "src/components", "src/utils", "src/viz", "src/viz/treemap"];
+  for (const focus of FOLDER_FOCI) {
+    it(`fills the viewport for srcly folder "${focus || "(root)"}"`, () => {
+      const { layout } = layoutFocus(idx, focus);
+      expectViewportShaped(layout, focus || "(root)");
+      expect(countNodeCrossings(layout.edges, layout.nodes).count).toBe(0);
+    });
+  }
+
+  it("packs a 15-child, 5-level folder into a block, not a strip", () => {
+    const { vm, layout } = layoutFocus(buildIndex(layeredFolder()), "server");
+    expect(vm.nodes).toHaveLength(15);
+    const aspect = aspectOf(layout);
+    expect(aspect).toBeGreaterThanOrEqual(VIEW_ASPECT / 2);
+    expect(aspect).toBeLessThanOrEqual(VIEW_ASPECT * 2);
+    expect(countNodeCrossings(layout.edges, layout.nodes).count).toBe(0);
+    // Levels fold into a few columns, never one stack.
+    expect(new Set(layout.nodes.map((n) => n.column)).size).toBeGreaterThanOrEqual(2);
+    // Folding keeps depth order: an importer never sits right of what it imports.
+    const x = new Map(layout.nodes.map((n) => [n.id, n.x]));
+    for (const e of layout.edges) expect(x.get(e.source)!).toBeLessThanOrEqual(x.get(e.target)!);
+  });
+
+  it("ranks the viewport-shaped grid above the most unfolded one", () => {
+    // Five levels of three: one column per level is a 5×3 strip.
+    const [best] = rankPackings([[], [3, 3, 3, 3, 3], []], VIEWPORT);
+    const aspect = best.width / best.height;
+    expect(aspect).toBeLessThanOrEqual(VIEW_ASPECT * 1.5);
+    expect(aspect).toBeGreaterThanOrEqual(VIEW_ASPECT / 1.5);
+  });
+
+  for (const capture of LOCAL_CAPTURES) {
+    const index = buildIndex(applyFilters(capture.graph, DEFAULT_FILTERS));
+    for (const focus of capture.foci) {
+      it(`fills the viewport for local capture ${capture.name}:${focus || "(root)"}`, () => {
+        const { layout } = layoutFocus(index, focus);
+        expectViewportShaped(layout, `${capture.name}:${focus}`);
+        expect(countNodeCrossings(layout.edges, layout.nodes).count).toBe(0);
+      });
+    }
+  }
+});
+
+/**
+ * Edge-edge crossings per srcly focus after viewport-shaped packing. Later
+ * layout changes compare against these, so a regression is a failing number.
+ */
+const CROSSING_BASELINE: Record<string, number> = {
+  "": 13,
+  src: 14,
+  "src/components": 221,
+  "src/utils": 87,
+  "src/viz": 63,
+  "src/viz/treemap": 17,
+  "src/components/Treemap.tsx": 15,
+  "src/utils/metricsStore.tsx": 31,
+};
+
+describe("crossing baseline", () => {
+  it.each(Object.keys(CROSSING_BASELINE))("stays at or below the recorded count for %s", (focus) => {
+    const { layout } = layoutFocus(idx, focus);
+    expect(countEdgeCrossings(layout.edges)).toBeLessThanOrEqual(CROSSING_BASELINE[focus]);
   });
 });
 
@@ -79,8 +220,10 @@ describe("flow direction", () => {
     const vm = buildViewModel(idx, { focusId: "src", budget: 48 });
     const layout = await layoutView(vm, { aspectRatio: 1.7 });
     const x = (label: string) => layout.nodes.find((n) => n.node.label === label)!.x;
-    expect(x("src/index.tsx")).toBeLessThan(x("App.tsx"));
-    expect(x("App.tsx")).toBeLessThan(x("components"));
+    // Eight one-line boxes fill the viewport best as one column, so depth
+    // levels may share a column — but never run right to left.
+    expect(x("src/index.tsx")).toBeLessThanOrEqual(x("App.tsx"));
+    expect(x("App.tsx")).toBeLessThanOrEqual(x("components"));
   });
 });
 
