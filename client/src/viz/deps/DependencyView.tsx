@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createResource, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, Show } from "solid-js";
 import CodeModal from "../../components/CodeModal/CodeModal.tsx";
 import { EmptyState, ErrorState, LoadingState } from "../../components/feedback/States";
 import { Button } from "../../components/ui/Button";
@@ -14,27 +14,8 @@ import {
 } from "./hierarchy";
 import { layoutView, type ViewLayout } from "./layout";
 import { buildViewModel, DEFAULT_BUDGET, type ViewNode } from "./viewModel";
-
-const FOCUS_PARAM = "depFocus";
-
-function readFocusParam(): string | null {
-  try {
-    return new URLSearchParams(window.location.search).get(FOCUS_PARAM);
-  } catch {
-    return null;
-  }
-}
-
-function writeFocusParam(focus: string | null) {
-  try {
-    const url = new URL(window.location.href);
-    if (focus) url.searchParams.set(FOCUS_PARAM, focus);
-    else url.searchParams.delete(FOCUS_PARAM);
-    window.history.replaceState(window.history.state, "", url.toString());
-  } catch {
-    // URL persistence is a convenience only.
-  }
-}
+import { graphIdFor } from "../../navigation/location";
+import { go, location } from "../../navigation/store";
 
 async function fetchGraph(path: string | undefined): Promise<DependencyGraphContract> {
   const url = new URL("/api/analysis/dependency-graph", window.location.origin);
@@ -45,12 +26,15 @@ async function fetchGraph(path: string | undefined): Promise<DependencyGraphCont
 }
 
 export default function DependencyView(props: {
-  path?: string;
-  onClose: () => void;
+  /**
+   * Absolute path of the scan root. The whole-repo graph is fetched once
+   * (the server caches it by mtime); focus selects within it, so drills never
+   * refetch and dependents outside the focused folder stay visible.
+   */
+  rootPath: string;
 }) {
-  const [graph] = createResource(() => props.path ?? "", (p) => fetchGraph(p || undefined));
+  const [graph] = createResource(() => props.rootPath, (p) => fetchGraph(p || undefined));
   const [filters, setFilters] = createSignal<FilterOptions>(DEFAULT_FILTERS);
-  const [focusId, setFocusId] = createSignal<string | null>(readFocusParam());
   const [layout, setLayout] = createSignal<ViewLayout | null>(null);
   const [openFile, setOpenFile] = createSignal<string | null>(null);
   let canvas: CanvasApi | undefined;
@@ -64,14 +48,8 @@ export default function DependencyView(props: {
   const effectiveFocus = createMemo(() => {
     const idx = index();
     if (!idx) return null;
-    const f = focusId();
-    const id = f !== null && f !== "/" && idx.byId.has(f) ? f : idx.graph.root;
-    return collapseChain(idx, id);
-  });
-
-  createEffect(() => {
-    const f = effectiveFocus();
-    if (f !== null) writeFocusParam(f || "/");
+    const id = graphIdFor(location().at, (candidate) => idx.byId.has(candidate));
+    return collapseChain(idx, id || idx.graph.root);
   });
 
   const viewModel = createMemo(() => {
@@ -94,14 +72,11 @@ export default function DependencyView(props: {
     });
   });
 
-  const focus = (id: string) => {
-    setFocusId(id);
-    writeFocusParam(id || "/");
-  };
-
   const onFocusNode = (n: ViewNode) => {
-    if (n.isFocus) return;
-    focus(n.graphId);
+    const idx = index();
+    if (n.isFocus || !idx) return;
+    // Store the folder the graph will actually show, so the breadcrumb matches.
+    go({ at: collapseChain(idx, n.graphId) });
   };
 
   const onOpenNode = (n: ViewNode) => {
@@ -124,30 +99,7 @@ export default function DependencyView(props: {
   return (
     <div class="flex h-full flex-col bg-[var(--plc-surface)]">
       <div class="flex items-center gap-3 border-b border-[var(--plc-border)] px-3 py-1.5">
-        <nav class="flex min-w-0 flex-1 items-center gap-0.5 text-xs" aria-label="Focus path">
-          <For each={viewModel()?.breadcrumbs ?? []}>
-            {(crumb, i) => {
-              const last = () => i() === (viewModel()?.breadcrumbs.length ?? 0) - 1;
-              return (
-                <>
-                  <Show when={i() > 0}>
-                    <span class="px-0.5 text-[var(--plc-on-disabled)]">/</span>
-                  </Show>
-                  <button
-                    type="button"
-                    class={`truncate rounded px-1 py-0.5 transition-colors duration-150 hover:bg-[var(--plc-surface-hover)] ${
-                      last() ? "font-semibold text-[var(--plc-on-surface)]" : "text-[var(--plc-accent)]"
-                    }`}
-                    onClick={() => focus(crumb.id)}
-                  >
-                    {crumb.label}
-                  </button>
-                </>
-              );
-            }}
-          </For>
-          <span class="ml-2 shrink-0 tabular-nums text-[11px] text-[var(--plc-on-subtle)]">{stats()}</span>
-        </nav>
+        <span class="min-w-0 flex-1 truncate tabular-nums text-[11px] text-[var(--plc-on-subtle)]">{stats()}</span>
         <div class="flex shrink-0 items-center gap-3">
           <CheckboxRow checked={filters().showExternal} onChange={toggle("showExternal")} label="External" />
           <CheckboxRow checked={filters().showTests} onChange={toggle("showTests")} label="Tests" />
@@ -159,10 +111,7 @@ export default function DependencyView(props: {
           <Button
             size="xs"
             variant="ghost"
-            onClick={() => {
-              writeFocusParam(null);
-              props.onClose();
-            }}
+            onClick={() => go({ view: "treemap" })}
           >
             Close
           </Button>

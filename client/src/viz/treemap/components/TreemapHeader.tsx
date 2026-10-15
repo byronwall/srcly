@@ -7,13 +7,14 @@ import {
 import FileTypeFilter from "../../../components/FileTypeFilter";
 import { MetricPicker } from "../../../components/MetricPicker";
 import { TREEMAP_RAMP } from "../utils/colors";
+import type { Crumb } from "../../../navigation/location";
 import { Button } from "../../../components/ui/Button";
 
 export type TreemapHeaderProps = {
   data: any;
 
-  breadcrumbs: Accessor<any[]>;
-  onBreadcrumbClick: (node: any) => void;
+  crumbs: Accessor<Crumb[]>;
+  onCrumbClick: (at: string) => void;
 
   activeExtensions: Accessor<string[]>;
   onToggleExtension: (ext: string) => void;
@@ -41,25 +42,26 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
     <div class="plc-toolbar flex items-center gap-3 overflow-x-auto px-3 border-b">
       {/* Breadcrumbs */}
       <nav
-        aria-label="Treemap location"
+        aria-label="Location"
         class="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto text-[13px] scrollbar-hide"
       >
-        <For each={props.breadcrumbs()}>
-          {(node, i) => (
+        <For each={props.crumbs()}>
+          {(crumb, i) => (
             <div class="flex items-center whitespace-nowrap">
               <button
                 type="button"
                 class={
-                  i() === props.breadcrumbs().length - 1
+                  i() === props.crumbs().length - 1
                     ? "rounded px-1 font-semibold text-[var(--plc-on-surface)]"
                     : "rounded px-1 text-[var(--plc-on-muted)] hover:bg-[var(--plc-surface-hover)] hover:text-[var(--plc-accent)]"
                 }
-                aria-current={i() === props.breadcrumbs().length - 1 ? "location" : undefined}
-                onClick={() => props.onBreadcrumbClick(node)}
+                aria-current={i() === props.crumbs().length - 1 ? "location" : undefined}
+                title={crumb.at || undefined}
+                onClick={() => props.onCrumbClick(crumb.at)}
               >
-                {node.name || "root"}
+                {crumb.label}
               </button>
-              <Show when={i() < props.breadcrumbs().length - 1}>
+              <Show when={i() < props.crumbs().length - 1}>
                 <ChevronRight size={13} class="text-[var(--plc-on-disabled)]" aria-hidden="true" />
               </Show>
             </div>

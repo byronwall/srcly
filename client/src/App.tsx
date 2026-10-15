@@ -32,6 +32,9 @@ import {
   type ClientStage,
 } from "./utils/scanProgress";
 import { MetricsStoreProvider, useMetricsStore } from "./utils/metricsStore";
+import { atFromTreePath } from "./navigation/location";
+import { resolveTreeAt } from "./navigation/resolveTree";
+import { go, location, replace } from "./navigation/store";
 import { DEFAULT_BASE, DEFAULT_HEAD, navigateCompare, readCompareParam } from "./compare/api";
 
 const CodeModal = lazy(() => import("./components/CodeModal/CodeModal.tsx"));
@@ -189,7 +192,6 @@ function AppContent() {
     createSignal<AnalysisContext | null>(null);
   const [contextLoading, setContextLoading] = createSignal(false);
   const [filterQuery, setFilterQuery] = createSignal("");
-  const [currentRoot, setCurrentRoot] = createSignal<any>(null);
   const { excludedPaths } = useMetricsStore();
   // Half the viewport at most, so narrow windows keep room for the treemap.
   const [explorerWidth, setExplorerWidth] = createSignal(
@@ -207,14 +209,35 @@ function AppContent() {
   // superseded scan are ignored.
   let activeRequest = 0;
   let stopWatching: (() => void) | null = null;
+  let pendingNotice: string | null = null;
   onCleanup(() => stopWatching?.());
 
-  // Reset current root when data changes
-  createEffect(() => {
-    if (visualizationData()) {
-      setCurrentRoot(visualizationData());
-    }
+  // The scan root's absolute path; locations are relative to it.
+  const rootPath = () => visualizationData()?.path ?? "";
+  // Where the treemap is zoomed, read from the location.
+  const resolved = createMemo(() => {
+    const data = visualizationData();
+    return data ? resolveTreeAt(data, rootPath(), location().at) : null;
   });
+  const currentRoot = () => resolved()?.node ?? null;
+
+  // A location whose path is gone (deleted file, different repo): show the
+  // nearest ancestor that exists. Graph-only places (packages, files the scan
+  // skips) are left alone while the graph shows them.
+  createEffect(() => {
+    const r = resolved();
+    if (!r || r.match !== "missing" || location().view !== "treemap") return;
+    const message = `${location().at} isn't in this scan; showing ${r.at || "the root"}`;
+    replace({ at: r.at });
+    // While a scan is loading, its "Analyzed …" toast would hide this one.
+    if (loading()) pendingNotice = message;
+    else notify(message, "error");
+  });
+
+  const zoomTo = (node: any) => {
+    const at = node?.path ? atFromTreePath(node.path, rootPath()) : null;
+    if (at !== null) go({ at });
+  };
 
   onMount(async () => {
     setContextLoading(true);
@@ -278,10 +301,13 @@ function AppContent() {
           snapshot.files_failed > 0
             ? ` (${formatCount(snapshot.files_failed)} skipped)`
             : "";
-        notify(
-          `${snapshot.cached ? "Loaded saved analysis: " : "Analyzed "}${describeResult(snapshot)}${skipped}`,
-          "success"
-        );
+        if (pendingNotice) notify(pendingNotice, "error");
+        else
+          notify(
+            `${snapshot.cached ? "Loaded saved analysis: " : "Analyzed "}${describeResult(snapshot)}${skipped}`,
+            "success"
+          );
+        pendingNotice = null;
       } else if (snapshot.phase === "failed") {
         setError(snapshot.error || "The scan failed.");
       }
@@ -305,6 +331,7 @@ function AppContent() {
     options: { force?: boolean } = {}
   ) => {
     const request = ++activeRequest;
+    pendingNotice = null;
     stopWatching?.();
     stopWatching = null;
     const previous = scan();
@@ -312,13 +339,15 @@ function AppContent() {
 
     // Clear existing analysis data immediately so we don't show stale visuals
     setVisualizationData(null);
-    setCurrentRoot(null);
     setLoading(true);
     setCancelling(false);
     setClientStage(null);
     setError(null);
 
     const trimmed = path?.trim() || null;
+    // A different codebase starts at its root; a rescan keeps the place.
+    const previousPath = scannedPath();
+    if (previousPath !== null && previousPath !== (trimmed ?? "")) replace({ at: "" });
     setScannedPath(trimmed ?? "");
     setScan(emptySnapshot("", trimmed ?? analysisContext()?.rootPath ?? ""));
     try {
@@ -573,7 +602,7 @@ function AppContent() {
                 data={explorerRoot()}
                 fullData={processedData()}
                 onFileSelect={handleFileFromTreemap}
-                onZoom={setCurrentRoot}
+                onZoom={zoomTo}
                 filter={filterQuery()}
                 onFilterChange={setFilterQuery}
               />
@@ -589,7 +618,8 @@ function AppContent() {
               <Treemap
                 data={processedData()}
                 currentRoot={currentRoot()}
-                onZoom={setCurrentRoot}
+                rootPath={rootPath()}
+                onZoom={zoomTo}
                 onFileSelect={handleFileFromTreemap}
                 onPaint={() => resolveTreemapPaint?.()}
               />

@@ -1,0 +1,154 @@
+import { describe, expect, it } from "vitest";
+import {
+  ancestorsOf,
+  atFromTreePath,
+  crumbsFor,
+  graphIdFor,
+  normalizeScopeName,
+  parentAt,
+  parseLocation,
+  toSearch,
+  treePathFromAt,
+} from "./location";
+import { resolveTreeAt } from "./resolveTree";
+
+describe("parseLocation / toSearch", () => {
+  it("round-trips folders, files and symbols", () => {
+    for (const loc of [
+      { at: "client/src", view: "treemap" as const },
+      { at: "client/src/App.tsx", view: "graph" as const },
+      { at: "server/app/run.py#main", view: "graph" as const },
+      { at: "a.ts#Foo (class)::#secret", view: "treemap" as const },
+      { at: "ext:react", view: "graph" as const },
+    ]) {
+      expect(parseLocation(toSearch(loc))).toEqual(loc);
+    }
+  });
+
+  it("treats the empty root treemap as a bare URL", () => {
+    expect(toSearch({ at: "", view: "treemap" })).toBe("");
+    expect(parseLocation("")).toEqual({ at: "", view: "treemap" });
+    expect(parseLocation("?view=graph")).toEqual({ at: "", view: "graph" });
+  });
+
+  it("encodes the symbol fragment so it survives the URL", () => {
+    const search = toSearch({ at: "a.py#run", view: "graph" });
+    expect(search).toContain("a.py%23run");
+    expect(new URL(`http://x/${search}`).hash).toBe("");
+  });
+
+  it("reads the legacy depFocus alias as the graph view", () => {
+    expect(parseLocation("?depFocus=server%2Fapp")).toEqual({ at: "server/app", view: "graph" });
+    expect(parseLocation("?depFocus=%2F")).toEqual({ at: "", view: "graph" });
+    expect(parseLocation("?depFocus=a&at=b&view=treemap")).toEqual({ at: "b", view: "treemap" });
+  });
+
+  it("keeps foreign params and drops the legacy one", () => {
+    const s = toSearch({ at: "x", view: "graph" }, "?compare=main..HEAD&depFocus=old");
+    const params = new URLSearchParams(s);
+    expect(params.get("compare")).toBe("main..HEAD");
+    expect(params.get("depFocus")).toBeNull();
+    expect(params.get("at")).toBe("x");
+  });
+
+  it("ignores an unknown view", () => {
+    expect(parseLocation("?view=bogus&at=a").view).toBe("treemap");
+  });
+});
+
+describe("hierarchy helpers", () => {
+  it("walks up scope → file → folder → root", () => {
+    expect(ancestorsOf("a/b.py#C::d")).toEqual(["a/b.py#C::d", "a/b.py#C", "a/b.py", "a", ""]);
+    expect(parentAt("")).toBeNull();
+    expect(parentAt("ext:react")).toBe("");
+  });
+
+  it("builds one breadcrumb trail for both views", () => {
+    expect(crumbsFor("a/b.py#C::d", "repo")).toEqual([
+      { label: "repo", at: "" },
+      { label: "a", at: "a" },
+      { label: "b.py", at: "a/b.py" },
+      { label: "C", at: "a/b.py#C" },
+      { label: "d", at: "a/b.py#C::d" },
+    ]);
+    expect(crumbsFor("", "")).toEqual([{ label: "root", at: "" }]);
+    expect(crumbsFor("ext:react", "repo").map((c) => c.label)).toEqual(["repo", "react"]);
+  });
+});
+
+describe("tree paths", () => {
+  const root = "/home/me/repo";
+  it("converts scan-tree paths to locations and back", () => {
+    expect(atFromTreePath(root, root)).toBe("");
+    expect(atFromTreePath(`${root}/a/b.ts`, root)).toBe("a/b.ts");
+    expect(atFromTreePath(`${root}/a/b.ts::Foo (class)::run`, root)).toBe("a/b.ts#Foo (class)::run");
+    expect(atFromTreePath("/elsewhere/x", root)).toBeNull();
+    expect(atFromTreePath(`${root}x/y`, root)).toBeNull();
+    expect(treePathFromAt("a/b.ts#Foo (class)::run", root)).toBe(`${root}/a/b.ts::Foo (class)::run`);
+    expect(treePathFromAt("", root)).toBe(root);
+    expect(treePathFromAt("a", "/")).toBe("/a");
+  });
+
+  it("strips scope decorations", () => {
+    expect(normalizeScopeName("Foo (class)")).toBe("Foo");
+    expect(normalizeScopeName("(class) Foo")).toBe("Foo");
+    expect(normalizeScopeName("run (async)")).toBe("run");
+  });
+});
+
+describe("graphIdFor", () => {
+  const ids = new Set(["", "a", "a/b.py", "a/b.py#Foo"]);
+  const has = (id: string) => ids.has(id);
+  it("maps exact, decorated scopes, and missing files to the nearest node", () => {
+    expect(graphIdFor("a/b.py#Foo", has)).toBe("a/b.py#Foo");
+    expect(graphIdFor("a/b.py#Foo (class)::run", has)).toBe("a/b.py#Foo");
+    expect(graphIdFor("a/b.py#nope", has)).toBe("a/b.py");
+    expect(graphIdFor("a/README.md", has)).toBe("a");
+    expect(graphIdFor("gone/x.ts", has)).toBe("");
+  });
+});
+
+describe("resolveTreeAt", () => {
+  const root = "/r";
+  const tree = {
+    path: "/r",
+    name: "root",
+    children: [
+      {
+        path: "/r/a",
+        name: "a",
+        children: [
+          {
+            path: "/r/a/b.py",
+            name: "b.py",
+            children: [
+              { path: "/r/a/b.py::Foo (class)", name: "Foo (class)", children: [] },
+              { path: "/r/a/b.py::helper", name: "helper", children: [] },
+            ],
+          },
+        ],
+      },
+      { path: "/r/ab", name: "ab", children: [] },
+    ],
+  };
+
+  it("finds exact nodes without confusing prefix siblings", () => {
+    expect(resolveTreeAt(tree, root, "ab").node.name).toBe("ab");
+    expect(resolveTreeAt(tree, root, "a/b.py#helper")).toMatchObject({ match: "exact", at: "a/b.py#helper" });
+    expect(resolveTreeAt(tree, root, "").node).toBe(tree);
+  });
+
+  it("matches a bare graph symbol to a decorated scope", () => {
+    const r = resolveTreeAt(tree, root, "a/b.py#Foo");
+    expect(r).toMatchObject({ match: "scope", at: "a/b.py#Foo (class)" });
+  });
+
+  it("falls back to the file for an unknown symbol", () => {
+    expect(resolveTreeAt(tree, root, "a/b.py#nope")).toMatchObject({ match: "scope", at: "a/b.py" });
+  });
+
+  it("falls back to the nearest ancestor for a deleted path", () => {
+    expect(resolveTreeAt(tree, root, "a/gone/x.ts")).toMatchObject({ match: "missing", at: "a" });
+    expect(resolveTreeAt(tree, root, "ext:react")).toMatchObject({ match: "external", at: "" });
+  });
+});

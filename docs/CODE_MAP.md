@@ -149,12 +149,21 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Hot spot rows | `client/src/components/HotSpotItem.tsx` |
 | File-type filter popover | `client/src/components/FileTypeFilter.tsx` |
 
+### Client: Navigation (one location for treemap + graph)
+
+| Feature | Where |
+| --- | --- |
+| Location model: `?at=&view=` parse/serialize, legacy `depFocus` alias, breadcrumbs, scan-path ↔ `at`, graph-id mapping | `client/src/navigation/location.ts` |
+| `at` → scan-tree node (prefix descent, bare-symbol match, nearest-ancestor fallback) | `client/src/navigation/resolveTree.ts` |
+| Navigation store: `location()`, `go` (pushState), `replace`, popstate | `client/src/navigation/store.ts` |
+| Missing-path fallback + toast, treemap/explorer zoom → `go` | `client/src/App.tsx` (`resolved`, `zoomTo`) |
+
 ### Client: Treemap
 
 | Feature | Where |
 | --- | --- |
 | Layout, zoom, isolate/exclude, view switching | `client/src/components/Treemap.tsx` |
-| Header toolbar (breadcrumb, filter, color metric, legend) | `client/src/viz/treemap/components/TreemapHeader.tsx` |
+| Header toolbar (shared location breadcrumb, filter, color metric, legend) | `client/src/viz/treemap/components/TreemapHeader.tsx` |
 | Canvas tile rendering + keyboard selection | `client/src/viz/treemap/components/TreemapCanvas.tsx`, `viz/treemap/utils/hitTest.ts` |
 | Canvas zoom motion through a shared tile | `client/src/viz/treemap/utils/zoom.ts`, `viz/treemap/components/TreemapCanvas.tsx` |
 | Tooltip | `client/src/viz/treemap/components/TreemapTooltip.tsx`, `viz/treemap/hooks/useTreemapTooltip.ts` |
@@ -179,6 +188,7 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 
 | Feature | Where |
 | --- | --- |
+| Dependency view (whole-repo graph fetched once; focus = location `at`) | `client/src/viz/deps/DependencyView.tsx`, model/layout in `viz/deps/viewModel.ts`, `viz/deps/layout.ts` |
 | Dependency graph (ELK worker + force-layout worker) | `client/src/components/DependencyGraph.tsx`, `client/src/workers/dependencyForce.worker.ts` |
 
 ### Client: UI primitives
