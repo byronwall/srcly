@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from app.run import _find_repo_root

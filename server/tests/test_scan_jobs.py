@@ -7,9 +7,8 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.models import Metrics, Node
-from app.services import analysis, scan_jobs
+from app.services import scan_jobs
 from app.services.scan_jobs import ScanJobManager
-from app.services.scan_workers import ScanCancelled
 
 
 class FakeScan:

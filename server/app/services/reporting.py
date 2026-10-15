@@ -508,7 +508,7 @@ def render_action_plan(*, findings: list[dict[str, Any]], profile: str) -> str:
                 f"{index}. {finding['title']}",
                 f"   Evidence: `{location}`; {evidence}; priority={finding['priority']}; path_priority={finding.get('path_priority', 'neutral')}.",
                 f"   Safe first patch: {finding['suggested_action']}",
-                f"   Verify: inspect nearby tests first, then run the narrowest type-check or test command for the touched package.",
+                "   Verify: inspect nearby tests first, then run the narrowest type-check or test command for the touched package.",
                 "",
             ]
         )

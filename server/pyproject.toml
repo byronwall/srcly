@@ -34,3 +34,15 @@ packages = ["app"]
 include = [
     "app/**",
 ]
+
+[tool.ruff]
+extend-exclude = ["app/static"]
+
+[tool.ruff.lint]
+# Pyflakes only: unused imports, undefined names, dead f-strings.
+select = ["F"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.17.0",
+]

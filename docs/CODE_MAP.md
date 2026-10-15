@@ -76,14 +76,14 @@ Browser
 | `GET /api/analysis` | `routers/analysis.py:get_analysis` | Blocking one-shot scan (kept for API users; the UI uses `/api/scans`) |
 | `POST /api/analysis/refresh` | `routers/analysis.py:refresh_analysis` | Re-scan cwd root |
 | `GET /api/analysis/context` | `routers/analysis.py:get_analysis_context` | Cwd + repo root with rough file counts (first-run screen) |
-| `GET /api/analysis/dependencies` | `routers/analysis.py:get_dependencies` | TS/TSX import graph, tsconfig `paths` aliases |
+| `GET /api/analysis/dependency-graph` | `routers/analysis.py:get_dependency_graph` | Hierarchical TS + Python dependency graph (`DepGraph`) with symbol-level edges |
 | `GET /api/files/content` | `routers/files.py:get_file_content` | Raw file text |
 | `GET /api/files/suggest` | `routers/files.py:suggest_files` | Path autocomplete for the path bar |
 | Pydantic response models | `server/app/models.py` | `Node`, `Metrics`, dependency graph models |
 
 ### Metrics end-to-end
 
-Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS.md` ("Add / extend a metric").
+Adding a metric touches every layer; the step-by-step checklist lives in `docs/adding-a-metric.md`.
 
 | Layer | Where |
 | --- | --- |
@@ -154,11 +154,26 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | File fetching | `client/src/services/fileContent.ts`, `hooks/useFileContent.ts` |
 | Line-range slicing / indent reduction | `client/src/utils/lineRange.ts`, `utils/indentation.ts` |
 
+### Dependency graph (backend)
+
+| Feature | Where |
+| --- | --- |
+| Graph assembly, folder hierarchy, external packages, cache | `server/app/services/deps/graph.py` |
+| TS/TSX import + symbol resolution | `server/app/services/deps/typescript_deps.py`, `server/app/services/deps/tsconfig.py` |
+| Python import resolution | `server/app/services/deps/python_deps.py` |
+| Shared walk / edge helpers | `server/app/services/deps/common.py` |
+| Design intent and plan | `docs/intent/dependency-view/` |
+
 ### Client: Graph views
 
 | Feature | Where |
 | --- | --- |
-| Dependency graph (ELK worker + force-layout worker) | `client/src/components/DependencyGraph.tsx`, `client/src/workers/dependencyForce.worker.ts` |
+| Dependency view shell (fetch, focus, toolbar) | `client/src/viz/deps/DependencyView.tsx` |
+| Graph contract types + hierarchy index | `client/src/viz/deps/contract.ts`, `client/src/viz/deps/hierarchy.ts` |
+| Multi-scale view model (focus, budgets, roll-up, edge aggregation) | `client/src/viz/deps/viewModel.ts` |
+| Grid layout + edge routing | `client/src/viz/deps/layout.ts`, `client/src/viz/deps/geometry.ts` |
+| SVG rendering | `client/src/viz/deps/DependencyCanvas.tsx` |
+| Test fixture (srcly's own client graph) | `client/src/viz/deps/__fixtures__/srcly-client.json` |
 
 ### Client: UI primitives
 
@@ -178,10 +193,14 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Area | Where | Run |
 | --- | --- | --- |
 | Backend | `server/tests/test_*.py` | `cd server && uv run pytest` |
-| Client utils | `client/src/utils/*.test.ts` | `cd client && pnpm test` |
+| Client | `client/src/**/*.test.ts` | `cd client && pnpm test` |
+| Client types | `client/tsconfig.app.json` | `cd client && pnpm typecheck` |
+| Python lint (pyflakes rules) | `server/pyproject.toml` (`[tool.ruff]`) | `cd server && uv run ruff check` |
+| This map's paths and handlers | `server/tests/test_code_map.py` | `cd server && uv run pytest tests/test_code_map.py` |
 
 ## Other docs
 
 - `DESIGN.md` — visual design system.
 - `docs/design-audits/`, `docs/analysis/` — past audits and language-analysis notes.
-- `docs/prd/` — product requirement drafts.
+- `docs/intent/` — per-initiative intent, shape, and implementation plans.
+- `docs/adding-a-metric.md` — end-to-end checklist for a new metric.
