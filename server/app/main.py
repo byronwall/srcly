@@ -8,7 +8,7 @@ import os
 import signal
 import threading
 
-from app.routers import analysis, files, scans
+from app.routers import analysis, compare, files, scans
 from app.services.scan_workers import cancel_all_scans
 
 _SHUTDOWN_SIGNALS = (signal.SIGINT, signal.SIGTERM)
@@ -76,6 +76,7 @@ app.add_middleware(
 app.include_router(analysis.router)
 app.include_router(files.router)
 app.include_router(scans.router)
+app.include_router(compare.router)
 
 
 @app.get("/api-status")

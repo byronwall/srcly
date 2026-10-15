@@ -7,7 +7,7 @@ import {
   createEffect,
   lazy,
 } from "solid-js";
-import { RefreshCw } from "lucide-solid";
+import { GitCompare, RefreshCw } from "lucide-solid";
 import Toast from "./components/Toast";
 
 import Explorer from "./components/Explorer";
@@ -32,8 +32,10 @@ import {
   type ClientStage,
 } from "./utils/scanProgress";
 import { MetricsStoreProvider, useMetricsStore } from "./utils/metricsStore";
+import { DEFAULT_BASE, DEFAULT_HEAD, navigateCompare, readCompareParam } from "./compare/api";
 
 const CodeModal = lazy(() => import("./components/CodeModal/CodeModal.tsx"));
+const CompareApp = lazy(() => import("./compare/CompareApp.tsx"));
 
 // Stop waiting for the first treemap paint after this long (a hidden tab
 // gets no animation frames), so the loading state can never get stuck.
@@ -151,9 +153,16 @@ function AnalyzeTarget(props: {
 const FilePickerWithExternal = FilePicker as any;
 
 function App() {
+  // ?compare=<base>..<head> switches to PR compare mode.
+  const [comparing, setComparing] = createSignal(readCompareParam() !== null);
+  const sync = () => setComparing(readCompareParam() !== null);
+  onMount(() => window.addEventListener("popstate", sync));
+  onCleanup(() => window.removeEventListener("popstate", sync));
   return (
     <MetricsStoreProvider>
-      <AppContent />
+      <Show when={comparing()} fallback={<AppContent />}>
+        <CompareApp />
+      </Show>
     </MetricsStoreProvider>
   );
 }
@@ -411,6 +420,15 @@ function AppContent() {
             />
           </div>
         </div>
+        <Button
+          variant="ghost"
+          class="shrink-0 gap-1.5"
+          title="Compare two git refs: what a branch or PR changed, and whether metrics got better or worse"
+          onClick={() => navigateCompare(DEFAULT_BASE, DEFAULT_HEAD)}
+        >
+          <GitCompare size={13} aria-hidden="true" />
+          Compare
+        </Button>
         <Show when={!loading() && visualizationData()}>
           {(data) => (
             <>
