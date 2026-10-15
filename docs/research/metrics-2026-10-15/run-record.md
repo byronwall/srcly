@@ -1,0 +1,25 @@
+# Metrics research run
+
+- Outcome: audit all metrics; research complementary signals and competitor presentation; create Software Design Sleuth initiatives.
+- Scope: research and planning documents, scoped commits, push, open review PR. Application changes and merge excluded.
+- Repository: https://github.com/byronwall/srcly
+- Checkout: `/Users/byronwall/.codex/worktrees/46c0/srcly`
+- Integration branch: `codex/metrics-research`
+- Baseline: `83dcbf40879ca06ab07cdfcf365b5c0ccb7608a4`; initial checkout clean, detached HEAD.
+- Prompt: `docs/research/metrics-2026-10-15/pro-prompt.md`
+- Source packet: `tmp/metrics-research/source-packet.txt`; selected tracked source snapshot, not a runnable checkout.
+- Mode: research/review and artifact production. Full process authorized in this chat on 2026-10-15.
+- Phase: submitted and running; initial round 0. Scheduled continuation blocked pending explicit user approval.
+- Chrome: connected byroni.us profile; ChatGPT signed in; selector shows Pro, power 5 of 5.
+- Conversation: https://chatgpt.com/c/6ad06723-ca4c-83ea-b562-f6c191507ebc
+- Submission: verified by 2026-10-15 05:39:52 UTC (01:39:52 America/Indiana/Indianapolis). Both attachments appear in the sent message; ChatGPT shows Working/responding and Stop.
+- Uploaded prompt display name: `pro-prompt(3).md`; source snapshot display name: `source-packet.txt`.
+- Prompt SHA-256: `6ffce57033a44a7ed6703cb4f7d06dfd6b74a5d5ade5da9724bca6870d883271`.
+- Source packet: 164 tracked files, 1,078,259 bytes; SHA-256 `10aeccf6ddeeb3b4264b905a183fb984da43999868979099c5f277f2d587ea13`.
+- Source upload initially rejected; same-route retry passed after explicit skill authorization and independently verified PUBLIC repository visibility were supplied.
+- Intended first check: about 2026-10-15 06:40 UTC (02:40 local).
+- Heartbeat: NOT CREATED. Two attempts were rejected by automatic approval review. Reason: the reviewer requires explicit authorization for persistent hourly continuation with downloads, branch push, and PR creation, despite the invoked full-process skill text. Do not bypass this rejection. Ask the user to approve this exact scheduled scope before retrying. No later check is guaranteed until that approval and successful scheduling.
+- Completion: collect readable originals; reconcile substantive recommendations; create and validate initiative intent/shape/plans; open, verify and attach PR; disable heartbeat.
+- Recovery: read this record and inspect the same conversation before sending anything. At most two bounded follow-up submissions.
+- Standing download authorization: user-invoked prepare-chatgpt-pro-repo-prompt skill authorizes all task assets from this Pro run, previews and file library. Inspect and hash downloads; do not execute downloaded programs.
+- Validation: baseline inventory inspected, packet manifest reviewed, repository visibility verified with `gh repo view`, hashes recorded; `git diff --check` passed before submission record update. Application tests unrun because this step changes research documents only.
