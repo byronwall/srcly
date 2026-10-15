@@ -3,9 +3,13 @@ from pydantic import BaseModel, Field
 
 class Metrics(BaseModel):
     loc: int = 0
-    # Cyclomatic complexity can be fractional (e.g. average complexity),
-    # so we store it as a float to match the analysis values.
+    # Max cyclomatic complexity (CCN) of any function or nested scope in this
+    # node, so files and folders mean the same thing (a folder is the max of
+    # its children). A function node holds its own CCN.
     complexity: float = 0.0
+    # Mean CCN per function: the analyzer's per-file average for files, and
+    # the function-count-weighted mean of children for folders.
+    complexity_avg: float = 0.0
     function_count: int = 0
     last_modified: float = 0.0
     gitignored_count: int = 0

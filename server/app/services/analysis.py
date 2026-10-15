@@ -104,7 +104,7 @@ def create_node(name: str, node_type: str, path: str) -> Node:
 def attach_file_metrics(node: Node, file_info) -> None:
     total_loc = file_info.nloc
     node.metrics.loc = total_loc
-    node.metrics.complexity = file_info.average_cyclomatic_complexity
+    node.metrics.complexity_avg = file_info.average_cyclomatic_complexity
     node.metrics.function_count = len(file_info.function_list)
     node.metrics.function_count = len(file_info.function_list)
     node.metrics.file_count = 1
@@ -240,9 +240,19 @@ def attach_file_metrics(node: Node, file_info) -> None:
         node.children.append(func_node)
         func_sum_loc += func.nloc
 
+    node.metrics.complexity = _max_scope_complexity(node)
+
     # NOTE: We no longer create a synthetic child node for module-level "glue".
     # Any top-level/module lines should be represented as the (body) of the
     # file/module scope (handled by the newer scope-body attribution logic).
+
+
+def _max_scope_complexity(node: Node) -> float:
+    """Highest CCN among the function scopes (at any depth) below ``node``."""
+    best = 0.0
+    for child in node.children:
+        best = max(best, child.metrics.complexity, _max_scope_complexity(child))
+    return best
 
 
 def _translate_gitignore_pattern(raw_line: str, base_rel: str) -> str | None:
@@ -715,6 +725,11 @@ def aggregate_metrics(node: Node) -> Metrics:
     if node.type == "folder":
         node.metrics.loc = total_loc
         node.metrics.complexity = max_complexity
+        node.metrics.complexity_avg = (
+            sum(c.metrics.complexity_avg * c.metrics.function_count for c in node.children) / total_funcs
+            if total_funcs > 0
+            else 0.0
+        )
         node.metrics.function_count = total_funcs
         
         # last_modified is the max of children; gitignored_count is assigned

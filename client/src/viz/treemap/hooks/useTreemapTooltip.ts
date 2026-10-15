@@ -1,6 +1,6 @@
 import { createSignal } from "solid-js";
 import * as d3 from "d3";
-import { HOTSPOT_METRICS, type HotSpotMetricId } from "../../../utils/metricsStore";
+import { formatMetricValue, HOTSPOT_METRICS, type HotSpotMetricId } from "../../../utils/metricsStore";
 
 export type TooltipLine = {
   label: string;
@@ -84,7 +84,10 @@ export function useTreemapTooltip(opts: { primaryMetricId: () => HotSpotMetricId
     const metrics = d.data?.metrics ?? {};
     const lines: TooltipLine[] = [
       { label: "LOC", value: String(d.value ?? 0) },
-      { label: "Complexity", value: Number(metrics?.complexity ?? 0).toFixed(1) },
+      { label: "Max CCN", value: formatMetricValue("complexity", Number(metrics?.complexity ?? 0)) },
+      ...(metrics?.complexity_avg
+        ? [{ label: "Avg CCN", value: Number(metrics.complexity_avg).toFixed(1) }]
+        : []),
       {
         label: "Density",
         value: `${Math.round(Number(metrics?.comment_density ?? 0) * 100)}%`,
@@ -98,6 +101,7 @@ export function useTreemapTooltip(opts: { primaryMetricId: () => HotSpotMetricId
     const standardMetrics = new Set([
       "loc",
       "complexity",
+      "complexity_avg",
       "comment_density",
       "max_nesting_depth",
       "todo_count",
