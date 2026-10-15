@@ -18,10 +18,10 @@ import { EmptyState, ErrorState, LoadingState } from "./components/feedback/Stat
 import FilePicker from "./components/FilePicker";
 import Treemap from "./components/Treemap";
 import { Button } from "./components/ui/Button";
-import { extractFilePath, filterTree, findTreeNodeByPath } from "./utils/dataProcessing";
+import { extractFilePath, filterTree, findScopeForSymbol, findTreeNodeByPath } from "./utils/dataProcessing";
 import { describeResult, formatCount } from "./utils/scanProgress";
 import { MetricsStoreProvider, useMetricsStore } from "./utils/metricsStore";
-import { atFromTreePath, isExternal, splitAt, treePathFromAt } from "./navigation/location";
+import { atFromTreePath, isExternal, normalizeScopeName, splitAt, treePathFromAt } from "./navigation/location";
 import { resolveTreeAt } from "./navigation/resolveTree";
 import { go, location, replace } from "./navigation/store";
 import { scanStore } from "./state/scanStore";
@@ -329,12 +329,26 @@ function AppContent(props: { active: boolean }) {
    * metrics, a graph symbol on the matching scope, a file whole. Folders and
    * packages have no code. A file the scan skipped still opens, without metrics.
    */
-  const openAt = (at: string) => {
+  const openAt = (at: string, line?: number) => {
     if (!at || isExternal(at)) return;
     const data = visualizationData();
     const r = data ? resolveTreeAt(data, rootPath(), at) : null;
-    const node = r && r.match !== "missing" ? r.node : null;
+    let node = r && r.match !== "missing" ? r.node : null;
     if (node?.type === "folder") return;
+    // A graph symbol also carries its line: use it to pick among duplicate
+    // names, and to land on the symbol when its name matches no scope.
+    const { file: symbolFile, scopes } = splitAt(at);
+    if (node && scopes.length === 1 && typeof line === "number") {
+      const fileNode = node.type === "file" ? node : findTreeNodeByPath(data, treePathFromAt(symbolFile, rootPath()));
+      const byLine = findScopeForSymbol(fileNode, scopes[0], line);
+      if (byLine && (node.type === "file" || normalizeScopeName(String(byLine.name ?? "")) === scopes[0])) {
+        node = byLine;
+      } else if (node.type === "file") {
+        const path = extractFilePath(node.path, node.type);
+        if (path) handleFileFromTreemap(path, line, line);
+        return;
+      }
+    }
     if (!node) {
       handleFileFromTreemap(treePathFromAt(splitAt(at).file, rootPath()));
       return;

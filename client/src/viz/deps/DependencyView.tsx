@@ -31,8 +31,11 @@ export default function DependencyView(props: {
    * refetch and dependents outside the focused folder stay visible.
    */
   rootPath: string;
-  /** Open a file or symbol (by location) in the app's code viewer. */
-  onOpen: (at: string) => void;
+  /**
+   * Open a file or symbol (by location) in the app's code viewer. Symbols
+   * also pass their line, so the viewer can land on them by position.
+   */
+  onOpen: (at: string, line?: number) => void;
 }) {
   const [graph] = createResource(() => props.rootPath, (p) => fetchGraph(p || undefined));
   const [layout, setLayout] = createSignal<ViewLayout | null>(null);
@@ -81,7 +84,8 @@ export default function DependencyView(props: {
 
   // Files and symbols open in the app's code viewer, scoped like the treemap.
   const onOpenNode = (n: ViewNode) => {
-    if (n.kind === "file" || n.kind === "symbol") props.onOpen(n.graphId);
+    if (n.kind === "file") props.onOpen(n.graphId);
+    else if (n.kind === "symbol") props.onOpen(n.graphId, index()?.byId.get(n.graphId)?.line);
   };
 
   const openMenu = (n: ViewNode, point: { x: number; y: number }) =>

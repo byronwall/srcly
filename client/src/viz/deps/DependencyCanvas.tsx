@@ -2,6 +2,7 @@ import * as d3 from "d3";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { truncateTextToWidth } from "../../utils/svgText";
 import { boundsOf } from "./geometry";
+import { createClickIntent, liveHover } from "./interaction";
 import { MAX_SCALE, type PositionedEdge, type PositionedNode, type ViewLayout } from "./layout";
 import type { Region, ViewNode } from "./viewModel";
 
@@ -76,9 +77,32 @@ export function DependencyCanvas(props: {
 }) {
   let svgRef!: SVGSVGElement;
   let gRef!: SVGGElement;
-  const [hoverNode, setHoverNode] = createSignal<string | null>(null);
-  const [hoverEdge, setHoverEdge] = createSignal<string | null>(null);
+  const [rawHoverNode, setHoverNode] = createSignal<string | null>(null);
+  const [rawHoverEdge, setHoverEdge] = createSignal<string | null>(null);
   const [card, setCard] = createSignal<{ x: number; y: number; node?: PositionedNode; edge?: PositionedEdge } | null>(null);
+
+  // A refocus swaps the hovered element out, so its mouseleave never fires:
+  // reset hover on every new layout and ignore ids the layout no longer has.
+  const nodeIds = createMemo(() => new Set(props.layout.nodes.map((n) => n.id)));
+  const edgeIds = createMemo(() => new Set(props.layout.edges.map((e) => e.id)));
+  const hoverNode = () => liveHover(nodeIds(), rawHoverNode());
+  const hoverEdge = () => liveHover(edgeIds(), rawHoverEdge());
+  createEffect(() => {
+    void props.layout;
+    setHoverNode(null);
+    setHoverEdge(null);
+    setCard(null);
+  });
+
+  const clickIntent = createClickIntent<ViewNode>({
+    onFocus: (node) => {
+      setHoverNode(null);
+      setHoverEdge(null);
+      props.onFocus(node);
+    },
+    onOpen: (node) => props.onOpen(node),
+  });
+  onCleanup(() => clickIntent.cancel());
 
   const zoom = d3
     .zoom<SVGSVGElement, unknown>()
@@ -298,12 +322,18 @@ export function DependencyCanvas(props: {
                   onClick={(ev) => {
                     ev.stopPropagation();
                     setCard(null);
-                    if (ev.metaKey || ev.ctrlKey) props.onOpen(n.node);
-                    else props.onFocus(n.node);
+                    clickIntent.click(n.node, ev);
                   }}
-                  onDblClick={(ev) => {
+                  onMouseDown={(ev) => {
+                    // No middle-button autoscroll; the aux click opens the node.
+                    if (ev.button === 1) ev.preventDefault();
+                  }}
+                  onAuxClick={(ev) => {
+                    if (ev.button !== 1) return;
+                    ev.preventDefault();
                     ev.stopPropagation();
-                    props.onOpen(n.node);
+                    setCard(null);
+                    clickIntent.auxClick(n.node, ev.button);
                   }}
                   onContextMenu={(ev) => {
                     if (!props.onMenu) return;
@@ -425,7 +455,9 @@ function NodeCard(props: { node: ViewNode; layout: ViewLayout; id: string }) {
         {sum(incoming())} in · {sum(outgoing())} out
       </div>
       <div class="text-[var(--plc-on-subtle)]">
-        {props.node.isFocus ? "Double-click to open code" : "Click to focus · double-click to open"}
+        {props.node.isFocus
+          ? "Double-click or middle-click to open code"
+          : "Click to focus · double-click or middle-click to open"}
       </div>
     </div>
   );

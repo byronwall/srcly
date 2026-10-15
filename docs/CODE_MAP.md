@@ -194,7 +194,8 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Feature | Where |
 | --- | --- |
 | Dependency view (whole-repo graph fetched once; focus = location `at`) | `client/src/viz/deps/DependencyView.tsx`, model/layout in `viz/deps/viewModel.ts`, `viz/deps/layout.ts` |
-| Dependency graph (ELK worker + force-layout worker) | `client/src/components/DependencyGraph.tsx`, `client/src/workers/dependencyForce.worker.ts` |
+| Dependency graph canvas (hover, click to focus, double/middle/⌘-click to open) | `client/src/viz/deps/DependencyCanvas.tsx`, pointer logic in `viz/deps/interaction.ts` |
+| Open code from the graph (graph symbol → treemap scope by name, then by line) | `App.tsx` (`openAt`) → `navigation/resolveTree.ts`; line fallback `utils/dataProcessing.ts` (`findScopeForSymbol`) |
 
 ### Client: UI primitives
 
