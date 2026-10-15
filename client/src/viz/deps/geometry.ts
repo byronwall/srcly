@@ -114,3 +114,75 @@ export function boundsOf(boxes: Box[], edges: Polyline[] = []): { x: number; y: 
   if (!Number.isFinite(x0)) return { x: 0, y: 0, width: 0, height: 0 };
   return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
 }
+
+/**
+ * Pairs of collinear segments from different edges that run on top of each
+ * other for more than `minOverlap` px — edges a reader cannot tell apart.
+ */
+export function countOverlaps(edges: Polyline[], minOverlap = 1): number {
+  const hs = new Map<number, { lo: number; hi: number; e: number }[]>();
+  const vs = new Map<number, { lo: number; hi: number; e: number }[]>();
+  edges.forEach((edge, i) => {
+    for (const { a, b } of segments(edge.points)) {
+      if (Math.abs(a.y - b.y) < EPS && Math.abs(a.x - b.x) >= EPS) {
+        const k = Math.round(a.y * 4);
+        hs.set(k, [...(hs.get(k) ?? []), { lo: Math.min(a.x, b.x), hi: Math.max(a.x, b.x), e: i }]);
+      } else if (Math.abs(a.x - b.x) < EPS && Math.abs(a.y - b.y) >= EPS) {
+        const k = Math.round(a.x * 4);
+        vs.set(k, [...(vs.get(k) ?? []), { lo: Math.min(a.y, b.y), hi: Math.max(a.y, b.y), e: i }]);
+      }
+    }
+  });
+  let count = 0;
+  for (const lines of [hs, vs]) {
+    for (const segs of lines.values()) {
+      for (let i = 0; i < segs.length; i++) {
+        for (let j = i + 1; j < segs.length; j++) {
+          if (segs[i].e === segs[j].e) continue;
+          if (Math.min(segs[i].hi, segs[j].hi) - Math.max(segs[i].lo, segs[j].lo) > minOverlap) count++;
+        }
+      }
+    }
+  }
+  return count;
+}
+
+/**
+ * Crossings between bundles rather than between individual edges: parallel
+ * segments within `spread` px of each other (an edge bundle drawn as a band)
+ * count as one line, so widening a bundle doesn't inflate the count.
+ */
+export function countBundleCrossings(edges: Polyline[], spread = 2.01): number {
+  type Seg = { at: number; lo: number; hi: number; e: number };
+  const hs: Seg[] = [];
+  const vs: Seg[] = [];
+  edges.forEach((edge, i) => {
+    for (const { a, b } of segments(edge.points)) {
+      if (Math.abs(a.y - b.y) < EPS && Math.abs(a.x - b.x) >= EPS) hs.push({ at: a.y, lo: Math.min(a.x, b.x), hi: Math.max(a.x, b.x), e: i });
+      else if (Math.abs(a.x - b.x) < EPS && Math.abs(a.y - b.y) >= EPS) vs.push({ at: a.x, lo: Math.min(a.y, b.y), hi: Math.max(a.y, b.y), e: i });
+    }
+  });
+  // Union neighbors along the cross axis whose spans overlap: one bundle each.
+  const bundles = (segs: Seg[]): number[] => {
+    const order = segs.map((_, i) => i).sort((p, q) => segs[p].at - segs[q].at);
+    const parent = segs.map((_, i) => i);
+    const find = (x: number): number => (parent[x] === x ? x : (parent[x] = find(parent[x])));
+    for (let i = 0; i < order.length; i++) {
+      for (let j = i + 1; j < order.length && segs[order[j]].at - segs[order[i]].at <= spread; j++) {
+        const [p, q] = [segs[order[i]], segs[order[j]]];
+        if (Math.min(p.hi, q.hi) > Math.max(p.lo, q.lo)) parent[find(order[i])] = find(order[j]);
+      }
+    }
+    return segs.map((_, i) => find(i));
+  };
+  const hb = bundles(hs);
+  const vb = bundles(vs);
+  const seen = new Set<string>();
+  hs.forEach((h, i) => {
+    vs.forEach((v, j) => {
+      if (h.e === v.e) return;
+      if (v.at > h.lo + EPS && v.at < h.hi - EPS && h.at > v.lo + EPS && h.at < v.hi - EPS) seen.add(`${hb[i]}:${vb[j]}`);
+    });
+  });
+  return seen.size;
+}
