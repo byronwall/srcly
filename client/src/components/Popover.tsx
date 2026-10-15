@@ -6,8 +6,10 @@ import {
   type JSX,
   mergeProps,
   createEffect,
+  on,
 } from "solid-js";
 import { Portal } from "solid-js/web";
+import { placePopover, popoverTransformOrigin, type PopoverPlacement } from "./popoverPosition";
 
 interface PopoverProps {
   trigger: (props: {
@@ -16,26 +18,38 @@ interface PopoverProps {
     ref: (el: HTMLElement) => void;
   }) => JSX.Element;
   children: JSX.Element;
-  placement?: "bottom-start" | "bottom-end";
+  placement?: PopoverPlacement;
   offset?: { x: number; y: number };
   onClose?: () => void;
   isOpen?: boolean;
   onOpenChange?: (isOpen: boolean) => void;
 }
 
+// Only one popover is open at a time: opening one claims this id, and every
+// other open popover closes when it changes. This doesn't depend on how the
+// outside-click handlers of the two popovers race.
+const [openPopoverId, setOpenPopoverId] = createSignal<symbol | null>(null);
+
+/** True while any popover is open (hover cards can stand down meanwhile). */
+export const isAnyPopoverOpen = () => openPopoverId() !== null;
+
+const ENTER_MS = 120;
+const ENTER_EASING = "cubic-bezier(0.23, 1, 0.32, 1)";
+
 export default function Popover(props: PopoverProps) {
   const merged = mergeProps(
-    { placement: "bottom-start", offset: { x: 0, y: 4 } },
+    { placement: "bottom-start" as PopoverPlacement, offset: { x: 0, y: 4 } },
     props
   );
+  const id = Symbol("popover");
 
   const [internalIsOpen, setInternalIsOpen] = createSignal(false);
   // Mirror `props.isOpen` into a local signal so event listeners (scroll/resize/click)
   // don't evaluate parent JSX prop getters outside a reactive owner.
   const [controlledIsOpen, setControlledIsOpen] = createSignal(false);
-  const [position, setPosition] = createSignal({ top: 0, left: 0 });
   let triggerRef: HTMLElement | undefined;
   let contentRef: HTMLDivElement | undefined;
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
 
   // Treat controlled/uncontrolled as stable for the lifetime of this component.
   // (This avoids reading a reactive prop getter from event handlers.)
@@ -47,41 +61,70 @@ export default function Popover(props: PopoverProps) {
 
   const isOpen = () => (isControlled ? controlledIsOpen() : internalIsOpen());
 
+  const setOpen = (next: boolean) => {
+    if (props.onOpenChange) props.onOpenChange(next);
+    else setInternalIsOpen(next);
+  };
+
   const toggle = (e: MouseEvent) => {
     e.stopPropagation(); // Prevent immediate close by document listener
-    const nextState = !isOpen();
-    if (props.onOpenChange) {
-      props.onOpenChange(nextState);
-    } else {
-      setInternalIsOpen(nextState);
-    }
+    setOpen(!isOpen());
   };
 
   const close = () => {
     if (props.onClose) props.onClose();
-    if (props.onOpenChange) {
-      props.onOpenChange(false);
-    } else {
-      setInternalIsOpen(false);
-    }
+    setOpen(false);
   };
 
-  const updatePosition = () => {
-    if (!triggerRef || !isOpen()) return;
+  // Claim the single open slot on open; release it on close or unmount.
+  createEffect(
+    on(isOpen, (open) => {
+      if (open) setOpenPopoverId(id);
+      else if (openPopoverId() === id) setOpenPopoverId(null);
+    })
+  );
+  createEffect(
+    on(openPopoverId, (current) => {
+      if (current !== null && current !== id && isOpen()) close();
+    })
+  );
+  onCleanup(() => {
+    if (openPopoverId() === id) setOpenPopoverId(null);
+  });
 
-    const rect = triggerRef.getBoundingClientRect();
-    let top = rect.bottom + merged.offset.y;
-    let left = rect.left + merged.offset.x;
+  /** Measure the rendered content and place it; returns false if not ready. */
+  const updatePosition = (): boolean => {
+    if (!triggerRef || !contentRef || !isOpen()) return false;
+    const pos = placePopover(
+      triggerRef.getBoundingClientRect(),
+      { width: contentRef.offsetWidth, height: contentRef.offsetHeight },
+      { width: window.innerWidth, height: window.innerHeight },
+      merged.placement,
+      merged.offset
+    );
+    contentRef.style.top = `${pos.top}px`;
+    contentRef.style.left = `${pos.left}px`;
+    contentRef.style.transformOrigin = popoverTransformOrigin(pos);
+    return true;
+  };
 
-    if (merged.placement === "bottom-end") {
-      left = rect.right - (contentRef?.offsetWidth || 0) + merged.offset.x;
-    }
-
-    // Basic viewport boundary check (optional, can be expanded)
-    // For now, just ensure it doesn't go off-screen left
-    if (left < 0) left = 0;
-
-    setPosition({ top, left });
+  // The content mounts hidden; it is measured and placed in a microtask
+  // (before the browser paints), then shown. No frame at 0,0.
+  const mountContent = (el: HTMLDivElement) => {
+    contentRef = el;
+    queueMicrotask(() => {
+      if (contentRef !== el || !updatePosition()) return;
+      el.style.visibility = "visible";
+      if (!reducedMotion?.matches) {
+        el.animate(
+          [
+            { opacity: 0, transform: "scale(0.97)" },
+            { opacity: 1, transform: "none" },
+          ],
+          { duration: ENTER_MS, easing: ENTER_EASING }
+        );
+      }
+    });
   };
 
   onMount(() => {
@@ -101,11 +144,7 @@ export default function Popover(props: PopoverProps) {
       close();
     };
 
-    const handleResize = () => {
-      if (isOpen()) updatePosition();
-    };
-
-    const handleScroll = () => {
+    const handleReposition = () => {
       if (isOpen()) updatePosition();
     };
 
@@ -118,23 +157,15 @@ export default function Popover(props: PopoverProps) {
 
     document.addEventListener("click", handleDocumentClick, true); // Use capture phase
     document.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("resize", handleResize);
-    window.addEventListener("scroll", handleScroll, true); // Capture phase for scrolling containers
+    window.addEventListener("resize", handleReposition);
+    window.addEventListener("scroll", handleReposition, true); // Capture phase for scrolling containers
 
     onCleanup(() => {
       document.removeEventListener("click", handleDocumentClick, true);
       document.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleReposition);
+      window.removeEventListener("scroll", handleReposition, true);
     });
-  });
-
-  // We need to update position AFTER render when it opens
-  createEffect(() => {
-    if (isOpen()) {
-      // Small timeout to allow render
-      requestAnimationFrame(() => updatePosition());
-    }
   });
 
   return (
@@ -147,11 +178,12 @@ export default function Popover(props: PopoverProps) {
       <Show when={isOpen()}>
         <Portal>
           <div
-            ref={(el) => (contentRef = el)}
+            ref={mountContent}
             style={{
               position: "fixed",
-              top: `${position().top}px`,
-              left: `${position().left}px`,
+              top: "0px",
+              left: "0px",
+              visibility: "hidden",
               "z-index": 9999,
             }}
           >
