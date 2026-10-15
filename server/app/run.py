@@ -78,7 +78,7 @@ def _main(argv: list[str] | None = None) -> None:
     - Opens the default browser to the app URL.
     """
     argv = list(argv) if argv is not None else sys.argv[1:]
-    if argv and argv[0] in {"scan", "report", "hotspots", "explain"}:
+    if argv and argv[0] in {"scan", "report", "hotspots", "explain", "compare"}:
         _run_headless(argv)
         return
 
@@ -251,7 +251,38 @@ def _run_headless(argv: list[str]) -> None:
     explain_parser.add_argument("--file", required=True, help="File path to explain.")
     explain_parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format.")
 
+    compare_parser = subparsers.add_parser(
+        "compare",
+        help="Compare two git refs: changed files, metric deltas, and dependency edges.",
+    )
+    compare_parser.add_argument(
+        "base",
+        nargs="?",
+        default="merge-base",
+        help="Base ref. Defaults to merge-base (of the default branch and HEAD).",
+    )
+    compare_parser.add_argument(
+        "head",
+        nargs="?",
+        default="WORKTREE",
+        help="Head ref. Defaults to WORKTREE (files on disk, including uncommitted edits).",
+    )
+    compare_parser.add_argument("--repo", default=None, help="Path inside the git repo. Defaults to the cwd.")
+    compare_parser.add_argument("--json", action="store_true", help="Print the compare payload as JSON.")
+    compare_parser.add_argument("--out", default=None, help="Write the JSON payload to this file.")
+    compare_parser.add_argument(
+        "--include-sides",
+        action="store_true",
+        help="Include both full trees and dependency graphs in the JSON.",
+    )
+    compare_parser.add_argument("--refresh", action="store_true", help="Rescan both sides instead of using the cache.")
+    compare_parser.add_argument("--limit", type=int, default=40, help="Maximum files in the markdown summary.")
+
     args = parser.parse_args(argv)
+
+    if args.command == "compare":
+        _run_compare(args)
+        return
 
     if args.command == "scan":
         if args.format != "json":
@@ -340,6 +371,33 @@ def _run_headless(argv: list[str]) -> None:
         else:
             print(_render_explain_markdown(payload))
         return
+
+
+def _run_compare(args) -> None:
+    from app.services.compare.git_refs import GitError
+    from app.services.compare.service import build_compare, render_markdown
+
+    repo_path = Path(args.repo).resolve() if args.repo else Path(os.getcwd())
+    try:
+        payload = build_compare(
+            repo_path,
+            args.base,
+            args.head,
+            include_sides=args.include_sides,
+            force=args.refresh,
+            on_phase=lambda phase: print(f"srcly compare: {phase}", file=sys.stderr, flush=True),
+        )
+    except GitError as exc:
+        raise SystemExit(str(exc)) from exc
+    if args.out:
+        out_path = Path(args.out).resolve()
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(reporting._json_dumps(payload), encoding="utf-8")
+        print(f"Wrote compare payload to {out_path}", file=sys.stderr)
+    if args.json:
+        print(reporting._json_dumps(payload))
+    elif not args.out:
+        print(render_markdown(payload, limit=args.limit), end="")
 
 
 def _profile_from_metrics(metrics: list[str] | None) -> str:
