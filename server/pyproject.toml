@@ -9,7 +9,7 @@ dependencies = [
     "lizard>=1.19.0",
     "pydantic>=2.12.4",
     "pytest>=9.0.1",
-    "tree-sitter>=0.25.2",
+    "tree-sitter>=0.25.2,<0.26",
     "tree-sitter-typescript>=0.23.2",
     "tree-sitter-markdown>=0.5.1,<0.6.0",
     "tree-sitter-css==0.25.0",
