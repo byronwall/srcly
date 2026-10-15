@@ -7,7 +7,6 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.models import Metrics, Node
-from app.routers import scans as scans_router
 from app.services import analysis, scan_jobs
 from app.services.scan_jobs import ScanJobManager
 from app.services.scan_workers import ScanCancelled
@@ -46,7 +45,7 @@ def fake_scan(monkeypatch) -> FakeScan:
 @pytest.fixture
 def fresh_manager(monkeypatch) -> ScanJobManager:
     mgr = ScanJobManager()
-    monkeypatch.setattr(scans_router, "manager", mgr)
+    monkeypatch.setattr(scan_jobs, "manager", mgr)
     return mgr
 
 

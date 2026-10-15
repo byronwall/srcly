@@ -1,12 +1,11 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from pathlib import Path
 import json
 import os
 from typing import Dict, List, Optional, Tuple
 
 from app.models import Node, DependencyGraph, DependencyNode, DependencyEdge
-from app.services import analysis, cache
-from app.services.scan_workers import ScanCancelled
+from app.services import analysis, cache, scan_jobs
 from app.services.typescript import typescript_analysis
 from app.config import IGNORE_DIRS
 
@@ -303,16 +302,29 @@ def _resolve_internal_file(spec_path: Path, file_to_id: Dict[Path, str]) -> Opti
 
     return None
 
-def _scan_or_503(target_path: Path) -> Node:
-    try:
-        return analysis.scan_codebase(target_path)
-    except ScanCancelled:
-        raise HTTPException(status_code=503, detail="Scan cancelled (server shutting down)")
+def _scan_response(target_path: Path) -> Response:
+    """
+    Scan ``target_path`` through the shared job manager and return the tree.
+
+    Joining the manager means concurrent requests for the same path (two tabs,
+    a reload mid-scan, or a ``/api/scans`` job started by the UI) share one
+    scan instead of each starting their own. The tree is returned as
+    pre-encoded JSON so the encoding happens here, in a worker thread, rather
+    than on the event loop.
+    """
+    job = scan_jobs.manager.start(target_path)
+    job.wait()
+    if job.phase == "cancelled":
+        raise HTTPException(status_code=503, detail="Scan cancelled")
+    if job.phase != "complete":
+        raise HTTPException(status_code=500, detail=job.error or f"Scan {job.phase}")
+    return Response(content=job.result_json(), media_type="application/json")
 
 
 # Scan endpoints are plain `def` on purpose: FastAPI runs them in a worker
 # thread, so a long scan never blocks the event loop (which would also stop
-# uvicorn from reacting to Ctrl+C).
+# uvicorn from reacting to Ctrl+C). They return a `Response` directly, so
+# `response_model` only documents the shape.
 @router.get("", response_model=Node)
 def get_analysis(path: str = None):
     """
@@ -320,7 +332,7 @@ def get_analysis(path: str = None):
     Returns cached result if available, otherwise triggers a scan.
     """
     target_path = Path(path) if path else ROOT_PATH
-    
+
     if not target_path.exists():
          # Fallback or error? Let's error if explicit path is invalid
          if path:
@@ -330,10 +342,8 @@ def get_analysis(path: str = None):
     cached_tree = cache.load_analysis(target_path)
     if cached_tree:
         return cached_tree
-    
-    tree = _scan_or_503(target_path)
-    cache.save_analysis(target_path, tree)
-    return tree
+
+    return _scan_response(target_path)
 
 @router.get("/dependencies", response_model=DependencyGraph)
 def get_dependencies(path: str = None):
@@ -540,9 +550,7 @@ def refresh_analysis():
     """
     Force a re-scan of the codebase.
     """
-    tree = _scan_or_503(ROOT_PATH)
-    cache.save_analysis(ROOT_PATH, tree)
-    return tree
+    return _scan_response(ROOT_PATH)
 
 
 def _estimate_counts(root: Path) -> tuple[int, int]:

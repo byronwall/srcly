@@ -7,8 +7,11 @@ from app.services.analysis import get_ipynb_analyzer
 
 router = APIRouter(prefix="/api/files", tags=["files"])
 
+# Plain `def` endpoints: they do blocking file I/O (and notebook parsing), so
+# FastAPI runs them in a worker thread instead of on the event loop.
+
 @router.get("/content", response_class=PlainTextResponse)
-async def get_file_content(path: str = Query(..., description="Absolute path to the file")):
+def get_file_content(path: str = Query(..., description="Absolute path to the file")):
     """
     Get the raw content of a file.
     """
@@ -52,7 +55,7 @@ async def get_file_content(path: str = Query(..., description="Absolute path to 
         raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
 
 @router.get("/suggest")
-async def suggest_files(path: str = Query(..., description="Path to list contents of")):
+def suggest_files(path: str = Query(..., description="Path to list contents of")):
     """
     List files and directories in the given path for auto-suggestion.
     """
