@@ -7,6 +7,7 @@ import {
   createEffect,
   lazy,
 } from "solid-js";
+import { RefreshCw } from "lucide-solid";
 import Toast from "./components/Toast";
 
 import Explorer from "./components/Explorer";
@@ -25,10 +26,30 @@ import {
   type ScanSnapshot,
 } from "./services/scanJobs";
 import { filterTree, findTreeNodeByPath } from "./utils/dataProcessing";
-import { formatCount, formatDuration } from "./utils/scanProgress";
+import {
+  describeResult,
+  formatCount,
+  type ClientStage,
+} from "./utils/scanProgress";
 import { MetricsStoreProvider, useMetricsStore } from "./utils/metricsStore";
 
 const CodeModal = lazy(() => import("./components/CodeModal/CodeModal.tsx"));
+
+// Stop waiting for the first treemap paint after this long (a hidden tab
+// gets no animation frames), so the loading state can never get stuck.
+const FIRST_PAINT_TIMEOUT_MS = 15_000;
+
+/** Resolves after the browser has painted a frame (or 100ms in a hidden tab). */
+const nextFrame = () =>
+  new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, 100);
+    requestAnimationFrame(() =>
+      setTimeout(() => {
+        clearTimeout(timer);
+        resolve();
+      }, 0)
+    );
+  });
 
 type AnalysisContext = {
   rootPath: string;
@@ -169,6 +190,10 @@ function AppContent() {
   const [analysisPath, setAnalysisPath] = createSignal("");
   const [scan, setScan] = createSignal<ScanSnapshot | null>(null);
   const [cancelling, setCancelling] = createSignal(false);
+  const [clientStage, setClientStage] = createSignal<ClientStage | null>(null);
+  // Path of the last requested analysis ("" = server's current directory).
+  const [scannedPath, setScannedPath] = createSignal<string | null>(null);
+  let resolveTreemapPaint: (() => void) | null = null;
   // Identifies the newest analysis request so late responses from a
   // superseded scan are ignored.
   let activeRequest = 0;
@@ -211,19 +236,41 @@ function AppContent() {
     queueMicrotask(() => setShowToast(true));
   };
 
+  const waitForTreemapPaint = () =>
+    new Promise<void>((resolve) => {
+      const timer = setTimeout(done, FIRST_PAINT_TIMEOUT_MS);
+      function done() {
+        clearTimeout(timer);
+        if (resolveTreemapPaint === done) resolveTreemapPaint = null;
+        resolve();
+      }
+      resolveTreemapPaint = done;
+    });
+
   const finishScan = async (request: number, snapshot: ScanSnapshot) => {
     if (request !== activeRequest) return;
     try {
       if (snapshot.phase === "complete") {
+        // Keep the progress panel up through download, parse and the first
+        // paint: on large repos those take seconds after the scan ends.
+        setClientStage("loading");
         const data = await fetchScanResult<any>(snapshot.id);
         if (request !== activeRequest) return;
+        setClientStage("rendering");
+        // Let the browser show "Drawing treemap" before the layout work
+        // below holds the main thread.
+        await nextFrame();
+        if (request !== activeRequest) return;
+        const painted = waitForTreemapPaint();
         setVisualizationData(data);
+        await painted;
+        if (request !== activeRequest) return;
         const skipped =
           snapshot.files_failed > 0
             ? ` (${formatCount(snapshot.files_failed)} skipped)`
             : "";
         notify(
-          `Analyzed ${formatCount(snapshot.files_total)} files in ${formatDuration(snapshot.elapsed_seconds)}${skipped}`,
+          `${snapshot.cached ? "Loaded saved analysis: " : "Analyzed "}${describeResult(snapshot)}${skipped}`,
           "success"
         );
       } else if (snapshot.phase === "failed") {
@@ -239,11 +286,15 @@ function AppContent() {
         setLoading(false);
         setScan(null);
         setCancelling(false);
+        setClientStage(null);
       }
     }
   };
 
-  const handleFileSelect = async (path: string) => {
+  const handleFileSelect = async (
+    path: string,
+    options: { force?: boolean } = {}
+  ) => {
     const request = ++activeRequest;
     stopWatching?.();
     stopWatching = null;
@@ -255,12 +306,14 @@ function AppContent() {
     setCurrentRoot(null);
     setLoading(true);
     setCancelling(false);
+    setClientStage(null);
     setError(null);
 
     const trimmed = path?.trim() || null;
+    setScannedPath(trimmed ?? "");
     setScan(emptySnapshot("", trimmed ?? analysisContext()?.rootPath ?? ""));
     try {
-      const started = await startScan(trimmed);
+      const started = await startScan(trimmed, options);
       if (request !== activeRequest) {
         void cancelScan(started.id);
         return;
@@ -360,10 +413,21 @@ function AppContent() {
         </div>
         <Show when={!loading() && visualizationData()}>
           {(data) => (
-            <div class="plc-data-sm hidden whitespace-nowrap text-[var(--plc-on-subtle)] md:block">
-              {formatCount(data().metrics?.file_count ?? 0)} files ·{" "}
-              {formatCount(data().metrics?.loc ?? 0)} LOC
-            </div>
+            <>
+              <div class="plc-data-sm hidden whitespace-nowrap text-[var(--plc-on-subtle)] md:block">
+                {formatCount(data().metrics?.file_count ?? 0)} files ·{" "}
+                {formatCount(data().metrics?.loc ?? 0)} LOC
+              </div>
+              <Button
+                variant="ghost"
+                class="shrink-0 gap-1.5"
+                title="Scan again, ignoring the saved analysis"
+                onClick={() => void handleFileSelect(scannedPath() ?? "", { force: true })}
+              >
+                <RefreshCw size={13} aria-hidden="true" />
+                Rescan
+              </Button>
+            </>
           )}
         </Show>
       </header>
@@ -458,7 +522,10 @@ function AppContent() {
                   {(snapshot) => (
                     <ScanProgress
                       snapshot={snapshot()}
-                      onCancel={snapshot().id ? handleCancelScan : undefined}
+                      stage={clientStage()}
+                      onCancel={
+                        snapshot().id && !clientStage() ? handleCancelScan : undefined
+                      }
                       cancelling={cancelling()}
                     />
                   )}
@@ -506,9 +573,18 @@ function AppContent() {
                 currentRoot={currentRoot()}
                 onZoom={setCurrentRoot}
                 onFileSelect={handleFileFromTreemap}
+                onPaint={() => resolveTreemapPaint?.()}
               />
             </div>
           </div>
+        </Show>
+        {/* Covers the explorer and treemap while they lay out the new tree. */}
+        <Show when={visualizationData() && clientStage() === "rendering" && scan()}>
+          {(snapshot) => (
+            <div class="plc-app-shell absolute inset-0 z-20">
+              <ScanProgress snapshot={snapshot()} stage="rendering" />
+            </div>
+          )}
         </Show>
       </main>
       <Show when={showToast()}>

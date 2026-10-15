@@ -69,6 +69,8 @@ class ScanJob(ScanObserver):
     cached: bool = False
     # Fingerprint of the root taken before scanning, for the cache entry.
     fingerprint: Optional[str] = None
+    # When the cached result was taken (Unix seconds), for cached jobs.
+    cached_at: Optional[float] = None
 
     _failures: deque = field(default_factory=lambda: deque(maxlen=MAX_REPORTED_FAILURES))
     # path -> monotonic start time, insertion-ordered so the oldest is first.
@@ -108,6 +110,7 @@ class ScanJob(ScanObserver):
                 "elapsed_seconds": round(elapsed, 3),
                 "error": self.error,
                 "cached": self.cached,
+                "cached_at": self.cached_at,
                 "failures": [
                     {"path": f.path, "reason": f.reason, "detail": f.detail} for f in self._failures
                 ],
@@ -188,6 +191,7 @@ class ScanJob(ScanObserver):
             started_monotonic=now,
             finished_monotonic=now,
             cached=True,
+            cached_at=entry.created_at,
             fingerprint=entry.fingerprint,
         )
         job._result_json = entry.data

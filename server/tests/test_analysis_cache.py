@@ -178,6 +178,7 @@ def test_second_start_is_served_from_cache(counting_scan, repo: Path) -> None:
     snapshot = second.snapshot()
     assert snapshot["phase"] == "complete"
     assert snapshot["cached"] is True
+    assert snapshot["cached_at"] == pytest.approx(time.time(), abs=60)
     assert (snapshot["files_total"], snapshot["files_failed"]) == (2, 1)
     assert second.result_json() == first.result_json()
 

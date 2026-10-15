@@ -33,6 +33,10 @@ export type ScanSnapshot = {
   failures: ScanFailure[];
   /** Files currently being analyzed, longest-running first. */
   in_progress: ScanInFlight[];
+  /** True when the server answered from its analysis cache without scanning. */
+  cached: boolean;
+  /** When the cached analysis was taken (Unix seconds), for cached jobs. */
+  cached_at: number | null;
 };
 
 export const TERMINAL_PHASES: ReadonlySet<ScanPhase> = new Set([
@@ -58,6 +62,8 @@ export function emptySnapshot(id: string, path = ""): ScanSnapshot {
     error: null,
     failures: [],
     in_progress: [],
+    cached: false,
+    cached_at: null,
   };
 }
 
@@ -75,11 +81,18 @@ async function expectJson<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
-export async function startScan(path: string | null): Promise<ScanSnapshot> {
+/**
+ * Start a scan. An unchanged cached analysis comes back as an already
+ * complete job (`cached: true`) unless `force` asks for a fresh scan.
+ */
+export async function startScan(
+  path: string | null,
+  options: { force?: boolean } = {}
+): Promise<ScanSnapshot> {
   const res = await fetch("/api/scans", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path: path || null }),
+    body: JSON.stringify({ path: path || null, force: Boolean(options.force) }),
   });
   return expectJson<ScanSnapshot>(res);
 }
