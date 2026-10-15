@@ -33,7 +33,10 @@ export interface Node {
   end_line?: number;
   metrics?: {
     loc: number;
+    // Max CCN of any function or nested scope inside this node.
     complexity: number;
+    // Mean CCN per function.
+    complexity_avg?: number;
     gitignored_count?: number;
     file_size?: number;
     file_count?: number;
@@ -70,6 +73,7 @@ type SortField =
   | "name"
   | "loc"
   | "complexity"
+  | "complexity_avg"
   | "file_size"
   | "file_count"
   | "gitignored"
@@ -167,6 +171,7 @@ export const SORT_FIELD_ACCESSORS: Record<
   name: (node) => node.name.toLowerCase(),
   loc: (node) => getMetricValue(node, "loc"),
   complexity: (node) => getMetricValue(node, "complexity"),
+  complexity_avg: (node) => getMetricValue(node, "complexity_avg"),
   file_size: (node) => getMetricValue(node, "file_size"),
   file_count: (node) => getMetricValue(node, "file_count"),
   gitignored: (node) => node.metrics?.gitignored_count ?? 0,
@@ -532,7 +537,7 @@ export default function Explorer(props: {
                       <CheckboxRow
                         checked={visibleColumns().includes("complexity")}
                         onChange={() => toggleColumn("complexity")}
-                        label="Complexity"
+                        label="Complexity (max CCN)"
                       />
                       <CheckboxRow
                         checked={visibleColumns().includes("file_size")}
@@ -665,6 +670,7 @@ export default function Explorer(props: {
               <div
                 class="w-12 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
                 onClick={() => handleHeaderClick("complexity")}
+                title="Max cyclomatic complexity of any function inside"
               >
                 CCN <SortIcon field="complexity" />
               </div>

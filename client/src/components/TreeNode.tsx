@@ -2,7 +2,7 @@ import { useContext, Show } from "solid-js";
 import { Braces, ChevronRight, Eye, EyeOff, File, Folder, FolderOpen } from "lucide-solid";
 import { extractFilePath } from "../utils/dataProcessing";
 import { type Node, ExplorerContext, formatSize } from "./Explorer";
-import { useMetricsStore } from "../utils/metricsStore";
+import { formatMetricValue, useMetricsStore } from "../utils/metricsStore";
 
 export function TreeNode(props: {
   node: Node;
@@ -122,7 +122,7 @@ export function TreeNode(props: {
         <div class="w-16 text-right text-[var(--plc-on-subtle)] plc-data-md pr-2 shrink-0">{props.node.metrics?.loc || 0}</div>
       </Show>
       <Show when={ctx.visibleColumns().includes("complexity")}>
-        <div class="w-12 text-right text-[var(--plc-on-subtle)] plc-data-md pr-2 shrink-0">{props.node.metrics?.complexity?.toFixed(1) || 0}</div>
+        <div class="w-12 text-right text-[var(--plc-on-subtle)] plc-data-md pr-2 shrink-0">{formatMetricValue("complexity", props.node.metrics?.complexity ?? 0)}</div>
       </Show>
       <Show when={ctx.visibleColumns().includes("comment_density")}>
         <div class="w-12 text-right text-[var(--plc-on-subtle)] plc-data-md pr-2 shrink-0">{((props.node.metrics?.comment_density || 0) * 100).toFixed(0)}%</div>

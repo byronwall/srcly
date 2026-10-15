@@ -7,6 +7,7 @@ import {
 
 export type HotSpotMetricId =
   | "complexity"
+  | "complexity_avg"
   | "loc"
   | "file_size"
   | "comment_density"
@@ -46,7 +47,9 @@ export const HOTSPOT_METRIC_GROUPS: HotSpotMetricGroup[] = [
 ];
 
 export const HOTSPOT_METRICS: HotSpotMetricDef[] = [
-  { id: "complexity", label: "Complexity", group: "General" },
+  // Max CCN of any function inside, for files and folders alike.
+  { id: "complexity", label: "Complexity (max)", group: "General" },
+  { id: "complexity_avg", label: "Complexity (avg)", group: "General" },
   { id: "loc", label: "LOC", group: "General" },
   { id: "file_size", label: "Size", group: "General" },
   { id: "comment_density", label: "Low Comments", group: "General", invert: true },

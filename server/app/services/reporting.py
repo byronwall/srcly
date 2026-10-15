@@ -31,7 +31,8 @@ class MetricDefinition:
 
 METRIC_DEFINITIONS: tuple[MetricDefinition, ...] = (
     MetricDefinition("loc", "Lines of code excluding comments/blanks where available.", "folder/file/function/scope", "sum"),
-    MetricDefinition("complexity", "Cyclomatic complexity.", "folder/file/function/scope", "max for folders, average for files, exact for functions"),
+    MetricDefinition("complexity", "Cyclomatic complexity (CCN) of the most complex function or scope.", "folder/file/function/scope", "max for folders and files, exact for functions"),
+    MetricDefinition("complexity_avg", "Mean cyclomatic complexity per function.", "folder/file", "analyzer average for files, function-weighted mean for folders"),
     MetricDefinition("function_count", "Detected function count.", "folder/file", "sum"),
     MetricDefinition("file_size", "File size in bytes.", "folder/file", "sum"),
     MetricDefinition("file_count", "Number of files represented by a node.", "folder/file", "sum"),
