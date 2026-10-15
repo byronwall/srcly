@@ -59,6 +59,10 @@ export interface Node {
     ts_export_count?: number;
     python_import_count?: number;
     md_data_url_count?: number;
+    // "ok" | "timeout" | "error" | "crash"; failed files keep fallback LOC.
+    analysis_status?: string;
+    analysis_error?: string;
+    analysis_failed_count?: number;
   };
 }
 
@@ -147,10 +151,12 @@ export const findParentNode = (root: Node, targetPath: string): Node | null => {
   return null;
 };
 
-const getMetricValue = (
-  node: Node,
-  metric: keyof NonNullable<Node["metrics"]>
-): number => {
+type NodeMetrics = NonNullable<Node["metrics"]>;
+type NumericMetricKey = {
+  [K in keyof NodeMetrics]-?: NonNullable<NodeMetrics[K]> extends number ? K : never;
+}[keyof NodeMetrics];
+
+const getMetricValue = (node: Node, metric: NumericMetricKey): number => {
   return node.metrics?.[metric] ?? 0;
 };
 

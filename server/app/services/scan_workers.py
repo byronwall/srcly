@@ -65,6 +65,10 @@ class PoolOutcome:
     failures: list[FileFailure] = field(default_factory=list)
 
 
+# Sent by a worker once its imports are done. Until then the parent assigns it
+# no work, so interpreter startup never counts against a file's timeout.
+_READY = "__srcly_worker_ready__"
+
 # Called with (completed_count, total_count, path, failure_or_None) after each file.
 FileDoneCallback = Callable[[int, int, str, Optional[FileFailure]], None]
 # Called with (started_index, total_count, path) before each file is dispatched.
@@ -81,6 +85,11 @@ def _worker_main(conn, analyze_fn: Optional[Callable[[str], Any]] = None) -> Non
         # Imported here so the parent can import this module without pulling in
         # every analyzer, and to avoid a circular import with analysis.py.
         from app.services.analysis import analyze_single_file as analyze_fn
+
+    try:
+        conn.send(_READY)
+    except (EOFError, OSError):
+        return
 
     while True:
         try:
@@ -124,6 +133,7 @@ class _Worker:
         self.path: Optional[str] = None
         self.started_at = 0.0
         self.tasks_done = 0
+        self.ready = False
 
     @property
     def busy(self) -> bool:
@@ -193,6 +203,10 @@ def run_file_analyses(
     next_index = 0
     completed = 0
     clean_exit = False
+    # Consecutive workers that died before reporting ready; past this limit the
+    # environment is broken (e.g. an import error) and retrying would spin forever.
+    boot_failures = 0
+    max_boot_failures = 3 * worker_count
 
     def complete(path: str, result: Any = None, failure: Optional[FileFailure] = None) -> None:
         nonlocal completed
@@ -227,6 +241,8 @@ def run_file_analyses(
                     continue
                 if worker.tasks_done >= max_tasks_per_worker or not worker.proc.is_alive():
                     worker = replace(worker)
+                if not worker.ready:
+                    continue
                 path = files[next_index]
                 next_index += 1
                 if on_file_start is not None:
@@ -237,16 +253,36 @@ def run_file_analyses(
                     complete(path, failure=FileFailure(path, "crash", f"worker unavailable: {exc}"))
                     replace(worker)
 
+            booting = [w for w in workers if not w.ready]
             busy = [w for w in workers if w.busy]
-            if not busy:
+            watched = booting + busy
+            if not watched:
                 continue
 
             ready = set(
                 wait_for_ready(
-                    [w.conn for w in busy] + [w.proc.sentinel for w in busy],
+                    [w.conn for w in watched] + [w.proc.sentinel for w in watched],
                     timeout=poll_interval,
                 )
             )
+
+            for worker in booting:
+                if worker.conn in ready:
+                    try:
+                        worker.ready = worker.conn.recv() == _READY
+                    except (EOFError, OSError):
+                        worker.ready = False
+                elif worker.proc.sentinel not in ready:
+                    continue
+                if worker.ready:
+                    boot_failures = 0
+                    continue
+                boot_failures += 1
+                if boot_failures > max_boot_failures:
+                    raise RuntimeError(
+                        f"analysis workers keep exiting during startup (exit code {worker.proc.exitcode})"
+                    )
+                replace(worker)
 
             now = time.monotonic()
             for worker in busy:

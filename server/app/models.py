@@ -41,6 +41,13 @@ class Metrics(BaseModel):
     # Markdown-specific metrics
     md_data_url_count: int = 0
 
+    # Analysis outcome. Files whose analyzer timed out, crashed, or raised stay
+    # in the tree with fallback LOC/size; ``analysis_status`` says why
+    # ("ok" | "timeout" | "error" | "crash"). Folders sum failed files below.
+    analysis_status: str = "ok"
+    analysis_error: str = ""
+    analysis_failed_count: int = 0
+
 class Node(BaseModel):
     name: str
     type: str  # "folder", "file", "function", "code_fragment"

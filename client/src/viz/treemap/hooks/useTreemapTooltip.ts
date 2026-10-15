@@ -24,6 +24,18 @@ function formatNumberMaybe(val: unknown): string {
   return String(val);
 }
 
+// Files whose analyzer timed out or failed stay in the tree with a plain line
+// count; say so, since their other metrics are zero rather than measured.
+function notAnalyzedLines(metrics: any): TooltipLine[] {
+  const status = metrics?.analysis_status;
+  if (status && status !== "ok") {
+    return [{ label: "Not analyzed", value: `${status}; LOC is a line count` }];
+  }
+  const failed = Number(metrics?.analysis_failed_count ?? 0);
+  if (failed <= 0) return [];
+  return [{ label: "Not analyzed", value: `${failed} file${failed === 1 ? "" : "s"}` }];
+}
+
 export function useTreemapTooltip(opts: { primaryMetricId: () => HotSpotMetricId }) {
   const [tooltip, setTooltip] = createSignal<TreemapTooltipModel>({ visible: false });
 
@@ -63,6 +75,7 @@ export function useTreemapTooltip(opts: { primaryMetricId: () => HotSpotMetricId
           { label: "Total LOC", value: String(d.value ?? 0) },
           { label: "Sub-folders", value: String(subFolders) },
           { label: "Sub-files", value: String(subFiles) },
+          ...notAnalyzedLines(d.data?.metrics),
         ],
       });
       return;
@@ -78,6 +91,7 @@ export function useTreemapTooltip(opts: { primaryMetricId: () => HotSpotMetricId
       },
       { label: "Depth", value: String(metrics?.max_nesting_depth ?? 0) },
       { label: "TODOs", value: String(metrics?.todo_count ?? 0) },
+      ...notAnalyzedLines(metrics),
     ];
 
     const metricId = opts.primaryMetricId();
