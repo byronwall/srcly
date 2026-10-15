@@ -106,6 +106,15 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Ranking / findings / tree summary | `server/app/services/reporting.py` (`rank_nodes`, `build_findings`, `summarize_tree`) |
 | Agent skill shipped with the repo | `skills/srcly-code-quality/SKILL.md` |
 
+### Compare two git refs (PR compare)
+
+| Feature | Where |
+| --- | --- |
+| `srcly compare [base] [head]` (markdown summary, `--json`, `--out`) | `server/app/run.py` (`_run_compare`) → `server/app/services/compare/service.py` (`build_compare`, `render_markdown`) |
+| Ref resolution (`merge-base`, `WORKTREE`), changed files with renames + line counts | `server/app/services/compare/git_refs.py` |
+| Commit snapshots (`git worktree add --detach` in the cache dir), SHA-keyed side cache, repo-relative paths | `server/app/services/compare/snapshots.py` |
+| Per-file metric deltas, better/worse direction table, edge diff, summary | `server/app/services/compare/diff.py` (`COMPARE_METRICS`, `diff_sides`) |
+
 ### Client: app shell and first run
 
 | Feature | Where |
