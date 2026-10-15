@@ -8,9 +8,11 @@ import sys
 # worker. lizard has finished its own imports by then, so drop what it added.
 _sys_path_before_lizard = list(sys.path)
 import lizard  # noqa: E402
+from lizard_languages import get_reader_for  # noqa: E402
 
 sys.path[:] = [p for p in sys.path if p in _sys_path_before_lizard]
 del _sys_path_before_lizard
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -22,6 +24,7 @@ from app.config import (
     IGNORE_DIRS,
     IGNORE_EXTENSIONS,
     IGNORE_FILES,
+    MAX_ANALYZED_FILE_BYTES,
     MINIFIED_CHECK_EXTENSIONS,
     MINIFIED_MIN_AVG_LINE_LENGTH,
     MINIFIED_SNIFF_BYTES,
@@ -788,7 +791,12 @@ def analyze_single_file(file_path: str):
              # For consistency let's add a getter or just instantiate for now to avoid circular imports / global clutter
              # actually lets follow pattern
              return get_python_analyzer().analyze_file(file_path)
-            
+
+        # lizard has no reader for .yaml, .mdx, .sh, .html, dotfiles, etc. It
+        # would run its C tokenizer anyway, which finds no functions and can
+        # take gigabytes on one long line. A line count gives the same nloc.
+        if get_reader_for(file_path) is None:
+            return lizard.FileInformation(file_path, count_lizard_style_nloc(Path(file_path)), [])
         return lizard.analyze_file(file_path)
     except Exception as e:
         # Return error info instead of crashing
@@ -862,14 +870,44 @@ FALLBACK_LOC_MAX_BYTES = 32 * 1024 * 1024
 def count_fallback_loc(path: Path) -> int:
     """Count non-blank lines, as a cheap stand-in for lizard's ``nloc``."""
     count = 0
+    read = 0
     try:
         with open(path, "rb") as f:
-            data = f.read(FALLBACK_LOC_MAX_BYTES)
+            for line in f:
+                read += len(line)
+                if read > FALLBACK_LOC_MAX_BYTES:
+                    break
+                if line.strip():
+                    count += 1
     except OSError:
         return 0
-    for line in data.splitlines():
-        if line.strip():
-            count += 1
+    return count
+
+
+# lizard's C tokenizer, used for files with no reader, drops ``//`` comments and
+# ``#word`` lines (it parses them as preprocessor directives). That covers YAML
+# and shell comments and Markdown headings.
+_LIZARD_MACRO_LINE = re.compile(rb"#\s*\w")
+
+
+def count_lizard_style_nloc(path: Path) -> int:
+    """Approximate lizard's ``nloc`` for a file lizard has no reader for.
+
+    Counts non-blank lines, skipping lines that start with ``//`` or ``#word``.
+    This matches lizard exactly on most such files; the rest differ where
+    lizard reads an apostrophe in prose as the start of a multi-line string.
+    Streams the file, so memory stays flat regardless of size.
+    """
+    count = 0
+    try:
+        with open(path, "rb") as f:
+            for line in f:
+                stripped = line.strip()
+                if not stripped or stripped.startswith(b"//") or _LIZARD_MACRO_LINE.match(stripped):
+                    continue
+                count += 1
+    except OSError:
+        return 0
     return count
 
 
@@ -879,7 +917,34 @@ def attach_fallback_metrics(node: Node, failure: dict) -> None:
     node.metrics.file_count = 1
     node.metrics.analysis_status = str(failure.get("reason") or "error")
     node.metrics.analysis_error = str(failure.get("error") or "")
-    node.metrics.analysis_failed_count = 1
+    # A file over the size cap was skipped on purpose, not a failure.
+    node.metrics.analysis_failed_count = 0 if node.metrics.analysis_status == "too_large" else 1
+
+
+def split_oversized_files(files: list[str], max_bytes: Optional[int] = None) -> tuple[list[str], list[dict]]:
+    """Split ``files`` into those to analyze and failure dicts for files over ``max_bytes``.
+
+    Oversized files keep their place in the tree with fallback metrics and
+    status ``too_large``; they never reach a worker.
+    """
+    if max_bytes is None:
+        max_bytes = MAX_ANALYZED_FILE_BYTES
+    to_analyze: list[str] = []
+    too_large: list[dict] = []
+    for path in files:
+        try:
+            size = os.path.getsize(path)
+        except OSError:
+            size = 0
+        if size > max_bytes:
+            too_large.append({
+                "filename": path,
+                "error": f"{size / 1e6:.1f} MB is over the {max_bytes / 1e6:.1f} MB analysis limit",
+                "reason": "too_large",
+            })
+        else:
+            to_analyze.append(path)
+    return to_analyze, too_large
 
 
 def _result_filename(file_info) -> str | None:
@@ -919,10 +984,16 @@ def _scan_codebase(
     observer.discovering(0, str(root_path))
 
     discovery = discover_files(root_path, cancel=cancel, observer=observer)
-    files_to_scan = discovery.files
+    files_to_scan, oversized = split_oversized_files(discovery.files)
     if verbose and (discovery.skipped_binary or discovery.skipped_minified):
         print(
             f"⏭️ Skipped {discovery.skipped_binary} binary and {discovery.skipped_minified} minified files",
+            file=sys.stderr,
+            flush=True,
+        )
+    if verbose and oversized:
+        print(
+            f"⏭️ {len(oversized)} files over {MAX_ANALYZED_FILE_BYTES / 1e6:.1f} MB keep a line count only",
             file=sys.stderr,
             flush=True,
         )
@@ -944,6 +1015,7 @@ def _scan_codebase(
         observer=observer,
     )
     cancel.raise_if_cancelled()
+    analysis_results.extend(oversized)
     observer.building()
 
     tree_root = create_node("root", "folder", str(root_path))

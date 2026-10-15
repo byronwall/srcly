@@ -47,7 +47,9 @@ class Metrics(BaseModel):
 
     # Analysis outcome. Files whose analyzer timed out, crashed, or raised stay
     # in the tree with fallback LOC/size; ``analysis_status`` says why
-    # ("ok" | "timeout" | "error" | "crash"). Folders sum failed files below.
+    # ("ok" | "timeout" | "error" | "crash" | "too_large"). "too_large" files are
+    # over ``MAX_ANALYZED_FILE_BYTES`` and were skipped on purpose, so they do
+    # not count in ``analysis_failed_count``. Folders sum failed files below.
     analysis_status: str = "ok"
     analysis_error: str = ""
     analysis_failed_count: int = 0
