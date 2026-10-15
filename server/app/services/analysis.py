@@ -519,7 +519,7 @@ class _GitListing:
     """Ignored entries relative to the root; wholly ignored trees end in "/"."""
 
 
-def _list_with_git(root_path: Path, cancel: Optional[CancelToken] = None) -> _GitListing | None:
+def _list_with_git(root_path: Path, cancel: CancelToken | None = None) -> _GitListing | None:
     """
     List ``root_path`` with ``git ls-files --cached --others --exclude-standard``.
 
@@ -625,6 +625,7 @@ def _git_info_exclude(root_path: Path) -> Path | None:
             ["git", "rev-parse", "--is-inside-work-tree", "--git-path", "info/exclude"],
             cwd=root_path,
             capture_output=True,
+            check=False,
             timeout=30,
         )
     except (OSError, subprocess.SubprocessError):
@@ -642,6 +643,7 @@ def _git_global_excludes_file(root_path: Path) -> Path:
             ["git", "config", "--path", "core.excludesFile"],
             cwd=root_path,
             capture_output=True,
+            check=False,
             timeout=30,
         )
     except (OSError, subprocess.SubprocessError):
