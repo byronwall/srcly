@@ -23,6 +23,7 @@ import { useTreemapTooltip } from "../viz/treemap/hooks/useTreemapTooltip";
 import { atFromTreePath, baseName, crumbsFor, folderOf } from "../navigation/location";
 import NodeActionsMenu, { type NodeMenuTarget } from "../navigation/NodeActionsMenu";
 import { go, location } from "../navigation/store";
+import { buildMetricsIndex } from "../viz/deps/metrics";
 
 const DependencyView = lazy(() => import("../viz/deps/DependencyView"));
 
@@ -84,6 +85,8 @@ export default function Treemap(props: TreemapProps) {
     excludedPaths,
   } = useMetricsStore();
   const primaryMetric = () => selectedHotSpotMetrics()[0] || "complexity";
+  // absPath → treemap node for the dependency graph's LOC and colors; once per scan.
+  const metricsIndex = createMemo(() => buildMetricsIndex(props.data));
   const { tooltip, show: showTooltip, hide: hideTooltip } = useTreemapTooltip({
     primaryMetricId: primaryMetric,
   });
@@ -245,7 +248,12 @@ export default function Treemap(props: TreemapProps) {
       <div ref={containerRef} class="relative flex-1 overflow-hidden">
         <Suspense fallback={<div class="p-3 text-[var(--plc-on-subtle)]">Loading dependencies…</div>}>
           <Show when={showDependencyGraph()}>
-            <DependencyView rootPath={props.rootPath} onOpen={props.onOpenAt} />
+            <DependencyView
+              rootPath={props.rootPath}
+              onOpen={props.onOpenAt}
+              metricsIndex={metricsIndex()}
+              colorMetric={primaryMetric()}
+            />
           </Show>
         </Suspense>
         <Show when={!showDependencyGraph() && layoutRoot()}>

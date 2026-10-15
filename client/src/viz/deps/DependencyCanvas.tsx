@@ -1,6 +1,7 @@
 import * as d3 from "d3";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
-import { truncateTextToWidth } from "../../utils/svgText";
+import { makeTextMeasurer, truncateTextToWidth } from "../../utils/svgText";
+import { treemapFillColor, treemapLabelColor } from "../treemap/utils/colors";
 import {
   CONTEXT_EDGE_DASH,
   CONTEXT_EDGE_OPACITY,
@@ -10,6 +11,7 @@ import {
 } from "./encoding";
 import { boundsOf } from "./geometry";
 import { createClickIntent, liveHover } from "./interaction";
+import { formatLoc } from "./metrics";
 import { MAX_SCALE, type PositionedEdge, type PositionedNode, type ViewLayout } from "./layout";
 import type { Region, ViewNode } from "./viewModel";
 
@@ -24,6 +26,12 @@ const MENU_BTN_H = 16;
 const LINE1_Y = 16;
 const LINE2_Y = 30;
 const SIZE_BAR_H = 3;
+
+const measurer = makeTextMeasurer();
+function measureText(text: string, font: string): number {
+  measurer.setFont(font);
+  return measurer.measure(text);
+}
 
 /** Fit a path by dropping leading segments: `…/viz/deps` rather than `client/src/vi…`. */
 function truncatePathStart(text: string, max: number, font: string): string {
@@ -86,6 +94,10 @@ export function DependencyCanvas(props: {
   /** Node actions: right-click, or the "⋯" shown on the hovered node. */
   onMenu?: (node: ViewNode, at: { x: number; y: number }) => void;
   ref?: (api: CanvasApi) => void;
+  /** Treemap metrics per box id (boxes without a treemap match are absent). */
+  metrics?: Map<string, Record<string, any>>;
+  /** The treemap's color metric; boxes are tinted with the treemap's colors. */
+  colorMetric?: string;
 }) {
   let svgRef!: SVGSVGElement;
   let gRef!: SVGGElement;
@@ -198,9 +210,18 @@ export function DependencyCanvas(props: {
     setCard({ x: ev.clientX - host.left + 14, y: ev.clientY - host.top + 14, ...payload });
   };
 
+  const locText = (n: PositionedNode) => {
+    const loc = props.metrics?.get(n.id)?.loc;
+    return typeof loc === "number" && loc > 0 ? formatLoc(loc) : "";
+  };
   const textRoom = (n: PositionedNode) => n.width - PAD_X * 2 - ICON_W;
+  /** Line 2 shares its width with the right-aligned LOC. */
+  const subtitleRoom = (n: PositionedNode) => {
+    const loc = locText(n);
+    return textRoom(n) - (loc ? measureText(loc, SUBTITLE_FONT) + 8 : 0);
+  };
   // A box without a second line centers its label.
-  const line1Y = (n: PositionedNode) => (shownSubtitle(n) ? LINE1_Y : n.height / 2 + 4);
+  const line1Y = (n: PositionedNode) => (shownSubtitle(n) || locText(n) ? LINE1_Y : n.height / 2 + 4);
   const labelFor = (n: PositionedNode) => truncateTextToWidth(n.node.label, textRoom(n), LABEL_FONT);
   // Boxes inside a package frame: the frame already names the package.
   const framed = createMemo(() => {
@@ -223,21 +244,38 @@ export function DependencyCanvas(props: {
   };
   const subtitleFor = (n: PositionedNode) => {
     const sub = shownSubtitle(n);
-    return n.node.kind === "file" ? truncatePathStart(sub, textRoom(n), SUBTITLE_FONT) : truncateTextToWidth(sub, textRoom(n), SUBTITLE_FONT);
+    return n.node.kind === "file" ? truncatePathStart(sub, subtitleRoom(n), SUBTITLE_FONT) : truncateTextToWidth(sub, subtitleRoom(n), SUBTITLE_FONT);
   };
 
-  // Folder size bars: log(files) against the largest folder on the same side.
+  // Folder size bars: log(LOC) — or log(files) without treemap metrics —
+  // against the largest folder on the same side.
   const sizeBarFraction = createMemo(() => {
+    const size = (n: PositionedNode) => props.metrics?.get(n.id)?.loc ?? (props.metrics?.size ? 0 : (n.node.fileCount ?? 0));
     const max: Record<Region, number> = { in: 0, center: 0, out: 0 };
     for (const n of props.layout.nodes) {
-      if (n.node.kind === "folder") max[n.node.region] = Math.max(max[n.node.region], n.node.fileCount ?? 0);
+      if (n.node.kind === "folder") max[n.node.region] = Math.max(max[n.node.region], size(n));
     }
     const out = new Map<string, number>();
     for (const n of props.layout.nodes) {
-      const files = n.node.fileCount ?? 0;
       const top = max[n.node.region];
       if (n.node.kind !== "folder" || top === 0) continue;
-      out.set(n.id, Math.max(0.04, Math.log1p(files) / Math.log1p(top)));
+      out.set(n.id, Math.max(0.04, Math.log1p(size(n)) / Math.log1p(top)));
+    }
+    return out;
+  });
+
+  // Treemap colors, kept apart from layout: changing the color metric only
+  // repaints. Boxes without a treemap match keep the neutral styling.
+  const paint = createMemo(() => {
+    const out = new Map<string, { fill: string; text: string; muted: string }>();
+    const metric = props.colorMetric;
+    if (!metric || !props.metrics) return out;
+    for (const [id, m] of props.metrics) {
+      out.set(id, {
+        fill: treemapFillColor(metric, m, 0),
+        text: treemapLabelColor(metric, m, 0),
+        muted: treemapLabelColor(metric, m, 0, 0.62),
+      });
     }
     return out;
   });
@@ -398,7 +436,10 @@ export function DependencyCanvas(props: {
                     width={n.width}
                     height={n.height}
                     rx="4"
-                    fill={isFocus ? "var(--plc-accent-subtle)" : isFolder ? "var(--plc-surface-muted)" : "var(--plc-surface)"}
+                    fill={
+                      paint().get(n.id)?.fill ??
+                      (isFocus ? "var(--plc-accent-subtle)" : isFolder ? "var(--plc-surface-muted)" : "var(--plc-surface)")
+                    }
                     stroke={
                       isFocus
                         ? "var(--plc-accent)"
@@ -430,13 +471,24 @@ export function DependencyCanvas(props: {
                     x={PAD_X + ICON_W}
                     y={line1Y(n)}
                     class="text-[12px] font-medium"
-                    fill={isFocus ? "var(--plc-accent-hover)" : "var(--plc-on-surface)"}
+                    fill={isFocus ? "var(--plc-accent-hover)" : (paint().get(n.id)?.text ?? "var(--plc-on-surface)")}
                   >
                     {labelFor(n)}
                   </text>
                   <Show when={shownSubtitle(n)}>
-                    <text x={PAD_X + ICON_W} y={LINE2_Y} class="fill-[var(--plc-on-subtle)] text-[11px]">
+                    <text x={PAD_X + ICON_W} y={LINE2_Y} class="text-[11px]" fill={paint().get(n.id)?.muted ?? "var(--plc-on-subtle)"}>
                       {subtitleFor(n)}
+                    </text>
+                  </Show>
+                  <Show when={locText(n)}>
+                    <text
+                      x={n.width - PAD_X}
+                      y={LINE2_Y}
+                      text-anchor="end"
+                      class="text-[11px] tabular-nums"
+                      fill={paint().get(n.id)?.muted ?? "var(--plc-on-subtle)"}
+                    >
+                      {locText(n)}
                     </text>
                   </Show>
                   <Show when={props.onMenu && hoverNode() === n.id}>

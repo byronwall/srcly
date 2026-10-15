@@ -208,6 +208,7 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Dependency graph canvas (hover, click to focus, double/middle/⌘-click to open) | `client/src/viz/deps/DependencyCanvas.tsx`, pointer logic in `viz/deps/interaction.ts` |
 | Dependency graph legend (edge/box encodings, collapsible) | `client/src/viz/deps/DependencyLegend.tsx`; shared stroke constants in `viz/deps/encoding.ts` |
 | Open code from the graph (graph symbol → treemap scope by name, then by line) | `App.tsx` (`openAt`) → `navigation/resolveTree.ts`; line fallback `utils/dataProcessing.ts` (`findScopeForSymbol`) |
+| Dependency graph LOC + treemap color join (absPath → treemap node index, built once per scan in `Treemap.tsx`) | `client/src/viz/deps/metrics.ts` |
 | Local dependency-graph fixtures for layout tests (gitignored `__fixtures__/local/`) | `scripts/capture-dep-graph.sh` |
 
 ### Client: UI primitives
