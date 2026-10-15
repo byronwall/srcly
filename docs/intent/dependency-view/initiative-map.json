@@ -8,7 +8,7 @@
     "last_updated": "2026-10-14",
     "summary": "Replace the crude TS-only file dependency graph with a multi-scale, focus-centered view for TypeScript and Python: folders/modules with bundled edges when zoomed out, accurate edges when zoomed in, 30-50 labeled items on screen, uniform boxes, rectilinear routing that never crosses nodes.",
     "status": "active",
-    "next_action": "M2: graph contract endpoint + full TS resolution"
+    "next_action": "M3: Python extractor"
   },
   "artifacts": {
     "intent_brief": {
@@ -461,7 +461,11 @@
         "proof": "pytest per resolution case; M1 geometry tests on contract fixtures",
         "valid_intermediate_state": "Old /dependencies untouched.",
         "rollback": "Point client back to adapted /dependencies payload.",
-        "status": "planned"
+        "status": "completed",
+        "evidence": [
+          "server/tests/test_dependency_graph_ts.py (7 cases)",
+          "client tests on contract fixture srcly-client.json"
+        ]
       },
       {
         "id": "m3",

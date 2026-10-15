@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
-import legacy from "./__fixtures__/srcly-client-legacy.json";
+import fixture from "./__fixtures__/srcly-client.json";
 import type { DependencyGraphContract } from "./contract";
 import { applyFilters, buildIndex, DEFAULT_FILTERS } from "./hierarchy";
-import { legacyToContract, type LegacyGraph } from "./legacyAdapter";
 import { buildViewModel } from "./viewModel";
 
 const srcly = () =>
-  buildIndex(applyFilters(legacyToContract(legacy as LegacyGraph, "/repo/client/src"), DEFAULT_FILTERS));
+  buildIndex(applyFilters(fixture as DependencyGraphContract, DEFAULT_FILTERS));
 
 /** A synthetic repo: app → many leaf files in lib/ subfolders. */
 function wideRepo(files: number): DependencyGraphContract {
@@ -28,7 +27,7 @@ function wideRepo(files: number): DependencyGraphContract {
 
 describe("buildViewModel", () => {
   it("shows the root as a folder-level overview with aggregate edges", () => {
-    const vm = buildViewModel(srcly(), { focusId: "", budget: 48 });
+    const vm = buildViewModel(srcly(), { focusId: "src", budget: 48 });
     const labels = vm.nodes.map((n) => n.label);
     expect(labels).toContain("components");
     expect(labels).toContain("utils");
@@ -41,7 +40,7 @@ describe("buildViewModel", () => {
   });
 
   it("puts importers left and imports right of a focused file", () => {
-    const vm = buildViewModel(srcly(), { focusId: "components/Treemap.tsx", budget: 48 });
+    const vm = buildViewModel(srcly(), { focusId: "src/components/Treemap.tsx", budget: 48 });
     const byLabel = new Map(vm.nodes.map((n) => [n.label, n]));
     expect(byLabel.get("Treemap.tsx")!.region).toBe("center");
     expect(byLabel.get("Treemap.tsx")!.isFocus).toBe(true);
@@ -57,7 +56,7 @@ describe("buildViewModel", () => {
 
   it("carries every edge touching the focus exactly once", () => {
     const idx = srcly();
-    const focus = "utils/metricsStore.tsx";
+    const focus = "src/utils/metricsStore.tsx";
     const vm = buildViewModel(idx, { focusId: focus, budget: 48 });
     const touching = idx.edges.filter((e) => e.source === focus || e.target === focus).length;
     const carried = vm.edges.filter((e) => !e.faint).reduce((a, e) => a + e.weight, 0);
@@ -86,11 +85,21 @@ describe("buildViewModel", () => {
   });
 
   it("hides tests and externals by default", () => {
-    const g = legacyToContract(legacy as LegacyGraph, "/repo/client/src");
+    const g = fixture as DependencyGraphContract;
     expect(g.nodes.some((n) => n.isTest)).toBe(true);
     const filtered = applyFilters(g, DEFAULT_FILTERS);
     expect(filtered.nodes.some((n) => n.isTest || n.kind === "external")).toBe(false);
     const all = applyFilters(g, { showExternal: true, showTests: true, showTypeOnly: true });
     expect(all.nodes.some((n) => n.kind === "external")).toBe(true);
+  });
+
+  it("drops type-only edges unless asked for", () => {
+    const g = fixture as DependencyGraphContract;
+    const typeOnly = g.edges.filter((e) => e.typeOnly);
+    expect(typeOnly.length).toBeGreaterThan(0);
+    const hidden = applyFilters(g, { ...DEFAULT_FILTERS, showTests: true, showExternal: true });
+    expect(hidden.edges.some((e) => e.typeOnly)).toBe(false);
+    const shown = applyFilters(g, { showExternal: true, showTests: true, showTypeOnly: true });
+    expect(shown.edges.filter((e) => e.typeOnly)).toHaveLength(typeOnly.length);
   });
 });

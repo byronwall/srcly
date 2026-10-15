@@ -1,16 +1,16 @@
+import type { DependencyGraphContract } from "./contract";
 import { describe, expect, it } from "vitest";
-import legacy from "./__fixtures__/srcly-client-legacy.json";
+import fixture from "./__fixtures__/srcly-client.json";
 import { countEdgeCrossings, countNodeCrossings, isOrthogonal } from "./geometry";
 import { applyFilters, buildIndex, DEFAULT_FILTERS } from "./hierarchy";
 import { bundleOffsets, layoutView, NODE_HEIGHT, NODE_WIDTH } from "./layout";
-import { legacyToContract, type LegacyGraph } from "./legacyAdapter";
 import { buildViewModel } from "./viewModel";
 
 const idx = buildIndex(
-  applyFilters(legacyToContract(legacy as LegacyGraph, "/repo/client/src"), DEFAULT_FILTERS),
+  applyFilters(fixture as DependencyGraphContract, DEFAULT_FILTERS),
 );
 
-const FOCI = ["", "components", "utils", "utils/metricsStore.tsx", "components/Treemap.tsx"];
+const FOCI = ["", "components", "utils", "src/utils/metricsStore.tsx", "components/Treemap.tsx"];
 
 describe("layoutView geometry", () => {
   for (const focus of FOCI) {
@@ -44,7 +44,7 @@ describe("layoutView geometry", () => {
   }
 
   it("packs wide rather than tall", async () => {
-    const vm = buildViewModel(idx, { focusId: "components", budget: 48 });
+    const vm = buildViewModel(idx, { focusId: "src/components", budget: 48 });
     const layout = await layoutView(vm, { aspectRatio: 1.7 });
     expect(layout.width / layout.height).toBeGreaterThan(1.2);
   });
@@ -76,10 +76,10 @@ describe("bundleOffsets", () => {
 
 describe("flow direction", () => {
   it("places importers left of what they import in the overview", async () => {
-    const vm = buildViewModel(idx, { focusId: "", budget: 48 });
+    const vm = buildViewModel(idx, { focusId: "src", budget: 48 });
     const layout = await layoutView(vm, { aspectRatio: 1.7 });
     const x = (label: string) => layout.nodes.find((n) => n.node.label === label)!.x;
-    expect(x("index.tsx")).toBeLessThan(x("App.tsx"));
+    expect(x("src/index.tsx")).toBeLessThan(x("App.tsx"));
     expect(x("App.tsx")).toBeLessThan(x("components"));
   });
 });
