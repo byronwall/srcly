@@ -168,7 +168,8 @@ export default function CompareApp() {
     const side = target.side === "base" ? p.base : p.head;
     const tree = target.side === "base" ? p.trees?.base : p.trees?.head;
     return {
-      filePath: `${p.repo.root}/${path}`,
+      // Another worktree's files live in its own directory.
+      filePath: `${side.dir ?? p.repo.root}/${path}`,
       gitRef: side.sha,
       fileNode: indexFiles(tree).get(path) ?? null,
     };

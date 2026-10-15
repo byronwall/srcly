@@ -22,6 +22,7 @@ import { cx } from "../components/ui/classes";
 import { IconButton } from "../components/ui/IconButton";
 import { TextInput } from "../components/ui/TextInput";
 import {
+  AUTO_BASE,
   DEFAULT_BASE,
   DEFAULT_HEAD,
   fetchSource,
@@ -41,6 +42,7 @@ import {
   refText,
   shortAgo,
   tildePath,
+  WORKTREE_PREFIX,
   worktreeFields,
   type Pick,
 } from "./pickerModel";
@@ -339,7 +341,7 @@ function hint(tab: Tab): string {
     case "prs":
       return "PR base (merge-base with its own base branch) → PR head";
     case "worktrees":
-      return "its PR's base, else merge-base with the default branch → its HEAD";
+      return "its PR's base, else merge-base with the default branch → its files on disk";
     case "branches":
       return "its PR's base, else merge-base with the default branch → branch";
     default:
@@ -348,6 +350,11 @@ function hint(tab: Tab): string {
 }
 
 function TriggerLabel(props: { base: string; head: string; payload: ComparePayload | null }) {
+  // Once loaded, `auto` shows the commit it resolved to and a worktree shows its branch.
+  const loaded = (side: "base" | "head") => {
+    const meta = props.payload?.[side];
+    return meta && meta.ref === props[side] && (meta.ref === AUTO_BASE || meta.dir) ? meta.label : null;
+  };
   const pr = () => {
     const n = prNumberOf({ base: props.base, head: props.head });
     const meta = props.payload?.head.pr ?? props.payload?.base.pr;
@@ -359,9 +366,12 @@ function TriggerLabel(props: { base: string; head: string; payload: ComparePaylo
       fallback={
         <span class="flex min-w-0 items-center gap-1.5">
           <GitBranch size={13} class="shrink-0 text-[var(--plc-on-subtle)]" aria-hidden="true" />
-          <span class="plc-data-sm truncate">{refText(props.base)}</span>
+          <span class="plc-data-sm truncate">{loaded("base") ?? refText(props.base)}</span>
           <ArrowRight size={12} class="shrink-0 text-[var(--plc-on-subtle)]" aria-hidden="true" />
-          <span class="plc-data-sm truncate">{refText(props.head)}</span>
+          <Show when={props.head.startsWith(WORKTREE_PREFIX)}>
+            <FolderGit2 size={13} class="shrink-0 text-[var(--plc-on-subtle)]" aria-label="Worktree files on disk" />
+          </Show>
+          <span class="plc-data-sm truncate">{loaded("head") ?? refText(props.head)}</span>
         </span>
       }
     >

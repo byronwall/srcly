@@ -121,6 +121,7 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Per-file metric deltas, better/worse direction table, edge diff, summary | `server/app/services/compare/diff.py` (`COMPARE_METRICS`, `diff_sides`) |
 | Compare mode shell (`?compare=<base>..<head>`, compared repo from the shared `repo` param, progress, code viewer at a ref) | `client/src/compare/CompareApp.tsx`, `CompareProgress.tsx`, `api.ts`; entry button in `client/src/App.tsx` (`enterCompare`, opens the picker) |
 | Compare picker (PRs mine/all, worktrees, branches, search, keyboard, Advanced free-text refs; picks → `pr:<n>..pr:<n>` or `auto..<ref>`) | `client/src/compare/ComparePicker.tsx`, pure helpers in `client/src/compare/pickerModel.ts` |
+| `worktree:<path>` head (another worktree's files on disk, scanned in place; diff runs inside it; `ResolvedRef.dir`) | `server/app/services/compare/git_refs.py` (`_resolve_worktree`), `snapshots.py` (`_load_worktree`) |
 | `auto` base (head's open PR base via `gh pr list --head`, else merge-base with the default branch) | `server/app/services/compare/git_refs.py` (`resolve_auto_base`, `branch_of`), `github.py` (`pr_for_branch`) |
 | Overview band (PR context row with GitHub link, before/after refs with step timings, files, lines, imports, risk metrics) | `client/src/compare/SummaryStrip.tsx` |
 | Scorecard rail (risk metrics worst-first with better/worse file split, size metrics, new cross-folder imports) | `client/src/compare/Scorecard.tsx` |

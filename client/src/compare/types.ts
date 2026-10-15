@@ -58,6 +58,8 @@ export interface ComparePrMeta {
 
 export interface CompareSideMeta {
   pr?: ComparePrMeta;
+  /** Another worktree's directory when this side is its files on disk. */
+  dir?: string;
   ref: string;
   sha: string | null;
   label: string;

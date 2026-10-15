@@ -12,9 +12,11 @@ export const pickPr = (pr: PrSource): Pick => ({ base: prRef(pr.number), head: p
 /** A branch compares against its open PR's base, else the merge-base with the default branch. */
 export const pickBranch = (b: BranchSource): Pick => ({ base: AUTO_BASE, head: b.name });
 
-/** A worktree compares its checked-out commit (its branch, or the detached SHA). */
+export const WORKTREE_PREFIX = "worktree:";
+
+/** A worktree compares its files on disk (uncommitted edits included) against its PR base or merge-base. */
 export const pickWorktree = (w: WorktreeSource): Pick =>
-  w.current ? { base: AUTO_BASE, head: DEFAULT_HEAD } : { base: AUTO_BASE, head: w.branch ?? w.sha };
+  w.current ? { base: AUTO_BASE, head: DEFAULT_HEAD } : { base: AUTO_BASE, head: `${WORKTREE_PREFIX}${w.path}` };
 
 /** Every whitespace-separated token appears in one of the fields (case-insensitive). */
 export function matches(query: string, fields: (string | null | undefined)[]): boolean {
@@ -54,6 +56,7 @@ export function refText(ref: string): string {
   const pr = /^pr:(\d+)$/.exec(ref);
   if (pr) return `#${pr[1]}`;
   if (/^[0-9a-f]{40}$/.test(ref)) return ref.slice(0, 7);
+  if (ref.startsWith(WORKTREE_PREFIX)) return `worktree ${ref.slice(WORKTREE_PREFIX.length).split("/").filter(Boolean).pop() ?? ""}`;
   return ref;
 }
 

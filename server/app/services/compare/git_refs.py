@@ -16,6 +16,8 @@ AUTO = "auto"
 """Base pseudo-ref that follows the head: its open PR's base, else the merge-base with the default branch."""
 PR_REF = re.compile(r"^(?:pr:|#)(\d+)$")
 """``pr:<n>`` (or ``#<n>``): a GitHub PR. Head side is its head commit; base side is its merge-base."""
+WORKTREE_PREFIX = "worktree:"
+"""``worktree:<path>``: the files on disk in another worktree of this repo (head only)."""
 
 ChangeStatus = Literal["added", "removed", "modified", "renamed"]
 
@@ -35,6 +37,12 @@ class ResolvedRef:
     subject: str = ""
     pr: Optional[dict[str, Any]] = field(default=None, compare=False, hash=False)
     """PR context (number, title, url, branches, author) for a ``pr:<n>`` ref."""
+    dir: Optional[Path] = None
+    """For a working-tree side: the worktree scanned (None = the repo itself)."""
+
+    def root(self, repo: Path) -> Path:
+        """Where this side's files live on disk when it is a working tree."""
+        return self.dir or repo
 
     @property
     def is_worktree(self) -> bool:
@@ -118,12 +126,42 @@ def resolve_ref(repo: Path, ref: str, side: Side = "head") -> ResolvedRef:
     match = PR_REF.match(ref.strip())
     if match:
         return _resolve_pr(repo, ref, int(match.group(1)), side)
+    if ref.startswith(WORKTREE_PREFIX):
+        if side == "base":
+            raise GitError("A worktree can only be the head side (its files on disk are not a commit)")
+        return _resolve_worktree(repo, ref)
     target = ref
     if ref == MERGE_BASE:
         target = run_git(repo, "merge-base", default_branch(repo), "HEAD").strip()
     sha = run_git(repo, "rev-parse", "--verify", f"{target}^{{commit}}").strip()
     subject = run_git(repo, "log", "-1", "--format=%s", sha).strip()
     return ResolvedRef(ref=ref, sha=sha, label=sha[:7], subject=subject)
+
+
+def _resolve_worktree(repo: Path, ref: str) -> ResolvedRef:
+    """``worktree:<path>``: must be a worktree of this same repository (shared object store)."""
+    raw = ref[len(WORKTREE_PREFIX) :]
+    path = Path(raw).expanduser()
+    if not path.is_dir():
+        raise GitError(f"Worktree not found: {raw}")
+    try:
+        top = Path(run_git(path, "rev-parse", "--show-toplevel").strip()).resolve()
+        common = Path(run_git(top, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()).resolve()
+        ours = Path(run_git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()).resolve()
+    except GitError as exc:
+        raise GitError(f"{raw} is not a git worktree: {exc}") from exc
+    if common != ours:
+        raise GitError(f"{raw} is a worktree of a different repository")
+    if top == repo.resolve():
+        return ResolvedRef(ref=ref, sha=None, label="working tree")
+    try:
+        branch = run_git(top, "symbolic-ref", "--quiet", "--short", "HEAD").strip()
+    except GitError:
+        branch = ""
+    label = branch or f"detached {run_git(top, 'rev-parse', '--short', 'HEAD').strip()}"
+    home = str(Path.home())
+    shown = "~" + str(top)[len(home) :] if str(top).startswith(home + "/") else str(top)
+    return ResolvedRef(ref=ref, sha=None, label=label, subject=f"files on disk in {shown}", dir=top)
 
 
 def _has_commit(repo: Path, sha: str) -> bool:
@@ -252,7 +290,9 @@ def resolve_auto_base(repo: Path, head_input: str, head: ResolvedRef, branch: Op
     match = PR_REF.match(head_input.strip())
     if match:
         return resolve_ref(repo, head_input, side="base")
-    head_commit = head.sha or run_git(repo, "rev-parse", "HEAD").strip()
+    head_commit = head.sha or run_git(head.root(repo), "rev-parse", "HEAD").strip()
+    if head.dir is not None:
+        branch = branch or branch_of(head.dir, WORKTREE)
     branch = branch or branch_of(repo, head_input)
     pr = None
     if branch:
@@ -281,6 +321,8 @@ def list_changes(repo: Path, base: ResolvedRef, head: ResolvedRef) -> list[FileC
     if base.sha is None:
         raise GitError("The base side must be a commit")
     range_args = [base.sha] if head.sha is None else [base.sha, head.sha]
+    # A working-tree head diffs from inside that worktree; the object store is shared.
+    repo = head.root(repo) if head.sha is None else repo
 
     name_status = run_git(repo, "diff", "-z", "--name-status", "-M", *range_args)
     numstat = run_git(repo, "diff", "-z", "--numstat", "-M", *range_args)

@@ -12,8 +12,10 @@ describe("picks", () => {
   });
   it("a branch or another worktree uses the auto base", () => {
     expect(pickBranch({ name: "origin/x" } as BranchSource)).toEqual({ base: "auto", head: "origin/x" });
-    expect(pickWorktree({ branch: "feat", sha: "abc", current: false } as WorktreeSource)).toEqual({ base: "auto", head: "feat" });
-    expect(pickWorktree({ branch: null, sha: "abc123", current: false } as WorktreeSource).head).toBe("abc123");
+    expect(pickWorktree({ path: "/w/feat", branch: "feat", sha: "abc", current: false } as WorktreeSource)).toEqual({
+      base: "auto",
+      head: "worktree:/w/feat",
+    });
     expect(pickWorktree({ branch: "main", sha: "abc", current: true } as WorktreeSource)).toEqual({ base: "auto", head: "WORKTREE" });
   });
 });
@@ -41,5 +43,6 @@ describe("labels", () => {
     expect(refText("pr:12")).toBe("#12");
     expect(refText("WORKTREE")).toBe("working tree");
     expect(refText("a".repeat(40))).toBe("aaaaaaa");
+    expect(refText("worktree:/Users/me/wt/feat-x")).toBe("worktree feat-x");
   });
 });
