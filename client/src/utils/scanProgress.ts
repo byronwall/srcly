@@ -1,12 +1,20 @@
 import type { ScanSnapshot } from "../services/scanJobs";
 
-export type ScanStepId = "discovering" | "analyzing" | "building";
+export type ScanStepId = "discovering" | "analyzing" | "building" | "drawing";
 
 export const SCAN_STEPS: { id: ScanStepId; label: string }[] = [
   { id: "discovering", label: "Find files" },
   { id: "analyzing", label: "Analyze" },
   { id: "building", label: "Build tree" },
+  { id: "drawing", label: "Draw map" },
 ];
+
+/**
+ * Work the client still does after the server finishes: downloading and
+ * parsing the result ("loading"), then laying out and painting the treemap
+ * ("rendering"). On large repos this takes seconds, so it gets its own step.
+ */
+export type ClientStage = "loading" | "rendering";
 
 export type ScanStepState = "pending" | "active" | "done";
 
@@ -34,9 +42,10 @@ const STEP_ORDER: Record<string, number> = {
   discovering: 0,
   analyzing: 1,
   building: 2,
-  complete: 3,
-  failed: 3,
-  cancelled: 3,
+  drawing: 3,
+  complete: 4,
+  failed: 4,
+  cancelled: 4,
 };
 
 export function formatCount(n: number): string {
@@ -51,6 +60,26 @@ export function formatDuration(seconds: number): string {
   return rem === 0 ? `${m}m` : `${m}m ${rem}s`;
 }
 
+/** "just now", "5 min ago", "3 h ago", "2 days ago". */
+export function formatAgo(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return "just now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 48) return `${h} h ago`;
+  return `${Math.floor(h / 24)} days ago`;
+}
+
+/** Summary of a finished scan: how many files, and how long or how old. */
+export function describeResult(snapshot: ScanSnapshot, nowSeconds = Date.now() / 1000): string {
+  const files = `${formatCount(snapshot.files_total)} files`;
+  if (snapshot.cached && snapshot.cached_at) {
+    return `${files}, scanned ${formatAgo(nowSeconds - snapshot.cached_at)}`;
+  }
+  return `${files} in ${formatDuration(snapshot.elapsed_seconds)}`;
+}
+
 /** Show the path relative to the scan root when possible. */
 export function relativeToRoot(path: string | null, root: string): string {
   if (!path) return "";
@@ -61,8 +90,11 @@ export function relativeToRoot(path: string | null, root: string): string {
   return path;
 }
 
-export function describeScan(snapshot: ScanSnapshot): ScanProgressView {
-  const order = STEP_ORDER[snapshot.phase] ?? -1;
+export function describeScan(
+  snapshot: ScanSnapshot,
+  stage: ClientStage | null = null
+): ScanProgressView {
+  const order = stage ? STEP_ORDER.drawing : STEP_ORDER[snapshot.phase] ?? -1;
   const steps = SCAN_STEPS.map((step) => {
     const stepOrder = STEP_ORDER[step.id];
     const state: ScanStepState =
@@ -77,6 +109,18 @@ export function describeScan(snapshot: ScanSnapshot): ScanProgressView {
   let headline = "Starting scan";
   let detail = "";
   let slowFile: ScanProgressView["slowFile"] = null;
+
+  if (stage) {
+    // Indeterminate: parse and layout report no progress of their own.
+    headline =
+      stage === "rendering"
+        ? "Drawing treemap"
+        : snapshot.cached
+          ? "Loading saved analysis"
+          : "Loading results";
+    detail = describeResult(snapshot);
+    return { fraction: null, headline, detail, etaSeconds: null, slowFile: null, steps };
+  }
 
   switch (snapshot.phase) {
     case "queued":

@@ -1,6 +1,7 @@
 import { For, Show, createMemo } from "solid-js";
 import type { ScanSnapshot } from "../../services/scanJobs";
 import {
+  type ClientStage,
   describeScan,
   formatCount,
   formatDuration,
@@ -13,8 +14,10 @@ export function ScanProgress(props: {
   snapshot: ScanSnapshot;
   onCancel?: () => void;
   cancelling?: boolean;
+  /** Set once the scan is done and the client is loading or drawing it. */
+  stage?: ClientStage | null;
 }) {
-  const view = createMemo(() => describeScan(props.snapshot));
+  const view = createMemo(() => describeScan(props.snapshot, props.stage ?? null));
   const percent = () => {
     const fraction = view().fraction;
     // Floor so a long tail never reads "100%" before the scan is done.
@@ -132,12 +135,14 @@ export function ScanProgress(props: {
         </div>
 
         <dl class="mt-3 flex flex-wrap gap-x-5 gap-y-1 border-t border-[var(--plc-divider)] pt-3 text-xs text-[var(--plc-on-subtle)]">
-          <div class="flex gap-1">
-            <dt>Elapsed</dt>
-            <dd class="plc-data-md text-[var(--plc-on-muted)]">
-              {formatDuration(props.snapshot.elapsed_seconds)}
-            </dd>
-          </div>
+          <Show when={!props.snapshot.cached}>
+            <div class="flex gap-1">
+              <dt>Elapsed</dt>
+              <dd class="plc-data-md text-[var(--plc-on-muted)]">
+                {formatDuration(props.snapshot.elapsed_seconds)}
+              </dd>
+            </div>
+          </Show>
           <Show when={view().etaSeconds !== null}>
             <div class="flex gap-1">
               <dt>Remaining</dt>

@@ -34,6 +34,11 @@ interface TreemapProps {
     node?: any
   ) => void;
   minNodeRenderSizePx?: number;
+  /**
+   * Called once the treemap shows the data: after the canvas paints, or
+   * right away when filters leave nothing to draw.
+   */
+  onPaint?: () => void;
 }
 
 export default function Treemap(props: TreemapProps) {
@@ -220,6 +225,10 @@ export default function Treemap(props: TreemapProps) {
   );
   const minNodeRenderSizePx = () => props.minNodeRenderSizePx ?? 4;
 
+  createEffect(() => {
+    if (props.data && !processedData()) props.onPaint?.();
+  });
+
   return (
     <div class="plc-panel relative flex h-full w-full flex-col overflow-hidden rounded-none border">
       <TreemapHeader
@@ -267,6 +276,7 @@ export default function Treemap(props: TreemapProps) {
               if (event && node) showTooltip(event, node);
               else hideTooltip();
             }}
+            onPaint={() => props.onPaint?.()}
           />
         </Show>
         <Show when={!processedData() && !showDependencyGraph()}>

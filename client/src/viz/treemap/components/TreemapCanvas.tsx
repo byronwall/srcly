@@ -31,6 +31,8 @@ type TreemapCanvasProps = {
   isolateMode: () => boolean;
   onActivate: (node: TreemapTile, modifiers: ActivationModifiers) => void;
   onHover: (event: MouseEvent | null, node: TreemapTile | null) => void;
+  /** Called after each paint, once the tiles are on the canvas. */
+  onPaint?: () => void;
 };
 
 const FOLDER_STROKE = "#cbd5e1";
@@ -224,6 +226,7 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
     paintedWidth = width;
     paintedHeight = height;
     paintedMetric = props.metricId();
+    props.onPaint?.();
 
     // Paint once per view. The compositor moves two images; no tile work runs per frame.
     if (transforms && snapshot) {
