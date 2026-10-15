@@ -1,11 +1,13 @@
 import type { DependencyGraphContract } from "./contract";
 import { describe, expect, it } from "vitest";
 import fixture from "./__fixtures__/srcly-client.json";
-import { boundsOf, countEdgeCrossings, countNodeCrossings, isOrthogonal } from "./geometry";
+import { boundsOf, countBundleCrossings, countEdgeCrossings, countNodeCrossings, countOverlaps, isOrthogonal, segments } from "./geometry";
 import { applyFilters, buildIndex, collapseChain, DEFAULT_FILTERS, type GraphIndex } from "./hierarchy";
 import {
   aspectOf,
+  bundleGap,
   bundleOffsets,
+  FRAME_PAD,
   layoutView,
   layoutViewSync,
   MAX_SCALE,
@@ -365,4 +367,106 @@ describe("connected components", () => {
     expect(Math.max(...ys("client"))).toBeLessThan(Math.min(...ys("server")));
     expect(countNodeCrossings(layout.edges, layout.nodes).count).toBe(0);
   });
+});
+
+/**
+ * Before edge spreading (milestone 4), per srcly focus: crossings between
+ * bundles (a spread bundle counts as one line) and pairs of edges drawn on
+ * top of each other.
+ */
+const BEFORE_SPREADING: Record<string, { bundleCrossings: number; overlaps: number }> = {
+  "": { bundleCrossings: 10, overlaps: 14 },
+  src: { bundleCrossings: 10, overlaps: 14 },
+  "src/components": { bundleCrossings: 141, overlaps: 261 },
+  "src/utils": { bundleCrossings: 66, overlaps: 122 },
+  "src/viz": { bundleCrossings: 28, overlaps: 108 },
+  "src/viz/treemap": { bundleCrossings: 11, overlaps: 60 },
+  "src/components/Treemap.tsx": { bundleCrossings: 8, overlaps: 107 },
+  "src/utils/metricsStore.tsx": { bundleCrossings: 23, overlaps: 51 },
+};
+
+/** Vertical edge segments stay in channels, clear of boxes and the frames around them. */
+function expectEdgesInChannels(layout: ViewLayout, what: string) {
+  // Column extents (stacked components have their own columns).
+  const cols = new Map<number, { y0: number; y1: number }>();
+  for (const n of layout.nodes) {
+    const c = cols.get(n.x) ?? { y0: Infinity, y1: -Infinity };
+    cols.set(n.x, { y0: Math.min(c.y0, n.y), y1: Math.max(c.y1, n.y + n.height) });
+  }
+  for (const e of layout.edges) {
+    for (const { a, b } of segments(e.points)) {
+      if (Math.abs(a.x - b.x) > 0.5) continue;
+      for (const [x0, { y0, y1 }] of cols) {
+        const overlapsY = Math.max(a.y, b.y) > y0 && Math.min(a.y, b.y) < y1;
+        const inside = overlapsY && a.x > x0 - FRAME_PAD + 0.5 && a.x < x0 + NODE_WIDTH + FRAME_PAD - 0.5;
+        expect(inside, `${what}: ${e.id} runs at x=${a.x.toFixed(1)} inside column at ${x0}`).toBe(false);
+      }
+    }
+  }
+}
+
+describe("edge spreading", () => {
+  it("widens a bundle with its edge count", () => {
+    // Twenty files that all import one file: a single fan-in trunk.
+    const nodes: DependencyGraphContract["nodes"] = [
+      { id: "", kind: "folder", name: "repo", parent: null },
+      { id: "lib", kind: "folder", name: "lib", parent: "" },
+      { id: "lib/core.ts", kind: "file", name: "core.ts", parent: "lib" },
+      { id: "app", kind: "folder", name: "app", parent: "" },
+    ];
+    const edges: DependencyGraphContract["edges"] = [];
+    for (let i = 0; i < 20; i++) {
+      nodes.push({ id: `app/f${i}.ts`, kind: "file", name: `f${i}.ts`, parent: "app" });
+      edges.push({ source: `app/f${i}.ts`, target: "lib/core.ts" });
+    }
+    const index = buildIndex({ root: "", nodes, edges });
+    const vm = buildViewModel(index, { focusId: "lib/core.ts", budget: 48, edgeBudget: 100 });
+    const layout = layoutViewSync(vm, { aspectRatio: VIEW_ASPECT, viewport: VIEWPORT });
+    const target = layout.nodes.find((n) => n.node.graphId === "lib/core.ts")!;
+    // Each edge's last vertical segment is its run down the trunk next to the
+    // target (an importer on the target's own row runs straight in).
+    const trunkXs = layout.edges.flatMap((e) => {
+      const vs = segments(e.points).filter((s) => Math.abs(s.a.x - s.b.x) < 0.5);
+      return vs.length ? [vs[vs.length - 1].a.x] : [];
+    });
+    expect(trunkXs.length).toBeGreaterThanOrEqual(18);
+    // Edges arriving from above and from below the target spread as two
+    // bundles around the same track; the larger one sets the width.
+    const above = layout.nodes.filter((n) => n.node.region === "in" && n.y < target.y).length;
+    const half = Math.max(above, trunkXs.length - above);
+    const width = Math.max(...trunkXs) - Math.min(...trunkXs);
+    expect(width).toBeGreaterThanOrEqual((half - 1) * bundleGap(half) - 0.5);
+    // The old 8px cap is gone.
+    expect(width).toBeGreaterThan(8);
+    expect(Math.max(...trunkXs)).toBeLessThan(target.x);
+    expect(countNodeCrossings(layout.edges, layout.nodes).count).toBe(0);
+  });
+
+  it("keeps the gap readable and a huge trunk bounded", () => {
+    expect(bundleGap(1)).toBe(0);
+    expect(bundleGap(3)).toBeCloseTo(1.75);
+    expect(bundleGap(200)).toBeCloseTo(1.25);
+  });
+
+  for (const [focus, before] of Object.entries(BEFORE_SPREADING)) {
+    it(`spreads without new crossings or overlaps for srcly focus "${focus || "(root)"}"`, () => {
+      const { layout } = layoutFocus(idx, focus);
+      expectEdgesInChannels(layout, focus);
+      expect(countNodeCrossings(layout.edges, layout.nodes).count).toBe(0);
+      expect(countOverlaps(layout.edges)).toBeLessThanOrEqual(before.overlaps);
+      // Small slack: a bundle that used to sit on top of a neighbor is now its own line.
+      expect(countBundleCrossings(layout.edges)).toBeLessThanOrEqual(Math.ceil(before.bundleCrossings * 1.05) + 1);
+    });
+  }
+
+  for (const capture of LOCAL_CAPTURES) {
+    const index = buildIndex(applyFilters(capture.graph, DEFAULT_FILTERS));
+    for (const focus of capture.foci) {
+      it(`keeps spread edges in their channels for local capture ${capture.name}:${focus || "(root)"}`, () => {
+        const { layout } = layoutFocus(index, focus);
+        expectEdgesInChannels(layout, `${capture.name}:${focus}`);
+        expect(countNodeCrossings(layout.edges, layout.nodes).count).toBe(0);
+      });
+    }
+  }
 });

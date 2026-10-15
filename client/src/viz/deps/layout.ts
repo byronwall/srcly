@@ -8,7 +8,9 @@ import type { Region, ViewEdge, ViewModel, ViewNode } from "./viewModel";
 // next to its column, run along the channel, and — when they need to cross
 // other columns — travel through a horizontal gutter between rows. Rows are
 // aligned across columns, so gutters are free from end to end. Edges heading
-// to the same box share a track, which `bundleOffsets` spreads 1–2px apart.
+// to the same box share a track, which `bundleOffsets` spreads 1.25–1.75px
+// apart; each track is as wide as its bundle, so busy trunks widen their
+// channel instead of piling into one line.
 
 export const NODE_WIDTH = 196;
 export const NODE_HEIGHT = 40;
@@ -22,8 +24,22 @@ const MARGIN = 16;
 /** Frame padding around boxes, and the band above a frame's first box for its label. */
 export const FRAME_PAD = 5;
 export const FRAME_LABEL_H = 16;
-/** Spacing between parallel edges inside a bundle. */
+/** Spacing between parallel edges inside a bundle, and the floor it shrinks to. */
 const BUNDLE_GAP = 1.75;
+const MIN_BUNDLE_GAP = 1.25;
+/** A bundle stops widening here; past it, its edges pack closer (down to the floor). */
+const MAX_BUNDLE_WIDTH = 36;
+
+/** Gap between the edges of an `n`-edge bundle: wide enough to count, capped so a huge trunk stays a trunk. */
+export function bundleGap(n: number): number {
+  if (n <= 1) return 0;
+  return Math.max(MIN_BUNDLE_GAP, Math.min(BUNDLE_GAP, MAX_BUNDLE_WIDTH / (n - 1)));
+}
+
+/** Room a track takes in its channel or gutter: its bundle's spread plus clearance to the next track. */
+function trackWidth(n: number): number {
+  return Math.max(TRACK, (n - 1) * bundleGap(n) + TRACK - 1);
+}
 /** The canvas never fits above this zoom, so extra width below it is free. */
 export const MAX_SCALE = 1.25;
 
@@ -512,6 +528,20 @@ function placeAndRoute(
     }
   }
 
+  // ---- Group frames: runs of ≥2 boxes of one group in a column ----
+  const runs: { groupId: string; label: string; column: number; first: number; last: number }[] = [];
+  columns.forEach((col, ci) => {
+    const byRow = [...col].sort((a, b) => rowOf.get(a.id)! - rowOf.get(b.id)!);
+    let i = 0;
+    while (i < byRow.length) {
+      const g = byRow[i].group;
+      let j = i;
+      while (g && j + 1 < byRow.length && byRow[j + 1].group?.id === g.id) j++;
+      if (g && j > i) runs.push({ groupId: g.id, label: g.label, column: ci, first: rowOf.get(byRow[i].id)!, last: rowOf.get(byRow[j].id)! });
+      i = j + 1;
+    }
+  });
+
   // ---- Routing plan (abstract coordinates: rows for y, columns for x) ----
   const centerIds = new Set(byRegion.center.map((n) => n.id));
   const isCenter = (id: string) => centerIds.has(id);
@@ -520,6 +550,21 @@ function placeAndRoute(
     degree.set(e.source, (degree.get(e.source) ?? 0) + 1);
     degree.set(e.target, (degree.get(e.target) ?? 0) + 1);
   }
+  // Distinct track groups per gutter, filled in as routes are planned.
+  const gutterLoad = new Map<number, Set<string>>();
+  // Frames whose interior gutter `g` passes through between channels c0..c1
+  // (columns c0..c1-1), ignoring the frames that hold either end.
+  const groupOfNode = new Map(vm.nodes.map((n) => [n.id, n.group?.id]));
+  const framesCut = (g: number, c0: number, c1: number, s: string, t: string) =>
+    runs.filter(
+      (r) =>
+        r.column >= c0 &&
+        r.column < c1 &&
+        g > r.first &&
+        g <= r.last &&
+        r.groupId !== groupOfNode.get(s) &&
+        r.groupId !== groupOfNode.get(t),
+    ).length;
   const routes: Route[] = vm.edges.map((edge) => {
     const s = edge.source;
     const t = edge.target;
@@ -540,8 +585,24 @@ function placeAndRoute(
       const other = anchorIsTarget ? s : t;
       const ra = rowOf.get(anchor)!;
       const ro = rowOf.get(other)!;
-      gutter = ro < ra ? ra : ra + 1;
-      gutterGroup = `${anchor}|${anchorIsTarget ? "in" : "out"}|${gutter}`;
+      const key = `${anchor}|${anchorIsTarget ? "in" : "out"}`;
+      // The gutter next to the anchor bundles edges into one trunk; the one
+      // next to the other end (or, on the same row, the other side of the
+      // anchor) is the alternative when it is less crowded or the first one
+      // would cut through another package's frame.
+      const near = ro < ra ? ra : ra + 1;
+      const far = ro === ra ? ra : ro < ra ? ro + 1 : ro;
+      const [c0, c1] = [Math.min(exitChannel, entryChannel), Math.max(exitChannel, entryChannel)];
+      const cost = (g: number) => {
+        const groups = gutterLoad.get(g) ?? new Set<string>();
+        const crowd = groups.has(`${key}|${g}`) ? 0 : groups.size;
+        return framesCut(g, c0, c1, s, t) * 100 + crowd + (g === near ? 0 : 0.5);
+      };
+      gutter = far !== near && cost(far) < cost(near) ? far : near;
+      gutterGroup = `${key}|${gutter}`;
+      const load = gutterLoad.get(gutter) ?? new Set<string>();
+      load.add(gutterGroup);
+      gutterLoad.set(gutter, load);
     }
     return {
       edge,
@@ -643,8 +704,10 @@ function placeAndRoute(
     }
   }
 
-  const channelTrack = new Map<string, number>(); // `${ch}|${group}` → track index
-  const channelTracks = new Array(C + 1).fill(0);
+  // Each track is as wide as its bundle needs (`trackWidth`), so a busy
+  // trunk widens its channel instead of squeezing its edges together.
+  const channelTrack = new Map<string, number>(); // `${ch}|${group}` → track center offset
+  const channelTracks = new Array(C + 1).fill(0); // total track width per channel
   for (const [ch, segs] of channelSegs) {
     const groups = new Map<string, TrackGroup>();
     for (const s of segs) {
@@ -659,15 +722,22 @@ function placeAndRoute(
       groups.set(s.group, g);
     }
     const ordered = orderGroups([...groups.values()]);
-    ordered.forEach((g, i) => channelTrack.set(`${ch}|${g.key}`, i));
-    channelTracks[ch] = ordered.length;
+    const edgesIn = new Map<string, Set<string>>();
+    for (const s of segs) edgesIn.set(s.group, (edgesIn.get(s.group) ?? new Set()).add(s.route.edge.id));
+    let at = 0;
+    for (const g of ordered) {
+      const w = trackWidth(edgesIn.get(g.key)!.size);
+      channelTrack.set(`${ch}|${g.key}`, at + w / 2);
+      at += w;
+    }
+    channelTracks[ch] = at;
   }
 
   // ---- Geometry: columns and channels ----
-  const channelWidth = channelTracks.map((n, k) => {
+  const channelWidth = channelTracks.map((used, k) => {
     const outer = k === 0 || k === C;
-    if (n === 0) return outer ? 0 : MIN_CHANNEL;
-    return Math.max(outer ? 2 * CHANNEL_PAD : MIN_CHANNEL, n * TRACK + 2 * CHANNEL_PAD);
+    if (used === 0) return outer ? 0 : MIN_CHANNEL;
+    return Math.max(outer ? 2 * CHANNEL_PAD : MIN_CHANNEL, used + 2 * CHANNEL_PAD);
   });
   const colX: number[] = [];
   const channelX: number[] = [];
@@ -682,15 +752,12 @@ function placeAndRoute(
   }
   const totalWidth = x + MARGIN;
   const trackX = (ch: number, group: string) => {
-    const n = channelTracks[ch];
-    const i = channelTrack.get(`${ch}|${group}`) ?? 0;
     const inner = channelWidth[ch] - 2 * CHANNEL_PAD;
-    const used = (n - 1) * TRACK;
-    return channelX[ch] + CHANNEL_PAD + (inner - used) / 2 + i * TRACK;
+    return channelX[ch] + CHANNEL_PAD + (inner - channelTracks[ch]) / 2 + (channelTrack.get(`${ch}|${group}`) ?? 0);
   };
 
   // ---- Gutter tracks (need real channel x for stub positions) ----
-  const gutterSegs = new Map<number, { group: string; lo: number; hi: number; up: number[]; down: number[] }[]>();
+  const gutterSegs = new Map<number, { group: string; edge: string; lo: number; hi: number; up: number[]; down: number[] }[]>();
   for (const r of routes) {
     if (r.gutter === null) continue;
     const x1 = trackX(r.exitChannel, r.exitGroup);
@@ -703,7 +770,7 @@ function placeAndRoute(
     const down: number[] = [];
     (ys < g ? up : down).push(x1);
     (yt < g ? up : down).push(x2);
-    arr.push({ group: r.gutterGroup!, lo: Math.min(x1, x2), hi: Math.max(x1, x2), up, down });
+    arr.push({ group: r.gutterGroup!, edge: r.edge.id, lo: Math.min(x1, x2), hi: Math.max(x1, x2), up, down });
     gutterSegs.set(g, arr);
   }
   const gutterTrack = new Map<string, number>();
@@ -719,22 +786,16 @@ function placeAndRoute(
       groups.set(s.group, tg);
     }
     const ordered = orderGroups([...groups.values()]);
-    ordered.forEach((tg, i) => gutterTrack.set(`${g}|${tg.key}`, i));
-    gutterTracks[g] = ordered.length;
-  }
-  // ---- Group frames: runs of ≥2 boxes of one group in a column ----
-  const runs: { groupId: string; label: string; column: number; first: number; last: number }[] = [];
-  columns.forEach((col, ci) => {
-    const byRow = [...col].sort((a, b) => rowOf.get(a.id)! - rowOf.get(b.id)!);
-    let i = 0;
-    while (i < byRow.length) {
-      const g = byRow[i].group;
-      let j = i;
-      while (g && j + 1 < byRow.length && byRow[j + 1].group?.id === g.id) j++;
-      if (g && j > i) runs.push({ groupId: g.id, label: g.label, column: ci, first: rowOf.get(byRow[i].id)!, last: rowOf.get(byRow[j].id)! });
-      i = j + 1;
+    const edgesIn = new Map<string, Set<string>>();
+    for (const s of segs) edgesIn.set(s.group, (edgesIn.get(s.group) ?? new Set()).add(s.edge));
+    let at = 0;
+    for (const tg of ordered) {
+      const w = trackWidth(edgesIn.get(tg.key)!.size);
+      gutterTrack.set(`${g}|${tg.key}`, at + w / 2);
+      at += w;
     }
-  });
+    gutterTracks[g] = at;
+  }
   // A frame's label needs room in the gutter above its first box, and its
   // bottom edge a little room in the gutter below its last box. Edge tracks
   // run in the band between.
@@ -744,10 +805,10 @@ function placeAndRoute(
     labelRoom[r.first] = FRAME_LABEL_H;
     bottomRoom[r.last + 1] = FRAME_PAD + 1;
   }
-  const trackBand = gutterTracks.map((n, g) => {
+  const trackBand = gutterTracks.map((used, g) => {
     const outer = g === 0 || g === rows;
-    if (n === 0) return outer ? 0 : MIN_GUTTER;
-    return Math.max(MIN_GUTTER, n * TRACK + 2 * GUTTER_PAD);
+    if (used === 0) return outer ? 0 : MIN_GUTTER;
+    return Math.max(MIN_GUTTER, used + 2 * GUTTER_PAD);
   });
   const gutterHeight = trackBand.map((h, g) => h + labelRoom[g] + bottomRoom[g]);
   const rowTop: number[] = [];
@@ -763,11 +824,8 @@ function placeAndRoute(
   }
   const totalHeight = y + MARGIN;
   const trackY = (g: number, group: string) => {
-    const n = gutterTracks[g];
-    const i = gutterTrack.get(`${g}|${group}`) ?? 0;
     const inner = trackBand[g] - 2 * GUTTER_PAD;
-    const used = (n - 1) * TRACK;
-    return gutterTop[g] + bottomRoom[g] + GUTTER_PAD + Math.max(0, (inner - used) / 2) + i * TRACK;
+    return gutterTop[g] + bottomRoom[g] + GUTTER_PAD + Math.max(0, (inner - gutterTracks[g]) / 2) + (gutterTrack.get(`${g}|${group}`) ?? 0);
   };
 
   // ---- Materialize ----
@@ -916,7 +974,7 @@ export function bundleOffsets(edges: Polyline[], boxes: Box[] = []): void {
           const rank = new Map<number, number>();
           for (const s of order) if (!rank.has(s.edge)) rank.set(s.edge, rank.size);
           const n = rank.size;
-          const gap = Math.min(BUNDLE_GAP, 8 / n);
+          const gap = bundleGap(n);
           for (const s of cluster) target[s.edge][s.seg] = (rank.get(s.edge)! - (n - 1) / 2) * gap;
         }
         cluster = [];
