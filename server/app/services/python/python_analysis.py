@@ -2,7 +2,7 @@ import tree_sitter_python as tspython
 from tree_sitter import Language, Parser, Node
 from typing import List
 
-from app.services.analysis_types import FileMetrics, FunctionMetrics
+from app.services.analysis_types import FileMetrics, FunctionMetrics, is_synthetic_scope
 
 # Load Python grammar
 PYTHON_LANGUAGE = Language(tspython.language())
@@ -38,8 +38,9 @@ class PythonTreeSitterAnalyzer:
 
         # Average complexity (top-level only, matching original behavior)
         avg_complexity = 0.0
-        if top_level_functions:
-            avg_complexity = sum(f.cyclomatic_complexity for f in top_level_functions) / len(top_level_functions)
+        real_functions = [f for f in top_level_functions if not is_synthetic_scope(f)]
+        if real_functions:
+            avg_complexity = sum(f.cyclomatic_complexity for f in real_functions) / len(real_functions)
             
         # File level comment density
         comment_density = self._file_comment_lines / nloc if nloc > 0 else 0.0
@@ -48,8 +49,8 @@ class PythonTreeSitterAnalyzer:
         # Note: Previous implementation calculated avg function length based on top-level functions?
         # "total_function_length = sum(f.nloc for f in functions)"
         # Yes, purely top-level iteration.
-        total_function_length = sum(f.nloc for f in top_level_functions)
-        average_function_length = total_function_length / len(top_level_functions) if top_level_functions else 0.0
+        total_function_length = sum(f.nloc for f in real_functions)
+        average_function_length = total_function_length / len(real_functions) if real_functions else 0.0
         parameter_count = sum(f.parameter_count for f in top_level_functions)
 
         return FileMetrics(
