@@ -15,13 +15,16 @@ import { CompareProgress } from "./CompareProgress";
 import { CompareTable } from "./CompareTable";
 import { DEFAULT_COMPARE_COLUMNS } from "./metrics";
 import { RefBar } from "./RefBar";
-import { indexFiles, type FileRow } from "./rows";
+import { Inspector } from "./Inspector";
+import { buildRows, collectFiles, indexFiles, type FileRow, type RowSort } from "./rows";
+import { Scorecard } from "./Scorecard";
 import { SummaryStrip } from "./SummaryStrip";
 import type { ComparePayload } from "./types";
 
 const CodeModal = lazy(() => import("../components/CodeModal/CodeModal.tsx"));
 
 const SORT_PARAM = "csort";
+const FILE_PARAM = "cfile";
 
 function readParam(name: string): string | null {
   return new URLSearchParams(window.location.search).get(name);
@@ -42,8 +45,9 @@ export default function CompareApp() {
   const [payload, setPayload] = createSignal<ComparePayload | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [columns, setColumns] = createSignal(DEFAULT_COMPARE_COLUMNS);
-  const [sortMetric, setSortMetric] = createSignal<string | null>(readParam(SORT_PARAM));
-  const [openFile, setOpenFile] = createSignal<FileRow | null>(null);
+  const [sort, setSort] = createSignal<RowSort>(readParam(SORT_PARAM) ?? "tree");
+  const [selected, setSelected] = createSignal<string | null>(readParam(FILE_PARAM));
+  const [openFile, setOpenFile] = createSignal<{ path: string; side: "base" | "head" } | null>(null);
   let request = 0;
   let stop: (() => void) | null = null;
 
@@ -75,6 +79,16 @@ export default function CompareApp() {
                 const moved = cols.filter((c) => result.summary.metrics[c]);
                 return moved.length ? moved : DEFAULT_COMPARE_COLUMNS;
               });
+              // Keep a selection from the URL if it's still a changed file;
+              // otherwise start on the most regressed file.
+              if (!result.files.some((f) => f.path === selected())) {
+                const first = buildRows(collectFiles(result.files, new Map(), false), {
+                  showUnchanged: false,
+                  sort: "regressed",
+                  collapsed: new Set(),
+                })[0] as FileRow | undefined;
+                select(first?.path ?? null);
+              }
             }
           } else if (s.phase === "failed") {
             setError(s.error ?? "The compare failed.");
@@ -105,24 +119,38 @@ export default function CompareApp() {
     navigateCompare(base, head);
   };
 
-  const changeSort = (metric: string | null) => {
-    setSortMetric(metric);
-    writeParam(SORT_PARAM, metric);
+  const changeSort = (next: RowSort) => {
+    setSort(next);
+    writeParam(SORT_PARAM, next === "tree" ? null : next);
+  };
+  function select(path: string | null) {
+    setSelected(path);
+    writeParam(FILE_PARAM, path);
+  }
+  // From the scorecard: rank by that metric and make sure it's a visible column.
+  const pickMetric = (metric: string) => {
+    if (!columns().includes(metric)) setColumns([metric, ...columns()]);
+    changeSort(sort() === metric ? "tree" : metric);
+  };
+  const openSide = (path: string, side?: "base" | "head") => {
+    const f = payload()?.files.find((x) => x.path === path);
+    setOpenFile({ path, side: side ?? (f?.status === "removed" ? "base" : "head") });
   };
 
-  // The code viewer reads removed files from the base commit and the rest
-  // from the head side (the disk for the working tree).
+  // The code viewer reads the base side from its commit and the head side
+  // from its commit, or from the disk for the working tree.
   const viewer = () => {
-    const row = openFile();
+    const target = openFile();
     const p = payload();
-    if (!row || !p) return null;
-    const removed = row.change?.status === "removed";
-    const side = removed ? p.base : p.head;
-    const tree = removed ? p.trees?.base : p.trees?.head;
+    if (!target || !p) return null;
+    const change = p.files.find((f) => f.path === target.path);
+    const path = target.side === "base" ? (change?.oldPath ?? target.path) : target.path;
+    const side = target.side === "base" ? p.base : p.head;
+    const tree = target.side === "base" ? p.trees?.base : p.trees?.head;
     return {
-      filePath: `${p.repo.root}/${row.path}`,
+      filePath: `${p.repo.root}/${path}`,
       gitRef: side.sha,
-      fileNode: indexFiles(tree).get(row.path) ?? null,
+      fileNode: indexFiles(tree).get(path) ?? null,
     };
   };
 
@@ -178,15 +206,33 @@ export default function CompareApp() {
                   />
                 }
               >
-                <div class="min-h-0 flex-1">
-                  <CompareTable
-                    payload={p()}
-                    columns={columns()}
-                    onColumnsChange={setColumns}
-                    sortMetric={sortMetric()}
-                    onSortChange={changeSort}
-                    onOpenFile={setOpenFile}
-                  />
+                <div class="flex min-h-0 flex-1">
+                  <aside class="w-[264px] 2xl:w-[300px] shrink-0 overflow-y-auto border-r border-[var(--plc-border)] bg-[var(--plc-surface)]">
+                    <Scorecard
+                      payload={p()}
+                      activeMetric={sort() === "tree" || sort() === "regressed" ? null : sort()}
+                      onPickMetric={pickMetric}
+                    />
+                  </aside>
+                  <div class="min-w-0 flex-1">
+                    <CompareTable
+                      payload={p()}
+                      columns={columns()}
+                      onColumnsChange={setColumns}
+                      sort={sort()}
+                      onSortChange={changeSort}
+                      selected={selected()}
+                      onSelect={select}
+                      onOpenFile={(path) => openSide(path)}
+                    />
+                  </div>
+                  <aside class="w-[320px] 2xl:w-[360px] shrink-0 overflow-y-auto border-l border-[var(--plc-border)] bg-[var(--plc-surface)]">
+                    <Inspector
+                      payload={p()}
+                      path={selected()}
+                      onOpen={(side) => selected() && openSide(selected()!, side)}
+                    />
+                  </aside>
                 </div>
               </Show>
             </>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRows, collectFiles, indexFiles } from "./rows";
+import { ALL_STATUSES, buildRows, collectFiles, filterFiles, indexFiles } from "./rows";
 import type { CompareFile, TreeNode } from "./types";
 
 const change = (path: string, status: CompareFile["status"], delta = 0): CompareFile => ({
@@ -26,7 +26,7 @@ const headTree: TreeNode = {
   ],
 };
 
-const none = { showUnchanged: false, sortMetric: null, collapsed: new Set<string>() };
+const none = { showUnchanged: false, sort: "tree", collapsed: new Set<string>() };
 
 describe("compare rows", () => {
   it("shows only changed files under their folders by default", () => {
@@ -58,7 +58,29 @@ describe("compare rows", () => {
       new Map(),
       false
     );
-    const rows = buildRows(files, { ...none, sortMetric: "complexity" });
+    const rows = buildRows(files, { ...none, sort: "complexity" });
     expect(rows.map((r) => r.name)).toEqual(["b/c.ts", "a.ts", "d.ts"]);
+  });
+
+  it("ranks the most regressed files first", () => {
+    const files = collectFiles(
+      [change("a.ts", "modified", -2), change("b.ts", "modified", 3), change("c.ts", "added")],
+      new Map(),
+      false
+    );
+    expect(buildRows(files, { ...none, sort: "regressed" }).map((r) => r.path)).toEqual(["b.ts", "c.ts", "a.ts"]);
+  });
+
+  it("filters by status, regressions, and path, keeping context only beside survivors", () => {
+    const files = collectFiles(
+      [change("src/a.ts", "modified", 2), change("src/b.ts", "added"), change("other/x.ts", "removed")],
+      indexFiles(headTree),
+      true
+    );
+    const all = new Set(ALL_STATUSES);
+    const paths = (f: Parameters<typeof filterFiles>[1]) => filterFiles(files, f).map((r) => r.path).sort();
+    expect(paths({ statuses: new Set(["added"]), regressionsOnly: false, query: "" })).toEqual(["src/b.ts", "src/keep.ts"]);
+    expect(paths({ statuses: all, regressionsOnly: true, query: "" })).toEqual(["src/a.ts", "src/keep.ts"]);
+    expect(paths({ statuses: all, regressionsOnly: false, query: "OTHER" })).toEqual(["other/x.ts"]);
   });
 });

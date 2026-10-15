@@ -1,6 +1,7 @@
 // Pure row model for the compare table: changed files (plus optional
 // unchanged siblings) arranged as a folder tree, or flat when sorted by delta.
 
+import { fileHealth } from "./metrics";
 import type { ChangeStatus, CompareFile, TreeNode } from "./types";
 
 export interface FolderRow {
@@ -14,6 +15,9 @@ export interface FolderRow {
   additions: number;
   deletions: number;
   statusCounts: Record<ChangeStatus, number>;
+  /** Changed files below with at least one worse / better risk metric. */
+  filesWorse: number;
+  filesBetter: number;
 }
 
 export interface FileRow {
@@ -29,11 +33,35 @@ export interface FileRow {
 
 export type CompareRow = FolderRow | FileRow;
 
+/** "tree" = folders; "regressed" = flat, most regressed first; anything else = flat by |Δ| of that metric. */
+export type RowSort = "tree" | "regressed" | (string & {});
+
 export interface RowOptions {
   showUnchanged: boolean;
-  /** Sort files by |Δ| of this metric (flat list); null = folder tree. */
-  sortMetric: string | null;
+  sort: RowSort;
   collapsed: ReadonlySet<string>;
+}
+
+export interface RowFilter {
+  statuses: ReadonlySet<ChangeStatus>;
+  regressionsOnly: boolean;
+  query: string;
+}
+
+export const ALL_STATUSES: ChangeStatus[] = ["added", "modified", "renamed", "removed"];
+
+/** Keep changed files that pass the status / regression / path filters; context rows follow their folder. */
+export function filterFiles(files: FileRow[], filter: RowFilter): FileRow[] {
+  const q = filter.query.trim().toLowerCase();
+  const kept = files.filter((f) => {
+    if (!f.change) return true;
+    if (!filter.statuses.has(f.change.status)) return false;
+    if (filter.regressionsOnly && fileHealth(f.change.deltas).worse.length === 0) return false;
+    if (q && !f.path.toLowerCase().includes(q) && !(f.change.oldPath ?? "").toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const liveFolders = new Set(kept.filter((f) => f.change).map((f) => dirname(f.path)));
+  return kept.filter((f) => f.change || liveFolders.has(dirname(f.path)));
 }
 
 interface Folder {
@@ -126,6 +154,8 @@ function aggregate(folder: Folder): Omit<FolderRow, "kind" | "path" | "name" | "
     changed: 0,
     additions: 0,
     deletions: 0,
+    filesWorse: 0,
+    filesBetter: 0,
     statusCounts: { added: 0, removed: 0, modified: 0, renamed: 0 } as Record<ChangeStatus, number>,
   };
   for (const f of folder.files) {
@@ -134,12 +164,17 @@ function aggregate(folder: Folder): Omit<FolderRow, "kind" | "path" | "name" | "
     out.additions += f.change.additions;
     out.deletions += f.change.deletions;
     out.statusCounts[f.change.status]++;
+    const health = fileHealth(f.change.deltas);
+    if (health.worse.length) out.filesWorse++;
+    if (health.better.length) out.filesBetter++;
   }
   for (const child of folder.folders.values()) {
     const sub = aggregate(child);
     out.changed += sub.changed;
     out.additions += sub.additions;
     out.deletions += sub.deletions;
+    out.filesWorse += sub.filesWorse;
+    out.filesBetter += sub.filesBetter;
     for (const k of Object.keys(sub.statusCounts) as ChangeStatus[]) out.statusCounts[k] += sub.statusCounts[k];
   }
   return out;
@@ -152,13 +187,23 @@ export function sortDelta(row: FileRow, metric: string): number {
   return Math.abs(row.change?.deltas[metric]?.delta ?? 0);
 }
 
+const churn = (f: FileRow) => (f.change ? f.change.additions + f.change.deletions : 0);
+
 export function buildRows(files: FileRow[], options: RowOptions): CompareRow[] {
-  if (options.sortMetric) {
-    const metric = options.sortMetric;
-    return files
-      .filter((f) => f.change)
-      .map((f) => ({ ...f, name: f.path, depth: 0 }))
-      .sort((a, b) => sortDelta(b, metric) - sortDelta(a, metric) || a.path.localeCompare(b.path));
+  if (options.sort !== "tree") {
+    const flat = files.filter((f) => f.change).map((f) => ({ ...f, name: f.path, depth: 0 }));
+    if (options.sort === "regressed") {
+      const score = new Map(flat.map((f) => [f.path, fileHealth(f.change!.deltas)]));
+      return flat.sort(
+        (a, b) =>
+          score.get(b.path)!.score - score.get(a.path)!.score ||
+          score.get(b.path)!.worse.length - score.get(a.path)!.worse.length ||
+          churn(b) - churn(a) ||
+          a.path.localeCompare(b.path)
+      );
+    }
+    const metric = options.sort;
+    return flat.sort((a, b) => sortDelta(b, metric) - sortDelta(a, metric) || a.path.localeCompare(b.path));
   }
 
   const out: CompareRow[] = [];

@@ -115,8 +115,11 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Commit snapshots (`git worktree add --detach` in the cache dir), SHA-keyed side cache, repo-relative paths | `server/app/services/compare/snapshots.py` |
 | Per-file metric deltas, better/worse direction table, edge diff, summary | `server/app/services/compare/diff.py` (`COMPARE_METRICS`, `diff_sides`) |
 | Compare mode shell (`?compare=<base>..<head>`, ref picker, progress, code viewer at a ref) | `client/src/compare/CompareApp.tsx`, `RefBar.tsx`, `CompareProgress.tsx`, `api.ts`; entry button in `client/src/App.tsx` |
-| Summary strip (files, lines, imports, net, metrics that moved) | `client/src/compare/SummaryStrip.tsx` |
-| Changed-files table (folder tree or ranked by Δ, unchanged siblings toggle) | `client/src/compare/CompareTable.tsx`, row model in `client/src/compare/rows.ts` |
+| Overview band (before/after refs, files, lines, imports, risk metrics) | `client/src/compare/SummaryStrip.tsx` |
+| Scorecard rail (risk metrics worst-first with better/worse file split, size metrics, new cross-folder imports) | `client/src/compare/Scorecard.tsx` |
+| Changed-files table (verdict, diffstat, before → after with magnitude bars; folders / most regressed / by metric; status, path, regressions filters; keyboard) | `client/src/compare/CompareTable.tsx`, row model in `client/src/compare/rows.ts` |
+| File inspector (worse / better / size moves, imports gained and lost, open before/after) | `client/src/compare/Inspector.tsx` |
+| Shared bits (status icon, diffstat, health, magnitude and split bars), labels/formatting/health | `client/src/compare/bits.tsx`, `client/src/compare/metrics.ts` |
 
 ### Client: app shell and first run
 
