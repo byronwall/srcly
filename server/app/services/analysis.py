@@ -1,7 +1,16 @@
 import os
 import subprocess
-import lizard
 import sys
+
+# Importing lizard puts the directory of sys.argv[0] at the front of sys.path.
+# Under ``python -m uvicorn`` that is uvicorn's package directory, and spawned
+# scan workers inherit sys.path, so its logging.py shadows the stdlib in every
+# worker. lizard has finished its own imports by then, so drop what it added.
+_sys_path_before_lizard = list(sys.path)
+import lizard  # noqa: E402
+
+sys.path[:] = [p for p in sys.path if p in _sys_path_before_lizard]
+del _sys_path_before_lizard
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
