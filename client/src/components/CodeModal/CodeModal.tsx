@@ -23,6 +23,8 @@ interface CodeModalProps {
   onClose: () => void;
   fileNode?: any;
   scopeNode?: any;
+  /** Read the file from this git commit (compare mode) instead of the disk. */
+  gitRef?: string | null;
 }
 
 export default function CodeModal(props: CodeModalProps) {
@@ -46,6 +48,7 @@ export default function CodeModal(props: CodeModalProps) {
   const { rawCode, loading, error, totalLines } = useFileContent({
     isOpen: () => props.isOpen,
     filePath: () => props.filePath,
+    gitRef: () => props.gitRef,
   });
 
   const {

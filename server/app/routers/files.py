@@ -11,11 +11,16 @@ router = APIRouter(prefix="/api/files", tags=["files"])
 # FastAPI runs them in a worker thread instead of on the event loop.
 
 @router.get("/content", response_class=PlainTextResponse)
-def get_file_content(path: str = Query(..., description="Absolute path to the file")):
+def get_file_content(
+    path: str = Query(..., description="Absolute path to the file"),
+    ref: str | None = Query(None, description="Git commit to read the file from instead of the disk"),
+):
     """
-    Get the raw content of a file.
+    Get the raw content of a file, from disk or (with ``ref``) from a git commit.
     """
     file_path = Path(path)
+    if ref:
+        return _content_at_ref(file_path, ref)
     
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
@@ -53,6 +58,21 @@ def get_file_content(path: str = Query(..., description="Absolute path to the fi
             return Response(content=file_path.read_bytes(), media_type=mime_type or "application/octet-stream")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
+
+def _content_at_ref(file_path: Path, ref: str) -> str:
+    """``git show <ref>:<path>``; the file may no longer exist on disk."""
+    from app.services.compare.git_refs import GitError, repo_root, run_git
+
+    existing = file_path
+    while not existing.exists() and existing != existing.parent:
+        existing = existing.parent
+    try:
+        repo = repo_root(existing)
+        rel = file_path.resolve().relative_to(repo).as_posix()
+        return run_git(repo, "show", f"{ref}:{rel}")
+    except (GitError, ValueError) as exc:
+        raise HTTPException(status_code=404, detail=f"File not found at {ref}: {exc}") from exc
+
 
 @router.get("/suggest")
 def suggest_files(path: str = Query(..., description="Path to list contents of")):

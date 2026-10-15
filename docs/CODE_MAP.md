@@ -77,7 +77,9 @@ Browser
 | `POST /api/analysis/refresh` | `routers/analysis.py:refresh_analysis` | Re-scan cwd root |
 | `GET /api/analysis/context` | `routers/analysis.py:get_analysis_context` | Cwd + repo root with rough file counts (first-run screen) |
 | `GET /api/analysis/dependencies` | `routers/analysis.py:get_dependencies` | TS/TSX import graph, tsconfig `paths` aliases |
-| `GET /api/files/content` | `routers/files.py:get_file_content` | Raw file text |
+| `GET /api/files/content` | `routers/files.py:get_file_content` | Raw file text; `ref=<sha>` reads it from a git commit (`git show`) |
+| `GET /api/compare/refs` | `routers/compare.py:list_refs` | Branches + recent commits for the compare ref picker |
+| `POST /api/compare`, `GET /api/compare/{id}`, `GET /api/compare/{id}/result`, `DELETE /api/compare/{id}` | `routers/compare.py` → `services/compare/jobs.py` | Background compare job (polled), payload includes both trees + graphs |
 | `GET /api/files/suggest` | `routers/files.py:suggest_files` | Path autocomplete for the path bar |
 | Pydantic response models | `server/app/models.py` | `Node`, `Metrics`, dependency graph models |
 
@@ -112,6 +114,9 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Ref resolution (`merge-base`, `WORKTREE`), changed files with renames + line counts | `server/app/services/compare/git_refs.py` |
 | Commit snapshots (`git worktree add --detach` in the cache dir), SHA-keyed side cache, repo-relative paths | `server/app/services/compare/snapshots.py` |
 | Per-file metric deltas, better/worse direction table, edge diff, summary | `server/app/services/compare/diff.py` (`COMPARE_METRICS`, `diff_sides`) |
+| Compare mode shell (`?compare=<base>..<head>`, ref picker, progress, code viewer at a ref) | `client/src/compare/CompareApp.tsx`, `RefBar.tsx`, `CompareProgress.tsx`, `api.ts`; entry button in `client/src/App.tsx` |
+| Summary strip (files, lines, imports, net, metrics that moved) | `client/src/compare/SummaryStrip.tsx` |
+| Changed-files table (folder tree or ranked by Δ, unchanged siblings toggle) | `client/src/compare/CompareTable.tsx`, row model in `client/src/compare/rows.ts` |
 
 ### Client: app shell and first run
 

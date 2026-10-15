@@ -12,7 +12,8 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:8000",
+        // SRCLY_API_PORT lets a second dev server run beside the default one.
+        target: `http://localhost:${process.env.SRCLY_API_PORT ?? 8000}`,
         changeOrigin: true,
         // rewrite: (path) => path.replace(/^\/api/, ""),
       },
