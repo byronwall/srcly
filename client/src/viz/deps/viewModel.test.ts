@@ -93,6 +93,22 @@ describe("buildViewModel", () => {
     expect(all.nodes.some((n) => n.kind === "external")).toBe(true);
   });
 
+  it("disambiguates duplicate labels with parent folders", () => {
+    const g: DependencyGraphContract = {
+      root: "",
+      nodes: [
+        { id: "", kind: "folder", name: "repo", parent: null },
+        { id: "routers", kind: "folder", name: "routers", parent: "", path: "routers" },
+        { id: "services", kind: "folder", name: "services", parent: "", path: "services" },
+        { id: "routers/analysis.py", kind: "file", name: "analysis.py", parent: "routers", path: "routers/analysis.py" },
+        { id: "services/analysis.py", kind: "file", name: "analysis.py", parent: "services", path: "services/analysis.py" },
+      ],
+      edges: [{ source: "routers/analysis.py", target: "services/analysis.py" }],
+    };
+    const vm = buildViewModel(buildIndex(g), { focusId: "services/analysis.py", budget: 48 });
+    expect(vm.nodes.map((n) => n.label).sort()).toEqual(["routers/analysis.py", "services/analysis.py"]);
+  });
+
   it("drops type-only edges unless asked for", () => {
     const g = fixture as DependencyGraphContract;
     const typeOnly = g.edges.filter((e) => e.typeOnly);

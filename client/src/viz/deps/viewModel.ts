@@ -56,7 +56,7 @@ export interface ViewOptions {
 
 export const DEFAULT_BUDGET = 48;
 /** Max distinct edges among center units before we stop expanding folders. */
-export const EDGE_BUDGET = 48;
+export const EDGE_BUDGET = 32;
 /** Max edges in the whole view; sides roll up by folder beyond this. */
 export const TOTAL_EDGE_BUDGET = 56;
 
@@ -359,6 +359,7 @@ export function buildViewModel(index: GraphIndex, opts: ViewOptions): ViewModel 
       context: u.region !== "center" && parentFile ? displayName(index, parentFile.id) : undefined,
     });
   }
+  disambiguateLabels(index, nodes);
   nodes.sort((a, b) => a.title.localeCompare(b.title));
 
   const breadcrumbs = [...ancestors(index, focusId), focusId].map((id) => ({
@@ -374,4 +375,34 @@ export function buildViewModel(index: GraphIndex, opts: ViewOptions): ViewModel 
     edges: [...edgeMap.values()].sort((a, b) => a.id.localeCompare(b.id)),
     rolledUp,
   };
+}
+
+/**
+ * Two boxes with the same label (routers/analysis.py vs services/analysis.py)
+ * get parent folders prepended until they differ.
+ */
+function disambiguateLabels(index: GraphIndex, nodes: ViewNode[]): void {
+  const path = (n: ViewNode) => {
+    const g = index.byId.get(n.graphId);
+    const owner = g?.kind === "symbol" && g.parent ? index.byId.get(g.parent) : g;
+    return (owner?.path ?? owner?.name ?? n.label).split("/");
+  };
+  for (let depth = 1; depth <= 3; depth++) {
+    const groups = new Map<string, ViewNode[]>();
+    for (const n of nodes) groups.set(n.label, [...(groups.get(n.label) ?? []), n]);
+    let changed = false;
+    for (const group of groups.values()) {
+      if (group.length < 2 || new Set(group.map((n) => n.graphId)).size < 2) continue;
+      for (const n of group) {
+        if (n.kind === "symbol") continue;
+        const parts = path(n);
+        const label = parts.slice(Math.max(0, parts.length - 1 - depth)).join("/");
+        if (label !== n.label) {
+          n.label = label;
+          changed = true;
+        }
+      }
+    }
+    if (!changed) break;
+  }
 }

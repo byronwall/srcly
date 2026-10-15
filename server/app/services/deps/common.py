@@ -25,15 +25,59 @@ def is_test_path(rel_path: str) -> bool:
     return bool(_TEST_FILE.search(parts[-1]))
 
 
+def _gitignore_spec(root: Path):
+    """PathSpec for .gitignore files from the repo root down, pruning ignored dirs."""
+    from pathspec import PathSpec
+
+    from app.services.analysis import _translate_gitignore_pattern, find_repo_root
+
+    repo_root = find_repo_root(root)
+    patterns: List[str] = []
+    for dirpath, dirnames, filenames in os.walk(repo_root):
+        dirnames[:] = [d for d in dirnames if d not in IGNORE_DIRS and not d.startswith(".")]
+        if ".gitignore" not in filenames:
+            continue
+        base = Path(dirpath)
+        base_rel = "" if base == repo_root else base.relative_to(repo_root).as_posix()
+        try:
+            lines = (base / ".gitignore").read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        for raw in lines:
+            t = _translate_gitignore_pattern(raw, base_rel)
+            if t is not None:
+                patterns.append(t)
+    return repo_root, (PathSpec.from_lines("gitwildmatch", patterns) if patterns else None)
+
+
 def walk_source_files(root: Path, extensions: Set[str]) -> List[Path]:
-    """Source files under root, skipping ignored and hidden directories."""
+    """Source files under root, skipping ignored, hidden and gitignored paths."""
+    root = root.resolve()
+    repo_root, spec = _gitignore_spec(root)
+
+    def ignored(p: Path, is_dir: bool) -> bool:
+        if spec is None:
+            return False
+        try:
+            rel = p.relative_to(repo_root).as_posix()
+        except ValueError:
+            return False
+        return spec.match_file(rel + "/" if is_dir else rel)
+
     out: List[Path] = []
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = sorted(d for d in dirnames if d not in IGNORE_DIRS and not d.startswith("."))
+        base = Path(dirpath)
+        dirnames[:] = sorted(
+            d
+            for d in dirnames
+            if d not in IGNORE_DIRS and not d.startswith(".") and not ignored(base / d, True)
+        )
         for name in sorted(filenames):
             if name.endswith(".d.ts"):
                 continue
-            p = Path(dirpath) / name
+            p = base / name
+            if ignored(p, False):
+                continue
             if p.suffix in extensions:
                 try:
                     if p.stat().st_size > MAX_SOURCE_BYTES:
