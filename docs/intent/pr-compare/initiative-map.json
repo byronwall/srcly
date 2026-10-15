@@ -1,0 +1,390 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "PR compare mode",
+    "slug": "pr-compare",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-15",
+    "summary": "Compare two git commits (PR base vs head) in srcly: focused before/after tree and dependency graph views limited to changed files by default, with per-metric better/worse deltas, all deterministic from disk and git.",
+    "status": "planned",
+    "next_action": "Start m1: snapshots service, SHA cache, pure compare module, srcly compare CLI; prove on aa3ed35."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    }
+  },
+  "sources": [
+    {
+      "id": "req-1",
+      "type": "request",
+      "location": "conversation",
+      "anchor": "initial request 2026-10-15",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "memo-2026-08-23",
+      "type": "transcript",
+      "location": "/Users/byronwall/.v2c-voice-memos/20260823-202007-6B46813F-context/transcript/transcript.txt",
+      "anchor": "Deterministic PR Diagramming via Data-Flow Views",
+      "authority": "prior first-party thinking; broader than this initiative"
+    },
+    {
+      "id": "memo-2026-07-05",
+      "type": "transcript",
+      "location": "/Users/byronwall/.v2c-voice-memos/20260705-210437-CC6EF8BD-context/transcript/transcript.txt",
+      "anchor": "Code Visualization and Data-Flow Mapping (summary only)",
+      "authority": "adjacent background; weak match"
+    },
+    {
+      "id": "repo-cache",
+      "type": "repository",
+      "location": "server/app/services/cache.py",
+      "anchor": "fingerprint / AnalysisCache",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-discover",
+      "type": "repository",
+      "location": "server/app/services/analysis.py",
+      "anchor": "discover_files (git ls-files)",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-depgraph",
+      "type": "repository",
+      "location": "server/app/routers/analysis.py",
+      "anchor": "get_dependency_graph; models.DepGraph",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-deps-client",
+      "type": "repository",
+      "location": "client/src/viz/deps/",
+      "anchor": "viewModel.ts, layout.ts (custom grid layout)",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "init-dependency-view",
+      "type": "initiative",
+      "location": "docs/intent/dependency-view/",
+      "anchor": "active, stacked PRs awaiting merge",
+      "authority": "related initiative"
+    },
+    {
+      "id": "qa-round-1",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "1",
+      "authority": "direct current intent"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "Compare metrics and dependencies between two git commits, typically before/after a PR.",
+        "kind": "goal",
+        "strength": "must",
+        "sources": [
+          "req-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C2",
+        "statement": "Strong left/right (before/after) views of the tree view and the dependency graph.",
+        "kind": "requirement",
+        "strength": "must",
+        "sources": [
+          "req-1",
+          "memo-2026-08-23"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C3",
+        "statement": "The user can tell whether things got better or worse.",
+        "kind": "requirement",
+        "strength": "must",
+        "sources": [
+          "req-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C4",
+        "statement": "Views are truncated/focused to only changed files by default.",
+        "kind": "requirement",
+        "strength": "must",
+        "sources": [
+          "req-1",
+          "memo-2026-08-23"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C5",
+        "statement": "The diagram is generated deterministically from disk and diff with no LLM in the path.",
+        "kind": "constraint",
+        "strength": "must",
+        "sources": [
+          "memo-2026-08-23"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C6",
+        "statement": "Unchanged nodes appear in the same positions on both sides so before/after connectivity is comparable.",
+        "kind": "requirement",
+        "strength": "must",
+        "sources": [
+          "memo-2026-08-23"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C7",
+        "statement": "Widely used changed components should be surfaced as such rather than lighting up everything.",
+        "kind": "requirement",
+        "strength": "should",
+        "sources": [
+          "memo-2026-08-23"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C8",
+        "statement": "Change islands / PR splittability, ripple-frontier, and route/component lenses are longer-horizon ideas.",
+        "kind": "possibility",
+        "strength": "could",
+        "sources": [
+          "memo-2026-08-23"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C9",
+        "statement": "Show changed files with +/- line counts grouped by folder (memo notes GitHub file tree lacks per-file magnitude).",
+        "kind": "possibility",
+        "strength": "should",
+        "sources": [
+          "memo-2026-08-23"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C10",
+        "statement": "Show per-metric deltas plus a neutral net line; no overall verdict.",
+        "kind": "decision",
+        "strength": "must",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C11",
+        "statement": "Side-by-side treemaps are in v1 alongside the Explorer compare table.",
+        "kind": "decision",
+        "strength": "must",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C12",
+        "statement": "Default head is the working tree; base and head must be configurable to arbitrary commits early.",
+        "kind": "decision",
+        "strength": "must",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      }
+    ],
+    "themes": [
+      "before/after alignment",
+      "focus on changed set",
+      "metric direction",
+      "determinism"
+    ],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "One compare mode over existing tree, metrics, and dependency graph. No new analyzers, call graph, or GitHub API.",
+    "problem": "Judging a PR's structural effect today means scanning two checkouts by hand and eyeballing two full-repo views.",
+    "recommended_shape": "Snapshot both commits via detached git worktrees, scan with the normal pipeline cached by SHA, diff server-side into one compare payload, and render focused before/after Explorer and a union-layout dependency graph drawn twice.",
+    "success_moves": [
+      {
+        "id": "S1",
+        "move": "Cache scans by commit SHA instead of mtime fingerprint.",
+        "benefit": "Commits are immutable; repeated compares are instant and the fingerprint walk is skipped."
+      },
+      {
+        "id": "S2",
+        "move": "Pure Python compare module (two trees + two graphs + git name-status -> payload) shared by UI and future CLI.",
+        "benefit": "One definition of better/worse; fixture-testable in pytest with no git or UI."
+      },
+      {
+        "id": "S3",
+        "move": "Union-graph layout computed once, filtered per side.",
+        "benefit": "Guarantees stable positions without a new layout engine; reuses pure grid layout."
+      },
+      {
+        "id": "S4",
+        "move": "First proof is CLI JSON on srcly's own history before any UI.",
+        "benefit": "Proves snapshot path resolution and delta correctness, the riskiest backend pieces, cheaply."
+      },
+      {
+        "id": "S5",
+        "move": "Compare mode is a separate view; single-scan view untouched.",
+        "benefit": "Rollback is removing an entry point; no regression risk to the main view."
+      }
+    ],
+    "first_proof": {
+      "question": "Can srcly snapshot two commits, scan both with correct path resolution, and produce a correct change set with metric deltas and dependency edge diffs at acceptable cost?",
+      "artifact": "CLI JSON for aa3ed35^ -> aa3ed35 on srcly; rename fixture in pytest",
+      "decision_rule": "Deltas match hand-checked sample and both scans < ~2x a normal scan -> build UI on payload. Path resolution breaks in snapshots -> switch to git archive into a mirrored path first."
+    },
+    "rabbit_holes": [
+      "Treemap union layout with max-weight tiles: verify readability when many files are added or removed",
+      "Rename matching for symbols (not just files)",
+      "Hub files lighting up the whole graph",
+      "Working-tree side uses fingerprint cache while commit sides use SHA cache",
+      "Scan time for two full scans on large repos"
+    ],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "planned",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/Projects/srcly",
+      "revision": "11d098c",
+      "worktree_status": "clean",
+      "subsystems": [
+        "server/app/services/analysis.py",
+        "server/app/services/cache.py",
+        "server/app/services/deps/",
+        "client/src/viz/deps/",
+        "client/src/components/Explorer.tsx"
+      ],
+      "test_commands": [
+        "cd server && uv run pytest",
+        "cd client && pnpm test"
+      ],
+      "deployment_surfaces": []
+    },
+    "dependencies": [
+      {
+        "name": "git CLI (worktree add/remove, diff --name-status -M, merge-base)",
+        "first_proof_role": "real",
+        "strategy": "Real local git on srcly repo; pure compare module tested with fixture trees and name-status text."
+      }
+    ],
+    "fast_local_loop": "cd server && uv run pytest tests/test_compare*.py (real throwaway git repo in tmp_path); cd client && pnpm test for union layouts",
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "srcly compare prints a correct compare payload",
+        "outcome": "Headless CLI snapshots two refs, scans both (SHA-cached), and emits change set, metric deltas, and dependency edge diff as JSON.",
+        "dependencies_introduced": [
+          "git CLI worktree/diff"
+        ],
+        "proof": "pytest fixtures (rename/add/delete/inverted metric) + srcly compare aa3ed35^ aa3ed35 lists 15 files with hand-checked deltas; second run from cache; <=2x scan time.",
+        "valid_intermediate_state": "New CLI subcommand only; UI untouched.",
+        "rollback": "Remove the subcommand and compare package.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m2",
+        "title": "Compare mode in the UI with a focused Explorer table",
+        "outcome": "?compare=base..head shows ref picker, summary strip, and changed-files-only Explorer with before->after deltas.",
+        "dependencies_introduced": [],
+        "proof": "Browser check on aa3ed35 compare; vitest compare row model; pytest /api/compare.",
+        "valid_intermediate_state": "Compare mode is a separate URL-gated view; single-scan view unchanged.",
+        "rollback": "Remove the compare entry point.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m3",
+        "title": "Side-by-side treemaps share one layout",
+        "outcome": "Union treemap weighted by max(before, after), drawn twice with fill-to-size and hatched absent slots.",
+        "dependencies_introduced": [],
+        "proof": "vitest identical rects across sides; screenshots of aa3ed35 and 6687816.",
+        "valid_intermediate_state": "Treemap tab added to compare mode; table still works alone.",
+        "rollback": "Hide the treemap tab.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m4",
+        "title": "Dependency graph before and after on one union layout",
+        "outcome": "Union DepGraph focused on changed files + 1 hop, laid out once, rendered twice with removed/added emphasis and hub collapse.",
+        "dependencies_introduced": [],
+        "proof": "vitest identical box positions and zero edge-through-box on union; 88a48f1 compare visual check.",
+        "valid_intermediate_state": "Graph tab added to compare mode.",
+        "rollback": "Hide the graph tab.",
+        "status": "planned",
+        "evidence": []
+      }
+    ],
+    "cut_line": [
+      "change islands",
+      "ripple/frontier view",
+      "route/component lenses",
+      "GitHub PR by number",
+      "symbol-level rename matching",
+      "source diff in code viewer",
+      "more than two refs / branch over time"
+    ],
+    "open_decisions": [
+      "Snapshot path fidelity: worktree under cache dir vs sibling of repo root (decided in m1)",
+      "Treemap max-weight readability with many adds/deletes (spike in m3)"
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-15",
+      "event": "Initiative created from request, 2026-08-23 PR diagramming memo, and repository survey; intent and shape briefs written."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "Question round 1: per-metric + net, treemaps in v1, working-tree default with arbitrary refs. Shape updated: treemap union layout added."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "Implementation plan written: CLI payload first (m1), then Explorer (m2), treemap (m3), dependency graph (m4). Headless compare moved from evaluate into m1."
+    }
+  ],
+  "closure": null
+}
