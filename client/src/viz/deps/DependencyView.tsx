@@ -13,7 +13,6 @@ import {
   type FilterOptions,
 } from "./hierarchy";
 import { layoutView, type ViewLayout } from "./layout";
-import { legacyToContract, type LegacyGraph } from "./legacyAdapter";
 import { buildViewModel, DEFAULT_BUDGET, type ViewNode } from "./viewModel";
 
 const FOCUS_PARAM = "depFocus";
@@ -38,12 +37,11 @@ function writeFocusParam(focus: string | null) {
 }
 
 async function fetchGraph(path: string | undefined): Promise<DependencyGraphContract> {
-  const url = new URL("/api/analysis/dependencies", window.location.origin);
+  const url = new URL("/api/analysis/dependency-graph", window.location.origin);
   if (path) url.searchParams.set("path", path);
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error(`Failed to load dependencies (${res.status})`);
-  const legacy = (await res.json()) as LegacyGraph;
-  return legacyToContract(legacy, path);
+  return (await res.json()) as DependencyGraphContract;
 }
 
 export default function DependencyView(props: {

@@ -85,3 +85,39 @@ class DependencyGraph(BaseModel):
     nodes: List[DependencyNode]
     edges: List[DependencyEdge]
 
+
+# --- Hierarchical dependency graph contract (client/src/viz/deps/contract.ts) ---
+
+class DepGraphNode(BaseModel):
+    """folder | file | symbol | external node in the dependency hierarchy."""
+
+    model_config = {"populate_by_name": True}
+
+    id: str
+    kind: str
+    name: str
+    parent: str | None = None
+    path: str | None = None
+    abs_path: str | None = Field(default=None, alias="absPath")
+    language: str | None = None
+    is_test: bool | None = Field(default=None, alias="isTest")
+    symbol_kind: str | None = Field(default=None, alias="symbolKind")
+    line: int | None = None
+
+
+class DepGraphEdge(BaseModel):
+    """importer → imported; endpoints are file, symbol or external ids."""
+
+    model_config = {"populate_by_name": True}
+
+    source: str
+    target: str
+    type_only: bool | None = Field(default=None, alias="typeOnly")
+    via_barrel: bool | None = Field(default=None, alias="viaBarrel")
+    symbols: List[str] | None = None
+
+
+class DepGraph(BaseModel):
+    root: str
+    nodes: List[DepGraphNode]
+    edges: List[DepGraphEdge]
