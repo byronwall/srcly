@@ -113,10 +113,12 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Feature | Where |
 | --- | --- |
 | `srcly compare [base] [head]` (markdown summary, `--json`, `--out`) | `server/app/run.py` (`_run_compare`) → `server/app/services/compare/service.py` (`build_compare`, `render_markdown`) |
-| Ref resolution (`merge-base`, `WORKTREE`), changed files with renames + line counts | `server/app/services/compare/git_refs.py` |
+| Ref resolution (`merge-base`, `WORKTREE`, `pr:<n>` with its own base and an objects-only fetch of a missing head), changed files with renames + line counts | `server/app/services/compare/git_refs.py` |
+| GitHub PR metadata via the `gh` CLI (`run_gh` seam with timeout + failure reasons, `list_prs`, `pr_info`, 60s cache, checks summary) | `server/app/services/compare/github.py` |
+| Phase and per-side step timings (`StepTimer`: resolving/base/head/diffing; cache/checkout/scan/graph/cleanup) | `server/app/services/compare/service.py`, job snapshot in `jobs.py`, shown by `client/src/compare/CompareProgress.tsx` and `SummaryStrip.tsx` |
 | Commit snapshots (`git worktree add --detach` in the cache dir), SHA-keyed side cache, repo-relative paths | `server/app/services/compare/snapshots.py` |
 | Per-file metric deltas, better/worse direction table, edge diff, summary | `server/app/services/compare/diff.py` (`COMPARE_METRICS`, `diff_sides`) |
-| Compare mode shell (`?compare=<base>..<head>`, ref picker, progress, code viewer at a ref) | `client/src/compare/CompareApp.tsx`, `RefBar.tsx`, `CompareProgress.tsx`, `api.ts`; entry button in `client/src/App.tsx` |
+| Compare mode shell (`?compare=<base>..<head>`, compared repo from the shared `repo` param, ref picker, progress, code viewer at a ref) | `client/src/compare/CompareApp.tsx`, `RefBar.tsx`, `CompareProgress.tsx`, `api.ts`; entry button in `client/src/App.tsx` |
 | Overview band (before/after refs, files, lines, imports, risk metrics) | `client/src/compare/SummaryStrip.tsx` |
 | Scorecard rail (risk metrics worst-first with better/worse file split, size metrics, new cross-folder imports) | `client/src/compare/Scorecard.tsx` |
 | Changed-files table (verdict, diffstat, before → after with magnitude bars; folders / most regressed / by metric; status, path, regressions filters; keyboard) | `client/src/compare/CompareTable.tsx`, row model in `client/src/compare/rows.ts` |

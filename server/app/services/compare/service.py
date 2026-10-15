@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+import time
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -17,8 +19,49 @@ DEFAULT_BASE = MERGE_BASE
 DEFAULT_HEAD = WORKTREE
 
 
+class StepTimer:
+    """
+    Wall-clock seconds per named step, in groups (``phases``, ``base``, ``head``).
+    Entering a step closes the group's running one; a snapshot includes the
+    running step's time so far, so progress can show it live.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._done: dict[str, dict[str, float]] = {}
+        self._running: dict[str, tuple[str, float]] = {}
+
+    def enter(self, group: str, step: Optional[str]) -> None:
+        now = time.monotonic()
+        with self._lock:
+            running = self._running.pop(group, None)
+            if running is not None:
+                name, since = running
+                steps = self._done.setdefault(group, {})
+                steps[name] = steps.get(name, 0.0) + now - since
+            if step is not None:
+                self._running[group] = (step, now)
+                self._done.setdefault(group, {})
+
+    def close(self, group: str) -> None:
+        self.enter(group, None)
+
+    def close_all(self) -> None:
+        for group in list(self._running):
+            self.close(group)
+
+    def snapshot(self) -> dict[str, dict[str, float]]:
+        now = time.monotonic()
+        with self._lock:
+            out = {group: dict(steps) for group, steps in self._done.items()}
+            for group, (name, since) in self._running.items():
+                steps = out.setdefault(group, {})
+                steps[name] = steps.get(name, 0.0) + now - since
+        return {group: {k: round(v, 3) for k, v in steps.items()} for group, steps in out.items()}
+
+
 def _side_meta(side: Side) -> dict[str, Any]:
-    return {
+    meta = {
         "ref": side.ref.ref,
         "sha": side.ref.sha,
         "label": side.ref.label,
@@ -27,6 +70,9 @@ def _side_meta(side: Side) -> dict[str, Any]:
         "scanSeconds": side.scan_seconds,
         "cached": side.cached,
     }
+    if side.ref.pr is not None:
+        meta["pr"] = side.ref.pr
+    return meta
 
 
 def build_compare(
@@ -39,6 +85,7 @@ def build_compare(
     cancel: Optional[CancelToken] = None,
     observers: Optional[dict[str, ScanObserver]] = None,
     on_phase: Callable[[str], None] = lambda _phase: None,
+    timer: Optional[StepTimer] = None,
 ) -> dict[str, Any]:
     """
     Compare ``base`` → ``head`` for the git repo containing ``path``.
@@ -46,19 +93,34 @@ def build_compare(
     ``include_sides`` adds both full trees and graphs (what the UI draws);
     the CLI omits them by default to keep the JSON small.
     """
+    timer = timer or StepTimer()
+
+    def phase(name: str) -> None:
+        on_phase(name)
+        timer.enter("phases", name)
+
     repo = repo_root(path)
-    on_phase("resolving")
-    base_ref = resolve_ref(repo, base)
-    head_ref = resolve_ref(repo, head)
+    phase("resolving")
+    base_ref = resolve_ref(repo, base, side="base")
+    head_ref = resolve_ref(repo, head, side="head")
     changes = list_changes(repo, base_ref, head_ref)
 
     observers = observers or {}
-    on_phase("base")
-    base_side = load_side(repo, base_ref, cancel=cancel, observer=observers.get("base", NULL_OBSERVER), force=force)
-    on_phase("head")
-    head_side = load_side(repo, head_ref, cancel=cancel, observer=observers.get("head", NULL_OBSERVER), force=force)
+    sides: dict[str, Side] = {}
+    for name, ref in (("base", base_ref), ("head", head_ref)):
+        phase(name)
+        sides[name] = load_side(
+            repo,
+            ref,
+            cancel=cancel,
+            observer=observers.get(name, NULL_OBSERVER),
+            force=force,
+            on_step=lambda step, name=name: timer.enter(name, step),
+        )
+        timer.close(name)
+    base_side, head_side = sides["base"], sides["head"]
 
-    on_phase("diffing")
+    phase("diffing")
     payload: dict[str, Any] = {
         "format": COMPARE_FORMAT,
         "repo": {"root": str(repo), "name": repo.name},
@@ -66,6 +128,8 @@ def build_compare(
         "head": _side_meta(head_side),
         **diff_sides(base_side.tree, head_side.tree, base_side.graph, head_side.graph, changes),
     }
+    timer.close_all()
+    payload["timings"] = timer.snapshot()
     if include_sides:
         payload["trees"] = {"base": base_side.tree, "head": head_side.tree}
         payload["graphs"] = {"base": base_side.graph, "head": head_side.graph}
@@ -76,9 +140,11 @@ def render_markdown(payload: dict[str, Any], *, limit: int = 40) -> str:
     """A compact human summary of a compare payload for the terminal."""
     base, head, summary = payload["base"], payload["head"], payload["summary"]
     files = summary["files"]
-    lines = [
-        f"# srcly compare: {base['label']} → {head['label']}",
-        "",
+    lines = [f"# srcly compare: {base['label']} → {head['label']}", ""]
+    pr = head.get("pr") or base.get("pr")
+    if pr:
+        lines += [f"PR #{pr['number']} {pr['title']}: {pr['headRefName']} → {pr['baseRefName']} ({pr['url']})", ""]
+    lines += [
         f"{files['total']} files changed: {files['added']} added, {files['removed']} removed, "
         f"{files['modified']} modified, {files['renamed']} renamed "
         f"(+{summary['lines']['additions']} / -{summary['lines']['deletions']} lines)",

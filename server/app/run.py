@@ -259,13 +259,19 @@ def _run_headless(argv: list[str]) -> None:
         "base",
         nargs="?",
         default="merge-base",
-        help="Base ref. Defaults to merge-base (of the default branch and HEAD).",
+        help=(
+            "Base ref. Defaults to merge-base (of the default branch and HEAD). "
+            "pr:<n> means that PR's merge-base with its own base branch."
+        ),
     )
     compare_parser.add_argument(
         "head",
         nargs="?",
-        default="WORKTREE",
-        help="Head ref. Defaults to WORKTREE (files on disk, including uncommitted edits).",
+        default=None,
+        help=(
+            "Head ref. Defaults to WORKTREE (files on disk, including uncommitted edits), "
+            "or to pr:<n> when the base is pr:<n>. pr:<n> means that PR's head commit (read via gh)."
+        ),
     )
     compare_parser.add_argument("--repo", default=None, help="Path inside the git repo. Defaults to the cwd.")
     compare_parser.add_argument("--json", action="store_true", help="Print the compare payload as JSON.")
@@ -374,21 +380,29 @@ def _run_headless(argv: list[str]) -> None:
 
 
 def _run_compare(args) -> None:
-    from app.services.compare.git_refs import GitError
+    from app.services.compare.git_refs import PR_REF, WORKTREE, GitError
     from app.services.compare.service import build_compare, render_markdown
 
     repo_path = Path(args.repo).resolve() if args.repo else Path(os.getcwd())
+    # `srcly compare pr:42` alone means the whole PR.
+    head = args.head or (args.base if PR_REF.match(args.base) else WORKTREE)
     try:
         payload = build_compare(
             repo_path,
             args.base,
-            args.head,
+            head,
             include_sides=args.include_sides,
             force=args.refresh,
             on_phase=lambda phase: print(f"srcly compare: {phase}", file=sys.stderr, flush=True),
         )
     except GitError as exc:
         raise SystemExit(str(exc)) from exc
+    timings = payload.get("timings", {})
+    for group in ("phases", "base", "head"):
+        steps = timings.get(group) or {}
+        if steps:
+            text = ", ".join(f"{name} {seconds:.2f}s" for name, seconds in steps.items())
+            print(f"srcly compare: {group} timings: {text}", file=sys.stderr, flush=True)
     if args.out:
         out_path = Path(args.out).resolve()
         out_path.parent.mkdir(parents=True, exist_ok=True)

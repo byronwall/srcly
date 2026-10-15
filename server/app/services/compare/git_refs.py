@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 WORKTREE = "WORKTREE"
 """Pseudo-ref for the files on disk, including uncommitted and untracked edits."""
 MERGE_BASE = "merge-base"
 """Pseudo-ref for ``git merge-base <default branch> HEAD``."""
+PR_REF = re.compile(r"^(?:pr:|#)(\d+)$")
+"""``pr:<n>`` (or ``#<n>``): a GitHub PR. Head side is its head commit; base side is its merge-base."""
 
 ChangeStatus = Literal["added", "removed", "modified", "renamed"]
 
@@ -28,6 +31,8 @@ class ResolvedRef:
     label: str
     """Short display name: ``abc1234`` or ``working tree``."""
     subject: str = ""
+    pr: Optional[dict[str, Any]] = field(default=None, compare=False, hash=False)
+    """PR context (number, title, url, branches, author) for a ``pr:<n>`` ref."""
 
     @property
     def is_worktree(self) -> bool:
@@ -96,15 +101,119 @@ def default_branch(repo: Path) -> str:
     raise GitError("Could not find a default branch (origin/HEAD, main, or master)")
 
 
-def resolve_ref(repo: Path, ref: str) -> ResolvedRef:
+Side = Literal["base", "head"]
+
+
+def resolve_ref(repo: Path, ref: str, side: Side = "head") -> ResolvedRef:
+    """
+    Resolve ``ref`` to a commit (or the working tree). ``side`` matters only for
+    ``pr:<n>``: the head side is the PR's head commit, the base side is the
+    merge-base of the PR's own base branch and that head, as GitHub diffs it.
+    """
     if ref == WORKTREE:
         return ResolvedRef(ref=ref, sha=None, label="working tree")
+    match = PR_REF.match(ref.strip())
+    if match:
+        return _resolve_pr(repo, ref, int(match.group(1)), side)
     target = ref
     if ref == MERGE_BASE:
         target = run_git(repo, "merge-base", default_branch(repo), "HEAD").strip()
     sha = run_git(repo, "rev-parse", "--verify", f"{target}^{{commit}}").strip()
     subject = run_git(repo, "log", "-1", "--format=%s", sha).strip()
     return ResolvedRef(ref=ref, sha=sha, label=sha[:7], subject=subject)
+
+
+def _has_commit(repo: Path, sha: str) -> bool:
+    try:
+        run_git(repo, "cat-file", "-e", f"{sha}^{{commit}}")
+        return True
+    except GitError:
+        return False
+
+
+def _fetch_objects(repo: Path, *refspecs: str) -> None:
+    """
+    Fetch commits from ``origin`` without touching any ref: no branch, no
+    remote-tracking ref (``--refmap=``), no FETCH_HEAD, no tags. Objects only.
+    """
+    run_git(
+        repo,
+        "fetch",
+        "--quiet",
+        "--no-tags",
+        "--no-write-fetch-head",
+        "--refmap=",
+        "origin",
+        *refspecs,
+    )
+
+
+def pr_context(pr: dict[str, Any]) -> dict[str, Any]:
+    author = pr.get("author") or {}
+    return {
+        "number": pr["number"],
+        "title": pr.get("title", ""),
+        "url": pr.get("url", ""),
+        "headRefName": pr.get("headRefName", ""),
+        "baseRefName": pr.get("baseRefName", ""),
+        "author": author.get("login", "") if isinstance(author, dict) else str(author),
+        "isDraft": bool(pr.get("isDraft")),
+        "changedFiles": pr.get("changedFiles"),
+    }
+
+
+def _resolve_pr(repo: Path, ref: str, number: int, side: Side) -> ResolvedRef:
+    from app.services.compare import github
+
+    try:
+        pr = github.pr_info(repo, number)
+    except github.GhUnavailable as exc:
+        raise GitError(f"Could not read PR #{number}: {exc.reason}") from exc
+
+    head_sha = pr.get("headRefOid") or ""
+    base_name = pr.get("baseRefName") or ""
+    base_oid = pr.get("baseRefOid") or ""
+    if not head_sha:
+        raise GitError(f"PR #{number} has no head commit")
+
+    missing = [s for s in (head_sha, base_oid) if s and not _has_commit(repo, s)]
+    if missing:
+        specs = []
+        if head_sha in missing:
+            specs.append(f"refs/pull/{number}/head")
+        if base_oid in missing and base_name:
+            specs.append(f"refs/heads/{base_name}")
+        try:
+            _fetch_objects(repo, *specs)
+        except GitError as exc:
+            if not _has_commit(repo, head_sha):
+                raise GitError(f"PR #{number}'s head {head_sha[:7]} is not local and could not be fetched: {exc}") from exc
+    if not _has_commit(repo, head_sha):
+        raise GitError(f"PR #{number}'s head {head_sha[:7]} is not available locally")
+
+    if side == "head":
+        # The PR title says more than the head commit's subject.
+        sha = head_sha
+        label = f"#{number}"
+        subject = pr.get("title", "")
+    else:
+        # GitHub diffs a PR against merge-base(base branch tip, head). The tip
+        # GitHub reports is exact; local branch names are fallbacks for when
+        # that commit can't be fetched.
+        sha = ""
+        for candidate in (base_oid, f"origin/{base_name}", base_name):
+            if not candidate:
+                continue
+            try:
+                sha = run_git(repo, "merge-base", candidate, head_sha).strip()
+                break
+            except GitError:
+                continue
+        if not sha:
+            raise GitError(f"Could not find PR #{number}'s base branch {base_name!r} locally")
+        label = sha[:7]
+        subject = run_git(repo, "log", "-1", "--format=%s", sha).strip()
+    return ResolvedRef(ref=ref, sha=sha, label=label, subject=subject, pr=pr_context(pr))
 
 
 _STATUS = {"A": "added", "D": "removed", "M": "modified", "T": "modified", "R": "renamed", "C": "added"}

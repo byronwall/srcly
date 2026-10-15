@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 from app.services.compare.git_refs import GitError
-from app.services.compare.service import build_compare
+from app.services.compare.service import StepTimer, build_compare
 from app.services.scan_progress import ScanObserver
 from app.services.scan_workers import CancelToken, ScanCancelled
 
@@ -63,6 +63,7 @@ class CompareJob:
     progress: dict[str, SideProgress] = field(
         default_factory=lambda: {"base": SideProgress(), "head": SideProgress()}
     )
+    timer: StepTimer = field(default_factory=StepTimer)
     result_json: Optional[bytes] = None
     _done: threading.Event = field(default_factory=threading.Event)
 
@@ -80,6 +81,9 @@ class CompareJob:
             "error": self.error,
             "elapsed_seconds": round(end - self.started, 3),
             "sides": {name: p.snapshot() for name, p in self.progress.items()},
+            # Seconds per phase, and per step inside each side (cache, checkout,
+            # scan, graph, cleanup). A side with only a ``cache`` step was a hit.
+            "timings": self.timer.snapshot(),
         }
 
     def wait(self, timeout: Optional[float] = None) -> bool:
@@ -96,6 +100,7 @@ class CompareJob:
                 cancel=self.cancel_token,
                 observers=self.progress,
                 on_phase=self._set_phase,
+                timer=self.timer,
             )
             self.result_json = json.dumps(payload, separators=(",", ":")).encode()
             self._finish("complete")
@@ -112,6 +117,7 @@ class CompareJob:
         self.phase = phase  # type: ignore[assignment]
 
     def _finish(self, phase: ComparePhase, error: Optional[str] = None) -> None:
+        self.timer.close_all()
         self.error = error
         self.finished = time.monotonic()
         self.phase = phase
