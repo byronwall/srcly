@@ -6,7 +6,7 @@ import {
 } from "../../../utils/metricsStore";
 import FileTypeFilter from "../../../components/FileTypeFilter";
 import { MetricPicker } from "../../../components/MetricPicker";
-import { TREEMAP_RAMP } from "../utils/colors";
+import { TREEMAP_GRADIENT } from "../utils/colors";
 import type { Crumb, View } from "../../../navigation/location";
 import { Button } from "../../../components/ui/Button";
 
@@ -134,7 +134,7 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
           </div>
           <div
             class="h-2.5 rounded-full border border-[var(--plc-border)]"
-            style={{ background: `linear-gradient(90deg, ${TREEMAP_RAMP.join(", ")})` }}
+            style={{ background: TREEMAP_GRADIENT }}
           />
           <div class="mt-1 flex justify-between text-[11px] text-[var(--plc-on-subtle)]">
             <span>Fine</span>

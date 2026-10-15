@@ -7,14 +7,33 @@ export type Metrics = Record<string, any>;
 
 /**
  * One sequential "attention" ramp for every metric: calm blue (fine) through
- * amber to rose (look here). Metrics differ only in where the stops sit, so a
- * color means the same thing whichever metric drives the treemap. Exported
- * so the legend renders the exact same stops.
+ * amber to red (look here). Metrics differ only in where the stops sit, so a
+ * color means the same thing whichever metric drives the treemap.
+ *
+ * Interpolated in Lab so steps look even. The pale middle stop keeps the
+ * blue → amber leg from passing through gray (Lab) or green (HCL).
  */
-export const TREEMAP_RAMP = ["#dbeafe", "#fde68a", "#fecaca"] as const;
+export const TREEMAP_RAMP = ["#bfdbfe", "#e9eef3", "#fcd34d", "#fb923c", "#f87171"] as const;
 
-const ramp = (domain: [number, number, number]) =>
-  d3.scaleLinear<string>().domain(domain).range(TREEMAP_RAMP).clamp(true);
+const interpolateRamp = d3.piecewise(d3.interpolateLab, [...TREEMAP_RAMP]);
+
+/** Ramp color at `t` in [0, 1]; 0.5 is the amber midpoint. */
+export function rampColor(t: number): string {
+  const clamped = Math.min(1, Math.max(0, Number.isFinite(t) ? t : 0));
+  return d3.color(interpolateRamp(clamped))?.formatHex() ?? TREEMAP_RAMP[0];
+}
+
+/** CSS gradient sampled from the same interpolation, for legends. */
+export const TREEMAP_GRADIENT = `linear-gradient(90deg, ${d3
+  .range(0, 1.0001, 0.125)
+  .map(rampColor)
+  .join(", ")})`;
+
+/** A metric's scale: `domain` is [fine, midpoint, needs attention]. */
+export const ramp = (domain: [number, number, number]) => {
+  const t = d3.scaleLinear().domain(domain).range([0, 0.5, 1]).clamp(true);
+  return (value: number) => rampColor(t(value));
+};
 
 const complexityColor = ramp([0, 10, 50]);
 // Inverted: little or no commenting is what deserves attention.
@@ -22,12 +41,13 @@ const commentDensityColor = ramp([0.5, 0.2, 0]);
 const nestingDepthColor = ramp([0, 3, 8]);
 const todoCountColor = ramp([0, 1, 5]);
 
+/** Nested scopes brighten a touch per level, enough to read nesting without washing out. */
+export const DEPTH_BRIGHTEN_PER_LEVEL = 0.05;
+
 export function applyDepthEffect(color: string, depth: number): string {
-  // We want deeper nodes to be lighter/brighter to simulate being "higher".
-  // Using a small factor per depth level.
   const c = d3.color(color);
   if (!c) return color;
-  return c.brighter(depth * 0.15).formatHex();
+  return c.brighter(depth * DEPTH_BRIGHTEN_PER_LEVEL).formatHex();
 }
 
 function metricColorFromScales(

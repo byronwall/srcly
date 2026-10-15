@@ -41,6 +41,16 @@ const FOLDER_STROKE = "#cbd5e1";
 const LEAF_STROKE = "#ffffff";
 const ACTIVE_STROKE = "#2563eb";
 const HIT_KEYS = new Set(["ArrowDown", "ArrowLeft", "ArrowRight", "ArrowUp"]);
+// Folder headers stay in the UI face; file and scope names are code, so mono.
+const FOLDER_FONT = '"Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif';
+const CODE_FONT = '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
+const FALLBACK_FOLDER_LABEL = "#0f172a";
+
+/** The design token for strong text, read once (canvas can't use CSS vars). */
+function folderLabelColor(): string {
+  const value = getComputedStyle(document.documentElement).getPropertyValue("--plc-on-surface").trim();
+  return value || FALLBACK_FOLDER_LABEL;
+}
 
 function tileKey(node: TreemapTile | null): string | null {
   if (!node) return null;
@@ -77,7 +87,7 @@ function labelStyle(node: TreemapTile) {
       ? Math.min(12, Math.max(8, minDim / 7))
       : Math.min(13, Math.max(8, minDim / 6));
   const roundedFontSize = Math.round(fontSize * 2) / 2;
-  const weight = kind === "folder" ? "700" : "400";
+  const weight = kind === "folder" ? "650" : kind === "file" ? "500" : "400";
   const x = kind === "chunk" ? 2 : 4;
   const y = kind === "chunk" ? 10 : 13;
   const maxWidth = width - x - 4;
@@ -87,7 +97,7 @@ function labelStyle(node: TreemapTile) {
     y,
     maxWidth,
     fontSize: roundedFontSize,
-    font: `${weight} ${roundedFontSize}px sans-serif`,
+    font: `${weight} ${roundedFontSize}px ${kind === "folder" ? FOLDER_FONT : CODE_FONT}`,
   };
 }
 
@@ -100,6 +110,7 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
   let paintedMetric = "";
   let animations: Animation[] = [];
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const folderLabel = folderLabelColor();
 
   function finishMotion() {
     for (const animation of animations) animation.cancel();
@@ -152,7 +163,6 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
     if (!context) return;
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     context.clearRect(0, 0, width, height);
-    context.font = "12px sans-serif";
     const nodes = visibleNodes();
     const hoveredNode = hovered();
 
@@ -200,13 +210,8 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
           context.font = label.font;
           context.textBaseline = "alphabetic";
           const textColor = label.kind === "folder"
-            ? "#888888"
-            : treemapLabelColor(
-                props.metricId(),
-                data?.metrics ?? {},
-                relativeDepth(node),
-                label.kind === "chunk" ? 0.7 : 1
-              );
+            ? folderLabel
+            : treemapLabelColor(props.metricId(), data?.metrics ?? {}, relativeDepth(node));
           context.fillStyle = textColor;
           context.fillText(text, node.x0 + label.x, node.y0 + label.y);
         }
@@ -325,6 +330,14 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
   });
 
   onMount(() => {
+    // Canvas text doesn't wait for web fonts: load the label faces, then repaint.
+    void Promise.all(
+      ["650 12px " + FOLDER_FONT, "500 12px " + CODE_FONT, "400 12px " + CODE_FONT].map((font) =>
+        document.fonts?.load(font)
+      )
+    )
+      .then(() => schedulePaint())
+      .catch(() => {});
     const onWindowResize = () => schedulePaint();
     reducedMotion.addEventListener("change", finishMotion);
     window.addEventListener("resize", onWindowResize);
