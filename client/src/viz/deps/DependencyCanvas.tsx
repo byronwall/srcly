@@ -1,0 +1,360 @@
+import * as d3 from "d3";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { truncateTextToWidth } from "../../utils/svgText";
+import { boundsOf } from "./geometry";
+import { MAX_SCALE, type PositionedEdge, type PositionedNode, type ViewLayout } from "./layout";
+import type { Region, ViewNode } from "./viewModel";
+
+const LABEL_FONT = "500 12px Inter, ui-sans-serif, system-ui, sans-serif";
+const PAD_X = 8;
+const ICON_W = 16;
+const COUNT_W = 30;
+
+export interface CanvasApi {
+  fit: () => void;
+}
+
+const REGION_TITLE: Record<Region, string> = {
+  in: "Imported by",
+  center: "Focus",
+  out: "Imports",
+};
+
+function edgePath(e: PositionedEdge): string {
+  return e.points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join("");
+}
+
+function strokeWidth(weight: number, faint: boolean): number {
+  if (faint) return 1;
+  return Math.min(4.5, 1.25 + Math.log2(weight) * 0.75);
+}
+
+function KindGlyph(props: { node: ViewNode; x: number; y: number }) {
+  const k = () => props.node.kind;
+  return (
+    <g transform={`translate(${props.x},${props.y})`} class="text-[var(--plc-on-subtle)]" aria-hidden="true">
+      <Show when={k() === "folder"}>
+        <path d="M0.5 2.5h4l1.5 1.5h6v6.5h-11.5z" fill="none" stroke="currentColor" stroke-width="1.1" />
+      </Show>
+      <Show when={k() === "file"}>
+        <path d="M2 0.5h5l3 3v7.5h-8z M7 0.5v3h3" fill="none" stroke="currentColor" stroke-width="1.1" />
+      </Show>
+      <Show when={k() === "external"}>
+        <path d="M1 3l5-2.5 5 2.5v6l-5 2.5-5-2.5z M1 3l5 2.5 5-2.5 M6 5.5v6" fill="none" stroke="currentColor" stroke-width="1.1" />
+      </Show>
+      <Show when={k() === "symbol"}>
+        <text x="1" y="10" font-size="11" font-style="italic" font-weight="600" fill="currentColor">ƒ</text>
+      </Show>
+    </g>
+  );
+}
+
+export function DependencyCanvas(props: {
+  layout: ViewLayout;
+  onFocus: (node: ViewNode) => void;
+  onOpen: (node: ViewNode) => void;
+  ref?: (api: CanvasApi) => void;
+}) {
+  let svgRef!: SVGSVGElement;
+  let gRef!: SVGGElement;
+  const [hoverNode, setHoverNode] = createSignal<string | null>(null);
+  const [hoverEdge, setHoverEdge] = createSignal<string | null>(null);
+  const [card, setCard] = createSignal<{ x: number; y: number; node?: PositionedNode; edge?: PositionedEdge } | null>(null);
+
+  const zoom = d3
+    .zoom<SVGSVGElement, unknown>()
+    .scaleExtent([0.15, 4])
+    .on("zoom", (ev) => {
+      gRef.setAttribute("transform", ev.transform.toString());
+      setCard(null);
+    });
+
+  const fit = (animate = true) => {
+    if (!svgRef) return;
+    const { width, height } = svgRef.getBoundingClientRect();
+    const b = boundsOf(props.layout.nodes, props.layout.edges);
+    if (b.width === 0 || width === 0) return;
+    const margin = 32;
+    const scale = Math.min(MAX_SCALE, (width - margin * 2) / b.width, (height - margin * 2 - 20) / b.height);
+    const tx = (width - b.width * scale) / 2 - b.x * scale;
+    const ty = (height - b.height * scale) / 2 - b.y * scale + 10;
+    const t = d3.zoomIdentity.translate(tx, ty).scale(scale);
+    const sel = d3.select(svgRef);
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (animate && !reduce) sel.transition().duration(220).call(zoom.transform, t);
+    else sel.call(zoom.transform, t);
+  };
+
+  onMount(() => {
+    d3.select(svgRef).call(zoom).on("dblclick.zoom", null);
+    props.ref?.({ fit: () => fit(true) });
+    const ro = new ResizeObserver(() => fit(false));
+    ro.observe(svgRef);
+    onCleanup(() => ro.disconnect());
+  });
+
+  createEffect(() => {
+    void props.layout;
+    queueMicrotask(() => fit(true));
+  });
+
+  const nodeById = createMemo(() => new Map(props.layout.nodes.map((n) => [n.id, n])));
+
+  // Edges touching the hovered node (or the hovered edge itself) are emphasized.
+  const activeEdges = createMemo(() => {
+    const hn = hoverNode();
+    const he = hoverEdge();
+    if (!hn && !he) return null;
+    const set = new Set<string>();
+    for (const e of props.layout.edges) {
+      if (e.id === he || e.source === hn || e.target === hn) set.add(e.id);
+    }
+    return set;
+  });
+  const activeNodes = createMemo(() => {
+    const ae = activeEdges();
+    if (!ae) return null;
+    const set = new Set<string>();
+    const hn = hoverNode();
+    if (hn) set.add(hn);
+    for (const e of props.layout.edges) {
+      if (ae.has(e.id)) {
+        set.add(e.source);
+        set.add(e.target);
+      }
+    }
+    return set;
+  });
+
+  // Column headers above each region.
+  const regionHeaders = createMemo(() => {
+    const out: { region: Region; x: number; y: number; width: number }[] = [];
+    const regions = new Set(props.layout.nodes.map((n) => n.node.region));
+    if (regions.size < 2) return out;
+    const top = Math.min(...props.layout.nodes.map((n) => n.y));
+    for (const region of ["in", "center", "out"] as Region[]) {
+      const ns = props.layout.nodes.filter((n) => n.node.region === region);
+      if (ns.length === 0) continue;
+      const x0 = Math.min(...ns.map((n) => n.x));
+      const x1 = Math.max(...ns.map((n) => n.x + n.width));
+      out.push({ region, x: x0, y: top - 14, width: x1 - x0 });
+    }
+    return out;
+  });
+
+  const showCard = (ev: MouseEvent, payload: { node?: PositionedNode; edge?: PositionedEdge }) => {
+    const host = svgRef.getBoundingClientRect();
+    setCard({ x: ev.clientX - host.left + 14, y: ev.clientY - host.top + 14, ...payload });
+  };
+
+  const labelFor = (n: PositionedNode) => {
+    const hasCount = n.node.memberCount > 1;
+    const max = n.width - PAD_X * 2 - ICON_W - (hasCount ? COUNT_W : 0);
+    return truncateTextToWidth(n.node.label, max, LABEL_FONT);
+  };
+
+  return (
+    <div class="relative h-full w-full overflow-hidden bg-[var(--plc-surface-subtle)]">
+      <svg
+        ref={svgRef}
+        class="h-full w-full cursor-grab select-none active:cursor-grabbing"
+        role="img"
+        aria-label="Dependency graph"
+      >
+        <defs>
+          <marker id="dv-arrow" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto">
+            <path d="M0,0.8 L7.5,4 L0,7.2 z" fill="var(--plc-tertiary)" />
+          </marker>
+          <marker id="dv-arrow-active" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto">
+            <path d="M0,0.8 L7.5,4 L0,7.2 z" fill="var(--plc-accent)" />
+          </marker>
+        </defs>
+        <g ref={gRef}>
+          <For each={regionHeaders()}>
+            {(h) => (
+              <text
+                x={h.x + h.width / 2}
+                y={h.y}
+                text-anchor="middle"
+                class="fill-[var(--plc-on-subtle)] text-[11px] font-semibold uppercase tracking-wide"
+              >
+                {REGION_TITLE[h.region]}
+              </text>
+            )}
+          </For>
+
+          <g fill="none">
+            <For each={props.layout.edges}>
+              {(e) => {
+                const active = () => activeEdges()?.has(e.id) ?? false;
+                const dimmed = () => activeEdges() !== null && !active();
+                return (
+                  <g>
+                    <path
+                      d={edgePath(e)}
+                      stroke={active() ? "var(--plc-accent)" : "var(--plc-tertiary)"}
+                      stroke-width={strokeWidth(e.edge.weight, e.edge.faint)}
+                      stroke-opacity={dimmed() ? 0.12 : e.edge.faint && !active() ? 0.35 : 0.9}
+                      stroke-dasharray={e.edge.faint ? "3 3" : undefined}
+                      stroke-linejoin="round"
+                      marker-end={active() ? "url(#dv-arrow-active)" : "url(#dv-arrow)"}
+                      style={{ transition: "stroke 140ms ease, stroke-opacity 140ms ease" }}
+                    />
+                    {/* Wide invisible hit area for hover. */}
+                    <path
+                      d={edgePath(e)}
+                      stroke="transparent"
+                      stroke-width="8"
+                      onMouseEnter={(ev) => {
+                        setHoverEdge(e.id);
+                        showCard(ev, { edge: e });
+                      }}
+                      onMouseMove={(ev) => showCard(ev, { edge: e })}
+                      onMouseLeave={() => {
+                        setHoverEdge(null);
+                        setCard(null);
+                      }}
+                    />
+                  </g>
+                );
+              }}
+            </For>
+          </g>
+
+          <For each={props.layout.nodes}>
+            {(n) => {
+              const isFocus = n.node.isFocus;
+              const dimmed = () => activeNodes() !== null && !activeNodes()!.has(n.id);
+              return (
+                <g
+                  transform={`translate(${n.x},${n.y})`}
+                  class="cursor-pointer"
+                  style={{ opacity: dimmed() ? 0.35 : 1, transition: "opacity 140ms ease" }}
+                  onMouseEnter={(ev) => {
+                    setHoverNode(n.id);
+                    showCard(ev, { node: n });
+                  }}
+                  onMouseMove={(ev) => showCard(ev, { node: n })}
+                  onMouseLeave={() => {
+                    setHoverNode(null);
+                    setCard(null);
+                  }}
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    setCard(null);
+                    if (ev.metaKey || ev.ctrlKey) props.onOpen(n.node);
+                    else props.onFocus(n.node);
+                  }}
+                  onDblClick={(ev) => {
+                    ev.stopPropagation();
+                    props.onOpen(n.node);
+                  }}
+                >
+                  <rect
+                    width={n.width}
+                    height={n.height}
+                    rx="4"
+                    fill={isFocus ? "var(--plc-accent-subtle)" : "var(--plc-surface)"}
+                    stroke={
+                      isFocus
+                        ? "var(--plc-accent)"
+                        : hoverNode() === n.id
+                          ? "var(--plc-on-subtle)"
+                          : "var(--plc-border-strong)"
+                    }
+                    stroke-width={isFocus ? 1.5 : 1}
+                    stroke-dasharray={n.node.kind === "external" ? "4 2" : undefined}
+                    style={{ transition: "stroke 140ms ease" }}
+                  />
+                  <KindGlyph node={n.node} x={PAD_X} y={n.height / 2 - 6} />
+                  <text
+                    x={PAD_X + ICON_W}
+                    y={n.height / 2}
+                    dominant-baseline="central"
+                    class="text-[12px] font-medium"
+                    fill={isFocus ? "var(--plc-accent-hover)" : "var(--plc-on-surface)"}
+                  >
+                    {labelFor(n)}
+                  </text>
+                  <Show when={n.node.memberCount > 1}>
+                    <text
+                      x={n.width - PAD_X}
+                      y={n.height / 2}
+                      dominant-baseline="central"
+                      text-anchor="end"
+                      class="fill-[var(--plc-on-subtle)] text-[11px] tabular-nums"
+                    >
+                      {n.node.memberCount}
+                    </text>
+                  </Show>
+                </g>
+              );
+            }}
+          </For>
+        </g>
+      </svg>
+
+      <Show when={card()}>
+        {(c) => (
+          <div
+            class="pointer-events-none absolute z-20 max-w-[360px] rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface)] px-2.5 py-1.5 text-xs text-[var(--plc-on-surface)] shadow-[var(--plc-menu-shadow)]"
+            style={{ left: `${c().x}px`, top: `${c().y}px` }}
+          >
+            <Show when={c().node}>
+              {(pn) => <NodeCard node={pn().node} layout={props.layout} id={pn().id} />}
+            </Show>
+            <Show when={c().edge}>
+              {(pe) => <EdgeCard edge={pe()} nodes={nodeById()} />}
+            </Show>
+          </div>
+        )}
+      </Show>
+    </div>
+  );
+}
+
+function NodeCard(props: { node: ViewNode; layout: ViewLayout; id: string }) {
+  const incoming = () => props.layout.edges.filter((e) => e.target === props.id && !e.edge.faint);
+  const outgoing = () => props.layout.edges.filter((e) => e.source === props.id && !e.edge.faint);
+  const sum = (es: PositionedEdge[]) => es.reduce((a, e) => a + e.edge.weight, 0);
+  return (
+    <div class="space-y-0.5">
+      <div class="break-all font-semibold">{props.node.title || props.node.label}</div>
+      <div class="text-[var(--plc-on-muted)]">
+        {props.node.kind}
+        {props.node.memberCount > 1 ? ` · ${props.node.memberCount} items` : ""}
+        {props.node.context ? ` · in ${props.node.context}` : ""}
+      </div>
+      <div class="tabular-nums text-[var(--plc-on-muted)]">
+        {sum(incoming())} in · {sum(outgoing())} out
+      </div>
+      <div class="text-[var(--plc-on-subtle)]">
+        {props.node.isFocus ? "Double-click to open code" : "Click to focus · double-click to open"}
+      </div>
+    </div>
+  );
+}
+
+function EdgeCard(props: { edge: PositionedEdge; nodes: Map<string, PositionedNode> }) {
+  const s = () => props.nodes.get(props.edge.source)?.node;
+  const t = () => props.nodes.get(props.edge.target)?.node;
+  const syms = () => props.edge.edge.symbols;
+  return (
+    <div class="space-y-0.5">
+      <div>
+        <span class="font-semibold">{s()?.label}</span>
+        <span class="text-[var(--plc-on-subtle)]"> imports </span>
+        <span class="font-semibold">{t()?.label}</span>
+      </div>
+      <Show when={props.edge.edge.weight > 1}>
+        <div class="tabular-nums text-[var(--plc-on-muted)]">{props.edge.edge.weight} import links</div>
+      </Show>
+      <Show when={syms().length > 0}>
+        <div class="font-mono text-[11px] text-[var(--plc-on-muted)]">
+          {syms().slice(0, 12).join(", ")}
+          {syms().length > 12 ? ` +${syms().length - 12} more` : ""}
+        </div>
+      </Show>
+    </div>
+  );
+}
