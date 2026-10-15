@@ -458,6 +458,9 @@ def aggregate_metrics(node: Node) -> Metrics:
         node.metrics.gitignored_count = sum(child.metrics.gitignored_count for child in node.children)
         node.metrics.file_size = sum(child.metrics.file_size for child in node.children)
         node.metrics.file_count = sum(child.metrics.file_count for child in node.children)
+        node.metrics.analysis_failed_count = sum(
+            child.metrics.analysis_failed_count for child in node.children
+        )
         
         node.metrics.comment_lines = total_comment_lines
         node.metrics.comment_density = total_comment_lines / total_loc if total_loc > 0 else 0.0
@@ -516,8 +519,11 @@ def _run_file_analyses_with_hard_timeouts(
     """
     Analyze files in a pool of worker processes with a *hard* per-file timeout.
 
-    Hung or crashed files are reported and skipped; see ``scan_workers`` for
-    the pool mechanics. Raises ``ScanCancelled`` if ``cancel`` fires.
+    Returns the successful results followed by one failure dict
+    (``{"filename", "error", "reason"}``) per file that timed out, crashed, or
+    raised, so the tree builder can keep those files as fallback nodes. See
+    ``scan_workers`` for the pool mechanics. Raises ``ScanCancelled`` if
+    ``cancel`` fires.
     """
 
     def on_file_start(index: int, total: int, path: str) -> None:
@@ -553,7 +559,39 @@ def _run_file_analyses_with_hard_timeouts(
         on_file_start=on_file_start,
         on_file_done=on_file_done,
     )
-    return outcome.results
+    failures = [
+        {"filename": f.path, "error": f.detail, "reason": f.reason}
+        for f in outcome.failures
+    ]
+    return [*outcome.results, *failures]
+
+
+# Fallback LOC for files the analyzer could not finish: read at most this many
+# bytes so a pathological file cannot stall tree building.
+FALLBACK_LOC_MAX_BYTES = 32 * 1024 * 1024
+
+
+def count_fallback_loc(path: Path) -> int:
+    """Count non-blank lines, as a cheap stand-in for lizard's ``nloc``."""
+    count = 0
+    try:
+        with open(path, "rb") as f:
+            data = f.read(FALLBACK_LOC_MAX_BYTES)
+    except OSError:
+        return 0
+    for line in data.splitlines():
+        if line.strip():
+            count += 1
+    return count
+
+
+def attach_fallback_metrics(node: Node, failure: dict) -> None:
+    """Fill in what we can for a file whose analysis failed."""
+    node.metrics.loc = count_fallback_loc(Path(node.path))
+    node.metrics.file_count = 1
+    node.metrics.analysis_status = str(failure.get("reason") or "error")
+    node.metrics.analysis_error = str(failure.get("error") or "")
+    node.metrics.analysis_failed_count = 1
 
 
 def scan_codebase(
@@ -651,10 +689,14 @@ def _scan_codebase(
     node_map = {str(root_path): tree_root}
 
     for file_info in analysis_results:
-        # Be defensive: if we ever get back an unexpected object from the
-        # worker (e.g. a dict without "error", or something without a
-        # ``filename`` attribute), skip it instead of crashing the whole scan.
-        filename = getattr(file_info, "filename", None)
+        # Failed files come back as dicts with an "error" key; they stay in the
+        # tree with fallback metrics. Anything else unexpected (e.g. an object
+        # without a ``filename``) is skipped instead of crashing the scan.
+        failure = file_info if isinstance(file_info, dict) and "error" in file_info else None
+        if failure is not None:
+            filename = failure.get("filename")
+        else:
+            filename = getattr(file_info, "filename", None)
         if not filename:
             print(f"⚠️ Skipping unexpected analysis result without filename: {file_info!r}", file=sys.stderr, flush=True)
             continue
@@ -683,7 +725,10 @@ def _scan_codebase(
 
         # Add File
         file_node = create_node(parts[-1], "file", str(path_obj))
-        attach_file_metrics(file_node, file_info)
+        if failure is not None:
+            attach_fallback_metrics(file_node, failure)
+        else:
+            attach_file_metrics(file_node, file_info)
         # Set last_modified
         try:
             stat = os.stat(path_obj)

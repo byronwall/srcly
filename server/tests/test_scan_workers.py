@@ -15,6 +15,7 @@ from app.services.scan_workers import (
     run_file_analyses,
     track_scan,
 )
+from scan_worker_boot_helpers import fake_boot_analyze
 from scan_worker_helpers import fake_analyze
 
 
@@ -207,3 +208,38 @@ def test_cli_exits_130_without_traceback_on_ctrl_c(monkeypatch, capsys) -> None:
 
     assert excinfo.value.code == run.EXIT_INTERRUPTED
     assert "Stopped." in capsys.readouterr().err
+
+
+def test_pool_returns_results_larger_than_pipe_buffer(tmp_path: Path) -> None:
+    """
+    Results that pickle to more than the OS pipe buffer (64 KB on macOS) must
+    not deadlock: the parent drains the pipe while the worker is still sending.
+    Before workers were pooled, the parent only read after the child exited, so
+    the child blocked in send() until the timeout killed it.
+    """
+    files = _paths(tmp_path, "big.py")
+    outcome = run_file_analyses(files, timeout_seconds=5, max_workers=1, analyze_fn=fake_analyze)
+    assert outcome.failures == []
+    assert len(outcome.results[0]["payload"]) == 1024 * 1024
+
+
+def test_worker_startup_does_not_count_against_timeout(monkeypatch, tmp_path: Path) -> None:
+    """
+    The timeout clock starts only once a worker has booted. Spawning a fresh
+    interpreter and importing the analyzers can take longer than a short
+    timeout; that must not fail the first file a (replacement) worker gets.
+    """
+    monkeypatch.setenv("SRCLY_TEST_BOOT", "slow")
+    files = _paths(tmp_path, "hang.py", "a.py", "b.py")
+    outcome = run_file_analyses(files, timeout_seconds=0.3, max_workers=1, analyze_fn=fake_boot_analyze)
+    assert [(Path(f.path).name, f.reason) for f in outcome.failures] == [("hang.py", "timeout")]
+    assert sorted(Path(r["filename"]).name for r in outcome.results) == ["a.py", "b.py"]
+
+
+def test_pool_gives_up_when_workers_cannot_start(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SRCLY_TEST_BOOT", "broken")
+    with pytest.raises(RuntimeError, match="during startup"):
+        run_file_analyses(
+            _paths(tmp_path, "a.py"), timeout_seconds=5, max_workers=1, analyze_fn=fake_boot_analyze
+        )
+    _assert_no_live_workers()

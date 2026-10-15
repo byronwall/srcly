@@ -47,6 +47,7 @@ Browser
 | Ignore rules: built-in dirs/files/extensions | `server/app/config.py` |
 | Ignore rules: nested `.gitignore` translation | `server/app/services/analysis.py` (`_load_gitignore_spec`, `_translate_gitignore_pattern`) |
 | Worker pool: reuse, hard per-file timeouts, crash recovery | `server/app/services/scan_workers.py` (`run_file_analyses`), wrapped by `analysis.py` (`_run_file_analyses_with_hard_timeouts`) |
+| Failed files (timeout/crash/error) kept with line-count LOC + `analysis_status` | `server/app/services/analysis.py` (`attach_fallback_metrics`); tooltip line in `client/src/viz/treemap/hooks/useTreemapTooltip.ts` |
 | Scan cancellation (`CancelToken`, `ScanCancelled`, `cancel_all_scans`) | `server/app/services/scan_workers.py` |
 | Scan progress hooks (`ScanObserver`) | `server/app/services/scan_progress.py`; called from `analysis.py` |
 | Background scan jobs, progress snapshots, dedupe by path | `server/app/services/scan_jobs.py` (`ScanJob`, `ScanJobManager`) |
