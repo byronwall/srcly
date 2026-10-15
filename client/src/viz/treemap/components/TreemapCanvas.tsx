@@ -31,6 +31,8 @@ type TreemapCanvasProps = {
   isolateMode: () => boolean;
   onActivate: (node: TreemapTile, modifiers: ActivationModifiers) => void;
   onHover: (event: MouseEvent | null, node: TreemapTile | null) => void;
+  /** Right-click on a tile (the browser menu is suppressed only over a tile). */
+  onContextMenu?: (event: MouseEvent, node: TreemapTile) => void;
   /** Called after each paint, once the tiles are on the canvas. */
   onPaint?: () => void;
 };
@@ -363,6 +365,13 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
           }
           const node = nodeAtEvent(event);
           if (node) props.onActivate(node, event);
+        }}
+        onContextMenu={(event) => {
+          if (!props.onContextMenu || animations.length) return;
+          const node = nodeAtEvent(event);
+          if (!node) return;
+          event.preventDefault();
+          props.onContextMenu(event, node);
         }}
         onKeyDown={handleKeyDown}
         onFocus={() => {

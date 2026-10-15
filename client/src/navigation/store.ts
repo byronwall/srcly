@@ -1,4 +1,5 @@
 import { createSignal } from "solid-js";
+import { DEFAULT_FILTERS, type FilterOptions } from "../viz/deps/hierarchy";
 import { HistoryRing, type HistoryEntry } from "./history";
 import { parseLocation, ROOT_LOCATION, sameLocation, toSearch, type Location } from "./location";
 
@@ -65,4 +66,8 @@ if (hasWindow) {
   else visit(location());
 }
 
-export { history, location };
+// Graph filters (External, Tests, Type-only) belong to the session, not the
+// graph view, so switching to the treemap and back keeps them.
+const [graphFilters, setGraphFilters] = createSignal<FilterOptions>(DEFAULT_FILTERS);
+
+export { graphFilters, history, location, setGraphFilters };

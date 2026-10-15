@@ -20,7 +20,8 @@ import type { TreemapTile } from "../viz/treemap/utils/hitTest";
 import TreemapHeader from "../viz/treemap/components/TreemapHeader";
 import TreemapTooltip from "../viz/treemap/components/TreemapTooltip";
 import { useTreemapTooltip } from "../viz/treemap/hooks/useTreemapTooltip";
-import { baseName, crumbsFor } from "../navigation/location";
+import { atFromTreePath, baseName, crumbsFor, folderOf } from "../navigation/location";
+import NodeActionsMenu, { type NodeMenuTarget } from "../navigation/NodeActionsMenu";
 import { go, location } from "../navigation/store";
 
 const DependencyView = lazy(() => import("../viz/deps/DependencyView"));
@@ -30,6 +31,8 @@ interface TreemapProps {
   currentRoot?: any;
   /** Absolute path of the scan root; the graph is always fetched for it. */
   rootPath: string;
+  /** Open a file or scope (by location) in the code viewer. */
+  onOpenAt: (at: string) => void;
   onZoom?: (node: any) => void;
   onFileSelect?: (
     path: string,
@@ -56,7 +59,22 @@ export default function Treemap(props: TreemapProps) {
   const [isIsolateMode, setIsIsolateMode] = createSignal(false);
   const [showMetricPopover, setShowMetricPopover] = createSignal(false);
   const showDependencyGraph = () => location().view === "graph";
-  const setShowDependencyGraph = (show: boolean) => go({ view: show ? "graph" : "treemap" });
+  const [menu, setMenu] = createSignal<NodeMenuTarget | null>(null);
+
+  const openTileMenu = (event: MouseEvent, tile: TreemapTile) => {
+    const at = tile.data?.path ? atFromTreePath(tile.data.path, props.rootPath) : null;
+    if (at === null) return;
+    hideTooltip();
+    const type = tile.data?.type;
+    setMenu({
+      x: event.clientX,
+      y: event.clientY,
+      at,
+      kind: type === "folder" ? "folder" : type === "file" ? "file" : "symbol",
+      title: at || baseName(props.rootPath),
+      currentAt: location().at,
+    });
+  };
   // One breadcrumb for both views, built from the location itself.
   const crumbs = createMemo(() => crumbsFor(location().at, baseName(props.rootPath)));
   const {
@@ -220,14 +238,14 @@ export default function Treemap(props: TreemapProps) {
         setShowLegend={setShowLegend}
         showMetricPopover={showMetricPopover}
         setShowMetricPopover={setShowMetricPopover}
-        showDependencyGraph={showDependencyGraph}
-        setShowDependencyGraph={setShowDependencyGraph}
+        view={() => location().view}
+        onViewChange={(view) => go({ view })}
       />
 
       <div ref={containerRef} class="relative flex-1 overflow-hidden">
         <Suspense fallback={<div class="p-3 text-[var(--plc-on-subtle)]">Loading dependencies…</div>}>
           <Show when={showDependencyGraph()}>
-            <DependencyView rootPath={props.rootPath} />
+            <DependencyView rootPath={props.rootPath} onOpen={props.onOpenAt} />
           </Show>
         </Suspense>
         <Show when={!showDependencyGraph() && layoutRoot()}>
@@ -240,6 +258,7 @@ export default function Treemap(props: TreemapProps) {
             altPressed={isAltPressed}
             isolateMode={isIsolateMode}
             onActivate={handleHierarchyClick}
+            onContextMenu={openTileMenu}
             onHover={(event, node) => {
               if (event && node) showTooltip(event, node);
               else hideTooltip();
@@ -254,6 +273,20 @@ export default function Treemap(props: TreemapProps) {
         </Show>
       </div>
       <TreemapTooltip model={tooltip} />
+      <Show when={menu()}>
+        {(m) => (
+          <NodeActionsMenu
+            target={m()}
+            onClose={() => setMenu(null)}
+            onAction={(id) => {
+              const at = m().at;
+              if (id === "focus") go({ at });
+              else if (id === "open") props.onOpenAt(at);
+              else go({ at: folderOf(at) });
+            }}
+          />
+        )}
+      </Show>
     </div>
   );
 }

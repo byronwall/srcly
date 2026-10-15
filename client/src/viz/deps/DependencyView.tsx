@@ -1,5 +1,4 @@
 import { createEffect, createMemo, createResource, createSignal, Show } from "solid-js";
-import CodeModal from "../../components/CodeModal/CodeModal.tsx";
 import { EmptyState, ErrorState, LoadingState } from "../../components/feedback/States";
 import { Button } from "../../components/ui/Button";
 import { CheckboxRow } from "../../components/ui/CheckboxRow";
@@ -9,13 +8,13 @@ import {
   applyFilters,
   buildIndex,
   collapseChain,
-  DEFAULT_FILTERS,
   type FilterOptions,
 } from "./hierarchy";
 import { layoutView, type ViewLayout } from "./layout";
 import { buildViewModel, DEFAULT_BUDGET, type ViewNode } from "./viewModel";
-import { graphIdFor } from "../../navigation/location";
-import { go, location } from "../../navigation/store";
+import { folderOf, graphIdFor } from "../../navigation/location";
+import NodeActionsMenu, { type NodeMenuTarget } from "../../navigation/NodeActionsMenu";
+import { go, graphFilters as filters, location, setGraphFilters as setFilters } from "../../navigation/store";
 
 async function fetchGraph(path: string | undefined): Promise<DependencyGraphContract> {
   const url = new URL("/api/analysis/dependency-graph", window.location.origin);
@@ -32,11 +31,12 @@ export default function DependencyView(props: {
    * refetch and dependents outside the focused folder stay visible.
    */
   rootPath: string;
+  /** Open a file or symbol (by location) in the app's code viewer. */
+  onOpen: (at: string) => void;
 }) {
   const [graph] = createResource(() => props.rootPath, (p) => fetchGraph(p || undefined));
-  const [filters, setFilters] = createSignal<FilterOptions>(DEFAULT_FILTERS);
   const [layout, setLayout] = createSignal<ViewLayout | null>(null);
-  const [openFile, setOpenFile] = createSignal<string | null>(null);
+  const [menu, setMenu] = createSignal<(NodeMenuTarget & { node: ViewNode }) | null>(null);
   let canvas: CanvasApi | undefined;
   let host!: HTMLDivElement;
 
@@ -79,12 +79,13 @@ export default function DependencyView(props: {
     go({ at: collapseChain(idx, n.graphId) });
   };
 
+  // Files and symbols open in the app's code viewer, scoped like the treemap.
   const onOpenNode = (n: ViewNode) => {
-    const idx = index();
-    const g = idx?.byId.get(n.graphId);
-    const file = g?.kind === "symbol" && g.parent ? idx?.byId.get(g.parent) : g;
-    if (file?.absPath) setOpenFile(file.absPath);
+    if (n.kind === "file" || n.kind === "symbol") props.onOpen(n.graphId);
   };
+
+  const openMenu = (n: ViewNode, point: { x: number; y: number }) =>
+    setMenu({ ...point, node: n, at: n.graphId, kind: n.kind, title: n.title || n.label, currentAt: n.isFocus ? n.graphId : location().at });
 
   const toggle = (key: keyof FilterOptions) => (v: boolean) =>
     setFilters((f) => ({ ...f, [key]: v }));
@@ -107,13 +108,6 @@ export default function DependencyView(props: {
           <div class="h-4 w-px bg-[var(--plc-border)]" />
           <Button size="xs" onClick={() => canvas?.fit()}>
             Fit
-          </Button>
-          <Button
-            size="xs"
-            variant="ghost"
-            onClick={() => go({ view: "treemap" })}
-          >
-            Close
           </Button>
         </div>
       </div>
@@ -140,14 +134,26 @@ export default function DependencyView(props: {
               focusIsGroup={viewModel()?.focusKind === "file" && (viewModel()?.nodes.some((n) => n.kind === "symbol" && n.region === "center") ?? false)}
               onFocus={onFocusNode}
               onOpen={onOpenNode}
+              onMenu={openMenu}
               ref={(api) => (canvas = api)}
             />
           )}
         </Show>
       </div>
 
-      <Show when={openFile()}>
-        <CodeModal isOpen={true} filePath={openFile()} onClose={() => setOpenFile(null)} />
+      <Show when={menu()}>
+        {(m) => (
+          <NodeActionsMenu
+            target={m()}
+            onClose={() => setMenu(null)}
+            onAction={(id) => {
+              const n = m().node;
+              if (id === "focus") onFocusNode(n);
+              else if (id === "open") onOpenNode(n);
+              else go({ at: folderOf(n.graphId) });
+            }}
+          />
+        )}
       </Show>
     </div>
   );

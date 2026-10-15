@@ -9,6 +9,8 @@ const LABEL_FONT = "500 12px Inter, ui-sans-serif, system-ui, sans-serif";
 const PAD_X = 8;
 const ICON_W = 16;
 const COUNT_W = 30;
+const MENU_BTN_W = 20;
+const MENU_BTN_H = 16;
 
 export interface CanvasApi {
   fit: () => void;
@@ -68,6 +70,8 @@ export function DependencyCanvas(props: {
   focusIsGroup?: boolean;
   onFocus: (node: ViewNode) => void;
   onOpen: (node: ViewNode) => void;
+  /** Node actions: right-click, or the "⋯" shown on the hovered node. */
+  onMenu?: (node: ViewNode, at: { x: number; y: number }) => void;
   ref?: (api: CanvasApi) => void;
 }) {
   let svgRef!: SVGSVGElement;
@@ -301,6 +305,13 @@ export function DependencyCanvas(props: {
                     ev.stopPropagation();
                     props.onOpen(n.node);
                   }}
+                  onContextMenu={(ev) => {
+                    if (!props.onMenu) return;
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    setCard(null);
+                    props.onMenu(n.node, { x: ev.clientX, y: ev.clientY });
+                  }}
                 >
                   <rect
                     width={n.width}
@@ -338,6 +349,39 @@ export function DependencyCanvas(props: {
                     >
                       {n.node.memberCount}
                     </text>
+                  </Show>
+                  <Show when={props.onMenu && hoverNode() === n.id}>
+                    <g
+                      transform={`translate(${n.width - MENU_BTN_W - 3},${(n.height - MENU_BTN_H) / 2})`}
+                      class="group/menu cursor-pointer"
+                      role="button"
+                      aria-label={`Actions for ${n.node.title || n.node.label}`}
+                      onMouseEnter={() => setCard(null)}
+                      onMouseMove={(ev) => ev.stopPropagation()}
+                      onDblClick={(ev) => ev.stopPropagation()}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        const r = (ev.currentTarget as SVGGElement).getBoundingClientRect();
+                        props.onMenu?.(n.node, { x: r.left, y: r.bottom + 4 });
+                      }}
+                    >
+                      <rect
+                        width={MENU_BTN_W}
+                        height={MENU_BTN_H}
+                        rx="3"
+                        class="fill-[var(--plc-surface-muted)] stroke-[var(--plc-border)] transition-[fill] duration-[140ms] group-hover/menu:fill-[var(--plc-surface-selected)] group-active/menu:fill-[var(--plc-accent-subtle)]"
+                      />
+                      <For each={[0, 1, 2]}>
+                        {(i) => (
+                          <circle
+                            cx={MENU_BTN_W / 2 + (i - 1) * 4}
+                            cy={MENU_BTN_H / 2}
+                            r="1.25"
+                            class="fill-[var(--plc-on-muted)] group-hover/menu:fill-[var(--plc-accent)]"
+                          />
+                        )}
+                      </For>
+                    </g>
                   </Show>
                 </g>
               );

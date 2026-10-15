@@ -18,10 +18,10 @@ import { EmptyState, ErrorState, LoadingState } from "./components/feedback/Stat
 import FilePicker from "./components/FilePicker";
 import Treemap from "./components/Treemap";
 import { Button } from "./components/ui/Button";
-import { filterTree, findTreeNodeByPath } from "./utils/dataProcessing";
+import { extractFilePath, filterTree, findTreeNodeByPath } from "./utils/dataProcessing";
 import { describeResult, formatCount } from "./utils/scanProgress";
 import { MetricsStoreProvider, useMetricsStore } from "./utils/metricsStore";
-import { atFromTreePath } from "./navigation/location";
+import { atFromTreePath, isExternal, splitAt, treePathFromAt } from "./navigation/location";
 import { resolveTreeAt } from "./navigation/resolveTree";
 import { go, location, replace } from "./navigation/store";
 import { scanStore } from "./state/scanStore";
@@ -324,6 +324,27 @@ function AppContent(props: { active: boolean }) {
     setIsCodeModalOpen(true);
   };
 
+  /**
+   * Open a location in the code viewer: a scope opens on its lines with its
+   * metrics, a graph symbol on the matching scope, a file whole. Folders and
+   * packages have no code. A file the scan skipped still opens, without metrics.
+   */
+  const openAt = (at: string) => {
+    if (!at || isExternal(at)) return;
+    const data = visualizationData();
+    const r = data ? resolveTreeAt(data, rootPath(), at) : null;
+    const node = r && r.match !== "missing" ? r.node : null;
+    if (node?.type === "folder") return;
+    if (!node) {
+      handleFileFromTreemap(treePathFromAt(splitAt(at).file, rootPath()));
+      return;
+    }
+    const file = extractFilePath(node.path, node.type);
+    if (!file) return;
+    if (node.type === "file") handleFileFromTreemap(file, undefined, undefined, node);
+    else handleFileFromTreemap(file, node.start_line, node.end_line, node);
+  };
+
   const processedData = createMemo(() => {
     const data = visualizationData();
     return data ? filterTree(data, filterQuery(), excludedPaths()) : null;
@@ -540,6 +561,7 @@ function AppContent(props: { active: boolean }) {
                 data={processedData()}
                 currentRoot={currentRoot()}
                 rootPath={rootPath()}
+                onOpenAt={openAt}
                 onZoom={zoomTo}
                 onFileSelect={handleFileFromTreemap}
                 onPaint={() => resolveTreemapPaint?.()}
