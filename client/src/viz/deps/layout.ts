@@ -76,9 +76,13 @@ interface Route {
  */
 function sideDepths(nodes: ViewNode[], edges: ViewEdge[], towardTarget: boolean): Map<string, number> {
   const ids = new Set(nodes.map((n) => n.id));
+  // In a two-way dependency, only the heavier direction orders the layers;
+  // a single lazy import back should not flip a whole folder.
+  const weight = new Map(edges.map((e) => [`${e.source}->${e.target}`, e.weight]));
   const next = new Map<string, string[]>();
   for (const e of edges) {
     if (!ids.has(e.source) || !ids.has(e.target)) continue;
+    if ((weight.get(`${e.target}->${e.source}`) ?? 0) > e.weight) continue;
     const [from, to] = towardTarget ? [e.target, e.source] : [e.source, e.target];
     const arr = next.get(from) ?? [];
     arr.push(to);

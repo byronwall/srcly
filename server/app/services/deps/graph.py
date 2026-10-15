@@ -55,7 +55,7 @@ def collect_edges(root: Path) -> Tuple[List[Path], List[DepEdge], Dict[str, list
     if build_py_edges is not None:
         py_files = walk_source_files(root, PY_EXTENSIONS)
         if py_files:
-            py_edges, py_symbols = build_py_edges(root, py_files)
+            py_edges, py_symbols, _infos, _index = build_py_edges(root, py_files)
             edges.extend(py_edges)
             symbols.update(py_symbols)
             files.extend(py_files)
