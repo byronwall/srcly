@@ -393,6 +393,10 @@
     {
       "date": "2026-10-15",
       "event": "Implemented m1–m4 as stacked PRs #38–#41 on top of docs PR #37. Spikes resolved: snapshot graph identical to in-place (keep cache-dir worktrees); max-weight treemap readable on add-heavy 6687816 (no band fallback). Deviations: treemap tiles use √LOC so small edits stay visible; summed metrics judged like-for-like; compare table redesigned with scorecard, verdicts, inspector at user request."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "2026-10-15 voiceover: follow-up compare-ref-picker promotes GitHub PR picking and commit stepping from the cut line."
     }
   ],
   "closure": null

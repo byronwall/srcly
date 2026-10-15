@@ -1,0 +1,557 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Unified navigation",
+    "slug": "unified-navigation",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-15",
+    "summary": "Collapse treemap zoom, dependency focus, toggles, and browser back into one recoverable notion of location: treemap and graph as projections on one canvas, pushState history, a visible history list, and quick jump-to-folder, without hurting speed.",
+    "status": "planned",
+    "next_action": "Worker: m1 after quick-fix mA merges"
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    }
+  },
+  "related_initiatives": [
+    {
+      "slug": "dependency-view",
+      "relation": "promotes 'animations, focus in URL' from its cut line"
+    },
+    {
+      "slug": "dependency-graph-legibility",
+      "relation": "shared color overlay / projection idea"
+    },
+    {
+      "slug": "dependency-and-treemap-quick-fixes",
+      "relation": "code-viewer open-from-graph fixes live there"
+    },
+    {
+      "slug": "pr-compare",
+      "relation": "compare pushState/popstate remount is part of the Back problem"
+    }
+  ],
+  "sources": [
+    {
+      "id": "req-1",
+      "type": "request",
+      "location": "conversation",
+      "anchor": "2026-10-15 request",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0015",
+      "type": "voiceover-transcript",
+      "location": "/Users/byronwall/Movies/ContextRecorder/2026-10-15_08-58-32/session.md",
+      "anchor": "0:15-0:30 performance must remain",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0429",
+      "type": "voiceover-transcript",
+      "location": "session.md + screenshots/006.png",
+      "anchor": "4:29-4:59 misclick in graph, back arrow messes everything up, re-analyze; make it way easier to go back",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0503",
+      "type": "voiceover-transcript",
+      "location": "session.md",
+      "anchor": "5:03-5:34 two hierarchies (treemap root vs focus identify_properties); close deps and lose place; too many forms of navigation",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0535",
+      "type": "voiceover-transcript",
+      "location": "session.md",
+      "anchor": "5:35-5:39 reopening restores focus - at least stateful",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0539",
+      "type": "voiceover-transcript",
+      "location": "session.md",
+      "anchor": "5:39-5:51 dependency and treemap as a toggle on the same view (possibly); history of places clicked",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0710",
+      "type": "voiceover-transcript",
+      "location": "session.md",
+      "anchor": "7:10-7:38 common color overlay, views are projections",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1016",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/012.jpg",
+      "anchor": "10:16 'But now I can't go back'",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1122",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/015.jpg",
+      "anchor": "11:22-11:30 billboard: go show me this thing's folder; no quick navigation",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1457",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/020.jpg",
+      "anchor": "14:57-15:11 switch flashes; animated canvas flip treemap<->dependency would be amazing",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "repo-depview",
+      "type": "repository",
+      "location": "client/src/viz/deps/DependencyView.tsx",
+      "anchor": "readFocusParam L20-26; writeFocusParam replaceState L28-37; breadcrumbs L127-150; Close L159-168; separate CodeModal L200-202",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-app",
+      "type": "repository",
+      "location": "client/src/App.tsx",
+      "anchor": "popstate L156-165; currentRoot L192; scannedPath L204; landing L475-534",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-treemap",
+      "type": "repository",
+      "location": "client/src/components/Treemap.tsx",
+      "anchor": "showDependencyGraph L56-59; DependencyView path L250-255; Show swap L248-279",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-compare-api",
+      "type": "repository",
+      "location": "client/src/compare/api.ts",
+      "anchor": "navigateCompare pushState L127-132",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "prior-dependency-view",
+      "type": "prior-initiative",
+      "location": "docs/intent/dependency-view/initiative-map.json",
+      "anchor": "cut_line: 'animations, focus in URL'",
+      "authority": "earlier agent-recorded deferral"
+    },
+    {
+      "id": "qa-round-1",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "2026-10-15 round 1",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "repo-graph-scope",
+      "type": "repository",
+      "location": "client/src/viz/deps/DependencyView.tsx:39-51; server/app/routers/analysis.py:57-69",
+      "anchor": "graph fetched for currentRoot folder subtree; dependents outside that folder are absent",
+      "authority": "current implementation reality"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "type": "problem",
+        "statement": "Recovering from a misclick is very poor; browser Back wipes the session and forces re-analysis.",
+        "commitment": "repeated",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0429",
+          "vo-1016"
+        ],
+        "code_anchors": [
+          "client/src/viz/deps/DependencyView.tsx:28-37 replaceState only",
+          "client/src/App.tsx:156-165 popstate remounts AppContent",
+          "client/src/App.tsx:475-534 landing state"
+        ]
+      },
+      {
+        "id": "C2",
+        "type": "required behavior",
+        "statement": "Going back must be easy and never lose the analyzed repo.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0429"
+        ]
+      },
+      {
+        "id": "C3",
+        "type": "problem",
+        "statement": "Two hierarchies (treemap location vs dependency focus) and too many forms of navigation; closing the graph loses your place.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0503"
+        ],
+        "code_anchors": [
+          "client/src/viz/treemap/components/TreemapHeader.tsx:43-68",
+          "client/src/viz/deps/DependencyView.tsx:127-150",
+          "client/src/components/Treemap.tsx:252 one-way link"
+        ]
+      },
+      {
+        "id": "C4",
+        "type": "desired experience",
+        "statement": "Treemap and dependency graph are a toggle on the same view, projections of one location and color overlay.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0539",
+          "vo-0710"
+        ],
+        "notes": "'possibly' at 5:39; reinforced at 7:10 and 15:07",
+        "code_anchors": [
+          "client/src/components/Treemap.tsx:248-279 Show swap in containerRef"
+        ]
+      },
+      {
+        "id": "C5",
+        "type": "desired experience",
+        "statement": "A history of places visited that can be opened to jump back.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0539"
+        ]
+      },
+      {
+        "id": "C6",
+        "type": "preference",
+        "statement": "Navigation state persisting across graph close/reopen is good; keep it.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0535"
+        ]
+      },
+      {
+        "id": "C7",
+        "type": "desired experience",
+        "statement": "Quick navigation from a node to its containing folder.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1122"
+        ]
+      },
+      {
+        "id": "C8",
+        "type": "future possibility",
+        "statement": "Animated canvas transition between treemap and dependency graph.",
+        "commitment": "tentative",
+        "importance": "peripheral",
+        "status": "active",
+        "time_horizon": "later",
+        "sources": [
+          "vo-1457",
+          "prior-dependency-view"
+        ],
+        "code_anchors": [
+          "client/src/components/Treemap.tsx:248 containerRef",
+          "client/src/viz/treemap/components/TreemapCanvas.tsx (canvas)",
+          "client/src/viz/deps/DependencyCanvas.tsx (SVG)"
+        ]
+      },
+      {
+        "id": "C9",
+        "type": "constraint",
+        "statement": "Navigation changes must not slow toggling or drilling.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0015"
+        ]
+      },
+      {
+        "id": "C10",
+        "type": "current repository reality",
+        "statement": "Repo path, treemap root, metric, and filters are not in the URL; refresh lands on the empty state.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "repo-app"
+        ],
+        "code_anchors": [
+          "client/src/App.tsx:192,204",
+          "client/src/components/FilePicker.tsx:30,50-60 recent paths in localStorage only"
+        ]
+      },
+      {
+        "id": "C11",
+        "type": "current repository reality",
+        "statement": "Toolbar Dependencies toggle doesn't clear depFocus; refresh reopens the graph.",
+        "commitment": "derived",
+        "importance": "peripheral",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "repo-depview",
+          "repo-treemap"
+        ],
+        "code_anchors": [
+          "client/src/viz/treemap/components/TreemapHeader.tsx:108",
+          "client/src/viz/deps/DependencyView.tsx:162-165"
+        ]
+      },
+      {
+        "id": "C12",
+        "type": "current repository reality",
+        "statement": "No middle-click handler exists; graph 'open' is Ctrl/Cmd-click or double-click.",
+        "commitment": "derived",
+        "importance": "peripheral",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "repo-depview"
+        ],
+        "code_anchors": [
+          "client/src/viz/deps/DependencyCanvas.tsx:294-303"
+        ]
+      },
+      {
+        "id": "C13",
+        "type": "decision",
+        "statement": "Treemap zoom and dependency focus are one location: drilling either moves both; one breadcrumb; the toggle only changes projection.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "qa-round-1"
+        ]
+      },
+      {
+        "id": "C14",
+        "type": "current repository reality",
+        "statement": "The dependency graph is fetched for the treemap current folder, so edges from outside that folder are missing; with one location it should be fetched for the repo root.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "repo-graph-scope"
+        ],
+        "code_anchors": [
+          "client/src/viz/deps/DependencyView.tsx:39-51",
+          "client/src/components/Treemap.tsx:252",
+          "server/app/routers/analysis.py:57-69"
+        ]
+      }
+    ],
+    "themes": [
+      "recoverability",
+      "single location model",
+      "projections on one canvas",
+      "history"
+    ],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Medium, client-only: a location module wired into treemap, graph, header, and compare entry/exit.",
+    "problem": "Several navigation mechanisms disagree; Back drops the repo; two breadcrumbs; no history; graph scoped to treemap folder hides outside dependents.",
+    "recommended_shape": {
+      "location": "{repo, path (folder|file|file#symbol), view}",
+      "url": "?repo=&at=&view=",
+      "history": "pushState per location change + in-memory History dropdown (~30)",
+      "toggle": "Treemap|Graph switch replaces Close",
+      "node_actions": [
+        "Focus",
+        "Open code",
+        "Show folder"
+      ],
+      "files": [
+        "client/src/App.tsx:156-165,192,204",
+        "client/src/components/Treemap.tsx:56-59,248-279",
+        "client/src/viz/treemap/components/TreemapHeader.tsx:43-68,99-113",
+        "client/src/viz/deps/DependencyView.tsx:20-37,39-51,127-168",
+        "client/src/compare/api.ts:107-132",
+        "client/src/components/FilePicker.tsx"
+      ]
+    },
+    "success_moves": [
+      "URL as the single source of truth with real pushState entries; app signals derive from it",
+      "Fetch the dependency graph once for the repo root (server-cached) and focus within it: fixes missing outside dependents and keeps drills local",
+      "Keep the scan in a store that survives compare/normal switches so popstate never remounts or rescans",
+      "Pure location module (parse/serialize/push/history) covered by vitest before wiring",
+      "Visible node actions (Focus/Open code/Show folder) so navigation never depends on modifier clicks"
+    ],
+    "first_proof": {
+      "question": "Can one URL-backed location with pushState make misclick recovery and refresh lossless without slowing navigation?",
+      "artifact": "location module + vitest, wired to treemap zoom and graph focus on srcly itself; in-app browser script",
+      "observation": "Back after misclick returns to prior focus with no scan request; refresh restores repo, at, and view; History dropdown lists visits",
+      "decision_rule": "pass -> toggle swap, node actions, compare no-remount, root-scoped graph fetch; refresh restore >~2s on modeler -> show cached last location while rescan validates"
+    },
+    "rabbit_holes": [
+      "popstate interplay with compare pushState",
+      "whole-repo graph first-open cost on large repos",
+      "treemap zoom to a symbol (scope highlight) semantics",
+      "Explorer selection sync loops between signals and URL"
+    ],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/repos/srcly",
+      "revision": "5e396c3",
+      "worktree_status": "clean",
+      "subsystems": [
+        "client/src/App.tsx",
+        "client/src/components/Treemap.tsx",
+        "client/src/viz/deps/DependencyView.tsx",
+        "client/src/viz/treemap/components/TreemapHeader.tsx",
+        "client/src/compare/api.ts",
+        "client/src/components/FilePicker.tsx"
+      ],
+      "test_commands": [
+        "cd client && pnpm test -- navigation"
+      ],
+      "deployment_surfaces": []
+    },
+    "dependencies": [],
+    "fast_local_loop": {
+      "command": "cd client && pnpm test -- navigation",
+      "starts": "nothing for unit tests; ./dev.sh plus in-app browser on srcly for the misclick/Back script",
+      "network": false,
+      "failure_injection": "parseLocation with missing paths, legacy depFocus, symbol fragments; nearest-ancestor fallback"
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "One location for treemap zoom and graph focus, with real Back",
+        "outcome": "Drilling either view moves both; Back/Forward step through locations without rescan or graph refetch; graph includes neighbors outside the treemap folder.",
+        "dependencies_introduced": [],
+        "proof": "vitest location round-trip, legacy alias, root, symbol fragment; in-app browser: drill 3, misclick, Back restores prior focus with no scan request; modeler first-open graph time recorded",
+        "valid_intermediate_state": "Repo still chosen via picker; Close button still present",
+        "rollback": "Revert PR; depFocus alias keeps old links working",
+        "status": "planned",
+        "evidence": [],
+        "files": [
+          "client/src/navigation/location.ts (new)",
+          "client/src/App.tsx:192,213-217,379-384,576,589-595",
+          "client/src/viz/deps/DependencyView.tsx:20-37,39-51,53-75,97-105,127-150",
+          "client/src/components/Treemap.tsx:252",
+          "client/src/viz/treemap/components/TreemapHeader.tsx:43-68"
+        ]
+      },
+      {
+        "id": "m2",
+        "title": "Refresh and compare never lose the repo; History dropdown",
+        "outcome": "Refresh/pasted URL restores repo, location, view; compare enter/Back keeps the scan; History dropdown jumps back.",
+        "dependencies_introduced": [],
+        "proof": "vitest HistoryRing; manual: refresh restore time on modeler, compare Back without landing page",
+        "valid_intermediate_state": "Location model complete; old Close/toggle still work",
+        "rollback": "Revert PR; scan state returns to AppContent",
+        "status": "planned",
+        "evidence": [],
+        "files": [
+          "client/src/state/scanStore.ts (new)",
+          "client/src/App.tsx:156-165,171-209,259-344",
+          "client/src/compare/api.ts:127-132 (seam only)",
+          "client/src/components/FilePicker.tsx"
+        ]
+      },
+      {
+        "id": "m3",
+        "title": "One switch and visible node actions",
+        "outcome": "Treemap|Graph switch replaces Close and keeps location and filters; Focus/Open code/Show folder reachable without modifiers.",
+        "dependencies_introduced": [],
+        "proof": "manual on modeler with toggle timing recorded; vitest for filters persisting in store",
+        "valid_intermediate_state": "Modifier shortcuts still work",
+        "rollback": "Revert PR",
+        "status": "planned",
+        "evidence": [],
+        "files": [
+          "client/src/viz/treemap/components/TreemapHeader.tsx:99-113",
+          "client/src/viz/deps/DependencyView.tsx:51,159-168",
+          "client/src/viz/deps/DependencyCanvas.tsx (hover \u22ef button)",
+          "client/src/viz/treemap/components/TreemapCanvas.tsx (contextmenu)",
+          "client/src/components/NodeActionsMenu.tsx (new)"
+        ]
+      }
+    ],
+    "cut_line": [
+      "animated treemap<->graph morph",
+      "code viewer, color metric, filters in URL",
+      "folding compare into the location model"
+    ],
+    "open_decisions": [
+      {
+        "decision": "Keep both views mounted for instant toggle vs remount",
+        "evidence": "m3 toggle timings and memory on modeler",
+        "fallback": "remount with cached graph layout per focus"
+      }
+    ],
+    "sequencing": "Start after quick-fix mA merges (single CodeModal, onOpenFile). Coordinate the DependencyView metricsIndex/colorMetric prop with legibility m4; compare/api.ts edits limited to the popstate seam to avoid colliding with compare-ref-picker."
+  },
+  "history": [
+    {
+      "date": "2026-10-15",
+      "event": "Initiative created from 2026-10-15 voiceover session (4:29-5:51, 10:16, 11:22, 14:57) with code source map."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "Round 1: treemap zoom and graph focus are the same location."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "Shape brief written: URL-backed single location, pushState history, root-scoped graph fetch, no remount on popstate."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "Implementation plan written: m1 location + pushState + root-scoped graph fetch together; m2 scan store, repo in URL, History; m3 switch and node actions."
+    }
+  ],
+  "closure": null
+}

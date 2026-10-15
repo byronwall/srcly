@@ -1,0 +1,699 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Dependency and treemap quick fixes",
+    "slug": "dependency-and-treemap-quick-fixes",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-15",
+    "summary": "Independently shippable odds and ends from the 2026-10-15 voiceover: graph hover/open bugs, open-to-symbol, header removal and legend, treemap contrast/mono/color/spacing/tooltip, toolbar popover friction, and a coherent code-viewer metrics panel.",
+    "status": "planned",
+    "next_action": "Workers: mA first; mC, mD, mE in parallel worktrees now; mB after mA merges"
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    }
+  },
+  "related_initiatives": [
+    {
+      "slug": "dependency-graph-legibility",
+      "relation": "structural graph work; quick fixes land first"
+    },
+    {
+      "slug": "unified-navigation",
+      "relation": "open-from-graph routes through shared app modal"
+    },
+    {
+      "slug": "pr-compare",
+      "relation": "compare treemap reuses TREEMAP_RAMP; verify after color change"
+    }
+  ],
+  "sources": [
+    {
+      "id": "req-1",
+      "type": "request",
+      "location": "conversation",
+      "anchor": "2026-10-15 request: low-hanging fruit, odds and ends",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0015",
+      "type": "voiceover-transcript",
+      "location": "/Users/byronwall/Movies/ContextRecorder/2026-10-15_08-58-32/session.md",
+      "anchor": "0:15-0:30 keep performance",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0231",
+      "type": "voiceover-transcript",
+      "location": "session.md + screenshots/004.png",
+      "anchor": "2:31-2:43 mark 004 headers imported by/focus/imports get in the way",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0243",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/005.jpg",
+      "anchor": "2:43-3:01 mark 005 dashed vs solid unclear; legend bottom right",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0702",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/008.jpg",
+      "anchor": "7:02-7:10 mark 008 open source viewer from graph: No metrics available",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0943",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/012.jpg",
+      "anchor": "9:43-10:12 mark 012 didn't open to symbol; missing left sidebar; double-click doesn't work",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1030",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/013.jpg, frames/014.jpg",
+      "anchor": "10:30-10:53 marks 013-014 gray for a second; hover problem, everything gray",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1323",
+      "type": "voiceover-transcript",
+      "location": "session.md",
+      "anchor": "13:23-13:29 overall wildly better; quick fixes to get dependency viewer tight",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1335",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/016.jpg, frames/017.jpg",
+      "anchor": "13:35-14:00 marks 016-017 treemap spacing a pixel too big; washed out color; popovers and clicky things annoying",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1407",
+      "type": "voiceover-transcript",
+      "location": "session.md + screenshots/018.png",
+      "anchor": "14:07-14:28 mark 018 why is text gray; make important text black; monospace",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1434",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/019.jpg",
+      "anchor": "14:34-14:54 mark 019 tooltip radically underperforming; rich info, symbols, connectivity",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1513",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/020.jpg, screenshots/021.png, screenshots/022.png",
+      "anchor": "15:13-15:28 marks 020-022 code view great; metrics complete mess, rework into coherent display",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "repo-canvas",
+      "type": "repository",
+      "location": "client/src/viz/deps/DependencyCanvas.tsx",
+      "anchor": "REGION_TITLE L17-21; hover signals L75-76; activeEdges/Nodes L119-142; headers L157-170,207-222; edge style L245-254; dim L279-284; click/dblclick L294-303",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-depview",
+      "type": "repository",
+      "location": "client/src/viz/deps/DependencyView.tsx",
+      "anchor": "onOpenNode L107-112; local CodeModal L200-202",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-codemodal",
+      "type": "repository",
+      "location": "client/src/components/CodeModal/",
+      "anchor": "CodeModal.tsx props L18-28; MetricsSidebar.tsx L22,34-46; MetricsSection.tsx L12-21",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-treemap-canvas",
+      "type": "repository",
+      "location": "client/src/viz/treemap/components/TreemapCanvas.tsx",
+      "anchor": "strokes L38-40; labelStyle L65-90 sans-serif; folder label #888 L199-207",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-colors",
+      "type": "repository",
+      "location": "client/src/viz/treemap/utils/colors.ts",
+      "anchor": "TREEMAP_RAMP L14; applyDepthEffect L25-31",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-metrics-registry",
+      "type": "repository",
+      "location": "server/app/services/reporting.py; client/src/utils/metricsStore.tsx",
+      "anchor": "MetricDefinition languages/scope L21-59; HOTSPOT_METRICS L49-73",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "qa-round-1",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "2026-10-15 round 1",
+      "authority": "direct current intent"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "type": "problem",
+        "statement": "Graph dims everything gray when nothing is hovered (stale hover after refocus).",
+        "commitment": "repeated",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1030"
+        ],
+        "item": 1,
+        "code_anchors": [
+          "client/src/viz/deps/DependencyCanvas.tsx:75-76",
+          "client/src/viz/deps/DependencyCanvas.tsx:119-142",
+          "client/src/viz/deps/DependencyCanvas.tsx:279-284",
+          "client/src/viz/deps/DependencyView.tsx:186 unkeyed Show keeps canvas instance"
+        ]
+      },
+      {
+        "id": "C2",
+        "type": "problem",
+        "statement": "Opening code from the graph shows 'No metrics available' and no symbol sidebar.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0702",
+          "vo-0943"
+        ],
+        "item": 2,
+        "code_anchors": [
+          "client/src/viz/deps/DependencyView.tsx:107-112,200-202",
+          "client/src/components/CodeModal/MetricsSidebar.tsx:22,34-46",
+          "client/src/App.tsx:66-121 findNodes",
+          "client/src/App.tsx:353-406 handleFileFromTreemap/selectedNodes"
+        ]
+      },
+      {
+        "id": "C3",
+        "type": "required behavior",
+        "statement": "Opening a symbol from the graph opens to that symbol's scope, not the whole file.",
+        "commitment": "repeated",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0943"
+        ],
+        "item": 3,
+        "code_anchors": [
+          "client/src/viz/deps/contract.ts:23-24 line only",
+          "server/app/services/deps/graph.py:127,130 symbol id/line",
+          "server/app/services/analysis.py:208 scope path file::func",
+          "client/src/components/CodeModal/CodeModal.tsx:86-102 lineFilterEnabled"
+        ]
+      },
+      {
+        "id": "C4",
+        "type": "problem",
+        "statement": "Double-click to open (per the tooltip) doesn't work on neighbors; single click refocuses first.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0943"
+        ],
+        "item": 4,
+        "code_anchors": [
+          "client/src/viz/deps/DependencyCanvas.tsx:294-303",
+          "client/src/viz/deps/DependencyCanvas.tsx:384 tooltip text"
+        ]
+      },
+      {
+        "id": "C5",
+        "type": "preference",
+        "statement": "Remove the 'Imported by / Focus / Imports' column headers.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0231"
+        ],
+        "item": 5,
+        "code_anchors": [
+          "client/src/viz/deps/DependencyCanvas.tsx:17-21,157-170,207-222"
+        ]
+      },
+      {
+        "id": "C6",
+        "type": "desired experience",
+        "statement": "A legend (bottom right) explaining dashed vs solid edges and other encodings.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0243"
+        ],
+        "item": 6,
+        "code_anchors": [
+          "client/src/viz/deps/viewModel.ts:336-338 faint",
+          "client/src/viz/deps/DependencyCanvas.tsx:245-254,318",
+          "client/src/viz/deps/DependencyCanvas.tsx:27-30 stroke width by weight"
+        ]
+      },
+      {
+        "id": "C7",
+        "type": "problem",
+        "statement": "Important treemap text is low-contrast gray; make it dark.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1407"
+        ],
+        "item": 7,
+        "code_anchors": [
+          "client/src/viz/treemap/components/TreemapCanvas.tsx:199-207",
+          "client/src/index.css:26-49 plc tokens"
+        ]
+      },
+      {
+        "id": "C8",
+        "type": "preference",
+        "statement": "Treemap labels in monospace to signal code.",
+        "commitment": "tentative",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1407"
+        ],
+        "item": 8,
+        "code_anchors": [
+          "client/src/viz/treemap/components/TreemapCanvas.tsx:87,153",
+          "client/src/index.css:9-18 --font-mono"
+        ]
+      },
+      {
+        "id": "C9",
+        "type": "problem",
+        "statement": "Treemap color scale feels washed out.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1335"
+        ],
+        "item": 9,
+        "code_anchors": [
+          "client/src/viz/treemap/utils/colors.ts:14-31",
+          "client/src/viz/treemap/components/TreemapCanvas.tsx:165-167 folders white",
+          "client/src/compare/CompareTreemap.tsx:5,296 reuse"
+        ]
+      },
+      {
+        "id": "C10",
+        "type": "problem",
+        "statement": "Treemap spacing between nodes feels a pixel too big.",
+        "commitment": "tentative",
+        "importance": "peripheral",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1335"
+        ],
+        "item": 10,
+        "code_anchors": [
+          "client/src/components/Treemap.tsx:200-207",
+          "client/src/viz/treemap/components/TreemapCanvas.tsx:38-40,171-173"
+        ]
+      },
+      {
+        "id": "C11",
+        "type": "desired experience",
+        "statement": "Treemap tooltip shows rich info: symbols inside, connectivity hint; stop wasting space.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1434"
+        ],
+        "item": 11,
+        "code_anchors": [
+          "client/src/viz/treemap/hooks/useTreemapTooltip.ts:51-121",
+          "client/src/viz/treemap/components/TreemapTooltip.tsx:14-33",
+          "client/src/compare/CompareTreemap.tsx:172+ HoverCard pattern",
+          "DESIGN.md:343-348,669-670"
+        ]
+      },
+      {
+        "id": "C12",
+        "type": "problem",
+        "statement": "Both toolbar popovers (Color metric picker and file filter) feel bad: opening one does not close the other, and they feel jumpy/off. Use emil-design-eng guidance for polish.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1335",
+          "qa-round-1"
+        ],
+        "item": 12,
+        "code_anchors": [
+          "client/src/components/MetricPicker.tsx:42-49,106-113",
+          "client/src/components/Treemap.tsx:66 only first metric colors",
+          "client/src/components/Popover.tsx:44-46,69-85"
+        ]
+      },
+      {
+        "id": "C13",
+        "type": "problem",
+        "statement": "Code-viewer metrics panel is a mess; rework into a coherent display while keeping the code pane.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1513"
+        ],
+        "item": 13,
+        "code_anchors": [
+          "client/src/components/CodeModal/MetricsSection.tsx:12-21",
+          "server/app/models.py:4-46 defaults 0",
+          "server/app/services/reporting.py:21-59 languages/scope",
+          "client/src/utils/metricsStore.tsx:32-73"
+        ]
+      },
+      {
+        "id": "C14",
+        "type": "constraint",
+        "statement": "No change to scan, cache, or graph-build cost.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0015"
+        ]
+      }
+    ],
+    "themes": [
+      "graph open-path bugs",
+      "visual hierarchy and contrast",
+      "coherent metrics"
+    ],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Small: five independent PRs, each a handful of files; no scan/cache/contract change.",
+    "problem": "Graph open path is broken (stale hover dimming, no metrics/sidebar, file not symbol, dblclick swallowed); treemap hierarchy is low-contrast; popovers misbehave; metrics panel is noise.",
+    "recommended_shape": {
+      "prs": [
+        {
+          "id": "A",
+          "name": "Graph open path",
+          "items": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "files": [
+            "client/src/viz/deps/DependencyCanvas.tsx",
+            "client/src/viz/deps/DependencyView.tsx",
+            "client/src/components/Treemap.tsx",
+            "client/src/App.tsx"
+          ]
+        },
+        {
+          "id": "B",
+          "name": "Graph polish",
+          "items": [
+            5,
+            6
+          ],
+          "files": [
+            "client/src/viz/deps/DependencyCanvas.tsx"
+          ]
+        },
+        {
+          "id": "C",
+          "name": "Treemap visuals",
+          "items": [
+            7,
+            8,
+            9,
+            10,
+            11
+          ],
+          "files": [
+            "client/src/viz/treemap/components/TreemapCanvas.tsx",
+            "client/src/viz/treemap/utils/colors.ts",
+            "client/src/components/Treemap.tsx:200-207",
+            "client/src/viz/treemap/hooks/useTreemapTooltip.ts",
+            "client/src/viz/treemap/components/TreemapTooltip.tsx"
+          ]
+        },
+        {
+          "id": "D",
+          "name": "Popovers",
+          "items": [
+            12
+          ],
+          "files": [
+            "client/src/components/Popover.tsx",
+            "client/src/components/MetricPicker.tsx",
+            "client/src/components/FileTypeFilter.tsx"
+          ]
+        },
+        {
+          "id": "E",
+          "name": "Code viewer metrics",
+          "items": [
+            13
+          ],
+          "files": [
+            "client/src/components/CodeModal/MetricsSection.tsx",
+            "client/src/components/CodeModal/MetricsSidebar.tsx",
+            "client/src/utils/metricsStore.tsx"
+          ]
+        }
+      ],
+      "sequencing": "A before B (same file) and before unified-navigation; B before dependency-graph-legibility layout work; C, D, E parallel."
+    },
+    "success_moves": [
+      "Resolve fileNode/scopeNode client-side: file by absPath, scope by symbol line within that file (treemap names differ: '(class) Foo' / 'Foo (class)'); no contract change unless line matching misses",
+      "Route graph open through the single app CodeModal (removes the duplicate instance; seeds unified-navigation)",
+      "Metric applicability from existing HOTSPOT_METRICS group plus a scope flag, not a new definitions API",
+      "Shared module-level open-popover signal so one Popover closes others; measure before paint",
+      "Vitest checks for hover reset, symbol-to-scope lookup, click timing; modeler screenshots kept out of the public repo"
+    ],
+    "first_proof": {
+      "question": "Does a client-side absPath+symbol lookup reliably open the right scope with metrics, and does resetting hover fix the gray state?",
+      "artifact": "PR A: vitest for hover reset, scope lookup hit/miss/duplicate, click timing; manual check on modeler agent_skills/qa/pipeline.py",
+      "observation": "double-clicked symbol opens scoped with sidebar and metrics; drilling leaves nothing gray",
+      "decision_rule": "pass -> ship B-E in parallel worktrees; scope misses on real Python classes/methods -> add endLine to graph symbol contract before B"
+    },
+    "rabbit_holes": [
+      "Python class/method scope naming may not match graph symbol names",
+      "dblclick delay making single click feel laggy (keep under ~250ms)",
+      "ramp change shifts compare treemap colors",
+      "monospace widening labels so fewer fit"
+    ],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/repos/srcly",
+      "revision": "5e396c3",
+      "worktree_status": "clean",
+      "subsystems": [
+        "client/src/viz/deps",
+        "client/src/viz/treemap",
+        "client/src/components/CodeModal",
+        "client/src/components/Popover.tsx",
+        "client/src/utils"
+      ],
+      "test_commands": [
+        "cd client && pnpm test"
+      ],
+      "deployment_surfaces": []
+    },
+    "dependencies": [],
+    "fast_local_loop": {
+      "command": "cd client && pnpm test",
+      "starts": "nothing (pure-function vitest); ./dev.sh for manual browser checks",
+      "network": false,
+      "failure_injection": "pure functions take stale ids, missing scopes, and click sequences as inputs"
+    },
+    "milestones": [
+      {
+        "id": "mA",
+        "title": "Opening from the graph works like opening from the treemap",
+        "outcome": "Double/middle-click a graph symbol opens the shared CodeModal scoped to that symbol with sidebar and metrics; no stale gray dimming.",
+        "dependencies_introduced": [],
+        "proof": "vitest: liveHover stale id, click-intent timer, findScopeForSymbol (Python class, decorated fn, TS const component, interface, duplicate, miss); manual modeler pipeline.py check",
+        "valid_intermediate_state": "Graph and treemap both open the single app CodeModal",
+        "rollback": "Revert PR A",
+        "status": "planned",
+        "evidence": [],
+        "files": [
+          "client/src/viz/deps/DependencyCanvas.tsx:75-142,294-303,384",
+          "client/src/viz/deps/DependencyView.tsx:55,107-112,200-202",
+          "client/src/components/Treemap.tsx:250-255",
+          "client/src/App.tsx:353-406",
+          "client/src/utils/dataProcessing.ts"
+        ],
+        "worker_parallel": "first; blocks mB and unified-navigation"
+      },
+      {
+        "id": "mB",
+        "title": "The graph explains itself",
+        "outcome": "No side headers; bottom-right legend explains import, context, weight, external.",
+        "dependencies_introduced": [],
+        "proof": "manual check across focus views; legend uses canvas stroke constants",
+        "valid_intermediate_state": "Legend collapsible",
+        "rollback": "Revert PR B",
+        "status": "planned",
+        "evidence": [],
+        "files": [
+          "client/src/viz/deps/DependencyCanvas.tsx:17-21,157-170,207-222",
+          "client/src/viz/deps/DependencyLegend.tsx (new)",
+          "client/src/viz/deps/DependencyView.tsx:172"
+        ],
+        "worker_parallel": "after mA"
+      },
+      {
+        "id": "mC",
+        "title": "The treemap draws the eye",
+        "outcome": "Dark monospace labels, stronger HCL ramp, tighter padding, rich tooltip with top scopes and imports.",
+        "dependencies_introduced": [],
+        "proof": "vitest contrast >=4.5:1 per ramp stop; useTreemapTooltip.test.ts symbol list; manual modeler and compare treemap check",
+        "valid_intermediate_state": "Compare treemap follows shared ramp",
+        "rollback": "Revert PR C",
+        "status": "planned",
+        "evidence": [],
+        "files": [
+          "client/src/viz/treemap/components/TreemapCanvas.tsx:65-90,153,199-207",
+          "client/src/viz/treemap/utils/colors.ts:14-31",
+          "client/src/components/Treemap.tsx:200-207",
+          "client/src/viz/treemap/hooks/useTreemapTooltip.ts:68-121",
+          "client/src/viz/treemap/components/TreemapTooltip.tsx"
+        ],
+        "worker_parallel": "from start"
+      },
+      {
+        "id": "mD",
+        "title": "Popovers behave",
+        "outcome": "One popover open at a time; positioned before paint, flipped/clamped; subtle origin-aware motion.",
+        "dependencies_introduced": [],
+        "proof": "manual: opening file filter closes Color picker; no 0,0 flash",
+        "valid_intermediate_state": "All existing popovers use the shared Popover",
+        "rollback": "Revert PR D",
+        "status": "planned",
+        "evidence": [],
+        "files": [
+          "client/src/components/Popover.tsx",
+          "client/src/components/MetricPicker.tsx",
+          "client/src/components/FileTypeFilter.tsx"
+        ],
+        "worker_parallel": "from start"
+      },
+      {
+        "id": "mE",
+        "title": "A coherent code-viewer metrics panel",
+        "outcome": "Only applicable metrics, grouped, scope vs file in one table.",
+        "dependencies_introduced": [],
+        "proof": "vitest applicableMetrics for Python, TSX, Markdown, scope vs file",
+        "valid_intermediate_state": "Code pane unchanged",
+        "rollback": "Revert PR E",
+        "status": "planned",
+        "evidence": [],
+        "files": [
+          "client/src/utils/metricsStore.tsx:32-73",
+          "client/src/components/CodeModal/MetricsSidebar.tsx:34-46",
+          "client/src/components/CodeModal/MetricsSection.tsx:12-21"
+        ],
+        "worker_parallel": "from start"
+      }
+    ],
+    "cut_line": [
+      "single-select color metric separate from Hot Spots",
+      "type-only edge legend entry",
+      "server metric definitions API"
+    ],
+    "open_decisions": [
+      {
+        "decision": "Folder header font mono or Inter",
+        "evidence": "mC screenshots on modeler",
+        "fallback": "Inter"
+      }
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-15",
+      "event": "Initiative created from 2026-10-15 voiceover session; 13 items with code anchors and likely causes."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "Round 1: both popovers; failure is not closing when another opens, plus jumpy positioning."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "Shape brief written: five PRs A-E with sequencing and collision notes."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "Shape amended during planning: symbol-to-scope lookup is line-based because treemap and graph names differ for classes/types."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "Implementation plan written: milestones A-E, one PR each; line-based symbol-to-scope lookup."
+    }
+  ],
+  "closure": null
+}

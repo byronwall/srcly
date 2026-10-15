@@ -1,0 +1,759 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Dependency graph legibility",
+    "slug": "dependency-graph-legibility",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-15",
+    "summary": "Make mid-level dependency views readable: group neighbors by module/package then file, make folders visibly distinct and size-aware, pack to a sane aspect ratio with spread-out edges, show LOC and the shared treemap color overlay, all without regressing performance.",
+    "status": "planned",
+    "next_action": "Worker: m1 packing after quick-fix mA/mB merge"
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    }
+  },
+  "related_initiatives": [
+    {
+      "slug": "dependency-view",
+      "relation": "follow-up; supersedes its C6 uniform-box rule for folder boxes"
+    },
+    {
+      "slug": "unified-navigation",
+      "relation": "shared color overlay and peek/fly-in touch navigation"
+    },
+    {
+      "slug": "dependency-and-treemap-quick-fixes",
+      "relation": "legend, header removal, hover bug land there first"
+    },
+    {
+      "slug": "pr-compare",
+      "relation": "compare graph reuses layoutViewSync"
+    }
+  ],
+  "sources": [
+    {
+      "id": "req-1",
+      "type": "request",
+      "location": "conversation",
+      "anchor": "2026-10-15 request: process voiceover, pull initiatives + low-hanging fruit",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo",
+      "type": "voiceover-transcript",
+      "location": "/Users/byronwall/Movies/ContextRecorder/2026-10-15_08-58-32/session.md",
+      "anchor": "Full transcript; srcly against /Users/byronwall/repos/modeler",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0015",
+      "type": "voiceover-transcript",
+      "location": "session.md",
+      "anchor": "0:15-0:30 'incredibly fast ... everything we do needs to avoid compromising performance'",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0050",
+      "type": "voiceover-transcript",
+      "location": "session.md + screenshots/001.png",
+      "anchor": "0:50-1:26 mark 001 folders look like files; bigger folder box with contents summary",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0126",
+      "type": "voiceover-transcript",
+      "location": "session.md + screenshots/002.png",
+      "anchor": "1:26-1:50 mark 002 server focus: odd wide aspect ratio, want grouped in middle",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0150",
+      "type": "voiceover-transcript",
+      "location": "session.md + screenshots/003.png",
+      "anchor": "1:50-2:25 mark 003 edges all through same 30px; files vs folders mixed",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0301",
+      "type": "voiceover-transcript",
+      "location": "session.md",
+      "anchor": "3:01-3:56 hint of what's in folders; expand in place (doubted); folders+files mixed, muddled",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0414",
+      "type": "voiceover-transcript",
+      "location": "session.md + screenshots/006.png",
+      "anchor": "4:14-4:29 mark 006 app.py: grouping, mcp_runtime same file/class",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0601",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/007.jpg",
+      "anchor": "6:01-7:01 mark 007 group by module (agent-skills/agent-core) then file/class; 2-3 line labels",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0710",
+      "type": "voiceover-transcript",
+      "location": "session.md",
+      "anchor": "7:10-7:38 respect color scale in dep view; common color overlay, projections",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0741",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/009.jpg",
+      "anchor": "7:41-8:03 mark 009 like left-to-right; narrow views work; grouping missing",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0803",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/010.jpg",
+      "anchor": "8:03-8:47 mark 010 agent_skills: aspect ratio, lines to same spots, use viewport, small text, dashed too much?, group by module/project",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0850",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/011.jpg",
+      "anchor": "8:50-9:15 mark 011 create_identities excellent; click to fly in contents / bring in context",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-0927",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/012.jpg",
+      "anchor": "9:27-9:41 mark 012 pipeline.py: want LOC on file and per symbol",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1039",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/013.jpg, frames/014.jpg",
+      "anchor": "10:39-11:18 components 276 doesn't convey massive; can't tell files/folders; see big things on previous view",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1132",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/015.jpg",
+      "anchor": "11:32-11:56 mark 015 primitives: 4:1 aspect, break into pieces",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1203",
+      "type": "voiceover-transcript",
+      "location": "session.md",
+      "anchor": "12:03-12:56 single-export file: show symbol, file as container, compact containers",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1300",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/016.jpg",
+      "anchor": "13:00-13:29 tiles: box around same-folder files; overall wildly better; quick fixes",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "repo-layout",
+      "type": "repository",
+      "location": "client/src/viz/deps/layout.ts",
+      "anchor": "NODE_WIDTH/HEIGHT L13-14; chooseRows L129-145; arrange L312-325; gutter choice L389; bundleOffsets L663-743",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-canvas",
+      "type": "repository",
+      "location": "client/src/viz/deps/DependencyCanvas.tsx",
+      "anchor": "KindGlyph L41-62; focusFrame L145-154; labelFor L177-181; memberCount L331-341",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-viewmodel",
+      "type": "repository",
+      "location": "client/src/viz/deps/viewModel.ts",
+      "anchor": "roll-up L222-318; faint L336-338; qualifiedSymbol L358-361; disambiguateLabels L393",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-contract",
+      "type": "repository",
+      "location": "server/app/models.py:73-105; client/src/viz/deps/contract.ts",
+      "anchor": "DepGraphNode has no LOC/metrics/end line",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-colors",
+      "type": "repository",
+      "location": "client/src/viz/treemap/utils/colors.ts",
+      "anchor": "TREEMAP_RAMP L14; treemapFillColor L58",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "prior-dependency-view",
+      "type": "prior-initiative",
+      "location": "docs/intent/dependency-view/initiative-map.json",
+      "anchor": "C6 uniform boxes; C9 folder grouping; C20 aspect packing",
+      "authority": "earlier direct intent"
+    },
+    {
+      "id": "qa-round-1",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "2026-10-15 round 1",
+      "authority": "direct current intent"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "type": "constraint",
+        "statement": "Performance is the standout strength; no change may compromise load or drill speed.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0015"
+        ],
+        "code_anchors": [
+          "server/app/services/deps/graph.py:66 (mtime-cached build)",
+          "client/src/viz/deps/DependencyView.tsx:85-95 (layout recompute per focus)"
+        ]
+      },
+      {
+        "id": "C2",
+        "type": "problem",
+        "statement": "Folders are visually indistinguishable from files; mixed folder/file views are muddled.",
+        "commitment": "repeated",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0050",
+          "vo-0150",
+          "vo-0301",
+          "vo-1039"
+        ],
+        "code_anchors": [
+          "client/src/viz/deps/DependencyCanvas.tsx:41-62 KindGlyph is the only distinction",
+          "client/src/viz/deps/layout.ts:13-14 uniform 196x28 boxes"
+        ]
+      },
+      {
+        "id": "C3",
+        "type": "desired experience",
+        "statement": "Folder boxes are larger and show a few summary lines: subfolders, files, LOC.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0050",
+          "vo-0301"
+        ],
+        "supersedes": "dependency-view C6 (uniform box size) for folder boxes",
+        "code_anchors": [
+          "client/src/viz/deps/layout.ts:597-606 PositionedNode from constants",
+          "client/src/viz/deps/viewModel.ts:21,363 memberCount"
+        ]
+      },
+      {
+        "id": "C4",
+        "type": "required behavior",
+        "statement": "Relative size must read visually; a 276-file folder must look massive, not just carry a number.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1039",
+          "vo-0050"
+        ],
+        "code_anchors": [
+          "client/src/viz/deps/DependencyCanvas.tsx:331-341 count badge only"
+        ]
+      },
+      {
+        "id": "C5",
+        "type": "problem",
+        "statement": "Mid-level views come out as 4:1-7:1 strips; they should be compact and centered, using the viewport.",
+        "commitment": "repeated",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0126",
+          "vo-0803",
+          "vo-1132"
+        ],
+        "code_anchors": [
+          "client/src/viz/deps/layout.ts:129-145 chooseRows",
+          "client/src/viz/deps/layout.ts:312-325 arrange tie-break picks t=1",
+          "client/src/viz/deps/layout.ts:25 MAX_SCALE",
+          "client/src/viz/deps/layout.test.ts:46 only asserts aspect > 1.2",
+          "client/src/viz/deps/DependencyCanvas.tsx:87-101 fit frames occupied band"
+        ]
+      },
+      {
+        "id": "C6",
+        "type": "problem",
+        "statement": "Edges all run through the same narrow channel; they should spread out so the graph can be read.",
+        "commitment": "repeated",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0150",
+          "vo-0803"
+        ],
+        "code_anchors": [
+          "client/src/viz/deps/layout.ts:389 gutter next to anchor row",
+          "client/src/viz/deps/layout.ts:663-743 bundleOffsets caps bundle at ~8px",
+          "client/src/viz/deps/layout.ts:15-21 TRACK/MIN_GUTTER"
+        ]
+      },
+      {
+        "id": "C7",
+        "type": "desired experience",
+        "statement": "Group neighbors by module/package first, then by file or class, with a visible frame per group.",
+        "commitment": "repeated",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0414",
+          "vo-0601",
+          "vo-0741",
+          "vo-0803",
+          "vo-1300"
+        ],
+        "code_anchors": [
+          "client/src/viz/deps/DependencyCanvas.tsx:145-154,224-237 focusFrame (reusable pattern)",
+          "client/src/viz/deps/viewModel.ts:222-318 parent chain/roll-up",
+          "client/src/viz/deps/layout.ts:278,336-359 level sort + barycenter (would need group-contiguous ordering)"
+        ]
+      },
+      {
+        "id": "C8",
+        "type": "desired experience",
+        "statement": "Symbol boxes use two or three lines (module, file, symbol) instead of truncating the important part.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0601"
+        ],
+        "code_anchors": [
+          "client/src/viz/deps/DependencyCanvas.tsx:177-181 labelFor 134-164px",
+          "client/src/viz/deps/viewModel.ts:358-361,420-423 qualifiedSymbol"
+        ]
+      },
+      {
+        "id": "C9",
+        "type": "desired experience",
+        "statement": "Files as containers of symbols: a file exporting one symbol shows the symbol; busy containers render compact.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1203"
+        ],
+        "code_anchors": [
+          "server/app/services/deps/graph.py:84-171 symbol nodes only when edge targets them"
+        ]
+      },
+      {
+        "id": "C10",
+        "type": "desired experience",
+        "statement": "Show LOC on file nodes and ideally per symbol.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0927",
+          "vo-0050"
+        ],
+        "code_anchors": [
+          "server/app/models.py:73-105 no LOC on DepGraphNode",
+          "server/app/services/analysis.py:1145,1180 treemap path = absolute, joinable with absPath"
+        ]
+      },
+      {
+        "id": "C11",
+        "type": "decision",
+        "statement": "One shared color overlay: the dependency graph respects the treemap color metric; treemap and graph are projections of the same data.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0710"
+        ],
+        "code_anchors": [
+          "client/src/viz/treemap/utils/colors.ts:14,58",
+          "client/src/components/Treemap.tsx:66 primaryMetric",
+          "client/src/components/Treemap.tsx:250-255 DependencyView gets only path"
+        ]
+      },
+      {
+        "id": "C12",
+        "type": "constraint",
+        "statement": "Preserve left-to-right flow and the narrow-focus views that already work well.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0741",
+          "vo-0850",
+          "vo-1300"
+        ]
+      },
+      {
+        "id": "C13",
+        "type": "future possibility",
+        "statement": "Peek / fly-in: expand a neighbor's contents in context without refocusing.",
+        "commitment": "tentative",
+        "importance": "peripheral",
+        "status": "active",
+        "time_horizon": "later",
+        "sources": [
+          "vo-0301",
+          "vo-0850"
+        ],
+        "notes": "User doubted expand-in-place at 3:30 but asked again at 9:02."
+      },
+      {
+        "id": "C14",
+        "type": "future possibility",
+        "statement": "Surface a folder's most-used items on the parent view (e.g. camera inside model-viz).",
+        "commitment": "tentative",
+        "importance": "peripheral",
+        "status": "active",
+        "time_horizon": "later",
+        "sources": [
+          "vo-1039"
+        ]
+      },
+      {
+        "id": "C15",
+        "type": "open question",
+        "statement": "Dashed (faint neighbor-to-neighbor) edges may be too much in busy views.",
+        "commitment": "tentative",
+        "importance": "peripheral",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-0803"
+        ],
+        "code_anchors": [
+          "client/src/viz/deps/viewModel.ts:336-338",
+          "client/src/viz/deps/DependencyCanvas.tsx:245-254"
+        ]
+      },
+      {
+        "id": "C16",
+        "type": "current repository reality",
+        "statement": "Compare mode reuses layoutViewSync, so layout changes ripple into compare graphs.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "repo-layout"
+        ],
+        "code_anchors": [
+          "client/src/compare/CompareGraph.tsx:9",
+          "client/src/compare/graphModel.ts"
+        ]
+      },
+      {
+        "id": "C17",
+        "type": "decision",
+        "statement": "A file exporting a single symbol renders as the symbol node, with the file name as quiet context.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "qa-round-1"
+        ]
+      }
+    ],
+    "themes": [
+      "structure via grouping",
+      "kind and size legibility",
+      "viewport packing and edge spread",
+      "shared metric overlay",
+      "performance preservation"
+    ],
+    "conflicts": [
+      {
+        "claims": [
+          "C3",
+          "prior-dependency-view:C6"
+        ],
+        "resolution": "Newer direct dictation wins: folder boxes may be larger; symbol/file boxes stay uniform within kind."
+      }
+    ],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Medium: client view model, layout, canvas only; no server or contract change.",
+    "problem": "Mid-level focus views are wide strips with piled edges, folders look like files, size is invisible, and neighbors are not grouped.",
+    "recommended_shape": {
+      "slices": [
+        {
+          "id": "packing",
+          "files": [
+            "client/src/viz/deps/layout.ts:129-145 chooseRows",
+            "client/src/viz/deps/layout.ts:312-325 arrange tie-break"
+          ]
+        },
+        {
+          "id": "two-line-boxes",
+          "files": [
+            "client/src/viz/deps/layout.ts:13-14 NODE_HEIGHT",
+            "client/src/viz/deps/DependencyCanvas.tsx:177-181 labelFor",
+            "client/src/viz/deps/viewModel.ts:358-361 qualifiedSymbol"
+          ]
+        },
+        {
+          "id": "grouping",
+          "files": [
+            "client/src/viz/deps/viewModel.ts:222-318 hierarchy",
+            "client/src/viz/deps/layout.ts:278,336-359 ordering",
+            "client/src/viz/deps/DependencyCanvas.tsx:145-154 frame pattern"
+          ]
+        },
+        {
+          "id": "folder-row-span",
+          "files": [
+            "client/src/viz/deps/layout.ts:597-606 PositionedNode"
+          ]
+        },
+        {
+          "id": "single-symbol-files",
+          "files": [
+            "client/src/viz/deps/viewModel.ts"
+          ]
+        },
+        {
+          "id": "color-and-loc-join",
+          "files": [
+            "client/src/components/Treemap.tsx:250-255 pass index",
+            "client/src/viz/treemap/utils/colors.ts:58 treemapFillColor",
+            "client/src/utils/dataProcessing.ts:69-77 findTreeNodeByPath"
+          ]
+        },
+        {
+          "id": "edge-spread",
+          "files": [
+            "client/src/viz/deps/layout.ts:389,663-743"
+          ]
+        }
+      ]
+    },
+    "success_moves": [
+      "Join LOC/metrics client-side by absPath from the treemap tree instead of extending DepGraphNode (no payload or build-time cost)",
+      "Keep the uniform-cell grid router; show folder size with an in-box size bar (row spans would block gutters and break the free-gutter invariant, layout.ts:9-10)",
+      "Group keys from existing hierarchy; barycenter at group level then within group",
+      "Geometry tests gate each slice: aspect band, zero box crossings, group contiguity, crossing count",
+      "Local gitignored modeler fixtures for realism; committed tests use srcly fixture plus synthetic graphs (public repo)"
+    ],
+    "first_proof": {
+      "question": "Do aspect-targeted packing, two-line boxes and grouping make mid-level views readable without breaking routing?",
+      "artifact": "layout/viewModel changes plus geometry tests on srcly fixture and local modeler server/ and components/ graphs; before/after screenshots",
+      "observation": "aspect within 0.5-2x viewport, 0 node crossings, groups contiguous, crossings not worse than baseline",
+      "decision_rule": "pass -> folder row-span, color join, edge spread; grouping raises crossings >~25% -> group labels without contiguity and revisit"
+    },
+    "rabbit_holes": [
+      "row spans blocking gutters (moved to evaluate; size bar is the plan)",
+      "per-column frames looking fragmented when a group spans depth levels",
+      "compare graph regressions via shared layoutViewSync",
+      "two-line height reducing boxes that fit the budget"
+    ],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/repos/srcly",
+      "revision": "5e396c3",
+      "worktree_status": "clean",
+      "subsystems": [
+        "client/src/viz/deps",
+        "client/src/compare/graphModel.ts",
+        "client/src/components/Treemap.tsx"
+      ],
+      "test_commands": [
+        "cd client && pnpm test -- viz/deps compare/graphModel"
+      ],
+      "deployment_surfaces": []
+    },
+    "dependencies": [],
+    "fast_local_loop": {
+      "command": "cd client && pnpm test -- viz/deps compare/graphModel",
+      "starts": "nothing; optional scripts/capture-dep-graph.sh writes gitignored local fixtures from a running server",
+      "network": false,
+      "failure_injection": "synthetic graphs (15 children over 5 depths, multi-package neighbors, single-symbol files)"
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "Mid-level views fill the viewport",
+        "outcome": "Folder focus views pack to roughly the viewport aspect instead of wide strips.",
+        "dependencies_introduced": [],
+        "proof": "layout.test.ts aspectOf within 0.5-2x viewport on srcly fixture, synthetic server-shaped graph, local modeler captures; 0 node crossings; crossing baseline recorded",
+        "valid_intermediate_state": "Same boxes and routing, better packing",
+        "rollback": "Revert arrange scoring",
+        "status": "planned",
+        "evidence": [],
+        "files": [
+          "client/src/viz/deps/layout.ts:129-145,312-325",
+          "client/src/viz/deps/layout.test.ts:46",
+          "scripts/capture-dep-graph.sh (new)",
+          ".gitignore"
+        ]
+      },
+      {
+        "id": "m2",
+        "title": "Two-line boxes and visibly different folders",
+        "outcome": "Every box has name + context line; folders styled distinctly with a size bar.",
+        "dependencies_introduced": [],
+        "proof": "viewModel tests for subtitle per kind; graphModel tests green; screenshots",
+        "valid_intermediate_state": "Compare graph shows subtitles where set",
+        "rollback": "Restore NODE_HEIGHT 28 and single label",
+        "status": "planned",
+        "evidence": [],
+        "files": [
+          "client/src/viz/deps/layout.ts:13-14",
+          "client/src/viz/deps/viewModel.ts:12-27,349-369,420-423",
+          "client/src/viz/deps/DependencyCanvas.tsx:276-345",
+          "client/src/compare/graphModel.ts:197-225"
+        ]
+      },
+      {
+        "id": "m3",
+        "title": "Neighbors grouped by package, then file",
+        "outcome": "Side neighbors contiguous and framed by package/module; single-symbol files render as the symbol.",
+        "dependencies_introduced": [],
+        "proof": "tests: group contiguity, 0 node crossings, crossings <=~125% of m1 baseline, single-symbol collapse",
+        "valid_intermediate_state": "Groups optional on ViewNode; compare unaffected",
+        "rollback": "Ignore group key in layout and skip frames",
+        "status": "planned",
+        "evidence": [],
+        "files": [
+          "client/src/viz/deps/viewModel.ts",
+          "client/src/viz/deps/layout.ts:278,336-359",
+          "client/src/viz/deps/DependencyCanvas.tsx:145-154,224-237"
+        ]
+      },
+      {
+        "id": "m4",
+        "title": "Shared color and LOC from the treemap",
+        "outcome": "Graph boxes tinted by the treemap color metric and show LOC; recolor without relayout.",
+        "dependencies_introduced": [],
+        "proof": "vitest nodeMetrics hit/miss; manual metric switch re-tints without relayout",
+        "valid_intermediate_state": "Missing matches render neutral",
+        "rollback": "Stop passing metricsIndex",
+        "status": "planned",
+        "evidence": [],
+        "files": [
+          "client/src/components/Treemap.tsx:66,250-255",
+          "client/src/viz/deps/DependencyView.tsx (props only)",
+          "client/src/viz/deps/DependencyCanvas.tsx",
+          "client/src/viz/treemap/utils/colors.ts:58,91"
+        ],
+        "coordination": "metricsIndex/colorMetric prop agreed with unified-navigation worker"
+      },
+      {
+        "id": "m5",
+        "title": "Edges spread out",
+        "outcome": "Bundles widen with edge count; gutter choice balances load.",
+        "dependencies_introduced": [],
+        "proof": "tests: offsets within channel bounds, crossings not worse than m3, no added overlaps; server screenshot",
+        "valid_intermediate_state": "Routing invariants unchanged",
+        "rollback": "Restore 8px cap and anchor-adjacent gutter",
+        "status": "planned",
+        "evidence": [],
+        "files": [
+          "client/src/viz/deps/layout.ts:389,663-743"
+        ]
+      }
+    ],
+    "cut_line": [
+      "multi-row folder spans (needs span-aware router)",
+      "peek/fly-in",
+      "most-used items on parent view",
+      "LOC/color on compare graph",
+      "reducing faint edges"
+    ],
+    "open_decisions": [
+      {
+        "decision": "Group frames per column vs spanning adjacent columns",
+        "evidence": "m3 screenshots on modeler",
+        "fallback": "group labels without frames"
+      }
+    ],
+    "sequencing": "Start after quick-fix mA and mB merge (DependencyCanvas.tsx). Can run in parallel with unified-navigation if m4 prop is agreed."
+  },
+  "history": [
+    {
+      "date": "2026-10-15",
+      "event": "Initiative created from 2026-10-15 voiceover session (marks 001-016) against the modeler repo; intent drafted with code source map."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "Round 1: single-symbol files render as the symbol."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "Shape brief written: client-only join for color/LOC, grid kept with folder row-spans, hierarchy-based grouping."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "Shape amended during planning: folder row-span moved to evaluate; in-box size bar instead (row spans block routing gutters)."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "Implementation plan written: packing, two-line boxes, grouping, color/LOC join, edge spread; local gitignored modeler fixtures."
+    }
+  ],
+  "closure": null
+}

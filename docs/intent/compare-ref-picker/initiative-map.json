@@ -1,0 +1,549 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Compare ref picker: PRs, worktrees, commits",
+    "slug": "compare-ref-picker",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-15",
+    "summary": "Replace free-text compare refs with a rich picker of open PRs (via gh CLI), worktrees, and branches; picking a PR sets base/head; add commit-by-commit stepping inside a PR; keep compares fast.",
+    "status": "planned",
+    "next_action": "Worker: implement m1 (pr:<n> resolution + gh seam + phase timings)"
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    }
+  },
+  "related_initiatives": [
+    {
+      "slug": "pr-compare",
+      "relation": "follow-up; promotes 'GitHub PR by number' and 'more than two refs / branch over time' from its cut line"
+    }
+  ],
+  "sources": [
+    {
+      "id": "req-1",
+      "type": "request",
+      "location": "conversation",
+      "anchor": "2026-10-15 request",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1541",
+      "type": "voiceover-transcript",
+      "location": "/Users/byronwall/Movies/ContextRecorder/2026-10-15_08-58-32/session.md + frames/023.jpg",
+      "anchor": "15:41-15:58 mark 023 compare slower than expected; later fast, maybe cached",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1558",
+      "type": "voiceover-transcript",
+      "location": "session.md",
+      "anchor": "15:58-16:19 woefully underpowered picking; tons of worktrees and PRs; PR viewer showing a PR's diff",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1619",
+      "type": "voiceover-transcript",
+      "location": "session.md",
+      "anchor": "16:19-16:29 commit-level viewer inside a PR, current vs previous commit",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1629",
+      "type": "voiceover-transcript",
+      "location": "session.md",
+      "anchor": "16:29-16:45 reference: visual git exploration project on this computer",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1645",
+      "type": "voiceover-transcript",
+      "location": "session.md + frames/024.jpg",
+      "anchor": "16:45-16:56 mark 024 treemap compare so good; dep compare okay, needs a real PR",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "vo-1656",
+      "type": "voiceover-transcript",
+      "location": "session.md",
+      "anchor": "16:56-17:06 quickly select correct working spot; run gh CLI for rich context; rich nice picker",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "repo-refbar",
+      "type": "repository",
+      "location": "client/src/compare/RefBar.tsx",
+      "anchor": "datalist L28-38; free-text inputs L39-57; swap disabled for WORKTREE L58-68",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-refs-api",
+      "type": "repository",
+      "location": "server/app/routers/compare.py",
+      "anchor": "GET /api/compare/refs L52-86 (20 local branches, 30 commits)",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-snapshots",
+      "type": "repository",
+      "location": "server/app/services/compare/snapshots.py",
+      "anchor": "worktree add L126-140; SideCache LRU 40 L37,58-116; load_side full scan L210-244",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-service",
+      "type": "repository",
+      "location": "server/app/services/compare/service.py",
+      "anchor": "build_compare sequential sides L32-72",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "repo-git-refs",
+      "type": "repository",
+      "location": "server/app/services/compare/git_refs.py",
+      "anchor": "pseudo-refs L10-13; default_branch L82-96; resolve_ref L99-107",
+      "authority": "current implementation reality"
+    },
+    {
+      "id": "prior-igitit",
+      "type": "repository",
+      "location": "/Users/byronwall/repos/git-visual-files",
+      "anchor": "src/lib/gitWorktrees.ts L157-161 (git worktree list --porcelain); src/lib/gitBranchSummaries.ts L188-199 (for-each-ref with upstream:track); src/lib/gitFileCommits.ts L214-237 (git log forkBase..target); src/components/RefPicker.tsx, WorktreePopover.tsx, RepoTimelineDrawer.tsx",
+      "authority": "user-referenced prior art"
+    },
+    {
+      "id": "prior-gh-graphql",
+      "type": "repository",
+      "location": "/Users/byronwall/repos/daily-planning/viewer/link-metadata.ts",
+      "anchor": "L86 execFile gh api graphql; reads stdout on non-zero exit",
+      "authority": "reusable pattern"
+    },
+    {
+      "id": "prior-pr-compare",
+      "type": "prior-initiative",
+      "location": "docs/intent/pr-compare/initiative-map.json",
+      "anchor": "cut_line: 'GitHub PR by number', 'more than two refs / branch over time'",
+      "authority": "earlier agent-recorded deferral"
+    },
+    {
+      "id": "qa-round-1",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "2026-10-15 round 1",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "probe-modeler-gh",
+      "type": "probe",
+      "location": "/Users/byronwall/repos/modeler",
+      "anchor": "2026-10-15: gh pr list ~2.0s; PRs stacked (1927 base codex/concurrency-02-trace-visibility, 1922 base codex/concurrency-05-build-reuse, 1925 base main); git worktree list = 240 entries incl. prunable",
+      "authority": "observed environment fact"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "type": "problem",
+        "statement": "Choosing what to compare is woefully underpowered for someone with many worktrees and PRs.",
+        "commitment": "repeated",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1558",
+          "vo-1656"
+        ],
+        "code_anchors": [
+          "client/src/compare/RefBar.tsx:28-57",
+          "server/app/routers/compare.py:52-86"
+        ]
+      },
+      {
+        "id": "C2",
+        "type": "desired experience",
+        "statement": "Select by PR: picking a PR shows that PR's diff.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1558"
+        ]
+      },
+      {
+        "id": "C3",
+        "type": "desired experience",
+        "statement": "Select by worktree, alongside PRs.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1558"
+        ],
+        "code_anchors": [
+          "/Users/byronwall/repos/git-visual-files/src/lib/gitWorktrees.ts:157-184"
+        ]
+      },
+      {
+        "id": "C4",
+        "type": "decision",
+        "statement": "Use the gh CLI to gather rich PR context for a rich picker.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1656"
+        ],
+        "code_anchors": [
+          "/Users/byronwall/repos/daily-planning/viewer/link-metadata.ts:86"
+        ]
+      },
+      {
+        "id": "C5",
+        "type": "desired experience",
+        "statement": "Within a PR, a commit-level viewer comparing each commit to its predecessor to see the PR's development.",
+        "commitment": "tentative",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1619"
+        ],
+        "notes": "'Maybe within a PR'"
+      },
+      {
+        "id": "C6",
+        "type": "problem",
+        "statement": "Compare felt much slower than expected on first run; a repeat was fast (likely cache).",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1541"
+        ],
+        "code_anchors": [
+          "server/app/services/compare/service.py:32-72 sequential sides",
+          "server/app/services/compare/snapshots.py:210-244 full scan per side",
+          "server/app/services/compare/snapshots.py:37 MAX_SIDE_ENTRIES=40"
+        ]
+      },
+      {
+        "id": "C7",
+        "type": "preference",
+        "statement": "Compare treemap is very good; dependency compare is okay and needs a real-PR evaluation.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "vo-1645"
+        ]
+      },
+      {
+        "id": "C8",
+        "type": "example",
+        "statement": "The prior visual-git exploration project is a reference for picker and timeline patterns.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "vo-1629",
+          "prior-igitit"
+        ]
+      },
+      {
+        "id": "C9",
+        "type": "constraint",
+        "statement": "Picker must degrade gracefully without gh or network; deterministic results and no working-tree mutation continue to hold.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "prior-pr-compare"
+        ]
+      },
+      {
+        "id": "C10",
+        "type": "derived implication",
+        "statement": "Commit stepping multiplies cold-scan cost unless per-file results are reused across commits.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "repo-snapshots"
+        ]
+      },
+      {
+        "id": "C11",
+        "type": "decision",
+        "statement": "A picked worktree compares against its open PR base when gh finds one, else merge-base with the default branch.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "qa-round-1"
+        ]
+      },
+      {
+        "id": "C12",
+        "type": "derived implication",
+        "statement": "PRs are stacked, so the compare base must be merge-base with the PR baseRefName, not the default branch; worktree lists are large and include prunable entries; gh latency ~2s requires async loading.",
+        "commitment": "derived",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "probe-modeler-gh"
+        ]
+      }
+    ],
+    "themes": [
+      "work-context-aware picking",
+      "PR as unit",
+      "development within a PR",
+      "compare speed"
+    ],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Medium: one sources endpoint, a picker component, worktree-as-head, and a commit stepper; compare engine and views unchanged.",
+    "problem": "Choosing a comparison needs typed refs; no PR, worktree, or commit-stepping support; cold compares feel slow without visibility into why.",
+    "recommended_shape": {
+      "endpoint": "GET /api/compare/sources -> {prs (gh pr list --json number,title,headRefName,baseRefName,headRefOid,isDraft,reviewDecision,updatedAt,statusCheckRollup,author), worktrees (git worktree list --porcelain, non-prunable, sorted by HEAD date), branches (for-each-ref heads+remotes with upstream:track)}",
+      "pick_rules": {
+        "pr": "base=merge-base(origin/baseRefName, headRefOid); head=headRefOid; fetch head objects if missing",
+        "worktree": "head=scan of worktree path; base=open PR base for its branch else merge-base(default, HEAD)",
+        "branch": "merge-base(default, branch)"
+      },
+      "stepper": "git rev-list --first-parent --reverse base..head; step i = c[i-1]..c[i]",
+      "files": [
+        "client/src/compare/RefBar.tsx",
+        "client/src/compare/CompareApp.tsx",
+        "client/src/compare/CompareProgress.tsx",
+        "client/src/compare/api.ts",
+        "server/app/routers/compare.py",
+        "server/app/services/compare/git_refs.py",
+        "server/app/services/compare/snapshots.py",
+        "server/app/services/compare/service.py",
+        "server/app/services/compare/jobs.py"
+      ],
+      "prior_art": [
+        "/Users/byronwall/repos/git-visual-files/src/lib/gitWorktrees.ts",
+        "/Users/byronwall/repos/git-visual-files/src/lib/gitBranchSummaries.ts",
+        "/Users/byronwall/repos/git-visual-files/src/components/RefPicker.tsx",
+        "/Users/byronwall/repos/git-visual-files/src/components/WorktreePopover.tsx"
+      ]
+    },
+    "success_moves": [
+      "Single server seam for gh with timeout, short cache, and recorded-JSON fake in tests; picker never blocks on GitHub",
+      "Use PR baseRefName for merge-base so stacked PRs match GitHub",
+      "Sections load independently so git lists render instantly and PRs fill in",
+      "Worktree head reuses the WORKTREE path-scan and mtime cache instead of a checkout",
+      "Add per-phase timings to compare progress before optimizing parallel sides or prewarming",
+      "Stepper reuses the previous side from SideCache so each step costs at most one scan"
+    ],
+    "first_proof": {
+      "question": "Does a gh+git sources endpoint with PR-based base resolution produce GitHub-equal diffs, including stacked PRs, with a fast picker?",
+      "artifact": "sources endpoint + picker (PR picking only) on modeler #1925 and stacked #1922",
+      "observation": "changed-file count equals gh pr view N --json changedFiles; git sections <300ms; cold-side phase timings visible",
+      "decision_rule": "match -> worktree heads and stepper; stacked mismatch -> fix base resolution (remote base ref, fetch) first"
+    },
+    "rabbit_holes": [
+      "PR head commits missing locally (fork PRs, unfetched)",
+      "240-worktree listing cost and prunable entries",
+      "WORKTREE semantics generalized to another path vs SideCache keys",
+      "stepping cost on large repos without per-file reuse",
+      "gh auth inside sandboxed environments (Keychain)"
+    ],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/repos/srcly",
+      "revision": "5e396c3",
+      "worktree_status": "clean",
+      "subsystems": [
+        "server/app/services/compare",
+        "server/app/routers/compare.py",
+        "client/src/compare"
+      ],
+      "test_commands": [
+        "cd server && uv run pytest tests/test_compare*.py",
+        "cd client && pnpm test"
+      ],
+      "deployment_surfaces": []
+    },
+    "dependencies": [
+      {
+        "id": "gh",
+        "name": "GitHub CLI (gh)",
+        "material": true,
+        "application_seam": "server/app/services/compare/github.py run_gh(repo,*args,timeout) -> parsed JSON or GhUnavailable(reason)",
+        "failure_modes": [
+          "gh not installed",
+          "not authenticated / Keychain unavailable in sandbox",
+          "network offline or timeout",
+          "head commit not local",
+          "stacked base branch missing on origin"
+        ],
+        "proof_rungs": [
+          "recorded JSON via monkeypatched run_gh in pytest",
+          "real gh on modeler by hand (CLI then UI)"
+        ],
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "The m1 question is whether GitHub-reported PR base/head reproduce the GitHub diff; only real gh on modeler answers it, while faked gh covers logic in tests."
+        },
+        "local_proof": "pytest with monkeypatched run_gh plus real-git fixture repo with stacked branches",
+        "live_proof": "srcly compare pr:1925 and pr:1922 on modeler match gh pr view --json changedFiles",
+        "rollout": "Picker sections hide with a reason when gh is unavailable; Advanced free-text refs remain; reverting m2 restores RefBar"
+      }
+    ],
+    "fast_local_loop": {
+      "command": "cd server && uv run pytest tests/test_compare*.py",
+      "starts": "nothing; real git in tmp_path",
+      "network": false,
+      "failure_injection": "monkeypatch run_gh to raise GhUnavailable or return recorded JSON"
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "pr:<n> resolves to a GitHub-equal compare, with phase timings",
+        "outcome": "srcly compare pr:N on modeler matches GitHub changed-file counts, including stacked PRs; progress shows per-phase seconds; UI sends the analyzed repo path.",
+        "dependencies_introduced": [
+          "gh"
+        ],
+        "proof": "pytest: stacked-branch fixture + faked PR JSON; gh-missing path; manual CLI on modeler #1925 and #1922",
+        "valid_intermediate_state": "Picker unchanged; pr:<n> usable from CLI and typed into the existing ref fields",
+        "rollback": "Remove pr: handling in resolve_ref; github.py unused",
+        "status": "planned",
+        "evidence": [],
+        "files": [
+          "server/app/services/compare/github.py (new)",
+          "server/app/services/compare/git_refs.py:22-34,99-107",
+          "server/app/services/compare/jobs.py:73-83,109-112",
+          "client/src/compare/CompareProgress.tsx",
+          "client/src/compare/api.ts:53-60",
+          "client/src/compare/types.ts:15-27"
+        ]
+      },
+      {
+        "id": "m2",
+        "title": "Rich picker with independent sources",
+        "outcome": "One picker lists My PRs, live worktrees, branches with search; one click lands on the correct compare.",
+        "dependencies_introduced": [],
+        "proof": "pytest for /api/compare/sources worktree parsing (prunable filtered); manual modeler check: git sections under 300ms, PRs ~2s or reason",
+        "valid_intermediate_state": "Advanced free-text refs still available",
+        "rollback": "Revert to RefBar datalist",
+        "status": "planned",
+        "evidence": [],
+        "files": [
+          "server/app/routers/compare.py",
+          "client/src/compare/ComparePicker.tsx (new)",
+          "client/src/compare/RefBar.tsx:28-57",
+          "client/src/compare/SummaryStrip.tsx"
+        ]
+      },
+      {
+        "id": "m3",
+        "title": "A worktree as the head",
+        "outcome": "Picking any live worktree compares its on-disk state against its PR base or merge-base without a checkout.",
+        "dependencies_introduced": [],
+        "proof": "pytest: second worktree with uncommitted edits shows edits; no worktree state mutated",
+        "valid_intermediate_state": "PR and branch picking unaffected",
+        "rollback": "Hide worktree rows; worktree: ref rejected",
+        "status": "planned",
+        "evidence": [],
+        "files": [
+          "server/app/services/compare/git_refs.py:113-155",
+          "server/app/services/compare/snapshots.py:210-276",
+          "server/app/services/compare/service.py:49-67"
+        ]
+      },
+      {
+        "id": "m4",
+        "title": "Commit stepper inside a PR or range",
+        "outcome": "Step through a PR commit by commit; each step costs at most one new side scan.",
+        "dependencies_introduced": [],
+        "proof": "pytest for /api/compare/commits; manual stepping on a modeler PR with timings",
+        "valid_intermediate_state": "Whole-PR compare remains default",
+        "rollback": "Hide stepper",
+        "status": "planned",
+        "evidence": [],
+        "files": [
+          "server/app/routers/compare.py",
+          "client/src/compare/CommitStepper.tsx (new)",
+          "client/src/compare/CompareApp.tsx"
+        ]
+      }
+    ],
+    "cut_line": [
+      "per-file analysis reuse across commits",
+      "?pr= shorthand and --pr CLI sugar",
+      "fork PRs with unfetchable heads",
+      "review comments and check details"
+    ],
+    "open_decisions": [
+      {
+        "decision": "Parallel sides vs pre-warm vs sequential",
+        "evidence": "m1 phase timings on modeler cold compares",
+        "fallback": "sequential + pre-warm next commit"
+      }
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-15",
+      "event": "Initiative created from 2026-10-15 voiceover session (15:41-17:06) with code and prior-art source map."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "Round 1: worktree default base = open PR base, else merge-base."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "Shape brief written after modeler probe (stacked PRs, 240 worktrees, gh ~2s): PR baseRefName merge-base, independent sources, worktree-as-head, stepper."
+    },
+    {
+      "date": "2026-10-15",
+      "event": "Implementation plan written: m1 pr:<n> resolver first, then picker, worktree head, stepper."
+    }
+  ],
+  "closure": null
+}
