@@ -15,6 +15,7 @@ import type { Region, ViewNode } from "./viewModel";
 
 const LABEL_FONT = "500 12px Inter, ui-sans-serif, system-ui, sans-serif";
 const SUBTITLE_FONT = "400 11px Inter, ui-sans-serif, system-ui, sans-serif";
+const FRAME_LABEL_FONT = "600 11px Inter, ui-sans-serif, system-ui, sans-serif";
 const PAD_X = 8;
 const ICON_W = 16;
 const MENU_BTN_W = 20;
@@ -199,10 +200,29 @@ export function DependencyCanvas(props: {
 
   const textRoom = (n: PositionedNode) => n.width - PAD_X * 2 - ICON_W;
   // A box without a second line centers its label.
-  const line1Y = (n: PositionedNode) => (n.node.subtitle ? LINE1_Y : n.height / 2 + 4);
+  const line1Y = (n: PositionedNode) => (shownSubtitle(n) ? LINE1_Y : n.height / 2 + 4);
   const labelFor = (n: PositionedNode) => truncateTextToWidth(n.node.label, textRoom(n), LABEL_FONT);
-  const subtitleFor = (n: PositionedNode) => {
+  // Boxes inside a package frame: the frame already names the package.
+  const framed = createMemo(() => {
+    const out = new Set<string>();
+    for (const f of props.layout.frames ?? []) {
+      for (const n of props.layout.nodes) {
+        if (n.column === f.column && n.node.group?.id === f.groupId && n.y >= f.y && n.y + n.height <= f.y + f.height) out.add(n.id);
+      }
+    }
+    return out;
+  });
+  /** The subtitle minus whatever the surrounding package frame already says. */
+  const shownSubtitle = (n: PositionedNode) => {
     const sub = n.node.subtitle ?? "";
+    const label = n.node.group?.label;
+    if (!label || !framed().has(n.id)) return sub;
+    if (sub === label) return "";
+    for (const sep of [" · ", "/"]) if (sub.startsWith(label + sep)) return sub.slice(label.length + sep.length);
+    return sub;
+  };
+  const subtitleFor = (n: PositionedNode) => {
+    const sub = shownSubtitle(n);
     return n.node.kind === "file" ? truncatePathStart(sub, textRoom(n), SUBTITLE_FONT) : truncateTextToWidth(sub, textRoom(n), SUBTITLE_FONT);
   };
 
@@ -244,6 +264,26 @@ export function DependencyCanvas(props: {
               <text x={g.x} y={g.y} class="fill-[var(--plc-on-muted)] text-[12px] font-semibold">
                 {g.label}
               </text>
+            )}
+          </For>
+          {/* Package frames around side neighbors (drawn under edges and boxes). */}
+          <For each={props.layout.frames ?? []}>
+            {(f) => (
+              <g>
+                <rect
+                  x={f.x}
+                  y={f.y}
+                  width={f.width}
+                  height={f.height}
+                  rx="6"
+                  fill="var(--plc-surface)"
+                  fill-opacity="0.6"
+                  stroke="var(--plc-border)"
+                />
+                <text x={f.x + 7} y={f.y + 11.5} class="fill-[var(--plc-on-subtle)] text-[11px] font-semibold">
+                  {truncateTextToWidth(f.label, f.width - 14, FRAME_LABEL_FONT)}
+                </text>
+              </g>
             )}
           </For>
           <Show when={props.focusIsGroup ? focusFrame() : null}>
@@ -394,7 +434,7 @@ export function DependencyCanvas(props: {
                   >
                     {labelFor(n)}
                   </text>
-                  <Show when={n.node.subtitle}>
+                  <Show when={shownSubtitle(n)}>
                     <text x={PAD_X + ICON_W} y={LINE2_Y} class="fill-[var(--plc-on-subtle)] text-[11px]">
                       {subtitleFor(n)}
                     </text>

@@ -32,6 +32,14 @@ export interface ViewNode {
   subtitle?: string;
   /** For folders: files anywhere below it, used to draw relative size. */
   fileCount?: number;
+  /**
+   * Side neighbors only: the package they belong to — the first folder below
+   * the deepest folder they share with the focus. Boxes of one group stay
+   * together in a column and get a labeled frame.
+   */
+  group?: { id: string; label: string };
+  /** Side symbols only: the owning file, so symbols of one file sit together inside their group. */
+  subgroup?: string;
 }
 
 export interface ViewEdge {
@@ -96,8 +104,15 @@ export function buildViewModel(index: GraphIndex, opts: ViewOptions): ViewModel 
     const n = index.byId.get(endpoint);
     return n?.kind === "symbol" && n.parent === focusId ? endpoint : null;
   };
-  const sideLeaf = (endpoint: string): string =>
-    focusKind === "folder" ? owningFile(index, endpoint) : endpoint;
+  // A side file whose every outside edge lands on one symbol shows as that
+  // symbol: `EditInPlace`, not `edit-in-place.tsx`.
+  // (Center files are never side leaves, so the map needs no focus.)
+  const singleSymbol = focusKind === "folder" ? singleSymbolFiles(index) : new Map<string, string>();
+  const sideLeaf = (endpoint: string): string => {
+    if (focusKind !== "folder") return endpoint;
+    const file = owningFile(index, endpoint);
+    return singleSymbol.get(file) ?? file;
+  };
 
   // 2. Seed center leaves.
   const centerLeaves = new Set<string>();
@@ -375,6 +390,7 @@ export function buildViewModel(index: GraphIndex, opts: ViewOptions): ViewModel 
       fileCount: stats?.files,
     });
   }
+  assignGroups(index, focusId, nodes);
   disambiguateLabels(index, nodes);
   nodes.sort((a, b) => a.title.localeCompare(b.title));
 
@@ -424,14 +440,87 @@ function disambiguateLabels(index: GraphIndex, nodes: ViewNode[]): void {
   }
 }
 
+const singleSymbolCache = new WeakMap<GraphIndex, Map<string, string>>();
+
+/**
+ * Files whose edges to the rest of the repo all touch the same one of their
+ * symbols: file id → symbol id. Computed once per index.
+ */
+export function singleSymbolFiles(index: GraphIndex): Map<string, string> {
+  const cached = singleSymbolCache.get(index);
+  if (cached) return cached;
+  const ends = new Map<string, Set<string>>();
+  const note = (end: string, other: string) => {
+    const file = owningFile(index, end);
+    if (file === owningFile(index, other)) return;
+    const set = ends.get(file) ?? new Set<string>();
+    set.add(end);
+    ends.set(file, set);
+  };
+  for (const e of index.edges) {
+    note(e.source, e.target);
+    note(e.target, e.source);
+  }
+  const out = new Map<string, string>();
+  for (const [file, set] of ends) {
+    if (set.size !== 1) continue;
+    const [only] = set;
+    if (only !== file && index.byId.get(only)?.kind === "symbol") out.set(file, only);
+  }
+  singleSymbolCache.set(index, out);
+  return out;
+}
+
+/**
+ * Folders from just below the deepest folder `id` shares with the focus down
+ * to (and including) `id` when it is a folder. Empty when `id` sits directly
+ * in the shared folder.
+ */
+function foldersBelowShared(index: GraphIndex, focusChain: Set<string>, id: string): { shared: string; below: string[] } {
+  const chain = [...ancestors(index, id), id];
+  let at = 0;
+  for (let i = 0; i < chain.length; i++) if (focusChain.has(chain[i])) at = i;
+  const below = chain.slice(at + 1).filter((c) => index.byId.get(c)?.kind === "folder");
+  return { shared: chain[at], below };
+}
+
+/**
+ * Group side neighbors by package: the first folder below the deepest folder
+ * they share with the focus (or that shared folder, for nodes directly in it).
+ * When every neighbor on a side would land in one package — `packages/` in a
+ * monorepo — group one level deeper instead (`agent-core`, `agent-shared`).
+ * Symbols also carry their file, so a file's symbols sit together.
+ */
+export function assignGroups(index: GraphIndex, focusId: string, nodes: ViewNode[]): void {
+  const focusChain = new Set([...ancestors(index, focusId), focusId]);
+  for (const region of ["in", "out"] as const) {
+    const side = nodes.filter((n) => n.region === region);
+    const paths = side.map((n) => foldersBelowShared(index, focusChain, n.graphId));
+    let depth = 0;
+    for (;;) {
+      const keys = new Set(paths.map((p) => p.below[Math.min(depth, p.below.length - 1)] ?? p.shared));
+      const deeper = paths.some((p) => p.below.length > depth + 1);
+      if (keys.size !== 1 || !deeper || side.length < 2) break;
+      depth++;
+    }
+    side.forEach((n, i) => {
+      const p = paths[i];
+      const pkg = p.below.length === 0 ? p.shared : p.below[Math.min(depth, p.below.length - 1)];
+      n.group = { id: pkg, label: displayName(index, pkg) };
+      const g = index.byId.get(n.graphId);
+      n.subgroup = g?.kind === "symbol" ? (g.parent ?? undefined) : undefined;
+    });
+  }
+}
+
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /**
  * The muted second line of a box.
  * - symbol on a side: `module · file` (the folder and file it lives in)
  * - symbol in a focused file: its kind and line (the file is the frame title)
- * - file: the folder it lives in, relative to a focused folder that holds it
- *   (none when it sits directly in the focus)
+ * - file: the folder it lives in, relative to the deepest folder it shares
+ *   with the focus (none when it sits directly in a focused folder)
  * - folder: what it holds, e.g. "12 files · 3 folders"
  */
 export function subtitleFor(index: GraphIndex, id: string, region: Region, focusId?: string): string | undefined {
@@ -453,14 +542,14 @@ export function subtitleFor(index: GraphIndex, id: string, region: Region, focus
     case "file": {
       const parent = g.parent !== null && g.parent !== undefined ? index.byId.get(g.parent) : undefined;
       if (!parent) return undefined;
-      const focus = focusId !== undefined ? index.byId.get(focusId) : undefined;
-      if (region === "center" && focus?.kind === "folder" && isAncestorOrSelf(index, focus.id, parent.id)) {
-        if (parent.id === focus.id) return undefined;
-        const base = focus.path ?? "";
-        const path = parent.path ?? parent.name;
-        return base && path.startsWith(base + "/") ? path.slice(base.length + 1) : path;
-      }
-      return parent.id === index.graph.root ? "(repo root)" : (parent.path ?? parent.name);
+      if (focusId === undefined) return parent.id === index.graph.root ? "(repo root)" : (parent.path ?? parent.name);
+      // Relative to the deepest folder shared with the focus: `utils`, not
+      // `client/src/utils`. Directly in that folder: the folder's own name.
+      const focusChain = new Set([...ancestors(index, focusId), focusId]);
+      const { shared, below } = foldersBelowShared(index, focusChain, parent.id);
+      if (region === "center" && parent.id === focusId) return undefined;
+      if (below.length === 0) return shared === index.graph.root ? "(repo root)" : displayName(index, shared);
+      return below.map((id) => index.byId.get(id)?.name ?? id).join("/");
     }
     case "folder": {
       const { files, folders } = folderStats(index, id);

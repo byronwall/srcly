@@ -195,7 +195,8 @@ describe("buildViewModel", () => {
     it("gives a file its folder", () => {
       const vm = buildViewModel(index, { focusId: "server/pipeline.py", budget: 48 });
       expect(vm.nodes.find((n) => n.graphId === "server/pipeline.py")!.subtitle).toBe("server");
-      expect(vm.nodes.find((n) => n.graphId === "server/model_making/sub/a.py")!.subtitle).toBe("server/model_making/sub");
+      // Relative to the folder it shares with the focus (server).
+      expect(vm.nodes.find((n) => n.graphId === "server/model_making/sub/a.py")!.subtitle).toBe("model_making/sub");
     });
 
     it("tells a folder's files and subfolders", () => {
