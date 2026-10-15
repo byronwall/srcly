@@ -123,6 +123,7 @@ Every milestone leaves the graph shippable. Compare mode, which shares `layoutVi
 ## Open decisions and spikes
 
 - **Frames per column vs across columns.** Decide after the milestone 3 screenshots. If the per-column frames look fragmented when a package spans depth levels, try one frame across adjacent columns, with gutters inside it allowed. Fallback: group labels without frames.
+  - **Decided (milestone 3): per column.** Depth layering already separates most packages by column, and a package's lone box in another column gets no frame; its subtitle names the package. A frame across columns would have to contain the channels where other packages' edges run.
 
 ## Below the cut line
 
