@@ -27,6 +27,15 @@ class FunctionMetrics:
     children: List["FunctionMetrics"] = field(default_factory=list)
     # We store children to represent nested functions.
 
+# Scopes the analyzers add for display (e.g. the "(imports)" block). They show
+# in the scope tree but aren't functions, so counts and averages skip them.
+SYNTHETIC_ORIGIN_TYPES = frozenset({"imports"})
+
+
+def is_synthetic_scope(func) -> bool:
+    return getattr(func, "origin_type", "") in SYNTHETIC_ORIGIN_TYPES
+
+
 @dataclass
 class FileMetrics:
     nloc: int

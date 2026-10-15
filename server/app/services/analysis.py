@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Optional
 
 from app.models import Node, Metrics
+from app.services.analysis_types import is_synthetic_scope
 from app.config import (
     BINARY_EXTENSIONS,
     BINARY_SNIFF_BYTES,
@@ -114,8 +115,8 @@ def attach_file_metrics(node: Node, file_info) -> None:
     total_loc = file_info.nloc
     node.metrics.loc = total_loc
     node.metrics.complexity_avg = file_info.average_cyclomatic_complexity
-    node.metrics.function_count = len(file_info.function_list)
-    node.metrics.function_count = len(file_info.function_list)
+    # Synthetic scopes such as "(imports)" stay in the tree but aren't functions.
+    node.metrics.function_count = sum(1 for f in file_info.function_list if not is_synthetic_scope(f))
     node.metrics.file_count = 1
     # TS/TSX-specific metrics are only available for TypeScript/TSX files analyzed
     # by the TreeSitterAnalyzer. Plain lizard FileInformation objects (e.g. for
