@@ -1,6 +1,6 @@
 import { Show } from "solid-js";
 import { EmptyState } from "../feedback/States";
-import { MetricsSection } from "./MetricsSection";
+import { MetricsTable } from "./MetricsTable";
 import { StructurePanel } from "./StructurePanel";
 
 export function MetricsSidebar(props: {
@@ -31,11 +31,14 @@ export function MetricsSidebar(props: {
           />
         </Show>
 
-        <Show when={props.scopeNode}>
-          <MetricsSection title="Scope Metrics" node={props.scopeNode} />
-        </Show>
-        <Show when={props.fileNode}>
-          <MetricsSection title="File Metrics" node={props.fileNode} />
+        <Show when={props.fileNode || props.scopeNode}>
+          <div class="mt-4">
+            <MetricsTable
+              path={String(props.fileNode?.path ?? props.scopeNode?.path ?? "")}
+              fileNode={props.fileNode}
+              scopeNode={props.scopeNode && props.scopeNode !== props.fileNode && props.scopeNode.type !== "file" ? props.scopeNode : null}
+            />
+          </div>
         </Show>
         <Show when={!props.fileNode && !props.scopeNode}>
           <EmptyState

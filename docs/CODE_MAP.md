@@ -95,7 +95,7 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | API model | `server/app/models.py` (`Metrics`) |
 | Copy into nodes / roll up | `server/app/services/analysis.py` (`attach_file_metrics`, `aggregate_metrics`) |
 | Report scoring + definitions | `server/app/services/reporting.py` (`METRIC_DEFINITIONS`, `PROFILE_WEIGHTS`) |
-| Client metric registry (labels, groups, value formatting) | `client/src/utils/metricsStore.tsx` (`HOTSPOT_METRICS`, `formatMetricValue`) |
+| Client metric registry (labels, groups, per-file vs per-scope, languages, value formatting) | `client/src/utils/metricsStore.tsx` (`HOTSPOT_METRICS`, `formatMetricValue`); `utils/metricApplicability.ts` (`applicableMetrics`) |
 | Metric picker (Hot Spots "Rank by" + treemap "Color") | `client/src/components/MetricPicker.tsx` |
 | Explorer sort/columns | `client/src/components/Explorer.tsx` (`SORT_FIELD_ACCESSORS`) |
 | Treemap color mapping | `client/src/viz/treemap/utils/colors.ts` (`TREEMAP_RAMP`, `ramp`) |
@@ -184,7 +184,7 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Highlighted source (Shiki worker) | `client/src/components/CodeModal/CodePane.tsx`, `hooks/useHighlightedCode.ts`, `workers/highlight.worker.ts`, `utils/shikiHtml.ts` |
 | Markdown rendering | `client/src/components/CodeModal/MarkdownPane.tsx`, `client/src/markdown/*` |
 | Structure tree (left) | `client/src/components/CodeModal/StructurePanel.tsx`, `SidebarTree.tsx`, `utils/structureTree.ts` |
-| Scope metrics (left, bottom) | `client/src/components/CodeModal/MetricsSidebar.tsx`, `MetricsSection.tsx`, `MetricItem.tsx` |
+| Metrics table (left, bottom): applicable metrics, scope vs file | `client/src/components/CodeModal/MetricsSidebar.tsx`, `MetricsTable.tsx`; applicability in `client/src/utils/metricApplicability.ts` |
 | Sticky scope breadcrumb | `client/src/components/CodeModal/StickyBreadcrumb.tsx` |
 | File fetching | `client/src/services/fileContent.ts`, `hooks/useFileContent.ts` |
 | Line-range slicing / indent reduction | `client/src/utils/lineRange.ts`, `utils/indentation.ts` |
