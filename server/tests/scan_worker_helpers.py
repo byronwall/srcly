@@ -37,3 +37,15 @@ def fake_lizard_analyze(path: str):
         time.sleep(60)
     return SimpleNamespace(filename=path, nloc=1, average_cyclomatic_complexity=1.0, function_list=[])
 
+
+
+def fake_tree_analyze(path: str):
+    """Lizard-shaped results; ``slow*`` files finish late and ``error*`` files fail."""
+    from types import SimpleNamespace
+
+    name = Path(path).name
+    if name.startswith("slow"):
+        time.sleep(0.3)
+    if name.startswith("error"):
+        return {"error": "boom", "filename": path}
+    return SimpleNamespace(filename=path, nloc=1, average_cyclomatic_complexity=1.0, function_list=[])
