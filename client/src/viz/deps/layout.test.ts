@@ -12,6 +12,7 @@ import {
   NODE_HEIGHT,
   NODE_WIDTH,
   rankPackings,
+  type PositionedNode,
   type ViewLayout,
 } from "./layout";
 import { buildViewModel } from "./viewModel";
@@ -185,11 +186,115 @@ const CROSSING_BASELINE: Record<string, number> = {
   "src/utils/metricsStore.tsx": 31,
 };
 
+/** Grouping may cost some crossings (groups can't interleave), but not many. */
+const GROUPING_SLACK = 1.25;
+
 describe("crossing baseline", () => {
-  it.each(Object.keys(CROSSING_BASELINE))("stays at or below the recorded count for %s", (focus) => {
+  it.each(Object.keys(CROSSING_BASELINE))("stays within the grouping slack of the recorded count for %s", (focus) => {
     const { layout } = layoutFocus(idx, focus);
-    expect(countEdgeCrossings(layout.edges)).toBeLessThanOrEqual(CROSSING_BASELINE[focus]);
+    expect(countEdgeCrossings(layout.edges)).toBeLessThanOrEqual(Math.ceil(CROSSING_BASELINE[focus] * GROUPING_SLACK));
   });
+});
+
+/** Every group's boxes form one unbroken run of rows in each column. */
+function expectGroupsContiguous(layout: ViewLayout, what: string) {
+  const byColumn = new Map<number, PositionedNode[]>();
+  for (const n of layout.nodes) byColumn.set(n.column, [...(byColumn.get(n.column) ?? []), n]);
+  for (const col of byColumn.values()) {
+    const ids = col.sort((a, b) => a.row - b.row).map((n) => n.node.group?.id ?? `solo:${n.id}`);
+    const seen = new Set<string>();
+    ids.forEach((g, i) => {
+      if (i > 0 && ids[i - 1] !== g) expect(seen.has(g), `${what}: group ${g} split in column`).toBe(false);
+      seen.add(g);
+    });
+  }
+}
+
+/** Frames hold only their own group's boxes, and never overlap each other. */
+function expectFramesClean(layout: ViewLayout, what: string) {
+  const frames = layout.frames ?? [];
+  for (const f of frames) {
+    for (const n of layout.nodes) {
+      const overlaps = n.x < f.x + f.width && n.x + n.width > f.x && n.y < f.y + f.height && n.y + n.height > f.y;
+      if (overlaps) expect(n.node.group?.id, `${what}: ${n.node.label} inside frame ${f.label}`).toBe(f.groupId);
+    }
+    for (const g of frames) {
+      if (g === f) continue;
+      const overlaps = g.x < f.x + f.width && g.x + g.width > f.x && g.y < f.y + f.height && g.y + g.height > f.y;
+      expect(overlaps, `${what}: frames ${f.label} and ${g.label} overlap`).toBe(false);
+    }
+  }
+}
+
+/**
+ * An app file importing from three packages plus a one-component file:
+ * apps/web/main.ts → packages/{agent-core,agent-shared,agent-skills}/*, and
+ * three files importing packages/ui/edit-in-place.tsx#EditInPlace.
+ */
+function packagesRepo(): DependencyGraphContract {
+  const nodes: DependencyGraphContract["nodes"] = [
+    { id: "", kind: "folder", name: "repo", parent: null },
+    { id: "apps", kind: "folder", name: "apps", parent: "" },
+    { id: "apps/web", kind: "folder", name: "web", parent: "apps" },
+    { id: "packages", kind: "folder", name: "packages", parent: "" },
+  ];
+  const edges: DependencyGraphContract["edges"] = [];
+  const file = (id: string) => nodes.push({ id, kind: "file", name: id.split("/").pop()!, parent: id.slice(0, id.lastIndexOf("/")), path: id });
+  for (const f of ["main.ts", "routes.ts", "store.ts"]) file(`apps/web/${f}`);
+  const pkgs = { "agent-core": ["a.ts", "b.ts", "c.ts", "d.ts"], "agent-shared": ["x.ts", "y.ts", "z.ts"], "agent-skills": ["p.ts", "q.ts", "r.ts"], ui: ["edit-in-place.tsx"] };
+  for (const [pkg, files] of Object.entries(pkgs)) {
+    nodes.push({ id: `packages/${pkg}`, kind: "folder", name: pkg, parent: "packages", path: `packages/${pkg}` });
+    for (const f of files) file(`packages/${pkg}/${f}`);
+  }
+  nodes.push({ id: "packages/ui/edit-in-place.tsx#EditInPlace", kind: "symbol", name: "EditInPlace", parent: "packages/ui/edit-in-place.tsx", symbolKind: "function" });
+  // Interleave imports across packages so label order alone would mix them.
+  const order = ["agent-core/a.ts", "agent-shared/x.ts", "agent-skills/p.ts", "agent-core/b.ts", "agent-shared/y.ts", "agent-skills/q.ts", "agent-core/c.ts", "agent-shared/z.ts", "agent-skills/r.ts", "agent-core/d.ts"];
+  order.forEach((t, i) => edges.push({ source: `apps/web/${["main.ts", "routes.ts", "store.ts"][i % 3]}`, target: `packages/${t}` }));
+  for (const f of ["main.ts", "routes.ts", "store.ts"]) edges.push({ source: `apps/web/${f}`, target: "packages/ui/edit-in-place.tsx#EditInPlace" });
+  edges.push({ source: "apps/web/main.ts", target: "apps/web/routes.ts" });
+  return { root: "", nodes, edges };
+}
+
+describe("grouped neighbors", () => {
+  it("keeps each package together in a labeled frame", () => {
+    const { vm, layout } = layoutFocus(buildIndex(packagesRepo()), "apps/web");
+    const out = vm.nodes.filter((n) => n.region === "out");
+    expect(new Set(out.map((n) => n.group?.label))).toEqual(new Set(["agent-core", "agent-shared", "agent-skills", "ui"]));
+    expectGroupsContiguous(layout, "packages");
+    expectFramesClean(layout, "packages");
+    expect((layout.frames ?? []).map((f) => f.label).sort()).toEqual(["agent-core", "agent-shared", "agent-skills"]);
+    expect(countNodeCrossings(layout.edges, layout.nodes).count).toBe(0);
+  });
+
+  it("shows a file whose every importer uses one symbol as that symbol", () => {
+    const { vm } = layoutFocus(buildIndex(packagesRepo()), "apps/web");
+    const box = vm.nodes.find((n) => n.graphId.includes("edit-in-place"))!;
+    expect(box.kind).toBe("symbol");
+    expect(box.label).toBe("EditInPlace");
+    expect(box.subtitle).toBe("ui · edit-in-place.tsx");
+    // All three importers' edges land on it.
+    expect(vm.edges.filter((e) => e.target === box.id).reduce((a, e) => a + e.weight, 0)).toBe(3);
+  });
+
+  for (const focus of [...FOCI, "src", "src/viz", "src/viz/treemap"]) {
+    it(`keeps groups contiguous for srcly focus "${focus || "(root)"}"`, () => {
+      const { layout } = layoutFocus(idx, focus);
+      expectGroupsContiguous(layout, focus);
+      expectFramesClean(layout, focus);
+      expect(countNodeCrossings(layout.edges, layout.nodes).count).toBe(0);
+    });
+  }
+
+  for (const capture of LOCAL_CAPTURES) {
+    const index = buildIndex(applyFilters(capture.graph, DEFAULT_FILTERS));
+    for (const focus of capture.foci) {
+      it(`keeps groups contiguous for local capture ${capture.name}:${focus || "(root)"}`, () => {
+        const { layout } = layoutFocus(index, focus);
+        expectGroupsContiguous(layout, `${capture.name}:${focus}`);
+        expectFramesClean(layout, `${capture.name}:${focus}`);
+      });
+    }
+  }
 });
 
 describe("bundleOffsets", () => {

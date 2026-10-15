@@ -19,6 +19,9 @@ const GUTTER_PAD = 5;
 const MIN_GUTTER = 10;
 const PORT_SPLIT = 5;
 const MARGIN = 16;
+/** Frame padding around boxes, and the band above a frame's first box for its label. */
+export const FRAME_PAD = 5;
+export const FRAME_LABEL_H = 16;
 /** Spacing between parallel edges inside a bundle. */
 const BUNDLE_GAP = 1.75;
 /** The canvas never fits above this zoom, so extra width below it is free. */
@@ -40,6 +43,19 @@ export interface LayoutGroup {
   y: number;
 }
 
+/** A light labeled frame around a run of one package's boxes in a column. */
+export interface GroupFrame {
+  /** `${column}|${group id}|${first row}` */
+  id: string;
+  groupId: string;
+  label: string;
+  column: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface ViewLayout {
   nodes: PositionedNode[];
   edges: PositionedEdge[];
@@ -47,6 +63,8 @@ export interface ViewLayout {
   height: number;
   /** Titles for separately laid-out connected components. */
   groups?: LayoutGroup[];
+  /** Package frames around side neighbors. */
+  frames?: GroupFrame[];
 }
 
 export interface LayoutOptions {
@@ -317,6 +335,7 @@ export function layoutViewSync(vm: ViewModel, opts: LayoutOptions): ViewLayout {
   const nodes: PositionedNode[] = [];
   const edges: PositionedEdge[] = [];
   const groups: LayoutGroup[] = [];
+  const frames: GroupFrame[] = [];
   let y = 0;
   let width = 0;
   for (const comp of comps) {
@@ -329,12 +348,13 @@ export function layoutViewSync(vm: ViewModel, opts: LayoutOptions): ViewLayout {
     const dy = y - top + 18;
     for (const n of sub.nodes) nodes.push({ ...n, y: n.y + dy });
     for (const e of sub.edges) edges.push({ ...e, points: e.points.map((p) => ({ x: p.x, y: p.y + dy })) });
+    for (const f of sub.frames ?? []) frames.push({ ...f, y: f.y + dy });
     const label = commonFolder(comp.nodes);
     if (label) groups.push({ label, x: Math.min(...sub.nodes.map((n) => n.x)), y: y + 8 });
     y += sub.height - top + COMPONENT_GAP;
     width = Math.max(width, sub.width);
   }
-  return { nodes, edges, width, height: y, groups };
+  return { nodes, edges, width, height: y, groups, frames };
 }
 
 function connectedComponents(vm: ViewModel): ViewModel[] {
@@ -389,7 +409,9 @@ function layoutComponent(vm: ViewModel, opts: LayoutOptions): ViewLayout {
       const d = depth.get(n.id) ?? 0;
       (out[d] ??= []).push(n);
     }
-    return out.filter(Boolean).map((l) => l.sort((a, b) => a.label.localeCompare(b.label)));
+    // Group members sit together from the start, so chunking a level into
+    // columns splits as few groups as possible.
+    return out.filter(Boolean).map((l) => l.sort((a, b) => groupKey(a).localeCompare(groupKey(b)) || a.label.localeCompare(b.label)));
   };
   const inLevels = levels(byRegion.in, inDepth); // index 0 = nearest the center
   const centerLevels = levels(byRegion.center, centerRank);
@@ -456,6 +478,8 @@ function placeAndRoute(
     neighbors.set(e.source, [...(neighbors.get(e.source) ?? []), e.target]);
     neighbors.set(e.target, [...(neighbors.get(e.target) ?? []), e.source]);
   }
+  const gKey = new Map(vm.nodes.map((n) => [n.id, groupKey(n)]));
+  const sKey = new Map(vm.nodes.map((n) => [n.id, subgroupKey(n)]));
   const rowOf = new Map<string, number>();
   const placeColumn = (col: ViewNode[]) => {
     const start = Math.floor((rows - col.length) / 2);
@@ -471,7 +495,19 @@ function placeAndRoute(
         const ns = (neighbors.get(n.id) ?? []).filter((m) => colOf.get(m) !== ci);
         bary.set(n.id, ns.length ? ns.reduce((a, m) => a + rowOf.get(m)!, 0) / ns.length : rowOf.get(n.id)!);
       }
-      col.sort((a, b) => bary.get(a.id)! - bary.get(b.id)! || a.label.localeCompare(b.label));
+      // Groups move as blocks: order groups by their mean barycenter, then
+      // files inside a group, then boxes inside a file.
+      const groupBary = meanBy(col, gKey, bary);
+      const subBary = meanBy(col, sKey, bary);
+      col.sort(
+        (a, b) =>
+          groupBary.get(gKey.get(a.id)!)! - groupBary.get(gKey.get(b.id)!)! ||
+          gKey.get(a.id)!.localeCompare(gKey.get(b.id)!) ||
+          subBary.get(sKey.get(a.id)!)! - subBary.get(sKey.get(b.id)!)! ||
+          sKey.get(a.id)!.localeCompare(sKey.get(b.id)!) ||
+          bary.get(a.id)! - bary.get(b.id)! ||
+          a.label.localeCompare(b.label),
+      );
       placeColumn(col);
     }
   }
@@ -686,11 +722,34 @@ function placeAndRoute(
     ordered.forEach((tg, i) => gutterTrack.set(`${g}|${tg.key}`, i));
     gutterTracks[g] = ordered.length;
   }
-  const gutterHeight = gutterTracks.map((n, g) => {
+  // ---- Group frames: runs of ≥2 boxes of one group in a column ----
+  const runs: { groupId: string; label: string; column: number; first: number; last: number }[] = [];
+  columns.forEach((col, ci) => {
+    const byRow = [...col].sort((a, b) => rowOf.get(a.id)! - rowOf.get(b.id)!);
+    let i = 0;
+    while (i < byRow.length) {
+      const g = byRow[i].group;
+      let j = i;
+      while (g && j + 1 < byRow.length && byRow[j + 1].group?.id === g.id) j++;
+      if (g && j > i) runs.push({ groupId: g.id, label: g.label, column: ci, first: rowOf.get(byRow[i].id)!, last: rowOf.get(byRow[j].id)! });
+      i = j + 1;
+    }
+  });
+  // A frame's label needs room in the gutter above its first box, and its
+  // bottom edge a little room in the gutter below its last box. Edge tracks
+  // run in the band between.
+  const labelRoom = new Array(rows + 1).fill(0);
+  const bottomRoom = new Array(rows + 1).fill(0);
+  for (const r of runs) {
+    labelRoom[r.first] = FRAME_LABEL_H;
+    bottomRoom[r.last + 1] = FRAME_PAD + 1;
+  }
+  const trackBand = gutterTracks.map((n, g) => {
     const outer = g === 0 || g === rows;
     if (n === 0) return outer ? 0 : MIN_GUTTER;
     return Math.max(MIN_GUTTER, n * TRACK + 2 * GUTTER_PAD);
   });
+  const gutterHeight = trackBand.map((h, g) => h + labelRoom[g] + bottomRoom[g]);
   const rowTop: number[] = [];
   const gutterTop: number[] = [];
   let y = MARGIN + 18; // room for region headers
@@ -706,9 +765,9 @@ function placeAndRoute(
   const trackY = (g: number, group: string) => {
     const n = gutterTracks[g];
     const i = gutterTrack.get(`${g}|${group}`) ?? 0;
-    const inner = gutterHeight[g] - 2 * GUTTER_PAD;
+    const inner = trackBand[g] - 2 * GUTTER_PAD;
     const used = (n - 1) * TRACK;
-    return gutterTop[g] + GUTTER_PAD + Math.max(0, (inner - used) / 2) + i * TRACK;
+    return gutterTop[g] + bottomRoom[g] + GUTTER_PAD + Math.max(0, (inner - used) / 2) + i * TRACK;
   };
 
   // ---- Materialize ----
@@ -748,8 +807,38 @@ function placeAndRoute(
   });
 
   bundleOffsets(edges, nodes);
-  return { nodes, edges, width: totalWidth, height: totalHeight };
+  const frames: GroupFrame[] = runs.map((r) => {
+    const y0 = rowTop[r.first] - FRAME_LABEL_H;
+    const y1 = rowTop[r.last] + NODE_HEIGHT + FRAME_PAD;
+    return {
+      id: `${r.column}|${r.groupId}|${r.first}`,
+      groupId: r.groupId,
+      label: r.label,
+      column: r.column,
+      x: colX[r.column] - FRAME_PAD,
+      y: y0,
+      width: NODE_WIDTH + 2 * FRAME_PAD,
+      height: y1 - y0,
+    };
+  });
+  return { nodes, edges, width: totalWidth, height: totalHeight, frames };
 }
+
+/** Mean of `value` over the nodes sharing each key. */
+function meanBy(nodes: ViewNode[], keyOf: Map<string, string>, value: Map<string, number>): Map<string, number> {
+  const sum = new Map<string, number>();
+  const count = new Map<string, number>();
+  for (const n of nodes) {
+    const k = keyOf.get(n.id)!;
+    sum.set(k, (sum.get(k) ?? 0) + value.get(n.id)!);
+    count.set(k, (count.get(k) ?? 0) + 1);
+  }
+  for (const [k, v] of sum) sum.set(k, v / count.get(k)!);
+  return sum;
+}
+
+const groupKey = (n: ViewNode) => (n.group ? `g:${n.group.id}` : `n:${n.id}`);
+const subgroupKey = (n: ViewNode) => (n.subgroup ? `${groupKey(n)}|${n.subgroup}` : `n:${n.id}`);
 
 /** Drop zero-length segments and collinear middle points. */
 function simplify(points: Point[]): Point[] {
