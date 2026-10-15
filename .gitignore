@@ -68,3 +68,8 @@ venv.bak/
 # uv.lock is intentionally not ignored as this is an application
 
 .tmp
+
+# Agent tooling
+.pnpm-store/
+.claude/worktrees/
+.claude/settings.local.json
