@@ -1,10 +1,14 @@
 import { RefreshCw, X } from "lucide-solid";
-import { createSignal, For, lazy, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createResource, createSignal, For, lazy, onCleanup, onMount, Show } from "solid-js";
 import { EmptyState, ErrorState } from "../components/feedback/States";
 import { Button } from "../components/ui/Button";
 import {
   cancelCompare,
+  fetchCommits,
   fetchCompareResult,
+  navigateStep,
+  prewarm,
+  readRangeParam,
   navigateCompare,
   PICK_PARAM,
   readCompareParam,
@@ -17,7 +21,9 @@ import { CompareTable } from "./CompareTable";
 import { CompareGraph } from "./CompareGraph";
 import { CompareTreemap } from "./CompareTreemap";
 import { DEFAULT_COMPARE_COLUMNS } from "./metrics";
+import { CommitStepper } from "./CommitStepper";
 import { ComparePicker } from "./ComparePicker";
+import { activeStep, stepRefs } from "./stepper";
 import { Inspector } from "./Inspector";
 import { buildRows, collectFiles, indexFiles, type FileRow, type RowSort } from "./rows";
 import { Scorecard } from "./Scorecard";
@@ -117,7 +123,56 @@ export default function CompareApp() {
     }
   };
 
+  // The range a commit stepper walks: the one being stepped through (from the
+  // URL), else the current compare when its head is a commit.
+  const [range, setRange] = createSignal(readRangeParam());
+  const stepRange = () => {
+    const p = payload();
+    return range() ?? (p && p.head.sha && p.base.sha ? refs() : null);
+  };
+  const [commitList] = createResource(
+    () => {
+      const r = stepRange();
+      return r ? `${r.base}..${r.head}` : false;
+    },
+    (key) => {
+      const at = key.indexOf("..");
+      return fetchCommits(key.slice(0, at), key.slice(at + 2)).catch(() => null);
+    }
+  );
+  const steps = () => {
+    const list = commitList.latest;
+    return list && list.commits.length > 1 ? list : null;
+  };
+  const step = () => {
+    const list = steps();
+    const p = payload();
+    return list && p ? activeStep(list.commits, list.base.sha, p.base.sha, p.head.sha) : -1;
+  };
+  const goStep = (i: number) => {
+    const list = steps();
+    const r = stepRange();
+    if (!list || !r) return;
+    const next = stepRefs(list.commits, list.base.sha, i);
+    navigateStep(next.base, next.head, r);
+  };
+  const goWhole = () => {
+    const r = stepRange();
+    if (r) navigateStep(r.base, r.head, null);
+  };
+  // After a step lands, scan the next commit in the background so ▶ is a cache hit.
+  createEffect(() => {
+    const list = steps();
+    const i = step();
+    if (list && payload() && i >= 0 && i + 1 < list.commits.length) void prewarm(list.commits[i + 1].sha);
+  });
+  const wholeLabel = () => {
+    const pr = /^pr:(\d+)$/.exec(stepRange()?.head ?? "");
+    return pr ? `Whole PR #${pr[1]}` : "Whole range";
+  };
+
   const onPopState = () => {
+    setRange(readRangeParam());
     const next = readCompareParam();
     if (next && (next.base !== refs().base || next.head !== refs().head)) void run(next.base, next.head);
   };
@@ -221,6 +276,17 @@ export default function CompareApp() {
           {(p) => (
             <>
               <SummaryStrip payload={p()} />
+              <Show when={steps()}>
+                {(list) => (
+                  <CommitStepper
+                    list={list()}
+                    active={step()}
+                    wholeLabel={wholeLabel()}
+                    onStep={goStep}
+                    onWhole={goWhole}
+                  />
+                )}
+              </Show>
               <Show
                 when={p().files.length}
                 fallback={

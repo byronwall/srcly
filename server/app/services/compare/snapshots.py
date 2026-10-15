@@ -118,6 +118,20 @@ class SideCache:
 
 side_cache = SideCache()
 
+# One scan per (repo, commit) at a time: a compare that needs a side being
+# pre-warmed waits for it and then reads the cache instead of scanning twice.
+_side_locks: dict[tuple[str, str], threading.Lock] = {}
+_side_locks_guard = threading.Lock()
+
+
+def _side_lock(repo: Path, sha: str) -> threading.Lock:
+    with _side_locks_guard:
+        return _side_locks.setdefault((str(repo), sha), threading.Lock())
+
+
+def is_cached(repo: Path, ref: ResolvedRef, side_cache_: Optional[SideCache] = None) -> bool:
+    return ref.sha is not None and (side_cache_ or side_cache)._path(repo.resolve(), ref.sha).exists()
+
 
 def snapshots_dir() -> Path:
     return cache.cache_dir().parent / "snapshots"
@@ -231,12 +245,24 @@ def load_side(
             ref.root(repo), ref, cancel=cancel, observer=observer, force=force, on_step=on_step, name=repo.name
         )
 
-    if not force:
-        on_step("cache")
-        hit = store.load(repo, ref)
-        if hit is not None:
-            return hit
+    with _side_lock(repo, ref.sha):
+        if not force:
+            on_step("cache")
+            hit = store.load(repo, ref)
+            if hit is not None:
+                return hit
+        return _scan_commit(repo, ref, store, cancel=cancel, observer=observer, on_step=on_step)
 
+
+def _scan_commit(
+    repo: Path,
+    ref: ResolvedRef,
+    store: SideCache,
+    *,
+    cancel: Optional[CancelToken],
+    observer: ScanObserver,
+    on_step: Callable[[Optional[str]], None],
+) -> Side:
     started = time.monotonic()
     on_step("checkout")
     with snapshot_checkout(repo, ref.sha) as checkout:

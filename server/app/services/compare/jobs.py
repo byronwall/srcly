@@ -17,7 +17,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Optional
 
-from app.services.compare.git_refs import GitError
+from app.services.compare.git_refs import GitError, repo_root, resolve_ref
+from app.services.compare.snapshots import is_cached, load_side
 from app.services.compare.service import StepTimer, build_compare
 from app.services.scan_progress import ScanObserver
 from app.services.scan_workers import CancelToken, ScanCancelled
@@ -25,6 +26,7 @@ from app.services.scan_workers import CancelToken, ScanCancelled
 ComparePhase = Literal["queued", "resolving", "base", "head", "diffing", "complete", "failed", "cancelled"]
 TERMINAL: frozenset[str] = frozenset({"complete", "failed", "cancelled"})
 MAX_FINISHED_JOBS = 4
+PREWARM_WAIT_SECONDS = 120.0
 
 
 @dataclass
@@ -128,6 +130,8 @@ class CompareJobManager:
     def __init__(self) -> None:
         self._jobs: dict[str, CompareJob] = {}
         self._lock = threading.Lock()
+        self._prewarming: set[tuple[str, str]] = set()
+        self._prewarm_cancel = CancelToken()
 
     def start(self, path: Path, base: str, head: str, force: bool = False) -> CompareJob:
         with self._lock:
@@ -142,6 +146,44 @@ class CompareJobManager:
         threading.Thread(target=job.run, name=f"srcly-compare-{job.id}", daemon=True).start()
         return job
 
+    def busy(self) -> bool:
+        with self._lock:
+            return any(not j.is_finished for j in self._jobs.values())
+
+    def prewarm(self, path: Path, ref: str) -> str:
+        """
+        Scan one commit side in the background so the next compare that needs
+        it is a cache hit (the next step of a commit stepper). It waits for
+        running compares first: measured, two scans at once are slower than
+        one after the other. Returns ``cached``, ``started`` or ``running``.
+        """
+        repo = repo_root(path)
+        resolved = resolve_ref(repo, ref, side="head")
+        if resolved.sha is None:
+            raise GitError("Only a commit can be pre-warmed")
+        if is_cached(repo, resolved):
+            return "cached"
+        key = (str(repo), resolved.sha)
+        with self._lock:
+            if key in self._prewarming:
+                return "running"
+            self._prewarming.add(key)
+
+        def run() -> None:
+            try:
+                deadline = time.monotonic() + PREWARM_WAIT_SECONDS
+                while self.busy() and time.monotonic() < deadline:
+                    time.sleep(0.2)
+                load_side(repo, resolved, cancel=self._prewarm_cancel)
+            except Exception as exc:  # noqa: BLE001 - best effort
+                print(f"⚠️  Pre-warm of {resolved.label} failed: {exc}", flush=True)
+            finally:
+                with self._lock:
+                    self._prewarming.discard(key)
+
+        threading.Thread(target=run, name=f"srcly-prewarm-{resolved.label}", daemon=True).start()
+        return "started"
+
     def get(self, job_id: str) -> Optional[CompareJob]:
         with self._lock:
             return self._jobs.get(job_id)
@@ -151,6 +193,7 @@ class CompareJobManager:
             jobs = list(self._jobs.values())
         for job in jobs:
             job.cancel_token.cancel()
+        self._prewarm_cancel.cancel()
 
 
 manager = CompareJobManager()
