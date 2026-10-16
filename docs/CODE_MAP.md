@@ -100,7 +100,7 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Report scoring + definitions | `server/app/services/reporting.py` (`METRIC_DEFINITIONS`, `PROFILE_WEIGHTS`) |
 | Client metric registry (labels, groups, per-file vs per-scope, languages, value formatting) | `client/src/utils/metricsStore.tsx` (`HOTSPOT_METRICS`, `formatMetricValue`); `utils/metricApplicability.ts` (`applicableMetrics`) |
 | Metric picker (Hot Spots "Rank by" + treemap "Color") | `client/src/components/MetricPicker.tsx` |
-| Explorer sort/columns | `client/src/components/Explorer.tsx` (`SORT_FIELD_ACCESSORS`) |
+| Explorer sort/columns (incl. always-on color-metric column) | `client/src/utils/explorerColumns.ts` (`EXPLORER_COLUMNS`, `visibleExplorerColumns`) |
 | Treemap color mapping | `client/src/viz/treemap/utils/colors.ts` (`TREEMAP_RAMP`, `ramp`) |
 
 ### Headless reports for agents
@@ -153,8 +153,13 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 
 | Feature | Where |
 | --- | --- |
-| Tree / Hot Spots tabs, columns, sorting, filter box | `client/src/components/Explorer.tsx` |
-| Virtual tree rows + keyboard navigation | `client/src/components/TreeNode.tsx`, `client/src/utils/explorerTree.ts` |
+| Tree / Hot Spots tabs, column picker, sorting, filter box | `client/src/components/Explorer.tsx` |
+| Column definitions, cell text/heat tint, color-metric column | `client/src/utils/explorerColumns.ts` |
+| Scope bar: breadcrumb, LOC/files/fns counts, top file by color metric | `client/src/components/ExplorerScopeBar.tsx`, `client/src/utils/explorerScope.ts` |
+| Filter box, empty state, grouped column picker | `client/src/components/ExplorerControls.tsx` |
+| Linked hover between explorer rows / Hot Spots and treemap tiles | `client/src/utils/hoverLink.ts`; rows in `TreeNode.tsx`, `HotSpotItem.tsx`; ring in `viz/treemap/components/TreemapCanvas.tsx` |
+| Sidebar collapse (`[`), rail, resize handle, saved width | `client/src/hooks/useSidebarLayout.ts`, `client/src/components/SidebarRail.tsx`; wired in `client/src/App.tsx` |
+| Virtual tree rows, keyboard navigation, initial auto-expand | `client/src/components/TreeNode.tsx`, `client/src/utils/explorerTree.ts` |
 | Hot spot rows | `client/src/components/HotSpotItem.tsx` |
 | File-type filter popover | `client/src/components/FileTypeFilter.tsx` |
 

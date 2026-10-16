@@ -18,6 +18,7 @@ import {
   getVisibleTiles,
   type TreemapTile,
 } from "../utils/hitTest";
+import { nearestLinked } from "../../../utils/hoverLink";
 
 export type ActivationModifiers = Pick<MouseEvent, "metaKey" | "ctrlKey" | "altKey">;
 
@@ -35,6 +36,8 @@ type TreemapCanvasProps = {
   onContextMenu?: (event: MouseEvent, node: TreemapTile) => void;
   /** Called after each paint, once the tiles are on the canvas. */
   onPaint?: () => void;
+  /** A path hovered elsewhere (the explorer); its tile, or nearest drawn ancestor, is outlined. */
+  linkedPath?: () => string | null;
 };
 
 const FOLDER_STROKE = "#cbd5e1";
@@ -134,6 +137,13 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
     () => visibleNodes().find((node) => tileKey(node) === activeKey()) ?? null
   );
   const activeName = () => String(active()?.data?.name ?? "No tile selected");
+  const linked = createMemo(() =>
+    nearestLinked(
+      visibleNodes().filter((node) => node.depth > 0),
+      props.linkedPath?.() ?? null,
+      (node) => node.data?.path
+    )
+  );
 
   function paint() {
     if (!canvas) return;
@@ -229,6 +239,21 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
         Math.max(0, activeNode.y1 - activeNode.y0 - 2.5)
       );
     }
+    const linkedNode = linked();
+    if (linkedNode) {
+      // Accent ring with a white inner edge, so it reads on red, amber and blue fills alike.
+      const w = linkedNode.x1 - linkedNode.x0;
+      const h = linkedNode.y1 - linkedNode.y0;
+      // Same weight as the keyboard-active ring.
+      context.lineWidth = 2.5;
+      context.strokeStyle = ACTIVE_STROKE;
+      context.strokeRect(linkedNode.x0 + 1.25, linkedNode.y0 + 1.25, Math.max(0, w - 2.5), Math.max(0, h - 2.5));
+      if (w > 8 && h > 8) {
+        context.lineWidth = 1;
+        context.strokeStyle = "#ffffff";
+        context.strokeRect(linkedNode.x0 + 3, linkedNode.y0 + 3, Math.max(0, w - 6), Math.max(0, h - 6));
+      }
+    }
     paintedNodes = props.nodes();
     paintedWidth = width;
     paintedHeight = height;
@@ -318,6 +343,7 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
     hovered();
     activeKey();
     active();
+    linked();
     const currentHovered = hovered();
     if (currentHovered && !visibleNodes().includes(currentHovered)) {
       setHovered(null);

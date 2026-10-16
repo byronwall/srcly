@@ -1,7 +1,15 @@
-import { useContext, For } from "solid-js";
+import { useContext, For, Show } from "solid-js";
 import { Focus } from "lucide-solid";
 import { extractFilePath } from "../utils/dataProcessing";
-import { formatMetricValue, hotSpotMetricLabel, type HotSpotMetricId } from "../utils/metricsStore";
+import {
+  HOTSPOT_METRICS,
+  formatMetricValue,
+  hotSpotMetricLabel,
+  type HotSpotMetricId,
+} from "../utils/metricsStore";
+import { metricCellColor } from "../utils/explorerColumns";
+import { HeatSwatch } from "./ui/HeatSwatch";
+import { isSameOrAncestor, linkedPathFor, setHoverFrom } from "../utils/hoverLink";
 import { ExplorerContext, findNodeByPath } from "./Explorer";
 import type { Node } from "./Explorer";
 
@@ -9,9 +17,17 @@ export function HotSpotItem(props: {
   node: Node;
   rank: number;
   score: number;
+  /** The top score in the list; the score bar is drawn relative to it. */
+  maxScore: number;
   metrics: HotSpotMetricId[];
 }) {
   const ctx = useContext(ExplorerContext)!;
+
+  // Lit when the treemap hovers this item or something inside it.
+  const isLinked = () => {
+    const target = linkedPathFor("explorer");
+    return Boolean(target && isSameOrAncestor(props.node.path, target));
+  };
 
   const handleClick = () => {
     const filePath = extractFilePath(props.node.path, props.node.type);
@@ -62,10 +78,20 @@ export function HotSpotItem(props: {
 
   return (
     <div
-      class="plc-row plc-body-sm group flex cursor-pointer items-center gap-2 border-b px-2 py-1"
+      class="plc-row plc-body-sm group relative flex cursor-pointer items-center gap-2 border-b px-2 pb-1.5 pt-0.5"
       onClick={handleClick}
+      data-linked={isLinked() ? "" : undefined}
+      onPointerEnter={() => setHoverFrom("explorer", props.node.path)}
+      onPointerLeave={() => setHoverFrom("explorer", null)}
     >
-      <div class="plc-data-sm w-7 shrink-0 text-right text-[var(--plc-on-disabled)]">
+      {/* Score relative to #1, inset under the name so it reads as part of the row. */}
+      <span aria-hidden="true" class="absolute bottom-[3px] left-10 right-2 h-[2px]">
+        <span
+          class="block h-full rounded-full bg-[var(--plc-on-subtle)] opacity-30"
+          style={{ width: `${props.maxScore > 0 ? (props.score / props.maxScore) * 100 : 0}%` }}
+        />
+      </span>
+      <div class="plc-data-sm w-6 shrink-0 self-start pt-[3px] text-right text-[var(--plc-on-subtle)]">
         {props.rank}
       </div>
       <div class="min-w-0 flex-1">
@@ -85,16 +111,20 @@ export function HotSpotItem(props: {
       >
         <Focus size={13} aria-hidden="true" />
       </button>
-      <div class="flex shrink-0 items-center gap-3">
+      <div class="flex shrink-0 items-center gap-1">
         <For each={props.metrics}>
-          {(m) => {
+          {(m, i) => {
             const val = (props.node.metrics as any)?.[m];
             if (val === undefined) return null;
+            // The first metric is the treemap's color, so it gets the treemap's key.
+            const def = HOTSPOT_METRICS.find((d) => d.id === m);
+            const color = i() === 0 && def ? metricCellColor(def, props.node) : undefined;
             return (
               <span
-                class="plc-data-md min-w-[2.5rem] text-right text-[var(--plc-on-muted)] first:font-semibold first:text-[var(--plc-on-surface)]"
+                class="plc-data-md flex min-w-[2.75rem] items-center justify-end gap-1.5 px-1 text-right text-[var(--plc-on-muted)] first:font-semibold first:text-[var(--plc-on-surface)]"
                 title={hotSpotMetricLabel(m)}
               >
+                <Show when={color}>{(fill) => <HeatSwatch color={fill()} />}</Show>
                 {formatMetricValue(m, val)}
               </span>
             );

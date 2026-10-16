@@ -45,3 +45,41 @@ describe("treemap ramp", () => {
     expect(treemapFillColor("complexity", { complexity: 10 }, 0)).toBe(rampColor(0.5));
   });
 });
+
+describe("size metric scales", () => {
+  const fill = (metricId: string, metrics: Record<string, number>) => treemapFillColor(metricId, metrics, 0);
+
+  it("spreads LOC across the ramp instead of saturating at 50", () => {
+    expect(fill("loc", { loc: 0 })).toBe(rampColor(0));
+    expect(fill("loc", { loc: 100 })).toBe(rampColor(0.25));
+    expect(fill("loc", { loc: 200 })).toBe(rampColor(0.5));
+    expect(fill("loc", { loc: 800 })).toBe(rampColor(1));
+    expect(fill("loc", { loc: 60 })).not.toBe(rampColor(1));
+  });
+
+  it("colors scopes, which have no file count, by their own LOC", () => {
+    expect(fill("loc", { loc: 200, file_count: 0 })).toBe(rampColor(0.5));
+  });
+
+  it("colors a folder by its average file, not its summed LOC", () => {
+    expect(fill("loc", { loc: 2000, file_count: 10 })).toBe(fill("loc", { loc: 200, file_count: 1 }));
+    expect(fill("loc", { loc: 20_000, file_count: 40 })).not.toBe(rampColor(1));
+  });
+
+  it("scales file size in bytes the same way", () => {
+    expect(fill("file_size", { file_size: 10_000 })).toBe(rampColor(0.5));
+    expect(fill("file_size", { file_size: 100_000, file_count: 10 })).toBe(rampColor(0.5));
+    expect(fill("file_size", { file_size: 1_000 })).not.toBe(rampColor(1));
+  });
+
+  it("gives large-valued TSX counts their own range", () => {
+    expect(fill("tsx_hardcoded_string_volume", { tsx_hardcoded_string_volume: 500 })).toBe(rampColor(0.5));
+    expect(fill("tsx_prop_count", { tsx_prop_count: 50 })).toBe(rampColor(0.5));
+  });
+
+  it("keeps the hover label background on the same scale as the fill", () => {
+    const metrics = { loc: 2000, file_count: 10 };
+    const label = d3.rgb(treemapLabelColor("loc", metrics, 0)).formatHex();
+    expect(contrast(label, fill("loc", metrics))).toBeGreaterThanOrEqual(4.5);
+  });
+});
