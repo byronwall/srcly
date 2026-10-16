@@ -1,6 +1,15 @@
 import * as d3 from "d3";
 import { describe, expect, it } from "vitest";
-import { buildTooltipContent, notAnalyzedLines, placeFloating, topChildren } from "./useTreemapTooltip";
+import {
+  buildTooltipContent,
+  formatAge,
+  formatBytes,
+  languageMix,
+  notAnalyzedLines,
+  placeFloating,
+  siblingRank,
+  topChildren,
+} from "./useTreemapTooltip";
 
 describe("notAnalyzedLines", () => {
   it("is empty for analyzed files", () => {
@@ -55,35 +64,98 @@ function fileNode() {
 
 describe("topChildren", () => {
   it("lists the biggest scopes by LOC, skipping (imports), (body) and empty scopes", () => {
-    const { children, more } = topChildren(fileNode());
+    const { children, more } = topChildren(fileNode(), "complexity", 5);
     expect(children.map((c) => c.name)).toEqual(["run_pipeline", "(class) Runner", "b", "c", "a"]);
     expect(children[1].loc).toBe(80);
     expect(more).toBe(1);
   });
+
+  it("gives each child its share of the parent, tile color and coloring-metric value", () => {
+    const { children } = topChildren(fileNode(), "complexity");
+    const run = children[0];
+    expect(run.share).toBeCloseTo(120 / 245);
+    expect(run.color).toMatch(/^#[0-9a-f]{6}$/);
+    expect(run.metric).toBe("0");
+    expect(topChildren(fileNode(), "loc").children[0].metric).toBe("");
+  });
 });
 
 describe("buildTooltipContent", () => {
-  it("summarizes a file with its scopes, imports and tabular metrics", () => {
+  it("summarizes a file with its scopes, imports and non-zero metrics", () => {
     const content = buildTooltipContent(fileNode(), "complexity");
     expect(content.subtitle).toBe("file · 7 scopes");
+    expect(content.loc).toBe(245);
     expect(content.childrenLabel).toBe("Largest scopes");
+    expect(content.childMetricLabel).toBe("Max CCN");
     expect(content.lines).toContainEqual({ label: "Imports", value: "9" });
     expect(content.lines).toContainEqual({ label: "Comments", value: "25%" });
+    // Zeros are noise, and the coloring metric has its own line.
     expect(content.lines.some((l) => l.label === "TODOs")).toBe(false);
+    expect(content.lines.some((l) => l.label === "Max CCN")).toBe(false);
+    expect(content.primary).toMatchObject({ label: "Complexity (max)", value: "7" });
   });
 
-  it("shows a scope's line range and its nested scopes", () => {
+  it("shows a scope's line range, path and nested scopes", () => {
     const runner = fileNode().children!.find((c) => c.data.name === "(class) Runner")!;
     runner.data.start_line = 10;
     runner.data.end_line = 89;
     const content = buildTooltipContent(runner, "complexity");
     expect(content.subtitle).toBe("function · L10–89");
+    expect(content.path).toBe("pipeline.py");
     expect(content.children.map((c) => c.name)).toEqual(["go"]);
   });
 
-  it("adds the coloring metric when it isn't a standard line", () => {
-    const content = buildTooltipContent(fileNode(), "python_import_count");
-    expect(content.lines.filter((l) => l.value === "9")).toHaveLength(2);
+  it("drops the coloring metric where it doesn't apply, like complexity on CSS", () => {
+    const css = d3
+      .hierarchy<any>({ name: "index.css", path: "src/index.css", type: "file", metrics: { loc: 20, file_size: 2048 }, children: [scope(":root", 20)] })
+      .sum((n: any) => (n.children?.length ? 0 : n.metrics?.loc ?? 0));
+    const content = buildTooltipContent(css, "complexity");
+    expect(content.primary).toBeNull();
+    expect(content.childMetricLabel).toBe("");
+    expect(content.lines).toEqual([{ label: "Size", value: "2.0 KB" }]);
+  });
+});
+
+function folderTree() {
+  const file = (name: string, loc: number, complexity: number) => ({ name, type: "file", metrics: { loc, complexity }, children: [] });
+  return d3
+    .hierarchy<any>({
+      name: "src",
+      type: "folder",
+      metrics: { complexity: 12 },
+      children: [file("a.tsx", 60, 12), file("b.ts", 30, 3), file("c.ts", 30, 3), file("d.css", 5, 0), file("e.md", 5, 0)],
+    })
+    .sum((n: any) => (n.children?.length ? 0 : n.metrics?.loc ?? 0));
+}
+
+describe("siblingRank", () => {
+  it("ranks worst first among siblings, ties sharing the better rank", () => {
+    const [a, b, c] = folderTree().children!;
+    expect(siblingRank(a, "complexity")).toBe("#1 of 5 in src");
+    expect(siblingRank(b, "complexity")).toBe("#2 of 5 in src");
+    expect(siblingRank(c, "complexity")).toBe("#2 of 5 in src");
+  });
+
+  it("is empty for the root", () => {
+    expect(siblingRank(folderTree(), "complexity")).toBe("");
+  });
+});
+
+describe("languageMix", () => {
+  it("shares LOC by extension, folding the tail into other", () => {
+    expect(languageMix(folderTree())).toBe("tsx 46% · ts 46% · css 4% · other 4%");
+  });
+});
+
+describe("formatters", () => {
+  it("formats bytes and ages compactly", () => {
+    expect(formatBytes(512)).toBe("512 B");
+    expect(formatBytes(39_900)).toBe("39 KB");
+    expect(formatBytes(3_500_000)).toBe("3.3 MB");
+    const now = 1_000_000_000_000;
+    expect(formatAge(0, now)).toBe("");
+    expect(formatAge(now / 1000 - 3 * 86400, now)).toBe("3d ago");
+    expect(formatAge(now / 1000 - 90 * 60, now)).toBe("2h ago");
   });
 });
 
