@@ -1,4 +1,4 @@
-import { useContext, Show } from "solid-js";
+import { createContext, useContext, Show } from "solid-js";
 import { Focus } from "lucide-solid";
 import { extractFilePath } from "../utils/dataProcessing";
 import { formatMetricWithUnit, metricDef, naReasonFor, type MetricId } from "../utils/metricsStore";
@@ -8,6 +8,18 @@ import { HeatSwatch } from "./ui/HeatSwatch";
 import { isSameOrAncestor, linkedPathFor, setHoverFrom } from "../utils/hoverLink";
 import { ExplorerContext, findNodeByPath } from "./Explorer";
 import type { Node } from "./Explorer";
+import type { CellWitness } from "../utils/explorerColumns";
+
+/**
+ * What a row needs from its list. The explorer provides it through
+ * `ExplorerContext`; other lists (the 2x2's quadrant members) provide this.
+ */
+export const HotSpotRowContext = createContext<{
+  onSelect: (path: string, startLine?: number, endLine?: number, node?: any) => void;
+  onOpenWitness: (witness: CellWitness) => void;
+  onZoom: (node: any) => void;
+  rootData: Node | null;
+}>();
 
 /**
  * One Hot Spots row: rank, name, cohort and path, the value with its unit,
@@ -27,8 +39,10 @@ export function HotSpotItem(props: {
   onKeyDown: (event: KeyboardEvent) => void;
   onFocus: () => void;
   ref?: (el: HTMLDivElement) => void;
+  /** Replaces the value cell (and its swatch), e.g. both axes of a 2x2 point. */
+  valueText?: string;
 }) {
-  const ctx = useContext(ExplorerContext)!;
+  const ctx = useContext(HotSpotRowContext) ?? useContext(ExplorerContext)!;
   const def = () => metricDef(props.metric);
   const witness = () => witnessOf(props.node, props.metric);
   const value = () => {
@@ -125,8 +139,10 @@ export function HotSpotItem(props: {
             classList={{ "!font-normal !text-[var(--plc-on-disabled)]": value() === null }}
             title={def() ? metricCellTitle(def()!, props.node) : undefined}
           >
-            <Show when={def() && metricCellColor(def()!, props.node)}>{(fill) => <HeatSwatch color={fill()} />}</Show>
-            {value() === null ? "N/A" : formatMetricWithUnit(props.metric, value()!)}
+            <Show when={props.valueText === undefined && def() && metricCellColor(def()!, props.node)}>
+              {(fill) => <HeatSwatch color={fill() as string} />}
+            </Show>
+            {props.valueText ?? (value() === null ? "N/A" : formatMetricWithUnit(props.metric, value()!))}
           </span>
         </div>
         <div class="plc-data-sm flex min-w-0 items-baseline gap-1.5 text-[var(--plc-on-subtle)]">

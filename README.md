@@ -56,6 +56,12 @@ By default, `uvx srcly report` writes compact artifacts intended to be safe for 
 - `metrics.schema.json` — metric definitions and interpretation hints.
 - `agent-skill.md` — reusable guidance for agents consuming the report.
 
+Add `--quadrant <preset>` (`activity`, `blast_radius`, `component_weight`, `comment_noise`) to place every file, function or component in a named 2x2: `report.md` gains a section listing each quadrant's members, worst first, and `quadrants.json` holds the full lists. `--quadrant-cohort` picks the point type. The same presets drive the UI's **2x2** view next to the treemap, where the cut-offs can be dragged.
+
+```bash
+uvx srcly report . --out .srcly --quadrant activity
+```
+
 `report` is quiet by default and prints only a compact artifact summary. Add `--verbose` when you want per-file scan progress on stderr:
 
 ```bash

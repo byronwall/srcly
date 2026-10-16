@@ -33,7 +33,7 @@ Browser
 | Feature | Where |
 | --- | --- |
 | CLI entry point, arg parsing, port pick, browser open | `server/app/run.py` (`main`) |
-| Headless commands (`scan`, `report`, `hotspots`, `explain`) | `server/app/run.py` (`_run_headless`) → `server/app/services/reporting.py` |
+| Headless commands (`scan`, `report`, `hotspots`, `explain`; `report --quadrant <preset>`) | `server/app/run.py` (`_run_headless`) → `server/app/services/reporting.py` |
 | FastAPI app, CORS, static SPA mount | `server/app/main.py` |
 | Ctrl+C / SIGTERM: cancel running scans, then uvicorn shutdown | `server/app/main.py` (`lifespan`, `_install_scan_cancelling_signal_handlers`); CLI exit code in `server/app/run.py` (`main`) |
 | Dev loop (uvicorn reload + Vite) | `dev.sh`; Vite proxies `/api` → `:8000` in `client/vite.config.ts` |
@@ -81,6 +81,7 @@ Browser
 | `GET /api/analysis` | `routers/analysis.py:get_analysis` | Blocking one-shot scan (kept for API users; the UI uses `/api/scans`) |
 | `POST /api/analysis/refresh` | `routers/analysis.py:refresh_analysis` | Re-scan cwd root |
 | `GET /api/analysis/context` | `routers/analysis.py:get_analysis_context` | Cwd + repo root with rough file counts (first-run screen) |
+| `GET /api/analysis/fan-in?path=` | `routers/analysis.py:get_fan_in` → `services/quadrants.py:fan_in_by_path` | Distinct importing files per file (Blast radius 2x2) |
 | `GET /api/analysis/dependencies` | `routers/analysis.py:get_dependencies` | TS/TSX import graph, tsconfig `paths` aliases |
 | `GET /api/files/content` | `routers/files.py:get_file_content` | Raw file text; `ref=<sha>` reads it from a git commit (`git show`) |
 | `GET /api/files/markers` | `routers/files.py:get_file_markers` → `services/markers.py` | Lines behind each metric (`{metric: [{line, end_line, note}]}`) for the code viewer overlay; `ref=` as above |
@@ -119,6 +120,7 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist live
 | Artifact writing (`report.md`, `findings.json`, …) | `server/app/services/reporting.py` (`write_report`, `build_report_payload`) |
 | Single-metric ranking (one cohort, worst first, ties by path; N/A counted apart): report "Top Files/Functions", `hotspots.json`, `srcly hotspots --metric` | `server/app/services/reporting.py` (`rank_by_metric`, `cohort_nodes`, `witness_of`); client mirror `client/src/utils/hotSpotRanking.ts` (`rankHotSpots`), checked by `tests/test_ranking_parity.py` + `hotSpotRanking.parity.test.ts` |
 | Findings queue (profile-weighted mix; zeros count, N/A drops out) / tree summary | `server/app/services/reporting.py` (`rank_nodes`, `build_findings`, `summarize_tree`) |
+| Named 2x2 presets (axes, absolute cut-offs, quadrant names), quadrant assignment, fan-in; `report --quadrant` section + `quadrants.json` | `server/app/services/quadrants.py`; served in the catalog as `quadrant_presets`; client mirror `client/src/viz/scatter/quadrants.ts` |
 | Agent skill shipped with the repo | `skills/srcly-code-quality/SKILL.md` |
 
 ### Compare two git refs (PR compare)
@@ -202,6 +204,15 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist live
 | Color scales per metric (one shared `TREEMAP_RAMP`) | `client/src/viz/treemap/utils/colors.ts` |
 | Scope `(body)` nodes with shared unchanged branches, path lookup | `client/src/viz/treemap/utils/tree.ts`, `viz/treemap/utils/path.ts` |
 | Label text fitting | `client/src/utils/svgText.ts` |
+
+### Client: 2x2 view
+
+| Feature | Where |
+| --- | --- |
+| `?view=scatter` (the "2x2" switch beside Treemap/Graph), preset/cohort/quadrant URL params, fan-in fetch, opening points | `client/src/viz/scatter/ScatterView.tsx`; mounted in `client/src/components/Treemap.tsx` |
+| Plot: log/linear axes, quadrant fields + names, draggable cut-offs, hover card, linked hover | `client/src/viz/scatter/ScatterPlot.tsx` |
+| Quadrant grid + member list (reuses `HotSpotItem` via `HotSpotRowContext`) | `client/src/viz/scatter/QuadrantPanel.tsx` |
+| Points, quadrant assignment, scales, "why no data" reasons | `client/src/viz/scatter/quadrants.ts` |
 
 ### Client: Code viewer modal
 

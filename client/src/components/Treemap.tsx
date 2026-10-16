@@ -27,6 +27,7 @@ import { buildMetricsIndex } from "../viz/deps/metrics";
 import { linkedPathFor, setHoverFrom } from "../utils/hoverLink";
 
 const DependencyView = lazy(() => import("../viz/deps/DependencyView"));
+const ScatterView = lazy(() => import("../viz/scatter/ScatterView"));
 
 interface TreemapProps {
   data: any;
@@ -61,6 +62,9 @@ export default function Treemap(props: TreemapProps) {
   const [isIsolateMode, setIsIsolateMode] = createSignal(false);
   const [showMetricPopover, setShowMetricPopover] = createSignal(false);
   const showDependencyGraph = () => location().view === "graph";
+  const showScatter = () => location().view === "scatter";
+  /** The treemap canvas is covered by another view. */
+  const covered = () => showDependencyGraph() || showScatter();
   const [menu, setMenu] = createSignal<NodeMenuTarget | null>(null);
 
   const openTileMenu = (event: MouseEvent, tile: TreemapTile) => {
@@ -220,7 +224,7 @@ export default function Treemap(props: TreemapProps) {
   createEffect(() => {
     // Nothing to draw (or the dependency view covers the treemap): release the
     // loading state now instead of waiting for a canvas paint that won't come.
-    if (props.data && (!processedData() || showDependencyGraph())) props.onPaint?.();
+    if (props.data && (!processedData() || covered())) props.onPaint?.();
   });
 
   return (
@@ -254,8 +258,17 @@ export default function Treemap(props: TreemapProps) {
               colorMetric={primaryMetric()}
             />
           </Show>
+          <Show when={showScatter()}>
+            <ScatterView
+              data={processedData()}
+              scanRoot={props.data}
+              rootPath={props.rootPath}
+              onFileSelect={(path, start, end, node) => props.onFileSelect?.(path, start, end, node)}
+              onZoom={(node) => props.onZoom?.(node)}
+            />
+          </Show>
         </Suspense>
-        <Show when={!showDependencyGraph() && layoutRoot()}>
+        <Show when={!covered() && layoutRoot()}>
           <TreemapCanvas
             nodes={layoutNodes}
             width={() => dimensions().width}
@@ -275,7 +288,7 @@ export default function Treemap(props: TreemapProps) {
             onPaint={() => props.onPaint?.()}
           />
         </Show>
-        <Show when={!processedData() && !showDependencyGraph()}>
+        <Show when={!processedData() && !covered()}>
           <div class="flex h-full items-center justify-center text-[var(--plc-on-subtle)]">
             No files match the selected filters
           </div>

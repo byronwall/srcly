@@ -839,5 +839,212 @@
       "viewer_label": null,
       "witness": false
     }
+  ],
+  "quadrant_presets": [
+    {
+      "cohort_note": "Commits are counted per file",
+      "cohorts": [
+        "file"
+      ],
+      "description": "Complex files that keep changing are where a refactor pays off first.",
+      "id": "activity",
+      "label": "Activity",
+      "quadrants": [
+        {
+          "description": "Complex and changing often: refactor first.",
+          "id": "high_both",
+          "name": "Hot mess"
+        },
+        {
+          "description": "Complex but rarely touched: leave it until it wakes.",
+          "id": "high_x",
+          "name": "Sleeping giant"
+        },
+        {
+          "description": "Changes often and stays simple.",
+          "id": "high_y",
+          "name": "Busy, fine"
+        },
+        {
+          "description": "Simple and stable.",
+          "id": "low_both",
+          "name": "Quiet"
+        }
+      ],
+      "x": {
+        "cutoff": 10,
+        "derived": false,
+        "description": "Cyclomatic complexity: exact for a function; for a file or folder, its most complex function, which it names.",
+        "id": "complexity",
+        "label": "Complexity (max)",
+        "scale": "log",
+        "unit": "CCN",
+        "unit_one": "CCN"
+      },
+      "y": {
+        "cutoff": 5,
+        "derived": false,
+        "description": "Non-merge commits that touched the file in the activity window, following renames. Frequent change in complex code is where refactoring pays off.",
+        "id": "commit_count",
+        "label": "Commits",
+        "scale": "log",
+        "unit": "commits",
+        "unit_one": "commit"
+      }
+    },
+    {
+      "cohort_note": "Fan-in is counted per file",
+      "cohorts": [
+        "file"
+      ],
+      "description": "Complex files that many others import break the most when they change.",
+      "id": "blast_radius",
+      "label": "Blast radius",
+      "quadrants": [
+        {
+          "description": "Complex and widely imported: change with tests.",
+          "id": "high_both",
+          "name": "Load-bearing tangle"
+        },
+        {
+          "description": "Complex, few importers: safe to rework.",
+          "id": "high_x",
+          "name": "Isolated mess"
+        },
+        {
+          "description": "Widely imported and simple: keep it that way.",
+          "id": "high_y",
+          "name": "Hub"
+        },
+        {
+          "description": "Simple, few importers.",
+          "id": "low_both",
+          "name": "Leaf"
+        }
+      ],
+      "x": {
+        "cutoff": 10,
+        "derived": false,
+        "description": "Cyclomatic complexity: exact for a function; for a file or folder, its most complex function, which it names.",
+        "id": "complexity",
+        "label": "Complexity (max)",
+        "scale": "log",
+        "unit": "CCN",
+        "unit_one": "CCN"
+      },
+      "y": {
+        "cutoff": 5,
+        "derived": true,
+        "description": "Distinct files that import this file (any of its symbols), from the dependency graph.",
+        "id": "fan_in",
+        "label": "Fan-in",
+        "scale": "log",
+        "unit": "importers",
+        "unit_one": "importer"
+      }
+    },
+    {
+      "cohort_note": "Each point is one component",
+      "cohorts": [
+        "component"
+      ],
+      "description": "React/Solid components that are long, hook-heavy, or both.",
+      "id": "component_weight",
+      "label": "Component weight",
+      "quadrants": [
+        {
+          "description": "Long and hook-heavy: split state from markup.",
+          "id": "high_both",
+          "name": "God component"
+        },
+        {
+          "description": "Long with few hooks: extract subcomponents.",
+          "id": "high_x",
+          "name": "Long markup"
+        },
+        {
+          "description": "Short but hook-heavy: pull logic into a custom hook.",
+          "id": "high_y",
+          "name": "Hook soup"
+        },
+        {
+          "description": "Short with few hooks.",
+          "id": "low_both",
+          "name": "Lean"
+        }
+      ],
+      "x": {
+        "cutoff": 150,
+        "derived": false,
+        "description": "Lines in one React/Solid component. A file or folder holds the max over its components and names it.",
+        "id": "component_loc",
+        "label": "Component LOC",
+        "scale": "log",
+        "unit": "lines",
+        "unit_one": "line"
+      },
+      "y": {
+        "cutoff": 5,
+        "derived": false,
+        "description": "Hooks (`use*`) and Solid primitives (`create*`) in one component. A file or folder holds the max over its components and names it.",
+        "id": "component_hook_count",
+        "label": "Hooks",
+        "scale": "log",
+        "unit": "hooks",
+        "unit_one": "hook"
+      }
+    },
+    {
+      "cohort_note": "",
+      "cohorts": [
+        "file",
+        "function"
+      ],
+      "description": "Whether comments sit on the complex code that needs them.",
+      "id": "comment_noise",
+      "label": "Comment noise",
+      "quadrants": [
+        {
+          "description": "Complex and commented.",
+          "id": "high_both",
+          "name": "Documented complexity"
+        },
+        {
+          "description": "Heavily commented simple code: trim the comments.",
+          "id": "high_x",
+          "name": "Narrated trivia"
+        },
+        {
+          "description": "Complex with few comments: explain or simplify.",
+          "id": "high_y",
+          "name": "Bare complexity"
+        },
+        {
+          "description": "Simple, lightly commented.",
+          "id": "low_both",
+          "name": "Clean"
+        }
+      ],
+      "x": {
+        "cutoff": 0.15,
+        "derived": true,
+        "description": "Comment lines per code line. Comment noise flags a function above 0.5.",
+        "id": "comment_ratio",
+        "label": "Comment ratio",
+        "scale": "linear",
+        "unit": "comments/line",
+        "unit_one": "comments/line"
+      },
+      "y": {
+        "cutoff": 10,
+        "derived": false,
+        "description": "Cyclomatic complexity: exact for a function; for a file or folder, its most complex function, which it names.",
+        "id": "complexity",
+        "label": "Complexity (max)",
+        "scale": "log",
+        "unit": "CCN",
+        "unit_one": "CCN"
+      }
+    }
   ]
 }

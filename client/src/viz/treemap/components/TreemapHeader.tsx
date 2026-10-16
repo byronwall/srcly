@@ -1,5 +1,5 @@
 import { For, Show, type Accessor } from "solid-js";
-import { ChevronRight, GitFork, LayoutGrid } from "lucide-solid";
+import { ChartScatter, ChevronRight, GitFork, LayoutGrid } from "lucide-solid";
 import {
   metricLabel,
   type MetricId,
@@ -40,6 +40,7 @@ export type TreemapHeaderProps = {
 const VIEWS: { id: View; label: string; icon: typeof GitFork }[] = [
   { id: "treemap", label: "Treemap", icon: LayoutGrid },
   { id: "graph", label: "Graph", icon: GitFork },
+  { id: "scatter", label: "2x2", icon: ChartScatter },
 ];
 
 export default function TreemapHeader(props: TreemapHeaderProps) {

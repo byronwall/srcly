@@ -44,6 +44,7 @@ Use `uvx srcly scan . --out -` only when a caller explicitly wants raw tree JSON
 - Broad review: `uvx srcly report . --out .srcly --format both`
 - Single metric list: `uvx srcly hotspots . --metric complexity --limit 20` (any non-neutral id from `metrics.schema.json`; `--cohort function` ranks functions)
 - Report ranked by another metric: `uvx srcly report . --out .srcly --metric comment_noise`
+- Named 2x2 (members per quadrant in `report.md` + `quadrants.json`): `uvx srcly report . --out .srcly --quadrant activity` ("Hot mess" = complex and changing often; also `blast_radius`, `component_weight`, `comment_noise`)
 - Focus one file: `uvx srcly explain . --file path/to/file`
 - Full raw tree: `uvx srcly scan . --out .srcly/tree.json`
 - CI gate: `uvx srcly report . --out .srcly --fail-on high`

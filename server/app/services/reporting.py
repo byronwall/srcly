@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Iterable, Literal
 
 from app.models import Metrics, Node
-from app.services import activity, analysis, metric_catalog
+from app.services import activity, analysis, metric_catalog, quadrants
 
 ARTIFACT_VERSION = 1
 
@@ -57,6 +57,8 @@ def build_report_payload(
     verbose: bool = True,
     output_format: OutputFormat = "both",
     activity_window: str | None = None,
+    quadrant: str | None = None,
+    quadrant_cohort: str | None = None,
 ) -> dict[str, Any]:
     del refresh  # Cache support is currently a no-op in app.services.cache.
     if profile not in PROFILE_WEIGHTS:
@@ -70,6 +72,17 @@ def build_report_payload(
         cohort: rank_by_metric(tree, metric, cohort=cohort, root_path=root_path) for cohort in ("file", "function")
     }
     findings = build_findings(ranked, limit=limit)
+    quadrant_result = (
+        quadrants.build_quadrants(
+            tree,
+            quadrant,
+            cohort=quadrant_cohort,
+            root_path=root_path,
+            display_path=lambda p: _display_path(p, root_path),
+        )
+        if quadrant
+        else None
+    )
     summary_tree = summarize_tree(tree, ranked, root_path=root_path, max_depth=tree_depth, top_children=tree_top)
     manifest = build_manifest(root_path=root_path, profile=profile)
     manifest["activity"] = tree.activity.model_dump() if tree.activity else None
@@ -98,10 +111,13 @@ def build_report_payload(
             profile=profile,
             focus_paths=focus_paths,
             deprioritize_paths=deprioritize_paths,
-        ),
+        )
+        + (f"\n{quadrants.render_markdown(quadrant_result)}" if quadrant_result else ""),
         "action_plan_markdown": action_plan_markdown,
         "agent_skill_markdown": render_agent_skill(),
     }
+    if quadrant_result:
+        payload["quadrants"] = quadrant_result
     if include_tree:
         payload["tree"] = _node_to_json(tree)
     if include_dependencies:
@@ -133,6 +149,8 @@ def write_report(
     agent_compact: bool = False,
     verbose: bool = True,
     activity_window: str | None = None,
+    quadrant: str | None = None,
+    quadrant_cohort: str | None = None,
 ) -> dict[str, Path]:
     payload = build_report_payload(
         root_path,
@@ -150,6 +168,8 @@ def write_report(
         verbose=verbose,
         output_format=output_format,
         activity_window=activity_window,
+        quadrant=quadrant,
+        quadrant_cohort=quadrant_cohort,
     )
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -162,6 +182,8 @@ def write_report(
         written["findings"] = _write_json(out_dir / "findings.json", payload["findings"])
         written["findings_top"] = _write_json(out_dir / "findings.top.json", payload["findings_top"])
         written["metrics_schema"] = _write_json(out_dir / "metrics.schema.json", payload["metrics_schema"])
+        if "quadrants" in payload:
+            written["quadrants"] = _write_json(out_dir / "quadrants.json", payload["quadrants"])
         if include_tree:
             written["tree"] = _write_json(out_dir / "tree.json", payload["tree"])
         if include_dependencies:
@@ -617,6 +639,8 @@ def enrich_manifest_with_artifacts(
         )
         if include_tree:
             artifact_specs.append(("tree", "tree.json", payload["tree"], 9, "avoid_full_load"))
+        if "quadrants" in payload:
+            artifact_specs.append(("quadrants", "quadrants.json", payload["quadrants"], 6, "top_n"))
         if include_dependencies:
             artifact_specs.append(("dependencies", "dependencies.json", payload["dependencies"], 8, "top_n"))
     if output_format in ("markdown", "both"):
