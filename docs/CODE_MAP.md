@@ -61,9 +61,9 @@ Browser
 | Jupyter notebook metrics | `server/app/services/ipynb/ipynb_analysis.py` |
 | Everything else lizard has a reader for (Go, PHP, JS, …) | `lizard.analyze_file` fallback in `analyze_single_file` |
 | No reader (YAML, MDX, shell, HTML, dotfiles): streaming line count, no lizard | `analysis.py` (`count_lizard_style_nloc`) |
-| Analyzer result dataclasses | `server/app/services/analysis_types.py` |
-| Folder rollups of metrics | `server/app/services/analysis.py` (`aggregate_metrics`) |
-| Function/scope → Node conversion, `(body)` nodes | `server/app/services/analysis.py` (`attach_file_metrics`) |
+| Analyzer result dataclasses; scope kinds (`scope_kind`, executable vs display scopes); which metrics each language measures (`MEASURED_FILE_METRICS`, `MEASURED_SCOPE_METRICS`) | `server/app/services/analysis_types.py` |
+| Folder rollups of metrics (N/A children skipped; max-complexity witness carried up) | `server/app/services/analysis.py` (`aggregate_metrics`) |
+| Function/scope → Node conversion (`Node.kind`), `(body)` nodes, N/A metrics + `na_reason`, `complexity_witness` | `server/app/services/analysis.py` (`attach_file_metrics`, `language_for_path`, `_most_complex_function`) |
 | Analysis cache (user cache dir, fingerprint invalidation) | `server/app/services/cache.py`, used by `server/app/services/scan_jobs.py` |
 
 ### API surface
@@ -109,7 +109,7 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Feature | Where |
 | --- | --- |
 | Artifact writing (`report.md`, `findings.json`, …) | `server/app/services/reporting.py` (`write_report`, `build_report_payload`) |
-| Ranking / findings / tree summary | `server/app/services/reporting.py` (`rank_nodes`, `build_findings`, `summarize_tree`) |
+| Ranking (one cohort: files or functions; zeros count, N/A drops out) / findings / tree summary | `server/app/services/reporting.py` (`rank_nodes`, `cohort_nodes`, `build_findings`, `summarize_tree`) |
 | Agent skill shipped with the repo | `skills/srcly-code-quality/SKILL.md` |
 
 ### Compare two git refs (PR compare)
@@ -155,6 +155,8 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Feature | Where |
 | --- | --- |
 | Tree / Hot Spots tabs, column picker, sorting, filter box | `client/src/components/Explorer.tsx` |
+| Hot Spots ranking (Files / Functions cohort, N/A not ranked) | `client/src/utils/hotSpotRanking.ts` (`cohortNodes`, `rankHotSpots`), toggle in `Explorer.tsx` |
+| N/A cells, 0 vs N/A, max-complexity witness link | `client/src/utils/explorerColumns.ts` (`metricCellText`, `metricCellTitle`, `witnessOf`); rows in `TreeNode.tsx`, `HotSpotItem.tsx`; code viewer in `CodeModal/MetricsTable.tsx`; treemap hatch in `viz/treemap/utils/colors.ts` (`TREEMAP_NA_COLOR`) |
 | Column definitions, cell text/heat tint, color-metric column | `client/src/utils/explorerColumns.ts` |
 | Scope bar: breadcrumb, LOC/files/fns counts, top file by color metric | `client/src/components/ExplorerScopeBar.tsx`, `client/src/utils/explorerScope.ts` |
 | Filter box, empty state, grouped column picker | `client/src/components/ExplorerControls.tsx` |

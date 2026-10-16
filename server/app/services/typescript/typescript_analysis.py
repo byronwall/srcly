@@ -6,7 +6,7 @@ from typing import List, Set, Dict
 TYPESCRIPT_LANGUAGE = Language(tstypescript.language_typescript())
 TSX_LANGUAGE = Language(tstypescript.language_tsx())
 
-from app.services.analysis_types import FileMetrics, FunctionMetrics, is_synthetic_scope
+from app.services.analysis_types import FileMetrics, FunctionMetrics, is_executable_scope, iter_executable_scopes
 from app.services.markers import MarkerSink
 
 _COMPLEXITY_NOTES = {
@@ -18,6 +18,22 @@ _COMPLEXITY_NOTES = {
 # Nesting at or past this depth is marked, so the overlay shows deep code
 # rather than every block. Shallower files mark their deepest blocks.
 MARKED_NESTING_DEPTH = 3
+
+def _add_decision_point(active_scopes: List[dict]) -> None:
+    """Count a branch on the innermost scope and on its enclosing function.
+
+    JSX containers and object literals are display scopes: a ternary inside
+    `<div>` belongs to the component's own CCN too, or the component would
+    look simpler than it is.
+    """
+    innermost = active_scopes[-1]['metrics']
+    innermost.cyclomatic_complexity += 1
+    if is_executable_scope(innermost):
+        return
+    for scope in reversed(active_scopes[:-1]):
+        if is_executable_scope(scope['metrics']):
+            scope['metrics'].cyclomatic_complexity += 1
+            return
 
 
 class TreeSitterAnalyzer:
@@ -76,7 +92,7 @@ class TreeSitterAnalyzer:
         self._attach_tsx_fragments(top_level_functions)
         
         avg_complexity = 0.0
-        real_functions = [f for f in top_level_functions if not is_synthetic_scope(f)]
+        real_functions = list(iter_executable_scopes(top_level_functions))
         if real_functions:
             avg_complexity = sum(f.cyclomatic_complexity for f in real_functions) / len(real_functions)
             
@@ -236,7 +252,7 @@ class TreeSitterAnalyzer:
                 'while_statement', 'do_statement', 'catch_clause', 'ternary_expression',
                 'case_clause' # Switch cases
             }:
-                current_scope_metrics.cyclomatic_complexity += 1
+                _add_decision_point(active_scopes)
                 self._mark('complexity', node, _COMPLEXITY_NOTES[node_type])
                 if node_type == 'ternary_expression':
                      if active_scopes[-1]['metrics'].is_jsx_container or active_scopes[-1]['metrics'].contains_tsx:
@@ -247,7 +263,7 @@ class TreeSitterAnalyzer:
                 # Check operator
                 op = node.child_by_field_name('operator')
                 if op and op.text in {b'&&', b'||', b'??'}:
-                     current_scope_metrics.cyclomatic_complexity += 1
+                     _add_decision_point(active_scopes)
                      self._mark('complexity', node, op.text.decode())
                      # Render branching heuristic
                      if (op.text == b'&&' or op.text == b'??') and (active_scopes[-1]['metrics'].is_jsx_container or active_scopes[-1]['metrics'].contains_tsx):

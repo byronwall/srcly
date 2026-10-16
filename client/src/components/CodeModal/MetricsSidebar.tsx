@@ -10,6 +10,8 @@ export function MetricsSidebar(props: {
   canLocate: (metricId: string) => boolean;
   activeMetric: () => string | null;
   onToggleMetric: (metricId: string) => void;
+  /** Open a scope of this file (the max-complexity witness). */
+  onSelectNode: (node: any) => void;
 }) {
   return (
     <aside class="flex w-72 shrink-0 flex-col overflow-hidden border-r border-[var(--plc-border)] bg-[var(--plc-surface)]">
@@ -32,6 +34,7 @@ export function MetricsSidebar(props: {
             canLocate={props.canLocate}
             activeMetric={props.activeMetric}
             onToggleMetric={props.onToggleMetric}
+            onSelectNode={props.onSelectNode}
           />
         </Show>
       </div>

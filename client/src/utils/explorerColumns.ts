@@ -4,7 +4,6 @@ import {
   type HotSpotMetricDef,
   type HotSpotMetricId,
 } from "./metricsStore";
-import { metricApplies } from "./metricApplicability";
 import { treemapFillColor } from "../viz/treemap/utils/colors";
 
 export type ExplorerColumnNode = {
@@ -38,24 +37,51 @@ const numberAt = (node: ExplorerColumnNode, key: string) => {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 };
 
-const isScope = (node: ExplorerColumnNode) => node.type !== "file" && node.type !== "folder";
+/** Shown for N/A: the metric doesn't apply here, or the file was skipped or failed. */
+export const NA_TEXT = "–";
 
 /**
- * Text for a metric cell. Blank when the metric doesn't apply to the file's
- * language (a 0 there is noise) and for zero counts, so real values stand out.
+ * Text for a metric cell: the value, "0" for a measured zero, and `NA_TEXT`
+ * when the server reports the metric as N/A (null). The row renders 0 and
+ * N/A faint, so real values stand out without hiding which is which.
  */
 export function metricCellText(def: HotSpotMetricDef, node: ExplorerColumnNode): string {
   const value = numberAt(node, def.id);
-  if (value === undefined) return "";
-  if (node.type !== "folder" && !metricApplies(def, node.path, isScope(node))) return "";
+  if (value === undefined) return NA_TEXT;
   if (def.id === "file_size") return formatSize(value);
-  if (value === 0 && def.id !== "loc" && !def.invert) return "";
   return formatMetricValue(def.id, value);
 }
 
-/** The treemap's fill color for a cell's value, or undefined when the cell is blank. */
+/** True when a cell shows nothing worth reading: N/A or a measured zero. */
+export function metricCellIsFaint(def: HotSpotMetricDef, node: ExplorerColumnNode): boolean {
+  const value = numberAt(node, def.id);
+  return value === undefined || (value === 0 && !def.invert);
+}
+
+/** Hover text for a cell: the N/A reason, or where a max complexity comes from. */
+export function metricCellTitle(def: HotSpotMetricDef, node: ExplorerColumnNode): string {
+  const value = numberAt(node, def.id);
+  if (value === undefined) {
+    const reason = node.metrics?.na_reason;
+    return `${def.label}: N/A${typeof reason === "string" && reason ? ` (${reason})` : ""}`;
+  }
+  const witness = def.id === "complexity" ? witnessOf(node) : null;
+  const text = `${def.label}: ${metricCellText(def, node)}`;
+  return witness ? `${text} in ${witness.name}${witness.start_line > 0 ? ` (line ${witness.start_line})` : ""}; click to open it` : text;
+}
+
+export type CellWitness = { path: string; name: string; start_line: number; end_line: number };
+
+/** The function behind a file's or folder's max complexity; null for scopes and N/A. */
+export function witnessOf(node: ExplorerColumnNode): CellWitness | null {
+  if (node.type !== "file" && node.type !== "folder") return null;
+  const w = node.metrics?.complexity_witness as CellWitness | null | undefined;
+  return w && typeof w.path === "string" ? w : null;
+}
+
+/** The treemap's fill color for a cell's value, or undefined when it is N/A or zero. */
 export function metricCellColor(def: HotSpotMetricDef, node: ExplorerColumnNode): string | undefined {
-  if (!metricCellText(def, node)) return undefined;
+  if (metricCellIsFaint(def, node)) return undefined;
   return treemapFillColor(def.id, node.metrics ?? {}, 0);
 }
 
@@ -103,9 +129,13 @@ export function visibleExplorerColumns(picked: readonly string[], colorMetric: H
   return color ? [...columns, color] : columns;
 }
 
-/** Sort value for a row under a column (or the name). */
-export function explorerSortValue(node: ExplorerColumnNode & { name: string }, field: ExplorerSortField) {
+/** Sort value for a row under a column (or the name); null (N/A) sorts last either way. */
+export function explorerSortValue(
+  node: ExplorerColumnNode & { name: string },
+  field: ExplorerSortField
+): string | number | null {
   if (field === "name") return node.name.toLowerCase();
   if (field === "gitignored") return numberAt(node, "gitignored_count") ?? 0;
-  return numberAt(node, field) ?? 0;
+  if (field === "file_count") return numberAt(node, "file_count") ?? 0;
+  return numberAt(node, field) ?? null;
 }

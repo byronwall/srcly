@@ -2,7 +2,7 @@ import { createSignal } from "solid-js";
 import * as d3 from "d3";
 import { CODE_LANGUAGES, formatMetricValue, HOTSPOT_METRICS, type HotSpotMetricId } from "../../../utils/metricsStore";
 import { applicableMetrics, languageForPath } from "../../../utils/metricApplicability";
-import { treemapFillColor } from "../utils/colors";
+import { metricIsNA, TREEMAP_NA_BACKGROUND, treemapFillColor } from "../utils/colors";
 
 export type TooltipLine = {
   label: string;
@@ -27,8 +27,10 @@ export type TooltipPrimary = {
   label: string;
   value: string;
   color: string;
-  /** e.g. "#3 of 14 in components"; empty without siblings to compare. */
+  /** e.g. "#3 of 14 in components"; for N/A, why it is missing. */
   rank: string;
+  /** For max complexity on a file or folder: the function that sets it, e.g. "parseArgs · L12". */
+  witness: string;
 };
 
 export type TooltipContent = {
@@ -62,7 +64,7 @@ export const TOOLTIP_CHILD_LIMIT = 8;
 
 // Files whose analyzer timed out or failed, or that are over the size cap, stay
 // in the tree with a plain line count; say so, since their other metrics are
-// zero rather than measured.
+// N/A rather than measured.
 export function notAnalyzedLines(metrics: any): TooltipLine[] {
   const status = metrics?.analysis_status;
   if (status === "too_large") {
@@ -87,6 +89,8 @@ const nodeLoc = (n: d3.HierarchyNode<any>) => n.value ?? Number(n.data?.metrics?
 const metricDef = (id: string) => HOTSPOT_METRICS.find((m) => m.id === id);
 
 /** A node's value for a metric; LOC comes from the layout so it matches the tile. */
+const hasValue = (n: d3.HierarchyNode<any>, id: string) => id === "loc" || !metricIsNA(id, n.data?.metrics);
+
 function metricValue(n: d3.HierarchyNode<any>, id: string): number {
   if (id === "loc") return nodeLoc(n);
   const v = Number(n.data?.metrics?.[id] ?? 0);
@@ -162,7 +166,11 @@ export function topChildren(
     isFolder: c.data?.type === "folder",
     share: nodeLoc(c) / total,
     color: treemapFillColor(primaryMetricId, c.data?.metrics ?? {}, 0),
-    metric: !showColumn ? "" : applies(c) ? formatValue(primaryMetricId, metricValue(c, primaryMetricId)) : "–",
+    metric: !showColumn
+      ? ""
+      : applies(c) && hasValue(c, primaryMetricId)
+        ? formatValue(primaryMetricId, metricValue(c, primaryMetricId))
+        : "–",
   }));
   return { children, more: Math.max(0, all.length - limit) };
 }
@@ -170,8 +178,9 @@ export function topChildren(
 /** Where the node sits among its siblings by the coloring metric, worst first. */
 export function siblingRank(d: d3.HierarchyNode<any>, id: HotSpotMetricId): string {
   const parent = d.parent;
-  if (!parent || isSynthetic(d)) return "";
-  const siblings = (parent.children ?? []).filter((c) => !isSynthetic(c));
+  if (!parent || isSynthetic(d) || !hasValue(d, id)) return "";
+  // N/A siblings aren't ranked: they have no value to compare.
+  const siblings = (parent.children ?? []).filter((c) => !isSynthetic(c) && hasValue(c, id));
   if (siblings.length < 2) return "";
   const mine = metricValue(d, id);
   // Every sibling tied (all zero, say): a rank would be noise.
@@ -309,15 +318,18 @@ export function buildTooltipContent(d: d3.HierarchyNode<any>, primaryMetricId: H
   if (primaryMetricId === "comment_density") primaryLabel = def?.viewerLabel ?? primaryLabel;
   if (primaryMetricId === "complexity" && isScope) primaryLabel = "Complexity";
 
+  const primaryNA = !hasValue(d, primaryMetricId);
+  const witness = primaryMetricId === "complexity" && !isScope ? metrics.complexity_witness : null;
   const primary: TooltipPrimary | null =
     !primaryApplies || (primaryMetricId === "loc" && !d.parent)
       ? null
       : {
           label: primaryLabel,
           // The header already shows LOC.
-          value: primaryMetricId === "loc" ? "" : formatValue(primaryMetricId, metricValue(d, primaryMetricId)),
-          color: treemapFillColor(primaryMetricId, metrics, 0),
-          rank: siblingRank(d, primaryMetricId),
+          value: primaryMetricId === "loc" ? "" : primaryNA ? "N/A" : formatValue(primaryMetricId, metricValue(d, primaryMetricId)),
+          color: primaryNA ? TREEMAP_NA_BACKGROUND : treemapFillColor(primaryMetricId, metrics, 0),
+          rank: primaryNA ? String(metrics.na_reason ?? "") : siblingRank(d, primaryMetricId),
+          witness: witness ? `${witness.name}${witness.start_line > 0 ? ` · L${witness.start_line}` : ""}` : "",
         };
 
   return {

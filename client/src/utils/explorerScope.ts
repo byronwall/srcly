@@ -1,10 +1,10 @@
 import type { HotSpotMetricDef } from "./metricsStore";
-import { metricApplies } from "./metricApplicability";
 
 export type ScopeNode = {
   name: string;
   path: string;
   type: string;
+  kind?: string | null;
   children?: ScopeNode[];
   metrics?: Record<string, unknown>;
 };
@@ -22,20 +22,22 @@ export function ancestorChain<T extends ScopeNode>(root: T, path: string): T[] {
 export type ScopeSummary<T> = {
   files: number;
   folders: number;
-  scopes: number;
+  /** Executable functions (not classes, types, JSX containers or bodies). */
+  functions: number;
   loc: number;
-  /** The file that most needs attention under the color metric, if any applies. */
+  /** The file that most needs attention under the color metric; N/A files never are. */
   worst?: { node: T; value: number };
 };
 
+/** The value, or null when N/A. */
 const num = (node: ScopeNode, key: string) => {
   const value = node.metrics?.[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 };
 
 /** Counts under `root`, plus its worst file by `metric` (lowest for inverted metrics). */
 export function summarizeScope<T extends ScopeNode>(root: T, metric: HotSpotMetricDef): ScopeSummary<T> {
-  const summary: ScopeSummary<T> = { files: 0, folders: 0, scopes: 0, loc: num(root, "loc") };
+  const summary: ScopeSummary<T> = { files: 0, folders: 0, functions: 0, loc: num(root, "loc") ?? 0 };
   const stack: T[] = [...((root.children ?? []) as T[])];
   if (!root.children?.length) stack.push(root);
   while (stack.length) {
@@ -43,12 +45,12 @@ export function summarizeScope<T extends ScopeNode>(root: T, metric: HotSpotMetr
     if (node.type === "folder") summary.folders++;
     else if (node.type === "file") {
       summary.files++;
-      if (metricApplies(metric, node.path, false)) {
-        const value = num(node, metric.id);
+      const value = num(node, metric.id);
+      if (value !== null) {
         const worse = metric.invert ? value < (summary.worst?.value ?? Infinity) : value > (summary.worst?.value ?? 0);
         if (worse) summary.worst = { node, value };
       }
-    } else summary.scopes++;
+    } else if (node.type === "function" && node.kind === "function") summary.functions++;
     stack.push(...((node.children ?? []) as T[]));
   }
   return summary;

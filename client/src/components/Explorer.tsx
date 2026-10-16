@@ -13,12 +13,9 @@ import { MetricPicker } from "./MetricPicker";
 import Popover from "./Popover";
 import { Button } from "./ui/Button";
 import { IconButton } from "./ui/IconButton";
-import {
-  HOTSPOT_METRICS,
-  type HotSpotMetricId,
-  useMetricsStore,
-} from "../utils/metricsStore";
+import { HOTSPOT_METRICS, type HotSpotMetricId, useMetricsStore } from "../utils/metricsStore";
 import { HotSpotItem } from "./HotSpotItem";
+import { cohortNodes, rankHotSpots, type HotSpotCohort } from "../utils/hotSpotRanking";
 import { TreeNode } from "./TreeNode";
 import { extractFilePath } from "../utils/dataProcessing";
 import {
@@ -38,45 +35,62 @@ import { linkedPathFor, nearestLinked, setHoverFrom } from "../utils/hoverLink";
 import { ColumnPickerPanel, ExplorerEmpty, ExplorerFilter } from "./ExplorerControls";
 import { TREEMAP_GRADIENT } from "../viz/treemap/utils/colors";
 
+/** The function that sets a file's or folder's max complexity. */
+export interface Witness {
+  path: string;
+  name: string;
+  start_line: number;
+  end_line: number;
+}
+
+/** null = N/A (doesn't apply, skipped or failed); 0 is a measured zero. */
+type MetricValue = number | null;
+
 export interface Node {
   name: string;
   path: string;
-  type: "folder" | "file" | "function" | "class" | "misc";
+  type: "folder" | "file" | "function" | "function_body";
+  /** Scope kind for "function" nodes: "function" is executable; class/type/object/jsx/imports/block are display scopes. */
+  kind?: string | null;
   children?: Node[];
   start_line?: number;
   end_line?: number;
   metrics?: {
     loc: number;
-    // Max CCN of any function or nested scope inside this node.
-    complexity: number;
-    // Mean CCN per function.
-    complexity_avg?: number;
+    // Max CCN of any executable function inside this node, and that function.
+    complexity?: MetricValue;
+    complexity_witness?: Witness | null;
+    // Mean CCN per executable function.
+    complexity_avg?: MetricValue;
+    function_count?: MetricValue;
     gitignored_count?: number;
     file_size?: number;
     file_count?: number;
-    comment_lines?: number;
-    comment_density?: number;
-    max_nesting_depth?: number;
-    average_function_length?: number;
-    parameter_count?: number;
-    todo_count?: number;
-    classes_count?: number;
+    comment_lines?: MetricValue;
+    comment_density?: MetricValue;
+    max_nesting_depth?: MetricValue;
+    average_function_length?: MetricValue;
+    parameter_count?: MetricValue;
+    todo_count?: MetricValue;
+    classes_count?: MetricValue;
     // TS/TSX-specific metrics
-    tsx_nesting_depth?: number;
-    tsx_render_branching_count?: number;
-    tsx_react_use_effect_count?: number;
-    tsx_anonymous_handler_count?: number;
-    tsx_prop_count?: number;
-    ts_any_usage_count?: number;
-    ts_ignore_count?: number;
-    ts_import_coupling_count?: number;
-    tsx_hardcoded_string_volume?: number;
-    tsx_duplicated_string_count?: number;
-    ts_type_interface_count?: number;
-    ts_export_count?: number;
-    python_import_count?: number;
-    md_data_url_count?: number;
-    // "ok" | "timeout" | "error" | "crash"; failed files keep fallback LOC.
+    tsx_nesting_depth?: MetricValue;
+    tsx_render_branching_count?: MetricValue;
+    tsx_react_use_effect_count?: MetricValue;
+    tsx_anonymous_handler_count?: MetricValue;
+    tsx_prop_count?: MetricValue;
+    ts_any_usage_count?: MetricValue;
+    ts_ignore_count?: MetricValue;
+    ts_import_coupling_count?: MetricValue;
+    tsx_hardcoded_string_volume?: MetricValue;
+    tsx_duplicated_string_count?: MetricValue;
+    ts_type_interface_count?: MetricValue;
+    ts_export_count?: MetricValue;
+    python_import_count?: MetricValue;
+    md_data_url_count?: MetricValue;
+    /** Why this node's null metrics are N/A. */
+    na_reason?: string;
+    // "ok" | "timeout" | "error" | "crash" | "too_large"; failed files keep fallback LOC.
     analysis_status?: string;
     analysis_error?: string;
     analysis_failed_count?: number;
@@ -96,6 +110,7 @@ interface ExplorerContextType {
     node?: any
   ) => void;
   onZoom: (node: any) => void;
+  onOpenWitness: (witness: Witness) => void;
   filter: string;
   columns: () => ExplorerColumn[];
   colorMetric: () => HotSpotMetricId;
@@ -125,6 +140,11 @@ export const findNodeByPath = (root: Node, path: string): Node | null => {
 };
 
 const HOT_SPOT_LIMIT = 50;
+
+const HOT_SPOT_COHORTS: { id: HotSpotCohort; label: string; title: string }[] = [
+  { id: "file", label: "Files", title: "Rank files against files" },
+  { id: "function", label: "Functions", title: "Rank functions against functions (no classes, JSX or bodies)" },
+];
 
 const VIEW_TABS = [
   { id: "tree", label: "Tree", icon: ListTree },
@@ -333,71 +353,26 @@ export default function Explorer(props: {
     </Show>
   );
 
-  const hotSpots = createMemo(() => {
-    if (!props.data) return [];
+  const [hotSpotCohort, setHotSpotCohort] = createSignal<HotSpotCohort>("file");
 
+  const hotSpotResult = createMemo(() => {
     const selected = selectedHotSpotMetrics();
-    if (selected.length === 0) return [];
-
-    // Flatten tree to collect all nodes that have metrics
-    const nodes: Node[] = [];
-    const traverse = (node: Node) => {
-      if (node.metrics && node.type !== "folder") {
-        nodes.push(node);
-      }
-      if (node.children && node.children.length > 0) {
-        node.children.forEach(traverse);
-      }
-    };
-    traverse(props.data);
-
-    // Calculate max for each selected metric to normalize
-    const maxValues: Record<string, number> = {};
-    selected.forEach((m) => {
-      maxValues[m] = 0;
-      nodes.forEach((node) => {
-        let val = (node.metrics as any)?.[m] || 0;
-        // Handle inversion for max calculation
-        const metricDef = HOTSPOT_METRICS.find((def) => def.id === m);
-        if (metricDef?.invert) {
-          // For inverted metrics (e.g. comment density 0..1), we want to maximize "badness".
-          // Badness = 1 - density.
-          // So max badness is max(1 - density).
-          val = 1 - val;
-        }
-
-        // Protect against bad values
-        if (!isFinite(val)) val = 0;
-
-        if (val > maxValues[m]) maxValues[m] = val;
-      });
-    });
-
-    // Score and sort
-    return nodes
-      .map((node) => {
-        let score = 0;
-        selected.forEach((m) => {
-          let val = (node.metrics as any)?.[m] || 0;
-          const metricDef = HOTSPOT_METRICS.find((def) => def.id === m);
-
-          if (metricDef?.invert) {
-            val = 1 - val;
-          }
-
-          if (!isFinite(val)) val = 0;
-          if (val < 0) val = 0; // Ensure no negative contribution
-
-          const max = maxValues[m];
-          if (max > 0) {
-            score += val / max;
-          }
-        });
-        return { node, score };
-      })
-      .sort((a, b) => b.score - a.score)
-      .slice(0, HOT_SPOT_LIMIT);
+    if (!props.data || selected.length === 0) return { ranked: [], na: 0 };
+    return rankHotSpots(cohortNodes(props.data, hotSpotCohort()), selected, HOT_SPOT_LIMIT);
   });
+  const hotSpots = () => hotSpotResult().ranked;
+
+  /** Open the function behind a file's or folder's max complexity. */
+  const openWitness = (witness: Witness) => {
+    const filePath = witness.path.split("::")[0];
+    const node = props.data ? findNodeByPath(props.data, witness.path) : null;
+    props.onFileSelect(
+      filePath,
+      witness.start_line > 0 ? witness.start_line : undefined,
+      witness.end_line > 0 ? witness.end_line : undefined,
+      node ?? undefined
+    );
+  };
 
   return (
     <ExplorerContext.Provider
@@ -405,6 +380,7 @@ export default function Explorer(props: {
         sortField,
         sortDirection,
         onSelect: props.onFileSelect,
+        onOpenWitness: openWitness,
         onZoom: props.onZoom,
         filter: props.filter,
         columns,
@@ -510,6 +486,7 @@ export default function Explorer(props: {
               showTop={viewMode() === "tree"}
               onZoom={props.onZoom}
               onSelect={props.onFileSelect}
+              onOpenWitness={openWitness}
             />
           )}
         </Show>
@@ -592,11 +569,41 @@ export default function Explorer(props: {
               onChange={(ids: HotSpotMetricId[]) => setSelectedHotSpotMetrics(ids)}
               class="flex-1"
             />
-            <span class="plc-data-sm shrink-0 text-[var(--plc-on-subtle)]">
+            <div
+              role="radiogroup"
+              aria-label="Rank files or functions"
+              class="flex shrink-0 overflow-hidden rounded border border-[var(--plc-border)]"
+            >
+              <For each={HOT_SPOT_COHORTS}>
+                {(c) => (
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={hotSpotCohort() === c.id}
+                    title={c.title}
+                    class="plc-body-sm px-1.5 py-0.5 text-[var(--plc-on-muted)] hover:bg-[var(--plc-surface-muted)]"
+                    classList={{
+                      "!bg-[var(--plc-surface-muted)] !text-[var(--plc-on-surface)] font-medium": hotSpotCohort() === c.id,
+                    }}
+                    onClick={() => setHotSpotCohort(c.id)}
+                  >
+                    {c.label}
+                  </button>
+                )}
+              </For>
+            </div>
+          </div>
+          <div class="plc-data-sm flex shrink-0 items-center gap-1 border-b border-[var(--plc-border)] px-2 py-1 text-[var(--plc-on-subtle)]">
+            <span>
               {hotSpots().length === HOT_SPOT_LIMIT
-                ? `Top ${HOT_SPOT_LIMIT}`
-                : `${hotSpots().length.toLocaleString("en-US")} results`}
+                ? `Top ${HOT_SPOT_LIMIT} ${hotSpotCohort() === "file" ? "files" : "functions"}`
+                : `${hotSpots().length.toLocaleString("en-US")} ${hotSpotCohort() === "file" ? "files" : "functions"}`}
             </span>
+            <Show when={hotSpotResult().na > 0}>
+              <span title="No value for any selected metric: it doesn't apply, or the file was skipped or failed">
+                · {hotSpotResult().na.toLocaleString("en-US")} N/A not ranked
+              </span>
+            </Show>
           </div>
           <div class="flex-1 overflow-y-auto overflow-x-hidden">
             <For each={hotSpots()}>

@@ -16,13 +16,29 @@ export function MetricsTable(props: {
   canLocate: (metricId: string) => boolean;
   activeMetric: () => string | null;
   onToggleMetric: (metricId: string) => void;
+  /** Open a scope of this file (the max-complexity witness). */
+  onSelectNode?: (node: any) => void;
 }) {
   const sections = () => metricSections(props.path, props.fileNode, props.scopeNode);
   const hasScope = () => Boolean(props.scopeNode);
   const hasFileOnlyRows = () =>
     hasScope() && sections().some((s) => s.rows.some((r) => r.scope === undefined));
-  const cell = (id: string, value: number | undefined) =>
-    value === undefined ? "—" : formatMetricValue(id, value);
+  const hasNARows = () => sections().some((s) => s.rows.some((r) => r.file === null || r.scope === null));
+  // "—": measured per file only. "N/A": doesn't apply here, skipped, or nothing to average.
+  const cell = (id: string, value: number | null | undefined) =>
+    value === undefined ? "—" : value === null ? "N/A" : formatMetricValue(id, value);
+  const witness = () => props.fileNode?.metrics?.complexity_witness ?? null;
+  const witnessNode = () => {
+    const w = witness();
+    if (!w) return null;
+    const stack = [...(props.fileNode?.children ?? [])];
+    while (stack.length) {
+      const n = stack.pop();
+      if (n?.path === w.path) return n;
+      stack.push(...(n?.children ?? []));
+    }
+    return null;
+  };
   const anyLocatable = () => sections().some((s) => s.rows.some((r) => props.canLocate(r.id)));
 
   return (
@@ -107,6 +123,24 @@ export function MetricsTable(props: {
                         )}
                       >
                         {row.label}
+                        {/* Max complexity names the function that sets it; click to open it. */}
+                        <Show when={row.id === "complexity" && witness()}>
+                          {(w) => (
+                            <button
+                              type="button"
+                              class="plc-data-sm block max-w-full truncate text-left font-normal text-[var(--plc-on-subtle)] hover:text-[var(--plc-accent)]"
+                              title={`Open ${w().name}${w().start_line > 0 ? ` (line ${w().start_line})` : ""}`}
+                              disabled={!witnessNode() || !props.onSelectNode}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                props.onSelectNode?.(witnessNode());
+                              }}
+                            >
+                              in <span class="underline decoration-dotted underline-offset-2">{w().name}</span>
+                              {w().start_line > 0 ? ` · L${w().start_line}` : ""}
+                            </button>
+                          )}
+                        </Show>
                       </td>
                       <Show when={hasScope()}>
                         <td
@@ -119,8 +153,13 @@ export function MetricsTable(props: {
                       </Show>
                       <td
                         class={`plc-data-sm rounded-r py-[5px] pr-1.5 text-right ${
-                          hasScope() ? "text-[var(--plc-on-muted)]" : "text-[var(--plc-on-surface)]"
+                          row.file === null
+                            ? "text-[var(--plc-on-disabled)]"
+                            : hasScope()
+                              ? "text-[var(--plc-on-muted)]"
+                              : "text-[var(--plc-on-surface)]"
                         }`}
+                        title={row.file === null ? props.fileNode?.metrics?.na_reason || undefined : undefined}
                       >
                         {cell(row.id, row.file)}
                       </td>
@@ -134,6 +173,11 @@ export function MetricsTable(props: {
       </table>
       <Show when={hasFileOnlyRows()}>
         <p class="mt-2 pl-1.5 text-[11px] text-[var(--plc-on-subtle)]">— measured per file only</p>
+      </Show>
+      <Show when={hasNARows()}>
+        <p class="mt-1 pl-1.5 text-[11px] text-[var(--plc-on-subtle)]">
+          N/A: {props.fileNode?.metrics?.na_reason || "not measured here"}
+        </p>
       </Show>
     </div>
   );

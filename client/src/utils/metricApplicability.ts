@@ -61,9 +61,10 @@ export type MetricSectionTitle = "Size" | "Complexity" | Exclude<HotSpotMetricGr
 export interface MetricRow {
   id: string;
   label: string;
-  /** Undefined when the metric isn't measured per scope (or there is no scope). */
-  scope?: number;
-  file?: number;
+  /** Undefined when the metric isn't measured per scope (or there is no scope); null when N/A. */
+  scope?: number | null;
+  /** Null when N/A for this file (skipped, failed, or nothing to average). */
+  file?: number | null;
 }
 
 export interface MetricSection {
@@ -78,7 +79,8 @@ function sectionOf(def: HotSpotMetricDef): MetricSectionTitle {
   return SIZE_METRICS.has(def.id) ? "Size" : "Complexity";
 }
 
-const numberOrUndefined = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+/** A number, or null for N/A (the server sends null; anything non-numeric is treated the same). */
+const numberOrNull = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
 /**
  * The code viewer's metrics table: rows for every metric that applies to the
@@ -98,8 +100,8 @@ export function metricSections(path: string, fileNode: any, scopeNode: any): Met
     section.rows.push({
       id: def.id,
       label: def.viewerLabel ?? def.label,
-      scope: scopeIds.has(def.id) ? numberOrUndefined(scopeNode?.metrics?.[def.id]) : undefined,
-      file: numberOrUndefined(fileNode?.metrics?.[def.id]),
+      scope: scopeIds.has(def.id) ? numberOrNull(scopeNode?.metrics?.[def.id]) : undefined,
+      file: fileNode ? numberOrNull(fileNode.metrics?.[def.id]) : undefined,
     });
   }
   const order: MetricSectionTitle[] = ["Size", "Complexity", "TypeScript / TSX", "Python", "Markdown"];

@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.services.analysis_types import is_executable_scope
 from app.services.markers import collect_markers
 from app.services.python.python_analysis import PythonTreeSitterAnalyzer
 from app.services.typescript.typescript_analysis import TreeSitterAnalyzer
@@ -75,10 +76,18 @@ def test_ts_marker_counts_match_metrics(tmp_path: Path) -> None:
     assert len(markers["ts_import_coupling_count"]) == metrics.ts_import_coupling_count == 2
     assert len(markers["tsx_render_branching_count"]) == metrics.tsx_render_branching_count
 
-    # Every decision point counted into a scope's CCN is marked once.
-    def extra_ccn(funcs) -> int:
-        # Synthetic scopes (imports, JSX roots) start at 0, real ones at 1.
-            return sum(max(f.cyclomatic_complexity - 1, 0) + extra_ccn(f.children) for f in funcs)
+    # Every decision point is marked once. A branch inside a JSX container or
+    # object literal counts on that scope and on its enclosing function, so
+    # only count display scopes that have no enclosing function.
+    def extra_ccn(funcs, inside_function: bool = False) -> int:
+        total = 0
+        for f in funcs:
+            executable = is_executable_scope(f)
+            if executable or not inside_function:
+                # Synthetic scopes (imports, JSX roots) start at 0, real ones at 1.
+                total += max(f.cyclomatic_complexity - 1, 0)
+            total += extra_ccn(f.children, inside_function or executable)
+        return total
 
     assert len(markers["complexity"]) == extra_ccn(metrics.function_list)
 

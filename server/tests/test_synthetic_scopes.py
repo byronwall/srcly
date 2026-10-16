@@ -23,7 +23,9 @@ def test_imports_only_ts_file_has_no_functions(tmp_path: Path) -> None:
     assert [c.name for c in file_node.children] == ["(imports)"]
     # ...but it isn't a function.
     assert file_node.metrics.function_count == 0
-    assert file_node.metrics.complexity_avg == 0
+    # Nothing to average: N/A, not a measured 0.
+    assert file_node.metrics.complexity_avg is None
+    assert file_node.metrics.complexity == 0
     assert root.metrics.function_count == 0
 
 

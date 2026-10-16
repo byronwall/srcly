@@ -3,7 +3,7 @@ import { Braces, ChevronRight, Eye, EyeOff, File, Folder, FolderOpen } from "luc
 import { extractFilePath } from "../utils/dataProcessing";
 import { type Node, ExplorerContext } from "./Explorer";
 import { useMetricsStore } from "../utils/metricsStore";
-import { metricCellColor } from "../utils/explorerColumns";
+import { metricCellColor, metricCellIsFaint, metricCellTitle, witnessOf } from "../utils/explorerColumns";
 import { HeatSwatch } from "./ui/HeatSwatch";
 import { setHoverFrom } from "../utils/hoverLink";
 
@@ -132,15 +132,19 @@ export function TreeNode(props: {
         {(column) => {
           const isColor = () => column.id === ctx.colorMetric() && Boolean(column.metric);
           const color = () => (isColor() ? metricCellColor(column.metric!, props.node) : undefined);
+          const faint = () => Boolean(column.metric) && metricCellIsFaint(column.metric!, props.node);
+          // A file's or folder's max complexity opens the function that sets it.
+          const witness = () => (column.id === "complexity" ? witnessOf(props.node) : null);
           return (
             <div
               class="plc-data-md relative flex h-full shrink-0 items-center justify-end pr-1.5"
               classList={{
-                "text-[var(--plc-on-surface)]": isColor(),
-                "text-[var(--plc-on-subtle)]": !isColor(),
+                "text-[var(--plc-on-surface)]": isColor() && !faint(),
+                "text-[var(--plc-on-subtle)]": !isColor() && !faint(),
+                "text-[var(--plc-on-disabled)]": faint(),
               }}
               style={{ width: `${column.width}px` }}
-              title={color() ? `${column.title}: ${column.value(props.node)}` : undefined}
+              title={column.metric ? metricCellTitle(column.metric, props.node) : undefined}
             >
               {/* Pinned left, so swatches line up down the column whatever the digit count. */}
               <Show when={color()}>
@@ -154,7 +158,25 @@ export function TreeNode(props: {
                   style={{ width: `${locShare() * (column.width - 4)}px` }}
                 />
               </Show>
-              <span class="relative">{column.value(props.node)}</span>
+              <Show
+                when={witness()}
+                fallback={<span class="relative">{column.value(props.node)}</span>}
+              >
+                {(w) => (
+                  <button
+                    type="button"
+                    tabindex={-1}
+                    class="relative underline decoration-dotted decoration-[var(--plc-on-subtle)] underline-offset-2 hover:text-[var(--plc-accent)] hover:decoration-[var(--plc-accent)]"
+                    aria-label={`Open ${w().name}, the most complex function in ${props.node.name}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      ctx.onOpenWitness(w());
+                    }}
+                  >
+                    {column.value(props.node)}
+                  </button>
+                )}
+              </Show>
             </div>
           );
         }}

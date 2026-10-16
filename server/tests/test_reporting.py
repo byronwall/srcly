@@ -12,6 +12,7 @@ def _sample_tree(root_path: Path) -> Node:
     function = Node(
         name="Dashboard",
         type="function",
+        kind="function",
         path=str(root_path / "client/src/Dashboard.tsx") + "::Dashboard",
         start_line=10,
         end_line=80,
@@ -286,3 +287,88 @@ def test_cli_explain_subcommand_prints_file_tree(
     captured = capsys.readouterr()
     assert "# Srcly Explain" in captured.out
     assert "Dashboard.tsx" in captured.out
+
+
+def _file(root: Path, name: str, **metrics) -> Node:
+    return Node(name=name, type="file", path=str(root / name), metrics=Metrics(file_count=1, **metrics))
+
+
+def _tree(root: Path, *files: Node) -> Node:
+    return Node(name="root", type="folder", path=str(root), metrics=Metrics(), children=list(files))
+
+
+def _score(ranked: list[dict], name: str) -> float:
+    return next(item["raw_score"] for item in ranked if item["name"] == name)
+
+
+def test_measured_zero_stays_in_the_denominator(tmp_path: Path) -> None:
+    # Same complexity; `lean` is measured clean on everything else, `busy` is
+    # not. A zero is evidence, so `lean` must not outrank `busy`.
+    lean = _file(tmp_path, "lean.py", loc=0, complexity=10, max_nesting_depth=0, todo_count=0, parameter_count=0)
+    busy = _file(tmp_path, "busy.py", loc=50, complexity=10, max_nesting_depth=3, todo_count=1, parameter_count=2)
+    ranked = reporting.rank_nodes(_tree(tmp_path, lean, busy), profile="general")
+    assert _score(ranked, "busy.py") > _score(ranked, "lean.py")
+    assert _score(ranked, "lean.py") < 1.0
+
+
+def test_na_metrics_drop_out_of_the_score(tmp_path: Path) -> None:
+    # Markdown has no complexity: N/A must not count as a 0 against it.
+    doc = _file(tmp_path, "notes.md", loc=100, md_data_url_count=0)
+    ranked = reporting.rank_nodes(_tree(tmp_path, doc, _file(tmp_path, "a.py", loc=100, complexity=3)), profile="general")
+    weights = reporting.PROFILE_WEIGHTS["general"]
+    # Only loc (at the max, 1.0) and md_data_url_count (a measured 0) count.
+    expected = weights["loc"] / (weights["loc"] + weights["md_data_url_count"])
+    assert _score(ranked, "notes.md") == pytest.approx(expected, abs=1e-4)
+    item = next(i for i in ranked if i["name"] == "notes.md")
+    assert "complexity" not in item["metrics"]
+
+
+def test_raising_one_input_never_lowers_the_score(tmp_path: Path) -> None:
+    import random
+
+    rng = random.Random(7)
+    metrics = list(reporting.PROFILE_WEIGHTS["general"].keys())
+    for trial in range(200):
+        peers = [
+            _file(tmp_path, f"p{i}.ts", **{m: rng.choice([0, rng.randint(0, 40)]) for m in metrics})
+            for i in range(5)
+        ]
+        target_values = {m: rng.choice([0, rng.randint(0, 40)]) for m in metrics}
+        bumped_metric = rng.choice(metrics)
+        bumped_values = dict(target_values, **{bumped_metric: target_values[bumped_metric] + rng.randint(1, 60)})
+
+        before = reporting.rank_nodes(_tree(tmp_path, *peers, _file(tmp_path, "t.ts", **target_values)))
+        after = reporting.rank_nodes(_tree(tmp_path, *peers, _file(tmp_path, "t.ts", **bumped_values)))
+        assert _score(after, "t.ts") >= _score(before, "t.ts"), (trial, bumped_metric)
+
+
+def test_rank_nodes_ranks_one_cohort(tmp_path: Path) -> None:
+    tree = _sample_tree(tmp_path)
+    body = Node(name="(body)", type="function_body", path="x::(body)", metrics=Metrics(loc=5))
+    jsx = Node(name="<div>", type="function", kind="jsx", path="x::<div>", metrics=Metrics(loc=5, complexity=40))
+    tree.children[0].children[0].children[0].children = [jsx, body]
+
+    files = reporting.rank_nodes(tree, profile="general", cohort="file")
+    functions = reporting.rank_nodes(tree, profile="general", cohort="function")
+
+    assert {item["node_type"] for item in files} == {"file"}
+    assert [item["name"] for item in functions] == ["Dashboard"]
+
+
+def test_report_names_the_complexity_witness(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.models import Witness
+
+    root = tmp_path / "repo"
+    root.mkdir()
+    tree = _sample_tree(root)
+    file_node = tree.children[0].children[0]
+    file_node.metrics.complexity = 12
+    file_node.metrics.complexity_witness = Witness(path=file_node.children[0].path, name="Dashboard", start_line=10, end_line=80)
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: tree)
+
+    payload = reporting.build_report_payload(root, profile="general", limit=5, verbose=False)
+
+    finding = payload["findings"]["findings"][0]
+    assert finding["complexity_witness"]["name"] == "Dashboard"
+    assert "complexity=12 in `Dashboard` (line 10)" in payload["report_markdown"]
+    assert payload["hotspots"]["function_rankings"][0]["name"] == "Dashboard"

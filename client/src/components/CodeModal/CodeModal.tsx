@@ -341,6 +341,7 @@ export default function CodeModal(props: CodeModalProps) {
               canLocate={(id) => hasMarkers(markers(), id)}
               activeMetric={activeMetric}
               onToggleMetric={toggleMetric}
+              onSelectNode={selectScope}
             />
 
             <div

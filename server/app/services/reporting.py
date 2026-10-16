@@ -152,7 +152,9 @@ def build_report_payload(
         raise ValueError(f"Unknown profile: {profile}")
 
     tree = scan_tree(root_path, verbose=verbose)
-    ranked = rank_nodes(tree, profile=profile, root_path=root_path, focus_paths=focus_paths, deprioritize_paths=deprioritize_paths)
+    rank_options = dict(profile=profile, root_path=root_path, focus_paths=focus_paths, deprioritize_paths=deprioritize_paths)
+    ranked = rank_nodes(tree, cohort="file", **rank_options)
+    ranked_functions = rank_nodes(tree, cohort="function", **rank_options)
     findings = build_findings(ranked, limit=limit)
     summary_tree = summarize_tree(tree, ranked, root_path=root_path, max_depth=tree_depth, top_children=tree_top)
     manifest = build_manifest(root_path=root_path, profile=profile)
@@ -163,7 +165,7 @@ def build_report_payload(
     payload = {
         "manifest": manifest,
         "tree_summary": summary_tree,
-        "hotspots": {"rankings": [r for r in ranked[:limit]]},
+        "hotspots": {"rankings": ranked[:limit], "function_rankings": ranked_functions[:limit]},
         "findings": {"findings": findings},
         "findings_top": top_findings,
         "metrics_schema": metrics_schema,
@@ -171,6 +173,7 @@ def build_report_payload(
             manifest=manifest,
             findings=findings,
             ranked=ranked[:limit],
+            ranked_functions=ranked_functions[:10],
             summary_tree=summary_tree,
             profile=profile,
             focus_paths=focus_paths,
@@ -248,16 +251,33 @@ def write_report(
     return written
 
 
+Cohort = Literal["file", "function"]
+
+
+def cohort_nodes(root: Node, cohort: Cohort) -> list[Node]:
+    """Files, or executable functions (no classes, JSX containers or bodies). Never both."""
+    if cohort == "file":
+        return [node for node in iter_nodes(root) if node.type == "file"]
+    return [node for node in iter_nodes(root) if node.type == "function" and node.kind == "function"]
+
+
 def rank_nodes(
     root: Node,
     *,
     profile: str = "general",
+    cohort: Cohort = "file",
     root_path: Path | None = None,
     focus_paths: Iterable[str] | None = None,
     deprioritize_paths: Iterable[str] | None = DEFAULT_DEPRIORITIZED_PATHS,
 ) -> list[dict[str, Any]]:
+    """Rank one cohort by the profile's weighted, max-normalized metrics.
+
+    A measured 0 counts toward the denominator: it is evidence the node is
+    fine on that metric. Only N/A (``None``) metrics drop out, so raising any
+    one input with the peers fixed never lowers a node's score.
+    """
     weights = PROFILE_WEIGHTS.get(profile, PROFILE_WEIGHTS["general"])
-    nodes = [node for node in iter_nodes(root) if node.type != "folder" and node.metrics is not None]
+    nodes = cohort_nodes(root, cohort)
     maxima = _metric_maxima(nodes, weights.keys())
     focus_prefixes = tuple(_normalize_path_filter(path) for path in (focus_paths or ()) if path)
     deprioritize_prefixes = tuple(_normalize_path_filter(path) for path in (deprioritize_paths or ()) if path)
@@ -268,21 +288,23 @@ def rank_nodes(
         weighted_sum = 0.0
         weight_sum = 0.0
         for metric, weight in weights.items():
-            value = float(getattr(node.metrics, metric, 0) or 0)
-            if value <= 0:
+            raw = getattr(node.metrics, metric, None)
+            if raw is None:
                 continue
+            value = float(raw)
             max_value = maxima.get(metric, 0.0)
             normalized = value / max_value if max_value > 0 else 0.0
             weighted_sum += normalized * weight
             weight_sum += weight
-            drivers.append(
-                {
-                    "metric": metric,
-                    "value": _compact_number(value),
-                    "normalized": round(normalized, 4),
-                    "weight": weight,
-                }
-            )
+            if value > 0:
+                drivers.append(
+                    {
+                        "metric": metric,
+                        "value": _compact_number(value),
+                        "normalized": round(normalized, 4),
+                        "weight": weight,
+                    }
+                )
 
         if weight_sum == 0:
             continue
@@ -291,11 +313,13 @@ def rank_nodes(
         display_path = _display_path(node.path, root_path) if root_path is not None else node.path
         path_priority = _path_priority(display_path, focus_prefixes=focus_prefixes, deprioritize_prefixes=deprioritize_prefixes)
         adjusted_score = max(0.0, min(1.0, score * path_priority["multiplier"]))
+        witness = node.metrics.complexity_witness
         ranked.append(
             {
                 "path": node.path,
                 "name": node.name,
                 "node_type": node.type,
+                "cohort": cohort,
                 "start_line": node.start_line,
                 "end_line": node.end_line,
                 "score": round(adjusted_score, 4),
@@ -303,6 +327,7 @@ def rank_nodes(
                 "path_priority": path_priority["label"],
                 "drivers": sorted(drivers, key=lambda d: d["normalized"] * d["weight"], reverse=True)[:5],
                 "metrics": _metrics_subset(node.metrics, weights.keys()),
+                "complexity_witness": witness.model_dump() if witness else None,
                 "reason": _reason_for_node(node),
             }
         )
@@ -343,6 +368,7 @@ def build_findings(ranked: list[dict[str, Any]], *, limit: int = 50) -> list[dic
                 "path_priority": item.get("path_priority", "neutral"),
                 "title": title,
                 "evidence": metrics,
+                "complexity_witness": item.get("complexity_witness"),
                 "suggested_action": _suggested_action(category, item),
                 "agent_prompt": _agent_prompt(category),
             }
@@ -404,6 +430,7 @@ def render_markdown_report(
     ranked: list[dict[str, Any]],
     summary_tree: dict[str, Any],
     profile: str,
+    ranked_functions: list[dict[str, Any]] | None = None,
     focus_paths: Iterable[str] | None = None,
     deprioritize_paths: Iterable[str] | None = DEFAULT_DEPRIORITIZED_PATHS,
 ) -> str:
@@ -416,14 +443,16 @@ def render_markdown_report(
         "",
         f"- Root: `{manifest['root_path']}`",
         f"- Profile: `{profile}`",
-        f"- Ranked hotspots: {len(ranked)}",
+        f"- Ranked files: {len(ranked)}",
         f"- Findings: {len(findings)} total, {high_count} high, {medium_count} medium.",
         f"- Focus paths: `{', '.join(focus_paths or []) or 'none'}`",
         f"- Deprioritized paths: `{', '.join(deprioritize_paths or []) or 'none'}`",
         "",
         "Read first: `report.md`, then `findings.top.json`, then `action-plan.md`. Load full JSON artifacts only when you need detail beyond the top findings.",
         "",
-        "## Top Targets",
+        "## Top Files",
+        "",
+        "Files ranked against files. `complexity` is the file's most complex function, named after `in`.",
         "",
         "| Rank | Priority | Path priority | Path | Why | Suggested next action |",
         "| --- | --- | --- | --- | --- | --- |",
@@ -431,10 +460,26 @@ def render_markdown_report(
 
     for finding in findings[:10]:
         location = _format_location(finding)
-        evidence = ", ".join(f"{key}={value}" for key, value in finding["evidence"].items() if value) or "metric signal"
+        evidence = _format_evidence(finding)
         lines.append(
             f"| {finding['id']} | {finding['priority']} | {finding.get('path_priority', 'neutral')} | `{location}` | {finding['title']} ({evidence}) | {finding['suggested_action']} |"
         )
+
+    if ranked_functions:
+        lines.extend(
+            [
+                "",
+                "## Top Functions",
+                "",
+                "Executable functions ranked against functions (classes, JSX containers and module bodies excluded).",
+                "",
+                "| Rank | Function | Location | Why |",
+                "| --- | --- | --- | --- |",
+            ]
+        )
+        for item in ranked_functions:
+            evidence = ", ".join(f"{key}={value}" for key, value in item["metrics"].items()) or "metric signal"
+            lines.append(f"| {item['rank']} | `{item['name']}` | `{_format_location(item)}` | {evidence} |")
 
     lines.extend(
         [
@@ -502,7 +547,7 @@ def render_action_plan(*, findings: list[dict[str, Any]], profile: str) -> str:
     ]
     for index, finding in enumerate(findings[:5], start=1):
         location = _format_location(finding)
-        evidence = ", ".join(f"{key}={value}" for key, value in finding["evidence"].items() if value) or "metric signal"
+        evidence = _format_evidence(finding)
         lines.extend(
             [
                 f"{index}. {finding['title']}",
@@ -523,7 +568,7 @@ def render_tree_lines(summary_tree: dict[str, Any], *, indent: int = 0) -> list[
     name = summary_tree.get("path") or summary_tree.get("name") or "<unknown>"
     metrics = (
         f"loc={summary_tree.get('loc', 0)} "
-        f"complexity={summary_tree.get('complexity', 0)} "
+        f"complexity={_or_na(summary_tree.get('complexity'))} "
         f"files={summary_tree.get('file_count', 0)} "
         f"hotspot={summary_tree.get('hotspot_score', 0)}"
     )
@@ -636,7 +681,8 @@ def _node_to_json(node: Node) -> dict[str, Any]:
 def _metric_maxima(nodes: list[Node], metrics: Iterable[str]) -> dict[str, float]:
     maxima: dict[str, float] = {}
     for metric in metrics:
-        maxima[metric] = max((float(getattr(node.metrics, metric, 0) or 0) for node in nodes), default=0.0)
+        values = [getattr(node.metrics, metric, None) for node in nodes]
+        maxima[metric] = max((float(v) for v in values if v is not None), default=0.0)
     return maxima
 
 
@@ -739,6 +785,24 @@ def _reason_for_node(node: Node) -> str:
     if metrics.todo_count:
         parts.append(f"{metrics.todo_count} TODOs")
     return "High " + ", ".join(parts) if parts else "Metric hotspot"
+
+
+def _or_na(value: Any) -> Any:
+    return "n/a" if value is None else value
+
+
+def _format_evidence(finding: dict[str, Any]) -> str:
+    """``key=value`` pairs; complexity names the function that sets it."""
+    witness = finding.get("complexity_witness")
+    parts = []
+    for key, value in finding["evidence"].items():
+        if not value:
+            continue
+        if key == "complexity" and witness:
+            parts.append(f"complexity={value} in `{witness['name']}` (line {witness['start_line']})")
+        else:
+            parts.append(f"{key}={value}")
+    return ", ".join(parts) or "metric signal"
 
 
 def _format_location(finding: dict[str, Any]) -> str:

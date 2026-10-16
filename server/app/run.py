@@ -244,6 +244,12 @@ def _run_headless(argv: list[str]) -> None:
     hotspots_parser.add_argument("path", nargs="?", help="Path to analyze. Defaults to the enclosing Git repo root.")
     hotspots_parser.add_argument("--metric", action="append", default=None, help="Metric to score. May be repeated.")
     hotspots_parser.add_argument("--limit", type=int, default=25, help="Maximum hotspots to print.")
+    hotspots_parser.add_argument(
+        "--cohort",
+        choices=["file", "function"],
+        default="file",
+        help="Rank files against files, or functions against functions.",
+    )
     hotspots_parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format.")
 
     explain_parser = subparsers.add_parser("explain", help="Print a focused report for one file or subtree.")
@@ -357,7 +363,7 @@ def _run_headless(argv: list[str]) -> None:
         target_path = _resolve_target_path(args.path)
         tree = reporting.scan_tree(target_path)
         profile = _profile_from_metrics(args.metric)
-        ranked = reporting.rank_nodes(tree, profile=profile)[: args.limit]
+        ranked = reporting.rank_nodes(tree, profile=profile, cohort=args.cohort)[: args.limit]
         if args.format == "json":
             print(reporting._json_dumps({"rankings": ranked}))
         else:
@@ -467,7 +473,8 @@ def _explain_file(tree, file_path: Path, root_path: Path) -> dict:
     if target is None:
         raise SystemExit(f"File not found in analysis tree: {file_path}")
 
-    ranked = reporting.rank_nodes(target)
+    # Inside one file, rank its functions against each other.
+    ranked = reporting.rank_nodes(target, cohort="function")
     return {
         "path": str(file_path),
         "summary": reporting.summarize_tree(target, ranked, root_path=root_path, max_depth=3, top_children=20),

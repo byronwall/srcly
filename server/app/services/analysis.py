@@ -19,8 +19,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from app.models import Node, Metrics
-from app.services.analysis_types import is_synthetic_scope
+from app.models import OPTIONAL_METRIC_FIELDS, Metrics, Node, Witness
+from app.services.analysis_types import (
+    LANGUAGE_LABELS,
+    MEASURED_FILE_METRICS,
+    MEASURED_SCOPE_METRICS,
+    iter_executable_scopes,
+    scope_kind,
+)
 from app.config import (
     BINARY_EXTENSIONS,
     BINARY_SNIFF_BYTES,
@@ -116,134 +122,109 @@ def create_node(name: str, node_type: str, path: str) -> Node:
         children=[]
     )
 
+def language_for_path(path: str) -> str:
+    """Which analyzer handles ``path``; mirrors ``analyze_single_file``."""
+    lower = path.lower()
+    if lower.endswith(".tsx"):
+        return "tsx"
+    if lower.endswith(".ts"):
+        return "ts"
+    if lower.endswith(".py"):
+        return "python"
+    if lower.endswith(".ipynb"):
+        return "notebook"
+    if lower.endswith((".md", ".markdown")):
+        return "markdown"
+    if lower.endswith((".css", ".scss")):
+        return "css"
+    return "code" if get_reader_for(path) is not None else "text"
+
+
+# Computed here from the executable scopes, not taken from the analyzer, so
+# every language counts functions the same way.
+_FROM_SCOPES = frozenset({"complexity", "complexity_avg", "function_count", "average_function_length", "parameter_count"})
+
+
+def _scope_value(func, name: str):
+    if name == "complexity":
+        return func.cyclomatic_complexity
+    if name == "comment_density":
+        comment_lines = getattr(func, "comment_lines", 0) or 0
+        return comment_lines / func.nloc if func.nloc > 0 else 0.0
+    return getattr(func, name, 0) or 0
+
+
+def _compute_function_body_loc(func_node: Node) -> int:
+    """
+    LOC in a scope that no child scope covers:
+        body_loc = lines_in_parent_scope - union_of(lines_of_all_child_scopes)
+    so visuals like the treemap don't count nested lines twice.
+    """
+    if func_node.start_line <= 0 or func_node.end_line <= 0 or not func_node.children:
+        return 0
+    parent_start = func_node.start_line
+    parent_end = func_node.end_line
+    if parent_end < parent_start:
+        return 0
+
+    covered_lines: set[int] = set()
+    for child in func_node.children:
+        if child.start_line <= 0 or child.end_line <= 0:
+            continue
+        start = max(parent_start, child.start_line)
+        end = min(parent_end, child.end_line)
+        if end < start:
+            continue
+        covered_lines.update(range(start, end + 1))
+
+    return max(0, parent_end - parent_start + 1 - len(covered_lines))
+
+
 def attach_file_metrics(node: Node, file_info) -> None:
-    total_loc = file_info.nloc
-    node.metrics.loc = total_loc
-    node.metrics.complexity_avg = file_info.average_cyclomatic_complexity
-    # Synthetic scopes such as "(imports)" stay in the tree but aren't functions.
-    node.metrics.function_count = sum(1 for f in file_info.function_list if not is_synthetic_scope(f))
-    node.metrics.file_count = 1
-    # TS/TSX-specific metrics are only available for TypeScript/TSX files analyzed
-    # by the TreeSitterAnalyzer. Plain lizard FileInformation objects (e.g. for
-    # Python or other languages) won't have these attributes, so guard them.
-    if hasattr(file_info, "tsx_nesting_depth"):
-        node.metrics.tsx_nesting_depth = file_info.tsx_nesting_depth
-        node.metrics.tsx_render_branching_count = file_info.tsx_render_branching_count
-        node.metrics.tsx_react_use_effect_count = file_info.tsx_react_use_effect_count
-        node.metrics.tsx_anonymous_handler_count = file_info.tsx_anonymous_handler_count
-        node.metrics.tsx_prop_count = file_info.tsx_prop_count
-        node.metrics.ts_any_usage_count = file_info.ts_any_usage_count
-        node.metrics.ts_ignore_count = file_info.ts_ignore_count
-        node.metrics.ts_import_coupling_count = file_info.ts_import_coupling_count
-        node.metrics.tsx_hardcoded_string_volume = file_info.tsx_hardcoded_string_volume
-        node.metrics.tsx_duplicated_string_count = file_info.tsx_duplicated_string_count
-        node.metrics.ts_type_interface_count = file_info.ts_type_interface_count
-        node.metrics.ts_export_count = file_info.ts_export_count
-    # Markdown-specific metrics
-    if hasattr(file_info, "md_data_url_count"):
-        node.metrics.md_data_url_count = file_info.md_data_url_count
-    
-    # New metrics
-    if hasattr(file_info, 'comment_lines'):
-        node.metrics.comment_lines = file_info.comment_lines
-        node.metrics.comment_density = file_info.comment_density
-        node.metrics.max_nesting_depth = file_info.max_nesting_depth
-        node.metrics.average_function_length = file_info.average_function_length
-        node.metrics.parameter_count = file_info.parameter_count
-        node.metrics.todo_count = file_info.todo_count
-        node.metrics.classes_count = file_info.classes_count
-    
-    if hasattr(file_info, 'python_import_count'):
-        node.metrics.python_import_count = file_info.python_import_count
-    
-    # Set start/end line for the file (approximate, 1 to total lines)
-    # We don't strictly have this from lizard always, but we can infer or leave 0.
-    # For now, let's leave file start/end as 0 unless we want to read the file.
-    
-    # Calculate sum of function LOCs
-    func_sum_loc = 0
+    language = language_for_path(node.path)
+    label = LANGUAGE_LABELS[language]
+    file_measured = MEASURED_FILE_METRICS[language]
+    scope_measured = MEASURED_SCOPE_METRICS[language]
 
-    def _compute_function_body_loc(func_node: Node) -> int:
-        """
-        Compute the LOC that belongs to the *body* of a function node,
-        excluding any lines that are already covered by child scopes.
+    m = node.metrics
+    m.loc = file_info.nloc
+    m.file_count = 1
 
-        Conceptually:
-            body_loc = lines_in_parent_scope
-                       - union_of(lines_of_all_child_scopes)
+    for name in file_measured - _FROM_SCOPES:
+        setattr(m, name, getattr(file_info, name, 0) or 0)
 
-        This ensures we only count leftover lines in the parent scope that
-        are not associated with a nested child block, avoiding double
-        counting in visuals like the treemap.
-        """
-        # We need valid line information and at least one child scope to
-        # compute a meaningful body range.
-        if func_node.start_line <= 0 or func_node.end_line <= 0:
-            return 0
-        if not func_node.children:
-            return 0
+    functions = list(iter_executable_scopes(file_info.function_list))
+    if "function_count" in file_measured:
+        m.function_count = len(functions)
+        m.parameter_count = sum(getattr(f, "parameter_count", 0) or 0 for f in functions)
+        if functions:
+            m.complexity_avg = sum(f.cyclomatic_complexity for f in functions) / len(functions)
+            m.average_function_length = sum(f.nloc for f in functions) / len(functions)
 
-        parent_start = func_node.start_line
-        parent_end = func_node.end_line
-        if parent_end < parent_start:
-            return 0
-
-        covered_lines: set[int] = set()
-        for child in func_node.children:
-            # Only consider children that have a valid, overlapping range.
-            if child.start_line <= 0 or child.end_line <= 0:
-                continue
-            start = max(parent_start, child.start_line)
-            end = min(parent_end, child.end_line)
-            if end < start:
-                continue
-            for line in range(start, end + 1):
-                covered_lines.add(line)
-
-        total_lines = parent_end - parent_start + 1
-        body_lines = total_lines - len(covered_lines)
-        return max(0, body_lines)
+    if any(getattr(m, name) is None for name in OPTIONAL_METRIC_FIELDS):
+        m.na_reason = f"Not measured for {label} files"
 
     def convert_function(func, parent_path: str) -> Node:
         func_node = create_node(func.name, "function", f"{parent_path}::{func.name}")
+        func_node.kind = scope_kind(func)
         func_node.metrics.loc = func.nloc
-        func_node.metrics.loc = func.nloc
-        func_node.metrics.complexity = func.cyclomatic_complexity
-        
-        # Safely get new metrics (Lizard functions won't have these)
-        func_node.metrics.parameter_count = getattr(func, 'parameter_count', 0)
-        func_node.metrics.max_nesting_depth = getattr(func, 'max_nesting_depth', 0)
-        func_node.metrics.comment_lines = getattr(func, 'comment_lines', 0)
-        func_node.metrics.todo_count = getattr(func, 'todo_count', 0)
-        func_node.metrics.ts_type_interface_count = getattr(func, 'ts_type_interface_count', 0)
-        func_node.metrics.md_data_url_count = getattr(func, 'md_data_url_count', 0)
-        
-        # Density for function
-        comment_lines = getattr(func, 'comment_lines', 0)
-        func_node.metrics.comment_density = comment_lines / func.nloc if func.nloc > 0 else 0.0
-        
-        if hasattr(func, 'start_line'):
-            func_node.start_line = func.start_line
-        if hasattr(func, 'end_line'):
-            func_node.end_line = func.end_line
-            
-        # Process children if they exist (for TS/TSX)
-        if hasattr(func, 'children') and func.children:
-            for child in func.children:
-                child_node = convert_function(child, func_node.path)
-                func_node.children.append(child_node)
+        for name in scope_measured:
+            setattr(func_node.metrics, name, _scope_value(func, name))
+        func_node.metrics.na_reason = f"Not measured per scope in {label} files"
+        func_node.start_line = getattr(func, "start_line", 0)
+        func_node.end_line = getattr(func, "end_line", 0)
 
-        # After all child scopes are attached, compute a synthetic "(body)"
-        # fragment that represents only the leftover lines in this function
-        # that are not part of any child scope. This keeps treemap areas
-        # from double-counting lines that already belong to nested children.
+        for child in getattr(func, "children", None) or []:
+            func_node.children.append(convert_function(child, func_node.path))
+
+        # A "(body)" fragment holds the lines no child scope covers, so treemap
+        # areas don't count nested lines twice. Its branches already count
+        # toward the enclosing scope, so it has no metrics of its own.
         body_loc = _compute_function_body_loc(func_node)
         if body_loc > 0 and func_node.children:
             body_node = create_node("(body)", "function_body", f"{func_node.path}::(body)")
             body_node.metrics.loc = body_loc
-            # Any additional cyclomatic complexity should already be counted
-            # on the nested child scopes; keep the glue code at 0.
-            body_node.metrics.complexity = 0.0
+            body_node.metrics.na_reason = "Lines outside nested scopes; their metrics count toward the enclosing scope"
             body_node.start_line = func_node.start_line
             body_node.end_line = func_node.end_line
             func_node.children.append(body_node)
@@ -251,23 +232,34 @@ def attach_file_metrics(node: Node, file_info) -> None:
         return func_node
 
     for func in file_info.function_list:
-        func_node = convert_function(func, node.path)
-        node.children.append(func_node)
-        func_sum_loc += func.nloc
+        node.children.append(convert_function(func, node.path))
 
-    node.metrics.complexity = _max_scope_complexity(node)
-
-    # NOTE: We no longer create a synthetic child node for module-level "glue".
-    # Any top-level/module lines should be represented as the (body) of the
-    # file/module scope (handled by the newer scope-body attribution logic).
+    if "complexity" in file_measured:
+        witness = _most_complex_function(node)
+        m.complexity = witness.metrics.complexity if witness else 0
+        m.complexity_witness = _witness_for(witness) if witness else None
 
 
-def _max_scope_complexity(node: Node) -> float:
-    """Highest CCN among the function scopes (at any depth) below ``node``."""
-    best = 0.0
-    for child in node.children:
-        best = max(best, child.metrics.complexity, _max_scope_complexity(child))
+def _most_complex_function(node: Node) -> Node | None:
+    """The executable function with the highest CCN below ``node`` (first in source order on ties)."""
+    best: Node | None = None
+    stack = list(reversed(node.children))
+    while stack:
+        child = stack.pop()
+        if child.kind == "function" and child.metrics.complexity is not None:
+            if best is None or child.metrics.complexity > best.metrics.complexity:
+                best = child
+        stack.extend(reversed(child.children))
     return best
+
+
+def _witness_for(func_node: Node) -> Witness:
+    return Witness(
+        path=func_node.path,
+        name=func_node.name,
+        start_line=func_node.start_line,
+        end_line=func_node.end_line,
+    )
 
 
 def _translate_gitignore_pattern(raw_line: str, base_rel: str) -> str | None:
@@ -812,85 +804,61 @@ def _should_log_file_progress(completed_count: int, total_count: int) -> bool:
 
     return False
 
+# How folders roll up each N/A-able metric. N/A children are skipped, so a
+# folder of Markdown and Python files gets the Python files' complexity, and a
+# folder is N/A only when no child measured the metric.
+_MAX_ROLLUP = frozenset({"complexity", "max_nesting_depth", "tsx_nesting_depth"})
+_MEAN_ROLLUP = frozenset({"complexity_avg", "average_function_length"})  # weighted by function_count
+_DERIVED_ROLLUP = frozenset({"comment_density"})
+
+
 def aggregate_metrics(node: Node) -> Metrics:
-    if not node.children: return node.metrics
+    if not node.children:
+        return node.metrics
 
-    total_loc = 0
-    max_complexity = 0
-    total_funcs = 0
-    
-    # New metrics aggregation
-    total_comment_lines = 0
-    max_nesting_depth = 0
-    total_parameter_count = 0
-    total_todo_count = 0
-    total_classes_count = 0
-    total_type_interface_count = 0
-    total_export_count = 0
-    total_md_data_url_count = 0
-    total_python_import_count = 0
-    
-    # For average function length, we need total function loc and total functions (already have total_funcs)
-    # But we need to sum function locs from children.
-    # Let's track total function loc separately if we want to be precise, 
-    # OR we can just use the child's average * child's function count.
-    total_function_loc = 0
+    child_metrics = [aggregate_metrics(child) for child in node.children]
+    if node.type != "folder":
+        return node.metrics
 
-    for child in node.children:
-        child_metrics = aggregate_metrics(child)
-        total_loc += child_metrics.loc
-        max_complexity = max(max_complexity, child_metrics.complexity)
-        total_funcs += child_metrics.function_count
-        
-        total_comment_lines += child_metrics.comment_lines
-        max_nesting_depth = max(max_nesting_depth, child_metrics.max_nesting_depth)
-        total_parameter_count += child_metrics.parameter_count
-        total_todo_count += child_metrics.todo_count
-        total_classes_count += child_metrics.classes_count
-        total_type_interface_count += child_metrics.ts_type_interface_count
-        total_export_count += child_metrics.ts_export_count
-        total_md_data_url_count += child_metrics.md_data_url_count
-        total_python_import_count += child_metrics.python_import_count
-        
-        
-        # Reconstruct total function loc from average * count
-        total_function_loc += (child_metrics.average_function_length * child_metrics.function_count)
+    m = node.metrics
+    m.loc = sum(c.loc for c in child_metrics)
+    # last_modified is the max of children; gitignored_count is assigned
+    # after aggregation from discovery (see _assign_gitignored_counts).
+    m.last_modified = max((c.last_modified for c in child_metrics), default=0.0)
+    m.file_size = sum(c.file_size for c in child_metrics)
+    m.file_count = sum(c.file_count for c in child_metrics)
+    m.analysis_failed_count = sum(c.analysis_failed_count for c in child_metrics)
 
-    # For Folders: Sum of children
-    # For Files: We trust the attach_file_metrics logic.
-    if node.type == "folder":
-        node.metrics.loc = total_loc
-        node.metrics.complexity = max_complexity
-        node.metrics.complexity_avg = (
-            sum(c.metrics.complexity_avg * c.metrics.function_count for c in node.children) / total_funcs
-            if total_funcs > 0
-            else 0.0
-        )
-        node.metrics.function_count = total_funcs
-        
-        # last_modified is the max of children; gitignored_count is assigned
-        # after aggregation from discovery (see _assign_gitignored_counts).
-        node.metrics.last_modified = max((child.metrics.last_modified for child in node.children), default=0.0)
-        node.metrics.file_size = sum(child.metrics.file_size for child in node.children)
-        node.metrics.file_count = sum(child.metrics.file_count for child in node.children)
-        node.metrics.analysis_failed_count = sum(
-            child.metrics.analysis_failed_count for child in node.children
-        )
-        
-        node.metrics.comment_lines = total_comment_lines
-        node.metrics.comment_density = total_comment_lines / total_loc if total_loc > 0 else 0.0
-        node.metrics.max_nesting_depth = max_nesting_depth
-        node.metrics.parameter_count = total_parameter_count
-        node.metrics.todo_count = total_todo_count
-        node.metrics.classes_count = total_classes_count
-        node.metrics.average_function_length = total_function_loc / total_funcs if total_funcs > 0 else 0.0
-        node.metrics.ts_type_interface_count = total_type_interface_count
-        node.metrics.ts_type_interface_count = total_type_interface_count
-        node.metrics.ts_export_count = total_export_count
-        node.metrics.md_data_url_count = total_md_data_url_count
-        node.metrics.python_import_count = total_python_import_count
-    
-    return node.metrics
+    for name in OPTIONAL_METRIC_FIELDS:
+        if name in _DERIVED_ROLLUP:
+            continue
+        measured = [c for c in child_metrics if getattr(c, name) is not None]
+        if not measured:
+            setattr(m, name, None)
+        elif name in _MAX_ROLLUP:
+            setattr(m, name, max(getattr(c, name) for c in measured))
+        elif name in _MEAN_ROLLUP:
+            weight = sum(c.function_count or 0 for c in measured)
+            setattr(m, name, sum(getattr(c, name) * (c.function_count or 0) for c in measured) / weight if weight else None)
+        else:
+            setattr(m, name, sum(getattr(c, name) for c in measured))
+
+    commented = [c for c in child_metrics if c.comment_lines is not None]
+    commented_loc = sum(c.loc for c in commented)
+    m.comment_density = (
+        sum(c.comment_lines for c in commented) / commented_loc if commented and commented_loc > 0 else (0.0 if commented else None)
+    )
+
+    witness_source = None
+    for c in child_metrics:
+        if c.complexity is not None and c.complexity_witness is not None and c.complexity == m.complexity:
+            witness_source = c
+            break
+    m.complexity_witness = witness_source.complexity_witness if witness_source else None
+
+    m.na_reason = "No file below measures this" if any(getattr(m, n) is None for n in OPTIONAL_METRIC_FIELDS) else ""
+    return m
+
 
 def analyze_single_file(file_path: str):
     """
@@ -1042,7 +1010,13 @@ def attach_fallback_metrics(node: Node, failure: dict) -> None:
     node.metrics.analysis_status = str(failure.get("reason") or "error")
     node.metrics.analysis_error = str(failure.get("error") or "")
     # A file over the size cap was skipped on purpose, not a failure.
-    node.metrics.analysis_failed_count = 0 if node.metrics.analysis_status == "too_large" else 1
+    skipped = node.metrics.analysis_status == "too_large"
+    node.metrics.analysis_failed_count = 0 if skipped else 1
+    # Every other metric stays None: nothing was measured, so nothing is 0.
+    detail = f": {node.metrics.analysis_error}" if node.metrics.analysis_error else ""
+    node.metrics.na_reason = (
+        f"Skipped{detail}" if skipped else f"Analysis failed ({node.metrics.analysis_status}){detail}"
+    )
 
 
 def split_oversized_files(files: list[str], max_bytes: Optional[int] = None) -> tuple[list[str], list[dict]]:

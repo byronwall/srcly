@@ -55,14 +55,10 @@ To run tests, `cd server && uv run pytest`.
 >
 > **2. Wire into API models and node construction**
 >
-> - Extend the `Metrics` Pydantic model in `server/app/models.py` with the new field(s), using clear, consistent names (e.g. `ts_any_usage_count`, `ts_export_count`).
-> - In `server/app/services/analysis.py`:
->   - In `attach_file_metrics`, copy the new file-level values from `file_info` into `node.metrics`, guarding with `hasattr(...)` if the field is TS-only.
->   - In the `convert_function` helper inside `attach_file_metrics`, copy any per-function values from the `func` object into `func_node.metrics` via `getattr(func, "field_name", 0)`.
->   - In `aggregate_metrics`, update the folder-level rollup:
->     - Initialize running totals/maxes for the new metric(s).
->     - Accumulate from `child_metrics` in the main loop.
->     - Assign the aggregated value(s) back to `node.metrics` for `node.type == "folder"`.
+> - Extend the `Metrics` Pydantic model in `server/app/models.py` with the new field as `int | None = None` (or `float | None`). `None` is N/A: the metric doesn't apply, the file was skipped or failed, or a mean has nothing to average. Never report N/A as 0; a measured zero stays 0.
+> - In `server/app/services/analysis_types.py`, add the metric id to `MEASURED_FILE_METRICS` (and `MEASURED_SCOPE_METRICS` if measured per scope) for each language whose analyzer computes it. `attach_file_metrics` and `convert_function` copy exactly those fields (same name on `file_info` / the scope object) and leave the rest `None` with an `na_reason`.
+> - Function counts, means and the max-complexity witness use executable scopes only (`iter_executable_scopes`, `scope_kind`); classes, types, object literals and JSX containers are display scopes.
+> - In `aggregate_metrics`, folders sum by default and skip N/A children. Add the id to `_MAX_ROLLUP` or `_MEAN_ROLLUP` when a sum is wrong.
 >
 > **3. Frontend typing and hotspot plumbing**
 >
@@ -70,7 +66,7 @@ To run tests, `cd server && uv run pytest`.
 >   - Add the metric id to `HotSpotMetricId` (use the exact field name from `Metrics`).
 >   - Add a corresponding entry to `HOTSPOT_METRICS` with a label, a `shortLabel` (≤5 characters; the Explorer column header), its language `group` (drives the grouped metric picker), and `invert` if “lower is better”. Set `scope: "file"` when `convert_function` doesn't copy it onto scope nodes, and `languages` when it applies to fewer languages than its group (e.g. `["tsx"]`); the code viewer's metrics table uses these to hide rows that don't apply. Metric values render in neutral text; don't add per-metric colors.
 > - In `client/src/components/Explorer.tsx`:
->   - Extend the `metrics` shape on the `Node` interface with the optional field.
+>   - Extend the `metrics` shape on the `Node` interface with the optional field as `MetricValue` (`number | null`). Explorer cells, Hot Spots, the tooltip and the treemap already render `null` as N/A and rank it out.
 >   - Columns and sorting come from `HOTSPOT_METRICS` via `client/src/utils/explorerColumns.ts`: every metric is offered in the column picker, and the treemap's color metric is always shown as the last, heat-tinted column. No per-metric wiring is needed.
 > - In `client/src/components/Treemap.tsx`:
 >   - Because color mapping is driven by `primaryMetric` + `HOTSPOT_METRICS`, most metrics will “just work”.
