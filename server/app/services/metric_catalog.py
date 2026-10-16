@@ -310,11 +310,12 @@ def profile_lead(profile: str) -> str:
 
 
 def catalog_payload() -> dict[str, Any]:
-    from app.services import activity
+    from app.services import activity, quadrants
 
     return {
         "groups": [{"id": gid, "description": description} for gid, description in GROUPS],
         "metrics": [m.to_json() for m in METRICS],
         "activity_windows": list(activity.iter_windows()),
         "default_activity_window": activity.DEFAULT_WINDOW,
+        "quadrant_presets": quadrants.presets_payload(),
     }

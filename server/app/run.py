@@ -9,7 +9,7 @@ from pathlib import Path
 
 import uvicorn
 
-from app.services import activity, metric_catalog, reporting
+from app.services import activity, metric_catalog, quadrants, reporting
 from app.services.scan_workers import ScanCancelled
 
 # Seconds uvicorn waits for open connections after Ctrl+C before closing them.
@@ -232,6 +232,16 @@ def _run_headless(argv: list[str]) -> None:
         help="Profile for the weighted findings queue.",
     )
     report_parser.add_argument(
+        "--quadrant",
+        choices=quadrants.PRESET_IDS,
+        help="Also list members per quadrant of a named 2x2 preset (report.md section + quadrants.json).",
+    )
+    report_parser.add_argument(
+        "--quadrant-cohort",
+        choices=("file", "function", "component"),
+        help="Point type for --quadrant. Defaults to the preset's first (files; components for component_weight).",
+    )
+    report_parser.add_argument(
         "--metric",
         choices=metric_catalog.RANKABLE_IDS,
         default=None,
@@ -362,6 +372,8 @@ def _run_headless(argv: list[str]) -> None:
                 verbose=args.verbose,
                 output_format=args.format,
                 activity_window=args.activity_window,
+                quadrant=args.quadrant,
+                quadrant_cohort=args.quadrant_cohort,
             )
             print(reporting._json_dumps(payload))
         else:
@@ -384,6 +396,8 @@ def _run_headless(argv: list[str]) -> None:
                 agent_compact=args.agent_compact,
                 verbose=args.verbose,
                 activity_window=args.activity_window,
+                quadrant=args.quadrant,
+                quadrant_cohort=args.quadrant_cohort,
             )
             if args.verbose:
                 print(f"Wrote Srcly report artifacts to {out_dir}")

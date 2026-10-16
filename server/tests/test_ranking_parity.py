@@ -32,7 +32,8 @@ def _portable(node: dict, prefix: str) -> dict:
         "name": node["name"],
         "type": node["type"],
         "kind": node.get("kind"),
-        "path": node["path"].removeprefix(prefix),
+        # The root itself becomes "" (it has no trailing slash to strip).
+        "path": "" if node["path"] == prefix.rstrip("/") else node["path"].removeprefix(prefix),
         "start_line": node["start_line"],
         "end_line": node["end_line"],
         "metrics": {metric: node["metrics"][metric] for metric in CASES},

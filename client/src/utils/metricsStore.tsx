@@ -4,6 +4,7 @@ import {
   createSignal,
   type Accessor,
 } from "solid-js";
+import type { QuadrantPreset } from "../viz/scatter/quadrants";
 
 /**
  * The metric catalog, served by the API (`GET /api/metrics/catalog`, from
@@ -57,6 +58,8 @@ export type MetricCatalog = {
   /** Git history windows for the Activity metrics (30d, 90d, 1y, all). */
   activity_windows?: ActivityWindow[];
   default_activity_window?: string;
+  /** Named 2x2 presets for the scatter view (`server/app/services/quadrants.py`). */
+  quadrant_presets?: QuadrantPreset[];
 };
 
 /** Root-only `activity` on the analysis tree: whether Git history could be read. */
@@ -92,6 +95,8 @@ export const metricDefs = (): MetricDef[] => catalog().metrics.filter((m) => m.p
 export const metricGroups = (): MetricGroup[] => catalog().groups;
 
 export const activityWindows = (): ActivityWindow[] => catalog().activity_windows ?? [];
+
+export const quadrantPresets = (): QuadrantPreset[] => catalog().quadrant_presets ?? [];
 
 export const defaultActivityWindow = (): string => catalog().default_activity_window ?? "90d";
 

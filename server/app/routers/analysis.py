@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Response
 from pathlib import Path
 
 from app.models import Node
-from app.services import analysis, scan_jobs
+from app.services import analysis, quadrants, scan_jobs
 from app.models import DepGraph
 from app.services.deps.graph import build_dependency_graph
 
@@ -75,6 +75,18 @@ def get_dependency_graph(path: str = None):
     if target_path.is_file():
         target_path = target_path.parent
     return build_dependency_graph(target_path)
+
+
+@router.get("/fan-in")
+def get_fan_in(path: str = None) -> dict:
+    """Absolute file path → distinct files importing it, for the Blast radius 2x2."""
+    target_path = Path(path) if path else ROOT_PATH
+    if not target_path.exists():
+        raise HTTPException(status_code=404, detail="Path not found")
+    if target_path.is_file():
+        target_path = target_path.parent
+    counts = quadrants.fan_in_by_path(target_path)
+    return {"counts": counts, "available": bool(counts)}
 
 
 @router.post("/refresh", response_model=Node)
