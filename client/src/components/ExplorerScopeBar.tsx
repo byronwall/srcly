@@ -1,7 +1,8 @@
 import { For, Show, createMemo } from "solid-js";
 import { ChevronRight, CornerLeftUp } from "lucide-solid";
 import { IconButton } from "./ui/IconButton";
-import { metricCellColors, metricCellText } from "../utils/explorerColumns";
+import { metricCellColor, metricCellText } from "../utils/explorerColumns";
+import { HeatSwatch } from "./ui/HeatSwatch";
 import { ancestorChain, scopeDisplayName, summarizeScope } from "../utils/explorerScope";
 import type { HotSpotMetricDef } from "../utils/metricsStore";
 import { extractFilePath } from "../utils/dataProcessing";
@@ -118,10 +119,10 @@ export function ExplorerScopeBar(props: {
                   {props.colorMetric.invert ? "Lowest" : "Top"} {props.colorMetric.shortLabel}
                 </span>
                 <span class="min-w-0 truncate text-[var(--plc-accent)]">{top().node.name}</span>
-                <span
-                  class="plc-data-sm ml-auto shrink-0 rounded-sm px-1 leading-4"
-                  style={metricCellColors(props.colorMetric, top().node) ?? {}}
-                >
+                <span class="plc-data-sm ml-auto flex shrink-0 items-center gap-1.5 pr-0.5 text-[var(--plc-on-surface)]">
+                  <Show when={metricCellColor(props.colorMetric, top().node)}>
+                    {(fill) => <HeatSwatch color={fill()} />}
+                  </Show>
                   {metricCellText(props.colorMetric, top().node) || "0"}
                 </span>
               </button>

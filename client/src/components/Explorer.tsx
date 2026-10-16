@@ -530,7 +530,7 @@ export default function Explorer(props: {
                   <Show when={column.id === colorMetric()}>
                     <span
                       aria-hidden="true"
-                      class="absolute inset-x-1 bottom-0 h-[3px] rounded-full"
+                      class="absolute bottom-0 left-1.5 right-1.5 h-[2px] rounded-full"
                       style={{ background: TREEMAP_GRADIENT }}
                     />
                   </Show>

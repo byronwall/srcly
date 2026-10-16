@@ -5,7 +5,7 @@ import {
   type HotSpotMetricId,
 } from "./metricsStore";
 import { metricApplies } from "./metricApplicability";
-import { treemapFillColor, treemapLabelColor } from "../viz/treemap/utils/colors";
+import { treemapFillColor } from "../viz/treemap/utils/colors";
 
 export type ExplorerColumnNode = {
   path: string;
@@ -53,14 +53,10 @@ export function metricCellText(def: HotSpotMetricDef, node: ExplorerColumnNode):
   return formatMetricValue(def.id, value);
 }
 
-/** Treemap fill and label colors for a cell, or undefined when the cell is blank. */
-export function metricCellColors(def: HotSpotMetricDef, node: ExplorerColumnNode) {
+/** The treemap's fill color for a cell's value, or undefined when the cell is blank. */
+export function metricCellColor(def: HotSpotMetricDef, node: ExplorerColumnNode): string | undefined {
   if (!metricCellText(def, node)) return undefined;
-  const metrics = node.metrics ?? {};
-  return {
-    background: treemapFillColor(def.id, metrics, 0),
-    color: treemapLabelColor(def.id, metrics, 0),
-  };
+  return treemapFillColor(def.id, node.metrics ?? {}, 0);
 }
 
 const WIDE_METRICS = new Set<HotSpotMetricId>(["loc", "file_size"]);

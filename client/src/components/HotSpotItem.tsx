@@ -1,4 +1,4 @@
-import { useContext, For } from "solid-js";
+import { useContext, For, Show } from "solid-js";
 import { Focus } from "lucide-solid";
 import { extractFilePath } from "../utils/dataProcessing";
 import {
@@ -7,7 +7,8 @@ import {
   hotSpotMetricLabel,
   type HotSpotMetricId,
 } from "../utils/metricsStore";
-import { metricCellColors } from "../utils/explorerColumns";
+import { metricCellColor } from "../utils/explorerColumns";
+import { HeatSwatch } from "./ui/HeatSwatch";
 import { ExplorerContext, findNodeByPath } from "./Explorer";
 import type { Node } from "./Explorer";
 
@@ -76,7 +77,7 @@ export function HotSpotItem(props: {
       {/* Score relative to #1, inset under the name so it reads as part of the row. */}
       <span aria-hidden="true" class="absolute bottom-[3px] left-10 right-2 h-[2px]">
         <span
-          class="block h-full rounded-full bg-[var(--plc-accent)] opacity-40"
+          class="block h-full rounded-full bg-[var(--plc-on-subtle)] opacity-30"
           style={{ width: `${props.maxScore > 0 ? (props.score / props.maxScore) * 100 : 0}%` }}
         />
       </span>
@@ -105,15 +106,15 @@ export function HotSpotItem(props: {
           {(m, i) => {
             const val = (props.node.metrics as any)?.[m];
             if (val === undefined) return null;
-            // The first metric is the treemap's color, so it gets the same tint.
+            // The first metric is the treemap's color, so it gets the treemap's key.
             const def = HOTSPOT_METRICS.find((d) => d.id === m);
-            const colors = i() === 0 && def ? metricCellColors(def, props.node) : undefined;
+            const color = i() === 0 && def ? metricCellColor(def, props.node) : undefined;
             return (
               <span
-                class="plc-data-md min-w-[2.75rem] rounded-sm px-1 text-right text-[var(--plc-on-muted)] first:font-semibold first:text-[var(--plc-on-surface)]"
-                style={colors ?? {}}
+                class="plc-data-md flex min-w-[2.75rem] items-center justify-end gap-1.5 px-1 text-right text-[var(--plc-on-muted)] first:font-semibold first:text-[var(--plc-on-surface)]"
                 title={hotSpotMetricLabel(m)}
               >
+                <Show when={color}>{(fill) => <HeatSwatch color={fill()} />}</Show>
                 {formatMetricValue(m, val)}
               </span>
             );

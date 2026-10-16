@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { explorerColumn, metricCellColors, metricCellText, visibleExplorerColumns } from "./explorerColumns";
+import { explorerColumn, metricCellColor, metricCellText, visibleExplorerColumns } from "./explorerColumns";
 import { ancestorChain, summarizeScope } from "./explorerScope";
 import { HOTSPOT_METRICS } from "./metricsStore";
 
@@ -21,13 +21,13 @@ describe("metricCellText", () => {
     const md = { path: "/r/README.md", type: "file", metrics: { complexity: 0, loc: 12 } };
     expect(metricCellText(def("complexity"), md)).toBe("");
     expect(metricCellText(def("loc"), md)).toBe("12");
-    expect(metricCellColors(def("complexity"), md)).toBeUndefined();
+    expect(metricCellColor(def("complexity"), md)).toBeUndefined();
 
     const ts = { path: "/r/a.ts", type: "file", metrics: { complexity: 14, todo_count: 0, file_size: 2048 } };
     expect(metricCellText(def("complexity"), ts)).toBe("14");
     expect(metricCellText(def("todo_count"), ts)).toBe("");
     expect(metricCellText(def("file_size"), ts)).toBe("2.0 KB");
-    expect(metricCellColors(def("complexity"), ts)?.background).toMatch(/^#/);
+    expect(metricCellColor(def("complexity"), ts)).toMatch(/^#/);
   });
 
   it("shows folder counts only on folders", () => {

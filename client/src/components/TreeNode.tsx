@@ -3,7 +3,8 @@ import { Braces, ChevronRight, Eye, EyeOff, File, Folder, FolderOpen } from "luc
 import { extractFilePath } from "../utils/dataProcessing";
 import { type Node, ExplorerContext } from "./Explorer";
 import { useMetricsStore } from "../utils/metricsStore";
-import { metricCellColors } from "../utils/explorerColumns";
+import { metricCellColor } from "../utils/explorerColumns";
+import { HeatSwatch } from "./ui/HeatSwatch";
 
 export function TreeNode(props: {
   node: Node;
@@ -125,20 +126,27 @@ export function TreeNode(props: {
 
       <For each={ctx.columns()}>
         {(column) => {
-          const colors = () =>
-            column.id === ctx.colorMetric() && column.metric
-              ? metricCellColors(column.metric, props.node)
-              : undefined;
+          const isColor = () => column.id === ctx.colorMetric() && Boolean(column.metric);
+          const color = () => (isColor() ? metricCellColor(column.metric!, props.node) : undefined);
           return (
             <div
-              class="plc-data-md relative flex h-full shrink-0 items-center justify-end pr-1.5 text-[var(--plc-on-subtle)]"
-              style={{ width: `${column.width}px`, ...(colors() ?? {}) }}
+              class="plc-data-md relative flex h-full shrink-0 items-center justify-end pr-1.5"
+              classList={{
+                "text-[var(--plc-on-surface)]": isColor(),
+                "text-[var(--plc-on-subtle)]": !isColor(),
+              }}
+              style={{ width: `${column.width}px` }}
+              title={color() ? `${column.title}: ${column.value(props.node)}` : undefined}
             >
+              {/* Pinned left, so swatches line up down the column whatever the digit count. */}
+              <Show when={color()}>
+                {(fill) => <HeatSwatch color={fill()} class="absolute left-1.5 top-1/2 -translate-y-1/2" />}
+              </Show>
               {/* Data bar: the row's share of its parent's lines, filling in from the right. */}
               <Show when={column.id === "loc" && locShare() >= 0.01}>
                 <span
                   aria-hidden="true"
-                  class="absolute inset-y-[3px] right-0.5 rounded-sm bg-[var(--plc-accent)] opacity-[0.13]"
+                  class="absolute inset-y-[3px] right-0.5 rounded-sm bg-[var(--plc-on-subtle)] opacity-[0.12]"
                   style={{ width: `${locShare() * (column.width - 4)}px` }}
                 />
               </Show>
