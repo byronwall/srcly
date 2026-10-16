@@ -74,6 +74,32 @@ def _content_at_ref(file_path: Path, ref: str) -> str:
         raise HTTPException(status_code=404, detail=f"File not found at {ref}: {exc}") from exc
 
 
+@router.get("/markers")
+def get_file_markers(
+    path: str = Query(..., description="Absolute path to the file"),
+    ref: str | None = Query(None, description="Git commit to read the file from instead of the disk"),
+):
+    """
+    Where each metric fires in a file: ``{metric_id: [{line, end_line, note}]}``.
+    The code viewer overlays these lines when a metric is picked.
+    """
+    from app.services.markers import collect_markers, collect_markers_for_text
+
+    file_path = Path(path)
+    try:
+        if ref:
+            markers = collect_markers_for_text(_content_at_ref(file_path, ref), file_path.suffix)
+        elif not file_path.is_file():
+            raise HTTPException(status_code=404, detail="File not found")
+        else:
+            markers = collect_markers(str(file_path))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to locate metrics: {e}") from e
+    return {"markers": markers}
+
+
 @router.get("/suggest")
 def suggest_files(path: str = Query(..., description="Path to list contents of")):
     """
