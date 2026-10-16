@@ -173,12 +173,12 @@ describe("buildViewModel", () => {
     };
     const index = buildIndex(g);
 
-    it("labels a side symbol by its bare name over module · file", () => {
+    it("labels a side symbol by its bare name over folder/file", () => {
       const vm = buildViewModel(index, { focusId: "server/pipeline.py", budget: 48 });
       const sym = vm.nodes.find((n) => n.kind === "symbol")!;
       expect(sym.region).toBe("out");
       expect(sym.label).toBe("RelationshipFocus");
-      expect(sym.subtitle).toBe("model_making · relationship_focus.py");
+      expect(sym.subtitle).toBe("model_making/relationship_focus.py");
     });
 
     it("gives a focused file's symbols their kind and line", () => {
@@ -214,5 +214,24 @@ describe("buildViewModel", () => {
       // Files directly in the focus need no folder line.
       expect(vm.nodes.find((n) => n.label === "App.tsx")!.subtitle).toBeUndefined();
     });
+  });
+});
+
+describe("frame labels", () => {
+  it("adds parent folders when two packages share a name", () => {
+    const nodes: DependencyGraphContract["nodes"] = [{ id: "", kind: "folder", name: "repo", parent: null }];
+    const edges: DependencyGraphContract["edges"] = [];
+    for (const top of ["x", "y"]) {
+      nodes.push({ id: top, kind: "folder", name: top, parent: "" }, { id: `${top}/ui`, kind: "folder", name: "ui", parent: top, path: `${top}/ui` });
+      for (const f of ["a", "b"]) nodes.push({ id: `${top}/ui/${f}.ts`, kind: "file", name: `${f}.ts`, parent: `${top}/ui`, path: `${top}/ui/${f}.ts` });
+    }
+    nodes.push({ id: "main.ts", kind: "file", name: "main.ts", parent: "", path: "main.ts" });
+    // x/ui imports main; main imports y/ui: two `ui` packages on two sides.
+    for (const f of ["a", "b"]) {
+      edges.push({ source: `x/ui/${f}.ts`, target: "main.ts" }, { source: "main.ts", target: `y/ui/${f}.ts` });
+    }
+    const vm = buildViewModel(buildIndex({ root: "", nodes, edges }), { focusId: "main.ts", budget: 48 });
+    const labels = new Set(vm.nodes.filter((n) => n.group).map((n) => n.group!.label));
+    expect(labels).toEqual(new Set(["x/ui", "y/ui"]));
   });
 });

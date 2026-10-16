@@ -178,14 +178,14 @@ describe("viewport-shaped packing", () => {
  * regression is a failing number.
  */
 const CROSSING_BASELINE: Record<string, number> = {
-  "": 13,
-  src: 14,
-  "src/components": 221,
-  "src/utils": 135,
-  "src/viz": 69,
-  "src/viz/treemap": 17,
-  "src/components/Treemap.tsx": 20,
-  "src/utils/metricsStore.tsx": 31,
+  "": 11,
+  src: 7,
+  "src/components": 157,
+  "src/utils": 70,
+  "src/viz": 30,
+  "src/viz/treemap": 3,
+  "src/components/Treemap.tsx": 14,
+  "src/utils/metricsStore.tsx": 10,
 };
 
 /** Grouping may cost some crossings (groups can't interleave), but not many. */
@@ -273,7 +273,7 @@ describe("grouped neighbors", () => {
     const box = vm.nodes.find((n) => n.graphId.includes("edit-in-place"))!;
     expect(box.kind).toBe("symbol");
     expect(box.label).toBe("EditInPlace");
-    expect(box.subtitle).toBe("ui · edit-in-place.tsx");
+    expect(box.subtitle).toBe("ui/edit-in-place.tsx");
     // All three importers' edges land on it.
     expect(vm.edges.filter((e) => e.target === box.id).reduce((a, e) => a + e.weight, 0)).toBe(3);
   });
@@ -320,6 +320,52 @@ describe("bundleOffsets", () => {
       expect(e.points[3]).toEqual({ x: 120, y: 100 });
       expect(isOrthogonal(e.points)).toBe(true);
     }
+  });
+});
+
+describe("bundle order", () => {
+  it("puts the edge that peels off first on the side it turns to", () => {
+    // A fan-out trunk going down a channel at x=50, peeling right to three
+    // targets. Crossing-free only when the nearest target's edge is rightmost.
+    const edges = [0, 1, 2].map((i) => ({
+      id: `e${i}`,
+      source: "s",
+      target: `t${i}`,
+      points: [
+        { x: 0, y: 0 },
+        { x: 50, y: 0 },
+        { x: 50, y: 40 + i * 40 },
+        { x: 120, y: 40 + i * 40 },
+      ],
+    }));
+    bundleOffsets(edges);
+    const xs = edges.map((e) => e.points[2].x);
+    expect(xs[0]).toBeGreaterThan(xs[1]);
+    expect(xs[1]).toBeGreaterThan(xs[2]);
+    expect(countEdgeCrossings(edges)).toBe(0);
+  });
+
+  it("keeps a turn-together pair in the order its next stretch needs", () => {
+    // Two edges run up a channel together, turn right along one gutter, then
+    // split: the one dropping down first must be the inner (lower) lane, so it
+    // starts on the right of the vertical run.
+    const mk = (id: string, endX: number) => ({
+      id,
+      source: "s",
+      target: id,
+      points: [
+        { x: 0, y: 200 },
+        { x: 50, y: 200 },
+        { x: 50, y: 100 },
+        { x: endX, y: 100 },
+        { x: endX, y: 160 },
+        { x: endX + 30, y: 160 },
+      ],
+    });
+    const edges = [mk("near", 120), mk("far", 220)];
+    bundleOffsets(edges);
+    expect(countEdgeCrossings(edges)).toBe(0);
+    expect(edges[0].points[2].x).toBeGreaterThan(edges[1].points[2].x);
   });
 });
 
@@ -377,12 +423,13 @@ describe("connected components", () => {
 const BEFORE_SPREADING: Record<string, { bundleCrossings: number; overlaps: number }> = {
   "": { bundleCrossings: 10, overlaps: 14 },
   src: { bundleCrossings: 10, overlaps: 14 },
-  "src/components": { bundleCrossings: 141, overlaps: 261 },
-  "src/utils": { bundleCrossings: 66, overlaps: 122 },
-  "src/viz": { bundleCrossings: 28, overlaps: 108 },
+  // Overlaps re-recorded for the four-row boxes: a taller grid packs differently.
+  "src/components": { bundleCrossings: 141, overlaps: 271 },
+  "src/utils": { bundleCrossings: 66, overlaps: 136 },
+  "src/viz": { bundleCrossings: 28, overlaps: 121 },
   "src/viz/treemap": { bundleCrossings: 11, overlaps: 60 },
   "src/components/Treemap.tsx": { bundleCrossings: 8, overlaps: 107 },
-  "src/utils/metricsStore.tsx": { bundleCrossings: 23, overlaps: 51 },
+  "src/utils/metricsStore.tsx": { bundleCrossings: 23, overlaps: 55 },
 };
 
 /** Vertical edge segments stay in channels, clear of boxes and the frames around them. */

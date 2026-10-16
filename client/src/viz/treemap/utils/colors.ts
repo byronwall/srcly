@@ -67,6 +67,24 @@ function metricColorFromScales(
   return complexityColor(fallbackValue);
 }
 
+const rampPosition = (domain: [number, number, number]) =>
+  d3.scaleLinear().domain(domain).range([0, 0.5, 1]).clamp(true);
+
+/**
+ * Where a value sits on the attention ramp (0 fine … 1 needs attention), by
+ * the same rules as `treemapFillColor`, for bars that echo the fill.
+ */
+export function treemapRampPosition(metricId: MetricId, metrics: Metrics): number {
+  const v = (id: string) => Number(metrics?.[id] ?? 0);
+  if (metricId === "comment_density") return rampPosition([0.5, 0.2, 0])(v(metricId));
+  if (metricId === "max_nesting_depth") return rampPosition([0, 3, 8])(v(metricId));
+  if (metricId === "todo_count") return rampPosition([0, 1, 5])(v(metricId));
+  let raw = v(metricId);
+  if (HOTSPOT_METRICS.find((m) => m.id === metricId)?.invert) raw = 1 - (raw || 0);
+  if (!Number.isFinite(raw) || raw < 0) raw = 0;
+  return rampPosition([0, 10, 50])(Math.min(raw, 50));
+}
+
 /**
  * Fill color used by Treemap rectangles.
  *

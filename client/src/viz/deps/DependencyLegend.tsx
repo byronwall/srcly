@@ -8,7 +8,9 @@ import {
   edgeStrokeWidth,
   EXTERNAL_BOX_DASH,
 } from "./encoding";
-import { TREEMAP_RAMP } from "../treemap/utils/colors";
+import { TREEMAP_RAMP, rampColor } from "../treemap/utils/colors";
+import { FlowIcon, HubGlyph } from "./DependencyCanvas";
+import { HUB_STYLES } from "./hubs";
 
 const COLLAPSED_KEY = "srcly.depsLegendCollapsed";
 
@@ -98,6 +100,35 @@ function FillSwatch() {
   );
 }
 
+/** The hub badges, side by side. */
+function HubSwatch() {
+  return (
+    <svg width={SW} height={SH} viewBox={`0 0 ${SW} ${SH}`} aria-hidden="true">
+      <For each={HUB_STYLES.slice(0, 3)}>{(h, i) => <HubGlyph shape={h.shape} color={h.color} x={5 + i() * 10} y={SH / 2} r={3.8} />}</For>
+    </svg>
+  );
+}
+
+/** Row 3 of a box: links in, links out. */
+function FlowSwatch() {
+  return (
+    <svg width={SW} height={SH} viewBox={`0 0 ${SW} ${SH}`} aria-hidden="true" class="text-[var(--plc-on-muted)]">
+      <FlowIcon dir="in" x={0} y={11} />
+      <FlowIcon dir="out" x={15} y={11} />
+    </svg>
+  );
+}
+
+/** The metric bar: how far along the treemap's ramp a box sits. */
+function MetricSwatch() {
+  return (
+    <svg width={SW} height={SH} viewBox={`0 0 ${SW} ${SH}`} aria-hidden="true">
+      <rect x="1" y="4.5" width={SW - 2} height="5" rx="2.5" fill="var(--plc-surface-muted)" stroke="var(--plc-border)" stroke-width="0.5" />
+      <rect x="1" y="4.5" width={(SW - 2) * 0.7} height="5" rx="2.5" fill={rampColor(0.7)} />
+    </svg>
+  );
+}
+
 const ITEMS: { swatch: () => JSX.Element; label: string }[] = [
   { swatch: () => <EdgeSwatch width={edgeStrokeWidth(1, false)} opacity={EDGE_OPACITY} />, label: "Imports (arrow points at the dependency)" },
   { swatch: () => <EdgeSwatch width={edgeStrokeWidth(8, false)} opacity={EDGE_OPACITY} />, label: "Thicker: more import links" },
@@ -108,7 +139,10 @@ const ITEMS: { swatch: () => JSX.Element; label: string }[] = [
   { swatch: () => <ExternalSwatch />, label: "External package" },
   { swatch: () => <FolderSwatch />, label: "Folder; the bar shows its size (LOC)" },
   { swatch: () => <FrameSwatch />, label: "Neighbors from one package" },
-  { swatch: () => <FillSwatch />, label: "Fill: the treemap's color metric" },
+  { swatch: () => <FillSwatch />, label: "Tint: the treemap's color metric" },
+  { swatch: () => <MetricSwatch />, label: "Bar: that metric's value on the same scale" },
+  { swatch: () => <FlowSwatch />, label: "Import links in and out (hover for the list)" },
+  { swatch: () => <HubSwatch />, label: "Hub: imported by most boxes. Importers wear its badge; hover to draw its edges" },
 ];
 
 /** Bottom-right key to the graph's visual encodings; collapses to an icon. */

@@ -1,4 +1,5 @@
 import { boundsOf, type Box, type Point, type Polyline } from "./geometry";
+import type { Hub } from "./hubs";
 import type { Region, ViewEdge, ViewModel, ViewNode } from "./viewModel";
 
 // Grid + channel layout.
@@ -12,8 +13,17 @@ import type { Region, ViewEdge, ViewModel, ViewNode } from "./viewModel";
 // apart; each track is as wide as its bundle, so busy trunks widen their
 // channel instead of piling into one line.
 
-export const NODE_WIDTH = 196;
-export const NODE_HEIGHT = 40;
+/** Dependency view boxes: four rows of content, a little narrower than tall-and-thin. */
+export const NODE_WIDTH = 176;
+export const NODE_HEIGHT = 74;
+/** Box size for a layout; other views (compare) keep compact two-line boxes. */
+export interface BoxSize {
+  width: number;
+  height: number;
+}
+export const DEFAULT_BOX: BoxSize = { width: NODE_WIDTH, height: NODE_HEIGHT };
+/** The compare view's two-line boxes. */
+export const COMPARE_BOX: BoxSize = { width: 196, height: 40 };
 const TRACK = 6;
 const CHANNEL_PAD = 10;
 const MIN_CHANNEL = 36;
@@ -81,6 +91,13 @@ export interface ViewLayout {
   groups?: LayoutGroup[];
   /** Package frames around side neighbors. */
   frames?: GroupFrame[];
+  /**
+   * Edges into hubs: they order boxes like any edge but take no channel
+   * room. The canvas draws them only while their hub is hovered.
+   */
+  hiddenEdges?: PositionedEdge[];
+  /** Boxes most of the view imports, shown as badges instead of edges. */
+  hubs?: Hub[];
 }
 
 export interface LayoutOptions {
@@ -88,6 +105,10 @@ export interface LayoutOptions {
   aspectRatio: number;
   /** Viewport size in px; defaults to 1600 wide at the given aspect ratio. */
   viewport?: { width: number; height: number };
+  /** Size of every box; defaults to the dependency view's `DEFAULT_BOX`. */
+  box?: BoxSize;
+  /** Ids of edges that order boxes but are not routed (see `ViewLayout.hiddenEdges`). */
+  hidden?: Set<string>;
 }
 
 type Side = "left" | "right";
@@ -156,8 +177,8 @@ function chunk<T>(items: T[], size: number): T[][] {
 }
 
 /** Approximate grid pitch used to estimate a packing's on-screen size. */
-const COL_PITCH = NODE_WIDTH + MIN_CHANNEL + 12;
-const ROW_PITCH = NODE_HEIGHT + MIN_GUTTER + 4;
+const colPitch = (box: BoxSize) => box.width + MIN_CHANNEL + 12;
+const rowPitch = (box: BoxSize) => box.height + MIN_GUTTER + 4;
 /** Unfold steps tried per region, from fully folded (0) to one column per depth level (1). */
 const UNFOLD_STEPS = [0, 0.25, 0.5, 0.75, 1];
 
@@ -231,6 +252,7 @@ export function packingCost(aspect: number, target: number, p: Pick<Packing, "fo
 export function rankPackings(
   levelCounts: number[][],
   viewport: { width: number; height: number },
+  box: BoxSize = DEFAULT_BOX,
 ): Packing[] {
   const total = levelCounts.flat().reduce((a, b) => a + b, 0);
   const target = Math.max(0.3, viewport.width / Math.max(1, viewport.height));
@@ -254,8 +276,8 @@ export function rankPackings(
         }
         return k;
       });
-      const width = cols * COL_PITCH + 40;
-      const height = tallest * ROW_PITCH + 40;
+      const width = cols * colPitch(box) + 40;
+      const height = tallest * rowPitch(box) + 40;
       const scale = Math.min(MAX_SCALE, viewport.width / width, viewport.height / height);
       const foldLoss = boundaries === 0 ? 0 : lost / boundaries;
       options.push({
@@ -352,6 +374,7 @@ export function layoutViewSync(vm: ViewModel, opts: LayoutOptions): ViewLayout {
   const edges: PositionedEdge[] = [];
   const groups: LayoutGroup[] = [];
   const frames: GroupFrame[] = [];
+  const hiddenEdges: PositionedEdge[] = [];
   let y = 0;
   let width = 0;
   for (const comp of comps) {
@@ -359,18 +382,21 @@ export function layoutViewSync(vm: ViewModel, opts: LayoutOptions): ViewLayout {
     const sub = layoutComponent(comp, {
       aspectRatio: viewport.width / Math.max(80, viewport.height * share),
       viewport: { width: viewport.width, height: Math.max(80, viewport.height * share) },
+      box: opts.box,
+      hidden: opts.hidden,
     });
     const top = Math.min(...sub.nodes.map((n) => n.y));
     const dy = y - top + 18;
     for (const n of sub.nodes) nodes.push({ ...n, y: n.y + dy });
     for (const e of sub.edges) edges.push({ ...e, points: e.points.map((p) => ({ x: p.x, y: p.y + dy })) });
+    for (const e of sub.hiddenEdges ?? []) hiddenEdges.push({ ...e, points: e.points.map((p) => ({ x: p.x, y: p.y + dy })) });
     for (const f of sub.frames ?? []) frames.push({ ...f, y: f.y + dy });
     const label = commonFolder(comp.nodes);
     if (label) groups.push({ label, x: Math.min(...sub.nodes.map((n) => n.x)), y: y + 8 });
     y += sub.height - top + COMPONENT_GAP;
     width = Math.max(width, sub.width);
   }
-  return { nodes, edges, width, height: y, groups, frames };
+  return { nodes, edges, width, height: y, groups, frames, hiddenEdges };
 }
 
 function connectedComponents(vm: ViewModel): ViewModel[] {
@@ -445,6 +471,7 @@ function layoutComponent(vm: ViewModel, opts: LayoutOptions): ViewLayout {
   const ranked = rankPackings(
     regions.map((lvls) => lvls.map((l) => l.length)),
     viewport,
+    opts.box,
   );
   let best: { layout: ViewLayout; rank: number } | null = null;
   for (const packing of ranked.slice(0, vm.nodes.length > 32 ? 2 : MAX_TRIES)) {
@@ -452,7 +479,7 @@ function layoutComponent(vm: ViewModel, opts: LayoutOptions): ViewLayout {
       foldLevels(lvls, packing.folds[r]).flatMap((g) => chunk(g, packing.rows)),
     );
     inCols.reverse();
-    const layout = placeAndRoute(vm, byRegion, [...inCols, ...centerCols, ...outCols], packing.rows);
+    const layout = placeAndRoute(vm, byRegion, [...inCols, ...centerCols, ...outCols], packing.rows, opts.box ?? DEFAULT_BOX, opts.hidden);
     const aspect = aspectOf(layout);
     const cost = packingCost(aspect, target, packing);
     const rank = (meetsBand(aspect, target, packing) ? 0 : 100) + cost;
@@ -482,6 +509,8 @@ function placeAndRoute(
   byRegion: Record<Region, ViewNode[]>,
   columns: ViewNode[][],
   rows: number,
+  box: BoxSize,
+  hidden: Set<string> = new Set(),
 ): ViewLayout {
   const C = columns.length;
 
@@ -545,8 +574,9 @@ function placeAndRoute(
   // ---- Routing plan (abstract coordinates: rows for y, columns for x) ----
   const centerIds = new Set(byRegion.center.map((n) => n.id));
   const isCenter = (id: string) => centerIds.has(id);
+  const routed = vm.edges.filter((e) => !hidden.has(e.id));
   const degree = new Map<string, number>();
-  for (const e of vm.edges) {
+  for (const e of routed) {
     degree.set(e.source, (degree.get(e.source) ?? 0) + 1);
     degree.set(e.target, (degree.get(e.target) ?? 0) + 1);
   }
@@ -565,7 +595,7 @@ function placeAndRoute(
         r.groupId !== groupOfNode.get(s) &&
         r.groupId !== groupOfNode.get(t),
     ).length;
-  const routes: Route[] = vm.edges.map((edge) => {
+  const routes: Route[] = routed.map((edge) => {
     const s = edge.source;
     const t = edge.target;
     const cs = colOf.get(s)!;
@@ -641,8 +671,8 @@ function placeAndRoute(
     mark(r.t, r.entrySide, "in");
   }
   const portRowOffset = (id: string, side: Side, kind: "out" | "in") => {
-    const u = sideUse.get(`${id}|${side}`)!;
-    if (!(u.out && u.in)) return 0;
+    const u = sideUse.get(`${id}|${side}`);
+    if (!u || !(u.out && u.in)) return 0;
     return kind === "out" ? -PORT_SPLIT : PORT_SPLIT;
   };
 
@@ -651,7 +681,15 @@ function placeAndRoute(
   const gutY = (g: number) => g;
 
   // ---- Channel tracks ----
-  type Seg = { route: Route; group: string; lo: number; hi: number; lowStub: number | null; highStub: number | null };
+  type Seg = {
+    route: Route;
+    group: string;
+    lo: number;
+    hi: number;
+    lowStub: number | null;
+    highStub: number | null;
+    turn?: { low?: number; high?: number };
+  };
   const channelSegs = new Map<number, Seg[]>();
   const addChannelSeg = (ch: number, seg: Seg) => {
     const arr = channelSegs.get(ch) ?? [];
@@ -685,6 +723,8 @@ function placeAndRoute(
       }
     } else {
       const gy = gutY(r.gutter);
+      // The turn into the gutter is a stub too: toward the entry channel.
+      const rightward = r.entryChannel > r.exitChannel;
       addChannelSeg(r.exitChannel, {
         route: r,
         group: r.exitGroup,
@@ -692,6 +732,7 @@ function placeAndRoute(
         hi: Math.max(ys, gy),
         lowStub: r.exitSide === "right" ? ys : null,
         highStub: r.exitSide === "left" ? ys : null,
+        turn: rightward ? { high: gy } : { low: gy },
       });
       addChannelSeg(r.entryChannel, {
         route: r,
@@ -700,6 +741,7 @@ function placeAndRoute(
         hi: Math.max(yt, gy),
         lowStub: r.entrySide === "right" ? yt : null,
         highStub: r.entrySide === "left" ? yt : null,
+        turn: rightward ? { low: gy } : { high: gy },
       });
     }
   }
@@ -719,6 +761,8 @@ function placeAndRoute(
       if (s.highStub !== null) g.highStubs.push(s.highStub);
       if (extra?.low) g.lowStubs.push(...extra.low);
       if (extra?.high) g.highStubs.push(...extra.high);
+      if (s.turn?.low !== undefined) g.lowStubs.push(s.turn.low);
+      if (s.turn?.high !== undefined) g.highStubs.push(s.turn.high);
       groups.set(s.group, g);
     }
     const ordered = orderGroups([...groups.values()]);
@@ -747,7 +791,7 @@ function placeAndRoute(
     x += channelWidth[k];
     if (k < C) {
       colX[k] = x;
-      x += NODE_WIDTH;
+      x += box.width;
     }
   }
   const totalWidth = x + MARGIN;
@@ -819,7 +863,7 @@ function placeAndRoute(
     y += gutterHeight[g];
     if (g < rows) {
       rowTop[g] = y;
-      y += NODE_HEIGHT;
+      y += box.height;
     }
   }
   const totalHeight = y + MARGIN;
@@ -833,8 +877,8 @@ function placeAndRoute(
     id: n.id,
     x: colX[colOf.get(n.id)!],
     y: rowTop[rowOf.get(n.id)!],
-    width: NODE_WIDTH,
-    height: NODE_HEIGHT,
+    width: box.width,
+    height: box.height,
     node: n,
     column: colOf.get(n.id)!,
     row: rowOf.get(n.id)!,
@@ -865,9 +909,34 @@ function placeAndRoute(
   });
 
   bundleOffsets(edges, nodes);
+
+  // Hidden edges take the middle of each channel and gutter they need: they
+  // only show while their hub is hovered, over dimmed neighbors.
+  const channelMid = (ch: number, side: Side) =>
+    channelWidth[ch] > 0 ? channelX[ch] + channelWidth[ch] / 2 : channelX[ch] + (side === "right" ? 8 : -8);
+  const hiddenEdges: PositionedEdge[] = vm.edges
+    .filter((e) => hidden.has(e.id))
+    .map((edge) => {
+      const cs = colOf.get(edge.source)!;
+      const ct = colOf.get(edge.target)!;
+      const exitSide: Side = ct < cs ? "left" : "right";
+      const entrySide: Side = cs < ct ? "left" : "right";
+      const a = port(edge.source, exitSide, "out");
+      const b = port(edge.target, entrySide, "in");
+      const x1 = channelMid(exitSide === "right" ? cs + 1 : cs, exitSide);
+      const x2 = channelMid(entrySide === "left" ? ct : ct + 1, entrySide);
+      let points: Point[];
+      if (Math.abs(x1 - x2) < 0.5) points = [a, { x: x1, y: a.y }, { x: x1, y: b.y }, b];
+      else {
+        const g = rowOf.get(edge.target)!;
+        const gy = gutterTop[g] + gutterHeight[g] / 2;
+        points = [a, { x: x1, y: a.y }, { x: x1, y: gy }, { x: x2, y: gy }, { x: x2, y: b.y }, b];
+      }
+      return { id: edge.id, source: edge.source, target: edge.target, points: simplify(points), edge };
+    });
   const frames: GroupFrame[] = runs.map((r) => {
     const y0 = rowTop[r.first] - FRAME_LABEL_H;
-    const y1 = rowTop[r.last] + NODE_HEIGHT + FRAME_PAD;
+    const y1 = rowTop[r.last] + box.height + FRAME_PAD;
     return {
       id: `${r.column}|${r.groupId}|${r.first}`,
       groupId: r.groupId,
@@ -875,11 +944,11 @@ function placeAndRoute(
       column: r.column,
       x: colX[r.column] - FRAME_PAD,
       y: y0,
-      width: NODE_WIDTH + 2 * FRAME_PAD,
+      width: box.width + 2 * FRAME_PAD,
       height: y1 - y0,
     };
   });
-  return { nodes, edges, width: totalWidth, height: totalHeight, frames };
+  return { nodes, edges, width: totalWidth, height: totalHeight, frames, hiddenEdges };
 }
 
 /** Mean of `value` over the nodes sharing each key. */
@@ -924,6 +993,11 @@ function simplify(points: Point[]): Point[] {
  * Edges that share a track coincide exactly. Spread coincident segments
  * 1–2px apart so a bundle reads as a thicker line whose width shows how many
  * edges it carries.
+ *
+ * The order inside a bundle decides whether its edges cross each other where
+ * they peel off. Each bundle starts in the order the turns dictate (an edge
+ * that leaves toward the right sits on the right), then adjacent swaps that
+ * remove real crossings are kept until none helps.
  */
 export function bundleOffsets(edges: Polyline[], boxes: Box[] = []): void {
   type Seg = { edge: number; seg: number; lo: number; hi: number; sortKey: number };
@@ -931,18 +1005,15 @@ export function bundleOffsets(edges: Polyline[], boxes: Box[] = []): void {
   const vert = new Map<number, Seg[]>();
   const centerY = new Map(boxes.map((b) => [b.id, b.y + b.height / 2]));
   const centerX = new Map(boxes.map((b) => [b.id, b.x + b.width / 2]));
+  const base = edges.map((e) => e.points.map((p) => ({ ...p })));
 
   edges.forEach((e, ei) => {
     const last = e.points.length - 2;
     for (let si = 0; si <= last; si++) {
-      // The stubs touching boxes stay on their port so arrows meet the box edge.
-      if ((si === 0 || si === last) && e.points.length > 2) {
-        const a = e.points[si];
-        const b = e.points[si + 1];
-        if (Math.abs(a.y - b.y) < 0.5) continue;
-      }
       const a = e.points[si];
       const b = e.points[si + 1];
+      // The stubs touching boxes stay on their port so arrows meet the box edge.
+      if ((si === 0 || si === last) && e.points.length > 2 && Math.abs(a.y - b.y) < 0.5) continue;
       if (Math.abs(a.y - b.y) < 0.5 && Math.abs(a.x - b.x) >= 0.5) {
         const key = Math.round(a.y * 2);
         const arr = horiz.get(key) ?? [];
@@ -959,23 +1030,27 @@ export function bundleOffsets(edges: Polyline[], boxes: Box[] = []): void {
     }
   });
 
-  const dy = edges.map((e) => new Array(Math.max(0, e.points.length - 1)).fill(0));
-  const dx = edges.map((e) => new Array(Math.max(0, e.points.length - 1)).fill(0));
-
-  const assign = (groups: Map<number, Seg[]>, target: number[][]) => {
+  // One bundle: the distinct edges on overlapping coincident segments, in order.
+  type Item = { edge: number; segs: number[]; rep: number; sortKey: number };
+  type Bundle = { vertical: boolean; items: Item[]; gap: number };
+  const bundles: Bundle[] = [];
+  const collect = (groups: Map<number, Seg[]>, vertical: boolean) => {
     for (const segs of groups.values()) {
       segs.sort((a, b) => a.lo - b.lo);
       let cluster: Seg[] = [];
       let clusterHi = -Infinity;
       const flush = () => {
-        const edgesInCluster = [...new Set(cluster.map((s) => s.edge))];
-        if (edgesInCluster.length > 1) {
-          const order = [...cluster].sort((a, b) => a.sortKey - b.sortKey || a.edge - b.edge);
-          const rank = new Map<number, number>();
-          for (const s of order) if (!rank.has(s.edge)) rank.set(s.edge, rank.size);
-          const n = rank.size;
-          const gap = bundleGap(n);
-          for (const s of cluster) target[s.edge][s.seg] = (rank.get(s.edge)! - (n - 1) / 2) * gap;
+        const byEdge = new Map<number, Item>();
+        for (const s of cluster) {
+          const it = byEdge.get(s.edge) ?? { edge: s.edge, segs: [], rep: s.seg, sortKey: s.sortKey };
+          it.segs.push(s.seg);
+          byEdge.set(s.edge, it);
+        }
+        if (byEdge.size > 1) {
+          const items = [...byEdge.values()].sort(
+            (a, b) => compareInBundle(base, a.edge, a.rep, b.edge, b.rep, 0) || a.sortKey - b.sortKey || a.edge - b.edge,
+          );
+          bundles.push({ vertical, items, gap: bundleGap(items.length) });
         }
         cluster = [];
         clusterHi = -Infinity;
@@ -988,21 +1063,137 @@ export function bundleOffsets(edges: Polyline[], boxes: Box[] = []): void {
       flush();
     }
   };
-  assign(horiz, dy);
-  assign(vert, dx);
+  collect(horiz, false);
+  collect(vert, true);
 
-  edges.forEach((e, ei) => {
-    const pts = e.points.map((p) => ({ ...p }));
-    for (let si = 0; si < e.points.length - 1; si++) {
-      if (dy[ei][si]) {
-        pts[si].y += dy[ei][si];
-        pts[si + 1].y += dy[ei][si];
-      }
-      if (dx[ei][si]) {
-        pts[si].x += dx[ei][si];
-        pts[si + 1].x += dx[ei][si];
+  const offset = edges.map((e) => new Array(Math.max(0, e.points.length - 1)).fill(0));
+  const assign = (b: Bundle) => {
+    const n = b.items.length;
+    b.items.forEach((it, rank) => {
+      for (const s of it.segs) offset[it.edge][s] = (rank - (n - 1) / 2) * b.gap;
+    });
+  };
+  bundles.forEach(assign);
+
+  const shaped = (ei: number): Point[] => {
+    const pts = base[ei].map((p) => ({ ...p }));
+    for (let si = 0; si < pts.length - 1; si++) {
+      const d = offset[ei][si];
+      if (!d) continue;
+      const vertical = Math.abs(base[ei][si].x - base[ei][si + 1].x) < 0.5;
+      if (vertical) {
+        pts[si].x += d;
+        pts[si + 1].x += d;
+      } else {
+        pts[si].y += d;
+        pts[si + 1].y += d;
       }
     }
-    e.points = pts;
+    return pts;
+  };
+  const cur = edges.map((_, ei) => shaped(ei));
+
+  // Local search: swap neighbors in a bundle while it removes crossings.
+  if (bundles.length) {
+    const cost = (i: number, j: number) => {
+      let c = 0;
+      for (let k = 0; k < cur.length; k++) {
+        if (k !== i) c += pairCrossings(cur[i], cur[k]);
+        if (k !== j && k !== i) c += pairCrossings(cur[j], cur[k]);
+      }
+      return c;
+    };
+    for (let pass = 0; pass < 4; pass++) {
+      let improved = false;
+      for (const b of bundles) {
+        for (let r = 0; r < b.items.length - 1; r++) {
+          const i = b.items[r].edge;
+          const j = b.items[r + 1].edge;
+          const before = cost(i, j);
+          [b.items[r], b.items[r + 1]] = [b.items[r + 1], b.items[r]];
+          assign(b);
+          cur[i] = shaped(i);
+          cur[j] = shaped(j);
+          if (cost(i, j) < before) {
+            improved = true;
+            continue;
+          }
+          [b.items[r], b.items[r + 1]] = [b.items[r + 1], b.items[r]];
+          assign(b);
+          cur[i] = shaped(i);
+          cur[j] = shaped(j);
+        }
+      }
+      if (!improved) break;
+    }
+  }
+
+  edges.forEach((e, ei) => {
+    e.points = cur[ei];
   });
+}
+
+/** Proper crossings between perpendicular segments of two polylines. */
+function pairCrossings(a: Point[], b: Point[]): number {
+  let c = 0;
+  const T = 1e-3;
+  for (let i = 0; i < a.length - 1; i++) {
+    const p = a[i];
+    const q = a[i + 1];
+    const aVert = Math.abs(p.x - q.x) < T;
+    for (let j = 0; j < b.length - 1; j++) {
+      const r = b[j];
+      const s = b[j + 1];
+      const bVert = Math.abs(r.x - s.x) < T;
+      if (aVert === bVert) continue;
+      const [v0, v1, h0, h1] = aVert ? [p, q, r, s] : [r, s, p, q];
+      const x = v0.x;
+      const y = h0.y;
+      if (x > Math.min(h0.x, h1.x) + T && x < Math.max(h0.x, h1.x) - T && y > Math.min(v0.y, v1.y) + T && y < Math.max(v0.y, v1.y) - T) c++;
+    }
+  }
+  return c;
+}
+
+/**
+ * Where segment `s` of a polyline ends on its low or high side (along its
+ * axis): the end's position, which way the line turns there (−1 left/up,
+ * +1 right/down, 0 for a polyline end) and the segment it turns onto.
+ */
+function segEnd(pts: Point[], s: number, high: boolean) {
+  const vertical = Math.abs(pts[s].x - pts[s + 1].x) < 0.5;
+  const along = (p: Point) => (vertical ? p.y : p.x);
+  const across = (p: Point) => (vertical ? p.x : p.y);
+  const firstIsLow = along(pts[s]) <= along(pts[s + 1]);
+  const atFirst = firstIsLow !== high;
+  const end = atFirst ? pts[s] : pts[s + 1];
+  const nb = atFirst ? pts[s - 1] : pts[s + 2];
+  const turn = nb ? Math.sign(Math.round((across(nb) - across(end)) * 100)) : 0;
+  return { pos: along(end), turn, next: nb ? (atFirst ? s - 1 : s + 1) : -1 };
+}
+
+/**
+ * Order two coincident segments across their shared line: negative puts
+ * `a` on the low side (left of a vertical bundle, above a horizontal one).
+ * The edge that leaves the shared stretch first sits on the side it turns to;
+ * two that turn together keep the order their next stretch needs.
+ */
+function compareInBundle(pts: Point[][], ea: number, sa: number, eb: number, sb: number, depth: number): number {
+  for (const high of [false, true]) {
+    const a = segEnd(pts[ea], sa, high);
+    const b = segEnd(pts[eb], sb, high);
+    const aLeavesFirst = high ? a.pos < b.pos - 0.5 : a.pos > b.pos + 0.5;
+    const bLeavesFirst = high ? b.pos < a.pos - 0.5 : b.pos > a.pos + 0.5;
+    if (aLeavesFirst && a.turn) return a.turn;
+    if (bLeavesFirst && b.turn) return -b.turn;
+    if (aLeavesFirst || bLeavesFirst) continue;
+    if (a.turn !== b.turn) {
+      if (a.turn && b.turn) return a.turn - b.turn;
+      continue;
+    }
+    if (!a.turn || depth >= 3 || a.next < 0 || b.next < 0) continue;
+    const r = compareInBundle(pts, ea, a.next, eb, b.next, depth + 1);
+    if (r) return Math.sign(r) * (high ? -a.turn : a.turn);
+  }
+  return 0;
 }
