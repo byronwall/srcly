@@ -3,15 +3,29 @@ import { placeFloating, type TreemapTooltipModel } from "../hooks/useTreemapTool
 
 const MAX_PATH_CHARS = 46;
 
-/** Keep the tail of a long path; the nearest folders say the most. */
-function tailPath(path: string): string {
-  if (path.length <= MAX_PATH_CHARS) return path;
-  const parts = path.split("/");
-  let out = parts.pop() ?? "";
-  while (parts.length && out.length + parts[parts.length - 1].length + 1 <= MAX_PATH_CHARS - 2) {
-    out = `${parts.pop()}/${out}`;
+/** Keep the tail of a long path; the nearest folders and scopes say the most. */
+export function tailPath(path: string, max = MAX_PATH_CHARS): string {
+  if (path.length <= max) return path;
+  // Segments with the separator that precedes each ("/" between folders, " › " inside a file).
+  const segments = path.split(/(?=\/| › )/);
+  let out = segments.pop() ?? "";
+  while (segments.length && out.length + segments[segments.length - 1].length <= max - 1) {
+    out = segments.pop() + out;
   }
-  return `…/${out}`;
+  return `…${out}`;
+}
+
+/** A grid value, with a byte unit ("39 KB") set muted like the header's "LOC". */
+function Value(props: { text: string }) {
+  const parts = () => /^([\d.,]+) (B|KB|MB)$/.exec(props.text);
+  return (
+    <span class="shrink-0 whitespace-nowrap text-right">
+      <span class="plc-data-sm text-[var(--plc-on-surface)]">{parts()?.[1] ?? props.text}</span>
+      <Show when={parts()}>
+        {(p) => <span class="ml-0.5 text-[11px] text-[var(--plc-on-subtle)]">{p()[2]}</span>}
+      </Show>
+    </span>
+  );
 }
 
 const formatShare = (share: number) => (share < 0.01 ? "<1" : String(Math.round(share * 100)));
@@ -43,7 +57,7 @@ export default function TreemapTooltip(props: { model: Accessor<TreemapTooltipMo
       {(m) => (
         <div
           ref={card}
-          class="plc-floating pointer-events-none fixed z-50 w-[300px] rounded-md border px-2.5 py-2 text-[12px] leading-[1.35]"
+          class="plc-floating pointer-events-none fixed z-50 w-max min-w-[300px] max-w-[min(420px,calc(100vw-8px))] rounded-md border px-2.5 py-2 text-[12px] leading-[1.35]"
           style={{ left: "0px", top: "0px", visibility: "hidden" }}
           role="tooltip"
         >
@@ -59,10 +73,10 @@ export default function TreemapTooltip(props: { model: Accessor<TreemapTooltipMo
             <Show when={m().edited}> · edited {m().edited}</Show>
           </div>
           <Show when={m().path}>
-            <div class="plc-data-sm truncate text-[var(--plc-on-subtle)]">{tailPath(m().path)}</div>
+            <div class="plc-data-sm truncate !font-normal text-[var(--plc-on-subtle)]">{tailPath(m().path)}</div>
           </Show>
           <Show when={m().mix}>
-            <div class="plc-data-sm text-[var(--plc-on-muted)]">{m().mix}</div>
+            <div class="plc-data-sm !font-normal text-[var(--plc-on-subtle)]">{m().mix}</div>
           </Show>
 
           <Show when={m().primary}>
@@ -73,7 +87,9 @@ export default function TreemapTooltip(props: { model: Accessor<TreemapTooltipMo
                   style={{ background: p().color }}
                 />
                 <span class="text-[var(--plc-on-muted)]">{p().label}</span>
-                <span class="plc-data-sm font-semibold text-[var(--plc-on-surface)]">{p().value}</span>
+                <Show when={p().value}>
+                  <span class="plc-data-sm font-semibold text-[var(--plc-on-surface)]">{p().value}</span>
+                </Show>
                 <span class="ml-auto truncate pl-2 text-[11px] text-[var(--plc-on-subtle)]">{p().rank}</span>
               </div>
             )}
@@ -88,7 +104,7 @@ export default function TreemapTooltip(props: { model: Accessor<TreemapTooltipMo
                     classList={{ "col-span-2": line.label === "Not analyzed" }}
                   >
                     <span class="truncate text-[var(--plc-on-muted)]">{line.label}</span>
-                    <span class="plc-data-sm shrink-0 text-right text-[var(--plc-on-surface)]">{line.value}</span>
+                    <Value text={line.value} />
                   </div>
                 )}
               </For>
@@ -139,8 +155,8 @@ export default function TreemapTooltip(props: { model: Accessor<TreemapTooltipMo
                   )}
                 </For>
               </div>
-              <Show when={m().moreChildren > 0}>
-                <div class="text-[11px] text-[var(--plc-on-subtle)]">+{m().moreChildren} more</div>
+              <Show when={m().moreLabel}>
+                <div class="text-[11px] text-[var(--plc-on-subtle)]">{m().moreLabel}</div>
               </Show>
             </div>
           </Show>

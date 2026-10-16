@@ -50,6 +50,8 @@ export type TooltipContent = {
   children: TooltipChild[];
   /** Children not listed. */
   moreChildren: number;
+  /** e.g. "+25 more scopes"; empty when everything is listed. */
+  moreLabel: string;
 };
 
 export type TreemapTooltipModel =
@@ -110,6 +112,35 @@ export function formatAge(epochSeconds: number, nowMs = Date.now()): string {
   return `${Math.round(s / 86400 / 365)}y ago`;
 }
 
+const nodePath = (n: d3.HierarchyNode<any>) => String(n.data?.path ?? n.data?.name ?? "");
+
+/** Whether a metric means anything for this node's language and kind. Folders roll everything up. */
+function metricApplies(n: d3.HierarchyNode<any>, id: HotSpotMetricId): boolean {
+  const type = n.data?.type;
+  if (type === "folder") return true;
+  return applicableMetrics(nodePath(n), type !== "file").some((m) => m.id === id);
+}
+
+/** What a scope is, from the analyzers' naming: "Node (interface)", "<div>", "map(ƒ)". */
+export function scopeKind(name: string, language: string): string {
+  if (name === "(imports)") return "imports";
+  if (language === "markdown") return name.startsWith("data-url") ? "data URL" : "section";
+  if (language === "css") return "rule";
+  if (/^<.*>\(ƒ\)$/.test(name)) return "JSX callback";
+  if (/^<.*>$/.test(name)) return "JSX element";
+  if (name.endsWith(" (interface)")) return "interface";
+  if (name.endsWith(" (type)")) return "type";
+  if (name.endsWith(" (obj)")) return "object";
+  if (name.startsWith("(class) ") || name.endsWith(" (class)")) return "class";
+  if (name.endsWith("(ƒ)")) return "callback";
+  return "function";
+}
+
+/** What a file's top-level scopes are called: Markdown sections, CSS rules, code scopes. */
+function scopeNoun(language: string): string {
+  return language === "markdown" ? "section" : language === "css" ? "rule" : "scope";
+}
+
 /** The biggest direct children by LOC: what's actually inside this tile. */
 export function topChildren(
   d: d3.HierarchyNode<any>,
@@ -121,13 +152,17 @@ export function topChildren(
   const all = (d.children ?? [])
     .filter((c) => !isSynthetic(c) && nodeLoc(c) > 0)
     .sort((a, b) => nodeLoc(b) - nodeLoc(a));
-  const children = all.slice(0, limit).map((c) => ({
+  const listed = all.slice(0, limit);
+  const applies = (c: d3.HierarchyNode<any>) => metricApplies(c, primaryMetricId);
+  // A column of zeros (Python imports in a TS folder) says nothing.
+  const showColumn = showMetric && listed.some((c) => applies(c) && metricValue(c, primaryMetricId) !== 0);
+  const children = listed.map((c) => ({
     name: String(c.data?.name ?? ""),
     loc: nodeLoc(c),
     isFolder: c.data?.type === "folder",
     share: nodeLoc(c) / total,
     color: treemapFillColor(primaryMetricId, c.data?.metrics ?? {}, 0),
-    metric: !showMetric ? "" : formatValue(primaryMetricId, metricValue(c, primaryMetricId)),
+    metric: !showColumn ? "" : applies(c) ? formatValue(primaryMetricId, metricValue(c, primaryMetricId)) : "–",
   }));
   return { children, more: Math.max(0, all.length - limit) };
 }
@@ -135,11 +170,13 @@ export function topChildren(
 /** Where the node sits among its siblings by the coloring metric, worst first. */
 export function siblingRank(d: d3.HierarchyNode<any>, id: HotSpotMetricId): string {
   const parent = d.parent;
-  if (!parent) return "";
+  if (!parent || isSynthetic(d)) return "";
   const siblings = (parent.children ?? []).filter((c) => !isSynthetic(c));
   if (siblings.length < 2) return "";
-  const dir = metricDef(id)?.invert ? 1 : -1;
   const mine = metricValue(d, id);
+  // Every sibling tied (all zero, say): a rank would be noise.
+  if (siblings.every((s) => metricValue(s, id) === mine)) return "";
+  const dir = metricDef(id)?.invert ? 1 : -1;
   // Ties share the better rank.
   const rank = 1 + siblings.filter((s) => dir * (metricValue(s, id) - mine) < 0).length;
   return `#${rank} of ${siblings.length} in ${parent.data?.name ?? ""}`;
@@ -149,13 +186,17 @@ export function siblingRank(d: d3.HierarchyNode<any>, id: HotSpotMetricId): stri
  * Ancestors below the treemap root, joined like a path. The root folder is
  * already in the breadcrumb; a root file (zoomed into one) is kept.
  */
-function pathWithin(d: d3.HierarchyNode<any>): string {
+export function pathWithin(d: d3.HierarchyNode<any>): string {
   const ancestors = d.ancestors().slice(1);
   if (ancestors.at(-1)?.data?.type === "folder") ancestors.pop();
-  const names = ancestors
-    .reverse()
-    .map((a) => String(a.data?.name ?? ""));
-  return names.join("/");
+  // Folders and the file join with "/"; scopes inside a file with " › ".
+  let out = "";
+  for (const a of ancestors.reverse()) {
+    const name = String(a.data?.name ?? "");
+    const inFile = a.data?.type !== "folder" && a.data?.type !== "file";
+    out = out ? `${out}${inFile ? " › " : "/"}${name}` : name;
+  }
+  return out;
 }
 
 /** Folder LOC by file extension, biggest first: "tsx 62% · ts 31% · other 7%". */
@@ -193,6 +234,8 @@ const SHORT_LABELS: Record<string, string> = {
   function_count: "Functions",
   average_function_length: "Avg fn LOC",
   ts_import_coupling_count: "Imports",
+  ts_any_usage_count: "Any usage",
+  ts_ignore_count: "TS ignores",
   python_import_count: "Imports",
   ts_type_interface_count: "Types",
   ts_export_count: "Exports",
@@ -237,12 +280,14 @@ export function buildTooltipContent(d: d3.HierarchyNode<any>, primaryMetricId: H
   const type = String(d.data?.type ?? "");
   const metrics = d.data?.metrics ?? {};
   const def = metricDef(primaryMetricId);
+  const isScope = type !== "folder" && type !== "file";
+  const language = languageForPath(nodePath(d));
   // Coloring a CSS file by complexity paints every tile "fine"; don't repeat that as data.
-  const path = String(d.data?.path ?? title);
-  const primaryApplies =
-    type === "folder" || applicableMetrics(path, type !== "file").some((m) => m.id === primaryMetricId);
+  const primaryApplies = metricApplies(d, primaryMetricId);
   const childMetricId: HotSpotMetricId = primaryApplies ? primaryMetricId : "loc";
   const { children, more } = topChildren(d, primaryMetricId, TOOLTIP_CHILD_LIMIT, childMetricId !== "loc");
+  const showChildMetric = children.some((c) => c.metric !== "");
+  const noun = scopeNoun(language);
 
   let subtitle: string;
   if (type === "folder") {
@@ -252,19 +297,25 @@ export function buildTooltipContent(d: d3.HierarchyNode<any>, primaryMetricId: H
     subtitle = `folder · ${plural(files, "file")}${folders ? ` in ${plural(folders, "folder")}` : ""}`;
   } else if (type === "file") {
     const scopeCount = (d.children ?? []).filter((c) => !isSynthetic(c)).length;
-    subtitle = `file${scopeCount ? ` · ${plural(scopeCount, "scope")}` : ""}`;
+    subtitle = `file${scopeCount ? ` · ${plural(scopeCount, noun)}` : ""}`;
   } else {
     const start = Number(d.data?.start_line ?? 0);
     const end = Number(d.data?.end_line ?? 0);
-    subtitle = `${type || "scope"}${start > 0 && end >= start ? ` · L${start}–${end}` : ""}`;
+    subtitle = `${scopeKind(title, language)}${start > 0 && end >= start ? ` · L${start}–${end}` : ""}`;
   }
+
+  // "Low Comments" names a ranking; the value is a density.
+  let primaryLabel = def?.label ?? primaryMetricId;
+  if (primaryMetricId === "comment_density") primaryLabel = def?.viewerLabel ?? primaryLabel;
+  if (primaryMetricId === "complexity" && isScope) primaryLabel = "Complexity";
 
   const primary: TooltipPrimary | null =
     !primaryApplies || (primaryMetricId === "loc" && !d.parent)
       ? null
       : {
-          label: def?.label ?? primaryMetricId,
-          value: formatValue(primaryMetricId, metricValue(d, primaryMetricId)),
+          label: primaryLabel,
+          // The header already shows LOC.
+          value: primaryMetricId === "loc" ? "" : formatValue(primaryMetricId, metricValue(d, primaryMetricId)),
           color: treemapFillColor(primaryMetricId, metrics, 0),
           rank: siblingRank(d, primaryMetricId),
         };
@@ -278,10 +329,15 @@ export function buildTooltipContent(d: d3.HierarchyNode<any>, primaryMetricId: H
     mix: type === "folder" ? languageMix(d) : "",
     primary,
     lines: [...metricLines(d, primaryMetricId), ...notAnalyzedLines(metrics)],
-    childMetricLabel: childMetricId === "loc" ? "" : SHORT_LABELS[childMetricId] ?? def?.label ?? childMetricId,
-    childrenLabel: type === "folder" ? "Largest" : type === "file" ? "Largest scopes" : "Inside",
+    childMetricLabel: !showChildMetric
+      ? ""
+      : childMetricId === "complexity" && type !== "folder"
+        ? "CCN"
+        : SHORT_LABELS[childMetricId] ?? def?.label ?? childMetricId,
+    childrenLabel: type === "folder" ? "Largest" : type === "file" ? `Largest ${noun}s` : "Inside",
     children,
     moreChildren: more,
+    moreLabel: more > 0 ? `+${fmt(more)} more${type === "file" ? ` ${noun}${more === 1 ? "" : "s"}` : ""}` : "",
   };
 }
 
