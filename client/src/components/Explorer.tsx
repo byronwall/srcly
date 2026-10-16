@@ -5,14 +5,14 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   Columns3,
+  Flame,
+  ListTree,
+  PanelLeftClose,
 } from "lucide-solid";
 import { MetricPicker } from "./MetricPicker";
 import Popover from "./Popover";
 import { Button } from "./ui/Button";
-import { CheckboxRow } from "./ui/CheckboxRow";
 import { IconButton } from "./ui/IconButton";
-import { PopoverPanel, PopoverSectionTitle } from "./ui/PopoverPanel";
-import { TextInput } from "./ui/TextInput";
 import {
   HOTSPOT_METRICS,
   type HotSpotMetricId,
@@ -23,17 +23,18 @@ import { TreeNode } from "./TreeNode";
 import { extractFilePath } from "../utils/dataProcessing";
 import {
   EXPLORER_ROW_HEIGHT,
+  autoExpandPaths,
   flattenExplorerTree,
   getVirtualTreeRange,
 } from "../utils/explorerTree";
 import {
-  EXPLORER_COLUMNS,
   explorerSortValue,
   visibleExplorerColumns,
   type ExplorerColumn,
   type ExplorerSortField,
 } from "../utils/explorerColumns";
 import { ExplorerScopeBar } from "./ExplorerScopeBar";
+import { ColumnPickerPanel, ExplorerEmpty, ExplorerFilter } from "./ExplorerControls";
 import { TREEMAP_GRADIENT } from "../viz/treemap/utils/colors";
 
 export interface Node {
@@ -120,6 +121,13 @@ export const findNodeByPath = (root: Node, path: string): Node | null => {
   return null;
 };
 
+const HOT_SPOT_LIMIT = 50;
+
+const VIEW_TABS = [
+  { id: "tree", label: "Tree", icon: ListTree },
+  { id: "hotspots", label: "Hot Spots", icon: Flame },
+] as const;
+
 export default function Explorer(props: {
   data: any;
   fullData?: any;
@@ -132,6 +140,11 @@ export default function Explorer(props: {
   onZoom: (node: any) => void;
   filter: string;
   onFilterChange: (val: string) => void;
+  /** The zoomed node before filtering, so the scope bar survives a filter with no matches. */
+  scopeRoot?: any;
+  /** The whole scan, unfiltered, for the breadcrumb. */
+  scanRoot?: any;
+  onCollapse?: () => void;
 }) {
   const [sortField, setSortField] = createSignal<SortField>("loc");
   const [sortDirection, setSortDirection] = createSignal<SortDirection>("desc");
@@ -145,6 +158,7 @@ export default function Explorer(props: {
   const colorMetricDef = () =>
     HOTSPOT_METRICS.find((def) => def.id === colorMetric()) ?? HOTSPOT_METRICS[0];
   const columns = createMemo(() => visibleExplorerColumns(pickedColumns(), colorMetric()));
+  const scopeNode = () => props.data ?? props.scopeRoot ?? null;
   const [expandedPaths, setExpandedPaths] = createSignal<Set<string>>(new Set());
   const [collapsedPaths, setCollapsedPaths] = createSignal<Set<string>>(new Set());
   const [expandedMode, setExpandedMode] = createSignal<"manual" | "all" | "none">("manual");
@@ -158,7 +172,9 @@ export default function Explorer(props: {
     const rootPath = props.data?.path;
     if (rootPath === lastRootPath) return;
     lastRootPath = rootPath;
-    setExpandedPaths(rootPath ? new Set<string>([rootPath]) : new Set<string>());
+    // Open the biggest folders until the visible rows roughly fill the panel.
+    const budget = Math.max(20, Math.floor((treeScroller?.clientHeight || window.innerHeight - 220) / EXPLORER_ROW_HEIGHT));
+    setExpandedPaths(props.data ? autoExpandPaths(props.data, budget) : new Set<string>());
     setCollapsedPaths(new Set<string>());
     setExpandedMode("manual");
     setFocusedPath(rootPath ?? "");
@@ -373,7 +389,7 @@ export default function Explorer(props: {
         return { node, score };
       })
       .sort((a, b) => b.score - a.score)
-      .slice(0, 50);
+      .slice(0, HOT_SPOT_LIMIT);
   });
 
   return (
@@ -394,32 +410,34 @@ export default function Explorer(props: {
         onTreeKeyDown,
       }}
     >
-      <div class="flex flex-col h-full plc-panel border-l border-y-0 border-r-0 rounded-none w-full">
-        {/* Toolbar */}
-        <div class="plc-toolbar p-2 border-b flex flex-col gap-2">
-          <div class="flex items-center gap-2">
-            <div class="flex rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface-muted)] p-0.5">
-              <Button
-                variant="tab"
-                active={viewMode() === "tree"}
-                size="sm"
-                class="px-2"
-                onClick={() => setViewMode("tree")}
-              >
-                Tree
-              </Button>
-              <Button
-                variant="tab"
-                active={viewMode() === "hotspots"}
-                size="sm"
-                class="px-2"
-                onClick={() => setViewMode("hotspots")}
-              >
-                Hot Spots
-              </Button>
-            </div>
+      <div class="flex h-full w-full flex-col bg-[var(--plc-surface)]">
+        {/* Same 40px toolbar as the treemap header, so the borders line up across the seam. */}
+        <div class="plc-toolbar flex shrink-0 items-center gap-1 border-b px-2">
+          <div
+            role="tablist"
+            aria-label="Sidebar view"
+            class="flex shrink-0 rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface-muted)] p-0.5"
+          >
+            <For each={VIEW_TABS}>
+              {(tab) => (
+                <Button
+                  variant="tab"
+                  size="sm"
+                  role="tab"
+                  aria-selected={viewMode() === tab.id}
+                  active={viewMode() === tab.id}
+                  class="h-6 gap-1.5 px-2"
+                  onClick={() => setViewMode(tab.id)}
+                >
+                  <tab.icon size={13} aria-hidden="true" />
+                  {tab.label}
+                </Button>
+              )}
+            </For>
+          </div>
 
-            <div class="flex items-center gap-1 ml-auto">
+          <div class="ml-auto flex items-center">
+            <Show when={viewMode() === "tree"}>
               <IconButton
                 label="Expand all"
                 onClick={() => { setCollapsedPaths(new Set<string>()); setExpandedMode("all"); }}
@@ -432,75 +450,64 @@ export default function Explorer(props: {
               >
                 <ChevronsDownUp size={15} aria-hidden="true" />
               </IconButton>
-              <div class="relative">
-                <Popover
-                  isOpen={showColumnPicker()}
-                  onOpenChange={setShowColumnPicker}
-                  placement="bottom-end"
-                  offset={{ x: 0, y: 4 }}
-                  trigger={(triggerProps) => (
-                    <IconButton
-                      ref={triggerProps.ref}
-                      label="Choose columns"
-                      onClick={(e) => triggerProps.onClick(e)}
-                    >
-                      <Columns3 size={15} aria-hidden="true" />
-                    </IconButton>
-                  )}
-                >
-                  <PopoverPanel width="md">
-                    <PopoverSectionTitle>Columns</PopoverSectionTitle>
-                    <div class="max-h-80 space-y-1 overflow-y-auto pr-1">
-                      <For each={EXPLORER_COLUMNS}>
-                        {(column) => (
-                          <CheckboxRow
-                            checked={
-                              column.id === colorMetric() ||
-                              pickedColumns().includes(column.id)
-                            }
-                            disabled={column.id === colorMetric()}
-                            onChange={() => toggleColumn(column.id)}
-                            label={
-                              column.id === colorMetric()
-                                ? `${column.title} (color)`
-                                : column.title
-                            }
-                          />
-                        )}
-                      </For>
-                    </div>
-                  </PopoverPanel>
-                </Popover>
-              </div>
-            </div>
+              <Popover
+                isOpen={showColumnPicker()}
+                onOpenChange={setShowColumnPicker}
+                placement="bottom-end"
+                offset={{ x: 0, y: 4 }}
+                trigger={(triggerProps) => (
+                  <IconButton
+                    ref={triggerProps.ref}
+                    label="Choose columns"
+                    aria-expanded={showColumnPicker()}
+                    class={showColumnPicker() ? "bg-[var(--plc-surface-selected)] text-[var(--plc-accent)]" : ""}
+                    onClick={(e) => triggerProps.onClick(e)}
+                  >
+                    <Columns3 size={15} aria-hidden="true" />
+                  </IconButton>
+                )}
+              >
+                <ColumnPickerPanel
+                  colorMetric={colorMetric()}
+                  picked={pickedColumns()}
+                  onToggle={toggleColumn}
+                />
+              </Popover>
+              <span aria-hidden="true" class="mx-1 h-4 w-px bg-[var(--plc-border)]" />
+            </Show>
+            <IconButton label="Hide sidebar ( [ )" onClick={() => props.onCollapse?.()}>
+              <PanelLeftClose size={15} aria-hidden="true" />
+            </IconButton>
           </div>
+        </div>
 
-          <TextInput
-            type="text"
-            placeholder={
-              viewMode() === "tree" ? "Filter files…" : "Filter hot spots…"
-            }
+        <div class="flex shrink-0 items-center border-b border-[var(--plc-border)] px-2 py-1.5">
+          <ExplorerFilter
             value={props.filter}
-            onInput={(e) => props.onFilterChange(e.currentTarget.value)}
+            placeholder={viewMode() === "tree" ? "Filter files" : "Filter hot spots"}
+            onChange={props.onFilterChange}
           />
         </div>
 
+        <Show when={scopeNode()}>
+          {(root) => (
+            <ExplorerScopeBar
+              root={root()}
+              fullRoot={props.scanRoot ?? props.fullData}
+              colorMetric={colorMetricDef()}
+              showTop={viewMode() === "tree"}
+              onZoom={props.onZoom}
+              onSelect={props.onFileSelect}
+            />
+          )}
+        </Show>
+
         <Show when={viewMode() === "tree"}>
-          <Show when={props.data}>
-            {(root) => (
-              <ExplorerScopeBar
-                root={root()}
-                fullRoot={props.fullData}
-                colorMetric={colorMetricDef()}
-                onZoom={props.onZoom}
-                onSelect={props.onFileSelect}
-              />
-            )}
-          </Show>
           <div class="plc-table-header plc-label-caps flex items-center border-b select-none" style={{ height: "24px" }}>
+            {/* Indented to the row icons, so "Name" sits over the names. */}
             <button
               type="button"
-              class="flex h-full flex-1 items-center pl-2 hover:text-[var(--plc-on-surface)]"
+              class="flex h-full flex-1 items-center pl-6 transition-colors duration-150 hover:text-[var(--plc-on-surface)]"
               onClick={() => handleHeaderClick("name")}
             >
               Name <SortIcon field="name" />
@@ -509,12 +516,12 @@ export default function Explorer(props: {
               {(column) => (
                 <button
                   type="button"
-                  class="relative flex h-full shrink-0 items-center justify-end pr-1.5 hover:text-[var(--plc-on-surface)]"
+                  class="relative flex h-full shrink-0 items-center justify-end pr-1.5 transition-colors duration-150 hover:text-[var(--plc-on-surface)]"
                   style={{ width: `${column.width}px` }}
                   title={
                     column.id === colorMetric()
-                      ? `${column.title} — treemap color`
-                      : column.title
+                      ? `${column.title} (treemap color) · click to sort`
+                      : `${column.title} · click to sort`
                   }
                   onClick={() => handleHeaderClick(column.id)}
                 >
@@ -539,9 +546,11 @@ export default function Explorer(props: {
             <Show
               when={visibleTreeRows().length > 0}
               fallback={
-                <div class="p-4 text-center text-[var(--plc-on-subtle)] text-sm">
-                  {props.filter.trim() ? "No files match this filter." : "No files to show."}
-                </div>
+                <ExplorerEmpty
+                  filter={props.filter}
+                  what="files"
+                  onClear={() => props.onFilterChange("")}
+                />
               }
             >
               <div role="tree" aria-label="Codebase files">
@@ -564,7 +573,7 @@ export default function Explorer(props: {
         </Show>
 
         <Show when={viewMode() === "hotspots"}>
-          <div class="flex items-center gap-2 border-b border-[var(--plc-border)] px-2 py-1.5">
+          <div class="flex shrink-0 items-center gap-2 border-b border-[var(--plc-border)] px-2 py-1.5">
             <MetricPicker
               prefix="Rank by"
               selected={selectedHotSpotMetrics()}
@@ -572,7 +581,9 @@ export default function Explorer(props: {
               class="flex-1"
             />
             <span class="plc-data-sm shrink-0 text-[var(--plc-on-subtle)]">
-              {hotSpots().length.toLocaleString("en-US")} results
+              {hotSpots().length === HOT_SPOT_LIMIT
+                ? `Top ${HOT_SPOT_LIMIT}`
+                : `${hotSpots().length.toLocaleString("en-US")} results`}
             </span>
           </div>
           <div class="flex-1 overflow-y-auto overflow-x-hidden">
@@ -588,9 +599,11 @@ export default function Explorer(props: {
               )}
             </For>
             <Show when={hotSpots().length === 0}>
-              <div class="p-4 text-center text-[var(--plc-on-subtle)] text-sm">
-                No hot spots match this filter.
-              </div>
+              <ExplorerEmpty
+                filter={props.filter}
+                what="hot spots"
+                onClear={() => props.onFilterChange("")}
+              />
             </Show>
           </div>
         </Show>

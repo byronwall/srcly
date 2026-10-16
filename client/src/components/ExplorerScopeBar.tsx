@@ -2,22 +2,33 @@ import { For, Show, createMemo } from "solid-js";
 import { ChevronRight, CornerLeftUp } from "lucide-solid";
 import { IconButton } from "./ui/IconButton";
 import { metricCellColors, metricCellText } from "../utils/explorerColumns";
-import { ancestorChain, summarizeScope } from "../utils/explorerScope";
+import { ancestorChain, scopeDisplayName, summarizeScope } from "../utils/explorerScope";
 import type { HotSpotMetricDef } from "../utils/metricsStore";
 import { extractFilePath } from "../utils/dataProcessing";
 import type { Node } from "./Explorer";
 
 const count = (n: number) => n.toLocaleString("en-US");
 
+function Stat(props: { value: number; unit: string; title?: string }) {
+  return (
+    <span class="shrink-0 whitespace-nowrap" title={props.title}>
+      <span class="plc-data-sm text-[var(--plc-on-surface)]">{count(props.value)}</span>{" "}
+      {props.unit}
+    </span>
+  );
+}
+
 /**
- * Where the explorer is (clickable breadcrumb) and what is in it: file,
- * folder, function and line counts, plus the file that most needs attention
- * under the treemap's color metric.
+ * Where the explorer is (clickable breadcrumb) and what is in it: lines,
+ * files and functions, plus the file that most needs attention under the
+ * treemap's color metric.
  */
 export function ExplorerScopeBar(props: {
   root: Node;
   fullRoot?: Node;
   colorMetric: HotSpotMetricDef;
+  /** The top-file line; Hot Spots lists it as #1 already. */
+  showTop?: boolean;
   onZoom: (node: Node) => void;
   onSelect: (path: string, startLine?: number, endLine?: number, node?: Node) => void;
 }) {
@@ -26,21 +37,22 @@ export function ExplorerScopeBar(props: {
     const found = full ? ancestorChain(full, props.root.path) : [];
     return found.length ? found : [props.root];
   });
+  const scanRootPath = () => chain()[0]?.path;
   const parent = () => chain().at(-2);
   const summary = createMemo(() => summarizeScope(props.root, props.colorMetric));
 
-  const openWorst = () => {
-    const worst = summary().worst?.node;
-    const path = worst && extractFilePath(worst.path, worst.type);
-    if (worst && path) props.onSelect(path, undefined, undefined, worst);
+  const openTop = () => {
+    const top = summary().worst?.node;
+    const path = top && extractFilePath(top.path, top.type);
+    if (top && path) props.onSelect(path, undefined, undefined, top);
   };
 
   return (
-    <div class="border-b border-[var(--plc-border)] bg-[var(--plc-surface-subtle)] px-1 py-1">
-      <div class="flex h-6 min-w-0 items-center gap-0.5 plc-body-sm">
+    <div class="shrink-0 border-b border-[var(--plc-border)] bg-[var(--plc-surface-subtle)] px-1 pb-1 pt-0.5 text-[12px] text-[var(--plc-on-subtle)]">
+      <div class="flex h-6 min-w-0 items-center gap-0.5 text-[13px]">
         <IconButton
           size="xs"
-          label="Go up one level"
+          label={parent() ? `Up to ${scopeDisplayName(parent()!, scanRootPath())}` : "At the top level"}
           disabled={!parent()}
           onClick={() => {
             const target = parent();
@@ -60,16 +72,16 @@ export function ExplorerScopeBar(props: {
                   </Show>
                   <button
                     type="button"
-                    class={`min-w-0 truncate rounded px-1 transition-colors duration-150 hover:bg-[var(--plc-surface-hover)] ${
+                    class={`min-w-0 truncate rounded px-1 leading-5 transition-colors duration-150 ${
                       isLast()
-                        ? "shrink-0 max-w-[70%] font-semibold text-[var(--plc-on-surface)]"
-                        : "max-w-[7rem] text-[var(--plc-on-muted)] hover:text-[var(--plc-on-surface)]"
+                        ? "shrink-0 max-w-[75%] cursor-default font-semibold text-[var(--plc-on-surface)]"
+                        : "max-w-[7rem] text-[var(--plc-on-muted)] hover:bg-[var(--plc-surface-hover)] hover:text-[var(--plc-accent)]"
                     }`}
                     title={node.path}
                     aria-current={isLast() ? "location" : undefined}
-                    onClick={() => props.onZoom(node)}
+                    onClick={() => !isLast() && props.onZoom(node)}
                   >
-                    {node.name}
+                    {scopeDisplayName(node, scanRootPath())}
                   </button>
                 </>
               );
@@ -77,44 +89,46 @@ export function ExplorerScopeBar(props: {
           </For>
         </nav>
       </div>
-      <div class="plc-data-sm flex h-5 min-w-0 items-center gap-2 px-1 text-[var(--plc-on-subtle)]">
-        <span class="shrink-0" title="Lines of code">
-          <span class="text-[var(--plc-on-surface)]">{count(summary().loc)}</span> LOC
-        </span>
-        <span class="shrink-0" title={`${count(summary().folders)} folders`}>
-          <span class="text-[var(--plc-on-surface)]">{count(summary().files)}</span> files
-        </span>
+      <div class="flex h-5 min-w-0 items-center gap-2.5 pl-7">
+        <Stat value={summary().loc} unit="LOC" title="Lines of code" />
+        <Stat
+          value={summary().files}
+          unit="files"
+          title={`${count(summary().files)} files in ${count(summary().folders)} folders`}
+        />
         <Show when={summary().scopes > 0}>
-          <span class="shrink-0" title="Functions, classes and other scopes">
-            <span class="text-[var(--plc-on-surface)]">{count(summary().scopes)}</span> fns
-          </span>
+          <Stat value={summary().scopes} unit="fns" title="Functions, classes and other scopes" />
         </Show>
       </div>
-      {/* Always reserved, so the tree below never shifts when the metric changes. */}
-      <div class="plc-data-sm flex h-5 min-w-0 items-center px-1 text-[var(--plc-on-subtle)]">
-        <Show
-          when={summary().worst}
-          fallback={<span>No {props.colorMetric.label} in this folder</span>}
-        >
-          {(worst) => (
-            <button
-              type="button"
-              class="-mx-1 flex min-w-0 flex-1 items-center gap-1.5 rounded px-1 transition-colors duration-150 hover:bg-[var(--plc-surface-hover)] hover:text-[var(--plc-on-surface)]"
-              title={`Open ${worst().node.path}`}
-              onClick={openWorst}
-            >
-              <span class="shrink-0">{props.colorMetric.invert ? "Lowest" : "Top"} {props.colorMetric.shortLabel}</span>
-              <span class="min-w-0 truncate text-left text-[var(--plc-on-surface)]">{worst().node.name}</span>
-              <span
-                class="ml-auto shrink-0 rounded-sm px-1"
-                style={metricCellColors(props.colorMetric, worst().node) ?? {}}
+      <Show when={props.showTop ?? true}>
+        {/* Always reserved, so the tree below never shifts when the metric changes. */}
+        <div class="flex h-5 min-w-0 items-center pl-7">
+          <Show
+            when={summary().worst}
+            fallback={<span class="truncate">No {props.colorMetric.label} in this folder</span>}
+          >
+            {(top) => (
+              <button
+                type="button"
+                class="-ml-1 flex min-w-0 flex-1 items-center gap-1.5 rounded px-1 text-left transition-colors duration-150 hover:bg-[var(--plc-surface-hover)]"
+                title={`Open ${top().node.path}`}
+                onClick={openTop}
               >
-                {metricCellText(props.colorMetric, worst().node) || "0"}
-              </span>
-            </button>
-          )}
-        </Show>
-      </div>
+                <span class="shrink-0">
+                  {props.colorMetric.invert ? "Lowest" : "Top"} {props.colorMetric.shortLabel}
+                </span>
+                <span class="min-w-0 truncate text-[var(--plc-accent)]">{top().node.name}</span>
+                <span
+                  class="plc-data-sm ml-auto shrink-0 rounded-sm px-1 leading-4"
+                  style={metricCellColors(props.colorMetric, top().node) ?? {}}
+                >
+                  {metricCellText(props.colorMetric, top().node) || "0"}
+                </span>
+              </button>
+            )}
+          </Show>
+        </div>
+      </Show>
     </div>
   );
 }

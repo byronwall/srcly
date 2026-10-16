@@ -98,7 +98,7 @@ export function TreeNode(props: {
           <ChevronRight
             size={14}
             aria-hidden="true"
-            class={`transition-transform duration-150 ${props.expanded ? "rotate-90" : ""}`}
+            class={`transition-transform duration-150 motion-reduce:transition-none ${props.expanded ? "rotate-90" : ""}`}
           />
         </Show>
       </button>
@@ -107,7 +107,7 @@ export function TreeNode(props: {
         <span class="truncate" title={props.node.name}>{props.node.name}</span>
         <Show when={props.node.type === "folder" && props.node.metrics?.file_count}>
           {(files) => (
-            <span class="plc-data-sm shrink-0 text-[var(--plc-on-disabled)]" title={`${files()} files`}>
+            <span class="plc-data-sm shrink-0 text-[var(--plc-on-subtle)]" title={`${files()} files`}>
               {files()}
             </span>
           )}
@@ -134,14 +134,15 @@ export function TreeNode(props: {
               class="plc-data-md relative flex h-full shrink-0 items-center justify-end pr-1.5 text-[var(--plc-on-subtle)]"
               style={{ width: `${column.width}px`, ...(colors() ?? {}) }}
             >
-              <Show when={column.id === "loc" && locShare() > 0}>
+              {/* Data bar: the row's share of its parent's lines, filling in from the right. */}
+              <Show when={column.id === "loc" && locShare() >= 0.01}>
                 <span
                   aria-hidden="true"
-                  class="absolute bottom-[2px] left-1 h-[2px] rounded-full bg-[var(--plc-accent)] opacity-60"
-                  style={{ width: `${Math.max(2, locShare() * (column.width - 10))}px` }}
+                  class="absolute inset-y-[3px] right-0.5 rounded-sm bg-[var(--plc-accent)] opacity-[0.13]"
+                  style={{ width: `${locShare() * (column.width - 4)}px` }}
                 />
               </Show>
-              {column.value(props.node)}
+              <span class="relative">{column.value(props.node)}</span>
             </div>
           );
         }}

@@ -53,3 +53,9 @@ export function summarizeScope<T extends ScopeNode>(root: T, metric: HotSpotMetr
   }
   return summary;
 }
+
+/** A node's label: the scan root shows its folder's name instead of "root". */
+export function scopeDisplayName(node: { name: string; path: string }, scanRootPath?: string): string {
+  if (node.path !== scanRootPath) return node.name;
+  return node.path.split(/[\\/]/).filter(Boolean).pop() ?? node.name;
+}

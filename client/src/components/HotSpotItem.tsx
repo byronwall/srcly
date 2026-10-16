@@ -70,15 +70,17 @@ export function HotSpotItem(props: {
 
   return (
     <div
-      class="plc-row plc-body-sm group relative flex cursor-pointer items-center gap-2 border-b px-2 py-0.5"
+      class="plc-row plc-body-sm group relative flex cursor-pointer items-center gap-2 border-b px-2 pb-1.5 pt-0.5"
       onClick={handleClick}
     >
-      <span
-        aria-hidden="true"
-        class="absolute bottom-0 left-0 h-[2px] bg-[var(--plc-accent)] opacity-40"
-        style={{ width: `${props.maxScore > 0 ? (props.score / props.maxScore) * 100 : 0}%` }}
-      />
-      <div class="plc-data-sm w-6 shrink-0 text-right text-[var(--plc-on-disabled)]">
+      {/* Score relative to #1, inset under the name so it reads as part of the row. */}
+      <span aria-hidden="true" class="absolute bottom-[3px] left-10 right-2 h-[2px]">
+        <span
+          class="block h-full rounded-full bg-[var(--plc-accent)] opacity-40"
+          style={{ width: `${props.maxScore > 0 ? (props.score / props.maxScore) * 100 : 0}%` }}
+        />
+      </span>
+      <div class="plc-data-sm w-6 shrink-0 self-start pt-[3px] text-right text-[var(--plc-on-subtle)]">
         {props.rank}
       </div>
       <div class="min-w-0 flex-1">

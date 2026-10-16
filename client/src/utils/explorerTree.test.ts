@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { flattenExplorerTree, getVirtualTreeRange } from "./explorerTree";
+import { autoExpandPaths, flattenExplorerTree, getVirtualTreeRange } from "./explorerTree";
 
 describe("flattenExplorerTree", () => {
   it("sorts folders first and reveals descendants only when expanded", () => {
@@ -71,5 +71,21 @@ describe("getVirtualTreeRange", () => {
       top: 0,
       bottom: 0,
     });
+  });
+});
+
+describe("autoExpandPaths", () => {
+  const folder = (name: string, loc: number, children: any[]) => ({ name, path: `/${name}`, type: "folder", metrics: { loc }, children });
+  const file = (name: string) => ({ name, path: `/${name}`, type: "file" });
+
+  it("opens the largest folders first while rows fit the budget", () => {
+    const big = folder("big", 100, [file("b1"), file("b2"), file("b3")]);
+    const small = folder("small", 5, [file("s1"), file("s2")]);
+    const root = folder("root", 105, [big, small]);
+    expect([...autoExpandPaths(root, 5)]).toEqual(["/root", "/big"]);
+    expect([...autoExpandPaths(root, 10)].sort()).toEqual(["/big", "/root", "/small"]);
+    expect([...autoExpandPaths(root, 2)]).toEqual(["/root"]);
+    // "big" doesn't fit, so "small" stays closed too rather than opening out of order.
+    expect([...autoExpandPaths(root, 4)]).toEqual(["/root"]);
   });
 });

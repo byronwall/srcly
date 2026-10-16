@@ -156,7 +156,9 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Tree / Hot Spots tabs, column picker, sorting, filter box | `client/src/components/Explorer.tsx` |
 | Column definitions, cell text/heat tint, color-metric column | `client/src/utils/explorerColumns.ts` |
 | Scope bar: breadcrumb, LOC/files/fns counts, top file by color metric | `client/src/components/ExplorerScopeBar.tsx`, `client/src/utils/explorerScope.ts` |
-| Virtual tree rows + keyboard navigation | `client/src/components/TreeNode.tsx`, `client/src/utils/explorerTree.ts` |
+| Filter box, empty state, grouped column picker | `client/src/components/ExplorerControls.tsx` |
+| Sidebar collapse (`[`), rail, resize handle, saved width | `client/src/hooks/useSidebarLayout.ts`, `client/src/components/SidebarRail.tsx`; wired in `client/src/App.tsx` |
+| Virtual tree rows, keyboard navigation, initial auto-expand | `client/src/components/TreeNode.tsx`, `client/src/utils/explorerTree.ts` |
 | Hot spot rows | `client/src/components/HotSpotItem.tsx` |
 | File-type filter popover | `client/src/components/FileTypeFilter.tsx` |
 

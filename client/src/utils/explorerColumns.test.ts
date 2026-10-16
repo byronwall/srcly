@@ -77,3 +77,11 @@ describe("explorer scope", () => {
     expect(summarizeScope(tree, def("comment_density")).worst?.node.name).toBe("b.ts");
   });
 });
+
+describe("scopeDisplayName", () => {
+  it("names the scan root after its folder", async () => {
+    const { scopeDisplayName } = await import("./explorerScope");
+    expect(scopeDisplayName({ name: "root", path: "/Users/me/proj" }, "/Users/me/proj")).toBe("proj");
+    expect(scopeDisplayName({ name: "src", path: "/Users/me/proj/src" }, "/Users/me/proj")).toBe("src");
+  });
+});

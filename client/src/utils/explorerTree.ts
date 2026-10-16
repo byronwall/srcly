@@ -92,3 +92,32 @@ export function getVirtualTreeRange(
     bottom: Math.max(0, (itemCount - end) * rowHeight),
   };
 }
+
+/**
+ * Paths to expand so the tree opens filled but not overflowing: starting
+ * from the root, open the largest folders (by LOC) in order while the
+ * visible rows stay within `budget`. Only folders open; files keep their scopes closed.
+ */
+export function autoExpandPaths<T extends ExplorerTreeNode & { metrics?: { loc?: number } }>(
+  root: T,
+  budget: number
+): Set<string> {
+  const expanded = new Set<string>([root.path]);
+  let rows = root.children?.length ?? 0;
+  const loc = (node: T) => node.metrics?.loc ?? 0;
+  const isFolder = (node: T) => node.type === "folder" && Boolean(node.children?.length);
+  const queue = ((root.children ?? []) as T[]).filter(isFolder);
+
+  while (queue.length) {
+    queue.sort((a, b) => loc(b) - loc(a));
+    const folder = queue.shift()!;
+    const children = (folder.children ?? []) as T[];
+    // Stop at the first folder that doesn't fit; opening smaller ones
+    // instead would expand arbitrary corners of the tree.
+    if (rows + children.length > budget) break;
+    expanded.add(folder.path);
+    rows += children.length;
+    queue.push(...children.filter(isFolder));
+  }
+  return expanded;
+}

@@ -36,7 +36,7 @@
   --plc-surface: #ffffff;
   --plc-surface-subtle: #f8fafc;
   --plc-surface-muted: #f1f5f9;
-  --plc-surface-hover: #f8fafc;
+  --plc-surface-hover: #f2f5f9;
   --plc-surface-selected: #eaf2ff;
   --plc-surface-inset: #f6f8fb;
   --plc-border: #e2e8f0;
@@ -207,6 +207,18 @@ samp {
 
 .plc-row:hover {
   background: var(--plc-surface-hover);
+}
+
+/* The tree's current row, while the tree has focus (keyboard or click). */
+[role="tree"]:focus-within .plc-row[aria-selected="true"] {
+  background: var(--plc-surface-selected);
+}
+
+/* Set on <body> while a resize handle is dragged. */
+.plc-resizing,
+.plc-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
 }
 
 .plc-table-header {
