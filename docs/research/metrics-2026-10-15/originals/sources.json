@@ -1,0 +1,324 @@
+{
+  "schema_version": "1.0.0",
+  "retrieved_at": "2026-10-15",
+  "sources": [
+    {
+      "id": "S01",
+      "title": "Savoia, This Code is CRAP (2011)",
+      "url": "https://testing.googleblog.com/2011/02/this-code-is-crap.html",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "creator article",
+      "limitations": "Origin, basis-path input, formula, >30 heuristic; not a validated defect model."
+    },
+    {
+      "id": "S02",
+      "title": "Savoia, Introducing crap4j (2007)",
+      "url": "https://www.artima.com/weblogs/viewpost.jsp?thread=215899",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "creator article",
+      "limitations": "Experimental formula, Evans collaboration, historical name, >=30 convention; example table contains an arithmetic inconsistency."
+    },
+    {
+      "id": "S03",
+      "title": "GMetrics CrapMetric",
+      "url": "https://dx42.github.io/gmetrics/metrics/CrapMetric.html",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "Configurable coverage provider; Cobertura line-coverage example is a variant of the original coverage kind."
+    },
+    {
+      "id": "S04",
+      "title": "SonarQube Server metric definitions",
+      "url": "https://docs.sonarsource.com/sonarqube-server/user-guide/code-metrics/metrics-definition",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "Rolling page identifies 2026.5. Metric definitions and overall/new-code distinction; not an independent release verification."
+    },
+    {
+      "id": "S05",
+      "title": "Sonar cognitive-complexity rationale",
+      "url": "https://www.sonarsource.com/blog/cognitive-complexity-because-testability-understandability/",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "metric author's vendor article",
+      "limitations": "Understandability rationale and nesting/flow principles; historical article, not a complete current language implementation specification."
+    },
+    {
+      "id": "S06",
+      "title": "Muñoz Barón, Wyrich, Wagner: empirical cognitive-complexity validation",
+      "url": "https://arxiv.org/abs/2007.12520",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "original research abstract",
+      "limitations": "Evidence about understandability outcomes; does not establish incremental value in Srcly."
+    },
+    {
+      "id": "S07",
+      "title": "Landman et al.: relationship between CC and SLOC",
+      "url": "https://www.rascal-mpl.org/blog/2016/01/01/empirical-analysis-of-the-relationship-between-CC-and-SLOC/",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "authors' research summary",
+      "limitations": "Aggregation and transformations affect relationships; association is not a metric-removal rule. Publisher lists a corrigendum; no numerical coefficient is relied upon here."
+    },
+    {
+      "id": "S08",
+      "title": "CodeScene hotspots",
+      "url": "https://docs.enterprise.codescene.io/latest/guides/technical/hotspots.html",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "Activity plus structural context and drilldown; vendor benefit claims are not treated as Srcly validation."
+    },
+    {
+      "id": "S09",
+      "title": "CodeScene change coupling",
+      "url": "https://docs.enterprise.codescene.io/latest/guides/technical/change-coupling.html",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "Co-change investigation and interpretation, including useful and problematic coupling."
+    },
+    {
+      "id": "S10",
+      "title": "CodeScene X-Ray",
+      "url": "https://docs.enterprise.codescene.io/latest/guides/technical/xray.html",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "On-demand method-level investigation, trends and coupling."
+    },
+    {
+      "id": "S11",
+      "title": "CodeScene hotspot details example",
+      "url": "https://docs.enterprise.codescene.io/latest/_images/HotspotsContextMenu.png",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official static screenshot inspected",
+      "limitations": "Visually inspected circle map, filters, selected-file metrics, source/review/X-Ray controls. Example numbers are not study data."
+    },
+    {
+      "id": "S12",
+      "title": "CodeScene coupling sidebar example",
+      "url": "https://docs.enterprise.codescene.io/latest/_images/changeCouplingSidebar.png",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official static screenshot inspected",
+      "limitations": "Visually inspected peer list, coupling-source label and highlighted relationships."
+    },
+    {
+      "id": "S13",
+      "title": "NDepend treemap documentation",
+      "url": "https://www.ndepend.com/docs/treemap-visualization-of-code-metrics",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "Independent level/size/color selection and linked inspection."
+    },
+    {
+      "id": "S14",
+      "title": "NDepend metric definitions",
+      "url": "https://www.ndepend.com/docs/code-metrics",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "Type-level coupling and named LCOM variants; language/model dependence."
+    },
+    {
+      "id": "S15",
+      "title": "NDepend size-metric menu example",
+      "url": "https://www.ndepend.com/Doc/Treemap/TreemapSizeMetrics.png",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official static screenshot inspected",
+      "limitations": "Only the dropdown/level controls were visually inspected; not a running full treemap."
+    },
+    {
+      "id": "S16",
+      "title": "JArchitect metrics",
+      "url": "https://www.jarchitect.com/Metrics",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "Java-oriented metric reference; grouped as a related family rather than independent validation."
+    },
+    {
+      "id": "S17",
+      "title": "CppDepend product overview",
+      "url": "https://www.cppdepend.com/",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official product documentation",
+      "limitations": "Current page advertises C/C++, Java and Rust; no claim of complete feature parity among languages."
+    },
+    {
+      "id": "S18",
+      "title": "CppDepend dependency matrix example",
+      "url": "https://www.cppdepend.com/images/docs/matrix_dsm.png",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official static screenshot inspected",
+      "limitations": "Visually inspected hierarchical dependency matrix, numerical cells and selected-type details."
+    },
+    {
+      "id": "S19",
+      "title": "Understand graph catalog",
+      "url": "https://docs.scitools.com/help/reference/graph-catalog.html",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "Question-specific graph catalog; no interactive session or screenshot inspection claimed."
+    },
+    {
+      "id": "S20",
+      "title": "SciTools Understand overview",
+      "url": "https://scitools.com/understand",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official product documentation",
+      "limitations": "Semantic exploration product; vendor positioning, not measured comparative performance."
+    },
+    {
+      "id": "S21",
+      "title": "Lizard public repository",
+      "url": "https://github.com/terryyin/lizard",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official public code/documentation",
+      "limitations": "Lightweight function CCN, LOC and parameter analysis; Srcly's resolved dependency version remains unknown."
+    },
+    {
+      "id": "S22",
+      "title": "Radon metric definitions",
+      "url": "https://radon.readthedocs.io/en/master/intro.html",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "Python CC construct rules, Halstead and MI formulas; MI experimental warning."
+    },
+    {
+      "id": "S23",
+      "title": "Xenon public repository",
+      "url": "https://github.com/rubik/xenon",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official public code/documentation",
+      "limitations": "Radon-backed enforcement of block/module/total complexity limits."
+    },
+    {
+      "id": "S24",
+      "title": "scc public repository",
+      "url": "https://github.com/boyter/scc",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official public code/documentation",
+      "limitations": "Current main documents counting, optional approximate cognitive complexity and Git hotspot/coupling capabilities; pin a release before integration."
+    },
+    {
+      "id": "S25",
+      "title": "PMD/CPD duplication documentation",
+      "url": "https://pmd.github.io/pmd/pmd_userdocs_cpd.html",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "Established token-clone workflow. Page is a development snapshot with a future-dated 2026-10-30 header; not evidence that that release is available on retrieval date."
+    },
+    {
+      "id": "S26",
+      "title": "jscpd public repository",
+      "url": "https://github.com/kucherenko/jscpd",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official public code/documentation",
+      "limitations": "Current main documents Rust v5 and legacy Node v4; no executable was installed or run."
+    },
+    {
+      "id": "S27",
+      "title": "jscpd Rust documentation",
+      "url": "https://github.com/kucherenko/jscpd/blob/master/docs/rust.md",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official public code/documentation",
+      "limitations": "Artifact and baseline workflows; verify a pinned release's schema before an adapter."
+    },
+    {
+      "id": "S28",
+      "title": "ESLint complexity rule",
+      "url": "https://eslint.org/docs/latest/rules/complexity",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "Configurable classic/modified cyclomatic counting and JavaScript-specific branch cases."
+    },
+    {
+      "id": "S29",
+      "title": "typescript-eslint no-unsafe-assignment",
+      "url": "https://typescript-eslint.io/rules/no-unsafe-assignment/",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "Type-aware unsafe-any flows require type information; explicit token counts are not equivalent."
+    },
+    {
+      "id": "S30",
+      "title": "Semgrep licensing",
+      "url": "https://docs.semgrep.dev/licensing",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official licensing documentation",
+      "limitations": "CE LGPL-2.1 versus proprietary capabilities and separate restrictive Semgrep-maintained rule license. Integration needs license review; this is not legal advice."
+    },
+    {
+      "id": "S31",
+      "title": "Semgrep triage and remediation",
+      "url": "https://docs.semgrep.dev/semgrep-code/triage-remediation",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "Finding triage workflow; no proprietary engine or web UI session was exercised."
+    },
+    {
+      "id": "S32",
+      "title": "Qodana UI overview",
+      "url": "https://www.jetbrains.com/help/qodana/ui-overview.html",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "Problems/baseline views, source/rule detail, hide versus exclude versus baseline; page updated 2026-10-12."
+    },
+    {
+      "id": "S33",
+      "title": "coverage.py branch measurement",
+      "url": "https://coverage.readthedocs.io/en/latest/branch.html",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "Line/arc distinctions, partial-branch evidence and exclusions; combined percentages are not pure branch coverage."
+    },
+    {
+      "id": "S34",
+      "title": "Istanbul nyc repository",
+      "url": "https://github.com/istanbuljs/nyc",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official public code/documentation",
+      "limitations": "Source maps, reporting and all-files eligibility; unvisited files need not appear under defaults."
+    },
+    {
+      "id": "S35",
+      "title": "Stryker mutant states and metrics",
+      "url": "https://stryker-mutator.io/docs/mutation-testing-elements/mutant-states-and-metrics/",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "Detected/undetected/invalid states and denominators; killed plus timeout in documented score."
+    },
+    {
+      "id": "S36",
+      "title": "PIT basic concepts",
+      "url": "https://pitest.org/quickstart/basic_concepts/",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "Java bytecode mutation, test selection and equivalent-mutant limitation."
+    },
+    {
+      "id": "S37",
+      "title": "dependency-cruiser repository",
+      "url": "https://github.com/sverweij/dependency-cruiser",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official public code/documentation",
+      "limitations": "Declarative architectural constraints and textual/graphical violation reports; MIT."
+    },
+    {
+      "id": "S38",
+      "title": "Git log manual",
+      "url": "https://git-scm.com/docs/git-log",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "official documentation",
+      "limitations": "History traversal, merge policy, numstat and rename limitations; --follow is single-file only."
+    },
+    {
+      "id": "S39",
+      "title": "Inozemtseva and Holmes: Coverage Is Not Strongly Correlated with Test Suite Effectiveness",
+      "url": "https://dl.acm.org/doi/10.1145/2568225.2568271",
+      "retrieved_at": "2026-10-15",
+      "evidence_type": "original research, publisher search abstract only",
+      "limitations": "Publisher search abstract retrieved; direct open failed. Supporting context only; effectiveness uses a testing proxy, not proof of real defect prediction."
+    }
+  ],
+  "access_limits": [
+    "No interactive commercial product sessions or installations.",
+    "The PMD page is a development snapshot, not a verified release.",
+    "ACM coverage-paper direct open failed; only publisher search abstract was available.",
+    "No empirical metric correlations, performance benchmarks or predictive validation were run."
+  ]
+}

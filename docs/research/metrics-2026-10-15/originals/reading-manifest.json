@@ -1,0 +1,1074 @@
+{
+  "schema_version": "1.0.0",
+  "repository": "https://github.com/byronwall/srcly",
+  "baseline": "83dcbf40879ca06ab07cdfcf365b5c0ccb7608a4",
+  "research_date": "2026-10-15",
+  "source_packet": {
+    "filename": "source-packet.txt",
+    "sha256": "10aeccf6ddeeb3b4264b905a183fb984da43999868979099c5f277f2d587ea13",
+    "bytes": 1078259,
+    "selected_file_count": 164,
+    "not_a_runnable_checkout": true
+  },
+  "prompt": {
+    "filename": "pro-prompt(3).md",
+    "sha256": "6ffce57033a44a7ed6703cb4f7d06dfd6b74a5d5ade5da9724bca6870d883271"
+  },
+  "gate": "GO for static portfolio audit using authoritative packet and primary web research.",
+  "inspection_method": "Read-only source/text inspection. Python AST/literal parsing used to reconcile declarations, not to import/execute repository code. Required route audited; unrelated UI boilerplate and historical context were not all treated as decisive evidence.",
+  "required_route_present_and_inspected": [
+    "AGENTS.md",
+    "README.md",
+    "docs/CODE_MAP.md",
+    "DESIGN.md",
+    "server/pyproject.toml",
+    "client/package.json",
+    "server/app/models.py",
+    "server/app/services/analysis_types.py",
+    "server/app/services/analysis.py",
+    "server/app/services/reporting.py",
+    "server/app/services/typescript/typescript_analysis.py",
+    "server/app/services/python/python_analysis.py",
+    "server/app/services/css/css_analysis.py",
+    "server/app/services/markdown/markdown_analysis.py",
+    "server/app/services/ipynb/ipynb_analysis.py",
+    "client/src/utils/metricsStore.tsx",
+    "client/src/components/Explorer.tsx",
+    "client/src/components/MetricPicker.tsx",
+    "client/src/components/HotSpotItem.tsx",
+    "client/src/components/Treemap.tsx",
+    "client/src/viz/treemap/utils/colors.ts",
+    "client/src/components/CodeModal/MetricsSection.tsx",
+    "client/src/components/CodeModal/MetricsSidebar.tsx",
+    "client/src/viz/treemap/components/TreemapTooltip.tsx",
+    "client/src/viz/treemap/hooks/useTreemapTooltip.ts",
+    "client/src/viz/deps/DependencyView.tsx",
+    "client/src/viz/deps/DependencyCanvas.tsx",
+    "server/tests/test_complexity_semantics.py",
+    "server/tests/test_reporting.py",
+    "server/tests/test_synthetic_scopes.py",
+    "server/tests/test_tree_sitter_analysis.py",
+    "server/tests/test_ts_analysis.py",
+    "server/tests/test_tsx_metrics.py",
+    "server/tests/test_python_analysis.py",
+    "server/tests/test_function_body_loc.py",
+    "docs/intent/dependency-view/implementation-plan.md",
+    "docs/intent/dependency-view/initiative-map.json",
+    "docs/intent/dependency-view/intent-brief.md",
+    "docs/intent/dependency-view/shape-brief.md",
+    "server/app/services/deps/__init__.py",
+    "server/app/services/deps/common.py",
+    "server/app/services/deps/graph.py",
+    "server/app/services/deps/python_deps.py",
+    "server/app/services/deps/tsconfig.py",
+    "server/app/services/deps/typescript_deps.py",
+    "server/tests/test_dependency_graph_py.py",
+    "server/tests/test_dependency_graph_symbols.py",
+    "server/tests/test_dependency_graph_ts.py"
+  ],
+  "superseded_requested_path": {
+    "requested": "client/src/components/DependencyGraph.tsx",
+    "replacement": [
+      "client/src/viz/deps/DependencyView.tsx",
+      "client/src/viz/deps/DependencyCanvas.tsx"
+    ],
+    "evidence": "Treemap imports the replacement; dependency initiative records legacy retirement.",
+    "contract_gap": false
+  },
+  "limitations": [
+    "Dependencies/build outputs/unrelated files excluded; lockfile-resolved versions unknown.",
+    "Repository identity and revision are those declared by the authoritative packet; no independent Git object authentication.",
+    "Test source was read, but no tests/builds/scans or research evaluation programs were run.",
+    "A presence in the complete packet manifest is not a claim that every unrelated file was fully audited.",
+    "Code anchors refer to per-file lines in packet sections; packet_start_line maps source line 1."
+  ],
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "packet_start_line": 172,
+      "lines": 85,
+      "role": "required reading route"
+    },
+    {
+      "path": "DESIGN.md",
+      "packet_start_line": 260,
+      "lines": 821,
+      "role": "required reading route"
+    },
+    {
+      "path": "README.md",
+      "packet_start_line": 1084,
+      "lines": 203,
+      "role": "required reading route"
+    },
+    {
+      "path": "client/package.json",
+      "packet_start_line": 1290,
+      "lines": 35,
+      "role": "required reading route"
+    },
+    {
+      "path": "client/src/App.tsx",
+      "packet_start_line": 1327,
+      "lines": 608,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/CodeModal/CodeModal.tsx",
+      "packet_start_line": 1938,
+      "lines": 350,
+      "role": "additional decisive code evidence"
+    },
+    {
+      "path": "client/src/components/CodeModal/CodeModalHeader.tsx",
+      "packet_start_line": 2291,
+      "lines": 135,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/CodeModal/CodePane.tsx",
+      "packet_start_line": 2429,
+      "lines": 129,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/CodeModal/MarkdownPane.tsx",
+      "packet_start_line": 2561,
+      "lines": 51,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/CodeModal/MetricItem.tsx",
+      "packet_start_line": 2616,
+      "lines": 12,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/CodeModal/MetricsSection.tsx",
+      "packet_start_line": 2631,
+      "lines": 25,
+      "role": "required reading route"
+    },
+    {
+      "path": "client/src/components/CodeModal/MetricsSidebar.tsx",
+      "packet_start_line": 2660,
+      "lines": 50,
+      "role": "required reading route"
+    },
+    {
+      "path": "client/src/components/CodeModal/SidebarTree.tsx",
+      "packet_start_line": 2713,
+      "lines": 92,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/CodeModal/StickyBreadcrumb.tsx",
+      "packet_start_line": 2809,
+      "lines": 143,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/CodeModal/StructurePanel.tsx",
+      "packet_start_line": 2955,
+      "lines": 82,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/Explorer.tsx",
+      "packet_start_line": 3041,
+      "lines": 779,
+      "role": "required reading route"
+    },
+    {
+      "path": "client/src/components/FilePicker.tsx",
+      "packet_start_line": 3823,
+      "lines": 254,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/FileTypeFilter.tsx",
+      "packet_start_line": 4080,
+      "lines": 290,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/HotSpotItem.tsx",
+      "packet_start_line": 4373,
+      "lines": 106,
+      "role": "required reading route"
+    },
+    {
+      "path": "client/src/components/MetricPicker.tsx",
+      "packet_start_line": 4482,
+      "lines": 128,
+      "role": "required reading route"
+    },
+    {
+      "path": "client/src/components/Popover.tsx",
+      "packet_start_line": 4613,
+      "lines": 164,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/Toast.tsx",
+      "packet_start_line": 4780,
+      "lines": 52,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/TreeNode.tsx",
+      "packet_start_line": 4835,
+      "lines": 141,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/Treemap.tsx",
+      "packet_start_line": 4979,
+      "lines": 283,
+      "role": "required reading route"
+    },
+    {
+      "path": "client/src/components/dialog/DialogShell.tsx",
+      "packet_start_line": 5265,
+      "lines": 80,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/feedback/ScanProgress.tsx",
+      "packet_start_line": 5348,
+      "lines": 188,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/feedback/States.tsx",
+      "packet_start_line": 5539,
+      "lines": 85,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/layout/PanelHeader.tsx",
+      "packet_start_line": 5627,
+      "lines": 35,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/ui/Button.tsx",
+      "packet_start_line": 5665,
+      "lines": 79,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/ui/CheckboxRow.tsx",
+      "packet_start_line": 5747,
+      "lines": 33,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/ui/IconButton.tsx",
+      "packet_start_line": 5783,
+      "lines": 28,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/ui/PopoverPanel.tsx",
+      "packet_start_line": 5814,
+      "lines": 64,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/ui/TextInput.tsx",
+      "packet_start_line": 5881,
+      "lines": 24,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/components/ui/classes.ts",
+      "packet_start_line": 5908,
+      "lines": 5,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/hooks/useAutoScrollSelection.ts",
+      "packet_start_line": 5916,
+      "lines": 46,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/hooks/useFileContent.ts",
+      "packet_start_line": 5967,
+      "lines": 60,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/hooks/useHighlightedCode.ts",
+      "packet_start_line": 6032,
+      "lines": 108,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/index.css",
+      "packet_start_line": 6143,
+      "lines": 461,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/index.tsx",
+      "packet_start_line": 6607,
+      "lines": 8,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/markdown/rehypeWrapSelection.ts",
+      "packet_start_line": 6618,
+      "lines": 52,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/markdown/remarkHighlightSelection.ts",
+      "packet_start_line": 6675,
+      "lines": 89,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/services/fileContent.ts",
+      "packet_start_line": 6769,
+      "lines": 14,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/services/scanJobs.ts",
+      "packet_start_line": 6788,
+      "lines": 192,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/color.ts",
+      "packet_start_line": 6983,
+      "lines": 15,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/dataProcessing.test.ts",
+      "packet_start_line": 7001,
+      "lines": 44,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/dataProcessing.ts",
+      "packet_start_line": 7048,
+      "lines": 159,
+      "role": "additional decisive code evidence"
+    },
+    {
+      "path": "client/src/utils/explorerTree.test.ts",
+      "packet_start_line": 7210,
+      "lines": 55,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/explorerTree.ts",
+      "packet_start_line": 7268,
+      "lines": 84,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/guessLangFromPath.test.ts",
+      "packet_start_line": 7355,
+      "lines": 25,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/guessLangFromPath.ts",
+      "packet_start_line": 7383,
+      "lines": 22,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/indentation.test.ts",
+      "packet_start_line": 7410,
+      "lines": 25,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/indentation.ts",
+      "packet_start_line": 7440,
+      "lines": 32,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/lineRange.test.ts",
+      "packet_start_line": 7476,
+      "lines": 58,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/lineRange.ts",
+      "packet_start_line": 7539,
+      "lines": 53,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/markdownImageSrc.test.ts",
+      "packet_start_line": 7597,
+      "lines": 28,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/markdownImageSrc.ts",
+      "packet_start_line": 7630,
+      "lines": 38,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/metricsStore.tsx",
+      "packet_start_line": 7673,
+      "lines": 133,
+      "role": "required reading route"
+    },
+    {
+      "path": "client/src/utils/scanProgress.test.ts",
+      "packet_start_line": 7809,
+      "lines": 133,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/scanProgress.ts",
+      "packet_start_line": 7945,
+      "lines": 183,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/shikiHtml.test.ts",
+      "packet_start_line": 8131,
+      "lines": 44,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/shikiHtml.ts",
+      "packet_start_line": 8180,
+      "lines": 56,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/structureTree.test.ts",
+      "packet_start_line": 8241,
+      "lines": 34,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/structureTree.ts",
+      "packet_start_line": 8280,
+      "lines": 179,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/utils/svgText.ts",
+      "packet_start_line": 8464,
+      "lines": 79,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/viz/deps/DependencyCanvas.tsx",
+      "packet_start_line": 8546,
+      "lines": 412,
+      "role": "required reading route"
+    },
+    {
+      "path": "client/src/viz/deps/DependencyView.tsx",
+      "packet_start_line": 8961,
+      "lines": 205,
+      "role": "required reading route"
+    },
+    {
+      "path": "client/src/viz/deps/__fixtures__/srcly-client.json",
+      "packet_start_line": 9169,
+      "lines": 4595,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/viz/deps/contract.ts",
+      "packet_start_line": 13766,
+      "lines": 46,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/viz/deps/geometry.ts",
+      "packet_start_line": 13815,
+      "lines": 116,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/viz/deps/hierarchy.ts",
+      "packet_start_line": 13934,
+      "lines": 125,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/viz/deps/layout.test.ts",
+      "packet_start_line": 14062,
+      "lines": 119,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/viz/deps/layout.ts",
+      "packet_start_line": 14184,
+      "lines": 743,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/viz/deps/viewModel.test.ts",
+      "packet_start_line": 14930,
+      "lines": 141,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/viz/deps/viewModel.ts",
+      "packet_start_line": 15074,
+      "lines": 423,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/viz/treemap/components/TreemapCanvas.tsx",
+      "packet_start_line": 15500,
+      "lines": 392,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/viz/treemap/components/TreemapHeader.tsx",
+      "packet_start_line": 15895,
+      "lines": 134,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/viz/treemap/components/TreemapTooltip.tsx",
+      "packet_start_line": 16032,
+      "lines": 38,
+      "role": "required reading route"
+    },
+    {
+      "path": "client/src/viz/treemap/hooks/useTreemapTooltip.test.ts",
+      "packet_start_line": 16074,
+      "lines": 26,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/viz/treemap/hooks/useTreemapTooltip.ts",
+      "packet_start_line": 16103,
+      "lines": 127,
+      "role": "required reading route"
+    },
+    {
+      "path": "client/src/viz/treemap/utils/colors.ts",
+      "packet_start_line": 16235,
+      "lines": 99,
+      "role": "required reading route"
+    },
+    {
+      "path": "client/src/viz/treemap/utils/hitTest.test.ts",
+      "packet_start_line": 16337,
+      "lines": 53,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/viz/treemap/utils/hitTest.ts",
+      "packet_start_line": 16393,
+      "lines": 79,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/viz/treemap/utils/path.ts",
+      "packet_start_line": 16475,
+      "lines": 23,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/viz/treemap/utils/tree.test.ts",
+      "packet_start_line": 16501,
+      "lines": 92,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/viz/treemap/utils/tree.ts",
+      "packet_start_line": 16596,
+      "lines": 64,
+      "role": "additional decisive code evidence"
+    },
+    {
+      "path": "client/src/viz/treemap/utils/zoom.test.ts",
+      "packet_start_line": 16663,
+      "lines": 33,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/viz/treemap/utils/zoom.ts",
+      "packet_start_line": 16699,
+      "lines": 27,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "client/src/workers/highlight.worker.ts",
+      "packet_start_line": 16729,
+      "lines": 135,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "docs/CODE_MAP.md",
+      "packet_start_line": 16867,
+      "lines": 189,
+      "role": "required reading route"
+    },
+    {
+      "path": "docs/analysis/2026-05-03-precision-light-console-conversion.md",
+      "packet_start_line": 17059,
+      "lines": 179,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "docs/analysis/2026-05-03-product-grid-prod-run-retrospective.md",
+      "packet_start_line": 17241,
+      "lines": 601,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "docs/analysis/CSS_SCSS.md",
+      "packet_start_line": 17845,
+      "lines": 35,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "docs/analysis/Frontend_Component_System_Audit.md",
+      "packet_start_line": 17883,
+      "lines": 266,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "docs/analysis/Generic_Lizard.md",
+      "packet_start_line": 18153,
+      "lines": 54,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "docs/analysis/Jupyter_Notebooks.md",
+      "packet_start_line": 18210,
+      "lines": 24,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "docs/analysis/Markdown.md",
+      "packet_start_line": 18237,
+      "lines": 31,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "docs/analysis/Typescript_JavaScript.md",
+      "packet_start_line": 18271,
+      "lines": 82,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "docs/analysis/client-performance.md",
+      "packet_start_line": 18356,
+      "lines": 97,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "docs/intent/dependency-view/implementation-plan.md",
+      "packet_start_line": 18456,
+      "lines": 122,
+      "role": "required reading route"
+    },
+    {
+      "path": "docs/intent/dependency-view/initiative-map.json",
+      "packet_start_line": 18581,
+      "lines": 654,
+      "role": "required reading route"
+    },
+    {
+      "path": "docs/intent/dependency-view/intent-brief.md",
+      "packet_start_line": 19238,
+      "lines": 70,
+      "role": "required reading route"
+    },
+    {
+      "path": "docs/intent/dependency-view/shape-brief.md",
+      "packet_start_line": 19311,
+      "lines": 70,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/app/__init__.py",
+      "packet_start_line": 19384,
+      "lines": 7,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/app/config.py",
+      "packet_start_line": 19396,
+      "lines": 139,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/app/main.py",
+      "packet_start_line": 19538,
+      "lines": 125,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/app/models.py",
+      "packet_start_line": 19667,
+      "lines": 105,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/app/routers/analysis.py",
+      "packet_start_line": 19775,
+      "lines": 131,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/app/routers/files.py",
+      "packet_start_line": 19909,
+      "lines": 101,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/app/routers/scans.py",
+      "packet_start_line": 20013,
+      "lines": 126,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/app/run.py",
+      "packet_start_line": 20142,
+      "lines": 428,
+      "role": "additional decisive code evidence"
+    },
+    {
+      "path": "server/app/services/analysis.py",
+      "packet_start_line": 20573,
+      "lines": 1225,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/app/services/analysis_types.py",
+      "packet_start_line": 21801,
+      "lines": 70,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/app/services/cache.py",
+      "packet_start_line": 21874,
+      "lines": 261,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/app/services/css/css_analysis.py",
+      "packet_start_line": 22138,
+      "lines": 235,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/app/services/deps/__init__.py",
+      "packet_start_line": 22378,
+      "lines": 1,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/app/services/deps/common.py",
+      "packet_start_line": 22381,
+      "lines": 191,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/app/services/deps/graph.py",
+      "packet_start_line": 22575,
+      "lines": 171,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/app/services/deps/python_deps.py",
+      "packet_start_line": 22749,
+      "lines": 402,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/app/services/deps/tsconfig.py",
+      "packet_start_line": 23154,
+      "lines": 181,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/app/services/deps/typescript_deps.py",
+      "packet_start_line": 23338,
+      "lines": 466,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/app/services/ipynb/ipynb_analysis.py",
+      "packet_start_line": 23807,
+      "lines": 126,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/app/services/markdown/markdown_analysis.py",
+      "packet_start_line": 23939,
+      "lines": 412,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/app/services/python/python_analysis.py",
+      "packet_start_line": 24356,
+      "lines": 314,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/app/services/reporting.py",
+      "packet_start_line": 24673,
+      "lines": 806,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/app/services/scan_jobs.py",
+      "packet_start_line": 25482,
+      "lines": 307,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/app/services/scan_progress.py",
+      "packet_start_line": 25792,
+      "lines": 39,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/app/services/scan_workers.py",
+      "packet_start_line": 25834,
+      "lines": 342,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/app/services/typescript/typescript_analysis.py",
+      "packet_start_line": 26179,
+      "lines": 769,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/pyproject.toml",
+      "packet_start_line": 26950,
+      "lines": 36,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/tests/conftest.py",
+      "packet_start_line": 26989,
+      "lines": 12,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/scan_worker_boot_helpers.py",
+      "packet_start_line": 27004,
+      "lines": 23,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/scan_worker_helpers.py",
+      "packet_start_line": 27030,
+      "lines": 51,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_analysis_cache.py",
+      "packet_start_line": 27084,
+      "lines": 298,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_analysis_context.py",
+      "packet_start_line": 27385,
+      "lines": 55,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_analysis_responsiveness.py",
+      "packet_start_line": 27445,
+      "lines": 127,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_anonymous_naming.py",
+      "packet_start_line": 27575,
+      "lines": 232,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_cli_repo_root_detection.py",
+      "packet_start_line": 27811,
+      "lines": 67,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_complexity_semantics.py",
+      "packet_start_line": 27883,
+      "lines": 77,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/tests/test_css_import_resolution.py",
+      "packet_start_line": 27963,
+      "lines": 27,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_css_scss_analysis.py",
+      "packet_start_line": 27993,
+      "lines": 171,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_dependency_graph_py.py",
+      "packet_start_line": 28167,
+      "lines": 132,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/tests/test_dependency_graph_symbols.py",
+      "packet_start_line": 28302,
+      "lines": 94,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/tests/test_dependency_graph_ts.py",
+      "packet_start_line": 28399,
+      "lines": 164,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/tests/test_file_discovery.py",
+      "packet_start_line": 28566,
+      "lines": 167,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_files.py",
+      "packet_start_line": 28736,
+      "lines": 47,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_function_body_loc.py",
+      "packet_start_line": 28791,
+      "lines": 57,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/tests/test_ipynb_analysis.py",
+      "packet_start_line": 28853,
+      "lines": 102,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_large_and_unparsed_files.py",
+      "packet_start_line": 28958,
+      "lines": 124,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_lizard_go_backtracking.py",
+      "packet_start_line": 29085,
+      "lines": 56,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_markdown_analysis.py",
+      "packet_start_line": 29144,
+      "lines": 152,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_python_analysis.py",
+      "packet_start_line": 29301,
+      "lines": 168,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/tests/test_reporting.py",
+      "packet_start_line": 29472,
+      "lines": 288,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/tests/test_scan_determinism.py",
+      "packet_start_line": 29763,
+      "lines": 39,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_scan_error_handling.py",
+      "packet_start_line": 29805,
+      "lines": 123,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_scan_jobs.py",
+      "packet_start_line": 29931,
+      "lines": 208,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_scan_worker_sys_path.py",
+      "packet_start_line": 30142,
+      "lines": 60,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_scan_workers.py",
+      "packet_start_line": 30205,
+      "lines": 245,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_synthetic_scopes.py",
+      "packet_start_line": 30453,
+      "lines": 60,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/tests/test_tree_sitter_analysis.py",
+      "packet_start_line": 30516,
+      "lines": 114,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/tests/test_treemap_scopes.py",
+      "packet_start_line": 30633,
+      "lines": 63,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_ts_analysis.py",
+      "packet_start_line": 30700,
+      "lines": 160,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/tests/test_tsx_attribute_object_parenting.py",
+      "packet_start_line": 30863,
+      "lines": 91,
+      "role": "available context; not claimed exhaustively audited"
+    },
+    {
+      "path": "server/tests/test_tsx_metrics.py",
+      "packet_start_line": 30959,
+      "lines": 125,
+      "role": "required reading route"
+    },
+    {
+      "path": "server/tests/test_tsx_scopes.py",
+      "packet_start_line": 31087,
+      "lines": 144,
+      "role": "available context; not claimed exhaustively audited"
+    }
+  ],
+  "external_sources_file": "sources.json",
+  "tool_survey_entries": 19,
+  "static_ui_images_inspected": 4
+}

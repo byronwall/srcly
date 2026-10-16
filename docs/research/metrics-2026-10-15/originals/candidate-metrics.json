@@ -1,0 +1,1479 @@
+{
+  "schema_version": "1.0.0",
+  "baseline": "83dcbf40879ca06ab07cdfcf365b5c0ccb7608a4",
+  "research_date": "2026-10-15",
+  "status": "research proposals; no integrations performed",
+  "ranking_interpretation": "Priority for bounded proofs, not a universal ranking of scientific validity.",
+  "candidates": [
+    {
+      "id": "C01",
+      "rank": 1,
+      "name": "Recent change frequency with separate churn context",
+      "recommendation": "adopt",
+      "portfolio_tier": "conditional default",
+      "definition": "Count distinct eligible commits touching a file in a declared window; keep changed-line volume as a separate diagnostic, not a synonym. Proposed first window is 90 days with a 180-day sensitivity view.",
+      "formula": "F_w(f)=|{eligible commits c in window w: c changes f}|; churn_w(f)=sum_c(added_lines+deleted_lines), separate.",
+      "scope": "File initially; function history deferred until reliable identity mapping.",
+      "rollup": "Folders use union of touching commit IDs, not sum of file frequencies. Changed-line totals must state that a commit touching several files contributes several file changes.",
+      "required_inputs": [
+        "Local Git object database",
+        "pinned HEAD and scan content hash",
+        "window, merge, rename, bulk-change and exclusion policies"
+      ],
+      "unsupported_or_missing_behavior": "N/A without Git, with inadequate shallow history, or when source/history revisions cannot be joined; do not display unavailable history as zero changes.",
+      "unique_decision_value": "Which structurally difficult code is actively costing attention, versus stable code that can be left alone?",
+      "overlap": {
+        "conceptual": "Different data source from size/CCN, but large files tend to change more. Churn and frequency share activity information; default to one and retain the other in detail.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Mass formatting, vendored updates, merges, generated code and squash conventions distort counts. A busy important module is not necessarily poorly designed.",
+      "suggested_action": "Inspect a high-activity function/file's latest changes before deciding to refactor. Show the commit evidence and structural components separately.",
+      "implementation_fit": "Reuse existing local Git discovery patterns, add a bounded history provider separate from AST scanning; cache by HEAD plus policy. Git --follow is single-file, so do not assume it solves whole-repo rename tracking.",
+      "cost": {
+        "band": "M",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "Three local repositories: manually verify ten file histories each, include rename/merge/bulk formatting fixtures, and blind-review activity-aware versus CCN+LOC-only top targets.",
+      "rejection_gate": "Do not make default if no useful new prioritization cases appear in two repositories, history gaps cannot be explained, or bounded local cost exceeds the agreed budget.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S08",
+          "title": "CodeScene hotspots",
+          "url": "https://docs.enterprise.codescene.io/latest/guides/technical/hotspots.html",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Activity plus structural context and drilldown; vendor benefit claims are not treated as Srcly validation."
+        },
+        {
+          "id": "S10",
+          "title": "CodeScene X-Ray",
+          "url": "https://docs.enterprise.codescene.io/latest/guides/technical/xray.html",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "On-demand method-level investigation, trends and coupling."
+        },
+        {
+          "id": "S24",
+          "title": "scc public repository",
+          "url": "https://github.com/boyter/scc",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official public code/documentation",
+          "limitations": "Current main documents counting, optional approximate cognitive complexity and Git hotspot/coupling capabilities; pin a release before integration."
+        },
+        {
+          "id": "S38",
+          "title": "Git log manual",
+          "url": "https://git-scm.com/docs/git-log",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "History traversal, merge policy, numstat and rename limitations; --follow is single-file only."
+        }
+      ],
+      "recommendation_ids": [
+        "R10",
+        "R09"
+      ],
+      "runtime_cost_and_noise_budget": "Read bounded Git history once; scales with eligible commits and changed files; cache by HEAD/policy.",
+      "language_portability": "Git-backed languages generally; commit practices vary.",
+      "licensing_constraints": "Prefer existing local/authorized inputs. Named vendor formulas/workflows are research references, not permission to copy proprietary implementation or rule assets.",
+      "repository_fit_paths": [
+        "server/app/models.py",
+        "server/app/services/analysis.py",
+        "server/tests/test_complexity_semantics.py",
+        "server/tests/test_reporting.py"
+      ]
+    },
+    {
+      "id": "C02",
+      "rank": 2,
+      "name": "Dependency cycle membership with an explicit cycle witness",
+      "recommendation": "adopt",
+      "portfolio_tier": "conditional default",
+      "definition": "Strongly connected components in a declared directed dependency projection. A component with more than one node, or a self-loop, is cyclic. Name the projection: declared static runtime imports versus resolved-symbol dependencies.",
+      "formula": "cyclic(v) = (|SCC(v)|>1) OR self_loop(v); compute SCC in O(V+E), excluding explicitly inapplicable edge kinds.",
+      "scope": "File/module first; selected package boundaries optionally.",
+      "rollup": "Component identity and union of members; summarize cyclic eligible files and components. Do not sum per-file component sizes or enumerate every simple cycle.",
+      "required_inputs": [
+        "Lossless declared import edges with source locations",
+        "resolved endpoint mapping",
+        "type-only, lazy/dynamic, barrel and unresolved flags",
+        "graph completeness/config fingerprint"
+      ],
+      "unsupported_or_missing_behavior": "Unknown/partial graph status when imports cannot resolve. No-edge/no-cycle is not a clean architecture guarantee if collection is incomplete.",
+      "unique_decision_value": "Which dependency loop prevents clean separation or introduces order-sensitive initialization risk?",
+      "overlap": {
+        "conceptual": "Not recoverable from raw import count or CCN. Dense acyclic code can have more edges than a harmful small cycle.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Type-only relationships, plugin registries and intentional mutually recursive modules can be harmless; a dependency cycle is not proof of a runtime fault.",
+      "suggested_action": "Open a minimal witness path with each import line, classify intended relationships, and evaluate one edge removal or boundary move rather than blindly flattening the graph.",
+      "implementation_fit": "Extend existing deps collectors/contract and focus view; preserve original edges before barrel/symbol projection. No replacement layout initiative.",
+      "cost": {
+        "band": "M",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "TS and Python fixtures distinguish a true runtime cycle, type-only cycle, barrel cycle, lazy import and unresolved edge; witnesses must map to original source. Reuse current 50-box focus tests.",
+      "rejection_gate": "Reject a blanket runtime-cycle label if current projection cannot provide original import witnesses. Withhold clean-state claims when unresolved data remains.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S37",
+          "title": "dependency-cruiser repository",
+          "url": "https://github.com/sverweij/dependency-cruiser",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official public code/documentation",
+          "limitations": "Declarative architectural constraints and textual/graphical violation reports; MIT."
+        },
+        {
+          "id": "S14",
+          "title": "NDepend metric definitions",
+          "url": "https://www.ndepend.com/docs/code-metrics",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Type-level coupling and named LCOM variants; language/model dependence."
+        },
+        {
+          "id": "S19",
+          "title": "Understand graph catalog",
+          "url": "https://docs.scitools.com/help/reference/graph-catalog.html",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Question-specific graph catalog; no interactive session or screenshot inspection claimed."
+        }
+      ],
+      "recommendation_ids": [
+        "R11",
+        "R02"
+      ],
+      "runtime_cost_and_noise_budget": "SCC pass is linear in graph nodes plus edges; extraction/resolution and witness retention are the larger costs.",
+      "language_portability": "Initially the existing TS/JS and Python graph; other language edges unsupported.",
+      "licensing_constraints": "Prefer existing local/authorized inputs. Named vendor formulas/workflows are research references, not permission to copy proprietary implementation or rule assets.",
+      "repository_fit_paths": [
+        "client/src/viz/deps/DependencyView.tsx",
+        "docs/intent/dependency-view/shape-brief.md",
+        "server/app/models.py",
+        "server/app/services/analysis.py",
+        "server/app/services/deps/common.py",
+        "server/app/services/deps/graph.py",
+        "server/app/services/reporting.py"
+      ]
+    },
+    {
+      "id": "C03",
+      "rank": 3,
+      "name": "Clone families and coordinated-change topology",
+      "recommendation": "adopt",
+      "portfolio_tier": "conditional default",
+      "definition": "Token-based matched regions grouped into clone families; retain token normalization, minimum length and detector version. Display family membership, peer files and clone extent rather than only a duplication percentage.",
+      "formula": "duplicate_extent(f)=|union of eligible matched line sets in f|; density=extent/declared eligible line denominator; family_spread=number of distinct files.",
+      "scope": "Clone region/family, with file attachment.",
+      "rollup": "Union matched source lines within each file; unique family IDs at folders. Family file spread and cross-boundary occurrence counts are diagnostics, not a summed quality score.",
+      "required_inputs": [
+        "User-provided pinned CPD/jscpd artifact",
+        "matched source regions and content hashes",
+        "normalization/exclusion configuration"
+      ],
+      "unsupported_or_missing_behavior": "N/A for unsupported languages or missing/stale artifacts. Overlapping regions count once in duplicated-line extent.",
+      "unique_decision_value": "What other code must be changed consistently when this logic changes?",
+      "overlap": {
+        "conceptual": "Distinct from current duplicated-string count. Size increases clone opportunity; true duplication may still be intentionally retained.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Boilerplate, independent test examples, generated clients, repeated protocols and premature shared abstractions are common false positives. Rename normalization broadens noise.",
+      "suggested_action": "Compare peer regions and changes side by side. Extract shared logic only when responsibilities and change patterns justify it; otherwise record intentional duplication.",
+      "implementation_fit": "Start with one artifact schema, not a clone engine. Current jscpd main documents Rust v5, so do not assume its older Node API. CPD language normalization options differ.",
+      "cost": {
+        "band": "M",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "Three hand-verified clone families spanning files, two intentional-duplication counterexamples, and overlapping-region fixtures; compare decisions with LOC/CCN-only queue.",
+      "rejection_gate": "Reject default display if most inspected families suggest harmful abstractions, source ranges cannot be reproduced, or artifact processing dominates normal scans.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S25",
+          "title": "PMD/CPD duplication documentation",
+          "url": "https://pmd.github.io/pmd/pmd_userdocs_cpd.html",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Established token-clone workflow. Page is a development snapshot with a future-dated 2026-10-30 header; not evidence that that release is available on retrieval date."
+        },
+        {
+          "id": "S26",
+          "title": "jscpd public repository",
+          "url": "https://github.com/kucherenko/jscpd",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official public code/documentation",
+          "limitations": "Current main documents Rust v5 and legacy Node v4; no executable was installed or run."
+        },
+        {
+          "id": "S27",
+          "title": "jscpd Rust documentation",
+          "url": "https://github.com/kucherenko/jscpd/blob/master/docs/rust.md",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official public code/documentation",
+          "limitations": "Artifact and baseline workflows; verify a pinned release's schema before an adapter."
+        }
+      ],
+      "recommendation_ids": [
+        "R12",
+        "R09"
+      ],
+      "runtime_cost_and_noise_budget": "Artifact parsing plus interval/family indexing; detector execution is external and can be materially costlier.",
+      "language_portability": "Only detector-supported languages and normalization modes, declared per artifact.",
+      "licensing_constraints": "Pin detector/version and review redistribution obligations. Artifact import is preferred over bundling an engine; source snippets may contain private code.",
+      "repository_fit_paths": [
+        "client/src/components/CodeModal/CodeModal.tsx",
+        "server/app/services/typescript/typescript_analysis.py",
+        "server/tests/test_complexity_semantics.py",
+        "server/tests/test_reporting.py"
+      ]
+    },
+    {
+      "id": "C04",
+      "rank": 4,
+      "name": "Type-aware/static findings with rule evidence",
+      "recommendation": "adopt",
+      "portfolio_tier": "optional imported evidence",
+      "definition": "Preserve externally produced diagnostics with rule, location, severity, confidence, tool/configuration version and baseline status. Keep typed unsafe-value flows separate from stylistic findings.",
+      "formula": null,
+      "scope": "Finding and source region; attach to function/file when identity is safe.",
+      "rollup": "Distinct stable finding fingerprints by rule/category/status. No aggregate severity multiplication across tools without deduplication.",
+      "required_inputs": [
+        "Authorized lint/type-checker or SARIF-like report",
+        "source revision/hash",
+        "rule metadata",
+        "suppression and baseline policy"
+      ],
+      "unsupported_or_missing_behavior": "N/A when not run or stale; an empty partial report is not 'no findings'. Retain unsupported languages separately.",
+      "unique_decision_value": "Is there a specific type-safety, correctness or security issue that simple source counts cannot reveal?",
+      "overlap": {
+        "conceptual": "Unsafe any propagation differs from explicit any count. Same defect may be reported by several rules/tools; counts alone multiply duplicate evidence.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Intentional dynamic boundaries, unavailable type configuration and broad style rules can dominate. Suppression count alone ignores deliberate negative tests.",
+      "suggested_action": "Open the diagnostic's exact source and rationale; decide fix, accepted limitation, false positive or needs context without equating severity to defect probability.",
+      "implementation_fit": "Prefer import over bundled analyzers/rules. typescript-eslint needs project type information. Semgrep CE and Semgrep-maintained rules have materially different licenses; do not redistribute restricted rule packs by default.",
+      "cost": {
+        "band": "M",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "Join reports for a direct any token, unsafe assignment without an explicit token, expected-error test and duplicate multi-tool finding; preserve unsupported and baseline states.",
+      "rejection_gate": "Reject automatic ranking if source/config cannot be matched or style-only noise dominates adjudicated actionable findings.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S29",
+          "title": "typescript-eslint no-unsafe-assignment",
+          "url": "https://typescript-eslint.io/rules/no-unsafe-assignment/",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Type-aware unsafe-any flows require type information; explicit token counts are not equivalent."
+        },
+        {
+          "id": "S30",
+          "title": "Semgrep licensing",
+          "url": "https://docs.semgrep.dev/licensing",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official licensing documentation",
+          "limitations": "CE LGPL-2.1 versus proprietary capabilities and separate restrictive Semgrep-maintained rule license. Integration needs license review; this is not legal advice."
+        },
+        {
+          "id": "S31",
+          "title": "Semgrep triage and remediation",
+          "url": "https://docs.semgrep.dev/semgrep-code/triage-remediation",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Finding triage workflow; no proprietary engine or web UI session was exercised."
+        },
+        {
+          "id": "S32",
+          "title": "Qodana UI overview",
+          "url": "https://www.jetbrains.com/help/qodana/ui-overview.html",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Problems/baseline views, source/rule detail, hide versus exclude versus baseline; page updated 2026-10-12."
+        }
+      ],
+      "recommendation_ids": [
+        "R13",
+        "R02"
+      ],
+      "runtime_cost_and_noise_budget": "Artifact ingestion is small; type checking/full analysis is external and may require substantial project setup.",
+      "language_portability": "Tool/language/configuration dependent; begin TypeScript typed diagnostics.",
+      "licensing_constraints": "Do not bundle Semgrep-maintained rule packs or assume open engine licensing covers rules; inspect third-party rule and artifact redistribution rights.",
+      "repository_fit_paths": [
+        "server/app/models.py",
+        "server/app/services/analysis.py",
+        "server/app/services/reporting.py",
+        "server/app/services/typescript/typescript_analysis.py"
+      ]
+    },
+    {
+      "id": "C05",
+      "rank": 5,
+      "name": "Matched line/branch coverage gaps",
+      "recommendation": "adopt",
+      "portfolio_tier": "optional imported evidence",
+      "definition": "Import covered and total executable opportunities, keeping line, statement, branch/condition and function coverage kinds distinct. Prioritize concrete uncovered branches in relevant code, not an undifferentiated coverage percentage.",
+      "formula": null,
+      "scope": "Mapped executable source region/function and file.",
+      "rollup": "Sum covered/total opportunities with stable identities; recompute ratios. Never average percentages. Nested functions must not count the same opportunities twice.",
+      "required_inputs": [
+        "coverage.py JSON/XML or Istanbul/LCOV artifact",
+        "source maps where needed",
+        "test run revision/hash",
+        "all-files and exclusion metadata"
+      ],
+      "unsupported_or_missing_behavior": "Missing, stale, unmappable or zero-denominator evidence is N/A, not zero coverage. A file absent from nyc output is not automatically known-unexecuted.",
+      "unique_decision_value": "Which executable choices have not been exercised by this test run?",
+      "overlap": {
+        "conceptual": "Adds observed execution information absent from complexity. Coverage and suite size correlate conceptually; executing a line does not verify its result.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Assertion-free tests, omitted files, coverage pragmas, dead code and partial branch models can inflate apparent confidence.",
+      "suggested_action": "Show the uncovered line/branch destination and associated source; write a meaningful assertion around an important missing behavior.",
+      "implementation_fit": "Start with file-level evidence and one format; enable method-level derived CRAP only after executable mapping is proven. Notebook virtual scopes cannot be joined naively to raw JSON lines.",
+      "cost": {
+        "band": "M",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "Validate covered/uncovered/missing/excluded files, branch partials, TS source maps, nested functions, stale revisions and zero eligible lines; all uncertain joins must abstain.",
+      "rejection_gate": "Reject per-function coverage or CRAP if mapping or denominators are unreliable. Do not make coverage absence a risk penalty.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S33",
+          "title": "coverage.py branch measurement",
+          "url": "https://coverage.readthedocs.io/en/latest/branch.html",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Line/arc distinctions, partial-branch evidence and exclusions; combined percentages are not pure branch coverage."
+        },
+        {
+          "id": "S34",
+          "title": "Istanbul nyc repository",
+          "url": "https://github.com/istanbuljs/nyc",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official public code/documentation",
+          "limitations": "Source maps, reporting and all-files eligibility; unvisited files need not appear under defaults."
+        },
+        {
+          "id": "S39",
+          "title": "Inozemtseva and Holmes: Coverage Is Not Strongly Correlated with Test Suite Effectiveness",
+          "url": "https://dl.acm.org/doi/10.1145/2568225.2568271",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "original research, publisher search abstract only",
+          "limitations": "Publisher search abstract retrieved; direct open failed. Supporting context only; effectiveness uses a testing proxy, not proof of real defect prediction."
+        }
+      ],
+      "recommendation_ids": [
+        "R14",
+        "R02"
+      ],
+      "runtime_cost_and_noise_budget": "Artifact parsing/source-map joining; external test execution excluded; mapping may dominate implementation effort.",
+      "language_portability": "Provider/language/source-map dependent; begin one Python or JS/TS artifact.",
+      "licensing_constraints": "Prefer existing local/authorized inputs. Named vendor formulas/workflows are research references, not permission to copy proprietary implementation or rule assets.",
+      "repository_fit_paths": [
+        "server/app/models.py",
+        "server/app/services/analysis.py",
+        "server/app/services/ipynb/ipynb_analysis.py",
+        "server/app/services/reporting.py"
+      ]
+    },
+    {
+      "id": "C06",
+      "rank": 6,
+      "name": "Cognitive complexity",
+      "recommendation": "investigate",
+      "portfolio_tier": "experimental structural diagnostic",
+      "definition": "A named, versioned implementation of cognitive complexity: increments for flow interruptions and nesting, with documented exceptions and language handling. 'Nesting-weighted CCN' is only a schematic approximation, not automatically Sonar's metric.",
+      "formula": null,
+      "scope": "Executable function initially.",
+      "rollup": "Maximum plus witness and distribution over eligible functions; optional total labelled structural volume. Do not compare project sums with function thresholds.",
+      "required_inputs": [
+        "AST plus a reviewed language-specific specification",
+        "scope ownership and syntax support matrix"
+      ],
+      "unsupported_or_missing_behavior": "N/A for unsupported syntax/languages; do not fall back to zero or silently substitute another algorithm.",
+      "unique_decision_value": "Does this code impose reading difficulty not adequately revealed by CCN, depth and size together?",
+      "overlap": {
+        "conceptual": "Substantial conceptual overlap with CCN and nesting is expected. Distinct cases such as flat switch-like dispatch versus nested decisions may still justify it.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Readable idioms can be penalized; exceptions differ by language. A published understanding association does not demonstrate Srcly ranking improvement.",
+      "suggested_action": "Inspect the contributing syntax and assess simplification, without enforcing a vendor threshold as universal truth.",
+      "implementation_fit": "Compare a bounded TS/Python proof with CCN+nesting+LOC before widening language support. scc's optional approximation is a comparator, not an oracle.",
+      "cost": {
+        "band": "M",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "Gold functions with equal CCN but distinct reading structure, then blinded held-out triage against the existing pair plus LOC; retain contributing spans.",
+      "rejection_gate": "Defer default if it produces no reproducible new decisions in at least two contexts, or if specification maintenance exceeds its demonstrated benefit. High correlation alone is not rejection.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S05",
+          "title": "Sonar cognitive-complexity rationale",
+          "url": "https://www.sonarsource.com/blog/cognitive-complexity-because-testability-understandability/",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "metric author's vendor article",
+          "limitations": "Understandability rationale and nesting/flow principles; historical article, not a complete current language implementation specification."
+        },
+        {
+          "id": "S06",
+          "title": "Muñoz Barón, Wyrich, Wagner: empirical cognitive-complexity validation",
+          "url": "https://arxiv.org/abs/2007.12520",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "original research abstract",
+          "limitations": "Evidence about understandability outcomes; does not establish incremental value in Srcly."
+        },
+        {
+          "id": "S22",
+          "title": "Radon metric definitions",
+          "url": "https://radon.readthedocs.io/en/master/intro.html",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Python CC construct rules, Halstead and MI formulas; MI experimental warning."
+        },
+        {
+          "id": "S24",
+          "title": "scc public repository",
+          "url": "https://github.com/boyter/scc",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official public code/documentation",
+          "limitations": "Current main documents counting, optional approximate cognitive complexity and Git hotspot/coupling capabilities; pin a release before integration."
+        }
+      ],
+      "recommendation_ids": [
+        "R09",
+        "R04"
+      ],
+      "runtime_cost_and_noise_budget": "Usually another AST traversal; exact policy and cross-language maintenance are the main implementation costs.",
+      "language_portability": "Language-specific implementation; TS/Python proof before broad claims.",
+      "licensing_constraints": "Prefer existing local/authorized inputs. Named vendor formulas/workflows are research references, not permission to copy proprietary implementation or rule assets.",
+      "repository_fit_paths": [
+        "server/app/services/analysis.py",
+        "server/app/services/python/python_analysis.py",
+        "server/app/services/typescript/typescript_analysis.py",
+        "server/tests/test_complexity_semantics.py",
+        "server/tests/test_reporting.py"
+      ]
+    },
+    {
+      "id": "C07",
+      "rank": 7,
+      "name": "Unique incoming dependency exposure and outgoing fan-out",
+      "recommendation": "adopt",
+      "portfolio_tier": "architecture context",
+      "definition": "Count unique dependent files (incoming) and uniquely depended-on files/packages (outgoing) under an explicit edge projection. Do not count symbol links or import spellings as independent dependencies.",
+      "formula": "fan_in(f)=|{g != f: g -> f}|; fan_out(f)=|{g != f: f -> g}| on unique file edges.",
+      "scope": "File/module.",
+      "rollup": "Union external-to-boundary neighbor identities; internal folder edges do not contribute to boundary degree. Display incoming and outgoing separately.",
+      "required_inputs": [
+        "Existing dependency graph with endpoint-to-file mapping",
+        "edge kind filters",
+        "resolution completeness"
+      ],
+      "unsupported_or_missing_behavior": "N/A/partial with graph gaps; hide unsupported-language zeros.",
+      "unique_decision_value": "How many direct dependents deserve review when a public behavior changes?",
+      "overlap": {
+        "conceptual": "Incoming exposure is absent from the current import counters; outgoing degree overlaps them. Degree is context, not a statement that highly reused code is bad.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Utility modules and central stable interfaces are intentionally popular; barrels and type-only edges change degree.",
+      "suggested_action": "Open direct dependents and review the exposed contract. Do not claim full blast radius or actual runtime callers.",
+      "implementation_fit": "Cheap derivative after graph correctness; reuse incoming/focus/outgoing UI rather than adding another independent hotspot vote.",
+      "cost": {
+        "band": "S",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "Manually verify a shared utility, barrel and two modules with many symbol references but one file neighbor; check folder union arithmetic.",
+      "rejection_gate": "Reject popularity-as-badness ranking; demote any version that cannot explain its projection and unique-neighbor denominator.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S14",
+          "title": "NDepend metric definitions",
+          "url": "https://www.ndepend.com/docs/code-metrics",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Type-level coupling and named LCOM variants; language/model dependence."
+        },
+        {
+          "id": "S37",
+          "title": "dependency-cruiser repository",
+          "url": "https://github.com/sverweij/dependency-cruiser",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official public code/documentation",
+          "limitations": "Declarative architectural constraints and textual/graphical violation reports; MIT."
+        }
+      ],
+      "recommendation_ids": [
+        "R11"
+      ],
+      "runtime_cost_and_noise_budget": "Unique-neighbor sets are linear in retained edges after endpoint resolution.",
+      "language_portability": "Only reliably resolved languages/projections in existing graph.",
+      "licensing_constraints": "Prefer existing local/authorized inputs. Named vendor formulas/workflows are research references, not permission to copy proprietary implementation or rule assets.",
+      "repository_fit_paths": [
+        "client/src/viz/deps/DependencyView.tsx",
+        "docs/intent/dependency-view/shape-brief.md",
+        "server/app/services/deps/common.py",
+        "server/app/services/deps/graph.py"
+      ]
+    },
+    {
+      "id": "C08",
+      "rank": 8,
+      "name": "Temporal coupling with support and direction",
+      "recommendation": "investigate",
+      "portfolio_tier": "optional history diagnostic",
+      "definition": "Co-change frequency for file pairs in a declared eligible commit set. Keep directional conditional co-change, joint support and symmetric overlap separate.",
+      "formula": "support(a,b)=|C_a ∩ C_b|; P(b|a)=support/|C_a|; Jaccard=support/|C_a ∪ C_b|; optional lift=joint_probability/(P(a)P(b)).",
+      "scope": "File pair, not a per-file intrinsic score.",
+      "rollup": "Folder aggregation recomputes from commit-set unions; do not sum percentages. Expose top peers with supporting commit IDs.",
+      "required_inputs": [
+        "C01 history provider",
+        "bulk commit cap/exclusions",
+        "rename policy",
+        "minimum support"
+      ],
+      "unsupported_or_missing_behavior": "N/A with insufficient eligible history or too few joint changes. Proposed minimum five joint commits is a noise-control policy, not a validated threshold.",
+      "unique_decision_value": "What hidden companion change is easy to miss because it is not visible in the static import graph?",
+      "overlap": {
+        "conceptual": "Overlaps raw change frequency; high activity alone inflates coincidental co-change. Static coupling and co-change may legitimately reinforce each other.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Monorepo release commits, formatting and tests changing with production code are not automatically bad architecture.",
+      "suggested_action": "Inspect repeated paired changes; consider a shared concept or explicit cross-file checklist rather than automatic module merging.",
+      "implementation_fit": "Second history step only after C01 proves useful. No author surveillance, ticket integration or service required.",
+      "cost": {
+        "band": "M",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "Recover one known hidden relationship and one expected production-test pair, then show a bulk-formatting false positive disappears under declared policy.",
+      "rejection_gate": "Defer if only expected pairs are surfaced, results collapse under window changes, or support is too sparse to explain.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S09",
+          "title": "CodeScene change coupling",
+          "url": "https://docs.enterprise.codescene.io/latest/guides/technical/change-coupling.html",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Co-change investigation and interpretation, including useful and problematic coupling."
+        },
+        {
+          "id": "S24",
+          "title": "scc public repository",
+          "url": "https://github.com/boyter/scc",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official public code/documentation",
+          "limitations": "Current main documents counting, optional approximate cognitive complexity and Git hotspot/coupling capabilities; pin a release before integration."
+        },
+        {
+          "id": "S38",
+          "title": "Git log manual",
+          "url": "https://git-scm.com/docs/git-log",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "History traversal, merge policy, numstat and rename limitations; --follow is single-file only."
+        }
+      ],
+      "recommendation_ids": [
+        "R10",
+        "R09"
+      ],
+      "runtime_cost_and_noise_budget": "Pair expansion can grow quadratically in commit size; cap/exclude bulk commits and disclose the policy.",
+      "language_portability": "Language independent history, but workflow and repository practices matter.",
+      "licensing_constraints": "Prefer existing local/authorized inputs. Named vendor formulas/workflows are research references, not permission to copy proprietary implementation or rule assets.",
+      "repository_fit_paths": [
+        "server/app/models.py",
+        "server/app/services/analysis.py",
+        "server/tests/test_complexity_semantics.py",
+        "server/tests/test_reporting.py"
+      ]
+    },
+    {
+      "id": "C09",
+      "rank": 9,
+      "name": "Mutation survival evidence",
+      "recommendation": "defer",
+      "portfolio_tier": "targeted test diagnostic",
+      "definition": "Import mutant outcomes and mutation-operator metadata; inspect surviving, valid mutations in a small selected region. A score is secondary to the changed behavior and observing test.",
+      "formula": "Stryker documented score = 100*(killed+timeout)/(killed+timeout+survived+no_coverage); invalid/ignored/pending handled separately; denominator zero => N/A.",
+      "scope": "Mutant/region/function; targeted file.",
+      "rollup": "Count eligible mutant states, then recompute the tool-specific ratio. Never average scores or mix providers' invalid/timeout rules.",
+      "required_inputs": [
+        "Existing authorized Stryker/PIT report",
+        "test revision",
+        "operator set",
+        "timeout/invalid/sampling configuration"
+      ],
+      "unsupported_or_missing_behavior": "N/A when not run, all mutants invalid or identity mismatched; untested region is distinct from survived covered mutation.",
+      "unique_decision_value": "Do tests actually notice plausible behavior changes in important exercised code?",
+      "overlap": {
+        "conceptual": "Adds oracle/assertion sensitivity beyond execution coverage, but operators sample only some faults and outcomes depend on test selection.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Equivalent mutants, logging changes, flaky tests and timeouts can mislead. Gaming operator exclusions can improve the score without stronger tests.",
+      "suggested_action": "Inspect a surviving meaningful mutation and add/assert the missing behavior; mark genuinely equivalent cases explicitly.",
+      "implementation_fit": "Import-only proof; do not make Srcly execute a repository test suite or mutation engine on scan. Runtime can far exceed static analysis.",
+      "cost": {
+        "band": "M",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "Use an existing small report with killed, survived, no-coverage, timeout and invalid cases; demonstrate one missing assertion not revealed by coverage alone.",
+      "rejection_gate": "Keep deferred if no valid existing report is available or manual equivalent-mutant handling exceeds useful findings. Reject automatic 'all survivors are bugs' claims.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S35",
+          "title": "Stryker mutant states and metrics",
+          "url": "https://stryker-mutator.io/docs/mutation-testing-elements/mutant-states-and-metrics/",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Detected/undetected/invalid states and denominators; killed plus timeout in documented score."
+        },
+        {
+          "id": "S36",
+          "title": "PIT basic concepts",
+          "url": "https://pitest.org/quickstart/basic_concepts/",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Java bytecode mutation, test selection and equivalent-mutant limitation."
+        }
+      ],
+      "recommendation_ids": [
+        "R15"
+      ],
+      "runtime_cost_and_noise_budget": "Parsing a report is bounded; mutation generation and repeated test runs can dominate cost and are not run by Srcly.",
+      "language_portability": "External Stryker/PIT implementations and operators vary by language.",
+      "licensing_constraints": "Pin detector/version and review redistribution obligations. Artifact import is preferred over bundling an engine; source snippets may contain private code.",
+      "repository_fit_paths": [
+        "server/app/services/reporting.py"
+      ]
+    },
+    {
+      "id": "C10",
+      "rank": 10,
+      "name": "CRAP component lens and optional derived value",
+      "recommendation": "investigate",
+      "portfolio_tier": "derived test/structure diagnostic",
+      "definition": "Original method-level Change Risk Anti-Patterns combines cyclomatic complexity and automated basis-path coverage. Line/branch-coverage adaptations must declare their variant.",
+      "formula": "CRAP(C,q)=C^2*(1-q)^3+C, q in [0,1]. Percentage form uses q=cov/100; no clipping invalid input silently.",
+      "scope": "Matched real executable method/function only.",
+      "rollup": "Compute per method first; show max with witness, eligible count, flagged count under a named comparator, and unknown count. Never combine max file CCN with file-average coverage.",
+      "required_inputs": [
+        "Correct method CCN",
+        "matched method coverage with kind/denominator/provenance",
+        "chosen comparator and threshold"
+      ],
+      "unsupported_or_missing_behavior": "No scalar when coverage is missing or C belongs to a synthetic/non-executable scope. Optional unknown interval [C,C*C+C] is labelled a bound, not a measured score.",
+      "unique_decision_value": "Does a chosen nonlinear complexity/coverage policy change a test-versus-refactor decision?",
+      "overlap": {
+        "conceptual": "Deterministic given C and q: no new mathematical information conditional on both. Adds an interaction policy, not an independent measurement.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Poor assertions can yield coverage; complex tested code may still merit design work. Original threshold evidence is informal and boundary conventions differ.",
+      "suggested_action": "Show C and coverage first, plus contour/value and suggested review. Do not add CRAP as another independent vote alongside its components.",
+      "implementation_fit": "Arithmetic is trivial; trustworthy scope/coverage joining is not. Reuse C05 and corrected metrics; no CRAP-first initiative.",
+      "cost": {
+        "band": "S",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "Reproduce formula edge cases and threshold boundaries, expose the historical C=15 table inconsistency, and compare component-only versus component-plus-contour decisions.",
+      "rejection_gate": "Reject default scalar ranking unless it changes useful decisions beyond the components. Block computation on unavailable/mismatched coverage.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S01",
+          "title": "Savoia, This Code is CRAP (2011)",
+          "url": "https://testing.googleblog.com/2011/02/this-code-is-crap.html",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "creator article",
+          "limitations": "Origin, basis-path input, formula, >30 heuristic; not a validated defect model."
+        },
+        {
+          "id": "S02",
+          "title": "Savoia, Introducing crap4j (2007)",
+          "url": "https://www.artima.com/weblogs/viewpost.jsp?thread=215899",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "creator article",
+          "limitations": "Experimental formula, Evans collaboration, historical name, >=30 convention; example table contains an arithmetic inconsistency."
+        },
+        {
+          "id": "S03",
+          "title": "GMetrics CrapMetric",
+          "url": "https://dx42.github.io/gmetrics/metrics/CrapMetric.html",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Configurable coverage provider; Cobertura line-coverage example is a variant of the original coverage kind."
+        }
+      ],
+      "recommendation_ids": [
+        "R14",
+        "R16"
+      ],
+      "runtime_cost_and_noise_budget": "O(1) arithmetic per matched method; trustworthy coverage and complexity joins dominate.",
+      "language_portability": "Formula portable, complexity/coverage semantics and method mapping are not automatically portable.",
+      "licensing_constraints": "Prefer existing local/authorized inputs. Named vendor formulas/workflows are research references, not permission to copy proprietary implementation or rule assets.",
+      "repository_fit_paths": [
+        "server/app/services/analysis.py",
+        "server/app/services/ipynb/ipynb_analysis.py",
+        "server/app/services/reporting.py"
+      ]
+    },
+    {
+      "id": "C11",
+      "rank": 11,
+      "name": "Executable complexity and length distributions",
+      "recommendation": "adopt",
+      "portfolio_tier": "replacement summary",
+      "definition": "Use eligible executable-function counts, maximum with witness and p90 function CCN/length instead of relying only on an average. A configurable exceedance count describes concentration, not universal risk.",
+      "formula": "p90 = declared sample-quantile convention over eligible values; exceedance_count(t)=sum_i 1[C_i>t]; threshold t is an explicit policy.",
+      "scope": "Real function and file/module summary.",
+      "rollup": "Recompute quantiles from the underlying function distribution, not a mean of child quantiles; counts sum only disjoint eligible function IDs.",
+      "required_inputs": [
+        "Correct function classification",
+        "consistent source-length definition",
+        "CCN provenance"
+      ],
+      "unsupported_or_missing_behavior": "Empty eligible population is N/A; report small sample count next to quantiles.",
+      "unique_decision_value": "Is this one exceptional function or a broad concentration of difficult code?",
+      "overlap": {
+        "conceptual": "Same underlying measurements as current CCN/LOC, so not an additional independent dimension. Better aggregation can improve decisions without adding another analyzer.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Small files yield unstable quantiles; splitting functions solely to satisfy a count can hide responsibility.",
+      "suggested_action": "Navigate directly to the contributing functions; distinguish local simplification from a wider module redesign.",
+      "implementation_fit": "Prefer as correction to current means/counts rather than adding several new selectable score inputs.",
+      "cost": {
+        "band": "S",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "Nested class/method and object/JSX fixtures produce exactly the intended denominator; one extreme and several moderate functions remain distinguishable.",
+      "rejection_gate": "Reject extra default columns when they do not change triage versus max+witness; preserve full distribution in detail.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S04",
+          "title": "SonarQube Server metric definitions",
+          "url": "https://docs.sonarsource.com/sonarqube-server/user-guide/code-metrics/metrics-definition",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Rolling page identifies 2026.5. Metric definitions and overall/new-code distinction; not an independent release verification."
+        },
+        {
+          "id": "S07",
+          "title": "Landman et al.: relationship between CC and SLOC",
+          "url": "https://www.rascal-mpl.org/blog/2016/01/01/empirical-analysis-of-the-relationship-between-CC-and-SLOC/",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "authors' research summary",
+          "limitations": "Aggregation and transformations affect relationships; association is not a metric-removal rule. Publisher lists a corrigendum; no numerical coefficient is relied upon here."
+        }
+      ],
+      "recommendation_ids": [
+        "R04",
+        "R09"
+      ],
+      "runtime_cost_and_noise_budget": "Distribution extraction and sorting/quantile calculation over eligible functions; no extra source analysis.",
+      "language_portability": "Only comparable real-function populations and declared language metrics.",
+      "licensing_constraints": "Prefer existing local/authorized inputs. Named vendor formulas/workflows are research references, not permission to copy proprietary implementation or rule assets.",
+      "repository_fit_paths": [
+        "server/app/services/analysis.py",
+        "server/app/services/python/python_analysis.py",
+        "server/app/services/typescript/typescript_analysis.py",
+        "server/tests/test_complexity_semantics.py",
+        "server/tests/test_reporting.py"
+      ]
+    },
+    {
+      "id": "C12",
+      "rank": 12,
+      "name": "Declared architectural boundary violations",
+      "recommendation": "investigate",
+      "portfolio_tier": "optional architecture rule",
+      "definition": "Find resolved edges that violate a small user-specified allowed/forbidden boundary rule, retaining the rule and edge witness.",
+      "formula": null,
+      "scope": "Declared file/module/package edge.",
+      "rollup": "Unique violating edges and rule IDs; avoid multiplying by symbol references.",
+      "required_inputs": [
+        "C02/C07 graph correctness",
+        "small declarative architecture configuration",
+        "policy version"
+      ],
+      "unsupported_or_missing_behavior": "No rule means no assessment, not a clean architecture rating.",
+      "unique_decision_value": "Does this change cross a boundary the project explicitly intends to preserve?",
+      "overlap": {
+        "conceptual": "Related to coupling/cycles but can detect a single acyclic forbidden edge. Configuration adds intent not present in source metrics.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Badly chosen rules encode obsolete architecture; exemptions and generated adapters can be legitimate.",
+      "suggested_action": "Review the edge and intended boundary; change code or update the explicit policy with rationale.",
+      "implementation_fit": "Reuse dependency-cruiser-style concepts without copying its entire engine. Start with production-to-test or layer-direction rules.",
+      "cost": {
+        "band": "S",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "One accepted and one rejected dependency under a written local rule; include an exemption and graph-unknown case.",
+      "rejection_gate": "Reject default adoption if project intent cannot be stated or exemptions overwhelm actual violations.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S37",
+          "title": "dependency-cruiser repository",
+          "url": "https://github.com/sverweij/dependency-cruiser",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official public code/documentation",
+          "limitations": "Declarative architectural constraints and textual/graphical violation reports; MIT."
+        }
+      ],
+      "recommendation_ids": [
+        "R11"
+      ],
+      "runtime_cost_and_noise_budget": "Rule matching over edges; many arbitrary regex/config rules need bounded validation.",
+      "language_portability": "Graph support plus project-specific architectural intent.",
+      "licensing_constraints": "Prefer existing local/authorized inputs. Named vendor formulas/workflows are research references, not permission to copy proprietary implementation or rule assets.",
+      "repository_fit_paths": [
+        "client/src/viz/deps/DependencyView.tsx",
+        "docs/intent/dependency-view/shape-brief.md",
+        "server/app/services/deps/common.py",
+        "server/app/services/deps/graph.py"
+      ]
+    },
+    {
+      "id": "C13",
+      "rank": 13,
+      "name": "Classified type escape hatches",
+      "recommendation": "adopt",
+      "portfolio_tier": "replacement diagnostic",
+      "definition": "Separate explicit any, ts-ignore, ts-expect-error and ts-nocheck occurrences with reason/test context and precise spans. Do not collapse expected-error tests into accidental suppression.",
+      "formula": null,
+      "scope": "Source occurrence and real containing scope.",
+      "rollup": "Distinct occurrences by kind; sum disjoint file evidence. Display absolute count and optional relevant code-size context, not a single safety percentage.",
+      "required_inputs": [
+        "TS comment/token analysis",
+        "scope mapping",
+        "test classification"
+      ],
+      "unsupported_or_missing_behavior": "N/A outside supported syntax; inherited dependency any is not covered by this source-only measure.",
+      "unique_decision_value": "Which bypass is broad, unexplained or surprising rather than deliberately tested?",
+      "overlap": {
+        "conceptual": "Shares source with current any/ignore counts, but disaggregation changes review decisions; still not semantic unsafe-flow analysis.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Dynamic adapters and type-level negative tests are intentional. Developers can replace suppressions with casts without improving safety.",
+      "suggested_action": "Inspect or document a bypass and, where available, use typed diagnostics to determine actual propagation.",
+      "implementation_fit": "Small extension to existing traversal, but consolidate with C04 rather than creating a competing type-health score.",
+      "cost": {
+        "band": "S",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "Negative type tests, explained ignore, whole-file nocheck and a cast-to-any boundary get distinct output.",
+      "rejection_gate": "Reject a single combined penalty; retain only categories that support different actions.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S29",
+          "title": "typescript-eslint no-unsafe-assignment",
+          "url": "https://typescript-eslint.io/rules/no-unsafe-assignment/",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Type-aware unsafe-any flows require type information; explicit token counts are not equivalent."
+        }
+      ],
+      "recommendation_ids": [
+        "R07",
+        "R13"
+      ],
+      "runtime_cost_and_noise_budget": "Small existing traversal extension with source-location storage.",
+      "language_portability": "TypeScript directives/tokens only.",
+      "licensing_constraints": "Prefer existing local/authorized inputs. Named vendor formulas/workflows are research references, not permission to copy proprietary implementation or rule assets.",
+      "repository_fit_paths": [
+        "server/app/services/analysis.py",
+        "server/app/services/analysis_types.py",
+        "server/app/services/reporting.py",
+        "server/app/services/typescript/typescript_analysis.py"
+      ]
+    },
+    {
+      "id": "C14",
+      "rank": 14,
+      "name": "Function-local nesting with contributing spans",
+      "recommendation": "adopt",
+      "portfolio_tier": "replacement optional diagnostic",
+      "definition": "Count selected executable nesting constructs within one real function, resetting at nested executable boundaries. Keep markup nesting separate.",
+      "formula": null,
+      "scope": "Real function.",
+      "rollup": "Maximum plus witness; folder/file maxima and eligible counts.",
+      "required_inputs": [
+        "Correct scope ownership",
+        "language-specific nesting policy"
+      ],
+      "unsupported_or_missing_behavior": "N/A unsupported language, not zero.",
+      "unique_decision_value": "Would flattening nested control flow improve this particular function?",
+      "overlap": {
+        "conceptual": "Overlaps cognitive complexity/CCN/size, but flat/deep complementary cases may earn an optional place.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "DSLs and necessary state transitions can be deeply nested without a simple better form.",
+      "suggested_action": "Inspect contributing decisions and test a guard-clause or helper extraction without changing behavior.",
+      "implementation_fit": "Repair existing max_nesting_depth before adding new structural metrics.",
+      "cost": {
+        "band": "S",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "Nested function inside an outer branch does not inflate outer function's own depth; equal-CCN flat/deep pair remains different.",
+      "rejection_gate": "Demote if a proven cognitive metric supplies the same decisions at lower combined attention cost.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S05",
+          "title": "Sonar cognitive-complexity rationale",
+          "url": "https://www.sonarsource.com/blog/cognitive-complexity-because-testability-understandability/",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "metric author's vendor article",
+          "limitations": "Understandability rationale and nesting/flow principles; historical article, not a complete current language implementation specification."
+        },
+        {
+          "id": "S28",
+          "title": "ESLint complexity rule",
+          "url": "https://eslint.org/docs/latest/rules/complexity",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Configurable classic/modified cyclomatic counting and JavaScript-specific branch cases."
+        }
+      ],
+      "recommendation_ids": [
+        "R04",
+        "R09"
+      ],
+      "runtime_cost_and_noise_budget": "Small traversal/ownership correction, not another external analyzer.",
+      "language_portability": "Language-specific construct sets; markup remains separate.",
+      "licensing_constraints": "Prefer existing local/authorized inputs. Named vendor formulas/workflows are research references, not permission to copy proprietary implementation or rule assets.",
+      "repository_fit_paths": [
+        "server/app/services/analysis.py",
+        "server/app/services/python/python_analysis.py",
+        "server/app/services/typescript/typescript_analysis.py",
+        "server/tests/test_complexity_semantics.py",
+        "server/tests/test_reporting.py"
+      ]
+    },
+    {
+      "id": "C15",
+      "rank": 15,
+      "name": "Object-oriented cohesion (LCOM variants)",
+      "recommendation": "defer",
+      "portfolio_tier": "language-specific diagnostic",
+      "definition": "For an explicitly chosen OO model, measure field sharing across methods. NDepend-style LCOM uses method-to-instance-field accesses; variants differ and are not interchangeable.",
+      "formula": "For one declared variant: LCOM=1-sum_j(MF_j)/(M*F). Henderson–Sellers: (M-sum_j(MF_j)/F)/(M-1); requires suitable M,F.",
+      "scope": "Class with appropriate methods and fields, not TS module or Solid component.",
+      "rollup": "Distribution over eligible classes only; no project average across empty/inapplicable classes.",
+      "required_inputs": [
+        "Semantic field/method binding",
+        "eligibility rules for constructors/accessors/static members",
+        "OO-heavy corpus"
+      ],
+      "unsupported_or_missing_behavior": "N/A with no instance fields or insufficient methods; never interpret this as perfect or poor cohesion by default.",
+      "unique_decision_value": "Does this class contain separable stateful responsibilities?",
+      "overlap": {
+        "conceptual": "May correlate with class size and coupling; needs semantic data beyond Srcly's class count.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Data classes, facades and framework lifecycle classes are common false positives; functional modules do not fit the model.",
+      "suggested_action": "Inspect groups of methods/fields and assess real responsibility boundaries.",
+      "implementation_fit": "Poor immediate fit for a TS/Solid/Python local explorer; build only if OO users demonstrate unique decisions.",
+      "cost": {
+        "band": "L",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "OO fixture corpus verifies field bindings and variant arithmetic; two reviewers find separable responsibilities not already obvious from size.",
+      "rejection_gate": "Defer until semantic infrastructure and representative OO need exist. Reject applying class LCOM to files/components.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S14",
+          "title": "NDepend metric definitions",
+          "url": "https://www.ndepend.com/docs/code-metrics",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Type-level coupling and named LCOM variants; language/model dependence."
+        },
+        {
+          "id": "S16",
+          "title": "JArchitect metrics",
+          "url": "https://www.jarchitect.com/Metrics",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Java-oriented metric reference; grouped as a related family rather than independent validation."
+        }
+      ],
+      "recommendation_ids": [
+        "R17"
+      ],
+      "runtime_cost_and_noise_budget": "Needs semantic bindings, not just a counter pass; substantial new infrastructure.",
+      "language_portability": "Object-oriented semantic models only; not general module/component cohesion.",
+      "licensing_constraints": "Prefer existing local/authorized inputs. Named vendor formulas/workflows are research references, not permission to copy proprietary implementation or rule assets.",
+      "repository_fit_paths": [
+        "client/src/utils/metricsStore.tsx",
+        "server/app/services/reporting.py"
+      ]
+    },
+    {
+      "id": "C16",
+      "rank": 16,
+      "name": "Graph centrality / transitive blast-radius scores",
+      "recommendation": "defer",
+      "portfolio_tier": "architecture research",
+      "definition": "Possible measures include unique transitive dependents, betweenness or PageRank over a specified dependency graph. These answer different questions and must not be collapsed into generic coupling.",
+      "formula": null,
+      "scope": "File/module graph node.",
+      "rollup": "Recompute on the declared graph; never sum centrality values as a folder quality score.",
+      "required_inputs": [
+        "Complete edge model",
+        "clear use case",
+        "bounded traversal/cycle policy"
+      ],
+      "unsupported_or_missing_behavior": "Partial graph produces partial exposure; unsupported edges remain explicit.",
+      "unique_decision_value": "Would a transitive impact view reveal a relevant change obligation beyond direct dependents?",
+      "overlap": {
+        "conceptual": "Often overlaps degree and module size; central infrastructure is expected to be central.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Imports are not runtime calls; transitive reachability greatly overstates actual impact for many changes.",
+      "suggested_action": "Use an on-demand reachable set only when direct dependents are insufficient.",
+      "implementation_fit": "Keep existing one-hop focus. Avoid a new always-on global graph ranking and expensive layout.",
+      "cost": {
+        "band": "M",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "A real change task demonstrates a missed dependent beyond one hop and manageable false positives.",
+      "rejection_gate": "Defer if direct dependency evidence suffices; reject centrality-as-quality without task benefit.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S19",
+          "title": "Understand graph catalog",
+          "url": "https://docs.scitools.com/help/reference/graph-catalog.html",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Question-specific graph catalog; no interactive session or screenshot inspection claimed."
+        },
+        {
+          "id": "S37",
+          "title": "dependency-cruiser repository",
+          "url": "https://github.com/sverweij/dependency-cruiser",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official public code/documentation",
+          "limitations": "Declarative architectural constraints and textual/graphical violation reports; MIT."
+        }
+      ],
+      "recommendation_ids": [
+        "R17",
+        "R11"
+      ],
+      "runtime_cost_and_noise_budget": "Reachability/centrality can be much costlier than direct degree; bound and run only on demand.",
+      "language_portability": "Only the chosen dependency graph, not all runtime relationships.",
+      "licensing_constraints": "Prefer existing local/authorized inputs. Named vendor formulas/workflows are research references, not permission to copy proprietary implementation or rule assets.",
+      "repository_fit_paths": [
+        "client/src/utils/metricsStore.tsx",
+        "client/src/viz/deps/DependencyView.tsx",
+        "docs/intent/dependency-view/shape-brief.md",
+        "server/app/services/deps/common.py",
+        "server/app/services/deps/graph.py",
+        "server/app/services/reporting.py"
+      ]
+    },
+    {
+      "id": "C17",
+      "rank": 17,
+      "name": "Maintainability Index",
+      "recommendation": "reject",
+      "portfolio_tier": "not a default metric",
+      "definition": "A composite of size, cyclomatic complexity and Halstead volume; named variants differ, including comment adjustments. It is not a new independent source of evidence.",
+      "formula": "Example normalized no-comment variant: max(0,100*(171-5.2*ln(V)-0.23*G-16.2*ln(L))/171). V=Halstead volume, G=CCN, L=LOC. Other variants are not equivalent.",
+      "scope": "Function/file under a declared implementation.",
+      "rollup": "Only use a specifically documented aggregation in an evaluation; do not average arbitrary variants.",
+      "required_inputs": [
+        "Consistent LOC/CCN",
+        "Halstead vocabulary counts",
+        "precise formula variant"
+      ],
+      "unsupported_or_missing_behavior": "N/A for invalid logarithm inputs or unsupported language; no fabricated perfect score.",
+      "unique_decision_value": "Would this composite improve a decision over displaying its components?",
+      "overlap": {
+        "conceptual": "Heavy conceptual reuse of size and complexity; a compact opaque index hides why a result changes.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Comments/trivial code can improve some variants without clearer behavior; compression and language tokenization affect volume.",
+      "suggested_action": "Do not add to the default portfolio. A comparative experiment may falsify this rejection, but must expose components.",
+      "implementation_fit": "Additional tokenizer semantics and explanation cost with little obvious unique question for Srcly.",
+      "cost": {
+        "band": "M",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "Optional evaluation compares a named MI against component-only triage with fixed eligibility and version.",
+      "rejection_gate": "Reject unless it demonstrates reproducible new decision value beyond components; correlation alone is not the stated rejection reason.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S22",
+          "title": "Radon metric definitions",
+          "url": "https://radon.readthedocs.io/en/master/intro.html",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Python CC construct rules, Halstead and MI formulas; MI experimental warning."
+        }
+      ],
+      "recommendation_ids": [
+        "R17"
+      ],
+      "runtime_cost_and_noise_budget": "Requires consistent Halstead tokenization and metric versioning in addition to existing data.",
+      "language_portability": "Variant and tokenization are language-sensitive.",
+      "licensing_constraints": "Prefer existing local/authorized inputs. Named vendor formulas/workflows are research references, not permission to copy proprietary implementation or rule assets.",
+      "repository_fit_paths": [
+        "client/src/utils/metricsStore.tsx",
+        "server/app/services/reporting.py"
+      ]
+    },
+    {
+      "id": "C18",
+      "rank": 18,
+      "name": "Halstead volume/effort and implied bug estimates",
+      "recommendation": "reject",
+      "portfolio_tier": "not a default metric",
+      "definition": "Token-vocabulary measures count distinct/total operators and operands. Volume and difficulty are arithmetic descriptions; effort/time/bug interpretations require evidence not established for Srcly.",
+      "formula": "N=N1+N2; eta=eta1+eta2; V=N*log2(eta); D=(eta1/2)*(N2/eta2); E=D*V. The labels effort/time are not validated forecasts here.",
+      "scope": "Function/file with language-specific token classification.",
+      "rollup": "Vocabulary unions differ from summing per-function distinct counts; any rollup must specify its unit.",
+      "required_inputs": [
+        "Language-specific operator/operand classifier",
+        "consistent literal/type treatment"
+      ],
+      "unsupported_or_missing_behavior": "N/A unsupported language or zero vocabulary; do not use an arbitrary fallback.",
+      "unique_decision_value": "What actionable issue would token vocabulary reveal beyond size and structural evidence?",
+      "overlap": {
+        "conceptual": "Volume strongly incorporates program length; effort combines derived quantities, not new measurements.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Renaming, syntax sugar, generated code and token classification alter results without changing design quality.",
+      "suggested_action": "Keep out of the default. Do not report estimated bugs or hours from these formulas.",
+      "implementation_fit": "Implementing consistent cross-language semantics competes with more distinctive graph/history/test evidence.",
+      "cost": {
+        "band": "M",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "Only reconsider after controlled examples and blinded triage show a unique actionable class of problems.",
+      "rejection_gate": "Reject effort/bug forecasts without independent calibration; reject metric addition absent distinct decisions.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S22",
+          "title": "Radon metric definitions",
+          "url": "https://radon.readthedocs.io/en/master/intro.html",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Python CC construct rules, Halstead and MI formulas; MI experimental warning."
+        }
+      ],
+      "recommendation_ids": [
+        "R17"
+      ],
+      "runtime_cost_and_noise_budget": "Language-specific token classification and vocabulary sets; portability cost outweighs simple arithmetic.",
+      "language_portability": "Language-specific operator/operand semantics.",
+      "licensing_constraints": "Prefer existing local/authorized inputs. Named vendor formulas/workflows are research references, not permission to copy proprietary implementation or rule assets.",
+      "repository_fit_paths": [
+        "client/src/utils/metricsStore.tsx",
+        "server/app/services/reporting.py"
+      ]
+    },
+    {
+      "id": "C19",
+      "rank": 19,
+      "name": "New/changed finding and metric deltas",
+      "recommendation": "investigate",
+      "portfolio_tier": "optional longitudinal workflow",
+      "definition": "Compare stable eligible function/finding identities between two explicit source snapshots; distinguish new, changed, resolved, unchanged and unknown rather than emphasizing total backlog.",
+      "formula": null,
+      "scope": "Finding/function/file pair across revisions.",
+      "rollup": "Count stable status transitions; recompute comparable distributions using the same analysis contract.",
+      "required_inputs": [
+        "Two matched scan manifests",
+        "stable identity and rename mapping",
+        "same analyzer/config or explicit migration"
+      ],
+      "unsupported_or_missing_behavior": "Changed analyzer/support produces incomparable, not improved/worsened. Missing baseline is N/A.",
+      "unique_decision_value": "What changed since the last relevant checkpoint and deserves attention now?",
+      "overlap": {
+        "conceptual": "Uses existing evidence longitudinally; it is a workflow dimension rather than another intrinsic metric.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Moves, renames and scope splitting can look like improvements; baseline exclusions can hide backlog.",
+      "suggested_action": "Review new evidence while keeping old accepted issues discoverable.",
+      "implementation_fit": "Local saved artifacts only; no trend database or hosted service required.",
+      "cost": {
+        "band": "M",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "Rename, same-span overload, resolved finding and analyzer-version change fixtures remain distinguishable.",
+      "rejection_gate": "Defer continuous trends until identity is robust; reject deltas based solely on rank or filesystem mtime.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S04",
+          "title": "SonarQube Server metric definitions",
+          "url": "https://docs.sonarsource.com/sonarqube-server/user-guide/code-metrics/metrics-definition",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Rolling page identifies 2026.5. Metric definitions and overall/new-code distinction; not an independent release verification."
+        },
+        {
+          "id": "S32",
+          "title": "Qodana UI overview",
+          "url": "https://www.jetbrains.com/help/qodana/ui-overview.html",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Problems/baseline views, source/rule detail, hide versus exclude versus baseline; page updated 2026-10-12."
+        }
+      ],
+      "recommendation_ids": [
+        "R18",
+        "R02"
+      ],
+      "runtime_cost_and_noise_budget": "Joining two versioned artifacts plus identities; historical full-source analysis is deliberately deferred.",
+      "language_portability": "Only matching analyzer/configuration populations across revisions.",
+      "licensing_constraints": "Prefer existing local/authorized inputs. Named vendor formulas/workflows are research references, not permission to copy proprietary implementation or rule assets.",
+      "repository_fit_paths": [
+        "client/src/components/CodeModal/MetricsSidebar.tsx",
+        "client/src/utils/dataProcessing.ts",
+        "client/src/viz/treemap/utils/colors.ts",
+        "server/app/models.py",
+        "server/app/services/analysis.py",
+        "server/app/services/reporting.py"
+      ]
+    },
+    {
+      "id": "C20",
+      "rank": 20,
+      "name": "Framework-specific effect/render anti-pattern rules",
+      "recommendation": "defer",
+      "portfolio_tier": "opt-in framework diagnostic",
+      "definition": "Detect a specific verified framework rule violation with resolved imports and context, instead of counting effects, props or inline functions.",
+      "formula": null,
+      "scope": "Component/hook/call-site under a named framework.",
+      "rollup": "Unique rule findings, not summed generic effect counts.",
+      "required_inputs": [
+        "Framework identification",
+        "semantic rule specification",
+        "authorized external rule output or carefully bounded analysis"
+      ],
+      "unsupported_or_missing_behavior": "N/A unknown framework or unsupported syntax. Never interpret Solid createEffect as React useEffect.",
+      "unique_decision_value": "Is there a concrete framework contract violation that can be fixed?",
+      "overlap": {
+        "conceptual": "May reuse C04 findings; broad counts offer little unique action without context.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Aliases, custom wrappers and framework version changes create noise; stylistic preferences are not necessarily bugs.",
+      "suggested_action": "Show rule evidence and framework version; avoid automatic refactoring advice from raw counts.",
+      "implementation_fit": "Prefer importing a project's existing framework linter, not building parallel React and Solid analyzers.",
+      "cost": {
+        "band": "L",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "Two true violations and two legitimate patterns on each claimed framework/version; no cross-framework false advice.",
+      "rejection_gate": "Defer until framework-specific need is demonstrated; reject universal useEffect/handler-count quality scores.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S28",
+          "title": "ESLint complexity rule",
+          "url": "https://eslint.org/docs/latest/rules/complexity",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Configurable classic/modified cyclomatic counting and JavaScript-specific branch cases."
+        },
+        {
+          "id": "S29",
+          "title": "typescript-eslint no-unsafe-assignment",
+          "url": "https://typescript-eslint.io/rules/no-unsafe-assignment/",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "Type-aware unsafe-any flows require type information; explicit token counts are not equivalent."
+        }
+      ],
+      "recommendation_ids": [
+        "R07",
+        "R17"
+      ],
+      "runtime_cost_and_noise_budget": "Framework-aware semantics/rules can require type information and version-specific maintenance.",
+      "language_portability": "Strictly framework and version-specific.",
+      "licensing_constraints": "Pin detector/version and review redistribution obligations. Artifact import is preferred over bundling an engine; source snippets may contain private code.",
+      "repository_fit_paths": [
+        "client/src/utils/metricsStore.tsx",
+        "server/app/services/analysis.py",
+        "server/app/services/analysis_types.py",
+        "server/app/services/reporting.py",
+        "server/app/services/typescript/typescript_analysis.py"
+      ]
+    },
+    {
+      "id": "C21",
+      "rank": 21,
+      "name": "Developer ownership / bus-factor scoring",
+      "recommendation": "defer",
+      "portfolio_tier": "outside the first portfolio",
+      "definition": "History-derived concentration of authorship can describe coordination, but is not a code-quality measurement and has multiple attribution conventions.",
+      "formula": null,
+      "scope": "File/team over a declared history window.",
+      "rollup": "Recompute contribution shares; no per-person productivity ranking.",
+      "required_inputs": [
+        "Git identity normalization",
+        "authorship/merge policy",
+        "a genuine maintenance continuity use case"
+      ],
+      "unsupported_or_missing_behavior": "N/A incomplete identities/history; no inference about developer ability.",
+      "unique_decision_value": "Is maintenance knowledge concentrated enough to require documentation or pairing?",
+      "overlap": {
+        "conceptual": "Different from source structure, but low unique value for the stated personal-project goal.",
+        "measured_correlation": null,
+        "conditional_information_status": "Hypothesis to evaluate; no Srcly measurements."
+      },
+      "false_positives_and_gaming": "Pairing, bots, squash merges and copied code distort attribution; intrusive or unfair personal conclusions are possible.",
+      "suggested_action": "Use only a team-requested continuity workflow, not a quality leaderboard.",
+      "implementation_fit": "Adds privacy and attribution concerns without a first-priority Srcly decision.",
+      "cost": {
+        "band": "M",
+        "basis": "Planning estimate for a bounded proof, not measured runtime or delivery commitment. S=1–3, M=4–8, L=>8 engineer-days; excludes external test-suite execution."
+      },
+      "first_proof": "Only reconsider with an explicit user/team continuity task and agreed privacy policy.",
+      "rejection_gate": "Defer absent that task; reject developer performance inference.",
+      "evidence_strength": {
+        "definition": "Primary documentation or explicitly proposed definition",
+        "incremental_value_in_srcly": "Unmeasured",
+        "validity_limits": "A prioritization heuristic or finding is not a calibrated defect probability."
+      },
+      "primary_sources": [
+        {
+          "id": "S38",
+          "title": "Git log manual",
+          "url": "https://git-scm.com/docs/git-log",
+          "retrieved_at": "2026-10-15",
+          "evidence_type": "official documentation",
+          "limitations": "History traversal, merge policy, numstat and rename limitations; --follow is single-file only."
+        }
+      ],
+      "recommendation_ids": [
+        "R17"
+      ],
+      "runtime_cost_and_noise_budget": "History and identity analysis add attribution/privacy complexity without first-priority value.",
+      "language_portability": "Git workflow-dependent, not a language quality dimension.",
+      "licensing_constraints": "Prefer existing local/authorized inputs. Named vendor formulas/workflows are research references, not permission to copy proprietary implementation or rule assets.",
+      "repository_fit_paths": [
+        "client/src/utils/metricsStore.tsx",
+        "server/app/services/reporting.py"
+      ]
+    }
+  ]
+}

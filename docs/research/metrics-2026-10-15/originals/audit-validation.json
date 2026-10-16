@@ -1,0 +1,300 @@
+{
+  "schema_version": "1.0.0",
+  "repository": "https://github.com/byronwall/srcly",
+  "baseline": "83dcbf40879ca06ab07cdfcf365b5c0ccb7608a4",
+  "validated_at": "2026-10-15",
+  "validation_scope": "Artifact integrity, exact inventory reconciliation, reference integrity and arithmetic checks. This is not execution or validation of the application.",
+  "status": "passed",
+  "checks": [
+    {
+      "check": "API Metrics fields reconciled exactly",
+      "passed": true,
+      "details": [
+        "analysis_error",
+        "analysis_failed_count",
+        "analysis_status",
+        "average_function_length",
+        "classes_count",
+        "comment_density",
+        "comment_lines",
+        "complexity",
+        "complexity_avg",
+        "file_count",
+        "file_size",
+        "function_count",
+        "gitignored_count",
+        "last_modified",
+        "loc",
+        "max_nesting_depth",
+        "md_data_url_count",
+        "parameter_count",
+        "python_import_count",
+        "todo_count",
+        "ts_any_usage_count",
+        "ts_export_count",
+        "ts_ignore_count",
+        "ts_import_coupling_count",
+        "ts_type_interface_count",
+        "tsx_anonymous_handler_count",
+        "tsx_duplicated_string_count",
+        "tsx_hardcoded_string_volume",
+        "tsx_nesting_depth",
+        "tsx_prop_count",
+        "tsx_react_use_effect_count",
+        "tsx_render_branching_count"
+      ]
+    },
+    {
+      "check": "All 27 report definitions reconciled",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "All 22 selector entries reconciled",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "API-only fields reconciled",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "Report-only fields absent from selector reconciled",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "Profile weights match baseline literals",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "Every current field has an allowed disposition",
+      "passed": true,
+      "details": {
+        "change": 12,
+        "demote": 16,
+        "keep": 3,
+        "investigate": 1
+      }
+    },
+    {
+      "check": "18 unique recommendation IDs",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "8 unique initiative groups",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "39 unique primary source records",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "21 unique ranked candidates",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "Current and candidate recommendation references resolve",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "Candidate source references resolve",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "Initiative and recommendation cross-references resolve",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "Every candidate has the complete research contract",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "Substantive deferred or rejected alternatives present",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "Every initiative has proof, rejection, cost and cut line",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "No fabricated measured correlation values in inventories",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "All structured source anchors and packet offsets valid",
+      "passed": true,
+      "details": {
+        "checked": 468,
+        "invalid": []
+      }
+    },
+    {
+      "check": "All candidate repository-fit paths in packet",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "All 32 metric IDs have individual report audit sections",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "All recommendations included in standalone recommendations",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "All initiatives included in standalone recommendations",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "All Markdown pinned source line anchors valid",
+      "passed": true,
+      "details": {
+        "checked": 174,
+        "invalid": []
+      }
+    },
+    {
+      "check": "All textual R and I references resolve",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "All source IDs in Markdown resolve",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "Original source-packet hash verified",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "Original prompt hash verified",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "All 164 packet manifest entries readable",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "Required/replacement reading route exists in manifest",
+      "passed": true,
+      "details": {
+        "paths": 48
+      }
+    },
+    {
+      "check": "Tool survey covers 19 comparison entries",
+      "passed": true,
+      "details": {
+        "entries": 19,
+        "method": "Primary documentation; four static vendor UI images, not interactive product sessions."
+      }
+    },
+    {
+      "check": "Markdown deliverables have no unresolved placeholder markers",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "All five required standalone deliverables created",
+      "passed": true,
+      "details": null
+    },
+    {
+      "check": "CRAP worked example and inverse threshold arithmetic",
+      "passed": true,
+      "details": {
+        "C15_coverage57_score": 32.889075000000005,
+        "C15_coverage_for_score30_percent": 59.45198669617733,
+        "method": "Arithmetic only; not a repository scan or empirical validation."
+      }
+    }
+  ],
+  "counts": {
+    "api_metrics_fields": 32,
+    "numeric_fields": 30,
+    "report_definitions": 27,
+    "selector_entries": 22,
+    "candidate_records": 21,
+    "tool_comparison_entries": 19,
+    "primary_sources": 39,
+    "recommendations": 18,
+    "proposed_initiative_groups": 8,
+    "packet_manifest_paths": 164,
+    "required_or_replacement_route_paths": 48,
+    "structured_code_evidence_references": 468,
+    "markdown_code_anchor_occurrences": 174
+  },
+  "not_performed": [
+    "Repository code execution, application tests or builds.",
+    "Dependency installation, scanner execution or mutation test execution.",
+    "Empirical metric correlation, predictive validity, cost or runtime benchmarking.",
+    "Interactive competitor product sessions; four published UI images were inspected.",
+    "Independent authentication of the Git commit object.",
+    "Live availability checks of every pinned GitHub code link; the attached packet is authoritative."
+  ],
+  "standalone_files": [
+    {
+      "name": "candidate-metrics.json",
+      "bytes": 92635,
+      "sha256": "008feb9f84290544d807ada60041612ea99c284b4990c3f692e827d51be74675"
+    },
+    {
+      "name": "current-metrics.json",
+      "bytes": 349747,
+      "sha256": "e156d5b03e1284e082e48e5f9c07214f5c530e9ba96e7aa0851ead67906368a2"
+    },
+    {
+      "name": "reading-manifest.json",
+      "bytes": 33600,
+      "sha256": "5ebffc998d9a0fc36579f7f3ae7e679953aeb2eb10b606ffb7194f433fb4ab18"
+    },
+    {
+      "name": "recommendations.md",
+      "bytes": 40695,
+      "sha256": "0c09a10e00ea857c53c7de26af9506df804dd1c6f1fb87b4e475c84351fcde18"
+    },
+    {
+      "name": "research-report.md",
+      "bytes": 130037,
+      "sha256": "acf551aa397831412dd9ec2a13320403b3355da003f13f086fb9755a63084117"
+    },
+    {
+      "name": "sources.json",
+      "bytes": 14729,
+      "sha256": "353c1c041934e8441f659f5ebee686610ae57ca0ff0baf35bdbc51fb9b04bffb"
+    },
+    {
+      "name": "tool-survey.md",
+      "bytes": 22988,
+      "sha256": "41ec05f56efb90c83a0814459f7b2ee53f54e38d44d062283e3e4745783f5d49"
+    }
+  ],
+  "archive": {
+    "filename": "srcly-metrics-research.zip",
+    "entries": 8,
+    "contents": "Five requested deliverables plus sources.json, reading-manifest.json and this validation record.",
+    "exclusions": "No application code, executed evaluation scripts, copied vendor images or private working files.",
+    "crc_test": "passed"
+  }
+}
