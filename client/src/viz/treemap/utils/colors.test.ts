@@ -72,9 +72,10 @@ describe("size metric scales", () => {
     expect(fill("file_size", { file_size: 1_000 })).not.toBe(rampColor(1));
   });
 
-  it("gives large-valued TSX counts their own range", () => {
-    expect(fill("tsx_hardcoded_string_volume", { tsx_hardcoded_string_volume: 500 })).toBe(rampColor(0.5));
-    expect(fill("tsx_prop_count", { tsx_prop_count: 50 })).toBe(rampColor(0.5));
+  it("gives component metrics and comment noise their own range", () => {
+    expect(fill("component_loc", { component_loc: 150 })).toBe(rampColor(0.5));
+    expect(fill("component_hook_count", { component_hook_count: 5 })).toBe(rampColor(0.5));
+    expect(fill("comment_noise", { comment_noise: 1 })).toBe(rampColor(0.5));
   });
 
   it("keeps the hover label background on the same scale as the fill", () => {

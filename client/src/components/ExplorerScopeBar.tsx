@@ -43,8 +43,8 @@ export function ExplorerScopeBar(props: {
   const parent = () => chain().at(-2);
   const summary = createMemo(() => summarizeScope(props.root, props.colorMetric));
 
-  // Max complexity names the function that sets it, not just its file.
-  const witness = () => (props.colorMetric.id === "complexity" ? witnessOf(props.root) : null);
+  // A max (complexity, component metrics) names the scope that sets it, not just its file.
+  const witness = () => witnessOf(props.root, props.colorMetric.id);
   const witnessFile = () => witness()?.path.split("::")[0].split("/").pop() ?? "";
 
   const openTop = () => {
@@ -123,7 +123,7 @@ export function ExplorerScopeBar(props: {
                 onClick={openTop}
               >
                 <span class="shrink-0">
-                  {props.colorMetric.invert ? "Lowest" : "Top"} {props.colorMetric.shortLabel}
+                  Top {props.colorMetric.shortLabel}
                 </span>
                 <Show
                   when={witness()}

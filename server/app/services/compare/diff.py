@@ -8,9 +8,10 @@ metric, per-metric totals over the changed files, and the file-level
 dependency edges gained and lost.
 
 "Better" and "worse" come from one table, ``COMPARE_METRICS``, shared by the
-CLI and the UI. Direction starts from ``reporting.METRIC_DEFINITIONS``
-(``higher_is_riskier``), but pure size measures are neutral here: a PR that
-adds a feature is expected to add lines, functions, and exports.
+CLI and the UI. Direction comes from ``reporting.METRIC_DEFINITIONS``: risk
+metrics are better lower, neutral detail (counts of functions, exports,
+TODOs...) is neutral, and so is LOC here: a PR that adds a feature is
+expected to add lines.
 """
 
 from __future__ import annotations
@@ -31,24 +32,15 @@ Aggregation = Literal["sum", "max", "mean"]
 class CompareMetric:
     name: str
     direction: Direction
-    """Which way is better: ``lower`` (risk), ``higher`` (e.g. comment density), or ``neutral`` (size)."""
+    """Which way is better: ``lower`` (risk) or ``neutral`` (size and inventory). ``higher`` is unused today."""
     aggregation: Aggregation
     """How file values combine into a total over the changed files."""
     source: Literal["tree", "graph"] = "tree"
 
 
-# Size and inventory: growth is expected, not a regression.
-NEUTRAL_METRICS = frozenset(
-    {
-        "loc",
-        "function_count",
-        "file_size",
-        "classes_count",
-        "comment_lines",
-        "ts_export_count",
-        "ts_type_interface_count",
-    }
-)
+# Size: growth is expected, not a regression. Inventory counts are neutral
+# in the definitions already.
+NEUTRAL_METRICS = frozenset({"loc"})
 SKIPPED_METRICS = frozenset({"file_count"})
 
 
@@ -65,10 +57,7 @@ def _build_metrics() -> tuple[CompareMetric, ...]:
     for d in METRIC_DEFINITIONS:
         if d.name in SKIPPED_METRICS:
             continue
-        if d.name in NEUTRAL_METRICS:
-            direction: Direction = "neutral"
-        else:
-            direction = "lower" if d.higher_is_riskier else "higher"
+        direction: Direction = "neutral" if d.name in NEUTRAL_METRICS or d.direction == "neutral" else "lower"
         metrics.append(CompareMetric(d.name, direction, _aggregation(d.aggregation)))
     # Coupling from the dependency graph. Depending on more things is riskier;
     # being depended on is a fact about the file, not a regression.

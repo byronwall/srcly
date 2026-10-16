@@ -78,7 +78,6 @@ class NotebookAnalyzer:
             function_list=function_list,
             filename=file_path,
             comment_lines=0,
-            comment_density=0.0,
             max_nesting_depth=0,
             average_function_length=average_function_length,
             parameter_count=0,

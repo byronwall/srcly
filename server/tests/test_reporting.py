@@ -19,8 +19,8 @@ def _sample_tree(root_path: Path) -> Node:
         metrics=Metrics(
             loc=70,
             complexity=12,
-            tsx_render_branching_count=7,
-            tsx_prop_count=18,
+            component_jsx_conditional_count=7,
+            component_prop_count=18,
             ts_any_usage_count=2,
         ),
     )
@@ -36,8 +36,8 @@ def _sample_tree(root_path: Path) -> Node:
             function_count=1,
             file_count=1,
             file_size=4200,
-            tsx_render_branching_count=7,
-            tsx_prop_count=18,
+            component_jsx_conditional_count=7,
+            component_prop_count=18,
             ts_any_usage_count=2,
         ),
         children=[function],
@@ -372,3 +372,13 @@ def test_report_names_the_complexity_witness(tmp_path: Path, monkeypatch: pytest
     assert finding["complexity_witness"]["name"] == "Dashboard"
     assert "complexity=12 in `Dashboard` (line 10)" in payload["report_markdown"]
     assert payload["hotspots"]["function_rankings"][0]["name"] == "Dashboard"
+
+
+def test_profiles_weight_only_risk_metrics() -> None:
+    directions = {d.name: d.direction for d in reporting.METRIC_DEFINITIONS}
+    for profile, weights in reporting.PROFILE_WEIGHTS.items():
+        for metric in weights:
+            assert directions.get(metric) == "risk", (profile, metric)
+    for cut in ("comment_density", "tsx_hardcoded_string_volume", "tsx_duplicated_string_count", "todo_count"):
+        assert all(cut not in w for w in reporting.PROFILE_WEIGHTS.values())
+    assert "comment_density" not in directions

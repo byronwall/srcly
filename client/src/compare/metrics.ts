@@ -8,7 +8,6 @@ const EXTRA_LABELS: Record<string, string> = {
   comment_lines: "Comment lines",
   average_function_length: "Avg fn length",
   classes_count: "Classes",
-  comment_density: "Comment density",
 };
 
 /** Default table columns: the risk metrics most PRs move. */
@@ -23,14 +22,10 @@ export function formatValue(name: string, value: number | null | undefined): str
   return formatMetricValue(name, value);
 }
 
-export function formatDelta(name: string, delta: number): string {
+export function formatDelta(_name: string, delta: number): string {
   if (delta === 0) return "±0";
   const sign = delta > 0 ? "+" : "−";
   const magnitude = Math.abs(delta);
-  if (name === "comment_density") {
-    const pts = magnitude * 100;
-    return `${sign}${pts < 1 ? pts.toFixed(1) : Math.round(pts)}pt`;
-  }
   const text = Number.isInteger(magnitude) ? magnitude.toLocaleString("en-US") : magnitude.toFixed(1);
   return `${sign}${text}`;
 }

@@ -12,6 +12,20 @@ class FunctionMetrics:
     max_nesting_depth: int = 0
     comment_lines: int = 0
     todo_count: int = 0
+    # Comment noise flags in this scope (see comment_noise.py).
+    comment_noise: int = 0
+    comment_noise_ratio: int = 0
+    comment_noise_docblock: int = 0
+    comment_noise_commented_code: int = 0
+    # React/Solid component metrics; None unless this scope is a component
+    # (see typescript/components.py).
+    component_loc: int | None = None
+    component_hook_count: int | None = None
+    component_effect_count: int | None = None
+    component_jsx_depth: int | None = None
+    component_prop_count: int | None = None
+    component_inline_handler_count: int | None = None
+    component_jsx_conditional_count: int | None = None
     # TS/TSX Specific Metrics (per-function)
     ts_type_interface_count: int = 0
     # Markdown-specific metrics
@@ -100,7 +114,13 @@ LANGUAGE_LABELS: dict[str, str] = {
 # listed is N/A (null) for that language, never 0. LOC, size and file counts
 # are always measured and aren't listed.
 _CODE_CORE = frozenset({"complexity", "complexity_avg", "function_count", "average_function_length", "parameter_count"})
-_TREE_SITTER_CODE = _CODE_CORE | {"comment_lines", "comment_density", "max_nesting_depth", "todo_count", "classes_count"}
+COMMENT_NOISE_METRICS = frozenset({
+    "comment_noise",
+    "comment_noise_ratio",
+    "comment_noise_docblock",
+    "comment_noise_commented_code",
+})
+_TREE_SITTER_CODE = _CODE_CORE | COMMENT_NOISE_METRICS | {"comment_lines", "max_nesting_depth", "todo_count", "classes_count"}
 _TS = _TREE_SITTER_CODE | {
     "ts_any_usage_count",
     "ts_ignore_count",
@@ -108,19 +128,20 @@ _TS = _TREE_SITTER_CODE | {
     "ts_type_interface_count",
     "ts_export_count",
 }
-_TSX_ONLY = frozenset({
-    "tsx_nesting_depth",
-    "tsx_render_branching_count",
-    "tsx_react_use_effect_count",
-    "tsx_anonymous_handler_count",
-    "tsx_prop_count",
-    "tsx_hardcoded_string_volume",
-    "tsx_duplicated_string_count",
+# Per component, and the max over a file's components (N/A with none).
+COMPONENT_METRICS = frozenset({
+    "component_loc",
+    "component_hook_count",
+    "component_effect_count",
+    "component_jsx_depth",
+    "component_prop_count",
+    "component_inline_handler_count",
+    "component_jsx_conditional_count",
 })
 
 MEASURED_FILE_METRICS: dict[str, frozenset[str]] = {
     "ts": frozenset(_TS),
-    "tsx": frozenset(_TS | _TSX_ONLY),
+    "tsx": frozenset(_TS | COMPONENT_METRICS),
     "python": frozenset(_TREE_SITTER_CODE | {"python_import_count"}),
     "code": _CODE_CORE,
     "markdown": frozenset({"md_data_url_count"}),
@@ -129,10 +150,10 @@ MEASURED_FILE_METRICS: dict[str, frozenset[str]] = {
     "text": frozenset(),
 }
 
-_TREE_SITTER_SCOPE = frozenset({"complexity", "parameter_count", "max_nesting_depth", "comment_lines", "comment_density", "todo_count"})
+_TREE_SITTER_SCOPE = frozenset({"complexity", "parameter_count", "max_nesting_depth", "comment_lines", "todo_count"}) | COMMENT_NOISE_METRICS
 MEASURED_SCOPE_METRICS: dict[str, frozenset[str]] = {
     "ts": _TREE_SITTER_SCOPE | {"ts_type_interface_count"},
-    "tsx": _TREE_SITTER_SCOPE | {"ts_type_interface_count"},
+    "tsx": _TREE_SITTER_SCOPE | {"ts_type_interface_count"} | COMPONENT_METRICS,
     "python": _TREE_SITTER_SCOPE,
     "code": frozenset({"complexity", "parameter_count"}),
     "markdown": frozenset({"md_data_url_count"}),
@@ -152,24 +173,21 @@ class FileMetrics:
     function_list: List[FunctionMetrics] = field(default_factory=list)
     filename: str = ""
     comment_lines: int = 0
-    comment_density: float = 0.0
+    comment_noise: int = 0
+    comment_noise_ratio: int = 0
+    comment_noise_docblock: int = 0
+    comment_noise_commented_code: int = 0
     max_nesting_depth: int = 0
     average_function_length: float = 0.0
     parameter_count: int = 0
     todo_count: int = 0
     classes_count: int = 0
     
-    # TS/TSX Specific Metrics
-    tsx_nesting_depth: int = 0
-    tsx_render_branching_count: int = 0
-    tsx_react_use_effect_count: int = 0
-    tsx_anonymous_handler_count: int = 0
-    tsx_prop_count: int = 0
+    # TS/TSX Specific Metrics. Component metrics are computed from the
+    # component scopes in ``analysis.attach_file_metrics``.
     ts_any_usage_count: int = 0
     ts_ignore_count: int = 0
     ts_import_coupling_count: int = 0
-    tsx_hardcoded_string_volume: int = 0
-    tsx_duplicated_string_count: int = 0
     ts_type_interface_count: int = 0
     ts_export_count: int = 0
     # Python-specific metrics

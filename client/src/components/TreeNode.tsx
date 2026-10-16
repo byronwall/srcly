@@ -134,7 +134,7 @@ export function TreeNode(props: {
           const color = () => (isColor() ? metricCellColor(column.metric!, props.node) : undefined);
           const faint = () => Boolean(column.metric) && metricCellIsFaint(column.metric!, props.node);
           // A file's or folder's max complexity opens the function that sets it.
-          const witness = () => (column.id === "complexity" ? witnessOf(props.node) : null);
+          const witness = () => witnessOf(props.node, column.id);
           return (
             <div
               class="plc-data-md relative flex h-full shrink-0 items-center justify-end pr-1.5"

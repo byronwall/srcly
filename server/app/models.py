@@ -37,24 +37,36 @@ class Metrics(BaseModel):
     function_count: int | None = None
 
     comment_lines: int | None = None
-    comment_density: float | None = None
+    # Comment noise: flags for over-commenting on absolute thresholds (see
+    # ``services/comment_noise.py``). The total and its three parts.
+    comment_noise: int | None = None
+    comment_noise_ratio: int | None = None
+    comment_noise_docblock: int | None = None
+    comment_noise_commented_code: int | None = None
     max_nesting_depth: int | None = None
     average_function_length: float | None = None
     parameter_count: int | None = None
+    # Neutral detail: shown, never ranked as risk.
     todo_count: int | None = None
     classes_count: int | None = None
 
+    # React/Solid components (TSX). A component scope holds its own values;
+    # files and folders hold the max over their components, and ``witnesses``
+    # names the component behind each max. N/A when there are no components.
+    component_loc: int | None = None
+    component_hook_count: int | None = None
+    component_effect_count: int | None = None
+    component_jsx_depth: int | None = None
+    component_prop_count: int | None = None
+    component_inline_handler_count: int | None = None
+    component_jsx_conditional_count: int | None = None
+    witnesses: dict[str, Witness] | None = None
+
     # TS/TSX Specific Metrics
-    tsx_nesting_depth: int | None = None
-    tsx_render_branching_count: int | None = None
-    tsx_react_use_effect_count: int | None = None
-    tsx_anonymous_handler_count: int | None = None
-    tsx_prop_count: int | None = None
     ts_any_usage_count: int | None = None
     ts_ignore_count: int | None = None
+    # Neutral detail
     ts_import_coupling_count: int | None = None
-    tsx_hardcoded_string_volume: int | None = None
-    tsx_duplicated_string_count: int | None = None
     ts_type_interface_count: int | None = None
     ts_export_count: int | None = None
 
@@ -80,7 +92,7 @@ class Metrics(BaseModel):
 # ``analysis.aggregate_metrics``.
 OPTIONAL_METRIC_FIELDS: tuple[str, ...] = tuple(
     name for name, field in Metrics.model_fields.items()
-    if name not in ("complexity_witness",) and field.default is None
+    if name not in ("complexity_witness", "witnesses") and field.default is None
 )
 
 

@@ -2,6 +2,9 @@ import tree_sitter_python as tspython
 from tree_sitter import Language, Parser, Node
 from typing import List
 
+import textwrap
+
+from app.services import comment_noise
 from app.services.analysis_types import FileMetrics, FunctionMetrics, iter_executable_scopes
 from app.services.markers import MarkerSink
 
@@ -13,6 +16,34 @@ _COMPLEXITY_NOTES = {
     'except_clause': 'except', 'with_statement': 'with', 'match_statement': 'match',
     'case_pattern': 'case',
 }
+
+# Statements only code has, for telling commented-out code from prose.
+_PY_CODE_NODES = frozenset({
+    'call', 'assignment', 'augmented_assignment', 'return_statement', 'import_statement',
+    'import_from_statement', 'if_statement', 'for_statement', 'while_statement',
+    'function_definition', 'class_definition', 'with_statement', 'raise_statement',
+    'try_statement', 'await', 'delete_statement',
+})
+
+
+def _is_bare_annotation(node: Node) -> bool:
+    """`Note: some words` parses as an annotation; real code assigns."""
+    return node.type == 'assignment' and node.child_by_field_name('right') is None
+
+
+def _docstring(node: Node) -> Node | None:
+    """The docstring of a module, class or function node, if it has one."""
+    body = node if node.type == 'module' else node.child_by_field_name('body')
+    if body is None:
+        return None
+    for child in body.named_children:
+        if child.type == 'comment':
+            continue
+        if child.type == 'expression_statement' and child.named_children and child.named_children[0].type == 'string':
+            return child
+        return None
+    return None
+
 
 # Nesting at or past this depth is marked, so the overlay shows deep code
 # rather than every block. Shallower files mark their deepest blocks.
@@ -45,6 +76,11 @@ class PythonTreeSitterAnalyzer:
         self._file_python_import_count = 0
         self._file_max_nesting_depth = 0
         self._nesting_nodes: List[tuple[int, Node]] = []
+        self._comments: List[comment_noise.CommentSpan] = []
+        self._docstrings: dict[int, Node] = {}  # id(FunctionMetrics) -> docstring
+        module_doc = _docstring(tree.root_node)
+        if module_doc is not None:
+            self._add_docstring(module_doc)
 
         # Run single-pass traversal
         top_level_functions = []
@@ -67,9 +103,6 @@ class PythonTreeSitterAnalyzer:
         if real_functions:
             avg_complexity = sum(f.cyclomatic_complexity for f in real_functions) / len(real_functions)
             
-        # File level comment density
-        comment_density = self._file_comment_lines / nloc if nloc > 0 else 0.0
-
         # Aggregate function metrics for file summary
         # Note: Previous implementation calculated avg function length based on top-level functions?
         # "total_function_length = sum(f.nloc for f in functions)"
@@ -78,34 +111,43 @@ class PythonTreeSitterAnalyzer:
         average_function_length = total_function_length / len(real_functions) if real_functions else 0.0
         parameter_count = sum(f.parameter_count for f in top_level_functions)
 
-        return FileMetrics(
+        file_metrics = FileMetrics(
             nloc=nloc,
             average_cyclomatic_complexity=avg_complexity,
             function_list=top_level_functions,
             filename=file_path,
             comment_lines=self._file_comment_lines,
-            comment_density=comment_density,
             max_nesting_depth=self._file_max_nesting_depth,
             average_function_length=average_function_length,
             parameter_count=parameter_count,
             todo_count=self._file_todo_count,
             classes_count=self._file_classes_count,
-            # Initialize other fields to valid defaults
-            tsx_nesting_depth=0,
-            tsx_render_branching_count=0,
-            tsx_react_use_effect_count=0,
-            tsx_anonymous_handler_count=0,
-            tsx_prop_count=0,
-            ts_any_usage_count=0,
-            ts_ignore_count=0,
-            ts_import_coupling_count=0,
             python_import_count=self._file_python_import_count,
-            tsx_hardcoded_string_volume=0,
-            tsx_duplicated_string_count=0,
-            ts_type_interface_count=0,
-            ts_export_count=0,
-            md_data_url_count=0
         )
+        self._apply_comment_noise(content, real_functions, file_metrics)
+        return file_metrics
+
+    def _add_docstring(self, doc: Node) -> None:
+        self._comments.append(comment_noise.CommentSpan(doc.start_point.row + 1, doc.end_point.row + 1, doc.start_point.column))
+
+    def _apply_comment_noise(self, content: bytes, functions: List[FunctionMetrics], file_metrics: FileMetrics) -> None:
+        lines = content.decode('utf-8', errors='ignore').splitlines()
+        scopes = []
+        for func in functions:
+            doc = self._docstrings.get(id(func))
+            doc_start, doc_end = (doc.start_point.row + 1, doc.end_point.row + 1) if doc is not None else (0, 0)
+            scopes.append(comment_noise.ScopeSpan(func.start_line, func.end_line, func, doc_start, doc_end))
+
+        def looks_like_code(text: str) -> bool:
+            source = textwrap.dedent(text)
+            for candidate in (source, "def __srcly__():\n" + textwrap.indent(source, "    ")):
+                tree = self.parser.parse(candidate.encode('utf-8'))
+                if not tree.root_node.has_error:
+                    return comment_noise.has_code_node(tree.root_node, _PY_CODE_NODES, _is_bare_annotation)
+            return False
+
+        result = comment_noise.analyze(lines, self._comments, scopes, looks_like_code)
+        comment_noise.apply(result, file_metrics, scopes, self.markers)
 
     def _scan_tree(
         self, 
@@ -158,7 +200,10 @@ class PythonTreeSitterAnalyzer:
             is_todo = 'TODO' in text or 'FIXME' in text
             
             self._file_comment_lines += lines
-            self._mark('comment_density', node, span=True)
+            self._comments.append(comment_noise.CommentSpan(
+                node.start_point.row + 1, node.end_point.row + 1, node.start_point.column,
+                text[1:].removeprefix(' '),
+            ))
             if is_todo:
                 self._file_todo_count += 1
                 self._mark('todo_count', node, 'FIXME' if 'FIXME' in text and 'TODO' not in text else 'TODO')
@@ -226,6 +271,10 @@ class PythonTreeSitterAnalyzer:
             active_scopes.append(new_scope_ctx)
             target_list_for_children = new_metrics.children
             scope_created = True
+            doc = _docstring(node) if node_type != 'lambda' else None
+            if doc is not None:
+                self._add_docstring(doc)
+                self._docstrings[id(new_metrics)] = doc
 
         # Recurse
         for child in node.children:

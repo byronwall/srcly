@@ -69,7 +69,7 @@ Use `uvx srcly scan . --out .srcly/tree.json` or `uvx srcly report . --include-t
 - **Treemap of your codebase**
   - Each rectangle is a piece of your code: folders contain files, files contain functions and glue code.
   - Rectangle **area** ≈ lines of code (LOC) for that node.
-  - Rectangle **color** is selectable from the hotspot metrics, such as complexity, LOC, file size, TODOs, nesting depth, TS/TSX metrics, Python imports, and Markdown data URLs.
+  - Rectangle **color** is selectable from the hotspot metrics, such as complexity, LOC, comment noise, nesting depth, React/Solid component metrics, TS metrics, and Markdown data URLs.
   - Zoom into folders/files/scopes, isolate or exclude paths, filter by file type, and inspect metric legends from the treemap header.
 - **Folder/file explorer sidebar**
   - A tree view of your codebase mirrored from the analysis model.
@@ -99,7 +99,7 @@ The backend lives in the `server/app` package and is exposed as a FastAPI app.
 - **Static analysis**
   - Uses `lizard` for broad source-file coverage.
   - Uses tree-sitter analyzers for TypeScript/TSX, CSS/SCSS, Markdown, notebooks, and Python-specific enrichment.
-  - Extracts function/scope definitions, cyclomatic complexity, LOC, comments, nesting, TODOs, class counts, and language-specific metrics per file and per function where available.
+  - Extracts function/scope definitions, cyclomatic complexity, LOC, comment noise, nesting, React/Solid components, and language-specific metrics per file and per function where available.
   - Runs files in separate worker processes with per-file hard timeouts so one bad file does not hang the full scan.
 - **Structure building**
   - Constructs a hierarchical tree of `Node` objects mirroring your filesystem:
@@ -140,14 +140,17 @@ For every node (folder, file, function, or glue-code fragment), Srcly computes a
 | Metric              | Description                               | Aggregation Logic                                                                              |
 | :------------------ | :---------------------------------------- | :--------------------------------------------------------------------------------------------- |
 | **LOC**             | Lines of Code (excluding comments/blanks) | **Sum** — folder LOC is the sum of all children                                                |
-| **Complexity**      | Cyclomatic Complexity                     | **Max** for folders (shows the worst case)<br>**Average** for files<br>**Exact** for functions |
-| **Function Count**  | Number of functions detected              | **Sum**                                                                                        |
+| **Complexity**      | Cyclomatic complexity (CCN)               | **Exact** for a function<br>**Max** over a file's or folder's functions, naming the function that sets it<br>**Complexity (avg)** is the mean per function |
+| **Function Count**  | Number of executable functions            | **Sum**                                                                                        |
 | **File Count/Size** | Number of files and bytes on disk          | **Sum**                                                                                        |
-| **Comments/TODOs**  | Comment lines, comment density, TODO count | **Sum** for counts; density is computed from aggregated comment lines and LOC                  |
-| **Structure**       | Max nesting depth, average function length, parameter count, class count | **Max**, **average**, or **sum** depending on the metric                         |
-| **TS/TSX**          | JSX nesting, render branches, `useEffect`, inline handlers, prop count, `any`, TS ignores, import coupling, hardcoded/duplicated strings, type/interface count, exports | **Sum** or **max** depending on whether the metric is a count or depth |
-| **Python**          | Python import count                        | **Sum**                                                                                        |
+| **Comment noise**   | Flags for over-commenting on fixed thresholds: a function over 50% comments (with 10+ code lines), a docblock 8+ lines long and over 1.5× its body, and 3+ line runs of commented-out code | **Sum** of flags; each flag marks its lines in the code viewer |
+| **Structure**       | Max nesting depth, average function length, parameter count | **Max**, **average**, or **sum** depending on the metric                         |
+| **React/Solid components** | Per component (a capitalized function returning JSX): LOC, hooks, effects, JSX depth, declared props, inline handlers, JSX conditionals | **Max** over a file's or folder's components, naming the component |
+| **TS**              | `any` usage, TS ignore directives          | **Sum**                                                                                        |
+| **Detail**          | TODOs, comment lines, classes, types/interfaces, exports, imports | **Sum**. Shown for context; never ranked as risk                          |
 | **Markdown**        | Markdown data URL count                    | **Sum**                                                                                        |
+
+A metric that doesn't apply to a node (a Python metric on a TS file, component metrics on a file with no components) is N/A, never 0.
 
 These metrics power treemap sizing/coloring, the Hot Spots ranking, explorer sorting, tooltips, and dependency graph coloring.
 

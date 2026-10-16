@@ -13,7 +13,7 @@ import { MetricPicker } from "./MetricPicker";
 import Popover from "./Popover";
 import { Button } from "./ui/Button";
 import { IconButton } from "./ui/IconButton";
-import { HOTSPOT_METRICS, type HotSpotMetricId, useMetricsStore } from "../utils/metricsStore";
+import { HOTSPOT_METRICS, isRankingMetric, type HotSpotMetricId, useMetricsStore } from "../utils/metricsStore";
 import { HotSpotItem } from "./HotSpotItem";
 import { cohortNodes, rankHotSpots, type HotSpotCohort } from "../utils/hotSpotRanking";
 import { TreeNode } from "./TreeNode";
@@ -67,23 +67,29 @@ export interface Node {
     file_size?: number;
     file_count?: number;
     comment_lines?: MetricValue;
-    comment_density?: MetricValue;
+    comment_noise?: MetricValue;
+    comment_noise_ratio?: MetricValue;
+    comment_noise_docblock?: MetricValue;
+    comment_noise_commented_code?: MetricValue;
     max_nesting_depth?: MetricValue;
     average_function_length?: MetricValue;
     parameter_count?: MetricValue;
     todo_count?: MetricValue;
     classes_count?: MetricValue;
-    // TS/TSX-specific metrics
-    tsx_nesting_depth?: MetricValue;
-    tsx_render_branching_count?: MetricValue;
-    tsx_react_use_effect_count?: MetricValue;
-    tsx_anonymous_handler_count?: MetricValue;
-    tsx_prop_count?: MetricValue;
+    // React/Solid components: own values on a component scope, the max on
+    // files and folders, with `witnesses` naming the component.
+    component_loc?: MetricValue;
+    component_hook_count?: MetricValue;
+    component_effect_count?: MetricValue;
+    component_jsx_depth?: MetricValue;
+    component_prop_count?: MetricValue;
+    component_inline_handler_count?: MetricValue;
+    component_jsx_conditional_count?: MetricValue;
+    witnesses?: Record<string, Witness> | null;
+    // TS-specific metrics
     ts_any_usage_count?: MetricValue;
     ts_ignore_count?: MetricValue;
     ts_import_coupling_count?: MetricValue;
-    tsx_hardcoded_string_volume?: MetricValue;
-    tsx_duplicated_string_count?: MetricValue;
     ts_type_interface_count?: MetricValue;
     ts_export_count?: MetricValue;
     python_import_count?: MetricValue;
@@ -565,6 +571,7 @@ export default function Explorer(props: {
           <div class="flex shrink-0 items-center gap-2 border-b border-[var(--plc-border)] px-2 py-1.5">
             <MetricPicker
               prefix="Rank by"
+              ranking
               selected={selectedHotSpotMetrics()}
               onChange={(ids: HotSpotMetricId[]) => setSelectedHotSpotMetrics(ids)}
               class="flex-1"
@@ -599,6 +606,9 @@ export default function Explorer(props: {
                 ? `Top ${HOT_SPOT_LIMIT} ${hotSpotCohort() === "file" ? "files" : "functions"}`
                 : `${hotSpots().length.toLocaleString("en-US")} ${hotSpotCohort() === "file" ? "files" : "functions"}`}
             </span>
+            <Show when={!selectedHotSpotMetrics().some(isRankingMetric)}>
+              <span>· Detail metrics don't rank; pick a metric to rank by</span>
+            </Show>
             <Show when={hotSpotResult().na > 0}>
               <span title="No value for any selected metric: it doesn't apply, or the file was skipped or failed">
                 · {hotSpotResult().na.toLocaleString("en-US")} N/A not ranked

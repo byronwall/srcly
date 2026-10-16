@@ -35,7 +35,7 @@ const num = (node: ScopeNode, key: string) => {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 };
 
-/** Counts under `root`, plus its worst file by `metric` (lowest for inverted metrics). */
+/** Counts under `root`, plus its worst (highest) file by `metric`. */
 export function summarizeScope<T extends ScopeNode>(root: T, metric: HotSpotMetricDef): ScopeSummary<T> {
   const summary: ScopeSummary<T> = { files: 0, folders: 0, functions: 0, loc: num(root, "loc") ?? 0 };
   const stack: T[] = [...((root.children ?? []) as T[])];
@@ -47,8 +47,7 @@ export function summarizeScope<T extends ScopeNode>(root: T, metric: HotSpotMetr
       summary.files++;
       const value = num(node, metric.id);
       if (value !== null) {
-        const worse = metric.invert ? value < (summary.worst?.value ?? Infinity) : value > (summary.worst?.value ?? 0);
-        if (worse) summary.worst = { node, value };
+        if (value > (summary.worst?.value ?? 0)) summary.worst = { node, value };
       }
     } else if (node.type === "function" && node.kind === "function") summary.functions++;
     stack.push(...((node.children ?? []) as T[]));

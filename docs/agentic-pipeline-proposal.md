@@ -84,7 +84,7 @@ Examples:
 
 ```bash
 uvx srcly hotspots . --metric complexity --metric ts_any_usage_count --limit 20
-uvx srcly hotspots . --metric comment_density --invert --format json
+uvx srcly hotspots . --metric comment_noise --format json
 ```
 
 This is useful for lightweight agent loops where a full report is too much.
@@ -165,8 +165,8 @@ Example node:
   "hotspot_score": 0.87,
   "top_metrics": {
     "complexity": 18,
-    "tsx_render_branching_count": 12,
-    "tsx_prop_count": 44
+    "component_jsx_conditional_count": 12,
+    "component_prop_count": 44
   },
   "children": [
     {
@@ -236,8 +236,8 @@ Example:
   "evidence": {
     "loc": 366,
     "complexity": 15,
-    "tsx_render_branching_count": 12,
-    "tsx_anonymous_handler_count": 8
+    "component_jsx_conditional_count": 12,
+    "component_inline_handler_count": 8
   },
   "suggested_action": "Inspect whether state, data preparation, and rendering can be separated without changing behavior.",
   "agent_prompt": "Review this component for safe extraction points. Prioritize behavior-preserving refactors and identify tests needed before editing."
@@ -348,7 +348,7 @@ Initial rule set:
 | --- | --- | --- |
 | Complexity | `complexity` above repo p90 or absolute threshold | High/medium |
 | Size | `loc` above repo p90 with non-trivial complexity | Medium |
-| TSX rendering | High `tsx_render_branching_count`, `tsx_nesting_depth`, or `tsx_prop_count` | High/medium |
+| TSX rendering | High `component_jsx_conditional_count`, `component_jsx_depth`, or `component_prop_count` | High/medium |
 | Type safety | `ts_any_usage_count` or `ts_ignore_count` | Medium |
 | Coupling | High `ts_import_coupling_count` or many dependency edges | Medium |
 | Maintainability | High `todo_count` in complex files | Medium |

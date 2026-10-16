@@ -51,7 +51,7 @@ function fileNode() {
     name: "pipeline.py",
     path: "pipeline.py",
     type: "file",
-    metrics: { loc: 0, complexity: 7, comment_density: 0.25, max_nesting_depth: 2, python_import_count: 9 },
+    metrics: { loc: 0, complexity: 7, comment_noise: 1, max_nesting_depth: 2, python_import_count: 9 },
     children: [
       scope("(imports)", 9),
       scope("small", 3),
@@ -93,7 +93,7 @@ describe("buildTooltipContent", () => {
     expect(content.childMetricLabel).toBe("CCN");
     expect(content.moreLabel).toBe("");
     expect(content.lines).toContainEqual({ label: "Imports", value: "9" });
-    expect(content.lines).toContainEqual({ label: "Comments", value: "25%" });
+    expect(content.lines).toContainEqual({ label: "Comment noise", value: "1" });
     // Zeros are noise, and the coloring metric has its own line.
     expect(content.lines.some((l) => l.label === "TODOs")).toBe(false);
     expect(content.lines.some((l) => l.label === "Max CCN")).toBe(false);
@@ -188,11 +188,6 @@ describe("coloring metric line", () => {
     expect(buildTooltipContent(a, "loc").primary).toMatchObject({ label: "LOC", value: "", rank: "#1 of 5 in src" });
   });
 
-  it("names comment density as a value, not a ranking", () => {
-    const a = folderTree().children![0];
-    expect(buildTooltipContent(a, "comment_density").primary?.label).toBe("Comment density");
-  });
-
   it("hides a children column that would be all zeros", () => {
     const content = buildTooltipContent(folderTree(), "python_import_count");
     expect(content.childMetricLabel).toBe("");
@@ -261,6 +256,16 @@ describe("N/A and witness in the coloring metric line", () => {
           },
         },
         {
+          name: "View.tsx",
+          type: "file",
+          path: "/r/src/View.tsx",
+          metrics: {
+            loc: 0,
+            component_hook_count: 4,
+            witnesses: { component_hook_count: { path: "/r/src/View.tsx::View", name: "View", start_line: 3, end_line: 40 } },
+          },
+        },
+        {
           name: "huge.ts",
           type: "file",
           path: "/r/src/huge.ts",
@@ -274,8 +279,13 @@ describe("N/A and witness in the coloring metric line", () => {
     expect(buildTooltipContent(jobs, "complexity").primary).toMatchObject({ value: "6", witness: "backoff · L5" });
   });
 
+  it("names the component behind a file's max component metric", () => {
+    const [, view] = tree().children!;
+    expect(buildTooltipContent(view, "component_hook_count").primary).toMatchObject({ value: "4", witness: "View · L3" });
+  });
+
   it("shows N/A with its reason instead of a 0, and leaves N/A siblings out of ranks", () => {
-    const [jobs, huge] = tree().children!;
+    const [jobs, , huge] = tree().children!;
     expect(buildTooltipContent(huge, "complexity").primary).toMatchObject({
       value: "N/A",
       rank: "Skipped: 2.1 MB is over the limit",

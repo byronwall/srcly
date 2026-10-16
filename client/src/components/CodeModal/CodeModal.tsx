@@ -194,7 +194,7 @@ export default function CodeModal(props: CodeModalProps) {
     const def = HOTSPOT_METRICS.find((m) => m.id === id);
     return {
       label: def?.viewerLabel ?? def?.label ?? id,
-      tone: def?.invert ? "good" : "hot",
+      tone: "hot",
       hits: visibleHits(),
       outside: allHits().length - visibleHits().length,
       cursorLine: cursorLine(),
