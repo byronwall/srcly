@@ -209,6 +209,11 @@ samp {
   background: var(--plc-surface-hover);
 }
 
+/* The row for whatever the pointer is over in the treemap. */
+.plc-row[data-linked] {
+  background: var(--plc-surface-selected);
+}
+
 /* The tree's current row, while the tree has focus (keyboard or click). */
 [role="tree"]:focus-within .plc-row[aria-selected="true"] {
   background: var(--plc-surface-selected);
