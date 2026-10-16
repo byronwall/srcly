@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from app.services.analysis_types import MEASURED_FILE_METRICS, MEASURED_SCOPE_METRICS
+from app.services.analysis_types import ACTIVITY_METRICS, MEASURED_FILE_METRICS, MEASURED_SCOPE_METRICS
 
 Direction = Literal["higher-worse", "lower-worse", "neutral"]
 Aggregation = Literal["sum", "max", "mean"]
@@ -28,6 +28,7 @@ GROUPS: tuple[tuple[str, str], ...] = (
     ("Components", "React/Solid components in TSX: a file holds the max over its components and names it."),
     ("TypeScript", "Type-safety escapes in .ts and .tsx files."),
     ("Markdown", "Markdown documents."),
+    ("Activity", "Git history per file in the selected window (90 days by default). On whenever the folder is a Git repo."),
     ("Detail", "Counts that describe code without saying it needs work: shown and colorable, never ranked."),
 )
 
@@ -72,6 +73,8 @@ class MetricSpec:
     @property
     def scope(self) -> Literal["file", "any"]:
         """``any`` when function/component scopes carry their own value too."""
+        if self.id in ACTIVITY_METRICS:
+            return "file"
         if self.id == "loc" or any(self.id in measured for measured in MEASURED_SCOPE_METRICS.values()):
             return "any"
         return "file"
@@ -213,6 +216,18 @@ METRICS: tuple[MetricSpec, ...] = (
         color_domain=(0, 1, 5),
         weights={"general": 0.4, "docs": 1.6},
     ),
+    # Activity: from Git history (services/activity.py), per file; scopes are N/A.
+    MetricSpec(
+        "commit_count", "Commits", "Cmts", "commits", "commit", "Activity", "higher-worse", "sum",
+        "Non-merge commits that touched the file in the activity window, following renames. Frequent change in complex code is where refactoring pays off.",
+        # Weekly-ish change over 90 days is busy; near-daily is a hot spot.
+        color_domain=(0, 5, 25), color_per_file=True, compare="neutral",
+    ),
+    MetricSpec(
+        "churn_lines", "Churn", "Churn", "lines", "line", "Activity", "higher-worse", "sum",
+        "Lines added plus removed by those commits. Kept apart from commit count: one bulk rewrite churns a lot in a single commit.",
+        color_domain=(0, 200, 2_000), color_per_file=True, compare="neutral",
+    ),
     # Detail: describes code without saying it needs work.
     MetricSpec(
         "todo_count", "TODOs", "TODO", "TODOs", "TODO", "Detail", "neutral", "sum",
@@ -295,7 +310,11 @@ def profile_lead(profile: str) -> str:
 
 
 def catalog_payload() -> dict[str, Any]:
+    from app.services import activity
+
     return {
         "groups": [{"id": gid, "description": description} for gid, description in GROUPS],
         "metrics": [m.to_json() for m in METRICS],
+        "activity_windows": list(activity.iter_windows()),
+        "default_activity_window": activity.DEFAULT_WINDOW,
     }

@@ -342,6 +342,8 @@ export default function CodeModal(props: CodeModalProps) {
               activeMetric={activeMetric}
               onToggleMetric={toggleMetric}
               onSelectNode={selectScope}
+              filePath={props.filePath}
+              gitRef={props.gitRef}
             />
 
             <div

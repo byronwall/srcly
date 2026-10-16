@@ -54,12 +54,16 @@ describe("applicableMetrics", () => {
   });
 
   it("gives Markdown only size and its own metric", () => {
-    expect(ids("/r/README.md", false)).toEqual(["loc", "file_size", "md_data_url_count"]);
+    expect(ids("/r/README.md", false)).toEqual(["loc", "file_size", "md_data_url_count", "commit_count", "churn_lines"]);
     expect(ids("/r/README.md", true)).toEqual(["loc", "md_data_url_count"]);
   });
 
-  it("gives plain-text files a line count and size", () => {
-    expect(ids("/r/deploy.yml", false)).toEqual(["loc", "file_size"]);
+  it("gives plain-text files a line count, size and Git activity", () => {
+    expect(ids("/r/deploy.yml", false)).toEqual(["loc", "file_size", "commit_count", "churn_lines"]);
+  });
+
+  it("measures Git activity per file only", () => {
+    expect(ids("/r/pipeline.py", true).some((id) => id === "commit_count" || id === "churn_lines")).toBe(false);
   });
 });
 
@@ -67,18 +71,18 @@ describe("metricSections", () => {
   const fileNode = { metrics: { loc: 300, file_size: 9000, complexity: 12, complexity_avg: 2.5, python_import_count: 7, todo_count: 0 } };
   const scopeNode = { metrics: { loc: 40, complexity: 6, todo_count: 0, file_size: 0, python_import_count: 0 } };
 
-  it("groups Size · Complexity · Comments · Detail with scope beside file", () => {
+  it("groups Size · Complexity · Comments · Activity · Detail with scope beside file", () => {
     const sections = metricSections("/r/pipeline.py", fileNode, scopeNode);
-    expect(sections.map((s) => s.title)).toEqual(["Size", "Complexity", "Comments", "Detail"]);
+    expect(sections.map((s) => s.title)).toEqual(["Size", "Complexity", "Comments", "Activity", "Detail"]);
     const size = sections[0].rows;
     expect(size.find((r) => r.id === "loc")).toMatchObject({ scope: 40, file: 300 });
     // File-only metrics leave the scope cell empty instead of showing a fake 0.
     expect(size.find((r) => r.id === "file_size")).toMatchObject({ scope: undefined, file: 9000 });
-    expect(sections[3].rows.find((r) => r.id === "python_import_count")).toEqual({ id: "python_import_count", label: "Python Imports", scope: undefined, file: 7 });
+    expect(sections[4].rows.find((r) => r.id === "python_import_count")).toEqual({ id: "python_import_count", label: "Python Imports", scope: undefined, file: 7 });
   });
 
   it("still shows an applicable 0", () => {
-    const todos = metricSections("/r/pipeline.py", fileNode, scopeNode)[3].rows.find((r) => r.id === "todo_count");
+    const todos = metricSections("/r/pipeline.py", fileNode, scopeNode)[4].rows.find((r) => r.id === "todo_count");
     expect(todos).toMatchObject({ scope: 0, file: 0 });
   });
 

@@ -4,7 +4,7 @@ Scan jobs with live progress over Server-Sent Events.
     POST   /api/scans               start (or join) a scan    -> snapshot
     GET    /api/scans/{id}          current snapshot (polling fallback)
     GET    /api/scans/{id}/events   SSE stream of snapshots
-    GET    /api/scans/{id}/result   analysis tree once complete
+    GET    /api/scans/{id}/result   analysis tree once complete (``?activity_window=30d|90d|1y|all``)
     DELETE /api/scans/{id}          cancel                    -> snapshot
 
 SSE rather than WebSockets: progress only flows server -> client, cancel is
@@ -82,13 +82,13 @@ def cancel_scan(job_id: str) -> dict:
 
 
 @router.get("/{job_id}/result", response_model=Node)
-def get_scan_result(job_id: str):
+def get_scan_result(job_id: str, activity_window: Optional[str] = None):
     job = _job_or_404(job_id)
     if job.phase != "complete":
         raise HTTPException(status_code=409, detail=f"Scan is {job.phase}, not complete")
     # Pre-encoded bytes: serializing a large tree on the event loop would
     # block every other request (see ScanJob.result_json).
-    return Response(content=job.result_json(), media_type="application/json")
+    return Response(content=analysis_router.result_bytes(job, activity_window), media_type="application/json")
 
 
 @router.get("/{job_id}/events")

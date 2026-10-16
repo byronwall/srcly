@@ -162,6 +162,10 @@ MEASURED_SCOPE_METRICS: dict[str, frozenset[str]] = {
     "text": frozenset(),
 }
 
+# Git activity: per file from history, not from any analyzer, so they are
+# never "not measured for <language>". ``services/activity.py`` fills them.
+ACTIVITY_METRICS = frozenset({"commit_count", "churn_lines"})
+
 # Means over a file's functions; with no functions there is nothing to average.
 MEAN_OVER_FUNCTIONS = frozenset({"complexity_avg", "average_function_length"})
 

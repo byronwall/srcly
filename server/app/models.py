@@ -76,7 +76,16 @@ class Metrics(BaseModel):
     # Markdown-specific metrics
     md_data_url_count: int | None = None
 
+    # Git activity (``services/activity.py``), laid over the tree when it is
+    # served: commits touching the file in the selected window, and lines
+    # added + removed by them. Files and folders (sums) only; scopes are N/A.
+    commit_count: int | None = None
+    churn_lines: int | None = None
+
     na_reason: str = ""
+    # Per-metric reasons that override ``na_reason`` (activity has its own:
+    # "Not a Git repository", "Shallow clone", ...).
+    na_reasons: dict[str, str] | None = None
 
     # Analysis outcome. Files whose analyzer timed out, crashed, or raised stay
     # in the tree with fallback LOC/size; ``analysis_status`` says why
@@ -92,8 +101,20 @@ class Metrics(BaseModel):
 # ``analysis.aggregate_metrics``.
 OPTIONAL_METRIC_FIELDS: tuple[str, ...] = tuple(
     name for name, field in Metrics.model_fields.items()
-    if name not in ("complexity_witness", "witnesses") and field.default is None
+    if name not in ("complexity_witness", "witnesses", "na_reasons") and field.default is None
 )
+
+
+class ActivityInfo(BaseModel):
+    """Git activity status for a whole tree (root node only)."""
+
+    window: str
+    window_label: str
+    status: str  # "ok" | "na"
+    reason: str = ""
+    note: str = ""  # e.g. uncommitted changes; results are still valid
+    head: str = ""
+    files_touched: int = 0
 
 
 class Node(BaseModel):
@@ -109,6 +130,8 @@ class Node(BaseModel):
     children: List["Node"] = Field(default_factory=list)
     start_line: int = 0
     end_line: int = 0
+    # Root only: whether Git activity could be measured, and for which window.
+    activity: ActivityInfo | None = None
 
     model_config = {
         "populate_by_name": True

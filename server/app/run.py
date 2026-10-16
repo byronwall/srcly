@@ -9,7 +9,7 @@ from pathlib import Path
 
 import uvicorn
 
-from app.services import metric_catalog, reporting
+from app.services import activity, metric_catalog, reporting
 from app.services.scan_workers import ScanCancelled
 
 # Seconds uvicorn waits for open connections after Ctrl+C before closing them.
@@ -165,6 +165,12 @@ def _run_headless(argv: list[str]) -> None:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     scan_parser = subparsers.add_parser("scan", help="Write the raw analysis tree as JSON.")
+    scan_parser.add_argument(
+        "--activity-window",
+        choices=list(activity.WINDOWS),
+        default=activity.DEFAULT_WINDOW,
+        help="Git history window for commit_count / churn_lines (default 90d).",
+    )
     scan_parser.add_argument("path", nargs="?", help="Path to analyze. Defaults to the enclosing Git repo root.")
     scan_parser.add_argument("--out", default="codebase_mri.json", help="Output JSON file.")
     scan_parser.add_argument("--refresh", action="store_true", help="Ignore cache when cache support is available.")
@@ -177,6 +183,12 @@ def _run_headless(argv: list[str]) -> None:
     )
 
     report_parser = subparsers.add_parser("report", help="Write agent-ready report artifacts.")
+    report_parser.add_argument(
+        "--activity-window",
+        choices=list(activity.WINDOWS),
+        default=activity.DEFAULT_WINDOW,
+        help="Git history window for commit_count / churn_lines (default 90d).",
+    )
     report_parser.add_argument("path", nargs="?", help="Path to analyze. Defaults to the enclosing Git repo root.")
     report_parser.add_argument("--out", default=".srcly", help="Output artifact directory.")
     report_parser.add_argument(
@@ -247,6 +259,12 @@ def _run_headless(argv: list[str]) -> None:
     )
 
     hotspots_parser = subparsers.add_parser("hotspots", help="Print ranked hotspots.")
+    hotspots_parser.add_argument(
+        "--activity-window",
+        choices=list(activity.WINDOWS),
+        default=activity.DEFAULT_WINDOW,
+        help="Git history window for commit_count / churn_lines (default 90d).",
+    )
     hotspots_parser.add_argument("path", nargs="?", help="Path to analyze. Defaults to the enclosing Git repo root.")
     hotspots_parser.add_argument(
         "--metric",
@@ -264,6 +282,12 @@ def _run_headless(argv: list[str]) -> None:
     hotspots_parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format.")
 
     explain_parser = subparsers.add_parser("explain", help="Print a focused report for one file or subtree.")
+    explain_parser.add_argument(
+        "--activity-window",
+        choices=list(activity.WINDOWS),
+        default=activity.DEFAULT_WINDOW,
+        help="Git history window for commit_count / churn_lines (default 90d).",
+    )
     explain_parser.add_argument("path", nargs="?", help="Path to analyze. Defaults to the enclosing Git repo root.")
     explain_parser.add_argument("--file", required=True, help="File path to explain.")
     explain_parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format.")
@@ -314,7 +338,7 @@ def _run_headless(argv: list[str]) -> None:
             raise SystemExit("--include-source snippets is reserved and not implemented yet.")
         target_path = _resolve_target_path(args.path)
         out_path = Path("-") if args.out == "-" else Path(args.out).resolve()
-        reporting.write_scan(target_path, out_path, refresh=args.refresh)
+        reporting.write_scan(target_path, out_path, refresh=args.refresh, activity_window=args.activity_window)
         if str(args.out) != "-":
             print(f"Wrote Srcly tree JSON to {out_path}")
         return
@@ -337,6 +361,7 @@ def _run_headless(argv: list[str]) -> None:
                 agent_compact=args.agent_compact,
                 verbose=args.verbose,
                 output_format=args.format,
+                activity_window=args.activity_window,
             )
             print(reporting._json_dumps(payload))
         else:
@@ -358,6 +383,7 @@ def _run_headless(argv: list[str]) -> None:
                 deprioritize_paths=_deprioritize_paths(args),
                 agent_compact=args.agent_compact,
                 verbose=args.verbose,
+                activity_window=args.activity_window,
             )
             if args.verbose:
                 print(f"Wrote Srcly report artifacts to {out_dir}")
@@ -374,7 +400,7 @@ def _run_headless(argv: list[str]) -> None:
 
     if args.command == "hotspots":
         target_path = _resolve_target_path(args.path)
-        tree = reporting.scan_tree(target_path)
+        tree = reporting.scan_tree(target_path, activity_window=args.activity_window)
         result = reporting.rank_by_metric(tree, args.metric, cohort=args.cohort, root_path=target_path)
         result["ranked"] = result["ranked"][: args.limit]
         if args.format == "json":
@@ -392,7 +418,7 @@ def _run_headless(argv: list[str]) -> None:
 
     if args.command == "explain":
         target_path = _resolve_target_path(args.path)
-        tree = reporting.scan_tree(target_path)
+        tree = reporting.scan_tree(target_path, activity_window=args.activity_window)
         payload = _explain_file(tree, Path(args.file).resolve(), target_path)
         if args.format == "json":
             print(reporting._json_dumps(payload))

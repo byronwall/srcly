@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Iterable, Literal
 
 from app.models import Metrics, Node
-from app.services import analysis, metric_catalog
+from app.services import activity, analysis, metric_catalog
 
 ARTIFACT_VERSION = 1
 
@@ -22,13 +22,16 @@ DEFAULT_DEPRIORITIZED_PATHS = (".agents/", "docs/idea/", "vendor/", "vendors/", 
 PROFILE_WEIGHTS: dict[str, dict[str, float]] = metric_catalog.profile_weights()
 
 
-def scan_tree(root_path: Path, *, verbose: bool = True) -> Node:
-    return analysis.scan_codebase(root_path, verbose=verbose)
+def scan_tree(root_path: Path, *, verbose: bool = True, activity_window: str | None = None) -> Node:
+    """Scan ``root_path`` and lay Git activity for ``activity_window`` (default 90d) over it."""
+    tree = analysis.scan_codebase(root_path, verbose=verbose)
+    data = activity.apply_to_scan(json.loads(tree.model_dump_json(by_alias=True)), root_path, activity_window)
+    return Node.model_validate(data)
 
 
-def write_scan(root_path: Path, out_path: Path, *, refresh: bool = False) -> Path:
+def write_scan(root_path: Path, out_path: Path, *, refresh: bool = False, activity_window: str | None = None) -> Path:
     del refresh  # Cache support is currently a no-op in app.services.cache.
-    tree = scan_tree(root_path)
+    tree = scan_tree(root_path, activity_window=activity_window)
     if str(out_path) == "-":
         print(_json_dumps(_node_to_json(tree)), end="")
         return out_path
@@ -53,13 +56,14 @@ def build_report_payload(
     agent_compact: bool = False,
     verbose: bool = True,
     output_format: OutputFormat = "both",
+    activity_window: str | None = None,
 ) -> dict[str, Any]:
     del refresh  # Cache support is currently a no-op in app.services.cache.
     if profile not in PROFILE_WEIGHTS:
         raise ValueError(f"Unknown profile: {profile}")
     metric = metric or metric_catalog.profile_lead(profile)
 
-    tree = scan_tree(root_path, verbose=verbose)
+    tree = scan_tree(root_path, verbose=verbose, activity_window=activity_window)
     rank_options = dict(profile=profile, root_path=root_path, focus_paths=focus_paths, deprioritize_paths=deprioritize_paths)
     ranked = rank_nodes(tree, cohort="file", **rank_options)
     by_metric = {
@@ -68,6 +72,7 @@ def build_report_payload(
     findings = build_findings(ranked, limit=limit)
     summary_tree = summarize_tree(tree, ranked, root_path=root_path, max_depth=tree_depth, top_children=tree_top)
     manifest = build_manifest(root_path=root_path, profile=profile)
+    manifest["activity"] = tree.activity.model_dump() if tree.activity else None
     metrics_schema = build_metrics_schema()
     top_findings_limit = min(limit, 20 if agent_compact else 10)
     top_findings = {"findings": findings[:top_findings_limit]}
@@ -127,6 +132,7 @@ def write_report(
     deprioritize_paths: Iterable[str] | None = DEFAULT_DEPRIORITIZED_PATHS,
     agent_compact: bool = False,
     verbose: bool = True,
+    activity_window: str | None = None,
 ) -> dict[str, Path]:
     payload = build_report_payload(
         root_path,
@@ -143,6 +149,7 @@ def write_report(
         agent_compact=agent_compact,
         verbose=verbose,
         output_format=output_format,
+        activity_window=activity_window,
     )
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -422,6 +429,7 @@ def render_markdown_report(
         f"- Root: `{manifest['root_path']}`",
         f"- Ranked by: `{metric}` ({label}). Pick another with `--metric`.",
         f"- Findings profile: `{profile}`",
+        _activity_line(manifest.get("activity")),
         f"- Findings: {len(findings)} total, {high_count} high, {medium_count} medium.",
         f"- Focus paths: `{', '.join(focus_paths or []) or 'none'}`",
         f"- Deprioritized paths: `{', '.join(deprioritize_paths or []) or 'none'}`",
@@ -486,6 +494,15 @@ def render_markdown_report(
     )
 
     return "\n".join(lines) + "\n"
+
+
+def _activity_line(info: dict[str, Any] | None) -> str:
+    if not info:
+        return "- Git activity: not collected"
+    if info["status"] != "ok":
+        return f"- Git activity: N/A ({info['reason']})"
+    note = f"; {info['note']}" if info.get("note") else ""
+    return f"- Git activity: {info['window_label']} at `{info['head']}`, {info['files_touched']} files touched{note}"
 
 
 def render_agent_skill() -> str:

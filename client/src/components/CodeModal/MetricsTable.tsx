@@ -1,7 +1,7 @@
 import { For, Show } from "solid-js";
 import { metricSections } from "../../utils/metricApplicability";
 import { witnessOf } from "../../utils/explorerColumns";
-import { formatMetricValue } from "../../utils/metricsStore";
+import { formatMetricValue, naReasonFor } from "../../utils/metricsStore";
 import { cx } from "../ui/classes";
 
 /**
@@ -25,6 +25,13 @@ export function MetricsTable(props: {
   const hasFileOnlyRows = () =>
     hasScope() && sections().some((s) => s.rows.some((r) => r.scope === undefined));
   const hasNARows = () => sections().some((s) => s.rows.some((r) => r.file === null || r.scope === null));
+  // Distinct reasons behind the file's N/A rows (activity has its own: "Not a Git repository", ...).
+  const naReasons = () => {
+    const reasons = new Set<string>();
+    for (const s of sections())
+      for (const r of s.rows) if (r.file === null) reasons.add(naReasonFor(props.fileNode?.metrics, r.id) || "not measured here");
+    return [...reasons].join("; ") || props.fileNode?.metrics?.na_reason || "not measured here";
+  };
   // "—": measured per file only. "N/A": doesn't apply here, skipped, or nothing to average.
   const cell = (id: string, value: number | null | undefined) =>
     value === undefined ? "—" : value === null ? "N/A" : formatMetricValue(id, value);
@@ -158,7 +165,7 @@ export function MetricsTable(props: {
                               ? "text-[var(--plc-on-muted)]"
                               : "text-[var(--plc-on-surface)]"
                         }`}
-                        title={row.file === null ? props.fileNode?.metrics?.na_reason || undefined : undefined}
+                        title={row.file === null ? naReasonFor(props.fileNode?.metrics, row.id) || undefined : undefined}
                       >
                         {cell(row.id, row.file)}
                       </td>
@@ -175,7 +182,7 @@ export function MetricsTable(props: {
       </Show>
       <Show when={hasNARows()}>
         <p class="mt-1 pl-1.5 text-[11px] text-[var(--plc-on-subtle)]">
-          N/A: {props.fileNode?.metrics?.na_reason || "not measured here"}
+          N/A: {naReasons()}
         </p>
       </Show>
     </div>

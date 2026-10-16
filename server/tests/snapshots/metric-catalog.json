@@ -1,4 +1,23 @@
 {
+  "activity_windows": [
+    {
+      "id": "30d",
+      "label": "last 30 days"
+    },
+    {
+      "id": "90d",
+      "label": "last 90 days"
+    },
+    {
+      "id": "1y",
+      "label": "last year"
+    },
+    {
+      "id": "all",
+      "label": "all history"
+    }
+  ],
+  "default_activity_window": "90d",
   "groups": [
     {
       "description": "Size, complexity and comment noise for any code file.",
@@ -15,6 +34,10 @@
     {
       "description": "Markdown documents.",
       "id": "Markdown"
+    },
+    {
+      "description": "Git history per file in the selected window (90 days by default). On whenever the folder is a Git repo.",
+      "id": "Activity"
     },
     {
       "description": "Counts that describe code without saying it needs work: shown and colorable, never ranked.",
@@ -465,6 +488,50 @@
       "short_label": "DURL",
       "unit": "data URLs",
       "unit_one": "data URL",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        5,
+        25
+      ],
+      "color_per_file": true,
+      "description": "Non-merge commits that touched the file in the activity window, following renames. Frequent change in complex code is where refactoring pays off.",
+      "direction": "higher-worse",
+      "group": "Activity",
+      "id": "commit_count",
+      "label": "Commits",
+      "languages": null,
+      "picker": true,
+      "scope": "file",
+      "short_label": "Cmts",
+      "unit": "commits",
+      "unit_one": "commit",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        200,
+        2000
+      ],
+      "color_per_file": true,
+      "description": "Lines added plus removed by those commits. Kept apart from commit count: one bulk rewrite churns a lot in a single commit.",
+      "direction": "higher-worse",
+      "group": "Activity",
+      "id": "churn_lines",
+      "label": "Churn",
+      "languages": null,
+      "picker": true,
+      "scope": "file",
+      "short_label": "Churn",
+      "unit": "lines",
+      "unit_one": "line",
       "viewer_label": null,
       "witness": false
     },

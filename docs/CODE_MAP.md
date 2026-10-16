@@ -67,6 +67,7 @@ Browser
 | Folder rollups of metrics (N/A children skipped; complexity and component witnesses carried up) | `server/app/services/analysis.py` (`aggregate_metrics`) |
 | Function/scope → Node conversion (`Node.kind`), `(body)` nodes, N/A metrics + `na_reason`, `complexity_witness` | `server/app/services/analysis.py` (`attach_file_metrics`, `language_for_path`, `_most_complex_function`) |
 | Analysis cache (user cache dir, fingerprint invalidation) | `server/app/services/cache.py`, used by `server/app/services/scan_jobs.py` |
+| Git activity (`commit_count`, `churn_lines`): one `git log --numstat` pass per HEAD + window (30d/90d/1y/all), renames followed, N/A on no repo / shallow / timeout, dirty tree as a note; laid over the served tree so windows never invalidate the AST cache | `server/app/services/activity.py` (`collect`, `apply_to_tree`, `recent_commits`); overlay in `scan_jobs.py` (`result_json_with_activity`), `reporting.py` (`scan_tree`), `compare/service.py` (`build_compare`) |
 
 ### API surface
 
@@ -75,7 +76,7 @@ Browser
 | `POST /api/scans` | `routers/scans.py:start_scan` | Start (or join) a background scan; returns a progress snapshot |
 | `GET /api/scans/{id}/events` | `routers/scans.py:stream_scan` | SSE stream of snapshots, ending with `complete` / `failed` / `cancelled` |
 | `GET /api/scans/{id}` | `routers/scans.py:get_scan` | Snapshot (polling fallback) |
-| `GET /api/scans/{id}/result` | `routers/scans.py:get_scan_result` | Node tree once complete (409 before) |
+| `GET /api/scans/{id}/result` | `routers/scans.py:get_scan_result` | Node tree once complete (409 before); `?activity_window=` (`30d`, `90d`, `1y`, `all`) lays Git activity over it |
 | `DELETE /api/scans/{id}` | `routers/scans.py:cancel_scan` | Cancel a scan |
 | `GET /api/analysis` | `routers/analysis.py:get_analysis` | Blocking one-shot scan (kept for API users; the UI uses `/api/scans`) |
 | `POST /api/analysis/refresh` | `routers/analysis.py:refresh_analysis` | Re-scan cwd root |
@@ -88,6 +89,7 @@ Browser
 | `GET /api/compare/commits?base=&head=` | `routers/compare.py:get_commits` → `git_refs.list_commits` | First-parent commits in a range, oldest first, each with its first parent (commit stepper; capped at 100) |
 | `POST /api/compare/prewarm` | `routers/compare.py:prewarm` → `jobs.CompareJobManager.prewarm` | Scan one commit side in the background after running compares finish; a per-commit lock in `snapshots.load_side` stops duplicate scans |
 | `POST /api/compare`, `GET /api/compare/{id}`, `GET /api/compare/{id}/result`, `DELETE /api/compare/{id}` | `routers/compare.py` → `services/compare/jobs.py` | Background compare job (polled), payload includes both trees + graphs |
+| `GET /api/files/commits` | `routers/files.py:get_file_commits` → `services/activity.py:recent_commits` | Last commits touching a file (hash, date, subject), following renames; the code viewer's evidence for activity |
 | `GET /api/files/suggest` | `routers/files.py:suggest_files` | Path autocomplete for the path bar |
 | `GET /api/metrics/catalog` | `routers/metrics.py:get_metric_catalog` → `services/metric_catalog.py` | Every metric's definition; the client loads it before rendering |
 | Pydantic response models | `server/app/models.py` | `Node`, `Metrics`, dependency graph models |
@@ -163,6 +165,7 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist live
 | --- | --- |
 | Tree / Hot Spots tabs, column picker, sorting, filter box | `client/src/components/Explorer.tsx` |
 | Hot Spots list (one metric, worst first; value + unit, witness, cohort tag; collapsed N/A group; arrow keys / Enter / Shift+Enter) | `client/src/components/HotSpotList.tsx`; ranking in `client/src/utils/hotSpotRanking.ts` (`cohortNodes`, `rankHotSpots`); Files / Functions toggle in `Explorer.tsx` |
+| Activity window picker (chips in the metric picker's Activity group, refetches the result) | `client/src/components/MetricPicker.tsx` (`ActivityWindowControl`); state in `client/src/state/scanStore.ts` (`activityWindow`, `setActivityWindow`); per-metric N/A reasons via `utils/metricsStore.tsx` (`naReasonFor`) |
 | N/A cells, 0 vs N/A, max-complexity witness link | `client/src/utils/explorerColumns.ts` (`metricCellText`, `metricCellTitle`, `witnessOf`); rows in `TreeNode.tsx`, `HotSpotItem.tsx`; code viewer in `CodeModal/MetricsTable.tsx`; treemap hatch in `viz/treemap/utils/colors.ts` (`TREEMAP_NA_COLOR`) |
 | Column definitions, cell text/heat tint, color-metric column | `client/src/utils/explorerColumns.ts` |
 | Scope bar: breadcrumb, LOC/files/fns counts, top file by color metric | `client/src/components/ExplorerScopeBar.tsx`, `client/src/utils/explorerScope.ts` |
@@ -210,6 +213,7 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist live
 | Outline / go-to-symbol popover (off the breadcrumb) | `client/src/components/CodeModal/OutlinePopover.tsx`, `utils/structureTree.ts` |
 | Metrics rail (left): applicable metrics, scope vs file, click to overlay | `client/src/components/CodeModal/MetricsSidebar.tsx`, `MetricsTable.tsx`; applicability in `client/src/utils/metricApplicability.ts` |
 | Sticky scope breadcrumb | `client/src/components/CodeModal/StickyBreadcrumb.tsx` |
+| Recent commits (activity evidence) under the metrics table | `client/src/components/CodeModal/RecentCommits.tsx` (in `MetricsSidebar.tsx`) |
 | Metric overlay: lines behind a metric (marked lines, notes, overview ruler, stepping) | `GET /api/files/markers` → `server/app/services/markers.py` (`MarkerSink`, `collect_markers`; analyzers call `_mark`); client `hooks/useMetricMarkers.ts`, `utils/metricMarkers.ts`, `CodePane.tsx` |
 | File fetching | `client/src/services/fileContent.ts`, `hooks/useFileContent.ts` |
 | Line-range slicing / indent reduction | `client/src/utils/lineRange.ts`, `utils/indentation.ts` |

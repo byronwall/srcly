@@ -10,6 +10,7 @@ needs to coordinate with the event loop.
 
 from __future__ import annotations
 
+import json
 import threading
 import time
 import uuid
@@ -19,7 +20,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 from app.models import Node
-from app.services import analysis, cache
+from app.services import activity, analysis, cache
 from app.services.scan_progress import ScanObserver
 from app.services.scan_workers import CancelToken, ScanCancelled
 
@@ -79,6 +80,8 @@ class ScanJob(ScanObserver):
     _done: threading.Event = field(default_factory=threading.Event)
     _result_json: Optional[bytes] = None
     _result_json_lock: threading.Lock = field(default_factory=threading.Lock)
+    # window -> (activity status the bytes were built with, bytes)
+    _activity_json: dict = field(default_factory=dict)
 
     # -- state -------------------------------------------------------------
 
@@ -142,6 +145,28 @@ class ScanJob(ScanObserver):
                     raise ValueError(f"Scan {self.id} has no result (phase: {self.phase})")
                 self._result_json = serialize_tree(self.result)
             return self._result_json
+
+    def result_json_with_activity(self, window: Optional[str] = None) -> bytes:
+        """
+        The result tree with Git activity for ``window`` laid over it.
+
+        The analysis cache stores the tree without activity, so a new window
+        or HEAD only redoes the (cached) ``git log`` pass and this overlay,
+        never the analyzers. Bytes are reused while the activity is unchanged.
+        """
+        window = activity.normalize_window(window)
+        result = activity.collect(self.root_path, window)
+        signature = (result.status, result.reason, result.note, result.head, result.repo_root, len(result.files))
+        with self._result_json_lock:
+            hit = self._activity_json.get(window)
+            if hit is not None and hit[0] == signature:
+                return hit[1]
+        tree = json.loads(self.result_json())
+        activity.apply_to_tree(tree, result, activity.scan_path_mapper(self.root_path, result))
+        data = json.dumps(tree, separators=(",", ":")).encode()
+        with self._result_json_lock:
+            self._activity_json[window] = (signature, data)
+        return data
 
     # -- ScanObserver --------------------------------------------------------
 

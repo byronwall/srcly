@@ -100,6 +100,20 @@ def get_file_markers(
     return {"markers": markers}
 
 
+@router.get("/commits")
+def get_file_commits(
+    path: str = Query(..., description="Absolute path to the file"),
+    limit: int = Query(5, ge=1, le=50),
+):
+    """
+    The last commits touching a file (following renames): the evidence behind
+    its activity metrics. ``{"status", "reason", "commits": [{sha, short, date, author, subject}]}``.
+    """
+    from app.services.activity import recent_commits
+
+    return recent_commits(Path(path), limit=limit)
+
+
 @router.get("/suggest")
 def suggest_files(path: str = Query(..., description="Path to list contents of")):
     """

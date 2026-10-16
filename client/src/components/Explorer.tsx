@@ -66,12 +66,14 @@ export interface Node {
     witnesses?: Record<string, Witness> | null;
     /** Why this node's null metrics are N/A. */
     na_reason?: string;
+    /** Per-metric N/A reasons that override `na_reason` (Git activity). */
+    na_reasons?: Record<string, string> | null;
     // "ok" | "timeout" | "error" | "crash" | "too_large"; failed files keep fallback LOC.
     analysis_status?: string;
     analysis_error?: string;
     analysis_failed_count?: number;
     /** Every catalog metric, by id (see `metricsStore`). */
-    [metric: string]: MetricValue | Witness | Record<string, Witness> | string | undefined;
+    [metric: string]: MetricValue | Witness | Record<string, Witness> | Record<string, string> | string | undefined;
   };
 }
 

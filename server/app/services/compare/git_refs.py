@@ -26,6 +26,10 @@ class GitError(RuntimeError):
     pass
 
 
+class GitTimeout(GitError):
+    """A git command ran past its ``timeout``."""
+
+
 @dataclass(frozen=True)
 class ResolvedRef:
     ref: str
@@ -70,7 +74,7 @@ class FileChange:
         return None if self.status == "removed" else self.path
 
 
-def run_git(repo: Path, *args: str, input: Optional[str] = None) -> str:
+def run_git(repo: Path, *args: str, input: Optional[str] = None, timeout: Optional[float] = None) -> str:
     try:
         proc = subprocess.run(
             ["git", "-c", "core.quotepath=off", *args],
@@ -81,7 +85,10 @@ def run_git(repo: Path, *args: str, input: Optional[str] = None) -> str:
             encoding="utf-8",
             errors="replace",
             check=False,
+            timeout=timeout,
         )
+    except subprocess.TimeoutExpired as exc:
+        raise GitTimeout(f"git {' '.join(args)} timed out after {timeout:g}s") from exc
     except OSError as exc:
         raise GitError(f"git is not available: {exc}") from exc
     if proc.returncode != 0:

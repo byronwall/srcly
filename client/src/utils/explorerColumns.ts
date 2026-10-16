@@ -1,4 +1,4 @@
-import { formatMetricValue, metricDef, metricDefs, type MetricDef, type MetricId } from "./metricsStore";
+import { formatMetricValue, metricDef, metricDefs, naReasonFor, type MetricDef, type MetricId } from "./metricsStore";
 import { treemapFillColor } from "../viz/treemap/utils/colors";
 
 export type ExplorerColumnNode = {
@@ -49,8 +49,8 @@ export function metricCellIsFaint(def: MetricDef, node: ExplorerColumnNode): boo
 export function metricCellTitle(def: MetricDef, node: ExplorerColumnNode): string {
   const value = numberAt(node, def.id);
   if (value === undefined) {
-    const reason = node.metrics?.na_reason;
-    return `${def.label}: N/A${typeof reason === "string" && reason ? ` (${reason})` : ""}`;
+    const reason = naReasonFor(node.metrics as Parameters<typeof naReasonFor>[0], def.id);
+    return `${def.label}: N/A${reason ? ` (${reason})` : ""}`;
   }
   const witness = witnessOf(node, def.id);
   const text = `${def.label}: ${metricCellText(def, node)}`;
