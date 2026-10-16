@@ -23,14 +23,14 @@ export function HotSpotItem(props: {
 }) {
   const ctx = useContext(ExplorerContext)!;
 
-  // The function or component behind each selected max, one row per scope:
-  // "max Hooks · Effects in OrderDashboard".
+  // The function or component behind each selected max, one row per scope,
+  // name first so it survives truncation: "OrderDashboard · L22 · max Hooks, Eff".
   const witnesses = () => {
     const rows: { witness: CellWitness; labels: string[] }[] = [];
     for (const id of props.metrics) {
       const w = witnessOf(props.node, id);
       if (!w) continue;
-      const label = id === "complexity" ? "CCN" : hotSpotMetricLabel(id);
+      const label = HOTSPOT_METRICS.find((m) => m.id === id)?.shortLabel ?? id;
       const row = rows.find((r) => r.witness.path === w.path);
       if (row) row.labels.push(label);
       else rows.push({ witness: w, labels: [label] });
@@ -127,9 +127,8 @@ export function HotSpotItem(props: {
                 ctx.onOpenWitness(row.witness);
               }}
             >
-              max {row.labels.join(" · ")} in{" "}
               <span class="text-[var(--plc-on-muted)] underline decoration-dotted underline-offset-2">{row.witness.name}</span>
-              {row.witness.start_line > 0 ? ` · L${row.witness.start_line}` : ""}
+              {row.witness.start_line > 0 ? ` · L${row.witness.start_line}` : ""} · max {row.labels.join(", ")}
             </button>
           )}
         </For>
