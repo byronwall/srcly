@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DependencyGraphContract } from "../viz/deps/contract";
 import { countNodeCrossings } from "../viz/deps/geometry";
-import { layoutViewSync } from "../viz/deps/layout";
+import { COMPARE_BOX, layoutViewSync } from "../viz/deps/layout";
 import { buildCompareGraph, DEFAULT_GRAPH_OPTIONS, edgeStateOn } from "./graphModel";
 import type { CompareFile, ComparePayload } from "./types";
 
@@ -120,7 +120,7 @@ describe("compare graph model", () => {
   });
 
   it("lays out once with no edge passing through a box", () => {
-    const layout = layoutViewSync(model.vm, { aspectRatio: 1.6 });
+    const layout = layoutViewSync(model.vm, { aspectRatio: 1.6, box: COMPARE_BOX });
     expect(layout.nodes).toHaveLength(model.vm.nodes.length);
     expect(countNodeCrossings(layout.edges, layout.nodes).count).toBe(0);
   });

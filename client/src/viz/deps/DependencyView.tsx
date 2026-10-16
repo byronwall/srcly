@@ -11,7 +11,8 @@ import {
   collapseChain,
   type FilterOptions,
 } from "./hierarchy";
-import { layoutView, type ViewLayout } from "./layout";
+import { layoutWithHubs } from "./hubs";
+import type { ViewLayout } from "./layout";
 import { viewMetrics, type MetricsIndex } from "./metrics";
 import { buildViewModel, DEFAULT_BUDGET, type ViewNode } from "./viewModel";
 import { folderOf, graphIdFor } from "../../navigation/location";
@@ -76,8 +77,8 @@ export default function DependencyView(props: {
     const rect = host?.getBoundingClientRect();
     const aspectRatio = rect && rect.height > 0 ? rect.width / rect.height : 1.6;
     const viewport = rect && rect.height > 0 ? { width: rect.width, height: rect.height } : undefined;
-    void layoutView(vm, { aspectRatio, viewport }).then((l) => {
-      if (token === layoutToken) setLayout(l);
+    void Promise.resolve().then(() => {
+      if (token === layoutToken) setLayout(layoutWithHubs(vm, { aspectRatio, viewport }));
     });
   });
 
@@ -112,7 +113,11 @@ export default function DependencyView(props: {
     const vm = viewModel();
     if (!vm) return "";
     const links = vm.edges.reduce((a, e) => a + e.weight, 0);
-    return `${vm.nodes.length} boxes · ${vm.edges.length} edges (${links} links)`;
+    const base = `${vm.nodes.length} boxes · ${vm.edges.length} edges (${links} links)`;
+    const l = layout();
+    const hidden = l?.hiddenEdges?.length ?? 0;
+    const hubs = l?.hubs?.length ?? 0;
+    return hidden ? `${base} · ${hidden} behind ${hubs} hub${hubs === 1 ? "" : "s"}` : base;
   });
 
   return (

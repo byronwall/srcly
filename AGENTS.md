@@ -50,6 +50,7 @@ To run tests, `cd server && uv run pytest`.
 >   - Add any per-function/file fields to the `FunctionMetrics` / `FileMetrics` dataclasses in `server/app/services/tree_sitter_analysis.py`.
 >   - Implement helper(s) on `TreeSitterAnalyzer` (e.g. `_count_...`) to compute the metric from the tree-sitter AST.
 >   - Populate the new fields in `TreeSitterAnalyzer.analyze_file` and, if relevant, in `_calculate_function_metrics`.
+>   - Next to each increment, call `self._mark("<metric_id>", node, note)` so the code viewer can mark the lines behind the count (`server/app/services/markers.py`). Keep the marker count equal to the metric; `tests/test_markers.py` checks this.
 > - **If the metric is TS/TSX-specific**: Gate it to TS/TSX in `analyze_single_file` / `TreeSitterAnalyzer` and avoid assuming the fields exist on plain lizard `FileInformation` objects.
 >
 > **2. Wire into API models and node construction**

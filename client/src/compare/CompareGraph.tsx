@@ -6,7 +6,7 @@ import { CheckboxRow } from "../components/ui/CheckboxRow";
 import { cx } from "../components/ui/classes";
 import { truncateTextToWidth } from "../utils/svgText";
 import { boundsOf } from "../viz/deps/geometry";
-import { layoutViewSync, type PositionedEdge, type PositionedNode, type ViewLayout } from "../viz/deps/layout";
+import { COMPARE_BOX, layoutViewSync, type PositionedEdge, type PositionedNode, type ViewLayout } from "../viz/deps/layout";
 import type { Region } from "../viz/deps/viewModel";
 import { DiffStat, StatusIcon } from "./bits";
 import { buildCompareGraph, DEFAULT_GRAPH_OPTIONS, edgeStateOn, type CompareGraphModel } from "./graphModel";
@@ -339,7 +339,7 @@ export function CompareGraph(props: {
   const layout = createMemo(() => {
     const { width, height } = size();
     if (!width || !height) return null;
-    return layoutViewSync(model().vm, { aspectRatio: width / height, viewport: { width, height } });
+    return layoutViewSync(model().vm, { aspectRatio: width / height, viewport: { width, height }, box: COMPARE_BOX });
   });
 
   // Linked pan/zoom: whichever pane the user moves, the other follows.

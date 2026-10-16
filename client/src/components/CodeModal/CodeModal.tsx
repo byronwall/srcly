@@ -1,16 +1,14 @@
-import { Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
+import { Show, createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js";
 import { useAutoScrollSelection } from "../../hooks/useAutoScrollSelection";
 import { useFileContent } from "../../hooks/useFileContent";
 import { useHighlightedCode } from "../../hooks/useHighlightedCode";
+import { useMetricMarkers } from "../../hooks/useMetricMarkers";
 import { guessLangFromPath } from "../../utils/guessLangFromPath";
-import {
-  computeBreadcrumbPath,
-  getActiveStructureNode,
-  getEffectiveChildren,
-  isSyntheticBodyNode,
-} from "../../utils/structureTree";
+import { getEffectiveChildren } from "../../utils/structureTree";
+import { groupHits, hasMarkers, hitsInRange, markersFor, stepHit } from "../../utils/metricMarkers";
+import { HOTSPOT_METRICS } from "../../utils/metricsStore";
 import { CodeModalHeader } from "./CodeModalHeader";
-import { CodePane } from "./CodePane";
+import { CodePane, type CodeOverlay } from "./CodePane";
 import { DialogShell } from "../dialog/DialogShell";
 import { MarkdownPane } from "./MarkdownPane";
 import { MetricsSidebar } from "./MetricsSidebar";
@@ -25,7 +23,22 @@ interface CodeModalProps {
   scopeNode?: any;
   /** Read the file from this git commit (compare mode) instead of the disk. */
   gitRef?: string | null;
+  /** The scanned root, so the header can show a repo-relative path. */
+  rootPath?: string;
 }
+
+const coerceLine = (v: unknown): number | null => {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim()) {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+};
+
+const isTyping = (target: EventTarget | null) =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 
 export default function CodeModal(props: CodeModalProps) {
   const [targetStartLine, setTargetStartLine] = createSignal<number | null>(
@@ -41,6 +54,9 @@ export default function CodeModal(props: CodeModalProps) {
   const [lineOffset, setLineOffset] = createSignal(4);
   const [reduceIndentation, setReduceIndentation] = createSignal(true);
   const [viewMode, setViewMode] = createSignal<"code" | "preview">("code");
+  const [outlineOpen, setOutlineOpen] = createSignal(false);
+  const [activeMetric, setActiveMetric] = createSignal<string | null>(null);
+  const [cursorLine, setCursorLine] = createSignal<number | null>(null);
 
   let contentScrollRef: HTMLDivElement | undefined;
   const contentContainerEl = () => contentScrollRef;
@@ -51,11 +67,15 @@ export default function CodeModal(props: CodeModalProps) {
     gitRef: () => props.gitRef,
   });
 
+  const markers = useMetricMarkers({
+    filePath: () => (props.isOpen ? props.filePath : null),
+    gitRef: () => props.gitRef,
+  });
+
   const {
     highlightedHtml,
     displayStartLine,
     displayEndLine,
-    wasIndentationReduced,
     highlightError,
   } = useHighlightedCode({
     rawCode,
@@ -115,10 +135,124 @@ export default function CodeModal(props: CodeModalProps) {
     contentKey: () => rawCode(),
   });
 
+  const displayStart = () => displayStartLine() ?? 1;
+  const displayEnd = () => displayEndLine() ?? totalLines() ?? 1;
+
+  /** Scroll a file line to the middle of the code view and flash it. */
+  const scrollToLine = (line: number, flash = true) => {
+    const container = contentScrollRef;
+    if (!container) return;
+    const lineEls = container.querySelectorAll<HTMLElement>("span.line");
+    const el = lineEls[line - displayStart()];
+    if (!el) return;
+    // Stepping between hits glides; a re-sliced view just lands.
+    el.scrollIntoView({ block: "center", behavior: flash ? "smooth" : "auto" });
+    if (flash) {
+      el.classList.remove("line-flash");
+      void el.offsetWidth; // restart the animation
+      el.classList.add("line-flash");
+    }
+  };
+
+  // Lines to bring into view once the next highlight lands (a new slice
+  // re-renders asynchronously in the worker).
+  let pendingScroll: { line: number; flash: boolean } | null = null;
+  const scrollAfterRender = (line: number, flash = false) => {
+    const target = { line, flash };
+    pendingScroll = target;
+    // An unchanged slice never re-renders; scroll anyway.
+    setTimeout(() => {
+      if (pendingScroll !== target) return;
+      pendingScroll = null;
+      scrollToLine(line, flash);
+    }, 400);
+  };
+  createEffect(
+    on(highlightedHtml, () => {
+      const target = pendingScroll;
+      if (!target) return;
+      pendingScroll = null;
+      queueMicrotask(() => scrollToLine(target.line, target.flash));
+    })
+  );
+
+  /** Selection ↔ whole file, keeping the selected scope (or the cursor hit) in view. */
+  const setShowSelection = (next: boolean) => {
+    const anchor = cursorLine() ?? targetStartLine();
+    if (anchor !== null) scrollAfterRender(anchor);
+    setLineFilterEnabled(next);
+  };
+
+  // --- Metric overlay ---------------------------------------------------
+
+  const allHits = createMemo(() => groupHits(markersFor(markers(), activeMetric() ?? "")));
+  const visibleHits = createMemo(() => hitsInRange(allHits(), displayStart(), displayEnd()));
+
+  const overlay = createMemo<CodeOverlay | null>(() => {
+    const id = activeMetric();
+    if (!id) return null;
+    const def = HOTSPOT_METRICS.find((m) => m.id === id);
+    return {
+      label: def?.viewerLabel ?? def?.label ?? id,
+      tone: def?.invert ? "good" : "hot",
+      hits: visibleHits(),
+      outside: allHits().length - visibleHits().length,
+      cursorLine: cursorLine(),
+    };
+  });
+
+  const goToHit = (line: number) => {
+    setCursorLine(line);
+    scrollToLine(line);
+  };
+
+  const step = (direction: 1 | -1) => {
+    const next = stepHit(visibleHits(), cursorLine(), direction);
+    if (next) goToHit(next.line);
+  };
+
+  const toggleMetric = (id: string) => {
+    setViewMode("code");
+    setCursorLine(null);
+    setActiveMetric(activeMetric() === id ? null : id);
+  };
+
+  // Picking a metric lands on its first hit once the lines are marked.
+  createEffect(
+    on(activeMetric, (id) => {
+      if (!id) return;
+      queueMicrotask(() => {
+        const first = visibleHits()[0];
+        if (first) goToHit(first.line);
+      });
+    })
+  );
+
+  // A new slice (scope change, whole file) drops a cursor it no longer shows.
+  createEffect(
+    on(visibleHits, (hits) => {
+      const c = cursorLine();
+      if (c !== null && !hits.some((h) => h.line === c)) setCursorLine(null);
+    })
+  );
+
+  // --- Keyboard -----------------------------------------------------------
+
   const handleKeyDown = (event: KeyboardEvent) => {
-    if (event.key === "Escape" && props.isOpen) {
+    if (!props.isOpen) return;
+    if (event.key === "Escape") {
       event.stopPropagation();
-      props.onClose();
+      if (activeMetric()) setActiveMetric(null);
+      else props.onClose();
+      return;
+    }
+    if (isTyping(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.key === "/" && getEffectiveChildren(props.fileNode).length && viewMode() === "code") {
+      event.preventDefault();
+      setOutlineOpen(true);
+    } else if ((event.key === "]" || event.key === "[") && activeMetric()) {
+      event.preventDefault();
+      step(event.key === "]" ? 1 : -1);
     }
   };
 
@@ -129,54 +263,7 @@ export default function CodeModal(props: CodeModalProps) {
     });
   });
 
-  const handleJumpToLine = (target: {
-    start?: number;
-    end?: number;
-    scrollTarget?: number;
-  }) => {
-    if (typeof target.start === "number" && typeof target.end === "number") {
-      setTargetStartLine(target.start);
-      setTargetEndLine(target.end);
-      setLineFilterEnabled(true);
-    }
-
-    // Wait for the new code to be rendered, then scroll to the specific line.
-    const scrollTarget = target.scrollTarget;
-    if (typeof scrollTarget === "number") {
-      setTimeout(() => {
-        const container = contentScrollRef;
-        if (!container) return;
-
-        // Find the line element or a marker for that line.
-        // In Shiki, we can look for line content or use line index if we know the display range.
-        const displaySlice = effectiveDisplayRange();
-        if (!displaySlice) return;
-
-        const lineIndex = scrollTarget - displaySlice.start + 1;
-        const lineEls = container.querySelectorAll(".line");
-        const targetEl = lineEls[lineIndex - 1] as HTMLElement | null;
-
-        if (targetEl) {
-          targetEl.scrollIntoView({ block: "center", behavior: "smooth" });
-          // Highlight it briefly
-          targetEl.style.transition = "background-color 500ms";
-          targetEl.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
-          setTimeout(() => {
-            targetEl.style.backgroundColor = "";
-          }, 2000);
-        }
-      }, 100);
-    }
-  };
-
-  const coerceLine = (v: unknown): number | null => {
-    if (typeof v === "number" && Number.isFinite(v)) return v;
-    if (typeof v === "string" && v.trim()) {
-      const n = Number(v);
-      if (Number.isFinite(n)) return n;
-    }
-    return null;
-  };
+  // --- Selection ------------------------------------------------------------
 
   const applySelectionFromNode = (node: any) => {
     const s = coerceLine(node?.start_line);
@@ -186,7 +273,6 @@ export default function CodeModal(props: CodeModalProps) {
     setTargetEndLine(e);
     setLineFilterEnabled(true);
     setSelectedScopeNode(node);
-
   };
 
   const clearSelection = () => {
@@ -196,22 +282,16 @@ export default function CodeModal(props: CodeModalProps) {
     setSelectedScopeNode(null);
   };
 
-  const handleSelectScopeFromBreadcrumb = (node: any | null) => {
+  const selectScope = (node: any | null) => {
+    resetAutoScroll();
     if (!node) {
       clearSelection();
-      // Scroll to top after re-render.
-      handleJumpToLine({ scrollTarget: 1 });
+      scrollAfterRender(1);
       return;
     }
-
     applySelectionFromNode(node);
-    const s = coerceLine(node?.start_line) ?? 1;
-    // Ensure we both select the scope range and scroll to its start.
-    handleJumpToLine({
-      start: coerceLine(node?.start_line) ?? undefined,
-      end: coerceLine(node?.end_line) ?? undefined,
-      scrollTarget: s,
-    });
+    const s = coerceLine(node?.start_line);
+    if (s !== null) scrollAfterRender(s);
   };
 
   const baseName = () => {
@@ -226,41 +306,6 @@ export default function CodeModal(props: CodeModalProps) {
     targetStartLine()! > 0 &&
     targetEndLine()! >= targetStartLine()!;
 
-  const effectiveDisplayRange = () => {
-    if (!totalLines()) return null;
-    return {
-      start: displayStartLine() ?? 1,
-      end: displayEndLine() ?? totalLines()!,
-      total: totalLines()!,
-    };
-  };
-
-  const rangeLabel = () => {
-    const range = effectiveDisplayRange();
-    if (!range || !hasLineRange()) return null;
-    return lineFilterEnabled()
-      ? `Showing lines ${range.start}-${range.end} of ${range.total}`
-      : `Showing full file (${
-          range.total
-        } lines), selection ${targetStartLine()}-${targetEndLine()}`;
-  };
-
-  const breadcrumbPath = () => {
-    const root = props.fileNode;
-    if (!root) return [];
-
-    const s = targetStartLine();
-    const e = targetEndLine();
-    const selection =
-      s === null || e === null
-        ? null
-        : { start: s as number, end: e as number };
-    return computeBreadcrumbPath(root, selection);
-  };
-
-  const activeStructureNode = () =>
-    getActiveStructureNode(breadcrumbPath(), props.scopeNode || props.fileNode);
-
   return (
     // Keyed so switching `filePath` remounts the modal content and avoids a one-frame
     // flash of stale highlighted HTML before the async loaders reset state.
@@ -272,48 +317,35 @@ export default function CodeModal(props: CodeModalProps) {
       >
           <CodeModalHeader
             filePath={props.filePath!}
+            rootPath={props.rootPath}
             baseName={baseName()}
             onClose={props.onClose}
             rawCode={rawCode}
             hasLineRange={hasLineRange}
-            rangeLabel={rangeLabel}
             isMarkdown={() => guessLangFromPath(props.filePath!) === "md"}
             viewMode={viewMode}
             setViewMode={setViewMode}
-            wasIndentationReduced={wasIndentationReduced}
             reduceIndentation={reduceIndentation}
             setReduceIndentation={setReduceIndentation}
             lineFilterEnabled={lineFilterEnabled}
-            setLineFilterEnabled={setLineFilterEnabled}
+            setLineFilterEnabled={setShowSelection}
             lineOffset={lineOffset}
             setLineOffset={(n) => setLineOffset(Math.max(0, Math.floor(n)))}
           />
 
-          <main class="relative flex-1 overflow-hidden flex bg-[var(--plc-surface)]">
+          <main class="relative flex flex-1 overflow-hidden bg-[var(--plc-surface)]">
             <MetricsSidebar
-                fileNode={props.fileNode}
-                scopeNode={selectedScopeNode()}
-                baseName={baseName}
-                breadcrumbPath={breadcrumbPath}
-                activeStructureNode={activeStructureNode}
-                getChildren={getEffectiveChildren}
-                isHidden={isSyntheticBodyNode}
-                onSelectBreadcrumbIndex={(index, node) => {
-                  if (index === 0) {
-                    clearSelection();
-                  } else {
-                    applySelectionFromNode(node);
-                  }
-                  resetAutoScroll();
-                }}
-                onSelectNode={(n) => {
-                  applySelectionFromNode(n);
-                  resetAutoScroll();
-                }}
-              />
+              fileNode={props.fileNode}
+              scopeNode={selectedScopeNode()}
+              scopeName={() => selectedScopeNode()?.name ?? null}
+              canLocate={(id) => hasMarkers(markers(), id)}
+              activeMetric={activeMetric}
+              onToggleMetric={toggleMetric}
+              onSelectNode={selectScope}
+            />
 
             <div
-              class="flex-1 min-h-0 bg-[var(--plc-surface-inset,var(--plc-surface-subtle))] p-3"
+              class="min-h-0 flex-1 bg-[var(--plc-surface-inset,var(--plc-surface-subtle))] p-2"
               classList={{
                 "overflow-auto": viewMode() === "preview",
                 "overflow-hidden": viewMode() !== "preview",
@@ -328,12 +360,22 @@ export default function CodeModal(props: CodeModalProps) {
                     error={() => error() ?? highlightError()}
                     highlightedHtml={highlightedHtml}
                     filePath={() => props.filePath}
+                    baseName={baseName()}
                     fileNode={() => props.fileNode ?? null}
                     selectedScopeNode={selectedScopeNode}
-                    onSelectScope={handleSelectScopeFromBreadcrumb}
-                    displayStartLine={() => displayStartLine() ?? 1}
+                    onSelectScope={selectScope}
+                    displayStartLine={displayStart}
+                    displayEndLine={displayEnd}
+                    totalLines={totalLines}
                     targetStartLine={targetStartLine}
                     targetEndLine={targetEndLine}
+                    outlineOpen={outlineOpen}
+                    setOutlineOpen={setOutlineOpen}
+                    overlay={overlay}
+                    onStep={step}
+                    onJumpToHit={goToHit}
+                    onClearOverlay={() => setActiveMetric(null)}
+                    onShowWholeFile={() => setShowSelection(false)}
                   />
                 }
               >
