@@ -1,4 +1,5 @@
-import { For, Show, createMemo } from "solid-js";
+import { ChevronRight } from "lucide-solid";
+import { For, Show, createMemo, type JSX } from "solid-js";
 import {
   computeBreadcrumbPath,
   getEffectiveChildren,
@@ -58,6 +59,10 @@ export function StickyBreadcrumb(props: {
   selection?: () => { start: number; end: number } | null;
   filePath: () => string | null;
   onSelectScope: (node: any | null) => void;
+  /** Before the crumbs (the outline button). */
+  leading?: JSX.Element;
+  /** Right end of the row (range and metric overlay controls). */
+  trailing?: JSX.Element;
 }) {
   const explicitPath = createMemo(() => {
     const root = props.root();
@@ -81,63 +86,51 @@ export function StickyBreadcrumb(props: {
         ? sel
         : { start: line, end: line };
 
-    if (
-      !root ||
-      typeof range.start !== "number" ||
-      typeof range.end !== "number"
-    )
-      return [];
-
     return computeBreadcrumbPath(root, range).filter(
       (n: any) => !isSyntheticBodyNode(n)
     );
   });
 
   const displayFileName = () => baseNameFromPath(props.filePath());
+  // A file the scan skipped has no tree; it still gets its name.
+  const crumbs = () => (path().length ? path() : [null]);
 
   return (
-    <Show when={path().length > 0}>
-      <div class="sticky top-0 z-20 border-b border-[var(--plc-border)] bg-[var(--plc-surface)]/95 backdrop-blur px-3 py-2">
-        <div class="flex items-center gap-1 min-w-0">
-          <For each={path()}>
-            {(node, i) => {
-              const n = () => node;
-              const isLast = () => i() === path().length - 1;
-              const label = () =>
-                i() === 0 ? displayFileName() || n().name || "file" : n().name;
+    <div class="flex h-9 items-center gap-1 border-b border-[var(--plc-border)] bg-[var(--plc-surface)]/95 pl-1.5 pr-2 backdrop-blur">
+      {props.leading}
+      <div class="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden">
+        <For each={crumbs()}>
+          {(node, i) => {
+            const isLast = () => i() === crumbs().length - 1;
+            const label = () =>
+              i() === 0 ? displayFileName() || node?.name || "file" : node.name;
 
-              return (
-                <>
-                  <button
-                    class={`text-[11px] truncate max-w-[260px] ${
-                      isLast()
-                        ? "text-[var(--plc-on-surface)] font-semibold cursor-default"
-                        : "text-[var(--plc-accent)] hover:text-[var(--plc-accent-hover)] hover:underline"
-                    }`}
-                    title={label()}
-                    onClick={() => {
-                      if (isLast()) return;
-                      const clicked = i() === 0 ? null : n();
-                      props.onSelectScope(clicked);
-                    }}
-                  >
-                    {label()}
-                  </button>
-                  <Show when={!isLast()}>
-                    <span class="text-[var(--plc-on-disabled)] text-[11px] select-none px-1">
-                      ›
-                    </span>
-                  </Show>
-                </>
-              );
-            }}
-          </For>
-          <div class="flex-1" />
-          <span class="text-[10px] text-[var(--plc-on-subtle)] font-mono tabular-nums">
-            L{props.currentLine()}
-          </span>
-        </div>
+            return (
+              <>
+                <button
+                  type="button"
+                  title={label()}
+                  class={`min-w-[2.5rem] truncate rounded px-1 py-0.5 text-[12px] transition-colors duration-150 ${
+                    isLast()
+                      ? "shrink cursor-default font-semibold text-[var(--plc-on-surface)]"
+                      : "shrink-[4] text-[var(--plc-accent)] hover:bg-[var(--plc-surface-hover)] hover:text-[var(--plc-accent-hover)]"
+                  }`}
+                  onClick={() => {
+                    if (isLast()) return;
+                    props.onSelectScope(i() === 0 ? null : node);
+                  }}
+                >
+                  {label()}
+                </button>
+                <Show when={!isLast()}>
+                  <ChevronRight size={12} class="shrink-0 text-[var(--plc-on-disabled)]" aria-hidden="true" />
+                </Show>
+              </>
+            );
+          }}
+        </For>
       </div>
-    </Show>
+      {props.trailing}
+    </div>
   );
 }

@@ -1,29 +1,51 @@
-import {
-  Show,
-  createEffect,
-  createSignal,
-  onCleanup,
-} from "solid-js";
+import { ChevronLeft, ChevronRight, ListTree, X } from "lucide-solid";
+import { For, Show, createEffect, createSignal, onCleanup } from "solid-js";
 import { ErrorState, LoadingState } from "../feedback/States";
+import { IconButton } from "../ui/IconButton";
+import { cx } from "../ui/classes";
+import { lineDecorations, type MarkerHit } from "../../utils/metricMarkers";
+import { OutlinePopover } from "./OutlinePopover";
 import { StickyBreadcrumb } from "./StickyBreadcrumb";
+
+/** A metric overlaid on the code: its hits in view and where the cursor is. */
+export type CodeOverlay = {
+  label: string;
+  /** "good" for metrics where more is better (comments), so hits don't read as problems. */
+  tone: "hot" | "good";
+  hits: MarkerHit[];
+  /** Hits in the file outside the displayed lines. */
+  outside: number;
+  cursorLine: number | null;
+};
 
 export type CodePaneProps = {
   loading: () => boolean;
   error: () => string | null;
   highlightedHtml: () => string;
   filePath: () => string | null;
+  baseName: string;
   fileNode: () => any | null;
   selectedScopeNode: () => any | null;
   onSelectScope: (node: any | null) => void;
   displayStartLine: () => number;
+  displayEndLine: () => number;
+  totalLines: () => number | null;
   targetStartLine: () => number | null;
   targetEndLine: () => number | null;
+  outlineOpen: () => boolean;
+  setOutlineOpen: (open: boolean) => void;
+  overlay: () => CodeOverlay | null;
+  onStep: (direction: 1 | -1) => void;
+  onJumpToHit: (line: number) => void;
+  onClearOverlay: () => void;
+  onShowWholeFile: () => void;
 };
 
 export function CodePane(props: CodePaneProps) {
   const [currentTopLine, setCurrentTopLine] = createSignal(1);
   let scrollRef: HTMLDivElement | undefined;
   let breadcrumbRef: HTMLDivElement | undefined;
+  let codeRef: HTMLDivElement | undefined;
 
   const showCode = () =>
     !props.loading() && !props.error() && props.highlightedHtml();
@@ -61,11 +83,6 @@ export function CodePane(props: CodePaneProps) {
   createEffect(() => {
     // Recompute when content changes (new file, new slice).
     props.highlightedHtml();
-    queueMicrotask(() => updateCurrentTopLine());
-  });
-
-  createEffect(() => {
-    // Also recompute if slice start changes.
     props.displayStartLine();
     queueMicrotask(() => updateCurrentTopLine());
   });
@@ -90,9 +107,64 @@ export function CodePane(props: CodePaneProps) {
     });
   });
 
+  // Mark the overlaid metric's lines in the rendered Shiki HTML. The HTML is
+  // replaced on every re-highlight, so this re-runs after each one.
+  createEffect(() => {
+    props.highlightedHtml();
+    const overlay = props.overlay();
+    const start = props.displayStartLine();
+    const deco = overlay ? lineDecorations(overlay.hits) : null;
+    const cursor = overlay?.cursorLine ?? null;
+    queueMicrotask(() => {
+      const lines = codeRef?.querySelectorAll<HTMLElement>("span.line");
+      if (!lines) return;
+      lines.forEach((el, i) => {
+        const line = start + i;
+        const d = deco?.get(line);
+        el.classList.toggle("metric-hit", Boolean(d));
+        el.classList.toggle("metric-hit-current", d !== undefined && cursor !== null && isInHit(overlay!.hits, cursor, line));
+        if (d?.first && d.note) el.dataset.note = d.note;
+        else delete el.dataset.note;
+      });
+    });
+  });
+
+  const isInHit = (hits: MarkerHit[], cursorLine: number, line: number) => {
+    const hit = hits.find((h) => h.line === cursorLine);
+    return Boolean(hit && line >= hit.line && line <= hit.endLine);
+  };
+
+  const shownLines = () => Math.max(1, props.displayEndLine() - props.displayStartLine() + 1);
+  const rulerTop = (line: number) => `${((line - props.displayStartLine()) / shownLines()) * 100}%`;
+  const rulerHeight = (from: number, to: number) => `max(2px, ${((to - from + 1) / shownLines()) * 100}%)`;
+
+  const selectionBand = () => {
+    const s = props.targetStartLine();
+    const e = props.targetEndLine();
+    if (typeof s !== "number" || typeof e !== "number") return null;
+    // Only useful when more than the selection is on screen.
+    if (s <= props.displayStartLine() && e >= props.displayEndLine()) return null;
+    return { s: Math.max(s, props.displayStartLine()), e: Math.min(e, props.displayEndLine()) };
+  };
+
+  const hitIndex = () => {
+    const o = props.overlay();
+    if (!o || o.cursorLine === null) return null;
+    const i = o.hits.findIndex((h) => h.line === o.cursorLine);
+    return i < 0 ? null : i + 1;
+  };
+
+  const rangeLabel = () => {
+    const total = props.totalLines();
+    if (!total) return "";
+    const s = props.displayStartLine();
+    const e = props.displayEndLine();
+    return s <= 1 && e >= total ? `${total.toLocaleString()} lines` : `${s}–${e} of ${total.toLocaleString()}`;
+  };
+
   return (
-    <div class="flex h-full min-h-0">
-      <div class="flex-1 min-w-0 overflow-auto" ref={(el) => (scrollRef = el)}>
+    <div class="flex h-full min-h-0 gap-1">
+      <div class="min-w-0 flex-1 overflow-auto rounded-lg border border-[var(--plc-border)] bg-[var(--plc-code-bg)]" ref={(el) => (scrollRef = el)}>
         <div class="sticky top-0 z-20" ref={(el) => (breadcrumbRef = el)}>
           <StickyBreadcrumb
             root={props.fileNode}
@@ -107,6 +179,68 @@ export function CodePane(props: CodePaneProps) {
               return null;
             }}
             onSelectScope={props.onSelectScope}
+            leading={
+              <OutlinePopover
+                root={props.fileNode}
+                activeNode={props.selectedScopeNode}
+                baseName={props.baseName}
+                isOpen={props.outlineOpen()}
+                onOpenChange={props.setOutlineOpen}
+                onSelect={props.onSelectScope}
+                trigger={(t) => (
+                  <button
+                    type="button"
+                    ref={t.ref}
+                    onClick={t.onClick}
+                    disabled={!props.fileNode()}
+                    title="Outline: go to symbol (/)"
+                    aria-label="Outline"
+                    class={cx(
+                      "flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-[12px] font-medium transition-colors duration-150 disabled:opacity-40",
+                      t.isOpen
+                        ? "bg-[var(--plc-surface-selected)] text-[var(--plc-accent)]"
+                        : "text-[var(--plc-on-muted)] hover:bg-[var(--plc-surface-hover)] hover:text-[var(--plc-on-surface)]"
+                    )}
+                  >
+                    <ListTree size={15} aria-hidden="true" />
+                  </button>
+                )}
+              />
+            }
+            trailing={
+              <div class="flex shrink-0 items-center gap-2 pl-2 text-[12px]">
+                <Show when={props.overlay()}>
+                  {(o) => (
+                    <div class="flex items-center gap-0.5">
+                      <span class="pr-1 font-medium text-[var(--plc-on-surface)]">{o().label}</span>
+                      <IconButton label="Previous ([)" size="xs" disabled={!o().hits.length} onClick={() => props.onStep(-1)}>
+                        <ChevronLeft size={14} aria-hidden="true" />
+                      </IconButton>
+                      <span class="min-w-[3.5rem] text-center tabular-nums text-[var(--plc-on-muted)]">
+                        {o().hits.length ? `${hitIndex() ?? "–"} / ${o().hits.length}` : "none here"}
+                      </span>
+                      <IconButton label="Next (])" size="xs" disabled={!o().hits.length} onClick={() => props.onStep(1)}>
+                        <ChevronRight size={14} aria-hidden="true" />
+                      </IconButton>
+                      <Show when={o().outside > 0}>
+                        <button
+                          type="button"
+                          class="px-1 text-[var(--plc-accent)] transition-colors duration-150 hover:text-[var(--plc-accent-hover)]"
+                          onClick={props.onShowWholeFile}
+                          title="Show the whole file"
+                        >
+                          +{o().outside} outside
+                        </button>
+                      </Show>
+                      <IconButton label="Clear overlay (Esc)" size="xs" onClick={props.onClearOverlay}>
+                        <X size={13} aria-hidden="true" />
+                      </IconButton>
+                    </div>
+                  )}
+                </Show>
+                <span class={cx("tabular-nums text-[var(--plc-on-subtle)]", props.overlay() && "max-xl:hidden")}>{rangeLabel()}</span>
+              </div>
+            }
           />
         </div>
         <Show
@@ -119,9 +253,43 @@ export function CodePane(props: CodePaneProps) {
         </Show>
         <Show when={showCode()}>
           <div
-            class="code-modal-content"
+            ref={(el) => (codeRef = el)}
+            class="code-modal-content py-1"
+            data-tone={props.overlay()?.tone ?? undefined}
             innerHTML={props.highlightedHtml()}
           />
+        </Show>
+      </div>
+
+      {/* Overview ruler: where the overlaid hits and the selection sit in the shown lines. */}
+      <div class="relative w-2.5 shrink-0 rounded-sm bg-[var(--plc-surface-muted)]" aria-hidden="true">
+        <Show when={selectionBand()}>
+          {(b) => (
+            <div
+              class="absolute inset-x-0 bg-[var(--plc-accent-border)]"
+              style={{ top: rulerTop(b().s), height: rulerHeight(b().s, b().e) }}
+            />
+          )}
+        </Show>
+        <Show when={props.overlay()}>
+          {(o) => (
+            <For each={o().hits}>
+              {(hit) => (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  title={`Line ${hit.line}${hit.notes.length ? `: ${hit.notes.join(", ")}` : ""}`}
+                  onClick={() => props.onJumpToHit(hit.line)}
+                  class={cx(
+                    "absolute inset-x-0 min-h-[3px] transition-colors duration-150",
+                    o().tone === "good" ? "bg-[var(--plc-accent)]" : "bg-[var(--plc-warning)]",
+                    hit.line === o().cursorLine ? "opacity-100 ring-1 ring-[var(--plc-on-surface)]" : "opacity-60 hover:opacity-100"
+                  )}
+                  style={{ top: rulerTop(hit.line), height: rulerHeight(hit.line, hit.endLine) }}
+                />
+              )}
+            </For>
+          )}
         </Show>
       </div>
     </div>

@@ -1,7 +1,63 @@
-import { Show } from "solid-js";
-import { Button } from "../ui/Button";
-import { CheckboxRow } from "../ui/CheckboxRow";
-import { TextInput } from "../ui/TextInput";
+import { Check, ChevronDown, Copy, ExternalLink, IndentDecrease, X } from "lucide-solid";
+import { For, Show, createSignal, type JSX } from "solid-js";
+import Popover from "../Popover";
+import { IconButton } from "../ui/IconButton";
+import { OptionRow, PopoverPanel } from "../ui/PopoverPanel";
+import { cx } from "../ui/classes";
+
+const CONTEXT_OPTIONS = [0, 4, 10, 25];
+
+/** Two or more mutually exclusive options in one bordered group. */
+function Segmented<T extends string>(props: {
+  value: T;
+  options: { value: T; label: string; disabled?: boolean; title?: string }[];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div class="flex h-7 items-center rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface-muted)] p-0.5">
+      <For each={props.options}>
+        {(opt) => (
+          <button
+            type="button"
+            disabled={opt.disabled}
+            title={opt.title}
+            aria-pressed={props.value === opt.value}
+            onClick={() => props.onChange(opt.value)}
+            class={cx(
+              "h-full rounded-[5px] px-2.5 text-[12px] font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40",
+              props.value === opt.value
+                ? "bg-[var(--plc-surface)] text-[var(--plc-on-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
+                : "text-[var(--plc-on-subtle)] hover:text-[var(--plc-on-surface)] enabled:active:bg-[var(--plc-surface-hover)]"
+            )}
+          >
+            {opt.label}
+          </button>
+        )}
+      </For>
+    </div>
+  );
+}
+
+/** Icon button that swaps to a check for a moment after it acts. */
+function ConfirmIconButton(props: { label: string; icon: JSX.Element; onClick: () => void }) {
+  const [done, setDone] = createSignal(false);
+  let timer: number | undefined;
+  return (
+    <IconButton
+      label={props.label}
+      onClick={() => {
+        props.onClick();
+        setDone(true);
+        clearTimeout(timer);
+        timer = window.setTimeout(() => setDone(false), 1200);
+      }}
+    >
+      <Show when={done()} fallback={props.icon}>
+        <Check size={15} class="text-[var(--plc-success)] plc-pop-in" aria-hidden="true" />
+      </Show>
+    </IconButton>
+  );
+}
 
 export function CodeModalHeader(props: {
   filePath: string;
@@ -10,13 +66,11 @@ export function CodeModalHeader(props: {
   rawCode: () => string;
 
   hasLineRange: () => boolean;
-  rangeLabel: () => string | null;
 
   isMarkdown: () => boolean;
   viewMode: () => "code" | "preview";
   setViewMode: (mode: "code" | "preview") => void;
 
-  wasIndentationReduced: () => boolean;
   reduceIndentation: () => boolean;
   setReduceIndentation: (next: boolean) => void;
 
@@ -25,110 +79,119 @@ export function CodeModalHeader(props: {
   lineOffset: () => number;
   setLineOffset: (next: number) => void;
 }) {
+  const [contextOpen, setContextOpen] = createSignal(false);
+  const dir = () => {
+    const i = props.filePath.lastIndexOf(props.baseName);
+    return i > 0 ? props.filePath.slice(0, i) : "";
+  };
+
   return (
-    <header class="flex min-h-12 items-center justify-between border-b border-[var(--plc-border)] bg-[var(--plc-surface)] px-4 py-2 text-sm">
-      <div class="flex min-w-0 flex-col">
-        <span class="truncate font-semibold text-[var(--plc-on-surface)]">
-          {props.baseName}
+    <header class="flex h-12 shrink-0 items-center gap-3 border-b border-[var(--plc-border)] bg-[var(--plc-surface)] pl-4 pr-2 text-sm">
+      <div class="flex min-w-0 flex-1 items-baseline gap-2">
+        <span class="shrink-0 font-semibold text-[var(--plc-on-surface)]">{props.baseName}</span>
+        {/* Ellipsis on the left keeps the folders nearest the file readable. */}
+        <span
+          class="min-w-0 truncate text-[12px] text-[var(--plc-on-subtle)] [direction:rtl] text-left"
+          title={props.filePath}
+        >
+          <span dir="ltr">{dir()}</span>
         </span>
-        <span class="truncate text-[11px] text-[var(--plc-on-subtle)]">{props.filePath}</span>
-        <Show when={props.hasLineRange() && props.rangeLabel()}>
-          {(label) => (
-            <span class="truncate text-[10px] text-[var(--plc-on-disabled)]">{label()}</span>
-          )}
-        </Show>
       </div>
 
-      <Button
-        class="ml-4"
-        onClick={props.onClose}
-      >
-        Close
-      </Button>
-
-      <Button
-        variant="primary"
-        class="ml-2"
-        onClick={() => {
-          navigator.clipboard.writeText(props.rawCode());
-        }}
-      >
-        Copy
-      </Button>
-
       <Show when={props.isMarkdown()}>
-        <div class="ml-4 flex items-center rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface-muted)] p-0.5">
-          <Button
-            variant="tab"
-            size="xs"
-            active={props.viewMode() === "code"}
-            class="rounded-sm px-3 font-semibold"
-            onClick={() => props.setViewMode("code")}
-          >
-            Code
-          </Button>
-          <Button
-            variant="tab"
-            size="xs"
-            active={props.viewMode() === "preview"}
-            class="rounded-sm px-3 font-semibold"
-            onClick={() => props.setViewMode("preview")}
-          >
-            Preview
-          </Button>
-        </div>
+        <Segmented
+          value={props.viewMode()}
+          onChange={props.setViewMode}
+          options={[
+            { value: "code", label: "Code" },
+            { value: "preview", label: "Preview" },
+          ]}
+        />
       </Show>
 
-      <div class="flex items-center">
-        <Show when={props.wasIndentationReduced()}>
-          <span class="ml-4 text-[10px] text-[var(--plc-warning)] italic animate-pulse">
-            Indentation reduced
-          </span>
-        </Show>
+      {/* Hidden, not removed, in preview so the Code/Preview toggle never moves. */}
+      <div class="flex items-center gap-1" classList={{ invisible: props.viewMode() !== "code" }}>
+          <Segmented
+            value={props.lineFilterEnabled() && props.hasLineRange() ? "selection" : "file"}
+            onChange={(v) => props.setLineFilterEnabled(v === "selection")}
+            options={[
+              {
+                value: "selection",
+                label: "Selection",
+                disabled: !props.hasLineRange(),
+                title: props.hasLineRange() ? "Show only the selected scope" : "Pick a symbol to limit the view",
+              },
+              { value: "file", label: "Whole file" },
+            ]}
+          />
+          <Popover
+            placement="bottom-end"
+            isOpen={contextOpen()}
+            onOpenChange={setContextOpen}
+            trigger={(t) => (
+              <button
+                type="button"
+                ref={t.ref}
+                onClick={t.onClick}
+                disabled={!props.lineFilterEnabled() || !props.hasLineRange()}
+                title="Context lines around the selection"
+                class="flex h-7 items-center gap-0.5 rounded-md px-1.5 text-[12px] font-medium tabular-nums text-[var(--plc-on-muted)] transition-colors duration-150 hover:bg-[var(--plc-surface-hover)] hover:text-[var(--plc-on-surface)] disabled:pointer-events-none disabled:opacity-40"
+              >
+                ±{props.lineOffset()}
+                <ChevronDown size={12} aria-hidden="true" />
+              </button>
+            )}
+          >
+            <PopoverPanel width="sm">
+              <div class="px-2 pb-1 text-[11px] text-[var(--plc-on-subtle)]">Context lines</div>
+              <For each={CONTEXT_OPTIONS}>
+                {(n) => (
+                  <OptionRow
+                    selected={props.lineOffset() === n}
+                    onClick={() => {
+                      props.setLineOffset(n);
+                      setContextOpen(false);
+                    }}
+                  >
+                    {n === 0 ? "None" : `±${n} lines`}
+                  </OptionRow>
+                )}
+              </For>
+            </PopoverPanel>
+          </Popover>
+          <IconButton
+            label="Reduce indent"
+            title="Reduce indent: strip the common leading whitespace"
+            aria-pressed={props.reduceIndentation()}
+            onClick={() => props.setReduceIndentation(!props.reduceIndentation())}
+            class={
+              props.reduceIndentation()
+                ? "bg-[var(--plc-surface-selected)] text-[var(--plc-accent)] hover:bg-[var(--plc-surface-selected)] hover:text-[var(--plc-accent-hover)]"
+                : ""
+            }
+          >
+            <IndentDecrease size={15} aria-hidden="true" />
+          </IconButton>
+      </div>
 
-        <CheckboxRow
-          class="ml-3 text-[11px]"
-          checked={props.reduceIndentation()}
-          onChange={props.setReduceIndentation}
-          title="Strip common indentation to save horizontal space"
-          label="Reduce indent"
+      <div class="flex items-center gap-0.5 border-l border-[var(--plc-border)] pl-2">
+        <ConfirmIconButton
+          label="Copy file contents"
+          icon={<Copy size={15} aria-hidden="true" />}
+          onClick={() => navigator.clipboard.writeText(props.rawCode())}
         />
-
-        <Show when={props.hasLineRange()}>
-          <label class="ml-3 flex items-center gap-1 text-[11px] text-[var(--plc-on-muted)]">
-            <input
-              type="checkbox"
-              checked={props.lineFilterEnabled()}
-              onChange={(e) =>
-                props.setLineFilterEnabled(e.currentTarget.checked)
-              }
-            />
-            <span>Limit to selection</span>
-            <span class="ml-2 flex items-center gap-1">
-              <span>±</span>
-            <TextInput
-              type="number"
-              min="0"
-              size="sm"
-              class="w-12 px-1 text-[11px]"
-              value={props.lineOffset()}
-              onInput={(e) => {
-                  const next = Number(e.currentTarget.value);
-                  props.setLineOffset(Number.isNaN(next) ? 0 : next);
-                }}
-              />
-              <span>lines</span>
-            </span>
-          </label>
-        </Show>
-
         <a
           href={`vscode://file/${props.filePath}`}
-          class="ml-2 inline-flex h-7 items-center justify-center gap-1 rounded-md border border-[var(--plc-success-border)] bg-[var(--plc-success-subtle)] px-2 text-xs font-semibold text-[var(--plc-success)] no-underline transition-colors hover:border-[var(--plc-success)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plc-border-focus)]"
           target="_blank"
+          aria-label="Open in VS Code"
+          title="Open in VS Code"
+          class="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--plc-on-muted)] transition-colors duration-150 hover:bg-[var(--plc-surface-hover)] hover:text-[var(--plc-on-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plc-border-focus)]"
         >
-          Open
+          <ExternalLink size={15} aria-hidden="true" />
         </a>
+        <IconButton label="Close (Esc)" onClick={props.onClose}>
+          <X size={16} aria-hidden="true" />
+        </IconButton>
       </div>
     </header>
   );

@@ -3,13 +3,31 @@ from tree_sitter import Language, Parser, Node
 from typing import List
 
 from app.services.analysis_types import FileMetrics, FunctionMetrics, is_synthetic_scope
+from app.services.markers import MarkerSink
 
 # Load Python grammar
 PYTHON_LANGUAGE = Language(tspython.language())
 
+_COMPLEXITY_NOTES = {
+    'if_statement': 'if', 'for_statement': 'for', 'while_statement': 'while',
+    'except_clause': 'except', 'with_statement': 'with', 'match_statement': 'match',
+    'case_pattern': 'case',
+}
+
+# Nesting at or past this depth is marked, so the overlay shows deep code
+# rather than every block.
+MARKED_NESTING_DEPTH = 3
+
+
 class PythonTreeSitterAnalyzer:
     def __init__(self):
         self.parser = Parser(PYTHON_LANGUAGE)
+        # A MarkerSink records where each metric fires (code viewer overlay).
+        self.markers: MarkerSink | None = None
+
+    def _mark(self, metric: str, node: Node, note: str = "", *, span: bool = False) -> None:
+        if self.markers is not None:
+            self.markers.add(metric, node, note, span=span)
 
     def analyze_file(self, file_path: str) -> FileMetrics:
         with open(file_path, 'rb') as f:
@@ -104,6 +122,7 @@ class PythonTreeSitterAnalyzer:
             self._file_classes_count += 1
         elif node_type in {'import_statement', 'import_from_statement'}:
             self._file_python_import_count += 1
+            self._mark('python_import_count', node, 'import')
             
         # 2. Check Nesting Depth for File
         # File max nesting is just max of current_nesting encountered
@@ -119,6 +138,8 @@ class PythonTreeSitterAnalyzer:
         next_nesting = current_nesting
         if is_nesting_node:
             next_nesting += 1
+            if next_nesting >= MARKED_NESTING_DEPTH:
+                self._mark('max_nesting_depth', node, f'depth {next_nesting}')
 
         if next_nesting > self._file_max_nesting_depth:
             self._file_max_nesting_depth = next_nesting
@@ -130,8 +151,10 @@ class PythonTreeSitterAnalyzer:
             is_todo = 'TODO' in text or 'FIXME' in text
             
             self._file_comment_lines += lines
+            self._mark('comment_density', node, span=True)
             if is_todo:
                 self._file_todo_count += 1
+                self._mark('todo_count', node, 'FIXME' if 'FIXME' in text and 'TODO' not in text else 'TODO')
                 
             for scope in active_scopes:
                 scope['metrics'].comment_lines += lines
@@ -155,12 +178,15 @@ class PythonTreeSitterAnalyzer:
                 'with_statement', 'match_statement', 'case_pattern'
             }:
                 current_scope.cyclomatic_complexity += 1
+                self._mark('complexity', node, _COMPLEXITY_NOTES[node_type])
             elif node_type == 'boolean_operator':
                 # Check text for 'and'/'or'
                 # Optimization: check text content
                 text = node.text.decode('utf-8')
                 if 'and' in text or 'or' in text:
                      current_scope.cyclomatic_complexity += 1
+                     op = node.child_by_field_name('operator')
+                     self._mark('complexity', node, op.text.decode() if op else 'and/or')
         
         # 5. Handle Scope Creation
         scope_created = False
@@ -177,6 +203,9 @@ class PythonTreeSitterAnalyzer:
         if is_scope:
             new_metrics = self._create_scope_metrics(node)
             parent_list.append(new_metrics)
+            if new_metrics.parameter_count:
+                count = new_metrics.parameter_count
+                self._mark('parameter_count', node, f"{count} param{'s' if count != 1 else ''}")
             
             # Function complexity default is 1
             new_metrics.cyclomatic_complexity = 1
