@@ -32,12 +32,13 @@ def _portable(node: dict, prefix: str) -> dict:
         "name": node["name"],
         "type": node["type"],
         "kind": node.get("kind"),
-        # The root itself becomes "" (it has no trailing slash to strip).
-        "path": "" if node["path"] == prefix.rstrip("/") else node["path"].removeprefix(prefix),
+        # The root's own path is the absolute fixture dir; everything is relative to it.
+        "path": "" if node["path"] + "/" == prefix else node["path"].removeprefix(prefix),
         "start_line": node["start_line"],
         "end_line": node["end_line"],
         "metrics": {metric: node["metrics"][metric] for metric in CASES},
-        "children": [_portable(child, prefix) for child in node["children"]],
+        # Sorted, so discovery order (git ls-files or a walk) can't change the snapshot.
+        "children": sorted((_portable(child, prefix) for child in node["children"]), key=lambda c: (c["path"], c["start_line"])),
     }
 
 
