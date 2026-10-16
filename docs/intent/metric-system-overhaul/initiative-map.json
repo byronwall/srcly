@@ -8,7 +8,7 @@
     "last_updated": "2026-10-16",
     "summary": "Turn the codex/metrics-research findings (metric trust, portfolio, Git activity, imported evidence) into a stack of PRs landing now.",
     "status": "completed",
-    "next_action": "None: all seven milestones landed as stacked PRs #73–#78 plus the M7 pilot PR. Follow-ups are in docs/research/metric-pilot-2026-10/README.md."
+    "next_action": "None: all seven milestones landed as stacked PRs #73-#79. Follow-ups are in docs/research/metric-pilot-2026-10/README.md."
   },
   "artifacts": {
     "intent_brief": {
@@ -388,7 +388,8 @@
         "rollback": "Revert PR",
         "status": "completed",
         "evidence": [
-          "Branch claude/metrics-pr7-pilot-952fa2: server/scripts/evaluate_metric_portfolio.py + tests; 729 adjudicated cases on srcly, recipes-modern, explorEDA, context-recorder; decision record docs/research/metric-pilot-2026-10/README.md; comment-noise ratio 0.5→1.0, comment-noise 2x2 cut-off 0.15→0.5, profile weights retuned"
+          "Branch claude/metrics-pr7-pilot-952fa2: server/scripts/evaluate_metric_portfolio.py + tests; 729 adjudicated cases on srcly, recipes-modern, explorEDA, context-recorder; decision record docs/research/metric-pilot-2026-10/README.md; comment-noise ratio 0.5→1.0, comment-noise 2x2 cut-off 0.15→0.5, profile weights retuned",
+          "https://github.com/byronwall/srcly/pull/79 (feat(metrics): tune defaults from a four-repo pilot)"
         ]
       }
     ],
@@ -417,7 +418,7 @@
     {
       "date": "2026-10-16",
       "event": "completed",
-      "note": "M7 pilot tuned the defaults; all milestones landed as stacked PRs #73-#78 plus the pilot PR"
+      "note": "M7 pilot tuned the defaults; all milestones landed as stacked PRs #73-#79"
     }
   ],
   "closure": {
@@ -437,7 +438,7 @@
       {
         "claim_id": "C2",
         "disposition": "delivered",
-        "evidence": "Seven stacked PRs: #73 trust fixes through the M7 pilot PR."
+        "evidence": "Seven stacked PRs, #73 (trust fixes) through #79 (the pilot)."
       },
       {
         "claim_id": "C3",
@@ -492,7 +493,7 @@
       {
         "claim_id": "C13",
         "disposition": "delivered",
-        "evidence": "Landed in the confirmed order #73 → #78 → M7 pilot."
+        "evidence": "Landed in the confirmed order #73 → #79."
       }
     ],
     "follow_ups": [
