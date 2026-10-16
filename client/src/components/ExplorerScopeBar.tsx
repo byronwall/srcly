@@ -4,7 +4,7 @@ import { IconButton } from "./ui/IconButton";
 import { metricCellColor, metricCellText, witnessOf } from "../utils/explorerColumns";
 import { HeatSwatch } from "./ui/HeatSwatch";
 import { ancestorChain, scopeDisplayName, summarizeScope } from "../utils/explorerScope";
-import type { HotSpotMetricDef } from "../utils/metricsStore";
+import type { MetricDef } from "../utils/metricsStore";
 import { extractFilePath } from "../utils/dataProcessing";
 import type { Node, Witness } from "./Explorer";
 
@@ -27,7 +27,7 @@ function Stat(props: { value: number; unit: string; title?: string }) {
 export function ExplorerScopeBar(props: {
   root: Node;
   fullRoot?: Node;
-  colorMetric: HotSpotMetricDef;
+  colorMetric: MetricDef;
   /** The top-file line; Hot Spots lists it as #1 already. */
   showTop?: boolean;
   onZoom: (node: Node) => void;
@@ -123,7 +123,7 @@ export function ExplorerScopeBar(props: {
                 onClick={openTop}
               >
                 <span class="shrink-0">
-                  Top {props.colorMetric.shortLabel}
+                  Top {props.colorMetric.short_label}
                 </span>
                 <Show
                   when={witness()}

@@ -83,7 +83,7 @@ Prints ranked nodes for one or more metrics.
 Examples:
 
 ```bash
-uvx srcly hotspots . --metric complexity --metric ts_any_usage_count --limit 20
+uvx srcly hotspots . --metric ts_any_usage_count --limit 20
 uvx srcly hotspots . --metric comment_noise --format json
 ```
 

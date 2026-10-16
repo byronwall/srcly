@@ -6,7 +6,7 @@ import { useMetricMarkers } from "../../hooks/useMetricMarkers";
 import { guessLangFromPath } from "../../utils/guessLangFromPath";
 import { getEffectiveChildren } from "../../utils/structureTree";
 import { groupHits, hasMarkers, hitsInRange, markersFor, stepHit } from "../../utils/metricMarkers";
-import { HOTSPOT_METRICS } from "../../utils/metricsStore";
+import { metricDef } from "../../utils/metricsStore";
 import { CodeModalHeader } from "./CodeModalHeader";
 import { CodePane, type CodeOverlay } from "./CodePane";
 import { DialogShell } from "../dialog/DialogShell";
@@ -191,9 +191,9 @@ export default function CodeModal(props: CodeModalProps) {
   const overlay = createMemo<CodeOverlay | null>(() => {
     const id = activeMetric();
     if (!id) return null;
-    const def = HOTSPOT_METRICS.find((m) => m.id === id);
+    const def = metricDef(id);
     return {
-      label: def?.viewerLabel ?? def?.label ?? id,
+      label: def?.viewer_label ?? def?.label ?? id,
       tone: "hot",
       hits: visibleHits(),
       outside: allHits().length - visibleHits().length,

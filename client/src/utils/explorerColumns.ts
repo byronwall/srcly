@@ -1,10 +1,4 @@
-import {
-  HOTSPOT_METRICS,
-  WITNESSED_METRICS,
-  formatMetricValue,
-  type HotSpotMetricDef,
-  type HotSpotMetricId,
-} from "./metricsStore";
+import { formatMetricValue, metricDef, metricDefs, type MetricDef, type MetricId } from "./metricsStore";
 import { treemapFillColor } from "../viz/treemap/utils/colors";
 
 export type ExplorerColumnNode = {
@@ -13,7 +7,7 @@ export type ExplorerColumnNode = {
   metrics?: Record<string, unknown>;
 };
 
-export type ExplorerSortField = "name" | "file_count" | "gitignored" | HotSpotMetricId;
+export type ExplorerSortField = "name" | "file_count" | "gitignored" | MetricId;
 
 export type ExplorerColumn = {
   id: Exclude<ExplorerSortField, "name">;
@@ -23,14 +17,7 @@ export type ExplorerColumn = {
   width: number;
   value: (node: ExplorerColumnNode) => string;
   /** The metric behind the column, when it comes from the metric registry. */
-  metric?: HotSpotMetricDef;
-};
-
-export const formatSize = (bytes?: number) => {
-  if (bytes === undefined) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  metric?: MetricDef;
 };
 
 const numberAt = (node: ExplorerColumnNode, key: string) => {
@@ -46,21 +33,20 @@ export const NA_TEXT = "–";
  * when the server reports the metric as N/A (null). The row renders 0 and
  * N/A faint, so real values stand out without hiding which is which.
  */
-export function metricCellText(def: HotSpotMetricDef, node: ExplorerColumnNode): string {
+export function metricCellText(def: MetricDef, node: ExplorerColumnNode): string {
   const value = numberAt(node, def.id);
   if (value === undefined) return NA_TEXT;
-  if (def.id === "file_size") return formatSize(value);
   return formatMetricValue(def.id, value);
 }
 
 /** True when a cell shows nothing worth reading: N/A or a measured zero. */
-export function metricCellIsFaint(def: HotSpotMetricDef, node: ExplorerColumnNode): boolean {
+export function metricCellIsFaint(def: MetricDef, node: ExplorerColumnNode): boolean {
   const value = numberAt(node, def.id);
   return value === undefined || value === 0;
 }
 
 /** Hover text for a cell: the N/A reason, or the function or component behind a max. */
-export function metricCellTitle(def: HotSpotMetricDef, node: ExplorerColumnNode): string {
+export function metricCellTitle(def: MetricDef, node: ExplorerColumnNode): string {
   const value = numberAt(node, def.id);
   if (value === undefined) {
     const reason = node.metrics?.na_reason;
@@ -79,7 +65,7 @@ export type CellWitness = { path: string; name: string; start_line: number; end_
  */
 export function witnessOf(node: ExplorerColumnNode, metricId: string = "complexity"): CellWitness | null {
   if (node.type !== "file" && node.type !== "folder") return null;
-  if (!WITNESSED_METRICS.has(metricId as HotSpotMetricId)) return null;
+  if (!metricDef(metricId)?.witness) return null;
   const w = (
     metricId === "complexity"
       ? node.metrics?.complexity_witness
@@ -89,24 +75,22 @@ export function witnessOf(node: ExplorerColumnNode, metricId: string = "complexi
 }
 
 /** The treemap's fill color for a cell's value, or undefined when it is N/A or zero. */
-export function metricCellColor(def: HotSpotMetricDef, node: ExplorerColumnNode): string | undefined {
+export function metricCellColor(def: MetricDef, node: ExplorerColumnNode): string | undefined {
   if (metricCellIsFaint(def, node)) return undefined;
   return treemapFillColor(def.id, node.metrics ?? {}, 0);
 }
 
-const WIDE_METRICS = new Set<HotSpotMetricId>(["loc", "file_size"]);
-
-const metricColumn = (def: HotSpotMetricDef): ExplorerColumn => ({
+const metricColumn = (def: MetricDef): ExplorerColumn => ({
   id: def.id,
-  header: def.shortLabel,
+  header: def.short_label,
   title: def.label,
-  width: WIDE_METRICS.has(def.id) ? 60 : 46,
+  // Line and byte totals run to five digits.
+  width: def.unit === "lines" || def.unit === "bytes" ? 60 : 46,
   value: (node) => metricCellText(def, node),
   metric: def,
 });
 
-/** Every column the picker offers, in display order (left to right). */
-export const EXPLORER_COLUMNS: ExplorerColumn[] = [
+const FOLDER_COLUMNS: ExplorerColumn[] = [
   {
     id: "gitignored",
     header: "Ign",
@@ -121,19 +105,27 @@ export const EXPLORER_COLUMNS: ExplorerColumn[] = [
     width: 46,
     value: (node) => (node.type === "folder" ? (numberAt(node, "file_count") ?? 0).toLocaleString("en-US") : ""),
   },
-  ...HOTSPOT_METRICS.map(metricColumn),
 ];
 
+let columnsFor: { defs: MetricDef[]; columns: ExplorerColumn[] } | null = null;
+
+/** Every column the picker offers, in display order (left to right): folder counts, then the catalog. */
+export function explorerColumns(): ExplorerColumn[] {
+  const defs = metricDefs();
+  if (columnsFor?.defs !== defs) columnsFor = { defs, columns: [...FOLDER_COLUMNS, ...defs.map(metricColumn)] };
+  return columnsFor.columns;
+}
+
 export function explorerColumn(id: ExplorerColumn["id"]): ExplorerColumn | undefined {
-  return EXPLORER_COLUMNS.find((column) => column.id === id);
+  return explorerColumns().find((column) => column.id === id);
 }
 
 /**
  * The visible columns: the picked ones, then the treemap's color metric last
  * (next to the treemap), whether or not it was picked.
  */
-export function visibleExplorerColumns(picked: readonly string[], colorMetric: HotSpotMetricId) {
-  const columns = EXPLORER_COLUMNS.filter((column) => column.id !== colorMetric && picked.includes(column.id));
+export function visibleExplorerColumns(picked: readonly string[], colorMetric: MetricId) {
+  const columns = explorerColumns().filter((column) => column.id !== colorMetric && picked.includes(column.id));
   const color = explorerColumn(colorMetric);
   return color ? [...columns, color] : columns;
 }

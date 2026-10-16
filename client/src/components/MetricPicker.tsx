@@ -1,24 +1,19 @@
 import { Check, ChevronDown } from "lucide-solid";
 import { For, Show, createSignal } from "solid-js";
-import {
-  HOTSPOT_METRIC_GROUPS,
-  HOTSPOT_METRICS,
-  hotSpotMetricLabel,
-  type HotSpotMetricId,
-} from "../utils/metricsStore";
+import { metricDefs, metricGroups, metricLabel, type MetricId } from "../utils/metricsStore";
 import Popover from "./Popover";
 import { Button } from "./ui/Button";
 import { cx } from "./ui/classes";
 import { PopoverPanel, PopoverSectionTitle } from "./ui/PopoverPanel";
 
 /**
- * Grouped multi-select for hot spot metrics, shared by the Explorer's Hot
- * Spots view and the treemap's Color control so both read the same list.
- * At least one metric always stays selected.
+ * Grouped single-select over the metric catalog, shared by the Explorer's
+ * Hot Spots view and the treemap's Color control: one metric colors the
+ * treemap and ranks Hot Spots.
  */
 export function MetricPicker(props: {
-  selected: HotSpotMetricId[];
-  onChange: (ids: HotSpotMetricId[]) => void;
+  selected: MetricId;
+  onChange: (id: MetricId) => void;
   /** Prefix shown inside the trigger, e.g. "Rank by". */
   prefix?: string;
   placement?: "bottom-start" | "bottom-end";
@@ -33,21 +28,12 @@ export function MetricPicker(props: {
     props.onOpenChange?.(next);
   };
 
-  const summary = () => {
-    const [first, ...rest] = props.selected;
-    if (!first) return "Select metric";
-    return rest.length === 0
-      ? hotSpotMetricLabel(first)
-      : `${hotSpotMetricLabel(first)} +${rest.length}`;
-  };
+  const offered = (group: string) =>
+    metricDefs().filter((m) => m.group === group && !(props.ranking && m.direction === "neutral"));
 
-  const toggle = (id: HotSpotMetricId) => {
-    const current = props.selected;
-    if (current.includes(id)) {
-      if (current.length > 1) props.onChange(current.filter((m) => m !== id));
-    } else {
-      props.onChange([...current, id]);
-    }
+  const pick = (id: MetricId) => {
+    props.onChange(id);
+    setOpen(false);
   };
 
   return (
@@ -69,56 +55,46 @@ export function MetricPicker(props: {
             <Show when={props.prefix}>
               <span class="font-normal text-[var(--plc-on-subtle)]">{props.prefix} </span>
             </Show>
-            {summary()}
+            {metricLabel(props.selected)}
           </span>
           <ChevronDown size={14} class="shrink-0 text-[var(--plc-on-subtle)]" aria-hidden="true" />
         </Button>
       )}
     >
-      <PopoverPanel width="lg" class="w-64">
-        <div class="max-h-80 overflow-y-auto" role="listbox" aria-multiselectable="true">
-          <For each={HOTSPOT_METRIC_GROUPS.filter((group) => !props.ranking || HOTSPOT_METRICS.some((m) => m.group === group && !m.neutral))}>
+      <PopoverPanel width="lg" class="w-72">
+        <div class="max-h-96 overflow-y-auto" role="listbox" aria-label={props.prefix ?? "Metric"}>
+          <For each={metricGroups().filter((group) => offered(group.id).length > 0)}>
             {(group, index) => (
               <div class={index() > 0 ? "mt-2 border-t border-[var(--plc-divider)] pt-2" : ""}>
                 <PopoverSectionTitle class="px-2">
-                  {group}
-                  <Show when={group === "Detail"}>
+                  <span title={group.description}>{group.id}</span>
+                  <Show when={group.id === "Detail"}>
                     <span class="font-normal normal-case tracking-normal text-[var(--plc-on-disabled)]"> · color only, never ranked</span>
                   </Show>
                 </PopoverSectionTitle>
-                <For each={HOTSPOT_METRICS.filter((m) => m.group === group && !(props.ranking && m.neutral))}>
+                <For each={offered(group.id)}>
                   {(metric) => {
-                    const isSelected = () => props.selected.includes(metric.id);
+                    const isSelected = () => props.selected === metric.id;
                     return (
-                      <div class="group flex items-center rounded-md hover:bg-[var(--plc-surface-hover)]">
-                        <button
-                          type="button"
-                          role="option"
-                          aria-selected={isSelected()}
-                          class={cx(
-                            "flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plc-border-focus)]",
-                            isSelected()
-                              ? "font-semibold text-[var(--plc-accent)]"
-                              : "text-[var(--plc-on-surface)]"
-                          )}
-                          onClick={() => toggle(metric.id)}
-                        >
-                          <span class="flex w-3.5 shrink-0 justify-center">
-                            <Show when={isSelected()}>
-                              <Check size={14} aria-hidden="true" />
-                            </Show>
-                          </span>
-                          <span class="truncate">{metric.label}</span>
-                        </button>
-                        <button
-                          type="button"
-                          class="mr-1 hidden h-6 rounded px-1.5 text-[11px] text-[var(--plc-on-subtle)] hover:bg-[var(--plc-surface-muted)] hover:text-[var(--plc-on-surface)] focus:block focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plc-border-focus)] group-hover:block"
-                          title={`Use only ${metric.label}`}
-                          onClick={() => props.onChange([metric.id])}
-                        >
-                          Only
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected()}
+                        title={metric.description}
+                        class={cx(
+                          "flex h-7 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-xs hover:bg-[var(--plc-surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plc-border-focus)]",
+                          isSelected() ? "font-semibold text-[var(--plc-accent)]" : "text-[var(--plc-on-surface)]"
+                        )}
+                        onClick={() => pick(metric.id)}
+                      >
+                        <span class="flex w-3.5 shrink-0 justify-center">
+                          <Show when={isSelected()}>
+                            <Check size={14} aria-hidden="true" />
+                          </Show>
+                        </span>
+                        <span class="min-w-0 flex-1 truncate">{metric.label}</span>
+                        <span class="plc-data-sm shrink-0 font-normal text-[var(--plc-on-disabled)]">{metric.unit}</span>
+                      </button>
                     );
                   }}
                 </For>
@@ -127,7 +103,7 @@ export function MetricPicker(props: {
           </For>
         </div>
         <p class="mt-2 border-t border-[var(--plc-divider)] px-2 pt-2 text-[11px] leading-snug text-[var(--plc-on-subtle)]">
-          Hot spots rank by the combined score of every selected metric. The first one colors the treemap.
+          One metric colors the treemap and ranks Hot Spots. Hover a metric for what it counts.
         </p>
       </PopoverPanel>
     </Popover>

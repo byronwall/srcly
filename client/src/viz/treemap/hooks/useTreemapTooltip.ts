@@ -1,6 +1,6 @@
 import { createSignal } from "solid-js";
 import * as d3 from "d3";
-import { CODE_LANGUAGES, formatMetricValue, HOTSPOT_METRICS, type HotSpotMetricId } from "../../../utils/metricsStore";
+import { formatMetricValue, metricDef, metricDefs, type MetricId } from "../../../utils/metricsStore";
 import { applicableMetrics, languageForPath } from "../../../utils/metricApplicability";
 import { witnessOf } from "../../../utils/explorerColumns";
 import { metricIsNA, TREEMAP_NA_BACKGROUND, treemapFillColor } from "../utils/colors";
@@ -87,8 +87,6 @@ const fmt = (n: number) => n.toLocaleString("en-US");
 
 const nodeLoc = (n: d3.HierarchyNode<any>) => n.value ?? Number(n.data?.metrics?.loc ?? 0);
 
-const metricDef = (id: string) => HOTSPOT_METRICS.find((m) => m.id === id);
-
 /** A node's value for a metric; LOC comes from the layout so it matches the tile. */
 const hasValue = (n: d3.HierarchyNode<any>, id: string) => id === "loc" || !metricIsNA(id, n.data?.metrics);
 
@@ -98,13 +96,7 @@ function metricValue(n: d3.HierarchyNode<any>, id: string): number {
   return Number.isFinite(v) ? v : 0;
 }
 
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-const formatValue = (id: string, value: number) => (id === "file_size" ? formatBytes(value) : formatMetricValue(id, value));
+const formatValue = formatMetricValue;
 
 /** "3d ago" from an epoch-seconds timestamp; empty when unknown. */
 export function formatAge(epochSeconds: number, nowMs = Date.now()): string {
@@ -120,7 +112,7 @@ export function formatAge(epochSeconds: number, nowMs = Date.now()): string {
 const nodePath = (n: d3.HierarchyNode<any>) => String(n.data?.path ?? n.data?.name ?? "");
 
 /** Whether a metric means anything for this node's language and kind. Folders roll everything up. */
-function metricApplies(n: d3.HierarchyNode<any>, id: HotSpotMetricId): boolean {
+function metricApplies(n: d3.HierarchyNode<any>, id: MetricId): boolean {
   const type = n.data?.type;
   if (type === "folder") return true;
   return applicableMetrics(nodePath(n), type !== "file").some((m) => m.id === id);
@@ -149,7 +141,7 @@ function scopeNoun(language: string): string {
 /** The biggest direct children by LOC: what's actually inside this tile. */
 export function topChildren(
   d: d3.HierarchyNode<any>,
-  primaryMetricId: HotSpotMetricId = "loc",
+  primaryMetricId: MetricId = "loc",
   limit = TOOLTIP_CHILD_LIMIT,
   showMetric = primaryMetricId !== "loc"
 ): { children: TooltipChild[]; more: number } {
@@ -177,7 +169,7 @@ export function topChildren(
 }
 
 /** Where the node sits among its siblings by the coloring metric, worst first. */
-export function siblingRank(d: d3.HierarchyNode<any>, id: HotSpotMetricId): string {
+export function siblingRank(d: d3.HierarchyNode<any>, id: MetricId): string {
   const parent = d.parent;
   if (!parent || isSynthetic(d) || !hasValue(d, id)) return "";
   // N/A siblings aren't ranked: they have no value to compare.
@@ -231,60 +223,36 @@ export function languageMix(d: d3.HierarchyNode<any>, limit = 3): string {
     .join(" · ");
 }
 
-// Short labels for the dense grid; anything else uses its hot-spot label.
-const SHORT_LABELS: Record<string, string> = {
-  complexity: "Max CCN",
-  complexity_avg: "Avg CCN",
-  comment_noise: "Comment noise",
-  max_nesting_depth: "Nesting",
-  todo_count: "TODOs",
-  parameter_count: "Params",
-  file_size: "Size",
-  function_count: "Functions",
-  average_function_length: "Avg fn LOC",
-  ts_import_coupling_count: "Imports",
-  ts_any_usage_count: "Any usage",
-  ts_ignore_count: "TS ignores",
-  python_import_count: "Imports",
-  ts_type_interface_count: "Types",
-  ts_export_count: "Exports",
-  md_data_url_count: "Data URLs",
-};
-
-// Not hot-spot metrics, but worth a glance for files and folders.
-const EXTRA_METRICS = ["function_count", "average_function_length"];
-
 /**
  * Every metric that means something for this node and isn't zero, in
  * hot-spot order. A zero CCN on a JSX element or a 0% comment density on a
  * CSS file is noise, not information.
  */
-function metricLines(d: d3.HierarchyNode<any>, primaryMetricId: HotSpotMetricId): TooltipLine[] {
+function metricLines(d: d3.HierarchyNode<any>, primaryMetricId: MetricId): TooltipLine[] {
   const type = String(d.data?.type ?? "");
   const metrics = d.data?.metrics ?? {};
   const isFolder = type === "folder";
   const isScope = !isFolder && type !== "file";
   const path = String(d.data?.path ?? d.data?.name ?? "");
   const ids: string[] = isFolder
-    ? HOTSPOT_METRICS.map((m) => m.id).filter((id) => id !== "parameter_count")
+    ? metricDefs().map((m) => m.id).filter((id) => id !== "parameter_count")
     : applicableMetrics(path, isScope).map((m) => m.id);
-  if (!isScope && (isFolder || CODE_LANGUAGES.includes(languageForPath(path)))) ids.push(...EXTRA_METRICS);
 
   const lines: TooltipLine[] = [];
   for (const id of ids) {
     if (id === "loc" || id === primaryMetricId) continue;
     const value = Number(metrics[id] ?? 0);
     if (!Number.isFinite(value) || value === 0) continue;
-    let label = SHORT_LABELS[id] ?? metricDef(id)?.label ?? id;
+    let label = metricDef(id)?.label ?? id;
     if (id === "complexity" && isScope) label = "CCN";
-    lines.push({ label, value: id === "average_function_length" ? value.toFixed(0) : formatValue(id, value) });
+    lines.push({ label, value: formatValue(id, value) });
   }
   return lines;
 }
 
 const plural = (n: number, word: string) => `${fmt(n)} ${word}${n === 1 ? "" : "s"}`;
 
-export function buildTooltipContent(d: d3.HierarchyNode<any>, primaryMetricId: HotSpotMetricId): TooltipContent {
+export function buildTooltipContent(d: d3.HierarchyNode<any>, primaryMetricId: MetricId): TooltipContent {
   const title = String(d.data?.name ?? "");
   const type = String(d.data?.type ?? "");
   const metrics = d.data?.metrics ?? {};
@@ -293,7 +261,7 @@ export function buildTooltipContent(d: d3.HierarchyNode<any>, primaryMetricId: H
   const language = languageForPath(nodePath(d));
   // Coloring a CSS file by complexity paints every tile "fine"; don't repeat that as data.
   const primaryApplies = metricApplies(d, primaryMetricId);
-  const childMetricId: HotSpotMetricId = primaryApplies ? primaryMetricId : "loc";
+  const childMetricId: MetricId = primaryApplies ? primaryMetricId : "loc";
   const { children, more } = topChildren(d, primaryMetricId, TOOLTIP_CHILD_LIMIT, childMetricId !== "loc");
   const showChildMetric = children.some((c) => c.metric !== "");
   const noun = scopeNoun(language);
@@ -343,7 +311,7 @@ export function buildTooltipContent(d: d3.HierarchyNode<any>, primaryMetricId: H
       ? ""
       : childMetricId === "complexity" && type !== "folder"
         ? "CCN"
-        : SHORT_LABELS[childMetricId] ?? def?.label ?? childMetricId,
+        : def?.short_label ?? childMetricId,
     childrenLabel: type === "folder" ? "Largest" : type === "file" ? `Largest ${noun}s` : "Inside",
     children,
     moreChildren: more,
@@ -372,7 +340,7 @@ export function placeFloating(
   return { left, top };
 }
 
-export function useTreemapTooltip(opts: { primaryMetricId: () => HotSpotMetricId }) {
+export function useTreemapTooltip(opts: { primaryMetricId: () => MetricId }) {
   const [tooltip, setTooltip] = createSignal<TreemapTooltipModel>({ visible: false });
 
   function hide() {
@@ -380,7 +348,7 @@ export function useTreemapTooltip(opts: { primaryMetricId: () => HotSpotMetricId
   }
 
   // Hover fires on every pointer move; rebuild only when the tile or metric changes.
-  let cached: { node: d3.HierarchyNode<any>; metric: HotSpotMetricId; content: TooltipContent } | null = null;
+  let cached: { node: d3.HierarchyNode<any>; metric: MetricId; content: TooltipContent } | null = null;
 
   function show(e: MouseEvent, d: d3.HierarchyNode<any>) {
     const metric = opts.primaryMetricId();

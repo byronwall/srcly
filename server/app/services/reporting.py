@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Literal
 
 from app.models import Metrics, Node
-from app.services import analysis
+from app.services import analysis, metric_catalog
 
 ARTIFACT_VERSION = 1
 
@@ -18,112 +17,9 @@ OutputFormat = Literal["markdown", "json", "both"]
 DEFAULT_DEPRIORITIZED_PATHS = (".agents/", "docs/idea/", "vendor/", "vendors/", "node_modules/")
 
 
-@dataclass(frozen=True)
-class MetricDefinition:
-    name: str
-    description: str
-    scope: str
-    aggregation: str
-    # "risk": higher is worse and the metric can drive a ranking. "neutral":
-    # detail shown beside the risk metrics, never ranked or weighted.
-    direction: Literal["risk", "neutral"] = "risk"
-    languages: str = "all"
-
-
-_COMPONENT_SCOPE = "folder/file/component"
-_COMPONENT_AGG = "max over components (names the component)"
-
-METRIC_DEFINITIONS: tuple[MetricDefinition, ...] = (
-    MetricDefinition("loc", "Lines of code excluding comments/blanks where available.", "folder/file/function/scope", "sum"),
-    MetricDefinition("complexity", "Cyclomatic complexity (CCN) of the most complex function or scope.", "folder/file/function/scope", "max for folders and files, exact for functions"),
-    MetricDefinition("complexity_avg", "Mean cyclomatic complexity per function.", "folder/file", "analyzer average for files, function-weighted mean for folders"),
-    MetricDefinition("function_count", "Detected function count.", "folder/file", "sum", direction="neutral"),
-    MetricDefinition("file_size", "File size in bytes.", "folder/file", "sum", direction="neutral"),
-    MetricDefinition("file_count", "Number of files represented by a node.", "folder/file", "sum", direction="neutral"),
-    MetricDefinition("comment_lines", "Comment lines.", "folder/file/function", "sum", direction="neutral"),
-    MetricDefinition(
-        "comment_noise",
-        "Over-commenting flags: functions over 50% comments (10+ code lines), docblocks over 1.5x their body (8+ lines), and 3+ line runs of commented-out code.",
-        "folder/file/function",
-        "sum",
-        languages="TypeScript/TSX/Python",
-    ),
-    MetricDefinition("comment_noise_ratio", "Functions (or a whole file) over 50% comment lines with 10+ code lines.", "folder/file/function", "sum", direction="neutral", languages="TypeScript/TSX/Python"),
-    MetricDefinition("comment_noise_docblock", "Docblocks or docstrings of 8+ lines that are over 1.5x their function's code lines.", "folder/file/function", "sum", direction="neutral", languages="TypeScript/TSX/Python"),
-    MetricDefinition("comment_noise_commented_code", "Runs of 3+ line comments that parse as code.", "folder/file/function", "sum", direction="neutral", languages="TypeScript/TSX/Python"),
-    MetricDefinition("max_nesting_depth", "Maximum control-flow nesting depth.", "folder/file/function", "max"),
-    MetricDefinition("average_function_length", "Average function length in LOC.", "folder/file", "weighted average"),
-    MetricDefinition("parameter_count", "Function parameter count.", "folder/file/function", "sum"),
-    MetricDefinition("todo_count", "TODO/FIXME-style comment count.", "folder/file/function", "sum", direction="neutral"),
-    MetricDefinition("classes_count", "Detected class count.", "folder/file", "sum", direction="neutral"),
-    MetricDefinition("component_loc", "Lines in the largest React/Solid component.", _COMPONENT_SCOPE, _COMPONENT_AGG, languages="TSX"),
-    MetricDefinition("component_hook_count", "Hooks (`use*`) and Solid primitives (`create*`) in one component.", _COMPONENT_SCOPE, _COMPONENT_AGG, languages="TSX"),
-    MetricDefinition("component_effect_count", "`useEffect`/`useLayoutEffect`/`createEffect` calls in one component.", _COMPONENT_SCOPE, _COMPONENT_AGG, languages="TSX"),
-    MetricDefinition("component_jsx_depth", "Deepest JSX nesting inside one component.", _COMPONENT_SCOPE, _COMPONENT_AGG, languages="TSX"),
-    MetricDefinition("component_prop_count", "Declared props of one component (props type members or destructured names).", _COMPONENT_SCOPE, _COMPONENT_AGG, languages="TSX"),
-    MetricDefinition("component_inline_handler_count", "Inline `on*={() => ...}` handlers in one component.", _COMPONENT_SCOPE, _COMPONENT_AGG, languages="TSX"),
-    MetricDefinition("component_jsx_conditional_count", "JSX conditionals (`?:`, `&&`, `<Show>`, `<Match>`) in one component.", _COMPONENT_SCOPE, _COMPONENT_AGG, languages="TSX"),
-    MetricDefinition("ts_any_usage_count", "`any` usage count.", "folder/file/function", "sum", languages="TypeScript/TSX"),
-    MetricDefinition("ts_ignore_count", "TypeScript ignore directive count.", "folder/file/function", "sum", languages="TypeScript/TSX"),
-    MetricDefinition("ts_import_coupling_count", "Distinct import sources.", "folder/file", "sum", direction="neutral", languages="TypeScript/TSX"),
-    MetricDefinition("ts_type_interface_count", "Type/interface declaration count.", "folder/file/function", "sum", direction="neutral", languages="TypeScript/TSX"),
-    MetricDefinition("ts_export_count", "Export declaration count.", "folder/file", "sum", direction="neutral", languages="TypeScript/TSX"),
-    MetricDefinition("python_import_count", "Python import statement count.", "folder/file", "sum", direction="neutral", languages="Python"),
-    MetricDefinition("md_data_url_count", "Markdown data URL count.", "folder/file/function", "sum", languages="Markdown"),
-)
-
-# Risk weights per profile. Neutral metrics (``direction="neutral"``) never
-# appear here: counts of TODOs, classes, types, exports and imports describe
-# a file, they don't say it needs work.
-PROFILE_WEIGHTS: dict[str, dict[str, float]] = {
-    "general": {
-        "complexity": 1.5,
-        "loc": 1.1,
-        "max_nesting_depth": 1.0,
-        "parameter_count": 0.6,
-        "comment_noise": 0.7,
-        "ts_any_usage_count": 0.8,
-        "ts_ignore_count": 0.9,
-        "component_loc": 0.8,
-        "md_data_url_count": 0.4,
-    },
-    "frontend": {
-        "complexity": 1.0,
-        "loc": 0.8,
-        "component_loc": 1.3,
-        "component_hook_count": 1.1,
-        "component_effect_count": 1.2,
-        "component_jsx_depth": 0.9,
-        "component_prop_count": 0.8,
-        "component_inline_handler_count": 0.7,
-        "component_jsx_conditional_count": 1.0,
-    },
-    "backend": {
-        "complexity": 1.6,
-        "loc": 1.0,
-        "max_nesting_depth": 1.2,
-        "parameter_count": 0.9,
-        "comment_noise": 0.6,
-    },
-    "typescript": {
-        "complexity": 1.0,
-        "ts_any_usage_count": 1.4,
-        "ts_ignore_count": 1.4,
-        "comment_noise": 0.6,
-        "component_jsx_conditional_count": 0.8,
-    },
-    "python": {
-        "complexity": 1.4,
-        "loc": 1.0,
-        "max_nesting_depth": 1.0,
-        "parameter_count": 0.8,
-        "comment_noise": 0.8,
-    },
-    "docs": {
-        "loc": 0.8,
-        "md_data_url_count": 1.6,
-    },
-}
+# Report profiles weight risk metrics for the composite findings queue. The
+# weights live on each metric in the catalog; neutral metrics have none.
+PROFILE_WEIGHTS: dict[str, dict[str, float]] = metric_catalog.profile_weights()
 
 
 def scan_tree(root_path: Path, *, verbose: bool = True) -> Node:
@@ -145,6 +41,7 @@ def build_report_payload(
     root_path: Path,
     *,
     profile: str = "general",
+    metric: str | None = None,
     limit: int = 50,
     refresh: bool = False,
     tree_depth: int = 3,
@@ -160,11 +57,14 @@ def build_report_payload(
     del refresh  # Cache support is currently a no-op in app.services.cache.
     if profile not in PROFILE_WEIGHTS:
         raise ValueError(f"Unknown profile: {profile}")
+    metric = metric or metric_catalog.profile_lead(profile)
 
     tree = scan_tree(root_path, verbose=verbose)
     rank_options = dict(profile=profile, root_path=root_path, focus_paths=focus_paths, deprioritize_paths=deprioritize_paths)
     ranked = rank_nodes(tree, cohort="file", **rank_options)
-    ranked_functions = rank_nodes(tree, cohort="function", **rank_options)
+    by_metric = {
+        cohort: rank_by_metric(tree, metric, cohort=cohort, root_path=root_path) for cohort in ("file", "function")
+    }
     findings = build_findings(ranked, limit=limit)
     summary_tree = summarize_tree(tree, ranked, root_path=root_path, max_depth=tree_depth, top_children=tree_top)
     manifest = build_manifest(root_path=root_path, profile=profile)
@@ -175,15 +75,20 @@ def build_report_payload(
     payload = {
         "manifest": manifest,
         "tree_summary": summary_tree,
-        "hotspots": {"rankings": ranked[:limit], "function_rankings": ranked_functions[:limit]},
+        "hotspots": {
+            "metric": metric,
+            "label": by_metric["file"]["label"],
+            "rankings": by_metric["file"]["ranked"][:limit],
+            "function_rankings": by_metric["function"]["ranked"][:limit],
+            "na_count": {cohort: result["na_count"] for cohort, result in by_metric.items()},
+        },
         "findings": {"findings": findings},
         "findings_top": top_findings,
         "metrics_schema": metrics_schema,
         "report_markdown": render_markdown_report(
             manifest=manifest,
             findings=findings,
-            ranked=ranked[:limit],
-            ranked_functions=ranked_functions[:10],
+            by_metric=by_metric,
             summary_tree=summary_tree,
             profile=profile,
             focus_paths=focus_paths,
@@ -210,6 +115,7 @@ def write_report(
     out_dir: Path,
     *,
     profile: str = "general",
+    metric: str | None = None,
     limit: int = 50,
     output_format: OutputFormat = "both",
     refresh: bool = False,
@@ -225,6 +131,7 @@ def write_report(
     payload = build_report_payload(
         root_path,
         profile=profile,
+        metric=metric,
         limit=limit,
         refresh=refresh,
         tree_depth=tree_depth,
@@ -269,6 +176,64 @@ def cohort_nodes(root: Node, cohort: Cohort) -> list[Node]:
     if cohort == "file":
         return [node for node in iter_nodes(root) if node.type == "file"]
     return [node for node in iter_nodes(root) if node.type == "function" and node.kind == "function"]
+
+
+def witness_of(node: Node, metric: str) -> dict[str, Any] | None:
+    """The function or component behind a file's or folder's max, for witnessed metrics."""
+    if node.type not in ("file", "folder") or not metric_catalog.get(metric).witness:
+        return None
+    witness = node.metrics.complexity_witness if metric == "complexity" else (node.metrics.witnesses or {}).get(metric)
+    return witness.model_dump() if witness else None
+
+
+def rank_by_metric(
+    root: Node,
+    metric: str,
+    *,
+    cohort: Cohort = "file",
+    root_path: Path | None = None,
+) -> dict[str, Any]:
+    """Rank one cohort by one metric: the explorer's Hot Spots list and the report share this.
+
+    Worst first (descending for higher-worse metrics, ascending for
+    lower-worse), then by path and start line, so ties are stable. A measured
+    0 is ranked; N/A (``None``) nodes are only counted in ``na_count``. The
+    client mirror is ``client/src/utils/hotSpotRanking.ts:rankHotSpots``, and
+    ``tests/test_ranking_parity.py`` keeps the two in step.
+    """
+    spec = metric_catalog.get(metric)
+    if not spec.rankable:
+        raise ValueError(f"{metric} is neutral detail and can't rank")
+    measured: list[tuple[float, Node]] = []
+    na_count = 0
+    for node in cohort_nodes(root, cohort):
+        raw = getattr(node.metrics, metric, None)
+        if raw is None or not math.isfinite(float(raw)):
+            na_count += 1
+            continue
+        measured.append((float(raw), node))
+    sign = -1 if spec.direction == "higher-worse" else 1
+    measured.sort(key=lambda item: (sign * item[0], item[1].path, item[1].start_line))
+    top = max((value for value, _ in measured), default=0.0)
+
+    ranked = []
+    for index, (value, node) in enumerate(measured, start=1):
+        share = value / top if top > 0 else 0.0
+        ranked.append(
+            {
+                "rank": index,
+                "path": _display_path(node.path, root_path) if root_path is not None else node.path,
+                "name": node.name,
+                "node_type": node.type,
+                "start_line": node.start_line,
+                "end_line": node.end_line,
+                "value": _compact_number(value),
+                "unit": spec.unit_for(value),
+                "score": round(share if spec.direction == "higher-worse" else 1 - share, 4),
+                "witness": witness_of(node, metric),
+            }
+        )
+    return {"metric": metric, "label": spec.label, "cohort": cohort, "ranked": ranked, "na_count": na_count}
 
 
 def rank_nodes(
@@ -439,59 +404,69 @@ def render_markdown_report(
     *,
     manifest: dict[str, Any],
     findings: list[dict[str, Any]],
-    ranked: list[dict[str, Any]],
+    by_metric: dict[str, dict[str, Any]],
     summary_tree: dict[str, Any],
     profile: str,
-    ranked_functions: list[dict[str, Any]] | None = None,
     focus_paths: Iterable[str] | None = None,
     deprioritize_paths: Iterable[str] | None = DEFAULT_DEPRIORITIZED_PATHS,
 ) -> str:
     high_count = sum(1 for finding in findings if finding["priority"] == "high")
     medium_count = sum(1 for finding in findings if finding["priority"] == "medium")
+    files, functions = by_metric["file"], by_metric["function"]
+    metric, label = files["metric"], files["label"]
     lines = [
         "# Srcly Code Quality Report",
         "",
         "## Summary",
         "",
         f"- Root: `{manifest['root_path']}`",
-        f"- Profile: `{profile}`",
-        f"- Ranked files: {len(ranked)}",
+        f"- Ranked by: `{metric}` ({label}). Pick another with `--metric`.",
+        f"- Findings profile: `{profile}`",
         f"- Findings: {len(findings)} total, {high_count} high, {medium_count} medium.",
         f"- Focus paths: `{', '.join(focus_paths or []) or 'none'}`",
         f"- Deprioritized paths: `{', '.join(deprioritize_paths or []) or 'none'}`",
         "",
         "Read first: `report.md`, then `findings.top.json`, then `action-plan.md`. Load full JSON artifacts only when you need detail beyond the top findings.",
         "",
-        "## Top Files",
-        "",
-        "Files ranked against files. `complexity` is the file's most complex function, named after `in`.",
-        "",
-        "| Rank | Priority | Path priority | Path | Why | Suggested next action |",
-        "| --- | --- | --- | --- | --- | --- |",
     ]
+    for result, noun in ((files, "Files"), (functions, "Functions")):
+        lines.extend(
+            [
+                f"## Top {noun} by {label}",
+                "",
+                f"{noun} ranked by `{metric}` alone, worst first: the same list as the explorer's Hot Spots."
+                + (f" {result['na_count']} {noun.lower()} are N/A for it and not ranked." if result["na_count"] else ""),
+                "",
+                f"| Rank | {noun[:-1]} | {label} | Where |",
+                "| --- | --- | --- | --- |",
+            ]
+        )
+        for item in result["ranked"][:10]:
+            where = item["witness"]
+            location = _format_location({**item, "path": item["path"].split("::")[0]})
+            named = f"in `{where['name']}` (line {where['start_line']})" if where else f"`{location}`"
+            subject = item["path"] if noun == "Files" else item["name"]
+            lines.append(f"| {item['rank']} | `{subject}` | {item['value']} {item['unit']} | {named} |")
+        if not result["ranked"]:
+            lines.append(f"| – | No {noun.lower()} measure `{metric}` | | |")
+        lines.append("")
 
+    lines.extend(
+        [
+            "## Findings",
+            "",
+            f"The `{profile}` profile's weighted mix of risk metrics, one triage queue across files.",
+            "",
+            "| Rank | Priority | Path priority | Path | Why | Suggested next action |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+    )
     for finding in findings[:10]:
         location = _format_location(finding)
         evidence = _format_evidence(finding)
         lines.append(
             f"| {finding['id']} | {finding['priority']} | {finding.get('path_priority', 'neutral')} | `{location}` | {finding['title']} ({evidence}) | {finding['suggested_action']} |"
         )
-
-    if ranked_functions:
-        lines.extend(
-            [
-                "",
-                "## Top Functions",
-                "",
-                "Executable functions ranked against functions (classes, JSX containers and module bodies excluded).",
-                "",
-                "| Rank | Function | Location | Why |",
-                "| --- | --- | --- | --- |",
-            ]
-        )
-        for item in ranked_functions:
-            evidence = ", ".join(f"{key}={value}" for key, value in item["metrics"].items()) or "metric signal"
-            lines.append(f"| {item['rank']} | `{item['name']}` | `{_format_location(item)}` | {evidence} |")
 
     lines.extend(
         [
@@ -532,10 +507,10 @@ Use this skill when asked to review, prioritize, or improve a codebase using Src
 
 - High complexity means "inspect control flow"; it does not automatically mean "refactor".
 - High LOC means "look for separable responsibilities"; it does not automatically mean "split file".
-- TSX render branching, inline handlers, and prop count suggest UI complexity and test-surface risk.
+- Component hooks, effects, JSX conditionals and inline handlers name the component carrying them; they suggest state and rendering logic worth extracting.
 - `any` and TS ignores suggest type-safety debt.
-- Import coupling suggests dependency-boundary review.
-- Low comments are only concerning when paired with complexity, public API behavior, or non-obvious domain logic.
+- Comment noise flags narrated code, oversized docblocks and commented-out code; delete or trim, don't add more.
+- Counts in `metrics.schema.json` with `direction: neutral` (TODOs, imports, exports) describe code; they are never risk on their own.
 
 ## Output Style
 
@@ -649,20 +624,7 @@ def enrich_manifest_with_artifacts(
 
 
 def build_metrics_schema() -> dict[str, Any]:
-    return {
-        "artifact_version": ARTIFACT_VERSION,
-        "metrics": [
-            {
-                "name": item.name,
-                "description": item.description,
-                "scope": item.scope,
-                "aggregation": item.aggregation,
-                "direction": item.direction,
-                "languages": item.languages,
-            }
-            for item in METRIC_DEFINITIONS
-        ],
-    }
+    return {"artifact_version": ARTIFACT_VERSION, **metric_catalog.catalog_payload()}
 
 
 def build_dependencies(root_path: Path) -> dict[str, Any]:
@@ -709,10 +671,10 @@ def _metrics_subset(metrics: Metrics, names: Iterable[str]) -> dict[str, Any]:
 
 def _top_nonzero_metrics(metrics: Metrics, *, limit: int = 6) -> dict[str, Any]:
     values = []
-    for definition in METRIC_DEFINITIONS:
-        value = getattr(metrics, definition.name, 0)
+    for spec in metric_catalog.METRICS:
+        value = getattr(metrics, spec.id, 0)
         if value:
-            values.append((definition.name, value))
+            values.append((spec.id, value))
     values.sort(key=lambda item: abs(float(item[1])), reverse=True)
     return {name: _compact_number(float(value)) for name, value in values[:limit]}
 

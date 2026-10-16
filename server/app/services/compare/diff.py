@@ -8,10 +8,10 @@ metric, per-metric totals over the changed files, and the file-level
 dependency edges gained and lost.
 
 "Better" and "worse" come from one table, ``COMPARE_METRICS``, shared by the
-CLI and the UI. Direction comes from ``reporting.METRIC_DEFINITIONS``: risk
-metrics are better lower, neutral detail (counts of functions, exports,
-TODOs...) is neutral, and so is LOC here: a PR that adds a feature is
-expected to add lines.
+CLI and the UI, built from the metric catalog (``services/metric_catalog.py``):
+higher-worse metrics are better lower, neutral detail (counts of functions,
+exports, TODOs...) is neutral, and so are size metrics marked
+``compare="neutral"`` (LOC, bytes): a PR that adds a feature adds lines.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from typing import Any, Iterable, Literal, Optional
 
 from app.services.compare.git_refs import FileChange
-from app.services.reporting import METRIC_DEFINITIONS
+from app.services import metric_catalog
 
 Direction = Literal["lower", "higher", "neutral"]
 Verdict = Literal["better", "worse", "neutral", "same"]
@@ -32,33 +32,24 @@ Aggregation = Literal["sum", "max", "mean"]
 class CompareMetric:
     name: str
     direction: Direction
-    """Which way is better: ``lower`` (risk) or ``neutral`` (size and inventory). ``higher`` is unused today."""
+    """Which way is better: ``lower`` (higher-worse risk), ``higher`` (lower-worse) or ``neutral``."""
     aggregation: Aggregation
     """How file values combine into a total over the changed files."""
     source: Literal["tree", "graph"] = "tree"
 
 
-# Size: growth is expected, not a regression. Inventory counts are neutral
-# in the definitions already.
-NEUTRAL_METRICS = frozenset({"loc"})
-SKIPPED_METRICS = frozenset({"file_count"})
-
-
-def _aggregation(definition_aggregation: str) -> Aggregation:
-    if definition_aggregation.startswith("sum"):
-        return "sum"
-    if definition_aggregation.startswith("max"):
-        return "max"
-    return "mean"
+# Catalog direction → which way is better in a PR. Size metrics are marked
+# ``compare="neutral"`` in the catalog: a PR that adds a feature adds lines.
+_DIRECTION: dict[str, Direction] = {"higher-worse": "lower", "lower-worse": "higher", "neutral": "neutral"}
 
 
 def _build_metrics() -> tuple[CompareMetric, ...]:
     metrics: list[CompareMetric] = []
-    for d in METRIC_DEFINITIONS:
-        if d.name in SKIPPED_METRICS:
+    for spec in metric_catalog.METRICS:
+        if spec.compare == "skip":
             continue
-        direction: Direction = "neutral" if d.name in NEUTRAL_METRICS or d.direction == "neutral" else "lower"
-        metrics.append(CompareMetric(d.name, direction, _aggregation(d.aggregation)))
+        direction = "neutral" if spec.compare == "neutral" else _DIRECTION[spec.direction]
+        metrics.append(CompareMetric(spec.id, direction, spec.aggregation))
     # Coupling from the dependency graph. Depending on more things is riskier;
     # being depended on is a fact about the file, not a regression.
     metrics.append(CompareMetric("fan_out", "lower", "sum", "graph"))

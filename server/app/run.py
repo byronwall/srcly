@@ -9,7 +9,7 @@ from pathlib import Path
 
 import uvicorn
 
-from app.services import reporting
+from app.services import metric_catalog, reporting
 from app.services.scan_workers import ScanCancelled
 
 # Seconds uvicorn waits for open connections after Ctrl+C before closing them.
@@ -217,7 +217,13 @@ def _run_headless(argv: list[str]) -> None:
         "--profile",
         choices=["general", "frontend", "backend", "typescript", "python", "docs"],
         default="general",
-        help="Scoring profile.",
+        help="Profile for the weighted findings queue.",
+    )
+    report_parser.add_argument(
+        "--metric",
+        choices=metric_catalog.RANKABLE_IDS,
+        default=None,
+        help="Metric for the Top Files / Top Functions tables and hotspots.json. Defaults to the profile's heaviest metric.",
     )
     report_parser.add_argument(
         "--format",
@@ -242,7 +248,12 @@ def _run_headless(argv: list[str]) -> None:
 
     hotspots_parser = subparsers.add_parser("hotspots", help="Print ranked hotspots.")
     hotspots_parser.add_argument("path", nargs="?", help="Path to analyze. Defaults to the enclosing Git repo root.")
-    hotspots_parser.add_argument("--metric", action="append", default=None, help="Metric to score. May be repeated.")
+    hotspots_parser.add_argument(
+        "--metric",
+        choices=metric_catalog.RANKABLE_IDS,
+        default="complexity",
+        help="Metric to rank by, worst first (the explorer's Hot Spots list).",
+    )
     hotspots_parser.add_argument("--limit", type=int, default=25, help="Maximum hotspots to print.")
     hotspots_parser.add_argument(
         "--cohort",
@@ -314,6 +325,7 @@ def _run_headless(argv: list[str]) -> None:
             payload = reporting.build_report_payload(
                 target_path,
                 profile=args.profile,
+                metric=args.metric,
                 limit=args.limit,
                 refresh=args.refresh,
                 tree_depth=args.tree_depth,
@@ -334,6 +346,7 @@ def _run_headless(argv: list[str]) -> None:
                 target_path,
                 out_dir,
                 profile=args.profile,
+                metric=args.metric,
                 limit=args.limit,
                 output_format=output_format,
                 refresh=args.refresh,
@@ -362,16 +375,19 @@ def _run_headless(argv: list[str]) -> None:
     if args.command == "hotspots":
         target_path = _resolve_target_path(args.path)
         tree = reporting.scan_tree(target_path)
-        profile = _profile_from_metrics(args.metric)
-        ranked = reporting.rank_nodes(tree, profile=profile, cohort=args.cohort)[: args.limit]
+        result = reporting.rank_by_metric(tree, args.metric, cohort=args.cohort, root_path=target_path)
+        result["ranked"] = result["ranked"][: args.limit]
         if args.format == "json":
-            print(reporting._json_dumps({"rankings": ranked}))
+            print(reporting._json_dumps(result))
         else:
-            for item in ranked:
+            for item in result["ranked"]:
                 location = item["path"]
                 if item.get("start_line") and item.get("end_line"):
                     location = f"{location}:{item['start_line']}-{item['end_line']}"
-                print(f"{item['rank']}. score={item['score']} {location} - {item['reason']}")
+                where = f" in {item['witness']['name']} (line {item['witness']['start_line']})" if item["witness"] else ""
+                print(f"{item['rank']}. {item['value']} {item['unit']} {location}{where}")
+            if result["na_count"]:
+                print(f"({result['na_count']} N/A for {args.metric}, not ranked)")
         return
 
     if args.command == "explain":
@@ -418,14 +434,6 @@ def _run_compare(args) -> None:
         print(reporting._json_dumps(payload))
     elif not args.out:
         print(render_markdown(payload, limit=args.limit), end="")
-
-
-def _profile_from_metrics(metrics: list[str] | None) -> str:
-    if not metrics:
-        return "general"
-    weights = {metric: 1.0 for metric in metrics}
-    reporting.PROFILE_WEIGHTS["_custom"] = weights
-    return "_custom"
 
 
 def _deprioritize_paths(args) -> tuple[str, ...]:

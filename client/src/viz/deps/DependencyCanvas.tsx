@@ -1,7 +1,7 @@
 import * as d3 from "d3";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { makeTextMeasurer, truncateTextToWidth } from "../../utils/svgText";
-import { formatMetricValue, hotSpotMetricLabel, type HotSpotMetricId } from "../../utils/metricsStore";
+import { formatMetricValue, metricLabel, type MetricId } from "../../utils/metricsStore";
 import { treemapFillColor, treemapRampPosition, rampColor } from "../treemap/utils/colors";
 import { tailPath } from "../treemap/components/TreemapTooltip";
 import { placeFloating } from "../treemap/hooks/useTreemapTooltip";
@@ -372,7 +372,7 @@ export function DependencyCanvas(props: {
       t,
       color: rampColor(t),
       value: metric === "loc" ? "" : formatMetricValue(metric, m[metric]),
-      label: hotSpotMetricLabel(metric as HotSpotMetricId),
+      label: metricLabel(metric as MetricId),
       full: formatMetricValue(metric, m[metric]),
     };
   };

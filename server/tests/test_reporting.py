@@ -5,7 +5,7 @@ import pytest
 
 from app.models import Metrics, Node
 from app.run import main
-from app.services import reporting
+from app.services import metric_catalog, reporting
 
 
 def _sample_tree(root_path: Path) -> Node:
@@ -266,8 +266,7 @@ def test_cli_hotspots_subcommand_prints_ranked_nodes(
     main(["hotspots", str(root), "--metric", "complexity", "--limit", "1"])
 
     captured = capsys.readouterr()
-    assert "score=" in captured.out
-    assert "Dashboard" in captured.out
+    assert captured.out.startswith("1. 10 CCN client/src/Dashboard.tsx")
 
 
 def test_cli_explain_subcommand_prints_file_tree(
@@ -375,10 +374,73 @@ def test_report_names_the_complexity_witness(tmp_path: Path, monkeypatch: pytest
 
 
 def test_profiles_weight_only_risk_metrics() -> None:
-    directions = {d.name: d.direction for d in reporting.METRIC_DEFINITIONS}
+    directions = {m.id: m.direction for m in metric_catalog.METRICS}
     for profile, weights in reporting.PROFILE_WEIGHTS.items():
         for metric in weights:
-            assert directions.get(metric) == "risk", (profile, metric)
+            assert directions.get(metric) == "higher-worse", (profile, metric)
     for cut in ("comment_density", "tsx_hardcoded_string_volume", "tsx_duplicated_string_count", "todo_count"):
         assert all(cut not in w for w in reporting.PROFILE_WEIGHTS.values())
     assert "comment_density" not in directions
+
+
+def _cohort_tree(values: dict[str, float | None]) -> Node:
+    files = [
+        Node(name=name, type="file", path=f"/r/{name}", metrics=Metrics(complexity=value))
+        for name, value in values.items()
+    ]
+    return Node(name="r", type="folder", path="/r", metrics=Metrics(), children=files)
+
+
+def test_rank_by_metric_ranks_worst_first_with_zero_and_na_apart() -> None:
+    tree = _cohort_tree({"b.py": 4, "a.py": 4, "zero.py": 0, "big.py": 9, "doc.md": None})
+
+    result = reporting.rank_by_metric(tree, "complexity")
+
+    # Ties go to the path; a measured 0 ranks last; N/A is only counted.
+    assert [item["name"] for item in result["ranked"]] == ["big.py", "a.py", "b.py", "zero.py"]
+    assert result["na_count"] == 1
+    assert result["ranked"][0]["score"] == 1.0
+    assert result["ranked"][0]["unit"] == "CCN"
+
+
+def test_rank_by_metric_uses_the_singular_unit_and_names_witnesses(tmp_path: Path) -> None:
+    from app.models import Witness
+
+    tree = _sample_tree(tmp_path)
+    file_node = tree.children[0].children[0]
+    file_node.metrics.witnesses = {"component_prop_count": Witness(path="x", name="Dashboard", start_line=10, end_line=80)}
+    file_node.metrics.component_prop_count = 1
+
+    item = reporting.rank_by_metric(tree, "component_prop_count", root_path=tmp_path)["ranked"][0]
+
+    assert (item["value"], item["unit"]) == (1, "prop")
+    assert item["witness"]["name"] == "Dashboard"
+    assert item["path"] == "client/src/Dashboard.tsx"
+
+
+def test_rank_by_metric_refuses_neutral_detail() -> None:
+    with pytest.raises(ValueError):
+        reporting.rank_by_metric(_cohort_tree({"a.py": 1}), "todo_count")
+
+
+def test_report_tables_rank_by_one_metric(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    tree = _sample_tree(root)
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: tree)
+
+    payload = reporting.build_report_payload(root, metric="component_prop_count", limit=5, verbose=False)
+
+    assert payload["hotspots"]["metric"] == "component_prop_count"
+    assert payload["hotspots"]["rankings"][0]["value"] == 18
+    assert "## Top Files by Props" in payload["report_markdown"]
+    assert "| 1 | `client/src/Dashboard.tsx` | 18 props |" in payload["report_markdown"]
+
+
+def test_report_defaults_to_the_profile_lead_metric(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: _sample_tree(root))
+
+    assert reporting.build_report_payload(root, verbose=False)["hotspots"]["metric"] == "complexity"
+    assert reporting.build_report_payload(root, profile="frontend", verbose=False)["hotspots"]["metric"] == "component_loc"

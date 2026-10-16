@@ -2,8 +2,8 @@ import { For, Show } from "solid-js";
 import { Search, X } from "lucide-solid";
 import { CheckboxRow } from "./ui/CheckboxRow";
 import { PopoverPanel, PopoverSectionTitle } from "./ui/PopoverPanel";
-import { EXPLORER_COLUMNS, type ExplorerColumn } from "../utils/explorerColumns";
-import { HOTSPOT_METRIC_GROUPS, type HotSpotMetricId } from "../utils/metricsStore";
+import { explorerColumns, type ExplorerColumn } from "../utils/explorerColumns";
+import { metricGroups, type MetricId } from "../utils/metricsStore";
 
 /** Filter box: search icon, clear button, and Esc to clear. */
 export function ExplorerFilter(props: {
@@ -74,23 +74,24 @@ export function ExplorerEmpty(props: { filter: string; what: string; onClear: ()
 
 type ColumnGroup = { title: string; columns: ExplorerColumn[] };
 
-const COLUMN_GROUPS: ColumnGroup[] = [
-  { title: "Folders", columns: EXPLORER_COLUMNS.filter((c) => !c.metric) },
-  ...HOTSPOT_METRIC_GROUPS.map((group) => ({
-    title: group,
-    columns: EXPLORER_COLUMNS.filter((c) => c.metric?.group === group),
-  })),
-].filter((group) => group.columns.length > 0);
+const columnGroups = (): ColumnGroup[] =>
+  [
+    { title: "Folders", columns: explorerColumns().filter((c) => !c.metric) },
+    ...metricGroups().map((group) => ({
+      title: group.id,
+      columns: explorerColumns().filter((c) => c.metric?.group === group.id),
+    })),
+  ].filter((group) => group.columns.length > 0);
 
 /** Grouped column checklist; the treemap's color metric is always on. */
 export function ColumnPickerPanel(props: {
-  colorMetric: HotSpotMetricId;
+  colorMetric: MetricId;
   picked: readonly string[];
   onToggle: (id: string) => void;
 }) {
   return (
     <PopoverPanel width="md" class="max-h-[min(28rem,70vh)] overflow-y-auto">
-      <For each={COLUMN_GROUPS}>
+      <For each={columnGroups()}>
         {(group, i) => (
           <div classList={{ "mt-3": i() > 0 }}>
             <PopoverSectionTitle class="mb-1.5">{group.title}</PopoverSectionTitle>

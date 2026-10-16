@@ -1,20 +1,17 @@
-import { formatMetricValue, HOTSPOT_METRICS } from "../utils/metricsStore";
+import { formatMetricValue, metricLabel } from "../utils/metricsStore";
 import type { ChangeStatus, Verdict } from "./types";
 
-const EXTRA_LABELS: Record<string, string> = {
+/** Compare-only metrics from the dependency graph; the rest come from the catalog. */
+const GRAPH_LABELS: Record<string, string> = {
   fan_out: "Fan-out",
   fan_in: "Fan-in",
-  function_count: "Functions",
-  comment_lines: "Comment lines",
-  average_function_length: "Avg fn length",
-  classes_count: "Classes",
 };
 
 /** Default table columns: the risk metrics most PRs move. */
 export const DEFAULT_COMPARE_COLUMNS = ["complexity", "max_nesting_depth", "average_function_length", "fan_out"];
 
 export function compareMetricLabel(name: string): string {
-  return EXTRA_LABELS[name] ?? HOTSPOT_METRICS.find((m) => m.id === name)?.label ?? name;
+  return GRAPH_LABELS[name] ?? metricLabel(name);
 }
 
 export function formatValue(name: string, value: number | null | undefined): string {

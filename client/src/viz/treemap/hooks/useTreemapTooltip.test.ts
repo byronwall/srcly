@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildTooltipContent,
   formatAge,
-  formatBytes,
   languageMix,
   notAnalyzedLines,
   pathWithin,
@@ -12,6 +11,7 @@ import {
   siblingRank,
   topChildren,
 } from "./useTreemapTooltip";
+import { formatBytes } from "../../../utils/metricsStore";
 
 describe("notAnalyzedLines", () => {
   it("is empty for analyzed files", () => {
@@ -92,11 +92,11 @@ describe("buildTooltipContent", () => {
     expect(content.childrenLabel).toBe("Largest scopes");
     expect(content.childMetricLabel).toBe("CCN");
     expect(content.moreLabel).toBe("");
-    expect(content.lines).toContainEqual({ label: "Imports", value: "9" });
-    expect(content.lines).toContainEqual({ label: "Comment noise", value: "1" });
+    expect(content.lines).toContainEqual({ label: "Python Imports", value: "9" });
+    expect(content.lines).toContainEqual({ label: "Comment Noise", value: "1" });
     // Zeros are noise, and the coloring metric has its own line.
     expect(content.lines.some((l) => l.label === "TODOs")).toBe(false);
-    expect(content.lines.some((l) => l.label === "Max CCN")).toBe(false);
+    expect(content.lines.some((l) => l.label === "Complexity (max)")).toBe(false);
     expect(content.primary).toMatchObject({ label: "Complexity (max)", value: "7" });
   });
 
