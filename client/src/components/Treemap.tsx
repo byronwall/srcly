@@ -24,6 +24,7 @@ import { atFromTreePath, baseName, crumbsFor, folderOf } from "../navigation/loc
 import NodeActionsMenu, { type NodeMenuTarget } from "../navigation/NodeActionsMenu";
 import { go, location } from "../navigation/store";
 import { buildMetricsIndex } from "../viz/deps/metrics";
+import { linkedPathFor, setHoverFrom } from "../utils/hoverLink";
 
 const DependencyView = lazy(() => import("../viz/deps/DependencyView"));
 
@@ -270,7 +271,9 @@ export default function Treemap(props: TreemapProps) {
             onHover={(event, node) => {
               if (event && node) showTooltip(event, node);
               else hideTooltip();
+              setHoverFrom("treemap", node?.data?.path);
             }}
+            linkedPath={() => linkedPathFor("treemap")}
             onPaint={() => props.onPaint?.()}
           />
         </Show>

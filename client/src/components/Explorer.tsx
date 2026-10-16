@@ -34,6 +34,7 @@ import {
   type ExplorerSortField,
 } from "../utils/explorerColumns";
 import { ExplorerScopeBar } from "./ExplorerScopeBar";
+import { linkedPathFor, nearestLinked, setHoverFrom } from "../utils/hoverLink";
 import { ColumnPickerPanel, ExplorerEmpty, ExplorerFilter } from "./ExplorerControls";
 import { TREEMAP_GRADIENT } from "../viz/treemap/utils/colors";
 
@@ -98,6 +99,8 @@ interface ExplorerContextType {
   filter: string;
   columns: () => ExplorerColumn[];
   colorMetric: () => HotSpotMetricId;
+  /** The row standing in for the treemap's hovered tile (itself or its nearest shown ancestor). */
+  linkedRowPath: () => string | null;
   rootData: Node | null;
   focusedPath: () => string;
   tabbablePath: () => string;
@@ -198,6 +201,10 @@ export default function Explorer(props: {
       includeRoot: false,
     });
   });
+
+  const linkedRowPath = createMemo(
+    () => nearestLinked(treeRows(), linkedPathFor("explorer"), (row) => row.node.path)?.node.path ?? null
+  );
 
   const treeRange = createMemo(() =>
     getVirtualTreeRange(scrollTop(), viewportHeight(), treeRows().length)
@@ -402,6 +409,7 @@ export default function Explorer(props: {
         filter: props.filter,
         columns,
         colorMetric,
+        linkedRowPath,
         rootData: props.data,
         focusedPath,
         tabbablePath,
@@ -410,7 +418,11 @@ export default function Explorer(props: {
         onTreeKeyDown,
       }}
     >
-      <div class="flex h-full w-full flex-col bg-[var(--plc-surface)]">
+      {/* Rows can unmount while hovered (virtual scroll), so the panel clears the hover too. */}
+      <div
+        class="flex h-full w-full flex-col bg-[var(--plc-surface)]"
+        onPointerLeave={() => setHoverFrom("explorer", null)}
+      >
         {/* Same 40px toolbar as the treemap header, so the borders line up across the seam. */}
         <div class="plc-toolbar flex shrink-0 items-center gap-1 border-b px-2">
           <div

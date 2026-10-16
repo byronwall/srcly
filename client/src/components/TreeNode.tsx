@@ -5,6 +5,7 @@ import { type Node, ExplorerContext } from "./Explorer";
 import { useMetricsStore } from "../utils/metricsStore";
 import { metricCellColor } from "../utils/explorerColumns";
 import { HeatSwatch } from "./ui/HeatSwatch";
+import { setHoverFrom } from "../utils/hoverLink";
 
 export function TreeNode(props: {
   node: Node;
@@ -76,6 +77,9 @@ export function TreeNode(props: {
       aria-selected={ctx.focusedPath() === props.node.path}
       tabindex={ctx.tabbablePath() === props.node.path ? 0 : -1}
       data-explorer-index={props.index}
+      data-linked={ctx.linkedRowPath() === props.node.path ? "" : undefined}
+      onPointerEnter={() => setHoverFrom("explorer", props.node.path)}
+      onPointerLeave={() => setHoverFrom("explorer", null)}
       onFocus={() => ctx.setFocusedPath(props.node.path)}
       onClick={handleClick}
       onKeyDown={(e) => {

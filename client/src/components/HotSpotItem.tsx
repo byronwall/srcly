@@ -9,6 +9,7 @@ import {
 } from "../utils/metricsStore";
 import { metricCellColor } from "../utils/explorerColumns";
 import { HeatSwatch } from "./ui/HeatSwatch";
+import { isSameOrAncestor, linkedPathFor, setHoverFrom } from "../utils/hoverLink";
 import { ExplorerContext, findNodeByPath } from "./Explorer";
 import type { Node } from "./Explorer";
 
@@ -21,6 +22,12 @@ export function HotSpotItem(props: {
   metrics: HotSpotMetricId[];
 }) {
   const ctx = useContext(ExplorerContext)!;
+
+  // Lit when the treemap hovers this item or something inside it.
+  const isLinked = () => {
+    const target = linkedPathFor("explorer");
+    return Boolean(target && isSameOrAncestor(props.node.path, target));
+  };
 
   const handleClick = () => {
     const filePath = extractFilePath(props.node.path, props.node.type);
@@ -73,6 +80,9 @@ export function HotSpotItem(props: {
     <div
       class="plc-row plc-body-sm group relative flex cursor-pointer items-center gap-2 border-b px-2 pb-1.5 pt-0.5"
       onClick={handleClick}
+      data-linked={isLinked() ? "" : undefined}
+      onPointerEnter={() => setHoverFrom("explorer", props.node.path)}
+      onPointerLeave={() => setHoverFrom("explorer", null)}
     >
       {/* Score relative to #1, inset under the name so it reads as part of the row. */}
       <span aria-hidden="true" class="absolute bottom-[3px] left-10 right-2 h-[2px]">
