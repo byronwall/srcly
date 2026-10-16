@@ -4,11 +4,11 @@
     "title": "Metric system overhaul",
     "slug": "metric-system-overhaul",
     "scale": "program",
-    "current_phase": "plan",
-    "last_updated": "2026-10-15",
+    "current_phase": "execution",
+    "last_updated": "2026-10-16",
     "summary": "Turn the codex/metrics-research findings (metric trust, portfolio, Git activity, imported evidence) into a stack of PRs landing now.",
-    "status": "planned",
-    "next_action": "Start PR 1: fix(metrics) zero vs N/A, witnesses, ranking denominator"
+    "status": "completed",
+    "next_action": "None: all seven milestones landed as stacked PRs #73–#78 plus the M7 pilot PR. Follow-ups are in docs/research/metric-pilot-2026-10/README.md."
   },
   "artifacts": {
     "intent_brief": {
@@ -303,7 +303,10 @@
         "proof": "Fixture scan parity across API/report/explorer; monotonicity test",
         "valid_intermediate_state": "Existing catalog with correct availability",
         "rollback": "Revert PR",
-        "status": "planned"
+        "status": "completed",
+        "evidence": [
+          "https://github.com/byronwall/srcly/pull/73 (fix(metrics): zero vs N/A, witnesses, ranking denominator)"
+        ]
       },
       {
         "id": "m2",
@@ -313,7 +316,10 @@
         "proof": "React/Solid and comment fixtures",
         "valid_intermediate_state": "Smaller catalog, all surfaces working",
         "rollback": "Revert PR",
-        "status": "planned"
+        "status": "completed",
+        "evidence": [
+          "https://github.com/byronwall/srcly/pull/74 (catalog cuts, comment_noise, React/Solid component metrics)"
+        ]
       },
       {
         "id": "m3",
@@ -323,7 +329,10 @@
         "proof": "Report vs client top-10 parity test",
         "valid_intermediate_state": "Same metrics, one source of truth",
         "rollback": "Revert PR",
-        "status": "planned"
+        "status": "completed",
+        "evidence": [
+          "https://github.com/byronwall/srcly/pull/75 (server-owned metric catalog, single-metric Hot Spots list, report parity test)"
+        ]
       },
       {
         "id": "m4",
@@ -335,7 +344,10 @@
         "proof": "Temp repo with rename/merge/bulk commit matches git log",
         "valid_intermediate_state": "Activity N/A without git",
         "rollback": "Revert PR",
-        "status": "planned"
+        "status": "completed",
+        "evidence": [
+          "https://github.com/byronwall/srcly/pull/76 (Git activity: commit_count, churn_lines, N/A reasons)"
+        ]
       },
       {
         "id": "m5",
@@ -345,7 +357,10 @@
         "proof": "Quadrant unit test and browser check",
         "valid_intermediate_state": "Scatter optional beside treemap",
         "rollback": "Revert PR",
-        "status": "planned"
+        "status": "completed",
+        "evidence": [
+          "https://github.com/byronwall/srcly/pull/77 (2x2 scatter presets with absolute cut-offs)"
+        ]
       },
       {
         "id": "m6",
@@ -358,7 +373,10 @@
         "proof": "Fixtures with/without tools, timeout injection",
         "valid_intermediate_state": "Findings N/A on failure",
         "rollback": "Revert PR",
-        "status": "planned"
+        "status": "completed",
+        "evidence": [
+          "https://github.com/byronwall/srcly/pull/78 (zero-config findings: tsc/eslint/ruff/srcly TS rules)"
+        ]
       },
       {
         "id": "m7",
@@ -368,7 +386,10 @@
         "proof": "Evaluation script output plus adjudicated cases in docs/research",
         "valid_intermediate_state": "Tuned defaults",
         "rollback": "Revert PR",
-        "status": "planned"
+        "status": "completed",
+        "evidence": [
+          "Branch claude/metrics-pr7-pilot-952fa2: server/scripts/evaluate_metric_portfolio.py + tests; 729 adjudicated cases on srcly, recipes-modern, explorEDA, context-recorder; decision record docs/research/metric-pilot-2026-10/README.md; comment-noise ratio 0.5→1.0, comment-noise 2x2 cut-off 0.15→0.5, profile weights retuned"
+        ]
       }
     ],
     "cut_line": [
@@ -392,9 +413,97 @@
       "date": "2026-10-15",
       "event": "shaped-and-planned",
       "note": "Three question rounds; intent, shape, plan current"
+    },
+    {
+      "date": "2026-10-16",
+      "event": "completed",
+      "note": "M7 pilot tuned the defaults; all milestones landed as stacked PRs #73-#78 plus the pilot PR"
     }
   ],
-  "closure": null,
+  "closure": {
+    "summary": "The metric system overhaul landed as seven stacked PRs: trust fixes, catalog cuts with comment noise and component metrics, one server-owned catalog with a single-metric list, Git activity, 2x2 presets, zero-config findings, and a four-repo pilot that tuned the defaults.",
+    "evidence": [
+      "M7 pilot: 729 cases adjudicated on srcly, recipes-modern, explorEDA and context-recorder (docs/research/metric-pilot-2026-10/README.md, cases.tsv).",
+      "cd server && uv run pytest: 344 passed on the M7 branch.",
+      "cd client && pnpm test: 298 passed; pnpm build succeeded on the M7 branch.",
+      "PRs #73-#78 each recorded their own tests and screenshots."
+    ],
+    "reconciliation": [
+      {
+        "claim_id": "C1",
+        "disposition": "delivered",
+        "evidence": "One server catalog (GET /api/metrics/catalog) feeds explorer, report and compare; parity test (PR #75)."
+      },
+      {
+        "claim_id": "C2",
+        "disposition": "delivered",
+        "evidence": "Seven stacked PRs: #73 trust fixes through the M7 pilot PR."
+      },
+      {
+        "claim_id": "C3",
+        "disposition": "delivered",
+        "evidence": "Trust (#73), portfolio (#74, #75, M7), Git activity (#76), quality evidence as zero-config findings (#78)."
+      },
+      {
+        "claim_id": "C4",
+        "disposition": "delivered",
+        "evidence": "Low Comments, hardcoded/duplicated text and raw TSX counters cut with no compatibility layer (#74); M7 demoted further metrics by evidence."
+      },
+      {
+        "claim_id": "C5",
+        "disposition": "delivered",
+        "evidence": "The agent ran the pilot on four local repos and adjudicated 729 cases (docs/research/metric-pilot-2026-10)."
+      },
+      {
+        "claim_id": "C6",
+        "disposition": "delivered",
+        "evidence": "Single-metric Hot Spots list (#75) and the 2x2 scatter view with named quadrants (#77)."
+      },
+      {
+        "claim_id": "C7",
+        "disposition": "delivered",
+        "evidence": "Component-scoped React/Solid metrics (#74); M7 kept LOC, hooks, effects, JSX depth and props as defaults, demoted inline handlers and JSX conditionals."
+      },
+      {
+        "claim_id": "C8",
+        "disposition": "delivered",
+        "evidence": "comment_noise replaces the low-comments penalty (#74); TODOs are neutral detail."
+      },
+      {
+        "claim_id": "C9",
+        "disposition": "delivered",
+        "evidence": "Findings run tsc/eslint/ruff/srcly TS rules with no config (#78)."
+      },
+      {
+        "claim_id": "C10",
+        "disposition": "delivered",
+        "evidence": "Activity, Blast radius, Component weight, Comment noise and Findings presets (#77, #78); M7 tuned the comment-noise cut-off."
+      },
+      {
+        "claim_id": "C11",
+        "disposition": "changed",
+        "evidence": "All three rules shipped with absolute thresholds (#74); M7 raised the narrated-code ratio from 0.5 to 1.0 comment lines per code line on pilot evidence, still absolute."
+      },
+      {
+        "claim_id": "C12",
+        "disposition": "delivered",
+        "evidence": "Project tsc/eslint when present, otherwise ruff and srcly's TS rules, labelled by tool (#78)."
+      },
+      {
+        "claim_id": "C13",
+        "disposition": "delivered",
+        "evidence": "Landed in the confirmed order #73 → #78 → M7 pilot."
+      }
+    ],
+    "follow_ups": [
+      "Scope LOC (and commit count) to code languages, so Markdown, HTML and CSS stop ranking beside code.",
+      "Make parameter_count's file and folder value the max arity with a witness instead of a sum.",
+      "Fix the LOC description or count: TS and Python LOC include comment lines; then revisit comment_ratio.",
+      "Weight findings by severity, or set stylistic rules (eslint curly) apart, so one project rule can't fill the Findings preset.",
+      "Detect components that return .map(...) of JSX (explorEDA DslCode.tsx).",
+      "Run the next pilot on a TS repo without tsc or eslint and a non-author repo, with a second reviewer."
+    ]
+  },
   "question_rounds": [
     {
       "round": 1,

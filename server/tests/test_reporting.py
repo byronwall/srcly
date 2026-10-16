@@ -313,8 +313,8 @@ def test_measured_zero_stays_in_the_denominator(tmp_path: Path) -> None:
 def test_na_metrics_drop_out_of_the_score(tmp_path: Path) -> None:
     # Markdown has no complexity: N/A must not count as a 0 against it.
     doc = _file(tmp_path, "notes.md", loc=100, md_data_url_count=0)
-    ranked = reporting.rank_nodes(_tree(tmp_path, doc, _file(tmp_path, "a.py", loc=100, complexity=3)), profile="general")
-    weights = reporting.PROFILE_WEIGHTS["general"]
+    ranked = reporting.rank_nodes(_tree(tmp_path, doc, _file(tmp_path, "a.py", loc=100, complexity=3)), profile="docs")
+    weights = reporting.PROFILE_WEIGHTS["docs"]
     # Only loc (at the max, 1.0) and md_data_url_count (a measured 0) count.
     expected = weights["loc"] / (weights["loc"] + weights["md_data_url_count"])
     assert _score(ranked, "notes.md") == pytest.approx(expected, abs=1e-4)

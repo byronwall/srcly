@@ -4,8 +4,10 @@ Three kinds of flag, each with a source span so the code viewer can mark it:
 
 - ``ratio``: a function (or, when no function is flagged, the file) with
   more than ``RATIO_LIMIT`` comment lines per code line, and at least
-  ``RATIO_MIN_CODE_LINES`` code lines so tiny helpers don't trip it. One
-  comment for every two lines of code is already narration.
+  ``RATIO_MIN_CODE_LINES`` code lines so tiny helpers don't trip it. More
+  comment lines than code lines is narration. (The M7 pilot started at 0.5:
+  on four repos nearly every flag between 0.5 and 1.0 was a docstring stating
+  a contract the code can't show. See docs/research/metric-pilot-2026-10.)
 - ``docblock``: a function's docblock or docstring that is at least
   ``DOCBLOCK_MIN_LINES`` long and more than ``DOCBLOCK_BODY_FACTOR`` times its
   body's code lines.
@@ -24,7 +26,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Iterable
 
-RATIO_LIMIT = 0.5
+RATIO_LIMIT = 1.0
 RATIO_MIN_CODE_LINES = 10
 DOCBLOCK_BODY_FACTOR = 1.5
 DOCBLOCK_MIN_LINES = 8

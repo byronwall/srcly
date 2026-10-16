@@ -6,8 +6,9 @@ and names. Most axes are catalog metrics; two are derived per node:
 
 - ``fan_in``: distinct files that import the file, from the dependency graph
   (TS/TSX and Python). Files only.
-- ``comment_ratio``: comment lines per code line (``comment_lines / loc``),
-  the same ratio comment noise flags above 0.5.
+- ``comment_ratio``: comment lines as a share of the node's lines
+  (``comment_lines / loc``; LOC counts comment lines). At 0.5 comments match
+  code, the line comment noise flags.
 
 A point is "high" on an axis when its value is at or above the cut-off. A
 node without a value on either axis is N/A and is counted, never plotted.
@@ -39,7 +40,7 @@ DERIVED_AXES: dict[str, dict[str, str]] = {
         "label": "Comment ratio",
         "unit": "comments/line",
         "unit_one": "comments/line",
-        "description": "Comment lines per code line. Comment noise flags a function above 0.5.",
+        "description": "Comment lines as a share of the lines counted in LOC (which include comments). At 0.5 there are as many comment lines as code lines, where comment noise flags a function.",
     },
 }
 
@@ -101,7 +102,9 @@ class Preset:
 
 
 # Cut-offs are absolute, not percentiles, so a quadrant means the same thing in
-# every repo. First guesses for the M7 pilot to tune.
+# every repo. The M7 pilot (docs/research/metric-pilot-2026-10) kept the
+# activity, blast radius, component weight and findings cut-offs and moved the
+# comment ratio from 0.15 to 0.5.
 PRESETS: tuple[Preset, ...] = (
     Preset(
         "activity",
@@ -152,14 +155,14 @@ PRESETS: tuple[Preset, ...] = (
         "comment_noise",
         "Comment noise",
         "Whether comments sit on the complex code that needs them.",
-        Axis("comment_ratio", 0.15, "linear"),
+        Axis("comment_ratio", 0.5, "linear"),
         Axis("complexity", 10),
         ("file", "function"),
         (
-            Quadrant("high_both", "Documented complexity", "Complex and commented."),
-            Quadrant("high_x", "Narrated trivia", "Heavily commented simple code: trim the comments."),
-            Quadrant("high_y", "Bare complexity", "Complex with few comments: explain or simplify."),
-            Quadrant("low_both", "Clean", "Simple, lightly commented."),
+            Quadrant("high_both", "Narrated complexity", "Complex, with as many comment lines as code: check the comments still match it."),
+            Quadrant("high_x", "Narrated trivia", "Simple code with as many comment lines as code: trim the comments."),
+            Quadrant("high_y", "Complex code", "Complex, with more code than comments: simplify before explaining."),
+            Quadrant("low_both", "Clean", "Simple, with more code than comments."),
         ),
     ),
     Preset(

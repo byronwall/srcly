@@ -115,6 +115,7 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist live
 | Explorer sort/columns (incl. always-on color-metric column) | `client/src/utils/explorerColumns.ts` (`explorerColumns`, `visibleExplorerColumns`) |
 | Treemap color mapping (catalog `color_domain`, `color_per_file`) | `client/src/viz/treemap/utils/colors.ts` (`TREEMAP_RAMP`, `treemapFillColor`) |
 | Client test catalog + parity fixture (server-owned snapshots) | `server/tests/snapshots/` (written by `tests/test_metric_catalog.py`, `tests/test_ranking_parity.py`); loaded by `client/src/test/setup.ts` |
+| Metric portfolio evaluation (support, N/A and zero rates, Spearman, top-k overlap per language/scope; case sheets) and the pilot that tuned the defaults | `server/scripts/evaluate_metric_portfolio.py` (tests: `tests/test_evaluate_metric_portfolio.py`); record in `docs/research/metric-pilot-2026-10/` |
 
 ### Headless reports for agents
 

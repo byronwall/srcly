@@ -1,5 +1,8 @@
 // Over-commented: most lines explain what the next line does.
 export function sumPositive(values: number[]): number {
+  // Sum the positive values.
+  // Negative values and zero are skipped.
+  // The list is not changed.
   // Start the total at zero.
   let total = 0;
   // Loop over every value in the list.

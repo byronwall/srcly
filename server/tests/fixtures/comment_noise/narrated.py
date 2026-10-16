@@ -26,6 +26,7 @@ def total(values):
 
 
 def explained(values):
+    # Keep the even values from the input.
     # Start with an empty list of results.
     out = []
     # Walk the input.
