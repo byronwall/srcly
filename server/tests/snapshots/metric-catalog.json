@@ -1,0 +1,776 @@
+{
+  "groups": [
+    {
+      "description": "Size, complexity and comment noise for any code file.",
+      "id": "General"
+    },
+    {
+      "description": "React/Solid components in TSX: a file holds the max over its components and names it.",
+      "id": "Components"
+    },
+    {
+      "description": "Type-safety escapes in .ts and .tsx files.",
+      "id": "TypeScript"
+    },
+    {
+      "description": "Markdown documents.",
+      "id": "Markdown"
+    },
+    {
+      "description": "Counts that describe code without saying it needs work: shown and colorable, never ranked.",
+      "id": "Detail"
+    }
+  ],
+  "metrics": [
+    {
+      "aggregation": "max",
+      "color_domain": [
+        0,
+        10,
+        50
+      ],
+      "color_per_file": false,
+      "description": "Cyclomatic complexity: exact for a function; for a file or folder, its most complex function, which it names.",
+      "direction": "higher-worse",
+      "group": "General",
+      "id": "complexity",
+      "label": "Complexity (max)",
+      "languages": [
+        "ts",
+        "tsx",
+        "python",
+        "code"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "CCN",
+      "unit": "CCN",
+      "unit_one": "CCN",
+      "viewer_label": null,
+      "witness": true
+    },
+    {
+      "aggregation": "mean",
+      "color_domain": [
+        0,
+        10,
+        50
+      ],
+      "color_per_file": false,
+      "description": "Mean cyclomatic complexity per function; folders weight by function count.",
+      "direction": "higher-worse",
+      "group": "General",
+      "id": "complexity_avg",
+      "label": "Complexity (avg)",
+      "languages": [
+        "ts",
+        "tsx",
+        "python",
+        "code"
+      ],
+      "picker": true,
+      "scope": "file",
+      "short_label": "CCN\u03bc",
+      "unit": "CCN",
+      "unit_one": "CCN",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        200,
+        800
+      ],
+      "color_per_file": true,
+      "description": "Lines of code, excluding comments and blanks where the analyzer can tell.",
+      "direction": "higher-worse",
+      "group": "General",
+      "id": "loc",
+      "label": "LOC",
+      "languages": null,
+      "picker": true,
+      "scope": "any",
+      "short_label": "LOC",
+      "unit": "lines",
+      "unit_one": "line",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        10000,
+        40000
+      ],
+      "color_per_file": true,
+      "description": "File size in bytes.",
+      "direction": "neutral",
+      "group": "General",
+      "id": "file_size",
+      "label": "Size",
+      "languages": null,
+      "picker": true,
+      "scope": "file",
+      "short_label": "Size",
+      "unit": "bytes",
+      "unit_one": "byte",
+      "viewer_label": "Size (bytes)",
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        1,
+        5
+      ],
+      "color_per_file": false,
+      "description": "Over-commenting flags: functions over 50% comments (10+ code lines), docblocks over 1.5x their body (8+ lines), and 3+ line runs of commented-out code.",
+      "direction": "higher-worse",
+      "group": "General",
+      "id": "comment_noise",
+      "label": "Comment Noise",
+      "languages": [
+        "ts",
+        "tsx",
+        "python"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "Noise",
+      "unit": "flags",
+      "unit_one": "flag",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "max",
+      "color_domain": [
+        0,
+        3,
+        8
+      ],
+      "color_per_file": false,
+      "description": "Deepest control-flow nesting.",
+      "direction": "higher-worse",
+      "group": "General",
+      "id": "max_nesting_depth",
+      "label": "Nesting",
+      "languages": [
+        "ts",
+        "tsx",
+        "python"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "Nest",
+      "unit": "levels",
+      "unit_one": "level",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        10,
+        50
+      ],
+      "color_per_file": false,
+      "description": "Function parameters; a file sums its functions.",
+      "direction": "higher-worse",
+      "group": "General",
+      "id": "parameter_count",
+      "label": "Params",
+      "languages": [
+        "ts",
+        "tsx",
+        "python",
+        "code"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "Prm",
+      "unit": "params",
+      "unit_one": "param",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "mean",
+      "color_domain": [
+        0,
+        30,
+        100
+      ],
+      "color_per_file": false,
+      "description": "Mean function length in LOC; folders weight by function count.",
+      "direction": "higher-worse",
+      "group": "General",
+      "id": "average_function_length",
+      "label": "Function Length (avg)",
+      "languages": [
+        "ts",
+        "tsx",
+        "python",
+        "code"
+      ],
+      "picker": true,
+      "scope": "file",
+      "short_label": "FnLen",
+      "unit": "lines",
+      "unit_one": "line",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "max",
+      "color_domain": [
+        0,
+        150,
+        400
+      ],
+      "color_per_file": false,
+      "description": "Lines in one React/Solid component. A file or folder holds the max over its components and names it.",
+      "direction": "higher-worse",
+      "group": "Components",
+      "id": "component_loc",
+      "label": "Component LOC",
+      "languages": [
+        "tsx"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "CLOC",
+      "unit": "lines",
+      "unit_one": "line",
+      "viewer_label": null,
+      "witness": true
+    },
+    {
+      "aggregation": "max",
+      "color_domain": [
+        0,
+        5,
+        15
+      ],
+      "color_per_file": false,
+      "description": "Hooks (`use*`) and Solid primitives (`create*`) in one component. A file or folder holds the max over its components and names it.",
+      "direction": "higher-worse",
+      "group": "Components",
+      "id": "component_hook_count",
+      "label": "Hooks",
+      "languages": [
+        "tsx"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "Hooks",
+      "unit": "hooks",
+      "unit_one": "hook",
+      "viewer_label": null,
+      "witness": true
+    },
+    {
+      "aggregation": "max",
+      "color_domain": [
+        0,
+        2,
+        6
+      ],
+      "color_per_file": false,
+      "description": "`useEffect`/`useLayoutEffect`/`createEffect` calls in one component. A file or folder holds the max over its components and names it.",
+      "direction": "higher-worse",
+      "group": "Components",
+      "id": "component_effect_count",
+      "label": "Effects",
+      "languages": [
+        "tsx"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "Eff",
+      "unit": "effects",
+      "unit_one": "effect",
+      "viewer_label": null,
+      "witness": true
+    },
+    {
+      "aggregation": "max",
+      "color_domain": [
+        0,
+        6,
+        12
+      ],
+      "color_per_file": false,
+      "description": "Deepest JSX nesting inside one component. A file or folder holds the max over its components and names it.",
+      "direction": "higher-worse",
+      "group": "Components",
+      "id": "component_jsx_depth",
+      "label": "JSX Depth",
+      "languages": [
+        "tsx"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "JSXd",
+      "unit": "levels",
+      "unit_one": "level",
+      "viewer_label": null,
+      "witness": true
+    },
+    {
+      "aggregation": "max",
+      "color_domain": [
+        0,
+        8,
+        20
+      ],
+      "color_per_file": false,
+      "description": "Declared props of one component (props type members or destructured names). A file or folder holds the max over its components and names it.",
+      "direction": "higher-worse",
+      "group": "Components",
+      "id": "component_prop_count",
+      "label": "Props",
+      "languages": [
+        "tsx"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "Props",
+      "unit": "props",
+      "unit_one": "prop",
+      "viewer_label": null,
+      "witness": true
+    },
+    {
+      "aggregation": "max",
+      "color_domain": [
+        0,
+        5,
+        15
+      ],
+      "color_per_file": false,
+      "description": "Inline `on*={() => ...}` handlers in one component. A file or folder holds the max over its components and names it.",
+      "direction": "higher-worse",
+      "group": "Components",
+      "id": "component_inline_handler_count",
+      "label": "Inline Handlers",
+      "languages": [
+        "tsx"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "Hndl",
+      "unit": "handlers",
+      "unit_one": "handler",
+      "viewer_label": null,
+      "witness": true
+    },
+    {
+      "aggregation": "max",
+      "color_domain": [
+        0,
+        5,
+        15
+      ],
+      "color_per_file": false,
+      "description": "JSX conditionals (`?:`, `&&`, `<Show>`, `<Match>`) in one component. A file or folder holds the max over its components and names it.",
+      "direction": "higher-worse",
+      "group": "Components",
+      "id": "component_jsx_conditional_count",
+      "label": "JSX Conditionals",
+      "languages": [
+        "tsx"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "JSX?",
+      "unit": "conditionals",
+      "unit_one": "conditional",
+      "viewer_label": null,
+      "witness": true
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        3,
+        15
+      ],
+      "color_per_file": false,
+      "description": "Explicit `any` types.",
+      "direction": "higher-worse",
+      "group": "TypeScript",
+      "id": "ts_any_usage_count",
+      "label": "any Usage",
+      "languages": [
+        "ts",
+        "tsx"
+      ],
+      "picker": true,
+      "scope": "file",
+      "short_label": "any",
+      "unit": "uses",
+      "unit_one": "use",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        1,
+        5
+      ],
+      "color_per_file": false,
+      "description": "`@ts-ignore` / `@ts-expect-error` / `@ts-nocheck` directives.",
+      "direction": "higher-worse",
+      "group": "TypeScript",
+      "id": "ts_ignore_count",
+      "label": "TS Ignores",
+      "languages": [
+        "ts",
+        "tsx"
+      ],
+      "picker": true,
+      "scope": "file",
+      "short_label": "Ign@",
+      "unit": "directives",
+      "unit_one": "directive",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        1,
+        5
+      ],
+      "color_per_file": false,
+      "description": "Inline `data:` URLs (embedded images) in Markdown.",
+      "direction": "higher-worse",
+      "group": "Markdown",
+      "id": "md_data_url_count",
+      "label": "Markdown Data URLs",
+      "languages": [
+        "markdown"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "DURL",
+      "unit": "data URLs",
+      "unit_one": "data URL",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        1,
+        5
+      ],
+      "color_per_file": false,
+      "description": "TODO/FIXME-style comments.",
+      "direction": "neutral",
+      "group": "Detail",
+      "id": "todo_count",
+      "label": "TODOs",
+      "languages": [
+        "ts",
+        "tsx",
+        "python"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "TODO",
+      "unit": "TODOs",
+      "unit_one": "TODO",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        1,
+        5
+      ],
+      "color_per_file": false,
+      "description": "Comment noise part: functions (or a whole file) over 50% comment lines with 10+ code lines.",
+      "direction": "neutral",
+      "group": "Detail",
+      "id": "comment_noise_ratio",
+      "label": "Narrated Code",
+      "languages": [
+        "ts",
+        "tsx",
+        "python"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "NRat",
+      "unit": "flags",
+      "unit_one": "flag",
+      "viewer_label": "Noise: comment ratio",
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        1,
+        5
+      ],
+      "color_per_file": false,
+      "description": "Comment noise part: docblocks or docstrings of 8+ lines that are over 1.5x their function's code lines.",
+      "direction": "neutral",
+      "group": "Detail",
+      "id": "comment_noise_docblock",
+      "label": "Oversized Docblocks",
+      "languages": [
+        "ts",
+        "tsx",
+        "python"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "NDoc",
+      "unit": "flags",
+      "unit_one": "flag",
+      "viewer_label": "Noise: docblocks",
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        1,
+        5
+      ],
+      "color_per_file": false,
+      "description": "Comment noise part: runs of 3+ line comments that parse as code.",
+      "direction": "neutral",
+      "group": "Detail",
+      "id": "comment_noise_commented_code",
+      "label": "Commented-out Code",
+      "languages": [
+        "ts",
+        "tsx",
+        "python"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "NCode",
+      "unit": "flags",
+      "unit_one": "flag",
+      "viewer_label": "Noise: commented-out code",
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        100,
+        400
+      ],
+      "color_per_file": true,
+      "description": "Comment lines.",
+      "direction": "neutral",
+      "group": "Detail",
+      "id": "comment_lines",
+      "label": "Comment Lines",
+      "languages": [
+        "ts",
+        "tsx",
+        "python"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "Cmt",
+      "unit": "lines",
+      "unit_one": "line",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        15,
+        50
+      ],
+      "color_per_file": true,
+      "description": "Executable functions at any depth (methods, nested functions, arrows).",
+      "direction": "neutral",
+      "group": "Detail",
+      "id": "function_count",
+      "label": "Functions",
+      "languages": [
+        "ts",
+        "tsx",
+        "python",
+        "code"
+      ],
+      "picker": true,
+      "scope": "file",
+      "short_label": "Fns",
+      "unit": "functions",
+      "unit_one": "function",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        3,
+        10
+      ],
+      "color_per_file": false,
+      "description": "Class declarations.",
+      "direction": "neutral",
+      "group": "Detail",
+      "id": "classes_count",
+      "label": "Classes",
+      "languages": [
+        "ts",
+        "tsx",
+        "python"
+      ],
+      "picker": true,
+      "scope": "file",
+      "short_label": "Cls",
+      "unit": "classes",
+      "unit_one": "class",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        10,
+        30
+      ],
+      "color_per_file": false,
+      "description": "Distinct import sources.",
+      "direction": "neutral",
+      "group": "Detail",
+      "id": "ts_import_coupling_count",
+      "label": "TS Imports",
+      "languages": [
+        "ts",
+        "tsx"
+      ],
+      "picker": true,
+      "scope": "file",
+      "short_label": "Imp",
+      "unit": "sources",
+      "unit_one": "source",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        5,
+        20
+      ],
+      "color_per_file": false,
+      "description": "Type and interface declarations.",
+      "direction": "neutral",
+      "group": "Detail",
+      "id": "ts_type_interface_count",
+      "label": "Types/Interfaces",
+      "languages": [
+        "ts",
+        "tsx"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "Type",
+      "unit": "declarations",
+      "unit_one": "declaration",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        10,
+        30
+      ],
+      "color_per_file": false,
+      "description": "Export declarations.",
+      "direction": "neutral",
+      "group": "Detail",
+      "id": "ts_export_count",
+      "label": "Exports",
+      "languages": [
+        "ts",
+        "tsx"
+      ],
+      "picker": true,
+      "scope": "file",
+      "short_label": "Exp",
+      "unit": "exports",
+      "unit_one": "export",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        10,
+        30
+      ],
+      "color_per_file": false,
+      "description": "Import statements.",
+      "direction": "neutral",
+      "group": "Detail",
+      "id": "python_import_count",
+      "label": "Python Imports",
+      "languages": [
+        "python"
+      ],
+      "picker": true,
+      "scope": "file",
+      "short_label": "PyImp",
+      "unit": "imports",
+      "unit_one": "import",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        10,
+        50
+      ],
+      "color_per_file": false,
+      "description": "Files a node represents.",
+      "direction": "neutral",
+      "group": "Detail",
+      "id": "file_count",
+      "label": "Files",
+      "languages": null,
+      "picker": false,
+      "scope": "file",
+      "short_label": "Files",
+      "unit": "files",
+      "unit_one": "file",
+      "viewer_label": null,
+      "witness": false
+    }
+  ]
+}

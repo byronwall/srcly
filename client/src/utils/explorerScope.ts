@@ -1,4 +1,4 @@
-import type { HotSpotMetricDef } from "./metricsStore";
+import type { MetricDef } from "./metricsStore";
 
 export type ScopeNode = {
   name: string;
@@ -36,7 +36,7 @@ const num = (node: ScopeNode, key: string) => {
 };
 
 /** Counts under `root`, plus its worst (highest) file by `metric`. */
-export function summarizeScope<T extends ScopeNode>(root: T, metric: HotSpotMetricDef): ScopeSummary<T> {
+export function summarizeScope<T extends ScopeNode>(root: T, metric: MetricDef): ScopeSummary<T> {
   const summary: ScopeSummary<T> = { files: 0, folders: 0, functions: 0, loc: num(root, "loc") ?? 0 };
   const stack: T[] = [...((root.children ?? []) as T[])];
   if (!root.children?.length) stack.push(root);

@@ -1,4 +1,4 @@
-import { isRankingMetric, type HotSpotMetricId } from "./metricsStore";
+import { metricDef, type MetricId } from "./metricsStore";
 
 /** Hot Spots rank one cohort at a time; files and functions are never mixed. */
 export type HotSpotCohort = "file" | "function";
@@ -6,6 +6,8 @@ export type HotSpotCohort = "file" | "function";
 export type RankableNode = {
   type: string;
   kind?: string | null;
+  path: string;
+  start_line?: number;
   metrics?: Record<string, unknown>;
   children?: RankableNode[];
 };
@@ -25,54 +27,57 @@ export function cohortNodes<T extends RankableNode>(root: T, cohort: HotSpotCoho
 }
 
 /** The metric's value, or null when it is N/A (null, missing or not finite). */
-function valueOf(node: RankableNode, id: HotSpotMetricId): number | null {
+function valueOf(node: RankableNode, id: MetricId): number | null {
   const raw = node.metrics?.[id];
-  if (typeof raw !== "number" || !Number.isFinite(raw)) return null;
-  return Math.max(0, raw);
+  return typeof raw === "number" && Number.isFinite(raw) ? raw : null;
 }
 
-export type RankedHotSpot<T> = { node: T; score: number };
+export type RankedHotSpot<T> = {
+  node: T;
+  value: number;
+  /** Share of the worst value (0–1), for the row's bar. */
+  score: number;
+};
+
+export type HotSpotRanking<T> = {
+  ranked: RankedHotSpot<T>[];
+  /** Nodes with no value for the metric: it doesn't apply, or the file was skipped or failed. */
+  na: T[];
+};
 
 /**
- * Score each node as the mean of its max-normalized metric values (the same
- * math as `srcly report`'s `rank_nodes`, with equal weights). A measured 0
- * counts toward the mean; N/A metrics drop out, and a node N/A on every
- * selected metric isn't ranked at all (it is counted in `na`). Raising one
- * input with the peers fixed never lowers a node's score. Neutral detail
- * metrics (TODOs, exports...) never rank; they are dropped from `metrics`.
+ * Rank one cohort by one metric, worst first: descending for higher-worse
+ * metrics, ascending for lower-worse, then by path and start line so ties
+ * are stable. A measured 0 is ranked; N/A nodes come back apart in `na`.
+ * Neutral detail metrics never rank.
+ *
+ * This is `srcly report`'s ranking (`reporting.rank_by_metric`); the parity
+ * test (`hotSpotRanking.parity.test.ts`) checks both on the same fixture.
  */
-export function rankHotSpots<T extends RankableNode>(
-  nodes: readonly T[],
-  metrics: readonly HotSpotMetricId[],
-  limit = Infinity
-): { ranked: RankedHotSpot<T>[]; na: number } {
-  metrics = metrics.filter(isRankingMetric);
-  if (metrics.length === 0) return { ranked: [], na: 0 };
-  const max = new Map<HotSpotMetricId, number>();
-  for (const id of metrics) {
-    let best = 0;
-    for (const node of nodes) best = Math.max(best, valueOf(node, id) ?? 0);
-    max.set(id, best);
-  }
+export function rankHotSpots<T extends RankableNode>(nodes: readonly T[], metric: MetricId): HotSpotRanking<T> {
+  const def = metricDef(metric);
+  if (!def || def.direction === "neutral") return { ranked: [], na: [] };
 
   const ranked: RankedHotSpot<T>[] = [];
-  let na = 0;
+  const na: T[] = [];
   for (const node of nodes) {
-    let sum = 0;
-    let count = 0;
-    for (const id of metrics) {
-      const value = valueOf(node, id);
-      if (value === null) continue;
-      const m = max.get(id) ?? 0;
-      sum += m > 0 ? value / m : 0;
-      count += 1;
-    }
-    if (count === 0) {
-      na += 1;
-      continue;
-    }
-    ranked.push({ node, score: sum / count });
+    const value = valueOf(node, metric);
+    if (value === null) na.push(node);
+    else ranked.push({ node, value, score: 0 });
   }
-  ranked.sort((a, b) => b.score - a.score);
-  return { ranked: ranked.slice(0, limit), na };
+
+  const sign = def.direction === "higher-worse" ? -1 : 1;
+  ranked.sort(
+    (a, b) =>
+      sign * (a.value - b.value) ||
+      (a.node.path < b.node.path ? -1 : a.node.path > b.node.path ? 1 : 0) ||
+      (a.node.start_line ?? 0) - (b.node.start_line ?? 0)
+  );
+  const top = ranked.reduce((max, item) => Math.max(max, item.value), 0);
+  for (const item of ranked) {
+    const share = top > 0 ? item.value / top : 0;
+    item.score = def.direction === "higher-worse" ? share : 1 - share;
+  }
+  na.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  return { ranked, na };
 }

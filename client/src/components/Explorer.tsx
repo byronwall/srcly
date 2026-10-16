@@ -13,9 +13,9 @@ import { MetricPicker } from "./MetricPicker";
 import Popover from "./Popover";
 import { Button } from "./ui/Button";
 import { IconButton } from "./ui/IconButton";
-import { HOTSPOT_METRICS, isRankingMetric, type HotSpotMetricId, useMetricsStore } from "../utils/metricsStore";
-import { HotSpotItem } from "./HotSpotItem";
-import { cohortNodes, rankHotSpots, type HotSpotCohort } from "../utils/hotSpotRanking";
+import { metricDef, metricDefs, useMetricsStore, type MetricId } from "../utils/metricsStore";
+import { HotSpotList } from "./HotSpotList";
+import type { HotSpotCohort } from "../utils/hotSpotRanking";
 import { TreeNode } from "./TreeNode";
 import { extractFilePath } from "../utils/dataProcessing";
 import {
@@ -57,49 +57,21 @@ export interface Node {
   end_line?: number;
   metrics?: {
     loc: number;
-    // Max CCN of any executable function inside this node, and that function.
-    complexity?: MetricValue;
-    complexity_witness?: Witness | null;
-    // Mean CCN per executable function.
-    complexity_avg?: MetricValue;
-    function_count?: MetricValue;
-    gitignored_count?: number;
-    file_size?: number;
     file_count?: number;
-    comment_lines?: MetricValue;
-    comment_noise?: MetricValue;
-    comment_noise_ratio?: MetricValue;
-    comment_noise_docblock?: MetricValue;
-    comment_noise_commented_code?: MetricValue;
-    max_nesting_depth?: MetricValue;
-    average_function_length?: MetricValue;
-    parameter_count?: MetricValue;
-    todo_count?: MetricValue;
-    classes_count?: MetricValue;
-    // React/Solid components: own values on a component scope, the max on
-    // files and folders, with `witnesses` naming the component.
-    component_loc?: MetricValue;
-    component_hook_count?: MetricValue;
-    component_effect_count?: MetricValue;
-    component_jsx_depth?: MetricValue;
-    component_prop_count?: MetricValue;
-    component_inline_handler_count?: MetricValue;
-    component_jsx_conditional_count?: MetricValue;
+    gitignored_count?: number;
+    last_modified?: number;
+    /** The function behind a file's or folder's max complexity. */
+    complexity_witness?: Witness | null;
+    /** The component behind each component metric's max. */
     witnesses?: Record<string, Witness> | null;
-    // TS-specific metrics
-    ts_any_usage_count?: MetricValue;
-    ts_ignore_count?: MetricValue;
-    ts_import_coupling_count?: MetricValue;
-    ts_type_interface_count?: MetricValue;
-    ts_export_count?: MetricValue;
-    python_import_count?: MetricValue;
-    md_data_url_count?: MetricValue;
     /** Why this node's null metrics are N/A. */
     na_reason?: string;
     // "ok" | "timeout" | "error" | "crash" | "too_large"; failed files keep fallback LOC.
     analysis_status?: string;
     analysis_error?: string;
     analysis_failed_count?: number;
+    /** Every catalog metric, by id (see `metricsStore`). */
+    [metric: string]: MetricValue | Witness | Record<string, Witness> | string | undefined;
   };
 }
 
@@ -119,7 +91,7 @@ interface ExplorerContextType {
   onOpenWitness: (witness: Witness) => void;
   filter: string;
   columns: () => ExplorerColumn[];
-  colorMetric: () => HotSpotMetricId;
+  colorMetric: () => MetricId;
   /** The row standing in for the treemap's hovered tile (itself or its nearest shown ancestor). */
   linkedRowPath: () => string | null;
   rootData: Node | null;
@@ -144,8 +116,6 @@ export const findNodeByPath = (root: Node, path: string): Node | null => {
 
   return null;
 };
-
-const HOT_SPOT_LIMIT = 50;
 
 const HOT_SPOT_COHORTS: { id: HotSpotCohort; label: string; title: string }[] = [
   { id: "file", label: "Files", title: "Rank files against files" },
@@ -179,13 +149,10 @@ export default function Explorer(props: {
   const [sortDirection, setSortDirection] = createSignal<SortDirection>("desc");
   const [viewMode, setViewMode] = createSignal<"tree" | "hotspots">("tree");
   const [showColumnPicker, setShowColumnPicker] = createSignal(false);
-  const { selectedHotSpotMetrics, setSelectedHotSpotMetrics } =
-    useMetricsStore();
+  // One metric colors the treemap, ranks Hot Spots, and always shows as the table's last column.
+  const { metric: colorMetric, setMetric } = useMetricsStore();
   const [pickedColumns, setPickedColumns] = createSignal<string[]>(["loc"]);
-  // The treemap colors by the first hot spot metric; the table always shows it.
-  const colorMetric = () => selectedHotSpotMetrics()[0] ?? "complexity";
-  const colorMetricDef = () =>
-    HOTSPOT_METRICS.find((def) => def.id === colorMetric()) ?? HOTSPOT_METRICS[0];
+  const colorMetricDef = () => metricDef(colorMetric()) ?? metricDefs()[0];
   const columns = createMemo(() => visibleExplorerColumns(pickedColumns(), colorMetric()));
   const scopeNode = () => props.data ?? props.scopeRoot ?? null;
   const [expandedPaths, setExpandedPaths] = createSignal<Set<string>>(new Set());
@@ -361,12 +328,6 @@ export default function Explorer(props: {
 
   const [hotSpotCohort, setHotSpotCohort] = createSignal<HotSpotCohort>("file");
 
-  const hotSpotResult = createMemo(() => {
-    const selected = selectedHotSpotMetrics();
-    if (!props.data || selected.length === 0) return { ranked: [], na: 0 };
-    return rankHotSpots(cohortNodes(props.data, hotSpotCohort()), selected, HOT_SPOT_LIMIT);
-  });
-  const hotSpots = () => hotSpotResult().ranked;
 
   /** Open the function behind a file's or folder's max complexity. */
   const openWitness = (witness: Witness) => {
@@ -572,8 +533,8 @@ export default function Explorer(props: {
             <MetricPicker
               prefix="Rank by"
               ranking
-              selected={selectedHotSpotMetrics()}
-              onChange={(ids: HotSpotMetricId[]) => setSelectedHotSpotMetrics(ids)}
+              selected={colorMetric()}
+              onChange={setMetric}
               class="flex-1"
             />
             <div
@@ -600,41 +561,13 @@ export default function Explorer(props: {
               </For>
             </div>
           </div>
-          <div class="plc-data-sm flex shrink-0 items-center gap-1 border-b border-[var(--plc-border)] px-2 py-1 text-[var(--plc-on-subtle)]">
-            <span>
-              {hotSpots().length === HOT_SPOT_LIMIT
-                ? `Top ${HOT_SPOT_LIMIT} ${hotSpotCohort() === "file" ? "files" : "functions"}`
-                : `${hotSpots().length.toLocaleString("en-US")} ${hotSpotCohort() === "file" ? "files" : "functions"}`}
-            </span>
-            <Show when={!selectedHotSpotMetrics().some(isRankingMetric)}>
-              <span>· Detail metrics don't rank; pick a metric to rank by</span>
-            </Show>
-            <Show when={hotSpotResult().na > 0}>
-              <span title="No value for any selected metric: it doesn't apply, or the file was skipped or failed">
-                · {hotSpotResult().na.toLocaleString("en-US")} N/A not ranked
-              </span>
-            </Show>
-          </div>
-          <div class="flex-1 overflow-y-auto overflow-x-hidden">
-            <For each={hotSpots()}>
-              {(item, i) => (
-                <HotSpotItem
-                  node={item.node}
-                  rank={i() + 1}
-                  score={item.score}
-                  maxScore={hotSpots()[0]?.score ?? 0}
-                  metrics={selectedHotSpotMetrics()}
-                />
-              )}
-            </For>
-            <Show when={hotSpots().length === 0}>
-              <ExplorerEmpty
-                filter={props.filter}
-                what="hot spots"
-                onClear={() => props.onFilterChange("")}
-              />
-            </Show>
-          </div>
+          <HotSpotList
+            data={props.data ?? null}
+            metric={colorMetric()}
+            cohort={hotSpotCohort()}
+            filter={props.filter}
+            onClearFilter={() => props.onFilterChange("")}
+          />
         </Show>
       </div>
     </ExplorerContext.Provider>

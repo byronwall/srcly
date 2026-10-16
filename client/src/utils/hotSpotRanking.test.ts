@@ -1,22 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { cohortNodes, rankHotSpots, type RankableNode } from "./hotSpotRanking";
-import type { HotSpotMetricId } from "./metricsStore";
 
 const file = (name: string, metrics: Record<string, unknown>, children: RankableNode[] = []) =>
-  ({ name, type: "file", metrics, children }) as RankableNode & { name: string };
+  ({ name, path: `/r/${name}`, type: "file", metrics, children }) as RankableNode & { name: string };
 const fn = (name: string, kind: string, metrics: Record<string, unknown>) =>
-  ({ name, type: "function", kind, metrics }) as RankableNode & { name: string };
+  ({ name, path: `/r/a.ts::${name}`, type: "function", kind, metrics }) as RankableNode & { name: string };
+const names = (nodes: { node: RankableNode }[]) => nodes.map((r) => (r.node as any).name);
 
 describe("cohortNodes", () => {
   it("keeps files and executable functions apart", () => {
     const root = {
       type: "folder",
+      path: "/r",
       children: [
         file("a.ts", { complexity: 4 }, [
           fn("Panel", "function", { complexity: 4 }),
           fn("<div>", "jsx", { complexity: 9 }),
           fn("Store (class)", "class", { complexity: 1 }),
-          { type: "function_body", metrics: { loc: 3 } },
+          { type: "function_body", path: "/r/a.ts::(body)", metrics: { loc: 3 } },
         ]),
       ],
     } as RankableNode;
@@ -26,51 +27,30 @@ describe("cohortNodes", () => {
 });
 
 describe("rankHotSpots", () => {
-  it("keeps a measured zero in the mean", () => {
-    const lean = file("lean", { complexity: 10, comment_noise: 0 });
-    const busy = file("busy", { complexity: 10, comment_noise: 3 });
-    const { ranked } = rankHotSpots([lean, busy], ["complexity", "comment_noise"]);
-    expect(ranked.map((r: any) => r.node.name)).toEqual(["busy", "lean"]);
-    expect(ranked[1].score).toBe(0.5);
+  it("ranks worst first, breaks ties by path, and ranks a measured zero", () => {
+    const nodes = [
+      file("b.py", { complexity: 4 }),
+      file("zero.py", { complexity: 0 }),
+      file("a.py", { complexity: 4 }),
+      file("big.py", { complexity: 9 }),
+    ];
+    const { ranked, na } = rankHotSpots(nodes, "complexity");
+    expect(names(ranked)).toEqual(["big.py", "a.py", "b.py", "zero.py"]);
+    expect(ranked.map((r) => r.value)).toEqual([9, 4, 4, 0]);
+    expect(ranked[0].score).toBe(1);
+    expect(na).toEqual([]);
+  });
+
+  it("puts N/A nodes apart instead of ranking them", () => {
+    const doc = file("doc.md", { complexity: null, loc: 50 });
+    const huge = file("huge.ts", { loc: 400 });
+    const code = file("a.py", { complexity: 5, loc: 100 });
+    const { ranked, na } = rankHotSpots([doc, huge, code], "complexity");
+    expect(names(ranked)).toEqual(["a.py"]);
+    expect(na.map((n: any) => n.name)).toEqual(["doc.md", "huge.ts"]);
   });
 
   it("never ranks by neutral detail metrics", () => {
-    const quiet = file("quiet", { complexity: 10, todo_count: 0 });
-    const noisy = file("noisy", { complexity: 5, todo_count: 9 });
-    const { ranked } = rankHotSpots([quiet, noisy], ["complexity", "todo_count"]);
-    expect(ranked.map((r: any) => [r.node.name, r.score])).toEqual([
-      ["quiet", 1],
-      ["noisy", 0.5],
-    ]);
-    expect(rankHotSpots([quiet, noisy], ["todo_count"]).ranked).toEqual([]);
-  });
-
-  it("drops N/A metrics, and leaves nodes N/A on every metric unranked", () => {
-    const doc = file("doc.md", { complexity: null, loc: 50 });
-    const code = file("a.py", { complexity: 5, loc: 100 });
-    const skipped = file("huge.ts", { complexity: null, loc: 400 });
-    const { ranked, na } = rankHotSpots([doc, code], ["complexity", "loc"]);
-    expect(ranked.map((r: any) => [r.node.name, r.score])).toEqual([
-      ["a.py", 1],
-      ["doc.md", 0.5],
-    ]);
-    expect(na).toBe(0);
-    expect(rankHotSpots([doc, code, skipped], ["complexity"]).na).toBe(2);
-  });
-
-  it("never lowers a score when one input rises", () => {
-    let seed = 11;
-    const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    const ids: HotSpotMetricId[] = ["complexity", "loc", "todo_count", "max_nesting_depth"];
-    const pick = () => (rand() < 0.3 ? 0 : Math.floor(rand() * 40));
-    for (let trial = 0; trial < 200; trial++) {
-      const peers = Array.from({ length: 5 }, (_, i) => file(`p${i}`, Object.fromEntries(ids.map((id) => [id, pick()]))));
-      const base = Object.fromEntries(ids.map((id) => [id, pick()]));
-      const id = ids[Math.floor(rand() * ids.length)];
-      const before = file("t", base);
-      const after = file("t", { ...base, [id]: (base[id] as number) + 1 + Math.floor(rand() * 60) });
-      const score = (t: RankableNode) => rankHotSpots([...peers, t], ids).ranked.find((r) => r.node === t)!.score;
-      expect(score(after)).toBeGreaterThanOrEqual(score(before));
-    }
+    expect(rankHotSpots([file("a.py", { todo_count: 9 })], "todo_count")).toEqual({ ranked: [], na: [] });
   });
 });

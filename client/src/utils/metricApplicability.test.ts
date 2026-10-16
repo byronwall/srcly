@@ -36,6 +36,7 @@ describe("applicableMetrics", () => {
       "comment_noise_ratio",
       "comment_noise_docblock",
       "comment_noise_commented_code",
+      "comment_lines",
     ]);
   });
 

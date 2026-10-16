@@ -49,7 +49,7 @@ uvx srcly explain . --file client/src/App.tsx
 
 By default, `uvx srcly report` writes compact artifacts intended to be safe for agents to inspect:
 
-- `report.md` — human-readable summary, top targets, and compact tree breakdown.
+- `report.md` — human-readable summary, the top files and functions by one metric (`--metric`, default the profile's lead metric, e.g. `complexity`), the profile's findings queue, and a compact tree breakdown.
 - `findings.json` — machine-readable code-quality findings with metric evidence and agent prompts.
 - `tree.summary.json` — compressed tree for quick agent context.
 - `hotspots.json` — ranked metric hotspots.

@@ -89,29 +89,34 @@ Browser
 | `POST /api/compare/prewarm` | `routers/compare.py:prewarm` → `jobs.CompareJobManager.prewarm` | Scan one commit side in the background after running compares finish; a per-commit lock in `snapshots.load_side` stops duplicate scans |
 | `POST /api/compare`, `GET /api/compare/{id}`, `GET /api/compare/{id}/result`, `DELETE /api/compare/{id}` | `routers/compare.py` → `services/compare/jobs.py` | Background compare job (polled), payload includes both trees + graphs |
 | `GET /api/files/suggest` | `routers/files.py:suggest_files` | Path autocomplete for the path bar |
+| `GET /api/metrics/catalog` | `routers/metrics.py:get_metric_catalog` → `services/metric_catalog.py` | Every metric's definition; the client loads it before rendering |
 | Pydantic response models | `server/app/models.py` | `Node`, `Metrics`, dependency graph models |
 
 ### Metrics end-to-end
 
-Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS.md` ("Add / extend a metric").
+A metric is its analyzer plus one catalog entry; the step-by-step checklist lives in `AGENTS.md` ("Add / extend a metric").
 
 | Layer | Where |
 | --- | --- |
 | Compute | language analyzer (see above) + `server/app/services/analysis_types.py` |
 | API model | `server/app/models.py` (`Metrics`) |
 | Copy into nodes / roll up | `server/app/services/analysis.py` (`attach_file_metrics`, `aggregate_metrics`) |
-| Report scoring + definitions (risk vs neutral `direction`) | `server/app/services/reporting.py` (`METRIC_DEFINITIONS`, `PROFILE_WEIGHTS`) |
-| Client metric registry (labels, groups, neutral Detail, per-file vs per-scope, languages, witnessed maxima, value formatting) | `client/src/utils/metricsStore.tsx` (`HOTSPOT_METRICS`, `WITNESSED_METRICS`, `formatMetricValue`); `utils/metricApplicability.ts` (`applicableMetrics`); `utils/explorerColumns.ts` (`witnessOf`) |
-| Metric picker (Hot Spots "Rank by" + treemap "Color") | `client/src/components/MetricPicker.tsx` |
-| Explorer sort/columns (incl. always-on color-metric column) | `client/src/utils/explorerColumns.ts` (`EXPLORER_COLUMNS`, `visibleExplorerColumns`) |
-| Treemap color mapping | `client/src/viz/treemap/utils/colors.ts` (`TREEMAP_RAMP`, `ramp`) |
+| **Metric catalog** (label, unit, group, direction, aggregation, description, witness, color stops, profile weights; languages and scope derived from `analysis_types`) | `server/app/services/metric_catalog.py` (`METRICS`, `profile_weights`, `catalog_payload`); served by `GET /api/metrics/catalog` (`server/app/routers/metrics.py`) |
+| Report profile weights + metrics schema | `server/app/services/reporting.py` (`PROFILE_WEIGHTS`, `build_metrics_schema`), both from the catalog |
+| Client catalog store (fetched before render; lookups, unit formatting, the one selected metric) | `client/src/utils/metricsStore.tsx` (`loadMetricCatalog`, `metricDefs`, `metricDef`, `formatMetricWithUnit`, `useMetricsStore().metric`); bootstrapped in `client/src/index.tsx` |
+| Which metrics apply to a path (code viewer rows, tooltip) | `client/src/utils/metricApplicability.ts` (`applicableMetrics`, `languageForPath`); witnesses in `utils/explorerColumns.ts` (`witnessOf`) |
+| Metric picker (single select: Hot Spots "Rank by" + treemap "Color") | `client/src/components/MetricPicker.tsx` |
+| Explorer sort/columns (incl. always-on color-metric column) | `client/src/utils/explorerColumns.ts` (`explorerColumns`, `visibleExplorerColumns`) |
+| Treemap color mapping (catalog `color_domain`, `color_per_file`) | `client/src/viz/treemap/utils/colors.ts` (`TREEMAP_RAMP`, `treemapFillColor`) |
+| Client test catalog + parity fixture (server-owned snapshots) | `server/tests/snapshots/` (written by `tests/test_metric_catalog.py`, `tests/test_ranking_parity.py`); loaded by `client/src/test/setup.ts` |
 
 ### Headless reports for agents
 
 | Feature | Where |
 | --- | --- |
 | Artifact writing (`report.md`, `findings.json`, …) | `server/app/services/reporting.py` (`write_report`, `build_report_payload`) |
-| Ranking (one cohort: files or functions; zeros count, N/A drops out) / findings / tree summary | `server/app/services/reporting.py` (`rank_nodes`, `cohort_nodes`, `build_findings`, `summarize_tree`) |
+| Single-metric ranking (one cohort, worst first, ties by path; N/A counted apart): report "Top Files/Functions", `hotspots.json`, `srcly hotspots --metric` | `server/app/services/reporting.py` (`rank_by_metric`, `cohort_nodes`, `witness_of`); client mirror `client/src/utils/hotSpotRanking.ts` (`rankHotSpots`), checked by `tests/test_ranking_parity.py` + `hotSpotRanking.parity.test.ts` |
+| Findings queue (profile-weighted mix; zeros count, N/A drops out) / tree summary | `server/app/services/reporting.py` (`rank_nodes`, `build_findings`, `summarize_tree`) |
 | Agent skill shipped with the repo | `skills/srcly-code-quality/SKILL.md` |
 
 ### Compare two git refs (PR compare)
@@ -157,7 +162,7 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Feature | Where |
 | --- | --- |
 | Tree / Hot Spots tabs, column picker, sorting, filter box | `client/src/components/Explorer.tsx` |
-| Hot Spots ranking (Files / Functions cohort, N/A not ranked) | `client/src/utils/hotSpotRanking.ts` (`cohortNodes`, `rankHotSpots`), toggle in `Explorer.tsx` |
+| Hot Spots list (one metric, worst first; value + unit, witness, cohort tag; collapsed N/A group; arrow keys / Enter / Shift+Enter) | `client/src/components/HotSpotList.tsx`; ranking in `client/src/utils/hotSpotRanking.ts` (`cohortNodes`, `rankHotSpots`); Files / Functions toggle in `Explorer.tsx` |
 | N/A cells, 0 vs N/A, max-complexity witness link | `client/src/utils/explorerColumns.ts` (`metricCellText`, `metricCellTitle`, `witnessOf`); rows in `TreeNode.tsx`, `HotSpotItem.tsx`; code viewer in `CodeModal/MetricsTable.tsx`; treemap hatch in `viz/treemap/utils/colors.ts` (`TREEMAP_NA_COLOR`) |
 | Column definitions, cell text/heat tint, color-metric column | `client/src/utils/explorerColumns.ts` |
 | Scope bar: breadcrumb, LOC/files/fns counts, top file by color metric | `client/src/components/ExplorerScopeBar.tsx`, `client/src/utils/explorerScope.ts` |

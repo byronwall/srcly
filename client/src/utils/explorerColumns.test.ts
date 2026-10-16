@@ -12,9 +12,9 @@ import {
 } from "./explorerColumns";
 import { sortExplorerChildren } from "./explorerTree";
 import { ancestorChain, summarizeScope } from "./explorerScope";
-import { HOTSPOT_METRICS } from "./metricsStore";
+import { metricDef } from "./metricsStore";
 
-const def = (id: string) => HOTSPOT_METRICS.find((m) => m.id === id)!;
+const def = (id: string) => metricDef(id)!;
 
 describe("visibleExplorerColumns", () => {
   it("always ends with the color metric, without duplicating a picked one", () => {

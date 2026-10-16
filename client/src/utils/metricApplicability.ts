@@ -1,9 +1,4 @@
-import {
-  HOTSPOT_METRICS,
-  type HotSpotMetricDef,
-  type HotSpotMetricGroup,
-  type MetricLanguage,
-} from "./metricsStore";
+import { metricDefs, metricGroups, type MetricDef, type MetricLanguage } from "./metricsStore";
 
 // Extensions lizard has a reader for (functions, CCN, params). Anything not
 // listed and not handled by a dedicated analyzer only gets a line count.
@@ -27,17 +22,8 @@ export function languageForPath(path: string): MetricLanguage {
   return "text";
 }
 
-const GROUP_LANGUAGES: Record<HotSpotMetricGroup, MetricLanguage[] | "all"> = {
-  General: "all",
-  Components: ["tsx"],
-  TypeScript: ["ts", "tsx"],
-  Markdown: ["markdown"],
-  Detail: "all",
-};
-
-function appliesToLanguage(def: HotSpotMetricDef, language: MetricLanguage): boolean {
-  const langs = def.languages ?? GROUP_LANGUAGES[def.group];
-  return langs === "all" || langs.includes(language);
+function appliesToLanguage(def: MetricDef, language: MetricLanguage): boolean {
+  return def.languages === null || def.languages.includes(language);
 }
 
 /**
@@ -45,19 +31,18 @@ function appliesToLanguage(def: HotSpotMetricDef, language: MetricLanguage): boo
  * node, are actually measured per scope. A 0 from an applicable metric is
  * information; a 0 from one that doesn't apply is noise.
  */
-export function applicableMetrics(path: string, isScope: boolean): HotSpotMetricDef[] {
+export function applicableMetrics(path: string, isScope: boolean): MetricDef[] {
   const language = languageForPath(path);
-  return HOTSPOT_METRICS.filter(
-    (def) => appliesToLanguage(def, language) && (!isScope || (def.scope ?? "any") === "any")
-  );
+  return metricDefs().filter((def) => appliesToLanguage(def, language) && (!isScope || def.scope === "any"));
 }
 
 /** Whether one metric means something for this path (see `applicableMetrics`). */
-export function metricApplies(def: HotSpotMetricDef, path: string, isScope: boolean): boolean {
-  return appliesToLanguage(def, languageForPath(path)) && (!isScope || (def.scope ?? "any") === "any");
+export function metricApplies(def: MetricDef, path: string, isScope: boolean): boolean {
+  return appliesToLanguage(def, languageForPath(path)) && (!isScope || def.scope === "any");
 }
 
-export type MetricSectionTitle = "Size" | "Complexity" | "Comments" | Exclude<HotSpotMetricGroup, "General">;
+/** "Size", "Complexity" and "Comments" split the General group; other sections are catalog groups. */
+export type MetricSectionTitle = string;
 
 export interface MetricRow {
   id: string;
@@ -75,7 +60,7 @@ export interface MetricSection {
 
 const SIZE_METRICS = new Set(["loc", "file_size"]);
 
-function sectionOf(def: HotSpotMetricDef): MetricSectionTitle {
+function sectionOf(def: MetricDef): MetricSectionTitle {
   if (def.id.startsWith("comment_noise")) return "Comments";
   if (def.group !== "General") return def.group;
   return SIZE_METRICS.has(def.id) ? "Size" : "Complexity";
@@ -101,11 +86,11 @@ export function metricSections(path: string, fileNode: any, scopeNode: any): Met
     }
     section.rows.push({
       id: def.id,
-      label: def.viewerLabel ?? def.label,
+      label: def.viewer_label ?? def.label,
       scope: scopeIds.has(def.id) ? numberOrNull(scopeNode?.metrics?.[def.id]) : undefined,
       file: fileNode ? numberOrNull(fileNode.metrics?.[def.id]) : undefined,
     });
   }
-  const order: MetricSectionTitle[] = ["Size", "Complexity", "Comments", "Components", "TypeScript", "Markdown", "Detail"];
+  const order = ["Size", "Complexity", "Comments", ...metricGroups().map((g) => g.id).filter((g) => g !== "General")];
   return sections.sort((a, b) => order.indexOf(a.title) - order.indexOf(b.title));
 }

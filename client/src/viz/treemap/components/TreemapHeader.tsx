@@ -1,8 +1,8 @@
 import { For, Show, type Accessor } from "solid-js";
 import { ChevronRight, GitFork, LayoutGrid } from "lucide-solid";
 import {
-  hotSpotMetricLabel,
-  type HotSpotMetricId,
+  metricLabel,
+  type MetricId,
 } from "../../../utils/metricsStore";
 import FileTypeFilter from "../../../components/FileTypeFilter";
 import { isAnyPopoverOpen } from "../../../components/Popover";
@@ -24,9 +24,8 @@ export type TreemapHeaderProps = {
   maxLoc: Accessor<number | undefined>;
   onMaxLocChange: (v: number | undefined) => void;
 
-  primaryMetricId: Accessor<HotSpotMetricId>;
-  selectedHotSpotMetrics: Accessor<HotSpotMetricId[]>;
-  setSelectedHotSpotMetrics: (ids: HotSpotMetricId[]) => void;
+  primaryMetricId: Accessor<MetricId>;
+  setMetric: (id: MetricId) => void;
 
   showLegend: Accessor<boolean>;
   setShowLegend: (v: boolean) => void;
@@ -120,8 +119,8 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
         <MetricPicker
           prefix="Color"
           placement="bottom-end"
-          selected={props.selectedHotSpotMetrics()}
-          onChange={props.setSelectedHotSpotMetrics}
+          selected={props.primaryMetricId()}
+          onChange={props.setMetric}
           onOpenChange={props.setShowMetricPopover}
           class="max-w-[220px]"
         />
@@ -131,7 +130,7 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
       <Show when={props.showLegend() && !isAnyPopoverOpen()}>
         <div class="plc-floating pointer-events-none absolute right-3 top-11 z-50 w-56 rounded-lg border p-3 text-xs">
           <div class="mb-2 font-semibold text-[var(--plc-on-surface)]">
-            {hotSpotMetricLabel(props.primaryMetricId())}
+            {metricLabel(props.primaryMetricId())}
           </div>
           <div
             class="h-2.5 rounded-full border border-[var(--plc-border)]"

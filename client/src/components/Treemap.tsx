@@ -80,12 +80,11 @@ export default function Treemap(props: TreemapProps) {
   // One breadcrumb for both views, built from the location itself.
   const crumbs = createMemo(() => crumbsFor(location().at, baseName(props.rootPath)));
   const {
-    selectedHotSpotMetrics,
-    setSelectedHotSpotMetrics,
+    metric: primaryMetric,
+    setMetric,
     toggleExcludedPath,
     excludedPaths,
   } = useMetricsStore();
-  const primaryMetric = () => selectedHotSpotMetrics()[0] || "complexity";
   // absPath → treemap node for the dependency graph's LOC and colors; once per scan.
   const metricsIndex = createMemo(() => buildMetricsIndex(props.data));
   const { tooltip, show: showTooltip, hide: hideTooltip } = useTreemapTooltip({
@@ -236,8 +235,7 @@ export default function Treemap(props: TreemapProps) {
         maxLoc={maxLoc}
         onMaxLocChange={setMaxLoc}
         primaryMetricId={primaryMetric}
-        selectedHotSpotMetrics={selectedHotSpotMetrics}
-        setSelectedHotSpotMetrics={setSelectedHotSpotMetrics}
+        setMetric={setMetric}
         showLegend={showLegend}
         setShowLegend={setShowLegend}
         showMetricPopover={showMetricPopover}
