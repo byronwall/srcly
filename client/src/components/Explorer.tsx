@@ -5,15 +5,14 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   Columns3,
-  CornerLeftUp,
+  Flame,
+  ListTree,
+  PanelLeftClose,
 } from "lucide-solid";
 import { MetricPicker } from "./MetricPicker";
 import Popover from "./Popover";
 import { Button } from "./ui/Button";
-import { CheckboxRow } from "./ui/CheckboxRow";
 import { IconButton } from "./ui/IconButton";
-import { PopoverPanel, PopoverSectionTitle } from "./ui/PopoverPanel";
-import { TextInput } from "./ui/TextInput";
 import {
   HOTSPOT_METRICS,
   type HotSpotMetricId,
@@ -22,7 +21,21 @@ import {
 import { HotSpotItem } from "./HotSpotItem";
 import { TreeNode } from "./TreeNode";
 import { extractFilePath } from "../utils/dataProcessing";
-import { flattenExplorerTree, getVirtualTreeRange } from "../utils/explorerTree";
+import {
+  EXPLORER_ROW_HEIGHT,
+  autoExpandPaths,
+  flattenExplorerTree,
+  getVirtualTreeRange,
+} from "../utils/explorerTree";
+import {
+  explorerSortValue,
+  visibleExplorerColumns,
+  type ExplorerColumn,
+  type ExplorerSortField,
+} from "../utils/explorerColumns";
+import { ExplorerScopeBar } from "./ExplorerScopeBar";
+import { ColumnPickerPanel, ExplorerEmpty, ExplorerFilter } from "./ExplorerControls";
+import { TREEMAP_GRADIENT } from "../viz/treemap/utils/colors";
 
 export interface Node {
   name: string;
@@ -69,33 +82,7 @@ export interface Node {
   };
 }
 
-type SortField =
-  | "name"
-  | "loc"
-  | "complexity"
-  | "complexity_avg"
-  | "file_size"
-  | "file_count"
-  | "gitignored"
-  | "comment_density"
-  | "todo_count"
-  | "max_nesting_depth"
-  | "parameter_count"
-  // TS/TSX-specific sort fields
-  | "tsx_nesting_depth"
-  | "tsx_render_branching_count"
-  | "tsx_react_use_effect_count"
-  | "tsx_anonymous_handler_count"
-  | "tsx_prop_count"
-  | "ts_any_usage_count"
-  | "ts_ignore_count"
-  | "ts_import_coupling_count"
-  | "tsx_hardcoded_string_volume"
-  | "tsx_duplicated_string_count"
-  | "ts_type_interface_count"
-  | "ts_export_count"
-  | "python_import_count"
-  | "md_data_url_count";
+type SortField = ExplorerSortField;
 type SortDirection = "asc" | "desc";
 
 interface ExplorerContextType {
@@ -109,7 +96,8 @@ interface ExplorerContextType {
   ) => void;
   onZoom: (node: any) => void;
   filter: string;
-  visibleColumns: () => string[];
+  columns: () => ExplorerColumn[];
+  colorMetric: () => HotSpotMetricId;
   rootData: Node | null;
   focusedPath: () => string;
   tabbablePath: () => string;
@@ -119,13 +107,6 @@ interface ExplorerContextType {
 }
 
 export const ExplorerContext = createContext<ExplorerContextType>();
-
-export const formatSize = (bytes?: number) => {
-  if (bytes === undefined) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
 
 export const findNodeByPath = (root: Node, path: string): Node | null => {
   if (root.path === path) return root;
@@ -140,67 +121,12 @@ export const findNodeByPath = (root: Node, path: string): Node | null => {
   return null;
 };
 
-export const findParentNode = (root: Node, targetPath: string): Node | null => {
-  if (root.path === targetPath) return null; // Root has no parent in this context
-  if (!root.children || root.children.length === 0) return null;
+const HOT_SPOT_LIMIT = 50;
 
-  for (const child of root.children) {
-    if (child.path === targetPath) {
-      return root;
-    }
-    const found = findParentNode(child, targetPath);
-    if (found) return found;
-  }
-
-  return null;
-};
-
-type NodeMetrics = NonNullable<Node["metrics"]>;
-type NumericMetricKey = {
-  [K in keyof NodeMetrics]-?: NonNullable<NodeMetrics[K]> extends number ? K : never;
-}[keyof NodeMetrics];
-
-const getMetricValue = (node: Node, metric: NumericMetricKey): number => {
-  return node.metrics?.[metric] ?? 0;
-};
-
-export const SORT_FIELD_ACCESSORS: Record<
-  SortField,
-  (node: Node) => string | number
-> = {
-  name: (node) => node.name.toLowerCase(),
-  loc: (node) => getMetricValue(node, "loc"),
-  complexity: (node) => getMetricValue(node, "complexity"),
-  complexity_avg: (node) => getMetricValue(node, "complexity_avg"),
-  file_size: (node) => getMetricValue(node, "file_size"),
-  file_count: (node) => getMetricValue(node, "file_count"),
-  gitignored: (node) => node.metrics?.gitignored_count ?? 0,
-  comment_density: (node) => getMetricValue(node, "comment_density"),
-  todo_count: (node) => getMetricValue(node, "todo_count"),
-  max_nesting_depth: (node) => getMetricValue(node, "max_nesting_depth"),
-  parameter_count: (node) => getMetricValue(node, "parameter_count"),
-  tsx_nesting_depth: (node) => getMetricValue(node, "tsx_nesting_depth"),
-  tsx_render_branching_count: (node) =>
-    getMetricValue(node, "tsx_render_branching_count"),
-  tsx_react_use_effect_count: (node) =>
-    getMetricValue(node, "tsx_react_use_effect_count"),
-  tsx_anonymous_handler_count: (node) =>
-    getMetricValue(node, "tsx_anonymous_handler_count"),
-  tsx_prop_count: (node) => getMetricValue(node, "tsx_prop_count"),
-  ts_any_usage_count: (node) => getMetricValue(node, "ts_any_usage_count"),
-  ts_ignore_count: (node) => getMetricValue(node, "ts_ignore_count"),
-  ts_import_coupling_count: (node) =>
-    getMetricValue(node, "ts_import_coupling_count"),
-  tsx_hardcoded_string_volume: (node) =>
-    getMetricValue(node, "tsx_hardcoded_string_volume"),
-  tsx_duplicated_string_count: (node) =>
-    getMetricValue(node, "tsx_duplicated_string_count"),
-  ts_type_interface_count: (node) =>
-    getMetricValue(node, "ts_type_interface_count"),
-  ts_export_count: (node) => getMetricValue(node, "ts_export_count"),
-  python_import_count: (node) => getMetricValue(node, "python_import_count"),
-  md_data_url_count: (node) => getMetricValue(node, "md_data_url_count"),
-};
+const VIEW_TABS = [
+  { id: "tree", label: "Tree", icon: ListTree },
+  { id: "hotspots", label: "Hot Spots", icon: Flame },
+] as const;
 
 export default function Explorer(props: {
   data: any;
@@ -214,6 +140,11 @@ export default function Explorer(props: {
   onZoom: (node: any) => void;
   filter: string;
   onFilterChange: (val: string) => void;
+  /** The zoomed node before filtering, so the scope bar survives a filter with no matches. */
+  scopeRoot?: any;
+  /** The whole scan, unfiltered, for the breadcrumb. */
+  scanRoot?: any;
+  onCollapse?: () => void;
 }) {
   const [sortField, setSortField] = createSignal<SortField>("loc");
   const [sortDirection, setSortDirection] = createSignal<SortDirection>("desc");
@@ -221,10 +152,13 @@ export default function Explorer(props: {
   const [showColumnPicker, setShowColumnPicker] = createSignal(false);
   const { selectedHotSpotMetrics, setSelectedHotSpotMetrics } =
     useMetricsStore();
-  const [visibleColumns, setVisibleColumns] = createSignal<string[]>([
-    "loc",
-    "complexity",
-  ]);
+  const [pickedColumns, setPickedColumns] = createSignal<string[]>(["loc"]);
+  // The treemap colors by the first hot spot metric; the table always shows it.
+  const colorMetric = () => selectedHotSpotMetrics()[0] ?? "complexity";
+  const colorMetricDef = () =>
+    HOTSPOT_METRICS.find((def) => def.id === colorMetric()) ?? HOTSPOT_METRICS[0];
+  const columns = createMemo(() => visibleExplorerColumns(pickedColumns(), colorMetric()));
+  const scopeNode = () => props.data ?? props.scopeRoot ?? null;
   const [expandedPaths, setExpandedPaths] = createSignal<Set<string>>(new Set());
   const [collapsedPaths, setCollapsedPaths] = createSignal<Set<string>>(new Set());
   const [expandedMode, setExpandedMode] = createSignal<"manual" | "all" | "none">("manual");
@@ -238,7 +172,9 @@ export default function Explorer(props: {
     const rootPath = props.data?.path;
     if (rootPath === lastRootPath) return;
     lastRootPath = rootPath;
-    setExpandedPaths(rootPath ? new Set<string>([rootPath]) : new Set<string>());
+    // Open the biggest folders until the visible rows roughly fill the panel.
+    const budget = Math.max(20, Math.floor((treeScroller?.clientHeight || window.innerHeight - 220) / EXPLORER_ROW_HEIGHT));
+    setExpandedPaths(props.data ? autoExpandPaths(props.data, budget) : new Set<string>());
     setCollapsedPaths(new Set<string>());
     setExpandedMode("manual");
     setFocusedPath(rootPath ?? "");
@@ -253,11 +189,13 @@ export default function Explorer(props: {
   };
 
   const treeRows = createMemo(() => {
-    const accessor = SORT_FIELD_ACCESSORS[sortField()] ?? SORT_FIELD_ACCESSORS.name;
-    return flattenExplorerTree(props.data, {
+    const field = sortField();
+    return flattenExplorerTree<Node>(props.data, {
       isExpanded,
-      getValue: accessor,
+      getValue: (node) => explorerSortValue(node, field),
       direction: sortDirection(),
+      // The scope bar above names the root, so the rows start at its children.
+      includeRoot: false,
     });
   });
 
@@ -319,11 +257,12 @@ export default function Explorer(props: {
     const row = rows[index];
     if (!row) return;
     setFocusedPath(row.node.path);
-    const rowTop = index * 32;
+    const rowTop = index * EXPLORER_ROW_HEIGHT;
     const top = treeScroller?.scrollTop ?? scrollTop();
     const height = treeScroller?.clientHeight ?? viewportHeight();
     if (treeScroller && rowTop < top) treeScroller.scrollTop = rowTop;
-    else if (treeScroller && rowTop + 32 > top + height) treeScroller.scrollTop = rowTop + 32 - height;
+    else if (treeScroller && rowTop + EXPLORER_ROW_HEIGHT > top + height)
+      treeScroller.scrollTop = rowTop + EXPLORER_ROW_HEIGHT - height;
     if (treeScroller) setScrollTop(treeScroller.scrollTop);
     requestAnimationFrame(() => {
       treeScroller?.querySelector<HTMLElement>(`[data-explorer-index="${index}"]`)?.focus();
@@ -373,17 +312,15 @@ export default function Explorer(props: {
   };
 
   const toggleColumn = (col: string) => {
-    const current = visibleColumns();
-    if (current.includes(col)) {
-      setVisibleColumns(current.filter((c) => c !== col));
-    } else {
-      setVisibleColumns([...current, col]);
-    }
+    const current = pickedColumns();
+    setPickedColumns(
+      current.includes(col) ? current.filter((c) => c !== col) : [...current, col]
+    );
   };
 
   const SortIcon = (p: { field: SortField }) => (
     <Show when={sortField() === p.field}>
-      <span class="ml-0.5 inline-flex" aria-hidden="true">
+      <span class="mr-0.5 inline-flex shrink-0" aria-hidden="true">
         {sortDirection() === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
       </span>
     </Show>
@@ -452,7 +389,7 @@ export default function Explorer(props: {
         return { node, score };
       })
       .sort((a, b) => b.score - a.score)
-      .slice(0, 50);
+      .slice(0, HOT_SPOT_LIMIT);
   });
 
   return (
@@ -463,7 +400,8 @@ export default function Explorer(props: {
         onSelect: props.onFileSelect,
         onZoom: props.onZoom,
         filter: props.filter,
-        visibleColumns,
+        columns,
+        colorMetric,
         rootData: props.data,
         focusedPath,
         tabbablePath,
@@ -472,32 +410,34 @@ export default function Explorer(props: {
         onTreeKeyDown,
       }}
     >
-      <div class="flex flex-col h-full plc-panel border-l border-y-0 border-r-0 rounded-none w-full">
-        {/* Toolbar */}
-        <div class="plc-toolbar p-2 border-b flex flex-col gap-2">
-          <div class="flex items-center gap-2">
-            <div class="flex rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface-muted)] p-0.5">
-              <Button
-                variant="tab"
-                active={viewMode() === "tree"}
-                size="sm"
-                class="px-2"
-                onClick={() => setViewMode("tree")}
-              >
-                Tree
-              </Button>
-              <Button
-                variant="tab"
-                active={viewMode() === "hotspots"}
-                size="sm"
-                class="px-2"
-                onClick={() => setViewMode("hotspots")}
-              >
-                Hot Spots
-              </Button>
-            </div>
+      <div class="flex h-full w-full flex-col bg-[var(--plc-surface)]">
+        {/* Same 40px toolbar as the treemap header, so the borders line up across the seam. */}
+        <div class="plc-toolbar flex shrink-0 items-center gap-1 border-b px-2">
+          <div
+            role="tablist"
+            aria-label="Sidebar view"
+            class="flex shrink-0 rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface-muted)] p-0.5"
+          >
+            <For each={VIEW_TABS}>
+              {(tab) => (
+                <Button
+                  variant="tab"
+                  size="sm"
+                  role="tab"
+                  aria-selected={viewMode() === tab.id}
+                  active={viewMode() === tab.id}
+                  class="h-6 gap-1.5 px-2"
+                  onClick={() => setViewMode(tab.id)}
+                >
+                  <tab.icon size={13} aria-hidden="true" />
+                  {tab.label}
+                </Button>
+              )}
+            </For>
+          </div>
 
-            <div class="flex items-center gap-1 ml-auto">
+          <div class="ml-auto flex items-center">
+            <Show when={viewMode() === "tree"}>
               <IconButton
                 label="Expand all"
                 onClick={() => { setCollapsedPaths(new Set<string>()); setExpandedMode("all"); }}
@@ -510,207 +450,93 @@ export default function Explorer(props: {
               >
                 <ChevronsDownUp size={15} aria-hidden="true" />
               </IconButton>
-              <div class="relative">
-                <Popover
-                  isOpen={showColumnPicker()}
-                  onOpenChange={setShowColumnPicker}
-                  placement="bottom-end"
-                  offset={{ x: 0, y: 4 }}
-                  trigger={(triggerProps) => (
-                    <IconButton
-                      ref={triggerProps.ref}
-                      label="Choose columns"
-                      onClick={(e) => triggerProps.onClick(e)}
-                    >
-                      <Columns3 size={15} aria-hidden="true" />
-                    </IconButton>
-                  )}
-                >
-                  <PopoverPanel width="sm">
-                    <PopoverSectionTitle>Columns</PopoverSectionTitle>
-                    <div class="space-y-1">
-                      <CheckboxRow
-                        checked={visibleColumns().includes("loc")}
-                        onChange={() => toggleColumn("loc")}
-                        label="LOC"
-                      />
-                      <CheckboxRow
-                        checked={visibleColumns().includes("complexity")}
-                        onChange={() => toggleColumn("complexity")}
-                        label="Complexity (max CCN)"
-                      />
-                      <CheckboxRow
-                        checked={visibleColumns().includes("file_size")}
-                        onChange={() => toggleColumn("file_size")}
-                        label="Size"
-                      />
-                      <CheckboxRow
-                        checked={visibleColumns().includes("file_count")}
-                        onChange={() => toggleColumn("file_count")}
-                        label="File Count"
-                      />
-                      <CheckboxRow
-                        checked={visibleColumns().includes("gitignored")}
-                        onChange={() => toggleColumn("gitignored")}
-                        label="Gitignored"
-                      />
-                      <CheckboxRow
-                        checked={visibleColumns().includes("comment_density")}
-                        onChange={() => toggleColumn("comment_density")}
-                        label="Density"
-                      />
-                      <CheckboxRow
-                        checked={visibleColumns().includes("todo_count")}
-                        onChange={() => toggleColumn("todo_count")}
-                        label="TODOs"
-                      />
-                      <CheckboxRow
-                        checked={visibleColumns().includes("max_nesting_depth")}
-                        onChange={() => toggleColumn("max_nesting_depth")}
-                        label="Depth"
-                      />
-                      <CheckboxRow
-                        checked={visibleColumns().includes("parameter_count")}
-                        onChange={() => toggleColumn("parameter_count")}
-                        label="Params"
-                      />
-                    </div>
-                  </PopoverPanel>
-                </Popover>
-              </div>
-            </div>
+              <Popover
+                isOpen={showColumnPicker()}
+                onOpenChange={setShowColumnPicker}
+                placement="bottom-end"
+                offset={{ x: 0, y: 4 }}
+                trigger={(triggerProps) => (
+                  <IconButton
+                    ref={triggerProps.ref}
+                    label="Choose columns"
+                    aria-expanded={showColumnPicker()}
+                    class={showColumnPicker() ? "bg-[var(--plc-surface-selected)] text-[var(--plc-accent)]" : ""}
+                    onClick={(e) => triggerProps.onClick(e)}
+                  >
+                    <Columns3 size={15} aria-hidden="true" />
+                  </IconButton>
+                )}
+              >
+                <ColumnPickerPanel
+                  colorMetric={colorMetric()}
+                  picked={pickedColumns()}
+                  onToggle={toggleColumn}
+                />
+              </Popover>
+              <span aria-hidden="true" class="mx-1 h-4 w-px bg-[var(--plc-border)]" />
+            </Show>
+            <IconButton label="Hide sidebar ( [ )" onClick={() => props.onCollapse?.()}>
+              <PanelLeftClose size={15} aria-hidden="true" />
+            </IconButton>
           </div>
+        </div>
 
-          <TextInput
-            type="text"
-            placeholder={
-              viewMode() === "tree" ? "Filter files…" : "Filter hot spots…"
-            }
+        <div class="flex shrink-0 items-center border-b border-[var(--plc-border)] px-2 py-1.5">
+          <ExplorerFilter
             value={props.filter}
-            onInput={(e) => props.onFilterChange(e.currentTarget.value)}
+            placeholder={viewMode() === "tree" ? "Filter files" : "Filter hot spots"}
+            onChange={props.onFilterChange}
           />
         </div>
 
+        <Show when={scopeNode()}>
+          {(root) => (
+            <ExplorerScopeBar
+              root={root()}
+              fullRoot={props.scanRoot ?? props.fullData}
+              colorMetric={colorMetricDef()}
+              showTop={viewMode() === "tree"}
+              onZoom={props.onZoom}
+              onSelect={props.onFileSelect}
+            />
+          )}
+        </Show>
+
         <Show when={viewMode() === "tree"}>
-          <div class="plc-table-header plc-label-caps flex items-center border-b select-none">
-            <div class="pl-2 flex-1 flex items-center gap-2">
-              <IconButton
-                size="xs"
-                label="Go up one level"
-                class={
-                  props.data &&
-                  props.fullData &&
-                  props.data.path !== props.fullData.path
-                    ? ""
-                    : "invisible"
-                }
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (
-                    !props.data ||
-                    !props.fullData ||
-                    props.data.path === props.fullData.path
-                  )
-                    return;
-
-                  const parent = findParentNode(
-                    props.fullData,
-                    props.data.path
-                  );
-                  if (parent) {
-                    props.onZoom(parent);
+          <div class="plc-table-header plc-label-caps flex items-center border-b select-none" style={{ height: "24px" }}>
+            {/* Indented to the row icons, so "Name" sits over the names. */}
+            <button
+              type="button"
+              class="flex h-full flex-1 items-center pl-6 transition-colors duration-150 hover:text-[var(--plc-on-surface)]"
+              onClick={() => handleHeaderClick("name")}
+            >
+              Name <SortIcon field="name" />
+            </button>
+            <For each={columns()}>
+              {(column) => (
+                <button
+                  type="button"
+                  class="relative flex h-full shrink-0 items-center justify-end pr-1.5 transition-colors duration-150 hover:text-[var(--plc-on-surface)]"
+                  style={{ width: `${column.width}px` }}
+                  title={
+                    column.id === colorMetric()
+                      ? `${column.title} (treemap color) · click to sort`
+                      : `${column.title} · click to sort`
                   }
-                }}
-              >
-                <CornerLeftUp size={13} aria-hidden="true" />
-              </IconButton>
-              <div
-                class="cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center"
-                onClick={() => handleHeaderClick("name")}
-              >
-                Name <SortIcon field="name" />
-              </div>
-            </div>
-
-            <Show when={visibleColumns().includes("gitignored")}>
-              <div
-                class="w-10 text-right pr-1 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("gitignored")}
-                title="Gitignored Files"
-              >
-                Ign <SortIcon field="gitignored" />
-              </div>
-            </Show>
-            <Show when={visibleColumns().includes("file_count")}>
-              <div
-                class="w-12 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("file_count")}
-                title="File Count"
-              >
-                # <SortIcon field="file_count" />
-              </div>
-            </Show>
-            <Show when={visibleColumns().includes("file_size")}>
-              <div
-                class="w-16 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("file_size")}
-              >
-                Size <SortIcon field="file_size" />
-              </div>
-            </Show>
-            <Show when={visibleColumns().includes("loc")}>
-              <div
-                class="w-16 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("loc")}
-              >
-                LOC <SortIcon field="loc" />
-              </div>
-            </Show>
-            <Show when={visibleColumns().includes("complexity")}>
-              <div
-                class="w-12 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("complexity")}
-                title="Max cyclomatic complexity of any function inside"
-              >
-                CCN <SortIcon field="complexity" />
-              </div>
-            </Show>
-            <Show when={visibleColumns().includes("comment_density")}>
-              <div
-                class="w-12 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("comment_density")}
-                title="Comment Density"
-              >
-                Den% <SortIcon field="comment_density" />
-              </div>
-            </Show>
-            <Show when={visibleColumns().includes("todo_count")}>
-              <div
-                class="w-10 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("todo_count")}
-                title="TODO Count"
-              >
-                TODO <SortIcon field="todo_count" />
-              </div>
-            </Show>
-            <Show when={visibleColumns().includes("max_nesting_depth")}>
-              <div
-                class="w-10 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("max_nesting_depth")}
-                title="Max Nesting Depth"
-              >
-                Dep <SortIcon field="max_nesting_depth" />
-              </div>
-            </Show>
-            <Show when={visibleColumns().includes("parameter_count")}>
-              <div
-                class="w-10 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("parameter_count")}
-                title="Parameter Count"
-              >
-                Prm <SortIcon field="parameter_count" />
-              </div>
-            </Show>
+                  onClick={() => handleHeaderClick(column.id)}
+                >
+                  <SortIcon field={column.id} />
+                  <span class="truncate">{column.header}</span>
+                  <Show when={column.id === colorMetric()}>
+                    <span
+                      aria-hidden="true"
+                      class="absolute bottom-0 left-1.5 right-1.5 h-[2px] rounded-full"
+                      style={{ background: TREEMAP_GRADIENT }}
+                    />
+                  </Show>
+                </button>
+              )}
+            </For>
           </div>
           <div
             ref={(element) => (treeScroller = element)}
@@ -720,9 +546,11 @@ export default function Explorer(props: {
             <Show
               when={visibleTreeRows().length > 0}
               fallback={
-                <div class="p-4 text-center text-[var(--plc-on-subtle)] text-sm">
-                  {props.filter.trim() ? "No files match this filter." : "No files to show."}
-                </div>
+                <ExplorerEmpty
+                  filter={props.filter}
+                  what="files"
+                  onClear={() => props.onFilterChange("")}
+                />
               }
             >
               <div role="tree" aria-label="Codebase files">
@@ -734,6 +562,7 @@ export default function Explorer(props: {
                       depth={row.depth}
                       index={treeRange().start + index()}
                       expanded={isExpanded(row.node)}
+                      parent={row.parent}
                     />
                   )}
                 </For>
@@ -744,7 +573,7 @@ export default function Explorer(props: {
         </Show>
 
         <Show when={viewMode() === "hotspots"}>
-          <div class="flex items-center gap-2 border-b border-[var(--plc-border)] px-2 py-1.5">
+          <div class="flex shrink-0 items-center gap-2 border-b border-[var(--plc-border)] px-2 py-1.5">
             <MetricPicker
               prefix="Rank by"
               selected={selectedHotSpotMetrics()}
@@ -752,7 +581,9 @@ export default function Explorer(props: {
               class="flex-1"
             />
             <span class="plc-data-sm shrink-0 text-[var(--plc-on-subtle)]">
-              {hotSpots().length.toLocaleString("en-US")} results
+              {hotSpots().length === HOT_SPOT_LIMIT
+                ? `Top ${HOT_SPOT_LIMIT}`
+                : `${hotSpots().length.toLocaleString("en-US")} results`}
             </span>
           </div>
           <div class="flex-1 overflow-y-auto overflow-x-hidden">
@@ -762,14 +593,17 @@ export default function Explorer(props: {
                   node={item.node}
                   rank={i() + 1}
                   score={item.score}
+                  maxScore={hotSpots()[0]?.score ?? 0}
                   metrics={selectedHotSpotMetrics()}
                 />
               )}
             </For>
             <Show when={hotSpots().length === 0}>
-              <div class="p-4 text-center text-[var(--plc-on-subtle)] text-sm">
-                No hot spots match this filter.
-              </div>
+              <ExplorerEmpty
+                filter={props.filter}
+                what="hot spots"
+                onClear={() => props.onFilterChange("")}
+              />
             </Show>
           </div>
         </Show>
