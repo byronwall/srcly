@@ -1,5 +1,40 @@
 # Changelog
 
+## [1.0.0](https://github.com/byronwall/srcly/compare/v0.3.0...v1.0.0) (2026-10-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* **metrics:** cut misleading metrics, add comment noise and component metrics ([#74](https://github.com/byronwall/srcly/issues/74))
+
+### Features
+
+* **activity:** show Git change frequency and churn per file ([#76](https://github.com/byronwall/srcly/issues/76)) ([7b4fcf7](https://github.com/byronwall/srcly/commit/7b4fcf70275a3d92e63dc398f9d7812a1bfbb40a))
+* **deps:** taller info boxes, hub badges, softer tint, fewer crossings ([#64](https://github.com/byronwall/srcly/issues/64)) ([15c5a80](https://github.com/byronwall/srcly/commit/15c5a80c24e94725a82e0599523520b03340f2c2))
+* **explorer:** denser, collapsible sidebar with an always-on color column ([#62](https://github.com/byronwall/srcly/issues/62)) ([c05da24](https://github.com/byronwall/srcly/commit/c05da247c842788ffdb5d41b4ac753760edc1714))
+* **explorer:** link sidebar and treemap hover ([#65](https://github.com/byronwall/srcly/issues/65)) ([6b9d023](https://github.com/byronwall/srcly/commit/6b9d02342e9d2b534e0e61619d0f9038228f4790))
+* **findings:** run lint and type checks with zero config ([#78](https://github.com/byronwall/srcly/issues/78)) ([fa0aca5](https://github.com/byronwall/srcly/commit/fa0aca5b615ae3995bacfbd5cd9493af082e8c02))
+* **metrics:** cut misleading metrics, add comment noise and component metrics ([#74](https://github.com/byronwall/srcly/issues/74)) ([4e03d4a](https://github.com/byronwall/srcly/commit/4e03d4a4ba5bd12a144c09f7c56c95d265c47260))
+* **metrics:** serve one metric catalog and a single-metric hot-spot list ([#75](https://github.com/byronwall/srcly/issues/75)) ([a6b24ea](https://github.com/byronwall/srcly/commit/a6b24eadf2bac9281ca1e6e35e4123311af69b0a))
+* **metrics:** tune defaults from a four-repo pilot ([#79](https://github.com/byronwall/srcly/issues/79)) ([128903f](https://github.com/byronwall/srcly/commit/128903fdf57e60854bcc15e19780a1f3f6f1b28d))
+* **scatter:** add named 2x2 metric presets ([#77](https://github.com/byronwall/srcly/issues/77)) ([95d7466](https://github.com/byronwall/srcly/commit/95d746697e42b9d49d52b5fc8bbc22db5f357a37))
+* **treemap:** denser, richer hover cards ([#63](https://github.com/byronwall/srcly/issues/63)) ([3da6da6](https://github.com/byronwall/srcly/commit/3da6da6f8b920d3210ab5f8fbd62c60843a8154a))
+* **viewer:** mark the lines behind each metric in the code viewer ([#70](https://github.com/byronwall/srcly/issues/70)) ([530f0d4](https://github.com/byronwall/srcly/commit/530f0d47afad876d76ce52bce1a194e41fc997bd))
+
+
+### Bug Fixes
+
+* **compare:** wait for a pick before running ([#72](https://github.com/byronwall/srcly/issues/72)) ([498fba1](https://github.com/byronwall/srcly/commit/498fba1dd2f6284df8edcd2ff4a339157eeea2fd))
+* **metrics:** separate zero from N/A and name max-complexity witnesses ([#73](https://github.com/byronwall/srcly/issues/73)) ([fe8efc9](https://github.com/byronwall/srcly/commit/fe8efc94e40a1a06454c4c91e837edb82490a561))
+* **scan:** count else-if chains as one nesting level ([#71](https://github.com/byronwall/srcly/issues/71)) ([939638e](https://github.com/byronwall/srcly/commit/939638eed585d9b0ee89bcff50be0b8c6155e593))
+* **treemap:** color LOC and size by scales that fit their range ([#66](https://github.com/byronwall/srcly/issues/66)) ([a4ceb1d](https://github.com/byronwall/srcly/commit/a4ceb1d67911c4c52a5eb12bb15356e583b2759c))
+
+
+### Documentation
+
+* plan metric system overhaul as stacked PRs ([#69](https://github.com/byronwall/srcly/issues/69)) ([0253f73](https://github.com/byronwall/srcly/commit/0253f735f7a5aaf0eaec57cd490afcd64fdb9df5))
+* review metric quality and plan complementary evidence ([#42](https://github.com/byronwall/srcly/issues/42)) ([2de0501](https://github.com/byronwall/srcly/commit/2de0501511c191204d6328b885032fdb1a984902))
+
 ## [0.3.0](https://github.com/byronwall/srcly/compare/v0.2.0...v0.3.0) (2026-10-15)
 
 
