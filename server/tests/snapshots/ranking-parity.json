@@ -584,25 +584,6 @@
                 "children": [
                   {
                     "children": [],
-                    "end_line": 7,
-                    "kind": "function",
-                    "metrics": {
-                      "comment_noise": 0,
-                      "complexity": 1.0,
-                      "component_hook_count": null,
-                      "component_jsx_conditional_count": null,
-                      "component_loc": null,
-                      "loc": 1,
-                      "max_nesting_depth": 0,
-                      "parameter_count": 1
-                    },
-                    "name": "then(\u0192)",
-                    "path": "comment_noise/commented_out.ts::loadUser::then(\u0192)",
-                    "start_line": 7,
-                    "type": "function"
-                  },
-                  {
-                    "children": [],
                     "end_line": 8,
                     "kind": null,
                     "metrics": {
@@ -619,6 +600,25 @@
                     "path": "comment_noise/commented_out.ts::loadUser::(body)",
                     "start_line": 1,
                     "type": "function_body"
+                  },
+                  {
+                    "children": [],
+                    "end_line": 7,
+                    "kind": "function",
+                    "metrics": {
+                      "comment_noise": 0,
+                      "complexity": 1.0,
+                      "component_hook_count": null,
+                      "component_jsx_conditional_count": null,
+                      "component_loc": null,
+                      "loc": 1,
+                      "max_nesting_depth": 0,
+                      "parameter_count": 1
+                    },
+                    "name": "then(\u0192)",
+                    "path": "comment_noise/commented_out.ts::loadUser::then(\u0192)",
+                    "start_line": 7,
+                    "type": "function"
                   }
                 ],
                 "end_line": 8,
@@ -642,25 +642,6 @@
                 "children": [
                   {
                     "children": [],
-                    "end_line": 17,
-                    "kind": "object",
-                    "metrics": {
-                      "comment_noise": 0,
-                      "complexity": 1.0,
-                      "component_hook_count": null,
-                      "component_jsx_conditional_count": null,
-                      "component_loc": null,
-                      "loc": 1,
-                      "max_nesting_depth": 0,
-                      "parameter_count": 0
-                    },
-                    "name": "object",
-                    "path": "comment_noise/commented_out.ts::saveUser::object",
-                    "start_line": 17,
-                    "type": "function"
-                  },
-                  {
-                    "children": [],
                     "end_line": 18,
                     "kind": null,
                     "metrics": {
@@ -677,6 +658,25 @@
                     "path": "comment_noise/commented_out.ts::saveUser::(body)",
                     "start_line": 13,
                     "type": "function_body"
+                  },
+                  {
+                    "children": [],
+                    "end_line": 17,
+                    "kind": "object",
+                    "metrics": {
+                      "comment_noise": 0,
+                      "complexity": 1.0,
+                      "component_hook_count": null,
+                      "component_jsx_conditional_count": null,
+                      "component_loc": null,
+                      "loc": 1,
+                      "max_nesting_depth": 0,
+                      "parameter_count": 0
+                    },
+                    "name": "object",
+                    "path": "comment_noise/commented_out.ts::saveUser::object",
+                    "start_line": 17,
+                    "type": "function"
                   }
                 ],
                 "end_line": 18,
@@ -718,6 +718,25 @@
             "children": [
               {
                 "children": [],
+                "end_line": 51,
+                "kind": "function",
+                "metrics": {
+                  "comment_noise": 1,
+                  "complexity": 3.0,
+                  "component_hook_count": null,
+                  "component_jsx_conditional_count": null,
+                  "component_loc": null,
+                  "loc": 24,
+                  "max_nesting_depth": 2,
+                  "parameter_count": 1
+                },
+                "name": "explained",
+                "path": "comment_noise/narrated.py::explained",
+                "start_line": 28,
+                "type": "function"
+              },
+              {
+                "children": [],
                 "end_line": 14,
                 "kind": "function",
                 "metrics": {
@@ -753,25 +772,6 @@
                 "path": "comment_noise/narrated.py::total",
                 "start_line": 17,
                 "type": "function"
-              },
-              {
-                "children": [],
-                "end_line": 51,
-                "kind": "function",
-                "metrics": {
-                  "comment_noise": 1,
-                  "complexity": 3.0,
-                  "component_hook_count": null,
-                  "component_jsx_conditional_count": null,
-                  "component_loc": null,
-                  "loc": 24,
-                  "max_nesting_depth": 2,
-                  "parameter_count": 1
-                },
-                "name": "explained",
-                "path": "comment_noise/narrated.py::explained",
-                "start_line": 28,
-                "type": "function"
               }
             ],
             "end_line": 0,
@@ -795,25 +795,6 @@
             "children": [
               {
                 "children": [],
-                "end_line": 30,
-                "kind": "function",
-                "metrics": {
-                  "comment_noise": 1,
-                  "complexity": 4.0,
-                  "component_hook_count": null,
-                  "component_jsx_conditional_count": null,
-                  "component_loc": null,
-                  "loc": 29,
-                  "max_nesting_depth": 2,
-                  "parameter_count": 1
-                },
-                "name": "sumPositive",
-                "path": "comment_noise/narrated.ts::sumPositive",
-                "start_line": 2,
-                "type": "function"
-              },
-              {
-                "children": [],
                 "end_line": 43,
                 "kind": "function",
                 "metrics": {
@@ -832,26 +813,26 @@
                 "type": "function"
               },
               {
+                "children": [],
+                "end_line": 30,
+                "kind": "function",
+                "metrics": {
+                  "comment_noise": 1,
+                  "complexity": 4.0,
+                  "component_hook_count": null,
+                  "component_jsx_conditional_count": null,
+                  "component_loc": null,
+                  "loc": 29,
+                  "max_nesting_depth": 2,
+                  "parameter_count": 1
+                },
+                "name": "sumPositive",
+                "path": "comment_noise/narrated.ts::sumPositive",
+                "start_line": 2,
+                "type": "function"
+              },
+              {
                 "children": [
-                  {
-                    "children": [],
-                    "end_line": 46,
-                    "kind": "function",
-                    "metrics": {
-                      "comment_noise": 0,
-                      "complexity": 1.0,
-                      "component_hook_count": null,
-                      "component_jsx_conditional_count": null,
-                      "component_loc": null,
-                      "loc": 1,
-                      "max_nesting_depth": 0,
-                      "parameter_count": 1
-                    },
-                    "name": "map(\u0192)",
-                    "path": "comment_noise/narrated.ts::tidy::map(\u0192)",
-                    "start_line": 46,
-                    "type": "function"
-                  },
                   {
                     "children": [],
                     "end_line": 47,
@@ -870,6 +851,25 @@
                     "path": "comment_noise/narrated.ts::tidy::(body)",
                     "start_line": 45,
                     "type": "function_body"
+                  },
+                  {
+                    "children": [],
+                    "end_line": 46,
+                    "kind": "function",
+                    "metrics": {
+                      "comment_noise": 0,
+                      "complexity": 1.0,
+                      "component_hook_count": null,
+                      "component_jsx_conditional_count": null,
+                      "component_loc": null,
+                      "loc": 1,
+                      "max_nesting_depth": 0,
+                      "parameter_count": 1
+                    },
+                    "name": "map(\u0192)",
+                    "path": "comment_noise/narrated.ts::tidy::map(\u0192)",
+                    "start_line": 46,
+                    "type": "function"
                   }
                 ],
                 "end_line": 47,
@@ -971,7 +971,7 @@
                   },
                   {
                     "children": [],
-                    "end_line": 16,
+                    "end_line": 19,
                     "kind": "type",
                     "metrics": {
                       "comment_noise": 0,
@@ -979,13 +979,13 @@
                       "component_hook_count": null,
                       "component_jsx_conditional_count": null,
                       "component_loc": null,
-                      "loc": 9,
+                      "loc": 1,
                       "max_nesting_depth": 0,
                       "parameter_count": 0
                     },
-                    "name": "OrderDashboardProps (interface)",
-                    "path": "components/react/OrderDashboard.tsx::OrderDashboardProps (interface)",
-                    "start_line": 8,
+                    "name": "Customer (type)",
+                    "path": "components/react/OrderDashboard.tsx::Customer (type)",
+                    "start_line": 19,
                     "type": "function"
                   },
                   {
@@ -1008,121 +1008,551 @@
                     "type": "function"
                   },
                   {
-                    "children": [],
-                    "end_line": 19,
-                    "kind": "type",
+                    "children": [
+                      {
+                        "children": [],
+                        "end_line": 91,
+                        "kind": "jsx",
+                        "metrics": {
+                          "comment_noise": 0,
+                          "complexity": 0.0,
+                          "component_hook_count": null,
+                          "component_jsx_conditional_count": null,
+                          "component_loc": null,
+                          "loc": 1,
+                          "max_nesting_depth": 0,
+                          "parameter_count": 0
+                        },
+                        "name": "<span>",
+                        "path": "components/react/OrderDashboard.tsx::OrderBadge::<span>",
+                        "start_line": 91,
+                        "type": "function"
+                      }
+                    ],
+                    "end_line": 91,
+                    "kind": "function",
                     "metrics": {
                       "comment_noise": 0,
                       "complexity": 1.0,
-                      "component_hook_count": null,
-                      "component_jsx_conditional_count": null,
-                      "component_loc": null,
+                      "component_hook_count": 0,
+                      "component_jsx_conditional_count": 0,
+                      "component_loc": 1,
                       "loc": 1,
                       "max_nesting_depth": 0,
-                      "parameter_count": 0
+                      "parameter_count": 1
                     },
-                    "name": "Customer (type)",
-                    "path": "components/react/OrderDashboard.tsx::Customer (type)",
-                    "start_line": 19,
+                    "name": "OrderBadge",
+                    "path": "components/react/OrderDashboard.tsx::OrderBadge",
+                    "start_line": 91,
                     "type": "function"
                   },
                   {
                     "children": [
                       {
                         "children": [],
-                        "end_line": 26,
-                        "kind": "function",
+                        "end_line": 88,
+                        "kind": null,
                         "metrics": {
-                          "comment_noise": 0,
-                          "complexity": 1.0,
+                          "comment_noise": null,
+                          "complexity": null,
                           "component_hook_count": null,
                           "component_jsx_conditional_count": null,
                           "component_loc": null,
-                          "loc": 1,
-                          "max_nesting_depth": 0,
-                          "parameter_count": 2
+                          "loc": 14,
+                          "max_nesting_depth": null,
+                          "parameter_count": null
                         },
-                        "name": "useReducer(\u0192)",
-                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::useReducer(\u0192)",
-                        "start_line": 26,
-                        "type": "function"
+                        "name": "(body)",
+                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::(body)",
+                        "start_line": 22,
+                        "type": "function_body"
                       },
                       {
                         "children": [
                           {
-                            "children": [],
-                            "end_line": 28,
-                            "kind": "function",
+                            "children": [
+                              {
+                                "children": [],
+                                "end_line": 86,
+                                "kind": null,
+                                "metrics": {
+                                  "comment_noise": null,
+                                  "complexity": null,
+                                  "component_hook_count": null,
+                                  "component_jsx_conditional_count": null,
+                                  "component_loc": null,
+                                  "loc": 15,
+                                  "max_nesting_depth": null,
+                                  "parameter_count": null
+                                },
+                                "name": "(body)",
+                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::(body)",
+                                "start_line": 48,
+                                "type": "function_body"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "end_line": 52,
+                                    "kind": "function",
+                                    "metrics": {
+                                      "comment_noise": 0,
+                                      "complexity": 1.0,
+                                      "component_hook_count": null,
+                                      "component_jsx_conditional_count": null,
+                                      "component_loc": null,
+                                      "loc": 1,
+                                      "max_nesting_depth": 0,
+                                      "parameter_count": 0
+                                    },
+                                    "name": "onClick",
+                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<button>::onClick",
+                                    "start_line": 52,
+                                    "type": "function"
+                                  }
+                                ],
+                                "end_line": 52,
+                                "kind": "jsx",
+                                "metrics": {
+                                  "comment_noise": 0,
+                                  "complexity": 1.0,
+                                  "component_hook_count": null,
+                                  "component_jsx_conditional_count": null,
+                                  "component_loc": null,
+                                  "loc": 1,
+                                  "max_nesting_depth": 0,
+                                  "parameter_count": 0
+                                },
+                                "name": "<button>",
+                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<button>",
+                                "start_line": 52,
+                                "type": "function"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "end_line": 53,
+                                    "kind": "function",
+                                    "metrics": {
+                                      "comment_noise": 0,
+                                      "complexity": 1.0,
+                                      "component_hook_count": null,
+                                      "component_jsx_conditional_count": null,
+                                      "component_loc": null,
+                                      "loc": 1,
+                                      "max_nesting_depth": 0,
+                                      "parameter_count": 0
+                                    },
+                                    "name": "onClick",
+                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<button>::onClick",
+                                    "start_line": 53,
+                                    "type": "function"
+                                  }
+                                ],
+                                "end_line": 53,
+                                "kind": "jsx",
+                                "metrics": {
+                                  "comment_noise": 0,
+                                  "complexity": 2.0,
+                                  "component_hook_count": null,
+                                  "component_jsx_conditional_count": null,
+                                  "component_loc": null,
+                                  "loc": 1,
+                                  "max_nesting_depth": 0,
+                                  "parameter_count": 0
+                                },
+                                "name": "<button>",
+                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<button>",
+                                "start_line": 53,
+                                "type": "function"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "end_line": 83,
+                                    "kind": "function",
+                                    "metrics": {
+                                      "comment_noise": 0,
+                                      "complexity": 1.0,
+                                      "component_hook_count": null,
+                                      "component_jsx_conditional_count": null,
+                                      "component_loc": null,
+                                      "loc": 1,
+                                      "max_nesting_depth": 0,
+                                      "parameter_count": 0
+                                    },
+                                    "name": "onClick",
+                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<button>::onClick",
+                                    "start_line": 83,
+                                    "type": "function"
+                                  }
+                                ],
+                                "end_line": 83,
+                                "kind": "jsx",
+                                "metrics": {
+                                  "comment_noise": 0,
+                                  "complexity": 1.0,
+                                  "component_hook_count": null,
+                                  "component_jsx_conditional_count": null,
+                                  "component_loc": null,
+                                  "loc": 1,
+                                  "max_nesting_depth": 0,
+                                  "parameter_count": 0
+                                },
+                                "name": "<button>",
+                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<button>",
+                                "start_line": 83,
+                                "type": "function"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "end_line": 84,
+                                    "kind": "function",
+                                    "metrics": {
+                                      "comment_noise": 0,
+                                      "complexity": 1.0,
+                                      "component_hook_count": null,
+                                      "component_jsx_conditional_count": null,
+                                      "component_loc": null,
+                                      "loc": 1,
+                                      "max_nesting_depth": 0,
+                                      "parameter_count": 0
+                                    },
+                                    "name": "onClick",
+                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<button>::onClick",
+                                    "start_line": 84,
+                                    "type": "function"
+                                  }
+                                ],
+                                "end_line": 84,
+                                "kind": "jsx",
+                                "metrics": {
+                                  "comment_noise": 0,
+                                  "complexity": 1.0,
+                                  "component_hook_count": null,
+                                  "component_jsx_conditional_count": null,
+                                  "component_loc": null,
+                                  "loc": 1,
+                                  "max_nesting_depth": 0,
+                                  "parameter_count": 0
+                                },
+                                "name": "<button>",
+                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<button>",
+                                "start_line": 84,
+                                "type": "function"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "end_line": 78,
+                                    "kind": null,
+                                    "metrics": {
+                                      "comment_noise": null,
+                                      "complexity": null,
+                                      "component_hook_count": null,
+                                      "component_jsx_conditional_count": null,
+                                      "component_loc": null,
+                                      "loc": 2,
+                                      "max_nesting_depth": null,
+                                      "parameter_count": null
+                                    },
+                                    "name": "(body)",
+                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::(body)",
+                                    "start_line": 59,
+                                    "type": "function_body"
+                                  },
+                                  {
+                                    "children": [
+                                      {
+                                        "children": [],
+                                        "end_line": 77,
+                                        "kind": null,
+                                        "metrics": {
+                                          "comment_noise": null,
+                                          "complexity": null,
+                                          "component_hook_count": null,
+                                          "component_jsx_conditional_count": null,
+                                          "component_loc": null,
+                                          "loc": 2,
+                                          "max_nesting_depth": null,
+                                          "parameter_count": null
+                                        },
+                                        "name": "(body)",
+                                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::(body)",
+                                        "start_line": 60,
+                                        "type": "function_body"
+                                      },
+                                      {
+                                        "children": [
+                                          {
+                                            "children": [
+                                              {
+                                                "children": [],
+                                                "end_line": 76,
+                                                "kind": null,
+                                                "metrics": {
+                                                  "comment_noise": null,
+                                                  "complexity": null,
+                                                  "component_hook_count": null,
+                                                  "component_jsx_conditional_count": null,
+                                                  "component_loc": null,
+                                                  "loc": 7,
+                                                  "max_nesting_depth": null,
+                                                  "parameter_count": null
+                                                },
+                                                "name": "(body)",
+                                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>::(body)",
+                                                "start_line": 61,
+                                                "type": "function_body"
+                                              },
+                                              {
+                                                "children": [
+                                                  {
+                                                    "children": [],
+                                                    "end_line": 75,
+                                                    "kind": null,
+                                                    "metrics": {
+                                                      "comment_noise": null,
+                                                      "complexity": null,
+                                                      "component_hook_count": null,
+                                                      "component_jsx_conditional_count": null,
+                                                      "component_loc": null,
+                                                      "loc": 6,
+                                                      "max_nesting_depth": null,
+                                                      "parameter_count": null
+                                                    },
+                                                    "name": "(body)",
+                                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>::<td>::(body)",
+                                                    "start_line": 68,
+                                                    "type": "function_body"
+                                                  },
+                                                  {
+                                                    "children": [
+                                                      {
+                                                        "children": [],
+                                                        "end_line": 71,
+                                                        "kind": "function",
+                                                        "metrics": {
+                                                          "comment_noise": 0,
+                                                          "complexity": 1.0,
+                                                          "component_hook_count": null,
+                                                          "component_jsx_conditional_count": null,
+                                                          "component_loc": null,
+                                                          "loc": 1,
+                                                          "max_nesting_depth": 0,
+                                                          "parameter_count": 0
+                                                        },
+                                                        "name": "onClick",
+                                                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>::<td>::<button>::onClick",
+                                                        "start_line": 71,
+                                                        "type": "function"
+                                                      }
+                                                    ],
+                                                    "end_line": 71,
+                                                    "kind": "jsx",
+                                                    "metrics": {
+                                                      "comment_noise": 0,
+                                                      "complexity": 1.0,
+                                                      "component_hook_count": null,
+                                                      "component_jsx_conditional_count": null,
+                                                      "component_loc": null,
+                                                      "loc": 1,
+                                                      "max_nesting_depth": 0,
+                                                      "parameter_count": 0
+                                                    },
+                                                    "name": "<button>",
+                                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>::<td>::<button>",
+                                                    "start_line": 71,
+                                                    "type": "function"
+                                                  },
+                                                  {
+                                                    "children": [
+                                                      {
+                                                        "children": [],
+                                                        "end_line": 72,
+                                                        "kind": "function",
+                                                        "metrics": {
+                                                          "comment_noise": 0,
+                                                          "complexity": 1.0,
+                                                          "component_hook_count": null,
+                                                          "component_jsx_conditional_count": null,
+                                                          "component_loc": null,
+                                                          "loc": 1,
+                                                          "max_nesting_depth": 0,
+                                                          "parameter_count": 0
+                                                        },
+                                                        "name": "onClick",
+                                                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>::<td>::<button>::onClick",
+                                                        "start_line": 72,
+                                                        "type": "function"
+                                                      }
+                                                    ],
+                                                    "end_line": 72,
+                                                    "kind": "jsx",
+                                                    "metrics": {
+                                                      "comment_noise": 0,
+                                                      "complexity": 1.0,
+                                                      "component_hook_count": null,
+                                                      "component_jsx_conditional_count": null,
+                                                      "component_loc": null,
+                                                      "loc": 1,
+                                                      "max_nesting_depth": 0,
+                                                      "parameter_count": 0
+                                                    },
+                                                    "name": "<button>",
+                                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>::<td>::<button>",
+                                                    "start_line": 72,
+                                                    "type": "function"
+                                                  }
+                                                ],
+                                                "end_line": 75,
+                                                "kind": "jsx",
+                                                "metrics": {
+                                                  "comment_noise": 0,
+                                                  "complexity": 2.0,
+                                                  "component_hook_count": null,
+                                                  "component_jsx_conditional_count": null,
+                                                  "component_loc": null,
+                                                  "loc": 8,
+                                                  "max_nesting_depth": 0,
+                                                  "parameter_count": 0
+                                                },
+                                                "name": "<td>",
+                                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>::<td>",
+                                                "start_line": 68,
+                                                "type": "function"
+                                              },
+                                              {
+                                                "children": [],
+                                                "end_line": 61,
+                                                "kind": "function",
+                                                "metrics": {
+                                                  "comment_noise": 0,
+                                                  "complexity": 1.0,
+                                                  "component_hook_count": null,
+                                                  "component_jsx_conditional_count": null,
+                                                  "component_loc": null,
+                                                  "loc": 1,
+                                                  "max_nesting_depth": 0,
+                                                  "parameter_count": 0
+                                                },
+                                                "name": "onClick",
+                                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>::onClick",
+                                                "start_line": 61,
+                                                "type": "function"
+                                              }
+                                            ],
+                                            "end_line": 76,
+                                            "kind": "jsx",
+                                            "metrics": {
+                                              "comment_noise": 0,
+                                              "complexity": 2.0,
+                                              "component_hook_count": null,
+                                              "component_jsx_conditional_count": null,
+                                              "component_loc": null,
+                                              "loc": 16,
+                                              "max_nesting_depth": 0,
+                                              "parameter_count": 0
+                                            },
+                                            "name": "<tr>",
+                                            "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>",
+                                            "start_line": 61,
+                                            "type": "function"
+                                          }
+                                        ],
+                                        "end_line": 76,
+                                        "kind": "jsx",
+                                        "metrics": {
+                                          "comment_noise": 0,
+                                          "complexity": 0.0,
+                                          "component_hook_count": null,
+                                          "component_jsx_conditional_count": null,
+                                          "component_loc": null,
+                                          "loc": 16,
+                                          "max_nesting_depth": 0,
+                                          "parameter_count": 0
+                                        },
+                                        "name": "<tr>",
+                                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>",
+                                        "start_line": 61,
+                                        "type": "function"
+                                      }
+                                    ],
+                                    "end_line": 77,
+                                    "kind": "function",
+                                    "metrics": {
+                                      "comment_noise": 0,
+                                      "complexity": 3.0,
+                                      "component_hook_count": null,
+                                      "component_jsx_conditional_count": null,
+                                      "component_loc": null,
+                                      "loc": 18,
+                                      "max_nesting_depth": 0,
+                                      "parameter_count": 1
+                                    },
+                                    "name": "map(\u0192)",
+                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)",
+                                    "start_line": 60,
+                                    "type": "function"
+                                  }
+                                ],
+                                "end_line": 78,
+                                "kind": "jsx",
+                                "metrics": {
+                                  "comment_noise": 0,
+                                  "complexity": 1.0,
+                                  "component_hook_count": null,
+                                  "component_jsx_conditional_count": null,
+                                  "component_loc": null,
+                                  "loc": 20,
+                                  "max_nesting_depth": 0,
+                                  "parameter_count": 0
+                                },
+                                "name": "<tbody>",
+                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>",
+                                "start_line": 59,
+                                "type": "function"
+                              }
+                            ],
+                            "end_line": 86,
+                            "kind": "jsx",
                             "metrics": {
                               "comment_noise": 0,
-                              "complexity": 1.0,
+                              "complexity": 4.0,
                               "component_hook_count": null,
                               "component_jsx_conditional_count": null,
                               "component_loc": null,
-                              "loc": 1,
+                              "loc": 39,
                               "max_nesting_depth": 0,
-                              "parameter_count": 1
+                              "parameter_count": 0
                             },
-                            "name": "filter(\u0192)",
-                            "path": "components/react/OrderDashboard.tsx::OrderDashboard::useMemo(\u0192)::filter(\u0192)",
-                            "start_line": 28,
+                            "name": "<section>",
+                            "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>",
+                            "start_line": 48,
                             "type": "function"
                           }
                         ],
-                        "end_line": 28,
-                        "kind": "function",
+                        "end_line": 86,
+                        "kind": "jsx",
                         "metrics": {
                           "comment_noise": 0,
-                          "complexity": 1.0,
+                          "complexity": 0.0,
                           "component_hook_count": null,
                           "component_jsx_conditional_count": null,
                           "component_loc": null,
-                          "loc": 1,
+                          "loc": 39,
                           "max_nesting_depth": 0,
                           "parameter_count": 0
                         },
-                        "name": "useMemo(\u0192)",
-                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::useMemo(\u0192)",
-                        "start_line": 28,
-                        "type": "function"
-                      },
-                      {
-                        "children": [
-                          {
-                            "children": [],
-                            "end_line": 29,
-                            "kind": "function",
-                            "metrics": {
-                              "comment_noise": 0,
-                              "complexity": 1.0,
-                              "component_hook_count": null,
-                              "component_jsx_conditional_count": null,
-                              "component_loc": null,
-                              "loc": 1,
-                              "max_nesting_depth": 0,
-                              "parameter_count": 1
-                            },
-                            "name": "map(\u0192)",
-                            "path": "components/react/OrderDashboard.tsx::OrderDashboard::useMemo(\u0192)::map(\u0192)",
-                            "start_line": 29,
-                            "type": "function"
-                          }
-                        ],
-                        "end_line": 29,
-                        "kind": "function",
-                        "metrics": {
-                          "comment_noise": 0,
-                          "complexity": 1.0,
-                          "component_hook_count": null,
-                          "component_jsx_conditional_count": null,
-                          "component_loc": null,
-                          "loc": 1,
-                          "max_nesting_depth": 0,
-                          "parameter_count": 0
-                        },
-                        "name": "useMemo(\u0192)",
-                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::useMemo(\u0192)",
-                        "start_line": 29,
+                        "name": "<section>",
+                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>",
+                        "start_line": 48,
                         "type": "function"
                       },
                       {
@@ -1243,509 +1673,99 @@
                       {
                         "children": [
                           {
-                            "children": [
-                              {
-                                "children": [
-                                  {
-                                    "children": [],
-                                    "end_line": 52,
-                                    "kind": "function",
-                                    "metrics": {
-                                      "comment_noise": 0,
-                                      "complexity": 1.0,
-                                      "component_hook_count": null,
-                                      "component_jsx_conditional_count": null,
-                                      "component_loc": null,
-                                      "loc": 1,
-                                      "max_nesting_depth": 0,
-                                      "parameter_count": 0
-                                    },
-                                    "name": "onClick",
-                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<button>::onClick",
-                                    "start_line": 52,
-                                    "type": "function"
-                                  }
-                                ],
-                                "end_line": 52,
-                                "kind": "jsx",
-                                "metrics": {
-                                  "comment_noise": 0,
-                                  "complexity": 1.0,
-                                  "component_hook_count": null,
-                                  "component_jsx_conditional_count": null,
-                                  "component_loc": null,
-                                  "loc": 1,
-                                  "max_nesting_depth": 0,
-                                  "parameter_count": 0
-                                },
-                                "name": "<button>",
-                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<button>",
-                                "start_line": 52,
-                                "type": "function"
-                              },
-                              {
-                                "children": [
-                                  {
-                                    "children": [],
-                                    "end_line": 53,
-                                    "kind": "function",
-                                    "metrics": {
-                                      "comment_noise": 0,
-                                      "complexity": 1.0,
-                                      "component_hook_count": null,
-                                      "component_jsx_conditional_count": null,
-                                      "component_loc": null,
-                                      "loc": 1,
-                                      "max_nesting_depth": 0,
-                                      "parameter_count": 0
-                                    },
-                                    "name": "onClick",
-                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<button>::onClick",
-                                    "start_line": 53,
-                                    "type": "function"
-                                  }
-                                ],
-                                "end_line": 53,
-                                "kind": "jsx",
-                                "metrics": {
-                                  "comment_noise": 0,
-                                  "complexity": 2.0,
-                                  "component_hook_count": null,
-                                  "component_jsx_conditional_count": null,
-                                  "component_loc": null,
-                                  "loc": 1,
-                                  "max_nesting_depth": 0,
-                                  "parameter_count": 0
-                                },
-                                "name": "<button>",
-                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<button>",
-                                "start_line": 53,
-                                "type": "function"
-                              },
-                              {
-                                "children": [
-                                  {
-                                    "children": [
-                                      {
-                                        "children": [
-                                          {
-                                            "children": [
-                                              {
-                                                "children": [],
-                                                "end_line": 61,
-                                                "kind": "function",
-                                                "metrics": {
-                                                  "comment_noise": 0,
-                                                  "complexity": 1.0,
-                                                  "component_hook_count": null,
-                                                  "component_jsx_conditional_count": null,
-                                                  "component_loc": null,
-                                                  "loc": 1,
-                                                  "max_nesting_depth": 0,
-                                                  "parameter_count": 0
-                                                },
-                                                "name": "onClick",
-                                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>::onClick",
-                                                "start_line": 61,
-                                                "type": "function"
-                                              },
-                                              {
-                                                "children": [
-                                                  {
-                                                    "children": [
-                                                      {
-                                                        "children": [],
-                                                        "end_line": 71,
-                                                        "kind": "function",
-                                                        "metrics": {
-                                                          "comment_noise": 0,
-                                                          "complexity": 1.0,
-                                                          "component_hook_count": null,
-                                                          "component_jsx_conditional_count": null,
-                                                          "component_loc": null,
-                                                          "loc": 1,
-                                                          "max_nesting_depth": 0,
-                                                          "parameter_count": 0
-                                                        },
-                                                        "name": "onClick",
-                                                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>::<td>::<button>::onClick",
-                                                        "start_line": 71,
-                                                        "type": "function"
-                                                      }
-                                                    ],
-                                                    "end_line": 71,
-                                                    "kind": "jsx",
-                                                    "metrics": {
-                                                      "comment_noise": 0,
-                                                      "complexity": 1.0,
-                                                      "component_hook_count": null,
-                                                      "component_jsx_conditional_count": null,
-                                                      "component_loc": null,
-                                                      "loc": 1,
-                                                      "max_nesting_depth": 0,
-                                                      "parameter_count": 0
-                                                    },
-                                                    "name": "<button>",
-                                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>::<td>::<button>",
-                                                    "start_line": 71,
-                                                    "type": "function"
-                                                  },
-                                                  {
-                                                    "children": [
-                                                      {
-                                                        "children": [],
-                                                        "end_line": 72,
-                                                        "kind": "function",
-                                                        "metrics": {
-                                                          "comment_noise": 0,
-                                                          "complexity": 1.0,
-                                                          "component_hook_count": null,
-                                                          "component_jsx_conditional_count": null,
-                                                          "component_loc": null,
-                                                          "loc": 1,
-                                                          "max_nesting_depth": 0,
-                                                          "parameter_count": 0
-                                                        },
-                                                        "name": "onClick",
-                                                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>::<td>::<button>::onClick",
-                                                        "start_line": 72,
-                                                        "type": "function"
-                                                      }
-                                                    ],
-                                                    "end_line": 72,
-                                                    "kind": "jsx",
-                                                    "metrics": {
-                                                      "comment_noise": 0,
-                                                      "complexity": 1.0,
-                                                      "component_hook_count": null,
-                                                      "component_jsx_conditional_count": null,
-                                                      "component_loc": null,
-                                                      "loc": 1,
-                                                      "max_nesting_depth": 0,
-                                                      "parameter_count": 0
-                                                    },
-                                                    "name": "<button>",
-                                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>::<td>::<button>",
-                                                    "start_line": 72,
-                                                    "type": "function"
-                                                  },
-                                                  {
-                                                    "children": [],
-                                                    "end_line": 75,
-                                                    "kind": null,
-                                                    "metrics": {
-                                                      "comment_noise": null,
-                                                      "complexity": null,
-                                                      "component_hook_count": null,
-                                                      "component_jsx_conditional_count": null,
-                                                      "component_loc": null,
-                                                      "loc": 6,
-                                                      "max_nesting_depth": null,
-                                                      "parameter_count": null
-                                                    },
-                                                    "name": "(body)",
-                                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>::<td>::(body)",
-                                                    "start_line": 68,
-                                                    "type": "function_body"
-                                                  }
-                                                ],
-                                                "end_line": 75,
-                                                "kind": "jsx",
-                                                "metrics": {
-                                                  "comment_noise": 0,
-                                                  "complexity": 2.0,
-                                                  "component_hook_count": null,
-                                                  "component_jsx_conditional_count": null,
-                                                  "component_loc": null,
-                                                  "loc": 8,
-                                                  "max_nesting_depth": 0,
-                                                  "parameter_count": 0
-                                                },
-                                                "name": "<td>",
-                                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>::<td>",
-                                                "start_line": 68,
-                                                "type": "function"
-                                              },
-                                              {
-                                                "children": [],
-                                                "end_line": 76,
-                                                "kind": null,
-                                                "metrics": {
-                                                  "comment_noise": null,
-                                                  "complexity": null,
-                                                  "component_hook_count": null,
-                                                  "component_jsx_conditional_count": null,
-                                                  "component_loc": null,
-                                                  "loc": 7,
-                                                  "max_nesting_depth": null,
-                                                  "parameter_count": null
-                                                },
-                                                "name": "(body)",
-                                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>::(body)",
-                                                "start_line": 61,
-                                                "type": "function_body"
-                                              }
-                                            ],
-                                            "end_line": 76,
-                                            "kind": "jsx",
-                                            "metrics": {
-                                              "comment_noise": 0,
-                                              "complexity": 2.0,
-                                              "component_hook_count": null,
-                                              "component_jsx_conditional_count": null,
-                                              "component_loc": null,
-                                              "loc": 16,
-                                              "max_nesting_depth": 0,
-                                              "parameter_count": 0
-                                            },
-                                            "name": "<tr>",
-                                            "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>::<tr>",
-                                            "start_line": 61,
-                                            "type": "function"
-                                          }
-                                        ],
-                                        "end_line": 76,
-                                        "kind": "jsx",
-                                        "metrics": {
-                                          "comment_noise": 0,
-                                          "complexity": 0.0,
-                                          "component_hook_count": null,
-                                          "component_jsx_conditional_count": null,
-                                          "component_loc": null,
-                                          "loc": 16,
-                                          "max_nesting_depth": 0,
-                                          "parameter_count": 0
-                                        },
-                                        "name": "<tr>",
-                                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::<tr>",
-                                        "start_line": 61,
-                                        "type": "function"
-                                      },
-                                      {
-                                        "children": [],
-                                        "end_line": 77,
-                                        "kind": null,
-                                        "metrics": {
-                                          "comment_noise": null,
-                                          "complexity": null,
-                                          "component_hook_count": null,
-                                          "component_jsx_conditional_count": null,
-                                          "component_loc": null,
-                                          "loc": 2,
-                                          "max_nesting_depth": null,
-                                          "parameter_count": null
-                                        },
-                                        "name": "(body)",
-                                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)::(body)",
-                                        "start_line": 60,
-                                        "type": "function_body"
-                                      }
-                                    ],
-                                    "end_line": 77,
-                                    "kind": "function",
-                                    "metrics": {
-                                      "comment_noise": 0,
-                                      "complexity": 3.0,
-                                      "component_hook_count": null,
-                                      "component_jsx_conditional_count": null,
-                                      "component_loc": null,
-                                      "loc": 18,
-                                      "max_nesting_depth": 0,
-                                      "parameter_count": 1
-                                    },
-                                    "name": "map(\u0192)",
-                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)",
-                                    "start_line": 60,
-                                    "type": "function"
-                                  },
-                                  {
-                                    "children": [],
-                                    "end_line": 78,
-                                    "kind": null,
-                                    "metrics": {
-                                      "comment_noise": null,
-                                      "complexity": null,
-                                      "component_hook_count": null,
-                                      "component_jsx_conditional_count": null,
-                                      "component_loc": null,
-                                      "loc": 2,
-                                      "max_nesting_depth": null,
-                                      "parameter_count": null
-                                    },
-                                    "name": "(body)",
-                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::(body)",
-                                    "start_line": 59,
-                                    "type": "function_body"
-                                  }
-                                ],
-                                "end_line": 78,
-                                "kind": "jsx",
-                                "metrics": {
-                                  "comment_noise": 0,
-                                  "complexity": 1.0,
-                                  "component_hook_count": null,
-                                  "component_jsx_conditional_count": null,
-                                  "component_loc": null,
-                                  "loc": 20,
-                                  "max_nesting_depth": 0,
-                                  "parameter_count": 0
-                                },
-                                "name": "<tbody>",
-                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>",
-                                "start_line": 59,
-                                "type": "function"
-                              },
-                              {
-                                "children": [
-                                  {
-                                    "children": [],
-                                    "end_line": 83,
-                                    "kind": "function",
-                                    "metrics": {
-                                      "comment_noise": 0,
-                                      "complexity": 1.0,
-                                      "component_hook_count": null,
-                                      "component_jsx_conditional_count": null,
-                                      "component_loc": null,
-                                      "loc": 1,
-                                      "max_nesting_depth": 0,
-                                      "parameter_count": 0
-                                    },
-                                    "name": "onClick",
-                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<button>::onClick",
-                                    "start_line": 83,
-                                    "type": "function"
-                                  }
-                                ],
-                                "end_line": 83,
-                                "kind": "jsx",
-                                "metrics": {
-                                  "comment_noise": 0,
-                                  "complexity": 1.0,
-                                  "component_hook_count": null,
-                                  "component_jsx_conditional_count": null,
-                                  "component_loc": null,
-                                  "loc": 1,
-                                  "max_nesting_depth": 0,
-                                  "parameter_count": 0
-                                },
-                                "name": "<button>",
-                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<button>",
-                                "start_line": 83,
-                                "type": "function"
-                              },
-                              {
-                                "children": [
-                                  {
-                                    "children": [],
-                                    "end_line": 84,
-                                    "kind": "function",
-                                    "metrics": {
-                                      "comment_noise": 0,
-                                      "complexity": 1.0,
-                                      "component_hook_count": null,
-                                      "component_jsx_conditional_count": null,
-                                      "component_loc": null,
-                                      "loc": 1,
-                                      "max_nesting_depth": 0,
-                                      "parameter_count": 0
-                                    },
-                                    "name": "onClick",
-                                    "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<button>::onClick",
-                                    "start_line": 84,
-                                    "type": "function"
-                                  }
-                                ],
-                                "end_line": 84,
-                                "kind": "jsx",
-                                "metrics": {
-                                  "comment_noise": 0,
-                                  "complexity": 1.0,
-                                  "component_hook_count": null,
-                                  "component_jsx_conditional_count": null,
-                                  "component_loc": null,
-                                  "loc": 1,
-                                  "max_nesting_depth": 0,
-                                  "parameter_count": 0
-                                },
-                                "name": "<button>",
-                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<button>",
-                                "start_line": 84,
-                                "type": "function"
-                              },
-                              {
-                                "children": [],
-                                "end_line": 86,
-                                "kind": null,
-                                "metrics": {
-                                  "comment_noise": null,
-                                  "complexity": null,
-                                  "component_hook_count": null,
-                                  "component_jsx_conditional_count": null,
-                                  "component_loc": null,
-                                  "loc": 15,
-                                  "max_nesting_depth": null,
-                                  "parameter_count": null
-                                },
-                                "name": "(body)",
-                                "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::(body)",
-                                "start_line": 48,
-                                "type": "function_body"
-                              }
-                            ],
-                            "end_line": 86,
-                            "kind": "jsx",
+                            "children": [],
+                            "end_line": 28,
+                            "kind": "function",
                             "metrics": {
                               "comment_noise": 0,
-                              "complexity": 4.0,
+                              "complexity": 1.0,
                               "component_hook_count": null,
                               "component_jsx_conditional_count": null,
                               "component_loc": null,
-                              "loc": 39,
+                              "loc": 1,
                               "max_nesting_depth": 0,
-                              "parameter_count": 0
+                              "parameter_count": 1
                             },
-                            "name": "<section>",
-                            "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>",
-                            "start_line": 48,
+                            "name": "filter(\u0192)",
+                            "path": "components/react/OrderDashboard.tsx::OrderDashboard::useMemo(\u0192)::filter(\u0192)",
+                            "start_line": 28,
                             "type": "function"
                           }
                         ],
-                        "end_line": 86,
-                        "kind": "jsx",
+                        "end_line": 28,
+                        "kind": "function",
                         "metrics": {
                           "comment_noise": 0,
-                          "complexity": 0.0,
+                          "complexity": 1.0,
                           "component_hook_count": null,
                           "component_jsx_conditional_count": null,
                           "component_loc": null,
-                          "loc": 39,
+                          "loc": 1,
                           "max_nesting_depth": 0,
                           "parameter_count": 0
                         },
-                        "name": "<section>",
-                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::<section>",
-                        "start_line": 48,
+                        "name": "useMemo(\u0192)",
+                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::useMemo(\u0192)",
+                        "start_line": 28,
+                        "type": "function"
+                      },
+                      {
+                        "children": [
+                          {
+                            "children": [],
+                            "end_line": 29,
+                            "kind": "function",
+                            "metrics": {
+                              "comment_noise": 0,
+                              "complexity": 1.0,
+                              "component_hook_count": null,
+                              "component_jsx_conditional_count": null,
+                              "component_loc": null,
+                              "loc": 1,
+                              "max_nesting_depth": 0,
+                              "parameter_count": 1
+                            },
+                            "name": "map(\u0192)",
+                            "path": "components/react/OrderDashboard.tsx::OrderDashboard::useMemo(\u0192)::map(\u0192)",
+                            "start_line": 29,
+                            "type": "function"
+                          }
+                        ],
+                        "end_line": 29,
+                        "kind": "function",
+                        "metrics": {
+                          "comment_noise": 0,
+                          "complexity": 1.0,
+                          "component_hook_count": null,
+                          "component_jsx_conditional_count": null,
+                          "component_loc": null,
+                          "loc": 1,
+                          "max_nesting_depth": 0,
+                          "parameter_count": 0
+                        },
+                        "name": "useMemo(\u0192)",
+                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::useMemo(\u0192)",
+                        "start_line": 29,
                         "type": "function"
                       },
                       {
                         "children": [],
-                        "end_line": 88,
-                        "kind": null,
+                        "end_line": 26,
+                        "kind": "function",
                         "metrics": {
-                          "comment_noise": null,
-                          "complexity": null,
+                          "comment_noise": 0,
+                          "complexity": 1.0,
                           "component_hook_count": null,
                           "component_jsx_conditional_count": null,
                           "component_loc": null,
-                          "loc": 14,
-                          "max_nesting_depth": null,
-                          "parameter_count": null
+                          "loc": 1,
+                          "max_nesting_depth": 0,
+                          "parameter_count": 2
                         },
-                        "name": "(body)",
-                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::(body)",
-                        "start_line": 22,
-                        "type": "function_body"
+                        "name": "useReducer(\u0192)",
+                        "path": "components/react/OrderDashboard.tsx::OrderDashboard::useReducer(\u0192)",
+                        "start_line": 26,
+                        "type": "function"
                       }
                     ],
                     "end_line": 88,
@@ -1766,42 +1786,22 @@
                     "type": "function"
                   },
                   {
-                    "children": [
-                      {
-                        "children": [],
-                        "end_line": 91,
-                        "kind": "jsx",
-                        "metrics": {
-                          "comment_noise": 0,
-                          "complexity": 0.0,
-                          "component_hook_count": null,
-                          "component_jsx_conditional_count": null,
-                          "component_loc": null,
-                          "loc": 1,
-                          "max_nesting_depth": 0,
-                          "parameter_count": 0
-                        },
-                        "name": "<span>",
-                        "path": "components/react/OrderDashboard.tsx::OrderBadge::<span>",
-                        "start_line": 91,
-                        "type": "function"
-                      }
-                    ],
-                    "end_line": 91,
-                    "kind": "function",
+                    "children": [],
+                    "end_line": 16,
+                    "kind": "type",
                     "metrics": {
                       "comment_noise": 0,
                       "complexity": 1.0,
-                      "component_hook_count": 0,
-                      "component_jsx_conditional_count": 0,
-                      "component_loc": 1,
-                      "loc": 1,
+                      "component_hook_count": null,
+                      "component_jsx_conditional_count": null,
+                      "component_loc": null,
+                      "loc": 9,
                       "max_nesting_depth": 0,
-                      "parameter_count": 1
+                      "parameter_count": 0
                     },
-                    "name": "OrderBadge",
-                    "path": "components/react/OrderDashboard.tsx::OrderBadge",
-                    "start_line": 91,
+                    "name": "OrderDashboardProps (interface)",
+                    "path": "components/react/OrderDashboard.tsx::OrderDashboardProps (interface)",
+                    "start_line": 8,
                     "type": "function"
                   }
                 ],
@@ -1844,6 +1844,64 @@
                     "type": "function"
                   },
                   {
+                    "children": [
+                      {
+                        "children": [],
+                        "end_line": 7,
+                        "kind": null,
+                        "metrics": {
+                          "comment_noise": null,
+                          "complexity": null,
+                          "component_hook_count": null,
+                          "component_jsx_conditional_count": null,
+                          "component_loc": null,
+                          "loc": 2,
+                          "max_nesting_depth": null,
+                          "parameter_count": null
+                        },
+                        "name": "(body)",
+                        "path": "components/react/Small.tsx::Button::(body)",
+                        "start_line": 5,
+                        "type": "function_body"
+                      },
+                      {
+                        "children": [],
+                        "end_line": 6,
+                        "kind": "jsx",
+                        "metrics": {
+                          "comment_noise": 0,
+                          "complexity": 0.0,
+                          "component_hook_count": null,
+                          "component_jsx_conditional_count": null,
+                          "component_loc": null,
+                          "loc": 1,
+                          "max_nesting_depth": 0,
+                          "parameter_count": 0
+                        },
+                        "name": "<button>",
+                        "path": "components/react/Small.tsx::Button::<button>",
+                        "start_line": 6,
+                        "type": "function"
+                      }
+                    ],
+                    "end_line": 7,
+                    "kind": "function",
+                    "metrics": {
+                      "comment_noise": 0,
+                      "complexity": 1.0,
+                      "component_hook_count": 0,
+                      "component_jsx_conditional_count": 0,
+                      "component_loc": 3,
+                      "loc": 3,
+                      "max_nesting_depth": 0,
+                      "parameter_count": 1
+                    },
+                    "name": "Button",
+                    "path": "components/react/Small.tsx::Button",
+                    "start_line": 5,
+                    "type": "function"
+                  },
+                  {
                     "children": [],
                     "end_line": 3,
                     "kind": "type",
@@ -1866,26 +1924,7 @@
                     "children": [
                       {
                         "children": [],
-                        "end_line": 6,
-                        "kind": "jsx",
-                        "metrics": {
-                          "comment_noise": 0,
-                          "complexity": 0.0,
-                          "component_hook_count": null,
-                          "component_jsx_conditional_count": null,
-                          "component_loc": null,
-                          "loc": 1,
-                          "max_nesting_depth": 0,
-                          "parameter_count": 0
-                        },
-                        "name": "<button>",
-                        "path": "components/react/Small.tsx::Button::<button>",
-                        "start_line": 6,
-                        "type": "function"
-                      },
-                      {
-                        "children": [],
-                        "end_line": 7,
+                        "end_line": 21,
                         "kind": null,
                         "metrics": {
                           "comment_noise": null,
@@ -1898,12 +1937,89 @@
                           "parameter_count": null
                         },
                         "name": "(body)",
-                        "path": "components/react/Small.tsx::Button::(body)",
-                        "start_line": 5,
+                        "path": "components/react/Small.tsx::Field::(body)",
+                        "start_line": 19,
                         "type": "function_body"
+                      },
+                      {
+                        "children": [],
+                        "end_line": 20,
+                        "kind": "jsx",
+                        "metrics": {
+                          "comment_noise": 0,
+                          "complexity": 0.0,
+                          "component_hook_count": null,
+                          "component_jsx_conditional_count": null,
+                          "component_loc": null,
+                          "loc": 1,
+                          "max_nesting_depth": 0,
+                          "parameter_count": 0
+                        },
+                        "name": "<input />",
+                        "path": "components/react/Small.tsx::Field::<input />",
+                        "start_line": 20,
+                        "type": "function"
                       }
                     ],
-                    "end_line": 7,
+                    "end_line": 21,
+                    "kind": "function",
+                    "metrics": {
+                      "comment_noise": 0,
+                      "complexity": 1.0,
+                      "component_hook_count": 0,
+                      "component_jsx_conditional_count": 0,
+                      "component_loc": 3,
+                      "loc": 3,
+                      "max_nesting_depth": 0,
+                      "parameter_count": 2
+                    },
+                    "name": "Field",
+                    "path": "components/react/Small.tsx::Field",
+                    "start_line": 19,
+                    "type": "function"
+                  },
+                  {
+                    "children": [
+                      {
+                        "children": [],
+                        "end_line": 30,
+                        "kind": null,
+                        "metrics": {
+                          "comment_noise": null,
+                          "complexity": null,
+                          "component_hook_count": null,
+                          "component_jsx_conditional_count": null,
+                          "component_loc": null,
+                          "loc": 2,
+                          "max_nesting_depth": null,
+                          "parameter_count": null
+                        },
+                        "name": "(body)",
+                        "path": "components/react/Small.tsx::Heading::(body)",
+                        "start_line": 28,
+                        "type": "function_body"
+                      },
+                      {
+                        "children": [],
+                        "end_line": 29,
+                        "kind": "jsx",
+                        "metrics": {
+                          "comment_noise": 0,
+                          "complexity": 0.0,
+                          "component_hook_count": null,
+                          "component_jsx_conditional_count": null,
+                          "component_loc": null,
+                          "loc": 1,
+                          "max_nesting_depth": 0,
+                          "parameter_count": 0
+                        },
+                        "name": "<h2>",
+                        "path": "components/react/Small.tsx::Heading::<h2>",
+                        "start_line": 29,
+                        "type": "function"
+                      }
+                    ],
+                    "end_line": 30,
                     "kind": "function",
                     "metrics": {
                       "comment_noise": 0,
@@ -1915,15 +2031,53 @@
                       "max_nesting_depth": 0,
                       "parameter_count": 1
                     },
-                    "name": "Button",
-                    "path": "components/react/Small.tsx::Button",
-                    "start_line": 5,
+                    "name": "Heading",
+                    "path": "components/react/Small.tsx::Heading",
+                    "start_line": 28,
                     "type": "function"
                   },
                   {
                     "children": [
                       {
+                        "children": [],
+                        "end_line": 17,
+                        "kind": null,
+                        "metrics": {
+                          "comment_noise": null,
+                          "complexity": null,
+                          "component_hook_count": null,
+                          "component_jsx_conditional_count": null,
+                          "component_loc": null,
+                          "loc": 5,
+                          "max_nesting_depth": null,
+                          "parameter_count": null
+                        },
+                        "name": "(body)",
+                        "path": "components/react/Small.tsx::Toggle::(body)",
+                        "start_line": 9,
+                        "type": "function_body"
+                      },
+                      {
                         "children": [
+                          {
+                            "children": [],
+                            "end_line": 15,
+                            "kind": null,
+                            "metrics": {
+                              "comment_noise": null,
+                              "complexity": null,
+                              "component_hook_count": null,
+                              "component_jsx_conditional_count": null,
+                              "component_loc": null,
+                              "loc": 3,
+                              "max_nesting_depth": null,
+                              "parameter_count": null
+                            },
+                            "name": "(body)",
+                            "path": "components/react/Small.tsx::Toggle::<label>::(body)",
+                            "start_line": 12,
+                            "type": "function_body"
+                          },
                           {
                             "children": [
                               {
@@ -1962,25 +2116,6 @@
                             "path": "components/react/Small.tsx::Toggle::<label>::<input />",
                             "start_line": 13,
                             "type": "function"
-                          },
-                          {
-                            "children": [],
-                            "end_line": 15,
-                            "kind": null,
-                            "metrics": {
-                              "comment_noise": null,
-                              "complexity": null,
-                              "component_hook_count": null,
-                              "component_jsx_conditional_count": null,
-                              "component_loc": null,
-                              "loc": 3,
-                              "max_nesting_depth": null,
-                              "parameter_count": null
-                            },
-                            "name": "(body)",
-                            "path": "components/react/Small.tsx::Toggle::<label>::(body)",
-                            "start_line": 12,
-                            "type": "function_body"
                           }
                         ],
                         "end_line": 15,
@@ -1999,25 +2134,6 @@
                         "path": "components/react/Small.tsx::Toggle::<label>",
                         "start_line": 12,
                         "type": "function"
-                      },
-                      {
-                        "children": [],
-                        "end_line": 17,
-                        "kind": null,
-                        "metrics": {
-                          "comment_noise": null,
-                          "complexity": null,
-                          "component_hook_count": null,
-                          "component_jsx_conditional_count": null,
-                          "component_loc": null,
-                          "loc": 5,
-                          "max_nesting_depth": null,
-                          "parameter_count": null
-                        },
-                        "name": "(body)",
-                        "path": "components/react/Small.tsx::Toggle::(body)",
-                        "start_line": 9,
-                        "type": "function_body"
                       }
                     ],
                     "end_line": 17,
@@ -2038,64 +2154,6 @@
                     "type": "function"
                   },
                   {
-                    "children": [
-                      {
-                        "children": [],
-                        "end_line": 20,
-                        "kind": "jsx",
-                        "metrics": {
-                          "comment_noise": 0,
-                          "complexity": 0.0,
-                          "component_hook_count": null,
-                          "component_jsx_conditional_count": null,
-                          "component_loc": null,
-                          "loc": 1,
-                          "max_nesting_depth": 0,
-                          "parameter_count": 0
-                        },
-                        "name": "<input />",
-                        "path": "components/react/Small.tsx::Field::<input />",
-                        "start_line": 20,
-                        "type": "function"
-                      },
-                      {
-                        "children": [],
-                        "end_line": 21,
-                        "kind": null,
-                        "metrics": {
-                          "comment_noise": null,
-                          "complexity": null,
-                          "component_hook_count": null,
-                          "component_jsx_conditional_count": null,
-                          "component_loc": null,
-                          "loc": 2,
-                          "max_nesting_depth": null,
-                          "parameter_count": null
-                        },
-                        "name": "(body)",
-                        "path": "components/react/Small.tsx::Field::(body)",
-                        "start_line": 19,
-                        "type": "function_body"
-                      }
-                    ],
-                    "end_line": 21,
-                    "kind": "function",
-                    "metrics": {
-                      "comment_noise": 0,
-                      "complexity": 1.0,
-                      "component_hook_count": 0,
-                      "component_jsx_conditional_count": 0,
-                      "component_loc": 3,
-                      "loc": 3,
-                      "max_nesting_depth": 0,
-                      "parameter_count": 2
-                    },
-                    "name": "Field",
-                    "path": "components/react/Small.tsx::Field",
-                    "start_line": 19,
-                    "type": "function"
-                  },
-                  {
                     "children": [],
                     "end_line": 26,
                     "kind": "function",
@@ -2112,64 +2170,6 @@
                     "name": "formatLabel",
                     "path": "components/react/Small.tsx::formatLabel",
                     "start_line": 24,
-                    "type": "function"
-                  },
-                  {
-                    "children": [
-                      {
-                        "children": [],
-                        "end_line": 29,
-                        "kind": "jsx",
-                        "metrics": {
-                          "comment_noise": 0,
-                          "complexity": 0.0,
-                          "component_hook_count": null,
-                          "component_jsx_conditional_count": null,
-                          "component_loc": null,
-                          "loc": 1,
-                          "max_nesting_depth": 0,
-                          "parameter_count": 0
-                        },
-                        "name": "<h2>",
-                        "path": "components/react/Small.tsx::Heading::<h2>",
-                        "start_line": 29,
-                        "type": "function"
-                      },
-                      {
-                        "children": [],
-                        "end_line": 30,
-                        "kind": null,
-                        "metrics": {
-                          "comment_noise": null,
-                          "complexity": null,
-                          "component_hook_count": null,
-                          "component_jsx_conditional_count": null,
-                          "component_loc": null,
-                          "loc": 2,
-                          "max_nesting_depth": null,
-                          "parameter_count": null
-                        },
-                        "name": "(body)",
-                        "path": "components/react/Small.tsx::Heading::(body)",
-                        "start_line": 28,
-                        "type": "function_body"
-                      }
-                    ],
-                    "end_line": 30,
-                    "kind": "function",
-                    "metrics": {
-                      "comment_noise": 0,
-                      "complexity": 1.0,
-                      "component_hook_count": 0,
-                      "component_jsx_conditional_count": 0,
-                      "component_loc": 3,
-                      "loc": 3,
-                      "max_nesting_depth": 0,
-                      "parameter_count": 1
-                    },
-                    "name": "Heading",
-                    "path": "components/react/Small.tsx::Heading",
-                    "start_line": 28,
                     "type": "function"
                   }
                 ],
@@ -2232,66 +2232,47 @@
                     "type": "function"
                   },
                   {
-                    "children": [],
-                    "end_line": 3,
-                    "kind": "type",
-                    "metrics": {
-                      "comment_noise": 0,
-                      "complexity": 1.0,
-                      "component_hook_count": null,
-                      "component_jsx_conditional_count": null,
-                      "component_loc": null,
-                      "loc": 1,
-                      "max_nesting_depth": 0,
-                      "parameter_count": 0
-                    },
-                    "name": "CounterProps (type)",
-                    "path": "components/solid/Counter.tsx::CounterProps (type)",
-                    "start_line": 3,
-                    "type": "function"
-                  },
-                  {
                     "children": [
                       {
                         "children": [],
-                        "end_line": 7,
-                        "kind": "function",
+                        "end_line": 26,
+                        "kind": null,
                         "metrics": {
-                          "comment_noise": 0,
-                          "complexity": 1.0,
+                          "comment_noise": null,
+                          "complexity": null,
                           "component_hook_count": null,
                           "component_jsx_conditional_count": null,
                           "component_loc": null,
-                          "loc": 1,
-                          "max_nesting_depth": 0,
-                          "parameter_count": 0
+                          "loc": 6,
+                          "max_nesting_depth": null,
+                          "parameter_count": null
                         },
-                        "name": "createMemo(\u0192)",
-                        "path": "components/solid/Counter.tsx::Counter::createMemo(\u0192)",
-                        "start_line": 7,
-                        "type": "function"
-                      },
-                      {
-                        "children": [],
-                        "end_line": 8,
-                        "kind": "function",
-                        "metrics": {
-                          "comment_noise": 0,
-                          "complexity": 1.0,
-                          "component_hook_count": null,
-                          "component_jsx_conditional_count": null,
-                          "component_loc": null,
-                          "loc": 1,
-                          "max_nesting_depth": 0,
-                          "parameter_count": 0
-                        },
-                        "name": "createEffect(\u0192)",
-                        "path": "components/solid/Counter.tsx::Counter::createEffect(\u0192)",
-                        "start_line": 8,
-                        "type": "function"
+                        "name": "(body)",
+                        "path": "components/solid/Counter.tsx::Counter::(body)",
+                        "start_line": 5,
+                        "type": "function_body"
                       },
                       {
                         "children": [
+                          {
+                            "children": [],
+                            "end_line": 24,
+                            "kind": null,
+                            "metrics": {
+                              "comment_noise": null,
+                              "complexity": null,
+                              "component_hook_count": null,
+                              "component_jsx_conditional_count": null,
+                              "component_loc": null,
+                              "loc": 13,
+                              "max_nesting_depth": null,
+                              "parameter_count": null
+                            },
+                            "name": "(body)",
+                            "path": "components/solid/Counter.tsx::Counter::<div>::(body)",
+                            "start_line": 11,
+                            "type": "function_body"
+                          },
                           {
                             "children": [
                               {
@@ -2330,25 +2311,6 @@
                             "path": "components/solid/Counter.tsx::Counter::<div>::<button>",
                             "start_line": 23,
                             "type": "function"
-                          },
-                          {
-                            "children": [],
-                            "end_line": 24,
-                            "kind": null,
-                            "metrics": {
-                              "comment_noise": null,
-                              "complexity": null,
-                              "component_hook_count": null,
-                              "component_jsx_conditional_count": null,
-                              "component_loc": null,
-                              "loc": 13,
-                              "max_nesting_depth": null,
-                              "parameter_count": null
-                            },
-                            "name": "(body)",
-                            "path": "components/solid/Counter.tsx::Counter::<div>::(body)",
-                            "start_line": 11,
-                            "type": "function_body"
                           }
                         ],
                         "end_line": 24,
@@ -2370,22 +2332,41 @@
                       },
                       {
                         "children": [],
-                        "end_line": 26,
-                        "kind": null,
+                        "end_line": 8,
+                        "kind": "function",
                         "metrics": {
-                          "comment_noise": null,
-                          "complexity": null,
+                          "comment_noise": 0,
+                          "complexity": 1.0,
                           "component_hook_count": null,
                           "component_jsx_conditional_count": null,
                           "component_loc": null,
-                          "loc": 6,
-                          "max_nesting_depth": null,
-                          "parameter_count": null
+                          "loc": 1,
+                          "max_nesting_depth": 0,
+                          "parameter_count": 0
                         },
-                        "name": "(body)",
-                        "path": "components/solid/Counter.tsx::Counter::(body)",
-                        "start_line": 5,
-                        "type": "function_body"
+                        "name": "createEffect(\u0192)",
+                        "path": "components/solid/Counter.tsx::Counter::createEffect(\u0192)",
+                        "start_line": 8,
+                        "type": "function"
+                      },
+                      {
+                        "children": [],
+                        "end_line": 7,
+                        "kind": "function",
+                        "metrics": {
+                          "comment_noise": 0,
+                          "complexity": 1.0,
+                          "component_hook_count": null,
+                          "component_jsx_conditional_count": null,
+                          "component_loc": null,
+                          "loc": 1,
+                          "max_nesting_depth": 0,
+                          "parameter_count": 0
+                        },
+                        "name": "createMemo(\u0192)",
+                        "path": "components/solid/Counter.tsx::Counter::createMemo(\u0192)",
+                        "start_line": 7,
+                        "type": "function"
                       }
                     ],
                     "end_line": 26,
@@ -2406,26 +2387,26 @@
                     "type": "function"
                   },
                   {
+                    "children": [],
+                    "end_line": 3,
+                    "kind": "type",
+                    "metrics": {
+                      "comment_noise": 0,
+                      "complexity": 1.0,
+                      "component_hook_count": null,
+                      "component_jsx_conditional_count": null,
+                      "component_loc": null,
+                      "loc": 1,
+                      "max_nesting_depth": 0,
+                      "parameter_count": 0
+                    },
+                    "name": "CounterProps (type)",
+                    "path": "components/solid/Counter.tsx::CounterProps (type)",
+                    "start_line": 3,
+                    "type": "function"
+                  },
+                  {
                     "children": [
-                      {
-                        "children": [],
-                        "end_line": 33,
-                        "kind": "jsx",
-                        "metrics": {
-                          "comment_noise": 0,
-                          "complexity": 0.0,
-                          "component_hook_count": null,
-                          "component_jsx_conditional_count": null,
-                          "component_loc": null,
-                          "loc": 4,
-                          "max_nesting_depth": 0,
-                          "parameter_count": 0
-                        },
-                        "name": "<section>",
-                        "path": "components/solid/Counter.tsx::Panel::<section>",
-                        "start_line": 30,
-                        "type": "function"
-                      },
                       {
                         "children": [],
                         "end_line": 35,
@@ -2444,6 +2425,25 @@
                         "path": "components/solid/Counter.tsx::Panel::(body)",
                         "start_line": 28,
                         "type": "function_body"
+                      },
+                      {
+                        "children": [],
+                        "end_line": 33,
+                        "kind": "jsx",
+                        "metrics": {
+                          "comment_noise": 0,
+                          "complexity": 0.0,
+                          "component_hook_count": null,
+                          "component_jsx_conditional_count": null,
+                          "component_loc": null,
+                          "loc": 4,
+                          "max_nesting_depth": 0,
+                          "parameter_count": 0
+                        },
+                        "name": "<section>",
+                        "path": "components/solid/Counter.tsx::Panel::<section>",
+                        "start_line": 30,
+                        "type": "function"
                       }
                     ],
                     "end_line": 35,
@@ -2605,143 +2605,85 @@
                     "children": [
                       {
                         "children": [],
-                        "end_line": 5,
-                        "kind": "function",
-                        "metrics": {
-                          "comment_noise": 0,
-                          "complexity": 2.0,
-                          "component_hook_count": null,
-                          "component_jsx_conditional_count": null,
-                          "component_loc": null,
-                          "loc": 1,
-                          "max_nesting_depth": 0,
-                          "parameter_count": 1
-                        },
-                        "name": "pick",
-                        "path": "metric_trust/src/Panel.tsx::styles (object)::pick",
-                        "start_line": 5,
-                        "type": "function"
-                      },
-                      {
-                        "children": [],
-                        "end_line": 6,
+                        "end_line": 31,
                         "kind": null,
                         "metrics": {
                           "comment_noise": null,
                           "complexity": null,
-                          "component_hook_count": null,
-                          "component_jsx_conditional_count": null,
-                          "component_loc": null,
-                          "loc": 2,
-                          "max_nesting_depth": null,
-                          "parameter_count": null
-                        },
-                        "name": "(body)",
-                        "path": "metric_trust/src/Panel.tsx::styles (object)::(body)",
-                        "start_line": 4,
-                        "type": "function_body"
-                      }
-                    ],
-                    "end_line": 6,
-                    "kind": "object",
-                    "metrics": {
-                      "comment_noise": 0,
-                      "complexity": 1.0,
-                      "component_hook_count": null,
-                      "component_jsx_conditional_count": null,
-                      "component_loc": null,
-                      "loc": 3,
-                      "max_nesting_depth": 0,
-                      "parameter_count": 0
-                    },
-                    "name": "styles (object)",
-                    "path": "metric_trust/src/Panel.tsx::styles (object)",
-                    "start_line": 4,
-                    "type": "function"
-                  },
-                  {
-                    "children": [
-                      {
-                        "children": [],
-                        "end_line": 14,
-                        "kind": "function",
-                        "metrics": {
-                          "comment_noise": 0,
-                          "complexity": 2.0,
-                          "component_hook_count": null,
-                          "component_jsx_conditional_count": null,
-                          "component_loc": null,
-                          "loc": 4,
-                          "max_nesting_depth": 1,
-                          "parameter_count": 1
-                        },
-                        "name": "add",
-                        "path": "metric_trust/src/Panel.tsx::Store (class)::add",
-                        "start_line": 11,
-                        "type": "function"
-                      },
-                      {
-                        "children": [],
-                        "end_line": 15,
-                        "kind": null,
-                        "metrics": {
-                          "comment_noise": null,
-                          "complexity": null,
-                          "component_hook_count": null,
-                          "component_jsx_conditional_count": null,
-                          "component_loc": null,
-                          "loc": 4,
-                          "max_nesting_depth": null,
-                          "parameter_count": null
-                        },
-                        "name": "(body)",
-                        "path": "metric_trust/src/Panel.tsx::Store (class)::(body)",
-                        "start_line": 8,
-                        "type": "function_body"
-                      }
-                    ],
-                    "end_line": 15,
-                    "kind": "class",
-                    "metrics": {
-                      "comment_noise": 0,
-                      "complexity": 1.0,
-                      "component_hook_count": null,
-                      "component_jsx_conditional_count": null,
-                      "component_loc": null,
-                      "loc": 8,
-                      "max_nesting_depth": 1,
-                      "parameter_count": 0
-                    },
-                    "name": "Store (class)",
-                    "path": "metric_trust/src/Panel.tsx::Store (class)",
-                    "start_line": 8,
-                    "type": "function"
-                  },
-                  {
-                    "children": [
-                      {
-                        "children": [],
-                        "end_line": 23,
-                        "kind": "function",
-                        "metrics": {
-                          "comment_noise": 0,
-                          "complexity": 3.0,
                           "component_hook_count": null,
                           "component_jsx_conditional_count": null,
                           "component_loc": null,
                           "loc": 5,
-                          "max_nesting_depth": 1,
-                          "parameter_count": 1
+                          "max_nesting_depth": null,
+                          "parameter_count": null
                         },
-                        "name": "label",
-                        "path": "metric_trust/src/Panel.tsx::Panel::label",
-                        "start_line": 19,
-                        "type": "function"
+                        "name": "(body)",
+                        "path": "metric_trust/src/Panel.tsx::Panel::(body)",
+                        "start_line": 17,
+                        "type": "function_body"
                       },
                       {
                         "children": [
                           {
                             "children": [
+                              {
+                                "children": [],
+                                "end_line": 29,
+                                "kind": null,
+                                "metrics": {
+                                  "comment_noise": null,
+                                  "complexity": null,
+                                  "component_hook_count": null,
+                                  "component_jsx_conditional_count": null,
+                                  "component_loc": null,
+                                  "loc": 3,
+                                  "max_nesting_depth": null,
+                                  "parameter_count": null
+                                },
+                                "name": "(body)",
+                                "path": "metric_trust/src/Panel.tsx::Panel::<div>::<div>::(body)",
+                                "start_line": 25,
+                                "type": "function_body"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "end_line": 28,
+                                    "kind": "function",
+                                    "metrics": {
+                                      "comment_noise": 0,
+                                      "complexity": 1.0,
+                                      "component_hook_count": null,
+                                      "component_jsx_conditional_count": null,
+                                      "component_loc": null,
+                                      "loc": 1,
+                                      "max_nesting_depth": 0,
+                                      "parameter_count": 0
+                                    },
+                                    "name": "onClick",
+                                    "path": "metric_trust/src/Panel.tsx::Panel::<div>::<div>::<button>::onClick",
+                                    "start_line": 28,
+                                    "type": "function"
+                                  }
+                                ],
+                                "end_line": 28,
+                                "kind": "jsx",
+                                "metrics": {
+                                  "comment_noise": 0,
+                                  "complexity": 1.0,
+                                  "component_hook_count": null,
+                                  "component_jsx_conditional_count": null,
+                                  "component_loc": null,
+                                  "loc": 1,
+                                  "max_nesting_depth": 0,
+                                  "parameter_count": 0
+                                },
+                                "name": "<button>",
+                                "path": "metric_trust/src/Panel.tsx::Panel::<div>::<div>::<button>",
+                                "start_line": 28,
+                                "type": "function"
+                              },
                               {
                                 "children": [
                                   {
@@ -2800,64 +2742,6 @@
                                 "path": "metric_trust/src/Panel.tsx::Panel::<div>::<div>::<ul>",
                                 "start_line": 26,
                                 "type": "function"
-                              },
-                              {
-                                "children": [
-                                  {
-                                    "children": [],
-                                    "end_line": 28,
-                                    "kind": "function",
-                                    "metrics": {
-                                      "comment_noise": 0,
-                                      "complexity": 1.0,
-                                      "component_hook_count": null,
-                                      "component_jsx_conditional_count": null,
-                                      "component_loc": null,
-                                      "loc": 1,
-                                      "max_nesting_depth": 0,
-                                      "parameter_count": 0
-                                    },
-                                    "name": "onClick",
-                                    "path": "metric_trust/src/Panel.tsx::Panel::<div>::<div>::<button>::onClick",
-                                    "start_line": 28,
-                                    "type": "function"
-                                  }
-                                ],
-                                "end_line": 28,
-                                "kind": "jsx",
-                                "metrics": {
-                                  "comment_noise": 0,
-                                  "complexity": 1.0,
-                                  "component_hook_count": null,
-                                  "component_jsx_conditional_count": null,
-                                  "component_loc": null,
-                                  "loc": 1,
-                                  "max_nesting_depth": 0,
-                                  "parameter_count": 0
-                                },
-                                "name": "<button>",
-                                "path": "metric_trust/src/Panel.tsx::Panel::<div>::<div>::<button>",
-                                "start_line": 28,
-                                "type": "function"
-                              },
-                              {
-                                "children": [],
-                                "end_line": 29,
-                                "kind": null,
-                                "metrics": {
-                                  "comment_noise": null,
-                                  "complexity": null,
-                                  "component_hook_count": null,
-                                  "component_jsx_conditional_count": null,
-                                  "component_loc": null,
-                                  "loc": 3,
-                                  "max_nesting_depth": null,
-                                  "parameter_count": null
-                                },
-                                "name": "(body)",
-                                "path": "metric_trust/src/Panel.tsx::Panel::<div>::<div>::(body)",
-                                "start_line": 25,
-                                "type": "function_body"
                               }
                             ],
                             "end_line": 29,
@@ -2897,22 +2781,22 @@
                       },
                       {
                         "children": [],
-                        "end_line": 31,
-                        "kind": null,
+                        "end_line": 23,
+                        "kind": "function",
                         "metrics": {
-                          "comment_noise": null,
-                          "complexity": null,
+                          "comment_noise": 0,
+                          "complexity": 3.0,
                           "component_hook_count": null,
                           "component_jsx_conditional_count": null,
                           "component_loc": null,
                           "loc": 5,
-                          "max_nesting_depth": null,
-                          "parameter_count": null
+                          "max_nesting_depth": 1,
+                          "parameter_count": 1
                         },
-                        "name": "(body)",
-                        "path": "metric_trust/src/Panel.tsx::Panel::(body)",
-                        "start_line": 17,
-                        "type": "function_body"
+                        "name": "label",
+                        "path": "metric_trust/src/Panel.tsx::Panel::label",
+                        "start_line": 19,
+                        "type": "function"
                       }
                     ],
                     "end_line": 31,
@@ -2930,6 +2814,122 @@
                     "name": "Panel",
                     "path": "metric_trust/src/Panel.tsx::Panel",
                     "start_line": 17,
+                    "type": "function"
+                  },
+                  {
+                    "children": [
+                      {
+                        "children": [],
+                        "end_line": 15,
+                        "kind": null,
+                        "metrics": {
+                          "comment_noise": null,
+                          "complexity": null,
+                          "component_hook_count": null,
+                          "component_jsx_conditional_count": null,
+                          "component_loc": null,
+                          "loc": 4,
+                          "max_nesting_depth": null,
+                          "parameter_count": null
+                        },
+                        "name": "(body)",
+                        "path": "metric_trust/src/Panel.tsx::Store (class)::(body)",
+                        "start_line": 8,
+                        "type": "function_body"
+                      },
+                      {
+                        "children": [],
+                        "end_line": 14,
+                        "kind": "function",
+                        "metrics": {
+                          "comment_noise": 0,
+                          "complexity": 2.0,
+                          "component_hook_count": null,
+                          "component_jsx_conditional_count": null,
+                          "component_loc": null,
+                          "loc": 4,
+                          "max_nesting_depth": 1,
+                          "parameter_count": 1
+                        },
+                        "name": "add",
+                        "path": "metric_trust/src/Panel.tsx::Store (class)::add",
+                        "start_line": 11,
+                        "type": "function"
+                      }
+                    ],
+                    "end_line": 15,
+                    "kind": "class",
+                    "metrics": {
+                      "comment_noise": 0,
+                      "complexity": 1.0,
+                      "component_hook_count": null,
+                      "component_jsx_conditional_count": null,
+                      "component_loc": null,
+                      "loc": 8,
+                      "max_nesting_depth": 1,
+                      "parameter_count": 0
+                    },
+                    "name": "Store (class)",
+                    "path": "metric_trust/src/Panel.tsx::Store (class)",
+                    "start_line": 8,
+                    "type": "function"
+                  },
+                  {
+                    "children": [
+                      {
+                        "children": [],
+                        "end_line": 6,
+                        "kind": null,
+                        "metrics": {
+                          "comment_noise": null,
+                          "complexity": null,
+                          "component_hook_count": null,
+                          "component_jsx_conditional_count": null,
+                          "component_loc": null,
+                          "loc": 2,
+                          "max_nesting_depth": null,
+                          "parameter_count": null
+                        },
+                        "name": "(body)",
+                        "path": "metric_trust/src/Panel.tsx::styles (object)::(body)",
+                        "start_line": 4,
+                        "type": "function_body"
+                      },
+                      {
+                        "children": [],
+                        "end_line": 5,
+                        "kind": "function",
+                        "metrics": {
+                          "comment_noise": 0,
+                          "complexity": 2.0,
+                          "component_hook_count": null,
+                          "component_jsx_conditional_count": null,
+                          "component_loc": null,
+                          "loc": 1,
+                          "max_nesting_depth": 0,
+                          "parameter_count": 1
+                        },
+                        "name": "pick",
+                        "path": "metric_trust/src/Panel.tsx::styles (object)::pick",
+                        "start_line": 5,
+                        "type": "function"
+                      }
+                    ],
+                    "end_line": 6,
+                    "kind": "object",
+                    "metrics": {
+                      "comment_noise": 0,
+                      "complexity": 1.0,
+                      "component_hook_count": null,
+                      "component_jsx_conditional_count": null,
+                      "component_loc": null,
+                      "loc": 3,
+                      "max_nesting_depth": 0,
+                      "parameter_count": 0
+                    },
+                    "name": "styles (object)",
+                    "path": "metric_trust/src/Panel.tsx::styles (object)",
+                    "start_line": 4,
                     "type": "function"
                   }
                 ],
@@ -3014,26 +3014,7 @@
                     "children": [
                       {
                         "children": [],
-                        "end_line": 12,
-                        "kind": "function",
-                        "metrics": {
-                          "comment_noise": 0,
-                          "complexity": 4.0,
-                          "component_hook_count": null,
-                          "component_jsx_conditional_count": null,
-                          "component_loc": null,
-                          "loc": 8,
-                          "max_nesting_depth": 1,
-                          "parameter_count": 1
-                        },
-                        "name": "backoff",
-                        "path": "metric_trust/src/jobs.py::schedule::backoff",
-                        "start_line": 5,
-                        "type": "function"
-                      },
-                      {
-                        "children": [],
-                        "end_line": 18,
+                        "end_line": 28,
                         "kind": null,
                         "metrics": {
                           "comment_noise": null,
@@ -3041,53 +3022,14 @@
                           "component_hook_count": null,
                           "component_jsx_conditional_count": null,
                           "component_loc": null,
-                          "loc": 7,
+                          "loc": 2,
                           "max_nesting_depth": null,
                           "parameter_count": null
                         },
                         "name": "(body)",
-                        "path": "metric_trust/src/jobs.py::schedule::(body)",
-                        "start_line": 4,
+                        "path": "metric_trust/src/jobs.py::(class) Queue::(body)",
+                        "start_line": 21,
                         "type": "function_body"
-                      }
-                    ],
-                    "end_line": 18,
-                    "kind": "function",
-                    "metrics": {
-                      "comment_noise": 0,
-                      "complexity": 3.0,
-                      "component_hook_count": null,
-                      "component_jsx_conditional_count": null,
-                      "component_loc": null,
-                      "loc": 15,
-                      "max_nesting_depth": 2,
-                      "parameter_count": 2
-                    },
-                    "name": "schedule",
-                    "path": "metric_trust/src/jobs.py::schedule",
-                    "start_line": 4,
-                    "type": "function"
-                  },
-                  {
-                    "children": [
-                      {
-                        "children": [],
-                        "end_line": 23,
-                        "kind": "function",
-                        "metrics": {
-                          "comment_noise": 0,
-                          "complexity": 1.0,
-                          "component_hook_count": null,
-                          "component_jsx_conditional_count": null,
-                          "component_loc": null,
-                          "loc": 2,
-                          "max_nesting_depth": 0,
-                          "parameter_count": 2
-                        },
-                        "name": "push",
-                        "path": "metric_trust/src/jobs.py::(class) Queue::push",
-                        "start_line": 22,
-                        "type": "function"
                       },
                       {
                         "children": [],
@@ -3110,22 +3052,22 @@
                       },
                       {
                         "children": [],
-                        "end_line": 28,
-                        "kind": null,
+                        "end_line": 23,
+                        "kind": "function",
                         "metrics": {
-                          "comment_noise": null,
-                          "complexity": null,
+                          "comment_noise": 0,
+                          "complexity": 1.0,
                           "component_hook_count": null,
                           "component_jsx_conditional_count": null,
                           "component_loc": null,
                           "loc": 2,
-                          "max_nesting_depth": null,
-                          "parameter_count": null
+                          "max_nesting_depth": 0,
+                          "parameter_count": 2
                         },
-                        "name": "(body)",
-                        "path": "metric_trust/src/jobs.py::(class) Queue::(body)",
-                        "start_line": 21,
-                        "type": "function_body"
+                        "name": "push",
+                        "path": "metric_trust/src/jobs.py::(class) Queue::push",
+                        "start_line": 22,
+                        "type": "function"
                       }
                     ],
                     "end_line": 28,
@@ -3143,6 +3085,64 @@
                     "name": "(class) Queue",
                     "path": "metric_trust/src/jobs.py::(class) Queue",
                     "start_line": 21,
+                    "type": "function"
+                  },
+                  {
+                    "children": [
+                      {
+                        "children": [],
+                        "end_line": 18,
+                        "kind": null,
+                        "metrics": {
+                          "comment_noise": null,
+                          "complexity": null,
+                          "component_hook_count": null,
+                          "component_jsx_conditional_count": null,
+                          "component_loc": null,
+                          "loc": 7,
+                          "max_nesting_depth": null,
+                          "parameter_count": null
+                        },
+                        "name": "(body)",
+                        "path": "metric_trust/src/jobs.py::schedule::(body)",
+                        "start_line": 4,
+                        "type": "function_body"
+                      },
+                      {
+                        "children": [],
+                        "end_line": 12,
+                        "kind": "function",
+                        "metrics": {
+                          "comment_noise": 0,
+                          "complexity": 4.0,
+                          "component_hook_count": null,
+                          "component_jsx_conditional_count": null,
+                          "component_loc": null,
+                          "loc": 8,
+                          "max_nesting_depth": 1,
+                          "parameter_count": 1
+                        },
+                        "name": "backoff",
+                        "path": "metric_trust/src/jobs.py::schedule::backoff",
+                        "start_line": 5,
+                        "type": "function"
+                      }
+                    ],
+                    "end_line": 18,
+                    "kind": "function",
+                    "metrics": {
+                      "comment_noise": 0,
+                      "complexity": 3.0,
+                      "component_hook_count": null,
+                      "component_jsx_conditional_count": null,
+                      "component_loc": null,
+                      "loc": 15,
+                      "max_nesting_depth": 2,
+                      "parameter_count": 2
+                    },
+                    "name": "schedule",
+                    "path": "metric_trust/src/jobs.py::schedule",
+                    "start_line": 4,
                     "type": "function"
                   }
                 ],
