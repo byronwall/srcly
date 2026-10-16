@@ -2,7 +2,7 @@ import tree_sitter_python as tspython
 from tree_sitter import Language, Parser, Node
 from typing import List
 
-from app.services.analysis_types import FileMetrics, FunctionMetrics, is_synthetic_scope
+from app.services.analysis_types import FileMetrics, FunctionMetrics, is_executable_scope, iter_executable_scopes
 
 # Load Python grammar
 PYTHON_LANGUAGE = Language(tspython.language())
@@ -38,7 +38,7 @@ class PythonTreeSitterAnalyzer:
 
         # Average complexity (top-level only, matching original behavior)
         avg_complexity = 0.0
-        real_functions = [f for f in top_level_functions if not is_synthetic_scope(f)]
+        real_functions = list(iter_executable_scopes(top_level_functions))
         if real_functions:
             avg_complexity = sum(f.cyclomatic_complexity for f in real_functions) / len(real_functions)
             

@@ -27,8 +27,8 @@ export interface CompareFile {
   additions: number;
   deletions: number;
   analyzed: boolean;
-  before: Record<string, number> | null;
-  after: Record<string, number> | null;
+  before: Record<string, number | null> | null;
+  after: Record<string, number | null> | null;
   deltas: Record<string, MetricDelta>;
 }
 

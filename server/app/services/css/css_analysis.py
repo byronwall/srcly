@@ -53,9 +53,9 @@ class CssTreeSitterAnalyzer:
         total_scope_loc = sum(f.nloc for f in scopes)
         average_scope_length = total_scope_loc / len(scopes) if scopes else 0.0
 
-        # For now we do not compute any CSS/SCSS-specific metrics; everything
-        # other than LOC and the scope hierarchy stays at 0 so the rest of the
-        # pipeline can aggregate safely.
+        # No CSS/SCSS-specific metrics yet: only LOC and the scope hierarchy
+        # are measured. The zeros below are ignored; `MEASURED_FILE_METRICS`
+        # marks every other metric N/A for CSS.
         return FileMetrics(
             nloc=nloc,
             average_cyclomatic_complexity=average_complexity,

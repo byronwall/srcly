@@ -9,6 +9,8 @@ import type { HierarchyRectangularNode } from "d3";
 import { zoomTransforms } from "../utils/zoom";
 import { truncateTextToWidth } from "../../../utils/svgText";
 import {
+  TREEMAP_NA_HATCH,
+  metricIsNA,
   treemapFillColor,
   treemapLabelColor,
 } from "../utils/colors";
@@ -67,6 +69,23 @@ function tileKey(node: TreemapTile | null): string | null {
     current = current.parent as TreemapTile | null;
   }
   return segments.reverse().join("/");
+}
+
+/** Diagonal hatch over an N/A tile, clipped to it, so N/A never looks like a measured value. */
+function drawNAHatch(context: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+  context.save();
+  context.beginPath();
+  context.rect(x, y, w, h);
+  context.clip();
+  context.strokeStyle = TREEMAP_NA_HATCH;
+  context.lineWidth = 1;
+  context.beginPath();
+  for (let d = -h; d < w; d += 5) {
+    context.moveTo(x + d, y + h);
+    context.lineTo(x + d + h, y);
+  }
+  context.stroke();
+  context.restore();
 }
 
 function relativeDepth(node: TreemapTile): number {
@@ -188,6 +207,9 @@ export default function TreemapCanvas(props: TreemapCanvasProps) {
         ? "#ffffff"
         : treemapFillColor(props.metricId(), data?.metrics ?? {}, relativeDepth(node));
       context.fillRect(node.x0, node.y0, node.x1 - node.x0, node.y1 - node.y0);
+      if (!isFolder && metricIsNA(props.metricId(), data?.metrics)) {
+        drawNAHatch(context, node.x0, node.y0, node.x1 - node.x0, node.y1 - node.y0);
+      }
       context.restore();
 
       context.lineWidth = isHovered

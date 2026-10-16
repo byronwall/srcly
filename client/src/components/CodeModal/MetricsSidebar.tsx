@@ -37,6 +37,7 @@ export function MetricsSidebar(props: {
               path={String(props.fileNode?.path ?? props.scopeNode?.path ?? "")}
               fileNode={props.fileNode}
               scopeNode={props.scopeNode && props.scopeNode !== props.fileNode && props.scopeNode.type !== "file" ? props.scopeNode : null}
+              onSelectNode={props.onSelectNode}
             />
           </div>
         </Show>

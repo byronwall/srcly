@@ -23,7 +23,7 @@ export interface Rect {
 
 export interface TileSide {
   loc: number;
-  metrics: Record<string, number>;
+  metrics: Record<string, number | null>;
   /** Filled part of the tile: area proportional to this side's LOC. */
   fill: Rect;
 }
@@ -68,11 +68,11 @@ export const hasHeader = (r: { x0: number; y0: number; x1: number; y1: number })
 const MIN_WEIGHT = 1;
 const MIN_SHARE = 0.008;
 
-function locOf(metrics: Record<string, number> | null | undefined): number {
+function locOf(metrics: Record<string, number | null> | null | undefined): number {
   return Math.max(0, Number(metrics?.loc ?? 0) || 0);
 }
 
-function sideMetrics(row: FileRow, side: SideName): Record<string, number> | null {
+function sideMetrics(row: FileRow, side: SideName): Record<string, number | null> | null {
   if (row.change) return side === "base" ? row.change.before : row.change.after;
   return row.metrics ?? null;
 }

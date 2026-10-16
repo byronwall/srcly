@@ -27,14 +27,29 @@ def test_file_complexity_is_max_including_nested_scopes() -> None:
     analysis.attach_file_metrics(node, info)
 
     assert node.metrics.complexity == 9
-    assert node.metrics.complexity_avg == 1.5
+    # Mean over every executable function, nested ones included.
+    assert node.metrics.complexity_avg == (2 + 9 + 1) / 3
+    assert node.metrics.function_count == 3
+    assert node.metrics.complexity_witness.name == "handler"
+    assert node.metrics.complexity_witness.path == "/r/a.tsx::Component::handler"
 
 
-def test_file_without_functions_has_zero_complexity() -> None:
+def test_code_file_without_functions_has_measured_zero_complexity() -> None:
+    node = analysis.create_node("a.py", "file", "/r/a.py")
+    analysis.attach_file_metrics(node, _file_info("/r/a.py", [], avg=0.0))
+    assert node.metrics.complexity == 0
+    assert node.metrics.complexity_witness is None
+    assert node.metrics.function_count == 0
+    # No functions to average: N/A rather than 0.
+    assert node.metrics.complexity_avg is None
+
+
+def test_markdown_file_has_no_complexity() -> None:
     node = analysis.create_node("a.md", "file", "/r/a.md")
     analysis.attach_file_metrics(node, _file_info("/r/a.md", [], avg=0.0))
-    assert node.metrics.complexity == 0
-    assert node.metrics.complexity_avg == 0
+    assert node.metrics.complexity is None
+    assert node.metrics.function_count is None
+    assert node.metrics.na_reason == "Not measured for Markdown files"
 
 
 def test_folder_complexity_max_and_weighted_average() -> None:

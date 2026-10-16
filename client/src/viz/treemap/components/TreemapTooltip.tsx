@@ -94,6 +94,13 @@ export default function TreemapTooltip(props: { model: Accessor<TreemapTooltipMo
               </div>
             )}
           </Show>
+          <Show when={m().primary?.witness}>
+            {(w) => (
+              <div class="plc-data-sm truncate pl-4 !font-normal text-[var(--plc-on-subtle)]">
+                in <span class="text-[var(--plc-on-muted)]">{w()}</span>
+              </div>
+            )}
+          </Show>
 
           <Show when={m().lines.length > 0}>
             <div class="mt-1 grid grid-cols-2 gap-x-4 gap-y-px">

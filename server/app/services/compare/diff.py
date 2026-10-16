@@ -171,7 +171,8 @@ def _side_values(
         if m.source == "graph":
             values[m.name] = (fan_in if m.name == "fan_in" else fan_out).get(path, 0)
         else:
-            value = raw.get(m.name, 0) or 0
+            # None is N/A (doesn't apply, skipped or failed), not 0.
+            value = raw.get(m.name)
             values[m.name] = _round(value) if isinstance(value, float) else value
     return values
 
@@ -214,6 +215,8 @@ def diff_sides(
             a = after.get(m.name) if after else None
             if (b or 0) == 0 and (a or 0) == 0:
                 continue
+            if before is not None and after is not None and (a is None or b is None):
+                continue  # N/A on one side: there's no like-for-like change to judge
             deltas[m.name] = {
                 "before": b,
                 "after": a,
@@ -268,8 +271,8 @@ def _summary(
 
     metric_totals: dict[str, dict[str, Any]] = {}
     for m in COMPARE_METRICS:
-        befores = [f["before"][m.name] for f in files if f["before"] is not None]
-        afters = [f["after"][m.name] for f in files if f["after"] is not None]
+        befores = [f["before"][m.name] for f in files if f["before"] is not None and f["before"][m.name] is not None]
+        afters = [f["after"][m.name] for f in files if f["after"] is not None and f["after"][m.name] is not None]
         b, a = _total(befores, m.aggregation), _total(afters, m.aggregation)
         file_verdicts = [f["deltas"][m.name]["verdict"] for f in files if m.name in f["deltas"]]
         if (b or 0) == 0 and (a or 0) == 0 and not file_verdicts:

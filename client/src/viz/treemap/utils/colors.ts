@@ -15,6 +15,22 @@ export type Metrics = Record<string, any>;
  */
 export const TREEMAP_RAMP = ["#bfdbfe", "#e9eef3", "#fcd34d", "#fb923c", "#f87171"] as const;
 
+/**
+ * Fill for a tile whose color metric is N/A (doesn't apply, skipped or
+ * failed). Neutral and off the ramp, and drawn hatched on the canvas, so it
+ * never reads as "fine" the way a measured 0 does.
+ */
+export const TREEMAP_NA_COLOR = "#f4f4f5";
+export const TREEMAP_NA_HATCH = "rgba(113, 113, 122, 0.35)";
+/** CSS hatch matching the canvas one, for legends and swatches. */
+export const TREEMAP_NA_BACKGROUND = `repeating-linear-gradient(135deg, ${TREEMAP_NA_HATCH} 0 1px, ${TREEMAP_NA_COLOR} 1px 4px)`;
+
+/** True when the node has no value for the metric (N/A), as opposed to a measured 0. */
+export function metricIsNA(metricId: MetricId, metrics: Metrics | undefined): boolean {
+  const value = metrics?.[metricId];
+  return value === null || value === undefined;
+}
+
 const interpolateRamp = d3.piecewise(d3.interpolateLab, [...TREEMAP_RAMP]);
 
 /** Ramp color at `t` in [0, 1]; 0.5 is the amber midpoint. */
@@ -100,6 +116,7 @@ export function treemapFillColor(
   metrics: Metrics,
   relativeDepth: number
 ): string {
+  if (metricIsNA(metricId, metrics)) return TREEMAP_NA_COLOR;
   let rawVal = Number(metrics?.[metricId] ?? 0);
 
   const def = HOTSPOT_METRICS.find((m) => m.id === metricId);
@@ -123,6 +140,7 @@ export function treemapLabelBackground(
   metrics: Metrics,
   relativeDepth: number
 ): string {
+  if (metricIsNA(metricId, metrics)) return TREEMAP_NA_COLOR;
   const raw = Number(metrics?.[metricId] ?? 0) || 0;
   const base = metricColorFromScales(metricId, metrics, raw);
   return applyDepthEffect(base, relativeDepth);

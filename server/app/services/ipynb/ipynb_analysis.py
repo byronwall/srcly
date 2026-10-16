@@ -57,6 +57,7 @@ class NotebookAnalyzer:
                 nloc=loc,
                 start_line=start_line,
                 end_line=end_line,
+                origin_type="notebook_cell",
             )
             function_list.append(cell_metrics)
 
@@ -83,7 +84,6 @@ class NotebookAnalyzer:
             parameter_count=0,
             todo_count=0,
             classes_count=0,
-            # TS/TSX-specific metrics remain at their defaults (all zeros) for notebooks.
         )
 
     def _get_non_empty_lines(self, cells: list) -> list[str]:

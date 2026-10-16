@@ -7,7 +7,7 @@ import {
 import FileTypeFilter from "../../../components/FileTypeFilter";
 import { isAnyPopoverOpen } from "../../../components/Popover";
 import { MetricPicker } from "../../../components/MetricPicker";
-import { TREEMAP_GRADIENT } from "../utils/colors";
+import { TREEMAP_GRADIENT, TREEMAP_NA_BACKGROUND } from "../utils/colors";
 import type { Crumb, View } from "../../../navigation/location";
 import { Button } from "../../../components/ui/Button";
 
@@ -140,6 +140,14 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
           <div class="mt-1 flex justify-between text-[11px] text-[var(--plc-on-subtle)]">
             <span>Fine</span>
             <span>Needs attention</span>
+          </div>
+          <div class="mt-2 flex items-center gap-1.5 text-[11px] text-[var(--plc-on-subtle)]">
+            <span
+              aria-hidden="true"
+              class="inline-block h-2.5 w-4 rounded-sm border border-[var(--plc-border)]"
+              style={{ background: TREEMAP_NA_BACKGROUND }}
+            />
+            N/A: doesn't apply, skipped, or failed
           </div>
         </div>
       </Show>

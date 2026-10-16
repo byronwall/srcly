@@ -18,7 +18,7 @@ export const EXPLORER_ROW_HEIGHT = 24;
 
 export function sortExplorerChildren<T extends ExplorerTreeNode>(
   children: readonly T[],
-  getValue: (node: T) => string | number,
+  getValue: (node: T) => string | number | null,
   direction: "asc" | "desc"
 ): T[] {
   const multiplier = direction === "asc" ? 1 : -1;
@@ -29,8 +29,10 @@ export function sortExplorerChildren<T extends ExplorerTreeNode>(
 
     const valA = getValue(a);
     const valB = getValue(b);
-    if (valA < valB) return -1 * multiplier;
-    if (valA > valB) return 1 * multiplier;
+    // N/A rows go last whichever way the column sorts.
+    if ((valA === null) !== (valB === null)) return valA === null ? 1 : -1;
+    if (valA !== null && valB !== null && valA < valB) return -1 * multiplier;
+    if (valA !== null && valB !== null && valA > valB) return 1 * multiplier;
 
     const nameA = a.name.toLowerCase();
     const nameB = b.name.toLowerCase();
@@ -42,7 +44,7 @@ export function flattenExplorerTree<T extends ExplorerTreeNode>(
   root: T | null | undefined,
   options: {
     isExpanded: (node: T) => boolean;
-    getValue: (node: T) => string | number;
+    getValue: (node: T) => string | number | null;
     direction: "asc" | "desc";
     /** False lists the root's children as the top level (when it has any). */
     includeRoot?: boolean;

@@ -34,8 +34,11 @@ export type HotSpotMetricGroup = "General" | "TypeScript / TSX" | "Python" | "Ma
 /** Languages as the analyzers see them (see `languageForPath`). */
 export type MetricLanguage = "ts" | "tsx" | "python" | "notebook" | "markdown" | "css" | "code" | "text";
 
-/** Languages whose analyzers measure functions: complexity, nesting, params, comments. */
-export const CODE_LANGUAGES: MetricLanguage[] = ["ts", "tsx", "python", "notebook", "code"];
+/** Languages whose analyzers measure functions (complexity, params). Notebooks and CSS only count lines. */
+export const CODE_LANGUAGES: MetricLanguage[] = ["ts", "tsx", "python", "code"];
+
+/** Languages whose tree-sitter analyzers also measure nesting, comments and TODOs; lizard doesn't. */
+export const TREE_SITTER_CODE_LANGUAGES: MetricLanguage[] = ["ts", "tsx", "python"];
 
 export type HotSpotMetricDef = {
   id: HotSpotMetricId;
@@ -69,9 +72,9 @@ export const HOTSPOT_METRICS: HotSpotMetricDef[] = [
   { id: "complexity_avg", label: "Complexity (avg)", shortLabel: "CCNμ", group: "General", scope: "file", languages: CODE_LANGUAGES },
   { id: "loc", label: "LOC", shortLabel: "LOC", group: "General" },
   { id: "file_size", label: "Size", shortLabel: "Size", group: "General", scope: "file", viewerLabel: "Size (bytes)" },
-  { id: "comment_density", label: "Low Comments", shortLabel: "Cmt%", group: "General", invert: true, languages: CODE_LANGUAGES, viewerLabel: "Comment density" },
-  { id: "todo_count", label: "TODOs", shortLabel: "TODO", group: "General", languages: CODE_LANGUAGES },
-  { id: "max_nesting_depth", label: "Nesting", shortLabel: "Nest", group: "General", languages: CODE_LANGUAGES },
+  { id: "comment_density", label: "Low Comments", shortLabel: "Cmt%", group: "General", invert: true, languages: TREE_SITTER_CODE_LANGUAGES, viewerLabel: "Comment density" },
+  { id: "todo_count", label: "TODOs", shortLabel: "TODO", group: "General", languages: TREE_SITTER_CODE_LANGUAGES },
+  { id: "max_nesting_depth", label: "Nesting", shortLabel: "Nest", group: "General", languages: TREE_SITTER_CODE_LANGUAGES },
   { id: "parameter_count", label: "Params", shortLabel: "Prm", group: "General", languages: CODE_LANGUAGES },
   // The TS analyzer records these per file only; TSX ones only exist in .tsx.
   { id: "tsx_nesting_depth", label: "TSX Nesting", shortLabel: "JSXn", group: "TypeScript / TSX", scope: "file", languages: ["tsx"] },
@@ -94,9 +97,10 @@ export function hotSpotMetricLabel(id: HotSpotMetricId): string {
   return HOTSPOT_METRICS.find((m) => m.id === id)?.label ?? id;
 }
 
-/** Display a metric value: percentages for density, one decimal for fractions. */
+/** Display a metric value: percentages for density, one decimal for fractions, "N/A" for null. */
 export function formatMetricValue(id: string, value: unknown): string {
-  if (typeof value !== "number") return value == null ? "" : String(value);
+  if (value === null) return "N/A";
+  if (typeof value !== "number") return value === undefined ? "" : String(value);
   if (id === "comment_density") return `${Math.round(value * 100)}%`;
   if (!Number.isInteger(value)) return value.toFixed(1);
   return value.toLocaleString("en-US");

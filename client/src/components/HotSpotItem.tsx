@@ -7,7 +7,7 @@ import {
   hotSpotMetricLabel,
   type HotSpotMetricId,
 } from "../utils/metricsStore";
-import { metricCellColor } from "../utils/explorerColumns";
+import { NA_TEXT, metricCellColor, metricCellTitle, witnessOf } from "../utils/explorerColumns";
 import { HeatSwatch } from "./ui/HeatSwatch";
 import { isSameOrAncestor, linkedPathFor, setHoverFrom } from "../utils/hoverLink";
 import { ExplorerContext, findNodeByPath } from "./Explorer";
@@ -101,6 +101,22 @@ export function HotSpotItem(props: {
         <div class="plc-data-sm truncate text-[var(--plc-on-subtle)]" title={displayPath()}>
           {displayPath()}
         </div>
+        <Show when={props.metrics.includes("complexity") ? witnessOf(props.node) : null}>
+          {(w) => (
+            <button
+              type="button"
+              class="plc-data-sm block max-w-full truncate text-left text-[var(--plc-on-subtle)] hover:text-[var(--plc-accent)]"
+              title={`Open ${w().name}, the most complex function here`}
+              onClick={(e) => {
+                e.stopPropagation();
+                ctx.onOpenWitness(w());
+              }}
+            >
+              max CCN in <span class="text-[var(--plc-on-muted)] underline decoration-dotted underline-offset-2">{w().name}</span>
+              {w().start_line > 0 ? ` · L${w().start_line}` : ""}
+            </button>
+          )}
+        </Show>
       </div>
       <button
         type="button"
@@ -115,17 +131,18 @@ export function HotSpotItem(props: {
         <For each={props.metrics}>
           {(m, i) => {
             const val = (props.node.metrics as any)?.[m];
-            if (val === undefined) return null;
+            const na = val === null || val === undefined;
             // The first metric is the treemap's color, so it gets the treemap's key.
             const def = HOTSPOT_METRICS.find((d) => d.id === m);
             const color = i() === 0 && def ? metricCellColor(def, props.node) : undefined;
             return (
               <span
                 class="plc-data-md flex min-w-[2.75rem] items-center justify-end gap-1.5 px-1 text-right text-[var(--plc-on-muted)] first:font-semibold first:text-[var(--plc-on-surface)]"
-                title={hotSpotMetricLabel(m)}
+                classList={{ "!text-[var(--plc-on-disabled)] !font-normal": na }}
+                title={def ? metricCellTitle(def, props.node) : hotSpotMetricLabel(m)}
               >
                 <Show when={color}>{(fill) => <HeatSwatch color={fill()} />}</Show>
-                {formatMetricValue(m, val)}
+                {na ? NA_TEXT : formatMetricValue(m, val)}
               </span>
             );
           }}

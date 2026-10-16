@@ -241,3 +241,46 @@ describe("placeFloating", () => {
     expect(placeFloating({ x: 100, y: 400 }, tall, viewport).top).toBe(4);
   });
 });
+
+describe("N/A and witness in the coloring metric line", () => {
+  const tree = () =>
+    d3.hierarchy({
+      name: "src",
+      type: "folder",
+      path: "/r/src",
+      metrics: { loc: 300 },
+      children: [
+        {
+          name: "jobs.py",
+          type: "file",
+          path: "/r/src/jobs.py",
+          metrics: {
+            loc: 100,
+            complexity: 6,
+            complexity_witness: { path: "/r/src/jobs.py::schedule::backoff", name: "backoff", start_line: 5, end_line: 12 },
+          },
+        },
+        {
+          name: "huge.ts",
+          type: "file",
+          path: "/r/src/huge.ts",
+          metrics: { loc: 200, complexity: null, analysis_status: "too_large", na_reason: "Skipped: 2.1 MB is over the limit" },
+        },
+      ],
+    } as any);
+
+  it("names the function behind a file's max complexity", () => {
+    const [jobs] = tree().children!;
+    expect(buildTooltipContent(jobs, "complexity").primary).toMatchObject({ value: "6", witness: "backoff · L5" });
+  });
+
+  it("shows N/A with its reason instead of a 0, and leaves N/A siblings out of ranks", () => {
+    const [jobs, huge] = tree().children!;
+    expect(buildTooltipContent(huge, "complexity").primary).toMatchObject({
+      value: "N/A",
+      rank: "Skipped: 2.1 MB is over the limit",
+      witness: "",
+    });
+    expect(siblingRank(jobs, "complexity")).toBe("");
+  });
+});

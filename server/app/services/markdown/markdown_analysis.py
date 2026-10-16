@@ -52,9 +52,8 @@ class MarkdownTreeSitterAnalyzer:
             else 0.0
         )
 
-        # For now we do not attempt to compute detailed nesting / comment
-        # metrics for Markdown itself; they remain 0 so that the rest of the
-        # pipeline can aggregate them safely.
+        # Markdown measures LOC and data URLs only; `MEASURED_FILE_METRICS`
+        # marks the zeros below N/A.
         total_function_length = sum(f.nloc for f in functions)
         average_function_length = (
             total_function_length / len(functions) if functions else 0.0

@@ -1,49 +1,70 @@
 from typing import List
 from pydantic import BaseModel, Field
 
+class Witness(BaseModel):
+    """The function responsible for a max-type metric, so the UI can open it."""
+
+    path: str  # node path of the function: "<file>::<scope>::<name>"
+    name: str
+    start_line: int = 0
+    end_line: int = 0
+
+
 class Metrics(BaseModel):
+    # Always measured: every file has lines, bytes and a mtime.
     loc: int = 0
-    # Max cyclomatic complexity (CCN) of any function or nested scope in this
-    # node, so files and folders mean the same thing (a folder is the max of
-    # its children). A function node holds its own CCN.
-    complexity: float = 0.0
-    # Mean CCN per function: the analyzer's per-file average for files, and
-    # the function-count-weighted mean of children for folders.
-    complexity_avg: float = 0.0
-    function_count: int = 0
     last_modified: float = 0.0
     gitignored_count: int = 0
     file_size: int = 0
     file_count: int = 0
-    
-    # New metrics
-    comment_lines: int = 0
-    comment_density: float = 0.0
-    max_nesting_depth: int = 0
-    average_function_length: float = 0.0
-    parameter_count: int = 0
-    todo_count: int = 0
-    classes_count: int = 0
-    
+
+    # Everything below is ``None`` (N/A) when the metric doesn't apply to the
+    # node's language, the file was skipped or failed, or (for means) there are
+    # no functions to average. A measured zero stays 0. ``na_reason`` says why
+    # this node's ``None`` values are missing. Folder rollups ignore N/A
+    # children; a folder value is ``None`` only when no child measured it.
+    #
+    # Max cyclomatic complexity (CCN) of any executable function in this node,
+    # so files and folders mean the same thing; ``complexity_witness`` names
+    # that function. A scope node holds its own CCN.
+    complexity: float | None = None
+    complexity_witness: Witness | None = None
+    # Mean CCN over executable functions (any depth), weighted by function
+    # count for folders.
+    complexity_avg: float | None = None
+    # Executable functions at any depth (methods, nested functions, arrows);
+    # classes, types, object literals and JSX containers don't count.
+    function_count: int | None = None
+
+    comment_lines: int | None = None
+    comment_density: float | None = None
+    max_nesting_depth: int | None = None
+    average_function_length: float | None = None
+    parameter_count: int | None = None
+    todo_count: int | None = None
+    classes_count: int | None = None
+
     # TS/TSX Specific Metrics
-    tsx_nesting_depth: int = 0
-    tsx_render_branching_count: int = 0
-    tsx_react_use_effect_count: int = 0
-    tsx_anonymous_handler_count: int = 0
-    tsx_prop_count: int = 0
-    ts_any_usage_count: int = 0
-    ts_ignore_count: int = 0
-    ts_import_coupling_count: int = 0
-    tsx_hardcoded_string_volume: int = 0
-    tsx_duplicated_string_count: int = 0
-    ts_type_interface_count: int = 0
-    ts_export_count: int = 0
-    
+    tsx_nesting_depth: int | None = None
+    tsx_render_branching_count: int | None = None
+    tsx_react_use_effect_count: int | None = None
+    tsx_anonymous_handler_count: int | None = None
+    tsx_prop_count: int | None = None
+    ts_any_usage_count: int | None = None
+    ts_ignore_count: int | None = None
+    ts_import_coupling_count: int | None = None
+    tsx_hardcoded_string_volume: int | None = None
+    tsx_duplicated_string_count: int | None = None
+    ts_type_interface_count: int | None = None
+    ts_export_count: int | None = None
+
     # Python-specific metrics
-    python_import_count: int = 0
+    python_import_count: int | None = None
 
     # Markdown-specific metrics
-    md_data_url_count: int = 0
+    md_data_url_count: int | None = None
+
+    na_reason: str = ""
 
     # Analysis outcome. Files whose analyzer timed out, crashed, or raised stay
     # in the tree with fallback LOC/size; ``analysis_status`` says why
@@ -54,9 +75,22 @@ class Metrics(BaseModel):
     analysis_error: str = ""
     analysis_failed_count: int = 0
 
+
+# Metrics that can be N/A, in display order. Rollup rules live in
+# ``analysis.aggregate_metrics``.
+OPTIONAL_METRIC_FIELDS: tuple[str, ...] = tuple(
+    name for name, field in Metrics.model_fields.items()
+    if name not in ("complexity_witness",) and field.default is None
+)
+
+
 class Node(BaseModel):
     name: str
-    type: str  # "folder", "file", "function", "code_fragment"
+    type: str  # "folder", "file", "function", "function_body"
+    # For "function" nodes: the scope kind ("function" is executable code;
+    # "class" | "type" | "object" | "jsx" | "imports" | "block" are display
+    # scopes). ``None`` for folders, files and bodies.
+    kind: str | None = None
     path: str
     metrics: Metrics
     # Use default_factory to avoid sharing the same list across instances
