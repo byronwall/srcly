@@ -1,0 +1,448 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Metric system overhaul",
+    "slug": "metric-system-overhaul",
+    "scale": "program",
+    "current_phase": "plan",
+    "last_updated": "2026-10-15",
+    "summary": "Turn the codex/metrics-research findings (metric trust, portfolio, Git activity, imported evidence) into a stack of PRs landing now.",
+    "status": "planned",
+    "next_action": "Start PR 1: fix(metrics) zero vs N/A, witnesses, ranking denominator"
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-15"
+    }
+  },
+  "sources": [
+    {
+      "id": "research-branch",
+      "type": "research",
+      "location": "origin/codex/metrics-research",
+      "anchor": "docs/research/metrics-2026-10-15 and docs/intent/{metric-trust,metric-portfolio,git-activity,imported-quality-evidence}",
+      "authority": "research"
+    },
+    {
+      "id": "main-compare",
+      "type": "repository",
+      "location": "main",
+      "anchor": "server/app/services/compare (PR compare mode added after research baseline 83dcbf4)",
+      "authority": "repository"
+    },
+    {
+      "id": "qa-round-1",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "1",
+      "authority": "user"
+    },
+    {
+      "id": "qa-round-2",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "2",
+      "authority": "user"
+    },
+    {
+      "id": "local-corpus",
+      "type": "repository",
+      "location": "~/Projects",
+      "anchor": "Local git repos usable as pilot corpus: srcly, recipes-modern (React), explorEDA (TSX+Python, 1273 commits), product-grid-mgmt, shadcn-ui, humanlayer, context-recorder (Python)",
+      "authority": "observation"
+    },
+    {
+      "id": "qa-round-3",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "3",
+      "authority": "user"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "Explorer, headless reports, and PR compare are equally important consumers; one shared metric definition should drive all three.",
+        "kind": "goal",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high",
+        "core": true
+      },
+      {
+        "id": "C2",
+        "statement": "Work happens now as a stack of PRs: fix issues first, then improve the system.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C3",
+        "statement": "All four research initiatives are in scope now, not gated behind each other.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C4",
+        "statement": "Cut boldly: remove misleading risk directions and noisy metrics now, with no compatibility layer.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C5",
+        "statement": "The agent runs the portfolio pilot itself on local repos and adjudicates cases; Byron is minimally available. Use consider-contrast for consequential choices.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C6",
+        "statement": "Must have an excellent single-metric hotspot list. Add a two-axis scatter with a named 2x2 quadrant model.",
+        "kind": "goal",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high",
+        "core": true
+      },
+      {
+        "id": "C7",
+        "statement": "Keep React/TSX-specific metrics that help target React and TSX refactors; choose the set by consider-contrast instead of deleting them all.",
+        "kind": "goal",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C8",
+        "statement": "Excessive comments matter now (AI-era over-commenting); the low-comments penalty is the wrong direction. TODOs are low priority.",
+        "kind": "goal",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C9",
+        "statement": "Srcly must just work: run lint/type tools itself with no bespoke config, rather than import user-supplied artifacts. Lint/type findings are in scope.",
+        "kind": "constraint",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C10",
+        "statement": "Ship several named 2x2 scatter presets (e.g. activity, blast radius, React component weight, comment noise) rather than one fixed pair.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C11",
+        "statement": "Excessive comments = high comment ratio, docblocks much longer than the body, and commented-out code, judged against absolute thresholds, never the repo norm.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C12",
+        "statement": "Findings use project tsc/eslint when present, otherwise Srcly bundled defaults (ruff for Python, built-in tree-sitter rules for TS), labelled by which ran.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C13",
+        "statement": "Stack order confirmed: trust fixes, catalog cuts + comment flip, single-metric list + shared definitions, Git activity on by default, 2x2 presets, findings, local-repo pilot. Clones and coverage below the cut line.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      }
+    ],
+    "themes": [],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Seven stacked PRs landing now",
+    "problem": "Metrics conflate zero with N/A, rank inconsistently across surfaces, score some fields in the wrong direction, and lack activity/comment-noise/component/finding signals.",
+    "recommended_shape": "Trust fixes, one server-owned catalog, bold cuts plus comment-noise and component metrics, single-metric list, Git activity, 2x2 presets, zero-config findings, agent-run pilot.",
+    "success_moves": [
+      "Trust before signals so new data is not read as zero",
+      "Single server catalog removes three hand-mirrored tables",
+      "Reuse compare git_refs runner for activity",
+      "External tools behind one runner with timeout -> N/A",
+      "Absolute comment thresholds tuned by pilot",
+      "Agent-run hybrid pilot replaces human-gated review"
+    ],
+    "first_proof": {
+      "question": "Do zero and N/A stay distinct and maxima name the right function across API, report and explorer?",
+      "artifact": "Fixture scan with nested functions, measured zero, skipped file, over-commented function",
+      "decision_rule": "Proceed to catalog cuts only if all three surfaces agree"
+    },
+    "rabbit_holes": [
+      "Cross-language scoring framework",
+      "Bundling a TS compiler without node",
+      "Statistical significance claims from four repos"
+    ],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": null,
+      "revision": null,
+      "worktree_status": null,
+      "subsystems": [],
+      "test_commands": [],
+      "deployment_surfaces": []
+    },
+    "dependencies": [
+      {
+        "id": "git",
+        "name": "Local git CLI",
+        "material": true,
+        "application_seam": "services/activity.py via compare/git_refs runner",
+        "failure_modes": [
+          "no .git",
+          "shallow clone",
+          "slow history"
+        ],
+        "proof_rungs": [
+          "temp repo fixtures",
+          "real repo scan"
+        ],
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "M1 needs no git"
+        },
+        "local_proof": "pytest temp repos",
+        "live_proof": "scan srcly and explorEDA",
+        "rollout": "N/A when unavailable"
+      },
+      {
+        "id": "lint-tools",
+        "name": "ruff, project tsc/eslint",
+        "material": true,
+        "application_seam": "services/findings runner (one function per tool)",
+        "failure_modes": [
+          "missing tool",
+          "no config",
+          "timeout",
+          "crash"
+        ],
+        "proof_rungs": [
+          "fixtures with fake tool outputs",
+          "real tool on fixtures",
+          "real repo scan"
+        ],
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "Findings arrive in M6"
+        },
+        "local_proof": "pytest with injected tool output and timeouts",
+        "live_proof": "scan recipes-modern and context-recorder",
+        "rollout": "Separate job; N/A on failure"
+      }
+    ],
+    "fast_local_loop": {
+      "command": "cd server && uv run pytest -q; cd client && pnpm test"
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "Zero vs N/A and witnesses",
+        "outcome": "Unsupported metrics show N/A; maxima open their function; consistent ranking cohort",
+        "dependencies_introduced": [],
+        "proof": "Fixture scan parity across API/report/explorer; monotonicity test",
+        "valid_intermediate_state": "Existing catalog with correct availability",
+        "rollback": "Revert PR",
+        "status": "planned"
+      },
+      {
+        "id": "m2",
+        "title": "Catalog cuts, comment noise, React components",
+        "outcome": "No inverted comment penalty; comment_noise and component metrics present",
+        "dependencies_introduced": [],
+        "proof": "React/Solid and comment fixtures",
+        "valid_intermediate_state": "Smaller catalog, all surfaces working",
+        "rollback": "Revert PR",
+        "status": "planned"
+      },
+      {
+        "id": "m3",
+        "title": "One catalog and single-metric list",
+        "outcome": "Server catalog drives client, report, compare; excellent single-metric list",
+        "dependencies_introduced": [],
+        "proof": "Report vs client top-10 parity test",
+        "valid_intermediate_state": "Same metrics, one source of truth",
+        "rollback": "Revert PR",
+        "status": "planned"
+      },
+      {
+        "id": "m4",
+        "title": "Git activity",
+        "outcome": "Commit count and churn per file on any git repo",
+        "dependencies_introduced": [
+          "git"
+        ],
+        "proof": "Temp repo with rename/merge/bulk commit matches git log",
+        "valid_intermediate_state": "Activity N/A without git",
+        "rollback": "Revert PR",
+        "status": "planned"
+      },
+      {
+        "id": "m5",
+        "title": "2x2 presets",
+        "outcome": "Four named scatter presets with source drilldown",
+        "dependencies_introduced": [],
+        "proof": "Quadrant unit test and browser check",
+        "valid_intermediate_state": "Scatter optional beside treemap",
+        "rollback": "Revert PR",
+        "status": "planned"
+      },
+      {
+        "id": "m6",
+        "title": "Zero-config findings",
+        "outcome": "Project tools or bundled ruff/tree-sitter rules produce labelled findings",
+        "dependencies_introduced": [
+          "ruff",
+          "project tsc/eslint"
+        ],
+        "proof": "Fixtures with/without tools, timeout injection",
+        "valid_intermediate_state": "Findings N/A on failure",
+        "rollback": "Revert PR",
+        "status": "planned"
+      },
+      {
+        "id": "m7",
+        "title": "Pilot tunes defaults",
+        "outcome": "Defaults, thresholds and cut-offs backed by four-repo review",
+        "dependencies_introduced": [],
+        "proof": "Evaluation script output plus adjudicated cases in docs/research",
+        "valid_intermediate_state": "Tuned defaults",
+        "rollback": "Revert PR",
+        "status": "planned"
+      }
+    ],
+    "cut_line": [
+      "Clones, coverage, CRAP, mutation",
+      "Temporal coupling, trends",
+      "People metrics, MI, Halstead",
+      "Persistent triage"
+    ],
+    "open_decisions": [
+      "Solid component detection adequacy",
+      "Bundled TS rules usefulness"
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-15",
+      "event": "created",
+      "note": "Umbrella over codex/metrics-research initiatives; round 1 recorded"
+    },
+    {
+      "date": "2026-10-15",
+      "event": "shaped-and-planned",
+      "note": "Three question rounds; intent, shape, plan current"
+    }
+  ],
+  "closure": null,
+  "question_rounds": [
+    {
+      "round": 1,
+      "focus": "goals and stakes",
+      "questions": [
+        "main consumer",
+        "appetite",
+        "trust vs new signal order",
+        "pruning"
+      ],
+      "answers": [
+        "All equally",
+        "Stacked PRs now: fix then improve",
+        "Do all initiatives now",
+        "Cut boldly now"
+      ]
+    },
+    {
+      "round": 2,
+      "focus": "behavior and limits",
+      "questions": [
+        "pilot",
+        "default ranking",
+        "deletions",
+        "evidence sources"
+      ],
+      "answers": [
+        "Agent runs pilot on local repos via consider-contrast",
+        "Great single-metric list plus named 2x2 scatter",
+        "Keep useful React/TSX set; excessive comments important; TODO less",
+        "Srcly runs tools itself; lint/type findings"
+      ]
+    },
+    {
+      "round": 3,
+      "focus": "boundaries and confirmation",
+      "questions": [
+        "2x2 axes",
+        "excessive comments",
+        "no tools present",
+        "stack order"
+      ],
+      "answers": [
+        "Several named presets",
+        "Absolute thresholds: ratio, large docblocks, commented-out code",
+        "Bundle defaults",
+        "Yes, that order"
+      ]
+    }
+  ]
+}
