@@ -110,10 +110,11 @@ export function StickyBreadcrumb(props: {
                 <button
                   type="button"
                   title={label()}
-                  class={`min-w-[2.5rem] truncate rounded px-1 py-0.5 text-[12px] transition-colors duration-150 ${
+                  // The open scope keeps its name; its ancestors give way first.
+                  class={`truncate rounded px-1 py-0.5 text-[12px] transition-colors duration-150 ${
                     isLast()
-                      ? "shrink cursor-default font-semibold text-[var(--plc-on-surface)]"
-                      : "shrink-[4] text-[var(--plc-accent)] hover:bg-[var(--plc-surface-hover)] hover:text-[var(--plc-accent-hover)]"
+                      ? "max-w-[18rem] shrink-0 cursor-default font-semibold text-[var(--plc-on-surface)]"
+                      : "min-w-[2rem] shrink text-[var(--plc-accent)] hover:bg-[var(--plc-surface-hover)] hover:text-[var(--plc-accent-hover)]"
                   }`}
                   onClick={() => {
                     if (isLast()) return;

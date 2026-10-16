@@ -28,7 +28,7 @@ export function MetricsTable(props: {
   return (
     <div>
       {/* One fixed line, so picking a metric never shifts the table. */}
-      <p class="mb-2 h-4 truncate text-[11px] text-[var(--plc-on-subtle)]">
+      <p class="mb-2 h-4 truncate pl-1.5 text-[11px] text-[var(--plc-on-subtle)]">
         <Show
           when={props.activeMetric()}
           fallback={anyLocatable() ? "Click a metric to mark its lines in the code" : ""}
@@ -77,6 +77,9 @@ export function MetricsTable(props: {
                       aria-pressed={locatable() ? active() : undefined}
                       title={locatable() ? (active() ? "Clear the overlay" : "Mark these lines in the code") : undefined}
                       onClick={() => locatable() && props.onToggleMetric(row.id)}
+                      // The app-wide :focus-visible ring would box the row after a
+                      // click plus [ / ]; the row shows focus with its tint instead.
+                      style={{ outline: "none" }}
                       onKeyDown={(e) => {
                         if (locatable() && (e.key === "Enter" || e.key === " ")) {
                           e.preventDefault();
@@ -84,13 +87,13 @@ export function MetricsTable(props: {
                         }
                       }}
                       class={cx(
-                        "transition-colors duration-150 focus:outline-none focus-visible:bg-[var(--plc-surface-hover)]",
+                        "transition-colors duration-150",
                         locatable() && "cursor-pointer",
                         active()
                           ? HOTSPOT_METRICS.find((m) => m.id === row.id)?.invert
                             ? "bg-[var(--plc-surface-selected)]"
                             : "bg-[var(--plc-warning-subtle)]"
-                          : locatable() && "hover:bg-[var(--plc-surface-muted)]"
+                          : locatable() && "hover:bg-[var(--plc-surface-muted)] focus-visible:bg-[var(--plc-surface-muted)]"
                       )}
                     >
                       <td

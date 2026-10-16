@@ -144,3 +144,14 @@ def test_markers_endpoint(tmp_path: Path) -> None:
 
     missing = client.get(f"/api/files/markers?path={tmp_path / 'nope.py'}")
     assert missing.status_code == 404
+
+
+def test_shallow_files_mark_their_deepest_blocks(tmp_path: Path) -> None:
+    path = tmp_path / "shallow.ts"
+    path.write_text("export function f(x: number) {\n  if (x) {\n    for (const y of [x]) {\n      void y;\n    }\n  }\n}\n", encoding="utf-8")
+    markers = collect_markers(str(path))
+    assert markers["max_nesting_depth"] == [{"line": 3, "end_line": 3, "note": "depth 2"}]
+
+    flat = tmp_path / "flat.py"
+    flat.write_text("def g():\n    return 1\n", encoding="utf-8")
+    assert "max_nesting_depth" not in collect_markers(str(flat))

@@ -476,8 +476,10 @@ samp {
   font-weight: 600;
 }
 
+/* The hit the stepper is on: a stronger tint and a bar in the gutter. */
 .code-modal-content .shiki .line.metric-hit-current {
-  background: color-mix(in srgb, var(--metric-hit) 20%, transparent);
+  background: color-mix(in srgb, var(--metric-hit) 22%, transparent);
+  box-shadow: inset 3px 0 0 var(--metric-hit);
 }
 
 .code-modal-content .shiki .line.non-focus-line.metric-hit {

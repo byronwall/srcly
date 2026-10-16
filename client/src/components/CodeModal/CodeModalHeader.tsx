@@ -61,6 +61,8 @@ function ConfirmIconButton(props: { label: string; icon: JSX.Element; onClick: (
 
 export function CodeModalHeader(props: {
   filePath: string;
+  /** The scanned root; the path shows relative to it. */
+  rootPath?: string;
   baseName: string;
   onClose: () => void;
   rawCode: () => string;
@@ -81,8 +83,10 @@ export function CodeModalHeader(props: {
 }) {
   const [contextOpen, setContextOpen] = createSignal(false);
   const dir = () => {
-    const i = props.filePath.lastIndexOf(props.baseName);
-    return i > 0 ? props.filePath.slice(0, i) : "";
+    const root = props.rootPath?.replace(/\/+$/, "");
+    const rel = root && props.filePath.startsWith(`${root}/`) ? props.filePath.slice(root.length + 1) : props.filePath;
+    const i = rel.lastIndexOf(props.baseName);
+    return i > 0 ? rel.slice(0, i) : "";
   };
 
   return (
@@ -143,7 +147,7 @@ export function CodeModalHeader(props: {
             )}
           >
             <PopoverPanel width="sm">
-              <div class="px-2 pb-1 text-[11px] text-[var(--plc-on-subtle)]">Context lines</div>
+              <div class="px-2 pb-1 pt-0.5 text-[11px] text-[var(--plc-on-subtle)]">Context lines</div>
               <For each={CONTEXT_OPTIONS}>
                 {(n) => (
                   <OptionRow
@@ -166,7 +170,7 @@ export function CodeModalHeader(props: {
             onClick={() => props.setReduceIndentation(!props.reduceIndentation())}
             class={
               props.reduceIndentation()
-                ? "bg-[var(--plc-surface-selected)] text-[var(--plc-accent)] hover:bg-[var(--plc-surface-selected)] hover:text-[var(--plc-accent-hover)]"
+                ? "bg-[var(--plc-surface-muted)] text-[var(--plc-on-surface)] hover:bg-[var(--plc-border)]"
                 : ""
             }
           >

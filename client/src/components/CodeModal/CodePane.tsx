@@ -4,6 +4,7 @@ import { ErrorState, LoadingState } from "../feedback/States";
 import { IconButton } from "../ui/IconButton";
 import { cx } from "../ui/classes";
 import { lineDecorations, type MarkerHit } from "../../utils/metricMarkers";
+import { getEffectiveChildren } from "../../utils/structureTree";
 import { OutlinePopover } from "./OutlinePopover";
 import { StickyBreadcrumb } from "./StickyBreadcrumb";
 
@@ -116,6 +117,7 @@ export function CodePane(props: CodePaneProps) {
     const deco = overlay ? lineDecorations(overlay.hits) : null;
     const cursor = overlay?.cursorLine ?? null;
     queueMicrotask(() => {
+      measure();
       const lines = codeRef?.querySelectorAll<HTMLElement>("span.line");
       if (!lines) return;
       lines.forEach((el, i) => {
@@ -134,9 +136,36 @@ export function CodePane(props: CodePaneProps) {
     return Boolean(hit && line >= hit.line && line <= hit.endLine);
   };
 
-  const shownLines = () => Math.max(1, props.displayEndLine() - props.displayStartLine() + 1);
-  const rulerTop = (line: number) => `${((line - props.displayStartLine()) / shownLines()) * 100}%`;
-  const rulerHeight = (from: number, to: number) => `max(2px, ${((to - from + 1) / shownLines()) * 100}%)`;
+  // Ruler geometry, measured from the rendered lines so each tick sits level
+  // with its line when the code is shorter than the pane, and scales with the
+  // scroll height when it's longer. Lines don't wrap, so one height fits all.
+  const [geom, setGeom] = createSignal({ header: 0, first: 0, lineH: 0, span: 1 });
+  const measure = () => {
+    const scroller = scrollRef;
+    const first = codeRef?.querySelector<HTMLElement>("span.line");
+    if (!scroller || !codeRef || !first) return;
+    const header = breadcrumbRef?.offsetHeight ?? 0;
+    const codeRect = codeRef.getBoundingClientRect();
+    const lineRect = first.getBoundingClientRect();
+    setGeom({
+      header,
+      first: lineRect.top - codeRect.top,
+      lineH: lineRect.height || 1,
+      span: Math.max(codeRef.offsetHeight, scroller.clientHeight - header, 1),
+    });
+  };
+  createEffect(() => {
+    const scroller = scrollRef;
+    if (!scroller) return;
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(scroller);
+    onCleanup(() => ro.disconnect());
+  });
+
+  const lineOffset = (line: number) => geom().first + (line - props.displayStartLine()) * geom().lineH;
+  const rulerTop = (line: number) => `${(lineOffset(line) / geom().span) * 100}%`;
+  const rulerHeight = (from: number, to: number) =>
+    `max(2px, ${(((to - from + 1) * geom().lineH) / geom().span) * 100}%)`;
 
   const selectionBand = () => {
     const s = props.targetStartLine();
@@ -146,6 +175,8 @@ export function CodePane(props: CodePaneProps) {
     if (s <= props.displayStartLine() && e >= props.displayEndLine()) return null;
     return { s: Math.max(s, props.displayStartLine()), e: Math.min(e, props.displayEndLine()) };
   };
+
+  const hasSymbols = () => getEffectiveChildren(props.fileNode()).length > 0;
 
   const hitIndex = () => {
     const o = props.overlay();
@@ -192,8 +223,8 @@ export function CodePane(props: CodePaneProps) {
                     type="button"
                     ref={t.ref}
                     onClick={t.onClick}
-                    disabled={!props.fileNode()}
-                    title="Outline: go to symbol (/)"
+                    disabled={!hasSymbols()}
+                    title={hasSymbols() ? "Outline: go to symbol (/)" : "No symbols in this file"}
                     aria-label="Outline"
                     class={cx(
                       "flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-[12px] font-medium transition-colors duration-150 disabled:opacity-40",
@@ -212,12 +243,16 @@ export function CodePane(props: CodePaneProps) {
                 <Show when={props.overlay()}>
                   {(o) => (
                     <div class="flex items-center gap-0.5">
-                      <span class="pr-1 font-medium text-[var(--plc-on-surface)]">{o().label}</span>
+                      <span class="pr-1 font-medium text-[var(--plc-on-surface)] max-xl:hidden">{o().label}</span>
                       <IconButton label="Previous ([)" size="xs" disabled={!o().hits.length} onClick={() => props.onStep(-1)}>
                         <ChevronLeft size={14} aria-hidden="true" />
                       </IconButton>
-                      <span class="min-w-[3.5rem] text-center tabular-nums text-[var(--plc-on-muted)]">
-                        {o().hits.length ? `${hitIndex() ?? "–"} / ${o().hits.length}` : "none here"}
+                      <span class="min-w-[3.25rem] text-center tabular-nums text-[var(--plc-on-muted)]">
+                        {!o().hits.length
+                          ? "none here"
+                          : hitIndex() === null
+                            ? `${o().hits.length} here`
+                            : `${hitIndex()} / ${o().hits.length}`}
                       </span>
                       <IconButton label="Next (])" size="xs" disabled={!o().hits.length} onClick={() => props.onStep(1)}>
                         <ChevronRight size={14} aria-hidden="true" />
@@ -229,7 +264,7 @@ export function CodePane(props: CodePaneProps) {
                           onClick={props.onShowWholeFile}
                           title="Show the whole file"
                         >
-                          +{o().outside} outside
+                          +{o().outside} in file
                         </button>
                       </Show>
                       <IconButton label="Clear overlay (Esc)" size="xs" onClick={props.onClearOverlay}>
@@ -246,7 +281,7 @@ export function CodePane(props: CodePaneProps) {
         <Show
           when={props.loading() || (!props.highlightedHtml() && !props.error())}
         >
-          <LoadingState label="Loading file..." />
+          <LoadingState label="Loading file…" />
         </Show>
         <Show when={!props.loading() && props.error()}>
           <ErrorState message={props.error()} class="min-h-32" />
@@ -254,7 +289,7 @@ export function CodePane(props: CodePaneProps) {
         <Show when={showCode()}>
           <div
             ref={(el) => (codeRef = el)}
-            class="code-modal-content py-1"
+            class="code-modal-content pb-2 pt-1"
             data-tone={props.overlay()?.tone ?? undefined}
             innerHTML={props.highlightedHtml()}
           />
@@ -262,7 +297,14 @@ export function CodePane(props: CodePaneProps) {
       </div>
 
       {/* Overview ruler: where the overlaid hits and the selection sit in the shown lines. */}
-      <div class="relative w-2.5 shrink-0 rounded-sm bg-[var(--plc-surface-muted)]" aria-hidden="true">
+      <div
+        class={cx(
+          "relative mb-px w-2.5 shrink-0 rounded-sm transition-colors duration-150",
+          props.overlay() || selectionBand() ? "bg-[var(--plc-surface-muted)]" : "bg-transparent"
+        )}
+        style={{ "margin-top": `${geom().header + 1}px` }}
+        aria-hidden="true"
+      >
         <Show when={selectionBand()}>
           {(b) => (
             <div
@@ -281,7 +323,7 @@ export function CodePane(props: CodePaneProps) {
                   title={`Line ${hit.line}${hit.notes.length ? `: ${hit.notes.join(", ")}` : ""}`}
                   onClick={() => props.onJumpToHit(hit.line)}
                   class={cx(
-                    "absolute inset-x-0 min-h-[3px] transition-colors duration-150",
+                    "absolute inset-x-0 transition-opacity duration-150",
                     o().tone === "good" ? "bg-[var(--plc-accent)]" : "bg-[var(--plc-warning)]",
                     hit.line === o().cursorLine ? "opacity-100 ring-1 ring-[var(--plc-on-surface)]" : "opacity-60 hover:opacity-100"
                   )}

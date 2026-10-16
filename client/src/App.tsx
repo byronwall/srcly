@@ -604,6 +604,7 @@ function AppContent(props: { active: boolean }) {
           onClose={() => setIsCodeModalOpen(false)}
           fileNode={selectedNodes().fileNode}
           scopeNode={selectedNodes().scopeNode}
+          rootPath={rootPath()}
         />
       </Show>
     </div>

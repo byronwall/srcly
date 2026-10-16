@@ -15,7 +15,7 @@ _COMPLEXITY_NOTES = {
 }
 
 # Nesting at or past this depth is marked, so the overlay shows deep code
-# rather than every block.
+# rather than every block. Shallower files mark their deepest blocks.
 MARKED_NESTING_DEPTH = 3
 
 
@@ -44,11 +44,18 @@ class PythonTreeSitterAnalyzer:
         self._file_classes_count = 0
         self._file_python_import_count = 0
         self._file_max_nesting_depth = 0
+        self._nesting_nodes: List[tuple[int, Node]] = []
 
         # Run single-pass traversal
         top_level_functions = []
         self._scan_tree(tree.root_node, top_level_functions, [], 0)
         
+        if self.markers is not None:
+            threshold = min(MARKED_NESTING_DEPTH, self._file_max_nesting_depth)
+            for depth, node in self._nesting_nodes:
+                if threshold and depth >= threshold:
+                    self._mark('max_nesting_depth', node, f"depth {depth}")
+
         # Calculate imports separately (logic is distinct and fast enough to keep separate/clean)
         import_scope = self._compute_import_scope(tree.root_node, content)
         if import_scope is not None:
@@ -138,8 +145,8 @@ class PythonTreeSitterAnalyzer:
         next_nesting = current_nesting
         if is_nesting_node:
             next_nesting += 1
-            if next_nesting >= MARKED_NESTING_DEPTH:
-                self._mark('max_nesting_depth', node, f'depth {next_nesting}')
+            if self.markers is not None:
+                self._nesting_nodes.append((next_nesting, node))
 
         if next_nesting > self._file_max_nesting_depth:
             self._file_max_nesting_depth = next_nesting

@@ -1,10 +1,11 @@
-import { Box, ChevronRight, Dot, FileCode, SquareFunction } from "lucide-solid";
+import { Box, Braces, ChevronRight, CodeXml, FileCode, Import, Shapes, SquareFunction, Type } from "lucide-solid";
 import { For, Show, createEffect, createMemo, createSignal, on, type JSX } from "solid-js";
 import Popover from "../Popover";
 import { PopoverPanel } from "../ui/PopoverPanel";
 import { TextInput } from "../ui/TextInput";
 import { cx } from "../ui/classes";
 import { formatMetricValue } from "../../utils/metricsStore";
+import { symbolKind, type SymbolKind } from "../../utils/symbolKind";
 import { findPathToNode, getEffectiveChildren } from "../../utils/structureTree";
 
 type Row = {
@@ -15,12 +16,17 @@ type Row = {
   context?: string;
 };
 
-function icon(node: any) {
-  if (node?.type === "file") return <FileCode size={13} aria-hidden="true" />;
-  if (node?.type === "function") return <SquareFunction size={13} aria-hidden="true" />;
-  if (node?.type === "class") return <Box size={13} aria-hidden="true" />;
-  return <Dot size={13} aria-hidden="true" />;
-}
+const KIND_ICONS: Record<SymbolKind, (p: { size: number; "aria-hidden": "true" }) => JSX.Element> = {
+  file: FileCode,
+  function: SquareFunction,
+  class: Box,
+  type: Type,
+  interface: Shapes,
+  object: Braces,
+  jsx: CodeXml,
+  imports: Import,
+};
+
 
 function highlight(text: string, query: string): JSX.Element {
   const i = query ? text.toLowerCase().indexOf(query.toLowerCase()) : -1;
@@ -74,7 +80,7 @@ export function OutlinePopover(props: {
     const root = props.root();
     if (!root) return [];
     const q = query().trim().toLowerCase();
-    const out: Row[] = [{ node: root, depth: 0, hasChildren: false }];
+    const out: Row[] = [];
 
     if (q) {
       const walk = (node: any, trail: string[]) => {
@@ -90,6 +96,7 @@ export function OutlinePopover(props: {
       return out;
     }
 
+    out.push({ node: root, depth: 0, hasChildren: false });
     const open = expanded();
     const walk = (node: any, depth: number) => {
       for (const child of getEffectiveChildren(node)) {
@@ -102,7 +109,7 @@ export function OutlinePopover(props: {
     return out;
   });
 
-  createEffect(on(query, () => setCursor(query().trim() ? Math.min(1, rows().length - 1) : 0)));
+  createEffect(on(query, () => setCursor(0)));
 
   const toggle = (node: any, force?: boolean) => {
     const next = new Set(expanded());
@@ -159,14 +166,25 @@ export function OutlinePopover(props: {
             onKeyDown={onKeyDown}
           />
         </div>
-        <div class="flex items-center justify-between px-3 pb-1 pt-2 text-[11px] text-[var(--plc-on-subtle)]">
-          <span>{query().trim() ? `${rows().length - 1} matches` : "Outline"}</span>
+        <div class="flex items-center justify-between border-b border-[var(--plc-divider)] px-3 pb-1.5 pt-2 text-[11px] text-[var(--plc-on-subtle)]">
+          <span>{query().trim() ? `${rows().length} ${rows().length === 1 ? "match" : "matches"}` : "Outline"}</span>
           <span title="Cyclomatic complexity">CCN</span>
         </div>
-        <div ref={listRef} class="min-h-0 flex-1 overflow-y-auto px-1 pb-1" role="listbox">
+        <div ref={listRef} class="min-h-0 flex-1 overflow-y-auto px-1 py-1" role="listbox">
+          <Show when={!rows().length}>
+            <div class="px-3 py-6 text-center text-[12px] text-[var(--plc-on-subtle)]">
+              No symbols match “{query().trim()}”
+            </div>
+          </Show>
           <For each={rows()}>
             {(row, i) => {
               const ccn = () => row.node?.metrics?.complexity;
+              const kind = symbolKind(row.node);
+              const Icon = KIND_ICONS[kind.kind];
+              const kindLabel =
+                kind.kind === "type" || kind.kind === "interface" || kind.kind === "object" || kind.kind === "class"
+                  ? kind.kind
+                  : null;
               return (
                 <div
                   role="option"
@@ -201,17 +219,23 @@ export function OutlinePopover(props: {
                       />
                     </Show>
                   </span>
-                  <span class="flex shrink-0 opacity-70">{icon(row.node)}</span>
-                  <span class="min-w-0 truncate">
-                    {row.node === props.root() ? props.baseName : highlight(String(row.node?.name ?? ""), query().trim())}
+                  <span class="flex shrink-0 opacity-70">
+                    <Icon size={13} aria-hidden="true" />
                   </span>
+                  <span class="min-w-0 truncate">
+                    {row.node === props.root() ? props.baseName : highlight(kind.name, query().trim())}
+                  </span>
+                  <Show when={kindLabel}>
+                    <span class="shrink-0 text-[11px] font-normal text-[var(--plc-on-subtle)]">{kindLabel}</span>
+                  </Show>
                   <Show when={row.context}>
                     <span class="min-w-0 shrink truncate text-[11px] font-normal text-[var(--plc-on-subtle)]">
                       in {row.context}
                     </span>
                   </Show>
                   <span class="ml-auto shrink-0 pl-3 text-[11px] font-normal tabular-nums text-[var(--plc-on-subtle)]">
-                    <Show when={row.node !== props.root() && typeof ccn() === "number" && ccn() > 0}>
+                    {/* CCN 1 is the floor every symbol starts at; only more says something. */}
+                    <Show when={row.node !== props.root() && typeof ccn() === "number" && ccn() > 1}>
                       {formatMetricValue("complexity", ccn())}
                     </Show>
                   </span>

@@ -16,7 +16,7 @@ _COMPLEXITY_NOTES = {
 }
 
 # Nesting at or past this depth is marked, so the overlay shows deep code
-# rather than every block.
+# rather than every block. Shallower files mark their deepest blocks.
 MARKED_NESTING_DEPTH = 3
 
 
@@ -61,6 +61,7 @@ class TreeSitterAnalyzer:
         # Marker bookkeeping: string nodes (for duplicates) and JSX depth.
         self._string_nodes: List[tuple[str, Node]] = []
         self._jsx_nodes: List[tuple[int, Node]] = []
+        self._nesting_nodes: List[tuple[int, Node]] = []
 
         # Run single-pass traversal
         top_level_functions: List[FunctionMetrics] = []
@@ -188,8 +189,8 @@ class TreeSitterAnalyzer:
             next_nesting += 1
             if next_nesting > self._file_max_nesting_depth:
                 self._file_max_nesting_depth = next_nesting
-            if next_nesting >= MARKED_NESTING_DEPTH:
-                self._mark('max_nesting_depth', node, f'depth {next_nesting}')
+            if self.markers is not None:
+                self._nesting_nodes.append((next_nesting, node))
 
         # --- Comments ---
         if node_type == 'comment':
@@ -375,6 +376,10 @@ class TreeSitterAnalyzer:
             count = self._string_literals.get(text, 0)
             if count > 1:
                 self._mark('tsx_duplicated_string_count', node, f"×{count}")
+        threshold = min(MARKED_NESTING_DEPTH, self._file_max_nesting_depth)
+        for depth, node in self._nesting_nodes:
+            if threshold and depth >= threshold:
+                self._mark('max_nesting_depth', node, f"depth {depth}")
         for depth, node in self._jsx_nodes:
             if depth == self._file_tsx_nesting_depth:
                 self._mark('tsx_nesting_depth', node, f"depth {depth}")

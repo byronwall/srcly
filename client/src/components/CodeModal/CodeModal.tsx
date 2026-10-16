@@ -4,6 +4,7 @@ import { useFileContent } from "../../hooks/useFileContent";
 import { useHighlightedCode } from "../../hooks/useHighlightedCode";
 import { useMetricMarkers } from "../../hooks/useMetricMarkers";
 import { guessLangFromPath } from "../../utils/guessLangFromPath";
+import { getEffectiveChildren } from "../../utils/structureTree";
 import { groupHits, hasMarkers, hitsInRange, markersFor, stepHit } from "../../utils/metricMarkers";
 import { HOTSPOT_METRICS } from "../../utils/metricsStore";
 import { CodeModalHeader } from "./CodeModalHeader";
@@ -22,6 +23,8 @@ interface CodeModalProps {
   scopeNode?: any;
   /** Read the file from this git commit (compare mode) instead of the disk. */
   gitRef?: string | null;
+  /** The scanned root, so the header can show a repo-relative path. */
+  rootPath?: string;
 }
 
 const coerceLine = (v: unknown): number | null => {
@@ -244,7 +247,7 @@ export default function CodeModal(props: CodeModalProps) {
       return;
     }
     if (isTyping(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
-    if (event.key === "/" && props.fileNode && viewMode() === "code") {
+    if (event.key === "/" && getEffectiveChildren(props.fileNode).length && viewMode() === "code") {
       event.preventDefault();
       setOutlineOpen(true);
     } else if ((event.key === "]" || event.key === "[") && activeMetric()) {
@@ -314,6 +317,7 @@ export default function CodeModal(props: CodeModalProps) {
       >
           <CodeModalHeader
             filePath={props.filePath!}
+            rootPath={props.rootPath}
             baseName={baseName()}
             onClose={props.onClose}
             rawCode={rawCode}
