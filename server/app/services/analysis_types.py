@@ -165,6 +165,11 @@ MEASURED_SCOPE_METRICS: dict[str, frozenset[str]] = {
 # Git activity: per file from history, not from any analyzer, so they are
 # never "not measured for <language>". ``services/activity.py`` fills them.
 ACTIVITY_METRICS = frozenset({"commit_count", "churn_lines"})
+# Lint and type-check findings: from external tools (``services/findings``),
+# laid over the tree when it is served, per file.
+FINDINGS_METRICS = frozenset({"finding_count", "error_count"})
+# Filled after the scan, so never "not measured for <language>".
+OVERLAY_METRICS = ACTIVITY_METRICS | FINDINGS_METRICS
 
 # Means over a file's functions; with no functions there is nothing to average.
 MEAN_OVER_FUNCTIONS = frozenset({"complexity_avg", "average_function_length"})

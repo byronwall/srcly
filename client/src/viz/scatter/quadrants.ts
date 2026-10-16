@@ -137,11 +137,19 @@ export function groupByQuadrant<T extends ScatterNode>(
 export function unavailableReason(
   preset: QuadrantPreset,
   plotted: number,
-  context: { activity?: { status: string; reason: string } | null; fanIn: Map<string, number> | null; fanInLoading?: boolean }
+  context: {
+    activity?: { status: string; reason: string } | null;
+    findings?: { status: string; reason: string } | null;
+    fanIn: Map<string, number> | null;
+    fanInLoading?: boolean;
+  }
 ): string {
   if (plotted) return "";
   const axes = [preset.x.id, preset.y.id];
   if (axes.includes("commit_count") && context.activity?.status === "na") return `No Git history: ${context.activity.reason}`;
+  if (axes.includes("finding_count") && context.findings && context.findings.status !== "ok") {
+    return context.findings.status === "running" ? "Checks are still running" : `No checks: ${context.findings.reason}`;
+  }
   if (axes.includes("fan_in")) {
     if (context.fanInLoading) return "";
     if (!context.fanIn || context.fanIn.size === 0) return "No import graph: needs TS/TSX or Python files";

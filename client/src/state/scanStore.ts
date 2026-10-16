@@ -2,13 +2,16 @@ import { createSignal } from "solid-js";
 import {
   cancelScan,
   emptySnapshot,
+  fetchScanFindings,
   fetchScanResult,
   startScan,
   watchScan,
   type ScanSnapshot,
 } from "../services/scanJobs";
 import type { ClientStage } from "../utils/scanProgress";
-import { defaultActivityWindow } from "../utils/metricsStore";
+import { defaultActivityWindow, type FindingsInfo } from "../utils/metricsStore";
+
+const FINDINGS_POLL_MS = 2000;
 
 const ACTIVITY_WINDOW_KEY = "srcly.activityWindow";
 
@@ -64,6 +67,35 @@ export function createScanStore() {
   // Identifies the newest request so late responses from a superseded scan are ignored.
   let activeRequest = 0;
   let stopWatching: (() => void) | null = null;
+  let findingsTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const stopFindingsPoll = () => {
+    if (findingsTimer) clearTimeout(findingsTimer);
+    findingsTimer = null;
+  };
+
+  // Lint/type checks run beside the scan and can outlast it (tsc on a big
+  // project). The first result says "running"; poll until they finish, then
+  // refetch so the counts land without a rescan.
+  const pollFindings = (request: number, id: string) => {
+    stopFindingsPoll();
+    if ((data()?.findings as FindingsInfo | undefined)?.status !== "running") return;
+    findingsTimer = setTimeout(async () => {
+      findingsTimer = null;
+      if (request !== activeRequest || completedScanId !== id) return;
+      try {
+        const info = await fetchScanFindings<FindingsInfo>(id);
+        if (request !== activeRequest || completedScanId !== id) return;
+        if (info.status === "running") return pollFindings(request, id);
+        const result = await fetchScanResult<any>(id, currentActivityWindow());
+        if (request === activeRequest && completedScanId === id) setData(result);
+      } catch (err) {
+        // The tree is still good without counts; try again shortly.
+        console.warn("Couldn't read the checks' status", err);
+        if (request === activeRequest) pollFindings(request, id);
+      }
+    }, FINDINGS_POLL_MS);
+  };
 
   const currentActivityWindow = () => activityWindow() ?? defaultActivityWindow();
 
@@ -81,7 +113,10 @@ export function createScanStore() {
     setActivityLoading(true);
     try {
       const result = await fetchScanResult<any>(id, next);
-      if (request === activeRequest && completedScanId === id) setData(result);
+      if (request === activeRequest && completedScanId === id) {
+        setData(result);
+        pollFindings(request, id);
+      }
     } catch (err) {
       if (request === activeRequest) setError(String(err instanceof Error ? err.message : err));
     } finally {
@@ -106,6 +141,7 @@ export function createScanStore() {
         const painted = options.waitForPaint?.();
         completedScanId = snapshot.id;
         setData(result);
+        pollFindings(request, snapshot.id);
         await painted;
         if (request !== activeRequest) return;
         options.onComplete?.(snapshot);
@@ -130,6 +166,7 @@ export function createScanStore() {
   /** Analyze `path` ("" = the server's directory), superseding any running scan. */
   const start = async (path: string, options: StartOptions = {}) => {
     const request = ++activeRequest;
+    stopFindingsPoll();
     stopWatching?.();
     stopWatching = null;
     const previous = scan();
@@ -178,6 +215,7 @@ export function createScanStore() {
   /** Stop watching and forget everything (tests, HMR). */
   const dispose = () => {
     activeRequest++;
+    stopFindingsPoll();
     stopWatching?.();
     stopWatching = null;
     setData(null);

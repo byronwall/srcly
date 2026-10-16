@@ -82,6 +82,13 @@ class Metrics(BaseModel):
     commit_count: int | None = None
     churn_lines: int | None = None
 
+    # Lint and type-check findings (``services/findings``), laid over the tree
+    # when it is served: everything the checkers reported for the file, and
+    # the errors among them. N/A when no checker covers the file or its
+    # checker failed or timed out. Files and folders (sums); scopes are N/A.
+    finding_count: int | None = None
+    error_count: int | None = None
+
     na_reason: str = ""
     # Per-metric reasons that override ``na_reason`` (activity has its own:
     # "Not a Git repository", "Shallow clone", ...).
@@ -117,6 +124,30 @@ class ActivityInfo(BaseModel):
     files_touched: int = 0
 
 
+class FindingsTool(BaseModel):
+    """One checker run: which tool, from where, and how it went."""
+
+    id: str
+    tool: str  # "tsc" | "eslint" | "ruff" | "srcly-ts"
+    label: str  # "tsc (client/tsconfig.app.json)", "ruff (srcly defaults)"
+    source: str  # "project" | "srcly defaults"
+    status: str  # "ok" | "na"
+    reason: str = ""
+    seconds: float = 0.0
+    finding_count: int = 0
+    error_count: int = 0
+    files_checked: int | None = None
+
+
+class FindingsInfo(BaseModel):
+    """Lint and type-check status for a whole tree (root node only)."""
+
+    status: str  # "running" | "ok" | "na"
+    reason: str = ""
+    tools: List[FindingsTool] = Field(default_factory=list)
+    finding_count: int = 0
+
+
 class Node(BaseModel):
     name: str
     type: str  # "folder", "file", "function", "function_body"
@@ -132,6 +163,8 @@ class Node(BaseModel):
     end_line: int = 0
     # Root only: whether Git activity could be measured, and for which window.
     activity: ActivityInfo | None = None
+    # Root only: whether the checks finished, and which tools ran.
+    findings: FindingsInfo | None = None
 
     model_config = {
         "populate_by_name": True

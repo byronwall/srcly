@@ -74,6 +74,33 @@ export type ActivityInfo = {
   files_touched: number;
 };
 
+/** One lint/type checker run (`services/findings`). */
+export type FindingsTool = {
+  id: string;
+  tool: "tsc" | "eslint" | "ruff" | "srcly-ts" | string;
+  /** "tsc (client/tsconfig.app.json)", "ruff (srcly defaults)". */
+  label: string;
+  source: "project" | "srcly defaults";
+  status: "ok" | "na";
+  reason: string;
+  seconds: number;
+  finding_count: number;
+  error_count: number;
+  files_checked: number | null;
+};
+
+/** Root-only `findings` on the analysis tree: whether the checks finished, and which tools ran. */
+export type FindingsInfo = {
+  status: "running" | "ok" | "na";
+  reason: string;
+  tools: FindingsTool[];
+  finding_count: number;
+};
+
+/** Tools worth naming: the ones that failed or actually had files to check. */
+export const ranTools = (info: FindingsInfo | null | undefined): FindingsTool[] =>
+  (info?.tools ?? []).filter((t) => t.status !== "ok" || t.files_checked !== 0);
+
 const [catalog, setCatalog] = createSignal<MetricCatalog>({ groups: [], metrics: [] });
 let byId = new Map<MetricId, MetricDef>();
 

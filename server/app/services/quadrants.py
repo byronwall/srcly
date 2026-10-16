@@ -162,6 +162,21 @@ PRESETS: tuple[Preset, ...] = (
             Quadrant("low_both", "Clean", "Simple, lightly commented."),
         ),
     ),
+    Preset(
+        "findings",
+        "Findings",
+        "Whether the lint and type checkers flag the complex files or the simple ones.",
+        Axis("complexity", 10),
+        Axis("finding_count", 3),
+        ("file",),
+        (
+            Quadrant("high_both", "Flagged tangle", "Complex and flagged by the checkers: fix the findings before refactoring."),
+            Quadrant("high_x", "Clean but complex", "Complex with quiet checkers: a refactor starts from solid ground."),
+            Quadrant("high_y", "Quick cleanup", "Simple code with findings: cheap fixes."),
+            Quadrant("low_both", "Clean", "Simple and clean."),
+        ),
+        cohort_note="Findings are counted per file",
+    ),
 )
 
 PRESETS_BY_ID: dict[str, Preset] = {p.id: p for p in PRESETS}
@@ -257,6 +272,8 @@ def unavailable_reason(preset: Preset, root: Node, plotted: int, fan_in: Mapping
         return ""
     if "commit_count" in (preset.x.id, preset.y.id) and root.activity and root.activity.status == "na":
         return f"No Git history: {root.activity.reason}"
+    if "finding_count" in (preset.x.id, preset.y.id) and root.findings and root.findings.status != "ok":
+        return f"No checks: {root.findings.reason or 'still running'}"
     if "fan_in" in (preset.x.id, preset.y.id) and not fan_in:
         return "No import graph: needs TS/TSX or Python files"
     if preset.cohorts == ("component",):

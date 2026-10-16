@@ -27,13 +27,13 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, Optional
 
 from app.models import Node
-from app.services import analysis, cache
+from app.services import analysis, cache, findings
 from app.services.compare.git_refs import GitError, ResolvedRef, run_git
 from app.services.deps.graph import build_dependency_graph
 from app.services.scan_progress import NULL_OBSERVER, ScanObserver
 from app.services.scan_workers import CancelToken
 
-SIDE_FORMAT = 1
+SIDE_FORMAT = 2
 MAX_SIDE_ENTRIES = 40
 # Snapshot checkouts older than this are leftovers from a killed process.
 STALE_SNAPSHOT_SECONDS = 3600
@@ -221,6 +221,17 @@ def _tree_json(tree: Node) -> dict[str, Any]:
     return json.loads(tree.model_dump_json(by_alias=True))
 
 
+def _with_checks(tree_json: dict[str, Any], root: Path, *, fingerprint: Optional[str]) -> dict[str, Any]:
+    """
+    Lay findings over a side's tree (paths still absolute). Compare uses only
+    the portable checkers (ruff and srcly's TS rules): a snapshot checkout has
+    no ``node_modules``, and both sides must be checked by the same tools or
+    the diff would compare tsc on one side with nothing on the other.
+    """
+    result = findings.collect(root, fingerprint=fingerprint, portable=True)
+    return findings.apply_to_tree(tree_json, result)
+
+
 def load_side(
     repo: Path,
     ref: ResolvedRef,
@@ -268,9 +279,11 @@ def _scan_commit(
     with snapshot_checkout(repo, ref.sha) as checkout:
         on_step("scan")
         tree = analysis.scan_codebase(checkout, verbose=False, cancel=cancel, observer=observer)
+        on_step("checks")
+        tree_json = _with_checks(_tree_json(tree), checkout, fingerprint=None)
         on_step("graph")
         graph = graph_json(checkout, keep_abs_paths=False, use_cache=False)
-        tree_json = relativize_tree(_tree_json(tree), checkout, repo.name)
+        tree_json = relativize_tree(tree_json, checkout, repo.name)
         on_step("cleanup")
     side = Side(
         ref=ref,
@@ -300,6 +313,7 @@ def _load_worktree(
     if entry is not None:
         tree_json = json.loads(entry.data)
         files_total, cached = entry.files_total, True
+        fingerprint = entry.fingerprint
     else:
         fingerprint = cache.fingerprint(repo)
         on_step("scan")
@@ -310,6 +324,8 @@ def _load_worktree(
             repo, fingerprint, data, files_total=files_total, scan_seconds=time.monotonic() - started
         )
         tree_json, cached = json.loads(data), False
+    on_step("checks")
+    tree_json = _with_checks(tree_json, repo, fingerprint=fingerprint)
     on_step("graph")
     graph = graph_json(repo, keep_abs_paths=True, use_cache=True)
     return Side(

@@ -1,5 +1,6 @@
 import { Show } from "solid-js";
 import { EmptyState } from "../feedback/States";
+import { FileFindings } from "./FileFindings";
 import { MetricsTable } from "./MetricsTable";
 import { RecentCommits } from "./RecentCommits";
 
@@ -13,9 +14,11 @@ export function MetricsSidebar(props: {
   onToggleMetric: (metricId: string) => void;
   /** Open a scope of this file (the max-complexity witness). */
   onSelectNode: (node: any) => void;
-  /** Absolute path on disk; with no `gitRef`, recent commits show below the table. */
+  /** Absolute path on disk; with no `gitRef`, findings and recent commits show below the table. */
   filePath?: string | null;
   gitRef?: string | null;
+  /** Go to a finding's line (marks the Findings lines). */
+  onJumpToFinding: (line: number) => void;
 }) {
   const commitsPath = () => (!props.gitRef && /^([A-Za-z]:)?[\\/]/.test(props.filePath ?? "") ? props.filePath : null);
   return (
@@ -43,7 +46,12 @@ export function MetricsSidebar(props: {
           />
         </Show>
         <Show when={commitsPath()} keyed>
-          {(path) => <RecentCommits path={path} />}
+          {(path) => (
+            <>
+              <FileFindings path={path} onJump={props.onJumpToFinding} />
+              <RecentCommits path={path} />
+            </>
+          )}
         </Show>
       </div>
     </aside>

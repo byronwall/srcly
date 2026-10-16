@@ -13,9 +13,9 @@ ROOT_PATH = Path.cwd()
 
 
 def result_bytes(job: scan_jobs.ScanJob, activity_window: str | None = None) -> bytes:
-    """The finished tree with Git activity for ``activity_window`` (default 90d)."""
+    """The finished tree with Git activity for ``activity_window`` (default 90d) and findings."""
     try:
-        return job.result_json_with_activity(activity_window)
+        return job.result_json_overlaid(activity_window)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

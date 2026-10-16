@@ -37,7 +37,7 @@ def test_assign_quadrant_counts_the_cutoff_as_high(x: float, y: float, expected:
 
 
 def test_presets_are_well_formed() -> None:
-    assert [p.label for p in quadrants.PRESETS] == ["Activity", "Blast radius", "Component weight", "Comment noise"]
+    assert [p.label for p in quadrants.PRESETS] == ["Activity", "Blast radius", "Component weight", "Comment noise", "Findings"]
     for preset in quadrants.PRESETS:
         assert tuple(q.id for q in preset.quadrants) == quadrants.QUADRANT_IDS
         assert len({q.name for q in preset.quadrants}) == 4
@@ -51,7 +51,7 @@ def test_presets_are_well_formed() -> None:
 def test_catalog_serves_the_presets() -> None:
     payload = metric_catalog.catalog_payload()
     ids = [p["id"] for p in payload["quadrant_presets"]]
-    assert ids == ["activity", "blast_radius", "component_weight", "comment_noise"]
+    assert ids == ["activity", "blast_radius", "component_weight", "comment_noise", "findings"]
     activity = payload["quadrant_presets"][0]
     assert activity["x"]["id"] == "complexity" and activity["x"]["cutoff"] == 10
     assert activity["y"]["id"] == "commit_count" and activity["y"]["unit"] == "commits"

@@ -276,12 +276,12 @@ def test_window_change_reuses_the_ast_result(repo: Path) -> None:
     job = ScanJob(root_path=repo)
     job.run()
     base = job.result_json()
-    ninety = json.loads(job.result_json_with_activity("90d"))
-    everything = json.loads(job.result_json_with_activity("all"))
+    ninety = json.loads(job.result_json_overlaid("90d"))
+    everything = json.loads(job.result_json_overlaid("all"))
     assert job.result_json() is base  # the cached AST tree is untouched
     assert _find(ninety, "stable.py")["metrics"]["commit_count"] == 0
     assert _find(everything, "stable.py")["metrics"]["commit_count"] == 2
-    assert job.result_json_with_activity("90d") is job.result_json_with_activity("90d")
+    assert job.result_json_overlaid("90d") is job.result_json_overlaid("90d")
 
 
 def test_api_window_param_and_commits(repo: Path) -> None:

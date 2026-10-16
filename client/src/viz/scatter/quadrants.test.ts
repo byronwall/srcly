@@ -39,8 +39,8 @@ const root = (...children: ScatterNode[]): ScatterNode => ({ name: "r", path: "/
 const names = (points: { node: ScatterNode }[]) => points.map((p) => p.node.name);
 
 describe("catalog presets", () => {
-  it("serves the four presets with named quadrants and absolute cut-offs", () => {
-    expect(quadrantPresets().map((p) => p.label)).toEqual(["Activity", "Blast radius", "Component weight", "Comment noise"]);
+  it("serves the five presets with named quadrants and absolute cut-offs", () => {
+    expect(quadrantPresets().map((p) => p.label)).toEqual(["Activity", "Blast radius", "Component weight", "Comment noise", "Findings"]);
     const activity = preset("activity");
     expect([activity.x.id, activity.y.id]).toEqual(["complexity", "commit_count"]);
     expect(activity.quadrants.map((q) => q.name)).toEqual(["Hot mess", "Sleeping giant", "Busy, fine", "Quiet"]);
@@ -135,6 +135,12 @@ describe("unavailableReason", () => {
       .toBe("No Git history: Not a Git repository");
     expect(unavailableReason(preset("blast_radius"), 0, { fanIn: new Map() })).toMatch(/^No import graph/);
     expect(unavailableReason(preset("blast_radius"), 0, { fanIn: null, fanInLoading: true })).toBe("");
+    expect(unavailableReason(preset("findings"), 0, { findings: { status: "running", reason: "" }, fanIn: null })).toBe(
+      "Checks are still running"
+    );
+    expect(unavailableReason(preset("findings"), 0, { findings: { status: "na", reason: "ruff is not installed" }, fanIn: null })).toBe(
+      "No checks: ruff is not installed"
+    );
     expect(unavailableReason(preset("component_weight"), 0, { fanIn: null })).toMatch(/^No TSX components/);
     expect(unavailableReason(preset("activity"), 3, { fanIn: null })).toBe("");
   });

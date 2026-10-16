@@ -40,6 +40,10 @@
       "id": "Activity"
     },
     {
+      "description": "Lint and type-check results: the project's own tsc and eslint when it has them, otherwise srcly's bundled ruff and TS rules. No setup.",
+      "id": "Findings"
+    },
+    {
       "description": "Counts that describe code without saying it needs work: shown and colorable, never ranked.",
       "id": "Detail"
     }
@@ -532,6 +536,60 @@
       "short_label": "Churn",
       "unit": "lines",
       "unit_one": "line",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        3,
+        15
+      ],
+      "color_per_file": true,
+      "description": "Everything the checkers reported for the file: the project's tsc and eslint, or srcly's ruff and TS rules. The code viewer lists each one with its rule and tool.",
+      "direction": "higher-worse",
+      "group": "Findings",
+      "id": "finding_count",
+      "label": "Findings",
+      "languages": [
+        "ts",
+        "tsx",
+        "python",
+        "code"
+      ],
+      "picker": true,
+      "scope": "file",
+      "short_label": "Find",
+      "unit": "findings",
+      "unit_one": "finding",
+      "viewer_label": null,
+      "witness": false
+    },
+    {
+      "aggregation": "sum",
+      "color_domain": [
+        0,
+        1,
+        5
+      ],
+      "color_per_file": true,
+      "description": "Findings the checker calls errors: type errors, eslint errors, syntax errors and undefined names. Warnings aren't counted.",
+      "direction": "higher-worse",
+      "group": "Findings",
+      "id": "error_count",
+      "label": "Errors",
+      "languages": [
+        "ts",
+        "tsx",
+        "python",
+        "code"
+      ],
+      "picker": true,
+      "scope": "file",
+      "short_label": "Err",
+      "unit": "errors",
+      "unit_one": "error",
       "viewer_label": null,
       "witness": false
     },
@@ -1044,6 +1102,57 @@
         "scale": "log",
         "unit": "CCN",
         "unit_one": "CCN"
+      }
+    },
+    {
+      "cohort_note": "Findings are counted per file",
+      "cohorts": [
+        "file"
+      ],
+      "description": "Whether the lint and type checkers flag the complex files or the simple ones.",
+      "id": "findings",
+      "label": "Findings",
+      "quadrants": [
+        {
+          "description": "Complex and flagged by the checkers: fix the findings before refactoring.",
+          "id": "high_both",
+          "name": "Flagged tangle"
+        },
+        {
+          "description": "Complex with quiet checkers: a refactor starts from solid ground.",
+          "id": "high_x",
+          "name": "Clean but complex"
+        },
+        {
+          "description": "Simple code with findings: cheap fixes.",
+          "id": "high_y",
+          "name": "Quick cleanup"
+        },
+        {
+          "description": "Simple and clean.",
+          "id": "low_both",
+          "name": "Clean"
+        }
+      ],
+      "x": {
+        "cutoff": 10,
+        "derived": false,
+        "description": "Cyclomatic complexity: exact for a function; for a file or folder, its most complex function, which it names.",
+        "id": "complexity",
+        "label": "Complexity (max)",
+        "scale": "log",
+        "unit": "CCN",
+        "unit_one": "CCN"
+      },
+      "y": {
+        "cutoff": 3,
+        "derived": false,
+        "description": "Everything the checkers reported for the file: the project's tsc and eslint, or srcly's ruff and TS rules. The code viewer lists each one with its rule and tool.",
+        "id": "finding_count",
+        "label": "Findings",
+        "scale": "log",
+        "unit": "findings",
+        "unit_one": "finding"
       }
     }
   ]

@@ -108,6 +108,12 @@ export async function fetchScanResult<T>(id: string, activityWindow?: string): P
   return expectJson<T>(res);
 }
 
+/** The scan's lint/type-check status; counts reach the result once it isn't "running". */
+export async function fetchScanFindings<T>(id: string): Promise<T> {
+  const res = await fetch(`/api/scans/${encodeURIComponent(id)}/findings`);
+  return expectJson<T>(res);
+}
+
 /**
  * Subscribe to progress for a scan. `onUpdate` sees every snapshot (including
  * the terminal one); `onDone` fires once with the terminal snapshot. Returns
