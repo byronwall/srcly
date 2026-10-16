@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from app.services.analysis_types import ACTIVITY_METRICS, MEASURED_FILE_METRICS, MEASURED_SCOPE_METRICS
+from app.services.analysis_types import FINDINGS_METRICS, MEASURED_FILE_METRICS, MEASURED_SCOPE_METRICS, OVERLAY_METRICS
 
 Direction = Literal["higher-worse", "lower-worse", "neutral"]
 Aggregation = Literal["sum", "max", "mean"]
@@ -29,6 +29,7 @@ GROUPS: tuple[tuple[str, str], ...] = (
     ("TypeScript", "Type-safety escapes in .ts and .tsx files."),
     ("Markdown", "Markdown documents."),
     ("Activity", "Git history per file in the selected window (90 days by default). On whenever the folder is a Git repo."),
+    ("Findings", "Lint and type-check results: the project's own tsc and eslint when it has them, otherwise srcly's bundled ruff and TS rules. No setup."),
     ("Detail", "Counts that describe code without saying it needs work: shown and colorable, never ranked."),
 )
 
@@ -67,13 +68,16 @@ class MetricSpec:
     @property
     def languages(self) -> list[str] | None:
         """Languages whose analyzers measure it; ``None`` when every file has it."""
+        if self.id in FINDINGS_METRICS:
+            # Checkers exist for these; eslint can also check plain JS ("code").
+            return ["ts", "tsx", "python", "code"]
         langs = [lang for lang, measured in MEASURED_FILE_METRICS.items() if self.id in measured]
         return langs or None
 
     @property
     def scope(self) -> Literal["file", "any"]:
         """``any`` when function/component scopes carry their own value too."""
-        if self.id in ACTIVITY_METRICS:
+        if self.id in OVERLAY_METRICS:
             return "file"
         if self.id == "loc" or any(self.id in measured for measured in MEASURED_SCOPE_METRICS.values()):
             return "any"
@@ -227,6 +231,18 @@ METRICS: tuple[MetricSpec, ...] = (
         "churn_lines", "Churn", "Churn", "lines", "line", "Activity", "higher-worse", "sum",
         "Lines added plus removed by those commits. Kept apart from commit count: one bulk rewrite churns a lot in a single commit.",
         color_domain=(0, 200, 2_000), color_per_file=True, compare="neutral",
+    ),
+    # Findings: from lint and type checkers (services/findings), per file.
+    MetricSpec(
+        "finding_count", "Findings", "Find", "findings", "finding", "Findings", "higher-worse", "sum",
+        "Everything the checkers reported for the file: the project's tsc and eslint, or srcly's ruff and TS rules. The code viewer lists each one with its rule and tool.",
+        # A couple is normal lint; ten is a file nobody is keeping clean.
+        color_domain=(0, 3, 15), color_per_file=True,
+    ),
+    MetricSpec(
+        "error_count", "Errors", "Err", "errors", "error", "Findings", "higher-worse", "sum",
+        "Findings the checker calls errors: type errors, eslint errors, syntax errors and undefined names. Warnings aren't counted.",
+        color_domain=(0, 1, 5), color_per_file=True,
     ),
     # Detail: describes code without saying it needs work.
     MetricSpec(

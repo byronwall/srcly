@@ -48,7 +48,7 @@ async function fetchFanIn(root: string): Promise<Map<string, number>> {
  */
 export default function ScatterView(props: {
   data: Node | null;
-  /** The whole scan's root: carries Git `activity` status. */
+  /** The whole scan's root: carries Git `activity` and `findings` status. */
   scanRoot: Node | null;
   rootPath: string;
   onFileSelect: (path: string, startLine?: number, endLine?: number, node?: any) => void;
@@ -90,6 +90,7 @@ export default function ScatterView(props: {
     if (!p) return "No presets in the metric catalog";
     return unavailableReason(p, built().points.length, {
       activity: (props.scanRoot as { activity?: { status: string; reason: string } } | null)?.activity ?? null,
+      findings: (props.scanRoot as { findings?: { status: string; reason: string } } | null)?.findings ?? null,
       fanIn: fanIn() ?? null,
       fanInLoading: needsFanIn() && fanIn.loading,
     });

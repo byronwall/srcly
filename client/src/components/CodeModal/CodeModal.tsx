@@ -211,6 +211,18 @@ export default function CodeModal(props: CodeModalProps) {
     if (next) goToHit(next.line);
   };
 
+  /** From the findings list: mark every finding and put the cursor on this one. */
+  const jumpToFinding = (line: number) => {
+    setViewMode("code");
+    if (line < displayStart() || line > displayEnd()) setLineFilterEnabled(false);
+    if (activeMetric() !== "finding_count") setActiveMetric("finding_count");
+    // After the metric effect lands on the first hit, move to this one.
+    queueMicrotask(() => {
+      setCursorLine(line);
+      scrollAfterRender(line, true);
+    });
+  };
+
   const toggleMetric = (id: string) => {
     setViewMode("code");
     setCursorLine(null);
@@ -344,6 +356,7 @@ export default function CodeModal(props: CodeModalProps) {
               onSelectNode={selectScope}
               filePath={props.filePath}
               gitRef={props.gitRef}
+              onJumpToFinding={jumpToFinding}
             />
 
             <div

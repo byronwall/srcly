@@ -71,18 +71,18 @@ describe("metricSections", () => {
   const fileNode = { metrics: { loc: 300, file_size: 9000, complexity: 12, complexity_avg: 2.5, python_import_count: 7, todo_count: 0 } };
   const scopeNode = { metrics: { loc: 40, complexity: 6, todo_count: 0, file_size: 0, python_import_count: 0 } };
 
-  it("groups Size · Complexity · Comments · Activity · Detail with scope beside file", () => {
+  it("groups Size · Complexity · Comments · Activity · Findings · Detail with scope beside file", () => {
     const sections = metricSections("/r/pipeline.py", fileNode, scopeNode);
-    expect(sections.map((s) => s.title)).toEqual(["Size", "Complexity", "Comments", "Activity", "Detail"]);
+    expect(sections.map((s) => s.title)).toEqual(["Size", "Complexity", "Comments", "Activity", "Findings", "Detail"]);
     const size = sections[0].rows;
     expect(size.find((r) => r.id === "loc")).toMatchObject({ scope: 40, file: 300 });
     // File-only metrics leave the scope cell empty instead of showing a fake 0.
     expect(size.find((r) => r.id === "file_size")).toMatchObject({ scope: undefined, file: 9000 });
-    expect(sections[4].rows.find((r) => r.id === "python_import_count")).toEqual({ id: "python_import_count", label: "Python Imports", scope: undefined, file: 7 });
+    expect(sections[5].rows.find((r) => r.id === "python_import_count")).toEqual({ id: "python_import_count", label: "Python Imports", scope: undefined, file: 7 });
   });
 
   it("still shows an applicable 0", () => {
-    const todos = metricSections("/r/pipeline.py", fileNode, scopeNode)[4].rows.find((r) => r.id === "todo_count");
+    const todos = metricSections("/r/pipeline.py", fileNode, scopeNode).find((s) => s.title === "Detail")!.rows.find((r) => r.id === "todo_count");
     expect(todos).toMatchObject({ scope: 0, file: 0 });
   });
 

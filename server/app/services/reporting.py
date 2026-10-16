@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Iterable, Literal
 
 from app.models import Metrics, Node
-from app.services import activity, analysis, metric_catalog, quadrants
+from app.services import activity, analysis, findings as lint_findings, metric_catalog, quadrants
 
 ARTIFACT_VERSION = 1
 
@@ -23,9 +23,20 @@ PROFILE_WEIGHTS: dict[str, dict[str, float]] = metric_catalog.profile_weights()
 
 
 def scan_tree(root_path: Path, *, verbose: bool = True, activity_window: str | None = None) -> Node:
-    """Scan ``root_path`` and lay Git activity for ``activity_window`` (default 90d) over it."""
-    tree = analysis.scan_codebase(root_path, verbose=verbose)
-    data = activity.apply_to_scan(json.loads(tree.model_dump_json(by_alias=True)), root_path, activity_window)
+    """
+    Scan ``root_path`` and lay Git activity for ``activity_window`` (default
+    90d) and lint/type-check findings over it. The checks run beside the scan.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    from app.services import cache
+
+    root = root_path.resolve()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        checks = pool.submit(lambda: lint_findings.collect(root, fingerprint=cache.fingerprint(root)))
+        tree = analysis.scan_codebase(root_path, verbose=verbose)
+        data = activity.apply_to_scan(json.loads(tree.model_dump_json(by_alias=True)), root_path, activity_window)
+        lint_findings.apply_to_tree(data, checks.result())
     return Node.model_validate(data)
 
 
@@ -86,6 +97,7 @@ def build_report_payload(
     summary_tree = summarize_tree(tree, ranked, root_path=root_path, max_depth=tree_depth, top_children=tree_top)
     manifest = build_manifest(root_path=root_path, profile=profile)
     manifest["activity"] = tree.activity.model_dump() if tree.activity else None
+    manifest["checks"] = tree.findings.model_dump() if tree.findings else None
     metrics_schema = build_metrics_schema()
     top_findings_limit = min(limit, 20 if agent_compact else 10)
     top_findings = {"findings": findings[:top_findings_limit]}
@@ -452,6 +464,7 @@ def render_markdown_report(
         f"- Ranked by: `{metric}` ({label}). Pick another with `--metric`.",
         f"- Findings profile: `{profile}`",
         _activity_line(manifest.get("activity")),
+        _checks_line(manifest.get("checks")),
         f"- Findings: {len(findings)} total, {high_count} high, {medium_count} medium.",
         f"- Focus paths: `{', '.join(focus_paths or []) or 'none'}`",
         f"- Deprioritized paths: `{', '.join(deprioritize_paths or []) or 'none'}`",
@@ -525,6 +538,21 @@ def _activity_line(info: dict[str, Any] | None) -> str:
         return f"- Git activity: N/A ({info['reason']})"
     note = f"; {info['note']}" if info.get("note") else ""
     return f"- Git activity: {info['window_label']} at `{info['head']}`, {info['files_touched']} files touched{note}"
+
+
+def _checks_line(info: dict[str, Any] | None) -> str:
+    """Which lint/type checkers ran (``finding_count`` / ``error_count`` come from them)."""
+    if not info:
+        return "- Lint/type checks: not run"
+    if info["status"] != "ok":
+        return f"- Lint/type checks: N/A ({info.get('reason') or info['status']})"
+    parts = []
+    for tool in info["tools"]:
+        if tool["status"] != "ok":
+            parts.append(f"{tool['label']} N/A ({tool['reason']})")
+        elif tool.get("files_checked") != 0:
+            parts.append(f"{tool['label']}: {tool['finding_count']} findings, {tool['error_count']} errors")
+    return f"- Lint/type checks: {'; '.join(parts) or 'no checkable files'}"
 
 
 def render_agent_skill() -> str:

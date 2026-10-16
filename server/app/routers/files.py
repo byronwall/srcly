@@ -93,11 +93,39 @@ def get_file_markers(
             raise HTTPException(status_code=404, detail="File not found")
         else:
             markers = collect_markers(str(file_path))
+            markers.update(_findings_markers(file_path))
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to locate metrics: {e}") from e
     return {"markers": markers}
+
+
+def _findings_job_result(file_path: Path):
+    from app.services import findings
+
+    job = findings.manager.for_file(file_path)
+    return job.result if job is not None else None
+
+
+def _findings_markers(file_path: Path) -> dict:
+    """Lines behind ``finding_count`` / ``error_count``, from the last checks run on this file."""
+    from app.services import findings
+
+    return findings.markers_for(str(file_path), _findings_job_result(file_path))
+
+
+@router.get("/findings")
+def get_file_findings(path: str = Query(..., description="Absolute path to the file")):
+    """
+    Lint and type-check findings for one file from the latest scan's checks:
+    ``{"status": "ok"|"running"|"na", "reason", "tools": [...], "findings":
+    [{line, column, rule, message, severity, tool}]}``. ``tools`` are the
+    checkers that covered the file, so the viewer can say which one ran.
+    """
+    from app.services import findings
+
+    return findings.file_findings(str(Path(path)), _findings_job_result(Path(path)))
 
 
 @router.get("/commits")

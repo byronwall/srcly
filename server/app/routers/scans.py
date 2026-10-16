@@ -5,6 +5,7 @@ Scan jobs with live progress over Server-Sent Events.
     GET    /api/scans/{id}          current snapshot (polling fallback)
     GET    /api/scans/{id}/events   SSE stream of snapshots
     GET    /api/scans/{id}/result   analysis tree once complete (``?activity_window=30d|90d|1y|all``)
+    GET    /api/scans/{id}/findings lint/type-check status; the result has counts once it isn't running
     DELETE /api/scans/{id}          cancel                    -> snapshot
 
 SSE rather than WebSockets: progress only flows server -> client, cancel is
@@ -89,6 +90,12 @@ def get_scan_result(job_id: str, activity_window: Optional[str] = None):
     # Pre-encoded bytes: serializing a large tree on the event loop would
     # block every other request (see ScanJob.result_json).
     return Response(content=analysis_router.result_bytes(job, activity_window), media_type="application/json")
+
+
+@router.get("/{job_id}/findings")
+def get_scan_findings(job_id: str) -> dict:
+    """The scan's lint/type-check status (``FindingsInfo``); poll until it isn't ``running``."""
+    return _job_or_404(job_id).findings_result().info()
 
 
 @router.get("/{job_id}/events")

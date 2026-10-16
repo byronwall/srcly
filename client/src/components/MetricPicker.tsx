@@ -7,7 +7,9 @@ import {
   metricDefs,
   metricGroups,
   metricLabel,
+  ranTools,
   type ActivityInfo,
+  type FindingsInfo,
   type MetricId,
 } from "../utils/metricsStore";
 import Popover from "./Popover";
@@ -41,6 +43,7 @@ export function MetricPicker(props: {
     metricDefs().filter((m) => m.group === group && !(props.ranking && m.direction === "neutral"));
 
   const activity = (): ActivityInfo | null => scanStore.data()?.activity ?? null;
+  const findings = (): FindingsInfo | null => scanStore.data()?.findings ?? null;
   const windowShort = () => scanStore.activityWindow();
 
   const pick = (id: MetricId) => {
@@ -90,6 +93,9 @@ export function MetricPicker(props: {
                 <Show when={group.id === "Activity"}>
                   <ActivityWindowControl activity={activity()} />
                 </Show>
+                <Show when={group.id === "Findings" && findings()}>
+                  {(info) => <FindingsStatus info={info()} />}
+                </Show>
                 <For each={offered(group.id)}>
                   {(metric) => {
                     const isSelected = () => props.selected === metric.id;
@@ -125,6 +131,40 @@ export function MetricPicker(props: {
         </p>
       </PopoverPanel>
     </Popover>
+  );
+}
+
+/** Which checkers produced the Findings metrics, or why they're N/A. */
+export function FindingsStatus(props: { info: FindingsInfo; class?: string }) {
+  const lines = () => {
+    const info = props.info;
+    if (info.status === "running") return [{ text: "Checks are still running…", ok: true, title: "" }];
+    if (info.status !== "ok") return [{ text: `N/A: ${info.reason}`, ok: false, title: info.reason }];
+    const tools = ranTools(info);
+    if (!tools.length) return [{ text: "No files any checker covers", ok: false, title: "" }];
+    return tools.map((t) =>
+      t.status === "ok"
+        ? {
+            text: `${t.label} · ${t.finding_count.toLocaleString("en-US")}`,
+            ok: true,
+            title: `${t.label}: ${t.finding_count} findings, ${t.error_count} errors${t.files_checked != null ? ` in ${t.files_checked} files` : ""} (${t.seconds}s)`,
+          }
+        : { text: `${t.label} · N/A`, ok: false, title: t.reason }
+    );
+  };
+  return (
+    <ul class={cx("mb-1 px-2", props.class)} aria-label="Checkers that ran">
+      <For each={lines()}>
+        {(line) => (
+          <li
+            class={cx("truncate text-[11px]", line.ok ? "text-[var(--plc-on-subtle)]" : "text-[var(--plc-on-muted)]")}
+            title={line.title || line.text}
+          >
+            {line.text}
+          </li>
+        )}
+      </For>
+    </ul>
   );
 }
 
