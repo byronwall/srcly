@@ -39,8 +39,8 @@ def test_measured_zero_stays_zero(tree: Node) -> None:
 
 def test_metric_that_does_not_apply_is_none_with_reason(tree: Node) -> None:
     flat = _find(_find(tree, "src"), "flat.ts")
-    # TSX-only metrics don't apply to .ts; Python ones don't apply at all.
-    assert flat.metrics.tsx_nesting_depth is None
+    # Component metrics don't apply to .ts; Python ones don't apply at all.
+    assert flat.metrics.component_loc is None
     assert flat.metrics.python_import_count is None
     assert flat.metrics.na_reason == "Not measured for TypeScript files"
 

@@ -1,5 +1,4 @@
 import * as d3 from "d3";
-import { HOTSPOT_METRICS } from "../../../utils/metricsStore";
 import { getContrastingTextColor } from "../../../utils/color";
 
 export type MetricId = string;
@@ -55,22 +54,34 @@ const complexityColor = ramp([0, 10, 50]);
 
 /**
  * Metrics whose useful range is nowhere near the default 0–50 complexity
- * scale. These ignore `invert`; the domain already says which end is bad.
+ * scale: [fine, midpoint, needs attention].
  */
-const METRIC_SCALES: Record<string, (value: number) => string> = {
-  // Inverted: little or no commenting is what deserves attention.
-  comment_density: ramp([0.5, 0.2, 0]),
-  max_nesting_depth: ramp([0, 3, 8]),
-  todo_count: ramp([0, 1, 5]),
+const METRIC_DOMAINS: Record<string, [number, number, number]> = {
+  max_nesting_depth: [0, 3, 8],
+  todo_count: [0, 1, 5],
+  // Flags: one is worth a look, five is a pattern.
+  comment_noise: [0, 1, 5],
+  comment_noise_ratio: [0, 1, 5],
+  comment_noise_docblock: [0, 1, 5],
+  comment_noise_commented_code: [0, 1, 5],
   // A 200-line file or function is worth a look; 800 lines wants splitting.
-  loc: ramp([0, 200, 800]),
+  loc: [0, 200, 800],
   // Bytes. About 50 bytes per line, so this tracks the LOC stops.
-  file_size: ramp([0, 10_000, 40_000]),
-  // Characters of JSX text per file.
-  tsx_hardcoded_string_volume: ramp([0, 500, 2000]),
-  // JSX attributes per file.
-  tsx_prop_count: ramp([0, 50, 200]),
+  file_size: [0, 10_000, 40_000],
+  // Per component. A component past ~150 lines, 5 hooks or 2 effects is
+  // doing more than rendering.
+  component_loc: [0, 150, 400],
+  component_hook_count: [0, 5, 15],
+  component_effect_count: [0, 2, 6],
+  component_jsx_depth: [0, 6, 12],
+  component_prop_count: [0, 8, 20],
+  component_inline_handler_count: [0, 5, 15],
+  component_jsx_conditional_count: [0, 5, 15],
 };
+
+const METRIC_SCALES: Record<string, (value: number) => string> = Object.fromEntries(
+  Object.entries(METRIC_DOMAINS).map(([id, domain]) => [id, ramp(domain)])
+);
 
 /**
  * Folder totals for these are sums, so a folder would outgrow any file scale.
@@ -111,12 +122,9 @@ const rampPosition = (domain: [number, number, number]) =>
  * the same rules as `treemapFillColor`, for bars that echo the fill.
  */
 export function treemapRampPosition(metricId: MetricId, metrics: Metrics): number {
-  const v = (id: string) => Number(metrics?.[id] ?? 0);
-  if (metricId === "comment_density") return rampPosition([0.5, 0.2, 0])(v(metricId));
-  if (metricId === "max_nesting_depth") return rampPosition([0, 3, 8])(v(metricId));
-  if (metricId === "todo_count") return rampPosition([0, 1, 5])(v(metricId));
-  let raw = v(metricId);
-  if (HOTSPOT_METRICS.find((m) => m.id === metricId)?.invert) raw = 1 - (raw || 0);
+  const domain = METRIC_DOMAINS[metricId];
+  if (domain) return rampPosition(domain)(scaleValue(metricId, metrics));
+  let raw = Number(metrics?.[metricId] ?? 0);
   if (!Number.isFinite(raw) || raw < 0) raw = 0;
   return rampPosition([0, 10, 50])(Math.min(raw, 50));
 }
@@ -124,10 +132,8 @@ export function treemapRampPosition(metricId: MetricId, metrics: Metrics): numbe
 /**
  * Fill color used by Treemap rectangles.
  *
- * Note: This preserves the current Treemap behavior:
- * - Inversion only affects the *default* (complexity-like) metric path.
- * - Metrics in METRIC_SCALES use their own domain and ignore invert.
- * - Default path clamps to 50.
+ * Metrics in METRIC_DOMAINS use their own domain; the rest use the
+ * complexity scale, clamped to 50.
  */
 export function treemapFillColor(
   metricId: MetricId,
@@ -136,10 +142,6 @@ export function treemapFillColor(
 ): string {
   if (metricIsNA(metricId, metrics)) return TREEMAP_NA_COLOR;
   let rawVal = Number(metrics?.[metricId] ?? 0);
-
-  const def = HOTSPOT_METRICS.find((m) => m.id === metricId);
-  if (def?.invert) rawVal = 1 - (rawVal || 0);
-
   if (!Number.isFinite(rawVal) || rawVal < 0) rawVal = 0;
   const scaled = Math.min(rawVal, 50);
 
@@ -151,7 +153,7 @@ export function treemapFillColor(
  * Background color used when computing label contrast.
  *
  * Note: This preserves the current Treemap behavior where text color uses the raw metric
- * value (not clamped, and no invert for the default path).
+ * value (not clamped).
  */
 export function treemapLabelBackground(
   metricId: MetricId,

@@ -39,7 +39,7 @@ from app.config import IGNORE_DIRS
 from app.services import analysis
 
 # Bump when the stored tree's shape changes in a way old entries can't serve.
-CACHE_FORMAT = 2
+CACHE_FORMAT = 3
 CACHE_DIR_ENV = "SRCLY_CACHE_DIR"
 # On-disk entries kept; older ones are deleted on save.
 MAX_DISK_ENTRIES = 20

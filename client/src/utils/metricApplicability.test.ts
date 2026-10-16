@@ -17,30 +17,34 @@ describe("languageForPath", () => {
 });
 
 describe("applicableMetrics", () => {
-  it("gives a Python file general code metrics and Python imports, no TS or Markdown", () => {
+  it("gives a Python file general code metrics and Python imports, no TS, components or Markdown", () => {
     const file = ids("/r/pipeline.py", false);
     expect(file).toEqual(
-      expect.arrayContaining(["loc", "file_size", "complexity", "complexity_avg", "comment_density", "max_nesting_depth", "parameter_count", "todo_count", "python_import_count"])
+      expect.arrayContaining(["loc", "file_size", "complexity", "complexity_avg", "comment_noise", "max_nesting_depth", "parameter_count", "todo_count", "python_import_count"])
     );
-    expect(file.some((id) => id.startsWith("ts") || id.startsWith("md_"))).toBe(false);
+    expect(file.some((id) => id.startsWith("ts") || id.startsWith("md_") || id.startsWith("component_"))).toBe(false);
   });
 
   it("keeps only per-scope metrics for a Python function", () => {
     expect(ids("/r/pipeline.py", true)).toEqual([
       "complexity",
       "loc",
-      "comment_density",
-      "todo_count",
+      "comment_noise",
       "max_nesting_depth",
       "parameter_count",
+      "todo_count",
+      "comment_noise_ratio",
+      "comment_noise_docblock",
+      "comment_noise_commented_code",
     ]);
   });
 
-  it("gives a TSX file the TSX metrics, and a plain TS file none of them", () => {
-    expect(ids("/r/View.tsx", false)).toEqual(expect.arrayContaining(["tsx_react_use_effect_count", "ts_import_coupling_count"]));
+  it("gives a TSX file the component metrics, and a plain TS file none of them", () => {
+    expect(ids("/r/View.tsx", false)).toEqual(expect.arrayContaining(["component_hook_count", "ts_import_coupling_count"]));
+    expect(ids("/r/View.tsx", true)).toContain("component_effect_count");
     const ts = ids("/r/util.ts", false);
     expect(ts).toContain("ts_any_usage_count");
-    expect(ts.some((id) => id.startsWith("tsx_"))).toBe(false);
+    expect(ts.some((id) => id.startsWith("component_"))).toBe(false);
   });
 
   it("keeps Types/Interfaces as the only TS metric measured per scope", () => {
@@ -62,18 +66,18 @@ describe("metricSections", () => {
   const fileNode = { metrics: { loc: 300, file_size: 9000, complexity: 12, complexity_avg: 2.5, python_import_count: 7, todo_count: 0 } };
   const scopeNode = { metrics: { loc: 40, complexity: 6, todo_count: 0, file_size: 0, python_import_count: 0 } };
 
-  it("groups Size · Complexity · language with scope beside file", () => {
+  it("groups Size · Complexity · Comments · Detail with scope beside file", () => {
     const sections = metricSections("/r/pipeline.py", fileNode, scopeNode);
-    expect(sections.map((s) => s.title)).toEqual(["Size", "Complexity", "Python"]);
+    expect(sections.map((s) => s.title)).toEqual(["Size", "Complexity", "Comments", "Detail"]);
     const size = sections[0].rows;
     expect(size.find((r) => r.id === "loc")).toMatchObject({ scope: 40, file: 300 });
     // File-only metrics leave the scope cell empty instead of showing a fake 0.
     expect(size.find((r) => r.id === "file_size")).toMatchObject({ scope: undefined, file: 9000 });
-    expect(sections[2].rows).toEqual([{ id: "python_import_count", label: "Python Imports", scope: undefined, file: 7 }]);
+    expect(sections[3].rows.find((r) => r.id === "python_import_count")).toEqual({ id: "python_import_count", label: "Python Imports", scope: undefined, file: 7 });
   });
 
   it("still shows an applicable 0", () => {
-    const todos = metricSections("/r/pipeline.py", fileNode, scopeNode)[1].rows.find((r) => r.id === "todo_count");
+    const todos = metricSections("/r/pipeline.py", fileNode, scopeNode)[3].rows.find((r) => r.id === "todo_count");
     expect(todos).toMatchObject({ scope: 0, file: 0 });
   });
 

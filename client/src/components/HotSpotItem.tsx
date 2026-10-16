@@ -7,7 +7,7 @@ import {
   hotSpotMetricLabel,
   type HotSpotMetricId,
 } from "../utils/metricsStore";
-import { NA_TEXT, metricCellColor, metricCellTitle, witnessOf } from "../utils/explorerColumns";
+import { NA_TEXT, metricCellColor, metricCellTitle, witnessOf, type CellWitness } from "../utils/explorerColumns";
 import { HeatSwatch } from "./ui/HeatSwatch";
 import { isSameOrAncestor, linkedPathFor, setHoverFrom } from "../utils/hoverLink";
 import { ExplorerContext, findNodeByPath } from "./Explorer";
@@ -22,6 +22,21 @@ export function HotSpotItem(props: {
   metrics: HotSpotMetricId[];
 }) {
   const ctx = useContext(ExplorerContext)!;
+
+  // The function or component behind each selected max, one row per scope:
+  // "max Hooks · Effects in OrderDashboard".
+  const witnesses = () => {
+    const rows: { witness: CellWitness; labels: string[] }[] = [];
+    for (const id of props.metrics) {
+      const w = witnessOf(props.node, id);
+      if (!w) continue;
+      const label = id === "complexity" ? "CCN" : hotSpotMetricLabel(id);
+      const row = rows.find((r) => r.witness.path === w.path);
+      if (row) row.labels.push(label);
+      else rows.push({ witness: w, labels: [label] });
+    }
+    return rows;
+  };
 
   // Lit when the treemap hovers this item or something inside it.
   const isLinked = () => {
@@ -101,22 +116,23 @@ export function HotSpotItem(props: {
         <div class="plc-data-sm truncate text-[var(--plc-on-subtle)]" title={displayPath()}>
           {displayPath()}
         </div>
-        <Show when={props.metrics.includes("complexity") ? witnessOf(props.node) : null}>
-          {(w) => (
+        <For each={witnesses()}>
+          {(row) => (
             <button
               type="button"
               class="plc-data-sm block max-w-full truncate text-left text-[var(--plc-on-subtle)] hover:text-[var(--plc-accent)]"
-              title={`Open ${w().name}, the most complex function here`}
+              title={`Open ${row.witness.name}, which sets the max ${row.labels.join(", ")} here`}
               onClick={(e) => {
                 e.stopPropagation();
-                ctx.onOpenWitness(w());
+                ctx.onOpenWitness(row.witness);
               }}
             >
-              max CCN in <span class="text-[var(--plc-on-muted)] underline decoration-dotted underline-offset-2">{w().name}</span>
-              {w().start_line > 0 ? ` · L${w().start_line}` : ""}
+              max {row.labels.join(" · ")} in{" "}
+              <span class="text-[var(--plc-on-muted)] underline decoration-dotted underline-offset-2">{row.witness.name}</span>
+              {row.witness.start_line > 0 ? ` · L${row.witness.start_line}` : ""}
             </button>
           )}
-        </Show>
+        </For>
       </div>
       <button
         type="button"

@@ -21,9 +21,11 @@ from typing import Optional
 
 from app.models import OPTIONAL_METRIC_FIELDS, Metrics, Node, Witness
 from app.services.analysis_types import (
+    COMPONENT_METRICS,
     LANGUAGE_LABELS,
     MEASURED_FILE_METRICS,
     MEASURED_SCOPE_METRICS,
+    MEAN_OVER_FUNCTIONS,
     iter_executable_scopes,
     scope_kind,
 )
@@ -148,9 +150,8 @@ _FROM_SCOPES = frozenset({"complexity", "complexity_avg", "function_count", "ave
 def _scope_value(func, name: str):
     if name == "complexity":
         return func.cyclomatic_complexity
-    if name == "comment_density":
-        comment_lines = getattr(func, "comment_lines", 0) or 0
-        return comment_lines / func.nloc if func.nloc > 0 else 0.0
+    if name in COMPONENT_METRICS:
+        return getattr(func, name, None)  # None unless the scope is a component
     return getattr(func, name, 0) or 0
 
 
@@ -190,7 +191,7 @@ def attach_file_metrics(node: Node, file_info) -> None:
     m.loc = file_info.nloc
     m.file_count = 1
 
-    for name in file_measured - _FROM_SCOPES:
+    for name in file_measured - _FROM_SCOPES - COMPONENT_METRICS:
         setattr(m, name, getattr(file_info, name, 0) or 0)
 
     functions = list(iter_executable_scopes(file_info.function_list))
@@ -201,9 +202,6 @@ def attach_file_metrics(node: Node, file_info) -> None:
             m.complexity_avg = sum(f.cyclomatic_complexity for f in functions) / len(functions)
             m.average_function_length = sum(f.nloc for f in functions) / len(functions)
 
-    if any(getattr(m, name) is None for name in OPTIONAL_METRIC_FIELDS):
-        m.na_reason = f"Not measured for {label} files"
-
     def convert_function(func, parent_path: str) -> Node:
         func_node = create_node(func.name, "function", f"{parent_path}::{func.name}")
         func_node.kind = scope_kind(func)
@@ -211,6 +209,8 @@ def attach_file_metrics(node: Node, file_info) -> None:
         for name in scope_measured:
             setattr(func_node.metrics, name, _scope_value(func, name))
         func_node.metrics.na_reason = f"Not measured per scope in {label} files"
+        if COMPONENT_METRICS & scope_measured and func_node.metrics.component_loc is None:
+            func_node.metrics.na_reason += "; component metrics apply to React/Solid components only"
         func_node.start_line = getattr(func, "start_line", 0)
         func_node.end_line = getattr(func, "end_line", 0)
 
@@ -239,6 +239,25 @@ def attach_file_metrics(node: Node, file_info) -> None:
         m.complexity = witness.metrics.complexity if witness else 0
         m.complexity_witness = _witness_for(witness) if witness else None
 
+    # Component metrics: the max over the file's components, each naming its
+    # component. N/A when the file has none.
+    components = _components(node) if COMPONENT_METRICS & file_measured else []
+    if components:
+        m.witnesses = {}
+        for name in sorted(COMPONENT_METRICS):
+            top = max(components, key=lambda c: getattr(c.metrics, name))  # first in source order on ties
+            setattr(m, name, getattr(top.metrics, name))
+            m.witnesses[name] = _witness_for(top)
+
+    reasons = []
+    if any(getattr(m, name) is None for name in OPTIONAL_METRIC_FIELDS if name not in file_measured):
+        reasons.append(f"Not measured for {label} files")
+    if any(getattr(m, name) is None for name in MEAN_OVER_FUNCTIONS & file_measured):
+        reasons.append("No functions to average")
+    if COMPONENT_METRICS & file_measured and not components:
+        reasons.append("No React/Solid components in this file")
+    m.na_reason = "; ".join(reasons)
+
 
 def _most_complex_function(node: Node) -> Node | None:
     """The executable function with the highest CCN below ``node`` (first in source order on ties)."""
@@ -251,6 +270,18 @@ def _most_complex_function(node: Node) -> Node | None:
                 best = child
         stack.extend(reversed(child.children))
     return best
+
+
+def _components(node: Node) -> list[Node]:
+    """Component scopes below ``node``, in source order."""
+    found: list[Node] = []
+    stack = list(reversed(node.children))
+    while stack:
+        child = stack.pop()
+        if child.type == "function" and child.metrics.component_loc is not None:
+            found.append(child)
+        stack.extend(reversed(child.children))
+    return found
 
 
 def _witness_for(func_node: Node) -> Witness:
@@ -807,9 +838,8 @@ def _should_log_file_progress(completed_count: int, total_count: int) -> bool:
 # How folders roll up each N/A-able metric. N/A children are skipped, so a
 # folder of Markdown and Python files gets the Python files' complexity, and a
 # folder is N/A only when no child measured the metric.
-_MAX_ROLLUP = frozenset({"complexity", "max_nesting_depth", "tsx_nesting_depth"})
+_MAX_ROLLUP = frozenset({"complexity", "max_nesting_depth"}) | COMPONENT_METRICS
 _MEAN_ROLLUP = frozenset({"complexity_avg", "average_function_length"})  # weighted by function_count
-_DERIVED_ROLLUP = frozenset({"comment_density"})
 
 
 def aggregate_metrics(node: Node) -> Metrics:
@@ -830,8 +860,6 @@ def aggregate_metrics(node: Node) -> Metrics:
     m.analysis_failed_count = sum(c.analysis_failed_count for c in child_metrics)
 
     for name in OPTIONAL_METRIC_FIELDS:
-        if name in _DERIVED_ROLLUP:
-            continue
         measured = [c for c in child_metrics if getattr(c, name) is not None]
         if not measured:
             setattr(m, name, None)
@@ -843,18 +871,20 @@ def aggregate_metrics(node: Node) -> Metrics:
         else:
             setattr(m, name, sum(getattr(c, name) for c in measured))
 
-    commented = [c for c in child_metrics if c.comment_lines is not None]
-    commented_loc = sum(c.loc for c in commented)
-    m.comment_density = (
-        sum(c.comment_lines for c in commented) / commented_loc if commented and commented_loc > 0 else (0.0 if commented else None)
-    )
-
     witness_source = None
     for c in child_metrics:
         if c.complexity is not None and c.complexity_witness is not None and c.complexity == m.complexity:
             witness_source = c
             break
     m.complexity_witness = witness_source.complexity_witness if witness_source else None
+
+    witnesses = {}
+    for name in COMPONENT_METRICS:
+        value = getattr(m, name)
+        source = next((c for c in child_metrics if c.witnesses and name in c.witnesses and getattr(c, name) == value), None)
+        if source is not None:
+            witnesses[name] = source.witnesses[name]
+    m.witnesses = witnesses or None
 
     m.na_reason = "No file below measures this" if any(getattr(m, n) is None for n in OPTIONAL_METRIC_FIELDS) else ""
     return m

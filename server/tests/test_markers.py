@@ -68,13 +68,18 @@ def test_ts_marker_counts_match_metrics(tmp_path: Path) -> None:
     assert len(markers["ts_any_usage_count"]) == metrics.ts_any_usage_count == 2
     assert len(markers["todo_count"]) == metrics.todo_count == 1
     assert len(markers["ts_ignore_count"]) == metrics.ts_ignore_count == 1
-    assert len(markers["tsx_react_use_effect_count"]) == metrics.tsx_react_use_effect_count == 1
-    assert len(markers["tsx_anonymous_handler_count"]) == metrics.tsx_anonymous_handler_count == 1
-    assert len(markers["tsx_prop_count"]) == metrics.tsx_prop_count
+    panel = next(f for f in metrics.function_list if f.name == "Panel")
+    # Component metrics mark every occurrence in every component, so for one
+    # component the marks equal its counts.
+    assert len(markers["component_effect_count"]) == panel.component_effect_count == 1
+    assert len(markers["component_hook_count"]) == panel.component_hook_count == 1
+    assert len(markers["component_inline_handler_count"]) == panel.component_inline_handler_count == 1
+    assert len(markers["component_jsx_conditional_count"]) == panel.component_jsx_conditional_count == 1
+    assert markers["component_prop_count"][0]["note"] == "2 props"
+    assert markers["component_jsx_depth"][0]["note"] == f"depth {panel.component_jsx_depth}"
     assert len(markers["ts_export_count"]) == metrics.ts_export_count
     assert len(markers["ts_type_interface_count"]) == metrics.ts_type_interface_count
     assert len(markers["ts_import_coupling_count"]) == metrics.ts_import_coupling_count == 2
-    assert len(markers["tsx_render_branching_count"]) == metrics.tsx_render_branching_count
 
     # Every decision point is marked once. A branch inside a JSX container or
     # object literal counts on that scope and on its enclosing function, so
@@ -95,13 +100,6 @@ def test_ts_marker_counts_match_metrics(tmp_path: Path) -> None:
     assert _lines(markers, "max_nesting_depth") == [9, 10]
     assert markers["max_nesting_depth"][-1]["note"] == f"depth {metrics.max_nesting_depth}"
 
-    # Duplicated text marks each copy with how often it repeats.
-    dupes = markers["tsx_duplicated_string_count"]
-    assert [m["line"] for m in dupes] == [20, 21]
-    assert {m["note"] for m in dupes} == {"×2"}
-
-    # Comments are marked across every line they cover.
-    assert _lines(markers, "comment_density") == [4, 11]
     assert _lines(markers, "parameter_count")[0] == 5
     assert markers["parameter_count"][0]["note"] == "2 params"
 
@@ -127,7 +125,7 @@ def test_scans_do_not_collect_markers(tmp_path: Path) -> None:
     analyzer = TreeSitterAnalyzer()
     analyzer.analyze_file(str(path))
     assert analyzer.markers is None
-    assert analyzer._string_nodes == []
+    assert analyzer._nesting_nodes == []
 
 
 def test_other_languages_mark_todos(tmp_path: Path) -> None:

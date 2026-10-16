@@ -40,86 +40,19 @@ def test_tsx_metrics(analyzer, tmp_path):
     
     metrics = analyzer.analyze_file(str(test_file))
     
-    # Verify TS/TSX metrics
-    
-    # 1. Nesting Depth
-    # div -> div (invalidProp) -> span
-    # Depth should be 3?
-    # div (container) -> depth 1
-    #   button -> depth 2
-    #   div (invalidProp) -> depth 2
-    #     span -> depth 3
-    assert metrics.tsx_nesting_depth >= 3
-    
-    # 2. Render Branching
-    # Ternary: ? : (1)
-    # Binary: && (1)
-    # Total: 2
-    assert metrics.tsx_render_branching_count == 2
-    
-    # 3. useEffect Count
-    # One useEffect call
-    assert metrics.tsx_react_use_effect_count == 1
-    
-    # 4. Anonymous Handler Count
-    # onClick={() => ...} -> 1
-    assert metrics.tsx_anonymous_handler_count == 1
-    
-    # 5. Prop Count
-    # className="container" -> 1
-    # onClick={...} -> 1
-    # invalidProp={true} -> 1
-    # key="1" -> 1
-    # key="2" -> 1
-    # Total: 5
-    assert metrics.tsx_prop_count == 5
-    
-    # 6. any Usage
-    # (props: any) -> 1
-    assert metrics.ts_any_usage_count == 1
-    
-    # 7. ts-ignore Count
-    # @ts-ignore -> 1
+    # The file-level TS counts.
+    assert metrics.ts_any_usage_count == 1  # (props: any)
     assert metrics.ts_ignore_count == 1
-    
-    # 8. Import Coupling
-    # 'react', './utils' -> 2
-    assert metrics.ts_import_coupling_count == 2
-    
-    # 9. Hardcoded String Volume
-    # "container" (9)
-    # "Click me" (8)
-    # "Count is high" (13)
-    # "Count is low" (12)
-    # "Warning" (7)
-    # "1" (1)
-    # "2" (1)
-    # "Item" (4)
-    # "Item" (4)
-    # Total: 59
-    # Note: Logic might include 'react' and './utils' if they are string literals?
-    # My logic checks string_literal inside jsx_attribute or jsx_expression, or jsx_text.
-    # Imports are not inside JSX.
-    # "container" is string_literal inside jsx_attribute.
-    # "Click me" is jsx_text.
-    # "Count is high" is jsx_text.
-    # "Count is low" is jsx_text.
-    # "Warning" is jsx_text.
-    # "1", "2" are string_literal inside jsx_attribute.
-    # "Item" is jsx_text.
-    
-    # Let's verify exact number or range.
-    assert metrics.tsx_hardcoded_string_volume > 0
-    
-    # 10. Duplicated String Count
-    # "Item" appears twice.
-    # "span" is not a string, it's a tag name.
-    # "div" is tag name.
-    # "1", "2" are unique.
-    # "container" unique.
-    # "Click me" unique.
-    # "Count is high" unique.
-    # "Count is low" unique.
-    # "Warning" unique.
-    # So duplicated count should be 1 ("Item").
-    assert metrics.tsx_duplicated_string_count == 1
+    assert metrics.ts_import_coupling_count == 2  # 'react', './utils'
+
+    # MyComponent is a component; its metrics live on its scope.
+    component = next(f for f in metrics.function_list if f.name == "MyComponent")
+    assert component.component_hook_count == 2  # useState, useEffect
+    assert component.component_effect_count == 1
+    assert component.component_inline_handler_count == 1  # onClick={() => ...}
+    # `?:` choosing between two <span>s and `count > 5 && <div>`.
+    assert component.component_jsx_conditional_count == 2
+    # div > div > span
+    assert component.component_jsx_depth == 3
+    # `props: any` declares nothing; `props` is never read.
+    assert component.component_prop_count == 0

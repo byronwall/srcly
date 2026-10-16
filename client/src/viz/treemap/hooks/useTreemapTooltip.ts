@@ -2,6 +2,7 @@ import { createSignal } from "solid-js";
 import * as d3 from "d3";
 import { CODE_LANGUAGES, formatMetricValue, HOTSPOT_METRICS, type HotSpotMetricId } from "../../../utils/metricsStore";
 import { applicableMetrics, languageForPath } from "../../../utils/metricApplicability";
+import { witnessOf } from "../../../utils/explorerColumns";
 import { metricIsNA, TREEMAP_NA_BACKGROUND, treemapFillColor } from "../utils/colors";
 
 export type TooltipLine = {
@@ -185,9 +186,8 @@ export function siblingRank(d: d3.HierarchyNode<any>, id: HotSpotMetricId): stri
   const mine = metricValue(d, id);
   // Every sibling tied (all zero, say): a rank would be noise.
   if (siblings.every((s) => metricValue(s, id) === mine)) return "";
-  const dir = metricDef(id)?.invert ? 1 : -1;
   // Ties share the better rank.
-  const rank = 1 + siblings.filter((s) => dir * (metricValue(s, id) - mine) < 0).length;
+  const rank = 1 + siblings.filter((s) => metricValue(s, id) > mine).length;
   return `#${rank} of ${siblings.length} in ${parent.data?.name ?? ""}`;
 }
 
@@ -235,7 +235,7 @@ export function languageMix(d: d3.HierarchyNode<any>, limit = 3): string {
 const SHORT_LABELS: Record<string, string> = {
   complexity: "Max CCN",
   complexity_avg: "Avg CCN",
-  comment_density: "Comments",
+  comment_noise: "Comment noise",
   max_nesting_depth: "Nesting",
   todo_count: "TODOs",
   parameter_count: "Params",
@@ -313,13 +313,11 @@ export function buildTooltipContent(d: d3.HierarchyNode<any>, primaryMetricId: H
     subtitle = `${scopeKind(title, language)}${start > 0 && end >= start ? ` · L${start}–${end}` : ""}`;
   }
 
-  // "Low Comments" names a ranking; the value is a density.
   let primaryLabel = def?.label ?? primaryMetricId;
-  if (primaryMetricId === "comment_density") primaryLabel = def?.viewerLabel ?? primaryLabel;
   if (primaryMetricId === "complexity" && isScope) primaryLabel = "Complexity";
 
   const primaryNA = !hasValue(d, primaryMetricId);
-  const witness = primaryMetricId === "complexity" && !isScope ? metrics.complexity_witness : null;
+  const witness = isScope ? null : witnessOf(d.data, primaryMetricId);
   const primary: TooltipPrimary | null =
     !primaryApplies || (primaryMetricId === "loc" && !d.parent)
       ? null

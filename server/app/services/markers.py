@@ -40,6 +40,9 @@ class MarkerSink:
     def add_line(self, metric: str, line: int, note: str = "") -> None:
         self.by_metric[metric].append(Marker(line, line, note))
 
+    def add_span(self, metric: str, line: int, end_line: int, note: str = "") -> None:
+        self.by_metric[metric].append(Marker(line, end_line, note))
+
     def as_dict(self) -> dict[str, list[dict]]:
         return {
             metric: [m.as_dict() for m in sorted(markers, key=lambda m: (m.line, m.end_line))]

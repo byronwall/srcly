@@ -6,14 +6,25 @@ from typing import List, Set, Dict
 TYPESCRIPT_LANGUAGE = Language(tstypescript.language_typescript())
 TSX_LANGUAGE = Language(tstypescript.language_tsx())
 
+from app.services import comment_noise
 from app.services.analysis_types import FileMetrics, FunctionMetrics, is_executable_scope, iter_executable_scopes
 from app.services.markers import MarkerSink
+from app.services.typescript.components import find_components
 
 _COMPLEXITY_NOTES = {
     'if_statement': 'if', 'for_statement': 'for', 'for_in_statement': 'for',
     'for_of_statement': 'for', 'while_statement': 'while', 'do_statement': 'do',
     'catch_clause': 'catch', 'ternary_expression': '?:', 'case_clause': 'case',
 }
+
+# Statements only code has, for telling commented-out code from prose.
+_TS_CODE_NODES = frozenset({
+    'call_expression', 'assignment_expression', 'augmented_assignment_expression',
+    'return_statement', 'lexical_declaration', 'variable_declaration', 'import_statement',
+    'export_statement', 'if_statement', 'for_statement', 'for_in_statement', 'while_statement',
+    'function_declaration', 'class_declaration', 'jsx_element', 'jsx_self_closing_element',
+    'await_expression', 'new_expression', 'throw_statement', 'try_statement',
+})
 
 # Nesting at or past this depth is marked, so the overlay shows deep code
 # rather than every block. Shallower files mark their deepest blocks.
@@ -60,29 +71,21 @@ class TreeSitterAnalyzer:
         self._file_classes_count = 0
         self._file_max_nesting_depth = 0
         
-        self._file_tsx_nesting_depth = 0
-        self._file_tsx_render_branching_count = 0
-        self._file_tsx_react_use_effect_count = 0
-        self._file_tsx_anonymous_handler_count = 0
-        self._file_tsx_prop_count = 0
         self._file_ts_any_usage_count = 0
         self._file_ts_ignore_count = 0 # Handled via comments
         self._file_ts_import_coupling_count = 0
-        self._file_tsx_hardcoded_string_volume = 0
         self._file_ts_type_interface_count = 0
         self._file_ts_export_count = 0
         
         self._unique_imports: Set[str] = set()
-        self._string_literals: Dict[str, int] = {} # content -> count
-        # Marker bookkeeping: string nodes (for duplicates) and JSX depth.
-        self._string_nodes: List[tuple[str, Node]] = []
-        self._jsx_nodes: List[tuple[int, Node]] = []
+        self._comments: List[comment_noise.CommentSpan] = []
+        # Marker bookkeeping: nesting depth.
         self._nesting_nodes: List[tuple[int, Node]] = []
 
         # Run single-pass traversal
         top_level_functions: List[FunctionMetrics] = []
         
-        self._scan_tree(tree.root_node, top_level_functions, [], 0, 0)
+        self._scan_tree(tree.root_node, top_level_functions, [], 0)
         
         # Compute derived metrics
         import_scope = self._compute_import_scope(tree.root_node, content)
@@ -96,44 +99,81 @@ class TreeSitterAnalyzer:
         if real_functions:
             avg_complexity = sum(f.cyclomatic_complexity for f in real_functions) / len(real_functions)
             
-        comment_density = self._file_comment_lines / nloc if nloc > 0 else 0.0
-        
         self._file_ts_import_coupling_count = len(self._unique_imports)
         
-        duplicated_string_count = sum(1 for count in self._string_literals.values() if count > 1)
         if self.markers is not None:
             self._mark_post_scan()
+        if is_tsx:
+            self._attach_components(tree.root_node, top_level_functions)
 
         # Aggregate function metrics
         total_function_length = sum(f.nloc for f in real_functions)
         average_function_length = total_function_length / len(real_functions) if real_functions else 0.0
         parameter_count = sum(f.parameter_count for f in top_level_functions)
 
-        return FileMetrics(
+        file_metrics = FileMetrics(
             nloc=nloc,
             average_cyclomatic_complexity=avg_complexity,
             function_list=top_level_functions,
             filename=file_path,
             comment_lines=self._file_comment_lines,
-            comment_density=comment_density,
             max_nesting_depth=self._file_max_nesting_depth,
             average_function_length=average_function_length,
             parameter_count=parameter_count,
             todo_count=self._file_todo_count,
             classes_count=self._file_classes_count,
-            tsx_nesting_depth=self._file_tsx_nesting_depth,
-            tsx_render_branching_count=self._file_tsx_render_branching_count,
-            tsx_react_use_effect_count=self._file_tsx_react_use_effect_count,
-            tsx_anonymous_handler_count=self._file_tsx_anonymous_handler_count,
-            tsx_prop_count=self._file_tsx_prop_count,
             ts_any_usage_count=self._file_ts_any_usage_count,
             ts_ignore_count=self._file_ts_ignore_count,
             ts_import_coupling_count=self._file_ts_import_coupling_count,
-            tsx_hardcoded_string_volume=self._file_tsx_hardcoded_string_volume,
-            tsx_duplicated_string_count=duplicated_string_count,
             ts_type_interface_count=self._file_ts_type_interface_count,
             ts_export_count=self._file_ts_export_count,
         )
+        self._apply_comment_noise(content, parser, real_functions, file_metrics)
+        return file_metrics
+
+    def _apply_comment_noise(self, content: bytes, parser: Parser, functions: List[FunctionMetrics], file_metrics: FileMetrics) -> None:
+        lines = content.decode('utf-8', errors='ignore').splitlines()
+        kinds = comment_noise.LineKinds(lines, self._comments)
+        scopes = []
+        for func in functions:
+            doc_start, doc_end = comment_noise.leading_comment_block(kinds, func.start_line)
+            scopes.append(comment_noise.ScopeSpan(func.start_line, func.end_line, func, doc_start, doc_end))
+
+        def looks_like_code(text: str) -> bool:
+            for source in (text, f"function __srcly__() {{\n{text}\n}}"):
+                tree = parser.parse(source.encode('utf-8'))
+                if not tree.root_node.has_error:
+                    return comment_noise.has_code_node(tree.root_node, _TS_CODE_NODES)
+            return False
+
+        result = comment_noise.analyze(lines, self._comments, scopes, looks_like_code)
+        comment_noise.apply(result, file_metrics, scopes, self.markers)
+
+    def _attach_components(self, root: Node, functions: List[FunctionMetrics]) -> None:
+        """Copy component metrics onto the scopes of the components they measure."""
+        by_span: Dict[tuple[int, int, str], FunctionMetrics] = {}
+        def index(funcs: List[FunctionMetrics]) -> None:
+            for f in funcs:
+                by_span.setdefault((f.start_line, f.end_line, f.origin_type), f)
+                index(f.children)
+        index(functions)
+
+        for comp in find_components(root):
+            func = by_span.get((comp.start_line, comp.end_line, comp.node.type))
+            if func is None:
+                continue
+            # `const Card = memo(() => ...)`: name the scope after the component.
+            if func.name.endswith('(ƒ)') or func.name == '(anonymous)':
+                func.name = comp.name
+            func.component_loc = comp.loc
+            func.component_hook_count = comp.hook_count
+            func.component_effect_count = comp.effect_count
+            func.component_jsx_depth = comp.jsx_depth
+            func.component_prop_count = comp.prop_count
+            func.component_inline_handler_count = comp.inline_handler_count
+            func.component_jsx_conditional_count = comp.jsx_conditional_count
+            for metric, node, note in comp.marks:
+                self._mark(metric, node, note)
 
     def _scan_tree(
         self,
@@ -141,7 +181,6 @@ class TreeSitterAnalyzer:
         parent_list: List[FunctionMetrics],
         active_scopes: List[dict],
         current_nesting: int,
-        current_jsx_depth: int
     ):
         """
         Single-pass visitor.
@@ -174,25 +213,7 @@ class TreeSitterAnalyzer:
             self._file_ts_any_usage_count += 1
             self._mark('ts_any_usage_count', node, 'any')
             
-        elif node_type == 'jsx_text':
-            text = node.text.decode('utf-8').strip()
-            if text:
-                length = len(text)
-                self._file_tsx_hardcoded_string_volume += length
-                self._string_literals[text] = self._string_literals.get(text, 0) + 1
-                self._mark_string(text, node)
 
-        elif node_type == 'string' or node_type == 'string_literal':
-            # Check if it's inside a JSX attribute or expression
-            parent = node.parent
-            if parent and (parent.type == 'jsx_attribute' or parent.type == 'jsx_expression'):
-                 text = node.text.decode('utf-8').strip("'\"")
-                 if text:
-                    length = len(text)
-                    self._file_tsx_hardcoded_string_volume += length
-                    self._string_literals[text] = self._string_literals.get(text, 0) + 1
-                    self._mark_string(text, node)
-                 
         # --- Nesting & Logic ---
         
         is_nesting_node = node_type in {
@@ -221,7 +242,12 @@ class TreeSitterAnalyzer:
             is_ts_ignore = '@ts-ignore' in text or '@ts-expect-error' in text
             
             self._file_comment_lines += lines
-            self._mark('comment_density', node, span=True)
+            line_text = None
+            if text.startswith('//') and not text.startswith('///'):
+                line_text = text[2:].removeprefix(' ')
+            self._comments.append(comment_noise.CommentSpan(
+                node.start_point.row + 1, node.end_point.row + 1, node.start_point.column, line_text
+            ))
             if is_todo:
                 self._file_todo_count += 1
                 self._mark('todo_count', node, 'FIXME' if 'FIXME' in text and 'TODO' not in text else 'TODO')
@@ -254,22 +280,12 @@ class TreeSitterAnalyzer:
             }:
                 _add_decision_point(active_scopes)
                 self._mark('complexity', node, _COMPLEXITY_NOTES[node_type])
-                if node_type == 'ternary_expression':
-                     if active_scopes[-1]['metrics'].is_jsx_container or active_scopes[-1]['metrics'].contains_tsx:
-                         self._file_tsx_render_branching_count += 1
-                         self._mark('tsx_render_branching_count', node, '?:')
-                     
             elif node_type == 'binary_expression':
                 # Check operator
                 op = node.child_by_field_name('operator')
                 if op and op.text in {b'&&', b'||', b'??'}:
                      _add_decision_point(active_scopes)
                      self._mark('complexity', node, op.text.decode())
-                     # Render branching heuristic
-                     if (op.text == b'&&' or op.text == b'??') and (active_scopes[-1]['metrics'].is_jsx_container or active_scopes[-1]['metrics'].contains_tsx):
-                         self._file_tsx_render_branching_count += 1
-                         self._mark('tsx_render_branching_count', node, op.text.decode())
-                     
             if node_type in {'interface_declaration', 'type_alias_declaration'}:
                 current_scope_metrics.ts_type_interface_count += 1
 
@@ -277,14 +293,7 @@ class TreeSitterAnalyzer:
         
         is_jsx_element = node_type in {'jsx_element', 'jsx_self_closing_element', 'jsx_fragment'}
         
-        next_jsx_depth = current_jsx_depth
         if is_jsx_element:
-            next_jsx_depth += 1
-            if next_jsx_depth > self._file_tsx_nesting_depth:
-                self._file_tsx_nesting_depth = next_jsx_depth
-            if self.markers is not None:
-                self._jsx_nodes.append((next_jsx_depth, node))
-            
             # Update Current Scope TSX Bounds
             if active_scopes:
                 scope_ctx = active_scopes[-1]
@@ -311,23 +320,6 @@ class TreeSitterAnalyzer:
                          metrics.tsx_root_name = self._get_function_name(node) # Reusing helper
                          metrics.tsx_root_is_fragment = False
 
-        if node_type == 'jsx_attribute':
-             self._file_tsx_prop_count += 1
-             self._mark('tsx_prop_count', node, self._attribute_name(node))
-             # Check for anonymous handler
-             if self._is_anonymous_handler(node):
-                 self._file_tsx_anonymous_handler_count += 1
-                 self._mark('tsx_anonymous_handler_count', node, self._attribute_name(node))
-
-        if node_type == 'call_expression':
-             # useEffect check
-             func = node.child_by_field_name('function')
-             if func:
-                 func_name = func.text.decode('utf-8', errors='ignore')
-                 if func_name == 'useEffect' or func_name.endswith('.useEffect'):
-                     self._file_tsx_react_use_effect_count += 1
-                     self._mark('tsx_react_use_effect_count', node, 'useEffect')
-        
         if node_type in {'interface_declaration', 'type_alias_declaration'}:
             self._file_ts_type_interface_count += 1
             self._mark('ts_type_interface_count', node, 'interface' if node_type == 'interface_declaration' else 'type')
@@ -375,7 +367,7 @@ class TreeSitterAnalyzer:
         
         # --- Recurse ---
         for child in node.children:
-            self._scan_tree(child, target_list_for_children, active_scopes, next_nesting, next_jsx_depth)
+            self._scan_tree(child, target_list_for_children, active_scopes, next_nesting)
             
         if scope_created:
             active_scopes.pop()
@@ -384,31 +376,12 @@ class TreeSitterAnalyzer:
         if self.markers is not None:
             self.markers.add(metric, node, note, span=span)
 
-    def _mark_string(self, text: str, node: Node) -> None:
-        if self.markers is None:
-            return
-        self._string_nodes.append((text, node))
-        self.markers.add('tsx_hardcoded_string_volume', node, f"{len(text)} chars")
-
     def _mark_post_scan(self) -> None:
-        """Markers that need the whole file: duplicated text, deepest JSX."""
-        for text, node in self._string_nodes:
-            count = self._string_literals.get(text, 0)
-            if count > 1:
-                self._mark('tsx_duplicated_string_count', node, f"×{count}")
+        """Markers that need the whole file: the deepest nesting."""
         threshold = min(MARKED_NESTING_DEPTH, self._file_max_nesting_depth)
         for depth, node in self._nesting_nodes:
             if threshold and depth >= threshold:
                 self._mark('max_nesting_depth', node, f"depth {depth}")
-        for depth, node in self._jsx_nodes:
-            if depth == self._file_tsx_nesting_depth:
-                self._mark('tsx_nesting_depth', node, f"depth {depth}")
-
-    def _attribute_name(self, attr_node: Node) -> str:
-        for child in attr_node.children:
-            if child.type in {'property_identifier', 'jsx_identifier', 'identifier'}:
-                return child.text.decode('utf-8')
-        return ''
 
     def _create_scope_metrics(self, node: Node) -> FunctionMetrics:
         name = self._get_function_name(node)
@@ -439,40 +412,6 @@ class TreeSitterAnalyzer:
             origin_type=node.type,
             is_jsx_container=is_jsx_container,
         )
-
-    def _is_anonymous_handler(self, attr_node: Node) -> bool:
-        # 1. Check if it looks like an event handler (starts with 'on')
-        # name node can be child by field 'name' or just text scan
-        name_node = attr_node.child_by_field_name('name')
-        if not name_node:
-             for child in attr_node.children:
-                 if child.type in {'property_identifier', 'jsx_identifier'}:
-                     name_node = child
-                     break
-        
-        if not name_node:
-            return False
-            
-        prop_name = name_node.text.decode('utf-8')
-        if not prop_name.startswith('on'):
-            return False
-
-        # 2. Check value
-        value = attr_node.child_by_field_name('value')
-        if not value:
-             for child in attr_node.children:
-                if child.type == 'jsx_expression':
-                    value = child
-                    break
-        
-        if not value: return False
-        
-        if value.type == 'jsx_expression':
-            # Check inside
-             for child in value.children:
-                 if child.type in {'arrow_function', 'function_expression'}:
-                     return True
-        return False
 
     def _is_jsx_scope(self, node: Node) -> bool:
         # Copied logic: defined if attributes have functions or children are functions

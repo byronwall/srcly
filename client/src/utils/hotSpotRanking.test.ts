@@ -27,11 +27,22 @@ describe("cohortNodes", () => {
 
 describe("rankHotSpots", () => {
   it("keeps a measured zero in the mean", () => {
-    const lean = file("lean", { complexity: 10, todo_count: 0 });
-    const busy = file("busy", { complexity: 10, todo_count: 3 });
-    const { ranked } = rankHotSpots([lean, busy], ["complexity", "todo_count"]);
+    const lean = file("lean", { complexity: 10, comment_noise: 0 });
+    const busy = file("busy", { complexity: 10, comment_noise: 3 });
+    const { ranked } = rankHotSpots([lean, busy], ["complexity", "comment_noise"]);
     expect(ranked.map((r: any) => r.node.name)).toEqual(["busy", "lean"]);
     expect(ranked[1].score).toBe(0.5);
+  });
+
+  it("never ranks by neutral detail metrics", () => {
+    const quiet = file("quiet", { complexity: 10, todo_count: 0 });
+    const noisy = file("noisy", { complexity: 5, todo_count: 9 });
+    const { ranked } = rankHotSpots([quiet, noisy], ["complexity", "todo_count"]);
+    expect(ranked.map((r: any) => [r.node.name, r.score])).toEqual([
+      ["quiet", 1],
+      ["noisy", 0.5],
+    ]);
+    expect(rankHotSpots([quiet, noisy], ["todo_count"]).ranked).toEqual([]);
   });
 
   it("drops N/A metrics, and leaves nodes N/A on every metric unranked", () => {

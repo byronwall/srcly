@@ -1,4 +1,4 @@
-import { HOTSPOT_METRICS, type HotSpotMetricId } from "./metricsStore";
+import { isRankingMetric, type HotSpotMetricId } from "./metricsStore";
 
 /** Hot Spots rank one cohort at a time; files and functions are never mixed. */
 export type HotSpotCohort = "file" | "function";
@@ -28,8 +28,7 @@ export function cohortNodes<T extends RankableNode>(root: T, cohort: HotSpotCoho
 function valueOf(node: RankableNode, id: HotSpotMetricId): number | null {
   const raw = node.metrics?.[id];
   if (typeof raw !== "number" || !Number.isFinite(raw)) return null;
-  const invert = HOTSPOT_METRICS.find((d) => d.id === id)?.invert;
-  return Math.max(0, invert ? 1 - raw : raw);
+  return Math.max(0, raw);
 }
 
 export type RankedHotSpot<T> = { node: T; score: number };
@@ -39,13 +38,16 @@ export type RankedHotSpot<T> = { node: T; score: number };
  * math as `srcly report`'s `rank_nodes`, with equal weights). A measured 0
  * counts toward the mean; N/A metrics drop out, and a node N/A on every
  * selected metric isn't ranked at all (it is counted in `na`). Raising one
- * input with the peers fixed never lowers a node's score.
+ * input with the peers fixed never lowers a node's score. Neutral detail
+ * metrics (TODOs, exports...) never rank; they are dropped from `metrics`.
  */
 export function rankHotSpots<T extends RankableNode>(
   nodes: readonly T[],
   metrics: readonly HotSpotMetricId[],
   limit = Infinity
 ): { ranked: RankedHotSpot<T>[]; na: number } {
+  metrics = metrics.filter(isRankingMetric);
+  if (metrics.length === 0) return { ranked: [], na: 0 };
   const max = new Map<HotSpotMetricId, number>();
   for (const id of metrics) {
     let best = 0;

@@ -41,10 +41,14 @@ def test_verdict_follows_metric_direction():
     assert verdict("lower", None, 4) == "neutral"
 
 
-def test_size_metrics_are_neutral_and_comment_density_prefers_higher():
+def test_size_and_detail_metrics_are_neutral_and_comment_noise_is_worse_higher():
     assert METRICS_BY_NAME["loc"].direction == "neutral"
+    assert METRICS_BY_NAME["todo_count"].direction == "neutral"
+    assert METRICS_BY_NAME["ts_export_count"].direction == "neutral"
     assert METRICS_BY_NAME["complexity"].direction == "lower"
-    assert METRICS_BY_NAME["comment_density"].direction == "higher"
+    assert METRICS_BY_NAME["comment_noise"].direction == "lower"
+    assert METRICS_BY_NAME["component_hook_count"].aggregation == "max"
+    assert "comment_density" not in METRICS_BY_NAME
     assert METRICS_BY_NAME["fan_out"].direction == "lower"
     assert "file_count" not in METRICS_BY_NAME
 

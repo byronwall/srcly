@@ -1,6 +1,7 @@
 import { For, Show } from "solid-js";
 import { metricSections } from "../../utils/metricApplicability";
-import { HOTSPOT_METRICS, formatMetricValue } from "../../utils/metricsStore";
+import { witnessOf } from "../../utils/explorerColumns";
+import { formatMetricValue } from "../../utils/metricsStore";
 import { cx } from "../ui/classes";
 
 /**
@@ -16,7 +17,7 @@ export function MetricsTable(props: {
   canLocate: (metricId: string) => boolean;
   activeMetric: () => string | null;
   onToggleMetric: (metricId: string) => void;
-  /** Open a scope of this file (the max-complexity witness). */
+  /** Open a scope of this file (the function or component behind a max). */
   onSelectNode?: (node: any) => void;
 }) {
   const sections = () => metricSections(props.path, props.fileNode, props.scopeNode);
@@ -27,9 +28,9 @@ export function MetricsTable(props: {
   // "—": measured per file only. "N/A": doesn't apply here, skipped, or nothing to average.
   const cell = (id: string, value: number | null | undefined) =>
     value === undefined ? "—" : value === null ? "N/A" : formatMetricValue(id, value);
-  const witness = () => props.fileNode?.metrics?.complexity_witness ?? null;
-  const witnessNode = () => {
-    const w = witness();
+  const witness = (id: string) => (props.fileNode ? witnessOf(props.fileNode, id) : null);
+  const witnessNode = (id: string) => {
+    const w = witness(id);
     if (!w) return null;
     const stack = [...(props.fileNode?.children ?? [])];
     while (stack.length) {
@@ -106,9 +107,7 @@ export function MetricsTable(props: {
                         "transition-colors duration-150",
                         locatable() && "cursor-pointer",
                         active()
-                          ? HOTSPOT_METRICS.find((m) => m.id === row.id)?.invert
-                            ? "bg-[var(--plc-surface-selected)]"
-                            : "bg-[var(--plc-warning-subtle)]"
+                          ? "bg-[var(--plc-warning-subtle)]"
                           : locatable() && "hover:bg-[var(--plc-surface-muted)] focus-visible:bg-[var(--plc-surface-muted)]"
                       )}
                     >
@@ -123,17 +122,17 @@ export function MetricsTable(props: {
                         )}
                       >
                         {row.label}
-                        {/* Max complexity names the function that sets it; click to open it. */}
-                        <Show when={row.id === "complexity" && witness()}>
+                        {/* A max names the function or component that sets it; click to open it. */}
+                        <Show when={witness(row.id)}>
                           {(w) => (
                             <button
                               type="button"
                               class="plc-data-sm block max-w-full truncate text-left font-normal text-[var(--plc-on-subtle)] hover:text-[var(--plc-accent)]"
                               title={`Open ${w().name}${w().start_line > 0 ? ` (line ${w().start_line})` : ""}`}
-                              disabled={!witnessNode() || !props.onSelectNode}
+                              disabled={!witnessNode(row.id) || !props.onSelectNode}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                props.onSelectNode?.(witnessNode());
+                                props.onSelectNode?.(witnessNode(row.id));
                               }}
                             >
                               in <span class="underline decoration-dotted underline-offset-2">{w().name}</span>

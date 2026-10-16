@@ -23,6 +23,8 @@ export function MetricPicker(props: {
   prefix?: string;
   placement?: "bottom-start" | "bottom-end";
   class?: string;
+  /** Ranking Hot Spots: leave out neutral Detail metrics, which never rank. */
+  ranking?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpenSignal] = createSignal(false);
@@ -75,11 +77,16 @@ export function MetricPicker(props: {
     >
       <PopoverPanel width="lg" class="w-64">
         <div class="max-h-80 overflow-y-auto" role="listbox" aria-multiselectable="true">
-          <For each={HOTSPOT_METRIC_GROUPS}>
+          <For each={HOTSPOT_METRIC_GROUPS.filter((group) => !props.ranking || HOTSPOT_METRICS.some((m) => m.group === group && !m.neutral))}>
             {(group, index) => (
               <div class={index() > 0 ? "mt-2 border-t border-[var(--plc-divider)] pt-2" : ""}>
-                <PopoverSectionTitle class="px-2">{group}</PopoverSectionTitle>
-                <For each={HOTSPOT_METRICS.filter((m) => m.group === group)}>
+                <PopoverSectionTitle class="px-2">
+                  {group}
+                  <Show when={group === "Detail"}>
+                    <span class="font-normal normal-case tracking-normal text-[var(--plc-on-disabled)]"> · color only, never ranked</span>
+                  </Show>
+                </PopoverSectionTitle>
+                <For each={HOTSPOT_METRICS.filter((m) => m.group === group && !(props.ranking && m.neutral))}>
                   {(metric) => {
                     const isSelected = () => props.selected.includes(metric.id);
                     return (

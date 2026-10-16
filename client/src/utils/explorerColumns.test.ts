@@ -86,13 +86,13 @@ describe("explorer scope", () => {
             name: "a.ts",
             path: "/r/src/a.ts",
             type: "file",
-            metrics: { complexity: 4, comment_density: 0.3 },
+            metrics: { complexity: 4 },
             children: [
               { name: "f", path: "/r/src/a.ts::f", type: "function", kind: "function" },
               { name: "C (class)", path: "/r/src/a.ts::C (class)", type: "function", kind: "class" },
             ],
           },
-          { name: "b.ts", path: "/r/src/b.ts", type: "file", metrics: { complexity: 9, comment_density: 0.1 } },
+          { name: "b.ts", path: "/r/src/b.ts", type: "file", metrics: { complexity: 9 } },
         ],
       },
       { name: "notes.md", path: "/r/notes.md", type: "file", metrics: { complexity: null } },
@@ -109,8 +109,6 @@ describe("explorer scope", () => {
     expect(summary).toMatchObject({ files: 3, folders: 1, functions: 1, loc: 30 });
     // notes.md's complexity is N/A, so it can't be the worst.
     expect(summary.worst?.node.name).toBe("b.ts");
-    // Inverted metric: least commented wins.
-    expect(summarizeScope(tree, def("comment_density")).worst?.node.name).toBe("b.ts");
   });
 });
 

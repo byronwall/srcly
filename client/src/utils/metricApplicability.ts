@@ -29,9 +29,10 @@ export function languageForPath(path: string): MetricLanguage {
 
 const GROUP_LANGUAGES: Record<HotSpotMetricGroup, MetricLanguage[] | "all"> = {
   General: "all",
-  "TypeScript / TSX": ["ts", "tsx"],
-  Python: ["python"],
+  Components: ["tsx"],
+  TypeScript: ["ts", "tsx"],
   Markdown: ["markdown"],
+  Detail: "all",
 };
 
 function appliesToLanguage(def: HotSpotMetricDef, language: MetricLanguage): boolean {
@@ -56,7 +57,7 @@ export function metricApplies(def: HotSpotMetricDef, path: string, isScope: bool
   return appliesToLanguage(def, languageForPath(path)) && (!isScope || (def.scope ?? "any") === "any");
 }
 
-export type MetricSectionTitle = "Size" | "Complexity" | Exclude<HotSpotMetricGroup, "General">;
+export type MetricSectionTitle = "Size" | "Complexity" | "Comments" | Exclude<HotSpotMetricGroup, "General">;
 
 export interface MetricRow {
   id: string;
@@ -75,6 +76,7 @@ export interface MetricSection {
 const SIZE_METRICS = new Set(["loc", "file_size"]);
 
 function sectionOf(def: HotSpotMetricDef): MetricSectionTitle {
+  if (def.id.startsWith("comment_noise")) return "Comments";
   if (def.group !== "General") return def.group;
   return SIZE_METRICS.has(def.id) ? "Size" : "Complexity";
 }
@@ -104,6 +106,6 @@ export function metricSections(path: string, fileNode: any, scopeNode: any): Met
       file: fileNode ? numberOrNull(fileNode.metrics?.[def.id]) : undefined,
     });
   }
-  const order: MetricSectionTitle[] = ["Size", "Complexity", "TypeScript / TSX", "Python", "Markdown"];
+  const order: MetricSectionTitle[] = ["Size", "Complexity", "Comments", "Components", "TypeScript", "Markdown", "Detail"];
   return sections.sort((a, b) => order.indexOf(a.title) - order.indexOf(b.title));
 }

@@ -1,5 +1,6 @@
 import {
   HOTSPOT_METRICS,
+  WITNESSED_METRICS,
   formatMetricValue,
   type HotSpotMetricDef,
   type HotSpotMetricId,
@@ -55,27 +56,35 @@ export function metricCellText(def: HotSpotMetricDef, node: ExplorerColumnNode):
 /** True when a cell shows nothing worth reading: N/A or a measured zero. */
 export function metricCellIsFaint(def: HotSpotMetricDef, node: ExplorerColumnNode): boolean {
   const value = numberAt(node, def.id);
-  return value === undefined || (value === 0 && !def.invert);
+  return value === undefined || value === 0;
 }
 
-/** Hover text for a cell: the N/A reason, or where a max complexity comes from. */
+/** Hover text for a cell: the N/A reason, or the function or component behind a max. */
 export function metricCellTitle(def: HotSpotMetricDef, node: ExplorerColumnNode): string {
   const value = numberAt(node, def.id);
   if (value === undefined) {
     const reason = node.metrics?.na_reason;
     return `${def.label}: N/A${typeof reason === "string" && reason ? ` (${reason})` : ""}`;
   }
-  const witness = def.id === "complexity" ? witnessOf(node) : null;
+  const witness = witnessOf(node, def.id);
   const text = `${def.label}: ${metricCellText(def, node)}`;
   return witness ? `${text} in ${witness.name}${witness.start_line > 0 ? ` (line ${witness.start_line})` : ""}; click to open it` : text;
 }
 
 export type CellWitness = { path: string; name: string; start_line: number; end_line: number };
 
-/** The function behind a file's or folder's max complexity; null for scopes and N/A. */
-export function witnessOf(node: ExplorerColumnNode): CellWitness | null {
+/**
+ * The function or component behind a file's or folder's max (complexity, or a
+ * component metric); null for other metrics, scopes and N/A.
+ */
+export function witnessOf(node: ExplorerColumnNode, metricId: string = "complexity"): CellWitness | null {
   if (node.type !== "file" && node.type !== "folder") return null;
-  const w = node.metrics?.complexity_witness as CellWitness | null | undefined;
+  if (!WITNESSED_METRICS.has(metricId as HotSpotMetricId)) return null;
+  const w = (
+    metricId === "complexity"
+      ? node.metrics?.complexity_witness
+      : (node.metrics?.witnesses as Record<string, unknown> | null | undefined)?.[metricId]
+  ) as CellWitness | null | undefined;
   return w && typeof w.path === "string" ? w : null;
 }
 

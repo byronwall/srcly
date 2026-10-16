@@ -24,94 +24,104 @@ class MetricDefinition:
     description: str
     scope: str
     aggregation: str
-    higher_is_riskier: bool = True
+    # "risk": higher is worse and the metric can drive a ranking. "neutral":
+    # detail shown beside the risk metrics, never ranked or weighted.
+    direction: Literal["risk", "neutral"] = "risk"
     languages: str = "all"
 
+
+_COMPONENT_SCOPE = "folder/file/component"
+_COMPONENT_AGG = "max over components (names the component)"
 
 METRIC_DEFINITIONS: tuple[MetricDefinition, ...] = (
     MetricDefinition("loc", "Lines of code excluding comments/blanks where available.", "folder/file/function/scope", "sum"),
     MetricDefinition("complexity", "Cyclomatic complexity (CCN) of the most complex function or scope.", "folder/file/function/scope", "max for folders and files, exact for functions"),
     MetricDefinition("complexity_avg", "Mean cyclomatic complexity per function.", "folder/file", "analyzer average for files, function-weighted mean for folders"),
-    MetricDefinition("function_count", "Detected function count.", "folder/file", "sum"),
-    MetricDefinition("file_size", "File size in bytes.", "folder/file", "sum"),
-    MetricDefinition("file_count", "Number of files represented by a node.", "folder/file", "sum"),
-    MetricDefinition("comment_lines", "Comment lines.", "folder/file/function", "sum", higher_is_riskier=False),
-    MetricDefinition("comment_density", "Comment lines divided by LOC.", "folder/file/function", "derived", higher_is_riskier=False),
-    MetricDefinition("max_nesting_depth", "Maximum control-flow or syntax nesting depth.", "folder/file/function", "max"),
+    MetricDefinition("function_count", "Detected function count.", "folder/file", "sum", direction="neutral"),
+    MetricDefinition("file_size", "File size in bytes.", "folder/file", "sum", direction="neutral"),
+    MetricDefinition("file_count", "Number of files represented by a node.", "folder/file", "sum", direction="neutral"),
+    MetricDefinition("comment_lines", "Comment lines.", "folder/file/function", "sum", direction="neutral"),
+    MetricDefinition(
+        "comment_noise",
+        "Over-commenting flags: functions over 50% comments (10+ code lines), docblocks over 1.5x their body (8+ lines), and 3+ line runs of commented-out code.",
+        "folder/file/function",
+        "sum",
+        languages="TypeScript/TSX/Python",
+    ),
+    MetricDefinition("comment_noise_ratio", "Functions (or a whole file) over 50% comment lines with 10+ code lines.", "folder/file/function", "sum", direction="neutral", languages="TypeScript/TSX/Python"),
+    MetricDefinition("comment_noise_docblock", "Docblocks or docstrings of 8+ lines that are over 1.5x their function's code lines.", "folder/file/function", "sum", direction="neutral", languages="TypeScript/TSX/Python"),
+    MetricDefinition("comment_noise_commented_code", "Runs of 3+ line comments that parse as code.", "folder/file/function", "sum", direction="neutral", languages="TypeScript/TSX/Python"),
+    MetricDefinition("max_nesting_depth", "Maximum control-flow nesting depth.", "folder/file/function", "max"),
     MetricDefinition("average_function_length", "Average function length in LOC.", "folder/file", "weighted average"),
     MetricDefinition("parameter_count", "Function parameter count.", "folder/file/function", "sum"),
-    MetricDefinition("todo_count", "TODO/FIXME-style comment count.", "folder/file/function", "sum"),
-    MetricDefinition("classes_count", "Detected class count.", "folder/file", "sum"),
-    MetricDefinition("tsx_nesting_depth", "Maximum JSX/TSX nesting depth.", "folder/file/function", "max", languages="TypeScript/TSX"),
-    MetricDefinition("tsx_render_branching_count", "Render-time branch count in TSX.", "folder/file/function", "sum", languages="TypeScript/TSX"),
-    MetricDefinition("tsx_react_use_effect_count", "React useEffect call count.", "folder/file/function", "sum", languages="TypeScript/TSX"),
-    MetricDefinition("tsx_anonymous_handler_count", "Inline/anonymous TSX handler count.", "folder/file/function", "sum", languages="TypeScript/TSX"),
-    MetricDefinition("tsx_prop_count", "TSX prop count.", "folder/file/function", "sum", languages="TypeScript/TSX"),
+    MetricDefinition("todo_count", "TODO/FIXME-style comment count.", "folder/file/function", "sum", direction="neutral"),
+    MetricDefinition("classes_count", "Detected class count.", "folder/file", "sum", direction="neutral"),
+    MetricDefinition("component_loc", "Lines in the largest React/Solid component.", _COMPONENT_SCOPE, _COMPONENT_AGG, languages="TSX"),
+    MetricDefinition("component_hook_count", "Hooks (`use*`) and Solid primitives (`create*`) in one component.", _COMPONENT_SCOPE, _COMPONENT_AGG, languages="TSX"),
+    MetricDefinition("component_effect_count", "`useEffect`/`useLayoutEffect`/`createEffect` calls in one component.", _COMPONENT_SCOPE, _COMPONENT_AGG, languages="TSX"),
+    MetricDefinition("component_jsx_depth", "Deepest JSX nesting inside one component.", _COMPONENT_SCOPE, _COMPONENT_AGG, languages="TSX"),
+    MetricDefinition("component_prop_count", "Declared props of one component (props type members or destructured names).", _COMPONENT_SCOPE, _COMPONENT_AGG, languages="TSX"),
+    MetricDefinition("component_inline_handler_count", "Inline `on*={() => ...}` handlers in one component.", _COMPONENT_SCOPE, _COMPONENT_AGG, languages="TSX"),
+    MetricDefinition("component_jsx_conditional_count", "JSX conditionals (`?:`, `&&`, `<Show>`, `<Match>`) in one component.", _COMPONENT_SCOPE, _COMPONENT_AGG, languages="TSX"),
     MetricDefinition("ts_any_usage_count", "`any` usage count.", "folder/file/function", "sum", languages="TypeScript/TSX"),
     MetricDefinition("ts_ignore_count", "TypeScript ignore directive count.", "folder/file/function", "sum", languages="TypeScript/TSX"),
-    MetricDefinition("ts_import_coupling_count", "TypeScript import coupling count.", "folder/file/function", "sum", languages="TypeScript/TSX"),
-    MetricDefinition("tsx_hardcoded_string_volume", "Hardcoded TSX string volume.", "folder/file/function", "sum", languages="TypeScript/TSX"),
-    MetricDefinition("tsx_duplicated_string_count", "Duplicated TSX string count.", "folder/file/function", "sum", languages="TypeScript/TSX"),
-    MetricDefinition("ts_type_interface_count", "Type/interface declaration count.", "folder/file/function", "sum", languages="TypeScript/TSX"),
-    MetricDefinition("ts_export_count", "Export declaration count.", "folder/file/function", "sum", languages="TypeScript/TSX"),
-    MetricDefinition("python_import_count", "Python import count.", "folder/file", "sum", languages="Python"),
+    MetricDefinition("ts_import_coupling_count", "Distinct import sources.", "folder/file", "sum", direction="neutral", languages="TypeScript/TSX"),
+    MetricDefinition("ts_type_interface_count", "Type/interface declaration count.", "folder/file/function", "sum", direction="neutral", languages="TypeScript/TSX"),
+    MetricDefinition("ts_export_count", "Export declaration count.", "folder/file", "sum", direction="neutral", languages="TypeScript/TSX"),
+    MetricDefinition("python_import_count", "Python import statement count.", "folder/file", "sum", direction="neutral", languages="Python"),
     MetricDefinition("md_data_url_count", "Markdown data URL count.", "folder/file/function", "sum", languages="Markdown"),
 )
 
+# Risk weights per profile. Neutral metrics (``direction="neutral"``) never
+# appear here: counts of TODOs, classes, types, exports and imports describe
+# a file, they don't say it needs work.
 PROFILE_WEIGHTS: dict[str, dict[str, float]] = {
     "general": {
         "complexity": 1.5,
         "loc": 1.1,
-        "todo_count": 0.9,
         "max_nesting_depth": 1.0,
         "parameter_count": 0.6,
+        "comment_noise": 0.7,
         "ts_any_usage_count": 0.8,
         "ts_ignore_count": 0.9,
-        "ts_import_coupling_count": 0.8,
-        "tsx_render_branching_count": 0.9,
-        "python_import_count": 0.5,
+        "component_loc": 0.8,
         "md_data_url_count": 0.4,
     },
     "frontend": {
         "complexity": 1.0,
         "loc": 0.8,
-        "tsx_nesting_depth": 1.2,
-        "tsx_render_branching_count": 1.5,
-        "tsx_anonymous_handler_count": 1.0,
-        "tsx_prop_count": 1.0,
-        "tsx_hardcoded_string_volume": 0.8,
-        "tsx_duplicated_string_count": 0.9,
-        "ts_import_coupling_count": 0.9,
+        "component_loc": 1.3,
+        "component_hook_count": 1.1,
+        "component_effect_count": 1.2,
+        "component_jsx_depth": 0.9,
+        "component_prop_count": 0.8,
+        "component_inline_handler_count": 0.7,
+        "component_jsx_conditional_count": 1.0,
     },
     "backend": {
         "complexity": 1.6,
         "loc": 1.0,
         "max_nesting_depth": 1.2,
         "parameter_count": 0.9,
-        "classes_count": 0.6,
-        "todo_count": 0.8,
-        "python_import_count": 0.9,
+        "comment_noise": 0.6,
     },
     "typescript": {
         "complexity": 1.0,
         "ts_any_usage_count": 1.4,
         "ts_ignore_count": 1.4,
-        "ts_import_coupling_count": 1.1,
-        "ts_export_count": 0.7,
-        "ts_type_interface_count": 0.5,
-        "tsx_render_branching_count": 1.0,
+        "comment_noise": 0.6,
+        "component_jsx_conditional_count": 0.8,
     },
     "python": {
         "complexity": 1.4,
         "loc": 1.0,
         "max_nesting_depth": 1.0,
         "parameter_count": 0.8,
-        "python_import_count": 1.2,
+        "comment_noise": 0.8,
     },
     "docs": {
         "loc": 0.8,
         "md_data_url_count": 1.6,
-        "todo_count": 0.6,
     },
 }
 
@@ -328,6 +338,7 @@ def rank_nodes(
                 "drivers": sorted(drivers, key=lambda d: d["normalized"] * d["weight"], reverse=True)[:5],
                 "metrics": _metrics_subset(node.metrics, weights.keys()),
                 "complexity_witness": witness.model_dump() if witness else None,
+                "witnesses": {k: w.model_dump() for k, w in (node.metrics.witnesses or {}).items() if k in weights},
                 "reason": _reason_for_node(node),
             }
         )
@@ -369,6 +380,7 @@ def build_findings(ranked: list[dict[str, Any]], *, limit: int = 50) -> list[dic
                 "title": title,
                 "evidence": metrics,
                 "complexity_witness": item.get("complexity_witness"),
+                "witnesses": item.get("witnesses") or {},
                 "suggested_action": _suggested_action(category, item),
                 "agent_prompt": _agent_prompt(category),
             }
@@ -645,7 +657,7 @@ def build_metrics_schema() -> dict[str, Any]:
                 "description": item.description,
                 "scope": item.scope,
                 "aggregation": item.aggregation,
-                "higher_is_riskier": item.higher_is_riskier,
+                "direction": item.direction,
                 "languages": item.languages,
             }
             for item in METRIC_DEFINITIONS
@@ -706,18 +718,14 @@ def _top_nonzero_metrics(metrics: Metrics, *, limit: int = 6) -> dict[str, Any]:
 
 
 def _category_for_metrics(metrics: dict[str, Any]) -> str:
-    if metrics.get("tsx_render_branching_count") or metrics.get("tsx_nesting_depth") or metrics.get("tsx_prop_count"):
+    if any(metrics.get(name) for name in ("component_hook_count", "component_effect_count", "component_jsx_conditional_count")):
         return "tsx"
     if metrics.get("ts_any_usage_count") or metrics.get("ts_ignore_count"):
         return "typing"
-    if metrics.get("ts_import_coupling_count"):
-        return "coupling"
+    if metrics.get("comment_noise"):
+        return "comments"
     if metrics.get("md_data_url_count"):
         return "docs"
-    if metrics.get("python_import_count"):
-        return "python"
-    if metrics.get("todo_count"):
-        return "maintainability"
     if metrics.get("loc", 0) >= metrics.get("complexity", 0) * 20:
         return "size"
     return "complexity"
@@ -733,12 +741,10 @@ def _priority_for_score(score: float) -> str:
 
 def _title_for_category(category: str, item: dict[str, Any]) -> str:
     labels = {
-        "tsx": "TSX surface with concentrated rendering complexity",
+        "tsx": "Component carrying too much state and rendering logic",
         "typing": "Type-safety debt signal",
-        "coupling": "Import coupling hotspot",
+        "comments": "Comment noise",
         "docs": "Documentation artifact risk",
-        "python": "Python module shape hotspot",
-        "maintainability": "Maintainability marker in a hotspot",
         "size": "Large node worth responsibility review",
         "complexity": "Complexity hotspot",
     }
@@ -756,10 +762,8 @@ def _suggested_action(category: str, item: dict[str, Any] | None = None) -> str:
             else "Inspect rendering branches, state ownership, and extraction points; add focused UI tests before changing behavior."
         ),
         "typing": "Review whether `any` or ignore directives can be replaced with precise types.",
-        "coupling": "Inspect dependency boundaries and look for imports that can be inverted, localized, or simplified.",
+        "comments": "Delete commented-out code, cut docblocks that restate the code, and keep comments that explain why.",
         "docs": "Check whether large embedded data URLs should move to external assets.",
-        "python": "Inspect module responsibilities and import boundaries before refactoring.",
-        "maintainability": "Review TODOs in context and either resolve, ticket, or remove stale comments.",
         "size": "Look for separable responsibilities and tests that protect behavior.",
         "complexity": "Trace the control flow and identify behavior-preserving simplification points.",
     }
@@ -782,8 +786,8 @@ def _reason_for_node(node: Node) -> str:
         parts.append(f"{metrics.loc} LOC")
     if metrics.max_nesting_depth:
         parts.append(f"nesting depth {metrics.max_nesting_depth}")
-    if metrics.todo_count:
-        parts.append(f"{metrics.todo_count} TODOs")
+    if metrics.comment_noise:
+        parts.append(f"{metrics.comment_noise} comment noise flags")
     return "High " + ", ".join(parts) if parts else "Metric hotspot"
 
 
@@ -798,8 +802,9 @@ def _format_evidence(finding: dict[str, Any]) -> str:
     for key, value in finding["evidence"].items():
         if not value:
             continue
-        if key == "complexity" and witness:
-            parts.append(f"complexity={value} in `{witness['name']}` (line {witness['start_line']})")
+        named = witness if key == "complexity" else (finding.get("witnesses") or {}).get(key)
+        if named:
+            parts.append(f"{key}={value} in `{named['name']}` (line {named['start_line']})")
         else:
             parts.append(f"{key}={value}")
     return ", ".join(parts) or "metric signal"

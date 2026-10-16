@@ -55,6 +55,8 @@ Browser
 | Background scan jobs, progress snapshots, dedupe by path | `server/app/services/scan_jobs.py` (`ScanJob`, `ScanJobManager`) |
 | Language dispatch by extension | `server/app/services/analysis.py` (`analyze_single_file`) |
 | TypeScript / TSX metrics + nested scopes | `server/app/services/typescript/typescript_analysis.py` |
+| React/Solid component detection + per-component metrics (hooks, effects, JSX depth, props, inline handlers, JSX conditionals) | `server/app/services/typescript/components.py`; copied onto component scopes in `typescript_analysis.py` (`_attach_components`); file/folder max + `witnesses` in `analysis.py` |
+| Comment noise (narrated functions, oversized docblocks, commented-out code; absolute thresholds) | `server/app/services/comment_noise.py`; fed by `typescript_analysis.py` / `python_analysis.py` (`_apply_comment_noise`) |
 | Python metrics | `server/app/services/python/python_analysis.py` |
 | CSS / SCSS metrics | `server/app/services/css/css_analysis.py` |
 | Markdown metrics | `server/app/services/markdown/markdown_analysis.py` |
@@ -62,7 +64,7 @@ Browser
 | Everything else lizard has a reader for (Go, PHP, JS, …) | `lizard.analyze_file` fallback in `analyze_single_file` |
 | No reader (YAML, MDX, shell, HTML, dotfiles): streaming line count, no lizard | `analysis.py` (`count_lizard_style_nloc`) |
 | Analyzer result dataclasses; scope kinds (`scope_kind`, executable vs display scopes); which metrics each language measures (`MEASURED_FILE_METRICS`, `MEASURED_SCOPE_METRICS`) | `server/app/services/analysis_types.py` |
-| Folder rollups of metrics (N/A children skipped; max-complexity witness carried up) | `server/app/services/analysis.py` (`aggregate_metrics`) |
+| Folder rollups of metrics (N/A children skipped; complexity and component witnesses carried up) | `server/app/services/analysis.py` (`aggregate_metrics`) |
 | Function/scope → Node conversion (`Node.kind`), `(body)` nodes, N/A metrics + `na_reason`, `complexity_witness` | `server/app/services/analysis.py` (`attach_file_metrics`, `language_for_path`, `_most_complex_function`) |
 | Analysis cache (user cache dir, fingerprint invalidation) | `server/app/services/cache.py`, used by `server/app/services/scan_jobs.py` |
 
@@ -98,8 +100,8 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Compute | language analyzer (see above) + `server/app/services/analysis_types.py` |
 | API model | `server/app/models.py` (`Metrics`) |
 | Copy into nodes / roll up | `server/app/services/analysis.py` (`attach_file_metrics`, `aggregate_metrics`) |
-| Report scoring + definitions | `server/app/services/reporting.py` (`METRIC_DEFINITIONS`, `PROFILE_WEIGHTS`) |
-| Client metric registry (labels, groups, per-file vs per-scope, languages, value formatting) | `client/src/utils/metricsStore.tsx` (`HOTSPOT_METRICS`, `formatMetricValue`); `utils/metricApplicability.ts` (`applicableMetrics`) |
+| Report scoring + definitions (risk vs neutral `direction`) | `server/app/services/reporting.py` (`METRIC_DEFINITIONS`, `PROFILE_WEIGHTS`) |
+| Client metric registry (labels, groups, neutral Detail, per-file vs per-scope, languages, witnessed maxima, value formatting) | `client/src/utils/metricsStore.tsx` (`HOTSPOT_METRICS`, `WITNESSED_METRICS`, `formatMetricValue`); `utils/metricApplicability.ts` (`applicableMetrics`); `utils/explorerColumns.ts` (`witnessOf`) |
 | Metric picker (Hot Spots "Rank by" + treemap "Color") | `client/src/components/MetricPicker.tsx` |
 | Explorer sort/columns (incl. always-on color-metric column) | `client/src/utils/explorerColumns.ts` (`EXPLORER_COLUMNS`, `visibleExplorerColumns`) |
 | Treemap color mapping | `client/src/viz/treemap/utils/colors.ts` (`TREEMAP_RAMP`, `ramp`) |
