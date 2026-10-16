@@ -511,14 +511,43 @@ export function assignGroups(index: GraphIndex, focusId: string, nodes: ViewNode
       n.subgroup = g?.kind === "symbol" ? (g.parent ?? undefined) : undefined;
     });
   }
+  disambiguateGroups(index, nodes);
+}
+
+/**
+ * Two different packages with one name (`components/ui` and `server/ui`)
+ * get parent folders prepended until their frame labels differ.
+ */
+function disambiguateGroups(index: GraphIndex, nodes: ViewNode[]): void {
+  const groups = new Map<string, { id: string; label: string }>();
+  for (const n of nodes) if (n.group) groups.set(n.group.id, n.group);
+  const parts = (id: string) => (index.byId.get(id)?.path ?? id).split("/").filter(Boolean);
+  for (let depth = 1; depth <= 3; depth++) {
+    const byLabel = new Map<string, string[]>();
+    for (const g of groups.values()) byLabel.set(g.label, [...(byLabel.get(g.label) ?? []), g.id]);
+    let changed = false;
+    for (const ids of byLabel.values()) {
+      if (ids.length < 2) continue;
+      for (const id of ids) {
+        const p = parts(id);
+        const label = p.slice(Math.max(0, p.length - 1 - depth)).join("/");
+        if (label && label !== groups.get(id)!.label) {
+          groups.get(id)!.label = label;
+          changed = true;
+        }
+      }
+    }
+    if (!changed) break;
+  }
+  for (const n of nodes) if (n.group) n.group = { ...groups.get(n.group.id)! };
 }
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /**
  * The muted second line of a box.
- * - symbol on a side: `module · file` (the folder and file it lives in)
- * - symbol in a focused file: its kind and line (the file is the frame title)
+ * - symbol on a side: `folder/file` (the folder and file it lives in)
+ * - symbol in a focused file: its line (the glyph shows its kind; the file is the frame title)
  * - file: the folder it lives in, relative to the deepest folder it shares
  *   with the focus (none when it sits directly in a focused folder)
  * - folder: what it holds, e.g. "12 files · 3 folders"
@@ -534,10 +563,13 @@ export function subtitleFor(index: GraphIndex, id: string, region: Region, focus
     case "symbol": {
       const file = g.parent ? index.byId.get(g.parent) : undefined;
       if (region === "center") {
-        return [g.symbolKind, g.line ? `line ${g.line}` : undefined].filter(Boolean).join(" · ") || undefined;
+        // The kind glyph already says function/class/…; the line is what fits.
+        return g.line ? `line ${g.line}` : g.symbolKind;
       }
       if (!file) return undefined;
-      return [parentName(file.parent), file.name].filter(Boolean).join(" · ");
+      // `ui/Button.tsx`: the folder and file together, so two `ui` frames
+      // (or a frame and a loose box) never leave the file in doubt.
+      return [parentName(file.parent), file.name].filter(Boolean).join("/");
     }
     case "file": {
       const parent = g.parent !== null && g.parent !== undefined ? index.byId.get(g.parent) : undefined;

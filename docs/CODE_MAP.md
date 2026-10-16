@@ -80,6 +80,7 @@ Browser
 | `GET /api/analysis/context` | `routers/analysis.py:get_analysis_context` | Cwd + repo root with rough file counts (first-run screen) |
 | `GET /api/analysis/dependencies` | `routers/analysis.py:get_dependencies` | TS/TSX import graph, tsconfig `paths` aliases |
 | `GET /api/files/content` | `routers/files.py:get_file_content` | Raw file text; `ref=<sha>` reads it from a git commit (`git show`) |
+| `GET /api/files/markers` | `routers/files.py:get_file_markers` → `services/markers.py` | Lines behind each metric (`{metric: [{line, end_line, note}]}`) for the code viewer overlay; `ref=` as above |
 | `GET /api/compare/refs` | `routers/compare.py:list_refs` | Branches + recent commits for the compare ref picker |
 | `GET /api/compare/sources?kind=prs\|worktrees\|branches` | `routers/compare.py:list_sources` → `services/compare/sources.py` | One picker section each (PRs with worktree/needs-fetch context, live worktrees newest first, branches with ahead/behind); a source that can't load returns `available: false` + reason |
 | `GET /api/compare/commits?base=&head=` | `routers/compare.py:get_commits` → `git_refs.list_commits` | First-parent commits in a range, oldest first, each with its first parent (commit stepper; capped at 100) |
@@ -194,12 +195,13 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 
 | Feature | Where |
 | --- | --- |
-| Modal composition + display controls | `client/src/components/CodeModal/CodeModal.tsx`, `CodeModalHeader.tsx` |
+| Modal composition, keyboard (`/` outline, `[` `]` step hits, Esc), display controls | `client/src/components/CodeModal/CodeModal.tsx`, `CodeModalHeader.tsx` |
 | Highlighted source (Shiki worker) | `client/src/components/CodeModal/CodePane.tsx`, `hooks/useHighlightedCode.ts`, `workers/highlight.worker.ts`, `utils/shikiHtml.ts` |
 | Markdown rendering | `client/src/components/CodeModal/MarkdownPane.tsx`, `client/src/markdown/*` |
-| Structure tree (left) | `client/src/components/CodeModal/StructurePanel.tsx`, `SidebarTree.tsx`, `utils/structureTree.ts` |
-| Metrics table (left, bottom): applicable metrics, scope vs file | `client/src/components/CodeModal/MetricsSidebar.tsx`, `MetricsTable.tsx`; applicability in `client/src/utils/metricApplicability.ts` |
+| Outline / go-to-symbol popover (off the breadcrumb) | `client/src/components/CodeModal/OutlinePopover.tsx`, `utils/structureTree.ts` |
+| Metrics rail (left): applicable metrics, scope vs file, click to overlay | `client/src/components/CodeModal/MetricsSidebar.tsx`, `MetricsTable.tsx`; applicability in `client/src/utils/metricApplicability.ts` |
 | Sticky scope breadcrumb | `client/src/components/CodeModal/StickyBreadcrumb.tsx` |
+| Metric overlay: lines behind a metric (marked lines, notes, overview ruler, stepping) | `GET /api/files/markers` → `server/app/services/markers.py` (`MarkerSink`, `collect_markers`; analyzers call `_mark`); client `hooks/useMetricMarkers.ts`, `utils/metricMarkers.ts`, `CodePane.tsx` |
 | File fetching | `client/src/services/fileContent.ts`, `hooks/useFileContent.ts` |
 | Line-range slicing / indent reduction | `client/src/utils/lineRange.ts`, `utils/indentation.ts` |
 
@@ -210,7 +212,8 @@ Adding a metric touches every layer; the step-by-step checklist lives in `AGENTS
 | Dependency view (whole-repo graph fetched once; focus = location `at`) | `client/src/viz/deps/DependencyView.tsx`; graph contract in `viz/deps/contract.ts`, hierarchy/filters in `viz/deps/hierarchy.ts` |
 | Dependency view model (focus → in / center / out boxes, roll-up to the box budget) | `client/src/viz/deps/viewModel.ts` |
 | Dependency grid layout (viewport-shaped packing in `rankPackings`, channel/gutter edge routing) | `client/src/viz/deps/layout.ts` |
-| Dependency graph canvas (hover, click to focus, double/middle/⌘-click to open) | `client/src/viz/deps/DependencyCanvas.tsx`, pointer logic in `viz/deps/interaction.ts` |
+| Dependency hubs (targets most boxes import become shape/color badges; their edges hide until hovered) | `client/src/viz/deps/hubs.ts`; per-box link counts, cycles and badges in `viz/deps/boxInfo.ts` |
+| Dependency graph canvas (four-row boxes, pastel metric tint, icon hover cards, hover, click to focus, double/middle/⌘-click to open) | `client/src/viz/deps/DependencyCanvas.tsx`, pointer logic in `viz/deps/interaction.ts` |
 | Dependency graph legend (edge/box encodings, collapsible) | `client/src/viz/deps/DependencyLegend.tsx`; shared stroke constants in `viz/deps/encoding.ts` |
 | Open code from the graph (graph symbol → treemap scope by name, then by line) | `App.tsx` (`openAt`) → `navigation/resolveTree.ts`; line fallback `utils/dataProcessing.ts` (`findScopeForSymbol`) |
 | Dependency graph LOC + treemap color join (absPath → treemap node index, built once per scan in `Treemap.tsx`) | `client/src/viz/deps/metrics.ts` |
