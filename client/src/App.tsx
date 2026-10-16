@@ -185,7 +185,7 @@ function AppContent(props: { active: boolean }) {
   const { excludedPaths } = useMetricsStore();
   // Half the viewport at most, so narrow windows keep room for the treemap.
   const [explorerWidth, setExplorerWidth] = createSignal(
-    Math.min(280, Math.round(window.innerWidth * 0.5))
+    Math.min(320, Math.round(window.innerWidth * 0.5))
   );
   const [isDragging, setIsDragging] = createSignal(false);
   const [analysisPath, setAnalysisPath] = createSignal(location().repo);

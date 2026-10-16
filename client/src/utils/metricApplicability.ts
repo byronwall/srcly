@@ -51,6 +51,11 @@ export function applicableMetrics(path: string, isScope: boolean): HotSpotMetric
   );
 }
 
+/** Whether one metric means something for this path (see `applicableMetrics`). */
+export function metricApplies(def: HotSpotMetricDef, path: string, isScope: boolean): boolean {
+  return appliesToLanguage(def, languageForPath(path)) && (!isScope || (def.scope ?? "any") === "any");
+}
+
 export type MetricSectionTitle = "Size" | "Complexity" | Exclude<HotSpotMetricGroup, "General">;
 
 export interface MetricRow {

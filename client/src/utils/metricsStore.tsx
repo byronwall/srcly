@@ -40,6 +40,8 @@ export const CODE_LANGUAGES: MetricLanguage[] = ["ts", "tsx", "python", "noteboo
 export type HotSpotMetricDef = {
   id: HotSpotMetricId;
   label: string;
+  /** Compact table-column header, at most ~5 characters. */
+  shortLabel: string;
   group: HotSpotMetricGroup;
   /** True when lower values are worse (e.g. comment density). */
   invert?: boolean;
@@ -63,29 +65,29 @@ export const HOTSPOT_METRIC_GROUPS: HotSpotMetricGroup[] = [
 
 export const HOTSPOT_METRICS: HotSpotMetricDef[] = [
   // Max CCN of any function inside, for files and folders alike.
-  { id: "complexity", label: "Complexity (max)", group: "General", languages: CODE_LANGUAGES },
-  { id: "complexity_avg", label: "Complexity (avg)", group: "General", scope: "file", languages: CODE_LANGUAGES },
-  { id: "loc", label: "LOC", group: "General" },
-  { id: "file_size", label: "Size", group: "General", scope: "file", viewerLabel: "Size (bytes)" },
-  { id: "comment_density", label: "Low Comments", group: "General", invert: true, languages: CODE_LANGUAGES, viewerLabel: "Comment density" },
-  { id: "todo_count", label: "TODOs", group: "General", languages: CODE_LANGUAGES },
-  { id: "max_nesting_depth", label: "Nesting", group: "General", languages: CODE_LANGUAGES },
-  { id: "parameter_count", label: "Params", group: "General", languages: CODE_LANGUAGES },
+  { id: "complexity", label: "Complexity (max)", shortLabel: "CCN", group: "General", languages: CODE_LANGUAGES },
+  { id: "complexity_avg", label: "Complexity (avg)", shortLabel: "CCNμ", group: "General", scope: "file", languages: CODE_LANGUAGES },
+  { id: "loc", label: "LOC", shortLabel: "LOC", group: "General" },
+  { id: "file_size", label: "Size", shortLabel: "Size", group: "General", scope: "file", viewerLabel: "Size (bytes)" },
+  { id: "comment_density", label: "Low Comments", shortLabel: "Cmt%", group: "General", invert: true, languages: CODE_LANGUAGES, viewerLabel: "Comment density" },
+  { id: "todo_count", label: "TODOs", shortLabel: "TODO", group: "General", languages: CODE_LANGUAGES },
+  { id: "max_nesting_depth", label: "Nesting", shortLabel: "Nest", group: "General", languages: CODE_LANGUAGES },
+  { id: "parameter_count", label: "Params", shortLabel: "Prm", group: "General", languages: CODE_LANGUAGES },
   // The TS analyzer records these per file only; TSX ones only exist in .tsx.
-  { id: "tsx_nesting_depth", label: "TSX Nesting", group: "TypeScript / TSX", scope: "file", languages: ["tsx"] },
-  { id: "tsx_render_branching_count", label: "Render Branches", group: "TypeScript / TSX", scope: "file", languages: ["tsx"] },
-  { id: "tsx_react_use_effect_count", label: "useEffect", group: "TypeScript / TSX", scope: "file", languages: ["tsx"] },
-  { id: "tsx_anonymous_handler_count", label: "Inline Handlers", group: "TypeScript / TSX", scope: "file", languages: ["tsx"] },
-  { id: "tsx_prop_count", label: "Props", group: "TypeScript / TSX", scope: "file", languages: ["tsx"] },
-  { id: "ts_any_usage_count", label: "any Usage", group: "TypeScript / TSX", scope: "file" },
-  { id: "ts_ignore_count", label: "TS Ignores", group: "TypeScript / TSX", scope: "file" },
-  { id: "ts_import_coupling_count", label: "TS Imports", group: "TypeScript / TSX", scope: "file" },
-  { id: "tsx_hardcoded_string_volume", label: "Hardcoded Text", group: "TypeScript / TSX", scope: "file", languages: ["tsx"] },
-  { id: "tsx_duplicated_string_count", label: "Duplicated Text", group: "TypeScript / TSX", scope: "file", languages: ["tsx"] },
-  { id: "ts_type_interface_count", label: "Types/Interfaces", group: "TypeScript / TSX" },
-  { id: "ts_export_count", label: "Exports", group: "TypeScript / TSX", scope: "file" },
-  { id: "python_import_count", label: "Python Imports", group: "Python", scope: "file" },
-  { id: "md_data_url_count", label: "Markdown Data URLs", group: "Markdown" },
+  { id: "tsx_nesting_depth", label: "TSX Nesting", shortLabel: "JSXn", group: "TypeScript / TSX", scope: "file", languages: ["tsx"] },
+  { id: "tsx_render_branching_count", label: "Render Branches", shortLabel: "Brch", group: "TypeScript / TSX", scope: "file", languages: ["tsx"] },
+  { id: "tsx_react_use_effect_count", label: "useEffect", shortLabel: "Eff", group: "TypeScript / TSX", scope: "file", languages: ["tsx"] },
+  { id: "tsx_anonymous_handler_count", label: "Inline Handlers", shortLabel: "Hndl", group: "TypeScript / TSX", scope: "file", languages: ["tsx"] },
+  { id: "tsx_prop_count", label: "Props", shortLabel: "Prop", group: "TypeScript / TSX", scope: "file", languages: ["tsx"] },
+  { id: "ts_any_usage_count", label: "any Usage", shortLabel: "any", group: "TypeScript / TSX", scope: "file" },
+  { id: "ts_ignore_count", label: "TS Ignores", shortLabel: "Ign@", group: "TypeScript / TSX", scope: "file" },
+  { id: "ts_import_coupling_count", label: "TS Imports", shortLabel: "Imp", group: "TypeScript / TSX", scope: "file" },
+  { id: "tsx_hardcoded_string_volume", label: "Hardcoded Text", shortLabel: "Text", group: "TypeScript / TSX", scope: "file", languages: ["tsx"] },
+  { id: "tsx_duplicated_string_count", label: "Duplicated Text", shortLabel: "Dup", group: "TypeScript / TSX", scope: "file", languages: ["tsx"] },
+  { id: "ts_type_interface_count", label: "Types/Interfaces", shortLabel: "Type", group: "TypeScript / TSX" },
+  { id: "ts_export_count", label: "Exports", shortLabel: "Exp", group: "TypeScript / TSX", scope: "file" },
+  { id: "python_import_count", label: "Python Imports", shortLabel: "PyImp", group: "Python", scope: "file" },
+  { id: "md_data_url_count", label: "Markdown Data URLs", shortLabel: "DURL", group: "Markdown" },
 ];
 
 export function hotSpotMetricLabel(id: HotSpotMetricId): string {

@@ -31,6 +31,26 @@ describe("flattenExplorerTree", () => {
       direction: "desc",
     });
     expect(expanded.map((row) => row.node.name)).toEqual(["root", "src", "a.ts", "z.ts"]);
+
+    const rootless = flattenExplorerTree(tree, {
+      isExpanded: () => true,
+      getValue: (node) => node.name,
+      direction: "asc",
+      includeRoot: false,
+    });
+    expect(rootless.map((row) => [row.node.name, row.depth, row.parent?.name])).toEqual([
+      ["src", 0, "root"],
+      ["a.ts", 1, "src"],
+      ["z.ts", 0, "root"],
+    ]);
+  });
+
+  it("keeps a childless root as its only row when the root is hidden", () => {
+    const rows = flattenExplorerTree(
+      { name: "a.ts", path: "/a.ts", type: "file" },
+      { isExpanded: () => true, getValue: (node) => node.name, direction: "asc", includeRoot: false }
+    );
+    expect(rows.map((row) => row.node.name)).toEqual(["a.ts"]);
   });
 });
 

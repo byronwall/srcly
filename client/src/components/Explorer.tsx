@@ -5,7 +5,6 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   Columns3,
-  CornerLeftUp,
 } from "lucide-solid";
 import { MetricPicker } from "./MetricPicker";
 import Popover from "./Popover";
@@ -22,7 +21,20 @@ import {
 import { HotSpotItem } from "./HotSpotItem";
 import { TreeNode } from "./TreeNode";
 import { extractFilePath } from "../utils/dataProcessing";
-import { flattenExplorerTree, getVirtualTreeRange } from "../utils/explorerTree";
+import {
+  EXPLORER_ROW_HEIGHT,
+  flattenExplorerTree,
+  getVirtualTreeRange,
+} from "../utils/explorerTree";
+import {
+  EXPLORER_COLUMNS,
+  explorerSortValue,
+  visibleExplorerColumns,
+  type ExplorerColumn,
+  type ExplorerSortField,
+} from "../utils/explorerColumns";
+import { ExplorerScopeBar } from "./ExplorerScopeBar";
+import { TREEMAP_GRADIENT } from "../viz/treemap/utils/colors";
 
 export interface Node {
   name: string;
@@ -69,33 +81,7 @@ export interface Node {
   };
 }
 
-type SortField =
-  | "name"
-  | "loc"
-  | "complexity"
-  | "complexity_avg"
-  | "file_size"
-  | "file_count"
-  | "gitignored"
-  | "comment_density"
-  | "todo_count"
-  | "max_nesting_depth"
-  | "parameter_count"
-  // TS/TSX-specific sort fields
-  | "tsx_nesting_depth"
-  | "tsx_render_branching_count"
-  | "tsx_react_use_effect_count"
-  | "tsx_anonymous_handler_count"
-  | "tsx_prop_count"
-  | "ts_any_usage_count"
-  | "ts_ignore_count"
-  | "ts_import_coupling_count"
-  | "tsx_hardcoded_string_volume"
-  | "tsx_duplicated_string_count"
-  | "ts_type_interface_count"
-  | "ts_export_count"
-  | "python_import_count"
-  | "md_data_url_count";
+type SortField = ExplorerSortField;
 type SortDirection = "asc" | "desc";
 
 interface ExplorerContextType {
@@ -109,7 +95,8 @@ interface ExplorerContextType {
   ) => void;
   onZoom: (node: any) => void;
   filter: string;
-  visibleColumns: () => string[];
+  columns: () => ExplorerColumn[];
+  colorMetric: () => HotSpotMetricId;
   rootData: Node | null;
   focusedPath: () => string;
   tabbablePath: () => string;
@@ -119,13 +106,6 @@ interface ExplorerContextType {
 }
 
 export const ExplorerContext = createContext<ExplorerContextType>();
-
-export const formatSize = (bytes?: number) => {
-  if (bytes === undefined) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
 
 export const findNodeByPath = (root: Node, path: string): Node | null => {
   if (root.path === path) return root;
@@ -138,68 +118,6 @@ export const findNodeByPath = (root: Node, path: string): Node | null => {
   }
 
   return null;
-};
-
-export const findParentNode = (root: Node, targetPath: string): Node | null => {
-  if (root.path === targetPath) return null; // Root has no parent in this context
-  if (!root.children || root.children.length === 0) return null;
-
-  for (const child of root.children) {
-    if (child.path === targetPath) {
-      return root;
-    }
-    const found = findParentNode(child, targetPath);
-    if (found) return found;
-  }
-
-  return null;
-};
-
-type NodeMetrics = NonNullable<Node["metrics"]>;
-type NumericMetricKey = {
-  [K in keyof NodeMetrics]-?: NonNullable<NodeMetrics[K]> extends number ? K : never;
-}[keyof NodeMetrics];
-
-const getMetricValue = (node: Node, metric: NumericMetricKey): number => {
-  return node.metrics?.[metric] ?? 0;
-};
-
-export const SORT_FIELD_ACCESSORS: Record<
-  SortField,
-  (node: Node) => string | number
-> = {
-  name: (node) => node.name.toLowerCase(),
-  loc: (node) => getMetricValue(node, "loc"),
-  complexity: (node) => getMetricValue(node, "complexity"),
-  complexity_avg: (node) => getMetricValue(node, "complexity_avg"),
-  file_size: (node) => getMetricValue(node, "file_size"),
-  file_count: (node) => getMetricValue(node, "file_count"),
-  gitignored: (node) => node.metrics?.gitignored_count ?? 0,
-  comment_density: (node) => getMetricValue(node, "comment_density"),
-  todo_count: (node) => getMetricValue(node, "todo_count"),
-  max_nesting_depth: (node) => getMetricValue(node, "max_nesting_depth"),
-  parameter_count: (node) => getMetricValue(node, "parameter_count"),
-  tsx_nesting_depth: (node) => getMetricValue(node, "tsx_nesting_depth"),
-  tsx_render_branching_count: (node) =>
-    getMetricValue(node, "tsx_render_branching_count"),
-  tsx_react_use_effect_count: (node) =>
-    getMetricValue(node, "tsx_react_use_effect_count"),
-  tsx_anonymous_handler_count: (node) =>
-    getMetricValue(node, "tsx_anonymous_handler_count"),
-  tsx_prop_count: (node) => getMetricValue(node, "tsx_prop_count"),
-  ts_any_usage_count: (node) => getMetricValue(node, "ts_any_usage_count"),
-  ts_ignore_count: (node) => getMetricValue(node, "ts_ignore_count"),
-  ts_import_coupling_count: (node) =>
-    getMetricValue(node, "ts_import_coupling_count"),
-  tsx_hardcoded_string_volume: (node) =>
-    getMetricValue(node, "tsx_hardcoded_string_volume"),
-  tsx_duplicated_string_count: (node) =>
-    getMetricValue(node, "tsx_duplicated_string_count"),
-  ts_type_interface_count: (node) =>
-    getMetricValue(node, "ts_type_interface_count"),
-  ts_export_count: (node) => getMetricValue(node, "ts_export_count"),
-  python_import_count: (node) => getMetricValue(node, "python_import_count"),
-  md_data_url_count: (node) => getMetricValue(node, "md_data_url_count"),
 };
 
 export default function Explorer(props: {
@@ -221,10 +139,12 @@ export default function Explorer(props: {
   const [showColumnPicker, setShowColumnPicker] = createSignal(false);
   const { selectedHotSpotMetrics, setSelectedHotSpotMetrics } =
     useMetricsStore();
-  const [visibleColumns, setVisibleColumns] = createSignal<string[]>([
-    "loc",
-    "complexity",
-  ]);
+  const [pickedColumns, setPickedColumns] = createSignal<string[]>(["loc"]);
+  // The treemap colors by the first hot spot metric; the table always shows it.
+  const colorMetric = () => selectedHotSpotMetrics()[0] ?? "complexity";
+  const colorMetricDef = () =>
+    HOTSPOT_METRICS.find((def) => def.id === colorMetric()) ?? HOTSPOT_METRICS[0];
+  const columns = createMemo(() => visibleExplorerColumns(pickedColumns(), colorMetric()));
   const [expandedPaths, setExpandedPaths] = createSignal<Set<string>>(new Set());
   const [collapsedPaths, setCollapsedPaths] = createSignal<Set<string>>(new Set());
   const [expandedMode, setExpandedMode] = createSignal<"manual" | "all" | "none">("manual");
@@ -253,11 +173,13 @@ export default function Explorer(props: {
   };
 
   const treeRows = createMemo(() => {
-    const accessor = SORT_FIELD_ACCESSORS[sortField()] ?? SORT_FIELD_ACCESSORS.name;
-    return flattenExplorerTree(props.data, {
+    const field = sortField();
+    return flattenExplorerTree<Node>(props.data, {
       isExpanded,
-      getValue: accessor,
+      getValue: (node) => explorerSortValue(node, field),
       direction: sortDirection(),
+      // The scope bar above names the root, so the rows start at its children.
+      includeRoot: false,
     });
   });
 
@@ -319,11 +241,12 @@ export default function Explorer(props: {
     const row = rows[index];
     if (!row) return;
     setFocusedPath(row.node.path);
-    const rowTop = index * 32;
+    const rowTop = index * EXPLORER_ROW_HEIGHT;
     const top = treeScroller?.scrollTop ?? scrollTop();
     const height = treeScroller?.clientHeight ?? viewportHeight();
     if (treeScroller && rowTop < top) treeScroller.scrollTop = rowTop;
-    else if (treeScroller && rowTop + 32 > top + height) treeScroller.scrollTop = rowTop + 32 - height;
+    else if (treeScroller && rowTop + EXPLORER_ROW_HEIGHT > top + height)
+      treeScroller.scrollTop = rowTop + EXPLORER_ROW_HEIGHT - height;
     if (treeScroller) setScrollTop(treeScroller.scrollTop);
     requestAnimationFrame(() => {
       treeScroller?.querySelector<HTMLElement>(`[data-explorer-index="${index}"]`)?.focus();
@@ -373,17 +296,15 @@ export default function Explorer(props: {
   };
 
   const toggleColumn = (col: string) => {
-    const current = visibleColumns();
-    if (current.includes(col)) {
-      setVisibleColumns(current.filter((c) => c !== col));
-    } else {
-      setVisibleColumns([...current, col]);
-    }
+    const current = pickedColumns();
+    setPickedColumns(
+      current.includes(col) ? current.filter((c) => c !== col) : [...current, col]
+    );
   };
 
   const SortIcon = (p: { field: SortField }) => (
     <Show when={sortField() === p.field}>
-      <span class="ml-0.5 inline-flex" aria-hidden="true">
+      <span class="mr-0.5 inline-flex shrink-0" aria-hidden="true">
         {sortDirection() === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
       </span>
     </Show>
@@ -463,7 +384,8 @@ export default function Explorer(props: {
         onSelect: props.onFileSelect,
         onZoom: props.onZoom,
         filter: props.filter,
-        visibleColumns,
+        columns,
+        colorMetric,
         rootData: props.data,
         focusedPath,
         tabbablePath,
@@ -526,54 +448,26 @@ export default function Explorer(props: {
                     </IconButton>
                   )}
                 >
-                  <PopoverPanel width="sm">
+                  <PopoverPanel width="md">
                     <PopoverSectionTitle>Columns</PopoverSectionTitle>
-                    <div class="space-y-1">
-                      <CheckboxRow
-                        checked={visibleColumns().includes("loc")}
-                        onChange={() => toggleColumn("loc")}
-                        label="LOC"
-                      />
-                      <CheckboxRow
-                        checked={visibleColumns().includes("complexity")}
-                        onChange={() => toggleColumn("complexity")}
-                        label="Complexity (max CCN)"
-                      />
-                      <CheckboxRow
-                        checked={visibleColumns().includes("file_size")}
-                        onChange={() => toggleColumn("file_size")}
-                        label="Size"
-                      />
-                      <CheckboxRow
-                        checked={visibleColumns().includes("file_count")}
-                        onChange={() => toggleColumn("file_count")}
-                        label="File Count"
-                      />
-                      <CheckboxRow
-                        checked={visibleColumns().includes("gitignored")}
-                        onChange={() => toggleColumn("gitignored")}
-                        label="Gitignored"
-                      />
-                      <CheckboxRow
-                        checked={visibleColumns().includes("comment_density")}
-                        onChange={() => toggleColumn("comment_density")}
-                        label="Density"
-                      />
-                      <CheckboxRow
-                        checked={visibleColumns().includes("todo_count")}
-                        onChange={() => toggleColumn("todo_count")}
-                        label="TODOs"
-                      />
-                      <CheckboxRow
-                        checked={visibleColumns().includes("max_nesting_depth")}
-                        onChange={() => toggleColumn("max_nesting_depth")}
-                        label="Depth"
-                      />
-                      <CheckboxRow
-                        checked={visibleColumns().includes("parameter_count")}
-                        onChange={() => toggleColumn("parameter_count")}
-                        label="Params"
-                      />
+                    <div class="max-h-80 space-y-1 overflow-y-auto pr-1">
+                      <For each={EXPLORER_COLUMNS}>
+                        {(column) => (
+                          <CheckboxRow
+                            checked={
+                              column.id === colorMetric() ||
+                              pickedColumns().includes(column.id)
+                            }
+                            disabled={column.id === colorMetric()}
+                            onChange={() => toggleColumn(column.id)}
+                            label={
+                              column.id === colorMetric()
+                                ? `${column.title} (color)`
+                                : column.title
+                            }
+                          />
+                        )}
+                      </For>
                     </div>
                   </PopoverPanel>
                 </Popover>
@@ -592,125 +486,50 @@ export default function Explorer(props: {
         </div>
 
         <Show when={viewMode() === "tree"}>
-          <div class="plc-table-header plc-label-caps flex items-center border-b select-none">
-            <div class="pl-2 flex-1 flex items-center gap-2">
-              <IconButton
-                size="xs"
-                label="Go up one level"
-                class={
-                  props.data &&
-                  props.fullData &&
-                  props.data.path !== props.fullData.path
-                    ? ""
-                    : "invisible"
-                }
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (
-                    !props.data ||
-                    !props.fullData ||
-                    props.data.path === props.fullData.path
-                  )
-                    return;
-
-                  const parent = findParentNode(
-                    props.fullData,
-                    props.data.path
-                  );
-                  if (parent) {
-                    props.onZoom(parent);
+          <Show when={props.data}>
+            {(root) => (
+              <ExplorerScopeBar
+                root={root()}
+                fullRoot={props.fullData}
+                colorMetric={colorMetricDef()}
+                onZoom={props.onZoom}
+                onSelect={props.onFileSelect}
+              />
+            )}
+          </Show>
+          <div class="plc-table-header plc-label-caps flex items-center border-b select-none" style={{ height: "24px" }}>
+            <button
+              type="button"
+              class="flex h-full flex-1 items-center pl-2 hover:text-[var(--plc-on-surface)]"
+              onClick={() => handleHeaderClick("name")}
+            >
+              Name <SortIcon field="name" />
+            </button>
+            <For each={columns()}>
+              {(column) => (
+                <button
+                  type="button"
+                  class="relative flex h-full shrink-0 items-center justify-end pr-1.5 hover:text-[var(--plc-on-surface)]"
+                  style={{ width: `${column.width}px` }}
+                  title={
+                    column.id === colorMetric()
+                      ? `${column.title} — treemap color`
+                      : column.title
                   }
-                }}
-              >
-                <CornerLeftUp size={13} aria-hidden="true" />
-              </IconButton>
-              <div
-                class="cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center"
-                onClick={() => handleHeaderClick("name")}
-              >
-                Name <SortIcon field="name" />
-              </div>
-            </div>
-
-            <Show when={visibleColumns().includes("gitignored")}>
-              <div
-                class="w-10 text-right pr-1 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("gitignored")}
-                title="Gitignored Files"
-              >
-                Ign <SortIcon field="gitignored" />
-              </div>
-            </Show>
-            <Show when={visibleColumns().includes("file_count")}>
-              <div
-                class="w-12 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("file_count")}
-                title="File Count"
-              >
-                # <SortIcon field="file_count" />
-              </div>
-            </Show>
-            <Show when={visibleColumns().includes("file_size")}>
-              <div
-                class="w-16 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("file_size")}
-              >
-                Size <SortIcon field="file_size" />
-              </div>
-            </Show>
-            <Show when={visibleColumns().includes("loc")}>
-              <div
-                class="w-16 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("loc")}
-              >
-                LOC <SortIcon field="loc" />
-              </div>
-            </Show>
-            <Show when={visibleColumns().includes("complexity")}>
-              <div
-                class="w-12 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("complexity")}
-                title="Max cyclomatic complexity of any function inside"
-              >
-                CCN <SortIcon field="complexity" />
-              </div>
-            </Show>
-            <Show when={visibleColumns().includes("comment_density")}>
-              <div
-                class="w-12 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("comment_density")}
-                title="Comment Density"
-              >
-                Den% <SortIcon field="comment_density" />
-              </div>
-            </Show>
-            <Show when={visibleColumns().includes("todo_count")}>
-              <div
-                class="w-10 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("todo_count")}
-                title="TODO Count"
-              >
-                TODO <SortIcon field="todo_count" />
-              </div>
-            </Show>
-            <Show when={visibleColumns().includes("max_nesting_depth")}>
-              <div
-                class="w-10 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("max_nesting_depth")}
-                title="Max Nesting Depth"
-              >
-                Dep <SortIcon field="max_nesting_depth" />
-              </div>
-            </Show>
-            <Show when={visibleColumns().includes("parameter_count")}>
-              <div
-                class="w-10 text-right pr-2 cursor-pointer hover:text-[var(--plc-on-surface)] flex items-center justify-end"
-                onClick={() => handleHeaderClick("parameter_count")}
-                title="Parameter Count"
-              >
-                Prm <SortIcon field="parameter_count" />
-              </div>
-            </Show>
+                  onClick={() => handleHeaderClick(column.id)}
+                >
+                  <SortIcon field={column.id} />
+                  <span class="truncate">{column.header}</span>
+                  <Show when={column.id === colorMetric()}>
+                    <span
+                      aria-hidden="true"
+                      class="absolute inset-x-1 bottom-0 h-[3px] rounded-full"
+                      style={{ background: TREEMAP_GRADIENT }}
+                    />
+                  </Show>
+                </button>
+              )}
+            </For>
           </div>
           <div
             ref={(element) => (treeScroller = element)}
@@ -734,6 +553,7 @@ export default function Explorer(props: {
                       depth={row.depth}
                       index={treeRange().start + index()}
                       expanded={isExpanded(row.node)}
+                      parent={row.parent}
                     />
                   )}
                 </For>
@@ -762,6 +582,7 @@ export default function Explorer(props: {
                   node={item.node}
                   rank={i() + 1}
                   score={item.score}
+                  maxScore={hotSpots()[0]?.score ?? 0}
                   metrics={selectedHotSpotMetrics()}
                 />
               )}
