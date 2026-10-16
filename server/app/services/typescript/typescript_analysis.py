@@ -158,7 +158,11 @@ class TreeSitterAnalyzer:
             'if_statement', 'for_statement', 'for_in_statement', 'for_of_statement',
             'while_statement', 'do_statement', 'switch_statement', 'try_statement', 'catch_clause'
         }
-        
+        # `else if` parses as an if_statement inside the previous if's else_clause;
+        # it continues the chain at the same depth rather than nesting deeper.
+        if node_type == 'if_statement' and node.parent is not None and node.parent.type == 'else_clause':
+            is_nesting_node = False
+
         next_nesting = current_nesting
         if is_nesting_node:
             next_nesting += 1
