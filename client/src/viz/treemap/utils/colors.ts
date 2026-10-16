@@ -36,10 +36,37 @@ export const ramp = (domain: [number, number, number]) => {
 };
 
 const complexityColor = ramp([0, 10, 50]);
-// Inverted: little or no commenting is what deserves attention.
-const commentDensityColor = ramp([0.5, 0.2, 0]);
-const nestingDepthColor = ramp([0, 3, 8]);
-const todoCountColor = ramp([0, 1, 5]);
+
+/**
+ * Metrics whose useful range is nowhere near the default 0–50 complexity
+ * scale. These ignore `invert`; the domain already says which end is bad.
+ */
+const METRIC_SCALES: Record<string, (value: number) => string> = {
+  // Inverted: little or no commenting is what deserves attention.
+  comment_density: ramp([0.5, 0.2, 0]),
+  max_nesting_depth: ramp([0, 3, 8]),
+  todo_count: ramp([0, 1, 5]),
+  // A 200-line file or function is worth a look; 800 lines wants splitting.
+  loc: ramp([0, 200, 800]),
+  // Bytes. About 50 bytes per line, so this tracks the LOC stops.
+  file_size: ramp([0, 10_000, 40_000]),
+  // Characters of JSX text per file.
+  tsx_hardcoded_string_volume: ramp([0, 500, 2000]),
+  // JSX attributes per file.
+  tsx_prop_count: ramp([0, 50, 200]),
+};
+
+/**
+ * Folder totals for these are sums, so a folder would outgrow any file scale.
+ * Color a folder by its average per file instead: "how big are files here".
+ */
+const PER_FILE_METRICS = new Set(["loc", "file_size"]);
+
+function scaleValue(metricId: MetricId, metrics: Metrics): number {
+  const value = Number(metrics?.[metricId] ?? 0);
+  const fileCount = Number(metrics?.file_count ?? 0);
+  return PER_FILE_METRICS.has(metricId) && fileCount > 1 ? value / fileCount : value;
+}
 
 /** Nested scopes brighten a touch per level, enough to read nesting without washing out. */
 export const DEPTH_BRIGHTEN_PER_LEVEL = 0.05;
@@ -55,15 +82,8 @@ function metricColorFromScales(
   metrics: Metrics,
   fallbackValue: number
 ): string {
-  if (metricId === "comment_density") {
-    return commentDensityColor(Number(metrics?.comment_density ?? 0));
-  }
-  if (metricId === "max_nesting_depth") {
-    return nestingDepthColor(Number(metrics?.max_nesting_depth ?? 0));
-  }
-  if (metricId === "todo_count") {
-    return todoCountColor(Number(metrics?.todo_count ?? 0));
-  }
+  const scale = METRIC_SCALES[metricId];
+  if (scale) return scale(scaleValue(metricId, metrics));
   return complexityColor(fallbackValue);
 }
 
@@ -72,7 +92,7 @@ function metricColorFromScales(
  *
  * Note: This preserves the current Treemap behavior:
  * - Inversion only affects the *default* (complexity-like) metric path.
- * - Special scales (comment_density/max_nesting_depth/todo_count) ignore invert.
+ * - Metrics in METRIC_SCALES use their own domain and ignore invert.
  * - Default path clamps to 50.
  */
 export function treemapFillColor(

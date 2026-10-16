@@ -27,6 +27,9 @@ import { go, location, replace } from "./navigation/store";
 import { scanStore } from "./state/scanStore";
 import HistoryMenu from "./navigation/HistoryMenu";
 import { enterCompare, readCompareParam } from "./compare/api";
+import { useSidebarLayout } from "./hooks/useSidebarLayout";
+import { SidebarRail } from "./components/SidebarRail";
+import { scopeDisplayName } from "./utils/explorerScope";
 
 const CodeModal = lazy(() => import("./components/CodeModal/CodeModal.tsx"));
 const CompareApp = lazy(() => import("./compare/CompareApp.tsx"));
@@ -183,11 +186,7 @@ function AppContent(props: { active: boolean }) {
   const [contextLoading, setContextLoading] = createSignal(false);
   const [filterQuery, setFilterQuery] = createSignal("");
   const { excludedPaths } = useMetricsStore();
-  // Half the viewport at most, so narrow windows keep room for the treemap.
-  const [explorerWidth, setExplorerWidth] = createSignal(
-    Math.min(280, Math.round(window.innerWidth * 0.5))
-  );
-  const [isDragging, setIsDragging] = createSignal(false);
+  const sidebar = useSidebarLayout();
   const [analysisPath, setAnalysisPath] = createSignal(location().repo);
   let resolveTreemapPaint: (() => void) | null = null;
   let pendingNotice: string | null = null;
@@ -537,38 +536,50 @@ function AppContent(props: { active: boolean }) {
             </div>
           }
         >
-          <div
-            class="flex h-full w-full overflow-hidden"
-            onMouseMove={(e) => {
-              if (isDragging()) {
-                const newWidth = e.clientX;
-                if (newWidth > 160 && newWidth < window.innerWidth - 160) {
-                  setExplorerWidth(newWidth);
-                }
-              }
-            }}
-            onMouseUp={() => setIsDragging(false)}
-            onMouseLeave={() => setIsDragging(false)}
-          >
+          <div class="flex h-full w-full overflow-hidden">
+            <Show when={sidebar.collapsed()}>
+              <SidebarRail
+                name={currentRoot() ? scopeDisplayName(currentRoot(), rootPath()) : ""}
+                onExpand={() => sidebar.setCollapsed(false)}
+              />
+            </Show>
+            {/* Hidden rather than unmounted, so expansion and sort survive a collapse. */}
             <div
-              style={{ width: `${explorerWidth()}px` }}
+              style={{ width: `${sidebar.width()}px` }}
               class="h-full shrink-0"
+              classList={{ hidden: sidebar.collapsed() }}
             >
               <Explorer
                 data={explorerRoot()}
                 fullData={processedData()}
+                scopeRoot={currentRoot()}
+                scanRoot={visualizationData()}
                 onFileSelect={handleFileFromTreemap}
                 onZoom={zoomTo}
                 filter={filterQuery()}
                 onFilterChange={setFilterQuery}
+                onCollapse={() => sidebar.setCollapsed(true)}
               />
             </div>
 
-            {/* Drag Handle */}
-            <div
-              class="w-1 bg-[var(--plc-border)] hover:bg-[var(--plc-accent)] cursor-col-resize transition-colors z-10"
-              onMouseDown={() => setIsDragging(true)}
-            />
+            <Show when={!sidebar.collapsed()}>
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize sidebar"
+                title="Drag to resize · double-click to reset · drag far left to hide"
+                class="group relative z-10 w-px shrink-0 cursor-col-resize bg-[var(--plc-border)]"
+                onPointerDown={sidebar.startDrag}
+                onDblClick={sidebar.resetWidth}
+              >
+                {/* Wider invisible hit area; the line itself stays 1px. */}
+                <span class="absolute inset-y-0 -left-1 -right-1" />
+                <span
+                  class="absolute inset-y-0 left-0 w-px transition-colors duration-150 group-hover:bg-[var(--plc-accent)]"
+                  classList={{ "bg-[var(--plc-accent)]": sidebar.dragging() }}
+                />
+              </div>
+            </Show>
 
             <div class="flex-1 h-full overflow-hidden relative">
               <Treemap
