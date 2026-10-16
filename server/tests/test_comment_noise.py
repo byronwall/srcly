@@ -51,7 +51,7 @@ def test_every_flag_is_marked_with_its_lines() -> None:
     markers = collect_markers(str(FIXTURES / "narrated.py"))
     flags = markers["comment_noise"]
     assert len(flags) == 3
-    assert [(m["line"], m["end_line"]) for m in flags] == [(2, 13), (20, 22), (28, 51)]
+    assert [(m["line"], m["end_line"]) for m in flags] == [(2, 13), (20, 22), (28, 52)]
     assert flags[0]["note"] == "12-line docblock for 2 code lines"
     assert len(markers["comment_noise_commented_code"]) == 1
 
@@ -73,9 +73,10 @@ def _function(code_lines: int, comment_lines: int) -> str:
 @pytest.mark.parametrize(
     ("code", "comments", "flagged"),
     [
-        (10, 5, False),  # exactly 0.5 comment lines per code line
-        (10, 6, True),
-        (9, 9, False),  # under the 10-code-line floor
+        (10, 10, False),  # exactly 1 comment line per code line
+        (10, 11, True),
+        (10, 6, False),  # 0.6: a docstring-heavy function, not narration
+        (9, 12, False),  # under the 10-code-line floor
     ],
 )
 def test_ratio_threshold_is_absolute(tmp_path: Path, code: int, comments: int, flagged: bool) -> None:
@@ -104,7 +105,7 @@ def test_two_commented_lines_are_not_a_run(tmp_path: Path) -> None:
 
 
 def test_inner_narrated_function_is_not_counted_again_on_its_parent(tmp_path: Path) -> None:
-    inner = _function(12, 10).replace("export function f", "function inner")
+    inner = _function(12, 14).replace("export function f", "function inner")
     source = "export function outer() {\n" + inner + "  return inner();\n}\n"
     metrics = _ts(tmp_path, source)
     assert metrics.comment_noise_ratio == 1
@@ -113,10 +114,10 @@ def test_inner_narrated_function_is_not_counted_again_on_its_parent(tmp_path: Pa
 
 
 def test_file_flag_only_when_no_function_carries_one() -> None:
-    lines = [f"// note {i}" for i in range(8)] + [f"const v{i} = {i};" for i in range(10)]
+    lines = [f"// note {i}" for i in range(12)] + [f"const v{i} = {i};" for i in range(10)]
     result = comment_noise.analyze(
         lines,
-        [comment_noise.CommentSpan(i + 1, i + 1, 0, f"note {i}") for i in range(8)],
+        [comment_noise.CommentSpan(i + 1, i + 1, 0, f"note {i}") for i in range(12)],
         [],
         lambda _text: False,
     )

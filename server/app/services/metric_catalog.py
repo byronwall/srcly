@@ -136,7 +136,8 @@ METRICS: tuple[MetricSpec, ...] = (
         "complexity", "Complexity (max)", "CCN", "CCN", "CCN", "General", "higher-worse", "max",
         "Cyclomatic complexity: exact for a function; for a file or folder, its most complex function, which it names.",
         witness=True,
-        weights={"general": 1.5, "frontend": 1.0, "backend": 1.6, "typescript": 1.0, "python": 1.4},
+        # The default metric: useful cases in all four pilot repos (M7).
+        weights={"general": 1.5, "frontend": 1.0, "backend": 1.6, "typescript": 1.2, "python": 1.4},
     ),
     MetricSpec(
         "complexity_avg", "Complexity (avg)", "CCNμ", "CCN", "CCN", "General", "higher-worse", "mean",
@@ -157,10 +158,10 @@ METRICS: tuple[MetricSpec, ...] = (
     ),
     MetricSpec(
         "comment_noise", "Comment Noise", "Noise", "flags", "flag", "General", "higher-worse", "sum",
-        "Over-commenting flags: functions over 50% comments (10+ code lines), docblocks over 1.5x their body (8+ lines), and 3+ line runs of commented-out code.",
-        # One flag is worth a look, five is a pattern.
+        "Over-commenting flags: functions with more comment lines than code lines (10+ code lines), docblocks over 1.5x their body (8+ lines), and 3+ line runs of commented-out code.",
+        # One flag is worth a look, five is a pattern. No profile weight: the
+        # M7 pilot found useful flags in one repo of four (optional lens).
         color_domain=(0, 1, 5),
-        weights={"general": 0.7, "backend": 0.6, "typescript": 0.6, "python": 0.8},
     ),
     MetricSpec(
         "max_nesting_depth", "Nesting", "Nest", "levels", "level", "General", "higher-worse", "max",
@@ -170,12 +171,13 @@ METRICS: tuple[MetricSpec, ...] = (
     ),
     MetricSpec(
         "parameter_count", "Params", "Prm", "params", "param", "General", "higher-worse", "sum",
-        "Function parameters; a file sums its functions.",
-        weights={"general": 0.6, "backend": 0.9, "python": 0.8},
+        "Function parameters; a file sums its functions, so rank the Functions cohort for arity.",
+        # No profile weight: the file sum tracks function count, and the M7
+        # pilot's file queues held no useful case in four repos.
     ),
     MetricSpec(
-        "average_function_length", "Function Length (avg)", "FnLen", "lines", "line", "General", "higher-worse", "mean",
-        "Mean function length in LOC; folders weight by function count.",
+        "average_function_length", "Function Length (avg)", "FnLen", "lines", "line", "Detail", "neutral", "mean",
+        "Mean function length in LOC; folders weight by function count. Detail: the M7 pilot's queues were tests, markup and one-function files.",
         color_domain=(0, 30, 100),
     ),
     # Components
@@ -194,31 +196,33 @@ METRICS: tuple[MetricSpec, ...] = (
     _component("component_prop_count", "Props", "Props", ("prop", "props"),
                "Declared props of one component (props type members or destructured names).",
                (0, 8, 20), {"frontend": 0.8}),
+    # Inline handlers and JSX conditionals: no profile weight. The M7 pilot found
+    # useful cases in one repo of three; elsewhere component LOC already had them.
     _component("component_inline_handler_count", "Inline Handlers", "Hndl", ("handler", "handlers"),
                "Inline `on*={() => ...}` handlers in one component.",
-               (0, 5, 15), {"frontend": 0.7}),
+               (0, 5, 15), {}),
     _component("component_jsx_conditional_count", "JSX Conditionals", "JSX?", ("conditional", "conditionals"),
                "JSX conditionals (`?:`, `&&`, `<Show>`, `<Match>`) in one component.",
-               (0, 5, 15), {"frontend": 1.0, "typescript": 0.8}),
+               (0, 5, 15), {}),
     # TypeScript
     MetricSpec(
         "ts_any_usage_count", "any Usage", "any", "uses", "use", "TypeScript", "higher-worse", "sum",
         "Explicit `any` types.",
+        # Optional: findings (eslint no-explicit-any, srcly's TS rules) carry
+        # the profile weight with the rule and tool named.
         color_domain=(0, 3, 15),
-        weights={"general": 0.8, "typescript": 1.4},
     ),
     MetricSpec(
         "ts_ignore_count", "TS Ignores", "Ign@", "directives", "directive", "TypeScript", "higher-worse", "sum",
         "`@ts-ignore` / `@ts-expect-error` / `@ts-nocheck` directives.",
         color_domain=(0, 1, 5),
-        weights={"general": 0.9, "typescript": 1.4},
     ),
     # Markdown
     MetricSpec(
         "md_data_url_count", "Markdown Data URLs", "DURL", "data URLs", "data URL", "Markdown", "higher-worse", "sum",
         "Inline `data:` URLs (embedded images) in Markdown.",
         color_domain=(0, 1, 5),
-        weights={"general": 0.4, "docs": 1.6},
+        weights={"docs": 1.6},
     ),
     # Activity: from Git history (services/activity.py), per file; scopes are N/A.
     MetricSpec(
@@ -226,6 +230,7 @@ METRICS: tuple[MetricSpec, ...] = (
         "Non-merge commits that touched the file in the activity window, following renames. Frequent change in complex code is where refactoring pays off.",
         # Weekly-ish change over 90 days is busy; near-daily is a hot spot.
         color_domain=(0, 5, 25), color_per_file=True, compare="neutral",
+        weights={"general": 0.8, "frontend": 0.8, "backend": 0.8, "typescript": 0.8, "python": 0.8},
     ),
     MetricSpec(
         "churn_lines", "Churn", "Churn", "lines", "line", "Activity", "higher-worse", "sum",
@@ -238,6 +243,7 @@ METRICS: tuple[MetricSpec, ...] = (
         "Everything the checkers reported for the file: the project's tsc and eslint, or srcly's ruff and TS rules. The code viewer lists each one with its rule and tool.",
         # A couple is normal lint; ten is a file nobody is keeping clean.
         color_domain=(0, 3, 15), color_per_file=True,
+        weights={"general": 0.8, "frontend": 0.6, "backend": 0.8, "typescript": 1.0, "python": 1.0},
     ),
     MetricSpec(
         "error_count", "Errors", "Err", "errors", "error", "Findings", "higher-worse", "sum",
@@ -251,7 +257,7 @@ METRICS: tuple[MetricSpec, ...] = (
     ),
     MetricSpec(
         "comment_noise_ratio", "Narrated Code", "NRat", "flags", "flag", "Detail", "neutral", "sum",
-        f"{_NOISE} part: functions (or a whole file) over 50% comment lines with 10+ code lines.",
+        f"{_NOISE} part: functions (or a whole file) with more comment lines than code lines and 10+ code lines.",
         color_domain=(0, 1, 5), viewer_label="Noise: comment ratio",
     ),
     MetricSpec(

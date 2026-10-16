@@ -155,7 +155,7 @@
         5
       ],
       "color_per_file": false,
-      "description": "Over-commenting flags: functions over 50% comments (10+ code lines), docblocks over 1.5x their body (8+ lines), and 3+ line runs of commented-out code.",
+      "description": "Over-commenting flags: functions with more comment lines than code lines (10+ code lines), docblocks over 1.5x their body (8+ lines), and 3+ line runs of commented-out code.",
       "direction": "higher-worse",
       "group": "General",
       "id": "comment_noise",
@@ -207,7 +207,7 @@
         50
       ],
       "color_per_file": false,
-      "description": "Function parameters; a file sums its functions.",
+      "description": "Function parameters; a file sums its functions, so rank the Functions cohort for arity.",
       "direction": "higher-worse",
       "group": "General",
       "id": "parameter_count",
@@ -234,9 +234,9 @@
         100
       ],
       "color_per_file": false,
-      "description": "Mean function length in LOC; folders weight by function count.",
-      "direction": "higher-worse",
-      "group": "General",
+      "description": "Mean function length in LOC; folders weight by function count. Detail: the M7 pilot's queues were tests, markup and one-function files.",
+      "direction": "neutral",
+      "group": "Detail",
       "id": "average_function_length",
       "label": "Function Length (avg)",
       "languages": [
@@ -627,7 +627,7 @@
         5
       ],
       "color_per_file": false,
-      "description": "Comment noise part: functions (or a whole file) over 50% comment lines with 10+ code lines.",
+      "description": "Comment noise part: functions (or a whole file) with more comment lines than code lines and 10+ code lines.",
       "direction": "neutral",
       "group": "Detail",
       "id": "comment_noise_ratio",
@@ -1063,30 +1063,30 @@
       "label": "Comment noise",
       "quadrants": [
         {
-          "description": "Complex and commented.",
+          "description": "Complex, with as many comment lines as code: check the comments still match it.",
           "id": "high_both",
-          "name": "Documented complexity"
+          "name": "Narrated complexity"
         },
         {
-          "description": "Heavily commented simple code: trim the comments.",
+          "description": "Simple code with as many comment lines as code: trim the comments.",
           "id": "high_x",
           "name": "Narrated trivia"
         },
         {
-          "description": "Complex with few comments: explain or simplify.",
+          "description": "Complex, with more code than comments: simplify before explaining.",
           "id": "high_y",
-          "name": "Bare complexity"
+          "name": "Complex code"
         },
         {
-          "description": "Simple, lightly commented.",
+          "description": "Simple, with more code than comments.",
           "id": "low_both",
           "name": "Clean"
         }
       ],
       "x": {
-        "cutoff": 0.15,
+        "cutoff": 0.5,
         "derived": true,
-        "description": "Comment lines per code line. Comment noise flags a function above 0.5.",
+        "description": "Comment lines as a share of the lines counted in LOC (which include comments). At 0.5 there are as many comment lines as code lines, where comment noise flags a function.",
         "id": "comment_ratio",
         "label": "Comment ratio",
         "scale": "linear",

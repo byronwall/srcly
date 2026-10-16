@@ -1,0 +1,730 @@
+repo	lens	rank	location	verdict	evidence
+srcly	average_function_length	1	server/tests/test_treemap_scopes.py:1	noise	test file: long arrange/assert tests
+srcly	average_function_length	2	server/tests/test_function_body_loc.py:1	noise	test file
+srcly	average_function_length	3	client/src/utils/lineRange.ts:1	noise	one 51-line function in its own file
+srcly	average_function_length	4	server/tests/test_tsx_scopes.py:1	noise	test file
+srcly	average_function_length	5	server/tests/test_anonymous_naming.py:1	noise	test file
+srcly	average_function_length	6	client/src/markdown/rehypeWrapSelection.ts:1	noise	single plugin function
+srcly	average_function_length	7	client/src/markdown/remarkHighlightSelection.ts:1	noise	single plugin function
+srcly	average_function_length	8	server/app/services/ipynb/ipynb_analysis.py:1	noise	mean 35 over 3 functions
+srcly	average_function_length	9	client/src/hooks/useHighlightedCode.ts:1	noise	one hook
+srcly	average_function_length	10	server/app/services/typescript/typescript_analysis.py:1	duplicate	already in the complexity top 10
+recipes	average_function_length	1	src/server/api/routers/krogerRouter.ts:1	duplicate	already in the complexity top 10
+recipes	average_function_length	2	src/components/MainPageWithNav.tsx:1	duplicate	already in the complexity_avg top 10
+recipes	average_function_length	3	src/components/ui/calendar.tsx:1	noise	vendored shadcn calendar
+recipes	average_function_length	4	src/components/ingredients/IngredientPurchaseHistory.tsx:1	noise	JSX markup length
+recipes	average_function_length	5	src/app/list/ShoppingListCard.tsx:1	duplicate	already in the complexity top 10
+recipes	average_function_length	6	src/app/recipes/[id]/IngredientList.tsx:1	noise	JSX markup length
+recipes	average_function_length	7	src/app/AddToMealPlanPopover.tsx:1	duplicate	already in the max_nesting_depth top 10
+recipes	average_function_length	8	src/app/global-error.tsx:1	noise	Next.js error boundary markup
+recipes	average_function_length	9	src/app/recipes/[id]/RecipeActions.tsx:1	noise	markup length
+recipes	average_function_length	10	src/server/api/routers/imagesRouter.ts:1	duplicate	already in the complexity_avg top 10
+eda	average_function_length	1	packages/explorEDA/src/test/fixtures/shopProject.ts:1	noise	test fixture data (421-line literal)
+eda	average_function_length	2	apps/demo/src/docs/gate.ts:1	duplicate	already in the complexity_avg top 10
+eda	average_function_length	3	packages/explorEDA/src/components/charts/ScatterPlot/ScatterTraceBody.tsx:1	duplicate	already in the complexity_avg top 10
+eda	average_function_length	4	apps/demo/src/landing/ClosingBand.tsx:1	noise	landing-page markup
+eda	average_function_length	5	apps/demo/src/demos/multiSourceShop.ts:1	duplicate	already in the complexity_avg top 10
+eda	average_function_length	6	apps/demo/src/landing/Hero.tsx:1	noise	landing-page markup
+eda	average_function_length	7	packages/explorEDA/src/components/charts/MetricCard/MetricCardTraceBody.tsx:1	noise	tooltip markup
+eda	average_function_length	8	apps/demo/src/landing/SiteNav.tsx:1	noise	landing-page markup
+eda	average_function_length	9	packages/explorEDA/src/components/charts/Timeline/TimelineTraceBody.tsx:1	noise	tooltip markup
+eda	average_function_length	10	packages/explorEDA/src/hooks/useFilterExtent.ts:1	noise	one hook
+cr	average_function_length	1	scripts/make-icon.swift:1	noise	one-shot icon script
+cr	average_function_length	2	Sources/CanvasTool/Bakeoff.swift:1	duplicate	already in the complexity_avg top 10
+cr	average_function_length	3	Sources/CanvasTool/Geometry.swift:1	duplicate	already in the complexity top 10
+cr	average_function_length	4	scripts/ui-test/region-selector-check.swift:1	noise	test script
+cr	average_function_length	5	Sources/ContextRecorder/ContextProbe.swift:1	duplicate	already in the complexity_avg top 10
+cr	average_function_length	6	Sources/CanvasKit/Segmenter.swift:1	duplicate	already in the complexity top 10
+cr	average_function_length	7	Sources/CanvasTool/Fixtures.swift:1	duplicate	already in the parameter_count top 10
+cr	average_function_length	8	scripts/ui-test/harness.py:1	duplicate	already in the complexity top 10
+cr	average_function_length	9	Sources/ContextRecorder/Recorder.swift:1	noise	mean 16
+cr	average_function_length	10	Sources/ContextRecorder/BrowserBridge.swift:1	duplicate	already in the complexity_avg top 10
+srcly	churn_lines	1	server/app/services/analysis.py:1	duplicate	already in the loc top 10
+srcly	churn_lines	2	client/src/viz/deps/layout.ts:1	duplicate	already in the complexity top 10
+srcly	churn_lines	3	client/src/viz/deps/DependencyCanvas.tsx:1	duplicate	already in the loc top 10
+srcly	churn_lines	4	client/src/components/Explorer.tsx:1	duplicate	already in the loc top 10
+srcly	churn_lines	5	client/src/components/Treemap.tsx:1	duplicate	already in the component_hook_count top 10
+srcly	churn_lines	6	client/src/App.tsx:1	duplicate	already in the loc top 10
+srcly	churn_lines	7	server/app/routers/analysis.py:1	duplicate	already in the comment_noise top 10
+srcly	churn_lines	8	client/src/viz/treemap/hooks/useTreemapTooltip.ts:1	duplicate	already in the complexity top 10
+srcly	churn_lines	9	client/src/viz/deps/viewModel.ts:1	duplicate	already in the complexity top 10
+srcly	churn_lines	10	client/src/compare/ComparePicker.tsx:1	duplicate	already in the loc top 10
+recipes	churn_lines	1	scripts/test-kroger.cjs:1	duplicate	already in the loc top 10
+recipes	churn_lines	2	src/server/api/routers/recipe.ts:1	duplicate	already in the loc top 10
+recipes	churn_lines	3	src/server/krogerAuth.ts:1	duplicate	already in the complexity top 10
+recipes	churn_lines	4	scripts/test-regressions.cjs:1	duplicate	already in the commit_count top 10
+recipes	churn_lines	5	src/server/api/routers/krogerRouter.ts:1	duplicate	already in the complexity top 10
+recipes	churn_lines	6	src/server/kroger.ts:1	duplicate	already in the complexity_avg top 10
+recipes	churn_lines	7	src/server/api/routers/shoppingListRouter.ts:1	noise	111 lines from one commit (900c46f, 72+/39-): a bulk change, not a hot spot
+recipes	churn_lines	8	src/components/ingredients/PurchaseQuickAddButton.tsx:1	duplicate	already in the complexity_avg top 10
+recipes	churn_lines	9	src/app/list/KrogerItemDisplay.tsx:1	duplicate	already in the complexity top 10
+recipes	churn_lines	10	src/app/auth/LoginForm.tsx:1	duplicate	already in the component_jsx_conditional_count top 10
+eda	churn_lines	1	docs/research/dense-chart-interactions-2026-10-12/pro/source-packet.md:1	duplicate	already in the loc top 10
+eda	churn_lines	2	.claude/skills/impeccable/scripts/live-browser.js:1	duplicate	already in the complexity top 10
+eda	churn_lines	3	docs/research/data-file-inputs-2026-10-12/pro/source-packet.md:1	duplicate	already in the loc top 10
+eda	churn_lines	4	packages/explorEDA/src/index.css:1	duplicate	already in the loc top 10
+eda	churn_lines	5	apps/demo/src/demos/dashboardSettings.ts:1	duplicate	already in the loc top 10
+eda	churn_lines	6	packages/explorEDA/src/components/charts/Composition/resolveUnit.ts:1	duplicate	already in the complexity top 10
+eda	churn_lines	7	packages/explorEDA/src/components/charts/Composition/UnitInspector.tsx:1	duplicate	already in the loc top 10
+eda	churn_lines	8	packages/explorEDA/src/components/charts/BarChart/BarChart.tsx:1	duplicate	already in the component_hook_count top 10
+eda	churn_lines	9	packages/explorEDA/src/providers/DataLayerProvider.tsx:1	duplicate	already in the parameter_count top 10
+eda	churn_lines	10	packages/explorEDA/src/lib/dsl/compile.ts:1	duplicate	already in the complexity top 10
+cr	churn_lines	1	docs/research/recording-tools/pro-output/recording-tools-sources.md:1	duplicate	already in the loc top 10
+cr	churn_lines	2	docs/research/recording-tools/pro-output/recording-tools-report.md:1	duplicate	already in the loc top 10
+cr	churn_lines	3	Sources/ContextRecorder/main.swift:1	duplicate	already in the loc top 10
+cr	churn_lines	4	docs/research/recording-tools/pro-output/recording-tools-gap-analysis.md:1	duplicate	already in the loc top 10
+cr	churn_lines	5	scripts/viewer.html:1	duplicate	already in the loc top 10
+cr	churn_lines	6	scripts/process_session.py:1	duplicate	already in the complexity top 10
+cr	churn_lines	7	docs/intent/video-to-canvas/sources/pro-output/video-to-canvas-report.md:1	duplicate	already in the loc top 10
+cr	churn_lines	8	Sources/ContextRecorder/Library/SessionTimeline.swift:1	duplicate	already in the parameter_count top 10
+cr	churn_lines	9	Sources/ContextRecorder/Library/MarkDetail.swift:1	duplicate	already in the loc top 10
+cr	churn_lines	10	Sources/ContextRecorder/Library/SessionView.swift:1	duplicate	already in the loc top 10
+srcly	comment_noise	1	server/app/services/analysis.py:810	useful	4 ratio flags; _should_log_file_progress docstring "Rules:" (l.814-820) restates the five ifs below it line by line (ratio 0.83). The other three (l.297, 787, 894) are contract docs: noise
+srcly	comment_noise	2	server/tests/fixtures/comment_noise/narrated.py:1	excluded	srcly test fixture written to trip the metric; excluded from rates
+srcly	comment_noise	3	server/tests/fixtures/comment_noise/narrated.ts:1	excluded	srcly test fixture written to trip the metric; excluded from rates
+srcly	comment_noise	4	client/src/compare/stepper.ts:1	noise	file-level flag: a one-line module header plus doc comments on pure helpers (l.1)
+srcly	comment_noise	5	client/src/viz/deps/contract.ts:1	noise	file-level flag on a type contract whose fields are documented (l.1)
+srcly	comment_noise	6	server/app/main.py:17	noise	docstring explains why Ctrl+C must cancel scans first (l.19-24); needed context
+srcly	comment_noise	7	server/app/routers/analysis.py:120	noise	endpoint docstring states the client use (l.121-126)
+srcly	comment_noise	8	server/app/run.py:40	noise	docstring states the return contract (l.41-46); 6 comments for 10 code lines
+srcly	comment_noise	9	server/app/services/findings/__init__.py:1	noise	module docstring for a package
+srcly	comment_noise	10	server/app/services/findings/runner.py:26	noise	plan_tools docstring lists the tool plan (l.27-33); the behavior isn't visible from the code
+recipes	comment_noise	1	src/server/api/root.ts:1	noise	create-t3-app scaffold comments, file-level ratio 0.57
+recipes	comment_noise	2	src/server/api/trpc.ts:90	noise	create-t3-app scaffold JSDoc with @see link (l.90-97)
+eda	comment_noise	1	apps/data-samples/pew_meaning.ts:1	noise	file-level: sample-data provenance comments
+eda	comment_noise	2	packages/explorEDA/src/components/GridChartPanel.tsx:6	noise	JSDoc states a non-obvious memo contract (l.7-11); exactly the comment to keep
+eda	comment_noise	3	packages/explorEDA/src/components/chartDetailsStore.ts:1	noise	file-level: field docs on a store interface (l.5-10)
+eda	comment_noise	4	packages/explorEDA/src/components/charts/Axis/axisBounds.ts:18	noise	ratio 0.64 doc comment on a bounds helper
+eda	comment_noise	5	packages/explorEDA/src/components/charts/Composition/useCompositionData.ts:7	noise	ratio 0.60 hook doc
+eda	comment_noise	6	packages/explorEDA/src/components/charts/DataTable/columnWidths.ts:1	noise	file-level ratio 0.83 on documented constants
+eda	comment_noise	7	packages/explorEDA/src/components/charts/FacetRelated/facetBarSlot.tsx:1	noise	file-level 0.60
+eda	comment_noise	8	packages/explorEDA/src/components/charts/Waterfall/waterfallTypes.ts:1	noise	file-level: documented type fields
+eda	comment_noise	9	packages/explorEDA/src/components/charts/annotations/useAnnotationRows.ts:4	noise	ratio 0.60 hook doc
+eda	comment_noise	10	packages/explorEDA/src/components/charts/emptyPlotClick.ts:1	noise	file-level 0.71
+eda	comment_noise	11	packages/explorEDA/src/test/providers/DataLayerCalculations.test.tsx:79	useful	outside the top 10 (rank 14): commented-out console.log block (l.79-82); delete
+srcly	commit_count	1	docs/CODE_MAP.md:1	noise	38 commits because AGENTS.md requires updating the code map with each feature
+srcly	commit_count	2	client/src/components/Treemap.tsx:1	duplicate	already in the component_hook_count top 10
+srcly	commit_count	3	server/app/services/analysis.py:1	duplicate	already in the loc top 10
+srcly	commit_count	4	client/src/App.tsx:1	duplicate	already in the loc top 10
+srcly	commit_count	5	client/src/viz/deps/DependencyCanvas.tsx:1	duplicate	already in the loc top 10
+srcly	commit_count	6	client/src/components/CodeModal/CodeModal.tsx:1	duplicate	already in the component_loc top 10
+srcly	commit_count	7	client/src/components/Explorer.tsx:1	duplicate	already in the loc top 10
+srcly	commit_count	8	client/src/components/HotSpotItem.tsx:1	duplicate	already in the component_prop_count top 10
+srcly	commit_count	9	client/src/utils/metricsStore.tsx:1	useful	10 commits in 90d: every metric change touches this store; the catalog PR (#75) is the fix in flight
+srcly	commit_count	10	client/src/viz/deps/DependencyView.tsx:1	useful	10 commits: the dependency view has been reworked repeatedly; a look before the next change
+recipes	commit_count	1	src/server/api/routers/krogerRouter.ts:1	duplicate	already in the complexity top 10
+recipes	commit_count	2	src/app/list/KrogerItemDisplay.tsx:1	duplicate	already in the complexity top 10
+recipes	commit_count	3	src/server/kroger.ts:1	duplicate	already in the complexity_avg top 10
+recipes	commit_count	4	.gitignore:1	noise	config
+recipes	commit_count	5	prisma/migrations/20261005050000_kroger_token_expiry/migration.sql:1	noise	migration, written once
+recipes	commit_count	6	prisma/schema.prisma:1	noise	1 commit
+recipes	commit_count	7	scripts/test-kroger.cjs:1	duplicate	already in the loc top 10
+recipes	commit_count	8	scripts/test-regressions.cjs:1	noise	1 commit
+recipes	commit_count	9	src/app/auth/LoginForm.tsx:1	duplicate	already in the component_jsx_conditional_count top 10
+recipes	commit_count	10	src/app/ingredients/IngredientsClient.tsx:1	duplicate	already in the complexity top 10
+eda	commit_count	1	packages/explorEDA/src/index.css:1	duplicate	already in the loc top 10
+eda	commit_count	2	apps/demo/src/demos/examples.ts:1	noise	84 commits to an append-only demo registry
+eda	commit_count	3	apps/demo/src/demos/dashboardSettings.ts:1	duplicate	already in the loc top 10
+eda	commit_count	4	apps/demo/src/demos/coverage.ts:1	noise	75 commits to an append-only coverage list
+eda	commit_count	5	packages/explorEDA/src/components/PlotChartPanel.tsx:1	duplicate	already in the complexity top 10
+eda	commit_count	6	packages/explorEDA/src/utils/saveDataUtils.ts:1	duplicate	already in the complexity top 10
+eda	commit_count	7	apps/demo/src/demos/coverage.test.ts:1	duplicate	already in the ts_ignore_count top 10
+eda	commit_count	8	apps/demo/src/LandingPage.tsx:1	duplicate	already in the component_jsx_depth top 10
+eda	commit_count	9	packages/explorEDA/src/components/charts/Composition/compositionTypes.ts:1	useful	41 commits and 53 importers (blast radius): the composition type hub changes with every feature
+eda	commit_count	10	packages/explorEDA/README.md:1	noise	docs
+cr	commit_count	1	Sources/ContextRecorder/main.swift:1	duplicate	already in the loc top 10
+cr	commit_count	2	README.md:1	noise	docs
+cr	commit_count	3	Sources/ContextRecorder/Library/LibraryWindow.swift:1	duplicate	already in the complexity top 10
+cr	commit_count	4	Sources/ContextRecorder/Library/SessionView.swift:1	duplicate	already in the loc top 10
+cr	commit_count	5	Sources/ContextRecorder/Library/LibraryView.swift:1	duplicate	already in the complexity_avg top 10
+cr	commit_count	6	Sources/ContextRecorder/Library/SessionModel.swift:1	useful	13 commits in 90d: the session model every library feature edits; a look before the next one
+cr	commit_count	7	scripts/process_session.py:1	duplicate	already in the complexity top 10
+cr	commit_count	8	Sources/ContextRecorder/Library/SessionTimeline.swift:1	duplicate	already in the parameter_count top 10
+cr	commit_count	9	scripts/viewer.html:1	duplicate	already in the loc top 10
+cr	commit_count	10	Package.swift:1	noise	manifest
+srcly	complexity	1	client/src/viz/deps/viewModel.ts:90	useful	buildViewModel runs numbered stages ("// 1. Which leaf…" l.95) with 44 ifs in one 300-line function; split per stage
+srcly	complexity	2	client/src/compare/graphModel.ts:109	useful	buildCompareGraph folds both graphs, renames and diffs in one function (l.113-114 start of 3 concerns)
+srcly	complexity	3	server/app/services/typescript/typescript_analysis.py:640	useful	_get_function_name is an if/elif ladder per node.type (l.642-651) that repeats child_by_field_name('name'); a type→strategy table would collapse it
+srcly	complexity	4	client/src/viz/deps/layout.ts:507	useful	placeAndRoute does placement and edge routing in one function (signature l.507-511)
+srcly	complexity	5	client/src/viz/treemap/components/TreemapCanvas.tsx:167	useful	paint() mixes animation guards (l.172) with drawing; extract animation state
+srcly	complexity	6	server/app/services/deps/python_deps.py:214	useful	build_py_edges builds index, infos and edges in one loop (l.215-219)
+srcly	complexity	7	client/src/viz/treemap/hooks/useTreemapTooltip.ts:255	useful	buildTooltipContent branches on type, language and metric (l.260-262) for every tooltip row
+srcly	complexity	8	client/src/viz/treemap/utils/tree.ts:6	useful	addScopeBodyDummyNodes branches on untyped `any` nodes (l.6-13); type it and split body synthesis
+srcly	complexity	9	server/app/services/deps/graph.py:82	useful	_assemble nests ensure_folder closure inside node assembly (l.86)
+srcly	complexity	10	server/app/services/scan_workers.py:173	useful	run_file_analyses handles timeout, cancel and worker pool in one function (l.173-178)
+recipes	complexity	1	src/server/api/routers/krogerRouter.ts:87	useful	anonymous tRPC mutation does ownership lookups (l.89-98) then Kroger calls; extract a service function (witness "mutation(ƒ)" is a weak name)
+recipes	complexity	2	src/server/api/routers/purchasesRouter.ts:111	useful	ingredientsCatalog query builds a nested Prisma filter (l.114-118) then reshapes rows inline; extract the mapping
+recipes	complexity	3	src/app/list/ShoppingListCard.tsx:24	useful	one card renders both displayMode variants (l.26) with purchase matching inline
+recipes	complexity	4	src/server/krogerAuth.ts:24	useful	exchangeToken folds two OAuth grants into ternaries (l.25-33); split code vs refresh paths
+recipes	complexity	5	src/server/ai/aiTouchUp.ts:46	noise	15 CCN is env guard (l.49) plus response validation; reads straight, no refactor
+recipes	complexity	6	src/app/ingredients/IngredientsClient.tsx:97	useful	inline filter callback stacks recipe/aisle/... predicates (l.98-108); extract named predicates (same pattern as PurchasesList)
+recipes	complexity	7	src/app/plan/PlanPageClient.tsx:66	useful	MealPlanRow takes 5 callbacks (l.67-71) and branches on plan state in a 652-line file
+recipes	complexity	8	src/app/list/KrogerItemDisplay.tsx:19	noise	13 CCN is optional-chained price/promo display (l.24); flat and readable
+recipes	complexity	9	src/app/purchases/PurchasesList.tsx:50	useful	second copy of the inline multi-filter pattern (l.51-61); share a predicate helper with IngredientsClient
+recipes	complexity	10	src/server/ai/aiRecipe.ts:151	useful	parseAndValidate hand-validates with `as any` casts (l.156-158); a schema parser would replace it
+eda	complexity	1	packages/explorEDA/src/utils/saveDataUtils.ts:386	useful	isChart hand-validates every chart type in one switch of && chains (l.394-415); a per-type schema table would replace 262 branches
+eda	complexity	2	packages/explorEDA/src/components/charts/Composition/validateComposition.ts:46	useful	isMark repeats `(x === undefined || isString(x)) &&` per field per mark type (l.49-65); schema-driven validation
+eda	complexity	3	packages/explorEDA/src/lib/dsl/compile.ts:402	useful	compileDocument handles views, shared definitions and incomplete builds (l.405-416) in one 155-CCN function
+eda	complexity	4	packages/explorEDA/src/components/charts/Composition/CompositionTraceBody.tsx:19	useful	one tooltip body destructures 8 glyph kinds (l.21-28) and branches on each; split per glyph kind
+eda	complexity	5	packages/explorEDA/src/lib/analysis/projectFile.ts:180	useful	validateAnalysisProjectFile is another hand validator (l.181-187); same schema fix as isChart
+eda	complexity	6	packages/explorEDA/src/components/charts/Composition/resolveUnit.ts:337	useful	resolveUnit in a 4,334-line file resolves subsets, scales and marks in one function (l.342-344)
+eda	complexity	7	packages/explorEDA/src/lib/annotations/resolve.ts:348	useful	projectOne chains status guards per annotation kind (l.352-355)
+eda	complexity	8	packages/explorEDA/src/components/PlotChartPanel.tsx:421	useful	PlotChartPanel component carries 74 branches of panel state (l.428 onward)
+eda	complexity	9	packages/explorEDA/src/components/charts/Composition/compositionEdits.ts:175	useful	convertMark converts between every mark type pair in one function (l.175-182)
+eda	complexity	10	.claude/skills/impeccable/scripts/live-browser.js:7654	noise	vendored agent-skill script (12,990-line bundle), not project code
+cr	complexity	1	Sources/CanvasTool/Geometry.swift:10	useful	check() validates columns, joins and refusals in one 36-CCN function (l.11-17); split per expectation
+cr	complexity	2	extension/page.js:404	useful	regionElements computes viewport-relative rects (l.405-411) then filters elements inline; extract geometry
+cr	complexity	3	Sources/ContextRecorder/Library/DevScript.swift:25	noise	command interpreter switch (l.30), one case per command: the natural shape
+cr	complexity	4	scripts/ui-test/harness.py:95	noise	prepare() is a straight sequence of guard SystemExits (l.96-100)
+cr	complexity	5	Sources/CanvasKit/Segmenter.swift:95	useful	feed() is a run-segmentation state machine (l.96-100) worth a look before changing
+cr	complexity	6	Sources/ContextRecorder/Library/AnnotationEditor.swift:416	noise	keyDown is a keycode switch (l.418-423); dispatch, not tangle
+cr	complexity	7	Sources/ContextRecorder/Library/LibraryWindow.swift:242	useful	every key case re-branches on model.stage (l.247-249); a per-stage keymap removes the duplication
+cr	complexity	8	scripts/process_session.py:452	useful	main() parses args (l.453-457) and runs the whole pipeline; extract steps
+cr	complexity	9	Sources/ContextRecorder/Library/Edits.swift:252	noise	fixture runner with nested Decodable structs (l.253-257), test code
+cr	complexity	10	Sources/ContextRecorder/Library/MarkText.swift:78	noise	markdown string builder over optional fields (l.81-83)
+srcly	complexity_avg	1	client/src/utils/guessLangFromPath.ts:1	noise	one flat extension ladder (l.3-8) in a 24-line file; the mean of one function
+srcly	complexity_avg	2	client/src/utils/symbolKind.ts:1	noise	24-line lookup helper (l.4-6)
+srcly	complexity_avg	3	server/app/services/deps/typescript_deps.py:1	useful	import resolver with many branchy helpers; but nesting #6 also lands here
+srcly	complexity_avg	4	server/app/services/typescript/typescript_analysis.py:1	duplicate	already in the complexity top 10
+srcly	complexity_avg	5	client/src/viz/treemap/utils/tree.ts:1	duplicate	already in the complexity top 10
+srcly	complexity_avg	6	client/src/navigation/nodeActions.ts:1	noise	small dispatch helpers; mean 7 over few functions
+srcly	complexity_avg	7	server/app/services/deps/python_deps.py:1	duplicate	already in the complexity top 10
+srcly	complexity_avg	8	server/app/services/deps/graph.py:1	duplicate	already in the complexity top 10
+srcly	complexity_avg	9	client/src/viz/deps/viewModel.ts:1	duplicate	already in the complexity top 10
+srcly	complexity_avg	10	server/app/services/typescript/components.py:1	noise	many small AST predicates; mean 6 is unremarkable
+recipes	complexity_avg	1	src/server/api/routers/krogerRouter.ts:1	duplicate	already in the complexity top 10
+recipes	complexity_avg	2	src/app/list/ShoppingListCard.tsx:1	duplicate	already in the complexity top 10
+recipes	complexity_avg	3	src/server/api/routers/imagesRouter.ts:1	noise	mean 5 over 4 procedures; nothing to act on
+recipes	complexity_avg	4	src/components/ui/button.tsx:1	noise	vendored shadcn button (l.1-3 radix/cva imports)
+recipes	complexity_avg	5	src/server/kroger.ts:1	noise	mean 5 API client helpers
+recipes	complexity_avg	6	src/components/ingredients/PurchaseQuickAddButton.tsx:1	noise	small component, mean 4.3
+recipes	complexity_avg	7	src/server/ai/aiRecipe.ts:1	duplicate	already in the complexity top 10
+recipes	complexity_avg	8	src/app/kroger/UserKrogerStatus.tsx:1	noise	mean 4
+recipes	complexity_avg	9	src/app/kroger/auth/route.ts:1	noise	mean 4 OAuth callback
+recipes	complexity_avg	10	src/components/MainPageWithNav.tsx:1	noise	mean 4
+eda	complexity_avg	1	apps/demo/src/docs/gate.ts:1	useful	findDocsErrors (l.45) is one 63-CCN function checking every docs rule; split per rule. Not in the complexity top 10 (cut at 67)
+eda	complexity_avg	2	packages/explorEDA/src/components/charts/Composition/validateComposition.ts:1	duplicate	already in the complexity top 10
+eda	complexity_avg	3	packages/explorEDA/src/components/charts/Composition/markSummary.ts:1	noise	one switch per mark type (13 cases); dispatch
+eda	complexity_avg	4	packages/explorEDA/src/components/charts/ScatterPlot/ScatterTraceBody.tsx:1	noise	3 functions, one long tooltip body; complexity already ranks bigger bodies
+eda	complexity_avg	5	packages/explorEDA/src/lib/boundaries/regionFunction.ts:1	noise	44-line file, one function
+eda	complexity_avg	6	packages/explorEDA/src/utils/saveDataUtils.ts:1	duplicate	already in the complexity top 10
+eda	complexity_avg	7	apps/demo/src/demos/multiSourceShop.ts:1	noise	demo data builder
+eda	complexity_avg	8	packages/explorEDA/src/hooks/applyFilter.ts:1	noise	single filter function, mean = max
+eda	complexity_avg	9	packages/explorEDA/src/components/charts/ScatterMatrix/matrixCanvas.ts:1	noise	mean 8.5; nothing beyond what nesting shows
+eda	complexity_avg	10	packages/explorEDA/src/server/sources/routes.ts:1	noise	route handlers, mean 8.5
+cr	complexity_avg	1	Sources/CanvasTool/Geometry.swift:1	duplicate	already in the complexity top 10
+cr	complexity_avg	2	Sources/CanvasTool/Bakeoff.swift:1	noise	51-line tool with one function
+cr	complexity_avg	3	Sources/CanvasKit/Segmenter.swift:1	duplicate	already in the complexity top 10
+cr	complexity_avg	4	Sources/ContextRecorder/ContextProbe.swift:1	noise	mean 6
+cr	complexity_avg	5	Sources/ContextRecorder/BrowserBridge.swift:1	noise	mean 5.7
+cr	complexity_avg	6	Sources/ContextRecorder/Library/RecordingViews.swift:1	noise	mean 5.7, SwiftUI views
+cr	complexity_avg	7	Sources/ContextRecorder/Library/AnnotationEditor.swift:1	duplicate	already in the complexity top 10
+cr	complexity_avg	8	scripts/ui-test/harness.py:1	duplicate	already in the complexity top 10
+cr	complexity_avg	9	Sources/ContextRecorder/Library/DevScript.swift:1	duplicate	already in the complexity top 10
+cr	complexity_avg	10	Sources/ContextRecorder/Library/LibraryView.swift:1	noise	mean 5.2
+srcly	component_effect_count	1	client/src/components/CodeModal/CodeModal.tsx:43	duplicate	already in the component_loc top 10
+srcly	component_effect_count	2	client/src/components/CodeModal/CodePane.tsx:45	duplicate	already in the component_loc top 10
+srcly	component_effect_count	3	client/src/components/Explorer.tsx:132	duplicate	already in the loc top 10
+srcly	component_effect_count	4	client/src/components/Popover.tsx:39	useful	three createEffects (l.58, 80, 86) coordinate positioning; check for a derived memo
+srcly	component_effect_count	5	client/src/viz/deps/DependencyCanvas.tsx:147	duplicate	already in the loc top 10
+srcly	component_effect_count	6	server/tests/fixtures/components/react/OrderDashboard.tsx:22	excluded	srcly test fixture written to trip the metric; excluded from rates
+srcly	component_effect_count	7	client/src/App.tsx:159	duplicate	already in the loc top 10
+srcly	component_effect_count	8	client/src/compare/ComparePicker.tsx:75	duplicate	already in the loc top 10
+srcly	component_effect_count	9	client/src/components/CodeModal/OutlinePopover.tsx:48	noise	2 effects, one resets the cursor on query change (l.112): idiomatic
+srcly	component_effect_count	10	client/src/components/FilePicker.tsx:20	noise	2 effects (l.35, 103), ordinary
+recipes	component_effect_count	1	src/app/recipes/[id]/IngredientListEditMode.tsx:17	duplicate	already in the loc top 10
+recipes	component_effect_count	2	src/app/recipes/[id]/RecipeClient.tsx:18	duplicate	already in the component_loc top 10
+recipes	component_effect_count	3	src/components/ImageLightbox.tsx:29	noise	2 effects: key listener and scroll lock (l.40, 56); idiomatic
+recipes	component_effect_count	4	src/components/ui/carousel.tsx:49	duplicate	already in the component_hook_count top 10
+recipes	component_effect_count	5	src/app/list/AislePickerDialog.tsx:28	noise	1 effect
+recipes	component_effect_count	6	src/app/list/KrogerSearchPopup.tsx:32	duplicate	already in the component_loc top 10
+recipes	component_effect_count	7	src/app/recipes/[id]/StepListEditMode.tsx:17	duplicate	already in the parameter_count top 10
+recipes	component_effect_count	8	src/app/recipes/[id]/TimerZone.tsx:8	noise	1 effect (interval)
+recipes	component_effect_count	9	src/app/recipes/new/NewRecipeForm.tsx:45	noise	1 effect
+recipes	component_effect_count	10	src/components/RuntimeErrorOverlay.tsx:32	noise	1 effect
+eda	component_effect_count	1	packages/explorEDA/src/components/PlotManager.tsx:130	duplicate	already in the component_loc top 10
+eda	component_effect_count	2	apps/app/src/App.tsx:111	duplicate	already in the max_nesting_depth top 10
+eda	component_effect_count	3	packages/explorEDA/src/components/plot/ChartPlacementLayer.tsx:40	useful	6 effects in a row (l.70-99) syncing placement; check for derived state
+eda	component_effect_count	4	packages/explorEDA/src/components/schema/SchemaDiagram.tsx:133	useful	6 effects (l.201-277) for layout and listeners
+eda	component_effect_count	5	packages/explorEDA/src/components/PlotChartPanel.tsx:421	duplicate	already in the complexity top 10
+eda	component_effect_count	6	apps/demo/src/SavedViewsWorkspace.tsx:300	duplicate	already in the component_loc top 10
+eda	component_effect_count	7	packages/explorEDA/src/components/charts/Map/StreetBasemap.tsx:32	noise	4 effects, each syncing one map-library option (l.110-121): imperative-library glue
+eda	component_effect_count	8	packages/explorEDA/src/components/ui/multi-select.tsx:265	noise	vendored multi-select component
+eda	component_effect_count	9	apps/demo/src/SavedViewTabs.tsx:107	noise	3 effects
+eda	component_effect_count	10	apps/demo/src/docs/components/search.tsx:107	noise	3 effects, one resets on query (l.156)
+srcly	component_hook_count	1	client/src/components/CodeModal/CodeModal.tsx:43	duplicate	already in the component_loc top 10
+srcly	component_hook_count	2	client/src/components/Explorer.tsx:132	duplicate	already in the loc top 10
+srcly	component_hook_count	3	client/src/App.tsx:159	duplicate	already in the loc top 10
+srcly	component_hook_count	4	client/src/viz/deps/DependencyCanvas.tsx:147	duplicate	already in the loc top 10
+srcly	component_hook_count	5	client/src/components/Treemap.tsx:54	useful	14 Solid primitives, four boolean createSignals for modes (l.60-62); fold into one view-state store
+srcly	component_hook_count	6	client/src/compare/CompareApp.tsx:58	duplicate	already in the max_nesting_depth top 10
+srcly	component_hook_count	7	client/src/compare/CompareTable.tsx:116	duplicate	already in the component_loc top 10
+srcly	component_hook_count	8	client/src/viz/scatter/ScatterView.tsx:49	useful	preset/cohort/quadrant signals mirrored to the URL by createEffect (l.57-72); a URL-state helper would own them
+srcly	component_hook_count	9	client/src/compare/ComparePicker.tsx:75	duplicate	already in the loc top 10
+srcly	component_hook_count	10	server/tests/fixtures/components/react/OrderDashboard.tsx:22	excluded	srcly test fixture written to trip the metric; excluded from rates
+recipes	component_hook_count	1	src/app/RecipeList.tsx:53	duplicate	already in the loc top 10
+recipes	component_hook_count	2	src/app/plan/PlanPageClient.tsx:227	duplicate	already in the complexity top 10
+recipes	component_hook_count	3	src/app/ingredients/IngredientsClient.tsx:56	duplicate	already in the complexity top 10
+recipes	component_hook_count	4	src/app/list/KrogerSearchPopup.tsx:32	duplicate	already in the component_loc top 10
+recipes	component_hook_count	5	src/app/recipes/[id]/RecipeClient.tsx:18	duplicate	already in the component_loc top 10
+recipes	component_hook_count	6	src/app/list/ShoppingList.tsx:21	duplicate	already in the component_loc top 10
+recipes	component_hook_count	7	src/app/purchases/PurchasesList.tsx:25	duplicate	already in the complexity top 10
+recipes	component_hook_count	8	src/app/recipes/[id]/RecipeEditDialog.tsx:24	useful	4 tRPC mutations wired inline (l.27-38); move to a useRecipeEdit hook
+recipes	component_hook_count	9	src/app/recipes/[id]/RecipeImagesSection.tsx:13	useful	drag/upload/lightbox state in one component (l.16-19); extract upload hook
+recipes	component_hook_count	10	src/components/ui/carousel.tsx:49	noise	vendored shadcn carousel
+eda	component_hook_count	1	packages/explorEDA/src/components/PlotManager.tsx:130	duplicate	already in the component_loc top 10
+eda	component_hook_count	2	packages/explorEDA/src/components/PlotChartPanel.tsx:421	duplicate	already in the complexity top 10
+eda	component_hook_count	3	packages/explorEDA/src/components/charts/ScatterMatrix/ScatterMatrix.tsx:98	duplicate	already in the component_loc top 10
+eda	component_hook_count	4	apps/demo/src/SavedViewsWorkspace.tsx:300	duplicate	already in the component_loc top 10
+eda	component_hook_count	5	packages/explorEDA/src/components/charts/Hierarchy/HierarchyChart.tsx:177	duplicate	already in the component_loc top 10
+eda	component_hook_count	6	packages/explorEDA/src/components/charts/ThreeDScatter/ThreeDScatterChart.tsx:74	useful	one zustand selector per field (l.92-94); one shallow selector or a chart-context hook
+eda	component_hook_count	7	packages/explorEDA/src/components/charts/BarChart/BarChart.tsx:106	useful	same per-field selector pattern (l.115-118), 30 hooks
+eda	component_hook_count	8	packages/explorEDA/src/components/charts/BoxPlot/BoxPlot.tsx:60	duplicate	already in the component_loc top 10
+eda	component_hook_count	9	packages/explorEDA/src/components/charts/ParallelCoordinates/ParallelCoordinates.tsx:122	duplicate	already in the component_loc top 10
+eda	component_hook_count	10	packages/explorEDA/src/components/charts/LineChart/TimeSeriesChart.tsx:34	useful	27 hooks of trace wiring (l.42-45); a useChartTraceWiring hook is shared by the charts
+srcly	component_inline_handler_count	1	client/src/viz/deps/DependencyCanvas.tsx:147	duplicate	already in the loc top 10
+srcly	component_inline_handler_count	2	client/src/components/Explorer.tsx:132	duplicate	already in the loc top 10
+srcly	component_inline_handler_count	3	client/src/App.tsx:159	duplicate	already in the loc top 10
+srcly	component_inline_handler_count	4	client/src/compare/CompareApp.tsx:58	duplicate	already in the max_nesting_depth top 10
+srcly	component_inline_handler_count	5	client/src/components/Treemap.tsx:54	duplicate	already in the component_hook_count top 10
+srcly	component_inline_handler_count	6	client/src/compare/ComparePicker.tsx:75	duplicate	already in the loc top 10
+srcly	component_inline_handler_count	7	client/src/compare/CompareTable.tsx:116	duplicate	already in the component_loc top 10
+srcly	component_inline_handler_count	8	server/tests/fixtures/components/react/OrderDashboard.tsx:22	excluded	srcly test fixture written to trip the metric; excluded from rates
+srcly	component_inline_handler_count	9	client/src/compare/CommitStepper.tsx:14	noise	6 one-line handlers (l.66-77); fine inline
+srcly	component_inline_handler_count	10	client/src/components/HotSpotItem.tsx:29	duplicate	already in the component_prop_count top 10
+recipes	component_inline_handler_count	1	src/app/RecipeList.tsx:53	duplicate	already in the loc top 10
+recipes	component_inline_handler_count	2	src/app/plan/PlanPageClient.tsx:227	duplicate	already in the complexity top 10
+recipes	component_inline_handler_count	3	src/app/recipes/[id]/RecipeImagesSection.tsx:13	duplicate	already in the component_hook_count top 10
+recipes	component_inline_handler_count	4	src/app/ingredients/IngredientsClient.tsx:56	duplicate	already in the complexity top 10
+recipes	component_inline_handler_count	5	src/app/recipes/[id]/IngredientListEditMode.tsx:17	duplicate	already in the loc top 10
+recipes	component_inline_handler_count	6	src/app/ai/recipe/page.tsx:12	duplicate	already in the parameter_count top 10
+recipes	component_inline_handler_count	7	src/app/recipes/[id]/RecipeEditDialog.tsx:24	duplicate	already in the component_hook_count top 10
+recipes	component_inline_handler_count	8	src/app/purchases/PurchasesList.tsx:25	duplicate	already in the complexity top 10
+recipes	component_inline_handler_count	9	src/app/recipes/[id]/StepListEditMode.tsx:17	duplicate	already in the parameter_count top 10
+recipes	component_inline_handler_count	10	src/app/list/KrogerSearchPopup.tsx:32	duplicate	already in the component_loc top 10
+eda	component_inline_handler_count	1	packages/explorEDA/src/components/charts/Composition/UnitInspector.tsx:2399	duplicate	already in the loc top 10
+eda	component_inline_handler_count	2	packages/explorEDA/src/components/charts/Composition/CompositionInspector.tsx:126	useful	23 inline handlers, some multi-line (l.247 onClick={() => {); extract named actions
+eda	component_inline_handler_count	3	packages/explorEDA/src/components/charts/Map/PointMap.tsx:52	useful	per-point pointer/focus/click handlers inline in the map loop (l.357-365); hoist to one delegated handler
+eda	component_inline_handler_count	4	packages/explorEDA/src/components/charts/DataTable/DataTableContextMenu.tsx:72	noise	one onSelect per menu item (l.169-181): the natural shape for a menu
+eda	component_inline_handler_count	5	packages/explorEDA/src/components/charts/ParallelCoordinates/ParallelCoordinates.tsx:122	duplicate	already in the component_loc top 10
+eda	component_inline_handler_count	6	packages/explorEDA/src/components/charts/ScatterPlot/ScatterPlot.tsx:76	duplicate	already in the component_loc top 10
+eda	component_inline_handler_count	7	packages/explorEDA/src/components/PlotManager.tsx:130	duplicate	already in the component_loc top 10
+eda	component_inline_handler_count	8	packages/explorEDA/src/components/charts/Sankey/SankeyChart.tsx:107	useful	hover handlers created per link in the render loop (l.480-481)
+eda	component_inline_handler_count	9	packages/explorEDA/src/components/settings/annotations/AnnotationFields.tsx:113	noise	one onChange per form field (l.184-239)
+eda	component_inline_handler_count	10	packages/explorEDA/src/components/SummaryTable/components/FieldInspector.tsx:80	duplicate	already in the component_jsx_depth top 10
+srcly	component_jsx_conditional_count	1	client/src/viz/deps/DependencyCanvas.tsx:147	duplicate	already in the loc top 10
+srcly	component_jsx_conditional_count	2	client/src/viz/treemap/components/TreemapTooltip.tsx:33	duplicate	already in the component_jsx_depth top 10
+srcly	component_jsx_conditional_count	3	client/src/App.tsx:159	duplicate	already in the loc top 10
+srcly	component_jsx_conditional_count	4	client/src/compare/ComparePicker.tsx:75	duplicate	already in the loc top 10
+srcly	component_jsx_conditional_count	5	client/src/compare/CompareApp.tsx:58	duplicate	already in the max_nesting_depth top 10
+srcly	component_jsx_conditional_count	6	client/src/compare/CompareTable.tsx:116	duplicate	already in the component_loc top 10
+srcly	component_jsx_conditional_count	7	client/src/components/feedback/ScanProgress.tsx:13	noise	11 <Show> blocks, one per progress state (l.48-123); the natural shape
+srcly	component_jsx_conditional_count	8	client/src/compare/Inspector.tsx:54	noise	9 <Show> guards for optional fields (l.122-140)
+srcly	component_jsx_conditional_count	9	client/src/components/CodeModal/CodePane.tsx:45	duplicate	already in the component_loc top 10
+srcly	component_jsx_conditional_count	10	client/src/components/CodeModal/MetricsTable.tsx:12	duplicate	already in the component_jsx_depth top 10
+recipes	component_jsx_conditional_count	1	src/app/ai/recipe/page.tsx:12	duplicate	already in the parameter_count top 10
+recipes	component_jsx_conditional_count	2	src/app/plan/PlanPageClient.tsx:227	duplicate	already in the complexity top 10
+recipes	component_jsx_conditional_count	3	src/app/recipes/[id]/IngredientListEditMode.tsx:17	duplicate	already in the loc top 10
+recipes	component_jsx_conditional_count	4	src/app/list/KrogerSearchPopup.tsx:32	duplicate	already in the component_loc top 10
+recipes	component_jsx_conditional_count	5	src/app/purchases/PurchasesTable.tsx:70	duplicate	already in the component_prop_count top 10
+recipes	component_jsx_conditional_count	6	src/app/AddToMealPlanPopover.tsx:18	duplicate	already in the max_nesting_depth top 10
+recipes	component_jsx_conditional_count	7	src/app/RecipeList.tsx:53	duplicate	already in the loc top 10
+recipes	component_jsx_conditional_count	8	src/app/auth/LoginForm.tsx:18	noise	4 conditionals
+recipes	component_jsx_conditional_count	9	src/app/ingredients/IngredientsClient.tsx:56	duplicate	already in the complexity top 10
+recipes	component_jsx_conditional_count	10	src/app/list/ShoppingList.tsx:21	duplicate	already in the component_loc top 10
+eda	component_jsx_conditional_count	1	packages/explorEDA/src/components/charts/Composition/CompositionTraceBody.tsx:19	duplicate	already in the complexity top 10
+eda	component_jsx_conditional_count	2	packages/explorEDA/src/components/PlotChartPanel.tsx:421	duplicate	already in the complexity top 10
+eda	component_jsx_conditional_count	3	apps/app/src/ProjectWorkspace.tsx:79	duplicate	already in the component_prop_count top 10
+eda	component_jsx_conditional_count	4	packages/explorEDA/src/components/SummaryTable/components/FieldInspector.tsx:80	duplicate	already in the component_jsx_depth top 10
+eda	component_jsx_conditional_count	5	packages/explorEDA/src/components/charts/Map/RegionTraceBody.tsx:15	useful	nested ternary on region.state (l.129-134) among 22 conditionals; map state→view
+eda	component_jsx_conditional_count	6	packages/explorEDA/src/components/project/ProjectSchemaPanel.tsx:45	useful	22 conditionals in one panel
+eda	component_jsx_conditional_count	7	packages/explorEDA/src/components/charts/PivotTable/PivotTable.tsx:118	useful	21 conditionals (22 `&& (`/`? (` lines)
+eda	component_jsx_conditional_count	8	packages/explorEDA/src/components/charts/BarChart/BarTraceBody.tsx:11	noise	tooltip body: optional rows per field
+eda	component_jsx_conditional_count	9	packages/explorEDA/src/components/charts/ScatterPlot/ScatterTraceBody.tsx:16	duplicate	already in the complexity_avg top 10
+eda	component_jsx_conditional_count	10	packages/explorEDA/src/components/charts/Composition/UnitInspector.tsx:2399	duplicate	already in the loc top 10
+srcly	component_jsx_depth	1	client/src/components/FileTypeFilter.tsx:23	duplicate	already in the component_loc top 10
+srcly	component_jsx_depth	2	client/src/compare/CompareTable.tsx:116	duplicate	already in the component_loc top 10
+srcly	component_jsx_depth	3	client/src/App.tsx:159	duplicate	already in the loc top 10
+srcly	component_jsx_depth	4	client/src/compare/ComparePicker.tsx:75	duplicate	already in the loc top 10
+srcly	component_jsx_depth	5	client/src/viz/treemap/components/TreemapTooltip.tsx:33	useful	child rows rendered inline in <For> at depth 11 (l.136-150); extract a ChildRow
+srcly	component_jsx_depth	6	client/src/compare/CompareApp.tsx:58	duplicate	already in the max_nesting_depth top 10
+srcly	component_jsx_depth	7	client/src/components/CodeModal/FileFindings.tsx:32	noise	depth 10 from <Show>/<For> wrappers around a list; reads fine
+srcly	component_jsx_depth	8	client/src/components/CodeModal/MetricsTable.tsx:12	noise	table markup depth
+srcly	component_jsx_depth	9	client/src/components/MetricPicker.tsx:25	noise	grouped picker markup depth
+srcly	component_jsx_depth	10	client/src/viz/deps/DependencyCanvas.tsx:147	duplicate	already in the loc top 10
+recipes	component_jsx_depth	1	src/app/recipes/[id]/CookingModeOverlay.tsx:21	useful	nested group→step maps inline at depth 11 (l.95-115), and an <li> inside a <label> (l.109); extract StepItem
+recipes	component_jsx_depth	2	src/app/ai/recipe/page.tsx:12	duplicate	already in the parameter_count top 10
+recipes	component_jsx_depth	3	src/app/ingredients/IngredientsClient.tsx:56	duplicate	already in the complexity top 10
+recipes	component_jsx_depth	4	src/app/recipes/[id]/IngredientListEditMode.tsx:17	duplicate	already in the loc top 10
+recipes	component_jsx_depth	5	src/app/list/KrogerSearchPopup.tsx:32	duplicate	already in the component_loc top 10
+recipes	component_jsx_depth	6	src/components/ImageLightbox.tsx:29	duplicate	already in the component_effect_count top 10
+recipes	component_jsx_depth	7	src/app/RecipeList.tsx:53	duplicate	already in the loc top 10
+recipes	component_jsx_depth	8	src/app/global-error.tsx:7	duplicate	already in the average_function_length top 10
+recipes	component_jsx_depth	9	src/app/list/ShoppingListCard.tsx:24	duplicate	already in the complexity top 10
+recipes	component_jsx_depth	10	src/app/plan/PlanPageClient.tsx:66	duplicate	already in the complexity top 10
+eda	component_jsx_depth	1	packages/explorEDA/src/components/SummaryTable/components/FieldInspector.tsx:80	useful	depth 11 and 22 conditionals; extract sections
+eda	component_jsx_depth	2	packages/explorEDA/src/components/calculations/CalculationManager.tsx:10	useful	depth 11 list-in-dialog markup (l.112); extract the row
+eda	component_jsx_depth	3	packages/explorEDA/src/components/charts/FacetRelated/FacetGridLayout.tsx:40	useful	depth 11 grid cells inline (l.247), 14 props
+eda	component_jsx_depth	4	packages/explorEDA/src/components/SummaryTable/components/CompactSummaryTable.tsx:110	noise	table markup depth 10
+eda	component_jsx_depth	5	packages/explorEDA/src/components/charts/DataTable/DataTableHeader.tsx:64	noise	header markup depth 10
+eda	component_jsx_depth	6	packages/explorEDA/src/components/plot/AddChartDialog.tsx:125	noise	dialog markup depth 10
+eda	component_jsx_depth	7	apps/demo/src/ExampleSelector.tsx:25	noise	demo markup
+eda	component_jsx_depth	8	apps/demo/src/LandingPage.tsx:167	noise	landing page markup
+eda	component_jsx_depth	9	apps/demo/src/docs/components/search.tsx:107	duplicate	already in the component_effect_count top 10
+eda	component_jsx_depth	10	apps/demo/src/landing/IntegrationGuide.tsx:76	noise	landing page markup
+srcly	component_loc	1	client/src/viz/deps/DependencyCanvas.tsx:147	duplicate	already in the loc top 10
+srcly	component_loc	2	client/src/App.tsx:159	duplicate	already in the loc top 10
+srcly	component_loc	3	client/src/components/Explorer.tsx:132	duplicate	already in the loc top 10
+srcly	component_loc	4	client/src/components/CodeModal/CodeModal.tsx:43	useful	368-line Solid component with 18 createSignal/createMemo/createEffect calls; split viewer state from layout
+srcly	component_loc	5	client/src/compare/CompareApp.tsx:58	duplicate	already in the max_nesting_depth top 10
+srcly	component_loc	6	client/src/viz/treemap/components/TreemapCanvas.tsx:126	duplicate	already in the complexity top 10
+srcly	component_loc	7	client/src/compare/CompareTable.tsx:116	useful	330-line table component; extract row and header
+srcly	component_loc	8	client/src/viz/scatter/ScatterPlot.tsx:35	useful	324-line plot with drag, axes and points inline
+srcly	component_loc	9	client/src/components/CodeModal/CodePane.tsx:45	useful	295 lines and 20 props (CodePane(props: CodePaneProps) l.45)
+srcly	component_loc	10	client/src/components/FileTypeFilter.tsx:23	useful	268 lines; owns open state, LOC input and path exclusions (l.24-26); also deepest JSX (13)
+recipes	component_loc	1	src/app/recipes/[id]/IngredientListEditMode.tsx:17	duplicate	already in the loc top 10
+recipes	component_loc	2	src/app/plan/PlanPageClient.tsx:227	duplicate	already in the complexity top 10
+recipes	component_loc	3	src/app/ingredients/IngredientsClient.tsx:56	duplicate	already in the complexity top 10
+recipes	component_loc	4	src/app/RecipeList.tsx:53	duplicate	already in the loc top 10
+recipes	component_loc	5	src/app/ai/recipe/page.tsx:12	duplicate	already in the parameter_count top 10
+recipes	component_loc	6	src/app/recipes/[id]/StepListEditMode.tsx:17	duplicate	already in the parameter_count top 10
+recipes	component_loc	7	src/app/list/ShoppingList.tsx:21	useful	247-line list component
+recipes	component_loc	8	src/app/recipes/[id]/touch-up/touchup-client.tsx:64	duplicate	already in the parameter_count top 10
+recipes	component_loc	9	src/app/recipes/[id]/RecipeClient.tsx:18	useful	231 lines and 12 hooks
+recipes	component_loc	10	src/app/list/KrogerSearchPopup.tsx:32	useful	226 lines, 12 hooks, 6 JSX conditionals
+eda	component_loc	1	apps/demo/src/SavedViewsWorkspace.tsx:300	useful	1,066-line component (l.300); split
+eda	component_loc	2	packages/explorEDA/src/components/PlotManager.tsx:130	useful	967 lines, 75 hooks, 10 effects
+eda	component_loc	3	packages/explorEDA/src/components/charts/ParallelCoordinates/ParallelCoordinates.tsx:122	useful	864-line chart component
+eda	component_loc	4	packages/explorEDA/src/components/PlotChartPanel.tsx:421	duplicate	already in the complexity top 10
+eda	component_loc	5	packages/explorEDA/src/components/charts/LineChart/LineChart.tsx:67	useful	775-line FC (l.67)
+eda	component_loc	6	packages/explorEDA/src/components/charts/ScatterPlot/ScatterPlot.tsx:76	useful	741-line ScatterPoints
+eda	component_loc	7	packages/explorEDA/src/components/charts/RowChart/RowChart.tsx:62	useful	731 lines
+eda	component_loc	8	packages/explorEDA/src/components/charts/ScatterMatrix/ScatterMatrix.tsx:98	useful	717 lines, 35 hooks
+eda	component_loc	9	packages/explorEDA/src/components/charts/BoxPlot/BoxPlot.tsx:60	useful	703 lines, 30 hooks
+eda	component_loc	10	packages/explorEDA/src/components/charts/Hierarchy/HierarchyChart.tsx:177	useful	675 lines, 32 hooks
+srcly	component_prop_count	1	client/src/components/CodeModal/CodePane.tsx:45	duplicate	already in the component_loc top 10
+srcly	component_prop_count	2	client/src/viz/treemap/components/TreemapHeader.tsx:46	useful	16 props, mostly accessor/handler pairs (props.view()/onViewChange l.62-65); pass a view-model object
+srcly	component_prop_count	3	client/src/components/CodeModal/CodeModalHeader.tsx:62	useful	15 props threaded from CodeModal; same split as CodeModal
+srcly	component_prop_count	4	client/src/compare/CompareTreemap.tsx:19	noise	13 props on a local Pane, mostly pass-through
+srcly	component_prop_count	5	client/src/viz/treemap/components/TreemapCanvas.tsx:126	duplicate	already in the complexity top 10
+srcly	component_prop_count	6	client/src/viz/scatter/ScatterPlot.tsx:35	duplicate	already in the component_loc top 10
+srcly	component_prop_count	7	client/src/compare/CompareGraph.tsx:77	noise	10 props on a local Pane
+srcly	component_prop_count	8	client/src/components/CodeModal/MetricsSidebar.tsx:8	noise	10 props
+srcly	component_prop_count	9	client/src/components/HotSpotItem.tsx:29	noise	10 props on a row; already uses HotSpotRowContext
+srcly	component_prop_count	10	client/src/viz/scatter/QuadrantPanel.tsx:17	noise	10 props
+recipes	component_prop_count	1	src/app/purchases/PurchasesTable.tsx:157	noise	8 props
+recipes	component_prop_count	2	src/components/SimpleAlertDialog.tsx:33	noise	8 props on a dialog wrapper
+recipes	component_prop_count	3	src/components/ingredients/IngredientPurchaseHistory.tsx:39	duplicate	already in the average_function_length top 10
+recipes	component_prop_count	4	src/components/recipes/RecipeTagEditor.tsx:30	noise	8 props
+recipes	component_prop_count	5	src/app/plan/PlanPageClient.tsx:66	duplicate	already in the complexity top 10
+recipes	component_prop_count	6	src/app/purchases/PurchasesFiltersPanel.tsx:44	noise	7 props
+recipes	component_prop_count	7	src/components/ui/carousel.tsx:49	duplicate	already in the component_hook_count top 10
+recipes	component_prop_count	8	src/components/ui/sidebar.tsx:64	duplicate	already in the loc top 10
+recipes	component_prop_count	9	src/app/list/KrogerSearchPopup.tsx:32	duplicate	already in the component_loc top 10
+recipes	component_prop_count	10	src/app/recipes/[id]/RecipeActions.tsx:51	duplicate	already in the average_function_length top 10
+eda	component_prop_count	1	packages/explorEDA/src/components/charts/ScatterPlot/ScatterSvg.tsx:408	useful	25 destructured props (l.408); group into scales/handlers objects
+eda	component_prop_count	2	packages/explorEDA/src/components/charts/BaseChart.tsx:75	useful	23 props on the base every chart passes through
+eda	component_prop_count	3	packages/explorEDA/src/components/ui/multi-select.tsx:265	duplicate	already in the component_effect_count top 10
+eda	component_prop_count	4	packages/explorEDA/src/components/calculations/CalculationForm.tsx:37	noise	16 props on a form; one per field
+eda	component_prop_count	5	apps/app/src/ProjectWorkspace.tsx:79	useful	15 props and 25 JSX conditionals: a workspace switching on props
+eda	component_prop_count	6	packages/explorEDA/src/components/ExplorEdaProject.tsx:101	noise	15 props: the public embed API (forwardRef, l.101)
+eda	component_prop_count	7	packages/explorEDA/src/components/charts/ColorLegend/ColorScale.tsx:25	noise	15 presentational props
+eda	component_prop_count	8	apps/demo/src/SavedViewsWorkspace.tsx:300	duplicate	already in the component_loc top 10
+eda	component_prop_count	9	packages/explorEDA/src/components/charts/FacetRelated/FacetGridLayout.tsx:40	duplicate	already in the component_jsx_depth top 10
+eda	component_prop_count	10	packages/explorEDA/src/components/project/ProjectQueryPanel.tsx:35	noise	13 props
+srcly	finding_count	1	server/app/routers/compare.py:1	useful	ruff B905 zip() without strict= (l.70, l.81): a silent-truncation risk
+srcly	finding_count	2	server/tests/test_analysis_context.py:1	useful	F401 unused imports anyio, FastAPI (l.3-4): delete
+srcly	finding_count	3	server/tests/test_scan_jobs.py:1	useful	F401 unused imports (l.10, l.12)
+srcly	finding_count	4	server/app/routers/files.py:1	useful	B904 raise without from inside except (l.60)
+srcly	finding_count	5	server/app/run.py:1	duplicate	already in the comment_noise top 10
+srcly	finding_count	6	server/app/services/analysis.py:1	duplicate	already in the loc top 10
+srcly	finding_count	7	server/app/services/reporting.py:1	duplicate	already in the loc top 10
+srcly	finding_count	8	server/scripts/evaluate_metric_portfolio.py:1	duplicate	already in the parameter_count top 10
+srcly	finding_count	9	server/tests/test_cli_repo_root_detection.py:1	useful	F401 unused os (l.1)
+srcly	finding_count	10	server/tests/test_compare_commits.py:1	useful	F401 unused Path (l.5)
+recipes	finding_count	1	src/server/ai/aiRecipe.ts:1	duplicate	already in the complexity top 10
+recipes	finding_count	2	src/components/ingredients/IngredientPurchaseHistory.tsx:1	duplicate	already in the average_function_length top 10
+recipes	finding_count	3	src/trpc/helpers.ts:1	duplicate	already in the ts_any_usage_count top 10
+recipes	finding_count	4	src/components/ui/toggle-group.tsx:1	noise	prefer-nullish-coalescing in vendored shadcn code (l.47-48)
+recipes	finding_count	5	src/app/RecipeList.tsx:1	duplicate	already in the loc top 10
+recipes	finding_count	6	src/app/ai/recipe/page.tsx:1	duplicate	already in the parameter_count top 10
+recipes	finding_count	7	src/app/kroger/model.ts:1	duplicate	already in the ts_any_usage_count top 10
+recipes	finding_count	8	src/app/kroger/page.tsx:1	useful	unused import Button (l.3)
+recipes	finding_count	9	src/app/list/KrogerItemDisplay.tsx:1	duplicate	already in the complexity top 10
+recipes	finding_count	10	src/app/page.tsx:1	useful	unused import Link (l.1)
+eda	finding_count	1	packages/explorEDA/src/components/charts/Composition/resolveUnit.ts:1	duplicate	already in the complexity top 10
+eda	finding_count	2	packages/explorEDA/src/lib/analysis/projectFile.ts:1	duplicate	already in the complexity top 10
+eda	finding_count	3	packages/explorEDA/src/lib/annotations/resolve.ts:1	duplicate	already in the complexity top 10
+eda	finding_count	4	packages/explorEDA/src/components/charts/Composition/resolveComposition.ts:1	duplicate	already in the max_nesting_depth top 10
+eda	finding_count	5	packages/explorEDA/src/lib/analysis/evaluateProject.ts:1	duplicate	already in the parameter_count top 10
+eda	finding_count	6	packages/explorEDA/src/components/charts/Map/PointMap.tsx:1	duplicate	already in the component_inline_handler_count top 10
+eda	finding_count	7	packages/explorEDA/src/components/charts/ScatterPlot/regression.ts:1	noise	36 eslint `curly` style findings (l.77-85); 2,174 of the repo's ~2,350 findings are this one rule
+eda	finding_count	8	packages/explorEDA/src/components/schema/SchemaDiagram.tsx:1	duplicate	already in the component_effect_count top 10
+eda	finding_count	9	packages/explorEDA/src/components/ExplorEda.tsx:1	useful	31 react-refresh/only-export-components (l.270-272): the component file re-exports the library API; move it to index.ts
+eda	finding_count	10	packages/explorEDA/src/components/PlotChartPanel.tsx:1	duplicate	already in the complexity top 10
+srcly	loc	1	client/src/viz/deps/layout.ts:1	duplicate	already complexity #4 (placeAndRoute)
+srcly	loc	2	server/app/services/analysis.py:1	useful	1,036-line module mixing scan, attach and rollup (attach_file_metrics / aggregate_metrics); split rollup out
+srcly	loc	3	client/src/viz/deps/DependencyCanvas.tsx:1	useful	875-line canvas component; drawing and interaction in one file
+srcly	loc	4	server/app/services/reporting.py:1	useful	778 lines: ranking, rendering and artifact writing in one module
+srcly	loc	5	DESIGN.md:1	noise	a design document; length is not a defect
+srcly	loc	6	server/app/services/typescript/typescript_analysis.py:1	duplicate	already complexity #3
+srcly	loc	7	client/src/compare/ComparePicker.tsx:1	useful	614-line picker with several sub-pickers inline; extract them
+srcly	loc	8	client/src/App.tsx:1	useful	588-line App shell holding routing, scan state and layout
+srcly	loc	9	client/src/viz/deps/viewModel.ts:1	duplicate	already complexity #1
+srcly	loc	10	client/src/components/Explorer.tsx:1	useful	542-line explorer: columns, sorting and rows in one component
+recipes	loc	1	src/server/api/routers/recipe.ts:1	useful	1,096-line tRPC router holding every recipe procedure; split by sub-resource
+recipes	loc	2	src/components/ui/sidebar.tsx:1	noise	vendored shadcn/ui primitive ("use client" + radix Slot, l.1-4)
+recipes	loc	3	docs/done/04-ai-recipe-gen.md:1	noise	finished plan doc
+recipes	loc	4	src/app/plan/PlanPageClient.tsx:1	duplicate	already complexity #7
+recipes	loc	5	docs/02-images-for-recipes.md:1	noise	plan doc
+recipes	loc	6	src/app/recipes/[id]/IngredientListEditMode.tsx:1	useful	442-line edit-mode component (also component_loc #1)
+recipes	loc	7	docs/03-ai-meal-planning.md:1	noise	plan doc
+recipes	loc	8	src/app/ingredients/IngredientsClient.tsx:1	duplicate	already complexity #6
+recipes	loc	9	src/app/RecipeList.tsx:1	useful	378-line list component, a god component in the 2x2
+recipes	loc	10	scripts/test-kroger.cjs:1	noise	one-off manual test script
+eda	loc	1	docs/research/dense-chart-interactions-2026-10-12/pro/source-packet.md:1	noise	25k-line generated research packet
+eda	loc	2	.claude/skills/impeccable/scripts/live-browser.js:1	duplicate	already complexity #10 (vendored, noise there too)
+eda	loc	3	docs/research/data-file-inputs-2026-10-12/pro/source-packet.md:1	noise	generated research packet
+eda	loc	4	packages/explorEDA/src/index.css:1	noise	Tailwind theme stylesheet (l.1 @import "tailwindcss"); size is tokens, not logic
+eda	loc	5	apps/demo/src/demos/dashboardSettings.ts:1	noise	6,458 lines of demo chart data literals (l.4-6 `const base = {`)
+eda	loc	6	packages/explorEDA/src/components/charts/Composition/resolveUnit.ts:1	duplicate	already complexity #6
+eda	loc	7	packages/explorEDA/src/components/charts/Composition/UnitInspector.tsx:1	useful	3,313-line inspector component file; split per section
+eda	loc	8	packages/explorEDA/src/lib/dsl/compile.ts:1	duplicate	already complexity #3
+eda	loc	9	docs/intent/comparison-opportunities/resources/pro-gap-analysis/explorEDA-gap-analysis-2026-10-05/reports/02-comprehensive-gap-register.html:1	noise	generated HTML report
+eda	loc	10	packages/explorEDA/src/lib/dsl/composition.ts:1	useful	2,212-line DSL module
+cr	loc	1	docs/research/recording-tools/pro-output/recording-tools-sources.md:1	noise	research doc
+cr	loc	2	docs/research/recording-tools/pro-output/recording-tools-report.md:1	noise	research doc
+cr	loc	3	docs/research/recording-tools/pro-output/recording-tools-gap-analysis.md:1	noise	research doc
+cr	loc	4	scripts/viewer.html:1	useful	589-line single-file HTML viewer with inline script; worth splitting the script out
+cr	loc	5	docs/intent/video-to-canvas/sources/pro-output/video-to-canvas-report.md:1	noise	research doc
+cr	loc	6	scripts/process_session.py:1	duplicate	already complexity #8
+cr	loc	7	docs/intent/video-to-canvas/sources/pro-output/video-to-canvas-proof-plan.md:1	noise	plan doc
+cr	loc	8	Sources/ContextRecorder/Library/SessionView.swift:1	useful	465-line SwiftUI view file
+cr	loc	9	Sources/ContextRecorder/Library/MarkDetail.swift:1	useful	450-line view file
+cr	loc	10	Sources/ContextRecorder/main.swift:1	useful	430-line main.swift with app setup and commands
+srcly	max_nesting_depth	1	server/app/services/deps/python_deps.py:1	duplicate	already in the complexity top 10
+srcly	max_nesting_depth	2	server/app/services/typescript/typescript_analysis.py:1	duplicate	already in the complexity top 10
+srcly	max_nesting_depth	3	client/src/viz/deps/geometry.ts:1	useful	four nested loops over segment pairs (l.137-142); extract a pairwise-overlap helper
+srcly	max_nesting_depth	4	client/src/viz/deps/layout.ts:1	duplicate	already in the complexity top 10
+srcly	max_nesting_depth	5	server/app/services/deps/common.py:1	useful	file walk nests five guards in the loop (l.75-85); extract an is_source_file predicate
+srcly	max_nesting_depth	6	server/app/services/deps/typescript_deps.py:1	duplicate	already in the complexity_avg top 10
+srcly	max_nesting_depth	7	server/app/services/scan_workers.py:1	duplicate	already in the complexity top 10
+srcly	max_nesting_depth	8	server/app/services/typescript/components.py:1	duplicate	already in the complexity_avg top 10
+srcly	max_nesting_depth	9	client/src/compare/CompareApp.tsx:1	noise	depth 4 in event handlers; ordinary
+srcly	max_nesting_depth	10	client/src/components/Explorer.tsx:1	duplicate	already in the loc top 10
+recipes	max_nesting_depth	1	src/hooks/use-url-state.ts:1	noise	depth 4 for patch→URLSearchParams (l.22-29); natural shape
+recipes	max_nesting_depth	2	src/server/api/routers/recipe.ts:1	duplicate	already in the loc top 10
+recipes	max_nesting_depth	3	src/app/purchases/PurchasesList.tsx:1	duplicate	already in the complexity top 10
+recipes	max_nesting_depth	4	src/components/GlobalAddTagDialog.tsx:1	useful	inline async onClick holds upsert + attach logic (l.70-84); extract a handler
+recipes	max_nesting_depth	5	src/server/api/routers/imagesRouter.ts:1	duplicate	already in the complexity_avg top 10
+recipes	max_nesting_depth	6	src/server/api/routers/krogerRouter.ts:1	duplicate	already in the complexity top 10
+recipes	max_nesting_depth	7	src/server/api/routers/purchasesRouter.ts:1	duplicate	already in the complexity top 10
+recipes	max_nesting_depth	8	src/server/kroger.ts:1	duplicate	already in the complexity_avg top 10
+recipes	max_nesting_depth	9	src/server/krogerAuth.ts:1	duplicate	already in the complexity top 10
+recipes	max_nesting_depth	10	src/app/AddToMealPlanPopover.tsx:1	noise	depth 2
+eda	max_nesting_depth	1	packages/explorEDA/src/components/charts/Composition/resolveComposition.ts:1	useful	depth-5 frame math (l.1120) inside a 1,100+ line resolver
+eda	max_nesting_depth	2	packages/explorEDA/src/components/charts/Composition/resolveUnit.ts:1	duplicate	already in the complexity top 10
+eda	max_nesting_depth	3	packages/explorEDA/src/components/charts/ScatterMatrix/matrixCanvas.ts:1	duplicate	already in the complexity_avg top 10
+eda	max_nesting_depth	4	packages/explorEDA/src/components/charts/ScatterMatrix/matrixPlan.ts:1	useful	per-kind cell planning nested in loops (l.696-712); per-kind planners
+eda	max_nesting_depth	5	packages/explorEDA/src/lib/analysis/projectFile.ts:1	duplicate	already in the complexity top 10
+eda	max_nesting_depth	6	packages/explorEDA/src/lib/dsl/compile.ts:1	duplicate	already in the complexity top 10
+eda	max_nesting_depth	7	apps/app/src/App.tsx:1	noise	depth 4 app shell
+eda	max_nesting_depth	8	apps/data-samples/prepare/beijing.ts:1	noise	data-prep script
+eda	max_nesting_depth	9	apps/data-samples/prepare/lib.ts:1	noise	data-prep script
+eda	max_nesting_depth	10	apps/data-samples/product_events.ts:1	noise	sample data generator
+cr	max_nesting_depth	1	docs/intent/video-to-canvas/spikes/opencv_bakeoff.py:1	noise	throwaway spike under docs/ (l.43)
+cr	max_nesting_depth	2	scripts/test_process_session.py:1	noise	test file
+cr	max_nesting_depth	3	scripts/ui-test/harness.py:1	duplicate	already in the complexity top 10
+cr	max_nesting_depth	4	scripts/process_session.py:1	duplicate	already in the complexity top 10
+cr	max_nesting_depth	5	scripts/check-transcript.py:1	noise	depth 1: the queue ran out of nonzero cases
+srcly	md_data_url_count	1	DESIGN.md:1	duplicate	already in the loc top 10
+srcly	md_data_url_count	2	docs/analysis/Markdown.md:1	noise	one data URL in an analysis note
+srcly	md_data_url_count	3	docs/intent/dependency-graph-legibility/implementation-plan.md:1	noise	one data URL
+recipes	md_data_url_count	1	docs/02-images-for-recipes.md:1	duplicate	already in the loc top 10
+recipes	md_data_url_count	2	docs/03-ai-meal-planning.md:1	duplicate	already in the loc top 10
+recipes	md_data_url_count	3	docs/done/01-cat-tags.md:1	noise	one data URL in a finished plan
+recipes	md_data_url_count	4	docs/done/04-ai-recipe-gen.md:1	duplicate	already in the loc top 10
+eda	md_data_url_count	1	docs/research/dense-chart-interactions-2026-10-12/pro/source-packet.md:1	duplicate	already in the loc top 10
+eda	md_data_url_count	2	docs/research/data-file-inputs-2026-10-12/pro/source-packet.md:1	duplicate	already in the loc top 10
+eda	md_data_url_count	3	packages/explorEDA/docs/archive/prd/funcs.md:1	useful	18 inline base64 images bloat an archived PRD; move to files
+eda	md_data_url_count	4	packages/explorEDA/docs/archive/prd/05-pivot-tables/prd_plans.md:1	noise	5 data URLs in an archive; nobody edits it
+eda	md_data_url_count	5	packages/explorEDA/docs/archive/prd/06-calcs-engine/prd_reqs.md:1	noise	archive
+eda	md_data_url_count	6	packages/explorEDA/docs/archive/prd/10-saved-data/plans.md:1	noise	archive
+eda	md_data_url_count	7	packages/explorEDA/docs/archive/prd/chart_features/parallel_coordinates.md:1	noise	archive
+eda	md_data_url_count	8	packages/explorEDA/docs/archive/prd/06-calcs-engine/calc_rework.md:1	noise	archive
+eda	md_data_url_count	9	packages/explorEDA/docs/archive/prd/18-box-plot/plans.md:1	noise	archive
+eda	md_data_url_count	10	docs/intent/database-query-contract/raw/2026-10-11-pro/database-query-contract-research.md:1	noise	raw research
+srcly	parameter_count	1	client/src/viz/deps/layout.ts:1	duplicate	already in the complexity top 10
+srcly	parameter_count	2	server/app/services/reporting.py:1	duplicate	already in the loc top 10
+srcly	parameter_count	3	server/app/services/analysis.py:1	duplicate	already in the loc top 10
+srcly	parameter_count	4	client/src/viz/deps/DependencyCanvas.tsx:1	duplicate	already in the loc top 10
+srcly	parameter_count	5	server/tests/test_reporting.py:1	noise	sum over ~30 test functions with fixtures; a function count, not arity
+srcly	parameter_count	6	client/src/viz/treemap/hooks/useTreemapTooltip.ts:1	duplicate	already in the complexity top 10
+srcly	parameter_count	7	server/app/services/compare/snapshots.py:1	noise	file sum 59 over many 1-3 param functions
+srcly	parameter_count	8	client/src/viz/deps/viewModel.ts:1	duplicate	already in the complexity top 10
+srcly	parameter_count	9	server/app/services/activity.py:1	noise	56 params over 25 functions (≈2.2 each)
+srcly	parameter_count	10	server/scripts/evaluate_metric_portfolio.py:1	noise	file sum over small helpers
+recipes	parameter_count	1	src/server/api/routers/recipe.ts:1	duplicate	already in the loc top 10
+recipes	parameter_count	2	src/components/ui/sidebar.tsx:1	duplicate	already in the loc top 10
+recipes	parameter_count	3	src/app/recipes/[id]/IngredientListEditMode.tsx:1	duplicate	already in the loc top 10
+recipes	parameter_count	4	src/app/plan/PlanPageClient.tsx:1	duplicate	already in the complexity top 10
+recipes	parameter_count	5	src/app/recipes/[id]/StepListEditMode.tsx:1	noise	file sum of handler params
+recipes	parameter_count	6	src/app/recipes/[id]/touch-up/touchup-client.tsx:1	noise	file sum of handler params
+recipes	parameter_count	7	src/app/ai/recipe/page.tsx:1	noise	file sum
+recipes	parameter_count	8	src/components/ui/menubar.tsx:1	noise	vendored shadcn primitives, one prop object each
+recipes	parameter_count	9	src/hooks/use-url-state.ts:1	duplicate	already in the max_nesting_depth top 10
+recipes	parameter_count	10	src/app/RecipeList.tsx:1	duplicate	already in the loc top 10
+eda	parameter_count	1	.claude/skills/impeccable/scripts/live-browser.js:1	duplicate	already in the complexity top 10
+eda	parameter_count	2	packages/explorEDA/src/components/charts/Composition/resolveUnit.ts:1	duplicate	already in the complexity top 10
+eda	parameter_count	3	packages/explorEDA/src/components/charts/Composition/UnitInspector.tsx:1	duplicate	already in the loc top 10
+eda	parameter_count	4	packages/explorEDA/src/lib/dsl/composition.ts:1	duplicate	already in the loc top 10
+eda	parameter_count	5	packages/explorEDA/src/providers/DataLayerProvider.tsx:1	noise	183 = many small callbacks in a provider; a function count
+eda	parameter_count	6	packages/explorEDA/src/lib/dsl/compile.ts:1	duplicate	already in the complexity top 10
+eda	parameter_count	7	packages/explorEDA/src/lib/analysis/evaluateProject.ts:1	noise	file sum
+eda	parameter_count	8	packages/explorEDA/src/lib/notebook/writeBack.ts:1	noise	file sum
+eda	parameter_count	9	packages/explorEDA/src/components/charts/Composition/resolveComposition.ts:1	duplicate	already in the max_nesting_depth top 10
+eda	parameter_count	10	packages/explorEDA/src/lib/dsl/project.ts:1	noise	file sum
+cr	parameter_count	1	scripts/process_session.py:1	duplicate	already in the complexity top 10
+cr	parameter_count	2	Sources/ContextRecorder/Library/AnnotationLayer.swift:1	noise	file sum over drawing helpers
+cr	parameter_count	3	Sources/ContextRecorder/Library/ImageCanvas.swift:1	noise	file sum
+cr	parameter_count	4	scripts/ui-test/cua.js:1	noise	file sum
+cr	parameter_count	5	Sources/CanvasKit/CanvasDocument.swift:1	noise	file sum
+cr	parameter_count	6	Sources/ContextRecorder/Library/Edits.swift:1	duplicate	already in the complexity top 10
+cr	parameter_count	7	Sources/Annotation/Geometry.swift:1	noise	geometry helpers (x, y, w, h each)
+cr	parameter_count	8	extension/page.js:1	duplicate	already in the complexity top 10
+cr	parameter_count	9	Sources/CanvasTool/Fixtures.swift:1	noise	file sum
+cr	parameter_count	10	Sources/ContextRecorder/Library/SessionTimeline.swift:1	noise	file sum
+srcly	ts_any_usage_count	1	client/src/utils/structureTree.ts:1	useful	31 explicit anys typing the analysis tree; one Node type removes them
+srcly	ts_any_usage_count	2	client/src/utils/dataProcessing.ts:1	useful	22 anys in tree processing (same Node type fix)
+srcly	ts_any_usage_count	3	client/src/viz/treemap/hooks/useTreemapTooltip.ts:1	duplicate	already in the complexity top 10
+srcly	ts_any_usage_count	4	client/src/components/CodeModal/StickyBreadcrumb.tsx:1	useful	14 anys in breadcrumb node handling
+srcly	ts_any_usage_count	5	client/src/markdown/remarkHighlightSelection.ts:1	duplicate	already in the average_function_length top 10
+srcly	ts_any_usage_count	6	client/src/App.tsx:1	duplicate	already in the loc top 10
+srcly	ts_any_usage_count	7	client/src/components/CodeModal/OutlinePopover.tsx:1	duplicate	already in the component_effect_count top 10
+srcly	ts_any_usage_count	8	client/src/components/Explorer.tsx:1	duplicate	already in the loc top 10
+srcly	ts_any_usage_count	9	client/src/viz/treemap/hooks/useTreemapTooltip.test.ts:1	noise	test doubles typed as any
+srcly	ts_any_usage_count	10	client/src/components/Treemap.tsx:1	duplicate	already in the component_hook_count top 10
+recipes	ts_any_usage_count	1	src/server/ai/aiRecipe.ts:1	duplicate	already in the complexity top 10
+recipes	ts_any_usage_count	2	src/app/kroger/model.ts:1	noise	1 any
+recipes	ts_any_usage_count	3	src/trpc/helpers.ts:1	noise	1 any (also an eslint finding)
+eda	ts_any_usage_count	1	packages/explorEDA/src/test/providers/fieldSettingsProvider.test.tsx:1	noise	4 anys in a test
+eda	ts_any_usage_count	2	apps/data-samples/sample_data.ts:1	noise	1 any in sample data
+eda	ts_any_usage_count	3	packages/explorEDA/src/server/team/accountRoutes.test.ts:1	noise	test
+eda	ts_any_usage_count	4	packages/explorEDA/src/server/team/fileIntake.test.ts:1	noise	test
+eda	ts_ignore_count	1	apps/demo/src/demos/coverage.test.ts:1	noise	deliberate @ts-expect-error in a negative type test
+eda	ts_ignore_count	2	apps/demo/src/docs/gate.test.ts:1	noise	deliberate @ts-expect-error in a negative type test
+srcly	preset:activity:high_both	1	client/src/viz/deps/viewModel.ts:1	useful	complex (111 CCN) and changed often (6 commits in 90d): refactor before the next change
+srcly	preset:activity:high_both	2	client/src/viz/deps/layout.ts:1	useful	complex (62 CCN) and changed often (9 commits in 90d): refactor before the next change
+srcly	preset:activity:high_both	3	server/app/services/typescript/typescript_analysis.py:1	useful	complex (66 CCN) and changed often (6 commits in 90d): refactor before the next change
+srcly	preset:activity:high_both	4	client/src/viz/treemap/components/TreemapCanvas.tsx:1	useful	complex (54 CCN) and changed often (8 commits in 90d): refactor before the next change
+srcly	preset:activity:high_both	5	client/src/viz/treemap/hooks/useTreemapTooltip.ts:1	useful	complex (41 CCN) and changed often (9 commits in 90d): refactor before the next change
+srcly	preset:activity:high_both	6	client/src/App.tsx:1	useful	complex (20 CCN) and changed often (12 commits in 90d): refactor before the next change
+srcly	preset:activity:high_both	7	client/src/viz/deps/DependencyCanvas.tsx:1	useful	complex (22 CCN) and changed often (11 commits in 90d): refactor before the next change
+srcly	preset:activity:high_both	8	server/app/services/analysis.py:1	useful	complex (16 CCN) and changed often (14 commits in 90d): refactor before the next change
+srcly	preset:activity:high_both	9	client/src/components/Explorer.tsx:1	useful	complex (19 CCN) and changed often (10 commits in 90d): refactor before the next change
+srcly	preset:activity:high_both	10	client/src/components/CodeModal/CodeModal.tsx:1	useful	complex (15 CCN) and changed often (10 commits in 90d): refactor before the next change
+eda	preset:activity:high_both	1	packages/explorEDA/src/utils/saveDataUtils.ts:1	useful	complex (262 CCN) and changed often (62 commits in 90d): refactor before the next change
+eda	preset:activity:high_both	2	packages/explorEDA/src/components/charts/Composition/validateComposition.ts:1	useful	complex (255 CCN) and changed often (39 commits in 90d): refactor before the next change
+eda	preset:activity:high_both	3	packages/explorEDA/src/components/PlotChartPanel.tsx:1	useful	complex (74 CCN) and changed often (66 commits in 90d): refactor before the next change
+eda	preset:activity:high_both	4	packages/explorEDA/src/lib/dsl/compile.ts:1	useful	complex (155 CCN) and changed often (24 commits in 90d): refactor before the next change
+eda	preset:activity:high_both	5	apps/demo/src/demos/coverage.ts:1	noise	append-only demo coverage list; its 75 commits are additions, not rework
+eda	preset:activity:high_both	6	packages/explorEDA/src/components/charts/Composition/resolveUnit.ts:1	useful	complex (81 CCN) and changed often (39 commits in 90d): refactor before the next change
+eda	preset:activity:high_both	7	packages/explorEDA/src/components/charts/Composition/CompositionTraceBody.tsx:1	useful	complex (100 CCN) and changed often (14 commits in 90d): refactor before the next change
+eda	preset:activity:high_both	8	apps/demo/src/LandingPage.tsx:1	useful	complex (39 CCN) and changed often (41 commits in 90d): refactor before the next change
+eda	preset:activity:high_both	9	packages/explorEDA/src/components/charts/ScatterPlot/ScatterPlot.tsx:1	useful	complex (58 CCN) and changed often (30 commits in 90d): refactor before the next change
+eda	preset:activity:high_both	10	packages/explorEDA/src/components/PlotManager.tsx:1	useful	complex (42 CCN) and changed often (37 commits in 90d): refactor before the next change
+cr	preset:activity:high_both	1	Sources/ContextRecorder/main.swift:1	useful	complex (10 CCN) and changed often (30 commits in 90d): refactor before the next change
+cr	preset:activity:high_both	2	Sources/ContextRecorder/Library/LibraryWindow.swift:1	useful	complex (19 CCN) and changed often (16 commits in 90d): refactor before the next change
+cr	preset:activity:high_both	3	scripts/process_session.py:1	useful	complex (19 CCN) and changed often (13 commits in 90d): refactor before the next change
+cr	preset:activity:high_both	4	Sources/ContextRecorder/Library/LibraryView.swift:1	useful	complex (13 CCN) and changed often (13 commits in 90d): refactor before the next change
+cr	preset:activity:high_both	5	extension/page.js:1	useful	complex (24 CCN) and changed often (6 commits in 90d): refactor before the next change
+cr	preset:activity:high_both	6	scripts/ui-test/harness.py:1	noise	21 CCN is a straight guard sequence (harness.py l.96-100); 5 commits are new checks
+cr	preset:activity:high_both	7	Sources/ContextRecorder/Library/Edits.swift:1	noise	witness is a fixture runner (l.252); test code
+cr	preset:activity:high_both	8	extension/background.js:1	noise	11 CCN message router; at the cut-off on both axes
+srcly	preset:blast_radius:high_both	1	client/src/viz/deps/viewModel.ts:1	duplicate	already in an earlier preset's action quadrant
+srcly	preset:blast_radius:high_both	2	server/app/services/typescript/typescript_analysis.py:1	duplicate	already in an earlier preset's action quadrant
+srcly	preset:blast_radius:high_both	3	client/src/viz/deps/layout.ts:1	duplicate	already in an earlier preset's action quadrant
+srcly	preset:blast_radius:high_both	4	server/app/services/analysis.py:1	duplicate	already in an earlier preset's action quadrant
+srcly	preset:blast_radius:high_both	5	server/app/services/compare/git_refs.py:1	useful	comple15 (x CCN) and imported b15 y files: change only with tests
+srcly	preset:blast_radius:high_both	6	server/app/services/scan_workers.py:1	useful	comple24 (x CCN) and imported b10 y files: change only with tests
+srcly	preset:blast_radius:high_both	7	server/app/services/deps/graph.py:1	useful	comple24 (x CCN) and imported b7 y files: change only with tests
+srcly	preset:blast_radius:high_both	8	client/src/utils/dataProcessing.ts:1	useful	comple16 (x CCN) and imported b10 y files: change only with tests
+srcly	preset:blast_radius:high_both	9	client/src/components/Explorer.tsx:1	duplicate	already in an earlier preset's action quadrant
+srcly	preset:blast_radius:high_both	10	server/app/services/python/python_analysis.py:1	useful	comple23 (x CCN) and imported b6 y files: change only with tests
+eda	preset:blast_radius:high_both	1	packages/explorEDA/src/providers/DataLayerProvider.tsx:1	useful	comple22 (x CCN) and imported b204 y files: change only with tests
+eda	preset:blast_radius:high_both	2	packages/explorEDA/src/components/charts/Composition/validateComposition.ts:1	duplicate	already in an earlier preset's action quadrant
+eda	preset:blast_radius:high_both	3	packages/explorEDA/src/utils/saveDataUtils.ts:1	duplicate	already in an earlier preset's action quadrant
+eda	preset:blast_radius:high_both	4	packages/explorEDA/src/lib/dsl/compile.ts:1	duplicate	already in an earlier preset's action quadrant
+eda	preset:blast_radius:high_both	5	packages/explorEDA/src/lib/valueParsing.ts:1	useful	comple15 (x CCN) and imported b77 y files: change only with tests
+eda	preset:blast_radius:high_both	6	packages/explorEDA/src/components/charts/Composition/resolveUnit.ts:1	duplicate	already in an earlier preset's action quadrant
+eda	preset:blast_radius:high_both	7	packages/explorEDA/src/components/charts/Composition/compositionTypes.ts:1	useful	comple19 (x CCN) and imported b53 y files: change only with tests
+eda	preset:blast_radius:high_both	8	packages/explorEDA/src/components/charts/Composition/resolveComposition.ts:1	useful	comple47 (x CCN) and imported b39 y files: change only with tests
+eda	preset:blast_radius:high_both	9	packages/explorEDA/src/hooks/applyFilter.ts:1	useful	comple19 (x CCN) and imported b47 y files: change only with tests
+eda	preset:blast_radius:high_both	10	packages/explorEDA/src/lib/fieldSettings.ts:1	useful	comple35 (x CCN) and imported b39 y files: change only with tests
+srcly	preset:comment_noise:high_x	1	server/tests/fixtures/comment_noise/commented_out.ts:1	excluded	srcly test fixture written to trip the metric; excluded from rates
+srcly	preset:comment_noise:high_x	2	server/tests/fixtures/comment_noise/narrated.ts:1	excluded	srcly test fixture written to trip the metric; excluded from rates
+srcly	preset:comment_noise:high_x	3	client/src/compare/stepper.ts:1	noise	ratio 0.421, CCN 3: documented module or helper; the comments explain intent (e.g. hubs.ts l.1-6, GridChartPanel.tsx l.7-11)
+srcly	preset:comment_noise:high_x	4	client/src/viz/deps/encoding.ts:1	noise	ratio 0.429, CCN 2: documented module or helper; the comments explain intent (e.g. hubs.ts l.1-6, GridChartPanel.tsx l.7-11)
+srcly	preset:comment_noise:high_x	5	client/src/viz/deps/hubs.ts:1	noise	ratio 0.292, CCN 8: documented module or helper; the comments explain intent (e.g. hubs.ts l.1-6, GridChartPanel.tsx l.7-11)
+srcly	preset:comment_noise:high_x	6	server/tests/fixtures/comment_noise/narrated.py:1	excluded	srcly test fixture written to trip the metric; excluded from rates
+srcly	preset:comment_noise:high_x	7	client/src/test/setup.ts:1	noise	ratio 0.4, CCN 0: documented module or helper; the comments explain intent (e.g. hubs.ts l.1-6, GridChartPanel.tsx l.7-11)
+srcly	preset:comment_noise:high_x	8	client/src/components/ui/HeatSwatch.tsx:1	noise	ratio 0.357, CCN 2: documented module or helper; the comments explain intent (e.g. hubs.ts l.1-6, GridChartPanel.tsx l.7-11)
+srcly	preset:comment_noise:high_x	9	client/src/viz/treemap/utils/colors.ts:1	noise	ratio 0.311, CCN 5: documented module or helper; the comments explain intent (e.g. hubs.ts l.1-6, GridChartPanel.tsx l.7-11)
+srcly	preset:comment_noise:high_x	10	client/src/navigation/location.ts:1	noise	ratio 0.257, CCN 8: documented module or helper; the comments explain intent (e.g. hubs.ts l.1-6, GridChartPanel.tsx l.7-11)
+recipes	preset:comment_noise:high_x	1	src/server/api/trpc.ts:1	noise	ratio 0.602, CCN 3: scaffold docs
+recipes	preset:comment_noise:high_x	2	src/server/api/root.ts:1	noise	ratio 0.361, CCN 0: scaffold docs
+recipes	preset:comment_noise:high_x	3	src/server/auth.ts:1	noise	ratio 0.275, CCN 5: scaffold docs
+recipes	preset:comment_noise:high_x	4	src/trpc/react.tsx:1	noise	ratio 0.227, CCN 4: scaffold docs
+recipes	preset:comment_noise:high_x	5	src/trpc/server.ts:1	noise	ratio 0.235, CCN 1: scaffold docs
+recipes	preset:comment_noise:high_x	6	src/app/api/auth/[...nextauth]/route.ts:1	noise	ratio 0.2, CCN 0: scaffold docs
+eda	preset:comment_noise:high_x	1	apps/demo/src/vite-env.d.ts:1	noise	ratio 1, CCN 0: vite triple-slash directive counted as a comment
+eda	preset:comment_noise:high_x	2	packages/explorEDA/src/vite-env.d.ts:1	noise	ratio 1, CCN 0: vite triple-slash directive counted as a comment
+eda	preset:comment_noise:high_x	3	packages/explorEDA/src/components/GridChartPanel.tsx:1	noise	ratio 0.462, CCN 5: documented module or helper; the comments explain intent (e.g. hubs.ts l.1-6, GridChartPanel.tsx l.7-11)
+eda	preset:comment_noise:high_x	4	packages/explorEDA/src/components/charts/Waterfall/waterfallTypes.ts:1	noise	ratio 0.435, CCN 6: documented module or helper; the comments explain intent (e.g. hubs.ts l.1-6, GridChartPanel.tsx l.7-11)
+eda	preset:comment_noise:high_x	5	packages/explorEDA/src/components/chartDetailsStore.ts:1	noise	ratio 0.48, CCN 1: documented module or helper; the comments explain intent (e.g. hubs.ts l.1-6, GridChartPanel.tsx l.7-11)
+eda	preset:comment_noise:high_x	6	packages/explorEDA/src/components/charts/DataTable/columnWidths.ts:1	noise	ratio 0.455, CCN 2: documented module or helper; the comments explain intent (e.g. hubs.ts l.1-6, GridChartPanel.tsx l.7-11)
+eda	preset:comment_noise:high_x	7	packages/explorEDA/src/components/charts/emptyPlotClick.ts:1	noise	ratio 0.417, CCN 3: documented module or helper; the comments explain intent (e.g. hubs.ts l.1-6, GridChartPanel.tsx l.7-11)
+eda	preset:comment_noise:high_x	8	packages/explorEDA/src/cli/examples.ts:1	noise	ratio 0.444, CCN 0: documented module or helper; the comments explain intent (e.g. hubs.ts l.1-6, GridChartPanel.tsx l.7-11)
+eda	preset:comment_noise:high_x	9	packages/explorEDA/src/components/charts/panelBody.ts:1	noise	ratio 0.324, CCN 7: documented module or helper; the comments explain intent (e.g. hubs.ts l.1-6, GridChartPanel.tsx l.7-11)
+eda	preset:comment_noise:high_x	10	packages/explorEDA/src/components/charts/FacetRelated/facetBarSlot.tsx:1	noise	ratio 0.375, CCN 2: documented module or helper; the comments explain intent (e.g. hubs.ts l.1-6, GridChartPanel.tsx l.7-11)
+srcly	preset:component_weight:high_both	1	client/src/viz/deps/DependencyCanvas.tsx:147	duplicate	already in an earlier preset's action quadrant
+srcly	preset:component_weight:high_both	2	client/src/components/Explorer.tsx:132	duplicate	already in an earlier preset's action quadrant
+srcly	preset:component_weight:high_both	3	client/src/App.tsx:159	duplicate	already in an earlier preset's action quadrant
+srcly	preset:component_weight:high_both	4	client/src/components/CodeModal/CodeModal.tsx:43	duplicate	already in an earlier preset's action quadrant
+srcly	preset:component_weight:high_both	5	client/src/components/Treemap.tsx:54	useful	261-line component with 18 hooks/primitives: split state from markup
+srcly	preset:component_weight:high_both	6	client/src/compare/CompareApp.tsx:58	useful	341-line component with 15 hooks/primitives: split state from markup
+srcly	preset:component_weight:high_both	7	client/src/compare/CompareTable.tsx:116	useful	330-line component with 14 hooks/primitives: split state from markup
+srcly	preset:component_weight:high_both	8	client/src/compare/ComparePicker.tsx:75	useful	263-line component with 13 hooks/primitives: split state from markup
+srcly	preset:component_weight:high_both	9	client/src/viz/scatter/ScatterView.tsx:49	useful	189-line component with 14 hooks/primitives: split state from markup
+srcly	preset:component_weight:high_both	10	client/src/viz/scatter/ScatterPlot.tsx:35	useful	324-line component with 9 hooks/primitives: split state from markup
+recipes	preset:component_weight:high_both	1	src/app/RecipeList.tsx:53	useful	352-line component with 18 hooks/primitives: split state from markup
+recipes	preset:component_weight:high_both	2	src/app/plan/PlanPageClient.tsx:227	useful	426-line component with 15 hooks/primitives: split state from markup
+recipes	preset:component_weight:high_both	3	src/app/ingredients/IngredientsClient.tsx:56	useful	357-line component with 14 hooks/primitives: split state from markup
+recipes	preset:component_weight:high_both	4	src/app/recipes/[id]/IngredientListEditMode.tsx:17	useful	469-line component with 5 hooks/primitives: split state from markup
+recipes	preset:component_weight:high_both	5	src/app/recipes/[id]/RecipeClient.tsx:18	useful	231-line component with 12 hooks/primitives: split state from markup
+recipes	preset:component_weight:high_both	6	src/app/list/KrogerSearchPopup.tsx:32	useful	226-line component with 12 hooks/primitives: split state from markup
+recipes	preset:component_weight:high_both	7	src/app/list/ShoppingList.tsx:21	useful	247-line component with 10 hooks/primitives: split state from markup
+recipes	preset:component_weight:high_both	8	src/app/recipes/[id]/touch-up/touchup-client.tsx:64	useful	245-line component with 8 hooks/primitives: split state from markup
+recipes	preset:component_weight:high_both	9	src/app/ai/recipe/page.tsx:12	useful	288-line component with 6 hooks/primitives: split state from markup
+recipes	preset:component_weight:high_both	10	src/app/recipes/[id]/RecipeEditDialog.tsx:24	useful	167-line component with 10 hooks/primitives: split state from markup
+eda	preset:component_weight:high_both	1	packages/explorEDA/src/components/PlotManager.tsx:130	duplicate	already in an earlier preset's action quadrant
+eda	preset:component_weight:high_both	2	packages/explorEDA/src/components/PlotChartPanel.tsx:421	duplicate	already in an earlier preset's action quadrant
+eda	preset:component_weight:high_both	3	apps/demo/src/SavedViewsWorkspace.tsx:300	useful	1066-line component with 34 hooks/primitives: split state from markup
+eda	preset:component_weight:high_both	4	packages/explorEDA/src/components/charts/ScatterMatrix/ScatterMatrix.tsx:98	useful	717-line component with 35 hooks/primitives: split state from markup
+eda	preset:component_weight:high_both	5	packages/explorEDA/src/components/charts/ParallelCoordinates/ParallelCoordinates.tsx:122	useful	864-line component with 29 hooks/primitives: split state from markup
+eda	preset:component_weight:high_both	6	packages/explorEDA/src/components/charts/Hierarchy/HierarchyChart.tsx:177	useful	675-line component with 32 hooks/primitives: split state from markup
+eda	preset:component_weight:high_both	7	packages/explorEDA/src/components/charts/BoxPlot/BoxPlot.tsx:60	useful	703-line component with 30 hooks/primitives: split state from markup
+eda	preset:component_weight:high_both	8	packages/explorEDA/src/components/charts/ScatterPlot/ScatterPlot.tsx:76	duplicate	already in an earlier preset's action quadrant
+eda	preset:component_weight:high_both	9	packages/explorEDA/src/components/charts/RowChart/RowChart.tsx:62	useful	731-line component with 25 hooks/primitives: split state from markup
+eda	preset:component_weight:high_both	10	packages/explorEDA/src/components/charts/ThreeDScatter/ThreeDScatterChart.tsx:74	useful	490-line component with 32 hooks/primitives: split state from markup
+recipes	preset:findings:high_both	1	src/server/ai/aiRecipe.ts:1	useful	30 eslint findings: no-explicit-any/no-unsafe-member-access around parseAndValidate (l.156-158)
+eda	preset:findings:high_both	1	packages/explorEDA/src/components/charts/Composition/resolveUnit.ts:1	noise	193 findings, all or nearly all eslint `curly` (style); the quadrant's 'fix the findings first' doesn't hold
+eda	preset:findings:high_both	2	packages/explorEDA/src/components/charts/Composition/validateComposition.ts:1	noise	25 findings, all or nearly all eslint `curly` (style); the quadrant's 'fix the findings first' doesn't hold
+eda	preset:findings:high_both	3	packages/explorEDA/src/lib/analysis/projectFile.ts:1	noise	72 findings, all or nearly all eslint `curly` (style); the quadrant's 'fix the findings first' doesn't hold
+eda	preset:findings:high_both	4	packages/explorEDA/src/utils/saveDataUtils.ts:1	noise	4 findings, all or nearly all eslint `curly` (style); the quadrant's 'fix the findings first' doesn't hold
+eda	preset:findings:high_both	5	packages/explorEDA/src/lib/annotations/resolve.ts:1	noise	54 findings, all or nearly all eslint `curly` (style); the quadrant's 'fix the findings first' doesn't hold
+eda	preset:findings:high_both	6	packages/explorEDA/src/components/charts/Composition/resolveComposition.ts:1	noise	47 findings, all or nearly all eslint `curly` (style); the quadrant's 'fix the findings first' doesn't hold
+eda	preset:findings:high_both	7	packages/explorEDA/src/lib/analysis/evaluateProject.ts:1	noise	46 findings, all or nearly all eslint `curly` (style); the quadrant's 'fix the findings first' doesn't hold
+eda	preset:findings:high_both	8	packages/explorEDA/src/components/PlotChartPanel.tsx:1	noise	29 findings, all or nearly all eslint `curly` (style); the quadrant's 'fix the findings first' doesn't hold
+eda	preset:findings:high_both	9	packages/explorEDA/src/lib/dsl/compile.ts:1	noise	3 findings, all or nearly all eslint `curly` (style); the quadrant's 'fix the findings first' doesn't hold
+eda	preset:findings:high_both	10	packages/explorEDA/src/components/charts/Map/PointMap.tsx:1	noise	37 findings, all or nearly all eslint `curly` (style); the quadrant's 'fix the findings first' doesn't hold
