@@ -914,6 +914,9 @@ function placeAndRoute(
   // only show while their hub is hovered, over dimmed neighbors.
   const channelMid = (ch: number, side: Side) =>
     channelWidth[ch] > 0 ? channelX[ch] + channelWidth[ch] / 2 : channelX[ch] + (side === "right" ? 8 : -8);
+  // Each hub's edges get their own lane offset, so two hubs' edges never draw on top of each other.
+  const hiddenTargets = [...new Set(vm.edges.filter((e) => hidden.has(e.id)).map((e) => e.target))].sort();
+  const lane = (t: string) => (hiddenTargets.indexOf(t) - (hiddenTargets.length - 1) / 2) * 3;
   const hiddenEdges: PositionedEdge[] = vm.edges
     .filter((e) => hidden.has(e.id))
     .map((edge) => {
@@ -923,13 +926,13 @@ function placeAndRoute(
       const entrySide: Side = cs < ct ? "left" : "right";
       const a = port(edge.source, exitSide, "out");
       const b = port(edge.target, entrySide, "in");
-      const x1 = channelMid(exitSide === "right" ? cs + 1 : cs, exitSide);
-      const x2 = channelMid(entrySide === "left" ? ct : ct + 1, entrySide);
+      const x1 = channelMid(exitSide === "right" ? cs + 1 : cs, exitSide) + lane(edge.target);
+      const x2 = channelMid(entrySide === "left" ? ct : ct + 1, entrySide) + lane(edge.target);
       let points: Point[];
       if (Math.abs(x1 - x2) < 0.5) points = [a, { x: x1, y: a.y }, { x: x1, y: b.y }, b];
       else {
         const g = rowOf.get(edge.target)!;
-        const gy = gutterTop[g] + gutterHeight[g] / 2;
+        const gy = gutterTop[g] + gutterHeight[g] / 2 + lane(edge.target);
         points = [a, { x: x1, y: a.y }, { x: x1, y: gy }, { x: x2, y: gy }, { x: x2, y: b.y }, b];
       }
       return { id: edge.id, source: edge.source, target: edge.target, points: simplify(points), edge };

@@ -11,6 +11,9 @@ export interface BoxInfo {
   /** Box ids importing this one / imported by it, busiest first. */
   importers: string[];
   imports: string[];
+  /** Import links per neighbor box id, for both directions. */
+  linksFrom: Map<string, number>;
+  linksTo: Map<string, number>;
   /** Box ids this one both imports and is imported by. */
   cycles: string[];
   /** Hubs this box imports; their edges are hidden behind badges. */
@@ -47,6 +50,8 @@ export function boxInfo(layout: Pick<ViewLayout, "nodes" | "edges" | "hiddenEdge
       outLinks: sum(outs.get(n.id)),
       importers: ranked(importerSet),
       imports,
+      linksFrom: importerSet ?? new Map(),
+      linksTo: outs.get(n.id) ?? new Map(),
       cycles: imports.filter((id) => importerSet?.has(id)),
       hubBadges: (layout.hubs ?? []).filter((h) => badges.get(n.id)?.has(h.id)),
       hub: hubs.get(n.id),

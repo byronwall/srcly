@@ -9,7 +9,7 @@ import {
   EXTERNAL_BOX_DASH,
 } from "./encoding";
 import { TREEMAP_RAMP, rampColor } from "../treemap/utils/colors";
-import { FlowIcon, HubGlyph } from "./DependencyCanvas";
+import { CycleIcon, FlowIcon, HubGlyph } from "./DependencyCanvas";
 import { HUB_STYLES } from "./hubs";
 
 const COLLAPSED_KEY = "srcly.depsLegendCollapsed";
@@ -69,12 +69,11 @@ function ExternalSwatch() {
   );
 }
 
-/** Folder box: heavier frame and a size bar along the bottom. */
-function FolderSwatch() {
+/** A mutual import: two arrows chasing each other. */
+function CycleSwatch() {
   return (
     <svg width={SW} height={SH} viewBox={`0 0 ${SW} ${SH}`} aria-hidden="true">
-      <rect x="1" y="1" width={SW - 2} height={SH - 2} rx="2.5" fill="var(--plc-surface-muted)" stroke="var(--plc-on-disabled)" stroke-width="1.5" />
-      <rect x="2.5" y={SH - 4.5} width={(SW - 5) * 0.65} height="2" rx="1" fill="var(--plc-tertiary)" fill-opacity="0.45" />
+      <CycleIcon x={6} y={SH / 2} />
     </svg>
   );
 }
@@ -137,12 +136,12 @@ const ITEMS: { swatch: () => JSX.Element; label: string }[] = [
     label: "Context: between neighbors, or inside the focus",
   },
   { swatch: () => <ExternalSwatch />, label: "External package" },
-  { swatch: () => <FolderSwatch />, label: "Folder; the bar shows its size (LOC)" },
   { swatch: () => <FrameSwatch />, label: "Neighbors from one package" },
   { swatch: () => <FillSwatch />, label: "Tint: the treemap's color metric" },
   { swatch: () => <MetricSwatch />, label: "Bar: that metric's value on the same scale" },
-  { swatch: () => <FlowSwatch />, label: "Import links in and out (hover for the list)" },
-  { swatch: () => <HubSwatch />, label: "Hub: imported by most boxes. Importers wear its badge; hover to draw its edges" },
+  { swatch: () => <FlowSwatch />, label: "Boxes importing it · boxes it imports" },
+  { swatch: () => <HubSwatch />, label: "Hub: most boxes import it; hover a badge for its edges" },
+  { swatch: () => <CycleSwatch />, label: "Mutual import with a box in view" },
 ];
 
 /** Bottom-right key to the graph's visual encodings; collapses to an icon. */

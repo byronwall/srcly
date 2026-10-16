@@ -113,7 +113,11 @@ export default function DependencyView(props: {
     const vm = viewModel();
     if (!vm) return "";
     const links = vm.edges.reduce((a, e) => a + e.weight, 0);
-    return `${vm.nodes.length} boxes · ${vm.edges.length} edges (${links} links)`;
+    const base = `${vm.nodes.length} boxes · ${vm.edges.length} edges (${links} links)`;
+    const l = layout();
+    const hidden = l?.hiddenEdges?.length ?? 0;
+    const hubs = l?.hubs?.length ?? 0;
+    return hidden ? `${base} · ${hidden} behind ${hubs} hub${hubs === 1 ? "" : "s"}` : base;
   });
 
   return (

@@ -547,7 +547,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 /**
  * The muted second line of a box.
  * - symbol on a side: `folder/file` (the folder and file it lives in)
- * - symbol in a focused file: its kind and line (the file is the frame title)
+ * - symbol in a focused file: its line (the glyph shows its kind; the file is the frame title)
  * - file: the folder it lives in, relative to the deepest folder it shares
  *   with the focus (none when it sits directly in a focused folder)
  * - folder: what it holds, e.g. "12 files · 3 folders"
@@ -563,7 +563,8 @@ export function subtitleFor(index: GraphIndex, id: string, region: Region, focus
     case "symbol": {
       const file = g.parent ? index.byId.get(g.parent) : undefined;
       if (region === "center") {
-        return [g.symbolKind, g.line ? `line ${g.line}` : undefined].filter(Boolean).join(" · ") || undefined;
+        // The kind glyph already says function/class/…; the line is what fits.
+        return g.line ? `line ${g.line}` : g.symbolKind;
       }
       if (!file) return undefined;
       // `ui/Button.tsx`: the folder and file together, so two `ui` frames

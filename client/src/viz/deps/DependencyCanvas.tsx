@@ -1,7 +1,7 @@
 import * as d3 from "d3";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { makeTextMeasurer, truncateTextToWidth } from "../../utils/svgText";
-import { formatMetricValue } from "../../utils/metricsStore";
+import { formatMetricValue, hotSpotMetricLabel, type HotSpotMetricId } from "../../utils/metricsStore";
 import { treemapFillColor, treemapRampPosition, rampColor } from "../treemap/utils/colors";
 import { boxInfo, type BoxInfo } from "./boxInfo";
 import {
@@ -14,9 +14,9 @@ import {
 import { boundsOf } from "./geometry";
 import { createClickIntent, liveHover } from "./interaction";
 import { formatLoc } from "./metrics";
-import type { HubShape } from "./hubs";
+import { HUB_STYLES, type HubShape } from "./hubs";
 import { MAX_SCALE, type PositionedEdge, type PositionedNode, type ViewLayout } from "./layout";
-import type { Region, ViewNode } from "./viewModel";
+import type { ViewNode } from "./viewModel";
 
 const LABEL_FONT = "600 12.5px Inter, ui-sans-serif, system-ui, sans-serif";
 const SUBTITLE_FONT = "400 11px Inter, ui-sans-serif, system-ui, sans-serif";
@@ -30,11 +30,15 @@ const LINE1_Y = 18;
 const LINE2_Y = 34;
 const LINE3_Y = 50;
 const ROW4_Y = 60.5;
-const SIZE_BAR_H = 2;
 const METRIC_BAR_W = 28;
 /** Treemap color mixed into the box fill: enough to read, soft enough for text. */
 const TINT = 0.3;
 const MUTED_TEXT = "var(--plc-on-muted)";
+/** Rows 2–4 share the label's left edge; the kind glyph owns the column before it. */
+const TEXT_X = PAD_X + ICON_W;
+/** Pitch between badges in row 4. */
+const BADGE_PITCH = 15;
+const CARD_W = 360;
 
 const measurer = makeTextMeasurer();
 function measureText(text: string, font: string): number {
@@ -118,18 +122,15 @@ export function HubGlyph(props: { shape: HubShape; color: string; x: number; y: 
 export function FlowIcon(props: { dir: "in" | "out"; x: number; y: number }) {
   return (
     <g transform={`translate(${props.x},${props.y - 8})`} fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <Show
-        when={props.dir === "in"}
-        fallback={<path d="M1.5 2.5v6h4 M5 5.5h5.5 M8.5 3.5l2 2-2 2" />}
-      >
-        <path d="M10.5 2.5v6h-4 M1 5.5h5.5 M4.5 3.5l2 2-2 2" />
+      <Show when={props.dir === "in"} fallback={<path d="M1.5 1.5v8 M4 5.5h6.5 M8.5 3.5l2 2-2 2" />}>
+        <path d="M10.5 1.5v8 M1 5.5h6.5 M5.5 3.5l2 2-2 2" />
       </Show>
     </g>
   );
 }
 
 /** Two arrows chasing each other: a mutual import. */
-function CycleIcon(props: { x: number; y: number }) {
+export function CycleIcon(props: { x: number; y: number }) {
   return (
     <g transform={`translate(${props.x - 5},${props.y - 5})`} fill="none" stroke="var(--plc-danger, #dc2626)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M8.5 3.2A4 4 0 0 0 1.4 4 M1.5 6.8A4 4 0 0 0 8.6 6 M1.2 1.6v2.6h2.6 M8.8 8.4V5.8H6.2" />
@@ -137,7 +138,8 @@ function CycleIcon(props: { x: number; y: number }) {
   );
 }
 
-type Tip = { title: string; lines: string[] };
+/** A hover card for an icon: a title, plain lines, and optional name · count rows. */
+type Tip = { title: string; lines?: string[]; rows?: [string, string][] };
 
 export function DependencyCanvas(props: {
   layout: ViewLayout;
@@ -158,7 +160,16 @@ export function DependencyCanvas(props: {
   let gRef!: SVGGElement;
   const [rawHoverNode, setHoverNode] = createSignal<string | null>(null);
   const [rawHoverEdge, setHoverEdge] = createSignal<string | null>(null);
-  const [card, setCard] = createSignal<{ x: number; y: number; node?: PositionedNode; edge?: PositionedEdge; tip?: Tip } | null>(null);
+  const [card, setCard] = createSignal<{
+    x: number;
+    y: number;
+    /** Open toward the left / upward when the card would run off the canvas. */
+    flipX: boolean;
+    flipY: boolean;
+    node?: PositionedNode;
+    edge?: PositionedEdge;
+    tip?: Tip;
+  } | null>(null);
   /** A hub whose badge is hovered somewhere: its hidden edges show. */
   const [rawHoverHub, setHoverHub] = createSignal<string | null>(null);
 
@@ -227,6 +238,10 @@ export function DependencyCanvas(props: {
   const nodeById = createMemo(() => new Map(props.layout.nodes.map((n) => [n.id, n])));
   const info = createMemo(() => boxInfo(props.layout));
   const hubById = createMemo(() => new Map((props.layout.hubs ?? []).map((h) => [h.id, h])));
+  const hubMarker = (target: string) => {
+    const i = (props.layout.hubs ?? []).findIndex((h) => h.id === target);
+    return i >= 0 ? `url(#dv-arrow-hub-${i})` : "url(#dv-arrow-active)";
+  };
   const allEdges = createMemo(() => [...props.layout.edges, ...(props.layout.hiddenEdges ?? [])]);
 
   // Edges touching the hovered node (or the hovered edge itself) are
@@ -270,7 +285,9 @@ export function DependencyCanvas(props: {
 
   const showCard = (ev: MouseEvent, payload: { node?: PositionedNode; edge?: PositionedEdge; tip?: Tip }) => {
     const host = svgRef.getBoundingClientRect();
-    setCard({ x: ev.clientX - host.left + 14, y: ev.clientY - host.top + 14, ...payload });
+    const x = ev.clientX - host.left;
+    const y = ev.clientY - host.top;
+    setCard({ x, y, flipX: x + 14 + CARD_W > host.width, flipY: y + 14 + 180 > host.height, ...payload });
   };
 
   const locText = (n: PositionedNode) => {
@@ -306,15 +323,23 @@ export function DependencyCanvas(props: {
   };
   const subtitleFor = (n: PositionedNode) => {
     const sub = shownSubtitle(n);
-    return n.node.kind === "file" || n.node.kind === "symbol"
-      ? truncatePathStart(sub, subtitleRoom(n), SUBTITLE_FONT)
-      : truncateTextToWidth(sub, subtitleRoom(n), SUBTITLE_FONT);
+    if (n.node.kind === "file" || n.node.kind === "symbol") return truncatePathStart(sub, subtitleRoom(n), SUBTITLE_FONT);
+    // `22 files · 2 folders` → `22 files` before cutting a word in half.
+    const fit = truncateTextToWidth(sub, subtitleRoom(n), SUBTITLE_FONT);
+    if (fit === sub || !sub.includes(" · ")) return fit;
+    return truncateTextToWidth(sub.split(" · ")[0], subtitleRoom(n), SUBTITLE_FONT);
   };
   const labelOf = (id: string) => nodeById().get(id)?.node.label ?? id;
   const listTip = (ids: string[], max = 10) => [
     ...ids.slice(0, max).map(labelOf),
     ...(ids.length > max ? [`+${ids.length - max} more`] : []),
   ];
+  /** Neighbors busiest first, each with its import link count. */
+  const linkRows = (ids: string[], links: Map<string, number>, max = 10): [string, string][] => [
+    ...ids.slice(0, max).map((id): [string, string] => [labelOf(id), String(links.get(id) ?? 0)]),
+    ...(ids.length > max ? [[`+${ids.length - max} more`, ""] as [string, string]] : []),
+  ];
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
   /** Show a hover card for an icon inside a box, instead of the box's own card. */
   const iconHover = (tip: () => Tip, hub?: string) => ({
     onMouseEnter: (ev: MouseEvent) => {
@@ -334,25 +359,14 @@ export function DependencyCanvas(props: {
     const m = props.metrics?.get(n.id);
     if (!metric || !m || m[metric] === undefined || m[metric] === null) return null;
     const t = treemapRampPosition(metric, m);
-    return { t, color: rampColor(t), value: metric === "loc" ? "" : formatMetricValue(metric, m[metric]) };
+    return {
+      t,
+      color: rampColor(t),
+      value: metric === "loc" ? "" : formatMetricValue(metric, m[metric]),
+      label: hotSpotMetricLabel(metric as HotSpotMetricId),
+      full: formatMetricValue(metric, m[metric]),
+    };
   };
-
-  // Folder size bars: log(LOC) — or log(files) without treemap metrics —
-  // against the largest folder on the same side.
-  const sizeBarFraction = createMemo(() => {
-    const size = (n: PositionedNode) => props.metrics?.get(n.id)?.loc ?? (props.metrics?.size ? 0 : (n.node.fileCount ?? 0));
-    const max: Record<Region, number> = { in: 0, center: 0, out: 0 };
-    for (const n of props.layout.nodes) {
-      if (n.node.kind === "folder") max[n.node.region] = Math.max(max[n.node.region], size(n));
-    }
-    const out = new Map<string, number>();
-    for (const n of props.layout.nodes) {
-      const top = max[n.node.region];
-      if (n.node.kind !== "folder" || top === 0) continue;
-      out.set(n.id, Math.max(0.04, Math.log1p(size(n)) / Math.log1p(top)));
-    }
-    return out;
-  });
 
   // Treemap colors, kept apart from layout: changing the color metric only
   // repaints. Boxes without a treemap match keep the neutral styling.
@@ -384,6 +398,13 @@ export function DependencyCanvas(props: {
           <marker id="dv-arrow" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto">
             <path d="M0,0.8 L7.5,4 L0,7.2 z" fill="var(--plc-tertiary)" />
           </marker>
+          <For each={HUB_STYLES}>
+            {(h, i) => (
+              <marker id={`dv-arrow-hub-${i()}`} viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto">
+                <path d="M0,0.8 L7.5,4 L0,7.2 z" fill={h.color} />
+              </marker>
+            )}
+          </For>
           <filter id="dv-shadow" x="-10%" y="-10%" width="120%" height="140%">
             <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#0f172a" flood-opacity="0.12" />
           </filter>
@@ -440,7 +461,7 @@ export function DependencyCanvas(props: {
                 x={f().x + f().width / 2}
                 y={f().y - 8}
                 text-anchor="middle"
-                class="fill-[var(--plc-accent-hover)] text-[12px] font-semibold"
+                class="fill-[var(--plc-on-surface)] text-[12px] font-semibold"
               >
                 {props.focusLabel}
               </text>
@@ -492,7 +513,7 @@ export function DependencyCanvas(props: {
                     stroke-width={edgeStrokeWidth(e.edge.weight, false)}
                     stroke-opacity="0.85"
                     stroke-linejoin="round"
-                    marker-end="url(#dv-arrow-active)"
+                    marker-end={hubMarker(e.target)}
                     pointer-events="none"
                   />
                 </Show>
@@ -549,7 +570,7 @@ export function DependencyCanvas(props: {
                     width={n.width}
                     height={n.height}
                     rx="6"
-                    filter={dimmed() ? undefined : "url(#dv-shadow)"}
+                    filter="url(#dv-shadow)"
                     fill={
                       dimmed()
                         ? "var(--plc-surface)"
@@ -567,30 +588,17 @@ export function DependencyCanvas(props: {
                     stroke-dasharray={n.node.kind === "external" ? EXTERNAL_BOX_DASH : undefined}
                     style={{ transition: "stroke 140ms ease, fill 140ms ease" }}
                   />
-                  <Show when={sizeBarFraction().get(n.id)}>
-                    {(f) => (
-                      <rect
-                        x={6}
-                        y={n.height - SIZE_BAR_H - 2}
-                        width={(n.width - 12) * f()}
-                        height={SIZE_BAR_H}
-                        rx={SIZE_BAR_H / 2}
-                        fill="var(--plc-tertiary)"
-                        fill-opacity="0.35"
-                      />
-                    )}
-                  </Show>
                   {/* Row 1: kind + name (a hub repeats its badge, large, on the right). */}
                   <KindGlyph node={n.node} x={PAD_X} y={LINE1_Y - 10} />
-                  <text x={PAD_X + ICON_W} y={LINE1_Y} class="text-[12.5px] font-semibold" fill="var(--plc-on-surface)">
+                  <text x={TEXT_X} y={LINE1_Y} class="text-[12.5px] font-semibold" fill="var(--plc-on-surface)">
                     {labelFor(n)}
                   </text>
-                  <Show when={hub() && !(props.onMenu && hoverNode() === n.id) ? hub() : null}>
+                  <Show when={hub()}>
                     {(h) => (
                       <g
                         {...iconHover(() => ({
-                          title: `Hub · imported by ${h().importers} boxes`,
-                          lines: ["Its edges are hidden; importers show this badge.", "Hover here or on a badge to draw them."],
+                          title: `Hub: ${plural(h().importers, "box")} import it`,
+                          lines: ["Its edges are hidden; hovering here or on a badge draws them."],
                         }), h().id)}
                       >
                         <rect x={n.width - 22} y={4} width={18} height={18} fill="transparent" />
@@ -600,7 +608,7 @@ export function DependencyCanvas(props: {
                   </Show>
                   {/* Row 2: where it lives (or what it holds) + LOC. */}
                   <Show when={shownSubtitle(n)}>
-                    <text x={PAD_X + ICON_W} y={LINE2_Y} class="text-[11px]" fill={MUTED_TEXT}>
+                    <text x={TEXT_X} y={LINE2_Y} class="text-[11px]" fill={MUTED_TEXT}>
                       {subtitleFor(n)}
                     </text>
                   </Show>
@@ -609,40 +617,53 @@ export function DependencyCanvas(props: {
                       {locText(n)}
                     </text>
                   </Show>
-                  {/* Row 3: import links in and out, and the color metric as a bar. */}
+                  {/* Row 3: boxes importing it / it imports, and the color metric as a bar. */}
                   <Show when={box()}>
-                    {(b) => (
-                      <g class="text-[var(--plc-on-muted)]">
-                        <g
-                          {...iconHover(() => ({
-                            title: `${b().inLinks} import link${b().inLinks === 1 ? "" : "s"} in`,
-                            lines: b().importers.length ? listTip(b().importers) : ["Nothing here imports it."],
-                          }))}
-                        >
-                          <rect x={PAD_X - 2} y={LINE3_Y - 11} width={40} height={14} fill="transparent" />
-                          <FlowIcon dir="in" x={PAD_X} y={LINE3_Y} />
-                          <text x={PAD_X + 15} y={LINE3_Y} class="text-[11px] tabular-nums" fill="currentColor">
-                            {b().inLinks}
-                          </text>
+                    {(b) => {
+                      const tone = (k: number) => (k === 0 ? "var(--plc-on-disabled)" : "var(--plc-on-muted)");
+                      const external = n.node.kind === "external";
+                      return (
+                        <g>
+                          <g
+                            style={{ color: tone(b().importers.length) }}
+                            {...iconHover(() => ({
+                              title: b().importers.length
+                                ? `Imported by ${plural(b().importers.length, "box")} · ${plural(b().inLinks, "link")}`
+                                : "Nothing in view imports it",
+                              rows: linkRows(b().importers, b().linksFrom),
+                            }))}
+                          >
+                            <rect x={TEXT_X - 3} y={LINE3_Y - 12} width={36} height={16} fill="transparent" />
+                            <FlowIcon dir="in" x={TEXT_X} y={LINE3_Y} />
+                            <text x={TEXT_X + 15} y={LINE3_Y} class="text-[11px] tabular-nums" fill="currentColor">
+                              {b().importers.length}
+                            </text>
+                          </g>
+                          <Show when={!external}>
+                            <g
+                              style={{ color: tone(b().imports.length) }}
+                              {...iconHover(() => ({
+                                title: b().imports.length
+                                  ? `Imports ${plural(b().imports.length, "box")} · ${plural(b().outLinks, "link")}`
+                                  : "Imports nothing in view",
+                                rows: linkRows(b().imports, b().linksTo),
+                              }))}
+                            >
+                              <rect x={TEXT_X + 37} y={LINE3_Y - 12} width={36} height={16} fill="transparent" />
+                              <FlowIcon dir="out" x={TEXT_X + 40} y={LINE3_Y} />
+                              <text x={TEXT_X + 55} y={LINE3_Y} class="text-[11px] tabular-nums" fill="currentColor">
+                                {b().imports.length}
+                              </text>
+                            </g>
+                          </Show>
                         </g>
-                        <g
-                          {...iconHover(() => ({
-                            title: `${b().outLinks} import link${b().outLinks === 1 ? "" : "s"} out`,
-                            lines: b().imports.length ? listTip(b().imports) : ["Imports nothing shown here."],
-                          }))}
-                        >
-                          <rect x={PAD_X + 44} y={LINE3_Y - 11} width={40} height={14} fill="transparent" />
-                          <FlowIcon dir="out" x={PAD_X + 46} y={LINE3_Y} />
-                          <text x={PAD_X + 61} y={LINE3_Y} class="text-[11px] tabular-nums" fill="currentColor">
-                            {b().outLinks}
-                          </text>
-                        </g>
-                      </g>
-                    )}
+                      );
+                    }}
                   </Show>
                   <Show when={metricRow(n)}>
                     {(m) => (
-                      <g>
+                      <g {...iconHover(() => ({ title: `${m().label}: ${m().full}`, lines: ["The bar and the box tint use the treemap's color scale."] }))}>
+                        <rect x={n.width - PAD_X - METRIC_BAR_W - 22} y={LINE3_Y - 12} width={METRIC_BAR_W + 24} height={16} fill="transparent" />
                         <rect x={n.width - PAD_X - METRIC_BAR_W} y={LINE3_Y - 6} width={METRIC_BAR_W} height={5} rx={2.5} fill="var(--plc-surface-muted)" stroke="var(--plc-border)" stroke-width="0.5" />
                         <rect x={n.width - PAD_X - METRIC_BAR_W} y={LINE3_Y - 6} width={Math.max(3, METRIC_BAR_W * m().t)} height={5} rx={2.5} fill={m().color} />
                         <Show when={m().value}>
@@ -653,24 +674,17 @@ export function DependencyCanvas(props: {
                       </g>
                     )}
                   </Show>
-                  {/* Row 4: badges for the hubs it imports, mutual imports; a hub names itself. */}
-                  <Show when={hub()}>
-                    {(h) => (
-                      <text x={PAD_X + (box()?.hubBadges.length ?? 0) * 15} y={ROW4_Y + 3.5} class="text-[10.5px] font-medium" fill={h().color}>
-                        hub · {h().importers} importers
-                      </text>
-                    )}
-                  </Show>
+                  {/* Row 4: badges for the hubs it imports, then mutual imports; a hub names itself on the right. */}
                   <For each={box()?.hubBadges ?? []}>
                     {(h, i) => (
                       <g
                         {...iconHover(() => ({
                           title: `Imports ${labelOf(h.id)}`,
-                          lines: [`A hub imported by ${h.importers} boxes; its edges are hidden.`],
+                          lines: [`A hub ${plural(h.importers, "box")} import; its edges are hidden.`],
                         }), h.id)}
                       >
-                        <rect x={PAD_X - 2 + i() * 15} y={ROW4_Y - 7} width={14} height={14} fill="transparent" />
-                        <HubGlyph shape={h.shape} color={h.color} x={PAD_X + 5 + i() * 15} y={ROW4_Y} r={4.5} />
+                        <rect x={TEXT_X - 2 + i() * BADGE_PITCH} y={ROW4_Y - 9} width={BADGE_PITCH} height={18} fill="transparent" />
+                        <HubGlyph shape={h.shape} color={h.color} x={TEXT_X + 5 + i() * BADGE_PITCH} y={ROW4_Y} r={4.5} />
                       </g>
                     )}
                   </For>
@@ -681,13 +695,18 @@ export function DependencyCanvas(props: {
                         lines: ["Imports and is imported by:", ...listTip(box()!.cycles)],
                       }))}
                     >
-                      <rect x={n.width - PAD_X - 14} y={ROW4_Y - 7} width={14} height={14} fill="transparent" />
-                      <CycleIcon x={n.width - PAD_X - 6} y={ROW4_Y} />
+                      <rect x={TEXT_X - 2 + (box()?.hubBadges.length ?? 0) * BADGE_PITCH} y={ROW4_Y - 9} width={BADGE_PITCH} height={18} fill="transparent" />
+                      <CycleIcon x={TEXT_X + 5 + (box()?.hubBadges.length ?? 0) * BADGE_PITCH} y={ROW4_Y} />
                     </g>
+                  </Show>
+                  <Show when={hub()}>
+                    <text x={n.width - PAD_X} y={ROW4_Y + 3.5} text-anchor="end" class="text-[11px] font-medium" fill={MUTED_TEXT}>
+                      hub
+                    </text>
                   </Show>
                   <Show when={props.onMenu && hoverNode() === n.id}>
                     <g
-                      transform={`translate(${n.width - MENU_BTN_W - 3},${LINE1_Y - MENU_BTN_H + 4})`}
+                      transform={`translate(${n.width - MENU_BTN_W - 3 - (hub() ? 20 : 0)},${LINE1_Y - MENU_BTN_H + 4})`}
                       class="group/menu cursor-pointer"
                       role="button"
                       aria-label={`Actions for ${n.node.title || n.node.label}`}
@@ -729,10 +748,14 @@ export function DependencyCanvas(props: {
         {(c) => (
           <div
             class="pointer-events-none absolute z-20 max-w-[360px] rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface)] px-2.5 py-1.5 text-xs text-[var(--plc-on-surface)] shadow-[var(--plc-menu-shadow)]"
-            style={{ left: `${c().x}px`, top: `${c().y}px` }}
+            style={{
+              left: `${c().x + (c().flipX ? -14 : 14)}px`,
+              top: `${c().y + (c().flipY ? -14 : 14)}px`,
+              transform: `translate(${c().flipX ? "-100%" : "0"}, ${c().flipY ? "-100%" : "0"})`,
+            }}
           >
             <Show when={c().node}>
-              {(pn) => <NodeCard node={pn().node} info={info().get(pn().id)} />}
+              {(pn) => <NodeCard node={pn().node} info={info().get(pn().id)} metric={metricRow(pn())} />}
             </Show>
             <Show when={c().edge}>
               {(pe) => <EdgeCard edge={pe()} nodes={nodeById()} />}
@@ -741,7 +764,19 @@ export function DependencyCanvas(props: {
               {(t) => (
                 <div class="space-y-0.5">
                   <div class="font-semibold">{t().title}</div>
-                  <For each={t().lines}>{(l) => <div class="text-[var(--plc-on-muted)]">{l}</div>}</For>
+                  <For each={t().lines ?? []}>{(l) => <div class="text-[var(--plc-on-muted)]">{l}</div>}</For>
+                  <Show when={t().rows?.length}>
+                    <div class="grid grid-cols-[1fr_auto] gap-x-4 pt-0.5 text-[var(--plc-on-muted)]">
+                      <For each={t().rows}>
+                        {([name, count]) => (
+                          <>
+                            <span class="truncate">{name}</span>
+                            <span class="text-right tabular-nums text-[var(--plc-on-subtle)]">{count}</span>
+                          </>
+                        )}
+                      </For>
+                    </div>
+                  </Show>
                 </div>
               )}
             </Show>
@@ -752,18 +787,21 @@ export function DependencyCanvas(props: {
   );
 }
 
-function NodeCard(props: { node: ViewNode; info?: BoxInfo }) {
+/** The box's own card: what the box cannot fit (full path, symbol kind, link totals). */
+function NodeCard(props: { node: ViewNode; info?: BoxInfo; metric?: { label: string; full: string } | null }) {
+  const extra = () =>
+    [
+      props.node.kind === "symbol" ? props.node.symbolKind : undefined,
+      props.node.region !== "center" && props.node.memberCount > 1 ? `${props.node.memberCount} linked` : undefined,
+      props.info && props.info.inLinks + props.info.outLinks > 0 ? `${props.info.inLinks} links in · ${props.info.outLinks} out` : undefined,
+      props.metric ? `${props.metric.label} ${props.metric.full}` : undefined,
+    ].filter(Boolean);
   return (
     <div class="space-y-0.5">
       <div class="break-all font-semibold">{props.node.title || props.node.label}</div>
-      <div class="text-[var(--plc-on-muted)]">
-        {props.node.kind}
-        {props.node.kind === "folder" && props.node.subtitle ? ` · ${props.node.subtitle}` : ""}
-        {props.node.region !== "center" && props.node.memberCount > 1 ? ` · ${props.node.memberCount} linked` : ""}
-      </div>
-      <div class="tabular-nums text-[var(--plc-on-muted)]">
-        {props.info?.inLinks ?? 0} in · {props.info?.outLinks ?? 0} out
-      </div>
+      <Show when={extra().length}>
+        <div class="tabular-nums text-[var(--plc-on-muted)]">{extra().join(" · ")}</div>
+      </Show>
       <div class="text-[var(--plc-on-subtle)]">
         {props.node.isFocus
           ? "Double-click or middle-click to open code"

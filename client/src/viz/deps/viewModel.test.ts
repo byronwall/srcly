@@ -184,7 +184,7 @@ describe("buildViewModel", () => {
     it("gives a focused file's symbols their kind and line", () => {
       const vm = buildViewModel(index, { focusId: "server/model_making/relationship_focus.py", budget: 48 });
       const sym = vm.nodes.find((n) => n.region === "center")!;
-      expect(sym.subtitle).toBe("class · line 12");
+      expect(sym.subtitle).toBe("line 12");
     });
 
     it("gives a center file its folder relative to the focus", () => {
