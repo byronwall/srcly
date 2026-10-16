@@ -3,6 +3,8 @@ import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show }
 import { makeTextMeasurer, truncateTextToWidth } from "../../utils/svgText";
 import { formatMetricValue, hotSpotMetricLabel, type HotSpotMetricId } from "../../utils/metricsStore";
 import { treemapFillColor, treemapRampPosition, rampColor } from "../treemap/utils/colors";
+import { tailPath } from "../treemap/components/TreemapTooltip";
+import { placeFloating } from "../treemap/hooks/useTreemapTooltip";
 import { boxInfo, type BoxInfo } from "./boxInfo";
 import {
   CONTEXT_EDGE_DASH,
@@ -38,7 +40,7 @@ const MUTED_TEXT = "var(--plc-on-muted)";
 const TEXT_X = PAD_X + ICON_W;
 /** Pitch between badges in row 4. */
 const BADGE_PITCH = 15;
-const CARD_W = 360;
+
 
 const measurer = makeTextMeasurer();
 function measureText(text: string, font: string): number {
@@ -57,7 +59,8 @@ function truncatePathStart(text: string, max: number, font: string): string {
     const tail = `…/${parts.slice(i).join("/")}`;
     if (truncateTextToWidth(tail, max, font) === tail) return tail;
   }
-  return truncateTextToWidth(text, max, font);
+  // Not even the file fits: keep the start of its name, which is what you scan for.
+  return truncateTextToWidth(parts[parts.length - 1], max, font);
 }
 
 export interface CanvasApi {
@@ -160,16 +163,25 @@ export function DependencyCanvas(props: {
   let gRef!: SVGGElement;
   const [rawHoverNode, setHoverNode] = createSignal<string | null>(null);
   const [rawHoverEdge, setHoverEdge] = createSignal<string | null>(null);
+  /** The hover card, at the pointer in viewport coordinates (placed like the treemap's tooltip). */
   const [card, setCard] = createSignal<{
     x: number;
     y: number;
-    /** Open toward the left / upward when the card would run off the canvas. */
-    flipX: boolean;
-    flipY: boolean;
     node?: PositionedNode;
     edge?: PositionedEdge;
     tip?: Tip;
   } | null>(null);
+  let cardRef: HTMLDivElement | undefined;
+  // Measure the rendered card, then flip it away from the right/bottom edges.
+  createEffect(() => {
+    const c = card();
+    if (!c || !cardRef) return;
+    const { width, height } = cardRef.getBoundingClientRect();
+    const { left, top } = placeFloating({ x: c.x, y: c.y }, { width, height }, { width: window.innerWidth, height: window.innerHeight });
+    cardRef.style.left = `${left}px`;
+    cardRef.style.top = `${top}px`;
+    cardRef.style.visibility = "visible";
+  });
   /** A hub whose badge is hovered somewhere: its hidden edges show. */
   const [rawHoverHub, setHoverHub] = createSignal<string | null>(null);
 
@@ -284,10 +296,7 @@ export function DependencyCanvas(props: {
   });
 
   const showCard = (ev: MouseEvent, payload: { node?: PositionedNode; edge?: PositionedEdge; tip?: Tip }) => {
-    const host = svgRef.getBoundingClientRect();
-    const x = ev.clientX - host.left;
-    const y = ev.clientY - host.top;
-    setCard({ x, y, flipX: x + 14 + CARD_W > host.width, flipY: y + 14 + 180 > host.height, ...payload });
+    setCard({ x: ev.clientX, y: ev.clientY, ...payload });
   };
 
   const locText = (n: PositionedNode) => {
@@ -339,7 +348,7 @@ export function DependencyCanvas(props: {
     ...ids.slice(0, max).map((id): [string, string] => [labelOf(id), String(links.get(id) ?? 0)]),
     ...(ids.length > max ? [[`+${ids.length - max} more`, ""] as [string, string]] : []),
   ];
-  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : /(s|x|ch|sh)$/.test(word) ? "es" : "s"}`;
   /** Show a hover card for an icon inside a box, instead of the box's own card. */
   const iconHover = (tip: () => Tip, hub?: string) => ({
     onMouseEnter: (ev: MouseEvent) => {
@@ -462,6 +471,11 @@ export function DependencyCanvas(props: {
                 y={f().y - 8}
                 text-anchor="middle"
                 class="fill-[var(--plc-on-surface)] text-[12px] font-semibold"
+                // A halo in the canvas color keeps edges in the gutter from striking through it.
+                paint-order="stroke"
+                stroke="var(--plc-surface-subtle)"
+                stroke-width="4"
+                stroke-linejoin="round"
               >
                 {props.focusLabel}
               </text>
@@ -747,39 +761,18 @@ export function DependencyCanvas(props: {
       <Show when={card()}>
         {(c) => (
           <div
-            class="pointer-events-none absolute z-20 max-w-[360px] rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface)] px-2.5 py-1.5 text-xs text-[var(--plc-on-surface)] shadow-[var(--plc-menu-shadow)]"
-            style={{
-              left: `${c().x + (c().flipX ? -14 : 14)}px`,
-              top: `${c().y + (c().flipY ? -14 : 14)}px`,
-              transform: `translate(${c().flipX ? "-100%" : "0"}, ${c().flipY ? "-100%" : "0"})`,
-            }}
+            ref={cardRef}
+            role="tooltip"
+            class="plc-floating pointer-events-none fixed z-50 w-max min-w-[240px] max-w-[min(380px,calc(100vw-8px))] rounded-md border px-2.5 py-2 text-[12px] leading-[1.35]"
+            style={{ left: "0px", top: "0px", visibility: "hidden" }}
           >
             <Show when={c().node}>
-              {(pn) => <NodeCard node={pn().node} info={info().get(pn().id)} metric={metricRow(pn())} />}
+              {(pn) => <NodeCard node={pn().node} info={info().get(pn().id)} metric={metricRow(pn())} loc={props.metrics?.get(pn().id)?.loc} hub={hubById().get(pn().id)} />}
             </Show>
             <Show when={c().edge}>
               {(pe) => <EdgeCard edge={pe()} nodes={nodeById()} />}
             </Show>
-            <Show when={c().tip}>
-              {(t) => (
-                <div class="space-y-0.5">
-                  <div class="font-semibold">{t().title}</div>
-                  <For each={t().lines ?? []}>{(l) => <div class="text-[var(--plc-on-muted)]">{l}</div>}</For>
-                  <Show when={t().rows?.length}>
-                    <div class="grid grid-cols-[1fr_auto] gap-x-4 pt-0.5 text-[var(--plc-on-muted)]">
-                      <For each={t().rows}>
-                        {([name, count]) => (
-                          <>
-                            <span class="truncate">{name}</span>
-                            <span class="text-right tabular-nums text-[var(--plc-on-subtle)]">{count}</span>
-                          </>
-                        )}
-                      </For>
-                    </div>
-                  </Show>
-                </div>
-              )}
-            </Show>
+            <Show when={c().tip}>{(t) => <TipCard tip={t()} />}</Show>
           </div>
         )}
       </Show>
@@ -787,26 +780,105 @@ export function DependencyCanvas(props: {
   );
 }
 
-/** The box's own card: what the box cannot fit (full path, symbol kind, link totals). */
-function NodeCard(props: { node: ViewNode; info?: BoxInfo; metric?: { label: string; full: string } | null }) {
-  const extra = () =>
-    [
-      props.node.kind === "symbol" ? props.node.symbolKind : undefined,
-      props.node.region !== "center" && props.node.memberCount > 1 ? `${props.node.memberCount} linked` : undefined,
-      props.info && props.info.inLinks + props.info.outLinks > 0 ? `${props.info.inLinks} links in · ${props.info.outLinks} out` : undefined,
-      props.metric ? `${props.metric.label} ${props.metric.full}` : undefined,
-    ].filter(Boolean);
+const KIND_WORD: Record<string, string> = { folder: "folder", file: "file", symbol: "symbol", external: "package" };
+
+/** A label / value pair in the cards' two-column grid (the treemap tooltip's layout). */
+function Stat(props: { label: string; value: string | number }) {
   return (
-    <div class="space-y-0.5">
-      <div class="break-all font-semibold">{props.node.title || props.node.label}</div>
-      <Show when={extra().length}>
-        <div class="tabular-nums text-[var(--plc-on-muted)]">{extra().join(" · ")}</div>
-      </Show>
-      <div class="text-[var(--plc-on-subtle)]">
-        {props.node.isFocus
-          ? "Double-click or middle-click to open code"
-          : "Click to focus · double-click or middle-click to open"}
+    <div class="flex min-w-0 items-baseline justify-between gap-2">
+      <span class="truncate text-[var(--plc-on-muted)]">{props.label}</span>
+      <span class="plc-data-sm shrink-0 text-right text-[var(--plc-on-surface)]">{props.value}</span>
+    </div>
+  );
+}
+
+const HINT = "text-[11px] text-[var(--plc-on-subtle)]";
+
+/** The box's own card: what the box cannot fit — full path, link totals, the metric by name. */
+function NodeCard(props: {
+  node: ViewNode;
+  info?: BoxInfo;
+  metric?: { label: string; full: string; color: string } | null;
+  loc?: number;
+  hub?: { importers: number };
+}) {
+  const kind = () =>
+    [
+      props.node.kind === "symbol" ? (props.node.symbolKind ?? "symbol") : KIND_WORD[props.node.kind],
+      props.node.kind === "folder" ? props.node.subtitle : undefined,
+      props.node.kind === "symbol" && props.node.region === "center" ? props.node.subtitle : undefined,
+      props.node.region !== "center" && props.node.memberCount > 1 ? `${props.node.memberCount} linked` : undefined,
+      props.hub ? "hub" : undefined,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  const i = () => props.info;
+  return (
+    <div>
+      <div class="flex items-baseline gap-3">
+        <div class="plc-data-sm min-w-0 flex-1 break-all font-semibold text-[var(--plc-on-surface)]">{props.node.label}</div>
+        <Show when={props.loc}>
+          {(loc) => (
+            <div class="shrink-0 whitespace-nowrap">
+              <span class="plc-data-sm font-semibold text-[var(--plc-on-surface)]">{Math.round(loc()).toLocaleString("en-US")}</span>
+              <span class="ml-1 text-[11px] text-[var(--plc-on-subtle)]">LOC</span>
+            </div>
+          )}
+        </Show>
       </div>
+      <div class={HINT}>{kind()}</div>
+      <Show when={props.node.title && props.node.title !== props.node.label}>
+        <div class="plc-data-sm truncate !font-normal text-[var(--plc-on-subtle)]">{tailPath(props.node.title)}</div>
+      </Show>
+      <Show when={props.metric}>
+        {(m) => (
+          <div class="mt-1.5 flex items-center gap-1.5">
+            <span class="size-2.5 shrink-0 rounded-[2px] border border-black/15" style={{ background: m().color }} />
+            <span class="text-[var(--plc-on-muted)]">{m().label}</span>
+            <span class="plc-data-sm font-semibold text-[var(--plc-on-surface)]">{m().full}</span>
+          </div>
+        )}
+      </Show>
+      <Show when={i()}>
+        {(b) => (
+          <div class="mt-1 grid grid-cols-2 gap-x-4 gap-y-px">
+            <Stat label="Imported by" value={b().importers.length} />
+            <Stat label="Imports" value={b().imports.length} />
+            <Stat label="Links in" value={b().inLinks} />
+            <Stat label="Links out" value={b().outLinks} />
+            <Show when={b().cycles.length}>
+              <Stat label="Mutual" value={b().cycles.length} />
+            </Show>
+          </div>
+        )}
+      </Show>
+      <div class={`mt-1.5 border-t border-[var(--plc-divider)] pt-1 ${HINT}`}>
+        {props.node.isFocus ? "Double-click or middle-click to open code" : "Click to focus · double-click or middle-click to open"}
+      </div>
+    </div>
+  );
+}
+
+/** An icon's card: a title, a note, and a neighbor list with link counts. */
+function TipCard(props: { tip: Tip }) {
+  return (
+    <div>
+      <div class="font-semibold text-[var(--plc-on-surface)]">{props.tip.title}</div>
+      <For each={props.tip.lines ?? []}>{(l) => <div class={HINT}>{l}</div>}</For>
+      <Show when={props.tip.rows?.length}>
+        <div class="mt-1.5 grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-px border-t border-[var(--plc-divider)] pt-1">
+          <span class="plc-label-sm text-[var(--plc-on-subtle)]">Box</span>
+          <span class="text-right text-[10px] text-[var(--plc-on-subtle)]">links</span>
+          <For each={props.tip.rows}>
+            {([name, count]) => (
+              <>
+                <span class="plc-data-sm truncate text-[var(--plc-on-surface)]">{name}</span>
+                <span class="plc-data-sm text-right text-[var(--plc-on-muted)]">{count}</span>
+              </>
+            )}
+          </For>
+        </div>
+      </Show>
     </div>
   );
 }
@@ -816,17 +888,18 @@ function EdgeCard(props: { edge: PositionedEdge; nodes: Map<string, PositionedNo
   const t = () => props.nodes.get(props.edge.target)?.node;
   const syms = () => props.edge.edge.symbols;
   return (
-    <div class="space-y-0.5">
-      <div>
-        <span class="font-semibold">{s()?.label}</span>
-        <span class="text-[var(--plc-on-subtle)]"> imports </span>
-        <span class="font-semibold">{t()?.label}</span>
+    <div>
+      <div class="plc-data-sm font-semibold text-[var(--plc-on-surface)]">
+        {s()?.label}
+        <span class="px-1 font-normal text-[var(--plc-on-subtle)]">→</span>
+        {t()?.label}
       </div>
-      <Show when={props.edge.edge.weight > 1}>
-        <div class="tabular-nums text-[var(--plc-on-muted)]">{props.edge.edge.weight} import links</div>
-      </Show>
+      <div class={HINT}>
+        {props.edge.edge.weight} import link{props.edge.edge.weight === 1 ? "" : "s"}
+        {props.edge.edge.faint ? " · context" : ""}
+      </div>
       <Show when={syms().length > 0}>
-        <div class="font-mono text-[11px] text-[var(--plc-on-muted)]">
+        <div class="plc-data-sm mt-1 border-t border-[var(--plc-divider)] pt-1 !font-normal text-[var(--plc-on-muted)]">
           {syms().slice(0, 12).join(", ")}
           {syms().length > 12 ? ` +${syms().length - 12} more` : ""}
         </div>
