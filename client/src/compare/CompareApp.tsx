@@ -67,14 +67,17 @@ export default function CompareApp() {
   const [view, setView] = createSignal<CompareView>((readParam(VIEW_PARAM) as CompareView) ?? "files");
   const [colorMetric, setColorMetric] = createSignal("complexity");
   const [openFile, setOpenFile] = createSignal<{ path: string; side: "base" | "head" } | null>(null);
-  // Arriving from the main app's Compare button opens the picker once.
+  // Arriving from the main app's Compare button opens the picker once, and
+  // nothing runs until a compare is picked.
   const [picking, setPicking] = createSignal(readParam(PICK_PARAM) !== null);
+  const [ran, setRan] = createSignal(!picking());
   if (picking()) writeParam(PICK_PARAM, null);
   let request = 0;
   let stop: (() => void) | null = null;
 
   const run = async (base: string, head: string, force = false) => {
     const mine = ++request;
+    setRan(true);
     stop?.();
     const running = snapshot();
     if (running) void cancelCompare(running.id).catch(() => {});
@@ -177,7 +180,7 @@ export default function CompareApp() {
     if (next && (next.base !== refs().base || next.head !== refs().head)) void run(next.base, next.head);
   };
   onMount(() => {
-    void run(initial.base, initial.head);
+    if (ran()) void run(initial.base, initial.head);
     window.addEventListener("popstate", onPopState);
   });
   onCleanup(() => {
@@ -266,6 +269,13 @@ export default function CompareApp() {
       </header>
 
       <main class="flex min-h-0 flex-1 flex-col">
+        <Show when={!ran()}>
+          <EmptyState
+            title="Choose what to compare"
+            description="Pick a PR, worktree, or branch. Nothing is scanned until you choose."
+            actions={<Button onClick={() => setPicking(true)}>Choose a comparison</Button>}
+          />
+        </Show>
         <Show when={error()}>
           <ErrorState title="Compare failed" message={error()} class="m-6" tone="error" />
         </Show>
