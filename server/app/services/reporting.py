@@ -443,7 +443,8 @@ def render_markdown_report(
         )
         for item in result["ranked"][:10]:
             where = item["witness"]
-            named = f"in `{where['name']}` (line {where['start_line']})" if where else f"`{_format_location(item)}`"
+            location = _format_location({**item, "path": item["path"].split("::")[0]})
+            named = f"in `{where['name']}` (line {where['start_line']})" if where else f"`{location}`"
             subject = item["path"] if noun == "Files" else item["name"]
             lines.append(f"| {item['rank']} | `{subject}` | {item['value']} {item['unit']} | {named} |")
         if not result["ranked"]:

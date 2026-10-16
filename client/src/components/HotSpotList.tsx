@@ -29,10 +29,12 @@ export function HotSpotList(props: {
   const [limit, setLimit] = createSignal(PAGE);
   const [naOpen, setNaOpen] = createSignal(false);
   const [active, setActive] = createSignal(0);
+  let scroller: HTMLDivElement | undefined;
   createEffect(on([() => props.metric, () => props.cohort, () => props.data], () => {
     setLimit(PAGE);
     setNaOpen(false);
     setActive(0);
+    if (scroller) scroller.scrollTop = 0;
   }));
 
   const shown = () => ranking().ranked.slice(0, limit());
@@ -82,7 +84,7 @@ export function HotSpotList(props: {
           </span>
         </Show>
       </div>
-      <div class="flex-1 overflow-y-auto overflow-x-hidden" role="listbox" aria-label={`Hot spots by ${metricLabel(props.metric)}`}>
+      <div ref={scroller} class="flex-1 overflow-y-auto overflow-x-hidden" role="listbox" aria-label={`Hot spots by ${metricLabel(props.metric)}`}>
         <For each={shown()}>{(item, i) => row(item.node, i(), i() + 1, item.score)}</For>
         <Show when={ranking().ranked.length > limit()}>
           <button
@@ -90,7 +92,7 @@ export function HotSpotList(props: {
             class="plc-body-sm w-full border-b border-[var(--plc-border)] px-2 py-1.5 text-left text-[var(--plc-accent)] hover:bg-[var(--plc-surface-muted)]"
             onClick={() => setLimit((n) => n + PAGE)}
           >
-            Show {Math.min(PAGE, ranking().ranked.length - limit())} more of {(ranking().ranked.length - limit()).toLocaleString("en-US")}
+            Show {Math.min(PAGE, ranking().ranked.length - limit())} more ({(ranking().ranked.length - limit()).toLocaleString("en-US")} left)
           </button>
         </Show>
         <Show when={ranking().na.length > 0}>
