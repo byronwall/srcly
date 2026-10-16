@@ -50,7 +50,26 @@ export type MetricDef = {
 };
 
 export type MetricGroup = { id: string; description: string };
-export type MetricCatalog = { groups: MetricGroup[]; metrics: MetricDef[] };
+export type ActivityWindow = { id: string; label: string };
+export type MetricCatalog = {
+  groups: MetricGroup[];
+  metrics: MetricDef[];
+  /** Git history windows for the Activity metrics (30d, 90d, 1y, all). */
+  activity_windows?: ActivityWindow[];
+  default_activity_window?: string;
+};
+
+/** Root-only `activity` on the analysis tree: whether Git history could be read. */
+export type ActivityInfo = {
+  window: string;
+  window_label: string;
+  status: "ok" | "na";
+  reason: string;
+  /** Results are valid; e.g. "2 files have uncommitted changes, not counted". */
+  note: string;
+  head: string;
+  files_touched: number;
+};
 
 const [catalog, setCatalog] = createSignal<MetricCatalog>({ groups: [], metrics: [] });
 let byId = new Map<MetricId, MetricDef>();
@@ -71,6 +90,24 @@ export async function loadMetricCatalog(): Promise<void> {
 export const metricDefs = (): MetricDef[] => catalog().metrics.filter((m) => m.picker);
 
 export const metricGroups = (): MetricGroup[] => catalog().groups;
+
+export const activityWindows = (): ActivityWindow[] => catalog().activity_windows ?? [];
+
+export const defaultActivityWindow = (): string => catalog().default_activity_window ?? "90d";
+
+/** Metrics computed from Git history rather than source (the "Activity" group). */
+export const isActivityMetric = (id: MetricId): boolean => metricDef(id)?.group === "Activity";
+
+/**
+ * Why `metricId` is N/A on a node: its own reason when the server gave one
+ * (activity: "Not a Git repository", "Shallow clone", ...), else the node's.
+ */
+export function naReasonFor(
+  metrics: { na_reason?: string; na_reasons?: Record<string, string> | null } | undefined,
+  metricId: MetricId
+): string {
+  return metrics?.na_reasons?.[metricId] ?? metrics?.na_reason ?? "";
+}
 
 export const metricDef = (id: MetricId): MetricDef | undefined => byId.get(id);
 

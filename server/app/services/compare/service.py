@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from app.services import activity
 from app.services.compare.diff import diff_sides
 from app.services.compare.git_refs import (
     AUTO,
@@ -96,6 +97,7 @@ def build_compare(
     observers: Optional[dict[str, ScanObserver]] = None,
     on_phase: Callable[[str], None] = lambda _phase: None,
     timer: Optional[StepTimer] = None,
+    activity_window: Optional[str] = None,
 ) -> dict[str, Any]:
     """
     Compare ``base`` → ``head`` for the git repo containing ``path``.
@@ -129,6 +131,12 @@ def build_compare(
         )
         timer.close(name)
     base_side, head_side = sides["base"], sides["head"]
+    # Git activity is neutral context in compare: history up to each side's
+    # commit (the head's own HEAD for a working tree). Laid over after the
+    # side caches, which hold source metrics only.
+    for side in (base_side, head_side):
+        result = activity.collect(side.ref.root(repo), activity_window, rev=side.ref.sha)
+        activity.apply_to_tree(side.tree, result, lambda path: path)
 
     phase("diffing")
     payload: dict[str, Any] = {

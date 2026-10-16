@@ -8,6 +8,17 @@ import {
   type ScanSnapshot,
 } from "../services/scanJobs";
 import type { ClientStage } from "../utils/scanProgress";
+import { defaultActivityWindow } from "../utils/metricsStore";
+
+const ACTIVITY_WINDOW_KEY = "srcly.activityWindow";
+
+function storedActivityWindow(): string | null {
+  try {
+    return localStorage.getItem(ACTIVITY_WINDOW_KEY);
+  } catch {
+    return null;
+  }
+}
 
 // The analyzed repo lives here, outside any component, so switching to compare
 // mode or stepping through history can never drop it. `AppContent` drives it
@@ -44,9 +55,39 @@ export function createScanStore() {
   const [clientStage, setClientStage] = createSignal<ClientStage | null>(null);
   // Path of the last requested analysis ("" = server's current directory).
   const [scannedPath, setScannedPath] = createSignal<string | null>(null);
+  // Git history window for commit_count / churn_lines. Changing it refetches
+  // the finished result (the server re-lays activity over its cached tree);
+  // it never rescans.
+  const [activityWindow, setActivityWindowSignal] = createSignal<string | null>(storedActivityWindow());
+  const [activityLoading, setActivityLoading] = createSignal(false);
+  let completedScanId: string | null = null;
   // Identifies the newest request so late responses from a superseded scan are ignored.
   let activeRequest = 0;
   let stopWatching: (() => void) | null = null;
+
+  const currentActivityWindow = () => activityWindow() ?? defaultActivityWindow();
+
+  /** Pick the activity window; refetches the current result with it. */
+  const setActivityWindow = async (next: string) => {
+    setActivityWindowSignal(next);
+    try {
+      localStorage.setItem(ACTIVITY_WINDOW_KEY, next);
+    } catch {
+      // Per-viewer convenience only.
+    }
+    const id = completedScanId;
+    if (!id || !data()) return;
+    const request = activeRequest;
+    setActivityLoading(true);
+    try {
+      const result = await fetchScanResult<any>(id, next);
+      if (request === activeRequest && completedScanId === id) setData(result);
+    } catch (err) {
+      if (request === activeRequest) setError(String(err instanceof Error ? err.message : err));
+    } finally {
+      if (request === activeRequest) setActivityLoading(false);
+    }
+  };
 
   const finish = async (request: number, snapshot: ScanSnapshot, options: StartOptions) => {
     if (request !== activeRequest) return;
@@ -55,7 +96,7 @@ export function createScanStore() {
         // Keep the progress panel up through download, parse and the first
         // paint: on large repos those take seconds after the scan ends.
         setClientStage("loading");
-        const result = await fetchScanResult<any>(snapshot.id);
+        const result = await fetchScanResult<any>(snapshot.id, currentActivityWindow());
         if (request !== activeRequest) return;
         setClientStage("rendering");
         // Let the browser show "Drawing treemap" before the layout work
@@ -63,6 +104,7 @@ export function createScanStore() {
         await nextFrame();
         if (request !== activeRequest) return;
         const painted = options.waitForPaint?.();
+        completedScanId = snapshot.id;
         setData(result);
         await painted;
         if (request !== activeRequest) return;
@@ -94,6 +136,7 @@ export function createScanStore() {
     if (previous) void cancelScan(previous.id);
 
     // Clear existing analysis data immediately so we don't show stale visuals
+    completedScanId = null;
     setData(null);
     setLoading(true);
     setCancelling(false);
@@ -152,6 +195,9 @@ export function createScanStore() {
     cancelling,
     clientStage,
     scannedPath,
+    activityWindow: currentActivityWindow,
+    activityLoading,
+    setActivityWindow,
     start,
     cancel,
     dispose,

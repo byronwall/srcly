@@ -13,6 +13,7 @@ _NOT_METRICS = {
     "complexity_witness",
     "witnesses",
     "na_reason",
+    "na_reasons",
     "analysis_status",
     "analysis_error",
     "analysis_failed_count",

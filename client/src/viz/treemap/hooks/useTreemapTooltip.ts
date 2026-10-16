@@ -1,6 +1,6 @@
 import { createSignal } from "solid-js";
 import * as d3 from "d3";
-import { formatMetricValue, metricDef, metricDefs, type MetricId } from "../../../utils/metricsStore";
+import { formatMetricValue, metricDef, metricDefs, naReasonFor, type MetricId } from "../../../utils/metricsStore";
 import { applicableMetrics, languageForPath } from "../../../utils/metricApplicability";
 import { witnessOf } from "../../../utils/explorerColumns";
 import { metricIsNA, TREEMAP_NA_BACKGROUND, treemapFillColor } from "../utils/colors";
@@ -294,7 +294,7 @@ export function buildTooltipContent(d: d3.HierarchyNode<any>, primaryMetricId: M
           // The header already shows LOC.
           value: primaryMetricId === "loc" ? "" : primaryNA ? "N/A" : formatValue(primaryMetricId, metricValue(d, primaryMetricId)),
           color: primaryNA ? TREEMAP_NA_BACKGROUND : treemapFillColor(primaryMetricId, metrics, 0),
-          rank: primaryNA ? String(metrics.na_reason ?? "") : siblingRank(d, primaryMetricId),
+          rank: primaryNA ? naReasonFor(metrics, primaryMetricId) : siblingRank(d, primaryMetricId),
           witness: witness ? `${witness.name}${witness.start_line > 0 ? ` · L${witness.start_line}` : ""}` : "",
         };
 

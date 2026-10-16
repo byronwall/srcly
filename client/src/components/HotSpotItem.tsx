@@ -1,7 +1,7 @@
 import { useContext, Show } from "solid-js";
 import { Focus } from "lucide-solid";
 import { extractFilePath } from "../utils/dataProcessing";
-import { formatMetricWithUnit, metricDef, type MetricId } from "../utils/metricsStore";
+import { formatMetricWithUnit, metricDef, naReasonFor, type MetricId } from "../utils/metricsStore";
 import { metricCellColor, metricCellTitle, witnessOf } from "../utils/explorerColumns";
 import type { HotSpotCohort } from "../utils/hotSpotRanking";
 import { HeatSwatch } from "./ui/HeatSwatch";
@@ -74,8 +74,7 @@ export function HotSpotItem(props: {
   };
 
   const naReason = () => {
-    const reason = (props.node.metrics as Record<string, unknown> | undefined)?.na_reason;
-    return typeof reason === "string" && reason ? reason : "Not measured here";
+    return naReasonFor(props.node.metrics as Parameters<typeof naReasonFor>[0], props.metric) || "Not measured here";
   };
 
   return (

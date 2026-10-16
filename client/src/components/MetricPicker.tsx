@@ -1,6 +1,15 @@
 import { Check, ChevronDown } from "lucide-solid";
 import { For, Show, createSignal } from "solid-js";
-import { metricDefs, metricGroups, metricLabel, type MetricId } from "../utils/metricsStore";
+import { scanStore } from "../state/scanStore";
+import {
+  activityWindows,
+  isActivityMetric,
+  metricDefs,
+  metricGroups,
+  metricLabel,
+  type ActivityInfo,
+  type MetricId,
+} from "../utils/metricsStore";
 import Popover from "./Popover";
 import { Button } from "./ui/Button";
 import { cx } from "./ui/classes";
@@ -31,6 +40,9 @@ export function MetricPicker(props: {
   const offered = (group: string) =>
     metricDefs().filter((m) => m.group === group && !(props.ranking && m.direction === "neutral"));
 
+  const activity = (): ActivityInfo | null => scanStore.data()?.activity ?? null;
+  const windowShort = () => scanStore.activityWindow();
+
   const pick = (id: MetricId) => {
     props.onChange(id);
     setOpen(false);
@@ -56,6 +68,9 @@ export function MetricPicker(props: {
               <span class="font-normal text-[var(--plc-on-subtle)]">{props.prefix} </span>
             </Show>
             {metricLabel(props.selected)}
+            <Show when={isActivityMetric(props.selected)}>
+              <span class="font-normal text-[var(--plc-on-subtle)]"> · {windowShort()}</span>
+            </Show>
           </span>
           <ChevronDown size={14} class="shrink-0 text-[var(--plc-on-subtle)]" aria-hidden="true" />
         </Button>
@@ -72,6 +87,9 @@ export function MetricPicker(props: {
                     <span class="font-normal normal-case tracking-normal text-[var(--plc-on-disabled)]"> · color only, never ranked</span>
                   </Show>
                 </PopoverSectionTitle>
+                <Show when={group.id === "Activity"}>
+                  <ActivityWindowControl activity={activity()} />
+                </Show>
                 <For each={offered(group.id)}>
                   {(metric) => {
                     const isSelected = () => props.selected === metric.id;
@@ -107,5 +125,55 @@ export function MetricPicker(props: {
         </p>
       </PopoverPanel>
     </Popover>
+  );
+}
+
+/** Window chips for the Activity metrics, plus whether Git history could be read. */
+function ActivityWindowControl(props: { activity: ActivityInfo | null }) {
+  const status = () => {
+    const a = props.activity;
+    if (!a) return "";
+    if (a.status !== "ok") return `N/A: ${a.reason}`;
+    return a.note ? `at ${a.head} · ${a.note}` : `at ${a.head} · ${a.files_touched.toLocaleString("en-US")} files touched`;
+  };
+  return (
+    <div class="mb-1 px-2">
+      <div class="flex items-center gap-1" role="radiogroup" aria-label="Git history window">
+        <For each={activityWindows()}>
+          {(w) => {
+            const active = () => scanStore.activityWindow() === w.id;
+            return (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={active()}
+                title={w.label}
+                disabled={scanStore.activityLoading()}
+                class={cx(
+                  "plc-data-sm h-6 rounded-md border px-2 text-[11px] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plc-border-focus)]",
+                  active()
+                    ? "border-[var(--plc-accent)] font-semibold text-[var(--plc-accent)]"
+                    : "border-[var(--plc-divider)] text-[var(--plc-on-muted)] hover:bg-[var(--plc-surface-hover)]"
+                )}
+                onClick={() => void scanStore.setActivityWindow(w.id)}
+              >
+                {w.id}
+              </button>
+            );
+          }}
+        </For>
+      </div>
+      <Show when={status()}>
+        <p
+          class={cx(
+            "mt-1 truncate text-[11px]",
+            props.activity?.status === "ok" ? "text-[var(--plc-on-subtle)]" : "text-[var(--plc-on-muted)]"
+          )}
+          title={status()}
+        >
+          {status()}
+        </p>
+      </Show>
+    </div>
   );
 }

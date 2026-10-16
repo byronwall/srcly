@@ -21,6 +21,7 @@ from typing import Optional
 
 from app.models import OPTIONAL_METRIC_FIELDS, Metrics, Node, Witness
 from app.services.analysis_types import (
+    ACTIVITY_METRICS,
     COMPONENT_METRICS,
     LANGUAGE_LABELS,
     MEASURED_FILE_METRICS,
@@ -250,7 +251,7 @@ def attach_file_metrics(node: Node, file_info) -> None:
             m.witnesses[name] = _witness_for(top)
 
     reasons = []
-    if any(getattr(m, name) is None for name in OPTIONAL_METRIC_FIELDS if name not in file_measured):
+    if any(getattr(m, name) is None for name in OPTIONAL_METRIC_FIELDS if name not in file_measured | ACTIVITY_METRICS):
         reasons.append(f"Not measured for {label} files")
     if any(getattr(m, name) is None for name in MEAN_OVER_FUNCTIONS & file_measured):
         reasons.append("No functions to average")
@@ -886,7 +887,7 @@ def aggregate_metrics(node: Node) -> Metrics:
             witnesses[name] = source.witnesses[name]
     m.witnesses = witnesses or None
 
-    m.na_reason = "No file below measures this" if any(getattr(m, n) is None for n in OPTIONAL_METRIC_FIELDS) else ""
+    m.na_reason = "No file below measures this" if any(getattr(m, n) is None for n in OPTIONAL_METRIC_FIELDS if n not in ACTIVITY_METRICS) else ""
     return m
 
 

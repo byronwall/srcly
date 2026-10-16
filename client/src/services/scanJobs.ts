@@ -101,8 +101,10 @@ export async function cancelScan(id: string): Promise<void> {
   await fetch(`/api/scans/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
-export async function fetchScanResult<T>(id: string): Promise<T> {
-  const res = await fetch(`/api/scans/${encodeURIComponent(id)}/result`);
+/** The finished tree, with Git activity for `activityWindow` (server default when omitted). */
+export async function fetchScanResult<T>(id: string, activityWindow?: string): Promise<T> {
+  const query = activityWindow ? `?activity_window=${encodeURIComponent(activityWindow)}` : "";
+  const res = await fetch(`/api/scans/${encodeURIComponent(id)}/result${query}`);
   return expectJson<T>(res);
 }
 
