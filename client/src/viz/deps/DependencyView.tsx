@@ -9,6 +9,7 @@ import {
   applyFilters,
   buildIndex,
   collapseChain,
+  displayName,
   type FilterOptions,
 } from "./hierarchy";
 import { layoutWithHubs } from "./hubs";
@@ -92,7 +93,9 @@ export default function DependencyView(props: {
 
   const onFocusNode = (n: ViewNode) => {
     const idx = index();
-    if (n.isFocus || !idx) return;
+    // A focused file's symbols are drawn as focus too, but clicking one
+    // isolates it: only the box that is the focus itself stays put.
+    if (!idx || n.graphId === effectiveFocus()) return;
     // Store the folder the graph will actually show, so the breadcrumb matches.
     go({ at: collapseChain(idx, n.graphId) });
   };
@@ -104,7 +107,30 @@ export default function DependencyView(props: {
   };
 
   const openMenu = (n: ViewNode, point: { x: number; y: number }) =>
-    setMenu({ ...point, node: n, at: n.graphId, kind: n.kind, title: n.title || n.label, currentAt: n.isFocus ? n.graphId : location().at });
+    setMenu({ ...point, node: n, at: n.graphId, kind: n.kind, title: n.title || n.label, currentAt: effectiveFocus() ?? location().at });
+
+  /**
+   * The titled frame around the focus: a focused file frames its symbols; an
+   * isolated symbol keeps its file as the title, which un-isolates on click.
+   */
+  const focusFrame = createMemo(() => {
+    const vm = viewModel();
+    const idx = index();
+    if (!vm || !idx) return undefined;
+    if (vm.focusKind === "file") {
+      const framed = vm.nodes.some((n) => n.kind === "symbol" && n.region === "center");
+      return framed ? { title: vm.focusLabel } : undefined;
+    }
+    if (vm.focusKind !== "symbol") return undefined;
+    const file = idx.byId.get(vm.focusId)?.parent;
+    if (!file) return undefined;
+    const symbols = (idx.children.get(file) ?? []).filter((c) => idx.byId.get(c)?.kind === "symbol").length;
+    return {
+      title: displayName(idx, file),
+      note: symbols > 1 ? `1 of ${symbols} symbols` : undefined,
+      onTitle: () => go({ at: file }),
+    };
+  });
 
   const toggle = (key: keyof FilterOptions) => (v: boolean) =>
     setFilters((f) => ({ ...f, [key]: v }));
@@ -154,8 +180,8 @@ export default function DependencyView(props: {
             <>
               <DependencyCanvas
                 layout={l()}
-                focusLabel={viewModel()?.focusLabel}
-                focusIsGroup={viewModel()?.focusKind === "file" && (viewModel()?.nodes.some((n) => n.kind === "symbol" && n.region === "center") ?? false)}
+                focusId={effectiveFocus() ?? undefined}
+                focusFrame={focusFrame()}
                 onFocus={onFocusNode}
                 onOpen={onOpenNode}
                 onMenu={openMenu}
