@@ -6,6 +6,7 @@ import { treemapFillColor, treemapRampPosition, rampColor } from "../treemap/uti
 import { tailPath } from "../treemap/components/TreemapTooltip";
 import { placeFloating } from "../treemap/hooks/useTreemapTooltip";
 import { boxInfo, type BoxInfo } from "./boxInfo";
+import { fitName, inkForZoom } from "./boxText";
 import {
   CONTEXT_EDGE_DASH,
   CONTEXT_EDGE_OPACITY,
@@ -186,6 +187,8 @@ export function DependencyCanvas(props: {
     cardRef.style.top = `${top}px`;
     cardRef.style.visibility = "visible";
   });
+  /** Text scale for the current zoom (see `inkForZoom`); 1 shows full detail. */
+  const [ink, setInk] = createSignal(1);
   /** A hub whose badge is hovered somewhere: its hidden edges show. */
   const [rawHoverHub, setHoverHub] = createSignal<string | null>(null);
 
@@ -219,6 +222,7 @@ export function DependencyCanvas(props: {
     .scaleExtent([0.15, 4])
     .on("zoom", (ev) => {
       gRef.setAttribute("transform", ev.transform.toString());
+      setInk(inkForZoom(ev.transform.k));
       setCard(null);
     });
 
@@ -314,6 +318,8 @@ export function DependencyCanvas(props: {
     return textRoom(n) - (loc ? measureText(loc, SUBTITLE_FONT) + 8 : 0);
   };
   const labelFor = (n: PositionedNode) => truncateTextToWidth(n.node.label, textRoom(n), LABEL_FONT);
+  const frameInk = () => Math.min(ink(), 1.8);
+  const frameLabelFont = () => (frameInk() === 1 ? FRAME_LABEL_FONT : `600 ${11 * frameInk()}px Inter, ui-sans-serif, system-ui, sans-serif`);
   // Boxes inside a package frame: the frame already names the package.
   const framed = createMemo(() => {
     const out = new Set<string>();
@@ -399,6 +405,91 @@ export function DependencyCanvas(props: {
     return out;
   });
 
+  /**
+   * A box's contents below `FULL_DETAIL_ZOOM`: its name in text scaled by
+   * `ink`, wrapped to as many lines as fit, then — when there is room — one
+   * line with hub/mutual badges and LOC. Centered in the box.
+   */
+  const CompactBody = (p: { n: PositionedNode }) => {
+    const n = p.n;
+    const hub = () => hubById().get(n.id);
+    const box = () => info().get(n.id);
+    const PAD_Y = 6;
+    const geo = createMemo(() => {
+      const avail = n.height - 2 * PAD_Y;
+      const roomAt = (k: number) => ({ width: n.width - PAD_X * 2 - ICON_W * k - (hub() ? 15 * k : 0), height: avail });
+      const { k, lines } = fitName(n.node.label, ink(), roomAt, 12.5);
+      const px = 12.5 * k;
+      const lineH = px * 1.18;
+      const statsH = 11 * k * 1.35;
+      const textX = PAD_X + ICON_W * k;
+      const badges = (box()?.hubBadges.length ?? 0) + ((box()?.cycles.length ?? 0) > 0 ? 1 : 0);
+      const hasStats = badges > 0 || locText(n) !== "";
+      const stats = hasStats && lines.length * lineH + statsH <= avail;
+      const blockH = lines.length * lineH + (stats ? statsH : 0);
+      const top = (n.height - blockH) / 2;
+      return { k, px, lineH, textX, lines, stats, top, statsY: top + lines.length * lineH + statsH * 0.78 };
+    });
+    const pitch = () => BADGE_PITCH * geo().k;
+    return (
+      <>
+        <g transform={`translate(${PAD_X},${geo().top + geo().lineH * 0.82 - 10 * geo().k}) scale(${geo().k})`}>
+          <KindGlyph node={n.node} x={0} y={0} />
+        </g>
+        <text x={geo().textX} font-size={`${geo().px}`} class="font-semibold" fill="var(--plc-on-surface)">
+          <For each={geo().lines}>
+            {(line, i) => (
+              <tspan x={geo().textX} y={geo().top + geo().lineH * (i() + 0.82)}>
+                {line}
+              </tspan>
+            )}
+          </For>
+        </text>
+        <Show when={hub()}>
+          {(h) => (
+            <g
+              {...iconHover(() => ({
+                title: `Hub: ${plural(h().importers, "box")} import it`,
+                lines: ["Its edges are hidden; hovering here or on a badge draws them."],
+              }), h().id)}
+            >
+              <HubGlyph shape={h().shape} color={h().color} x={n.width - PAD_X - 6 * geo().k} y={geo().top + geo().lineH * 0.45} r={6 * geo().k} />
+            </g>
+          )}
+        </Show>
+        <Show when={geo().stats}>
+          <For each={box()?.hubBadges ?? []}>
+            {(h, i) => (
+              <g
+                {...iconHover(() => ({
+                  title: `Imports ${labelOf(h.id)}`,
+                  lines: [`A hub ${plural(h.importers, "box")} import; its edges are hidden.`],
+                }), h.id)}
+              >
+                <rect x={geo().textX - 2 + i() * pitch()} y={geo().statsY - 11 * geo().k} width={pitch()} height={14 * geo().k} fill="transparent" />
+                <HubGlyph shape={h.shape} color={h.color} x={geo().textX + 5 * geo().k + i() * pitch()} y={geo().statsY - 4 * geo().k} r={4.5 * geo().k} />
+              </g>
+            )}
+          </For>
+          <Show when={(box()?.cycles.length ?? 0) > 0}>
+            <g
+              transform={`translate(${geo().textX + 5 * geo().k + (box()?.hubBadges.length ?? 0) * pitch()},${geo().statsY - 4 * geo().k}) scale(${geo().k})`}
+              {...iconHover(() => ({ title: "Mutual import", lines: ["Imports and is imported by:", ...listTip(box()!.cycles)] }))}
+            >
+              <rect x={-7} y={-7} width={14} height={14} fill="transparent" />
+              <CycleIcon x={0} y={0} />
+            </g>
+          </Show>
+          <Show when={locText(n)}>
+            <text x={n.width - PAD_X} y={geo().statsY} text-anchor="end" font-size={`${11 * geo().k}`} class="tabular-nums" fill={MUTED_TEXT}>
+              {locText(n)}
+            </text>
+          </Show>
+        </Show>
+      </>
+    );
+  };
+
   return (
     <div class="relative h-full w-full overflow-hidden bg-[var(--plc-surface-subtle)]">
       <svg
@@ -428,7 +519,7 @@ export function DependencyCanvas(props: {
         <g ref={gRef}>
           <For each={props.layout.groups ?? []}>
             {(g) => (
-              <text x={g.x} y={g.y} class="fill-[var(--plc-on-muted)] text-[12px] font-semibold">
+              <text x={g.x} y={g.y} font-size={`${12 * ink()}`} class="fill-[var(--plc-on-muted)] font-semibold">
                 {g.label}
               </text>
             )}
@@ -447,8 +538,18 @@ export function DependencyCanvas(props: {
                   fill-opacity="0.6"
                   stroke="var(--plc-border)"
                 />
-                <text x={f.x + 7} y={f.y + 11.5} class="fill-[var(--plc-on-subtle)] text-[11px] font-semibold">
-                  {truncateTextToWidth(f.label, f.width - 14, FRAME_LABEL_FONT)}
+                {/* The label band above the first box is fixed: larger labels grow up past the frame's top, haloed. */}
+                <text
+                  x={f.x + 7}
+                  y={f.y + 11.5}
+                  font-size={`${11 * frameInk()}`}
+                  class="fill-[var(--plc-on-subtle)] font-semibold"
+                  paint-order="stroke"
+                  stroke={frameInk() > 1 ? "var(--plc-surface-subtle)" : "none"}
+                  stroke-width={3 * frameInk()}
+                  stroke-linejoin="round"
+                >
+                  {truncateTextToWidth(f.label, f.width - 14, frameLabelFont())}
                 </text>
               </g>
             )}
@@ -474,13 +575,14 @@ export function DependencyCanvas(props: {
               return (
                 <text
                   x={f().x + f().width / 2}
-                  y={f().y - 8}
+                  y={f().y - 8 * ink()}
                   text-anchor="middle"
-                  class="text-[12px] font-semibold"
+                  font-size={`${12 * ink()}`}
+                  class="font-semibold"
                   // A halo in the canvas color keeps edges in the gutter from striking through it.
                   paint-order="stroke"
                   stroke="var(--plc-surface-subtle)"
-                  stroke-width="4"
+                  stroke-width={4 * ink()}
                   stroke-linejoin="round"
                 >
                   <tspan
@@ -623,6 +725,7 @@ export function DependencyCanvas(props: {
                     stroke-dasharray={n.node.kind === "external" ? EXTERNAL_BOX_DASH : undefined}
                     style={{ transition: "stroke 140ms ease, fill 140ms ease" }}
                   />
+                  <Show when={ink() === 1} fallback={<CompactBody n={n} />}>
                   {/* Row 1: kind + name (a hub repeats its badge, large, on the right). */}
                   <KindGlyph node={n.node} x={PAD_X} y={LINE1_Y - 10} />
                   <text x={TEXT_X} y={LINE1_Y} class="text-[12.5px] font-semibold" fill="var(--plc-on-surface)">
@@ -739,9 +842,14 @@ export function DependencyCanvas(props: {
                       hub
                     </text>
                   </Show>
+                  </Show>
                   <Show when={props.onMenu && hoverNode() === n.id}>
                     <g
-                      transform={`translate(${n.width - MENU_BTN_W - 3 - (hub() ? 20 : 0)},${LINE1_Y - MENU_BTN_H + 4})`}
+                      transform={
+                        ink() === 1
+                          ? `translate(${n.width - MENU_BTN_W - 3 - (hub() ? 20 : 0)},${LINE1_Y - MENU_BTN_H + 4})`
+                          : `translate(${n.width - (MENU_BTN_W + 3 + (hub() ? 18 : 0)) * ink()},${3 * ink()}) scale(${ink()})`
+                      }
                       class="group/menu cursor-pointer"
                       role="button"
                       aria-label={`Actions for ${n.node.title || n.node.label}`}
