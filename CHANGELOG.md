@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/byronwall/srcly/compare/v1.0.0...v1.1.0) (2026-10-19)
+
+
+### Features
+
+* **graph:** isolate a symbol inside a focused file ([#81](https://github.com/byronwall/srcly/issues/81)) ([0e2bedd](https://github.com/byronwall/srcly/commit/0e2bedd89e8ecb724c9280f7adaf813dde2859ac))
+* **graph:** keep box text readable when zoomed out ([#82](https://github.com/byronwall/srcly/issues/82)) ([6868ecc](https://github.com/byronwall/srcly/commit/6868ecca81be92156e70fb811fb9ed281b59d3fd))
+
 ## [1.0.0](https://github.com/byronwall/srcly/compare/v0.3.0...v1.0.0) (2026-10-16)
 
 
