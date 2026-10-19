@@ -36,6 +36,11 @@ describe("nodeActions", () => {
     expect(enabled({ at: "ext:react", kind: "external", currentAt: "elsewhere" })).toEqual(["focus"]);
   });
 
+  it("calls focusing a symbol Isolate", () => {
+    expect(nodeActions({ at: "a/b.ts#X", kind: "symbol", currentAt: "a/b.ts" })[0]).toMatchObject({ id: "focus", label: "Isolate" });
+    expect(nodeActions({ at: "a/b.ts", kind: "file", currentAt: "a" })[0].label).toBe("Focus");
+  });
+
   it("keeps the order stable so the menu never reflows", () => {
     expect(nodeActions({ at: "", kind: "folder", currentAt: "" }).map((a) => a.id)).toEqual(["focus", "open", "folder"]);
   });

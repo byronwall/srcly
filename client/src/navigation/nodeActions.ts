@@ -14,7 +14,7 @@ export interface NodeAction {
 }
 
 /**
- * Focus · Open code · Show folder, with each one's availability for this node
+ * Focus (Isolate for a symbol) · Open code · Show folder, with each one's availability for this node
  * given where the view is now (`currentAt`). An action that wouldn't move
  * anything is disabled with the reason, never a silent no-op.
  */
@@ -23,7 +23,8 @@ export function nodeActions(target: { at: string; kind: NodeKind; currentAt: str
   return [
     {
       id: "focus",
-      label: "Focus",
+      // A symbol shown on its own, without its file's other symbols.
+      label: kind === "symbol" ? "Isolate" : "Focus",
       disabledReason: at === currentAt ? "Already here" : undefined,
     },
     {

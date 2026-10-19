@@ -146,9 +146,13 @@ type Tip = { title: string; lines?: string[]; rows?: [string, string][] };
 
 export function DependencyCanvas(props: {
   layout: ViewLayout;
-  /** Name of the focused item; a focused file frames its symbols under this title. */
-  focusLabel?: string;
-  focusIsGroup?: boolean;
+  /** Graph id of the focus; clicking any other box moves (or isolates) to it. */
+  focusId?: string;
+  /**
+   * A titled frame around the center boxes: a focused file's symbols, or an
+   * isolated symbol under its file's name (`onTitle` goes back to the file).
+   */
+  focusFrame?: { title: string; note?: string; onTitle?: () => void };
   onFocus: (node: ViewNode) => void;
   onOpen: (node: ViewNode) => void;
   /** Node actions: right-click, or the "⋯" shown on the hovered node. */
@@ -449,7 +453,7 @@ export function DependencyCanvas(props: {
               </g>
             )}
           </For>
-          <Show when={props.focusIsGroup ? focusFrame() : null}>
+          <Show when={props.focusFrame ? focusFrame() : null}>
             {(f) => (
               <rect
                 x={f().x}
@@ -464,22 +468,39 @@ export function DependencyCanvas(props: {
             )}
           </Show>
           {/* The focused file titles the frame around its symbols. */}
-          <Show when={props.focusIsGroup && props.focusLabel ? focusFrame() : null}>
-            {(f) => (
-              <text
-                x={f().x + f().width / 2}
-                y={f().y - 8}
-                text-anchor="middle"
-                class="fill-[var(--plc-on-surface)] text-[12px] font-semibold"
-                // A halo in the canvas color keeps edges in the gutter from striking through it.
-                paint-order="stroke"
-                stroke="var(--plc-surface-subtle)"
-                stroke-width="4"
-                stroke-linejoin="round"
-              >
-                {props.focusLabel}
-              </text>
-            )}
+          <Show when={props.focusFrame ? focusFrame() : null}>
+            {(f) => {
+              const ff = () => props.focusFrame!;
+              return (
+                <text
+                  x={f().x + f().width / 2}
+                  y={f().y - 8}
+                  text-anchor="middle"
+                  class="text-[12px] font-semibold"
+                  // A halo in the canvas color keeps edges in the gutter from striking through it.
+                  paint-order="stroke"
+                  stroke="var(--plc-surface-subtle)"
+                  stroke-width="4"
+                  stroke-linejoin="round"
+                >
+                  <tspan
+                    fill={ff().onTitle ? "var(--plc-accent)" : "var(--plc-on-surface)"}
+                    class={ff().onTitle ? "cursor-pointer hover:fill-[var(--plc-accent-strong,var(--plc-accent))] hover:underline" : undefined}
+                    role={ff().onTitle ? "link" : undefined}
+                    onClick={(ev) => {
+                      if (!ff().onTitle) return;
+                      ev.stopPropagation();
+                      ff().onTitle!();
+                    }}
+                  >
+                    {ff().title}
+                  </tspan>
+                  <Show when={ff().note}>
+                    <tspan fill={MUTED_TEXT} font-weight="400">{` · ${ff().note}`}</tspan>
+                  </Show>
+                </text>
+              );
+            }}
           </Show>
           <g fill="none">
             <For each={props.layout.edges}>
@@ -767,7 +788,7 @@ export function DependencyCanvas(props: {
             style={{ left: "0px", top: "0px", visibility: "hidden" }}
           >
             <Show when={c().node}>
-              {(pn) => <NodeCard node={pn().node} info={info().get(pn().id)} metric={metricRow(pn())} loc={props.metrics?.get(pn().id)?.loc} hub={hubById().get(pn().id)} />}
+              {(pn) => <NodeCard node={pn().node} focused={pn().node.graphId === props.focusId} info={info().get(pn().id)} metric={metricRow(pn())} loc={props.metrics?.get(pn().id)?.loc} hub={hubById().get(pn().id)} />}
             </Show>
             <Show when={c().edge}>
               {(pe) => <EdgeCard edge={pe()} nodes={nodeById()} />}
@@ -797,6 +818,8 @@ const HINT = "text-[11px] text-[var(--plc-on-subtle)]";
 /** The box's own card: what the box cannot fit — full path, link totals, the metric by name. */
 function NodeCard(props: {
   node: ViewNode;
+  /** The box is the focus itself, so a click stays put. */
+  focused: boolean;
   info?: BoxInfo;
   metric?: { label: string; full: string; color: string } | null;
   loc?: number;
@@ -853,7 +876,11 @@ function NodeCard(props: {
         )}
       </Show>
       <div class={`mt-1.5 border-t border-[var(--plc-divider)] pt-1 ${HINT}`}>
-        {props.node.isFocus ? "Double-click or middle-click to open code" : "Click to focus · double-click or middle-click to open"}
+        {props.focused
+          ? "Double-click or middle-click to open code"
+          : props.node.kind === "symbol"
+            ? "Click to isolate · double-click or middle-click to open"
+            : "Click to focus · double-click or middle-click to open"}
       </div>
     </div>
   );
