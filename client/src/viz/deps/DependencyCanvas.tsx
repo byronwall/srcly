@@ -6,7 +6,7 @@ import { treemapFillColor, treemapRampPosition, rampColor } from "../treemap/uti
 import { tailPath } from "../treemap/components/TreemapTooltip";
 import { placeFloating } from "../treemap/hooks/useTreemapTooltip";
 import { boxInfo, type BoxInfo } from "./boxInfo";
-import { fitName, inkForZoom } from "./boxText";
+import { compactText, inkForZoom, viewInk, type CompactBox } from "./boxText";
 import {
   CONTEXT_EDGE_DASH,
   CONTEXT_EDGE_OPACITY,
@@ -318,7 +318,7 @@ export function DependencyCanvas(props: {
     return textRoom(n) - (loc ? measureText(loc, SUBTITLE_FONT) + 8 : 0);
   };
   const labelFor = (n: PositionedNode) => truncateTextToWidth(n.node.label, textRoom(n), LABEL_FONT);
-  const frameInk = () => Math.min(ink(), 1.8);
+  const frameInk = () => (ink() === 1 ? 1 : boxInk());
   const frameLabelFont = () => (frameInk() === 1 ? FRAME_LABEL_FONT : `600 ${11 * frameInk()}px Inter, ui-sans-serif, system-ui, sans-serif`);
   // Boxes inside a package frame: the frame already names the package.
   const framed = createMemo(() => {
@@ -410,25 +410,35 @@ export function DependencyCanvas(props: {
    * `ink`, wrapped to as many lines as fit, then — when there is room — one
    * line with hub/mutual badges and LOC. Centered in the box.
    */
+  const COMPACT_PAD_Y = 5;
+  const compactBox = (n: PositionedNode): CompactBox => {
+    const b = info().get(n.id);
+    return {
+      label: n.node.label,
+      width: n.width,
+      fixedInset: PAD_X * 2,
+      inkInset: ICON_W + (hubById().has(n.id) ? 15 : 0),
+      height: n.height - 2 * COMPACT_PAD_Y,
+      hasStats: (b?.hubBadges.length ?? 0) > 0 || (b?.cycles.length ?? 0) > 0 || locText(n) !== "",
+    };
+  };
+  /** One text scale for every compact box in the view (see `viewInk`). */
+  const boxInk = createMemo(() => (ink() === 1 ? 1 : viewInk(props.layout.nodes.map(compactBox), ink())));
   const CompactBody = (p: { n: PositionedNode }) => {
     const n = p.n;
     const hub = () => hubById().get(n.id);
     const box = () => info().get(n.id);
-    const PAD_Y = 6;
     const geo = createMemo(() => {
-      const avail = n.height - 2 * PAD_Y;
-      const roomAt = (k: number) => ({ width: n.width - PAD_X * 2 - ICON_W * k - (hub() ? 15 * k : 0), height: avail });
-      const { k, lines } = fitName(n.node.label, ink(), roomAt, 12.5);
-      const px = 12.5 * k;
-      const lineH = px * 1.18;
-      const statsH = 11 * k * 1.35;
-      const textX = PAD_X + ICON_W * k;
-      const badges = (box()?.hubBadges.length ?? 0) + ((box()?.cycles.length ?? 0) > 0 ? 1 : 0);
-      const hasStats = badges > 0 || locText(n) !== "";
-      const stats = hasStats && lines.length * lineH + statsH <= avail;
-      const blockH = lines.length * lineH + (stats ? statsH : 0);
+      const k = boxInk();
+      const t = compactText(compactBox(n), k);
+      const blockH = t.lines.length * t.lineH + (t.stats ? t.statsH : 0);
       const top = (n.height - blockH) / 2;
-      return { k, px, lineH, textX, lines, stats, top, statsY: top + lines.length * lineH + statsH * 0.78 };
+      const textX = PAD_X + ICON_W * k;
+      // LOC sits right of the badges only when both fit; badges (hubs, cycles) win.
+      const badges = (box()?.hubBadges.length ?? 0) + ((box()?.cycles.length ?? 0) > 0 ? 1 : 0);
+      const loc = locText(n);
+      const showLoc = loc !== "" && textX + badges * BADGE_PITCH * k + 6 * k + measureText(loc, `400 ${t.statsPx}px Inter, ui-sans-serif, system-ui, sans-serif`) <= n.width - PAD_X;
+      return { k, px: t.px, lineH: t.lineH, textX, lines: t.lines, stats: t.stats, showLoc, top, statsY: top + t.lines.length * t.lineH + t.statsH * 0.8 };
     });
     const pitch = () => BADGE_PITCH * geo().k;
     return (
@@ -480,7 +490,7 @@ export function DependencyCanvas(props: {
               <CycleIcon x={0} y={0} />
             </g>
           </Show>
-          <Show when={locText(n)}>
+          <Show when={geo().showLoc}>
             <text x={n.width - PAD_X} y={geo().statsY} text-anchor="end" font-size={`${11 * geo().k}`} class="tabular-nums" fill={MUTED_TEXT}>
               {locText(n)}
             </text>
@@ -589,10 +599,18 @@ export function DependencyCanvas(props: {
                     fill={ff().onTitle ? "var(--plc-accent)" : "var(--plc-on-surface)"}
                     class={ff().onTitle ? "cursor-pointer hover:fill-[var(--plc-accent-strong,var(--plc-accent))] hover:underline" : undefined}
                     role={ff().onTitle ? "link" : undefined}
+                    tabindex={ff().onTitle ? 0 : undefined}
+                    aria-label={ff().onTitle ? `Show all of ${ff().title}` : undefined}
                     onClick={(ev) => {
                       if (!ff().onTitle) return;
                       ev.stopPropagation();
                       ff().onTitle!();
+                    }}
+                    onKeyDown={(ev) => {
+                      if (ff().onTitle && (ev.key === "Enter" || ev.key === " ")) {
+                        ev.preventDefault();
+                        ff().onTitle!();
+                      }
                     }}
                   >
                     {ff().title}

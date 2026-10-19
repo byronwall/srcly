@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FULL_DETAIL_ZOOM, inkForZoom, MAX_INK, wrapName } from "./boxText";
+import { compactText, FULL_DETAIL_ZOOM, inkForZoom, MAX_INK, viewInk, wrapName, type CompactBox } from "./boxText";
 
 // Without a canvas the measurer estimates 6px per character.
 const FONT = "600 12px Inter";
@@ -37,9 +37,47 @@ describe("wrapName", () => {
     expect(lines[1].endsWith("…")).toBe(true);
   });
 
-  it("hard-breaks a single word wider than the box", () => {
-    const lines = wrapName("abcdefghijklmnopqrstuvwxyz", 60, FONT, 3);
-    expect(lines[0]).toBe("abcdefghij");
-    expect(lines.length).toBeGreaterThan(1);
+  it("never breaks inside a word", () => {
+    for (const [word, width] of [["markdown", 30], ["navigation", 40]] as const) {
+      const lines = wrapName(word, width, FONT, 3);
+      expect(lines).toHaveLength(1);
+      expect(lines[0].endsWith("…")).toBe(true);
+    }
+  });
+});
+
+// 6px per character at 12px; text scales with `k` through the font size only in a real canvas,
+// so these boxes are sized in characters at the fallback estimate.
+const box = (label: string, over: Partial<CompactBox> = {}): CompactBox => ({
+  label,
+  width: 120,
+  fixedInset: 0,
+  inkInset: 0,
+  height: 64,
+  hasStats: true,
+  ...over,
+});
+
+describe("compactText", () => {
+  it("keeps the stats line when the whole name fits with it", () => {
+    expect(compactText(box("Toast.tsx"), 1.5)).toMatchObject({ lines: ["Toast.tsx"], stats: true });
+  });
+
+  it("drops the stats line before cutting the name", () => {
+    const t = compactText(box("useAutoScrollSelection", { width: 80, height: 40 }), 1);
+    expect(t.stats).toBe(false);
+    expect(t.lines).toEqual(["useAutoScroll", "Selection"]);
+  });
+});
+
+describe("viewInk", () => {
+  it("uses the full ink when every name fits", () => {
+    expect(viewInk([box("App"), box("Toast")], 1.5)).toBe(1.5);
+  });
+
+  it("shrinks every box together, not past the floor", () => {
+    const k = viewInk([box("App"), box("averyveryverylongsinglewordname", { width: 100 })], 2);
+    expect(k).toBeGreaterThanOrEqual(1.4);
+    expect(k).toBeLessThan(2);
   });
 });
