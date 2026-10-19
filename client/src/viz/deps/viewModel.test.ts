@@ -217,6 +217,56 @@ describe("buildViewModel", () => {
   });
 });
 
+describe("expand in place", () => {
+  const ids = (vm: ReturnType<typeof buildViewModel>) => vm.nodes.map((n) => n.graphId).sort();
+
+  it("opens a rolled-up side folder into its files and leaves the other boxes alone", () => {
+    const idx = buildIndex(wideRepo(80));
+    const base = buildViewModel(idx, { focusId: "app/main.ts", budget: 20 });
+    const folder = base.nodes.find((n) => n.region === "out" && n.kind === "folder")!;
+    expect(folder.expandable).toBe(true);
+    const vm = buildViewModel(idx, { focusId: "app/main.ts", budget: 20, expanded: [folder.graphId] });
+    const inside = vm.nodes.filter((n) => n.graphId.startsWith(folder.graphId + "/"));
+    expect(inside).toHaveLength(folder.memberCount);
+    expect(inside.every((n) => n.group?.id === folder.graphId && n.group.opened)).toBe(true);
+    expect(ids(vm).filter((id) => !id.startsWith(folder.graphId + "/"))).toEqual(
+      ids(base).filter((id) => id !== folder.graphId),
+    );
+    expect(vm.expanded).toEqual([folder.graphId]);
+  });
+
+  it("opens a folder inside a focused folder on top of the automatic cut", () => {
+    const idx = srcly();
+    const base = buildViewModel(idx, { focusId: "src", budget: 48 });
+    expect(base.nodes.some((n) => n.graphId === "src/components")).toBe(true);
+    const vm = buildViewModel(idx, { focusId: "src", budget: 48, expanded: ["src/components"] });
+    expect(vm.nodes.some((n) => n.graphId === "src/components")).toBe(false);
+    const inside = vm.nodes.filter((n) => n.graphId.startsWith("src/components/"));
+    expect(inside.length).toBeGreaterThan(1);
+    expect(inside.every((n) => n.group?.id === "src/components")).toBe(true);
+    for (const id of ids(base)) if (id !== "src/components") expect(ids(vm)).toContain(id);
+  });
+
+  it("opens a side file of a focused folder into the symbols it is used through", () => {
+    const idx = srcly();
+    const focus = "src/components";
+    const vm0 = buildViewModel(idx, { focusId: focus, budget: 200, edgeBudget: 500 });
+    const file = vm0.nodes.find(
+      (n) => n.region === "out" && n.kind === "file" && n.expandable && n.graphId === "src/utils/metricsStore.tsx",
+    );
+    expect(file).toBeDefined();
+    const vm = buildViewModel(idx, { focusId: focus, budget: 200, edgeBudget: 500, expanded: [file!.graphId] });
+    expect(vm.nodes.some((n) => n.graphId.startsWith(file!.graphId + "#") && n.group?.id === file!.graphId)).toBe(true);
+  });
+
+  it("ignores expansions of the focus and its folders", () => {
+    const idx = srcly();
+    const vm = buildViewModel(idx, { focusId: "src/components", budget: 48, expanded: ["src", "src/components"] });
+    expect(vm.expanded).toEqual([]);
+    expect(ids(vm)).toEqual(ids(buildViewModel(idx, { focusId: "src/components", budget: 48 })));
+  });
+});
+
 describe("frame labels", () => {
   it("adds parent folders when two packages share a name", () => {
     const nodes: DependencyGraphContract["nodes"] = [{ id: "", kind: "folder", name: "repo", parent: null }];

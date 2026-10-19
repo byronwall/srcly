@@ -1,4 +1,4 @@
-import { sameLocation, type Location } from "./location";
+import { samePlace, type Location } from "./location";
 
 export interface HistoryEntry {
   loc: Location;
@@ -25,7 +25,7 @@ export class HistoryRing {
   record(loc: Location, time: number): void {
     this.items = [
       { loc: { ...loc }, time },
-      ...this.items.filter((e) => !sameLocation(e.loc, loc)),
+      ...this.items.filter((e) => !samePlace(e.loc, loc)),
     ].slice(0, this.capacity);
   }
 

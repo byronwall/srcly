@@ -1,6 +1,6 @@
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { Portal } from "solid-js/web";
-import { Crosshair, FileCode2, FolderOpen } from "lucide-solid";
+import { Crosshair, FileCode2, FolderOpen, Maximize2 } from "lucide-solid";
 import { nodeActions, type NodeActionId, type NodeKind } from "./nodeActions";
 
 export interface NodeMenuTarget {
@@ -13,10 +13,13 @@ export interface NodeMenuTarget {
   title: string;
   /** Where the view is now; actions that wouldn't move are disabled. */
   currentAt: string;
+  /** Graph only: offer Expand in place, or Collapse of the opened folder around it. */
+  expand?: boolean | { collapse: string };
 }
 
 const ICONS: Record<NodeActionId, typeof Crosshair> = {
   focus: Crosshair,
+  expand: Maximize2,
   open: FileCode2,
   folder: FolderOpen,
 };

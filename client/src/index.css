@@ -551,3 +551,29 @@ samp {
     animation: none;
   }
 }
+
+/* Dependency graph: boxes fly from where they were (or out of the folder they
+   opened from) to their new place; edges and frames settle in after them. */
+@keyframes dv-fly {
+  from {
+    transform: var(--dv-from);
+    opacity: var(--dv-from-opacity, 1);
+  }
+}
+@keyframes dv-settle {
+  from {
+    opacity: 0;
+  }
+}
+.dv-fly {
+  animation: dv-fly 320ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.dv-settle {
+  animation: dv-settle 180ms ease-out 220ms backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dv-fly,
+  .dv-settle {
+    animation: none;
+  }
+}

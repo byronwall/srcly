@@ -17,7 +17,7 @@ import { boundsOf } from "./geometry";
 import { createClickIntent, liveHover } from "./interaction";
 import { formatLoc } from "./metrics";
 import { HUB_STYLES, type HubShape } from "./hubs";
-import { MAX_SCALE, type PositionedEdge, type PositionedNode, type ViewLayout } from "./layout";
+import { FRAME_LABEL_H, MAX_SCALE, type PositionedEdge, type PositionedNode, type ViewLayout } from "./layout";
 import type { ViewNode } from "./viewModel";
 
 const LABEL_FONT = "600 12.5px Inter, ui-sans-serif, system-ui, sans-serif";
@@ -162,6 +162,9 @@ export function DependencyCanvas(props: {
   metrics?: Map<string, Record<string, any>>;
   /** The treemap's color metric; boxes are tinted with the treemap's colors. */
   colorMetric?: string;
+  /** A frame around an opened folder whose title closes it again. */
+  collapsible?: (groupId: string) => boolean;
+  onCollapse?: (groupId: string) => void;
 }) {
   let svgRef!: SVGSVGElement;
   let gRef!: SVGGElement;
@@ -234,7 +237,7 @@ export function DependencyCanvas(props: {
     const t = d3.zoomIdentity.translate(tx, ty).scale(scale);
     const sel = d3.select(svgRef);
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (animate && !reduce) sel.transition().duration(220).call(zoom.transform, t);
+    if (animate && !reduce) sel.transition().duration(FLY_MS).call(zoom.transform, t);
     else sel.call(zoom.transform, t);
   };
 
@@ -252,6 +255,7 @@ export function DependencyCanvas(props: {
   });
 
   const nodeById = createMemo(() => new Map(props.layout.nodes.map((n) => [n.id, n])));
+  const flights = createFlights(() => props.layout);
   const info = createMemo(() => boxInfo(props.layout));
   const hubById = createMemo(() => new Map((props.layout.hubs ?? []).map((h) => [h.id, h])));
   const hubMarker = (target: string) => {
@@ -435,23 +439,52 @@ export function DependencyCanvas(props: {
           </For>
           {/* Package frames around side neighbors (drawn under edges and boxes). */}
           <For each={props.layout.frames ?? []}>
-            {(f) => (
-              <g>
-                <rect
-                  x={f.x}
-                  y={f.y}
-                  width={f.width}
-                  height={f.height}
-                  rx="6"
-                  fill="var(--plc-surface)"
-                  fill-opacity="0.6"
-                  stroke="var(--plc-border)"
-                />
-                <text x={f.x + 7} y={f.y + 11.5} class="fill-[var(--plc-on-subtle)] text-[11px] font-semibold">
-                  {truncateTextToWidth(f.label, f.width - 14, FRAME_LABEL_FONT)}
-                </text>
-              </g>
-            )}
+            {(f) => {
+              // An opened folder's frame: its title (with a "−") closes it.
+              const closable = () => props.collapsible?.(f.groupId) ?? false;
+              return (
+                <g class="dv-settle">
+                  <rect
+                    x={f.x}
+                    y={f.y}
+                    width={f.width}
+                    height={f.height}
+                    rx="6"
+                    fill="var(--plc-surface)"
+                    fill-opacity="0.6"
+                    stroke={closable() ? "var(--plc-accent-border)" : "var(--plc-border)"}
+                  />
+                  <Show
+                    when={closable()}
+                    fallback={
+                      <text x={f.x + 7} y={f.y + 11.5} class="fill-[var(--plc-on-subtle)] text-[11px] font-semibold">
+                        {truncateTextToWidth(f.label, f.width - 14, FRAME_LABEL_FONT)}
+                      </text>
+                    }
+                  >
+                    <g
+                      class="group/frame cursor-pointer"
+                      role="button"
+                      aria-label={`Collapse ${f.label}`}
+                      onMouseEnter={(ev) => showCard(ev, { tip: { title: `Collapse ${f.label}`, lines: ["Folds its boxes back into one."] } })}
+                      onMouseLeave={() => setCard(null)}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        setCard(null);
+                        props.onCollapse?.(f.groupId);
+                      }}
+                    >
+                      <rect x={f.x + 2} y={f.y + 1} width={f.width - 4} height={FRAME_LABEL_H - 1} rx="4" fill="transparent" class="transition-[fill] duration-[140ms] group-hover/frame:fill-[var(--plc-accent-subtle)]" />
+                      <rect x={f.x + 6.5} y={f.y + 3.5} width={9} height={9} rx="2" fill="var(--plc-surface)" stroke="var(--plc-accent)" stroke-width="1" />
+                      <path d={`M${f.x + 8.5},${f.y + 8}h5`} stroke="var(--plc-accent)" stroke-width="1.2" stroke-linecap="round" />
+                      <text x={f.x + 19} y={f.y + 11.5} class="fill-[var(--plc-accent)] text-[11px] font-semibold">
+                        {truncateTextToWidth(f.label, f.width - 26, FRAME_LABEL_FONT)}
+                      </text>
+                    </g>
+                  </Show>
+                </g>
+              );
+            }}
           </For>
           <Show when={props.focusFrame ? focusFrame() : null}>
             {(f) => (
@@ -502,7 +535,7 @@ export function DependencyCanvas(props: {
               );
             }}
           </Show>
-          <g fill="none">
+          <g fill="none" class="dv-settle">
             <For each={props.layout.edges}>
               {(e) => {
                 const active = () => activeEdges()?.has(e.id) ?? false;
@@ -563,11 +596,20 @@ export function DependencyCanvas(props: {
               const dimmed = () => activeNodes() !== null && !activeNodes()!.has(n.id);
               const box = () => info().get(n.id);
               const hub = () => hubById().get(n.id);
+              const flight = flights().get(n.id);
+              const opens = n.node.kind === "folder" && n.node.expandable;
               return (
                 <g
-                  transform={`translate(${n.x},${n.y})`}
-                  class="cursor-pointer"
-                  style={{ opacity: dimmed() ? 0.62 : 1, transition: "opacity 140ms ease" }}
+                  class={flight ? "dv-fly" : undefined}
+                  style={{
+                    transform: `translate(${n.x}px,${n.y}px)`,
+                    cursor: opens ? "zoom-in" : "pointer",
+                    opacity: dimmed() ? 0.62 : 1,
+                    transition: "opacity 140ms ease",
+                    ...(flight
+                      ? { "--dv-from": `translate(${flight.x}px,${flight.y}px) scale(${flight.scale})`, "--dv-from-opacity": String(flight.opacity) }
+                      : {}),
+                  }}
                   onMouseEnter={(ev) => {
                     setHoverNode(n.id);
                     showCard(ev, { node: n });
@@ -801,6 +843,63 @@ export function DependencyCanvas(props: {
   );
 }
 
+/** Box moves, camera fit and the fly-out of opened folders share one duration. */
+const FLY_MS = 320;
+
+interface Flight {
+  x: number;
+  y: number;
+  scale: number;
+  opacity: number;
+}
+
+/** `id` is `root` or inside it (folder paths, then `file#symbol`). */
+const within = (root: string, id: string) => id === root || id.startsWith(`${root}/`) || id.startsWith(`${root}#`);
+
+/**
+ * Where each box of a new layout starts its move: where it was before (same
+ * box, or the same graph node in another region), out of the folder it was
+ * opened from, or at the middle of the boxes it folded together. Brand-new
+ * boxes fade in where they land. The first layout doesn't move.
+ */
+function createFlights(layout: () => ViewLayout) {
+  type Seen = { x: number; y: number; width: number; height: number; graphId: string };
+  let before = new Map<string, Seen>();
+  return createMemo(() => {
+    const nodes = layout().nodes;
+    const prev = before;
+    before = new Map(nodes.map((n) => [n.id, { x: n.x, y: n.y, width: n.width, height: n.height, graphId: n.node.graphId }]));
+    const out = new Map<string, Flight>();
+    if (prev.size === 0) return out;
+    const byGraph = new Map<string, Seen>();
+    for (const p of prev.values()) if (!byGraph.has(p.graphId)) byGraph.set(p.graphId, p);
+    for (const n of nodes) {
+      const same = prev.get(n.id) ?? byGraph.get(n.node.graphId);
+      if (same) {
+        if (same.x !== n.x || same.y !== n.y) out.set(n.id, { x: same.x, y: same.y, scale: 1, opacity: 1 });
+        continue;
+      }
+      let parent: Seen | undefined;
+      for (const p of prev.values()) {
+        if (p.graphId !== n.node.graphId && within(p.graphId, n.node.graphId) && (!parent || p.graphId.length > parent.graphId.length)) parent = p;
+      }
+      if (parent) {
+        out.set(n.id, { x: parent.x + parent.width * 0.2, y: parent.y + parent.height * 0.2, scale: 0.6, opacity: 0.2 });
+        continue;
+      }
+      const kids = [...prev.values()].filter((p) => within(n.node.graphId, p.graphId));
+      if (kids.length) {
+        const x = kids.reduce((a, p) => a + p.x, 0) / kids.length;
+        const y = kids.reduce((a, p) => a + p.y, 0) / kids.length;
+        out.set(n.id, { x, y, scale: 1, opacity: 0.4 });
+        continue;
+      }
+      out.set(n.id, { x: n.x, y: n.y + 6, scale: 1, opacity: 0 });
+    }
+    return out;
+  });
+}
+
 const KIND_WORD: Record<string, string> = { folder: "folder", file: "file", symbol: "symbol", external: "package" };
 
 /** A label / value pair in the cards' two-column grid (the treemap tooltip's layout). */
@@ -878,7 +977,9 @@ function NodeCard(props: {
       <div class={`mt-1.5 border-t border-[var(--plc-divider)] pt-1 ${HINT}`}>
         {props.focused
           ? "Double-click or middle-click to open code"
-          : props.node.kind === "symbol"
+          : props.node.kind === "folder" && props.node.expandable
+            ? "Click to open in place · double-click to focus"
+            : props.node.kind === "symbol"
             ? "Click to isolate · double-click or middle-click to open"
             : "Click to focus · double-click or middle-click to open"}
       </div>

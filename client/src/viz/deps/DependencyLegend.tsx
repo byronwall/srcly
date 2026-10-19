@@ -79,10 +79,11 @@ function CycleSwatch() {
 }
 
 /** Package frame around neighbors from one folder. */
-function FrameSwatch() {
+/** A package frame; an opened folder's frame has an accent border and a "−" to close it. */
+function FrameSwatch(props: { opened?: boolean }) {
   return (
     <svg width={SW} height={SH} viewBox={`0 0 ${SW} ${SH}`} aria-hidden="true">
-      <rect x="0.5" y="0.5" width={SW - 1} height={SH - 1} rx="3" fill="var(--plc-surface)" stroke="var(--plc-border-strong)" />
+      <rect x="0.5" y="0.5" width={SW - 1} height={SH - 1} rx="3" fill="var(--plc-surface)" stroke={props.opened ? "var(--plc-accent-border)" : "var(--plc-border-strong)"} />
       <rect x="4" y="4.5" width={SW - 8} height="5" rx="1.5" fill="var(--plc-surface-muted)" stroke="var(--plc-border-strong)" stroke-width="0.75" />
     </svg>
   );
@@ -137,6 +138,7 @@ const ITEMS: { swatch: () => JSX.Element; label: string }[] = [
   },
   { swatch: () => <ExternalSwatch />, label: "External package" },
   { swatch: () => <FrameSwatch />, label: "Neighbors from one package" },
+  { swatch: () => <FrameSwatch opened />, label: "Opened folder: click a folder to open it, its title to close" },
   { swatch: () => <FillSwatch />, label: "Tint: the treemap's color metric" },
   { swatch: () => <MetricSwatch />, label: "Bar: that metric's value on the same scale" },
   { swatch: () => <FlowSwatch />, label: "Boxes importing it · boxes it imports" },

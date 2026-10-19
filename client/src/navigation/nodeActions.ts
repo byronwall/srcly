@@ -4,7 +4,7 @@ import { folderOf } from "./location";
 
 export type NodeKind = "folder" | "file" | "symbol" | "external";
 
-export type NodeActionId = "focus" | "open" | "folder";
+export type NodeActionId = "focus" | "expand" | "open" | "folder";
 
 export interface NodeAction {
   id: NodeActionId;
@@ -18,8 +18,20 @@ export interface NodeAction {
  * given where the view is now (`currentAt`). An action that wouldn't move
  * anything is disabled with the reason, never a silent no-op.
  */
-export function nodeActions(target: { at: string; kind: NodeKind; currentAt: string }): NodeAction[] {
-  const { at, kind, currentAt } = target;
+export function nodeActions(target: {
+  at: string;
+  kind: NodeKind;
+  currentAt: string;
+  /** Graph only: the box can open in place (`true`), or is inside an opened folder that can close (`"collapse"`). */
+  expand?: boolean | { collapse: string };
+}): NodeAction[] {
+  const { at, kind, currentAt, expand } = target;
+  const expandAction: NodeAction[] =
+    expand === true
+      ? [{ id: "expand", label: kind === "file" ? "Expand symbols" : "Expand in place" }]
+      : expand
+        ? [{ id: "expand", label: `Collapse ${expand.collapse}` }]
+        : [];
   return [
     {
       id: "focus",
@@ -27,6 +39,7 @@ export function nodeActions(target: { at: string; kind: NodeKind; currentAt: str
       label: kind === "symbol" ? "Isolate" : "Focus",
       disabledReason: at === currentAt ? "Already here" : undefined,
     },
+    ...expandAction,
     {
       id: "open",
       label: "Open code",

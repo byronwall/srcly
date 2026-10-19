@@ -1,6 +1,8 @@
-import { createEffect, createMemo, createResource, createSignal, Show } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, onCleanup, onMount, Show } from "solid-js";
+import { Minus, Plus } from "lucide-solid";
 import { EmptyState, ErrorState, LoadingState } from "../../components/feedback/States";
 import { Button } from "../../components/ui/Button";
+import { IconButton } from "../../components/ui/IconButton";
 import { CheckboxRow } from "../../components/ui/CheckboxRow";
 import type { DependencyGraphContract } from "./contract";
 import { DependencyCanvas, type CanvasApi } from "./DependencyCanvas";
@@ -18,7 +20,7 @@ import { viewMetrics, type MetricsIndex } from "./metrics";
 import { buildViewModel, DEFAULT_BUDGET, type ViewNode } from "./viewModel";
 import { folderOf, graphIdFor } from "../../navigation/location";
 import NodeActionsMenu, { type NodeMenuTarget } from "../../navigation/NodeActionsMenu";
-import { go, graphFilters as filters, location, setGraphFilters as setFilters } from "../../navigation/store";
+import { go, graphFilters as filters, location, replace, setGraphFilters as setFilters } from "../../navigation/store";
 
 async function fetchGraph(path: string | undefined): Promise<DependencyGraphContract> {
   const url = new URL("/api/analysis/dependency-graph", window.location.origin);
@@ -67,7 +69,48 @@ export default function DependencyView(props: {
     const idx = index();
     const f = effectiveFocus();
     if (!idx || f === null) return null;
-    return buildViewModel(idx, { focusId: f, budget: DEFAULT_BUDGET });
+    return buildViewModel(idx, { focusId: f, budget: DEFAULT_BUDGET, expanded: location().open ?? [] });
+  });
+
+  // ---- Expand in place: the URL's `open` list, edited without a Back step ----
+  const openList = () => location().open ?? [];
+  const setOpen = (ids: string[]) => replace({ open: [...new Set(ids)].sort() });
+  /** `id` is `root` or inside it (folder paths, then `file#symbol`). */
+  const within = (root: string, id: string) => id === root || id.startsWith(`${root}/`) || id.startsWith(`${root}#`);
+  const expand = (graphId: string) => setOpen([...openList(), graphId]);
+  /** Close a folder and everything opened inside it. */
+  const collapse = (graphId: string) => setOpen(openList().filter((id) => !within(graphId, id)));
+  /** A frame can close when an expansion sits at or under it. */
+  const collapsible = (groupId: string) => (viewModel()?.expanded ?? []).some((id) => within(groupId, id));
+  /** One level deeper everywhere: open every folder box on screen. */
+  const levelUpTargets = createMemo(() =>
+    (viewModel()?.nodes ?? []).filter((n) => n.kind === "folder" && n.expandable).map((n) => n.graphId),
+  );
+  const expandLevel = () => {
+    const t = levelUpTargets();
+    if (t.length) setOpen([...openList(), ...t]);
+  };
+  /** One level back: close the deepest expansions. */
+  const collapseLevel = () => {
+    const active = viewModel()?.expanded ?? [];
+    if (!active.length) return;
+    const depth = (id: string) => id.split(/[/#]/).length;
+    const deepest = Math.max(...active.map(depth));
+    const drop = new Set(active.filter((id) => depth(id) === deepest));
+    setOpen(openList().filter((id) => !drop.has(id)));
+  };
+
+  onMount(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target instanceof Element ? e.target : null;
+      if (e.metaKey || e.ctrlKey || e.altKey || t?.closest("input, textarea, select, [contenteditable=true]")) return;
+      if (e.key === "+" || e.key === "=") expandLevel();
+      else if (e.key === "-" || e.key === "_") collapseLevel();
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    onCleanup(() => window.removeEventListener("keydown", onKey));
   });
 
   let layoutToken = 0;
@@ -91,6 +134,12 @@ export default function DependencyView(props: {
     return l && idx ? viewMetrics(idx, l.nodes.map((n) => n.node), props.metricsIndex) : undefined;
   });
 
+  // A click opens a folder in place; files and symbols take the focus.
+  const onClickNode = (n: ViewNode) => {
+    if (n.kind === "folder" && n.expandable) expand(n.graphId);
+    else onFocusNode(n);
+  };
+
   const onFocusNode = (n: ViewNode) => {
     const idx = index();
     // A focused file's symbols are drawn as focus too, but clicking one
@@ -102,12 +151,24 @@ export default function DependencyView(props: {
 
   // Files and symbols open in the app's code viewer, scoped like the treemap.
   const onOpenNode = (n: ViewNode) => {
-    if (n.kind === "file") props.onOpen(n.graphId);
+    // Folders have no code: a double-click focuses them instead.
+    if (n.kind === "folder") onFocusNode(n);
+    else if (n.kind === "file") props.onOpen(n.graphId);
     else if (n.kind === "symbol") props.onOpen(n.graphId, index()?.byId.get(n.graphId)?.line);
   };
 
-  const openMenu = (n: ViewNode, point: { x: number; y: number }) =>
-    setMenu({ ...point, node: n, at: n.graphId, kind: n.kind, title: n.title || n.label, currentAt: effectiveFocus() ?? location().at });
+  const openMenu = (n: ViewNode, point: { x: number; y: number }) => {
+    const frame = n.group && collapsible(n.group.id) ? n.group : undefined;
+    setMenu({
+      ...point,
+      node: n,
+      at: n.graphId,
+      kind: n.kind,
+      title: n.title || n.label,
+      currentAt: effectiveFocus() ?? location().at,
+      expand: n.expandable ? true : frame ? { collapse: frame.label } : undefined,
+    });
+  };
 
   /**
    * The titled frame around the focus: a focused file frames its symbols; an
@@ -139,7 +200,8 @@ export default function DependencyView(props: {
     const vm = viewModel();
     if (!vm) return "";
     const links = vm.edges.reduce((a, e) => a + e.weight, 0);
-    const base = `${vm.nodes.length} boxes · ${vm.edges.length} edges (${links} links)`;
+    const opened = vm.expanded?.length ?? 0;
+    const base = `${vm.nodes.length} boxes · ${vm.edges.length} edges (${links} links)${opened ? ` · ${opened} opened` : ""}`;
     const l = layout();
     const hidden = l?.hiddenEdges?.length ?? 0;
     const hubs = l?.hubs?.length ?? 0;
@@ -149,6 +211,22 @@ export default function DependencyView(props: {
   return (
     <div class="flex h-full flex-col bg-[var(--plc-surface)]">
       <div class="flex items-center gap-3 border-b border-[var(--plc-border)] px-3 py-1.5">
+        <div class="flex shrink-0 items-center gap-0.5" role="group" aria-label="Detail">
+          <span class="mr-1 text-[11px] text-[var(--plc-on-muted)]">Detail</span>
+          <IconButton size="xs" label="Less detail: close the deepest opened folders (−)" disabled={!(viewModel()?.expanded?.length)} onClick={collapseLevel}>
+            <Minus size={13} />
+          </IconButton>
+          <IconButton size="xs" label="More detail: open every folder box in place (+)" disabled={levelUpTargets().length === 0} onClick={expandLevel}>
+            <Plus size={13} />
+          </IconButton>
+          {/* Always laid out, so the stats beside it never shift. */}
+          <span class="ml-1" classList={{ invisible: !viewModel()?.expanded?.length }}>
+            <Button size="xs" onClick={() => setOpen([])}>
+              Reset
+            </Button>
+          </span>
+        </div>
+        <div class="h-4 w-px shrink-0 bg-[var(--plc-border)]" />
         <span class="min-w-0 flex-1 truncate tabular-nums text-[11px] text-[var(--plc-on-subtle)]">{stats()}</span>
         <div class="flex shrink-0 items-center gap-3">
           <CheckboxRow checked={filters().showExternal} onChange={toggle("showExternal")} label="External" />
@@ -182,8 +260,10 @@ export default function DependencyView(props: {
                 layout={l()}
                 focusId={effectiveFocus() ?? undefined}
                 focusFrame={focusFrame()}
-                onFocus={onFocusNode}
+                onFocus={onClickNode}
                 onOpen={onOpenNode}
+                collapsible={collapsible}
+                onCollapse={collapse}
                 onMenu={openMenu}
                 ref={(api) => (canvas = api)}
                 metrics={boxMetrics()}
@@ -203,6 +283,7 @@ export default function DependencyView(props: {
             onAction={(id) => {
               const n = m().node;
               if (id === "focus") onFocusNode(n);
+              else if (id === "expand") n.expandable ? expand(n.graphId) : n.group && collapse(n.group.id);
               else if (id === "open") onOpenNode(n);
               else go({ at: folderOf(n.graphId) });
             }}
