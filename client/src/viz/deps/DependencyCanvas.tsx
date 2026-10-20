@@ -555,10 +555,10 @@ export function DependencyCanvas(props: {
                     fill-opacity="0.6"
                     stroke={closable() ? "var(--plc-accent-border)" : "var(--plc-border)"}
                   />
+                  {/* The label band above the first box is fixed: larger labels grow up past the frame's top, haloed. */}
                   <Show
                     when={closable()}
                     fallback={
-                      {/* The label band above the first box is fixed: larger labels grow up past the frame's top, haloed. */}
                       <text
                         x={f.x + 7}
                         y={f.y + 11.5}
