@@ -13,6 +13,7 @@ export const GRAPH_SHORTCUTS: { title: string; note?: string; rows: Row[] }[] = 
     title: "Move",
     rows: [
       [[["←"], ["↑"], ["→"], ["↓"]], "Select the next box in that direction"],
+      [[["/"]], "Go to any folder, file or symbol by name"],
       [[["Esc"]], "Clear the selection"],
       [[["U"], ["Backspace"]], "Up one level: focus the parent folder"],
       [[["Alt", "←"], ["Alt", "→"]], "Back / forward through focus history"],
