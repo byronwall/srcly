@@ -243,12 +243,13 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist live
 | Dependency view model (focus → in / center / out boxes, roll-up to the box budget) | `client/src/viz/deps/viewModel.ts` |
 | Expand in place (click a folder → its children in a framed block, any side, any depth; Detail −/+ and `-`/`+` keys; `?open=` URL list; fly-in motion) | `viz/deps/viewModel.ts` (`expanded` option, `assignGroups` opened frames); `viz/deps/DependencyView.tsx` (`expand`, `collapse`, `expandLevel`, `collapseLevel`); `viz/deps/DependencyCanvas.tsx` (`createFlights`, closable frames); `navigation/location.ts` (`open`) |
 | Dependency grid layout (viewport-shaped packing in `rankPackings`, channel/gutter edge routing) | `client/src/viz/deps/layout.ts` |
-| Dependency hubs (targets most boxes import become shape/color badges; their edges hide until hovered) | `client/src/viz/deps/hubs.ts`; per-box link counts, cycles and badges in `viz/deps/boxInfo.ts` |
+| Dependency hubs (targets most boxes import become shape/color badges; their edges hide until hovered) | `client/src/viz/deps/hubs.ts`; per-box link counts, cycles and badges in `viz/deps/boxInfo.ts`; counts drawn at every zoom, the view's top connectors bold (`connectorMin` in `DependencyCanvas.tsx`) |
 | Dependency graph canvas (four-row boxes, pastel metric tint, icon hover cards, hover, click to focus or isolate a symbol, double/middle/⌘-click to open) | `client/src/viz/deps/DependencyCanvas.tsx`, pointer logic in `viz/deps/interaction.ts` |
 | Dependency graph semantic zoom (below 0.95 zoom, box names scale ≈ 1/zoom, wrap, and rows drop to name + stats) | `client/src/viz/deps/boxText.ts`, `CompactBody` in `DependencyCanvas.tsx` |
 | Dependency graph legend (edge/box encodings, collapsible) | `client/src/viz/deps/DependencyLegend.tsx`; shared stroke constants in `viz/deps/encoding.ts` |
 | Open code from the graph (graph symbol → treemap scope by name, then by line) | `App.tsx` (`openAt`) → `navigation/resolveTree.ts`; line fallback `utils/dataProcessing.ts` (`findScopeForSymbol`) |
 | Dependency graph LOC + treemap color join (absPath → treemap node index, built once per scan in `Treemap.tsx`) | `client/src/viz/deps/metrics.ts` |
+| Folder contents on graph boxes (children by LOC as a colored strip; "Largest inside" in the hover card) | `viz/deps/metrics.ts` (`viewContents`, `stripSegments`); `ContentsStrip` and `NodeCard` in `viz/deps/DependencyCanvas.tsx` |
 | Local dependency-graph fixtures for layout tests (gitignored `__fixtures__/local/`) | `scripts/capture-dep-graph.sh` |
 
 ### Client: UI primitives

@@ -16,7 +16,7 @@ import {
 } from "./encoding";
 import { boundsOf } from "./geometry";
 import { createClickIntent, liveHover } from "./interaction";
-import { formatLoc } from "./metrics";
+import { formatLoc, stripSegments, type ContentItem, type StripSegment } from "./metrics";
 import { HUB_STYLES, type HubShape } from "./hubs";
 import { FRAME_LABEL_H, MAX_SCALE, type PositionedEdge, type PositionedNode, type ViewLayout } from "./layout";
 import type { ViewNode } from "./viewModel";
@@ -41,6 +41,11 @@ const MUTED_TEXT = "var(--plc-on-muted)";
 const TEXT_X = PAD_X + ICON_W;
 /** Pitch between badges in row 4. */
 const BADGE_PITCH = 15;
+/** A folder's contents strip: its height, and the room it takes from the bottom of a box. */
+const STRIP_H = 4;
+const STRIP_RESERVE = 10;
+/** An importer or import count at least this big (and among the view's top three) reads as a connector. */
+const CONNECTOR_MIN = 6;
 
 
 const measurer = makeTextMeasurer();
@@ -163,6 +168,8 @@ export function DependencyCanvas(props: {
   metrics?: Map<string, Record<string, any>>;
   /** The treemap's color metric; boxes are tinted with the treemap's colors. */
   colorMetric?: string;
+  /** Folder boxes' children, largest first: the contents strip and the card's list. */
+  contents?: Map<string, ContentItem[]>;
   /** A frame around an opened folder whose title closes it again. */
   collapsible?: (groupId: string) => boolean;
   onCollapse?: (groupId: string) => void;
@@ -391,6 +398,73 @@ export function DependencyCanvas(props: {
     };
   };
 
+  /**
+   * The view's big connectors: a box's importer or import count at least
+   * CONNECTOR_MIN and among the three largest counts in view draws bold.
+   */
+  const connectorMin = createMemo(() => {
+    const counts = [...info().values()].flatMap((b) => [b.importers.length, b.imports.length]).sort((a, b) => b - a);
+    return Math.max(CONNECTOR_MIN, counts[2] ?? Infinity);
+  });
+  const countTone = (k: number) => (k === 0 ? "var(--plc-on-disabled)" : k >= connectorMin() ? "var(--plc-on-surface)" : "var(--plc-on-muted)");
+  const countWeight = (k: number) => (k > 0 && k >= connectorMin() ? 700 : 400);
+  const inTip = (b: BoxInfo): Tip => ({
+    title: b.importers.length ? `Imported by ${plural(b.importers.length, "box")} · ${plural(b.inLinks, "link")}` : "Nothing in view imports it",
+    rows: linkRows(b.importers, b.linksFrom),
+  });
+  const outTip = (b: BoxInfo): Tip => ({
+    title: b.imports.length ? `Imports ${plural(b.imports.length, "box")} · ${plural(b.outLinks, "link")}` : "Imports nothing in view",
+    rows: linkRows(b.imports, b.linksTo),
+  });
+
+  const contentsOf = (n: PositionedNode) => props.contents?.get(n.id);
+  const itemColor = (c: ContentItem) => (props.colorMetric ? treemapFillColor(props.colorMetric, c.metrics, 0) : "var(--plc-tertiary)");
+  const stripTip = (n: PositionedNode, seg: StripSegment): Tip => {
+    const total = (contentsOf(n) ?? []).reduce((a, c) => a + c.loc, 0) || 1;
+    const share = (loc: number) => `${Math.max(1, Math.round((100 * loc) / total))}% of ${n.node.label}`;
+    if (seg.item) {
+      const m = props.colorMetric;
+      const v = m ? seg.item.metrics[m] : undefined;
+      return {
+        title: `${seg.item.name}${seg.item.kind === "folder" ? "/" : ""}`,
+        lines: [
+          `${formatLoc(seg.item.loc)} · ${share(seg.item.loc)}`,
+          ...(m && m !== "loc" && v !== undefined && v !== null ? [`${metricLabel(m as MetricId)}: ${formatMetricValue(m, v)}`] : []),
+        ],
+      };
+    }
+    const rest = seg.rest ?? [];
+    return {
+      title: `${plural(rest.length, "smaller item")}`,
+      lines: [`${formatLoc(rest.reduce((a, c) => a + c.loc, 0))} · ${share(rest.reduce((a, c) => a + c.loc, 0))}`],
+      rows: rest.slice(0, 10).map((c): [string, string] => [c.name, formatLoc(c.loc)]),
+    };
+  };
+  /** A folder's children as one bar along its bottom: widths by LOC, colors by the color metric. */
+  const ContentsStrip = (p: { n: PositionedNode; y: number; h: number }) => {
+    const segs = createMemo(() => stripSegments(contentsOf(p.n) ?? [], p.n.width - PAD_X * 2));
+    return (
+      <For each={segs()}>
+        {(seg) => (
+          <g {...iconHover(() => stripTip(p.n, seg))}>
+            <rect x={PAD_X + seg.x} y={p.y - 3} width={seg.w} height={p.h + 6} fill="transparent" />
+            <rect
+              x={PAD_X + seg.x}
+              y={p.y}
+              width={Math.max(1, seg.w - 1)}
+              height={p.h}
+              rx={Math.min(1.5, p.h / 2)}
+              fill={seg.item ? itemColor(seg.item) : "var(--plc-border-strong)"}
+              stroke="#334155"
+              stroke-opacity="0.18"
+              stroke-width="0.5"
+            />
+          </g>
+        )}
+      </For>
+    );
+  };
+
   // Treemap colors, kept apart from layout: changing the color metric only
   // repaints. Boxes without a treemap match keep the neutral styling.
   // Boxes get a pastel of the treemap color with a border in the same hue;
@@ -422,8 +496,8 @@ export function DependencyCanvas(props: {
       width: n.width,
       fixedInset: PAD_X * 2,
       inkInset: ICON_W + (hubById().has(n.id) ? 15 : 0),
-      height: n.height - 2 * COMPACT_PAD_Y,
-      hasStats: (b?.hubBadges.length ?? 0) > 0 || (b?.cycles.length ?? 0) > 0 || locText(n) !== "",
+      height: n.height - 2 * COMPACT_PAD_Y - (contentsOf(n) ? STRIP_RESERVE : 0),
+      hasStats: b !== undefined || locText(n) !== "",
     };
   };
   /** One text scale for every compact box in the view (see `viewInk`). */
@@ -435,14 +509,40 @@ export function DependencyCanvas(props: {
     const geo = createMemo(() => {
       const k = boxInk();
       const t = compactText(compactBox(n), k);
-      const blockH = t.lines.length * t.lineH + (t.stats ? t.statsH : 0);
-      const top = (n.height - blockH) / 2;
+      const room = n.height - (contentsOf(n) ? STRIP_RESERVE : 0);
       const textX = PAD_X + ICON_W * k;
-      // LOC sits right of the badges only when both fit; badges (hubs, cycles) win.
-      const badges = (box()?.hubBadges.length ?? 0) + ((box()?.cycles.length ?? 0) > 0 ? 1 : 0);
+      const right = n.width - PAD_X;
+      // Stats line, left to right while it fits: link counts, hub and mutual badges, then LOC on the right.
+      const font = `400 ${t.statsPx}px Inter, ui-sans-serif, system-ui, sans-serif`;
+      const b = box();
+      let x = textX;
+      const counts: { dir: "in" | "out"; n: number; x: number }[] = [];
+      for (const [dir, c] of [["in", b?.importers.length], ["out", n.node.kind === "external" ? undefined : b?.imports.length]] as const) {
+        if (c === undefined) continue;
+        const w = 15 * k + measureText(String(c), font) + 7 * k;
+        if (x + w - 7 * k > right) break;
+        counts.push({ dir, n: c, x });
+        x += w;
+      }
+      const pitch = BADGE_PITCH * k;
       const loc = locText(n);
-      const showLoc = loc !== "" && textX + badges * BADGE_PITCH * k + 6 * k + measureText(loc, `400 ${t.statsPx}px Inter, ui-sans-serif, system-ui, sans-serif`) <= n.width - PAD_X;
-      return { k, px: t.px, lineH: t.lineH, textX, lines: t.lines, stats: t.stats, showLoc, top, statsY: top + t.lines.length * t.lineH + t.statsH * 0.8 };
+      const locW = loc ? 6 * k + measureText(loc, font) : 0;
+      const badgeCount = (b?.hubBadges.length ?? 0) + ((b?.cycles.length ?? 0) > 0 ? 1 : 0);
+      // Counts, badges and LOC share one line when they fit; else badges and
+      // LOC move to a second line when the box has the height.
+      const oneLine = x + badgeCount * pitch + locW <= right;
+      const nameH = t.lines.length * t.lineH;
+      const second = !oneLine && (badgeCount > 0 || loc !== "") && t.stats && room - 2 * COMPACT_PAD_Y - nameH - 2 * t.statsH >= 0;
+      const badgeX = second ? textX : x;
+      const badgeSlots = Math.max(0, Math.floor((right - badgeX) / pitch));
+      const hubBadges = (b?.hubBadges ?? []).slice(0, badgeSlots);
+      const cycle = (b?.cycles.length ?? 0) > 0 && hubBadges.length < badgeSlots;
+      const rowEnd = badgeX + (hubBadges.length + (cycle ? 1 : 0)) * pitch;
+      const showLoc = loc !== "" && rowEnd + locW <= right;
+      const blockH = nameH + (t.stats ? t.statsH * (second ? 2 : 1) : 0);
+      const top = (room - blockH) / 2;
+      const statsY = top + nameH + t.statsH * 0.8;
+      return { k, px: t.px, lineH: t.lineH, textX, lines: t.lines, stats: t.stats, statsPx: t.statsPx, counts, badgeX, hubBadges, cycle, showLoc, top, statsY, badgeY: second ? statsY + t.statsH : statsY };
     });
     const pitch = () => BADGE_PITCH * geo().k;
     return (
@@ -472,7 +572,20 @@ export function DependencyCanvas(props: {
           )}
         </Show>
         <Show when={geo().stats}>
-          <For each={box()?.hubBadges ?? []}>
+          <For each={geo().counts}>
+            {(c) => (
+              <g style={{ color: countTone(c.n) }} {...iconHover(() => (c.dir === "in" ? inTip(box()!) : outTip(box()!)))}>
+                <rect x={c.x - 2 * geo().k} y={geo().statsY - 11 * geo().k} width={15 * geo().k + 4 + String(c.n).length * 7 * geo().k} height={14 * geo().k} fill="transparent" />
+                <g transform={`translate(${c.x},${geo().statsY}) scale(${geo().k})`}>
+                  <FlowIcon dir={c.dir} x={0} y={0} />
+                </g>
+                <text x={c.x + 15 * geo().k} y={geo().statsY} font-size={`${geo().statsPx}`} font-weight={countWeight(c.n)} class="tabular-nums" fill="currentColor">
+                  {c.n}
+                </text>
+              </g>
+            )}
+          </For>
+          <For each={geo().hubBadges}>
             {(h, i) => (
               <g
                 {...iconHover(() => ({
@@ -480,14 +593,14 @@ export function DependencyCanvas(props: {
                   lines: [`A hub ${plural(h.importers, "box")} import; its edges are hidden.`],
                 }), h.id)}
               >
-                <rect x={geo().textX - 2 + i() * pitch()} y={geo().statsY - 11 * geo().k} width={pitch()} height={14 * geo().k} fill="transparent" />
-                <HubGlyph shape={h.shape} color={h.color} x={geo().textX + 5 * geo().k + i() * pitch()} y={geo().statsY - 4 * geo().k} r={4.5 * geo().k} />
+                <rect x={geo().badgeX - 2 + i() * pitch()} y={geo().badgeY - 11 * geo().k} width={pitch()} height={14 * geo().k} fill="transparent" />
+                <HubGlyph shape={h.shape} color={h.color} x={geo().badgeX + 5 * geo().k + i() * pitch()} y={geo().badgeY - 4 * geo().k} r={4.5 * geo().k} />
               </g>
             )}
           </For>
-          <Show when={(box()?.cycles.length ?? 0) > 0}>
+          <Show when={geo().cycle}>
             <g
-              transform={`translate(${geo().textX + 5 * geo().k + (box()?.hubBadges.length ?? 0) * pitch()},${geo().statsY - 4 * geo().k}) scale(${geo().k})`}
+              transform={`translate(${geo().badgeX + 5 * geo().k + geo().hubBadges.length * pitch()},${geo().badgeY - 4 * geo().k}) scale(${geo().k})`}
               {...iconHover(() => ({ title: "Mutual import", lines: ["Imports and is imported by:", ...listTip(box()!.cycles)] }))}
             >
               <rect x={-7} y={-7} width={14} height={14} fill="transparent" />
@@ -495,10 +608,13 @@ export function DependencyCanvas(props: {
             </g>
           </Show>
           <Show when={geo().showLoc}>
-            <text x={n.width - PAD_X} y={geo().statsY} text-anchor="end" font-size={`${11 * geo().k}`} class="tabular-nums" fill={MUTED_TEXT}>
+            <text x={n.width - PAD_X} y={geo().badgeY} text-anchor="end" font-size={`${geo().statsPx}`} class="tabular-nums" fill={MUTED_TEXT}>
               {locText(n)}
             </text>
           </Show>
+        </Show>
+        <Show when={contentsOf(n)}>
+          <ContentsStrip n={n} y={n.height - STRIP_RESERVE + 1} h={STRIP_H * 1.5} />
         </Show>
       </>
     );
@@ -827,38 +943,21 @@ export function DependencyCanvas(props: {
                   {/* Row 3: boxes importing it / it imports, and the color metric as a bar. */}
                   <Show when={box()}>
                     {(b) => {
-                      const tone = (k: number) => (k === 0 ? "var(--plc-on-disabled)" : "var(--plc-on-muted)");
                       const external = n.node.kind === "external";
                       return (
                         <g>
-                          <g
-                            style={{ color: tone(b().importers.length) }}
-                            {...iconHover(() => ({
-                              title: b().importers.length
-                                ? `Imported by ${plural(b().importers.length, "box")} · ${plural(b().inLinks, "link")}`
-                                : "Nothing in view imports it",
-                              rows: linkRows(b().importers, b().linksFrom),
-                            }))}
-                          >
+                          <g style={{ color: countTone(b().importers.length) }} {...iconHover(() => inTip(b()))}>
                             <rect x={TEXT_X - 3} y={LINE3_Y - 12} width={36} height={16} fill="transparent" />
                             <FlowIcon dir="in" x={TEXT_X} y={LINE3_Y} />
-                            <text x={TEXT_X + 15} y={LINE3_Y} class="text-[11px] tabular-nums" fill="currentColor">
+                            <text x={TEXT_X + 15} y={LINE3_Y} class="text-[11px] tabular-nums" font-weight={countWeight(b().importers.length)} fill="currentColor">
                               {b().importers.length}
                             </text>
                           </g>
                           <Show when={!external}>
-                            <g
-                              style={{ color: tone(b().imports.length) }}
-                              {...iconHover(() => ({
-                                title: b().imports.length
-                                  ? `Imports ${plural(b().imports.length, "box")} · ${plural(b().outLinks, "link")}`
-                                  : "Imports nothing in view",
-                                rows: linkRows(b().imports, b().linksTo),
-                              }))}
-                            >
+                            <g style={{ color: countTone(b().imports.length) }} {...iconHover(() => outTip(b()))}>
                               <rect x={TEXT_X + 37} y={LINE3_Y - 12} width={36} height={16} fill="transparent" />
                               <FlowIcon dir="out" x={TEXT_X + 40} y={LINE3_Y} />
-                              <text x={TEXT_X + 55} y={LINE3_Y} class="text-[11px] tabular-nums" fill="currentColor">
+                              <text x={TEXT_X + 55} y={LINE3_Y} class="text-[11px] tabular-nums" font-weight={countWeight(b().imports.length)} fill="currentColor">
                                 {b().imports.length}
                               </text>
                             </g>
@@ -905,6 +1004,9 @@ export function DependencyCanvas(props: {
                       <rect x={TEXT_X - 2 + (box()?.hubBadges.length ?? 0) * BADGE_PITCH} y={ROW4_Y - 9} width={BADGE_PITCH} height={18} fill="transparent" />
                       <CycleIcon x={TEXT_X + 5 + (box()?.hubBadges.length ?? 0) * BADGE_PITCH} y={ROW4_Y} />
                     </g>
+                  </Show>
+                  <Show when={contentsOf(n)}>
+                    <ContentsStrip n={n} y={n.height - 7} h={STRIP_H} />
                   </Show>
                   <Show when={hub()}>
                     <text x={n.width - PAD_X} y={ROW4_Y + 3.5} text-anchor="end" class="text-[11px] font-medium" fill={MUTED_TEXT}>
@@ -965,7 +1067,7 @@ export function DependencyCanvas(props: {
             style={{ left: "0px", top: "0px", visibility: "hidden" }}
           >
             <Show when={c().node}>
-              {(pn) => <NodeCard node={pn().node} focused={pn().node.graphId === props.focusId} info={info().get(pn().id)} metric={metricRow(pn())} loc={props.metrics?.get(pn().id)?.loc} hub={hubById().get(pn().id)} />}
+              {(pn) => <NodeCard node={pn().node} focused={pn().node.graphId === props.focusId} info={info().get(pn().id)} metric={metricRow(pn())} loc={props.metrics?.get(pn().id)?.loc} hub={hubById().get(pn().id)} contents={contentsOf(pn())} itemColor={itemColor} />}
             </Show>
             <Show when={c().edge}>
               {(pe) => <EdgeCard edge={pe()} nodes={nodeById()} />}
@@ -1058,6 +1160,9 @@ function NodeCard(props: {
   metric?: { label: string; full: string; color: string } | null;
   loc?: number;
   hub?: { importers: number };
+  /** A folder's children, largest first. */
+  contents?: ContentItem[];
+  itemColor: (c: ContentItem) => string;
 }) {
   const kind = () =>
     [
@@ -1095,6 +1200,37 @@ function NodeCard(props: {
             <span class="plc-data-sm font-semibold text-[var(--plc-on-surface)]">{m().full}</span>
           </div>
         )}
+      </Show>
+      <Show when={props.contents?.length ? props.contents : undefined}>
+        {(items) => {
+          const MAX = 6;
+          const total = () => items().reduce((a, c) => a + c.loc, 0) || 1;
+          const restLoc = () => items().slice(MAX).reduce((a, c) => a + c.loc, 0);
+          return (
+            <div class="mt-1.5 grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-baseline gap-x-2 gap-y-px border-t border-[var(--plc-divider)] pt-1">
+              <span class="col-span-4 text-[11px] text-[var(--plc-on-subtle)]">Largest inside</span>
+              <For each={items().slice(0, MAX)}>
+                {(c) => (
+                  <>
+                    <span class="size-2 self-center rounded-[2px] border border-black/15" style={{ background: props.itemColor(c) }} />
+                    <span class="plc-data-sm truncate !font-normal text-[var(--plc-on-surface)]">
+                      {c.name}
+                      {c.kind === "folder" ? "/" : ""}
+                    </span>
+                    <span class="plc-data-sm text-right text-[var(--plc-on-muted)]">{formatLoc(c.loc).replace(" LOC", "")}</span>
+                    <span class="plc-data-sm w-8 text-right text-[var(--plc-on-subtle)]">{Math.round((100 * c.loc) / total())}%</span>
+                  </>
+                )}
+              </For>
+              <Show when={items().length > MAX}>
+                <span />
+                <span class="text-[11px] text-[var(--plc-on-subtle)]">+{items().length - MAX} more</span>
+                <span class="plc-data-sm text-right text-[var(--plc-on-subtle)]">{formatLoc(restLoc()).replace(" LOC", "")}</span>
+                <span class="plc-data-sm w-8 text-right text-[var(--plc-on-subtle)]">{Math.round((100 * restLoc()) / total())}%</span>
+              </Show>
+            </div>
+          );
+        }}
       </Show>
       <Show when={i()}>
         {(b) => (
