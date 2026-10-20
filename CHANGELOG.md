@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.2.0](https://github.com/byronwall/srcly/compare/v1.1.0...v1.2.0) (2026-10-20)
+
+
+### Features
+
+* **graph:** expand folders in place to explore dependencies at mixed scales ([#84](https://github.com/byronwall/srcly/issues/84)) ([5df41ab](https://github.com/byronwall/srcly/commit/5df41ab74217d61757f602d4b8aa2af878e9f854))
+* **graph:** go-to palette for any folder, file or symbol ([#88](https://github.com/byronwall/srcly/issues/88)) ([e9bb0d1](https://github.com/byronwall/srcly/commit/e9bb0d1a2318cba48c46c9a27481c421a1f4727c))
+* **graph:** keyboard navigation, shortcut sheet and modifier clicks ([#87](https://github.com/byronwall/srcly/issues/87)) ([c4a99ec](https://github.com/byronwall/srcly/commit/c4a99ec0b7a130179fd641a9dd8b9c90a4314715))
+* **graph:** show link counts and folder contents on every box ([#86](https://github.com/byronwall/srcly/issues/86)) ([601b938](https://github.com/byronwall/srcly/commit/601b9389fbc7887b4da84ce9acbbaba63e58bad3))
+
 ## [1.1.0](https://github.com/byronwall/srcly/compare/v1.0.0...v1.1.0) (2026-10-19)
 
 

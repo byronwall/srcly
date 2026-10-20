@@ -1,6 +1,6 @@
 [project]
 name = "srcly"
-version = "1.1.0"
+version = "1.2.0"
 description = "Interactive codebase treemap and metrics viewer."
 readme = "README.md"
 requires-python = ">=3.13"
