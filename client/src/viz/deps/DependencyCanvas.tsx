@@ -6,7 +6,7 @@ import { treemapFillColor, treemapRampPosition, rampColor } from "../treemap/uti
 import { tailPath } from "../treemap/components/TreemapTooltip";
 import { placeFloating } from "../treemap/hooks/useTreemapTooltip";
 import { boxInfo, type BoxInfo } from "./boxInfo";
-import { compactText, inkForZoom, viewInk, type CompactBox } from "./boxText";
+import { compactText, inkForZoom, labelFont, viewInk, type CompactBox } from "./boxText";
 import {
   CONTEXT_EDGE_DASH,
   CONTEXT_EDGE_OPACITY,
@@ -17,7 +17,7 @@ import {
 import { boundsOf } from "./geometry";
 import { createClickIntent, liveHover } from "./interaction";
 import { formatLoc, stripSegments, type ContentItem, type StripSegment } from "./metrics";
-import { HUB_STYLES, type HubShape } from "./hubs";
+import type { HubShape } from "./hubs";
 import { FRAME_LABEL_H, MAX_SCALE, type PositionedEdge, type PositionedNode, type ViewLayout } from "./layout";
 import type { ViewNode } from "./viewModel";
 
@@ -34,8 +34,11 @@ const LINE2_Y = 34;
 const LINE3_Y = 50;
 const ROW4_Y = 60.5;
 const METRIC_BAR_W = 28;
-/** Treemap color mixed into the box fill: enough to read, soft enough for text. */
-const TINT = 0.3;
+/**
+ * Treemap color mixed into the box fill: enough to read at a glance, soft
+ * enough that the bar and the contents strip carry the exact colors.
+ */
+const TINT = 0.22;
 const MUTED_TEXT = "var(--plc-on-muted)";
 /** Rows 2–4 share the label's left edge; the kind glyph owns the column before it. */
 const TEXT_X = PAD_X + ICON_W;
@@ -90,7 +93,8 @@ const SYMBOL_GLYPH: Record<string, string> = {
   value: "v",
 };
 
-function KindGlyph(props: { node: ViewNode; x: number; y: number }) {
+/** The 12px kind icon boxes use; the go-to palette draws the same ones. */
+export function KindGlyph(props: { node: Pick<ViewNode, "kind" | "symbolKind">; x: number; y: number }) {
   const k = () => props.node.kind;
   const glyph = () => SYMBOL_GLYPH[props.node.symbolKind ?? ""] ?? "ƒ";
   return (
@@ -145,7 +149,7 @@ export function FlowIcon(props: { dir: "in" | "out"; x: number; y: number }) {
 /** Two arrows chasing each other: a mutual import. */
 export function CycleIcon(props: { x: number; y: number }) {
   return (
-    <g transform={`translate(${props.x - 5},${props.y - 5})`} fill="none" stroke="var(--plc-danger, #dc2626)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <g transform={`translate(${props.x - 5},${props.y - 5})`} fill="none" stroke="var(--plc-on-muted)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M8.5 3.2A4 4 0 0 0 1.4 4 M1.5 6.8A4 4 0 0 0 8.6 6 M1.2 1.6v2.6h2.6 M8.8 8.4V5.8H6.2" />
     </g>
   );
@@ -310,10 +314,7 @@ export function DependencyCanvas(props: {
   const flights = createFlights(() => props.layout);
   const info = createMemo(() => boxInfo(props.layout));
   const hubById = createMemo(() => new Map((props.layout.hubs ?? []).map((h) => [h.id, h])));
-  const hubMarker = (target: string) => {
-    const i = (props.layout.hubs ?? []).findIndex((h) => h.id === target);
-    return i >= 0 ? `url(#dv-arrow-hub-${i})` : "url(#dv-arrow-active)";
-  };
+
   const allEdges = createMemo(() => [...props.layout.edges, ...(props.layout.hiddenEdges ?? [])]);
 
   // Edges touching the hovered node (or the hovered edge itself) are
@@ -484,10 +485,19 @@ export function DependencyCanvas(props: {
   /** A folder's children as one bar along its bottom: widths by LOC, colors by the color metric. */
   const ContentsStrip = (p: { n: PositionedNode; y: number; h: number }) => {
     const segs = createMemo(() => stripSegments(contentsOf(p.n) ?? [], p.n.width - PAD_X * 2));
+    // The segment under the pointer gets an outline, so the card's name has a place.
+    const [hot, setHot] = createSignal<number | null>(null);
     return (
+      <>
+      {/* A white track: the strip's colors read on their own, not against the box tint. */}
+      <rect x={PAD_X - 1} y={p.y - 1} width={p.n.width - PAD_X * 2 + 1} height={p.h + 2} rx={Math.min(2.5, p.h / 2 + 1)} fill="var(--plc-surface)" stroke="var(--plc-border)" stroke-width="0.5" />
       <For each={segs()}>
-        {(seg) => (
-          <g {...iconHover(() => stripTip(p.n, seg))}>
+        {(seg, i) => (
+          <g
+            {...iconHover(() => stripTip(p.n, seg))}
+            onMouseOver={() => setHot(i())}
+            onMouseOut={() => setHot(null)}
+          >
             <rect x={PAD_X + seg.x} y={p.y - 3} width={seg.w} height={p.h + 6} fill="transparent" />
             <rect
               x={PAD_X + seg.x}
@@ -496,30 +506,27 @@ export function DependencyCanvas(props: {
               height={p.h}
               rx={Math.min(1.5, p.h / 2)}
               fill={seg.item ? itemColor(seg.item) : "var(--plc-border-strong)"}
-              stroke="#334155"
-              stroke-opacity="0.18"
-              stroke-width="0.5"
+              stroke={hot() === i() ? "var(--plc-on-surface)" : "none"}
+              stroke-width="1"
             />
           </g>
         )}
       </For>
+      </>
     );
   };
 
   // Treemap colors, kept apart from layout: changing the color metric only
   // repaints. Boxes without a treemap match keep the neutral styling.
-  // Boxes get a pastel of the treemap color with a border in the same hue;
-  // text stays the regular dark ink on every box.
+  // Color has one job per channel: the metric ramp tints the fill (and draws
+  // the bar and strip); borders stay neutral so blue (focus, selection,
+  // hover) is the only colored outline.
   const paint = createMemo(() => {
-    const out = new Map<string, { fill: string; stroke: string }>();
+    const out = new Map<string, { fill: string }>();
     const metric = props.colorMetric;
     if (!metric || !props.metrics) return out;
     for (const [id, m] of props.metrics) {
-      const base = treemapFillColor(metric, m, 0);
-      out.set(id, {
-        fill: d3.interpolateLab("#ffffff", base)(TINT),
-        stroke: d3.interpolateLab(base, "#334155")(0.35),
-      });
+      out.set(id, { fill: d3.interpolateLab("#ffffff", treemapFillColor(metric, m, 0))(TINT) });
     }
     return out;
   });
@@ -579,11 +586,20 @@ export function DependencyCanvas(props: {
       const hubBadges = (b?.hubBadges ?? []).slice(0, badgeSlots);
       const cycle = (b?.cycles.length ?? 0) > 0 && hubBadges.length < badgeSlots;
       const rowEnd = badgeX + (hubBadges.length + (cycle ? 1 : 0)) * pitch;
-      const showLoc = loc !== "" && rowEnd + locW <= right;
       const blockH = nameH + (t.stats ? t.statsH * (second ? 2 : 1) : 0);
       const top = (room - blockH) / 2;
       const statsY = top + nameH + t.statsH * 0.8;
-      return { k, px: t.px, lineH: t.lineH, textX, lines: t.lines, stats: t.stats, statsPx: t.statsPx, counts, badgeX, hubBadges, cycle, showLoc, top, statsY, badgeY: second ? statsY + t.statsH : statsY };
+      const badgeY = second ? statsY + t.statsH : statsY;
+      // LOC goes on the stats line when it fits there, else after a short
+      // name's last line (not beside a hub's badge), else it stays in the card.
+      const lastLine = t.lines[t.lines.length - 1] ?? "";
+      const besideHub = hubById().has(n.id) && t.lines.length === 1;
+      const locY =
+        loc === "" ? null
+        : t.stats && rowEnd + locW <= right ? badgeY
+        : !besideHub && textX + measureText(lastLine, labelFont(t.px)) + 8 * k + locW <= right ? top + t.lineH * (t.lines.length - 1 + 0.82)
+        : null;
+      return { k, px: t.px, lineH: t.lineH, textX, lines: t.lines, stats: t.stats, statsPx: t.statsPx, counts, badgeX, hubBadges, cycle, locY, top, statsY, badgeY };
     });
     const pitch = () => BADGE_PITCH * geo().k;
     return (
@@ -648,11 +664,11 @@ export function DependencyCanvas(props: {
               <CycleIcon x={0} y={0} />
             </g>
           </Show>
-          <Show when={geo().showLoc}>
-            <text x={n.width - PAD_X} y={geo().badgeY} text-anchor="end" font-size={`${geo().statsPx}`} class="tabular-nums" fill={MUTED_TEXT}>
-              {locText(n)}
-            </text>
-          </Show>
+        </Show>
+        <Show when={geo().locY !== null}>
+          <text x={n.width - PAD_X} y={geo().locY!} text-anchor="end" font-size={`${geo().statsPx}`} class="tabular-nums" fill={MUTED_TEXT}>
+            {locText(n)}
+          </text>
         </Show>
         <Show when={contentsOf(n)}>
           <ContentsStrip n={n} y={n.height - STRIP_RESERVE + 1} h={STRIP_H * 1.5} />
@@ -673,13 +689,6 @@ export function DependencyCanvas(props: {
           <marker id="dv-arrow" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto">
             <path d="M0,0.8 L7.5,4 L0,7.2 z" fill="var(--plc-tertiary)" />
           </marker>
-          <For each={HUB_STYLES}>
-            {(h, i) => (
-              <marker id={`dv-arrow-hub-${i()}`} viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto">
-                <path d="M0,0.8 L7.5,4 L0,7.2 z" fill={h.color} />
-              </marker>
-            )}
-          </For>
           <filter id="dv-shadow" x="-10%" y="-10%" width="120%" height="140%">
             <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#0f172a" flood-opacity="0.12" />
           </filter>
@@ -863,11 +872,11 @@ export function DependencyCanvas(props: {
                 <Show when={activeEdges()?.has(e.id)}>
                   <path
                     d={edgePath(e)}
-                    stroke={hubById().get(e.target)?.color ?? "var(--plc-accent)"}
+                    stroke="var(--plc-accent)"
                     stroke-width={edgeStrokeWidth(e.edge.weight, false)}
                     stroke-opacity="0.85"
                     stroke-linejoin="round"
-                    marker-end={hubMarker(e.target)}
+                    marker-end="url(#dv-arrow-active)"
                     pointer-events="none"
                   />
                 </Show>
@@ -949,14 +958,14 @@ export function DependencyCanvas(props: {
                       dimmed()
                         ? "var(--plc-surface)"
                         : (paint().get(n.id)?.fill ??
-                          (isFocus ? "var(--plc-accent-subtle)" : isFolder ? "var(--plc-surface-muted)" : "var(--plc-surface)"))
+                          (isFolder ? "var(--plc-surface-muted)" : "var(--plc-surface)"))
                     }
                     stroke={
                       isFocus
                         ? "var(--plc-accent)"
                         : hoverNode() === n.id || hoverHub() === n.id
                           ? "var(--plc-on-muted)"
-                          : (paint().get(n.id)?.stroke ?? (isFolder ? "var(--plc-on-disabled)" : "var(--plc-border-strong)"))
+                          : isFolder ? "var(--plc-on-disabled)" : "var(--plc-border-strong)"
                     }
                     stroke-width={isFocus ? 2.25 : isFolder || hub() ? 1.5 : 1}
                     stroke-dasharray={n.node.kind === "external" ? EXTERNAL_BOX_DASH : undefined}
@@ -1071,7 +1080,8 @@ export function DependencyCanvas(props: {
                       transform={
                         ink() === 1
                           ? `translate(${n.width - MENU_BTN_W - 3 - (hub() ? 20 : 0)},${LINE1_Y - MENU_BTN_H + 4})`
-                          : `translate(${n.width - (MENU_BTN_W + 3 + (hub() ? 18 : 0)) * ink()},${3 * ink()}) scale(${ink()})`
+                          : // Zoomed out the name fills the box: the button straddles the top border instead of covering it.
+                            `translate(${n.width - (MENU_BTN_W + 6 + (hub() ? 18 : 0)) * ink()},${(-MENU_BTN_H / 2) * ink()}) scale(${ink()})`
                       }
                       class="group/menu cursor-pointer"
                       role="button"

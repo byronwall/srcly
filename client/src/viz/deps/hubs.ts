@@ -1,7 +1,7 @@
 // Hubs: boxes that most of the view imports (`utils`, a shared store).
 //
 // Drawing every edge into a hub fills the screen with ink that says one
-// thing: "everything uses this". A hub instead gets a shape-and-color badge;
+// thing: "everything uses this". A hub instead gets a shape badge;
 // each importer repeats the badge, and the edges show only while the hub (or
 // one of its badges) is hovered. Edges touching the focus always stay drawn.
 
@@ -20,11 +20,17 @@ export interface Hub {
 }
 
 /** One distinct hue per badge, clear of the treemap's blue → amber → red ramp. */
+/**
+ * Hubs differ by shape, all in one ink: hue on the canvas belongs to the
+ * metric ramp (fills, bars, strips) and to blue for focus and hover. Only one
+ * hub's edges show at a time, so a hue per hub isn't needed to match them.
+ */
+const HUB_INK = "#64748b";
 export const HUB_STYLES: { shape: HubShape; color: string }[] = [
-  { shape: "diamond", color: "#7c3aed" },
-  { shape: "circle", color: "#0d9488" },
-  { shape: "triangle", color: "#c026d3" },
-  { shape: "square", color: "#4f46e5" },
+  { shape: "diamond", color: HUB_INK },
+  { shape: "circle", color: HUB_INK },
+  { shape: "triangle", color: HUB_INK },
+  { shape: "square", color: HUB_INK },
 ];
 
 /** A hub needs at least this many importers … */

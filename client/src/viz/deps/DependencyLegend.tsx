@@ -101,6 +101,27 @@ function FillSwatch() {
   );
 }
 
+/** A folder's contents strip: children by LOC, on a white track. */
+function StripSwatch() {
+  return (
+    <svg width={SW} height={SH} viewBox={`0 0 ${SW} ${SH}`} aria-hidden="true">
+      <rect x="1" y="4.5" width={SW - 2} height="5" rx="2" fill="var(--plc-surface)" stroke="var(--plc-border)" stroke-width="0.5" />
+      <For each={[[0, 11, 0.85], [11, 8, 0.6], [19, 5, 0.3], [24, 4, 0.1]] as const}>
+        {([x, w, t]) => <rect x={1.5 + x} y="5" width={w - 1} height="4" rx="1.2" fill={rampColor(t)} />}
+      </For>
+    </svg>
+  );
+}
+
+/** Blue: what you're working with (focus, selection, hover). */
+function AccentSwatch() {
+  return (
+    <svg width={SW} height={SH} viewBox={`0 0 ${SW} ${SH}`} aria-hidden="true">
+      <rect x="2" y="2" width={SW - 4} height={SH - 4} rx="2.5" fill="var(--plc-surface)" stroke="var(--plc-accent)" stroke-width="1.75" />
+    </svg>
+  );
+}
+
 /** The hub badges, side by side. */
 function HubSwatch() {
   return (
@@ -130,21 +151,38 @@ function MetricSwatch() {
   );
 }
 
-const ITEMS: { swatch: () => JSX.Element; label: string }[] = [
-  { swatch: () => <EdgeSwatch width={edgeStrokeWidth(1, false)} opacity={EDGE_OPACITY} />, label: "Imports (arrow points at the dependency)" },
-  { swatch: () => <EdgeSwatch width={edgeStrokeWidth(8, false)} opacity={EDGE_OPACITY} />, label: "Thicker: more import links" },
+const GROUPS: { title: string; items: { swatch: () => JSX.Element; label: string }[] }[] = [
   {
-    swatch: () => <EdgeSwatch width={edgeStrokeWidth(1, true)} dash={CONTEXT_EDGE_DASH} opacity={CONTEXT_EDGE_OPACITY} />,
-    label: "Context: between neighbors, or inside the focus",
+    title: "Color",
+    items: [
+      { swatch: () => <FillSwatch />, label: "Tint: the color metric, on the treemap's scale" },
+      { swatch: () => <MetricSwatch />, label: "Bar: that metric's value" },
+      { swatch: () => <StripSwatch />, label: "Strip: what a folder holds, sized by LOC, colored by the metric" },
+      { swatch: () => <AccentSwatch />, label: "Blue: the focus, the selection and hovered edges" },
+    ],
   },
-  { swatch: () => <ExternalSwatch />, label: "External package" },
-  { swatch: () => <FrameSwatch />, label: "Neighbors from one package" },
-  { swatch: () => <FrameSwatch opened />, label: "Opened folder: click a folder to open it, its title to close" },
-  { swatch: () => <FillSwatch />, label: "Tint: the treemap's color metric" },
-  { swatch: () => <MetricSwatch />, label: "Bar: that metric's value on the same scale" },
-  { swatch: () => <FlowSwatch />, label: "Boxes importing it · boxes it imports" },
-  { swatch: () => <HubSwatch />, label: "Hub: most boxes import it; hover a badge for its edges" },
-  { swatch: () => <CycleSwatch />, label: "Mutual import with a box in view" },
+  {
+    title: "Marks",
+    items: [
+      { swatch: () => <FlowSwatch />, label: "Boxes importing it · boxes it imports (bold: the busiest)" },
+      { swatch: () => <HubSwatch />, label: "Hub: most boxes import it; importers show its shape. Hover for edges" },
+      { swatch: () => <CycleSwatch />, label: "Mutual import with a box in view" },
+      { swatch: () => <ExternalSwatch />, label: "External package" },
+    ],
+  },
+  {
+    title: "Edges and frames",
+    items: [
+      { swatch: () => <EdgeSwatch width={edgeStrokeWidth(1, false)} opacity={EDGE_OPACITY} />, label: "Imports (arrow points at the dependency)" },
+      { swatch: () => <EdgeSwatch width={edgeStrokeWidth(8, false)} opacity={EDGE_OPACITY} />, label: "Thicker: more import links" },
+      {
+        swatch: () => <EdgeSwatch width={edgeStrokeWidth(1, true)} dash={CONTEXT_EDGE_DASH} opacity={CONTEXT_EDGE_OPACITY} />,
+        label: "Context: between neighbors, or inside the focus",
+      },
+      { swatch: () => <FrameSwatch />, label: "Neighbors from one package" },
+      { swatch: () => <FrameSwatch opened />, label: "Opened folder: its title closes it" },
+    ],
+  },
 ];
 
 /** Bottom-right key to the graph's visual encodings; collapses to an icon. */
@@ -182,16 +220,23 @@ export function DependencyLegend() {
               <ChevronDown size={13} aria-hidden="true" />
             </IconButton>
           </div>
-          <ul class="space-y-1 pr-1.5">
-            <For each={ITEMS}>
-              {(item) => (
-                <li class="flex items-center gap-2">
-                  {item.swatch()}
-                  <span>{item.label}</span>
-                </li>
-              )}
-            </For>
-          </ul>
+          <For each={GROUPS}>
+            {(group, gi) => (
+              <section classList={{ "mt-1.5": gi() > 0 }}>
+                <h4 class="pb-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--plc-on-subtle)]">{group.title}</h4>
+                <ul class="space-y-1 pr-1.5">
+                  <For each={group.items}>
+                    {(item) => (
+                      <li class="flex items-center gap-2">
+                        {item.swatch()}
+                        <span>{item.label}</span>
+                      </li>
+                    )}
+                  </For>
+                </ul>
+              </section>
+            )}
+          </For>
         </div>
       </Show>
     </div>
