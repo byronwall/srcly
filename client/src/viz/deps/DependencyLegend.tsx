@@ -16,9 +16,10 @@ const COLLAPSED_KEY = "srcly.depsLegendCollapsed";
 
 function readCollapsed(): boolean {
   try {
-    return window.localStorage.getItem(COLLAPSED_KEY) === "1";
+    // Collapsed until opened once: open, it covers boxes in the corner.
+    return window.localStorage.getItem(COLLAPSED_KEY) !== "0";
   } catch {
-    return false;
+    return true;
   }
 }
 
