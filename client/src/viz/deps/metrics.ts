@@ -70,6 +70,64 @@ export function viewMetrics(graph: GraphIndex, nodes: ViewNode[], index: Metrics
   return out;
 }
 
+/** One child of a folder box: what the contents strip and the folder card show. */
+export interface ContentItem {
+  name: string;
+  kind: "folder" | "file";
+  loc: number;
+  metrics: Record<string, any>;
+}
+
+/**
+ * Folder boxes only: their direct children (subfolders and files), largest
+ * first by LOC, from the treemap tree. Folders without a treemap match are absent.
+ */
+export function viewContents(graph: GraphIndex, nodes: ViewNode[], index: MetricsIndex | undefined): Map<string, ContentItem[]> {
+  const out = new Map<string, ContentItem[]>();
+  if (!index) return out;
+  for (const n of nodes) {
+    if (n.kind !== "folder") continue;
+    const kids = index.get(graph.byId.get(n.graphId)?.absPath ?? "")?.children ?? [];
+    const items = kids
+      .filter((c) => c.type === "folder" || c.type === "file")
+      .map((c): ContentItem => ({ name: c.name, kind: c.type as ContentItem["kind"], loc: Number(c.metrics?.loc) || 0, metrics: c.metrics ?? {} }))
+      .filter((c) => c.loc > 0)
+      .sort((a, b) => b.loc - a.loc || a.name.localeCompare(b.name));
+    if (items.length) out.set(n.id, items);
+  }
+  return out;
+}
+
+export interface StripSegment {
+  x: number;
+  w: number;
+  /** One child, or the children too small to draw on their own (`rest`). */
+  item?: ContentItem;
+  rest?: ContentItem[];
+}
+
+/**
+ * A folder's contents strip: one segment per child, widths by LOC across
+ * `width`. Children narrower than `minW` fold into one trailing segment.
+ */
+export function stripSegments(items: ContentItem[], width: number, minW = 3): StripSegment[] {
+  const total = items.reduce((a, c) => a + c.loc, 0);
+  if (total <= 0 || width <= 0) return [];
+  const out: StripSegment[] = [];
+  const rest: ContentItem[] = [];
+  let x = 0;
+  for (const item of items) {
+    const w = (width * item.loc) / total;
+    if (w < minW) rest.push(item);
+    else {
+      out.push({ x, w, item });
+      x += w;
+    }
+  }
+  if (rest.length) out.push({ x, w: width - x, rest });
+  return out;
+}
+
 /** `840 LOC`, `4.1k LOC`, `12k LOC`. */
 export function formatLoc(loc: number): string {
   if (loc < 1000) return `${Math.round(loc)} LOC`;

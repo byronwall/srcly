@@ -16,7 +16,7 @@ import {
 } from "./hierarchy";
 import { layoutWithHubs } from "./hubs";
 import type { ViewLayout } from "./layout";
-import { viewMetrics, type MetricsIndex } from "./metrics";
+import { viewContents, viewMetrics, type MetricsIndex } from "./metrics";
 import { buildViewModel, DEFAULT_BUDGET, type ViewNode } from "./viewModel";
 import { folderOf, graphIdFor } from "../../navigation/location";
 import NodeActionsMenu, { type NodeMenuTarget } from "../../navigation/NodeActionsMenu";
@@ -132,6 +132,13 @@ export default function DependencyView(props: {
     const l = layout();
     const idx = index();
     return l && idx ? viewMetrics(idx, l.nodes.map((n) => n.node), props.metricsIndex) : undefined;
+  });
+
+  // Folder boxes' children by size, for their contents strip and card.
+  const boxContents = createMemo(() => {
+    const l = layout();
+    const idx = index();
+    return l && idx ? viewContents(idx, l.nodes.map((n) => n.node), props.metricsIndex) : undefined;
   });
 
   // A click opens a folder in place; files and symbols take the focus.
@@ -267,6 +274,7 @@ export default function DependencyView(props: {
                 onMenu={openMenu}
                 ref={(api) => (canvas = api)}
                 metrics={boxMetrics()}
+                contents={boxContents()}
                 colorMetric={props.colorMetric}
               />
               <DependencyLegend />

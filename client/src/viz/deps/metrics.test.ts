@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DependencyGraphContract } from "./contract";
 import { buildIndex } from "./hierarchy";
-import { buildMetricsIndex, formatLoc, nodeMetrics, symbolMetrics, viewMetrics, type MetricsNode } from "./metrics";
+import { buildMetricsIndex, formatLoc, nodeMetrics, stripSegments, symbolMetrics, viewContents, viewMetrics, type MetricsNode } from "./metrics";
 import { buildViewModel } from "./viewModel";
 
 const ROOT = "/repo";
@@ -80,6 +80,44 @@ describe("treemap metrics join", () => {
     expect(m.get(byLabel("util.py"))?.loc).toBe(200);
     expect(m.has(byLabel("new.py"))).toBe(false);
     expect(viewMetrics(graph, vm.nodes, undefined).size).toBe(0);
+  });
+
+  it("lists a folder box's children largest first, from the treemap", () => {
+    const graph = buildIndex({
+      root: "",
+      nodes: [
+        { id: "", kind: "folder", name: "repo", parent: null, absPath: ROOT },
+        { id: "server", kind: "folder", name: "server", parent: "", path: "server", absPath: `${ROOT}/server` },
+        { id: "server/util.py", kind: "file", name: "util.py", parent: "server", path: "server/util.py", absPath: `${ROOT}/server/util.py` },
+        { id: "server/pipeline.py", kind: "file", name: "pipeline.py", parent: "server", path: "server/pipeline.py", absPath: `${ROOT}/server/pipeline.py` },
+        { id: "client", kind: "folder", name: "client", parent: "", path: "client", absPath: `${ROOT}/client` },
+        { id: "client/a.ts", kind: "file", name: "a.ts", parent: "client", path: "client/a.ts", absPath: `${ROOT}/client/a.ts` },
+      ],
+      edges: [
+        { source: "client/a.ts", target: "server/util.py" },
+        { source: "server/util.py", target: "server/pipeline.py" },
+      ],
+    });
+    const vm = buildViewModel(graph, { focusId: "", budget: 2 });
+    const contents = viewContents(graph, vm.nodes, index);
+    const server = vm.nodes.find((n) => n.graphId === "server")!;
+    expect(contents.get(server.id)?.map((c) => [c.name, c.loc])).toEqual([
+      ["pipeline.py", 640],
+      ["util.py", 200],
+    ]);
+    // Files and folders the treemap doesn't have get no contents.
+    expect([...contents.keys()]).toEqual([server.id]);
+  });
+
+  it("splits a contents strip by LOC, folding slivers into one tail segment", () => {
+    const item = (name: string, loc: number) => ({ name, kind: "file" as const, loc, metrics: {} });
+    const segs = stripSegments([item("a", 600), item("b", 380), item("c", 10), item("d", 10)], 100);
+    expect(segs.map((s) => [s.item?.name ?? `+${s.rest?.length}`, Math.round(s.x), Math.round(s.w)])).toEqual([
+      ["a", 0, 60],
+      ["b", 60, 38],
+      ["+2", 98, 2],
+    ]);
+    expect(stripSegments([], 100)).toEqual([]);
   });
 
   it("formats LOC compactly", () => {
