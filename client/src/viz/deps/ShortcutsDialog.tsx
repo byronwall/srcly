@@ -67,7 +67,7 @@ function Keys(props: { combos: string[][] }) {
             <span class="inline-flex items-center gap-0.5">
               <For each={combo}>
                 {(k) => (
-                  <kbd class="min-w-[1.4rem] rounded border border-[var(--plc-border)] border-b-[var(--plc-border-strong)] bg-[var(--plc-surface-subtle)] px-1.5 py-px text-center font-sans text-[11px] font-medium leading-4 text-[var(--plc-on-surface)]">
+                  <kbd class="min-w-[1.4rem] rounded border border-[var(--plc-border)] border-b-[var(--plc-border-strong)] bg-[var(--plc-surface-subtle)] px-1.5 py-px text-center text-[11px] font-medium leading-4 text-[var(--plc-on-surface)]">
                     {k}
                   </kbd>
                 )}
@@ -92,13 +92,13 @@ export function ShortcutsDialog(props: { open: boolean; onClose: () => void }) {
           </IconButton>
         }
       />
-      <div class="grid grid-cols-1 gap-x-8 gap-y-4 overflow-auto px-4 py-3 text-[12.5px] md:grid-cols-2">
+      <div class="grid grid-cols-1 gap-x-8 gap-y-4 overflow-auto px-4 py-3 text-[12.5px] lg:grid-cols-2">
         <For each={GRAPH_SHORTCUTS}>
           {(section) => (
             <section>
               <h3 class="text-[11px] font-semibold uppercase tracking-wide text-[var(--plc-on-subtle)]">{section.title}</h3>
               {section.note ? <p class="mt-0.5 text-[11px] text-[var(--plc-on-subtle)]">{section.note}</p> : null}
-              <dl class="mt-1.5 grid grid-cols-[minmax(7.5rem,auto)_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5">
+              <dl class="mt-1.5 grid grid-cols-[10.5rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5">
                 <For each={section.rows}>
                   {([combos, does]) => (
                     <>
