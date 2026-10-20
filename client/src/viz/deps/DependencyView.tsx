@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createResource, createSignal, onCleanup, onMount, Show } from "solid-js";
-import { Minus, Plus } from "lucide-solid";
+import { Keyboard, Minus, Plus } from "lucide-solid";
 import { EmptyState, ErrorState, LoadingState } from "../../components/feedback/States";
 import { Button } from "../../components/ui/Button";
 import { IconButton } from "../../components/ui/IconButton";
@@ -7,6 +7,8 @@ import { CheckboxRow } from "../../components/ui/CheckboxRow";
 import type { DependencyGraphContract } from "./contract";
 import { DependencyCanvas, type CanvasApi } from "./DependencyCanvas";
 import { DependencyLegend } from "./DependencyLegend";
+import { ShortcutsDialog } from "./ShortcutsDialog";
+import { nextInDirection, type Direction } from "./interaction";
 import {
   applyFilters,
   buildIndex,
@@ -50,6 +52,11 @@ export default function DependencyView(props: {
   const [graph] = createResource(() => props.rootPath, (p) => fetchGraph(p || undefined));
   const [layout, setLayout] = createSignal<ViewLayout | null>(null);
   const [menu, setMenu] = createSignal<(NodeMenuTarget & { node: ViewNode }) | null>(null);
+  const [help, setHelp] = createSignal(false);
+  /** The keyboard selection, by graph id so it survives relayouts. */
+  const [selected, setSelected] = createSignal<string | null>(null);
+  /** The box under the pointer, reported by the canvas: keys act on it when nothing is selected. */
+  const [hovered, setHovered] = createSignal<ViewNode | null>(null);
   let canvas: CanvasApi | undefined;
   let host!: HTMLDivElement;
 
@@ -100,13 +107,115 @@ export default function DependencyView(props: {
     setOpen(openList().filter((id) => !drop.has(id)));
   };
 
+  /**
+   * The selected box: the box for the selected graph id, else (after it was
+   * opened in place) the first box inside it, top-left first.
+   */
+  const selectedBox = createMemo((): ViewNode | null => {
+    const id = selected();
+    const l = layout();
+    if (!id || !l) return null;
+    const exact = l.nodes.find((n) => n.node.graphId === id);
+    if (exact) return exact.node;
+    const inside = l.nodes.filter((n) => within(id, n.node.graphId)).sort((a, b) => a.y - b.y || a.x - b.x);
+    return inside[0]?.node ?? null;
+  });
+  const target = () => selectedBox() ?? hovered();
+  const select = (n: ViewNode | null) => {
+    setSelected(n?.graphId ?? null);
+    if (n) canvas?.reveal(n.id);
+  };
+
+  const move = (dir: Direction) => {
+    const l = layout();
+    if (!l?.nodes.length) return;
+    const from = target() ?? l.nodes.find((n) => n.node.isFocus)?.node;
+    if (!from) return select([...l.nodes].sort((a, b) => a.y - b.y || a.x - b.x)[0].node);
+    // The first press selects the box you start from.
+    if (!selectedBox()) return select(from);
+    const next = nextInDirection(l.nodes.map((n) => ({ id: n.id, x: n.x, y: n.y, width: n.width, height: n.height })), from.id, dir);
+    if (next) select(l.nodes.find((n) => n.id === next)!.node);
+  };
+
+  /** Close the opened folder a box sits in. */
+  const closeFrame = (n: ViewNode) => {
+    if (n.group && collapsible(n.group.id)) {
+      setSelected(n.group.id);
+      collapse(n.group.id);
+    }
+  };
+  /** Alt-click, E, Space: open in place, or close the frame around it. */
+  const toggleOpen = (n: ViewNode) => {
+    if (n.expandable) {
+      setSelected(n.graphId);
+      expand(n.graphId);
+    } else closeFrame(n);
+  };
+  /** Focus the parent folder, keeping the old focus selected so you can see where you were. */
+  const up = () => {
+    const idx = index();
+    const f = effectiveFocus();
+    if (!idx || f === null) return;
+    for (let p = idx.byId.get(f)?.parent ?? null; p !== null; p = idx.byId.get(p)?.parent ?? null) {
+      const at = collapseChain(idx, p);
+      if (at !== f) {
+        setSelected(f);
+        go({ at });
+        return;
+      }
+    }
+  };
+
   onMount(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target instanceof Element ? e.target : null;
-      if (e.metaKey || e.ctrlKey || e.altKey || t?.closest("input, textarea, select, [contenteditable=true]")) return;
-      if (e.key === "+" || e.key === "=") expandLevel();
-      else if (e.key === "-" || e.key === "_") collapseLevel();
-      else return;
+      if (e.metaKey || e.ctrlKey || t?.closest("input, textarea, select, [contenteditable=true]")) return;
+      if (help()) {
+        if (e.key === "Escape" || e.key === "?") {
+          setHelp(false);
+          e.preventDefault();
+        }
+        return;
+      }
+      // Another dialog or a menu owns the keyboard.
+      if (document.querySelector('[aria-modal="true"], [role="menu"]')) return;
+      if (e.altKey) {
+        if (e.key === "ArrowLeft") window.history.back();
+        else if (e.key === "ArrowRight") window.history.forward();
+        else return;
+        e.preventDefault();
+        return;
+      }
+      const n = target();
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (key === "?") setHelp(true);
+      else if (key === "ArrowLeft") move("left");
+      else if (key === "ArrowRight") move("right");
+      else if (key === "ArrowUp") move("up");
+      else if (key === "ArrowDown") move("down");
+      else if (key === "Escape" && selected()) setSelected(null);
+      else if (key === "+" || key === "=") expandLevel();
+      else if (key === "-" || key === "_") collapseLevel();
+      else if (key === "r") setOpen([]);
+      else if (key === "0") canvas?.fit();
+      else if (key === "x") setFilters((f) => ({ ...f, showExternal: !f.showExternal }));
+      else if (key === "t") setFilters((f) => ({ ...f, showTests: !f.showTests }));
+      else if (key === "y") setFilters((f) => ({ ...f, showTypeOnly: !f.showTypeOnly }));
+      else if (key === "u" || key === "Backspace") up();
+      else if (n && key === "Enter") {
+        setSelected(n.graphId);
+        if (e.shiftKey) onFocusNode(n);
+        else onClickNode(n);
+      } else if (n && key === "f") {
+        setSelected(n.graphId);
+        onFocusNode(n);
+      } else if (n && (key === "e" || key === " ")) toggleOpen(n);
+      else if (n && key === "c") closeFrame(n);
+      else if (n && key === "o") onOpenNode(n);
+      else if (n && key === "m") {
+        const r = canvas?.screenRect(n.id);
+        if (r) openMenu(n, { x: r.left, y: r.bottom + 4 });
+      } else return;
       e.preventDefault();
     };
     window.addEventListener("keydown", onKey);
@@ -240,9 +349,12 @@ export default function DependencyView(props: {
           <CheckboxRow checked={filters().showTests} onChange={toggle("showTests")} label="Tests" />
           <CheckboxRow checked={filters().showTypeOnly} onChange={toggle("showTypeOnly")} label="Type-only" />
           <div class="h-4 w-px bg-[var(--plc-border)]" />
-          <Button size="xs" onClick={() => canvas?.fit()}>
+          <Button size="xs" onClick={() => canvas?.fit()} title="Fit the graph to the window (0)">
             Fit
           </Button>
+          <IconButton size="xs" label="Keyboard and mouse shortcuts (?)" onClick={() => setHelp(true)}>
+            <Keyboard size={14} />
+          </IconButton>
         </div>
       </div>
 
@@ -268,6 +380,11 @@ export default function DependencyView(props: {
                 focusId={effectiveFocus() ?? undefined}
                 focusFrame={focusFrame()}
                 onFocus={onClickNode}
+                onForceFocus={onFocusNode}
+                onToggleOpen={toggleOpen}
+                onPointerAct={() => setSelected(null)}
+                onHover={setHovered}
+                selectedId={selectedBox()?.id}
                 onOpen={onOpenNode}
                 collapsible={collapsible}
                 onCollapse={collapse}
@@ -282,6 +399,8 @@ export default function DependencyView(props: {
           )}
         </Show>
       </div>
+
+      <ShortcutsDialog open={help()} onClose={() => setHelp(false)} />
 
       <Show when={menu()}>
         {(m) => (

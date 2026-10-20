@@ -34,6 +34,8 @@ export function DialogShell(props: DialogShellProps) {
         onClick={() => local.onClose()}
       >
         <div
+          role="dialog"
+          aria-modal="true"
           {...rest}
           class={cx(
             "flex flex-col overflow-hidden rounded-lg border border-[var(--plc-border)] bg-[var(--plc-surface)] text-[var(--plc-on-surface)] shadow-[var(--plc-dialog-shadow)]",
