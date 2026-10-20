@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createResource, createSignal, onCleanup, onMount, Show } from "solid-js";
-import { Keyboard, Minus, Plus } from "lucide-solid";
+import { Keyboard, Minus, Plus, Search } from "lucide-solid";
 import { EmptyState, ErrorState, LoadingState } from "../../components/feedback/States";
 import { Button } from "../../components/ui/Button";
 import { IconButton } from "../../components/ui/IconButton";
@@ -8,6 +8,8 @@ import type { DependencyGraphContract } from "./contract";
 import { DependencyCanvas, type CanvasApi } from "./DependencyCanvas";
 import { DependencyLegend } from "./DependencyLegend";
 import { ShortcutsDialog } from "./ShortcutsDialog";
+import { GoToPalette, type GoToMode } from "./GoToPalette";
+import type { GoToHit } from "./goto";
 import { nextInDirection, type Direction } from "./interaction";
 import {
   applyFilters,
@@ -53,6 +55,7 @@ export default function DependencyView(props: {
   const [layout, setLayout] = createSignal<ViewLayout | null>(null);
   const [menu, setMenu] = createSignal<(NodeMenuTarget & { node: ViewNode }) | null>(null);
   const [help, setHelp] = createSignal(false);
+  const [goTo, setGoTo] = createSignal(false);
   /** The keyboard selection, by graph id so it survives relayouts. */
   const [selected, setSelected] = createSignal<string | null>(null);
   /** The box under the pointer, reported by the canvas: keys act on it when nothing is selected. */
@@ -166,6 +169,20 @@ export default function DependencyView(props: {
     }
   };
 
+  /** A go-to pick: focus it, open it in place, or open its code. */
+  const goToPick = (hit: GoToHit, mode: GoToMode) => {
+    const idx = index();
+    if (!idx) return;
+    const id = hit.node.id;
+    if (mode === "code" && hit.node.kind !== "folder") {
+      props.onOpen(id, hit.node.kind === "symbol" ? hit.node.line : undefined);
+      return;
+    }
+    setSelected(id);
+    if (mode === "expand" && hit.node.kind !== "symbol") expand(id);
+    else go({ at: collapseChain(idx, id) });
+  };
+
   onMount(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target instanceof Element ? e.target : null;
@@ -189,6 +206,7 @@ export default function DependencyView(props: {
       const n = target();
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
       if (key === "?") setHelp(true);
+      else if (key === "/") setGoTo(true);
       else if (key === "ArrowLeft") move("left");
       else if (key === "ArrowRight") move("right");
       else if (key === "ArrowUp") move("up");
@@ -352,6 +370,9 @@ export default function DependencyView(props: {
           <Button size="xs" onClick={() => canvas?.fit()} title="Fit the graph to the window (0)">
             Fit
           </Button>
+          <IconButton size="xs" label="Go to a folder, file or symbol (/)" onClick={() => setGoTo(true)}>
+            <Search size={14} />
+          </IconButton>
           <IconButton size="xs" label="Keyboard and mouse shortcuts (?)" onClick={() => setHelp(true)}>
             <Keyboard size={14} />
           </IconButton>
@@ -401,6 +422,7 @@ export default function DependencyView(props: {
       </div>
 
       <ShortcutsDialog open={help()} onClose={() => setHelp(false)} />
+      <GoToPalette open={goTo()} index={index()} near={effectiveFocus() ?? ""} onClose={() => setGoTo(false)} onPick={goToPick} />
 
       <Show when={menu()}>
         {(m) => (
