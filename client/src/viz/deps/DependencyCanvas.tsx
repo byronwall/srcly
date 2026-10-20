@@ -71,6 +71,10 @@ function truncatePathStart(text: string, max: number, font: string): string {
 
 export interface CanvasApi {
   fit: () => void;
+  /** Pan just enough to bring a box fully into view. */
+  reveal: (id: string) => void;
+  /** A box's rectangle on screen. */
+  screenRect: (id: string) => DOMRect | undefined;
 }
 
 function edgePath(e: PositionedEdge): string {
@@ -161,6 +165,16 @@ export function DependencyCanvas(props: {
   focusFrame?: { title: string; note?: string; onTitle?: () => void };
   onFocus: (node: ViewNode) => void;
   onOpen: (node: ViewNode) => void;
+  /** Shift-click: focus the box even when a click would open it in place. */
+  onForceFocus?: (node: ViewNode) => void;
+  /** Alt-click: open the box in place, or close the folder frame around it. */
+  onToggleOpen?: (node: ViewNode) => void;
+  /** Any click on a box: the pointer takes over from the keyboard selection. */
+  onPointerAct?: () => void;
+  /** The box under the pointer, or null. */
+  onHover?: (node: ViewNode | null) => void;
+  /** The keyboard-selected box: ringed, and its edges drawn like a hover. */
+  selectedId?: string;
   /** Node actions: right-click, or the "⋯" shown on the hovered node. */
   onMenu?: (node: ViewNode, at: { x: number; y: number }) => void;
   ref?: (api: CanvasApi) => void;
@@ -209,6 +223,7 @@ export function DependencyCanvas(props: {
   const hoverNode = () => liveHover(nodeIds(), rawHoverNode());
   const hoverEdge = () => liveHover(edgeIds(), rawHoverEdge());
   const hoverHub = () => liveHover(nodeIds(), rawHoverHub());
+  const selectedId = () => liveHover(nodeIds(), props.selectedId ?? null);
   createEffect(() => {
     void props.layout;
     setHoverNode(null);
@@ -252,9 +267,31 @@ export function DependencyCanvas(props: {
     else sel.call(zoom.transform, t);
   };
 
+  const reveal = (id: string) => {
+    const n = props.layout.nodes.find((b) => b.id === id);
+    if (!svgRef || !n) return;
+    const { width, height } = svgRef.getBoundingClientRect();
+    const t = d3.zoomTransform(svgRef);
+    const m = 24;
+    const x0 = t.applyX(n.x);
+    const x1 = t.applyX(n.x + n.width);
+    const y0 = t.applyY(n.y);
+    const y1 = t.applyY(n.y + n.height);
+    const dx = x0 < m ? m - x0 : x1 > width - m ? Math.max(m - x0, width - m - x1) : 0;
+    const dy = y0 < m ? m - y0 : y1 > height - m ? Math.max(m - y0, height - m - y1) : 0;
+    if (!dx && !dy) return;
+    const sel = d3.select(svgRef);
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    (reduce ? sel : sel.transition().duration(180)).call(zoom.translateBy as any, dx / t.k, dy / t.k);
+  };
+
   onMount(() => {
     d3.select(svgRef).call(zoom).on("dblclick.zoom", null);
-    props.ref?.({ fit: () => fit(true) });
+    props.ref?.({
+      fit: () => fit(true),
+      reveal,
+      screenRect: (id) => svgRef.querySelector<SVGGElement>(`[data-box="${CSS.escape(id)}"]`)?.getBoundingClientRect(),
+    });
     const ro = new ResizeObserver(() => fit(false));
     ro.observe(svgRef);
     onCleanup(() => ro.disconnect());
@@ -266,6 +303,10 @@ export function DependencyCanvas(props: {
   });
 
   const nodeById = createMemo(() => new Map(props.layout.nodes.map((n) => [n.id, n])));
+  createEffect(() => {
+    const id = hoverNode();
+    props.onHover?.(id ? (nodeById().get(id)?.node ?? null) : null);
+  });
   const flights = createFlights(() => props.layout);
   const info = createMemo(() => boxInfo(props.layout));
   const hubById = createMemo(() => new Map((props.layout.hubs ?? []).map((h) => [h.id, h])));
@@ -278,7 +319,7 @@ export function DependencyCanvas(props: {
   // Edges touching the hovered node (or the hovered edge itself) are
   // emphasized. Hovering a hub, or one of its badges, brings its hidden edges back.
   const activeEdges = createMemo(() => {
-    const hn = hoverHub() ?? hoverNode();
+    const hn = hoverHub() ?? hoverNode() ?? (hoverEdge() ? null : selectedId());
     const he = hoverEdge();
     if (!hn && !he) return null;
     const set = new Set<string>();
@@ -291,7 +332,7 @@ export function DependencyCanvas(props: {
     const ae = activeEdges();
     if (!ae) return null;
     const set = new Set<string>();
-    const hn = hoverHub() ?? hoverNode();
+    const hn = hoverHub() ?? hoverNode() ?? (hoverEdge() ? null : selectedId());
     if (hn) set.add(hn);
     for (const e of allEdges()) {
       if (ae.has(e.id)) {
@@ -845,6 +886,7 @@ export function DependencyCanvas(props: {
               const opens = n.node.kind === "folder" && n.node.expandable;
               return (
                 <g
+                  data-box={n.id}
                   class={flight ? "dv-fly" : undefined}
                   style={{
                     transform: `translate(${n.x}px,${n.y}px)`,
@@ -867,7 +909,14 @@ export function DependencyCanvas(props: {
                   onClick={(ev) => {
                     ev.stopPropagation();
                     setCard(null);
-                    clickIntent.click(n.node, ev);
+                    props.onPointerAct?.();
+                    if (ev.shiftKey && props.onForceFocus) {
+                      clickIntent.cancel();
+                      props.onForceFocus(n.node);
+                    } else if (ev.altKey && props.onToggleOpen) {
+                      clickIntent.cancel();
+                      props.onToggleOpen(n.node);
+                    } else clickIntent.click(n.node, ev);
                   }}
                   onMouseDown={(ev) => {
                     // No middle-button autoscroll; the aux click opens the node.
@@ -888,6 +937,9 @@ export function DependencyCanvas(props: {
                     props.onMenu(n.node, { x: ev.clientX, y: ev.clientY });
                   }}
                 >
+                  <Show when={selectedId() === n.id}>
+                    <rect x={-4} y={-4} width={n.width + 8} height={n.height + 8} rx="9" fill="none" stroke="var(--plc-accent)" stroke-width={2 * ink()} />
+                  </Show>
                   <rect
                     width={n.width}
                     height={n.height}
@@ -1249,10 +1301,13 @@ function NodeCard(props: {
         {props.focused
           ? "Double-click or middle-click to open code"
           : props.node.kind === "folder" && props.node.expandable
-            ? "Click to open in place · double-click to focus"
+            ? "Click opens in place · Shift-click focuses"
             : props.node.kind === "symbol"
-            ? "Click to isolate · double-click or middle-click to open"
-            : "Click to focus · double-click or middle-click to open"}
+            ? "Click to isolate · double-click to open"
+            : props.node.expandable
+              ? "Click focuses · Alt-click shows symbols · double-click opens"
+              : "Click to focus · double-click or middle-click to open"}
+        <span class="float-right pl-3">? for keys</span>
       </div>
     </div>
   );

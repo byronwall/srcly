@@ -67,3 +67,40 @@ export function createClickIntent<T>(opts: ClickIntentOptions<T>): ClickIntent<T
     cancel,
   };
 }
+
+export type Direction = "left" | "right" | "up" | "down";
+export interface Rect {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Arrow-key movement between boxes: the nearest box whose center lies in
+ * `dir` from the current one, preferring boxes in line with it (the sideways
+ * gap between their edges counts five times). Null at the edge of the graph.
+ */
+export function nextInDirection(rects: Rect[], fromId: string, dir: Direction): string | null {
+  const from = rects.find((r) => r.id === fromId);
+  if (!from) return null;
+  const cx = from.x + from.width / 2;
+  const cy = from.y + from.height / 2;
+  let best: { id: string; score: number } | null = null;
+  for (const r of rects) {
+    if (r.id === fromId) continue;
+    const dx = r.x + r.width / 2 - cx;
+    const dy = r.y + r.height / 2 - cy;
+    const across = dir === "left" || dir === "right";
+    const ahead = dir === "left" ? -dx : dir === "right" ? dx : dir === "up" ? -dy : dy;
+    if (ahead <= 1) continue;
+    // Sideways gap between the two boxes' edges: 0 when they share a row (or column).
+    const side = across
+      ? Math.max(0, Math.abs(dy) - (r.height + from.height) / 2)
+      : Math.max(0, Math.abs(dx) - (r.width + from.width) / 2);
+    const score = ahead + 5 * side;
+    if (!best || score < best.score) best = { id: r.id, score };
+  }
+  return best?.id ?? null;
+}

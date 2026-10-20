@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createClickIntent, liveHover } from "./interaction";
+import { createClickIntent, liveHover, nextInDirection } from "./interaction";
 
 describe("liveHover", () => {
   const ids = new Set(["a", "b"]);
@@ -102,5 +102,26 @@ describe("createClickIntent", () => {
     intent.cancel();
     clock.advance(500);
     expect(log).toEqual([]);
+  });
+});
+
+describe("nextInDirection", () => {
+  const box = (id: string, x: number, y: number) => ({ id, x, y, width: 100, height: 40 });
+  // a  b  c
+  // d     e
+  const rects = [box("a", 0, 0), box("b", 150, 0), box("c", 300, 10), box("d", 0, 80), box("e", 300, 90)];
+
+  it("moves to the nearest box in line first", () => {
+    expect(nextInDirection(rects, "a", "right")).toBe("b");
+    expect(nextInDirection(rects, "b", "right")).toBe("c");
+    expect(nextInDirection(rects, "a", "down")).toBe("d");
+    expect(nextInDirection(rects, "c", "down")).toBe("e");
+    expect(nextInDirection(rects, "d", "right")).toBe("e");
+  });
+
+  it("stops at the edge and on unknown ids", () => {
+    expect(nextInDirection(rects, "a", "left")).toBeNull();
+    expect(nextInDirection(rects, "a", "up")).toBeNull();
+    expect(nextInDirection(rects, "zz", "up")).toBeNull();
   });
 });
