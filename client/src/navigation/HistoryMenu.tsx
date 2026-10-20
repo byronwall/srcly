@@ -4,7 +4,7 @@ import Popover from "../components/Popover";
 import { Button } from "../components/ui/Button";
 import { OptionRow, PopoverPanel, PopoverSectionTitle } from "../components/ui/PopoverPanel";
 import { shortAge, type HistoryEntry } from "./history";
-import { baseName, crumbsFor, sameLocation } from "./location";
+import { baseName, crumbsFor, samePlace } from "./location";
 import { go, history, location } from "./store";
 
 /** Splits a place into a muted parent trail and its own name. */
@@ -68,7 +68,7 @@ export default function HistoryMenu() {
             <For each={history()}>
               {(entry) => {
                 const label = placeLabel(entry);
-                const current = () => sameLocation(entry.loc, location());
+                const current = () => samePlace(entry.loc, location());
                 const otherRepo = () => entry.loc.repo !== location().repo;
                 return (
                   <OptionRow

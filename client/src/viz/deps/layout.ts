@@ -446,9 +446,17 @@ function layoutComponent(vm: ViewModel, opts: LayoutOptions): ViewLayout {
   const outDepth = sideDepths(byRegion.out, vm.edges, false);
   const centerRank = sideDepths(byRegion.center, vm.edges, false);
   const levels = (ns: ViewNode[], depth: Map<string, number>): ViewNode[][] => {
+    // An opened folder's boxes stay in one level (its shallowest), so it reads
+    // as one block rather than scattering across the flow.
+    const groupDepth = new Map<string, number>();
+    for (const n of ns) {
+      if (!n.group?.opened) continue;
+      const d = depth.get(n.id) ?? 0;
+      groupDepth.set(n.group.id, Math.min(groupDepth.get(n.group.id) ?? d, d));
+    }
     const out: ViewNode[][] = [];
     for (const n of ns) {
-      const d = depth.get(n.id) ?? 0;
+      const d = (n.group?.opened ? groupDepth.get(n.group.id) : undefined) ?? depth.get(n.id) ?? 0;
       (out[d] ??= []).push(n);
     }
     // Group members sit together from the start, so chunking a level into
@@ -566,7 +574,8 @@ function placeAndRoute(
       const g = byRow[i].group;
       let j = i;
       while (g && j + 1 < byRow.length && byRow[j + 1].group?.id === g.id) j++;
-      if (g && j > i) runs.push({ groupId: g.id, label: g.label, column: ci, first: rowOf.get(byRow[i].id)!, last: rowOf.get(byRow[j].id)! });
+      // An opened folder frames even a single box, so it never loses its name.
+      if (g && (j > i || g.opened)) runs.push({ groupId: g.id, label: g.label, column: ci, first: rowOf.get(byRow[i].id)!, last: rowOf.get(byRow[j].id)! });
       i = j + 1;
     }
   });

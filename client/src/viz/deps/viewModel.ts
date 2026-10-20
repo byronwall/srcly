@@ -37,9 +37,11 @@ export interface ViewNode {
    * the deepest folder they share with the focus. Boxes of one group stay
    * together in a column and get a labeled frame.
    */
-  group?: { id: string; label: string };
+  group?: { id: string; label: string; opened?: boolean };
   /** Side symbols only: the owning file, so symbols of one file sit together inside their group. */
   subgroup?: string;
+  /** A folder (or a file with symbols) that can open in place into its children. */
+  expandable?: boolean;
 }
 
 export interface ViewEdge {
@@ -63,6 +65,8 @@ export interface ViewModel {
   edges: ViewEdge[];
   /** Units that had to be rolled up to fit the budget. */
   rolledUp: number;
+  /** The requested expansions that apply to this focus (not the focus or its ancestors). */
+  expanded?: string[];
 }
 
 export interface ViewOptions {
@@ -71,6 +75,12 @@ export interface ViewOptions {
   budget: number;
   /** Max edges on screen before side neighbors roll up by folder. */
   edgeBudget?: number;
+  /**
+   * Folders and files opened in place, at any depth and on any side: each
+   * shows its children instead of one rolled-up box, whatever the budget.
+   * Everything else keeps the cut it had without them.
+   */
+  expanded?: Iterable<string>;
 }
 
 export const DEFAULT_BUDGET = 48;
@@ -91,12 +101,26 @@ export function buildViewModel(index: GraphIndex, opts: ViewOptions): ViewModel 
   const focus = index.byId.get(opts.focusId) ?? index.byId.get(index.graph.root)!;
   const focusId = focus.id;
   const focusKind = focus.kind;
+  const expanded = new Set(
+    [...(opts.expanded ?? [])].filter((id) => {
+      const k = index.byId.get(id)?.kind;
+      return (k === "folder" || k === "file") && !isAncestorOrSelf(index, id, focusId);
+    }),
+  );
+  // Expanded nodes plus every ancestor down to them: a leaf's box is the first
+  // node on its path below this set.
+  const opened = new Set<string>();
+  for (const id of expanded) {
+    for (const a of [...ancestors(index, id), id]) if (!isAncestorOrSelf(index, a, focusId)) opened.add(a);
+  }
 
   // 1. Which leaf does an edge endpoint occupy in the center, if any?
   const centerLeaf = (endpoint: string): string | null => {
     if (focusKind === "folder") {
       const file = owningFile(index, endpoint);
-      return file !== focusId && isAncestorOrSelf(index, focusId, file) ? file : null;
+      if (file === focusId || !isAncestorOrSelf(index, focusId, file)) return null;
+      // An expanded file shows its symbols.
+      return expanded.has(file) ? endpoint : file;
     }
     if (focusKind === "symbol") return endpoint === focusId ? endpoint : null;
     // file or external focus: the file and its symbols
@@ -111,6 +135,7 @@ export function buildViewModel(index: GraphIndex, opts: ViewOptions): ViewModel 
   const sideLeaf = (endpoint: string): string => {
     if (focusKind !== "folder") return endpoint;
     const file = owningFile(index, endpoint);
+    if (expanded.has(file)) return endpoint;
     return singleSymbol.get(file) ?? file;
   };
 
@@ -152,6 +177,13 @@ export function buildViewModel(index: GraphIndex, opts: ViewOptions): ViewModel 
     const touched = index.edges.some((e) => e.source === focusId || e.target === focusId);
     const hasSymbols = [...centerLeaves].some((l) => l !== focusId);
     if (hasSymbols && !touched) centerLeaves.delete(focusId);
+  }
+  // Same for an expanded file inside a focused folder.
+  for (const f of expanded) {
+    if (!centerLeaves.has(f) || index.byId.get(f)?.kind !== "file") continue;
+    const hasSymbols = [...centerLeaves].some((l) => l !== f && owningFile(index, l) === f);
+    const touched = index.edges.some((e) => e.source === f || e.target === f);
+    if (hasSymbols && !touched) centerLeaves.delete(f);
   }
 
   const leafRegion = new Map<string, Region>();
@@ -220,6 +252,12 @@ export function buildViewModel(index: GraphIndex, opts: ViewOptions): ViewModel 
         break;
       }
       state = next;
+    }
+    // User expansions open on top of that cut, so they only ever split boxes.
+    const forced = [...opened].filter((id) => isAncestorOrSelf(index, focusId, id));
+    if (forced.length) {
+      for (const id of forced) open.add(id);
+      state = evaluate(open);
     }
   }
   // A folder holding a single leaf is shown as that leaf.
@@ -340,6 +378,35 @@ export function buildViewModel(index: GraphIndex, opts: ViewOptions): ViewModel 
     rolledUp += pick.members.size - 1;
   }
 
+  // 4c. Expansions on the sides: a unit that swallowed an expanded folder
+  // splits into the children along each leaf's path; other units stay put.
+  if (opened.size > 0) {
+    const swallowed = new Set([...units].filter(([, u]) => u.region !== "center" && opened.has(u.graphId)).map(([k]) => k));
+    if (swallowed.size > 0) {
+      const regrouped = new Map<string, { region: Region; graphId: string; leaves: string[] }>();
+      for (const [leaf, uk] of leafUnit) {
+        if (!swallowed.has(uk)) continue;
+        const region = units.get(uk)!.region;
+        const chain = [...ancestors(index, leaf), leaf];
+        let at = -1;
+        for (let i = 0; i < chain.length; i++) if (opened.has(chain[i])) at = i;
+        const top = chain[Math.min(at + 1, chain.length - 1)];
+        const key = unitKey(region, top);
+        const g = regrouped.get(key) ?? { region, graphId: top, leaves: [] };
+        g.leaves.push(leaf);
+        regrouped.set(key, g);
+      }
+      for (const k of swallowed) units.delete(k);
+      for (const [key, g] of regrouped) {
+        // A child holding a single leaf is shown as that leaf.
+        const only = g.leaves.length === 1 ? g.leaves[0] : null;
+        const k = only ? unitKey(g.region, only) : key;
+        units.set(k, { region: g.region, graphId: only ?? g.graphId, members: g.leaves.length });
+        for (const l of g.leaves) leafUnit.set(l, k);
+      }
+    }
+  }
+
   // 5. Aggregate edges between units.
   const unitOfEndpoint = (endpoint: string): string | undefined => {
     const c = centerLeaf(endpoint);
@@ -388,9 +455,10 @@ export function buildViewModel(index: GraphIndex, opts: ViewOptions): ViewModel 
       context: u.region !== "center" && parentFile ? displayName(index, parentFile.id) : undefined,
       subtitle: subtitleFor(index, g.id, u.region, focusId),
       fileCount: stats?.files,
+      expandable: isExpandable(index, g.id, focusId),
     });
   }
-  assignGroups(index, focusId, nodes);
+  assignGroups(index, focusId, nodes, opened);
   disambiguateLabels(index, nodes);
   nodes.sort((a, b) => a.title.localeCompare(b.title));
 
@@ -407,7 +475,17 @@ export function buildViewModel(index: GraphIndex, opts: ViewOptions): ViewModel 
     nodes,
     edges: [...edgeMap.values()].sort((a, b) => a.id.localeCompare(b.id)),
     rolledUp,
+    expanded: [...expanded],
   };
+}
+
+/** Folders open into their children; files into their symbols. The focus never does. */
+function isExpandable(index: GraphIndex, id: string, focusId: string): boolean {
+  if (id === focusId) return false;
+  const g = index.byId.get(id);
+  if (g?.kind === "folder") return true;
+  if (g?.kind !== "file") return false;
+  return (index.children.get(id) ?? []).some((c) => index.byId.get(c)?.kind === "symbol");
 }
 
 /**
@@ -491,8 +569,19 @@ function foldersBelowShared(index: GraphIndex, focusChain: Set<string>, id: stri
  * monorepo — group one level deeper instead (`agent-core`, `agent-shared`).
  * Symbols also carry their file, so a file's symbols sit together.
  */
-export function assignGroups(index: GraphIndex, focusId: string, nodes: ViewNode[]): void {
+export function assignGroups(index: GraphIndex, focusId: string, nodes: ViewNode[], opened: Set<string> = new Set()): void {
   const focusChain = new Set([...ancestors(index, focusId), focusId]);
+  // Inside an opened folder or file, the frame is that folder: the deepest
+  // opened ancestor, named by its path below what it shares with the focus.
+  const openedFrame = (id: string): ViewNode["group"] => {
+    const chain = ancestors(index, id);
+    for (let i = chain.length - 1; i >= 0; i--) {
+      const a = chain[i];
+      if (focusChain.has(a)) return undefined;
+      if (opened.has(a)) return { id: a, label: relativeLabel(index, focusChain, a), opened: true };
+    }
+    return undefined;
+  };
   for (const region of ["in", "out"] as const) {
     const side = nodes.filter((n) => n.region === region);
     const paths = side.map((n) => foldersBelowShared(index, focusChain, n.graphId));
@@ -506,12 +595,26 @@ export function assignGroups(index: GraphIndex, focusId: string, nodes: ViewNode
     side.forEach((n, i) => {
       const p = paths[i];
       const pkg = p.below.length === 0 ? p.shared : p.below[Math.min(depth, p.below.length - 1)];
-      n.group = { id: pkg, label: displayName(index, pkg) };
+      n.group = openedFrame(n.graphId) ?? { id: pkg, label: displayName(index, pkg) };
       const g = index.byId.get(n.graphId);
       n.subgroup = g?.kind === "symbol" ? (g.parent ?? undefined) : undefined;
     });
   }
+  for (const n of nodes) {
+    if (n.region !== "center") continue;
+    const frame = openedFrame(n.graphId);
+    if (frame) n.group = frame;
+  }
   disambiguateGroups(index, nodes);
+}
+
+/** `viz/deps` for `client/src/viz/deps` seen from `client/src`; a file keeps its name. */
+function relativeLabel(index: GraphIndex, focusChain: Set<string>, id: string): string {
+  const chain = [...ancestors(index, id), id];
+  let at = 0;
+  for (let i = 0; i < chain.length; i++) if (focusChain.has(chain[i])) at = i;
+  const below = chain.slice(at + 1).map((c) => index.byId.get(c)?.name ?? c);
+  return below.length ? below.join("/") : displayName(index, id);
 }
 
 /**
@@ -519,7 +622,7 @@ export function assignGroups(index: GraphIndex, focusId: string, nodes: ViewNode
  * get parent folders prepended until their frame labels differ.
  */
 function disambiguateGroups(index: GraphIndex, nodes: ViewNode[]): void {
-  const groups = new Map<string, { id: string; label: string }>();
+  const groups = new Map<string, { id: string; label: string; opened?: boolean }>();
   for (const n of nodes) if (n.group) groups.set(n.group.id, n.group);
   const parts = (id: string) => (index.byId.get(id)?.path ?? id).split("/").filter(Boolean);
   for (let depth = 1; depth <= 3; depth++) {

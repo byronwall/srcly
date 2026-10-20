@@ -187,7 +187,7 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist live
 
 | Feature | Where |
 | --- | --- |
-| Location model: `?repo=&at=&view=` parse/serialize, legacy `depFocus` alias, breadcrumbs, scan-path ↔ `at`, graph-id mapping | `client/src/navigation/location.ts` |
+| Location model: `?repo=&at=&view=&open=` parse/serialize, legacy `depFocus` alias, breadcrumbs, scan-path ↔ `at`, graph-id mapping | `client/src/navigation/location.ts` |
 | `at` → scan-tree node (prefix descent, bare-symbol match, nearest-ancestor fallback) | `client/src/navigation/resolveTree.ts` |
 | Navigation store: `location()`, `go` (pushState), `replace`, popstate, visit history (sessionStorage mirror), graph filters that survive view toggles | `client/src/navigation/store.ts` |
 | Missing-path fallback + toast, treemap/explorer zoom → `go`, `?repo=` → analyze | `client/src/App.tsx` (`resolved`, `zoomTo`, `handleFileSelect`) |
@@ -241,6 +241,7 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist live
 | --- | --- |
 | Dependency view (whole-repo graph fetched once; focus = location `at`) | `client/src/viz/deps/DependencyView.tsx`; graph contract in `viz/deps/contract.ts`, hierarchy/filters in `viz/deps/hierarchy.ts` |
 | Dependency view model (focus → in / center / out boxes, roll-up to the box budget) | `client/src/viz/deps/viewModel.ts` |
+| Expand in place (click a folder → its children in a framed block, any side, any depth; Detail −/+ and `-`/`+` keys; `?open=` URL list; fly-in motion) | `viz/deps/viewModel.ts` (`expanded` option, `assignGroups` opened frames); `viz/deps/DependencyView.tsx` (`expand`, `collapse`, `expandLevel`, `collapseLevel`); `viz/deps/DependencyCanvas.tsx` (`createFlights`, closable frames); `navigation/location.ts` (`open`) |
 | Dependency grid layout (viewport-shaped packing in `rankPackings`, channel/gutter edge routing) | `client/src/viz/deps/layout.ts` |
 | Dependency hubs (targets most boxes import become shape/color badges; their edges hide until hovered) | `client/src/viz/deps/hubs.ts`; per-box link counts, cycles and badges in `viz/deps/boxInfo.ts` |
 | Dependency graph canvas (four-row boxes, pastel metric tint, icon hover cards, hover, click to focus or isolate a symbol, double/middle/⌘-click to open) | `client/src/viz/deps/DependencyCanvas.tsx`, pointer logic in `viz/deps/interaction.ts` |

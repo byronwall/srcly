@@ -26,6 +26,12 @@ describe("parseLocation / toSearch", () => {
     }
   });
 
+  it("round-trips folders opened in place", () => {
+    const loc = { repo: "/r", at: "client/src", view: "graph" as const, open: ["client/src/viz", "client/src/viz/deps"] };
+    expect(parseLocation(toSearch(loc))).toEqual(loc);
+    expect(toSearch({ ...loc, open: [] })).not.toContain("open=");
+  });
+
   it("treats the empty root treemap as a bare URL", () => {
     expect(toSearch({ repo: "", at: "", view: "treemap" })).toBe("");
     expect(parseLocation("")).toEqual({ repo: "", at: "", view: "treemap" });

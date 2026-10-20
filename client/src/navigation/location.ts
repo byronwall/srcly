@@ -19,6 +19,11 @@ export interface Location {
   repo: string;
   at: string;
   view: View;
+  /**
+   * Graph only: folders and files opened in place (graph ids, which are `at`
+   * values). Kept across focus changes, so a mixed-scale cut survives a drill.
+   */
+  open?: string[];
 }
 
 export const ROOT_LOCATION: Location = { repo: "", at: "", view: "treemap" };
@@ -26,6 +31,7 @@ export const ROOT_LOCATION: Location = { repo: "", at: "", view: "treemap" };
 const REPO_PARAM = "repo";
 const AT_PARAM = "at";
 const VIEW_PARAM = "view";
+const OPEN_PARAM = "open";
 /** Pre-location graph focus parameter. Read as an alias of `at` + graph view. */
 const LEGACY_FOCUS_PARAM = "depFocus";
 
@@ -42,7 +48,8 @@ export function parseLocation(search: string): Location {
       : legacy !== null
         ? "graph"
         : "treemap";
-  return { repo: params.get(REPO_PARAM) ?? "", at: normalizeAt(rawAt), view };
+  const open = (params.get(OPEN_PARAM) ?? "").split(",").map(normalizeAt).filter(Boolean);
+  return { repo: params.get(REPO_PARAM) ?? "", at: normalizeAt(rawAt), view, ...(open.length ? { open } : {}) };
 }
 
 /**
@@ -56,14 +63,21 @@ export function toSearch(loc: Location, currentSearch = ""): string {
   params.delete(REPO_PARAM);
   params.delete(AT_PARAM);
   params.delete(VIEW_PARAM);
+  params.delete(OPEN_PARAM);
   if (loc.repo) params.set(REPO_PARAM, loc.repo);
   if (loc.at) params.set(AT_PARAM, loc.at);
   if (loc.view !== "treemap") params.set(VIEW_PARAM, loc.view);
+  if (loc.open?.length) params.set(OPEN_PARAM, loc.open.join(","));
   const s = params.toString();
   return s ? `?${s}` : "";
 }
 
 export function sameLocation(a: Location, b: Location): boolean {
+  return samePlace(a, b) && (a.open ?? []).join(",") === (b.open ?? []).join(",");
+}
+
+/** Same repo, focus and view, whatever is opened in place (one history entry per place). */
+export function samePlace(a: Location, b: Location): boolean {
   return a.repo === b.repo && a.at === b.at && a.view === b.view;
 }
 
