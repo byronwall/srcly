@@ -6,7 +6,7 @@ import { Portal } from "solid-js/web";
 const [slot, setSlot] = createSignal<HTMLElement>();
 
 export const ViewToolSlot = () => (
-  <div ref={setSlot} class="plc-view-tools flex shrink-0 items-center gap-0.5 empty:hidden [&>div]:contents" />
+  <div ref={setSlot} class="plc-view-tools contents [&>div]:contents" />
 );
 
 /** Renders its children into the view toolbar's slot. */

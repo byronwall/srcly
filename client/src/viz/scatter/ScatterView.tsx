@@ -1,11 +1,15 @@
 import { For, Show, createEffect, createMemo, createResource, createSignal, onCleanup, onMount } from "solid-js";
-import { RotateCcw } from "lucide-solid";
+import { Braces, Component, File, RotateCcw } from "lucide-solid";
 import { metricDef, quadrantPresets } from "../../utils/metricsStore";
 import { extractFilePath } from "../../utils/dataProcessing";
 import { witnessOf, type CellWitness } from "../../utils/explorerColumns";
 import { HotSpotRowContext } from "../../components/HotSpotItem";
 import { findNodeByPath, type Node } from "../../components/Explorer";
 import { Button } from "../../components/ui/Button";
+import { IconButton } from "../../components/ui/IconButton";
+import { segmentedKeyDown } from "../../components/ui/segmentedKeys";
+import { ViewTools } from "../viewToolbar";
+import PresetPicker from "./PresetPicker";
 import { buildPoints, groupByQuadrant, unavailableReason, type QuadrantId, type ScatterCohort, type ScatterPoint } from "./quadrants";
 import ScatterPlot from "./ScatterPlot";
 import QuadrantPanel from "./QuadrantPanel";
@@ -13,10 +17,10 @@ import QuadrantPanel from "./QuadrantPanel";
 type Point = ScatterPoint<Node>;
 type Cut = { x: number; y: number };
 
-const COHORTS: { id: ScatterCohort; label: string }[] = [
-  { id: "file", label: "Files" },
-  { id: "function", label: "Functions" },
-  { id: "component", label: "Components" },
+const COHORTS: { id: ScatterCohort; label: string; icon: typeof File }[] = [
+  { id: "file", label: "Files", icon: File },
+  { id: "function", label: "Functions", icon: Braces },
+  { id: "component", label: "Components", icon: Component },
 ];
 /** Below this pane width the member list moves under the plot. */
 const NARROW_PX = 900;
@@ -57,6 +61,8 @@ export default function ScatterView(props: {
   const [presetId, setPresetId] = createSignal(readParam("preset") ?? "activity");
   const preset = createMemo(() => quadrantPresets().find((p) => p.id === presetId()) ?? quadrantPresets()[0]);
   const [cohortPick, setCohortPick] = createSignal(readParam("cohort") as ScatterCohort | null);
+  /** Cohorts this preset can plot, in switch order (arrow keys skip the rest). */
+  const cohortIds = () => COHORTS.map((c) => c.id).filter((id) => preset()?.cohorts.includes(id));
   const cohort = createMemo<ScatterCohort>(() => {
     const pick = cohortPick();
     return pick && preset()?.cohorts.includes(pick) ? pick : (preset()?.cohorts[0] ?? "file");
@@ -139,67 +145,47 @@ export default function ScatterView(props: {
       }}
     >
       <div ref={rootRef} class="flex h-full w-full flex-col bg-[var(--plc-surface)]">
-        <div class="flex h-9 shrink-0 items-center gap-2 overflow-x-auto border-b border-[var(--plc-border)] px-2 scrollbar-hide">
-          <div role="radiogroup" aria-label="2x2 preset" class="flex shrink-0 rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface-muted)] p-0.5">
-            <For each={quadrantPresets()}>
-              {(p) => (
-                <Button
-                  variant="tab"
-                  size="xs"
-                  role="radio"
-                  aria-checked={preset()?.id === p.id}
-                  active={preset()?.id === p.id}
-                  class="h-6 px-2"
-                  title={`${p.x.label} × ${p.y.label}. ${p.description}`}
-                  onClick={() => setPresetId(p.id)}
-                >
-                  {p.label}
-                </Button>
-              )}
-            </For>
-          </div>
-          <div role="radiogroup" aria-label="Points" class="flex shrink-0 rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface-muted)] p-0.5">
+        {/* The 2x2's controls join the view toolbar; its counts sit in the status line below. */}
+        <ViewTools>
+          <span aria-hidden="true" class="mx-1 h-4 w-px shrink-0 bg-[var(--plc-border)]" />
+          <PresetPicker presets={quadrantPresets()} selected={preset()} onSelect={setPresetId} />
+          <div
+            role="radiogroup"
+            aria-label="Points"
+            onKeyDown={(e) => segmentedKeyDown(e, cohortIds(), cohort(), setCohortPick)}
+            class="flex shrink-0 rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface-muted)] p-0.5"
+          >
             <For each={COHORTS.filter((c) => c.id !== "component" || preset()?.cohorts.includes("component"))}>
               {(c) => {
                 const enabled = () => Boolean(preset()?.cohorts.includes(c.id));
                 return (
                   <Button
                     variant="tab"
-                    size="xs"
+                    size="sm"
                     role="radio"
                     aria-checked={cohort() === c.id}
+                    tabIndex={cohort() === c.id ? 0 : -1}
                     active={cohort() === c.id}
                     disabled={!enabled()}
-                    class="h-6 px-2"
-                    title={enabled() ? `One point per ${c.id}` : preset()?.cohort_note}
+                    class="gap-1.5 px-2"
+                    title={enabled() ? `${c.label}: one point per ${c.id}` : preset()?.cohort_note}
                     onClick={() => setCohortPick(c.id)}
                   >
-                    {c.label}
+                    <c.icon size={13} aria-hidden="true" />
+                    <span class="plc-collapsible-label">{c.label}</span>
                   </Button>
                 );
               }}
             </For>
           </div>
-          <span class="plc-data-sm min-w-0 flex-1 truncate text-[var(--plc-on-subtle)]" title={preset()?.description}>
-            {built().points.length.toLocaleString("en-US")} {noun()} plotted
-            <Show when={built().na > 0}>
-              <span title={`No ${preset()?.x.label} or no ${preset()?.y.label} value: it doesn't apply to their language or kind, or they were skipped`}>
-                {` · ${built().na.toLocaleString("en-US")} N/A not plotted`}
-              </span>
-            </Show>
-          </span>
-          <Button
-            variant="ghost"
-            size="xs"
-            class="h-6 shrink-0 px-1.5"
+          <IconButton
+            label="Put both cut-offs back on their catalog defaults"
             disabled={!preset() || !moved()[preset()!.id]}
-            title="Put both cut-offs back on their catalog defaults"
             onClick={() => setMoved(({ [preset()!.id]: _, ...rest }) => rest)}
           >
-            <RotateCcw size={12} aria-hidden="true" />
-            Reset cut-offs
-          </Button>
-        </div>
+            <RotateCcw size={14} aria-hidden="true" />
+          </IconButton>
+        </ViewTools>
 
         <Show when={preset()}>
           {(p) => (
@@ -231,6 +217,20 @@ export default function ScatterView(props: {
             </div>
           )}
         </Show>
+        <div class="flex shrink-0 items-center gap-3 border-t border-[var(--plc-border)] px-3 py-1 text-[11px] text-[var(--plc-on-subtle)]">
+          <span class="shrink-0 font-semibold tabular-nums text-[var(--plc-on-surface)]">
+            {built().points.length.toLocaleString("en-US")} {noun()} plotted
+            <Show when={built().na > 0}>
+              <span
+                class="font-normal text-[var(--plc-on-subtle)]"
+                title={`No ${preset()?.x.label} or no ${preset()?.y.label} value: it doesn't apply to their language or kind, or they were skipped`}
+              >
+                {` · ${built().na.toLocaleString("en-US")} N/A not plotted`}
+              </span>
+            </Show>
+          </span>
+          <span class="ml-auto min-w-0 truncate">{preset()?.description} · Drag a cut-off line to move it</span>
+        </div>
       </div>
     </HotSpotRowContext.Provider>
   );
