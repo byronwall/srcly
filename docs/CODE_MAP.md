@@ -204,7 +204,7 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist live
 | Feature | Where |
 | --- | --- |
 | Layout, zoom, isolate/exclude, tile context menu | `client/src/components/Treemap.tsx` |
-| View toolbar (Treemap \| Graph \| 2x2 switch, slot for the active view's own tools, filter, color metric, legend) | `client/src/viz/treemap/components/TreemapHeader.tsx`; slot in `client/src/viz/viewToolbar.tsx` (`ViewToolSlot`, `ViewTools`) |
+| View toolbar (Treemap \| Graph \| 2x2 switch with arrow keys via `components/ui/segmentedKeys.ts`, slot for the active view's own tools, filter, color metric, legend) | `client/src/viz/treemap/components/TreemapHeader.tsx`; slot in `client/src/viz/viewToolbar.tsx` (`ViewToolSlot`, `ViewTools`) |
 | Canvas tile rendering + keyboard selection | `client/src/viz/treemap/components/TreemapCanvas.tsx`, `viz/treemap/utils/hitTest.ts` |
 | Canvas zoom motion through a shared tile | `client/src/viz/treemap/utils/zoom.ts`, `viz/treemap/components/TreemapCanvas.tsx` |
 | Tooltip | `client/src/viz/treemap/components/TreemapTooltip.tsx`, `viz/treemap/hooks/useTreemapTooltip.ts` |

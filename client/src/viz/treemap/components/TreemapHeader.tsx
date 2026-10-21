@@ -11,6 +11,7 @@ import { TREEMAP_GRADIENT, TREEMAP_NA_BACKGROUND } from "../utils/colors";
 import type { View } from "../../../navigation/location";
 import { ViewToolSlot } from "../../viewToolbar";
 import { Button } from "../../../components/ui/Button";
+import { segmentedKeyDown } from "../../../components/ui/segmentedKeys";
 
 export type TreemapHeaderProps = {
   data: any;
@@ -41,6 +42,8 @@ const VIEWS: { id: View; label: string; icon: typeof GitFork }[] = [
   { id: "scatter", label: "2x2", icon: ChartScatter },
 ];
 
+const VIEW_IDS = VIEWS.map((v) => v.id);
+
 export default function TreemapHeader(props: TreemapHeaderProps) {
   return (
     <div class="plc-toolbar plc-view-toolbar flex items-center gap-1.5 overflow-x-auto px-2 border-b scrollbar-hide">
@@ -48,6 +51,7 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
       <div
         role="radiogroup"
         aria-label="View"
+        onKeyDown={(e) => segmentedKeyDown(e, VIEW_IDS, props.view(), props.onViewChange)}
         class="flex shrink-0 rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface-muted)] p-0.5"
       >
         <For each={VIEWS}>
@@ -57,6 +61,7 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
               size="sm"
               role="radio"
               aria-checked={props.view() === v.id}
+              tabIndex={props.view() === v.id ? 0 : -1}
               active={props.view() === v.id}
               class="gap-1.5 px-2"
               title={v.label}
