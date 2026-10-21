@@ -1,5 +1,5 @@
-import { For, Show, createMemo } from "solid-js";
-import { ChevronRight, CornerLeftUp } from "lucide-solid";
+import { Show, createMemo } from "solid-js";
+import { CornerLeftUp } from "lucide-solid";
 import { IconButton } from "./ui/IconButton";
 import { metricCellColor, metricCellText, witnessOf } from "../utils/explorerColumns";
 import { HeatSwatch } from "./ui/HeatSwatch";
@@ -20,7 +20,7 @@ function Stat(props: { value: number; unit: string; title?: string }) {
 }
 
 /**
- * Where the explorer is (clickable breadcrumb) and what is in it: lines,
+ * Which scope the explorer shows (with a step up) and what is in it: lines,
  * files and functions, plus the file that most needs attention under the
  * treemap's color metric.
  */
@@ -69,33 +69,10 @@ export function ExplorerScopeBar(props: {
         >
           <CornerLeftUp size={13} aria-hidden="true" />
         </IconButton>
-        <nav aria-label="Explorer location" class="flex min-w-0 flex-1 items-center overflow-hidden">
-          <For each={chain()}>
-            {(node, i) => {
-              const isLast = () => i() === chain().length - 1;
-              return (
-                <>
-                  <Show when={i() > 0}>
-                    <ChevronRight size={11} aria-hidden="true" class="shrink-0 text-[var(--plc-on-disabled)]" />
-                  </Show>
-                  <button
-                    type="button"
-                    class={`min-w-0 truncate rounded px-1 leading-5 transition-colors duration-150 ${
-                      isLast()
-                        ? "shrink-0 max-w-[75%] cursor-default font-semibold text-[var(--plc-on-surface)]"
-                        : "max-w-[7rem] text-[var(--plc-on-muted)] hover:bg-[var(--plc-surface-hover)] hover:text-[var(--plc-accent)]"
-                    }`}
-                    title={node.path}
-                    aria-current={isLast() ? "location" : undefined}
-                    onClick={() => !isLast() && props.onZoom(node)}
-                  >
-                    {scopeDisplayName(node, scanRootPath())}
-                  </button>
-                </>
-              );
-            }}
-          </For>
-        </nav>
+        {/* The full path is the header's breadcrumb; here, just the scope's name. */}
+        <span class="min-w-0 truncate px-1 font-semibold leading-5 text-[var(--plc-on-surface)]" title={props.root.path}>
+          {scopeDisplayName(props.root, scanRootPath())}
+        </span>
       </div>
       <div class="flex h-5 min-w-0 items-center gap-2.5 pl-7">
         <Stat value={summary().loc} unit="LOC" title="Lines of code" />

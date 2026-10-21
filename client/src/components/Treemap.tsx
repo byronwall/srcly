@@ -20,7 +20,7 @@ import type { TreemapTile } from "../viz/treemap/utils/hitTest";
 import TreemapHeader from "../viz/treemap/components/TreemapHeader";
 import TreemapTooltip from "../viz/treemap/components/TreemapTooltip";
 import { useTreemapTooltip } from "../viz/treemap/hooks/useTreemapTooltip";
-import { atFromTreePath, baseName, crumbsFor, folderOf } from "../navigation/location";
+import { atFromTreePath, baseName, folderOf } from "../navigation/location";
 import NodeActionsMenu, { type NodeMenuTarget } from "../navigation/NodeActionsMenu";
 import { go, location } from "../navigation/store";
 import { buildMetricsIndex } from "../viz/deps/metrics";
@@ -81,8 +81,6 @@ export default function Treemap(props: TreemapProps) {
       currentAt: location().at,
     });
   };
-  // One breadcrumb for both views, built from the location itself.
-  const crumbs = createMemo(() => crumbsFor(location().at, baseName(props.rootPath)));
   const {
     metric: primaryMetric,
     setMetric,
@@ -228,11 +226,9 @@ export default function Treemap(props: TreemapProps) {
   });
 
   return (
-    <div class="plc-panel relative flex h-full w-full flex-col overflow-hidden rounded-none border">
+    <div class="plc-panel relative flex h-full w-full flex-col overflow-hidden rounded-none">
       <TreemapHeader
         data={props.data}
-        crumbs={crumbs}
-        onCrumbClick={(at) => go({ at })}
         activeExtensions={activeExtensions}
         onToggleExtension={toggleExtension}
         onClearExtensions={() => setActiveExtensions([])}

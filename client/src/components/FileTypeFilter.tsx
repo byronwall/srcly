@@ -10,6 +10,15 @@ import {
   PopoverSectionTitle,
 } from "./ui/PopoverPanel";
 import { TextInput } from "./ui/TextInput";
+import { graphFilters, location, setGraphFilters } from "../navigation/store";
+import { DEFAULT_FILTERS, type FilterOptions } from "../viz/deps/hierarchy";
+
+// What the dependency graph adds beyond source files; keys match its shortcuts.
+const GRAPH_INCLUDES: { key: keyof FilterOptions; label: string; hint: string }[] = [
+  { key: "showExternal", label: "External packages", hint: "x" },
+  { key: "showTests", label: "Tests", hint: "t" },
+  { key: "showTypeOnly", label: "Type-only imports", hint: "y" },
+];
 
 interface FileTypeFilterProps {
   data: any;
@@ -55,8 +64,11 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
       .sort((a, b) => b.count - a.count);
   });
 
+  const onGraph = () => location().view === "graph";
+  const graphIncludes = () =>
+    onGraph() ? GRAPH_INCLUDES.filter((g) => graphFilters()[g.key]).length : 0;
   const activeCount = () =>
-    props.activeExtensions.length + excludedPaths().length;
+    props.activeExtensions.length + excludedPaths().length + graphIncludes();
   const isLocActive = () => props.maxLoc !== undefined;
 
   // Helper to check if an extension is active
@@ -81,6 +93,7 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
     props.onMaxLocChange(undefined);
     props.onClearExtensions();
     clearExcludedPaths();
+    if (onGraph()) setGraphFilters(DEFAULT_FILTERS);
   };
 
   return (
@@ -103,7 +116,7 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
             onClick={(e) => triggerProps.onClick(e)}
           >
             <ListFilter size={14} aria-hidden="true" />
-            <span>
+            <span class="plc-collapsible-label">
               {activeCount() > 0 || isLocActive()
                 ? `Filters · ${activeCount() + (isLocActive() ? 1 : 0)}`
                 : "All files"}
@@ -190,6 +203,23 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
                 Limits & Exclusions
               </PopoverSectionTitle>
               <div class="space-y-3 px-1">
+                <Show when={onGraph()}>
+                  <div class="flex flex-col gap-1.5 border-b border-[var(--plc-border)] pb-3">
+                    <div class="text-[10px] font-bold text-[var(--plc-on-muted)]">Graph also shows</div>
+                    <For each={GRAPH_INCLUDES}>
+                      {(g) => (
+                        <div class="flex items-center justify-between gap-2">
+                          <CheckboxRow
+                            checked={graphFilters()[g.key]}
+                            onChange={(v) => setGraphFilters((f) => ({ ...f, [g.key]: v }))}
+                            label={g.label}
+                          />
+                          <kbd class="font-mono text-[10px] text-[var(--plc-on-subtle)]">{g.hint}</kbd>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                </Show>
                 <div class="flex flex-col gap-2">
                   <CheckboxRow
                     checked={isLocActive()}

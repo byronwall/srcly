@@ -33,20 +33,19 @@ export default function HistoryMenu() {
     <Popover
       isOpen={open()}
       onOpenChange={toggle}
-      placement="bottom-start"
+      placement="bottom-end"
       offset={{ x: 0, y: 4 }}
       trigger={(trigger) => (
         <Button
           ref={trigger.ref}
           onClick={(e) => trigger.onClick(e)}
-          variant="default"
-          size="md"
+          variant="ghost"
           class="shrink-0 gap-1.5 whitespace-nowrap"
           aria-haspopup="menu"
           aria-expanded={open()}
           title="Places visited in this tab (Back and Forward also work)"
         >
-          <History size={13} aria-hidden="true" />
+          <History size={14} aria-hidden="true" />
           History
           <ChevronDown size={12} class="text-[var(--plc-on-subtle)]" aria-hidden="true" />
         </Button>

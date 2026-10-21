@@ -1,9 +1,9 @@
 import { batch, createEffect, createMemo, createResource, createSignal, onCleanup, onMount, Show, untrack } from "solid-js";
-import { Keyboard, Minus, Plus, Search } from "lucide-solid";
+import { Keyboard, Minus, Plus, RotateCcw, Search } from "lucide-solid";
 import { EmptyState, ErrorState, LoadingState } from "../../components/feedback/States";
 import { Button } from "../../components/ui/Button";
 import { IconButton } from "../../components/ui/IconButton";
-import { CheckboxRow } from "../../components/ui/CheckboxRow";
+import { ViewTools } from "../viewToolbar";
 import type { DependencyGraphContract } from "./contract";
 import { DependencyCanvas, type CanvasApi } from "./DependencyCanvas";
 import { DependencyLegend } from "./DependencyLegend";
@@ -16,7 +16,6 @@ import {
   buildIndex,
   collapseChain,
   displayName,
-  type FilterOptions,
 } from "./hierarchy";
 import { layoutWithHubs } from "./hubs";
 import type { ViewLayout } from "./layout";
@@ -358,9 +357,6 @@ export default function DependencyView(props: {
     };
   });
 
-  const toggle = (key: keyof FilterOptions) => (v: boolean) =>
-    setFilters((f) => ({ ...f, [key]: v }));
-
   const stats = createMemo(() => {
     const vm = viewModel();
     if (!vm) return "";
@@ -375,40 +371,33 @@ export default function DependencyView(props: {
 
   return (
     <div class="flex h-full flex-col bg-[var(--plc-surface)]">
-      <div class="flex items-center gap-3 border-b border-[var(--plc-border)] px-3 py-1.5">
-        <div class="flex shrink-0 items-center gap-0.5" role="group" aria-label="Detail">
-          <span class="mr-1 text-[11px] text-[var(--plc-on-muted)]">Detail</span>
-          <IconButton size="xs" label="Less detail: close the deepest opened folders (−)" disabled={!(viewModel()?.expanded?.length)} onClick={collapseLevel}>
-            <Minus size={13} />
+      {/* Graph tools join the view toolbar; what's included lives in its filter menu. */}
+      <ViewTools>
+        <span aria-hidden="true" class="mx-1 h-4 w-px shrink-0 bg-[var(--plc-border)]" />
+        {/* A stepper: the label sits between the two steps it names. */}
+        <div class="flex shrink-0 items-center" role="group" aria-label="Detail">
+          <IconButton label="Less detail: close the deepest opened folders (−)" disabled={!(viewModel()?.expanded?.length)} onClick={collapseLevel}>
+            <Minus size={14} />
           </IconButton>
-          <IconButton size="xs" label="More detail: open every folder box in place (+)" disabled={levelUpTargets().length === 0} onClick={expandLevel}>
-            <Plus size={13} />
+          <span class="plc-collapsible-label px-1 text-[12px] text-[var(--plc-on-muted)]">Detail</span>
+          <IconButton label="More detail: open every folder box in place (+)" disabled={levelUpTargets().length === 0} onClick={expandLevel}>
+            <Plus size={14} />
           </IconButton>
-          {/* Always laid out, so the stats beside it never shift. */}
-          <span class="ml-1" classList={{ invisible: !viewModel()?.expanded?.length }}>
-            <Button size="xs" onClick={() => setOpen([])}>
-              Reset
-            </Button>
-          </span>
-        </div>
-        <div class="h-4 w-px shrink-0 bg-[var(--plc-border)]" />
-        <span class="min-w-0 flex-1 truncate tabular-nums text-[11px] text-[var(--plc-on-subtle)]">{stats()}</span>
-        <div class="flex shrink-0 items-center gap-3">
-          <CheckboxRow checked={filters().showExternal} onChange={toggle("showExternal")} label="External" />
-          <CheckboxRow checked={filters().showTests} onChange={toggle("showTests")} label="Tests" />
-          <CheckboxRow checked={filters().showTypeOnly} onChange={toggle("showTypeOnly")} label="Type-only" />
-          <div class="h-4 w-px bg-[var(--plc-border)]" />
-          <Button size="xs" onClick={() => canvas?.fit()} title="Fit the graph to the window (0)">
-            Fit
-          </Button>
-          <IconButton size="xs" label="Go to a folder, file or symbol (/)" onClick={() => setGoTo(true)}>
-            <Search size={14} />
-          </IconButton>
-          <IconButton size="xs" label="Keyboard and mouse shortcuts (?)" onClick={() => setHelp(true)}>
-            <Keyboard size={14} />
+          <IconButton label="Close every opened folder" disabled={!(viewModel()?.expanded?.length)} onClick={() => setOpen([])}>
+            <RotateCcw size={14} />
           </IconButton>
         </div>
-      </div>
+        <span aria-hidden="true" class="mx-1 h-4 w-px shrink-0 bg-[var(--plc-border)]" />
+        <Button variant="ghost" class="px-2" onClick={() => canvas?.fit()} title="Fit the graph to the window (0)">
+          Fit
+        </Button>
+        <IconButton label="Go to a folder, file or symbol (/)" onClick={() => setGoTo(true)}>
+          <Search size={14} />
+        </IconButton>
+        <IconButton label="Keyboard and mouse shortcuts (?)" onClick={() => setHelp(true)}>
+          <Keyboard size={14} />
+        </IconButton>
+      </ViewTools>
 
       <div ref={host} class="relative min-h-0 flex-1">
         <Show when={graph.loading}>
@@ -453,7 +442,7 @@ export default function DependencyView(props: {
         </Show>
       </div>
 
-      <ClickStatus node={hovered()} shift={shiftHeld()} focusId={effectiveFocus()} collapsible={collapsible} />
+      <ClickStatus node={hovered()} shift={shiftHeld()} focusId={effectiveFocus()} collapsible={collapsible} stats={stats()} />
 
       <ShortcutsDialog open={help()} onClose={() => setHelp(false)} />
       <GoToPalette open={goTo()} index={index()} near={effectiveFocus() ?? ""} onClose={() => setGoTo(false)} onPick={goToPick} />
@@ -479,13 +468,14 @@ export default function DependencyView(props: {
 
 /**
  * The status line under the graph: what a click does right now, in bold (it
- * follows Shift and the hovered box), and the other mouse gestures, quietly.
+ * follows Shift and the hovered box), and the graph's size, quietly.
  */
 function ClickStatus(props: {
   node: ViewNode | null;
   shift: boolean;
   focusId: string | null;
   collapsible: (groupId: string) => boolean;
+  stats: string;
 }) {
   const action = () => {
     const n = props.node;
@@ -506,8 +496,8 @@ function ClickStatus(props: {
       >
         {action()}
       </span>
-      <span class="ml-auto min-w-0 truncate">
-        Click focuses · Shift-click opens in place · Double-click opens code · Right-click for actions · ? for keys
+      <span class="ml-auto min-w-0 truncate tabular-nums">
+        {props.stats} · Double-click opens code · Right-click for actions · ? for keys
       </span>
     </div>
   );

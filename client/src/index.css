@@ -591,3 +591,27 @@ samp {
     display: none;
   }
 }
+
+/* The view toolbar sizes its labels to its own width, not the window's: the
+   sidebar and the active view's tools both change how much room it has. */
+.plc-view-toolbar {
+  container-type: inline-size;
+}
+.plc-view-label {
+  display: none;
+}
+@container (min-width: 34rem) {
+  .plc-view-toolbar:not(:has(.plc-view-tools:not(:empty))) .plc-view-label {
+    display: inline;
+  }
+}
+@container (min-width: 54rem) {
+  .plc-view-label {
+    display: inline;
+  }
+}
+@container (max-width: 36rem) {
+  .plc-view-toolbar .plc-collapsible-label {
+    display: none;
+  }
+}
