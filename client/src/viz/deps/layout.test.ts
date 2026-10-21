@@ -517,3 +517,37 @@ describe("edge spreading", () => {
     }
   }
 });
+
+describe("opening a folder in place keeps the layout", () => {
+  const focusId = collapseChain(idx, "src");
+  const opts = { aspectRatio: VIEW_ASPECT, viewport: VIEWPORT };
+  const before = layoutViewSync(buildViewModel(idx, { focusId, budget: 48 }), opts);
+  const folder = before.nodes.find((n) => n.node.kind === "folder" && n.node.expandable)!;
+  const after = layoutViewSync(buildViewModel(idx, { focusId, budget: 48, expanded: [folder.node.graphId] }), { ...opts, previous: before });
+  const inside = (id: string) => id.startsWith(`${folder.node.graphId}/`);
+  const columnOrder = (l: ViewLayout) =>
+    l.nodes
+      .filter((n) => !inside(n.node.graphId) && n.node.graphId !== folder.node.graphId)
+      .sort((a, b) => a.x - b.x || a.y - b.y)
+      .map((n) => n.node.graphId);
+
+  it("opens the folder into its own slot", () => {
+    expect(after.nodes.some((n) => inside(n.node.graphId))).toBe(true);
+  });
+
+  it("keeps every other box in the same reading order", () => {
+    expect(columnOrder(after)).toEqual(columnOrder(before));
+  });
+
+  it("keeps the row count", () => {
+    const rows = (l: ViewLayout) => Math.max(...l.nodes.map((n) => n.row)) + 1;
+    expect(rows(after)).toBe(rows(before));
+  });
+
+  it("does not overlap boxes", () => {
+    const hit = (a: PositionedNode, b: PositionedNode) =>
+      a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+    const pairs = after.nodes.flatMap((a, i) => after.nodes.slice(i + 1).filter((b) => hit(a, b)));
+    expect(pairs).toEqual([]);
+  });
+});

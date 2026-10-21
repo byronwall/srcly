@@ -1,5 +1,5 @@
 import * as d3 from "d3";
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createRenderEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { makeTextMeasurer, truncateTextToWidth } from "../../utils/svgText";
 import { formatMetricValue, metricLabel, type MetricId } from "../../utils/metricsStore";
 import { treemapFillColor, treemapRampPosition, rampColor } from "../treemap/utils/colors";
@@ -160,6 +160,11 @@ type Tip = { title: string; lines?: string[]; rows?: [string, string][] };
 
 export function DependencyCanvas(props: {
   layout: ViewLayout;
+  /**
+   * Graph id of the box this layout opened or closed in place. The camera
+   * keeps it where it was, at the same zoom, instead of refitting.
+   */
+  anchor?: string;
   /** Graph id of the focus; clicking any other box moves (or isolates) to it. */
   focusId?: string;
   /**
@@ -301,17 +306,40 @@ export function DependencyCanvas(props: {
     onCleanup(() => ro.disconnect());
   });
 
-  createEffect(() => {
-    void props.layout;
-    queueMicrotask(() => fit(true));
-  });
 
   const nodeById = createMemo(() => new Map(props.layout.nodes.map((n) => [n.id, n])));
   createEffect(() => {
     const id = hoverNode();
     props.onHover?.(id ? (nodeById().get(id)?.node ?? null) : null);
   });
-  const flights = createFlights(() => props.layout);
+  // What moves on a new layout. Opening or closing one box in place pins the
+  // camera on it (no refit, so it never reads as a zoom), and every box's start
+  // is shifted into the new camera so it moves only as far as it really moved.
+  let seen = new Map<string, Seen>();
+  const motion = createMemo(() => {
+    const layout = props.layout;
+    const prev = seen;
+    seen = new Map(layout.nodes.map((n) => [n.id, { x: n.x, y: n.y, width: n.width, height: n.height, graphId: n.node.graphId }]));
+    const rect = svgRef?.getBoundingClientRect();
+    const t0 = svgRef ? d3.zoomTransform(svgRef) : null;
+    const camera =
+      props.anchor && t0 && rect && rect.width > 0 && prev.size
+        ? anchoredCamera(layout, prev, props.anchor, t0, rect)
+        : null;
+    const shift = camera && t0 ? { t0, t1: camera } : null;
+    return {
+      camera,
+      flights: planFlights(layout, prev, shift),
+      glow: shift && props.anchor ? anchorGlow(layout, prev, props.anchor, shift) : null,
+    };
+  });
+  const flights = () => motion().flights;
+  // Before paint, so boxes start from where they were on screen.
+  createRenderEffect(() => {
+    const { camera } = motion();
+    if (camera) d3.select(svgRef).interrupt().call(zoom.transform, camera);
+    else queueMicrotask(() => fit(true));
+  });
   const info = createMemo(() => boxInfo(props.layout));
   const hubById = createMemo(() => new Map((props.layout.hubs ?? []).map((h) => [h.id, h])));
 
@@ -830,6 +858,27 @@ export function DependencyCanvas(props: {
               );
             }}
           </Show>
+          {/* The opened folder's outline grows out of its box, then fades. */}
+          <Show when={motion().glow} keyed>
+            {(g) => (
+              <rect
+                class="dv-glow pointer-events-none"
+                x={g.to.x}
+                y={g.to.y}
+                width={g.to.width}
+                height={g.to.height}
+                rx="7"
+                fill="var(--plc-accent-subtle)"
+                fill-opacity="0.55"
+                stroke="var(--plc-accent)"
+                stroke-width="2"
+                vector-effect="non-scaling-stroke"
+                style={{
+                  "--dv-from": `translate(${g.from.x - g.to.x * (g.from.width / g.to.width)}px,${g.from.y - g.to.y * (g.from.height / g.to.height)}px) scale(${g.from.width / g.to.width},${g.from.height / g.to.height})`,
+                }}
+              />
+            )}
+          </Show>
           <g fill="none" class="dv-settle">
             <For each={props.layout.edges}>
               {(e) => {
@@ -905,6 +954,7 @@ export function DependencyCanvas(props: {
                   data-box={n.id}
                   class={flight ? "dv-fly" : undefined}
                   style={{
+                    ...(flight?.delay ? { "animation-delay": `${flight.delay}ms` } : {}),
                     transform: `translate(${n.x}px,${n.y}px)`,
                     cursor: cursor(),
                     opacity: dimmed() ? 0.62 : 1,
@@ -1147,60 +1197,125 @@ export function DependencyCanvas(props: {
 }
 
 /** Box moves, camera fit and the fly-out of opened folders share one duration. */
-const FLY_MS = 320;
+const FLY_MS = 420;
+/** Boxes coming out of an opened folder leave it one after another. */
+const STAGGER_MS = 35;
+const MAX_STAGGER_MS = 280;
 
 interface Flight {
   x: number;
   y: number;
   scale: number;
   opacity: number;
+  /** ms before it starts moving (boxes leaving an opened folder in turn). */
+  delay?: number;
 }
+
+type Seen = { x: number; y: number; width: number; height: number; graphId: string };
+type Rect = { x: number; y: number; width: number; height: number };
+/** The camera before and after a layout change, when it jumps instead of gliding. */
+type CameraShift = { t0: d3.ZoomTransform; t1: d3.ZoomTransform };
 
 /** `id` is `root` or inside it (folder paths, then `file#symbol`). */
 const within = (root: string, id: string) => id === root || id.startsWith(`${root}/`) || id.startsWith(`${root}#`);
+
+const rectOf = (rs: Rect[]): Rect => {
+  const x = Math.min(...rs.map((r) => r.x));
+  const y = Math.min(...rs.map((r) => r.y));
+  return { x, y, width: Math.max(...rs.map((r) => r.x + r.width)) - x, height: Math.max(...rs.map((r) => r.y + r.height)) - y };
+};
+
+/** A point of the old camera's world in the new camera's world (same spot on screen). */
+const carry = (shift: CameraShift | null, x: number, y: number) =>
+  shift ? { x: (shift.t0.applyX(x) - shift.t1.x) / shift.t1.k, y: (shift.t0.applyY(y) - shift.t1.y) / shift.t1.k } : { x, y };
+
+/**
+ * The camera for a layout that opened or closed `anchor` in place: the same
+ * zoom (less only if the opened folder can't fit), with what it became placed
+ * where it was on screen, then pulled fully into view.
+ */
+function anchoredCamera(layout: ViewLayout, prev: Map<string, Seen>, anchor: string, t0: d3.ZoomTransform, view: { width: number; height: number }) {
+  const was = [...prev.values()].filter((p) => within(anchor, p.graphId));
+  const now = layout.nodes.filter((n) => within(anchor, n.node.graphId));
+  if (!was.length || !now.length) return null;
+  const a = rectOf(was);
+  const b = rectOf(now);
+  const m = 28;
+  const k = Math.min(t0.k, (view.width - 2 * m) / b.width, (view.height - 2 * m) / b.height);
+  let x = t0.applyX(a.x) - b.x * k;
+  let y = t0.applyY(a.y) - b.y * k;
+  const into = (lo: number, size: number, room: number) => (lo + size > room - m ? room - m - (lo + size) : 0) || (lo < m ? m - lo : 0);
+  x += into(x + b.x * k, b.width * k, view.width);
+  y += into(y + b.y * k, b.height * k, view.height);
+  return d3.zoomIdentity.translate(x, y).scale(k);
+}
+
+/** The outline that grows from the anchor's old box(es) to what replaced them. */
+function anchorGlow(layout: ViewLayout, prev: Map<string, Seen>, anchor: string, shift: CameraShift): { from: Rect; to: Rect } | null {
+  const was = [...prev.values()].filter((p) => within(anchor, p.graphId));
+  const now = layout.nodes.filter((n) => within(anchor, n.node.graphId));
+  if (!was.length || !now.length) return null;
+  const a = rectOf(was);
+  const at = carry(shift, a.x, a.y);
+  const r = shift.t0.k / shift.t1.k;
+  const frames = (layout.frames ?? []).filter((f) => f.groupId === anchor);
+  const pad = 4;
+  const b = frames.length ? rectOf(frames) : rectOf(now);
+  return {
+    from: { x: at.x - pad, y: at.y - pad, width: a.width * r + 2 * pad, height: a.height * r + 2 * pad },
+    to: { x: b.x - pad, y: b.y - pad, width: b.width + 2 * pad, height: b.height + 2 * pad },
+  };
+}
 
 /**
  * Where each box of a new layout starts its move: where it was before (same
  * box, or the same graph node in another region), out of the folder it was
  * opened from, or at the middle of the boxes it folded together. Brand-new
- * boxes fade in where they land. The first layout doesn't move.
+ * boxes fade in where they land. The first layout doesn't move. With a camera
+ * shift, starts are carried into the new camera so nothing jumps.
  */
-function createFlights(layout: () => ViewLayout) {
-  type Seen = { x: number; y: number; width: number; height: number; graphId: string };
-  let before = new Map<string, Seen>();
-  return createMemo(() => {
-    const nodes = layout().nodes;
-    const prev = before;
-    before = new Map(nodes.map((n) => [n.id, { x: n.x, y: n.y, width: n.width, height: n.height, graphId: n.node.graphId }]));
-    const out = new Map<string, Flight>();
-    if (prev.size === 0) return out;
-    const byGraph = new Map<string, Seen>();
-    for (const p of prev.values()) if (!byGraph.has(p.graphId)) byGraph.set(p.graphId, p);
-    for (const n of nodes) {
-      const same = prev.get(n.id) ?? byGraph.get(n.node.graphId);
-      if (same) {
-        if (same.x !== n.x || same.y !== n.y) out.set(n.id, { x: same.x, y: same.y, scale: 1, opacity: 1 });
-        continue;
-      }
-      let parent: Seen | undefined;
-      for (const p of prev.values()) {
-        if (p.graphId !== n.node.graphId && within(p.graphId, n.node.graphId) && (!parent || p.graphId.length > parent.graphId.length)) parent = p;
-      }
-      if (parent) {
-        out.set(n.id, { x: parent.x + parent.width * 0.2, y: parent.y + parent.height * 0.2, scale: 0.6, opacity: 0.2 });
-        continue;
-      }
-      const kids = [...prev.values()].filter((p) => within(n.node.graphId, p.graphId));
-      if (kids.length) {
-        const x = kids.reduce((a, p) => a + p.x, 0) / kids.length;
-        const y = kids.reduce((a, p) => a + p.y, 0) / kids.length;
-        out.set(n.id, { x, y, scale: 1, opacity: 0.4 });
-        continue;
-      }
-      out.set(n.id, { x: n.x, y: n.y + 6, scale: 1, opacity: 0 });
+function planFlights(layout: ViewLayout, prev: Map<string, Seen>, shift: CameraShift | null) {
+  const out = new Map<string, Flight>();
+  if (prev.size === 0) return out;
+  const r = shift ? shift.t0.k / shift.t1.k : 1;
+  const from = (x: number, y: number, scale: number, opacity: number): Flight => ({ ...carry(shift, x, y), scale: scale * r, opacity });
+  const byGraph = new Map<string, Seen>();
+  for (const p of prev.values()) if (!byGraph.has(p.graphId)) byGraph.set(p.graphId, p);
+  const leaving = new Map<Seen, PositionedNode[]>();
+  for (const n of layout.nodes) {
+    const same = prev.get(n.id) ?? byGraph.get(n.node.graphId);
+    if (same) {
+      const f = from(same.x, same.y, 1, 1);
+      if (Math.abs(f.x - n.x) > 0.5 || Math.abs(f.y - n.y) > 0.5 || Math.abs(f.scale - 1) > 0.001) out.set(n.id, f);
+      continue;
     }
-    return out;
-  });
+    let parent: Seen | undefined;
+    for (const p of prev.values()) {
+      if (p.graphId !== n.node.graphId && within(p.graphId, n.node.graphId) && (!parent || p.graphId.length > parent.graphId.length)) parent = p;
+    }
+    if (parent) {
+      out.set(n.id, from(parent.x + parent.width * 0.2, parent.y + parent.height * 0.2, 0.6, 0.2));
+      leaving.set(parent, [...(leaving.get(parent) ?? []), n]);
+      continue;
+    }
+    const kids = [...prev.values()].filter((p) => within(n.node.graphId, p.graphId));
+    if (kids.length) {
+      const x = kids.reduce((a, p) => a + p.x, 0) / kids.length;
+      const y = kids.reduce((a, p) => a + p.y, 0) / kids.length;
+      out.set(n.id, from(x, y, 1, 0.4));
+      continue;
+    }
+    out.set(n.id, { x: n.x, y: n.y + 6, scale: 1, opacity: 0 });
+  }
+  // An opened folder lets its boxes out in reading order.
+  for (const boxes of leaving.values()) {
+    boxes.sort((a, b) => a.x - b.x || a.y - b.y);
+    boxes.forEach((n, i) => {
+      const f = out.get(n.id);
+      if (f && i > 0) f.delay = Math.min(i * STAGGER_MS, MAX_STAGGER_MS);
+    });
+  }
+  return out;
 }
 
 const KIND_WORD: Record<string, string> = { folder: "folder", file: "file", symbol: "symbol", external: "package" };

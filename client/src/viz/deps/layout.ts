@@ -109,7 +109,40 @@ export interface LayoutOptions {
   box?: BoxSize;
   /** Ids of edges that order boxes but are not routed (see `ViewLayout.hiddenEdges`). */
   hidden?: Set<string>;
+  /**
+   * The layout this one replaces after one folder opened or closed in place:
+   * boxes keep their order and the row count is kept, so the opened folder
+   * takes its box's slot and only pushes its neighbors along.
+   */
+  previous?: ViewLayout;
 }
+
+/** Where a box sat in the previous layout, by graph id. */
+type PrevSpot = { x: number; y: number; column: number };
+
+/**
+ * A box's spot in the previous layout: its own, else the folder it was opened
+ * from, else (a folder that closed) the first of the boxes it folds together.
+ */
+function previousSpots(previous: ViewLayout | undefined): ((n: ViewNode) => PrevSpot | undefined) | null {
+  if (!previous) return null;
+  const at = new Map(previous.nodes.map((p) => [p.node.graphId, { x: p.x, y: p.y, column: p.column }]));
+  const under = (root: string, id: string) => id.startsWith(`${root}/`) || id.startsWith(`${root}#`);
+  return (n) => {
+    const own = at.get(n.graphId);
+    if (own) return own;
+    let parent: string | undefined;
+    for (const id of at.keys()) if (under(id, n.graphId) && (!parent || id.length > parent.length)) parent = id;
+    if (parent) return at.get(parent);
+    let first: PrevSpot | undefined;
+    for (const [id, p] of at) if (under(n.graphId, id) && (!first || p.x < first.x || (p.x === first.x && p.y < first.y))) first = p;
+    return first;
+  };
+}
+
+/** Reading order of previous spots: down each column, then the next column. */
+const spotOrder = (a: PrevSpot | undefined, b: PrevSpot | undefined) =>
+  !a || !b ? (a ? -1 : b ? 1 : 0) : a.x - b.x || a.y - b.y;
 
 type Side = "left" | "right";
 
@@ -370,6 +403,12 @@ export function layoutViewSync(vm: ViewModel, opts: LayoutOptions): ViewLayout {
 
   const viewport = opts.viewport ?? { width: 1600, height: 1600 / Math.max(0.3, opts.aspectRatio) };
   const total = vm.nodes.length;
+  const spot = previousSpots(opts.previous);
+  // Opening a folder can merge or split components: keep them in their old order.
+  if (spot) {
+    const top = (c: ViewModel) => Math.min(...c.nodes.map((n) => spot(n)?.y ?? Infinity));
+    comps.sort((a, b) => top(a) - top(b));
+  }
   const nodes: PositionedNode[] = [];
   const edges: PositionedEdge[] = [];
   const groups: LayoutGroup[] = [];
@@ -384,6 +423,7 @@ export function layoutViewSync(vm: ViewModel, opts: LayoutOptions): ViewLayout {
       viewport: { width: viewport.width, height: Math.max(80, viewport.height * share) },
       box: opts.box,
       hidden: opts.hidden,
+      previous: opts.previous,
     });
     const top = Math.min(...sub.nodes.map((n) => n.y));
     const dy = y - top + 18;
@@ -432,11 +472,40 @@ function commonFolder(nodes: ViewNode[]): string {
   return first.slice(0, k).join("/");
 }
 
+/**
+ * Columns that keep the previous layout: boxes grouped by their old column
+ * (opened folders' boxes by their folder's), in old reading order, each run cut
+ * to the old row count. Null when no box has a previous spot.
+ */
+function stickyColumns(regions: ViewNode[][][], spot: (n: ViewNode) => PrevSpot | undefined): { columns: ViewNode[][]; rows: number } | null {
+  const rowsIn = new Map<number, Set<number>>();
+  for (const n of regions.flat(2)) {
+    const p = spot(n);
+    if (p) rowsIn.set(p.column, (rowsIn.get(p.column) ?? new Set()).add(p.y));
+  }
+  const rows = Math.max(0, ...[...rowsIn.values()].map((ys) => ys.size));
+  if (!rows) return null;
+  const columns = regions.flatMap((lvls) => {
+    const byColumn = new Map<number, ViewNode[]>();
+    // A box new to the view joins the column nearest it in the flow.
+    const fallback = Math.min(...lvls.flat().map((n) => spot(n)?.column ?? Infinity));
+    for (const n of lvls.flat()) {
+      const c = spot(n)?.column ?? fallback;
+      byColumn.set(c, [...(byColumn.get(c) ?? []), n]);
+    }
+    return [...byColumn.keys()]
+      .sort((a, b) => a - b)
+      .flatMap((c) => chunk(byColumn.get(c)!.sort((a, b) => spotOrder(spot(a), spot(b)) || groupKey(a).localeCompare(groupKey(b)) || a.label.localeCompare(b.label)), rows));
+  });
+  return { columns, rows };
+}
+
 function layoutComponent(vm: ViewModel, opts: LayoutOptions): ViewLayout {
   if (vm.nodes.length === 0) return { nodes: [], edges: [], width: 0, height: 0 };
 
   const byRegion: Record<Region, ViewNode[]> = { in: [], center: [], out: [] };
   for (const n of vm.nodes) byRegion[n.region].push(n);
+  const spot = previousSpots(opts.previous);
 
   // Layer each region by dependency depth: importers sit left of what they
   // import, so edges inside a region mostly flow between adjacent columns.
@@ -461,7 +530,11 @@ function layoutComponent(vm: ViewModel, opts: LayoutOptions): ViewLayout {
     }
     // Group members sit together from the start, so chunking a level into
     // columns splits as few groups as possible.
-    return out.filter(Boolean).map((l) => l.sort((a, b) => groupKey(a).localeCompare(groupKey(b)) || a.label.localeCompare(b.label)));
+    const byName = (a: ViewNode, b: ViewNode) => groupKey(a).localeCompare(groupKey(b)) || a.label.localeCompare(b.label);
+    // After an open or close, boxes keep their previous reading order; an
+    // opened folder's boxes share its spot, so they stay together in its slot.
+    const order = spot ? (a: ViewNode, b: ViewNode) => spotOrder(spot(a), spot(b)) || byName(a, b) : byName;
+    return out.filter(Boolean).map((l) => l.sort(order));
   };
   const inLevels = levels(byRegion.in, inDepth); // index 0 = nearest the center
   const centerLevels = levels(byRegion.center, centerRank);
@@ -481,6 +554,13 @@ function layoutComponent(vm: ViewModel, opts: LayoutOptions): ViewLayout {
     viewport,
     opts.box,
   );
+  // After one folder opened or closed in place, every box keeps its old
+  // column and row count: the opened folder fills its box's column and spills
+  // into new columns right after it, pushing the rest along instead of repacking.
+  if (spot) {
+    const sticky = stickyColumns(regions, spot);
+    if (sticky) return placeAndRoute(vm, byRegion, sticky.columns, sticky.rows, opts.box ?? DEFAULT_BOX, opts.hidden, true);
+  }
   let best: { layout: ViewLayout; rank: number } | null = null;
   for (const packing of ranked.slice(0, vm.nodes.length > 32 ? 2 : MAX_TRIES)) {
     const [inCols, centerCols, outCols] = regions.map((lvls, r) =>
@@ -519,6 +599,8 @@ function placeAndRoute(
   rows: number,
   box: BoxSize,
   hidden: Set<string> = new Set(),
+  /** Keep each column's order as given (a sticky layout), skipping the barycenter sweeps. */
+  keepOrder = false,
 ): ViewLayout {
   const C = columns.length;
 
@@ -539,7 +621,7 @@ function placeAndRoute(
     col.forEach((n, i) => rowOf.set(n.id, start + i));
   };
   columns.forEach(placeColumn);
-  for (let sweep = 0; sweep < 12; sweep++) {
+  for (let sweep = 0; sweep < (keepOrder ? 0 : 12); sweep++) {
     const order = sweep % 2 === 0 ? columns.map((_, i) => i) : columns.map((_, i) => C - 1 - i);
     for (const ci of order) {
       const col = columns[ci];

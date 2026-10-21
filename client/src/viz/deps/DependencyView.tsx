@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createResource, createSignal, onCleanup, onMount, Show } from "solid-js";
+import { batch, createEffect, createMemo, createResource, createSignal, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Keyboard, Minus, Plus, Search } from "lucide-solid";
 import { EmptyState, ErrorState, LoadingState } from "../../components/feedback/States";
 import { Button } from "../../components/ui/Button";
@@ -53,6 +53,8 @@ export default function DependencyView(props: {
 }) {
   const [graph] = createResource(() => props.rootPath, (p) => fetchGraph(p || undefined));
   const [layout, setLayout] = createSignal<ViewLayout | null>(null);
+  /** The box the current layout opened or closed in place (see `pendingAnchor`). */
+  const [anchor, setAnchor] = createSignal<string | null>(null);
   const [menu, setMenu] = createSignal<(NodeMenuTarget & { node: ViewNode }) | null>(null);
   const [help, setHelp] = createSignal(false);
   const [goTo, setGoTo] = createSignal(false);
@@ -89,9 +91,20 @@ export default function DependencyView(props: {
   const setOpen = (ids: string[]) => replace({ open: [...new Set(ids)].sort() });
   /** `id` is `root` or inside it (folder paths, then `file#symbol`). */
   const within = (root: string, id: string) => id === root || id.startsWith(`${root}/`) || id.startsWith(`${root}#`);
-  const expand = (graphId: string) => setOpen([...openList(), graphId]);
+  /**
+   * The one box being opened or closed in place, for the next layout: it keeps
+   * the old layout's order and the camera stays on that box.
+   */
+  let pendingAnchor: string | null = null;
+  const expand = (graphId: string) => {
+    pendingAnchor = graphId;
+    setOpen([...openList(), graphId]);
+  };
   /** Close a folder and everything opened inside it. */
-  const collapse = (graphId: string) => setOpen(openList().filter((id) => !within(graphId, id)));
+  const collapse = (graphId: string) => {
+    pendingAnchor = graphId;
+    setOpen(openList().filter((id) => !within(graphId, id)));
+  };
   /** A frame can close when an expansion sits at or under it. */
   const collapsible = (groupId: string) => (viewModel()?.expanded ?? []).some((id) => within(groupId, id));
   /** One level deeper everywhere: open every folder box on screen. */
@@ -264,8 +277,16 @@ export default function DependencyView(props: {
     const rect = host?.getBoundingClientRect();
     const aspectRatio = rect && rect.height > 0 ? rect.width / rect.height : 1.6;
     const viewport = rect && rect.height > 0 ? { width: rect.width, height: rect.height } : undefined;
+    const anchorId = pendingAnchor;
+    pendingAnchor = null;
+    const previous = anchorId ? (untrack(layout) ?? undefined) : undefined;
     void Promise.resolve().then(() => {
-      if (token === layoutToken) setLayout(layoutWithHubs(vm, { aspectRatio, viewport }));
+      if (token !== layoutToken) return;
+      const next = layoutWithHubs(vm, { aspectRatio, viewport, previous });
+      batch(() => {
+        setAnchor(previous ? anchorId : null);
+        setLayout(next);
+      });
     });
   });
 
@@ -408,6 +429,7 @@ export default function DependencyView(props: {
             <>
               <DependencyCanvas
                 layout={l()}
+                anchor={anchor() ?? undefined}
                 focusId={effectiveFocus() ?? undefined}
                 focusFrame={focusFrame()}
                 onFocus={onFocusNode}
