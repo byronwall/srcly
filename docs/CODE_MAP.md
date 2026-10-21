@@ -217,6 +217,7 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist live
 | Feature | Where |
 | --- | --- |
 | `?view=scatter` (the "2x2" switch beside Treemap/Graph), preset/cohort/quadrant URL params, fan-in fetch, opening points | `client/src/viz/scatter/ScatterView.tsx`; mounted in `client/src/components/Treemap.tsx` |
+| 2x2 controls in the view toolbar (preset menu with axes + description, Files/Functions switch, reset cut-offs) and its status line | `client/src/viz/scatter/PresetPicker.tsx`, `ScatterView.tsx` (`ViewTools`) |
 | Plot: log/linear axes, quadrant fields + names, draggable cut-offs, hover card, linked hover | `client/src/viz/scatter/ScatterPlot.tsx` |
 | Quadrant grid + member list (reuses `HotSpotItem` via `HotSpotRowContext`) | `client/src/viz/scatter/QuadrantPanel.tsx` |
 | Points, quadrant assignment, scales, "why no data" reasons | `client/src/viz/scatter/quadrants.ts` |
