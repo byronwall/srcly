@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.3.0](https://github.com/byronwall/srcly/compare/v1.2.0...v1.3.0) (2026-10-21)
+
+
+### Features
+
+* **2x2:** presets, points and reset join the view toolbar ([#97](https://github.com/byronwall/srcly/issues/97)) ([c308bd3](https://github.com/byronwall/srcly/commit/c308bd3249dc324a642229eb6be1c95fd2892b4c))
+* **graph:** Shift-click expands in place, with a steady layout ([#91](https://github.com/byronwall/srcly/issues/91)) ([edc8c72](https://github.com/byronwall/srcly/commit/edc8c72c137791469abfaa3963ea8ba16015b604))
+* **nav:** arrow keys move through the view switch and sidebar tabs ([#96](https://github.com/byronwall/srcly/issues/96)) ([5c52efb](https://github.com/byronwall/srcly/commit/5c52efbdd623e0238b10b03106c674b95395eb92))
+* **nav:** split the header into where-you-are and how-you-look rows ([#95](https://github.com/byronwall/srcly/issues/95)) ([c2f3738](https://github.com/byronwall/srcly/commit/c2f373892977c88a9e005f33a70c881a51acc9aa))
+
+
+### Bug Fixes
+
+* **graph:** one frame per opened folder, even across columns ([#92](https://github.com/byronwall/srcly/issues/92)) ([aea1015](https://github.com/byronwall/srcly/commit/aea1015258f56dd45b8e175f7288e2fef3abc6cf))
+* **treemap:** show the scanned folder's name instead of "root" ([#98](https://github.com/byronwall/srcly/issues/98)) ([312095f](https://github.com/byronwall/srcly/commit/312095f8fb63e74c20a94e4a0823c272f331f1ae))
+
 ## [1.2.0](https://github.com/byronwall/srcly/compare/v1.1.0...v1.2.0) (2026-10-20)
 
 
