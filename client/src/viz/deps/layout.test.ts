@@ -551,3 +551,29 @@ describe("opening a folder in place keeps the layout", () => {
     expect(pairs).toEqual([]);
   });
 });
+
+describe("an opened folder bigger than a column", () => {
+  const focusId = collapseChain(idx, "src");
+  const opts = { aspectRatio: VIEW_ASPECT, viewport: VIEWPORT };
+  const base = buildViewModel(idx, { focusId, budget: 48 });
+  // The folder with the most boxes once opened.
+  const opened = base.nodes
+    .filter((n) => n.kind === "folder" && n.expandable)
+    .map((n) => layoutViewSync(buildViewModel(idx, { focusId, budget: 48, expanded: [n.graphId] }), opts))
+    .map((l) => ({ l, id: l.frames?.find((f) => l.nodes.some((n) => n.node.group?.opened && n.node.group.id === f.groupId))?.groupId }))
+    .filter((x) => x.id)
+    .sort((a, b) => b.l.nodes.filter((n) => n.node.group?.id === b.id).length - a.l.nodes.filter((n) => n.node.group?.id === a.id).length)[0];
+
+  it("spans several columns", () => {
+    const cols = new Set(opened.l.nodes.filter((n) => n.node.group?.id === opened.id).map((n) => n.column));
+    expect(cols.size).toBeGreaterThan(1);
+  });
+
+  it("gets one frame that wraps all its boxes and nothing else", () => {
+    const frames = (opened.l.frames ?? []).filter((f) => f.groupId === opened.id);
+    expect(frames).toHaveLength(1);
+    const f = frames[0];
+    const inFrame = (n: PositionedNode) => n.x >= f.x && n.x + n.width <= f.x + f.width && n.y >= f.y && n.y + n.height <= f.y + f.height;
+    for (const n of opened.l.nodes) expect(inFrame(n)).toBe(n.node.group?.id === opened.id);
+  });
+});
