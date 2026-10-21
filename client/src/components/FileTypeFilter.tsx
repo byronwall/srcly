@@ -116,7 +116,7 @@ export default function FileTypeFilter(props: FileTypeFilterProps) {
             onClick={(e) => triggerProps.onClick(e)}
           >
             <ListFilter size={14} aria-hidden="true" />
-            <span>
+            <span class="plc-collapsible-label">
               {activeCount() > 0 || isLocActive()
                 ? `Filters · ${activeCount() + (isLocActive() ? 1 : 0)}`
                 : "All files"}

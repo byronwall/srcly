@@ -43,7 +43,7 @@ const VIEWS: { id: View; label: string; icon: typeof GitFork }[] = [
 
 export default function TreemapHeader(props: TreemapHeaderProps) {
   return (
-    <div class="plc-toolbar flex items-center gap-2 overflow-x-auto px-2 border-b scrollbar-hide">
+    <div class="plc-toolbar plc-view-toolbar flex items-center gap-1.5 overflow-x-auto px-2 border-b scrollbar-hide">
       {/* One switch for both projections of the same place. */}
       <div
         role="radiogroup"
@@ -63,8 +63,8 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
               onClick={() => props.onViewChange(v.id)}
             >
               <v.icon size={13} aria-hidden="true" />
-              {/* Icons alone on narrow screens; the title keeps the name. */}
-              <span class="hidden xl:inline">{v.label}</span>
+              {/* Icons alone when the toolbar is narrow; the title keeps the name. */}
+              <span class="plc-view-label">{v.label}</span>
             </Button>
           )}
         </For>
@@ -87,7 +87,7 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
 
       {/* Color Metric (linked to Hot Spot metrics) */}
       <div
-        class="relative flex shrink-0 items-center gap-1.5"
+        class="relative flex min-w-[5.5rem] items-center gap-1.5"
         onMouseEnter={() => props.setShowLegend(true)}
         onMouseLeave={() => props.setShowLegend(false)}
       >

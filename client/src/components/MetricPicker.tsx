@@ -68,7 +68,7 @@ export function MetricPicker(props: {
         >
           <span class="min-w-0 truncate">
             <Show when={props.prefix}>
-              <span class="font-normal text-[var(--plc-on-subtle)]">{props.prefix} </span>
+              <span class="plc-collapsible-label font-normal text-[var(--plc-on-subtle)]">{props.prefix} </span>
             </Show>
             {metricLabel(props.selected)}
             <Show when={isActivityMetric(props.selected)}>

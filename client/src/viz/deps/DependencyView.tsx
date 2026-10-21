@@ -1,5 +1,5 @@
 import { batch, createEffect, createMemo, createResource, createSignal, onCleanup, onMount, Show, untrack } from "solid-js";
-import { Keyboard, Minus, Plus, Search } from "lucide-solid";
+import { Keyboard, Minus, Plus, RotateCcw, Search } from "lucide-solid";
 import { EmptyState, ErrorState, LoadingState } from "../../components/feedback/States";
 import { Button } from "../../components/ui/Button";
 import { IconButton } from "../../components/ui/IconButton";
@@ -374,29 +374,27 @@ export default function DependencyView(props: {
       {/* Graph tools join the view toolbar; what's included lives in its filter menu. */}
       <ViewTools>
         <span aria-hidden="true" class="mx-1 h-4 w-px shrink-0 bg-[var(--plc-border)]" />
-        <div class="flex shrink-0 items-center gap-0.5" role="group" aria-label="Detail">
-          <span class="mr-0.5 hidden text-[11px] text-[var(--plc-on-muted)] xl:inline">Detail</span>
-          <IconButton size="xs" label="Less detail: close the deepest opened folders (−)" disabled={!(viewModel()?.expanded?.length)} onClick={collapseLevel}>
-            <Minus size={13} />
+        {/* A stepper: the label sits between the two steps it names. */}
+        <div class="flex shrink-0 items-center" role="group" aria-label="Detail">
+          <IconButton label="Less detail: close the deepest opened folders (−)" disabled={!(viewModel()?.expanded?.length)} onClick={collapseLevel}>
+            <Minus size={14} />
           </IconButton>
-          <IconButton size="xs" label="More detail: open every folder box in place (+)" disabled={levelUpTargets().length === 0} onClick={expandLevel}>
-            <Plus size={13} />
+          <span class="plc-collapsible-label px-1 text-[12px] text-[var(--plc-on-muted)]">Detail</span>
+          <IconButton label="More detail: open every folder box in place (+)" disabled={levelUpTargets().length === 0} onClick={expandLevel}>
+            <Plus size={14} />
           </IconButton>
-          {/* Always laid out, so the tools beside it never shift. */}
-          <span classList={{ invisible: !viewModel()?.expanded?.length }}>
-            <Button size="xs" variant="ghost" onClick={() => setOpen([])}>
-              Reset
-            </Button>
-          </span>
+          <IconButton label="Close every opened folder" disabled={!(viewModel()?.expanded?.length)} onClick={() => setOpen([])}>
+            <RotateCcw size={14} />
+          </IconButton>
         </div>
         <span aria-hidden="true" class="mx-1 h-4 w-px shrink-0 bg-[var(--plc-border)]" />
-        <Button size="xs" variant="ghost" onClick={() => canvas?.fit()} title="Fit the graph to the window (0)">
+        <Button variant="ghost" class="px-2" onClick={() => canvas?.fit()} title="Fit the graph to the window (0)">
           Fit
         </Button>
-        <IconButton size="xs" label="Go to a folder, file or symbol (/)" onClick={() => setGoTo(true)}>
+        <IconButton label="Go to a folder, file or symbol (/)" onClick={() => setGoTo(true)}>
           <Search size={14} />
         </IconButton>
-        <IconButton size="xs" label="Keyboard and mouse shortcuts (?)" onClick={() => setHelp(true)}>
+        <IconButton label="Keyboard and mouse shortcuts (?)" onClick={() => setHelp(true)}>
           <Keyboard size={14} />
         </IconButton>
       </ViewTools>
@@ -498,8 +496,8 @@ function ClickStatus(props: {
       >
         {action()}
       </span>
-      <span class="ml-auto min-w-0 truncate tabular-nums" title="Double-click opens code · Right-click for actions · ? for keys">
-        {props.stats}
+      <span class="ml-auto min-w-0 truncate tabular-nums">
+        {props.stats} · Double-click opens code · Right-click for actions · ? for keys
       </span>
     </div>
   );

@@ -23,7 +23,7 @@ import { describeResult, formatCount } from "./utils/scanProgress";
 import { MetricsStoreProvider, useMetricsStore } from "./utils/metricsStore";
 import { atFromTreePath, isExternal, normalizeScopeName, splitAt, treePathFromAt } from "./navigation/location";
 import { resolveTreeAt } from "./navigation/resolveTree";
-import { go, location, replace } from "./navigation/store";
+import { go, history, location, replace } from "./navigation/store";
 import { scanStore } from "./state/scanStore";
 import HistoryMenu from "./navigation/HistoryMenu";
 import LocationBar from "./navigation/LocationBar";
@@ -423,7 +423,10 @@ function AppContent(props: { active: boolean }) {
           )}
         </Show>
         <div class="flex shrink-0 items-center gap-0.5">
-          <HistoryMenu />
+          {/* Nothing to list before the first visit. */}
+          <Show when={visualizationData() || history().length > 0}>
+            <HistoryMenu />
+          </Show>
           <Button
             variant="ghost"
             class="gap-1.5"

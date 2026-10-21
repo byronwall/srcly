@@ -226,7 +226,7 @@ export default function Treemap(props: TreemapProps) {
   });
 
   return (
-    <div class="plc-panel relative flex h-full w-full flex-col overflow-hidden rounded-none border">
+    <div class="plc-panel relative flex h-full w-full flex-col overflow-hidden rounded-none">
       <TreemapHeader
         data={props.data}
         activeExtensions={activeExtensions}
