@@ -13,6 +13,7 @@ import { MetricPicker } from "./MetricPicker";
 import Popover from "./Popover";
 import { Button } from "./ui/Button";
 import { IconButton } from "./ui/IconButton";
+import { segmentedKeyDown } from "./ui/segmentedKeys";
 import { metricDef, metricDefs, useMetricsStore, type MetricId } from "../utils/metricsStore";
 import { HotSpotList } from "./HotSpotList";
 import type { HotSpotCohort } from "../utils/hotSpotRanking";
@@ -128,6 +129,7 @@ const VIEW_TABS = [
   { id: "tree", label: "Tree", icon: ListTree },
   { id: "hotspots", label: "Hot Spots", icon: Flame },
 ] as const;
+const VIEW_TAB_IDS = VIEW_TABS.map((t) => t.id);
 
 export default function Explorer(props: {
   data: any;
@@ -373,6 +375,7 @@ export default function Explorer(props: {
           <div
             role="tablist"
             aria-label="Sidebar view"
+            onKeyDown={(e) => segmentedKeyDown(e, VIEW_TAB_IDS, viewMode(), setViewMode)}
             class="flex shrink-0 rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface-muted)] p-0.5"
           >
             <For each={VIEW_TABS}>
@@ -382,6 +385,7 @@ export default function Explorer(props: {
                   size="sm"
                   role="tab"
                   aria-selected={viewMode() === tab.id}
+                  tabIndex={viewMode() === tab.id ? 0 : -1}
                   active={viewMode() === tab.id}
                   class="h-6 gap-1.5 px-2"
                   onClick={() => setViewMode(tab.id)}
