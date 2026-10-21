@@ -15,7 +15,7 @@ import {
   EXTERNAL_BOX_DASH,
 } from "./encoding";
 import { boundsOf } from "./geometry";
-import { createClickIntent, liveHover } from "./interaction";
+import { CLICK_CURSOR, clickAction, createClickIntent, liveHover } from "./interaction";
 import { formatLoc, stripSegments, type ContentItem, type StripSegment } from "./metrics";
 import type { HubShape } from "./hubs";
 import { FRAME_LABEL_H, MAX_SCALE, type PositionedEdge, type PositionedNode, type ViewLayout } from "./layout";
@@ -169,10 +169,10 @@ export function DependencyCanvas(props: {
   focusFrame?: { title: string; note?: string; onTitle?: () => void };
   onFocus: (node: ViewNode) => void;
   onOpen: (node: ViewNode) => void;
-  /** Shift-click: focus the box even when a click would open it in place. */
-  onForceFocus?: (node: ViewNode) => void;
-  /** Alt-click: open the box in place, or close the folder frame around it. */
+  /** Shift- or Alt-click: open the box in place, or close the folder frame around it. */
   onToggleOpen?: (node: ViewNode) => void;
+  /** Shift is down: the cursor shows that a click opens in place. */
+  shiftHeld?: boolean;
   /** Any click on a box: the pointer takes over from the keyboard selection. */
   onPointerAct?: () => void;
   /** The box under the pointer, or null. */
@@ -892,14 +892,21 @@ export function DependencyCanvas(props: {
               const box = () => info().get(n.id);
               const hub = () => hubById().get(n.id);
               const flight = flights().get(n.id);
-              const opens = n.node.kind === "folder" && n.node.expandable;
+              const cursor = () =>
+                CLICK_CURSOR[
+                  clickAction(n.node, {
+                    shift: !!props.shiftHeld,
+                    focusId: props.focusId ?? null,
+                    collapsible: (id) => props.collapsible?.(id) ?? false,
+                  }).kind
+                ];
               return (
                 <g
                   data-box={n.id}
                   class={flight ? "dv-fly" : undefined}
                   style={{
                     transform: `translate(${n.x}px,${n.y}px)`,
-                    cursor: opens ? "zoom-in" : "pointer",
+                    cursor: cursor(),
                     opacity: dimmed() ? 0.62 : 1,
                     transition: "opacity 140ms ease",
                     ...(flight
@@ -919,10 +926,7 @@ export function DependencyCanvas(props: {
                     ev.stopPropagation();
                     setCard(null);
                     props.onPointerAct?.();
-                    if (ev.shiftKey && props.onForceFocus) {
-                      clickIntent.cancel();
-                      props.onForceFocus(n.node);
-                    } else if (ev.altKey && props.onToggleOpen) {
+                    if ((ev.shiftKey || ev.altKey) && props.onToggleOpen) {
                       clickIntent.cancel();
                       props.onToggleOpen(n.node);
                     } else clickIntent.click(n.node, ev);
@@ -1311,11 +1315,11 @@ function NodeCard(props: {
         {props.focused
           ? "Double-click or middle-click to open code"
           : props.node.kind === "folder" && props.node.expandable
-            ? "Click opens in place · Shift-click focuses"
+            ? "Click focuses · Shift-click opens in place"
             : props.node.kind === "symbol"
             ? "Click to isolate · double-click to open"
             : props.node.expandable
-              ? "Click focuses · Alt-click shows symbols · double-click opens"
+              ? "Click focuses · Shift-click shows symbols · double-click opens"
               : "Click to focus · double-click or middle-click to open"}
         <span class="float-right pl-3">? for keys</span>
       </div>
