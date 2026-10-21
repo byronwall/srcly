@@ -69,13 +69,15 @@ export interface LayoutGroup {
   y: number;
 }
 
-/** A light labeled frame around a run of one package's boxes in a column. */
+/** A light labeled frame around a run of one package's boxes in a column (an opened folder's, across columns). */
 export interface GroupFrame {
   /** `${column}|${group id}|${first row}` */
   id: string;
   groupId: string;
   label: string;
   column: number;
+  /** Last column it spans: an opened folder too big for one column wraps all of them. */
+  lastColumn: number;
   x: number;
   y: number;
   width: number;
@@ -206,6 +208,37 @@ function sideDepths(nodes: ViewNode[], edges: ViewEdge[], towardTarget: boolean)
 function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+/**
+ * Cut a run of boxes into columns of at most `rows`. An opened folder too big
+ * for one column gets columns of its own, filled evenly, so its boxes form one
+ * block that a single frame can wrap with nothing else inside it.
+ */
+function chunkColumns(items: ViewNode[], rows: number): ViewNode[][] {
+  const out: ViewNode[][] = [];
+  let rest: ViewNode[] = [];
+  const flush = () => {
+    out.push(...chunk(rest, rows));
+    rest = [];
+  };
+  for (let i = 0; i < items.length; ) {
+    const g = items[i].group;
+    let j = i;
+    while (g?.opened && j < items.length && items[j].group?.id === g.id) j++;
+    if (j - i > rows) {
+      flush();
+      const block = items.slice(i, j);
+      const cols = Math.ceil(block.length / rows);
+      out.push(...chunk(block, Math.ceil(block.length / cols)));
+      i = j;
+    } else {
+      rest.push(items[i]);
+      i++;
+    }
+  }
+  flush();
   return out;
 }
 
@@ -495,7 +528,7 @@ function stickyColumns(regions: ViewNode[][][], spot: (n: ViewNode) => PrevSpot 
     }
     return [...byColumn.keys()]
       .sort((a, b) => a - b)
-      .flatMap((c) => chunk(byColumn.get(c)!.sort((a, b) => spotOrder(spot(a), spot(b)) || groupKey(a).localeCompare(groupKey(b)) || a.label.localeCompare(b.label)), rows));
+      .flatMap((c) => chunkColumns(byColumn.get(c)!.sort((a, b) => spotOrder(spot(a), spot(b)) || groupKey(a).localeCompare(groupKey(b)) || a.label.localeCompare(b.label)), rows));
   });
   return { columns, rows };
 }
@@ -564,7 +597,7 @@ function layoutComponent(vm: ViewModel, opts: LayoutOptions): ViewLayout {
   let best: { layout: ViewLayout; rank: number } | null = null;
   for (const packing of ranked.slice(0, vm.nodes.length > 32 ? 2 : MAX_TRIES)) {
     const [inCols, centerCols, outCols] = regions.map((lvls, r) =>
-      foldLevels(lvls, packing.folds[r]).flatMap((g) => chunk(g, packing.rows)),
+      foldLevels(lvls, packing.folds[r]).flatMap((g) => chunkColumns(g, packing.rows)),
     );
     inCols.reverse();
     const layout = placeAndRoute(vm, byRegion, [...inCols, ...centerCols, ...outCols], packing.rows, opts.box ?? DEFAULT_BOX, opts.hidden);
@@ -676,6 +709,7 @@ function placeAndRoute(
   // Frames whose interior gutter `g` passes through between channels c0..c1
   // (columns c0..c1-1), ignoring the frames that hold either end.
   const groupOfNode = new Map(vm.nodes.map((n) => [n.id, n.group?.id]));
+  const groupOpened = new Set(vm.nodes.filter((n) => n.group?.opened).map((n) => n.group!.id));
   const framesCut = (g: number, c0: number, c1: number, s: string, t: string) =>
     runs.filter(
       (r) =>
@@ -1028,7 +1062,17 @@ function placeAndRoute(
       }
       return { id: edge.id, source: edge.source, target: edge.target, points: simplify(points), edge };
     });
-  const frames: GroupFrame[] = runs.map((r) => {
+  // An opened folder that fills several side-by-side columns is one frame.
+  const spans: (typeof runs[number] & { lastColumn: number })[] = [];
+  for (const r of runs) {
+    const prev = groupOpened.has(r.groupId) ? spans.find((p) => p.groupId === r.groupId && p.lastColumn === r.column - 1) : undefined;
+    if (prev) {
+      prev.lastColumn = r.column;
+      prev.first = Math.min(prev.first, r.first);
+      prev.last = Math.max(prev.last, r.last);
+    } else spans.push({ ...r, lastColumn: r.column });
+  }
+  const frames: GroupFrame[] = spans.map((r) => {
     const y0 = rowTop[r.first] - FRAME_LABEL_H;
     const y1 = rowTop[r.last] + box.height + FRAME_PAD;
     return {
@@ -1036,9 +1080,10 @@ function placeAndRoute(
       groupId: r.groupId,
       label: r.label,
       column: r.column,
+      lastColumn: r.lastColumn,
       x: colX[r.column] - FRAME_PAD,
       y: y0,
-      width: box.width + 2 * FRAME_PAD,
+      width: colX[r.lastColumn] + box.width - colX[r.column] + 2 * FRAME_PAD,
       height: y1 - y0,
     };
   });

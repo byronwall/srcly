@@ -406,7 +406,7 @@ export function DependencyCanvas(props: {
     const out = new Set<string>();
     for (const f of props.layout.frames ?? []) {
       for (const n of props.layout.nodes) {
-        if (n.column === f.column && n.node.group?.id === f.groupId && n.y >= f.y && n.y + n.height <= f.y + f.height) out.add(n.id);
+        if (n.column >= f.column && n.column <= f.lastColumn && n.node.group?.id === f.groupId && n.y >= f.y && n.y + n.height <= f.y + f.height) out.add(n.id);
       }
     }
     return out;
