@@ -60,3 +60,13 @@ export function scopeDisplayName(node: { name: string; path: string }, scanRootP
   if (node.path !== scanRootPath) return node.name;
   return node.path.split(/[\\/]/).filter(Boolean).pop() ?? node.name;
 }
+
+/**
+ * The server names the scan root "root". Give it its folder's name once, as
+ * the tree arrives, so tiles, tooltips ("in …") and labels match the
+ * breadcrumb. Older cached scans get the same fix.
+ */
+export function nameScanRoot<T extends { name: string; path: string } | null | undefined>(tree: T): T {
+  if (tree && tree.name === "root") tree.name = scopeDisplayName(tree, tree.path);
+  return tree;
+}

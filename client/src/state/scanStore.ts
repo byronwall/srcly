@@ -10,6 +10,7 @@ import {
 } from "../services/scanJobs";
 import type { ClientStage } from "../utils/scanProgress";
 import { defaultActivityWindow, type FindingsInfo } from "../utils/metricsStore";
+import { nameScanRoot } from "../utils/explorerScope";
 
 const FINDINGS_POLL_MS = 2000;
 
@@ -88,7 +89,7 @@ export function createScanStore() {
         if (request !== activeRequest || completedScanId !== id) return;
         if (info.status === "running") return pollFindings(request, id);
         const result = await fetchScanResult<any>(id, currentActivityWindow());
-        if (request === activeRequest && completedScanId === id) setData(result);
+        if (request === activeRequest && completedScanId === id) setData(nameScanRoot(result));
       } catch (err) {
         // The tree is still good without counts; try again shortly.
         console.warn("Couldn't read the checks' status", err);
@@ -114,7 +115,7 @@ export function createScanStore() {
     try {
       const result = await fetchScanResult<any>(id, next);
       if (request === activeRequest && completedScanId === id) {
-        setData(result);
+        setData(nameScanRoot(result));
         pollFindings(request, id);
       }
     } catch (err) {
@@ -140,7 +141,7 @@ export function createScanStore() {
         if (request !== activeRequest) return;
         const painted = options.waitForPaint?.();
         completedScanId = snapshot.id;
-        setData(result);
+        setData(nameScanRoot(result));
         pollFindings(request, snapshot.id);
         await painted;
         if (request !== activeRequest) return;
