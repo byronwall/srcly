@@ -23,9 +23,8 @@ export const GRAPH_SHORTCUTS: { title: string; note?: string; rows: Row[] }[] = 
     title: "Act on a box",
     note: "Keys act on the selected box, or on the box under the pointer.",
     rows: [
-      [[["Enter"]], "Same as a click: open a folder in place, focus a file, isolate a symbol"],
-      [[["F"], ["Shift", "Enter"]], "Focus it (drill in), even a folder"],
-      [[["E"], ["Space"]], "Open it in place, or close the folder frame around it"],
+      [[["Enter"], ["F"]], "Same as a click: focus it (drill in), isolate a symbol"],
+      [[["Shift", "Enter"], ["E"], ["Space"]], "Same as Shift-click: open it in place, or close the folder frame around it"],
       [[["C"]], "Close the opened folder around it"],
       [[["O"]], "Open its code"],
       [[["M"]], "Actions menu"],
@@ -46,9 +45,9 @@ export const GRAPH_SHORTCUTS: { title: string; note?: string; rows: Row[] }[] = 
   {
     title: "Mouse",
     rows: [
-      [[["Click"]], "Open a folder in place · focus a file · isolate a symbol"],
-      [[["Shift", "Click"], ["Double-click"]], "Focus it, even a folder"],
-      [[["Alt", "Click"]], "Open it in place (a file shows its symbols), or close its frame"],
+      [[["Click"]], "Focus it (drill in) · isolate a symbol"],
+      [[["Shift", "Click"], ["Alt", "Click"]], "Open it in place (a file shows its symbols), or close its frame"],
+      [[["Double-click"]], "Open a file's code · focus a folder"],
       [[["⌘", "Click"], ["Middle-click"]], "Open its code"],
       [[["Right-click"]], "Actions menu"],
       [[["Drag"], ["Wheel"]], "Pan · zoom"],

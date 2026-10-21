@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createClickIntent, liveHover, nextInDirection } from "./interaction";
+import { clickAction, createClickIntent, liveHover, nextInDirection } from "./interaction";
 
 describe("liveHover", () => {
   const ids = new Set(["a", "b"]);
@@ -123,5 +123,26 @@ describe("nextInDirection", () => {
     expect(nextInDirection(rects, "a", "left")).toBeNull();
     expect(nextInDirection(rects, "a", "up")).toBeNull();
     expect(nextInDirection(rects, "zz", "up")).toBeNull();
+  });
+});
+
+describe("clickAction", () => {
+  const folder = { graphId: "src/app", kind: "folder", expandable: true };
+  const inFrame = { graphId: "src/app/a.ts", kind: "file", group: { id: "src/app", label: "app" } };
+  const opts = { shift: false, focusId: "src", collapsible: (id: string) => id === "src/app" };
+
+  it("focuses on a plain click, even a folder that could open in place", () => {
+    expect(clickAction(folder, opts).kind).toBe("focus");
+    expect(clickAction({ graphId: "a.ts#run", kind: "symbol" }, opts).kind).toBe("isolate");
+  });
+
+  it("does nothing on a plain click of the focus itself", () => {
+    expect(clickAction({ ...folder, graphId: "src" }, opts).kind).toBe("none");
+  });
+
+  it("opens in place on Shift-click, or closes the opened folder around it", () => {
+    expect(clickAction(folder, { ...opts, shift: true }).kind).toBe("expand");
+    expect(clickAction(inFrame, { ...opts, shift: true })).toEqual({ kind: "collapse", frame: "app" });
+    expect(clickAction({ graphId: "b.ts", kind: "file" }, { ...opts, shift: true }).kind).toBe("none");
   });
 });

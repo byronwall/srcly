@@ -565,15 +565,29 @@ samp {
     opacity: 0;
   }
 }
+@keyframes dv-glow-fade {
+  to {
+    opacity: 0;
+  }
+}
 .dv-fly {
-  animation: dv-fly 320ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation: dv-fly 420ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
 }
 .dv-settle {
-  animation: dv-settle 180ms ease-out 220ms backwards;
+  animation: dv-settle 200ms ease-out 380ms backwards;
+}
+/* An opened folder's outline grows out of its box, holds, then fades. */
+.dv-glow {
+  animation:
+    dv-fly 420ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards,
+    dv-glow-fade 700ms ease-out 900ms forwards;
 }
 @media (prefers-reduced-motion: reduce) {
   .dv-fly,
   .dv-settle {
     animation: none;
+  }
+  .dv-glow {
+    display: none;
   }
 }

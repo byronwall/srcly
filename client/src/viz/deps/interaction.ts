@@ -104,3 +104,32 @@ export function nextInDirection(rects: Rect[], fromId: string, dir: Direction): 
   }
   return best?.id ?? null;
 }
+
+export type ClickActionKind = "focus" | "isolate" | "expand" | "collapse" | "none";
+
+/**
+ * What a click on a box does: a plain click focuses it (isolates a symbol);
+ * Shift-click opens it in place, or closes the opened folder around it. The
+ * canvas cursor and the status line both read this, so they always agree.
+ */
+export function clickAction(
+  n: { graphId: string; kind: string; expandable?: boolean; group?: { id: string; label: string } },
+  opts: { shift: boolean; focusId: string | null; collapsible: (groupId: string) => boolean },
+): { kind: ClickActionKind; frame?: string } {
+  if (opts.shift) {
+    if (n.expandable) return { kind: "expand" };
+    if (n.group && opts.collapsible(n.group.id)) return { kind: "collapse", frame: n.group.label };
+    return { kind: "none" };
+  }
+  if (n.graphId === opts.focusId) return { kind: "none" };
+  return { kind: n.kind === "symbol" ? "isolate" : "focus" };
+}
+
+/** The canvas cursor for each click action. */
+export const CLICK_CURSOR: Record<ClickActionKind, string> = {
+  focus: "zoom-in",
+  isolate: "zoom-in",
+  expand: "cell",
+  collapse: "zoom-out",
+  none: "default",
+};

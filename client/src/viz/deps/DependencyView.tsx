@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createResource, createSignal, onCleanup, onMount, Show } from "solid-js";
+import { batch, createEffect, createMemo, createResource, createSignal, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Keyboard, Minus, Plus, Search } from "lucide-solid";
 import { EmptyState, ErrorState, LoadingState } from "../../components/feedback/States";
 import { Button } from "../../components/ui/Button";
@@ -10,7 +10,7 @@ import { DependencyLegend } from "./DependencyLegend";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { GoToPalette, type GoToMode } from "./GoToPalette";
 import type { GoToHit } from "./goto";
-import { nextInDirection, type Direction } from "./interaction";
+import { clickAction, nextInDirection, type Direction } from "./interaction";
 import {
   applyFilters,
   buildIndex,
@@ -53,6 +53,8 @@ export default function DependencyView(props: {
 }) {
   const [graph] = createResource(() => props.rootPath, (p) => fetchGraph(p || undefined));
   const [layout, setLayout] = createSignal<ViewLayout | null>(null);
+  /** The box the current layout opened or closed in place (see `pendingAnchor`). */
+  const [anchor, setAnchor] = createSignal<string | null>(null);
   const [menu, setMenu] = createSignal<(NodeMenuTarget & { node: ViewNode }) | null>(null);
   const [help, setHelp] = createSignal(false);
   const [goTo, setGoTo] = createSignal(false);
@@ -60,6 +62,8 @@ export default function DependencyView(props: {
   const [selected, setSelected] = createSignal<string | null>(null);
   /** The box under the pointer, reported by the canvas: keys act on it when nothing is selected. */
   const [hovered, setHovered] = createSignal<ViewNode | null>(null);
+  /** Shift is down: a click opens in place instead of focusing. */
+  const [shiftHeld, setShiftHeld] = createSignal(false);
   let canvas: CanvasApi | undefined;
   let host!: HTMLDivElement;
 
@@ -87,9 +91,20 @@ export default function DependencyView(props: {
   const setOpen = (ids: string[]) => replace({ open: [...new Set(ids)].sort() });
   /** `id` is `root` or inside it (folder paths, then `file#symbol`). */
   const within = (root: string, id: string) => id === root || id.startsWith(`${root}/`) || id.startsWith(`${root}#`);
-  const expand = (graphId: string) => setOpen([...openList(), graphId]);
+  /**
+   * The one box being opened or closed in place, for the next layout: it keeps
+   * the old layout's order and the camera stays on that box.
+   */
+  let pendingAnchor: string | null = null;
+  const expand = (graphId: string) => {
+    pendingAnchor = graphId;
+    setOpen([...openList(), graphId]);
+  };
   /** Close a folder and everything opened inside it. */
-  const collapse = (graphId: string) => setOpen(openList().filter((id) => !within(graphId, id)));
+  const collapse = (graphId: string) => {
+    pendingAnchor = graphId;
+    setOpen(openList().filter((id) => !within(graphId, id)));
+  };
   /** A frame can close when an expansion sits at or under it. */
   const collapsible = (groupId: string) => (viewModel()?.expanded ?? []).some((id) => within(groupId, id));
   /** One level deeper everywhere: open every folder box on screen. */
@@ -221,9 +236,11 @@ export default function DependencyView(props: {
       else if (key === "y") setFilters((f) => ({ ...f, showTypeOnly: !f.showTypeOnly }));
       else if (key === "u" || key === "Backspace") up();
       else if (n && key === "Enter") {
-        setSelected(n.graphId);
-        if (e.shiftKey) onFocusNode(n);
-        else onClickNode(n);
+        if (e.shiftKey) toggleOpen(n);
+        else {
+          setSelected(n.graphId);
+          onFocusNode(n);
+        }
       } else if (n && key === "f") {
         setSelected(n.graphId);
         onFocusNode(n);
@@ -238,6 +255,18 @@ export default function DependencyView(props: {
     };
     window.addEventListener("keydown", onKey);
     onCleanup(() => window.removeEventListener("keydown", onKey));
+
+    // Shift changes what a click does: track it for the cursor and status line.
+    const onShift = (e: KeyboardEvent) => setShiftHeld(e.shiftKey);
+    const onBlur = () => setShiftHeld(false);
+    window.addEventListener("keydown", onShift);
+    window.addEventListener("keyup", onShift);
+    window.addEventListener("blur", onBlur);
+    onCleanup(() => {
+      window.removeEventListener("keydown", onShift);
+      window.removeEventListener("keyup", onShift);
+      window.removeEventListener("blur", onBlur);
+    });
   });
 
   let layoutToken = 0;
@@ -248,8 +277,16 @@ export default function DependencyView(props: {
     const rect = host?.getBoundingClientRect();
     const aspectRatio = rect && rect.height > 0 ? rect.width / rect.height : 1.6;
     const viewport = rect && rect.height > 0 ? { width: rect.width, height: rect.height } : undefined;
+    const anchorId = pendingAnchor;
+    pendingAnchor = null;
+    const previous = anchorId ? (untrack(layout) ?? undefined) : undefined;
     void Promise.resolve().then(() => {
-      if (token === layoutToken) setLayout(layoutWithHubs(vm, { aspectRatio, viewport }));
+      if (token !== layoutToken) return;
+      const next = layoutWithHubs(vm, { aspectRatio, viewport, previous });
+      batch(() => {
+        setAnchor(previous ? anchorId : null);
+        setLayout(next);
+      });
     });
   });
 
@@ -267,12 +304,6 @@ export default function DependencyView(props: {
     const idx = index();
     return l && idx ? viewContents(idx, l.nodes.map((n) => n.node), props.metricsIndex) : undefined;
   });
-
-  // A click opens a folder in place; files and symbols take the focus.
-  const onClickNode = (n: ViewNode) => {
-    if (n.kind === "folder" && n.expandable) expand(n.graphId);
-    else onFocusNode(n);
-  };
 
   const onFocusNode = (n: ViewNode) => {
     const idx = index();
@@ -398,11 +429,12 @@ export default function DependencyView(props: {
             <>
               <DependencyCanvas
                 layout={l()}
+                anchor={anchor() ?? undefined}
                 focusId={effectiveFocus() ?? undefined}
                 focusFrame={focusFrame()}
-                onFocus={onClickNode}
-                onForceFocus={onFocusNode}
+                onFocus={onFocusNode}
                 onToggleOpen={toggleOpen}
+                shiftHeld={shiftHeld()}
                 onPointerAct={() => setSelected(null)}
                 onHover={setHovered}
                 selectedId={selectedBox()?.id}
@@ -420,6 +452,8 @@ export default function DependencyView(props: {
           )}
         </Show>
       </div>
+
+      <ClickStatus node={hovered()} shift={shiftHeld()} focusId={effectiveFocus()} collapsible={collapsible} />
 
       <ShortcutsDialog open={help()} onClose={() => setHelp(false)} />
       <GoToPalette open={goTo()} index={index()} near={effectiveFocus() ?? ""} onClose={() => setGoTo(false)} onPick={goToPick} />
@@ -439,6 +473,42 @@ export default function DependencyView(props: {
           />
         )}
       </Show>
+    </div>
+  );
+}
+
+/**
+ * The status line under the graph: what a click does right now, in bold (it
+ * follows Shift and the hovered box), and the other mouse gestures, quietly.
+ */
+function ClickStatus(props: {
+  node: ViewNode | null;
+  shift: boolean;
+  focusId: string | null;
+  collapsible: (groupId: string) => boolean;
+}) {
+  const action = () => {
+    const n = props.node;
+    const name = n ? n.label : undefined;
+    if (!n) return props.shift ? "Shift-click opens a box in place" : "Click focuses a box";
+    const a = clickAction(n, { shift: props.shift, focusId: props.focusId, collapsible: props.collapsible });
+    if (a.kind === "focus") return `Click focuses ${name}`;
+    if (a.kind === "isolate") return `Click isolates ${name}`;
+    if (a.kind === "expand") return n.kind === "file" ? `Shift-click shows ${name}'s symbols` : `Shift-click opens ${name} in place`;
+    if (a.kind === "collapse") return `Shift-click closes ${a.frame}`;
+    return props.shift ? `Nothing to open in ${name}` : `${name} is the focus`;
+  };
+  return (
+    <div class="flex items-center gap-3 border-t border-[var(--plc-border)] px-3 py-1 text-[11px] text-[var(--plc-on-subtle)]" aria-live="polite">
+      <span
+        class="shrink-0 font-semibold"
+        classList={{ "text-[var(--plc-accent)]": props.shift, "text-[var(--plc-on-surface)]": !props.shift }}
+      >
+        {action()}
+      </span>
+      <span class="ml-auto min-w-0 truncate">
+        Click focuses · Shift-click opens in place · Double-click opens code · Right-click for actions · ? for keys
+      </span>
     </div>
   );
 }
