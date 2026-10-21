@@ -8,7 +8,7 @@ import {
   lazy,
   untrack,
 } from "solid-js";
-import { GitCompare, RefreshCw } from "lucide-solid";
+import { GitCompare } from "lucide-solid";
 import Toast from "./components/Toast";
 
 import Explorer from "./components/Explorer";
@@ -26,10 +26,12 @@ import { resolveTreeAt } from "./navigation/resolveTree";
 import { go, location, replace } from "./navigation/store";
 import { scanStore } from "./state/scanStore";
 import HistoryMenu from "./navigation/HistoryMenu";
+import LocationBar from "./navigation/LocationBar";
 import { enterCompare, readCompareParam } from "./compare/api";
 import { useSidebarLayout } from "./hooks/useSidebarLayout";
 import { SidebarRail } from "./components/SidebarRail";
 import { scopeDisplayName } from "./utils/explorerScope";
+import { rememberPath } from "./utils/recentPaths";
 
 const CodeModal = lazy(() => import("./components/CodeModal/CodeModal.tsx"));
 const CompareApp = lazy(() => import("./compare/CompareApp.tsx"));
@@ -260,6 +262,7 @@ function AppContent(props: { active: boolean }) {
 
   const analyze = (path: string, options: { force?: boolean } = {}) => {
     pendingNotice = null;
+    rememberPath(path);
     setAnalysisPath(path);
     void scanStore.start(path, {
       ...options,
@@ -394,48 +397,43 @@ function AppContent(props: { active: boolean }) {
 
   return (
     <div class="plc-app-shell h-screen flex flex-col overflow-hidden">
-      <header class="plc-topbar px-4 border-b flex items-center gap-4">
-        <div class="flex items-center gap-3 flex-1 min-w-0">
-          <h1 class="flex shrink-0 items-center gap-2 text-[15px] font-semibold tracking-[-0.01em] text-[var(--plc-primary)]">
-            <img src="/favicon.svg" alt="" class="h-5 w-5" />
-            Srcly
-          </h1>
-          <div class="w-full">
-            <FilePickerWithExternal
-              onSelect={handleFileSelect}
-              externalPath={analysisPath()}
-            />
-          </div>
-          <HistoryMenu />
-        </div>
-        <Button
-          variant="ghost"
-          class="shrink-0 gap-1.5"
-          title="Compare two git refs: what a branch or PR changed, and whether metrics got better or worse"
-          onClick={() => enterCompare()}
+      {/* Where you are. How you look at it lives in the view toolbar below. */}
+      <header class="plc-topbar flex items-center gap-2 border-b pl-4 pr-2">
+        <h1 class="mr-2 flex shrink-0 items-center gap-2 text-[15px] font-semibold tracking-[-0.01em] text-[var(--plc-primary)]">
+          <img src="/favicon.svg" alt="" class="h-5 w-5" />
+          Srcly
+        </h1>
+        <Show
+          when={visualizationData()}
+          fallback={
+            <div class="min-w-0 flex-1">
+              <FilePickerWithExternal onSelect={handleFileSelect} externalPath={analysisPath()} />
+            </div>
+          }
         >
-          <GitCompare size={13} aria-hidden="true" />
-          Compare
-        </Button>
-        <Show when={!loading() && visualizationData()}>
           {(data) => (
-            <>
-              <div class="plc-data-sm hidden whitespace-nowrap text-[var(--plc-on-subtle)] md:block">
-                {formatCount(data().metrics?.file_count ?? 0)} files ·{" "}
-                {formatCount(data().metrics?.loc ?? 0)} LOC
-              </div>
-              <Button
-                variant="ghost"
-                class="shrink-0 gap-1.5"
-                title="Scan again, ignoring the saved analysis"
-                onClick={() => analyze(scannedPath() ?? "", { force: true })}
-              >
-                <RefreshCw size={13} aria-hidden="true" />
-                Rescan
-              </Button>
-            </>
+            <LocationBar
+              rootPath={rootPath()}
+              menu={{
+                summary: `${formatCount(data().metrics?.file_count ?? 0)} files · ${formatCount(data().metrics?.loc ?? 0)} LOC`,
+                onAnalyze: handleFileSelect,
+                onRescan: () => analyze(scannedPath() ?? "", { force: true }),
+              }}
+            />
           )}
         </Show>
+        <div class="flex shrink-0 items-center gap-0.5">
+          <HistoryMenu />
+          <Button
+            variant="ghost"
+            class="gap-1.5"
+            title="Compare two git refs: what a branch or PR changed, and whether metrics got better or worse"
+            onClick={() => enterCompare()}
+          >
+            <GitCompare size={14} aria-hidden="true" />
+            Compare
+          </Button>
+        </div>
       </header>
 
       <main class="flex-1 relative overflow-hidden flex">

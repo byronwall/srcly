@@ -1,5 +1,5 @@
 import { For, Show, type Accessor } from "solid-js";
-import { ChartScatter, ChevronRight, GitFork, LayoutGrid } from "lucide-solid";
+import { ChartScatter, GitFork, LayoutGrid } from "lucide-solid";
 import {
   metricLabel,
   type MetricId,
@@ -8,14 +8,12 @@ import FileTypeFilter from "../../../components/FileTypeFilter";
 import { isAnyPopoverOpen } from "../../../components/Popover";
 import { MetricPicker } from "../../../components/MetricPicker";
 import { TREEMAP_GRADIENT, TREEMAP_NA_BACKGROUND } from "../utils/colors";
-import type { Crumb, View } from "../../../navigation/location";
+import type { View } from "../../../navigation/location";
+import { ViewToolSlot } from "../../viewToolbar";
 import { Button } from "../../../components/ui/Button";
 
 export type TreemapHeaderProps = {
   data: any;
-
-  crumbs: Accessor<Crumb[]>;
-  onCrumbClick: (at: string) => void;
 
   activeExtensions: Accessor<string[]>;
   onToggleExtension: (ext: string) => void;
@@ -45,7 +43,7 @@ const VIEWS: { id: View; label: string; icon: typeof GitFork }[] = [
 
 export default function TreemapHeader(props: TreemapHeaderProps) {
   return (
-    <div class="plc-toolbar flex items-center gap-3 overflow-x-auto px-3 border-b">
+    <div class="plc-toolbar flex items-center gap-2 overflow-x-auto px-2 border-b scrollbar-hide">
       {/* One switch for both projections of the same place. */}
       <div
         role="radiogroup"
@@ -61,43 +59,19 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
               aria-checked={props.view() === v.id}
               active={props.view() === v.id}
               class="gap-1.5 px-2"
+              title={v.label}
               onClick={() => props.onViewChange(v.id)}
             >
               <v.icon size={13} aria-hidden="true" />
-              {v.label}
+              {/* Icons alone on narrow screens; the title keeps the name. */}
+              <span class="hidden xl:inline">{v.label}</span>
             </Button>
           )}
         </For>
       </div>
 
-      {/* Breadcrumbs */}
-      <nav
-        aria-label="Location"
-        class="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto text-[13px] scrollbar-hide"
-      >
-        <For each={props.crumbs()}>
-          {(crumb, i) => (
-            <div class="flex items-center whitespace-nowrap">
-              <button
-                type="button"
-                class={
-                  i() === props.crumbs().length - 1
-                    ? "rounded px-1 font-semibold text-[var(--plc-on-surface)]"
-                    : "rounded px-1 text-[var(--plc-on-muted)] hover:bg-[var(--plc-surface-hover)] hover:text-[var(--plc-accent)]"
-                }
-                aria-current={i() === props.crumbs().length - 1 ? "location" : undefined}
-                title={crumb.at || undefined}
-                onClick={() => props.onCrumbClick(crumb.at)}
-              >
-                {crumb.label}
-              </button>
-              <Show when={i() < props.crumbs().length - 1}>
-                <ChevronRight size={13} class="text-[var(--plc-on-disabled)]" aria-hidden="true" />
-              </Show>
-            </div>
-          )}
-        </For>
-      </nav>
+      <ViewToolSlot />
+      <div class="min-w-0 flex-1" />
 
       {/* Filters */}
       <div class="shrink-0">

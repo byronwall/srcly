@@ -1,5 +1,6 @@
 import { File, Folder } from "lucide-solid";
-import { createSignal, createEffect, For, Show, onMount } from "solid-js";
+import { createSignal, createEffect, For, Show } from "solid-js";
+import { recentPaths, rememberPath } from "../utils/recentPaths";
 import Popover from "./Popover";
 import { Button } from "./ui/Button";
 import { OptionRow, PopoverPanel, PopoverSectionTitle } from "./ui/PopoverPanel";
@@ -24,10 +25,7 @@ export default function FilePicker(props: FilePickerProps) {
   const [suggestions, setSuggestions] = createSignal<FileItem[]>([]);
   const [showSuggestions, setShowSuggestions] = createSignal(false);
   const [loading, setLoading] = createSignal(false);
-  const [recentPaths, setRecentPaths] = createSignal<string[]>([]);
   const [showRecent, setShowRecent] = createSignal(false);
-
-  const RECENT_PATHS_KEY = "code-steward-recent-paths";
 
   // Keep local path in sync with an external value when provided.
   // Only depend on `props.externalPath` so user typing doesn't get
@@ -37,44 +35,6 @@ export default function FilePicker(props: FilePickerProps) {
       setPath(props.externalPath);
     }
   });
-
-  const saveRecentPaths = (paths: string[]) => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(RECENT_PATHS_KEY, JSON.stringify(paths));
-    } catch (err) {
-      console.error("Failed to save recent paths", err);
-    }
-  };
-
-  const addRecentPath = (newPath: string) => {
-    const trimmed = newPath.trim();
-    if (!trimmed) return;
-
-    setRecentPaths((prev) => {
-      const filtered = prev.filter((p) => p !== trimmed);
-      const updated = [trimmed, ...filtered].slice(0, 8);
-      saveRecentPaths(updated);
-      return updated;
-    });
-  };
-
-  const loadRecentPaths = () => {
-    if (typeof window === "undefined") return;
-    try {
-      const stored = window.localStorage.getItem(RECENT_PATHS_KEY);
-      if (!stored) return;
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) {
-        const onlyStrings = parsed.filter(
-          (item: unknown): item is string => typeof item === "string"
-        );
-        setRecentPaths(onlyStrings);
-      }
-    } catch (err) {
-      console.error("Failed to load recent paths", err);
-    }
-  };
 
   // Debounce logic could be added, but for local server it might be fast enough.
   // Let's fetch on every meaningful change or when path ends with /
@@ -106,10 +66,6 @@ export default function FilePicker(props: FilePickerProps) {
     fetchSuggestions(p);
   });
 
-  onMount(() => {
-    loadRecentPaths();
-  });
-
   const handleInput = (e: InputEvent) => {
     const val = (e.target as HTMLInputElement).value;
     setPath(val);
@@ -127,7 +83,7 @@ export default function FilePicker(props: FilePickerProps) {
       return;
     }
     props.onSelect(currentPath);
-    addRecentPath(currentPath);
+    rememberPath(currentPath);
     setShowSuggestions(false);
     setShowRecent(false);
   };
@@ -229,7 +185,7 @@ export default function FilePicker(props: FilePickerProps) {
                   onClick={() => {
                     setPath(recentPath);
                     props.onSelect(recentPath);
-                    addRecentPath(recentPath);
+                    rememberPath(recentPath);
                     setShowRecent(false);
                     setShowSuggestions(false);
                   }}
