@@ -156,6 +156,7 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist live
 | --- | --- |
 | Mount + global CSS / design tokens | `client/src/index.tsx`, `client/src/index.css` |
 | App shell, scan start/cancel, loading/empty/error states | `client/src/App.tsx` |
+| Scan root shown under its folder's name (server sends `"root"`) | `client/src/utils/explorerScope.ts` (`nameScanRoot`), applied in `client/src/state/scanStore.ts` |
 | Scan API client (EventSource + polling fallback) | `client/src/services/scanJobs.ts` |
 | Scan progress panel | `client/src/components/feedback/ScanProgress.tsx`, view model in `client/src/utils/scanProgress.ts` |
 | Path bar with autocomplete + recent paths | `client/src/components/FilePicker.tsx` |
