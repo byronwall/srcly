@@ -17,6 +17,8 @@ The primary audience remains a local developer. The tool should read one known a
 
 ## Boundaries
 
+The [custom results initiative](../custom-metrics-and-repo-config/shape-brief.md) now owns the shared import contract and diagnostics path. This initiative retains graph, clone, and coverage goals. Its no-execution boundary describes these imported workflows; current Srcly scans already run native checks.
+
 This is a sequence of conditional proofs, not a commitment to build every integration. Choose one artifact format per milestone. Do not add a plugin framework, run project configuration, launch tests, bundle rule packs, or call remote analysis services during a normal scan.
 
 Missing coverage is unknown. A clone is not an instruction to extract an abstraction. A dependency cycle is not proof of a runtime fault. These distinctions must survive the report and UI.
