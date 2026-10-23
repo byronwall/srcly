@@ -15,11 +15,11 @@
 - Submitted: 2026-10-23 about 02:06 UTC (October 22, about 10:06 p.m. Indianapolis).
 - Verification: Both uploaded attachments appeared in the sent message. The page showed Working and an acknowledgement of the research scope.
 - First collection check: 2026-10-23 03:10 UTC (October 22, 11:10 p.m. Indianapolis).
-- Phase: Submitted; Pro is working. Collection and synthesis remain pending.
+- Phase: Collected and synthesized. Review PR preparation is in progress.
 - Follow-ups: 0; allow at most one for a material missing answer.
 - Heartbeat: `collect-srcly-extension-and-config-design`, ACTIVE, hourly at minute 10. The prompt defers collection until the first check time.
-- Initiative: [custom-metrics-and-repo-config](../../intent/custom-metrics-and-repo-config/intent-brief.md). Initial intent captured; shape and plan await research.
-- Collected files: None yet. Store originals in ignored `tmp/pro/extensibility-config/`.
+- Initiative: [custom-metrics-and-repo-config](../../intent/custom-metrics-and-repo-config/shape-brief.md). Intent, shape, implementation plan, and map are current. Lifecycle remains planned.
+- Collected files: `tmp/pro/extensibility-config/srcly-design-research.zip` and `originals/{research-report.md,implementation-plan.md,recommendations.md}`. All three reports were read.
 - PR: Pending completed synthesis.
 - Blockers: None.
 
@@ -35,11 +35,21 @@ Open PR check returned no open PRs during preparation. Repeat this check before 
 
 The initial intent map passed the Sleuth validator with zero warnings. No application behavior changed. Product tests are not required for this checkpoint.
 
+## Collection and synthesis
+
+Checked the same conversation on October 23 at about 04:05 UTC. Pro had completed after 37 minutes 45 seconds. The download event waiter timed out, but Chrome saved the archive in Downloads. Verified the local file before any retry, copied it to the ignored working folder, inspected every archive path, and extracted exactly three Markdown files. No downloaded program was executed.
+
+Read the report, plan, and all 39 recommendations. No follow-up was needed. Checked decisive storage, CLI, reporting, color/ranking, cache, job, code-viewer, and compare claims against local source. Spot-checked SARIF, PyPA, and Ruff primary docs.
+
+Created the [research summary and dispositions](README.md). Completed the new Sleuth initiative. Reconciled diagnostics ownership in the older imported-quality-evidence initiative. Its graph, clone, and coverage goals remain planned.
+
+Reduced Pro's first-release scope: defer new profile scoring and CI gates. Keep snapshot comparison conditional. Native imports, source association, defaults, and interpretation settings form the first release.
+
+Both initiative validators passed with zero warnings. The new plan passed the heuristic audit; manual review confirmed the local fixture proof and separate execution risk. All 15 local Markdown links checked. `git diff --check` passed. Product tests were not run: this change contains research and planning only. The PR build workflow will run normal integration checks.
+
+Open PR check returned none on October 23. No app code, package version, or release file changed.
+
 ## Remaining work
 
-1. Inspect this conversation at the first check; preserve a running response.
-2. Download and read all deliverables; inspect archives before extraction.
-3. Verify decisive claims and classify recommendations.
-4. Write a short research summary and finish intent, shape, plan, and map.
-5. Validate and audit artifacts. Commit, push, and open the docs PR.
-6. Verify and attach the PR. Update this record and disable the heartbeat.
+1. Commit, push, and open the docs PR.
+2. Verify and attach the PR. Update this record and remove the completed heartbeat.

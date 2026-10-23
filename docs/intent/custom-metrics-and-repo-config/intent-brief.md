@@ -2,41 +2,43 @@
 
 ## My read
 
-Srcly should let developers explore their own measurements through its existing views. A coworker likes the visualization and user experience, but needs different metrics. The desired result is a useful way to bring those measurements into Srcly without maintaining a fork. The way to achieve that result remains open.
+Developers should be able to use Srcly's views with their own measurements and checks. A coworker likes the visualization and user experience but needs different metrics. They should not need a Srcly fork to view those results. The outcome matters more than the extension mechanism.
 
-The same developer should be able to keep useful settings with a repository. Those settings could define limits, thresholds, and defaults that match the project. A shared config should make repeated use predictable. The research must decide which settings belong there and how they affect the CLI, reports, and browser.
+Developers should also be able to keep useful settings with a repository. These settings include desired limits, thresholds, and defaults. Repeated scans should use an understandable policy. A narrow scan should keep its requested scope while using the repository's settings.
 
-These two needs are related. Custom measurements need definitions and interpretation. Repository settings need a clear place to name those definitions and choose defaults. They do not require one large framework. The first release should prove a small workflow that a developer can use with their own data.
+These needs fit one initiative. A custom measurement needs a name, unit, scope, and meaning. Repository settings tell Srcly how to display and interpret it. The producer owns the measurement. Repository policy owns interpretation. Changing a color scale must not change the stored value.
 
-Byron requested Pro research before shaping this work. The research will compare alternatives, inspect the current source, and propose a buildable route. This brief records the request while that work runs. It does not select a plugin model, file format, or execution policy.
+Byron requested Pro research before selecting the approach. That research now supports native result imports first. A developer can keep their analyzer in any language and supply its output. Explicit command execution can later use the same input contract. This is a recommendation from checked research, not a user commitment to a plugin format.
 
 ## What matters most
 
-- Reuse Srcly's views for developer-supplied measurements and checks.
-- Keep desired limits, thresholds, and defaults with the repository.
-- Explain how supplied values map to files and source evidence.
-- Choose a route that a personal developer can build and maintain.
+- Bring private metrics and checks into Srcly's existing views.
+- Save repeatable settings with the repository.
+- Preserve measured zero, unknown data, and source evidence.
+- Keep the work small enough for a personal developer to maintain.
 
 ## Expected experience
 
-A developer supplies results, or connects a way to produce them. Srcly makes the supported measurements available in its views. The developer can inspect their meaning and supporting evidence. Repository settings provide repeatable defaults. The research must show one concrete workflow from input to visible result and headless report.
+A developer generates a result file and names it in repository config. Srcly loads it with the source scan. The developer selects a custom metric, reviews its files, and opens supporting evidence. Reports use the same definitions and values.
+
+The developer can see which settings apply and why. Temporary view choices remain personal. A later explicit run action can execute a declared check. Reading config or reloading results does not start custom code.
 
 ## Boundaries
 
-This request authorizes research and a new initiative. It does not authorize application implementation. Missing measurements must remain distinct from measured zero. Existing metric values must retain their meaning when settings change their interpretation.
+This work produces research and a plan. Application implementation has not started. Existing built-in metrics retain their current definitions.
 
-The implementation should fit the current local tool. Avoid adding services, version coexistence, or broad extension machinery without a concrete need. A source packet supplies the exact research baseline. Current primary sources should support external comparisons.
+Missing, stale, or failed results cannot become clean zero values. Partial folder values must show their completeness. Files outside the scan cannot widen it. Imported diagnostics remain separate from metric-derived report findings.
 
-## Possibilities, not decisions
+Use the existing local Python server and SolidJS client. Avoid a marketplace, remote service, in-process plugin API, or compatibility framework. External scope joins, coverage formulas, and graph imports need separate proofs.
 
-Imported results, overlays, command producers, and plugins are candidate mechanisms. A dedicated config file and existing package configuration are candidate settings homes. None is selected yet. The request does not name a particular coworker format or require compatibility with every analyzer.
+## What seems settled
 
-## Current reality
+The first recommended slice is file-level native JSON with separate measurements and diagnostics. Use a dedicated `srcly.toml`; support equivalent `[tool.srcly]` settings later. Resolve one policy per scan. Keep units and aggregation in producer definitions.
 
-Srcly has a shared metric catalog, findings and Git activity overlays, fixed scan settings, and CLI options. The browser loads its catalog before rendering. Custom metric support must account for this flow and the server's fixed metric fields.
+The shared catalog and current overlays offer reuse. They do not yet support arbitrary measurements. Source association and scan-specific state need explicit work.
 
-The older imported-quality-evidence initiative proposes specific evidence imports. Its no-plugin boundary reflects that earlier scope. The new research must explain reuse and overlap without changing that initiative silently.
+The older imported-quality-evidence initiative retains graph, clone, and coverage goals. This initiative owns the shared result contract and diagnostics import path. Neither requires the other's graph-first sequence.
 
-## Next step
+## Next step after confirmation
 
-Collect Pro's report. Check decisive claims against the source. Then write the shape and proof-first plan here. Keep lifecycle status planned until implementation starts.
+Start the implementation plan's three-file proof when implementation is authorized. First show `2`, measured `0`, unknown, and one line diagnostic in the UI and report. This initiative remains planned.
