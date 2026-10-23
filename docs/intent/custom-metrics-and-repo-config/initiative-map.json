@@ -1,0 +1,131 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Custom metrics and repository settings",
+    "slug": "custom-metrics-and-repo-config",
+    "scale": "capability",
+    "current_phase": "intent",
+    "last_updated": "2026-10-22",
+    "summary": "Use Srcly views with developer-supplied metrics and repeatable repository settings.",
+    "status": "planned",
+    "next_action": "Collect Pro research, verify decisive claims, then shape and plan the initiative."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "draft",
+      "updated_at": "2026-10-22"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "not-created",
+      "updated_at": null
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "not-created",
+      "updated_at": null
+    }
+  },
+  "sources": [
+    {
+      "id": "S1",
+      "type": "qa",
+      "location": "Codex conversation, 2026-10-22",
+      "anchor": "Coworker wants their own metrics processed; repository limits, thresholds, settings and defaults",
+      "authority": "user"
+    },
+    {
+      "id": "S2",
+      "type": "repo",
+      "location": "server/app/services/metric_catalog.py; server/app/services/findings/; server/app/config.py",
+      "anchor": "MetricSpec; apply_to_tree; fixed scan settings",
+      "authority": "repo"
+    },
+    {
+      "id": "S3",
+      "type": "doc",
+      "location": "https://chatgpt.com/c/6adac10a-5408-83ea-bc48-f4f0baa04b24",
+      "anchor": "Pro Design research submitted; findings pending",
+      "authority": "inferred"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "Developers can use Srcly visualization with their own metrics and checks.",
+        "kind": "outcome",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C2",
+        "statement": "Repository settings can define useful limits, thresholds, settings and defaults.",
+        "kind": "outcome",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C3",
+        "statement": "Import, overlay and plugin mechanisms remain alternatives to research.",
+        "kind": "implementation hypothesis",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      }
+    ],
+    "themes": [],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "not-started",
+    "appetite": null,
+    "problem": null,
+    "recommended_shape": null,
+    "success_moves": [],
+    "first_proof": null,
+    "rabbit_holes": [],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "not-started",
+    "repository_snapshot": {
+      "root": null,
+      "revision": null,
+      "worktree_status": null,
+      "subsystems": [],
+      "test_commands": [],
+      "deployment_surfaces": []
+    },
+    "dependencies": [],
+    "fast_local_loop": null,
+    "milestones": [],
+    "cut_line": [],
+    "open_decisions": []
+  },
+  "history": [
+    {
+      "date": "2026-10-22",
+      "change": "Created planned initiative and submitted Pro research. Shape and plan await the report."
+    }
+  ],
+  "closure": null
+}
