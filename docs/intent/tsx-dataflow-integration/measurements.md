@@ -108,6 +108,24 @@ Per route on visual-notes (`/tasks` first, so it pays every warm-up; `/time-bloc
 
 **What this decides (the T8 → T9/T10 question).** The cold path to a first box is tier 1 (≈10 s on a quiet machine), then the provider's fact collection (16.6 s, every file in the program, before any route), then the first route's slice (8.1 s) and context continuity (1.8 s). Fact collection is over half of the time after tier 1, and the route backbone itself (surface 54 ms) cannot start before it: route candidates come from the fact index. So T10 goes first, on fact collection and then the slice, and T9 follows. The budget R4 (10 s cold) needs tier 1 plus facts plus a surface under 10 s; today tier 1 alone is near it, so the disk cache (T11) is the lever for reopen and T10 for the cold path.
 
+## 2026-10-24 — T10: profile-led edits to fact collection and the slice
+
+Same machine, in process (`pnpm time-phases --root ~/Projects/visual-notes/app --route /tasks --route /time-blocks`), a quiet machine this time. The CPU profile behind the edits (`node --cpu-prof` over the same script) put 43% of the run in the TypeScript checker, 20% in garbage collection, and inside the engine's own code: `locationFor` 4.7 s (of which `path.relative`/`path.resolve` 4.4 s), `safeType` 6.3 s (3.8 s of it hydrating facts for the HTTP-bridge pass, which never reads type text; 2.6 s in `isHandlerLike` asking every parameter), `getFullyQualifiedName` 2.1 s, the identity index 5.2 s of tier 1 (its own `relative` per expression).
+
+| Phase (visual-notes) | Before (T8) | After T10 |
+| --- | ---: | ---: |
+| Tier 1 | 10,115 ms | 8,038 ms |
+| Provider fact collection (110,990 facts) | 15,109 ms | 6,703 ms |
+| `/tasks` first: slice | 9,322 ms | 3,912 ms |
+| `/tasks` first: context continuity | 1,741 ms | 2,251 ms |
+| `/tasks` first: whole totality | 12,901 ms | 7,967 ms |
+| `/time-blocks` second: whole totality | 533 ms | 512 ms |
+| Cold path to the first `/tasks` box (tier 1 + facts + totality) | 38.1 s | 22.7 s |
+
+Every result is byte-identical before and after (route graphs for `/time-blocks` and `/tasks`, two anchor graphs and a ledger on visual-notes; `/records`, an anchor and a ledger on solid-route; two anchors and two ledgers on srcly `client/`), and the engine suite with G01–G20 passes. The edits are listed in `engine/UPSTREAM.md`.
+
+**What is left on the cold path.** Tier 1 (8 s, the TypeScript program and the identity index) and fact collection (6.7 s, the checker's `getSymbolAtLocation` for every identifier) are now the two halves; the first slice (3.9 s) re-walks every file once to collect relations (`ProgramEvidenceRelationFrontierLoader.relationSource`). The next T10 round is that relation source, per file on demand; T11's cache serves a reopen without any of it.
+
 ## To record next
 
 | Milestone | Numbers |
