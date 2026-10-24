@@ -46,9 +46,14 @@ export interface Location {
 export type Direction = "forward" | "backward" | "both";
 
 /** An anchor as the engine takes it: an exact span, or a symbol by name on a line. */
-export type Anchor = { file: string; span: { startLine: number; startColumn: number; endLine: number; endColumn: number } } | { file: string; name: string; line: number };
+export type Anchor =
+  | { file: string; span: { startLine: number; startColumn: number; endLine: number; endColumn: number } }
+  | { file: string; name: string; line: number }
+  /** A file or folder anchor (T19): one box per export, each traced on demand. */
+  | { file: string; exports: true };
 
 export function encodeAnchor(anchor: Anchor): string {
+  if ("exports" in anchor) return `${anchor.file}@*`;
   if ("name" in anchor) return `${anchor.file}@${anchor.name}:${anchor.line}`;
   const s = anchor.span;
   return `${anchor.file}:${s.startLine}:${s.startColumn}-${s.endLine}:${s.endColumn}`;
@@ -56,6 +61,8 @@ export function encodeAnchor(anchor: Anchor): string {
 
 export function parseAnchor(raw: string | undefined): Anchor | null {
   if (!raw) return null;
+  const exports = /^(.*)@\*$/.exec(raw);
+  if (exports) return { file: exports[1], exports: true };
   const named = /^(.+)@([^@:]+):(\d+)$/.exec(raw);
   if (named) return { file: named[1], name: named[2], line: Number(named[3]) };
   const span = /^(.+):(\d+):(\d+)-(\d+):(\d+)$/.exec(raw);

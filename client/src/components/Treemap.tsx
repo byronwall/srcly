@@ -302,10 +302,8 @@ export default function Treemap(props: TreemapProps) {
               const at = m().at;
               if (id === "focus") go({ at });
               else if (id === "open") props.onOpenAt(at);
-              else if (id === "traceTo" || id === "traceFrom") {
-                const line = m().line;
-                if (line) go(tracePatch({ at, line }, id));
-              } else go({ at: folderOf(at) });
+              else if (id === "traceTo" || id === "traceFrom") go(tracePatch({ at, line: m().line }, id));
+              else go({ at: folderOf(at) });
             }}
           />
         )}

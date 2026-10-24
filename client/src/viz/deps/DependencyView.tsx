@@ -472,10 +472,8 @@ function ImportView(props: {
               if (id === "focus") onFocusNode(n);
               else if (id === "expand") n.expandable ? expand(n.graphId) : n.group && collapse(n.group.id);
               else if (id === "open") onOpenNode(n);
-              else if (id === "traceTo" || id === "traceFrom") {
-                const line = m().line;
-                if (line) go(tracePatch({ at: n.graphId, line }, id));
-              } else go({ at: folderOf(n.graphId) });
+              else if (id === "traceTo" || id === "traceFrom") go(tracePatch({ at: n.graphId, line: m().line }, id));
+              else go({ at: folderOf(n.graphId) });
             }}
           />
         )}

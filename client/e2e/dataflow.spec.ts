@@ -198,6 +198,26 @@ test.describe("Data flow on solid-route", () => {
     await expect(page).toHaveURL(/anchor=.*ViewerCard/);
   });
 
+  test("a folder anchor fans out to its exports; an export opens in place into its own trace", async ({ page }) => {
+    await page.goto(url({ view: "graph", anchor: "src/components@*", dir: "forward" }));
+    const footer = page.getByText(/\d+ exports in \d+ files · \d+ traceable/).first();
+    await expect(footer).toBeVisible({ timeout: 90_000 });
+    await expect(footer).toContainText("0 opened");
+    await expect(box(page, "ViewerCard")).toBeVisible();
+    await expect(box(page, "MetricCard")).toBeVisible();
+    await shot(page, "folder-anchor");
+    // Shift-click opens the export in place: its forward trace, in a frame of its own.
+    await box(page, "ViewerCard").click({ modifiers: ["Shift"] });
+    await expect(page).toHaveURL(/open=.*ViewerCard/);
+    await expect(footer).toContainText("1 opened", { timeout: 90_000 });
+    // The export's own forward trace joins the six boxes already drawn (the folder and its five exports).
+    await expect.poll(() => page.locator("[data-box]").count(), { timeout: 90_000 }).toBeGreaterThan(6);
+    await expect(page.locator("[data-box]").filter({ hasText: /handed to a component|return/ }).first()).toBeVisible();
+    await shot(page, "folder-anchor-opened");
+    // The other exports stay as they were: one box each, still openable.
+    await expect(box(page, "MetricCard")).toBeVisible();
+  });
+
   test("import graph menu: trace a symbol where it comes from", async ({ page }) => {
     await page.goto(url({ view: "graph", at: "src/components/ViewerCard.tsx" }));
     const symbol = page.locator('[data-box="center|src/components/ViewerCard.tsx#ViewerCard"]');

@@ -18,18 +18,18 @@ describe("folderOf", () => {
 
 describe("nodeActions", () => {
   it("offers all three for files and symbols", () => {
-    expect(enabled({ at: "a/b.ts", kind: "file", currentAt: "elsewhere" })).toEqual(["focus", "open", "folder"]);
+    expect(enabled({ at: "a/b.ts", kind: "file", currentAt: "elsewhere" })).toEqual(["focus", "open", "folder", "traceTo", "traceFrom"]);
     expect(enabled({ at: "a/b.ts#X", kind: "symbol", currentAt: "elsewhere" })).toEqual(["focus", "open", "folder"]);
   });
 
   it("has no code for folders and nothing above the root", () => {
-    expect(enabled({ at: "a", kind: "folder", currentAt: "elsewhere" })).toEqual(["focus", "folder"]);
+    expect(enabled({ at: "a", kind: "folder", currentAt: "elsewhere" })).toEqual(["focus", "folder", "traceTo", "traceFrom"]);
     expect(enabled({ at: "", kind: "folder", currentAt: "" })).toEqual([]);
   });
 
   it("disables Show folder when that folder is already shown", () => {
     expect(enabled({ at: "a/b.ts#X", kind: "symbol", currentAt: "a" })).toEqual(["focus", "open"]);
-    expect(enabled({ at: "a/b.ts", kind: "file", currentAt: "a/b.ts" })).toEqual(["open", "folder"]);
+    expect(enabled({ at: "a/b.ts", kind: "file", currentAt: "a/b.ts" })).toEqual(["open", "folder", "traceTo", "traceFrom"]);
   });
 
   it("only focuses external packages", () => {
@@ -50,7 +50,10 @@ describe("trace actions", () => {
   it("traces only a symbol with a known declaration line", () => {
     expect(enabled({ at: "a/b.ts#X", kind: "symbol", currentAt: "", line: 12 })).toEqual(["focus", "open", "folder", "traceTo", "traceFrom"]);
     expect(nodeActions({ at: "a/b.ts#X", kind: "symbol", currentAt: "" }).find((a) => a.id === "traceTo")?.disabledReason).toBe("No line for it");
-    expect(nodeActions({ at: "a/b.ts", kind: "file", currentAt: "", line: 1 }).find((a) => a.id === "traceFrom")?.disabledReason).toBe("Needs a symbol");
+    // A file (or folder) traces through its exports (T19): no line needed.
+    expect(nodeActions({ at: "a/b.ts", kind: "file", currentAt: "", line: 1 }).find((a) => a.id === "traceFrom")?.disabledReason).toBeUndefined();
+    expect(tracePatch({ at: "a/b.ts" }, "traceTo")).toMatchObject({ anchor: "a/b.ts@*", dir: "forward" });
+    expect(tracePatch({ at: "a" }, "traceFrom")).toMatchObject({ anchor: "a@*", dir: "backward" });
     expect(nodeActions({ at: "ext:react", kind: "external", currentAt: "" }).find((a) => a.id === "traceTo")?.disabledReason).toBe("Outside this repo");
   });
 

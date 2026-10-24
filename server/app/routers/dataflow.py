@@ -20,6 +20,8 @@ from app.services.dataflow.engine import EngineCrashed, EngineError
 from app.services.dataflow.models import (
     AnchorGraphResponse,
     AnchorGraphResult,
+    FileExportsResponse,
+    FileExportsResult,
     FunctionEffectsResponse,
     FunctionEffectsResult,
     RoutePathResponse,
@@ -253,6 +255,22 @@ def get_route_path(route: str, edge: str, path: str | None = None, source: str |
     return _json(RoutePathResponse(outcome=result.outcome, reason=result.reason, generation=result.generation, programHash=result.programHash, path=result), exclude_none=False)
 
 
+@router.get("/file-exports", response_model=FileExportsResponse)
+def get_file_exports(file: str, path: str | None = None, expectedGeneration: int | None = None):
+    """
+    The exported declarations of a file, or of every program file under a
+    folder (T19): what a file or folder anchor fans out to, one anchor
+    (name and line) per export. Type-only exports are listed as not
+    traceable. 404 for a path with no TypeScript program file.
+    """
+    root = _root(path)
+    body = _query(root, "fileExports", {"file": _contained_file(root, file, folders=True)}, expectedGeneration)
+    if "result" not in body:
+        return _json(FileExportsResponse(**body), exclude_none=False)
+    result = FileExportsResult.model_validate(body["result"])
+    return _json(FileExportsResponse(outcome=result.outcome, reason=result.reason, generation=result.generation, programHash=result.programHash, exports=result), exclude_none=False)
+
+
 @router.get("/route-surface", response_model=RouteGraphResponse)
 def get_route_surface(route: str, path: str | None = None, expectedGeneration: int | None = None):
     """
@@ -274,15 +292,15 @@ def close(path: str | None = None):
     return {"closed": _registry().close(_root(path))}
 
 
-def _contained_file(root: Path, file: str) -> str:
-    """``file`` (absolute, or relative to the scan root) as a path relative to the root; 400 when it escapes."""
+def _contained_file(root: Path, file: str, folders: bool = False) -> str:
+    """``file`` (absolute, or relative to the scan root) as a path relative to the root; 400 when it escapes, 404 when it is not a file (or folder, when allowed)."""
     candidate = (root / file).resolve() if not Path(file).is_absolute() else Path(file).resolve()
     try:
         relative = candidate.relative_to(root)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="file must be inside path") from exc
-    if not candidate.is_file():
-        raise HTTPException(status_code=404, detail="File not found")
+    if not (candidate.is_file() or (folders and candidate.is_dir())):
+        raise HTTPException(status_code=404, detail="Folder not found" if folders else "File not found")
     return relative.as_posix()
 
 

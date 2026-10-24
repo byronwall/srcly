@@ -119,6 +119,7 @@ Seeds in priority order (R13, R7). Each has **evidence** for why it matters, a *
 - Evidence: R11. Files can't be traced today.
 - Proof: the spike in the plan, then one box per export with expansion.
 - Stop rule: a folder over 50 exports shows counts and asks before it traces.
+- Done (PR 19 of the stack): `fileExports` op and `GET /api/dataflow/file-exports`; an anchor `path@*` draws the file or folder as the focus and one box per export in its file's frame (type-only exports dotted, not traceable); Shift-click opens an export into its own anchor graph, kept in the URL's `open` list; a folder over 50 exports shows one box per file with counts and a file opens into its exports. Trace actions on files and folders in both menus. Decision R18 (per export, not the union). Measured in measurements.md.
 
 **T20 · Multiple anchors.**
 - Evidence: R11.

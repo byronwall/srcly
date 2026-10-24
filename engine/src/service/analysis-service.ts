@@ -77,7 +77,8 @@ export type AnalysisOperation =
   | { kind: "value-flow"; params: Record<string, unknown> }
   | { kind: "anchor-graph"; params: Record<string, unknown> }
   | { kind: "function-effects"; params: Record<string, unknown> }
-  | { kind: "route-path"; params: Record<string, unknown> };
+  | { kind: "route-path"; params: Record<string, unknown> }
+  | { kind: "file-exports"; params: Record<string, unknown> };
 
 export function createAnalysisService(args: AnalyzerArgs, engine: EngineConfig | null = null) {
   let workerUrl = import.meta.url.endsWith(".ts")

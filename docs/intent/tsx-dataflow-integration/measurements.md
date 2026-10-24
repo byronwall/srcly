@@ -204,6 +204,19 @@ Return p95 over 20 returns on solid-route (`client/e2e/return-latency.spec.ts`, 
 
 Target was p95 ≤ 150 ms. The route graph is re-fetched from the engine's result cache on every return; the camera is held through the backbone-first draw and the complete graph that replaces it (T9), and through the resize observer's first fit, until the user's first gesture.
 
+## 2026-10-24 — T19: file and folder anchors through exports
+
+`fileExports` lists a file's or folder's exported declarations from the checker (`getExportsOfModule`, aliases resolved), with the line to anchor at; the client draws one box per export and traces an export only when it is opened (R18).
+
+| Target (srcly `client/`) | Files | Exports | Traceable | `fileExports` time |
+| --- | --- | --- | --- | --- |
+| `src/utils/metricsStore.tsx` | 1 | 28 | 18 | 1 ms |
+| `src/utils` | 20 | 122 | 85 | 5 ms |
+| `src/navigation` | 11 | 67 | 50 | 1 ms |
+| `src` | 157 | 731 | 504 | 10 ms |
+
+Tier 1 for `client/` was 2.2 s. `src/utils` is over the 50-export budget, so it opens as 20 file boxes with counts; opening `color.ts` shows its one export. On solid-route `src/components` (5 exports in 5 files), opening `MetricCard` adds its forward trace (3 boxes) in a frame of its own next to the other exports.
+
 ## To record next
 
 | Milestone | Numbers |

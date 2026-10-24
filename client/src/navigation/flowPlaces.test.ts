@@ -9,6 +9,7 @@ describe("anchor history (T18)", () => {
   it("names an anchor by its symbol or span and a route by its path", () => {
     expect(flowPlaceLabel({ ...base, anchor: "src/a.tsx@ViewerCard:3", dir: "forward" })).toEqual({ kind: "anchor", leaf: "ViewerCard", detail: "src/a.tsx", dir: "forward" });
     expect(flowPlaceLabel({ ...base, anchor: "src/a.tsx:6:10-6:24" })).toEqual({ kind: "anchor", leaf: "6:10–6:24", detail: "src/a.tsx", dir: "both" });
+    expect(flowPlaceLabel({ ...base, anchor: "src/utils@*" })).toEqual({ kind: "exports", leaf: "src/utils", detail: "exports", dir: "both" });
     expect(flowPlaceLabel({ ...base, flow: "/records" })).toEqual({ kind: "route", leaf: "/records", detail: null, dir: null });
     expect(flowPlaceLabel({ ...base, flow: "route:1" }, (key) => (key === "route:1" ? "/records" : key))!.leaf).toBe("/records");
     expect(flowPlaceLabel({ ...base, flow: "" })).toBeNull();

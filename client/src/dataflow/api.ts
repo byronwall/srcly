@@ -1,6 +1,6 @@
 // Calls to /api/dataflow/*. The engine results are the generated contract
 // types; the wrappers are the server's own responses (routers/dataflow.py).
-import type { AnchorGraphResult, FunctionEffectsResult, RouteGraphResult, RoutePathResult, RoutesResult, SelectExpressionResult, StatusResult, ValueFlowResult } from "./contract.generated";
+import type { AnchorGraphResult, FunctionEffectsResult, RouteGraphResult, RoutePathResult, RoutesResult, SelectExpressionResult, StatusResult, ValueFlowResult, FileExportsResult } from "./contract.generated";
 
 export type Outcome = RoutesResult["outcome"];
 export type NaReason =
@@ -122,6 +122,18 @@ export function fetchFunctionEffects(req: { path: string; file: string; line: nu
 
 export interface RoutePathResponse extends OutcomeFields {
   path: RoutePathResult | null;
+}
+
+export interface FileExportsResponse extends OutcomeFields {
+  exports: FileExportsResult | null;
+}
+
+/** A file's or folder's exported declarations: what a file or folder anchor fans out to (T19). */
+export async function fetchFileExports(args: { path: string; file: string; expectedGeneration?: number; signal?: AbortSignal }): Promise<FileExportsResponse> {
+  const query = new URLSearchParams({ path: args.path, file: args.file });
+  if (args.expectedGeneration !== undefined) query.set("expectedGeneration", String(args.expectedGeneration));
+  const res = await fetch(`/api/dataflow/file-exports?${query}`, { signal: args.signal });
+  return json(res, "Exports");
 }
 
 /** One lit edge of a route graph, explained in order; field edges need the origin the graph was lit for. */
