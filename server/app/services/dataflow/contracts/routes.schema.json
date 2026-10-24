@@ -1,0 +1,93 @@
+{
+  "title": "RoutesResult",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "partial",
+        "not-analyzed",
+        "unsupported",
+        "stale",
+        "cancelled",
+        "budget"
+      ]
+    },
+    "generation": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "programHash": {
+      "type": "string"
+    },
+    "tsconfig": {
+      "type": "string"
+    },
+    "typescript": {
+      "type": "string"
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "pathPattern": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string"
+          },
+          "absPath": {
+            "type": "string"
+          },
+          "parameters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "dynamic",
+                    "catch-all"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "kind"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "key",
+          "pathPattern",
+          "file",
+          "absPath",
+          "parameters"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "outcome",
+    "generation",
+    "programHash",
+    "tsconfig",
+    "typescript",
+    "routes"
+  ],
+  "additionalProperties": false
+}

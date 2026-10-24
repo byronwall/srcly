@@ -1,3 +1,4 @@
+import "../srcly/stdio";
 import { parentPort, workerData } from "node:worker_threads";
 import { filePageResponseSchema, refreshResponseSchema, reportResponseSchema, routeDataDetailTransportResponseSchema, sourceExcerptResponseSchema, workspaceResponseSchema } from "../api/contracts";
 import { buildFilePageDto } from "../api/projections/file-page";
@@ -7,9 +8,11 @@ import { buildRouteDataDetail } from "../api/projections/route-data";
 import type { ReportView } from "../api/report-views";
 import { renderReport } from "../core";
 import { renderMarkdownView } from "../reports/markdown-views";
-import type { AnalyzerArgs } from "../types";
 import type { AnalyzerProgressUpdate } from "../analysis/progress";
-import type { AnalysisOperation, AnalysisProgress, AnalysisWorkerRequest } from "./analysis-service";
+import type { AnalysisOperation, AnalysisProgress, AnalysisWorkerData, AnalysisWorkerRequest } from "./analysis-service";
+import { errorPayload } from "../srcly/protocol";
+import { routesOp } from "../srcly/ops/routes";
+import { createEngineSession, type EngineSession } from "../srcly/session";
 import { createAnalysisCache } from "./cache";
 import { buildSourceExcerpt } from "./source-excerpts";
 import {
@@ -20,12 +23,16 @@ import {
 
 if (!parentPort) throw new Error("Analysis worker requires a parent port");
 const port = parentPort;
-const args = workerData as AnalyzerArgs;
+const { args, engine } = workerData as AnalysisWorkerData;
 let activeRequest: { requestId: number; operation: string } | null = null;
-const cache = createAnalysisCache(args, (update: AnalyzerProgressUpdate) => {
+const reportProgress = (update: AnalyzerProgressUpdate) => {
   if (!activeRequest) return;
   port.postMessage({ kind: "progress", progress: { ...activeRequest, phase: "analyzing", ...update } });
-});
+};
+const cache = createAnalysisCache(args, reportProgress);
+// The tier-1 session srcly's protocol queries; null when the legacy cache drives the worker.
+const session = engine ? createEngineSession(engine, reportProgress) : null;
+let announcedGeneration = 0;
 
 function progress(requestId: number, operation: string, phase: AnalysisProgress["phase"], message: string) {
   port.postMessage({ kind: "progress", progress: { requestId, operation, phase, message } });
@@ -48,15 +55,16 @@ port.on("message", ({ requestId, operation, cancellationBuffer }: AnalysisWorker
       port.postMessage({ kind: "cancelled", requestId });
       return;
     }
-    const message = error instanceof Error ? error.message : String(error);
-    progress(requestId, operation.kind, "error", message);
-    port.postMessage({ kind: "error", requestId, message });
+    const payload = errorPayload(error);
+    progress(requestId, operation.kind, "error", payload.message);
+    port.postMessage({ kind: "error", requestId, message: payload.message, code: payload.code, details: payload.details });
   } finally {
     activeRequest = null;
   }
 });
 
 function perform(operation: AnalysisOperation, requestId: number, cancellation: AnalysisCancellationToken) {
+  if (operation.kind === "routes") return announce(routesOp(requireSession(), operation));
   if (operation.kind === "refresh") {
     const report = cache.refresh();
     return refreshResponseSchema.parse({ apiVersion: 1, analysisVersion: report.analysisVersion, generation: cache.generation(), generatedAt: report.generatedAt, data: { refreshed: true } });
@@ -106,4 +114,19 @@ function perform(operation: AnalysisOperation, requestId: number, cancellation: 
   const reportArgs = { ...args, ...(operation.path ? { file: [operation.path] } : {}), view: operation.view, format: "markdown" as const, maxItems: args.maxItems ?? 20 };
   port.postMessage({ kind: "progress", progress: { requestId, operation: operation.kind, phase: "projecting", step: "project", message: `Rendering ${operation.view} Markdown` } });
   return operation.path ? renderMarkdownView(report, reportArgs) : renderReport(report, reportArgs);
+}
+
+function requireSession(): EngineSession {
+  if (!session) throw new Error("This worker was started without an engine session");
+  return session;
+}
+
+/** Tell the protocol thread what a new tier-1 build was made from, so `status` can rehash it. */
+function announce<T>(value: T): T {
+  const tier1 = session?.built() ? session.tier1() : null;
+  if (tier1 && tier1.generation.id !== announcedGeneration) {
+    announcedGeneration = tier1.generation.id;
+    port.postMessage({ kind: "session", snapshot: { generation: tier1.generation.id, programHash: tier1.generation.programHash, inputs: tier1.inputs } });
+  }
+  return value;
 }

@@ -4,6 +4,8 @@ import { pathToFileURL } from "node:url";
 import type { SourceExcerptRequest } from "../api/contracts";
 import type { AnalyzerArgs } from "../types";
 import { AnalysisCancelledError } from "../analysis/cancellation";
+import type { SessionSnapshot } from "../srcly/ops/status";
+import type { EngineConfig } from "../srcly/session";
 
 export type AnalysisProgress = {
   requestId: number;
@@ -19,8 +21,20 @@ export type AnalysisProgress = {
 type WorkerReply =
   | { kind: "progress"; progress: AnalysisProgress }
   | { kind: "result"; requestId: number; value: unknown }
-  | { kind: "error"; requestId: number; message: string }
-  | { kind: "cancelled"; requestId: number };
+  | { kind: "error"; requestId: number; message: string; code?: string; details?: Record<string, unknown> }
+  | { kind: "cancelled"; requestId: number }
+  | { kind: "session"; snapshot: SessionSnapshot };
+
+/** The worker's data: the analyzer args, plus the engine session config when srcly drives it. */
+export type AnalysisWorkerData = { args: AnalyzerArgs; engine: EngineConfig | null };
+
+/** A worker failure that kept its engine error code across the thread boundary. */
+export class AnalysisRequestError extends Error {
+  constructor(message: string, readonly code: string | undefined, readonly details: Record<string, unknown> | undefined) {
+    super(message);
+    this.name = "AnalysisRequestError";
+  }
+}
 
 export type AnalysisWorkerRequest = {
   requestId: number;
@@ -34,6 +48,7 @@ type PendingRequest = {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
   cleanupAbort: () => void;
+  onProgress: ((progress: AnalysisProgress) => void) | null;
   routeRequestId: string | null;
   cancel: () => void;
 };
@@ -52,16 +67,18 @@ export type AnalysisOperation =
   | { kind: "refresh" }
   | { kind: "route-data"; route: string; flow: string; source?: string; generation?: number }
   | ({ kind: "source-excerpt" } & SourceExcerptRequest)
-  | { kind: "markdown"; view: string; path: string | null };
+  | { kind: "markdown"; view: string; path: string | null }
+  | { kind: "routes"; expectedGeneration?: number };
 
-export function createAnalysisService(args: AnalyzerArgs) {
+export function createAnalysisService(args: AnalyzerArgs, engine: EngineConfig | null = null) {
   let workerUrl = import.meta.url.endsWith(".ts")
     ? new URL("./analysis-worker.ts", import.meta.url)
     : new URL("./analysis-worker.js", import.meta.url);
   if (workerUrl.protocol !== "file:") workerUrl = pathToFileURL(path.resolve(process.cwd(), "src/service/analysis-worker.ts"));
+  const workerData: AnalysisWorkerData = { args, engine };
   const worker = workerUrl.pathname.endsWith(".ts")
-    ? new Worker(`import("tsx/esm/api").then(({ tsImport }) => tsImport(${JSON.stringify(workerUrl.href)}, ${JSON.stringify(workerUrl.href)}))`, { eval: true, workerData: args })
-    : new Worker(workerUrl, { workerData: args });
+    ? new Worker(`import("tsx/esm/api").then(({ tsImport }) => tsImport(${JSON.stringify(workerUrl.href)}, ${JSON.stringify(workerUrl.href)}))`, { eval: true, workerData })
+    : new Worker(workerUrl, { workerData });
   worker.unref();
   let nextRequestId = 1;
   let workspaceEpoch = 0;
@@ -70,6 +87,7 @@ export function createAnalysisService(args: AnalyzerArgs) {
   const routeRequests = new Map<string, { requestId: number; cancel: () => void }>();
   const listeners = new Set<(progress: AnalysisProgress) => void>();
   let latest: AnalysisProgress | null = null;
+  let snapshot: SessionSnapshot | null = null;
   let shutdownError: Error | null = null;
   let closePromise: Promise<number> | null = null;
 
@@ -94,8 +112,16 @@ export function createAnalysisService(args: AnalyzerArgs) {
   };
 
   worker.on("message", (reply: WorkerReply) => {
+    if (reply.kind === "session") {
+      snapshot = reply.snapshot;
+      return;
+    }
     if (reply.kind === "progress") {
-      if (pending.has(reply.progress.requestId)) publish(reply.progress);
+      const retained = pending.get(reply.progress.requestId);
+      if (retained) {
+        publish(reply.progress);
+        retained.onProgress?.(reply.progress);
+      }
       return;
     }
     const request = pending.get(reply.requestId);
@@ -105,7 +131,7 @@ export function createAnalysisService(args: AnalyzerArgs) {
     request.cleanupAbort();
     if (reply.kind === "result") request.resolve(reply.value);
     else if (reply.kind === "cancelled") request.reject(new AnalysisCancelledError());
-    else request.reject(new Error(reply.message));
+    else request.reject(new AnalysisRequestError(reply.message, reply.code, reply.details));
   });
   worker.on("error", shutdown);
   worker.on("exit", (code) => {
@@ -116,7 +142,12 @@ export function createAnalysisService(args: AnalyzerArgs) {
     if (inFlightWorkspace.get(epoch) === promise) inFlightWorkspace.delete(epoch);
   };
 
-  const request = <T>(operation: AnalysisOperation, signal?: AbortSignal, routeRequestId?: string) => {
+  const request = <T>(
+    operation: AnalysisOperation,
+    signal?: AbortSignal,
+    routeRequestId?: string,
+    onProgress?: (progress: AnalysisProgress) => void,
+  ) => {
     if (shutdownError) return Promise.reject(shutdownError) as Promise<T>;
     if (routeRequestId && routeRequests.has(routeRequestId)) return Promise.reject(new RouteRequestConflictError(routeRequestId)) as Promise<T>;
     if (operation.kind === "refresh") workspaceEpoch += 1;
@@ -142,7 +173,7 @@ export function createAnalysisService(args: AnalyzerArgs) {
         publish({ requestId, operation: retained.operation, phase: "cancelled", message: `Cancelled ${retained.operation} analysis` });
         retained.reject(new AnalysisCancelledError());
       };
-      if (operation.kind === "route-data" && signal) {
+      if (signal) {
         signal.addEventListener("abort", cancel, { once: true });
         cleanupAbort = () => signal.removeEventListener("abort", cancel);
       }
@@ -152,11 +183,12 @@ export function createAnalysisService(args: AnalyzerArgs) {
         resolve: resolve as (value: unknown) => void,
         reject,
         cleanupAbort,
+        onProgress: onProgress ?? null,
         routeRequestId: operation.kind === "route-data" ? routeRequestId ?? null : null,
         cancel,
       });
       if (operation.kind === "route-data" && routeRequestId) routeRequests.set(routeRequestId, { requestId, cancel });
-      if (operation.kind === "route-data" && signal?.aborted) {
+      if (signal?.aborted) {
         cancel();
         return;
       }
@@ -196,6 +228,8 @@ export function createAnalysisService(args: AnalyzerArgs) {
     request,
     cancelRouteRequest,
     latest: () => latest,
+    /** The worker's last built session, for answering `status` without queuing. */
+    sessionSnapshot: () => snapshot,
     subscribe(listener: (progress: AnalysisProgress) => void) {
       if (shutdownError) return () => {};
       listeners.add(listener);
