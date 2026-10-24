@@ -357,7 +357,9 @@ function AppContent(props: { active: boolean }) {
     }
     const file = extractFilePath(node.path, node.type);
     if (!file) return;
-    if (node.type === "file") handleFileFromTreemap(file, undefined, undefined, node);
+    // A file location with a line (Data flow mode's boxes) lands on that line.
+    if (node.type === "file" && scopes.length === 0 && typeof line === "number") handleFileFromTreemap(file, line, line);
+    else if (node.type === "file") handleFileFromTreemap(file, undefined, undefined, node);
     else handleFileFromTreemap(file, node.start_line, node.end_line, node);
   };
 

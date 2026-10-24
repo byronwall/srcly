@@ -24,6 +24,11 @@ export interface Location {
    * values). Kept across focus changes, so a mixed-scale cut survives a drill.
    */
   open?: string[];
+  /**
+   * Graph only: Data flow mode for this route key instead of the import
+   * graph. "" is Data flow mode with no route picked yet; absent is Imports.
+   */
+  flow?: string;
 }
 
 export const ROOT_LOCATION: Location = { repo: "", at: "", view: "treemap" };
@@ -32,6 +37,7 @@ const REPO_PARAM = "repo";
 const AT_PARAM = "at";
 const VIEW_PARAM = "view";
 const OPEN_PARAM = "open";
+const FLOW_PARAM = "flow";
 /** Pre-location graph focus parameter. Read as an alias of `at` + graph view. */
 const LEGACY_FOCUS_PARAM = "depFocus";
 
@@ -49,7 +55,14 @@ export function parseLocation(search: string): Location {
         ? "graph"
         : "treemap";
   const open = (params.get(OPEN_PARAM) ?? "").split(",").map(normalizeAt).filter(Boolean);
-  return { repo: params.get(REPO_PARAM) ?? "", at: normalizeAt(rawAt), view, ...(open.length ? { open } : {}) };
+  const flow = view === "graph" ? params.get(FLOW_PARAM) : null;
+  return {
+    repo: params.get(REPO_PARAM) ?? "",
+    at: normalizeAt(rawAt),
+    view,
+    ...(open.length ? { open } : {}),
+    ...(flow !== null ? { flow } : {}),
+  };
 }
 
 /**
@@ -64,10 +77,12 @@ export function toSearch(loc: Location, currentSearch = ""): string {
   params.delete(AT_PARAM);
   params.delete(VIEW_PARAM);
   params.delete(OPEN_PARAM);
+  params.delete(FLOW_PARAM);
   if (loc.repo) params.set(REPO_PARAM, loc.repo);
   if (loc.at) params.set(AT_PARAM, loc.at);
   if (loc.view !== "treemap") params.set(VIEW_PARAM, loc.view);
   if (loc.open?.length) params.set(OPEN_PARAM, loc.open.join(","));
+  if (loc.view === "graph" && loc.flow !== undefined) params.set(FLOW_PARAM, loc.flow);
   const s = params.toString();
   return s ? `?${s}` : "";
 }
@@ -76,9 +91,9 @@ export function sameLocation(a: Location, b: Location): boolean {
   return samePlace(a, b) && (a.open ?? []).join(",") === (b.open ?? []).join(",");
 }
 
-/** Same repo, focus and view, whatever is opened in place (one history entry per place). */
+/** Same repo, focus, view and graph mode, whatever is opened in place (one history entry per place). */
 export function samePlace(a: Location, b: Location): boolean {
-  return a.repo === b.repo && a.at === b.at && a.view === b.view;
+  return a.repo === b.repo && a.at === b.at && a.view === b.view && a.flow === b.flow;
 }
 
 /** Trims slashes; the legacy graph param used "/" for the root. */

@@ -153,3 +153,117 @@ class RoutesResponse(BaseModel):
     tsconfig: str | None = None
     typescript: str | None = None
     routes: list[RouteSummary] = []
+
+
+# ---- route graph (contracts/routeGraph.schema.json) ---------------------------
+
+
+class SourceSpan(BaseModel):
+    startLine: int
+    startColumn: int
+    endLine: int
+    endColumn: int
+
+
+class SourceLocation(BaseModel):
+    file: str
+    line: int
+    column: int
+    span: SourceSpan
+
+
+class EvidenceProof(BaseModel):
+    kind: str
+    detail: str
+    locations: list[SourceLocation]
+    status: EvidenceStatus
+
+
+class FlowNode(BaseModel):
+    id: str
+    kind: Literal["route", "occurrence", "control", "origin", "field", "terminal", "frontier"]
+    label: str
+    detail: str | None
+    parent: str | None
+    file: str
+    absPath: str
+    line: int
+    span: SourceSpan
+    status: EvidenceStatus
+    collapsedByDefault: bool
+    repetition: Literal["single", "conditional", "collection", "unknown"] | None
+    external: bool
+    reason: str | None
+
+
+class PathIds(BaseModel):
+    elements: list[str]
+    relations: list[str]
+
+
+class FlowEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+    kind: Literal["render", "handoff", "field"]
+    status: EvidenceStatus
+    proof: list[EvidenceProof]
+    pathIds: PathIds | None
+
+
+class RouteRef(BaseModel):
+    key: str
+    pathPattern: str
+    file: str
+    absPath: str
+
+
+class RouteOrigin(BaseModel):
+    nodeId: str
+    elementId: str
+    roles: list[str]
+    label: str
+    status: EvidenceStatus
+
+
+class RouteGraphCounts(BaseModel):
+    occurrences: int
+    boundaries: int
+    terminals: int
+    origins: int
+    handoffs: int
+    omittedItems: int
+
+
+class RouteGap(BaseModel):
+    reason: str
+    label: str
+    location: SourceLocation | None
+
+
+class RouteGraphResult(BaseModel):
+    outcome: Outcome
+    generation: int
+    programHash: str
+    tsconfig: str
+    typescript: str
+    route: RouteRef
+    status: Literal["complete", "partial", "unavailable"]
+    unavailableReason: str | None
+    nodes: list[FlowNode]
+    edges: list[FlowEdge]
+    origins: list[RouteOrigin]
+    selectedSource: str | None
+    counts: RouteGraphCounts
+    gaps: list[RouteGap]
+
+
+class RouteGraphResponse(BaseModel):
+    """``GET /api/dataflow/route-graph``: the graph, or an outcome without one."""
+
+    outcome: Outcome
+    reason: NaReason | None = None
+    message: str | None = None
+    generation: int | None = None
+    programHash: str | None = None
+    graph: RouteGraphResult | None = None

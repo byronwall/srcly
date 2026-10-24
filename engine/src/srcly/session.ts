@@ -6,10 +6,13 @@ import { createLazyProgramEvidenceProvider } from "../analysis/evidence-relation
 import type { AnalyzerProgressReporter } from "../analysis/progress";
 import type { RouteRecord } from "../analysis/route-data";
 import { discoverRoute } from "../analysis/route-discovery";
+import { createRouteDataTotalitySession, type RouteDataTotalitySession } from "../analysis/route-data-session";
+import { discoverSolidRouteCandidates } from "../analysis/scope-adapters/solid-route";
 import { loadTypescript } from "../project/typescript";
 import { resolveProjectConfigs } from "../project/tsconfig";
 import type { AnalysisReport, AnalyzerArgs } from "../types";
 import { hashProgramInputs, type ProgramInputs } from "./fingerprint";
+import { alignDefaultExportEvidence } from "./route-identity";
 import { EngineError } from "./protocol";
 
 export type EngineConfig = {
@@ -43,6 +46,11 @@ export type Tier1 = {
   generation: Generation;
   /** The lazy evidence provider; built on first use by a query that needs facts. */
   provider: () => ReturnType<typeof createLazyProgramEvidenceProvider>;
+  /**
+   * Route totality, one record per (route, selected source), cached. Findings
+   * attachments are empty here: findings are tier-2 data.
+   */
+  totality: () => RouteDataTotalitySession;
   /** Tier 2: the full legacy report. Slow; only batch signals call it. */
   fullReport: () => AnalysisReport;
 };
@@ -72,7 +80,10 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
     progress?.({ step: "summarize", message: `Discovering routes in ${sourceFiles.length} files`, completed: 0, total: sourceFiles.length });
     const checker = program.getTypeChecker();
     const routes = sourceFiles
-      .map((file) => discoverRoute(ts, checker, root, file))
+      .map((file) => {
+        const route = discoverRoute(ts, checker, root, file);
+        return route ? alignDefaultExportEvidence(ts, checker, file, route) : null;
+      })
       .filter((route): route is RouteRecord => route !== null);
     const inputs: ProgramInputs = {
       files: sourceFiles.map((file) => path.normalize(file.fileName)),
@@ -87,7 +98,9 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
       typescript: ts.version,
     };
     let provider: ReturnType<typeof createLazyProgramEvidenceProvider> | null = null;
+    let totality: RouteDataTotalitySession | null = null;
     let report: AnalysisReport | null = null;
+    const providerFor = () => (provider ??= createLazyProgramEvidenceProvider(ts, program, root));
     return {
       ts,
       program,
@@ -95,7 +108,15 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
       routes,
       inputs,
       generation,
-      provider: () => (provider ??= createLazyProgramEvidenceProvider(ts, program, root)),
+      provider: providerFor,
+      totality: () => {
+        if (!totality) {
+          const facts = providerFor();
+          const candidates = discoverSolidRouteCandidates(root, { elements: facts.facts.elements, relations: [] });
+          totality = createRouteDataTotalitySession(ts, program, root, routes, facts, candidates, []);
+        }
+        return totality;
+      },
       fullReport: () => (report ??= analyzer.report()),
     };
   };

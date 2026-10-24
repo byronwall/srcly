@@ -1,0 +1,575 @@
+{
+  "title": "RouteGraphResult",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "partial",
+        "not-analyzed",
+        "unsupported",
+        "stale",
+        "cancelled",
+        "budget"
+      ]
+    },
+    "generation": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "programHash": {
+      "type": "string"
+    },
+    "tsconfig": {
+      "type": "string"
+    },
+    "typescript": {
+      "type": "string"
+    },
+    "route": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "pathPattern": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "absPath": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "pathPattern",
+        "file",
+        "absPath"
+      ],
+      "additionalProperties": false
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "partial",
+        "unavailable"
+      ]
+    },
+    "unavailableReason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "route",
+              "occurrence",
+              "control",
+              "origin",
+              "field",
+              "terminal",
+              "frontier"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "file": {
+            "type": "string"
+          },
+          "absPath": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "span": {
+            "type": "object",
+            "properties": {
+              "startLine": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "startColumn": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "endLine": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "endColumn": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "startLine",
+              "startColumn",
+              "endLine",
+              "endColumn"
+            ],
+            "additionalProperties": false
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proven",
+              "partial",
+              "unsupported"
+            ]
+          },
+          "collapsedByDefault": {
+            "type": "boolean"
+          },
+          "repetition": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "single",
+                  "conditional",
+                  "collection",
+                  "unknown"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "external": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "detail",
+          "parent",
+          "file",
+          "absPath",
+          "line",
+          "span",
+          "status",
+          "collapsedByDefault",
+          "repetition",
+          "external",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "render",
+              "handoff",
+              "field"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proven",
+              "partial",
+              "unsupported"
+            ]
+          },
+          "proof": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "detail": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "locations": {
+                  "minItems": 1,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "file": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "line": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "column": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "span": {
+                        "type": "object",
+                        "properties": {
+                          "startLine": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "startColumn": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "endLine": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "endColumn": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "startLine",
+                          "startColumn",
+                          "endLine",
+                          "endColumn"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "file",
+                      "line",
+                      "column",
+                      "span"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "proven",
+                    "partial",
+                    "unsupported"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "detail",
+                "locations",
+                "status"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "pathIds": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "elements": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "relations": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "elements",
+                  "relations"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "target",
+          "kind",
+          "status",
+          "proof",
+          "pathIds"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "origins": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "type": "string"
+          },
+          "elementId": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "argument",
+                "environment",
+                "working-directory",
+                "stdin",
+                "request",
+                "event",
+                "filesystem",
+                "fetch",
+                "resource",
+                "network",
+                "external-read",
+                "input-boundary"
+              ]
+            }
+          },
+          "label": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proven",
+              "partial",
+              "unsupported"
+            ]
+          }
+        },
+        "required": [
+          "nodeId",
+          "elementId",
+          "roles",
+          "label",
+          "status"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "selectedSource": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "occurrences": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "boundaries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "terminals": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "origins": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "handoffs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "omittedItems": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "occurrences",
+        "boundaries",
+        "terminals",
+        "origins",
+        "handoffs",
+        "omittedItems"
+      ],
+      "additionalProperties": false
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "line": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "column": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "span": {
+                    "type": "object",
+                    "properties": {
+                      "startLine": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "startColumn": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "endLine": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "endColumn": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "startLine",
+                      "startColumn",
+                      "endLine",
+                      "endColumn"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "file",
+                  "line",
+                  "column",
+                  "span"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "reason",
+          "label",
+          "location"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "outcome",
+    "generation",
+    "programHash",
+    "tsconfig",
+    "typescript",
+    "route",
+    "status",
+    "unavailableReason",
+    "nodes",
+    "edges",
+    "origins",
+    "selectedSource",
+    "counts",
+    "gaps"
+  ],
+  "additionalProperties": false
+}
