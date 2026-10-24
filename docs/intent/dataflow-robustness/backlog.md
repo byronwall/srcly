@@ -107,6 +107,7 @@ Seeds in priority order (R13, R7). Each has **evidence** for why it matters, a *
 - Evidence: R8. There is no `viewState.ts`.
 - Proof: anchor → anchor → Return restores the camera, selection, metric and filters, with p95 ≤ 150 ms.
 - Stop rule: only the owners the graph needs (`graph.view`, `graph.filters`, `metrics`, `flow`). The explorer and treemap come later.
+- Done (PR 17 of the stack): `client/src/navigation/viewState.ts`, owners `graph.view`, `metrics`, `graph.filters` (`flow` is the URL itself: route, origin, destination and opened frames are already restored by the browser). Return button and Alt+← in the data-flow graph; Alt+→ is Forward. p95 61 ms over 20 returns (see measurements). The explorer and treemap are not owners yet.
 
 **T18 · Anchor history.**
 - Evidence: R11.

@@ -192,6 +192,18 @@ The field edge ends at the consumer value inside the component body, one hop pas
 
 **visual-notes `/time-blocks` and `/tasks`**: no origin reaches a proven render site and field lineage is N/A ("no unique compiler-backed filesystem origin"), so there is no lit edge to explain there. The proof the ticket named on `/time-blocks` therefore reduces to the honesty tickets' finding; the edge explanation is proven on the two examples and in the browser smoke (`a lit edge, clicked, lists its steps in order in the inspector`).
 
+## 2026-10-24 — T17: Return through the view-state registry
+
+`navigation/viewState.ts`: owners register what the URL does not carry; the navigation store captures them when an entry is left (a push, or Back and Forward through popstate) and restores them when an entry is landed on, from sessionStorage under a token in `history.state`. Owners: `graph.view` (selection, selected edge, reach mode, camera), `metrics` (metric, excluded paths), `graph.filters`. The data-flow graph gets a Return button and Alt+←.
+
+Return p95 over 20 returns on solid-route (`client/e2e/return-latency.spec.ts`, `SRCLY_MEASURE=1`; route graph zoomed with a box selected → anchor through the code viewer → Return, Forward, repeated; measured from the click to the camera, selection and status all back):
+
+| p50 | p95 | max |
+| --- | --- | --- |
+| 55 ms | 61 ms | 65 ms |
+
+Target was p95 ≤ 150 ms. The route graph is re-fetched from the engine's result cache on every return; the camera is held through the backbone-first draw and the complete graph that replaces it (T9), and through the resize observer's first fit, until the user's first gesture.
+
 ## To record next
 
 | Milestone | Numbers |
