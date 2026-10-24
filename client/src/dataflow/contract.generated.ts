@@ -254,3 +254,104 @@ export type ValueFlowResult = {
     }[];
   };
 };
+
+/** Result of the `anchorGraph` op. */
+export type AnchorGraphResult = {
+  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  generation: number;
+  programHash: string;
+  tsconfig: string;
+  typescript: string;
+  reason: string | null;
+  anchor: {
+    file: string;
+    absPath: string;
+    span: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    };
+    text: string;
+    kind: string;
+    elementId: string | null;
+    typeText: string | null;
+  };
+  direction: "forward" | "backward" | "both";
+  nodes: {
+    id: string;
+    kind: "anchor" | "scope" | "value" | "transform" | "control" | "origin" | "terminal" | "boundary" | "frontier";
+    label: string;
+    detail: string | null;
+    parent: string | null;
+    file: string;
+    absPath: string;
+    line: number;
+    span: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    };
+    status: "proven" | "partial" | "unsupported";
+    side: "seed" | "up" | "down" | "both";
+    elementKind: string | null;
+    typeText: string | null;
+    reason: string | null;
+    note: string | null;
+  }[];
+  edges: {
+    id: string;
+    source: string;
+    target: string;
+    kind: string;
+    status: "proven" | "partial" | "unsupported";
+    proof: {
+      kind: string;
+      detail: string;
+      locations: {
+        file: string;
+        line: number;
+        column: number;
+        span: {
+          startLine: number;
+          startColumn: number;
+          endLine: number;
+          endColumn: number;
+        };
+      }[];
+      status: "proven" | "partial" | "unsupported";
+    }[];
+    label: string | null;
+  }[];
+  origins: {
+    nodeId: string;
+    label: string;
+    roles: ("argument" | "environment" | "working-directory" | "stdin" | "request" | "event" | "filesystem" | "fetch" | "resource" | "network" | "external-read" | "input-boundary")[];
+    status: "proven" | "partial" | "unsupported";
+  }[];
+  terminals: {
+    nodeId: string;
+    label: string;
+    roles: string[];
+    status: "proven" | "partial" | "unsupported";
+  }[];
+  counts: {
+    up: number;
+    down: number;
+    scopes: number;
+    origins: number;
+    terminals: number;
+    boundaries: number;
+    frontiers: number;
+  };
+  coverage: {
+    elements: number;
+    relations: number;
+    budget: {
+      limit: number;
+      used: number;
+      exhausted: boolean;
+    };
+  };
+};
