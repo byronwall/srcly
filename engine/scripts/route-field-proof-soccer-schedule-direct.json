@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "obligations": [
+    {
+      "id": "G02",
+      "fieldPath": "games[*].opponentName",
+      "label": "PageHeader.title",
+      "kind": "render",
+      "alias": null,
+      "targetKey": "{\"collectionFieldName\":\"games\",\"predicateFieldName\":\"id\",\"consumerFieldName\":\"opponentName\",\"chain\":\"direct\",\"componentName\":null,\"componentPropName\":null,\"consumer\":{\"kind\":\"render\",\"directConsumer\":false,\"componentName\":\"PageHeader\",\"propName\":\"title\",\"tagName\":null,\"tagModule\":\"./PageHeader\",\"actionName\":null,\"argumentName\":null,\"handlerReceiverName\":null,\"conditionOperator\":null,\"conditionLiteral\":null,\"nestedShow\":null,\"collectionName\":null}}"
+    },
+    {
+      "id": "G19",
+      "fieldPath": "teamDisplayName",
+      "label": "AppShell team heading",
+      "kind": "render",
+      "alias": null,
+      "targetKey": "{\"chain\":\"direct-scalar\",\"fieldName\":\"teamDisplayName\",\"consumer\":{\"kind\":\"render\",\"label\":\"AppShell team heading\",\"directConsumer\":true}}"
+    },
+    {
+      "id": "G20",
+      "fieldPath": "seasonName",
+      "label": "AppShell season label",
+      "kind": "render",
+      "alias": null,
+      "targetKey": "{\"chain\":\"direct-scalar\",\"fieldName\":\"seasonName\",\"consumer\":{\"kind\":\"render\",\"label\":\"AppShell season label\",\"directConsumer\":true}}"
+    },
+    {
+      "id": "G21",
+      "fieldPath": "players[*].displayName",
+      "label": "Text displayName",
+      "kind": "render",
+      "alias": null,
+      "targetKey": "{\"collectionFieldName\":\"players\",\"predicateFieldName\":\"id\",\"consumerFieldName\":\"displayName\",\"chain\":\"whole-object\",\"componentName\":\"PlayerScheduleGrid\",\"componentPropName\":\"players\",\"consumer\":{\"kind\":\"render\",\"directConsumer\":false,\"componentName\":null,\"propName\":null,\"tagName\":\"Text\",\"tagModule\":\"~/components/ui\",\"actionName\":null,\"argumentName\":null,\"handlerReceiverName\":null,\"conditionOperator\":null,\"conditionLiteral\":null,\"nestedShow\":null,\"collectionName\":null}}",
+      "requiresDependency": {
+        "kind": "collection-membership",
+        "sourceFieldPath": "availability[*].playerId",
+        "targetFieldPath": "players[*].displayName",
+        "targetKey": "{\"collectionFieldName\":\"players\",\"predicateFieldName\":\"id\",\"consumerFieldName\":\"displayName\",\"chain\":\"whole-object\",\"componentName\":\"PlayerScheduleGrid\",\"componentPropName\":\"players\",\"consumer\":{\"kind\":\"render\",\"directConsumer\":false,\"componentName\":null,\"propName\":null,\"tagName\":\"Text\",\"tagModule\":\"~/components/ui\",\"actionName\":null,\"argumentName\":null,\"handlerReceiverName\":null,\"conditionOperator\":null,\"conditionLiteral\":null,\"nestedShow\":null,\"collectionName\":null}}"
+      }
+    }
+  ]
+}
