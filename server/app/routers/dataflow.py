@@ -10,6 +10,7 @@ request crashed the engine.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
@@ -25,6 +26,11 @@ from app.services.dataflow.models import (
     RouteGraphResult,
     RoutesResponse,
     RoutesResult,
+    SelectExpressionResult,
+    SelectResponse,
+    SourceSpan,
+    ValueFlowResponse,
+    ValueFlowResult,
     StatusResult,
 )
 
@@ -151,6 +157,8 @@ def _query(root: Path, op: str, params: dict, expected_generation: int | None) -
             raise HTTPException(status_code=404, detail={"reason": exc.code, "message": exc.message}) from exc
         if exc.code in NA_REASONS:
             return _na(exc)
+        if exc.code in ("unsupported-selection", "ambiguous-selection"):
+            return {"outcome": Outcome.unsupported, "reason": exc.code, "message": exc.message}
         raise HTTPException(status_code=500, detail={"reason": exc.code, "message": exc.message}) from exc
 
 
@@ -183,3 +191,54 @@ def get_route_graph(route: str, path: str | None = None, source: str | None = No
 def close(path: str | None = None):
     """Close the engine for ``path`` (tests, and a rescan from the folder menu)."""
     return {"closed": _registry().close(_root(path))}
+
+
+def _contained_file(root: Path, file: str) -> str:
+    """``file`` (absolute, or relative to the scan root) as a path relative to the root; 400 when it escapes."""
+    candidate = (root / file).resolve() if not Path(file).is_absolute() else Path(file).resolve()
+    try:
+        relative = candidate.relative_to(root)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="file must be inside path") from exc
+    if not candidate.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    return relative.as_posix()
+
+
+class SelectionRequest(BaseModel):
+    path: str
+    file: str
+    span: SourceSpan
+    text: str | None = None
+    expectedGeneration: int | None = None
+
+
+@router.post("/select", response_model=SelectResponse)
+def select_expression(body: SelectionRequest):
+    """The supported expressions at a code-viewer selection or caret, innermost first."""
+    root = _root(body.path)
+    params = {"file": _contained_file(root, body.file), "span": body.span.model_dump(), **({"text": body.text} if body.text else {})}
+    result = _query(root, "selectExpression", params, body.expectedGeneration)
+    if "result" not in result:
+        return _json(SelectResponse(**result), exclude_none=False)
+    parsed = SelectExpressionResult.model_validate(result["result"])
+    return _json(SelectResponse(outcome=parsed.outcome, reason=parsed.reason, generation=parsed.generation, programHash=parsed.programHash, result=parsed), exclude_none=False)
+
+
+class ValueFlowRequest(SelectionRequest):
+    direction: Literal["forward"] = "forward"
+
+
+@router.post("/value-flow", response_model=ValueFlowResponse)
+def value_flow(body: ValueFlowRequest):
+    """
+    The ledger for one selected expression: its parts (fallbacks, branches,
+    assertions, calls) and where its value goes, in operation order.
+    """
+    root = _root(body.path)
+    params = {"file": _contained_file(root, body.file), "span": body.span.model_dump(), **({"text": body.text} if body.text else {})}
+    result = _query(root, "valueFlow", params, body.expectedGeneration)
+    if "result" not in result:
+        return _json(ValueFlowResponse(**result), exclude_none=False)
+    ledger = ValueFlowResult.model_validate(result["result"])
+    return _json(ValueFlowResponse(outcome=ledger.outcome, reason=ledger.reason, generation=ledger.generation, programHash=ledger.programHash, ledger=ledger), exclude_none=False)

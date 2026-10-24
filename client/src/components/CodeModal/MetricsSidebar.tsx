@@ -1,4 +1,4 @@
-import { Show } from "solid-js";
+import { Show, type JSX } from "solid-js";
 import { EmptyState } from "../feedback/States";
 import { FileFindings } from "./FileFindings";
 import { MetricsTable } from "./MetricsTable";
@@ -19,11 +19,14 @@ export function MetricsSidebar(props: {
   gitRef?: string | null;
   /** Go to a finding's line (marks the Findings lines). */
   onJumpToFinding: (line: number) => void;
+  /** The value-flow ledger, when one is open: first in the rail, above the metrics. */
+  ledger?: JSX.Element;
 }) {
   const commitsPath = () => (!props.gitRef && /^([A-Za-z]:)?[\\/]/.test(props.filePath ?? "") ? props.filePath : null);
   return (
     <aside class="flex w-72 shrink-0 flex-col overflow-hidden border-r border-[var(--plc-border)] bg-[var(--plc-surface)]">
       <div class="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-2.5">
+        {props.ledger}
         <Show
           when={props.fileNode || props.scopeNode}
           fallback={

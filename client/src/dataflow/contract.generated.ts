@@ -151,3 +151,106 @@ export type RouteGraphResult = {
     } | null;
   }[];
 };
+
+/** Result of the `selectExpression` op. */
+export type SelectExpressionResult = {
+  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  generation: number;
+  programHash: string;
+  tsconfig: string;
+  typescript: string;
+  file: string;
+  reason: string | null;
+  candidates: {
+    kind: string;
+    text: string;
+    span: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    };
+    evidence: boolean;
+  }[];
+};
+
+/** Result of the `valueFlow` op. */
+export type ValueFlowResult = {
+  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  generation: number;
+  programHash: string;
+  tsconfig: string;
+  typescript: string;
+  reason: string | null;
+  selection: {
+    file: string;
+    span: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    };
+    text: string;
+    kind: string;
+  };
+  rows: {
+    id: string;
+    kind: "input" | "transfer" | "fallback" | "branch" | "transform" | "terminal" | "boundary";
+    label: string;
+    file: string;
+    absPath: string;
+    line: number;
+    span: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    };
+    status: "proven" | "partial" | "unsupported";
+    elementId: string | null;
+    relationId: string | null;
+    proof: {
+      kind: string;
+      detail: string;
+      locations: {
+        file: string;
+        line: number;
+        column: number;
+        span: {
+          startLine: number;
+          startColumn: number;
+          endLine: number;
+          endColumn: number;
+        };
+      }[];
+      status: "proven" | "partial" | "unsupported";
+    }[];
+    typeText: string | null;
+    note: string | null;
+    reason: string | null;
+  }[];
+  frontiers: {
+    rowId: string;
+    reason: string;
+    label: string;
+  }[];
+  terminals: string[];
+  coverage: {
+    elements: number;
+    relations: number;
+    budget: {
+      limit: number;
+      used: number;
+      exhausted: boolean;
+    };
+  };
+  bindings: {
+    tsconfig: string;
+    typescript: string;
+    sourceFingerprints: {
+      file: string;
+      size: number;
+      mtimeMs: number;
+    }[];
+  };
+};
