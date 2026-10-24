@@ -82,7 +82,15 @@ export function normalizeProgramEvidence(evidence: ProgramEvidence): NormalizedP
   return normalizeProgramEvidenceSupport(evidence);
 }
 
-type QueueItem = { elementId: string; depth: number };
+/**
+ * `calls` is the invocation stack (T13, 1-CFA): the call elements the walk
+ * entered callees through, newest last. Forward, an `argument-binding` whose
+ * argument belongs to call C pushes C, and a `return-value` is followed only
+ * to the call on top, which pops it. Backward the roles swap. An empty stack
+ * (the seed sits inside the callee) keeps every call site, as before.
+ */
+type QueueItem = { elementId: string; depth: number; calls: readonly string[] };
+const MAX_CALL_STACK = 8;
 
 const ACCEPTED_RELATION_STATUSES = new Set<EvidenceStatus>(["proven", "partial"]);
 const GAP_LIMIT_FALLBACK = 16;
@@ -217,7 +225,7 @@ export function queryEvidenceSlice(
     }
   };
 
-  const addElement = (element: ProgramElement, depth: number) => {
+  const addElement = (element: ProgramElement, depth: number, calls: readonly string[] = []) => {
     if (includedElements.has(element.id)) return true;
     if (includedElements.size >= boundary.maxElements) {
       truncation.elements = true;
@@ -234,13 +242,50 @@ export function queryEvidenceSlice(
     includedElements.set(element.id, element);
     addOriginRoles(element);
     addTerminalRoles(element);
-    if (shouldStopAtTerminal(element, terminals)) return true;
-    const key = `${element.id}:${depth}`;
+    // A return inside a callee the walk entered through a call is not the end: its value goes back to that call (T13).
+    const returnsToCaller = calls.length > 0 && element.kind === "return";
+    if (shouldStopAtTerminal(element, terminals) && !returnsToCaller) return true;
+    const key = `${element.id}:${depth}:${calls.join(">")}`;
     if (!queued.has(key)) {
       queued.add(key);
-      queues.push({ elementId: element.id, depth });
+      queues.push({ elementId: element.id, depth, calls });
     }
     return true;
+  };
+
+  /** The call element an argument expression is passed at, through its `argument` relation; null when it is not an argument. */
+  const callOfArgument = (argumentId: string): string | null => {
+    for (const relation of provider.getRelations(argumentId, "forward", cancellation)) {
+      if (relation.kind === "argument" && relation.from === argumentId) return relation.to;
+    }
+    return null;
+  };
+
+  /**
+   * The invocation stack after following `relation` from `calls`, or null when
+   * the relation crosses to another call than the one the walk came through.
+   */
+  const pairInvocation = (relation: ProgramRelation, calls: readonly string[]): readonly string[] | null => {
+    const forward = normalizedRequest.direction === "forward";
+    const top = calls[calls.length - 1];
+    if (relation.kind === "argument-binding") {
+      // Forward: into the callee at `from`'s call. Backward: out of the callee, which must be the call we came in by.
+      const call = callOfArgument(relation.from);
+      if (!call) return calls;
+      if (forward) return [...calls.slice(-(MAX_CALL_STACK - 1)), call];
+      if (top === undefined) return calls;
+      return top === call ? calls.slice(0, -1) : null;
+    }
+    if (relation.kind === "return-value") {
+      // Forward: out of the callee to its call, which must be the one on top. Backward: into the callee from `to`'s call.
+      const call = relation.to;
+      if (forward) {
+        if (top === undefined) return calls;
+        return top === call ? calls.slice(0, -1) : null;
+      }
+      return [...calls.slice(-(MAX_CALL_STACK - 1)), call];
+    }
+    return calls;
   };
 
   const entry = indexed.elementFor(normalizedRequest.seed.entryElementId);
@@ -260,7 +305,7 @@ export function queryEvidenceSlice(
   while (queues.length > 0 && !budgetExhausted) {
     cancellation.throwIfCancelled();
     const current = dequeueProviderPriorityQueue(queues, provider, normalizedRequest.direction);
-    const stateKey = `${current.elementId}:${normalizedRequest.direction}`;
+    const stateKey = `${current.elementId}:${normalizedRequest.direction}:${current.calls.join(">")}`;
     if (visited.has(stateKey)) continue;
     visited.add(stateKey);
     const element = includedElements.get(current.elementId);
@@ -293,12 +338,22 @@ export function queryEvidenceSlice(
       continue;
     }
 
+    // A first-party callee is walked through its parameter and its return
+    // (T13); the bare `argument` link to the call would skip the body and let
+    // an argument the callee never returns "reach" the call's result.
+    const bindsIntoCallee = normalizedRequest.direction === "forward"
+      ? candidates.some((candidate) => candidate.relation.kind === "argument-binding")
+      : candidates.some((candidate) => candidate.relation.kind === "return-value");
     let acceptedCandidate = false;
     for (const candidate of candidates) {
       cancellation.throwIfCancelled();
-      const travelKey = `${element.id}:${candidate.relation.id}:${candidate.targetId}`;
+      if (bindsIntoCallee && candidate.relation.kind === "argument") continue;
+      const travelKey = `${element.id}:${candidate.relation.id}:${candidate.targetId}:${current.calls.join(">")}`;
       if (visitedRelations.has(travelKey)) continue;
       visitedRelations.add(travelKey);
+      // Another call's return or binding is not this invocation's: not a path, and not a gap.
+      const nextCalls = pairInvocation(candidate.relation, current.calls);
+      if (nextCalls === null) continue;
       if (workUsed >= budget) {
         budgetExhausted = true;
         truncation.budget = true;
@@ -388,7 +443,7 @@ export function queryEvidenceSlice(
       }
 
       acceptedCandidate = true;
-      const targetAdded = addElement(target, current.depth + 1);
+      const targetAdded = addElement(target, current.depth + 1, nextCalls);
       if (!targetAdded) continue;
       includedRelations.set(candidate.relation.id, candidate.relation);
 

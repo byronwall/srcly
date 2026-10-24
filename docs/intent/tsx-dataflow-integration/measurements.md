@@ -153,6 +153,20 @@ visual-notes `/time-blocks` through the UI, a Playwright page timing from naviga
 
 Of the 3.4 s, about 1 s is the page and the saved scan and about 2 s the engine spawn and `hello`; the cached `routeGraph` itself answers in milliseconds. R4's reopen target (3 s to the first box) is met for the engine's share and missed by the page's. A changed source hashes differently and serves nothing until the build answers (`result-cache.test.ts`).
 
+## 2026-10-24 — T13: call identity
+
+The slice walk carries an invocation stack (M5 edits 1–2, as 1-CFA on the walk). Acceptance anchors (`engine/test/srcly/{anchor-graph,value-flow}.test.ts`):
+
+| Selection | Before | After |
+| --- | --- | --- |
+| basics `two-call-identity-helper.tsx` `props.a` | boundary at `id` (2 call sites) | `ok`: through `id`'s parameter and return to its own call's slot at line 11; line 12 absent |
+| basics `two-call-identity-helper.tsx` `value` (inside `id`) | boundary | boundary at both calls (`unproven-handoff`): leaving a helper two calls own stays ambiguous (R7) |
+| basics `returns-other-argument.tsx` `props.first` | `ok` through the bare `argument` link (a false proof) | `partial`: a dead end at `pick`'s `a`, which nothing returns; no terminal |
+| basics `two-call-helper.tsx` `props.a` | boundary at `shout` | `partial`: enters `shout`, dead end at `value.toUpperCase()` (external) |
+| srcly `HotSpotList.tsx:88` `item.node` | boundary at `row` (2 call sites: 88, 109) | `ok`: `node` at 61 → `<HotSpotItem node={node}>` at 62, "handed to a component"; line 109 never appears |
+
+Line 88 → 135 would still need the plain-identifier-prop edit (below the cut line, R3), so the walk ends where `node` is handed to `HotSpotItem`, a terminal, not a false proof.
+
 ## To record next
 
 | Milestone | Numbers |
