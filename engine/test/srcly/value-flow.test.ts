@@ -72,6 +72,14 @@ describe("value-flow basics", () => {
     expect(ledger.frontiers).toEqual([{ rowId: boundary.id, reason: "unproven-handoff", label: boundary.label }]);
   });
 
+  it("names a dead end as a boundary row, so the ledger agrees with the anchor graph", () => {
+    const ledger = valueFlowOp(session, find(basics, "src/dead-end.tsx", "props.label", "unused ="));
+    expect(ledger.outcome).toBe("partial");
+    const boundary = ledger.rows.find((row) => row.kind === "boundary")!;
+    expect(boundary).toMatchObject({ reason: "disconnected", status: "partial", label: "unused", note: "dead end · nothing continues from here" });
+    expect(ledger.frontiers).toEqual([{ rowId: boundary.id, reason: "disconnected", label: "unused" }]);
+  });
+
   it("offers candidates innermost first and refuses a selection that is not one expression", () => {
     const caret = find(basics, "src/direct-property.tsx", "title", "props.item.title");
     const point = { ...caret.span, endColumn: caret.span.startColumn };
