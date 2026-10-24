@@ -3,7 +3,7 @@ import { ChevronDown, Crosshair, PanelRight, Redo2, RefreshCw, Undo2, X } from "
 import { EmptyState, ErrorState } from "../../../components/feedback/States";
 import { Button } from "../../../components/ui/Button";
 import { IconButton } from "../../../components/ui/IconButton";
-import { fetchAnchorGraph, fetchFileExports, fetchRouteGraph, fetchRoutePath, fetchRouteSurface, fetchRoutes } from "../../../dataflow/api";
+import { fetchAnchorGraph, fetchFileExports, fetchRouteGraph, fetchRoutePath, fetchRouteSurface, fetchRoutes, type NaReason } from "../../../dataflow/api";
 import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
 import { availabilityFor, ensureStarted, refresh as refreshEngine, statusFor, watchProgress, watchStaleness } from "../../../dataflow/availability";
 import { labelFor, reasonText } from "../../../dataflow/outcome";
@@ -129,10 +129,11 @@ export default function FlowView(props: {
   const fileExports = exportsFetch.value;
   const anchorFetchKey = createMemo(() => (availability() === "ready" && anchorSpec() && !exportsSpec() ? `${root()}\n${primaryAnchorKey()}\n${dir()}\n${generation() ?? ""}` : null));
   /** The request fields for one anchor spec: a span, a name on a line, or an element id. */
-  const anchorFields = (spec: Anchor) => ("element" in spec ? { file: spec.file, elementId: spec.element } : "exports" in spec ? { file: spec.file } : spec);
+  const anchorFields = (spec: Exclude<Anchor, { exports: true }>) => ("element" in spec ? { file: spec.file, elementId: spec.element } : spec);
   const anchorFetch = createFetch(anchorFetchKey, (key) => {
     const [path, raw, direction, gen] = key.split("\n");
     const spec = parseAnchor(raw)!;
+    if ("exports" in spec) throw new Error("An exports anchor has no single graph");
     return watchProgress(path, fetchAnchorGraph({ path, direction: direction as Direction, ...anchorFields(spec), ...(gen ? { expectedGeneration: Number(gen) } : {}) }));
   });
   const anchorGraph = anchorFetch.value;
@@ -520,7 +521,7 @@ export default function FlowView(props: {
               <span
                 class="flex max-w-[14rem] shrink-0 items-center gap-0.5 rounded-md border pl-1.5 text-[11.5px]"
                 classList={{ "border-[var(--plc-border)]": !!entry.graph, "border-[var(--plc-warning)] text-[var(--plc-warning)]": !entry.graph }}
-                title={entry.graph ? `${entry.graph.anchor.text} · ${entry.graph.anchor.file}:${entry.graph.anchor.span.startLine}` : `Not traced: ${labelFor(entry.outcome as "ok", entry.reason, undefined) ?? entry.reason ?? entry.outcome} · ${entry.raw}`}
+                title={entry.graph ? `${entry.graph.anchor.text} · ${entry.graph.anchor.file}:${entry.graph.anchor.span.startLine}` : `Not traced: ${labelFor(entry.outcome as "ok", entry.reason as NaReason | null, undefined) ?? entry.reason ?? entry.outcome} · ${entry.raw}`}
               >
                 <span class="min-w-0 truncate font-mono font-medium">{entry.graph ? entry.graph.anchor.text : `${entry.raw.slice(entry.raw.lastIndexOf("/") + 1)} · not traced`}</span>
                 <IconButton label={`Remove anchor ${entry.graph ? entry.graph.anchor.text : entry.raw}`} size="xs" onClick={() => removeAnchor(i() + 1)}>
