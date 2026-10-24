@@ -3,6 +3,7 @@ import { createEffect, createMemo, createRenderEffect, createSignal, For, onClea
 import { makeTextMeasurer, truncateTextToWidth } from "../../utils/svgText";
 import { formatMetricValue, metricLabel, type MetricId } from "../../utils/metricsStore";
 import { tokenColor } from "./flow/marks";
+import { LABEL_FONT_PX, placeEdgeLabels, type LabelPlacement } from "./edgeLabels";
 import { treemapFillColor, treemapRampPosition, rampColor } from "../treemap/utils/colors";
 import { tailPath } from "../treemap/components/TreemapTooltip";
 import { placeFloating } from "../treemap/hooks/useTreemapTooltip";
@@ -392,6 +393,8 @@ export function DependencyCanvas(props: {
 
 
   const nodeById = createMemo(() => new Map(props.layout.nodes.map((n) => [n.id, n])));
+  // Where each field label goes so it covers no box (T22); a label with no clear spot shows only while its edge is hovered.
+  const labelAt = createMemo(() => placeEdgeLabels(props.layout.edges.map((e) => ({ id: e.id, label: e.edge.label, points: e.points })), props.layout.nodes));
   createEffect(() => {
     const id = hoverNode();
     props.onHover?.(id ? (nodeById().get(id)?.node ?? null) : null);
@@ -1040,8 +1043,8 @@ export function DependencyCanvas(props: {
                         setCard(null);
                       }}
                     />
-                    <Show when={e.edge.label && !dimmed()}>
-                      <EdgeLabel edge={e} strong={active()} />
+                    <Show when={e.edge.label && !dimmed() && (labelAt().get(e.id) || hoverEdge() === e.id)}>
+                      <EdgeLabel edge={e} strong={active()} at={labelAt().get(e.id) ?? null} />
                     </Show>
                   </g>
                 );
@@ -1645,22 +1648,25 @@ function TipCard(props: { tip: Tip }) {
 }
 
 /** A field edge's path, on the longest run of the edge, with a halo so it reads over other edges. */
-function EdgeLabel(props: { edge: PositionedEdge; strong: boolean }) {
+/** A field label at its placed spot; with none (hover only), at the longest segment's middle. */
+function EdgeLabel(props: { edge: PositionedEdge; strong: boolean; at: LabelPlacement | null }) {
   const at = createMemo(() => {
+    if (props.at) return { x: props.at.x, y: props.at.y };
     const pts = props.edge.points;
     let best = { len: -1, x: 0, y: 0 };
     for (let i = 1; i < pts.length; i++) {
       const len = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-      if (len > best.len) best = { len, x: (pts[i].x + pts[i - 1].x) / 2, y: (pts[i].y + pts[i - 1].y) / 2 };
+      if (len > best.len) best = { len, x: (pts[i].x + pts[i - 1].x) / 2, y: (pts[i].y + pts[i - 1].y) / 2 - 3 };
     }
     return best;
   });
   return (
     <text
+      data-edge-label={props.edge.id}
       x={at().x}
-      y={at().y - 3}
+      y={at().y}
       text-anchor="middle"
-      font-size="10"
+      font-size={LABEL_FONT_PX}
       font-weight={props.strong ? 600 : 500}
       fill="var(--plc-accent)"
       paint-order="stroke"

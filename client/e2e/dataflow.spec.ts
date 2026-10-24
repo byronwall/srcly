@@ -248,6 +248,32 @@ test.describe("Data flow on solid-route", () => {
   });
 });
 
+test.describe("Field labels on compact-field-proof", () => {
+  const COMPACT = path.resolve(here, "../../engine/examples/compact-field-proof");
+
+  test("no field label covers a box (T22)", async ({ page }) => {
+    await page.goto(`/?${new URLSearchParams({ repo: COMPACT, view: "graph", flow: "/projects" })}`);
+    await expect(status(page)).toContainText("occurrences", { timeout: 120_000 });
+    const origin = page.getByLabel("Origin whose proven destinations light up");
+    const options = await origin.locator("option").allTextContents();
+    await origin.selectOption({ label: options.find((t) => t.startsWith("readFile("))! });
+    await expect(page.getByText(/reaches \d+ proven/)).toBeVisible({ timeout: 120_000 });
+    await expect(page.locator("[data-edge-label]").first()).toBeVisible({ timeout: 60_000 });
+    await page.waitForTimeout(800);
+    await shot(page, "field-labels");
+    const overlaps = await page.evaluate(() => {
+      const rect = (el: Element) => el.getBoundingClientRect();
+      const boxes = [...document.querySelectorAll("[data-box] > rect")].map(rect);
+      const labels = [...document.querySelectorAll<SVGTextElement>("[data-edge-label]")];
+      return labels
+        .map((label) => ({ id: label.getAttribute("data-edge-label"), text: label.textContent, hits: boxes.filter((b) => { const l = rect(label); return l.left < b.right && l.right > b.left && l.top < b.bottom && l.bottom > b.top; }).length }))
+        .filter((l) => l.hits > 0);
+    });
+    expect(overlaps).toEqual([]);
+    expect(await page.locator("[data-edge-label]").count()).toBeGreaterThan(0);
+  });
+});
+
 test.describe("Stale sources", () => {
   test("an edit under an open graph shows Source changed; Refresh rebuilds the next generation", async ({ page }) => {
     const file = path.join(REPO, "src/components/MetricCard.tsx");
