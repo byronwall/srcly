@@ -22,6 +22,8 @@ from app.services.dataflow.models import (
     AnchorGraphResult,
     FunctionEffectsResponse,
     FunctionEffectsResult,
+    RoutePathResponse,
+    RoutePathResult,
     NA_REASONS,
     DataflowStatus,
     Outcome,
@@ -233,6 +235,22 @@ def function_effects(body: FunctionEffectsRequest):
         return _json(FunctionEffectsResponse(**result), exclude_none=False)
     effects = FunctionEffectsResult.model_validate(result["result"])
     return _json(FunctionEffectsResponse(outcome=effects.outcome, reason=effects.reason, generation=effects.generation, programHash=effects.programHash, effects=effects), exclude_none=False)
+
+
+@router.get("/route-path", response_model=RoutePathResponse)
+def get_route_path(route: str, edge: str, path: str | None = None, source: str | None = None, expectedGeneration: int | None = None):
+    """
+    One lit edge of a route graph, explained in order (M4): the steps of the
+    field attachment, frontier or handoff behind it, as ledger rows. Field
+    edges need the ``source`` the graph was lit for. 404 for an edge the
+    totality does not carry; steps are never invented.
+    """
+    params = {"route": route, "edge": edge, **({"source": source} if source else {})}
+    body = _query(_root(path), "routePath", params, expectedGeneration)
+    if "result" not in body:
+        return _json(RoutePathResponse(**body), exclude_none=False)
+    result = RoutePathResult.model_validate(body["result"])
+    return _json(RoutePathResponse(outcome=result.outcome, reason=result.reason, generation=result.generation, programHash=result.programHash, path=result), exclude_none=False)
 
 
 @router.get("/route-surface", response_model=RouteGraphResponse)

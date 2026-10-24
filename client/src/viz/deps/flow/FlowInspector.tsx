@@ -1,6 +1,8 @@
 import { ExternalLink, X } from "lucide-solid";
 import { createMemo, For, type JSX, Show } from "solid-js";
-import type { AnchorGraphResult, RouteGraphResult } from "../../../dataflow/contract.generated";
+import type { AnchorGraphResult, RouteGraphResult, RoutePathResult } from "../../../dataflow/contract.generated";
+import type { RoutePathResponse } from "../../../dataflow/api";
+import { labelFor } from "../../../dataflow/outcome";
 import { Button } from "../../../components/ui/Button";
 import { IconButton } from "../../../components/ui/IconButton";
 import type { FlowBox, FlowViewModel } from "./adapter";
@@ -96,6 +98,10 @@ export function FlowInspector(props: {
   onPickOrigin: (id: string | undefined) => void;
   onToggleFrame: (id: string) => void;
   onClose: () => void;
+  /** Route mode: a clicked handoff or field edge, explained in order (M4). */
+  edge?: string | null;
+  edgePath?: { loading: boolean; value: RoutePathResponse | undefined; error: Error | null };
+  onSelectEdge?: (id: string | null) => void;
 }) {
   const details = createMemo(() => (props.selected ? nodeDetails(props.model, props.selected) : null));
   // Anchor mode: the effects of the function that owns the selected box (its frame), or of the anchored function itself.
@@ -123,10 +129,10 @@ export function FlowInspector(props: {
   return (
     <aside class="flex w-[19rem] shrink-0 flex-col border-l border-[var(--plc-border)] bg-[var(--plc-surface)] text-[12px]" aria-label="Data flow inspector">
       <div class="flex items-center justify-between gap-2 border-b border-[var(--plc-border)] py-1 pl-2.5 pr-1">
-        <span class="font-semibold text-[var(--plc-on-surface)]">{details() ? "Selected box" : props.anchor ? "Anchor" : "Route"}</span>
+        <span class="font-semibold text-[var(--plc-on-surface)]">{props.edge ? "Selected edge" : details() ? "Selected box" : props.anchor ? "Anchor" : "Route"}</span>
         <div class="flex items-center gap-1">
-          <Show when={details()}>
-            <Button variant="ghost" size="sm" class="px-1.5" onClick={() => props.onSelect(null)} title="Back to the overview (Esc)">
+          <Show when={details() || props.edge}>
+            <Button variant="ghost" size="sm" class="px-1.5" onClick={() => { props.onSelect(null); props.onSelectEdge?.(null); }} title="Back to the overview (Esc)">
               {props.anchor ? "Anchor" : "Route"}
             </Button>
           </Show>
@@ -136,8 +142,11 @@ export function FlowInspector(props: {
         </div>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+        <Show when={props.edge && props.edgePath}>
+          {(_) => <EdgeStepsView edgeId={props.edge!} state={props.edgePath!} onOpen={props.onOpen} onSelect={props.onSelect} model={props.model} />}
+        </Show>
         <Show
-          when={details()}
+          when={props.edge ? null : details()}
           fallback={
             <Show when={anchor()} fallback={<Show when={overview()}>{(o) => <Overview o={o()} onOpen={props.onOpen} onPickOrigin={props.onPickOrigin} />}</Show>}>
               {(a) => <AnchorOverviewView o={a()} onOpen={props.onOpen} onSelect={props.onSelect} />}
@@ -288,6 +297,63 @@ function Overview(props: { o: ReturnType<typeof routeOverview>; onOpen: (absPath
             )}
           </For>
         </ul>
+      </Show>
+    </>
+  );
+}
+
+const EDGE_WORD: Record<RoutePathResult["edge"]["kind"], string> = { field: "field", handoff: "handoff" };
+const ROW_WORD: Record<RoutePathResult["rows"][number]["kind"], string> = { input: "origin", transfer: "carries", fallback: "fallback", branch: "branch", transform: "transform", terminal: "terminal", boundary: "stops" };
+
+/** One lit edge, explained in order: the steps the engine walked, each opening its line. Steps are never invented. */
+function EdgeStepsView(props: { edgeId: string; state: NonNullable<Parameters<typeof FlowInspector>[0]["edgePath"]>; model: FlowViewModel; onOpen: (absPath: string, line: number) => void; onSelect: (id: string | null) => void }) {
+  const result = () => props.state.value?.path ?? null;
+  // The boxes the graph drew the edge between; the engine's edge may name a terminal the graph folded into its box.
+  const drawn = () => props.model.vm.edges.find((e) => e.id.replace(/^(handoff|field|render):/, "") === props.edgeId) ?? null;
+  const endpoints = () => ({ source: drawn()?.source ?? result()?.edge.source ?? "", target: drawn()?.target ?? result()?.edge.target ?? "" });
+  const name = (id: string) => props.model.vm.nodes.find((n) => n.id === id)?.label ?? props.model.byId.get(id)?.label ?? id;
+  return (
+    <>
+      <Show when={props.state.loading}>
+        <p class="pt-2 text-[11px] text-[var(--plc-on-muted)]">Explaining the edge…</p>
+      </Show>
+      <Show when={props.state.error}>{(e) => <p class="pt-2 text-[11px] text-[var(--plc-error)]">{e().message}</p>}</Show>
+      <Show when={props.state.value && !props.state.value.path}>
+        <p class="pt-2 text-[11px] text-[var(--plc-warning)]">{labelFor(props.state.value!.outcome, props.state.value!.reason, props.state.value!.message) ?? props.state.value!.outcome}</p>
+      </Show>
+      <Show when={result()}>
+        {(r) => (
+          <>
+            <div class="flex flex-wrap items-baseline gap-x-2 pt-2 text-[12px]">
+              <button type="button" class="font-semibold text-[var(--plc-on-surface)] hover:underline" onClick={() => props.onSelect(endpoints().source)}>{name(endpoints().source)}</button>
+              <span class="text-[var(--plc-on-subtle)]">→</span>
+              <button type="button" class="font-semibold text-[var(--plc-on-surface)] hover:underline" onClick={() => props.onSelect(endpoints().target)}>{name(endpoints().target)}</button>
+            </div>
+            <div class="flex flex-wrap items-baseline gap-x-2 pl-0 text-[11px]">
+              <span class="text-[var(--plc-on-muted)]">{EDGE_WORD[r().edge.kind]}{r().edge.label ? ` · ${r().edge.label}` : ""}</span>
+              <span class={`font-semibold ${STATUS_CLASS[r().edge.status]}`}>{STATUS_WORD[r().edge.status]}</span>
+              <span class="text-[var(--plc-on-muted)]">{r().rows.length} step{r().rows.length === 1 ? "" : "s"}</span>
+            </div>
+            <h4 class={H}>In order</h4>
+            <ol>
+              <For each={r().rows}>
+                {(row, i) => (
+                  <li>
+                    <button type="button" class={ROW} onClick={() => props.onOpen(row.absPath, row.line)} title={[row.note, ...row.proof.map((p) => p.detail)].filter(Boolean).join("\n")}>
+                      <span class="plc-data-sm w-4 shrink-0 text-right text-[var(--plc-on-disabled)]">{i() + 1}</span>
+                      <span class="w-14 shrink-0 text-[10.5px] text-[var(--plc-on-muted)]">{ROW_WORD[row.kind]}</span>
+                      <span class="min-w-0 truncate font-mono text-[11.5px] text-[var(--plc-on-surface)]">{row.label}</span>
+                      <span class="ml-auto shrink-0 text-[10.5px]" classList={{ [STATUS_CLASS[row.status]]: row.status !== "proven", "text-[var(--plc-on-disabled)]": row.status === "proven" }}>
+                        {row.status !== "proven" ? `${STATUS_WORD[row.status]} · ` : ""}{row.file.slice(row.file.lastIndexOf("/") + 1)}:{row.line}
+                      </span>
+                    </button>
+                  </li>
+                )}
+              </For>
+            </ol>
+            <Show when={r().frontier}>{(f) => <div class="pl-1 pt-1 text-[11px] text-[var(--plc-warning)]">Stops: {f().reason.replaceAll("-", " ")} · {f().label}</div>}</Show>
+          </>
+        )}
       </Show>
     </>
   );

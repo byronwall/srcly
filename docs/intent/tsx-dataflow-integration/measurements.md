@@ -178,6 +178,20 @@ Line 88 → 135 would still need the plain-identifier-prop edit (below the cut l
 
 **Decision.** Tier 1 gains nothing from scoping: TypeScript still resolves and type-checks the same library and `node_modules` surface for 34 roots as for 487. The gain is in fact collection and the slice (15 s to 3.7 s), which T9's backbone and T11's cache already cover for the first box and the reopen, and one anchor differs from the full Program, which the stop rule turns scoping off for. The `rootFiles` option stays as the spike's instrument and nothing in the engine uses it.
 
+## 2026-10-24 — T16: explain an edge
+
+`routePath` turns one lit edge into ordered ledger rows. A handoff's rows are the bridge's own `evidencePathElementIds`; a field edge's rows are its accepted transfers (C01-C12) chained from the origin to the consumer value, because a field attachment's `evidencePathElementIds` holds only the origin. Elements the projected slice left out are read from the provider's fact index; nothing is invented.
+
+| Case | Edge | Rows | Time after the graph is up |
+| --- | --- | --- | --- |
+| compact-field-proof `/projects`, origin `readFile(...)` | field `projects[*].ownerName` → ProjectDetails | 14 (origin, 11 carries and transforms through `data()?.projects.find(...)`, `current()`, the prop, the field, terminal `props.project.ownerName` at projects.tsx:13) | under 100 ms |
+| compact-field-proof `/projects`, same origin | handoff → `props.value` | 26 | under 100 ms |
+| solid-route `/records`, origin `createResource(loadViewer)` | three handoffs | 6 each, every row after the first carrying its relation | under 100 ms |
+
+The field edge ends at the consumer value inside the component body, one hop past the occurrence box the graph draws the edge to; the inspector names the endpoints from the drawn edge, so the header still reads origin → box.
+
+**visual-notes `/time-blocks` and `/tasks`**: no origin reaches a proven render site and field lineage is N/A ("no unique compiler-backed filesystem origin"), so there is no lit edge to explain there. The proof the ticket named on `/time-blocks` therefore reduces to the honesty tickets' finding; the edge explanation is proven on the two examples and in the browser smoke (`a lit edge, clicked, lists its steps in order in the inspector`).
+
 ## To record next
 
 | Milestone | Numbers |

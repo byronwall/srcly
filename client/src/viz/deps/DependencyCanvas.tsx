@@ -218,6 +218,8 @@ export function DependencyCanvas(props: {
   selectedId?: string;
   /** Node actions: right-click, or the "⋯" shown on the hovered node. */
   onMenu?: (node: ViewNode, at: { x: number; y: number }) => void;
+  /** Data flow mode: a click on a drawn edge selects it (the inspector explains it). */
+  onSelectEdge?: (edge: ViewEdge) => void;
   ref?: (api: CanvasApi) => void;
   /** Treemap metrics per box id (boxes without a treemap match are absent). */
   metrics?: Map<string, Record<string, any>>;
@@ -980,6 +982,12 @@ export function DependencyCanvas(props: {
                         setHoverEdge(e.id);
                         showCard(ev, { edge: e });
                       }}
+                      onClick={(ev) => {
+                        if (!props.onSelectEdge || !(e.edge.style === "field" || e.edge.style === "handoff")) return;
+                        ev.stopPropagation();
+                        props.onSelectEdge(e.edge);
+                      }}
+                      style={{ cursor: props.onSelectEdge && (e.edge.style === "field" || e.edge.style === "handoff") ? "pointer" : undefined }}
                       onMouseMove={(ev) => showCard(ev, { edge: e })}
                       onMouseLeave={() => {
                         setHoverEdge(null);

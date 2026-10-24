@@ -393,6 +393,53 @@ class ValueFlowResponse(BaseModel):
     ledger: ValueFlowResult | None = None
 
 
+# ---- route path (contracts/routePath.schema.json) ----------------------------
+
+
+class RoutePathEdge(BaseModel):
+    id: str
+    kind: Literal["field", "handoff"]
+    label: str | None
+    status: EvidenceStatus
+    source: str
+    target: str
+
+
+class RoutePathFrontier(BaseModel):
+    reason: str
+    label: str
+
+
+class RoutePathRoute(BaseModel):
+    key: str
+    pathPattern: str
+
+
+class RoutePathResult(BaseModel):
+    outcome: Outcome
+    generation: int
+    programHash: str
+    tsconfig: str
+    typescript: str
+    reason: str | None
+    route: RoutePathRoute
+    edge: RoutePathEdge
+    rows: list[LedgerRow]
+    proof: list[EvidenceProof]
+    frontier: RoutePathFrontier | None
+
+
+class RoutePathResponse(BaseModel):
+    """``GET /api/dataflow/route-path``: one lit edge, explained in order."""
+
+    outcome: Outcome
+    reason: str | None = None
+    message: str | None = None
+    generation: int | None = None
+    programHash: str | None = None
+    path: RoutePathResult | None = None
+
+
 # ---- function effects (contracts/functionEffects.schema.json) ----------------
 
 

@@ -2,7 +2,7 @@ import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show
 import { ChevronDown, Crosshair, PanelRight, RefreshCw } from "lucide-solid";
 import { EmptyState, ErrorState } from "../../../components/feedback/States";
 import { Button } from "../../../components/ui/Button";
-import { fetchAnchorGraph, fetchRouteGraph, fetchRouteSurface, fetchRoutes } from "../../../dataflow/api";
+import { fetchAnchorGraph, fetchRouteGraph, fetchRoutePath, fetchRouteSurface, fetchRoutes } from "../../../dataflow/api";
 import { availabilityFor, ensureStarted, refresh as refreshEngine, statusFor, watchProgress, watchStaleness } from "../../../dataflow/availability";
 import { labelFor, reasonText } from "../../../dataflow/outcome";
 import { atFromTreePath, parseAnchor, type Direction } from "../../../navigation/location";
@@ -150,6 +150,17 @@ export default function FlowView(props: {
 
   const [layout, setLayout] = createSignal<ViewLayout | null>(null);
   const [selected, setSelected] = createSignal<string | null>(null);
+  /** A clicked handoff or field edge (route mode): the inspector explains it in order (M4). */
+  const [selectedEdge, setSelectedEdge] = createSignal<string | null>(null);
+  const edgePathKey = createMemo(() => {
+    const id = selectedEdge();
+    const g = graph()?.graph;
+    return id && g && !anchorKey() ? `${root()}\n${g.route.key}\n${g.selectedSource ?? ""}\n${id}\n${g.generation}` : null;
+  });
+  const edgePath = createFetch(edgePathKey, (key) => {
+    const [path, route, source, edge, gen] = key.split("\n");
+    return fetchRoutePath({ path, route, edge, source: source || undefined, expectedGeneration: Number(gen) });
+  });
   const [hovered, setHovered] = createSignal<ViewNode | null>(null);
   const [reachMode, setReachMode] = createSignal<ReachMode>("both");
   /** The selected box's reach over the drawn view: what is proven to reach it, and what it reaches. */
@@ -284,8 +295,9 @@ export default function FlowView(props: {
       else if (key === "0") canvas?.fit();
       else if (key === "i") toggleInspector();
       else if (key === "r" && selected()) setReachMode(REACH_MODES[(REACH_MODES.findIndex((m) => m.id === reachMode()) + 1) % REACH_MODES.length].id);
-      else if (key === "Escape" && (selected() || field())) {
-        if (selected()) setSelected(null);
+      else if (key === "Escape" && (selectedEdge() || selected() || field())) {
+        if (selectedEdge()) setSelectedEdge(null);
+        else if (selected()) setSelected(null);
         else pickOrigin(undefined);
       }
       else if (n && (key === "o" || key === "Enter")) openNode(n);
@@ -438,7 +450,15 @@ export default function FlowView(props: {
                 onFocus={onBoxClick}
                 onOpen={openNode}
                 onToggleOpen={toggleOpen}
-                onPointerAct={() => setSelected(null)}
+                onPointerAct={() => {
+                  setSelected(null);
+                  setSelectedEdge(null);
+                }}
+                onSelectEdge={(edge) => {
+                  setSelected(null);
+                  // The adapter prefixes a flow edge's id with its kind; the engine knows the bare id.
+                  setSelectedEdge(edge.id.replace(/^(handoff|field|render):/, ""));
+                }}
                 onHover={setHovered}
                 selectedId={location().dest ?? selected() ?? undefined}
                 highlight={highlight()}
@@ -459,6 +479,9 @@ export default function FlowView(props: {
           model={model()!}
           rootPath={root()}
           selected={location().dest ?? selected()}
+          edge={selectedEdge()}
+          edgePath={{ loading: edgePath.loading(), value: edgePath.value(), error: edgePath.error() }}
+          onSelectEdge={setSelectedEdge}
           reach={reach()}
           open={openList()}
           onOpen={openAt}

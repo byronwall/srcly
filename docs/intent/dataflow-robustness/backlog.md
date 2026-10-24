@@ -101,6 +101,7 @@ Seeds in priority order (R13, R7). Each has **evidence** for why it matters, a *
 - Evidence: field edges carry `pathIds`, but no ordered explanation exists.
 - Proof: on `/time-blocks`, clicking a lit edge lists its ordered steps in the edge card and inspector, and its status agrees with the edge.
 - Stop rule: a missing attachment is `not-found`. Steps are never invented.
+- Done (PR 16 of the stack): `routePath` op, `GET /api/dataflow/route-path`, click a field or handoff edge → "Selected edge" in the inspector with the rows in order; each row opens its line; Esc clears it. On visual-notes no origin has a lit edge (see measurements), so the proof ran on the examples.
 
 **T17 · Back and Return through a view-state registry.**
 - Evidence: R8. There is no `viewState.ts`.
