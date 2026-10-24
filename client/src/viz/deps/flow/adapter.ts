@@ -5,7 +5,7 @@
 // renders. The graph is reach, not order: nothing here invents a step.
 import type { AnchorGraphResult, RouteGraphResult } from "../../../dataflow/contract.generated";
 import type { ViewEdge, ViewModel, ViewNode } from "../viewModel";
-import { FLOW_MARKS, humanizeDetail, MARK_OF_KIND, markColor } from "./marks";
+import { humanizeDetail, MARK_OF_KIND, markColor } from "./marks";
 
 export type FlowNode = RouteGraphResult["nodes"][number];
 export type FlowEdge = RouteGraphResult["edges"][number];

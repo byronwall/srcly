@@ -1666,7 +1666,7 @@ function EdgeLabel(props: { edge: PositionedEdge; strong: boolean; at: LabelPlac
       x={at().x}
       y={at().y}
       text-anchor="middle"
-      font-size={LABEL_FONT_PX}
+      font-size={String(LABEL_FONT_PX)}
       font-weight={props.strong ? 600 : 500}
       fill="var(--plc-accent)"
       paint-order="stroke"

@@ -1,5 +1,5 @@
 // Browser smoke for Data flow mode (`e2e/`): the real engine on
-// engine/examples/solid-route, through the Python API and the Vite dev server.
+// engine/examples/solid-route, through the Python API and a Vite preview of the built client.
 // `pnpm e2e` runs it; CI runs it as the `browser` job. Screenshots land in
 // ../tmp/e2e (ignored), so a PR can attach them.
 import { defineConfig, devices } from "@playwright/test";
@@ -38,12 +38,13 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: `pnpm exec vite --port ${CLIENT_PORT} --strictPort`,
+      // A production build, not the dev server: on a cold cache Vite finds new deps mid-test and reloads the page.
+      command: `pnpm exec vite build --outDir ../tmp/e2e/dist --emptyOutDir && pnpm exec vite preview --outDir ../tmp/e2e/dist --port ${CLIENT_PORT} --strictPort`,
       url: `http://localhost:${CLIENT_PORT}`,
       cwd: here,
       env: { SRCLY_API_PORT: String(API_PORT) },
       reuseExistingServer: false,
-      timeout: 120_000,
+      timeout: 240_000,
     },
   ],
 });
