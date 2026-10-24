@@ -50,6 +50,9 @@ jobs:
       - name: Typecheck engine
         working-directory: engine
         run: pnpm typecheck
+      - name: Install server dependencies (the engine's Python tests use its mypy)
+        working-directory: server
+        run: uv sync --locked
       - name: Test engine
         working-directory: engine
         run: pnpm test

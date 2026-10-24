@@ -33,6 +33,7 @@ Start with `docs/CODE_MAP.md`: a feature → file index for the backend, API, an
 - To add an op: a Zod contract in `engine/src/srcly/contracts/` (and its `registry.ts` entry) → the op in `engine/src/srcly/ops/` and its worker branch → `cd engine && pnpm emit-contracts` → a Pydantic mirror in `server/app/services/dataflow/models.py` (`tests/test_dataflow_models.py` checks its fields against the schema) → a route in `server/app/routers/dataflow.py` → the client call. The emitted `server/app/services/dataflow/contracts/*.schema.json` and `client/src/dataflow/contract.generated.ts` are never edited by hand; `engine/test/srcly/contracts-current.test.ts` fails when they drift.
 - Every result carries `generation` and `programHash`. A query with an older `expectedGeneration` is `stale`, a named outcome; never mix generations.
 - Not analyzed is never 0: show the outcome or reason by name.
+- Python roots: `engine/python/srcly_pyfacts.py` (stdlib `ast` + mypy, run with srcly's own interpreter) emits facts in the collector's raw shape; roles and boundaries come from the element kind, so new Python recognition goes in the helper's tables, never in `engine/src/analysis`. Its tests need an interpreter with mypy (`SRCLY_PYTHON`, else `server/.venv` after `cd server && uv sync`). Decision: `docs/intent/python-dataflow/decision.md`.
 - Never edit `engine/src/analysis` to recognise srcly-specific code. The only planned analysis edits are M5's four invocation-identity changes, each with a negative fixture.
 
 ## Client Package Management
