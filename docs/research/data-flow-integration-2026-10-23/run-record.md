@@ -28,7 +28,7 @@ Completion: collect and read Pro deliverables, verify decisive claims, integrate
 - Attachments verified: srcly-pro-prompt.md and source-packet(5).zip. ChatGPT renamed the ZIP during upload; the sent instruction uses its observed name.
 - Sent message verified. Pro began inspecting uploaded files and archive contents.
 - First check target: about 10:34 p.m. America/Indianapolis on October 23.
-- Phase: submitted; waiting for Pro. Follow-ups: 0. Collected files: none. PR: none.
+- Phase: collected, read, verified, and integrated; PR pending. Follow-ups: 0.
 
 ## Scheduled continuation
 
@@ -47,3 +47,15 @@ The invoked skill's standing approval covers all task deliverable downloads. Res
 Use docs/research/data-flow-integration-2026-10-23/README.md for the concise decision and source links. Use docs/intent/data-flow-integration/implementation-plan.md for the staged design. Record Build, Explore, Defer, and Avoid dispositions. Check current source before accepting claims from docs/analyzer.md; it describes earlier file-local limits while newer route field-proof code exists.
 
 Keep downloaded originals in ignored tmp/pro/. Check archive paths before extraction. Do not execute downloaded programs. Read every report, verify decisive claims, and use at most one follow-up for a material gap. Follow Srcly AGENTS.md and use gh --body-file for the PR. Verify the saved body and file list, attach the PR to this chat, update this record, and disable any continuation monitor on completion.
+
+## Collection and integration
+
+- Checked the same Pro conversation on October 23 at about 10:36 p.m. Eastern. Pro completed after 33 minutes.
+- Downloaded srcly-design-research.zip. The browser waiter timed out, but Chrome saved srcly-design-research (1).zip; the actual file was verified.
+- Checked archive paths and extracted all three Markdown files safely. Read research-report.md, implementation-plan.md, and recommendations.md.
+- Originals and archive: tmp/pro/data-flow-integration-2026-10-23/. Do not commit them.
+- Verified decision-bearing code claims. Eighteen inspected files matched the submitted packet. Detailed checks are in verification.md.
+- Spot-checked current primary CodeQL, JetBrains, and uv documentation.
+- Wrote the research README, all 18 recommendation dispositions, verification notes, and the two-milestone implementation plan.
+- No follow-up needed. No application, analyzer, tests, builds, or browser acceptance ran. No tsx-data-flow files changed.
+- Validation: local Markdown links, fence balance, and git diff whitespace checks. No dedicated repository docs/format script exists.
