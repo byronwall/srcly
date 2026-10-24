@@ -75,3 +75,21 @@ describe("route graph → ViewModel", () => {
     for (const n of layout.nodes) if (n.node.group) expect(column.get(n.id)!).toBeGreaterThanOrEqual(column.get(n.node.group.id)!);
   });
 });
+
+describe("selected origin", () => {
+  it("lights its proven destinations and the edges that reach them", () => {
+    const origin = graph.origins.find((o) => o.label === "createResource(loadViewer)")!.nodeId;
+    const destinations = graph.edges.filter((e) => e.source === origin && e.kind === "handoff").map((e) => e.target);
+    const selected = { ...graph, selectedSource: origin, destinations } as RouteGraphResult;
+    const { vm, lit } = routeGraphToViewModel(selected);
+    expect(lit?.nodes.has(origin)).toBe(true);
+    const litLabels = vm.nodes.filter((n) => n.lit).map((n) => n.label).sort();
+    expect(litLabels).toEqual(["ViewerCard", 'props.viewer?.name ?? "loading viewer"', 'props.viewer?.team ?? "loading team"'].sort());
+    expect(vm.nodes.some((n) => n.lit && n.group?.label === "RecordRow")).toBe(false);
+    expect(lit!.edges.size).toBe(destinations.length);
+  });
+
+  it("lights nothing without a selection", () => {
+    expect(routeGraphToViewModel(graph).lit).toBeNull();
+  });
+});

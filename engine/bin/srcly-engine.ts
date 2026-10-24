@@ -56,7 +56,7 @@ function workerOperation(frame: RequestFrame): AnalysisOperation | null {
   if (frame.op === "routes") return { kind: "routes", expectedGeneration };
   if (frame.op === "routeGraph") {
     if (typeof params.route !== "string") throw new EngineError("invalid-request", "routeGraph needs params.route");
-    return { kind: "route-graph", route: params.route, expectedGeneration };
+    return { kind: "route-graph", route: params.route, source: typeof params.source === "string" ? params.source : undefined, expectedGeneration };
   }
   return null;
 }

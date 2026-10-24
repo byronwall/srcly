@@ -223,6 +223,12 @@
               "field"
             ]
           },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -359,6 +365,7 @@
           "source",
           "target",
           "kind",
+          "label",
           "status",
           "proof",
           "pathIds"
@@ -424,6 +431,55 @@
         "string",
         "null"
       ]
+    },
+    "lineage": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "complete",
+                "partial",
+                "unavailable"
+              ]
+            },
+            "unavailableReason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "fields": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "frontiers": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "status",
+            "unavailableReason",
+            "fields",
+            "frontiers"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "destinations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "counts": {
       "type": "object",
@@ -568,6 +624,8 @@
     "edges",
     "origins",
     "selectedSource",
+    "lineage",
+    "destinations",
     "counts",
     "gaps"
   ],

@@ -74,7 +74,7 @@ def result_for(op: str, params: dict) -> dict:
                 "route": {"key": "route:records", "pathPattern": "/records", "file": "src/routes/records.tsx",
                           "absPath": f"{args.root}/src/routes/records.tsx"},
                 "status": "complete", "unavailableReason": None, "nodes": [node], "edges": [], "origins": [],
-                "selectedSource": None,
+                "selectedSource": None, "lineage": None, "destinations": [],
                 "counts": {"occurrences": 0, "boundaries": 0, "terminals": 0, "origins": 0, "handoffs": 0, "omittedItems": 0},
                 "gaps": []}
     raise LookupError(op)

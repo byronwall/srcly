@@ -54,3 +54,4 @@ def test_route_graph_nested_fields_match():
     assert set(models.RouteOrigin.model_fields) == set(schema["origins"]["items"]["properties"])
     assert set(models.RouteGraphCounts.model_fields) == set(schema["counts"]["properties"])
     assert set(models.RouteGap.model_fields) == set(schema["gaps"]["items"]["properties"])
+    assert set(models.RouteLineage.model_fields) == set(schema["lineage"]["anyOf"][0]["properties"])

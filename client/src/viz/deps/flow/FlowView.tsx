@@ -43,12 +43,13 @@ export default function FlowView(props: {
   const routesFetch = createFetch(() => (availability() === "ready" ? root() : null), (r) => fetchRoutes(r));
   const routes = routesFetch.value;
   const routeKey = () => location().flow ?? "";
+  const field = () => location().field;
   const graphKey = createMemo(
-    () => (availability() === "ready" && routeKey() ? `${root()}\n${routeKey()}` : null),
+    () => (availability() === "ready" && routeKey() ? `${root()}\n${routeKey()}\n${field() ?? ""}` : null),
   );
   const graphFetch = createFetch(graphKey, (key) => {
-    const [path, route] = key.split("\n");
-    return watchProgress(path, fetchRouteGraph({ path, route }));
+    const [path, route, source] = key.split("\n");
+    return watchProgress(path, fetchRouteGraph({ path, route, source: source || undefined }));
   });
   const graph = graphFetch.value;
   const routeList = () => routes()?.routes ?? [];
@@ -116,7 +117,33 @@ export default function FlowView(props: {
   };
   const pickRoute = (key: string) => {
     setSelected(null);
-    go({ flow: key, open: undefined });
+    go({ flow: key, open: undefined, field: undefined, dest: undefined });
+  };
+  /** Pick an origin (or clear it): its proven destinations light up. No Back step. */
+  const pickOrigin = (id: string | undefined) => {
+    setSelected(null);
+    replace({ field: id, dest: undefined });
+  };
+  /** A click: an origin selects itself as the source; a lit box becomes the destination. */
+  const onBoxClick = (n: ViewNode) => {
+    const flow = model()?.byId.get(n.id);
+    if (flow?.kind === "origin") return pickOrigin(field() === n.id ? undefined : n.id);
+    if (n.lit) replace({ dest: n.id });
+    else if (location().dest) replace({ dest: undefined });
+    setSelected(n.id);
+  };
+  const origins = () => graph()?.graph?.origins ?? [];
+  const lineageText = () => {
+    const g = graph()?.graph;
+    if (!g?.selectedSource) return null;
+    const name = origins().find((o) => o.nodeId === g.selectedSource)?.label ?? "the origin";
+    const reach = g.destinations.length
+      ? `${name} reaches ${g.destinations.length} proven render site${g.destinations.length === 1 ? "" : "s"}`
+      : `${name} reaches no proven render site`;
+    const lineage = g.lineage;
+    if (!lineage) return reach;
+    if (lineage.status === "unavailable") return `${reach} · field lineage N/A: ${lineage.unavailableReason ?? "unavailable"}`;
+    return `${reach} · ${lineage.fields} field${lineage.fields === 1 ? "" : "s"}${lineage.frontiers ? `, ${lineage.frontiers} stop at frontiers` : ""}`;
   };
 
   onMount(() => {
@@ -128,7 +155,10 @@ export default function FlowView(props: {
       const n = layout()?.nodes.find((p) => p.id === selected())?.node ?? hovered();
       if (key === "/") setPicker(true);
       else if (key === "0") canvas?.fit();
-      else if (key === "Escape" && selected()) setSelected(null);
+      else if (key === "Escape" && (selected() || field())) {
+        if (selected()) setSelected(null);
+        else pickOrigin(undefined);
+      }
       else if (n && (key === "o" || key === "Enter")) openNode(n);
       else if (n && (key === "e" || key === " ")) toggleOpen(n);
       else return;
@@ -167,6 +197,20 @@ export default function FlowView(props: {
           <span class="font-medium">{currentRoute()?.pathPattern ?? "none"}</span>
           <ChevronDown size={13} aria-hidden="true" />
         </Button>
+        <label class="flex shrink-0 items-center gap-1 px-1 text-[12px]">
+          <span class="text-[var(--plc-on-muted)]">Origin</span>
+          <select
+            class="max-w-[14rem] truncate rounded border border-[var(--plc-border)] bg-[var(--plc-surface)] px-1 py-0.5 text-[12px] text-[var(--plc-on-surface)]"
+            value={field() ?? ""}
+            disabled={!origins().length}
+            onChange={(e) => pickOrigin(e.currentTarget.value || undefined)}
+            aria-label="Origin whose proven destinations light up"
+          >
+            <option value="" selected={!field()}>none</option>
+            {/* `selected` per option: the select's value is set before its options exist. */}
+            {origins().map((o) => <option value={o.nodeId} selected={o.nodeId === field()}>{o.label}</option>)}
+          </select>
+        </label>
         <Button variant="ghost" class="px-2" onClick={() => canvas?.fit()} title="Fit the graph to the window (0)" disabled={!layout()}>
           Fit
         </Button>
@@ -203,12 +247,13 @@ export default function FlowView(props: {
                 layout={l()}
                 anchor={anchor() ?? undefined}
                 focusId={model()?.vm.focusId}
-                onFocus={(n) => setSelected(n.id)}
+                onFocus={onBoxClick}
                 onOpen={openNode}
                 onToggleOpen={toggleOpen}
                 onPointerAct={() => setSelected(null)}
                 onHover={setHovered}
-                selectedId={selected() ?? undefined}
+                selectedId={location().dest ?? selected() ?? undefined}
+                highlight={model()?.lit ?? null}
                 collapsible={collapsible}
                 onCollapse={collapse}
                 ref={(api) => (canvas = api)}
@@ -221,12 +266,12 @@ export default function FlowView(props: {
       </div>
 
       <div class="flex items-center gap-3 border-t border-[var(--plc-border)] px-3 py-1 text-[11px] text-[var(--plc-on-subtle)]" aria-live="polite">
-        <Show when={outcomeText()}>
-          {(text) => <span class="shrink-0 font-semibold text-[var(--plc-on-surface)]">{text()}</span>}
+        <Show when={lineageText() ?? outcomeText()}>
+          {(text) => <span class="min-w-0 shrink truncate font-semibold text-[var(--plc-on-surface)]">{text()}</span>}
         </Show>
         <span class="ml-auto min-w-0 truncate tabular-nums">
           {stats()}
-          {stats() ? " · " : ""}Click selects · Double-click or O opens code · Shift-click opens a frame · / picks a route
+          {stats() ? " · " : ""}Click an origin to light what it reaches · Double-click or O opens code · Shift-click opens a frame · / picks a route
         </span>
       </div>
 

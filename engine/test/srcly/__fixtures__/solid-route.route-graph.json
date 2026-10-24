@@ -713,6 +713,7 @@
    "source": "route-occurrence:1wam0ne",
    "target": "route-framework-boundary:7hwd4g",
    "kind": "render",
+   "label": null,
    "status": "proven",
    "proof": [],
    "pathIds": null
@@ -722,6 +723,7 @@
    "source": "route-framework-boundary:7hwd4g",
    "target": "route-framework-boundary:umti3a",
    "kind": "render",
+   "label": null,
    "status": "proven",
    "proof": [],
    "pathIds": null
@@ -731,6 +733,7 @@
    "source": "route-framework-boundary:umti3a",
    "target": "route-occurrence:euuis8",
    "kind": "render",
+   "label": null,
    "status": "proven",
    "proof": [],
    "pathIds": null
@@ -740,6 +743,7 @@
    "source": "route-occurrence:n7tgmy",
    "target": "route-occurrence:1e04p52",
    "kind": "render",
+   "label": null,
    "status": "proven",
    "proof": [],
    "pathIds": null
@@ -749,6 +753,7 @@
    "source": "route-occurrence:1i30i7k",
    "target": "route-framework-boundary:1yyee3r",
    "kind": "render",
+   "label": null,
    "status": "proven",
    "proof": [],
    "pathIds": null
@@ -758,6 +763,7 @@
    "source": "route-occurrence:m8qwl",
    "target": "route-occurrence:1i30i7k",
    "kind": "render",
+   "label": null,
    "status": "proven",
    "proof": [],
    "pathIds": null
@@ -767,6 +773,7 @@
    "source": "route-framework-boundary:1yyee3r",
    "target": "route-occurrence:1wam0ne",
    "kind": "render",
+   "label": null,
    "status": "proven",
    "proof": [],
    "pathIds": null
@@ -776,6 +783,7 @@
    "source": "route-occurrence:1i30i7k",
    "target": "route-occurrence:gunqpl",
    "kind": "render",
+   "label": null,
    "status": "proven",
    "proof": [],
    "pathIds": null
@@ -785,6 +793,7 @@
    "source": "route-occurrence:n7tgmy",
    "target": "route-occurrence:b66jfb",
    "kind": "render",
+   "label": null,
    "status": "proven",
    "proof": [],
    "pathIds": null
@@ -794,6 +803,7 @@
    "source": "route-framework-boundary:1yyee3r",
    "target": "route-occurrence:n7tgmy",
    "kind": "render",
+   "label": null,
    "status": "proven",
    "proof": [],
    "pathIds": null
@@ -803,6 +813,7 @@
    "source": "program-element:jpfet7",
    "target": "route-terminal:msqkm1",
    "kind": "handoff",
+   "label": null,
    "status": "proven",
    "proof": [
     {
@@ -913,6 +924,7 @@
    "source": "program-element:jpfet7",
    "target": "route-occurrence:gunqpl",
    "kind": "handoff",
+   "label": null,
    "status": "proven",
    "proof": [
     {
@@ -986,6 +998,7 @@
    "source": "program-element:jpfet7",
    "target": "route-terminal:141musa",
    "kind": "handoff",
+   "label": null,
    "status": "proven",
    "proof": [
     {
@@ -1133,6 +1146,8 @@
   }
  ],
  "selectedSource": null,
+ "lineage": null,
+ "destinations": [],
  "counts": {
   "occurrences": 7,
   "boundaries": 3,

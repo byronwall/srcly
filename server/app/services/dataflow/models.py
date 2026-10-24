@@ -206,6 +206,7 @@ class FlowEdge(BaseModel):
     source: str
     target: str
     kind: Literal["render", "handoff", "field"]
+    label: str | None
     status: EvidenceStatus
     proof: list[EvidenceProof]
     pathIds: PathIds | None
@@ -241,6 +242,13 @@ class RouteGap(BaseModel):
     location: SourceLocation | None
 
 
+class RouteLineage(BaseModel):
+    status: Literal["complete", "partial", "unavailable"]
+    unavailableReason: str | None
+    fields: int
+    frontiers: int
+
+
 class RouteGraphResult(BaseModel):
     outcome: Outcome
     generation: int
@@ -254,6 +262,8 @@ class RouteGraphResult(BaseModel):
     edges: list[FlowEdge]
     origins: list[RouteOrigin]
     selectedSource: str | None
+    lineage: RouteLineage | None
+    destinations: list[str]
     counts: RouteGraphCounts
     gaps: list[RouteGap]
 
