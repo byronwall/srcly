@@ -1,0 +1,113 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Bring tsx-data-flow into srcly",
+    "slug": "tsx-dataflow-integration",
+    "scale": "program",
+    "current_phase": "shape",
+    "last_updated": "2026-10-23",
+    "summary": "srcly is the fast big-picture base layer; tsx-data-flow becomes a background TS/TSX data-flow engine whose evidence lands in srcly's metrics, findings, code viewer, reports, compare, and later the dependency view.",
+    "status": "planned",
+    "next_action": "Pro threads refine each mapping branch; resolve engine location + distribution; then plan the first proof (export contract + one metric + markers)."
+  },
+  "artifacts": {
+    "intent_brief": {"path": "intent-brief.md", "status": "current", "updated_at": "2026-10-23"},
+    "brainstorm": {"path": "brainstorm.md", "status": "not-requested", "updated_at": null},
+    "shape_brief": {"path": "shape-brief.md", "status": "current", "updated_at": "2026-10-23"},
+    "implementation_plan": {"path": "implementation-plan.md", "status": "not-created", "updated_at": null}
+  },
+  "sources": [
+    {"id": "S1", "type": "transcript", "location": "conversation", "anchor": "initial request 2026-10-23", "authority": "user"},
+    {"id": "S2", "type": "repo", "location": "~/Projects/tsx-data-flow/INTENT.md", "anchor": "product priority order; code map primary surface", "authority": "user"},
+    {"id": "S3", "type": "repo", "location": "~/Projects/tsx-data-flow/README.md", "anchor": "Views table; Explore it in the browser", "authority": "repo"},
+    {"id": "S4", "type": "repo", "location": "~/Projects/tsx-data-flow/docs/application-structure.md", "anchor": "Boundaries; API surface", "authority": "repo"},
+    {"id": "S5", "type": "repo", "location": "~/Projects/tsx-data-flow/docs/performance-baseline.md", "anchor": "10K/50K/200K table", "authority": "repo"},
+    {"id": "S6", "type": "repo", "location": "~/Projects/tsx-data-flow/docs/intent/field-trajectories-and-cleanup/", "anchor": "intent + shape briefs", "authority": "user"},
+    {"id": "S7", "type": "repo", "location": "docs/CODE_MAP.md", "anchor": "Findings row; Metrics end-to-end; Code viewer; Graph views", "authority": "repo"},
+    {"id": "S8", "type": "repo", "location": "AGENTS.md", "anchor": "Add / extend a metric", "authority": "repo"},
+    {"id": "S9", "type": "repo", "location": "docs/intent/imported-quality-evidence/shape-brief.md", "anchor": "import artifacts before building engines", "authority": "user"}
+  ],
+  "intent": {
+    "claims": [
+      {"id": "C1", "statement": "srcly is the home and base layer; tsx-data-flow features merge into it.", "kind": "goal", "sources": ["S1"], "confidence": "high"},
+      {"id": "C2", "statement": "srcly's speed must be preserved; data flow never delays the base render.", "kind": "constraint", "sources": ["S1", "S5"], "confidence": "high"},
+      {"id": "C3", "statement": "Value order: reports, problem spotting linked to code, improved code view, then dep view augmented with full data flow.", "kind": "priority", "sources": ["S1"], "confidence": "high"},
+      {"id": "C4", "statement": "Analysis correctness (compiler-backed identity, strict tsconfig) outranks everything else in tsx-data-flow.", "kind": "constraint", "sources": ["S2", "S3"], "confidence": "high"},
+      {"id": "C5", "statement": "Markdown output exists for agent handoff: dense, grounded, concise next action.", "kind": "goal", "sources": ["S2"], "confidence": "high"},
+      {"id": "C6", "statement": "tsx-data-flow's own overview/report pages are transitional and need not survive.", "kind": "interpretation", "sources": ["S2", "S1"], "confidence": "medium"},
+      {"id": "C7", "statement": "Several Pro threads will detail branches and update this map.", "kind": "decision", "sources": ["S1"], "confidence": "high"}
+    ],
+    "themes": ["base layer vs enrichment layer", "one vocabulary (metrics/findings/markers)", "agent handoff", "data-flow graph as the end state"],
+    "conflicts": [
+      {"id": "X1", "statement": "tsx-data-flow says the code map is its primary surface; srcly's primary surface is the map/treemap with a modal code viewer.", "resolution": "srcly's treemap stays primary; the code viewer absorbs code-map overlays (path on source, markers, where-used)."}
+    ],
+    "human_questions": [
+      "Engine code location: separate npm package or moved into the srcly repo?",
+      "Distribution: project node_modules, npx, or JS bundle shipped in the srcly wheel?",
+      "Retire tsx-dataflow-serve UI after coverage, or keep as a debug tool?"
+    ]
+  },
+  "brainstorm": {"status": "not-requested", "requested_count": 7, "options": [], "selected_option": null},
+  "shape": {
+    "status": "current",
+    "appetite": "Program delivered as independently revertible slices, one srcly home per slice.",
+    "problem": "Two tools with overlapping shells; srcly is fast but tree-sitter-only, tsx-data-flow is deep but slow and has its own UI.",
+    "recommended_shape": "Integrate at the data level: tsx-data-flow runs as a findings-style background Node job emitting one versioned srcly export; srcly maps it into catalog metrics, findings, markers, report artifacts, compare, and later dependency-view edges.",
+    "feature_mapping": [
+      {"tsx_feature": "Render-path findings, defensive-ledger, type-impossible defenses", "srcly_home": "findings/ (new dataflow tool) + catalog metrics + markers", "status": "planned"},
+      {"tsx_feature": "Per-file burden, path depth, representation changes, defensive ops", "srcly_home": "metric_catalog.py METRICS (TS/TSX in MEASURED_FILE_METRICS)", "status": "planned"},
+      {"tsx_feature": "prop-relay, fan-out, fan-in", "srcly_home": "catalog metrics with witnesses; later dependency-view edges", "status": "planned"},
+      {"tsx_feature": "repeated-forks, context-relay", "srcly_home": "finding rules", "status": "planned"},
+      {"tsx_feature": "work-packets Markdown, stop recommendation, render-path-dataflow-work skill", "srcly_home": "reporting.py artifacts + skills/srcly-code-quality", "status": "planned"},
+      {"tsx_feature": "--compare baseline", "srcly_home": "compare/diff.COMPARE_METRICS via catalog", "status": "planned"},
+      {"tsx_feature": "Code map gutter markers, path highlight, finding details", "srcly_home": "CodeModal markers + Data flow rail section", "status": "planned"},
+      {"tsx_feature": "Symbol uses / component-refs / where-used", "srcly_home": "CodeModal where-used; dependency view symbol focus", "status": "evaluate"},
+      {"tsx_feature": "boundary-report, junctions, path-families, inline-preview", "srcly_home": "finding rules or report-only", "status": "evaluate"},
+      {"tsx_feature": "Route totality, data trajectories, component topology, world map", "srcly_home": "dependency view data-flow mode", "status": "later"},
+      {"tsx_feature": "Overview page, file rows, report tab strip, tsx-dataflow-serve", "srcly_home": "none (covered by explorer/Hot Spots); retire", "status": "drop"}
+    ],
+    "success_moves": [
+      "Reuse the findings runner pattern (timed job, process-group kill, fingerprint cache, overlay) instead of a new job system.",
+      "Define one versioned export contract first and test its join against srcly paths/lines before any UI.",
+      "Express every numeric signal as a catalog metric so picker, Hot Spots, treemap, compare, and report derive automatically.",
+      "Keep the layer optional: N/A with reasons, base scan unaffected when Node/tsconfig is missing.",
+      "Defer dependency-view data flow until graph legibility and tsx trajectory UI stabilize.",
+      "Prove on examples/bad-ish-solid and srcly's own client before larger repos."
+    ],
+    "first_proof": {
+      "question": "Can the engine's output join srcly's tree and code viewer cleanly without slowing the base layer?",
+      "artifact": "One catalog metric (impossible defenses) + its finding markers from a dataflow job on examples/bad-ish-solid and srcly client/.",
+      "decision_rule": "Proceed to the full metric set and reports if paths/lines join exactly, counts match markers, and the layer lands within ~10s on client/; otherwise fix the export contract first."
+    },
+    "rabbit_holes": [
+      "Porting compiler-API analysis to Python.",
+      "Embedding tsx-data-flow's SPA or route-totality graph wholesale.",
+      "200K-LOC repos: engine takes ~120s; needs scoping (changed files, per-package) or a skip rule.",
+      "Monorepos with many tsconfigs: bound projects like MAX_TSC_PROJECTS."
+    ],
+    "open_decisions": [
+      {"id": "D1", "question": "Engine location: separate npm package vs vendored into srcly repo", "owner": "user"},
+      {"id": "D2", "question": "Distribution: project node_modules / npx / bundled JS in wheel", "owner": "user"}
+    ]
+  },
+  "implementation": {
+    "status": "not-started",
+    "repository_snapshot": {
+      "root": "srcly",
+      "revision": "b3117e3",
+      "worktree_status": "clean",
+      "subsystems": ["server/app/services/findings", "server/app/services/metric_catalog.py", "server/app/services/markers.py", "server/app/services/reporting.py", "server/app/services/compare", "client/src/components/CodeModal", "client/src/viz/deps"],
+      "test_commands": ["cd server && uv run pytest", "cd client && pnpm test"],
+      "deployment_surfaces": ["PyPI srcly wheel", "npm tsx-data-flow"]
+    },
+    "dependencies": [],
+    "fast_local_loop": null,
+    "milestones": [],
+    "cut_line": [],
+    "open_decisions": []
+  },
+  "history": [
+    {"date": "2026-10-23", "event": "Initiative created; intent and shape drafted from the user's request plus both repos' docs.", "phase": "shape"}
+  ],
+  "closure": null
+}
