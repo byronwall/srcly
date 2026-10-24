@@ -5,6 +5,7 @@
 // renders. The graph is reach, not order: nothing here invents a step.
 import type { RouteGraphResult } from "../../../dataflow/contract.generated";
 import type { ViewEdge, ViewModel, ViewNode } from "../viewModel";
+import { FLOW_MARKS, humanizeDetail, MARK_OF_KIND } from "./marks";
 
 export type FlowNode = RouteGraphResult["nodes"][number];
 export type FlowEdge = RouteGraphResult["edges"][number];
@@ -29,16 +30,6 @@ export interface FlowViewModel {
   /** The selected origin's proven destinations and the edges that reach them, as drawn ids. */
   lit: { nodes: Set<string>; edges: Set<string> } | null;
 }
-
-const SYMBOL_KIND: Record<FlowNode["kind"], string> = {
-  route: "route",
-  occurrence: "component",
-  control: "control",
-  origin: "origin",
-  field: "origin",
-  terminal: "terminal",
-  frontier: "terminal",
-};
 
 /** Drawn edges between frames: what renders what. Terminals and origins are owned, not rendered. */
 const RENDERS = new Set<FlowNode["kind"]>(["route", "occurrence", "control"]);
@@ -133,13 +124,16 @@ export function routeGraphToViewModel(graph: RouteGraphResult, opts: FlowViewOpt
       graphId: n.id,
       region: "center",
       kind: "symbol",
-      symbolKind: SYMBOL_KIND[n.kind],
+      symbolKind: MARK_OF_KIND[n.kind],
       label: n.label,
       title: `${n.label} · ${n.file}:${n.line}`,
-      subtitle: [n.detail, `${baseName(n.file)}:${n.line}`].filter(Boolean).join(" · "),
+      subtitle: [humanizeDetail(n.detail), `${baseName(n.file)}:${n.line}`].filter(Boolean).join(" · "),
       note: noteFor(n, hiddenInside, primitives),
       memberCount: 1 + hiddenInside,
       isFocus: n === root,
+      status: n.status,
+      tint: FLOW_MARKS[MARK_OF_KIND[n.kind]].color,
+      ...(n.repetition === "conditional" || n.repetition === "collection" ? { repetition: n.repetition } : {}),
       ...(frame ? { group: { id: frame.id, label: frameLabel(frame), opened: true } } : {}),
       expandable: hiddenInside > 0,
       ...(litNodes.has(n.id) ? { lit: true } : {}),
@@ -206,7 +200,6 @@ function frameLabel(n: FlowNode): string {
 function noteFor(n: FlowNode, hiddenInside: number, primitives: number): string {
   const parts: string[] = [];
   if (n.status !== "proven") parts.push(n.status);
-  if (n.repetition === "conditional" || n.repetition === "collection") parts.push(n.repetition);
   if (hiddenInside) parts.push(`+${hiddenInside} inside`);
   if (primitives) parts.push(`${primitives} wrapper${primitives === 1 ? "" : "s"}`);
   if (n.reason) parts.push(n.reason);

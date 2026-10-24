@@ -2,6 +2,8 @@ import { ChevronDown, Info } from "lucide-solid";
 import { createSignal, For, type JSX, Show } from "solid-js";
 import { IconButton } from "../../../components/ui/IconButton";
 import { DOTTED_BOX_DASH, EDGE_OPACITY, FRONTIER_BOX_DASH, HANDOFF_EDGE_DASH } from "../encoding";
+import { FlowMarkGlyph, RepetitionBadge } from "./FlowMark";
+import { FLOW_MARK_ORDER, FLOW_MARKS, REPETITION_BADGE } from "./marks";
 
 const COLLAPSED_KEY = "srcly.flowLegendCollapsed";
 const SW = 30;
@@ -33,7 +35,8 @@ function EdgeSwatch(props: { dash?: string; accent?: boolean }) {
   );
 }
 
-function BoxSwatch(props: { dash?: string; frame?: boolean }) {
+/** A box as the canvas draws it: `stroke` is a status or selection color, `frame` a group frame. */
+function BoxSwatch(props: { dash?: string; frame?: boolean; stroke?: string; width?: number }) {
   return (
     <svg width={SW} height={SH} viewBox={`0 0 ${SW} ${SH}`} aria-hidden="true">
       <rect
@@ -43,14 +46,40 @@ function BoxSwatch(props: { dash?: string; frame?: boolean }) {
         height={SH - 3}
         rx="2.5"
         fill={props.frame ? "none" : "var(--plc-surface)"}
-        stroke={props.frame ? "var(--plc-border)" : "var(--plc-border-strong)"}
+        stroke={props.stroke ?? (props.frame ? "var(--plc-border)" : "var(--plc-border-strong)")}
+        stroke-width={props.width ?? 1}
         stroke-dasharray={props.dash}
       />
     </svg>
   );
 }
 
+/** The kind's mark in a swatch, with its tint behind it like a box. */
+function MarkSwatch(props: { mark: keyof typeof FLOW_MARKS }) {
+  return (
+    <svg width={SW} height={SH} viewBox={`0 0 ${SW} ${SH}`} aria-hidden="true">
+      <rect x="1.5" y="0.5" width={SW - 3} height={SH - 1} rx="2.5" fill={FLOW_MARKS[props.mark].color} fill-opacity="0.16" stroke="var(--plc-border-strong)" />
+      <FlowMarkGlyph mark={props.mark} x={SW / 2 - 6} y={1} />
+    </svg>
+  );
+}
+
+function BadgeSwatch(props: { repetition: keyof typeof REPETITION_BADGE }) {
+  return (
+    <svg width={SW} height={SH + 2} viewBox={`0 0 ${SW} ${SH + 2}`} aria-hidden="true">
+      <RepetitionBadge repetition={props.repetition} x={SW / 2} y={SH / 2 + 1} />
+    </svg>
+  );
+}
+
 const GROUPS: { title: string; items: { swatch: () => JSX.Element; label: string }[] }[] = [
+  {
+    title: "Marks",
+    items: FLOW_MARK_ORDER.map((mark) => ({
+      swatch: () => <MarkSwatch mark={mark} />,
+      label: `${FLOW_MARKS[mark].label[0].toUpperCase()}${FLOW_MARKS[mark].label.slice(1)}: ${FLOW_MARKS[mark].hint}`,
+    })),
+  },
   {
     title: "Edges",
     items: [
@@ -64,8 +93,18 @@ const GROUPS: { title: string; items: { swatch: () => JSX.Element; label: string
     items: [
       { swatch: () => <BoxSwatch frame />, label: "Frame: what one occurrence or boundary renders" },
       { swatch: () => <BoxSwatch dash={DOTTED_BOX_DASH} />, label: "Primitive: an external or wrapper component, rolled into its frame" },
-      { swatch: () => <BoxSwatch dash={FRONTIER_BOX_DASH} />, label: "Frontier: where the proof stops" },
+      { swatch: () => <BoxSwatch stroke="var(--plc-warning)" width={1.5} />, label: "Partial: the engine omitted some of what is inside" },
+      { swatch: () => <BoxSwatch stroke="var(--plc-error)" width={1.5} />, label: "Unsupported: not analyzed; the box says why" },
+      { swatch: () => <BoxSwatch stroke="var(--plc-accent)" width={2} />, label: "Lit: a proven destination of the selected origin" },
+      { swatch: () => <BoxSwatch dash={FRONTIER_BOX_DASH} stroke="var(--plc-warning)" />, label: "Frontier: where the selected origin's proof stops" },
     ],
+  },
+  {
+    title: "Badges",
+    items: (["conditional", "collection"] as const).map((r) => ({
+      swatch: () => <BadgeSwatch repetition={r} />,
+      label: `${REPETITION_BADGE[r].title}: ${REPETITION_BADGE[r].hint}`,
+    })),
   },
 ];
 
@@ -98,12 +137,12 @@ export function FlowLegend() {
             {(group, gi) => (
               <section classList={{ "mt-1.5": gi() > 0 }}>
                 <h4 class="pb-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--plc-on-subtle)]">{group.title}</h4>
-                <ul class="space-y-1 pr-1.5">
+                <ul class="space-y-0.5 pr-1.5">
                   <For each={group.items}>
                     {(item) => (
                       <li class="flex items-center gap-2">
                         <span class="shrink-0">{item.swatch()}</span>
-                        <span>{item.label}</span>
+                        <span class="leading-tight">{item.label}</span>
                       </li>
                     )}
                   </For>

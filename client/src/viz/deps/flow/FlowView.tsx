@@ -257,7 +257,7 @@ export default function FlowView(props: {
                 collapsible={collapsible}
                 onCollapse={collapse}
                 ref={(api) => (canvas = api)}
-                linkCounts={false}
+                linkCounts="flow"
               />
               <FlowLegend />
             </>
