@@ -8,6 +8,8 @@ SERVER_PORT="${SERVER_PORT:-8000}"
 CLIENT_PORT="${CLIENT_PORT:-5173}"
 SERVER_HOST="${SERVER_HOST:-127.0.0.1}"
 CLIENT_HOST="${CLIENT_HOST:-127.0.0.1}"
+# Let the server run the data-flow engine from engine/ source (see AGENTS.md "Engine").
+export SRCLY_ENGINE_DEV="${SRCLY_ENGINE_DEV:-1}"
 
 check_and_kill_port() {
   port="$1"

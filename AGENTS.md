@@ -23,6 +23,18 @@
 
 Start with `docs/CODE_MAP.md`: a feature → file index for the backend, API, and client. When you add, move, or remove a feature's main files, update the matching row in the same change.
 
+## Engine
+
+`engine/` is the data-flow engine: tsx-data-flow's analysis behind a stdio protocol, a standalone pnpm package with its own lockfile. Provenance is in `engine/UPSTREAM.md`; the plan is `docs/intent/tsx-dataflow-integration/detailed-plan.md`.
+
+- Install and check: `cd engine && pnpm install && pnpm test && pnpm typecheck && pnpm lint`.
+- Run it from the server in a checkout with `SRCLY_ENGINE_DEV=1` (`dev.sh` sets it). The server runs `engine/bin/srcly-engine.ts` through the engine's own `tsx`. Without Node or an engine, every data-flow endpoint answers `not-analyzed` with a reason; the scan never depends on it.
+- Python owns the child (`server/app/services/dataflow/engine.py`): one lazy process per scan root, at most two alive, closed after 15 idle minutes. `SRCLY_DATAFLOW_TIMEOUT` overrides every request timeout.
+- To add an op: a Zod contract in `engine/src/srcly/contracts/` (and its `registry.ts` entry) → the op in `engine/src/srcly/ops/` and its worker branch → `cd engine && pnpm emit-contracts` → a Pydantic mirror in `server/app/services/dataflow/models.py` (`tests/test_dataflow_models.py` checks its fields against the schema) → a route in `server/app/routers/dataflow.py` → the client call. The emitted `server/app/services/dataflow/contracts/*.schema.json` and `client/src/dataflow/contract.generated.ts` are never edited by hand; `engine/test/srcly/contracts-current.test.ts` fails when they drift.
+- Every result carries `generation` and `programHash`. A query with an older `expectedGeneration` is `stale`, a named outcome; never mix generations.
+- Not analyzed is never 0: show the outcome or reason by name.
+- Never edit `engine/src/analysis` to recognise srcly-specific code. The only planned analysis edits are M5's four invocation-identity changes, each with a negative fixture.
+
 ## Client Package Management
 
 Use `pnpm` for all package management operations.
@@ -47,8 +59,8 @@ To run tests, `cd server && uv run pytest`.
 > **1. Backend analysis layer**
 >
 > - **If the metric is language-generic (from lizard)**: Prefer extending `lizard` usage where possible; otherwise:
->   - Add any per-function/file fields to the `FunctionMetrics` / `FileMetrics` dataclasses in `server/app/services/tree_sitter_analysis.py`.
->   - Implement helper(s) on `TreeSitterAnalyzer` (e.g. `_count_...`) to compute the metric from the tree-sitter AST.
+>   - Add any per-function/file fields to the `FunctionMetrics` / `FileMetrics` dataclasses in `server/app/services/analysis_types.py`.
+>   - Implement helper(s) on `TreeSitterAnalyzer` in `server/app/services/typescript/typescript_analysis.py` (e.g. `_count_...`) to compute the metric from the tree-sitter AST.
 >   - Populate the new fields in `TreeSitterAnalyzer.analyze_file` and, if relevant, in `_calculate_function_metrics`.
 >   - Next to each increment, call `self._mark("<metric_id>", node, note)` so the code viewer can mark the lines behind the count (`server/app/services/markers.py`). Keep the marker count equal to the metric; `tests/test_markers.py` checks this.
 > - **If the metric is TS/TSX-specific**: Gate it to TS/TSX in `analyze_single_file` / `TreeSitterAnalyzer` and avoid assuming the fields exist on plain lizard `FileInformation` objects.

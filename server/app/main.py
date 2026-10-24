@@ -8,7 +8,8 @@ import os
 import signal
 import threading
 
-from app.routers import analysis, compare, files, metrics, scans
+from app.routers import analysis, compare, dataflow, files, metrics, scans
+from app.services.dataflow import engine as dataflow_engine
 from app.services.scan_workers import cancel_all_scans
 
 _SHUTDOWN_SIGNALS = (signal.SIGINT, signal.SIGTERM)
@@ -32,6 +33,9 @@ def _install_scan_cancelling_signal_handlers() -> dict:
         prior = signal.getsignal(sig)
 
         def handler(signum, frame, _prior=prior):
+            # Release requests waiting on the data-flow engine first, so they
+            # end now instead of at their own timeout.
+            dataflow_engine.registry.cancel_all()
             cancel_all_scans()
             if callable(_prior):
                 _prior(signum, frame)
@@ -52,6 +56,7 @@ async def lifespan(_app: FastAPI):
         yield
     finally:
         cancel_all_scans()
+        dataflow_engine.registry.close_all()
         for sig, prior in previous.items():
             signal.signal(sig, prior)
 
@@ -78,6 +83,7 @@ app.include_router(files.router)
 app.include_router(scans.router)
 app.include_router(compare.router)
 app.include_router(metrics.router)
+app.include_router(dataflow.router)
 
 
 @app.get("/api-status")
