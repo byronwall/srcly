@@ -1,0 +1,26 @@
+# Effects, async boundaries, and test seams research
+
+- Mission: design Srcly support for effect summaries, async boundaries, call flows, and useful test seams. Review both Srcly and tsx-data-flow.
+- Mode: Design with methods research. Full process authorized by Byron through the prepare-chatgpt-pro-repo-prompt skill.
+- Completion: collect and read Pro reports; verify decisive claims; write summary, recommendation dispositions, and implementation plan; open and verify a review PR; disable the heartbeat.
+- Scope: research and planning only. Do not implement the capability, modify tsx-data-flow, merge, or deploy.
+- Checkout: `/Users/byronwall/.codex/worktrees/5f94/srcly`.
+- Branch: `codex/effects-async-test-seams-research`.
+- Srcly: https://github.com/byronwall/srcly at `aea1015258f56dd45b8e175f7288e2fef3abc6cf`. Initial checkout clean, detached HEAD.
+- TSX: https://github.com/byronwall/tsx-data-flow at `b4f1ba4f0df402251f4b666cddf5312efa4a62be`, plus current local edits captured in the packet. Checkout `/Users/byronwall/Projects/tsx-data-flow` is read-only for this mission.
+- Prompt: `docs/research/effects-async-test-seams-2026-10-23/pro-prompt.md`.
+- Packet: ignored `tmp/pro/effects-async-test-seams/source-packet.zip`, 1,413,453 bytes; 297 Srcly files and 322 TSX files. `SNAPSHOT.md` records commits, selected file counts, and dirty status. Dependencies, secrets, generated reports, and build output excluded.
+- Phase: submitted; Pro is running. Follow-up count: 0. No current blocker.
+- Browser: Chrome profile `byroni.us`, signed-in ChatGPT. Live selector verified Pro, power 5 of 5.
+- Conversation: https://chatgpt.com/c/6adc0dbe-1934-83e9-ae3e-99777939ff03.
+- Submission: verified 2026-10-24 01:45–01:46 UTC, or October 23 at 9:45–9:46 p.m. Indianapolis time.
+- Sent attachments: `pro-prompt(20261024-014534).md` and `source-packet(6).zip`. Both appeared in the sent message. Pro acknowledged all five questions and three Markdown deliverables. Working/Thinking and Stop were visible.
+- This run is separate from the existing general overview-to-value-flow mission at `https://chatgpt.com/c/6adc0a99-0844-83e9-b309-74996708456a`. Do not send follow-ups to that conversation for this mission.
+- Heartbeat: `finish-srcly-effects-and-test-seams-research`, ACTIVE; hourly at minute 46. First intended check October 23 at 10:46 p.m. Indianapolis time, October 24 at 02:46 UTC.
+- Scheduling approval: initial automatic review required explicit future-action approval. Byron then answered, “Yes, schedule and finish the full process,” to the question authorizing hourly checks, collection, review, commits, push, and PR creation. The next valid creation succeeded.
+- Collection: pending. Save original task assets in ignored `tmp/pro/effects-async-test-seams/`. Inspect ZIP paths before extraction. Read all reports. Never execute downloaded programs.
+- Standing download approval: the user-invoked skill authorizes all task assets from this Pro session, including previews and the file library, across later collection turns.
+- Integration: pending. Write a concise summary and dispositions in this folder. Put a worker-ready plan under `docs/intent/effects-async-test-seams/`. Preserve useful deep-dive detail and source links. Update an existing research index if one applies.
+- Validation: prompt checked against actual repository paths and current source. No application builds or tests run for research preparation.
+- PR: pending. Use gh with a body file and a Conventional Commit title. Verify saved body and file list. Attach the PR to this chat.
+- Recovery: read this record and inspect the same Pro conversation before any resend. Allow at most one follow-up for a material missing answer or unusable deliverable.
