@@ -44,11 +44,10 @@ Data-flow layer in srcly
 │   └── 2x2 preset: burden × fan-in ("load-bearing render knots")
 └── LATER POSSIBILITIES
     ├── Dependency view "data flow" mode: component render/prop edges beside imports
-    ├── Field trajectories and route totality as a focus mode in that graph
-    └── Retire the tsx-dataflow-serve UI
+    └── Field trajectories and route totality as a focus mode in that graph
 ```
 
-**Dropped, not migrated:** tsx-data-flow's overview page, file list, and report tab strip. srcly's explorer, Hot Spots, and scope bar already do that job.
+**Dropped, not migrated:** the tsx-dataflow-serve web UI, including its overview page, file list, and report tab strip. srcly's explorer, Hot Spots, and scope bar already do that job.
 
 ## Behavior
 
@@ -70,6 +69,8 @@ Data-flow layer in srcly
 
 **First proof:** **Try:** Run the engine on `examples/bad-ish-solid` and on srcly's own `client/`. Map its export onto one catalog metric (impossible defenses) plus its finding lines. **Observe:** The treemap stays as fast as today. The layer shows up within the 10-second whole-project target. Every count matches its marked lines in the code viewer. **Decide:** If paths and lines join cleanly and the timing holds, proceed to the full metric set and reports. If they don't join, fix the export contract before adding any UI.
 
-**Open choices:** Where the engine's code lives (separate npm package or the srcly repo), and how users get Node and the engine (project `node_modules`, `npx`, or bundled in the wheel).
+**Where the engine lives:** In the srcly repo, as an `engine/` TypeScript package next to `client/` and `server/`. tsx-data-flow's analysis, report builders, examples, and tests move there. Its web UI, server, and CLI are not moved, so the history stays in the old repo.
+
+**How users get it (recommended, most robust):** The release build bundles the engine with esbuild into one JS file inside the wheel, the same way the client build already lands in `server/app/static`. srcly runs it with the `node` on PATH (Node 18 or later). The engine uses the project's own `typescript` when there is one and falls back to a bundled copy, as tsx-data-flow does today. This avoids network access, npm installs, and version drift, since the engine always matches the srcly release. Without Node, data flow shows N/A ("node not found"). The cost is wheel size, a few MB for the TypeScript copy; check it in the first proof.
 
 See the [intent brief](intent-brief.md). Pro threads add per-branch detail to [initiative-map.json](initiative-map.json).

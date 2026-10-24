@@ -56,6 +56,8 @@ You run `srcly` on a repo. The treemap shows up as it does today. A moment later
 - srcly is the shell, the navigation model, and the release vehicle. tsx-data-flow is the analysis engine.
 - Merge order: reports and findings, then the code view, then the data-flow dependency view.
 - The engine stays in TypeScript and runs as a Node process. That is the only sensible way to keep the type checker.
+- One repository. tsx-data-flow's engine, examples, and tests move into the srcly repo, using a workspace layout only if the build needs one.
+- The tsx-dataflow-serve web UI goes away. The goal is the best version of each feature in srcly, not keeping the old UI alive.
 
 ## Possibilities, not decisions
 
@@ -71,12 +73,6 @@ You run `srcly` on a repo. The treemap shows up as it does today. A moment later
 - srcly already has a metric catalog, line markers, a compare diff, report artifacts, and a dependency graph. These are all natural landing spots.
 - tsx-data-flow analyzes 50K LOC in about 4.5 s and 200K LOC in about 120 s. That is fine as a background layer, but far too slow for the base layer.
 - tsx-data-flow's route totality and trajectory UI is its newest and most volatile work.
-
-## What still needs your input
-
-1. Where should the engine's code live long term: a separate npm package that srcly calls, or moved into the srcly repo?
-2. How should end users get Node and the engine: the project's own `node_modules`, `npx`, or a JS bundle shipped inside the srcly wheel?
-3. Is the tsx-data-flow web UI retired once srcly covers its surfaces, or kept as a debugging tool?
 
 ## Next step after confirmation
 
