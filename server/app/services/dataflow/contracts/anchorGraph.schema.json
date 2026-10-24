@@ -274,11 +274,19 @@
             "type": "string"
           },
           "status": {
-            "type": "string",
-            "enum": [
-              "proven",
-              "partial",
-              "unsupported"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "proven",
+                  "partial",
+                  "unsupported"
+                ]
+              },
+              {
+                "type": "string",
+                "const": "structural"
+              }
             ]
           },
           "proof": {

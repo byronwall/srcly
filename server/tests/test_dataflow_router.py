@@ -140,6 +140,8 @@ def test_anchor_graph_by_span_and_by_name(client, use_fake, tmp_path):
     assert graph["nodes"][1]["parent"] == "scope:f" and graph["edges"][0]["kind"] == "render-terminal"
     back = client.post("/api/dataflow/anchor-graph", json={**body, "direction": "backward"}).json()["graph"]
     assert back["counts"]["down"] == 0 and back["terminals"] == []
+    # A declaration's own link is structural: the model accepts it beside the proof statuses.
+    assert [edge["status"] for edge in back["edges"]] == ["structural"]
     named = client.post("/api/dataflow/anchor-graph", json={"path": str(tmp_path), "file": "src/f.tsx", "name": "props", "line": 1}).json()
     assert named["graph"]["anchor"]["text"] == "props" and named["graph"]["direction"] == "both"
     missing = client.post("/api/dataflow/anchor-graph", json={"path": str(tmp_path), "file": "src/f.tsx", "name": "nope", "line": 1})

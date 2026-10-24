@@ -305,7 +305,7 @@ export type AnchorGraphResult = {
     source: string;
     target: string;
     kind: string;
-    status: "proven" | "partial" | "unsupported";
+    status: "proven" | "partial" | "unsupported" | "structural";
     proof: {
       kind: string;
       detail: string;

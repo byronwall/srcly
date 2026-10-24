@@ -99,9 +99,37 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(graph.nodes.find((node) => node.kind === "anchor")!.status).toBe("partial");
   });
 
+  it("finds a destructured parameter's reads through the engine's relations, and reads partial with no caller", () => {
+    const graph = anchorGraphOp(session, { file: "src/destructured-props.tsx", name: "Badge", line: 5, direction: "both" });
+    const param = graph.nodes.find((node) => node.elementKind === "parameter")!;
+    expect(param).toMatchObject({ label: "viewer", side: "up" });
+    const read = graph.edges.find((edge) => edge.kind === "prop-read")!;
+    expect(read).toMatchObject({ target: param.id, label: "name", status: "proven" });
+    expect(read.proof.length).toBe(1);
+    expect(graph.edges.filter((edge) => edge.kind === "parameter").every((edge) => edge.status === "structural")).toBe(true);
+    // Nothing renders Badge, so where `viewer` comes from is unknown: not `ok`.
+    expect(graph.outcome).toBe("partial");
+  });
+
+  it("reads partial when one of a component's prop walks stops short of an origin", () => {
+    const graph = anchorGraphOp(session, { file: "src/half-landed.tsx", name: "Pair", line: 7, direction: "both" });
+    expect(graph.outcome).toBe("partial");
+    expect(boxes(graph, "origin").length).toBe(1);
+    const reads = graph.edges.filter((edge) => edge.kind === "prop-read").map((edge) => edge.label).sort();
+    expect(reads).toEqual(["count", "title"]);
+  });
+
   it("refuses a direction it does not know and a name without a line", () => {
     expect(() => anchorGraphOp(session, { ...find(basics, "src/direct-property.tsx", "props.item.title"), direction: "sideways" })).toThrow(/direction/);
     expect(() => anchorGraphOp(session, { file: "src/direct-property.tsx", name: "props" })).toThrow(/line/);
+  });
+});
+
+describe("anchor-graph fixtures never claim proof they do not carry", () => {
+  const fixtures = fs.readdirSync(fileURLToPath(new URL("./__fixtures__", import.meta.url))).filter((name) => name.endsWith(".anchor-graph.json"));
+  it.each(fixtures)("%s has no proven edge with empty proof", (name) => {
+    const graph = JSON.parse(fs.readFileSync(fileURLToPath(new URL(`./__fixtures__/${name}`, import.meta.url)), "utf8")) as AnchorGraphResult;
+    for (const edge of graph.edges) expect(edge.status === "proven" && edge.proof.length === 0, `${edge.kind} ${edge.id}`).toBe(false);
   });
 });
 
@@ -136,7 +164,15 @@ describe("anchorGraph on solid-route", () => {
     // A component by name: its parameter is what comes in, its return and its occurrences are where it goes.
     const param = viewer.nodes.find((node) => node.elementKind === "parameter")!;
     expect(param).toMatchObject({ side: "up", label: "props" });
-    expect(viewer.edges.some((edge) => edge.kind === "parameter" && edge.source === param.id && edge.target === component.id)).toBe(true);
+    // The parameter and return links are found by syntax: structural, never proven.
+    expect(viewer.edges.find((edge) => edge.kind === "parameter" && edge.source === param.id && edge.target === component.id)).toMatchObject({ status: "structural", proof: [] });
+    expect(viewer.edges.filter((edge) => edge.kind === "returns").every((edge) => edge.status === "structural")).toBe(true);
+    // Its prop reads come from the engine's relations, each with that relation's proof.
+    const reads = viewer.edges.filter((edge) => edge.kind === "prop-read");
+    expect(reads.length).toBeGreaterThan(0);
+    expect(reads.every((edge) => edge.target === param.id && edge.status === "proven" && edge.proof.length === 1 && edge.label === "viewer")).toBe(true);
+    // Both prop walks reach the viewer resource, so the component reads ok.
+    expect(viewer.outcome).toBe("ok");
     expect(viewer.nodes.some((node) => node.side === "up" && node.file === "src/routes/records.tsx")).toBe(true);
     expect(viewer.edges.some((edge) => edge.kind === "returns" && edge.source === component.id)).toBe(true);
     const use = viewer.nodes.find((node) => node.note === "rendered here")!;

@@ -9,10 +9,11 @@ import { anchorOverview, nodeDetails, routeOverview, STATUS_WORD, type AnchorOve
 import { FLOW_MARKS, REPETITION_BADGE, type FlowMark } from "./marks";
 import type { Reach } from "./reach";
 
-const STATUS_CLASS: Record<"proven" | "partial" | "unsupported", string> = {
+const STATUS_CLASS: Record<"proven" | "partial" | "unsupported" | "structural", string> = {
   proven: "text-[var(--plc-success)]",
   partial: "text-[var(--plc-warning)]",
   unsupported: "text-[var(--plc-error)]",
+  structural: "text-[var(--plc-on-muted)]",
 };
 const H = "pb-0.5 pt-2 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--plc-on-subtle)]";
 const ROW = "flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left hover:bg-[var(--plc-surface-hover)]";

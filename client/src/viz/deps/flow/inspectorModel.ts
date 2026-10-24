@@ -5,7 +5,7 @@ import type { AnchorGraphResult, RouteGraphResult } from "../../../dataflow/cont
 import type { FlowBox, FlowViewModel } from "./adapter";
 import { humanizeDetail, MARK_OF_ANCHOR_KIND, MARK_OF_KIND, type FlowMark } from "./marks";
 
-export type EdgeKindWord = "renders" | "rendered by" | "handoff" | "field";
+export type EdgeKindWord = "renders" | "rendered by" | "handoff" | "field" | "structural";
 
 export interface NeighborRow {
   /** The drawn box at the other end. */
@@ -13,7 +13,7 @@ export interface NeighborRow {
   label: string;
   mark: FlowMark;
   kind: EdgeKindWord;
-  status?: "proven" | "partial" | "unsupported";
+  status?: "proven" | "partial" | "unsupported" | "structural";
   /** A field edge's path. */
   path?: string;
 }
@@ -27,6 +27,8 @@ export interface NodeDetails {
   inside: { shown: number; hidden: number; wrappers: number };
   flowsIn: NeighborRow[];
   flowsOut: NeighborRow[];
+  /** Links found by structure (a declaration's parameters and returns), counted apart from traced flows. */
+  structural: number;
 }
 
 export interface RouteOverview {
@@ -121,7 +123,7 @@ export function nodeDetails(m: FlowViewModel, id: string): NodeDetails | null {
     id: otherId,
     label: labelOf(m, otherId),
     mark: markOf(m, otherId),
-    kind: e.style === "field" ? "field" : e.style === "handoff" ? "handoff" : dir === "in" ? "rendered by" : "renders",
+    kind: e.style === "structural" ? "structural" : e.style === "field" ? "field" : e.style === "handoff" ? "handoff" : dir === "in" ? "rendered by" : "renders",
     ...(e.status ? { status: e.status } : {}),
     ...(e.label ? { path: e.label } : {}),
   });
@@ -140,8 +142,9 @@ export function nodeDetails(m: FlowViewModel, id: string): NodeDetails | null {
     inside: { shown: m.vm.nodes.filter((n) => n.group?.id === id).length, hidden: view.memberCount - 1, wrappers },
     flowsIn,
     flowsOut,
+    structural: [...flowsIn, ...flowsOut].filter((r) => r.kind === "structural").length,
   };
 }
 
 /** The status words the rail uses, shared with its chips. */
-export const STATUS_WORD: Record<"proven" | "partial" | "unsupported", string> = { proven: "proven", partial: "partial proof", unsupported: "unsupported" };
+export const STATUS_WORD: Record<"proven" | "partial" | "unsupported" | "structural", string> = { proven: "proven", partial: "partial proof", unsupported: "unsupported", structural: "structural" };
