@@ -17,6 +17,15 @@ export type HostCandidate = {
 
 export interface LanguageHost {
   readonly language: "typescript" | "python";
+  /**
+   * What the evidence can claim beyond its relations. `pairsCalls`: the
+   * provider records which call an argument is passed at (`argument`), so the
+   * slice pairs a callee's return with the call the walk came in by (T13) and
+   * entering a callee is never ambiguous. `deadEnds`: the slice raises
+   * `disconnected` only where a value really stops, so such a gap is a dead
+   * end (R16) rather than where the evidence runs out.
+   */
+  readonly evidence: { pairsCalls: boolean; deadEnds: boolean };
   /** A file inside the root, relative (forward slashes) and absolute. Throws `invalid-request` outside the root, `not-found` outside the program. */
   file(file: unknown): { relative: string; absolute: string };
   /** The supported expressions covering a span, innermost first; with `text`, only those whose text is exactly it. */

@@ -41,6 +41,15 @@ describe("srcly-engine stdio protocol", () => {
     const stale = await engine.request(5, "routes", { expectedGeneration: 7 });
     expect(stale).toMatchObject({ ok: false, error: { code: "stale-generation" } });
 
+    // `refresh` rebuilds now: generation 2, with a hash of the sources as they are, and the old generation is stale.
+    const refreshed = await engine.request(6, "refresh");
+    expect(refreshed.ok).toBe(true);
+    expect((refreshed.result as { generation: number }).generation).toBe(2);
+    const status = await engine.request(7, "status");
+    expect(status.result).toMatchObject({ built: true, generation: 2, stale: false });
+    const old = await engine.request(8, "routeGraph", { route: "/records", expectedGeneration: 1 });
+    expect(old).toMatchObject({ ok: false, error: { code: "stale-generation", details: { generation: 2 } } });
+
     // Every stdout line is a protocol frame.
     for (const line of engine.stdoutLines) expect(() => JSON.parse(line)).not.toThrow();
     expect(await engine.close()).toBe(0);

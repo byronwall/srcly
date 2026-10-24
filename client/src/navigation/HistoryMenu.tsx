@@ -3,12 +3,15 @@ import { ChevronDown, GitFork, History, LayoutGrid } from "lucide-solid";
 import Popover from "../components/Popover";
 import { Button } from "../components/ui/Button";
 import { OptionRow, PopoverPanel, PopoverSectionTitle } from "../components/ui/PopoverPanel";
+import { flowPlaceLabel } from "./flowPlaces";
 import { shortAge, type HistoryEntry } from "./history";
 import { baseName, crumbsFor, samePlace } from "./location";
 import { go, history, location } from "./store";
 
-/** Splits a place into a muted parent trail and its own name. */
+/** Splits a place into a muted parent trail and its own name; a data-flow place is named by its anchor or route. */
 function placeLabel(entry: HistoryEntry) {
+  const flow = flowPlaceLabel(entry.loc);
+  if (flow) return { leaf: flow.leaf, parent: flow.detail ?? (flow.kind === "route" ? "route" : "") };
   const crumbs = crumbsFor(entry.loc.at, baseName(entry.loc.repo));
   const leaf = crumbs[crumbs.length - 1].label;
   const parent = crumbs

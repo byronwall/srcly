@@ -6,7 +6,7 @@ import type * as TypeScript from "typescript";
 import type { ProgramElement } from "../analysis/scope-seam";
 import type { CallSiteIndex, CallSites } from "./call-sites";
 import { sameSpan, spanOf, type Span } from "./selection";
-import type { BaseTier1, TsTier1 } from "./session";
+import type { BaseTier1, Tier1, TsTier1 } from "./session";
 
 /** Evidence elements a selection may start from, most specific first. */
 export const SEED_KINDS = ["field-read", "index-read", "selection", "call-result", "call", "value", "alias", "parameter", "jsx-occurrence", "literal"];
@@ -14,8 +14,102 @@ export const SEED_KINDS = ["field-read", "index-read", "selection", "call-result
 /** Followed only when the callee has exactly one call site (R7; M5 replaces this with invocation pairing). */
 export const CROSS_CALL = new Set(["invokes", "argument", "argument-binding", "function-call", "function-return", "return-value", "callback-parameter"]);
 
+/**
+ * Whether the slice has already paired a callee with one of its call sites
+ * (T13): among the function's call sites, exactly one is a call element the
+ * slice walked, and the function never escapes as a value. The slice's
+ * invocation stack keeps the other calls' returns out, so the walk may pass
+ * where R7's one-call-site rule would stop it.
+ */
+export function pairedInSlice(sites: CallSites | null, elements: readonly Pick<ProgramElement, "kind" | "location">[]): boolean {
+  if (!sites || sites.escapes || sites.calls.length < 2) return false;
+  const walked = new Set(elements.filter((element) => element.kind === "call").map((element) => `${element.location.file}:${element.location.line}`));
+  return sites.calls.filter((site) => walked.has(site)).length === 1;
+}
+
 /** Element kinds where a value leaves the program's own data flow. */
 export const TERMINAL_KINDS = new Set(["render-terminal", "dom-terminal", "component-occurrence", "side-effect", "return"]);
+
+/** Declaration elements: they place a walk inside a function, they never carry a value of their own. */
+export const DECLARATION_KINDS = new Set(["component-definition", "function-entry", "handler-entry"]);
+
+/** Bookkeeping elements beside a carrier (a field consumer, a JSX tag name): a walk ending at one has not lost the value. */
+const BOOKKEEPING_KINDS = new Set(["field-consumer", "jsx-occurrence"]);
+
+/**
+ * The callee of a call element when it resolves outside the program's own
+ * source (a library, a global like `Math.min`), else null. Nothing continuing
+ * from such a call is external code, not a dead end.
+ */
+export function externalCallee(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location">): string | null {
+  // Only the TypeScript Program resolves a callee's declaration; a Python call is never named external.
+  if (tier1.language !== "typescript") return null;
+  if (element.kind !== "call" && element.kind !== "call-result") return null;
+  const { ts } = tier1;
+  const sourceFile = tier1.program.getSourceFile(path.resolve(tier1.args.root, element.location.file));
+  const node = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
+  if (!node || !sourceFile || !ts.isCallExpression(node)) return null;
+  const checker = tier1.program.getTypeChecker();
+  const symbol = checker.getSymbolAtLocation(ts.isPropertyAccessExpression(node.expression) ? node.expression.name : node.expression);
+  const target = symbol?.valueDeclaration ?? symbol?.declarations?.[0];
+  const targetFile = target?.getSourceFile();
+  const firstParty = targetFile && !targetFile.isDeclarationFile && !targetFile.fileName.includes(`${path.sep}node_modules${path.sep}`);
+  return firstParty ? null : node.expression.getText(sourceFile);
+}
+
+/**
+ * What a `disconnected` gap at this element means (R16). A `start` is where a
+ * value naturally begins: a literal; a constant whose initializer is a
+ * literal or a template literal without substitutions; an import whose
+ * module resolves outside the root. Neither a frontier nor a dead end, and a
+ * backward walk that reaches one has landed. `bookkeeping` is an element that
+ * is not a value (a declaration, a field consumer, a JSX tag name) or a
+ * terminal, where a value ends: no frontier, and no landing either. Null is
+ * a dead end.
+ */
+export function naturalEnd(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module"> & { terminalRoles?: readonly string[] }): "start" | "bookkeeping" | null {
+  if (DECLARATION_KINDS.has(element.kind) || BOOKKEEPING_KINDS.has(element.kind) || TERMINAL_KINDS.has(element.kind) || (element.terminalRoles?.length ?? 0) > 0) return "bookkeeping";
+  if (isNaturalStart(tier1, element)) return "start";
+  // Where the evidence cannot tell a dead end from the end of what it records, a stop is not a frontier.
+  return tier1.host.evidence.deadEnds ? null : "bookkeeping";
+}
+
+/** Whether a value naturally begins at this element: a literal, a literal constant, an external import. */
+export function isNaturalStart(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module">): boolean {
+  if (element.kind === "literal") return true;
+  // A Python program has no TypeScript nodes to read: only its literal elements are natural starts.
+  if (tier1.language !== "typescript") return false;
+  const { ts } = tier1;
+  const root = path.resolve(tier1.args.root);
+  if (element.module) {
+    const sourceFile = tier1.program.getSourceFile(path.resolve(root, element.location.file));
+    const resolved = sourceFile ? ts.resolveModuleName(element.module, sourceFile.fileName, tier1.program.getCompilerOptions(), ts.sys).resolvedModule : undefined;
+    const target = resolved?.resolvedFileName;
+    if (!target || resolved?.isExternalLibraryImport || target.includes(`${path.sep}node_modules${path.sep}`) || !path.resolve(target).startsWith(root + path.sep)) return true;
+  }
+  const sourceFile = tier1.program.getSourceFile(path.resolve(root, element.location.file));
+  const node = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
+  if (!node) return false;
+  const isLiteral = (n: TypeScript.Node) =>
+    ts.isStringLiteral(n) || ts.isNumericLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) || n.kind === ts.SyntaxKind.TrueKeyword || n.kind === ts.SyntaxKind.FalseKeyword || n.kind === ts.SyntaxKind.NullKeyword
+    || (ts.isPrefixUnaryExpression(n) && ts.isNumericLiteral(n.operand));
+  if (isLiteral(node)) return true;
+  const declaration = ts.isVariableDeclaration(node) ? node : ts.isVariableDeclaration(node.parent) && node.parent.name === node ? node.parent : null;
+  if (declaration?.initializer && isLiteral(declaration.initializer)) {
+    const list = declaration.parent;
+    return ts.isVariableDeclarationList(list) && (list.flags & ts.NodeFlags.Const) !== 0;
+  }
+  if (ts.isImportSpecifier(node) || ts.isImportClause(node) || ts.isNamespaceImport(node)) {
+    const declaration = ts.findAncestor(node, ts.isImportDeclaration);
+    const spec = declaration && ts.isStringLiteral(declaration.moduleSpecifier) ? declaration.moduleSpecifier.text : null;
+    if (spec && sourceFile) {
+      const resolved = ts.resolveModuleName(spec, sourceFile.fileName, tier1.program.getCompilerOptions(), ts.sys).resolvedModule;
+      const target = resolved?.resolvedFileName;
+      return !target || !!resolved?.isExternalLibraryImport || !path.resolve(target).startsWith(root + path.sep);
+    }
+  }
+  return false;
+}
 
 /** Facts at exactly this span in this file. */
 export function elementsAt(tier1: BaseTier1, file: string, span: Span) {

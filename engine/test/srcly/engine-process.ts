@@ -9,11 +9,12 @@ export const solidRoute = path.join(engineRoot, "examples/solid-route");
 type Frame = { id?: number; ok?: boolean; result?: unknown; error?: { code: string; message: string }; progress?: unknown };
 
 /** The real bin, run through tsx and driven over its pipes. */
-export function startEngine(root: string, extra: string[] = []) {
+export function startEngine(root: string, extra: string[] = [], env: NodeJS.ProcessEnv = {}) {
   const child: ChildProcessWithoutNullStreams = spawn(
     process.execPath,
     ["--import", "tsx", path.join(engineRoot, "bin/srcly-engine.ts"), "--root", root, ...extra],
-    { cwd: engineRoot, stdio: ["pipe", "pipe", "pipe"] },
+    // The result cache is off unless a test gives it a directory.
+    { cwd: engineRoot, stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, SRCLY_DATAFLOW_CACHE_DIR: "", ...env } },
   );
   const frames: Frame[] = [];
   const waiters: { id: number; resolve: (frame: Frame) => void }[] = [];

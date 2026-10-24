@@ -1,7 +1,8 @@
 import path from "node:path";
-import type { AnalysisCancellationToken } from "../../analysis/cancellation";
+import { NO_ANALYSIS_CANCELLATION, type AnalysisCancellationToken } from "../../analysis/cancellation";
 import { projectRouteTotality } from "../../api/projections/route-totality";
 import type { RouteTotality } from "../../api/route-totality-contracts";
+import { projectOccurrenceSurface } from "../../api/projections/route-totality-surface-projection";
 import { routeGraphResultSchema, type FlowEdge, type FlowNode, type RouteGraphResult } from "../contracts/route-graph";
 import type { RouteTotalitySelectedSource } from "../../analysis/route-totality-selected-source";
 import { EngineError } from "../protocol";
@@ -20,14 +21,56 @@ export function routeGraphOp(
 ): RouteGraphResult {
   const tier1 = requireTypescript(session.tier1(), "The route graph");
   checkGeneration(tier1, params.expectedGeneration);
-  if (typeof params.route !== "string" || !params.route) throw new EngineError("invalid-request", "routeGraph needs params.route");
-  const route = tier1.routes.find((item) => item.key === params.route || item.pathPattern === params.route);
-  if (!route) throw new EngineError("not-found", `No route ${params.route}`);
+  const route = routeFor(tier1, params.route, "routeGraph");
   const selected = typeof params.source === "string" && params.source ? selectedSourceFor(tier1, params.source) : null;
   const record = tier1.totality().get(route.key, selected, cancellation);
   const totality = record ? projectRouteTotality(record, cancellation) : null;
   if (!totality) throw new EngineError("not-found", `No route totality for ${route.pathPattern}`);
-  const result = routeGraphResultSchema.parse(projectRouteGraph(tier1, totality, selected?.key ?? null));
+  return bounded(route, routeGraphResultSchema.parse(projectRouteGraph(tier1, totality, selected?.key ?? null, "complete")));
+}
+
+/**
+ * The route's render backbone alone, before the program-wide facts exist
+ * (T9): the same boxes and render edges `routeGraph` draws, with no origins,
+ * handoffs or gaps, from the route file's own facts and the Program. A
+ * client draws this first and fills in the complete graph when it arrives;
+ * the node ids are the same in both.
+ */
+export function routeSurfaceOp(
+  session: EngineSession,
+  params: { route?: unknown; expectedGeneration?: unknown },
+  cancellation?: AnalysisCancellationToken,
+): RouteGraphResult {
+  const tier1 = requireTypescript(session.tier1(), "The route surface");
+  checkGeneration(tier1, params.expectedGeneration);
+  const route = routeFor(tier1, params.route, "routeSurface");
+  const record = tier1.surface(route.key, cancellation);
+  if (!record) throw new EngineError("not-found", `No route surface for ${route.pathPattern}`);
+  const surface = projectOccurrenceSurface(record.occurrenceSurface, { status: "unavailable", reason: "The evidence slice is not built yet." }, cancellation ?? NO_ANALYSIS_CANCELLATION);
+  const totality: SurfaceTotality = {
+    route: record.route,
+    status: "partial",
+    occurrenceSurface: surface as RouteTotality["occurrenceSurface"],
+    gaps: [],
+    bridges: [],
+    fieldLineage: { status: "unavailable", unavailableReason: "The evidence slice is not built yet.", attachments: [], frontiers: [] },
+  };
+  return bounded(route, routeGraphResultSchema.parse(projectRouteGraph(tier1, totality, null, "surface")));
+}
+
+/** What the projection reads from a totality: a surface-only record supplies the same fields with nothing from the slice. */
+type SurfaceTotality = Pick<RouteTotality, "route" | "status" | "occurrenceSurface" | "gaps" | "bridges"> & {
+  fieldLineage: Pick<RouteTotality["fieldLineage"], "status" | "unavailableReason"> & { attachments: RouteTotality["fieldLineage"]["attachments"]; frontiers: RouteTotality["fieldLineage"]["frontiers"] };
+};
+
+function routeFor(tier1: TsTier1, key: unknown, op: string) {
+  if (typeof key !== "string" || !key) throw new EngineError("invalid-request", `${op} needs params.route`);
+  const route = tier1.routes.find((item) => item.key === key || item.pathPattern === key);
+  if (!route) throw new EngineError("not-found", `No route ${key}`);
+  return route;
+}
+
+function bounded(route: { pathPattern: string }, result: RouteGraphResult): RouteGraphResult {
   const bytes = Buffer.byteLength(JSON.stringify(result));
   if (bytes > ROUTE_GRAPH_MAX_BYTES) {
     throw new EngineError("budget-exhausted", `The ${route.pathPattern} graph is ${bytes} bytes, over the ${ROUTE_GRAPH_MAX_BYTES}-byte bound`, {
@@ -51,12 +94,13 @@ function selectedSourceFor(tier1: TsTier1, elementId: string): RouteTotalitySele
   return { key: elementId, evidence: { id: elementId, elementId, file: at.file, line: at.line, column: at.column, span: at.span } };
 }
 
-/** Project a validated RouteTotality onto the flow graph contract. Exported for tests. */
-export function projectRouteGraph(tier1: TsTier1, totality: RouteTotality, selectedSource: string | null = null): RouteGraphResult {
+/** Project a validated RouteTotality (or a surface-only record) onto the flow graph contract. Exported for tests. */
+export function projectRouteGraph(tier1: TsTier1, totality: SurfaceTotality, selectedSource: string | null = null, phase: RouteGraphResult["phase"] = "complete"): RouteGraphResult {
   const root = path.resolve(tier1.args.root);
   const absPath = (file: string) => path.resolve(root, file);
   const routeAbsPath = absPath(totality.route.file);
   const base = {
+    phase,
     generation: tier1.generation.id,
     programHash: tier1.generation.programHash,
     tsconfig: tier1.generation.tsconfig,
@@ -98,11 +142,13 @@ export function projectRouteGraph(tier1: TsTier1, totality: RouteTotality, selec
     };
   }
 
-  const status: FlowNode["status"] = surface.status === "complete" ? "proven" : "partial";
+  // Every box starts proven. After all boxes are drawn, each located gap or
+  // omission marks the deepest box that contains it (`markPartialBoxes`), so a
+  // partial route shows partial strokes only where the engine named a gap.
   const nodes: FlowNode[] = [];
   const node = (fields: Omit<FlowNode, "file" | "absPath" | "line" | "span" | "status" | "collapsedByDefault" | "repetition" | "external" | "reason"> & Partial<FlowNode>, at: Location): FlowNode => {
     const made: FlowNode = {
-      status,
+      status: "proven",
       collapsedByDefault: false,
       repetition: null,
       external: false,
@@ -196,8 +242,19 @@ export function projectRouteGraph(tier1: TsTier1, totality: RouteTotality, selec
     });
   }
 
+  markPartialBoxes(nodes, routeId, surface, totality, definitions);
+  // The surface alone cannot say the route is proven: the slice has not been walked.
+  if (phase === "surface") {
+    for (const item of nodes) {
+      if (item.id !== routeId) continue;
+      if (item.status === "proven" || item.reason === null || item.reason === "incomplete-surface") item.reason = "evidence-pending";
+      item.status = "partial";
+    }
+  }
+
   const ids = new Set(nodes.map((item) => item.id));
   const resolve = (id: string) => terminalAlias.get(id) ?? id;
+  const statusOf = new Map(nodes.map((item) => [item.id, item.status]));
   const edges: FlowEdge[] = [];
   const seen = new Set<string>();
   const addEdge = (edge: FlowEdge) => {
@@ -212,7 +269,8 @@ export function projectRouteGraph(tier1: TsTier1, totality: RouteTotality, selec
   for (const edge of surface.renderEdges) {
     const target = resolve(edge.to);
     if (parentById.get(target) !== resolve(edge.from)) continue;
-    addEdge({ id: edge.id, source: resolve(edge.from), target, kind: "render", label: null, status, proof: [], pathIds: null });
+    // A render edge is only as proven as the box it reaches.
+    addEdge({ id: edge.id, source: resolve(edge.from), target, kind: "render", label: null, status: statusOf.get(target) ?? "proven", proof: [], pathIds: null });
   }
   let handoffs = 0;
   for (const bridge of totality.bridges) {
@@ -237,7 +295,7 @@ export function projectRouteGraph(tier1: TsTier1, totality: RouteTotality, selec
 
   // The selected origin's exact field lineage: one field edge per proven
   // attachment, and a frontier node wherever a field's proof stops.
-  const lineage = selectedSource ? totality.fieldLineage : null;
+  const lineage = selectedSource && phase === "complete" ? totality.fieldLineage : null;
   if (lineage) {
     for (const attachment of lineage.attachments) {
       const terminal = attachment.consumer?.routeTerminalId ?? attachment.terminalIds[0];
@@ -287,7 +345,7 @@ export function projectRouteGraph(tier1: TsTier1, totality: RouteTotality, selec
   const count = (kind: FlowNode["kind"]) => nodes.filter((item) => item.kind === kind).length;
   return {
     ...base,
-    outcome: totality.status === "complete" ? "ok" : "partial",
+    outcome: totality.status === "complete" && phase === "complete" ? "ok" : "partial",
     unavailableReason: null,
     nodes,
     edges,
@@ -311,4 +369,79 @@ export function projectRouteGraph(tier1: TsTier1, totality: RouteTotality, selec
       omittedItems: surface.totals.omittedItems.total ?? surface.totals.omittedItems.emitted,
     },
   };
+}
+
+/** A located gap or omission: the thing that makes one box partial. */
+type PartialMark = { location: Location; reason: string };
+
+/**
+ * Give each drawn box its own status. A mark (an omission's location, or a
+ * located gap from the surface or the slice) belongs to the deepest box whose
+ * own span contains it: a call site, a control, a terminal. When no drawn
+ * span contains it but it falls inside a component's declaration, every
+ * occurrence of that component is partial, since each of them runs that
+ * code. A mark nothing contains goes to the route box, and so does an
+ * incomplete surface. Origins and frontiers keep the status the engine gave
+ * them. The first mark on a box names its reason.
+ */
+export function markPartialBoxes(
+  nodes: FlowNode[],
+  routeId: string,
+  surface: Surface,
+  totality: Pick<RouteTotality, "gaps">,
+  definitions: Map<string, Surface["definitions"][number]>,
+): void {
+  const marks: PartialMark[] = [];
+  for (const omission of surface.omissions) for (const location of omission.locations) marks.push({ location, reason: omission.reason });
+  for (const gap of totality.gaps) {
+    if (!gap.location || (gap.source !== "occurrence-surface" && gap.source !== "evidence-slice")) continue;
+    marks.push({ location: gap.location, reason: gap.reason });
+  }
+
+  const owned = new Set<FlowNode["kind"]>(["route", "occurrence", "control", "terminal"]);
+  const drawn = nodes.filter((item) => owned.has(item.kind) && item.id !== routeId);
+  const byId = new Map(nodes.map((item) => [item.id, item]));
+  const route = byId.get(routeId);
+  const occurrencesOf = new Map<string, FlowNode[]>();
+  for (const occurrence of surface.occurrences) {
+    const definition = definitions.get(occurrence.definitionId);
+    const drawnOccurrence = byId.get(occurrence.id);
+    if (!definition?.declaration || definition.external || !drawnOccurrence) continue;
+    (occurrencesOf.get(definition.id) ?? occurrencesOf.set(definition.id, []).get(definition.id)!).push(drawnOccurrence);
+  }
+  const spanLength = (span: FlowNode["span"]) => (span.endLine - span.startLine) * 100_000 + (span.endColumn - span.startColumn);
+  const contains = (outer: Location, inner: Location) =>
+    outer.file === inner.file
+    && (outer.span.startLine < inner.span.startLine || (outer.span.startLine === inner.span.startLine && outer.span.startColumn <= inner.span.startColumn))
+    && (outer.span.endLine > inner.span.endLine || (outer.span.endLine === inner.span.endLine && outer.span.endColumn >= inner.span.endColumn));
+  const deepest = <T,>(items: T[], spanOf: (item: T) => Location, mark: PartialMark): T[] => {
+    let best: { items: T[]; size: number } | null = null;
+    for (const item of items) {
+      const span = spanOf(item);
+      if (!contains(span, mark.location)) continue;
+      const size = spanLength(span.span);
+      if (!best || size < best.size) best = { items: [item], size };
+      else if (size === best.size) best.items.push(item);
+    }
+    return best?.items ?? [];
+  };
+  const ownersOf = (mark: PartialMark): FlowNode[] => {
+    const own = deepest(drawn, (item) => ({ file: item.file, line: item.line, column: item.span.startColumn, span: item.span }), mark);
+    if (own.length > 0) return [own[0]];
+    const defined = deepest([...occurrencesOf.entries()], ([id]) => definitions.get(id)!.declaration!, mark);
+    if (defined.length > 0) return defined.flatMap(([, occurrences]) => occurrences);
+    return route ? [route] : [];
+  };
+
+  if (route && surface.status !== "complete") {
+    route.status = "partial";
+    route.reason ??= "incomplete-surface";
+  }
+  for (const mark of marks) {
+    for (const owner of ownersOf(mark)) {
+      if (owner.status === "partial" && owner.reason) continue;
+      owner.status = "partial";
+      owner.reason = mark.reason;
+    }
+  }
 }

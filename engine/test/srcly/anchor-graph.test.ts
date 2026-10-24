@@ -71,14 +71,38 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(boxes(both).every((node) => node.side === "seed" || node.side === "up" || node.side === "down" || node.side === "both")).toBe(true);
   });
 
-  it("stops at a helper with two call sites as a boundary, never guessing which caller's value returns", () => {
-    const graph = anchorGraphOp(session, { ...find(basics, "src/two-call-helper.tsx", "props.a"), direction: "forward" });
+  it("keeps two calls of one helper apart: each argument lands at its own call's slot (T13)", () => {
+    const a = anchorGraphOp(session, { ...find(basics, "src/two-call-identity-helper.tsx", "props.a", "id(props.a)"), direction: "forward" });
+    expect(a.outcome).toBe("ok");
+    expect(boxes(a, "terminal").map((node) => [node.label, node.line])).toEqual([["id(props.a)", 11]]);
+    expect(boxes(a, "boundary")).toEqual([]);
+    expect(a.nodes.some((node) => node.line === 12 && node.kind !== "scope")).toBe(false);
+    const b = anchorGraphOp(session, { ...find(basics, "src/two-call-identity-helper.tsx", "props.b", "id(props.b)"), direction: "forward" });
+    expect(boxes(b, "terminal").map((node) => [node.label, node.line])).toEqual([["id(props.b)", 12]]);
+    expect(b.nodes.some((node) => node.line === 11 && node.kind !== "scope")).toBe(false);
+  });
+
+  it("still stops at a boundary when the walk starts inside the helper and leaves through its return (R7)", () => {
+    const graph = anchorGraphOp(session, { ...find(basics, "src/two-call-identity-helper.tsx", "value", "return value;"), direction: "forward" });
     expect(graph.outcome).toBe("partial");
     const boundary = boxes(graph, "boundary");
-    expect(boundary.length).toBeGreaterThan(0);
-    expect(boundary[0]).toMatchObject({ status: "partial", reason: "unproven-handoff" });
-    expect(boundary[0].note).toMatch(/2 call sites/);
-    expect(graph.counts.boundaries).toBe(boundary.length);
+    expect(boundary.map((node) => node.line).sort()).toEqual([11, 12]);
+    expect(boundary.every((node) => node.reason === "unproven-handoff" && /2 call sites/.test(node.note ?? ""))).toBe(true);
+    expect(graph.counts.terminals).toBe(0);
+  });
+
+  it("never lets an argument the callee does not return reach the call's result (T13)", () => {
+    const graph = anchorGraphOp(session, { ...find(basics, "src/returns-other-argument.tsx", "props.first", "pick(props.first"), direction: "forward" });
+    expect(graph.outcome).toBe("partial");
+    expect(graph.counts.terminals).toBe(0);
+    expect(boxes(graph, "frontier").map((node) => [node.reason, node.line])).toEqual([["disconnected", 4]]);
+  });
+
+  it("enters a helper through its binding and ends where the body hands the value to external code", () => {
+    const graph = anchorGraphOp(session, { ...find(basics, "src/two-call-helper.tsx", "props.a", "shout(props.a)"), direction: "forward" });
+    expect(graph.outcome).toBe("partial");
+    expect(boxes(graph, "boundary")).toEqual([]);
+    expect(boxes(graph, "frontier").map((node) => [node.reason, node.line])).toEqual([["disconnected", 2]]);
   });
 
   it("anchors at a symbol by name and line, as the import graph names one", () => {
@@ -99,9 +123,55 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(graph.nodes.find((node) => node.kind === "anchor")!.status).toBe("partial");
   });
 
+  it("finds a destructured parameter's reads through the engine's relations, and reads partial with no caller", () => {
+    const graph = anchorGraphOp(session, { file: "src/destructured-props.tsx", name: "Badge", line: 5, direction: "both" });
+    const param = graph.nodes.find((node) => node.elementKind === "parameter")!;
+    expect(param).toMatchObject({ label: "viewer", side: "up" });
+    const read = graph.edges.find((edge) => edge.kind === "prop-read")!;
+    expect(read).toMatchObject({ target: param.id, label: "name", status: "proven" });
+    expect(read.proof.length).toBe(1);
+    expect(graph.edges.filter((edge) => edge.kind === "parameter").every((edge) => edge.status === "structural")).toBe(true);
+    // Nothing renders Badge, so where `viewer` comes from is unknown: not `ok`.
+    expect(graph.outcome).toBe("partial");
+  });
+
+  it("reads partial when one of a component's prop walks stops short of an origin", () => {
+    const graph = anchorGraphOp(session, { file: "src/half-landed.tsx", name: "Pair", line: 7, direction: "both" });
+    expect(graph.outcome).toBe("partial");
+    expect(boxes(graph, "origin").length).toBe(1);
+    const reads = graph.edges.filter((edge) => edge.kind === "prop-read").map((edge) => edge.label).sort();
+    expect(reads).toEqual(["count", "title"]);
+  });
+
+  it("draws a dead end where a value stops short of a terminal: a local nothing reads, an untyped callback", () => {
+    const unused = anchorGraphOp(session, { ...find(basics, "src/dead-end.tsx", "props.label", "unused ="), direction: "forward" });
+    expect(unused.outcome).toBe("partial");
+    const [stop] = boxes(unused, "frontier");
+    expect(stop).toMatchObject({ reason: "disconnected", status: "partial", side: "down", elementKind: "alias", label: "dead end · nothing continues from here", line: 6 });
+    expect(unused.counts).toMatchObject({ terminals: 0, frontiers: 1 });
+    const callback = anchorGraphOp(session, { ...find(basics, "src/dead-end.tsx", "props.onPick"), direction: "forward" });
+    expect(callback.outcome).toBe("partial");
+    expect(boxes(callback, "frontier").map((node) => [node.reason, node.elementKind, node.line])).toEqual([["disconnected", "alias", 8]]);
+  });
+
+  it("ends a backward walk at a literal with no frontier: that is where the value begins", () => {
+    const graph = anchorGraphOp(session, { ...find(basics, "src/literal-start.tsx", "label", "{label}"), direction: "backward" });
+    expect(graph.outcome).toBe("ok");
+    expect(graph.counts).toMatchObject({ frontiers: 0, origins: 0 });
+    expect(boxes(graph).some((node) => node.label === "\"x\"")).toBe(true);
+  });
+
   it("refuses a direction it does not know and a name without a line", () => {
     expect(() => anchorGraphOp(session, { ...find(basics, "src/direct-property.tsx", "props.item.title"), direction: "sideways" })).toThrow(/direction/);
     expect(() => anchorGraphOp(session, { file: "src/direct-property.tsx", name: "props" })).toThrow(/line/);
+  });
+});
+
+describe("anchor-graph fixtures never claim proof they do not carry", () => {
+  const fixtures = fs.readdirSync(fileURLToPath(new URL("./__fixtures__", import.meta.url))).filter((name) => name.endsWith(".anchor-graph.json"));
+  it.each(fixtures)("%s has no proven edge with empty proof", (name) => {
+    const graph = JSON.parse(fs.readFileSync(fileURLToPath(new URL(`./__fixtures__/${name}`, import.meta.url)), "utf8")) as AnchorGraphResult;
+    for (const edge of graph.edges) expect(edge.status === "proven" && edge.proof.length === 0, `${edge.kind} ${edge.id}`).toBe(false);
   });
 });
 
@@ -136,7 +206,15 @@ describe("anchorGraph on solid-route", () => {
     // A component by name: its parameter is what comes in, its return and its occurrences are where it goes.
     const param = viewer.nodes.find((node) => node.elementKind === "parameter")!;
     expect(param).toMatchObject({ side: "up", label: "props" });
-    expect(viewer.edges.some((edge) => edge.kind === "parameter" && edge.source === param.id && edge.target === component.id)).toBe(true);
+    // The parameter and return links are found by syntax: structural, never proven.
+    expect(viewer.edges.find((edge) => edge.kind === "parameter" && edge.source === param.id && edge.target === component.id)).toMatchObject({ status: "structural", proof: [] });
+    expect(viewer.edges.filter((edge) => edge.kind === "returns").every((edge) => edge.status === "structural")).toBe(true);
+    // Its prop reads come from the engine's relations, each with that relation's proof.
+    const reads = viewer.edges.filter((edge) => edge.kind === "prop-read");
+    expect(reads.length).toBeGreaterThan(0);
+    expect(reads.every((edge) => edge.target === param.id && edge.status === "proven" && edge.proof.length === 1 && edge.label === "viewer")).toBe(true);
+    // Both prop walks reach the viewer resource, so the component reads ok.
+    expect(viewer.outcome).toBe("ok");
     expect(viewer.nodes.some((node) => node.side === "up" && node.file === "src/routes/records.tsx")).toBe(true);
     expect(viewer.edges.some((edge) => edge.kind === "returns" && edge.source === component.id)).toBe(true);
     const use = viewer.nodes.find((node) => node.note === "rendered here")!;
@@ -152,4 +230,18 @@ describe("anchorGraph on solid-route", () => {
     expect(graph.nodes.find((node) => node.kind === "anchor")).toMatchObject({ label: "RouteFrame" });
     expect(["jsx-occurrence", "component-occurrence"]).toContain(graph.anchor.elementId ? graph.nodes.find((node) => node.kind === "anchor")!.elementKind : null);
   }, 120_000);
+});
+
+describe("anchorGraph by element id (T20)", () => {
+  it("anchors at a drawn box's own element, so its graph shares ids with the trace that drew the box", () => {
+    const session = sessionFor(solidRoute);
+    const first = anchorGraphOp(session, { file: "src/components/ViewerCard.tsx", name: "ViewerCard", line: 3, direction: "backward" });
+    const box = first.nodes.find((n) => n.kind !== "anchor" && n.kind !== "scope" && n.file === "src/routes/records.tsx")!;
+    const second = anchorGraphOp(session, { file: box.file, elementId: box.id, direction: "backward" });
+    expect(second.anchor.elementId).toBe(box.id);
+    expect(second.nodes.find((n) => n.kind === "anchor")?.id).toBe(box.id);
+    const firstIds = new Set(first.nodes.map((n) => n.id));
+    expect(second.nodes.filter((n) => firstIds.has(n.id)).length).toBeGreaterThan(1);
+    expect(() => anchorGraphOp(session, { file: box.file, elementId: "program-element:nope", direction: "both" })).toThrowError(expect.objectContaining({ code: "not-found" }));
+  }, 60_000);
 });

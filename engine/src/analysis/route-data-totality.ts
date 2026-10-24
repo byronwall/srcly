@@ -196,6 +196,66 @@ const EMPTY_BRIDGE_COUNTS: RouteTotalityBridgeCounts = {
   partial: 0,
 };
 
+/** A phase of one route's totality build, with how long it took. Observed by srcly's profiler; never changes a result. */
+export type RouteTotalityPhase = "candidate" | "surface" | "context" | "slice" | "bridges" | "lineage";
+let phaseListener: ((route: string, phase: RouteTotalityPhase, ms: number) => void) | null = null;
+
+/** Observe each phase's duration per route (`engine/scripts/time-phases.ts`). Pass null to stop. */
+export function observeRouteTotalityPhases(listener: typeof phaseListener): void {
+  phaseListener = listener;
+}
+
+function timed<T>(route: string, phase: RouteTotalityPhase, run: () => T): T {
+  if (!phaseListener) return run();
+  const started = performance.now();
+  try {
+    return run();
+  } finally {
+    phaseListener(route, phase, performance.now() - started);
+  }
+}
+
+/** The backbone of one route alone: its candidate, seed and occurrence surface, with nothing from the evidence slice. */
+export type RouteSurfaceRecord = {
+  route: Pick<RouteRecord, "key" | "pathPattern" | "file">;
+  candidate: ScopeCandidate;
+  seed: ScopeSeed;
+  scopeProof: EvidenceProof[];
+  occurrenceSurface: RouteOccurrenceSurface | RouteTotalityUnavailable;
+  status: "partial" | "unavailable";
+};
+
+/**
+ * The render backbone before the program-wide facts exist (T9): the
+ * candidate is selected from facts collected for the route file alone, and
+ * the occurrence surface needs only the Program. The full totality, built
+ * later, draws the same occurrence ids.
+ */
+export function buildRouteSurfaceRecord(
+  ts: typeof TypeScript,
+  program: TypeScript.Program,
+  root: string,
+  route: RouteRecord,
+  facts: Pick<EvidenceRelationProvider, "facts">,
+  candidates: readonly ScopeCandidate[],
+  cancellation: AnalysisCancellationToken = NO_ANALYSIS_CANCELLATION,
+): RouteSurfaceRecord | null {
+  cancellation.throwIfCancelled();
+  const routeInfo = { key: route.key, pathPattern: route.pathPattern, file: route.file };
+  const selection = selectCandidate(root, route, facts, candidates);
+  if (!selection) return null;
+  const seed = buildSolidRouteSeed(selection.candidate);
+  const occurrenceSurface = buildOccurrenceSurface(ts, program, root, route, selection.candidate.id, seed.entryElementId, cancellation);
+  return {
+    route: routeInfo,
+    candidate: selection.candidate,
+    seed,
+    scopeProof: [...selection.candidate.proof, ...seed.proof, selection.proof],
+    occurrenceSurface,
+    status: isUnavailable(occurrenceSurface) ? "unavailable" : "partial",
+  };
+}
+
 export function buildRouteTotalityRecords(
   ts: typeof TypeScript,
   program: TypeScript.Program,
@@ -224,7 +284,7 @@ function buildRouteTotalityRecord(
 ): RouteTotalityRecord {
   cancellation.throwIfCancelled();
   const routeInfo = { key: route.key, pathPattern: route.pathPattern, file: route.file };
-  const selection = selectCandidate(root, route, provider, candidates);
+  const selection = timed(route.key, "candidate", () => selectCandidate(root, route, provider, candidates));
   if (!selection) return unavailableRecord(routeInfo, "No unique proven Solid route candidate matched the route source identity and path.");
 
   const seed = buildSolidRouteSeed(selection.candidate);
@@ -233,23 +293,25 @@ function buildRouteTotalityRecord(
     ...seed.proof,
     selection.proof,
   ];
-  const occurrenceSurface = buildOccurrenceSurface(ts, program, root, route, selection.candidate.id, seed.entryElementId, cancellation);
+  const occurrenceSurface = timed(route.key, "surface", () => buildOccurrenceSurface(ts, program, root, route, selection.candidate.id, seed.entryElementId, cancellation));
   cancellation.throwIfCancelled();
-  const contextContinuity = !isUnavailable(occurrenceSurface)
+  const contextContinuity = timed(route.key, "context", () => !isUnavailable(occurrenceSurface)
     ? buildSolidRouteContextContinuity(ts, program, root, occurrenceSurface, cancellation)
-    : unavailableContextContinuity(occurrenceSurface.reason);
+    : unavailableContextContinuity(occurrenceSurface.reason));
   cancellation.throwIfCancelled();
-  const normalEvidenceSlice = buildEvidenceSlice(provider, seed, cancellation);
-  const evidenceSlice = isUnavailable(normalEvidenceSlice)
-    ? normalEvidenceSlice
-    : mergeSelectedRouteSource(provider, normalEvidenceSlice, selectedSource, cancellation);
+  const evidenceSlice = timed(route.key, "slice", () => {
+    const normalEvidenceSlice = buildEvidenceSlice(provider, seed, cancellation);
+    return isUnavailable(normalEvidenceSlice)
+      ? normalEvidenceSlice
+      : mergeSelectedRouteSource(provider, normalEvidenceSlice, selectedSource, cancellation);
+  });
   cancellation.throwIfCancelled();
-  const bridges = !isUnavailable(occurrenceSurface) && !isUnavailable(evidenceSlice)
+  const bridges = timed(route.key, "bridges", () => !isUnavailable(occurrenceSurface) && !isUnavailable(evidenceSlice)
     ? buildRouteTotalityBridges(evidenceSlice, occurrenceSurface, cancellation)
-    : [];
-  const selectedProof = !isUnavailable(occurrenceSurface) && !isUnavailable(evidenceSlice) && selectedSource
+    : []);
+  const selectedProof = timed(route.key, "lineage", () => !isUnavailable(occurrenceSurface) && !isUnavailable(evidenceSlice) && selectedSource
     ? buildSelectedRouteTotalityFieldProof(ts, program, root, provider, route, evidenceSlice, occurrenceSurface, selectedSource, cancellation)
-    : null;
+    : null);
   const fieldLineage = !isUnavailable(occurrenceSurface) && !isUnavailable(evidenceSlice)
     ? selectedSource
       ? selectedProof ?? unavailableRouteTotalityFieldLineage(SELECTED_ORIGIN_UNAVAILABLE_REASON)
@@ -305,7 +367,7 @@ function buildRouteTotalityRecord(
 function selectCandidate(
   root: string,
   route: RouteRecord,
-  provider: EvidenceRelationProvider,
+  provider: Pick<EvidenceRelationProvider, "facts">,
   candidates: readonly ScopeCandidate[],
 ): CandidateSelection | null {
   const routeEvidence = route.evidence;
