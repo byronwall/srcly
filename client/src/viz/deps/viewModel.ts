@@ -67,6 +67,12 @@ export interface ViewEdge {
   symbols: string[];
   /** Data flow mode: a dashed handoff from an origin, or an accent field path. */
   style?: "handoff" | "field";
+  /** Data flow mode: a field edge's path (`projects[*].name`), drawn along the edge. */
+  label?: string;
+  /** Data flow mode: the edge's proof status, for its card. */
+  status?: "proven" | "partial" | "unsupported";
+  /** Data flow mode: the engine's proof records behind the edge, for its card. */
+  proof?: { kind: string; detail: string; status: "proven" | "partial" | "unsupported"; at?: string }[];
 }
 
 export interface ViewModel {
