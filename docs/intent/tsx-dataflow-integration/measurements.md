@@ -88,6 +88,26 @@ Same machine and Node. Engine `routeGraph` called in process right after tier 1,
 
 Before, every box on `/time-blocks` took the surface's `partial` status (only the origin kept its own). After, the 211 partial boxes are the ones that own a located gap or omission: 97 `unresolved-symbol`, 96 `external-code`, 16 `budget-exhausted`, 1 `unsupported-ownership`, plus the route box for the incomplete surface. Every gap had a location, so the R14 fallback (the occurrence's own omissions) was not needed. On `/records` the route's two gaps sit in `data/records.ts` and `data/viewer.ts`, outside every drawn box, so they belong to the route box and all 32 component boxes read proven.
 
+## 2026-10-24 — T8: where the time goes (`engine/scripts/time-phases.ts`)
+
+Same machine and Node, in process (`pnpm time-phases --root ~/Projects/visual-notes/app --route /time-blocks --route /tasks --anchor …`). The engine's own test suite ran beside this measurement, so the absolute numbers are higher than M1/M2 (tier 1 was 10.4 s there); the shares are what this run is for.
+
+| Target | Tier 1 | Provider fact collection | Facts | RSS |
+| --- | ---: | ---: | ---: | ---: |
+| solid-route | 437 ms | 68 ms | 380 | 399 MB |
+| visual-notes `app/` | 19,768 ms | 16,567 ms | 110,990 | 1,673 MB |
+
+Per route on visual-notes (`/tasks` first, so it pays every warm-up; `/time-blocks` second):
+
+| Route | candidate | surface | context | slice | bridges | lineage | other | totality | project | nodes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `/tasks` | 2 | 54 | 1,790 | 8,133 | 3 | 0 | 1,807 | 11,789 | 12 | 327 |
+| `/time-blocks` | 0 | 23 | 321 | 180 | 2 | 0 | 6 | 533 | 9 | 418 |
+
+`other` is the finding attachment after the record is built. `anchorGraph` on five visual-notes anchors is 3–28 ms each once the facts exist (the TimeBlockEditorDialog `props.block` anchor draws 83 boxes in 28 ms).
+
+**What this decides (the T8 → T9/T10 question).** The cold path to a first box is tier 1 (≈10 s on a quiet machine), then the provider's fact collection (16.6 s, every file in the program, before any route), then the first route's slice (8.1 s) and context continuity (1.8 s). Fact collection is over half of the time after tier 1, and the route backbone itself (surface 54 ms) cannot start before it: route candidates come from the fact index. So T10 goes first, on fact collection and then the slice, and T9 follows. The budget R4 (10 s cold) needs tier 1 plus facts plus a surface under 10 s; today tier 1 alone is near it, so the disk cache (T11) is the lever for reopen and T10 for the cold path.
+
 ## To record next
 
 | Milestone | Numbers |
