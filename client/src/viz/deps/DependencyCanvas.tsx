@@ -595,7 +595,7 @@ export function DependencyCanvas(props: {
   const CompactBody = (p: { n: PositionedNode }) => {
     const n = p.n;
     const hub = () => hubById().get(n.id);
-    const box = () => info().get(n.id);
+    const box = () => (props.linkCounts === false ? undefined : info().get(n.id));
     const geo = createMemo(() => {
       const k = boxInk();
       const t = compactText(compactBox(n), k);

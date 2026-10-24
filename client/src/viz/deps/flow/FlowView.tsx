@@ -1,4 +1,4 @@
-import { batch, createEffect, createMemo, createResource, createSignal, onCleanup, onMount, Show, untrack } from "solid-js";
+import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show, untrack } from "solid-js";
 import { ChevronDown } from "lucide-solid";
 import { EmptyState, ErrorState } from "../../../components/feedback/States";
 import { Button } from "../../../components/ui/Button";
@@ -15,6 +15,7 @@ import type { ViewNode } from "../viewModel";
 import { routeGraphToViewModel } from "./adapter";
 import { FlowLegend } from "./FlowLegend";
 import { FlowModeSwitch } from "./FlowTools";
+import { createFetch } from "./fetchSignal";
 import { FlowProgress } from "./FlowProgress";
 import { RoutePicker } from "./RoutePicker";
 
@@ -39,12 +40,17 @@ export default function FlowView(props: {
   const availability = () => availabilityFor(root());
   const status = () => statusFor(root());
 
-  const [routes] = createResource(() => (availability() === "ready" ? root() : null), (r) => fetchRoutes(r));
+  const routesFetch = createFetch(() => (availability() === "ready" ? root() : null), (r) => fetchRoutes(r));
+  const routes = routesFetch.value;
   const routeKey = () => location().flow ?? "";
-  const [graph] = createResource(
-    () => (availability() === "ready" && routeKey() ? { path: root(), route: routeKey() } : null),
-    (req) => watchProgress(req.path, fetchRouteGraph(req)),
+  const graphKey = createMemo(
+    () => (availability() === "ready" && routeKey() ? `${root()}\n${routeKey()}` : null),
   );
+  const graphFetch = createFetch(graphKey, (key) => {
+    const [path, route] = key.split("\n");
+    return watchProgress(path, fetchRouteGraph({ path, route }));
+  });
+  const graph = graphFetch.value;
   const routeList = () => routes()?.routes ?? [];
   const currentRoute = () => routeList().find((r) => r.key === routeKey() || r.pathPattern === routeKey());
 
@@ -147,7 +153,7 @@ export default function FlowView(props: {
   };
   const waitingOn = () => {
     if (availability() !== "ready") return "Starting the data-flow engine";
-    if (graph.loading) return `Tracing ${currentRoute()?.pathPattern ?? routeKey()}`;
+    if (graphFetch.loading()) return `Tracing ${currentRoute()?.pathPattern ?? routeKey()}`;
     return null;
   };
 
@@ -187,10 +193,10 @@ export default function FlowView(props: {
             description="Data flow starts from a route: a file under a routes/ folder that default-exports a component. Open a folder that has one."
           />
         </Show>
-        <Show when={graph.error}>
-          <ErrorState message={String(graph.error?.message ?? graph.error)} class="absolute inset-0" />
+        <Show when={graphFetch.error() ?? routesFetch.error()}>
+          {(e) => <ErrorState message={e().message} class="absolute inset-0" />}
         </Show>
-        <Show when={!graph.loading && layout()}>
+        <Show when={!graphFetch.loading() && layout()}>
           {(l) => (
             <>
               <DependencyCanvas

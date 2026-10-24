@@ -69,8 +69,9 @@ describe("route graph → ViewModel", () => {
     }
     // Containment edges order the columns without being drawn.
     expect(layout.hiddenEdges?.length).toBeGreaterThan(0);
-    // Hierarchy reads left to right: a frame sits right of the box it opens.
+    // Hierarchy reads left to right: a frame never sits left of the box it
+    // opens (the packer may fold adjacent levels into one column).
     const column = new Map(layout.nodes.map((n) => [n.id, n.column]));
-    for (const n of layout.nodes) if (n.node.group) expect(column.get(n.id)!).toBeGreaterThan(column.get(n.node.group.id)!);
+    for (const n of layout.nodes) if (n.node.group) expect(column.get(n.id)!).toBeGreaterThanOrEqual(column.get(n.node.group.id)!);
   });
 });

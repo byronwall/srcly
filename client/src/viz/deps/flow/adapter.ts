@@ -148,7 +148,9 @@ export function routeGraphToViewModel(graph: RouteGraphResult, opts: FlowViewOpt
     const parent = parentOf.get(n.id);
     if (!parent) continue;
     const id = `contains:${parent}>${n.id}`;
-    edges.push({ id, source: parent, target: n.id, weight: 1, faint: n.status !== "proven", symbols: [] });
+    // A partial occurrence surface (one with omissions) does not make each
+    // render edge unproven, so containment draws solid; the box notes the status.
+    edges.push({ id, source: parent, target: n.id, weight: 1, faint: false, symbols: [] });
     if (!RENDERS.has(n.kind) || !RENDERS.has(byId.get(parent)!.kind)) hidden.add(id);
   }
   const seen = new Set<string>();
