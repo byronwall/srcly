@@ -15,6 +15,8 @@ import { MetricsSidebar } from "./MetricsSidebar";
 import { InspectMenu } from "./InspectMenu";
 import { ValueFlowLedger } from "./ValueFlowLedger";
 import { createValueFlowInspector } from "../../investigation/valueFlowInspector";
+import { atFromTreePath, encodeAnchor } from "../../navigation/location";
+import { go } from "../../navigation/store";
 import { caretColumn, caretOffsetIn } from "../../investigation/selectionSpan";
 
 interface CodeModalProps {
@@ -194,6 +196,13 @@ export default function CodeModal(props: CodeModalProps) {
   const inspector = createValueFlowInspector({
     root: () => (props.gitRef ? undefined : props.rootPath),
     file: () => props.filePath,
+    // Trace from here: the graph view anchored at the expression, in that direction.
+    onTrace: (candidate, direction) => {
+      const at = props.rootPath && props.filePath ? atFromTreePath(props.filePath, props.rootPath) : null;
+      if (at === null) return;
+      props.onClose();
+      go({ view: "graph", flow: undefined, field: undefined, dest: undefined, open: undefined, anchor: encodeAnchor({ file: at, span: candidate.span }), dir: direction });
+    },
   });
   /** The ledger's rows are marked through the metric overlay while this is on. */
   const [ledgerMarked, setLedgerMarked] = createSignal(false);

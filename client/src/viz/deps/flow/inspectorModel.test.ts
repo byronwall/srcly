@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import fixture from "../../../../../engine/test/srcly/__fixtures__/solid-route.route-graph.json";
 import type { RouteGraphResult } from "../../../dataflow/contract.generated";
 import { routeGraphToViewModel } from "./adapter";
-import { nodeDetails, routeOverview } from "./inspectorModel";
+import anchorFixture from "../../../../../engine/test/srcly/__fixtures__/solid-route.anchor-graph.json";
+import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
+import { anchorGraphToViewModel } from "./anchorAdapter";
+import { anchorOverview, markOfBox, nodeDetails, routeOverview } from "./inspectorModel";
 
 const graph = fixture as unknown as RouteGraphResult;
 const m = routeGraphToViewModel(graph);
@@ -61,5 +64,36 @@ describe("node details", () => {
     const small = routeGraphToViewModel(graph, { budget: 8 });
     const hiddenLeaf = graph.nodes.find((n) => !small.vm.nodes.some((v) => v.id === n.id))!;
     expect(nodeDetails(small, hiddenLeaf.id)).toBeNull();
+  });
+});
+
+
+describe("anchor overview and details", () => {
+  const anchorGraph = anchorFixture as unknown as AnchorGraphResult;
+  const am = anchorGraphToViewModel(anchorGraph);
+
+  it("sums an anchor graph up: the expression, its type, the direction, the counts, origins and terminals", () => {
+    const o = anchorOverview(anchorGraph);
+    expect(o.text).toBe("props.viewer?.name");
+    expect(o.kind).toBe("property read");
+    expect(o.direction).toBe("both");
+    expect(o.counts.origins).toBe(o.origins.length);
+    expect(o.origins.map((x) => x.label)).toContain("createResource(loadViewer)");
+    expect(o.origins[0].roles).toBe("resource");
+    expect(o.terminals.length).toBe(o.counts.terminals);
+    expect(o.coverage.budget.limit).toBeGreaterThan(0);
+  });
+
+  it("details an anchor graph's box with the engine's kind words and its flows", () => {
+    const anchor = anchorGraph.nodes.find((n) => n.kind === "anchor")!;
+    const d = nodeDetails(am, anchor.id)!;
+    expect(d.mark).toBe("anchor");
+    expect(markOfBox(anchor)).toBe("anchor");
+    expect(d.detail).toBe("property read");
+    expect(d.flowsIn.length).toBeGreaterThan(0);
+    expect(d.flowsOut.length).toBeGreaterThan(0);
+    expect(d.inside).toEqual({ shown: 0, hidden: 0, wrappers: 0 });
+    const origin = anchorGraph.nodes.find((n) => n.kind === "origin")!;
+    expect(nodeDetails(am, origin.id)!.flowsIn).toEqual([]);
   });
 });

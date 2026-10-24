@@ -4,6 +4,9 @@ import {
   baseName,
   atFromTreePath,
   crumbsFor,
+  encodeAnchor,
+  isDataFlow,
+  parseAnchor,
   graphIdFor,
   normalizeScopeName,
   parentAt,
@@ -192,5 +195,41 @@ describe("resolveTreeAt", () => {
   it("falls back to the nearest ancestor for a deleted path", () => {
     expect(resolveTreeAt(tree, root, "a/gone/x.ts")).toMatchObject({ match: "missing", at: "a" });
     expect(resolveTreeAt(tree, root, "ext:react")).toMatchObject({ match: "external", at: "" });
+  });
+});
+
+describe("anchor mode", () => {
+  it("round-trips an anchor by span and by name, with the direction only when it is not both", () => {
+    const span = encodeAnchor({ file: "src/a.tsx", span: { startLine: 6, startColumn: 21, endLine: 6, endColumn: 39 } });
+    expect(span).toBe("src/a.tsx:6:21-6:39");
+    const loc = { repo: "/r", at: "", view: "graph" as const, anchor: span, dir: "backward" as const };
+    expect(parseLocation(toSearch(loc))).toEqual(loc);
+    expect(toSearch({ ...loc, dir: "both" })).not.toContain("dir=");
+    expect(parseLocation(toSearch({ ...loc, dir: "both" }))).toEqual({ repo: "/r", at: "", view: "graph", anchor: span });
+    const named = encodeAnchor({ file: "src/a.tsx", name: "props", line: 3 });
+    expect(named).toBe("src/a.tsx@props:3");
+    expect(parseAnchor(named)).toEqual({ file: "src/a.tsx", name: "props", line: 3 });
+    expect(parseAnchor(span)).toEqual({ file: "src/a.tsx", span: { startLine: 6, startColumn: 21, endLine: 6, endColumn: 39 } });
+    expect(parseAnchor("nonsense")).toBeNull();
+  });
+
+  it("is Data flow mode without a route, and never both at once", () => {
+    const anchor = "src/a.tsx:6:21-6:39";
+    expect(isDataFlow({ anchor })).toBe(true);
+    expect(isDataFlow({ flow: "" })).toBe(true);
+    expect(isDataFlow({})).toBe(false);
+    // An anchor wins over a route in the URL, and leaves the graph on the anchor.
+    expect(parseLocation(`?view=graph&flow=route:abc&anchor=${anchor}`)).toEqual({ repo: "", at: "", view: "graph", anchor });
+    const search = toSearch({ repo: "", at: "", view: "graph", flow: "route:abc", anchor });
+    expect(search).toContain("anchor=");
+    expect(search).not.toContain("flow=");
+    // A broken anchor is ignored; the treemap ignores both.
+    expect(parseLocation("?view=graph&anchor=nonsense")).toEqual({ repo: "", at: "", view: "graph" });
+    expect(parseLocation(`?view=treemap&anchor=${anchor}&dir=forward`)).toEqual({ repo: "", at: "", view: "treemap" });
+    // The direction and the anchor are part of the place: a new anchor is a new history entry, a new direction is not.
+    const a = { repo: "", at: "", view: "graph" as const, anchor };
+    expect(samePlace(a, { ...a, anchor: "src/b.tsx:1:1-1:2" })).toBe(false);
+    expect(samePlace(a, { ...a, dir: "forward" })).toBe(true);
+    expect(sameLocation(a, { ...a, dir: "forward" })).toBe(false);
   });
 });

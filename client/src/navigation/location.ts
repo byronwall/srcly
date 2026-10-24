@@ -33,6 +33,35 @@ export interface Location {
   field?: string;
   /** Data flow mode: the selected destination (a node id). */
   dest?: string;
+  /**
+   * Graph only: Data flow mode anchored at an expression instead of a route
+   * (`encodeAnchor`): `file:line:col-line:col`, or `file@name:line` for a
+   * symbol. Replaces `flow`.
+   */
+  anchor?: string;
+  /** Anchor mode: which way the value is traced; absent is both. */
+  dir?: Direction;
+}
+
+export type Direction = "forward" | "backward" | "both";
+
+/** An anchor as the engine takes it: an exact span, or a symbol by name on a line. */
+export type Anchor = { file: string; span: { startLine: number; startColumn: number; endLine: number; endColumn: number } } | { file: string; name: string; line: number };
+
+export function encodeAnchor(anchor: Anchor): string {
+  if ("name" in anchor) return `${anchor.file}@${anchor.name}:${anchor.line}`;
+  const s = anchor.span;
+  return `${anchor.file}:${s.startLine}:${s.startColumn}-${s.endLine}:${s.endColumn}`;
+}
+
+export function parseAnchor(raw: string | undefined): Anchor | null {
+  if (!raw) return null;
+  const named = /^(.+)@([^@:]+):(\d+)$/.exec(raw);
+  if (named) return { file: named[1], name: named[2], line: Number(named[3]) };
+  const span = /^(.+):(\d+):(\d+)-(\d+):(\d+)$/.exec(raw);
+  if (!span) return null;
+  const [, file, a, b, c, d] = span;
+  return { file, span: { startLine: Number(a), startColumn: Number(b), endLine: Number(c), endColumn: Number(d) } };
 }
 
 export const ROOT_LOCATION: Location = { repo: "", at: "", view: "treemap" };
@@ -44,6 +73,8 @@ const OPEN_PARAM = "open";
 const FLOW_PARAM = "flow";
 const FIELD_PARAM = "field";
 const DEST_PARAM = "dest";
+const ANCHOR_PARAM = "anchor";
+const DIR_PARAM = "dir";
 /** Pre-location graph focus parameter. Read as an alias of `at` + graph view. */
 const LEGACY_FOCUS_PARAM = "depFocus";
 
@@ -61,7 +92,11 @@ export function parseLocation(search: string): Location {
         ? "graph"
         : "treemap";
   const open = (params.get(OPEN_PARAM) ?? "").split(",").map(normalizeAt).filter(Boolean);
-  const flow = view === "graph" ? params.get(FLOW_PARAM) : null;
+  // An anchor replaces the route: the graph is in Data flow mode either way, never both.
+  const anchor = view === "graph" && parseAnchor(params.get(ANCHOR_PARAM) ?? undefined) ? params.get(ANCHOR_PARAM) : null;
+  const rawDir = anchor !== null ? params.get(DIR_PARAM) : null;
+  const dir = rawDir === "forward" || rawDir === "backward" ? rawDir : null;
+  const flow = view === "graph" && anchor === null ? params.get(FLOW_PARAM) : null;
   const field = flow !== null ? params.get(FIELD_PARAM) : null;
   const dest = field !== null ? params.get(DEST_PARAM) : null;
   return {
@@ -72,6 +107,8 @@ export function parseLocation(search: string): Location {
     ...(flow !== null ? { flow } : {}),
     ...(field ? { field } : {}),
     ...(dest ? { dest } : {}),
+    ...(anchor !== null ? { anchor } : {}),
+    ...(dir ? { dir } : {}),
   };
 }
 
@@ -90,11 +127,16 @@ export function toSearch(loc: Location, currentSearch = ""): string {
   params.delete(FLOW_PARAM);
   params.delete(FIELD_PARAM);
   params.delete(DEST_PARAM);
+  params.delete(ANCHOR_PARAM);
+  params.delete(DIR_PARAM);
   if (loc.repo) params.set(REPO_PARAM, loc.repo);
   if (loc.at) params.set(AT_PARAM, loc.at);
   if (loc.view !== "treemap") params.set(VIEW_PARAM, loc.view);
   if (loc.open?.length) params.set(OPEN_PARAM, loc.open.join(","));
-  if (loc.view === "graph" && loc.flow !== undefined) {
+  if (loc.view === "graph" && loc.anchor) {
+    params.set(ANCHOR_PARAM, loc.anchor);
+    if (loc.dir && loc.dir !== "both") params.set(DIR_PARAM, loc.dir);
+  } else if (loc.view === "graph" && loc.flow !== undefined) {
     params.set(FLOW_PARAM, loc.flow);
     if (loc.field) {
       params.set(FIELD_PARAM, loc.field);
@@ -106,12 +148,19 @@ export function toSearch(loc: Location, currentSearch = ""): string {
 }
 
 export function sameLocation(a: Location, b: Location): boolean {
-  return samePlace(a, b) && (a.open ?? []).join(",") === (b.open ?? []).join(",") && a.field === b.field && a.dest === b.dest;
+  return (
+    samePlace(a, b) && (a.open ?? []).join(",") === (b.open ?? []).join(",") && a.field === b.field && a.dest === b.dest && (a.dir ?? "both") === (b.dir ?? "both")
+  );
 }
 
 /** Same repo, focus, view and graph mode, whatever is opened in place or selected in Data flow mode (one history entry per place). */
 export function samePlace(a: Location, b: Location): boolean {
-  return a.repo === b.repo && a.at === b.at && a.view === b.view && a.flow === b.flow;
+  return a.repo === b.repo && a.at === b.at && a.view === b.view && a.flow === b.flow && a.anchor === b.anchor;
+}
+
+/** Data flow mode: a route, or an anchor. */
+export function isDataFlow(loc: Pick<Location, "flow" | "anchor">): boolean {
+  return loc.flow !== undefined || loc.anchor !== undefined;
 }
 
 /** Trims slashes; the legacy graph param used "/" for the root. */

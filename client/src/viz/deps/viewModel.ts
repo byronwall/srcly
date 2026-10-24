@@ -73,6 +73,8 @@ export interface ViewEdge {
   status?: "proven" | "partial" | "unsupported";
   /** Data flow mode: the engine's proof records behind the edge, for its card. */
   proof?: { kind: string; detail: string; status: "proven" | "partial" | "unsupported"; at?: string }[];
+  /** Anchor mode: the engine's relation kind (`field-input`, `argument`, …), for its card. */
+  relation?: string;
 }
 
 export interface ViewModel {
