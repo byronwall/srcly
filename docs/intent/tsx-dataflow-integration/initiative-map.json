@@ -6,9 +6,9 @@
     "scale": "program",
     "current_phase": "plan",
     "last_updated": "2026-10-23",
-    "summary": "One engine (tsx-data-flow analysis moved into engine/, one lazy Node child) feeds three srcly surfaces: route -> terminal graph in the dependency viewer (headline), value-path ledger from graph destinations or code-viewer expressions (PR #102), and a function-effects panel (PR #103); findings/metrics/markers/reports follow.",
+    "summary": "One engine (tsx-data-flow analysis moved into engine/, one lazy Node child) feeds three srcly surfaces: route -> terminal graph in the dependency viewer (headline), value-path ledger from graph destinations or code-viewer expressions (PR #102), and a function-effects panel (PR #103); findings/metrics/markers/reports follow. detailed-plan.md adds the file-level design, contracts, two-tier engine session, view-state registry and the corrections a code review of both repositories forced.",
     "status": "planned",
-    "next_action": "User approval to start m1; propose closing #102/#103 as superseded."
+    "next_action": "User approval to start M1 (three PRs). D1 (port base) must be settled first; defaults are in detailed-plan.md section 8."
   },
   "artifacts": {
     "intent_brief": {
@@ -39,6 +39,16 @@
         "PR #102",
         "PR #103"
       ]
+    },
+    "detailed_plan": {
+      "path": "detailed-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-23"
+    },
+    "measurements": {
+      "path": "measurements.md",
+      "status": "current",
+      "updated_at": "2026-10-23"
     }
   },
   "sources": [
@@ -654,26 +664,57 @@
     ],
     "open_decisions": [
       {
-        "id": "P1",
-        "question": "Resident vs per-query engine process",
-        "evidence": "cold/warm timings in m3",
-        "fallback": "per-query spawn, same protocol"
+        "id": "D1",
+        "question": "Port base in tsx-data-flow",
+        "evidence": "pnpm verify on the committed WIP",
+        "fallback": "port main b4f1ba4 and re-apply the WIP inside engine/"
       },
       {
-        "id": "P2",
+        "id": "D2",
         "question": "Route layout rule vs existing packing",
-        "evidence": "m2 screenshots",
-        "fallback": "one top-down rule behind the mode"
+        "evidence": "M2 screenshots at 1440 and 1024",
+        "fallback": "direction: down option on layoutComponent, flow mode only"
       },
       {
-        "id": "P3",
-        "question": "Branch graph beside ledger",
-        "evidence": "m5 paths",
+        "id": "D3",
+        "question": "Branch graph beside the ledger",
+        "evidence": "M5 two-arm Show path",
         "fallback": "rows with expansion"
+      },
+      {
+        "id": "D4",
+        "question": "TypeScript instance for the Program",
+        "evidence": "hello.typescriptFrom and parse diagnostics on real projects",
+        "fallback": "prefer the project's copy for that major"
+      },
+      {
+        "id": "D5",
+        "question": "Tier-2 batch job default",
+        "evidence": "tier-2 time on 50K-line apps",
+        "fallback": "opt-in via a data-flow surface or --dataflow"
+      },
+      {
+        "id": "D6",
+        "question": "Resident vs per-query process",
+        "evidence": "tier-1 time and RSS (2 GB measured)",
+        "fallback": "per-query spawn, same protocol; cap 1 process"
+      },
+      {
+        "id": "D7",
+        "question": "Investigation URL",
+        "evidence": "none expected",
+        "fallback": "?inv=<token> with sessionStorage snapshot"
+      },
+      {
+        "id": "D8",
+        "question": "Progress transport",
+        "evidence": "profiles of 250 ms status polling",
+        "fallback": "SSE like /api/scans/{id}/events"
       }
     ],
     "prerequisites": [
-      "tsx-data-flow PRs #1-4 and local route-proof edits land before the m1 copy"
+      "Commit tsx-data-flow's route-proof WIP on main, tag srcly-port-base, port that SHA; the seven cleanup PRs are not ported (D1).",
+      "Skip-guard the two soccer-schedule tests before the copy."
     ],
     "parallel_tracks": {
       "after": "m1",
@@ -692,6 +733,26 @@
         "D": [
           "m7"
         ]
+      }
+    },
+    "measurements": {
+      "recorded_at": "2026-10-23",
+      "path": "measurements.md",
+      "tier1_ms": {
+        "srcly-client": 3005,
+        "visual-notes-app": 13865
+      },
+      "full_report_ms": {
+        "srcly-client": 129962,
+        "visual-notes-app": 44166
+      },
+      "route_inventory_ms": {
+        "srcly-client": 2,
+        "visual-notes-app": 17494
+      },
+      "rss_mb": {
+        "srcly-client": 2419,
+        "visual-notes-app": 2023
       }
     }
   },
@@ -724,6 +785,11 @@
     {
       "date": "2026-10-23",
       "event": "Condensed: #102/#103 research folded into research.md; intent, shape and plan tightened. Implementation awaits explicit user approval.",
+      "phase": "plan"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "Detailed plan and measurements added after a code review of srcly and tsx-data-flow; fourteen corrections (R1-R14) and eight decisions (D1-D8) recorded.",
       "phase": "plan"
     }
   ],

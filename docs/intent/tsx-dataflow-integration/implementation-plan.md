@@ -10,6 +10,8 @@ last_updated: "2026-10-23"
 
 **Status:** proposed. Implementation starts only on explicit approval.
 
+The file-level design, contracts, measurements and the corrections from reviewing both codebases are in [detailed-plan.md](detailed-plan.md). Read that page before starting any milestone.
+
 ## Plan at a glance
 
 M1 moves the engine into `engine/` and proves srcly's server can query it. After that, four tracks run in parallel. They share only the engine process and the evidence states.
