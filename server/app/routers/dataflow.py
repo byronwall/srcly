@@ -164,13 +164,15 @@ def get_routes(path: str | None = None, expectedGeneration: int | None = None):
 
 
 @router.get("/route-graph", response_model=RouteGraphResponse)
-def get_route_graph(route: str, path: str | None = None, expectedGeneration: int | None = None):
+def get_route_graph(route: str, path: str | None = None, source: str | None = None, expectedGeneration: int | None = None):
     """
     One route's render backbone (occurrences, framework boundaries, terminals,
-    origins). The first call per route builds its totality and can take tens
+    origins). With ``source`` (an origin node id) it also carries that origin's
+    field edges, frontiers and proven ``destinations``. The first call per route builds its totality and can take tens
     of seconds on a large app; ``status`` shows the progress meanwhile.
     """
-    body = _query(_root(path), "routeGraph", {"route": route}, expectedGeneration)
+    params = {"route": route, **({"source": source} if source else {})}
+    body = _query(_root(path), "routeGraph", params, expectedGeneration)
     if "result" not in body:
         return _json(RouteGraphResponse(**body), exclude_none=False)
     graph = RouteGraphResult.model_validate(body["result"])

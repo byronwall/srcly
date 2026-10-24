@@ -26,6 +26,8 @@ export interface FlowViewModel {
   byId: Map<string, FlowNode>;
   /** The drawn box that stands for each flow node (itself, or the frame it folded into). */
   shownAs: Map<string, string>;
+  /** The selected origin's proven destinations and the edges that reach them, as drawn ids. */
+  lit: { nodes: Set<string>; edges: Set<string> } | null;
 }
 
 const SYMBOL_KIND: Record<FlowNode["kind"], string> = {
@@ -59,6 +61,7 @@ export function routeGraphToViewModel(graph: RouteGraphResult, opts: FlowViewOpt
     hidden: new Set(),
     byId,
     shownAs: new Map(),
+    lit: null,
   };
   if (!root) return empty;
 
@@ -119,6 +122,7 @@ export function routeGraphToViewModel(graph: RouteGraphResult, opts: FlowViewOpt
     shownAs.set(n.id, p ? shownAs.get(p)! : root.id);
   }
 
+  const litNodes = new Set(graph.destinations.map((id) => shownAs.get(id)).filter((id): id is string => !!id));
   const nodes: ViewNode[] = drawn.map((n) => {
     const parent = parentOf.get(n.id);
     const frame = parent ? byId.get(parent)! : undefined;
@@ -138,6 +142,7 @@ export function routeGraphToViewModel(graph: RouteGraphResult, opts: FlowViewOpt
       isFocus: n === root,
       ...(frame ? { group: { id: frame.id, label: frameLabel(frame), opened: true } } : {}),
       expandable: hiddenInside > 0,
+      ...(litNodes.has(n.id) ? { lit: true } : {}),
       ...(n.kind === "frontier" ? { outline: "hatched" as const } : n.collapsedByDefault ? { outline: "dotted" as const } : {}),
     };
   });
@@ -154,6 +159,7 @@ export function routeGraphToViewModel(graph: RouteGraphResult, opts: FlowViewOpt
     if (!RENDERS.has(n.kind) || !RENDERS.has(byId.get(parent)!.kind)) hidden.add(id);
   }
   const seen = new Set<string>();
+  const litEdges = new Set<string>();
   for (const e of graph.edges) {
     if (e.kind === "render") continue;
     const source = shownAs.get(e.source);
@@ -171,7 +177,9 @@ export function routeGraphToViewModel(graph: RouteGraphResult, opts: FlowViewOpt
       symbols: [],
       style: e.kind === "field" ? "field" : "handoff",
     });
+    if (graph.selectedSource && e.source === graph.selectedSource && e.status === "proven") litEdges.add(`${e.kind}:${e.id}`);
   }
+  const selected = graph.selectedSource ? shownAs.get(graph.selectedSource) : undefined;
 
   return {
     vm: {
@@ -187,6 +195,7 @@ export function routeGraphToViewModel(graph: RouteGraphResult, opts: FlowViewOpt
     hidden,
     byId,
     shownAs,
+    lit: selected ? { nodes: new Set([selected, ...litNodes]), edges: litEdges } : null,
   };
 }
 

@@ -8,6 +8,8 @@ import {
   normalizeScopeName,
   parentAt,
   parseLocation,
+  sameLocation,
+  samePlace,
   toSearch,
   treePathFromAt,
 } from "./location";
@@ -40,6 +42,16 @@ describe("parseLocation / toSearch", () => {
     // Imports mode has no flow param, and the treemap ignores one.
     expect(parseLocation(toSearch({ ...loc, flow: undefined }))).toEqual({ repo: "/r", at: "", view: "graph" });
     expect(parseLocation("?view=treemap&flow=route:abc")).toEqual({ repo: "", at: "", view: "treemap" });
+  });
+
+  it("round-trips a selected origin and destination, which never make a new place", () => {
+    const loc = { repo: "/r", at: "", view: "graph" as const, flow: "route:abc", field: "program-element:1", dest: "route-terminal:2" };
+    expect(parseLocation(toSearch(loc))).toEqual(loc);
+    // A destination needs an origin, and both need Data flow mode.
+    expect(parseLocation("?view=graph&flow=r&dest=d")).toEqual({ repo: "", at: "", view: "graph", flow: "r" });
+    expect(parseLocation("?view=graph&field=f")).toEqual({ repo: "", at: "", view: "graph" });
+    expect(samePlace(loc, { ...loc, field: undefined, dest: undefined })).toBe(true);
+    expect(sameLocation(loc, { ...loc, dest: undefined })).toBe(false);
   });
 
   it("treats the empty root treemap as a bare URL", () => {

@@ -210,6 +210,11 @@ export function DependencyCanvas(props: {
    * flow mode turns them off and shows the box's `note` on that row instead.
    */
   linkCounts?: boolean;
+  /**
+   * Boxes and edges to keep lit while nothing is hovered (Data flow mode's
+   * selected origin and its proven destinations); the rest dim like a hover.
+   */
+  highlight?: { nodes: Set<string>; edges: Set<string> } | null;
 }) {
   let svgRef!: SVGSVGElement;
   let gRef!: SVGGElement;
@@ -364,7 +369,7 @@ export function DependencyCanvas(props: {
   const activeEdges = createMemo(() => {
     const hn = hoverHub() ?? hoverNode() ?? (hoverEdge() ? null : selectedId());
     const he = hoverEdge();
-    if (!hn && !he) return null;
+    if (!hn && !he) return props.highlight ? props.highlight.edges : null;
     const set = new Set<string>();
     for (const e of allEdges()) {
       if (e.id === he || e.source === hn || e.target === hn) set.add(e.id);
@@ -377,6 +382,7 @@ export function DependencyCanvas(props: {
     const set = new Set<string>();
     const hn = hoverHub() ?? hoverNode() ?? (hoverEdge() ? null : selectedId());
     if (hn) set.add(hn);
+    if (props.highlight && !hoverHub() && !hoverNode() && !hoverEdge()) for (const id of props.highlight.nodes) set.add(id);
     for (const e of allEdges()) {
       if (ae.has(e.id)) {
         set.add(e.source);
@@ -1029,13 +1035,13 @@ export function DependencyCanvas(props: {
                           (isFolder ? "var(--plc-surface-muted)" : "var(--plc-surface)"))
                     }
                     stroke={
-                      isFocus
+                      isFocus || n.node.lit
                         ? "var(--plc-accent)"
                         : hoverNode() === n.id || hoverHub() === n.id
                           ? "var(--plc-on-muted)"
                           : isFolder ? "var(--plc-on-disabled)" : "var(--plc-border-strong)"
                     }
-                    stroke-width={isFocus ? 2.25 : isFolder || hub() ? 1.5 : 1}
+                    stroke-width={isFocus ? 2.25 : n.node.lit ? 2 : isFolder || hub() ? 1.5 : 1}
                     stroke-dasharray={n.node.kind === "external" ? EXTERNAL_BOX_DASH : n.node.outline === "dotted" ? DOTTED_BOX_DASH : n.node.outline === "hatched" ? FRONTIER_BOX_DASH : undefined}
                     style={{ transition: "stroke 140ms ease, fill 140ms ease" }}
                   />
