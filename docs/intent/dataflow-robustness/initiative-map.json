@@ -1,0 +1,541 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Data flow robustness",
+    "slug": "dataflow-robustness",
+    "scale": "program",
+    "current_phase": "plan",
+    "last_updated": "2026-10-24",
+    "summary": "Make srcly's Data flow mode dependable after the #104-#117 stack: never wrong (per-box status, no proof-less proven edges, dead ends named), never broken (fake-engine outcome shapes, Playwright smoke, stale end to end), then fast (<=10 s cold on visual-notes). Then carry M6, M4, M8, M7, call identity (M5 edits 1-2), Return, anchor extensions and two visual fixes. Graph is primary; ledger is detail.",
+    "status": "planned",
+    "next_action": "Maintainer approval, then T1 (per-box status in routeGraph) as a PR stacked on the docs PR."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-24"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-24"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-24"
+    },
+    "research": {
+      "path": "research.md",
+      "status": "current",
+      "updated_at": "2026-10-24"
+    },
+    "decision_log": {
+      "path": "decision-log.md",
+      "status": "current",
+      "updated_at": "2026-10-24"
+    },
+    "backlog": {
+      "path": "backlog.md",
+      "status": "current",
+      "updated_at": "2026-10-24"
+    }
+  },
+  "sources": [
+    {
+      "id": "S1",
+      "type": "doc",
+      "location": "tsx-data-flow-graph-visuals/tmp/briefs/2-dataflow-robustness-initiative.md",
+      "anchor": "What this initiative must capture",
+      "authority": "user"
+    },
+    {
+      "id": "S2",
+      "type": "doc",
+      "location": "docs/intent/tsx-dataflow-integration/detailed-plan.md",
+      "anchor": "sections 6, 8, 11 (M4-M8, D1-D8, stop rules)",
+      "authority": "repo"
+    },
+    {
+      "id": "S3",
+      "type": "doc",
+      "location": "docs/intent/tsx-dataflow-integration/measurements.md",
+      "anchor": "M1-M3 tables",
+      "authority": "repo"
+    },
+    {
+      "id": "S4",
+      "type": "repo",
+      "location": "engine/src/srcly/ops/route-graph.ts",
+      "anchor": "line 101 single status",
+      "authority": "repo"
+    },
+    {
+      "id": "S5",
+      "type": "repo",
+      "location": "engine/src/srcly/ops/anchor-graph.ts",
+      "anchor": "declarationRuns 222-265; gaps 335; landed 200",
+      "authority": "repo"
+    },
+    {
+      "id": "S6",
+      "type": "repo",
+      "location": "engine/src/analysis/evidence-slice.ts",
+      "anchor": "disconnected at 247-292",
+      "authority": "repo"
+    },
+    {
+      "id": "S7",
+      "type": "repo",
+      "location": "engine/test/srcly/route-graph-source.test.ts",
+      "anchor": "records origin lights nothing 32-41",
+      "authority": "repo"
+    },
+    {
+      "id": "S8",
+      "type": "repo",
+      "location": "server/tests/fake_engine.py",
+      "anchor": "result_for 48-108",
+      "authority": "repo"
+    },
+    {
+      "id": "qa-round-1",
+      "type": "qa",
+      "location": "conversation",
+      "anchor": "round 1: primary surface, M5 scope, cold budget, carried milestones",
+      "authority": "user"
+    },
+    {
+      "id": "qa-round-2",
+      "type": "qa",
+      "location": "conversation",
+      "anchor": "round 2: speed levers, order after core, workspace, upstream",
+      "authority": "user"
+    },
+    {
+      "id": "qa-round-3",
+      "type": "qa",
+      "location": "conversation",
+      "anchor": "round 3: robust order, corpus, anchor extensions, visuals",
+      "authority": "user"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "The graph is the primary surface; the ledger is a detail opened from a box or edge.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C2",
+        "statement": "Robust means, in order: never wrong, never broken, fast.",
+        "kind": "goal",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C3",
+        "statement": "Cold first result <= 10 s on visual-notes app/.",
+        "kind": "constraint",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C4",
+        "statement": "Speed levers: disk cache by programHash, perf-only analysis edits, scoped Program; no warming at scan time; pick by measurement and improve over time.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C5",
+        "statement": "M5 limited to call identity (edits 1-2).",
+        "kind": "decision",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C6",
+        "statement": "Carry M4, M6, M7, M8; M6 first after the core.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-1",
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C7",
+        "statement": "Drop the investigation workspace and pinned preview; keep view-state Return.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C8",
+        "statement": "engine/ is srcly's fork for now; analysis edits allowed and recorded for possible backport; byte identity not a goal.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C9",
+        "statement": "Anchor extensions in scope: file/folder via exports, history, multiple anchors.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C10",
+        "statement": "Visuals in scope: dark-theme colors and label overlap only.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C11",
+        "statement": "Python data flow is a separate session; reference only.",
+        "kind": "boundary",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      }
+    ],
+    "themes": [
+      "proof honesty",
+      "test net",
+      "cold performance",
+      "graph surface",
+      "carried milestones"
+    ],
+    "conflicts": [
+      {
+        "id": "X1",
+        "description": "C8 answer mixed 'fork' with 'keep them byte identical'; read as fork now, backport-friendly ledger.",
+        "resolution": "R9 in decision-log.md",
+        "sources": [
+          "qa-round-2"
+        ]
+      }
+    ],
+    "human_questions": [],
+    "question_rounds": [
+      {
+        "round": 1,
+        "questions": 4,
+        "topics": [
+          "primary surface",
+          "M5 scope",
+          "cold budget",
+          "carried milestones"
+        ],
+        "source": "qa-round-1"
+      },
+      {
+        "round": 2,
+        "questions": 4,
+        "topics": [
+          "speed levers",
+          "order after core",
+          "workspace",
+          "upstream"
+        ],
+        "source": "qa-round-2"
+      },
+      {
+        "round": 3,
+        "questions": 4,
+        "topics": [
+          "robust order",
+          "corpus",
+          "anchor extensions",
+          "visuals"
+        ],
+        "source": "qa-round-3"
+      }
+    ]
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Program of small stacked revertible PRs; core (E1-E3) first.",
+    "problem": "Data flow mode works but over-claims proof, has thin failure tests, and is 7x over the cold budget on large apps.",
+    "recommended_shape": "Honesty before coverage before speed; progressive graph + profile-led analysis perf as the main speed path; scoped Program gated on call identity.",
+    "success_moves": [
+      "Fix honesty in srcly projection ops (no analysis edits) before anything else",
+      "Profile before any perf edit (T8 before T10)",
+      "Gate the scoped Program on call identity to avoid call-site undercount",
+      "Fake engine shapes generated from emitted JSON Schemas",
+      "Every perf change must leave fixture proven sets byte-identical"
+    ],
+    "first_proof": {
+      "question": "Can route-graph status be per box from data the engine already emits?",
+      "artifact": "routeGraph on solid-route /records and visual-notes /time-blocks with per-box status and a fixture test",
+      "decision_rule": "If most gaps are unlocated, use occurrence omissions (R14); never inherit the route status."
+    },
+    "rabbit_holes": [
+      "Scoped Program before call identity",
+      "Name anchors beyond identifiers",
+      "Legend and a11y polish"
+    ],
+    "open_decisions": [
+      "T8 decides T9 vs T10 first",
+      "T19 export anchor meaning"
+    ]
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": "srcly",
+      "revision": "b164b3c",
+      "worktree_status": "clean",
+      "subsystems": [
+        "engine/src/srcly",
+        "engine/src/analysis",
+        "server/app/services/dataflow",
+        "client/src/viz/deps/flow",
+        "client/src/dataflow"
+      ],
+      "test_commands": [
+        "cd engine && pnpm test && pnpm typecheck && pnpm lint",
+        "cd server && uv run pytest",
+        "cd client && pnpm test && pnpm exec tsc -b"
+      ],
+      "deployment_surfaces": [
+        "PyPI wheel (M8)"
+      ]
+    },
+    "dependencies": [
+      {
+        "id": "node-engine",
+        "name": "Node engine child over stdio",
+        "first_proof_role": "real",
+        "seam": "server/app/services/dataflow/engine.py",
+        "proof_strategy": "fixture contract tests -> fake engine all shapes -> real engine Playwright on solid-route -> local corpus measurement"
+      },
+      {
+        "id": "corpus",
+        "name": "visual-notes app/ and srcly client/",
+        "first_proof_role": "real",
+        "seam": "local measurement scripts",
+        "proof_strategy": "measured locally, recorded in measurements.md"
+      }
+    ],
+    "fast_local_loop": {
+      "command": "cd engine && pnpm vitest run test/srcly"
+    },
+    "milestones": [
+      {
+        "id": "E1",
+        "title": "Never wrong",
+        "status": "planned",
+        "tickets": [
+          "T1",
+          "T2",
+          "T3",
+          "T4"
+        ],
+        "depends_on": [],
+        "outcome": "Every box and edge claims only what it proved; every path end is explained.",
+        "proof": "Engine fixture tests on solid-route and value-flow-basics; corpus anchors listed in PR bodies.",
+        "valid_intermediate_state": "Projection-only changes; analysis untouched until T4.",
+        "rollback": "Revert each ticket PR; contracts re-emitted.",
+        "dependencies_introduced": [],
+        "evidence": []
+      },
+      {
+        "id": "E2",
+        "title": "Never broken",
+        "status": "planned",
+        "tickets": [
+          "T5",
+          "T6",
+          "T7"
+        ],
+        "depends_on": [
+          "E1"
+        ],
+        "outcome": "Every failure is named and regressions are caught before merge.",
+        "proof": "Parametrized fake-engine router/client tests; Playwright CI job on solid-route.",
+        "valid_intermediate_state": "Tests only plus fake engine changes; product unchanged.",
+        "rollback": "Revert the test PRs.",
+        "dependencies_introduced": [],
+        "evidence": []
+      },
+      {
+        "id": "E3",
+        "title": "Fast",
+        "status": "planned",
+        "tickets": [
+          "T8",
+          "T9",
+          "T10",
+          "T11",
+          "T12"
+        ],
+        "depends_on": [
+          "E2"
+        ],
+        "outcome": "Cold first result <= 10 s on visual-notes; reopen < 3 s.",
+        "proof": "measurements.md rows; byte-identical fixture proven sets.",
+        "valid_intermediate_state": "Each lever behind an SRCLY_DATAFLOW_* switch until measured twice.",
+        "rollback": "Turn the switch off or revert.",
+        "dependencies_introduced": [
+          "node-engine"
+        ],
+        "evidence": []
+      },
+      {
+        "id": "E4",
+        "title": "Call identity",
+        "status": "planned",
+        "tickets": [
+          "T13"
+        ],
+        "depends_on": [
+          "E2"
+        ],
+        "outcome": "Two calls of one helper never join.",
+        "proof": "two-call-identity-helper and returns-other-argument fixtures; line 88 vs 109.",
+        "valid_intermediate_state": "Older facts without callId keep the one-call-site rule.",
+        "rollback": "Revert the two analysis edits; UPSTREAM.md row removed.",
+        "dependencies_introduced": [],
+        "evidence": []
+      },
+      {
+        "id": "E5",
+        "title": "Effects (M6)",
+        "status": "planned",
+        "tickets": [
+          "T14",
+          "T15"
+        ],
+        "depends_on": [
+          "E3"
+        ],
+        "outcome": "Effects of a function shown on its box and in the code viewer.",
+        "proof": "21-case fixture; three M6 anchors.",
+        "valid_intermediate_state": "Op available before UI.",
+        "rollback": "Revert op and panel.",
+        "dependencies_introduced": [],
+        "evidence": []
+      },
+      {
+        "id": "E6",
+        "title": "Graph surface",
+        "status": "planned",
+        "tickets": [
+          "T16",
+          "T17",
+          "T18",
+          "T19",
+          "T20",
+          "T21",
+          "T22"
+        ],
+        "depends_on": [
+          "E2"
+        ],
+        "outcome": "Graph explains edges, returns precisely, traces files and multiple anchors, reads in dark theme.",
+        "proof": "Playwright screenshots; edge/ledger status agreement; Return p95 <= 150 ms.",
+        "valid_intermediate_state": "Each ticket independent behind its own entry point.",
+        "rollback": "Revert per ticket.",
+        "dependencies_introduced": [],
+        "evidence": []
+      },
+      {
+        "id": "E7",
+        "title": "Ship",
+        "status": "planned",
+        "tickets": [
+          "T23",
+          "T24"
+        ],
+        "depends_on": [
+          "E5"
+        ],
+        "outcome": "Data flow ships in the wheel; supporting metrics opt-in.",
+        "proof": "Clean-venv uvx smoke; catalog snapshot tests.",
+        "valid_intermediate_state": "Released wheel shows N/A until M8 lands.",
+        "rollback": "Revert build change; metrics N/A.",
+        "dependencies_introduced": [],
+        "evidence": []
+      },
+      {
+        "id": "E8",
+        "title": "Engine hygiene",
+        "status": "planned",
+        "tickets": [
+          "T25",
+          "T26"
+        ],
+        "depends_on": [],
+        "outcome": "Fork edits are ledgered; engine registry robust across roots.",
+        "proof": "UPSTREAM.md table; registry test with four roots.",
+        "valid_intermediate_state": "Docs and tests only.",
+        "rollback": "Revert.",
+        "dependencies_introduced": [],
+        "evidence": []
+      }
+    ],
+    "cut_line": [
+      "M5 For-over-call and identifier-prop edits",
+      "D3 branch graph",
+      "name anchors beyond identifiers",
+      "multi-line JSX anchors",
+      "legend length",
+      "inspector width at 1024",
+      "keyboard and screen reader",
+      "warm at scan",
+      "parallel route workers",
+      "SSE progress",
+      "upstream backports"
+    ],
+    "open_decisions": [
+      "T8 -> T9 or T10 first",
+      "T19 export anchor meaning"
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-24",
+      "event": "created",
+      "phase": "plan",
+      "note": "Intent, shape, research, decision log, plan (T1-T3 ready), backlog after three question rounds."
+    }
+  ],
+  "closure": null
+}
