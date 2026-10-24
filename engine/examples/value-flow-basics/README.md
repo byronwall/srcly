@@ -7,4 +7,6 @@ Fixtures for the value-flow ledger (`valueFlow` op). Each file is one case:
 - `null-vs-finite.tsx`: `count ?? 0` keeps zero; `maybe!` is an assertion, not a check.
 - `two-call-helper.tsx`: one helper called twice. Until invocation identity lands, the walk stops at the helper with a `boundary` row (`unproven-handoff`) instead of joining the two calls.
 - `destructured-props.tsx`: a component that destructures `{ viewer }`. A declaration anchor finds the read through the engine's `references` relation, not by matching `props.` in the source.
+- `dead-end.tsx`: a value assigned to a local nothing reads, and a value handed to an untyped callback. Each forward walk ends at a dead-end frontier (`disconnected`), never quietly.
+- `literal-start.tsx`: `const label = "x"` rendered. The backward walk ends at the literal, a natural start: no frontier, outcome `ok`.
 - `half-landed.tsx`: a component whose `title` prop comes from a resource and whose `count` prop comes from `Math.random()`. A declaration anchor on `Pair` reads `partial`: one prop walk stops.

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type * as TypeScript from "typescript";
 import { queryEvidenceSlice } from "../../analysis/evidence-slice";
-import { DEFAULT_BOUNDARY_POLICY, scopePolicy, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
+import { DEFAULT_BOUNDARY_POLICY, scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
 import type { AnalysisCancellationToken } from "../../analysis/cancellation";
 import {
   selectExpressionResultSchema,
@@ -13,7 +13,7 @@ import {
 } from "../contracts/value-flow";
 import { EngineError } from "../protocol";
 import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex, type CallSites } from "../call-sites";
-import { callSitesOfElement, CROSS_CALL, elementsAt, seedFor, TERMINAL_KINDS } from "../facts";
+import { callSitesOfElement, CROSS_CALL, elementsAt, externalCallee, naturalEnd, seedFor, TERMINAL_KINDS } from "../facts";
 import { candidatesAt, parseSpan, sameSpan, sourceFileFor, spanOf, type Span } from "../selection";
 import { checkGeneration, type EngineSession, type Tier1 } from "../session";
 
@@ -79,6 +79,8 @@ export function valueFlowOp(session: EngineSession, params: Record<string, unkno
 
 class LedgerBuilder {
   private rows: LedgerRow[] = [];
+  /** Elements the forward walk visited: a dead end counts only where the walk went. */
+  private readonly visited = new Set<string>();
   private readonly root: string;
   private readonly checker: TypeScript.TypeChecker;
   private readonly sites: CallSiteIndex;
@@ -118,6 +120,7 @@ class LedgerBuilder {
     });
     this.rows[0].proof = slice.elements.find((element) => element.id === seed)?.proof ?? [];
     this.walk(seed, slice.elements, slice.relations, span);
+    this.deadEnds(slice.elements, slice.gaps);
     const exhausted = slice.coverage.truncation.budget;
     const outcome = this.rows.some((row) => row.kind === "boundary") ? "partial" : this.rows.some((row) => row.kind === "terminal") ? "ok" : exhausted ? "budget" : "partial";
     return this.finish(selection, outcome, null, {
@@ -235,6 +238,35 @@ class LedgerBuilder {
     this.add({ kind: "boundary", label: `${callee}(…)`, file, ...at, status: "partial", typeText, reason: "unproven-handoff", note: describeSites(callee, sites) });
   }
 
+  /**
+   * The same rule as the anchor graph (R16): a `disconnected` gap is a dead
+   * end unless the element is where a value naturally begins. A dead end is a
+   * boundary row, so the ledger and the graph agree on where a path stops.
+   */
+  private deadEnds(elements: readonly ProgramElement[], gaps: readonly EvidenceGap[]) {
+    const byId = new Map(elements.map((element) => [element.id, element]));
+    for (const gap of gaps) {
+      if (gap.reason !== "disconnected" || !gap.from || !gap.location) continue;
+      const element = byId.get(gap.from);
+      // Only where the ledger's own walk went: a gap past a boundary it already stopped at is not a second stop.
+      if (!element || !this.visited.has(element.id) || naturalEnd(this.tier1, element) || this.rows.some((row) => row.kind === "boundary" && row.elementId === element.id)) continue;
+      if (this.rows.length >= MAX_ROWS) return;
+      const callee = externalCallee(this.tier1, element);
+      this.add({
+        kind: "boundary",
+        label: element.label,
+        file: element.location.file,
+        span: element.location.span,
+        status: "partial",
+        elementId: element.id,
+        proof: gap.proof,
+        typeText: null,
+        reason: callee ? "external-code" : "disconnected",
+        note: callee ? `${callee} is outside the program's own source; its return is not traced` : "dead end · nothing continues from here",
+      });
+    }
+  }
+
   /** The forward slice from the seed, depth first, in FOLLOW order; dead ends are dropped. */
   private walk(seed: string, elements: readonly ProgramElement[], relations: readonly ProgramRelation[], seedSpan: Span) {
     const byId = new Map(elements.map((element) => [element.id, element]));
@@ -244,7 +276,8 @@ class LedgerBuilder {
       (out.get(relation.from) ?? out.set(relation.from, []).get(relation.from)!).push(relation);
     }
     const rank = (kind: string) => (CROSS_CALL.has(kind) ? FOLLOW.length : FOLLOW.indexOf(kind) < 0 ? FOLLOW.length + 1 : FOLLOW.indexOf(kind));
-    const visited = new Set<string>([seed]);
+    const visited = this.visited;
+    visited.add(seed);
     const crossed = new Set<CallSites | string>();
     type Step = { relation: ProgramRelation; element: ProgramElement; kind: LedgerRow["kind"]; note: string | null; reason: string | null };
     // Returns the steps of one path that ends at a terminal or a boundary, or null for a dead end.
