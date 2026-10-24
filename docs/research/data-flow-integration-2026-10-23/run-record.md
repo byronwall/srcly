@@ -28,13 +28,13 @@ Completion: collect and read Pro deliverables, verify decisive claims, integrate
 - Attachments verified: srcly-pro-prompt.md and source-packet(5).zip. ChatGPT renamed the ZIP during upload; the sent instruction uses its observed name.
 - Sent message verified. Pro began inspecting uploaded files and archive contents.
 - First check target: about 10:34 p.m. America/Indianapolis on October 23.
-- Phase: collected, read, verified, and integrated; PR pending. Follow-ups: 0.
+- Phase: complete. Follow-ups: 0. PR: https://github.com/byronwall/srcly/pull/102.
 
 ## Scheduled continuation
 
 - Heartbeat ID: collect-srcly-data-flow-design.
-- Status: ACTIVE; verified in the automation configuration.
-- Schedule: hourly at minute 34. First check: October 23 at 10:34 p.m. America/Indianapolis.
+- Status: deleted after completion; deletion confirmed by the automation tool.
+- Former schedule: hourly at minute 34. Collection began at about 10:36 p.m. Eastern on October 23.
 - Target: this chat, 01a16b86-ee42-7711-b6a9-44af3f381b48.
 - Byron explicitly approved hourly collection, claim verification, research and plan edits, branch push, and PR creation.
 - Stop the monitor when the verified PR completes the run. Stay quiet while Pro remains running without a meaningful change.
@@ -59,3 +59,11 @@ Keep downloaded originals in ignored tmp/pro/. Check archive paths before extrac
 - Wrote the research README, all 18 recommendation dispositions, verification notes, and the two-milestone implementation plan.
 - No follow-up needed. No application, analyzer, tests, builds, or browser acceptance ran. No tsx-data-flow files changed.
 - Validation: local Markdown links, fence balance, and git diff whitespace checks. No dedicated repository docs/format script exists.
+
+## Completion
+
+- PR: https://github.com/byronwall/srcly/pull/102, open against main from codex/data-flow-integration-research.
+- Verified the saved PR body and all seven files: research/planning Markdown only. Attached the PR to this chat.
+- Research branch pushed. No implementation or merge performed.
+- Deleted collect-srcly-data-flow-design after the completion checks passed. The automation tool confirmed deletion.
+- This run is complete; review the proposal before implementation.
