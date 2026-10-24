@@ -21,7 +21,9 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: client/pnpm-lock.yaml
+          cache-dependency-path: |
+            client/pnpm-lock.yaml
+            engine/pnpm-lock.yaml
       - uses: astral-sh/setup-uv@v10.2.0
         with:
           python-version: "3.13"
@@ -41,6 +43,15 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Test client
         working-directory: client
+        run: pnpm test
+      - name: Install engine dependencies
+        working-directory: engine
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck engine
+        working-directory: engine
+        run: pnpm typecheck
+      - name: Test engine
+        working-directory: engine
         run: pnpm test
       - name: Test server
         working-directory: server

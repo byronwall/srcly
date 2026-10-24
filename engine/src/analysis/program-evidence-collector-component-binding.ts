@@ -1,0 +1,176 @@
+import * as TypeScript from "typescript";
+import type { CollectorFunctionInfo } from "./program-evidence-collector-support";
+import { ProgramEvidenceCollectorBoundaryProcessing } from "./program-evidence-collector-boundary-processing";
+import { proof } from "./program-evidence-support";
+
+type PendingComponentPropBinding = {
+  opening: TypeScript.JsxOpeningLikeElement;
+  attribute: TypeScript.JsxAttribute;
+  valueId: string;
+  occurrenceId: string;
+  ownerId: string | null;
+  target: CollectorFunctionInfo;
+};
+
+type ComponentPropReceiver = {
+  node: TypeScript.PropertyAccessExpression;
+  elementId: string;
+  parameterId: string;
+  parameter: TypeScript.ParameterDeclaration;
+};
+
+/** Collect exact JSX-to-component parameter member evidence after node facts exist. */
+export class ProgramEvidenceCollectorComponentBindingSupport extends ProgramEvidenceCollectorBoundaryProcessing {
+  protected readonly pendingComponentPropBindings: PendingComponentPropBinding[] = [];
+
+  protected queueComponentPropBinding(
+    opening: TypeScript.JsxOpeningLikeElement,
+    attribute: TypeScript.JsxAttribute,
+    valueId: string,
+    occurrenceId: string,
+    ownerId: string | null,
+    target: CollectorFunctionInfo,
+  ): void {
+    this.pendingComponentPropBindings.push({ opening, attribute, valueId, occurrenceId, ownerId, target });
+  }
+
+  protected connectComponentPropBindings(): void {
+    for (const pending of this.pendingComponentPropBindings) {
+      this.checkCancellation();
+      const propName = staticPropName(this.ts, pending.attribute);
+      if (!propName) continue;
+      const receivers = this.componentPropReceivers(pending.target, propName);
+      if (receivers.length === 0) continue;
+      for (const receiver of receivers) {
+        this.checkCancellation();
+        const bindingId = this.ensureElement(
+          pending.attribute,
+          "component-prop-binding",
+          pending.ownerId,
+          {
+            propName,
+            valueMode: componentPropValueMode(this.ts, pending.attribute),
+            sourceFieldName: componentPropSourceField(this.ts, pending.attribute),
+            componentOccurrenceElementId: pending.occurrenceId,
+            componentDefinitionId: pending.target.id,
+            parameterElementId: receiver.parameterId,
+            receiverElementId: receiver.elementId,
+            candidateCount: 1,
+          },
+          null,
+          null,
+          pending.target.id,
+          "proven",
+          proof(
+            "component-prop-binding",
+            "The static JSX prop has one exact in-project component parameter member binding.",
+            [this.location(pending.opening), this.location(pending.attribute), this.location(receiver.parameter), this.location(receiver.node)],
+          ),
+        );
+        this.addRelation(
+          pending.valueId,
+          bindingId,
+          "component-prop-binding",
+          [this.location(pending.attribute), this.location(receiver.node)],
+          proof(
+            "component-prop-binding",
+            "The component-prop value reaches one occurrence-specific binding with one compiler-backed receiver.",
+            [this.location(pending.attribute), this.location(receiver.parameter), this.location(receiver.node)],
+          ),
+          "proven",
+        );
+        this.addRelation(
+          bindingId,
+          receiver.elementId,
+          "component-prop-binding",
+          [this.location(pending.attribute), this.location(receiver.node), this.location(receiver.parameter)],
+          proof(
+            "component-prop-binding",
+            "The binding element points to the parameter-rooted receiver by compiler symbol and property evidence.",
+            [this.location(pending.attribute), this.location(receiver.node), this.location(receiver.parameter)],
+          ),
+          "proven",
+        );
+      }
+    }
+    this.pendingComponentPropBindings.length = 0;
+    this.checkCancellation();
+  }
+
+  private componentPropReceivers(
+    target: CollectorFunctionInfo,
+    propName: string,
+  ): ComponentPropReceiver[] {
+    this.checkCancellation();
+    if (target.declaration.parameters.length !== 1) return [];
+    const parameter = target.declaration.parameters[0];
+    if (!this.ts.isIdentifier(parameter.name) || parameter.dotDotDotToken || parameter.questionToken || parameter.initializer) return [];
+    const parameterSymbol = this.checker.getSymbolAtLocation(parameter.name);
+    const parameterId = parameterSymbol
+      ? this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "") ?? null
+      : null;
+    if (!parameterSymbol || !parameterId) return [];
+    const parameterType = this.checker.getTypeAtLocation(parameter.name);
+    const expectedProperty = this.checker.getPropertyOfType(parameterType, propName);
+    if (!expectedProperty || expectedProperty.flags & this.ts.SymbolFlags.Optional) return [];
+
+    const receivers: ComponentPropReceiver[] = [];
+    const visit = (node: TypeScript.Node) => {
+      this.checkCancellation();
+      if (
+        this.ts.isPropertyAccessExpression(node)
+        && !node.questionDotToken
+        && this.ts.isIdentifier(node.expression)
+        && node.name.text === propName
+        && sameCompilerSymbol(this.checker.getSymbolAtLocation(node.expression), parameterSymbol)
+        && sameCompilerSymbol(this.checker.getSymbolAtLocation(node.name), expectedProperty)
+      ) {
+        receivers.push({
+          node,
+          elementId: this.elementFor(node, "field-read"),
+          parameterId,
+          parameter,
+        });
+      }
+      this.ts.forEachChild(node, visit);
+    };
+    visit(target.declaration);
+    this.checkCancellation();
+    return receivers;
+  }
+}
+
+function componentPropValueMode(
+  ts: typeof TypeScript,
+  attribute: TypeScript.JsxAttribute,
+): "whole-object" | "scalar-alias" | null {
+  const expression = attribute.initializer && ts.isJsxExpression(attribute.initializer)
+    ? attribute.initializer.expression
+    : null;
+  if (expression && ts.isCallExpression(expression)) return "whole-object";
+  if (expression && ts.isPropertyAccessExpression(expression) && ts.isCallExpression(expression.expression)) {
+    return "scalar-alias";
+  }
+  return null;
+}
+
+function componentPropSourceField(
+  ts: typeof TypeScript,
+  attribute: TypeScript.JsxAttribute,
+): string | null {
+  const expression = attribute.initializer && ts.isJsxExpression(attribute.initializer)
+    ? attribute.initializer.expression
+    : null;
+  return expression && ts.isPropertyAccessExpression(expression) ? expression.name.text : null;
+}
+
+function staticPropName(ts: typeof TypeScript, attribute: TypeScript.JsxAttribute): string | null {
+  return ts.isIdentifier(attribute.name) ? attribute.name.text : null;
+}
+
+function sameCompilerSymbol(
+  left: TypeScript.Symbol | undefined,
+  right: TypeScript.Symbol | undefined,
+): boolean {
+  return Boolean(left && right && left === right);
+}

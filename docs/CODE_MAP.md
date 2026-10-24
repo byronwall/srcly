@@ -272,12 +272,27 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist live
 | Fonts | Inter + IBM Plex Mono, self-hosted via `@fontsource`, wired to Tailwind `font-sans` / `font-mono` in `client/src/index.css` |
 | Design system spec | `DESIGN.md` (tokens mirrored as `--plc-*` CSS vars in `client/src/index.css`) |
 
+### Data flow (engine)
+
+The tsx-data-flow analysis lives in `engine/`, a standalone Node package with its own lockfile. Plan: `docs/intent/tsx-dataflow-integration/detailed-plan.md`.
+
+| Feature | Where |
+| --- | --- |
+| Engine package, provenance (copied SHA, what moved, what stayed behind) | `engine/package.json`, `engine/UPSTREAM.md`, `engine/README.md` |
+| Project loading, tsconfig resolution, TypeScript program | `engine/src/project/` |
+| Analysis: evidence collection, slices, route totality, field lineage | `engine/src/analysis/` (copied unchanged; never edited for srcly-specific recognition) |
+| Zod contracts and projections | `engine/src/api/` |
+| Worker-thread analysis service, cache, source excerpts | `engine/src/service/` |
+| Fixture projects (Solid route, compact field proof, bad-ish Solid) | `engine/examples/` |
+| Field proof acceptance runner | `engine/scripts/accept-route-field-proof.ts` |
+
 ## Tests
 
 | Area | Where | Run |
 | --- | --- | --- |
 | Backend | `server/tests/test_*.py` | `cd server && uv run pytest` |
 | Client utils | `client/src/utils/*.test.ts` | `cd client && pnpm test` |
+| Data-flow engine | `engine/test/**/*.test.ts` | `cd engine && pnpm test && pnpm typecheck` |
 | Dependency view geometry (aspect band, box crossings, crossing baseline) | `client/src/viz/deps/*.test.ts` | `cd client && pnpm test -- viz/deps compare/graphModel` |
 
 ## Other docs

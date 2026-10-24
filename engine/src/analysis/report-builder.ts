@@ -1,0 +1,383 @@
+import type * as TypeScript from "typescript";
+import type { AnalysisGraph, AnalyzerArgs, CrossFileState, ProgramRouting, Sink } from "../types";
+import { countDistinctUnknownEdges, createGraph } from "./graph";
+import { compareBaseline } from "./baseline-compare";
+import { unique } from "./collections";
+import { buildComponentRefs } from "./component-refs";
+import { analyzeContextRelay } from "./context-relay";
+import { applyPackEvidence, computePackGroups } from "./pack-groups";
+import { familyRows, rankSinks } from "./ranking";
+import { groundReachability } from "./reachability";
+import { analyzeSourceFile, buildHelperReport } from "./source-file";
+import { buildUnknownEdgeRows } from "./unknown-edges";
+import { computeConcentration, computeWorkUnits } from "./work-units";
+import { shouldAnalyzeFile } from "../project/files";
+import { buildIdentityIndex, type IdentityIndex } from "./identity";
+import type { AnalyzerProgressReporter } from "./progress";
+import { analyzeRouteData } from "./route-data";
+import { loadHiddenComponentPolicy } from "../project/hidden-component-config";
+
+export function buildReport(
+  ts: typeof TypeScript,
+  program: TypeScript.Program,
+  args: AnalyzerArgs,
+  typescriptModulePath: string | null = null,
+  routing: ProgramRouting | null = null,
+  preparedIdentityIndex: IdentityIndex | null = null,
+  reportProgress?: AnalyzerProgressReporter,
+) {
+  const checker = program.getTypeChecker();
+  // Configuration is validated during analysis, but it only travels to the
+  // route-data DTO. The analyzer graph and every Markdown projection remain
+  // complete and policy-independent.
+  const hiddenComponentPolicy = loadHiddenComponentPolicy(args.root);
+  const graph = createGraph(args.root);
+  const sourceFiles = program
+    .getSourceFiles()
+    .filter((sourceFile: TypeScript.SourceFile) => !sourceFile.isDeclarationFile)
+    .filter((sourceFile: TypeScript.SourceFile) => shouldAnalyzeFile(sourceFile.fileName, args));
+  const sinks: Sink[] = [];
+
+  // Shared cross-file state: a static catalog of first-party functions, a
+  // per-file context cache, and the set of functions actually reached while
+  // tracing render paths. Built before tracing so descent can consult it.
+  const crossFile: CrossFileState = {
+    args,
+    contextCache: new Map(),
+    catalog: new Map(),
+    reached: new Set(),
+    // Hard safety cap on total cross-file descents per report, so a pathological
+    // call graph can't run the graph out of memory regardless of depth.
+    budget: 20000,
+    identityIndex: preparedIdentityIndex ?? buildIdentityIndex(ts, routing?.programs ?? [program], args.root),
+  };
+
+  const forks: ReturnType<typeof analyzeSourceFile>["forks"] = [];
+  const traceCandidates = new Set(sourceFiles.map((sourceFile) => sourceFile.fileName));
+  if (routing) for (const file of routing.byFile.keys()) traceCandidates.add(file);
+  reportProgress?.({ step: "trace", message: `Tracing render paths in ${traceCandidates.size} files`, completed: 0, total: traceCandidates.size });
+  // Trace each file exactly once. When a file is owned by an aliased config (see
+  // buildProgramRouting), use that config's program/checker so its path-alias
+  // imports resolve; otherwise use the primary program. Nodes and the checker
+  // that resolves them must come from the same program, so owned files are traced
+  // from their owner program's SourceFile objects.
+  const traced = new Set();
+  const traceFile = (sourceFile: TypeScript.SourceFile, useChecker: TypeScript.TypeChecker) => {
+    if (sourceFile.isDeclarationFile) return;
+    if (!shouldAnalyzeFile(sourceFile.fileName, args)) return;
+    if (traced.has(sourceFile.fileName)) return;
+    traced.add(sourceFile.fileName);
+    const analysis = analyzeSourceFile(
+      ts,
+      useChecker,
+      graph,
+      sourceFile,
+      args,
+      crossFile,
+    );
+    sinks.push(...analysis.sinks);
+    forks.push(...analysis.forks);
+    reportProgress?.({ step: "trace", message: "Tracing render paths", completed: traced.size, total: traceCandidates.size, file: sourceFile.fileName });
+  };
+  if (routing) {
+    for (const ownerProgram of routing.programs) {
+      for (const sourceFile of ownerProgram.getSourceFiles()) {
+        const owned = routing.byFile.get(sourceFile.fileName);
+        if (owned && owned.program === ownerProgram) {
+          traceFile(sourceFile, owned.checker);
+        }
+      }
+    }
+  }
+  for (const sourceFile of sourceFiles) {
+    traceFile(sourceFile, checker);
+  }
+
+  const summaryProgress = (message: string) => reportProgress?.({ step: "summarize", message });
+  summaryProgress("Ranking findings and building cross-file summaries");
+
+  const fileMatch = makeFileMatcher(args.file);
+  const scopedSinks = applyScope(sinks, args.scope);
+  const filteredSinks = fileMatch
+    ? scopedSinks.filter((sink: Sink) => fileMatch(sink.file))
+    : scopedSinks;
+  summaryProgress("Grounding sink reachability");
+  groundReachability(filteredSinks);
+  for (const sink of filteredSinks) {
+    for (const evidence of [sink.identity, ...(sink.traceIdentities ?? [])]) {
+      if (evidence) evidence.totalReach = sink.metrics.reachableSinks;
+    }
+  }
+  summaryProgress("Sink reachability grounding complete");
+  summaryProgress("Analyzing context relay boundaries");
+  const scopedRelay = applyContextRelayScope(
+    analyzeContextRelay(ts, sourceFiles, args.root),
+    args.scope,
+  );
+  const contextRelay = fileMatch
+    ? scopedRelay.filter(
+        (finding) =>
+          fileMatch(finding.parentFile) || fileMatch(finding.childFile),
+      )
+    : scopedRelay;
+  summaryProgress("Context relay boundary analysis complete");
+  summaryProgress("Computing pack groups and shared evidence");
+  const packGroups = computePackGroups(filteredSinks);
+  applyPackEvidence(filteredSinks, packGroups);
+  summaryProgress("Pack groups and shared evidence complete");
+  summaryProgress("Ranking findings");
+  const rankings = rankSinks(
+    filteredSinks.filter(
+      (sink: Sink) => sink.category !== "event-handler" && !isConstantSink(sink),
+    ),
+  );
+  for (const sink of rankings.all) {
+    for (const evidence of [sink.identity, ...(sink.traceIdentities ?? [])]) {
+      if (!evidence || !evidence.traceComplete) continue;
+      evidence.attachedFindingIds = sink.tier === "finding" ? [sink.id] : [];
+      evidence.evidenceLevel = sink.metrics.impossibleDefenseCount > 0
+        ? "proven-unnecessary"
+        : sink.tier === "finding" ? "suspicious-transformation" : "fact";
+    }
+  }
+  // Shared-cause work units (Approach 3) and the concentration profile
+  // (Approach 5) are pure roll-ups over the burden ranking; compute once so
+  // every view projects from the same data.
+  summaryProgress("Computing shared work units and concentration");
+  const workUnits = computeWorkUnits(rankings.all);
+  const concentration = computeConcentration(rankings.all);
+  summaryProgress("Shared work units and concentration complete");
+  summaryProgress("Building helper report");
+  const allHelpers = buildHelperReport(
+    ts,
+    checker,
+    crossFile,
+    args,
+    sourceFiles,
+  );
+  const helpers = fileMatch
+    ? allHelpers.filter((helper) => fileMatch(helper.file))
+    : allHelpers;
+  summaryProgress("Helper report complete");
+  summaryProgress("Collecting unknown graph edges");
+  const unknownEdges = buildUnknownEdgeRows(graph, filteredSinks);
+  summaryProgress("Unknown graph edge collection complete");
+  summaryProgress("Building component references");
+  const allComponentRefs = buildComponentRefs(
+    ts,
+    checker,
+    sourceFiles,
+    args.root,
+  );
+  const componentRefs = fileMatch
+    ? allComponentRefs.filter(
+        (ref) => fileMatch(ref.file) || ref.uses.some((u: { file: string }) => fileMatch(u.file)),
+      )
+    : allComponentRefs;
+  summaryProgress("Component reference analysis complete");
+  summaryProgress("Relating repeated render forks");
+  const repeatedForks = relateForks(
+    fileMatch ? forks.filter((fork) => fileMatch(fork.file)) : forks,
+    filteredSinks,
+  ).sort((left, right) => right.severity - left.severity);
+  summaryProgress("Repeated render fork analysis complete");
+  summaryProgress(args.baseline ? "Comparing the baseline report" : "Preparing report baseline");
+  const baseline = args.baseline
+    ? compareBaseline(rankings, args.baseline)
+    : null;
+  summaryProgress("Report baseline preparation complete");
+  summaryProgress("Building route-data graph and trajectories");
+  const routeData = analyzeRouteData(ts, program, args.root, filteredSinks, rankings.all);
+  summaryProgress("Route-data graph and trajectory construction complete");
+  const generatedAt = new Date().toISOString();
+  summaryProgress("Preparing final report summary");
+  const summary = summarize(filteredSinks, graph, { familyRows, unique });
+  summaryProgress("Final report summary complete");
+
+  return {
+    analysisVersion: 1,
+    generatedAt,
+    meta: {
+      root: args.root,
+      source: args.source,
+      tsconfig: args.tsconfig ?? null,
+      tsconfigs: args.tsconfigs ?? (args.tsconfig ? [args.tsconfig] : []),
+      tsconfigWarnings: args.tsconfigWarnings ?? [],
+      typescript: typescriptModulePath,
+      scope: args.scope,
+      file: args.file.length ? args.file : null,
+      hiddenComponentPolicy,
+    },
+    graph: {
+      nodes: graph.nodes,
+      edges: graph.edges,
+      unknownEdges: countDistinctUnknownEdges(graph),
+    },
+    sinks: filteredSinks,
+    contextRelay,
+    rankings,
+    packGroups,
+    workUnits,
+    concentration,
+    helpers,
+    unknownEdges,
+    componentRefs,
+    repeatedForks,
+    routeData,
+    baseline,
+    summary,
+  };
+}
+
+// Attach the per-sink findings rendered under each fork's discriminated
+// branches. Sinks whose line falls inside a branch body are "branch-gated" - the
+// ones a split would actually move; the rest are component context. This avoids
+// the misleading "splitting on X touches all N sinks in the component" claim.
+function relateForks(
+  forks: ReturnType<typeof analyzeSourceFile>["forks"],
+  sinks: Sink[],
+) {
+  return forks.map((fork) => {
+    const inComponent = sinks
+      .filter(
+        (sink: Sink) =>
+          sink.file === fork.file &&
+          sink.renderContext?.component === fork.component,
+      )
+      .sort(
+        (left, right) =>
+          (right.scores?.burden ?? 0) - (left.scores?.burden ?? 0),
+      );
+    const ranges = fork.branchRanges ?? [];
+    const inBranch = (sink: Sink) =>
+      ranges.some(
+        (range: { startLine: number; endLine: number }) =>
+          sink.line >= range.startLine && sink.line <= range.endLine,
+      );
+    const toRef = (sink: Sink) => ({
+      id: sink.id,
+      line: sink.line,
+      label: sink.label,
+    });
+    return {
+      ...fork,
+      relatedSinks: inComponent.map(toRef),
+      branchGatedSinks: inComponent.filter(inBranch).map(toRef),
+    };
+  });
+}
+
+function applyScope(sinks: Sink[], scope: string | null) {
+  if (!scope) return sinks;
+  return sinks.filter(
+    (sink: Sink) =>
+      sink.file.includes(scope) ||
+      sink.label.includes(scope) ||
+      sink.roots.some((root: string) => root.includes(scope)),
+  );
+}
+
+// Translate one `--file` pattern into a RegExp matched against a relative file
+// path. Unlike `--scope` (a fuzzy substring over file/label/symbol), this is
+// path-only and glob-aware so an agent can pin a report to exactly one file,
+// directory, or glob region:
+//   src/components/Button.tsx   exact file
+//   Button.tsx                  any path ending in /Button.tsx
+//   src/components              a directory (everything under it)
+//   src/components/**           same, explicit glob
+//   src/**/*.tsx                all .tsx anywhere under src
+// Globs: `*` matches within a path segment, `**` across segments, `?` one char.
+function fileFilterToRegExp(pattern: string) {
+  let p = pattern.trim().replace(/^\.\//, "").replace(/^\/+/, "");
+  const hasGlob = /[*?]/.test(p);
+  // A bare directory-ish pattern (no glob, no extension on the final segment)
+  // is treated as a prefix so `--file src/components` digs into the whole dir.
+  const lastSegment = p.split("/").pop() ?? "";
+  if (!hasGlob && !lastSegment.includes(".")) {
+    p = p.replace(/\/+$/, "") + "/**";
+  } else if (p.endsWith("/")) {
+    p += "**";
+  }
+
+  let body = "";
+  for (let index = 0; index < p.length; index += 1) {
+    const char = p[index];
+    if (char === "*") {
+      if (p[index + 1] === "*") {
+        body += ".*";
+        index += 1;
+        if (p[index + 1] === "/") index += 1; // let `a/**/b` match `a/b`
+      } else {
+        body += "[^/]*";
+      }
+    } else if (char === "?") {
+      body += "[^/]";
+    } else {
+      body += char.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    }
+  }
+  // Anchor to the path end and to a segment boundary at the front, so a bare
+  // `Button.tsx` matches `src/ui/Button.tsx` but not `MyButton.tsx`.
+  return new RegExp(`(^|/)${body}$`);
+}
+
+// Build a predicate over relative file paths from zero or more `--file`
+// patterns (OR within the set). Returns null when no patterns were given.
+export function makeFileMatcher(patterns: string[]) {
+  if (!patterns || patterns.length === 0) return null;
+  const regexps = patterns.map(fileFilterToRegExp);
+  return (file: string) => regexps.some((regexp) => regexp.test(file));
+}
+
+function summarize(
+  sinks: Sink[],
+  graph: AnalysisGraph,
+  dependencies: {
+    familyRows: typeof familyRows;
+    unique: typeof unique;
+  },
+) {
+  const { familyRows, unique } = dependencies;
+  return {
+    sources: unique(sinks.flatMap((sink: Sink) => sink.roots)).length,
+    sinks: sinks.length,
+    nodes: graph.nodes.length,
+    edges: graph.edges.length,
+    unknownEdges: countDistinctUnknownEdges(graph),
+    pathFamilies: familyRows(sinks).length,
+  };
+}
+
+// A sink whose value is a pure constant (e.g. `stroke-dashoffset={0}`,
+// `width={32}`): every contributing root is a literal and there is no
+// transformation, guard, or control-flow burden. There is nothing to refactor,
+// so it should never surface as a ranked finding.
+function isConstantSink(sink: Sink) {
+  const infos =
+    sink.rootInfos ??
+    sink.roots.map((root: string) => ({ label: root, kind: "source" }));
+  if (infos.length === 0) return false;
+  if (!infos.every((info) => info.kind === "literal")) return false;
+  const metrics = sink.metrics ?? {};
+  return (
+    (metrics.maximumPathDepth ?? 0) <= 1 &&
+    (sink.defenses?.length ?? 0) === 0 &&
+    (metrics.representationChurn ?? 0) === 0 &&
+    (metrics.controlDependencyCount ?? 0) === 0 &&
+    (metrics.unknownEdgeCount ?? 0) === 0
+  );
+}
+
+function applyContextRelayScope(
+  findings: ReturnType<typeof analyzeContextRelay>,
+  scope: string | null,
+) {
+  if (!scope) return findings;
+  return findings.filter(
+    (finding) =>
+      finding.parentFile.includes(scope) ||
+      finding.childFile.includes(scope) ||
+      finding.childComponent.includes(scope) ||
+      finding.props.some((prop: string) => prop.includes(scope)),
+  );
+}
