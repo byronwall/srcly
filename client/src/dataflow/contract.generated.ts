@@ -55,6 +55,7 @@ export type RouteGraphResult = {
   programHash: string;
   tsconfig: string;
   typescript: string;
+  phase: "surface" | "complete";
   route: {
     key: string;
     pathPattern: string;

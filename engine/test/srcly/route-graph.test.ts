@@ -1,7 +1,7 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { FlowNode, RouteGraphResult } from "../../src/srcly/contracts/route-graph";
-import { routeGraphOp } from "../../src/srcly/ops/route-graph";
+import { routeGraphOp, routeSurfaceOp } from "../../src/srcly/ops/route-graph";
 import { createEngineSession } from "../../src/srcly/session";
 import { ENGINE_PACKAGE_DIR } from "../../src/srcly/typescript-choice";
 import { solidRoute } from "./engine-process";
@@ -70,6 +70,22 @@ describe("routeGraph on solid-route", () => {
     expect(graph().nodes.filter((node) => node.kind === "occurrence").every((node) => node.status === "proven")).toBe(true);
     const status = new Map(graph().nodes.map((node) => [node.id, node.status]));
     for (const edge of graph().edges.filter((item) => item.kind === "render")) expect(edge.status).toBe(status.get(edge.target));
+  });
+
+  it("draws the same boxes from the route file alone as the surface, before any evidence", () => {
+    const surface = routeSurfaceOp(session, { route: "/records" });
+    expect(surface.phase).toBe("surface");
+    expect(surface.outcome).toBe("partial");
+    expect(surface.origins).toEqual([]);
+    expect(surface.gaps).toEqual([]);
+    expect(surface.edges.every((edge) => edge.kind === "render")).toBe(true);
+    // The complete graph draws the same occurrence, control and terminal boxes, by id and parent.
+    const backbone = (nodes: FlowNode[]) => nodes.filter((node) => node.kind !== "origin" && node.kind !== "frontier").map((node) => [node.id, node.kind, node.parent]);
+    expect(backbone(surface.nodes)).toEqual(backbone(graph().nodes));
+    expect(graph().phase).toBe("complete");
+    // The route box cannot claim proof before the slice is walked.
+    expect(surface.nodes.find((node) => node.kind === "route")).toMatchObject({ status: "partial", reason: "evidence-pending" });
+    expect(() => routeSurfaceOp(session, { route: "/nope" })).toThrowError(expect.objectContaining({ code: "not-found" }));
   });
 
   it("refuses an unknown route by name", () => {

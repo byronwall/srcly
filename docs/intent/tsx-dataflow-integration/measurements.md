@@ -126,6 +126,22 @@ Every result is byte-identical before and after (route graphs for `/time-blocks`
 
 **What is left on the cold path.** Tier 1 (8 s, the TypeScript program and the identity index) and fact collection (6.7 s, the checker's `getSymbolAtLocation` for every identifier) are now the two halves; the first slice (3.9 s) re-walks every file once to collect relations (`ProgramEvidenceRelationFrontierLoader.relationSource`). The next T10 round is that relation source, per file on demand; T11's cache serves a reopen without any of it.
 
+## 2026-10-24 — T9: the backbone first
+
+In process (`pnpm time-phases`, after tier 1): `/time-blocks` surface 134 ms (687 boxes before folding), `/tasks` 358 ms, from facts collected for the route file alone plus the occurrence surface, before the program-wide provider (6.7 s) and the slice.
+
+Through the UI on visual-notes `/time-blocks`, cold (saved scan, engine start, tier 1, then the backbone; a Playwright page timing from navigation):
+
+| | Before (M2) | After T9 |
+| --- | ---: | ---: |
+| First drawn box | 68 s | 10.9–11.4 s (the backbone, "tracing evidence…") |
+| Complete graph (origins, handoffs, gaps) | 68 s | 25.7 s |
+| Warm reopen, first box | — | 3.9 s |
+
+Found on the way: the flow view's start effect read the recorded status and so posted `/start` again on every status write, hundreds of times a second while the engine started; and `routes` was asked again on every poll. Both fixed here (one `/start`, one `routes`, one `route-surface`, one `route-graph` per cold load).
+
+R4 asks for ≤ 10 s cold. The first box is now at the edge of it on this machine; tier 1 (8 s) is what is left in front of the backbone, and T11's cache answers a reopen without it.
+
 ## To record next
 
 | Milestone | Numbers |

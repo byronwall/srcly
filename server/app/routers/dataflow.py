@@ -206,6 +206,21 @@ def get_route_graph(route: str, path: str | None = None, source: str | None = No
     return _json(RouteGraphResponse(outcome=graph.outcome, generation=graph.generation, programHash=graph.programHash, graph=graph), exclude_none=False)
 
 
+@router.get("/route-surface", response_model=RouteGraphResponse)
+def get_route_surface(route: str, path: str | None = None, expectedGeneration: int | None = None):
+    """
+    One route's render backbone alone (``phase: surface``): the same boxes and
+    render edges as ``route-graph``, with no origins, handoffs or gaps, from the
+    route file's own facts and the Program. Answers well before the first
+    ``route-graph`` on a large app, so a client draws it first.
+    """
+    body = _query(_root(path), "routeSurface", {"route": route}, expectedGeneration)
+    if "result" not in body:
+        return _json(RouteGraphResponse(**body), exclude_none=False)
+    graph = RouteGraphResult.model_validate(body["result"])
+    return _json(RouteGraphResponse(outcome=graph.outcome, generation=graph.generation, programHash=graph.programHash, graph=graph), exclude_none=False)
+
+
 @router.delete("")
 def close(path: str | None = None):
     """Close the engine for ``path`` (tests, and a rescan from the folder menu)."""

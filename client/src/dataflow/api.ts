@@ -103,6 +103,14 @@ export async function fetchRouteGraph(args: { path: string; route: string; sourc
   return json(res, "Route graph");
 }
 
+/** The route's render backbone alone (`phase: surface`), answered before the first full graph on a large app. */
+export async function fetchRouteSurface(args: { path: string; route: string; expectedGeneration?: number; signal?: AbortSignal }): Promise<RouteGraphResponse> {
+  const query = new URLSearchParams({ path: args.path, route: args.route });
+  if (args.expectedGeneration !== undefined) query.set("expectedGeneration", String(args.expectedGeneration));
+  const res = await fetch(`/api/dataflow/route-surface?${query}`, { signal: args.signal });
+  return json(res, "Route surface");
+}
+
 export interface SelectResponse extends OutcomeFields {
   result: SelectExpressionResult | null;
 }

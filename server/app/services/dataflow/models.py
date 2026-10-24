@@ -255,6 +255,8 @@ class RouteGraphResult(BaseModel):
     programHash: str
     tsconfig: str
     typescript: str
+    # surface: the render backbone alone, before the program-wide evidence; complete: the whole totality.
+    phase: Literal["surface", "complete"]
     route: RouteRef
     status: Literal["complete", "partial", "unavailable"]
     unavailableReason: str | None

@@ -53,6 +53,13 @@ export const flowEdgeSchema = z.strictObject({
 export const routeGraphResultSchema = z.strictObject({
   outcome: outcomeSchema,
   ...generationFields,
+  /**
+   * `surface`: the render backbone alone (route, occurrences, controls,
+   * terminals, render edges), from the route file's own facts, before the
+   * program-wide evidence exists; no origins, handoffs or gaps yet.
+   * `complete`: the whole totality. Node ids are the same in both.
+   */
+  phase: z.enum(["surface", "complete"]),
   route: z.strictObject({ key: z.string(), pathPattern: z.string(), file: z.string(), absPath: z.string() }),
   /** The engine's route totality status. */
   status: z.enum(["complete", "partial", "unavailable"]),
