@@ -5,7 +5,7 @@ import type { RouteTotality } from "../../api/route-totality-contracts";
 import { routeGraphResultSchema, type FlowEdge, type FlowNode, type RouteGraphResult } from "../contracts/route-graph";
 import type { RouteTotalitySelectedSource } from "../../analysis/route-totality-selected-source";
 import { EngineError } from "../protocol";
-import { checkGeneration, type EngineSession, type Tier1 } from "../session";
+import { checkGeneration, requireTypescript, type EngineSession, type TsTier1 } from "../session";
 
 /** Route graphs bigger than this are refused as `budget-exhausted`, never truncated. */
 export const ROUTE_GRAPH_MAX_BYTES = 8 * 1024 * 1024;
@@ -18,7 +18,7 @@ export function routeGraphOp(
   params: { route?: unknown; source?: unknown; expectedGeneration?: unknown },
   cancellation?: AnalysisCancellationToken,
 ): RouteGraphResult {
-  const tier1 = session.tier1();
+  const tier1 = requireTypescript(session.tier1(), "The route graph");
   checkGeneration(tier1, params.expectedGeneration);
   if (typeof params.route !== "string" || !params.route) throw new EngineError("invalid-request", "routeGraph needs params.route");
   const route = tier1.routes.find((item) => item.key === params.route || item.pathPattern === params.route);
@@ -44,7 +44,7 @@ export function routeGraphOp(
  * takes. The element's own location is the selection; the engine decides
  * whether exact field lineage can start there.
  */
-function selectedSourceFor(tier1: Tier1, elementId: string): RouteTotalitySelectedSource {
+function selectedSourceFor(tier1: TsTier1, elementId: string): RouteTotalitySelectedSource {
   const element = tier1.provider().facts.getElement(elementId);
   if (!element) throw new EngineError("not-found", `No program element ${elementId}`);
   const at = element.location;
@@ -52,7 +52,7 @@ function selectedSourceFor(tier1: Tier1, elementId: string): RouteTotalitySelect
 }
 
 /** Project a validated RouteTotality onto the flow graph contract. Exported for tests. */
-export function projectRouteGraph(tier1: Tier1, totality: RouteTotality, selectedSource: string | null = null): RouteGraphResult {
+export function projectRouteGraph(tier1: TsTier1, totality: RouteTotality, selectedSource: string | null = null): RouteGraphResult {
   const root = path.resolve(tier1.args.root);
   const absPath = (file: string) => path.resolve(root, file);
   const routeAbsPath = absPath(totality.route.file);

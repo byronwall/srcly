@@ -1,7 +1,7 @@
 import path from "node:path";
 import type * as TypeScript from "typescript";
 import { EngineError } from "./protocol";
-import type { Tier1 } from "./session";
+import type { TsTier1 } from "./session";
 
 /** 1-based lines, 1-based UTF-16 columns, exclusive end column (plan section 3.5). */
 export type Span = { startLine: number; startColumn: number; endLine: number; endColumn: number };
@@ -34,7 +34,7 @@ export function sameSpan(a: Span, b: Span) {
 }
 
 /** The Program's source file for a path relative to the engine root (or absolute inside it). */
-export function sourceFileFor(tier1: Tier1, file: unknown): { sourceFile: TypeScript.SourceFile; relative: string; absolute: string } {
+export function sourceFileFor(tier1: TsTier1, file: unknown): { sourceFile: TypeScript.SourceFile; relative: string; absolute: string } {
   if (typeof file !== "string" || !file) throw new EngineError("invalid-request", "params.file is required");
   const root = path.resolve(tier1.args.root);
   const absolute = path.resolve(root, file);

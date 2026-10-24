@@ -5,7 +5,7 @@ import { cx } from "../../../components/ui/classes";
 
 const PHASES: Record<Progress["phase"], string> = {
   queued: "Queued",
-  program: "TypeScript program",
+  program: "Program",
   identity: "Symbol index",
   trace: "Tracing",
   summarize: "Routes",

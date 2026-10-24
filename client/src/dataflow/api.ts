@@ -10,6 +10,9 @@ export type NaReason =
   | "non-strict-tsconfig"
   | "no-ts-files"
   | "typescript-not-found"
+  | "python-not-found"
+  | "python-checker-not-found"
+  | "no-python-files"
   | "engine-crashed"
   | "timed-out"
   | "engine-protocol-mismatch";

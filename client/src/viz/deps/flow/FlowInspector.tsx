@@ -147,7 +147,7 @@ export function FlowInspector(props: {
                 </Show>
               </div>
               <Show when={d().detail}>{(t) => <div class="pl-5 text-[11px] text-[var(--plc-on-muted)]">{t()}</div>}</Show>
-              <Show when={typeText(d().node)}>{(t) => <div class="plc-data-sm pl-5 !font-normal text-[var(--plc-on-muted)]" title="The checked TypeScript type">{t()}</div>}</Show>
+              <Show when={typeText(d().node)}>{(t) => <div class="plc-data-sm pl-5 !font-normal text-[var(--plc-on-muted)]" title="The checked type (TypeScript, or mypy for Python)">{t()}</div>}</Show>
               <Show when={noteOf(d().node)}>{(t) => <div class="pl-5 text-[11px] text-[var(--plc-on-muted)]">{t()}</div>}</Show>
               <Show when={d().node.reason}>{(r) => <div class="pl-5 text-[11px] text-[var(--plc-warning)]">{r()}</div>}</Show>
               <Where file={d().node.file} line={d().node.line} onOpen={() => props.onOpen(d().node.absPath, d().node.line)} />
@@ -315,7 +315,7 @@ function AnchorOverviewView(props: { o: AnchorOverview; onOpen: (absPath: string
         <span class={`font-semibold ${STATUS_CLASS[status()]}`}>{o().outcome}</span>
         <span class="text-[var(--plc-on-muted)]">generation {o().generation}</span>
       </div>
-      <Show when={o().typeText}>{(t) => <div class="plc-data-sm pl-5 !font-normal text-[var(--plc-on-muted)]" title="The checked TypeScript type">{t()}</div>}</Show>
+      <Show when={o().typeText}>{(t) => <div class="plc-data-sm pl-5 !font-normal text-[var(--plc-on-muted)]" title="The checked type (TypeScript, or mypy for Python)">{t()}</div>}</Show>
       <div class="pl-5 text-[11px] text-[var(--plc-on-muted)]">Traced {DIRECTION_WORD[o().direction]}</div>
       <Show when={o().reason}>{(r) => <div class="pl-5 text-[11px] text-[var(--plc-warning)]">{r()}</div>}</Show>
       <Where file={o().file} line={o().line} onOpen={() => props.onOpen(o().absPath, o().line)} />

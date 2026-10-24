@@ -13,9 +13,10 @@ import {
 } from "../contracts/value-flow";
 import { EngineError } from "../protocol";
 import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex, type CallSites } from "../call-sites";
-import { callSitesOfElement, CROSS_CALL, elementsAt, seedFor, TERMINAL_KINDS } from "../facts";
+import { CROSS_CALL, elementsAt, seedFor, TERMINAL_KINDS } from "../facts";
+import type { HostCandidate } from "../host";
 import { candidatesAt, parseSpan, sameSpan, sourceFileFor, spanOf, type Span } from "../selection";
-import { checkGeneration, type EngineSession, type Tier1 } from "../session";
+import { checkGeneration, requireTypescript, type BaseTier1, type EngineSession, type Tier1, type TsTier1 } from "../session";
 
 /** Ledgers bigger than this are refused as `budget-exhausted`, never truncated. */
 export const LEDGER_MAX_BYTES = 2 * 1024 * 1024;
@@ -28,9 +29,9 @@ const FOLLOW = [
   "includes-membership", "join-source", "accessor-call",
 ];
 const MAX_ROWS = 64;
-const callSiteIndexes = new WeakMap<Tier1, CallSiteIndex>();
+const callSiteIndexes = new WeakMap<TsTier1, CallSiteIndex>();
 
-function base(tier1: Tier1) {
+function base(tier1: BaseTier1) {
   return {
     generation: tier1.generation.id,
     programHash: tier1.generation.programHash,
@@ -42,14 +43,17 @@ function base(tier1: Tier1) {
 export function selectExpressionOp(session: EngineSession, params: Record<string, unknown>): SelectExpressionResult {
   const tier1 = session.tier1();
   checkGeneration(tier1, params.expectedGeneration);
-  const { sourceFile, relative } = sourceFileFor(tier1, params.file);
+  const { relative } = tier1.host.file(params.file);
   const span = parseSpan(params.span);
-  const candidates = candidatesAt(tier1.ts, sourceFile, span, typeof params.text === "string" ? params.text : null);
+  const candidates = tier1.host.candidates(relative, span, typeof params.text === "string" ? params.text : null);
+  const supported = tier1.language === "python"
+    ? "names, attribute reads, literal subscripts, calls, or / and, conditional expressions, await, parameters"
+    : "identifiers, property reads, calls, ??, ||, ?:, !, JSX expressions";
   return selectExpressionResultSchema.parse({
     outcome: candidates.length ? "ok" : "unsupported",
     ...base(tier1),
     file: relative,
-    reason: candidates.length ? null : "No supported expression at this selection (identifiers, property reads, calls, ??, ||, ?:, !, JSX expressions).",
+    reason: candidates.length ? null : `No supported expression at this selection (${supported}).`,
     candidates: candidates.map((candidate) => ({
       kind: candidate.kind,
       text: candidate.text.length > 240 ? `${candidate.text.slice(0, 239)}…` : candidate.text,
@@ -62,16 +66,22 @@ export function selectExpressionOp(session: EngineSession, params: Record<string
 export function valueFlowOp(session: EngineSession, params: Record<string, unknown>, cancellation?: AnalysisCancellationToken): ValueFlowResult {
   const tier1 = session.tier1();
   checkGeneration(tier1, params.expectedGeneration);
-  const { ts } = tier1;
-  const { sourceFile, relative } = sourceFileFor(tier1, params.file);
   const span = parseSpan(params.span);
   const text = typeof params.text === "string" ? params.text : null;
-  const candidate = candidatesAt(ts, sourceFile, span, text).find((item) => sameSpan(item.span, span));
-  if (!candidate) {
-    throw new EngineError("unsupported-selection", "The selection is not exactly one supported expression; pick a candidate from selectExpression", { span });
-  }
+  const unsupported = () => new EngineError("unsupported-selection", "The selection is not exactly one supported expression; pick a candidate from selectExpression", { span });
   const builder = new LedgerBuilder(tier1, cancellation);
-  const result = builder.build(sourceFile, relative, candidate.node, candidate.kind);
+  let result: ValueFlowResult;
+  if (tier1.language === "typescript") {
+    const { sourceFile, relative } = sourceFileFor(tier1, params.file);
+    const candidate = candidatesAt(tier1.ts, sourceFile, span, text).find((item) => sameSpan(item.span, span));
+    if (!candidate) throw unsupported();
+    result = builder.build(sourceFile, relative, candidate.node, candidate.kind);
+  } else {
+    const { relative } = tier1.host.file(params.file);
+    const candidate = tier1.host.candidates(relative, span, text).find((item) => sameSpan(item.span, span));
+    if (!candidate) throw unsupported();
+    result = builder.buildFromHost(relative, candidate);
+  }
   const bytes = Buffer.byteLength(JSON.stringify(result));
   if (bytes > LEDGER_MAX_BYTES) throw new EngineError("budget-exhausted", `The ledger is ${bytes} bytes, over the ${LEDGER_MAX_BYTES}-byte bound`, { rows: result.rows.length });
   return result;
@@ -80,17 +90,49 @@ export function valueFlowOp(session: EngineSession, params: Record<string, unkno
 class LedgerBuilder {
   private rows: LedgerRow[] = [];
   private readonly root: string;
-  private readonly checker: TypeScript.TypeChecker;
-  private readonly sites: CallSiteIndex;
 
   constructor(private readonly tier1: Tier1, private readonly cancellation?: AnalysisCancellationToken) {
-    this.root = path.resolve(tier1.args.root);
-    this.checker = tier1.program.getTypeChecker();
-    this.sites = callSiteIndexes.get(tier1) ?? callSiteIndexes.set(tier1, createCallSiteIndex(tier1)).get(tier1)!;
+    this.root = tier1.root;
+  }
+
+  /** The TypeScript build: the ledger's syntax rows read the Program's nodes and checker. */
+  private get typescript(): TsTier1 {
+    return requireTypescript(this.tier1, "A TypeScript ledger");
+  }
+
+  private get checker(): TypeScript.TypeChecker {
+    return this.typescript.program.getTypeChecker();
+  }
+
+  private get sites(): CallSiteIndex {
+    const tier1 = this.typescript;
+    return callSiteIndexes.get(tier1) ?? callSiteIndexes.set(tier1, createCallSiteIndex(tier1)).get(tier1)!;
+  }
+
+  /**
+   * A ledger from the language host alone (Python): the input row, the parts
+   * of the selection from the host's expression table, then the same forward
+   * slice walk the TypeScript ledger uses.
+   */
+  buildFromHost(file: string, candidate: HostCandidate): ValueFlowResult {
+    const { host } = this.tier1;
+    const span = candidate.span;
+    const seed = seedFor(this.tier1, file, span);
+    const selection = { file, span, text: candidate.text, kind: candidate.kind };
+    this.add({ kind: "input", label: candidate.text, file, span, status: seed ? "proven" : "partial", elementId: seed, typeText: host.typeTextAt(file, span), note: null });
+    // What the selection is made of, innermost first; a bare name is the value itself, not a step.
+    for (const part of host.parts(file, span)) {
+      if (part.kind === "Name") continue;
+      const fact = elementsAt(this.tier1, file, part.span)[0];
+      const kind: LedgerRow["kind"] = part.kind === "BoolOp" ? "fallback" : part.kind === "IfExp" ? "branch" : part.kind === "Call" ? "transform" : "transfer";
+      this.add({ kind, label: part.text, file, span: part.span, status: "proven", elementId: fact?.id ?? null, typeText: host.typeTextAt(file, part.span), note: null });
+    }
+    if (!seed) return this.finish(selection, "unsupported", "no-evidence-element", { elements: 0, relations: 0, limit: 0, used: 0, exhausted: false });
+    return this.forward(selection, seed, span);
   }
 
   build(sourceFile: TypeScript.SourceFile, file: string, node: TypeScript.Node, kind: string): ValueFlowResult {
-    const { ts } = this.tier1;
+    const { ts } = this.typescript;
     const span = spanOf(sourceFile, node);
     const seed = seedFor(this.tier1, file, span);
     const selection = { file, span, text: node.getText(sourceFile), kind };
@@ -109,7 +151,11 @@ class LedgerBuilder {
     if (!seed) {
       return this.finish(selection, "unsupported", "no-evidence-element", { elements: 0, relations: 0, limit: 0, used: 0, exhausted: false });
     }
-    // Where the value goes: the forward evidence slice, walked in operation order.
+    return this.forward(selection, seed, span);
+  }
+
+  /** Where the value goes: the forward evidence slice, walked in operation order. */
+  private forward(selection: ValueFlowResult["selection"], seed: string, span: Span): ValueFlowResult {
     const slice = queryEvidenceSlice(this.tier1.provider(), {
       seed: { candidateId: `value-flow:${seed}`, entryElementId: seed, adapter: "value-flow", label: selection.text, framework: null, proof: [], defaults: scopePolicy({ direction: "forward" }) },
       direction: "forward",
@@ -131,7 +177,7 @@ class LedgerBuilder {
 
   /** Rows for the expression's own parts: fallbacks, branches, assertions, calls, reads. */
   private compose(sourceFile: TypeScript.SourceFile, file: string, node: TypeScript.Node, selected: TypeScript.Node) {
-    const { ts } = this.tier1;
+    const { ts } = this.typescript;
     const text = (n: TypeScript.Node) => n.getText(sourceFile);
     // A part of the selection is a fact of syntax: proven by the AST even
     // where the collector recorded no evidence element at its exact span.
@@ -212,7 +258,7 @@ class LedgerBuilder {
    * the return value cannot yet be paired with this call (R7).
    */
   private composeCall(sourceFile: TypeScript.SourceFile, file: string, call: TypeScript.CallExpression, at: { span: Span; elementId: string | null; status: LedgerRow["status"] }) {
-    const { ts } = this.tier1;
+    const { ts } = this.typescript;
     const callee = call.expression.getText(sourceFile);
     const typeText = this.typeText(call);
     if (call.arguments.length === 0) {
@@ -271,8 +317,9 @@ class LedgerBuilder {
           }
         }
         // Bookkeeping elements at the seed's own span repeat the input.
-        const repeatsInput = sameSpan(element.location.span, seedSpan) && !TERMINAL_KINDS.has(element.kind);
-        if (TERMINAL_KINDS.has(element.kind)) {
+        const terminal = TERMINAL_KINDS.has(element.kind) || element.terminalRoles.length > 0;
+        const repeatsInput = sameSpan(element.location.span, seedSpan) && !terminal;
+        if (terminal) {
           if (relation.status === "proven" || element.kind !== "jsx-occurrence") paths.push([{ relation, element, kind: "terminal", reason: null, note: terminalNote(element) }]);
           continue;
         }
@@ -306,7 +353,7 @@ class LedgerBuilder {
   }
 
   private sitesOfElement(element: ProgramElement): { sites: CallSites | null; name: string } {
-    return callSitesOfElement(this.tier1, this.sites, element);
+    return this.tier1.host.callSitesOf(element);
   }
 
   private typeText(node: TypeScript.Node): string | null {
@@ -369,6 +416,10 @@ function terminalNote(element: ProgramElement): string {
   if (element.kind === "dom-terminal") return "DOM attribute or property";
   if (element.kind === "component-occurrence") return "handed to a component";
   if (element.kind === "side-effect") return "side effect";
+  if (element.terminalRoles.includes("http-response")) return "HTTP response";
+  if (element.terminalRoles.includes("stdout")) return "printed";
+  if (element.terminalRoles.includes("file-write")) return "written to a file";
+  if (element.terminalRoles.includes("side-effect")) return "side effect";
   return "returned";
 }
 

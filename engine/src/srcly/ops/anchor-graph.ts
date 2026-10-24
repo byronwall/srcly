@@ -1,13 +1,14 @@
 import path from "node:path";
-import type * as TypeScript from "typescript";
 import type { AnalysisCancellationToken } from "../../analysis/cancellation";
 import { queryEvidenceSlice, type EvidenceSlice } from "../../analysis/evidence-slice";
+import { toSliceElement } from "../../analysis/evidence-slice-normalization";
 import { DEFAULT_BOUNDARY_POLICY, scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
-import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex } from "../call-sites";
+import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
-import { callSitesOfElement, CROSS_CALL, elementsAt, enclosingFunction, functionName, nodeAtSpan, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
+import { CROSS_CALL, elementsAt, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
+import type { HostCandidate, LanguageHost } from "../host";
 import { EngineError } from "../protocol";
-import { candidatesAt, parseSpan, sameSpan, sourceFileFor, spanOf, type Candidate, type Span } from "../selection";
+import { parseSpan, sameSpan, type Span } from "../selection";
 import { checkGeneration, type EngineSession, type Tier1 } from "../session";
 
 /** Anchor graphs bigger than this are refused as `budget-exhausted`, never truncated. */
@@ -19,11 +20,8 @@ const CONTROL_KINDS = new Set(["type-narrow", "show-binding", "for-binding", "pr
 /** Element kinds that reshape a value. */
 const TRANSFORM_KINDS = new Set(["selection", "object-pack", "parse", "serialization", "validation", "call-result"]);
 const DIRECTIONS: AnchorDirection[] = ["forward", "backward", "both"];
-const callSiteIndexes = new WeakMap<Tier1, CallSiteIndex>();
 
 type Side = "up" | "down";
-/** A candidate plus the declaration nodes to try when the engine has no evidence at the name itself. */
-type Resolved = Candidate & { fallbacks?: TypeScript.Node[] };
 /** Declaration-level elements a symbol anchor may start from, before the ledger's seed kinds. */
 const DECLARATION_SEEDS = ["component-definition", "function-entry", "handler-entry", ...SEED_KINDS];
 /** A function or component as the anchor: its parameters are what comes in, its returns and its uses are where it goes. */
@@ -37,9 +35,9 @@ export function anchorGraphOp(session: EngineSession, params: Record<string, unk
   const tier1 = session.tier1();
   checkGeneration(tier1, params.expectedGeneration);
   const direction = parseDirection(params.direction);
-  const { sourceFile, relative } = sourceFileFor(tier1, params.file);
-  const candidate = resolveCandidate(tier1, sourceFile, params);
-  const result = new AnchorGraphBuilder(tier1, cancellation).build(sourceFile, relative, candidate, direction);
+  const { relative } = tier1.host.file(params.file);
+  const candidate = resolveCandidate(tier1.host, relative, params);
+  const result = new AnchorGraphBuilder(tier1, cancellation).build(relative, candidate, direction);
   const bytes = Buffer.byteLength(JSON.stringify(result));
   if (bytes > ANCHOR_GRAPH_MAX_BYTES) {
     throw new EngineError("budget-exhausted", `The anchor graph is ${bytes} bytes, over the ${ANCHOR_GRAPH_MAX_BYTES}-byte bound`, { bytes, nodes: result.nodes.length });
@@ -58,61 +56,19 @@ function parseDirection(value: unknown): AnchorDirection {
  * takes it), or a `name` on a `line` for a symbol picked from the import
  * graph or the treemap, where only the declaration's line is known.
  */
-function resolveCandidate(tier1: Tier1, sourceFile: TypeScript.SourceFile, params: Record<string, unknown>): Resolved {
-  const { ts } = tier1;
+function resolveCandidate(host: LanguageHost, file: string, params: Record<string, unknown>): HostCandidate {
   if (typeof params.name === "string" && params.name) {
     if (!Number.isInteger(params.line) || (params.line as number) < 1) throw new EngineError("invalid-request", "params.name needs params.line");
-    const found = identifierOnLine(ts, sourceFile, params.name, params.line as number);
-    if (!found) throw new EngineError("not-found", `No ${params.name} on line ${params.line} of ${path.basename(sourceFile.fileName)}`);
+    const found = host.identifierOnLine(file, params.name, params.line as number);
+    if (!found) throw new EngineError("not-found", `No ${params.name} on line ${params.line} of ${path.basename(file)}`);
     return found;
   }
   const span = parseSpan(params.span);
   const text = typeof params.text === "string" ? params.text : null;
-  const candidates = candidatesAt(ts, sourceFile, span, text);
+  const candidates = host.candidates(file, span, text);
   const candidate = candidates.find((item) => sameSpan(item.span, span)) ?? candidates[0];
   if (!candidate) throw new EngineError("unsupported-selection", "No supported expression at this selection; pick a candidate from selectExpression", { span });
   return candidate;
-}
-
-/**
- * The identifier `name` on `line`: a declaration's name first, else the first
- * use. The engine's evidence for a declaration sits on its initializer (a
- * `createResource(...)` call) or on the whole function, not on the name, so
- * those nodes follow as fallbacks.
- */
-function identifierOnLine(ts: typeof TypeScript, sourceFile: TypeScript.SourceFile, name: string, line: number): Resolved | null {
-  const hits: TypeScript.Identifier[] = [];
-  const visit = (node: TypeScript.Node) => {
-    if (ts.isIdentifier(node) && node.text === name && sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1 === line) hits.push(node);
-    ts.forEachChild(node, visit);
-  };
-  visit(sourceFile);
-  const declares = (id: TypeScript.Identifier) => {
-    const p = id.parent;
-    return (
-      (ts.isVariableDeclaration(p) || ts.isFunctionDeclaration(p) || ts.isParameter(p) || ts.isBindingElement(p) || ts.isClassDeclaration(p) || ts.isPropertyAssignment(p) || ts.isMethodDeclaration(p)) &&
-      p.name === id
-    );
-  };
-  const node = hits.find(declares) ?? hits[0];
-  if (!node) return null;
-  const fallbacks: TypeScript.Node[] = [];
-  const p = node.parent;
-  // `const [records] = createResource(…)`: the name is a binding element; the evidence is on the initializer.
-  let declaration: TypeScript.Node | undefined = p;
-  while (declaration && !ts.isVariableDeclaration(declaration) && (ts.isBindingElement(declaration) || ts.isArrayBindingPattern(declaration) || ts.isObjectBindingPattern(declaration))) declaration = declaration.parent;
-  if (declaration && ts.isVariableDeclaration(declaration) && declaration.initializer) fallbacks.push(declaration.initializer);
-  if (declares(node)) fallbacks.push(p);
-  // `<RouteFrame …>`: a JSX tag's evidence is the occurrence, the element itself.
-  if ((ts.isJsxOpeningElement(p) || ts.isJsxSelfClosingElement(p)) && p.tagName === node) {
-    fallbacks.push(p);
-    if (ts.isJsxOpeningElement(p) && ts.isJsxElement(p.parent)) fallbacks.push(p.parent);
-  }
-  if (declaration && ts.isVariableDeclaration(declaration)) {
-    fallbacks.push(declaration);
-    if (ts.isVariableDeclarationList(declaration.parent) && ts.isVariableStatement(declaration.parent.parent)) fallbacks.push(declaration.parent.parent);
-  }
-  return { node, kind: ts.SyntaxKind[node.kind], text: name, span: spanOf(sourceFile, node), fallbacks };
 }
 
 class AnchorGraphBuilder {
@@ -126,22 +82,19 @@ class AnchorGraphBuilder {
   /** The anchor itself: a walk from one of its parameters, returns or uses never draws it again as a step. */
   private anchorId: string | null = null;
   private readonly root: string;
-  private readonly checker: TypeScript.TypeChecker;
-  private readonly sites: CallSiteIndex;
+  private readonly host: LanguageHost;
 
   constructor(private readonly tier1: Tier1, private readonly cancellation?: AnalysisCancellationToken) {
-    this.root = path.resolve(tier1.args.root);
-    this.checker = tier1.program.getTypeChecker();
-    this.sites = callSiteIndexes.get(tier1) ?? callSiteIndexes.set(tier1, createCallSiteIndex(tier1)).get(tier1)!;
+    this.root = tier1.root;
+    this.host = tier1.host;
   }
 
-  build(sourceFile: TypeScript.SourceFile, file: string, candidate: Resolved, direction: AnchorDirection): AnchorGraphResult {
-    let span = spanOf(sourceFile, candidate.node);
+  build(file: string, candidate: HostCandidate, direction: AnchorDirection): AnchorGraphResult {
+    let span = candidate.span;
     let seed = seedFor(this.tier1, file, span);
     // A symbol by name: when nothing sits on the name, the declaration's initializer or the function itself is the anchor.
-    for (const alt of candidate.fallbacks ?? []) {
+    for (const altSpan of candidate.fallbacks ?? []) {
       if (seed) break;
-      const altSpan = spanOf(sourceFile, alt);
       const facts = elementsAt(this.tier1, file, altSpan);
       const match = DECLARATION_SEEDS.map((kind) => facts.find((fact) => fact.kind === kind)).find(Boolean) ?? facts[0];
       if (match) {
@@ -159,7 +112,7 @@ class AnchorGraphBuilder {
       text: clip(candidate.text),
       kind: candidate.kind,
       elementId: seed,
-      typeText: this.typeTextOf(candidate.node),
+      typeText: this.host.typeTextAt(file, candidate.span),
     };
     this.addNode({
       id: anchorId,
@@ -227,8 +180,7 @@ class AnchorGraphBuilder {
     const facts = this.tier1.provider().facts.fileCandidates(file).filter((fact) => inside(fact.location.span));
     const runs: Run[] = [];
     if (sides.includes("up")) {
-      const sourceFile = this.tier1.program.getSourceFile(path.resolve(this.root, file));
-      const textOf = (fact: { location: { span: Span } }) => (sourceFile ? nodeAtSpan(this.tier1.ts, sourceFile, fact.location.span)?.getText(sourceFile) ?? "" : "");
+      const textOf = (fact: { location: { file: string; span: Span } }) => this.host.textAt(fact.location.file, fact.location.span) ?? "";
       for (const param of facts.filter((fact) => fact.kind === "parameter")) {
         this.addFact(param, "up");
         this.pushEdge({ id: `parameter:${param.id}`, source: param.id, target: seed, kind: "parameter", status: "proven", proof: [], label: null });
@@ -245,7 +197,11 @@ class AnchorGraphBuilder {
     if (sides.includes("down")) {
       const expressions = facts.filter((fact) => fact.kind === "return-expression");
       for (const ret of expressions.length ? expressions : facts.filter((fact) => fact.kind === "return")) {
-        this.addFact(ret, "down");
+        // A return that leaves the program (an HTTP response, an entry's result) is a terminal, not a carrier.
+        const raw = this.tier1.provider().factIndex.getElement(ret.id);
+        const element = raw ? toSliceElement(raw) : null;
+        if (element?.terminalRoles.length) this.addElement(element, "terminal", "down", "proven", null, null);
+        else this.addFact(ret, "down");
         this.pushEdge({ id: `returns:${ret.id}`, source: seed, target: ret.id, kind: "returns", status: "proven", proof: [], label: null });
         runs.push({ seedId: ret.id, seedSpan: ret.location.span, side: "down" });
       }
@@ -296,7 +252,8 @@ class AnchorGraphBuilder {
         let reason: string | null = null;
         let note: string | null = null;
         if (kind !== "origin" && kind !== "terminal" && CROSS_CALL.has(relation.kind)) {
-          const { sites, name } = callSitesOfElement(this.tier1, this.sites, element);
+          // The callee side of a cross-call is its `to` end (the bound parameter, or the call a return reaches), whichever way the walk goes.
+          const { sites, name } = this.host.callSitesOf(byId.get(relation.to) ?? element);
           if (!singleCall(sites)) {
             kind = "boundary";
             status = "partial";
@@ -364,8 +321,6 @@ class AnchorGraphBuilder {
   /** A declaration's own parameter or return as a plain value box (the file index knows it without roles or proof). */
   private addFact(fact: { id: string; kind: string; label: string; location: { file: string; line: number; span: Span } }, side: Side) {
     if (this.nodes.has(fact.id)) return;
-    const sourceFile = this.tier1.program.getSourceFile(path.resolve(this.root, fact.location.file));
-    const node = sourceFile ? nodeAtSpan(this.tier1.ts, sourceFile, fact.location.span) : null;
     this.addNode({
       id: fact.id,
       kind: "value",
@@ -378,7 +333,7 @@ class AnchorGraphBuilder {
       status: "proven",
       side,
       elementKind: fact.kind,
-      typeText: node ? this.typeTextOf(node) : null,
+      typeText: this.host.typeTextAt(fact.location.file, fact.location.span),
       reason: null,
       note: null,
     });
@@ -394,8 +349,6 @@ class AnchorGraphBuilder {
       if (existing.side !== side && existing.side !== "seed") existing.side = "both";
       return;
     }
-    const sourceFile = this.tier1.program.getSourceFile(path.resolve(this.root, element.location.file));
-    const node = sourceFile ? nodeAtSpan(this.tier1.ts, sourceFile, element.location.span) : null;
     this.addNode({
       id: element.id,
       kind,
@@ -408,7 +361,7 @@ class AnchorGraphBuilder {
       status,
       side,
       elementKind: element.kind,
-      typeText: node ? this.typeTextOf(node) : null,
+      typeText: this.host.typeTextAt(element.location.file, element.location.span) ?? typeAttribute(element),
       reason,
       note,
     });
@@ -438,23 +391,19 @@ class AnchorGraphBuilder {
 
   /** The frame an element sits in: its enclosing function (the module when there is none), one box per function and file. */
   private scopeFor(file: string, span: Span, side: Side | "seed"): string {
-    const sourceFile = this.tier1.program.getSourceFile(path.resolve(this.root, file));
-    const { ts } = this.tier1;
-    const node = sourceFile ? nodeAtSpan(ts, sourceFile, span) : null;
-    const fn = node ? enclosingFunction(ts, node) : null;
-    const fnSpan = fn && sourceFile ? spanOf(sourceFile, fn) : null;
+    const scope = this.host.scopeAt(file, span);
+    const fnSpan = scope?.span ?? null;
     const id = fnSpan ? `scope:${file}:${fnSpan.startLine}:${fnSpan.startColumn}` : `scope:${file}`;
     const existing = this.nodes.get(id);
     if (existing) {
       if (side !== "seed" && existing.side !== side && existing.side !== "seed") existing.side = "both";
       return id;
     }
-    const name = fn && sourceFile ? functionName(ts, fn, sourceFile) : null;
     this.addNode({
       id,
       kind: "scope",
-      label: name ?? (fn ? `(anonymous) in ${path.basename(file)}` : path.basename(file)),
-      detail: fn ? path.basename(file) : "module",
+      label: scope?.name ?? (scope ? `(anonymous) in ${path.basename(file)}` : path.basename(file)),
+      detail: scope ? path.basename(file) : "module",
       parent: null,
       file,
       line: fnSpan?.startLine ?? 1,
@@ -467,15 +416,6 @@ class AnchorGraphBuilder {
       note: null,
     });
     return id;
-  }
-
-  private typeTextOf(node: TypeScript.Node): string | null {
-    try {
-      const text = this.checker.typeToString(this.checker.getTypeAtLocation(node));
-      return text.length > 160 ? `${text.slice(0, 159)}…` : text;
-    } catch {
-      return null;
-    }
   }
 
   private finish(anchor: AnchorGraphResult["anchor"], direction: AnchorDirection, outcome: AnchorGraphResult["outcome"], reason: string | null, coverage: AnchorGraphResult["coverage"]): AnchorGraphResult {
@@ -507,6 +447,12 @@ class AnchorGraphBuilder {
       coverage,
     });
   }
+}
+
+/** A type the evidence carries itself (the Python provider records the checker's or the annotation's). */
+function typeAttribute(element: ProgramElement): string | null {
+  const value = element.attributes?.typeText;
+  return typeof value === "string" ? value : null;
 }
 
 function classify(relation: ProgramRelation, element: ProgramElement): AnchorNode["kind"] {
@@ -562,6 +508,17 @@ const SYNTAX_WORDS: Record<string, string> = {
   ParenthesizedExpression: "group",
   JsxExpression: "JSX expression",
   ElementAccessExpression: "index read",
+  // Python's ast node names.
+  Attribute: "attribute read",
+  Name: "name",
+  Call: "call",
+  Subscript: "index read",
+  BoolOp: "fallback",
+  IfExp: "conditional",
+  Await: "await",
+  arg: "parameter",
+  FunctionDef: "function",
+  AsyncFunctionDef: "function",
 };
 
 function syntaxWords(kind: string): string {
