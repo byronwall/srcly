@@ -18,6 +18,8 @@ from pydantic import BaseModel
 from app.services.dataflow import engine as dataflow_engine
 from app.services.dataflow.engine import EngineCrashed, EngineError
 from app.services.dataflow.models import (
+    AnchorGraphResponse,
+    AnchorGraphResult,
     NA_REASONS,
     DataflowStatus,
     Outcome,
@@ -242,3 +244,43 @@ def value_flow(body: ValueFlowRequest):
         return _json(ValueFlowResponse(**result), exclude_none=False)
     ledger = ValueFlowResult.model_validate(result["result"])
     return _json(ValueFlowResponse(outcome=ledger.outcome, reason=ledger.reason, generation=ledger.generation, programHash=ledger.programHash, ledger=ledger), exclude_none=False)
+
+
+class AnchorRequest(BaseModel):
+    """An expression by exact span (plus its text), or a symbol by name on a line."""
+
+    path: str
+    file: str
+    span: SourceSpan | None = None
+    text: str | None = None
+    name: str | None = None
+    line: int | None = None
+    direction: Literal["forward", "backward", "both"] = "both"
+    expectedGeneration: int | None = None
+
+
+@router.post("/anchor-graph", response_model=AnchorGraphResponse)
+def anchor_graph(body: AnchorRequest):
+    """
+    A value's neighbourhood from any expression, not a route: where it comes
+    from (backward), where it goes (forward) or both, as boxes grouped by the
+    function that owns them. 404 for a name that is not on its line.
+    """
+    root = _root(body.path)
+    if body.span is None and not body.name:
+        raise HTTPException(status_code=422, detail="span, or name and line, is required")
+    params: dict = {"file": _contained_file(root, body.file), "direction": body.direction}
+    if body.span is not None:
+        params["span"] = body.span.model_dump()
+        if body.text:
+            params["text"] = body.text
+    else:
+        if body.line is None:
+            raise HTTPException(status_code=422, detail="name needs line")
+        params["name"] = body.name
+        params["line"] = body.line
+    result = _query(root, "anchorGraph", params, body.expectedGeneration)
+    if "result" not in result:
+        return _json(AnchorGraphResponse(**result), exclude_none=False)
+    graph = AnchorGraphResult.model_validate(result["result"])
+    return _json(AnchorGraphResponse(outcome=graph.outcome, reason=graph.reason, generation=graph.generation, programHash=graph.programHash, graph=graph), exclude_none=False)

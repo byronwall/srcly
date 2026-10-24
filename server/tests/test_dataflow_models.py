@@ -19,6 +19,7 @@ CONTRACTS = Path(models.__file__).with_name("contracts")
         ("routeGraph", models.RouteGraphResult),
         ("selectExpression", models.SelectExpressionResult),
         ("valueFlow", models.ValueFlowResult),
+        ("anchorGraph", models.AnchorGraphResult),
     ],
 )
 def test_model_fields_match_the_schema(op, model):
@@ -66,3 +67,17 @@ def test_ledger_nested_fields_match():
     assert set(models.LedgerCoverage.model_fields) == set(schema["coverage"]["properties"])
     select = json.loads((CONTRACTS / "selectExpression.schema.json").read_text())["properties"]
     assert set(models.SelectCandidate.model_fields) == set(select["candidates"]["items"]["properties"])
+
+
+def test_anchor_graph_nested_fields_match():
+    schema = json.loads((CONTRACTS / "anchorGraph.schema.json").read_text())["properties"]
+    assert set(models.AnchorRef.model_fields) == set(schema["anchor"]["properties"])
+    assert set(models.AnchorNode.model_fields) == set(schema["nodes"]["items"]["properties"])
+    assert set(models.AnchorEdge.model_fields) == set(schema["edges"]["items"]["properties"])
+    assert set(models.AnchorOrigin.model_fields) == set(schema["origins"]["items"]["properties"])
+    assert set(models.AnchorTerminal.model_fields) == set(schema["terminals"]["items"]["properties"])
+    assert set(models.AnchorCounts.model_fields) == set(schema["counts"]["properties"])
+    assert set(models.LedgerCoverage.model_fields) == set(schema["coverage"]["properties"])
+    assert set(schema["nodes"]["items"]["properties"]["kind"]["enum"]) == set(
+        models.AnchorNode.model_fields["kind"].annotation.__args__
+    )

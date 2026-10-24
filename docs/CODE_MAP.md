@@ -90,6 +90,7 @@ Browser
 | `GET /api/dataflow/routes?path=&expectedGeneration=` | `routers/dataflow.py:get_routes` | Routes the engine discovered; `outcome` names `not-analyzed` / `stale` instead of failing |
 | `GET /api/dataflow/route-graph?path=&route=&expectedGeneration=` | `routers/dataflow.py:get_route_graph` | One route's render backbone (`graph`: nodes, render/handoff edges, origins, counts, gaps); 404 for an unknown route |
 | `DELETE /api/dataflow?path=` | `routers/dataflow.py:close` | Close the engine for a root |
+| `POST /api/dataflow/anchor-graph` | `routers/dataflow.py:anchor_graph` | A value's neighbourhood from any expression (`span` + `text`, or `name` + `line`), `direction` backward / forward / both; 404 for a name not on its line |
 | `GET /api/files/content` | `routers/files.py:get_file_content` | Raw file text; `ref=<sha>` reads it from a git commit (`git show`) |
 | `GET /api/files/markers` | `routers/files.py:get_file_markers` → `services/markers.py` | Lines behind each metric (`{metric: [{line, end_line, note}]}`) for the code viewer overlay; `ref=` as above |
 | `GET /api/compare/refs` | `routers/compare.py:list_refs` | Branches + recent commits for the compare ref picker |
