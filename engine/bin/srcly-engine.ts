@@ -54,6 +54,10 @@ function workerOperation(frame: RequestFrame): AnalysisOperation | null {
   const params = frame.params ?? {};
   const expectedGeneration = typeof params.expectedGeneration === "number" ? params.expectedGeneration : undefined;
   if (frame.op === "routes") return { kind: "routes", expectedGeneration };
+  if (frame.op === "routeGraph") {
+    if (typeof params.route !== "string") throw new EngineError("invalid-request", "routeGraph needs params.route");
+    return { kind: "route-graph", route: params.route, expectedGeneration };
+  }
   return null;
 }
 

@@ -88,6 +88,7 @@ Browser
 | `GET /api/dataflow/status?path=` | `routers/dataflow.py:get_status` | Whether data flow can run (`available`, `state`, N/A `reason`), engine progress, generation, RSS. Never starts the engine |
 | `POST /api/dataflow/start` | `routers/dataflow.py:start` | Start the engine and build tier 1 in the background; poll `status` |
 | `GET /api/dataflow/routes?path=&expectedGeneration=` | `routers/dataflow.py:get_routes` | Routes the engine discovered; `outcome` names `not-analyzed` / `stale` instead of failing |
+| `GET /api/dataflow/route-graph?path=&route=&expectedGeneration=` | `routers/dataflow.py:get_route_graph` | One route's render backbone (`graph`: nodes, render/handoff edges, origins, counts, gaps); 404 for an unknown route |
 | `DELETE /api/dataflow?path=` | `routers/dataflow.py:close` | Close the engine for a root |
 | `GET /api/files/content` | `routers/files.py:get_file_content` | Raw file text; `ref=<sha>` reads it from a git commit (`git show`) |
 | `GET /api/files/markers` | `routers/files.py:get_file_markers` → `services/markers.py` | Lines behind each metric (`{metric: [{line, end_line, note}]}`) for the code viewer overlay; `ref=` as above |
@@ -296,6 +297,10 @@ The tsx-data-flow analysis lives in `engine/`, a standalone Node package with it
 | Where the engine and Node come from, N/A reasons decided without spawning (`node-not-found`, `engine-missing`, `no-tsconfig`) | `server/app/services/dataflow/availability.py` (`SRCLY_NODE`, `SRCLY_ENGINE_DEV=1`) |
 | Pydantic mirrors of op results, `Outcome`, N/A reasons; the emitted JSON Schemas | `server/app/services/dataflow/models.py`, `server/app/services/dataflow/contracts/*.schema.json` |
 | `/api/dataflow/*` endpoints | `server/app/routers/dataflow.py` |
+| Engine `routeGraph`: RouteTotality → flow nodes (route, occurrence, control, terminal, origin) and render/handoff edges; route identity aligned for `export default Page` | `engine/src/srcly/ops/route-graph.ts`, `engine/src/srcly/route-identity.ts`; fixture `engine/test/srcly/__fixtures__/solid-route.route-graph.json` (`pnpm capture-route-graph`) |
+| Client data-flow API, per-root availability (start once, poll `status` every 250 ms), outcome labels | `client/src/dataflow/{api,availability,outcome}.ts`; types in `contract.generated.ts` |
+| Data flow mode in the graph view (`?view=graph&flow=<route>`; Imports / Data flow switch; route picker `/`; double-click or `o` opens the node's line; Shift-click opens a folded frame) | `client/src/viz/deps/flow/FlowView.tsx`, `FlowTools.tsx`, `RoutePicker.tsx`, `FlowProgress.tsx`, `FlowLegend.tsx`; switch in `viz/deps/DependencyView.tsx`; `flow` param in `navigation/location.ts` |
+| Route graph → ViewModel (frames per render parent, transparent primitives, box budget, hidden containment edges) | `client/src/viz/deps/flow/adapter.ts` (test reads the engine fixture) |
 | Engine lifecycle tests without Node (fake engine speaking the protocol); real smoke test on solid-route | `server/tests/fake_engine.py`, `test_dataflow_engine.py`, `test_dataflow_router.py`, `test_dataflow_models.py`, `test_dataflow_smoke.py` |
 | Fixture projects (Solid route, compact field proof, bad-ish Solid) | `engine/examples/` |
 | Field proof acceptance runner | `engine/scripts/accept-route-field-proof.ts` |

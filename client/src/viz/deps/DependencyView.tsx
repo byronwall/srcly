@@ -7,6 +7,8 @@ import { ViewTools } from "../viewToolbar";
 import type { DependencyGraphContract } from "./contract";
 import { DependencyCanvas, type CanvasApi } from "./DependencyCanvas";
 import { DependencyLegend } from "./DependencyLegend";
+import FlowView from "./flow/FlowView";
+import { FlowModeSwitch } from "./flow/FlowTools";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { GoToPalette, type GoToMode } from "./GoToPalette";
 import type { GoToHit } from "./goto";
@@ -33,7 +35,16 @@ async function fetchGraph(path: string | undefined): Promise<DependencyGraphCont
   return (await res.json()) as DependencyGraphContract;
 }
 
-export default function DependencyView(props: {
+/** The graph view: the import graph, or Data flow mode when the URL names `flow`. */
+export default function DependencyView(props: Parameters<typeof ImportView>[0]) {
+  return (
+    <Show when={location().flow !== undefined} fallback={<ImportView {...props} />}>
+      <FlowView rootPath={props.rootPath} onOpen={props.onOpen} />
+    </Show>
+  );
+}
+
+function ImportView(props: {
   /**
    * Absolute path of the scan root. The whole-repo graph is fetched once
    * (the server caches it by mtime); focus selects within it, so drills never
@@ -373,6 +384,8 @@ export default function DependencyView(props: {
     <div class="flex h-full flex-col bg-[var(--plc-surface)]">
       {/* Graph tools join the view toolbar; what's included lives in its filter menu. */}
       <ViewTools>
+        <span aria-hidden="true" class="mx-1 h-4 w-px shrink-0 bg-[var(--plc-border)]" />
+        <FlowModeSwitch />
         <span aria-hidden="true" class="mx-1 h-4 w-px shrink-0 bg-[var(--plc-border)]" />
         {/* A stepper: the label sits between the two steps it names. */}
         <div class="flex shrink-0 items-center" role="group" aria-label="Detail">

@@ -47,3 +47,99 @@ export type RoutesResult = {
     }[];
   }[];
 };
+
+/** Result of the `routeGraph` op. */
+export type RouteGraphResult = {
+  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  generation: number;
+  programHash: string;
+  tsconfig: string;
+  typescript: string;
+  route: {
+    key: string;
+    pathPattern: string;
+    file: string;
+    absPath: string;
+  };
+  status: "complete" | "partial" | "unavailable";
+  unavailableReason: string | null;
+  nodes: {
+    id: string;
+    kind: "route" | "occurrence" | "control" | "origin" | "field" | "terminal" | "frontier";
+    label: string;
+    detail: string | null;
+    parent: string | null;
+    file: string;
+    absPath: string;
+    line: number;
+    span: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    };
+    status: "proven" | "partial" | "unsupported";
+    collapsedByDefault: boolean;
+    repetition: "single" | "conditional" | "collection" | "unknown" | null;
+    external: boolean;
+    reason: string | null;
+  }[];
+  edges: {
+    id: string;
+    source: string;
+    target: string;
+    kind: "render" | "handoff" | "field";
+    status: "proven" | "partial" | "unsupported";
+    proof: {
+      kind: string;
+      detail: string;
+      locations: {
+        file: string;
+        line: number;
+        column: number;
+        span: {
+          startLine: number;
+          startColumn: number;
+          endLine: number;
+          endColumn: number;
+        };
+      }[];
+      status: "proven" | "partial" | "unsupported";
+    }[];
+    pathIds: {
+      elements: string[];
+      relations: string[];
+    } | null;
+  }[];
+  origins: {
+    nodeId: string;
+    elementId: string;
+    roles: ("argument" | "environment" | "working-directory" | "stdin" | "request" | "event" | "filesystem" | "fetch" | "resource" | "network" | "external-read" | "input-boundary")[];
+    label: string;
+    status: "proven" | "partial" | "unsupported";
+  }[];
+  selectedSource: string | null;
+  counts: {
+    occurrences: number;
+    boundaries: number;
+    terminals: number;
+    origins: number;
+    handoffs: number;
+    omittedItems: number;
+  };
+  gaps: {
+    reason: string;
+    label: string;
+    location: {
+      file: string;
+      line: number;
+      column: number;
+      span: {
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+      };
+    } | null;
+  }[];
+};

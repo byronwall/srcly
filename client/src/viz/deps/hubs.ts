@@ -83,5 +83,7 @@ export function layoutWithHubs(vm: ViewModel, opts: LayoutOptions): ViewLayout {
   const first = layoutViewSync(vm, opts);
   const hubs = pickHubs(vm, first);
   if (hubs.length === 0) return { ...first, hubs };
-  return { ...layoutViewSync(vm, { ...opts, hidden: hubEdgeIds(vm, hubs) }), hubs };
+  // Edges the caller already hides (Data flow mode's containment edges) stay hidden.
+  const hidden = new Set([...(opts.hidden ?? []), ...hubEdgeIds(vm, hubs)]);
+  return { ...layoutViewSync(vm, { ...opts, hidden }), hubs };
 }

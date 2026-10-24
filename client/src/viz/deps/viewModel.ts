@@ -42,6 +42,12 @@ export interface ViewNode {
   subgroup?: string;
   /** A folder (or a file with symbols) that can open in place into its children. */
   expandable?: boolean;
+  /** Data flow mode: a dotted outline for a rolled-up primitive, hatched for a frontier. */
+  outline?: "dotted" | "hatched";
+  /** Data flow mode: a proven destination of the selected origin. */
+  lit?: boolean;
+  /** Data flow mode: the third line (status, repetition, rolled-up members). */
+  note?: string;
 }
 
 export interface ViewEdge {
@@ -53,6 +59,8 @@ export interface ViewEdge {
   /** Neither end is in the center region. */
   faint: boolean;
   symbols: string[];
+  /** Data flow mode: a dashed handoff from an origin, or an accent field path. */
+  style?: "handoff" | "field";
 }
 
 export interface ViewModel {

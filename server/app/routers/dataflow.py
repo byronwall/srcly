@@ -21,6 +21,8 @@ from app.services.dataflow.models import (
     DataflowStatus,
     Outcome,
     Progress,
+    RouteGraphResponse,
+    RouteGraphResult,
     RoutesResponse,
     RoutesResult,
     StatusResult,
@@ -46,8 +48,9 @@ def _root(path: str | None) -> Path:
     return root.resolve()
 
 
-def _json(model: BaseModel) -> Response:
-    return Response(content=model.model_dump_json(exclude_none=True), media_type="application/json")
+def _json(model: BaseModel, exclude_none: bool = True) -> Response:
+    # Contract payloads keep their nulls (a route node's `parent: null` is data).
+    return Response(content=model.model_dump_json(exclude_none=exclude_none), media_type="application/json")
 
 
 def _na(exc: EngineError) -> dict:
@@ -116,35 +119,62 @@ def start(body: StartRequest):
     return _json(_status(root))
 
 
-@router.get("/routes", response_model=RoutesResponse, response_model_exclude_none=True)
-def get_routes(path: str | None = None, expectedGeneration: int | None = None):
-    """The routes the engine discovered under ``path`` (starts the engine on first use)."""
-    root = _root(path)
+def _query(root: Path, op: str, params: dict, expected_generation: int | None) -> dict:
+    """
+    Run one op, turning every analysis state into a response body with an
+    ``outcome``. Returns either ``{"result": ...}`` or the outcome fields.
+    """
     registry = _registry()
     found = registry.probe(root)
     if not found.available:
-        return _json(RoutesResponse(outcome=Outcome.not_analyzed, reason=found.reason, message=found.message))
+        return {"outcome": Outcome.not_analyzed, "reason": found.reason, "message": found.message}
     known = registry.failure(root)
     if known is not None:
-        return _json(RoutesResponse(**_na(known)))
+        return _na(known)
     try:
-        result = RoutesResult.model_validate(registry.query(root, "routes", expected_generation=expectedGeneration))
+        return {"result": registry.query(root, op, params, expected_generation=expected_generation)}
     except EngineCrashed as exc:
         raise HTTPException(status_code=503, detail={"reason": exc.code, "message": exc.message, "stderr": exc.stderr_tail[-8:]}) from exc
     except EngineError as exc:
         if exc.code == "stale-generation":
-            return _json(RoutesResponse(
-                outcome=Outcome.stale,
-                message=exc.message,
-                generation=exc.details.get("generation"),
-                programHash=exc.details.get("programHash"),
-            ))
+            return {
+                "outcome": Outcome.stale,
+                "message": exc.message,
+                "generation": exc.details.get("generation"),
+                "programHash": exc.details.get("programHash"),
+            }
         if exc.code == "cancelled":
-            return _json(RoutesResponse(outcome=Outcome.cancelled, message=exc.message))
+            return {"outcome": Outcome.cancelled, "message": exc.message}
+        if exc.code == "budget-exhausted":
+            return {"outcome": Outcome.budget, "message": exc.message}
+        if exc.code == "not-found":
+            raise HTTPException(status_code=404, detail={"reason": exc.code, "message": exc.message}) from exc
         if exc.code in NA_REASONS:
-            return _json(RoutesResponse(**_na(exc)))
+            return _na(exc)
         raise HTTPException(status_code=500, detail={"reason": exc.code, "message": exc.message}) from exc
-    return _json(RoutesResponse(**result.model_dump()))
+
+
+@router.get("/routes", response_model=RoutesResponse, response_model_exclude_none=True)
+def get_routes(path: str | None = None, expectedGeneration: int | None = None):
+    """The routes the engine discovered under ``path`` (starts the engine on first use)."""
+    body = _query(_root(path), "routes", {}, expectedGeneration)
+    if "result" not in body:
+        return _json(RoutesResponse(**body))
+    return _json(RoutesResponse(**RoutesResult.model_validate(body["result"]).model_dump()))
+
+
+@router.get("/route-graph", response_model=RouteGraphResponse)
+def get_route_graph(route: str, path: str | None = None, expectedGeneration: int | None = None):
+    """
+    One route's render backbone (occurrences, framework boundaries, terminals,
+    origins). The first call per route builds its totality and can take tens
+    of seconds on a large app; ``status`` shows the progress meanwhile.
+    """
+    body = _query(_root(path), "routeGraph", {"route": route}, expectedGeneration)
+    if "result" not in body:
+        return _json(RouteGraphResponse(**body), exclude_none=False)
+    graph = RouteGraphResult.model_validate(body["result"])
+    return _json(RouteGraphResponse(outcome=graph.outcome, generation=graph.generation, programHash=graph.programHash, graph=graph), exclude_none=False)
 
 
 @router.delete("")

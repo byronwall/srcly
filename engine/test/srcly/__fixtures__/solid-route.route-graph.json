@@ -1,0 +1,1176 @@
+{
+ "outcome": "partial",
+ "generation": 1,
+ "programHash": "f8ef3ae01690529d",
+ "tsconfig": "/fixture/solid-route/tsconfig.json",
+ "typescript": "5.9.3",
+ "route": {
+  "key": "route:1j5uvsv",
+  "pathPattern": "/records",
+  "file": "src/routes/records.tsx",
+  "absPath": "/fixture/solid-route/src/routes/records.tsx"
+ },
+ "status": "partial",
+ "unavailableReason": null,
+ "nodes": [
+  {
+   "id": "route-occurrence:m8qwl",
+   "kind": "route",
+   "label": "/records",
+   "detail": null,
+   "parent": null,
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 15,
+   "span": {
+    "startLine": 15,
+    "startColumn": 1,
+    "endLine": 37,
+    "endColumn": 2
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": null,
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-occurrence:1e04p52",
+   "kind": "occurrence",
+   "label": "MetricCard",
+   "detail": "MetricCard.tsx",
+   "parent": "route-occurrence:n7tgmy",
+   "file": "src/components/RecordSummary.tsx",
+   "absPath": "/fixture/solid-route/src/components/RecordSummary.tsx",
+   "line": 7,
+   "span": {
+    "startLine": 7,
+    "startColumn": 7,
+    "endLine": 7,
+    "endColumn": 80
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-occurrence:b66jfb",
+   "kind": "occurrence",
+   "label": "MetricCard",
+   "detail": "MetricCard.tsx",
+   "parent": "route-occurrence:n7tgmy",
+   "file": "src/components/RecordSummary.tsx",
+   "absPath": "/fixture/solid-route/src/components/RecordSummary.tsx",
+   "line": 8,
+   "span": {
+    "startLine": 8,
+    "startColumn": 7,
+    "endLine": 8,
+    "endColumn": 80
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-occurrence:euuis8",
+   "kind": "occurrence",
+   "label": "RecordRow",
+   "detail": "RecordTable.tsx",
+   "parent": "route-framework-boundary:umti3a",
+   "file": "src/components/RecordTable.tsx",
+   "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
+   "line": 15,
+   "span": {
+    "startLine": 15,
+    "startColumn": 26,
+    "endLine": 15,
+    "endColumn": 55
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-occurrence:1i30i7k",
+   "kind": "occurrence",
+   "label": "RouteFrame",
+   "detail": "RouteFrame.tsx",
+   "parent": "route-occurrence:m8qwl",
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 29,
+   "span": {
+    "startLine": 29,
+    "startColumn": 5,
+    "endLine": 29,
+    "endColumn": 39
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "single",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-occurrence:gunqpl",
+   "kind": "occurrence",
+   "label": "ViewerCard",
+   "detail": "ViewerCard.tsx",
+   "parent": "route-occurrence:1i30i7k",
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 30,
+   "span": {
+    "startLine": 30,
+    "startColumn": 7,
+    "endLine": 30,
+    "endColumn": 39
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "single",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-occurrence:n7tgmy",
+   "kind": "occurrence",
+   "label": "RecordSummary",
+   "detail": "RecordSummary.tsx",
+   "parent": "route-framework-boundary:1yyee3r",
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 32,
+   "span": {
+    "startLine": 32,
+    "startColumn": 9,
+    "endLine": 32,
+    "endColumn": 46
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-occurrence:1wam0ne",
+   "kind": "occurrence",
+   "label": "RecordTable",
+   "detail": "RecordTable.tsx",
+   "parent": "route-framework-boundary:1yyee3r",
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 33,
+   "span": {
+    "startLine": 33,
+    "startColumn": 9,
+    "endLine": 33,
+    "endColumn": 51
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-framework-boundary:7hwd4g",
+   "kind": "control",
+   "label": "Show",
+   "detail": "control-flow",
+   "parent": "route-occurrence:1wam0ne",
+   "file": "src/components/RecordTable.tsx",
+   "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
+   "line": 9,
+   "span": {
+    "startLine": 9,
+    "startColumn": 7,
+    "endLine": 12,
+    "endColumn": 8
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-framework-boundary:umti3a",
+   "kind": "control",
+   "label": "For",
+   "detail": "collection",
+   "parent": "route-framework-boundary:7hwd4g",
+   "file": "src/components/RecordTable.tsx",
+   "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
+   "line": 14,
+   "span": {
+    "startLine": 14,
+    "startColumn": 11,
+    "endLine": 14,
+    "endColumn": 37
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "unknown",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-framework-boundary:1yyee3r",
+   "kind": "control",
+   "label": "Show",
+   "detail": "control-flow",
+   "parent": "route-occurrence:1i30i7k",
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 31,
+   "span": {
+    "startLine": 31,
+    "startColumn": 7,
+    "endLine": 31,
+    "endColumn": 74
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:ilz0ff",
+   "kind": "terminal",
+   "label": "props.label",
+   "detail": "render-expression",
+   "parent": "route-occurrence:1e04p52",
+   "file": "src/components/MetricCard.tsx",
+   "absPath": "/fixture/solid-route/src/components/MetricCard.tsx",
+   "line": 4,
+   "span": {
+    "startLine": 4,
+    "startColumn": 12,
+    "endLine": 4,
+    "endColumn": 23
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:p81kcc",
+   "kind": "terminal",
+   "label": "props.label",
+   "detail": "render-expression",
+   "parent": "route-occurrence:b66jfb",
+   "file": "src/components/MetricCard.tsx",
+   "absPath": "/fixture/solid-route/src/components/MetricCard.tsx",
+   "line": 4,
+   "span": {
+    "startLine": 4,
+    "startColumn": 12,
+    "endLine": 4,
+    "endColumn": 23
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:19g5j0j",
+   "kind": "terminal",
+   "label": "props.value",
+   "detail": "render-expression",
+   "parent": "route-occurrence:1e04p52",
+   "file": "src/components/MetricCard.tsx",
+   "absPath": "/fixture/solid-route/src/components/MetricCard.tsx",
+   "line": 5,
+   "span": {
+    "startLine": 5,
+    "startColumn": 12,
+    "endLine": 5,
+    "endColumn": 23
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:1bsy0d0",
+   "kind": "terminal",
+   "label": "props.value",
+   "detail": "render-expression",
+   "parent": "route-occurrence:b66jfb",
+   "file": "src/components/MetricCard.tsx",
+   "absPath": "/fixture/solid-route/src/components/MetricCard.tsx",
+   "line": 5,
+   "span": {
+    "startLine": 5,
+    "startColumn": 12,
+    "endLine": 5,
+    "endColumn": 23
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:ss9oii",
+   "kind": "terminal",
+   "label": "Records",
+   "detail": "jsx-text",
+   "parent": "route-occurrence:1wam0ne",
+   "file": "src/components/RecordTable.tsx",
+   "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
+   "line": 8,
+   "span": {
+    "startLine": 8,
+    "startColumn": 36,
+    "endLine": 8,
+    "endColumn": 43
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:onzmsb",
+   "kind": "terminal",
+   "label": "No active records.",
+   "detail": "jsx-text",
+   "parent": "route-framework-boundary:7hwd4g",
+   "file": "src/components/RecordTable.tsx",
+   "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
+   "line": 11,
+   "span": {
+    "startLine": 11,
+    "startColumn": 22,
+    "endLine": 11,
+    "endColumn": 40
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:1txhel1",
+   "kind": "terminal",
+   "label": "data-record-id",
+   "detail": "dom-attribute",
+   "parent": "route-occurrence:euuis8",
+   "file": "src/components/RecordTable.tsx",
+   "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
+   "line": 27,
+   "span": {
+    "startLine": 27,
+    "startColumn": 9,
+    "endLine": 27,
+    "endColumn": 32
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:1xtzua8",
+   "kind": "terminal",
+   "label": "row.title",
+   "detail": "render-expression",
+   "parent": "route-occurrence:euuis8",
+   "file": "src/components/RecordTable.tsx",
+   "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
+   "line": 28,
+   "span": {
+    "startLine": 28,
+    "startColumn": 16,
+    "endLine": 28,
+    "endColumn": 25
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:ms2v4m",
+   "kind": "terminal",
+   "label": "row.statusLabel",
+   "detail": "render-expression",
+   "parent": "route-occurrence:euuis8",
+   "file": "src/components/RecordTable.tsx",
+   "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
+   "line": 29,
+   "span": {
+    "startLine": 29,
+    "startColumn": 14,
+    "endLine": 29,
+    "endColumn": 29
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:a4cezn",
+   "kind": "terminal",
+   "label": "row.scoreLabel",
+   "detail": "render-expression",
+   "parent": "route-occurrence:euuis8",
+   "file": "src/components/RecordTable.tsx",
+   "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
+   "line": 30,
+   "span": {
+    "startLine": 30,
+    "startColumn": 14,
+    "endLine": 30,
+    "endColumn": 28
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:1x4g7n9",
+   "kind": "terminal",
+   "label": "Solid route fixture",
+   "detail": "jsx-text",
+   "parent": "route-occurrence:1i30i7k",
+   "file": "src/components/RouteFrame.tsx",
+   "absPath": "/fixture/solid-route/src/components/RouteFrame.tsx",
+   "line": 12,
+   "span": {
+    "startLine": 12,
+    "startColumn": 12,
+    "endLine": 12,
+    "endColumn": 31
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "single",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:yq4kos",
+   "kind": "terminal",
+   "label": "props.title",
+   "detail": "render-expression",
+   "parent": "route-occurrence:1i30i7k",
+   "file": "src/components/RouteFrame.tsx",
+   "absPath": "/fixture/solid-route/src/components/RouteFrame.tsx",
+   "line": 13,
+   "span": {
+    "startLine": 13,
+    "startColumn": 35,
+    "endLine": 13,
+    "endColumn": 46
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "single",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:1xor9pl",
+   "kind": "terminal",
+   "label": "Signed in as",
+   "detail": "jsx-text",
+   "parent": "route-occurrence:gunqpl",
+   "file": "src/components/ViewerCard.tsx",
+   "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
+   "line": 6,
+   "span": {
+    "startLine": 6,
+    "startColumn": 7,
+    "endLine": 6,
+    "endColumn": 20
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "single",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:141musa",
+   "kind": "terminal",
+   "label": "props.viewer?.name ?? \"loading viewer\"",
+   "detail": "render-expression",
+   "parent": "route-occurrence:gunqpl",
+   "file": "src/components/ViewerCard.tsx",
+   "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
+   "line": 6,
+   "span": {
+    "startLine": 6,
+    "startColumn": 21,
+    "endLine": 6,
+    "endColumn": 59
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "single",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:dnupxk",
+   "kind": "terminal",
+   "label": "(",
+   "detail": "jsx-text",
+   "parent": "route-occurrence:gunqpl",
+   "file": "src/components/ViewerCard.tsx",
+   "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
+   "line": 6,
+   "span": {
+    "startLine": 6,
+    "startColumn": 61,
+    "endLine": 7,
+    "endColumn": 7
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "single",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:msqkm1",
+   "kind": "terminal",
+   "label": "props.viewer?.team ?? \"loading team\"",
+   "detail": "render-expression",
+   "parent": "route-occurrence:gunqpl",
+   "file": "src/components/ViewerCard.tsx",
+   "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
+   "line": 7,
+   "span": {
+    "startLine": 7,
+    "startColumn": 8,
+    "endLine": 7,
+    "endColumn": 44
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "single",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:92nsxn",
+   "kind": "terminal",
+   "label": ")",
+   "detail": "jsx-text",
+   "parent": "route-occurrence:gunqpl",
+   "file": "src/components/ViewerCard.tsx",
+   "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
+   "line": 7,
+   "span": {
+    "startLine": 7,
+    "startColumn": 45,
+    "endLine": 8,
+    "endColumn": 5
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "single",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "route-terminal:8uf98o",
+   "kind": "terminal",
+   "label": "Loading records...",
+   "detail": "jsx-text",
+   "parent": "route-framework-boundary:1yyee3r",
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 31,
+   "span": {
+    "startLine": 31,
+    "startColumn": 50,
+    "endLine": 31,
+    "endColumn": 68
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": "conditional",
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "program-element:1pr3jj6",
+   "kind": "origin",
+   "label": "createResource(loadRecords)",
+   "detail": "resource",
+   "parent": "route-occurrence:m8qwl",
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 16,
+   "span": {
+    "startLine": 16,
+    "startColumn": 21,
+    "endLine": 16,
+    "endColumn": 48
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": null,
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "program-element:jpfet7",
+   "kind": "origin",
+   "label": "createResource(loadViewer)",
+   "detail": "resource",
+   "parent": "route-occurrence:m8qwl",
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 17,
+   "span": {
+    "startLine": 17,
+    "startColumn": 20,
+    "endLine": 17,
+    "endColumn": 46
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": null,
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "program-element:13n867y",
+   "kind": "origin",
+   "label": "fetch(\"/records.json\")",
+   "detail": "fetch · network",
+   "parent": "route-occurrence:m8qwl",
+   "file": "src/data/records.ts",
+   "absPath": "/fixture/solid-route/src/data/records.ts",
+   "line": 4,
+   "span": {
+    "startLine": 4,
+    "startColumn": 26,
+    "endLine": 4,
+    "endColumn": 48
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": null,
+   "external": false,
+   "reason": null
+  },
+  {
+   "id": "program-element:1uit8uh",
+   "kind": "origin",
+   "label": "fetch(\"/viewer.json\")",
+   "detail": "fetch · network",
+   "parent": "route-occurrence:m8qwl",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 4,
+   "span": {
+    "startLine": 4,
+    "startColumn": 26,
+    "endLine": 4,
+    "endColumn": 47
+   },
+   "status": "proven",
+   "collapsedByDefault": false,
+   "repetition": null,
+   "external": false,
+   "reason": null
+  }
+ ],
+ "edges": [
+  {
+   "id": "route-occurrence-edge:1d4but2",
+   "source": "route-occurrence:1wam0ne",
+   "target": "route-framework-boundary:7hwd4g",
+   "kind": "render",
+   "status": "proven",
+   "proof": [],
+   "pathIds": null
+  },
+  {
+   "id": "route-occurrence-edge:1dfwt08",
+   "source": "route-framework-boundary:7hwd4g",
+   "target": "route-framework-boundary:umti3a",
+   "kind": "render",
+   "status": "proven",
+   "proof": [],
+   "pathIds": null
+  },
+  {
+   "id": "route-occurrence-edge:1etqlyl",
+   "source": "route-framework-boundary:umti3a",
+   "target": "route-occurrence:euuis8",
+   "kind": "render",
+   "status": "proven",
+   "proof": [],
+   "pathIds": null
+  },
+  {
+   "id": "route-occurrence-edge:1nbpk7w",
+   "source": "route-occurrence:n7tgmy",
+   "target": "route-occurrence:1e04p52",
+   "kind": "render",
+   "status": "proven",
+   "proof": [],
+   "pathIds": null
+  },
+  {
+   "id": "route-occurrence-edge:5kftba",
+   "source": "route-occurrence:1i30i7k",
+   "target": "route-framework-boundary:1yyee3r",
+   "kind": "render",
+   "status": "proven",
+   "proof": [],
+   "pathIds": null
+  },
+  {
+   "id": "route-occurrence-edge:lxvrqu",
+   "source": "route-occurrence:m8qwl",
+   "target": "route-occurrence:1i30i7k",
+   "kind": "render",
+   "status": "proven",
+   "proof": [],
+   "pathIds": null
+  },
+  {
+   "id": "route-occurrence-edge:qqxrlk",
+   "source": "route-framework-boundary:1yyee3r",
+   "target": "route-occurrence:1wam0ne",
+   "kind": "render",
+   "status": "proven",
+   "proof": [],
+   "pathIds": null
+  },
+  {
+   "id": "route-occurrence-edge:t67cq4",
+   "source": "route-occurrence:1i30i7k",
+   "target": "route-occurrence:gunqpl",
+   "kind": "render",
+   "status": "proven",
+   "proof": [],
+   "pathIds": null
+  },
+  {
+   "id": "route-occurrence-edge:tzstkf",
+   "source": "route-occurrence:n7tgmy",
+   "target": "route-occurrence:b66jfb",
+   "kind": "render",
+   "status": "proven",
+   "proof": [],
+   "pathIds": null
+  },
+  {
+   "id": "route-occurrence-edge:zj6qwh",
+   "source": "route-framework-boundary:1yyee3r",
+   "target": "route-occurrence:n7tgmy",
+   "kind": "render",
+   "status": "proven",
+   "proof": [],
+   "pathIds": null
+  },
+  {
+   "id": "route-totality-bridge:1m786j2",
+   "source": "program-element:jpfet7",
+   "target": "route-terminal:msqkm1",
+   "kind": "handoff",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "route-totality-bridge",
+     "detail": "The explicit evidence relation path reaches a route render terminal at the same source span.",
+     "locations": [
+      {
+       "file": "src/components/ViewerCard.tsx",
+       "line": 3,
+       "column": 1,
+       "span": {
+        "startLine": 3,
+        "startColumn": 1,
+        "endLine": 10,
+        "endColumn": 2
+       }
+      },
+      {
+       "file": "src/components/ViewerCard.tsx",
+       "line": 7,
+       "column": 8,
+       "span": {
+        "startLine": 7,
+        "startColumn": 8,
+        "endLine": 7,
+        "endColumn": 44
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 17,
+       "column": 20,
+       "span": {
+        "startLine": 17,
+        "startColumn": 20,
+        "endLine": 17,
+        "endColumn": 46
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 19,
+       "span": {
+        "startLine": 30,
+        "startColumn": 19,
+        "endLine": 30,
+        "endColumn": 36
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 27,
+       "span": {
+        "startLine": 30,
+        "startColumn": 27,
+        "endLine": 30,
+        "endColumn": 35
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 7,
+       "span": {
+        "startLine": 30,
+        "startColumn": 7,
+        "endLine": 30,
+        "endColumn": 39
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 8,
+       "span": {
+        "startLine": 30,
+        "startColumn": 8,
+        "endLine": 30,
+        "endColumn": 18
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "pathIds": {
+    "elements": [
+     "program-element:jpfet7",
+     "program-element:3b8d4u",
+     "program-element:gwfd9i",
+     "program-element:ngme28",
+     "program-element:iv2ljy",
+     "program-element:s37pou"
+    ],
+    "relations": [
+     "program-relation:nc73t6",
+     "program-relation:atlxnx",
+     "program-relation:6j3ntr",
+     "program-relation:o1mokn",
+     "program-relation:1yeviyc"
+    ]
+   }
+  },
+  {
+   "id": "route-totality-bridge:ay3y0d",
+   "source": "program-element:jpfet7",
+   "target": "route-occurrence:gunqpl",
+   "kind": "handoff",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "route-totality-bridge",
+     "detail": "The explicit evidence relation path reaches a route occurrence at the same source span.",
+     "locations": [
+      {
+       "file": "src/routes/records.tsx",
+       "line": 17,
+       "column": 20,
+       "span": {
+        "startLine": 17,
+        "startColumn": 20,
+        "endLine": 17,
+        "endColumn": 46
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 19,
+       "span": {
+        "startLine": 30,
+        "startColumn": 19,
+        "endLine": 30,
+        "endColumn": 36
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 27,
+       "span": {
+        "startLine": 30,
+        "startColumn": 27,
+        "endLine": 30,
+        "endColumn": 35
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 7,
+       "span": {
+        "startLine": 30,
+        "startColumn": 7,
+        "endLine": 30,
+        "endColumn": 39
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "pathIds": {
+    "elements": [
+     "program-element:jpfet7",
+     "program-element:3b8d4u",
+     "program-element:gwfd9i",
+     "program-element:ngme28"
+    ],
+    "relations": [
+     "program-relation:nc73t6",
+     "program-relation:atlxnx",
+     "program-relation:6j3ntr"
+    ]
+   }
+  },
+  {
+   "id": "route-totality-bridge:hgo0fu",
+   "source": "program-element:jpfet7",
+   "target": "route-terminal:141musa",
+   "kind": "handoff",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "route-totality-bridge",
+     "detail": "The explicit evidence relation path reaches a route render terminal at the same source span.",
+     "locations": [
+      {
+       "file": "src/components/ViewerCard.tsx",
+       "line": 3,
+       "column": 1,
+       "span": {
+        "startLine": 3,
+        "startColumn": 1,
+        "endLine": 10,
+        "endColumn": 2
+       }
+      },
+      {
+       "file": "src/components/ViewerCard.tsx",
+       "line": 6,
+       "column": 21,
+       "span": {
+        "startLine": 6,
+        "startColumn": 21,
+        "endLine": 6,
+        "endColumn": 59
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 17,
+       "column": 20,
+       "span": {
+        "startLine": 17,
+        "startColumn": 20,
+        "endLine": 17,
+        "endColumn": 46
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 19,
+       "span": {
+        "startLine": 30,
+        "startColumn": 19,
+        "endLine": 30,
+        "endColumn": 36
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 27,
+       "span": {
+        "startLine": 30,
+        "startColumn": 27,
+        "endLine": 30,
+        "endColumn": 35
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 7,
+       "span": {
+        "startLine": 30,
+        "startColumn": 7,
+        "endLine": 30,
+        "endColumn": 39
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 8,
+       "span": {
+        "startLine": 30,
+        "startColumn": 8,
+        "endLine": 30,
+        "endColumn": 18
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "pathIds": {
+    "elements": [
+     "program-element:jpfet7",
+     "program-element:3b8d4u",
+     "program-element:gwfd9i",
+     "program-element:ngme28",
+     "program-element:iv2ljy",
+     "program-element:lpxdkm"
+    ],
+    "relations": [
+     "program-relation:nc73t6",
+     "program-relation:atlxnx",
+     "program-relation:6j3ntr",
+     "program-relation:o1mokn",
+     "program-relation:1nuteig"
+    ]
+   }
+  }
+ ],
+ "origins": [
+  {
+   "nodeId": "program-element:1pr3jj6",
+   "elementId": "program-element:1pr3jj6",
+   "roles": [
+    "resource"
+   ],
+   "label": "createResource(loadRecords)",
+   "status": "proven"
+  },
+  {
+   "nodeId": "program-element:jpfet7",
+   "elementId": "program-element:jpfet7",
+   "roles": [
+    "resource"
+   ],
+   "label": "createResource(loadViewer)",
+   "status": "proven"
+  },
+  {
+   "nodeId": "program-element:13n867y",
+   "elementId": "program-element:13n867y",
+   "roles": [
+    "fetch",
+    "network"
+   ],
+   "label": "fetch(\"/records.json\")",
+   "status": "proven"
+  },
+  {
+   "nodeId": "program-element:1uit8uh",
+   "elementId": "program-element:1uit8uh",
+   "roles": [
+    "fetch",
+    "network"
+   ],
+   "label": "fetch(\"/viewer.json\")",
+   "status": "proven"
+  }
+ ],
+ "selectedSource": null,
+ "counts": {
+  "occurrences": 7,
+  "boundaries": 3,
+  "terminals": 18,
+  "origins": 4,
+  "handoffs": 3,
+  "omittedItems": 0
+ },
+ "gaps": [
+  {
+   "reason": "external-code",
+   "label": "Static proof stops at the external response body; any response-to-resource handoff is runtime-only and remains unproven.",
+   "location": {
+    "file": "src/data/records.ts",
+    "line": 4,
+    "column": 26,
+    "span": {
+     "startLine": 4,
+     "startColumn": 26,
+     "endLine": 4,
+     "endColumn": 48
+    }
+   }
+  },
+  {
+   "reason": "external-code",
+   "label": "Static proof stops at the external response body; any response-to-resource handoff is runtime-only and remains unproven.",
+   "location": {
+    "file": "src/data/viewer.ts",
+    "line": 4,
+    "column": 26,
+    "span": {
+     "startLine": 4,
+     "startColumn": 26,
+     "endLine": 4,
+     "endColumn": 47
+    }
+   }
+  }
+ ]
+}

@@ -62,6 +62,21 @@ def result_for(op: str, params: dict) -> dict:
                 "tsconfig": f"{args.root}/tsconfig.json", "typescript": "5.9.3",
                 "routes": [{"key": "route:records", "pathPattern": "/records", "file": "src/routes/records.tsx",
                             "absPath": f"{args.root}/src/routes/records.tsx", "parameters": []}]}
+    if op == "routeGraph":
+        if params.get("route") not in ("route:records", "/records"):
+            raise KeyError(params.get("route"))
+        span = {"startLine": 1, "startColumn": 1, "endLine": 1, "endColumn": 10}
+        node = {"id": "occ:route", "kind": "route", "label": "/records", "detail": None, "parent": None,
+                "file": "src/routes/records.tsx", "absPath": f"{args.root}/src/routes/records.tsx", "line": 1, "span": span,
+                "status": "proven", "collapsedByDefault": False, "repetition": None, "external": False, "reason": None}
+        return {"outcome": "ok", "generation": state["generation"] or 1, "programHash": "hash-1",
+                "tsconfig": f"{args.root}/tsconfig.json", "typescript": "5.9.3",
+                "route": {"key": "route:records", "pathPattern": "/records", "file": "src/routes/records.tsx",
+                          "absPath": f"{args.root}/src/routes/records.tsx"},
+                "status": "complete", "unavailableReason": None, "nodes": [node], "edges": [], "origins": [],
+                "selectedSource": None,
+                "counts": {"occurrences": 0, "boundaries": 0, "terminals": 0, "origins": 0, "handoffs": 0, "omittedItems": 0},
+                "gaps": []}
     raise LookupError(op)
 
 
@@ -94,6 +109,8 @@ def handle(frame: dict) -> None:
         return
     try:
         send({"id": request_id, "ok": True, "result": result_for(op, params)})
+    except KeyError as missing:
+        send({"id": request_id, "ok": False, "error": {"code": "not-found", "message": f"No route {missing}"}})
     except LookupError:
         send({"id": request_id, "ok": False, "error": {"code": "invalid-request", "message": f"Unknown op: {op}"}})
 

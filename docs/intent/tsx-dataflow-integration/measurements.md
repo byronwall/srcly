@@ -37,6 +37,22 @@ Machine: development Mac. Node v22.21.1. Engine at `srcly-port-base` (`0a814cd`)
 
 Tier 1 on visual-notes is 10.4 s against the 13.9 s the planning baseline summed for program plus identity index, and it misses the 10 s cold target by a little. RSS after tier 1 is below the baseline's because the legacy report never runs.
 
+## 2026-10-24 — M2: first `routeGraph` per route, and decision D2
+
+Same machine and Node. Engine `routeGraph` called in process right after tier 1 (cold totality for that route; `route-graph.ts` projection included).
+
+| Target · route | tier 1 | first `routeGraph` | Payload | Nodes | Edges | Engine-omitted items |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| solid-route · `/records` | 461 ms | 172 ms | 24.7 KB | 33 | 13 | 0 |
+| visual-notes · `/time-blocks` | 14,206 ms | 34,691 ms | 359 KB | 418 | 325 | 258 |
+| visual-notes · `/tasks` | 10,186 ms | 31,432 ms | 270 KB | 327 | 250 | 184 |
+
+Through the UI, a cold `/time-blocks` (saved scan, engine start, tier 1, first `routeGraph`) took 68 s from page load to the first drawn box; the progress panel showed each phase meanwhile.
+
+Before the session aligned route identity, every visual-notes route came back `unavailable` ("No unique proven Solid route candidate matched"): route discovery records `export default Page;` at the identifier, the Solid scope adapter at the `const Page = () => …` declaration, and totality matches them by span. Upstream's full-report path fails the same way. `engine/src/srcly/route-identity.ts` aligns the span through the checker in the session; `src/analysis` is unchanged.
+
+**D2 (route layout): keep today's packing with occurrence frames.** The adapter puts every flow node in the center region, makes its render parent its frame (`group.opened`), and adds hidden containment edges so columns follow hierarchy depth. In all four screenshots each frame's boxes stay together in one column block: ViewerCard's five terminals, RecordRow's four, and WeeklyTimeBlocksCalendar's thirteen children each read as one framed column. The packer folds adjacent depth levels into one column when the viewport is short, so a frame can share its parent's column, but no occurrence's terminals were split from each other. No `direction: "down"` rule and no `layout.ts` change. Screenshots (attached to the M2 PR, kept in the ignored `tmp/`): `d2-solid-route-1440.png`, `d2-solid-route-1024.png`, `d2-time-blocks-1440.png`, `d2-time-blocks-1024.png`.
+
 ## To record next
 
 | Milestone | Numbers |
