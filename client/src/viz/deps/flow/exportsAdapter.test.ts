@@ -48,7 +48,7 @@ describe("a file or folder anchor fans out to its exports (T19)", () => {
     };
     expect(60).toBeGreaterThan(EXPORTS_BUDGET);
     const folded = exportsToViewModel(many, { expanded: [], graphs: new Map() });
-    expect(folded.vm.nodes.filter((n) => !n.isFocus).map((n) => [n.kind, n.memberCount])).toEqual(Array.from({ length: 6 }, (_, i) => ["file", 10]));
+    expect(folded.vm.nodes.filter((n) => !n.isFocus).map((n) => [n.kind, n.memberCount])).toEqual(Array.from({ length: 6 }, () => ["file", 10]));
     const opened = exportsToViewModel(many, { expanded: ["src/u/f2.ts"], graphs: new Map() });
     expect(opened.vm.nodes.filter((n) => n.group?.id === "src/u/f2.ts").length).toBe(10);
     expect(opened.vm.nodes.filter((n) => n.kind === "file").length).toBe(5);

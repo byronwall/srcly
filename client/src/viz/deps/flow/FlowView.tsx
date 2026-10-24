@@ -127,6 +127,7 @@ export default function FlowView(props: {
   const anchorFetch = createFetch(anchorFetchKey, (key) => {
     const [path, raw, direction, gen] = key.split("\n");
     const spec = parseAnchor(raw)!;
+    if ("exports" in spec) throw new Error("An exports anchor has no single graph");
     return watchProgress(path, fetchAnchorGraph({ path, direction: direction as Direction, ...spec, ...(gen ? { expectedGeneration: Number(gen) } : {}) }));
   });
   const anchorGraph = anchorFetch.value;
