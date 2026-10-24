@@ -46,8 +46,14 @@ export interface ViewNode {
   outline?: "dotted" | "hatched";
   /** Data flow mode: a proven destination of the selected origin. */
   lit?: boolean;
-  /** Data flow mode: the third line (status, repetition, rolled-up members). */
+  /** Data flow mode: the third line (status, rolled-up members, a frontier's reason). */
   note?: string;
+  /** Data flow mode: the proof status; partial and unsupported color the box's stroke. */
+  status?: "proven" | "partial" | "unsupported";
+  /** Data flow mode: how often the node renders; a badge at the box's top right. */
+  repetition?: "conditional" | "collection";
+  /** Data flow mode: the kind's color, mixed into the fill like the treemap's metric color. */
+  tint?: string;
 }
 
 export interface ViewEdge {
