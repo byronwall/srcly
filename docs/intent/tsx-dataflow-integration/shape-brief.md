@@ -80,6 +80,6 @@ TS/TSX semantic evidence in srcly
 
 **Targets:** preview and return p95 ≤ 150 ms; warm first row ≤ 750 ms; cold ≤ 10 s.
 
-**Open choice:** Run the route-graph and ledger proofs in parallel (recommended, since they share only the engine), or ledger first, as #102 favors.
+**Decided:** The route-graph and ledger proofs run in parallel after the shared engine milestone.
 
-Sources: [#102](https://github.com/byronwall/srcly/pull/102) value investigation, [#103](https://github.com/byronwall/srcly/pull/103) function effects. See the [intent brief](intent-brief.md) and [initiative-map.json](initiative-map.json).
+Sources: [#102](https://github.com/byronwall/srcly/pull/102) value investigation, [#103](https://github.com/byronwall/srcly/pull/103) function effects. See the [intent brief](intent-brief.md), the [implementation plan](implementation-plan.md), and [initiative-map.json](initiative-map.json).

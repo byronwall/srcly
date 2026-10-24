@@ -4,11 +4,11 @@
     "title": "Bring tsx-data-flow into srcly",
     "slug": "tsx-dataflow-integration",
     "scale": "program",
-    "current_phase": "shape",
+    "current_phase": "plan",
     "last_updated": "2026-10-23",
     "summary": "One engine (tsx-data-flow analysis moved into engine/, one lazy Node child) feeds three srcly surfaces: route -> terminal graph in the dependency viewer (headline), value-path ledger from graph destinations or code-viewer expressions (PR #102), and a function-effects panel (PR #103); findings/metrics/markers/reports follow.",
     "status": "planned",
-    "next_action": "Answer D4; then plan first proofs (route graph on solid-route, ledger on HotSpotItem.tsx:135)."
+    "next_action": "Land tsx-data-flow PRs 1-4, then start m1 (move engine into engine/, stdio child, /api/dataflow/routes)."
   },
   "artifacts": {
     "intent_brief": {
@@ -28,8 +28,8 @@
     },
     "implementation_plan": {
       "path": "implementation-plan.md",
-      "status": "not-created",
-      "updated_at": null
+      "status": "current",
+      "updated_at": "2026-10-23"
     }
   },
   "sources": [
@@ -136,6 +136,13 @@
       "type": "qa",
       "location": "conversation",
       "anchor": "use PRs 102/103 as context, 2026-10-23",
+      "authority": "user"
+    },
+    {
+      "id": "qa-round-4",
+      "type": "qa",
+      "location": "conversation",
+      "anchor": "run route-graph and ledger proofs in parallel; write plan",
       "authority": "user"
     }
   ],
@@ -475,13 +482,7 @@
       "Merging separate helper invocations (HotSpotList row helper, line 88 vs 109).",
       "Treating effects as a numeric risk metric."
     ],
-    "open_decisions": [
-      {
-        "id": "D4",
-        "question": "Run route-graph and ledger proofs in parallel (recommended) or ledger first as PR102 favors?",
-        "owner": "user"
-      }
-    ],
+    "open_decisions": [],
     "performance_targets": {
       "preview_return_p95_ms": 150,
       "progress_ms": 250,
@@ -491,7 +492,7 @@
     }
   },
   "implementation": {
-    "status": "not-started",
+    "status": "planned",
     "repository_snapshot": {
       "root": "srcly",
       "revision": "b3117e3",
@@ -513,11 +514,177 @@
         "PyPI srcly wheel (bundles engine JS)"
       ]
     },
-    "dependencies": [],
-    "fast_local_loop": null,
-    "milestones": [],
-    "cut_line": [],
-    "open_decisions": []
+    "dependencies": [
+      {
+        "id": "node-runtime",
+        "name": "Node >=18 + TypeScript",
+        "seam": "server/app/services/dataflow/engine.py (stdio JSON lines)",
+        "first_proof_role": "real (dev checkout); fake engine script for lifecycle tests",
+        "proof_ladder": [
+          "fake engine script",
+          "real engine from engine/",
+          "bundled engine in wheel (m8)"
+        ]
+      }
+    ],
+    "fast_local_loop": {
+      "command": "cd engine && pnpm vitest run test/srcly",
+      "python": "cd server && uv run pytest tests/test_dataflow_engine.py",
+      "network": false
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "Engine in srcly answers one query",
+        "outcome": "GET /api/dataflow/routes lists examples/solid-route routes via a lazy stdio Node child owned by server/app/services/dataflow/engine.py.",
+        "dependencies_introduced": [
+          "node>=18 runtime",
+          "engine/ pnpm workspace package"
+        ],
+        "proof": "pnpm --filter engine test; uv run pytest tests/test_dataflow_engine.py (fake engine lifecycle + real smoke)",
+        "valid_intermediate_state": "No UI; base scan unchanged; status names N/A reasons.",
+        "rollback": "Remove engine/ and routers/dataflow.py.",
+        "status": "planned",
+        "evidence": [],
+        "track": "foundation"
+      },
+      {
+        "id": "m2",
+        "title": "Route graph in the dependency view",
+        "outcome": "Data flow mode renders a route's component backbone; field selection lights proven destinations; nodes open code.",
+        "dependencies_introduced": [],
+        "proof": "engine contract tests on solid-route; client adapter vitest; screenshots of solid-route and /time-blocks; layout spike decision.",
+        "valid_intermediate_state": "Mode hidden when engine N/A.",
+        "rollback": "Revert mode switch + routeGraph op.",
+        "status": "planned",
+        "evidence": [],
+        "track": "A"
+      },
+      {
+        "id": "m3",
+        "title": "Value ledger from the code viewer",
+        "outcome": "Inspect value flow on HotSpotItem.tsx:135 shows an ordered ledger; Return restores overview.",
+        "dependencies_introduced": [],
+        "proof": "engine fixtures + HotSpotItem anchor contract tests; client investigation tests; browser journey 1440/1024 with Back/Forward/Return.",
+        "valid_intermediate_state": "Entry hidden when engine N/A.",
+        "rollback": "Revert investigation/ + valueFlow op.",
+        "status": "planned",
+        "evidence": [],
+        "track": "B"
+      },
+      {
+        "id": "m4",
+        "title": "One path explanation from the graph",
+        "outcome": "Graph destination opens the same ledger from route lineage; Return restores graph.",
+        "dependencies_introduced": [],
+        "proof": "routePath contract test on /time-blocks; browser journey.",
+        "valid_intermediate_state": "Graph still works without ledger link.",
+        "rollback": "Revert routePath op and link.",
+        "status": "planned",
+        "evidence": [],
+        "track": "A+B"
+      },
+      {
+        "id": "m5",
+        "title": "Cross-file invocation identity",
+        "outcome": "HotSpotList.tsx:88 proven to HotSpotItem.tsx:135 through row; line 109 isolated.",
+        "dependencies_introduced": [],
+        "proof": "precision fixtures (two-call identity helper, returns-other-arg) + anchor tests.",
+        "valid_intermediate_state": "M3 ledger unaffected for local paths.",
+        "rollback": "Revert pairing; paths fall back to frontier rows.",
+        "status": "planned",
+        "evidence": [],
+        "track": "B"
+      },
+      {
+        "id": "m6",
+        "title": "Effects panel",
+        "outcome": "CodeModal Effects panel for extractFilePath, rankHotSpots, startScan with witnesses and coverage.",
+        "dependencies_introduced": [],
+        "proof": "compact semantic fixture + three anchor contract tests; panel scenario test.",
+        "valid_intermediate_state": "Panel shows unavailable without engine.",
+        "rollback": "Revert EffectsPanel + functionEffects op.",
+        "status": "planned",
+        "evidence": [],
+        "track": "C"
+      },
+      {
+        "id": "m7",
+        "title": "Supporting evidence in srcly's pipelines",
+        "outcome": "Data-flow findings, catalog metrics, markers, report work packets, compare.",
+        "dependencies_introduced": [],
+        "proof": "test_metric_catalog snapshots; markers count tests; report artifact test.",
+        "valid_intermediate_state": "Metrics N/A when engine absent.",
+        "rollback": "Remove dataflow tool + catalog entries.",
+        "status": "planned",
+        "evidence": [],
+        "track": "D"
+      },
+      {
+        "id": "m8",
+        "title": "Engine ships in the wheel",
+        "outcome": "esbuild bundle + fallback typescript in wheel; uvx smoke in clean venv.",
+        "dependencies_introduced": [
+          "esbuild bundle in server/app/engine"
+        ],
+        "proof": "build-srcly.sh then clean-venv smoke on examples/solid-route; wheel size recorded.",
+        "valid_intermediate_state": "Pre-M8 wheels show N/A.",
+        "rollback": "Drop bundle step.",
+        "status": "planned",
+        "evidence": [],
+        "track": "release"
+      }
+    ],
+    "cut_line": [
+      "async execution view (#103 M2)",
+      "path/effects -> work packet",
+      "import-graph -> route links",
+      "Python effects, runtime tracing, incremental invalidation",
+      "saved evidence artifacts",
+      "mobile layouts"
+    ],
+    "open_decisions": [
+      {
+        "id": "P1",
+        "question": "Resident vs per-query engine process",
+        "evidence": "cold/warm timings in m3",
+        "fallback": "per-query spawn, same protocol"
+      },
+      {
+        "id": "P2",
+        "question": "Route layout rule vs existing packing",
+        "evidence": "m2 screenshots",
+        "fallback": "one top-down rule behind the mode"
+      },
+      {
+        "id": "P3",
+        "question": "Branch graph beside ledger",
+        "evidence": "m5 paths",
+        "fallback": "rows with expansion"
+      }
+    ],
+    "prerequisites": [
+      "tsx-data-flow PRs #1-4 and local route-proof edits land before the m1 copy"
+    ],
+    "parallel_tracks": {
+      "after": "m1",
+      "tracks": {
+        "A": [
+          "m2",
+          "m4"
+        ],
+        "B": [
+          "m3",
+          "m5"
+        ],
+        "C": [
+          "m6"
+        ],
+        "D": [
+          "m7"
+        ]
+      }
+    }
   },
   "history": [
     {
@@ -539,6 +706,11 @@
       "date": "2026-10-23",
       "event": "Absorbed PR #102 (value investigation) and #103 (function effects): added ledger and effects surfaces, shared engine runtime, evidence rules, real anchors; recorded conflicts X2-X4.",
       "phase": "shape"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "D4 resolved: route-graph and ledger proofs run in parallel. Implementation plan written (m1 foundation, tracks A-D, m8 packaging).",
+      "phase": "plan"
     }
   ],
   "closure": null
