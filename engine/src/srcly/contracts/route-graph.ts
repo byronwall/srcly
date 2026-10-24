@@ -43,6 +43,8 @@ export const flowEdgeSchema = z.strictObject({
   target: z.string(),
   /** render: the hierarchy draws it; handoff: an origin proven to reach a render site; field: one field's proven path. */
   kind: z.enum(["render", "handoff", "field"]),
+  /** A field edge's field path (`projects[*].name`); null for render and handoff edges. */
+  label: z.string().nullable(),
   status: evidenceStatusSchema,
   proof: z.array(evidenceProofSchema),
   pathIds: z.strictObject({ elements: z.array(z.string()), relations: z.array(z.string()) }).nullable(),
@@ -65,7 +67,21 @@ export const routeGraphResultSchema = z.strictObject({
     label: z.string(),
     status: evidenceStatusSchema,
   })),
+  /** The origin node whose proven destinations this graph carries (`source` param). */
   selectedSource: z.string().nullable(),
+  /**
+   * Exact field lineage for the selected origin: complete, partial (some
+   * fields stop at frontiers) or unavailable with the engine's reason (it
+   * needs a filesystem origin). Null when no origin is selected.
+   */
+  lineage: z.strictObject({
+    status: z.enum(["complete", "partial", "unavailable"]),
+    unavailableReason: z.string().nullable(),
+    fields: z.number().int().nonnegative(),
+    frontiers: z.number().int().nonnegative(),
+  }).nullable(),
+  /** Nodes the selected origin is proven to reach: field-edge and handoff targets. Empty without a selection. */
+  destinations: z.array(z.string()),
   counts: z.strictObject({
     occurrences: z.number().int().nonnegative(),
     boundaries: z.number().int().nonnegative(),

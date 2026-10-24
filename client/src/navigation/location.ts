@@ -29,6 +29,10 @@ export interface Location {
    * graph. "" is Data flow mode with no route picked yet; absent is Imports.
    */
   flow?: string;
+  /** Data flow mode: the selected origin (its node id); its proven destinations light up. */
+  field?: string;
+  /** Data flow mode: the selected destination (a node id). */
+  dest?: string;
 }
 
 export const ROOT_LOCATION: Location = { repo: "", at: "", view: "treemap" };
@@ -38,6 +42,8 @@ const AT_PARAM = "at";
 const VIEW_PARAM = "view";
 const OPEN_PARAM = "open";
 const FLOW_PARAM = "flow";
+const FIELD_PARAM = "field";
+const DEST_PARAM = "dest";
 /** Pre-location graph focus parameter. Read as an alias of `at` + graph view. */
 const LEGACY_FOCUS_PARAM = "depFocus";
 
@@ -56,12 +62,16 @@ export function parseLocation(search: string): Location {
         : "treemap";
   const open = (params.get(OPEN_PARAM) ?? "").split(",").map(normalizeAt).filter(Boolean);
   const flow = view === "graph" ? params.get(FLOW_PARAM) : null;
+  const field = flow !== null ? params.get(FIELD_PARAM) : null;
+  const dest = field !== null ? params.get(DEST_PARAM) : null;
   return {
     repo: params.get(REPO_PARAM) ?? "",
     at: normalizeAt(rawAt),
     view,
     ...(open.length ? { open } : {}),
     ...(flow !== null ? { flow } : {}),
+    ...(field ? { field } : {}),
+    ...(dest ? { dest } : {}),
   };
 }
 
@@ -78,20 +88,28 @@ export function toSearch(loc: Location, currentSearch = ""): string {
   params.delete(VIEW_PARAM);
   params.delete(OPEN_PARAM);
   params.delete(FLOW_PARAM);
+  params.delete(FIELD_PARAM);
+  params.delete(DEST_PARAM);
   if (loc.repo) params.set(REPO_PARAM, loc.repo);
   if (loc.at) params.set(AT_PARAM, loc.at);
   if (loc.view !== "treemap") params.set(VIEW_PARAM, loc.view);
   if (loc.open?.length) params.set(OPEN_PARAM, loc.open.join(","));
-  if (loc.view === "graph" && loc.flow !== undefined) params.set(FLOW_PARAM, loc.flow);
+  if (loc.view === "graph" && loc.flow !== undefined) {
+    params.set(FLOW_PARAM, loc.flow);
+    if (loc.field) {
+      params.set(FIELD_PARAM, loc.field);
+      if (loc.dest) params.set(DEST_PARAM, loc.dest);
+    }
+  }
   const s = params.toString();
   return s ? `?${s}` : "";
 }
 
 export function sameLocation(a: Location, b: Location): boolean {
-  return samePlace(a, b) && (a.open ?? []).join(",") === (b.open ?? []).join(",");
+  return samePlace(a, b) && (a.open ?? []).join(",") === (b.open ?? []).join(",") && a.field === b.field && a.dest === b.dest;
 }
 
-/** Same repo, focus, view and graph mode, whatever is opened in place (one history entry per place). */
+/** Same repo, focus, view and graph mode, whatever is opened in place or selected in Data flow mode (one history entry per place). */
 export function samePlace(a: Location, b: Location): boolean {
   return a.repo === b.repo && a.at === b.at && a.view === b.view && a.flow === b.flow;
 }

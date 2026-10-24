@@ -38,5 +38,10 @@ def test_routes_on_solid_route(monkeypatch):
         assert sorted(node["label"] for node in graph["nodes"] if node["parent"] == frame["id"]) == [
             "Show", "Solid route fixture", "ViewerCard", "props.title",
         ]
+        viewer = next(o["nodeId"] for o in graph["origins"] if o["label"] == "createResource(loadViewer)")
+        lit = client.get(
+            "/api/dataflow/route-graph", params={"path": str(SOLID_ROUTE), "route": "/records", "source": viewer}
+        ).json()["graph"]
+        assert lit["selectedSource"] == viewer and lit["destinations"]
     finally:
         registry.close_all()

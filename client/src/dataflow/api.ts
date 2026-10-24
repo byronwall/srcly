@@ -84,8 +84,9 @@ export async function fetchRoutes(path: string, signal?: AbortSignal): Promise<R
   return json(res, "Routes");
 }
 
-export async function fetchRouteGraph(args: { path: string; route: string; expectedGeneration?: number; signal?: AbortSignal }): Promise<RouteGraphResponse> {
+export async function fetchRouteGraph(args: { path: string; route: string; source?: string; expectedGeneration?: number; signal?: AbortSignal }): Promise<RouteGraphResponse> {
   const query = new URLSearchParams({ path: args.path, route: args.route });
+  if (args.source) query.set("source", args.source);
   if (args.expectedGeneration !== undefined) query.set("expectedGeneration", String(args.expectedGeneration));
   const res = await fetch(`/api/dataflow/route-graph?${query}`, { signal: args.signal });
   return json(res, "Route graph");

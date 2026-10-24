@@ -89,6 +89,7 @@ export type RouteGraphResult = {
     source: string;
     target: string;
     kind: "render" | "handoff" | "field";
+    label: string | null;
     status: "proven" | "partial" | "unsupported";
     proof: {
       kind: string;
@@ -119,6 +120,13 @@ export type RouteGraphResult = {
     status: "proven" | "partial" | "unsupported";
   }[];
   selectedSource: string | null;
+  lineage: {
+    status: "complete" | "partial" | "unavailable";
+    unavailableReason: string | null;
+    fields: number;
+    frontiers: number;
+  } | null;
+  destinations: string[];
   counts: {
     occurrences: number;
     boundaries: number;
