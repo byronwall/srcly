@@ -344,7 +344,7 @@ def value_flow(body: ValueFlowRequest):
 
 
 class AnchorRequest(BaseModel):
-    """An expression by exact span (plus its text), or a symbol by name on a line."""
+    """An expression by exact span (plus its text), a symbol by name on a line, or a drawn box by its element id."""
 
     path: str
     file: str
@@ -352,6 +352,7 @@ class AnchorRequest(BaseModel):
     text: str | None = None
     name: str | None = None
     line: int | None = None
+    elementId: str | None = None
     direction: Literal["forward", "backward", "both"] = "both"
     expectedGeneration: int | None = None
 
@@ -364,10 +365,12 @@ def anchor_graph(body: AnchorRequest):
     function that owns them. 404 for a name that is not on its line.
     """
     root = _root(body.path)
-    if body.span is None and not body.name:
-        raise HTTPException(status_code=422, detail="span, or name and line, is required")
+    if body.span is None and not body.name and not body.elementId:
+        raise HTTPException(status_code=422, detail="span, name and line, or elementId is required")
     params: dict = {"file": _contained_file(root, body.file), "direction": body.direction}
-    if body.span is not None:
+    if body.elementId:
+        params["elementId"] = body.elementId
+    elif body.span is not None:
         params["span"] = body.span.model_dump()
         if body.text:
             params["text"] = body.text

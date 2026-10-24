@@ -125,6 +125,7 @@ Seeds in priority order (R13, R7). Each has **evidence** for why it matters, a *
 - Evidence: R11.
 - Proof: two anchors on one canvas, with shared boxes marked where their flows meet.
 - Stop rule: at most three anchors. Each is its own query, and results join only within one generation.
+- Done (PR 20 of the stack): the `anchor` value holds up to three anchors (`a|b|c`, one direction); each is its own `anchorGraph` query, fetched one at a time and kept by generation; `anchorsToViewModel` merges them by element id and marks a box reached by more than one trace as shared (lit, with a note naming the anchors that meet there). A second anchor is added from the inspector's selected box by its element id (`anchorGraph` takes `elementId`, so the two traces share ids by construction) or from the import graph and treemap menus by symbol ("Add to the trace (n of 3)"); chips in the toolbar remove one, and an anchor the engine cannot trace stays as a chip with its reason. A file or folder anchor stays alone. Smoke test on solid-route.
 
 **T21 · Dark-theme mark tokens.**
 - Evidence: hex colors in `marks.ts:20-30`.

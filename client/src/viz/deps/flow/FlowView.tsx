@@ -1,5 +1,5 @@
-import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show, untrack } from "solid-js";
-import { ChevronDown, Crosshair, PanelRight, Redo2, RefreshCw, Undo2 } from "lucide-solid";
+import { batch, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, untrack } from "solid-js";
+import { ChevronDown, Crosshair, PanelRight, Redo2, RefreshCw, Undo2, X } from "lucide-solid";
 import { EmptyState, ErrorState } from "../../../components/feedback/States";
 import { Button } from "../../../components/ui/Button";
 import { IconButton } from "../../../components/ui/IconButton";
@@ -7,7 +7,7 @@ import { fetchAnchorGraph, fetchFileExports, fetchRouteGraph, fetchRoutePath, fe
 import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
 import { availabilityFor, ensureStarted, refresh as refreshEngine, statusFor, watchProgress, watchStaleness } from "../../../dataflow/availability";
 import { labelFor, reasonText } from "../../../dataflow/outcome";
-import { atFromTreePath, parseAnchor, type Direction } from "../../../navigation/location";
+import { atFromTreePath, encodeAnchor, encodeAnchors, MAX_ANCHORS, parseAnchor, parseAnchors, type Anchor, type Direction } from "../../../navigation/location";
 import { canReturn, go, location, replace, returnBack } from "../../../navigation/store";
 import { registerViewState } from "../../../navigation/viewState";
 import { ViewTools } from "../../viewToolbar";
@@ -18,6 +18,7 @@ import type { ViewNode } from "../viewModel";
 import { routeGraphToViewModel } from "./adapter";
 import { anchorGraphToViewModel } from "./anchorAdapter";
 import { exportsToViewModel } from "./exportsAdapter";
+import { anchorsToViewModel } from "./multiAnchorAdapter";
 import { FlowInspector } from "./FlowInspector";
 import { FlowLegend } from "./FlowLegend";
 import { DirectionSwitch, FlowModeSwitch, ReachModeSwitch, RecentFlowMenu } from "./FlowTools";
@@ -95,7 +96,10 @@ export default function FlowView(props: {
   const field = () => location().field;
   // Anchor mode: Data flow traced from an expression instead of a route.
   const anchorKey = () => location().anchor;
-  const anchorSpec = () => parseAnchor(anchorKey());
+  // Several anchors share one `anchor` value (T20): the first is the one every single-anchor path reads.
+  const anchorSpecs = () => parseAnchors(anchorKey());
+  const anchorSpec = () => anchorSpecs()[0] ?? null;
+  const primaryAnchorKey = () => (anchorSpec() ? encodeAnchor(anchorSpec()!) : undefined);
   const dir = (): Direction => location().dir ?? "both";
   // The backbone first (T9): the same boxes from the route file alone, drawn
   // while the complete graph (origins, handoffs, gaps) is still being traced.
@@ -123,13 +127,69 @@ export default function FlowView(props: {
     return fetchFileExports({ path, file, ...(gen ? { expectedGeneration: Number(gen) } : {}) });
   });
   const fileExports = exportsFetch.value;
-  const anchorFetchKey = createMemo(() => (availability() === "ready" && anchorSpec() && !exportsSpec() ? `${root()}\n${anchorKey()}\n${dir()}\n${generation() ?? ""}` : null));
+  const anchorFetchKey = createMemo(() => (availability() === "ready" && anchorSpec() && !exportsSpec() ? `${root()}\n${primaryAnchorKey()}\n${dir()}\n${generation() ?? ""}` : null));
+  /** The request fields for one anchor spec: a span, a name on a line, or an element id. */
+  const anchorFields = (spec: Anchor) => ("element" in spec ? { file: spec.file, elementId: spec.element } : "exports" in spec ? { file: spec.file } : spec);
   const anchorFetch = createFetch(anchorFetchKey, (key) => {
     const [path, raw, direction, gen] = key.split("\n");
     const spec = parseAnchor(raw)!;
-    return watchProgress(path, fetchAnchorGraph({ path, direction: direction as Direction, ...spec, ...(gen ? { expectedGeneration: Number(gen) } : {}) }));
+    return watchProgress(path, fetchAnchorGraph({ path, direction: direction as Direction, ...anchorFields(spec), ...(gen ? { expectedGeneration: Number(gen) } : {}) }));
   });
   const anchorGraph = anchorFetch.value;
+  // The other anchors (T20): each its own query, one at a time, kept by generation so a Return does not refetch.
+  type ExtraAnchor = { raw: string; graph: AnchorGraphResult | null; outcome: string; reason: string | null };
+  const moreAnchorGraphs = new Map<string, ExtraAnchor>();
+  const moreAnchorsKey = createMemo(() => {
+    const rest = anchorSpecs().slice(1);
+    const first = anchorGraph()?.graph;
+    return availability() === "ready" && rest.length && first ? `${root()}\n${dir()}\n${first.generation}\n${encodeAnchors(rest)}` : null;
+  });
+  const moreAnchorsFetch = createFetch(moreAnchorsKey, async (key) => {
+    const [path, direction, gen, list] = key.split("\n");
+    const entries: ExtraAnchor[] = [];
+    for (const raw of list.split("|")) {
+      const cacheKey = `${path}|${gen}|${direction}|${raw}`;
+      if (!moreAnchorGraphs.has(cacheKey)) {
+        const spec = parseAnchor(raw);
+        if (!spec || "exports" in spec) continue;
+        const reply = await fetchAnchorGraph({ path, direction: direction as Direction, ...anchorFields(spec), expectedGeneration: Number(gen) });
+        // An anchor the engine cannot trace stays listed with its reason; it never blocks the others.
+        moreAnchorGraphs.set(cacheKey, { raw, graph: reply.graph ?? null, outcome: reply.outcome, reason: reply.reason ?? reply.graph?.reason ?? null });
+      }
+      entries.push(moreAnchorGraphs.get(cacheKey)!);
+    }
+    return entries;
+  });
+  /** The anchors after the first, each with its graph or the reason it has none; null until all have answered. */
+  const extraAnchors = (): ExtraAnchor[] | null => (anchorSpecs().length > 1 && !moreAnchorsFetch.loading() ? moreAnchorsFetch.value() ?? null : anchorSpecs().length > 1 ? null : []);
+  /** Every anchor graph of this generation, the first one first; null until all are in. */
+  const anchorGraphs = (): AnchorGraphResult[] | null => {
+    const first = anchorGraph()?.graph;
+    const extra = extraAnchors();
+    if (!first || !extra) return null;
+    return [first, ...extra.flatMap((entry) => (entry.graph ? [entry.graph] : []))];
+  };
+  const merged = createMemo(() => {
+    const graphs = anchorGraphs();
+    return graphs && graphs.length > 1 ? anchorsToViewModel(graphs) : null;
+  });
+  /** Drop one anchor from the canvas; the last one cannot go. */
+  const removeAnchor = (index: number) => {
+    const rest = anchorSpecs().filter((_, i) => i !== index);
+    if (rest.length) go({ anchor: encodeAnchors(rest) });
+  };
+  /** Add a drawn box as an anchor by its span (T20), up to MAX_ANCHORS. */
+  const addAnchorFrom = (id: string) => {
+    const box = model()?.byId.get(id);
+    const specs = anchorSpecs();
+    if (!box || !specs.length || specs.length >= MAX_ANCHORS || exportsSpec()) return;
+    // By element id: the engine anchors at the very element the box stands for, so the traces share ids by construction.
+    const next: Anchor = { file: box.file, element: id };
+    if (specs.some((a) => encodeAnchor(a) === encodeAnchor(next))) return;
+    setSelected(null);
+    go({ anchor: encodeAnchors([...specs, next]) });
+  };
+  const canAddAnchor = () => anchorSpecs().length >= 1 && anchorSpecs().length < MAX_ANCHORS && !exportsSpec();
   const anchorText = () => anchorGraph()?.graph?.anchor.text ?? (exportsSpec() ? `${exportsSpec()!.file || "."} (exports)` : anchorSpec() && "name" in anchorSpec()! ? (anchorSpec() as { name: string }).name : anchorKey()) ?? "";
   // Opened exports: each is its own anchor graph, fetched one at a time (the engine is serial) and kept by generation.
   const expansionGraphs = new Map<string, AnchorGraphResult | null>();
@@ -184,6 +244,9 @@ export default function FlowView(props: {
       return result ? exportsToViewModel(result, { expanded: location().open ?? [], graphs: expansionFetch.value() ?? new Map(), dir: dir() }) : null;
     }
     if (anchorKey()) {
+      const many = merged();
+      if (many) return many.model;
+      if (anchorSpecs().length > 1 && !extraAnchors()) return null;
       const a = anchorGraph()?.graph;
       return a ? anchorGraphToViewModel(a) : null;
     }
@@ -405,6 +468,12 @@ export default function FlowView(props: {
     }
     if (anchorKey()) {
       if (!m || !a) return "";
+      const many = merged();
+      const failed = (extraAnchors() ?? []).filter((entry) => !entry.graph).length;
+      if (many) {
+        const graphs = anchorGraphs() ?? [];
+        return `${graphs.length} anchors · ${many.shared.size} shared box${many.shared.size === 1 ? "" : "es"} · ${m.vm.nodes.length} boxes${failed ? ` · ${failed} not traced` : ""} · generation ${a.generation}`;
+      }
       const c = a.counts;
       const stops = [c.boundaries ? `${c.boundaries} boundar${c.boundaries === 1 ? "y" : "ies"}` : "", c.frontiers ? `${c.frontiers} frontier${c.frontiers === 1 ? "" : "s"}` : ""].filter(Boolean);
       return `${c.up} upstream · ${c.down} downstream · ${c.origins} origin${c.origins === 1 ? "" : "s"} · ${c.terminals} terminal${c.terminals === 1 ? "" : "s"} · ${c.scopes} function${c.scopes === 1 ? "" : "s"}${stops.length ? ` · ${stops.join(" · ")}` : ""} · generation ${a.generation}`;
@@ -420,6 +489,7 @@ export default function FlowView(props: {
   const waitingOn = () => {
     if (availability() !== "ready") return "Starting the data-flow engine";
     if (anchorFetch.loading()) return `Tracing from ${anchorText()}`;
+    if (anchorSpecs().length > 1 && anchorGraph()?.graph && !extraAnchors()) return `Tracing ${anchorSpecs().length} anchors`;
     if (exportsFetch.loading()) return `Listing the exports of ${exportsSpec()?.file || "."}`;
     // With the backbone drawn, the complete graph loads behind it; the status line says so.
     if (graphFetch.loading() && !drawnGraph()) return `Tracing ${currentRoute()?.pathPattern ?? routeKey()}`;
@@ -442,9 +512,23 @@ export default function FlowView(props: {
             title="The expression this flow is traced from · click opens it in the code viewer"
           >
             <Crosshair size={13} aria-hidden="true" class="shrink-0 text-[var(--plc-accent)]" />
-            <span class="text-[var(--plc-on-muted)]">Anchor</span>
+            <span class="text-[var(--plc-on-muted)]">{anchorSpecs().length > 1 ? "Anchors" : "Anchor"}</span>
             <span class="min-w-0 truncate font-mono text-[11.5px] font-medium">{anchorText()}</span>
           </Button>
+          <For each={extraAnchors() ?? []}>
+            {(entry, i) => (
+              <span
+                class="flex max-w-[14rem] shrink-0 items-center gap-0.5 rounded-md border pl-1.5 text-[11.5px]"
+                classList={{ "border-[var(--plc-border)]": !!entry.graph, "border-[var(--plc-warning)] text-[var(--plc-warning)]": !entry.graph }}
+                title={entry.graph ? `${entry.graph.anchor.text} · ${entry.graph.anchor.file}:${entry.graph.anchor.span.startLine}` : `Not traced: ${labelFor(entry.outcome as "ok", entry.reason, undefined) ?? entry.reason ?? entry.outcome} · ${entry.raw}`}
+              >
+                <span class="min-w-0 truncate font-mono font-medium">{entry.graph ? entry.graph.anchor.text : `${entry.raw.slice(entry.raw.lastIndexOf("/") + 1)} · not traced`}</span>
+                <IconButton label={`Remove anchor ${entry.graph ? entry.graph.anchor.text : entry.raw}`} size="xs" onClick={() => removeAnchor(i() + 1)}>
+                  <X size={11} aria-hidden="true" />
+                </IconButton>
+              </span>
+            )}
+          </For>
           <DirectionSwitch dir={dir()} onChange={(d) => replace({ dir: d === "both" ? undefined : d })} />
           <Button variant="ghost" class="px-2" onClick={toRoutes} title="Trace a route instead (/)">
             Routes
@@ -583,6 +667,7 @@ export default function FlowView(props: {
           }}
           onPickOrigin={pickOrigin}
           onToggleFrame={toggleFrame}
+          onAddAnchor={canAddAnchor() ? addAnchorFrom : undefined}
           onClose={toggleInspector}
         />
       </Show>

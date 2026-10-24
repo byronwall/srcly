@@ -1,6 +1,7 @@
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import { ArrowLeftFromLine, ArrowRightFromLine, Crosshair, FileCode2, FolderOpen, Maximize2 } from "lucide-solid";
+import type { Location } from "./location";
 import { nodeActions, type NodeActionId, type NodeKind } from "./nodeActions";
 
 export interface NodeMenuTarget {
@@ -17,6 +18,8 @@ export interface NodeMenuTarget {
   expand?: boolean | { collapse: string };
   /** A symbol's declaration line: the trace actions anchor the data-flow graph there. */
   line?: number;
+  /** The place the view is at: in anchor mode, a symbol can join the anchors (T20). */
+  current?: Location;
 }
 
 const ICONS: Record<NodeActionId, typeof Crosshair> = {
@@ -26,6 +29,7 @@ const ICONS: Record<NodeActionId, typeof Crosshair> = {
   folder: FolderOpen,
   traceTo: ArrowRightFromLine,
   traceFrom: ArrowLeftFromLine,
+  traceAdd: Crosshair,
 };
 
 const MENU_WIDTH = 224;

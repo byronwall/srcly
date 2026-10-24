@@ -24,6 +24,7 @@ export function flowPlaceLabel(loc: Location, routeName: RouteNamer = (key) => k
     if (!spec) return { kind: "anchor", leaf: loc.anchor, detail: null, dir: loc.dir ?? "both" };
     // A file or folder anchor (T19): named by its path, traced through its exports.
     if ("exports" in spec) return { kind: "exports", leaf: spec.file || ".", detail: "exports", dir: loc.dir ?? "both" };
+    if ("element" in spec) return { kind: "anchor", leaf: `box in ${spec.file.slice(spec.file.lastIndexOf("/") + 1)}`, detail: spec.file, dir: loc.dir ?? "both" };
     const leaf = "name" in spec ? spec.name : `${spec.span.startLine}:${spec.span.startColumn}–${spec.span.endLine}:${spec.span.endColumn}`;
     return { kind: "anchor", leaf, detail: spec.file, dir: loc.dir ?? "both" };
   }

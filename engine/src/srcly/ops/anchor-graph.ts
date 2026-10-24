@@ -23,8 +23,8 @@ const DIRECTIONS: AnchorDirection[] = ["forward", "backward", "both"];
 const callSiteIndexes = new WeakMap<Tier1, CallSiteIndex>();
 
 type Side = "up" | "down";
-/** A candidate plus the declaration nodes to try when the engine has no evidence at the name itself. */
-type Resolved = Candidate & { fallbacks?: TypeScript.Node[] };
+/** A candidate plus the declaration nodes to try when the engine has no evidence at the name itself; or an element named outright (T20). */
+type Resolved = Candidate & { fallbacks?: TypeScript.Node[]; seedId?: string };
 /** Declaration-level elements a symbol anchor may start from, before the ledger's seed kinds. */
 const DECLARATION_SEEDS = ["component-definition", "function-entry", "handler-entry", ...SEED_KINDS];
 /** Relations that point a use (a call, an occurrence) at its definition. */
@@ -69,6 +69,14 @@ function parseDirection(value: unknown): AnchorDirection {
  */
 function resolveCandidate(tier1: Tier1, sourceFile: TypeScript.SourceFile, params: Record<string, unknown>): Resolved {
   const { ts } = tier1;
+  // A drawn box added as an anchor (T20): the element itself, so the two traces share ids by construction.
+  if (typeof params.elementId === "string" && params.elementId) {
+    const element = tier1.provider().facts.getElement(params.elementId);
+    if (!element) throw new EngineError("not-found", `No program element ${params.elementId}`);
+    const span = element.location.span;
+    const node = nodeAtSpan(ts, sourceFile, span) ?? sourceFile;
+    return { node, kind: element.kind, text: element.label, span, seedId: element.id };
+  }
   if (typeof params.name === "string" && params.name) {
     if (!Number.isInteger(params.line) || (params.line as number) < 1) throw new EngineError("invalid-request", "params.name needs params.line");
     const found = identifierOnLine(ts, sourceFile, params.name, params.line as number);
@@ -145,8 +153,8 @@ class AnchorGraphBuilder {
   }
 
   build(sourceFile: TypeScript.SourceFile, file: string, candidate: Resolved, direction: AnchorDirection): AnchorGraphResult {
-    let span = spanOf(sourceFile, candidate.node);
-    let seed = seedFor(this.tier1, file, span);
+    let span = candidate.seedId ? candidate.span : spanOf(sourceFile, candidate.node);
+    let seed = candidate.seedId ?? seedFor(this.tier1, file, span);
     // A symbol by name: when nothing sits on the name, the declaration's initializer or the function itself is the anchor.
     for (const alt of candidate.fallbacks ?? []) {
       if (seed) break;

@@ -21,7 +21,7 @@ import TreemapHeader from "../viz/treemap/components/TreemapHeader";
 import TreemapTooltip from "../viz/treemap/components/TreemapTooltip";
 import { useTreemapTooltip } from "../viz/treemap/hooks/useTreemapTooltip";
 import { atFromTreePath, baseName, folderOf } from "../navigation/location";
-import { tracePatch } from "../navigation/nodeActions";
+import { addAnchorPatch, tracePatch } from "../navigation/nodeActions";
 import NodeActionsMenu, { type NodeMenuTarget } from "../navigation/NodeActionsMenu";
 import { go, location } from "../navigation/store";
 import { buildMetricsIndex } from "../viz/deps/metrics";
@@ -80,6 +80,7 @@ export default function Treemap(props: TreemapProps) {
       kind: type === "folder" ? "folder" : type === "file" ? "file" : "symbol",
       title: at || baseName(props.rootPath),
       currentAt: location().at,
+      current: location(),
       line: typeof tile.data?.start_line === "number" && tile.data.start_line > 0 ? tile.data.start_line : undefined,
     });
   };
@@ -303,7 +304,10 @@ export default function Treemap(props: TreemapProps) {
               if (id === "focus") go({ at });
               else if (id === "open") props.onOpenAt(at);
               else if (id === "traceTo" || id === "traceFrom") go(tracePatch({ at, line: m().line }, id));
-              else go({ at: folderOf(at) });
+              else if (id === "traceAdd") {
+                const patch = addAnchorPatch({ at, line: m().line }, location());
+                if (patch) go(patch);
+              } else go({ at: folderOf(at) });
             }}
           />
         )}
