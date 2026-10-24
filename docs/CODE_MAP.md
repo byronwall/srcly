@@ -283,6 +283,11 @@ The tsx-data-flow analysis lives in `engine/`, a standalone Node package with it
 | Analysis: evidence collection, slices, route totality, field lineage | `engine/src/analysis/` (copied unchanged; never edited for srcly-specific recognition) |
 | Zod contracts and projections | `engine/src/api/` |
 | Worker-thread analysis service, cache, source excerpts | `engine/src/service/` |
+| stdio protocol loop (one JSON frame per line, cancel, progress frames; `console.log` rebound to stderr) | `engine/bin/srcly-engine.ts`; frames and error codes in `engine/src/srcly/protocol.ts`; stderr rebinding in `engine/src/srcly/stdio.ts` |
+| Tier-1 session (Program + identity index + lazy evidence provider + routes; never the legacy report), strict-tsconfig refusal, generation | `engine/src/srcly/session.ts`; `programHash` in `engine/src/srcly/fingerprint.ts`; TypeScript choice (D4) in `engine/src/srcly/typescript-choice.ts` |
+| Engine ops (`status` on the protocol thread, `routes` in the worker) | `engine/src/srcly/ops/`; worker branches in `engine/src/service/analysis-worker.ts` |
+| Op contracts (Zod) → JSON Schema for Python + client types | `engine/src/srcly/contracts/` (`registry.ts` lists them); `cd engine && pnpm emit-contracts` writes `server/app/services/dataflow/contracts/*.schema.json` and `client/src/dataflow/contract.generated.ts` |
+| Cold `hello` + tier-1 timing | `engine/scripts/time-tier1.ts` |
 | Fixture projects (Solid route, compact field proof, bad-ish Solid) | `engine/examples/` |
 | Field proof acceptance runner | `engine/scripts/accept-route-field-proof.ts` |
 

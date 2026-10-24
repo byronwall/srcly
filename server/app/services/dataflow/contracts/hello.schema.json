@@ -1,0 +1,44 @@
+{
+  "title": "HelloResult",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "protocol": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "engine": {
+      "type": "string"
+    },
+    "node": {
+      "type": "string"
+    },
+    "typescript": {
+      "type": "string"
+    },
+    "typescriptFrom": {
+      "type": "string",
+      "enum": [
+        "project",
+        "bundled"
+      ]
+    },
+    "root": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "protocol",
+    "engine",
+    "node",
+    "typescript",
+    "typescriptFrom",
+    "root",
+    "source"
+  ],
+  "additionalProperties": false
+}
