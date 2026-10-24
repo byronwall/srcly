@@ -10,72 +10,61 @@ last_updated: "2026-10-23"
 
 ## My read
 
-What you want most from tsx-data-flow is its route → terminal data-flow graph, shown in srcly's dependency viewer. You also want to keep the compiler-backed analysis behind it. That analysis is tsx-data-flow's real asset: TypeScript type checking, symbol-level identity, field lineage, and explicit proof frontiers. srcly has the better visuals and selection, so srcly draws the picture and tsx-data-flow supplies the evidence.
+What you want most from tsx-data-flow is its route → terminal data-flow graph, shown in srcly's dependency viewer. Its compiler-backed analysis is the asset to keep: TypeScript type checking, symbol identity, field lineage, and proof frontiers. srcly has the better visuals and selection. So the engine supplies the evidence, and srcly draws it.
 
-Two research PRs widen what that evidence can answer. Both take the same direction: tsx-data-flow as the semantic engine, with srcly as the place you inspect the results.
+The same engine answers two more questions from the code viewer:
+- What happened to this value? An ordered path ledger answers this.
+- What does this function touch? An effects panel answers this.
 
-- **Value investigation** ([#102](https://github.com/byronwall/srcly/pull/102)) starts from one exact expression in the code viewer. It follows that value forward or backward, and explains the path as an ordered ledger: inputs, transfers, fallbacks, branches, transforms, and terminals, each with the reason it is proven or where proof stops.
-- **Function effects** ([#103](https://github.com/byronwall/srcly/pull/103)) answers what calling a function does: network, filesystem, DOM, timers, ambient reads, writes, and how async results are handled, with unknowns kept beside known facts.
-
-Taken together, srcly answers three new questions about TS/TSX code. Where does a route's data go? What happened to this value? What does this function touch? Findings, metrics, marks, and reports carry the same evidence into srcly's existing surfaces. srcly stays the fast base layer throughout.
+Findings, metrics, marks, and reports bring the evidence into srcly's existing surfaces. Throughout, srcly stays the fast base layer.
 
 ## What matters most
 
-- **The route → terminal graph lives in srcly's dependency viewer.** It is the headline.
-- **The analysis is kept whole.** Evidence is never re-derived, approximated, or invented to make a picture look complete.
-- **srcly owns visuals and interaction.** Graph, code viewer, selection, navigation, and return all follow srcly's patterns.
-- **Honest evidence.** Proven, partial, not analyzed, and stale are different states. Not analyzed is never 0.
-- **srcly stays crazy fast.** The engine starts only when needed and never delays the treemap or import graph.
+- The route → terminal graph in the dependency viewer is the headline.
+- The analysis moves whole. Evidence is never approximated or invented.
+- srcly owns visuals, selection, navigation, and return.
+- Evidence states are honest: proven, partial, not analyzed, and stale are distinct, and not analyzed is never 0.
+- The engine never delays the treemap or the import graph.
 
 ## The experience you appear to want
 
-You open srcly on a SolidStart app. The treemap and import graph appear as they do today. In the dependency view's Data flow mode you pick a route. Its component structure runs down to the terminal render points, with UI primitives collapsed. You select a field, and every proven destination lights up. You pick one destination, and an ordered ledger explains that path. Any step opens the code.
-
-From any line in the code viewer you can also ask "where does this value go?" or "what does this function touch?" You get the same kind of ledger or effects panel. Back or Return lands you exactly where you started.
+You open srcly on a SolidStart app, and the treemap and import graph appear as they do today. In Data flow mode you pick a route and see its components down to the terminal render points. You select a field, and its proven destinations light up. You pick one destination, and a ledger explains the path step by step. Any step opens the code. From any line in the code viewer, you can ask the same of a value or a function. Return puts you back exactly where you were.
 
 ## Boundaries
 
 ### Must be true
 
-- Graph and ledger content comes from compiler-backed evidence with exact source spans.
-- Connectivity, coverage, and value properties stay separate. A local proof does not prove its caller's origin. A null check does not prove a value is finite. A fallback is not automatically a defect.
-- Evidence is tied to the Program text, tsconfig, and analysis generation that produced it. Stale evidence is shown as stale or refused.
-- Call identity is preserved. Two calls to the same helper never merge their values.
-- Without Node, a tsconfig, or TS files, data flow is N/A with a reason, and everything else is unchanged.
+- Content comes from compiler-backed evidence with exact source spans. Evidence is tied to the Program, the tsconfig, and the generation that produced it.
+- Call identity is kept. Two calls to one helper never merge.
+- Without Node, a tsconfig, or TS files, data flow is N/A with a reason, and nothing else changes.
 
 ### Must be avoided
 
-- Don't port the analysis to Python or build a second TypeScript analyzer.
-- Don't relabel import edges as data flow or execution.
-- No purity, testability, or tangle score, and no single "safe" badge.
-- Don't carry over tsx-data-flow's canvas, layout engine, or SPA.
+- No Python port and no second TypeScript analyzer.
+- No relabeling import edges as data flow or execution.
+- No purity, testability, or tangle score.
+- Don't carry over tsx-data-flow's canvas, layout, or SPA.
 
 ## What seems settled
 
-- One repository. The engine moves into srcly, and tsx-dataflow-serve goes away. This overrides #102's "don't merge the repositories", which assumed two repos.
-- The engine stays TypeScript and is bundled into the wheel.
+- One repository: the engine moves to `engine/`, and tsx-dataflow-serve goes away.
+- The engine ships bundled in the wheel and runs on the system `node`.
+- The route-graph and ledger proofs run in parallel, after a shared engine milestone.
 - Priority order:
   1. the route graph;
-  2. the value-path ledger, which also explains a path selected in the graph;
-  3. function effects;
+  2. the ledger, which also explains graph paths;
+  3. effects;
   4. findings, metrics, and reports.
-
-## Possibilities, not decisions
-
-- One lazy Node process, owned by the server and shared by every query family, so the TypeScript Program is built once. #102 recommends this. #103 starts with a one-shot command and defers a resident service until startup cost is measured.
-- A small branch graph next to the ledger, if a real example shows it helps.
-- A later, bounded execution view for async lifecycles such as `watchScan`.
+- Implementation starts only with your explicit approval.
 
 ## Current reality that matters
 
-- tsx-data-flow's route canvas projects component surfaces. Its evidence-node and evidence-edge arrays are empty, so it cannot show operation order. That is why the ordered ledger carries path detail.
-- Exact field proof is narrower than general expression tracing. It depends on specific source and carrier patterns. Generic expression selection and per-invocation tracking still need to be built.
-- srcly's own client provides real anchors:
-  - value flow: `HotSpotItem.tsx:135`, plus `HotSpotList.tsx:88` and its separate call at line 109;
-  - effects: `extractFilePath`, `rankHotSpots`, `startScan`.
-  Route-graph anchors are `examples/solid-route` and visual-notes `/time-blocks`.
-- `dependency-graph-legibility` has active work in `viz/deps/layout.ts`.
+- tsx-data-flow's route canvas has no operation-order evidence, which is why the ledger carries path detail.
+- Two engine capabilities are new work: generic expression selection, and per-invocation tracking.
+- tsx-data-flow has four open cleanup PRs and uncommitted route-proof edits. These land before the move.
 
 ## Next step after confirmation
 
-See [shape-brief.md](shape-brief.md). The Pro threads update [initiative-map.json](initiative-map.json).
+Wait for your approval, then start M1.
+
+Evidence for all of this is in [research.md](research.md). The shape is in [shape-brief.md](shape-brief.md), and the steps are in [implementation-plan.md](implementation-plan.md).

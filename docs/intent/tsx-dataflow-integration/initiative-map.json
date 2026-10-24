@@ -8,7 +8,7 @@
     "last_updated": "2026-10-23",
     "summary": "One engine (tsx-data-flow analysis moved into engine/, one lazy Node child) feeds three srcly surfaces: route -> terminal graph in the dependency viewer (headline), value-path ledger from graph destinations or code-viewer expressions (PR #102), and a function-effects panel (PR #103); findings/metrics/markers/reports follow.",
     "status": "planned",
-    "next_action": "Land tsx-data-flow PRs 1-4, then start m1 (move engine into engine/, stdio child, /api/dataflow/routes)."
+    "next_action": "User approval to start m1; propose closing #102/#103 as superseded."
   },
   "artifacts": {
     "intent_brief": {
@@ -30,6 +30,15 @@
       "path": "implementation-plan.md",
       "status": "current",
       "updated_at": "2026-10-23"
+    },
+    "research": {
+      "path": "research.md",
+      "status": "current",
+      "updated_at": "2026-10-23",
+      "supersedes": [
+        "PR #102",
+        "PR #103"
+      ]
     }
   },
   "sources": [
@@ -121,14 +130,14 @@
       "id": "PR102",
       "type": "doc",
       "location": "https://github.com/byronwall/srcly/pull/102",
-      "anchor": "docs/research/data-flow-integration-2026-10-23 + docs/intent/data-flow-integration/implementation-plan.md",
+      "anchor": "docs/research/data-flow-integration-2026-10-23 + docs/intent/data-flow-integration/implementation-plan.md (condensed into research.md)",
       "authority": "inferred"
     },
     {
       "id": "PR103",
       "type": "doc",
       "location": "https://github.com/byronwall/srcly/pull/103",
-      "anchor": "docs/research/effects-async-test-seams-2026-10-23 + docs/intent/effects-async-test-seams/implementation-plan.md",
+      "anchor": "docs/research/effects-async-test-seams-2026-10-23 + docs/intent/effects-async-test-seams/implementation-plan.md (condensed into research.md)",
       "authority": "inferred"
     },
     {
@@ -710,6 +719,11 @@
     {
       "date": "2026-10-23",
       "event": "D4 resolved: route-graph and ledger proofs run in parallel. Implementation plan written (m1 foundation, tracks A-D, m8 packaging).",
+      "phase": "plan"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "Condensed: #102/#103 research folded into research.md; intent, shape and plan tightened. Implementation awaits explicit user approval.",
       "phase": "plan"
     }
   ],
