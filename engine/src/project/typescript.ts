@@ -95,10 +95,15 @@ export function buildProgram(args: AnalyzerArgs, reportProgress?: AnalyzerProgre
   for (const warning of resolution.warnings) {
     console.warn(`tsx-dataflow: ${warning}`);
   }
-  const files = new Set();
-  for (const config of resolution.configs) {
-    for (const sourceFile of config.fileNames) {
-      if (shouldAnalyzeFile(sourceFile, args)) files.add(sourceFile);
+  const files = new Set<string>();
+  if (args.rootFiles?.length) {
+    // A scoped Program: the given roots and, through TypeScript's own resolution, what they import.
+    for (const file of args.rootFiles) files.add(file);
+  } else {
+    for (const config of resolution.configs) {
+      for (const sourceFile of config.fileNames) {
+        if (shouldAnalyzeFile(sourceFile, args)) files.add(sourceFile);
+      }
     }
   }
   reportProgress?.({ step: "program", message: `Building TypeScript program for ${files.size} files`, completed: 0, total: files.size });
