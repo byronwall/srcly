@@ -59,6 +59,19 @@ describe("routeGraph on solid-route", () => {
     expect(graph().edges.some((edge) => edge.kind === "field")).toBe(false);
   });
 
+  it("marks partial only the boxes that own a located gap, never the whole route", () => {
+    // /records is a partial route: two evidence-slice gaps stop at external
+    // response bodies. Those sit in data/*.ts, outside every drawn box, so
+    // they belong to the route box and every component box stays proven.
+    expect(graph().status).toBe("partial");
+    const partial = graph().nodes.filter((node) => node.status === "partial");
+    expect(partial.map((node) => node.kind)).toEqual(["route"]);
+    expect(partial[0].reason).toBe("external-code");
+    expect(graph().nodes.filter((node) => node.kind === "occurrence").every((node) => node.status === "proven")).toBe(true);
+    const status = new Map(graph().nodes.map((node) => [node.id, node.status]));
+    for (const edge of graph().edges.filter((item) => item.kind === "render")) expect(edge.status).toBe(status.get(edge.target));
+  });
+
   it("refuses an unknown route by name", () => {
     expect(() => routeGraphOp(session, { route: "/nope" })).toThrowError(expect.objectContaining({ code: "not-found" }));
   });
