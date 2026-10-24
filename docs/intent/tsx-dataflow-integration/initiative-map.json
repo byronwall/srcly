@@ -1,0 +1,818 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Bring tsx-data-flow into srcly",
+    "slug": "tsx-dataflow-integration",
+    "scale": "program",
+    "current_phase": "plan",
+    "last_updated": "2026-10-23",
+    "summary": "One engine (tsx-data-flow analysis moved into engine/, one lazy Node child) feeds three srcly surfaces: route -> terminal graph in the dependency viewer (headline), value-path ledger from graph destinations or code-viewer expressions (PR #102), and a function-effects panel (PR #103); findings/metrics/markers/reports follow. detailed-plan.md adds the file-level design, contracts, two-tier engine session, view-state registry and the corrections a code review of both repositories forced.",
+    "status": "planned",
+    "next_action": "User approval to start M1 (three PRs). D1-D8 defaults accepted 2026-10-23; PR #101 stays docs only."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-23"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-23"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-23"
+    },
+    "research": {
+      "path": "research.md",
+      "status": "current",
+      "updated_at": "2026-10-23",
+      "supersedes": [
+        "PR #102",
+        "PR #103"
+      ]
+    },
+    "detailed_plan": {
+      "path": "detailed-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-23"
+    },
+    "measurements": {
+      "path": "measurements.md",
+      "status": "current",
+      "updated_at": "2026-10-23"
+    }
+  },
+  "sources": [
+    {
+      "id": "S1",
+      "type": "transcript",
+      "location": "conversation",
+      "anchor": "initial request 2026-10-23",
+      "authority": "user"
+    },
+    {
+      "id": "S2",
+      "type": "repo",
+      "location": "~/Projects/tsx-data-flow/INTENT.md",
+      "anchor": "product priority order; code map primary surface",
+      "authority": "user"
+    },
+    {
+      "id": "S3",
+      "type": "repo",
+      "location": "~/Projects/tsx-data-flow/README.md",
+      "anchor": "Views table; Explore it in the browser",
+      "authority": "repo"
+    },
+    {
+      "id": "S4",
+      "type": "repo",
+      "location": "~/Projects/tsx-data-flow/docs/application-structure.md",
+      "anchor": "Boundaries; API surface",
+      "authority": "repo"
+    },
+    {
+      "id": "S5",
+      "type": "repo",
+      "location": "~/Projects/tsx-data-flow/docs/performance-baseline.md",
+      "anchor": "10K/50K/200K table",
+      "authority": "repo"
+    },
+    {
+      "id": "S6",
+      "type": "repo",
+      "location": "~/Projects/tsx-data-flow/docs/intent/field-trajectories-and-cleanup/",
+      "anchor": "intent + shape briefs",
+      "authority": "user"
+    },
+    {
+      "id": "S7",
+      "type": "repo",
+      "location": "docs/CODE_MAP.md",
+      "anchor": "Findings row; Metrics end-to-end; Code viewer; Graph views",
+      "authority": "repo"
+    },
+    {
+      "id": "S8",
+      "type": "repo",
+      "location": "AGENTS.md",
+      "anchor": "Add / extend a metric",
+      "authority": "repo"
+    },
+    {
+      "id": "S9",
+      "type": "repo",
+      "location": "docs/intent/imported-quality-evidence/shape-brief.md",
+      "anchor": "import artifacts before building engines",
+      "authority": "user"
+    },
+    {
+      "id": "qa-round-1",
+      "type": "qa",
+      "location": "conversation",
+      "anchor": "replies to 3 open questions, 2026-10-23",
+      "authority": "user"
+    },
+    {
+      "id": "qa-round-2",
+      "type": "qa",
+      "location": "conversation",
+      "anchor": "route -> terminal graph is the real want, 2026-10-23",
+      "authority": "user"
+    },
+    {
+      "id": "S10",
+      "type": "repo",
+      "location": "client/src/viz/deps/contract.ts",
+      "anchor": "DependencyGraphContract",
+      "authority": "repo"
+    },
+    {
+      "id": "PR102",
+      "type": "doc",
+      "location": "https://github.com/byronwall/srcly/pull/102",
+      "anchor": "docs/research/data-flow-integration-2026-10-23 + docs/intent/data-flow-integration/implementation-plan.md (condensed into research.md)",
+      "authority": "inferred"
+    },
+    {
+      "id": "PR103",
+      "type": "doc",
+      "location": "https://github.com/byronwall/srcly/pull/103",
+      "anchor": "docs/research/effects-async-test-seams-2026-10-23 + docs/intent/effects-async-test-seams/implementation-plan.md (condensed into research.md)",
+      "authority": "inferred"
+    },
+    {
+      "id": "qa-round-3",
+      "type": "qa",
+      "location": "conversation",
+      "anchor": "use PRs 102/103 as context, 2026-10-23",
+      "authority": "user"
+    },
+    {
+      "id": "qa-round-4",
+      "type": "qa",
+      "location": "conversation",
+      "anchor": "run route-graph and ledger proofs in parallel; write plan",
+      "authority": "user"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "srcly is the home and base layer; tsx-data-flow features merge into it.",
+        "kind": "goal",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C2",
+        "statement": "srcly's speed must be preserved; data flow never delays the base render.",
+        "kind": "constraint",
+        "sources": [
+          "S1",
+          "S5"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C3",
+        "statement": "Value order (revised): route -> terminal data-flow graph in the dependency viewer first; findings/metrics/markers/reports support it.",
+        "kind": "priority",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C4",
+        "statement": "Analysis correctness (compiler-backed identity, strict tsconfig) outranks everything else in tsx-data-flow.",
+        "kind": "constraint",
+        "sources": [
+          "S2",
+          "S3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C5",
+        "statement": "Markdown output exists for agent handoff: dense, grounded, concise next action.",
+        "kind": "goal",
+        "sources": [
+          "S2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C6",
+        "statement": "tsx-data-flow's own overview/report pages are transitional and need not survive.",
+        "kind": "interpretation",
+        "sources": [
+          "S2",
+          "S1"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C7",
+        "statement": "Several Pro threads will detail branches and update this map.",
+        "kind": "decision",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C8",
+        "statement": "Single repository: engine moves into srcly (workspace/monorepo layout only if needed).",
+        "kind": "decision",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C9",
+        "statement": "tsx-dataflow-serve UI goes away; focus on best versions of features in srcly.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C10",
+        "statement": "Distribution delegated to agent: choose most robust. Chosen: esbuild bundle in the wheel, system node>=18, project typescript with bundled fallback, N/A without node.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C11",
+        "statement": "The real want is the route -> terminal data viz (Route Totality) shown in srcly dependency viewer.",
+        "kind": "goal",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C12",
+        "statement": "All tsx-data-flow type checking and analysis logic is to be maintained.",
+        "kind": "constraint",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C13",
+        "statement": "srcly has better visuals and selection and should own the graph experience.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C14",
+        "statement": "Value investigation: exact expression -> ordered evidence ledger + inspector, with Return/Back restoring overview.",
+        "kind": "goal",
+        "sources": [
+          "PR102",
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C15",
+        "statement": "Function effects panel in code viewer: effects, ambient reads, writes, async handling, unknowns with witnesses; no purity score.",
+        "kind": "goal",
+        "sources": [
+          "PR103",
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C16",
+        "statement": "Connectivity, coverage and value properties are separate; Not analyzed != 0; evidence bound to Program text/config/generation.",
+        "kind": "constraint",
+        "sources": [
+          "PR102",
+          "PR103"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C17",
+        "statement": "Invocation identity must be preserved; shared helper calls never join.",
+        "kind": "constraint",
+        "sources": [
+          "PR102"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C18",
+        "statement": "Never relabel import or folder edges as data flow or execution.",
+        "kind": "constraint",
+        "sources": [
+          "PR102",
+          "PR103"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C19",
+        "statement": "Existing route canvas has empty evidence-node/edge arrays; it cannot show operation order, so ordered paths use a ledger.",
+        "kind": "fact",
+        "sources": [
+          "PR102"
+        ],
+        "confidence": "high"
+      }
+    ],
+    "themes": [
+      "route -> terminal graph as headline",
+      "evidence from engine, picture from srcly",
+      "base layer vs enrichment layer",
+      "one vocabulary (metrics/findings/markers)"
+    ],
+    "conflicts": [
+      {
+        "id": "X1",
+        "statement": "tsx-data-flow says the code map is its primary surface; srcly's primary surface is the map/treemap with a modal code viewer.",
+        "resolution": "srcly's treemap stays primary; the code viewer absorbs code-map overlays (path on source, markers, where-used)."
+      },
+      {
+        "id": "X2",
+        "statement": "PR102 says do not merge the repositories and use a prepared external checkout (--value-analyzer).",
+        "resolution": "User decision (single repo) wins; the prepared-checkout idea survives as dev mode running engine/ from the srcly checkout."
+      },
+      {
+        "id": "X3",
+        "statement": "PR102 REC-017 avoids a semantic graph on the repository map and keeps the component canvas separate; user wants the route graph in the dependency viewer.",
+        "resolution": "Data-flow mode uses its own contract in the same canvas, never overlaid on import edges; ordered path detail lives in the ledger."
+      },
+      {
+        "id": "X4",
+        "statement": "PR102 wants one resident lazy Node child; PR103 starts with a one-shot JSON command and defers a resident service.",
+        "resolution": "Shape adopts one lazy child shared by all query families (Program built once); keep a one-shot command for headless report/tests; confirm with measured cold cost."
+      }
+    ],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Program delivered as independently revertible slices, one srcly home per slice.",
+    "problem": "Two tools with overlapping shells; srcly is fast but tree-sitter-only, tsx-data-flow is deep but slow and has its own UI.",
+    "recommended_shape": "Engine supplies evidence, srcly supplies the picture: engine (in engine/, bundled in wheel) emits a data-flow graph in srcly contract style (route -> occurrence -> step hierarchy + typed proven edges); srcly's dependency view renders it in a Data flow mode with its canvas, focus, expand-in-place, hover, keyboard and code opening. Findings/metrics/markers/reports flow through existing srcly pipelines.",
+    "feature_mapping": [
+      {
+        "tsx_feature": "Route Totality / Data trajectories graph (route -> component occurrences -> field lineage -> terminals, frontiers)",
+        "srcly_home": "client/src/viz/deps Data flow mode + new data-flow graph contract",
+        "status": "planned",
+        "priority": 1
+      },
+      {
+        "tsx_feature": "Route discovery, occurrence surface, field lineage/proof, value summaries, type checking (src/analysis)",
+        "srcly_home": "engine/ package, moved intact",
+        "status": "planned",
+        "priority": 1
+      },
+      {
+        "tsx_feature": "Field reach / selected-path projections, isolation with boundary stubs",
+        "srcly_home": "deps focus + isolate for reach; selected path opens the value ledger",
+        "status": "planned",
+        "priority": 1
+      },
+      {
+        "tsx_feature": "Source evidence dialog / popovers",
+        "srcly_home": "CodeModal opened at node line",
+        "status": "planned",
+        "priority": 1
+      },
+      {
+        "tsx_feature": "Render-path findings, defensive-ledger, impossible defenses, repeated forks, context relay",
+        "srcly_home": "findings/ dataflow tool + markers",
+        "status": "planned",
+        "priority": 4
+      },
+      {
+        "tsx_feature": "Burden, path depth, representation changes, defensive ops, prop relay, fan-out/in",
+        "srcly_home": "metric_catalog.py entries (TS/TSX)",
+        "status": "planned",
+        "priority": 4
+      },
+      {
+        "tsx_feature": "work-packets Markdown, render-path-dataflow-work skill",
+        "srcly_home": "reporting.py artifacts + skills/srcly-code-quality",
+        "status": "planned",
+        "priority": 4
+      },
+      {
+        "tsx_feature": "--compare baseline",
+        "srcly_home": "compare/diff.COMPARE_METRICS via catalog",
+        "status": "planned",
+        "priority": 4
+      },
+      {
+        "tsx_feature": "Code map symbol uses / component-refs",
+        "srcly_home": "CodeModal where-used; deps symbol focus",
+        "status": "evaluate"
+      },
+      {
+        "tsx_feature": "boundary-report, junctions, path-families, inline-preview",
+        "srcly_home": "finding rules or report-only",
+        "status": "evaluate"
+      },
+      {
+        "tsx_feature": "Route Totality canvas/camera/layout/disclosure UI (~9.6K lines), component topology, world map",
+        "srcly_home": "replaced by srcly deps canvas; not migrated",
+        "status": "drop"
+      },
+      {
+        "tsx_feature": "tsx-dataflow-serve overview, file rows, report pages",
+        "srcly_home": "none (explorer/Hot Spots cover it); retired",
+        "status": "drop"
+      },
+      {
+        "tsx_feature": "Expression selection + value investigation (new engine API, per-invocation pairing)",
+        "srcly_home": "engine/ + server value-flow router + client investigation/ (PinnedPreview, EvidenceLedger, EvidenceInspector)",
+        "status": "planned",
+        "priority": 2,
+        "source": "PR102"
+      },
+      {
+        "tsx_feature": "Function effects pass (new)",
+        "srcly_home": "engine/ effects + CodeModal EffectsPanel",
+        "status": "planned",
+        "priority": 3,
+        "source": "PR103"
+      },
+      {
+        "tsx_feature": "Bounded async execution slice",
+        "srcly_home": "client/src/viz/effects (later)",
+        "status": "later",
+        "source": "PR103"
+      }
+    ],
+    "success_moves": [
+      "Emit route evidence in srcly's graph-contract style (hierarchy + typed proven edges) in its own Data flow mode, never on import edges.",
+      "Explain paths once: graph destinations and code-viewer expressions both open the same ordered ledger.",
+      "One lazy Node child owns one Program for all query families; base scan never waits on it.",
+      "Bind evidence to Program text, tsconfig and generation; name not-analyzed, partial, stale and budget states.",
+      "Prove each family on real anchors (solid-route; HotSpotItem.tsx:135 and HotSpotList.tsx:88/109; extractFilePath/rankHotSpots/startScan) before growing UI.",
+      "Coordinate deps layout changes with dependency-graph-legibility."
+    ],
+    "first_proof": {
+      "question": "Can srcly present one route's field reach in its dependency canvas and one exact value path as an ordered ledger, both from compiler-backed evidence?",
+      "artifact": "examples/solid-route rendered in the current deps canvas; HotSpotItem.tsx:135 props.node.name ledger from the code viewer.",
+      "decision_rule": "Graph: extend packing if legible, else add one route layout rule. Ledger: if generic evidence cannot prove the JSX slot exactly (and keep line 134 distinct, rank default preserving zero), fix the engine before UI."
+    },
+    "rabbit_holes": [
+      "Porting compiler-API analysis to Python.",
+      "Embedding tsx-data-flow's SPA or route-totality graph wholesale.",
+      "200K-LOC repos: engine takes ~120s; needs scoping (changed files, per-package) or a skip rule.",
+      "Monorepos with many tsconfigs: bound projects like MAX_TSC_PROJECTS.",
+      "Wheel size from bundled TypeScript fallback; measure in first proof.",
+      "Porting tsx-data-flow's graph layout/camera instead of using srcly's.",
+      "Fields with dozens of destinations rendered as a wall instead of grouped broad-use.",
+      "Merging separate helper invocations (HotSpotList row helper, line 88 vs 109).",
+      "Treating effects as a numeric risk metric."
+    ],
+    "open_decisions": [],
+    "performance_targets": {
+      "preview_return_p95_ms": 150,
+      "progress_ms": 250,
+      "warm_first_row_ms": 750,
+      "cold_first_result_s": 10,
+      "source": "PR102 proposals"
+    }
+  },
+  "implementation": {
+    "status": "planned",
+    "repository_snapshot": {
+      "root": "srcly",
+      "revision": "b3117e3",
+      "worktree_status": "clean",
+      "subsystems": [
+        "server/app/services/findings",
+        "server/app/services/metric_catalog.py",
+        "server/app/services/markers.py",
+        "server/app/services/reporting.py",
+        "server/app/services/compare",
+        "client/src/components/CodeModal",
+        "client/src/viz/deps"
+      ],
+      "test_commands": [
+        "cd server && uv run pytest",
+        "cd client && pnpm test"
+      ],
+      "deployment_surfaces": [
+        "PyPI srcly wheel (bundles engine JS)"
+      ]
+    },
+    "dependencies": [
+      {
+        "id": "node-runtime",
+        "name": "Node >=18 + TypeScript",
+        "seam": "server/app/services/dataflow/engine.py (stdio JSON lines)",
+        "first_proof_role": "real (dev checkout); fake engine script for lifecycle tests",
+        "proof_ladder": [
+          "fake engine script",
+          "real engine from engine/",
+          "bundled engine in wheel (m8)"
+        ]
+      }
+    ],
+    "fast_local_loop": {
+      "command": "cd engine && pnpm vitest run test/srcly",
+      "python": "cd server && uv run pytest tests/test_dataflow_engine.py",
+      "network": false
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "Engine in srcly answers one query",
+        "outcome": "GET /api/dataflow/routes lists examples/solid-route routes via a lazy stdio Node child owned by server/app/services/dataflow/engine.py.",
+        "dependencies_introduced": [
+          "node>=18 runtime",
+          "engine/ pnpm workspace package"
+        ],
+        "proof": "pnpm --filter engine test; uv run pytest tests/test_dataflow_engine.py (fake engine lifecycle + real smoke)",
+        "valid_intermediate_state": "No UI; base scan unchanged; status names N/A reasons.",
+        "rollback": "Remove engine/ and routers/dataflow.py.",
+        "status": "planned",
+        "evidence": [],
+        "track": "foundation"
+      },
+      {
+        "id": "m2",
+        "title": "Route graph in the dependency view",
+        "outcome": "Data flow mode renders a route's component backbone; field selection lights proven destinations; nodes open code.",
+        "dependencies_introduced": [],
+        "proof": "engine contract tests on solid-route; client adapter vitest; screenshots of solid-route and /time-blocks; layout spike decision.",
+        "valid_intermediate_state": "Mode hidden when engine N/A.",
+        "rollback": "Revert mode switch + routeGraph op.",
+        "status": "planned",
+        "evidence": [],
+        "track": "A"
+      },
+      {
+        "id": "m3",
+        "title": "Value ledger from the code viewer",
+        "outcome": "Inspect value flow on HotSpotItem.tsx:135 shows an ordered ledger; Return restores overview.",
+        "dependencies_introduced": [],
+        "proof": "engine fixtures + HotSpotItem anchor contract tests; client investigation tests; browser journey 1440/1024 with Back/Forward/Return.",
+        "valid_intermediate_state": "Entry hidden when engine N/A.",
+        "rollback": "Revert investigation/ + valueFlow op.",
+        "status": "planned",
+        "evidence": [],
+        "track": "B"
+      },
+      {
+        "id": "m4",
+        "title": "One path explanation from the graph",
+        "outcome": "Graph destination opens the same ledger from route lineage; Return restores graph.",
+        "dependencies_introduced": [],
+        "proof": "routePath contract test on /time-blocks; browser journey.",
+        "valid_intermediate_state": "Graph still works without ledger link.",
+        "rollback": "Revert routePath op and link.",
+        "status": "planned",
+        "evidence": [],
+        "track": "A+B"
+      },
+      {
+        "id": "m5",
+        "title": "Cross-file invocation identity",
+        "outcome": "HotSpotList.tsx:88 proven to HotSpotItem.tsx:135 through row; line 109 isolated.",
+        "dependencies_introduced": [],
+        "proof": "precision fixtures (two-call identity helper, returns-other-arg) + anchor tests.",
+        "valid_intermediate_state": "M3 ledger unaffected for local paths.",
+        "rollback": "Revert pairing; paths fall back to frontier rows.",
+        "status": "planned",
+        "evidence": [],
+        "track": "B"
+      },
+      {
+        "id": "m6",
+        "title": "Effects panel",
+        "outcome": "CodeModal Effects panel for extractFilePath, rankHotSpots, startScan with witnesses and coverage.",
+        "dependencies_introduced": [],
+        "proof": "compact semantic fixture + three anchor contract tests; panel scenario test.",
+        "valid_intermediate_state": "Panel shows unavailable without engine.",
+        "rollback": "Revert EffectsPanel + functionEffects op.",
+        "status": "planned",
+        "evidence": [],
+        "track": "C"
+      },
+      {
+        "id": "m7",
+        "title": "Supporting evidence in srcly's pipelines",
+        "outcome": "Data-flow findings, catalog metrics, markers, report work packets, compare.",
+        "dependencies_introduced": [],
+        "proof": "test_metric_catalog snapshots; markers count tests; report artifact test.",
+        "valid_intermediate_state": "Metrics N/A when engine absent.",
+        "rollback": "Remove dataflow tool + catalog entries.",
+        "status": "planned",
+        "evidence": [],
+        "track": "D"
+      },
+      {
+        "id": "m8",
+        "title": "Engine ships in the wheel",
+        "outcome": "esbuild bundle + fallback typescript in wheel; uvx smoke in clean venv.",
+        "dependencies_introduced": [
+          "esbuild bundle in server/app/engine"
+        ],
+        "proof": "build-srcly.sh then clean-venv smoke on examples/solid-route; wheel size recorded.",
+        "valid_intermediate_state": "Pre-M8 wheels show N/A.",
+        "rollback": "Drop bundle step.",
+        "status": "planned",
+        "evidence": [],
+        "track": "release"
+      }
+    ],
+    "cut_line": [
+      "async execution view (#103 M2)",
+      "path/effects -> work packet",
+      "import-graph -> route links",
+      "Python effects, runtime tracing, incremental invalidation",
+      "saved evidence artifacts",
+      "mobile layouts"
+    ],
+    "open_decisions": [
+      {
+        "id": "D1",
+        "question": "Port base in tsx-data-flow",
+        "evidence": "pnpm verify on the committed WIP",
+        "fallback": "port main b4f1ba4 and re-apply the WIP inside engine/",
+        "status": "default-accepted",
+        "accepted_at": "2026-10-23"
+      },
+      {
+        "id": "D2",
+        "question": "Route layout rule vs existing packing",
+        "evidence": "M2 screenshots at 1440 and 1024",
+        "fallback": "direction: down option on layoutComponent, flow mode only",
+        "status": "default-accepted",
+        "accepted_at": "2026-10-23"
+      },
+      {
+        "id": "D3",
+        "question": "Branch graph beside the ledger",
+        "evidence": "M5 two-arm Show path",
+        "fallback": "rows with expansion",
+        "status": "default-accepted",
+        "accepted_at": "2026-10-23"
+      },
+      {
+        "id": "D4",
+        "question": "TypeScript instance for the Program",
+        "evidence": "hello.typescriptFrom and parse diagnostics on real projects",
+        "fallback": "prefer the project's copy for that major",
+        "status": "default-accepted",
+        "accepted_at": "2026-10-23"
+      },
+      {
+        "id": "D5",
+        "question": "Tier-2 batch job default",
+        "evidence": "tier-2 time on 50K-line apps",
+        "fallback": "opt-in via a data-flow surface or --dataflow",
+        "status": "default-accepted",
+        "accepted_at": "2026-10-23"
+      },
+      {
+        "id": "D6",
+        "question": "Resident vs per-query process",
+        "evidence": "tier-1 time and RSS (2 GB measured)",
+        "fallback": "per-query spawn, same protocol; cap 1 process",
+        "status": "default-accepted",
+        "accepted_at": "2026-10-23"
+      },
+      {
+        "id": "D7",
+        "question": "Investigation URL",
+        "evidence": "none expected",
+        "fallback": "?inv=<token> with sessionStorage snapshot",
+        "status": "default-accepted",
+        "accepted_at": "2026-10-23"
+      },
+      {
+        "id": "D8",
+        "question": "Progress transport",
+        "evidence": "profiles of 250 ms status polling",
+        "fallback": "SSE like /api/scans/{id}/events",
+        "status": "default-accepted",
+        "accepted_at": "2026-10-23"
+      }
+    ],
+    "prerequisites": [
+      "Commit tsx-data-flow's route-proof WIP on main, tag srcly-port-base, port that SHA; the seven cleanup PRs are not ported (D1).",
+      "Skip-guard the two soccer-schedule tests before the copy."
+    ],
+    "parallel_tracks": {
+      "after": "m1",
+      "tracks": {
+        "A": [
+          "m2",
+          "m4"
+        ],
+        "B": [
+          "m3",
+          "m5"
+        ],
+        "C": [
+          "m6"
+        ],
+        "D": [
+          "m7"
+        ]
+      }
+    },
+    "measurements": {
+      "recorded_at": "2026-10-23",
+      "path": "measurements.md",
+      "tier1_ms": {
+        "srcly-client": 3005,
+        "visual-notes-app": 13865
+      },
+      "full_report_ms": {
+        "srcly-client": 129962,
+        "visual-notes-app": 44166
+      },
+      "route_inventory_ms": {
+        "srcly-client": 2,
+        "visual-notes-app": 17494
+      },
+      "rss_mb": {
+        "srcly-client": 2419,
+        "visual-notes-app": 2023
+      }
+    }
+  },
+  "history": [
+    {
+      "date": "2026-10-23",
+      "event": "Initiative created; intent and shape drafted from the user's request plus both repos' docs.",
+      "phase": "shape"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "Resolved D1 (single repo, engine/ package), D2 (bundle in wheel, delegated), D3 (retire serve UI). Shape updated; no downstream artifacts invalidated.",
+      "phase": "shape"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "Intent revised: route -> terminal graph in dependency viewer is the headline; shape, mapping priorities and first proof regenerated.",
+      "phase": "shape"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "Absorbed PR #102 (value investigation) and #103 (function effects): added ledger and effects surfaces, shared engine runtime, evidence rules, real anchors; recorded conflicts X2-X4.",
+      "phase": "shape"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "D4 resolved: route-graph and ledger proofs run in parallel. Implementation plan written (m1 foundation, tracks A-D, m8 packaging).",
+      "phase": "plan"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "Condensed: #102/#103 research folded into research.md; intent, shape and plan tightened. Implementation awaits explicit user approval.",
+      "phase": "plan"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "Detailed plan and measurements added after a code review of srcly and tsx-data-flow; fourteen corrections (R1-R14) and eight decisions (D1-D8) recorded.",
+      "phase": "plan"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "User accepted the D1-D8 defaults; PR #101 remains docs only, M1 awaits separate approval.",
+      "phase": "plan"
+    }
+  ],
+  "closure": null
+}
