@@ -47,6 +47,8 @@ describe.skipIf(!python.python)(`Python session and ops (${python.reason})`, () 
     const scopes = graph.nodes.filter((node) => node.kind === "scope").map((node) => node.label);
     expect(scopes).toEqual(expect.arrayContaining(["create_item", "save_item"]));
     expect(boxes(graph, "boundary")).toEqual([]);
+    // Plain reads of a name repeat its binding and get no box of their own.
+    expect(boxes(graph).filter((node) => node.label === "body")).toEqual([]);
   });
 
   it("walks the response backward to the request origin", () => {
@@ -101,7 +103,13 @@ describe.skipIf(!python.python)("Python root through the real engine process", (
     expect(reply.ok).toBe(true);
     const result = reply.result as RoutesResult;
     expect(result.routes.map((route) => route.pathPattern)).toEqual(["DELETE /v1/items/{item_id}", "GET /v1/items", "GET /v1/items/{item_id}", "GET /v1/settings", "POST /v1/items"]);
-    expect(result.routes[2]).toMatchObject({ file: "app/routers/items.py", absPath: path.join(example, "app/routers/items.py"), parameters: [{ name: "item_id", kind: "dynamic" }] });
+    expect(result.routes[2]).toMatchObject({
+      file: "app/routers/items.py",
+      absPath: path.join(example, "app/routers/items.py"),
+      parameters: [{ name: "item_id", kind: "dynamic" }],
+      // A handler route names its function, so the client opens it in anchor mode.
+      handler: { name: "read_item", line: 19 },
+    });
   }, 120_000);
 
   it("names a missing interpreter", async () => {

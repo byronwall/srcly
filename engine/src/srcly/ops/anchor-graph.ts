@@ -247,6 +247,15 @@ class AnchorGraphBuilder {
           }
           continue;
         }
+        // A plain read of a name (the Python provider marks it) repeats its binding: walk through, draw nothing.
+        if (element.attributes?.transparent === true && !element.originRoles.length && !element.terminalRoles.length) {
+          if (!this.alias.has(otherId)) this.alias.set(otherId, this.resolve(id));
+          if (!visited.has(otherId)) {
+            visited.add(otherId);
+            queue.push({ id: otherId, depth });
+          }
+          continue;
+        }
         let kind = classify(relation, element);
         let status = relation.status;
         let reason: string | null = null;

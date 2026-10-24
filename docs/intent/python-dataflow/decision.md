@@ -88,6 +88,9 @@ Name reads join their bindings flow-insensitively within a function: the last bi
 | --- | --- |
 | 1 · evidence provider | the helper, the wire format, `PythonRelationProvider`; slices from a FastAPI body reach the response on the example and on srcly's server |
 | 2 · session and availability | a Python root opens in Data flow mode: `Tier1` per language behind a language host, `--language python --python <interpreter>`, the server probes a Python root and names `python-checker-not-found`; routes, `selectExpression`, `valueFlow` and `anchorGraph` answer through the real engine over HTTP |
+| 3 · anchor flow end to end | a route summary names its `handler`, so picking a FastAPI route (or following a `flow=` link to one) opens the handler in anchor mode; a plain read of a name is `transparent` and the anchor graph walks through it without a box; traced from the code viewer, the import graph and the route picker on the example, and from a handler on srcly's server |
+
+On srcly's own server the `anchor_graph` handler's body comes back `partial`: its origin is found and typed (`AnchorRequest`), but `_query` is shared by every handler (an `unproven-handoff` boundary, R7), and the forward slice reaches its 128-element bound before the response, so the frontiers say so by name.
 
 ## Not yet
 
