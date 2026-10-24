@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "accept:route-field-proof": "node --import tsx scripts/accept-route-field-proof.ts",
     "emit-contracts": "node --import tsx scripts/emit-contracts.ts",
-    "capture-route-graph": "node --import tsx scripts/capture-route-graph.ts"
+    "capture-route-graph": "node --import tsx scripts/capture-route-graph.ts",
+    "capture-anchor-graph": "node --import tsx scripts/capture-anchor-graph.ts"
   },
   "dependencies": {
     "typescript": "5.9.3",
