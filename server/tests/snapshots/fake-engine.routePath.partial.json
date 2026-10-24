@@ -1,0 +1,69 @@
+{
+  "edge": {
+    "id": "edge:1",
+    "kind": "field",
+    "label": "rows[*].title",
+    "source": "el:1",
+    "status": "partial",
+    "target": "el:2"
+  },
+  "frontier": {
+    "label": "rows[*].title",
+    "reason": "partial-proof"
+  },
+  "generation": 1,
+  "outcome": "partial",
+  "programHash": "hash-1",
+  "proof": [],
+  "reason": null,
+  "route": {
+    "key": "route:records",
+    "pathPattern": "/records"
+  },
+  "rows": [
+    {
+      "absPath": "/fixture/src/routes/records.tsx",
+      "elementId": "el:1",
+      "file": "src/routes/records.tsx",
+      "id": "row:1",
+      "kind": "input",
+      "label": "createResource(loadViewer)",
+      "line": 1,
+      "note": null,
+      "proof": [],
+      "reason": null,
+      "relationId": null,
+      "span": {
+        "endColumn": 10,
+        "endLine": 1,
+        "startColumn": 1,
+        "startLine": 1
+      },
+      "status": "proven",
+      "typeText": null
+    },
+    {
+      "absPath": "/fixture/src/routes/records.tsx",
+      "elementId": "el:1",
+      "file": "src/routes/records.tsx",
+      "id": "row:2",
+      "kind": "boundary",
+      "label": "lineage stops",
+      "line": 1,
+      "note": "The field's proof stops here.",
+      "proof": [],
+      "reason": "partial-proof",
+      "relationId": "rel:1",
+      "span": {
+        "endColumn": 10,
+        "endLine": 1,
+        "startColumn": 1,
+        "startLine": 1
+      },
+      "status": "partial",
+      "typeText": null
+    }
+  ],
+  "tsconfig": "/fixture/tsconfig.json",
+  "typescript": "5.9.3"
+}

@@ -29,6 +29,13 @@
     "typescript": {
       "type": "string"
     },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "surface",
+        "complete"
+      ]
+    },
     "route": {
       "type": "object",
       "properties": {
@@ -617,6 +624,7 @@
     "programHash",
     "tsconfig",
     "typescript",
+    "phase",
     "route",
     "status",
     "unavailableReason",

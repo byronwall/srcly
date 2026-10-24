@@ -69,10 +69,16 @@ export type AnalysisOperation =
   | ({ kind: "source-excerpt" } & SourceExcerptRequest)
   | { kind: "markdown"; view: string; path: string | null }
   | { kind: "routes"; expectedGeneration?: number }
+  /** srcly's refresh: drop the tier-1 session and rebuild it now, so the next generation is ready. */
+  | { kind: "session-refresh" }
   | { kind: "route-graph"; route: string; source?: string; expectedGeneration?: number }
+  | { kind: "route-surface"; route: string; expectedGeneration?: number }
   | { kind: "select-expression"; params: Record<string, unknown> }
   | { kind: "value-flow"; params: Record<string, unknown> }
-  | { kind: "anchor-graph"; params: Record<string, unknown> };
+  | { kind: "anchor-graph"; params: Record<string, unknown> }
+  | { kind: "function-effects"; params: Record<string, unknown> }
+  | { kind: "route-path"; params: Record<string, unknown> }
+  | { kind: "file-exports"; params: Record<string, unknown> };
 
 export function createAnalysisService(args: AnalyzerArgs, engine: EngineConfig | null = null) {
   let workerUrl = import.meta.url.endsWith(".ts")

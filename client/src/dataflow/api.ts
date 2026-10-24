@@ -1,6 +1,6 @@
 // Calls to /api/dataflow/*. The engine results are the generated contract
 // types; the wrappers are the server's own responses (routers/dataflow.py).
-import type { AnchorGraphResult, RouteGraphResult, RoutesResult, SelectExpressionResult, StatusResult, ValueFlowResult } from "./contract.generated";
+import type { AnchorGraphResult, FunctionEffectsResult, RouteGraphResult, RoutePathResult, RoutesResult, SelectExpressionResult, StatusResult, ValueFlowResult, FileExportsResult } from "./contract.generated";
 
 export type Outcome = RoutesResult["outcome"];
 export type NaReason =
@@ -79,6 +79,17 @@ export async function startDataflow(path: string, signal?: AbortSignal): Promise
   return json(res, "Starting data flow");
 }
 
+/** Rebuild tier 1 from the sources as they are now: the reply names the new generation, and every open graph is fetched again with it. */
+export async function refreshDataflow(path: string, signal?: AbortSignal): Promise<RoutesResponse> {
+  const res = await fetch("/api/dataflow/refresh", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+    signal,
+  });
+  return json(res, "Refreshing data flow");
+}
+
 export async function fetchRoutes(path: string, signal?: AbortSignal): Promise<RoutesResponse> {
   const res = await fetch(`/api/dataflow/routes?${new URLSearchParams({ path })}`, { signal });
   return json(res, "Routes");
@@ -90,6 +101,48 @@ export async function fetchRouteGraph(args: { path: string; route: string; sourc
   if (args.expectedGeneration !== undefined) query.set("expectedGeneration", String(args.expectedGeneration));
   const res = await fetch(`/api/dataflow/route-graph?${query}`, { signal: args.signal });
   return json(res, "Route graph");
+}
+
+/** The route's render backbone alone (`phase: surface`), answered before the first full graph on a large app. */
+export async function fetchRouteSurface(args: { path: string; route: string; expectedGeneration?: number; signal?: AbortSignal }): Promise<RouteGraphResponse> {
+  const query = new URLSearchParams({ path: args.path, route: args.route });
+  if (args.expectedGeneration !== undefined) query.set("expectedGeneration", String(args.expectedGeneration));
+  const res = await fetch(`/api/dataflow/route-surface?${query}`, { signal: args.signal });
+  return json(res, "Route surface");
+}
+
+export interface FunctionEffectsResponse extends OutcomeFields {
+  effects: FunctionEffectsResult | null;
+}
+
+/** What the function enclosing `line` in `file` touches: facts with witnesses, frontiers, promise handling, assumptions. */
+export function fetchFunctionEffects(req: { path: string; file: string; line: number; column?: number; expectedGeneration?: number; signal?: AbortSignal }): Promise<FunctionEffectsResponse> {
+  return post("/api/dataflow/function-effects", req, "Function effects");
+}
+
+export interface RoutePathResponse extends OutcomeFields {
+  path: RoutePathResult | null;
+}
+
+export interface FileExportsResponse extends OutcomeFields {
+  exports: FileExportsResult | null;
+}
+
+/** A file's or folder's exported declarations: what a file or folder anchor fans out to (T19). */
+export async function fetchFileExports(args: { path: string; file: string; expectedGeneration?: number; signal?: AbortSignal }): Promise<FileExportsResponse> {
+  const query = new URLSearchParams({ path: args.path, file: args.file });
+  if (args.expectedGeneration !== undefined) query.set("expectedGeneration", String(args.expectedGeneration));
+  const res = await fetch(`/api/dataflow/file-exports?${query}`, { signal: args.signal });
+  return json(res, "Exports");
+}
+
+/** One lit edge of a route graph, explained in order; field edges need the origin the graph was lit for. */
+export async function fetchRoutePath(args: { path: string; route: string; edge: string; source?: string; expectedGeneration?: number; signal?: AbortSignal }): Promise<RoutePathResponse> {
+  const query = new URLSearchParams({ path: args.path, route: args.route, edge: args.edge });
+  if (args.source) query.set("source", args.source);
+  if (args.expectedGeneration !== undefined) query.set("expectedGeneration", String(args.expectedGeneration));
+  const res = await fetch(`/api/dataflow/route-path?${query}`, { signal: args.signal });
+  return json(res, "Edge steps");
 }
 
 export interface SelectResponse extends OutcomeFields {
@@ -128,7 +181,12 @@ export type AnchorRequest = {
   direction: "forward" | "backward" | "both";
   expectedGeneration?: number;
   signal?: AbortSignal;
-} & ({ span: { startLine: number; startColumn: number; endLine: number; endColumn: number }; text?: string } | { name: string; line: number });
+} & (
+  | { span: { startLine: number; startColumn: number; endLine: number; endColumn: number }; text?: string }
+  | { name: string; line: number }
+  /** A drawn box by its element id (T20): the engine anchors at that element itself. */
+  | { elementId: string }
+);
 
 /** A value's neighbourhood from any expression: where it comes from, where it goes, or both. */
 export function fetchAnchorGraph(req: AnchorRequest): Promise<AnchorGraphResponse> {

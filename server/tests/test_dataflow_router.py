@@ -84,6 +84,24 @@ def test_stale_generation_is_an_outcome(client, use_fake, tmp_path):
     assert body["outcome"] == "stale" and body["generation"] == 1
 
 
+def test_stale_sources_show_in_status_and_refresh_rebuilds(client, use_fake, tmp_path):
+    use_fake("--stale")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "f.tsx").write_text("export const x = 1;\n")
+    first = client.get("/api/dataflow/routes", params={"path": str(tmp_path)}).json()
+    assert first["generation"] == 1
+    status = client.get("/api/dataflow/status", params={"path": str(tmp_path)}).json()
+    assert status["stale"] is True and status["generation"] == 1 and status["programHash"] == "hash-next"
+    # A graph fetched with the old generation is still answered; one that names it after a refresh is stale.
+    refreshed = client.post("/api/dataflow/refresh", json={"path": str(tmp_path)}).json()
+    assert refreshed["outcome"] == "ok" and refreshed["generation"] == 2 and refreshed["programHash"] == "hash-2"
+    assert client.get("/api/dataflow/status", params={"path": str(tmp_path)}).json()["stale"] is False
+    old = client.get("/api/dataflow/route-graph", params={"path": str(tmp_path), "route": "/records", "expectedGeneration": 1}).json()
+    assert old["outcome"] == "stale" and old["generation"] == 2 and old["graph"] is None
+    new = client.get("/api/dataflow/route-graph", params={"path": str(tmp_path), "route": "/records", "expectedGeneration": 2}).json()
+    assert new["outcome"] == "ok" and new["graph"]["generation"] == 2
+
+
 def test_refusals_are_not_analyzed_with_the_reason(client, use_fake, tmp_path):
     use_fake("--refuse", "non-strict-tsconfig")
     body = client.get("/api/dataflow/routes", params={"path": str(tmp_path)}).json()
@@ -126,6 +144,45 @@ def test_route_graph_and_unknown_route(client, use_fake, tmp_path):
     assert missing.status_code == 404 and missing.json()["detail"]["reason"] == "not-found"
 
 
+def test_route_path_explains_an_edge_and_404s_an_unknown_one(client, use_fake, tmp_path):
+    use_fake()
+    client.get("/api/dataflow/routes", params={"path": str(tmp_path)})
+    body = client.get("/api/dataflow/route-path", params={"path": str(tmp_path), "route": "/records", "edge": "edge:1"}).json()
+    assert body["outcome"] == "ok" and body["path"]["edge"]["id"] == "edge:1"
+    assert [row["kind"] for row in body["path"]["rows"]] == ["input", "terminal"]
+    missing = client.get("/api/dataflow/route-path", params={"path": str(tmp_path), "route": "/records", "edge": "nope"})
+    assert missing.status_code == 404
+
+
+def test_file_exports_lists_a_folder_and_404s_a_missing_path(client, use_fake, tmp_path):
+    use_fake()
+    (tmp_path / "src" / "components").mkdir(parents=True)
+    (tmp_path / "src" / "components" / "Card.tsx").write_text("export function Card() { return null; }\n")
+    client.get("/api/dataflow/routes", params={"path": str(tmp_path)})
+    body = client.get("/api/dataflow/file-exports", params={"path": str(tmp_path), "file": "src/components"}).json()
+    assert body["outcome"] == "ok" and body["exports"]["target"]["kind"] == "folder"
+    assert body["exports"]["counts"] == {"files": 2, "exports": 3, "traceable": 1}
+    assert [item["name"] for item in body["exports"]["files"][0]["exports"]] == ["Card", "CardProps"]
+    single = client.get("/api/dataflow/file-exports", params={"path": str(tmp_path), "file": "src/components/Card.tsx"}).json()
+    assert single["exports"]["target"]["kind"] == "file" and single["exports"]["counts"]["files"] == 1
+    missing = client.get("/api/dataflow/file-exports", params={"path": str(tmp_path), "file": "missing/dir"})
+    assert missing.status_code == 404
+
+
+def test_route_surface_is_the_backbone_before_the_graph(client, use_fake, tmp_path):
+    use_fake()
+    client.get("/api/dataflow/routes", params={"path": str(tmp_path)})
+    surface = client.get("/api/dataflow/route-surface", params={"path": str(tmp_path), "route": "/records"}).json()
+    assert surface["outcome"] == "partial" and surface["graph"]["phase"] == "surface"
+    assert surface["graph"]["origins"] == [] and surface["graph"]["gaps"] == []
+    graph = client.get("/api/dataflow/route-graph", params={"path": str(tmp_path), "route": "/records"}).json()["graph"]
+    assert graph["phase"] == "complete"
+    # The same boxes, by id, in both phases.
+    assert [node["id"] for node in surface["graph"]["nodes"]] == [node["id"] for node in graph["nodes"]]
+    missing = client.get("/api/dataflow/route-surface", params={"path": str(tmp_path), "route": "/nope"})
+    assert missing.status_code == 404
+
+
 def test_anchor_graph_by_span_and_by_name(client, use_fake, tmp_path):
     use_fake()
     (tmp_path / "src").mkdir()
@@ -140,6 +197,8 @@ def test_anchor_graph_by_span_and_by_name(client, use_fake, tmp_path):
     assert graph["nodes"][1]["parent"] == "scope:f" and graph["edges"][0]["kind"] == "render-terminal"
     back = client.post("/api/dataflow/anchor-graph", json={**body, "direction": "backward"}).json()["graph"]
     assert back["counts"]["down"] == 0 and back["terminals"] == []
+    # A declaration's own link is structural: the model accepts it beside the proof statuses.
+    assert [edge["status"] for edge in back["edges"]] == ["structural"]
     named = client.post("/api/dataflow/anchor-graph", json={"path": str(tmp_path), "file": "src/f.tsx", "name": "props", "line": 1}).json()
     assert named["graph"]["anchor"]["text"] == "props" and named["graph"]["direction"] == "both"
     missing = client.post("/api/dataflow/anchor-graph", json={"path": str(tmp_path), "file": "src/f.tsx", "name": "nope", "line": 1})

@@ -3,7 +3,9 @@ import {
   useContext,
   createSignal,
   type Accessor,
+  onCleanup,
 } from "solid-js";
+import { registerViewState } from "../navigation/viewState";
 import type { QuadrantPreset } from "../viz/scatter/quadrants";
 
 /**
@@ -189,6 +191,16 @@ const MetricsStoreContext = createContext<MetricsStoreContextType>();
 export const MetricsStoreProvider = (props: { children: any }) => {
   const [metric, setMetric] = createSignal<MetricId>("complexity");
   const [excludedPaths, setExcludedPaths] = createSignal<string[]>([]);
+  // Return restores the metric and exclusions a place was left with (T17).
+  onCleanup(
+    registerViewState<{ metric: MetricId; excludedPaths: string[] }>("metrics", {
+      capture: () => ({ metric: metric(), excludedPaths: excludedPaths() }),
+      restore: (part) => {
+        if (typeof part?.metric === "string") setMetric(part.metric);
+        if (Array.isArray(part?.excludedPaths)) setExcludedPaths(part.excludedPaths.filter((p): p is string => typeof p === "string"));
+      },
+    }),
+  );
 
   const toggleExcludedPath = (path: string) => {
     const current = excludedPaths();

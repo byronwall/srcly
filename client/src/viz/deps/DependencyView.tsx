@@ -24,7 +24,7 @@ import type { ViewLayout } from "./layout";
 import { viewContents, viewMetrics, type MetricsIndex } from "./metrics";
 import { buildViewModel, DEFAULT_BUDGET, type ViewNode } from "./viewModel";
 import { folderOf, graphIdFor, isDataFlow } from "../../navigation/location";
-import { tracePatch } from "../../navigation/nodeActions";
+import { addAnchorPatch, tracePatch } from "../../navigation/nodeActions";
 import NodeActionsMenu, { type NodeMenuTarget } from "../../navigation/NodeActionsMenu";
 import { go, graphFilters as filters, location, replace, setGraphFilters as setFilters } from "../../navigation/store";
 
@@ -342,6 +342,7 @@ function ImportView(props: {
       kind: n.kind,
       title: n.title || n.label,
       currentAt: effectiveFocus() ?? location().at,
+      current: location(),
       expand: n.expandable ? true : frame ? { collapse: frame.label } : undefined,
       line: index()?.byId.get(n.graphId)?.line,
     });
@@ -472,9 +473,10 @@ function ImportView(props: {
               if (id === "focus") onFocusNode(n);
               else if (id === "expand") n.expandable ? expand(n.graphId) : n.group && collapse(n.group.id);
               else if (id === "open") onOpenNode(n);
-              else if (id === "traceTo" || id === "traceFrom") {
-                const line = m().line;
-                if (line) go(tracePatch({ at: n.graphId, line }, id));
+              else if (id === "traceTo" || id === "traceFrom") go(tracePatch({ at: n.graphId, line: m().line }, id));
+              else if (id === "traceAdd") {
+                const patch = addAnchorPatch({ at: n.graphId, line: m().line }, location());
+                if (patch) go(patch);
               } else go({ at: folderOf(n.graphId) });
             }}
           />

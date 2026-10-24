@@ -5,7 +5,7 @@
 import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
 import type { ViewEdge, ViewNode } from "../viewModel";
 import type { FlowViewModel } from "./adapter";
-import { FLOW_MARKS, humanizeDetail, MARK_OF_ANCHOR_KIND } from "./marks";
+import { humanizeDetail, MARK_OF_ANCHOR_KIND, markColor } from "./marks";
 
 export type AnchorNode = AnchorGraphResult["nodes"][number];
 export type AnchorEdge = AnchorGraphResult["edges"][number];
@@ -44,7 +44,7 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult): FlowViewModel 
       isFocus: n.kind === "anchor",
       ...(scope ? { group: { id: scope.id, label: scope.detail === "module" ? scope.label : `${scope.label} · ${scope.detail}`, opened: true } } : {}),
       status: n.status,
-      tint: FLOW_MARKS[mark].color,
+      tint: markColor(mark),
       ...(n.kind === "frontier" ? { outline: "hatched" as const } : n.kind === "boundary" ? { outline: "dotted" as const } : {}),
     };
   });
@@ -63,7 +63,8 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult): FlowViewModel 
       weight: 1,
       faint: e.status !== "proven",
       symbols: [],
-      ...(CROSSING.has(e.kind) ? { style: "handoff" as const } : {}),
+      // A structural link (a declaration's parameter or return) is drawn dotted and neutral: found by structure, not traced.
+      ...(e.status === "structural" ? { style: "structural" as const } : CROSSING.has(e.kind) ? { style: "handoff" as const } : {}),
       ...(e.label ? { label: e.label } : {}),
       status: e.status,
       proof: e.proof.map((p) => ({ kind: p.kind, detail: p.detail, status: p.status, at: p.locations[0] ? `${baseName(p.locations[0].file)}:${p.locations[0].line}` : undefined })),

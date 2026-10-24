@@ -1,0 +1,19 @@
+{
+  "counts": {
+    "exports": 0,
+    "files": 0,
+    "traceable": 0
+  },
+  "files": [],
+  "generation": 1,
+  "outcome": "unsupported",
+  "programHash": "hash-1",
+  "reason": "no-program-file",
+  "target": {
+    "absPath": "/fixture/src/components",
+    "kind": "folder",
+    "path": "src/components"
+  },
+  "tsconfig": "/fixture/tsconfig.json",
+  "typescript": "5.9.3"
+}

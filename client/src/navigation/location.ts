@@ -46,16 +46,51 @@ export interface Location {
 export type Direction = "forward" | "backward" | "both";
 
 /** An anchor as the engine takes it: an exact span, or a symbol by name on a line. */
-export type Anchor = { file: string; span: { startLine: number; startColumn: number; endLine: number; endColumn: number } } | { file: string; name: string; line: number };
+export type Anchor =
+  | { file: string; span: { startLine: number; startColumn: number; endLine: number; endColumn: number } }
+  | { file: string; name: string; line: number }
+  /** A file or folder anchor (T19): one box per export, each traced on demand. */
+  | { file: string; exports: true }
+  /** A drawn box by the engine's element id (T20): added to a trace from the inspector. */
+  | { file: string; element: string };
 
 export function encodeAnchor(anchor: Anchor): string {
+  if ("exports" in anchor) return `${anchor.file}@*`;
+  if ("element" in anchor) return `${anchor.file}@el:${anchor.element}`;
   if ("name" in anchor) return `${anchor.file}@${anchor.name}:${anchor.line}`;
   const s = anchor.span;
   return `${anchor.file}:${s.startLine}:${s.startColumn}-${s.endLine}:${s.endColumn}`;
 }
 
+/** At most this many anchors on one canvas (T20): each is its own query, joined only within one generation. */
+export const MAX_ANCHORS = 3;
+const ANCHOR_SEP = "|";
+
+/** Several anchors in one `anchor` value (T20): `a|b|c`. */
+export function encodeAnchors(anchors: readonly Anchor[]): string {
+  return anchors.map(encodeAnchor).join(ANCHOR_SEP);
+}
+
+/**
+ * Every anchor in an `anchor` value, in order; empty when any part is not
+ * one, when there are more than `MAX_ANCHORS`, or when a file or folder
+ * anchor (which fans out on its own) is combined with another.
+ */
+export function parseAnchors(raw: string | undefined): Anchor[] {
+  if (!raw) return [];
+  const parts = raw.split(ANCHOR_SEP).map((part) => parseAnchor(part));
+  if (parts.length > MAX_ANCHORS || parts.some((part) => part === null)) return [];
+  const anchors = parts as Anchor[];
+  if (anchors.length > 1 && anchors.some((anchor) => "exports" in anchor)) return [];
+  return anchors;
+}
+
 export function parseAnchor(raw: string | undefined): Anchor | null {
   if (!raw) return null;
+  const exports = /^(.*)@\*$/.exec(raw);
+  if (exports) return { file: exports[1], exports: true };
+  const element = /^(.+)@el:(.+)$/.exec(raw);
+  if (element) return { file: element[1], element: element[2] };
   const named = /^(.+)@([^@:]+):(\d+)$/.exec(raw);
   if (named) return { file: named[1], name: named[2], line: Number(named[3]) };
   const span = /^(.+):(\d+):(\d+)-(\d+):(\d+)$/.exec(raw);
@@ -93,7 +128,7 @@ export function parseLocation(search: string): Location {
         : "treemap";
   const open = (params.get(OPEN_PARAM) ?? "").split(",").map(normalizeAt).filter(Boolean);
   // An anchor replaces the route: the graph is in Data flow mode either way, never both.
-  const anchor = view === "graph" && parseAnchor(params.get(ANCHOR_PARAM) ?? undefined) ? params.get(ANCHOR_PARAM) : null;
+  const anchor = view === "graph" && parseAnchors(params.get(ANCHOR_PARAM) ?? undefined).length ? params.get(ANCHOR_PARAM) : null;
   const rawDir = anchor !== null ? params.get(DIR_PARAM) : null;
   const dir = rawDir === "forward" || rawDir === "backward" ? rawDir : null;
   const flow = view === "graph" && anchor === null ? params.get(FLOW_PARAM) : null;

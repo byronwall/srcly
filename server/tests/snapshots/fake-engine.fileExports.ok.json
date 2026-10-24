@@ -1,0 +1,65 @@
+{
+  "counts": {
+    "exports": 3,
+    "files": 2,
+    "traceable": 1
+  },
+  "files": [
+    {
+      "absPath": "/fixture/src/components/Card.tsx",
+      "exports": [
+        {
+          "absPath": "/fixture/src/components/Card.tsx",
+          "column": 17,
+          "file": "src/components/Card.tsx",
+          "id": "src/components/Card.tsx@Card:1",
+          "kind": "component",
+          "line": 1,
+          "name": "Card",
+          "reexported": false,
+          "traceable": true
+        },
+        {
+          "absPath": "/fixture/src/components/Card.tsx",
+          "column": 17,
+          "file": "src/components/Card.tsx",
+          "id": "src/components/Card.tsx@CardProps:9",
+          "kind": "interface",
+          "line": 9,
+          "name": "CardProps",
+          "reexported": false,
+          "traceable": false
+        }
+      ],
+      "file": "src/components/Card.tsx"
+    },
+    {
+      "absPath": "/fixture/src/components/types.ts",
+      "exports": [
+        {
+          "absPath": "/fixture/src/components/types.ts",
+          "column": 17,
+          "file": "src/components/types.ts",
+          "id": "src/components/types.ts@Item:1",
+          "kind": "type",
+          "line": 1,
+          "name": "Item",
+          "reexported": false,
+          "traceable": false
+        }
+      ],
+      "file": "src/components/types.ts"
+    }
+  ],
+  "generation": 1,
+  "outcome": "ok",
+  "programHash": "hash-1",
+  "reason": null,
+  "target": {
+    "absPath": "/fixture/src/components",
+    "kind": "folder",
+    "path": "src/components"
+  },
+  "tsconfig": "/fixture/tsconfig.json",
+  "typescript": "5.9.3"
+}

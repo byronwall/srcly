@@ -1,0 +1,101 @@
+{
+  "counts": {
+    "boundaries": 0,
+    "handoffs": 0,
+    "occurrences": 1,
+    "omittedItems": 0,
+    "origins": 0,
+    "terminals": 0
+  },
+  "destinations": [],
+  "edges": [
+    {
+      "id": "edge:1",
+      "kind": "render",
+      "label": null,
+      "pathIds": null,
+      "proof": [],
+      "source": "occ:route",
+      "status": "partial",
+      "target": "occ:card"
+    }
+  ],
+  "gaps": [
+    {
+      "label": "Static proof stops at the external response body.",
+      "location": {
+        "column": 1,
+        "file": "src/routes/records.tsx",
+        "line": 2,
+        "span": {
+          "endColumn": 10,
+          "endLine": 2,
+          "startColumn": 1,
+          "startLine": 2
+        }
+      },
+      "reason": "external-code"
+    }
+  ],
+  "generation": 1,
+  "lineage": null,
+  "nodes": [
+    {
+      "absPath": "/fixture/src/routes/records.tsx",
+      "collapsedByDefault": false,
+      "detail": null,
+      "external": false,
+      "file": "src/routes/records.tsx",
+      "id": "occ:route",
+      "kind": "route",
+      "label": "/records",
+      "line": 1,
+      "parent": null,
+      "reason": null,
+      "repetition": null,
+      "span": {
+        "endColumn": 10,
+        "endLine": 1,
+        "startColumn": 1,
+        "startLine": 1
+      },
+      "status": "proven"
+    },
+    {
+      "absPath": "/fixture/src/routes/records.tsx",
+      "collapsedByDefault": false,
+      "detail": "Card.tsx",
+      "external": false,
+      "file": "src/routes/records.tsx",
+      "id": "occ:card",
+      "kind": "occurrence",
+      "label": "Card",
+      "line": 2,
+      "parent": "occ:route",
+      "reason": "external-code",
+      "repetition": null,
+      "span": {
+        "endColumn": 10,
+        "endLine": 2,
+        "startColumn": 1,
+        "startLine": 2
+      },
+      "status": "partial"
+    }
+  ],
+  "origins": [],
+  "outcome": "partial",
+  "phase": "complete",
+  "programHash": "hash-1",
+  "route": {
+    "absPath": "/fixture/src/routes/records.tsx",
+    "file": "src/routes/records.tsx",
+    "key": "route:records",
+    "pathPattern": "/records"
+  },
+  "selectedSource": null,
+  "status": "partial",
+  "tsconfig": "/fixture/tsconfig.json",
+  "typescript": "5.9.3",
+  "unavailableReason": null
+}

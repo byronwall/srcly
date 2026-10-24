@@ -55,6 +55,7 @@ export type RouteGraphResult = {
   programHash: string;
   tsconfig: string;
   typescript: string;
+  phase: "surface" | "complete";
   route: {
     key: string;
     pathPattern: string;
@@ -305,7 +306,7 @@ export type AnchorGraphResult = {
     source: string;
     target: string;
     kind: string;
-    status: "proven" | "partial" | "unsupported";
+    status: "proven" | "partial" | "unsupported" | "structural";
     proof: {
       kind: string;
       detail: string;
@@ -354,4 +355,213 @@ export type AnchorGraphResult = {
       exhausted: boolean;
     };
   };
+};
+
+/** Result of the `functionEffects` op. */
+export type FunctionEffectsResult = {
+  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  generation: number;
+  programHash: string;
+  tsconfig: string;
+  typescript: string;
+  reason: string | null;
+  callable: {
+    name: string;
+    kind: "function" | "arrow" | "method" | "getter" | "setter" | "constructor";
+    async: boolean;
+    file: string;
+    absPath: string;
+    line: number;
+    span: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    };
+  };
+  facts: {
+    id: string;
+    family: "external" | "input" | "write" | "throw" | "timer" | "promise";
+    kind: string;
+    label: string;
+    detail: string;
+    status: "proven" | "partial";
+    activation: "direct" | "after-await" | "timer" | "latent";
+    via: {
+      callable: string;
+      file: string;
+      line: number;
+    }[];
+    witness: {
+      file: string;
+      absPath: string;
+      line: number;
+      span: {
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+      };
+      text: string;
+    };
+  }[];
+  frontiers: {
+    id: string;
+    reason: string;
+    label: string;
+    detail: string;
+    via: {
+      callable: string;
+      file: string;
+      line: number;
+    }[];
+    witness: {
+      file: string;
+      absPath: string;
+      line: number;
+      span: {
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+      };
+      text: string;
+    };
+  }[];
+  resultHandling: {
+    callee: string;
+    handling: "awaited" | "returned" | "assigned" | "passed" | "discarded";
+    witness: {
+      file: string;
+      absPath: string;
+      line: number;
+      span: {
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+      };
+      text: string;
+    };
+  }[];
+  coverage: "complete-for-supported-scope" | "partial" | "not-analyzed";
+  counts: {
+    facts: number;
+    frontiers: number;
+    callables: number;
+  };
+  assumptions: string[];
+};
+
+/** Result of the `fileExports` op. */
+export type FileExportsResult = {
+  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  generation: number;
+  programHash: string;
+  tsconfig: string;
+  typescript: string;
+  reason: string | null;
+  target: {
+    path: string;
+    absPath: string;
+    kind: "file" | "folder";
+  };
+  files: {
+    file: string;
+    absPath: string;
+    exports: {
+      id: string;
+      name: string;
+      kind: "function" | "class" | "variable" | "component" | "enum" | "type" | "interface" | "namespace" | "other";
+      file: string;
+      absPath: string;
+      line: number;
+      column: number;
+      traceable: boolean;
+      reexported: boolean;
+    }[];
+  }[];
+  counts: {
+    files: number;
+    exports: number;
+    traceable: number;
+  };
+};
+
+/** Result of the `routePath` op. */
+export type RoutePathResult = {
+  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  generation: number;
+  programHash: string;
+  tsconfig: string;
+  typescript: string;
+  reason: string | null;
+  route: {
+    key: string;
+    pathPattern: string;
+  };
+  edge: {
+    id: string;
+    kind: "field" | "handoff";
+    label: string | null;
+    status: "proven" | "partial" | "unsupported";
+    source: string;
+    target: string;
+  };
+  rows: {
+    id: string;
+    kind: "input" | "transfer" | "fallback" | "branch" | "transform" | "terminal" | "boundary";
+    label: string;
+    file: string;
+    absPath: string;
+    line: number;
+    span: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    };
+    status: "proven" | "partial" | "unsupported";
+    elementId: string | null;
+    relationId: string | null;
+    proof: {
+      kind: string;
+      detail: string;
+      locations: {
+        file: string;
+        line: number;
+        column: number;
+        span: {
+          startLine: number;
+          startColumn: number;
+          endLine: number;
+          endColumn: number;
+        };
+      }[];
+      status: "proven" | "partial" | "unsupported";
+    }[];
+    typeText: string | null;
+    note: string | null;
+    reason: string | null;
+  }[];
+  proof: {
+    kind: string;
+    detail: string;
+    locations: {
+      file: string;
+      line: number;
+      column: number;
+      span: {
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+      };
+    }[];
+    status: "proven" | "partial" | "unsupported";
+  }[];
+  frontier: {
+    reason: string;
+    label: string;
+  } | null;
 };

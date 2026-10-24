@@ -31,6 +31,14 @@ def test_handshake_reports_the_engine(tmp_path):
     assert not engine.alive
 
 
+def test_registry_gives_the_engine_a_result_cache_directory(monkeypatch, tmp_path):
+    monkeypatch.setenv("SRCLY_CACHE_DIR", str(tmp_path))
+    registry = EngineRegistry()
+    assert registry._env["SRCLY_DATAFLOW_CACHE_DIR"] == str(tmp_path / "dataflow")
+    # A caller's own environment wins over the default.
+    assert EngineRegistry(env={"SRCLY_DATAFLOW_CACHE_DIR": "/elsewhere"})._env["SRCLY_DATAFLOW_CACHE_DIR"] == "/elsewhere"
+
+
 def test_protocol_mismatch_is_refused(tmp_path):
     engine = process(tmp_path, "--protocol", "2")
     with pytest.raises(EngineError) as info:

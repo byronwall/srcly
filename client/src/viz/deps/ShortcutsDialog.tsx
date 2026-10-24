@@ -16,7 +16,7 @@ export const GRAPH_SHORTCUTS: { title: string; note?: string; rows: Row[] }[] = 
       [[["/"]], "Go to any folder, file or symbol by name"],
       [[["Esc"]], "Clear the selection"],
       [[["U"], ["Backspace"]], "Up one level: focus the parent folder"],
-      [[["Alt", "←"], ["Alt", "→"]], "Back / forward through focus history"],
+      [[["Alt", "←"], ["Alt", "→"]], "Back / forward through the places visited, each as you left it (camera, selection, metric, filters)"],
     ],
   },
   {

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  encodeAnchors,
+  MAX_ANCHORS,
+  parseAnchors,
   ancestorsOf,
   baseName,
   atFromTreePath,
@@ -231,5 +234,31 @@ describe("anchor mode", () => {
     expect(samePlace(a, { ...a, anchor: "src/b.tsx:1:1-1:2" })).toBe(false);
     expect(samePlace(a, { ...a, dir: "forward" })).toBe(true);
     expect(sameLocation(a, { ...a, dir: "forward" })).toBe(false);
+  });
+});
+
+describe("several anchors in one value (T20)", () => {
+  it("round-trips up to three anchors and refuses more, a bad part, or a file anchor among others", () => {
+    const a = { file: "src/a.tsx", name: "A", line: 3 };
+    const b = { file: "src/b.tsx", span: { startLine: 1, startColumn: 2, endLine: 1, endColumn: 9 } };
+    const c = { file: "src/c.ts", name: "c", line: 10 };
+    expect(parseAnchors(encodeAnchors([a, b, c]))).toEqual([a, b, c]);
+    expect(parseAnchors(encodeAnchors([a]))).toEqual([a]);
+    expect(MAX_ANCHORS).toBe(3);
+    expect(parseAnchors(encodeAnchors([a, b, c, a]))).toEqual([]);
+    expect(parseAnchors("src/a.tsx@A:3|nonsense")).toEqual([]);
+    expect(parseAnchors("src/a.tsx@A:3|src/utils@*")).toEqual([]);
+    expect(parseAnchors("src/utils@*")).toEqual([{ file: "src/utils", exports: true }]);
+    // A drawn box by element id (T20) joins a name anchor; the id may hold colons.
+    expect(parseAnchors("src/a.tsx@A:3|src/r.tsx@el:program-element:7n4kxc")).toEqual([a, { file: "src/r.tsx", element: "program-element:7n4kxc" }]);
+    expect(encodeAnchors([{ file: "src/r.tsx", element: "program-element:7n4kxc" }])).toBe("src/r.tsx@el:program-element:7n4kxc");
+    expect(parseAnchors(undefined)).toEqual([]);
+  });
+
+  it("keeps a two-anchor value in the location and drops an invalid one", () => {
+    const loc = parseLocation(`?repo=/r&view=graph&anchor=${encodeURIComponent("src/a.tsx@A:3|src/c.ts@c:10")}&dir=forward`);
+    expect(loc.anchor).toBe("src/a.tsx@A:3|src/c.ts@c:10");
+    expect(loc.dir).toBe("forward");
+    expect(parseLocation(`?repo=/r&view=graph&anchor=${encodeURIComponent("src/a.tsx@A:3|bad")}`).anchor).toBeUndefined();
   });
 });

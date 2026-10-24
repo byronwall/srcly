@@ -52,7 +52,7 @@ export const anchorNodeSchema = z.strictObject({
   status: evidenceStatusSchema,
   /** Which side of the anchor it sits on: `up` is where the value comes from, `down` where it goes. */
   side: z.enum(["seed", "up", "down", "both"]),
-  /** The engine's element kind (`field-read`, `call-result`, …); null for a scope or a frontier. */
+  /** The engine's element kind (`field-read`, `call-result`, …); null for a scope, and for a frontier other than a dead end, which names the kind of element nothing continues from. */
   elementKind: z.string().nullable(),
   /** The checked TypeScript type at the element, when it has one. */
   typeText: z.string().nullable(),
@@ -62,13 +62,20 @@ export const anchorNodeSchema = z.strictObject({
   note: z.string().nullable(),
 });
 
+/**
+ * An edge's status: the engine's proof status, or `structural` for a link the
+ * projection found by syntax (a declaration's own parameter or return) with
+ * nothing traced along it. A structural edge never counts as proven reach.
+ */
+export const anchorEdgeStatusSchema = evidenceStatusSchema.or(z.literal("structural"));
+
 export const anchorEdgeSchema = z.strictObject({
   id: z.string(),
   source: z.string(),
   target: z.string(),
-  /** The engine's relation kind (`field-input`, `argument`, `render-terminal`, …). */
+  /** The engine's relation kind (`field-input`, `argument`, `render-terminal`, …), or `parameter` / `returns` / `used-by` / `prop-read` for a declaration anchor's own links. */
   kind: z.string(),
-  status: evidenceStatusSchema,
+  status: anchorEdgeStatusSchema,
   proof: z.array(evidenceProofSchema),
   /** A field read's or pack's field name, when the relation carries one. */
   label: z.string().nullable(),
@@ -114,4 +121,5 @@ export const anchorGraphResultSchema = z.strictObject({
 export type AnchorDirection = z.infer<typeof anchorDirectionSchema>;
 export type AnchorNode = z.infer<typeof anchorNodeSchema>;
 export type AnchorEdge = z.infer<typeof anchorEdgeSchema>;
+export type AnchorEdgeStatus = z.infer<typeof anchorEdgeStatusSchema>;
 export type AnchorGraphResult = z.infer<typeof anchorGraphResultSchema>;
