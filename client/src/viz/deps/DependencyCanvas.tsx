@@ -1647,7 +1647,9 @@ function EdgeCard(props: { edge: PositionedEdge; nodes: Map<string, PositionedNo
           <>
             <div class="flex flex-wrap items-baseline gap-x-2 text-[11px]">
               <span class="text-[var(--plc-on-subtle)]">
-                {kind() === "renders" ? "renders: inside its frame" : kind() === "handoff" ? "handoff: an origin reaching a render site" : "field: the selected origin's path"}
+                {e().relation
+                  ? `${e().relation!.replaceAll("-", " ")}${kind() === "handoff" ? ": the value crosses a call or a prop" : ""}`
+                  : kind() === "renders" ? "renders: inside its frame" : kind() === "handoff" ? "handoff: an origin reaching a render site" : "field: the selected origin's path"}
               </span>
               <Show when={e().status}>
                 {(st) => (

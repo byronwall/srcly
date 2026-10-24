@@ -10,17 +10,25 @@ import { caretSpan } from "./selectionSpan";
 
 export type Candidate = SelectExpressionResult["candidates"][number];
 export type MenuState = { x: number; y: number; line: number; column: number };
-export type PickerState = { x: number; y: number; loading: boolean; candidates: Candidate[]; message: string | null };
+/** What a picked expression does: the ledger in the rail, or the anchor graph traced one way. */
+export type InspectAction = "ledger" | "forward" | "backward";
+export type PickerState = { x: number; y: number; loading: boolean; candidates: Candidate[]; message: string | null; action: InspectAction };
 export type LedgerState =
   | { phase: "loading"; text: string }
   | { phase: "done"; ledger: ValueFlowResult }
   | { phase: "na"; message: string };
 
-export function createValueFlowInspector(opts: { root: () => string | undefined; file: () => string | null }) {
+export function createValueFlowInspector(opts: {
+  root: () => string | undefined;
+  file: () => string | null;
+  /** "Trace where it goes / comes from": open the graph anchored at the candidate. */
+  onTrace?: (candidate: Candidate, direction: "forward" | "backward") => void;
+}) {
   const [menu, setMenu] = createSignal<MenuState | null>(null);
   const [picker, setPicker] = createSignal<PickerState | null>(null);
   const [ledger, setLedger] = createSignal<LedgerState | null>(null);
   let token = 0;
+  let pending: InspectAction = "ledger";
 
   const request = () => {
     const path = opts.root();
@@ -28,14 +36,15 @@ export function createValueFlowInspector(opts: { root: () => string | undefined;
     return path && file ? { path, file } : null;
   };
 
-  /** "Inspect value flow" at the menu's caret: one candidate runs, several open the picker. */
-  const inspect = async () => {
+  /** A menu item at the caret: one candidate runs, several open the picker. */
+  const inspect = async (action: InspectAction = "ledger") => {
     const at = menu();
     const req = request();
     setMenu(null);
     if (!at || !req) return;
+    pending = action;
     const mine = ++token;
-    setPicker({ x: at.x, y: at.y, loading: true, candidates: [], message: null });
+    setPicker({ x: at.x, y: at.y, loading: true, candidates: [], message: null, action });
     try {
       const res = await watchProgress(req.path, selectExpression({ ...req, span: caretSpan(at.line, at.column) }));
       if (mine !== token) return;
@@ -46,17 +55,21 @@ export function createValueFlowInspector(opts: { root: () => string | undefined;
         return;
       }
       const message = candidates.length ? null : res.result?.reason ?? labelFor(res.outcome, res.reason as never, res.message) ?? "Nothing to inspect here";
-      setPicker({ x: at.x, y: at.y, loading: false, candidates, message });
+      setPicker({ x: at.x, y: at.y, loading: false, candidates, message, action });
     } catch (e) {
-      if (mine === token) setPicker({ x: at.x, y: at.y, loading: false, candidates: [], message: String((e as Error)?.message ?? e) });
+      if (mine === token) setPicker({ x: at.x, y: at.y, loading: false, candidates: [], message: String((e as Error)?.message ?? e), action });
     }
   };
 
-  /** The ledger for one candidate expression. */
+  /** The ledger for one candidate expression, or the graph traced from it. */
   const run = async (candidate: Candidate) => {
     const req = request();
     setPicker(null);
     if (!req) return;
+    if (pending !== "ledger") {
+      opts.onTrace?.(candidate, pending);
+      return;
+    }
     const mine = ++token;
     setLedger({ phase: "loading", text: candidate.text });
     try {

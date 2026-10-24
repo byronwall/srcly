@@ -30,6 +30,20 @@ export function FlowMarkGlyph(props: { mark: FlowMark; x: number; y: number }) {
       <Show when={props.mark === "frontier"}>
         <path d="M6 0.8 L11.2 6 L6 11.2 L0.8 6 z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-dasharray="2 1.5" stroke-linejoin="round" />
       </Show>
+      <Show when={props.mark === "anchor"}>
+        <circle cx="6" cy="6" r="4.3" fill="none" stroke="currentColor" stroke-width="1.3" />
+        <path d="M6 0 V3 M6 9 V12 M0 6 H3 M9 6 H12" stroke="currentColor" stroke-width="1.3" />
+        <circle cx="6" cy="6" r="1.4" fill="currentColor" />
+      </Show>
+      <Show when={props.mark === "value"}>
+        <circle cx="6" cy="6" r="3" fill="currentColor" />
+      </Show>
+      <Show when={props.mark === "transform"}>
+        <path d="M1.5 1.2 L11 6 L1.5 10.8 z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+      </Show>
+      <Show when={props.mark === "boundary"}>
+        <rect x="1.5" y="1.5" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-dasharray="2 1.5" />
+      </Show>
     </g>
   );
 }

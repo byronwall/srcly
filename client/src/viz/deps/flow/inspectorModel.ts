@@ -1,9 +1,9 @@
 // What the inspector rail says about the route and about one selected box,
 // as plain data from the engine's route graph and the drawn view model. No
 // UI here, so the rail's wording is testable against the fixture.
-import type { RouteGraphResult } from "../../../dataflow/contract.generated";
-import type { FlowNode, FlowViewModel } from "./adapter";
-import { humanizeDetail, MARK_OF_KIND, type FlowMark } from "./marks";
+import type { AnchorGraphResult, RouteGraphResult } from "../../../dataflow/contract.generated";
+import type { FlowBox, FlowViewModel } from "./adapter";
+import { humanizeDetail, MARK_OF_ANCHOR_KIND, MARK_OF_KIND, type FlowMark } from "./marks";
 
 export type EdgeKindWord = "renders" | "rendered by" | "handoff" | "field";
 
@@ -19,7 +19,7 @@ export interface NeighborRow {
 }
 
 export interface NodeDetails {
-  node: FlowNode;
+  node: FlowBox;
   mark: FlowMark;
   /** The engine's kind words for the box, spelled out. */
   detail?: string;
@@ -43,7 +43,52 @@ export interface RouteOverview {
 }
 
 const labelOf = (m: FlowViewModel, id: string) => m.vm.nodes.find((n) => n.id === id)?.label ?? m.byId.get(id)?.label ?? id;
-const markOf = (m: FlowViewModel, id: string): FlowMark => MARK_OF_KIND[m.byId.get(id)?.kind ?? "occurrence"];
+
+/** The mark of a route graph's or an anchor graph's node. */
+export function markOfBox(box: FlowBox): FlowMark {
+  return "side" in box ? MARK_OF_ANCHOR_KIND[box.kind] : MARK_OF_KIND[box.kind];
+}
+const markOf = (m: FlowViewModel, id: string): FlowMark => {
+  const box = m.byId.get(id);
+  return box ? markOfBox(box) : "component";
+};
+
+export interface AnchorOverview {
+  text: string;
+  kind: string;
+  typeText: string | null;
+  file: string;
+  absPath: string;
+  line: number;
+  direction: AnchorGraphResult["direction"];
+  outcome: AnchorGraphResult["outcome"];
+  reason: string | null;
+  generation: number;
+  counts: AnchorGraphResult["counts"];
+  origins: { id: string; label: string; roles: string; status: AnchorGraphResult["origins"][number]["status"] }[];
+  terminals: { id: string; label: string; roles: string; status: AnchorGraphResult["terminals"][number]["status"] }[];
+  coverage: AnchorGraphResult["coverage"];
+}
+
+/** What the rail says about an anchor graph when nothing is selected. */
+export function anchorOverview(graph: AnchorGraphResult): AnchorOverview {
+  return {
+    text: graph.anchor.text,
+    kind: humanizeDetail(graph.nodes.find((n) => n.kind === "anchor")?.detail) ?? graph.anchor.kind,
+    typeText: graph.anchor.typeText,
+    file: graph.anchor.file,
+    absPath: graph.anchor.absPath,
+    line: graph.anchor.span.startLine,
+    direction: graph.direction,
+    outcome: graph.outcome,
+    reason: graph.reason,
+    generation: graph.generation,
+    counts: graph.counts,
+    origins: graph.origins.map((o) => ({ id: o.nodeId, label: o.label, roles: humanizeDetail(o.roles.join(" · ")) ?? "", status: o.status })),
+    terminals: graph.terminals.map((t) => ({ id: t.nodeId, label: t.label, roles: humanizeDetail(t.roles.join(" · ")) ?? "", status: t.status })),
+    coverage: graph.coverage,
+  };
+}
 
 export function routeOverview(graph: RouteGraphResult, m: FlowViewModel, absRoot?: string): RouteOverview {
   const reaches = new Map<string, number>();
@@ -90,7 +135,7 @@ export function nodeDetails(m: FlowViewModel, id: string): NodeDetails | null {
   const wrappers = Number(/(\d+) wrapper/.exec(view.note ?? "")?.[1] ?? 0);
   return {
     node,
-    mark: MARK_OF_KIND[node.kind],
+    mark: markOfBox(node),
     detail: humanizeDetail(node.detail),
     inside: { shown: m.vm.nodes.filter((n) => n.group?.id === id).length, hidden: view.memberCount - 1, wrappers },
     flowsIn,

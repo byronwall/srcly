@@ -1,11 +1,11 @@
 import { ExternalLink, X } from "lucide-solid";
 import { createMemo, For, type JSX, Show } from "solid-js";
-import type { RouteGraphResult } from "../../../dataflow/contract.generated";
+import type { AnchorGraphResult, RouteGraphResult } from "../../../dataflow/contract.generated";
 import { Button } from "../../../components/ui/Button";
 import { IconButton } from "../../../components/ui/IconButton";
-import type { FlowViewModel } from "./adapter";
+import type { FlowBox, FlowViewModel } from "./adapter";
 import { FlowMarkGlyph } from "./FlowMark";
-import { nodeDetails, routeOverview, STATUS_WORD, type NeighborRow } from "./inspectorModel";
+import { anchorOverview, nodeDetails, routeOverview, STATUS_WORD, type AnchorOverview, type NeighborRow } from "./inspectorModel";
 import { FLOW_MARKS, REPETITION_BADGE, type FlowMark } from "./marks";
 import type { Reach } from "./reach";
 
@@ -79,7 +79,10 @@ function NeighborList(props: { title: string; rows: NeighborRow[]; onSelect: (id
  * frame, and what flows in and out, each a click away.
  */
 export function FlowInspector(props: {
-  graph: RouteGraphResult;
+  /** The route graph, in route mode. */
+  graph: RouteGraphResult | null;
+  /** The anchor graph, in anchor mode. */
+  anchor?: AnchorGraphResult | null;
   model: FlowViewModel;
   rootPath: string;
   selected: string | null;
@@ -93,7 +96,12 @@ export function FlowInspector(props: {
   onClose: () => void;
 }) {
   const details = createMemo(() => (props.selected ? nodeDetails(props.model, props.selected) : null));
-  const overview = createMemo(() => routeOverview(props.graph, props.model, props.rootPath));
+  const overview = createMemo(() => (props.graph ? routeOverview(props.graph, props.model, props.rootPath) : null));
+  const anchor = createMemo(() => (props.anchor ? anchorOverview(props.anchor) : null));
+  const repetition = (n: FlowBox) => ("repetition" in n && (n.repetition === "conditional" || n.repetition === "collection") ? n.repetition : null);
+  const external = (n: FlowBox) => "external" in n && n.external;
+  const typeText = (n: FlowBox) => ("typeText" in n ? n.typeText : null);
+  const noteOf = (n: FlowBox) => ("note" in n ? n.note : null);
   const section = (title: string, body: JSX.Element) => (
     <>
       <h4 class={H}>{title}</h4>
@@ -103,11 +111,11 @@ export function FlowInspector(props: {
   return (
     <aside class="flex w-[19rem] shrink-0 flex-col border-l border-[var(--plc-border)] bg-[var(--plc-surface)] text-[12px]" aria-label="Data flow inspector">
       <div class="flex items-center justify-between gap-2 border-b border-[var(--plc-border)] py-1 pl-2.5 pr-1">
-        <span class="font-semibold text-[var(--plc-on-surface)]">{details() ? "Selected box" : "Route"}</span>
+        <span class="font-semibold text-[var(--plc-on-surface)]">{details() ? "Selected box" : props.anchor ? "Anchor" : "Route"}</span>
         <div class="flex items-center gap-1">
           <Show when={details()}>
-            <Button variant="ghost" size="sm" class="px-1.5" onClick={() => props.onSelect(null)} title="Back to the route overview (Esc)">
-              Route
+            <Button variant="ghost" size="sm" class="px-1.5" onClick={() => props.onSelect(null)} title="Back to the overview (Esc)">
+              {props.anchor ? "Anchor" : "Route"}
             </Button>
           </Show>
           <IconButton label="Hide inspector (I)" size="xs" onClick={props.onClose}>
@@ -116,7 +124,14 @@ export function FlowInspector(props: {
         </div>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-        <Show when={details()} fallback={<Overview o={overview()} onOpen={props.onOpen} onPickOrigin={props.onPickOrigin} />}>
+        <Show
+          when={details()}
+          fallback={
+            <Show when={anchor()} fallback={<Show when={overview()}>{(o) => <Overview o={o()} onOpen={props.onOpen} onPickOrigin={props.onPickOrigin} />}</Show>}>
+              {(a) => <AnchorOverviewView o={a()} onOpen={props.onOpen} onSelect={props.onSelect} />}
+            </Show>
+          }
+        >
           {(d) => (
             <>
               <div class="flex items-center gap-1.5 pt-2">
@@ -126,14 +141,14 @@ export function FlowInspector(props: {
               <div class="flex flex-wrap items-baseline gap-x-2 pl-5 text-[11px]">
                 <span class="text-[var(--plc-on-muted)]">{FLOW_MARKS[d().mark].label}</span>
                 <span class={`font-semibold ${STATUS_CLASS[d().node.status]}`}>{STATUS_WORD[d().node.status]}</span>
-                <Show when={d().node.repetition === "conditional" || d().node.repetition === "collection"}>
-                  <span class="text-[var(--plc-on-muted)]">{REPETITION_BADGE[d().node.repetition as "conditional" | "collection"].title.toLowerCase()}</span>
-                </Show>
-                <Show when={d().node.external}>
+                <Show when={repetition(d().node)}>{(r) => <span class="text-[var(--plc-on-muted)]">{REPETITION_BADGE[r()].title.toLowerCase()}</span>}</Show>
+                <Show when={external(d().node)}>
                   <span class="text-[var(--plc-on-muted)]">external</span>
                 </Show>
               </div>
               <Show when={d().detail}>{(t) => <div class="pl-5 text-[11px] text-[var(--plc-on-muted)]">{t()}</div>}</Show>
+              <Show when={typeText(d().node)}>{(t) => <div class="plc-data-sm pl-5 !font-normal text-[var(--plc-on-muted)]" title="The checked TypeScript type">{t()}</div>}</Show>
+              <Show when={noteOf(d().node)}>{(t) => <div class="pl-5 text-[11px] text-[var(--plc-on-muted)]">{t()}</div>}</Show>
               <Show when={d().node.reason}>{(r) => <div class="pl-5 text-[11px] text-[var(--plc-warning)]">{r()}</div>}</Show>
               <Where file={d().node.file} line={d().node.line} onOpen={() => props.onOpen(d().node.absPath, d().node.line)} />
 
@@ -166,9 +181,9 @@ export function FlowInspector(props: {
 
               <NeighborList title="Flows in" rows={d().flowsIn} onSelect={props.onSelect} />
               <NeighborList title="Flows out" rows={d().flowsOut} onSelect={props.onSelect} />
-              <Show when={d().node.kind === "origin"}>
-                <Button variant="ghost" size="sm" class="mt-2 px-1.5" onClick={() => props.onPickOrigin(props.graph.selectedSource === d().node.id ? undefined : d().node.id)}>
-                  {props.graph.selectedSource === d().node.id ? "Stop lighting its destinations" : "Light its proven destinations"}
+              <Show when={props.graph && d().node.kind === "origin"}>
+                <Button variant="ghost" size="sm" class="mt-2 px-1.5" onClick={() => props.onPickOrigin(props.graph!.selectedSource === d().node.id ? undefined : d().node.id)}>
+                  {props.graph!.selectedSource === d().node.id ? "Stop lighting its destinations" : "Light its proven destinations"}
                 </Button>
               </Show>
             </>
@@ -255,6 +270,76 @@ function Overview(props: { o: ReturnType<typeof routeOverview>; onOpen: (absPath
           </For>
         </ul>
       </Show>
+    </>
+  );
+}
+
+const DIRECTION_WORD: Record<AnchorOverview["direction"], string> = { forward: "where it goes", backward: "where it comes from", both: "where it comes from and where it goes" };
+
+function AnchorOverviewView(props: { o: AnchorOverview; onOpen: (absPath: string, line: number) => void; onSelect: (id: string | null) => void }) {
+  const o = () => props.o;
+  const status = () => (o().outcome === "ok" ? "proven" : o().outcome === "unsupported" ? "unsupported" : "partial") as "proven" | "partial" | "unsupported";
+  const list = (title: string, rows: AnchorOverview["origins"], mark: "origin" | "terminal") => (
+    <Show when={rows.length}>
+      <h4 class={H}>
+        {title} <span class="font-normal normal-case tracking-normal text-[var(--plc-on-subtle)]">· click selects</span>
+      </h4>
+      <ul>
+        <For each={rows}>
+          {(r) => (
+            <li>
+              <button type="button" class={ROW} onClick={() => props.onSelect(r.id)} title={`Select ${r.label}`}>
+                <Mark mark={mark} />
+                <span class="min-w-0 truncate text-[var(--plc-on-surface)]">{r.label}</span>
+                <span class="ml-auto shrink-0 text-[10.5px] text-[var(--plc-on-subtle)]">
+                  {r.roles}
+                  <Show when={r.status !== "proven"}>
+                    <span class={`pl-1 ${STATUS_CLASS[r.status]}`}>{STATUS_WORD[r.status]}</span>
+                  </Show>
+                </span>
+              </button>
+            </li>
+          )}
+        </For>
+      </ul>
+    </Show>
+  );
+  return (
+    <>
+      <div class="flex items-center gap-1.5 pt-2">
+        <Mark mark="anchor" />
+        <span class="plc-data-sm min-w-0 break-all font-semibold text-[var(--plc-on-surface)]">{o().text}</span>
+      </div>
+      <div class="flex flex-wrap items-baseline gap-x-2 pl-5 text-[11px]">
+        <span class="text-[var(--plc-on-muted)]">{o().kind}</span>
+        <span class={`font-semibold ${STATUS_CLASS[status()]}`}>{o().outcome}</span>
+        <span class="text-[var(--plc-on-muted)]">generation {o().generation}</span>
+      </div>
+      <Show when={o().typeText}>{(t) => <div class="plc-data-sm pl-5 !font-normal text-[var(--plc-on-muted)]" title="The checked TypeScript type">{t()}</div>}</Show>
+      <div class="pl-5 text-[11px] text-[var(--plc-on-muted)]">Traced {DIRECTION_WORD[o().direction]}</div>
+      <Show when={o().reason}>{(r) => <div class="pl-5 text-[11px] text-[var(--plc-warning)]">{r()}</div>}</Show>
+      <Where file={o().file} line={o().line} onOpen={() => props.onOpen(o().absPath, o().line)} />
+      <h4 class={H}>Reach</h4>
+      <div class="grid grid-cols-2 gap-x-3 gap-y-px">
+        <Stat label="Comes from" value={o().counts.up} title="Boxes upstream of the anchor" />
+        <Stat label="Goes to" value={o().counts.down} title="Boxes downstream of the anchor" />
+        <Stat label="Origins" value={o().counts.origins} />
+        <Stat label="Terminals" value={o().counts.terminals} />
+        <Stat label="Functions" value={o().counts.scopes} title="Frames: the functions and modules that own the boxes" />
+        <Show when={o().counts.boundaries}>
+          <Stat label="Boundaries" value={o().counts.boundaries} title="Where the proof cannot follow" />
+        </Show>
+        <Show when={o().counts.frontiers}>
+          <Stat label="Frontiers" value={o().counts.frontiers} title="Gaps the engine reported" />
+        </Show>
+      </div>
+      {list("Origins", o().origins, "origin")}
+      {list("Terminals", o().terminals, "terminal")}
+      <h4 class={H}>Evidence</h4>
+      <div class="text-[11px] text-[var(--plc-on-muted)]">
+        {o().coverage.elements} elements · {o().coverage.relations} relations · budget {o().coverage.budget.used} of {o().coverage.budget.limit}
+        {o().coverage.budget.exhausted ? " · exhausted" : ""}
+      </div>
     </>
   );
 }

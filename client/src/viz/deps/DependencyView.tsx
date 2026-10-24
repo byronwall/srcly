@@ -23,7 +23,7 @@ import { layoutWithHubs } from "./hubs";
 import type { ViewLayout } from "./layout";
 import { viewContents, viewMetrics, type MetricsIndex } from "./metrics";
 import { buildViewModel, DEFAULT_BUDGET, type ViewNode } from "./viewModel";
-import { folderOf, graphIdFor } from "../../navigation/location";
+import { folderOf, graphIdFor, isDataFlow } from "../../navigation/location";
 import NodeActionsMenu, { type NodeMenuTarget } from "../../navigation/NodeActionsMenu";
 import { go, graphFilters as filters, location, replace, setGraphFilters as setFilters } from "../../navigation/store";
 
@@ -38,7 +38,7 @@ async function fetchGraph(path: string | undefined): Promise<DependencyGraphCont
 /** The graph view: the import graph, or Data flow mode when the URL names `flow`. */
 export default function DependencyView(props: Parameters<typeof ImportView>[0]) {
   return (
-    <Show when={location().flow !== undefined} fallback={<ImportView {...props} />}>
+    <Show when={isDataFlow(location())} fallback={<ImportView {...props} />}>
       <FlowView rootPath={props.rootPath} onOpen={props.onOpen} />
     </Show>
   );

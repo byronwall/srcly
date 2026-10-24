@@ -11,7 +11,9 @@ describe("flow marks", () => {
     const kinds: RouteGraphResult["nodes"][number]["kind"][] = ["route", "occurrence", "control", "origin", "field", "terminal", "frontier"];
     for (const kind of kinds) expect(isFlowMark(MARK_OF_KIND[kind]), kind).toBe(true);
     expect([...FLOW_MARK_ORDER].sort()).toEqual(Object.keys(FLOW_MARKS).sort());
-    expect(new Set(Object.values(FLOW_MARKS).map((m) => m.color)).size).toBe(FLOW_MARK_ORDER.length);
+    // Anchor graphs reuse the route's accent for the anchor and the frontier's warning for a boundary.
+    expect(Object.values(FLOW_MARKS).every((m) => /^#[0-9a-f]{6}$/.test(m.color))).toBe(true);
+    expect(new Set(Object.values(FLOW_MARKS).map((m) => m.color)).size).toBeGreaterThanOrEqual(6);
   });
 
   it("is not a mark for the import graph's symbol kinds", () => {

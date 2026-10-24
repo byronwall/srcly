@@ -1,6 +1,6 @@
 // Calls to /api/dataflow/*. The engine results are the generated contract
 // types; the wrappers are the server's own responses (routers/dataflow.py).
-import type { RouteGraphResult, RoutesResult, SelectExpressionResult, StatusResult, ValueFlowResult } from "./contract.generated";
+import type { AnchorGraphResult, RouteGraphResult, RoutesResult, SelectExpressionResult, StatusResult, ValueFlowResult } from "./contract.generated";
 
 export type Outcome = RoutesResult["outcome"];
 export type NaReason =
@@ -111,10 +111,28 @@ type SelectionRequest = {
   signal?: AbortSignal;
 };
 
-async function post<T>(url: string, req: SelectionRequest, what: string): Promise<T> {
+async function post<T>(url: string, req: { signal?: AbortSignal } & Record<string, unknown>, what: string): Promise<T> {
   const { signal, ...body } = req;
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal });
   return json(res, what);
+}
+
+export interface AnchorGraphResponse extends OutcomeFields {
+  graph: AnchorGraphResult | null;
+}
+
+export type AnchorRequest = {
+  path: string;
+  /** Absolute path of the file, or relative to the scan root. */
+  file: string;
+  direction: "forward" | "backward" | "both";
+  expectedGeneration?: number;
+  signal?: AbortSignal;
+} & ({ span: { startLine: number; startColumn: number; endLine: number; endColumn: number }; text?: string } | { name: string; line: number });
+
+/** A value's neighbourhood from any expression: where it comes from, where it goes, or both. */
+export function fetchAnchorGraph(req: AnchorRequest): Promise<AnchorGraphResponse> {
+  return post("/api/dataflow/anchor-graph", req, "Anchor graph");
 }
 
 export function selectExpression(req: SelectionRequest): Promise<SelectResponse> {
