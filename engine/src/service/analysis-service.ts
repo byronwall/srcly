@@ -72,6 +72,7 @@ export type AnalysisOperation =
   /** srcly's refresh: drop the tier-1 session and rebuild it now, so the next generation is ready. */
   | { kind: "session-refresh" }
   | { kind: "route-graph"; route: string; source?: string; expectedGeneration?: number }
+  | { kind: "route-surface"; route: string; expectedGeneration?: number }
   | { kind: "select-expression"; params: Record<string, unknown> }
   | { kind: "value-flow"; params: Record<string, unknown> }
   | { kind: "anchor-graph"; params: Record<string, unknown> };

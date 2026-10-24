@@ -36,6 +36,15 @@ const session = createEngineSession({ root, source, tsconfig, typescriptFrom: ch
 const tier1 = session.tier1();
 const tier1Ms = performance.now() - t0;
 
+// The backbone first (T9): each wanted route's surface from its own file's facts, before the provider.
+const surfaceTimings: { route: string; ms: number; nodes: number }[] = [];
+for (const route of (allRoutes ? tier1.routes : wantedRoutes.length ? tier1.routes.filter((r) => wantedRoutes.includes(r.pathPattern) || wantedRoutes.includes(r.key)) : tier1.routes.slice(0, 2))) {
+  const started = performance.now();
+  const record = tier1.surface(route.key);
+  const nodes = record && !("reason" in record.occurrenceSurface) ? record.occurrenceSurface.occurrences.length + record.occurrenceSurface.terminals.length + record.occurrenceSurface.frameworkBoundaries.length : 0;
+  surfaceTimings.push({ route: route.pathPattern, ms: Math.round(performance.now() - started), nodes });
+}
+
 const t1 = performance.now();
 const provider = tier1.provider();
 const providerMs = performance.now() - t1;
@@ -111,12 +120,14 @@ const summary = {
   factCollectionMs: ms(facts.collectionTimeMs ?? 0),
   factCount: facts.factCount ?? null,
   rssMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+  surfaces: surfaceTimings,
   routes: routeTimings,
   anchors: anchorTimings,
 };
 process.stdout.write(`${JSON.stringify(summary)}\n\n`);
 const PHASES: RouteTotalityPhase[] = ["candidate", "surface", "context", "slice", "bridges", "lineage"];
 process.stdout.write(`Tier 1 ${summary.tier1Ms} ms · provider facts ${summary.providerMs} ms (collection ${summary.factCollectionMs} ms, ${summary.factCount ?? "?"} facts) · RSS ${summary.rssMb} MB\n\n`);
+process.stdout.write(`Surface first (route file facts + occurrence surface, before the provider): ${surfaceTimings.map((s) => `\`${s.route}\` ${s.ms} ms (${s.nodes} boxes)`).join(" · ")}\n\n`);
 process.stdout.write(`| Route | ${PHASES.join(" | ")} | other | totality | project | nodes | status |\n| --- | ${PHASES.map(() => "---:").join(" | ")} | ---: | ---: | ---: | ---: | --- |\n`);
 for (const r of routeTimings) process.stdout.write(`| \`${r.route}\` | ${PHASES.map((p) => r.phases[p] ?? 0).join(" | ")} | ${r.other} | ${r.total} | ${r.project} | ${r.nodes} | ${r.status} |\n`);
 if (anchorTimings.length) {

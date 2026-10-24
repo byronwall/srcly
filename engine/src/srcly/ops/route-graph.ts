@@ -1,7 +1,8 @@
 import path from "node:path";
-import type { AnalysisCancellationToken } from "../../analysis/cancellation";
+import { NO_ANALYSIS_CANCELLATION, type AnalysisCancellationToken } from "../../analysis/cancellation";
 import { projectRouteTotality } from "../../api/projections/route-totality";
 import type { RouteTotality } from "../../api/route-totality-contracts";
+import { projectOccurrenceSurface } from "../../api/projections/route-totality-surface-projection";
 import { routeGraphResultSchema, type FlowEdge, type FlowNode, type RouteGraphResult } from "../contracts/route-graph";
 import type { RouteTotalitySelectedSource } from "../../analysis/route-totality-selected-source";
 import { EngineError } from "../protocol";
@@ -20,14 +21,56 @@ export function routeGraphOp(
 ): RouteGraphResult {
   const tier1 = session.tier1();
   checkGeneration(tier1, params.expectedGeneration);
-  if (typeof params.route !== "string" || !params.route) throw new EngineError("invalid-request", "routeGraph needs params.route");
-  const route = tier1.routes.find((item) => item.key === params.route || item.pathPattern === params.route);
-  if (!route) throw new EngineError("not-found", `No route ${params.route}`);
+  const route = routeFor(tier1, params.route, "routeGraph");
   const selected = typeof params.source === "string" && params.source ? selectedSourceFor(tier1, params.source) : null;
   const record = tier1.totality().get(route.key, selected, cancellation);
   const totality = record ? projectRouteTotality(record, cancellation) : null;
   if (!totality) throw new EngineError("not-found", `No route totality for ${route.pathPattern}`);
-  const result = routeGraphResultSchema.parse(projectRouteGraph(tier1, totality, selected?.key ?? null));
+  return bounded(route, routeGraphResultSchema.parse(projectRouteGraph(tier1, totality, selected?.key ?? null, "complete")));
+}
+
+/**
+ * The route's render backbone alone, before the program-wide facts exist
+ * (T9): the same boxes and render edges `routeGraph` draws, with no origins,
+ * handoffs or gaps, from the route file's own facts and the Program. A
+ * client draws this first and fills in the complete graph when it arrives;
+ * the node ids are the same in both.
+ */
+export function routeSurfaceOp(
+  session: EngineSession,
+  params: { route?: unknown; expectedGeneration?: unknown },
+  cancellation?: AnalysisCancellationToken,
+): RouteGraphResult {
+  const tier1 = session.tier1();
+  checkGeneration(tier1, params.expectedGeneration);
+  const route = routeFor(tier1, params.route, "routeSurface");
+  const record = tier1.surface(route.key, cancellation);
+  if (!record) throw new EngineError("not-found", `No route surface for ${route.pathPattern}`);
+  const surface = projectOccurrenceSurface(record.occurrenceSurface, { status: "unavailable", reason: "The evidence slice is not built yet." }, cancellation ?? NO_ANALYSIS_CANCELLATION);
+  const totality: SurfaceTotality = {
+    route: record.route,
+    status: "partial",
+    occurrenceSurface: surface as RouteTotality["occurrenceSurface"],
+    gaps: [],
+    bridges: [],
+    fieldLineage: { status: "unavailable", unavailableReason: "The evidence slice is not built yet.", attachments: [], frontiers: [] },
+  };
+  return bounded(route, routeGraphResultSchema.parse(projectRouteGraph(tier1, totality, null, "surface")));
+}
+
+/** What the projection reads from a totality: a surface-only record supplies the same fields with nothing from the slice. */
+type SurfaceTotality = Pick<RouteTotality, "route" | "status" | "occurrenceSurface" | "gaps" | "bridges"> & {
+  fieldLineage: Pick<RouteTotality["fieldLineage"], "status" | "unavailableReason"> & { attachments: RouteTotality["fieldLineage"]["attachments"]; frontiers: RouteTotality["fieldLineage"]["frontiers"] };
+};
+
+function routeFor(tier1: Tier1, key: unknown, op: string) {
+  if (typeof key !== "string" || !key) throw new EngineError("invalid-request", `${op} needs params.route`);
+  const route = tier1.routes.find((item) => item.key === key || item.pathPattern === key);
+  if (!route) throw new EngineError("not-found", `No route ${key}`);
+  return route;
+}
+
+function bounded(route: { pathPattern: string }, result: RouteGraphResult): RouteGraphResult {
   const bytes = Buffer.byteLength(JSON.stringify(result));
   if (bytes > ROUTE_GRAPH_MAX_BYTES) {
     throw new EngineError("budget-exhausted", `The ${route.pathPattern} graph is ${bytes} bytes, over the ${ROUTE_GRAPH_MAX_BYTES}-byte bound`, {
@@ -51,12 +94,13 @@ function selectedSourceFor(tier1: Tier1, elementId: string): RouteTotalitySelect
   return { key: elementId, evidence: { id: elementId, elementId, file: at.file, line: at.line, column: at.column, span: at.span } };
 }
 
-/** Project a validated RouteTotality onto the flow graph contract. Exported for tests. */
-export function projectRouteGraph(tier1: Tier1, totality: RouteTotality, selectedSource: string | null = null): RouteGraphResult {
+/** Project a validated RouteTotality (or a surface-only record) onto the flow graph contract. Exported for tests. */
+export function projectRouteGraph(tier1: Tier1, totality: SurfaceTotality, selectedSource: string | null = null, phase: RouteGraphResult["phase"] = "complete"): RouteGraphResult {
   const root = path.resolve(tier1.args.root);
   const absPath = (file: string) => path.resolve(root, file);
   const routeAbsPath = absPath(totality.route.file);
   const base = {
+    phase,
     generation: tier1.generation.id,
     programHash: tier1.generation.programHash,
     tsconfig: tier1.generation.tsconfig,
@@ -199,6 +243,14 @@ export function projectRouteGraph(tier1: Tier1, totality: RouteTotality, selecte
   }
 
   markPartialBoxes(nodes, routeId, surface, totality, definitions);
+  // The surface alone cannot say the route is proven: the slice has not been walked.
+  if (phase === "surface") {
+    for (const item of nodes) {
+      if (item.id !== routeId) continue;
+      if (item.status === "proven" || item.reason === null || item.reason === "incomplete-surface") item.reason = "evidence-pending";
+      item.status = "partial";
+    }
+  }
 
   const ids = new Set(nodes.map((item) => item.id));
   const resolve = (id: string) => terminalAlias.get(id) ?? id;
@@ -243,7 +295,7 @@ export function projectRouteGraph(tier1: Tier1, totality: RouteTotality, selecte
 
   // The selected origin's exact field lineage: one field edge per proven
   // attachment, and a frontier node wherever a field's proof stops.
-  const lineage = selectedSource ? totality.fieldLineage : null;
+  const lineage = selectedSource && phase === "complete" ? totality.fieldLineage : null;
   if (lineage) {
     for (const attachment of lineage.attachments) {
       const terminal = attachment.consumer?.routeTerminalId ?? attachment.terminalIds[0];
@@ -293,7 +345,7 @@ export function projectRouteGraph(tier1: Tier1, totality: RouteTotality, selecte
   const count = (kind: FlowNode["kind"]) => nodes.filter((item) => item.kind === kind).length;
   return {
     ...base,
-    outcome: totality.status === "complete" ? "ok" : "partial",
+    outcome: totality.status === "complete" && phase === "complete" ? "ok" : "partial",
     unavailableReason: null,
     nodes,
     edges,

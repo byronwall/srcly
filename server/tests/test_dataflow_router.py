@@ -144,6 +144,20 @@ def test_route_graph_and_unknown_route(client, use_fake, tmp_path):
     assert missing.status_code == 404 and missing.json()["detail"]["reason"] == "not-found"
 
 
+def test_route_surface_is_the_backbone_before_the_graph(client, use_fake, tmp_path):
+    use_fake()
+    client.get("/api/dataflow/routes", params={"path": str(tmp_path)})
+    surface = client.get("/api/dataflow/route-surface", params={"path": str(tmp_path), "route": "/records"}).json()
+    assert surface["outcome"] == "partial" and surface["graph"]["phase"] == "surface"
+    assert surface["graph"]["origins"] == [] and surface["graph"]["gaps"] == []
+    graph = client.get("/api/dataflow/route-graph", params={"path": str(tmp_path), "route": "/records"}).json()["graph"]
+    assert graph["phase"] == "complete"
+    # The same boxes, by id, in both phases.
+    assert [node["id"] for node in surface["graph"]["nodes"]] == [node["id"] for node in graph["nodes"]]
+    missing = client.get("/api/dataflow/route-surface", params={"path": str(tmp_path), "route": "/nope"})
+    assert missing.status_code == 404
+
+
 def test_anchor_graph_by_span_and_by_name(client, use_fake, tmp_path):
     use_fake()
     (tmp_path / "src").mkdir()

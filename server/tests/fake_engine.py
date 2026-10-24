@@ -129,6 +129,11 @@ class FakeEngine:
             return {**example(schema_for("routes")), "outcome": "ok", **self.generation_fields(), "routes": [self.route()]}
         if op == "routeGraph":
             return self.route_graph(params, self.outcomes.get(op, "ok"))
+        if op == "routeSurface":
+            # The backbone alone: the complete graph's boxes with nothing from the slice.
+            graph = self.route_graph(params, "ok")
+            return {**graph, "phase": "surface", "outcome": "partial", "status": "partial", "origins": [], "gaps": [],
+                    "nodes": [{**graph["nodes"][0], "status": "partial", "reason": "evidence-pending"}, *graph["nodes"][1:]]}
         if op == "anchorGraph":
             return self.anchor_graph(params, self.outcomes.get(op, "ok"))
         if op == "valueFlow":
@@ -153,7 +158,7 @@ class FakeEngine:
                                  "line": 1, "span": self.span(), "status": "proven", "collapsedByDefault": False,
                                  "repetition": None, "external": False, "reason": None, "detail": None, "parent": None, **fields}
         route = node(id="occ:route", kind="route", label="/records")
-        base = {**example(schema), "outcome": "ok", **self.generation_fields(),
+        base = {**example(schema), "outcome": "ok", **self.generation_fields(), "phase": "complete",
                 "route": {"key": "route:records", "pathPattern": "/records", "file": file, "absPath": f"{self.args.root}/{file}"},
                 "status": "complete", "unavailableReason": None, "nodes": [route], "edges": [], "origins": [],
                 "selectedSource": None, "lineage": None, "destinations": [],
