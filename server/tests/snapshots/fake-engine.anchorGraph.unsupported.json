@@ -1,0 +1,90 @@
+{
+  "anchor": {
+    "absPath": "/fixture/src/f.tsx",
+    "elementId": null,
+    "file": "src/f.tsx",
+    "kind": "PropertyAccessExpression",
+    "span": {
+      "endColumn": 58,
+      "endLine": 1,
+      "startColumn": 42,
+      "startLine": 1
+    },
+    "text": "props.item.title",
+    "typeText": "string"
+  },
+  "counts": {
+    "boundaries": 0,
+    "down": 0,
+    "frontiers": 0,
+    "origins": 0,
+    "scopes": 1,
+    "terminals": 0,
+    "up": 0
+  },
+  "coverage": {
+    "budget": {
+      "exhausted": false,
+      "limit": 0,
+      "used": 0
+    },
+    "elements": 0,
+    "relations": 0
+  },
+  "direction": "forward",
+  "edges": [],
+  "generation": 1,
+  "nodes": [
+    {
+      "absPath": "/fixture/src/f.tsx",
+      "detail": "f.tsx",
+      "elementKind": null,
+      "file": "src/f.tsx",
+      "id": "scope:f",
+      "kind": "scope",
+      "label": "Card",
+      "line": 1,
+      "note": null,
+      "parent": null,
+      "reason": null,
+      "side": "seed",
+      "span": {
+        "endColumn": 58,
+        "endLine": 1,
+        "startColumn": 42,
+        "startLine": 1
+      },
+      "status": "proven",
+      "typeText": null
+    },
+    {
+      "absPath": "/fixture/src/f.tsx",
+      "detail": "property read",
+      "elementKind": null,
+      "file": "src/f.tsx",
+      "id": "anchor:f:1:1",
+      "kind": "anchor",
+      "label": "props.item.title",
+      "line": 1,
+      "note": "The engine has no evidence element at exactly this expression.",
+      "parent": "scope:f",
+      "reason": "no-evidence-element",
+      "side": "seed",
+      "span": {
+        "endColumn": 58,
+        "endLine": 1,
+        "startColumn": 42,
+        "startLine": 1
+      },
+      "status": "partial",
+      "typeText": null
+    }
+  ],
+  "origins": [],
+  "outcome": "unsupported",
+  "programHash": "hash-1",
+  "reason": "no-evidence-element",
+  "terminals": [],
+  "tsconfig": "/fixture/tsconfig.json",
+  "typescript": "5.9.3"
+}
