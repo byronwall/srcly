@@ -1,5 +1,5 @@
 import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show, untrack } from "solid-js";
-import { ChevronDown } from "lucide-solid";
+import { ChevronDown, PanelRight } from "lucide-solid";
 import { EmptyState, ErrorState } from "../../../components/feedback/States";
 import { Button } from "../../../components/ui/Button";
 import { fetchRouteGraph, fetchRoutes } from "../../../dataflow/api";
@@ -13,12 +13,29 @@ import { layoutWithHubs } from "../hubs";
 import type { ViewLayout } from "../layout";
 import type { ViewNode } from "../viewModel";
 import { routeGraphToViewModel } from "./adapter";
+import { FlowInspector } from "./FlowInspector";
 import { FlowLegend } from "./FlowLegend";
 import { FlowModeSwitch, ReachModeSwitch } from "./FlowTools";
 import { createFetch } from "./fetchSignal";
 import { FlowProgress } from "./FlowProgress";
 import { reachFrom, REACH_MODES, type ReachMode } from "./reach";
 import { RoutePicker } from "./RoutePicker";
+
+const INSPECTOR_KEY = "srcly.flowInspector";
+function readInspector(): boolean {
+  try {
+    return window.localStorage.getItem(INSPECTOR_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+function writeInspector(open: boolean) {
+  try {
+    window.localStorage.setItem(INSPECTOR_KEY, open ? "1" : "0");
+  } catch {
+    // Remembering the rail is a convenience only.
+  }
+}
 
 /**
  * Data flow mode of the graph view (`?view=graph&flow=<route>`): one route's
@@ -124,11 +141,25 @@ export default function FlowView(props: {
     setOpen(openList().filter((id) => id !== groupId));
   };
 
+  /** Open a source location in the code viewer (an absolute path under the scan root). */
+  const openAt = (absPath: string, line: number) => {
+    const at = atFromTreePath(absPath, root());
+    if (at !== null) props.onOpen(at, line);
+  };
   const openNode = (n: ViewNode) => {
     const flow = model()?.byId.get(n.id);
-    if (!flow) return;
-    const at = atFromTreePath(flow.absPath, root());
-    if (at !== null) props.onOpen(at, flow.line);
+    if (flow) openAt(flow.absPath, flow.line);
+  };
+  const [inspector, setInspector] = createSignal(readInspector());
+  const toggleInspector = () => {
+    const next = !inspector();
+    setInspector(next);
+    writeInspector(next);
+  };
+  /** Open or fold a frame in place from the inspector; the canvas keeps the frame where it was. */
+  const toggleFrame = (id: string) => {
+    pendingAnchor = id;
+    setOpen(openList().includes(id) ? openList().filter((x) => x !== id) : [...openList(), id]);
   };
   const pickRoute = (key: string) => {
     setSelected(null);
@@ -182,6 +213,7 @@ export default function FlowView(props: {
       const n = layout()?.nodes.find((p) => p.id === selected())?.node ?? hovered();
       if (key === "/") setPicker(true);
       else if (key === "0") canvas?.fit();
+      else if (key === "i") toggleInspector();
       else if (key === "r" && selected()) setReachMode(REACH_MODES[(REACH_MODES.findIndex((m) => m.id === reachMode()) + 1) % REACH_MODES.length].id);
       else if (key === "Escape" && (selected() || field())) {
         if (selected()) setSelected(null);
@@ -245,8 +277,13 @@ export default function FlowView(props: {
         <Button variant="ghost" class="px-2" onClick={() => canvas?.fit()} title="Fit the graph to the window (0)" disabled={!layout()}>
           Fit
         </Button>
+        <Button variant="ghost" class="gap-1 px-2" active={inspector()} aria-pressed={inspector()} onClick={toggleInspector} title="Show or hide the inspector (I)">
+          <PanelRight size={13} aria-hidden="true" />
+          Inspector
+        </Button>
       </ViewTools>
 
+      <div class="flex min-h-0 flex-1">
       <div ref={host} class="relative min-h-0 flex-1">
         <Show when={startError()}>
           {(message) => <ErrorState message={message()} class="absolute inset-0" />}
@@ -294,6 +331,25 @@ export default function FlowView(props: {
             </>
           )}
         </Show>
+      </div>
+      <Show when={inspector() && !graphFetch.loading() && graph()?.graph && model()}>
+        <FlowInspector
+          graph={graph()!.graph!}
+          model={model()!}
+          rootPath={root()}
+          selected={location().dest ?? selected()}
+          reach={reach()}
+          open={openList()}
+          onOpen={openAt}
+          onSelect={(id) => {
+            if (location().dest) replace({ dest: undefined });
+            setSelected(id);
+          }}
+          onPickOrigin={pickOrigin}
+          onToggleFrame={toggleFrame}
+          onClose={toggleInspector}
+        />
+      </Show>
       </div>
 
       <div class="flex items-center gap-3 border-t border-[var(--plc-border)] px-3 py-1 text-[11px] text-[var(--plc-on-subtle)]" aria-live="polite">

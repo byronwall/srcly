@@ -11,9 +11,10 @@ const SH = 14;
 
 function readCollapsed(): boolean {
   try {
-    return window.localStorage.getItem(COLLAPSED_KEY) === "1";
+    // Collapsed until opened once: the inspector rail carries the words, and open it covers boxes.
+    return window.localStorage.getItem(COLLAPSED_KEY) !== "0";
   } catch {
-    return false;
+    return true;
   }
 }
 
