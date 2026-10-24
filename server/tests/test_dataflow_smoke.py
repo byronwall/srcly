@@ -1,0 +1,37 @@
+"""The real engine on engine/examples/solid-route. Skips without Node or engine/node_modules."""
+
+import shutil
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.main import app
+from app.services.dataflow import engine as dataflow_engine
+from app.services.dataflow.availability import ENGINE_DIR
+from app.services.dataflow.engine import EngineRegistry
+
+SOLID_ROUTE = ENGINE_DIR / "examples" / "solid-route"
+
+pytestmark = pytest.mark.skipif(
+    shutil.which("node") is None or not (ENGINE_DIR / "node_modules" / "tsx").is_dir(),
+    reason="needs node and `cd engine && pnpm install`",
+)
+
+
+def test_routes_on_solid_route(monkeypatch):
+    monkeypatch.setenv("SRCLY_ENGINE_DEV", "1")
+    registry = EngineRegistry()
+    monkeypatch.setattr(dataflow_engine, "registry", registry)
+    try:
+        client = TestClient(app)
+        assert client.get("/api/dataflow/status", params={"path": str(SOLID_ROUTE)}).json()["state"] == "idle"
+        body = client.get("/api/dataflow/routes", params={"path": str(SOLID_ROUTE)}).json()
+        assert body["outcome"] == "ok"
+        assert [route["pathPattern"] for route in body["routes"]] == ["/records"]
+        assert Path(body["routes"][0]["absPath"]) == SOLID_ROUTE / "src" / "routes" / "records.tsx"
+        status = client.get("/api/dataflow/status", params={"path": str(SOLID_ROUTE)}).json()
+        assert status["state"] == "ready" and status["generation"] == body["generation"]
+        assert status["typescriptFrom"] in ("project", "bundled") and status["rssBytes"] > 0
+    finally:
+        registry.close_all()

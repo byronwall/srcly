@@ -84,7 +84,11 @@ Browser
 | `POST /api/analysis/refresh` | `routers/analysis.py:refresh_analysis` | Re-scan cwd root |
 | `GET /api/analysis/context` | `routers/analysis.py:get_analysis_context` | Cwd + repo root with rough file counts (first-run screen) |
 | `GET /api/analysis/fan-in?path=` | `routers/analysis.py:get_fan_in` → `services/quadrants.py:fan_in_by_path` | Distinct importing files per file (Blast radius 2x2) |
-| `GET /api/analysis/dependencies` | `routers/analysis.py:get_dependencies` | TS/TSX import graph, tsconfig `paths` aliases |
+| `GET /api/analysis/dependency-graph?path=` | `routers/analysis.py:get_dependency_graph` → `services/deps/graph.py` | Hierarchical import graph (folders → files → symbols), tsconfig `paths` aliases, barrels passed through |
+| `GET /api/dataflow/status?path=` | `routers/dataflow.py:get_status` | Whether data flow can run (`available`, `state`, N/A `reason`), engine progress, generation, RSS. Never starts the engine |
+| `POST /api/dataflow/start` | `routers/dataflow.py:start` | Start the engine and build tier 1 in the background; poll `status` |
+| `GET /api/dataflow/routes?path=&expectedGeneration=` | `routers/dataflow.py:get_routes` | Routes the engine discovered; `outcome` names `not-analyzed` / `stale` instead of failing |
+| `DELETE /api/dataflow?path=` | `routers/dataflow.py:close` | Close the engine for a root |
 | `GET /api/files/content` | `routers/files.py:get_file_content` | Raw file text; `ref=<sha>` reads it from a git commit (`git show`) |
 | `GET /api/files/markers` | `routers/files.py:get_file_markers` → `services/markers.py` | Lines behind each metric (`{metric: [{line, end_line, note}]}`) for the code viewer overlay; `ref=` as above |
 | `GET /api/compare/refs` | `routers/compare.py:list_refs` | Branches + recent commits for the compare ref picker |
@@ -288,6 +292,11 @@ The tsx-data-flow analysis lives in `engine/`, a standalone Node package with it
 | Engine ops (`status` on the protocol thread, `routes` in the worker) | `engine/src/srcly/ops/`; worker branches in `engine/src/service/analysis-worker.ts` |
 | Op contracts (Zod) → JSON Schema for Python + client types | `engine/src/srcly/contracts/` (`registry.ts` lists them); `cd engine && pnpm emit-contracts` writes `server/app/services/dataflow/contracts/*.schema.json` and `client/src/dataflow/contract.generated.ts` |
 | Cold `hello` + tier-1 timing | `engine/scripts/time-tier1.ts` |
+| Engine child owned by Python: spawn, handshake, reply matching by id, progress, timeouts, cancel then kill, crash with stderr tail, registry (cap 2, 15-minute idle close) | `server/app/services/dataflow/engine.py`; closed in `main.py:lifespan`, cancelled first on SIGINT |
+| Where the engine and Node come from, N/A reasons decided without spawning (`node-not-found`, `engine-missing`, `no-tsconfig`) | `server/app/services/dataflow/availability.py` (`SRCLY_NODE`, `SRCLY_ENGINE_DEV=1`) |
+| Pydantic mirrors of op results, `Outcome`, N/A reasons; the emitted JSON Schemas | `server/app/services/dataflow/models.py`, `server/app/services/dataflow/contracts/*.schema.json` |
+| `/api/dataflow/*` endpoints | `server/app/routers/dataflow.py` |
+| Engine lifecycle tests without Node (fake engine speaking the protocol); real smoke test on solid-route | `server/tests/fake_engine.py`, `test_dataflow_engine.py`, `test_dataflow_router.py`, `test_dataflow_models.py`, `test_dataflow_smoke.py` |
 | Fixture projects (Solid route, compact field proof, bad-ish Solid) | `engine/examples/` |
 | Field proof acceptance runner | `engine/scripts/accept-route-field-proof.ts` |
 
