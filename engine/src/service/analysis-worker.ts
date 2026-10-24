@@ -49,7 +49,7 @@ port.on("message", ({ requestId, operation, cancellationBuffer }: AnalysisWorker
     activeRequest = { requestId, operation: operation.kind };
     if (operation.kind === "route-graph" && session?.built()) {
       port.postMessage({ kind: "progress", progress: { requestId, operation: operation.kind, phase: "analyzing", step: "trace", message: `Tracing ${operation.route}: occurrences, boundaries and evidence` } });
-    } else progress(requestId, operation.kind, "analyzing", "Building the TypeScript program and tracing render paths");
+    } else progress(requestId, operation.kind, "analyzing", engine?.language === "python" ? "Reading the Python program and checking it with mypy" : "Building the TypeScript program and tracing render paths");
     const value = perform(operation, requestId, cancellation);
     cancellation.throwIfCancelled();
     progress(requestId, operation.kind, "complete", "Analysis complete");

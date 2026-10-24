@@ -101,3 +101,64 @@ def test_anchor_graph_on_solid_route(monkeypatch):
         assert named["graph"]["anchor"]["text"] == "props"
     finally:
         registry.close_all()
+
+
+PYTHON_FASTAPI = ENGINE_DIR / "examples" / "python-fastapi"
+
+
+def test_python_root_routes_and_anchor_graph(monkeypatch):
+    """A FastAPI root through the real engine over HTTP: its handlers as routes, a body traced to the response."""
+    monkeypatch.setenv("SRCLY_ENGINE_DEV", "1")
+    registry = EngineRegistry()
+    monkeypatch.setattr(dataflow_engine, "registry", registry)
+    try:
+        client = TestClient(app)
+        root = str(PYTHON_FASTAPI)
+        status = client.get("/api/dataflow/status", params={"path": root}).json()
+        assert status["available"] and status["state"] == "idle"
+        body = client.get("/api/dataflow/routes", params={"path": root}).json()
+        assert body["outcome"] == "ok"
+        assert [route["pathPattern"] for route in body["routes"]] == [
+            "DELETE /v1/items/{item_id}", "GET /v1/items", "GET /v1/items/{item_id}", "GET /v1/settings", "POST /v1/items",
+        ]
+        assert body["typescript"].startswith("mypy ")
+        line = next(i for i, text in enumerate((PYTHON_FASTAPI / "app/routers/items.py").read_text().splitlines(), 1) if "def create_item" in text)
+        graph = client.post(
+            "/api/dataflow/anchor-graph",
+            json={"path": root, "file": "app/routers/items.py", "name": "body", "line": line, "direction": "forward"},
+        ).json()["graph"]
+        assert graph["outcome"] == "ok"
+        assert graph["anchor"]["typeText"] == "ItemIn"
+        assert ["return item → POST /v1/items", ["http-response"]] in [[t["label"], t["roles"]] for t in graph["terminals"]]
+        typed = {node["label"]: node["typeText"] for node in graph["nodes"] if node["kind"] != "scope"}
+        assert typed["body.name"] == "str" and typed["save_item(…)"] == "Item"
+        refused = client.get("/api/dataflow/route-graph", params={"path": root, "route": "POST /v1/items"})
+        assert refused.status_code == 404
+    finally:
+        registry.close_all()
+
+
+SRCLY_SERVER = ENGINE_DIR.parent / "server"
+
+
+def test_srcly_server_handler_body_reaches_its_reads(monkeypatch):
+    """srcly's own FastAPI server: the anchor-graph handler's body, traced forward through the real engine."""
+    monkeypatch.setenv("SRCLY_ENGINE_DEV", "1")
+    registry = EngineRegistry()
+    monkeypatch.setattr(dataflow_engine, "registry", registry)
+    try:
+        client = TestClient(app)
+        root = str(SRCLY_SERVER)
+        routes = client.get("/api/dataflow/routes", params={"path": root}).json()
+        assert "POST /api/dataflow/anchor-graph" in [route["pathPattern"] for route in routes["routes"]]
+        source = (SRCLY_SERVER / "app/routers/dataflow.py").read_text().splitlines()
+        line = next(i for i, text in enumerate(source, 1) if text.startswith("def anchor_graph("))
+        graph = client.post(
+            "/api/dataflow/anchor-graph",
+            json={"path": root, "file": "app/routers/dataflow.py", "name": "body", "line": line, "direction": "both"},
+        ).json()["graph"]
+        assert graph["origins"] and graph["origins"][0]["roles"] == ["request"]
+        reads = {node["label"]: node["typeText"] for node in graph["nodes"] if node.get("elementKind") == "field-read"}
+        assert reads.get("body.path") == "str"
+    finally:
+        registry.close_all()

@@ -43,7 +43,14 @@ function send(frame: ReplyFrame) {
 function serviceFor(): AnalysisService {
   if (!choice) throw choiceError;
   if (!service) {
-    const config: EngineConfig = { root: options.root, source: options.source, tsconfig: options.tsconfig, typescriptFrom: choice.from };
+    const config: EngineConfig = {
+      root: options.root,
+      source: options.source,
+      tsconfig: options.tsconfig,
+      typescriptFrom: choice.from,
+      language: options.language,
+      python: options.python,
+    };
     service = createAnalysisService(engineArgs(config), config);
   }
   return service;
@@ -150,19 +157,37 @@ function parseCommandLine(argv: string[]) {
   let root: string | null = null;
   let source: string | null = null;
   let tsconfig: string | null = null;
+  let language: string | null = null;
+  let python: string | null = null;
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index + 1];
     if (argv[index] === "--root" && value) root = value;
     else if (argv[index] === "--source" && value) source = value;
     else if (argv[index] === "--tsconfig" && value) tsconfig = value;
+    else if (argv[index] === "--language" && value) language = value;
+    else if (argv[index] === "--python" && value) python = value;
     else continue;
     index += 1;
   }
-  if (!root) {
-    process.stderr.write("usage: srcly-engine --root <dir> [--source <dir>] [--tsconfig <file>]\n");
+  if (!root || (language && language !== "typescript" && language !== "python")) {
+    process.stderr.write("usage: srcly-engine --root <dir> [--source <dir>] [--tsconfig <file>] [--language typescript|python] [--python <interpreter>]\n");
     process.exit(2);
   }
   const absoluteRoot = path.resolve(root);
   const absoluteSource = path.resolve(absoluteRoot, source ?? (fs.existsSync(path.join(absoluteRoot, "src")) ? "src" : "."));
-  return { root: absoluteRoot, source: absoluteSource, tsconfig: tsconfig ? path.resolve(absoluteRoot, tsconfig) : null };
+  return {
+    root: absoluteRoot,
+    source: absoluteSource,
+    tsconfig: tsconfig ? path.resolve(absoluteRoot, tsconfig) : null,
+    language: (language ?? detectLanguage(absoluteRoot)) as "typescript" | "python",
+    python,
+  };
+}
+
+/** A tsconfig makes a TypeScript root; otherwise Python project files or `.py` files make a Python one. */
+function detectLanguage(root: string): "typescript" | "python" {
+  const has = (name: string) => fs.existsSync(path.join(root, name));
+  if (fs.readdirSync(root).some((name) => name.startsWith("tsconfig") && name.endsWith(".json"))) return "typescript";
+  if (has("pyproject.toml") || has("setup.py") || has("setup.cfg")) return "python";
+  return fs.readdirSync(root).some((name) => name.endsWith(".py")) ? "python" : "typescript";
 }

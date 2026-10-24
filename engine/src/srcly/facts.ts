@@ -6,10 +6,10 @@ import type * as TypeScript from "typescript";
 import type { ProgramElement } from "../analysis/scope-seam";
 import type { CallSiteIndex, CallSites } from "./call-sites";
 import { sameSpan, spanOf, type Span } from "./selection";
-import type { Tier1 } from "./session";
+import type { BaseTier1, TsTier1 } from "./session";
 
 /** Evidence elements a selection may start from, most specific first. */
-export const SEED_KINDS = ["field-read", "selection", "call-result", "call", "value", "alias", "parameter", "jsx-occurrence", "literal"];
+export const SEED_KINDS = ["field-read", "index-read", "selection", "call-result", "call", "value", "alias", "parameter", "jsx-occurrence", "literal"];
 
 /** Followed only when the callee has exactly one call site (R7; M5 replaces this with invocation pairing). */
 export const CROSS_CALL = new Set(["invokes", "argument", "argument-binding", "function-call", "function-return", "return-value", "callback-parameter"]);
@@ -18,12 +18,12 @@ export const CROSS_CALL = new Set(["invokes", "argument", "argument-binding", "f
 export const TERMINAL_KINDS = new Set(["render-terminal", "dom-terminal", "component-occurrence", "side-effect", "return"]);
 
 /** Facts at exactly this span in this file. */
-export function elementsAt(tier1: Tier1, file: string, span: Span) {
+export function elementsAt(tier1: BaseTier1, file: string, span: Span) {
   return tier1.provider().facts.fileCandidates(file).filter((fact) => sameSpan(fact.location.span, span));
 }
 
 /** The evidence element a selection starts from: the most specific fact at exactly its span. */
-export function seedFor(tier1: Tier1, file: string, span: Span): string | null {
+export function seedFor(tier1: BaseTier1, file: string, span: Span): string | null {
   const facts = elementsAt(tier1, file, span);
   for (const kind of SEED_KINDS) {
     const match = facts.find((fact) => fact.kind === kind);
@@ -65,7 +65,7 @@ export function functionName(ts: typeof TypeScript, fn: TypeScript.Node, sourceF
 }
 
 /** The call sites of the function a cross-call element belongs to: a call, a parameter or the function itself. */
-export function callSitesOfElement(tier1: Tier1, sites: CallSiteIndex, element: ProgramElement): { sites: CallSites | null; name: string } {
+export function callSitesOfElement(tier1: TsTier1, sites: CallSiteIndex, element: ProgramElement): { sites: CallSites | null; name: string } {
   const { ts } = tier1;
   const sourceFile = tier1.program.getSourceFile(path.resolve(tier1.args.root, element.location.file));
   const node = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
