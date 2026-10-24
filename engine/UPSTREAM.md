@@ -29,8 +29,9 @@
 
 - `test/route-totality-generic-field-proof.test.ts` resolves its fixture from `import.meta.url` instead of the working directory.
 - `scripts/accept-route-field-proof.ts` reads the selected evidence from the narrowed local, so `tsc` passes now that `scripts/` is typechecked.
+- `src/analysis/route-data-totality.ts`: `observeRouteTotalityPhases` lets `scripts/time-phases.ts` time each phase of a route's build (candidate, surface, context, slice, bridges, lineage). A listener only; no result changes. Backportable as is.
 
-No file under `src/analysis` was edited. Recognition rules for srcly's own code never go there; see srcly's `AGENTS.md`.
+Recognition rules for srcly's own code never go under `src/analysis`; see srcly's `AGENTS.md`. Every analysis edit is listed above with what it changes, so it can be ported back.
 
 ## Left behind
 
