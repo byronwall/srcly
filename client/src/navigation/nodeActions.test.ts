@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { folderOf } from "./location";
-import { nodeActions } from "./nodeActions";
+import { nodeActions, tracePatch } from "./nodeActions";
 
 const enabled = (t: Parameters<typeof nodeActions>[0]) =>
   nodeActions(t).filter((a) => !a.disabledReason).map((a) => a.id);
@@ -42,6 +42,31 @@ describe("nodeActions", () => {
   });
 
   it("keeps the order stable so the menu never reflows", () => {
-    expect(nodeActions({ at: "", kind: "folder", currentAt: "" }).map((a) => a.id)).toEqual(["focus", "open", "folder"]);
+    expect(nodeActions({ at: "", kind: "folder", currentAt: "" }).map((a) => a.id)).toEqual(["focus", "open", "folder", "traceTo", "traceFrom"]);
+  });
+});
+
+describe("trace actions", () => {
+  it("traces only a symbol with a known declaration line", () => {
+    expect(enabled({ at: "a/b.ts#X", kind: "symbol", currentAt: "", line: 12 })).toEqual(["focus", "open", "folder", "traceTo", "traceFrom"]);
+    expect(nodeActions({ at: "a/b.ts#X", kind: "symbol", currentAt: "" }).find((a) => a.id === "traceTo")?.disabledReason).toBe("No line for it");
+    expect(nodeActions({ at: "a/b.ts", kind: "file", currentAt: "", line: 1 }).find((a) => a.id === "traceFrom")?.disabledReason).toBe("Needs a symbol");
+    expect(nodeActions({ at: "ext:react", kind: "external", currentAt: "" }).find((a) => a.id === "traceTo")?.disabledReason).toBe("Outside this repo");
+  });
+
+  it("anchors the graph at the symbol by its bare name on its line, in the chosen direction", () => {
+    expect(tracePatch({ at: "src/a.tsx#Foo (class)::run", line: 12 }, "traceTo")).toEqual({
+      view: "graph",
+      flow: undefined,
+      field: undefined,
+      dest: undefined,
+      open: undefined,
+      anchor: "src/a.tsx@run:12",
+      dir: "forward",
+    });
+    expect(tracePatch({ at: "src/a.tsx#Foo", line: 3 }, "traceFrom")).toMatchObject({ anchor: "src/a.tsx@Foo:3", dir: "backward" });
+    // A JSX scope anchors at its tag's component; an anonymous scope has nothing to anchor at.
+    expect(tracePatch({ at: "src/a.tsx#Page::<RouteFrame>", line: 29 }, "traceTo")).toMatchObject({ anchor: "src/a.tsx@RouteFrame:29" });
+    expect(nodeActions({ at: "src/a.tsx#Page::(anonymous)", kind: "symbol", currentAt: "", line: 4 }).find((a) => a.id === "traceTo")?.disabledReason).toBe("No name to anchor at");
   });
 });

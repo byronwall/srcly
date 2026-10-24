@@ -1,6 +1,6 @@
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { Portal } from "solid-js/web";
-import { Crosshair, FileCode2, FolderOpen, Maximize2 } from "lucide-solid";
+import { ArrowLeftFromLine, ArrowRightFromLine, Crosshair, FileCode2, FolderOpen, Maximize2 } from "lucide-solid";
 import { nodeActions, type NodeActionId, type NodeKind } from "./nodeActions";
 
 export interface NodeMenuTarget {
@@ -15,6 +15,8 @@ export interface NodeMenuTarget {
   currentAt: string;
   /** Graph only: offer Expand in place, or Collapse of the opened folder around it. */
   expand?: boolean | { collapse: string };
+  /** A symbol's declaration line: the trace actions anchor the data-flow graph there. */
+  line?: number;
 }
 
 const ICONS: Record<NodeActionId, typeof Crosshair> = {
@@ -22,6 +24,8 @@ const ICONS: Record<NodeActionId, typeof Crosshair> = {
   expand: Maximize2,
   open: FileCode2,
   folder: FolderOpen,
+  traceTo: ArrowRightFromLine,
+  traceFrom: ArrowLeftFromLine,
 };
 
 const MENU_WIDTH = 224;
@@ -125,6 +129,7 @@ export default function NodeActionsMenu(props: {
                 type="button"
                 role="menuitem"
                 disabled={Boolean(action.disabledReason)}
+                classList={{ "mt-1 border-t border-[var(--plc-divider)] pt-1.5": action.id === "traceTo" }}
                 class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[var(--plc-on-surface)] transition-colors duration-[140ms] hover:bg-[var(--plc-surface-hover)] focus-visible:bg-[var(--plc-surface-hover)] focus-visible:outline-none active:bg-[var(--plc-surface-selected)] disabled:cursor-default disabled:text-[var(--plc-on-disabled)] disabled:hover:bg-transparent"
                 onClick={() => {
                   // Act first: closing unmounts the menu and its target.
