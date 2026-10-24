@@ -1,5 +1,5 @@
 import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show, untrack } from "solid-js";
-import { ChevronDown, Crosshair, PanelRight, RefreshCw, Undo2 } from "lucide-solid";
+import { ChevronDown, Crosshair, PanelRight, Redo2, RefreshCw, Undo2 } from "lucide-solid";
 import { EmptyState, ErrorState } from "../../../components/feedback/States";
 import { Button } from "../../../components/ui/Button";
 import { IconButton } from "../../../components/ui/IconButton";
@@ -18,7 +18,7 @@ import { routeGraphToViewModel } from "./adapter";
 import { anchorGraphToViewModel } from "./anchorAdapter";
 import { FlowInspector } from "./FlowInspector";
 import { FlowLegend } from "./FlowLegend";
-import { DirectionSwitch, FlowModeSwitch, ReachModeSwitch } from "./FlowTools";
+import { DirectionSwitch, FlowModeSwitch, ReachModeSwitch, RecentFlowMenu } from "./FlowTools";
 import { createFetch } from "./fetchSignal";
 import { FlowProgress } from "./FlowProgress";
 import { reachFrom, REACH_MODES, type ReachMode } from "./reach";
@@ -428,6 +428,10 @@ export default function FlowView(props: {
         <IconButton label="Return" title="Return to the previous place as you left it: camera, selection, metric and filters (Alt+←)" onClick={returnBack} disabled={!canReturn()}>
           <Undo2 size={14} aria-hidden="true" />
         </IconButton>
+        <IconButton label="Forward" title="Forward again, as you left it (Alt+→)" onClick={() => window.history.forward()}>
+          <Redo2 size={14} aria-hidden="true" />
+        </IconButton>
+        <RecentFlowMenu routeName={(key) => routeList().find((r) => r.key === key)?.pathPattern ?? key} />
         <Button variant="ghost" class="gap-1 px-2" active={inspector()} aria-pressed={inspector()} onClick={toggleInspector} title="Show or hide the inspector (I)">
           <PanelRight size={13} aria-hidden="true" />
           Inspector

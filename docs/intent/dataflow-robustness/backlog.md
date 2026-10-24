@@ -113,6 +113,7 @@ Seeds in priority order (R13, R7). Each has **evidence** for why it matters, a *
 - Evidence: R11.
 - Proof: a recent-anchors list in the toolbar, with Back and Forward walking it.
 - Stop rule: sessionStorage only. No persistence.
+- Done (PR 18 of the stack): the Recent menu in the data-flow toolbar lists the anchors (name or span, file, direction) and routes traced in this tab from the visit ring, newest first, up to 12; a row is a new Back step, and Return and Forward (Alt+←, Alt+→) walk the same browser history. The header History menu names data-flow places by anchor or route too. Nothing is persisted beyond sessionStorage.
 
 **T19 · File and folder anchors.**
 - Evidence: R11. Files can't be traced today.
