@@ -6,9 +6,9 @@
     "scale": "program",
     "current_phase": "shape",
     "last_updated": "2026-10-23",
-    "summary": "srcly is the fast big-picture base layer; tsx-data-flow becomes a background TS/TSX data-flow engine whose evidence lands in srcly's metrics, findings, code viewer, reports, compare, and later the dependency view.",
+    "summary": "Headline: tsx-data-flow's route -> terminal data-flow graph rendered in srcly's dependency viewer, with the compiler-backed analysis (type checking, symbol identity, field lineage, frontiers) kept intact. Findings, metrics, markers, reports follow as supporting evidence. srcly stays the fast base layer.",
     "status": "planned",
-    "next_action": "Pro threads refine mapping branches; then plan the first proof: move engine into engine/, export contract, one metric + markers."
+    "next_action": "Pro threads refine branches; plan first proof: export one route's totality evidence into a data-flow contract and render in the current deps canvas."
   },
   "artifacts": {
     "intent_brief": {
@@ -102,6 +102,20 @@
       "location": "conversation",
       "anchor": "replies to 3 open questions, 2026-10-23",
       "authority": "user"
+    },
+    {
+      "id": "qa-round-2",
+      "type": "qa",
+      "location": "conversation",
+      "anchor": "route -> terminal graph is the real want, 2026-10-23",
+      "authority": "user"
+    },
+    {
+      "id": "S10",
+      "type": "repo",
+      "location": "client/src/viz/deps/contract.ts",
+      "anchor": "DependencyGraphContract",
+      "authority": "repo"
     }
   ],
   "intent": {
@@ -127,7 +141,7 @@
       },
       {
         "id": "C3",
-        "statement": "Value order: reports, problem spotting linked to code, improved code view, then dep view augmented with full data flow.",
+        "statement": "Value order (revised): route -> terminal data-flow graph in the dependency viewer first; findings/metrics/markers/reports support it.",
         "kind": "priority",
         "sources": [
           "S1"
@@ -198,13 +212,40 @@
           "qa-round-1"
         ],
         "confidence": "medium"
+      },
+      {
+        "id": "C11",
+        "statement": "The real want is the route -> terminal data viz (Route Totality) shown in srcly dependency viewer.",
+        "kind": "goal",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C12",
+        "statement": "All tsx-data-flow type checking and analysis logic is to be maintained.",
+        "kind": "constraint",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C13",
+        "statement": "srcly has better visuals and selection and should own the graph experience.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
       }
     ],
     "themes": [
+      "route -> terminal graph as headline",
+      "evidence from engine, picture from srcly",
       "base layer vs enrichment layer",
-      "one vocabulary (metrics/findings/markers)",
-      "agent handoff",
-      "data-flow graph as the end state"
+      "one vocabulary (metrics/findings/markers)"
     ],
     "conflicts": [
       {
@@ -225,46 +266,59 @@
     "status": "current",
     "appetite": "Program delivered as independently revertible slices, one srcly home per slice.",
     "problem": "Two tools with overlapping shells; srcly is fast but tree-sitter-only, tsx-data-flow is deep but slow and has its own UI.",
-    "recommended_shape": "Integrate at the data level: tsx-data-flow runs as a findings-style background Node job emitting one versioned srcly export; srcly maps it into catalog metrics, findings, markers, report artifacts, compare, and later dependency-view edges.",
+    "recommended_shape": "Engine supplies evidence, srcly supplies the picture: engine (in engine/, bundled in wheel) emits a data-flow graph in srcly contract style (route -> occurrence -> step hierarchy + typed proven edges); srcly's dependency view renders it in a Data flow mode with its canvas, focus, expand-in-place, hover, keyboard and code opening. Findings/metrics/markers/reports flow through existing srcly pipelines.",
     "feature_mapping": [
       {
-        "tsx_feature": "Render-path findings, defensive-ledger, type-impossible defenses",
-        "srcly_home": "findings/ (new dataflow tool) + catalog metrics + markers",
-        "status": "planned"
+        "tsx_feature": "Route Totality / Data trajectories graph (route -> component occurrences -> field lineage -> terminals, frontiers)",
+        "srcly_home": "client/src/viz/deps Data flow mode + new data-flow graph contract",
+        "status": "planned",
+        "priority": 1
       },
       {
-        "tsx_feature": "Per-file burden, path depth, representation changes, defensive ops",
-        "srcly_home": "metric_catalog.py METRICS (TS/TSX in MEASURED_FILE_METRICS)",
-        "status": "planned"
+        "tsx_feature": "Route discovery, occurrence surface, field lineage/proof, value summaries, type checking (src/analysis)",
+        "srcly_home": "engine/ package, moved intact",
+        "status": "planned",
+        "priority": 1
       },
       {
-        "tsx_feature": "prop-relay, fan-out, fan-in",
-        "srcly_home": "catalog metrics with witnesses; later dependency-view edges",
-        "status": "planned"
+        "tsx_feature": "Field reach / selected-path projections, isolation with boundary stubs",
+        "srcly_home": "deps focus + isolate + expand-in-place",
+        "status": "planned",
+        "priority": 1
       },
       {
-        "tsx_feature": "repeated-forks, context-relay",
-        "srcly_home": "finding rules",
-        "status": "planned"
+        "tsx_feature": "Source evidence dialog / popovers",
+        "srcly_home": "CodeModal opened at node line",
+        "status": "planned",
+        "priority": 1
       },
       {
-        "tsx_feature": "work-packets Markdown, stop recommendation, render-path-dataflow-work skill",
+        "tsx_feature": "Render-path findings, defensive-ledger, impossible defenses, repeated forks, context relay",
+        "srcly_home": "findings/ dataflow tool + markers",
+        "status": "planned",
+        "priority": 2
+      },
+      {
+        "tsx_feature": "Burden, path depth, representation changes, defensive ops, prop relay, fan-out/in",
+        "srcly_home": "metric_catalog.py entries (TS/TSX)",
+        "status": "planned",
+        "priority": 2
+      },
+      {
+        "tsx_feature": "work-packets Markdown, render-path-dataflow-work skill",
         "srcly_home": "reporting.py artifacts + skills/srcly-code-quality",
-        "status": "planned"
+        "status": "planned",
+        "priority": 3
       },
       {
         "tsx_feature": "--compare baseline",
         "srcly_home": "compare/diff.COMPARE_METRICS via catalog",
-        "status": "planned"
+        "status": "planned",
+        "priority": 3
       },
       {
-        "tsx_feature": "Code map gutter markers, path highlight, finding details",
-        "srcly_home": "CodeModal markers + Data flow rail section",
-        "status": "planned"
-      },
-      {
-        "tsx_feature": "Symbol uses / component-refs / where-used",
-        "srcly_home": "CodeModal where-used; dependency view symbol focus",
+        "tsx_feature": "Code map symbol uses / component-refs",
+        "srcly_home": "CodeModal where-used; deps symbol focus",
         "status": "evaluate"
       },
       {
@@ -273,35 +327,37 @@
         "status": "evaluate"
       },
       {
-        "tsx_feature": "Route totality, data trajectories, component topology, world map",
-        "srcly_home": "dependency view data-flow mode",
-        "status": "later"
+        "tsx_feature": "Route Totality canvas/camera/layout/disclosure UI (~9.6K lines), component topology, world map",
+        "srcly_home": "replaced by srcly deps canvas; not migrated",
+        "status": "drop"
       },
       {
-        "tsx_feature": "Overview page, file rows, report tab strip, tsx-dataflow-serve",
-        "srcly_home": "none (covered by explorer/Hot Spots); tsx-dataflow-serve retired, not migrated",
+        "tsx_feature": "tsx-dataflow-serve overview, file rows, report pages",
+        "srcly_home": "none (explorer/Hot Spots cover it); retired",
         "status": "drop"
       }
     ],
     "success_moves": [
-      "Reuse the findings runner pattern (timed job, process-group kill, fingerprint cache, overlay) instead of a new job system.",
-      "Define one versioned export contract first and test its join against srcly paths/lines before any UI.",
-      "Express every numeric signal as a catalog metric so picker, Hot Spots, treemap, compare, and report derive automatically.",
-      "Keep the layer optional: N/A with reasons, base scan unaffected when Node/tsconfig is missing.",
-      "Defer dependency-view data flow until graph legibility and tsx trajectory UI stabilize.",
-      "Prove on examples/bad-ish-solid and srcly's own client before larger repos."
+      "Emit data-flow evidence in srcly's graph-contract style (hierarchy + typed edges) so the existing canvas, roll-up, expand-in-place and keyboard work unchanged.",
+      "Prove on existing route-totality evidence with no new layout code before deciding on a route-specific layout rule.",
+      "Move the analysis intact into engine/; replace only the UI, never the evidence.",
+      "Keep the engine off the critical path: background program build, route inventory, per-route detail on demand, N/A with reasons.",
+      "Coordinate layout changes with dependency-graph-legibility (active in viz/deps/layout.ts).",
+      "Route all supporting signals through catalog metrics, findings and markers so treemap, Hot Spots, compare and report derive automatically."
     ],
     "first_proof": {
-      "question": "Can the engine's output join srcly's tree and code viewer cleanly without slowing the base layer?",
-      "artifact": "One catalog metric (impossible defenses) + its finding markers from a dataflow job on examples/bad-ish-solid and srcly client/.",
-      "decision_rule": "Proceed to the full metric set and reports if paths/lines join exactly, counts match markers, and the layer lands within ~10s on client/; otherwise fix the export contract first."
+      "question": "Can srcly's existing dependency canvas present one route's totality evidence as legibly as Route Totality, with field reach, one path, and code opening?",
+      "artifact": "Data-flow contract export for examples/solid-route then visual-notes /time-blocks, rendered in the current deps canvas with field selection and node -> code viewer.",
+      "decision_rule": "Packing reads well -> extend it; top-down flow fights it -> add one route layout rule inside the same canvas; missing ordered steps -> add the smallest analyzer fact, never an invented step."
     },
     "rabbit_holes": [
       "Porting compiler-API analysis to Python.",
       "Embedding tsx-data-flow's SPA or route-totality graph wholesale.",
       "200K-LOC repos: engine takes ~120s; needs scoping (changed files, per-package) or a skip rule.",
       "Monorepos with many tsconfigs: bound projects like MAX_TSC_PROJECTS.",
-      "Wheel size from bundled TypeScript fallback; measure in first proof."
+      "Wheel size from bundled TypeScript fallback; measure in first proof.",
+      "Porting tsx-data-flow's graph layout/camera instead of using srcly's.",
+      "Fields with dozens of destinations rendered as a wall instead of grouped broad-use."
     ],
     "open_decisions": []
   },
@@ -343,6 +399,11 @@
     {
       "date": "2026-10-23",
       "event": "Resolved D1 (single repo, engine/ package), D2 (bundle in wheel, delegated), D3 (retire serve UI). Shape updated; no downstream artifacts invalidated.",
+      "phase": "shape"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "Intent revised: route -> terminal graph in dependency viewer is the headline; shape, mapping priorities and first proof regenerated.",
       "phase": "shape"
     }
   ],

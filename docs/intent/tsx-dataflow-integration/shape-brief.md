@@ -8,69 +8,64 @@ last_updated: "2026-10-23"
 
 # Bring tsx-data-flow into srcly — what we are adding
 
-**Outcome:** srcly's fast map gains a compiler-backed TS/TSX data-flow layer. That layer feeds its metrics, findings, code viewer, reports, compare, and eventually its dependency graph.
+**Outcome:** srcly's dependency viewer gains a data-flow mode. It shows tsx-data-flow's route → terminal graph using srcly's layout, selection, and code opening, and the compiler-backed evidence behind it is kept whole.
 
-**Primary flow:** Scan (instant base layer) → the data-flow job finishes in the background → color or rank by a data-flow metric → open a file → see the defenses and paths on the source → hand `srcly report` to an agent.
+**Primary flow:** Scan (instant) → the engine builds in the background → Graph view → Data flow → pick a route → select a field → see every destination → pick one → follow the path → open the code.
 
 ## Feature scope
 
-Each tsx-data-flow capability lands in an existing srcly home.
-
 ```text
-Data-flow layer in srcly
+Data flow in srcly
 ├── PLANNED ADDITIONS
-│   ├── Engine seam: tsx-data-flow runs as a background job (findings-style)
-│   │   ├── One versioned JSON export for srcly (repo-relative paths, line ranges)
-│   │   ├── Cached by fingerprint + engine version; timeout; N/A with a reason
-│   │   └── TS/TSX only; strict tsconfig required (no non-strict fallback)
-│   ├── Metrics → catalog entries (treemap color, Hot Spots, explorer, 2x2)
-│   │   ├── Render-path burden, path depth, representation changes
-│   │   ├── Defensive ops and type-impossible defenses
-│   │   └── Prop-relay hops, fan-out, fan-in (witness = worst sink or source)
-│   ├── Findings → srcly findings (tool = "dataflow")
-│   │   ├── Render-path findings and the defensive ledger, with severity
-│   │   └── Repeated forks and context relay, as finding rules
-│   ├── Code viewer → markers + a "Data flow" rail section
-│   │   ├── Marked defenses and relay hops, with notes (marker count = metric)
-│   │   ├── Representative path drawn on the source: numbered steps, sink tagged
-│   │   └── Cross-file hops open the other file at the line
-│   ├── Reports → srcly report artifacts
-│   │   ├── Work packets (dataflow.md) with candidate edits and stop recommendation
-│   │   └── Agent skill merged into skills/srcly-code-quality
-│   └── Compare → data-flow metrics flow through COMPARE_METRICS on both sides
+│   ├── Engine in srcly (engine/ TypeScript package, bundled in the wheel)
+│   │   ├── Route discovery, occurrence surface, field lineage, frontiers: moved intact
+│   │   └── Background program build, route inventory, per-route detail on demand
+│   ├── Data-flow graph contract (beside the import contract)
+│   │   ├── Nodes: route, component occurrence, control flow, value or operation, terminal, frontier
+│   │   ├── Edges: render nesting, prop/context handoff, field flow (proven only)
+│   │   └── A route → occurrence → step hierarchy, so roll-up and expansion work
+│   ├── Data-flow mode in the dependency view (same canvas and interactions)
+│   │   ├── Route picker in the go-to palette, plus the route in the URL
+│   │   ├── Component projection: route backbone, UI primitives collapsed
+│   │   ├── Field reach: select a field → every proven destination lights up
+│   │   ├── Path projection: one destination → ordered steps grouped by owner
+│   │   ├── Frontier nodes with their cause (unsupported, opaque, budget, identity loss)
+│   │   └── Any node → code viewer at its line
+│   └── Supporting evidence through srcly's existing pipelines
+│       ├── Findings + markers: defenses, impossible fallbacks, relay hops
+│       ├── Catalog metrics: burden, defenses, relay, fan-out/in (treemap, Hot Spots, compare)
+│       └── Work packets in srcly report; the agent skill merged into srcly-code-quality
 ├── EVALUATE BEFORE COMMITTING
-│   ├── Symbol where-used / jump to definition in the code viewer (component refs first)
-│   ├── Boundary report, junctions, path families, inline preview → finding rules or report-only
-│   └── 2x2 preset: burden × fan-in ("load-bearing render knots")
+│   ├── Route flow as its own layout rule vs the existing in/center/out packing
+│   ├── Path burden as visible factors on the destination list
+│   └── Boundary report, junctions, path families, inline preview: rules or report-only
 └── LATER POSSIBILITIES
-    ├── Dependency view "data flow" mode: component render/prop edges beside imports
-    └── Field trajectories and route totality as a focus mode in that graph
+    ├── Linking import-graph files to the routes they feed
+    └── A selected path → work packet / agent prompt
 ```
 
-**Dropped, not migrated:** the tsx-dataflow-serve web UI, including its overview page, file list, and report tab strip. srcly's explorer, Hot Spots, and scope bar already do that job.
+**Dropped:** tsx-dataflow-serve, which includes its canvas, camera, and layout code, its overview and report pages, and the world map.
 
 ## Behavior
 
 | Situation | Expected result |
 | --- | --- |
-| No Node, no TS files, or no strict tsconfig | Base scan unchanged; data-flow metrics show N/A with the reason. |
-| Data-flow job still running | Map is usable; picker shows "data flow: running", as for findings today. |
-| Engine times out on a large repo | Prior cached result if fingerprints match; otherwise N/A (timed out). |
-| A file changes and you rescan | Only the data-flow layer is recomputed; the AST cache is untouched. |
-| Finding spans files | Marked in its sink file; its path steps link to the other files. |
+| Engine still building | Import graph works; Data flow shows progress. |
+| Not a SolidStart/TSX app, or no Node | Data flow is N/A with the reason; nothing else changes. |
+| A field has dozens of destinations | Destinations are grouped by owning component; it reads as broad use, not as a wall of nodes. |
+| A path stops early | A frontier node names the cause; it never pretends to be complete. |
+| Switching between component and path projection | Route and field selection are kept; the camera stays on the selection. |
 
 ## Decisions and boundaries
 
-**Appetite:** Big program, but it ships in independently useful slices. Each slice adds one srcly home for data-flow evidence, and each can be reverted alone.
+**Appetite:** Big program. The graph lands first, as slices that can each be reverted, and the supporting evidence follows.
 
-**Key decision:** Integrate at the data level, not the code or UI level. tsx-data-flow stays a TypeScript engine with a narrow JSON export. srcly owns everything users see. This is the only route that keeps both the type checker and srcly's speed. It also reuses the findings runner, metric catalog, markers, compare, and report pipelines instead of copying tsx-data-flow's surfaces. Porting the analysis to Python or embedding the other SPA would both cost more and lose more.
+**Key decision:** The engine provides evidence, and srcly provides the picture. The engine's output is a graph in srcly's own contract style: a hierarchy plus typed edges. srcly's dependency view renders it with its existing canvas, focus, expand-in-place, hover, keyboard, and code opening. That retires about 9.6K lines of tsx-data-flow graph UI instead of porting it. The new graph also picks up every future improvement to srcly's graph.
 
-**Boundary:** The layer is optional and off the critical path. Removing the job removes the feature and nothing else. The dependency-view data-flow mode waits until the graph's legibility work settles and the trajectory UI in tsx-data-flow stops churning.
+**Boundary:** Edges are proven evidence only. No repository-wide variable graph. Layout changes coordinate with `dependency-graph-legibility`, which is active in `viz/deps/layout.ts`: build on its branch, or after it merges.
 
-**First proof:** **Try:** Run the engine on `examples/bad-ish-solid` and on srcly's own `client/`. Map its export onto one catalog metric (impossible defenses) plus its finding lines. **Observe:** The treemap stays as fast as today. The layer shows up within the 10-second whole-project target. Every count matches its marked lines in the code viewer. **Decide:** If paths and lines join cleanly and the timing holds, proceed to the full metric set and reports. If they don't join, fix the export contract before adding any UI.
+**Where it lives / how it ships:** An `engine/` package in the srcly repo. The release build bundles it with esbuild into the wheel, and srcly runs it with the system `node` (18 or later). It uses the project's `typescript` when present and otherwise a bundled copy. Without Node, data flow is N/A.
 
-**Where the engine lives:** In the srcly repo, as an `engine/` TypeScript package next to `client/` and `server/`. tsx-data-flow's analysis, report builders, examples, and tests move there. Its web UI, server, and CLI are not moved, so the history stays in the old repo.
+**First proof:** **Try:** Export one route's existing totality evidence (`examples/solid-route`, then visual-notes `/time-blocks`) into the data-flow contract. Render it in the current dependency canvas, with field selection and code opening, and with no new layout code. **Observe:** Can someone answer "where does this field go, and what happens on one path?" as easily as in Route Totality? Do the nodes open the right lines? **Decide:** If the existing packing reads well, extend it. If top-down route flow fights it, add one route layout rule inside the same canvas and keep every interaction layer. If the export is missing ordered steps, add the smallest analyzer fact, not an invented step.
 
-**How users get it (recommended, most robust):** The release build bundles the engine with esbuild into one JS file inside the wheel, the same way the client build already lands in `server/app/static`. srcly runs it with the `node` on PATH (Node 18 or later). The engine uses the project's own `typescript` when there is one and falls back to a bundled copy, as tsx-data-flow does today. This avoids network access, npm installs, and version drift, since the engine always matches the srcly release. Without Node, data flow shows N/A ("node not found"). The cost is wheel size, a few MB for the TypeScript copy; check it in the first proof.
-
-See the [intent brief](intent-brief.md). Pro threads add per-branch detail to [initiative-map.json](initiative-map.json).
+See the [intent brief](intent-brief.md) and [initiative-map.json](initiative-map.json).
