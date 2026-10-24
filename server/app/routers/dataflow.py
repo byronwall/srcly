@@ -173,6 +173,23 @@ def get_routes(path: str | None = None, expectedGeneration: int | None = None):
     return _json(RoutesResponse(**RoutesResult.model_validate(body["result"]).model_dump()))
 
 
+class RefreshRequest(BaseModel):
+    path: str
+
+
+@router.post("/refresh", response_model=RoutesResponse, response_model_exclude_none=True)
+def refresh(body: RefreshRequest):
+    """
+    Rebuild tier 1 from the sources as they are now. The reply is the new
+    generation's routes; every open graph must be fetched again with it, and a
+    query that names the old generation gets the ``stale`` outcome.
+    """
+    result = _query(_root(body.path), "refresh", {}, None)
+    if "result" not in result:
+        return _json(RoutesResponse(**result))
+    return _json(RoutesResponse(**RoutesResult.model_validate(result["result"]).model_dump()))
+
+
 @router.get("/route-graph", response_model=RouteGraphResponse)
 def get_route_graph(route: str, path: str | None = None, source: str | None = None, expectedGeneration: int | None = None):
     """

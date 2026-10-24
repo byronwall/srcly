@@ -54,6 +54,8 @@ function workerOperation(frame: RequestFrame): AnalysisOperation | null {
   const params = frame.params ?? {};
   const expectedGeneration = typeof params.expectedGeneration === "number" ? params.expectedGeneration : undefined;
   if (frame.op === "routes") return { kind: "routes", expectedGeneration };
+  // Rebuild tier 1 from the sources as they are now: a new generation, answered like `routes`.
+  if (frame.op === "refresh") return { kind: "session-refresh" };
   if (frame.op === "selectExpression") return { kind: "select-expression", params };
   if (frame.op === "valueFlow") return { kind: "value-flow", params };
   if (frame.op === "anchorGraph") return { kind: "anchor-graph", params };

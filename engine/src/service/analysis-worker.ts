@@ -70,6 +70,10 @@ port.on("message", ({ requestId, operation, cancellationBuffer }: AnalysisWorker
 
 function perform(operation: AnalysisOperation, requestId: number, cancellation: AnalysisCancellationToken) {
   if (operation.kind === "routes") return announce(routesOp(requireSession(), operation));
+  if (operation.kind === "session-refresh") {
+    requireSession().refresh();
+    return announce(routesOp(requireSession(), {}));
+  }
   if (operation.kind === "route-graph") return announce(routeGraphOp(requireSession(), operation, cancellation));
   if (operation.kind === "select-expression") return announce(selectExpressionOp(requireSession(), operation.params));
   if (operation.kind === "value-flow") return announce(valueFlowOp(requireSession(), operation.params, cancellation));
