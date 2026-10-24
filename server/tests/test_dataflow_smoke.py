@@ -76,3 +76,28 @@ def test_value_flow_line_135(monkeypatch):
         assert outside.status_code == 400
     finally:
         registry.close_all()
+
+
+def test_anchor_graph_on_solid_route(monkeypatch):
+    """ViewerCard's `props.viewer?.name`, both ways, through the real engine and the HTTP API."""
+    monkeypatch.setenv("SRCLY_ENGINE_DEV", "1")
+    registry = EngineRegistry()
+    monkeypatch.setattr(dataflow_engine, "registry", registry)
+    try:
+        client = TestClient(app)
+        file = SOLID_ROUTE / "src" / "components" / "ViewerCard.tsx"
+        lines = file.read_text().splitlines()
+        line = next(i for i, text in enumerate(lines, 1) if "props.viewer?.name" in text)
+        column = lines[line - 1].index("props.viewer?.name") + 1
+        span = {"startLine": line, "startColumn": column, "endLine": line, "endColumn": column + len("props.viewer?.name")}
+        body = {"path": str(SOLID_ROUTE), "file": str(file), "span": span, "text": "props.viewer?.name", "direction": "both"}
+        graph = client.post("/api/dataflow/anchor-graph", json=body).json()["graph"]
+        assert graph["outcome"] == "ok" and graph["direction"] == "both"
+        kinds = {node["kind"] for node in graph["nodes"]}
+        assert {"anchor", "scope", "origin", "terminal"} <= kinds
+        assert any(origin["label"] == "createResource(loadViewer)" for origin in graph["origins"])
+        assert {node["file"] for node in graph["nodes"]} >= {"src/components/ViewerCard.tsx", "src/routes/records.tsx"}
+        named = client.post("/api/dataflow/anchor-graph", json={"path": str(SOLID_ROUTE), "file": str(file), "name": "props", "line": line, "direction": "forward"}).json()
+        assert named["graph"]["anchor"]["text"] == "props"
+    finally:
+        registry.close_all()
