@@ -69,6 +69,15 @@ def test_ledger_nested_fields_match():
     assert set(models.SelectCandidate.model_fields) == set(select["candidates"]["items"]["properties"])
 
 
+def test_anchor_edge_status_matches_the_schema():
+    schema = json.loads((CONTRACTS / "anchorGraph.schema.json").read_text())["properties"]
+    status = schema["edges"]["items"]["properties"]["status"]
+    values = set()
+    for option in status.get("anyOf", [status]):
+        values.update(option.get("enum", [option["const"]] if "const" in option else []))
+    assert values == {member.value for member in models.EvidenceStatus} | {"structural"}
+
+
 def test_anchor_graph_nested_fields_match():
     schema = json.loads((CONTRACTS / "anchorGraph.schema.json").read_text())["properties"]
     assert set(models.AnchorRef.model_fields) == set(schema["anchor"]["properties"])

@@ -63,7 +63,8 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult): FlowViewModel 
       weight: 1,
       faint: e.status !== "proven",
       symbols: [],
-      ...(CROSSING.has(e.kind) ? { style: "handoff" as const } : {}),
+      // A structural link (a declaration's parameter or return) is drawn dotted and neutral: found by structure, not traced.
+      ...(e.status === "structural" ? { style: "structural" as const } : CROSSING.has(e.kind) ? { style: "handoff" as const } : {}),
       ...(e.label ? { label: e.label } : {}),
       status: e.status,
       proof: e.proof.map((p) => ({ kind: p.kind, detail: p.detail, status: p.status, at: p.locations[0] ? `${baseName(p.locations[0].file)}:${p.locations[0].line}` : undefined })),

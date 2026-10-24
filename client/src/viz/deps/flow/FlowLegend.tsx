@@ -1,7 +1,7 @@
 import { ChevronDown, Info } from "lucide-solid";
 import { createSignal, For, type JSX, Show } from "solid-js";
 import { IconButton } from "../../../components/ui/IconButton";
-import { DOTTED_BOX_DASH, EDGE_OPACITY, FRONTIER_BOX_DASH, HANDOFF_EDGE_DASH } from "../encoding";
+import { DOTTED_BOX_DASH, EDGE_OPACITY, FRONTIER_BOX_DASH, HANDOFF_EDGE_DASH, STRUCTURAL_EDGE_DASH } from "../encoding";
 import { FlowMarkGlyph, RepetitionBadge } from "./FlowMark";
 import { FLOW_MARK_ORDER, FLOW_MARKS, REPETITION_BADGE } from "./marks";
 
@@ -26,8 +26,8 @@ function writeCollapsed(collapsed: boolean) {
   }
 }
 
-function EdgeSwatch(props: { dash?: string; accent?: boolean }) {
-  const ink = () => (props.accent ? "var(--plc-accent)" : "var(--plc-tertiary)");
+function EdgeSwatch(props: { dash?: string; accent?: boolean; muted?: boolean }) {
+  const ink = () => (props.accent ? "var(--plc-accent)" : props.muted ? "var(--plc-on-disabled)" : "var(--plc-tertiary)");
   return (
     <svg width={SW} height={SH} viewBox={`0 0 ${SW} ${SH}`} aria-hidden="true">
       <line x1="1" y1={SH / 2} x2={SW - 6} y2={SH / 2} stroke={ink()} stroke-width="1.4" stroke-opacity={EDGE_OPACITY} stroke-dasharray={props.dash} />
@@ -87,6 +87,7 @@ const GROUPS: { title: string; items: { swatch: () => JSX.Element; label: string
       { swatch: () => <EdgeSwatch />, label: "Renders: a component or boundary inside its parent" },
       { swatch: () => <EdgeSwatch dash={HANDOFF_EDGE_DASH} />, label: "Handoff: an origin proven to reach a render site" },
       { swatch: () => <EdgeSwatch accent />, label: "Field: the selected origin's proven path" },
+      { swatch: () => <EdgeSwatch dash={STRUCTURAL_EDGE_DASH} muted />, label: "Structural: found by structure, not traced" },
     ],
   },
   {

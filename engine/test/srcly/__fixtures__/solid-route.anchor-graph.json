@@ -1,7 +1,7 @@
 {
  "outcome": "ok",
  "generation": 1,
- "programHash": "5b648254463aa4fb",
+ "programHash": "f06a907d3d8a4dde",
  "tsconfig": "/fixture/solid-route/tsconfig.json",
  "typescript": "5.9.3",
  "reason": null,
@@ -16,7 +16,7 @@
   },
   "text": "props.viewer?.name",
   "kind": "PropertyAccessExpression",
-  "elementId": "program-element:jgimy9",
+  "elementId": "program-element:1y55abx",
   "typeText": "string | undefined"
  },
  "direction": "both",
@@ -44,7 +44,7 @@
    "note": null
   },
   {
-   "id": "program-element:jgimy9",
+   "id": "program-element:1y55abx",
    "kind": "anchor",
    "label": "props.viewer?.name",
    "detail": "property read",
@@ -66,7 +66,7 @@
    "note": null
   },
   {
-   "id": "program-element:1ntfazm",
+   "id": "program-element:cop8gu",
    "kind": "value",
    "label": "viewer",
    "detail": "field read",
@@ -88,7 +88,7 @@
    "note": null
   },
   {
-   "id": "program-element:1h7mq5g",
+   "id": "program-element:1dgam7s",
    "kind": "value",
    "label": "props",
    "detail": "value",
@@ -132,7 +132,7 @@
    "note": null
   },
   {
-   "id": "program-element:129wzcm",
+   "id": "program-element:1fmpih3",
    "kind": "value",
    "label": "viewer={viewer()}",
    "detail": "prop binding",
@@ -154,7 +154,7 @@
    "note": null
   },
   {
-   "id": "program-element:1q9bsk5",
+   "id": "program-element:19l66zr",
    "kind": "value",
    "label": "props",
    "detail": "parameter",
@@ -176,7 +176,7 @@
    "note": null
   },
   {
-   "id": "program-element:1flukef",
+   "id": "program-element:1l4r34g",
    "kind": "value",
    "label": "viewer()",
    "detail": "call",
@@ -198,7 +198,7 @@
    "note": null
   },
   {
-   "id": "program-element:fy0vtv",
+   "id": "program-element:i870yi",
    "kind": "boundary",
    "label": "viewer()",
    "detail": "resource result",
@@ -220,7 +220,7 @@
    "note": "viewer() is framework runtime; what it carries is proven only as far as the engine's relations go"
   },
   {
-   "id": "program-element:8rfih4",
+   "id": "program-element:edwvnz",
    "kind": "origin",
    "label": "createResource(loadViewer)",
    "detail": "resource",
@@ -242,7 +242,7 @@
    "note": null
   },
   {
-   "id": "program-element:1sku82f",
+   "id": "program-element:aq7xpv",
    "kind": "transform",
    "label": "props.viewer?.name ?? \"loading viewer\"",
    "detail": "selection",
@@ -264,7 +264,7 @@
    "note": null
   },
   {
-   "id": "program-element:msjsn9",
+   "id": "program-element:1jzmvff",
    "kind": "terminal",
    "label": "props.viewer?.name ?? \"loading viewer\"",
    "detail": "render slot",
@@ -288,9 +288,9 @@
  ],
  "edges": [
   {
-   "id": "program-relation:pv8nda",
-   "source": "program-element:1ntfazm",
-   "target": "program-element:jgimy9",
+   "id": "program-relation:3n6o7n",
+   "source": "program-element:cop8gu",
+   "target": "program-element:1y55abx",
    "kind": "field-input",
    "status": "proven",
    "proof": [
@@ -316,9 +316,9 @@
    "label": "viewer"
   },
   {
-   "id": "program-relation:egcrxn",
-   "source": "program-element:1h7mq5g",
-   "target": "program-element:1ntfazm",
+   "id": "program-relation:ks6qec",
+   "source": "program-element:1dgam7s",
+   "target": "program-element:cop8gu",
    "kind": "field-input",
    "status": "proven",
    "proof": [
@@ -344,9 +344,9 @@
    "label": null
   },
   {
-   "id": "program-relation:jurfhq",
-   "source": "program-element:129wzcm",
-   "target": "program-element:1ntfazm",
+   "id": "program-relation:1jtxbs8",
+   "source": "program-element:1fmpih3",
+   "target": "program-element:cop8gu",
    "kind": "component-prop-binding",
    "status": "proven",
    "proof": [
@@ -394,9 +394,9 @@
    "label": null
   },
   {
-   "id": "program-relation:df73b7",
-   "source": "program-element:1q9bsk5",
-   "target": "program-element:1h7mq5g",
+   "id": "program-relation:1qd7v7h",
+   "source": "program-element:19l66zr",
+   "target": "program-element:1dgam7s",
    "kind": "references",
    "status": "proven",
    "proof": [
@@ -422,9 +422,9 @@
    "label": null
   },
   {
-   "id": "program-relation:1sqfjhy",
-   "source": "program-element:1flukef",
-   "target": "program-element:129wzcm",
+   "id": "program-relation:1xs7gru",
+   "source": "program-element:1l4r34g",
+   "target": "program-element:1fmpih3",
    "kind": "component-prop-binding",
    "status": "proven",
    "proof": [
@@ -472,9 +472,9 @@
    "label": null
   },
   {
-   "id": "program-relation:1xotcmo",
-   "source": "program-element:fy0vtv",
-   "target": "program-element:1flukef",
+   "id": "program-relation:1tn7u1e",
+   "source": "program-element:i870yi",
+   "target": "program-element:1l4r34g",
    "kind": "references",
    "status": "proven",
    "proof": [
@@ -500,9 +500,9 @@
    "label": null
   },
   {
-   "id": "program-relation:ff5q4e",
-   "source": "program-element:8rfih4",
-   "target": "program-element:fy0vtv",
+   "id": "program-relation:6ozd9m",
+   "source": "program-element:edwvnz",
+   "target": "program-element:i870yi",
    "kind": "resource-result",
    "status": "proven",
    "proof": [
@@ -528,9 +528,9 @@
    "label": null
   },
   {
-   "id": "program-relation:1476fj9",
-   "source": "program-element:jgimy9",
-   "target": "program-element:1sku82f",
+   "id": "program-relation:1oir1se",
+   "source": "program-element:1y55abx",
+   "target": "program-element:aq7xpv",
    "kind": "references",
    "status": "proven",
    "proof": [
@@ -556,9 +556,9 @@
    "label": null
   },
   {
-   "id": "program-relation:nvthw0",
-   "source": "program-element:1sku82f",
-   "target": "program-element:msjsn9",
+   "id": "program-relation:6iiakv",
+   "source": "program-element:aq7xpv",
+   "target": "program-element:1jzmvff",
    "kind": "render-terminal",
    "status": "proven",
    "proof": [
@@ -586,7 +586,7 @@
  ],
  "origins": [
   {
-   "nodeId": "program-element:8rfih4",
+   "nodeId": "program-element:edwvnz",
    "label": "createResource(loadViewer)",
    "roles": [
     "resource"
@@ -596,7 +596,7 @@
  ],
  "terminals": [
   {
-   "nodeId": "program-element:msjsn9",
+   "nodeId": "program-element:1jzmvff",
    "label": "props.viewer?.name ?? \"loading viewer\"",
    "roles": [
     "render"

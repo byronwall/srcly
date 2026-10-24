@@ -65,12 +65,12 @@ export interface ViewEdge {
   /** Neither end is in the center region. */
   faint: boolean;
   symbols: string[];
-  /** Data flow mode: a dashed handoff from an origin, or an accent field path. */
-  style?: "handoff" | "field";
+  /** Data flow mode: a dashed handoff from an origin, an accent field path, or a dotted structural link found by syntax, not traced. */
+  style?: "handoff" | "field" | "structural";
   /** Data flow mode: a field edge's path (`projects[*].name`), drawn along the edge. */
   label?: string;
-  /** Data flow mode: the edge's proof status, for its card. */
-  status?: "proven" | "partial" | "unsupported";
+  /** Data flow mode: the edge's proof status, for its card; `structural` for a link found by structure, never proven. */
+  status?: "proven" | "partial" | "unsupported" | "structural";
   /** Data flow mode: the engine's proof records behind the edge, for its card. */
   proof?: { kind: string; detail: string; status: "proven" | "partial" | "unsupported"; at?: string }[];
   /** Anchor mode: the engine's relation kind (`field-input`, `argument`, …), for its card. */

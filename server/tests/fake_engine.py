@@ -89,17 +89,23 @@ def result_for(op: str, params: dict) -> dict:
                   "detail": "property read", "parent": "scope:f", "elementKind": "field-read", "typeText": "string"}
         slot = {**anchor, "id": "el:2", "kind": "terminal", "label": "slot", "detail": "render slot", "side": "down",
                 "elementKind": "render-terminal", "typeText": None}
-        nodes = [scope, anchor] + ([slot] if params.get("direction", "both") != "backward" else [])
-        edges = [] if len(nodes) < 3 else [{"id": "rel:1", "source": "el:1", "target": "el:2", "kind": "render-terminal",
-                                            "status": "proven", "proof": [], "label": None}]
+        # A declaration's parameter, found by syntax: a structural edge into the anchor on the up side.
+        param = {**anchor, "id": "el:0", "kind": "value", "label": "props", "detail": "parameter", "side": "up",
+                 "elementKind": "parameter", "typeText": None}
+        direction = params.get("direction", "both")
+        nodes = [scope, anchor] + ([slot] if direction != "backward" else []) + ([param] if direction != "forward" else [])
+        edges = ([] if direction == "backward" else [{"id": "rel:1", "source": "el:1", "target": "el:2", "kind": "render-terminal",
+                                                      "status": "proven", "proof": [], "label": None}]) + \
+                ([] if direction == "forward" else [{"id": "parameter:el:0", "source": "el:0", "target": "el:1", "kind": "parameter",
+                                                     "status": "structural", "proof": [], "label": None}])
         return {"outcome": "ok", "generation": state["generation"] or 1, "programHash": "hash-1",
                 "tsconfig": f"{args.root}/tsconfig.json", "typescript": "5.9.3", "reason": None,
                 "anchor": {"file": file, "absPath": f"{args.root}/{file}", "span": span, "text": anchor["label"],
                            "kind": "PropertyAccessExpression", "elementId": "el:1", "typeText": "string"},
                 "direction": params.get("direction", "both"), "nodes": nodes, "edges": edges, "origins": [],
-                "terminals": [{"nodeId": "el:2", "label": "slot", "roles": ["render"], "status": "proven"}] if len(nodes) > 2 else [],
-                "counts": {"up": 0, "down": len(nodes) - 2, "scopes": 1, "origins": 0, "terminals": len(nodes) - 2,
-                           "boundaries": 0, "frontiers": 0},
+                "terminals": [{"nodeId": "el:2", "label": "slot", "roles": ["render"], "status": "proven"}] if direction != "backward" else [],
+                "counts": {"up": 0 if direction == "forward" else 1, "down": 0 if direction == "backward" else 1, "scopes": 1,
+                           "origins": 0, "terminals": 0 if direction == "backward" else 1, "boundaries": 0, "frontiers": 0},
                 "coverage": {"elements": len(nodes) - 1, "relations": len(edges),
                              "budget": {"limit": 256, "used": len(edges), "exhausted": False}}}
     raise LookupError(op)
