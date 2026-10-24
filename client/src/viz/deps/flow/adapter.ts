@@ -5,7 +5,7 @@
 // renders. The graph is reach, not order: nothing here invents a step.
 import type { AnchorGraphResult, RouteGraphResult } from "../../../dataflow/contract.generated";
 import type { ViewEdge, ViewModel, ViewNode } from "../viewModel";
-import { FLOW_MARKS, humanizeDetail, MARK_OF_KIND } from "./marks";
+import { FLOW_MARKS, humanizeDetail, MARK_OF_KIND, markColor } from "./marks";
 
 export type FlowNode = RouteGraphResult["nodes"][number];
 export type FlowEdge = RouteGraphResult["edges"][number];
@@ -137,7 +137,7 @@ export function routeGraphToViewModel(graph: RouteGraphResult, opts: FlowViewOpt
       memberCount: 1 + hiddenInside,
       isFocus: n === root,
       status: n.status,
-      tint: FLOW_MARKS[MARK_OF_KIND[n.kind]].color,
+      tint: markColor(MARK_OF_KIND[n.kind]),
       ...(n.repetition === "conditional" || n.repetition === "collection" ? { repetition: n.repetition } : {}),
       ...(frame ? { group: { id: frame.id, label: frameLabel(frame), opened: true } } : {}),
       expandable: hiddenInside > 0,

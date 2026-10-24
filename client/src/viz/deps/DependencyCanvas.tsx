@@ -2,6 +2,7 @@ import * as d3 from "d3";
 import { createEffect, createMemo, createRenderEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { makeTextMeasurer, truncateTextToWidth } from "../../utils/svgText";
 import { formatMetricValue, metricLabel, type MetricId } from "../../utils/metricsStore";
+import { tokenColor } from "./flow/marks";
 import { treemapFillColor, treemapRampPosition, rampColor } from "../treemap/utils/colors";
 import { tailPath } from "../treemap/components/TreemapTooltip";
 import { placeFloating } from "../treemap/hooks/useTreemapTooltip";
@@ -45,8 +46,8 @@ const METRIC_BAR_W = 28;
  * enough that the bar and the contents strip carry the exact colors.
  */
 const TINT = 0.22;
-/** A box fill with a color mixed in at `TINT`: the treemap's metric color, or a flow node's kind color. */
-const tintFill = (color: string) => d3.interpolateLab("#ffffff", color)(TINT);
+/** A box fill with a color mixed in at `TINT`: the treemap's metric color, or a flow node's kind color, over the surface token (T21). */
+const tintFill = (color: string) => d3.interpolateLab(tokenColor("--plc-surface", "#ffffff"), color)(TINT);
 const MUTED_TEXT = "var(--plc-on-muted)";
 /** Row 3 in Data flow mode: the in/out counts' width before the note starts. */
 const FLOW_COUNTS_W = 78;

@@ -130,6 +130,7 @@ Seeds in priority order (R13, R7). Each has **evidence** for why it matters, a *
 - Evidence: hex colors in `marks.ts:20-30`.
 - Proof: the T6 screenshots in light and dark pass a contrast check.
 - Stop rule: reuse srcly's existing tokens. No new palette.
+- Done (PR 21 of the stack): every mark is a palette token (`--plc-accent`, `--plc-success`, `--plc-tertiary`, `--plc-chart-2/4/6`, `--plc-warning`); the glyphs and legend swatches draw `var(token)`, the box tint mixes the token's computed value over `--plc-surface` instead of white, and the cache of computed values clears on a color-scheme change. The dark smoke test now checks WCAG contrast ≥ 4.5 for every box label on its fill and that no mark carries a literal color. srcly has no dark palette yet, so dark renders the light tokens; when one lands, the marks follow it without a code change.
 
 **T22 · Field labels never cover boxes.**
 - Evidence: labels overlap boxes on `/time-blocks`.
