@@ -77,6 +77,17 @@ Acceptance anchors (`engine/test/srcly/value-flow.test.ts`, located by text, not
 
 Call sites are counted from the TypeScript program (calls resolving to the callee's symbol; a non-call reference makes the callers unknown), not from the lazy provider, which only knew `invokes` relations from files it had loaded and first reported `formatMetricWithUnit` correctly by accident.
 
+## 2026-10-24 — T1: per-box status in `routeGraph`
+
+Same machine and Node. Engine `routeGraph` called in process right after tier 1, counting boxes by status before and after `route-graph.ts` gave each box its own status (`markPartialBoxes`).
+
+| Target · route | Boxes | Proven before | Partial before | Proven after | Partial after | Located gaps |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| solid-route `/records` | 33 | 33 | 0 | 32 | 1 (the route box: `external-code` in `data/*.ts`) | 2 of 2 |
+| visual-notes `/time-blocks` | 418 | 1 | 417 | 207 | 211 | 303 of 303 |
+
+Before, every box on `/time-blocks` took the surface's `partial` status (only the origin kept its own). After, the 211 partial boxes are the ones that own a located gap or omission: 97 `unresolved-symbol`, 96 `external-code`, 16 `budget-exhausted`, 1 `unsupported-ownership`, plus the route box for the incomplete surface. Every gap had a location, so the R14 fallback (the occurrence's own omissions) was not needed. On `/records` the route's two gaps sit in `data/records.ts` and `data/viewer.ts`, outside every drawn box, so they belong to the route box and all 32 component boxes read proven.
+
 ## To record next
 
 | Milestone | Numbers |

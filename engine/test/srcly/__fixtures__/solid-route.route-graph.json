@@ -1,7 +1,7 @@
 {
  "outcome": "partial",
  "generation": 1,
- "programHash": "f8ef3ae01690529d",
+ "programHash": "f06a907d3d8a4dde",
  "tsconfig": "/fixture/solid-route/tsconfig.json",
  "typescript": "5.9.3",
  "route": {
@@ -14,7 +14,7 @@
  "unavailableReason": null,
  "nodes": [
   {
-   "id": "route-occurrence:m8qwl",
+   "id": "route-occurrence:1220ovh",
    "kind": "route",
    "label": "/records",
    "detail": null,
@@ -28,18 +28,18 @@
     "endLine": 37,
     "endColumn": 2
    },
-   "status": "proven",
+   "status": "partial",
    "collapsedByDefault": false,
    "repetition": null,
    "external": false,
-   "reason": null
+   "reason": "external-code"
   },
   {
-   "id": "route-occurrence:1e04p52",
+   "id": "route-occurrence:1rbc7nn",
    "kind": "occurrence",
    "label": "MetricCard",
    "detail": "MetricCard.tsx",
-   "parent": "route-occurrence:n7tgmy",
+   "parent": "route-occurrence:yk8cu7",
    "file": "src/components/RecordSummary.tsx",
    "absPath": "/fixture/solid-route/src/components/RecordSummary.tsx",
    "line": 7,
@@ -56,11 +56,11 @@
    "reason": null
   },
   {
-   "id": "route-occurrence:b66jfb",
+   "id": "route-occurrence:5jqpmk",
    "kind": "occurrence",
    "label": "MetricCard",
    "detail": "MetricCard.tsx",
-   "parent": "route-occurrence:n7tgmy",
+   "parent": "route-occurrence:yk8cu7",
    "file": "src/components/RecordSummary.tsx",
    "absPath": "/fixture/solid-route/src/components/RecordSummary.tsx",
    "line": 8,
@@ -77,11 +77,11 @@
    "reason": null
   },
   {
-   "id": "route-occurrence:euuis8",
+   "id": "route-occurrence:1dsvb82",
    "kind": "occurrence",
    "label": "RecordRow",
    "detail": "RecordTable.tsx",
-   "parent": "route-framework-boundary:umti3a",
+   "parent": "route-framework-boundary:14gpop4",
    "file": "src/components/RecordTable.tsx",
    "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
    "line": 15,
@@ -98,11 +98,11 @@
    "reason": null
   },
   {
-   "id": "route-occurrence:1i30i7k",
+   "id": "route-occurrence:1xfkpcb",
    "kind": "occurrence",
    "label": "RouteFrame",
    "detail": "RouteFrame.tsx",
-   "parent": "route-occurrence:m8qwl",
+   "parent": "route-occurrence:1220ovh",
    "file": "src/routes/records.tsx",
    "absPath": "/fixture/solid-route/src/routes/records.tsx",
    "line": 29,
@@ -119,11 +119,11 @@
    "reason": null
   },
   {
-   "id": "route-occurrence:gunqpl",
+   "id": "route-occurrence:1ao6gae",
    "kind": "occurrence",
    "label": "ViewerCard",
    "detail": "ViewerCard.tsx",
-   "parent": "route-occurrence:1i30i7k",
+   "parent": "route-occurrence:1xfkpcb",
    "file": "src/routes/records.tsx",
    "absPath": "/fixture/solid-route/src/routes/records.tsx",
    "line": 30,
@@ -140,11 +140,11 @@
    "reason": null
   },
   {
-   "id": "route-occurrence:n7tgmy",
+   "id": "route-occurrence:yk8cu7",
    "kind": "occurrence",
    "label": "RecordSummary",
    "detail": "RecordSummary.tsx",
-   "parent": "route-framework-boundary:1yyee3r",
+   "parent": "route-framework-boundary:18tekvg",
    "file": "src/routes/records.tsx",
    "absPath": "/fixture/solid-route/src/routes/records.tsx",
    "line": 32,
@@ -161,11 +161,11 @@
    "reason": null
   },
   {
-   "id": "route-occurrence:1wam0ne",
+   "id": "route-occurrence:t2oasv",
    "kind": "occurrence",
    "label": "RecordTable",
    "detail": "RecordTable.tsx",
-   "parent": "route-framework-boundary:1yyee3r",
+   "parent": "route-framework-boundary:18tekvg",
    "file": "src/routes/records.tsx",
    "absPath": "/fixture/solid-route/src/routes/records.tsx",
    "line": 33,
@@ -182,11 +182,11 @@
    "reason": null
   },
   {
-   "id": "route-framework-boundary:7hwd4g",
+   "id": "route-framework-boundary:11fwpui",
    "kind": "control",
    "label": "Show",
    "detail": "control-flow",
-   "parent": "route-occurrence:1wam0ne",
+   "parent": "route-occurrence:t2oasv",
    "file": "src/components/RecordTable.tsx",
    "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
    "line": 9,
@@ -203,11 +203,11 @@
    "reason": null
   },
   {
-   "id": "route-framework-boundary:umti3a",
+   "id": "route-framework-boundary:14gpop4",
    "kind": "control",
    "label": "For",
    "detail": "collection",
-   "parent": "route-framework-boundary:7hwd4g",
+   "parent": "route-framework-boundary:11fwpui",
    "file": "src/components/RecordTable.tsx",
    "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
    "line": 14,
@@ -224,11 +224,11 @@
    "reason": null
   },
   {
-   "id": "route-framework-boundary:1yyee3r",
+   "id": "route-framework-boundary:18tekvg",
    "kind": "control",
    "label": "Show",
    "detail": "control-flow",
-   "parent": "route-occurrence:1i30i7k",
+   "parent": "route-occurrence:1xfkpcb",
    "file": "src/routes/records.tsx",
    "absPath": "/fixture/solid-route/src/routes/records.tsx",
    "line": 31,
@@ -245,11 +245,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:ilz0ff",
+   "id": "route-terminal:17f0iq2",
    "kind": "terminal",
    "label": "props.label",
    "detail": "render-expression",
-   "parent": "route-occurrence:1e04p52",
+   "parent": "route-occurrence:5jqpmk",
    "file": "src/components/MetricCard.tsx",
    "absPath": "/fixture/solid-route/src/components/MetricCard.tsx",
    "line": 4,
@@ -266,11 +266,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:p81kcc",
+   "id": "route-terminal:meluf7",
    "kind": "terminal",
    "label": "props.label",
    "detail": "render-expression",
-   "parent": "route-occurrence:b66jfb",
+   "parent": "route-occurrence:1rbc7nn",
    "file": "src/components/MetricCard.tsx",
    "absPath": "/fixture/solid-route/src/components/MetricCard.tsx",
    "line": 4,
@@ -287,11 +287,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:19g5j0j",
+   "id": "route-terminal:17jn802",
    "kind": "terminal",
    "label": "props.value",
    "detail": "render-expression",
-   "parent": "route-occurrence:1e04p52",
+   "parent": "route-occurrence:5jqpmk",
    "file": "src/components/MetricCard.tsx",
    "absPath": "/fixture/solid-route/src/components/MetricCard.tsx",
    "line": 5,
@@ -308,11 +308,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:1bsy0d0",
+   "id": "route-terminal:qi8lh7",
    "kind": "terminal",
    "label": "props.value",
    "detail": "render-expression",
-   "parent": "route-occurrence:b66jfb",
+   "parent": "route-occurrence:1rbc7nn",
    "file": "src/components/MetricCard.tsx",
    "absPath": "/fixture/solid-route/src/components/MetricCard.tsx",
    "line": 5,
@@ -329,11 +329,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:ss9oii",
+   "id": "route-terminal:1k8r4so",
    "kind": "terminal",
    "label": "Records",
    "detail": "jsx-text",
-   "parent": "route-occurrence:1wam0ne",
+   "parent": "route-occurrence:t2oasv",
    "file": "src/components/RecordTable.tsx",
    "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
    "line": 8,
@@ -350,11 +350,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:onzmsb",
+   "id": "route-terminal:1ot44az",
    "kind": "terminal",
    "label": "No active records.",
    "detail": "jsx-text",
-   "parent": "route-framework-boundary:7hwd4g",
+   "parent": "route-framework-boundary:11fwpui",
    "file": "src/components/RecordTable.tsx",
    "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
    "line": 11,
@@ -371,11 +371,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:1txhel1",
+   "id": "route-terminal:k4ki78",
    "kind": "terminal",
    "label": "data-record-id",
    "detail": "dom-attribute",
-   "parent": "route-occurrence:euuis8",
+   "parent": "route-occurrence:1dsvb82",
    "file": "src/components/RecordTable.tsx",
    "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
    "line": 27,
@@ -392,11 +392,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:1xtzua8",
+   "id": "route-terminal:11xvdo3",
    "kind": "terminal",
    "label": "row.title",
    "detail": "render-expression",
-   "parent": "route-occurrence:euuis8",
+   "parent": "route-occurrence:1dsvb82",
    "file": "src/components/RecordTable.tsx",
    "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
    "line": 28,
@@ -413,11 +413,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:ms2v4m",
+   "id": "route-terminal:1brfge1",
    "kind": "terminal",
    "label": "row.statusLabel",
    "detail": "render-expression",
-   "parent": "route-occurrence:euuis8",
+   "parent": "route-occurrence:1dsvb82",
    "file": "src/components/RecordTable.tsx",
    "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
    "line": 29,
@@ -434,11 +434,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:a4cezn",
+   "id": "route-terminal:1jnyvj6",
    "kind": "terminal",
    "label": "row.scoreLabel",
    "detail": "render-expression",
-   "parent": "route-occurrence:euuis8",
+   "parent": "route-occurrence:1dsvb82",
    "file": "src/components/RecordTable.tsx",
    "absPath": "/fixture/solid-route/src/components/RecordTable.tsx",
    "line": 30,
@@ -455,11 +455,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:1x4g7n9",
+   "id": "route-terminal:1kdksd2",
    "kind": "terminal",
    "label": "Solid route fixture",
    "detail": "jsx-text",
-   "parent": "route-occurrence:1i30i7k",
+   "parent": "route-occurrence:1xfkpcb",
    "file": "src/components/RouteFrame.tsx",
    "absPath": "/fixture/solid-route/src/components/RouteFrame.tsx",
    "line": 12,
@@ -476,11 +476,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:yq4kos",
+   "id": "route-terminal:7stvvf",
    "kind": "terminal",
    "label": "props.title",
    "detail": "render-expression",
-   "parent": "route-occurrence:1i30i7k",
+   "parent": "route-occurrence:1xfkpcb",
    "file": "src/components/RouteFrame.tsx",
    "absPath": "/fixture/solid-route/src/components/RouteFrame.tsx",
    "line": 13,
@@ -497,11 +497,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:1xor9pl",
+   "id": "route-terminal:1m1yfxo",
    "kind": "terminal",
    "label": "Signed in as",
    "detail": "jsx-text",
-   "parent": "route-occurrence:gunqpl",
+   "parent": "route-occurrence:1ao6gae",
    "file": "src/components/ViewerCard.tsx",
    "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
    "line": 6,
@@ -518,11 +518,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:141musa",
+   "id": "route-terminal:5eycfd",
    "kind": "terminal",
    "label": "props.viewer?.name ?? \"loading viewer\"",
    "detail": "render-expression",
-   "parent": "route-occurrence:gunqpl",
+   "parent": "route-occurrence:1ao6gae",
    "file": "src/components/ViewerCard.tsx",
    "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
    "line": 6,
@@ -539,11 +539,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:dnupxk",
+   "id": "route-terminal:d598tb",
    "kind": "terminal",
    "label": "(",
    "detail": "jsx-text",
-   "parent": "route-occurrence:gunqpl",
+   "parent": "route-occurrence:1ao6gae",
    "file": "src/components/ViewerCard.tsx",
    "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
    "line": 6,
@@ -560,11 +560,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:msqkm1",
+   "id": "route-terminal:15ln124",
    "kind": "terminal",
    "label": "props.viewer?.team ?? \"loading team\"",
    "detail": "render-expression",
-   "parent": "route-occurrence:gunqpl",
+   "parent": "route-occurrence:1ao6gae",
    "file": "src/components/ViewerCard.tsx",
    "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
    "line": 7,
@@ -581,11 +581,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:92nsxn",
+   "id": "route-terminal:1tyxmf2",
    "kind": "terminal",
    "label": ")",
    "detail": "jsx-text",
-   "parent": "route-occurrence:gunqpl",
+   "parent": "route-occurrence:1ao6gae",
    "file": "src/components/ViewerCard.tsx",
    "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
    "line": 7,
@@ -602,11 +602,11 @@
    "reason": null
   },
   {
-   "id": "route-terminal:8uf98o",
+   "id": "route-terminal:1lseoc7",
    "kind": "terminal",
    "label": "Loading records...",
    "detail": "jsx-text",
-   "parent": "route-framework-boundary:1yyee3r",
+   "parent": "route-framework-boundary:18tekvg",
    "file": "src/routes/records.tsx",
    "absPath": "/fixture/solid-route/src/routes/records.tsx",
    "line": 31,
@@ -623,11 +623,11 @@
    "reason": null
   },
   {
-   "id": "program-element:1pr3jj6",
+   "id": "program-element:15han30",
    "kind": "origin",
    "label": "createResource(loadRecords)",
    "detail": "resource",
-   "parent": "route-occurrence:m8qwl",
+   "parent": "route-occurrence:1220ovh",
    "file": "src/routes/records.tsx",
    "absPath": "/fixture/solid-route/src/routes/records.tsx",
    "line": 16,
@@ -644,11 +644,11 @@
    "reason": null
   },
   {
-   "id": "program-element:jpfet7",
+   "id": "program-element:edwvnz",
    "kind": "origin",
    "label": "createResource(loadViewer)",
    "detail": "resource",
-   "parent": "route-occurrence:m8qwl",
+   "parent": "route-occurrence:1220ovh",
    "file": "src/routes/records.tsx",
    "absPath": "/fixture/solid-route/src/routes/records.tsx",
    "line": 17,
@@ -665,11 +665,11 @@
    "reason": null
   },
   {
-   "id": "program-element:13n867y",
+   "id": "program-element:1piaipq",
    "kind": "origin",
    "label": "fetch(\"/records.json\")",
    "detail": "fetch · network",
-   "parent": "route-occurrence:m8qwl",
+   "parent": "route-occurrence:1220ovh",
    "file": "src/data/records.ts",
    "absPath": "/fixture/solid-route/src/data/records.ts",
    "line": 4,
@@ -686,11 +686,11 @@
    "reason": null
   },
   {
-   "id": "program-element:1uit8uh",
+   "id": "program-element:ykbj5w",
    "kind": "origin",
    "label": "fetch(\"/viewer.json\")",
    "detail": "fetch · network",
-   "parent": "route-occurrence:m8qwl",
+   "parent": "route-occurrence:1220ovh",
    "file": "src/data/viewer.ts",
    "absPath": "/fixture/solid-route/src/data/viewer.ts",
    "line": 4,
@@ -709,9 +709,9 @@
  ],
  "edges": [
   {
-   "id": "route-occurrence-edge:1d4but2",
-   "source": "route-occurrence:1wam0ne",
-   "target": "route-framework-boundary:7hwd4g",
+   "id": "route-occurrence-edge:1d1w9oc",
+   "source": "route-occurrence:yk8cu7",
+   "target": "route-occurrence:5jqpmk",
    "kind": "render",
    "label": null,
    "status": "proven",
@@ -719,9 +719,9 @@
    "pathIds": null
   },
   {
-   "id": "route-occurrence-edge:1dfwt08",
-   "source": "route-framework-boundary:7hwd4g",
-   "target": "route-framework-boundary:umti3a",
+   "id": "route-occurrence-edge:1f8x9z2",
+   "source": "route-framework-boundary:11fwpui",
+   "target": "route-framework-boundary:14gpop4",
    "kind": "render",
    "label": null,
    "status": "proven",
@@ -729,9 +729,9 @@
    "pathIds": null
   },
   {
-   "id": "route-occurrence-edge:1etqlyl",
-   "source": "route-framework-boundary:umti3a",
-   "target": "route-occurrence:euuis8",
+   "id": "route-occurrence-edge:1gnqnbm",
+   "source": "route-occurrence:1220ovh",
+   "target": "route-occurrence:1xfkpcb",
    "kind": "render",
    "label": null,
    "status": "proven",
@@ -739,9 +739,9 @@
    "pathIds": null
   },
   {
-   "id": "route-occurrence-edge:1nbpk7w",
-   "source": "route-occurrence:n7tgmy",
-   "target": "route-occurrence:1e04p52",
+   "id": "route-occurrence-edge:1if4mts",
+   "source": "route-framework-boundary:18tekvg",
+   "target": "route-occurrence:t2oasv",
    "kind": "render",
    "label": null,
    "status": "proven",
@@ -749,9 +749,9 @@
    "pathIds": null
   },
   {
-   "id": "route-occurrence-edge:5kftba",
-   "source": "route-occurrence:1i30i7k",
-   "target": "route-framework-boundary:1yyee3r",
+   "id": "route-occurrence-edge:1mwcvsn",
+   "source": "route-occurrence:yk8cu7",
+   "target": "route-occurrence:1rbc7nn",
    "kind": "render",
    "label": null,
    "status": "proven",
@@ -759,9 +759,9 @@
    "pathIds": null
   },
   {
-   "id": "route-occurrence-edge:lxvrqu",
-   "source": "route-occurrence:m8qwl",
-   "target": "route-occurrence:1i30i7k",
+   "id": "route-occurrence-edge:1siam8q",
+   "source": "route-framework-boundary:18tekvg",
+   "target": "route-occurrence:yk8cu7",
    "kind": "render",
    "label": null,
    "status": "proven",
@@ -769,9 +769,9 @@
    "pathIds": null
   },
   {
-   "id": "route-occurrence-edge:qqxrlk",
-   "source": "route-framework-boundary:1yyee3r",
-   "target": "route-occurrence:1wam0ne",
+   "id": "route-occurrence-edge:1v10bce",
+   "source": "route-occurrence:1xfkpcb",
+   "target": "route-occurrence:1ao6gae",
    "kind": "render",
    "label": null,
    "status": "proven",
@@ -779,9 +779,9 @@
    "pathIds": null
   },
   {
-   "id": "route-occurrence-edge:t67cq4",
-   "source": "route-occurrence:1i30i7k",
-   "target": "route-occurrence:gunqpl",
+   "id": "route-occurrence-edge:4icptz",
+   "source": "route-occurrence:1xfkpcb",
+   "target": "route-framework-boundary:18tekvg",
    "kind": "render",
    "label": null,
    "status": "proven",
@@ -789,9 +789,9 @@
    "pathIds": null
   },
   {
-   "id": "route-occurrence-edge:tzstkf",
-   "source": "route-occurrence:n7tgmy",
-   "target": "route-occurrence:b66jfb",
+   "id": "route-occurrence-edge:5lk1da",
+   "source": "route-occurrence:t2oasv",
+   "target": "route-framework-boundary:11fwpui",
    "kind": "render",
    "label": null,
    "status": "proven",
@@ -799,9 +799,9 @@
    "pathIds": null
   },
   {
-   "id": "route-occurrence-edge:zj6qwh",
-   "source": "route-framework-boundary:1yyee3r",
-   "target": "route-occurrence:n7tgmy",
+   "id": "route-occurrence-edge:g632ks",
+   "source": "route-framework-boundary:14gpop4",
+   "target": "route-occurrence:1dsvb82",
    "kind": "render",
    "label": null,
    "status": "proven",
@@ -809,120 +809,9 @@
    "pathIds": null
   },
   {
-   "id": "route-totality-bridge:1m786j2",
-   "source": "program-element:jpfet7",
-   "target": "route-terminal:msqkm1",
-   "kind": "handoff",
-   "label": null,
-   "status": "proven",
-   "proof": [
-    {
-     "kind": "route-totality-bridge",
-     "detail": "The explicit evidence relation path reaches a route render terminal at the same source span.",
-     "locations": [
-      {
-       "file": "src/components/ViewerCard.tsx",
-       "line": 3,
-       "column": 1,
-       "span": {
-        "startLine": 3,
-        "startColumn": 1,
-        "endLine": 10,
-        "endColumn": 2
-       }
-      },
-      {
-       "file": "src/components/ViewerCard.tsx",
-       "line": 7,
-       "column": 8,
-       "span": {
-        "startLine": 7,
-        "startColumn": 8,
-        "endLine": 7,
-        "endColumn": 44
-       }
-      },
-      {
-       "file": "src/routes/records.tsx",
-       "line": 17,
-       "column": 20,
-       "span": {
-        "startLine": 17,
-        "startColumn": 20,
-        "endLine": 17,
-        "endColumn": 46
-       }
-      },
-      {
-       "file": "src/routes/records.tsx",
-       "line": 30,
-       "column": 19,
-       "span": {
-        "startLine": 30,
-        "startColumn": 19,
-        "endLine": 30,
-        "endColumn": 36
-       }
-      },
-      {
-       "file": "src/routes/records.tsx",
-       "line": 30,
-       "column": 27,
-       "span": {
-        "startLine": 30,
-        "startColumn": 27,
-        "endLine": 30,
-        "endColumn": 35
-       }
-      },
-      {
-       "file": "src/routes/records.tsx",
-       "line": 30,
-       "column": 7,
-       "span": {
-        "startLine": 30,
-        "startColumn": 7,
-        "endLine": 30,
-        "endColumn": 39
-       }
-      },
-      {
-       "file": "src/routes/records.tsx",
-       "line": 30,
-       "column": 8,
-       "span": {
-        "startLine": 30,
-        "startColumn": 8,
-        "endLine": 30,
-        "endColumn": 18
-       }
-      }
-     ],
-     "status": "proven"
-    }
-   ],
-   "pathIds": {
-    "elements": [
-     "program-element:jpfet7",
-     "program-element:3b8d4u",
-     "program-element:gwfd9i",
-     "program-element:ngme28",
-     "program-element:iv2ljy",
-     "program-element:s37pou"
-    ],
-    "relations": [
-     "program-relation:nc73t6",
-     "program-relation:atlxnx",
-     "program-relation:6j3ntr",
-     "program-relation:o1mokn",
-     "program-relation:1yeviyc"
-    ]
-   }
-  },
-  {
-   "id": "route-totality-bridge:ay3y0d",
-   "source": "program-element:jpfet7",
-   "target": "route-occurrence:gunqpl",
+   "id": "route-totality-bridge:15mrz4",
+   "source": "program-element:edwvnz",
+   "target": "route-occurrence:1ao6gae",
    "kind": "handoff",
    "label": null,
    "status": "proven",
@@ -981,22 +870,22 @@
    ],
    "pathIds": {
     "elements": [
-     "program-element:jpfet7",
-     "program-element:3b8d4u",
-     "program-element:gwfd9i",
-     "program-element:ngme28"
+     "program-element:edwvnz",
+     "program-element:i870yi",
+     "program-element:1l4r34g",
+     "program-element:5xxq9b"
     ],
     "relations": [
-     "program-relation:nc73t6",
-     "program-relation:atlxnx",
-     "program-relation:6j3ntr"
+     "program-relation:6ozd9m",
+     "program-relation:1tn7u1e",
+     "program-relation:3kns74"
     ]
    }
   },
   {
-   "id": "route-totality-bridge:hgo0fu",
-   "source": "program-element:jpfet7",
-   "target": "route-terminal:141musa",
+   "id": "route-totality-bridge:hoh2n8",
+   "source": "program-element:edwvnz",
+   "target": "route-terminal:5eycfd",
    "kind": "handoff",
    "label": null,
    "status": "proven",
@@ -1088,27 +977,138 @@
    ],
    "pathIds": {
     "elements": [
-     "program-element:jpfet7",
-     "program-element:3b8d4u",
-     "program-element:gwfd9i",
-     "program-element:ngme28",
-     "program-element:iv2ljy",
-     "program-element:lpxdkm"
+     "program-element:edwvnz",
+     "program-element:i870yi",
+     "program-element:1l4r34g",
+     "program-element:5xxq9b",
+     "program-element:7n4kxc",
+     "program-element:1jzmvff"
     ],
     "relations": [
-     "program-relation:nc73t6",
-     "program-relation:atlxnx",
-     "program-relation:6j3ntr",
-     "program-relation:o1mokn",
-     "program-relation:1nuteig"
+     "program-relation:6ozd9m",
+     "program-relation:1tn7u1e",
+     "program-relation:3kns74",
+     "program-relation:14gsaq8",
+     "program-relation:1nhdyvr"
+    ]
+   }
+  },
+  {
+   "id": "route-totality-bridge:i4jgb4",
+   "source": "program-element:edwvnz",
+   "target": "route-terminal:15ln124",
+   "kind": "handoff",
+   "label": null,
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "route-totality-bridge",
+     "detail": "The explicit evidence relation path reaches a route render terminal at the same source span.",
+     "locations": [
+      {
+       "file": "src/components/ViewerCard.tsx",
+       "line": 3,
+       "column": 1,
+       "span": {
+        "startLine": 3,
+        "startColumn": 1,
+        "endLine": 10,
+        "endColumn": 2
+       }
+      },
+      {
+       "file": "src/components/ViewerCard.tsx",
+       "line": 7,
+       "column": 8,
+       "span": {
+        "startLine": 7,
+        "startColumn": 8,
+        "endLine": 7,
+        "endColumn": 44
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 17,
+       "column": 20,
+       "span": {
+        "startLine": 17,
+        "startColumn": 20,
+        "endLine": 17,
+        "endColumn": 46
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 19,
+       "span": {
+        "startLine": 30,
+        "startColumn": 19,
+        "endLine": 30,
+        "endColumn": 36
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 27,
+       "span": {
+        "startLine": 30,
+        "startColumn": 27,
+        "endLine": 30,
+        "endColumn": 35
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 7,
+       "span": {
+        "startLine": 30,
+        "startColumn": 7,
+        "endLine": 30,
+        "endColumn": 39
+       }
+      },
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 8,
+       "span": {
+        "startLine": 30,
+        "startColumn": 8,
+        "endLine": 30,
+        "endColumn": 18
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "pathIds": {
+    "elements": [
+     "program-element:edwvnz",
+     "program-element:i870yi",
+     "program-element:1l4r34g",
+     "program-element:5xxq9b",
+     "program-element:7n4kxc",
+     "program-element:qg84pv"
+    ],
+    "relations": [
+     "program-relation:6ozd9m",
+     "program-relation:1tn7u1e",
+     "program-relation:3kns74",
+     "program-relation:14gsaq8",
+     "program-relation:o24zoc"
     ]
    }
   }
  ],
  "origins": [
   {
-   "nodeId": "program-element:1pr3jj6",
-   "elementId": "program-element:1pr3jj6",
+   "nodeId": "program-element:15han30",
+   "elementId": "program-element:15han30",
    "roles": [
     "resource"
    ],
@@ -1116,8 +1116,8 @@
    "status": "proven"
   },
   {
-   "nodeId": "program-element:jpfet7",
-   "elementId": "program-element:jpfet7",
+   "nodeId": "program-element:edwvnz",
+   "elementId": "program-element:edwvnz",
    "roles": [
     "resource"
    ],
@@ -1125,8 +1125,8 @@
    "status": "proven"
   },
   {
-   "nodeId": "program-element:13n867y",
-   "elementId": "program-element:13n867y",
+   "nodeId": "program-element:1piaipq",
+   "elementId": "program-element:1piaipq",
    "roles": [
     "fetch",
     "network"
@@ -1135,8 +1135,8 @@
    "status": "proven"
   },
   {
-   "nodeId": "program-element:1uit8uh",
-   "elementId": "program-element:1uit8uh",
+   "nodeId": "program-element:ykbj5w",
+   "elementId": "program-element:ykbj5w",
    "roles": [
     "fetch",
     "network"
