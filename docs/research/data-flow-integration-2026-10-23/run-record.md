@@ -30,15 +30,17 @@ Completion: collect and read Pro deliverables, verify decisive claims, integrate
 - First check target: about 10:34 p.m. America/Indianapolis on October 23.
 - Phase: submitted; waiting for Pro. Follow-ups: 0. Collected files: none. PR: none.
 
-## Continuation blocker
+## Scheduled continuation
 
-Heartbeat ID: none. Automatic approval review rejected creation of the hourly continuation automation.
+- Heartbeat ID: collect-srcly-data-flow-design.
+- Status: ACTIVE; verified in the automation configuration.
+- Schedule: hourly at minute 34. First check: October 23 at 10:34 p.m. America/Indianapolis.
+- Target: this chat, 01a16b86-ee42-7711-b6a9-44af3f381b48.
+- Byron explicitly approved hourly collection, claim verification, research and plan edits, branch push, and PR creation.
+- Stop the monitor when the verified PR completes the run. Stay quiet while Pro remains running without a meaningful change.
+- Automatic approval review initially rejected scheduling. Byron then gave explicit approval, and automation creation succeeded.
 
-The proposed automation would check this same conversation hourly, download results, verify claims, write the research and plan in Srcly, push the scoped branch, open a PR, and disable itself. It would stay quiet while unchanged.
-
-Review reason: the persistent consequential workflow was not explicitly authorized by the user. The rejection names file inspection, ChatGPT access, Srcly modifications, push, and PR creation. Do not bypass this rejection. Ask Byron for explicit approval of that scheduled continuation before retrying.
-
-The full-process skill was invoked and its standing download approval still applies to task assets. Resume the same conversation; never submit a second research run because the current turn ends.
+The invoked skill's standing approval covers all task deliverable downloads. Resume the same Pro conversation; never submit a second research run because a turn ends.
 
 ## Integration route
 
