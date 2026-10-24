@@ -23,6 +23,8 @@ import { formatLoc, stripSegments, type ContentItem, type StripSegment } from ".
 import type { HubShape } from "./hubs";
 import { FRAME_LABEL_H, MAX_SCALE, type PositionedEdge, type PositionedNode, type ViewLayout } from "./layout";
 import type { ViewNode } from "./viewModel";
+import { FlowMarkGlyph, RepetitionBadge } from "./flow/FlowMark";
+import { isFlowMark, REPETITION_BADGE } from "./flow/marks";
 
 const LABEL_FONT = "600 12.5px Inter, ui-sans-serif, system-ui, sans-serif";
 const SUBTITLE_FONT = "400 11px Inter, ui-sans-serif, system-ui, sans-serif";
@@ -42,7 +44,16 @@ const METRIC_BAR_W = 28;
  * enough that the bar and the contents strip carry the exact colors.
  */
 const TINT = 0.22;
+/** A box fill with a color mixed in at `TINT`: the treemap's metric color, or a flow node's kind color. */
+const tintFill = (color: string) => d3.interpolateLab("#ffffff", color)(TINT);
 const MUTED_TEXT = "var(--plc-on-muted)";
+/** Row 3 in Data flow mode: the in/out counts' width before the note starts. */
+const FLOW_COUNTS_W = 78;
+const STATUS_COLOR: Record<NonNullable<ViewNode["status"]>, string> = {
+  proven: "var(--plc-success)",
+  partial: "var(--plc-warning)",
+  unsupported: "var(--plc-error)",
+};
 /** Rows 2–4 share the label's left edge; the kind glyph owns the column before it. */
 const TEXT_X = PAD_X + ICON_W;
 /** Pitch between badges in row 4. */
@@ -94,19 +105,15 @@ const SYMBOL_GLYPH: Record<string, string> = {
   enum: "E",
   variable: "v",
   value: "v",
-  // Data flow mode.
-  route: "R",
-  component: "<",
-  control: "{",
-  terminal: "t",
-  origin: "o",
 };
 
-/** The 12px kind icon boxes use; the go-to palette draws the same ones. */
+/** The 12px kind icon boxes use; the go-to palette draws the same ones. Data flow nodes get their kind's mark (`flow/marks.ts`). */
 export function KindGlyph(props: { node: Pick<ViewNode, "kind" | "symbolKind">; x: number; y: number }) {
   const k = () => props.node.kind;
   const glyph = () => SYMBOL_GLYPH[props.node.symbolKind ?? ""] ?? "ƒ";
+  const mark = () => (isFlowMark(props.node.symbolKind) ? props.node.symbolKind : null);
   return (
+    <Show when={!mark()} fallback={<FlowMarkGlyph mark={mark()!} x={props.x} y={props.y} />}>
     <g transform={`translate(${props.x},${props.y})`} class="text-[var(--plc-on-subtle)]" aria-hidden="true">
       <Show when={k() === "folder"}>
         <path d="M0.5 2.5h4l1.5 1.5h6v6.5h-11.5z" fill="none" stroke="currentColor" stroke-width="1.1" />
@@ -123,6 +130,7 @@ export function KindGlyph(props: { node: Pick<ViewNode, "kind" | "symbolKind">; 
         </text>
       </Show>
     </g>
+    </Show>
   );
 }
 
@@ -206,10 +214,11 @@ export function DependencyCanvas(props: {
   collapsible?: (groupId: string) => boolean;
   onCollapse?: (groupId: string) => void;
   /**
-   * Import counts and mutual-import badges on each box (default on). Data
-   * flow mode turns them off and shows the box's `note` on that row instead.
+   * Import counts and mutual-import badges on each box (default on). `false`
+   * shows the box's `note` on that row instead; `"flow"` (Data flow mode)
+   * draws the counts as flow in and out, with the note after them.
    */
-  linkCounts?: boolean;
+  linkCounts?: boolean | "flow";
   /**
    * Boxes and edges to keep lit while nothing is hovered (Data flow mode's
    * selected origin and its proven destinations); the rest dim like a hover.
@@ -412,7 +421,7 @@ export function DependencyCanvas(props: {
     const loc = props.metrics?.get(n.id)?.loc;
     return typeof loc === "number" && loc > 0 ? formatLoc(loc) : "";
   };
-  const textRoom = (n: PositionedNode) => n.width - PAD_X * 2 - ICON_W - (hubById().has(n.id) ? 16 : 0);
+  const textRoom = (n: PositionedNode) => n.width - PAD_X * 2 - ICON_W - (hubById().has(n.id) || n.node.repetition ? 16 : 0);
   /** Line 2 shares its width with the right-aligned LOC. */
   const subtitleRoom = (n: PositionedNode) => {
     const loc = locText(n);
@@ -498,14 +507,29 @@ export function DependencyCanvas(props: {
   });
   const countTone = (k: number) => (k === 0 ? "var(--plc-on-disabled)" : k >= connectorMin() ? "var(--plc-on-surface)" : "var(--plc-on-muted)");
   const countWeight = (k: number) => (k > 0 && k >= connectorMin() ? 700 : 400);
-  const inTip = (b: BoxInfo): Tip => ({
-    title: b.importers.length ? `Imported by ${plural(b.importers.length, "box")} · ${plural(b.inLinks, "link")}` : "Nothing in view imports it",
-    rows: linkRows(b.importers, b.linksFrom),
-  });
-  const outTip = (b: BoxInfo): Tip => ({
-    title: b.imports.length ? `Imports ${plural(b.imports.length, "box")} · ${plural(b.outLinks, "link")}` : "Imports nothing in view",
-    rows: linkRows(b.imports, b.linksTo),
-  });
+  const flow = () => props.linkCounts === "flow";
+  const inTip = (b: BoxInfo): Tip =>
+    flow()
+      ? {
+          title: b.importers.length ? `Flows in from ${plural(b.importers.length, "box")}` : "Nothing drawn flows into it",
+          lines: b.importers.length ? ["What renders it, and the origins proven to reach it."] : undefined,
+          rows: linkRows(b.importers, b.linksFrom),
+        }
+      : {
+          title: b.importers.length ? `Imported by ${plural(b.importers.length, "box")} · ${plural(b.inLinks, "link")}` : "Nothing in view imports it",
+          rows: linkRows(b.importers, b.linksFrom),
+        };
+  const outTip = (b: BoxInfo): Tip =>
+    flow()
+      ? {
+          title: b.imports.length ? `Flows out to ${plural(b.imports.length, "box")}` : "Nothing drawn flows out of it",
+          lines: b.imports.length ? ["What it renders, or the render sites it is proven to reach."] : undefined,
+          rows: linkRows(b.imports, b.linksTo),
+        }
+      : {
+          title: b.imports.length ? `Imports ${plural(b.imports.length, "box")} · ${plural(b.outLinks, "link")}` : "Imports nothing in view",
+          rows: linkRows(b.imports, b.linksTo),
+        };
 
   const contentsOf = (n: PositionedNode) => props.contents?.get(n.id);
   const itemColor = (c: ContentItem) => (props.colorMetric ? treemapFillColor(props.colorMetric, c.metrics, 0) : "var(--plc-tertiary)");
@@ -574,7 +598,7 @@ export function DependencyCanvas(props: {
     const metric = props.colorMetric;
     if (!metric || !props.metrics) return out;
     for (const [id, m] of props.metrics) {
-      out.set(id, { fill: d3.interpolateLab("#ffffff", treemapFillColor(metric, m, 0))(TINT) });
+      out.set(id, { fill: tintFill(treemapFillColor(metric, m, 0)) });
     }
     return out;
   });
@@ -960,6 +984,8 @@ export function DependencyCanvas(props: {
               const dimmed = () => activeNodes() !== null && !activeNodes()!.has(n.id);
               const box = () => info().get(n.id);
               const hub = () => hubById().get(n.id);
+              /** Data flow mode: the note shares row 3 with the in/out counts. */
+              const noteOffset = () => (flow() && box() ? FLOW_COUNTS_W : 0);
               const flight = flights().get(n.id);
               const cursor = () =>
                 CLICK_CURSOR[
@@ -1032,16 +1058,18 @@ export function DependencyCanvas(props: {
                       dimmed()
                         ? "var(--plc-surface)"
                         : (paint().get(n.id)?.fill ??
-                          (isFolder ? "var(--plc-surface-muted)" : "var(--plc-surface)"))
+                          (n.node.tint ? tintFill(n.node.tint) : isFolder ? "var(--plc-surface-muted)" : "var(--plc-surface)"))
                     }
                     stroke={
                       isFocus || n.node.lit
                         ? "var(--plc-accent)"
-                        : hoverNode() === n.id || hoverHub() === n.id
-                          ? "var(--plc-on-muted)"
-                          : isFolder ? "var(--plc-on-disabled)" : "var(--plc-border-strong)"
+                        : n.node.status && n.node.status !== "proven"
+                          ? STATUS_COLOR[n.node.status]
+                          : hoverNode() === n.id || hoverHub() === n.id
+                            ? "var(--plc-on-muted)"
+                            : isFolder ? "var(--plc-on-disabled)" : "var(--plc-border-strong)"
                     }
-                    stroke-width={isFocus ? 2.25 : n.node.lit ? 2 : isFolder || hub() ? 1.5 : 1}
+                    stroke-width={isFocus ? 2.25 : n.node.lit ? 2 : isFolder || hub() || (n.node.status && n.node.status !== "proven") ? 1.5 : 1}
                     stroke-dasharray={n.node.kind === "external" ? EXTERNAL_BOX_DASH : n.node.outline === "dotted" ? DOTTED_BOX_DASH : n.node.outline === "hatched" ? FRONTIER_BOX_DASH : undefined}
                     style={{ transition: "stroke 140ms ease, fill 140ms ease" }}
                   />
@@ -1064,6 +1092,14 @@ export function DependencyCanvas(props: {
                       </g>
                     )}
                   </Show>
+                  <Show when={n.node.repetition}>
+                    {(r) => (
+                      <g {...iconHover(() => ({ title: REPETITION_BADGE[r()].title, lines: [REPETITION_BADGE[r()].hint] }))}>
+                        <rect x={n.width - 22} y={4} width={18} height={18} fill="transparent" />
+                        <RepetitionBadge repetition={r()} x={n.width - 13} y={LINE1_Y - 4.5} />
+                      </g>
+                    )}
+                  </Show>
                   {/* Row 2: where it lives (or what it holds) + LOC. */}
                   <Show when={shownSubtitle(n)}>
                     <text x={TEXT_X} y={LINE2_Y} class="text-[11px]" fill={MUTED_TEXT}>
@@ -1076,9 +1112,9 @@ export function DependencyCanvas(props: {
                     </text>
                   </Show>
                   {/* Row 3: boxes importing it / it imports, and the color metric as a bar. */}
-                  <Show when={props.linkCounts === false && n.node.note}>
-                    <text x={TEXT_X} y={LINE3_Y} class="text-[11px]" fill={MUTED_TEXT}>
-                      {truncateTextToWidth(n.node.note ?? "", textRoom(n), SUBTITLE_FONT)}
+                  <Show when={props.linkCounts !== true && n.node.note}>
+                    <text x={TEXT_X + noteOffset()} y={LINE3_Y} class="text-[11px]" fill={MUTED_TEXT}>
+                      {truncateTextToWidth(n.node.note ?? "", textRoom(n) - noteOffset(), SUBTITLE_FONT)}
                     </text>
                   </Show>
                   <Show when={props.linkCounts !== false && box()}>
@@ -1208,7 +1244,7 @@ export function DependencyCanvas(props: {
             style={{ left: "0px", top: "0px", visibility: "hidden" }}
           >
             <Show when={c().node}>
-              {(pn) => <NodeCard node={pn().node} focused={pn().node.graphId === props.focusId} info={info().get(pn().id)} metric={metricRow(pn())} loc={props.metrics?.get(pn().id)?.loc} hub={hubById().get(pn().id)} contents={contentsOf(pn())} itemColor={itemColor} />}
+              {(pn) => <NodeCard node={pn().node} focused={pn().node.graphId === props.focusId} info={info().get(pn().id)} metric={metricRow(pn())} loc={props.metrics?.get(pn().id)?.loc} hub={hubById().get(pn().id)} contents={contentsOf(pn())} itemColor={itemColor} flow={flow()} />}
             </Show>
             <Show when={c().edge}>
               {(pe) => <EdgeCard edge={pe()} nodes={nodeById()} />}
@@ -1369,6 +1405,8 @@ function NodeCard(props: {
   /** A folder's children, largest first. */
   contents?: ContentItem[];
   itemColor: (c: ContentItem) => string;
+  /** Data flow mode: links are flow in and out, and the node carries a proof status. */
+  flow?: boolean;
 }) {
   const kind = () =>
     [
@@ -1395,6 +1433,23 @@ function NodeCard(props: {
         </Show>
       </div>
       <div class={HINT}>{kind()}</div>
+      <Show when={props.node.status || props.node.repetition}>
+        <div class="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-[11px]">
+          <Show when={props.node.status}>
+            {(s) => (
+              <span class="font-semibold" style={{ color: STATUS_COLOR[s()] }}>
+                {s() === "proven" ? "proven" : s() === "partial" ? "partial proof" : "unsupported"}
+              </span>
+            )}
+          </Show>
+          <Show when={props.node.repetition}>
+            {(r) => <span class="text-[var(--plc-on-muted)]">{REPETITION_BADGE[r()].title.toLowerCase()}</span>}
+          </Show>
+          <Show when={props.node.note?.includes("inside")}>
+            <span class="text-[var(--plc-on-muted)]">{props.node.note?.split(" · ").find((p) => p.includes("inside"))}</span>
+          </Show>
+        </div>
+      </Show>
       <Show when={props.node.title && props.node.title !== props.node.label}>
         <div class="plc-data-sm truncate !font-normal text-[var(--plc-on-subtle)]">{tailPath(props.node.title)}</div>
       </Show>
@@ -1441,10 +1496,12 @@ function NodeCard(props: {
       <Show when={i()}>
         {(b) => (
           <div class="mt-1 grid grid-cols-2 gap-x-4 gap-y-px">
-            <Stat label="Imported by" value={b().importers.length} />
-            <Stat label="Imports" value={b().imports.length} />
-            <Stat label="Links in" value={b().inLinks} />
-            <Stat label="Links out" value={b().outLinks} />
+            <Stat label={props.flow ? "Flows in from" : "Imported by"} value={b().importers.length} />
+            <Stat label={props.flow ? "Flows out to" : "Imports"} value={b().imports.length} />
+            <Show when={!props.flow}>
+              <Stat label="Links in" value={b().inLinks} />
+              <Stat label="Links out" value={b().outLinks} />
+            </Show>
             <Show when={b().cycles.length}>
               <Stat label="Mutual" value={b().cycles.length} />
             </Show>
@@ -1452,7 +1509,13 @@ function NodeCard(props: {
         )}
       </Show>
       <div class={`mt-1.5 border-t border-[var(--plc-divider)] pt-1 ${HINT}`}>
-        {props.focused
+        {props.flow
+          ? props.node.symbolKind === "origin"
+            ? "Click lights what it reaches · double-click opens code"
+            : props.node.expandable
+              ? "Shift-click opens the frame · double-click opens code"
+              : "Click selects · double-click or O opens code"
+          : props.focused
           ? "Double-click or middle-click to open code"
           : props.node.kind === "folder" && props.node.expandable
             ? "Click focuses · Shift-click opens in place"
