@@ -11,7 +11,8 @@
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
-    "accept:route-field-proof": "node --import tsx scripts/accept-route-field-proof.ts"
+    "accept:route-field-proof": "node --import tsx scripts/accept-route-field-proof.ts",
+    "emit-contracts": "node --import tsx scripts/emit-contracts.ts"
   },
   "dependencies": {
     "typescript": "5.9.3",
