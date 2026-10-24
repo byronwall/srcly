@@ -12,7 +12,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Outcome(str, Enum):
@@ -391,6 +391,95 @@ class ValueFlowResponse(BaseModel):
     generation: int | None = None
     programHash: str | None = None
     ledger: ValueFlowResult | None = None
+
+
+# ---- function effects (contracts/functionEffects.schema.json) ----------------
+
+
+class EffectWitness(BaseModel):
+    file: str
+    absPath: str
+    line: int
+    span: SourceSpan
+    text: str
+
+
+class EffectVia(BaseModel):
+    callable: str
+    file: str
+    line: int
+
+
+class EffectFact(BaseModel):
+    id: str
+    family: Literal["external", "input", "write", "throw", "timer", "promise"]
+    kind: str
+    label: str
+    detail: str
+    status: Literal["proven", "partial"]
+    activation: Literal["direct", "after-await", "timer", "latent"]
+    via: list[EffectVia]
+    witness: EffectWitness
+
+
+class EffectFrontier(BaseModel):
+    id: str
+    reason: str
+    label: str
+    detail: str
+    via: list[EffectVia]
+    witness: EffectWitness
+
+
+class ResultHandling(BaseModel):
+    callee: str
+    handling: Literal["awaited", "returned", "assigned", "passed", "discarded"]
+    witness: EffectWitness
+
+
+class EffectCallable(BaseModel):
+    name: str
+    kind: Literal["function", "arrow", "method", "getter", "setter", "constructor"]
+    async_: bool = Field(alias="async")
+    file: str
+    absPath: str
+    line: int
+    span: SourceSpan
+
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+
+class EffectCounts(BaseModel):
+    facts: int
+    frontiers: int
+    callables: int
+
+
+class FunctionEffectsResult(BaseModel):
+    outcome: Outcome
+    generation: int
+    programHash: str
+    tsconfig: str
+    typescript: str
+    reason: str | None
+    callable: EffectCallable
+    facts: list[EffectFact]
+    frontiers: list[EffectFrontier]
+    resultHandling: list[ResultHandling]
+    coverage: Literal["complete-for-supported-scope", "partial", "not-analyzed"]
+    counts: EffectCounts
+    assumptions: list[str]
+
+
+class FunctionEffectsResponse(BaseModel):
+    """``POST /api/dataflow/function-effects``."""
+
+    outcome: Outcome
+    reason: str | None = None
+    message: str | None = None
+    generation: int | None = None
+    programHash: str | None = None
+    effects: FunctionEffectsResult | None = None
 
 
 # ---- anchor graph (contracts/anchorGraph.schema.json) ------------------------

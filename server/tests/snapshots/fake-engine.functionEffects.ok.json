@@ -1,0 +1,74 @@
+{
+  "assumptions": [
+    "Intrinsics are taken as pure unless named."
+  ],
+  "callable": {
+    "absPath": "/fixture/src/f.tsx",
+    "async": true,
+    "file": "src/f.tsx",
+    "kind": "function",
+    "line": 1,
+    "name": "load",
+    "span": {
+      "endColumn": 20,
+      "endLine": 1,
+      "startColumn": 1,
+      "startLine": 1
+    }
+  },
+  "counts": {
+    "callables": 1,
+    "facts": 1,
+    "frontiers": 0
+  },
+  "coverage": "complete-for-supported-scope",
+  "facts": [
+    {
+      "activation": "direct",
+      "detail": "A network request leaves the program.",
+      "family": "external",
+      "id": "fact:1",
+      "kind": "network-request",
+      "label": "fetch",
+      "status": "proven",
+      "via": [],
+      "witness": {
+        "absPath": "/fixture/src/f.tsx",
+        "file": "src/f.tsx",
+        "line": 1,
+        "span": {
+          "endColumn": 20,
+          "endLine": 1,
+          "startColumn": 1,
+          "startLine": 1
+        },
+        "text": "fetch(url)"
+      }
+    }
+  ],
+  "frontiers": [],
+  "generation": 1,
+  "outcome": "ok",
+  "programHash": "hash-1",
+  "reason": null,
+  "resultHandling": [
+    {
+      "callee": "fetch",
+      "handling": "awaited",
+      "witness": {
+        "absPath": "/fixture/src/f.tsx",
+        "file": "src/f.tsx",
+        "line": 1,
+        "span": {
+          "endColumn": 20,
+          "endLine": 1,
+          "startColumn": 1,
+          "startLine": 1
+        },
+        "text": "fetch(url)"
+      }
+    }
+  ],
+  "tsconfig": "/fixture/tsconfig.json",
+  "typescript": "5.9.3"
+}

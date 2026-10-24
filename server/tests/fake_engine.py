@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any
 
 CONTRACTS = Path(__file__).resolve().parents[1] / "app" / "services" / "dataflow" / "contracts"
-OPS = ("hello", "status", "routes", "routeGraph", "selectExpression", "valueFlow", "anchorGraph")
+OPS = ("hello", "status", "routes", "routeGraph", "selectExpression", "valueFlow", "anchorGraph", "functionEffects")
 SHAPES = ("ok", "partial", "unsupported", "budget", "stale", "not-analyzed")
 """Shapes the three graph ops answer in; the other three are engine errors."""
 RESULT_SHAPES = ("ok", "partial", "unsupported")
@@ -140,7 +140,31 @@ class FakeEngine:
             return self.value_flow(params, self.outcomes.get(op, "ok"))
         if op == "selectExpression":
             return self.select_expression(params)
+        if op == "functionEffects":
+            return self.function_effects(params, self.outcomes.get(op, "ok"))
         raise LookupError(op)
+
+    def function_effects(self, params: dict, shape: str) -> dict:
+        schema = schema_for("functionEffects")
+        file = params["file"]
+        line = params.get("line", 1)
+        span = self.span(line, 1, 20)
+        witness = {"file": file, "absPath": f"{self.args.root}/{file}", "line": line, "span": span, "text": "fetch(url)"}
+        fact = {**example(item_schema(schema, "facts")), "id": "fact:1", "family": "external", "kind": "network-request", "label": "fetch",
+                "detail": "A network request leaves the program.", "status": "proven", "activation": "direct", "via": [], "witness": witness}
+        base = {**example(schema), "outcome": "ok", **self.generation_fields(), "reason": None,
+                "callable": {"name": "load", "kind": "function", "async": True, "file": file, "absPath": f"{self.args.root}/{file}", "line": line, "span": span},
+                "facts": [fact], "frontiers": [], "resultHandling": [{"callee": "fetch", "handling": "awaited", "witness": witness}],
+                "coverage": "complete-for-supported-scope", "counts": {"facts": 1, "frontiers": 0, "callables": 1},
+                "assumptions": ["Intrinsics are taken as pure unless named."]}
+        if shape == "partial":
+            frontier = {**example(item_schema(schema, "frontiers")), "id": "frontier:1", "reason": "callback-parameter", "label": "callback",
+                        "detail": "callback is a parameter: what it does depends on the caller.", "via": [], "witness": {**witness, "text": "callback()"}}
+            return {**base, "outcome": "partial", "frontiers": [frontier], "coverage": "partial", "counts": {"facts": 1, "frontiers": 1, "callables": 1}}
+        if shape == "unsupported":
+            return {**base, "outcome": "unsupported", "reason": "no-callable", "facts": [], "resultHandling": [], "coverage": "not-analyzed",
+                    "counts": {"facts": 0, "frontiers": 0, "callables": 0}}
+        return base
 
     def route(self) -> dict:
         return {**example(item_schema(schema_for("routes"), "routes")), "key": "route:records", "pathPattern": "/records",

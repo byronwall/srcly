@@ -1,6 +1,6 @@
 // Calls to /api/dataflow/*. The engine results are the generated contract
 // types; the wrappers are the server's own responses (routers/dataflow.py).
-import type { AnchorGraphResult, RouteGraphResult, RoutesResult, SelectExpressionResult, StatusResult, ValueFlowResult } from "./contract.generated";
+import type { AnchorGraphResult, FunctionEffectsResult, RouteGraphResult, RoutesResult, SelectExpressionResult, StatusResult, ValueFlowResult } from "./contract.generated";
 
 export type Outcome = RoutesResult["outcome"];
 export type NaReason =
@@ -109,6 +109,15 @@ export async function fetchRouteSurface(args: { path: string; route: string; exp
   if (args.expectedGeneration !== undefined) query.set("expectedGeneration", String(args.expectedGeneration));
   const res = await fetch(`/api/dataflow/route-surface?${query}`, { signal: args.signal });
   return json(res, "Route surface");
+}
+
+export interface FunctionEffectsResponse extends OutcomeFields {
+  effects: FunctionEffectsResult | null;
+}
+
+/** What the function enclosing `line` in `file` touches: facts with witnesses, frontiers, promise handling, assumptions. */
+export function fetchFunctionEffects(req: { path: string; file: string; line: number; column?: number; expectedGeneration?: number; signal?: AbortSignal }): Promise<FunctionEffectsResponse> {
+  return post("/api/dataflow/function-effects", req, "Function effects");
 }
 
 export interface SelectResponse extends OutcomeFields {
