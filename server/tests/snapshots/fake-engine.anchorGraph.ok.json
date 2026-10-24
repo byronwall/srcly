@@ -1,0 +1,131 @@
+{
+  "anchor": {
+    "absPath": "/fixture/src/f.tsx",
+    "elementId": "el:1",
+    "file": "src/f.tsx",
+    "kind": "PropertyAccessExpression",
+    "span": {
+      "endColumn": 58,
+      "endLine": 1,
+      "startColumn": 42,
+      "startLine": 1
+    },
+    "text": "props.item.title",
+    "typeText": "string"
+  },
+  "counts": {
+    "boundaries": 0,
+    "down": 1,
+    "frontiers": 0,
+    "origins": 0,
+    "scopes": 1,
+    "terminals": 1,
+    "up": 0
+  },
+  "coverage": {
+    "budget": {
+      "exhausted": false,
+      "limit": 256,
+      "used": 1
+    },
+    "elements": 2,
+    "relations": 1
+  },
+  "direction": "forward",
+  "edges": [
+    {
+      "id": "rel:1",
+      "kind": "render-terminal",
+      "label": null,
+      "proof": [],
+      "source": "el:1",
+      "status": "proven",
+      "target": "el:2"
+    }
+  ],
+  "generation": 1,
+  "nodes": [
+    {
+      "absPath": "/fixture/src/f.tsx",
+      "detail": "f.tsx",
+      "elementKind": null,
+      "file": "src/f.tsx",
+      "id": "scope:f",
+      "kind": "scope",
+      "label": "Card",
+      "line": 1,
+      "note": null,
+      "parent": null,
+      "reason": null,
+      "side": "seed",
+      "span": {
+        "endColumn": 58,
+        "endLine": 1,
+        "startColumn": 42,
+        "startLine": 1
+      },
+      "status": "proven",
+      "typeText": null
+    },
+    {
+      "absPath": "/fixture/src/f.tsx",
+      "detail": "property read",
+      "elementKind": "field-read",
+      "file": "src/f.tsx",
+      "id": "el:1",
+      "kind": "anchor",
+      "label": "props.item.title",
+      "line": 1,
+      "note": null,
+      "parent": "scope:f",
+      "reason": null,
+      "side": "seed",
+      "span": {
+        "endColumn": 58,
+        "endLine": 1,
+        "startColumn": 42,
+        "startLine": 1
+      },
+      "status": "proven",
+      "typeText": "string"
+    },
+    {
+      "absPath": "/fixture/src/f.tsx",
+      "detail": "render slot",
+      "elementKind": "render-terminal",
+      "file": "src/f.tsx",
+      "id": "el:2",
+      "kind": "terminal",
+      "label": "slot",
+      "line": 1,
+      "note": null,
+      "parent": "scope:f",
+      "reason": null,
+      "side": "down",
+      "span": {
+        "endColumn": 58,
+        "endLine": 1,
+        "startColumn": 42,
+        "startLine": 1
+      },
+      "status": "proven",
+      "typeText": null
+    }
+  ],
+  "origins": [],
+  "outcome": "ok",
+  "programHash": "hash-1",
+  "reason": null,
+  "terminals": [
+    {
+      "label": "slot",
+      "nodeId": "el:2",
+      "roles": [
+        "render"
+      ],
+      "status": "proven"
+    }
+  ],
+  "tsconfig": "/fixture/tsconfig.json",
+  "typescript": "5.9.3"
+}

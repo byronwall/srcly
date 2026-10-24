@@ -1,0 +1,64 @@
+{
+  "bindings": {
+    "sourceFingerprints": [
+      {
+        "file": "src/f.tsx",
+        "mtimeMs": 1,
+        "size": 1
+      }
+    ],
+    "tsconfig": "/fixture/tsconfig.json",
+    "typescript": "5.9.3"
+  },
+  "coverage": {
+    "budget": {
+      "exhausted": false,
+      "limit": 0,
+      "used": 0
+    },
+    "elements": 0,
+    "relations": 0
+  },
+  "frontiers": [],
+  "generation": 1,
+  "outcome": "unsupported",
+  "programHash": "hash-1",
+  "reason": "no-evidence-element",
+  "rows": [
+    {
+      "absPath": "/fixture/src/f.tsx",
+      "elementId": null,
+      "file": "src/f.tsx",
+      "id": "row:1",
+      "kind": "input",
+      "label": "props.item.title",
+      "line": 1,
+      "note": null,
+      "proof": [],
+      "reason": null,
+      "relationId": null,
+      "span": {
+        "endColumn": 58,
+        "endLine": 1,
+        "startColumn": 42,
+        "startLine": 1
+      },
+      "status": "partial",
+      "typeText": "string"
+    }
+  ],
+  "selection": {
+    "file": "src/f.tsx",
+    "kind": "PropertyAccessExpression",
+    "span": {
+      "endColumn": 58,
+      "endLine": 1,
+      "startColumn": 42,
+      "startLine": 1
+    },
+    "text": "props.item.title"
+  },
+  "terminals": [],
+  "tsconfig": "/fixture/tsconfig.json",
+  "typescript": "5.9.3"
+}
