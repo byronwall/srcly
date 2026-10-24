@@ -93,3 +93,40 @@ describe("selected origin", () => {
     expect(routeGraphToViewModel(graph).lit).toBeNull();
   });
 });
+
+describe("edges carry what their cards and labels need", () => {
+  it("names an origin's containment as ownership, not flow", () => {
+    const { vm, notFlow, hidden } = routeGraphToViewModel(graph);
+    const origins = new Set(graph.nodes.filter((n) => n.kind === "origin").map((n) => n.id));
+    const owned = vm.edges.filter((e) => origins.has(e.target) && e.id.startsWith("contains:"));
+    expect(owned.length).toBe(origins.size);
+    for (const e of owned) {
+      expect(notFlow.has(e.id)).toBe(true);
+      expect(hidden.has(e.id)).toBe(true);
+    }
+    expect(vm.edges.filter((e) => notFlow.has(e.id)).length).toBe(owned.length);
+  });
+
+  it("keeps a handoff's status and proof, and a field edge's path as its label", () => {
+    const origin = graph.origins.find((o) => o.label === "createResource(loadViewer)")!.nodeId;
+    const viewer = graph.nodes.find((n) => n.label === "ViewerCard")!.id;
+    const field: RouteGraphResult["edges"][number] = {
+      id: "field:1",
+      source: origin,
+      target: viewer,
+      kind: "field",
+      label: "viewer.name",
+      status: "proven",
+      proof: [{ kind: "field-read", detail: "reads .name from viewer", status: "proven", locations: [{ file: "src/components/ViewerCard.tsx", line: 6, column: 3, span: { startLine: 6, startColumn: 3, endLine: 6, endColumn: 20 } }] }],
+      pathIds: null,
+    };
+    const { vm } = routeGraphToViewModel({ ...graph, edges: [...graph.edges, field] });
+    const handoff = vm.edges.find((e) => e.style === "handoff")!;
+    expect(handoff.status).toBe("proven");
+    expect(handoff.proof?.length).toBeGreaterThan(0);
+    expect(handoff.label).toBeUndefined();
+    const drawn = vm.edges.find((e) => e.id === "field:field:1")!;
+    expect(drawn).toMatchObject({ style: "field", label: "viewer.name", status: "proven" });
+    expect(drawn.proof).toEqual([{ kind: "field-read", detail: "reads .name from viewer", status: "proven", at: "ViewerCard.tsx:6" }]);
+  });
+});
