@@ -10,7 +10,7 @@
 - TSX: https://github.com/byronwall/tsx-data-flow at `b4f1ba4f0df402251f4b666cddf5312efa4a62be`, plus current local edits captured in the packet. Checkout `/Users/byronwall/Projects/tsx-data-flow` is read-only for this mission.
 - Prompt: `docs/research/effects-async-test-seams-2026-10-23/pro-prompt.md`.
 - Packet: ignored `tmp/pro/effects-async-test-seams/source-packet.zip`, 1,413,453 bytes; 297 Srcly files and 322 TSX files. `SNAPSHOT.md` records commits, selected file counts, and dirty status. Dependencies, secrets, generated reports, and build output excluded.
-- Phase: submitted; Pro is running. Follow-up count: 0. No current blocker.
+- Phase: collected and integrated; preparing the review PR. Follow-up count: 0. No current blocker.
 - Browser: Chrome profile `byroni.us`, signed-in ChatGPT. Live selector verified Pro, power 5 of 5.
 - Conversation: https://chatgpt.com/c/6adc0dbe-1934-83e9-ae3e-99777939ff03.
 - Submission: verified 2026-10-24 01:45–01:46 UTC, or October 23 at 9:45–9:46 p.m. Indianapolis time.
@@ -18,9 +18,9 @@
 - This run is separate from the existing general overview-to-value-flow mission at `https://chatgpt.com/c/6adc0a99-0844-83e9-b309-74996708456a`. Do not send follow-ups to that conversation for this mission.
 - Heartbeat: `finish-srcly-effects-and-test-seams-research`, ACTIVE; hourly at minute 46. First intended check October 23 at 10:46 p.m. Indianapolis time, October 24 at 02:46 UTC.
 - Scheduling approval: initial automatic review required explicit future-action approval. Byron then answered, “Yes, schedule and finish the full process,” to the question authorizing hourly checks, collection, review, commits, push, and PR creation. The next valid creation succeeded.
-- Collection: pending. Save original task assets in ignored `tmp/pro/effects-async-test-seams/`. Inspect ZIP paths before extraction. Read all reports. Never execute downloaded programs.
+- Collection: complete, October 23 at about 10:45 p.m. Indianapolis time. Pro completed after 40m 12s. Download event timed out, but the actual 57,132-byte ZIP was present in Downloads. Copied it to ignored `tmp/pro/effects-async-test-seams/`. Checked all archive paths/types before extraction. Read all three Markdown reports (1,637 lines total). No downloaded program executed.
 - Standing download approval: the user-invoked skill authorizes all task assets from this Pro session, including previews and the file library, across later collection turns.
-- Integration: pending. Write a concise summary and dispositions in this folder. Put a worker-ready plan under `docs/intent/effects-async-test-seams/`. Preserve useful deep-dive detail and source links. Update an existing research index if one applies.
-- Validation: prompt checked against actual repository paths and current source. No application builds or tests run for research preparation.
+- Integration: `README.md` gives the deep-dive synthesis; `recommendations.md` accounts for all 30 dispositions; `verification.md` records source checks and limits. The worker-ready plan is `docs/intent/effects-async-test-seams/implementation-plan.md`. No central research catalogue exists. No follow-up was needed.
+- Validation: decisive source claims checked in both repositories; primary-source spot checks completed. Local Markdown links, code fences, all 30 recommendation IDs, and whitespace checked. No application builds or tests run for this Markdown-only change. TSX structure doc and CLI entry exist locally, resolving the packet omission.
 - PR: pending. Use gh with a body file and a Conventional Commit title. Verify saved body and file list. Attach the PR to this chat.
 - Recovery: read this record and inspect the same Pro conversation before any resend. Allow at most one follow-up for a material missing answer or unusable deliverable.
