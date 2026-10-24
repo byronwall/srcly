@@ -600,7 +600,9 @@ Tier 2 (`fileSignals`) is the known slow path: 130 s on srcly's client and 44 s 
 
 ## 8. Decision log
 
-| Id | Decision | Default | Evidence that would change it |
+The defaults below were accepted by the user on 2026-10-23. Each stays open only to the evidence named in its last column.
+
+| Id | Decision | Default (accepted) | Evidence that would change it |
 | --- | --- | --- | --- |
 | D1 | Port base in tsx-data-flow | Commit the route-proof WIP on `main`, tag `srcly-port-base`, port that, drop the seven cleanup PRs, re-run the dead-code audit inside `engine/` | If `pnpm verify` fails on the WIP for reasons that take more than a day, port `main` at `b4f1ba4` instead and re-apply the WIP inside `engine/` as the first engine PR |
 | D2 | Route layout | Existing packing with occurrence frames | The M2 screenshots: if terminals of one occurrence land in different columns, add the `direction: "down"` rule |

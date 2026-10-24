@@ -8,7 +8,7 @@
     "last_updated": "2026-10-23",
     "summary": "One engine (tsx-data-flow analysis moved into engine/, one lazy Node child) feeds three srcly surfaces: route -> terminal graph in the dependency viewer (headline), value-path ledger from graph destinations or code-viewer expressions (PR #102), and a function-effects panel (PR #103); findings/metrics/markers/reports follow. detailed-plan.md adds the file-level design, contracts, two-tier engine session, view-state registry and the corrections a code review of both repositories forced.",
     "status": "planned",
-    "next_action": "User approval to start M1 (three PRs). D1 (port base) must be settled first; defaults are in detailed-plan.md section 8."
+    "next_action": "User approval to start M1 (three PRs). D1-D8 defaults accepted 2026-10-23; PR #101 stays docs only."
   },
   "artifacts": {
     "intent_brief": {
@@ -667,49 +667,65 @@
         "id": "D1",
         "question": "Port base in tsx-data-flow",
         "evidence": "pnpm verify on the committed WIP",
-        "fallback": "port main b4f1ba4 and re-apply the WIP inside engine/"
+        "fallback": "port main b4f1ba4 and re-apply the WIP inside engine/",
+        "status": "default-accepted",
+        "accepted_at": "2026-10-23"
       },
       {
         "id": "D2",
         "question": "Route layout rule vs existing packing",
         "evidence": "M2 screenshots at 1440 and 1024",
-        "fallback": "direction: down option on layoutComponent, flow mode only"
+        "fallback": "direction: down option on layoutComponent, flow mode only",
+        "status": "default-accepted",
+        "accepted_at": "2026-10-23"
       },
       {
         "id": "D3",
         "question": "Branch graph beside the ledger",
         "evidence": "M5 two-arm Show path",
-        "fallback": "rows with expansion"
+        "fallback": "rows with expansion",
+        "status": "default-accepted",
+        "accepted_at": "2026-10-23"
       },
       {
         "id": "D4",
         "question": "TypeScript instance for the Program",
         "evidence": "hello.typescriptFrom and parse diagnostics on real projects",
-        "fallback": "prefer the project's copy for that major"
+        "fallback": "prefer the project's copy for that major",
+        "status": "default-accepted",
+        "accepted_at": "2026-10-23"
       },
       {
         "id": "D5",
         "question": "Tier-2 batch job default",
         "evidence": "tier-2 time on 50K-line apps",
-        "fallback": "opt-in via a data-flow surface or --dataflow"
+        "fallback": "opt-in via a data-flow surface or --dataflow",
+        "status": "default-accepted",
+        "accepted_at": "2026-10-23"
       },
       {
         "id": "D6",
         "question": "Resident vs per-query process",
         "evidence": "tier-1 time and RSS (2 GB measured)",
-        "fallback": "per-query spawn, same protocol; cap 1 process"
+        "fallback": "per-query spawn, same protocol; cap 1 process",
+        "status": "default-accepted",
+        "accepted_at": "2026-10-23"
       },
       {
         "id": "D7",
         "question": "Investigation URL",
         "evidence": "none expected",
-        "fallback": "?inv=<token> with sessionStorage snapshot"
+        "fallback": "?inv=<token> with sessionStorage snapshot",
+        "status": "default-accepted",
+        "accepted_at": "2026-10-23"
       },
       {
         "id": "D8",
         "question": "Progress transport",
         "evidence": "profiles of 250 ms status polling",
-        "fallback": "SSE like /api/scans/{id}/events"
+        "fallback": "SSE like /api/scans/{id}/events",
+        "status": "default-accepted",
+        "accepted_at": "2026-10-23"
       }
     ],
     "prerequisites": [
@@ -790,6 +806,11 @@
     {
       "date": "2026-10-23",
       "event": "Detailed plan and measurements added after a code review of srcly and tsx-data-flow; fourteen corrections (R1-R14) and eight decisions (D1-D8) recorded.",
+      "phase": "plan"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "User accepted the D1-D8 defaults; PR #101 remains docs only, M1 awaits separate approval.",
       "phase": "plan"
     }
   ],
