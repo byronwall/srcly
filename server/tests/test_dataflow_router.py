@@ -84,6 +84,24 @@ def test_stale_generation_is_an_outcome(client, use_fake, tmp_path):
     assert body["outcome"] == "stale" and body["generation"] == 1
 
 
+def test_stale_sources_show_in_status_and_refresh_rebuilds(client, use_fake, tmp_path):
+    use_fake("--stale")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "f.tsx").write_text("export const x = 1;\n")
+    first = client.get("/api/dataflow/routes", params={"path": str(tmp_path)}).json()
+    assert first["generation"] == 1
+    status = client.get("/api/dataflow/status", params={"path": str(tmp_path)}).json()
+    assert status["stale"] is True and status["generation"] == 1 and status["programHash"] == "hash-next"
+    # A graph fetched with the old generation is still answered; one that names it after a refresh is stale.
+    refreshed = client.post("/api/dataflow/refresh", json={"path": str(tmp_path)}).json()
+    assert refreshed["outcome"] == "ok" and refreshed["generation"] == 2 and refreshed["programHash"] == "hash-2"
+    assert client.get("/api/dataflow/status", params={"path": str(tmp_path)}).json()["stale"] is False
+    old = client.get("/api/dataflow/route-graph", params={"path": str(tmp_path), "route": "/records", "expectedGeneration": 1}).json()
+    assert old["outcome"] == "stale" and old["generation"] == 2 and old["graph"] is None
+    new = client.get("/api/dataflow/route-graph", params={"path": str(tmp_path), "route": "/records", "expectedGeneration": 2}).json()
+    assert new["outcome"] == "ok" and new["graph"]["generation"] == 2
+
+
 def test_refusals_are_not_analyzed_with_the_reason(client, use_fake, tmp_path):
     use_fake("--refuse", "non-strict-tsconfig")
     body = client.get("/api/dataflow/routes", params={"path": str(tmp_path)}).json()

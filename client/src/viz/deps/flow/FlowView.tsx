@@ -1,9 +1,9 @@
 import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show, untrack } from "solid-js";
-import { ChevronDown, Crosshair, PanelRight } from "lucide-solid";
+import { ChevronDown, Crosshair, PanelRight, RefreshCw } from "lucide-solid";
 import { EmptyState, ErrorState } from "../../../components/feedback/States";
 import { Button } from "../../../components/ui/Button";
 import { fetchAnchorGraph, fetchRouteGraph, fetchRoutes } from "../../../dataflow/api";
-import { availabilityFor, ensureStarted, statusFor, watchProgress } from "../../../dataflow/availability";
+import { availabilityFor, ensureStarted, refresh as refreshEngine, statusFor, watchProgress, watchStaleness } from "../../../dataflow/availability";
 import { labelFor, reasonText } from "../../../dataflow/outcome";
 import { atFromTreePath, parseAnchor, type Direction } from "../../../navigation/location";
 import { go, location, replace } from "../../../navigation/store";
@@ -58,6 +58,29 @@ export default function FlowView(props: {
   });
   const availability = () => availabilityFor(root());
   const status = () => statusFor(root());
+  /** The generation every fetch names, so a graph never mixes with a newer build: a reply for an older one is `stale`. */
+  const generation = () => (availability() === "ready" ? status()?.generation : undefined);
+  // While this view is open, watch for edits to the sources.
+  createEffect(() => {
+    const r = root();
+    if (!r) return;
+    onCleanup(watchStaleness(r));
+  });
+  const [refreshing, setRefreshing] = createSignal(false);
+  const [refreshError, setRefreshError] = createSignal<string | null>(null);
+  const doRefresh = async () => {
+    const r = root();
+    if (!r || refreshing()) return;
+    setRefreshing(true);
+    setRefreshError(null);
+    try {
+      await refreshEngine(r);
+    } catch (e) {
+      setRefreshError(String((e as Error)?.message ?? e));
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const routesFetch = createFetch(() => (availability() === "ready" ? root() : null), (r) => fetchRoutes(r));
   const routes = routesFetch.value;
@@ -67,21 +90,24 @@ export default function FlowView(props: {
   const anchorKey = () => location().anchor;
   const anchorSpec = () => parseAnchor(anchorKey());
   const dir = (): Direction => location().dir ?? "both";
+  // Keys carry the generation: a refresh changes it, so every open graph is fetched again from the new build.
   const graphKey = createMemo(
-    () => (availability() === "ready" && routeKey() && !anchorKey() ? `${root()}\n${routeKey()}\n${field() ?? ""}` : null),
+    () => (availability() === "ready" && routeKey() && !anchorKey() ? `${root()}\n${routeKey()}\n${field() ?? ""}\n${generation() ?? ""}` : null),
   );
-  const anchorFetchKey = createMemo(() => (availability() === "ready" && anchorSpec() ? `${root()}\n${anchorKey()}\n${dir()}` : null));
+  const anchorFetchKey = createMemo(() => (availability() === "ready" && anchorSpec() ? `${root()}\n${anchorKey()}\n${dir()}\n${generation() ?? ""}` : null));
   const anchorFetch = createFetch(anchorFetchKey, (key) => {
-    const [path, raw, direction] = key.split("\n");
+    const [path, raw, direction, gen] = key.split("\n");
     const spec = parseAnchor(raw)!;
-    return watchProgress(path, fetchAnchorGraph({ path, direction: direction as Direction, ...spec }));
+    return watchProgress(path, fetchAnchorGraph({ path, direction: direction as Direction, ...spec, ...(gen ? { expectedGeneration: Number(gen) } : {}) }));
   });
   const anchorGraph = anchorFetch.value;
   const anchorText = () => anchorGraph()?.graph?.anchor.text ?? (anchorSpec() && "name" in anchorSpec()! ? (anchorSpec() as { name: string }).name : anchorKey()) ?? "";
   const graphFetch = createFetch(graphKey, (key) => {
-    const [path, route, source] = key.split("\n");
-    return watchProgress(path, fetchRouteGraph({ path, route, source: source || undefined }));
+    const [path, route, source, gen] = key.split("\n");
+    return watchProgress(path, fetchRouteGraph({ path, route, source: source || undefined, ...(gen ? { expectedGeneration: Number(gen) } : {}) }));
   });
+  /** The sources changed under the drawn graph, or the engine refused the generation it was drawn from. */
+  const stale = () => Boolean(status()?.stale) || graph()?.outcome === "stale" || anchorGraph()?.outcome === "stale";
   const graph = graphFetch.value;
   const routeList = () => routes()?.routes ?? [];
   const currentRoute = () => routeList().find((r) => r.key === routeKey() || r.pathPattern === routeKey());
@@ -362,6 +388,22 @@ export default function FlowView(props: {
         </Show>
         <Show when={graphFetch.error() ?? anchorFetch.error() ?? routesFetch.error()}>
           {(e) => <ErrorState message={e().message} class="absolute inset-0" />}
+        </Show>
+        <Show when={(stale() || refreshing() || refreshError()) && availability() === "ready"}>
+          <div
+            role="status"
+            class="absolute left-1/2 top-2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-md border border-[var(--plc-warning)] bg-[var(--plc-surface)] px-3 py-1 text-[12px] shadow-sm"
+          >
+            <RefreshCw size={13} aria-hidden="true" class={refreshing() ? "animate-spin text-[var(--plc-accent)]" : "text-[var(--plc-warning)]"} />
+            <span class="font-semibold text-[var(--plc-on-surface)]">
+              {refreshing() ? "Rebuilding from the sources as they are now…" : refreshError() ? `Refresh failed: ${refreshError()}` : "Source changed. Refresh."}
+            </span>
+            <Show when={!refreshing()}>
+              <Button variant="ghost" class="px-2" onClick={() => void doRefresh()} title="Rebuild the analysis from the sources as they are now">
+                Refresh
+              </Button>
+            </Show>
+          </div>
         </Show>
         <Show when={!graphFetch.loading() && !anchorFetch.loading() && layout()}>
           {(l) => (

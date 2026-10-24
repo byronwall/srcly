@@ -20,6 +20,8 @@ Flags (after the ``--root``/``--source`` the server always passes):
   --refuse CODE        answer routes with that engine error code
   --outcome OP=SHAPE   answer OP in that shape: ok (default), partial,
                        unsupported, budget, stale or not-analyzed
+  --stale              report the built generation as stale (its sources
+                       changed) until a refresh rebuilds it
 """
 
 from __future__ import annotations
@@ -89,7 +91,7 @@ def item_schema(schema: dict, *path: str) -> dict:
 class FakeEngine:
     def __init__(self, args: argparse.Namespace):
         self.args = args
-        self.state = {"built": False, "generation": 0}
+        self.state = {"built": False, "generation": 0, "stale": args.stale}
         self.outcomes = {op: shape for op, shape in (item.split("=", 1) for item in args.outcome)}
         for op, shape in self.outcomes.items():
             if shape not in SHAPES:
@@ -97,8 +99,11 @@ class FakeEngine:
 
     # ---- results ------------------------------------------------------------
 
+    def hash(self) -> str:
+        return f"hash-{self.state['generation'] or 1}"
+
     def generation_fields(self) -> dict:
-        return {"generation": self.state["generation"] or 1, "programHash": "hash-1",
+        return {"generation": self.state["generation"] or 1, "programHash": self.hash(),
                 "tsconfig": f"{self.args.root}/tsconfig.json", "typescript": "5.9.3"}
 
     def result_for(self, op: str, params: dict) -> dict:
@@ -107,13 +112,20 @@ class FakeEngine:
                     "typescript": "5.9.3", "typescriptFrom": "bundled", "root": self.args.root, "source": self.args.source}
         if op == "status":
             built = self.state["built"]
+            stale = built and self.state["stale"]
             return {**example(schema_for("status")), "protocol": 1, "built": built, "generation": self.state["generation"] or None,
-                    "programHash": "hash-1" if built else None, "currentHash": "hash-1" if built else None,
-                    "stale": False, "rssBytes": 1234, "progress": None}
+                    "programHash": self.hash() if built else None, "currentHash": ("hash-next" if stale else self.hash()) if built else None,
+                    "stale": stale, "rssBytes": 1234, "progress": None}
         if op == "routes":
             if not self.state["built"]:
                 self.state["built"] = True
                 self.state["generation"] = 1
+            return {**example(schema_for("routes")), "outcome": "ok", **self.generation_fields(), "routes": [self.route()]}
+        if op == "refresh":
+            # A new generation from the sources as they are now; the old one is stale from here on.
+            self.state["built"] = True
+            self.state["generation"] = (self.state["generation"] or 0) + 1
+            self.state["stale"] = False
             return {**example(schema_for("routes")), "outcome": "ok", **self.generation_fields(), "routes": [self.route()]}
         if op == "routeGraph":
             return self.route_graph(params, self.outcomes.get(op, "ok"))
@@ -271,6 +283,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--protocol", type=int, default=1)
     parser.add_argument("--refuse", default=None)
     parser.add_argument("--outcome", action="append", default=[])
+    parser.add_argument("--stale", action="store_true")
     args = parser.parse_args(argv)
     engine = FakeEngine(args)
 
@@ -307,9 +320,9 @@ def main(argv: list[str] | None = None) -> None:
             send({"id": request_id, "ok": False, "error": {"code": args.refuse, "message": f"refused: {args.refuse}"}})
             return
         expected = params.get("expectedGeneration")
-        if op == "routes" and expected is not None and engine.state["generation"] and expected != engine.state["generation"]:
+        if expected is not None and engine.state["generation"] and expected != engine.state["generation"]:
             send({"id": request_id, "ok": False, "error": {"code": "stale-generation", "message": "stale",
-                                                         "details": {"generation": engine.state["generation"], "programHash": "hash-1"}}})
+                                                         "details": {"generation": engine.state["generation"], "programHash": engine.hash()}}})
             return
         error = engine.error_for(op)
         if error is not None:

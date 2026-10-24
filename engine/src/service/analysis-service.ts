@@ -69,6 +69,8 @@ export type AnalysisOperation =
   | ({ kind: "source-excerpt" } & SourceExcerptRequest)
   | { kind: "markdown"; view: string; path: string | null }
   | { kind: "routes"; expectedGeneration?: number }
+  /** srcly's refresh: drop the tier-1 session and rebuild it now, so the next generation is ready. */
+  | { kind: "session-refresh" }
   | { kind: "route-graph"; route: string; source?: string; expectedGeneration?: number }
   | { kind: "select-expression"; params: Record<string, unknown> }
   | { kind: "value-flow"; params: Record<string, unknown> }

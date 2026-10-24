@@ -79,6 +79,17 @@ export async function startDataflow(path: string, signal?: AbortSignal): Promise
   return json(res, "Starting data flow");
 }
 
+/** Rebuild tier 1 from the sources as they are now: the reply names the new generation, and every open graph is fetched again with it. */
+export async function refreshDataflow(path: string, signal?: AbortSignal): Promise<RoutesResponse> {
+  const res = await fetch("/api/dataflow/refresh", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+    signal,
+  });
+  return json(res, "Refreshing data flow");
+}
+
 export async function fetchRoutes(path: string, signal?: AbortSignal): Promise<RoutesResponse> {
   const res = await fetch(`/api/dataflow/routes?${new URLSearchParams({ path })}`, { signal });
   return json(res, "Routes");
