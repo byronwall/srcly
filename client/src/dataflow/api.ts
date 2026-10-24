@@ -1,6 +1,6 @@
 // Calls to /api/dataflow/*. The engine results are the generated contract
 // types; the wrappers are the server's own responses (routers/dataflow.py).
-import type { RouteGraphResult, RoutesResult, StatusResult } from "./contract.generated";
+import type { RouteGraphResult, RoutesResult, SelectExpressionResult, StatusResult, ValueFlowResult } from "./contract.generated";
 
 export type Outcome = RoutesResult["outcome"];
 export type NaReason =
@@ -90,4 +90,37 @@ export async function fetchRouteGraph(args: { path: string; route: string; sourc
   if (args.expectedGeneration !== undefined) query.set("expectedGeneration", String(args.expectedGeneration));
   const res = await fetch(`/api/dataflow/route-graph?${query}`, { signal: args.signal });
   return json(res, "Route graph");
+}
+
+export interface SelectResponse extends OutcomeFields {
+  result: SelectExpressionResult | null;
+}
+
+export interface ValueFlowResponse extends OutcomeFields {
+  ledger: ValueFlowResult | null;
+}
+
+type SelectionRequest = {
+  /** The scan root the engine analyzes. */
+  path: string;
+  /** Absolute path of the file in the code viewer. */
+  file: string;
+  span: { startLine: number; startColumn: number; endLine: number; endColumn: number };
+  text?: string;
+  expectedGeneration?: number;
+  signal?: AbortSignal;
+};
+
+async function post<T>(url: string, req: SelectionRequest, what: string): Promise<T> {
+  const { signal, ...body } = req;
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal });
+  return json(res, what);
+}
+
+export function selectExpression(req: SelectionRequest): Promise<SelectResponse> {
+  return post("/api/dataflow/select", req, "Finding the expression");
+}
+
+export function fetchValueFlow(req: SelectionRequest): Promise<ValueFlowResponse> {
+  return post("/api/dataflow/value-flow", req, "Value flow");
 }

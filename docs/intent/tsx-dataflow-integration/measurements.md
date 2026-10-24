@@ -53,6 +53,30 @@ Before the session aligned route identity, every visual-notes route came back `u
 
 **D2 (route layout): keep today's packing with occurrence frames.** The adapter puts every flow node in the center region, makes its render parent its frame (`group.opened`), and adds hidden containment edges so columns follow hierarchy depth. In all four screenshots each frame's boxes stay together in one column block: ViewerCard's five terminals, RecordRow's four, and WeeklyTimeBlocksCalendar's thirteen children each read as one framed column. The packer folds adjacent depth levels into one column when the viewport is short, so a frame can share its parent's column, but no occurrence's terminals were split from each other. No `direction: "down"` rule and no `layout.ts` change. Screenshots (attached to the M2 PR, kept in the ignored `tmp/`): `d2-solid-route-1440.png`, `d2-solid-route-1024.png`, `d2-time-blocks-1440.png`, `d2-time-blocks-1024.png`.
 
+## 2026-10-24 — M3: value-flow ledger on srcly `client/`
+
+`engine/scripts/time-value-flow.ts` spawns the engine on srcly's `client/` (`tsconfig.app.json`), sends `hello`, then `valueFlow` on `HotSpotItem.tsx:135` (`props.node.name`), then 20 warm `valueFlow` queries cycling over the 135, 130, 145 and `HotSpotList.tsx:88` anchors.
+
+| Measure | Value |
+| --- | ---: |
+| Cold spawn → `hello` → first ledger (tier 1 plus the lazy provider's fact index) | 11,877 ms |
+| Warm `valueFlow` p50 / p95 / max over 20 | 1 / 3 / 24 ms |
+| RSS after | 1,109 MB |
+
+The cold number misses the 10 s target on srcly's own client: about 2.3 s is tier 1 and the rest is the evidence provider building its fact index on the first query that needs facts. Warm queries are far under the 750 ms first-row target.
+
+Acceptance anchors (`engine/test/srcly/value-flow.test.ts`, located by text, not line number):
+
+| Selection | Ledger |
+| --- | --- |
+| `HotSpotItem.tsx:135` `props.node.name` | `ok`: input `props.node.name` (proven) → transfer `props.node` (proven) → terminal "JSX render slot" (proven). Exact. |
+| `HotSpotItem.tsx:134` `title={props.node.name}` | `ok`: its own ledger ending at a "DOM attribute or property" terminal; no row of it appears in the 135 ledger. |
+| `HotSpotItem.tsx:130` `props.rank ?? "–"` | `ok`: a proven fallback row, "?? keeps 0, \"\" and false…". |
+| `HotSpotItem.tsx:145` the metric expression | `ok`, not the plan's `partial`: `formatMetricWithUnit` has exactly one call site in the program on this branch (the plan assumed many), so it is a `transform` row. `value()!` is a branch row labelled "assertion, not a check". The boundary rule itself is exercised by line 88 and by `examples/value-flow-basics/src/two-call-helper.tsx`. |
+| `HotSpotList.tsx:88` `item.node` | `partial`: one boundary row at `row(item.node, …)`, `unproven-handoff`, "row has 2 call sites (…:88, …:109)". |
+
+Call sites are counted from the TypeScript program (calls resolving to the callee's symbol; a non-call reference makes the callers unknown), not from the lazy provider, which only knew `invokes` relations from files it had loaded and first reported `formatMetricWithUnit` correctly by accident.
+
 ## To record next
 
 | Milestone | Numbers |

@@ -45,3 +45,34 @@ def test_routes_on_solid_route(monkeypatch):
         assert lit["selectedSource"] == viewer and lit["destinations"]
     finally:
         registry.close_all()
+
+
+SRCLY_CLIENT = ENGINE_DIR.parent / "client"
+
+
+@pytest.mark.skipif(not (SRCLY_CLIENT / "src" / "components" / "HotSpotItem.tsx").is_file(), reason="needs srcly's client source")
+def test_value_flow_line_135(monkeypatch):
+    """The M3 acceptance anchor through the real engine and the HTTP API."""
+    monkeypatch.setenv("SRCLY_ENGINE_DEV", "1")
+    registry = EngineRegistry()
+    monkeypatch.setattr(dataflow_engine, "registry", registry)
+    try:
+        client = TestClient(app)
+        file = SRCLY_CLIENT / "src" / "components" / "HotSpotItem.tsx"
+        line = next(i for i, text in enumerate(file.read_text().splitlines(), 1) if text.strip() == "{props.node.name}")
+        column = file.read_text().splitlines()[line - 1].index("props.node.name") + 1
+        span = {"startLine": line, "startColumn": column, "endLine": line, "endColumn": column + len("props.node.name")}
+        body = {"path": str(SRCLY_CLIENT), "file": str(file), "span": span, "text": "props.node.name"}
+        picked = client.post("/api/dataflow/select", json=body).json()
+        assert picked["result"]["candidates"][0]["text"] == "props.node.name"
+        ledger = client.post("/api/dataflow/value-flow", json=body).json()["ledger"]
+        assert ledger["outcome"] == "ok"
+        assert [(row["kind"], row["label"], row["status"]) for row in ledger["rows"]] == [
+            ("input", "props.node.name", "proven"),
+            ("transfer", "props.node", "proven"),
+            ("terminal", "props.node.name", "proven"),
+        ]
+        outside = client.post("/api/dataflow/value-flow", json={**body, "file": "/etc/hosts"})
+        assert outside.status_code == 400
+    finally:
+        registry.close_all()

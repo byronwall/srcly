@@ -12,6 +12,10 @@ import { CodePane, type CodeOverlay } from "./CodePane";
 import { DialogShell } from "../dialog/DialogShell";
 import { MarkdownPane } from "./MarkdownPane";
 import { MetricsSidebar } from "./MetricsSidebar";
+import { InspectMenu } from "./InspectMenu";
+import { ValueFlowLedger } from "./ValueFlowLedger";
+import { createValueFlowInspector } from "../../investigation/valueFlowInspector";
+import { caretColumn, caretOffsetIn } from "../../investigation/selectionSpan";
 
 interface CodeModalProps {
   isOpen: boolean;
@@ -185,10 +189,55 @@ export default function CodeModal(props: CodeModalProps) {
 
   // --- Metric overlay ---------------------------------------------------
 
-  const allHits = createMemo(() => groupHits(markersFor(markers(), activeMetric() ?? "")));
+  // --- Value flow (right-click → Inspect value flow) ----------------------
+
+  const inspector = createValueFlowInspector({
+    root: () => (props.gitRef ? undefined : props.rootPath),
+    file: () => props.filePath,
+  });
+  /** The ledger's rows are marked through the metric overlay while this is on. */
+  const [ledgerMarked, setLedgerMarked] = createSignal(false);
+  const ledgerRows = createMemo(() => {
+    const state = inspector.ledger();
+    return state?.phase === "done" ? state.ledger.rows.filter((row) => row.absPath === props.filePath) : [];
+  });
+  createEffect(
+    on(inspector.ledger, (state) => {
+      if (state?.phase !== "done") return;
+      setActiveMetric(null);
+      setLedgerMarked(true);
+      const first = ledgerRows()[0];
+      if (first) jumpToLedgerRow(first.line);
+    })
+  );
+
+  const onCodeContextMenu = (event: MouseEvent) => {
+    if (viewMode() !== "code" || props.gitRef || !props.rootPath || !contentScrollRef) return;
+    const lineEl = event.target instanceof Element ? event.target.closest<HTMLElement>("span.line") : null;
+    if (!lineEl) return;
+    const index = [...contentScrollRef.querySelectorAll<HTMLElement>("span.line")].indexOf(lineEl);
+    if (index < 0) return;
+    const line = displayStart() + index;
+    const raw = (rawCode() ?? "").split("\n")[line - 1] ?? "";
+    const offset = caretOffsetIn(lineEl, event.clientX, event.clientY);
+    const column = (offset !== null ? caretColumn(raw, lineEl.textContent ?? "", offset) : null) ?? raw.length - raw.trimStart().length + 1;
+    event.preventDefault();
+    inspector.openMenu({ x: event.clientX, y: event.clientY, line, column });
+  };
+
+  const KIND_WORD: Record<string, string> = { input: "Input", transfer: "Transfer", fallback: "Fallback", branch: "Branch", transform: "Transform", terminal: "Terminal", boundary: "Boundary" };
+  const ledgerHits = createMemo(() =>
+    groupHits(ledgerRows().map((row) => ({ line: row.span.startLine, end_line: row.span.endLine, note: `${KIND_WORD[row.kind]} (${row.status}): ${row.note ?? row.label}` })))
+  );
+  const showLedger = () => ledgerMarked() && !activeMetric() && ledgerRows().length > 0;
+
+  const allHits = createMemo(() => (showLedger() ? ledgerHits() : groupHits(markersFor(markers(), activeMetric() ?? ""))));
   const visibleHits = createMemo(() => hitsInRange(allHits(), displayStart(), displayEnd()));
 
   const overlay = createMemo<CodeOverlay | null>(() => {
+    if (showLedger()) {
+      return { label: "Value flow", tone: "good", hits: visibleHits(), outside: allHits().length - visibleHits().length, cursorLine: cursorLine() };
+    }
     const id = activeMetric();
     if (!id) return null;
     const def = metricDef(id);
@@ -223,7 +272,18 @@ export default function CodeModal(props: CodeModalProps) {
     });
   };
 
+  /** From the ledger: go to a row's line, keeping the ledger's marks. */
+  const jumpToLedgerRow = (line: number) => {
+    setViewMode("code");
+    if (line < displayStart() || line > displayEnd()) setLineFilterEnabled(false);
+    queueMicrotask(() => {
+      setCursorLine(line);
+      scrollAfterRender(line, true);
+    });
+  };
+
   const toggleMetric = (id: string) => {
+    setLedgerMarked(false);
     setViewMode("code");
     setCursorLine(null);
     setActiveMetric(activeMetric() === id ? null : id);
@@ -255,6 +315,7 @@ export default function CodeModal(props: CodeModalProps) {
     if (event.key === "Escape") {
       event.stopPropagation();
       if (activeMetric()) setActiveMetric(null);
+      else if (showLedger()) setLedgerMarked(false);
       else props.onClose();
       return;
     }
@@ -262,7 +323,7 @@ export default function CodeModal(props: CodeModalProps) {
     if (event.key === "/" && getEffectiveChildren(props.fileNode).length && viewMode() === "code") {
       event.preventDefault();
       setOutlineOpen(true);
-    } else if ((event.key === "]" || event.key === "[") && activeMetric()) {
+    } else if ((event.key === "]" || event.key === "[") && (activeMetric() || showLedger())) {
       event.preventDefault();
       step(event.key === "]" ? 1 : -1);
     }
@@ -357,6 +418,29 @@ export default function CodeModal(props: CodeModalProps) {
               filePath={props.filePath}
               gitRef={props.gitRef}
               onJumpToFinding={jumpToFinding}
+              ledger={
+                <Show when={inspector.ledger()}>
+                  {(state) => (
+                    <ValueFlowLedger
+                      state={state()}
+                      filePath={props.filePath}
+                      marked={showLedger()}
+                      onToggleMarks={() => {
+                        if (showLedger()) setLedgerMarked(false);
+                        else {
+                          setActiveMetric(null);
+                          setLedgerMarked(true);
+                        }
+                      }}
+                      onJump={jumpToLedgerRow}
+                      onClose={() => {
+                        inspector.clear();
+                        setLedgerMarked(false);
+                      }}
+                    />
+                  )}
+                </Show>
+              }
             />
 
             <div
@@ -366,6 +450,7 @@ export default function CodeModal(props: CodeModalProps) {
                 "overflow-hidden": viewMode() !== "preview",
               }}
               ref={contentScrollRef}
+              onContextMenu={onCodeContextMenu}
             >
               <Show
                 when={viewMode() === "preview"}
@@ -389,7 +474,10 @@ export default function CodeModal(props: CodeModalProps) {
                     overlay={overlay}
                     onStep={step}
                     onJumpToHit={goToHit}
-                    onClearOverlay={() => setActiveMetric(null)}
+                    onClearOverlay={() => {
+                      setActiveMetric(null);
+                      setLedgerMarked(false);
+                    }}
                     onShowWholeFile={() => setShowSelection(false)}
                   />
                 }
@@ -404,6 +492,7 @@ export default function CodeModal(props: CodeModalProps) {
               </Show>
             </div>
           </main>
+          <InspectMenu inspector={inspector} />
       </DialogShell>
     </Show>
   );
