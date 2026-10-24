@@ -21,6 +21,7 @@ import TreemapHeader from "../viz/treemap/components/TreemapHeader";
 import TreemapTooltip from "../viz/treemap/components/TreemapTooltip";
 import { useTreemapTooltip } from "../viz/treemap/hooks/useTreemapTooltip";
 import { atFromTreePath, baseName, folderOf } from "../navigation/location";
+import { tracePatch } from "../navigation/nodeActions";
 import NodeActionsMenu, { type NodeMenuTarget } from "../navigation/NodeActionsMenu";
 import { go, location } from "../navigation/store";
 import { buildMetricsIndex } from "../viz/deps/metrics";
@@ -79,6 +80,7 @@ export default function Treemap(props: TreemapProps) {
       kind: type === "folder" ? "folder" : type === "file" ? "file" : "symbol",
       title: at || baseName(props.rootPath),
       currentAt: location().at,
+      line: typeof tile.data?.start_line === "number" && tile.data.start_line > 0 ? tile.data.start_line : undefined,
     });
   };
   const {
@@ -300,7 +302,10 @@ export default function Treemap(props: TreemapProps) {
               const at = m().at;
               if (id === "focus") go({ at });
               else if (id === "open") props.onOpenAt(at);
-              else go({ at: folderOf(at) });
+              else if (id === "traceTo" || id === "traceFrom") {
+                const line = m().line;
+                if (line) go(tracePatch({ at, line }, id));
+              } else go({ at: folderOf(at) });
             }}
           />
         )}

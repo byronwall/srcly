@@ -5,7 +5,7 @@ import { queryEvidenceSlice, type EvidenceSlice } from "../../analysis/evidence-
 import { DEFAULT_BOUNDARY_POLICY, scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
 import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
-import { callSitesOfElement, CROSS_CALL, elementsAt, enclosingFunction, functionName, nodeAtSpan, seedFor, TERMINAL_KINDS } from "../facts";
+import { callSitesOfElement, CROSS_CALL, elementsAt, enclosingFunction, functionName, nodeAtSpan, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
 import { EngineError } from "../protocol";
 import { candidatesAt, parseSpan, sameSpan, sourceFileFor, spanOf, type Candidate, type Span } from "../selection";
 import { checkGeneration, type EngineSession, type Tier1 } from "../session";
@@ -22,6 +22,16 @@ const DIRECTIONS: AnchorDirection[] = ["forward", "backward", "both"];
 const callSiteIndexes = new WeakMap<Tier1, CallSiteIndex>();
 
 type Side = "up" | "down";
+/** A candidate plus the declaration nodes to try when the engine has no evidence at the name itself. */
+type Resolved = Candidate & { fallbacks?: TypeScript.Node[] };
+/** Declaration-level elements a symbol anchor may start from, before the ledger's seed kinds. */
+const DECLARATION_SEEDS = ["component-definition", "function-entry", "handler-entry", ...SEED_KINDS];
+/** A function or component as the anchor: its parameters are what comes in, its returns and its uses are where it goes. */
+const DECLARATION_KINDS = new Set(["component-definition", "function-entry", "handler-entry"]);
+/** Relations that point a use (a call, an occurrence) at its definition. */
+const USE_RELATIONS = new Set(["definition", "invokes", "function-call", "component-occurrence"]);
+/** One slice to walk: from which element, on which side of the anchor, with the span its own bookkeeping folds into. */
+type Run = { seedId: string; seedSpan: Span; side: Side };
 
 export function anchorGraphOp(session: EngineSession, params: Record<string, unknown>, cancellation?: AnalysisCancellationToken): AnchorGraphResult {
   const tier1 = session.tier1();
@@ -48,7 +58,7 @@ function parseDirection(value: unknown): AnchorDirection {
  * takes it), or a `name` on a `line` for a symbol picked from the import
  * graph or the treemap, where only the declaration's line is known.
  */
-function resolveCandidate(tier1: Tier1, sourceFile: TypeScript.SourceFile, params: Record<string, unknown>): Candidate {
+function resolveCandidate(tier1: Tier1, sourceFile: TypeScript.SourceFile, params: Record<string, unknown>): Resolved {
   const { ts } = tier1;
   if (typeof params.name === "string" && params.name) {
     if (!Number.isInteger(params.line) || (params.line as number) < 1) throw new EngineError("invalid-request", "params.name needs params.line");
@@ -64,8 +74,13 @@ function resolveCandidate(tier1: Tier1, sourceFile: TypeScript.SourceFile, param
   return candidate;
 }
 
-/** The identifier `name` on `line`: a declaration's name first, else the first use. */
-function identifierOnLine(ts: typeof TypeScript, sourceFile: TypeScript.SourceFile, name: string, line: number): Candidate | null {
+/**
+ * The identifier `name` on `line`: a declaration's name first, else the first
+ * use. The engine's evidence for a declaration sits on its initializer (a
+ * `createResource(...)` call) or on the whole function, not on the name, so
+ * those nodes follow as fallbacks.
+ */
+function identifierOnLine(ts: typeof TypeScript, sourceFile: TypeScript.SourceFile, name: string, line: number): Resolved | null {
   const hits: TypeScript.Identifier[] = [];
   const visit = (node: TypeScript.Node) => {
     if (ts.isIdentifier(node) && node.text === name && sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1 === line) hits.push(node);
@@ -80,7 +95,24 @@ function identifierOnLine(ts: typeof TypeScript, sourceFile: TypeScript.SourceFi
     );
   };
   const node = hits.find(declares) ?? hits[0];
-  return node ? { node, kind: ts.SyntaxKind[node.kind], text: name, span: spanOf(sourceFile, node) } : null;
+  if (!node) return null;
+  const fallbacks: TypeScript.Node[] = [];
+  const p = node.parent;
+  // `const [records] = createResource(…)`: the name is a binding element; the evidence is on the initializer.
+  let declaration: TypeScript.Node | undefined = p;
+  while (declaration && !ts.isVariableDeclaration(declaration) && (ts.isBindingElement(declaration) || ts.isArrayBindingPattern(declaration) || ts.isObjectBindingPattern(declaration))) declaration = declaration.parent;
+  if (declaration && ts.isVariableDeclaration(declaration) && declaration.initializer) fallbacks.push(declaration.initializer);
+  if (declares(node)) fallbacks.push(p);
+  // `<RouteFrame …>`: a JSX tag's evidence is the occurrence, the element itself.
+  if ((ts.isJsxOpeningElement(p) || ts.isJsxSelfClosingElement(p)) && p.tagName === node) {
+    fallbacks.push(p);
+    if (ts.isJsxOpeningElement(p) && ts.isJsxElement(p.parent)) fallbacks.push(p.parent);
+  }
+  if (declaration && ts.isVariableDeclaration(declaration)) {
+    fallbacks.push(declaration);
+    if (ts.isVariableDeclarationList(declaration.parent) && ts.isVariableStatement(declaration.parent.parent)) fallbacks.push(declaration.parent.parent);
+  }
+  return { node, kind: ts.SyntaxKind[node.kind], text: name, span: spanOf(sourceFile, node), fallbacks };
 }
 
 class AnchorGraphBuilder {
@@ -91,6 +123,8 @@ class AnchorGraphBuilder {
   private readonly alias = new Map<string, string>();
   private readonly originRoles = new Map<string, string[]>();
   private readonly terminalRoles = new Map<string, string[]>();
+  /** The anchor itself: a walk from one of its parameters, returns or uses never draws it again as a step. */
+  private anchorId: string | null = null;
   private readonly root: string;
   private readonly checker: TypeScript.TypeChecker;
   private readonly sites: CallSiteIndex;
@@ -101,11 +135,23 @@ class AnchorGraphBuilder {
     this.sites = callSiteIndexes.get(tier1) ?? callSiteIndexes.set(tier1, createCallSiteIndex(tier1)).get(tier1)!;
   }
 
-  build(sourceFile: TypeScript.SourceFile, file: string, candidate: Candidate, direction: AnchorDirection): AnchorGraphResult {
-    const span = spanOf(sourceFile, candidate.node);
-    const seed = seedFor(this.tier1, file, span);
+  build(sourceFile: TypeScript.SourceFile, file: string, candidate: Resolved, direction: AnchorDirection): AnchorGraphResult {
+    let span = spanOf(sourceFile, candidate.node);
+    let seed = seedFor(this.tier1, file, span);
+    // A symbol by name: when nothing sits on the name, the declaration's initializer or the function itself is the anchor.
+    for (const alt of candidate.fallbacks ?? []) {
+      if (seed) break;
+      const altSpan = spanOf(sourceFile, alt);
+      const facts = elementsAt(this.tier1, file, altSpan);
+      const match = DECLARATION_SEEDS.map((kind) => facts.find((fact) => fact.kind === kind)).find(Boolean) ?? facts[0];
+      if (match) {
+        seed = match.id;
+        span = altSpan;
+      }
+    }
     const fact = seed ? elementsAt(this.tier1, file, span).find((item) => item.id === seed) : undefined;
     const anchorId = seed ?? `anchor:${file}:${span.startLine}:${span.startColumn}`;
+    this.anchorId = anchorId;
     const anchor = {
       file,
       absPath: path.resolve(this.root, file),
@@ -136,16 +182,11 @@ class AnchorGraphBuilder {
 
     const sides: Side[] = direction === "forward" ? ["down"] : direction === "backward" ? ["up"] : ["up", "down"];
     const coverage = { elements: 0, relations: 0, budget: { limit: 0, used: 0, exhausted: false } };
-    for (const side of sides) {
-      const dir = side === "down" ? "forward" : "backward";
-      const slice = queryEvidenceSlice(this.tier1.provider(), {
-        seed: { candidateId: `anchor:${seed}:${dir}`, entryElementId: seed, adapter: "anchor-graph", label: anchor.text, framework: null, proof: [], defaults: scopePolicy({ direction: dir }) },
-        direction: dir,
-        ...(dir === "forward" ? { terminalPolicy: { roles: ["render", "component-occurrence", "side-effect", "return"] } } : {}),
-        cancellation: this.cancellation,
-      });
-      this.walk(seed, slice, side, span);
-      this.gaps(slice.gaps, side);
+    const runs: Run[] = fact && DECLARATION_KINDS.has(fact.kind) ? this.declarationRuns(file, span, seed, sides) : sides.map((side) => ({ seedId: seed, seedSpan: span, side }));
+    for (const run of runs) {
+      const slice = this.slice(run, anchor.text);
+      this.walk(run.seedId, slice, run.side, run.seedSpan);
+      this.gaps(slice.gaps, run.side);
       coverage.elements += slice.elements.length;
       coverage.relations += slice.relations.length;
       coverage.budget.used += slice.relations.length;
@@ -156,9 +197,71 @@ class AnchorGraphBuilder {
     const kinds = drawn.map((node) => node.kind);
     // A frontier, or a boundary the walk could not pass, leaves the proof partial; a framework boundary passed on proven relations does not.
     const stopped = drawn.some((node) => node.kind === "frontier" || (node.kind === "boundary" && node.status !== "proven"));
-    const landed = (sides.includes("down") && kinds.includes("terminal")) || (sides.includes("up") && kinds.includes("origin"));
+    // Landed: a terminal forward or an origin backward; a declaration's walk also lands when it drew its parameters, returns or uses and nothing stopped it.
+    const landed = (sides.includes("down") && kinds.includes("terminal")) || (sides.includes("up") && kinds.includes("origin")) || (runs.length > 0 && runs[0].seedId !== seed && drawn.some((node) => node.kind !== "scope" && node.kind !== "anchor"));
     const outcome = stopped ? "partial" : landed ? "ok" : coverage.budget.exhausted ? "budget" : "partial";
     return this.finish(anchor, direction, outcome, null, coverage);
+  }
+
+  private slice(run: Run, label: string): EvidenceSlice {
+    const dir = run.side === "down" ? "forward" : "backward";
+    return queryEvidenceSlice(this.tier1.provider(), {
+      seed: { candidateId: `anchor:${run.seedId}:${dir}`, entryElementId: run.seedId, adapter: "anchor-graph", label, framework: null, proof: [], defaults: scopePolicy({ direction: dir }) },
+      direction: dir,
+      ...(dir === "forward" ? { terminalPolicy: { roles: ["render", "component-occurrence", "side-effect", "return"] } } : {}),
+      cancellation: this.cancellation,
+    });
+  }
+
+  /**
+   * A function or component anchored by name has no value of its own. What
+   * comes in is what reaches its parameters; where it goes is what its
+   * returns reach, and the places it is called or rendered. Each becomes a
+   * box joined to the anchor and a slice of its own.
+   */
+  private declarationRuns(file: string, span: Span, seed: string, sides: Side[]): Run[] {
+    const inside = (s: Span) =>
+      (s.startLine > span.startLine || (s.startLine === span.startLine && s.startColumn >= span.startColumn)) &&
+      (s.endLine < span.endLine || (s.endLine === span.endLine && s.endColumn <= span.endColumn)) &&
+      !(s.startLine === span.startLine && s.startColumn === span.startColumn && s.endLine === span.endLine && s.endColumn === span.endColumn);
+    const facts = this.tier1.provider().facts.fileCandidates(file).filter((fact) => inside(fact.location.span));
+    const runs: Run[] = [];
+    if (sides.includes("up")) {
+      const sourceFile = this.tier1.program.getSourceFile(path.resolve(this.root, file));
+      const textOf = (fact: { location: { span: Span } }) => (sourceFile ? nodeAtSpan(this.tier1.ts, sourceFile, fact.location.span)?.getText(sourceFile) ?? "" : "");
+      for (const param of facts.filter((fact) => fact.kind === "parameter")) {
+        this.addFact(param, "up");
+        this.pushEdge({ id: `parameter:${param.id}`, source: param.id, target: seed, kind: "parameter", status: "proven", proof: [], label: null });
+        runs.push({ seedId: param.id, seedSpan: param.location.span, side: "up" });
+        // What a caller binds arrives at the parameter's field reads (`props.viewer`), so those are where "comes from" starts.
+        const name = textOf(param).replace(/[:=].*$/s, "").trim();
+        for (const read of facts.filter((fact) => fact.kind === "field-read" && new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\??\\.`).test(textOf(fact)))) {
+          this.addFact(read, "up");
+          this.pushEdge({ id: `prop:${read.id}`, source: read.id, target: param.id, kind: "prop-read", status: "proven", proof: [], label: null });
+          runs.push({ seedId: read.id, seedSpan: read.location.span, side: "up" });
+        }
+      }
+    }
+    if (sides.includes("down")) {
+      const expressions = facts.filter((fact) => fact.kind === "return-expression");
+      for (const ret of expressions.length ? expressions : facts.filter((fact) => fact.kind === "return")) {
+        this.addFact(ret, "down");
+        this.pushEdge({ id: `returns:${ret.id}`, source: seed, target: ret.id, kind: "returns", status: "proven", proof: [], label: null });
+        runs.push({ seedId: ret.id, seedSpan: ret.location.span, side: "down" });
+      }
+      // Where it is used: the calls and occurrences whose definition this is.
+      const uses = this.slice({ seedId: seed, seedSpan: span, side: "up" }, seed);
+      const byId = new Map(uses.elements.map((element) => [element.id, element]));
+      for (const relation of uses.relations) {
+        if (relation.to !== seed || !USE_RELATIONS.has(relation.kind)) continue;
+        const use = byId.get(relation.from);
+        if (!use || this.nodes.has(use.id)) continue;
+        this.addElement(use, "value", "down", relation.status, null, use.kind === "component-occurrence" || use.kind === "jsx-occurrence" ? "rendered here" : "called here");
+        this.pushEdge({ id: `use:${relation.id}`, source: seed, target: use.id, kind: "used-by", status: relation.status, proof: [relation.proof], label: null });
+        runs.push({ seedId: use.id, seedSpan: use.location.span, side: "down" });
+      }
+    }
+    return runs;
   }
 
   /** Breadth first from the seed over the slice's relations, one side at a time; terminals, origins and boundaries end a path. */
@@ -178,7 +281,7 @@ class AnchorGraphBuilder {
       for (const relation of next.get(id) ?? []) {
         const otherId = side === "down" ? relation.to : relation.from;
         const element = byId.get(otherId);
-        if (!element || otherId === seed) continue;
+        if (!element || otherId === seed || otherId === this.anchorId) continue;
         // Bookkeeping at the anchor's own span (its alias, its call) repeats the anchor.
         if (sameSpan(element.location.span, seedSpan) && !TERMINAL_KINDS.has(element.kind) && !element.originRoles.length) {
           this.alias.set(otherId, seed);
@@ -258,6 +361,29 @@ class AnchorGraphBuilder {
     }
   }
 
+  /** A declaration's own parameter or return as a plain value box (the file index knows it without roles or proof). */
+  private addFact(fact: { id: string; kind: string; label: string; location: { file: string; line: number; span: Span } }, side: Side) {
+    if (this.nodes.has(fact.id)) return;
+    const sourceFile = this.tier1.program.getSourceFile(path.resolve(this.root, fact.location.file));
+    const node = sourceFile ? nodeAtSpan(this.tier1.ts, sourceFile, fact.location.span) : null;
+    this.addNode({
+      id: fact.id,
+      kind: "value",
+      label: clip(fact.label),
+      detail: kindWords(fact.kind),
+      parent: this.scopeFor(fact.location.file, fact.location.span, side),
+      file: fact.location.file,
+      line: fact.location.line,
+      span: fact.location.span,
+      status: "proven",
+      side,
+      elementKind: fact.kind,
+      typeText: node ? this.typeTextOf(node) : null,
+      reason: null,
+      note: null,
+    });
+  }
+
   private resolve(id: string): string {
     return this.alias.get(id) ?? id;
   }
@@ -299,7 +425,8 @@ class AnchorGraphBuilder {
   }
 
   private pushEdge(edge: AnchorEdge) {
-    const key = `${edge.kind}|${edge.source}|${edge.target}`;
+    // One edge per pair of boxes: the first relation the walk meets names it.
+    const key = `${edge.source}|${edge.target}`;
     if (this.edgeKeys.has(key) || !this.nodes.has(edge.source) || !this.nodes.has(edge.target)) return;
     this.edgeKeys.add(key);
     this.edges.push(edge);
