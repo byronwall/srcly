@@ -5,7 +5,7 @@ import { Button } from "../../../components/ui/Button";
 import { fetchAnchorGraph, fetchRouteGraph, fetchRoutes } from "../../../dataflow/api";
 import { availabilityFor, ensureStarted, statusFor, watchProgress } from "../../../dataflow/availability";
 import { labelFor, reasonText } from "../../../dataflow/outcome";
-import { atFromTreePath, parseAnchor, type Direction } from "../../../navigation/location";
+import { atFromTreePath, encodeAnchor, parseAnchor, type Direction } from "../../../navigation/location";
 import { go, location, replace } from "../../../navigation/store";
 import { ViewTools } from "../../viewToolbar";
 import { DependencyCanvas, type CanvasApi } from "../DependencyCanvas";
@@ -67,8 +67,11 @@ export default function FlowView(props: {
   const anchorKey = () => location().anchor;
   const anchorSpec = () => parseAnchor(anchorKey());
   const dir = (): Direction => location().dir ?? "both";
-  const graphKey = createMemo(
-    () => (availability() === "ready" && routeKey() && !anchorKey() ? `${root()}\n${routeKey()}\n${field() ?? ""}` : null),
+  // A handler route (FastAPI, Flask) has no render backbone: wait for the route list to know which kind it is.
+  const graphKey = createMemo(() =>
+    availability() === "ready" && routeKey() && !anchorKey() && routes() && !handlerOf(routeKey())
+      ? `${root()}\n${routeKey()}\n${field() ?? ""}`
+      : null,
   );
   const anchorFetchKey = createMemo(() => (availability() === "ready" && anchorSpec() ? `${root()}\n${anchorKey()}\n${dir()}` : null));
   const anchorFetch = createFetch(anchorFetchKey, (key) => {
@@ -85,6 +88,15 @@ export default function FlowView(props: {
   const graph = graphFetch.value;
   const routeList = () => routes()?.routes ?? [];
   const currentRoute = () => routeList().find((r) => r.key === routeKey() || r.pathPattern === routeKey());
+  function handlerOf(key: string) {
+    const route = routeList().find((r) => r.key === key || r.pathPattern === key);
+    return route?.handler ? encodeAnchor({ file: route.file, name: route.handler.name, line: route.handler.line }) : null;
+  }
+  // A link to a handler route opens its handler in anchor mode instead.
+  createEffect(() => {
+    const anchor = routeKey() && !anchorKey() ? handlerOf(routeKey()) : null;
+    if (anchor) untrack(() => replace({ flow: undefined, anchor, dir: "both", field: undefined, dest: undefined }));
+  });
 
   const [picker, setPicker] = createSignal(false);
   // No route yet: offer the picker as soon as there are routes to pick.
@@ -180,7 +192,9 @@ export default function FlowView(props: {
   };
   const pickRoute = (key: string) => {
     setSelected(null);
-    go({ flow: key, anchor: undefined, dir: undefined, open: undefined, field: undefined, dest: undefined });
+    const handler = handlerOf(key);
+    if (handler) go({ flow: undefined, anchor: handler, dir: "both", open: undefined, field: undefined, dest: undefined });
+    else go({ flow: key, anchor: undefined, dir: undefined, open: undefined, field: undefined, dest: undefined });
   };
   /** Leave anchor mode for the route picker. */
   const toRoutes = () => {

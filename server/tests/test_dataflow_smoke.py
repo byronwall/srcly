@@ -29,6 +29,7 @@ def test_routes_on_solid_route(monkeypatch):
         body = client.get("/api/dataflow/routes", params={"path": str(SOLID_ROUTE)}).json()
         assert body["outcome"] == "ok"
         assert [route["pathPattern"] for route in body["routes"]] == ["/records"]
+        assert "handler" not in body["routes"][0]  # a rendered route has no handler (null, dropped)
         assert Path(body["routes"][0]["absPath"]) == SOLID_ROUTE / "src" / "routes" / "records.tsx"
         status = client.get("/api/dataflow/status", params={"path": str(SOLID_ROUTE)}).json()
         assert status["state"] == "ready" and status["generation"] == body["generation"]
@@ -122,6 +123,7 @@ def test_python_root_routes_and_anchor_graph(monkeypatch):
             "DELETE /v1/items/{item_id}", "GET /v1/items", "GET /v1/items/{item_id}", "GET /v1/settings", "POST /v1/items",
         ]
         assert body["typescript"].startswith("mypy ")
+        assert body["routes"][-1]["handler"] == {"name": "create_item", "line": 11}
         line = next(i for i, text in enumerate((PYTHON_FASTAPI / "app/routers/items.py").read_text().splitlines(), 1) if "def create_item" in text)
         graph = client.post(
             "/api/dataflow/anchor-graph",

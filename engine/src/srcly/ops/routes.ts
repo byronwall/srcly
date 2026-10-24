@@ -12,8 +12,8 @@ export function routesOp(session: EngineSession, params: { expectedGeneration?: 
   const tier1 = session.tier1();
   checkGeneration(tier1, params.expectedGeneration);
   const routes = tier1.language === "python"
-    ? tier1.routes.map((route) => ({ key: route.key, pathPattern: route.pathPattern, file: route.file, parameters: route.parameters }))
-    : tier1.routes;
+    ? tier1.routes.map((route) => ({ key: route.key, pathPattern: route.pathPattern, file: route.file, parameters: route.parameters, handler: { name: route.handler.name, line: route.handler.line } }))
+    : tier1.routes.map((route) => ({ ...route, handler: null }));
   return routesResultSchema.parse({
     outcome: "ok",
     generation: tier1.generation.id,
@@ -27,6 +27,7 @@ export function routesOp(session: EngineSession, params: { expectedGeneration?: 
         file: route.file,
         absPath: path.resolve(tier1.root, route.file),
         parameters: route.parameters.map((parameter) => ({ name: parameter.name, kind: parameter.kind })),
+        handler: route.handler,
       }))
       .sort((left, right) => left.pathPattern.localeCompare(right.pathPattern)),
   });
