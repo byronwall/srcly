@@ -17,6 +17,8 @@ CONTRACTS = Path(models.__file__).with_name("contracts")
         ("status", models.StatusResult),
         ("routes", models.RoutesResult),
         ("routeGraph", models.RouteGraphResult),
+        ("selectExpression", models.SelectExpressionResult),
+        ("valueFlow", models.ValueFlowResult),
     ],
 )
 def test_model_fields_match_the_schema(op, model):
@@ -55,3 +57,12 @@ def test_route_graph_nested_fields_match():
     assert set(models.RouteGraphCounts.model_fields) == set(schema["counts"]["properties"])
     assert set(models.RouteGap.model_fields) == set(schema["gaps"]["items"]["properties"])
     assert set(models.RouteLineage.model_fields) == set(schema["lineage"]["anyOf"][0]["properties"])
+
+
+def test_ledger_nested_fields_match():
+    schema = json.loads((CONTRACTS / "valueFlow.schema.json").read_text())["properties"]
+    assert set(models.LedgerRow.model_fields) == set(schema["rows"]["items"]["properties"])
+    assert set(models.LedgerBindings.model_fields) == set(schema["bindings"]["properties"])
+    assert set(models.LedgerCoverage.model_fields) == set(schema["coverage"]["properties"])
+    select = json.loads((CONTRACTS / "selectExpression.schema.json").read_text())["properties"]
+    assert set(models.SelectCandidate.model_fields) == set(select["candidates"]["items"]["properties"])

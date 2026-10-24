@@ -13,6 +13,7 @@ import type { AnalysisOperation, AnalysisProgress, AnalysisWorkerData, AnalysisW
 import { errorPayload } from "../srcly/protocol";
 import { routeGraphOp } from "../srcly/ops/route-graph";
 import { routesOp } from "../srcly/ops/routes";
+import { selectExpressionOp, valueFlowOp } from "../srcly/ops/value-flow";
 import { createEngineSession, type EngineSession } from "../srcly/session";
 import { createAnalysisCache } from "./cache";
 import { buildSourceExcerpt } from "./source-excerpts";
@@ -69,6 +70,8 @@ port.on("message", ({ requestId, operation, cancellationBuffer }: AnalysisWorker
 function perform(operation: AnalysisOperation, requestId: number, cancellation: AnalysisCancellationToken) {
   if (operation.kind === "routes") return announce(routesOp(requireSession(), operation));
   if (operation.kind === "route-graph") return announce(routeGraphOp(requireSession(), operation, cancellation));
+  if (operation.kind === "select-expression") return announce(selectExpressionOp(requireSession(), operation.params));
+  if (operation.kind === "value-flow") return announce(valueFlowOp(requireSession(), operation.params, cancellation));
   if (operation.kind === "refresh") {
     const report = cache.refresh();
     return refreshResponseSchema.parse({ apiVersion: 1, analysisVersion: report.analysisVersion, generation: cache.generation(), generatedAt: report.generatedAt, data: { refreshed: true } });

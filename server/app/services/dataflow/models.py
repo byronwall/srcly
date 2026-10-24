@@ -277,3 +277,115 @@ class RouteGraphResponse(BaseModel):
     generation: int | None = None
     programHash: str | None = None
     graph: RouteGraphResult | None = None
+
+
+# ---- value flow (contracts/selectExpression.schema.json, valueFlow.schema.json) -----
+
+
+class SelectCandidate(BaseModel):
+    kind: str
+    text: str
+    span: SourceSpan
+    evidence: bool
+
+
+class SelectExpressionResult(BaseModel):
+    outcome: Outcome
+    generation: int
+    programHash: str
+    tsconfig: str
+    typescript: str
+    file: str
+    reason: str | None
+    candidates: list[SelectCandidate]
+
+
+class LedgerRow(BaseModel):
+    id: str
+    kind: Literal["input", "transfer", "fallback", "branch", "transform", "terminal", "boundary"]
+    label: str
+    file: str
+    absPath: str
+    line: int
+    span: SourceSpan
+    status: EvidenceStatus
+    elementId: str | None
+    relationId: str | None
+    proof: list[EvidenceProof]
+    typeText: str | None
+    note: str | None
+    reason: str | None
+
+
+class LedgerSelection(BaseModel):
+    file: str
+    span: SourceSpan
+    text: str
+    kind: str
+
+
+class LedgerFrontier(BaseModel):
+    rowId: str
+    reason: str
+    label: str
+
+
+class LedgerBudget(BaseModel):
+    limit: int
+    used: int
+    exhausted: bool
+
+
+class LedgerCoverage(BaseModel):
+    elements: int
+    relations: int
+    budget: LedgerBudget
+
+
+class SourceFingerprint(BaseModel):
+    file: str
+    size: int
+    mtimeMs: float
+
+
+class LedgerBindings(BaseModel):
+    tsconfig: str
+    typescript: str
+    sourceFingerprints: list[SourceFingerprint]
+
+
+class ValueFlowResult(BaseModel):
+    outcome: Outcome
+    generation: int
+    programHash: str
+    tsconfig: str
+    typescript: str
+    reason: str | None
+    selection: LedgerSelection
+    rows: list[LedgerRow]
+    frontiers: list[LedgerFrontier]
+    terminals: list[str]
+    coverage: LedgerCoverage
+    bindings: LedgerBindings
+
+
+class SelectResponse(BaseModel):
+    """``POST /api/dataflow/select``: candidates, or an outcome without them."""
+
+    outcome: Outcome
+    reason: str | None = None
+    message: str | None = None
+    generation: int | None = None
+    programHash: str | None = None
+    result: SelectExpressionResult | None = None
+
+
+class ValueFlowResponse(BaseModel):
+    """``POST /api/dataflow/value-flow``: the ledger, or an outcome without one."""
+
+    outcome: Outcome
+    reason: str | None = None
+    message: str | None = None
+    generation: int | None = None
+    programHash: str | None = None
+    ledger: ValueFlowResult | None = None

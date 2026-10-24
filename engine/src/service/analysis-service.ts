@@ -69,7 +69,9 @@ export type AnalysisOperation =
   | ({ kind: "source-excerpt" } & SourceExcerptRequest)
   | { kind: "markdown"; view: string; path: string | null }
   | { kind: "routes"; expectedGeneration?: number }
-  | { kind: "route-graph"; route: string; source?: string; expectedGeneration?: number };
+  | { kind: "route-graph"; route: string; source?: string; expectedGeneration?: number }
+  | { kind: "select-expression"; params: Record<string, unknown> }
+  | { kind: "value-flow"; params: Record<string, unknown> };
 
 export function createAnalysisService(args: AnalyzerArgs, engine: EngineConfig | null = null) {
   let workerUrl = import.meta.url.endsWith(".ts")
