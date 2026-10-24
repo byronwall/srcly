@@ -1,0 +1,53 @@
+{
+  "counts": {
+    "boundaries": 0,
+    "handoffs": 0,
+    "occurrences": 0,
+    "omittedItems": 0,
+    "origins": 0,
+    "terminals": 0
+  },
+  "destinations": [],
+  "edges": [],
+  "gaps": [],
+  "generation": 1,
+  "lineage": null,
+  "nodes": [
+    {
+      "absPath": "/fixture/src/routes/records.tsx",
+      "collapsedByDefault": false,
+      "detail": null,
+      "external": false,
+      "file": "src/routes/records.tsx",
+      "id": "occ:route",
+      "kind": "route",
+      "label": "/records",
+      "line": 1,
+      "parent": null,
+      "reason": "no-route-component",
+      "repetition": null,
+      "span": {
+        "endColumn": 10,
+        "endLine": 1,
+        "startColumn": 1,
+        "startLine": 1
+      },
+      "status": "unsupported"
+    }
+  ],
+  "origins": [],
+  "outcome": "unsupported",
+  "phase": "complete",
+  "programHash": "hash-1",
+  "route": {
+    "absPath": "/fixture/src/routes/records.tsx",
+    "file": "src/routes/records.tsx",
+    "key": "route:records",
+    "pathPattern": "/records"
+  },
+  "selectedSource": null,
+  "status": "unavailable",
+  "tsconfig": "/fixture/tsconfig.json",
+  "typescript": "5.9.3",
+  "unavailableReason": "no-route-component"
+}

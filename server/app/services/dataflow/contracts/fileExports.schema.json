@@ -1,0 +1,183 @@
+{
+  "title": "FileExportsResult",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "partial",
+        "not-analyzed",
+        "unsupported",
+        "stale",
+        "cancelled",
+        "budget"
+      ]
+    },
+    "generation": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "programHash": {
+      "type": "string"
+    },
+    "tsconfig": {
+      "type": "string"
+    },
+    "typescript": {
+      "type": "string"
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "target": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "absPath": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "file",
+            "folder"
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "absPath",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "absPath": {
+            "type": "string"
+          },
+          "exports": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "function",
+                    "class",
+                    "variable",
+                    "component",
+                    "enum",
+                    "type",
+                    "interface",
+                    "namespace",
+                    "other"
+                  ]
+                },
+                "file": {
+                  "type": "string"
+                },
+                "absPath": {
+                  "type": "string"
+                },
+                "line": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "column": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "traceable": {
+                  "type": "boolean"
+                },
+                "reexported": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "kind",
+                "file",
+                "absPath",
+                "line",
+                "column",
+                "traceable",
+                "reexported"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "file",
+          "absPath",
+          "exports"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "exports": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "traceable": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "files",
+        "exports",
+        "traceable"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "outcome",
+    "generation",
+    "programHash",
+    "tsconfig",
+    "typescript",
+    "reason",
+    "target",
+    "files",
+    "counts"
+  ],
+  "additionalProperties": false
+}

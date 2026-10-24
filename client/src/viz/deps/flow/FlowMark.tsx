@@ -1,5 +1,5 @@
 import { Show } from "solid-js";
-import { FLOW_MARKS, REPETITION_BADGE, type FlowMark } from "./marks";
+import { markVar, REPETITION_BADGE, type FlowMark } from "./marks";
 
 /**
  * The 12px mark of a flow node kind, drawn in the kind's color where the
@@ -8,9 +8,8 @@ import { FLOW_MARKS, REPETITION_BADGE, type FlowMark } from "./marks";
  * boundary, a filled square for a terminal and a dashed diamond for a frontier.
  */
 export function FlowMarkGlyph(props: { mark: FlowMark; x: number; y: number }) {
-  const color = () => FLOW_MARKS[props.mark].color;
   return (
-    <g transform={`translate(${props.x},${props.y})`} aria-hidden="true" style={{ color: color() }}>
+    <g transform={`translate(${props.x},${props.y})`} aria-hidden="true" style={{ color: markVar(props.mark) }}>
       <Show when={props.mark === "route"}>
         <circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.3" />
         <circle cx="6" cy="6" r="2" fill="currentColor" />

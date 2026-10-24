@@ -1,0 +1,34 @@
+{
+  "assumptions": [
+    "Intrinsics are taken as pure unless named."
+  ],
+  "callable": {
+    "absPath": "/fixture/src/f.tsx",
+    "async": true,
+    "file": "src/f.tsx",
+    "kind": "function",
+    "line": 1,
+    "name": "load",
+    "span": {
+      "endColumn": 20,
+      "endLine": 1,
+      "startColumn": 1,
+      "startLine": 1
+    }
+  },
+  "counts": {
+    "callables": 0,
+    "facts": 0,
+    "frontiers": 0
+  },
+  "coverage": "not-analyzed",
+  "facts": [],
+  "frontiers": [],
+  "generation": 1,
+  "outcome": "unsupported",
+  "programHash": "hash-1",
+  "reason": "no-callable",
+  "resultHandling": [],
+  "tsconfig": "/fixture/tsconfig.json",
+  "typescript": "5.9.3"
+}

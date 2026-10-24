@@ -20,6 +20,12 @@ from app.services.dataflow.engine import EngineCrashed, EngineError
 from app.services.dataflow.models import (
     AnchorGraphResponse,
     AnchorGraphResult,
+    FileExportsResponse,
+    FileExportsResult,
+    FunctionEffectsResponse,
+    FunctionEffectsResult,
+    RoutePathResponse,
+    RoutePathResult,
     NA_REASONS,
     DataflowStatus,
     Outcome,
@@ -173,6 +179,23 @@ def get_routes(path: str | None = None, expectedGeneration: int | None = None):
     return _json(RoutesResponse(**RoutesResult.model_validate(body["result"]).model_dump()))
 
 
+class RefreshRequest(BaseModel):
+    path: str
+
+
+@router.post("/refresh", response_model=RoutesResponse, response_model_exclude_none=True)
+def refresh(body: RefreshRequest):
+    """
+    Rebuild tier 1 from the sources as they are now. The reply is the new
+    generation's routes; every open graph must be fetched again with it, and a
+    query that names the old generation gets the ``stale`` outcome.
+    """
+    result = _query(_root(body.path), "refresh", {}, None)
+    if "result" not in result:
+        return _json(RoutesResponse(**result))
+    return _json(RoutesResponse(**RoutesResult.model_validate(result["result"]).model_dump()))
+
+
 @router.get("/route-graph", response_model=RouteGraphResponse)
 def get_route_graph(route: str, path: str | None = None, source: str | None = None, expectedGeneration: int | None = None):
     """
@@ -189,21 +212,95 @@ def get_route_graph(route: str, path: str | None = None, source: str | None = No
     return _json(RouteGraphResponse(outcome=graph.outcome, generation=graph.generation, programHash=graph.programHash, graph=graph), exclude_none=False)
 
 
+class FunctionEffectsRequest(BaseModel):
+    """The function enclosing ``line`` (and ``column``, when given) in ``file``."""
+
+    path: str
+    file: str
+    line: int
+    column: int | None = None
+    expectedGeneration: int | None = None
+
+
+@router.post("/function-effects", response_model=FunctionEffectsResponse)
+def function_effects(body: FunctionEffectsRequest):
+    """
+    What the function at a position touches (M6): its effects as facts with
+    witnesses, the places the analysis could not follow as frontiers, how each
+    promise-yielding call is handled, and what is assumed. Known and partial
+    sit together; nothing here is a score.
+    """
+    root = _root(body.path)
+    params: dict = {"file": _contained_file(root, body.file), "line": body.line, **({"column": body.column} if body.column else {})}
+    result = _query(root, "functionEffects", params, body.expectedGeneration)
+    if "result" not in result:
+        return _json(FunctionEffectsResponse(**result), exclude_none=False)
+    effects = FunctionEffectsResult.model_validate(result["result"])
+    return _json(FunctionEffectsResponse(outcome=effects.outcome, reason=effects.reason, generation=effects.generation, programHash=effects.programHash, effects=effects), exclude_none=False)
+
+
+@router.get("/route-path", response_model=RoutePathResponse)
+def get_route_path(route: str, edge: str, path: str | None = None, source: str | None = None, expectedGeneration: int | None = None):
+    """
+    One lit edge of a route graph, explained in order (M4): the steps of the
+    field attachment, frontier or handoff behind it, as ledger rows. Field
+    edges need the ``source`` the graph was lit for. 404 for an edge the
+    totality does not carry; steps are never invented.
+    """
+    params = {"route": route, "edge": edge, **({"source": source} if source else {})}
+    body = _query(_root(path), "routePath", params, expectedGeneration)
+    if "result" not in body:
+        return _json(RoutePathResponse(**body), exclude_none=False)
+    result = RoutePathResult.model_validate(body["result"])
+    return _json(RoutePathResponse(outcome=result.outcome, reason=result.reason, generation=result.generation, programHash=result.programHash, path=result), exclude_none=False)
+
+
+@router.get("/file-exports", response_model=FileExportsResponse)
+def get_file_exports(file: str, path: str | None = None, expectedGeneration: int | None = None):
+    """
+    The exported declarations of a file, or of every program file under a
+    folder (T19): what a file or folder anchor fans out to, one anchor
+    (name and line) per export. Type-only exports are listed as not
+    traceable. 404 for a path with no TypeScript program file.
+    """
+    root = _root(path)
+    body = _query(root, "fileExports", {"file": _contained_file(root, file, folders=True)}, expectedGeneration)
+    if "result" not in body:
+        return _json(FileExportsResponse(**body), exclude_none=False)
+    result = FileExportsResult.model_validate(body["result"])
+    return _json(FileExportsResponse(outcome=result.outcome, reason=result.reason, generation=result.generation, programHash=result.programHash, exports=result), exclude_none=False)
+
+
+@router.get("/route-surface", response_model=RouteGraphResponse)
+def get_route_surface(route: str, path: str | None = None, expectedGeneration: int | None = None):
+    """
+    One route's render backbone alone (``phase: surface``): the same boxes and
+    render edges as ``route-graph``, with no origins, handoffs or gaps, from the
+    route file's own facts and the Program. Answers well before the first
+    ``route-graph`` on a large app, so a client draws it first.
+    """
+    body = _query(_root(path), "routeSurface", {"route": route}, expectedGeneration)
+    if "result" not in body:
+        return _json(RouteGraphResponse(**body), exclude_none=False)
+    graph = RouteGraphResult.model_validate(body["result"])
+    return _json(RouteGraphResponse(outcome=graph.outcome, generation=graph.generation, programHash=graph.programHash, graph=graph), exclude_none=False)
+
+
 @router.delete("")
 def close(path: str | None = None):
     """Close the engine for ``path`` (tests, and a rescan from the folder menu)."""
     return {"closed": _registry().close(_root(path))}
 
 
-def _contained_file(root: Path, file: str) -> str:
-    """``file`` (absolute, or relative to the scan root) as a path relative to the root; 400 when it escapes."""
+def _contained_file(root: Path, file: str, folders: bool = False) -> str:
+    """``file`` (absolute, or relative to the scan root) as a path relative to the root; 400 when it escapes, 404 when it is not a file (or folder, when allowed)."""
     candidate = (root / file).resolve() if not Path(file).is_absolute() else Path(file).resolve()
     try:
         relative = candidate.relative_to(root)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="file must be inside path") from exc
-    if not candidate.is_file():
-        raise HTTPException(status_code=404, detail="File not found")
+    if not (candidate.is_file() or (folders and candidate.is_dir())):
+        raise HTTPException(status_code=404, detail="Folder not found" if folders else "File not found")
     return relative.as_posix()
 
 
@@ -247,7 +344,7 @@ def value_flow(body: ValueFlowRequest):
 
 
 class AnchorRequest(BaseModel):
-    """An expression by exact span (plus its text), or a symbol by name on a line."""
+    """An expression by exact span (plus its text), a symbol by name on a line, or a drawn box by its element id."""
 
     path: str
     file: str
@@ -255,6 +352,7 @@ class AnchorRequest(BaseModel):
     text: str | None = None
     name: str | None = None
     line: int | None = None
+    elementId: str | None = None
     direction: Literal["forward", "backward", "both"] = "both"
     expectedGeneration: int | None = None
 
@@ -267,10 +365,12 @@ def anchor_graph(body: AnchorRequest):
     function that owns them. 404 for a name that is not on its line.
     """
     root = _root(body.path)
-    if body.span is None and not body.name:
-        raise HTTPException(status_code=422, detail="span, or name and line, is required")
+    if body.span is None and not body.name and not body.elementId:
+        raise HTTPException(status_code=422, detail="span, name and line, or elementId is required")
     params: dict = {"file": _contained_file(root, body.file), "direction": body.direction}
-    if body.span is not None:
+    if body.elementId:
+        params["elementId"] = body.elementId
+    elif body.span is not None:
         params["span"] = body.span.model_dump()
         if body.text:
             params["text"] = body.text

@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
+from app.services.cache import cache_dir
 from app.services.dataflow import availability
 from app.services.dataflow.availability import Availability, Launch
 
@@ -362,7 +363,8 @@ class EngineRegistry:
         self.cap = cap
         self.idle_seconds = idle_seconds
         self._probe = probe
-        self._env = env
+        # The engine's result cache lives beside the analysis cache; a changed Program hash misses it.
+        self._env = {"SRCLY_DATAFLOW_CACHE_DIR": str(cache_dir().parent / "dataflow"), **(env or {})}
         self._lock = threading.RLock()
         self._engines: dict[Path, EngineProcess] = {}
         # A root whose engine crashed stays N/A until an explicit start.

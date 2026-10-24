@@ -1,0 +1,512 @@
+{
+  "title": "FunctionEffectsResult",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "partial",
+        "not-analyzed",
+        "unsupported",
+        "stale",
+        "cancelled",
+        "budget"
+      ]
+    },
+    "generation": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "programHash": {
+      "type": "string"
+    },
+    "tsconfig": {
+      "type": "string"
+    },
+    "typescript": {
+      "type": "string"
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "callable": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "function",
+            "arrow",
+            "method",
+            "getter",
+            "setter",
+            "constructor"
+          ]
+        },
+        "async": {
+          "type": "boolean"
+        },
+        "file": {
+          "type": "string"
+        },
+        "absPath": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "span": {
+          "type": "object",
+          "properties": {
+            "startLine": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "startColumn": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "endLine": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "endColumn": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "startLine",
+            "startColumn",
+            "endLine",
+            "endColumn"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "async",
+        "file",
+        "absPath",
+        "line",
+        "span"
+      ],
+      "additionalProperties": false
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "external",
+              "input",
+              "write",
+              "throw",
+              "timer",
+              "promise"
+            ]
+          },
+          "kind": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proven",
+              "partial"
+            ]
+          },
+          "activation": {
+            "type": "string",
+            "enum": [
+              "direct",
+              "after-await",
+              "timer",
+              "latent"
+            ]
+          },
+          "via": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "callable": {
+                  "type": "string"
+                },
+                "file": {
+                  "type": "string"
+                },
+                "line": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "callable",
+                "file",
+                "line"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "witness": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "absPath": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "span": {
+                "type": "object",
+                "properties": {
+                  "startLine": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "startColumn": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "endLine": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "endColumn": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "startLine",
+                  "startColumn",
+                  "endLine",
+                  "endColumn"
+                ],
+                "additionalProperties": false
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "file",
+              "absPath",
+              "line",
+              "span",
+              "text"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "family",
+          "kind",
+          "label",
+          "detail",
+          "status",
+          "activation",
+          "via",
+          "witness"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "frontiers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "via": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "callable": {
+                  "type": "string"
+                },
+                "file": {
+                  "type": "string"
+                },
+                "line": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "callable",
+                "file",
+                "line"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "witness": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "absPath": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "span": {
+                "type": "object",
+                "properties": {
+                  "startLine": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "startColumn": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "endLine": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "endColumn": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "startLine",
+                  "startColumn",
+                  "endLine",
+                  "endColumn"
+                ],
+                "additionalProperties": false
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "file",
+              "absPath",
+              "line",
+              "span",
+              "text"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "reason",
+          "label",
+          "detail",
+          "via",
+          "witness"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "resultHandling": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "callee": {
+            "type": "string"
+          },
+          "handling": {
+            "type": "string",
+            "enum": [
+              "awaited",
+              "returned",
+              "assigned",
+              "passed",
+              "discarded"
+            ]
+          },
+          "witness": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "absPath": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "span": {
+                "type": "object",
+                "properties": {
+                  "startLine": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "startColumn": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "endLine": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "endColumn": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "startLine",
+                  "startColumn",
+                  "endLine",
+                  "endColumn"
+                ],
+                "additionalProperties": false
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "file",
+              "absPath",
+              "line",
+              "span",
+              "text"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "callee",
+          "handling",
+          "witness"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "coverage": {
+      "type": "string",
+      "enum": [
+        "complete-for-supported-scope",
+        "partial",
+        "not-analyzed"
+      ]
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "facts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "frontiers": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "callables": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "facts",
+        "frontiers",
+        "callables"
+      ],
+      "additionalProperties": false
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "outcome",
+    "generation",
+    "programHash",
+    "tsconfig",
+    "typescript",
+    "reason",
+    "callable",
+    "facts",
+    "frontiers",
+    "resultHandling",
+    "coverage",
+    "counts",
+    "assumptions"
+  ],
+  "additionalProperties": false
+}

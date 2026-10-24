@@ -21,6 +21,8 @@ export function MetricsSidebar(props: {
   onJumpToFinding: (line: number) => void;
   /** The value-flow ledger, when one is open: first in the rail, above the metrics. */
   ledger?: JSX.Element;
+  /** What the selected scope touches (M6): under the metrics, keyed on the scope. */
+  effects?: JSX.Element;
 }) {
   const commitsPath = () => (!props.gitRef && /^([A-Za-z]:)?[\\/]/.test(props.filePath ?? "") ? props.filePath : null);
   return (
@@ -52,6 +54,7 @@ export function MetricsSidebar(props: {
           {(path) => (
             <>
               <FileFindings path={path} onJump={props.onJumpToFinding} />
+              {props.effects}
               <RecentCommits path={path} />
             </>
           )}

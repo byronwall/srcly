@@ -1,0 +1,446 @@
+{
+  "title": "RoutePathResult",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "partial",
+        "not-analyzed",
+        "unsupported",
+        "stale",
+        "cancelled",
+        "budget"
+      ]
+    },
+    "generation": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "programHash": {
+      "type": "string"
+    },
+    "tsconfig": {
+      "type": "string"
+    },
+    "typescript": {
+      "type": "string"
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "route": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "pathPattern": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "pathPattern"
+      ],
+      "additionalProperties": false
+    },
+    "edge": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "field",
+            "handoff"
+          ]
+        },
+        "label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "proven",
+            "partial",
+            "unsupported"
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "label",
+        "status",
+        "source",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "input",
+              "transfer",
+              "fallback",
+              "branch",
+              "transform",
+              "terminal",
+              "boundary"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string"
+          },
+          "absPath": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "span": {
+            "type": "object",
+            "properties": {
+              "startLine": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "startColumn": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "endLine": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "endColumn": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "startLine",
+              "startColumn",
+              "endLine",
+              "endColumn"
+            ],
+            "additionalProperties": false
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proven",
+              "partial",
+              "unsupported"
+            ]
+          },
+          "elementId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "relationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "proof": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "detail": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "locations": {
+                  "minItems": 1,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "file": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "line": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "column": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "span": {
+                        "type": "object",
+                        "properties": {
+                          "startLine": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "startColumn": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "endLine": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "endColumn": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "startLine",
+                          "startColumn",
+                          "endLine",
+                          "endColumn"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "file",
+                      "line",
+                      "column",
+                      "span"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "proven",
+                    "partial",
+                    "unsupported"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "detail",
+                "locations",
+                "status"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "typeText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "file",
+          "absPath",
+          "line",
+          "span",
+          "status",
+          "elementId",
+          "relationId",
+          "proof",
+          "typeText",
+          "note",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "proof": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "detail": {
+            "type": "string",
+            "minLength": 1
+          },
+          "locations": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "file": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "line": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "column": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "span": {
+                  "type": "object",
+                  "properties": {
+                    "startLine": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "startColumn": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "endLine": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "endColumn": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "startLine",
+                    "startColumn",
+                    "endLine",
+                    "endColumn"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "file",
+                "line",
+                "column",
+                "span"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proven",
+              "partial",
+              "unsupported"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "detail",
+          "locations",
+          "status"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "frontier": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "label": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "reason",
+            "label"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "outcome",
+    "generation",
+    "programHash",
+    "tsconfig",
+    "typescript",
+    "reason",
+    "route",
+    "edge",
+    "rows",
+    "proof",
+    "frontier"
+  ],
+  "additionalProperties": false
+}

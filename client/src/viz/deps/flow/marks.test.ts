@@ -42,7 +42,11 @@ describe("boxes carry their kind, status and repetition", () => {
   });
 
   it("carries the proof status on every box and the repetition as a badge, not in the note", () => {
-    expect(vm.nodes.every((n) => n.status === "proven")).toBe(true);
+    // /records is a partial route whose two gaps sit in data/*.ts, outside
+    // every component box: only the route box carries the partial status.
+    const partial = vm.nodes.filter((n) => n.status !== "proven");
+    expect(partial.map((n) => n.label)).toEqual(["/records"]);
+    expect(partial[0].status).toBe("partial");
     const conditional = vm.nodes.filter((n) => n.repetition === "conditional");
     expect(conditional.length).toBeGreaterThan(0);
     expect(conditional.every((n) => !n.note?.includes("conditional"))).toBe(true);

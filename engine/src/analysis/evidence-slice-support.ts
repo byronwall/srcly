@@ -315,11 +315,11 @@ function queuePriority(
 }
 
 /** Select the next frontier item using the provider's local fact priority. */
-export function dequeueProviderPriorityQueue(
-  queue: { elementId: string; depth: number }[],
+export function dequeueProviderPriorityQueue<T extends { elementId: string; depth: number }>(
+  queue: T[],
   provider: EvidenceRelationSource,
   direction: SliceDirection,
-) {
+): T {
   let bestIndex = 0;
   let bestPriority = provider.factIndex.priorityFor(queue[0].elementId, direction);
   for (let index = 1; index < queue.length; index += 1) {

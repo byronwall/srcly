@@ -2,6 +2,8 @@ import * as d3 from "d3";
 import { createEffect, createMemo, createRenderEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { makeTextMeasurer, truncateTextToWidth } from "../../utils/svgText";
 import { formatMetricValue, metricLabel, type MetricId } from "../../utils/metricsStore";
+import { tokenColor } from "./flow/marks";
+import { LABEL_FONT_PX, placeEdgeLabels, type LabelPlacement } from "./edgeLabels";
 import { treemapFillColor, treemapRampPosition, rampColor } from "../treemap/utils/colors";
 import { tailPath } from "../treemap/components/TreemapTooltip";
 import { placeFloating } from "../treemap/hooks/useTreemapTooltip";
@@ -16,6 +18,7 @@ import {
   EXTERNAL_BOX_DASH,
   FRONTIER_BOX_DASH,
   HANDOFF_EDGE_DASH,
+  STRUCTURAL_EDGE_DASH,
 } from "./encoding";
 import { boundsOf } from "./geometry";
 import { CLICK_CURSOR, clickAction, createClickIntent, liveHover } from "./interaction";
@@ -44,15 +47,16 @@ const METRIC_BAR_W = 28;
  * enough that the bar and the contents strip carry the exact colors.
  */
 const TINT = 0.22;
-/** A box fill with a color mixed in at `TINT`: the treemap's metric color, or a flow node's kind color. */
-const tintFill = (color: string) => d3.interpolateLab("#ffffff", color)(TINT);
+/** A box fill with a color mixed in at `TINT`: the treemap's metric color, or a flow node's kind color, over the surface token (T21). */
+const tintFill = (color: string) => d3.interpolateLab(tokenColor("--plc-surface", "#ffffff"), color)(TINT);
 const MUTED_TEXT = "var(--plc-on-muted)";
 /** Row 3 in Data flow mode: the in/out counts' width before the note starts. */
 const FLOW_COUNTS_W = 78;
-const STATUS_COLOR: Record<NonNullable<ViewNode["status"]>, string> = {
+const STATUS_COLOR: Record<NonNullable<ViewEdge["status"]>, string> = {
   proven: "var(--plc-success)",
   partial: "var(--plc-warning)",
   unsupported: "var(--plc-error)",
+  structural: "var(--plc-on-muted)",
 };
 /** Rows 2–4 share the label's left edge; the kind glyph owns the column before it. */
 const TEXT_X = PAD_X + ICON_W;
@@ -86,8 +90,19 @@ function truncatePathStart(text: string, max: number, font: string): string {
   return truncateTextToWidth(parts[parts.length - 1], max, font);
 }
 
+/** The camera: d3's zoom transform as plain numbers, so it can be stored and restored. */
+export interface Camera {
+  k: number;
+  x: number;
+  y: number;
+}
+
 export interface CanvasApi {
   fit: () => void;
+  /** The camera as it is now, or null before the first layout. */
+  getCamera: () => Camera | null;
+  /** Put the camera back exactly (no animation): Return. */
+  setCamera: (camera: Camera) => void;
   /** Pan just enough to bring a box fully into view. */
   reveal: (id: string) => void;
   /** A box's rectangle on screen. */
@@ -216,6 +231,13 @@ export function DependencyCanvas(props: {
   selectedId?: string;
   /** Node actions: right-click, or the "⋯" shown on the hovered node. */
   onMenu?: (node: ViewNode, at: { x: number; y: number }) => void;
+  /** Data flow mode: a click on a drawn edge selects it (the inspector explains it). */
+  onSelectEdge?: (edge: ViewEdge) => void;
+  /**
+   * Asked once per new layout, before the fit: a camera to use instead of
+   * fitting (a place returned to), or null to fit as usual.
+   */
+  cameraForLayout?: () => Camera | null;
   ref?: (api: CanvasApi) => void;
   /** Treemap metrics per box id (boxes without a treemap match are absent). */
   metrics?: Map<string, Record<string, any>>;
@@ -296,13 +318,26 @@ export function DependencyCanvas(props: {
     .zoom<SVGSVGElement, unknown>()
     .scaleExtent([0.15, 4])
     .on("zoom", (ev) => {
+      // A gesture of the user's ends a held camera (a place returned to); a fit or a restore does not.
+      if (ev.sourceEvent) heldCamera = null;
       gRef.setAttribute("transform", ev.transform.toString());
       setInk(inkForZoom(ev.transform.k));
       setCard(null);
     });
 
+  /**
+   * The camera a returned-to place was left with (T17). Held from the layout
+   * that brought it until the user's first gesture, so the fit on mount and
+   * the resize observer's first call put it back instead of fitting.
+   */
+  let heldCamera: Camera | null = null;
+  const applyCamera = (camera: Camera) => {
+    if (!svgRef) return;
+    d3.select(svgRef).interrupt().call(zoom.transform, d3.zoomIdentity.translate(camera.x, camera.y).scale(camera.k));
+  };
   const fit = (animate = true) => {
     if (!svgRef) return;
+    if (heldCamera) return applyCamera(heldCamera);
     const { width, height } = svgRef.getBoundingClientRect();
     const b = boundsOf(props.layout.nodes, props.layout.edges);
     if (b.width === 0 || width === 0) return;
@@ -339,6 +374,15 @@ export function DependencyCanvas(props: {
     d3.select(svgRef).call(zoom).on("dblclick.zoom", null);
     props.ref?.({
       fit: () => fit(true),
+      getCamera: () => {
+        if (!svgRef) return null;
+        const t = d3.zoomTransform(svgRef);
+        return { k: t.k, x: t.x, y: t.y };
+      },
+      setCamera: (camera) => {
+        heldCamera = camera;
+        applyCamera(camera);
+      },
       reveal,
       screenRect: (id) => svgRef.querySelector<SVGGElement>(`[data-box="${CSS.escape(id)}"]`)?.getBoundingClientRect(),
     });
@@ -349,6 +393,8 @@ export function DependencyCanvas(props: {
 
 
   const nodeById = createMemo(() => new Map(props.layout.nodes.map((n) => [n.id, n])));
+  // Where each field label goes so it covers no box (T22); a label with no clear spot shows only while its edge is hovered.
+  const labelAt = createMemo(() => placeEdgeLabels(props.layout.edges.map((e) => ({ id: e.id, label: e.edge.label, points: e.points })), props.layout.nodes));
   createEffect(() => {
     const id = hoverNode();
     props.onHover?.(id ? (nodeById().get(id)?.node ?? null) : null);
@@ -378,8 +424,15 @@ export function DependencyCanvas(props: {
   // Before paint, so boxes start from where they were on screen.
   createRenderEffect(() => {
     const { camera } = motion();
-    if (camera) d3.select(svgRef).interrupt().call(zoom.transform, camera);
-    else queueMicrotask(() => fit(true));
+    if (camera) {
+      // Opened or closed in place: that gesture ends any held camera.
+      heldCamera = null;
+      d3.select(svgRef).interrupt().call(zoom.transform, camera);
+    } else {
+      // A fresh hold, or the one from the last layout: the backbone draws first and the complete graph replaces it (T9).
+      heldCamera = props.cameraForLayout?.() ?? heldCamera;
+      queueMicrotask(() => fit(true));
+    }
   });
   const info = createMemo(() => boxInfo(props.layout));
   const hubById = createMemo(() => new Map((props.layout.hubs ?? []).map((h) => [h.id, h])));
@@ -961,10 +1014,10 @@ export function DependencyCanvas(props: {
                   <g>
                     <path
                       d={edgePath(e)}
-                      stroke={active() || e.edge.style === "field" ? "var(--plc-accent)" : "var(--plc-tertiary)"}
-                      stroke-width={edgeStrokeWidth(e.edge.weight, e.edge.faint)}
+                      stroke={e.edge.style === "structural" ? "var(--plc-on-disabled)" : active() || e.edge.style === "field" ? "var(--plc-accent)" : "var(--plc-tertiary)"}
+                      stroke-width={e.edge.style === "structural" ? 1 : edgeStrokeWidth(e.edge.weight, e.edge.faint)}
                       stroke-opacity={dimmed() ? 0.12 : lightEdge(e.id) ? 0.4 : e.edge.faint && !active() ? CONTEXT_EDGE_OPACITY : EDGE_OPACITY}
-                      stroke-dasharray={e.edge.style === "handoff" ? HANDOFF_EDGE_DASH : e.edge.faint ? CONTEXT_EDGE_DASH : undefined}
+                      stroke-dasharray={e.edge.style === "structural" ? STRUCTURAL_EDGE_DASH : e.edge.style === "handoff" ? HANDOFF_EDGE_DASH : e.edge.faint ? CONTEXT_EDGE_DASH : undefined}
                       stroke-linejoin="round"
                       marker-end={active() ? "url(#dv-arrow-active)" : "url(#dv-arrow)"}
                       style={{ transition: "stroke 140ms ease, stroke-opacity 140ms ease" }}
@@ -978,14 +1031,20 @@ export function DependencyCanvas(props: {
                         setHoverEdge(e.id);
                         showCard(ev, { edge: e });
                       }}
+                      onClick={(ev) => {
+                        if (!props.onSelectEdge || !(e.edge.style === "field" || e.edge.style === "handoff")) return;
+                        ev.stopPropagation();
+                        props.onSelectEdge(e.edge);
+                      }}
+                      style={{ cursor: props.onSelectEdge && (e.edge.style === "field" || e.edge.style === "handoff") ? "pointer" : undefined }}
                       onMouseMove={(ev) => showCard(ev, { edge: e })}
                       onMouseLeave={() => {
                         setHoverEdge(null);
                         setCard(null);
                       }}
                     />
-                    <Show when={e.edge.label && !dimmed()}>
-                      <EdgeLabel edge={e} strong={active()} />
+                    <Show when={e.edge.label && !dimmed() && (labelAt().get(e.id) || hoverEdge() === e.id)}>
+                      <EdgeLabel edge={e} strong={active()} at={labelAt().get(e.id) ?? null} />
                     </Show>
                   </g>
                 );
@@ -1079,7 +1138,7 @@ export function DependencyCanvas(props: {
                   }}
                 >
                   <Show when={selectedId() === n.id}>
-                    <rect x={-4} y={-4} width={n.width + 8} height={n.height + 8} rx="9" fill="none" stroke="var(--plc-accent)" stroke-width={2 * ink()} />
+                    <rect data-selected-ring="" x={-4} y={-4} width={n.width + 8} height={n.height + 8} rx="9" fill="none" stroke="var(--plc-accent)" stroke-width={2 * ink()} />
                   </Show>
                   <rect
                     width={n.width}
@@ -1589,22 +1648,25 @@ function TipCard(props: { tip: Tip }) {
 }
 
 /** A field edge's path, on the longest run of the edge, with a halo so it reads over other edges. */
-function EdgeLabel(props: { edge: PositionedEdge; strong: boolean }) {
+/** A field label at its placed spot; with none (hover only), at the longest segment's middle. */
+function EdgeLabel(props: { edge: PositionedEdge; strong: boolean; at: LabelPlacement | null }) {
   const at = createMemo(() => {
+    if (props.at) return { x: props.at.x, y: props.at.y };
     const pts = props.edge.points;
     let best = { len: -1, x: 0, y: 0 };
     for (let i = 1; i < pts.length; i++) {
       const len = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-      if (len > best.len) best = { len, x: (pts[i].x + pts[i - 1].x) / 2, y: (pts[i].y + pts[i - 1].y) / 2 };
+      if (len > best.len) best = { len, x: (pts[i].x + pts[i - 1].x) / 2, y: (pts[i].y + pts[i - 1].y) / 2 - 3 };
     }
     return best;
   });
   return (
     <text
+      data-edge-label={props.edge.id}
       x={at().x}
-      y={at().y - 3}
+      y={at().y}
       text-anchor="middle"
-      font-size="10"
+      font-size={String(LABEL_FONT_PX)}
       font-weight={props.strong ? 600 : 500}
       fill="var(--plc-accent)"
       paint-order="stroke"
@@ -1618,8 +1680,8 @@ function EdgeLabel(props: { edge: PositionedEdge; strong: boolean }) {
   );
 }
 
-/** What a flow edge is, for its card: containment is what a frame renders; handoff and field edges come from the engine with proof. */
-function flowEdgeKind(e: ViewEdge): "renders" | "handoff" | "field" | null {
+/** What a flow edge is, for its card: containment is what a frame renders; handoff and field edges come from the engine with proof; structural links are found by syntax. */
+function flowEdgeKind(e: ViewEdge): "renders" | "handoff" | "field" | "structural" | null {
   if (e.style) return e.style;
   return e.id.startsWith("contains:") ? "renders" : null;
 }
@@ -1648,13 +1710,13 @@ function EdgeCard(props: { edge: PositionedEdge; nodes: Map<string, PositionedNo
             <div class="flex flex-wrap items-baseline gap-x-2 text-[11px]">
               <span class="text-[var(--plc-on-subtle)]">
                 {e().relation
-                  ? `${e().relation!.replaceAll("-", " ")}${kind() === "handoff" ? ": the value crosses a call or a prop" : ""}`
-                  : kind() === "renders" ? "renders: inside its frame" : kind() === "handoff" ? "handoff: an origin reaching a render site" : "field: the selected origin's path"}
+                  ? `${e().relation!.replaceAll("-", " ")}${kind() === "handoff" ? ": the value crosses a call or a prop" : kind() === "structural" ? ": found by structure, not traced" : ""}`
+                  : kind() === "renders" ? "renders: inside its frame" : kind() === "handoff" ? "handoff: an origin reaching a render site" : kind() === "structural" ? "structural: found by structure, not traced" : "field: the selected origin's path"}
               </span>
               <Show when={e().status}>
                 {(st) => (
                   <span class="font-semibold" style={{ color: STATUS_COLOR[st()] }}>
-                    {st() === "proven" ? "proven" : st() === "partial" ? "partial proof" : "unsupported"}
+                    {st() === "proven" ? "proven" : st() === "partial" ? "partial proof" : st() === "structural" ? "structural" : "unsupported"}
                   </span>
                 )}
               </Show>

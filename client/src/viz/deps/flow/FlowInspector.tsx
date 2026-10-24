@@ -1,6 +1,8 @@
 import { ExternalLink, X } from "lucide-solid";
 import { createMemo, For, type JSX, Show } from "solid-js";
-import type { AnchorGraphResult, RouteGraphResult } from "../../../dataflow/contract.generated";
+import type { AnchorGraphResult, RouteGraphResult, RoutePathResult } from "../../../dataflow/contract.generated";
+import type { RoutePathResponse } from "../../../dataflow/api";
+import { labelFor } from "../../../dataflow/outcome";
 import { Button } from "../../../components/ui/Button";
 import { IconButton } from "../../../components/ui/IconButton";
 import type { FlowBox, FlowViewModel } from "./adapter";
@@ -8,11 +10,13 @@ import { FlowMarkGlyph } from "./FlowMark";
 import { anchorOverview, nodeDetails, routeOverview, STATUS_WORD, type AnchorOverview, type NeighborRow } from "./inspectorModel";
 import { FLOW_MARKS, REPETITION_BADGE, type FlowMark } from "./marks";
 import type { Reach } from "./reach";
+import { createEffectsQuery, EffectsPanel } from "../../../dataflow/EffectsPanel";
 
-const STATUS_CLASS: Record<"proven" | "partial" | "unsupported", string> = {
+const STATUS_CLASS: Record<"proven" | "partial" | "unsupported" | "structural", string> = {
   proven: "text-[var(--plc-success)]",
   partial: "text-[var(--plc-warning)]",
   unsupported: "text-[var(--plc-error)]",
+  structural: "text-[var(--plc-on-muted)]",
 };
 const H = "pb-0.5 pt-2 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--plc-on-subtle)]";
 const ROW = "flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left hover:bg-[var(--plc-surface-hover)]";
@@ -94,8 +98,24 @@ export function FlowInspector(props: {
   onPickOrigin: (id: string | undefined) => void;
   onToggleFrame: (id: string) => void;
   onClose: () => void;
+  /** Route mode: a clicked handoff or field edge, explained in order (M4). */
+  edge?: string | null;
+  /** Anchor mode with room for one more anchor (T20): add the selected box by its span. */
+  onAddAnchor?: (id: string) => void;
+  edgePath?: { loading: boolean; value: RoutePathResponse | undefined; error: Error | null };
+  onSelectEdge?: (id: string | null) => void;
 }) {
   const details = createMemo(() => (props.selected ? nodeDetails(props.model, props.selected) : null));
+  // Anchor mode: the effects of the function that owns the selected box (its frame), or of the anchored function itself.
+  const effects = createEffectsQuery(() => {
+    const d = details();
+    const box = d?.node;
+    if (!props.anchor || !box) return null;
+    const scope = box.parent ? props.anchor.nodes.find((n) => n.id === box.parent && n.kind === "scope") : null;
+    const target = box.kind === "anchor" && (box.elementKind === "component-definition" || box.elementKind === "function-entry" || box.elementKind === "handler-entry") ? box : scope;
+    if (!target || target.detail === "module") return null;
+    return { root: props.rootPath, file: target.absPath, line: target.line };
+  });
   const overview = createMemo(() => (props.graph ? routeOverview(props.graph, props.model, props.rootPath) : null));
   const anchor = createMemo(() => (props.anchor ? anchorOverview(props.anchor) : null));
   const repetition = (n: FlowBox) => ("repetition" in n && (n.repetition === "conditional" || n.repetition === "collection") ? n.repetition : null);
@@ -111,10 +131,10 @@ export function FlowInspector(props: {
   return (
     <aside class="flex w-[19rem] shrink-0 flex-col border-l border-[var(--plc-border)] bg-[var(--plc-surface)] text-[12px]" aria-label="Data flow inspector">
       <div class="flex items-center justify-between gap-2 border-b border-[var(--plc-border)] py-1 pl-2.5 pr-1">
-        <span class="font-semibold text-[var(--plc-on-surface)]">{details() ? "Selected box" : props.anchor ? "Anchor" : "Route"}</span>
+        <span class="font-semibold text-[var(--plc-on-surface)]">{props.edge ? "Selected edge" : details() ? "Selected box" : props.anchor ? "Anchor" : "Route"}</span>
         <div class="flex items-center gap-1">
-          <Show when={details()}>
-            <Button variant="ghost" size="sm" class="px-1.5" onClick={() => props.onSelect(null)} title="Back to the overview (Esc)">
+          <Show when={details() || props.edge}>
+            <Button variant="ghost" size="sm" class="px-1.5" onClick={() => { props.onSelect(null); props.onSelectEdge?.(null); }} title="Back to the overview (Esc)">
               {props.anchor ? "Anchor" : "Route"}
             </Button>
           </Show>
@@ -124,8 +144,11 @@ export function FlowInspector(props: {
         </div>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+        <Show when={props.edge && props.edgePath}>
+          {(_) => <EdgeStepsView edgeId={props.edge!} state={props.edgePath!} onOpen={props.onOpen} onSelect={props.onSelect} model={props.model} />}
+        </Show>
         <Show
-          when={details()}
+          when={props.edge ? null : details()}
           fallback={
             <Show when={anchor()} fallback={<Show when={overview()}>{(o) => <Overview o={o()} onOpen={props.onOpen} onPickOrigin={props.onPickOrigin} />}</Show>}>
               {(a) => <AnchorOverviewView o={a()} onOpen={props.onOpen} onSelect={props.onSelect} />}
@@ -151,6 +174,13 @@ export function FlowInspector(props: {
               <Show when={noteOf(d().node)}>{(t) => <div class="pl-5 text-[11px] text-[var(--plc-on-muted)]">{t()}</div>}</Show>
               <Show when={d().node.reason}>{(r) => <div class="pl-5 text-[11px] text-[var(--plc-warning)]">{r()}</div>}</Show>
               <Where file={d().node.file} line={d().node.line} onOpen={() => props.onOpen(d().node.absPath, d().node.line)} />
+              <Show when={props.onAddAnchor}>
+                <div class="pl-5 pt-1">
+                  <Button variant="default" size="sm" class="px-2" onClick={() => props.onAddAnchor!(d().node.id)} title="Trace this box too, on the same canvas; boxes both traces reach are marked">
+                    Add to the trace
+                  </Button>
+                </div>
+              </Show>
 
               <Show when={props.reach}>
                 {(r) => section("Reach", (
@@ -181,6 +211,13 @@ export function FlowInspector(props: {
 
               <NeighborList title="Flows in" rows={d().flowsIn} onSelect={props.onSelect} />
               <NeighborList title="Flows out" rows={d().flowsOut} onSelect={props.onSelect} />
+              <Show when={effects()}>
+                {(state) => (
+                  <div class="mt-1">
+                    <EffectsPanel state={state()} title="Its function touches" onOpen={props.onOpen} />
+                  </div>
+                )}
+              </Show>
               <Show when={props.graph && d().node.kind === "origin"}>
                 <Button variant="ghost" size="sm" class="mt-2 px-1.5" onClick={() => props.onPickOrigin(props.graph!.selectedSource === d().node.id ? undefined : d().node.id)}>
                   {props.graph!.selectedSource === d().node.id ? "Stop lighting its destinations" : "Light its proven destinations"}
@@ -269,6 +306,63 @@ function Overview(props: { o: ReturnType<typeof routeOverview>; onOpen: (absPath
             )}
           </For>
         </ul>
+      </Show>
+    </>
+  );
+}
+
+const EDGE_WORD: Record<RoutePathResult["edge"]["kind"], string> = { field: "field", handoff: "handoff" };
+const ROW_WORD: Record<RoutePathResult["rows"][number]["kind"], string> = { input: "origin", transfer: "carries", fallback: "fallback", branch: "branch", transform: "transform", terminal: "terminal", boundary: "stops" };
+
+/** One lit edge, explained in order: the steps the engine walked, each opening its line. Steps are never invented. */
+function EdgeStepsView(props: { edgeId: string; state: NonNullable<Parameters<typeof FlowInspector>[0]["edgePath"]>; model: FlowViewModel; onOpen: (absPath: string, line: number) => void; onSelect: (id: string | null) => void }) {
+  const result = () => props.state.value?.path ?? null;
+  // The boxes the graph drew the edge between; the engine's edge may name a terminal the graph folded into its box.
+  const drawn = () => props.model.vm.edges.find((e) => e.id.replace(/^(handoff|field|render):/, "") === props.edgeId) ?? null;
+  const endpoints = () => ({ source: drawn()?.source ?? result()?.edge.source ?? "", target: drawn()?.target ?? result()?.edge.target ?? "" });
+  const name = (id: string) => props.model.vm.nodes.find((n) => n.id === id)?.label ?? props.model.byId.get(id)?.label ?? id;
+  return (
+    <>
+      <Show when={props.state.loading}>
+        <p class="pt-2 text-[11px] text-[var(--plc-on-muted)]">Explaining the edge…</p>
+      </Show>
+      <Show when={props.state.error}>{(e) => <p class="pt-2 text-[11px] text-[var(--plc-error)]">{e().message}</p>}</Show>
+      <Show when={props.state.value && !props.state.value.path}>
+        <p class="pt-2 text-[11px] text-[var(--plc-warning)]">{labelFor(props.state.value!.outcome, props.state.value!.reason, props.state.value!.message) ?? props.state.value!.outcome}</p>
+      </Show>
+      <Show when={result()}>
+        {(r) => (
+          <>
+            <div class="flex flex-wrap items-baseline gap-x-2 pt-2 text-[12px]">
+              <button type="button" class="font-semibold text-[var(--plc-on-surface)] hover:underline" onClick={() => props.onSelect(endpoints().source)}>{name(endpoints().source)}</button>
+              <span class="text-[var(--plc-on-subtle)]">→</span>
+              <button type="button" class="font-semibold text-[var(--plc-on-surface)] hover:underline" onClick={() => props.onSelect(endpoints().target)}>{name(endpoints().target)}</button>
+            </div>
+            <div class="flex flex-wrap items-baseline gap-x-2 pl-0 text-[11px]">
+              <span class="text-[var(--plc-on-muted)]">{EDGE_WORD[r().edge.kind]}{r().edge.label ? ` · ${r().edge.label}` : ""}</span>
+              <span class={`font-semibold ${STATUS_CLASS[r().edge.status]}`}>{STATUS_WORD[r().edge.status]}</span>
+              <span class="text-[var(--plc-on-muted)]">{r().rows.length} step{r().rows.length === 1 ? "" : "s"}</span>
+            </div>
+            <h4 class={H}>In order</h4>
+            <ol>
+              <For each={r().rows}>
+                {(row, i) => (
+                  <li>
+                    <button type="button" class={ROW} onClick={() => props.onOpen(row.absPath, row.line)} title={[row.note, ...row.proof.map((p) => p.detail)].filter(Boolean).join("\n")}>
+                      <span class="plc-data-sm w-4 shrink-0 text-right text-[var(--plc-on-disabled)]">{i() + 1}</span>
+                      <span class="w-14 shrink-0 text-[10.5px] text-[var(--plc-on-muted)]">{ROW_WORD[row.kind]}</span>
+                      <span class="min-w-0 truncate font-mono text-[11.5px] text-[var(--plc-on-surface)]">{row.label}</span>
+                      <span class="ml-auto shrink-0 text-[10.5px]" classList={{ [STATUS_CLASS[row.status]]: row.status !== "proven", "text-[var(--plc-on-disabled)]": row.status === "proven" }}>
+                        {row.status !== "proven" ? `${STATUS_WORD[row.status]} · ` : ""}{row.file.slice(row.file.lastIndexOf("/") + 1)}:{row.line}
+                      </span>
+                    </button>
+                  </li>
+                )}
+              </For>
+            </ol>
+            <Show when={r().frontier}>{(f) => <div class="pl-1 pt-1 text-[11px] text-[var(--plc-warning)]">Stops: {f().reason.replaceAll("-", " ")} · {f().label}</div>}</Show>
+          </>
+        )}
       </Show>
     </>
   );

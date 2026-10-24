@@ -12,7 +12,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Outcome(str, Enum):
@@ -261,6 +261,8 @@ class RouteGraphResult(BaseModel):
     programHash: str
     tsconfig: str
     typescript: str
+    # surface: the render backbone alone, before the program-wide evidence; complete: the whole totality.
+    phase: Literal["surface", "complete"]
     route: RouteRef
     status: Literal["complete", "partial", "unavailable"]
     unavailableReason: str | None
@@ -397,6 +399,198 @@ class ValueFlowResponse(BaseModel):
     ledger: ValueFlowResult | None = None
 
 
+# ---- route path (contracts/routePath.schema.json) ----------------------------
+
+
+class RoutePathEdge(BaseModel):
+    id: str
+    kind: Literal["field", "handoff"]
+    label: str | None
+    status: EvidenceStatus
+    source: str
+    target: str
+
+
+class RoutePathFrontier(BaseModel):
+    reason: str
+    label: str
+
+
+class RoutePathRoute(BaseModel):
+    key: str
+    pathPattern: str
+
+
+class RoutePathResult(BaseModel):
+    outcome: Outcome
+    generation: int
+    programHash: str
+    tsconfig: str
+    typescript: str
+    reason: str | None
+    route: RoutePathRoute
+    edge: RoutePathEdge
+    rows: list[LedgerRow]
+    proof: list[EvidenceProof]
+    frontier: RoutePathFrontier | None
+
+
+class RoutePathResponse(BaseModel):
+    """``GET /api/dataflow/route-path``: one lit edge, explained in order."""
+
+    outcome: Outcome
+    reason: str | None = None
+    message: str | None = None
+    generation: int | None = None
+    programHash: str | None = None
+    path: RoutePathResult | None = None
+
+
+# ---- file exports (contracts/fileExports.schema.json) -------------------------
+
+
+class FileExport(BaseModel):
+    id: str
+    name: str
+    kind: Literal["function", "class", "variable", "component", "enum", "type", "interface", "namespace", "other"]
+    file: str
+    absPath: str
+    line: int
+    column: int
+    traceable: bool
+    reexported: bool
+
+
+class FileExportsFile(BaseModel):
+    file: str
+    absPath: str
+    exports: list[FileExport]
+
+
+class FileExportsTarget(BaseModel):
+    path: str
+    absPath: str
+    kind: Literal["file", "folder"]
+
+
+class FileExportsCounts(BaseModel):
+    files: int
+    exports: int
+    traceable: int
+
+
+class FileExportsResult(BaseModel):
+    outcome: Outcome
+    generation: int
+    programHash: str
+    tsconfig: str
+    typescript: str
+    reason: str | None
+    target: FileExportsTarget
+    files: list[FileExportsFile]
+    counts: FileExportsCounts
+
+
+class FileExportsResponse(BaseModel):
+    """``GET /api/dataflow/file-exports``: a file's or folder's exports, one anchor each."""
+
+    outcome: Outcome
+    reason: str | None = None
+    message: str | None = None
+    generation: int | None = None
+    programHash: str | None = None
+    exports: FileExportsResult | None = None
+
+
+# ---- function effects (contracts/functionEffects.schema.json) ----------------
+
+
+class EffectWitness(BaseModel):
+    file: str
+    absPath: str
+    line: int
+    span: SourceSpan
+    text: str
+
+
+class EffectVia(BaseModel):
+    callable: str
+    file: str
+    line: int
+
+
+class EffectFact(BaseModel):
+    id: str
+    family: Literal["external", "input", "write", "throw", "timer", "promise"]
+    kind: str
+    label: str
+    detail: str
+    status: Literal["proven", "partial"]
+    activation: Literal["direct", "after-await", "timer", "latent"]
+    via: list[EffectVia]
+    witness: EffectWitness
+
+
+class EffectFrontier(BaseModel):
+    id: str
+    reason: str
+    label: str
+    detail: str
+    via: list[EffectVia]
+    witness: EffectWitness
+
+
+class ResultHandling(BaseModel):
+    callee: str
+    handling: Literal["awaited", "returned", "assigned", "passed", "discarded"]
+    witness: EffectWitness
+
+
+class EffectCallable(BaseModel):
+    name: str
+    kind: Literal["function", "arrow", "method", "getter", "setter", "constructor"]
+    async_: bool = Field(alias="async")
+    file: str
+    absPath: str
+    line: int
+    span: SourceSpan
+
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+
+class EffectCounts(BaseModel):
+    facts: int
+    frontiers: int
+    callables: int
+
+
+class FunctionEffectsResult(BaseModel):
+    outcome: Outcome
+    generation: int
+    programHash: str
+    tsconfig: str
+    typescript: str
+    reason: str | None
+    callable: EffectCallable
+    facts: list[EffectFact]
+    frontiers: list[EffectFrontier]
+    resultHandling: list[ResultHandling]
+    coverage: Literal["complete-for-supported-scope", "partial", "not-analyzed"]
+    counts: EffectCounts
+    assumptions: list[str]
+
+
+class FunctionEffectsResponse(BaseModel):
+    """``POST /api/dataflow/function-effects``."""
+
+    outcome: Outcome
+    reason: str | None = None
+    message: str | None = None
+    generation: int | None = None
+    programHash: str | None = None
+    effects: FunctionEffectsResult | None = None
+
+
 # ---- anchor graph (contracts/anchorGraph.schema.json) ------------------------
 
 
@@ -428,12 +622,17 @@ class AnchorNode(BaseModel):
     note: str | None
 
 
+# Mirrors anchorEdgeStatusSchema: a proof status, or "structural" for a link the
+# projection found by syntax (a declaration's own parameter or return).
+AnchorEdgeStatus = EvidenceStatus | Literal["structural"]
+
+
 class AnchorEdge(BaseModel):
     id: str
     source: str
     target: str
     kind: str
-    status: EvidenceStatus
+    status: AnchorEdgeStatus
     proof: list[EvidenceProof]
     label: str | None
 

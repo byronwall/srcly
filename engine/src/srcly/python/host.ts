@@ -46,6 +46,9 @@ export function createPythonHost(tier1: PythonTier1): LanguageHost {
   };
   return {
     language: "python",
+    // The provider records no `argument` relations and leaves stores and conditions unrelated:
+    // a callee with several call sites stays a boundary on the way in, and a `disconnected` gap is where its evidence ends.
+    evidence: { pairsCalls: false, deadEnds: false },
     file(file) {
       if (typeof file !== "string" || !file) throw new EngineError("invalid-request", "params.file is required");
       const absolute = path.resolve(root, file);

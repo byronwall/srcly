@@ -21,6 +21,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
   };
   return {
     language: "typescript",
+    evidence: { pairsCalls: true, deadEnds: true },
     file(file) {
       const { relative, absolute } = sourceFileFor(tier1, file);
       return { relative, absolute };

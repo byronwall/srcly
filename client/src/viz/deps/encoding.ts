@@ -18,6 +18,8 @@ export function edgeStrokeWidth(weight: number, faint: boolean): number {
 // Data flow mode (see `flow/FlowLegend.tsx`).
 /** A handoff: an origin proven to reach a render site. */
 export const HANDOFF_EDGE_DASH = "6 4";
+/** Data flow mode: a structural link, found by syntax and never traced (a declaration anchor's parameter or return). */
+export const STRUCTURAL_EDGE_DASH = "1.5 3";
 /** A primitive rolled into its parent frame (an external or hidden wrapper). */
 export const DOTTED_BOX_DASH = "1.5 2.5";
 /** A frontier: where the proof stops. */
