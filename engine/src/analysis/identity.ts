@@ -222,8 +222,20 @@ function emptyTraceEvidence() {
 function addUnique(locations: EvidenceLocation[], location: EvidenceLocation) {
   if (!locations.some((item) => item.file === location.file && item.line === location.line && item.column === location.column)) locations.push(location);
 }
-function relative(root: string, file: string) { return path.relative(root, file).split(path.sep).join("/"); }
-function inside(root: string, file: string) { const rel = path.relative(root, file); return rel !== ".." && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel); }
+// Asked for every expression and identifier in every file: remembered per root (T10).
+const relativeByRoot = new Map<string, Map<string, string>>();
+const insideByRoot = new Map<string, Map<string, boolean>>();
+function remembered<T>(store: Map<string, Map<string, T>>, root: string, file: string, compute: () => T): T {
+  let byFile = store.get(root);
+  if (!byFile) { byFile = new Map(); store.set(root, byFile); }
+  const known = byFile.get(file);
+  if (known !== undefined) return known;
+  const value = compute();
+  byFile.set(file, value);
+  return value;
+}
+function relative(root: string, file: string) { return remembered(relativeByRoot, root, file, () => path.relative(root, file).split(path.sep).join("/")); }
+function inside(root: string, file: string) { return remembered(insideByRoot, root, file, () => { const rel = path.relative(root, file); return rel !== ".." && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel); }); }
 function participating(root: string, file: string) { return inside(root, file) && !relative(root, file).split("/").includes("node_modules"); }
 export function expressionIdFor(root: string, expression: TypeScript.Expression) {
   const source = expression.getSourceFile();

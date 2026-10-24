@@ -60,6 +60,7 @@ import {
   proof,
   stableId,
   stableSerialize,
+  symbolAtNode,
 } from "./program-evidence-support";
 import { NO_ANALYSIS_CANCELLATION, type AnalysisCancellationToken } from "./cancellation";
 
@@ -91,6 +92,7 @@ export class ProgramEvidenceCollectorSupport {
   protected readonly gapIds = new Set<string>();
   protected readonly filesByRelativeName = new Map<string, TypeScript.SourceFile>();
   protected readonly symbolIds = new WeakMap<TypeScript.Node, string | null>();
+  private readonly symbols = new WeakMap<TypeScript.Node, TypeScript.Symbol | null | undefined>();
   protected readonly moduleNames = new WeakMap<TypeScript.Node, string | null>();
   protected readonly functionsByNode = new Map<string, CollectorFunctionInfo>();
   protected readonly functionsBySymbol = new Map<string, CollectorFunctionInfo>();
@@ -294,7 +296,7 @@ export class ProgramEvidenceCollectorSupport {
     });
   }
 
-  public hydrateFact(fact: CompactProgramFact): ProgramElement {
+  public hydrateFact(fact: CompactProgramFact, options?: { typeText?: boolean }): ProgramElement {
     return hydrateProgramFact(
       {
         ts: this.ts,
@@ -302,6 +304,7 @@ export class ProgramEvidenceCollectorSupport {
         filesByRelativeName: this.filesByRelativeName,
       },
       fact,
+      options,
     );
   }
 
@@ -336,7 +339,7 @@ export class ProgramEvidenceCollectorSupport {
       checkCancellation: () => this.checkCancellation(), symbolId: (node) => this.symbolId(node), moduleFor: (node) => this.moduleFor(node),
       elementFor: (node, kind) => this.elementIdsByNodeKind.get(`${locationKey(this.location(node))}:${kind}`) ?? null, targetFunction: (node) => this.targetFunction(node),
       functionForNode: (node) => this.functionsByNode.get(nodeKey(this.root, node)) ?? null, location: (node) => this.location(node),
-      hydrateFact: (fact) => this.hydrateFact(fact), addRelation: (...args) => this.addRelation(...args),
+      hydrateFact: (fact) => this.hydrateFact(fact, { typeText: false }), addRelation: (...args) => this.addRelation(...args),
       reconcileGap: (fetchId) => reconcileProgramHttpBridgeGap(this.gaps, fetchId),
     });
   }
@@ -538,16 +541,24 @@ export class ProgramEvidenceCollectorSupport {
       : null;
   }
 
+  /** The checker's symbol at a node, asked once: `symbolId` and `moduleFor` both start from it. */
+  private symbolAt(node: TypeScript.Node): TypeScript.Symbol | null | undefined {
+    if (this.symbols.has(node)) return this.symbols.get(node);
+    const value = symbolAtNode(this.checker, node);
+    this.symbols.set(node, value);
+    return value;
+  }
+
   protected symbolId(node: TypeScript.Node): string | null {
     if (this.symbolIds.has(node)) return this.symbolIds.get(node) ?? null;
-    const value = compilerSymbolId(this.ts, this.checker, this.root, node);
+    const value = compilerSymbolId(this.ts, this.checker, this.root, node, this.symbolAt(node));
     this.symbolIds.set(node, value);
     return value;
   }
 
   protected moduleFor(node: TypeScript.Node): string | null {
     if (this.moduleNames.has(node)) return this.moduleNames.get(node) ?? null;
-    const value = importModule(this.ts, this.checker, node);
+    const value = importModule(this.ts, this.checker, node, this.symbolAt(node));
     this.moduleNames.set(node, value);
     return value;
   }
