@@ -10,6 +10,7 @@ import { createAnalysisService, type AnalysisOperation, type AnalysisProgress, t
 import { helloResultSchema } from "../src/srcly/contracts/hello";
 import { ENGINE_VERSION } from "../src/srcly/fingerprint";
 import { statusOp } from "../src/srcly/ops/status";
+import { CACHED_OPS, cacheDirFromEnv, ResultCache } from "../src/srcly/result-cache";
 import {
   EngineError,
   PROTOCOL_VERSION,
@@ -35,6 +36,43 @@ try {
 let service: AnalysisService | null = null;
 let latestProgress: ProgressPayload | null = null;
 const inFlight = new Map<number, AbortController>();
+// Results from the last process with the same Program, served while tier 1 builds (T11).
+const cacheDir = cacheDirFromEnv();
+const cache = cacheDir ? new ResultCache(cacheDir, options.root) : null;
+let warming = false;
+
+/** Serve a cached result when the sources still hash to the last build and the worker has not built a different Program. */
+function fromCache(frame: RequestFrame): Record<string, unknown> | null {
+  if (!cache?.hash || !CACHED_OPS.has(frame.op)) return null;
+  const snapshot = service?.sessionSnapshot() ?? null;
+  if (snapshot && snapshot.programHash !== cache.hash) return null;
+  const params = { ...(frame.params ?? {}) };
+  const expected = params.expectedGeneration;
+  delete params.expectedGeneration;
+  const generation = snapshot?.generation ?? 1;
+  if (typeof expected === "number" && expected !== generation) {
+    throw new EngineError("stale-generation", `Generation ${expected} is stale; the session is at ${generation}`, { generation, programHash: cache.hash });
+  }
+  const hit = cache.get(frame.op, params);
+  if (!hit) return null;
+  // The last build's generation count means nothing here: the result belongs to this process's generation.
+  const result = { ...hit, generation, programHash: cache.hash };
+  // Tier 1 still builds behind a served `routes`, so later queries are live and the cache refreshes.
+  if (!snapshot && !warming && frame.op === "routes") {
+    warming = true;
+    void serviceFor().request({ kind: "routes" }, undefined, undefined, () => undefined).catch(() => undefined);
+  }
+  return result;
+}
+
+/** Remember a worker result under the Program it came from. */
+function toCache(frame: RequestFrame, result: unknown): void {
+  const snapshot = service?.sessionSnapshot() ?? null;
+  if (!cache || !snapshot || !CACHED_OPS.has(frame.op) || !result || typeof result !== "object") return;
+  const params = { ...(frame.params ?? {}) };
+  delete params.expectedGeneration;
+  cache.put(frame.op, params, result as Record<string, unknown>, snapshot.inputs, snapshot.programHash);
+}
 
 function send(frame: ReplyFrame) {
   process.stdout.write(`${JSON.stringify(frame)}\n`);
@@ -94,18 +132,30 @@ async function handle(frame: RequestFrame) {
       source: options.source,
     });
   }
-  if (frame.op === "status") return statusOp(service?.sessionSnapshot() ?? null, latestProgress);
+  if (frame.op === "status") {
+    const snapshot = service?.sessionSnapshot() ?? null;
+    if (!snapshot && cache?.hash) {
+      // Not built yet, but the last build's results still match the sources: ready, at this process's first generation.
+      const current = cache.currentHash();
+      return { ...statusOp(null, latestProgress), built: true, generation: 1, programHash: cache.hash, currentHash: current, stale: current !== cache.hash };
+    }
+    return statusOp(snapshot, latestProgress);
+  }
+  const cached = fromCache(frame);
+  if (cached) return cached;
   const operation = workerOperation(frame);
   if (!operation) throw new EngineError("invalid-request", `Unknown op: ${frame.op}`);
   const controller = new AbortController();
   inFlight.set(frame.id, controller);
   try {
-    return await serviceFor().request(operation, controller.signal, undefined, (progress) => {
+    const result = await serviceFor().request(operation, controller.signal, undefined, (progress) => {
       const payload = toProgress(progress);
       if (!payload) return;
       latestProgress = payload;
       send({ id: frame.id, progress: payload });
     });
+    toCache(frame, result);
+    return result;
   } finally {
     inFlight.delete(frame.id);
     if (inFlight.size === 0) latestProgress = null;
