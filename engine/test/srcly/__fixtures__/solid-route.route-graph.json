@@ -1,7 +1,7 @@
 {
  "outcome": "partial",
  "generation": 1,
- "programHash": "ba15411435a421cb",
+ "programHash": "dced0a1e6cb5e9d4",
  "tsconfig": "/fixture/solid-route/tsconfig.json",
  "typescript": "5.9.3",
  "phase": "complete",

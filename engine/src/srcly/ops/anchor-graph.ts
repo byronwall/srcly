@@ -6,7 +6,7 @@ import { toSliceRelation } from "../../analysis/evidence-slice-normalization";
 import { DEFAULT_BOUNDARY_POLICY, scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
 import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
-import { callSitesOfElement, CROSS_CALL, DECLARATION_KINDS, elementsAt, enclosingFunction, externalCallee, functionName, naturalEnd, nodeAtSpan, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
+import { callSitesOfElement, CROSS_CALL, DECLARATION_KINDS, elementsAt, enclosingFunction, externalCallee, functionName, naturalEnd, nodeAtSpan, pairedInSlice, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
 import { EngineError } from "../protocol";
 import { candidatesAt, parseSpan, sameSpan, sourceFileFor, spanOf, type Candidate, type Span } from "../selection";
 import { checkGeneration, type EngineSession, type Tier1 } from "../session";
@@ -385,12 +385,17 @@ class AnchorGraphBuilder {
           continue;
         }
         let kind = classify(relation, element);
+        // A return the slice carried on from (to its paired call) is a carrier here, not where the value leaves.
+        if (kind === "terminal" && element.kind === "return" && side === "down" && (next.get(element.id) ?? []).some((item) => item.kind === "return-value")) kind = "value";
         let status = relation.status;
         let reason: string | null = null;
         let note: string | null = null;
         if (kind !== "origin" && kind !== "terminal" && CROSS_CALL.has(relation.kind)) {
           const { sites, name } = callSitesOfElement(this.tier1, this.sites, element);
-          if (!singleCall(sites)) {
+          // Entering a callee is never ambiguous: a binding names its call, and a return names its call (T13).
+          // Leaving it is, unless the slice's invocation stack already paired the return with the call the walk came in by.
+          const entering = side === "down" ? relation.kind === "argument-binding" : relation.kind === "return-value";
+          if (!singleCall(sites) && !entering && !pairedInSlice(sites, slice.elements)) {
             kind = "boundary";
             status = "partial";
             reason = "unproven-handoff";

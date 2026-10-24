@@ -71,14 +71,38 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(boxes(both).every((node) => node.side === "seed" || node.side === "up" || node.side === "down" || node.side === "both")).toBe(true);
   });
 
-  it("stops at a helper with two call sites as a boundary, never guessing which caller's value returns", () => {
-    const graph = anchorGraphOp(session, { ...find(basics, "src/two-call-helper.tsx", "props.a"), direction: "forward" });
+  it("keeps two calls of one helper apart: each argument lands at its own call's slot (T13)", () => {
+    const a = anchorGraphOp(session, { ...find(basics, "src/two-call-identity-helper.tsx", "props.a", "id(props.a)"), direction: "forward" });
+    expect(a.outcome).toBe("ok");
+    expect(boxes(a, "terminal").map((node) => [node.label, node.line])).toEqual([["id(props.a)", 11]]);
+    expect(boxes(a, "boundary")).toEqual([]);
+    expect(a.nodes.some((node) => node.line === 12 && node.kind !== "scope")).toBe(false);
+    const b = anchorGraphOp(session, { ...find(basics, "src/two-call-identity-helper.tsx", "props.b", "id(props.b)"), direction: "forward" });
+    expect(boxes(b, "terminal").map((node) => [node.label, node.line])).toEqual([["id(props.b)", 12]]);
+    expect(b.nodes.some((node) => node.line === 11 && node.kind !== "scope")).toBe(false);
+  });
+
+  it("still stops at a boundary when the walk starts inside the helper and leaves through its return (R7)", () => {
+    const graph = anchorGraphOp(session, { ...find(basics, "src/two-call-identity-helper.tsx", "value", "return value;"), direction: "forward" });
     expect(graph.outcome).toBe("partial");
     const boundary = boxes(graph, "boundary");
-    expect(boundary.length).toBeGreaterThan(0);
-    expect(boundary[0]).toMatchObject({ status: "partial", reason: "unproven-handoff" });
-    expect(boundary[0].note).toMatch(/2 call sites/);
-    expect(graph.counts.boundaries).toBe(boundary.length);
+    expect(boundary.map((node) => node.line).sort()).toEqual([11, 12]);
+    expect(boundary.every((node) => node.reason === "unproven-handoff" && /2 call sites/.test(node.note ?? ""))).toBe(true);
+    expect(graph.counts.terminals).toBe(0);
+  });
+
+  it("never lets an argument the callee does not return reach the call's result (T13)", () => {
+    const graph = anchorGraphOp(session, { ...find(basics, "src/returns-other-argument.tsx", "props.first", "pick(props.first"), direction: "forward" });
+    expect(graph.outcome).toBe("partial");
+    expect(graph.counts.terminals).toBe(0);
+    expect(boxes(graph, "frontier").map((node) => [node.reason, node.line])).toEqual([["disconnected", 4]]);
+  });
+
+  it("enters a helper through its binding and ends where the body hands the value to external code", () => {
+    const graph = anchorGraphOp(session, { ...find(basics, "src/two-call-helper.tsx", "props.a", "shout(props.a)"), direction: "forward" });
+    expect(graph.outcome).toBe("partial");
+    expect(boxes(graph, "boundary")).toEqual([]);
+    expect(boxes(graph, "frontier").map((node) => [node.reason, node.line])).toEqual([["disconnected", 2]]);
   });
 
   it("anchors at a symbol by name and line, as the import graph names one", () => {

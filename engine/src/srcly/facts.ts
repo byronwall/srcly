@@ -14,6 +14,19 @@ export const SEED_KINDS = ["field-read", "selection", "call-result", "call", "va
 /** Followed only when the callee has exactly one call site (R7; M5 replaces this with invocation pairing). */
 export const CROSS_CALL = new Set(["invokes", "argument", "argument-binding", "function-call", "function-return", "return-value", "callback-parameter"]);
 
+/**
+ * Whether the slice has already paired a callee with one of its call sites
+ * (T13): among the function's call sites, exactly one is a call element the
+ * slice walked, and the function never escapes as a value. The slice's
+ * invocation stack keeps the other calls' returns out, so the walk may pass
+ * where R7's one-call-site rule would stop it.
+ */
+export function pairedInSlice(sites: CallSites | null, elements: readonly Pick<ProgramElement, "kind" | "location">[]): boolean {
+  if (!sites || sites.escapes || sites.calls.length < 2) return false;
+  const walked = new Set(elements.filter((element) => element.kind === "call").map((element) => `${element.location.file}:${element.location.line}`));
+  return sites.calls.filter((site) => walked.has(site)).length === 1;
+}
+
 /** Element kinds where a value leaves the program's own data flow. */
 export const TERMINAL_KINDS = new Set(["render-terminal", "dom-terminal", "component-occurrence", "side-effect", "return"]);
 

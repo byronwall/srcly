@@ -43,6 +43,12 @@ Each keeps every result byte-identical: checked on the solid-route, srcly `clien
 | The HTTP-bridge pass hydrates facts without type text (`hydrateProgramFact(…, { typeText: false })`): it reads ids, kinds and attributes only; type text was 3.8 s | `src/analysis/program-evidence-collector-support.ts`, `src/analysis/program-evidence-hydration.ts` | same; `http-bridge-evidence.ts` reads `element.id`, `kind`, `attributes` | yes |
 | `safeType` remembered per checker and node (`isHandlerLike` asked for every parameter's type text) | `src/analysis/program-evidence-support.ts` | same | yes |
 
+### Call identity (T13, 2026-10-24)
+
+| Edit | Files | Fixture | Backportable |
+| --- | --- | --- | --- |
+| The slice walk carries an invocation stack (1-CFA): forward, an `argument-binding` whose argument belongs to call C pushes C (the call is found through the argument's own `argument` relation) and a `return-value` is followed only to the call on top, which pops it; backward the roles swap; an empty stack keeps every call site as before. Visited and queued keys include the stack. A first-party callee is walked through its parameter and return: the bare `argument` link to the call is skipped when a binding exists, so an argument the callee never returns cannot "reach" the call's result. A return inside a callee the walk entered through a call is not a terminal. | `src/analysis/evidence-slice.ts`, `src/analysis/evidence-slice-support.ts` (generic dequeue) | `examples/value-flow-basics/src/{two-call-identity-helper,returns-other-argument}.tsx`; `test/srcly/{anchor-graph,value-flow}.test.ts`; G01–G20 | yes; the relation kinds and proofs are unchanged |
+
 Recognition rules for srcly's own code never go under `src/analysis`; see srcly's `AGENTS.md`. Every analysis edit is listed above with what it changes, so it can be ported back.
 
 ## Left behind
