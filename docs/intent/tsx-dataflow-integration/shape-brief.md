@@ -8,64 +8,78 @@ last_updated: "2026-10-23"
 
 # Bring tsx-data-flow into srcly — what we are adding
 
-**Outcome:** srcly's dependency viewer gains a data-flow mode. It shows tsx-data-flow's route → terminal graph using srcly's layout, selection, and code opening, and the compiler-backed evidence behind it is kept whole.
+**Outcome:** srcly shows compiler-backed TS/TSX evidence in three places, all from one engine:
+- route data flow in the dependency viewer;
+- value paths from the code viewer;
+- function effects in the code viewer.
 
-**Primary flow:** Scan (instant) → the engine builds in the background → Graph view → Data flow → pick a route → select a field → see every destination → pick one → follow the path → open the code.
+**Primary flow:** Graph → Data flow → route → field → destination → ordered path ledger → code → Return.
 
 ## Feature scope
 
 ```text
-Data flow in srcly
+TS/TSX semantic evidence in srcly
 ├── PLANNED ADDITIONS
-│   ├── Engine in srcly (engine/ TypeScript package, bundled in the wheel)
-│   │   ├── Route discovery, occurrence surface, field lineage, frontiers: moved intact
-│   │   └── Background program build, route inventory, per-route detail on demand
-│   ├── Data-flow graph contract (beside the import contract)
-│   │   ├── Nodes: route, component occurrence, control flow, value or operation, terminal, frontier
-│   │   ├── Edges: render nesting, prop/context handoff, field flow (proven only)
-│   │   └── A route → occurrence → step hierarchy, so roll-up and expansion work
-│   ├── Data-flow mode in the dependency view (same canvas and interactions)
-│   │   ├── Route picker in the go-to palette, plus the route in the URL
-│   │   ├── Component projection: route backbone, UI primitives collapsed
-│   │   ├── Field reach: select a field → every proven destination lights up
-│   │   ├── Path projection: one destination → ordered steps grouped by owner
-│   │   ├── Frontier nodes with their cause (unsupported, opaque, budget, identity loss)
-│   │   └── Any node → code viewer at its line
-│   └── Supporting evidence through srcly's existing pipelines
-│       ├── Findings + markers: defenses, impossible fallbacks, relay hops
-│       ├── Catalog metrics: burden, defenses, relay, fan-out/in (treemap, Hot Spots, compare)
-│       └── Work packets in srcly report; the agent skill merged into srcly-code-quality
+│   ├── Engine (engine/ package, bundled in the wheel, one lazy Node process)
+│   │   ├── Analysis moved intact; Program built once, shared by all queries
+│   │   ├── Evidence tied to Program text + tsconfig + generation; stale = refused
+│   │   └── New engine work: expression selection API, per-invocation pairing
+│   ├── 1. Route graph: Data flow mode in the dependency view
+│   │   ├── Separate data-flow contract (route → occurrence → step), never import edges
+│   │   ├── Component projection with UI primitives collapsed; field reach lights destinations
+│   │   └── Frontier nodes keep their cause; any node → code viewer
+│   ├── 2. Value path ledger (from a graph destination or any code-viewer expression)
+│   │   ├── Pinned preview → exact expression → forward / backward
+│   │   ├── Ordered rows: input, transfer, fallback, branch, transform, terminal, boundary
+│   │   ├── Evidence inspector: span, types, proof records, assumptions, stop reason
+│   │   └── Back / Forward / Return restore the overview exactly
+│   ├── 3. Effects panel in the code viewer
+│   │   ├── Effects, ambient reads, writes, async result handling
+│   │   └── Known + Partial together; exact witnesses; neutral marks, no score
+│   └── 4. Supporting evidence through existing pipelines
+│       ├── Findings + markers (defenses, impossible fallbacks, relay)
+│       ├── Numeric catalog metrics (burden, relay, fan-out/in); effects stay categorical
+│       └── Work packets in srcly report; agent skill merged
 ├── EVALUATE BEFORE COMMITTING
-│   ├── Route flow as its own layout rule vs the existing in/center/out packing
-│   ├── Path burden as visible factors on the destination list
-│   └── Boundary report, junctions, path families, inline preview: rules or report-only
+│   ├── A route layout rule vs the existing in/center/out packing
+│   ├── A small branch graph beside the ledger, only if a real path needs it
+│   └── Resident process vs one-shot command, decided by measured cold cost
 └── LATER POSSIBILITIES
-    ├── Linking import-graph files to the routes they feed
-    └── A selected path → work packet / agent prompt
+    ├── Bounded async execution view (watchScan lifecycle)
+    └── Selected path or effects → work packet / agent prompt
 ```
 
-**Dropped:** tsx-dataflow-serve, which includes its canvas, camera, and layout code, its overview and report pages, and the world map.
+**Dropped:** tsx-dataflow-serve: its canvas, layout code, overview, reports, and world map.
 
 ## Behavior
 
 | Situation | Expected result |
 | --- | --- |
-| Engine still building | Import graph works; Data flow shows progress. |
-| Not a SolidStart/TSX app, or no Node | Data flow is N/A with the reason; nothing else changes. |
-| A field has dozens of destinations | Destinations are grouped by owning component; it reads as broad use, not as a wall of nodes. |
-| A path stops early | A frontier node names the cause; it never pretends to be complete. |
-| Switching between component and path projection | Route and field selection are kept; the camera stays on the selection. |
+| Engine cold or busy | Base views work; progress shows within 250 ms. |
+| Not analyzed / unsupported / stale / budget hit | Each state is named; never "0 consumers" or "no effects". |
+| Same helper, two calls (`HotSpotList` lines 88 vs 109) | Values from different calls never join. |
+| `props.rank ?? "–"` | Shown as a valid default that keeps zero. |
+| Network call plus an unresolved call | "Network · Partial"; the known witness stays. |
+| Return or Back from a ledger | Filters, metric, expansion, selection, and camera are restored. |
 
 ## Decisions and boundaries
 
-**Appetite:** Big program. The graph lands first, as slices that can each be reverted, and the supporting evidence follows.
+**Appetite:** Big program, built from revertible slices. Each query family proves itself on real code before its UI grows.
 
-**Key decision:** The engine provides evidence, and srcly provides the picture. The engine's output is a graph in srcly's own contract style: a hierarchy plus typed edges. srcly's dependency view renders it with its existing canvas, focus, expand-in-place, hover, keyboard, and code opening. That retires about 9.6K lines of tsx-data-flow graph UI instead of porting it. The new graph also picks up every future improvement to srcly's graph.
+**Key decision:** One engine supplies the evidence and srcly supplies the picture. The route graph shows reach. The ledger shows order, because tsx-data-flow's canvas has no operation-order evidence: its evidence-edge arrays are empty. Picking a destination in the graph opens the same ledger the code viewer uses, so path explanation exists once. All three query families share one lazy Node process, the server's Python layer owns it, and the browser reaches it through srcly's server. The TypeScript Program is built once.
 
-**Boundary:** Edges are proven evidence only. No repository-wide variable graph. Layout changes coordinate with `dependency-graph-legibility`, which is active in `viz/deps/layout.ts`: build on its branch, or after it merges.
+**Where it lives / how it ships:** An `engine/` package in the srcly repo. It ships as an esbuild bundle in the wheel and runs on the system `node` (18 or later). It uses the project's `typescript` when there is one, otherwise a bundled copy. In development, srcly runs `engine/` from the checkout.
 
-**Where it lives / how it ships:** An `engine/` package in the srcly repo. The release build bundles it with esbuild into the wheel, and srcly runs it with the system `node` (18 or later). It uses the project's `typescript` when present and otherwise a bundled copy. Without Node, data flow is N/A.
+**Boundary:** No import edges relabeled as data or execution. No second analyzer. Layout changes coordinate with `dependency-graph-legibility`.
 
-**First proof:** **Try:** Export one route's existing totality evidence (`examples/solid-route`, then visual-notes `/time-blocks`) into the data-flow contract. Render it in the current dependency canvas, with field selection and code opening, and with no new layout code. **Observe:** Can someone answer "where does this field go, and what happens on one path?" as easily as in Route Totality? Do the nodes open the right lines? **Decide:** If the existing packing reads well, extend it. If top-down route flow fights it, add one route layout rule inside the same canvas and keep every interaction layer. If the export is missing ordered steps, add the smallest analyzer fact, not an invented step.
+**First proof:** There are three, and they are independent of each other.
 
-See the [intent brief](intent-brief.md) and [initiative-map.json](initiative-map.json).
+- **Route graph.** **Try:** Export `examples/solid-route`'s totality evidence into the data-flow contract and render it in the current dependency canvas. **Observe:** Field reach reads clearly, and nodes open the right lines. **Decide:** Extend the packing, or add one route layout rule.
+- **Ledger.** **Try:** `HotSpotItem.tsx:135` `props.node.name`, inspected from the code viewer. **Observe:** It reaches its JSX slot. Line 134's title stays distinct. The rank default keeps zero. **Decide:** If generic evidence can't prove that exactly, fix the engine before building UI.
+- **Effects.** Run on `extractFilePath`, `rankHotSpots`, and `startScan`.
+
+**Targets:** preview and return p95 ≤ 150 ms; warm first row ≤ 750 ms; cold ≤ 10 s.
+
+**Open choice:** Run the route-graph and ledger proofs in parallel (recommended, since they share only the engine), or ledger first, as #102 favors.
+
+Sources: [#102](https://github.com/byronwall/srcly/pull/102) value investigation, [#103](https://github.com/byronwall/srcly/pull/103) function effects. See the [intent brief](intent-brief.md) and [initiative-map.json](initiative-map.json).

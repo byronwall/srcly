@@ -6,9 +6,9 @@
     "scale": "program",
     "current_phase": "shape",
     "last_updated": "2026-10-23",
-    "summary": "Headline: tsx-data-flow's route -> terminal data-flow graph rendered in srcly's dependency viewer, with the compiler-backed analysis (type checking, symbol identity, field lineage, frontiers) kept intact. Findings, metrics, markers, reports follow as supporting evidence. srcly stays the fast base layer.",
+    "summary": "One engine (tsx-data-flow analysis moved into engine/, one lazy Node child) feeds three srcly surfaces: route -> terminal graph in the dependency viewer (headline), value-path ledger from graph destinations or code-viewer expressions (PR #102), and a function-effects panel (PR #103); findings/metrics/markers/reports follow.",
     "status": "planned",
-    "next_action": "Pro threads refine branches; plan first proof: export one route's totality evidence into a data-flow contract and render in the current deps canvas."
+    "next_action": "Answer D4; then plan first proofs (route graph on solid-route, ledger on HotSpotItem.tsx:135)."
   },
   "artifacts": {
     "intent_brief": {
@@ -116,6 +116,27 @@
       "location": "client/src/viz/deps/contract.ts",
       "anchor": "DependencyGraphContract",
       "authority": "repo"
+    },
+    {
+      "id": "PR102",
+      "type": "doc",
+      "location": "https://github.com/byronwall/srcly/pull/102",
+      "anchor": "docs/research/data-flow-integration-2026-10-23 + docs/intent/data-flow-integration/implementation-plan.md",
+      "authority": "inferred"
+    },
+    {
+      "id": "PR103",
+      "type": "doc",
+      "location": "https://github.com/byronwall/srcly/pull/103",
+      "anchor": "docs/research/effects-async-test-seams-2026-10-23 + docs/intent/effects-async-test-seams/implementation-plan.md",
+      "authority": "inferred"
+    },
+    {
+      "id": "qa-round-3",
+      "type": "qa",
+      "location": "conversation",
+      "anchor": "use PRs 102/103 as context, 2026-10-23",
+      "authority": "user"
     }
   ],
   "intent": {
@@ -239,6 +260,64 @@
           "qa-round-2"
         ],
         "confidence": "high"
+      },
+      {
+        "id": "C14",
+        "statement": "Value investigation: exact expression -> ordered evidence ledger + inspector, with Return/Back restoring overview.",
+        "kind": "goal",
+        "sources": [
+          "PR102",
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C15",
+        "statement": "Function effects panel in code viewer: effects, ambient reads, writes, async handling, unknowns with witnesses; no purity score.",
+        "kind": "goal",
+        "sources": [
+          "PR103",
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C16",
+        "statement": "Connectivity, coverage and value properties are separate; Not analyzed != 0; evidence bound to Program text/config/generation.",
+        "kind": "constraint",
+        "sources": [
+          "PR102",
+          "PR103"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C17",
+        "statement": "Invocation identity must be preserved; shared helper calls never join.",
+        "kind": "constraint",
+        "sources": [
+          "PR102"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C18",
+        "statement": "Never relabel import or folder edges as data flow or execution.",
+        "kind": "constraint",
+        "sources": [
+          "PR102",
+          "PR103"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C19",
+        "statement": "Existing route canvas has empty evidence-node/edge arrays; it cannot show operation order, so ordered paths use a ledger.",
+        "kind": "fact",
+        "sources": [
+          "PR102"
+        ],
+        "confidence": "high"
       }
     ],
     "themes": [
@@ -252,6 +331,21 @@
         "id": "X1",
         "statement": "tsx-data-flow says the code map is its primary surface; srcly's primary surface is the map/treemap with a modal code viewer.",
         "resolution": "srcly's treemap stays primary; the code viewer absorbs code-map overlays (path on source, markers, where-used)."
+      },
+      {
+        "id": "X2",
+        "statement": "PR102 says do not merge the repositories and use a prepared external checkout (--value-analyzer).",
+        "resolution": "User decision (single repo) wins; the prepared-checkout idea survives as dev mode running engine/ from the srcly checkout."
+      },
+      {
+        "id": "X3",
+        "statement": "PR102 REC-017 avoids a semantic graph on the repository map and keeps the component canvas separate; user wants the route graph in the dependency viewer.",
+        "resolution": "Data-flow mode uses its own contract in the same canvas, never overlaid on import edges; ordered path detail lives in the ledger."
+      },
+      {
+        "id": "X4",
+        "statement": "PR102 wants one resident lazy Node child; PR103 starts with a one-shot JSON command and defers a resident service.",
+        "resolution": "Shape adopts one lazy child shared by all query families (Program built once); keep a one-shot command for headless report/tests; confirm with measured cold cost."
       }
     ],
     "human_questions": []
@@ -282,7 +376,7 @@
       },
       {
         "tsx_feature": "Field reach / selected-path projections, isolation with boundary stubs",
-        "srcly_home": "deps focus + isolate + expand-in-place",
+        "srcly_home": "deps focus + isolate for reach; selected path opens the value ledger",
         "status": "planned",
         "priority": 1
       },
@@ -296,25 +390,25 @@
         "tsx_feature": "Render-path findings, defensive-ledger, impossible defenses, repeated forks, context relay",
         "srcly_home": "findings/ dataflow tool + markers",
         "status": "planned",
-        "priority": 2
+        "priority": 4
       },
       {
         "tsx_feature": "Burden, path depth, representation changes, defensive ops, prop relay, fan-out/in",
         "srcly_home": "metric_catalog.py entries (TS/TSX)",
         "status": "planned",
-        "priority": 2
+        "priority": 4
       },
       {
         "tsx_feature": "work-packets Markdown, render-path-dataflow-work skill",
         "srcly_home": "reporting.py artifacts + skills/srcly-code-quality",
         "status": "planned",
-        "priority": 3
+        "priority": 4
       },
       {
         "tsx_feature": "--compare baseline",
         "srcly_home": "compare/diff.COMPARE_METRICS via catalog",
         "status": "planned",
-        "priority": 3
+        "priority": 4
       },
       {
         "tsx_feature": "Code map symbol uses / component-refs",
@@ -335,20 +429,40 @@
         "tsx_feature": "tsx-dataflow-serve overview, file rows, report pages",
         "srcly_home": "none (explorer/Hot Spots cover it); retired",
         "status": "drop"
+      },
+      {
+        "tsx_feature": "Expression selection + value investigation (new engine API, per-invocation pairing)",
+        "srcly_home": "engine/ + server value-flow router + client investigation/ (PinnedPreview, EvidenceLedger, EvidenceInspector)",
+        "status": "planned",
+        "priority": 2,
+        "source": "PR102"
+      },
+      {
+        "tsx_feature": "Function effects pass (new)",
+        "srcly_home": "engine/ effects + CodeModal EffectsPanel",
+        "status": "planned",
+        "priority": 3,
+        "source": "PR103"
+      },
+      {
+        "tsx_feature": "Bounded async execution slice",
+        "srcly_home": "client/src/viz/effects (later)",
+        "status": "later",
+        "source": "PR103"
       }
     ],
     "success_moves": [
-      "Emit data-flow evidence in srcly's graph-contract style (hierarchy + typed edges) so the existing canvas, roll-up, expand-in-place and keyboard work unchanged.",
-      "Prove on existing route-totality evidence with no new layout code before deciding on a route-specific layout rule.",
-      "Move the analysis intact into engine/; replace only the UI, never the evidence.",
-      "Keep the engine off the critical path: background program build, route inventory, per-route detail on demand, N/A with reasons.",
-      "Coordinate layout changes with dependency-graph-legibility (active in viz/deps/layout.ts).",
-      "Route all supporting signals through catalog metrics, findings and markers so treemap, Hot Spots, compare and report derive automatically."
+      "Emit route evidence in srcly's graph-contract style (hierarchy + typed proven edges) in its own Data flow mode, never on import edges.",
+      "Explain paths once: graph destinations and code-viewer expressions both open the same ordered ledger.",
+      "One lazy Node child owns one Program for all query families; base scan never waits on it.",
+      "Bind evidence to Program text, tsconfig and generation; name not-analyzed, partial, stale and budget states.",
+      "Prove each family on real anchors (solid-route; HotSpotItem.tsx:135 and HotSpotList.tsx:88/109; extractFilePath/rankHotSpots/startScan) before growing UI.",
+      "Coordinate deps layout changes with dependency-graph-legibility."
     ],
     "first_proof": {
-      "question": "Can srcly's existing dependency canvas present one route's totality evidence as legibly as Route Totality, with field reach, one path, and code opening?",
-      "artifact": "Data-flow contract export for examples/solid-route then visual-notes /time-blocks, rendered in the current deps canvas with field selection and node -> code viewer.",
-      "decision_rule": "Packing reads well -> extend it; top-down flow fights it -> add one route layout rule inside the same canvas; missing ordered steps -> add the smallest analyzer fact, never an invented step."
+      "question": "Can srcly present one route's field reach in its dependency canvas and one exact value path as an ordered ledger, both from compiler-backed evidence?",
+      "artifact": "examples/solid-route rendered in the current deps canvas; HotSpotItem.tsx:135 props.node.name ledger from the code viewer.",
+      "decision_rule": "Graph: extend packing if legible, else add one route layout rule. Ledger: if generic evidence cannot prove the JSX slot exactly (and keep line 134 distinct, rank default preserving zero), fix the engine before UI."
     },
     "rabbit_holes": [
       "Porting compiler-API analysis to Python.",
@@ -357,9 +471,24 @@
       "Monorepos with many tsconfigs: bound projects like MAX_TSC_PROJECTS.",
       "Wheel size from bundled TypeScript fallback; measure in first proof.",
       "Porting tsx-data-flow's graph layout/camera instead of using srcly's.",
-      "Fields with dozens of destinations rendered as a wall instead of grouped broad-use."
+      "Fields with dozens of destinations rendered as a wall instead of grouped broad-use.",
+      "Merging separate helper invocations (HotSpotList row helper, line 88 vs 109).",
+      "Treating effects as a numeric risk metric."
     ],
-    "open_decisions": []
+    "open_decisions": [
+      {
+        "id": "D4",
+        "question": "Run route-graph and ledger proofs in parallel (recommended) or ledger first as PR102 favors?",
+        "owner": "user"
+      }
+    ],
+    "performance_targets": {
+      "preview_return_p95_ms": 150,
+      "progress_ms": 250,
+      "warm_first_row_ms": 750,
+      "cold_first_result_s": 10,
+      "source": "PR102 proposals"
+    }
   },
   "implementation": {
     "status": "not-started",
@@ -404,6 +533,11 @@
     {
       "date": "2026-10-23",
       "event": "Intent revised: route -> terminal graph in dependency viewer is the headline; shape, mapping priorities and first proof regenerated.",
+      "phase": "shape"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "Absorbed PR #102 (value investigation) and #103 (function effects): added ledger and effects surfaces, shared engine runtime, evidence rules, real anchors; recorded conflicts X2-X4.",
       "phase": "shape"
     }
   ],
