@@ -33,5 +33,10 @@ def test_routes_on_solid_route(monkeypatch):
         status = client.get("/api/dataflow/status", params={"path": str(SOLID_ROUTE)}).json()
         assert status["state"] == "ready" and status["generation"] == body["generation"]
         assert status["typescriptFrom"] in ("project", "bundled") and status["rssBytes"] > 0
+        graph = client.get("/api/dataflow/route-graph", params={"path": str(SOLID_ROUTE), "route": "/records"}).json()["graph"]
+        frame = next(node for node in graph["nodes"] if node["label"] == "RouteFrame")
+        assert sorted(node["label"] for node in graph["nodes"] if node["parent"] == frame["id"]) == [
+            "Show", "Solid route fixture", "ViewerCard", "props.title",
+        ]
     finally:
         registry.close_all()

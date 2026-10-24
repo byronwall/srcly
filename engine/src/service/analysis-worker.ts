@@ -11,6 +11,7 @@ import { renderMarkdownView } from "../reports/markdown-views";
 import type { AnalyzerProgressUpdate } from "../analysis/progress";
 import type { AnalysisOperation, AnalysisProgress, AnalysisWorkerData, AnalysisWorkerRequest } from "./analysis-service";
 import { errorPayload } from "../srcly/protocol";
+import { routeGraphOp } from "../srcly/ops/route-graph";
 import { routesOp } from "../srcly/ops/routes";
 import { createEngineSession, type EngineSession } from "../srcly/session";
 import { createAnalysisCache } from "./cache";
@@ -44,7 +45,9 @@ port.on("message", ({ requestId, operation, cancellationBuffer }: AnalysisWorker
   try {
     cancellation.throwIfCancelled();
     activeRequest = { requestId, operation: operation.kind };
-    progress(requestId, operation.kind, "analyzing", "Building the TypeScript program and tracing render paths");
+    if (operation.kind === "route-graph" && session?.built()) {
+      port.postMessage({ kind: "progress", progress: { requestId, operation: operation.kind, phase: "analyzing", step: "trace", message: `Tracing ${operation.route}: occurrences, boundaries and evidence` } });
+    } else progress(requestId, operation.kind, "analyzing", "Building the TypeScript program and tracing render paths");
     const value = perform(operation, requestId, cancellation);
     cancellation.throwIfCancelled();
     progress(requestId, operation.kind, "complete", "Analysis complete");
@@ -65,6 +68,7 @@ port.on("message", ({ requestId, operation, cancellationBuffer }: AnalysisWorker
 
 function perform(operation: AnalysisOperation, requestId: number, cancellation: AnalysisCancellationToken) {
   if (operation.kind === "routes") return announce(routesOp(requireSession(), operation));
+  if (operation.kind === "route-graph") return announce(routeGraphOp(requireSession(), operation, cancellation));
   if (operation.kind === "refresh") {
     const report = cache.refresh();
     return refreshResponseSchema.parse({ apiVersion: 1, analysisVersion: report.analysisVersion, generation: cache.generation(), generatedAt: report.generatedAt, data: { refreshed: true } });

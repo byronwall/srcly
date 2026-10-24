@@ -12,7 +12,10 @@ import {
   CONTEXT_EDGE_OPACITY,
   EDGE_OPACITY,
   edgeStrokeWidth,
+  DOTTED_BOX_DASH,
   EXTERNAL_BOX_DASH,
+  FRONTIER_BOX_DASH,
+  HANDOFF_EDGE_DASH,
 } from "./encoding";
 import { boundsOf } from "./geometry";
 import { CLICK_CURSOR, clickAction, createClickIntent, liveHover } from "./interaction";
@@ -91,6 +94,12 @@ const SYMBOL_GLYPH: Record<string, string> = {
   enum: "E",
   variable: "v",
   value: "v",
+  // Data flow mode.
+  route: "R",
+  component: "<",
+  control: "{",
+  terminal: "t",
+  origin: "o",
 };
 
 /** The 12px kind icon boxes use; the go-to palette draws the same ones. */
@@ -196,6 +205,11 @@ export function DependencyCanvas(props: {
   /** A frame around an opened folder whose title closes it again. */
   collapsible?: (groupId: string) => boolean;
   onCollapse?: (groupId: string) => void;
+  /**
+   * Import counts and mutual-import badges on each box (default on). Data
+   * flow mode turns them off and shows the box's `note` on that row instead.
+   */
+  linkCounts?: boolean;
 }) {
   let svgRef!: SVGSVGElement;
   let gRef!: SVGGElement;
@@ -888,10 +902,10 @@ export function DependencyCanvas(props: {
                   <g>
                     <path
                       d={edgePath(e)}
-                      stroke={active() ? "var(--plc-accent)" : "var(--plc-tertiary)"}
+                      stroke={active() || e.edge.style === "field" ? "var(--plc-accent)" : "var(--plc-tertiary)"}
                       stroke-width={edgeStrokeWidth(e.edge.weight, e.edge.faint)}
                       stroke-opacity={dimmed() ? 0.12 : e.edge.faint && !active() ? CONTEXT_EDGE_OPACITY : EDGE_OPACITY}
-                      stroke-dasharray={e.edge.faint ? CONTEXT_EDGE_DASH : undefined}
+                      stroke-dasharray={e.edge.style === "handoff" ? HANDOFF_EDGE_DASH : e.edge.faint ? CONTEXT_EDGE_DASH : undefined}
                       stroke-linejoin="round"
                       marker-end={active() ? "url(#dv-arrow-active)" : "url(#dv-arrow)"}
                       style={{ transition: "stroke 140ms ease, stroke-opacity 140ms ease" }}
@@ -1022,7 +1036,7 @@ export function DependencyCanvas(props: {
                           : isFolder ? "var(--plc-on-disabled)" : "var(--plc-border-strong)"
                     }
                     stroke-width={isFocus ? 2.25 : isFolder || hub() ? 1.5 : 1}
-                    stroke-dasharray={n.node.kind === "external" ? EXTERNAL_BOX_DASH : undefined}
+                    stroke-dasharray={n.node.kind === "external" ? EXTERNAL_BOX_DASH : n.node.outline === "dotted" ? DOTTED_BOX_DASH : n.node.outline === "hatched" ? FRONTIER_BOX_DASH : undefined}
                     style={{ transition: "stroke 140ms ease, fill 140ms ease" }}
                   />
                   <Show when={ink() === 1} fallback={<CompactBody n={n} />}>
@@ -1056,7 +1070,12 @@ export function DependencyCanvas(props: {
                     </text>
                   </Show>
                   {/* Row 3: boxes importing it / it imports, and the color metric as a bar. */}
-                  <Show when={box()}>
+                  <Show when={props.linkCounts === false && n.node.note}>
+                    <text x={TEXT_X} y={LINE3_Y} class="text-[11px]" fill={MUTED_TEXT}>
+                      {truncateTextToWidth(n.node.note ?? "", textRoom(n), SUBTITLE_FONT)}
+                    </text>
+                  </Show>
+                  <Show when={props.linkCounts !== false && box()}>
                     {(b) => {
                       const external = n.node.kind === "external";
                       return (
@@ -1096,7 +1115,7 @@ export function DependencyCanvas(props: {
                     )}
                   </Show>
                   {/* Row 4: badges for the hubs it imports, then mutual imports; a hub names itself on the right. */}
-                  <For each={box()?.hubBadges ?? []}>
+                  <For each={props.linkCounts === false ? [] : box()?.hubBadges ?? []}>
                     {(h, i) => (
                       <g
                         {...iconHover(() => ({
@@ -1109,7 +1128,7 @@ export function DependencyCanvas(props: {
                       </g>
                     )}
                   </For>
-                  <Show when={(box()?.cycles.length ?? 0) > 0}>
+                  <Show when={props.linkCounts !== false && (box()?.cycles.length ?? 0) > 0}>
                     <g
                       {...iconHover(() => ({
                         title: "Mutual import",

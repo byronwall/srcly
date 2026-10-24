@@ -32,6 +32,16 @@ describe("parseLocation / toSearch", () => {
     expect(toSearch({ ...loc, open: [] })).not.toContain("open=");
   });
 
+  it("round-trips Data flow mode, with and without a route", () => {
+    const loc = { repo: "/r", at: "", view: "graph" as const, flow: "route:abc" };
+    expect(parseLocation(toSearch(loc))).toEqual(loc);
+    const picking = { ...loc, flow: "" };
+    expect(parseLocation(toSearch(picking))).toEqual(picking);
+    // Imports mode has no flow param, and the treemap ignores one.
+    expect(parseLocation(toSearch({ ...loc, flow: undefined }))).toEqual({ repo: "/r", at: "", view: "graph" });
+    expect(parseLocation("?view=treemap&flow=route:abc")).toEqual({ repo: "", at: "", view: "treemap" });
+  });
+
   it("treats the empty root treemap as a bare URL", () => {
     expect(toSearch({ repo: "", at: "", view: "treemap" })).toBe("");
     expect(parseLocation("")).toEqual({ repo: "", at: "", view: "treemap" });

@@ -115,3 +115,12 @@ def test_bad_paths_are_rejected(client, use_fake, path, code):
     params = {"path": path} if path else {}
     assert client.get("/api/dataflow/status", params=params).status_code == code
     assert client.get("/api/dataflow/routes", params=params).status_code == code
+
+
+def test_route_graph_and_unknown_route(client, use_fake, tmp_path):
+    use_fake()
+    body = client.get("/api/dataflow/route-graph", params={"path": str(tmp_path), "route": "/records"}).json()
+    assert body["outcome"] == "ok" and body["generation"] == 1
+    assert body["graph"]["route"]["pathPattern"] == "/records" and body["graph"]["nodes"][0]["kind"] == "route"
+    missing = client.get("/api/dataflow/route-graph", params={"path": str(tmp_path), "route": "/nope"})
+    assert missing.status_code == 404 and missing.json()["detail"]["reason"] == "not-found"
