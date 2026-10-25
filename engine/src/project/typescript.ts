@@ -8,14 +8,15 @@ import { shouldAnalyzeFile, walkFiles } from "./files";
 import { resolveProjectConfigs } from "./tsconfig";
 import type { TsconfigInfo } from "./tsconfig";
 import type { AnalyzerProgressReporter } from "../analysis/progress";
+import { IS_BUNDLE } from "../srcly/bundle";
 
 const require = createRequire(import.meta.url);
 
-// This package's own directory. Used as a last-resort location for resolving
-// the bundled `typescript` dependency.
+// This package's own directory (the bundle's folder in a wheel). Used as a
+// last-resort location for resolving the bundled `typescript` dependency.
 const packageDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  "../..",
+  IS_BUNDLE ? "." : "../..",
 );
 
 export function loadTypescript(args: AnalyzerArgs) {

@@ -1,12 +1,13 @@
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { IS_BUNDLE } from "./bundle";
 import { EngineError } from "./protocol";
 
 const require = createRequire(import.meta.url);
 
 /** The engine package root: where its own `typescript` dependency resolves from. */
-export const ENGINE_PACKAGE_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+export const ENGINE_PACKAGE_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), IS_BUNDLE ? "." : "../..");
 
 export type TypescriptChoice = {
   /** A directory `require.resolve("typescript")` finds the chosen copy from. */

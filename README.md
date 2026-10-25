@@ -64,6 +64,8 @@ uvx srcly report . --out .srcly --quadrant activity
 
 **Findings** (`finding_count`, `error_count`) come from lint and type checkers, with no setup. If the project has `node_modules/.bin/tsc` and a tsconfig, srcly runs `tsc --noEmit` per project, and it runs `eslint` when the project has eslint and a config. Python files always get `ruff`, which ships with srcly. It uses the project's ruff config when there is one, otherwise a small set of bug-finding rules labelled "srcly defaults". TS files with no project tool get srcly's own rules: explicit `any`, `@ts-ignore` without a reason, `@ts-nocheck`, and chains of non-null assertions. Each tool runs in the background with a timeout. A tool that is missing, fails or times out leaves its files N/A with the reason, never 0. The code viewer lists each finding with its rule and the tool that reported it.
 
+**Data flow** (routes, value flow, function effects) runs srcly's bundled engine with Node.js 18 or newer from your PATH (set `SRCLY_NODE` to pick one). Without Node it shows N/A with the reason; the rest of srcly works without it.
+
 `report` is quiet by default and prints only a compact artifact summary. Add `--verbose` when you want per-file scan progress on stderr:
 
 ```bash

@@ -64,10 +64,16 @@ def locate_node() -> str | None:
 
 def locate_bundle(node: str) -> Launch | None:
     """
-    The engine entry, in order: the bundle packaged in the wheel, the
-    repository's built bundle, then (only with ``SRCLY_ENGINE_DEV=1``) the
-    TypeScript source run through the engine's own ``tsx``.
+    The engine entry, in order: with ``SRCLY_ENGINE_DEV=1``, the TypeScript
+    source run through the engine's own ``tsx`` (so a checkout never runs a
+    stale bundle that ``build-srcly.sh`` left in ``app/engine``); then the
+    bundle packaged in the wheel, then the repository's built bundle.
     """
+    if os.environ.get(DEV_ENV) == "1":
+        entry = ENGINE_DIR / "bin" / "srcly-engine.ts"
+        if entry.is_file() and (ENGINE_DIR / "node_modules" / "tsx").is_dir():
+            # `--import tsx` resolves from the working directory, so run in engine/.
+            return Launch((node, "--import", "tsx", str(entry)), ENGINE_DIR, "dev")
     try:
         packaged = resources.files("app") / "engine" / "srcly-engine.mjs"
         if packaged.is_file():
@@ -78,11 +84,6 @@ def locate_bundle(node: str) -> Launch | None:
     built = ENGINE_DIR / "dist" / "srcly-engine.mjs"
     if built.is_file():
         return Launch((node, str(built)), built.parent, "bundle")
-    if os.environ.get(DEV_ENV) == "1":
-        entry = ENGINE_DIR / "bin" / "srcly-engine.ts"
-        if entry.is_file() and (ENGINE_DIR / "node_modules" / "tsx").is_dir():
-            # `--import tsx` resolves from the working directory, so run in engine/.
-            return Launch((node, "--import", "tsx", str(entry)), ENGINE_DIR, "dev")
     return None
 
 
@@ -139,7 +140,7 @@ def probe(root: Path) -> Availability:
         return Availability(
             False,
             "engine-missing",
-            "The data-flow engine is not bundled in this install (in a checkout, set SRCLY_ENGINE_DEV=1 after `cd engine && pnpm install`).",
+            "The data-flow engine is not bundled in this install (in a checkout, run `bash build-srcly.sh`, or set SRCLY_ENGINE_DEV=1 after `cd engine && pnpm install`).",
             node=node,
         )
     if has_tsconfig(root):
