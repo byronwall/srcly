@@ -22,7 +22,7 @@ test("Return latency over 20 returns", async ({ page }) => {
   await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
   await page.mouse.wheel(0, -400);
   await page.waitForTimeout(400);
-  await page.locator("[data-box]").filter({ hasText: "props.viewer?.na" }).first().click();
+  await page.locator('[data-box][data-label^="props.viewer?.name"]').first().click();
   const left = (await svg.locator("> g[transform]").first().getAttribute("transform"))!;
   await page.keyboard.press("o");
   const line = page.locator("span.line").filter({ hasText: "props.viewer?.name" }).first();
