@@ -171,6 +171,15 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(boxes(graph, "frontier").map((node) => [node.label, node.reason, node.side])).toEqual([["label", "unbound-read", "up"]]);
   });
 
+  it("lands a plain function's field reads through the argument its caller passes, with no per-read frontier", () => {
+    const graph = anchorGraphOp(session, { file: "src/function-field-reads.ts", name: "describeItem", line: 5, direction: "backward" });
+    // The reads are drawn, joined to the parameter they read.
+    const reads = graph.edges.filter((edge) => edge.kind === "prop-read").map((edge) => graph.nodes.find((node) => node.id === edge.source)!.label);
+    expect(reads.length).toBeGreaterThan(0);
+    expect(boxes(graph, "frontier").filter((node) => node.reason === "unbound-read")).toEqual([]);
+    expect(graph.outcome).toBe("ok");
+  });
+
   it("stops a prop read no binding reaches at a frontier, instead of landing it through another prop", () => {
     // `label="toc"` has no binding relation; `size={2}` does and starts at a literal. The shared `props` must not carry size's landing to label.
     const graph = anchorGraphOp(session, { file: "src/nested-helpers.tsx", name: "Rail", line: 5, direction: "backward" });
