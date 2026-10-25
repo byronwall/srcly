@@ -16,6 +16,16 @@ IGNORE_DIRS: Set[str] = {
     "out",
     "android",
     "ios",
+    # Agent and tool output: browser-automation snapshots, logs and caches.
+    ".playwright-mcp",
+    ".playwright-cli",
+    "playwright-report",
+    "test-results",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".turbo",
+    ".nuxt",
 }
 
 IGNORE_FILES: Set[str] = {
