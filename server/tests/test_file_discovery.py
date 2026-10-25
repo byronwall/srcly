@@ -71,6 +71,20 @@ def test_git_discovery_skips_deleted_tracked_files_and_builtin_dirs(repo: Path) 
     assert _rel(repo, result.files) == [".gitignore", "scripts/build", "src/app.py"]
 
 
+
+@pytest.mark.parametrize("use_git", [True, False])
+def test_tool_output_dirs_are_skipped(monkeypatch, repo: Path, use_git: bool) -> None:
+    if not use_git:
+        monkeypatch.setattr(analysis, "_is_inside_git_work_tree", lambda _path: False)
+    # Playwright MCP leaves hundreds of snapshot and console files at the root.
+    _write(repo / ".playwright-mcp" / "page-2026-10-16T05-25-10-089Z.yml", "- button\n")
+    _write(repo / ".playwright-mcp" / "console-2026-10-16T14-54-17-360Z.log", "[log] hi\n")
+    _write(repo / "test-results" / "run" / "trace.md", "# trace\n")
+
+    result = analysis.discover_files(repo)
+
+    assert _rel(repo, result.files) == [".gitignore", "src/app.py"]
+
 def test_git_discovery_descends_into_nested_repositories(repo: Path) -> None:
     nested = repo / "vendor-repo"
     nested.mkdir()
