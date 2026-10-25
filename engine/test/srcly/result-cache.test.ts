@@ -2,6 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { hashProgramInputs } from "../../src/srcly/fingerprint";
+import { engineFingerprint, ResultCache } from "../../src/srcly/result-cache";
 import { solidRoute, startEngine } from "./engine-process";
 
 // T11: a second process with the same Program answers from disk before it builds.
@@ -50,4 +52,19 @@ describe("the result cache across engine processes", () => {
     }
     fs.rmSync(dir, { recursive: true, force: true });
   }, 120_000);
+});
+
+describe("the result cache across engine builds", () => {
+  it("misses for a different engine, so an upgrade never serves what an older engine computed", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "srcly-result-cache-"));
+    const file = path.join(solidRoute, "src/components/MetricCard.tsx");
+    const inputs = { files: [file], tsconfigs: [], typescript: "5.0.0" };
+    const params = { route: "/records" };
+    new ResultCache(dir, solidRoute, "engine-a").put("routeGraph", params, { nodes: ["old"] }, inputs, hashProgramInputs(inputs));
+    expect(new ResultCache(dir, solidRoute, "engine-a").get("routeGraph", params)).toEqual({ nodes: ["old"] });
+    expect(new ResultCache(dir, solidRoute, "engine-b").get("routeGraph", params)).toBeNull();
+    // The real fingerprint is stable within one build.
+    expect(engineFingerprint()).toBe(engineFingerprint());
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
 });

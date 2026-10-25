@@ -7,6 +7,8 @@ import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
 import { CROSS_CALL, DECLARATION_KINDS, elementsAt, externalCallee, naturalEnd, pairedInSlice, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
 import type { HostCandidate, LanguageHost } from "../host";
+import { clip, foldedLimit } from "../frontier-words";
+import { ownFacts } from "../own-facts";
 import { EngineError } from "../protocol";
 import { parseSpan, sameSpan, type Span } from "../selection";
 import { checkGeneration, type EngineSession, type Tier1 } from "../session";
@@ -35,6 +37,10 @@ type Run = {
   side: Side;
   /** A parameter whose reads are the real runs: its own walk decides nothing once a read exists. */
   placeholderFor?: string[];
+  /** A use that is itself where the value ends (a component rendered here): drawn, never sliced, landed where it starts. */
+  endsHere?: boolean;
+  /** A read of the declaration's parameter: it lands only over its own drawn path, never through the shared parameter. */
+  propRead?: boolean;
 };
 /** Relations that bind a declaration's parameter to the places it is read. */
 const PARAMETER_READS = new Set(["references", "field-input"]);
@@ -157,6 +163,7 @@ class AnchorGraphBuilder {
     const gapsBySeed = new Map<string, number>();
     const naturalBySeed = new Map<string, number>();
     for (const run of runs) {
+      if (run.endsHere) continue;
       const slice = this.slice(run, anchor.text);
       this.walk(run.seedId, slice, run.side, run.seedSpan);
       const natural = this.gaps(slice.gaps, run.side, new Map(slice.elements.map((element) => [element.id, element])));
@@ -165,12 +172,19 @@ class AnchorGraphBuilder {
       coverage.relations += slice.relations.length;
       coverage.budget.used += slice.relations.length;
       coverage.budget.limit += DEFAULT_BOUNDARY_POLICY.maxRelations;
-      coverage.budget.exhausted ||= slice.coverage.truncation.budget;
+      // Any limit the slice hit leaves the walk short of the budget's story, not only the relation budget.
+      const cut = slice.coverage.truncation;
+      coverage.budget.exhausted ||= cut.budget || cut.elements || cut.relations || cut.depth;
       gapsBySeed.set(run.seedId, (gapsBySeed.get(run.seedId) ?? 0) + slice.gaps.length);
     }
     const landedRuns = runs
       .filter((run) => !(run.placeholderFor && run.placeholderFor.length > 0))
-      .map((run) => this.runLanded(run, gapsBySeed.get(run.seedId) ?? 0, naturalBySeed.get(run.seedId) ?? 0))
+      .map((run) => {
+        // A prop read's slice walks back through the whole props object, so a natural start it finds may be another prop's.
+        const landed = this.runLanded(run, gapsBySeed.get(run.seedId) ?? 0, run.propRead ? 0 : naturalBySeed.get(run.seedId) ?? 0);
+        if (run.propRead && landed !== true) this.unboundRead(run.seedId);
+        return run.propRead ? landed === true : landed;
+      })
       .filter((value): value is boolean => value !== null);
     const naturalStarts = [...naturalBySeed.values()].reduce((sum, count) => sum + count, 0) + this.literalStarts();
     const drawn = [...this.nodes.values()];
@@ -228,6 +242,35 @@ class AnchorGraphBuilder {
     return reached > 0 || gaps > 0 ? false : null;
   }
 
+  /**
+   * A prop read no caller's binding reaches: the engine relates no binding
+   * to it (a read inside a nested function, a spread), so where its value
+   * comes from is not traced. A frontier named by the read says so, and the
+   * declaration's outcome stays partial.
+   */
+  private unboundRead(readId: string) {
+    const read = this.nodes.get(readId);
+    if (!read) return;
+    const id = `frontier:unbound:${readId}`;
+    this.addNode({
+      id,
+      kind: "frontier",
+      label: read.label,
+      detail: "unbound-read",
+      parent: read.parent,
+      file: read.file,
+      line: read.line,
+      span: read.span,
+      status: "partial",
+      side: "up",
+      elementKind: read.elementKind,
+      typeText: null,
+      reason: "unbound-read",
+      note: `No caller's binding is related to this read of ${read.label}, so where its value comes from is not traced.`,
+    });
+    this.pushEdge({ id: `gap:unbound:${readId}`, source: id, target: readId, kind: "gap", status: "partial", proof: [], label: null });
+  }
+
   /** Literal boxes drawn on the up side: a value that begins at `"x"` has come from somewhere (R16). */
   private literalStarts(): number {
     let count = 0;
@@ -262,7 +305,7 @@ class AnchorGraphBuilder {
       (s.endLine < span.endLine || (s.endLine === span.endLine && s.endColumn <= span.endColumn)) &&
       !(s.startLine === span.startLine && s.startColumn === span.startColumn && s.endLine === span.endLine && s.endColumn === span.endColumn);
     const provider = this.tier1.provider();
-    const facts = provider.facts.fileCandidates(file).filter((fact) => inside(fact.location.span));
+    const facts = ownFacts(this.host, file, span, provider.facts.fileCandidates(file).filter((fact) => inside(fact.location.span)));
     const runs: Run[] = [];
     if (sides.includes("up")) {
       for (const param of facts.filter((fact) => fact.kind === "parameter")) {
@@ -286,7 +329,7 @@ class AnchorGraphBuilder {
               const relation = toSliceRelation(raw);
               this.addFact(element, "up");
               this.pushEdge({ id: `prop:${relation.id}`, source: element.id, target: param.id, kind: "prop-read", status: relation.status, proof: [relation.proof], label: element.label });
-              runs.push({ seedId: element.id, seedSpan: element.location.span, side: "up" });
+              runs.push({ seedId: element.id, seedSpan: element.location.span, side: "up", propRead: true });
               paramRun.placeholderFor!.push(element.id);
             } else if (raw.kind === "references") {
               // The parameter's own value at a use site: its field reads hang off it.
@@ -316,7 +359,8 @@ class AnchorGraphBuilder {
         if (!use || this.nodes.has(use.id)) continue;
         this.addElement(use, "value", "down", relation.status, null, use.kind === "component-occurrence" || use.kind === "jsx-occurrence" ? "rendered here" : "called here");
         this.pushEdge({ id: `use:${relation.id}`, source: seed, target: use.id, kind: "used-by", status: relation.status, proof: [relation.proof], label: null });
-        runs.push({ seedId: use.id, seedSpan: use.location.span, side: "down" });
+        // A component rendered here is where the value ends: its body is the anchor's own, already traced.
+        runs.push({ seedId: use.id, seedSpan: use.location.span, side: "down", ...(TERMINAL_KINDS.has(use.kind) ? { endsHere: true } : {}) });
       }
     }
     return runs;
@@ -405,18 +449,28 @@ class AnchorGraphBuilder {
    * indexed relation continues"), so it is one of two things: a natural start
    * (a literal, a constant, an external import: no box, R16) or a dead end,
    * which is a frontier like any other and leaves the outcome partial. A seed
-   * missing from the index (no location) stays `unsupported`.
+   * missing from the index (no location) stays `unsupported`. A frontier is
+   * named by where it stopped (the element, the external callee), the way
+   * the ledger's boundary rows are; the reason is its detail and the
+   * sentence its note. Where the slice hit its element limit, every element
+   * it did not take is a gap from the same place: those fold into one
+   * frontier that names how many, so one limit reads as one stop.
    */
   private gaps(gaps: readonly EvidenceGap[], side: Side, elements: Map<string, ProgramElement>): number {
     let naturalStarts = 0;
+    const labelOf = (id: string | null | undefined) => (id ? (elements.get(id) ?? this.tier1.provider().facts.getElement(id))?.label : undefined);
+    const limited = gaps.filter((gap) => gap.reason === "budget-exhausted" && /^Element limit/.test(gap.label));
+    const folded = new Set(limited.slice(1).map((gap) => gap.id));
     for (const gap of gaps) {
       const id = `frontier:${gap.id}`;
-      if (this.nodes.has(id)) continue;
+      if (this.nodes.has(id) || folded.has(gap.id)) continue;
       let label = clip(gap.label, 80);
+      let note = gap.label;
       let reason: string = gap.reason;
       let status = gap.status;
       let elementKind: string | null = null;
-      if (gap.reason === "disconnected") {
+      if (limited[0] === gap) ({ label, note } = foldedLimit(limited, labelOf, DEFAULT_BOUNDARY_POLICY.maxElements));
+      else if (gap.reason === "disconnected") {
         const element = gap.from ? elements.get(gap.from) ?? this.tier1.provider().facts.getElement(gap.from) : undefined;
         if (!gap.location || !element) {
           reason = "no-evidence-element";
@@ -426,7 +480,8 @@ class AnchorGraphBuilder {
           continue;
         } else {
           const callee = externalCallee(this.tier1, element);
-          label = callee ? `${callee} is outside the program's own source` : side === "down" ? "dead end · nothing continues from here" : "dead end · nothing reaches here";
+          label = clip(callee ?? element.label);
+          note = callee ? `${callee} is outside the program's own source` : side === "down" ? "dead end · nothing continues from here" : "dead end · nothing reaches here";
           reason = callee ? "external-code" : "disconnected";
           status = "partial";
           elementKind = element.kind;
@@ -452,7 +507,7 @@ class AnchorGraphBuilder {
         elementKind,
         typeText: null,
         reason,
-        note: gap.label,
+        note,
       });
       const source = from && this.nodes.has(from) ? from : side === "up" && to && this.nodes.has(to) ? id : null;
       const target = source === id ? to! : id;
@@ -668,7 +723,3 @@ function syntaxWords(kind: string): string {
   return SYNTAX_WORDS[kind] ?? kind;
 }
 
-function clip(text: string, max = 120): string {
-  const one = text.replace(/\s+/g, " ").trim();
-  return one.length > max ? `${one.slice(0, max - 1)}…` : one;
-}

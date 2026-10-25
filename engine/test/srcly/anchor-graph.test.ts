@@ -147,11 +147,51 @@ describe("anchorGraph on value-flow-basics", () => {
     const unused = anchorGraphOp(session, { ...find(basics, "src/dead-end.tsx", "props.label", "unused ="), direction: "forward" });
     expect(unused.outcome).toBe("partial");
     const [stop] = boxes(unused, "frontier");
-    expect(stop).toMatchObject({ reason: "disconnected", status: "partial", side: "down", elementKind: "alias", label: "dead end · nothing continues from here", line: 6 });
+    expect(stop).toMatchObject({ reason: "disconnected", status: "partial", side: "down", elementKind: "alias", line: 6 });
+    // Named by where it stopped, as the ledger's boundary row is; the sentence is its note.
+    expect(stop).toMatchObject({ label: "unused", note: "dead end · nothing continues from here" });
     expect(unused.counts).toMatchObject({ terminals: 0, frontiers: 1 });
     const callback = anchorGraphOp(session, { ...find(basics, "src/dead-end.tsx", "props.onPick"), direction: "forward" });
     expect(callback.outcome).toBe("partial");
     expect(boxes(callback, "frontier").map((node) => [node.reason, node.elementKind, node.line])).toEqual([["disconnected", "alias", 8]]);
+  });
+
+  it("takes a component's own parameters and returns, not those of the helpers nested inside it", () => {
+    const graph = anchorGraphOp(session, { file: "src/nested-helpers.tsx", name: "Rail", line: 5, direction: "both" });
+    const anchor = graph.nodes.find((node) => node.kind === "anchor")!;
+    const params = graph.edges.filter((edge) => edge.kind === "parameter" && edge.target === anchor.id).map((edge) => graph.nodes.find((node) => node.id === edge.source)!);
+    expect(labels(params)).toEqual(["props"]);
+    const returns = graph.edges.filter((edge) => edge.kind === "returns").map((edge) => graph.nodes.find((node) => node.id === edge.target)!);
+    // `widthOf`'s two returns are its own; only the JSX return is Rail's.
+    expect(returns.map((node) => node.line)).toEqual([11]);
+    // Where it is rendered is where its value ends: the occurrence is drawn, its body is not walked again.
+    const use = graph.nodes.find((node) => node.note === "rendered here")!;
+    expect(use).toMatchObject({ side: "down", line: 19 });
+    // Nothing walks into Rail's body from its render site: the only stop is the one read no binding reaches.
+    expect(boxes(graph, "frontier").map((node) => [node.label, node.reason, node.side])).toEqual([["label", "unbound-read", "up"]]);
+  });
+
+  it("stops a prop read no binding reaches at a frontier, instead of landing it through another prop", () => {
+    // `label="toc"` has no binding relation; `size={2}` does and starts at a literal. The shared `props` must not carry size's landing to label.
+    const graph = anchorGraphOp(session, { file: "src/nested-helpers.tsx", name: "Rail", line: 5, direction: "backward" });
+    expect(graph.outcome).toBe("partial");
+    const stop = boxes(graph, "frontier")[0];
+    expect(stop).toMatchObject({ label: "label", status: "partial", line: 13 });
+    expect(stop.note).toMatch(/not traced/);
+    const read = graph.nodes.find((node) => node.elementKind === "field-read" && node.label === "label")!;
+    expect(graph.edges.some((edge) => edge.kind === "gap" && edge.source === stop.id && edge.target === read.id)).toBe(true);
+  });
+
+  it("folds the gaps of one element limit into one frontier that names what it did not follow", () => {
+    const graph = anchorGraphOp(session, { file: "src/wide-walk.tsx", name: "props", line: 5, direction: "forward" });
+    const stops = boxes(graph, "frontier");
+    expect(stops).toHaveLength(1);
+    expect(stops[0]).toMatchObject({ reason: "budget-exhausted", side: "down" });
+    expect(stops[0].label).toMatch(/^\d+ places not followed$/);
+    expect(stops[0].note).toMatch(/^The walk stops at 128 elements; it did not follow n/);
+    // A limit hit is the budget exhausted, whichever limit it was.
+    expect(graph.coverage.budget.exhausted).toBe(true);
+    expect(graph.outcome).toBe("partial");
   });
 
   it("ends a backward walk at a literal with no frontier: that is where the value begins", () => {
