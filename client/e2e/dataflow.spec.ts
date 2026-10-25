@@ -98,25 +98,9 @@ test.describe("Data flow on solid-route", () => {
     await expect(status(page)).toContainText("occurrences", { timeout: 90_000 });
     await page.getByLabel("Origin whose proven destinations light up").selectOption({ label: "createResource(loadViewer)" });
     await expect(page.getByText(/reaches \d+ proven/)).toBeVisible({ timeout: 90_000 });
-    // A lit edge: a transparent hit path whose drawn sibling carries the accent. Its midpoint can sit
-    // under a box (box widths follow the platform's fonts), so click the first point the edge itself owns.
-    const point = await page.evaluate(() => {
-      for (const hit of document.querySelectorAll<SVGPathElement>('svg[aria-label="Dependency graph"] path[stroke="transparent"]')) {
-        const drawn = hit.previousElementSibling;
-        if (!(drawn instanceof SVGPathElement) || drawn.getAttribute("stroke") !== "var(--plc-accent)" || Number(drawn.getAttribute("stroke-opacity")) < 0.3) continue;
-        const m = hit.getScreenCTM()!;
-        const length = hit.getTotalLength();
-        for (const t of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8]) {
-          const at = hit.getPointAtLength(length * t);
-          const x = m.a * at.x + m.c * at.y + m.e;
-          const y = m.b * at.x + m.d * at.y + m.f;
-          if (document.elementFromPoint(x, y) === hit) return { x, y };
-        }
-      }
-      return null;
-    });
-    expect(point).not.toBeNull();
-    await page.mouse.click(point!.x, point!.y);
+    // A lit edge that opens its steps. The click goes to the edge itself: where it is drawn
+    // depends on the platform's fonts, and a box may sit over any given point of it.
+    await page.locator("path[data-edge][data-active][data-selectable]").first().dispatchEvent("click");
     const inspector = page.getByLabel("Data flow inspector");
     await expect(inspector).toContainText("Selected edge");
     await expect(inspector).toContainText(/\d+ steps/, { timeout: 60_000 });
