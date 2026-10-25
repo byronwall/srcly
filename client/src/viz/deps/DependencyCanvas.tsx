@@ -16,6 +16,7 @@ import {
   EXTERNAL_BOX_DASH,
   FRONTIER_BOX_DASH,
   HANDOFF_EDGE_DASH,
+  STRUCTURAL_EDGE_DASH,
 } from "./encoding";
 import { boundsOf } from "./geometry";
 import { CLICK_CURSOR, clickAction, createClickIntent, liveHover } from "./interaction";
@@ -49,10 +50,11 @@ const tintFill = (color: string) => d3.interpolateLab("#ffffff", color)(TINT);
 const MUTED_TEXT = "var(--plc-on-muted)";
 /** Row 3 in Data flow mode: the in/out counts' width before the note starts. */
 const FLOW_COUNTS_W = 78;
-const STATUS_COLOR: Record<NonNullable<ViewNode["status"]>, string> = {
+const STATUS_COLOR: Record<NonNullable<ViewEdge["status"]>, string> = {
   proven: "var(--plc-success)",
   partial: "var(--plc-warning)",
   unsupported: "var(--plc-error)",
+  structural: "var(--plc-on-muted)",
 };
 /** Rows 2–4 share the label's left edge; the kind glyph owns the column before it. */
 const TEXT_X = PAD_X + ICON_W;
@@ -961,10 +963,10 @@ export function DependencyCanvas(props: {
                   <g>
                     <path
                       d={edgePath(e)}
-                      stroke={active() || e.edge.style === "field" ? "var(--plc-accent)" : "var(--plc-tertiary)"}
-                      stroke-width={edgeStrokeWidth(e.edge.weight, e.edge.faint)}
+                      stroke={e.edge.style === "structural" ? "var(--plc-on-disabled)" : active() || e.edge.style === "field" ? "var(--plc-accent)" : "var(--plc-tertiary)"}
+                      stroke-width={e.edge.style === "structural" ? 1 : edgeStrokeWidth(e.edge.weight, e.edge.faint)}
                       stroke-opacity={dimmed() ? 0.12 : lightEdge(e.id) ? 0.4 : e.edge.faint && !active() ? CONTEXT_EDGE_OPACITY : EDGE_OPACITY}
-                      stroke-dasharray={e.edge.style === "handoff" ? HANDOFF_EDGE_DASH : e.edge.faint ? CONTEXT_EDGE_DASH : undefined}
+                      stroke-dasharray={e.edge.style === "structural" ? STRUCTURAL_EDGE_DASH : e.edge.style === "handoff" ? HANDOFF_EDGE_DASH : e.edge.faint ? CONTEXT_EDGE_DASH : undefined}
                       stroke-linejoin="round"
                       marker-end={active() ? "url(#dv-arrow-active)" : "url(#dv-arrow)"}
                       style={{ transition: "stroke 140ms ease, stroke-opacity 140ms ease" }}
@@ -1618,8 +1620,8 @@ function EdgeLabel(props: { edge: PositionedEdge; strong: boolean }) {
   );
 }
 
-/** What a flow edge is, for its card: containment is what a frame renders; handoff and field edges come from the engine with proof. */
-function flowEdgeKind(e: ViewEdge): "renders" | "handoff" | "field" | null {
+/** What a flow edge is, for its card: containment is what a frame renders; handoff and field edges come from the engine with proof; structural links are found by syntax. */
+function flowEdgeKind(e: ViewEdge): "renders" | "handoff" | "field" | "structural" | null {
   if (e.style) return e.style;
   return e.id.startsWith("contains:") ? "renders" : null;
 }
@@ -1648,13 +1650,13 @@ function EdgeCard(props: { edge: PositionedEdge; nodes: Map<string, PositionedNo
             <div class="flex flex-wrap items-baseline gap-x-2 text-[11px]">
               <span class="text-[var(--plc-on-subtle)]">
                 {e().relation
-                  ? `${e().relation!.replaceAll("-", " ")}${kind() === "handoff" ? ": the value crosses a call or a prop" : ""}`
-                  : kind() === "renders" ? "renders: inside its frame" : kind() === "handoff" ? "handoff: an origin reaching a render site" : "field: the selected origin's path"}
+                  ? `${e().relation!.replaceAll("-", " ")}${kind() === "handoff" ? ": the value crosses a call or a prop" : kind() === "structural" ? ": found by structure, not traced" : ""}`
+                  : kind() === "renders" ? "renders: inside its frame" : kind() === "handoff" ? "handoff: an origin reaching a render site" : kind() === "structural" ? "structural: found by structure, not traced" : "field: the selected origin's path"}
               </span>
               <Show when={e().status}>
                 {(st) => (
                   <span class="font-semibold" style={{ color: STATUS_COLOR[st()] }}>
-                    {st() === "proven" ? "proven" : st() === "partial" ? "partial proof" : "unsupported"}
+                    {st() === "proven" ? "proven" : st() === "partial" ? "partial proof" : st() === "structural" ? "structural" : "unsupported"}
                   </span>
                 )}
               </Show>

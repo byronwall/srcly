@@ -422,12 +422,17 @@ class AnchorNode(BaseModel):
     note: str | None
 
 
+# Mirrors anchorEdgeStatusSchema: a proof status, or "structural" for a link the
+# projection found by syntax (a declaration's own parameter or return).
+AnchorEdgeStatus = EvidenceStatus | Literal["structural"]
+
+
 class AnchorEdge(BaseModel):
     id: str
     source: str
     target: str
     kind: str
-    status: EvidenceStatus
+    status: AnchorEdgeStatus
     proof: list[EvidenceProof]
     label: str | None
 

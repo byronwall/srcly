@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import fixture from "../../../../../engine/test/srcly/__fixtures__/solid-route.anchor-graph.json";
+import declarationFixture from "../../../../../engine/test/srcly/__fixtures__/solid-route-viewer-card.anchor-graph.json";
 import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
 import { layoutWithHubs } from "../hubs";
 import { anchorGraphToViewModel } from "./anchorAdapter";
@@ -60,5 +61,32 @@ describe("anchor graph → ViewModel", () => {
     const r = reachFrom(m.vm, m.vm.focusId, "both", { exclude: m.notFlow });
     expect(r.strong.nodes.has(byLabel("createResource(loadViewer)").id)).toBe(true);
     expect([...r.light.nodes, ...r.strong.nodes].some((id) => m.vm.nodes.find((n) => n.id === id)?.symbolKind === "terminal")).toBe(true);
+  });
+});
+
+describe("a declaration anchor's structural links", () => {
+  // ViewerCard by name: its parameter and return links are found by syntax.
+  const graph = declarationFixture as unknown as AnchorGraphResult;
+  const m = anchorGraphToViewModel(graph);
+  const structural = m.vm.edges.filter((e) => e.status === "structural");
+
+  it("draws a structural edge in its own style, faint, and never as a handoff", () => {
+    expect(structural.length).toBeGreaterThan(0);
+    expect(new Set(structural.map((e) => e.relation))).toEqual(new Set(["parameter", "returns"]));
+    expect(structural.every((e) => e.style === "structural" && e.faint)).toBe(true);
+    // Every other edge carries the engine's proof.
+    expect(m.vm.edges.filter((e) => e.status === "proven").every((e) => e.proof!.length > 0)).toBe(true);
+  });
+
+  it("is walked by reach emphasis without being lit as proven", () => {
+    const r = reachFrom(m.vm, m.vm.focusId, "both", { exclude: m.notFlow });
+    for (const e of structural) {
+      expect(r.strong.edges.has(e.id)).toBe(false);
+      expect(r.light.edges.has(e.id)).toBe(false);
+    }
+    expect(r.structural.size).toBeGreaterThan(0);
+    // Through the parameter link, the anchor is still reached from the viewer resource.
+    const origin = m.vm.nodes.find((n) => n.symbolKind === "origin")!;
+    expect(r.strong.nodes.has(origin.id)).toBe(true);
   });
 });
