@@ -1010,6 +1010,7 @@ export function DependencyCanvas(props: {
               {(e) => {
                 const active = () => activeEdges()?.has(e.id) ?? false;
                 const dimmed = () => activeEdges() !== null && !active();
+                const selectable = () => !!props.onSelectEdge && (e.edge.style === "field" || e.edge.style === "handoff");
                 return (
                   <g>
                     <path
@@ -1027,16 +1028,19 @@ export function DependencyCanvas(props: {
                       d={edgePath(e)}
                       stroke="transparent"
                       stroke-width="8"
+                      data-edge={e.id}
+                      data-active={active() ? "" : undefined}
+                      data-selectable={selectable() ? "" : undefined}
                       onMouseEnter={(ev) => {
                         setHoverEdge(e.id);
                         showCard(ev, { edge: e });
                       }}
                       onClick={(ev) => {
-                        if (!props.onSelectEdge || !(e.edge.style === "field" || e.edge.style === "handoff")) return;
+                        if (!selectable()) return;
                         ev.stopPropagation();
-                        props.onSelectEdge(e.edge);
+                        props.onSelectEdge!(e.edge);
                       }}
-                      style={{ cursor: props.onSelectEdge && (e.edge.style === "field" || e.edge.style === "handoff") ? "pointer" : undefined }}
+                      style={{ cursor: selectable() ? "pointer" : undefined }}
                       onMouseMove={(ev) => showCard(ev, { edge: e })}
                       onMouseLeave={() => {
                         setHoverEdge(null);
