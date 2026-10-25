@@ -8,7 +8,7 @@ import type { AnchorGraphResult, FileExportsResult } from "../../../dataflow/con
 import type { ViewEdge, ViewNode } from "../viewModel";
 import type { FlowViewModel } from "./adapter";
 import { anchorGraphToViewModel } from "./anchorAdapter";
-import { FLOW_MARKS } from "./marks";
+import { FLOW_MARKS, markColor } from "./marks";
 
 export type FileExport = FileExportsResult["files"][number]["exports"][number];
 
@@ -56,7 +56,7 @@ export function exportsToViewModel(result: FileExportsResult, options: ExportsVi
     subtitle: `${result.counts.exports} export${result.counts.exports === 1 ? "" : "s"} in ${result.counts.files} file${result.counts.files === 1 ? "" : "s"}${folded ? " · over the budget: open a file to see its exports" : ""}`,
     memberCount: result.counts.exports,
     isFocus: true,
-    tint: FLOW_MARKS.anchor.color,
+    tint: markColor("anchor"),
   });
   for (const file of result.files) {
     const fileOpen = !folded || expanded.has(file.file);
@@ -100,7 +100,7 @@ export function exportsToViewModel(result: FileExportsResult, options: ExportsVi
         isFocus: false,
         group: folded ? { id: file.file, label: file.file, opened: true } : { id: `file:${file.file}`, label: file.file, opened: true },
         expandable: item.traceable && !expanded.has(item.id),
-        tint: FLOW_MARKS[mark].color,
+        tint: markColor(mark),
         ...(item.traceable ? {} : { outline: "dotted" as const }),
       });
       edges.push({ id: `owns:${item.id}`, source: focusId, target: item.id, weight: 1, faint: true, symbols: [], style: "structural", status: "structural" });

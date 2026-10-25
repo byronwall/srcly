@@ -288,5 +288,32 @@ test.describe("Data flow in dark mode", () => {
       return [...document.querySelectorAll("[data-box] > rect")].map((r) => getComputedStyle(r).stroke).filter((s) => s === bg).length;
     });
     expect(bad).toBe(0);
+    // Every box label reads on its tinted fill (T21): WCAG contrast of at least 4.5 against the fill the mark's token mixed in.
+    const contrast = await page.evaluate(() => {
+      const channel = (v: number) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+      const luminance = (css: string) => {
+        const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(css);
+        if (!m) return null;
+        const [r, g, b] = [m[1], m[2], m[3]].map((x) => channel(Number(x) / 255));
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const out: { box: string; ratio: number }[] = [];
+      for (const box of document.querySelectorAll<SVGGElement>("[data-box]")) {
+        const rect = box.querySelector(":scope > rect");
+        const text = box.querySelector("text");
+        if (!rect || !text) continue;
+        const fill = luminance(getComputedStyle(rect).fill);
+        const ink = luminance(getComputedStyle(text).fill);
+        if (fill === null || ink === null) continue;
+        const ratio = (Math.max(fill, ink) + 0.05) / (Math.min(fill, ink) + 0.05);
+        out.push({ box: box.getAttribute("data-box") ?? "", ratio: Math.round(ratio * 100) / 100 });
+      }
+      return out;
+    });
+    expect(contrast.length).toBeGreaterThan(5);
+    expect(contrast.filter((c) => c.ratio < 4.5)).toEqual([]);
+    // The marks are drawn in palette tokens, never a literal color.
+    const literal = await page.evaluate(() => [...document.querySelectorAll('[aria-label="Dependency graph"] g[style]')].map((g) => g.getAttribute("style") ?? "").filter((s) => /color:\s*#|color:\s*rgb/.test(s)).length);
+    expect(literal).toBe(0);
   });
 });

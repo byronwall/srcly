@@ -3,7 +3,7 @@ import { createSignal, For, type JSX, Show } from "solid-js";
 import { IconButton } from "../../../components/ui/IconButton";
 import { DOTTED_BOX_DASH, EDGE_OPACITY, FRONTIER_BOX_DASH, HANDOFF_EDGE_DASH, STRUCTURAL_EDGE_DASH } from "../encoding";
 import { FlowMarkGlyph, RepetitionBadge } from "./FlowMark";
-import { FLOW_MARK_ORDER, FLOW_MARKS, REPETITION_BADGE } from "./marks";
+import { FLOW_MARK_ORDER, FLOW_MARKS, REPETITION_BADGE, markVar } from "./marks";
 
 const COLLAPSED_KEY = "srcly.flowLegendCollapsed";
 const SW = 30;
@@ -59,7 +59,7 @@ function BoxSwatch(props: { dash?: string; frame?: boolean; stroke?: string; wid
 function MarkSwatch(props: { mark: keyof typeof FLOW_MARKS }) {
   return (
     <svg width={SW} height={SH} viewBox={`0 0 ${SW} ${SH}`} aria-hidden="true">
-      <rect x="1.5" y="0.5" width={SW - 3} height={SH - 1} rx="2.5" fill={FLOW_MARKS[props.mark].color} fill-opacity="0.16" stroke="var(--plc-border-strong)" />
+      <rect x="1.5" y="0.5" width={SW - 3} height={SH - 1} rx="2.5" fill={markVar(props.mark)} fill-opacity="0.16" stroke="var(--plc-border-strong)" />
       <FlowMarkGlyph mark={props.mark} x={SW / 2 - 6} y={1} />
     </svg>
   );
