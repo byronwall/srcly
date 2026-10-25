@@ -1,0 +1,6 @@
+[project]
+name = "items-example"
+version = "0.0.0"
+description = "A small FastAPI app the data-flow engine's Python provider is tested on."
+requires-python = ">=3.11"
+dependencies = ["fastapi", "pydantic"]
