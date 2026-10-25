@@ -1,0 +1,87 @@
+{
+  "bindings": {
+    "sourceFingerprints": [
+      {
+        "file": "src/f.tsx",
+        "mtimeMs": 1,
+        "size": 1
+      }
+    ],
+    "tsconfig": "/fixture/tsconfig.json",
+    "typescript": "5.9.3"
+  },
+  "coverage": {
+    "budget": {
+      "exhausted": false,
+      "limit": 256,
+      "used": 1
+    },
+    "elements": 2,
+    "relations": 1
+  },
+  "frontiers": [],
+  "generation": 1,
+  "outcome": "ok",
+  "programHash": "hash-1",
+  "reason": null,
+  "rows": [
+    {
+      "absPath": "/fixture/src/f.tsx",
+      "elementId": "el:1",
+      "file": "src/f.tsx",
+      "id": "row:1",
+      "kind": "input",
+      "label": "props.item.title",
+      "line": 1,
+      "note": null,
+      "proof": [],
+      "reason": null,
+      "relationId": null,
+      "span": {
+        "endColumn": 58,
+        "endLine": 1,
+        "startColumn": 42,
+        "startLine": 1
+      },
+      "status": "proven",
+      "typeText": "string"
+    },
+    {
+      "absPath": "/fixture/src/f.tsx",
+      "elementId": "el:2",
+      "file": "src/f.tsx",
+      "id": "row:2",
+      "kind": "terminal",
+      "label": "props.item.title",
+      "line": 1,
+      "note": "JSX render slot",
+      "proof": [],
+      "reason": null,
+      "relationId": "rel:1",
+      "span": {
+        "endColumn": 58,
+        "endLine": 1,
+        "startColumn": 42,
+        "startLine": 1
+      },
+      "status": "proven",
+      "typeText": "string"
+    }
+  ],
+  "selection": {
+    "file": "src/f.tsx",
+    "kind": "PropertyAccessExpression",
+    "span": {
+      "endColumn": 58,
+      "endLine": 1,
+      "startColumn": 42,
+      "startLine": 1
+    },
+    "text": "props.item.title"
+  },
+  "terminals": [
+    "row:2"
+  ],
+  "tsconfig": "/fixture/tsconfig.json",
+  "typescript": "5.9.3"
+}
