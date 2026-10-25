@@ -1,9 +1,10 @@
 {
  "outcome": "partial",
  "generation": 1,
- "programHash": "f06a907d3d8a4dde",
+ "programHash": "ba15411435a421cb",
  "tsconfig": "/fixture/solid-route/tsconfig.json",
  "typescript": "5.9.3",
+ "phase": "complete",
  "route": {
   "key": "route:1j5uvsv",
   "pathPattern": "/records",

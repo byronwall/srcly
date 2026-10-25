@@ -215,6 +215,47 @@ function timed<T>(route: string, phase: RouteTotalityPhase, run: () => T): T {
   }
 }
 
+/** The backbone of one route alone: its candidate, seed and occurrence surface, with nothing from the evidence slice. */
+export type RouteSurfaceRecord = {
+  route: Pick<RouteRecord, "key" | "pathPattern" | "file">;
+  candidate: ScopeCandidate;
+  seed: ScopeSeed;
+  scopeProof: EvidenceProof[];
+  occurrenceSurface: RouteOccurrenceSurface | RouteTotalityUnavailable;
+  status: "partial" | "unavailable";
+};
+
+/**
+ * The render backbone before the program-wide facts exist (T9): the
+ * candidate is selected from facts collected for the route file alone, and
+ * the occurrence surface needs only the Program. The full totality, built
+ * later, draws the same occurrence ids.
+ */
+export function buildRouteSurfaceRecord(
+  ts: typeof TypeScript,
+  program: TypeScript.Program,
+  root: string,
+  route: RouteRecord,
+  facts: Pick<EvidenceRelationProvider, "facts">,
+  candidates: readonly ScopeCandidate[],
+  cancellation: AnalysisCancellationToken = NO_ANALYSIS_CANCELLATION,
+): RouteSurfaceRecord | null {
+  cancellation.throwIfCancelled();
+  const routeInfo = { key: route.key, pathPattern: route.pathPattern, file: route.file };
+  const selection = selectCandidate(root, route, facts, candidates);
+  if (!selection) return null;
+  const seed = buildSolidRouteSeed(selection.candidate);
+  const occurrenceSurface = buildOccurrenceSurface(ts, program, root, route, selection.candidate.id, seed.entryElementId, cancellation);
+  return {
+    route: routeInfo,
+    candidate: selection.candidate,
+    seed,
+    scopeProof: [...selection.candidate.proof, ...seed.proof, selection.proof],
+    occurrenceSurface,
+    status: isUnavailable(occurrenceSurface) ? "unavailable" : "partial",
+  };
+}
+
 export function buildRouteTotalityRecords(
   ts: typeof TypeScript,
   program: TypeScript.Program,
@@ -326,7 +367,7 @@ function buildRouteTotalityRecord(
 function selectCandidate(
   root: string,
   route: RouteRecord,
-  provider: EvidenceRelationProvider,
+  provider: Pick<EvidenceRelationProvider, "facts">,
   candidates: readonly ScopeCandidate[],
 ): CandidateSelection | null {
   const routeEvidence = route.evidence;

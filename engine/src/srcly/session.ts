@@ -3,6 +3,10 @@ import type * as TypeScript from "typescript";
 import { parseArgs } from "../cli/args";
 import { createAnalyzer } from "../core";
 import { createLazyProgramEvidenceProvider } from "../analysis/evidence-relation-provider";
+import type { AnalysisCancellationToken } from "../analysis/cancellation";
+import { ProgramEvidenceCollector } from "../analysis/program-evidence-collector";
+import { ProgramFactIndex } from "../analysis/program-fact-index";
+import { buildRouteSurfaceRecord, type RouteSurfaceRecord } from "../analysis/route-data-totality";
 import type { AnalyzerProgressReporter } from "../analysis/progress";
 import type { RouteRecord } from "../analysis/route-data";
 import { discoverRoute } from "../analysis/route-discovery";
@@ -51,6 +55,11 @@ export type Tier1 = {
    * attachments are empty here: findings are tier-2 data.
    */
   totality: () => RouteDataTotalitySession;
+  /**
+   * One route's render backbone from the route file's own facts and the
+   * Program, before the program-wide provider exists (T9). Cached per route.
+   */
+  surface: (routeKey: string, cancellation?: AnalysisCancellationToken) => RouteSurfaceRecord | null;
   /** Tier 2: the full legacy report. Slow; only batch signals call it. */
   fullReport: () => AnalysisReport;
 };
@@ -100,7 +109,24 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
     let provider: ReturnType<typeof createLazyProgramEvidenceProvider> | null = null;
     let totality: RouteDataTotalitySession | null = null;
     let report: AnalysisReport | null = null;
+    const surfaces = new Map<string, RouteSurfaceRecord | null>();
     const providerFor = () => (provider ??= createLazyProgramEvidenceProvider(ts, program, root));
+    const surfaceFor = (routeKey: string, cancellation?: AnalysisCancellationToken): RouteSurfaceRecord | null => {
+      const known = surfaces.get(routeKey);
+      if (known !== undefined) return known;
+      const route = routes.find((item) => item.key === routeKey);
+      const file = route ? program.getSourceFile(path.resolve(root, route.file)) : undefined;
+      if (!route || !file) return null;
+      // Facts for the route file alone: enough to find the route's candidate and entry element.
+      const collector = new ProgramEvidenceCollector(ts, program, root, { sourceFiles: [file], cancellation });
+      const collected = collector.collectFactsOnly();
+      const facts = new ProgramFactIndex(collected.facts, collected.sourceFiles, (fact) => collector.hydrateFact(fact));
+      const candidates = discoverSolidRouteCandidates(root, { elements: facts.elements, relations: [] });
+      const record = buildRouteSurfaceRecord(ts, program, root, route, { facts }, candidates, cancellation);
+      collector.releaseTransientState();
+      surfaces.set(routeKey, record);
+      return record;
+    };
     return {
       ts,
       program,
@@ -109,6 +135,7 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
       inputs,
       generation,
       provider: providerFor,
+      surface: surfaceFor,
       totality: () => {
         if (!totality) {
           const facts = providerFor();

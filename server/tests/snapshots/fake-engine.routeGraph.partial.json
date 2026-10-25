@@ -85,6 +85,7 @@
   ],
   "origins": [],
   "outcome": "partial",
+  "phase": "complete",
   "programHash": "hash-1",
   "route": {
     "absPath": "/fixture/src/routes/records.tsx",

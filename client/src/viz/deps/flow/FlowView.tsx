@@ -2,7 +2,7 @@ import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show
 import { ChevronDown, Crosshair, PanelRight, RefreshCw } from "lucide-solid";
 import { EmptyState, ErrorState } from "../../../components/feedback/States";
 import { Button } from "../../../components/ui/Button";
-import { fetchAnchorGraph, fetchRouteGraph, fetchRoutes } from "../../../dataflow/api";
+import { fetchAnchorGraph, fetchRouteGraph, fetchRouteSurface, fetchRoutes } from "../../../dataflow/api";
 import { availabilityFor, ensureStarted, refresh as refreshEngine, statusFor, watchProgress, watchStaleness } from "../../../dataflow/availability";
 import { labelFor, reasonText } from "../../../dataflow/outcome";
 import { atFromTreePath, parseAnchor, type Direction } from "../../../navigation/location";
@@ -54,7 +54,8 @@ export default function FlowView(props: {
     const r = root();
     if (!r) return;
     setStartError(null);
-    ensureStarted(r).catch((e) => setStartError(String(e?.message ?? e)));
+    // ensureStarted reads the recorded status; untracked, or every status write would post /start again.
+    untrack(() => ensureStarted(r)).catch((e) => setStartError(String(e?.message ?? e)));
   });
   const availability = () => availabilityFor(root());
   const status = () => statusFor(root());
@@ -82,7 +83,9 @@ export default function FlowView(props: {
     }
   };
 
-  const routesFetch = createFetch(() => (availability() === "ready" ? root() : null), (r) => fetchRoutes(r));
+  // A memo: every status poll writes a new status object, and `routes` must not be asked again on each.
+  const routesKey = createMemo(() => (availability() === "ready" ? root() : null));
+  const routesFetch = createFetch(routesKey, (r) => fetchRoutes(r));
   const routes = routesFetch.value;
   const routeKey = () => location().flow ?? "";
   const field = () => location().field;
@@ -90,9 +93,20 @@ export default function FlowView(props: {
   const anchorKey = () => location().anchor;
   const anchorSpec = () => parseAnchor(anchorKey());
   const dir = (): Direction => location().dir ?? "both";
+  // The backbone first (T9): the same boxes from the route file alone, drawn
+  // while the complete graph (origins, handoffs, gaps) is still being traced.
+  // The engine answers one request at a time, so the complete graph is asked
+  // for only once the surface has answered.
+  const surfaceKey = createMemo(() => (availability() === "ready" && routeKey() && !anchorKey() ? `${root()}\n${routeKey()}\n${generation() ?? ""}` : null));
+  const surfaceFetch = createFetch(surfaceKey, (key) => {
+    const [path, route, gen] = key.split("\n");
+    return fetchRouteSurface({ path, route, ...(gen ? { expectedGeneration: Number(gen) } : {}) });
+  });
+  const surface = surfaceFetch.value;
+  const surfaceSettled = () => !surfaceFetch.loading() && (surface() !== undefined || surfaceFetch.error() !== null);
   // Keys carry the generation: a refresh changes it, so every open graph is fetched again from the new build.
   const graphKey = createMemo(
-    () => (availability() === "ready" && routeKey() && !anchorKey() ? `${root()}\n${routeKey()}\n${field() ?? ""}\n${generation() ?? ""}` : null),
+    () => (availability() === "ready" && routeKey() && !anchorKey() && surfaceSettled() ? `${root()}\n${routeKey()}\n${field() ?? ""}\n${generation() ?? ""}` : null),
   );
   const anchorFetchKey = createMemo(() => (availability() === "ready" && anchorSpec() ? `${root()}\n${anchorKey()}\n${dir()}\n${generation() ?? ""}` : null));
   const anchorFetch = createFetch(anchorFetchKey, (key) => {
@@ -106,6 +120,13 @@ export default function FlowView(props: {
     const [path, route, source, gen] = key.split("\n");
     return watchProgress(path, fetchRouteGraph({ path, route, source: source || undefined, ...(gen ? { expectedGeneration: Number(gen) } : {}) }));
   });
+  /** The complete graph when it has arrived for this route and generation, else the backbone. */
+  const drawnGraph = () => {
+    const g = graph()?.graph;
+    if (g && g.route.key === (currentRoute()?.key ?? g.route.key)) return g;
+    const s = surface()?.graph;
+    return s && (!routeKey() || s.route.key === currentRoute()?.key || s.route.pathPattern === routeKey()) ? s : g ?? null;
+  };
   /** The sources changed under the drawn graph, or the engine refused the generation it was drawn from. */
   const stale = () => Boolean(status()?.stale) || graph()?.outcome === "stale" || anchorGraph()?.outcome === "stale";
   const graph = graphFetch.value;
@@ -123,7 +144,7 @@ export default function FlowView(props: {
       const a = anchorGraph()?.graph;
       return a ? anchorGraphToViewModel(a) : null;
     }
-    const g = graph()?.graph;
+    const g = drawnGraph();
     return g ? routeGraphToViewModel(g, { expanded: location().open ?? [] }) : null;
   });
 
@@ -293,17 +314,19 @@ export default function FlowView(props: {
       const stops = [c.boundaries ? `${c.boundaries} boundar${c.boundaries === 1 ? "y" : "ies"}` : "", c.frontiers ? `${c.frontiers} frontier${c.frontiers === 1 ? "" : "s"}` : ""].filter(Boolean);
       return `${c.up} upstream · ${c.down} downstream · ${c.origins} origin${c.origins === 1 ? "" : "s"} · ${c.terminals} terminal${c.terminals === 1 ? "" : "s"} · ${c.scopes} function${c.scopes === 1 ? "" : "s"}${stops.length ? ` · ${stops.join(" · ")}` : ""} · generation ${a.generation}`;
     }
-    const g = graph()?.graph;
+    const g = drawnGraph();
     if (!m || !g) return "";
     const c = g.counts;
     const folded = m.vm.rolledUp ? ` · ${m.vm.rolledUp} folded` : "";
     const omitted = c.omittedItems ? ` · ${c.omittedItems} omitted by the engine` : "";
+    if (g.phase === "surface") return `backbone · ${c.occurrences} occurrences · ${c.boundaries} boundaries · ${c.terminals} terminals${folded} · tracing evidence… · generation ${g.generation}`;
     return `${c.occurrences} occurrences · ${c.boundaries} boundaries · ${c.terminals} terminals · ${c.origins} origins${folded}${omitted} · generation ${g.generation}`;
   };
   const waitingOn = () => {
     if (availability() !== "ready") return "Starting the data-flow engine";
     if (anchorFetch.loading()) return `Tracing from ${anchorText()}`;
-    if (graphFetch.loading()) return `Tracing ${currentRoute()?.pathPattern ?? routeKey()}`;
+    // With the backbone drawn, the complete graph loads behind it; the status line says so.
+    if (graphFetch.loading() && !drawnGraph()) return `Tracing ${currentRoute()?.pathPattern ?? routeKey()}`;
     return null;
   };
 

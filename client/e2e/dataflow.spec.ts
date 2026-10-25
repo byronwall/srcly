@@ -22,7 +22,10 @@ const box = (page: Page, label: string) => page.locator("[data-box]").filter({ h
 test.describe("Data flow on solid-route", () => {
   test("route graph: picker, origin select, reach and the inspector", async ({ page }) => {
     await page.goto(url({ view: "graph", flow: "/records" }));
+    // The backbone may draw first; the complete graph is the one with origins.
     await expect(status(page)).toContainText("7 occurrences", { timeout: 90_000 });
+    await expect(status(page)).toContainText("4 origins", { timeout: 90_000 });
+    await expect(status(page)).not.toContainText("backbone");
     await shot(page, "route-graph");
 
     // The route picker opens on `/` and closes on Escape.
