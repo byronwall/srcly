@@ -958,12 +958,11 @@ class BodyWalker:
             route = self.program_route(info)
             kind = "handler-entry" if route else "function-entry"
             span = self.span(node)
-            entry = self.element(kind, node, route["key"] if route else info.qualname, span=span, type_text=self.signature(info), type_source="annotation",
+            self.element(kind, node, route["key"] if route else info.qualname, span=span, type_text=self.signature(info), type_source="annotation",
                                  attributes={"qualname": info.qualname})
             # `function-entry` is the id every call-site lookup uses; a handler keeps both.
             if kind != "function-entry":
                 self.element("function-entry", node, info.qualname, span=span, type_text=self.signature(info), type_source="annotation", attributes={"qualname": info.qualname})
-                self.relate(entry, info.entry_id, "definition", f"{info.qualname} handles {route['key']}", span)
             self.program.scopes.setdefault(source.rel, []).append({"s": list(span.values()), "name": info.qualname, "id": info.entry_id, "kind": "function"})
             self.program.note_expression(source, node, "FunctionDef", info.qualname, self.signature(info), "annotation", span=source.name_span(node), n=node.name, d=1, f=[list(span.values())])
         for param in all_params(node.args):
@@ -1222,7 +1221,8 @@ class BodyWalker:
                 self.program.record_escape(target)
             return None
         element = self.load_name(node)
-        self.element("value", node, node.id)
+        # A plain read of a name repeats its binding: the anchor graph walks through it without a box of its own.
+        self.element("value", node, node.id, attributes={"transparent": True})
         self.note(node, "Name")
         return element
 

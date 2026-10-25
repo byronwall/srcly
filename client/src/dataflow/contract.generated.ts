@@ -45,6 +45,10 @@ export type RoutesResult = {
       name: string;
       kind: "dynamic" | "catch-all";
     }[];
+    handler: {
+      name: string;
+      line: number;
+    } | null;
   }[];
 };
 

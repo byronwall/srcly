@@ -108,12 +108,19 @@ class RouteParameter(BaseModel):
     kind: Literal["dynamic", "catch-all"]
 
 
+class RouteHandler(BaseModel):
+    name: str
+    line: int
+
+
 class RouteSummary(BaseModel):
     key: str
     pathPattern: str
     file: str
     absPath: str
     parameters: list[RouteParameter]
+    # A handler route (FastAPI, Flask) has no render backbone; the client anchors at its handler.
+    handler: RouteHandler | None = None
 
 
 class RoutesResult(BaseModel):

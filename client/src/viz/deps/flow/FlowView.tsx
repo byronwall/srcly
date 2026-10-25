@@ -105,7 +105,10 @@ export default function FlowView(props: {
   // while the complete graph (origins, handoffs, gaps) is still being traced.
   // The engine answers one request at a time, so the complete graph is asked
   // for only once the surface has answered.
-  const surfaceKey = createMemo(() => (availability() === "ready" && routeKey() && !anchorKey() ? `${root()}\n${routeKey()}\n${generation() ?? ""}` : null));
+  // A handler route (FastAPI, Flask) has no render backbone: wait for the route list to know which kind it is.
+  const surfaceKey = createMemo(() =>
+    availability() === "ready" && routeKey() && !anchorKey() && routes() && !handlerOf(routeKey()) ? `${root()}\n${routeKey()}\n${generation() ?? ""}` : null,
+  );
   const surfaceFetch = createFetch(surfaceKey, (key) => {
     const [path, route, gen] = key.split("\n");
     return fetchRouteSurface({ path, route, ...(gen ? { expectedGeneration: Number(gen) } : {}) });
@@ -114,7 +117,7 @@ export default function FlowView(props: {
   const surfaceSettled = () => !surfaceFetch.loading() && (surface() !== undefined || surfaceFetch.error() !== null);
   // Keys carry the generation: a refresh changes it, so every open graph is fetched again from the new build.
   const graphKey = createMemo(
-    () => (availability() === "ready" && routeKey() && !anchorKey() && surfaceSettled() ? `${root()}\n${routeKey()}\n${field() ?? ""}\n${generation() ?? ""}` : null),
+    () => (availability() === "ready" && routeKey() && !anchorKey() && surfaceSettled() && surfaceKey() ? `${root()}\n${routeKey()}\n${field() ?? ""}\n${generation() ?? ""}` : null),
   );
   // A file or folder anchor (T19): its exports, one box each, traced on demand.
   const exportsSpec = () => {
@@ -232,6 +235,16 @@ export default function FlowView(props: {
   const graph = graphFetch.value;
   const routeList = () => routes()?.routes ?? [];
   const currentRoute = () => routeList().find((r) => r.key === routeKey() || r.pathPattern === routeKey());
+  function handlerOf(key: string) {
+    // `routes()` directly: the route keys above read this before `routeList` is declared.
+    const route = (routes()?.routes ?? []).find((r) => r.key === key || r.pathPattern === key);
+    return route?.handler ? encodeAnchor({ file: route.file, name: route.handler.name, line: route.handler.line }) : null;
+  }
+  // A link to a handler route opens its handler in anchor mode instead.
+  createEffect(() => {
+    const anchor = routeKey() && !anchorKey() ? handlerOf(routeKey()) : null;
+    if (anchor) untrack(() => replace({ flow: undefined, anchor, dir: "both", field: undefined, dest: undefined }));
+  });
 
   const [picker, setPicker] = createSignal(false);
   // No route yet: offer the picker as soon as there are routes to pick.
@@ -368,7 +381,9 @@ export default function FlowView(props: {
   };
   const pickRoute = (key: string) => {
     setSelected(null);
-    go({ flow: key, anchor: undefined, dir: undefined, open: undefined, field: undefined, dest: undefined });
+    const handler = handlerOf(key);
+    if (handler) go({ flow: undefined, anchor: handler, dir: "both", open: undefined, field: undefined, dest: undefined });
+    else go({ flow: key, anchor: undefined, dir: undefined, open: undefined, field: undefined, dest: undefined });
   };
   /** Leave anchor mode for the route picker. */
   const toRoutes = () => {

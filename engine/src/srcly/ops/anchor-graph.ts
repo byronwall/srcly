@@ -349,6 +349,15 @@ class AnchorGraphBuilder {
           }
           continue;
         }
+        // A plain read of a name (the Python provider marks it) repeats its binding: walk through, draw nothing.
+        if (element.attributes?.transparent === true && !element.originRoles.length && !element.terminalRoles.length) {
+          if (!this.alias.has(otherId)) this.alias.set(otherId, this.resolve(id));
+          if (!visited.has(otherId)) {
+            visited.add(otherId);
+            queue.push({ id: otherId, depth });
+          }
+          continue;
+        }
         let kind = classify(relation, element);
         // A return the slice carried on from (to its paired call) is a carrier here, not where the value leaves.
         if (kind === "terminal" && element.kind === "return" && side === "down" && (next.get(element.id) ?? []).some((item) => item.kind === "return-value")) kind = "value";
