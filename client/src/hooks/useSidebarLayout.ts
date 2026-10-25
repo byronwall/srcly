@@ -1,4 +1,4 @@
-import { createSignal, onCleanup, onMount } from "solid-js";
+import { createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
 
 const WIDTH_KEY = "srcly.sidebar.width";
 const COLLAPSED_KEY = "srcly.sidebar.collapsed";
@@ -45,7 +45,10 @@ export function useSidebarLayout() {
   const [collapsed, setCollapsedSignal] = createSignal(read(COLLAPSED_KEY) === "1");
   const [dragging, setDragging] = createSignal(false);
 
+  // True while `autoCollapse` holds the sidebar shut; a choice of the user's ends it.
+  let auto = false;
   const setCollapsed = (next: boolean) => {
+    auto = false;
     setCollapsedSignal(next);
     write(COLLAPSED_KEY, next ? "1" : "0");
   };
@@ -82,7 +85,25 @@ export function useSidebarLayout() {
     event.preventDefault();
     toggle();
   };
-  const onResize = () => setWidth((w) => clampWidth(w));
+  const [windowWidth, setWindowWidth] = createSignal(window.innerWidth);
+  const onResize = () => {
+    setWindowWidth(window.innerWidth);
+    setWidth((w) => clampWidth(w));
+  };
+
+  /** Collapse while `when` holds, without remembering it, and reopen afterwards unless the user chose otherwise. */
+  const autoCollapse = (when: () => boolean) =>
+    createEffect(
+      on(when, (now) => {
+        if (now && !collapsed()) {
+          setCollapsedSignal(true);
+          auto = true;
+        } else if (!now && auto) {
+          setCollapsedSignal(false);
+          auto = false;
+        }
+      })
+    );
 
   onMount(() => {
     window.addEventListener("keydown", onKeyDown);
@@ -96,5 +117,5 @@ export function useSidebarLayout() {
     document.body.classList.remove("plc-resizing");
   });
 
-  return { width, collapsed, setCollapsed, toggle, dragging, startDrag, resetWidth };
+  return { width, collapsed, setCollapsed, toggle, dragging, startDrag, resetWidth, windowWidth, autoCollapse };
 }
