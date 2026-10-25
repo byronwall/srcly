@@ -63,6 +63,14 @@ describe("anchor graph → ViewModel", () => {
     expect(m.vm.edges.every((e) => e.faint === (e.status !== "proven"))).toBe(true);
   });
 
+  it("labels a frontier by why it stops and names its place below, since the read beside it carries the name", () => {
+    const read = graph.nodes.find((n) => n.label === "props.viewer?.name")!;
+    const stop = { ...read, id: "frontier:1", kind: "frontier" as const, reason: "unbound-read", status: "partial" as const };
+    const box = anchorGraphToViewModel({ ...graph, nodes: [...graph.nodes, stop] }).vm.nodes.find((n) => n.id === "frontier:1")!;
+    expect(box).toMatchObject({ label: "Binding not traced", outline: "hatched", note: undefined });
+    expect(box.subtitle).toMatch(/^props\.viewer\?\.name · ViewerCard\.tsx:\d+$/);
+  });
+
   it("notes a boundary's reason and a box's type, and draws boundaries dotted", () => {
     const boundary = m.vm.nodes.find((n) => n.symbolKind === "boundary")!;
     expect(boundary.outline).toBe("dotted");
