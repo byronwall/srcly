@@ -48,8 +48,8 @@ try {
   process.exit(0);
 }
 
-type Candidate = { file: string; name: string; kind: string; line: number; traceable: boolean };
-const all = language === "python" ? pythonDefinitions() : fileExportsOp(session, { file: "." }).files.flatMap((file) => file.exports).filter((item) => !item.reexported);
+type Candidate = { id?: string; file: string; name: string; kind: string; line: number; traceable: boolean };
+const all: Candidate[] = language === "python" ? pythonDefinitions() : fileExportsOp(session, { file: "." }).files.flatMap((file) => file.exports).filter((item) => !item.reexported);
 report.exports = {
   files: new Set(all.map((item) => item.file)).size,
   total: all.length,
@@ -69,7 +69,7 @@ for (const item of picked) {
   const entry: Record<string, unknown> = { file: item.file, name: item.name, kind: item.kind, line: item.line };
   try {
     // An export's id names its declaration (`file@name:line`); a default export's display name does not.
-    const declared = "id" in item ? item.id.slice(item.id.lastIndexOf("@") + 1, item.id.lastIndexOf(":")) : item.name;
+    const declared = item.id ? item.id.slice(item.id.lastIndexOf("@") + 1, item.id.lastIndexOf(":")) : item.name;
     const graph = anchorGraphOp(session, { file: item.file, name: declared, line: item.line, direction: "both" }, createAnalysisCancellationToken(() => Date.now() > deadline));
     Object.assign(entry, {
       outcome: graph.outcome,
