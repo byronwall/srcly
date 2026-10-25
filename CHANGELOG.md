@@ -1,5 +1,60 @@
 # Changelog
 
+## [1.4.0](https://github.com/byronwall/srcly/compare/v1.3.0...v1.4.0) (2026-10-25)
+
+
+### Features
+
+* **dataflow:** a Recent menu of the anchors and routes traced in this tab ([#138](https://github.com/byronwall/srcly/issues/138)) ([f4f7b6c](https://github.com/byronwall/srcly/commit/f4f7b6cff4e457d2398cea0fdb9a6153e7684aa3))
+* **dataflow:** an edit under an open graph shows Source changed, and Refresh rebuilds ([#127](https://github.com/byronwall/srcly/issues/127)) ([2c9012e](https://github.com/byronwall/srcly/commit/2c9012e83d9481a5e3222f30e44f9677b76edb0a))
+* **dataflow:** anchor mode traces a value from the code viewer, backward or forward ([#116](https://github.com/byronwall/srcly/issues/116)) ([38ee44b](https://github.com/byronwall/srcly/commit/38ee44b233dcd7cd4a2ff4337134bb739c2c26d2))
+* **dataflow:** draw the route's backbone first, before the program-wide evidence ([#130](https://github.com/byronwall/srcly/issues/130)) ([35ecea6](https://github.com/byronwall/srcly/commit/35ecea61e090978e8309afbcf0940cdb7363f799))
+* **dataflow:** explain a lit edge, step by step, in the inspector ([#136](https://github.com/byronwall/srcly/issues/136)) ([3260ec7](https://github.com/byronwall/srcly/commit/3260ec70c0531b0a4c70090736ccad80a5169e7a))
+* **dataflow:** file and folder anchors, one box per export, traced on demand ([#139](https://github.com/byronwall/srcly/issues/139)) ([28c4d14](https://github.com/byronwall/srcly/commit/28c4d148e8a6e0b84157a6a93c9dbddbbd30d252))
+* **dataflow:** inspector rail with the route overview and the selected box in full ([#112](https://github.com/byronwall/srcly/issues/112)) ([19ac395](https://github.com/byronwall/srcly/commit/19ac3956a9a4c1cdf0532fb37e9e8f70d752c662))
+* **dataflow:** kind marks, tints, status strokes and flow counts on route graph boxes ([#110](https://github.com/byronwall/srcly/issues/110)) ([c6af7e8](https://github.com/byronwall/srcly/commit/c6af7e8b24f2cb02c63ef80b714de024f826e538))
+* **dataflow:** origin selection lights proven destinations ([#108](https://github.com/byronwall/srcly/issues/108)) ([b822a0a](https://github.com/byronwall/srcly/commit/b822a0a7f2232b93c903eb013855a29fcd81d10f))
+* **dataflow:** Python roots open in Data flow mode through a language host ([#120](https://github.com/byronwall/srcly/issues/120)) ([0fea6a7](https://github.com/byronwall/srcly/commit/0fea6a77c04110a0ab75ce6fa1ea2a9eb5852076))
+* **dataflow:** reach emphasis on any box, field path labels and edge proof cards ([#111](https://github.com/byronwall/srcly/issues/111)) ([34617b1](https://github.com/byronwall/srcly/commit/34617b171fd931389792ef5681cdb2c8b2a122fb))
+* **dataflow:** Return restores a place as it was left: camera, selection, metric, filters ([#137](https://github.com/byronwall/srcly/issues/137)) ([405f1aa](https://github.com/byronwall/srcly/commit/405f1aa2173031d948a7e6c1bf6c24b784029a37))
+* **dataflow:** route graph backbone in Data flow mode ([#107](https://github.com/byronwall/srcly/issues/107)) ([108fe59](https://github.com/byronwall/srcly/commit/108fe59f68a6b1784783628688f85f6262586d46))
+* **dataflow:** trace a FastAPI handler from the route picker, code viewer and import graph ([#122](https://github.com/byronwall/srcly/issues/122)) ([f1af880](https://github.com/byronwall/srcly/commit/f1af880094d9fd1a81ea9238f05c8dd1e23d7156))
+* **dataflow:** trace a symbol from the import graph or the treemap ([#117](https://github.com/byronwall/srcly/issues/117)) ([ed7534a](https://github.com/byronwall/srcly/commit/ed7534a6e177c3c3308f18d0c7e16cf78fb5218d))
+* **dataflow:** up to three anchors on one canvas, with the boxes their traces share marked ([#142](https://github.com/byronwall/srcly/issues/142)) ([b8f7ab1](https://github.com/byronwall/srcly/commit/b8f7ab1908e83860cb84e801b36c7bcfc3e8f8ec))
+* **dataflow:** value-flow ledger proof in the code viewer rail ([#109](https://github.com/byronwall/srcly/issues/109)) ([55d6553](https://github.com/byronwall/srcly/commit/55d6553534d5c944c414d3490d836d22b16a4e66))
+* **dataflow:** what a function touches, in the code viewer rail and the inspector ([#135](https://github.com/byronwall/srcly/issues/135)) ([58c3a45](https://github.com/byronwall/srcly/commit/58c3a45305fe3d98d61cbeb2a200b351d17cdc3e))
+* **engine:** anchorGraph traces a value from any expression, backward or forward ([#114](https://github.com/byronwall/srcly/issues/114)) ([c74922c](https://github.com/byronwall/srcly/commit/c74922c849dda77e7f43678e881272ebf6002b4b))
+* **engine:** functionEffects says what a function touches ([#134](https://github.com/byronwall/srcly/issues/134)) ([0eabad9](https://github.com/byronwall/srcly/commit/0eabad91bc7b550058038d287f74a2ff11b15e2a))
+* **engine:** Python evidence provider from ast and mypy, with FastAPI routes ([#119](https://github.com/byronwall/srcly/issues/119)) ([d1e9264](https://github.com/byronwall/srcly/commit/d1e92641dba8f0b509f995b071c74e2b6f6345f6))
+* **engine:** stdio protocol and tier-1 session ([#105](https://github.com/byronwall/srcly/issues/105)) ([4445742](https://github.com/byronwall/srcly/commit/4445742274311c62cbf511e332e890249e45aece))
+* **server:** POST /api/dataflow/anchor-graph serves the engine's anchor graph ([#115](https://github.com/byronwall/srcly/issues/115)) ([11726e1](https://github.com/byronwall/srcly/commit/11726e14b07523eb09d905c681902e48382806a2))
+* **server:** python owns a lazy data-flow engine child ([#106](https://github.com/byronwall/srcly/issues/106)) ([701176b](https://github.com/byronwall/srcly/commit/701176bb08be4173f910bb89f72deb627451a898))
+
+
+### Bug Fixes
+
+* **dataflow:** draw the flow marks in palette tokens, and mix the box tint over the surface token ([#140](https://github.com/byronwall/srcly/issues/140)) ([711e7ec](https://github.com/byronwall/srcly/commit/711e7ec5ddf387c0242ce0a984a03085c86e75fe))
+* **dataflow:** field labels sit beside their edge where they cover no box ([#141](https://github.com/byronwall/srcly/issues/141)) ([9737377](https://github.com/byronwall/srcly/commit/9737377c5c7687c98edaeab8356b5db33999a62c))
+* **engine:** a dead end in an anchor walk is a frontier, not the end of a path ([#124](https://github.com/byronwall/srcly/issues/124)) ([add131f](https://github.com/byronwall/srcly/commit/add131fc8a02922d6bcd4045303fb5bdd272fadd))
+* **engine:** declaration anchors never mark found-by-syntax links proven ([#123](https://github.com/byronwall/srcly/issues/123)) ([5bae413](https://github.com/byronwall/srcly/commit/5bae413e2670856a25acafeeb161778da85e83ee))
+* **engine:** route graph status per box, not per route ([#121](https://github.com/byronwall/srcly/issues/121)) ([b7f74e5](https://github.com/byronwall/srcly/commit/b7f74e51c30253f4489223bc35e4e46cdfbf3b0a))
+* **engine:** two calls of one helper never join ([#132](https://github.com/byronwall/srcly/issues/132)) ([791beb3](https://github.com/byronwall/srcly/commit/791beb37aee10c3fe24d823223e62f195ca2e311))
+* **scan:** skip .playwright-mcp and other tool output folders ([#146](https://github.com/byronwall/srcly/issues/146)) ([b13ba94](https://github.com/byronwall/srcly/commit/b13ba9430fa00b92894d5407c213e4aa450ff2e0))
+
+
+### Performance Improvements
+
+* **engine:** measure a Program scoped to one route and keep it off ([#133](https://github.com/byronwall/srcly/issues/133)) ([02fd77e](https://github.com/byronwall/srcly/commit/02fd77e9b225858b216036e8cb0d1e65ff178c43))
+* **engine:** phase profiler for tier 1, fact collection, route totality and anchors ([#128](https://github.com/byronwall/srcly/issues/128)) ([1e05611](https://github.com/byronwall/srcly/commit/1e056117312f436c7f57ec35c666708b9903fc80))
+* **engine:** remember paths, symbol ids and type text during fact collection ([#129](https://github.com/byronwall/srcly/issues/129)) ([ec5181e](https://github.com/byronwall/srcly/commit/ec5181e0de1ee522ebf3c8d0a65e8748dff90203))
+* **engine:** serve a reopened root from a result cache keyed by the Program's hash ([#131](https://github.com/byronwall/srcly/issues/131)) ([20f7b7b](https://github.com/byronwall/srcly/commit/20f7b7bda40184c71234d1e7345e17c36eef3a86))
+
+
+### Documentation
+
+* **dataflow:** robustness initiative ([#118](https://github.com/byronwall/srcly/issues/118)) ([d4c9a27](https://github.com/byronwall/srcly/commit/d4c9a278e4a3999de31be2653667a81c79d2b744))
+* intent, shape, and plan for merging tsx-data-flow into srcly ([#101](https://github.com/byronwall/srcly/issues/101)) ([87c7af4](https://github.com/byronwall/srcly/commit/87c7af4259aafa5005b4d699d615f9ee7f76274d))
+
 ## [1.3.0](https://github.com/byronwall/srcly/compare/v1.2.0...v1.3.0) (2026-10-21)
 
 
