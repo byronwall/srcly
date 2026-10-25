@@ -122,6 +122,54 @@ test.describe("Data flow on solid-route", () => {
     await expect(inspector).not.toContainText("Selected edge");
   });
 
+  test("Return restores the place as it was left: camera, selection, metric", async ({ page }) => {
+    await page.goto(url({ view: "graph", flow: "/records" }));
+    await expect(status(page)).toContainText("7 occurrences", { timeout: 90_000 });
+    const svg = page.getByLabel("Dependency graph");
+    const camera = svg.locator("> g[transform]").first();
+    // Leave the route graph as a particular place: zoomed in, a box selected, another metric.
+    const rect = (await svg.boundingBox())!;
+    await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    await page.mouse.wheel(0, -400);
+    await page.waitForTimeout(400);
+    // The render slot in ViewerCard.tsx: O opens that file, where the trace starts.
+    await box(page, "props.viewer?.na").click();
+    await expect(svg.locator("[data-selected-ring]")).toHaveCount(1);
+    const metricButton = page.getByRole("button", { name: /^Color/ });
+    await metricButton.click();
+    const option = page.getByRole("listbox", { name: "Color" }).locator("[role=option][aria-selected=false]").first();
+    const metricLabel = (await option.locator("span").nth(1).textContent())!.trim();
+    await option.click();
+    await expect(metricButton).toContainText(metricLabel);
+    const left = (await camera.getAttribute("transform"))!;
+    expect(left).not.toBe("");
+    // Trace into anchor mode from the code viewer: an in-app move, so a Back step. O opens the selected box's code and keeps it selected.
+    await page.keyboard.press("o");
+    const line = page.locator("span.line").filter({ hasText: "props.viewer?.name" }).first();
+    await expect(line).toBeVisible();
+    await line.getByText("props.viewer?.name").click({ button: "right" });
+    await page.locator("[data-inspect-menu][role=menu]").getByRole("menuitem", { name: /Trace where it goes/ }).click();
+    await page.waitForURL(/anchor=/, { timeout: 15_000 }).catch(async () => {
+      await page.getByRole("listbox", { name: "Pick an expression" }).getByRole("option").first().click();
+    });
+    await expect(status(page)).toContainText("downstream", { timeout: 90_000 });
+    await page.keyboard.press("Escape");
+    await expect(svg.locator("[data-selected-ring]")).toHaveCount(0);
+    // Return: the route graph, zoomed and selected as it was left, with the metric it was left with.
+    await page.getByRole("button", { name: "Return" }).click();
+    await expect(page).toHaveURL(/flow=%2Frecords/);
+    await expect(page).not.toHaveURL(/anchor=/);
+    await expect(status(page)).toContainText("7 occurrences", { timeout: 90_000 });
+    await expect(camera).toHaveAttribute("transform", left);
+    await expect(svg.locator("[data-selected-ring]")).toHaveCount(1);
+    await expect(metricButton).toContainText(metricLabel);
+    await shot(page, "returned");
+    // Forward lands on the anchor again, plain.
+    await page.keyboard.press("Alt+ArrowRight");
+    await expect(page).toHaveURL(/anchor=/);
+    await expect(status(page)).toContainText("downstream", { timeout: 90_000 });
+  });
+
   test("import graph menu: trace a symbol where it comes from", async ({ page }) => {
     await page.goto(url({ view: "graph", at: "src/components/ViewerCard.tsx" }));
     const symbol = page.locator('[data-box="center|src/components/ViewerCard.tsx#ViewerCard"]');

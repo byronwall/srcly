@@ -1,14 +1,16 @@
 import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show, untrack } from "solid-js";
-import { ChevronDown, Crosshair, PanelRight, RefreshCw } from "lucide-solid";
+import { ChevronDown, Crosshair, PanelRight, RefreshCw, Undo2 } from "lucide-solid";
 import { EmptyState, ErrorState } from "../../../components/feedback/States";
 import { Button } from "../../../components/ui/Button";
+import { IconButton } from "../../../components/ui/IconButton";
 import { fetchAnchorGraph, fetchRouteGraph, fetchRoutePath, fetchRouteSurface, fetchRoutes } from "../../../dataflow/api";
 import { availabilityFor, ensureStarted, refresh as refreshEngine, statusFor, watchProgress, watchStaleness } from "../../../dataflow/availability";
 import { labelFor, reasonText } from "../../../dataflow/outcome";
 import { atFromTreePath, parseAnchor, type Direction } from "../../../navigation/location";
-import { go, location, replace } from "../../../navigation/store";
+import { canReturn, go, location, replace, returnBack } from "../../../navigation/store";
+import { registerViewState } from "../../../navigation/viewState";
 import { ViewTools } from "../../viewToolbar";
-import { DependencyCanvas, type CanvasApi } from "../DependencyCanvas";
+import { DependencyCanvas, type Camera, type CanvasApi } from "../DependencyCanvas";
 import { layoutWithHubs } from "../hubs";
 import type { ViewLayout } from "../layout";
 import type { ViewNode } from "../viewModel";
@@ -179,6 +181,29 @@ export default function FlowView(props: {
   let canvas: CanvasApi | undefined;
   let host!: HTMLDivElement;
   let pendingAnchor: string | null = null;
+  // ---- view state (T17): what Return restores that the URL does not carry ----
+  /** A camera for the next layout instead of a fit: the one the place was left with, for that place's URL only. */
+  let restoreCamera: { camera: Camera; search: string } | null = null;
+  onCleanup(
+    registerViewState<{ selected: string | null; edge: string | null; reach: ReachMode; camera: Camera | null }>("graph.view", {
+      capture: () => ({ selected: selected(), edge: selectedEdge(), reach: reachMode(), camera: canvas?.getCamera() ?? null }),
+      restore: (part) => {
+        batch(() => {
+          setSelected(typeof part?.selected === "string" ? part.selected : null);
+          setSelectedEdge(typeof part?.edge === "string" ? part.edge : null);
+          if (REACH_MODES.some((m) => m.id === part?.reach)) setReachMode(part.reach);
+        });
+        const camera = part?.camera;
+        restoreCamera = camera && Number.isFinite(camera.k) && Number.isFinite(camera.x) && Number.isFinite(camera.y) ? { camera, search: window.location.search } : null;
+      },
+    }),
+  );
+  /** Asked by the canvas once per layout: the held camera when the layout is the returned-to place's. */
+  const cameraForLayout = () => {
+    const held = restoreCamera;
+    restoreCamera = null;
+    return held && held.search === window.location.search ? held.camera : null;
+  };
   const [anchor, setAnchor] = createSignal<string | null>(null);
 
   let token = 0;
@@ -287,8 +312,15 @@ export default function FlowView(props: {
   onMount(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target instanceof Element ? e.target : null;
-      if (e.metaKey || e.ctrlKey || e.altKey || t?.closest("input, textarea, select, [contenteditable=true]")) return;
+      if (t?.closest("input, textarea, select, [contenteditable=true]")) return;
       if (document.querySelector('[aria-modal="true"], [role="menu"]')) return;
+      if (e.altKey && !e.metaKey && !e.ctrlKey) {
+        if (e.key === "ArrowLeft" && canReturn()) returnBack();
+        else if (e.key === "ArrowRight") window.history.forward();
+        else return;
+        return e.preventDefault();
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
       const n = layout()?.nodes.find((p) => p.id === selected())?.node ?? hovered();
       if (key === "/") setPicker(true);
@@ -393,6 +425,9 @@ export default function FlowView(props: {
         <Button variant="ghost" class="px-2" onClick={() => canvas?.fit()} title="Fit the graph to the window (0)" disabled={!layout()}>
           Fit
         </Button>
+        <IconButton label="Return" title="Return to the previous place as you left it: camera, selection, metric and filters (Alt+←)" onClick={returnBack} disabled={!canReturn()}>
+          <Undo2 size={14} aria-hidden="true" />
+        </IconButton>
         <Button variant="ghost" class="gap-1 px-2" active={inspector()} aria-pressed={inspector()} onClick={toggleInspector} title="Show or hide the inspector (I)">
           <PanelRight size={13} aria-hidden="true" />
           Inspector
@@ -465,6 +500,7 @@ export default function FlowView(props: {
                 collapsible={collapsible}
                 onCollapse={collapse}
                 ref={(api) => (canvas = api)}
+                cameraForLayout={cameraForLayout}
                 linkCounts="flow"
               />
               <FlowLegend />

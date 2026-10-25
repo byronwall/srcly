@@ -88,8 +88,19 @@ function truncatePathStart(text: string, max: number, font: string): string {
   return truncateTextToWidth(parts[parts.length - 1], max, font);
 }
 
+/** The camera: d3's zoom transform as plain numbers, so it can be stored and restored. */
+export interface Camera {
+  k: number;
+  x: number;
+  y: number;
+}
+
 export interface CanvasApi {
   fit: () => void;
+  /** The camera as it is now, or null before the first layout. */
+  getCamera: () => Camera | null;
+  /** Put the camera back exactly (no animation): Return. */
+  setCamera: (camera: Camera) => void;
   /** Pan just enough to bring a box fully into view. */
   reveal: (id: string) => void;
   /** A box's rectangle on screen. */
@@ -220,6 +231,11 @@ export function DependencyCanvas(props: {
   onMenu?: (node: ViewNode, at: { x: number; y: number }) => void;
   /** Data flow mode: a click on a drawn edge selects it (the inspector explains it). */
   onSelectEdge?: (edge: ViewEdge) => void;
+  /**
+   * Asked once per new layout, before the fit: a camera to use instead of
+   * fitting (a place returned to), or null to fit as usual.
+   */
+  cameraForLayout?: () => Camera | null;
   ref?: (api: CanvasApi) => void;
   /** Treemap metrics per box id (boxes without a treemap match are absent). */
   metrics?: Map<string, Record<string, any>>;
@@ -300,13 +316,26 @@ export function DependencyCanvas(props: {
     .zoom<SVGSVGElement, unknown>()
     .scaleExtent([0.15, 4])
     .on("zoom", (ev) => {
+      // A gesture of the user's ends a held camera (a place returned to); a fit or a restore does not.
+      if (ev.sourceEvent) heldCamera = null;
       gRef.setAttribute("transform", ev.transform.toString());
       setInk(inkForZoom(ev.transform.k));
       setCard(null);
     });
 
+  /**
+   * The camera a returned-to place was left with (T17). Held from the layout
+   * that brought it until the user's first gesture, so the fit on mount and
+   * the resize observer's first call put it back instead of fitting.
+   */
+  let heldCamera: Camera | null = null;
+  const applyCamera = (camera: Camera) => {
+    if (!svgRef) return;
+    d3.select(svgRef).interrupt().call(zoom.transform, d3.zoomIdentity.translate(camera.x, camera.y).scale(camera.k));
+  };
   const fit = (animate = true) => {
     if (!svgRef) return;
+    if (heldCamera) return applyCamera(heldCamera);
     const { width, height } = svgRef.getBoundingClientRect();
     const b = boundsOf(props.layout.nodes, props.layout.edges);
     if (b.width === 0 || width === 0) return;
@@ -343,6 +372,15 @@ export function DependencyCanvas(props: {
     d3.select(svgRef).call(zoom).on("dblclick.zoom", null);
     props.ref?.({
       fit: () => fit(true),
+      getCamera: () => {
+        if (!svgRef) return null;
+        const t = d3.zoomTransform(svgRef);
+        return { k: t.k, x: t.x, y: t.y };
+      },
+      setCamera: (camera) => {
+        heldCamera = camera;
+        applyCamera(camera);
+      },
       reveal,
       screenRect: (id) => svgRef.querySelector<SVGGElement>(`[data-box="${CSS.escape(id)}"]`)?.getBoundingClientRect(),
     });
@@ -382,8 +420,15 @@ export function DependencyCanvas(props: {
   // Before paint, so boxes start from where they were on screen.
   createRenderEffect(() => {
     const { camera } = motion();
-    if (camera) d3.select(svgRef).interrupt().call(zoom.transform, camera);
-    else queueMicrotask(() => fit(true));
+    if (camera) {
+      // Opened or closed in place: that gesture ends any held camera.
+      heldCamera = null;
+      d3.select(svgRef).interrupt().call(zoom.transform, camera);
+    } else {
+      // A fresh hold, or the one from the last layout: the backbone draws first and the complete graph replaces it (T9).
+      heldCamera = props.cameraForLayout?.() ?? heldCamera;
+      queueMicrotask(() => fit(true));
+    }
   });
   const info = createMemo(() => boxInfo(props.layout));
   const hubById = createMemo(() => new Map((props.layout.hubs ?? []).map((h) => [h.id, h])));
@@ -1089,7 +1134,7 @@ export function DependencyCanvas(props: {
                   }}
                 >
                   <Show when={selectedId() === n.id}>
-                    <rect x={-4} y={-4} width={n.width + 8} height={n.height + 8} rx="9" fill="none" stroke="var(--plc-accent)" stroke-width={2 * ink()} />
+                    <rect data-selected-ring="" x={-4} y={-4} width={n.width + 8} height={n.height + 8} rx="9" fill="none" stroke="var(--plc-accent)" stroke-width={2 * ink()} />
                   </Show>
                   <rect
                     width={n.width}
