@@ -68,7 +68,9 @@ for (const item of picked) {
   const deadline = Date.now() + deadlineMs;
   const entry: Record<string, unknown> = { file: item.file, name: item.name, kind: item.kind, line: item.line };
   try {
-    const graph = anchorGraphOp(session, { file: item.file, name: item.name, line: item.line, direction: "both" }, createAnalysisCancellationToken(() => Date.now() > deadline));
+    // An export's id names its declaration (`file@name:line`); a default export's display name does not.
+    const declared = "id" in item ? item.id.slice(item.id.lastIndexOf("@") + 1, item.id.lastIndexOf(":")) : item.name;
+    const graph = anchorGraphOp(session, { file: item.file, name: declared, line: item.line, direction: "both" }, createAnalysisCancellationToken(() => Date.now() > deadline));
     Object.assign(entry, {
       outcome: graph.outcome,
       reason: graph.reason,
