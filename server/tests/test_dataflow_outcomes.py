@@ -26,7 +26,7 @@ SPAN = {"startLine": 1, "startColumn": 42, "endLine": 1, "endColumn": 58}
 
 
 def fake(root: str = "/fixture") -> FakeEngine:
-    return FakeEngine(argparse.Namespace(root=root, source=f"{root}/src", protocol=1, outcome=[]))
+    return FakeEngine(argparse.Namespace(root=root, source=f"{root}/src", protocol=1, outcome=[], stale=False))
 
 
 def params_for(op: str) -> dict:
