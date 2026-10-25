@@ -452,3 +452,81 @@ export type FunctionEffectsResult = {
   };
   assumptions: string[];
 };
+
+/** Result of the `routePath` op. */
+export type RoutePathResult = {
+  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  generation: number;
+  programHash: string;
+  tsconfig: string;
+  typescript: string;
+  reason: string | null;
+  route: {
+    key: string;
+    pathPattern: string;
+  };
+  edge: {
+    id: string;
+    kind: "field" | "handoff";
+    label: string | null;
+    status: "proven" | "partial" | "unsupported";
+    source: string;
+    target: string;
+  };
+  rows: {
+    id: string;
+    kind: "input" | "transfer" | "fallback" | "branch" | "transform" | "terminal" | "boundary";
+    label: string;
+    file: string;
+    absPath: string;
+    line: number;
+    span: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    };
+    status: "proven" | "partial" | "unsupported";
+    elementId: string | null;
+    relationId: string | null;
+    proof: {
+      kind: string;
+      detail: string;
+      locations: {
+        file: string;
+        line: number;
+        column: number;
+        span: {
+          startLine: number;
+          startColumn: number;
+          endLine: number;
+          endColumn: number;
+        };
+      }[];
+      status: "proven" | "partial" | "unsupported";
+    }[];
+    typeText: string | null;
+    note: string | null;
+    reason: string | null;
+  }[];
+  proof: {
+    kind: string;
+    detail: string;
+    locations: {
+      file: string;
+      line: number;
+      column: number;
+      span: {
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+      };
+    }[];
+    status: "proven" | "partial" | "unsupported";
+  }[];
+  frontier: {
+    reason: string;
+    label: string;
+  } | null;
+};

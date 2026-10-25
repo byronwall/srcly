@@ -14,6 +14,7 @@ import { errorPayload } from "../srcly/protocol";
 import { anchorGraphOp } from "../srcly/ops/anchor-graph";
 import { functionEffectsOp } from "../srcly/ops/function-effects";
 import { routeGraphOp, routeSurfaceOp } from "../srcly/ops/route-graph";
+import { routePathOp } from "../srcly/ops/route-path";
 import { routesOp } from "../srcly/ops/routes";
 import { selectExpressionOp, valueFlowOp } from "../srcly/ops/value-flow";
 import { createEngineSession, type EngineSession } from "../srcly/session";
@@ -81,6 +82,7 @@ function perform(operation: AnalysisOperation, requestId: number, cancellation: 
   if (operation.kind === "value-flow") return announce(valueFlowOp(requireSession(), operation.params, cancellation));
   if (operation.kind === "anchor-graph") return announce(anchorGraphOp(requireSession(), operation.params, cancellation));
   if (operation.kind === "function-effects") return announce(functionEffectsOp(requireSession(), operation.params, cancellation));
+  if (operation.kind === "route-path") return announce(routePathOp(requireSession(), operation.params, cancellation));
   if (operation.kind === "refresh") {
     const report = cache.refresh();
     return refreshResponseSchema.parse({ apiVersion: 1, analysisVersion: report.analysisVersion, generation: cache.generation(), generatedAt: report.generatedAt, data: { refreshed: true } });

@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any
 
 CONTRACTS = Path(__file__).resolve().parents[1] / "app" / "services" / "dataflow" / "contracts"
-OPS = ("hello", "status", "routes", "routeGraph", "selectExpression", "valueFlow", "anchorGraph", "functionEffects")
+OPS = ("hello", "status", "routes", "routeGraph", "selectExpression", "valueFlow", "anchorGraph", "functionEffects", "routePath")
 SHAPES = ("ok", "partial", "unsupported", "budget", "stale", "not-analyzed")
 """Shapes the three graph ops answer in; the other three are engine errors."""
 RESULT_SHAPES = ("ok", "partial", "unsupported")
@@ -142,7 +142,30 @@ class FakeEngine:
             return self.select_expression(params)
         if op == "functionEffects":
             return self.function_effects(params, self.outcomes.get(op, "ok"))
+        if op == "routePath":
+            return self.route_path(params, self.outcomes.get(op, "ok"))
         raise LookupError(op)
+
+    def route_path(self, params: dict, shape: str) -> dict:
+        schema = schema_for("routePath")
+        if params.get("edge") not in ("edge:1", "field:1"):
+            raise KeyError(params.get("edge"))
+        file = "src/routes/records.tsx"
+        row = lambda **fields: {**example(item_schema(schema, "rows")), "file": file, "absPath": f"{self.args.root}/{file}", "line": 1,
+                                "span": self.span(), "status": "proven", "elementId": "el:1", "relationId": "rel:1", "proof": [],
+                                "typeText": None, "note": None, "reason": None, **fields}
+        rows = [row(id="row:1", kind="input", label="createResource(loadViewer)", relationId=None), row(id="row:2", kind="terminal", label="slot", note="render terminal")]
+        base = {**example(schema), "outcome": "ok", **self.generation_fields(), "reason": None,
+                "route": {"key": "route:records", "pathPattern": "/records"},
+                "edge": {"id": params["edge"], "kind": "handoff", "label": None, "status": "proven", "source": "el:1", "target": "el:2"},
+                "rows": rows, "proof": [], "frontier": None}
+        if shape == "partial":
+            stop = row(id="row:2", kind="boundary", label="lineage stops", status="partial", reason="partial-proof", note="The field's proof stops here.")
+            return {**base, "outcome": "partial", "edge": {**base["edge"], "kind": "field", "label": "rows[*].title", "status": "partial"},
+                    "rows": [rows[0], stop], "frontier": {"reason": "partial-proof", "label": "rows[*].title"}}
+        if shape == "unsupported":
+            return {**base, "outcome": "unsupported", "reason": "no-evidence-slice", "rows": []}
+        return base
 
     def function_effects(self, params: dict, shape: str) -> dict:
         schema = schema_for("functionEffects")

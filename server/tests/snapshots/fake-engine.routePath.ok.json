@@ -1,0 +1,66 @@
+{
+  "edge": {
+    "id": "edge:1",
+    "kind": "handoff",
+    "label": null,
+    "source": "el:1",
+    "status": "proven",
+    "target": "el:2"
+  },
+  "frontier": null,
+  "generation": 1,
+  "outcome": "ok",
+  "programHash": "hash-1",
+  "proof": [],
+  "reason": null,
+  "route": {
+    "key": "route:records",
+    "pathPattern": "/records"
+  },
+  "rows": [
+    {
+      "absPath": "/fixture/src/routes/records.tsx",
+      "elementId": "el:1",
+      "file": "src/routes/records.tsx",
+      "id": "row:1",
+      "kind": "input",
+      "label": "createResource(loadViewer)",
+      "line": 1,
+      "note": null,
+      "proof": [],
+      "reason": null,
+      "relationId": null,
+      "span": {
+        "endColumn": 10,
+        "endLine": 1,
+        "startColumn": 1,
+        "startLine": 1
+      },
+      "status": "proven",
+      "typeText": null
+    },
+    {
+      "absPath": "/fixture/src/routes/records.tsx",
+      "elementId": "el:1",
+      "file": "src/routes/records.tsx",
+      "id": "row:2",
+      "kind": "terminal",
+      "label": "slot",
+      "line": 1,
+      "note": "render terminal",
+      "proof": [],
+      "reason": null,
+      "relationId": "rel:1",
+      "span": {
+        "endColumn": 10,
+        "endLine": 1,
+        "startColumn": 1,
+        "startLine": 1
+      },
+      "status": "proven",
+      "typeText": null
+    }
+  ],
+  "tsconfig": "/fixture/tsconfig.json",
+  "typescript": "5.9.3"
+}

@@ -1,0 +1,23 @@
+{
+  "edge": {
+    "id": "edge:1",
+    "kind": "handoff",
+    "label": null,
+    "source": "el:1",
+    "status": "proven",
+    "target": "el:2"
+  },
+  "frontier": null,
+  "generation": 1,
+  "outcome": "unsupported",
+  "programHash": "hash-1",
+  "proof": [],
+  "reason": "no-evidence-slice",
+  "route": {
+    "key": "route:records",
+    "pathPattern": "/records"
+  },
+  "rows": [],
+  "tsconfig": "/fixture/tsconfig.json",
+  "typescript": "5.9.3"
+}

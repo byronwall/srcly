@@ -91,6 +91,37 @@ test.describe("Data flow on solid-route", () => {
     await shot(page, "effects-inspector");
   });
 
+  test("a lit edge, clicked, lists its steps in order in the inspector", async ({ page }) => {
+    await page.goto(url({ view: "graph", flow: "/records" }));
+    await expect(status(page)).toContainText("occurrences", { timeout: 90_000 });
+    await page.getByLabel("Origin whose proven destinations light up").selectOption({ label: "createResource(loadViewer)" });
+    await expect(page.getByText(/reaches \d+ proven/)).toBeVisible({ timeout: 90_000 });
+    // The first lit edge: a transparent hit path whose drawn sibling carries the accent.
+    const point = await page.evaluate(() => {
+      for (const hit of document.querySelectorAll<SVGPathElement>('svg[aria-label="Dependency graph"] path[stroke="transparent"]')) {
+        const drawn = hit.previousElementSibling;
+        if (!(drawn instanceof SVGPathElement) || drawn.getAttribute("stroke") !== "var(--plc-accent)" || Number(drawn.getAttribute("stroke-opacity")) < 0.3) continue;
+        const at = hit.getPointAtLength(hit.getTotalLength() / 2);
+        const m = hit.getScreenCTM()!;
+        return { x: m.a * at.x + m.c * at.y + m.e, y: m.b * at.x + m.d * at.y + m.f };
+      }
+      return null;
+    });
+    expect(point).not.toBeNull();
+    await page.mouse.click(point!.x, point!.y);
+    const inspector = page.getByLabel("Data flow inspector");
+    await expect(inspector).toContainText("Selected edge");
+    await expect(inspector).toContainText(/\d+ steps/, { timeout: 60_000 });
+    await expect(inspector).toContainText("origin");
+    const rows = inspector.locator("ol li");
+    expect(await rows.count()).toBeGreaterThan(1);
+    // The last step is where the edge ends; opening a step is a click on its row.
+    await expect(rows.last()).toContainText(/terminal|boundary/);
+    await shot(page, "edge-steps");
+    await page.keyboard.press("Escape");
+    await expect(inspector).not.toContainText("Selected edge");
+  });
+
   test("import graph menu: trace a symbol where it comes from", async ({ page }) => {
     await page.goto(url({ view: "graph", at: "src/components/ViewerCard.tsx" }));
     const symbol = page.locator('[data-box="center|src/components/ViewerCard.tsx#ViewerCard"]');

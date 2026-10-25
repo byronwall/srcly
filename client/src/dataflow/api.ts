@@ -1,6 +1,6 @@
 // Calls to /api/dataflow/*. The engine results are the generated contract
 // types; the wrappers are the server's own responses (routers/dataflow.py).
-import type { AnchorGraphResult, FunctionEffectsResult, RouteGraphResult, RoutesResult, SelectExpressionResult, StatusResult, ValueFlowResult } from "./contract.generated";
+import type { AnchorGraphResult, FunctionEffectsResult, RouteGraphResult, RoutePathResult, RoutesResult, SelectExpressionResult, StatusResult, ValueFlowResult } from "./contract.generated";
 
 export type Outcome = RoutesResult["outcome"];
 export type NaReason =
@@ -118,6 +118,19 @@ export interface FunctionEffectsResponse extends OutcomeFields {
 /** What the function enclosing `line` in `file` touches: facts with witnesses, frontiers, promise handling, assumptions. */
 export function fetchFunctionEffects(req: { path: string; file: string; line: number; column?: number; expectedGeneration?: number; signal?: AbortSignal }): Promise<FunctionEffectsResponse> {
   return post("/api/dataflow/function-effects", req, "Function effects");
+}
+
+export interface RoutePathResponse extends OutcomeFields {
+  path: RoutePathResult | null;
+}
+
+/** One lit edge of a route graph, explained in order; field edges need the origin the graph was lit for. */
+export async function fetchRoutePath(args: { path: string; route: string; edge: string; source?: string; expectedGeneration?: number; signal?: AbortSignal }): Promise<RoutePathResponse> {
+  const query = new URLSearchParams({ path: args.path, route: args.route, edge: args.edge });
+  if (args.source) query.set("source", args.source);
+  if (args.expectedGeneration !== undefined) query.set("expectedGeneration", String(args.expectedGeneration));
+  const res = await fetch(`/api/dataflow/route-path?${query}`, { signal: args.signal });
+  return json(res, "Edge steps");
 }
 
 export interface SelectResponse extends OutcomeFields {

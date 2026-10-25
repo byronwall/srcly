@@ -144,6 +144,16 @@ def test_route_graph_and_unknown_route(client, use_fake, tmp_path):
     assert missing.status_code == 404 and missing.json()["detail"]["reason"] == "not-found"
 
 
+def test_route_path_explains_an_edge_and_404s_an_unknown_one(client, use_fake, tmp_path):
+    use_fake()
+    client.get("/api/dataflow/routes", params={"path": str(tmp_path)})
+    body = client.get("/api/dataflow/route-path", params={"path": str(tmp_path), "route": "/records", "edge": "edge:1"}).json()
+    assert body["outcome"] == "ok" and body["path"]["edge"]["id"] == "edge:1"
+    assert [row["kind"] for row in body["path"]["rows"]] == ["input", "terminal"]
+    missing = client.get("/api/dataflow/route-path", params={"path": str(tmp_path), "route": "/records", "edge": "nope"})
+    assert missing.status_code == 404
+
+
 def test_route_surface_is_the_backbone_before_the_graph(client, use_fake, tmp_path):
     use_fake()
     client.get("/api/dataflow/routes", params={"path": str(tmp_path)})

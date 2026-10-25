@@ -21,6 +21,7 @@ CONTRACTS = Path(models.__file__).with_name("contracts")
         ("valueFlow", models.ValueFlowResult),
         ("anchorGraph", models.AnchorGraphResult),
         ("functionEffects", models.FunctionEffectsResult),
+        ("routePath", models.RoutePathResult),
     ],
 )
 def test_model_fields_match_the_schema(op, model):
