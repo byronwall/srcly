@@ -78,6 +78,19 @@ test.describe("Data flow on solid-route", () => {
     await shot(page, "anchor-from-code");
   });
 
+  test("a selected box in anchor mode shows what its function touches", async ({ page }) => {
+    await page.goto(url({ view: "graph", anchor: "src/components/ViewerCard.tsx@ViewerCard:3" }));
+    await expect(status(page)).toContainText("upstream", { timeout: 90_000 });
+    await box(page, "ViewerCard").click();
+    const effects = page.getByLabel("Function effects");
+    await expect(effects).toContainText("ViewerCard", { timeout: 60_000 });
+    // A component that only renders props is closed under the assumptions, and says so.
+    await expect(effects).toContainText(/Closed|known effect/);
+    await effects.getByRole("button", { name: /assumptions/ }).click();
+    await expect(effects).toContainText("intrinsics");
+    await shot(page, "effects-inspector");
+  });
+
   test("import graph menu: trace a symbol where it comes from", async ({ page }) => {
     await page.goto(url({ view: "graph", at: "src/components/ViewerCard.tsx" }));
     const symbol = page.locator('[data-box="center|src/components/ViewerCard.tsx#ViewerCard"]');

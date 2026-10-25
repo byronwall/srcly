@@ -8,6 +8,7 @@ import { FlowMarkGlyph } from "./FlowMark";
 import { anchorOverview, nodeDetails, routeOverview, STATUS_WORD, type AnchorOverview, type NeighborRow } from "./inspectorModel";
 import { FLOW_MARKS, REPETITION_BADGE, type FlowMark } from "./marks";
 import type { Reach } from "./reach";
+import { createEffectsQuery, EffectsPanel } from "../../../dataflow/EffectsPanel";
 
 const STATUS_CLASS: Record<"proven" | "partial" | "unsupported" | "structural", string> = {
   proven: "text-[var(--plc-success)]",
@@ -97,6 +98,16 @@ export function FlowInspector(props: {
   onClose: () => void;
 }) {
   const details = createMemo(() => (props.selected ? nodeDetails(props.model, props.selected) : null));
+  // Anchor mode: the effects of the function that owns the selected box (its frame), or of the anchored function itself.
+  const effects = createEffectsQuery(() => {
+    const d = details();
+    const box = d?.node;
+    if (!props.anchor || !box) return null;
+    const scope = box.parent ? props.anchor.nodes.find((n) => n.id === box.parent && n.kind === "scope") : null;
+    const target = box.kind === "anchor" && (box.elementKind === "component-definition" || box.elementKind === "function-entry" || box.elementKind === "handler-entry") ? box : scope;
+    if (!target || target.detail === "module") return null;
+    return { root: props.rootPath, file: target.absPath, line: target.line };
+  });
   const overview = createMemo(() => (props.graph ? routeOverview(props.graph, props.model, props.rootPath) : null));
   const anchor = createMemo(() => (props.anchor ? anchorOverview(props.anchor) : null));
   const repetition = (n: FlowBox) => ("repetition" in n && (n.repetition === "conditional" || n.repetition === "collection") ? n.repetition : null);
@@ -182,6 +193,13 @@ export function FlowInspector(props: {
 
               <NeighborList title="Flows in" rows={d().flowsIn} onSelect={props.onSelect} />
               <NeighborList title="Flows out" rows={d().flowsOut} onSelect={props.onSelect} />
+              <Show when={effects()}>
+                {(state) => (
+                  <div class="mt-1">
+                    <EffectsPanel state={state()} title="Its function touches" onOpen={props.onOpen} />
+                  </div>
+                )}
+              </Show>
               <Show when={props.graph && d().node.kind === "origin"}>
                 <Button variant="ghost" size="sm" class="mt-2 px-1.5" onClick={() => props.onPickOrigin(props.graph!.selectedSource === d().node.id ? undefined : d().node.id)}>
                   {props.graph!.selectedSource === d().node.id ? "Stop lighting its destinations" : "Light its proven destinations"}
