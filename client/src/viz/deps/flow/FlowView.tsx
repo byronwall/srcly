@@ -1,11 +1,11 @@
 import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show, untrack } from "solid-js";
-import { ChevronDown, PanelRight } from "lucide-solid";
+import { ChevronDown, Crosshair, PanelRight } from "lucide-solid";
 import { EmptyState, ErrorState } from "../../../components/feedback/States";
 import { Button } from "../../../components/ui/Button";
-import { fetchRouteGraph, fetchRoutes } from "../../../dataflow/api";
+import { fetchAnchorGraph, fetchRouteGraph, fetchRoutes } from "../../../dataflow/api";
 import { availabilityFor, ensureStarted, statusFor, watchProgress } from "../../../dataflow/availability";
 import { labelFor, reasonText } from "../../../dataflow/outcome";
-import { atFromTreePath } from "../../../navigation/location";
+import { atFromTreePath, parseAnchor, type Direction } from "../../../navigation/location";
 import { go, location, replace } from "../../../navigation/store";
 import { ViewTools } from "../../viewToolbar";
 import { DependencyCanvas, type CanvasApi } from "../DependencyCanvas";
@@ -13,9 +13,10 @@ import { layoutWithHubs } from "../hubs";
 import type { ViewLayout } from "../layout";
 import type { ViewNode } from "../viewModel";
 import { routeGraphToViewModel } from "./adapter";
+import { anchorGraphToViewModel } from "./anchorAdapter";
 import { FlowInspector } from "./FlowInspector";
 import { FlowLegend } from "./FlowLegend";
-import { FlowModeSwitch, ReachModeSwitch } from "./FlowTools";
+import { DirectionSwitch, FlowModeSwitch, ReachModeSwitch } from "./FlowTools";
 import { createFetch } from "./fetchSignal";
 import { FlowProgress } from "./FlowProgress";
 import { reachFrom, REACH_MODES, type ReachMode } from "./reach";
@@ -62,9 +63,21 @@ export default function FlowView(props: {
   const routes = routesFetch.value;
   const routeKey = () => location().flow ?? "";
   const field = () => location().field;
+  // Anchor mode: Data flow traced from an expression instead of a route.
+  const anchorKey = () => location().anchor;
+  const anchorSpec = () => parseAnchor(anchorKey());
+  const dir = (): Direction => location().dir ?? "both";
   const graphKey = createMemo(
-    () => (availability() === "ready" && routeKey() ? `${root()}\n${routeKey()}\n${field() ?? ""}` : null),
+    () => (availability() === "ready" && routeKey() && !anchorKey() ? `${root()}\n${routeKey()}\n${field() ?? ""}` : null),
   );
+  const anchorFetchKey = createMemo(() => (availability() === "ready" && anchorSpec() ? `${root()}\n${anchorKey()}\n${dir()}` : null));
+  const anchorFetch = createFetch(anchorFetchKey, (key) => {
+    const [path, raw, direction] = key.split("\n");
+    const spec = parseAnchor(raw)!;
+    return watchProgress(path, fetchAnchorGraph({ path, direction: direction as Direction, ...spec }));
+  });
+  const anchorGraph = anchorFetch.value;
+  const anchorText = () => anchorGraph()?.graph?.anchor.text ?? (anchorSpec() && "name" in anchorSpec()! ? (anchorSpec() as { name: string }).name : anchorKey()) ?? "";
   const graphFetch = createFetch(graphKey, (key) => {
     const [path, route, source] = key.split("\n");
     return watchProgress(path, fetchRouteGraph({ path, route, source: source || undefined }));
@@ -76,10 +89,14 @@ export default function FlowView(props: {
   const [picker, setPicker] = createSignal(false);
   // No route yet: offer the picker as soon as there are routes to pick.
   createEffect(() => {
-    if (!routeKey() && routeList().length > 0) untrack(() => setPicker(true));
+    if (!routeKey() && !anchorKey() && routeList().length > 0) untrack(() => setPicker(true));
   });
 
   const model = createMemo(() => {
+    if (anchorKey()) {
+      const a = anchorGraph()?.graph;
+      return a ? anchorGraphToViewModel(a) : null;
+    }
     const g = graph()?.graph;
     return g ? routeGraphToViewModel(g, { expanded: location().open ?? [] }) : null;
   });
@@ -163,7 +180,12 @@ export default function FlowView(props: {
   };
   const pickRoute = (key: string) => {
     setSelected(null);
-    go({ flow: key, open: undefined, field: undefined, dest: undefined });
+    go({ flow: key, anchor: undefined, dir: undefined, open: undefined, field: undefined, dest: undefined });
+  };
+  /** Leave anchor mode for the route picker. */
+  const toRoutes = () => {
+    setSelected(null);
+    go({ flow: "", anchor: undefined, dir: undefined, open: undefined, field: undefined, dest: undefined });
   };
   /** Pick an origin (or clear it): its proven destinations light up. No Back step. */
   const pickOrigin = (id: string | undefined) => {
@@ -173,7 +195,7 @@ export default function FlowView(props: {
   /** A click: an origin selects itself as the source; a lit box becomes the destination. */
   const onBoxClick = (n: ViewNode) => {
     const flow = model()?.byId.get(n.id);
-    if (flow?.kind === "origin") return pickOrigin(field() === n.id ? undefined : n.id);
+    if (flow?.kind === "origin" && !anchorKey()) return pickOrigin(field() === n.id ? undefined : n.id);
     if (n.lit) replace({ dest: n.id });
     else if (location().dest) replace({ dest: undefined });
     setSelected(n.id);
@@ -229,11 +251,22 @@ export default function FlowView(props: {
   });
 
   const outcomeText = () => {
+    if (anchorKey()) {
+      const a = anchorGraph();
+      return a ? labelFor(a.outcome, a.reason, a.message ?? a.graph?.reason ?? undefined) : null;
+    }
     const g = graph();
     return g ? labelFor(g.outcome, g.reason, g.message ?? g.graph?.unavailableReason) : null;
   };
   const stats = () => {
     const m = model();
+    const a = anchorGraph()?.graph;
+    if (anchorKey()) {
+      if (!m || !a) return "";
+      const c = a.counts;
+      const stops = [c.boundaries ? `${c.boundaries} boundar${c.boundaries === 1 ? "y" : "ies"}` : "", c.frontiers ? `${c.frontiers} frontier${c.frontiers === 1 ? "" : "s"}` : ""].filter(Boolean);
+      return `${c.up} upstream · ${c.down} downstream · ${c.origins} origin${c.origins === 1 ? "" : "s"} · ${c.terminals} terminal${c.terminals === 1 ? "" : "s"} · ${c.scopes} function${c.scopes === 1 ? "" : "s"}${stops.length ? ` · ${stops.join(" · ")}` : ""} · generation ${a.generation}`;
+    }
     const g = graph()?.graph;
     if (!m || !g) return "";
     const c = g.counts;
@@ -243,6 +276,7 @@ export default function FlowView(props: {
   };
   const waitingOn = () => {
     if (availability() !== "ready") return "Starting the data-flow engine";
+    if (anchorFetch.loading()) return `Tracing from ${anchorText()}`;
     if (graphFetch.loading()) return `Tracing ${currentRoute()?.pathPattern ?? routeKey()}`;
     return null;
   };
@@ -252,6 +286,26 @@ export default function FlowView(props: {
       <ViewTools>
         <span aria-hidden="true" class="mx-1 h-4 w-px shrink-0 bg-[var(--plc-border)]" />
         <FlowModeSwitch />
+        <Show when={anchorSpec()}>
+          <Button
+            variant="ghost"
+            class="max-w-[22rem] gap-1 px-2"
+            onClick={() => {
+              const a = anchorGraph()?.graph;
+              if (a) openAt(a.anchor.absPath, a.anchor.span.startLine);
+            }}
+            title="The expression this flow is traced from · click opens it in the code viewer"
+          >
+            <Crosshair size={13} aria-hidden="true" class="shrink-0 text-[var(--plc-accent)]" />
+            <span class="text-[var(--plc-on-muted)]">Anchor</span>
+            <span class="min-w-0 truncate font-mono text-[11.5px] font-medium">{anchorText()}</span>
+          </Button>
+          <DirectionSwitch dir={dir()} onChange={(d) => replace({ dir: d === "both" ? undefined : d })} />
+          <Button variant="ghost" class="px-2" onClick={toRoutes} title="Trace a route instead (/)">
+            Routes
+          </Button>
+        </Show>
+        <Show when={!anchorSpec()}>
         <Button variant="ghost" class="gap-1 px-2" onClick={() => setPicker(true)} title="Pick a route (/)" disabled={!routeList().length}>
           <span class="text-[var(--plc-on-muted)]">Route</span>
           <span class="font-medium">{currentRoute()?.pathPattern ?? "none"}</span>
@@ -271,6 +325,7 @@ export default function FlowView(props: {
             {origins().map((o) => <option value={o.nodeId} selected={o.nodeId === field()}>{o.label}</option>)}
           </select>
         </label>
+        </Show>
         <Show when={reach()}>
           <ReachModeSwitch mode={reachMode()} onChange={setReachMode} />
         </Show>
@@ -298,17 +353,17 @@ export default function FlowView(props: {
         <Show when={!startError() && availability() !== "na" && waitingOn()}>
           {(what) => <FlowProgress title={what()} progress={status()?.progress} class="absolute inset-0" />}
         </Show>
-        <Show when={routes()?.outcome === "ok" && routeList().length === 0}>
+        <Show when={routes()?.outcome === "ok" && routeList().length === 0 && !anchorKey()}>
           <EmptyState
             class="absolute inset-0"
             title="No routes here"
             description="Data flow starts from a route: a file under a routes/ folder that default-exports a component. Open a folder that has one."
           />
         </Show>
-        <Show when={graphFetch.error() ?? routesFetch.error()}>
+        <Show when={graphFetch.error() ?? anchorFetch.error() ?? routesFetch.error()}>
           {(e) => <ErrorState message={e().message} class="absolute inset-0" />}
         </Show>
-        <Show when={!graphFetch.loading() && layout()}>
+        <Show when={!graphFetch.loading() && !anchorFetch.loading() && layout()}>
           {(l) => (
             <>
               <DependencyCanvas
@@ -332,9 +387,10 @@ export default function FlowView(props: {
           )}
         </Show>
       </div>
-      <Show when={inspector() && !graphFetch.loading() && graph()?.graph && model()}>
+      <Show when={inspector() && !graphFetch.loading() && !anchorFetch.loading() && (anchorKey() ? anchorGraph()?.graph : graph()?.graph) && model()}>
         <FlowInspector
-          graph={graph()!.graph!}
+          graph={anchorKey() ? null : (graph()?.graph ?? null)}
+          anchor={anchorKey() ? (anchorGraph()?.graph ?? null) : null}
           model={model()!}
           rootPath={root()}
           selected={location().dest ?? selected()}

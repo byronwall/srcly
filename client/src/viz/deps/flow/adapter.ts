@@ -3,12 +3,14 @@
 // region; each node's parent in the render hierarchy becomes its frame
 // (`group`), so an occurrence reads as an opened frame holding what it
 // renders. The graph is reach, not order: nothing here invents a step.
-import type { RouteGraphResult } from "../../../dataflow/contract.generated";
+import type { AnchorGraphResult, RouteGraphResult } from "../../../dataflow/contract.generated";
 import type { ViewEdge, ViewModel, ViewNode } from "../viewModel";
 import { FLOW_MARKS, humanizeDetail, MARK_OF_KIND } from "./marks";
 
 export type FlowNode = RouteGraphResult["nodes"][number];
 export type FlowEdge = RouteGraphResult["edges"][number];
+/** A box's engine node: a route graph's, or an anchor graph's (which has a `side`). */
+export type FlowBox = FlowNode | AnchorGraphResult["nodes"][number];
 
 /** Boxes drawn before deeper frames fold into their parent (the import view's budget). */
 export const FLOW_BUDGET = 64;
@@ -25,8 +27,8 @@ export interface FlowViewModel {
   hidden: Set<string>;
   /** Containment edges that are ownership only, not flow: an origin sits under the route, but nothing flows from the route into it. */
   notFlow: Set<string>;
-  /** Flow node by view id (they are the same ids). */
-  byId: Map<string, FlowNode>;
+  /** Engine node by view id (they are the same ids). */
+  byId: Map<string, FlowBox>;
   /** The drawn box that stands for each flow node (itself, or the frame it folded into). */
   shownAs: Map<string, string>;
   /** The selected origin's proven destinations and the edges that reach them, as drawn ids. */
