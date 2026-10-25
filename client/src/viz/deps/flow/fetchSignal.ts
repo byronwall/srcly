@@ -9,9 +9,11 @@ export function createFetch<S, T>(source: () => S | null | undefined, fetcher: (
   const [value, setValue] = createSignal<T | undefined>();
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<Error | null>(null);
+  // Bumped by `retry` to ask again for the same key.
+  const [attempt, setAttempt] = createSignal(0);
   let token = 0;
   createEffect(
-    on(source, (key) => {
+    on([source, attempt], ([key]) => {
       const mine = ++token;
       setError(null);
       if (key === null || key === undefined) {
@@ -34,5 +36,5 @@ export function createFetch<S, T>(source: () => S | null | undefined, fetcher: (
       );
     }),
   );
-  return { value, loading, error };
+  return { value, loading, error, retry: () => setAttempt((n) => n + 1) };
 }
