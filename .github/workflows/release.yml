@@ -65,6 +65,48 @@ jobs:
           name: distributions
           path: server/dist/*
 
+  # Data flow smoke in a real browser: the engine on examples/solid-route
+  # through the API and the client (client/e2e). Stays under 3 minutes.
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: |
+            client/pnpm-lock.yaml
+            engine/pnpm-lock.yaml
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: "3.13"
+      - name: Install client dependencies
+        working-directory: client
+        run: pnpm install --frozen-lockfile
+      - name: Install engine dependencies
+        working-directory: engine
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        working-directory: client
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Browser smoke
+        working-directory: client
+        run: pnpm e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dataflow-smoke
+          path: |
+            tmp/e2e/*.png
+            tmp/e2e/results
+            tmp/e2e/report
+          if-no-files-found: ignore
+
   publish:
     if: startsWith(github.ref, 'refs/tags/')
     needs: build
