@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/byronwall/srcly/compare/v1.4.0...v1.4.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **dataflow:** bundle the data-flow engine into the wheel ([#149](https://github.com/byronwall/srcly/issues/149)) ([64afd44](https://github.com/byronwall/srcly/commit/64afd445b45e9d613dfb74fd6547e16e48bb1529))
+
 ## [1.4.0](https://github.com/byronwall/srcly/compare/v1.3.0...v1.4.0) (2026-10-25)
 
 
