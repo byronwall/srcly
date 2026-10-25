@@ -77,6 +77,31 @@ def result_for(op: str, params: dict) -> dict:
                 "selectedSource": None, "lineage": None, "destinations": [],
                 "counts": {"occurrences": 0, "boundaries": 0, "terminals": 0, "origins": 0, "handoffs": 0, "omittedItems": 0},
                 "gaps": []}
+    if op == "anchorGraph":
+        if params.get("name") and params.get("name") != "props":
+            raise KeyError(params.get("name"))
+        span = params.get("span") or {"startLine": params.get("line", 1), "startColumn": 1, "endLine": params.get("line", 1), "endColumn": 6}
+        file = params["file"]
+        scope = {"id": "scope:f", "kind": "scope", "label": "Card", "detail": "f.tsx", "parent": None, "file": file,
+                 "absPath": f"{args.root}/{file}", "line": 1, "span": span, "status": "proven", "side": "seed",
+                 "elementKind": None, "typeText": None, "reason": None, "note": None}
+        anchor = {**scope, "id": "el:1", "kind": "anchor", "label": params.get("text") or params.get("name") or "x",
+                  "detail": "property read", "parent": "scope:f", "elementKind": "field-read", "typeText": "string"}
+        slot = {**anchor, "id": "el:2", "kind": "terminal", "label": "slot", "detail": "render slot", "side": "down",
+                "elementKind": "render-terminal", "typeText": None}
+        nodes = [scope, anchor] + ([slot] if params.get("direction", "both") != "backward" else [])
+        edges = [] if len(nodes) < 3 else [{"id": "rel:1", "source": "el:1", "target": "el:2", "kind": "render-terminal",
+                                            "status": "proven", "proof": [], "label": None}]
+        return {"outcome": "ok", "generation": state["generation"] or 1, "programHash": "hash-1",
+                "tsconfig": f"{args.root}/tsconfig.json", "typescript": "5.9.3", "reason": None,
+                "anchor": {"file": file, "absPath": f"{args.root}/{file}", "span": span, "text": anchor["label"],
+                           "kind": "PropertyAccessExpression", "elementId": "el:1", "typeText": "string"},
+                "direction": params.get("direction", "both"), "nodes": nodes, "edges": edges, "origins": [],
+                "terminals": [{"nodeId": "el:2", "label": "slot", "roles": ["render"], "status": "proven"}] if len(nodes) > 2 else [],
+                "counts": {"up": 0, "down": len(nodes) - 2, "scopes": 1, "origins": 0, "terminals": len(nodes) - 2,
+                           "boundaries": 0, "frontiers": 0},
+                "coverage": {"elements": len(nodes) - 1, "relations": len(edges),
+                             "budget": {"limit": 256, "used": len(edges), "exhausted": False}}}
     raise LookupError(op)
 
 

@@ -389,3 +389,96 @@ class ValueFlowResponse(BaseModel):
     generation: int | None = None
     programHash: str | None = None
     ledger: ValueFlowResult | None = None
+
+
+# ---- anchor graph (contracts/anchorGraph.schema.json) ------------------------
+
+
+class AnchorRef(BaseModel):
+    file: str
+    absPath: str
+    span: SourceSpan
+    text: str
+    kind: str
+    elementId: str | None
+    typeText: str | None
+
+
+class AnchorNode(BaseModel):
+    id: str
+    kind: Literal["anchor", "scope", "value", "transform", "control", "origin", "terminal", "boundary", "frontier"]
+    label: str
+    detail: str | None
+    parent: str | None
+    file: str
+    absPath: str
+    line: int
+    span: SourceSpan
+    status: EvidenceStatus
+    side: Literal["seed", "up", "down", "both"]
+    elementKind: str | None
+    typeText: str | None
+    reason: str | None
+    note: str | None
+
+
+class AnchorEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+    kind: str
+    status: EvidenceStatus
+    proof: list[EvidenceProof]
+    label: str | None
+
+
+class AnchorOrigin(BaseModel):
+    nodeId: str
+    label: str
+    roles: list[str]
+    status: EvidenceStatus
+
+
+class AnchorTerminal(BaseModel):
+    nodeId: str
+    label: str
+    roles: list[str]
+    status: EvidenceStatus
+
+
+class AnchorCounts(BaseModel):
+    up: int
+    down: int
+    scopes: int
+    origins: int
+    terminals: int
+    boundaries: int
+    frontiers: int
+
+
+class AnchorGraphResult(BaseModel):
+    outcome: Outcome
+    generation: int
+    programHash: str
+    tsconfig: str
+    typescript: str
+    reason: str | None
+    anchor: AnchorRef
+    direction: Literal["forward", "backward", "both"]
+    nodes: list[AnchorNode]
+    edges: list[AnchorEdge]
+    origins: list[AnchorOrigin]
+    terminals: list[AnchorTerminal]
+    counts: AnchorCounts
+    coverage: LedgerCoverage
+
+
+class AnchorGraphResponse(BaseModel):
+    """``POST /api/dataflow/anchor-graph``: the graph, or an outcome without one."""
+
+    outcome: Outcome
+    reason: str | None = None
+    message: str | None = None
+    generation: int | None = None
+    programHash: str | None = None
+    graph: AnchorGraphResult | None = None

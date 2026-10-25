@@ -124,3 +124,27 @@ def test_route_graph_and_unknown_route(client, use_fake, tmp_path):
     assert body["graph"]["route"]["pathPattern"] == "/records" and body["graph"]["nodes"][0]["kind"] == "route"
     missing = client.get("/api/dataflow/route-graph", params={"path": str(tmp_path), "route": "/nope"})
     assert missing.status_code == 404 and missing.json()["detail"]["reason"] == "not-found"
+
+
+def test_anchor_graph_by_span_and_by_name(client, use_fake, tmp_path):
+    use_fake()
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "f.tsx").write_text("export function Card(props) { return <h2>{props.item.title}</h2>; }\n")
+    span = {"startLine": 1, "startColumn": 42, "endLine": 1, "endColumn": 58}
+    body = {"path": str(tmp_path), "file": "src/f.tsx", "span": span, "text": "props.item.title", "direction": "forward"}
+    forward = client.post("/api/dataflow/anchor-graph", json=body).json()
+    assert forward["outcome"] == "ok" and forward["generation"] == 1
+    graph = forward["graph"]
+    assert graph["direction"] == "forward" and graph["anchor"]["text"] == "props.item.title"
+    assert [node["kind"] for node in graph["nodes"]] == ["scope", "anchor", "terminal"]
+    assert graph["nodes"][1]["parent"] == "scope:f" and graph["edges"][0]["kind"] == "render-terminal"
+    back = client.post("/api/dataflow/anchor-graph", json={**body, "direction": "backward"}).json()["graph"]
+    assert back["counts"]["down"] == 0 and back["terminals"] == []
+    named = client.post("/api/dataflow/anchor-graph", json={"path": str(tmp_path), "file": "src/f.tsx", "name": "props", "line": 1}).json()
+    assert named["graph"]["anchor"]["text"] == "props" and named["graph"]["direction"] == "both"
+    missing = client.post("/api/dataflow/anchor-graph", json={"path": str(tmp_path), "file": "src/f.tsx", "name": "nope", "line": 1})
+    assert missing.status_code == 404 and missing.json()["detail"]["reason"] == "not-found"
+    neither = client.post("/api/dataflow/anchor-graph", json={"path": str(tmp_path), "file": "src/f.tsx"})
+    assert neither.status_code == 422
+    outside = client.post("/api/dataflow/anchor-graph", json={**body, "file": "/etc/hosts"})
+    assert outside.status_code == 400
