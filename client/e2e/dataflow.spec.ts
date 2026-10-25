@@ -170,6 +170,34 @@ test.describe("Data flow on solid-route", () => {
     await expect(status(page)).toContainText("downstream", { timeout: 90_000 });
   });
 
+  test("the Recent menu lists the anchors and routes traced in this tab, and walks back to one", async ({ page }) => {
+    await page.goto(url({ view: "graph", anchor: "src/components/ViewerCard.tsx@ViewerCard:3", dir: "forward" }));
+    await expect(status(page)).toContainText("downstream", { timeout: 90_000 });
+    // The route picker is an in-app move: a second place in this tab.
+    await page.getByRole("button", { name: "Routes", exact: true }).filter({ hasText: /^Routes$/ }).first().click();
+    await page.getByRole("dialog", { name: "Pick a route" }).getByRole("option", { name: /\/records/ }).click();
+    await expect(status(page)).toContainText("7 occurrences", { timeout: 90_000 });
+    await page.getByRole("button", { name: "Recent anchors and routes" }).click();
+    const menu = page.getByRole("menu", { name: "Recent anchors and routes" });
+    await expect(menu).toBeVisible();
+    const items = menu.getByRole("menuitem");
+    await expect(items).toHaveCount(2);
+    await expect(items.nth(0)).toContainText("/records");
+    await expect(items.nth(1)).toContainText("ViewerCard");
+    await expect(items.nth(1)).toContainText("to");
+    await expect(items.nth(1)).toContainText("src/components/ViewerCard.tsx");
+    await shot(page, "recent-menu");
+    await items.nth(1).click();
+    await expect(page).toHaveURL(/anchor=.*ViewerCard/);
+    await expect(status(page)).toContainText("downstream", { timeout: 90_000 });
+    // Forward and Return walk the same history.
+    await page.getByRole("button", { name: "Return" }).click();
+    await expect(page).toHaveURL(/flow=route/);
+    await expect(page).not.toHaveURL(/anchor=/);
+    await page.getByRole("button", { name: "Forward" }).click();
+    await expect(page).toHaveURL(/anchor=.*ViewerCard/);
+  });
+
   test("import graph menu: trace a symbol where it comes from", async ({ page }) => {
     await page.goto(url({ view: "graph", at: "src/components/ViewerCard.tsx" }));
     const symbol = page.locator('[data-box="center|src/components/ViewerCard.tsx#ViewerCard"]');

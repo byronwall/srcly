@@ -1,8 +1,13 @@
-import { For } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
+import { ChevronDown, Crosshair, History, Route } from "lucide-solid";
+import Popover from "../../../components/Popover";
 import { Button } from "../../../components/ui/Button";
+import { OptionRow, PopoverPanel, PopoverSectionTitle } from "../../../components/ui/PopoverPanel";
 import { segmentedKeyDown } from "../../../components/ui/segmentedKeys";
-import { isDataFlow, type Direction } from "../../../navigation/location";
-import { go, location } from "../../../navigation/store";
+import { recentFlowPlaces } from "../../../navigation/flowPlaces";
+import { shortAge } from "../../../navigation/history";
+import { isDataFlow, samePlace, type Direction } from "../../../navigation/location";
+import { go, history, location } from "../../../navigation/store";
 import { REACH_MODES, type ReachMode } from "./reach";
 
 const DIRECTIONS: { id: Direction; label: string; title: string }[] = [
@@ -119,5 +124,81 @@ export function FlowModeSwitch() {
         )}
       </For>
     </div>
+  );
+}
+
+const DIR_WORD: Record<Direction, string> = { backward: "from", both: "both ways", forward: "to" };
+
+/**
+ * Anchor history (T18): the anchors and routes traced in this tab, newest
+ * first, from the visit ring (sessionStorage only). A click goes there as a
+ * new Back step; Return and Forward walk the same history.
+ */
+export function RecentFlowMenu(props: { routeName: (key: string) => string }) {
+  const [open, setOpen] = createSignal(false);
+  const [now, setNow] = createSignal(Date.now());
+  const places = createMemo(() => recentFlowPlaces(history(), location().repo, props.routeName));
+  const toggle = (next: boolean) => {
+    if (next) setNow(Date.now());
+    setOpen(next);
+  };
+  return (
+    <Popover
+      isOpen={open()}
+      onOpenChange={toggle}
+      placement="bottom-end"
+      offset={{ x: 0, y: 4 }}
+      trigger={(trigger) => (
+        <Button
+          ref={trigger.ref}
+          onClick={(e) => trigger.onClick(e)}
+          variant="ghost"
+          class="shrink-0 gap-1 whitespace-nowrap px-2"
+          aria-haspopup="menu"
+          aria-expanded={open()}
+          aria-label="Recent anchors and routes"
+          title="Anchors and routes traced in this tab (Return and Forward walk them)"
+        >
+          <History size={13} aria-hidden="true" />
+          Recent
+          <ChevronDown size={12} class="text-[var(--plc-on-subtle)]" aria-hidden="true" />
+        </Button>
+      )}
+    >
+      <PopoverPanel class="max-h-[70vh] w-[24rem] max-w-[90vw] overflow-y-auto p-0">
+        <PopoverSectionTitle class="mb-0 border-b border-[var(--plc-border)] px-3 py-2">Recent anchors and routes</PopoverSectionTitle>
+        <Show when={places().length > 0} fallback={<p class="px-3 py-3 text-[12px] text-[var(--plc-on-subtle)]">Anchors you trace and routes you open show up here.</p>}>
+          <div class="py-1" role="menu" aria-label="Recent anchors and routes">
+            <For each={places()}>
+              {({ entry, label }) => {
+                const current = () => samePlace(entry.loc, location());
+                return (
+                  <OptionRow
+                    role="menuitem"
+                    selected={current()}
+                    aria-current={current() ? "location" : undefined}
+                    class="grid grid-cols-[14px_minmax(0,1fr)_2.5rem] items-start gap-2 rounded-none px-3 py-1.5"
+                    onClick={() => {
+                      setOpen(false);
+                      go(entry.loc);
+                    }}
+                  >
+                    <span class="mt-[2px] flex text-[var(--plc-on-subtle)]">
+                      {label.kind === "anchor" ? <Crosshair size={13} aria-label="Anchor" /> : <Route size={13} aria-label="Route" />}
+                    </span>
+                    <span class="min-w-0 break-words leading-[18px]">
+                      <span class="font-mono text-[12px] font-medium">{label.leaf}</span>
+                      <Show when={label.dir}>{(dir) => <span class="text-[var(--plc-on-subtle)]"> · {DIR_WORD[dir()]}</span>}</Show>
+                      <Show when={label.detail}>{(detail) => <span class="block truncate text-[11px] text-[var(--plc-on-subtle)]">{detail()}</span>}</Show>
+                    </span>
+                    <span class="text-right tabular-nums leading-[18px] text-[var(--plc-on-subtle)]">{shortAge(entry.time, now())}</span>
+                  </OptionRow>
+                );
+              }}
+            </For>
+          </div>
+        </Show>
+      </PopoverPanel>
+    </Popover>
   );
 }
