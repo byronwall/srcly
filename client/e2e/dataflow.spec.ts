@@ -18,6 +18,8 @@ const shot = (page: Page, name: string) => page.screenshot({ path: path.join(SHO
 const status = (page: Page) => page.getByText(/\d+ occurrences · \d+ boundaries|\d+ upstream · \d+ downstream/).first();
 /** A drawn box by its label text. */
 const box = (page: Page, label: string) => page.locator("[data-box]").filter({ hasText: label }).first();
+/** A drawn box by the start of its full label: the drawn text truncates to the font's width, which differs by platform. */
+const boxLabelled = (page: Page, label: string) => page.locator(`[data-box][data-label^="${label}"]`).first();
 
 test.describe("Data flow on solid-route", () => {
   test("route graph: picker, origin select, reach and the inspector", async ({ page }) => {
@@ -62,7 +64,7 @@ test.describe("Data flow on solid-route", () => {
     await page.goto(url({ view: "graph", flow: "/records" }));
     await expect(status(page)).toContainText("7 occurrences", { timeout: 90_000 });
     // Double-click opens the box's code in the viewer: the render slot sits in ViewerCard.tsx.
-    await box(page, "props.viewer?.na").dblclick();
+    await boxLabelled(page, "props.viewer?.name").dblclick();
     const line = page.locator("span.line").filter({ hasText: "props.viewer?.name" }).first();
     await expect(line).toBeVisible();
     await line.getByText("props.viewer?.name").click({ button: "right" });
@@ -133,7 +135,7 @@ test.describe("Data flow on solid-route", () => {
     await page.mouse.wheel(0, -400);
     await page.waitForTimeout(400);
     // The render slot in ViewerCard.tsx: O opens that file, where the trace starts.
-    await box(page, "props.viewer?.na").click();
+    await boxLabelled(page, "props.viewer?.name").click();
     await expect(svg.locator("[data-selected-ring]")).toHaveCount(1);
     const metricButton = page.getByRole("button", { name: /^Color/ });
     await metricButton.click();
