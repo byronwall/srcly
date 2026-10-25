@@ -245,7 +245,6 @@ function Overview(props: { o: ReturnType<typeof routeOverview>; onOpen: (absPath
       </div>
       <div class="flex flex-wrap items-baseline gap-x-2 pl-5 text-[11px]">
         <span class={`font-semibold ${STATUS_CLASS[status()]}`}>{o().status === "complete" ? "complete" : o().status}</span>
-        <span class="text-[var(--plc-on-muted)]">generation {o().generation}</span>
       </div>
       <Show when={o().unavailableReason}>{(r) => <div class="pl-5 text-[11px] text-[var(--plc-warning)]">{r()}</div>}</Show>
       <Where file={o().file} line={1} onOpen={() => props.onOpen(o().absPath, 1)} />
@@ -256,7 +255,7 @@ function Overview(props: { o: ReturnType<typeof routeOverview>; onOpen: (absPath
         <Stat label="Terminals" value={o().counts.terminals} />
         <Stat label="Origins" value={o().counts.origins} />
         <Stat label="Handoffs" value={o().counts.handoffs} title="Origins proven to reach a render site" />
-        <Stat label="Folded" value={o().counts.folded} title="Boxes folded into frames by the box budget; Shift-click a frame to open it" />
+        <Stat label="Folded" value={o().counts.folded} title="Boxes folded into frames to keep the graph readable; Shift-click a frame to open it" />
         <Show when={o().counts.omittedItems}>
           <Stat label="Omitted by engine" value={o().counts.omittedItems} title="Items the engine left out of the surface" />
         </Show>

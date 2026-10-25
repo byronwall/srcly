@@ -483,7 +483,7 @@ export default function FlowView(props: {
       const result = fileExports()?.exports;
       if (!m || !result) return "";
       const opened = (location().open ?? []).length;
-      return `${result.counts.exports} export${result.counts.exports === 1 ? "" : "s"} in ${result.counts.files} file${result.counts.files === 1 ? "" : "s"} · ${result.counts.traceable} traceable · ${opened} opened · generation ${result.generation}`;
+      return `${result.counts.exports} export${result.counts.exports === 1 ? "" : "s"} in ${result.counts.files} file${result.counts.files === 1 ? "" : "s"} · ${result.counts.traceable} traceable · ${opened} opened`;
     }
     if (anchorKey()) {
       if (!m || !a) return "";
@@ -491,7 +491,7 @@ export default function FlowView(props: {
       const failed = (extraAnchors() ?? []).filter((entry) => !entry.graph).length;
       if (many) {
         const graphs = anchorGraphs() ?? [];
-        return `${graphs.length} anchors · ${many.shared.size} shared box${many.shared.size === 1 ? "" : "es"} · ${m.vm.nodes.length} boxes${failed ? ` · ${failed} not traced` : ""} · generation ${a.generation}`;
+        return `${graphs.length} anchors · ${many.shared.size} shared box${many.shared.size === 1 ? "" : "es"} · ${m.vm.nodes.length} boxes${failed ? ` · ${failed} not traced` : ""}`;
       }
       const c = a.counts;
       const folded = m.vm.rolledUp ? ` · ${m.vm.rolledUp} repeated reference${m.vm.rolledUp === 1 ? "" : "s"} folded` : "";
@@ -502,9 +502,10 @@ export default function FlowView(props: {
     const c = g.counts;
     const folded = m.vm.rolledUp ? ` · ${m.vm.rolledUp} folded` : "";
     const omitted = c.omittedItems ? ` · ${c.omittedItems} omitted by the engine` : "";
-    if (g.phase === "surface") return `backbone · ${c.occurrences} occurrences · ${c.boundaries} boundaries · ${c.terminals} terminals${folded} · tracing evidence… · generation ${g.generation}`;
-    return `${c.occurrences} occurrences · ${c.boundaries} boundaries · ${c.terminals} terminals · ${c.origins} origins${folded}${omitted} · generation ${g.generation}`;
+    if (g.phase === "surface") return `backbone · ${c.occurrences} occurrences · ${c.boundaries} boundaries · ${c.terminals} terminals${folded} · tracing evidence…`;
+    return `${c.occurrences} occurrences · ${c.boundaries} boundaries · ${c.terminals} terminals · ${c.origins} origins${folded}${omitted}`;
   };
+  const drawnGeneration = () => (exportsSpec() ? fileExports()?.exports?.generation : anchorKey() ? anchorGraph()?.graph?.generation : drawnGraph()?.generation);
   const waitingOn = () => {
     if (availability() !== "ready") return "Starting the data-flow engine";
     if (anchorFetch.loading()) return `Tracing from ${anchorText()}`;
@@ -697,9 +698,9 @@ export default function FlowView(props: {
         <Show when={reachText() ?? lineageText() ?? outcomeText()}>
           {(text) => <span class="max-w-[60%] shrink-0 truncate font-semibold text-[var(--plc-on-surface)]" title={text()}>{text()}</span>}
         </Show>
-        <span class="ml-auto min-w-0 truncate tabular-nums">
+        {/* The build the graph was drawn from, for tests and the stale check; the legend lists the keys. */}
+        <span class="ml-auto min-w-0 truncate tabular-nums" data-generation={drawnGeneration()} title={stats()}>
           {stats()}
-          {stats() ? " · " : ""}Click a box to light its reach (R: both, up, down) · Double-click or O opens code · Shift-click opens a frame · / picks a route
         </span>
       </div>
 

@@ -73,7 +73,26 @@ function BadgeSwatch(props: { repetition: keyof typeof REPETITION_BADGE }) {
   );
 }
 
+/** A key or gesture, in the swatch column. */
+function KeySwatch(props: { keys: string }) {
+  return <kbd class="inline-block min-w-[30px] rounded border border-[var(--plc-border-strong)] px-1 text-center font-mono text-[10px] leading-[14px] text-[var(--plc-on-surface)]">{props.keys}</kbd>;
+}
+
+const KEYS: [keys: string, label: string][] = [
+  ["Click", "Light a box's reach; R cycles both, up, down"],
+  ["O", "Open the box's code (or double-click)"],
+  ["E", "Open or close a frame (or Shift-click)"],
+  ["0", "Fit the graph to the window"],
+  ["I", "Show or hide the inspector"],
+  ["/", "Pick a route"],
+  ["Esc", "Clear the selection"],
+];
+
 const GROUPS: { title: string; items: { swatch: () => JSX.Element; label: string }[] }[] = [
+  {
+    title: "Keys",
+    items: KEYS.map(([keys, label]) => ({ swatch: () => <KeySwatch keys={keys} />, label })),
+  },
   {
     title: "Marks",
     items: FLOW_MARK_ORDER.map((mark) => ({
@@ -119,18 +138,19 @@ export function FlowLegend() {
     writeCollapsed(next);
   };
   return (
-    <div class="pointer-events-auto absolute bottom-3 right-3 z-10">
+    // Spans the canvas's height so a tall legend scrolls instead of running off the top.
+    <div class="pointer-events-none absolute bottom-3 right-3 top-3 z-10 flex flex-col items-end justify-end">
       <Show
         when={!collapsed()}
         fallback={
-          <IconButton label="Show legend" size="sm" class="border border-[var(--plc-border)] bg-[var(--plc-surface)]" onClick={toggle}>
+          <IconButton label="Show legend and keys" size="sm" class="pointer-events-auto border border-[var(--plc-border)] bg-[var(--plc-surface)]" onClick={toggle}>
             <Info size={14} aria-hidden="true" />
           </IconButton>
         }
       >
-        <div class="max-w-[19rem] rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface)] py-1.5 pl-2.5 pr-1 text-[11px] text-[var(--plc-on-muted)]" role="group" aria-label="Data flow legend">
+        <div class="pointer-events-auto min-h-0 max-w-[19rem] overflow-y-auto rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface)] py-1.5 pl-2.5 pr-1 text-[11px] text-[var(--plc-on-muted)]" role="group" aria-label="Data flow legend">
           <div class="flex items-center justify-between gap-3 pb-0.5">
-            <span class="font-semibold text-[var(--plc-on-surface)]">Legend</span>
+            <span class="font-semibold text-[var(--plc-on-surface)]">Legend and keys</span>
             <IconButton label="Hide legend" size="xs" onClick={toggle}>
               <ChevronDown size={13} aria-hidden="true" />
             </IconButton>
