@@ -98,14 +98,20 @@ test.describe("Data flow on solid-route", () => {
     await expect(status(page)).toContainText("occurrences", { timeout: 90_000 });
     await page.getByLabel("Origin whose proven destinations light up").selectOption({ label: "createResource(loadViewer)" });
     await expect(page.getByText(/reaches \d+ proven/)).toBeVisible({ timeout: 90_000 });
-    // The first lit edge: a transparent hit path whose drawn sibling carries the accent.
+    // A lit edge: a transparent hit path whose drawn sibling carries the accent. Its midpoint can sit
+    // under a box (box widths follow the platform's fonts), so click the first point the edge itself owns.
     const point = await page.evaluate(() => {
       for (const hit of document.querySelectorAll<SVGPathElement>('svg[aria-label="Dependency graph"] path[stroke="transparent"]')) {
         const drawn = hit.previousElementSibling;
         if (!(drawn instanceof SVGPathElement) || drawn.getAttribute("stroke") !== "var(--plc-accent)" || Number(drawn.getAttribute("stroke-opacity")) < 0.3) continue;
-        const at = hit.getPointAtLength(hit.getTotalLength() / 2);
         const m = hit.getScreenCTM()!;
-        return { x: m.a * at.x + m.c * at.y + m.e, y: m.b * at.x + m.d * at.y + m.f };
+        const length = hit.getTotalLength();
+        for (const t of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8]) {
+          const at = hit.getPointAtLength(length * t);
+          const x = m.a * at.x + m.c * at.y + m.e;
+          const y = m.b * at.x + m.d * at.y + m.f;
+          if (document.elementFromPoint(x, y) === hit) return { x, y };
+        }
       }
       return null;
     });
