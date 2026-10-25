@@ -283,8 +283,8 @@ class FakeEngine:
                 "coverage": {"elements": len(nodes) - 1, "relations": len(edges), "budget": {"limit": 256, "used": len(edges), "exhausted": False}}}
         if shape == "partial":
             # A dead end: the value reaches a local nothing reads.
-            stop = node(id="frontier:gap-1", kind="frontier", label="dead end · nothing continues from here", detail="disconnected",
-                        side="down", status="partial", elementKind="alias", reason="disconnected", note="No indexed relation continues from unused.")
+            stop = node(id="frontier:gap-1", kind="frontier", label="unused", detail="disconnected",
+                        side="down", status="partial", elementKind="alias", reason="disconnected", note="dead end · nothing continues from here")
             gap = edge(id="gap:gap-1", source="el:1", target="frontier:gap-1", kind="gap", status="partial")
             return {**base, "outcome": "partial", "nodes": [*nodes, stop], "edges": [*edges, gap],
                     "counts": {**counts, "down": counts["down"] + 1, "frontiers": 1}}

@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { IS_BUNDLE } from "./bundle";
 import { hashProgramInputs, type ProgramInputs } from "./fingerprint";
 
 /**
@@ -13,9 +15,11 @@ import { hashProgramInputs, type ProgramInputs } from "./fingerprint";
  * pruned once two newer hashes exist.
  *
  * Layout: `<dir>/<root hash>/inputs.json` names the last build's inputs and
- * hash; `<dir>/<root hash>/<program hash>/<op>/<key hash>.json` holds one
- * result. Switched off with `SRCLY_DATAFLOW_CACHE=0`, or when no directory
- * is given.
+ * hash; `<dir>/<root hash>/<program hash>.<engine>/<op>/<key hash>.json`
+ * holds one result. `<engine>` fingerprints the engine's own code, so a
+ * different engine (an upgrade, an edit in a checkout) misses instead of
+ * serving what an older one computed. Switched off with
+ * `SRCLY_DATAFLOW_CACHE=0`, or when no directory is given.
  */
 export const CACHE_DIR_ENV = "SRCLY_DATAFLOW_CACHE_DIR";
 export const CACHE_SWITCH_ENV = "SRCLY_DATAFLOW_CACHE";
@@ -40,7 +44,11 @@ export class ResultCache {
   /** The hash the current sources have, when it equals the last build's: entries under it are valid now. */
   private validHash: string | null = null;
 
-  constructor(dir: string, private readonly root: string) {
+  constructor(
+    dir: string,
+    private readonly root: string,
+    private readonly engine: string = engineFingerprint(),
+  ) {
     this.rootDir = path.join(dir, createHash("sha256").update(path.resolve(root)).digest("hex").slice(0, 16));
     this.load();
   }
@@ -104,7 +112,7 @@ export class ResultCache {
 
   private entryPath(programHash: string, op: string, params: Record<string, unknown>): string {
     const key = createHash("sha256").update(stableJson(params)).digest("hex").slice(0, 24);
-    return path.join(this.rootDir, programHash, op, `${key}.json`);
+    return path.join(this.rootDir, `${programHash}.${this.engine}`, op, `${key}.json`);
   }
 
   /** Keep the newest `KEEP_HASHES` program hashes for this root. */
@@ -119,9 +127,43 @@ export class ResultCache {
       .filter((entry) => entry.isDirectory())
       .map((entry) => ({ name: entry.name, mtime: fs.statSync(path.join(this.rootDir, entry.name)).mtimeMs }))
       .sort((left, right) => right.mtime - left.mtime);
-    const keep = new Set([current, ...hashes.slice(0, KEEP_HASHES).map((item) => item.name)]);
+    const keep = new Set([`${current}.${this.engine}`, ...hashes.slice(0, KEEP_HASHES).map((item) => item.name)]);
     for (const item of hashes) if (!keep.has(item.name)) fs.rmSync(path.join(this.rootDir, item.name), { recursive: true, force: true });
   }
+}
+
+/**
+ * A short hash of the engine's own code: every script beside the bundled
+ * entry, or in a checkout every source file's path, size and mtime under
+ * `engine/src` and `engine/python` (no reads). Its results are a function of
+ * this code as much as of the Program.
+ */
+export function engineFingerprint(): string {
+  const hash = createHash("sha256");
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const roots = IS_BUNDLE ? [here] : [path.resolve(here, ".."), path.resolve(here, "../../python")];
+  const walk = (dir: string) => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name));
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const file = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== "node_modules" && entry.name !== "__pycache__") walk(file);
+      } else if (/\.(m?[jt]s|py)$/.test(entry.name)) {
+        if (IS_BUNDLE) hash.update(entry.name).update(fs.readFileSync(file));
+        else {
+          const stat = fs.statSync(file);
+          hash.update(`${path.relative(here, file)}:${stat.size}:${stat.mtimeMs}\n`);
+        }
+      }
+    }
+  };
+  for (const root of roots) walk(root);
+  return hash.digest("hex").slice(0, 12);
 }
 
 /** JSON with sorted keys, so the same params always name the same entry. */
