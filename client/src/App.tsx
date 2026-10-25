@@ -21,7 +21,7 @@ import { Button } from "./components/ui/Button";
 import { extractFilePath, filterTree, findScopeForSymbol, findTreeNodeByPath } from "./utils/dataProcessing";
 import { describeResult, formatCount } from "./utils/scanProgress";
 import { MetricsStoreProvider, useMetricsStore } from "./utils/metricsStore";
-import { atFromTreePath, isExternal, normalizeScopeName, splitAt, treePathFromAt } from "./navigation/location";
+import { atFromTreePath, isDataFlow, isExternal, normalizeScopeName, splitAt, treePathFromAt } from "./navigation/location";
 import { resolveTreeAt } from "./navigation/resolveTree";
 import { go, history, location, replace } from "./navigation/store";
 import { scanStore } from "./state/scanStore";
@@ -39,6 +39,8 @@ const CompareApp = lazy(() => import("./compare/CompareApp.tsx"));
 // Stop waiting for the first treemap paint after this long (a hidden tab
 // gets no animation frames), so the loading state can never get stuck.
 const FIRST_PAINT_TIMEOUT_MS = 15_000;
+/** Below this window width, Data flow folds the file tree: tree, graph and inspector don't fit side by side. */
+const FLOW_NARROW_WIDTH = 1100;
 
 type AnalysisContext = {
   rootPath: string;
@@ -189,6 +191,8 @@ function AppContent(props: { active: boolean }) {
   const [filterQuery, setFilterQuery] = createSignal("");
   const { excludedPaths } = useMetricsStore();
   const sidebar = useSidebarLayout();
+  // Data flow needs its width for the graph and the inspector; the file tree folds to its rail on a narrow window.
+  sidebar.autoCollapse(() => location().view === "graph" && isDataFlow(location()) && sidebar.windowWidth() < FLOW_NARROW_WIDTH);
   const [analysisPath, setAnalysisPath] = createSignal(location().repo);
   let resolveTreemapPaint: (() => void) | null = null;
   let pendingNotice: string | null = null;
