@@ -167,6 +167,17 @@ The slice walk carries an invocation stack (M5 edits 1–2, as 1-CFA on the walk
 
 Line 88 → 135 would still need the plain-identifier-prop edit (below the cut line, R3), so the walk ends where `node` is handed to `HotSpotItem`, a terminal, not a false proof.
 
+## 2026-10-24 — T12: a Program scoped to one route's import closure (decided off)
+
+`engine/scripts/time-scoped-program.ts` (one route per process, `--max-old-space-size=8192`: holding the full and a scoped Program together overflows the default heap) on visual-notes:
+
+| Route | files full → scoped | tier 1 full → scoped | first `routeGraph` full → scoped | same result |
+| --- | ---: | ---: | ---: | --- |
+| `/time-blocks` | 487 → 34 | 8,035 → 8,823 ms | 15,119 → 3,707 ms | no: the `TimeBlockEditorDialog.tsx:58` `props.block` anchor differs (same box count, different boxes) |
+| `/tasks` | 487 → 36 | 7,753 → 10,191 ms | 15,242 → 3,680 ms | yes |
+
+**Decision.** Tier 1 gains nothing from scoping: TypeScript still resolves and type-checks the same library and `node_modules` surface for 34 roots as for 487. The gain is in fact collection and the slice (15 s to 3.7 s), which T9's backbone and T11's cache already cover for the first box and the reopen, and one anchor differs from the full Program, which the stop rule turns scoping off for. The `rootFiles` option stays as the spike's instrument and nothing in the engine uses it.
+
 ## To record next
 
 | Milestone | Numbers |

@@ -49,7 +49,7 @@ T3 ─┘                 T7 ─┘
 | --- | --- | --- |
 | E1 Never wrong | T1 per-box status · T2 declaration-anchor honesty · T3 `disconnected` split · T4 non-filesystem field lineage | S · S · S · L |
 | E2 Never broken | T5 fake engine shapes · T6 Playwright smoke · T7 stale end to end | M · M · M |
-| E3 Fast | T8 profiler · T9 progressive route graph · T10 analysis perf edits · T11 disk cache · T12 scoped Program | S · L · L · M · L |
+| E3 Fast | T8 profiler · T9 progressive route graph · T10 analysis perf edits · T11 disk cache · T12 scoped Program (measured, off: tier 1 gains nothing and one anchor differs; `measurements.md`) | S · L · L · M · L |
 | E4 Call identity | T13 `callId` and invocation stack (M5 edits 1–2) | M |
 | E5 Effects (M6) | T14 `functionEffects` op with the 21-case fixture · T15 effects in the code viewer and graph | XL · M |
 | E6 Graph surface | T16 explain an edge (M4) · T17 view-state Return · T18 anchor history · T19 file and folder anchors · T20 multiple anchors · T21 dark-theme tokens · T22 label placement | M · M · S · L · L · S · M |

@@ -64,6 +64,12 @@ export interface AnalyzerArgs {
   maxHelperDepth: number;
   help?: boolean;
   regenAll?: boolean;
+  /**
+   * Build the Program from these root files only (plus what they import), not
+   * every file the tsconfigs name (T12). Absolute paths. Call sites outside
+   * the closure are not seen, so results can differ from the full Program.
+   */
+  rootFiles?: string[];
 }
 
 export interface GraphNode {

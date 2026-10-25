@@ -27,16 +27,20 @@ export type EngineConfig = {
   tsconfig: string | null;
   /** A directory the chosen `typescript` resolves from (decision D4). */
   typescriptFrom: string;
+  /** Build the Program from these files and their imports only (T12); absent means every file the tsconfigs name. */
+  rootFiles?: string[];
 };
 
 export function engineArgs(config: EngineConfig): AnalyzerArgs {
-  return parseArgs([
+  const args = parseArgs([
     "--root", config.root,
     "--source", config.source,
     ...(config.tsconfig ? ["--tsconfig", config.tsconfig] : []),
     "--typescript-from", config.typescriptFrom,
     "--format", "json",
   ]);
+  if (config.rootFiles?.length) args.rootFiles = config.rootFiles;
+  return args;
 }
 
 export type Generation = { id: number; programHash: string; tsconfig: string; typescript: string };
