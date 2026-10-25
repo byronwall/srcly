@@ -35,6 +35,7 @@ Start with `docs/CODE_MAP.md`: a feature → file index for the backend, API, an
 - Every result carries `generation` and `programHash`. A query with an older `expectedGeneration` is `stale`, a named outcome; never mix generations.
 - Not analyzed is never 0: show the outcome or reason by name.
 - Python roots: `engine/python/srcly_pyfacts.py` (stdlib `ast` + mypy, run with srcly's own interpreter) emits facts in the collector's raw shape; roles and boundaries come from the element kind, so new Python recognition goes in the helper's tables, never in `engine/src/analysis`. Its tests need an interpreter with mypy (`SRCLY_PYTHON`, else `server/.venv` after `cd server && uv sync`). Decision: `docs/intent/python-dataflow/decision.md`.
+- Coverage survey: `engine/scripts/survey-blockers.ts` traces about 120 exports of one repo both ways and writes every outcome and stop as JSON; `engine/scripts/survey-report.ts <dir>` ranks the stops by how many traces each cuts short. Run one repo per process, one at a time, under `node --max-old-space-size=4096`: a big repo's Program takes 2–3 GB.
 - Never edit `engine/src/analysis` to recognise srcly-specific code. The only planned analysis edits are M5's four invocation-identity changes, each with a negative fixture.
 
 ## Client Package Management
