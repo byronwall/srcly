@@ -255,6 +255,12 @@ export function DependencyCanvas(props: {
    */
   linkCounts?: boolean | "flow";
   /**
+   * Titles over the left (`in`) and right (`out`) regions, so the sides say
+   * what they hold (Data flow's anchor mode: where a value comes from and
+   * where it goes). A side with no boxes gets no title.
+   */
+  regionTitles?: { in: string; out: string };
+  /**
    * Boxes and edges to keep lit while nothing is hovered (Data flow mode's
    * selected origin and its proven destinations, or a selected box's reach).
    */
@@ -313,6 +319,22 @@ export function DependencyCanvas(props: {
     onOpen: (node) => props.onOpen(node),
   });
   onCleanup(() => clickIntent.cancel());
+
+  /** Each side's title, above its boxes and frames: the left one at its left edge, the right one at its right edge. */
+  const regionTitles = createMemo(() => {
+    const titles = props.regionTitles;
+    if (!titles) return [];
+    const nodes = props.layout.nodes;
+    if (!nodes.length) return [];
+    const top = Math.min(...nodes.map((n) => n.y), ...(props.layout.frames ?? []).map((f) => f.y)) - 10;
+    const side = (region: "in" | "out") => nodes.filter((n) => n.node.region === region);
+    const out: { text: string; x: number; y: number; anchor: "start" | "end" }[] = [];
+    const left = side("in");
+    if (left.length) out.push({ text: titles.in, x: Math.min(...left.map((n) => n.x)), y: top, anchor: "start" });
+    const right = side("out");
+    if (right.length) out.push({ text: titles.out, x: Math.max(...right.map((n) => n.x + n.width)), y: top, anchor: "end" });
+    return out;
+  });
 
   const zoom = d3
     .zoom<SVGSVGElement, unknown>()
@@ -855,6 +877,23 @@ export function DependencyCanvas(props: {
             {(g) => (
               <text x={g.x} y={g.y} font-size={`${12 * ink()}`} class="fill-[var(--plc-on-muted)] font-semibold">
                 {g.label}
+              </text>
+            )}
+          </For>
+          <For each={regionTitles()}>
+            {(t) => (
+              <text
+                x={t.x}
+                y={t.y}
+                text-anchor={t.anchor}
+                font-size={`${12 * ink()}`}
+                paint-order="stroke"
+                stroke="var(--plc-surface-subtle)"
+                stroke-width={4 * ink()}
+                stroke-linejoin="round"
+                class="fill-[var(--plc-on-muted)] font-semibold"
+              >
+                {t.text}
               </text>
             )}
           </For>

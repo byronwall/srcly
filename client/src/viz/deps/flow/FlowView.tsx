@@ -425,7 +425,7 @@ export default function FlowView(props: {
     const parts = [n.label];
     if (r.mode !== "down") parts.push(r.counts.up ? `reached from ${box(r.counts.up)}` : "nothing proven reaches it");
     if (r.mode !== "up") parts.push(r.counts.down ? `reaches ${box(r.counts.down)}` : "reaches nothing proven");
-    if (r.counts.frontier) parts.push(`${r.counts.frontier} stop${r.counts.frontier === 1 ? "s" : ""} at a frontier`);
+    if (r.counts.frontier) parts.push(`stops at ${r.counts.frontier} frontier${r.counts.frontier === 1 ? "" : "s"}`);
     return parts.join(" · ");
   };
 
@@ -468,6 +468,9 @@ export default function FlowView(props: {
     }
     if (anchorKey()) {
       const a = anchorGraph();
+      // A partial trace says how many places it stops; the rail lists them.
+      const stops = a?.graph && a.outcome === "partial" ? a.graph.counts.frontiers + a.graph.counts.boundaries : 0;
+      if (stops) return `Partial: the trace stops at ${stops} place${stops === 1 ? "" : "s"} (listed in the inspector)`;
       return a ? labelFor(a.outcome, a.reason, a.message ?? a.graph?.reason ?? undefined) : null;
     }
     const g = graph();
@@ -491,8 +494,8 @@ export default function FlowView(props: {
         return `${graphs.length} anchors · ${many.shared.size} shared box${many.shared.size === 1 ? "" : "es"} · ${m.vm.nodes.length} boxes${failed ? ` · ${failed} not traced` : ""} · generation ${a.generation}`;
       }
       const c = a.counts;
-      const stops = [c.boundaries ? `${c.boundaries} boundar${c.boundaries === 1 ? "y" : "ies"}` : "", c.frontiers ? `${c.frontiers} frontier${c.frontiers === 1 ? "" : "s"}` : ""].filter(Boolean);
-      return `${c.up} upstream · ${c.down} downstream · ${c.origins} origin${c.origins === 1 ? "" : "s"} · ${c.terminals} terminal${c.terminals === 1 ? "" : "s"} · ${c.scopes} function${c.scopes === 1 ? "" : "s"}${stops.length ? ` · ${stops.join(" · ")}` : ""} · generation ${a.generation}`;
+      const folded = m.vm.rolledUp ? ` · ${m.vm.rolledUp} repeated reference${m.vm.rolledUp === 1 ? "" : "s"} folded` : "";
+      return `${c.up} upstream · ${c.down} downstream · ${c.scopes} function${c.scopes === 1 ? "" : "s"}${folded}`;
     }
     const g = drawnGraph();
     if (!m || !g) return "";
@@ -658,6 +661,7 @@ export default function FlowView(props: {
                 ref={(api) => (canvas = api)}
                 cameraForLayout={cameraForLayout}
                 linkCounts="flow"
+                {...(anchorKey() ? { regionTitles: { in: "← Where it comes from", out: "Where it goes →" } } : {})}
               />
               <FlowLegend />
             </>

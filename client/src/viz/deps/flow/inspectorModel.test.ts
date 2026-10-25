@@ -84,6 +84,19 @@ describe("anchor overview and details", () => {
     expect(o.coverage.budget.limit).toBeGreaterThan(0);
   });
 
+  it("lists where the trace stops, grouped by reason in plain words, the most common first", () => {
+    expect(anchorOverview(anchorGraph).stops).toEqual([]);
+    const at = anchorGraph.nodes.find((n) => n.kind === "anchor")!;
+    const stop = (id: string, label: string, reason: string) => ({ ...at, id, kind: "frontier" as const, label, reason, line: 9 });
+    const o = anchorOverview({ ...anchorGraph, nodes: [...anchorGraph.nodes, stop("f1", "size", "unbound-read"), stop("f2", "label", "unbound-read"), stop("f3", "Math.max", "external-code")] });
+    expect(o.stops.map((g) => [g.word, g.rows.map((r) => r.label)])).toEqual([
+      ["binding not traced", ["size", "label"]],
+      ["external code", ["Math.max"]],
+    ]);
+    expect(o.stops[0].hint).toMatch(/not traced/);
+    expect(o.stops[0].rows[0]).toMatchObject({ id: "f1", line: 9 });
+  });
+
   it("details an anchor graph's box with the engine's kind words and its flows", () => {
     const anchor = anchorGraph.nodes.find((n) => n.kind === "anchor")!;
     const d = nodeDetails(am, anchor.id)!;

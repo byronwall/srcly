@@ -93,7 +93,20 @@ export const REPETITION_BADGE: Record<"conditional" | "collection", { glyph: str
   collection: { glyph: "∗", title: "Rendered per item", hint: "Inside a For or a map: once for each item of a collection." },
 };
 
+/** Why a trace stops at a frontier, by the engine's reason: a short word for the box and a sentence for the rail. */
+export const STOP_REASONS: Record<string, { word: string; hint: string }> = {
+  "unbound-read": { word: "binding not traced", hint: "No caller's value is linked to this read, so where it comes from is not traced." },
+  disconnected: { word: "dead end", hint: "Nothing the engine indexed continues from here." },
+  "external-code": { word: "external code", hint: "The value goes into code outside the project: a library or a built-in." },
+  "budget-exhausted": { word: "walk limit", hint: "The walk stopped at its size limit; more may follow." },
+  "no-evidence-element": { word: "no evidence", hint: "The engine recorded nothing at this expression." },
+};
+
+/** The stop's short word, or the reason itself when it is not one srcly words. */
+export const stopWord = (reason: string | null | undefined): string => (reason ? STOP_REASONS[reason]?.word ?? reason : "stops here");
+
 const DETAIL_WORDS: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(STOP_REASONS).map(([reason, stop]) => [reason, stop.word])),
   "jsx-text": "JSX text",
   "dom-attribute": "DOM attribute",
   "render-expression": "render expression",

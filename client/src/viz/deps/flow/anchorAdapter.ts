@@ -5,7 +5,7 @@
 import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
 import type { ViewEdge, ViewNode } from "../viewModel";
 import type { FlowViewModel } from "./adapter";
-import { humanizeDetail, MARK_OF_ANCHOR_KIND, markColor } from "./marks";
+import { humanizeDetail, MARK_OF_ANCHOR_KIND, markColor, stopWord } from "./marks";
 
 export type AnchorNode = AnchorGraphResult["nodes"][number];
 export type AnchorEdge = AnchorGraphResult["edges"][number];
@@ -48,10 +48,15 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult): FlowViewModel 
       ...(n.kind === "frontier" ? { outline: "hatched" as const } : n.kind === "boundary" ? { outline: "dotted" as const } : {}),
     };
   });
-  const ids = new Set(nodes.map((n) => n.id));
+  const passThrough = passThroughs(graph);
+  const drawnNodes = nodes.filter((n) => !passThrough.has(n.id));
+  const ids = new Set(drawnNodes.map((n) => n.id));
   const seen = new Set<string>();
   const edges: ViewEdge[] = [];
-  for (const e of graph.edges) {
+  for (const raw of graph.edges) {
+    // An edge out of a folded reference leaves from the value it repeats; the reference link itself goes.
+    if (passThrough.get(raw.target) === raw.source) continue;
+    const e = { ...raw, source: passThrough.get(raw.source) ?? raw.source };
     if (!ids.has(e.source) || !ids.has(e.target) || e.source === e.target) continue;
     const key = `${e.source}|${e.target}`;
     if (seen.has(key)) continue;
@@ -72,20 +77,49 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult): FlowViewModel 
     });
   }
   return {
-    vm: { focusId: anchor.id, focusKind: "symbol", focusLabel: graph.anchor.text, breadcrumbs: [], nodes, edges, rolledUp: 0 },
+    vm: { focusId: anchor.id, focusKind: "symbol", focusLabel: graph.anchor.text, breadcrumbs: [], nodes: drawnNodes, edges, rolledUp: passThrough.size },
     hidden: new Set(),
     notFlow: new Set(),
     byId,
-    shownAs: new Map(boxes.map((n) => [n.id, n.id])),
+    shownAs: new Map(boxes.map((n) => [n.id, passThrough.get(n.id) ?? n.id])),
     lit: null,
   };
 }
 
+/**
+ * References that only repeat a value: a box named like the one value that
+ * reaches it over a `references` link (each `props` where `props.x` is
+ * read, each `toc` where `toc.y` is). Drawn, they stack a column of
+ * identical boxes; folded, their edges leave from the value itself. Maps
+ * each folded box to the box it repeats.
+ */
+function passThroughs(graph: AnchorGraphResult): Map<string, string> {
+  const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+  const into = new Map<string, AnchorEdge[]>();
+  for (const e of graph.edges) (into.get(e.target) ?? into.set(e.target, []).get(e.target)!).push(e);
+  const out = new Map<string, string>();
+  for (const n of graph.nodes) {
+    if (n.kind !== "value" || n.elementKind !== "value") continue;
+    const incoming = into.get(n.id) ?? [];
+    const source = incoming.length === 1 && incoming[0].kind === "references" ? byId.get(incoming[0].source) : undefined;
+    if (source && source.kind !== "scope" && source.label === n.label && source.side === n.side) out.set(n.id, source.id);
+  }
+  // A reference of a folded reference repeats the first value.
+  for (const [id, source] of out) {
+    let to = source;
+    while (out.has(to)) to = out.get(to)!;
+    out.set(id, to);
+  }
+  return out;
+}
+
 function noteFor(n: AnchorNode): string | undefined {
+  // A frontier's hatched box already says it is a stop; the note says why, in a word.
+  if (n.kind === "frontier") return stopWord(n.reason);
   const parts: string[] = [];
   if (n.status !== "proven") parts.push(n.status);
   if (n.reason) parts.push(n.reason);
-  if (n.typeText && n.kind !== "frontier") parts.push(n.typeText);
+  if (n.typeText) parts.push(n.typeText);
   return parts.length ? parts.join(" · ") : undefined;
 }
 

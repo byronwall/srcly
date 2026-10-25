@@ -27,7 +27,21 @@ describe("anchor graph → ViewModel", () => {
     expect(slots.every((n) => n.region === "out")).toBe(true);
     // Scopes are frames, never boxes.
     expect(m.vm.nodes.some((n) => n.label === "ViewerCard" && !n.group)).toBe(false);
-    expect(m.vm.nodes.length).toBe(graph.nodes.filter((n) => n.kind !== "scope").length);
+    // Every box but the one `props` reference that only repeats the parameter.
+    expect(m.vm.nodes.length).toBe(graph.nodes.filter((n) => n.kind !== "scope").length - 1);
+  });
+
+  it("folds a reference that only repeats a value into that value, so its edges leave from the value", () => {
+    const refs = graph.nodes.filter((n) => n.kind === "value" && n.elementKind === "value" && n.label === "props");
+    expect(refs).toHaveLength(1);
+    const [ref] = refs;
+    const param = graph.edges.find((e) => e.target === ref.id && e.kind === "references")!.source;
+    expect(m.vm.nodes.some((n) => n.id === ref.id)).toBe(false);
+    expect(m.shownAs.get(ref.id)).toBe(param);
+    expect(m.vm.rolledUp).toBe(1);
+    // `props.viewer` is read from the parameter itself now.
+    const read = graph.edges.find((e) => e.source === ref.id && e.kind === "field-input")!;
+    expect(m.vm.edges.some((e) => e.source === param && e.target === read.target && e.relation === "field-input")).toBe(true);
   });
 
   it("frames every box by the function that owns it, with the file in the frame's name", () => {
@@ -37,7 +51,8 @@ describe("anchor graph → ViewModel", () => {
   });
 
   it("keeps the engine's relation kind, status, proof and field label on each edge, dashing calls and props", () => {
-    expect(m.vm.edges.length).toBe(graph.edges.length);
+    // Less the folded reference's own link.
+    expect(m.vm.edges.length).toBe(graph.edges.length - 1);
     const field = m.vm.edges.find((e) => e.label);
     expect(field).toMatchObject({ relation: "field-input", status: "proven" });
     expect(field!.proof!.length).toBe(1);
