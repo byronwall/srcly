@@ -3,7 +3,7 @@
 // UI here, so the rail's wording is testable against the fixture.
 import type { AnchorGraphResult, RouteGraphResult } from "../../../dataflow/contract.generated";
 import type { FlowBox, FlowViewModel } from "./adapter";
-import { humanizeDetail, MARK_OF_ANCHOR_KIND, MARK_OF_KIND, type FlowMark } from "./marks";
+import { humanizeDetail, MARK_OF_ANCHOR_KIND, MARK_OF_KIND, STOP_REASONS, stopWord, type FlowMark } from "./marks";
 
 export type EdgeKindWord = "renders" | "rendered by" | "handoff" | "field" | "structural";
 
@@ -70,6 +70,8 @@ export interface AnchorOverview {
   origins: { id: string; label: string; roles: string; status: AnchorGraphResult["origins"][number]["status"] }[];
   terminals: { id: string; label: string; roles: string; status: AnchorGraphResult["terminals"][number]["status"] }[];
   coverage: AnchorGraphResult["coverage"];
+  /** Where the trace stops, grouped by why, the most common reason first. */
+  stops: { reason: string; word: string; hint: string; rows: { id: string; label: string; file: string; line: number }[] }[];
 }
 
 /** What the rail says about an anchor graph when nothing is selected. */
@@ -89,7 +91,20 @@ export function anchorOverview(graph: AnchorGraphResult): AnchorOverview {
     origins: graph.origins.map((o) => ({ id: o.nodeId, label: o.label, roles: humanizeDetail(o.roles.join(" · ")) ?? "", status: o.status })),
     terminals: graph.terminals.map((t) => ({ id: t.nodeId, label: t.label, roles: humanizeDetail(t.roles.join(" · ")) ?? "", status: t.status })),
     coverage: graph.coverage,
+    stops: stopsOf(graph),
   };
+}
+
+function stopsOf(graph: AnchorGraphResult): AnchorOverview["stops"] {
+  const groups = new Map<string, AnchorOverview["stops"][number]>();
+  for (const n of graph.nodes) {
+    if (n.kind !== "frontier") continue;
+    const reason = n.reason ?? "frontier";
+    const group = groups.get(reason) ?? { reason, word: stopWord(n.reason), hint: STOP_REASONS[reason]?.hint ?? n.note ?? "", rows: [] };
+    group.rows.push({ id: n.id, label: n.label, file: n.file, line: n.line });
+    groups.set(reason, group);
+  }
+  return [...groups.values()].sort((a, b) => b.rows.length - a.rows.length || a.word.localeCompare(b.word));
 }
 
 export function routeOverview(graph: RouteGraphResult, m: FlowViewModel, absRoot?: string): RouteOverview {

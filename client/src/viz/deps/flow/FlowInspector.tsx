@@ -8,7 +8,7 @@ import { IconButton } from "../../../components/ui/IconButton";
 import type { FlowBox, FlowViewModel } from "./adapter";
 import { FlowMarkGlyph } from "./FlowMark";
 import { anchorOverview, nodeDetails, routeOverview, STATUS_WORD, type AnchorOverview, type NeighborRow } from "./inspectorModel";
-import { FLOW_MARKS, REPETITION_BADGE, type FlowMark } from "./marks";
+import { FLOW_MARKS, REPETITION_BADGE, STOP_REASONS, type FlowMark } from "./marks";
 import type { Reach } from "./reach";
 import { createEffectsQuery, EffectsPanel } from "../../../dataflow/EffectsPanel";
 
@@ -48,6 +48,8 @@ function Where(props: { file: string; line: number; onOpen: () => void }) {
     </button>
   );
 }
+
+const baseName = (file: string) => file.slice(file.lastIndexOf("/") + 1);
 
 function NeighborList(props: { title: string; rows: NeighborRow[]; onSelect: (id: string) => void }) {
   return (
@@ -172,7 +174,8 @@ export function FlowInspector(props: {
               <Show when={d().detail}>{(t) => <div class="pl-5 text-[11px] text-[var(--plc-on-muted)]">{t()}</div>}</Show>
               <Show when={typeText(d().node)}>{(t) => <div class="plc-data-sm pl-5 !font-normal text-[var(--plc-on-muted)]" title="The checked type (TypeScript, or mypy for Python)">{t()}</div>}</Show>
               <Show when={noteOf(d().node)}>{(t) => <div class="pl-5 text-[11px] text-[var(--plc-on-muted)]">{t()}</div>}</Show>
-              <Show when={d().node.reason}>{(r) => <div class="pl-5 text-[11px] text-[var(--plc-warning)]">{r()}</div>}</Show>
+              {/* A stop srcly words is already said by its detail line; any other reason shows as the engine names it. */}
+              <Show when={d().node.reason && !STOP_REASONS[d().node.reason!] ? d().node.reason : null}>{(r) => <div class="pl-5 text-[11px] text-[var(--plc-warning)]">{r()}</div>}</Show>
               <Where file={d().node.file} line={d().node.line} onOpen={() => props.onOpen(d().node.absPath, d().node.line)} />
               <Show when={props.onAddAnchor}>
                 <div class="pl-5 pt-1">
@@ -373,6 +376,7 @@ const DIRECTION_WORD: Record<AnchorOverview["direction"], string> = { forward: "
 function AnchorOverviewView(props: { o: AnchorOverview; onOpen: (absPath: string, line: number) => void; onSelect: (id: string | null) => void }) {
   const o = () => props.o;
   const status = () => (o().outcome === "ok" ? "proven" : o().outcome === "unsupported" ? "unsupported" : "partial") as "proven" | "partial" | "unsupported";
+  const stopCount = () => o().stops.reduce((sum, group) => sum + group.rows.length, 0);
   const list = (title: string, rows: AnchorOverview["origins"], mark: "origin" | "terminal") => (
     <Show when={rows.length}>
       <h4 class={H}>
@@ -407,7 +411,11 @@ function AnchorOverviewView(props: { o: AnchorOverview; onOpen: (absPath: string
       <div class="flex flex-wrap items-baseline gap-x-2 pl-5 text-[11px]">
         <span class="text-[var(--plc-on-muted)]">{o().kind}</span>
         <span class={`font-semibold ${STATUS_CLASS[status()]}`}>{o().outcome}</span>
-        <span class="text-[var(--plc-on-muted)]">generation {o().generation}</span>
+        <Show when={stopCount()}>
+          <span class="text-[var(--plc-on-muted)]">
+            stops at {stopCount()} place{stopCount() === 1 ? "" : "s"}
+          </span>
+        </Show>
       </div>
       <Show when={o().typeText}>{(t) => <div class="plc-data-sm pl-5 !font-normal text-[var(--plc-on-muted)]" title="The checked type (TypeScript, or mypy for Python)">{t()}</div>}</Show>
       <div class="pl-5 text-[11px] text-[var(--plc-on-muted)]">Traced {DIRECTION_WORD[o().direction]}</div>
@@ -427,12 +435,43 @@ function AnchorOverviewView(props: { o: AnchorOverview; onOpen: (absPath: string
           <Stat label="Frontiers" value={o().counts.frontiers} title="Gaps the engine reported" />
         </Show>
       </div>
+      <Show when={o().stops.length}>
+        <h4 class={H}>
+          Where the trace stops <span class="font-normal normal-case tracking-normal text-[var(--plc-on-subtle)]">· click selects</span>
+        </h4>
+        <For each={o().stops}>
+          {(group) => (
+            <div class="pb-1">
+              <div class="flex items-baseline gap-1.5 px-1 text-[11px]">
+                <span class="font-semibold text-[var(--plc-warning)]">{group.word}</span>
+                <span class="tabular-nums text-[var(--plc-on-subtle)]">{group.rows.length}</span>
+              </div>
+              <div class="px-1 text-[11px] text-[var(--plc-on-muted)]">{group.hint}</div>
+              <ul>
+                <For each={group.rows}>
+                  {(r) => (
+                    <li>
+                      <button type="button" class={ROW} onClick={() => props.onSelect(r.id)} title={`Select ${r.label}`}>
+                        <Mark mark="frontier" />
+                        <span class="plc-data-sm min-w-0 truncate !font-normal text-[var(--plc-on-surface)]">{r.label}</span>
+                        <span class="ml-auto shrink-0 text-[10.5px] tabular-nums text-[var(--plc-on-subtle)]">
+                          {baseName(r.file)}:{r.line}
+                        </span>
+                      </button>
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </div>
+          )}
+        </For>
+      </Show>
       {list("Origins", o().origins, "origin")}
       {list("Terminals", o().terminals, "terminal")}
       <h4 class={H}>Evidence</h4>
-      <div class="text-[11px] text-[var(--plc-on-muted)]">
-        {o().coverage.elements} elements · {o().coverage.relations} relations · budget {o().coverage.budget.used} of {o().coverage.budget.limit}
-        {o().coverage.budget.exhausted ? " · exhausted" : ""}
+      <div class="text-[11px] text-[var(--plc-on-muted)]" title={`Relation budget ${o().coverage.budget.used} of ${o().coverage.budget.limit}`}>
+        Walked {o().coverage.elements} elements and {o().coverage.relations} relations
+        {o().coverage.budget.exhausted ? " · stopped at a size limit, so more may follow" : ""}
       </div>
     </>
   );
