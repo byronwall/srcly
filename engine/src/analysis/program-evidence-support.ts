@@ -303,27 +303,45 @@ export function unwrap(ts: typeof TypeScript, node: TypeScript.Expression): Type
   return node;
 }
 
-export function compilerSymbolId(ts: typeof TypeScript, checker: TypeScript.TypeChecker, root: string, node: TypeScript.Node) {
-  let symbol: TypeScript.Symbol | undefined;
+/** The checker's symbol at a node, or null where the checker throws; `undefined` where it has none. */
+export function symbolAtNode(checker: TypeScript.TypeChecker, node: TypeScript.Node): TypeScript.Symbol | null | undefined {
   try {
-    symbol = checker.getSymbolAtLocation(node);
+    return checker.getSymbolAtLocation(node);
+  } catch {
+    return null;
+  }
+}
+
+// A symbol's id is a function of the symbol alone (its qualified name and
+// its first in-root declaration), so each symbol is named once per root.
+const symbolIdsByRoot = new Map<string, WeakMap<TypeScript.Symbol, string>>();
+
+export function compilerSymbolId(ts: typeof TypeScript, checker: TypeScript.TypeChecker, root: string, node: TypeScript.Node, resolved?: TypeScript.Symbol | null) {
+  let symbol = resolved === undefined ? symbolAtNode(checker, node) : resolved;
+  if (symbol === null) return null;
+  try {
     if (symbol?.flags && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
   } catch {
     return null;
   }
   if (!symbol) return null;
+  let ids = symbolIdsByRoot.get(root);
+  if (!ids) {
+    ids = new WeakMap();
+    symbolIdsByRoot.set(root, ids);
+  }
+  const known = ids.get(symbol);
+  if (known !== undefined) return known;
   const declaration = symbol.declarations?.find((item) => inside(root, item.getSourceFile().fileName));
   const suffix = declaration ? `@${relative(root, declaration.getSourceFile().fileName)}:${declaration.getStart(declaration.getSourceFile())}` : "";
-  return `${checker.getFullyQualifiedName(symbol)}${suffix}`;
+  const id = `${checker.getFullyQualifiedName(symbol)}${suffix}`;
+  ids.set(symbol, id);
+  return id;
 }
 
-export function importModule(ts: typeof TypeScript, checker: TypeScript.TypeChecker, node: TypeScript.Node) {
-  let symbol: TypeScript.Symbol | undefined;
-  try {
-    symbol = checker.getSymbolAtLocation(node);
-  } catch {
-    return null;
-  }
+export function importModule(ts: typeof TypeScript, checker: TypeScript.TypeChecker, node: TypeScript.Node, resolved?: TypeScript.Symbol | null) {
+  const symbol = resolved === undefined ? symbolAtNode(checker, node) : resolved;
+  if (symbol === null) return null;
   let current: TypeScript.Node | undefined;
   for (const declaration of symbol?.declarations ?? []) {
     current = declaration;
@@ -340,12 +358,27 @@ export function typeId(checker: TypeScript.TypeChecker, node: TypeScript.Node) {
   return text === "unknown" ? null : text;
 }
 
+// A node's type text is a function of the node within its checker, and the
+// declarations pass asks for every parameter's (isHandlerLike) while later
+// passes and hydration ask again: remembered per checker (T10).
+const typeTextByChecker = new WeakMap<TypeScript.TypeChecker, WeakMap<TypeScript.Node, string>>();
+
 export function safeType(checker: TypeScript.TypeChecker, node: TypeScript.Node) {
-  try {
-    return checker.typeToString(checker.getTypeAtLocation(node), node, TypeScript.TypeFormatFlags.NoTruncation);
-  } catch {
-    return "unknown";
+  let byNode = typeTextByChecker.get(checker);
+  if (!byNode) {
+    byNode = new WeakMap();
+    typeTextByChecker.set(checker, byNode);
   }
+  const known = byNode.get(node);
+  if (known !== undefined) return known;
+  let text: string;
+  try {
+    text = checker.typeToString(checker.getTypeAtLocation(node), node, TypeScript.TypeFormatFlags.NoTruncation);
+  } catch {
+    text = "unknown";
+  }
+  byNode.set(node, text);
+  return text;
 }
 
 export function locationFor(
@@ -373,13 +406,35 @@ export function nodeKey(root: string, node: TypeScript.Node) {
   return `${location.file}:${location.span.startLine}:${location.span.startColumn}:${location.span.endLine}:${location.span.endColumn}`;
 }
 
+// Every element location, symbol id and identity point asks for a file's
+// path relative to the root; the answer never changes within a process, so
+// one map per root remembers it (T10: this was 4.4 s of fact collection on a
+// 65K-line app).
+const relativeByRoot = new Map<string, Map<string, string>>();
+const insideByRoot = new Map<string, Map<string, boolean>>();
+
+function cached<T>(store: Map<string, Map<string, T>>, root: string, file: string, compute: () => T): T {
+  let byFile = store.get(root);
+  if (!byFile) {
+    byFile = new Map();
+    store.set(root, byFile);
+  }
+  const known = byFile.get(file);
+  if (known !== undefined) return known;
+  const value = compute();
+  byFile.set(file, value);
+  return value;
+}
+
 export function relative(root: string, file: string) {
-  return path.relative(root, path.resolve(file)).replaceAll(path.sep, "/");
+  return cached(relativeByRoot, root, file, () => path.relative(root, path.resolve(file)).replaceAll(path.sep, "/"));
 }
 
 export function inside(root: string, file: string) {
-  const value = path.relative(root, path.resolve(file));
-  return value === "" || !value.startsWith(`..${path.sep}`) && value !== "..";
+  return cached(insideByRoot, root, file, () => {
+    const value = path.relative(root, path.resolve(file));
+    return value === "" || !value.startsWith(`..${path.sep}`) && value !== "..";
+  });
 }
 
 export function proof(kind: ProgramProofKind, detail: string, locations: ProgramEvidenceLocation[]): ProgramProof {

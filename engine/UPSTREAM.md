@@ -31,6 +31,18 @@
 - `scripts/accept-route-field-proof.ts` reads the selected evidence from the narrowed local, so `tsc` passes now that `scripts/` is typechecked.
 - `src/analysis/route-data-totality.ts`: `observeRouteTotalityPhases` lets `scripts/time-phases.ts` time each phase of a route's build (candidate, surface, context, slice, bridges, lineage). A listener only; no result changes. Backportable as is.
 
+### Performance edits (T10, 2026-10-24)
+
+Each keeps every result byte-identical: checked on the solid-route, srcly `client/` and visual-notes route graphs, anchor graphs and ledgers (`scripts/_dump` diff), the four examples' fixtures and the full suite including the compact-field-proof obligations G01–G20.
+
+| Edit | Files | Fixture / check | Backportable |
+| --- | --- | --- | --- |
+| `relative()` / `inside()` remembered per root and file (they were 4.4 s of fact collection on visual-notes: `path.resolve` + `path.relative` for every element location) | `src/analysis/program-evidence-support.ts`, `src/analysis/identity.ts` | byte-identity dumps; full suite | yes |
+| `compilerSymbolId` remembered per symbol (`getFullyQualifiedName` was 2.1 s) and takes a resolved symbol; `symbolAtNode` | `src/analysis/program-evidence-support.ts` | same | yes |
+| The collector resolves each node's symbol once for `symbolId` and `moduleFor` | `src/analysis/program-evidence-collector-support.ts` | same | yes |
+| The HTTP-bridge pass hydrates facts without type text (`hydrateProgramFact(…, { typeText: false })`): it reads ids, kinds and attributes only; type text was 3.8 s | `src/analysis/program-evidence-collector-support.ts`, `src/analysis/program-evidence-hydration.ts` | same; `http-bridge-evidence.ts` reads `element.id`, `kind`, `attributes` | yes |
+| `safeType` remembered per checker and node (`isHandlerLike` asked for every parameter's type text) | `src/analysis/program-evidence-support.ts` | same | yes |
+
 Recognition rules for srcly's own code never go under `src/analysis`; see srcly's `AGENTS.md`. Every analysis edit is listed above with what it changes, so it can be ported back.
 
 ## Left behind

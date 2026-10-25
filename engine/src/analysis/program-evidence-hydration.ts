@@ -28,6 +28,8 @@ export type ProgramEvidenceHydrationContext = {
 export function hydrateProgramFact(
   context: ProgramEvidenceHydrationContext,
   fact: CompactProgramFact,
+  /** `typeText: false` skips the checker's type text: for a pass that reads only ids, kinds and attributes (the HTTP bridges). */
+  options: { typeText?: boolean } = {},
 ): ProgramElement {
   const node = findFactNode(context.ts, context.filesByRelativeName, fact);
   const location = expandLocation(fact.location);
@@ -41,7 +43,7 @@ export function hydrateProgramFact(
     expression,
     location,
     symbolId: fact.symbolId,
-    typeId: node ? typeId(context.checker, node) : null,
+    typeId: node && options.typeText !== false ? typeId(context.checker, node) : null,
     module: fact.module,
     definitionId: fact.definitionId,
     ownerId: fact.ownerId,
