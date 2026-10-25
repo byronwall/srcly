@@ -335,6 +335,7 @@ function buildRouteTotalityRecord(
   const omissions = [
     ...route.omissions,
     ...(isUnavailable(occurrenceSurface) ? [occurrenceSurface.reason] : occurrenceSurface.omissions.map((omission) => omission.label)),
+    ...sliceOmissions(evidenceSlice),
   ];
   const counts = countsFor(occurrenceSurface, evidenceSlice);
   const status = isUnavailable(occurrenceSurface) || isUnavailable(evidenceSlice)
@@ -456,6 +457,20 @@ function surfaceGaps(surface: RouteOccurrenceSurface | RouteTotalityUnavailable)
 function sliceGaps(slice: EvidenceSlice | RouteTotalityUnavailable): RouteTotalityGap[] {
   if (isUnavailable(slice)) return [unavailableGap("evidence-slice", slice.reason)];
   return slice.gaps.map((gap) => evidenceGap(gap));
+}
+
+/**
+ * A slice that stopped at one of its limits is one named omission, listing
+ * the limits it hit, the way anchor mode folds its element limit into one
+ * frontier. Without it a route past its budget would be an invalid totality
+ * rather than a partial one.
+ */
+function sliceOmissions(slice: EvidenceSlice | RouteTotalityUnavailable): string[] {
+  if (isUnavailable(slice)) return [];
+  const limits = Object.entries(slice.coverage.truncation).filter(([, hit]) => hit).map(([limit]) => limit);
+  if (slice.coverage.budgetExhausted && !limits.includes("budget")) limits.unshift("budget");
+  if (limits.length === 0) return [];
+  return [`budget-exhausted: the evidence slice stopped at its ${limits.join(", ")} limit${limits.length > 1 ? "s" : ""}.`];
 }
 
 function contextGaps(context: RouteContextContinuity): RouteTotalityGap[] {
