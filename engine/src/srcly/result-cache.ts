@@ -20,7 +20,7 @@ import { hashProgramInputs, type ProgramInputs } from "./fingerprint";
 export const CACHE_DIR_ENV = "SRCLY_DATAFLOW_CACHE_DIR";
 export const CACHE_SWITCH_ENV = "SRCLY_DATAFLOW_CACHE";
 /** Ops whose results are cached: each is a function of the Program alone. */
-export const CACHED_OPS = new Set(["routes", "routeSurface", "routeGraph", "anchorGraph", "valueFlow", "selectExpression", "functionEffects", "routePath"]);
+export const CACHED_OPS = new Set(["routes", "routeSurface", "routeGraph", "anchorGraph", "valueFlow", "selectExpression", "functionEffects", "routePath", "fileExports"]);
 /** Program hashes kept per root; older ones are removed. */
 const KEEP_HASHES = 2;
 /** A single result bigger than this is not written. */

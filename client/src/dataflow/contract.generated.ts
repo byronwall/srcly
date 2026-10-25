@@ -453,6 +453,41 @@ export type FunctionEffectsResult = {
   assumptions: string[];
 };
 
+/** Result of the `fileExports` op. */
+export type FileExportsResult = {
+  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  generation: number;
+  programHash: string;
+  tsconfig: string;
+  typescript: string;
+  reason: string | null;
+  target: {
+    path: string;
+    absPath: string;
+    kind: "file" | "folder";
+  };
+  files: {
+    file: string;
+    absPath: string;
+    exports: {
+      id: string;
+      name: string;
+      kind: "function" | "class" | "variable" | "component" | "enum" | "type" | "interface" | "namespace" | "other";
+      file: string;
+      absPath: string;
+      line: number;
+      column: number;
+      traceable: boolean;
+      reexported: boolean;
+    }[];
+  }[];
+  counts: {
+    files: number;
+    exports: number;
+    traceable: number;
+  };
+};
+
 /** Result of the `routePath` op. */
 export type RoutePathResult = {
   outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";

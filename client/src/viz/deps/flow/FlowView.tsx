@@ -3,7 +3,8 @@ import { ChevronDown, Crosshair, PanelRight, Redo2, RefreshCw, Undo2 } from "luc
 import { EmptyState, ErrorState } from "../../../components/feedback/States";
 import { Button } from "../../../components/ui/Button";
 import { IconButton } from "../../../components/ui/IconButton";
-import { fetchAnchorGraph, fetchRouteGraph, fetchRoutePath, fetchRouteSurface, fetchRoutes } from "../../../dataflow/api";
+import { fetchAnchorGraph, fetchFileExports, fetchRouteGraph, fetchRoutePath, fetchRouteSurface, fetchRoutes } from "../../../dataflow/api";
+import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
 import { availabilityFor, ensureStarted, refresh as refreshEngine, statusFor, watchProgress, watchStaleness } from "../../../dataflow/availability";
 import { labelFor, reasonText } from "../../../dataflow/outcome";
 import { atFromTreePath, parseAnchor, type Direction } from "../../../navigation/location";
@@ -16,6 +17,7 @@ import type { ViewLayout } from "../layout";
 import type { ViewNode } from "../viewModel";
 import { routeGraphToViewModel } from "./adapter";
 import { anchorGraphToViewModel } from "./anchorAdapter";
+import { exportsToViewModel } from "./exportsAdapter";
 import { FlowInspector } from "./FlowInspector";
 import { FlowLegend } from "./FlowLegend";
 import { DirectionSwitch, FlowModeSwitch, ReachModeSwitch, RecentFlowMenu } from "./FlowTools";
@@ -110,14 +112,50 @@ export default function FlowView(props: {
   const graphKey = createMemo(
     () => (availability() === "ready" && routeKey() && !anchorKey() && surfaceSettled() ? `${root()}\n${routeKey()}\n${field() ?? ""}\n${generation() ?? ""}` : null),
   );
-  const anchorFetchKey = createMemo(() => (availability() === "ready" && anchorSpec() ? `${root()}\n${anchorKey()}\n${dir()}\n${generation() ?? ""}` : null));
+  // A file or folder anchor (T19): its exports, one box each, traced on demand.
+  const exportsSpec = () => {
+    const spec = anchorSpec();
+    return spec && "exports" in spec ? spec : null;
+  };
+  const exportsKey = createMemo(() => (availability() === "ready" && exportsSpec() ? `${root()}\n${exportsSpec()!.file}\n${generation() ?? ""}` : null));
+  const exportsFetch = createFetch(exportsKey, (key) => {
+    const [path, file, gen] = key.split("\n");
+    return fetchFileExports({ path, file, ...(gen ? { expectedGeneration: Number(gen) } : {}) });
+  });
+  const fileExports = exportsFetch.value;
+  const anchorFetchKey = createMemo(() => (availability() === "ready" && anchorSpec() && !exportsSpec() ? `${root()}\n${anchorKey()}\n${dir()}\n${generation() ?? ""}` : null));
   const anchorFetch = createFetch(anchorFetchKey, (key) => {
     const [path, raw, direction, gen] = key.split("\n");
     const spec = parseAnchor(raw)!;
+    if ("exports" in spec) throw new Error("An exports anchor has no single graph");
     return watchProgress(path, fetchAnchorGraph({ path, direction: direction as Direction, ...spec, ...(gen ? { expectedGeneration: Number(gen) } : {}) }));
   });
   const anchorGraph = anchorFetch.value;
-  const anchorText = () => anchorGraph()?.graph?.anchor.text ?? (anchorSpec() && "name" in anchorSpec()! ? (anchorSpec() as { name: string }).name : anchorKey()) ?? "";
+  const anchorText = () => anchorGraph()?.graph?.anchor.text ?? (exportsSpec() ? `${exportsSpec()!.file || "."} (exports)` : anchorSpec() && "name" in anchorSpec()! ? (anchorSpec() as { name: string }).name : anchorKey()) ?? "";
+  // Opened exports: each is its own anchor graph, fetched one at a time (the engine is serial) and kept by generation.
+  const expansionGraphs = new Map<string, AnchorGraphResult | null>();
+  const expansionKey = createMemo(() => {
+    const result = fileExports()?.exports;
+    if (!result) return null;
+    const ids = new Set(result.files.flatMap((file) => file.exports.filter((e) => e.traceable).map((e) => e.id)));
+    const wanted = (location().open ?? []).filter((id) => ids.has(id)).sort();
+    return wanted.length ? `${root()}\n${dir()}\n${result.generation}\n${wanted.join(",")}` : null;
+  });
+  const expansionFetch = createFetch(expansionKey, async (key) => {
+    const [path, direction, gen, list] = key.split("\n");
+    const graphs = new Map<string, AnchorGraphResult | null>();
+    for (const id of list.split(",")) {
+      const cacheKey = `${path}|${gen}|${direction}|${id}`;
+      if (!expansionGraphs.has(cacheKey)) {
+        const spec = parseAnchor(id);
+        if (!spec || !("name" in spec)) continue;
+        const reply = await fetchAnchorGraph({ path, direction: direction as Direction, ...spec, expectedGeneration: Number(gen) });
+        expansionGraphs.set(cacheKey, reply.graph ?? null);
+      }
+      graphs.set(id, expansionGraphs.get(cacheKey) ?? null);
+    }
+    return graphs;
+  });
   const graphFetch = createFetch(graphKey, (key) => {
     const [path, route, source, gen] = key.split("\n");
     return watchProgress(path, fetchRouteGraph({ path, route, source: source || undefined, ...(gen ? { expectedGeneration: Number(gen) } : {}) }));
@@ -142,6 +180,10 @@ export default function FlowView(props: {
   });
 
   const model = createMemo(() => {
+    if (exportsSpec()) {
+      const result = fileExports()?.exports;
+      return result ? exportsToViewModel(result, { expanded: location().open ?? [], graphs: expansionFetch.value() ?? new Map(), dir: dir() }) : null;
+    }
     if (anchorKey()) {
       const a = anchorGraph()?.graph;
       return a ? anchorGraphToViewModel(a) : null;
@@ -342,6 +384,10 @@ export default function FlowView(props: {
   });
 
   const outcomeText = () => {
+    if (exportsSpec()) {
+      const e = fileExports();
+      return e ? labelFor(e.outcome, e.reason, e.message ?? undefined) : null;
+    }
     if (anchorKey()) {
       const a = anchorGraph();
       return a ? labelFor(a.outcome, a.reason, a.message ?? a.graph?.reason ?? undefined) : null;
@@ -352,6 +398,12 @@ export default function FlowView(props: {
   const stats = () => {
     const m = model();
     const a = anchorGraph()?.graph;
+    if (exportsSpec()) {
+      const result = fileExports()?.exports;
+      if (!m || !result) return "";
+      const opened = (location().open ?? []).length;
+      return `${result.counts.exports} export${result.counts.exports === 1 ? "" : "s"} in ${result.counts.files} file${result.counts.files === 1 ? "" : "s"} · ${result.counts.traceable} traceable · ${opened} opened · generation ${result.generation}`;
+    }
     if (anchorKey()) {
       if (!m || !a) return "";
       const c = a.counts;
@@ -369,6 +421,7 @@ export default function FlowView(props: {
   const waitingOn = () => {
     if (availability() !== "ready") return "Starting the data-flow engine";
     if (anchorFetch.loading()) return `Tracing from ${anchorText()}`;
+    if (exportsFetch.loading()) return `Listing the exports of ${exportsSpec()?.file || "."}`;
     // With the backbone drawn, the complete graph loads behind it; the status line says so.
     if (graphFetch.loading() && !drawnGraph()) return `Tracing ${currentRoute()?.pathPattern ?? routeKey()}`;
     return null;
@@ -460,7 +513,7 @@ export default function FlowView(props: {
             description="Data flow starts from a route: a file under a routes/ folder that default-exports a component. Open a folder that has one."
           />
         </Show>
-        <Show when={graphFetch.error() ?? anchorFetch.error() ?? routesFetch.error()}>
+        <Show when={graphFetch.error() ?? anchorFetch.error() ?? exportsFetch.error() ?? expansionFetch.error() ?? routesFetch.error()}>
           {(e) => <ErrorState message={e().message} class="absolute inset-0" />}
         </Show>
         <Show when={(stale() || refreshing() || refreshError()) && availability() === "ready"}>
@@ -479,7 +532,7 @@ export default function FlowView(props: {
             </Show>
           </div>
         </Show>
-        <Show when={!graphFetch.loading() && !anchorFetch.loading() && layout()}>
+        <Show when={!graphFetch.loading() && !anchorFetch.loading() && !exportsFetch.loading() && layout()}>
           {(l) => (
             <>
               <DependencyCanvas

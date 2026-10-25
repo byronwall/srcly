@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import { anchorGraphResultSchema } from "./anchor-graph";
+import { fileExportsResultSchema } from "./file-exports";
 import { functionEffectsResultSchema } from "./function-effects";
 import { helloResultSchema } from "./hello";
 import { routeGraphResultSchema } from "./route-graph";
@@ -22,5 +23,6 @@ export const CONTRACTS: { op: string; typeName: string; schema: z.ZodType }[] = 
   { op: "valueFlow", typeName: "ValueFlowResult", schema: valueFlowResultSchema },
   { op: "anchorGraph", typeName: "AnchorGraphResult", schema: anchorGraphResultSchema },
   { op: "functionEffects", typeName: "FunctionEffectsResult", schema: functionEffectsResultSchema },
+  { op: "fileExports", typeName: "FileExportsResult", schema: fileExportsResultSchema },
   { op: "routePath", typeName: "RoutePathResult", schema: routePathResultSchema },
 ];

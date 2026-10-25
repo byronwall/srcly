@@ -440,6 +440,62 @@ class RoutePathResponse(BaseModel):
     path: RoutePathResult | None = None
 
 
+# ---- file exports (contracts/fileExports.schema.json) -------------------------
+
+
+class FileExport(BaseModel):
+    id: str
+    name: str
+    kind: Literal["function", "class", "variable", "component", "enum", "type", "interface", "namespace", "other"]
+    file: str
+    absPath: str
+    line: int
+    column: int
+    traceable: bool
+    reexported: bool
+
+
+class FileExportsFile(BaseModel):
+    file: str
+    absPath: str
+    exports: list[FileExport]
+
+
+class FileExportsTarget(BaseModel):
+    path: str
+    absPath: str
+    kind: Literal["file", "folder"]
+
+
+class FileExportsCounts(BaseModel):
+    files: int
+    exports: int
+    traceable: int
+
+
+class FileExportsResult(BaseModel):
+    outcome: Outcome
+    generation: int
+    programHash: str
+    tsconfig: str
+    typescript: str
+    reason: str | None
+    target: FileExportsTarget
+    files: list[FileExportsFile]
+    counts: FileExportsCounts
+
+
+class FileExportsResponse(BaseModel):
+    """``GET /api/dataflow/file-exports``: a file's or folder's exports, one anchor each."""
+
+    outcome: Outcome
+    reason: str | None = None
+    message: str | None = None
+    generation: int | None = None
+    programHash: str | None = None
+    exports: FileExportsResult | None = None
+
+
 # ---- function effects (contracts/functionEffects.schema.json) ----------------
 
 

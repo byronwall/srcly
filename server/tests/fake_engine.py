@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any
 
 CONTRACTS = Path(__file__).resolve().parents[1] / "app" / "services" / "dataflow" / "contracts"
-OPS = ("hello", "status", "routes", "routeGraph", "selectExpression", "valueFlow", "anchorGraph", "functionEffects", "routePath")
+OPS = ("hello", "status", "routes", "routeGraph", "selectExpression", "valueFlow", "anchorGraph", "functionEffects", "routePath", "fileExports")
 SHAPES = ("ok", "partial", "unsupported", "budget", "stale", "not-analyzed")
 """Shapes the three graph ops answer in; the other three are engine errors."""
 RESULT_SHAPES = ("ok", "partial", "unsupported")
@@ -144,7 +144,32 @@ class FakeEngine:
             return self.function_effects(params, self.outcomes.get(op, "ok"))
         if op == "routePath":
             return self.route_path(params, self.outcomes.get(op, "ok"))
+        if op == "fileExports":
+            return self.file_exports(params, self.outcomes.get(op, "ok"))
         raise LookupError(op)
+
+    def file_exports(self, params: dict, shape: str) -> dict:
+        schema = schema_for("fileExports")
+        target = params.get("file") or ""
+        if target.startswith("missing"):
+            raise KeyError(target)
+        folder = not target.endswith((".ts", ".tsx"))
+        files = ["src/components/Card.tsx", "src/components/types.ts"] if folder else [target]
+        def export(file: str, name: str, line: int, kind: str, traceable: bool) -> dict:
+            return {**example(item_schema(schema, "files", "exports")), "id": f"{file}@{name}:{line}", "name": name, "kind": kind,
+                    "file": file, "absPath": f"{self.args.root}/{file}", "line": line, "column": 17, "traceable": traceable, "reexported": False}
+        listed = [{"file": file, "absPath": f"{self.args.root}/{file}",
+                   "exports": [export(file, "Card", 1, "component", True), export(file, "CardProps", 9, "interface", False)] if file.endswith(".tsx")
+                   else [export(file, "Item", 1, "type", False)]} for file in files]
+        exports = [item for entry in listed for item in entry["exports"]]
+        base = {**example(schema), "outcome": "ok", **self.generation_fields(), "reason": None,
+                "target": {"path": target or ".", "absPath": f"{self.args.root}/{target}", "kind": "folder" if folder else "file"},
+                "files": listed, "counts": {"files": len(listed), "exports": len(exports), "traceable": sum(1 for item in exports if item["traceable"])}}
+        if shape == "partial":
+            return {**base, "outcome": "partial", "reason": "budget-exhausted"}
+        if shape == "unsupported":
+            return {**base, "outcome": "unsupported", "reason": "no-program-file", "files": [], "counts": {"files": 0, "exports": 0, "traceable": 0}}
+        return base
 
     def route_path(self, params: dict, shape: str) -> dict:
         schema = schema_for("routePath")

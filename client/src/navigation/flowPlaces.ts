@@ -5,7 +5,7 @@ import type { HistoryEntry } from "./history";
 import { isDataFlow, parseAnchor, type Location } from "./location";
 
 export interface FlowPlaceLabel {
-  kind: "anchor" | "route";
+  kind: "anchor" | "route" | "exports";
   /** The anchor's name or span, or the route's path pattern. */
   leaf: string;
   /** The anchor's file, or null for a route. */
@@ -22,6 +22,8 @@ export function flowPlaceLabel(loc: Location, routeName: RouteNamer = (key) => k
   if (loc.anchor !== undefined) {
     const spec = parseAnchor(loc.anchor);
     if (!spec) return { kind: "anchor", leaf: loc.anchor, detail: null, dir: loc.dir ?? "both" };
+    // A file or folder anchor (T19): named by its path, traced through its exports.
+    if ("exports" in spec) return { kind: "exports", leaf: spec.file || ".", detail: "exports", dir: loc.dir ?? "both" };
     const leaf = "name" in spec ? spec.name : `${spec.span.startLine}:${spec.span.startColumn}–${spec.span.endLine}:${spec.span.endColumn}`;
     return { kind: "anchor", leaf, detail: spec.file, dir: loc.dir ?? "both" };
   }

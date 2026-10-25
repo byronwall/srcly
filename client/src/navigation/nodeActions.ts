@@ -18,18 +18,20 @@ export function symbolNameOf(at: string): string | null {
 
 /**
  * Where "Trace where it goes / comes from" takes the view: Data flow mode
- * anchored at the symbol by name on its declaration line, in that direction.
+ * anchored at the symbol by name on its declaration line, in that direction;
+ * a file or folder (no line) is anchored through its exports (T19).
  */
-export function tracePatch(target: { at: string; line: number }, id: "traceTo" | "traceFrom"): Partial<Location> {
-  const { file } = splitAt(target.at);
+export function tracePatch(target: { at: string; line?: number }, id: "traceTo" | "traceFrom"): Partial<Location> {
+  const { file, scopes } = splitAt(target.at);
   const name = symbolNameOf(target.at) ?? "";
+  const anchor = scopes.length && target.line ? encodeAnchor({ file, name, line: target.line }) : encodeAnchor({ file, exports: true });
   return {
     view: "graph",
     flow: undefined,
     field: undefined,
     dest: undefined,
     open: undefined,
-    anchor: encodeAnchor({ file, name, line: target.line }),
+    anchor,
     dir: TRACE_DIRECTION[id],
   };
 }
@@ -57,7 +59,7 @@ export function nodeActions(target: {
 }): NodeAction[] {
   const { at, kind, currentAt, expand, line } = target;
   const traceReason =
-    kind === "external" ? "Outside this repo" : kind !== "symbol" ? "Needs a symbol" : !symbolNameOf(at) ? "No name to anchor at" : !line ? "No line for it" : undefined;
+    kind === "external" ? "Outside this repo" : kind !== "symbol" ? (at === "" ? "Pick a folder or file" : undefined) : !symbolNameOf(at) ? "No name to anchor at" : !line ? "No line for it" : undefined;
   const expandAction: NodeAction[] =
     expand === true
       ? [{ id: "expand", label: kind === "file" ? "Expand symbols" : "Expand in place" }]

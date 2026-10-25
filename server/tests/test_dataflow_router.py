@@ -154,6 +154,21 @@ def test_route_path_explains_an_edge_and_404s_an_unknown_one(client, use_fake, t
     assert missing.status_code == 404
 
 
+def test_file_exports_lists_a_folder_and_404s_a_missing_path(client, use_fake, tmp_path):
+    use_fake()
+    (tmp_path / "src" / "components").mkdir(parents=True)
+    (tmp_path / "src" / "components" / "Card.tsx").write_text("export function Card() { return null; }\n")
+    client.get("/api/dataflow/routes", params={"path": str(tmp_path)})
+    body = client.get("/api/dataflow/file-exports", params={"path": str(tmp_path), "file": "src/components"}).json()
+    assert body["outcome"] == "ok" and body["exports"]["target"]["kind"] == "folder"
+    assert body["exports"]["counts"] == {"files": 2, "exports": 3, "traceable": 1}
+    assert [item["name"] for item in body["exports"]["files"][0]["exports"]] == ["Card", "CardProps"]
+    single = client.get("/api/dataflow/file-exports", params={"path": str(tmp_path), "file": "src/components/Card.tsx"}).json()
+    assert single["exports"]["target"]["kind"] == "file" and single["exports"]["counts"]["files"] == 1
+    missing = client.get("/api/dataflow/file-exports", params={"path": str(tmp_path), "file": "missing/dir"})
+    assert missing.status_code == 404
+
+
 def test_route_surface_is_the_backbone_before_the_graph(client, use_fake, tmp_path):
     use_fake()
     client.get("/api/dataflow/routes", params={"path": str(tmp_path)})

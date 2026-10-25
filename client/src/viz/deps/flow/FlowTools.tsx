@@ -1,5 +1,5 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
-import { ChevronDown, Crosshair, History, Route } from "lucide-solid";
+import { ChevronDown, Crosshair, FolderTree, History, Route } from "lucide-solid";
 import Popover from "../../../components/Popover";
 import { Button } from "../../../components/ui/Button";
 import { OptionRow, PopoverPanel, PopoverSectionTitle } from "../../../components/ui/PopoverPanel";
@@ -184,7 +184,7 @@ export function RecentFlowMenu(props: { routeName: (key: string) => string }) {
                     }}
                   >
                     <span class="mt-[2px] flex text-[var(--plc-on-subtle)]">
-                      {label.kind === "anchor" ? <Crosshair size={13} aria-label="Anchor" /> : <Route size={13} aria-label="Route" />}
+                      {label.kind === "anchor" ? <Crosshair size={13} aria-label="Anchor" /> : label.kind === "exports" ? <FolderTree size={13} aria-label="File or folder" /> : <Route size={13} aria-label="Route" />}
                     </span>
                     <span class="min-w-0 break-words leading-[18px]">
                       <span class="font-mono text-[12px] font-medium">{label.leaf}</span>

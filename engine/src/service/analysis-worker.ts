@@ -12,6 +12,7 @@ import type { AnalyzerProgressUpdate } from "../analysis/progress";
 import type { AnalysisOperation, AnalysisProgress, AnalysisWorkerData, AnalysisWorkerRequest } from "./analysis-service";
 import { errorPayload } from "../srcly/protocol";
 import { anchorGraphOp } from "../srcly/ops/anchor-graph";
+import { fileExportsOp } from "../srcly/ops/file-exports";
 import { functionEffectsOp } from "../srcly/ops/function-effects";
 import { routeGraphOp, routeSurfaceOp } from "../srcly/ops/route-graph";
 import { routePathOp } from "../srcly/ops/route-path";
@@ -82,6 +83,7 @@ function perform(operation: AnalysisOperation, requestId: number, cancellation: 
   if (operation.kind === "value-flow") return announce(valueFlowOp(requireSession(), operation.params, cancellation));
   if (operation.kind === "anchor-graph") return announce(anchorGraphOp(requireSession(), operation.params, cancellation));
   if (operation.kind === "function-effects") return announce(functionEffectsOp(requireSession(), operation.params, cancellation));
+  if (operation.kind === "file-exports") return announce(fileExportsOp(requireSession(), operation.params, cancellation));
   if (operation.kind === "route-path") return announce(routePathOp(requireSession(), operation.params, cancellation));
   if (operation.kind === "refresh") {
     const report = cache.refresh();
