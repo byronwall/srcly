@@ -30,15 +30,18 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult): FlowViewModel 
   const nodes: ViewNode[] = boxes.map((n) => {
     const mark = MARK_OF_ANCHOR_KIND[n.kind];
     const scope = n.parent ? scopes.get(n.parent) : undefined;
+    const where = [humanizeDetail(n.detail), `${baseName(n.file)}:${n.line}`].filter(Boolean).join(" · ");
+    // A frontier sits beside the read it stops at, which already carries the name: it says why, and names the place below.
+    const stop = n.kind === "frontier" ? capitalize(stopWord(n.reason)) : null;
     return {
       id: n.id,
       graphId: n.id,
       region: n.side === "up" ? "in" : n.side === "down" ? "out" : "center",
       kind: "symbol",
       symbolKind: mark,
-      label: n.label,
-      title: `${n.label} · ${n.file}:${n.line}`,
-      subtitle: [humanizeDetail(n.detail), `${baseName(n.file)}:${n.line}`].filter(Boolean).join(" · "),
+      label: stop ?? n.label,
+      title: [stop, n.label, `${n.file}:${n.line}`].filter(Boolean).join(" · "),
+      subtitle: stop ? `${n.label} · ${baseName(n.file)}:${n.line}` : where,
       note: noteFor(n),
       memberCount: 1,
       isFocus: n.kind === "anchor",
@@ -114,13 +117,17 @@ function passThroughs(graph: AnchorGraphResult): Map<string, string> {
 }
 
 function noteFor(n: AnchorNode): string | undefined {
-  // A frontier's hatched box already says it is a stop; the note says why, in a word.
-  if (n.kind === "frontier") return stopWord(n.reason);
+  // A frontier's label already says why it stops.
+  if (n.kind === "frontier") return undefined;
   const parts: string[] = [];
   if (n.status !== "proven") parts.push(n.status);
   if (n.reason) parts.push(n.reason);
   if (n.typeText) parts.push(n.typeText);
   return parts.length ? parts.join(" · ") : undefined;
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function baseName(file: string): string {

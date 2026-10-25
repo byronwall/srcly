@@ -23,7 +23,7 @@ export function inkForZoom(k: number): number {
   return Math.round(Math.min(MAX_INK, 1 / k) * 10) / 10;
 }
 export const labelFont = (px: number) => `600 ${px}px Inter, ui-sans-serif, system-ui, sans-serif`;
-const BREAK_AFTER = /(?<=[a-z0-9])(?=[A-Z])|(?<=[/_\-])/;
+const BREAK_AFTER = /(?<=[a-z0-9])(?=[A-Z])|(?<=[/_\- ])/;
 const EXTENSION = /\.[a-z0-9]+$/i;
 
 /**

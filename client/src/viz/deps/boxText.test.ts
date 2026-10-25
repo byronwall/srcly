@@ -26,6 +26,10 @@ describe("wrapName", () => {
     expect(wrapName("useAutoScrollSelection", 80, FONT, 2)).toEqual(["useAutoScroll", "Selection"]);
   });
 
+  it("breaks after a space", () => {
+    expect(wrapName("Binding not traced", 80, FONT, 2)).toEqual(["Binding not ", "traced"]);
+  });
+
   it("drops a file extension before wrapping", () => {
     expect(wrapName("CompareApp.tsx", 72, FONT, 2)).toEqual(["CompareApp"]);
     expect(wrapName("FilePickerWithExternal.tsx", 90, FONT, 2)).toEqual(["FilePickerWith", "External"]);

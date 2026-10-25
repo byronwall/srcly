@@ -713,8 +713,10 @@ export function DependencyCanvas(props: {
    * line with hub/mutual badges and LOC. Centered in the box.
    */
   const COMPACT_PAD_Y = 5;
+  // A frontier is where a trace stops: its link counts say nothing, its label says why.
+  const countsOf = (n: PositionedNode) => (n.node.outline === "hatched" ? undefined : info().get(n.id));
   const compactBox = (n: PositionedNode): CompactBox => {
-    const b = info().get(n.id);
+    const b = countsOf(n);
     return {
       label: n.node.label,
       width: n.width,
@@ -729,7 +731,7 @@ export function DependencyCanvas(props: {
   const CompactBody = (p: { n: PositionedNode }) => {
     const n = p.n;
     const hub = () => hubById().get(n.id);
-    const box = () => (props.linkCounts === false ? undefined : info().get(n.id));
+    const box = () => (props.linkCounts === false ? undefined : countsOf(n));
     const geo = createMemo(() => {
       const k = boxInk();
       const t = compactText(compactBox(n), k);
@@ -1116,7 +1118,7 @@ export function DependencyCanvas(props: {
               const isFocus = n.node.isFocus;
               const isFolder = n.node.kind === "folder";
               const dimmed = () => activeNodes() !== null && !activeNodes()!.has(n.id);
-              const box = () => info().get(n.id);
+              const box = () => countsOf(n);
               const hub = () => hubById().get(n.id);
               /** Data flow mode: the note shares row 3 with the in/out counts. */
               const noteOffset = () => (flow() && box() ? FLOW_COUNTS_W : 0);
