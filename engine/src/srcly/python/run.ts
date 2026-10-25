@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { IS_BUNDLE } from "../bundle";
 import { EngineError } from "../protocol";
 import type { PythonFactsOutput } from "./facts";
 
@@ -10,7 +11,7 @@ import type { PythonFactsOutput } from "./facts";
 export function helperPath(): string {
   const explicit = process.env.SRCLY_PYFACTS;
   if (explicit) return explicit;
-  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../python/srcly_pyfacts.py");
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), IS_BUNDLE ? "." : "../../../python", "srcly_pyfacts.py");
 }
 
 /** The interpreter that runs the helper: `--python`, then `SRCLY_PYTHON`, then `python3`. */

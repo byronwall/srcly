@@ -15,7 +15,8 @@
     "emit-contracts": "node --import tsx scripts/emit-contracts.ts",
     "capture-route-graph": "node --import tsx scripts/capture-route-graph.ts",
     "capture-anchor-graph": "node --import tsx scripts/capture-anchor-graph.ts",
-    "time-phases": "node --import tsx scripts/time-phases.ts"
+    "time-phases": "node --import tsx scripts/time-phases.ts",
+    "bundle": "node scripts/bundle.mjs"
   },
   "dependencies": {
     "typescript": "5.9.3",

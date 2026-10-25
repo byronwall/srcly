@@ -41,3 +41,8 @@ dev = [
 include = [
     "app/**",
 ]
+# The engine bundle carries its own TypeScript in node_modules, which the
+# repository's .gitignore would otherwise drop (build-srcly.sh writes it).
+artifacts = [
+    "app/engine/**",
+]

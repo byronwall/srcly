@@ -24,6 +24,14 @@ rm -rf "$STATIC_DIR"
 mkdir -p "$STATIC_DIR"
 cp -R "$CLIENT_DIR/dist/"* "$STATIC_DIR/"
 
+echo "==> Bundling the data-flow engine into the Python package (app/engine)"
+cd "$ROOT_DIR/engine"
+if [ ! -d "node_modules" ]; then
+  echo "   Installing engine dependencies with pnpm..."
+  pnpm install
+fi
+pnpm bundle
+
 echo "==> Building srcly Python package with uv"
 cd "$SERVER_DIR"
 
