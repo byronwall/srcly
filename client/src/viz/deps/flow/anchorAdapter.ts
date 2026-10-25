@@ -119,7 +119,7 @@ function noteFor(n: AnchorNode): string | undefined {
   const parts: string[] = [];
   if (n.status !== "proven") parts.push(n.status);
   if (n.reason) parts.push(n.reason);
-  if (n.typeText && n.kind !== "frontier") parts.push(n.typeText);
+  if (n.typeText) parts.push(n.typeText);
   return parts.length ? parts.join(" · ") : undefined;
 }
 
