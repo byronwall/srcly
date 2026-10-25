@@ -158,7 +158,7 @@ class AnchorGraphBuilder {
 
     const sides: Side[] = direction === "forward" ? ["down"] : direction === "backward" ? ["up"] : ["up", "down"];
     const coverage = { elements: 0, relations: 0, budget: { limit: 0, used: 0, exhausted: false } };
-    const runs: Run[] = fact && DECLARATION_KINDS.has(fact.kind) ? this.declarationRuns(file, span, seed, sides) : sides.map((side) => ({ seedId: seed, seedSpan: span, side }));
+    const runs: Run[] = fact && DECLARATION_KINDS.has(fact.kind) ? this.declarationRuns(file, span, seed, sides, fact.kind === "component-definition") : sides.map((side) => ({ seedId: seed, seedSpan: span, side }));
     const isDeclaration = fact !== undefined && DECLARATION_KINDS.has(fact.kind);
     const gapsBySeed = new Map<string, number>();
     const naturalBySeed = new Map<string, number>();
@@ -299,7 +299,7 @@ class AnchorGraphBuilder {
    * keeping that relation's status and proof; where no relation exists there
    * is no edge, and nothing is guessed from the source text.
    */
-  private declarationRuns(file: string, span: Span, seed: string, sides: Side[]): Run[] {
+  private declarationRuns(file: string, span: Span, seed: string, sides: Side[], perProp: boolean): Run[] {
     const inside = (s: Span) =>
       (s.startLine > span.startLine || (s.startLine === span.startLine && s.startColumn >= span.startColumn)) &&
       (s.endLine < span.endLine || (s.endLine === span.endLine && s.endColumn <= span.endColumn)) &&
@@ -329,6 +329,8 @@ class AnchorGraphBuilder {
               const relation = toSliceRelation(raw);
               this.addFact(element, "up");
               this.pushEdge({ id: `prop:${relation.id}`, source: element.id, target: param.id, kind: "prop-read", status: relation.status, proof: [relation.proof], label: element.label });
+              // A component's caller binds each prop (`<C a={x}>`), so each read must land; a function's binds the whole argument.
+              if (!perProp) continue;
               runs.push({ seedId: element.id, seedSpan: element.location.span, side: "up", propRead: true });
               paramRun.placeholderFor!.push(element.id);
             } else if (raw.kind === "references") {
