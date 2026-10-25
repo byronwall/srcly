@@ -210,3 +210,15 @@ T25 `UPSTREAM.md` as the fork ledger (with T4), and T26 the registry under many 
 - Legend length and default state, the inspector's width at 1024, keyboard and screen-reader work.
 - Warming the engine at scan time. Parallel route workers. An SSE progress transport (D8 still stands).
 - Backporting fork edits upstream to tsx-data-flow.
+
+## Status on 2026-10-24: where the stack stands
+
+Done, each as one PR in the stack (`claude/dataflow-t1-box-status` → … → `claude/dataflow-t20-multiple-anchors`): T1, T2, T3, T5, T6, T7, T8, T9, T10, T11, T12 (measured, decided off), T13, T14, T15, T16, T17, T18, T19, T20, T21, T22. Every ticket's backlog entry says what landed and where it was measured (`docs/intent/tsx-dataflow-integration/measurements.md`).
+
+Not done, and why they can wait:
+
+- **T4 field lineage from non-filesystem origins (L).** An analysis edit under the R9 ledger rule; nothing above depends on it. The honest result today is a frontier box with its reason, never a guess.
+- **T23 engine in the wheel (M8).** Release work: bundle the engine, record the wheel size, clean-venv `uvx` smoke. Until then the engine runs from a checkout (`SRCLY_ENGINE_DEV=1`) and a released wheel answers data flow with N/A by name.
+- **T24 metrics, findings, packets (M7).** Needs tier 2 (44–130 s); opt-in by design.
+- **T25 fork ledger close-out.** `engine/UPSTREAM.md` already records each analysis edit with its fixture (T13, T14); the close-out is a read-through once T4 lands.
+- **T26 registry under many roots.** A stress test of the engine registry; no failure has been seen with two roots alive.

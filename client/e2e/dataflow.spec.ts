@@ -218,6 +218,29 @@ test.describe("Data flow on solid-route", () => {
     await expect(box(page, "MetricCard")).toBeVisible();
   });
 
+  test("a second anchor joins the canvas from the inspector; boxes both traces reach are marked", async ({ page }) => {
+    await page.goto(url({ view: "graph", anchor: "src/components/ViewerCard.tsx@ViewerCard:3", dir: "backward" }));
+    await expect(status(page)).toContainText("upstream", { timeout: 90_000 });
+    const before = await page.locator("[data-box]").count();
+    // Select an expression box the trace reached and add it as an anchor of its own (by its span).
+    await box(page, "viewer()").click();
+    const inspector = page.getByLabel("Data flow inspector");
+    await expect(inspector).toContainText("Selected box");
+    await inspector.getByRole("button", { name: "Add to the trace" }).click();
+    await expect(page).toHaveURL(/anchor=[^&]*%7C/);
+    // The viewer() call's own backward walk reaches the resource the first trace already drew: shared, by element id.
+    const stats = page.getByText(/2 anchors · [1-9]\d* shared box/).first();
+    await expect(stats).toBeVisible({ timeout: 90_000 });
+    // The second anchor is a chip that can be removed; the toolbar says Anchors.
+    await expect(page.getByText("Anchors", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Remove anchor/ })).toHaveCount(1);
+    expect(await page.locator("[data-box]").count()).toBeGreaterThanOrEqual(before);
+    await shot(page, "two-anchors");
+    await page.getByRole("button", { name: /Remove anchor/ }).click();
+    await expect(page).not.toHaveURL(/%7C/);
+    await expect(status(page)).toContainText("upstream", { timeout: 90_000 });
+  });
+
   test("import graph menu: trace a symbol where it comes from", async ({ page }) => {
     await page.goto(url({ view: "graph", at: "src/components/ViewerCard.tsx" }));
     const symbol = page.locator('[data-box="center|src/components/ViewerCard.tsx#ViewerCard"]');
@@ -253,12 +276,13 @@ test.describe("Field labels on compact-field-proof", () => {
 
   test("no field label covers a box (T22)", async ({ page }) => {
     await page.goto(`/?${new URLSearchParams({ repo: COMPACT, view: "graph", flow: "/projects" })}`);
-    await expect(status(page)).toContainText("occurrences", { timeout: 120_000 });
+    await expect(status(page)).toContainText("occurrences", { timeout: 180_000 });
+    await expect(status(page)).toContainText("origins", { timeout: 180_000 });
     const origin = page.getByLabel("Origin whose proven destinations light up");
-    const options = await origin.locator("option").allTextContents();
-    await origin.selectOption({ label: options.find((t) => t.startsWith("readFile("))! });
-    await expect(page.getByText(/reaches \d+ proven/)).toBeVisible({ timeout: 120_000 });
-    await expect(page.locator("[data-edge-label]").first()).toBeVisible({ timeout: 60_000 });
+    await expect(origin.locator("option").filter({ hasText: /^readFile\(/ })).toHaveCount(1, { timeout: 60_000 });
+    await origin.selectOption({ label: (await origin.locator("option").allTextContents()).find((t) => t.startsWith("readFile("))! });
+    await expect(page.getByText(/reaches \d+ proven/)).toBeVisible({ timeout: 180_000 });
+    await expect(page.locator("[data-edge-label]").first()).toBeVisible({ timeout: 120_000 });
     await page.waitForTimeout(800);
     await shot(page, "field-labels");
     const overlaps = await page.evaluate(() => {

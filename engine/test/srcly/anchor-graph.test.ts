@@ -231,3 +231,17 @@ describe("anchorGraph on solid-route", () => {
     expect(["jsx-occurrence", "component-occurrence"]).toContain(graph.anchor.elementId ? graph.nodes.find((node) => node.kind === "anchor")!.elementKind : null);
   }, 120_000);
 });
+
+describe("anchorGraph by element id (T20)", () => {
+  it("anchors at a drawn box's own element, so its graph shares ids with the trace that drew the box", () => {
+    const session = sessionFor(solidRoute);
+    const first = anchorGraphOp(session, { file: "src/components/ViewerCard.tsx", name: "ViewerCard", line: 3, direction: "backward" });
+    const box = first.nodes.find((n) => n.kind !== "anchor" && n.kind !== "scope" && n.file === "src/routes/records.tsx")!;
+    const second = anchorGraphOp(session, { file: box.file, elementId: box.id, direction: "backward" });
+    expect(second.anchor.elementId).toBe(box.id);
+    expect(second.nodes.find((n) => n.kind === "anchor")?.id).toBe(box.id);
+    const firstIds = new Set(first.nodes.map((n) => n.id));
+    expect(second.nodes.filter((n) => firstIds.has(n.id)).length).toBeGreaterThan(1);
+    expect(() => anchorGraphOp(session, { file: box.file, elementId: "program-element:nope", direction: "both" })).toThrowError(expect.objectContaining({ code: "not-found" }));
+  }, 60_000);
+});

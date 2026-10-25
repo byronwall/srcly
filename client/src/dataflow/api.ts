@@ -181,7 +181,12 @@ export type AnchorRequest = {
   direction: "forward" | "backward" | "both";
   expectedGeneration?: number;
   signal?: AbortSignal;
-} & ({ span: { startLine: number; startColumn: number; endLine: number; endColumn: number }; text?: string } | { name: string; line: number });
+} & (
+  | { span: { startLine: number; startColumn: number; endLine: number; endColumn: number }; text?: string }
+  | { name: string; line: number }
+  /** A drawn box by its element id (T20): the engine anchors at that element itself. */
+  | { elementId: string }
+);
 
 /** A value's neighbourhood from any expression: where it comes from, where it goes, or both. */
 export function fetchAnchorGraph(req: AnchorRequest): Promise<AnchorGraphResponse> {

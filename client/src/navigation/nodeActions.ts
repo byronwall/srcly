@@ -1,10 +1,10 @@
-import { encodeAnchor, folderOf, normalizeScopeName, splitAt, type Direction, type Location } from "./location";
+import { encodeAnchor, encodeAnchors, folderOf, MAX_ANCHORS, normalizeScopeName, parseAnchors, splitAt, type Direction, type Location } from "./location";
 
 // The actions every node offers in both views, whatever opened the menu.
 
 export type NodeKind = "folder" | "file" | "symbol" | "external";
 
-export type NodeActionId = "focus" | "expand" | "open" | "folder" | "traceTo" | "traceFrom";
+export type NodeActionId = "focus" | "expand" | "open" | "folder" | "traceTo" | "traceFrom" | "traceAdd";
 
 /** The two trace actions: the graph anchored at this symbol, one way. */
 export const TRACE_DIRECTION: Record<"traceTo" | "traceFrom", Direction> = { traceTo: "forward", traceFrom: "backward" };
@@ -36,6 +36,22 @@ export function tracePatch(target: { at: string; line?: number }, id: "traceTo" 
   };
 }
 
+/**
+ * Add this symbol to the anchors already traced (T20): the same direction,
+ * one more anchor on the same canvas. Null when the view is not in anchor
+ * mode, the anchors are full, the symbol is already one, or it has no line.
+ */
+export function addAnchorPatch(target: { at: string; line?: number }, current: Location): Partial<Location> | null {
+  const anchors = parseAnchors(current.anchor);
+  if (!anchors.length || anchors.length >= MAX_ANCHORS || anchors.some((a) => "exports" in a)) return null;
+  const { file, scopes } = splitAt(target.at);
+  const name = symbolNameOf(target.at);
+  if (!scopes.length || !name || !target.line) return null;
+  const next = { file, name, line: target.line };
+  if (anchors.some((a) => encodeAnchor(a) === encodeAnchor(next))) return null;
+  return { anchor: encodeAnchors([...anchors, next]) };
+}
+
 export interface NodeAction {
   id: NodeActionId;
   label: string;
@@ -56,8 +72,10 @@ export function nodeActions(target: {
   expand?: boolean | { collapse: string };
   /** A symbol's declaration line, when known: the trace actions anchor there. */
   line?: number;
+  /** The place the view is at: in anchor mode, a symbol can join the anchors (T20). */
+  current?: Location;
 }): NodeAction[] {
-  const { at, kind, currentAt, expand, line } = target;
+  const { at, kind, currentAt, expand, line, current } = target;
   const traceReason =
     kind === "external" ? "Outside this repo" : kind !== "symbol" ? (at === "" ? "Pick a folder or file" : undefined) : !symbolNameOf(at) ? "No name to anchor at" : !line ? "No line for it" : undefined;
   const expandAction: NodeAction[] =
@@ -94,5 +112,13 @@ export function nodeActions(target: {
     },
     { id: "traceTo", label: "Trace where it goes", disabledReason: traceReason },
     { id: "traceFrom", label: "Trace where it comes from", disabledReason: traceReason },
+    ...(current && parseAnchors(current.anchor).length
+      ? [{
+          id: "traceAdd" as const,
+          label: `Add to the trace (${parseAnchors(current.anchor).length} of ${MAX_ANCHORS})`,
+          disabledReason:
+            kind !== "symbol" ? "Needs a symbol" : traceReason ?? (parseAnchors(current.anchor).length >= MAX_ANCHORS ? `At most ${MAX_ANCHORS} anchors` : addAnchorPatch({ at, line }, current) ? undefined : "Already an anchor"),
+        }]
+      : []),
   ];
 }

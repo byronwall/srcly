@@ -100,6 +100,8 @@ export function FlowInspector(props: {
   onClose: () => void;
   /** Route mode: a clicked handoff or field edge, explained in order (M4). */
   edge?: string | null;
+  /** Anchor mode with room for one more anchor (T20): add the selected box by its span. */
+  onAddAnchor?: (id: string) => void;
   edgePath?: { loading: boolean; value: RoutePathResponse | undefined; error: Error | null };
   onSelectEdge?: (id: string | null) => void;
 }) {
@@ -172,6 +174,13 @@ export function FlowInspector(props: {
               <Show when={noteOf(d().node)}>{(t) => <div class="pl-5 text-[11px] text-[var(--plc-on-muted)]">{t()}</div>}</Show>
               <Show when={d().node.reason}>{(r) => <div class="pl-5 text-[11px] text-[var(--plc-warning)]">{r()}</div>}</Show>
               <Where file={d().node.file} line={d().node.line} onOpen={() => props.onOpen(d().node.absPath, d().node.line)} />
+              <Show when={props.onAddAnchor}>
+                <div class="pl-5 pt-1">
+                  <Button variant="default" size="sm" class="px-2" onClick={() => props.onAddAnchor!(d().node.id)} title="Trace this box too, on the same canvas; boxes both traces reach are marked">
+                    Add to the trace
+                  </Button>
+                </div>
+              </Show>
 
               <Show when={props.reach}>
                 {(r) => section("Reach", (
