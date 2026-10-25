@@ -23,6 +23,8 @@ export interface FlowViewModel {
   vm: ViewModel;
   /** Containment edges that order the columns but are not drawn: frames already show ownership. */
   hidden: Set<string>;
+  /** Containment edges that are ownership only, not flow: an origin sits under the route, but nothing flows from the route into it. */
+  notFlow: Set<string>;
   /** Flow node by view id (they are the same ids). */
   byId: Map<string, FlowNode>;
   /** The drawn box that stands for each flow node (itself, or the frame it folded into). */
@@ -50,6 +52,7 @@ export function routeGraphToViewModel(graph: RouteGraphResult, opts: FlowViewOpt
   const empty: FlowViewModel = {
     vm: { focusId: "", focusKind: "file", focusLabel: graph.route.pathPattern, breadcrumbs: [], nodes: [], edges: [], rolledUp: 0 },
     hidden: new Set(),
+    notFlow: new Set(),
     byId,
     shownAs: new Map(),
     lit: null,
@@ -143,6 +146,7 @@ export function routeGraphToViewModel(graph: RouteGraphResult, opts: FlowViewOpt
 
   const edges: ViewEdge[] = [];
   const hidden = new Set<string>();
+  const notFlow = new Set<string>();
   for (const n of drawn) {
     const parent = parentOf.get(n.id);
     if (!parent) continue;
@@ -151,6 +155,7 @@ export function routeGraphToViewModel(graph: RouteGraphResult, opts: FlowViewOpt
     // render edge unproven, so containment draws solid; the box notes the status.
     edges.push({ id, source: parent, target: n.id, weight: 1, faint: false, symbols: [] });
     if (!RENDERS.has(n.kind) || !RENDERS.has(byId.get(parent)!.kind)) hidden.add(id);
+    if (n.kind === "origin" || n.kind === "field") notFlow.add(id);
   }
   const seen = new Set<string>();
   const litEdges = new Set<string>();
@@ -170,6 +175,9 @@ export function routeGraphToViewModel(graph: RouteGraphResult, opts: FlowViewOpt
       faint: e.status !== "proven",
       symbols: [],
       style: e.kind === "field" ? "field" : "handoff",
+      ...(e.label ? { label: e.label } : {}),
+      status: e.status,
+      proof: e.proof.map((p) => ({ kind: p.kind, detail: p.detail, status: p.status, at: p.locations[0] ? `${baseName(p.locations[0].file)}:${p.locations[0].line}` : undefined })),
     });
     if (graph.selectedSource && e.source === graph.selectedSource && e.status === "proven") litEdges.add(`${e.kind}:${e.id}`);
   }
@@ -187,6 +195,7 @@ export function routeGraphToViewModel(graph: RouteGraphResult, opts: FlowViewOpt
       expanded: [...expanded].filter((id) => byId.has(id)),
     },
     hidden,
+    notFlow,
     byId,
     shownAs,
     lit: selected ? { nodes: new Set([selected, ...litNodes]), edges: litEdges } : null,

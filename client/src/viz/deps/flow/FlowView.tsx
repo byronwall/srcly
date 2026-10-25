@@ -14,9 +14,10 @@ import type { ViewLayout } from "../layout";
 import type { ViewNode } from "../viewModel";
 import { routeGraphToViewModel } from "./adapter";
 import { FlowLegend } from "./FlowLegend";
-import { FlowModeSwitch } from "./FlowTools";
+import { FlowModeSwitch, ReachModeSwitch } from "./FlowTools";
 import { createFetch } from "./fetchSignal";
 import { FlowProgress } from "./FlowProgress";
+import { reachFrom, REACH_MODES, type ReachMode } from "./reach";
 import { RoutePicker } from "./RoutePicker";
 
 /**
@@ -69,6 +70,20 @@ export default function FlowView(props: {
   const [layout, setLayout] = createSignal<ViewLayout | null>(null);
   const [selected, setSelected] = createSignal<string | null>(null);
   const [hovered, setHovered] = createSignal<ViewNode | null>(null);
+  const [reachMode, setReachMode] = createSignal<ReachMode>("both");
+  /** The selected box's reach over the drawn view: what is proven to reach it, and what it reaches. */
+  const reach = createMemo(() => {
+    const m = model();
+    const s = selected();
+    if (!m || !s || !m.vm.nodes.some((n) => n.id === s)) return null;
+    return reachFrom(m.vm, s, reachMode(), { exclude: m.notFlow });
+  });
+  /** What the canvas keeps lit: a selected box's reach, else the selected origin's destinations. */
+  const highlight = () => {
+    const r = reach();
+    if (r) return { nodes: r.strong.nodes, edges: r.strong.edges, light: r.light, frontier: r.frontier, dim: 0.35 };
+    return model()?.lit ?? null;
+  };
   let canvas: CanvasApi | undefined;
   let host!: HTMLDivElement;
   let pendingAnchor: string | null = null;
@@ -145,6 +160,18 @@ export default function FlowView(props: {
     if (lineage.status === "unavailable") return `${reach} · field lineage N/A: ${lineage.unavailableReason ?? "unavailable"}`;
     return `${reach} · ${lineage.fields} field${lineage.fields === 1 ? "" : "s"}${lineage.frontiers ? `, ${lineage.frontiers} stop at frontiers` : ""}`;
   };
+  /** The selected box's reach, for the status line. */
+  const reachText = () => {
+    const r = reach();
+    const n = r && model()?.byId.get(r.seed);
+    if (!r || !n) return null;
+    const box = (k: number) => `${k} box${k === 1 ? "" : "es"}`;
+    const parts = [n.label];
+    if (r.mode !== "down") parts.push(r.counts.up ? `reached from ${box(r.counts.up)}` : "nothing proven reaches it");
+    if (r.mode !== "up") parts.push(r.counts.down ? `reaches ${box(r.counts.down)}` : "reaches nothing proven");
+    if (r.counts.frontier) parts.push(`${r.counts.frontier} stop${r.counts.frontier === 1 ? "s" : ""} at a frontier`);
+    return parts.join(" · ");
+  };
 
   onMount(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -155,6 +182,7 @@ export default function FlowView(props: {
       const n = layout()?.nodes.find((p) => p.id === selected())?.node ?? hovered();
       if (key === "/") setPicker(true);
       else if (key === "0") canvas?.fit();
+      else if (key === "r" && selected()) setReachMode(REACH_MODES[(REACH_MODES.findIndex((m) => m.id === reachMode()) + 1) % REACH_MODES.length].id);
       else if (key === "Escape" && (selected() || field())) {
         if (selected()) setSelected(null);
         else pickOrigin(undefined);
@@ -211,6 +239,9 @@ export default function FlowView(props: {
             {origins().map((o) => <option value={o.nodeId} selected={o.nodeId === field()}>{o.label}</option>)}
           </select>
         </label>
+        <Show when={reach()}>
+          <ReachModeSwitch mode={reachMode()} onChange={setReachMode} />
+        </Show>
         <Button variant="ghost" class="px-2" onClick={() => canvas?.fit()} title="Fit the graph to the window (0)" disabled={!layout()}>
           Fit
         </Button>
@@ -253,7 +284,7 @@ export default function FlowView(props: {
                 onPointerAct={() => setSelected(null)}
                 onHover={setHovered}
                 selectedId={location().dest ?? selected() ?? undefined}
-                highlight={model()?.lit ?? null}
+                highlight={highlight()}
                 collapsible={collapsible}
                 onCollapse={collapse}
                 ref={(api) => (canvas = api)}
@@ -266,12 +297,12 @@ export default function FlowView(props: {
       </div>
 
       <div class="flex items-center gap-3 border-t border-[var(--plc-border)] px-3 py-1 text-[11px] text-[var(--plc-on-subtle)]" aria-live="polite">
-        <Show when={lineageText() ?? outcomeText()}>
-          {(text) => <span class="min-w-0 shrink truncate font-semibold text-[var(--plc-on-surface)]">{text()}</span>}
+        <Show when={reachText() ?? lineageText() ?? outcomeText()}>
+          {(text) => <span class="max-w-[60%] shrink-0 truncate font-semibold text-[var(--plc-on-surface)]" title={text()}>{text()}</span>}
         </Show>
         <span class="ml-auto min-w-0 truncate tabular-nums">
           {stats()}
-          {stats() ? " · " : ""}Click an origin to light what it reaches · Double-click or O opens code · Shift-click opens a frame · / picks a route
+          {stats() ? " · " : ""}Click a box to light its reach (R: both, up, down) · Double-click or O opens code · Shift-click opens a frame · / picks a route
         </span>
       </div>
 

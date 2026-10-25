@@ -22,7 +22,7 @@ import { CLICK_CURSOR, clickAction, createClickIntent, liveHover } from "./inter
 import { formatLoc, stripSegments, type ContentItem, type StripSegment } from "./metrics";
 import type { HubShape } from "./hubs";
 import { FRAME_LABEL_H, MAX_SCALE, type PositionedEdge, type PositionedNode, type ViewLayout } from "./layout";
-import type { ViewNode } from "./viewModel";
+import type { ViewEdge, ViewNode } from "./viewModel";
 import { FlowMarkGlyph, RepetitionBadge } from "./flow/FlowMark";
 import { isFlowMark, REPETITION_BADGE } from "./flow/marks";
 
@@ -175,6 +175,19 @@ export function CycleIcon(props: { x: number; y: number }) {
 /** A hover card for an icon: a title, plain lines, and optional name · count rows. */
 type Tip = { title: string; lines?: string[]; rows?: [string, string][] };
 
+/**
+ * Boxes and edges to keep lit while nothing is hovered (Data flow mode):
+ * `nodes` and `edges` strongly, `light` ones softly, `frontier` boxes where
+ * a proof stopped; everything else dims to `dim` (a hover's dimming by default).
+ */
+export interface Highlight {
+  nodes: Set<string>;
+  edges: Set<string>;
+  light?: { nodes: Set<string>; edges: Set<string> };
+  frontier?: Set<string>;
+  dim?: number;
+}
+
 export function DependencyCanvas(props: {
   layout: ViewLayout;
   /**
@@ -221,9 +234,9 @@ export function DependencyCanvas(props: {
   linkCounts?: boolean | "flow";
   /**
    * Boxes and edges to keep lit while nothing is hovered (Data flow mode's
-   * selected origin and its proven destinations); the rest dim like a hover.
+   * selected origin and its proven destinations, or a selected box's reach).
    */
-  highlight?: { nodes: Set<string>; edges: Set<string> } | null;
+  highlight?: Highlight | null;
 }) {
   let svgRef!: SVGSVGElement;
   let gRef!: SVGGElement;
@@ -373,12 +386,14 @@ export function DependencyCanvas(props: {
 
   const allEdges = createMemo(() => [...props.layout.edges, ...(props.layout.hiddenEdges ?? [])]);
 
+  /** Nothing is hovered, so `highlight` (if any) decides what is lit. */
+  const quiet = () => !hoverHub() && !hoverNode() && !hoverEdge();
   // Edges touching the hovered node (or the hovered edge itself) are
   // emphasized. Hovering a hub, or one of its badges, brings its hidden edges back.
   const activeEdges = createMemo(() => {
     const hn = hoverHub() ?? hoverNode() ?? (hoverEdge() ? null : selectedId());
     const he = hoverEdge();
-    if (!hn && !he) return props.highlight ? props.highlight.edges : null;
+    if (!hn && !he) return props.highlight ? new Set([...props.highlight.edges, ...(props.highlight.light?.edges ?? [])]) : null;
     const set = new Set<string>();
     for (const e of allEdges()) {
       if (e.id === he || e.source === hn || e.target === hn) set.add(e.id);
@@ -391,7 +406,11 @@ export function DependencyCanvas(props: {
     const set = new Set<string>();
     const hn = hoverHub() ?? hoverNode() ?? (hoverEdge() ? null : selectedId());
     if (hn) set.add(hn);
-    if (props.highlight && !hoverHub() && !hoverNode() && !hoverEdge()) for (const id of props.highlight.nodes) set.add(id);
+    if (props.highlight && quiet()) {
+      for (const id of props.highlight.nodes) set.add(id);
+      for (const id of props.highlight.light?.nodes ?? []) set.add(id);
+      for (const id of props.highlight.frontier ?? []) set.add(id);
+    }
     for (const e of allEdges()) {
       if (ae.has(e.id)) {
         set.add(e.source);
@@ -400,6 +419,16 @@ export function DependencyCanvas(props: {
     }
     return set;
   });
+  /** A box's emphasis tier from `highlight`, while nothing is hovered. */
+  const tier = (id: string): "strong" | "light" | "frontier" | null => {
+    const h = props.highlight;
+    if (!h || !quiet()) return null;
+    if (h.nodes.has(id)) return "strong";
+    if (h.light?.nodes.has(id)) return "light";
+    if (h.frontier?.has(id)) return "frontier";
+    return null;
+  };
+  const lightEdge = (id: string) => quiet() && !!props.highlight?.light?.edges.has(id) && !props.highlight.edges.has(id);
 
   // Frame around a focused file's symbols.
   const focusFrame = createMemo(() => {
@@ -934,7 +963,7 @@ export function DependencyCanvas(props: {
                       d={edgePath(e)}
                       stroke={active() || e.edge.style === "field" ? "var(--plc-accent)" : "var(--plc-tertiary)"}
                       stroke-width={edgeStrokeWidth(e.edge.weight, e.edge.faint)}
-                      stroke-opacity={dimmed() ? 0.12 : e.edge.faint && !active() ? CONTEXT_EDGE_OPACITY : EDGE_OPACITY}
+                      stroke-opacity={dimmed() ? 0.12 : lightEdge(e.id) ? 0.4 : e.edge.faint && !active() ? CONTEXT_EDGE_OPACITY : EDGE_OPACITY}
                       stroke-dasharray={e.edge.style === "handoff" ? HANDOFF_EDGE_DASH : e.edge.faint ? CONTEXT_EDGE_DASH : undefined}
                       stroke-linejoin="round"
                       marker-end={active() ? "url(#dv-arrow-active)" : "url(#dv-arrow)"}
@@ -955,6 +984,9 @@ export function DependencyCanvas(props: {
                         setCard(null);
                       }}
                     />
+                    <Show when={e.edge.label && !dimmed()}>
+                      <EdgeLabel edge={e} strong={active()} />
+                    </Show>
                   </g>
                 );
               }}
@@ -966,8 +998,8 @@ export function DependencyCanvas(props: {
                   <path
                     d={edgePath(e)}
                     stroke="var(--plc-accent)"
-                    stroke-width={edgeStrokeWidth(e.edge.weight, false)}
-                    stroke-opacity="0.85"
+                    stroke-width={edgeStrokeWidth(e.edge.weight, lightEdge(e.id))}
+                    stroke-opacity={lightEdge(e.id) ? 0.45 : 0.85}
                     stroke-linejoin="round"
                     marker-end="url(#dv-arrow-active)"
                     pointer-events="none"
@@ -1003,7 +1035,7 @@ export function DependencyCanvas(props: {
                     ...(flight?.delay ? { "animation-delay": `${flight.delay}ms` } : {}),
                     transform: `translate(${n.x}px,${n.y}px)`,
                     cursor: cursor(),
-                    opacity: dimmed() ? 0.62 : 1,
+                    opacity: dimmed() ? (quiet() && props.highlight?.dim) || 0.62 : tier(n.id) === "light" ? 0.9 : 1,
                     transition: "opacity 140ms ease",
                     ...(flight
                       ? { "--dv-from": `translate(${flight.x}px,${flight.y}px) scale(${flight.scale})`, "--dv-from-opacity": String(flight.opacity) }
@@ -1061,16 +1093,18 @@ export function DependencyCanvas(props: {
                           (n.node.tint ? tintFill(n.node.tint) : isFolder ? "var(--plc-surface-muted)" : "var(--plc-surface)"))
                     }
                     stroke={
-                      isFocus || n.node.lit
+                      isFocus || n.node.lit || tier(n.id) === "strong" || tier(n.id) === "light"
                         ? "var(--plc-accent)"
-                        : n.node.status && n.node.status !== "proven"
-                          ? STATUS_COLOR[n.node.status]
-                          : hoverNode() === n.id || hoverHub() === n.id
-                            ? "var(--plc-on-muted)"
-                            : isFolder ? "var(--plc-on-disabled)" : "var(--plc-border-strong)"
+                        : tier(n.id) === "frontier"
+                          ? "var(--plc-warning)"
+                          : n.node.status && n.node.status !== "proven"
+                            ? STATUS_COLOR[n.node.status]
+                            : hoverNode() === n.id || hoverHub() === n.id
+                              ? "var(--plc-on-muted)"
+                              : isFolder ? "var(--plc-on-disabled)" : "var(--plc-border-strong)"
                     }
-                    stroke-width={isFocus ? 2.25 : n.node.lit ? 2 : isFolder || hub() || (n.node.status && n.node.status !== "proven") ? 1.5 : 1}
-                    stroke-dasharray={n.node.kind === "external" ? EXTERNAL_BOX_DASH : n.node.outline === "dotted" ? DOTTED_BOX_DASH : n.node.outline === "hatched" ? FRONTIER_BOX_DASH : undefined}
+                    stroke-width={isFocus ? 2.25 : n.node.lit || tier(n.id) === "strong" ? 2 : tier(n.id) === "light" ? 1.25 : isFolder || hub() || tier(n.id) || (n.node.status && n.node.status !== "proven") ? 1.5 : 1}
+                    stroke-dasharray={n.node.kind === "external" ? EXTERNAL_BOX_DASH : n.node.outline === "dotted" ? DOTTED_BOX_DASH : n.node.outline === "hatched" || tier(n.id) === "frontier" ? FRONTIER_BOX_DASH : undefined}
                     style={{ transition: "stroke 140ms ease, fill 140ms ease" }}
                   />
                   <Show when={ink() === 1} fallback={<CompactBody n={n} />}>
@@ -1554,10 +1588,48 @@ function TipCard(props: { tip: Tip }) {
   );
 }
 
+/** A field edge's path, on the longest run of the edge, with a halo so it reads over other edges. */
+function EdgeLabel(props: { edge: PositionedEdge; strong: boolean }) {
+  const at = createMemo(() => {
+    const pts = props.edge.points;
+    let best = { len: -1, x: 0, y: 0 };
+    for (let i = 1; i < pts.length; i++) {
+      const len = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+      if (len > best.len) best = { len, x: (pts[i].x + pts[i - 1].x) / 2, y: (pts[i].y + pts[i - 1].y) / 2 };
+    }
+    return best;
+  });
+  return (
+    <text
+      x={at().x}
+      y={at().y - 3}
+      text-anchor="middle"
+      font-size="10"
+      font-weight={props.strong ? 600 : 500}
+      fill="var(--plc-accent)"
+      paint-order="stroke"
+      stroke="var(--plc-surface-subtle)"
+      stroke-width="3"
+      stroke-linejoin="round"
+      pointer-events="none"
+    >
+      {props.edge.edge.label}
+    </text>
+  );
+}
+
+/** What a flow edge is, for its card: containment is what a frame renders; handoff and field edges come from the engine with proof. */
+function flowEdgeKind(e: ViewEdge): "renders" | "handoff" | "field" | null {
+  if (e.style) return e.style;
+  return e.id.startsWith("contains:") ? "renders" : null;
+}
+
 function EdgeCard(props: { edge: PositionedEdge; nodes: Map<string, PositionedNode> }) {
   const s = () => props.nodes.get(props.edge.source)?.node;
   const t = () => props.nodes.get(props.edge.target)?.node;
   const syms = () => props.edge.edge.symbols;
+  const flow = () => flowEdgeKind(props.edge.edge);
+  const e = () => props.edge.edge;
   return (
     <div>
       <div class="plc-data-sm font-semibold text-[var(--plc-on-surface)]">
@@ -1565,10 +1637,49 @@ function EdgeCard(props: { edge: PositionedEdge; nodes: Map<string, PositionedNo
         <span class="px-1 font-normal text-[var(--plc-on-subtle)]">→</span>
         {t()?.label}
       </div>
-      <div class={HINT}>
-        {props.edge.edge.weight} import link{props.edge.edge.weight === 1 ? "" : "s"}
-        {props.edge.edge.faint ? " · context" : ""}
-      </div>
+      <Show when={flow()} fallback={
+        <div class={HINT}>
+          {e().weight} import link{e().weight === 1 ? "" : "s"}
+          {e().faint ? " · context" : ""}
+        </div>
+      }>
+        {(kind) => (
+          <>
+            <div class="flex flex-wrap items-baseline gap-x-2 text-[11px]">
+              <span class="text-[var(--plc-on-subtle)]">
+                {kind() === "renders" ? "renders: inside its frame" : kind() === "handoff" ? "handoff: an origin reaching a render site" : "field: the selected origin's path"}
+              </span>
+              <Show when={e().status}>
+                {(st) => (
+                  <span class="font-semibold" style={{ color: STATUS_COLOR[st()] }}>
+                    {st() === "proven" ? "proven" : st() === "partial" ? "partial proof" : "unsupported"}
+                  </span>
+                )}
+              </Show>
+            </div>
+            <Show when={e().label}>
+              <div class="plc-data-sm mt-0.5 font-semibold text-[var(--plc-accent)]">{e().label}</div>
+            </Show>
+            <Show when={e().proof?.length}>
+              <div class="mt-1.5 grid grid-cols-[auto_minmax(0,1fr)_auto] items-baseline gap-x-2 gap-y-px border-t border-[var(--plc-divider)] pt-1">
+                <span class="col-span-3 text-[11px] text-[var(--plc-on-subtle)]">Proof</span>
+                <For each={e().proof!.slice(0, 6)}>
+                  {(p) => (
+                    <>
+                      <span class="plc-data-sm text-[var(--plc-on-muted)]">{p.kind}</span>
+                      <span class="plc-data-sm truncate !font-normal text-[var(--plc-on-surface)]" title={p.detail}>{p.detail}</span>
+                      <span class="plc-data-sm text-right text-[var(--plc-on-subtle)]">{p.at ?? ""}</span>
+                    </>
+                  )}
+                </For>
+                <Show when={e().proof!.length > 6}>
+                  <span class="col-span-3 text-[11px] text-[var(--plc-on-subtle)]">+{e().proof!.length - 6} more</span>
+                </Show>
+              </div>
+            </Show>
+          </>
+        )}
+      </Show>
       <Show when={syms().length > 0}>
         <div class="plc-data-sm mt-1 border-t border-[var(--plc-divider)] pt-1 !font-normal text-[var(--plc-on-muted)]">
           {syms().slice(0, 12).join(", ")}
