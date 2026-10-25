@@ -136,6 +136,7 @@ Seeds in priority order (R13, R7). Each has **evidence** for why it matters, a *
 - Evidence: labels overlap boxes on `/time-blocks`.
 - Proof: no label rectangle intersects a box rectangle in the T6 screenshots, checked by a test.
 - Stop rule: coordinate with `dependency-graph-legibility`. If placement needs a layout change, hide the labels behind hover instead.
+- Done (PR 22 of the stack): `placeEdgeLabels` (pure) tries each edge's segments longest first, above then below a horizontal run or beside a vertical one, and keeps a label only where it covers no box (2 px margin) and no earlier label; a label with no clear spot is drawn only while its edge is hovered, and the edge card still names the field. No layout change. Unit tests on synthetic layouts; the smoke test on compact-field-proof checks every drawn label's rectangle against every box.
 
 ## E7 Ship
 
