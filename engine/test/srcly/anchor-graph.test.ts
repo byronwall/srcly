@@ -167,19 +167,37 @@ describe("anchorGraph on value-flow-basics", () => {
     // Where it is rendered is where its value ends: the occurrence is drawn, its body is not walked again.
     const use = graph.nodes.find((node) => node.note === "rendered here")!;
     expect(use).toMatchObject({ side: "down", line: 19 });
-    // Nothing walks into Rail's body from its render site: the only stop is the one read no binding reaches.
-    expect(boxes(graph, "frontier").map((node) => [node.label, node.reason, node.side])).toEqual([["label", "unbound-read", "up"]]);
+    // Nothing walks into Rail's body from its render site, and every read lands: `props.size` inside `tall`, and `label="toc"`.
+    expect(boxes(graph, "frontier")).toEqual([]);
+    expect(graph.outcome).toBe("ok");
+  });
+
+  it("binds a prop read inside a closure, and a string attribute, to the caller in another file", () => {
+    const graph = anchorGraphOp(session, { file: "src/closure-props.tsx", name: "Chip", line: 4, direction: "backward" });
+    const literals = boxes(graph).filter((node) => node.elementKind === "literal").map((node) => node.label);
+    // `tone="warm"` (read in an arrow) and `count={2}` (read in a nested function) both reach their literal.
+    expect(literals).toEqual(expect.arrayContaining(["\"warm\"", "2"]));
+  });
+
+  it("never binds a read that only looks like the prop: a shadowed `props`, another object's field", () => {
+    const tier1 = session.tier1();
+    const provider = tier1.provider();
+    const reads = provider.facts.fileCandidates("src/closure-props.tsx").filter((fact) => fact.kind === "field-read" && fact.label === "tone");
+    const bound = (id: string) => provider.getRelations(id, "backward").some((relation) => relation.kind === "component-prop-binding");
+    // Chip's own `props.tone`, the shadowed parameter's, and `other.tone`: only the first is bound.
+    expect(reads.map((read) => [read.location.span.startLine, bound(read.id)])).toEqual([[5, true], [10, false], [13, false]]);
   });
 
   it("stops a prop read no binding reaches at a frontier, instead of landing it through another prop", () => {
-    // `label="toc"` has no binding relation; `size={2}` does and starts at a literal. The shared `props` must not carry size's landing to label.
-    const graph = anchorGraphOp(session, { file: "src/nested-helpers.tsx", name: "Rail", line: 5, direction: "backward" });
+    // `note` is never passed; `tone` and `count` are, and start at literals. The shared `props` must not carry their landing to note.
+    const graph = anchorGraphOp(session, { file: "src/closure-props.tsx", name: "Chip", line: 4, direction: "backward" });
     expect(graph.outcome).toBe("partial");
-    const stop = boxes(graph, "frontier")[0];
-    expect(stop).toMatchObject({ label: "label", status: "partial", line: 13 });
-    expect(stop.note).toMatch(/not traced/);
-    const read = graph.nodes.find((node) => node.elementKind === "field-read" && node.label === "label")!;
-    expect(graph.edges.some((edge) => edge.kind === "gap" && edge.source === stop.id && edge.target === read.id)).toBe(true);
+    const stops = boxes(graph, "frontier");
+    expect(stops).toHaveLength(1);
+    expect(stops[0]).toMatchObject({ label: "note", reason: "unbound-read", status: "partial", line: 15 });
+    expect(stops[0].note).toMatch(/not traced/);
+    const read = graph.nodes.find((node) => node.elementKind === "field-read" && node.label === "note")!;
+    expect(graph.edges.some((edge) => edge.kind === "gap" && edge.source === stops[0].id && edge.target === read.id)).toBe(true);
   });
 
   it("folds the gaps of one element limit into one frontier that names what it did not follow", () => {
