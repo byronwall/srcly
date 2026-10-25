@@ -1,0 +1,625 @@
+{
+ "outcome": "ok",
+ "generation": 1,
+ "programHash": "5b648254463aa4fb",
+ "tsconfig": "/fixture/solid-route/tsconfig.json",
+ "typescript": "5.9.3",
+ "reason": null,
+ "anchor": {
+  "file": "src/components/ViewerCard.tsx",
+  "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
+  "span": {
+   "startLine": 6,
+   "startColumn": 21,
+   "endLine": 6,
+   "endColumn": 39
+  },
+  "text": "props.viewer?.name",
+  "kind": "PropertyAccessExpression",
+  "elementId": "program-element:jgimy9",
+  "typeText": "string | undefined"
+ },
+ "direction": "both",
+ "nodes": [
+  {
+   "id": "scope:src/components/ViewerCard.tsx:3:1",
+   "kind": "scope",
+   "label": "ViewerCard",
+   "detail": "ViewerCard.tsx",
+   "parent": null,
+   "file": "src/components/ViewerCard.tsx",
+   "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
+   "line": 3,
+   "span": {
+    "startLine": 3,
+    "startColumn": 1,
+    "endLine": 10,
+    "endColumn": 2
+   },
+   "status": "proven",
+   "side": "seed",
+   "elementKind": null,
+   "typeText": null,
+   "reason": null,
+   "note": null
+  },
+  {
+   "id": "program-element:jgimy9",
+   "kind": "anchor",
+   "label": "props.viewer?.name",
+   "detail": "property read",
+   "parent": "scope:src/components/ViewerCard.tsx:3:1",
+   "file": "src/components/ViewerCard.tsx",
+   "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
+   "line": 6,
+   "span": {
+    "startLine": 6,
+    "startColumn": 21,
+    "endLine": 6,
+    "endColumn": 39
+   },
+   "status": "proven",
+   "side": "seed",
+   "elementKind": "field-read",
+   "typeText": "string | undefined",
+   "reason": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1ntfazm",
+   "kind": "value",
+   "label": "viewer",
+   "detail": "field read",
+   "parent": "scope:src/components/ViewerCard.tsx:3:1",
+   "file": "src/components/ViewerCard.tsx",
+   "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
+   "line": 6,
+   "span": {
+    "startLine": 6,
+    "startColumn": 21,
+    "endLine": 6,
+    "endColumn": 33
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "field-read",
+   "typeText": "ViewerProfile | undefined",
+   "reason": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1h7mq5g",
+   "kind": "value",
+   "label": "props",
+   "detail": "value",
+   "parent": "scope:src/components/ViewerCard.tsx:3:1",
+   "file": "src/components/ViewerCard.tsx",
+   "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
+   "line": 6,
+   "span": {
+    "startLine": 6,
+    "startColumn": 21,
+    "endLine": 6,
+    "endColumn": 26
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "value",
+   "typeText": "{ viewer: ViewerProfile | undefined; }",
+   "reason": null,
+   "note": null
+  },
+  {
+   "id": "scope:src/routes/records.tsx:15:1",
+   "kind": "scope",
+   "label": "RecordsRoute",
+   "detail": "records.tsx",
+   "parent": null,
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 15,
+   "span": {
+    "startLine": 15,
+    "startColumn": 1,
+    "endLine": 37,
+    "endColumn": 2
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": null,
+   "typeText": null,
+   "reason": null,
+   "note": null
+  },
+  {
+   "id": "program-element:129wzcm",
+   "kind": "value",
+   "label": "viewer={viewer()}",
+   "detail": "prop binding",
+   "parent": "scope:src/routes/records.tsx:15:1",
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 30,
+   "span": {
+    "startLine": 30,
+    "startColumn": 19,
+    "endLine": 30,
+    "endColumn": 36
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "component-prop-binding",
+   "typeText": "any",
+   "reason": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1q9bsk5",
+   "kind": "value",
+   "label": "props",
+   "detail": "parameter",
+   "parent": "scope:src/components/ViewerCard.tsx:3:1",
+   "file": "src/components/ViewerCard.tsx",
+   "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
+   "line": 3,
+   "span": {
+    "startLine": 3,
+    "startColumn": 28,
+    "endLine": 3,
+    "endColumn": 33
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "parameter",
+   "typeText": "{ viewer: ViewerProfile | undefined; }",
+   "reason": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1flukef",
+   "kind": "value",
+   "label": "viewer()",
+   "detail": "call",
+   "parent": "scope:src/routes/records.tsx:15:1",
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 30,
+   "span": {
+    "startLine": 30,
+    "startColumn": 27,
+    "endLine": 30,
+    "endColumn": 35
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "call",
+   "typeText": "ViewerProfile | undefined",
+   "reason": null,
+   "note": null
+  },
+  {
+   "id": "program-element:fy0vtv",
+   "kind": "boundary",
+   "label": "viewer()",
+   "detail": "resource result",
+   "parent": "scope:src/routes/records.tsx:15:1",
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 30,
+   "span": {
+    "startLine": 30,
+    "startColumn": 27,
+    "endLine": 30,
+    "endColumn": 35
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "resource-result",
+   "typeText": "ViewerProfile | undefined",
+   "reason": "framework-runtime",
+   "note": "viewer() is framework runtime; what it carries is proven only as far as the engine's relations go"
+  },
+  {
+   "id": "program-element:8rfih4",
+   "kind": "origin",
+   "label": "createResource(loadViewer)",
+   "detail": "resource",
+   "parent": "scope:src/routes/records.tsx:15:1",
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 17,
+   "span": {
+    "startLine": 17,
+    "startColumn": 20,
+    "endLine": 17,
+    "endColumn": 46
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "resource-input",
+   "typeText": "ResourceReturn<ViewerProfile, unknown>",
+   "reason": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1sku82f",
+   "kind": "transform",
+   "label": "props.viewer?.name ?? \"loading viewer\"",
+   "detail": "selection",
+   "parent": "scope:src/components/ViewerCard.tsx:3:1",
+   "file": "src/components/ViewerCard.tsx",
+   "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
+   "line": 6,
+   "span": {
+    "startLine": 6,
+    "startColumn": 21,
+    "endLine": 6,
+    "endColumn": 59
+   },
+   "status": "proven",
+   "side": "down",
+   "elementKind": "selection",
+   "typeText": "string",
+   "reason": null,
+   "note": null
+  },
+  {
+   "id": "program-element:msjsn9",
+   "kind": "terminal",
+   "label": "props.viewer?.name ?? \"loading viewer\"",
+   "detail": "render slot",
+   "parent": "scope:src/components/ViewerCard.tsx:3:1",
+   "file": "src/components/ViewerCard.tsx",
+   "absPath": "/fixture/solid-route/src/components/ViewerCard.tsx",
+   "line": 6,
+   "span": {
+    "startLine": 6,
+    "startColumn": 21,
+    "endLine": 6,
+    "endColumn": 59
+   },
+   "status": "proven",
+   "side": "down",
+   "elementKind": "render-terminal",
+   "typeText": "string",
+   "reason": null,
+   "note": null
+  }
+ ],
+ "edges": [
+  {
+   "id": "program-relation:pv8nda",
+   "source": "program-element:1ntfazm",
+   "target": "program-element:jgimy9",
+   "kind": "field-input",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "property-access",
+     "detail": "The receiver supplies the property-read value.",
+     "locations": [
+      {
+       "file": "src/components/ViewerCard.tsx",
+       "line": 6,
+       "column": 21,
+       "span": {
+        "startLine": 6,
+        "startColumn": 21,
+        "endLine": 6,
+        "endColumn": 39
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": "viewer"
+  },
+  {
+   "id": "program-relation:egcrxn",
+   "source": "program-element:1h7mq5g",
+   "target": "program-element:1ntfazm",
+   "kind": "field-input",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "property-access",
+     "detail": "The receiver supplies the property-read value.",
+     "locations": [
+      {
+       "file": "src/components/ViewerCard.tsx",
+       "line": 6,
+       "column": 21,
+       "span": {
+        "startLine": 6,
+        "startColumn": 21,
+        "endLine": 6,
+        "endColumn": 33
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:jurfhq",
+   "source": "program-element:129wzcm",
+   "target": "program-element:1ntfazm",
+   "kind": "component-prop-binding",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "component-prop-binding",
+     "detail": "The binding element points to the parameter-rooted receiver by compiler symbol and property evidence.",
+     "locations": [
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 19,
+       "span": {
+        "startLine": 30,
+        "startColumn": 19,
+        "endLine": 30,
+        "endColumn": 36
+       }
+      },
+      {
+       "file": "src/components/ViewerCard.tsx",
+       "line": 6,
+       "column": 21,
+       "span": {
+        "startLine": 6,
+        "startColumn": 21,
+        "endLine": 6,
+        "endColumn": 33
+       }
+      },
+      {
+       "file": "src/components/ViewerCard.tsx",
+       "line": 3,
+       "column": 28,
+       "span": {
+        "startLine": 3,
+        "startColumn": 28,
+        "endLine": 3,
+        "endColumn": 72
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:df73b7",
+   "source": "program-element:1q9bsk5",
+   "target": "program-element:1h7mq5g",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "compiler-symbol",
+     "detail": "The value occurrence resolves to a function parameter.",
+     "locations": [
+      {
+       "file": "src/components/ViewerCard.tsx",
+       "line": 6,
+       "column": 21,
+       "span": {
+        "startLine": 6,
+        "startColumn": 21,
+        "endLine": 6,
+        "endColumn": 26
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1sqfjhy",
+   "source": "program-element:1flukef",
+   "target": "program-element:129wzcm",
+   "kind": "component-prop-binding",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "component-prop-binding",
+     "detail": "The component-prop value reaches one occurrence-specific binding with one compiler-backed receiver.",
+     "locations": [
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 19,
+       "span": {
+        "startLine": 30,
+        "startColumn": 19,
+        "endLine": 30,
+        "endColumn": 36
+       }
+      },
+      {
+       "file": "src/components/ViewerCard.tsx",
+       "line": 3,
+       "column": 28,
+       "span": {
+        "startLine": 3,
+        "startColumn": 28,
+        "endLine": 3,
+        "endColumn": 72
+       }
+      },
+      {
+       "file": "src/components/ViewerCard.tsx",
+       "line": 6,
+       "column": 21,
+       "span": {
+        "startLine": 6,
+        "startColumn": 21,
+        "endLine": 6,
+        "endColumn": 33
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1xotcmo",
+   "source": "program-element:fy0vtv",
+   "target": "program-element:1flukef",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The call reads the resource result accessor.",
+     "locations": [
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 27,
+       "span": {
+        "startLine": 30,
+        "startColumn": 27,
+        "endLine": 30,
+        "endColumn": 35
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:ff5q4e",
+   "source": "program-element:8rfih4",
+   "target": "program-element:fy0vtv",
+   "kind": "resource-result",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "resource-boundary",
+     "detail": "The resource accessor returns the resource result occurrence.",
+     "locations": [
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 27,
+       "span": {
+        "startLine": 30,
+        "startColumn": 27,
+        "endLine": 30,
+        "endColumn": 35
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1476fj9",
+   "source": "program-element:jgimy9",
+   "target": "program-element:1sku82f",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The branch expression contributes to the selection.",
+     "locations": [
+      {
+       "file": "src/components/ViewerCard.tsx",
+       "line": 6,
+       "column": 21,
+       "span": {
+        "startLine": 6,
+        "startColumn": 21,
+        "endLine": 6,
+        "endColumn": 39
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:nvthw0",
+   "source": "program-element:1sku82f",
+   "target": "program-element:msjsn9",
+   "kind": "render-terminal",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "jsx-tag",
+     "detail": "The value expression reaches the intrinsic DOM terminal.",
+     "locations": [
+      {
+       "file": "src/components/ViewerCard.tsx",
+       "line": 6,
+       "column": 21,
+       "span": {
+        "startLine": 6,
+        "startColumn": 21,
+        "endLine": 6,
+        "endColumn": 59
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  }
+ ],
+ "origins": [
+  {
+   "nodeId": "program-element:8rfih4",
+   "label": "createResource(loadViewer)",
+   "roles": [
+    "resource"
+   ],
+   "status": "proven"
+  }
+ ],
+ "terminals": [
+  {
+   "nodeId": "program-element:msjsn9",
+   "label": "props.viewer?.name ?? \"loading viewer\"",
+   "roles": [
+    "render"
+   ],
+   "status": "proven"
+  }
+ ],
+ "counts": {
+  "up": 7,
+  "down": 2,
+  "scopes": 2,
+  "origins": 1,
+  "terminals": 1,
+  "boundaries": 1,
+  "frontiers": 0
+ },
+ "coverage": {
+  "elements": 17,
+  "relations": 27,
+  "budget": {
+   "limit": 512,
+   "used": 27,
+   "exhausted": false
+  }
+ }
+}

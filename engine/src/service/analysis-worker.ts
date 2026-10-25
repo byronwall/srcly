@@ -11,6 +11,7 @@ import { renderMarkdownView } from "../reports/markdown-views";
 import type { AnalyzerProgressUpdate } from "../analysis/progress";
 import type { AnalysisOperation, AnalysisProgress, AnalysisWorkerData, AnalysisWorkerRequest } from "./analysis-service";
 import { errorPayload } from "../srcly/protocol";
+import { anchorGraphOp } from "../srcly/ops/anchor-graph";
 import { routeGraphOp } from "../srcly/ops/route-graph";
 import { routesOp } from "../srcly/ops/routes";
 import { selectExpressionOp, valueFlowOp } from "../srcly/ops/value-flow";
@@ -72,6 +73,7 @@ function perform(operation: AnalysisOperation, requestId: number, cancellation: 
   if (operation.kind === "route-graph") return announce(routeGraphOp(requireSession(), operation, cancellation));
   if (operation.kind === "select-expression") return announce(selectExpressionOp(requireSession(), operation.params));
   if (operation.kind === "value-flow") return announce(valueFlowOp(requireSession(), operation.params, cancellation));
+  if (operation.kind === "anchor-graph") return announce(anchorGraphOp(requireSession(), operation.params, cancellation));
   if (operation.kind === "refresh") {
     const report = cache.refresh();
     return refreshResponseSchema.parse({ apiVersion: 1, analysisVersion: report.analysisVersion, generation: cache.generation(), generatedAt: report.generatedAt, data: { refreshed: true } });

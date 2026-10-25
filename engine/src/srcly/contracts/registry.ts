@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { anchorGraphResultSchema } from "./anchor-graph";
 import { helloResultSchema } from "./hello";
 import { routeGraphResultSchema } from "./route-graph";
 import { routesResultSchema } from "./routes";
@@ -17,4 +18,5 @@ export const CONTRACTS: { op: string; typeName: string; schema: z.ZodType }[] = 
   { op: "routeGraph", typeName: "RouteGraphResult", schema: routeGraphResultSchema },
   { op: "selectExpression", typeName: "SelectExpressionResult", schema: selectExpressionResultSchema },
   { op: "valueFlow", typeName: "ValueFlowResult", schema: valueFlowResultSchema },
+  { op: "anchorGraph", typeName: "AnchorGraphResult", schema: anchorGraphResultSchema },
 ];

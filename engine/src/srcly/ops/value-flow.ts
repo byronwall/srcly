@@ -13,14 +13,12 @@ import {
 } from "../contracts/value-flow";
 import { EngineError } from "../protocol";
 import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex, type CallSites } from "../call-sites";
+import { callSitesOfElement, CROSS_CALL, elementsAt, seedFor, TERMINAL_KINDS } from "../facts";
 import { candidatesAt, parseSpan, sameSpan, sourceFileFor, spanOf, type Span } from "../selection";
 import { checkGeneration, type EngineSession, type Tier1 } from "../session";
 
 /** Ledgers bigger than this are refused as `budget-exhausted`, never truncated. */
 export const LEDGER_MAX_BYTES = 2 * 1024 * 1024;
-
-/** Evidence elements a selection may start from, most specific first. */
-const SEED_KINDS = ["field-read", "selection", "call-result", "call", "value", "alias", "parameter", "jsx-occurrence", "literal"];
 
 /** Relation kinds the walk follows, in this order of preference (plan 6-M3 step 4). */
 const FOLLOW = [
@@ -29,9 +27,6 @@ const FOLLOW = [
   "pack-field", "map-element", "map-callback-parameter", "map-result", "filter-result", "find-result",
   "includes-membership", "join-source", "accessor-call",
 ];
-/** Followed only when the callee has exactly one call site (R7; M5 replaces this with invocation pairing). */
-const CROSS_CALL = new Set(["invokes", "argument", "argument-binding", "function-call", "function-return", "return-value", "callback-parameter"]);
-const TERMINAL_KINDS = new Set(["render-terminal", "dom-terminal", "component-occurrence", "side-effect", "return"]);
 const MAX_ROWS = 64;
 const callSiteIndexes = new WeakMap<Tier1, CallSiteIndex>();
 
@@ -42,21 +37,6 @@ function base(tier1: Tier1) {
     tsconfig: tier1.generation.tsconfig,
     typescript: tier1.generation.typescript,
   };
-}
-
-/** Facts at exactly this span in this file. */
-function elementsAt(tier1: Tier1, file: string, span: Span) {
-  return tier1.provider().facts.fileCandidates(file).filter((fact) => sameSpan(fact.location.span, span));
-}
-
-/** The evidence element a selection starts from: the most specific fact at exactly its span. */
-function seedFor(tier1: Tier1, file: string, span: Span): string | null {
-  const facts = elementsAt(tier1, file, span);
-  for (const kind of SEED_KINDS) {
-    const match = facts.find((fact) => fact.kind === kind);
-    if (match) return match.id;
-  }
-  return null;
 }
 
 export function selectExpressionOp(session: EngineSession, params: Record<string, unknown>): SelectExpressionResult {
@@ -325,18 +305,8 @@ class LedgerBuilder {
     }
   }
 
-  /** The call sites of the function a cross-call element belongs to: a call, a parameter or the function itself. */
   private sitesOfElement(element: ProgramElement): { sites: CallSites | null; name: string } {
-    const { ts } = this.tier1;
-    const sourceFile = this.tier1.program.getSourceFile(path.resolve(this.root, element.location.file));
-    const node = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
-    if (!node) return { sites: null, name: element.label };
-    const call = ts.isCallExpression(node) ? node : null;
-    if (call) return { sites: this.sites.forCall(call), name: call.expression.getText(sourceFile!) };
-    let fn: TypeScript.Node | undefined = node;
-    while (fn && !ts.isFunctionLike(fn)) fn = fn.parent;
-    const name = fn && ts.isVariableDeclaration(fn.parent) ? fn.parent.name.getText(sourceFile!) : fn && "name" in fn && fn.name ? (fn.name as TypeScript.Node).getText(sourceFile!) : element.label;
-    return { sites: this.sites.forFunctionOf(node), name };
+    return callSitesOfElement(this.tier1, this.sites, element);
   }
 
   private typeText(node: TypeScript.Node): string | null {
@@ -386,23 +356,6 @@ class LedgerBuilder {
       },
     });
   }
-}
-
-/** The node whose span is exactly `span` (the outermost one when several share it). */
-function nodeAtSpan(ts: typeof TypeScript, sourceFile: TypeScript.SourceFile, span: Span): TypeScript.Node | null {
-  let found: TypeScript.Node | null = null;
-  const visit = (node: TypeScript.Node) => {
-    if (found) return;
-    const own = spanOf(sourceFile, node);
-    if (sameSpan(own, span)) {
-      found = node;
-      return;
-    }
-    const start = sourceFile.getPositionOfLineAndCharacter(span.startLine - 1, span.startColumn - 1);
-    if (node.getStart(sourceFile) <= start && start < node.getEnd()) ts.forEachChild(node, visit);
-  };
-  ts.forEachChild(sourceFile, visit);
-  return found;
 }
 
 function classify(relation: ProgramRelation, element: ProgramElement): LedgerRow["kind"] {
