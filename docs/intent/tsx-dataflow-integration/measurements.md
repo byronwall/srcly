@@ -142,6 +142,17 @@ Found on the way: the flow view's start effect read the recorded status and so p
 
 R4 asks for ≤ 10 s cold. The first box is now at the edge of it on this machine; tier 1 (8 s) is what is left in front of the backbone, and T11's cache answers a reopen without it.
 
+## 2026-10-24 — T11: the result cache on reopen
+
+visual-notes `/time-blocks` through the UI, a Playwright page timing from navigation. The first run builds and writes the cache (684 KB for this root after one route); the second closes the engine (`DELETE /api/dataflow`) and starts a new process, which rehashes the last build's 487 inputs and serves the cached complete graph as its generation 1 while tier 1 builds behind it.
+
+| | First drawn box | What it is |
+| --- | ---: | --- |
+| Cold (T9) | 12.4 s | the backbone, evidence still tracing |
+| Reopen, hash unchanged | 3.4 s | the complete graph, from disk |
+
+Of the 3.4 s, about 1 s is the page and the saved scan and about 2 s the engine spawn and `hello`; the cached `routeGraph` itself answers in milliseconds. R4's reopen target (3 s to the first box) is met for the engine's share and missed by the page's. A changed source hashes differently and serves nothing until the build answers (`result-cache.test.ts`).
+
 ## To record next
 
 | Milestone | Numbers |
