@@ -120,4 +120,36 @@ describe("anchorGraph on solid-route", () => {
     expect(boxes(graph, "terminal").some((node) => node.side === "down")).toBe(true);
     expect(graph.generation).toBe(1);
   }, 120_000);
+
+  it("anchors a symbol by name where the engine's evidence sits: a resource's initializer, a component's whole definition", () => {
+    const records = anchorGraphOp(session, { file: "src/routes/records.tsx", name: "records", line: 16, direction: "forward" });
+    expect(records.outcome).not.toBe("unsupported");
+    const anchor = records.nodes.find((node) => node.kind === "anchor")!;
+    expect(anchor.label).toBe("records");
+    expect(anchor.span.startLine).toBe(16);
+    expect(anchor.span.startColumn).toBeGreaterThan(records.anchor.span.startColumn - 1);
+    expect(["resource-input", "alias", "call"]).toContain(anchor.elementKind);
+    const viewer = anchorGraphOp(session, { file: "src/components/ViewerCard.tsx", name: "ViewerCard", line: 3, direction: "both" });
+    expect(viewer.outcome).not.toBe("unsupported");
+    const component = viewer.nodes.find((node) => node.kind === "anchor")!;
+    expect(component).toMatchObject({ label: "ViewerCard", elementKind: "component-definition" });
+    // A component by name: its parameter is what comes in, its return and its occurrences are where it goes.
+    const param = viewer.nodes.find((node) => node.elementKind === "parameter")!;
+    expect(param).toMatchObject({ side: "up", label: "props" });
+    expect(viewer.edges.some((edge) => edge.kind === "parameter" && edge.source === param.id && edge.target === component.id)).toBe(true);
+    expect(viewer.nodes.some((node) => node.side === "up" && node.file === "src/routes/records.tsx")).toBe(true);
+    expect(viewer.edges.some((edge) => edge.kind === "returns" && edge.source === component.id)).toBe(true);
+    const use = viewer.nodes.find((node) => node.note === "rendered here")!;
+    expect(use).toMatchObject({ side: "down", file: "src/routes/records.tsx" });
+    expect(viewer.edges.some((edge) => edge.kind === "used-by" && edge.target === use.id)).toBe(true);
+  }, 120_000);
+
+  it("anchors a JSX tag by name at the occurrence it opens", () => {
+    const lines = fs.readFileSync(path.join(solidRoute, "src/routes/records.tsx"), "utf8").split("\n");
+    const line = lines.findIndex((text) => text.includes("<RouteFrame")) + 1;
+    const graph = anchorGraphOp(session, { file: "src/routes/records.tsx", name: "RouteFrame", line, direction: "backward" });
+    expect(graph.outcome).not.toBe("unsupported");
+    expect(graph.nodes.find((node) => node.kind === "anchor")).toMatchObject({ label: "RouteFrame" });
+    expect(["jsx-occurrence", "component-occurrence"]).toContain(graph.anchor.elementId ? graph.nodes.find((node) => node.kind === "anchor")!.elementKind : null);
+  }, 120_000);
 });

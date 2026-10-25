@@ -1,10 +1,38 @@
-import { folderOf } from "./location";
+import { encodeAnchor, folderOf, normalizeScopeName, splitAt, type Direction, type Location } from "./location";
 
 // The actions every node offers in both views, whatever opened the menu.
 
 export type NodeKind = "folder" | "file" | "symbol" | "external";
 
-export type NodeActionId = "focus" | "expand" | "open" | "folder";
+export type NodeActionId = "focus" | "expand" | "open" | "folder" | "traceTo" | "traceFrom";
+
+/** The two trace actions: the graph anchored at this symbol, one way. */
+export const TRACE_DIRECTION: Record<"traceTo" | "traceFrom", Direction> = { traceTo: "forward", traceFrom: "backward" };
+
+/** The bare name an `at` ends in, when it can anchor the engine: an identifier, or a JSX tag's component. Null for anonymous scopes. */
+export function symbolNameOf(at: string): string | null {
+  const { scopes } = splitAt(at);
+  const last = normalizeScopeName(scopes[scopes.length - 1] ?? "").replace(/^<|>$/g, "");
+  return /^[A-Za-z_$][\w$]*$/.test(last) ? last : null;
+}
+
+/**
+ * Where "Trace where it goes / comes from" takes the view: Data flow mode
+ * anchored at the symbol by name on its declaration line, in that direction.
+ */
+export function tracePatch(target: { at: string; line: number }, id: "traceTo" | "traceFrom"): Partial<Location> {
+  const { file } = splitAt(target.at);
+  const name = symbolNameOf(target.at) ?? "";
+  return {
+    view: "graph",
+    flow: undefined,
+    field: undefined,
+    dest: undefined,
+    open: undefined,
+    anchor: encodeAnchor({ file, name, line: target.line }),
+    dir: TRACE_DIRECTION[id],
+  };
+}
 
 export interface NodeAction {
   id: NodeActionId;
@@ -24,8 +52,12 @@ export function nodeActions(target: {
   currentAt: string;
   /** Graph only: the box can open in place (`true`), or is inside an opened folder that can close (`"collapse"`). */
   expand?: boolean | { collapse: string };
+  /** A symbol's declaration line, when known: the trace actions anchor there. */
+  line?: number;
 }): NodeAction[] {
-  const { at, kind, currentAt, expand } = target;
+  const { at, kind, currentAt, expand, line } = target;
+  const traceReason =
+    kind === "external" ? "Outside this repo" : kind !== "symbol" ? "Needs a symbol" : !symbolNameOf(at) ? "No name to anchor at" : !line ? "No line for it" : undefined;
   const expandAction: NodeAction[] =
     expand === true
       ? [{ id: "expand", label: kind === "file" ? "Expand symbols" : "Expand in place" }]
@@ -58,5 +90,7 @@ export function nodeActions(target: {
               ? "Already showing it"
               : undefined,
     },
+    { id: "traceTo", label: "Trace where it goes", disabledReason: traceReason },
+    { id: "traceFrom", label: "Trace where it comes from", disabledReason: traceReason },
   ];
 }
