@@ -13,7 +13,7 @@ import {
 } from "../contracts/value-flow";
 import { EngineError } from "../protocol";
 import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex, type CallSites } from "../call-sites";
-import { callSitesOfElement, CROSS_CALL, elementsAt, externalCallee, naturalEnd, seedFor, TERMINAL_KINDS } from "../facts";
+import { callSitesOfElement, CROSS_CALL, elementsAt, externalCallee, naturalEnd, pairedInSlice, seedFor, TERMINAL_KINDS } from "../facts";
 import { candidatesAt, parseSpan, sameSpan, sourceFileFor, spanOf, type Span } from "../selection";
 import { checkGeneration, type EngineSession, type Tier1 } from "../session";
 
@@ -293,7 +293,9 @@ class LedgerBuilder {
         visited.add(relation.to);
         if (CROSS_CALL.has(relation.kind)) {
           const { sites, name } = this.sitesOfElement(element);
-          if (!singleCall(sites)) {
+          // Entering a callee through its binding is never ambiguous; leaving it is, unless the slice paired the return (T13).
+          const entering = relation.kind === "argument-binding";
+          if (!singleCall(sites) && !entering && !pairedInSlice(sites, elements)) {
             // One boundary per callee, however many relations lead into it.
             const key = sites ?? element.id;
             if (!crossed.has(key)) {
@@ -305,7 +307,9 @@ class LedgerBuilder {
         }
         // Bookkeeping elements at the seed's own span repeat the input.
         const repeatsInput = sameSpan(element.location.span, seedSpan) && !TERMINAL_KINDS.has(element.kind);
-        if (TERMINAL_KINDS.has(element.kind)) {
+        // A return the slice carried on from (to its paired call) is a transfer, not where the value leaves (T13).
+        const returnsToCaller = element.kind === "return" && (out.get(element.id) ?? []).some((item) => item.kind === "return-value");
+        if (TERMINAL_KINDS.has(element.kind) && !returnsToCaller) {
           if (relation.status === "proven" || element.kind !== "jsx-occurrence") paths.push([{ relation, element, kind: "terminal", reason: null, note: terminalNote(element) }]);
           continue;
         }

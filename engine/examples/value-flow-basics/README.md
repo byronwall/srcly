@@ -5,7 +5,9 @@ Fixtures for the value-flow ledger (`valueFlow` op). Each file is one case:
 - `direct-property.tsx`: a prop read reaches a JSX text slot.
 - `same-name-negative.tsx`: two bindings with a `name` field; only the selected one reaches its slot.
 - `null-vs-finite.tsx`: `count ?? 0` keeps zero; `maybe!` is an assertion, not a check.
-- `two-call-helper.tsx`: one helper called twice. Until invocation identity lands, the walk stops at the helper with a `boundary` row (`unproven-handoff`) instead of joining the two calls.
+- `two-call-helper.tsx`: one helper called twice, whose body hands the value to an external method (`value.toUpperCase()`). The walk enters `shout` through its binding and ends at a dead end inside it; nothing joins the two calls.
+- `two-call-identity-helper.tsx`: `id(x)` called twice (T13). A walk from `props.a` passes through `id`'s parameter and return and lands at its own call's slot, never the other's. A walk that starts inside `id` and leaves through its return still stops at a boundary: two calls could own it.
+- `returns-other-argument.tsx`: `pick(a, b)` returns `b` (T13). A walk from the first argument enters `pick`'s `a`, which nothing returns: a dead end, never the slot.
 - `destructured-props.tsx`: a component that destructures `{ viewer }`. A declaration anchor finds the read through the engine's `references` relation, not by matching `props.` in the source.
 - `dead-end.tsx`: a value assigned to a local nothing reads, and a value handed to an untyped callback. Each forward walk ends at a dead-end frontier (`disconnected`), never quietly.
 - `literal-start.tsx`: `const label = "x"` rendered. The backward walk ends at the literal, a natural start: no frontier, outcome `ok`.

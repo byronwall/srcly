@@ -62,14 +62,33 @@ describe("value-flow basics", () => {
     expect(assertion.note).toMatch(/^assertion, not a check/);
   });
 
-  it("stops at a helper with two call sites instead of joining them", () => {
-    const ledger = valueFlowOp(session, find(basics, "src/two-call-helper.tsx", "props.a"));
+  it("keeps two calls of one helper apart in the ledger (T13)", () => {
+    const ledger = valueFlowOp(session, find(basics, "src/two-call-identity-helper.tsx", "props.a", "id(props.a)"));
+    expect(ledger.outcome).toBe("ok");
+    expect(ledger.rows.map((row) => `${row.kind}:${row.label}@${row.line}`)).toEqual([
+      "input:props.a@11",
+      "transfer:value@4",
+      "transfer:value@5",
+      "transfer:return@5",
+      "transfer:id(props.a)@11",
+      "terminal:id(props.a)@11",
+    ]);
+    expect(ledger.rows.some((row) => row.line === 12)).toBe(false);
+  });
+
+  it("stops at a boundary when the ledger starts inside the helper and its return has two callers (R7)", () => {
+    const ledger = valueFlowOp(session, find(basics, "src/two-call-identity-helper.tsx", "value", "return value;"));
     expect(ledger.outcome).toBe("partial");
     const boundary = ledger.rows.find((row) => row.kind === "boundary")!;
     expect(boundary).toMatchObject({ reason: "unproven-handoff", status: "partial" });
     expect(boundary.note).toContain("2 call sites");
-    expect(ledger.rows.some((row) => row.kind === "terminal" && row.status === "proven" && row.line === 9)).toBe(false);
-    expect(ledger.frontiers).toEqual([{ rowId: boundary.id, reason: "unproven-handoff", label: boundary.label }]);
+  });
+
+  it("never lets an argument the callee does not return reach the result (T13)", () => {
+    const ledger = valueFlowOp(session, find(basics, "src/returns-other-argument.tsx", "props.first", "pick(props.first"));
+    expect(ledger.outcome).toBe("partial");
+    expect(ledger.terminals).toEqual([]);
+    expect(ledger.frontiers.map((frontier) => frontier.reason)).toEqual(["disconnected"]);
   });
 
   it("names a dead end as a boundary row, so the ledger agrees with the anchor graph", () => {
@@ -134,12 +153,16 @@ describe.skipIf(!fs.existsSync(path.join(srclyClient, "src/components/HotSpotIte
     expect(call.note).toContain("one call site");
   });
 
-  it("HotSpotList.tsx:88: item.node stops at row(...), which has two call sites", () => {
+  it("HotSpotList.tsx:88: item.node passes through row(...) to its own HotSpotItem; the other call of row never appears (T13)", () => {
     const result = ledger("src/components/HotSpotList.tsx", "item.node", "row(item.node");
-    expect(result.outcome).toBe("partial");
-    const boundary = result.rows.find((row) => row.kind === "boundary")!;
-    expect(boundary.reason).toBe("unproven-handoff");
-    expect(boundary.note).toMatch(/row has 2 call sites \(src\/components\/HotSpotList\.tsx:\d+, src\/components\/HotSpotList\.tsx:\d+\)/);
-    expect(result.rows.some((row) => row.kind === "terminal")).toBe(false);
+    expect(result.outcome).toBe("ok");
+    expect(result.rows.some((row) => row.kind === "boundary")).toBe(false);
+    const terminal = result.rows.find((row) => row.kind === "terminal")!;
+    expect(terminal).toMatchObject({ label: "HotSpotItem", note: "handed to a component" });
+    // Line 109 is the other call of row: it is not this walk's.
+    const lines = fs.readFileSync(path.join(srclyClient, "src/components/HotSpotList.tsx"), "utf8").split("\n");
+    const other = lines.findIndex((line, index) => index !== 87 && line.includes("row(")) + 1;
+    expect(other).toBeGreaterThan(0);
+    expect(result.rows.some((row) => row.line === other)).toBe(false);
   });
 });
