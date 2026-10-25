@@ -6,7 +6,7 @@ import { toSliceRelation } from "../../analysis/evidence-slice-normalization";
 import { DEFAULT_BOUNDARY_POLICY, scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
 import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
-import { callSitesOfElement, CROSS_CALL, elementsAt, enclosingFunction, functionName, nodeAtSpan, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
+import { callSitesOfElement, CROSS_CALL, DECLARATION_KINDS, elementsAt, enclosingFunction, externalCallee, functionName, naturalEnd, nodeAtSpan, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
 import { EngineError } from "../protocol";
 import { candidatesAt, parseSpan, sameSpan, sourceFileFor, spanOf, type Candidate, type Span } from "../selection";
 import { checkGeneration, type EngineSession, type Tier1 } from "../session";
@@ -27,8 +27,6 @@ type Side = "up" | "down";
 type Resolved = Candidate & { fallbacks?: TypeScript.Node[] };
 /** Declaration-level elements a symbol anchor may start from, before the ledger's seed kinds. */
 const DECLARATION_SEEDS = ["component-definition", "function-entry", "handler-entry", ...SEED_KINDS];
-/** A function or component as the anchor: its parameters are what comes in, its returns and its uses are where it goes. */
-const DECLARATION_KINDS = new Set(["component-definition", "function-entry", "handler-entry"]);
 /** Relations that point a use (a call, an occurrence) at its definition. */
 const USE_RELATIONS = new Set(["definition", "invokes", "function-call", "component-occurrence"]);
 /** One slice to walk: from which element, on which side of the anchor, with the span its own bookkeeping folds into. */
@@ -196,10 +194,12 @@ class AnchorGraphBuilder {
     const runs: Run[] = fact && DECLARATION_KINDS.has(fact.kind) ? this.declarationRuns(file, span, seed, sides) : sides.map((side) => ({ seedId: seed, seedSpan: span, side }));
     const isDeclaration = fact !== undefined && DECLARATION_KINDS.has(fact.kind);
     const gapsBySeed = new Map<string, number>();
+    const naturalBySeed = new Map<string, number>();
     for (const run of runs) {
       const slice = this.slice(run, anchor.text);
       this.walk(run.seedId, slice, run.side, run.seedSpan);
-      this.gaps(slice.gaps, run.side);
+      const natural = this.gaps(slice.gaps, run.side, new Map(slice.elements.map((element) => [element.id, element])));
+      naturalBySeed.set(run.seedId, (naturalBySeed.get(run.seedId) ?? 0) + natural);
       coverage.elements += slice.elements.length;
       coverage.relations += slice.relations.length;
       coverage.budget.used += slice.relations.length;
@@ -209,8 +209,9 @@ class AnchorGraphBuilder {
     }
     const landedRuns = runs
       .filter((run) => !(run.placeholderFor && run.placeholderFor.length > 0))
-      .map((run) => this.runLanded(run, gapsBySeed.get(run.seedId) ?? 0))
+      .map((run) => this.runLanded(run, gapsBySeed.get(run.seedId) ?? 0, naturalBySeed.get(run.seedId) ?? 0))
       .filter((value): value is boolean => value !== null);
+    const naturalStarts = [...naturalBySeed.values()].reduce((sum, count) => sum + count, 0) + this.literalStarts();
     const drawn = [...this.nodes.values()];
     const kinds = drawn.map((node) => node.kind);
     // A frontier, or a boundary the walk could not pass, leaves the proof partial; a framework boundary passed on proven relations does not.
@@ -219,9 +220,10 @@ class AnchorGraphBuilder {
     // lands only when every one of its runs landed: its parameter, return
     // and use links are structural, found by syntax, so they prove nothing
     // on their own.
+    // Backward, a path that starts at a literal, a constant or an external import has landed too (R16).
     const landed = isDeclaration
       ? runs.length > 0 && landedRuns.every(Boolean)
-      : (sides.includes("down") && kinds.includes("terminal")) || (sides.includes("up") && kinds.includes("origin"));
+      : (sides.includes("down") && kinds.includes("terminal")) || (sides.includes("up") && (kinds.includes("origin") || naturalStarts > 0));
     const outcome = stopped ? "partial" : landed ? "ok" : coverage.budget.exhausted ? "budget" : "partial";
     return this.finish(anchor, direction, outcome, null, coverage);
   }
@@ -235,10 +237,15 @@ class AnchorGraphBuilder {
    * null: the engine made no claim either way, so it neither lands nor
    * stops the declaration's outcome.
    */
-  private runLanded(run: Run, gaps: number): boolean | null {
+  private runLanded(run: Run, gaps: number, naturalStarts: number): boolean | null {
     const want: AnchorNode["kind"] = run.side === "down" ? "terminal" : "origin";
     const seedNode = this.nodes.get(run.seedId);
     if (run.side === "down" && seedNode?.elementKind && TERMINAL_KINDS.has(seedNode.elementKind)) return true;
+    if (run.side === "up" && naturalStarts > 0) return true;
+    const lands = (id: string) => {
+      const node = this.nodes.get(id);
+      return node?.kind === want || (run.side === "up" && node?.elementKind === "literal");
+    };
     const next = new Map<string, string[]>();
     for (const edge of this.edges) {
       if (edge.status === "structural" || DECLARATION_LINKS.has(edge.kind)) continue;
@@ -253,11 +260,18 @@ class AnchorGraphBuilder {
         if (seen.has(id) || id === this.anchorId) continue;
         seen.add(id);
         reached += 1;
-        if (this.nodes.get(id)?.kind === want) return true;
+        if (lands(id)) return true;
         queue.push(id);
       }
     }
     return reached > 0 || gaps > 0 ? false : null;
+  }
+
+  /** Literal boxes drawn on the up side: a value that begins at `"x"` has come from somewhere (R16). */
+  private literalStarts(): number {
+    let count = 0;
+    for (const node of this.nodes.values()) if (node.elementKind === "literal" && (node.side === "up" || node.side === "both")) count += 1;
+    return count;
   }
 
   private slice(run: Run, label: string): EvidenceSlice {
@@ -405,13 +419,38 @@ class AnchorGraphBuilder {
 
   /**
    * Every gap the slice reported becomes a frontier box at its location, hung
-   * off the element it stopped at. "Disconnected" is the natural end of a
-   * path (nothing continues from a render slot), not a gap in the proof.
+   * off the element it stopped at. The slice raises `disconnected` only where
+   * a value stops somewhere other than a terminal (`evidence-slice.ts`, "No
+   * indexed relation continues"), so it is one of two things: a natural start
+   * (a literal, a constant, an external import: no box, R16) or a dead end,
+   * which is a frontier like any other and leaves the outcome partial. A seed
+   * missing from the index (no location) stays `unsupported`.
    */
-  private gaps(gaps: readonly EvidenceGap[], side: Side) {
+  private gaps(gaps: readonly EvidenceGap[], side: Side, elements: Map<string, ProgramElement>): number {
+    let naturalStarts = 0;
     for (const gap of gaps) {
       const id = `frontier:${gap.id}`;
-      if (this.nodes.has(id) || gap.reason === "disconnected") continue;
+      if (this.nodes.has(id)) continue;
+      let label = clip(gap.label, 80);
+      let reason: string = gap.reason;
+      let status = gap.status;
+      let elementKind: string | null = null;
+      if (gap.reason === "disconnected") {
+        const element = gap.from ? elements.get(gap.from) ?? this.tier1.provider().facts.getElement(gap.from) : undefined;
+        if (!gap.location || !element) {
+          reason = "no-evidence-element";
+          status = "unsupported";
+        } else if (naturalEnd(this.tier1, element)) {
+          if (side === "up" && naturalEnd(this.tier1, element) === "start") naturalStarts += 1;
+          continue;
+        } else {
+          const callee = externalCallee(this.tier1, element);
+          label = callee ? `${callee} is outside the program's own source` : side === "down" ? "dead end · nothing continues from here" : "dead end · nothing reaches here";
+          reason = callee ? "external-code" : "disconnected";
+          status = "partial";
+          elementKind = element.kind;
+        }
+      }
       const from = gap.from ? this.resolve(gap.from) : null;
       const to = gap.to ? this.resolve(gap.to) : null;
       const attached = (from ? this.nodes.get(from) : undefined) ?? (to ? this.nodes.get(to) : undefined) ?? null;
@@ -421,23 +460,24 @@ class AnchorGraphBuilder {
       this.addNode({
         id,
         kind: "frontier",
-        label: clip(gap.label, 80),
-        detail: gap.reason,
+        label,
+        detail: reason,
         parent: this.scopeFor(file, span, side),
         file,
         line: span.startLine,
         span,
-        status: gap.status,
+        status,
         side,
-        elementKind: null,
+        elementKind,
         typeText: null,
-        reason: gap.reason,
+        reason,
         note: gap.label,
       });
       const source = from && this.nodes.has(from) ? from : side === "up" && to && this.nodes.has(to) ? id : null;
       const target = source === id ? to! : id;
-      if (source) this.pushEdge({ id: `gap:${gap.id}`, source, target, kind: "gap", status: gap.status, proof: gap.proof, label: null });
+      if (source) this.pushEdge({ id: `gap:${gap.id}`, source, target, kind: "gap", status, proof: gap.proof, label: null });
     }
+    return naturalStarts;
   }
 
   /** A declaration's own parameter or return as a plain value box (the file index knows it without roles or proof). */

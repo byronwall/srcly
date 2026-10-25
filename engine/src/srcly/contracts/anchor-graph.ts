@@ -52,7 +52,7 @@ export const anchorNodeSchema = z.strictObject({
   status: evidenceStatusSchema,
   /** Which side of the anchor it sits on: `up` is where the value comes from, `down` where it goes. */
   side: z.enum(["seed", "up", "down", "both"]),
-  /** The engine's element kind (`field-read`, `call-result`, …); null for a scope or a frontier. */
+  /** The engine's element kind (`field-read`, `call-result`, …); null for a scope, and for a frontier other than a dead end, which names the kind of element nothing continues from. */
   elementKind: z.string().nullable(),
   /** The checked TypeScript type at the element, when it has one. */
   typeText: z.string().nullable(),

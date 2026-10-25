@@ -119,6 +119,24 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(reads).toEqual(["count", "title"]);
   });
 
+  it("draws a dead end where a value stops short of a terminal: a local nothing reads, an untyped callback", () => {
+    const unused = anchorGraphOp(session, { ...find(basics, "src/dead-end.tsx", "props.label", "unused ="), direction: "forward" });
+    expect(unused.outcome).toBe("partial");
+    const [stop] = boxes(unused, "frontier");
+    expect(stop).toMatchObject({ reason: "disconnected", status: "partial", side: "down", elementKind: "alias", label: "dead end · nothing continues from here", line: 6 });
+    expect(unused.counts).toMatchObject({ terminals: 0, frontiers: 1 });
+    const callback = anchorGraphOp(session, { ...find(basics, "src/dead-end.tsx", "props.onPick"), direction: "forward" });
+    expect(callback.outcome).toBe("partial");
+    expect(boxes(callback, "frontier").map((node) => [node.reason, node.elementKind, node.line])).toEqual([["disconnected", "alias", 8]]);
+  });
+
+  it("ends a backward walk at a literal with no frontier: that is where the value begins", () => {
+    const graph = anchorGraphOp(session, { ...find(basics, "src/literal-start.tsx", "label", "{label}"), direction: "backward" });
+    expect(graph.outcome).toBe("ok");
+    expect(graph.counts).toMatchObject({ frontiers: 0, origins: 0 });
+    expect(boxes(graph).some((node) => node.label === "\"x\"")).toBe(true);
+  });
+
   it("refuses a direction it does not know and a name without a line", () => {
     expect(() => anchorGraphOp(session, { ...find(basics, "src/direct-property.tsx", "props.item.title"), direction: "sideways" })).toThrow(/direction/);
     expect(() => anchorGraphOp(session, { file: "src/direct-property.tsx", name: "props" })).toThrow(/line/);

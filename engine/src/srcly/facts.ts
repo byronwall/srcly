@@ -17,6 +17,81 @@ export const CROSS_CALL = new Set(["invokes", "argument", "argument-binding", "f
 /** Element kinds where a value leaves the program's own data flow. */
 export const TERMINAL_KINDS = new Set(["render-terminal", "dom-terminal", "component-occurrence", "side-effect", "return"]);
 
+/** Declaration elements: they place a walk inside a function, they never carry a value of their own. */
+export const DECLARATION_KINDS = new Set(["component-definition", "function-entry", "handler-entry"]);
+
+/** Bookkeeping elements beside a carrier (a field consumer, a JSX tag name): a walk ending at one has not lost the value. */
+const BOOKKEEPING_KINDS = new Set(["field-consumer", "jsx-occurrence"]);
+
+/**
+ * The callee of a call element when it resolves outside the program's own
+ * source (a library, a global like `Math.min`), else null. Nothing continuing
+ * from such a call is external code, not a dead end.
+ */
+export function externalCallee(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location">): string | null {
+  if (element.kind !== "call" && element.kind !== "call-result") return null;
+  const { ts } = tier1;
+  const sourceFile = tier1.program.getSourceFile(path.resolve(tier1.args.root, element.location.file));
+  const node = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
+  if (!node || !sourceFile || !ts.isCallExpression(node)) return null;
+  const checker = tier1.program.getTypeChecker();
+  const symbol = checker.getSymbolAtLocation(ts.isPropertyAccessExpression(node.expression) ? node.expression.name : node.expression);
+  const target = symbol?.valueDeclaration ?? symbol?.declarations?.[0];
+  const targetFile = target?.getSourceFile();
+  const firstParty = targetFile && !targetFile.isDeclarationFile && !targetFile.fileName.includes(`${path.sep}node_modules${path.sep}`);
+  return firstParty ? null : node.expression.getText(sourceFile);
+}
+
+/**
+ * What a `disconnected` gap at this element means (R16). A `start` is where a
+ * value naturally begins: a literal; a constant whose initializer is a
+ * literal or a template literal without substitutions; an import whose
+ * module resolves outside the root. Neither a frontier nor a dead end, and a
+ * backward walk that reaches one has landed. `bookkeeping` is an element that
+ * is not a value (a declaration, a field consumer, a JSX tag name) or a
+ * terminal, where a value ends: no frontier, and no landing either. Null is
+ * a dead end.
+ */
+export function naturalEnd(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module">): "start" | "bookkeeping" | null {
+  if (DECLARATION_KINDS.has(element.kind) || BOOKKEEPING_KINDS.has(element.kind) || TERMINAL_KINDS.has(element.kind)) return "bookkeeping";
+  return isNaturalStart(tier1, element) ? "start" : null;
+}
+
+/** Whether a value naturally begins at this element: a literal, a literal constant, an external import. */
+export function isNaturalStart(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module">): boolean {
+  if (element.kind === "literal") return true;
+  const { ts } = tier1;
+  const root = path.resolve(tier1.args.root);
+  if (element.module) {
+    const sourceFile = tier1.program.getSourceFile(path.resolve(root, element.location.file));
+    const resolved = sourceFile ? ts.resolveModuleName(element.module, sourceFile.fileName, tier1.program.getCompilerOptions(), ts.sys).resolvedModule : undefined;
+    const target = resolved?.resolvedFileName;
+    if (!target || resolved?.isExternalLibraryImport || target.includes(`${path.sep}node_modules${path.sep}`) || !path.resolve(target).startsWith(root + path.sep)) return true;
+  }
+  const sourceFile = tier1.program.getSourceFile(path.resolve(root, element.location.file));
+  const node = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
+  if (!node) return false;
+  const isLiteral = (n: TypeScript.Node) =>
+    ts.isStringLiteral(n) || ts.isNumericLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) || n.kind === ts.SyntaxKind.TrueKeyword || n.kind === ts.SyntaxKind.FalseKeyword || n.kind === ts.SyntaxKind.NullKeyword
+    || (ts.isPrefixUnaryExpression(n) && ts.isNumericLiteral(n.operand));
+  if (isLiteral(node)) return true;
+  const declaration = ts.isVariableDeclaration(node) ? node : ts.isVariableDeclaration(node.parent) && node.parent.name === node ? node.parent : null;
+  if (declaration?.initializer && isLiteral(declaration.initializer)) {
+    const list = declaration.parent;
+    return ts.isVariableDeclarationList(list) && (list.flags & ts.NodeFlags.Const) !== 0;
+  }
+  if (ts.isImportSpecifier(node) || ts.isImportClause(node) || ts.isNamespaceImport(node)) {
+    const declaration = ts.findAncestor(node, ts.isImportDeclaration);
+    const spec = declaration && ts.isStringLiteral(declaration.moduleSpecifier) ? declaration.moduleSpecifier.text : null;
+    if (spec && sourceFile) {
+      const resolved = ts.resolveModuleName(spec, sourceFile.fileName, tier1.program.getCompilerOptions(), ts.sys).resolvedModule;
+      const target = resolved?.resolvedFileName;
+      return !target || !!resolved?.isExternalLibraryImport || !path.resolve(target).startsWith(root + path.sep);
+    }
+  }
+  return false;
+}
+
 /** Facts at exactly this span in this file. */
 export function elementsAt(tier1: Tier1, file: string, span: Span) {
   return tier1.provider().facts.fileCandidates(file).filter((fact) => sameSpan(fact.location.span, span));
