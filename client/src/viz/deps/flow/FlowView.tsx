@@ -506,6 +506,14 @@ export default function FlowView(props: {
     return `${c.occurrences} occurrences · ${c.boundaries} boundaries · ${c.terminals} terminals · ${c.origins} origins${folded}${omitted}`;
   };
   const drawnGeneration = () => (exportsSpec() ? fileExports()?.exports?.generation : anchorKey() ? anchorGraph()?.graph?.generation : drawnGraph()?.generation);
+  /** The answer for the current view when it has nothing to draw (not analyzed, unsupported), with how to ask again. */
+  const unanswered = () => {
+    if (waitingOn() || layout()) return null;
+    const [result, fetch] = exportsSpec() ? [fileExports(), exportsFetch] : anchorKey() ? [anchorGraph(), anchorFetch] : [graph(), graphFetch];
+    // A stale answer has its own banner.
+    if (!result || fetch.loading() || result.outcome === "stale") return null;
+    return { result, retry: fetch.retry };
+  };
   const waitingOn = () => {
     if (availability() !== "ready") return "Starting the data-flow engine";
     if (anchorFetch.loading()) return `Tracing from ${anchorText()}`;
@@ -615,6 +623,21 @@ export default function FlowView(props: {
             title="No routes here"
             description="Data flow starts from a route: a file under a routes/ folder that default-exports a component. Open a folder that has one."
           />
+        </Show>
+        <Show when={unanswered()}>
+          {(u) => (
+            <EmptyState
+              class="absolute inset-0"
+              title={u().result.outcome === "not-analyzed" ? "Not traced" : "Nothing to draw"}
+              description={`${labelFor(u().result.outcome, u().result.reason as NaReason | null, u().result.message) ?? "The engine returned an empty graph"}.`}
+              actions={
+                <Button variant="ghost" class="gap-1 px-2" onClick={u().retry} title="Ask the engine again">
+                  <RefreshCw size={13} aria-hidden="true" />
+                  Try again
+                </Button>
+              }
+            />
+          )}
         </Show>
         <Show when={graphFetch.error() ?? anchorFetch.error() ?? exportsFetch.error() ?? expansionFetch.error() ?? routesFetch.error()}>
           {(e) => <ErrorState message={e().message} class="absolute inset-0" />}
