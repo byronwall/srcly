@@ -296,17 +296,17 @@ test.describe("Stale sources", () => {
     const original = fs.readFileSync(file, "utf8");
     try {
       await page.goto(url({ view: "graph", flow: "/records" }));
-      await expect(status(page)).toContainText("generation 1", { timeout: 90_000 });
+      await expect(status(page)).toHaveAttribute("data-generation", "1", { timeout: 90_000 });
       await expect(page.getByRole("status").filter({ hasText: "Source changed" })).toBeHidden();
       // Touch a source file the route's program includes.
       fs.writeFileSync(file, `${original}\n// edited by the smoke test\n`);
       const banner = page.getByRole("status").filter({ hasText: "Source changed. Refresh." });
       await expect(banner).toBeVisible({ timeout: 20_000 });
       // The old graph stays drawn, as generation 1, until the refresh lands.
-      await expect(status(page)).toContainText("generation 1");
+      await expect(status(page)).toHaveAttribute("data-generation", "1");
       await shot(page, "stale-banner");
       await banner.getByRole("button", { name: "Refresh" }).click();
-      await expect(status(page)).toContainText("generation 2", { timeout: 90_000 });
+      await expect(status(page)).toHaveAttribute("data-generation", "2", { timeout: 90_000 });
       await expect(page.getByRole("status").filter({ hasText: "Source changed" })).toBeHidden();
       await expect(status(page)).toContainText("7 occurrences");
       await shot(page, "stale-refreshed");
