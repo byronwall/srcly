@@ -200,7 +200,7 @@ T25 `UPSTREAM.md` as the fork ledger (with T4), and T26 the registry under many 
 
 ## Open decisions and spikes
 
-- **T8 → T9 or T10 first.** The output is the profile of `routeTotality.get` on `/time-blocks`, by phase. If one analysis phase is over half the time, do T10 first. Otherwise do T9 first. Either way, both follow.
+- **T8 → T9 or T10 first.** Decided by T8 (`measurements.md`, 2026-10-24): the provider's fact collection is 16.6 s of the time after tier 1 on visual-notes, over half, and the first route's slice is 8.1 s. T10 goes first (fact collection, then the slice), T9 follows.
 - **T19, the export anchor's meaning.** A file anchor could be the union of its exports' forward walks, or one box per export with lazy expansion. Decide on srcly `client/src/utils/` with a screenshot of each. The fallback is one box per export.
 
 ## Below the cut line
