@@ -97,6 +97,7 @@ function workerOperation(frame: RequestFrame): AnalysisOperation | null {
   if (frame.op === "selectExpression") return { kind: "select-expression", params };
   if (frame.op === "valueFlow") return { kind: "value-flow", params };
   if (frame.op === "anchorGraph") return { kind: "anchor-graph", params };
+  if (frame.op === "functionEffects") return { kind: "function-effects", params };
   if (frame.op === "routeSurface") {
     if (typeof params.route !== "string") throw new EngineError("invalid-request", "routeSurface needs params.route");
     return { kind: "route-surface", route: params.route, expectedGeneration };

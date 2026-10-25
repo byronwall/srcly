@@ -20,6 +20,8 @@ from app.services.dataflow.engine import EngineCrashed, EngineError
 from app.services.dataflow.models import (
     AnchorGraphResponse,
     AnchorGraphResult,
+    FunctionEffectsResponse,
+    FunctionEffectsResult,
     NA_REASONS,
     DataflowStatus,
     Outcome,
@@ -204,6 +206,33 @@ def get_route_graph(route: str, path: str | None = None, source: str | None = No
         return _json(RouteGraphResponse(**body), exclude_none=False)
     graph = RouteGraphResult.model_validate(body["result"])
     return _json(RouteGraphResponse(outcome=graph.outcome, generation=graph.generation, programHash=graph.programHash, graph=graph), exclude_none=False)
+
+
+class FunctionEffectsRequest(BaseModel):
+    """The function enclosing ``line`` (and ``column``, when given) in ``file``."""
+
+    path: str
+    file: str
+    line: int
+    column: int | None = None
+    expectedGeneration: int | None = None
+
+
+@router.post("/function-effects", response_model=FunctionEffectsResponse)
+def function_effects(body: FunctionEffectsRequest):
+    """
+    What the function at a position touches (M6): its effects as facts with
+    witnesses, the places the analysis could not follow as frontiers, how each
+    promise-yielding call is handled, and what is assumed. Known and partial
+    sit together; nothing here is a score.
+    """
+    root = _root(body.path)
+    params: dict = {"file": _contained_file(root, body.file), "line": body.line, **({"column": body.column} if body.column else {})}
+    result = _query(root, "functionEffects", params, body.expectedGeneration)
+    if "result" not in result:
+        return _json(FunctionEffectsResponse(**result), exclude_none=False)
+    effects = FunctionEffectsResult.model_validate(result["result"])
+    return _json(FunctionEffectsResponse(outcome=effects.outcome, reason=effects.reason, generation=effects.generation, programHash=effects.programHash, effects=effects), exclude_none=False)
 
 
 @router.get("/route-surface", response_model=RouteGraphResponse)

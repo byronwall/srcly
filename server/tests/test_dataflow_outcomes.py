@@ -21,7 +21,7 @@ from fake_engine import OPS, RESULT_SHAPES, SHAPES, FakeEngine, example, schema_
 from snapshot_util import check_snapshot
 from test_dataflow_router import FAKE, client, use_fake  # noqa: F401  (fixtures)
 
-GRAPH_OPS = ("routeGraph", "anchorGraph", "valueFlow")
+GRAPH_OPS = ("routeGraph", "anchorGraph", "valueFlow", "functionEffects")
 SPAN = {"startLine": 1, "startColumn": 42, "endLine": 1, "endColumn": 58}
 
 
@@ -34,6 +34,8 @@ def params_for(op: str) -> dict:
         return {"route": "/records"}
     if op == "routes" or op == "hello" or op == "status":
         return {}
+    if op == "functionEffects":
+        return {"file": "src/f.tsx", "line": 1}
     return {"file": "src/f.tsx", "span": SPAN, "text": "props.item.title", "direction": "forward"}
 
 
@@ -44,6 +46,8 @@ def request(client, op: str, tmp_path: Path, **extra):
     body = {"path": path, "file": "src/f.tsx", "span": SPAN, "text": "props.item.title", **extra}
     if op == "anchorGraph":
         return client.post("/api/dataflow/anchor-graph", json={**body, "direction": "forward"})
+    if op == "functionEffects":
+        return client.post("/api/dataflow/function-effects", json={"path": path, "file": "src/f.tsx", "line": 1})
     return client.post("/api/dataflow/value-flow", json=body)
 
 
@@ -85,7 +89,7 @@ def test_router_reports_each_shape_as_its_outcome(client, use_fake, tmp_path, op
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["outcome"] == shape
-    payload = body.get("graph") or body.get("ledger")
+    payload = body.get("graph") or body.get("ledger") or body.get("effects")
     if shape in RESULT_SHAPES:
         assert payload is not None and payload["outcome"] == shape
         jsonschema.validate(payload, schema_for(op))

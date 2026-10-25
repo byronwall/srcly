@@ -356,3 +356,99 @@ export type AnchorGraphResult = {
     };
   };
 };
+
+/** Result of the `functionEffects` op. */
+export type FunctionEffectsResult = {
+  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  generation: number;
+  programHash: string;
+  tsconfig: string;
+  typescript: string;
+  reason: string | null;
+  callable: {
+    name: string;
+    kind: "function" | "arrow" | "method" | "getter" | "setter" | "constructor";
+    async: boolean;
+    file: string;
+    absPath: string;
+    line: number;
+    span: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    };
+  };
+  facts: {
+    id: string;
+    family: "external" | "input" | "write" | "throw" | "timer" | "promise";
+    kind: string;
+    label: string;
+    detail: string;
+    status: "proven" | "partial";
+    activation: "direct" | "after-await" | "timer" | "latent";
+    via: {
+      callable: string;
+      file: string;
+      line: number;
+    }[];
+    witness: {
+      file: string;
+      absPath: string;
+      line: number;
+      span: {
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+      };
+      text: string;
+    };
+  }[];
+  frontiers: {
+    id: string;
+    reason: string;
+    label: string;
+    detail: string;
+    via: {
+      callable: string;
+      file: string;
+      line: number;
+    }[];
+    witness: {
+      file: string;
+      absPath: string;
+      line: number;
+      span: {
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+      };
+      text: string;
+    };
+  }[];
+  resultHandling: {
+    callee: string;
+    handling: "awaited" | "returned" | "assigned" | "passed" | "discarded";
+    witness: {
+      file: string;
+      absPath: string;
+      line: number;
+      span: {
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+      };
+      text: string;
+    };
+  }[];
+  coverage: "complete-for-supported-scope" | "partial" | "not-analyzed";
+  counts: {
+    facts: number;
+    frontiers: number;
+    callables: number;
+  };
+  assumptions: string[];
+};

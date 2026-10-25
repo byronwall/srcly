@@ -20,6 +20,7 @@ CONTRACTS = Path(models.__file__).with_name("contracts")
         ("selectExpression", models.SelectExpressionResult),
         ("valueFlow", models.ValueFlowResult),
         ("anchorGraph", models.AnchorGraphResult),
+        ("functionEffects", models.FunctionEffectsResult),
     ],
 )
 def test_model_fields_match_the_schema(op, model):
@@ -76,6 +77,19 @@ def test_anchor_edge_status_matches_the_schema():
     for option in status.get("anyOf", [status]):
         values.update(option.get("enum", [option["const"]] if "const" in option else []))
     assert values == {member.value for member in models.EvidenceStatus} | {"structural"}
+
+
+def test_function_effects_nested_fields_match():
+    schema = json.loads((CONTRACTS / "functionEffects.schema.json").read_text())["properties"]
+    wire = lambda model: {field.alias or name for name, field in model.model_fields.items()}
+    assert wire(models.EffectCallable) == set(schema["callable"]["properties"])
+    assert wire(models.EffectFact) == set(schema["facts"]["items"]["properties"])
+    assert wire(models.EffectFrontier) == set(schema["frontiers"]["items"]["properties"])
+    assert wire(models.ResultHandling) == set(schema["resultHandling"]["items"]["properties"])
+    assert wire(models.EffectCounts) == set(schema["counts"]["properties"])
+    # Round trip through the wire name: the engine says `async`, Python says `async_`.
+    callable_ = models.EffectCallable.model_validate({"name": "f", "kind": "function", "async": True, "file": "a.ts", "absPath": "/a.ts", "line": 1, "span": {"startLine": 1, "startColumn": 1, "endLine": 1, "endColumn": 2}})
+    assert callable_.async_ is True and callable_.model_dump()["async"] is True
 
 
 def test_anchor_graph_nested_fields_match():
