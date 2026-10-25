@@ -6,10 +6,10 @@ import type * as TypeScript from "typescript";
 import type { ProgramElement } from "../analysis/scope-seam";
 import type { CallSiteIndex, CallSites } from "./call-sites";
 import { sameSpan, spanOf, type Span } from "./selection";
-import type { Tier1 } from "./session";
+import type { BaseTier1, Tier1, TsTier1 } from "./session";
 
 /** Evidence elements a selection may start from, most specific first. */
-export const SEED_KINDS = ["field-read", "selection", "call-result", "call", "value", "alias", "parameter", "jsx-occurrence", "literal"];
+export const SEED_KINDS = ["field-read", "index-read", "selection", "call-result", "call", "value", "alias", "parameter", "jsx-occurrence", "literal"];
 
 /** Followed only when the callee has exactly one call site (R7; M5 replaces this with invocation pairing). */
 export const CROSS_CALL = new Set(["invokes", "argument", "argument-binding", "function-call", "function-return", "return-value", "callback-parameter"]);
@@ -42,6 +42,8 @@ const BOOKKEEPING_KINDS = new Set(["field-consumer", "jsx-occurrence"]);
  * from such a call is external code, not a dead end.
  */
 export function externalCallee(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location">): string | null {
+  // Only the TypeScript Program resolves a callee's declaration; a Python call is never named external.
+  if (tier1.language !== "typescript") return null;
   if (element.kind !== "call" && element.kind !== "call-result") return null;
   const { ts } = tier1;
   const sourceFile = tier1.program.getSourceFile(path.resolve(tier1.args.root, element.location.file));
@@ -65,14 +67,18 @@ export function externalCallee(tier1: Tier1, element: Pick<ProgramElement, "kind
  * terminal, where a value ends: no frontier, and no landing either. Null is
  * a dead end.
  */
-export function naturalEnd(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module">): "start" | "bookkeeping" | null {
-  if (DECLARATION_KINDS.has(element.kind) || BOOKKEEPING_KINDS.has(element.kind) || TERMINAL_KINDS.has(element.kind)) return "bookkeeping";
-  return isNaturalStart(tier1, element) ? "start" : null;
+export function naturalEnd(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module"> & { terminalRoles?: readonly string[] }): "start" | "bookkeeping" | null {
+  if (DECLARATION_KINDS.has(element.kind) || BOOKKEEPING_KINDS.has(element.kind) || TERMINAL_KINDS.has(element.kind) || (element.terminalRoles?.length ?? 0) > 0) return "bookkeeping";
+  if (isNaturalStart(tier1, element)) return "start";
+  // Where the evidence cannot tell a dead end from the end of what it records, a stop is not a frontier.
+  return tier1.host.evidence.deadEnds ? null : "bookkeeping";
 }
 
 /** Whether a value naturally begins at this element: a literal, a literal constant, an external import. */
 export function isNaturalStart(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module">): boolean {
   if (element.kind === "literal") return true;
+  // A Python program has no TypeScript nodes to read: only its literal elements are natural starts.
+  if (tier1.language !== "typescript") return false;
   const { ts } = tier1;
   const root = path.resolve(tier1.args.root);
   if (element.module) {
@@ -106,12 +112,12 @@ export function isNaturalStart(tier1: Tier1, element: Pick<ProgramElement, "kind
 }
 
 /** Facts at exactly this span in this file. */
-export function elementsAt(tier1: Tier1, file: string, span: Span) {
+export function elementsAt(tier1: BaseTier1, file: string, span: Span) {
   return tier1.provider().facts.fileCandidates(file).filter((fact) => sameSpan(fact.location.span, span));
 }
 
 /** The evidence element a selection starts from: the most specific fact at exactly its span. */
-export function seedFor(tier1: Tier1, file: string, span: Span): string | null {
+export function seedFor(tier1: BaseTier1, file: string, span: Span): string | null {
   const facts = elementsAt(tier1, file, span);
   for (const kind of SEED_KINDS) {
     const match = facts.find((fact) => fact.kind === kind);
@@ -153,7 +159,7 @@ export function functionName(ts: typeof TypeScript, fn: TypeScript.Node, sourceF
 }
 
 /** The call sites of the function a cross-call element belongs to: a call, a parameter or the function itself. */
-export function callSitesOfElement(tier1: Tier1, sites: CallSiteIndex, element: ProgramElement): { sites: CallSites | null; name: string } {
+export function callSitesOfElement(tier1: TsTier1, sites: CallSiteIndex, element: ProgramElement): { sites: CallSites | null; name: string } {
   const { ts } = tier1;
   const sourceFile = tier1.program.getSourceFile(path.resolve(tier1.args.root, element.location.file));
   const node = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;

@@ -5,7 +5,7 @@ import { observeRouteTotalityPhases, type RouteTotalityPhase } from "../src/anal
 import { projectRouteTotality } from "../src/api/projections/route-totality";
 import { anchorGraphOp } from "../src/srcly/ops/anchor-graph";
 import { projectRouteGraph } from "../src/srcly/ops/route-graph";
-import { createEngineSession } from "../src/srcly/session";
+import { createEngineSession, requireTypescript } from "../src/srcly/session";
 import { chooseTypescript } from "../src/srcly/typescript-choice";
 
 // Where the time goes, in process: tier 1, the provider's fact index, then
@@ -33,7 +33,7 @@ const allRoutes = argv.includes("--all-routes");
 const ms = (n: number) => Math.round(n);
 const t0 = performance.now();
 const session = createEngineSession({ root, source, tsconfig, typescriptFrom: chooseTypescript(root, source).from });
-const tier1 = session.tier1();
+const tier1 = requireTypescript(session.tier1(), "The phase profiler");
 const tier1Ms = performance.now() - t0;
 
 // The backbone first (T9): each wanted route's surface from its own file's facts, before the provider.

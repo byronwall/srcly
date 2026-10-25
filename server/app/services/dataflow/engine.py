@@ -82,8 +82,12 @@ class EngineProcess:
         *,
         launch: Launch,
         env: dict[str, str] | None = None,
+        language: str = "typescript",
+        python: str | None = None,
     ):
         self.root = root
+        self.language = language
+        self.python = python
         self.source = source
         self.tsconfig = tsconfig
         self.launch = launch
@@ -106,6 +110,9 @@ class EngineProcess:
         argv = [*self.launch.argv, "--root", str(self.root), "--source", str(self.source)]
         if self.tsconfig:
             argv += ["--tsconfig", self.tsconfig]
+        argv += ["--language", self.language]
+        if self.python:
+            argv += ["--python", self.python]
         env = {**os.environ, **(self._env or {}), "NO_COLOR": "1", "FORCE_COLOR": "0"}
         self._proc = subprocess.Popen(
             argv,
@@ -406,7 +413,15 @@ class EngineRegistry:
             if not found.available or found.launch is None:
                 raise EngineError(found.reason or "engine-missing", found.message or "The data-flow engine is unavailable.")
             self._make_room()
-            engine = EngineProcess(key, availability.default_source(key), None, launch=found.launch, env=self._env)
+            engine = EngineProcess(
+                key,
+                availability.default_source(key),
+                None,
+                launch=found.launch,
+                env=self._env,
+                language=found.language,
+                python=found.python,
+            )
             try:
                 engine.start()
             except OSError as exc:
@@ -424,7 +439,7 @@ class EngineRegistry:
         engine = self.ensure(root)
         if timeout is None:
             # The first query builds tier 1, which scales with the project.
-            timeout = QUERY_TIMEOUT if engine.queries > 1 else max(60.0, 0.25 * availability.count_source_files(engine.root))
+            timeout = QUERY_TIMEOUT if engine.queries > 1 else max(60.0, 0.25 * availability.count_source_files(engine.root, language=engine.language))
         try:
             return engine.request(op, params, timeout=timeout, expected_generation=expected_generation)
         except EngineCrashed as exc:

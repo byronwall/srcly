@@ -7,7 +7,7 @@ import { routePathResultSchema, type RoutePathResult } from "../contracts/route-
 import type { LedgerRow } from "../contracts/value-flow";
 import { TERMINAL_KINDS } from "../facts";
 import { EngineError } from "../protocol";
-import { checkGeneration, type EngineSession, type Tier1 } from "../session";
+import { checkGeneration, requireTypescript, type EngineSession, type TsTier1 } from "../session";
 
 type Slice = Exclude<RouteTotality["evidenceSlice"], { reason: string }>;
 type Lineage = Exclude<RouteTotality["fieldLineage"], { reason: string }>;
@@ -27,7 +27,7 @@ export function routePathOp(
   params: { route?: unknown; source?: unknown; edge?: unknown; expectedGeneration?: unknown },
   cancellation?: AnalysisCancellationToken,
 ): RoutePathResult {
-  const tier1 = session.tier1();
+  const tier1 = requireTypescript(session.tier1(), "Explaining a route edge");
   checkGeneration(tier1, params.expectedGeneration);
   if (typeof params.route !== "string" || !params.route) throw new EngineError("invalid-request", "routePath needs params.route");
   if (typeof params.edge !== "string" || !params.edge) throw new EngineError("invalid-request", "routePath needs params.edge");
@@ -123,7 +123,7 @@ export function routePathOp(
   });
 }
 
-function selectedSourceFor(tier1: Tier1, elementId: string) {
+function selectedSourceFor(tier1: TsTier1, elementId: string) {
   const element = tier1.provider().facts.getElement(elementId);
   if (!element) throw new EngineError("not-found", `No program element ${elementId}`);
   const at = element.location;

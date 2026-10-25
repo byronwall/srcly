@@ -82,6 +82,13 @@ The engine derives origin roles, terminal roles and boundaries from an element's
 
 Name reads join their bindings flow-insensitively within a function: the last binding before the read when every binding is straight-line, otherwise every binding that can reach it, marked `partial`.
 
+## Slices
+
+| PR | What it proves |
+| --- | --- |
+| 1 · evidence provider | the helper, the wire format, `PythonRelationProvider`; slices from a FastAPI body reach the response on the example and on srcly's server |
+| 2 · session and availability | a Python root opens in Data flow mode: `Tier1` per language behind a language host, `--language python --python <interpreter>`, the server probes a Python root and names `python-checker-not-found`; routes, `selectExpression`, `valueFlow` and `anchorGraph` answer through the real engine over HTTP |
+
 ## Not yet
 
 - Invocation pairing (M5's identity work) is not done for Python either: a helper with more than one call site is a boundary, as in TypeScript.

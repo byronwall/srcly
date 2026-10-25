@@ -1,6 +1,6 @@
 import path from "node:path";
 import type * as TypeScript from "typescript";
-import type { Tier1 } from "./session";
+import type { TsTier1 } from "./session";
 
 export type CallSites = {
   /** Calls whose callee resolves to the function, as `file:line`, in source order. */
@@ -14,7 +14,7 @@ export type CallSites = {
  * evidence provider (which only knows the files it has loaded). Value-flow
  * walks a call only when this finds exactly one call and no escape (R7).
  */
-export function createCallSiteIndex(tier1: Tier1) {
+export function createCallSiteIndex(tier1: TsTier1) {
   const { ts, program } = tier1;
   const checker = program.getTypeChecker();
   const root = path.resolve(tier1.args.root);

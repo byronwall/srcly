@@ -3,7 +3,7 @@ import type * as TypeScript from "typescript";
 import type { AnalysisCancellationToken } from "../../analysis/cancellation";
 import { fileExportsResultSchema, type FileExport, type FileExportsResult } from "../contracts/file-exports";
 import { EngineError } from "../protocol";
-import { checkGeneration, type EngineSession, type Tier1 } from "../session";
+import { checkGeneration, requireTypescript, type EngineSession, type TsTier1 } from "../session";
 
 /**
  * The exported declarations of a file, or of every program file under a
@@ -13,7 +13,7 @@ import { checkGeneration, type EngineSession, type Tier1 } from "../session";
  * order, so the result is stable for the cache.
  */
 export function fileExportsOp(session: EngineSession, params: { file?: unknown; expectedGeneration?: unknown }, cancellation?: AnalysisCancellationToken): FileExportsResult {
-  const tier1 = session.tier1();
+  const tier1 = requireTypescript(session.tier1(), "A file's exports");
   checkGeneration(tier1, params.expectedGeneration);
   if (typeof params.file !== "string" || !params.file) throw new EngineError("invalid-request", "fileExports needs params.file");
   const root = path.resolve(tier1.args.root);
@@ -49,7 +49,7 @@ function firstParty(source: TypeScript.SourceFile, root: string): boolean {
   return source.fileName.startsWith(root + path.sep) && !source.fileName.includes(`${path.sep}node_modules${path.sep}`) && !source.isDeclarationFile;
 }
 
-function exportsOf(tier1: Tier1, source: TypeScript.SourceFile, rel: (file: string) => string): FileExport[] {
+function exportsOf(tier1: TsTier1, source: TypeScript.SourceFile, rel: (file: string) => string): FileExport[] {
   const { ts } = tier1;
   const checker = tier1.program.getTypeChecker();
   const moduleSymbol = checker.getSymbolAtLocation(source);

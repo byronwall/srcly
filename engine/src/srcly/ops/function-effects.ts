@@ -3,7 +3,7 @@ import { analyzeFunctionEffects, ASSUMPTIONS, callableAt } from "../../analysis/
 import { functionEffectsResultSchema, type FunctionEffectsResult } from "../contracts/function-effects";
 import { EngineError } from "../protocol";
 import { sourceFileFor } from "../selection";
-import { checkGeneration, type EngineSession } from "../session";
+import { checkGeneration, requireTypescript, type EngineSession } from "../session";
 
 /**
  * What the function at `{file, line[, column]}` touches (M6): its effects as
@@ -12,7 +12,7 @@ import { checkGeneration, type EngineSession } from "../session";
  * Known and partial sit together; nothing here is a score.
  */
 export function functionEffectsOp(session: EngineSession, params: Record<string, unknown>, cancellation?: AnalysisCancellationToken): FunctionEffectsResult {
-  const tier1 = session.tier1();
+  const tier1 = requireTypescript(session.tier1(), "Function effects");
   checkGeneration(tier1, params.expectedGeneration);
   const { sourceFile, relative } = sourceFileFor(tier1, params.file);
   if (!Number.isInteger(params.line) || (params.line as number) < 1) throw new EngineError("invalid-request", "functionEffects needs params.line");

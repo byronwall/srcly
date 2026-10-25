@@ -2,7 +2,7 @@ import path from "node:path";
 import type * as TypeScript from "typescript";
 import { parseArgs } from "../cli/args";
 import { createAnalyzer } from "../core";
-import { createLazyProgramEvidenceProvider } from "../analysis/evidence-relation-provider";
+import { createLazyProgramEvidenceProvider, type EvidenceRelationProvider } from "../analysis/evidence-relation-provider";
 import type { AnalysisCancellationToken } from "../analysis/cancellation";
 import { ProgramEvidenceCollector } from "../analysis/program-evidence-collector";
 import { ProgramFactIndex } from "../analysis/program-fact-index";
@@ -16,8 +16,11 @@ import { loadTypescript } from "../project/typescript";
 import { resolveProjectConfigs } from "../project/tsconfig";
 import type { AnalysisReport, AnalyzerArgs } from "../types";
 import { hashProgramInputs, type ProgramInputs } from "./fingerprint";
+import type { LanguageHost } from "./host";
+import { createPythonTier1, type PythonTier1 } from "./python/session";
 import { alignDefaultExportEvidence } from "./route-identity";
 import { EngineError } from "./protocol";
+import { createTypescriptHost } from "./typescript-host";
 
 export type EngineConfig = {
   root: string;
@@ -27,6 +30,10 @@ export type EngineConfig = {
   tsconfig: string | null;
   /** A directory the chosen `typescript` resolves from (decision D4). */
   typescriptFrom: string;
+  /** Which program to build; a Python root needs an interpreter with mypy. */
+  language?: "typescript" | "python";
+  /** The interpreter that runs the Python helper (`python3` when unset). */
+  python?: string | null;
   /** Build the Program from these files and their imports only (T12); absent means every file the tsconfigs name. */
   rootFiles?: string[];
 };
@@ -43,17 +50,29 @@ export function engineArgs(config: EngineConfig): AnalyzerArgs {
   return args;
 }
 
+/**
+ * The program a tier-1 result was computed from. For Python, `tsconfig` names
+ * the project file (`pyproject.toml`) and `typescript` the checker (`mypy 2.4.0 · Python 3.13.2`).
+ */
 export type Generation = { id: number; programHash: string; tsconfig: string; typescript: string };
 
-export type Tier1 = {
+/** What every tier-1 build has, whatever the language: the ops that work on both read only this. */
+export type BaseTier1 = {
+  root: string;
+  inputs: ProgramInputs;
+  generation: Generation;
+  /** The evidence provider behind the fact index; built on first use by a query that needs facts. */
+  provider: () => EvidenceRelationProvider;
+  /** Files, selections, text, types, scopes and call sites in the language's own terms. */
+  host: LanguageHost;
+};
+
+export type TsTier1 = BaseTier1 & {
+  language: "typescript";
   ts: typeof TypeScript;
   program: TypeScript.Program;
   args: AnalyzerArgs;
   routes: RouteRecord[];
-  inputs: ProgramInputs;
-  generation: Generation;
-  /** The lazy evidence provider; built on first use by a query that needs facts. */
-  provider: () => ReturnType<typeof createLazyProgramEvidenceProvider>;
   /**
    * Route totality, one record per (route, selected source), cached. Findings
    * attachments are empty here: findings are tier-2 data.
@@ -68,6 +87,14 @@ export type Tier1 = {
   fullReport: () => AnalysisReport;
 };
 
+export type Tier1 = TsTier1 | PythonTier1;
+
+/** The TypeScript build, for the ops that only TypeScript has (the route graph, the legacy report). */
+export function requireTypescript(tier1: Tier1, what: string): TsTier1 {
+  if (tier1.language === "typescript") return tier1;
+  throw new EngineError("not-found", `${what} is TypeScript-only; this root is analyzed as Python`, { language: tier1.language });
+}
+
 /**
  * Two tiers over one Program (plan section 3.3). Tier 1 builds the Program,
  * the identity index and route discovery, and answers interactive queries.
@@ -79,6 +106,10 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
   let generationId = 0;
 
   const build = (): Tier1 => {
+    if (config.language === "python") {
+      generationId += 1;
+      return createPythonTier1(config, generationId, progress);
+    }
     const args = engineArgs(config);
     refuseUnanalyzable(args);
     const analyzer = createAnalyzer(args, progress);
@@ -131,7 +162,10 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
       surfaces.set(routeKey, record);
       return record;
     };
-    return {
+    const built: TsTier1 = {
+      language: "typescript",
+      root,
+      host: null as unknown as LanguageHost,
       ts,
       program,
       args,
@@ -150,6 +184,8 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
       },
       fullReport: () => (report ??= analyzer.report()),
     };
+    built.host = createTypescriptHost(built);
+    return built;
   };
 
   return {
@@ -168,7 +204,7 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
 export type EngineSession = ReturnType<typeof createEngineSession>;
 
 /** Refuse a query on a tier-1 session whose generation the caller did not see. */
-export function checkGeneration(tier1: Tier1, expected: unknown) {
+export function checkGeneration(tier1: BaseTier1, expected: unknown) {
   if (expected === undefined || expected === null) return;
   if (expected !== tier1.generation.id) {
     throw new EngineError("stale-generation", `Generation ${String(expected)} is stale; the session is at ${tier1.generation.id}`, {

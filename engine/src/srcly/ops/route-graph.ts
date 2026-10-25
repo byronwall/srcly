@@ -6,7 +6,7 @@ import { projectOccurrenceSurface } from "../../api/projections/route-totality-s
 import { routeGraphResultSchema, type FlowEdge, type FlowNode, type RouteGraphResult } from "../contracts/route-graph";
 import type { RouteTotalitySelectedSource } from "../../analysis/route-totality-selected-source";
 import { EngineError } from "../protocol";
-import { checkGeneration, type EngineSession, type Tier1 } from "../session";
+import { checkGeneration, requireTypescript, type EngineSession, type TsTier1 } from "../session";
 
 /** Route graphs bigger than this are refused as `budget-exhausted`, never truncated. */
 export const ROUTE_GRAPH_MAX_BYTES = 8 * 1024 * 1024;
@@ -19,7 +19,7 @@ export function routeGraphOp(
   params: { route?: unknown; source?: unknown; expectedGeneration?: unknown },
   cancellation?: AnalysisCancellationToken,
 ): RouteGraphResult {
-  const tier1 = session.tier1();
+  const tier1 = requireTypescript(session.tier1(), "The route graph");
   checkGeneration(tier1, params.expectedGeneration);
   const route = routeFor(tier1, params.route, "routeGraph");
   const selected = typeof params.source === "string" && params.source ? selectedSourceFor(tier1, params.source) : null;
@@ -41,7 +41,7 @@ export function routeSurfaceOp(
   params: { route?: unknown; expectedGeneration?: unknown },
   cancellation?: AnalysisCancellationToken,
 ): RouteGraphResult {
-  const tier1 = session.tier1();
+  const tier1 = requireTypescript(session.tier1(), "The route surface");
   checkGeneration(tier1, params.expectedGeneration);
   const route = routeFor(tier1, params.route, "routeSurface");
   const record = tier1.surface(route.key, cancellation);
@@ -63,7 +63,7 @@ type SurfaceTotality = Pick<RouteTotality, "route" | "status" | "occurrenceSurfa
   fieldLineage: Pick<RouteTotality["fieldLineage"], "status" | "unavailableReason"> & { attachments: RouteTotality["fieldLineage"]["attachments"]; frontiers: RouteTotality["fieldLineage"]["frontiers"] };
 };
 
-function routeFor(tier1: Tier1, key: unknown, op: string) {
+function routeFor(tier1: TsTier1, key: unknown, op: string) {
   if (typeof key !== "string" || !key) throw new EngineError("invalid-request", `${op} needs params.route`);
   const route = tier1.routes.find((item) => item.key === key || item.pathPattern === key);
   if (!route) throw new EngineError("not-found", `No route ${key}`);
@@ -87,7 +87,7 @@ function bounded(route: { pathPattern: string }, result: RouteGraphResult): Rout
  * takes. The element's own location is the selection; the engine decides
  * whether exact field lineage can start there.
  */
-function selectedSourceFor(tier1: Tier1, elementId: string): RouteTotalitySelectedSource {
+function selectedSourceFor(tier1: TsTier1, elementId: string): RouteTotalitySelectedSource {
   const element = tier1.provider().facts.getElement(elementId);
   if (!element) throw new EngineError("not-found", `No program element ${elementId}`);
   const at = element.location;
@@ -95,7 +95,7 @@ function selectedSourceFor(tier1: Tier1, elementId: string): RouteTotalitySelect
 }
 
 /** Project a validated RouteTotality (or a surface-only record) onto the flow graph contract. Exported for tests. */
-export function projectRouteGraph(tier1: Tier1, totality: SurfaceTotality, selectedSource: string | null = null, phase: RouteGraphResult["phase"] = "complete"): RouteGraphResult {
+export function projectRouteGraph(tier1: TsTier1, totality: SurfaceTotality, selectedSource: string | null = null, phase: RouteGraphResult["phase"] = "complete"): RouteGraphResult {
   const root = path.resolve(tier1.args.root);
   const absPath = (file: string) => path.resolve(root, file);
   const routeAbsPath = absPath(totality.route.file);
