@@ -402,7 +402,7 @@ class AnchorGraphBuilder {
           }
           continue;
         }
-        let kind = classify(relation, element);
+        let kind = classify(relation, element, side);
         // A return the slice carried on from (to its paired call) is a carrier here, not where the value leaves.
         if (kind === "terminal" && element.kind === "return" && side === "down" && (next.get(element.id) ?? []).some((item) => item.kind === "return-value")) kind = "value";
         let status = relation.status;
@@ -432,8 +432,8 @@ class AnchorGraphBuilder {
         }
         this.addElement(element, kind, side, status, reason, note);
         this.addEdge(relation, element);
-        // A terminal ends a forward path and an origin a backward one; the other way round they are carriers.
-        const ends = crossCallStop || (side === "down" && kind === "terminal") || (side === "up" && kind === "origin");
+        // `classify` gives each side only its own end: a terminal forward, an origin backward.
+        const ends = crossCallStop || kind === "terminal" || kind === "origin";
         if (!ends && !visited.has(otherId) && depth < DEFAULT_BOUNDARY_POLICY.maxDepth) {
           visited.add(otherId);
           queue.push({ id: otherId, depth: depth + 1 });
@@ -653,9 +653,15 @@ function typeAttribute(element: ProgramElement): string | null {
   return typeof value === "string" ? value : null;
 }
 
-function classify(relation: ProgramRelation, element: ProgramElement): AnchorNode["kind"] {
-  if (element.originRoles.length) return "origin";
-  if (element.terminalRoles.length || TERMINAL_KINDS.has(element.kind)) return "terminal";
+/**
+ * A box's role on the side it sits on. Where a value starts is an origin
+ * only upstream, and where it ends a terminal only downstream: the other way
+ * round the same element is a carrier (upstream, a callee's `return` is where
+ * the value comes from), so it takes whatever role it has besides.
+ */
+function classify(relation: ProgramRelation, element: ProgramElement, side: Side): AnchorNode["kind"] {
+  if (side === "up" && element.originRoles.length) return "origin";
+  if (side === "down" && (element.terminalRoles.length || TERMINAL_KINDS.has(element.kind))) return "terminal";
   if (element.boundary) return "boundary";
   if (relation.kind === "show-when" || CONTROL_KINDS.has(element.kind)) return "control";
   if (/^(map|filter|find|pack|includes|join)/.test(relation.kind) || TRANSFORM_KINDS.has(element.kind)) return "transform";

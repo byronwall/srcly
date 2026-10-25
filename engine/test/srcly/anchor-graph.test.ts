@@ -201,6 +201,16 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(boxes(graph).some((node) => node.label === "\"x\"")).toBe(true);
   });
 
+  it("draws a hook's return upstream as a carrier, and a return nothing carries on downstream as a terminal", () => {
+    const back = anchorGraphOp(session, { ...find(basics, "src/hook-return.tsx", "label", "{label}"), direction: "backward" });
+    expect(back.outcome).toBe("ok");
+    expect(boxes(back).find((node) => node.elementKind === "return")).toMatchObject({ side: "up", kind: "value", line: 7 });
+    expect(back.counts).toMatchObject({ terminals: 0, frontiers: 0 });
+    const forward = anchorGraphOp(session, { ...find(basics, "src/hook-return.tsx", "value", "return value"), direction: "forward" });
+    expect(forward.outcome).toBe("ok");
+    expect(boxes(forward, "terminal")).toMatchObject([{ side: "down", elementKind: "return", line: 17 }]);
+  });
+
   it("refuses a direction it does not know and a name without a line", () => {
     expect(() => anchorGraphOp(session, { ...find(basics, "src/direct-property.tsx", "props.item.title"), direction: "sideways" })).toThrow(/direction/);
     expect(() => anchorGraphOp(session, { file: "src/direct-property.tsx", name: "props" })).toThrow(/line/);
