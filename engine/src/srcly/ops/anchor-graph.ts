@@ -2,7 +2,8 @@ import path from "node:path";
 import type { AnalysisCancellationToken } from "../../analysis/cancellation";
 import { queryEvidenceSlice, type EvidenceSlice } from "../../analysis/evidence-slice";
 import { toSliceElement, toSliceRelation } from "../../analysis/evidence-slice-normalization";
-import { DEFAULT_BOUNDARY_POLICY, scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
+import { scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
+import { ANCHOR_LIMITS, movesValue, STRUCTURAL_RELATIONS, usesOf } from "../anchor-slice";
 import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
 import { DECLARATION_KINDS, elementsAt, endsInPlace, externalCallee, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
@@ -16,8 +17,8 @@ import { checkGeneration, type EngineSession, type Tier1 } from "../session";
 
 /** Anchor graphs bigger than this are refused as `budget-exhausted`, never truncated. */
 export const ANCHOR_GRAPH_MAX_BYTES = 8 * 1024 * 1024;
-/** Structural relations: they place elements, they do not move values. */
-const SKIP_RELATIONS = new Set(["contains", "declares-parameter", "definition", "invokes"]);
+/** What the walk never draws: the structural relations, and a call's link to its callee (the slice still follows it). */
+const SKIP_RELATIONS = new Set([...STRUCTURAL_RELATIONS, "invokes"]);
 /** Element kinds that branch or narrow a value rather than carry it. */
 const CONTROL_KINDS = new Set(["type-narrow", "show-binding", "for-binding", "predicate-result"]);
 /** Element kinds that reshape a value. */
@@ -29,8 +30,6 @@ type Side = "up" | "down";
 type Resolved = HostCandidate & { seedId?: string };
 /** Declaration-level elements a symbol anchor may start from, before the ledger's seed kinds. */
 const DECLARATION_SEEDS = ["component-definition", "function-entry", "handler-entry", ...SEED_KINDS];
-/** Relations that point a use (a call, an occurrence) at its definition. */
-const USE_RELATIONS = new Set(["definition", "invokes", "function-call", "component-occurrence"]);
 /** One slice to walk: from which element, on which side of the anchor, with the span its own bookkeeping folds into. */
 type Run = {
   seedId: string;
@@ -176,7 +175,7 @@ class AnchorGraphBuilder {
       coverage.elements += slice.elements.length;
       coverage.relations += slice.relations.length;
       coverage.budget.used += slice.relations.length;
-      coverage.budget.limit += DEFAULT_BOUNDARY_POLICY.maxRelations;
+      coverage.budget.limit += ANCHOR_LIMITS.maxRelations;
       // Any limit the slice hit leaves the walk short of the budget's story, not only the relation budget.
       const cut = slice.coverage.truncation;
       coverage.budget.exhausted ||= cut.budget || cut.elements || cut.relations || cut.depth;
@@ -305,7 +304,9 @@ class AnchorGraphBuilder {
     return queryEvidenceSlice(this.tier1.provider(), {
       seed: { candidateId: `anchor:${run.seedId}:${dir}`, entryElementId: run.seedId, adapter: "anchor-graph", label, framework: null, proof: [], defaults: scopePolicy({ direction: dir }) },
       direction: dir,
-      ...(dir === "forward" ? { terminalPolicy: { roles: ["render", "component-occurrence", "side-effect", "return"] } } : {}),
+      boundaryPolicy: { maxDepth: ANCHOR_LIMITS.maxDepth, maxElements: ANCHOR_LIMITS.maxElements, maxRelations: ANCHOR_LIMITS.maxRelations },
+      terminalPolicy: { maxTerminals: ANCHOR_LIMITS.maxTerminals, ...(dir === "forward" ? { roles: ["render", "component-occurrence", "side-effect", "return"] } : {}) },
+      follow: movesValue,
       cancellation: this.cancellation,
     });
   }
@@ -375,12 +376,8 @@ class AnchorGraphBuilder {
         runs.push({ seedId: ret.id, seedSpan: ret.location.span, side: "down" });
       }
       // Where it is used: the calls and occurrences whose definition this is.
-      const uses = this.slice({ seedId: seed, seedSpan: span, side: "up" }, seed);
-      const byId = new Map(uses.elements.map((element) => [element.id, element]));
-      for (const relation of uses.relations) {
-        if (relation.to !== seed || !USE_RELATIONS.has(relation.kind)) continue;
-        const use = byId.get(relation.from);
-        if (!use || this.nodes.has(use.id)) continue;
+      for (const { relation, use } of usesOf(provider, seed, this.cancellation)) {
+        if (this.nodes.has(use.id)) continue;
         this.addElement(use, "value", "down", relation.status, null, use.kind === "component-occurrence" || use.kind === "jsx-occurrence" ? "rendered here" : "called here");
         this.pushEdge({ id: `use:${relation.id}`, source: seed, target: use.id, kind: "used-by", status: relation.status, proof: [relation.proof], label: null });
         // A component rendered here is where the value ends: its body is the anchor's own, already traced.
@@ -459,7 +456,7 @@ class AnchorGraphBuilder {
         this.addEdge(relation, element);
         // `classify` gives each side only its own end: a terminal forward, an origin backward.
         const ends = crossCallStop || kind === "terminal" || kind === "origin";
-        if (!ends && !visited.has(otherId) && depth < DEFAULT_BOUNDARY_POLICY.maxDepth) {
+        if (!ends && !visited.has(otherId) && depth < ANCHOR_LIMITS.maxDepth) {
           visited.add(otherId);
           queue.push({ id: otherId, depth: depth + 1 });
         }
@@ -507,7 +504,7 @@ class AnchorGraphBuilder {
       if (this.nodes.has(id) || folded.has(gap.id)) continue;
       let [label, note, reason, status]: [string, string, string, EvidenceGap["status"]] = [clip(gap.label, 80), gap.label, gap.reason, gap.status];
       let elementKind: string | null = null;
-      if (limited[0] === gap) ({ label, note } = foldedLimit(limited, labelOf, DEFAULT_BOUNDARY_POLICY.maxElements));
+      if (limited[0] === gap) ({ label, note } = foldedLimit(limited, labelOf, ANCHOR_LIMITS.maxElements));
       else if (gap.reason === "disconnected") {
         const element = gap.from ? elements.get(gap.from) ?? this.tier1.provider().facts.getElement(gap.from) : undefined;
         if (!gap.location || !element) {
