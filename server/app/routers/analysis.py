@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 from pathlib import Path
 
 from app.models import Node
@@ -12,15 +12,21 @@ router = APIRouter(prefix="/api/analysis", tags=["analysis"])
 ROOT_PATH = Path.cwd()
 
 
-def result_bytes(job: scan_jobs.ScanJob, activity_window: str | None = None) -> bytes:
-    """The finished tree with Git activity for ``activity_window`` (default 90d) and findings."""
+def result_response(job: scan_jobs.ScanJob, request: Request, activity_window: str | None = None) -> Response:
+    """
+    The finished tree with Git activity for ``activity_window`` (default 90d)
+    and findings: compact (``scan_jobs.compact_tree``) and gzipped when the
+    request accepts it. The client's ``normalizeTree`` restores the full shape.
+    """
     try:
-        return job.result_json_overlaid(activity_window)
+        return job.result_response(request, activity_window)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-def _scan_response(target_path: Path, force: bool = False, activity_window: str | None = None) -> Response:
+def _scan_response(
+    target_path: Path, request: Request, force: bool = False, activity_window: str | None = None
+) -> Response:
     """
     Scan ``target_path`` through the shared job manager and return the tree.
 
@@ -39,7 +45,7 @@ def _scan_response(target_path: Path, force: bool = False, activity_window: str 
         raise HTTPException(status_code=503, detail="Scan cancelled")
     if job.phase != "complete":
         raise HTTPException(status_code=500, detail=job.error or f"Scan {job.phase}")
-    return Response(content=result_bytes(job, activity_window), media_type="application/json")
+    return result_response(job, request, activity_window)
 
 
 # Scan endpoints are plain `def` on purpose: FastAPI runs them in a worker
@@ -47,7 +53,7 @@ def _scan_response(target_path: Path, force: bool = False, activity_window: str 
 # uvicorn from reacting to Ctrl+C). They return a `Response` directly, so
 # `response_model` only documents the shape.
 @router.get("", response_model=Node)
-def get_analysis(path: str = None, activity_window: str | None = None):
+def get_analysis(request: Request, path: str = None, activity_window: str | None = None):
     """
     Get the static analysis of the codebase.
     Returns the cached result if no files changed since it was taken,
@@ -61,7 +67,7 @@ def get_analysis(path: str = None, activity_window: str | None = None):
              raise HTTPException(status_code=404, detail="Path not found")
          target_path = ROOT_PATH
 
-    return _scan_response(target_path, activity_window=activity_window)
+    return _scan_response(target_path, request, activity_window=activity_window)
 
 @router.get("/dependency-graph", response_model=DepGraph, response_model_exclude_none=True)
 def get_dependency_graph(path: str = None):
@@ -90,14 +96,14 @@ def get_fan_in(path: str = None) -> dict:
 
 
 @router.post("/refresh", response_model=Node)
-def refresh_analysis(path: str = None, activity_window: str | None = None):
+def refresh_analysis(request: Request, path: str = None, activity_window: str | None = None):
     """
     Force a re-scan of the codebase, ignoring (and replacing) the cache.
     """
     target_path = Path(path) if path else ROOT_PATH
     if not target_path.exists():
         raise HTTPException(status_code=404, detail="Path not found")
-    return _scan_response(target_path, force=True, activity_window=activity_window)
+    return _scan_response(target_path, request, force=True, activity_window=activity_window)
 
 
 def _estimate_counts(root: Path) -> tuple[int, int]:

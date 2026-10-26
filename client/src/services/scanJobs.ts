@@ -6,6 +6,8 @@
  * if the stream is closed for good we fall back to polling the snapshot.
  */
 
+import { normalizeTree } from "../utils/normalizeTree";
+
 export type ScanPhase =
   | "queued"
   | "discovering"
@@ -101,11 +103,14 @@ export async function cancelScan(id: string): Promise<void> {
   await fetch(`/api/scans/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
-/** The finished tree, with Git activity for `activityWindow` (server default when omitted). */
+/**
+ * The finished tree, with Git activity for `activityWindow` (server default
+ * when omitted) and the defaults and paths the server omits filled back in.
+ */
 export async function fetchScanResult<T>(id: string, activityWindow?: string): Promise<T> {
   const query = activityWindow ? `?activity_window=${encodeURIComponent(activityWindow)}` : "";
   const res = await fetch(`/api/scans/${encodeURIComponent(id)}/result${query}`);
-  return expectJson<T>(res);
+  return normalizeTree(await expectJson<T>(res));
 }
 
 /** The scan's lint/type-check status; counts reach the result once it isn't "running". */

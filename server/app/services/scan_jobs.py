@@ -10,6 +10,7 @@ needs to coordinate with the event loop.
 
 from __future__ import annotations
 
+import gzip
 import json
 import threading
 import time
@@ -17,9 +18,14 @@ import uuid
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
-from app.models import Node
+from pydantic import BaseModel
+from pydantic_core import PydanticUndefined
+from starlette.requests import Request
+from starlette.responses import Response
+
+from app.models import Metrics, Node
 from app.services import activity, analysis, cache, findings
 from app.services.scan_progress import ScanObserver
 from app.services.scan_workers import CancelToken, ScanCancelled
@@ -39,6 +45,89 @@ MAX_REPORTED_IN_PROGRESS = 5
 def serialize_tree(tree: Node) -> bytes:
     """Encode a tree exactly as FastAPI would for ``response_model=Node``."""
     return tree.model_dump_json(by_alias=True).encode()
+
+
+def _field_defaults(model: type[BaseModel]) -> dict[str, Any]:
+    defaults = {}
+    for name, info in model.model_fields.items():
+        if info.default_factory is not None:
+            defaults[name] = info.default_factory()
+        elif info.default is not PydanticUndefined:
+            defaults[name] = info.default
+    return defaults
+
+
+# What the compact encoding leaves out, straight from the models. The client
+# fills the same values back in (client/src/utils/normalizeTree.ts;
+# tests/test_payload_defaults.py fails when the two drift apart).
+NODE_DEFAULTS: dict[str, Any] = _field_defaults(Node)
+METRIC_DEFAULTS: dict[str, Any] = _field_defaults(Metrics)
+
+
+def child_path_separator(parent_type: str) -> str:
+    """How a child's ``path`` extends its parent's: ``/`` in folders, ``::`` in code."""
+    return "/" if parent_type == "folder" else "::"
+
+
+def _is_default(value: Any, default: Any) -> bool:
+    # ``type`` guards against 0 == False and 1 == True; 0 and 0.0 are both
+    # fine (JSON numbers don't keep the difference).
+    return value == default and (type(value) is type(default) or {type(value), type(default)} == {int, float})
+
+
+def compact_tree(tree: dict[str, Any]) -> dict[str, Any]:
+    """
+    Shrink a ``Node`` JSON tree for the browser, in place, and return it.
+
+    - Node and metric fields at their model default are left out. Most nodes
+      are scopes whose metrics are nearly all N/A (``None``) or 0.
+    - A child's ``path`` is left out when it is the parent's path, the
+      separator from ``child_path_separator``, and the child's name. Paths
+      are absolute, so this is half of what remains. Any other path is kept.
+
+    Only the tree served to the browser is compact: the analysis cache,
+    compare and the CLI reports keep the full shape. The client puts
+    everything back in ``normalizeTree`` (client/src/utils/normalizeTree.ts),
+    and ``expand_tree`` is the server-side inverse.
+    """
+    stack: list[tuple[dict[str, Any], Optional[str]]] = [(tree, None)]
+    while stack:
+        node, expected_path = stack.pop()
+        path = node.get("path")
+        children = node.get("children") or ()
+        if children:
+            prefix = f"{path}{child_path_separator(node.get('type', ''))}"
+            for child in children:
+                stack.append((child, prefix + child.get("name", "")))
+        if expected_path is not None and path == expected_path:
+            del node["path"]
+        metrics = node.get("metrics")
+        if isinstance(metrics, dict):
+            for key in [k for k, v in metrics.items() if k in METRIC_DEFAULTS and _is_default(v, METRIC_DEFAULTS[k])]:
+                del metrics[key]
+        for key in [k for k, v in node.items() if k in NODE_DEFAULTS and _is_default(v, NODE_DEFAULTS[k])]:
+            del node[key]
+    return tree
+
+
+def expand_tree(tree: dict[str, Any]) -> dict[str, Any]:
+    """The inverse of ``compact_tree``, in place: every default and path filled back in."""
+    stack = [tree]
+    while stack:
+        node = stack.pop()
+        for key, default in NODE_DEFAULTS.items():
+            if key not in node:
+                node[key] = [] if key == "children" else default
+        node["metrics"] = {**METRIC_DEFAULTS, **(node.get("metrics") or {})}
+        prefix = f"{node['path']}{child_path_separator(node['type'])}"
+        for child in node["children"]:
+            child.setdefault("path", prefix + child["name"])
+            stack.append(child)
+    return tree
+
+
+def _accepts_gzip(request: Request) -> bool:
+    return "gzip" in request.headers.get("accept-encoding", "").lower()
 
 
 @dataclass
@@ -82,6 +171,8 @@ class ScanJob(ScanObserver):
     _result_json_lock: threading.Lock = field(default_factory=threading.Lock)
     # window -> (activity + findings state the bytes were built with, bytes)
     _overlay_json: dict = field(default_factory=dict)
+    # window -> (the overlay bytes it compressed, gzip of them)
+    _overlay_gzip: dict = field(default_factory=dict)
     # Lint and type checks, run beside the scan (``services/findings``).
     findings_job: Optional[findings.FindingsJob] = None
 
@@ -151,12 +242,42 @@ class ScanJob(ScanObserver):
     def result_json_overlaid(self, window: Optional[str] = None) -> bytes:
         """
         The result tree with Git activity for ``window`` and the lint/type
-        findings laid over it.
+        findings laid over it, compacted for the browser (``compact_tree``).
 
-        The analysis cache stores the tree without either, so a new window,
-        HEAD, or finished checks only redo the overlay, never the analyzers.
-        Bytes are reused while neither changed.
+        The analysis cache stores the full tree without either, so a new
+        window, HEAD, or finished checks only redo the overlay, never the
+        analyzers. Bytes are reused while neither changed.
         """
+        return self._overlay(window)[1]
+
+    def result_gzip_overlaid(self, window: Optional[str] = None) -> bytes:
+        """``result_json_overlaid`` gzipped, compressed once per overlay (about 0.05 s for 8 MB)."""
+        data = self._overlay(window)[1]
+        window = activity.normalize_window(window)
+        with self._result_json_lock:
+            hit = self._overlay_gzip.get(window)
+            if hit is not None and hit[0] is data:
+                return hit[1]
+        compressed = gzip.compress(data, compresslevel=6)
+        with self._result_json_lock:
+            self._overlay_gzip[window] = (data, compressed)
+        return compressed
+
+    def result_response(self, request: Request, window: Optional[str] = None) -> Response:
+        """The overlaid tree, gzipped when the request accepts it (every browser does)."""
+        if _accepts_gzip(request):
+            return Response(
+                content=self.result_gzip_overlaid(window),
+                media_type="application/json",
+                headers={"Content-Encoding": "gzip", "Vary": "Accept-Encoding"},
+            )
+        return Response(
+            content=self.result_json_overlaid(window),
+            media_type="application/json",
+            headers={"Vary": "Accept-Encoding"},
+        )
+
+    def _overlay(self, window: Optional[str]) -> tuple[tuple, bytes]:
         window = activity.normalize_window(window)
         result = activity.collect(self.root_path, window)
         checks = self.findings_result()
@@ -167,14 +288,14 @@ class ScanJob(ScanObserver):
         with self._result_json_lock:
             hit = self._overlay_json.get(window)
             if hit is not None and hit[0] == signature:
-                return hit[1]
+                return hit
         tree = json.loads(self.result_json())
         activity.apply_to_tree(tree, result, activity.scan_path_mapper(self.root_path, result))
         findings.apply_to_tree(tree, checks)
-        data = json.dumps(tree, separators=(",", ":")).encode()
+        data = json.dumps(compact_tree(tree), separators=(",", ":")).encode()
         with self._result_json_lock:
             self._overlay_json[window] = (signature, data)
-        return data
+        return signature, data
 
     def start_findings(self) -> None:
         if self.findings_job is None:
