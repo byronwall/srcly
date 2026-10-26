@@ -3,7 +3,7 @@ import type { AnalysisCancellationToken } from "../../analysis/cancellation";
 import { queryEvidenceSlice, type EvidenceSlice } from "../../analysis/evidence-slice";
 import { toSliceElement, toSliceRelation } from "../../analysis/evidence-slice-normalization";
 import { scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
-import { ANCHOR_LIMITS, assumedThrough, undrawn, usesOf, walkFollows } from "../anchor-slice";
+import { ANCHOR_LIMITS, assumedThrough, foldAnnotatedUses, undrawn, usesOf, walkFollows } from "../anchor-slice";
 import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
 import { elementsAt, endsInPlace, externalCallee, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
@@ -387,8 +387,9 @@ class AnchorGraphBuilder {
       // Where it is used: the calls and occurrences whose definition this is.
       // A hub (a helper called everywhere) walks its first uses; the rest are drawn, not walked, and one frontier says how many.
       const unwalked: string[] = [];
+      const folds = foldAnnotatedUses((id, more) => this.nodes.has(id) && (this.nodes.get(id)!.note = `${useWords("parameter")}, and ${more} more in this file`));
       for (const { relation, use } of usesOf(provider, seed, this.cancellation)) {
-        if (this.nodes.has(use.id)) continue;
+        if (this.nodes.has(use.id) || folds(use)) continue;
         // A use that is itself where a value leaves (a return typed with the class) is drawn as that terminal.
         this.addElement(use, use.terminalRoles.length ? "terminal" : "value", "down", relation.status, null, useWords(use.kind));
         this.pushEdge({ id: `use:${relation.id}`, source: seed, target: use.id, kind: "used-by", status: relation.status, proof: [relation.proof], label: null });
