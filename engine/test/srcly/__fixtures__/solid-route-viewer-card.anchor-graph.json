@@ -1,7 +1,7 @@
 {
  "outcome": "ok",
  "generation": 1,
- "programHash": "17772727bfd6c93a",
+ "programHash": "52c08378da4e32e8",
  "tsconfig": "/fixture/solid-route/tsconfig.json",
  "typescript": "5.9.3",
  "reason": null,
@@ -16,7 +16,7 @@
   },
   "text": "ViewerCard",
   "kind": "Identifier",
-  "elementId": "program-element:1wmtzfs",
+  "elementId": "program-element:1yl5869",
   "typeText": "(props: { viewer: ViewerProfile | undefined; }) => Element"
  },
  "direction": "both",
@@ -44,7 +44,7 @@
    "note": null
   },
   {
-   "id": "program-element:1wmtzfs",
+   "id": "program-element:1yl5869",
    "kind": "anchor",
    "label": "ViewerCard",
    "detail": "name",
@@ -66,7 +66,7 @@
    "note": null
   },
   {
-   "id": "program-element:1rzmg90",
+   "id": "program-element:1jork7w",
    "kind": "value",
    "label": "props",
    "detail": "parameter",
@@ -88,7 +88,7 @@
    "note": null
   },
   {
-   "id": "program-element:batpv1",
+   "id": "program-element:11wqp9l",
    "kind": "value",
    "label": "viewer",
    "detail": "field read",
@@ -110,7 +110,7 @@
    "note": null
   },
   {
-   "id": "program-element:1wxrjz4",
+   "id": "program-element:1jadg0w",
    "kind": "value",
    "label": "viewer",
    "detail": "field read",
@@ -132,7 +132,7 @@
    "note": null
   },
   {
-   "id": "program-element:9owg88",
+   "id": "program-element:8k8igc",
    "kind": "value",
    "label": "return",
    "detail": "return",
@@ -176,8 +176,8 @@
    "note": null
   },
   {
-   "id": "program-element:1sj2sro",
-   "kind": "value",
+   "id": "program-element:1532p17",
+   "kind": "terminal",
    "label": "ViewerCard",
    "detail": "handed to a component",
    "parent": "scope:src/routes/records.tsx:15:1",
@@ -198,7 +198,7 @@
    "note": "rendered here"
   },
   {
-   "id": "program-element:1vkwail",
+   "id": "program-element:w4uuf1",
    "kind": "value",
    "label": "props",
    "detail": "value",
@@ -220,7 +220,7 @@
    "note": null
   },
   {
-   "id": "program-element:15gwk6c",
+   "id": "program-element:uyctix",
    "kind": "value",
    "label": "viewer={viewer()}",
    "detail": "prop binding",
@@ -242,7 +242,7 @@
    "note": null
   },
   {
-   "id": "program-element:9qk3ug",
+   "id": "program-element:12twt9u",
    "kind": "value",
    "label": "viewer()",
    "detail": "call",
@@ -264,7 +264,7 @@
    "note": null
   },
   {
-   "id": "program-element:1g9nkt0",
+   "id": "program-element:16mzjza",
    "kind": "boundary",
    "label": "viewer()",
    "detail": "resource result",
@@ -286,7 +286,7 @@
    "note": "viewer() is framework runtime; what it carries is proven only as far as the engine's relations go"
   },
   {
-   "id": "program-element:1jydemz",
+   "id": "program-element:1p7gio5",
    "kind": "value",
    "label": "viewer",
    "detail": "value",
@@ -308,7 +308,7 @@
    "note": null
   },
   {
-   "id": "program-element:13z4ktz",
+   "id": "program-element:cfzfkn",
    "kind": "origin",
    "label": "createResource(loadViewer)",
    "detail": "resource",
@@ -330,7 +330,7 @@
    "note": null
   },
   {
-   "id": "program-element:1q1lvvm",
+   "id": "program-element:aiyqwa",
    "kind": "value",
    "label": "[viewer]",
    "detail": "alias",
@@ -352,7 +352,7 @@
    "note": null
   },
   {
-   "id": "program-element:1livc79",
+   "id": "program-element:1cxcnbm",
    "kind": "value",
    "label": "createResource(loadViewer)",
    "detail": "call",
@@ -374,7 +374,7 @@
    "note": null
   },
   {
-   "id": "program-element:1ussryz",
+   "id": "program-element:1hlii8u",
    "kind": "value",
    "label": "createResource",
    "detail": "value",
@@ -396,7 +396,7 @@
    "note": null
   },
   {
-   "id": "program-element:1wjvr30",
+   "id": "program-element:vzomd7",
    "kind": "value",
    "label": "loadViewer",
    "detail": "value",
@@ -418,7 +418,7 @@
    "note": null
   },
   {
-   "id": "program-element:15upckm",
+   "id": "program-element:t1ofb6",
    "kind": "value",
    "label": "props",
    "detail": "value",
@@ -440,7 +440,7 @@
    "note": null
   },
   {
-   "id": "program-element:f430se",
+   "id": "program-element:n6ednu",
    "kind": "value",
    "label": "viewer={viewer()}",
    "detail": "prop binding",
@@ -464,18 +464,18 @@
  ],
  "edges": [
   {
-   "id": "parameter:program-element:1rzmg90",
-   "source": "program-element:1rzmg90",
-   "target": "program-element:1wmtzfs",
+   "id": "parameter:program-element:1jork7w",
+   "source": "program-element:1jork7w",
+   "target": "program-element:1yl5869",
    "kind": "parameter",
    "status": "structural",
    "proof": [],
    "label": null
   },
   {
-   "id": "prop:program-relation:nemwjn",
-   "source": "program-element:batpv1",
-   "target": "program-element:1rzmg90",
+   "id": "prop:program-relation:14uljwx",
+   "source": "program-element:11wqp9l",
+   "target": "program-element:1jork7w",
    "kind": "prop-read",
    "status": "proven",
    "proof": [
@@ -501,9 +501,9 @@
    "label": "viewer"
   },
   {
-   "id": "prop:program-relation:x53sn5",
-   "source": "program-element:1wxrjz4",
-   "target": "program-element:1rzmg90",
+   "id": "prop:program-relation:5a9fo3",
+   "source": "program-element:1jadg0w",
+   "target": "program-element:1jork7w",
    "kind": "prop-read",
    "status": "proven",
    "proof": [
@@ -529,18 +529,18 @@
    "label": "viewer"
   },
   {
-   "id": "returns:program-element:9owg88",
-   "source": "program-element:1wmtzfs",
-   "target": "program-element:9owg88",
+   "id": "returns:program-element:8k8igc",
+   "source": "program-element:1yl5869",
+   "target": "program-element:8k8igc",
    "kind": "returns",
    "status": "structural",
    "proof": [],
    "label": null
   },
   {
-   "id": "use:program-relation:1sfcfno",
-   "source": "program-element:1wmtzfs",
-   "target": "program-element:1sj2sro",
+   "id": "use:program-relation:smpk33",
+   "source": "program-element:1yl5869",
+   "target": "program-element:1532p17",
    "kind": "used-by",
    "status": "proven",
    "proof": [
@@ -566,9 +566,9 @@
    "label": null
   },
   {
-   "id": "program-relation:nemwjn",
-   "source": "program-element:1vkwail",
-   "target": "program-element:batpv1",
+   "id": "program-relation:14uljwx",
+   "source": "program-element:w4uuf1",
+   "target": "program-element:11wqp9l",
    "kind": "field-input",
    "status": "proven",
    "proof": [
@@ -594,9 +594,9 @@
    "label": null
   },
   {
-   "id": "program-relation:6n18y0",
-   "source": "program-element:15gwk6c",
-   "target": "program-element:batpv1",
+   "id": "program-relation:xlni99",
+   "source": "program-element:uyctix",
+   "target": "program-element:11wqp9l",
    "kind": "component-prop-binding",
    "status": "proven",
    "proof": [
@@ -644,9 +644,9 @@
    "label": null
   },
   {
-   "id": "program-relation:rx1x0",
-   "source": "program-element:1rzmg90",
-   "target": "program-element:1vkwail",
+   "id": "program-relation:p2u9pe",
+   "source": "program-element:1jork7w",
+   "target": "program-element:w4uuf1",
    "kind": "references",
    "status": "proven",
    "proof": [
@@ -672,9 +672,9 @@
    "label": null
   },
   {
-   "id": "program-relation:1d2r9pt",
-   "source": "program-element:9qk3ug",
-   "target": "program-element:15gwk6c",
+   "id": "program-relation:8dfz09",
+   "source": "program-element:12twt9u",
+   "target": "program-element:uyctix",
    "kind": "component-prop-binding",
    "status": "proven",
    "proof": [
@@ -722,9 +722,9 @@
    "label": null
   },
   {
-   "id": "program-relation:1uq0ba9",
-   "source": "program-element:1g9nkt0",
-   "target": "program-element:9qk3ug",
+   "id": "program-relation:1t5qa3c",
+   "source": "program-element:16mzjza",
+   "target": "program-element:12twt9u",
    "kind": "references",
    "status": "proven",
    "proof": [
@@ -750,9 +750,9 @@
    "label": null
   },
   {
-   "id": "program-relation:plzai3",
-   "source": "program-element:1jydemz",
-   "target": "program-element:9qk3ug",
+   "id": "program-relation:15fmxnd",
+   "source": "program-element:1p7gio5",
+   "target": "program-element:12twt9u",
    "kind": "references",
    "status": "proven",
    "proof": [
@@ -778,9 +778,9 @@
    "label": null
   },
   {
-   "id": "program-relation:n0gwpn",
-   "source": "program-element:13z4ktz",
-   "target": "program-element:1g9nkt0",
+   "id": "program-relation:18zwrax",
+   "source": "program-element:cfzfkn",
+   "target": "program-element:16mzjza",
    "kind": "resource-result",
    "status": "proven",
    "proof": [
@@ -806,9 +806,9 @@
    "label": null
   },
   {
-   "id": "program-relation:1pshkql",
-   "source": "program-element:1q1lvvm",
-   "target": "program-element:1jydemz",
+   "id": "program-relation:1ospafr",
+   "source": "program-element:aiyqwa",
+   "target": "program-element:1p7gio5",
    "kind": "references",
    "status": "proven",
    "proof": [
@@ -834,9 +834,9 @@
    "label": null
   },
   {
-   "id": "program-relation:9ecp90",
-   "source": "program-element:13z4ktz",
-   "target": "program-element:1q1lvvm",
+   "id": "program-relation:4mt1k5",
+   "source": "program-element:cfzfkn",
+   "target": "program-element:aiyqwa",
    "kind": "resource-result",
    "status": "proven",
    "proof": [
@@ -862,9 +862,9 @@
    "label": null
   },
   {
-   "id": "program-relation:17qdldk",
-   "source": "program-element:1livc79",
-   "target": "program-element:1q1lvvm",
+   "id": "program-relation:137m8ah",
+   "source": "program-element:1cxcnbm",
+   "target": "program-element:aiyqwa",
    "kind": "references",
    "status": "proven",
    "proof": [
@@ -890,9 +890,9 @@
    "label": null
   },
   {
-   "id": "program-relation:7jx7yj",
-   "source": "program-element:1ussryz",
-   "target": "program-element:1livc79",
+   "id": "program-relation:16n7i0r",
+   "source": "program-element:1hlii8u",
+   "target": "program-element:1cxcnbm",
    "kind": "references",
    "status": "proven",
    "proof": [
@@ -918,9 +918,9 @@
    "label": null
   },
   {
-   "id": "program-relation:zi1q4v",
-   "source": "program-element:1wjvr30",
-   "target": "program-element:1livc79",
+   "id": "program-relation:1qyfmz6",
+   "source": "program-element:vzomd7",
+   "target": "program-element:1cxcnbm",
    "kind": "argument",
    "status": "proven",
    "proof": [
@@ -946,9 +946,9 @@
    "label": null
   },
   {
-   "id": "program-relation:x53sn5",
-   "source": "program-element:15upckm",
-   "target": "program-element:1wxrjz4",
+   "id": "program-relation:5a9fo3",
+   "source": "program-element:t1ofb6",
+   "target": "program-element:1jadg0w",
    "kind": "field-input",
    "status": "proven",
    "proof": [
@@ -974,9 +974,9 @@
    "label": null
   },
   {
-   "id": "program-relation:116zvra",
-   "source": "program-element:f430se",
-   "target": "program-element:1wxrjz4",
+   "id": "program-relation:hrkfrl",
+   "source": "program-element:n6ednu",
+   "target": "program-element:1jadg0w",
    "kind": "component-prop-binding",
    "status": "proven",
    "proof": [
@@ -1024,9 +1024,9 @@
    "label": null
   },
   {
-   "id": "program-relation:soav1q",
-   "source": "program-element:1rzmg90",
-   "target": "program-element:15upckm",
+   "id": "program-relation:av0lph",
+   "source": "program-element:1jork7w",
+   "target": "program-element:t1ofb6",
    "kind": "references",
    "status": "proven",
    "proof": [
@@ -1052,9 +1052,9 @@
    "label": null
   },
   {
-   "id": "program-relation:1addwo5",
-   "source": "program-element:9qk3ug",
-   "target": "program-element:f430se",
+   "id": "program-relation:1uthdj0",
+   "source": "program-element:12twt9u",
+   "target": "program-element:n6ednu",
    "kind": "component-prop-binding",
    "status": "proven",
    "proof": [
@@ -1104,7 +1104,7 @@
  ],
  "origins": [
   {
-   "nodeId": "program-element:13z4ktz",
+   "nodeId": "program-element:cfzfkn",
    "label": "createResource(loadViewer)",
    "roles": [
     "resource"
@@ -1112,13 +1112,22 @@
    "status": "proven"
   }
  ],
- "terminals": [],
+ "terminals": [
+  {
+   "nodeId": "program-element:1532p17",
+   "label": "ViewerCard",
+   "roles": [
+    "component-occurrence"
+   ],
+   "status": "proven"
+  }
+ ],
  "counts": {
   "up": 15,
   "down": 2,
   "scopes": 2,
   "origins": 1,
-  "terminals": 0,
+  "terminals": 1,
   "boundaries": 1,
   "frontiers": 0
  },

@@ -71,6 +71,11 @@ export function assumedThrough(provider: EvidenceRelationSource, relation: Pick<
   const call = provider.factIndex.getElement(relation.to);
   if (call?.kind !== "call") return null;
   if (relation.kind === "references" && !["field-read", "value"].includes(provider.factIndex.getElement(relation.from)?.kind ?? "")) return null;
+  // A state pair's factory (`createSignal(start)`, its value destructured into the pair) or getter (`name()`): the framework's state model says what the call does.
+  const isState = (id: string) => provider.factIndex.getElement(id)?.attributes.state === true;
+  const factory = provider.getRelations(call.id, "forward").some((item) => item.from === call.id && provider.getRelations(item.to, "forward").some((next) => next.from === item.to && isState(next.to)));
+  const getter = relation.kind === "references" && provider.getRelations(relation.from, "backward").some((item) => item.to === relation.from && isState(item.from));
+  if (factory || getter) return null;
   // A body to enter, or what the call does modelled by the framework's runtime (a resource, its accessor) or a classified operation (`performs`): not assumed.
   const sameSpan = (id: string) => {
     const other = provider.factIndex.getElement(id);
