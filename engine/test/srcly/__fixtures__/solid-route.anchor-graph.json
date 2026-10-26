@@ -1,7 +1,7 @@
 {
  "outcome": "ok",
  "generation": 1,
- "programHash": "dced0a1e6cb5e9d4",
+ "programHash": "7a033c16bd58bb13",
  "tsconfig": "/fixture/solid-route/tsconfig.json",
  "typescript": "5.9.3",
  "reason": null,
@@ -16,7 +16,7 @@
   },
   "text": "props.viewer?.name",
   "kind": "PropertyAccessExpression",
-  "elementId": "program-element:1y55abx",
+  "elementId": "program-element:jz15g9",
   "typeText": "string | undefined"
  },
  "direction": "both",
@@ -44,7 +44,7 @@
    "note": null
   },
   {
-   "id": "program-element:1y55abx",
+   "id": "program-element:jz15g9",
    "kind": "anchor",
    "label": "props.viewer?.name",
    "detail": "property read",
@@ -66,7 +66,7 @@
    "note": null
   },
   {
-   "id": "program-element:cop8gu",
+   "id": "program-element:1ufe9kq",
    "kind": "value",
    "label": "viewer",
    "detail": "field read",
@@ -88,7 +88,7 @@
    "note": null
   },
   {
-   "id": "program-element:1dgam7s",
+   "id": "program-element:ybao9s",
    "kind": "value",
    "label": "props",
    "detail": "value",
@@ -132,7 +132,7 @@
    "note": null
   },
   {
-   "id": "program-element:1fmpih3",
+   "id": "program-element:aa9138",
    "kind": "value",
    "label": "viewer={viewer()}",
    "detail": "prop binding",
@@ -154,7 +154,7 @@
    "note": null
   },
   {
-   "id": "program-element:19l66zr",
+   "id": "program-element:1hqznrz",
    "kind": "value",
    "label": "props",
    "detail": "parameter",
@@ -176,7 +176,7 @@
    "note": null
   },
   {
-   "id": "program-element:1l4r34g",
+   "id": "program-element:lf9lvh",
    "kind": "value",
    "label": "viewer()",
    "detail": "call",
@@ -198,7 +198,7 @@
    "note": null
   },
   {
-   "id": "program-element:i870yi",
+   "id": "program-element:2x7phv",
    "kind": "boundary",
    "label": "viewer()",
    "detail": "resource result",
@@ -220,7 +220,29 @@
    "note": "viewer() is framework runtime; what it carries is proven only as far as the engine's relations go"
   },
   {
-   "id": "program-element:edwvnz",
+   "id": "program-element:7gz1ru",
+   "kind": "value",
+   "label": "viewer",
+   "detail": "value",
+   "parent": "scope:src/routes/records.tsx:15:1",
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 30,
+   "span": {
+    "startLine": 30,
+    "startColumn": 27,
+    "endLine": 30,
+    "endColumn": 33
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "value",
+   "typeText": "Resource<ViewerProfile>",
+   "reason": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1bs95ns",
    "kind": "origin",
    "label": "createResource(loadViewer)",
    "detail": "resource",
@@ -242,7 +264,95 @@
    "note": null
   },
   {
-   "id": "program-element:aq7xpv",
+   "id": "program-element:117mt63",
+   "kind": "value",
+   "label": "[viewer]",
+   "detail": "alias",
+   "parent": "scope:src/routes/records.tsx:15:1",
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 17,
+   "span": {
+    "startLine": 17,
+    "startColumn": 9,
+    "endLine": 17,
+    "endColumn": 46
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "alias",
+   "typeText": "any",
+   "reason": null,
+   "note": null
+  },
+  {
+   "id": "program-element:65przm",
+   "kind": "value",
+   "label": "createResource(loadViewer)",
+   "detail": "call",
+   "parent": "scope:src/routes/records.tsx:15:1",
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 17,
+   "span": {
+    "startLine": 17,
+    "startColumn": 20,
+    "endLine": 17,
+    "endColumn": 46
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "call",
+   "typeText": "ResourceReturn<ViewerProfile, unknown>",
+   "reason": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1237p6g",
+   "kind": "value",
+   "label": "createResource",
+   "detail": "value",
+   "parent": "scope:src/routes/records.tsx:15:1",
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 17,
+   "span": {
+    "startLine": 17,
+    "startColumn": 20,
+    "endLine": 17,
+    "endColumn": 34
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "value",
+   "typeText": "{ <T, R = unknown, I = T>(fetcher: (k: true, info: ResourceFetcherInfo<T | I, R>) => T | Promise<T>, options: ResourceOptions<T | I, true> & { ...; }): Initial…",
+   "reason": null,
+   "note": null
+  },
+  {
+   "id": "program-element:9xs8l3",
+   "kind": "value",
+   "label": "loadViewer",
+   "detail": "value",
+   "parent": "scope:src/routes/records.tsx:15:1",
+   "file": "src/routes/records.tsx",
+   "absPath": "/fixture/solid-route/src/routes/records.tsx",
+   "line": 17,
+   "span": {
+    "startLine": 17,
+    "startColumn": 35,
+    "endLine": 17,
+    "endColumn": 45
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "value",
+   "typeText": "() => Promise<ViewerProfile>",
+   "reason": null,
+   "note": null
+  },
+  {
+   "id": "program-element:wcwbpr",
    "kind": "transform",
    "label": "props.viewer?.name ?? \"loading viewer\"",
    "detail": "selection",
@@ -264,7 +374,7 @@
    "note": null
   },
   {
-   "id": "program-element:1jzmvff",
+   "id": "program-element:1dalvqv",
    "kind": "terminal",
    "label": "props.viewer?.name ?? \"loading viewer\"",
    "detail": "render slot",
@@ -288,9 +398,9 @@
  ],
  "edges": [
   {
-   "id": "program-relation:3n6o7n",
-   "source": "program-element:cop8gu",
-   "target": "program-element:1y55abx",
+   "id": "program-relation:1to7hq2",
+   "source": "program-element:1ufe9kq",
+   "target": "program-element:jz15g9",
    "kind": "field-input",
    "status": "proven",
    "proof": [
@@ -316,9 +426,9 @@
    "label": "viewer"
   },
   {
-   "id": "program-relation:ks6qec",
-   "source": "program-element:1dgam7s",
-   "target": "program-element:cop8gu",
+   "id": "program-relation:19gohw7",
+   "source": "program-element:ybao9s",
+   "target": "program-element:1ufe9kq",
    "kind": "field-input",
    "status": "proven",
    "proof": [
@@ -344,9 +454,9 @@
    "label": null
   },
   {
-   "id": "program-relation:1jtxbs8",
-   "source": "program-element:1fmpih3",
-   "target": "program-element:cop8gu",
+   "id": "program-relation:lg9a7r",
+   "source": "program-element:aa9138",
+   "target": "program-element:1ufe9kq",
    "kind": "component-prop-binding",
    "status": "proven",
    "proof": [
@@ -394,9 +504,9 @@
    "label": null
   },
   {
-   "id": "program-relation:1qd7v7h",
-   "source": "program-element:19l66zr",
-   "target": "program-element:1dgam7s",
+   "id": "program-relation:1ooylna",
+   "source": "program-element:1hqznrz",
+   "target": "program-element:ybao9s",
    "kind": "references",
    "status": "proven",
    "proof": [
@@ -422,9 +532,9 @@
    "label": null
   },
   {
-   "id": "program-relation:1xs7gru",
-   "source": "program-element:1l4r34g",
-   "target": "program-element:1fmpih3",
+   "id": "program-relation:hs5og9",
+   "source": "program-element:lf9lvh",
+   "target": "program-element:aa9138",
    "kind": "component-prop-binding",
    "status": "proven",
    "proof": [
@@ -472,9 +582,9 @@
    "label": null
   },
   {
-   "id": "program-relation:1tn7u1e",
-   "source": "program-element:i870yi",
-   "target": "program-element:1l4r34g",
+   "id": "program-relation:rg42nd",
+   "source": "program-element:2x7phv",
+   "target": "program-element:lf9lvh",
    "kind": "references",
    "status": "proven",
    "proof": [
@@ -500,9 +610,37 @@
    "label": null
   },
   {
-   "id": "program-relation:6ozd9m",
-   "source": "program-element:edwvnz",
-   "target": "program-element:i870yi",
+   "id": "program-relation:r4nmvs",
+   "source": "program-element:7gz1ru",
+   "target": "program-element:lf9lvh",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The callee has no in-project body: its receiver or function value is consumed by this call.",
+     "locations": [
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 27,
+       "span": {
+        "startLine": 30,
+        "startColumn": 27,
+        "endLine": 30,
+        "endColumn": 33
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1expkp6",
+   "source": "program-element:1bs95ns",
+   "target": "program-element:2x7phv",
    "kind": "resource-result",
    "status": "proven",
    "proof": [
@@ -528,9 +666,149 @@
    "label": null
   },
   {
-   "id": "program-relation:1oir1se",
-   "source": "program-element:1y55abx",
-   "target": "program-element:aq7xpv",
+   "id": "program-relation:1tuabmg",
+   "source": "program-element:117mt63",
+   "target": "program-element:7gz1ru",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "compiler-symbol",
+     "detail": "The reference resolves to a source variable declaration.",
+     "locations": [
+      {
+       "file": "src/routes/records.tsx",
+       "line": 30,
+       "column": 27,
+       "span": {
+        "startLine": 30,
+        "startColumn": 27,
+        "endLine": 30,
+        "endColumn": 33
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1b8md4b",
+   "source": "program-element:1bs95ns",
+   "target": "program-element:117mt63",
+   "kind": "resource-result",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "resource-boundary",
+     "detail": "The resource result is bound by the declaration pattern.",
+     "locations": [
+      {
+       "file": "src/routes/records.tsx",
+       "line": 17,
+       "column": 9,
+       "span": {
+        "startLine": 17,
+        "startColumn": 9,
+        "endLine": 17,
+        "endColumn": 46
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:12kj8zy",
+   "source": "program-element:65przm",
+   "target": "program-element:117mt63",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The variable initializer is assigned to the declared binding.",
+     "locations": [
+      {
+       "file": "src/routes/records.tsx",
+       "line": 17,
+       "column": 9,
+       "span": {
+        "startLine": 17,
+        "startColumn": 9,
+        "endLine": 17,
+        "endColumn": 46
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:17zx1a5",
+   "source": "program-element:1237p6g",
+   "target": "program-element:65przm",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The callee has no in-project body: its receiver or function value is consumed by this call.",
+     "locations": [
+      {
+       "file": "src/routes/records.tsx",
+       "line": 17,
+       "column": 20,
+       "span": {
+        "startLine": 17,
+        "startColumn": 20,
+        "endLine": 17,
+        "endColumn": 34
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1sdcpyy",
+   "source": "program-element:9xs8l3",
+   "target": "program-element:65przm",
+   "kind": "argument",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The argument is passed at this call occurrence.",
+     "locations": [
+      {
+       "file": "src/routes/records.tsx",
+       "line": 17,
+       "column": 35,
+       "span": {
+        "startLine": 17,
+        "startColumn": 35,
+        "endLine": 17,
+        "endColumn": 45
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1n00ybb",
+   "source": "program-element:jz15g9",
+   "target": "program-element:wcwbpr",
    "kind": "references",
    "status": "proven",
    "proof": [
@@ -556,9 +834,9 @@
    "label": null
   },
   {
-   "id": "program-relation:6iiakv",
-   "source": "program-element:aq7xpv",
-   "target": "program-element:1jzmvff",
+   "id": "program-relation:uccrms",
+   "source": "program-element:wcwbpr",
+   "target": "program-element:1dalvqv",
    "kind": "render-terminal",
    "status": "proven",
    "proof": [
@@ -586,7 +864,7 @@
  ],
  "origins": [
   {
-   "nodeId": "program-element:edwvnz",
+   "nodeId": "program-element:1bs95ns",
    "label": "createResource(loadViewer)",
    "roles": [
     "resource"
@@ -596,7 +874,7 @@
  ],
  "terminals": [
   {
-   "nodeId": "program-element:1jzmvff",
+   "nodeId": "program-element:1dalvqv",
    "label": "props.viewer?.name ?? \"loading viewer\"",
    "roles": [
     "render"
@@ -605,7 +883,7 @@
   }
  ],
  "counts": {
-  "up": 7,
+  "up": 12,
   "down": 2,
   "scopes": 2,
   "origins": 1,
@@ -614,11 +892,11 @@
   "frontiers": 0
  },
  "coverage": {
-  "elements": 17,
-  "relations": 27,
+  "elements": 20,
+  "relations": 35,
   "budget": {
    "limit": 512,
-   "used": 27,
+   "used": 35,
    "exhausted": false
   }
  }

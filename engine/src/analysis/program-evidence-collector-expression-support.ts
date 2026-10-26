@@ -13,6 +13,7 @@ import type {
 } from "./program-evidence-collector-support";
 import {
   calleeName,
+  derivedOperands,
   isSelectionOperator,
   proof,
   unwrap,
@@ -238,6 +239,23 @@ export function collectProgramEvidenceExpression(
       );
     }
     return id;
+  }
+  if (derivedOperands(context.ts, unwrapped)) {
+    return context.ensureElement(
+      unwrapped,
+      "derived",
+      ownerId,
+      { text: unwrapped.getText(unwrapped.getSourceFile()) },
+      null,
+      null,
+      null,
+      "proven",
+      proof(
+        "ast-node",
+        "The expression derives its value from its operands.",
+        [context.location(unwrapped)],
+      ),
+    );
   }
   return context.ensureElement(
     unwrapped,

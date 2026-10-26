@@ -98,6 +98,7 @@ export type ProgramElementKind =
   | "parameter"
   | "value"
   | "literal"
+  | "derived"
   | "alias"
   | "call"
   | "return"

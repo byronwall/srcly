@@ -62,34 +62,39 @@ export function externalCallee(tier1: Tier1, element: Pick<ProgramElement, "kind
  * What a `disconnected` gap at this element means (R16). A `start` is where a
  * value naturally begins: a literal; a constant whose initializer is a
  * literal or a template literal without substitutions; an import whose
- * module resolves outside the root. Neither a frontier nor a dead end, and a
- * backward walk that reaches one has landed. `bookkeeping` is an element that
- * is not a value (a declaration, a field consumer, a JSX tag name) or a
- * terminal, where a value ends: no frontier, and no landing either. Null is
- * a dead end.
+ * module resolves outside the root, or a global the program does not
+ * declare. Neither a frontier nor a dead end, and a backward walk that
+ * reaches one has landed. `bookkeeping` is an element that is not a value (a
+ * declaration, a field consumer, a JSX tag name) or a terminal, where a
+ * value ends: no frontier, and no landing either. `consumed` is a value the
+ * code ends in place (a branch test, a write: `endsInPlace`): no frontier,
+ * and a forward walk that reaches one has landed. Null is a dead end.
  */
-export function naturalEnd(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module"> & { terminalRoles?: readonly string[] }): "start" | "bookkeeping" | null {
+export function naturalEnd(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module"> & { terminalRoles?: readonly string[] }): "start" | "bookkeeping" | "consumed" | null {
   if (DECLARATION_KINDS.has(element.kind) || BOOKKEEPING_KINDS.has(element.kind) || TERMINAL_KINDS.has(element.kind) || (element.terminalRoles?.length ?? 0) > 0) return "bookkeeping";
   if (isNaturalStart(tier1, element)) return "start";
+  if (endsInPlace(tier1, element)) return "consumed";
   // Where the evidence cannot tell a dead end from the end of what it records, a stop is not a frontier.
   return tier1.host.evidence.deadEnds ? null : "bookkeeping";
 }
 
-/** Whether a value naturally begins at this element: a literal, a literal constant, an external import. */
+/** Whether a value naturally begins at this element: a literal, a literal constant, an external import or global. */
 export function isNaturalStart(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module">): boolean {
   if (element.kind === "literal") return true;
   // A Python program has no TypeScript nodes to read: only its literal elements are natural starts.
   if (tier1.language !== "typescript") return false;
   const { ts } = tier1;
   const root = path.resolve(tier1.args.root);
-  if (element.module) {
-    const sourceFile = tier1.program.getSourceFile(path.resolve(root, element.location.file));
-    const resolved = sourceFile ? ts.resolveModuleName(element.module, sourceFile.fileName, tier1.program.getCompilerOptions(), ts.sys).resolvedModule : undefined;
-    const target = resolved?.resolvedFileName;
-    if (!target || resolved?.isExternalLibraryImport || target.includes(`${path.sep}node_modules${path.sep}`) || !path.resolve(target).startsWith(root + path.sep)) return true;
-  }
   const sourceFile = tier1.program.getSourceFile(path.resolve(root, element.location.file));
-  const node = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
+  if (!sourceFile) return false;
+  // Outside the program's own source: another package, outside the root, or declarations with no body to read.
+  const outside = (file: string | undefined) => !file || /\.d\.[cm]?ts$/.test(file) || file.includes(`${path.sep}node_modules${path.sep}`) || !path.resolve(file).startsWith(root + path.sep);
+  const outsideModule = (spec: string) => {
+    const resolved = ts.resolveModuleName(spec, sourceFile.fileName, tier1.program.getCompilerOptions(), ts.sys).resolvedModule;
+    return !!resolved?.isExternalLibraryImport || outside(resolved?.resolvedFileName);
+  };
+  if (element.module && outsideModule(element.module)) return true;
+  const node = nodeAtSpan(ts, sourceFile, element.location.span);
   if (!node) return false;
   const isLiteral = (n: TypeScript.Node) =>
     ts.isStringLiteral(n) || ts.isNumericLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) || n.kind === ts.SyntaxKind.TrueKeyword || n.kind === ts.SyntaxKind.FalseKeyword || n.kind === ts.SyntaxKind.NullKeyword
@@ -100,16 +105,37 @@ export function isNaturalStart(tier1: Tier1, element: Pick<ProgramElement, "kind
     const list = declaration.parent;
     return ts.isVariableDeclarationList(list) && (list.flags & ts.NodeFlags.Const) !== 0;
   }
+  // A global the program does not declare (`JSON`, `document`, `window`) begins outside it, as an external import does.
+  if (ts.isIdentifier(node)) {
+    const declarations = tier1.program.getTypeChecker().getSymbolAtLocation(node)?.declarations ?? [];
+    if (declarations.length > 0 && declarations.every((item) => outside(item.getSourceFile().fileName))) return true;
+  }
   if (ts.isImportSpecifier(node) || ts.isImportClause(node) || ts.isNamespaceImport(node)) {
     const declaration = ts.findAncestor(node, ts.isImportDeclaration);
-    const spec = declaration && ts.isStringLiteral(declaration.moduleSpecifier) ? declaration.moduleSpecifier.text : null;
-    if (spec && sourceFile) {
-      const resolved = ts.resolveModuleName(spec, sourceFile.fileName, tier1.program.getCompilerOptions(), ts.sys).resolvedModule;
-      const target = resolved?.resolvedFileName;
-      return !target || !!resolved?.isExternalLibraryImport || !path.resolve(target).startsWith(root + path.sep);
-    }
+    if (declaration && ts.isStringLiteral(declaration.moduleSpecifier)) return outsideModule(declaration.moduleSpecifier.text);
   }
   return false;
+}
+
+/**
+ * How the code ends the value at this element where it is used, without
+ * carrying it on: `branch` when it is the test of an `if`, loop, `switch` or
+ * `case`, consumed by control; `write` when it is written rather than read
+ * (an assignment's target, `++`/`--`, a `delete` operand). Null otherwise.
+ */
+export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "location">): "branch" | "write" | null {
+  if (tier1.language !== "typescript") return null;
+  const { ts } = tier1;
+  const sourceFile = tier1.program.getSourceFile(path.resolve(tier1.args.root, element.location.file));
+  let node: TypeScript.Node | null = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
+  while (node?.parent && (ts.isParenthesizedExpression(node.parent) || ts.isAsExpression(node.parent) || ts.isNonNullExpression(node.parent) || ts.isSatisfiesExpression(node.parent))) node = node.parent;
+  const parent = node?.parent;
+  if (!node || !parent) return null;
+  if (ts.isBinaryExpression(parent) && parent.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && parent.operatorToken.kind <= ts.SyntaxKind.LastAssignment) return parent.left === node ? "write" : null;
+  const updates = (ts.isPrefixUnaryExpression(parent) || ts.isPostfixUnaryExpression(parent)) && (parent.operator === ts.SyntaxKind.PlusPlusToken || parent.operator === ts.SyntaxKind.MinusMinusToken);
+  if (updates || ts.isDeleteExpression(parent)) return "write";
+  const test = ts.isIfStatement(parent) || ts.isWhileStatement(parent) || ts.isDoStatement(parent) || ts.isSwitchStatement(parent) || ts.isCaseClause(parent) ? parent.expression : ts.isForStatement(parent) ? parent.condition : undefined;
+  return test === node ? "branch" : null;
 }
 
 /** Facts at exactly this span in this file. */

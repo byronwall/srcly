@@ -2,6 +2,7 @@ import * as TypeScript from "typescript";
 import type { ProgramElementKind } from "./program-evidence";
 import { ProgramEvidenceCollectorFieldTransferSupport } from "./program-evidence-collector-field-transfers";
 import {
+  derivedOperands,
   firstBindingIdentifier,
   isExitStatusAssignment,
   isSelectionOperator,
@@ -43,6 +44,10 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       ) {
         this.processSelection(node, nextOwner);
       }
+      const operands = derivedOperands(this.ts, node);
+      if (operands) {
+        this.processDerived(node as TypeScript.Expression, operands, nextOwner);
+      }
       if (
         this.ts.isBinaryExpression(node) &&
         isExitStatusAssignment(this.ts, node)
@@ -51,6 +56,9 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       }
       if (this.ts.isReturnStatement(node)) {
         this.processReturn(node, nextOwner);
+      }
+      if (this.ts.isArrowFunction(node) && !this.ts.isBlock(node.body)) {
+        this.processReturn(node.body, nextOwner);
       }
       if (this.ts.isJsxElement(node) || this.ts.isJsxSelfClosingElement(node)) {
         this.measurePhase("renderComponents", 1, () => this.processJsx(node, nextOwner));

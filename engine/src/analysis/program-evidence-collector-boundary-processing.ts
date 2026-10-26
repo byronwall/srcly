@@ -318,6 +318,29 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
     }
   }
 
+  /** An operator expression (comparison, arithmetic, `!`, `typeof`, a template) carries each operand into its value. */
+  protected processDerived(
+    node: TypeScript.Expression,
+    operands: readonly TypeScript.Expression[],
+    ownerId: string | null,
+  ): void {
+    const id = this.expression(node, ownerId);
+    for (const operand of operands) {
+      this.addRelation(
+        this.expression(operand, ownerId),
+        id,
+        "references",
+        [this.location(operand)],
+        proof(
+          "ast-node",
+          "The operand contributes to the derived value.",
+          [this.location(operand)],
+        ),
+        "proven",
+      );
+    }
+  }
+
   protected processExitStatusAssignment(
     node: TypeScript.BinaryExpression,
     ownerId: string | null,
@@ -348,13 +371,15 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
     );
   }
 
+  /** A return statement, or an arrow function's expression body, which is its return. */
   protected processReturn(
-    node: TypeScript.ReturnStatement,
+    node: TypeScript.ReturnStatement | TypeScript.Expression,
     ownerId: string | null,
   ): void {
     if (!ownerId) return;
-    const terminalRole = node.expression
-      ? responseReturnRole(this.ts, node.expression)
+    const expression = this.ts.isReturnStatement(node) ? node.expression : node;
+    const terminalRole = expression
+      ? responseReturnRole(this.ts, expression)
       : null;
     const returnId = this.ensureElement(
       node,
@@ -377,12 +402,12 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
     const values = this.returnsByFunction.get(ownerId) ?? [];
     if (!values.includes(returnId)) values.push(returnId);
     this.returnsByFunction.set(ownerId, values);
-    if (node.expression) {
+    if (expression) {
       this.addRelation(
-        this.expression(node.expression, ownerId),
+        this.expression(expression, ownerId),
         returnId,
         "return-expression",
-        [this.location(node.expression)],
+        [this.location(expression)],
         proof(
           "return-expression",
           "The return expression supplies the function return.",

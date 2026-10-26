@@ -173,6 +173,21 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         node.expression,
       );
     }
+    // A callee with no body to enter (a library method, a callback, an accessor) is consumed by its call, as its arguments are.
+    if (!target && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
+      this.addRelation(
+        this.expression(node.expression, ownerId),
+        callId,
+        "references",
+        [this.location(node.expression)],
+        proof(
+          "ast-node",
+          "The callee has no in-project body: its receiver or function value is consumed by this call.",
+          [this.location(node.expression)],
+        ),
+        "proven",
+      );
+    }
     for (const argument of node.arguments) {
       const argumentId = this.expression(argument, ownerId);
       this.addRelation(
