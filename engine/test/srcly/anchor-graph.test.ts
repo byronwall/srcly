@@ -174,7 +174,8 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(boxes(trimmed, "terminal")).toMatchObject([{ elementKind: "render-terminal", line: 18 }]);
     const json = anchorGraphOp(session, { ...find(basics, "src/callee-consumed.tsx", "JSON.stringify(props.data)", "<code>"), direction: "backward" });
     expect(boxes(json).some((node) => node.label === "JSON")).toBe(true);
-    expect(json.counts.frontiers).toBe(0);
+    // `JSON` is where its value begins, never a stop; only `props`, which no caller reaches, is.
+    expect(boxes(json, "frontier").map((node) => node.label)).toEqual(["props"]);
     // An argument stays at its own call: a callee with no body has no call sites to pair, and is no handoff to prove.
     expect(boxes(json, "boundary")).toEqual([]);
   });
@@ -203,6 +204,20 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(count.outcome).toBe("ok");
     expect(boxes(count).filter((node) => node.elementKind === "derived").map((node) => node.label)).toEqual(["props.count + 1", "`${props.count + 1} items`"]);
     expect(boxes(count, "terminal")).toMatchObject([{ elementKind: "render-terminal", line: 6 }]);
+  });
+
+  it("reads a computed key's receiver as a partial read of some field, not a stop", () => {
+    const labels = anchorGraphOp(session, { ...find(basics, "src/computed-index.tsx", "props.labels", "const label"), direction: "forward" });
+    expect(labels.outcome).toBe("ok");
+    expect(labels.counts.frontiers).toBe(0);
+    expect(boxes(labels).find((node) => node.elementKind === "index-read")).toMatchObject({ status: "partial" });
+    expect(boxes(labels, "terminal")).toMatchObject([{ elementKind: "render-terminal", line: 8 }]);
+  });
+
+  it("ends a computed key at the index it picks: the key is never the value read", () => {
+    const key = anchorGraphOp(session, { ...find(basics, "src/computed-index.tsx", "props.key", "const key"), direction: "forward" });
+    expect(boxes(key, "terminal")).toMatchObject([{ line: 7, note: "ends here · picks a field" }]);
+    expect(boxes(key).some((node) => node.elementKind === "render-terminal")).toBe(false);
   });
 
   it("keeps a derived value nothing reads at a dead end", () => {
