@@ -15,7 +15,7 @@
         "boundary: unproven-handoff": 10,
         "frontier: budget-exhausted": 106,
         "frontier: disconnected": 106,
-        "frontier: external-code": 40,
+        "frontier: external-code": 73,
         "frontier: unbound-read": 24,
         "frontier: unresolved-symbol": 7,
         "frontier: untraced": 6
@@ -38,16 +38,16 @@
       "errors": []
     },
     "value-flow-basics": {
-      "traces": 57,
+      "traces": 60,
       "outcomes": {
         "ok": 12,
-        "partial": 44,
+        "partial": 47,
         "unsupported": 1
       },
       "stops": {
         "frontier: budget-exhausted": 1,
         "frontier: disconnected": 6,
-        "frontier: unbound-read": 271,
+        "frontier: unbound-read": 276,
         "frontier: untraced": 3
       },
       "ok": [
@@ -76,7 +76,7 @@
       "stops": {
         "boundary: external-code": 5,
         "boundary: filesystem": 16,
-        "frontier: budget-exhausted": 87,
+        "frontier: budget-exhausted": 86,
         "frontier: external-code": 582,
         "frontier: untraced": 95
       },
