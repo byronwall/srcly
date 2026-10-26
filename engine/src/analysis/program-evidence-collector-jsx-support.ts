@@ -120,15 +120,14 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     }
     for (const attribute of opening.attributes.properties) {
       this.checkCancellation();
-      if (
-        !this.ts.isJsxAttribute(attribute) ||
-        !attribute.initializer ||
-        !this.ts.isJsxExpression(attribute.initializer) ||
-        !attribute.initializer.expression
-      ) {
-        continue;
-      }
-      const valueId = this.expression(attribute.initializer.expression, ownerId);
+      if (!this.ts.isJsxAttribute(attribute)) continue;
+      // A component's `label="toc"` is a prop value as much as `label={"toc"}`;
+      // on an intrinsic element it is markup, with nothing upstream to trace.
+      const value = attribute.initializer && this.ts.isJsxExpression(attribute.initializer)
+        ? attribute.initializer.expression
+        : target ? attribute.initializer : undefined;
+      if (!value || !this.ts.isExpression(value)) continue;
+      const valueId = this.expression(value, ownerId);
       this.addRelation(
         valueId,
         occurrenceId,
@@ -148,7 +147,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       }
       if (!target) {
         this.addTerminal(
-          attribute.initializer.expression,
+          value,
           ownerId,
           "dom-attribute",
           attribute.name.getText(),

@@ -177,12 +177,13 @@ export class ProgramFactIndex {
       for (const file of this.filesBySymbolId.get(symbolId) ?? []) files.add(file);
     };
 
-    addElement(element);
-    addElement(element.ownerId ? this.factsById.get(element.ownerId) : undefined);
+    // Every enclosing owner, not only the nearest: a read inside a closure is
+    // bound by the files that use the component around it.
+    for (let owner: CompactProgramFact | undefined = element; owner; owner = owner.ownerId ? this.factsById.get(owner.ownerId) : undefined) {
+      if (seen.has(owner.id)) break;
+      addElement(owner);
+    }
     addElement(element.definitionId ? this.factsById.get(element.definitionId) : undefined);
-    addSymbol(element.symbolId);
-    if (element.ownerId) addSymbol(this.factsById.get(element.ownerId)?.symbolId ?? null);
-    if (element.definitionId) addSymbol(this.factsById.get(element.definitionId)?.symbolId ?? null);
     if (HTTP_BOUNDARY_KINDS.has(element.kind)) {
       for (const kind of HTTP_BOUNDARY_KINDS) {
         for (const file of this.filesByKind.get(kind) ?? []) files.add(file);
