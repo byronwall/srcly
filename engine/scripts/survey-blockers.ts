@@ -13,7 +13,7 @@ import { ENGINE_PACKAGE_DIR } from "../src/srcly/typescript-choice";
 // by how many traces they cut short. One repo per process: a Program is big,
 // and a crash or hang stays with its repo.
 //
-//   node --import tsx scripts/survey-blockers.ts --root ~/Projects/app/app --out tmp/survey [--source src] [--traces 120] [--deadline 20000] [--language python --python .venv/bin/python]
+//   node --import tsx scripts/survey-blockers.ts --root ~/Projects/app/app --out tmp/survey [--source src] [--traces 120 | --every 6] [--deadline 20000] [--language python --python .venv/bin/python]
 
 const args = parseFlags(process.argv.slice(2));
 const root = path.resolve(required("root"));
@@ -56,10 +56,16 @@ report.exports = {
   traceable: all.filter((item) => item.traceable).length,
   untraceableByKind: countBy(all.filter((item) => !item.traceable), (item) => item.kind),
 };
-// An even spread over files, so one big module does not dominate.
-const candidates = all.filter((item) => item.traceable).sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
+// An even spread over files, so one big module does not dominate. `--every N`
+// keeps the exports whose `file#name` hashes to 0 mod N instead: adding or
+// removing one export then changes only that export's place in the sample,
+// which a committed baseline (`survey-gate.ts`) needs.
+const candidates = all.filter((item) => item.traceable).sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.name.localeCompare(b.name));
+const every = args.every ? Number(args.every) : null;
 const step = Math.max(1, candidates.length / traces);
-const picked = Array.from({ length: Math.min(traces, candidates.length) }, (_, i) => candidates[Math.floor(i * step)]);
+const picked = every
+  ? candidates.filter((item) => fnv1a(`${item.file}#${item.name}`) % every === 0)
+  : Array.from({ length: Math.min(traces, candidates.length) }, (_, i) => candidates[Math.floor(i * step)]);
 
 const results: unknown[] = [];
 report.traces = results;
@@ -108,6 +114,12 @@ function describe(error: unknown): { code: string; message: string } {
   if (error instanceof EngineError) return { code: error.code, message: error.message };
   const err = error as Error;
   return { code: err?.name ?? "Error", message: `${err?.message ?? String(error)}`.slice(0, 400) + (err?.stack ? `\n${err.stack.split("\n").slice(1, 4).join("\n")}` : "") };
+}
+
+function fnv1a(text: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 0x01000193) >>> 0;
+  return hash;
 }
 
 function countBy<T>(items: T[], key: (item: T) => string): Record<string, number> {
