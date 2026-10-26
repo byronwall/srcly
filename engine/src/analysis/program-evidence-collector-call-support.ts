@@ -6,6 +6,7 @@ import {
   constructorExpressionElementEvidence,
 } from "./program-evidence-collector-expression-support";
 import { stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
+import { namesSeveralValues } from "./value-origin";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo } from "./program-evidence-collector-support";
 import {
@@ -184,6 +185,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         "The computed callee cannot be compiler-resolved.",
         node.expression,
       );
+    } else if (namesSeveralValues(this.ts, this.checker, node.expression)) {
+      this.gap(callId, "forward", "dynamic-dispatch", "The callee is one of several in-project values (a union): the call is not paired with one.", node.expression);
     } else if (
       !this.symbolId(node.expression) &&
       !isKnownGlobal(calleeName(this.ts, node.expression))
