@@ -9,7 +9,6 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.models import Metrics, Node
 from app.services import cache, scan_jobs
-from app.services.analysis_types import FINDINGS_METRICS
 from app.services.cache import AnalysisCache, fingerprint
 from app.services.scan_jobs import ScanJobManager
 
@@ -263,34 +262,25 @@ def test_failed_scans_are_not_cached(monkeypatch, repo: Path) -> None:
     assert cache.analysis_cache.load(repo) is None
 
 
-def _without_findings(node: dict) -> dict:
-    """The tree minus the findings overlay (its status, counts and N/A reasons)."""
-    out = {k: v for k, v in node.items() if k != "findings"}
-    metrics = {k: v for k, v in out.get("metrics", {}).items() if k not in FINDINGS_METRICS}
-    metrics.pop("na_reasons", None)
-    out["metrics"] = metrics
-    out["children"] = [_without_findings(c) for c in node.get("children", [])]
-    return out
-
-
 def test_analysis_endpoints_use_and_refresh_the_cache(counting_scan, repo: Path) -> None:
+    """GET serves the cached scan; refresh rescans and replaces it.
+
+    CountingScan stamps each tree with its scan number as `loc`, so a response's
+    `loc` names the scan behind it. Whole responses are not compared: activity and
+    findings are live overlays laid over the cached tree per request.
+    """
     client = TestClient(app)
 
-    first = client.get("/api/analysis", params={"path": str(repo)})
-    second = client.get("/api/analysis", params={"path": str(repo)})
-    assert first.status_code == second.status_code == 200
+    def scan_behind(response) -> int:
+        assert response.status_code == 200
+        return response.json()["metrics"]["loc"]
+
+    assert scan_behind(client.get("/api/analysis", params={"path": str(repo)})) == 1
+    assert scan_behind(client.get("/api/analysis", params={"path": str(repo)})) == 1
     assert counting_scan.calls == 1
-    # Lint/type-check findings run in the background, so one response can say
-    # "running" and the next "ok"; the cached tree is what must match.
-    assert _without_findings(second.json()) == _without_findings(first.json())
 
-    refreshed = client.post("/api/analysis/refresh", params={"path": str(repo)})
-    assert refreshed.status_code == 200
-    assert counting_scan.calls == 2
-    assert refreshed.json()["metrics"]["loc"] == 2
-
-    # The refresh replaced the cached tree.
-    assert client.get("/api/analysis", params={"path": str(repo)}).json()["metrics"]["loc"] == 2
+    assert scan_behind(client.post("/api/analysis/refresh", params={"path": str(repo)})) == 2
+    assert scan_behind(client.get("/api/analysis", params={"path": str(repo)})) == 2
     assert counting_scan.calls == 2
 
 
