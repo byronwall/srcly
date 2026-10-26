@@ -402,7 +402,11 @@ function AppContent(props: { active: boolean }) {
   });
 
   return (
-    <div class="plc-app-shell h-screen flex flex-col overflow-hidden">
+    <div
+      class="plc-app-shell h-screen flex flex-col overflow-hidden"
+      // For scripts and tests (`pnpm shot` waits on it): "ready" once a scan's tree has painted.
+      data-scan-state={loading() ? "scanning" : error() ? "error" : visualizationData() ? "ready" : "idle"}
+    >
       {/* Where you are. How you look at it lives in the view toolbar below. */}
       <header class="plc-topbar flex items-center gap-2 border-b pl-4 pr-2">
         <h1 class="mr-2 flex shrink-0 items-center gap-2 text-[15px] font-semibold tracking-[-0.01em] text-[var(--plc-primary)]">
