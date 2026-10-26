@@ -68,14 +68,16 @@ export function externalCallee(tier1: Tier1, element: Pick<ProgramElement, "kind
  * declaration, a field consumer, a JSX tag name) or a terminal, where a
  * value ends: no frontier, and no landing either. `consumed` is a value the
  * code ends in place (a branch test, a write: `endsInPlace`): no frontier,
- * and a forward walk that reaches one has landed. Null is a dead end.
+ * and a forward walk that reaches one has landed. `unrecorded` is where
+ * evidence that cannot tell a dead end from the end of what it records
+ * (`LanguageHost.evidence.deadEnds` false) stops: not a dead end on its own,
+ * but the place to name when the walk lands nowhere else. Null is a dead end.
  */
-export function naturalEnd(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module"> & { terminalRoles?: readonly string[] }): "start" | "bookkeeping" | "consumed" | null {
+export function naturalEnd(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module"> & { terminalRoles?: readonly string[] }): "start" | "bookkeeping" | "consumed" | "unrecorded" | null {
   if (DECLARATION_KINDS.has(element.kind) || BOOKKEEPING_KINDS.has(element.kind) || TERMINAL_KINDS.has(element.kind) || (element.terminalRoles?.length ?? 0) > 0) return "bookkeeping";
   if (isNaturalStart(tier1, element)) return "start";
   if (endsInPlace(tier1, element)) return "consumed";
-  // Where the evidence cannot tell a dead end from the end of what it records, a stop is not a frontier.
-  return tier1.host.evidence.deadEnds ? null : "bookkeeping";
+  return tier1.host.evidence.deadEnds ? null : "unrecorded";
 }
 
 /** Whether a value naturally begins at this element: a literal, a literal constant, an external import or global. */

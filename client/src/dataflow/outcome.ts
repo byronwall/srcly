@@ -18,6 +18,12 @@ const REASONS: Record<NaReason, string> = {
   "memory-limit": "the program needs more memory than the engine's limit",
 };
 
+/** Why the engine traced nothing from an anchor, by the reason it names (`unsupported`). */
+const UNSUPPORTED: Record<string, string> = {
+  "nothing-to-trace": "Nothing to trace: no parameter, return or call result carries a value in or out",
+  "no-evidence-element": "The engine recorded nothing at this expression",
+};
+
 export function reasonText(reason: NaReason | null | undefined, message?: string | null): string {
   return reason ? REASONS[reason] ?? reason : message ?? "unknown reason";
 }
@@ -32,7 +38,7 @@ export function labelFor(outcome: Outcome, reason?: NaReason | null, message?: s
     case "not-analyzed":
       return `Data flow N/A: ${reasonText(reason, message)}`;
     case "unsupported":
-      return message ?? "Unsupported by the analysis";
+      return UNSUPPORTED[message ?? reason ?? ""] ?? message ?? "Unsupported by the analysis";
     case "stale":
       return "Source changed. Refresh.";
     case "cancelled":

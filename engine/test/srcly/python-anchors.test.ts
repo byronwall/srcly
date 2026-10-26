@@ -62,7 +62,7 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(graph.anchor).toMatchObject({ kind: "ClassDef", text: "Order", typeText: "type[Order]" });
     expect(graph.nodes.find((node) => node.kind === "anchor")).toMatchObject({ detail: "class", elementKind: "function-entry" });
     const uses = boxes(graph).filter((node) => node.note === "called here");
-    expect(uses.map((node) => [node.label, node.file, node.line])).toEqual([["Order(…)", "app/service.py", 5]]);
+    expect(uses.map((node) => `${node.label} ${node.file}:${node.line}`).sort()).toEqual(["Order(…) app/service.py:15", "Order(…) app/service.py:5"]);
     // The instance is returned from `place`, which nothing calls: it leaves the program there.
     expect(graph.terminals.map((terminal) => terminal.label)).toContain("return order");
   });
@@ -125,6 +125,35 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(boundary.map((node) => node.line).sort()).toEqual([14, 15]);
     expect(boundary.every((node) => node.reason === "unproven-handoff" && /ident has 2 call sites/.test(node.note ?? ""))).toBe(true);
     expect(graph.counts.terminals).toBe(0);
+  });
+
+  it("names where a partial trace stops when the evidence cannot call it a dead end", () => {
+    // `is_enabled(flag)` is only read by an `if`: the conditions the Python evidence leaves unrelated.
+    const graph = anchor("app/stops.py", "is_enabled", 5);
+    expect(graph.outcome).toBe("partial");
+    const stops = boxes(graph, "frontier");
+    // Up, `configure(flag)` is never called, so nothing reaches its parameter.
+    expect(stops.map((node) => [node.reason, node.label, node.line])).toEqual([["untraced", "flag", 9], ["untraced", "is_enabled(…)", 10]]);
+    expect(stops.every((node) => /^not traced further/.test(node.note ?? ""))).toBe(true);
+    // Every partial in the fixture names a stop.
+    for (const item of ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py", "app/stops.py"].flatMap(definitions)) {
+      const traced = anchor(item.file, item.name, item.line);
+      if (traced.outcome === "partial") expect(boxes(traced).some((node) => node.kind === "frontier" || node.kind === "boundary"), `${item.name} on line ${item.line}`).toBe(true);
+    }
+  });
+
+  it("says a def or class with nothing to trace has nothing to trace", () => {
+    for (const [file, name, line] of [["app/stops.py", "migrate", 14], ["app/models.py", "Unused", 20]] as const) {
+      const graph = anchor(file, name, line);
+      expect([graph.outcome, graph.reason], name).toEqual(["unsupported", "nothing-to-trace"]);
+    }
+  });
+
+  it("names no stop where every path lands", () => {
+    // `default_order` builds its Order from literals and nothing calls it: the return leaves the program.
+    const graph = anchor("app/service.py", "default_order", 14);
+    expect(graph.outcome).toBe("ok");
+    expect(boxes(graph, "frontier")).toEqual([]);
   });
 
   it("names a file that did not parse, and a name that is not on its line", () => {
