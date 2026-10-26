@@ -13,6 +13,7 @@ Defs and classes the engine's Python provider (`engine/python/srcly_pyfacts.py`)
 | `app/settings.py` | a pydantic `BaseSettings` field read is an environment origin; a plain model's same-named field is not |
 | `app/ends.py` | where values begin and end: constants, an empty list and `os.sep` begin one; `CONFIG["a"]` and `CONFIG["b"]` share only their receiver; a dropped `shout(text)` result and the write `holder.text = text` end one |
 | `app/depends.py` | FastAPI dependencies: `me`'s `session` (through the `SessionDep` alias and `get_session`'s yield) and `user` (a `Depends(get_user)` default) take what those functions produce; `get_token` is entered from `Depends(…)` (assumed, partial); `helper`, which nothing calls or hands on, stays a gap |
+| `app/consumers.py` | a second file annotating a parameter with `ItemCreate`: annotated uses fold by file, so it keeps its own box |
 | `app/external.py` | values handed to code outside the program (`json.dumps`, `list.append`, an import that is not installed) are external code; a call the checker cannot resolve is not |
 | `app/web.py` | a Flask app: `request.json` / `request.args` are origins, a handler's return and `jsonify(...)` terminals; `@click.command()` enters `hello` from outside, `@functools.cache` does not; a parameter named `request` is not Flask's |
 | `app/stops.py` | where a trace stops, named: `is_enabled`'s result is only read by an `if`, and `migrate` has nothing to trace |

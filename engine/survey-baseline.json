@@ -75,9 +75,9 @@
       },
       "stops": {
         "boundary: external-code": 5,
-        "boundary: filesystem": 18,
-        "frontier: budget-exhausted": 90,
-        "frontier: external-code": 613,
+        "boundary: filesystem": 16,
+        "frontier: budget-exhausted": 87,
+        "frontier: external-code": 582,
         "frontier: untraced": 95
       },
       "ok": [

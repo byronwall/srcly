@@ -89,10 +89,15 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(boxes(point).filter((node) => node.side === "up" && node.elementKind === "parameter" && node.line === 35).map((node) => node.label)).toContain("a");
   });
 
-  it("counts a parameter annotated with a class as a use of it", () => {
+  it("counts a parameter annotated with a class as a use of it, one box per file", () => {
     const graph = anchor("app/schemas.py", "ItemCreate", 8);
-    const uses = boxes(graph).filter((node) => node.side === "down" && (node.note === "annotated with it" || node.note === "called here"));
-    expect(uses.map((node) => `${node.note}:${node.label}@${node.line}`).sort()).toEqual(["annotated with it:item@23", "annotated with it:item@39", "called here:ItemCreate(…)@32"]);
+    const uses = boxes(graph).filter((node) => node.side === "down" && /^(annotated with it|called here)/.test(node.note ?? ""));
+    // Annotated uses fold by file: `create` (line 23) stands for `only_annotated` (39) too, and the other file keeps its own box.
+    expect(uses.map((node) => `${node.file}:${node.note}:${node.label}@${node.line}`).sort()).toEqual([
+      "app/consumers.py:annotated with it:item@6",
+      "app/schemas.py:annotated with it, and 1 more in this file:item@23",
+      "app/schemas.py:called here:ItemCreate(…)@32",
+    ]);
     expect(graph.outcome).not.toBe("unsupported");
     // `describe(other: Other)` is no use of ItemCreate.
     expect(boxes(graph).some((node) => node.line === 27)).toBe(false);
@@ -213,7 +218,7 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(stops.map((node) => [node.reason, node.label, node.line])).toEqual([["untraced", "flag", 9]]);
     expect(stops.every((node) => /^not traced further/.test(node.note ?? ""))).toBe(true);
     // Every partial in the fixture names a stop or an assumption.
-    for (const item of ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py", "app/stops.py", "app/schemas.py", "app/external.py", "app/web.py", "app/orm.py", "app/settings.py", "app/ends.py", "app/depends.py"].flatMap(definitions)) {
+    for (const item of ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py", "app/stops.py", "app/schemas.py", "app/external.py", "app/web.py", "app/orm.py", "app/settings.py", "app/ends.py", "app/depends.py", "app/consumers.py"].flatMap(definitions)) {
       const traced = anchor(item.file, item.name, item.line);
       // A partial names a stop, or steps through an assumption that says so in its proof.
       const named = boxes(traced).some((node) => node.kind === "frontier" || node.kind === "boundary") || traced.edges.some((edge) => edge.proof.some((item) => item?.kind === "external-call"));

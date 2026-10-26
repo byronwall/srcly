@@ -57,6 +57,24 @@ export function walkFollows(seedId: string, forward: boolean): (relation: Progra
 }
 
 /**
+ * Annotated uses fold by file. A parameter annotated with the anchor takes a
+ * value typed with it, not the anchor's own value, so the walk draws and
+ * follows the first such use in each file; each later one in that file folds
+ * into it, and `onFold` hears the first's id and how many more it now stands
+ * for. True when `use` folded, so it is neither drawn nor walked.
+ */
+export function foldAnnotatedUses(onFold: (id: string, more: number) => unknown): (use: Pick<ProgramElement, "id" | "kind" | "location">) => boolean {
+  const firstByFile = new Map<string, { id: string; more: number }>();
+  return (use) => {
+    if (use.kind !== "parameter") return false;
+    const first = firstByFile.get(use.location.file);
+    if (!first) firstByFile.set(use.location.file, { id: use.id, more: 0 });
+    else onFold(first.id, (first.more += 1));
+    return first !== undefined;
+  };
+}
+
+/**
  * Where a declaration is used: the calls and occurrences one relation away
  * that name it, read straight from the index. Every one of them, not as many
  * as a slice's element limit happens to take.
