@@ -134,6 +134,10 @@ WRAPPER_DECORATORS = {
     "contextlib.contextmanager", "contextlib.asynccontextmanager", "dataclasses.dataclass",
 }
 MODEL_BASES = {"BaseModel", "pydantic.BaseModel", "pydantic.main.BaseModel", "SQLModel", "TypedDict", "NamedTuple"}
+# A settings model reads each of its fields from the environment (pydantic-settings).
+SETTINGS_BASES = {"pydantic_settings.BaseSettings", "pydantic_settings.main.BaseSettings", "pydantic.BaseSettings", "pydantic.env_settings.BaseSettings"}
+# Calls on a model class's manager that set its fields by keyword: `Article.objects.create(title=…)` (Django).
+MODEL_KEYWORD_CALLS = {"objects.create", "objects.get_or_create"}
 
 
 def lookup(table: dict[str, Any], name: str | None) -> Any:
@@ -517,7 +521,8 @@ class ClassInfo:
     bases: list[str]
     qualname: str = ""
     entry_id: str = ""
-    fields: dict[str, ast.AnnAssign] = field(default_factory=dict)
+    # `title: str` (annotated) or `title = models.CharField(...)` (an assigned field instance), by name.
+    fields: dict[str, ast.AnnAssign | ast.Assign] = field(default_factory=dict)
     methods: dict[str, FunctionInfo] = field(default_factory=dict)
     is_model: bool = False
 
@@ -621,6 +626,8 @@ class Program:
                 for item in stmt.body:
                     if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
                         info.fields[item.target.id] = item
+                    elif isinstance(item, ast.Assign) and len(item.targets) == 1 and isinstance(item.targets[0], ast.Name) and isinstance(item.value, ast.Call):
+                        info.fields.setdefault(item.targets[0].id, item)
                 info.is_model = any(dotted_name(d).split(".")[-1] in ("dataclass", "define", "frozen") for d in stmt.decorator_list)
                 self.classes[fullname] = info
                 self.classes_by_node[id(stmt)] = info
@@ -635,10 +642,23 @@ class Program:
         if depth > 8:
             return False
         for base in info.bases:
-            if base in MODEL_BASES or base.split(".")[-1] in ("BaseModel", "SQLModel", "TypedDict", "NamedTuple"):
+            if base in MODEL_BASES or base in SETTINGS_BASES or base.split(".")[-1] in ("BaseModel", "SQLModel", "TypedDict", "NamedTuple"):
                 return True
             parent = self.classes.get(base)
             if parent is not None and self.is_model(parent, depth + 1):
+                return True
+        # Fields declared by assigning field instances (Django's `Model`, SQLAlchemy's declarative base), with the
+        # constructor inherited from outside the program: it takes those fields as keyword arguments.
+        return ("__init__" not in info.methods and any(isinstance(item, ast.Assign) for item in info.fields.values())
+                and any(self.resolve_class(base) is None for base in info.bases))
+
+    def derives_from(self, info: ClassInfo, names: set[str], depth: int = 0) -> bool:
+        """Whether `info` or a first-party base names one of `names` (import-resolved) as a base."""
+        if depth > 8:
+            return False
+        for base in info.bases:
+            parent = self.resolve_class(base)
+            if base in names or (parent is not None and self.derives_from(parent, names, depth + 1)):
                 return True
         return False
 
@@ -974,7 +994,16 @@ def is_constructor(info: FunctionInfo) -> bool:
 def field_id(klass: ClassInfo, name: str) -> str:
     """A model field's parameter element: the target of its annotated declaration."""
     declaration = klass.fields[name]
-    return element_id("parameter", klass.source.rel, klass.source.span(declaration.target))
+    return element_id("parameter", klass.source.rel, klass.source.span(field_target(declaration)))
+
+
+def field_target(declaration: ast.AnnAssign | ast.Assign) -> ast.expr:
+    return declaration.target if isinstance(declaration, ast.AnnAssign) else declaration.targets[0]
+
+
+def annotated_fields(klass: ClassInfo) -> list[str]:
+    """The fields a positional constructor argument binds, in declared order: only annotated ones (a dataclass's)."""
+    return [name for name, declaration in klass.fields.items() if isinstance(declaration, ast.AnnAssign)]
 
 
 def element_id(kind: str, rel: str, span: dict[str, int], suffix: str = "") -> str:
@@ -1326,6 +1355,10 @@ class BodyWalker:
             return
         if isinstance(node, ast.Assign):
             value = self.expr(node.value)
+            if self.scope.kind == "class" and self.class_info is not None and self.class_info.is_model and node in self.class_info.fields.values():
+                # `title = models.CharField(...)` declares the field; the field instance, code outside the program, supplies its stored value.
+                self.settings_origin(node.targets[0], self.bind(node.targets[0], value, node.value, "carrier", alias_kind="parameter"))
+                return
             for target in node.targets:
                 self.bind(target, value, node.value, "carrier")
             return
@@ -1336,7 +1369,9 @@ class BodyWalker:
                 field = self.scope.kind == "class" and self.class_info is not None and self.class_info.is_model
                 if field and value is None and node.value is not None:
                     value = self.literal(node.value)
-                self.bind(node.target, value, node.value or node.target, "carrier", annotation=node.annotation, alias_kind="parameter" if field else "alias")
+                alias = self.bind(node.target, value, node.value or node.target, "carrier", annotation=node.annotation, alias_kind="parameter" if field else "alias")
+                if field:
+                    self.settings_origin(node.target, alias)
             return
         if isinstance(node, ast.AugAssign):
             value = self.expr(node.value)
@@ -1440,6 +1475,17 @@ class BodyWalker:
                 self.expr(target.slice)
             return write
         return None
+
+    def settings_origin(self, target: ast.expr, field_element: str | None) -> None:
+        """A settings model's field (`SECRET_KEY: str` on a `BaseSettings`) is read from the environment variable of its name."""
+        klass = self.class_info
+        if klass is None or not isinstance(target, ast.Name) or not self.program.derives_from(klass, SETTINGS_BASES):
+            return
+        name = klass.qualname.rsplit(".", 1)[-1]
+        detail = f"{name} is a pydantic BaseSettings: {target.id} is read from the environment"
+        origin = self.element("environment-input", target, f"environment {target.id}", suffix="#settings", type_text=None, attributes={"name": target.id},
+                              proof={"kind": "import", "detail": detail, "locations": [self.source.location(self.span(target))]})
+        self.relate(origin, field_element, "carrier", detail, target)
 
     def load_name(self, node: ast.Name) -> str:
         span = self.span(node)
@@ -1569,13 +1615,14 @@ class BodyWalker:
             seen += 1
             declaration = info.fields.get(node.attr)
             if declaration is not None:
-                text = ast.unparse(declaration.annotation)
-                kind = "pydantic field" if info.is_model else "class attribute"
+                annotated = isinstance(declaration, ast.AnnAssign)
+                text = ast.unparse(declaration.annotation) if annotated else clip(ast.unparse(declaration.value), 60)
+                kind = ("pydantic field" if annotated else "field") if info.is_model else "class attribute"
                 return ({
                     "kind": "annotation",
-                    "detail": f"{info.fullname.rsplit('.', 1)[-1]}.{node.attr}: {text} ({kind}, {info.source.rel}:{declaration.lineno})",
+                    "detail": f"{info.fullname.rsplit('.', 1)[-1]}.{node.attr}{': ' if annotated else ' = '}{text} ({kind}, {info.source.rel}:{declaration.lineno})",
                     "locations": [info.source.location(info.source.span(declaration))],
-                }, text)
+                }, text if annotated else None)
             parent = next((self.program.resolve_class(base) for base in info.bases if self.program.resolve_class(base)), None)
             info = parent
         return (None, None)
@@ -1785,7 +1832,7 @@ class BodyWalker:
             self.note(node, "Call", ty=type_text or name, tsrc=type_source or "annotation")
             self.relate(element, klass.entry_id, "definition", f"{callee_text} constructs {klass.qualname}", node.func, proof_kind=proof_kind)
             self.program.record_call(klass, source, node.lineno)
-            fields = list(klass.fields)
+            fields = annotated_fields(klass)
             init = klass.methods.get("__init__")
             if init is not None and not klass.is_model:
                 self.program.record_call(init, source, node.lineno)
@@ -1795,7 +1842,7 @@ class BodyWalker:
                 self.relate(value, element, "pack-field", f"{name}.{label}" if label else f"argument {index + 1} of {name}", child, status="proven" if klass.is_model else "partial")
             for kw, value in keywords:
                 declared = klass.fields.get(kw.arg or "")
-                detail = f"{name}.{kw.arg}" + (f": {ast.unparse(declared.annotation)}" if declared is not None else "")
+                detail = f"{name}.{kw.arg}" + (f": {ast.unparse(declared.annotation)}" if isinstance(declared, ast.AnnAssign) else "")
                 self.relate(value, element, "pack-field", detail, kw.value, status="proven" if klass.is_model else "partial")
             if klass.is_model:
                 self.bind_fields(klass, positional, keywords)
@@ -1812,12 +1859,25 @@ class BodyWalker:
         self.note(node, "Call")
         for child, value in inputs:
             self.relate(value, element, "call-input", f"handed to {callee_text}, outside the program; its result is assumed to carry it", child, status="partial")
+        model = self.keyword_model(node)
+        if model is not None:
+            # `Article.objects.create(title=…)` builds an Article: a use of the class, and each keyword sets its field.
+            self.relate(element, model.entry_id, "definition", f"{callee_text} creates {model.qualname}", node.func, proof_kind="syntax")
+            self.bind_fields(model, [], [(kw, value or self.literal(kw.value)) for kw, value in keywords])
         return element
+
+    def keyword_model(self, node: ast.Call) -> ClassInfo | None:
+        """The first-party model a manager call (`Model.objects.create(…)`, `MODEL_KEYWORD_CALLS`) builds from keyword arguments."""
+        func = node.func
+        if not isinstance(func, ast.Attribute) or not isinstance(func.value, ast.Attribute) or f"{func.value.attr}.{func.attr}" not in MODEL_KEYWORD_CALLS:
+            return None
+        klass = self.program.resolve_class(self.program.dotted(self.source, func.value.value))
+        return klass if klass is not None and klass.is_model else None
 
     def bind_fields(self, klass: ClassInfo, positional: list[tuple[ast.expr, str | None]], keywords: list[tuple[ast.keyword, str | None]]) -> None:
         """A model's constructor binds each keyword argument to the field of that name (declared on it or a base), and positional ones in declared order."""
         name = klass.qualname.rsplit(".", 1)[-1]
-        own = list(klass.fields)
+        own = annotated_fields(klass)
         for index, (child, value) in enumerate(positional):
             if index < len(own) and not isinstance(child, ast.Starred):
                 self.relate(value, field_id(klass, own[index]), "argument-binding", f"argument {index + 1} sets {name}.{own[index]}", child, status="partial")

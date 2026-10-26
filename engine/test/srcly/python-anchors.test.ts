@@ -98,6 +98,33 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(boxes(graph).some((node) => node.line === 27)).toBe(false);
   });
 
+  it("takes fields declared by assigning a field instance (Django), set by the constructor or a manager's create", () => {
+    const graph = anchor("app/orm.py", "Article", 8);
+    const up = boxes(graph, "value").filter((node) => node.side === "up" && node.elementKind === "parameter");
+    // `status = "draft"` is no field instance, and `Meta`'s `ordering` belongs to Meta.
+    expect(up.filter((node) => node.line === 9 || node.line === 10 || node.line === 11 || node.line === 14).map((node) => node.label).sort()).toEqual(["body", "title"]);
+    // `publish(title)` passes `Article(title=title)`, `store(body)` passes `Article.objects.create(body=body)`.
+    expect(up.filter((node) => node.line === 24 || node.line === 28).map((node) => node.label).sort()).toEqual(["body", "title"]);
+    const uses = boxes(graph).filter((node) => node.side === "down" && node.note).map((node) => `${node.note}@${node.line}`);
+    expect(uses).toEqual(expect.arrayContaining(["called here@25", "called here@29", "annotated with it@32"]));
+    const facts = (session.tier1() as PythonTier1).facts;
+    const reads = facts.relations
+      .filter((relation) => relation.k === "carrier" && facts.elements[relation.b].k === "field-read" && facts.elements[relation.a].k === "parameter")
+      .map((relation) => `${facts.elements[relation.a].l}@${facts.elements[relation.a].s[0]} → ${facts.elements[relation.b].l}`);
+    expect(reads).toContain("title@9 → article.title");
+  });
+
+  it("reads a settings model's fields from the environment, and no other model's", () => {
+    const up = (text: string, marker: string) => anchorGraphOp(session, { ...at("app/settings.py", text, marker), direction: "backward" }).origins.map((origin) => origin.label);
+    expect(up("settings.SECRET_KEY", "return settings.SECRET_KEY")).toEqual(["environment SECRET_KEY"]);
+    expect(up("p.SECRET_KEY", "return p.SECRET_KEY")).toEqual([]);
+  });
+
+  it("binds a constructor's keywords to its own __init__, not to same-named class fields", () => {
+    const graph = anchor("app/orm.py", "Draft", 17);
+    expect(boxes(graph).filter((node) => node.side === "up" && node.elementKind === "parameter" && node.file === "app/orm.py" && node.line < 24).map((node) => node.label)).toEqual(["heading"]);
+  });
+
   it("relates a field read to the field of its receiver's class, never a same-named field elsewhere", () => {
     const facts = (session.tier1() as PythonTier1).facts;
     const reads = facts.relations
@@ -167,7 +194,7 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(stops.map((node) => [node.reason, node.label, node.line])).toEqual([["untraced", "flag", 9]]);
     expect(stops.every((node) => /^not traced further/.test(node.note ?? ""))).toBe(true);
     // Every partial in the fixture names a stop.
-    for (const item of ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py", "app/stops.py", "app/schemas.py", "app/external.py", "app/web.py"].flatMap(definitions)) {
+    for (const item of ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py", "app/stops.py", "app/schemas.py", "app/external.py", "app/web.py", "app/orm.py", "app/settings.py"].flatMap(definitions)) {
       const traced = anchor(item.file, item.name, item.line);
       if (traced.outcome === "partial") expect(boxes(traced).some((node) => node.kind === "frontier" || node.kind === "boundary"), `${item.name} on line ${item.line}`).toBe(true);
     }
