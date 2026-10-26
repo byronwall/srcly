@@ -11,8 +11,27 @@ import type { BaseTier1, Tier1, TsTier1 } from "./session";
 /** Evidence elements a selection may start from, most specific first. */
 export const SEED_KINDS = ["field-read", "index-read", "selection", "call-result", "call", "value", "alias", "parameter", "jsx-occurrence", "literal"];
 
-/** Followed only when the callee has exactly one call site (R7; M5 replaces this with invocation pairing). */
+/** Relations between a call and its callee. */
 export const CROSS_CALL = new Set(["invokes", "argument", "argument-binding", "function-call", "function-return", "return-value", "callback-parameter"]);
+
+/** Cross-calls that never leave the caller (an argument reaches its own call; `invokes` names the callee and carries no value), and those the slice pairs by its invocation stack (T13). */
+const LOCAL_CROSS_CALL = new Set(["argument", "invokes"]);
+const PAIRED_CROSS_CALL = new Set(["argument-binding", "return-value"]);
+
+/**
+ * Whether following this relation needs R7's one-call-site rule. A walk
+ * that entered a callee through a call leaves it only through that call,
+ * and one that entered none (it started inside the callee) leaves through
+ * every call, each a true source or destination: where the evidence pairs
+ * calls, the slice's invocation stack already holds a binding or a return
+ * to that, so neither is a handoff to prove. An `argument` never leaves
+ * the caller: it reaches its own call, whether or not the callee has a body
+ * to enter (`JSON.stringify(x)` has no call sites to pair). Only the
+ * cross-calls the slice does not pair (callbacks, accessors) keep the rule.
+ */
+export function needsOneCallSite(kind: string, pairsCalls: boolean): boolean {
+  return CROSS_CALL.has(kind) && !LOCAL_CROSS_CALL.has(kind) && !(pairsCalls && PAIRED_CROSS_CALL.has(kind));
+}
 
 /**
  * Whether the slice has already paired a callee with one of its call sites

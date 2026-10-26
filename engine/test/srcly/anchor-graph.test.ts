@@ -82,13 +82,21 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(b.nodes.some((node) => node.line === 11 && node.kind !== "scope")).toBe(false);
   });
 
-  it("still stops at a boundary when the walk starts inside the helper and leaves through its return (R7)", () => {
+  it("leaves a helper through every call when the walk starts inside it: each call site is a true destination", () => {
     const graph = anchorGraphOp(session, { ...find(basics, "src/two-call-identity-helper.tsx", "value", "return value;"), direction: "forward" });
-    expect(graph.outcome).toBe("partial");
-    const boundary = boxes(graph, "boundary");
-    expect(boundary.map((node) => node.line).sort()).toEqual([11, 12]);
-    expect(boundary.every((node) => node.reason === "unproven-handoff" && /2 call sites/.test(node.note ?? ""))).toBe(true);
-    expect(graph.counts.terminals).toBe(0);
+    expect(graph.outcome).toBe("ok");
+    expect(boxes(graph, "boundary")).toEqual([]);
+    expect(boxes(graph, "terminal").map((node) => node.line).sort()).toEqual([11, 12]);
+    // From the parameter up, every caller is a true source.
+    const up = anchorGraphOp(session, { ...find(basics, "src/two-call-identity-helper.tsx", "value", "function id"), direction: "backward" });
+    expect(boxes(up, "boundary")).toEqual([]);
+    expect(boxes(up).filter((node) => node.elementKind === "field-read").map((node) => node.label).sort()).toEqual(["a", "b"]);
+  });
+
+  it("never leaves a helper at another call than the one it entered by, backward either (T13)", () => {
+    const graph = anchorGraphOp(session, { ...find(basics, "src/two-call-identity-helper.tsx", "id(props.b)", "<em>"), direction: "backward" });
+    expect(boxes(graph, "boundary")).toEqual([]);
+    expect(boxes(graph).filter((node) => node.elementKind === "field-read").map((node) => node.label)).toEqual(["b"]);
   });
 
   it("never lets an argument the callee does not return reach the call's result (T13)", () => {
@@ -167,6 +175,8 @@ describe("anchorGraph on value-flow-basics", () => {
     const json = anchorGraphOp(session, { ...find(basics, "src/callee-consumed.tsx", "JSON.stringify(props.data)", "<code>"), direction: "backward" });
     expect(boxes(json).some((node) => node.label === "JSON")).toBe(true);
     expect(json.counts.frontiers).toBe(0);
+    // An argument stays at its own call: a callee with no body has no call sites to pair, and is no handoff to prove.
+    expect(boxes(json, "boundary")).toEqual([]);
   });
 
   it("keeps a first-party method's receiver at a dead end: its body is not entered through `this`", () => {
