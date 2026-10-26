@@ -63,17 +63,20 @@ function exportsOf(tier1: TsTier1, source: TypeScript.SourceFile, rel: (file: st
     const nameNode = (declaration as { name?: TypeScript.Node }).name ?? declaration;
     const at = file.getLineAndCharacterOfPosition(nameNode.getStart(file));
     const kind = kindOf(ts, checker, resolved, declaration);
-    const name = symbol.escapedName === "default" ? `default (${resolved.name})` : symbol.name;
+    // `export default function App()` exports a symbol named `default`; the anchor is the declaration's own name.
+    const declared = nameNode !== declaration && ts.isIdentifier(nameNode) ? nameNode.text : resolved.name;
+    const name = symbol.escapedName === "default" ? `default (${declared})` : symbol.name;
     const line = at.line + 1;
     out.push({
-      id: `${rel(file.fileName)}@${resolved.name}:${line}`,
+      id: `${rel(file.fileName)}@${declared}:${line}`,
       name,
       kind,
       file: rel(file.fileName),
       absPath: file.fileName,
       line,
       column: at.character + 1,
-      traceable: kind !== "type" && kind !== "interface" && kind !== "namespace" && /^[A-Za-z_$][\w$]*$/.test(resolved.name),
+      // An anonymous default export has no name to anchor by.
+      traceable: kind !== "type" && kind !== "interface" && kind !== "namespace" && declared !== "default" && /^[A-Za-z_$][\w$]*$/.test(declared),
       reexported: file !== source,
     });
   }
