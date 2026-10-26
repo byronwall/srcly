@@ -1,15 +1,15 @@
 import { createResource } from "solid-js";
 
-// A component whose two prop reads do not both land: `title` comes from a
-// resource (an origin), `count` from a call into external code. A
-// declaration anchor on Pair must read `partial`, never `ok`, because one of
-// its prop walks stops.
+// A component whose two prop reads land differently: `title` comes from a
+// resource (an origin), `count` from a call into external code, where its
+// value begins. A declaration anchor on Pair reads `partial`, never `ok`:
+// `count`'s value is only assumed to be what `Math.random` returns.
 function Pair(props: { title: string; count: number }) { // @trace pair both symbol Pair @outcome pair partial @edge pair prop-read
   return (
     <p>
       {/* @visits pair field-read "title" */}
       {props.title}
-      {/* @stop pair unbound-read field-read "count" @visits pair field-read "count" */}
+      {/* @visits pair field-read "count" */}
       {props.count}
     </p>
   );
@@ -17,5 +17,5 @@ function Pair(props: { title: string; count: number }) { // @trace pair both sym
 
 export function HalfLanded() {
   const [title] = createResource(async () => "x"); // @reaches pair resource-input
-  return <Pair title={title() ?? ""} count={Math.random()} />; // @reaches pair component-occurrence @stop pair framework-runtime resource-result
+  return <Pair title={title() ?? ""} count={Math.random()} />; // @reaches pair component-occurrence @stop pair framework-runtime resource-result @visits pair call @edge pair references partial external-call
 }

@@ -63,6 +63,7 @@ import {
   symbolAtNode,
 } from "./program-evidence-support";
 import { NO_ANALYSIS_CANCELLATION, type AnalysisCancellationToken } from "./cancellation";
+import { stateFactory } from "./program-evidence-state-pairs";
 
 export type CollectorFunctionInfo = DeclarationCatalogFunctionInfo;
 
@@ -525,12 +526,18 @@ export class ProgramEvidenceCollectorSupport {
   }
 
   protected targetFunction(node: TypeScript.Node): CollectorFunctionInfo | null {
+    // A function written where it is called (`(() => { … })()`) is its own target: its body is the call's.
+    let callee = node;
+    while (this.ts.isParenthesizedExpression(callee)) callee = callee.expression;
+    if (this.ts.isArrowFunction(callee) || this.ts.isFunctionExpression(callee)) return this.functionsByNode.get(nodeKey(this.root, callee)) ?? null;
     const symbolId = this.symbolId(node);
     return symbolId ? this.functionsBySymbol.get(symbolId) ?? null : null;
   }
 
   protected isExternalCall(node: TypeScript.CallExpression): boolean {
     if (this.targetFunction(node.expression)) return false;
+    // A state factory is modelled (`program-evidence-state-pairs.ts`): what it does with its argument is the pair's state, not an external effect.
+    if (stateFactory(this.ts, this.checker, node)) return false;
     const module = this.moduleFor(node.expression);
     return Boolean(
       (module && !isFrameworkCall(module, calleeName(this.ts, node.expression))) ||

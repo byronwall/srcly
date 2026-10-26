@@ -9,7 +9,7 @@ export function Roster(props: { tags: string[] }) {
   names.push(props.tags[0]); // @trace pushed forward props.tags[0] @outcome pushed partial
   const kept: string[] = []; // @never-reaches concat * "kept"
   const more = kept.concat(props.tags); // @trace concat forward props.tags @edge concat argument partial @no-edge concat !argument partial
-  const first = props.tags.find((tag) => tag.length > 1); // @trace found forward props.tags.find((tag) => tag.length > 1) @outcome found ok @visits found call-result @stop found external-code external-read
+  const first = props.tags.find((tag) => tag.length > 1); // @trace found forward props.tags.find((tag) => tag.length > 1) @outcome found ok @visits found call-result
   return (
     <p title={first}> {/* @reaches found dom-terminal "first" */}
       {/* @reaches pushed * "names" @reaches concat * "more" @never-reaches concat * "kept" */}
