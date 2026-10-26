@@ -181,10 +181,20 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(boxes(json, "boundary")).toEqual([]);
   });
 
-  it("keeps a first-party method's receiver at a dead end: its body is not entered through `this`", () => {
+  it("enters a first-party method through `this`: the receiver is bound like an argument", () => {
     const box = anchorGraphOp(session, { ...find(basics, "src/callee-consumed.tsx", "box", "<b>{box"), direction: "forward" });
-    expect(box.outcome).toBe("partial");
-    expect(boxes(box, "frontier").map((node) => [node.reason, node.label, node.line])).toEqual([["disconnected", "read", 20]]);
+    expect(box.outcome).toBe("ok");
+    expect(boxes(box).some((node) => node.elementKind === "parameter" && node.label === "this")).toBe(true);
+    expect(boxes(box, "terminal")).toMatchObject([{ elementKind: "render-terminal", line: 20 }]);
+  });
+
+  it("pairs a method's receiver with its own call: one receiver never comes out at another's call (T13)", () => {
+    const first = anchorGraphOp(session, { ...find(basics, "src/this-methods.tsx", "first", "{first.read"), direction: "forward" });
+    expect(first.outcome).toBe("ok");
+    expect(boxes(first, "terminal").map((node) => node.line)).toEqual([17]);
+    const back = anchorGraphOp(session, { ...find(basics, "src/this-methods.tsx", "second.read()", "{second.read"), direction: "backward" });
+    expect(boxes(back).some((node) => node.label === "first" || node.label === "counter")).toBe(false);
+    expect(boxes(back).some((node) => node.elementKind === "field-read" && node.label === "other")).toBe(true);
   });
 
   it("lands a value the code ends in place: a branch test is a terminal, not a dead end", () => {

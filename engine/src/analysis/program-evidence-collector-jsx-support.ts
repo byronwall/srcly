@@ -11,6 +11,7 @@ import {
   jsxOpeningAncestor,
   nodeKey,
   proof,
+  unwrap,
 } from "./program-evidence-support";
 
 export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollectorFieldTransferSupport {
@@ -289,6 +290,15 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
             ),
             "proven",
           );
+        }
+        // A method that reads `this` takes the call's receiver as its receiver, bound like an argument and paired the same way (T13).
+        const callee = unwrap(this.ts, call.node.expression);
+        const thisId = this.ts.isPropertyAccessExpression(callee) || this.ts.isElementAccessExpression(callee) ? this.thisBinding(call.target.declaration) : null;
+        if (thisId && (this.ts.isPropertyAccessExpression(callee) || this.ts.isElementAccessExpression(callee))) {
+          const receiverId = this.expression(callee.expression, call.ownerId);
+          const at = [this.location(callee.expression)];
+          this.addRelation(receiverId, call.id, "argument", at, proof("ast-node", "The receiver is passed to this call as `this`.", at), "proven");
+          this.addRelation(receiverId, thisId, "argument-binding", at, proof("argument-binding", "The call's receiver binds to the method's `this`.", at), "proven");
         }
         for (const returnId of this.returnsByFunction.get(call.target.id) ?? []) {
           this.checkCancellation();

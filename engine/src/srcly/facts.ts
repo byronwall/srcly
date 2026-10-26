@@ -96,6 +96,8 @@ export function naturalEnd(tier1: Tier1, element: Pick<ProgramElement, "kind" | 
   if (DECLARATION_KINDS.has(element.kind) || BOOKKEEPING_KINDS.has(element.kind) || TERMINAL_KINDS.has(element.kind) || (element.terminalRoles?.length ?? 0) > 0) return "bookkeeping";
   if (isNaturalStart(tier1, element)) return "start";
   if (endsInPlace(tier1, element)) return "consumed";
+  // The callee of a call into first-party code names the function the walk enters; the call's own relations carry on (a callee with no body is related to its call).
+  if (namesCallee(tier1, element)) return "bookkeeping";
   return tier1.host.evidence.deadEnds ? null : "unrecorded";
 }
 
@@ -136,6 +138,17 @@ export function isNaturalStart(tier1: Tier1, element: Pick<ProgramElement, "kind
     if (declaration && ts.isStringLiteral(declaration.moduleSpecifier)) return outsideModule(declaration.moduleSpecifier.text);
   }
   return false;
+}
+
+/** Whether the element is the callee expression of a call or `new`. */
+function namesCallee(tier1: Tier1, element: Pick<ProgramElement, "location">): boolean {
+  if (tier1.language !== "typescript") return false;
+  const { ts } = tier1;
+  const sourceFile = tier1.program.getSourceFile(path.resolve(tier1.args.root, element.location.file));
+  let node: TypeScript.Node | null = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
+  while (node?.parent && (ts.isParenthesizedExpression(node.parent) || ts.isNonNullExpression(node.parent))) node = node.parent;
+  const parent = node?.parent;
+  return !!parent && (ts.isCallExpression(parent) || ts.isNewExpression(parent)) && parent.expression === node;
 }
 
 /** The note on a value the code ends in place, by how it ends there. */

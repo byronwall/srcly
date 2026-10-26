@@ -275,6 +275,32 @@ export function staticTarget(node: TypeScript.CallExpression) {
   return first && (TypeScript.isStringLiteral(first) || TypeScript.isNoSubstitutionTemplateLiteral(first)) ? first.text : null;
 }
 
+/** The function whose receiver `this` reads here: the nearest enclosing function that is not an arrow (arrows keep their outer `this`), or null outside one. */
+export function thisContainer(ts: typeof TypeScript, node: TypeScript.Node): TypeScript.Node | null {
+  for (let current = node.parent; current; current = current.parent) {
+    if (ts.isFunctionLike(current) && !ts.isArrowFunction(current)) return current;
+    if (ts.isClassLike(current) || ts.isSourceFile(current)) return null;
+  }
+  return null;
+}
+
+const thisReaders = new WeakMap<TypeScript.Node, boolean>();
+
+/** Whether this function reads its own receiver (`this`, outside any nested non-arrow function). */
+export function readsThis(ts: typeof TypeScript, fn: TypeScript.Node): boolean {
+  const known = thisReaders.get(fn);
+  if (known !== undefined) return known;
+  let found = false;
+  const visit = (node: TypeScript.Node) => {
+    if (found) return;
+    if (node.kind === ts.SyntaxKind.ThisKeyword && thisContainer(ts, node) === fn) found = true;
+    else ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(fn, visit);
+  thisReaders.set(fn, found);
+  return found;
+}
+
 export function isAssignmentOperator(ts: typeof TypeScript, kind: TypeScript.SyntaxKind) {
   return kind >= ts.SyntaxKind.FirstAssignment && kind <= ts.SyntaxKind.LastAssignment;
 }

@@ -15,6 +15,8 @@ import {
   isKnownGlobal,
   isResourceFactory,
   nodeKey,
+  readsThis,
+  thisContainer,
   proof,
   discardsValue,
   unwrap,
@@ -422,10 +424,41 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     });
   }
 
+  /**
+   * The receiver binding of a function that reads `this`: what `this` is at
+   * each method call, bound from the call's receiver like a parameter.
+   */
+  protected thisBinding(fn: TypeScript.Node): string | null {
+    const info = this.functionsByNode.get(nodeKey(this.root, fn));
+    if (!info || !readsThis(this.ts, fn)) return null;
+    return this.ensureElement(
+      fn,
+      "parameter",
+      info.id,
+      { name: "this" },
+      null,
+      null,
+      null,
+      "proven",
+      proof("ast-node", "The function's receiver: what `this` is at each method call.", [this.location(fn)]),
+    );
+  }
+
   protected expression(
     node: TypeScript.Expression,
     ownerId: string | null,
   ): string {
+    const unwrapped = unwrap(this.ts, node);
+    if (unwrapped.kind === this.ts.SyntaxKind.ThisKeyword) {
+      // `this` reads the receiver its function was called on.
+      const id = this.ensureElement(unwrapped, "value", ownerId, { name: "this" }, null, null, null, "proven", proof("ast-node", "`this` reads the function's receiver.", [this.location(unwrapped)]));
+      const container = thisContainer(this.ts, unwrapped);
+      const binding = container ? this.thisBinding(container) : null;
+      if (binding) {
+        this.addRelation(binding, id, "references", [this.location(unwrapped)], proof("ast-node", "`this` reads the function's receiver.", [this.location(unwrapped)]), "proven");
+      }
+      return id;
+    }
     return collectProgramEvidenceExpression(
       {
         ts: this.ts,
