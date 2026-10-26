@@ -76,12 +76,11 @@ describe("value-flow basics", () => {
     expect(ledger.rows.some((row) => row.line === 12)).toBe(false);
   });
 
-  it("stops at a boundary when the ledger starts inside the helper and its return has two callers (R7)", () => {
+  it("leaves a helper through both calls when the ledger starts inside it: each is a true destination", () => {
     const ledger = valueFlowOp(session, find(basics, "src/two-call-identity-helper.tsx", "value", "return value;"));
-    expect(ledger.outcome).toBe("partial");
-    const boundary = ledger.rows.find((row) => row.kind === "boundary")!;
-    expect(boundary).toMatchObject({ reason: "unproven-handoff", status: "partial" });
-    expect(boundary.note).toContain("2 call sites");
+    expect(ledger.outcome).toBe("ok");
+    expect(ledger.rows.some((row) => row.kind === "boundary")).toBe(false);
+    expect(ledger.rows.filter((row) => row.kind === "terminal").map((row) => row.line)).toEqual([11, 12]);
   });
 
   it("never lets an argument the callee does not return reach the result (T13)", () => {

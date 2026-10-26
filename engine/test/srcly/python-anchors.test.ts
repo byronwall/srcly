@@ -118,13 +118,10 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(graph.nodes.some((node) => node.line === 19 && node.kind !== "scope")).toBe(false);
   });
 
-  it("still stops at a boundary when the walk starts inside the helper and leaves through its return (R7)", () => {
+  it("leaves a helper through every call when the walk starts inside it: each call site is a true destination", () => {
     const graph = anchorGraphOp(session, { ...at("app/identity.py", "value", "return value"), direction: "forward" });
-    expect(graph.outcome).toBe("partial");
-    const boundary = boxes(graph, "boundary");
-    expect(boundary.map((node) => node.line).sort()).toEqual([14, 15]);
-    expect(boundary.every((node) => node.reason === "unproven-handoff" && /ident has 2 call sites/.test(node.note ?? ""))).toBe(true);
-    expect(graph.counts.terminals).toBe(0);
+    expect(boxes(graph, "boundary")).toEqual([]);
+    expect([...new Set(boxes(graph).filter((node) => node.side === "down").map((node) => node.line))]).toEqual(expect.arrayContaining([14, 15]));
   });
 
   it("names where a partial trace stops when the evidence cannot call it a dead end", () => {

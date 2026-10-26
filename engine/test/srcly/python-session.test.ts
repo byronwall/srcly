@@ -67,11 +67,10 @@ describe.skipIf(!python.python)(`Python session and ops (${python.reason})`, () 
     expect(graph.nodes.some((node) => node.file === "app/routers/items.py" && node.line >= 35 && node.kind !== "scope")).toBe(false);
   });
 
-  it("stops at a helper with two call sites when the walk starts inside it (R7)", () => {
+  it("leaves a helper through both of its calls when the walk starts inside it: each call site is a true destination", () => {
     const graph = anchorGraphOp(session, { ...find("app/store.py", "item_id", "def find_item"), direction: "forward" });
-    const boundary = boxes(graph, "boundary");
-    expect(boundary.map((node) => node.reason)).toEqual(["unproven-handoff", "unproven-handoff"]);
-    expect(boundary[0].note).toContain("find_item has 2 call sites (app/routers/items.py:20, app/routers/items.py:36)");
+    expect(boxes(graph, "boundary").filter((node) => node.reason === "unproven-handoff")).toEqual([]);
+    expect(boxes(graph).filter((node) => node.label === "find_item(…)").map((node) => node.line).sort()).toEqual([20, 36]);
   });
 
   it("anchors a handler by name from the import graph: its parameters in, its response out", () => {

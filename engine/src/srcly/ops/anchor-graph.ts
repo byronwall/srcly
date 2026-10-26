@@ -5,7 +5,7 @@ import { toSliceElement, toSliceRelation } from "../../analysis/evidence-slice-n
 import { DEFAULT_BOUNDARY_POLICY, scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
 import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
-import { CROSS_CALL, DECLARATION_KINDS, elementsAt, endsInPlace, externalCallee, naturalEnd, pairedInSlice, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
+import { DECLARATION_KINDS, elementsAt, endsInPlace, externalCallee, naturalEnd, needsOneCallSite, pairedInSlice, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
 import type { HostCandidate, LanguageHost } from "../host";
 import { clip, foldedLimit } from "../frontier-words";
 import { kindWords, syntaxWords } from "../anchor-words";
@@ -17,7 +17,7 @@ import { checkGeneration, type EngineSession, type Tier1 } from "../session";
 /** Anchor graphs bigger than this are refused as `budget-exhausted`, never truncated. */
 export const ANCHOR_GRAPH_MAX_BYTES = 8 * 1024 * 1024;
 /** Structural relations: they place elements, they do not move values. */
-const SKIP_RELATIONS = new Set(["contains", "declares-parameter", "definition"]);
+const SKIP_RELATIONS = new Set(["contains", "declares-parameter", "definition", "invokes"]);
 /** Element kinds that branch or narrow a value rather than carry it. */
 const CONTROL_KINDS = new Set(["type-narrow", "show-binding", "for-binding", "predicate-result"]);
 /** Element kinds that reshape a value. */
@@ -437,14 +437,10 @@ class AnchorGraphBuilder {
         let status = relation.status;
         let reason: string | null = null;
         let note: string | null = null;
-        if (kind !== "origin" && kind !== "terminal" && CROSS_CALL.has(relation.kind)) {
+        if (kind !== "origin" && kind !== "terminal" && needsOneCallSite(relation.kind, this.host.evidence.pairsCalls)) {
           // The callee side of a cross-call is its `to` end (the bound parameter, or the call a return reaches), whichever way the walk goes.
           const { sites, name } = this.host.callSitesOf(byId.get(relation.to) ?? element);
-          // Entering a callee is never ambiguous: a binding names its call, and a return names its call (T13).
-          // Leaving it is, unless the slice's invocation stack already paired the return with the call the walk came in by.
-          // Only where the evidence pairs calls (`LanguageHost.evidence`); otherwise R7's one-call-site rule holds both ways.
-          const entering = this.host.evidence.pairsCalls && (side === "down" ? relation.kind === "argument-binding" : relation.kind === "return-value");
-          if (!singleCall(sites) && !entering && !pairedInSlice(sites, slice.elements)) {
+          if (!singleCall(sites) && !pairedInSlice(sites, slice.elements)) {
             kind = "boundary";
             status = "partial";
             reason = "unproven-handoff";

@@ -13,7 +13,7 @@ import {
 } from "../contracts/value-flow";
 import { EngineError } from "../protocol";
 import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex, type CallSites } from "../call-sites";
-import { CROSS_CALL, elementsAt, externalCallee, naturalEnd, pairedInSlice, seedFor, TERMINAL_KINDS } from "../facts";
+import { CROSS_CALL, elementsAt, externalCallee, naturalEnd, needsOneCallSite, pairedInSlice, seedFor, TERMINAL_KINDS } from "../facts";
 import type { HostCandidate } from "../host";
 import { candidatesAt, parseSpan, sameSpan, sourceFileFor, spanOf, type Span } from "../selection";
 import { checkGeneration, requireTypescript, type BaseTier1, type EngineSession, type Tier1, type TsTier1 } from "../session";
@@ -256,9 +256,9 @@ class LedgerBuilder {
 
   /**
    * A call inside the selection. A zero-argument call reads an accessor; a
-   * call into first-party code is a transform when that function has one
-   * call site, and a boundary (unproven-handoff) when it has more, because
-   * the return value cannot yet be paired with this call (R7).
+   * call into first-party code is a transform when the evidence pairs its
+   * return with this call (T13) or it has one call site, and a boundary
+   * (unproven-handoff) otherwise (R7).
    */
   private composeCall(sourceFile: TypeScript.SourceFile, file: string, call: TypeScript.CallExpression, at: { span: Span; elementId: string | null; status: LedgerRow["status"] }) {
     const { ts } = this.typescript;
@@ -277,8 +277,9 @@ class LedgerBuilder {
       return;
     }
     const sites = this.sites.forCall(call);
-    if (singleCall(sites)) {
-      this.add({ kind: "transform", label: `${callee}(…)`, file, ...at, typeText, note: `through ${callee}, which has one call site` });
+    // Where the evidence pairs calls, this call's result is its own callee's return for this call alone (T13).
+    if (this.tier1.host.evidence.pairsCalls || singleCall(sites)) {
+      this.add({ kind: "transform", label: `${callee}(…)`, file, ...at, typeText, note: singleCall(sites) ? `through ${callee}, which has one call site` : `through ${callee}, paired with this call` });
       return;
     }
     this.add({ kind: "boundary", label: `${callee}(…)`, file, ...at, status: "partial", typeText, reason: "unproven-handoff", note: describeSites(callee, sites) });
@@ -337,11 +338,9 @@ class LedgerBuilder {
         const element = byId.get(relation.to);
         if (!element) continue;
         visited.add(relation.to);
-        if (CROSS_CALL.has(relation.kind)) {
+        if (needsOneCallSite(relation.kind, this.tier1.host.evidence.pairsCalls)) {
           const { sites, name } = this.sitesOfElement(element);
-          // Entering a callee through its binding is never ambiguous; leaving it is, unless the slice paired the return (T13).
-          const entering = this.tier1.host.evidence.pairsCalls && relation.kind === "argument-binding";
-          if (!singleCall(sites) && !entering && !pairedInSlice(sites, elements)) {
+          if (!singleCall(sites) && !pairedInSlice(sites, elements)) {
             // One boundary per callee, however many relations lead into it.
             const key = sites ?? element.id;
             if (!crossed.has(key)) {
