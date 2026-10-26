@@ -1,5 +1,70 @@
 # Changelog
 
+## [1.5.0](https://github.com/byronwall/srcly/compare/v1.4.1...v1.5.0) (2026-10-26)
+
+
+### Features
+
+* **client:** add a 2x screenshot script with a scan-ready signal, and per-worktree e2e ports ([#194](https://github.com/byronwall/srcly/issues/194)) ([15a90d9](https://github.com/byronwall/srcly/commit/15a90d94280efd595bfee9f0b8331182eb3ef1d7))
+* **dataflow:** fold the file tree in Data flow on a narrow window ([#156](https://github.com/byronwall/srcly/issues/156)) ([05fdaf0](https://github.com/byronwall/srcly/commit/05fdaf0ae3dd571e75c6864ca117295f628dae12))
+* **dataflow:** give Python classes a data flow through fields and annotations ([#172](https://github.com/byronwall/srcly/issues/172)) ([9f64fbe](https://github.com/byronwall/srcly/commit/9f64fbe02bde4a7776cf626ed6a24ab24d87e9c6))
+* **dataflow:** give Python ORM models fields declared by assigned field instances ([#189](https://github.com/byronwall/srcly/issues/189)) ([2d2549a](https://github.com/byronwall/srcly/commit/2d2549a07f787c9d5795f33f6fc7a617150c58ba))
+* **dataflow:** label a frontier box by why the trace stops ([#158](https://github.com/byronwall/srcly/issues/158)) ([6f8f6c7](https://github.com/byronwall/srcly/commit/6f8f6c7b931df6fb524e869f0f25fe33ba37bb5c))
+* **dataflow:** load library models as data rows, and read transforms from kind traits ([#206](https://github.com/byronwall/srcly/issues/206)) ([2235466](https://github.com/byronwall/srcly/commit/2235466004ec21a9b2c706ae0e50f5ab09de6da6))
+* **dataflow:** move key hints into the legend and drop build numbers from the status bar ([#157](https://github.com/byronwall/srcly/issues/157)) ([334095f](https://github.com/byronwall/srcly/commit/334095fe1980577aa39dfc14cc4c22944dae728e))
+* **dataflow:** pair Python calls by invocation ([#166](https://github.com/byronwall/srcly/issues/166)) ([a49673a](https://github.com/byronwall/srcly/commit/a49673a55730c4a50ddb71e55467a1a1c3a00f6d))
+* **dataflow:** say what each side of an anchor trace holds and where it stops ([#152](https://github.com/byronwall/srcly/issues/152)) ([541da09](https://github.com/byronwall/srcly/commit/541da090edd63fe3b97ce135eee71ce53d43c3c5))
+* **dataflow:** say why nothing is drawn and offer to try again ([#160](https://github.com/byronwall/srcly/issues/160)) ([3c1a26d](https://github.com/byronwall/srcly/commit/3c1a26d4e6eeea919fa2683c49e617ae74b39fc8))
+
+
+### Bug Fixes
+
+* **dataflow:** anchor a default-exported function by its own name ([#178](https://github.com/byronwall/srcly/issues/178)) ([5ac5302](https://github.com/byronwall/srcly/commit/5ac5302691ebf6649f10bf505e12f15763d7ed19))
+* **dataflow:** anchor any Python def or class by name ([#164](https://github.com/byronwall/srcly/issues/164)) ([6b76d50](https://github.com/byronwall/srcly/commit/6b76d5003a38f8369565288b233ce3f6217f1dcf))
+* **dataflow:** apply external-code and branch-test ends to Python ([#177](https://github.com/byronwall/srcly/issues/177)) ([ad3a40c](https://github.com/byronwall/srcly/commit/ad3a40ce48127c2c6c8d7038a8b9f2c47a241881))
+* **dataflow:** begin and end Python values where the code does ([#199](https://github.com/byronwall/srcly/issues/199)) ([718bed7](https://github.com/byronwall/srcly/commit/718bed725682ee55fb74027af25c9bb4024c4b28))
+* **dataflow:** bind destructured and optional props, and walk a classified call as the call ([#186](https://github.com/byronwall/srcly/issues/186)) ([f1f6065](https://github.com/byronwall/srcly/commit/f1f6065429cb4ad465dbe6c12e16fa7af3b1d444))
+* **dataflow:** bind prop reads inside closures and string-literal props to the caller ([#159](https://github.com/byronwall/srcly/issues/159)) ([8d4dfbf](https://github.com/byronwall/srcly/commit/8d4dfbfe2b00eaa373bac2104aad692c4476c637))
+* **dataflow:** call a trace ok only when no step assumes what library code does ([#183](https://github.com/byronwall/srcly/issues/183)) ([ded4051](https://github.com/byronwall/srcly/commit/ded40514f938ea0033d1ef8b6d5c598957ab2289))
+* **dataflow:** carry a reactive state pair's setter value to its getter's reads ([#182](https://github.com/byronwall/srcly/issues/182)) ([3fc3e1c](https://github.com/byronwall/srcly/commit/3fc3e1c767ded881bbc9b770265fae08cbdbbe0e))
+* **dataflow:** carry values past four kinds of dead end ([#167](https://github.com/byronwall/srcly/issues/167)) ([9827ab3](https://github.com/byronwall/srcly/commit/9827ab30d7a6688c95289a5b40f28a8b2bee000c))
+* **dataflow:** end a thrown value at the throw ([#207](https://github.com/byronwall/srcly/issues/207)) ([52a7cbd](https://github.com/byronwall/srcly/commit/52a7cbd9c448a2157f7ea04898dbeb1ab8385e98))
+* **dataflow:** enter a first-party method through this ([#176](https://github.com/byronwall/srcly/issues/176)) ([7d57bfd](https://github.com/byronwall/srcly/commit/7d57bfdf0fcdb542be982c7173876b8f661b28b5))
+* **dataflow:** enter a Python function a framework decorator registers ([#185](https://github.com/byronwall/srcly/issues/185)) ([1ce1516](https://github.com/byronwall/srcly/commit/1ce1516976334757c966593ed16c13f3c9e4e6ae))
+* **dataflow:** fill a FastAPI dependency parameter from its function, and enter a function handed to outside code ([#204](https://github.com/byronwall/srcly/issues/204)) ([9089869](https://github.com/byronwall/srcly/commit/9089869dafecc7af7073d19592f6b13fff30a83d))
+* **dataflow:** fold a class's annotated uses by file ([#208](https://github.com/byronwall/srcly/issues/208)) ([df4d71c](https://github.com/byronwall/srcly/commit/df4d71c75408a6c2fb3833aac92d3e5c8d8a8979))
+* **dataflow:** give each side of an anchor trace only its own end ([#155](https://github.com/byronwall/srcly/issues/155)) ([7c3e535](https://github.com/byronwall/srcly/commit/7c3e53583ab2aa1d0480f79e4e1f59a36a0cf1ec))
+* **dataflow:** hand a library call's receiver to the function it is given ([#184](https://github.com/byronwall/srcly/issues/184)) ([b93bde7](https://github.com/byronwall/srcly/commit/b93bde711a2d37fb8b423621916dda398bf2f0d2))
+* **dataflow:** keep a discarded library call's arguments in a receiver its function declares ([#175](https://github.com/byronwall/srcly/issues/175)) ([727bcf1](https://github.com/byronwall/srcly/commit/727bcf143072329e884d5e8e5b54292c3504f3db))
+* **dataflow:** know a library call by its import's module and export name ([#209](https://github.com/byronwall/srcly/issues/209)) ([59ba4ec](https://github.com/byronwall/srcly/commit/59ba4ec40bcaa58525211eb0b6f3877b5b3e5c5a))
+* **dataflow:** land a function's field reads through its argument, not one by one ([#163](https://github.com/byronwall/srcly/issues/163)) ([24f0475](https://github.com/byronwall/srcly/commit/24f04752915d567ba3b31d5731b35f658940215f))
+* **dataflow:** let a read see every assignment that can reach it ([#173](https://github.com/byronwall/srcly/issues/173)) ([2568bc7](https://github.com/byronwall/srcly/commit/2568bc721ecd1855fcc70120909dcf9ab9cb3539))
+* **dataflow:** name a budget-exhausted omission when a route slice hits its limit ([#161](https://github.com/byronwall/srcly/issues/161)) ([4068e12](https://github.com/byronwall/srcly/commit/4068e12fd879c9b46fec59bfda31ab43fcea77b0))
+* **dataflow:** name where every partial trace stops ([#169](https://github.com/byronwall/srcly/issues/169)) ([798cdf6](https://github.com/byronwall/srcly/commit/798cdf697a6cb6243c95720ea3c474f276f82bb2))
+* **dataflow:** pack array elements and spreads, and bind for…of to each element ([#174](https://github.com/byronwall/srcly/issues/174)) ([931dd3d](https://github.com/byronwall/srcly/commit/931dd3d12b7ab55afcca8c81084c680b07557c66))
+* **dataflow:** pair a call with the one function its value is, through objects, bindings and aliases ([#198](https://github.com/byronwall/srcly/issues/198)) ([ecd5d7b](https://github.com/byronwall/srcly/commit/ecd5d7b7ea1791cbc5fb24b6999feb42ed708e76))
+* **dataflow:** read a computed key as a partial read of its receiver ([#171](https://github.com/byronwall/srcly/issues/171)) ([138966e](https://github.com/byronwall/srcly/commit/138966e8a8c431efe6530e80302fc02fb49ed096))
+* **dataflow:** read a state pair's factory and getter calls as framework-modelled, not assumed ([#188](https://github.com/byronwall/srcly/issues/188)) ([9ce06f9](https://github.com/byronwall/srcly/commit/9ce06f913ce45d6f128372262923e6fd66e975c8))
+* **dataflow:** render a factory or alias component at the JSX tag that names it ([#180](https://github.com/byronwall/srcly/issues/180)) ([d53201c](https://github.com/byronwall/srcly/commit/d53201c184e07e605d47f2d53d66ac446d680aaa))
+* **dataflow:** spend a trace's size limits only on fields it reads and places it draws ([#197](https://github.com/byronwall/srcly/issues/197)) ([7e902d2](https://github.com/byronwall/srcly/commit/7e902d2ae53ce8e1de64ae6ca53410afe90ae78b))
+* **dataflow:** spend slices on value relations only, at limits and budgets sized to real code ([#168](https://github.com/byronwall/srcly/issues/168)) ([bae653d](https://github.com/byronwall/srcly/commit/bae653d293790a0f9acb639a62c002460ca2557d))
+* **dataflow:** start a Python request at the request and end its response at the return ([#181](https://github.com/byronwall/srcly/issues/181)) ([ec59c8c](https://github.com/byronwall/srcly/commit/ec59c8c1dd36ed141272b1ccdef496f0c25e06b2))
+* **dataflow:** stop four false ends the fixture annotations surfaced ([#202](https://github.com/byronwall/srcly/issues/202)) ([bd6da4c](https://github.com/byronwall/srcly/commit/bd6da4c436b8061fd27568c6eb69257f2d5c1ca2))
+* **dataflow:** stop the engine holding a second Program and bound what it keeps ([#165](https://github.com/byronwall/srcly/issues/165)) ([0daf01e](https://github.com/byronwall/srcly/commit/0daf01e89eb8dce2f13436326652f55eb673899a))
+* **dataflow:** trace a declaration's own params and returns, and name each frontier ([#151](https://github.com/byronwall/srcly/issues/151)) ([58198e9](https://github.com/byronwall/srcly/commit/58198e95365c4a975e955e48ad523ae97f86687b))
+* **dataflow:** trust the slice's call pairing instead of R7 at every helper ([#170](https://github.com/byronwall/srcly/issues/170)) ([18eaccf](https://github.com/byronwall/srcly/commit/18eaccf0c67ed1d4363f0c3fed22e56dc185b215))
+
+
+### Performance Improvements
+
+* **dataflow:** let the checker truncate the type text facts carry ([#193](https://github.com/byronwall/srcly/issues/193)) ([0db70a4](https://github.com/byronwall/srcly/commit/0db70a4e12e53e3cb459b2e5761562457d24ee65))
+* shrink the analysis tree payload ~95x on the wire ([#179](https://github.com/byronwall/srcly/issues/179)) ([1be355b](https://github.com/byronwall/srcly/commit/1be355b1702b43122254d4f046ed8a8d0e4c68a6))
+
+
+### Documentation
+
+* **dataflow:** plan library models as data rows shared by both collectors ([#203](https://github.com/byronwall/srcly/issues/203)) ([add067c](https://github.com/byronwall/srcly/commit/add067c991fc5f104d23900667b053caebd9ee6e))
+
 ## [1.4.1](https://github.com/byronwall/srcly/compare/v1.4.0...v1.4.1) (2026-10-25)
 
 
