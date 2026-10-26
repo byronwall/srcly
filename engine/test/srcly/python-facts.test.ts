@@ -89,7 +89,7 @@ describe.skipIf(!python.python)(`Python evidence provider (${python.reason})`, (
     expect(elements.filter((item) => item.kind === "http-response")).toHaveLength(2);
   });
 
-  it("counts call sites, so a helper with two callers is not paired with either", () => {
+  it("counts call sites: a walk that starts inside a helper with two callers pairs with neither", () => {
     const find = Object.values(output.callSites).find((sites) => sites.name === "find_item")!;
     expect(find.calls).toEqual(["app/routers/items.py:20", "app/routers/items.py:36"]);
     const save = Object.values(output.callSites).find((sites) => sites.name === "save_item")!;

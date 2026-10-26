@@ -23,7 +23,8 @@ export const CROSS_CALL = new Set(["invokes", "argument", "argument-binding", "f
  */
 export function pairedInSlice(sites: CallSites | null, elements: readonly Pick<ProgramElement, "kind" | "location">[]): boolean {
   if (!sites || sites.escapes || sites.calls.length < 2) return false;
-  const walked = new Set(elements.filter((element) => element.kind === "call").map((element) => `${element.location.file}:${element.location.line}`));
+  // A call site is a `call` element (TypeScript) or the `call-result` that is the call (Python).
+  const walked = new Set(elements.filter((element) => element.kind === "call" || element.kind === "call-result").map((element) => `${element.location.file}:${element.location.line}`));
   return sites.calls.filter((site) => walked.has(site)).length === 1;
 }
 

@@ -59,10 +59,18 @@ describe.skipIf(!python.python)(`Python session and ops (${python.reason})`, () 
     expect(origin).toMatchObject({ typeText: "ItemIn", side: "up" });
   });
 
-  it("stops at a helper with two call sites as an unproven handoff", () => {
+  it("pairs a helper with two call sites with the call it was entered by (T13)", () => {
     const graph = anchorGraphOp(session, { ...find("app/routers/items.py", "item_id", "def read_item"), direction: "forward" });
+    expect(boxes(graph, "boundary")).toEqual([]);
+    // find_item's result comes back to read_item's call (line 20), never to delete_item's (line 36).
+    expect(boxes(graph).filter((node) => node.label === "find_item(…)").map((node) => node.line)).toEqual([20]);
+    expect(graph.nodes.some((node) => node.file === "app/routers/items.py" && node.line >= 35 && node.kind !== "scope")).toBe(false);
+  });
+
+  it("stops at a helper with two call sites when the walk starts inside it (R7)", () => {
+    const graph = anchorGraphOp(session, { ...find("app/store.py", "item_id", "def find_item"), direction: "forward" });
     const boundary = boxes(graph, "boundary");
-    expect(boundary.map((node) => node.reason)).toEqual(["unproven-handoff"]);
+    expect(boundary.map((node) => node.reason)).toEqual(["unproven-handoff", "unproven-handoff"]);
     expect(boundary[0].note).toContain("find_item has 2 call sites (app/routers/items.py:20, app/routers/items.py:36)");
   });
 

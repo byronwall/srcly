@@ -1572,7 +1572,7 @@ class BodyWalker:
             self.note(node, "Call", callee=function.entry_id)
             self.relate(element, function.entry_id, "definition", f"{callee_text} calls {function.qualname}", node.func, proof_kind=proof_kind)
             self.program.record_call(function, source, node.lineno)
-            self.bind_arguments(function, receiver, node, positional, keywords)
+            self.bind_arguments(function, receiver, node, positional, keywords, call=element)
             for ret in function.returns:
                 if ret.value is not None:
                     ret_id = element_id("return", function.source.rel, function.source.span(ret))
@@ -1620,13 +1620,29 @@ class BodyWalker:
             return klass.methods.get(func.attr) if klass else None
         return None
 
-    def bind_arguments(self, function: FunctionInfo, receiver: str | None, node: ast.Call, positional: list[tuple[ast.expr, str | None]], keywords: list[tuple[ast.keyword, str | None]]) -> None:
+    def bind_arguments(self, function: FunctionInfo, receiver: str | None, node: ast.Call, positional: list[tuple[ast.expr, str | None]], keywords: list[tuple[ast.keyword, str | None]],
+                       call: str | None = None) -> None:
+        """
+        Each argument binds its parameter (`argument-binding`). When the callee
+        returns a value to `call`, each bound argument is also an `argument` of that
+        call, as the TypeScript collector records it: the slice's invocation stack
+        (T13) reads it to pair the callee's return with the call it entered by. The
+        slice never follows `argument` where a binding exists, and a callee that
+        returns nothing has no result for its arguments to reach.
+        """
         params = function.params
         source = function.source
+        returns_value = call is not None and any(ret.value is not None for ret in function.returns)
+
+        def bind(value: str | None, param: ast.arg, detail: str, at: ast.AST, status: str = "proven") -> None:
+            self.relate(value, element_id("parameter", source.rel, source.span(param)), "argument-binding", detail, at, status=status)
+            if returns_value:
+                self.relate(value, call, "argument", f"passed to {function.qualname} at this call", at)
+
         offset = 0
         if function.is_method and params and params[0].arg in ("self", "cls"):
             if receiver is not None:
-                self.relate(receiver, element_id("parameter", source.rel, source.span(params[0])), "argument-binding", f"{clip(self.source.segment(node.func), 40)} binds {params[0].arg}", node.func)
+                bind(receiver, params[0], f"{clip(self.source.segment(node.func), 40)} binds {params[0].arg}", node.func)
             offset = 1
         named = {param.arg: param for param in params}
         fn = function.node
@@ -1637,11 +1653,11 @@ class BodyWalker:
             param = positional_params[index] if index < len(positional_params) else fn.args.vararg
             if param is not None:
                 status = "proven" if index < len(positional_params) else "partial"
-                self.relate(value, element_id("parameter", source.rel, source.span(param)), "argument-binding", f"argument {index + 1} binds {function.qualname}({param.arg})", child, status=status)
+                bind(value, param, f"argument {index + 1} binds {function.qualname}({param.arg})", child, status)
         for kw, value in keywords:
             param = named.get(kw.arg or "")
             if param is not None:
-                self.relate(value, element_id("parameter", source.rel, source.span(param)), "argument-binding", f"{kw.arg}= binds {function.qualname}({param.arg})", kw.value)
+                bind(value, param, f"{kw.arg}= binds {function.qualname}({param.arg})", kw.value)
 
 
 def assigned_names(stmt: ast.stmt) -> list[ast.Name]:

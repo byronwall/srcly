@@ -76,7 +76,7 @@ The engine derives origin roles, terminal roles and boundaries from an element's
 | `logging` calls | `external-effect` (side effect) |
 | `print`, `sys.stdout.write`, `sys.exit`, file writes | `stdout`, `exit-status`, `file-write` |
 | attribute read / literal subscript | `field-read` (`operationKind: field-read`, `property`) / `index-read` |
-| first-party call | `call-result`; `argument-binding` into the callee's parameters and `return-value` back, followed only with one call site (R7) |
+| first-party call | `call-result`; `argument-binding` into the callee's parameters and `return-value` back; when the callee returns a value, each bound argument is also an `argument` of the call, so the slice pairs the return with the call it entered by (T13), as in TypeScript. A walk that starts inside a helper with several call sites still stops at its return (R7) |
 | library call | `call-result` with `call-input` relations marked partial: the result is assumed to carry its inputs |
 | pydantic / dataclass construction, dict and list literals | `object-pack` with `pack-field` per field |
 | a `class` | `function-entry` over the whole class, with a scope of its own, as a `def` is: anchored by name, it is a declaration whose uses are its constructor calls (`definition` from each `Foo(…)`, as from each first-party call to its `def`) |
@@ -97,7 +97,6 @@ On srcly's own server the `anchor_graph` handler's body comes back `partial`: it
 
 ## Not yet
 
-- Invocation pairing (M5's identity work) is not done for Python either: a helper with more than one call site is a boundary, as in TypeScript.
 - `Depends()` parameters are plain inputs, not traced into the dependency function.
 - A class anchored by name has no up side: the declaration path takes only the parameters a declaration owns, and a class's inputs are its `__init__`'s parameters or, for a model, the `pack-field`s into each constructor call. Its down side is where each constructor call's instance goes.
 - Attribute writes (`self.x = …`) end the path; values are not followed across methods through instance state.
