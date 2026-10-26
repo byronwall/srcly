@@ -357,8 +357,9 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   protected connectPendingReferences(): void {
     for (const reference of this.references) {
       this.checkCancellation();
+      // A state pair's getter reads its state, not the pattern it was declared in (which its setter shares).
       const target = reference.symbolId
-        ? this.variablesBySymbol.get(reference.symbolId)
+        ? this.stateBySymbol.get(reference.symbolId) ?? this.variablesBySymbol.get(reference.symbolId)
         : null;
       const assigned = reference.symbolId ? this.assignments.get(reference.symbolId) : undefined;
       if (assigned) {

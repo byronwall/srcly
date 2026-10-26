@@ -311,6 +311,29 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(boxes(table, "frontier").map((node) => [node.reason, node.label])).toEqual([["disconnected", "table"]]);
   });
 
+  it("carries a state pair's setter argument and initial value to its getter's reads, as a framework-modelled partial edge", () => {
+    for (const [file, text, marker, line] of [
+      ["src/state-pairs.tsx", "props.next", "setName(props.next)", 16],
+      ["src/state-pairs.tsx", "props.start", "createSignal(props.start)", 16],
+      ["src/state-pairs.tsx", "props.title", "state.setDoc", 29],
+      ["src/react-state.tsx", "props.picked", "setLabel(props.picked)", 9],
+      ["src/react-state.tsx", "props.initial", "useState(props.initial)", 9],
+    ] as const) {
+      const graph = anchorGraphOp(session, { ...find(basics, file, text, marker), direction: "forward" });
+      expect(graph.outcome, text).toBe("ok");
+      expect(boxes(graph, "terminal").filter((node) => node.elementKind === "render-terminal").map((node) => node.line), text).toEqual([line]);
+      expect(graph.edges.some((edge) => edge.status === "partial" && edge.proof[0]?.kind === "framework-state"), text).toBe(true);
+    }
+  });
+
+  it("never mixes two state pairs: one setter's argument never reaches another getter, forward or backward", () => {
+    const other = anchorGraphOp(session, { ...find(basics, "src/state-pairs.tsx", "props.other", "setCount(props.other)"), direction: "forward" });
+    expect(boxes(other, "terminal").map((node) => node.line)).toEqual([17]);
+    const name = anchorGraphOp(session, { ...find(basics, "src/state-pairs.tsx", "name()", "<span>{name()"), direction: "backward" });
+    expect(boxes(name).some((node) => node.label === "other" || node.label === "count")).toBe(false);
+    expect(boxes(name).filter((node) => node.elementKind === "field-read").map((node) => node.label).sort()).toEqual(["next", "start"]);
+  });
+
   it("keeps a derived value nothing reads at a dead end", () => {
     const limit = anchorGraphOp(session, { ...find(basics, "src/derived-operands.tsx", "props.limit", "tooMany ="), direction: "forward" });
     expect(limit.outcome).toBe("partial");

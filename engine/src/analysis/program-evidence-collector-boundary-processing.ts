@@ -1,4 +1,5 @@
 import * as TypeScript from "typescript";
+import { stateRoleOf } from "./program-evidence-state-pairs";
 import { ProgramEvidenceCollectorCallSupport } from "./program-evidence-collector-call-support";
 import {
   bindingIdentifiers,
@@ -30,6 +31,11 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
       ),
       "field-read",
     );
+    // A property that holds a state pair's getter (`state.doc` for `{ doc }`) reads the pair's state.
+    const role = stateRoleOf(this.ts, this.checker, node);
+    if (role?.role === "getter") {
+      this.addRelation(this.stateElement(role.getter), fieldId, "references", [this.location(node)], proof("framework-state", "The property holds the getter of a state pair: it reads that state.", [this.location(node)]), "partial");
+    }
     const receiverId = this.expression(node.expression, ownerId);
     this.addRelation(
       receiverId,

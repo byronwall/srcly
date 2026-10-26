@@ -103,6 +103,8 @@ export class ProgramEvidenceCollectorSupport {
   protected readonly returnsByFunction = new Map<string, string[]>();
   protected readonly calls: CollectorCallInfo[] = [];
   protected readonly references: CollectorReferenceInfo[] = [];
+  /** The state element of each reactive pair's getter (by symbol): its reads see the state, not the pair's pattern. */
+  protected readonly stateBySymbol = new Map<string, string>();
   /** Assignments to each local variable or parameter (by symbol), with the declaration they rebind. */
   protected readonly assignments = new Map<string, { declaration: TypeScript.Node; bindings: { id: string; node: TypeScript.Node }[] }>();
   protected readonly httpFetches: HttpBridgeFetch[] = [];
