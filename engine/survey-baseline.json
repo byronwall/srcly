@@ -14,7 +14,7 @@
         "boundary: framework-runtime": 11,
         "boundary: network": 1,
         "boundary: unproven-handoff": 10,
-        "frontier: budget-exhausted": 99,
+        "frontier: budget-exhausted": 105,
         "frontier: disconnected": 122,
         "frontier: external-code": 40,
         "frontier: unbound-read": 24,

@@ -299,8 +299,8 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
   it("enters a function handed to code outside the program, and no helper nothing hands on", () => {
     const token = anchor("app/depends.py", "get_token", 12);
     expect(token.origins.map((origin) => origin.label)).toEqual(["enters from Depends(…) → authorization"]);
-    // That FastAPI calls it is assumed, as a library callback is: partial, with the assumption as its proof.
-    expect(token.outcome).toBe("partial");
+    // That FastAPI calls it is assumed, as a library callback is: the trace lands `assumed`, with the assumption as its proof.
+    expect(token.outcome).toBe("assumed");
     expect(token.edges.filter((edge) => edge.kind === "request-binding").map((edge) => [edge.status, edge.proof[0]?.kind])).toEqual([["partial", "external-call"]]);
     const helper = anchor("app/depends.py", "helper", 35);
     expect(helper.origins).toEqual([]);
