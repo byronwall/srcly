@@ -3,14 +3,21 @@
 // `pnpm e2e` runs it; CI runs it as the `browser` job. Screenshots land in
 // ../tmp/e2e (ignored), so a PR can attach them.
 import { defineConfig, devices } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const API_PORT = 8765;
-const CLIENT_PORT = 5199;
+// CI uses fixed ports. Locally each worktree runs on its own pair (its dev ports
+// + 800, see scripts/dev-ports.sh), so e2e runs in two worktrees don't collide.
+const [API_PORT, CLIENT_PORT] = process.env.CI
+  ? [8765, 5199]
+  : execFileSync("bash", [path.join(here, "../scripts/dev-ports.sh")], { encoding: "utf8" })
+      .trim()
+      .split(" ")
+      .map((port) => Number(port) + 800);
 // A cold analysis cache every run: the smoke must scan and trace from nothing, as CI does.
 const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "srcly-e2e-cache-"));
 
