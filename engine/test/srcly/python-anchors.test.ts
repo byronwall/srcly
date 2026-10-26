@@ -133,6 +133,12 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(boxes(graph, "frontier").map((node) => node.reason)).not.toContain("untraced");
   });
 
+  it("ends a raised value at the `raise`, and carries a value that is returned", () => {
+    const graph = anchorGraphOp(session, { ...at("app/ends.py", "text", "def check"), direction: "forward" });
+    expect(boxes(graph, "terminal").map((node) => `${node.note ?? node.elementKind}@${node.line}`).sort()).toEqual(["ends here · decides a branch@44", "ends here · thrown@45", "return@46"]);
+    expect(boxes(graph, "frontier")).toEqual([]);
+  });
+
   it("reads a settings model's fields from the environment, and no other model's", () => {
     const up = (text: string, marker: string) => anchorGraphOp(session, { ...at("app/settings.py", text, marker), direction: "backward" }).origins.map((origin) => origin.label);
     expect(up("settings.SECRET_KEY", "return settings.SECRET_KEY")).toEqual(["environment SECRET_KEY"]);
