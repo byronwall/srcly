@@ -61,6 +61,12 @@ export type SliceQuery = {
   /** Maximum relation visits. The query reports a gap when this is exhausted. */
   budget?: number;
   cancellation?: AnalysisCancellationToken;
+  /**
+   * The relations the slice walks (all when absent). One it does not walk
+   * still connects its element: no `disconnected` gap, and no element or
+   * budget spent past it.
+   */
+  follow?: (relation: ProgramRelation) => boolean;
 };
 
 export type EvidenceSliceSource = ProgramEvidence | EvidenceRelationSource;
@@ -132,9 +138,12 @@ export function queryEvidenceSlice(
   cancellation.throwIfCancelled();
   const boundary = normalizeBoundaryPolicy(normalizedRequest.boundaryPolicy);
   const terminals = normalizeTerminalPolicy(normalizedRequest.terminalPolicy);
+  // Work is relation visits, and a relation is visited once per invocation
+  // context (T13) and again when its target is already in: real routes spend
+  // about two visits per relation they keep, so the default affords two.
   const budget = positiveLimit(
     normalizedRequest.budget,
-    boundary.maxElements + boundary.maxRelations,
+    boundary.maxElements + 2 * boundary.maxRelations,
   );
   const provider = relationProviderFor(evidence);
   const indexed = indexProvider(provider);
@@ -348,6 +357,7 @@ export function queryEvidenceSlice(
     for (const candidate of candidates) {
       cancellation.throwIfCancelled();
       if (bindsIntoCallee && candidate.relation.kind === "argument") continue;
+      if (normalizedRequest.follow && !normalizedRequest.follow(candidate.relation)) continue;
       const travelKey = `${element.id}:${candidate.relation.id}:${candidate.targetId}:${current.calls.join(">")}`;
       if (visitedRelations.has(travelKey)) continue;
       visitedRelations.add(travelKey);
@@ -531,7 +541,7 @@ function normalizeRequest(
   boundaryPolicy: BoundaryPolicyInput,
   terminalPolicy: TerminalPolicyInput,
   budget: number | undefined,
-): Required<Pick<SliceQuery, "seed" | "direction" | "boundaryPolicy" | "terminalPolicy">> & Pick<SliceQuery, "budget" | "cancellation"> {
+): Required<Pick<SliceQuery, "seed" | "direction" | "boundaryPolicy" | "terminalPolicy">> & Pick<SliceQuery, "budget" | "cancellation" | "follow"> {
   if (isSeed(request)) {
     return {
       seed: request,
@@ -550,6 +560,7 @@ function normalizeRequest(
     terminalPolicy: { ...seed.defaults.terminalPolicy, ...request.terminalPolicy },
     budget: request.budget,
     cancellation: request.cancellation,
+    follow: request.follow,
   };
 }
 

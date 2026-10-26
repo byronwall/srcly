@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { AnchorGraphResult, AnchorNode } from "../../src/srcly/contracts/anchor-graph";
+import { ANCHOR_LIMITS } from "../../src/srcly/anchor-slice";
 import { anchorGraphOp } from "../../src/srcly/ops/anchor-graph";
 import { createEngineSession } from "../../src/srcly/session";
 import { chooseTypescript } from "../../src/srcly/typescript-choice";
@@ -294,10 +295,33 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(stops).toHaveLength(1);
     expect(stops[0]).toMatchObject({ reason: "budget-exhausted", side: "down" });
     expect(stops[0].label).toMatch(/^\d+ places not followed$/);
-    expect(stops[0].note).toMatch(/^The walk stops at 128 elements; it did not follow n/);
+    expect(stops[0].note).toMatch(new RegExp(`^The walk stops at ${ANCHOR_LIMITS.maxElements} elements; it did not follow (props\\.)?n`));
     // A limit hit is the budget exhausted, whichever limit it was.
     expect(graph.coverage.budget.exhausted).toBe(true);
     expect(graph.outcome).toBe("partial");
+  });
+
+  it("follows a value through a big helper without spending its limits on everything the helper's body contains", () => {
+    const graph = anchorGraphOp(session, { ...find(basics, "src/big-helper.tsx", "props.title"), direction: "forward" });
+    expect(graph.nodes.filter((node) => node.reason === "budget-exhausted")).toEqual([]);
+    expect(graph.coverage.budget.exhausted).toBe(false);
+    // Into `shout`, out through its return, to the heading's slot; none of its 220 `noise.push` lines.
+    expect(graph.nodes.some((node) => node.label === "text")).toBe(true);
+    expect(boxes(graph, "terminal").length).toBeGreaterThan(0);
+    expect(graph.nodes.some((node) => /noise/.test(node.label))).toBe(false);
+    expect(graph.coverage.elements).toBeLessThan(40);
+  });
+
+  it("draws every use of a hub but walks only its first ones, folding the rest into one frontier", () => {
+    const graph = anchorGraphOp(session, { file: "src/many-uses.ts", name: "label", line: 4, direction: "forward" });
+    expect(graph.nodes.filter((node) => node.note === "called here")).toHaveLength(40);
+    const stops = boxes(graph, "frontier").filter((node) => node.reason === "budget-exhausted");
+    expect(stops.map((node) => node.label)).toEqual([`${40 - ANCHOR_LIMITS.maxWalkedUses} uses not followed`]);
+    expect(stops[0].note).toMatch(/did not follow label\(32\)/);
+    expect(graph.coverage.budget.exhausted).toBe(true);
+    // A declaration used in fewer places walks every use: no such frontier.
+    const few = anchorGraphOp(session, { file: "src/function-field-reads.ts", name: "describeItem", line: 5, direction: "forward" });
+    expect(boxes(few, "frontier").filter((node) => node.reason === "budget-exhausted")).toEqual([]);
   });
 
   it("ends a backward walk at a literal with no frontier: that is where the value begins", () => {
