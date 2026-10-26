@@ -548,6 +548,10 @@ class Program:
         self.expressions: dict[str, dict[str, dict[str, Any]]] = {}
         self.scopes: dict[str, list[dict[str, Any]]] = {}
         self.calls: dict[str, dict[str, Any]] = {}  # entry id -> {calls, escapes}
+        # entry id -> the first call outside the program that is handed the function (`Depends(get_user)`): it calls it.
+        self.registrations: dict[str, tuple[Source, ast.Call]] = {}
+        self.aliases: dict[str, tuple[Source, ast.expr]] = {}
+        self.injected: set[str] = set()  # entry ids whose results a framework passes on (`Depends(get_db)`): their returns are not exits  # "module.Name" -> its module-level subscript value
         self.routes: list[dict[str, Any]] = []
 
     # ---- index
@@ -582,6 +586,9 @@ class Program:
                         if isinstance(target, ast.Name):
                             names[target.id] = "variable"
                             self.note_router(source, target.id, stmt.value)
+                            if isinstance(stmt.value, ast.Subscript):
+                                # `SessionDep = Annotated[Session, Depends(get_db)]`: a type alias a parameter may be annotated with.
+                                self.aliases[f"{source.module}.{target.id}"] = (source, stmt.value)
             self.index_defs(source, source.tree.body, prefix="", class_info=None)
         for info in self.classes.values():
             info.is_model = self.is_model(info)
@@ -774,8 +781,12 @@ class Program:
             if source.tree is None:
                 continue
             ModuleWalker(self, source).run()
+        # A dependency found while entering one function registers another: repeat until none is new.
+        seen = -1
+        while seen != len(self.registrations):
+            seen = len(self.registrations)
+            self.finish_entries()
         self.finish_returns()
-        self.finish_entries()
 
     def mount_routers(self) -> None:
         """`app.include_router(items.router, prefix="/v1")` adds the mount prefix to that router's routes."""
@@ -819,9 +830,10 @@ class Program:
     def finish_entries(self) -> None:
         """
         A function nothing in the program calls, registered with a framework by a decorator
-        (a CLI command, a signal receiver, a hook), is entered from that framework: each of its
-        parameters is an origin (`originRole: event`), "enters from @…". Route handlers already
-        bind theirs from the request.
+        (a CLI command, a signal receiver, a hook) or handed to code outside the program
+        (`Depends(get_user)`, `signal.connect(handler)`), is entered from there: each of its
+        parameters is an origin (`originRole: event`), "enters from @…" or "enters from Depends(…)".
+        Route handlers already bind theirs from the request.
         """
         for info in self.functions.values():
             node = info.node
@@ -829,28 +841,63 @@ class Program:
                 continue
             source = info.source
             decorator = next((item for item in node.decorator_list if self.framework_decorator(source, item)), None)
-            if decorator is None:
+            if decorator is not None:
+                site, words = source, "@" + clip(source.segment(decorator.func if isinstance(decorator, ast.Call) else decorator), 60)
+                at, assumed = source.span(decorator), False
+            elif info.entry_id in self.registrations:
+                site, call = self.registrations[info.entry_id]
+                words, at = f"{clip(site.segment(call.func), 60)}(…)", site.span(call)
+                # Handed to code with no source to read, as TypeScript's library callbacks (#184): that it calls the function is assumed.
+                assumed = True
+            else:
                 continue
-            words = clip(source.segment(decorator.func if isinstance(decorator, ast.Call) else decorator), 60)
-            at = source.span(decorator)
             for param in info.params:
                 if info.is_method and param is info.params[0]:
                     continue
                 target = element_id("parameter", source.rel, source.span(param))
-                if target not in self.elements:
+                if target not in self.elements or self.dependency_results(info, param, info.qualname):
                     continue
-                detail = f"@{words} calls {info.qualname} from outside the program, passing {param.arg}"
+                detail = (f"Assumed: {words} has no source to read, so it is taken to call {info.qualname}, passing {param.arg}" if assumed
+                          else f"{words} calls {info.qualname} from outside the program, passing {param.arg}")
                 origin = self.add_element({
-                    "id": element_id("entry", source.rel, at, f"#{param.arg}"),
+                    "id": element_id("entry", site.rel, at, f"#{info.qualname}#{param.arg}"),
                     "kind": "parameter",
                     "operationKind": None,
-                    "label": clip(f"enters from @{words} → {param.arg}"),
-                    "location": source.location(at),
+                    "label": clip(f"enters from {words} → {param.arg}"),
+                    "location": site.location(at),
                     "ownerId": info.entry_id,
                     "attributes": {"originRole": "event", "name": param.arg, "binding": "framework"},
-                    "proof": {"kind": "syntax", "detail": detail, "locations": [source.location(at)]},
+                    "proof": {"kind": "syntax", "detail": detail, "locations": [site.location(at)]},
                 })
-                self.relate(source, origin, target, "request-binding", detail, source.span(param))
+                self.relate(source, origin, target, "request-binding", detail, source.span(param),
+                            status="partial" if assumed else "proven", proof_kind="external-call" if assumed else "syntax")
+
+    def dependency_results(self, info: FunctionInfo, param: ast.arg, why: str) -> bool:
+        """
+        `Depends(get_db)` on a parameter of a function FastAPI calls: FastAPI calls `get_db` (which it
+        thereby registers) and passes what it returns or yields to the parameter. False when the
+        parameter names no first-party dependency.
+        """
+        node = info.node
+        if isinstance(node, ast.Lambda):
+            return False
+        for site, marker in fastapi_markers(self, info.source, param_default(node.args, param), param.annotation):
+            if not isinstance(marker, ast.Call) or dotted_name(marker.func).split(".")[-1] not in ("Depends", "Security"):
+                continue
+            named = marker.args[0] if marker.args else next((kw.value for kw in marker.keywords if kw.arg == "dependency"), None)
+            target = self.resolve_function(self.dotted(site, named)) if named is not None else None
+            if target is None:
+                return False
+            self.injected.add(target.entry_id)
+            self.registrations.setdefault(target.entry_id, (site, marker))
+            detail = f"FastAPI calls {target.qualname} for {why} and passes its result to {param.arg}"
+            parameter = element_id("parameter", info.source.rel, info.source.span(param))
+            for result in own_nodes(target.node, (ast.Return, ast.Yield)):
+                if getattr(result, "value", None) is not None:
+                    kind = "return" if isinstance(result, ast.Return) else "value"
+                    self.relate(info.source, element_id(kind, target.source.rel, target.source.span(result)), parameter, "return-value", detail, info.source.span(param), proof_kind="fastapi")
+            return True
+        return False
 
     def finish_returns(self) -> None:
         """
@@ -860,7 +907,7 @@ class Program:
         """
         for info in self.functions.values():
             sites = self.calls.get(info.entry_id)
-            entry = sites is None or not sites["calls"]
+            entry = (sites is None or not sites["calls"]) and info.entry_id not in self.injected
             for ret in info.returns:
                 if ret.value is None:
                     continue
@@ -961,11 +1008,16 @@ def all_params(args: ast.arguments) -> list[ast.arg]:
 
 def own_returns(fn: ast.AST) -> list[ast.Return]:
     """Return statements of `fn` itself, not of functions nested in it."""
-    out: list[ast.Return] = []
+    return own_nodes(fn, ast.Return)  # type: ignore[return-value]
+
+
+def own_nodes(fn: ast.AST, kinds: type | tuple[type, ...]) -> list[ast.AST]:
+    """Nodes of these kinds in `fn` itself (its returns, its yields), not in functions nested in it."""
+    out: list[ast.AST] = []
     stack = list(ast.iter_child_nodes(fn))
     while stack:
         node = stack.pop()
-        if isinstance(node, ast.Return):
+        if isinstance(node, kinds):
             out.append(node)
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
             continue
@@ -1302,7 +1354,7 @@ class BodyWalker:
         if param.arg in ("self", "cls"):
             return
         kind, detail = fastapi_binding(self.program, self.source, param, info, route)
-        if kind is None:
+        if kind is None or (kind == "dependency" and self.program.dependency_results(info, param, route["key"])):
             return
         labels = {
             "path": f"path {{{param.arg}}}",
@@ -1316,7 +1368,7 @@ class BodyWalker:
             "request": "the request",
         }
         decorator_span = route["_decorator"]
-        # A `parameter` with `originRole: request` is the engine's request origin; a dependency is a plain input.
+        # A `parameter` with `originRole: request` is the engine's request origin; a dependency outside the program (`Depends(oauth2_scheme)`) reads the request too.
         origin = self.element(
             "parameter",
             None,
@@ -1326,7 +1378,7 @@ class BodyWalker:
             suffix=f"#{param.arg}",
             type_text=self.program.elements[element]["attributes"].get("typeText"),
             type_source=self.program.elements[element]["attributes"].get("typeSource"),
-            attributes={"binding": kind, "route": route["key"], "name": param.arg, **({"originRole": "request"} if kind != "dependency" else {})},
+            attributes={"binding": kind, "route": route["key"], "name": param.arg, "originRole": "request"},
             proof={"kind": "fastapi", "detail": detail, "locations": [self.source.location(decorator_span)]},
         )
         self.relate(origin, element, "request-binding", detail, param, proof_kind="fastapi")
@@ -1865,8 +1917,15 @@ class BodyWalker:
         type_text, type_source = self.type_of(node)
         attributes: dict[str, Any] = {"callee": target_name, "external": True} if target_name else {"external": True}
         # Resolved outside the program (site-packages, typeshed, the stdlib): code the walk cannot enter, named as such.
-        if target_name and target_name.split(".")[0] not in self.program.packages:
+        # Where the name was imported from decides it: mypy names an unresolvable import after the module that imports it (`app.deps.Session`).
+        outside = [name for name in (target_name, dotted) if name and name.split(".")[0] not in self.program.packages]
+        if outside:
             attributes["externalCallee"] = callee_text
+            # A first-party function handed to that code (`Depends(get_user)`) is called by it.
+            for child in [*node.args, *(kw.value for kw in node.keywords)]:
+                handed = self.program.resolve_function(self.program.dotted(source, child)) if isinstance(child, (ast.Name, ast.Attribute)) else None
+                if handed is not None:
+                    self.program.registrations.setdefault(handed.entry_id, (source, node))
         element = self.element("call-result", node, f"{callee_text}(…)", attributes=attributes,
                                proof={"kind": proof_kind, "detail": proof_name, "locations": [source.location(span)]} if proof_name else None)
         self.note(node, "Call")
@@ -2055,7 +2114,7 @@ def fastapi_binding(program: Program, source: Source, param: ast.arg, info: Func
     default = param_default(node.args, param)
     annotation = param.annotation
     explicit = None
-    for marker in [default, *annotated_extras(annotation)]:
+    for _, marker in fastapi_markers(program, source, default, annotation):
         if isinstance(marker, ast.Call):
             name = dotted_name(marker.func).split(".")[-1]
             if name in FASTAPI_PARAM_FUNCS:
@@ -2090,6 +2149,21 @@ def param_default(args: ast.arguments, param: ast.arg) -> ast.expr | None:
     if param in args.kwonlyargs:
         return args.kw_defaults[args.kwonlyargs.index(param)]
     return None
+
+
+def fastapi_markers(program: Program, source: Source, default: ast.expr | None, annotation: ast.expr | None) -> list[tuple[Source, ast.expr]]:
+    """What declares how FastAPI fills a parameter: its default, and the extras of its `Annotated[...]`, written inline or through a module-level alias (`SessionDep`)."""
+    found = [(source, default)] if default is not None else []
+    found += [(source, extra) for extra in annotated_extras(annotation)]
+    alias = program.aliases.get(program.dotted(source, annotation) or "") if isinstance(annotation, (ast.Name, ast.Attribute)) else None
+    if alias is None and isinstance(annotation, (ast.Name, ast.Attribute)):
+        # Imported from another module: `from app.api.deps import SessionDep`.
+        module, _, name = (program.dotted(source, annotation) or "").rpartition(".")
+        target = program.imports.get(module, {}).get(name)
+        alias = program.aliases.get(target or "")
+    if alias is not None:
+        found += [(alias[0], extra) for extra in annotated_extras(alias[1])]
+    return found
 
 
 def annotated_extras(annotation: ast.expr | None) -> list[ast.expr]:
