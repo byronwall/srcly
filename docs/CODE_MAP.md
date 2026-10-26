@@ -53,6 +53,7 @@ Browser
 | Scan cancellation (`CancelToken`, `ScanCancelled`, `cancel_all_scans`) | `server/app/services/scan_workers.py` |
 | Scan progress hooks (`ScanObserver`) | `server/app/services/scan_progress.py`; called from `analysis.py` |
 | Background scan jobs, progress snapshots, dedupe by path | `server/app/services/scan_jobs.py` (`ScanJob`, `ScanJobManager`) |
+| Compact tree on the wire (no defaults, derived child paths, gzip); cache, compare and CLI keep the full tree | `server/app/services/scan_jobs.py` (`compact_tree`, `expand_tree`, `ScanJob.result_response`); client inverse `client/src/utils/normalizeTree.ts` (in `fetchScanResult`) |
 | Language dispatch by extension | `server/app/services/analysis.py` (`analyze_single_file`) |
 | TypeScript / TSX metrics + nested scopes | `server/app/services/typescript/typescript_analysis.py` |
 | React/Solid component detection + per-component metrics (hooks, effects, JSX depth, props, inline handlers, JSX conditionals) | `server/app/services/typescript/components.py`; copied onto component scopes in `typescript_analysis.py` (`_attach_components`); file/folder max + `witnesses` in `analysis.py` |
