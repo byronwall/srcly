@@ -1396,7 +1396,12 @@ class BodyWalker:
             self.returned_use(ret, node)
             return
         if isinstance(node, ast.Expr):
-            self.expr(node.value)
+            if isinstance(node.value, ast.Constant):
+                return  # a docstring
+            value = self.program.elements.get(self.expr(node.value) or "")
+            if value is not None and not isinstance(node.value, (ast.Yield, ast.YieldFrom)) and "externalCallee" not in value["attributes"]:
+                # A statement drops its expression's result: `init_db(session)`. Code outside the program that took it is named as such instead.
+                value["attributes"].setdefault("endsInPlace", "discard")
             return
         if isinstance(node, (ast.If, ast.While)):
             self.test(node.test)
@@ -1468,7 +1473,8 @@ class BodyWalker:
         if isinstance(target, (ast.Attribute, ast.Subscript)):
             base = self.expr(target.value)
             field_name = target.attr if isinstance(target, ast.Attribute) else constant_key(target.slice)
-            write = self.element("value", target, self.source.segment(target), id_kind="field-write", attributes={"property": field_name, "write": True} if field_name else {"write": True})
+            write = self.element("value", target, self.source.segment(target), id_kind="field-write",
+                                 attributes={"property": field_name, "write": True, "endsInPlace": "write"} if field_name else {"write": True, "endsInPlace": "write"})
             self.relate(value, write, "pack-field", f"stored in {clip(self.source.segment(target), 60)}", target)
             self.relate(base, write, "carrier", "the object written to", target.value, status="partial")
             if isinstance(target, ast.Subscript):
@@ -1496,8 +1502,8 @@ class BodyWalker:
     # ---- expressions
 
     def literal(self, node: ast.expr) -> str | None:
-        """A constant (`"bearer"`, `1`, `True`) as a `literal` element: where a value naturally begins."""
-        if not isinstance(node, ast.Constant) or node.value is None or node.value is Ellipsis:
+        """A constant (`"bearer"`, `1`, `True`, `None`) as a `literal` element: where a value naturally begins."""
+        if not isinstance(node, ast.Constant) or node.value is Ellipsis:
             return None
         return self.element("literal", node, self.source.segment(node))
 
@@ -1527,7 +1533,7 @@ class BodyWalker:
         return element
 
     def expr_Constant(self, node: ast.Constant) -> str | None:
-        return None
+        return self.literal(node)
 
     def expr_Name(self, node: ast.Name) -> str | None:
         if not isinstance(node.ctx, ast.Load):
@@ -1577,7 +1583,9 @@ class BodyWalker:
             if target is not None:
                 self.program.record_escape(target)
             if dotted and not self.program.resolve_class(dotted):
-                element = self.element("value", node, self.source.segment(node))
+                # A module outside the program (`os.path`, `django.conf.settings`) is where the value begins, as an external import is.
+                outside = dotted.split(".")[0] not in self.program.packages
+                element = self.element("value", node, self.source.segment(node), attributes={"naturalStart": True} if outside else None)
                 self.note(node, "Attribute")
                 return element
             return None
@@ -1660,7 +1668,8 @@ class BodyWalker:
             self.note(node, "Subscript")
             return element
         base = self.expr(node.value)
-        index = self.expr(node.slice)
+        # A constant key picks what is read; it is not part of the value.
+        index = None if isinstance(node.slice, ast.Constant) else self.expr(node.slice)
         if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, (str, int)):
             metadata = {"indexKind": "string-literal" if isinstance(node.slice.value, str) else "numeric-literal", "indexValue": str(node.slice.value)}
         else:
@@ -1705,6 +1714,8 @@ class BodyWalker:
         return element
 
     def expr_Dict(self, node: ast.Dict) -> str | None:
+        if not node.keys:
+            return self.element("literal", node, self.source.segment(node))  # `{}`: a value begins here
         element = self.element("object-pack", node, clip(self.source.segment(node), 60))
         for key, value in zip(node.keys, node.values):
             name = constant_key(key) if key is not None else None
@@ -1717,6 +1728,8 @@ class BodyWalker:
     def expr_List(self, node: ast.List | ast.Tuple | ast.Set) -> str | None:
         if not isinstance(getattr(node, "ctx", ast.Load()), ast.Load):
             return None
+        if not node.elts:
+            return self.element("literal", node, self.source.segment(node))  # `[]`, `()`: a value begins here
         items = [(child, self.expr(child)) for child in node.elts]
         if not any(item for _, item in items):
             return None

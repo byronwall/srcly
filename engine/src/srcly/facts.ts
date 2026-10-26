@@ -104,9 +104,9 @@ export function naturalEnd(tier1: Tier1, element: Pick<ProgramElement, "kind" | 
 }
 
 /** Whether a value naturally begins at this element: a literal, a literal constant, an external import or global. */
-export function isNaturalStart(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module">): boolean {
-  if (element.kind === "literal") return true;
-  // A Python program has no TypeScript nodes to read: only its literal elements are natural starts.
+export function isNaturalStart(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module"> & { attributes?: ProgramElement["attributes"] }): boolean {
+  // A provider may mark a start it found itself (`naturalStart`), as the Python helper does for a module outside the program (`os.path`).
+  if (element.kind === "literal" || element.attributes?.naturalStart === true) return true;
   if (tier1.language !== "typescript") return false;
   const { ts } = tier1;
   const root = path.resolve(tier1.args.root);
@@ -154,7 +154,7 @@ function namesCallee(tier1: Tier1, element: Pick<ProgramElement, "location">): b
 }
 
 /** The note on a value the code ends in place, by how it ends there. */
-export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: "ends here · written, not read", key: "ends here · picks a field" };
+export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: "ends here · written, not read", key: "ends here · picks a field", discard: "ends here · its result is not used" };
 
 /**
  * How the code ends the value at this element where it is used, without
@@ -165,8 +165,10 @@ export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: 
  * Null otherwise.
  */
 export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "location" | "attributes">): keyof typeof IN_PLACE_NOTES | null {
-  // The Python helper marks a branch test where it walks one.
-  if (tier1.language !== "typescript") return element.attributes?.endsInPlace === "branch" ? "branch" : null;
+  // A provider may mark the end it found itself (`endsInPlace`), as the Python helper does for a branch test, a write or a dropped result.
+  const marked = element.attributes?.endsInPlace;
+  if (typeof marked === "string" && Object.hasOwn(IN_PLACE_NOTES, marked)) return marked as keyof typeof IN_PLACE_NOTES;
+  if (tier1.language !== "typescript") return null;
   const { ts } = tier1;
   const sourceFile = tier1.program.getSourceFile(path.resolve(tier1.args.root, element.location.file));
   let node: TypeScript.Node | null = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;

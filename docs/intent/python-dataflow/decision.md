@@ -79,6 +79,10 @@ The engine derives origin roles, terminal roles and boundaries from an element's
 | `HTTPException(...)`, Starlette / FastAPI response classes, Flask's `jsonify`, `make_response`, `render_template` | `http-response` |
 | `logging` calls | `external-effect` (side effect) |
 | `print`, `sys.stdout.write`, `sys.exit`, file writes | `stdout`, `exit-status`, `file-write` |
+| a constant (`"x"`, `1`, `None`) or an empty `{}` / `[]` / `()` | `literal`: where a value begins. A constant subscript key (`config["a"]`) picks what is read and is no input of it |
+| an attribute of a module outside the program (`os.path`, `django.conf.settings`) | `value` with `naturalStart: true`: where a value begins, as an external import does |
+| an expression statement's result (`init_db(session)`), unless code outside the program took it | `endsInPlace: "discard"` on the value: it ends there, unused |
+| an attribute or subscript write (`holder.text = text`) | `value` with `endsInPlace: "write"`: written, not read |
 | attribute read / literal subscript | `field-read` (`operationKind: field-read`, `property`) / `index-read` |
 | first-party call | `call-result`; `argument-binding` into the callee's parameters and `return-value` back; when the callee returns a value, each bound argument is also an `argument` of the call, so the slice pairs the return with the call it entered by (T13), as in TypeScript. A walk that starts inside a helper with several call sites still stops at its return (R7) |
 | library call | `call-result` with `call-input` relations marked partial: the result is assumed to carry its inputs |
