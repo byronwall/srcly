@@ -4,7 +4,7 @@
 // follow: `props.note` stays a dead end.
 export function Modes(props: { mode: string; note: string }) {
   const state = { label: "", note: "" };
-  if (props.mode === "dark") state.label = "dark";
-  state.note = props.note;
+  if (props.mode === "dark") state.label = "dark"; // @trace mode forward props.mode @outcome mode ok @reaches mode derived
+  state.note = props.note; // @trace note forward props.note @outcome note partial @stop note disconnected field-read
   return <span>{state.label}</span>;
 }

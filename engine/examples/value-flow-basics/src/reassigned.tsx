@@ -5,13 +5,13 @@
 // before `value` is read, so it never reaches the slot.
 export function Reassigned(props: { first: string; second: string; flag: boolean }) {
   let label = "none";
-  if (props.flag) label = props.first;
-  else label = props.second;
-  return <span>{label}</span>;
+  if (props.flag) label = props.first; // @trace re-first forward props.first
+  else label = props.second; // @trace re-second forward props.second @outcome re-first,re-second ok @edge re-first,re-second references partial
+  return <span>{label}</span>; // @reaches re-first,re-second render-terminal
 }
 
 export function Overwritten(props: { stale: string; fresh: string }) {
-  let value = props.stale;
-  value = props.fresh;
-  return <b>{value}</b>;
+  let value = props.stale; // @trace stale forward props.stale @stop stale disconnected * "value"
+  value = props.fresh; // @trace fresh forward props.fresh @outcome fresh ok @no-edge fresh * !proven
+  return <b>{value}</b>; // @reaches fresh render-terminal
 }

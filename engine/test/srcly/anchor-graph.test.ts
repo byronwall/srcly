@@ -72,41 +72,6 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(boxes(both).every((node) => node.side === "seed" || node.side === "up" || node.side === "down" || node.side === "both")).toBe(true);
   });
 
-  it("keeps two calls of one helper apart: each argument lands at its own call's slot (T13)", () => {
-    const a = anchorGraphOp(session, { ...find(basics, "src/two-call-identity-helper.tsx", "props.a", "id(props.a)"), direction: "forward" });
-    expect(a.outcome).toBe("ok");
-    expect(boxes(a, "terminal").map((node) => [node.label, node.line])).toEqual([["id(props.a)", 11]]);
-    expect(boxes(a, "boundary")).toEqual([]);
-    expect(a.nodes.some((node) => node.line === 12 && node.kind !== "scope")).toBe(false);
-    const b = anchorGraphOp(session, { ...find(basics, "src/two-call-identity-helper.tsx", "props.b", "id(props.b)"), direction: "forward" });
-    expect(boxes(b, "terminal").map((node) => [node.label, node.line])).toEqual([["id(props.b)", 12]]);
-    expect(b.nodes.some((node) => node.line === 11 && node.kind !== "scope")).toBe(false);
-  });
-
-  it("leaves a helper through every call when the walk starts inside it: each call site is a true destination", () => {
-    const graph = anchorGraphOp(session, { ...find(basics, "src/two-call-identity-helper.tsx", "value", "return value;"), direction: "forward" });
-    expect(graph.outcome).toBe("ok");
-    expect(boxes(graph, "boundary")).toEqual([]);
-    expect(boxes(graph, "terminal").map((node) => node.line).sort()).toEqual([11, 12]);
-    // From the parameter up, every caller is a true source.
-    const up = anchorGraphOp(session, { ...find(basics, "src/two-call-identity-helper.tsx", "value", "function id"), direction: "backward" });
-    expect(boxes(up, "boundary")).toEqual([]);
-    expect(boxes(up).filter((node) => node.elementKind === "field-read").map((node) => node.label).sort()).toEqual(["a", "b"]);
-  });
-
-  it("never leaves a helper at another call than the one it entered by, backward either (T13)", () => {
-    const graph = anchorGraphOp(session, { ...find(basics, "src/two-call-identity-helper.tsx", "id(props.b)", "<em>"), direction: "backward" });
-    expect(boxes(graph, "boundary")).toEqual([]);
-    expect(boxes(graph).filter((node) => node.elementKind === "field-read").map((node) => node.label)).toEqual(["b"]);
-  });
-
-  it("never lets an argument the callee does not return reach the call's result (T13)", () => {
-    const graph = anchorGraphOp(session, { ...find(basics, "src/returns-other-argument.tsx", "props.first", "pick(props.first"), direction: "forward" });
-    expect(graph.outcome).toBe("partial");
-    expect(graph.counts.terminals).toBe(0);
-    expect(boxes(graph, "frontier").map((node) => [node.reason, node.line])).toEqual([["disconnected", 4]]);
-  });
-
   it("enters a helper through its binding, through the library method its body calls, and back out at its own call's slot", () => {
     const graph = anchorGraphOp(session, { ...find(basics, "src/two-call-helper.tsx", "props.a", "shout(props.a)"), direction: "forward" });
     // It lands with no stop, but only by assuming what `toUpperCase` does: partial, never ok.
@@ -153,230 +118,6 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(graph.outcome).toBe("partial");
   });
 
-  it("binds a caller's attribute to a destructured or optional prop, and leaves a prop no occurrence passes unbound", () => {
-    const unbound = (graph: AnchorGraphResult) => boxes(graph, "frontier").filter((node) => node.reason === "unbound-read").map((node) => node.label);
-    // `title` and `item` are destructured: the caller's attributes reach them, so their reads land; `note` is never passed.
-    const section = anchorGraphOp(session, { file: "src/prop-bindings.tsx", name: "Section", line: 5, direction: "backward" });
-    expect(section.outcome).toBe("partial");
-    expect(unbound(section)).toEqual(["length"]);
-    expect(boxes(section).some((node) => node.elementKind === "literal" && node.label === '"Hello world"')).toBe(true);
-    // `hint` is optional and passed, so it binds; `tone` is optional and never passed.
-    const hint = anchorGraphOp(session, { file: "src/prop-bindings.tsx", name: "Hint", line: 14, direction: "backward" });
-    expect(unbound(hint)).toEqual(["tone"]);
-    expect(boxes(hint).some((node) => node.elementKind === "literal" && node.label === '"Try again"')).toBe(true);
-  });
-
-  it("follows a classified call (a validation, a serialization) as the call, and keeps one whose value nothing uses at a stop", () => {
-    for (const marker of ["JSON.stringify(props.state)", "isReady(props.state)"]) {
-      const graph = anchorGraphOp(session, { ...find(basics, "src/classified-calls.tsx", "props.state", marker), direction: "forward" });
-      expect(graph.outcome, marker).toBe("ok");
-      expect(boxes(graph, "frontier"), marker).toEqual([]);
-    }
-    const ready = anchorGraphOp(session, { file: "src/classified-calls.tsx", name: "isReady", line: 4, direction: "forward" });
-    expect(ready.outcome).toBe("ok");
-    const discarded = anchorGraphOp(session, { ...find(basics, "src/classified-calls.tsx", "props.count"), direction: "forward" });
-    expect(discarded.outcome).toBe("partial");
-    expect(boxes(discarded, "frontier").map((node) => [node.elementKind, node.line])).toEqual([["call", 8]]);
-  });
-
-  it("reads partial when one of a component's prop walks stops short of an origin", () => {
-    const graph = anchorGraphOp(session, { file: "src/half-landed.tsx", name: "Pair", line: 7, direction: "both" });
-    expect(graph.outcome).toBe("partial");
-    expect(boxes(graph, "origin").length).toBe(1);
-    const reads = graph.edges.filter((edge) => edge.kind === "prop-read").map((edge) => edge.label).sort();
-    expect(reads).toEqual(["count", "title"]);
-  });
-
-  it("draws a dead end where a value stops short of a terminal: a local nothing reads, an untyped callback", () => {
-    const unused = anchorGraphOp(session, { ...find(basics, "src/dead-end.tsx", "props.label", "unused ="), direction: "forward" });
-    expect(unused.outcome).toBe("partial");
-    const [stop] = boxes(unused, "frontier");
-    expect(stop).toMatchObject({ reason: "disconnected", status: "partial", side: "down", elementKind: "alias", line: 6 });
-    // Named by where it stopped, as the ledger's boundary row is; the sentence is its note.
-    expect(stop).toMatchObject({ label: "unused", note: "dead end · nothing continues from here" });
-    expect(unused.counts).toMatchObject({ terminals: 0, frontiers: 1 });
-    const callback = anchorGraphOp(session, { ...find(basics, "src/dead-end.tsx", "props.onPick"), direction: "forward" });
-    expect(callback.outcome).toBe("partial");
-    // The callback is consumed by its call, whose body the engine cannot see: the dead end is the call.
-    expect(boxes(callback, "frontier").map((node) => [node.reason, node.elementKind, node.line])).toEqual([["disconnected", "call", 9]]);
-  });
-
-  it("carries a receiver through a library method, and begins a value at a global the program does not declare", () => {
-    const trimmed = anchorGraphOp(session, { ...find(basics, "src/callee-consumed.tsx", "props.title", "props.title.trim()"), direction: "forward" });
-    expect(trimmed.outcome).toBe("partial");
-    expect(boxes(trimmed, "frontier")).toEqual([]);
-    expect(boxes(trimmed, "terminal")).toMatchObject([{ elementKind: "render-terminal", line: 18 }]);
-    const json = anchorGraphOp(session, { ...find(basics, "src/callee-consumed.tsx", "JSON.stringify(props.data)", "<code>"), direction: "backward" });
-    expect(boxes(json).some((node) => node.label === "JSON")).toBe(true);
-    // `JSON` is where its value begins, never a stop; only `props`, which no caller reaches, is.
-    expect(boxes(json, "frontier").map((node) => node.label)).toEqual(["props"]);
-    // An argument stays at its own call: a callee with no body has no call sites to pair, and is no handoff to prove.
-    expect(boxes(json, "boundary")).toEqual([]);
-  });
-
-  it("enters a first-party method through `this`: the receiver is bound like an argument", () => {
-    const box = anchorGraphOp(session, { ...find(basics, "src/callee-consumed.tsx", "box", "<b>{box"), direction: "forward" });
-    expect(box.outcome).toBe("ok");
-    expect(boxes(box).some((node) => node.elementKind === "parameter" && node.label === "this")).toBe(true);
-    expect(boxes(box, "terminal")).toMatchObject([{ elementKind: "render-terminal", line: 20 }]);
-  });
-
-  it("pairs a method's receiver with its own call: one receiver never comes out at another's call (T13)", () => {
-    const first = anchorGraphOp(session, { ...find(basics, "src/this-methods.tsx", "first", "{first.read"), direction: "forward" });
-    expect(first.outcome).toBe("ok");
-    expect(boxes(first, "terminal").map((node) => node.line)).toEqual([17]);
-    const back = anchorGraphOp(session, { ...find(basics, "src/this-methods.tsx", "second.read()", "{second.read"), direction: "backward" });
-    expect(boxes(back).some((node) => node.label === "first" || node.label === "counter")).toBe(false);
-    expect(boxes(back).some((node) => node.elementKind === "field-read" && node.label === "other")).toBe(true);
-  });
-
-  it("lands a value the code ends in place: a branch test is a terminal, not a dead end", () => {
-    const mode = anchorGraphOp(session, { ...find(basics, "src/ends-in-place.tsx", "props.mode", "if (props.mode"), direction: "forward" });
-    expect(mode.outcome).toBe("ok");
-    expect(boxes(mode, "terminal")).toMatchObject([{ elementKind: "derived", line: 7, note: "ends here · decides a branch" }]);
-    expect(mode.counts.frontiers).toBe(0);
-  });
-
-  it("keeps a value written into another object's field at a dead end: a write target ends nothing it is assigned", () => {
-    const note = anchorGraphOp(session, { ...find(basics, "src/ends-in-place.tsx", "props.note", "state.note ="), direction: "forward" });
-    expect(note.outcome).toBe("partial");
-    expect(boxes(note, "frontier").map((node) => [node.reason, node.elementKind, node.line])).toEqual([["disconnected", "field-read", 8]]);
-  });
-
-  it("carries operands into an operator's value: arithmetic and a template reach the slot", () => {
-    const count = anchorGraphOp(session, { ...find(basics, "src/derived-operands.tsx", "props.count", "props.count + 1"), direction: "forward" });
-    expect(count.outcome).toBe("ok");
-    expect(boxes(count).filter((node) => node.elementKind === "derived").map((node) => node.label)).toEqual(["props.count + 1", "`${props.count + 1} items`"]);
-    expect(boxes(count, "terminal")).toMatchObject([{ elementKind: "render-terminal", line: 6 }]);
-  });
-
-  it("reads a computed key's receiver as a partial read of some field, not a stop", () => {
-    const labels = anchorGraphOp(session, { ...find(basics, "src/computed-index.tsx", "props.labels", "const label"), direction: "forward" });
-    expect(labels.outcome).toBe("ok");
-    expect(labels.counts.frontiers).toBe(0);
-    expect(boxes(labels).find((node) => node.elementKind === "index-read")).toMatchObject({ status: "partial" });
-    expect(boxes(labels, "terminal")).toMatchObject([{ elementKind: "render-terminal", line: 8 }]);
-  });
-
-  it("ends a computed key at the index it picks: the key is never the value read", () => {
-    const key = anchorGraphOp(session, { ...find(basics, "src/computed-index.tsx", "props.key", "const key"), direction: "forward" });
-    expect(boxes(key, "terminal")).toMatchObject([{ line: 7, note: "ends here · picks a field" }]);
-    expect(boxes(key).some((node) => node.elementKind === "render-terminal")).toBe(false);
-  });
-
-  it("lets a read see every assignment that can reach it", () => {
-    for (const [text, marker] of [["props.first", "label = props.first"], ["props.second", "label = props.second"]]) {
-      const graph = anchorGraphOp(session, { ...find(basics, "src/reassigned.tsx", text, marker), direction: "forward" });
-      expect(graph.outcome, text).toBe("ok");
-      expect(boxes(graph, "terminal")).toMatchObject([{ elementKind: "render-terminal", line: 10 }]);
-      // One of the bindings that can reach the read: the hand-off is partial.
-      expect(graph.edges.some((edge) => edge.kind === "references" && edge.status === "partial")).toBe(true);
-    }
-  });
-
-  it("lets a straight-line assignment overwrite the binding before it: the stale value never reaches the read", () => {
-    const stale = anchorGraphOp(session, { ...find(basics, "src/reassigned.tsx", "props.stale", "let value"), direction: "forward" });
-    expect(stale.counts.terminals).toBe(0);
-    expect(boxes(stale, "frontier").map((node) => [node.reason, node.label, node.line])).toEqual([["disconnected", "value", 14]]);
-    const fresh = anchorGraphOp(session, { ...find(basics, "src/reassigned.tsx", "props.fresh", "value = props.fresh"), direction: "forward" });
-    expect(fresh.outcome).toBe("ok");
-    expect(fresh.edges.every((edge) => edge.status === "proven")).toBe(true);
-  });
-
-  it("packs array elements and spreads, binds a `for…of` variable to each element, and hands a JSX spread to its element", () => {
-    for (const text of ["props.first", "props.rest"]) {
-      const graph = anchorGraphOp(session, { ...find(basics, "src/collections.tsx", text, "const all"), direction: "forward" });
-      expect(graph.outcome, text).toBe("ok");
-      expect(boxes(graph).some((node) => node.elementKind === "alias" && node.label === "item")).toBe(true);
-      expect(boxes(graph, "terminal")).toMatchObject([{ elementKind: "render-terminal", line: 9 }]);
-    }
-    const attrs = anchorGraphOp(session, { ...find(basics, "src/collections.tsx", "props.attrs", "<b {"), direction: "forward" });
-    expect(attrs.outcome).toBe("ok");
-    expect(attrs.counts.terminals).toBe(1);
-  });
-
-  it("renders a component a factory or an alias makes at each JSX tag that names it", () => {
-    const badge = anchorGraphOp(session, { file: "src/component-aliases.tsx", name: "Badge", line: 16, direction: "forward" });
-    expect(badge.outcome).toBe("ok");
-    expect(boxes(badge, "terminal")).toMatchObject([{ elementKind: "component-occurrence", label: "Badge", line: 27 }]);
-    // `Plain` is `Card` under another name: its tag binds Card's props, so `props.name` reaches Card's slot.
-    const plain = anchorGraphOp(session, { file: "src/component-aliases.tsx", name: "Plain", line: 15, direction: "forward" });
-    expect(boxes(plain, "terminal")).toMatchObject([{ elementKind: "component-occurrence", line: 26 }]);
-    const name = anchorGraphOp(session, { ...find(basics, "src/component-aliases.tsx", "props.name", "<Plain"), direction: "forward" });
-    expect(name.outcome).toBe("ok");
-    expect(boxes(name, "terminal").some((node) => node.elementKind === "render-terminal" && node.line === 12)).toBe(true);
-    // A library factory's component: its prop and child are handed to the occurrence, never a DOM attribute.
-    const tone = anchorGraphOp(session, { ...find(basics, "src/component-aliases.tsx", "props.tone", "<Badge title"), direction: "forward" });
-    expect(boxes(tone, "terminal").map((node) => [node.elementKind, node.line])).toEqual([["component-occurrence", 27]]);
-    // A shorthand `{ point }` packs the value it names.
-    const point = anchorGraphOp(session, { file: "src/component-aliases.tsx", name: "point", line: 22, direction: "forward" });
-    expect(point.outcome).toBe("ok");
-    expect(boxes(point, "terminal")).toMatchObject([{ elementKind: "render-terminal", line: 28 }]);
-  });
-
-  it("never joins two values of one factory, and keeps a value nothing renders at a dead end", () => {
-    const pill = anchorGraphOp(session, { file: "src/component-aliases.tsx", name: "Pill", line: 17, direction: "forward" });
-    expect(boxes(pill, "terminal").map((node) => node.line)).toEqual([34]);
-    const badge = anchorGraphOp(session, { file: "src/component-aliases.tsx", name: "Badge", line: 16, direction: "forward" });
-    expect(badge.nodes.some((node) => node.line === 34)).toBe(false);
-    for (const [label, line] of [["Unused", 18], ["labels", 19]] as const) {
-      const graph = anchorGraphOp(session, { file: "src/component-aliases.tsx", name: label, line, direction: "forward" });
-      expect(graph.outcome, label).toBe("partial");
-      expect(boxes(graph, "frontier").map((node) => [node.reason, node.label])).toEqual([["disconnected", label]]);
-    }
-    // A shorthand packs the binding its name resolves to: a shadowed outer `point` never reaches the inner pack.
-    const outer = anchorGraphOp(session, { file: "src/component-aliases.tsx", name: "point", line: 40, direction: "forward" });
-    expect(boxes(outer, "terminal").map((node) => node.line)).toEqual([47]);
-    const inner = anchorGraphOp(session, { file: "src/component-aliases.tsx", name: "point", line: 42, direction: "forward" });
-    expect(inner.nodes.some((node) => node.line === 47)).toBe(false);
-  });
-
-  it("never binds a `for…in` key to the values it iterates", () => {
-    const table = anchorGraphOp(session, { ...find(basics, "src/collections.tsx", "props.table", "for (const key"), direction: "forward" });
-    expect(table.counts.terminals).toBe(0);
-    expect(boxes(table, "frontier").map((node) => [node.reason, node.label])).toEqual([["disconnected", "table"]]);
-  });
-
-  it("carries a state pair's setter argument and initial value to its getter's reads, as a framework-modelled partial edge", () => {
-    for (const [file, text, marker, line] of [
-      ["src/state-pairs.tsx", "props.next", "setName(props.next)", 16],
-      ["src/state-pairs.tsx", "props.start", "createSignal(props.start)", 16],
-      ["src/state-pairs.tsx", "props.title", "state.setDoc", 29],
-      ["src/react-state.tsx", "props.picked", "setLabel(props.picked)", 9],
-      ["src/react-state.tsx", "props.initial", "useState(props.initial)", 9],
-    ] as const) {
-      const graph = anchorGraphOp(session, { ...find(basics, file, text, marker), direction: "forward" });
-      expect(graph.outcome, text).toBe("ok");
-      expect(boxes(graph, "terminal").filter((node) => node.elementKind === "render-terminal").map((node) => node.line), text).toEqual([line]);
-      expect(graph.edges.some((edge) => edge.status === "partial" && edge.proof[0]?.kind === "framework-state"), text).toBe(true);
-      // The framework's model says what the factory, setter and getter calls do: none of them is library code assumed to pass the value on.
-      expect(graph.edges.some((edge) => edge.proof.some((item) => item?.kind === "external-call")), text).toBe(false);
-    }
-  });
-
-  it("never mixes two state pairs: one setter's argument never reaches another getter, forward or backward", () => {
-    const other = anchorGraphOp(session, { ...find(basics, "src/state-pairs.tsx", "props.other", "setCount(props.other)"), direction: "forward" });
-    expect(boxes(other, "terminal").map((node) => node.line)).toEqual([17]);
-    const name = anchorGraphOp(session, { ...find(basics, "src/state-pairs.tsx", "name()", "<span>{name()"), direction: "backward" });
-    expect(boxes(name).some((node) => node.label === "other" || node.label === "count")).toBe(false);
-    expect(boxes(name).filter((node) => node.elementKind === "field-read").map((node) => node.label).sort()).toEqual(["next", "start"]);
-  });
-
-  it("keeps a derived value nothing reads at a dead end", () => {
-    const limit = anchorGraphOp(session, { ...find(basics, "src/derived-operands.tsx", "props.limit", "tooMany ="), direction: "forward" });
-    expect(limit.outcome).toBe("partial");
-    expect(boxes(limit, "frontier").map((node) => [node.reason, node.label, node.line])).toEqual([["disconnected", "tooMany", 5]]);
-  });
-
-  it("returns an arrow function's expression body to its own call, and keeps two calls apart (T13)", () => {
-    const a = anchorGraphOp(session, { ...find(basics, "src/arrow-body-return.tsx", "props.a", "shout(props.a)"), direction: "forward" });
-    expect(a.outcome).toBe("ok");
-    expect(boxes(a).some((node) => node.elementKind === "return" && node.line === 4)).toBe(true);
-    expect(boxes(a, "terminal").map((node) => node.line)).toEqual([9]);
-    const b = anchorGraphOp(session, { ...find(basics, "src/arrow-body-return.tsx", "props.b", "shout(props.b)"), direction: "forward" });
-    expect(boxes(b, "terminal").map((node) => node.line)).toEqual([10]);
-  });
-
   it("takes a component's own parameters and returns, not those of the helpers nested inside it", () => {
     const graph = anchorGraphOp(session, { file: "src/nested-helpers.tsx", name: "Rail", line: 5, direction: "both" });
     const anchor = graph.nodes.find((node) => node.kind === "anchor")!;
@@ -393,13 +134,6 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(graph.outcome).toBe("ok");
   });
 
-  it("binds a prop read inside a closure, and a string attribute, to the caller in another file", () => {
-    const graph = anchorGraphOp(session, { file: "src/closure-props.tsx", name: "Chip", line: 4, direction: "backward" });
-    const literals = boxes(graph).filter((node) => node.elementKind === "literal").map((node) => node.label);
-    // `tone="warm"` (read in an arrow) and `count={2}` (read in a nested function) both reach their literal.
-    expect(literals).toEqual(expect.arrayContaining(["\"warm\"", "2"]));
-  });
-
   it("never binds a read that only looks like the prop: a shadowed `props`, another object's field", () => {
     const tier1 = session.tier1();
     const provider = tier1.provider();
@@ -407,27 +141,6 @@ describe("anchorGraph on value-flow-basics", () => {
     const bound = (id: string) => provider.getRelations(id, "backward").some((relation) => relation.kind === "component-prop-binding");
     // Chip's own `props.tone`, the shadowed parameter's, and `other.tone`: only the first is bound.
     expect(reads.map((read) => [read.location.span.startLine, bound(read.id)])).toEqual([[5, true], [10, false], [13, false]]);
-  });
-
-  it("lands a plain function's field reads through the argument its caller passes, with no per-read frontier", () => {
-    const graph = anchorGraphOp(session, { file: "src/function-field-reads.ts", name: "describeItem", line: 5, direction: "backward" });
-    // The reads are drawn, joined to the parameter they read.
-    const reads = graph.edges.filter((edge) => edge.kind === "prop-read").map((edge) => graph.nodes.find((node) => node.id === edge.source)!.label);
-    expect(reads.length).toBeGreaterThan(0);
-    expect(boxes(graph, "frontier").filter((node) => node.reason === "unbound-read")).toEqual([]);
-    expect(graph.outcome).toBe("ok");
-  });
-
-  it("stops a prop read no binding reaches at a frontier, instead of landing it through another prop", () => {
-    // `note` is never passed; `tone` and `count` are, and start at literals. The shared `props` must not carry their landing to note.
-    const graph = anchorGraphOp(session, { file: "src/closure-props.tsx", name: "Chip", line: 4, direction: "backward" });
-    expect(graph.outcome).toBe("partial");
-    const stops = boxes(graph, "frontier");
-    expect(stops).toHaveLength(1);
-    expect(stops[0]).toMatchObject({ label: "note", reason: "unbound-read", status: "partial", line: 15 });
-    expect(stops[0].note).toMatch(/not traced/);
-    const read = graph.nodes.find((node) => node.elementKind === "field-read" && node.label === "note")!;
-    expect(graph.edges.some((edge) => edge.kind === "gap" && edge.source === stops[0].id && edge.target === read.id)).toBe(true);
   });
 
   it("folds the gaps of one element limit into one frontier that names what it did not follow", () => {
@@ -465,79 +178,13 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(boxes(few, "frontier").filter((node) => node.reason === "budget-exhausted")).toEqual([]);
   });
 
-  it("keeps a discarded library call's argument in its receiver, as an assumption", () => {
-    const pushed = anchorGraphOp(session, { ...find(basics, "src/external-calls.tsx", "props.tags[0]"), direction: "forward" });
-    expect(pushed.outcome).toBe("partial");
-    expect(boxes(pushed, "frontier")).toEqual([]);
-    const names = pushed.nodes.find((node) => node.elementKind === "alias" && node.label === "names")!;
-    const write = pushed.edges.find((edge) => edge.target === names.id)!;
-    expect(write).toMatchObject({ kind: "references", status: "partial" });
-    expect(write.proof[0]).toMatchObject({ kind: "external-call" });
-    expect(boxes(pushed, "terminal")).toMatchObject([{ label: "names", line: 15 }]);
-  });
-
-  it("never writes a call's argument into its receiver when the call's value is kept", () => {
-    const concat = anchorGraphOp(session, { ...find(basics, "src/external-calls.tsx", "props.tags", "= kept.concat"), direction: "forward" });
-    expect(concat.nodes.some((node) => node.label === "kept")).toBe(false);
-    // The only assumption is that `concat`'s value derives from its argument.
-    expect(concat.edges.filter((edge) => edge.status === "partial").map((edge) => edge.kind)).toEqual(["argument"]);
-    expect(boxes(concat, "terminal")).toMatchObject([{ label: "more" }]);
-    // Module state the function does not own: the push stays an external-code stop.
-    const logged = anchorGraphOp(session, { ...find(basics, "src/external-calls.tsx", "entry", "log.push(entry)"), direction: "forward" });
-    expect(logged.nodes.some((node) => node.label === "log")).toBe(false);
-    expect(boxes(logged, "frontier")).toMatchObject([{ reason: "external-code", label: "log.push" }]);
-  });
-
-  it("hands a library call's receiver to its callback's parameters whose type accepts it, and the callback's return to the call", () => {
+  it("hands a library call's receiver to its callback's parameter alone (the rest is annotated in the fixture)", () => {
     const graph = anchorGraphOp(session, { ...find(basics, "src/library-callbacks.tsx", "props.items", "props.items.reduce"), direction: "forward" });
     const item = graph.nodes.find((node) => node.elementKind === "parameter" && node.label === "item")!;
-    const bound = graph.edges.find((edge) => edge.kind === "callback-parameter" && edge.target === item.id)!;
-    expect(bound).toMatchObject({ status: "partial", proof: [expect.objectContaining({ kind: "external-call" })] });
-    // Only the receiver is handed in: never the call's other argument (`0`), and never to `sum`, a number, not an item.
+    expect(graph.edges.find((edge) => edge.kind === "callback-parameter" && edge.target === item.id)).toMatchObject({ status: "partial" });
+    // Only the receiver is handed in: never the call's other argument (`0`).
     const handed = graph.edges.filter((edge) => edge.kind === "callback-parameter");
     expect(handed.map((edge) => graph.nodes.find((node) => node.id === edge.source)?.label)).toEqual(["props.items"]);
-    expect(graph.nodes.some((node) => node.elementKind === "parameter" && node.label === "sum")).toBe(false);
-    expect(graph.edges.some((edge) => edge.kind === "return-value" && edge.status === "partial")).toBe(true);
-    expect(boxes(graph, "boundary")).toEqual([]);
-    expect(boxes(graph, "frontier")).toEqual([]);
-    expect(boxes(graph, "terminal")).toMatchObject([{ label: "total" }]);
-    // Every step lands, but through assumptions: partial, not ok.
-    expect(graph.outcome).toBe("partial");
-  });
-
-  it("leaves a callback passed to a first-party function to that function's own pairing", () => {
-    const graph = anchorGraphOp(session, { ...find(basics, "src/library-callbacks.tsx", "props.n", "applyTo(props.n"), direction: "forward" });
-    expect(graph.edges.some((edge) => edge.kind === "callback-parameter")).toBe(false);
-    expect(graph.nodes.some((node) => node.label === "x")).toBe(false);
-    expect(graph.edges.find((edge) => edge.kind === "argument-binding")).toMatchObject({ status: "proven" });
-  });
-
-
-  it("carries a collection method's named result on as the call's own value", () => {
-    // The anchor is the result `find` names; it reaches `first` and the title slot through the call.
-    const found = anchorGraphOp(session, { ...find(basics, "src/external-calls.tsx", "props.tags.find((tag) => tag.length > 1)"), direction: "forward" });
-    expect(found.anchor.text).toContain("find");
-    expect(found.nodes.find((node) => node.kind === "anchor")?.elementKind).toBe("call-result");
-    expect(boxes(found, "frontier")).toEqual([]);
-    expect(found.outcome).toBe("ok");
-    expect(boxes(found, "terminal")).toMatchObject([{ label: "first" }]);
-  });
-
-  it("ends a backward walk at a literal with no frontier: that is where the value begins", () => {
-    const graph = anchorGraphOp(session, { ...find(basics, "src/literal-start.tsx", "label", "{label}"), direction: "backward" });
-    expect(graph.outcome).toBe("ok");
-    expect(graph.counts).toMatchObject({ frontiers: 0, origins: 0 });
-    expect(boxes(graph).some((node) => node.label === "\"x\"")).toBe(true);
-  });
-
-  it("draws a hook's return upstream as a carrier, and a return nothing carries on downstream as a terminal", () => {
-    const back = anchorGraphOp(session, { ...find(basics, "src/hook-return.tsx", "label", "{label}"), direction: "backward" });
-    expect(back.outcome).toBe("ok");
-    expect(boxes(back).find((node) => node.elementKind === "return")).toMatchObject({ side: "up", kind: "value", line: 7 });
-    expect(back.counts).toMatchObject({ terminals: 0, frontiers: 0 });
-    const forward = anchorGraphOp(session, { ...find(basics, "src/hook-return.tsx", "value", "return value"), direction: "forward" });
-    expect(forward.outcome).toBe("ok");
-    expect(boxes(forward, "terminal")).toMatchObject([{ side: "down", elementKind: "return", line: 17 }]);
   });
 
   it("refuses a direction it does not know and a name without a line", () => {
