@@ -1,5 +1,6 @@
 import * as TypeScript from "typescript";
 import type { ProgramElementKind } from "./program-evidence";
+import type { CollectorFunctionInfo } from "./program-evidence-collector-support";
 import { ProgramEvidenceCollectorFieldTransferSupport } from "./program-evidence-collector-field-transfers";
 import { reachingBindings } from "./program-evidence-reaching-bindings";
 import {
@@ -11,6 +12,7 @@ import {
   jsxOpeningAncestor,
   nodeKey,
   proof,
+  symbolAtNode,
   unwrap,
 } from "./program-evidence-support";
 
@@ -86,24 +88,27 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   ): void {
     const opening = this.ts.isJsxElement(node) ? node.openingElement : node;
     const tag = opening.tagName.getText(node.getSourceFile());
-    const target = this.targetFunction(opening.tagName);
-    const kind: ProgramElementKind = target
+    const { target, aliasId } = this.renderedComponent(opening.tagName);
+    const component = Boolean(target || aliasId);
+    const kind: ProgramElementKind = component
       ? "component-occurrence"
       : "jsx-occurrence";
     const occurrenceId = this.ensureElement(
       opening,
       kind,
       ownerId,
-      { tag, intrinsic: !target },
+      { tag, intrinsic: !component },
       this.symbolId(opening.tagName),
       this.moduleFor(opening.tagName),
       target?.id ?? null,
-      target ? "proven" : "partial",
+      component ? "proven" : "partial",
       proof(
-        target ? "compiler-symbol" : "jsx-tag",
+        component ? "compiler-symbol" : "jsx-tag",
         target
           ? "The JSX tag resolves to an in-project component definition."
-          : "The JSX tag is a source-backed render occurrence.",
+          : aliasId
+            ? "The JSX tag names a component value the program declares."
+            : "The JSX tag is a source-backed render occurrence.",
         [this.location(opening)],
       ),
     );
@@ -120,6 +125,10 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         ),
         "proven",
       );
+    }
+    // A tag that names a value the program declares (`const Badge = styled(…)`) renders that value here.
+    if (aliasId) {
+      this.addRelation(aliasId, occurrenceId, "references", [this.location(opening.tagName)], proof("compiler-symbol", "The JSX tag names this value and renders it here.", [this.location(opening.tagName)]), "proven");
     }
     if (target) {
       this.addRelation(
@@ -143,12 +152,12 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         this.addRelation(
           spreadId,
           occurrenceId,
-          target ? "component-prop" : "render-terminal",
+          component ? "component-prop" : "render-terminal",
           [this.location(attribute)],
-          proof("jsx-tag", target ? "The JSX spread passes its fields as component props." : "The JSX spread reaches an intrinsic render occurrence.", [this.location(attribute)]),
-          target ? "proven" : "partial",
+          proof("jsx-tag", component ? "The JSX spread passes its fields as component props." : "The JSX spread reaches an intrinsic render occurrence.", [this.location(attribute)]),
+          component ? "proven" : "partial",
         );
-        if (!target) this.addTerminal(attribute.expression, ownerId, "dom-attribute", "...", spreadId);
+        if (!component) this.addTerminal(attribute.expression, ownerId, "dom-attribute", "...", spreadId);
         continue;
       }
       if (!this.ts.isJsxAttribute(attribute)) continue;
@@ -156,27 +165,27 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       // on an intrinsic element it is markup, with nothing upstream to trace.
       const value = attribute.initializer && this.ts.isJsxExpression(attribute.initializer)
         ? attribute.initializer.expression
-        : target ? attribute.initializer : undefined;
+        : component ? attribute.initializer : undefined;
       if (!value || !this.ts.isExpression(value)) continue;
       const valueId = this.expression(value, ownerId);
       this.addRelation(
         valueId,
         occurrenceId,
-        target ? "component-prop" : "render-terminal",
+        component ? "component-prop" : "render-terminal",
         [this.location(attribute)],
         proof(
           "jsx-tag",
-          target
+          component
             ? "The JSX attribute binds a component prop."
             : "The JSX attribute reaches an intrinsic render occurrence.",
           [this.location(attribute)],
         ),
-        target ? "proven" : "partial",
+        component ? "proven" : "partial",
       );
       if (target) {
         this.queueComponentPropBinding(opening, attribute, valueId, occurrenceId, ownerId, target);
       }
-      if (!target) {
+      if (!component) {
         this.addTerminal(
           value,
           ownerId,
@@ -188,6 +197,32 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     }
   }
 
+  /**
+   * What a JSX tag renders. A tag that names an in-project function renders
+   * that component. A tag that names a value the program declares renders
+   * that value (`aliasId`): a component made by a factory (`styled(…)`) or
+   * taken from a library (`Primitive.Root`); when the value is exactly an
+   * in-project component under another name (`const Root = Card`), the tag
+   * renders that component too. The compiler checks every tag's value as a
+   * component, so the tag's own symbol is the whole proof.
+   */
+  protected renderedComponent(tagName: TypeScript.JsxTagNameExpression): { target: CollectorFunctionInfo | null; aliasId: string | null } {
+    const target = this.targetFunction(tagName);
+    if (target) return { target, aliasId: null };
+    const aliasId = this.variablesBySymbol.get(this.symbolId(tagName) ?? "") ?? null;
+    let name: TypeScript.Node = tagName;
+    for (let hops = 0; aliasId && hops < 8; hops += 1) {
+      const symbol = symbolAtNode(this.checker, name);
+      const declaration = (symbol && symbol.flags & this.ts.SymbolFlags.Alias ? this.checker.getAliasedSymbol(symbol) : symbol)?.valueDeclaration;
+      const initializer = declaration && this.ts.isVariableDeclaration(declaration) && declaration.initializer ? unwrap(this.ts, declaration.initializer) : null;
+      if (!initializer || !(this.ts.isIdentifier(initializer) || this.ts.isPropertyAccessExpression(initializer))) break;
+      const aliased = this.targetFunction(initializer);
+      if (aliased) return { target: aliased, aliasId };
+      name = initializer;
+    }
+    return { target: null, aliasId };
+  }
+
   protected processJsxExpression(
     node: TypeScript.JsxExpression,
     ownerId: string | null,
@@ -197,8 +232,8 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     const valueId = this.expression(node.expression, ownerId);
     const opening = jsxOpeningAncestor(this.ts, node);
     if (!opening) return;
-    const target = this.targetFunction(opening.tagName);
-    if (target) {
+    const { target, aliasId } = this.renderedComponent(opening.tagName);
+    if (target || aliasId) {
       this.addRelation(
         valueId,
         this.elementFor(opening, "component-occurrence"),

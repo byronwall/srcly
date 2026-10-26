@@ -262,6 +262,42 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(attrs.counts.terminals).toBe(1);
   });
 
+  it("renders a component a factory or an alias makes at each JSX tag that names it", () => {
+    const badge = anchorGraphOp(session, { file: "src/component-aliases.tsx", name: "Badge", line: 16, direction: "forward" });
+    expect(badge.outcome).toBe("ok");
+    expect(boxes(badge, "terminal")).toMatchObject([{ elementKind: "component-occurrence", label: "Badge", line: 27 }]);
+    // `Plain` is `Card` under another name: its tag binds Card's props, so `props.name` reaches Card's slot.
+    const plain = anchorGraphOp(session, { file: "src/component-aliases.tsx", name: "Plain", line: 15, direction: "forward" });
+    expect(boxes(plain, "terminal")).toMatchObject([{ elementKind: "component-occurrence", line: 26 }]);
+    const name = anchorGraphOp(session, { ...find(basics, "src/component-aliases.tsx", "props.name", "<Plain"), direction: "forward" });
+    expect(name.outcome).toBe("ok");
+    expect(boxes(name, "terminal").some((node) => node.elementKind === "render-terminal" && node.line === 12)).toBe(true);
+    // A library factory's component: its prop and child are handed to the occurrence, never a DOM attribute.
+    const tone = anchorGraphOp(session, { ...find(basics, "src/component-aliases.tsx", "props.tone", "<Badge title"), direction: "forward" });
+    expect(boxes(tone, "terminal").map((node) => [node.elementKind, node.line])).toEqual([["component-occurrence", 27]]);
+    // A shorthand `{ point }` packs the value it names.
+    const point = anchorGraphOp(session, { file: "src/component-aliases.tsx", name: "point", line: 22, direction: "forward" });
+    expect(point.outcome).toBe("ok");
+    expect(boxes(point, "terminal")).toMatchObject([{ elementKind: "render-terminal", line: 28 }]);
+  });
+
+  it("never joins two values of one factory, and keeps a value nothing renders at a dead end", () => {
+    const pill = anchorGraphOp(session, { file: "src/component-aliases.tsx", name: "Pill", line: 17, direction: "forward" });
+    expect(boxes(pill, "terminal").map((node) => node.line)).toEqual([34]);
+    const badge = anchorGraphOp(session, { file: "src/component-aliases.tsx", name: "Badge", line: 16, direction: "forward" });
+    expect(badge.nodes.some((node) => node.line === 34)).toBe(false);
+    for (const [label, line] of [["Unused", 18], ["labels", 19]] as const) {
+      const graph = anchorGraphOp(session, { file: "src/component-aliases.tsx", name: label, line, direction: "forward" });
+      expect(graph.outcome, label).toBe("partial");
+      expect(boxes(graph, "frontier").map((node) => [node.reason, node.label])).toEqual([["disconnected", label]]);
+    }
+    // A shorthand packs the binding its name resolves to: a shadowed outer `point` never reaches the inner pack.
+    const outer = anchorGraphOp(session, { file: "src/component-aliases.tsx", name: "point", line: 40, direction: "forward" });
+    expect(boxes(outer, "terminal").map((node) => node.line)).toEqual([47]);
+    const inner = anchorGraphOp(session, { file: "src/component-aliases.tsx", name: "point", line: 42, direction: "forward" });
+    expect(inner.nodes.some((node) => node.line === 47)).toBe(false);
+  });
+
   it("never binds a `for…in` key to the values it iterates", () => {
     const table = anchorGraphOp(session, { ...find(basics, "src/collections.tsx", "props.table", "for (const key"), direction: "forward" });
     expect(table.counts.terminals).toBe(0);

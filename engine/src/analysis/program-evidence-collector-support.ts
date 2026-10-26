@@ -543,10 +543,12 @@ export class ProgramEvidenceCollectorSupport {
       : null;
   }
 
-  /** The checker's symbol at a node, asked once: `symbolId` and `moduleFor` both start from it. */
+  /** The checker's symbol at a node, asked once: `symbolId` and `moduleFor` both start from it. A shorthand `{ x }` reads the value `x` names, not the field it declares. */
   private symbolAt(node: TypeScript.Node): TypeScript.Symbol | null | undefined {
     if (this.symbols.has(node)) return this.symbols.get(node);
-    const value = symbolAtNode(this.checker, node);
+    const value = this.ts.isShorthandPropertyAssignment(node.parent) && node.parent.name === node
+      ? this.checker.getShorthandAssignmentValueSymbol(node.parent)
+      : symbolAtNode(this.checker, node);
     this.symbols.set(node, value);
     return value;
   }
