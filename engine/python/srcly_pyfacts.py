@@ -109,6 +109,11 @@ TERMINAL_CALLS: dict[str, Recognition] = {
     "fastapi.responses.": ("http-response", "HTTP response", {}),
     "starlette.responses.": ("http-response", "HTTP response", {}),
     "flask.json.jsonify": ("http-response", "HTTP response", {}),
+    "flask.jsonify": ("http-response", "HTTP response", {}),
+    "flask.helpers.make_response": ("http-response", "HTTP response", {}),
+    "flask.make_response": ("http-response", "HTTP response", {}),
+    "flask.templating.render_template": ("http-response", "HTTP response", {}),
+    "flask.render_template": ("http-response", "HTTP response", {}),
     "flask.abort": ("http-response", "HTTP error", {}),
 }
 # Reads (not calls) that are origins: `os.environ["X"]`, `sys.argv`, Flask's request global.
@@ -661,6 +666,17 @@ class Program:
         target = self.imports.get(module, {}).get(attr)
         return self.functions.get(target) if target and target != name else None
 
+    def all_fields(self, info: ClassInfo, depth: int = 0) -> dict[str, ClassInfo]:
+        """Every annotated field of `info` and its first-party bases, by name, with the class that declares it (the nearest wins)."""
+        found: dict[str, ClassInfo] = {}
+        if depth <= 8:
+            for base in reversed(info.bases):
+                parent = self.resolve_class(base)
+                if parent is not None:
+                    found.update(self.all_fields(parent, depth + 1))
+        found.update({name: info for name in info.fields})
+        return found
+
     def field_owner(self, info: ClassInfo, name: str, depth: int = 0) -> ClassInfo | None:
         """The class (`info` or a first-party base) that declares the annotated field `name`."""
         if name in info.fields:
@@ -1156,6 +1172,22 @@ class BodyWalker:
         if info is not None and info.route is not None:
             self.request_origin(param, element, info)
 
+    def returned_use(self, ret: str, node: ast.Return) -> None:
+        """
+        A return from a function annotated `-> Item`, or from a handler whose route names a
+        `response_model`, is a use of that first-party class: `definition`, structural.
+        """
+        fn = self.function
+        if fn is None or isinstance(fn.node, ast.Lambda):
+            return
+        declared = [fn.node.returns] if fn.node.returns is not None else []
+        if fn.route is not None and fn.route.get("_response_model") is not None:
+            declared.append(fn.route["_response_model"])
+        for annotation in declared:
+            klass = self.program.resolve_class(self.program.dotted(self.source, strip_optional(annotation)))
+            if klass is not None:
+                self.relate(ret, klass.entry_id, "definition", f"{fn.qualname} returns {klass.qualname}", node, proof_kind="annotation")
+
     def annotated_use(self, param: ast.arg, element: str) -> None:
         """
         A parameter annotated with a first-party class (`item: ItemCreate`, `Optional[...]`,
@@ -1203,6 +1235,13 @@ class BodyWalker:
             proof={"kind": "fastapi", "detail": detail, "locations": [self.source.location(decorator_span)]},
         )
         self.relate(origin, element, "request-binding", detail, param, proof_kind="fastapi")
+        if kind == "body" and param.annotation is not None:
+            model = self.program.resolve_class(self.program.dotted(self.source, strip_optional(param.annotation)))
+            if model is not None and model.is_model:
+                model_name = model.qualname.rsplit(".", 1)[-1]
+                for field_name, declaring in self.program.all_fields(model).items():
+                    self.relate(origin, field_id(declaring, field_name), "request-binding",
+                                f"FastAPI parses the JSON body of {route['key']} into {model_name}.{field_name}", param, proof_kind="fastapi")
 
     # ---- statements
 
@@ -1229,6 +1268,8 @@ class BodyWalker:
             if node.value is not None or self.class_info is not None:
                 # A dataclass, pydantic or SQLModel class takes its annotated fields as keyword arguments: they are its parameters.
                 field = self.scope.kind == "class" and self.class_info is not None and self.class_info.is_model
+                if field and value is None and node.value is not None:
+                    value = self.literal(node.value)
                 self.bind(node.target, value, node.value or node.target, "carrier", annotation=node.annotation, alias_kind="parameter" if field else "alias")
             return
         if isinstance(node, ast.AugAssign):
@@ -1251,6 +1292,7 @@ class BodyWalker:
             # The kind (`return` for an entry, `return-expression` for a helper) is settled in `finish_returns`; the id is not.
             ret = self.element("return-expression", None, self.source.segment(node), span=span, id_kind="return", type_text=type_text, type_source=type_source)
             self.relate(value, ret, "return-expression", f"returned from {self.function.qualname if self.function else 'the module'}", node.value)
+            self.returned_use(ret, node)
             return
         if isinstance(node, ast.Expr):
             self.expr(node.value)
@@ -1341,6 +1383,12 @@ class BodyWalker:
 
     # ---- expressions
 
+    def literal(self, node: ast.expr) -> str | None:
+        """A constant (`"bearer"`, `1`, `True`) as a `literal` element: where a value naturally begins."""
+        if not isinstance(node, ast.Constant) or node.value is None or node.value is Ellipsis:
+            return None
+        return self.element("literal", node, self.source.segment(node))
+
     def test(self, node: ast.expr) -> str | None:
         """A branch test (`if`, `while`, `assert`, a guard, a conditional, a comprehension filter): the value ends there, deciding the branch."""
         value = self.expr(node)
@@ -1374,8 +1422,17 @@ class BodyWalker:
             return None
         owner = self.scope.owner_of(node.id)
         if owner is None:
+            dotted = self.program.dotted(self.source, node)
+            read = lookup(ORIGIN_READS, dotted)
+            if read is not None:
+                # An imported origin read by name (Flask's `request`): `request.json`, `request.args` are field reads of it.
+                kind, label, attributes = read
+                element = self.element(kind, node, label, attributes=attributes,
+                                       proof={"kind": "import", "detail": f"{node.id} resolves to {dotted}", "locations": [self.source.location(self.span(node))]})
+                self.note(node, "Name")
+                return element
             # A module global from another module, a builtin, or an import: a function used as a value escapes.
-            target = self.program.resolve_function(self.program.dotted(self.source, node))
+            target = self.program.resolve_function(dotted)
             if target is not None:
                 self.program.record_escape(target)
             return None
@@ -1634,6 +1691,11 @@ class BodyWalker:
                 self.relate(value, element, "call-input", f"handed to {callee_text}", child)
             return element
 
+        if function is not None or klass is not None:
+            # A literal bound to a first-party parameter or a model's field is where that value begins.
+            positional = [(child, value or self.literal(child)) for child, value in positional]
+            keywords = [(kw, value or self.literal(kw.value)) for kw, value in keywords]
+
         if function is not None:
             element = self.element("call-result", node, f"{callee_text}(…)", attributes={"callee": function.entry_id, "calleeName": function.qualname},
                                    proof={"kind": proof_kind, "detail": proof_name or f"{callee_text} is {function.fullname}", "locations": [function.source.location(function.source.span(function.node))]})
@@ -1823,9 +1885,11 @@ def route_of(program: Program, source: Source, decorator: ast.expr, info: Functi
         catch_all = raw.endswith(":path") or raw.startswith("path:")
         parameters.append({"name": name, "kind": "catch-all" if catch_all else "dynamic"})
     response_model = None
+    response_node = None
     for keyword in decorator.keywords:
         if keyword.arg == "response_model":
             response_model = ast.unparse(keyword.value)
+            response_node = keyword.value
     node = info.node
     return {
         "key": pattern,
@@ -1835,6 +1899,7 @@ def route_of(program: Program, source: Source, decorator: ast.expr, info: Functi
         "methods": methods,
         "handler": {"name": info.qualname.rsplit(".", 1)[-1], "qualname": info.qualname, "line": node.lineno, "entryId": info.entry_id},
         "responseModel": response_model,
+        "_response_model": response_node,
         "parameters": parameters,
         "_decorator": source.span(decorator),
     }

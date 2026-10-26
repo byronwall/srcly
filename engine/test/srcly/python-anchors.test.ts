@@ -212,6 +212,25 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(boxes(poked, "frontier").map((node) => node.reason)).not.toContain("external-code");
   });
 
+  it("begins a field at a literal it is built with, and counts a typed return as a use", () => {
+    const graph = anchor("app/schemas.py", "Note", 43);
+    expect(graph.outcome).toBe("ok");
+    const uses = boxes(graph).filter((node) => node.side === "down" && node.line === 49).map((node) => node.note);
+    expect(uses.sort()).toEqual(["called here", "returned as it"]);
+  });
+
+  it("starts a Flask request at `request` and ends its response at the return or `jsonify`", () => {
+    const up = anchorGraphOp(session, { ...at("app/web.py", "payload", "payload = request.json"), direction: "backward" });
+    expect(up.outcome).toBe("ok");
+    expect(up.origins.map((origin) => origin.label)).toEqual(["the request"]);
+    const down = anchorGraphOp(session, { ...at("app/web.py", "payload", "payload = request.json"), direction: "forward" });
+    expect(boxes(down, "terminal").map((node) => [node.line, node.elementKind])).toEqual([[11, "http-response"]]);
+    expect(anchor("app/web.py", "greet", 15).outcome).toBe("ok");
+    // A parameter that happens to be called `request` is not Flask's.
+    const local = anchorGraphOp(session, { ...at("app/web.py", "request", "    return request"), direction: "backward" });
+    expect(local.origins).toEqual([]);
+  });
+
   it("names a file that did not parse, and a name that is not on its line", () => {
     expect(() => anchor("app/broken.py", "broken", 1)).toThrow(/No broken on line 1 of broken\.py: the file did not parse \(syntax error on line 1/);
     expect(() => anchor("app/models.py", "Order", 5)).toThrow(/^No Order on line 5 of models\.py$/);

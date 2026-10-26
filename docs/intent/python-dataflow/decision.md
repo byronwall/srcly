@@ -63,16 +63,19 @@ The engine derives origin roles, terminal roles and boundaries from an element's
 
 | Python | Element kind (roles the engine derives) |
 | --- | --- |
-| a FastAPI handler parameter's binding (path, query, body, header, cookie, form, file) | `parameter` with `originRole: request` at the route decorator, joined to the real parameter by `request-binding`; the proof names FastAPI's rule (`parses the JSON body of POST /v1/items into body: ItemIn`) |
+| a FastAPI handler parameter's binding (path, query, body, header, cookie, form, file) | `parameter` with `originRole: request` at the route decorator, joined to the real parameter by `request-binding`; the proof names FastAPI's rule (`parses the JSON body of POST /v1/items into body: ItemIn`). A body annotated with a model also fills each of its fields (and its bases'), one `request-binding` per field, so a field's walk up starts at the request |
+| Flask's `request` global read by name (`request.json`, `request.args.get(…)`, `request.form`) | `parameter` with `originRole: request`, proven by the import; a parameter that is only called `request` is not it |
 | `os.environ[...]`, `os.getenv`, `os.environ.get` | `environment-input` (environment) |
 | `open()` to read, `Path.read_text`, `json.load` | `file-input` (filesystem) |
 | `requests` / `httpx` calls, `urlopen` | `fetch-input` (fetch, network) |
 | `sqlite3` / SQLAlchemy queries, `subprocess` output | `external-read` (external read) |
 | `sys.argv`, `input()`, `sys.stdin` | `process-input` (argument / stdin) |
 | a handler's `return` | `return` with `terminalRole: http-response` |
+| a return from a function annotated `-> Item`, or from a handler whose route names `response_model=Item` | also a use of that first-party class (a structural `definition`), drawn as the terminal it is when it leaves the program |
+| a literal handed to a first-party parameter or a model field (`Token(token_type="bearer")`), or a model field's literal default | `literal`: where that value begins |
 | an entry function's `return` (nothing in the program calls it) | `return` with `terminalRole: return` |
 | a helper's `return` | `return-expression`, carried to each call by `return-value` |
-| `HTTPException(...)`, Starlette / FastAPI response classes | `http-response` |
+| `HTTPException(...)`, Starlette / FastAPI response classes, Flask's `jsonify`, `make_response`, `render_template` | `http-response` |
 | `logging` calls | `external-effect` (side effect) |
 | `print`, `sys.stdout.write`, `sys.exit`, file writes | `stdout`, `exit-status`, `file-write` |
 | attribute read / literal subscript | `field-read` (`operationKind: field-read`, `property`) / `index-read` |
@@ -99,6 +102,6 @@ On srcly's own server the `anchor_graph` handler's body comes back `partial`: it
 ## Not yet
 
 - `Depends()` parameters are plain inputs, not traced into the dependency function.
-- A model returned from a function (`-> Item`) or serialized is not yet a use of its class; only constructor calls and annotated parameters are.
+- A model passed to a serializer (`Item.model_validate(row)`, `jsonable_encoder(item)`) is not yet a use of its class; constructor calls, annotated parameters and typed returns are.
 - Attribute writes (`self.x = …`) end the path; values are not followed across methods through instance state.
 - The route graph (`routeGraph`) is TypeScript's render backbone and has no Python meaning; a Python route opens its handler in anchor mode instead.
