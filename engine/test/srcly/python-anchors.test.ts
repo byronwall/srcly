@@ -35,7 +35,7 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
   const anchor = (file: string, name: string, line: number) => anchorGraphOp(session, { file, name, line, direction: "both" });
 
   it("anchors every def and class by name, whatever its shape", () => {
-    const all = ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py"].flatMap(definitions);
+    const all = ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py", "app/schemas.py"].flatMap(definitions);
     expect(all.map((item) => item.name)).toEqual(expect.arrayContaining(["get_ledger", "parse_count", "load_count", "made_in_loop", "Order", "Ledger", "__init__", "Unused"]));
     for (const item of all) {
       const graph = anchor(item.file, item.name, item.line);
@@ -67,13 +67,46 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(graph.terminals.map((terminal) => terminal.label)).toContain("return order");
   });
 
-  it("never takes a method's parameters for a class's inputs", () => {
-    // Order's first method is `scaled(factor)`; Ledger's is `describe(prefix)`, before `__init__`.
-    for (const [name, line, method] of [["Order", 4, "factor"], ["Ledger", 12, "prefix"]] as const) {
+  it("takes a class's inputs from its fields or its constructor, never another method's parameters", () => {
+    // Order's first method is `scaled(factor)`; Ledger's is `describe(prefix)`, before `__init__(self, owner)`.
+    for (const [name, line, method, inputs] of [["Order", 4, "factor", ["name", "quantity"]], ["Ledger", 12, "prefix", ["owner"]]] as const) {
       const graph = anchor("app/models.py", name, line);
       expect(boxes(graph).map((node) => node.label), name).not.toContain(method);
-      expect(boxes(graph).filter((node) => node.elementKind === "parameter"), name).toEqual([]);
+      expect(boxes(graph).filter((node) => node.elementKind === "parameter" && node.file === "app/models.py").map((node) => node.label).sort(), name).toEqual([...inputs]);
     }
+    // `__init__` anchored by name keeps its own parameter.
+    expect(boxes(anchor("app/models.py", "__init__", 16)).filter((node) => node.elementKind === "parameter" && node.file === "app/models.py").map((node) => node.label)).toEqual(["owner"]);
+  });
+
+  it("traces a model's fields up to the constructor arguments that set them", () => {
+    const graph = anchor("app/schemas.py", "ItemCreate", 8);
+    const title = boxes(graph).find((node) => node.elementKind === "parameter" && node.label === "title")!;
+    expect(title).toMatchObject({ side: "up", line: 9 });
+    // `build(title)` passes its own `title` as `ItemCreate(title=title)`: the walk up reaches build's parameter.
+    expect(boxes(graph).filter((node) => node.side === "up" && node.elementKind === "parameter" && node.line === 31).map((node) => node.label)).toContain("title");
+    // A dataclass binds positional arguments in declared order.
+    const point = anchor("app/schemas.py", "Point", 18);
+    expect(boxes(point).filter((node) => node.side === "up" && node.elementKind === "parameter" && node.line === 35).map((node) => node.label)).toContain("a");
+  });
+
+  it("counts a parameter annotated with a class as a use of it", () => {
+    const graph = anchor("app/schemas.py", "ItemCreate", 8);
+    const uses = boxes(graph).filter((node) => node.side === "down" && (node.note === "annotated with it" || node.note === "called here"));
+    expect(uses.map((node) => `${node.note}:${node.label}@${node.line}`).sort()).toEqual(["annotated with it:item@23", "annotated with it:item@39", "called here:ItemCreate(…)@32"]);
+    expect(graph.outcome).not.toBe("unsupported");
+    // `describe(other: Other)` is no use of ItemCreate.
+    expect(boxes(graph).some((node) => node.line === 27)).toBe(false);
+  });
+
+  it("relates a field read to the field of its receiver's class, never a same-named field elsewhere", () => {
+    const facts = (session.tier1() as PythonTier1).facts;
+    const reads = facts.relations
+      .filter((relation) => relation.k === "carrier" && facts.elements[relation.b].k === "field-read" && facts.elements[relation.a].k === "parameter")
+      .map((relation) => `${facts.elements[relation.a].l}@${facts.elements[relation.a].s[0]} → ${facts.elements[relation.b].l}${relation.st ? ` (${relation.st})` : ""}`);
+    // ItemCreate.title (line 9) and Other.title (line 14) share a name; each reaches only its own class's reads.
+    expect(reads).toEqual(expect.arrayContaining(["title@9 → item.title (partial)", "title@14 → other.title (partial)", "size@10 → item.size (partial)"]));
+    expect(reads).not.toContain("title@9 → other.title (partial)");
+    expect(reads).not.toContain("title@14 → item.title (partial)");
   });
 
   it("relates each constructor call to its class, and nothing else", () => {
@@ -133,7 +166,7 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(stops.map((node) => [node.reason, node.label, node.line])).toEqual([["untraced", "flag", 9], ["untraced", "is_enabled(…)", 10]]);
     expect(stops.every((node) => /^not traced further/.test(node.note ?? ""))).toBe(true);
     // Every partial in the fixture names a stop.
-    for (const item of ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py", "app/stops.py"].flatMap(definitions)) {
+    for (const item of ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py", "app/stops.py", "app/schemas.py"].flatMap(definitions)) {
       const traced = anchor(item.file, item.name, item.line);
       if (traced.outcome === "partial") expect(boxes(traced).some((node) => node.kind === "frontier" || node.kind === "boundary"), `${item.name} on line ${item.line}`).toBe(true);
     }

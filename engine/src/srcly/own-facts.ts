@@ -25,6 +25,7 @@ export function ownFacts<T extends { location: { span: Span } }>(host: Pick<Lang
   if (!own) return facts;
   return facts.filter((fact, index) => {
     const owner = owners[index];
-    return !owner || sameSpan(owner, own!) || sameSpan(owner, fact.location.span);
+    // An enclosing scope's fact inside the declaration is the declaration's own too: a Python constructor's parameters sit in its class's scope.
+    return !owner || sameSpan(owner, own!) || sameSpan(owner, fact.location.span) || encloses(owner, span);
   });
 }

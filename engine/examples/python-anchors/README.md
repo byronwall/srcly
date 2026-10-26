@@ -8,6 +8,7 @@ Defs and classes the engine's Python provider (`engine/python/srcly_pyfacts.py`)
 | `app/models.py` | a pydantic model whose first method is not its constructor, a plain class with `__init__`, and a class nothing constructs |
 | `app/service.py` | the constructor calls: `Order(...)` and `Ledger(...)` |
 | `app/identity.py` | one helper, two calls (T13): `ident` returns its argument to each call alone, `pick` returns only its second |
+| `app/schemas.py` | a model's data flow: fields set by `ItemCreate(title=…)` and a dataclass's positional `Point(a, 2)`, read as `item.title`, and parameters annotated with the model; `Other.title` shares a name and never joins |
 | `app/stops.py` | where a trace stops, named: `is_enabled`'s result is only read by an `if`, and `migrate` has nothing to trace |
 | `app/broken.py` | a syntax error no rewrite fixes: anchoring in it names the parse failure |
 
