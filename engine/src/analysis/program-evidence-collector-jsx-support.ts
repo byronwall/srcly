@@ -12,7 +12,6 @@ import {
   jsxOpeningAncestor,
   nodeKey,
   proof,
-  symbolAtNode,
   unwrap,
 } from "./program-evidence-support";
 
@@ -207,20 +206,10 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
    * component, so the tag's own symbol is the whole proof.
    */
   protected renderedComponent(tagName: TypeScript.JsxTagNameExpression): { target: CollectorFunctionInfo | null; aliasId: string | null } {
-    const target = this.targetFunction(tagName);
-    if (target) return { target, aliasId: null };
-    const aliasId = this.variablesBySymbol.get(this.symbolId(tagName) ?? "") ?? null;
-    let name: TypeScript.Node = tagName;
-    for (let hops = 0; aliasId && hops < 8; hops += 1) {
-      const symbol = symbolAtNode(this.checker, name);
-      const declaration = (symbol && symbol.flags & this.ts.SymbolFlags.Alias ? this.checker.getAliasedSymbol(symbol) : symbol)?.valueDeclaration;
-      const initializer = declaration && this.ts.isVariableDeclaration(declaration) && declaration.initializer ? unwrap(this.ts, declaration.initializer) : null;
-      if (!initializer || !(this.ts.isIdentifier(initializer) || this.ts.isPropertyAccessExpression(initializer))) break;
-      const aliased = this.targetFunction(initializer);
-      if (aliased) return { target: aliased, aliasId };
-      name = initializer;
-    }
-    return { target: null, aliasId };
+    const named = this.functionsBySymbol.get(this.symbolId(tagName) ?? "");
+    if (named) return { target: named, aliasId: null };
+    // `targetFunction` follows the value to the one function it is, through `const` copies and imports.
+    return { target: this.targetFunction(tagName), aliasId: this.variablesBySymbol.get(this.symbolId(tagName) ?? "") ?? null };
   }
 
   protected processJsxExpression(
