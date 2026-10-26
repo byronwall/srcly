@@ -417,7 +417,10 @@ export function typeId(checker: TypeScript.TypeChecker, node: TypeScript.Node) {
 
 // A node's type text is a function of the node within its checker, and the
 // declarations pass asks for every parameter's (isHandlerLike) while later
-// passes and hydration ask again: remembered per checker (T10).
+// passes and hydration ask again: remembered per checker (T10). The text is
+// read for names (`Request`, `…Event`), never compared whole, so the checker's
+// own truncation bounds it: a tRPC router proxy's type spelled out in full
+// runs to hundreds of kilobytes per element.
 const typeTextByChecker = new WeakMap<TypeScript.TypeChecker, WeakMap<TypeScript.Node, string>>();
 
 export function safeType(checker: TypeScript.TypeChecker, node: TypeScript.Node) {
@@ -430,7 +433,7 @@ export function safeType(checker: TypeScript.TypeChecker, node: TypeScript.Node)
   if (known !== undefined) return known;
   let text: string;
   try {
-    text = checker.typeToString(checker.getTypeAtLocation(node), node, TypeScript.TypeFormatFlags.NoTruncation);
+    text = checker.typeToString(checker.getTypeAtLocation(node), node);
   } catch {
     text = "unknown";
   }
