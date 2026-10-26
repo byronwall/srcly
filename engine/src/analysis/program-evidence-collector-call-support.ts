@@ -204,8 +204,10 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       if (role.role === "getter") {
         this.addRelation(stateId, callId, "references", [this.location(node)], frameworkState("The getter's call reads the state its setter writes; order and time are not proven.", this.location(node)), "partial");
       }
+      // One argument is the new state (or an updater); several are a path into it and the value there, packed into the state.
+      const kind = node.arguments.length === 1 ? "references" : "pack-field";
       for (const argument of role.role === "setter" ? node.arguments : []) {
-        this.addRelation(this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId), stateId, "references", [this.location(argument)], frameworkState("The setter's argument becomes the state its getter reads; order and time are not proven.", this.location(argument)), "partial");
+        this.addRelation(this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId), stateId, kind, [this.location(argument)], frameworkState("The setter's argument becomes the state its getter reads; order and time are not proven.", this.location(argument)), "partial");
       }
     }
     // A callee with no body to enter (a library method, a callback, an accessor) is consumed by its call, as its arguments are.

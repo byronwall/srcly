@@ -9,13 +9,13 @@
         "unsupported": 1
       },
       "stops": {
-        "boundary: external-code": 181,
-        "boundary: framework-runtime": 12,
+        "boundary: external-code": 207,
+        "boundary: framework-runtime": 11,
         "boundary: network": 1,
-        "boundary: unproven-handoff": 9,
-        "frontier: budget-exhausted": 177,
-        "frontier: disconnected": 112,
-        "frontier: external-code": 38,
+        "boundary: unproven-handoff": 10,
+        "frontier: budget-exhausted": 105,
+        "frontier: disconnected": 122,
+        "frontier: external-code": 40,
         "frontier: unbound-read": 24,
         "frontier: unresolved-symbol": 9,
         "frontier: untraced": 13
@@ -38,16 +38,16 @@
       "errors": []
     },
     "value-flow-basics": {
-      "traces": 51,
+      "traces": 53,
       "outcomes": {
         "ok": 12,
-        "partial": 38,
+        "partial": 40,
         "unsupported": 1
       },
       "stops": {
         "frontier: budget-exhausted": 1,
         "frontier: disconnected": 6,
-        "frontier: unbound-read": 259,
+        "frontier: unbound-read": 262,
         "frontier: untraced": 3
       },
       "ok": [
@@ -69,14 +69,14 @@
     "server": {
       "traces": 128,
       "outcomes": {
-        "ok": 10,
-        "partial": 115,
+        "ok": 11,
+        "partial": 114,
         "unsupported": 3
       },
       "stops": {
         "boundary: external-code": 5,
         "boundary: filesystem": 18,
-        "frontier: budget-exhausted": 269,
+        "frontier: budget-exhausted": 90,
         "frontier: external-code": 613,
         "frontier: untraced": 122
       },
@@ -90,6 +90,7 @@
         "app/services/analysis.py#_has_pruned_component",
         "app/services/analysis.py#_is_inside_git_work_tree",
         "app/services/analysis.py#_load_gitignore_spec",
+        "app/services/compare/diff.py#is_external",
         "app/services/typescript/components.py#_is_inline_handler"
       ],
       "errors": []

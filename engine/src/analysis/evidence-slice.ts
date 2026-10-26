@@ -1,4 +1,5 @@
 import type { ProgramEvidence } from "./program-evidence";
+import { stepFieldPath, type FieldPath, type PackFieldCache } from "./evidence-slice-fields";
 import {
   NO_ANALYSIS_CANCELLATION,
   type AnalysisCancellationToken,
@@ -64,9 +65,9 @@ export type SliceQuery = {
   /**
    * The relations the slice walks (all when absent). One it does not walk
    * still connects its element: no `disconnected` gap, and no element or
-   * budget spent past it.
+   * budget spent past it. `from` is the element the walk would leave by it.
    */
-  follow?: (relation: ProgramRelation) => boolean;
+  follow?: (relation: ProgramRelation, from: ProgramElement) => boolean;
 };
 
 export type EvidenceSliceSource = ProgramEvidence | EvidenceRelationSource;
@@ -94,8 +95,10 @@ export function normalizeProgramEvidence(evidence: ProgramEvidence): NormalizedP
  * argument belongs to call C pushes C, and a `return-value` is followed only
  * to the call on top, which pops it. Backward the roles swap. An empty stack
  * (the seed sits inside the callee) keeps every call site, as before.
+ * `fields` is the field path (`evidence-slice-fields.ts`): which field of the
+ * value the walk is after, so a pack is entered only through that field.
  */
-type QueueItem = { elementId: string; depth: number; calls: readonly string[] };
+type QueueItem = { elementId: string; depth: number; calls: readonly string[]; fields: FieldPath };
 const MAX_CALL_STACK = 8;
 
 const ACCEPTED_RELATION_STATUSES = new Set<EvidenceStatus>(["proven", "partial"]);
@@ -155,6 +158,8 @@ export function queryEvidenceSlice(
   const gapKeys = new Set<string>();
   const queues: QueueItem[] = [];
   const queued = new Set<string>();
+  const fieldPaths = new Map<string, string>();
+  const packFields: PackFieldCache = new Map();
   const visited = new Set<string>();
   const visitedRelations = new Set<string>();
   const terminalKeys = new Set<string>();
@@ -234,8 +239,17 @@ export function queryEvidenceSlice(
     }
   };
 
-  const addElement = (element: ProgramElement, depth: number, calls: readonly string[] = []) => {
-    if (includedElements.has(element.id)) return true;
+  const addElement = (element: ProgramElement, depth: number, calls: readonly string[] = [], fields: FieldPath = []) => {
+    // An element reached again for another field path is walked once more as the whole value, which reaches every field.
+    const path = fields.join(".");
+    if (includedElements.has(element.id)) {
+      const walked = fieldPaths.get(element.id);
+      if (walked === undefined || walked === "" || walked === path || shouldStopAtTerminal(element, terminals)) return true;
+      fieldPaths.set(element.id, "");
+      queues.push({ elementId: element.id, depth, calls, fields: [] });
+      return true;
+    }
+    fieldPaths.set(element.id, path);
     if (includedElements.size >= boundary.maxElements) {
       truncation.elements = true;
       addGap({
@@ -254,10 +268,10 @@ export function queryEvidenceSlice(
     // A return inside a callee the walk entered through a call is not the end: its value goes back to that call (T13).
     const returnsToCaller = calls.length > 0 && element.kind === "return";
     if (shouldStopAtTerminal(element, terminals) && !returnsToCaller) return true;
-    const key = `${element.id}:${depth}:${calls.join(">")}`;
+    const key = `${element.id}:${depth}:${calls.join(">")}:${fields.join(".")}`;
     if (!queued.has(key)) {
       queued.add(key);
-      queues.push({ elementId: element.id, depth, calls });
+      queues.push({ elementId: element.id, depth, calls, fields });
     }
     return true;
   };
@@ -314,7 +328,7 @@ export function queryEvidenceSlice(
   while (queues.length > 0 && !budgetExhausted) {
     cancellation.throwIfCancelled();
     const current = dequeueProviderPriorityQueue(queues, provider, normalizedRequest.direction);
-    const stateKey = `${current.elementId}:${normalizedRequest.direction}:${current.calls.join(">")}`;
+    const stateKey = `${current.elementId}:${normalizedRequest.direction}:${current.calls.join(">")}:${current.fields.join(".")}`;
     if (visited.has(stateKey)) continue;
     visited.add(stateKey);
     const element = includedElements.get(current.elementId);
@@ -357,8 +371,8 @@ export function queryEvidenceSlice(
     for (const candidate of candidates) {
       cancellation.throwIfCancelled();
       if (bindsIntoCallee && candidate.relation.kind === "argument") continue;
-      if (normalizedRequest.follow && !normalizedRequest.follow(candidate.relation)) continue;
-      const travelKey = `${element.id}:${candidate.relation.id}:${candidate.targetId}:${current.calls.join(">")}`;
+      if (normalizedRequest.follow && !normalizedRequest.follow(candidate.relation, element)) continue;
+      const travelKey = `${element.id}:${candidate.relation.id}:${candidate.targetId}:${current.calls.join(">")}:${current.fields.join(".")}`;
       if (visitedRelations.has(travelKey)) continue;
       visitedRelations.add(travelKey);
       // Another call's return or binding is not this invocation's: not a path, and not a gap.
@@ -380,6 +394,9 @@ export function queryEvidenceSlice(
       workUsed += 1;
 
       const target = indexed.elementFor(candidate.targetId);
+      // Another field than the one the walk is after: not a path, and not a gap.
+      const nextFields = target ? stepFieldPath(current.fields, candidate.relation, element, target, normalizedRequest.direction === "forward", packFields) : current.fields;
+      if (nextFields === null) continue;
       if (!target) {
         addGap({
           from: element.id,
@@ -453,7 +470,7 @@ export function queryEvidenceSlice(
       }
 
       acceptedCandidate = true;
-      const targetAdded = addElement(target, current.depth + 1, nextCalls);
+      const targetAdded = addElement(target, current.depth + 1, nextCalls, nextFields);
       if (!targetAdded) continue;
       includedRelations.set(candidate.relation.id, candidate.relation);
 

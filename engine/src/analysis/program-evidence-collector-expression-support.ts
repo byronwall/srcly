@@ -152,7 +152,7 @@ export function collectProgramEvidenceExpression(
       unwrapped,
       "object-pack",
       ownerId,
-      { operation: "object-pack" },
+      objectPackAttributes(context.ts, unwrapped, (item) => context.location(item)),
       null,
       null,
       null,
@@ -272,4 +272,26 @@ export function collectProgramEvidenceExpression(
       [context.location(unwrapped)],
     ),
   );
+}
+
+/**
+ * An object or array literal's attributes. An object literal names the field
+ * each property packs, keyed by the property's start (where its `pack-field`
+ * relation points), so a slice can enter the pack through the one field it is
+ * after (`evidence-slice-fields.ts`). A computed key or a spread names none.
+ */
+export function objectPackAttributes(
+  ts: typeof TypeScript,
+  node: TypeScript.ObjectLiteralExpression | TypeScript.ArrayLiteralExpression,
+  location: (node: TypeScript.Node) => ProgramEvidenceLocation,
+): Record<string, string> {
+  if (!ts.isObjectLiteralExpression(node)) return { operation: "object-pack" };
+  const fields: Record<string, string> = {};
+  for (const property of node.properties) {
+    if (!ts.isPropertyAssignment(property) && !ts.isShorthandPropertyAssignment(property)) continue;
+    if (ts.isComputedPropertyName(property.name) || ts.isPrivateIdentifier(property.name)) continue;
+    const { span } = location(property);
+    fields[`${span.startLine}:${span.startColumn}`] = property.name.text;
+  }
+  return { operation: "object-pack", fields: JSON.stringify(fields) };
 }
