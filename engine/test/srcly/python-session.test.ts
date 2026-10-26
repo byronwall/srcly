@@ -81,6 +81,16 @@ describe.skipIf(!python.python)(`Python session and ops (${python.reason})`, () 
     expect(graph.terminals.map((terminal) => terminal.label)).toEqual(expect.arrayContaining(["return item → POST /v1/items"]));
   });
 
+  it("fills a request body model's fields from the request, and counts a typed return as a use of its class", () => {
+    const body = anchorGraphOp(session, { file: "app/models.py", name: "ItemIn", line: 6, direction: "both" });
+    expect(body.outcome).toBe("ok");
+    expect(body.origins.map((origin) => origin.label)).toEqual(["POST /v1/items request body → body"]);
+    expect(boxes(body).filter((node) => node.side === "up" && node.elementKind === "parameter" && node.file === "app/models.py").map((node) => node.label).sort()).toEqual(["name", "price", "tags"]);
+    const item = anchorGraphOp(session, { file: "app/models.py", name: "Item", line: 12, direction: "forward" });
+    const returned = boxes(item).filter((node) => node.note === "returned as it").map((node) => `${node.file}:${node.line}`);
+    expect(returned).toEqual(expect.arrayContaining(["app/routers/items.py:15", "app/store.py:12"]));
+  });
+
   it("selects Python expressions innermost first and builds a ledger to the response", () => {
     const at = find("app/routers/items.py", "body.name", "name = body.name.strip()");
     const caret = { ...at.span, endColumn: at.span.startColumn + 6 };

@@ -9,7 +9,7 @@ import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type An
 import { DECLARATION_KINDS, elementsAt, endsInPlace, externalCallee, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
 import type { HostCandidate, LanguageHost } from "../host";
 import { clip, foldedLimit } from "../frontier-words";
-import { kindWords, syntaxWords } from "../anchor-words";
+import { kindWords, syntaxWords, useWords } from "../anchor-words";
 import { ownFacts } from "../own-facts";
 import { EngineError } from "../protocol";
 import { parseSpan, sameSpan, type Span } from "../selection";
@@ -392,7 +392,8 @@ class AnchorGraphBuilder {
       const unwalked: string[] = [];
       for (const { relation, use } of usesOf(provider, seed, this.cancellation)) {
         if (this.nodes.has(use.id)) continue;
-        this.addElement(use, "value", "down", relation.status, null, use.kind === "component-occurrence" || use.kind === "jsx-occurrence" ? "rendered here" : use.kind === "parameter" ? "annotated with it" : "called here");
+        // A use that is itself where a value leaves (a return typed with the class) is drawn as that terminal.
+        this.addElement(use, use.terminalRoles.length ? "terminal" : "value", "down", relation.status, null, useWords(use.kind));
         this.pushEdge({ id: `use:${relation.id}`, source: seed, target: use.id, kind: "used-by", status: relation.status, proof: [relation.proof], label: null });
         // A component rendered here is where the value ends: its body is the anchor's own, already traced.
         const endsHere = TERMINAL_KINDS.has(use.kind);

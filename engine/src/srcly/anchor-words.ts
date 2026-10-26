@@ -63,3 +63,11 @@ export function syntaxWords(kind: string): string {
   return SYNTAX_WORDS[kind] ?? kind;
 }
 
+
+/** How a declaration is used at a use box: a call, a render, a parameter or a return typed with it. */
+export function useWords(kind: string): string {
+  if (kind === "component-occurrence" || kind === "jsx-occurrence") return "rendered here";
+  if (kind === "parameter") return "annotated with it";
+  if (kind === "return" || kind === "return-expression") return "returned as it";
+  return "called here";
+}

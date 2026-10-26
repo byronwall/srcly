@@ -10,6 +10,7 @@ Defs and classes the engine's Python provider (`engine/python/srcly_pyfacts.py`)
 | `app/identity.py` | one helper, two calls (T13): `ident` returns its argument to each call alone, `pick` returns only its second |
 | `app/schemas.py` | a model's data flow: fields set by `ItemCreate(title=…)` and a dataclass's positional `Point(a, 2)`, read as `item.title`, and parameters annotated with the model; `Other.title` shares a name and never joins |
 | `app/external.py` | values handed to code outside the program (`json.dumps`, `list.append`) are external code; a call the checker cannot resolve is not |
+| `app/web.py` | a Flask app: `request.json` / `request.args` are origins, a handler's return and `jsonify(...)` terminals; a parameter named `request` is not Flask's |
 | `app/stops.py` | where a trace stops, named: `is_enabled`'s result is only read by an `if`, and `migrate` has nothing to trace |
 | `app/broken.py` | a syntax error no rewrite fixes: anchoring in it names the parse failure |
 

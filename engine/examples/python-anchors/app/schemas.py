@@ -38,3 +38,12 @@ def make_point(a: int) -> Point:
 
 def only_annotated(item: ItemCreate) -> int:
     return item.size
+
+
+class Note(BaseModel):
+    text: str
+    kind: str = "plain"
+
+
+def note() -> Note:
+    return Note(text="hi")
