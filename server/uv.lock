@@ -666,6 +666,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "jsonschema" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
@@ -688,7 +689,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "jsonschema", specifier = ">=4.26.0" }]
+dev = [
+    { name = "jsonschema", specifier = ">=4.26.0" },
+    { name = "ruff", specifier = ">=0.17.1" },
+]
 
 [[package]]
 name = "starlette"

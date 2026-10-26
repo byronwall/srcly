@@ -1,6 +1,5 @@
 from app.services.typescript.typescript_analysis import TreeSitterAnalyzer
 from app.services.analysis import attach_file_metrics, create_node
-from pathlib import Path
 
 
 def test_function_body_loc_does_not_double_count(tmp_path):

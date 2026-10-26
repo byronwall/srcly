@@ -263,21 +263,24 @@ def test_failed_scans_are_not_cached(monkeypatch, repo: Path) -> None:
 
 
 def test_analysis_endpoints_use_and_refresh_the_cache(counting_scan, repo: Path) -> None:
+    """GET serves the cached scan; refresh rescans and replaces it.
+
+    CountingScan stamps each tree with its scan number as `loc`, so a response's
+    `loc` names the scan behind it. Whole responses are not compared: activity and
+    findings are live overlays laid over the cached tree per request.
+    """
     client = TestClient(app)
 
-    first = client.get("/api/analysis", params={"path": str(repo)})
-    second = client.get("/api/analysis", params={"path": str(repo)})
-    assert first.status_code == second.status_code == 200
+    def scan_behind(response) -> int:
+        assert response.status_code == 200
+        return response.json()["metrics"]["loc"]
+
+    assert scan_behind(client.get("/api/analysis", params={"path": str(repo)})) == 1
+    assert scan_behind(client.get("/api/analysis", params={"path": str(repo)})) == 1
     assert counting_scan.calls == 1
-    assert second.json() == first.json()
 
-    refreshed = client.post("/api/analysis/refresh", params={"path": str(repo)})
-    assert refreshed.status_code == 200
-    assert counting_scan.calls == 2
-    assert refreshed.json()["metrics"]["loc"] == 2
-
-    # The refresh replaced the cached tree.
-    assert client.get("/api/analysis", params={"path": str(repo)}).json()["metrics"]["loc"] == 2
+    assert scan_behind(client.post("/api/analysis/refresh", params={"path": str(repo)})) == 2
+    assert scan_behind(client.get("/api/analysis", params={"path": str(repo)})) == 2
     assert counting_scan.calls == 2
 
 

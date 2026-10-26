@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import anyio
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.main import app as fastapi_app
