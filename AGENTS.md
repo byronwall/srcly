@@ -22,7 +22,8 @@
 
 ## Checks
 
-- First thing in a fresh worktree: `scripts/bootstrap.sh` (node_modules, server venv, git hooks).
+- First thing in a fresh worktree: `scripts/bootstrap.sh` (node_modules, server venv, git hooks, `.claude/launch.json`).
+- Dev servers: `preview_start` `srcly-api` then `srcly-client`. Each worktree has its own port pair (`scripts/dev-ports.sh`) and its client proxies to its own API; don't hand-edit ports. Read the main checkout through `git show origin/main:<path>`: `~/Projects/srcly` may be on another branch.
 - `scripts/check.sh` runs what CI's `build` job runs (`client`, `engine`, `server`, or `--changed`); the pre-push hook runs `--changed`.
 - Client types: `cd client && pnpm typecheck` (`tsc -b`). `tsc -p .` checks nothing: `client/tsconfig.json` only holds references.
 - `browser` is `cd client && pnpm e2e` (Playwright, `client/e2e/`). Select by `data-*` attributes, never by drawn or truncated text or pixel positions: CI's Linux fonts are wider than macOS's.
