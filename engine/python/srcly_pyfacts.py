@@ -517,6 +517,8 @@ class Program:
         self.sources = sources
         self.checked = checked
         self.modules = {source.module: source for source in sources}
+        # The program's own top-level packages: a callee resolved under none of them is outside it.
+        self.packages = {module.split(".")[0] for module in self.modules}
         self.functions: dict[str, FunctionInfo] = {}  # fullname -> info
         self.functions_by_node: dict[int, FunctionInfo] = {}
         self.classes: dict[str, ClassInfo] = {}
@@ -1254,7 +1256,7 @@ class BodyWalker:
             self.expr(node.value)
             return
         if isinstance(node, (ast.If, ast.While)):
-            self.expr(node.test)
+            self.test(node.test)
             self.walk_body(node.body)
             self.walk_body(node.orelse)
             return
@@ -1287,13 +1289,13 @@ class BodyWalker:
                 self.expr(node.exc)
             return
         if isinstance(node, ast.Assert):
-            self.expr(node.test)
+            self.test(node.test)
             return
         if isinstance(node, ast.Match):
             self.expr(node.subject)
             for case in node.cases:
                 if case.guard is not None:
-                    self.expr(case.guard)
+                    self.test(case.guard)
                 self.walk_body(case.body)
             return
         if isinstance(node, ast.Delete):
@@ -1338,6 +1340,14 @@ class BodyWalker:
         return element
 
     # ---- expressions
+
+    def test(self, node: ast.expr) -> str | None:
+        """A branch test (`if`, `while`, `assert`, a guard, a conditional, a comprehension filter): the value ends there, deciding the branch."""
+        value = self.expr(node)
+        element = self.program.elements.get(value or "")
+        if element is not None:
+            element["attributes"]["endsInPlace"] = "branch"
+        return value
 
     def expr(self, node: ast.expr | None) -> str | None:
         if node is None:
@@ -1516,7 +1526,7 @@ class BodyWalker:
         return element
 
     def expr_IfExp(self, node: ast.IfExp) -> str | None:
-        self.expr(node.test)
+        self.test(node.test)
         body, orelse = self.expr(node.body), self.expr(node.orelse)
         element = self.element("value", node, self.source.segment(node))
         self.note(node, "IfExp")
@@ -1556,7 +1566,7 @@ class BodyWalker:
                 iterable = self.expr(generator.iter)
                 self.bind(generator.target, iterable, generator.iter, "for-element", alias_kind="for-binding")
                 for condition in generator.ifs:
-                    self.expr(condition)
+                    self.test(condition)
             produced = [self.expr(node.key), self.expr(node.value)] if isinstance(node, ast.DictComp) else [self.expr(node.elt)]
             element = self.element("collection-element", node, clip(self.source.segment(node), 60))
             for item in produced:
@@ -1665,7 +1675,11 @@ class BodyWalker:
 
         # Library code: the value goes in, and the result is assumed to carry it.
         type_text, type_source = self.type_of(node)
-        element = self.element("call-result", node, f"{callee_text}(…)", attributes={"callee": target_name, "external": True} if target_name else {"external": True},
+        attributes: dict[str, Any] = {"callee": target_name, "external": True} if target_name else {"external": True}
+        # Resolved outside the program (site-packages, typeshed, the stdlib): code the walk cannot enter, named as such.
+        if target_name and target_name.split(".")[0] not in self.program.packages:
+            attributes["externalCallee"] = callee_text
+        element = self.element("call-result", node, f"{callee_text}(…)", attributes=attributes,
                                proof={"kind": proof_kind, "detail": proof_name, "locations": [source.location(span)]} if proof_name else None)
         self.note(node, "Call")
         for child, value in inputs:

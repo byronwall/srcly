@@ -61,10 +61,10 @@ const BOOKKEEPING_KINDS = new Set(["field-consumer", "jsx-occurrence"]);
  * source (a library, a global like `Math.min`), else null. Nothing continuing
  * from such a call is external code, not a dead end.
  */
-export function externalCallee(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location">): string | null {
-  // Only the TypeScript Program resolves a callee's declaration; a Python call is never named external.
-  if (tier1.language !== "typescript") return null;
+export function externalCallee(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "attributes">): string | null {
   if (element.kind !== "call" && element.kind !== "call-result") return null;
+  // The Python helper records the callee mypy resolved outside the program (site-packages, typeshed, the stdlib).
+  if (tier1.language !== "typescript") return typeof element.attributes?.externalCallee === "string" ? element.attributes.externalCallee : null;
   const { ts } = tier1;
   const sourceFile = tier1.program.getSourceFile(path.resolve(tier1.args.root, element.location.file));
   const node = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
@@ -92,12 +92,14 @@ export function externalCallee(tier1: Tier1, element: Pick<ProgramElement, "kind
  * (`LanguageHost.evidence.deadEnds` false) stops: not a dead end on its own,
  * but the place to name when the walk lands nowhere else. Null is a dead end.
  */
-export function naturalEnd(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module"> & { terminalRoles?: readonly string[] }): "start" | "bookkeeping" | "consumed" | "unrecorded" | null {
+export function naturalEnd(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module" | "attributes"> & { terminalRoles?: readonly string[] }): "start" | "bookkeeping" | "consumed" | "unrecorded" | null {
   if (DECLARATION_KINDS.has(element.kind) || BOOKKEEPING_KINDS.has(element.kind) || TERMINAL_KINDS.has(element.kind) || (element.terminalRoles?.length ?? 0) > 0) return "bookkeeping";
   if (isNaturalStart(tier1, element)) return "start";
   if (endsInPlace(tier1, element)) return "consumed";
   // The callee of a call into first-party code names the function the walk enters; the call's own relations carry on (a callee with no body is related to its call).
   if (namesCallee(tier1, element)) return "bookkeeping";
+  // A value that ends in a call to code outside the program is a stop the evidence can name, whatever it marks about dead ends.
+  if (!tier1.host.evidence.deadEnds && externalCallee(tier1, element)) return null;
   return tier1.host.evidence.deadEnds ? null : "unrecorded";
 }
 
@@ -162,8 +164,9 @@ export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: 
  * is a computed key, which picks a field without being the value read.
  * Null otherwise.
  */
-export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "location">): keyof typeof IN_PLACE_NOTES | null {
-  if (tier1.language !== "typescript") return null;
+export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "location" | "attributes">): keyof typeof IN_PLACE_NOTES | null {
+  // The Python helper marks a branch test where it walks one.
+  if (tier1.language !== "typescript") return element.attributes?.endsInPlace === "branch" ? "branch" : null;
   const { ts } = tier1;
   const sourceFile = tier1.program.getSourceFile(path.resolve(tier1.args.root, element.location.file));
   let node: TypeScript.Node | null = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
