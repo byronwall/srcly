@@ -314,6 +314,13 @@ export function jsxOpeningAncestor(ts: typeof TypeScript, node: TypeScript.JsxEx
   return null;
 }
 
+/** Whether a call's value is thrown away: it is a statement of its own (`rows.push(row);`, `await save(x);`, `void run()`). */
+export function discardsValue(ts: typeof TypeScript, call: TypeScript.CallExpression): boolean {
+  let node: TypeScript.Node = call;
+  while (ts.isParenthesizedExpression(node.parent) || ts.isAwaitExpression(node.parent) || ts.isVoidExpression(node.parent) || ts.isNonNullExpression(node.parent)) node = node.parent;
+  return ts.isExpressionStatement(node.parent);
+}
+
 export function unwrap(ts: typeof TypeScript, node: TypeScript.Expression): TypeScript.Expression {
   if (
     ts.isParenthesizedExpression(node) ||

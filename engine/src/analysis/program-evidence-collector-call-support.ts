@@ -6,6 +6,7 @@ import {
   constructorExpressionElementEvidence,
 } from "./program-evidence-collector-expression-support";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
+import type { CollectorCallInfo } from "./program-evidence-collector-support";
 import {
   bindingIdentifiers,
   calleeName,
@@ -15,6 +16,8 @@ import {
   isResourceFactory,
   nodeKey,
   proof,
+  discardsValue,
+  unwrap,
 } from "./program-evidence-support";
 
 export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollectorDeclarations {
@@ -346,6 +349,36 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         "proven",
       );
     }
+  }
+
+  /**
+   * A call into code with no in-project body, once every element exists. Its
+   * receiver and arguments already reach its value (`processCall`); two more
+   * hand-offs follow from the same fact. A collection method's result (the
+   * `call-result` its field transfer names) is this call's own value. And a
+   * call whose value is discarded can only leave its arguments in its
+   * receiver (`rows.push(row)`, `seen.set(key, value)`): when the function
+   * declares that receiver, they reach its binding. That is assumed, not
+   * proven, so the relation is `partial` with an `external-call` proof.
+   */
+  protected connectExternalCall(call: CollectorCallInfo): void {
+    const resultId = this.elementIfPresent(call.node, "call-result");
+    if (resultId) {
+      this.addRelation(resultId, call.id, "references", [this.location(call.node)], proof("ast-node", "The collection method's result is this call's own value.", [this.location(call.node)]), "proven");
+    }
+    if (!this.ts.isCallExpression(call.node) || !discardsValue(this.ts, call.node)) return;
+    // The receiver's root name: `rows` in `rows.push(row)`, `section` in `section.rows.push(row)`.
+    let root = unwrap(this.ts, call.node.expression);
+    if (!this.ts.isPropertyAccessExpression(root)) return;
+    while (this.ts.isPropertyAccessExpression(root)) root = unwrap(this.ts, root.expression);
+    if (!this.ts.isIdentifier(root)) return;
+    // Only a variable the same function declares (`const rows = []; rows.push(row)`): shared state, a parameter or a global is written for code this function does not own.
+    const declaration = this.checker.getSymbolAtLocation(root)?.valueDeclaration;
+    const scope = (node: TypeScript.Node) => this.ts.findAncestor(node.parent, this.ts.isFunctionLike);
+    if (!declaration || !this.ts.isVariableDeclaration(declaration) || scope(declaration) !== scope(call.node)) return;
+    const bindingId = this.variablesBySymbol.get(this.symbolId(root) ?? "");
+    if (!bindingId) return;
+    this.addRelation(call.id, bindingId, "references", [this.location(call.node), this.location(root)], proof("external-call", `Assumed: ${calleeName(this.ts, call.node.expression)} has no source to read and its value is discarded, so its arguments are kept in its receiver.`, [this.location(call.node), this.location(root)]), "partial");
   }
 
   protected processCallBoundary(

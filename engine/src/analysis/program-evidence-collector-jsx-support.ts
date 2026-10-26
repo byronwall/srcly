@@ -265,6 +265,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     this.connectFieldTransfers();
     for (const call of this.calls) {
       this.checkCancellation();
+      if (!call.target) this.connectExternalCall(call);
       if (call.target) {
         for (const parameter of call.target.declaration.parameters) {
           this.checkCancellation();
