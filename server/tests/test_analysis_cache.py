@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.models import Metrics, Node
 from app.services import cache, scan_jobs
+from app.services.analysis_types import FINDINGS_METRICS
 from app.services.cache import AnalysisCache, fingerprint
 from app.services.scan_jobs import ScanJobManager
 
@@ -262,6 +263,16 @@ def test_failed_scans_are_not_cached(monkeypatch, repo: Path) -> None:
     assert cache.analysis_cache.load(repo) is None
 
 
+def _without_findings(node: dict) -> dict:
+    """The tree minus the findings overlay (its status, counts and N/A reasons)."""
+    out = {k: v for k, v in node.items() if k != "findings"}
+    metrics = {k: v for k, v in out.get("metrics", {}).items() if k not in FINDINGS_METRICS}
+    metrics.pop("na_reasons", None)
+    out["metrics"] = metrics
+    out["children"] = [_without_findings(c) for c in node.get("children", [])]
+    return out
+
+
 def test_analysis_endpoints_use_and_refresh_the_cache(counting_scan, repo: Path) -> None:
     client = TestClient(app)
 
@@ -269,7 +280,9 @@ def test_analysis_endpoints_use_and_refresh_the_cache(counting_scan, repo: Path)
     second = client.get("/api/analysis", params={"path": str(repo)})
     assert first.status_code == second.status_code == 200
     assert counting_scan.calls == 1
-    assert second.json() == first.json()
+    # Lint/type-check findings run in the background, so one response can say
+    # "running" and the next "ok"; the cached tree is what must match.
+    assert _without_findings(second.json()) == _without_findings(first.json())
 
     refreshed = client.post("/api/analysis/refresh", params={"path": str(repo)})
     assert refreshed.status_code == 200
