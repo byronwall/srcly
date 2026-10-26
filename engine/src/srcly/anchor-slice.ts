@@ -59,3 +59,27 @@ export function usesOf(provider: EvidenceRelationSource, declarationId: string, 
   }
   return uses;
 }
+
+/**
+ * The callee a relation assumes through, else null: an argument, or the
+ * receiver a library method consumes (`x.trim`), handed to a call with no
+ * body to enter (no `invokes`). That the call's value derives from it is
+ * what code with no source to read is taken to do, never proven.
+ */
+export function assumedThrough(provider: EvidenceRelationSource, relation: Pick<ProgramRelation, "kind" | "from" | "to">): string | null {
+  if (relation.kind !== "argument" && relation.kind !== "references") return null;
+  const call = provider.factIndex.getElement(relation.to);
+  if (call?.kind !== "call") return null;
+  if (relation.kind === "references" && !["field-read", "value"].includes(provider.factIndex.getElement(relation.from)?.kind ?? "")) return null;
+  // A body to enter, or what the call does modelled by the framework's runtime (a resource, its accessor) or a classified operation (`performs`): not assumed.
+  const sameSpan = (id: string) => {
+    const other = provider.factIndex.getElement(id);
+    return other && other.location.file === call.location.file && JSON.stringify(other.location.span) === JSON.stringify(call.location.span) ? toSliceElement(other) : null;
+  };
+  for (const item of provider.getRelations(call.id, "both")) {
+    if (item.kind === "invokes" && item.from === call.id) return null;
+    if (item.kind === "performs" && item.from === call.id) return null;
+    if (sameSpan(item.from === call.id ? item.to : item.from)?.boundary === "framework-runtime") return null;
+  }
+  return call.label;
+}
