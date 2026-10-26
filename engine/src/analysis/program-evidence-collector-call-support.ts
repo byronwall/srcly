@@ -42,15 +42,17 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     const initializerId = this.expression(initializer, ownerId);
     const factory = stateFactory(this.ts, this.checker, initializer);
     const first = this.ts.isArrayBindingPattern(node.name) ? node.name.elements[0] : undefined;
-    if (factory && first && this.ts.isBindingElement(first) && this.ts.isIdentifier(first.name)) {
+    const getter = factory && first && this.ts.isBindingElement(first) && this.ts.isIdentifier(first.name) ? first.name : null;
+    if (getter) {
       // A state pair: the initial value seeds the state the getter reads.
-      const stateId = this.stateElement(first.name);
-      const symbolId = this.symbolId(first.name);
+      const stateId = this.stateElement(getter);
+      const symbolId = this.symbolId(getter);
       if (symbolId) this.stateBySymbol.set(symbolId, stateId);
-      // What the factory returns (its arguments, the initial value among them) seeds the state.
-      this.addRelation(aliasId, stateId, "references", [this.location(initializer)], frameworkState("The factory's initial value seeds the state its getter reads.", this.location(initializer)), "partial");
+      // The factory's call (its arguments, the initial value among them) seeds the state.
+      this.addRelation(initializerId ?? aliasId, stateId, "references", [this.location(initializer)], frameworkState("The factory's initial value seeds the state its getter reads.", this.location(initializer)), "partial");
     }
-    if (initializerId) {
+    // A state pair's `[getter, setter]` binds two functions, not the value: the value goes through the state.
+    if (initializerId && !getter) {
       this.addRelation(
         initializerId,
         aliasId,
@@ -194,17 +196,20 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         node.expression,
       );
     }
-    // A setter of a state pair, resolved through the checker: what it receives is what its getter's reads see, not the call's result.
+    // Half of a state pair, resolved through the checker: a setter's argument becomes the state, and a getter's call reads it.
+    // The framework's model says what the call does, so its callee is not consumed by a call with no body.
     const role = stateRoleOf(this.ts, this.checker, node.expression);
-    const setter = role?.role === "setter";
-    if (role && setter) {
+    if (role) {
       const stateId = this.stateElement(role.getter);
-      for (const argument of node.arguments) {
+      if (role.role === "getter") {
+        this.addRelation(stateId, callId, "references", [this.location(node)], frameworkState("The getter's call reads the state its setter writes; order and time are not proven.", this.location(node)), "partial");
+      }
+      for (const argument of role.role === "setter" ? node.arguments : []) {
         this.addRelation(this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId), stateId, "references", [this.location(argument)], frameworkState("The setter's argument becomes the state its getter reads; order and time are not proven.", this.location(argument)), "partial");
       }
     }
     // A callee with no body to enter (a library method, a callback, an accessor) is consumed by its call, as its arguments are.
-    if (!setter && !target && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
+    if (!role && !target && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
       this.addRelation(
         this.expression(node.expression, ownerId),
         callId,
@@ -218,7 +223,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         "proven",
       );
     }
-    for (const argument of setter ? [] : node.arguments) {
+    for (const argument of role ? [] : node.arguments) {
       // A spread argument passes its elements: the value is what it spreads.
       const argumentId = this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId);
       this.addRelation(
