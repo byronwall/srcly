@@ -59,7 +59,7 @@ report.exports = {
 // An even spread over files, so one big module does not dominate. `--every N`
 // keeps the exports whose `file#name` hashes to 0 mod N instead: adding or
 // removing one export then changes only that export's place in the sample,
-// which a committed baseline (`survey-gate.ts`) needs.
+// so `survey-gate.ts` can diff a base and a head sample export by export.
 const candidates = all.filter((item) => item.traceable).sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.name.localeCompare(b.name));
 const every = args.every ? Number(args.every) : null;
 const step = Math.max(1, candidates.length / traces);

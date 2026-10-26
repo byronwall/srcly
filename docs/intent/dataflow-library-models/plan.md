@@ -133,7 +133,7 @@ Two constraints hold throughout the migration:
 
 ## 6. Migration order
 
-Each step is one PR. Each must pass `pnpm survey-gate` (#192) with **no baseline change**: same ok traces, same stops by kind, no new errors. The step is proof that the rows reproduce the code. The one exception is step 7, which fixes namespace matching and is expected to move the gate; it commits its baseline diff.
+Each step is one PR. Each must pass `pnpm survey-gate` (#192) with **no moves**: same ok traces, same stops by kind, no new errors. The step is proof that the rows reproduce the code. The one exception is step 7, which fixes namespace matching and is expected to move the gate; its PR body explains the moves in a `Survey moves:` line.
 
 1. **Loader, format and the transform set.** Add `library-models.ts`, the JSON schema and an empty built-in file. Replace the kind-name regex with an exported set. No behaviour change.
 2. **Python origins and terminals.** `ORIGIN_CALLS`, `TERMINAL_CALLS` and `ORIGIN_READS` become rows. The helper reads rows instead of its dicts. This is the largest table and the simplest model.
