@@ -724,7 +724,7 @@ const SYNTAX_WORDS: Record<string, string> = {
   Await: "await",
   arg: "parameter",
   FunctionDef: "function",
-  AsyncFunctionDef: "function",
+  AsyncFunctionDef: "function", ClassDef: "class",
 };
 
 function syntaxWords(kind: string): string {

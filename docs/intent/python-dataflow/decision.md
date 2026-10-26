@@ -79,6 +79,9 @@ The engine derives origin roles, terminal roles and boundaries from an element's
 | first-party call | `call-result`; `argument-binding` into the callee's parameters and `return-value` back, followed only with one call site (R7) |
 | library call | `call-result` with `call-input` relations marked partial: the result is assumed to carry its inputs |
 | pydantic / dataclass construction, dict and list literals | `object-pack` with `pack-field` per field |
+| a `class` | `function-entry` over the whole class, with a scope of its own, as a `def` is: anchored by name, it is a declaration whose uses are its constructor calls (`definition` from each `Foo(…)`, as from each first-party call to its `def`) |
+
+A file with syntax newer than the helper's interpreter is rewritten before it is parsed, when an older spelling exists that keeps every expression's columns: Python 3.14's `except A, B:` (PEP 758) becomes `except(A, B):`. mypy checks the same text. A file that still does not parse is a file gap, and anchoring a name in it says so.
 
 Name reads join their bindings flow-insensitively within a function: the last binding before the read when every binding is straight-line, otherwise every binding that can reach it, marked `partial`.
 
@@ -96,5 +99,6 @@ On srcly's own server the `anchor_graph` handler's body comes back `partial`: it
 
 - Invocation pairing (M5's identity work) is not done for Python either: a helper with more than one call site is a boundary, as in TypeScript.
 - `Depends()` parameters are plain inputs, not traced into the dependency function.
+- A class anchored by name has no up side: the declaration path takes only the parameters a declaration owns, and a class's inputs are its `__init__`'s parameters or, for a model, the `pack-field`s into each constructor call. Its down side is where each constructor call's instance goes.
 - Attribute writes (`self.x = …`) end the path; values are not followed across methods through instance state.
 - The route graph (`routeGraph`) is TypeScript's render backbone and has no Python meaning; a Python route opens its handler in anchor mode instead.

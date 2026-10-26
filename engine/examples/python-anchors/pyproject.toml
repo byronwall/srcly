@@ -1,0 +1,6 @@
+[project]
+name = "anchors-example"
+version = "0.0.0"
+description = "Defs and classes the data-flow engine's Python provider anchors by name."
+requires-python = ">=3.11"
+dependencies = ["pydantic"]

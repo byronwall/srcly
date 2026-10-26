@@ -13,6 +13,9 @@ import type { PythonTier1 } from "./session";
 export function createPythonHost(tier1: PythonTier1): LanguageHost {
   const { facts, root } = tier1;
   const files = new Set(facts.files);
+  const parseGaps = new Map(facts.fileGaps.map((gap) => [gap.file, gap.message]));
+  /** A def's or class's name entry: a declaration, never a selectable expression of its own. */
+  const isDefinition = (entry: WireExpression) => entry.k === "FunctionDef" || entry.k === "ClassDef";
   const expressions = new Map<string, { list: WireExpression[]; bySpan: Map<string, WireExpression> }>();
   const texts = new Map<string, string[]>();
   const tableFor = (file: string) => {
@@ -61,7 +64,7 @@ export function createPythonHost(tier1: PythonTier1): LanguageHost {
     candidates(file, span, text) {
       const caret = span.startLine === span.endLine && span.startColumn === span.endColumn;
       const found = tableFor(file).list
-        .filter((entry) => entry.k !== "FunctionDef" && contains(toSpan(entry.s), span, caret))
+        .filter((entry) => !isDefinition(entry) && contains(toSpan(entry.s), span, caret))
         .sort((left, right) => size(left.s) - size(right.s));
       const seen = new Set<string>();
       const out: HostCandidate[] = [];
@@ -78,13 +81,15 @@ export function createPythonHost(tier1: PythonTier1): LanguageHost {
     },
     parts(file, span) {
       return tableFor(file).list
-        .filter((entry) => entry.k !== "FunctionDef" && covers(span, toSpan(entry.s)) && spanKey(toSpan(entry.s)) !== spanKey(span))
+        .filter((entry) => !isDefinition(entry) && covers(span, toSpan(entry.s)) && spanKey(toSpan(entry.s)) !== spanKey(span))
         .sort((left, right) => left.s[2] - right.s[2] || left.s[3] - right.s[3] || size(left.s) - size(right.s))
         .map((entry) => ({ kind: entry.k, text: entry.t, span: toSpan(entry.s) }));
     },
     identifierOnLine(file, name, line) {
       const hits = tableFor(file).list.filter((entry) => entry.s[0] === line && (entry.n ?? (entry.k === "Name" ? entry.t : undefined)) === name);
       const hit = hits.find((entry) => entry.d) ?? hits[0];
+      // A file the helper could not parse has no expressions: say so, rather than that the name is missing.
+      if (!hit && parseGaps.has(file)) throw new EngineError("not-found", `No ${name} on line ${line} of ${path.basename(file)}: the file did not parse (${parseGaps.get(file)})`);
       if (!hit) return null;
       return { kind: hit.k, text: name, span: toSpan(hit.s), fallbacks: (hit.f ?? []).map(toSpan) };
     },

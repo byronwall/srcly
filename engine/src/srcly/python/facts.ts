@@ -52,7 +52,8 @@ export type WireExpression = {
   op?: string;
 };
 
-export type WireScope = { s: Span4; name: string; id: string; kind: "function" };
+/** A function, or a class (its id is its entry element, as a function's is). */
+export type WireScope = { s: Span4; name: string; id: string; kind: "function" | "class" };
 
 export type PythonRoute = {
   key: string;
