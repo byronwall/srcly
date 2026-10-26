@@ -1,8 +1,10 @@
 import * as TypeScript from "typescript";
 import type { ProgramElementKind } from "./program-evidence";
 import { ProgramEvidenceCollectorFieldTransferSupport } from "./program-evidence-collector-field-transfers";
+import { reachingBindings } from "./program-evidence-reaching-bindings";
 import {
   derivedOperands,
+  isAssignmentOperator,
   firstBindingIdentifier,
   isExitStatusAssignment,
   isSelectionOperator,
@@ -53,6 +55,9 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         isExitStatusAssignment(this.ts, node)
       ) {
         this.processExitStatusAssignment(node, nextOwner);
+      }
+      if (this.ts.isBinaryExpression(node) && isAssignmentOperator(this.ts, node.operatorToken.kind) && this.ts.isIdentifier(node.left)) {
+        this.processAssignment(node as TypeScript.BinaryExpression & { left: TypeScript.Identifier }, nextOwner);
       }
       if (this.ts.isReturnStatement(node)) {
         this.processReturn(node, nextOwner);
@@ -292,6 +297,28 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       const target = reference.symbolId
         ? this.variablesBySymbol.get(reference.symbolId)
         : null;
+      const assigned = reference.symbolId ? this.assignments.get(reference.symbolId) : undefined;
+      if (assigned) {
+        // A reassigned variable: the read sees the bindings that can reach it (a parameter's own binding is already related).
+        const declared = target ? [{ id: target, node: assigned.declaration }] : this.ts.isParameter(assigned.declaration) ? [{ id: null, node: assigned.declaration }] : [];
+        const reaching = reachingBindings(this.ts, reference.node, assigned.declaration, [...declared, ...assigned.bindings]);
+        for (const binding of reaching) {
+          if (!binding.id) continue;
+          this.addRelation(
+            binding.id,
+            reference.id,
+            "references",
+            [this.location(reference.node)],
+            proof(
+              "compiler-symbol",
+              reaching.length === 1 ? "The read sees this binding of the variable." : `The read sees this binding of the variable, one of ${reaching.length} that can reach it.`,
+              [this.location(reference.node)],
+            ),
+            reaching.length === 1 ? "proven" : "partial",
+          );
+        }
+        continue;
+      }
       if (target) {
         this.addRelation(
           target,

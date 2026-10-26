@@ -332,6 +332,45 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
     }
   }
 
+  /**
+   * An assignment to a local variable or parameter rebinds it: the assigned
+   * value (and, for `+=` and the like, the old one) reaches a binding at the
+   * assignment, which the reads it can reach see (`reachingBindings`).
+   */
+  protected processAssignment(
+    node: TypeScript.BinaryExpression & { left: TypeScript.Identifier },
+    ownerId: string | null,
+  ): void {
+    const symbolId = this.symbolId(node.left);
+    const declared = this.checker.getSymbolAtLocation(node.left)?.valueDeclaration;
+    const declaration = declared && this.ts.findAncestor(declared, (item) => this.ts.isVariableDeclaration(item) || this.ts.isParameter(item));
+    if (!symbolId || !declaration || declaration.getSourceFile().isDeclarationFile) return;
+    const bindingId = this.ensureElement(
+      node,
+      "alias",
+      ownerId,
+      { name: node.left.text },
+      symbolId,
+      null,
+      null,
+      "proven",
+      proof("ast-node", "The assignment rebinds the variable.", [this.location(node)]),
+    );
+    const values = node.operatorToken.kind === this.ts.SyntaxKind.EqualsToken ? [node.right] : [node.left, node.right];
+    for (const value of values) {
+      this.addRelation(
+        this.expression(value, ownerId),
+        bindingId,
+        "references",
+        [this.location(value)],
+        proof("ast-node", "The value is bound to the variable at this assignment.", [this.location(node)]),
+        "proven",
+      );
+    }
+    const entry = this.assignments.get(symbolId) ?? this.assignments.set(symbolId, { declaration, bindings: [] }).get(symbolId)!;
+    if (!entry.bindings.some((binding) => binding.id === bindingId)) entry.bindings.push({ id: bindingId, node });
+  }
+
   protected processExitStatusAssignment(
     node: TypeScript.BinaryExpression,
     ownerId: string | null,

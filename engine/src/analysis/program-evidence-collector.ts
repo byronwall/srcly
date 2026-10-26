@@ -63,6 +63,7 @@ export class ProgramEvidenceCollector extends ProgramEvidenceCollectorJsxSupport
     if (!this.sourceFactsCollected) this.collectFactsOnly();
     this.calls.length = 0;
     this.references.length = 0;
+    this.assignments.clear();
     this.httpFetches.length = 0;
     this.httpResources.length = 0;
     this.httpResponses.length = 0;

@@ -103,6 +103,8 @@ export class ProgramEvidenceCollectorSupport {
   protected readonly returnsByFunction = new Map<string, string[]>();
   protected readonly calls: CollectorCallInfo[] = [];
   protected readonly references: CollectorReferenceInfo[] = [];
+  /** Assignments to each local variable or parameter (by symbol), with the declaration they rebind. */
+  protected readonly assignments = new Map<string, { declaration: TypeScript.Node; bindings: { id: string; node: TypeScript.Node }[] }>();
   protected readonly httpFetches: HttpBridgeFetch[] = [];
   protected readonly httpResources: HttpBridgeResource[] = [];
   protected readonly httpResponses: HttpBridgeResponse[] = [];

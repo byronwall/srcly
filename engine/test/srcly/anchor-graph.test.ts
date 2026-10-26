@@ -221,6 +221,25 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(boxes(key).some((node) => node.elementKind === "render-terminal")).toBe(false);
   });
 
+  it("lets a read see every assignment that can reach it", () => {
+    for (const [text, marker] of [["props.first", "label = props.first"], ["props.second", "label = props.second"]]) {
+      const graph = anchorGraphOp(session, { ...find(basics, "src/reassigned.tsx", text, marker), direction: "forward" });
+      expect(graph.outcome, text).toBe("ok");
+      expect(boxes(graph, "terminal")).toMatchObject([{ elementKind: "render-terminal", line: 10 }]);
+      // One of the bindings that can reach the read: the hand-off is partial.
+      expect(graph.edges.some((edge) => edge.kind === "references" && edge.status === "partial")).toBe(true);
+    }
+  });
+
+  it("lets a straight-line assignment overwrite the binding before it: the stale value never reaches the read", () => {
+    const stale = anchorGraphOp(session, { ...find(basics, "src/reassigned.tsx", "props.stale", "let value"), direction: "forward" });
+    expect(stale.counts.terminals).toBe(0);
+    expect(boxes(stale, "frontier").map((node) => [node.reason, node.label, node.line])).toEqual([["disconnected", "value", 14]]);
+    const fresh = anchorGraphOp(session, { ...find(basics, "src/reassigned.tsx", "props.fresh", "value = props.fresh"), direction: "forward" });
+    expect(fresh.outcome).toBe("ok");
+    expect(fresh.edges.every((edge) => edge.status === "proven")).toBe(true);
+  });
+
   it("keeps a derived value nothing reads at a dead end", () => {
     const limit = anchorGraphOp(session, { ...find(basics, "src/derived-operands.tsx", "props.limit", "tooMany ="), direction: "forward" });
     expect(limit.outcome).toBe("partial");
