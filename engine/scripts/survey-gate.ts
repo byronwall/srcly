@@ -8,9 +8,11 @@ import { fileURLToPath } from "node:url";
 // `survey-blockers.ts`, one repo per process, and compares the outcomes with
 // the committed `survey-baseline.json`. Always prints what moved.
 //
-// Fails when a trace errors that did not before, when the corpus's total ok
-// count drops by more than OK_TOLERANCE, or when a trace runs past its time
-// limit. Stops changing kind and ok going up never fail.
+// Fails when the run differs from the baseline in any way it records (trace
+// counts, outcomes up or down, stops by kind, the ok and error trace lists),
+// so each PR commits exactly the moves it causes, and when a trace runs past
+// its time limit. The survey is deterministic: every local and CI run so far
+// matched, so there is no tolerance.
 //
 //   pnpm survey-gate            # check
 //   pnpm survey-gate --update   # rewrite the baseline (commit it with the change that moved it)
@@ -20,8 +22,6 @@ const REPO = path.dirname(ENGINE);
 const BASELINE = path.join(ENGINE, "survey-baseline.json");
 const OUT = path.join(ENGINE, "tmp/survey-gate");
 
-/** Total ok traces the corpus may lose without a baseline update. The survey is deterministic; this absorbs a trace or two near a size budget. */
-const OK_TOLERANCE = 2;
 /** A repo's first trace builds the shared evidence index, so it gets its own limit. Measured in CI: see AGENTS.md. */
 const FIRST_TRACE_LIMIT_MS = 30_000;
 const TRACE_LIMIT_MS = 5_000;
@@ -76,16 +76,15 @@ const before: Baseline | null = fs.existsSync(BASELINE) ? JSON.parse(fs.readFile
 const report = diff(before?.repos ?? {}, now);
 report.push("", ...timing.map((line) => `- ${line}`));
 
+const UPDATE = "run `pnpm survey-gate --update` and commit the baseline";
 if (before) {
-  for (const [name, summary] of Object.entries(now)) {
-    const known = new Set(before.repos[name]?.errors ?? []);
-    for (const trace of summary.errors.filter((trace) => !known.has(trace))) regressions.push(`${name}: ${trace} errors, and did not in the baseline`);
+  for (const name of [...new Set([...Object.keys(before.repos), ...Object.keys(now)])]) {
+    const [a, b] = [before.repos[name], now[name]];
+    const moved = !a || !b ? ["the repo"] : (["traces", "outcomes", "stops", "ok", "errors"] as const).filter((field) => JSON.stringify(a[field]) !== JSON.stringify(b[field]));
+    if (moved.length) regressions.push(`${name}: ${moved.join(", ")} differ from the baseline: ${UPDATE}`);
   }
-  const okBefore = sum(Object.values(before.repos).map((repo) => repo.outcomes.ok ?? 0));
-  const okNow = sum(Object.values(now).map((repo) => repo.outcomes.ok ?? 0));
-  if (okBefore - okNow > OK_TOLERANCE) regressions.push(`ok traces dropped from ${okBefore} to ${okNow} (tolerance ${OK_TOLERANCE})`);
-} else if (!update) {
-  regressions.push(`no baseline: run pnpm survey-gate --update`);
+} else {
+  regressions.push(`no baseline: ${UPDATE}`);
 }
 
 if (update) {
@@ -149,6 +148,9 @@ function diff(old: Record<string, RepoSummary>, next: Record<string, RepoSummary
     const b = new Set(next[name]?.ok ?? []);
     for (const trace of [...a].filter((t) => !b.has(t))) traces.push(`- ${name}: ${trace} is no longer ok`);
     for (const trace of [...b].filter((t) => !a.has(t))) traces.push(`- ${name}: ${trace} is now ok`);
+    const [errorsBefore, errorsNow] = [new Set(old[name]?.errors ?? []), new Set(next[name]?.errors ?? [])];
+    for (const trace of [...errorsNow].filter((t) => !errorsBefore.has(t))) traces.push(`- ${name}: ${trace} now errors`);
+    for (const trace of [...errorsBefore].filter((t) => !errorsNow.has(t))) traces.push(`- ${name}: ${trace} no longer errors`);
   }
   if (traces.length) lines.push("", ...traces);
   return lines;
