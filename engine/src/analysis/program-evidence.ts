@@ -64,7 +64,8 @@ export type ProgramProofKind =
   | "context-continuity"
   | "partial-classification"
   | "http-bridge"
-  | "external-call";
+  | "external-call"
+  | "framework-state";
 export type ProgramProof = {
   kind: ProgramProofKind;
   detail: string;

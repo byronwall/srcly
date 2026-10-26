@@ -1,10 +1,11 @@
 import * as TypeScript from "typescript";
-import type { ProgramElementKind } from "./program-evidence";
+import type { ProgramElementKind, ProgramEvidenceLocation } from "./program-evidence";
 import { processProgramCallBoundary } from "./program-evidence-boundary-support";
 import {
   collectProgramEvidenceExpression,
   constructorExpressionElementEvidence,
 } from "./program-evidence-collector-expression-support";
+import { stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo } from "./program-evidence-collector-support";
 import {
@@ -22,6 +23,10 @@ import {
   unwrap,
 } from "./program-evidence-support";
 
+function frameworkState(detail: string, location: ProgramEvidenceLocation) {
+  return proof("framework-state", detail, [location]);
+}
+
 export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollectorDeclarations {
   protected processVariable(
     node: TypeScript.VariableDeclaration,
@@ -34,6 +39,16 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         this.symbolId(firstBindingIdentifier(this.ts, node.name)) ?? "",
       ) ?? this.elementFor(node, "alias");
     const initializerId = this.expression(initializer, ownerId);
+    const factory = stateFactory(this.ts, this.checker, initializer);
+    const first = this.ts.isArrayBindingPattern(node.name) ? node.name.elements[0] : undefined;
+    if (factory && first && this.ts.isBindingElement(first) && this.ts.isIdentifier(first.name)) {
+      // A state pair: the initial value seeds the state the getter reads.
+      const stateId = this.stateElement(first.name);
+      const symbolId = this.symbolId(first.name);
+      if (symbolId) this.stateBySymbol.set(symbolId, stateId);
+      // What the factory returns (its arguments, the initial value among them) seeds the state.
+      this.addRelation(aliasId, stateId, "references", [this.location(initializer)], frameworkState("The factory's initial value seeds the state its getter reads.", this.location(initializer)), "partial");
+    }
     if (initializerId) {
       this.addRelation(
         initializerId,
@@ -178,8 +193,17 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         node.expression,
       );
     }
+    // A setter of a state pair, resolved through the checker: what it receives is what its getter's reads see, not the call's result.
+    const role = stateRoleOf(this.ts, this.checker, node.expression);
+    const setter = role?.role === "setter";
+    if (role && setter) {
+      const stateId = this.stateElement(role.getter);
+      for (const argument of node.arguments) {
+        this.addRelation(this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId), stateId, "references", [this.location(argument)], frameworkState("The setter's argument becomes the state its getter reads; order and time are not proven.", this.location(argument)), "partial");
+      }
+    }
     // A callee with no body to enter (a library method, a callback, an accessor) is consumed by its call, as its arguments are.
-    if (!target && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
+    if (!setter && !target && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
       this.addRelation(
         this.expression(node.expression, ownerId),
         callId,
@@ -193,7 +217,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         "proven",
       );
     }
-    for (const argument of node.arguments) {
+    for (const argument of setter ? [] : node.arguments) {
       // A spread argument passes its elements: the value is what it spreads.
       const argumentId = this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId);
       this.addRelation(
@@ -422,6 +446,22 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       addHttpFetch: (fetch) => this.httpFetches.push(fetch),
       addHttpResponse: (response) => this.httpResponses.push(response),
     });
+  }
+
+  /** The state element of a reactive pair, at its getter's binding. */
+  protected stateElement(getter: TypeScript.Identifier): string {
+    const fn = this.ts.findAncestor(getter, (item) => this.ts.isFunctionLike(item));
+    return this.ensureElement(
+      getter,
+      "alias",
+      fn ? this.functionsByNode.get(nodeKey(this.root, fn))?.id ?? null : null,
+      { name: getter.text, state: true },
+      this.symbolId(getter),
+      null,
+      null,
+      "partial",
+      frameworkState("The state a reactive pair holds: what its setter receives, its getter reads.", this.location(getter)),
+    );
   }
 
   /**
