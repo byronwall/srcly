@@ -172,6 +172,16 @@ def test_registry_closes_idle_children(tmp_path):
     assert not engine.alive
 
 
+def test_registry_closes_idle_children_without_another_call(tmp_path):
+    # An engine nobody asks about again still gives its memory back.
+    registry = _registry(tmp_path, idle_seconds=0.1)
+    engine = registry.ensure(tmp_path)
+    deadline = time.monotonic() + 5
+    while engine.alive and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert not engine.alive
+
+
 def test_registry_remembers_a_crash_until_retry(tmp_path):
     registry = _registry(tmp_path, "--crash", "routes")
     with pytest.raises(EngineCrashed):

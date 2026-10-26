@@ -15,7 +15,7 @@ import {
   hotspotGroups,
   modalValue,
 } from "./reports/overview-selectors";
-import { buildProgram } from "./project/typescript";
+import { buildPrimaryProgram, buildProgram, buildProgramRouting } from "./project/typescript";
 import { buildIdentityIndex } from "./analysis/identity";
 import type { AnalyzerProgressReporter } from "./analysis/progress";
 
@@ -30,18 +30,30 @@ export async function analyzeProject(args: AnalyzerArgs) {
 // call is a fresh graph trace, but skips program construction). `overrides` is
 // merged onto the base args — typically `{ file: [path] }` or `{ scope }`.
 export function createAnalyzer(args: AnalyzerArgs, reportProgress?: AnalyzerProgressReporter) {
-  const { ts, modulePath, program, routing } = buildProgram(args, reportProgress);
-  // The identity index scans every owned source file. Keep it generation-local
-  // and reuse it for file/report projections instead of rebuilding the same
-  // workspace-wide symbol map on every navigation.
-  const identityIndex = buildIdentityIndex(ts, routing?.programs ?? [program], args.root, reportProgress);
+  const { ts, modulePath, program, resolution } = buildPrimaryProgram(args, reportProgress);
+  // The routing programs and the identity index serve reports and identity
+  // lookups only, and the routing programs are a second copy of the project:
+  // build both on first use, so a caller that only needs the primary program
+  // (srcly's engine) never holds them. The identity index scans every owned
+  // source file; once built, it stays generation-local and is reused for
+  // file/report projections instead of rebuilding the same workspace-wide
+  // symbol map on every navigation.
+  let prepared: { routing: ReturnType<typeof buildProgramRouting>; identityIndex: ReturnType<typeof buildIdentityIndex> } | null = null;
+  const prepare = () => {
+    if (prepared) return prepared;
+    const routing = buildProgramRouting(ts, resolution, args);
+    prepared = { routing, identityIndex: buildIdentityIndex(ts, routing?.programs ?? [program], args.root, reportProgress) };
+    return prepared;
+  };
   return {
     ts,
     program,
     args,
-    identitiesForFile: (file: string) => identityIndex.evidenceForFile(file),
-    report: (overrides: Partial<AnalyzerArgs> = {}) =>
-      buildReport(ts, program, { ...args, ...overrides }, modulePath, routing, identityIndex, reportProgress),
+    identitiesForFile: (file: string) => prepare().identityIndex.evidenceForFile(file),
+    report: (overrides: Partial<AnalyzerArgs> = {}) => {
+      const { routing, identityIndex } = prepare();
+      return buildReport(ts, program, { ...args, ...overrides }, modulePath, routing, identityIndex, reportProgress);
+    },
   };
 }
 

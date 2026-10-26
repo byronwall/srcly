@@ -22,6 +22,7 @@ export const ENGINE_ERROR_CODES = [
   "ambiguous-selection",
   "cancelled",
   "budget-exhausted",
+  "memory-limit",
   "internal",
 ] as const;
 

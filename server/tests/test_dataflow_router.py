@@ -108,6 +108,12 @@ def test_refusals_are_not_analyzed_with_the_reason(client, use_fake, tmp_path):
     assert body == {"outcome": "not-analyzed", "reason": "non-strict-tsconfig", "message": "refused: non-strict-tsconfig", "routes": []}
 
 
+def test_an_engine_over_its_memory_limit_is_not_analyzed_by_name(client, use_fake, tmp_path):
+    use_fake("--refuse", "memory-limit")
+    body = client.get("/api/dataflow/routes", params={"path": str(tmp_path)}).json()
+    assert body == {"outcome": "not-analyzed", "reason": "memory-limit", "message": "refused: memory-limit", "routes": []}
+
+
 def test_crash_is_503_once_then_not_analyzed(client, use_fake, tmp_path):
     use_fake("--crash", "routes")
     first = client.get("/api/dataflow/routes", params={"path": str(tmp_path)})

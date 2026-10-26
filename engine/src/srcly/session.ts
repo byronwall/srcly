@@ -96,20 +96,27 @@ export function requireTypescript(tier1: Tier1, what: string): TsTier1 {
 }
 
 /**
- * Two tiers over one Program (plan section 3.3). Tier 1 builds the Program,
- * the identity index and route discovery, and answers interactive queries.
- * It never calls `analyzer.report()`: that full legacy report is tier 2 and is
- * built only by `fullReport()`.
+ * Two tiers over one Program (plan section 3.3). Tier 1 builds the Program
+ * and route discovery, and answers interactive queries. It never calls
+ * `analyzer.report()`: that full legacy report is tier 2 and is built only by
+ * `fullReport()`, along with its identity index and per-alias routing
+ * Programs (a second copy of the project), so tier 1 never holds them.
  */
 export function createEngineSession(config: EngineConfig, progress?: AnalyzerProgressReporter) {
   let tier1: Tier1 | null = null;
   let generationId = 0;
+  /** The generation `release` dropped: a rebuild from the same inputs keeps its id, since its results are the same. */
+  let releasedGeneration: Generation | null = null;
 
   const build = (): Tier1 => {
-    if (config.language === "python") {
-      generationId += 1;
-      return createPythonTier1(config, generationId, progress);
-    }
+    const built = config.language === "python" ? createPythonTier1(config, generationId + 1, progress) : buildTypescript(generationId + 1);
+    if (releasedGeneration && releasedGeneration.programHash === built.generation.programHash) built.generation.id = releasedGeneration.id;
+    else generationId += 1;
+    releasedGeneration = null;
+    return built;
+  };
+
+  const buildTypescript = (nextGeneration: number): TsTier1 => {
     const args = engineArgs(config);
     refuseUnanalyzable(args);
     const analyzer = createAnalyzer(args, progress);
@@ -134,9 +141,8 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
       tsconfigs: args.tsconfigs ?? (args.tsconfig ? [args.tsconfig] : []),
       typescript: ts.version,
     };
-    generationId += 1;
     const generation: Generation = {
-      id: generationId,
+      id: nextGeneration,
       programHash: hashProgramInputs(inputs),
       tsconfig: args.tsconfig ?? "",
       typescript: ts.version,
@@ -196,6 +202,17 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
     currentHash: () => (tier1 ? hashProgramInputs(tier1.inputs) : null),
     /** Drop both tiers. The next query rebuilds and bumps the generation. */
     refresh: () => {
+      tier1 = null;
+      releasedGeneration = null;
+    },
+    /**
+     * Drop both tiers and every cache they hold (the Program, its checker,
+     * the evidence provider) to give their memory back. The next query
+     * rebuilds; when the sources still hash the same, it keeps this
+     * generation, so open graphs stay current.
+     */
+    release: () => {
+      if (tier1) releasedGeneration = tier1.generation;
       tier1 = null;
     },
   };

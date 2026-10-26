@@ -52,4 +52,26 @@ describe("engine session", () => {
     expect(second.generation.id).toBe(first.generation.id + 1);
     expect(second.generation.programHash).toBe(engine.currentHash());
   }, 60_000);
+
+  it("release drops tier 1 and keeps the generation when the sources still hash the same", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "srcly-session-"));
+    temporary.push(root);
+    fs.cpSync(solidRoute, root, { recursive: true });
+    const engine = session(root);
+    const first = engine.tier1();
+    const routes = routesOp(engine, {});
+
+    engine.release();
+    expect(engine.built()).toBe(false);
+    const rebuilt = engine.tier1();
+    expect(rebuilt).not.toBe(first);
+    expect(rebuilt.generation).toEqual(first.generation);
+    expect(routesOp(engine, {})).toEqual(routes);
+
+    // A file changed while released: the rebuild is a new generation.
+    const later = new Date(Date.now() + 60_000);
+    fs.utimesSync(path.join(root, "src/components/MetricCard.tsx"), later, later);
+    engine.release();
+    expect(engine.tier1().generation.id).toBe(first.generation.id + 1);
+  }, 60_000);
 });

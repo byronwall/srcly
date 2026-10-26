@@ -347,9 +347,10 @@ LaunchProbe = Callable[[Path], Availability]
 class EngineRegistry:
     """
     One engine per resolved root, started on first explicit use. At most
-    ``cap`` children live at once (each holds a TypeScript Program, about 2 GB
-    on a real app); starting another closes the least recently used, and a
-    child idle for ``idle_seconds`` is closed by the next registry call.
+    ``cap`` children live at once (each holds a TypeScript Program, 1–2 GB
+    on a real app, bounded by the engine's ``SRCLY_DATAFLOW_MEMORY_MB``);
+    starting another closes the least recently used, and a child idle for
+    ``idle_seconds`` is closed by a timer or the next registry call.
     """
 
     def __init__(
@@ -371,6 +372,8 @@ class EngineRegistry:
         self._failed: dict[Path, EngineError] = {}
         # Roots whose background start (tier 1) is still running.
         self._warming: dict[Path, threading.Thread] = {}
+        # Closes idle children while any are alive (``_start_reaper``).
+        self._reaper: threading.Thread | None = None
 
     @staticmethod
     def key(root: Path) -> Path:
@@ -427,6 +430,7 @@ class EngineRegistry:
             except OSError as exc:
                 raise EngineError("engine-missing", f"Could not start the engine: {exc.strerror or exc}") from exc
             self._engines[key] = engine
+            self._start_reaper()
         try:
             engine.handshake()
         except EngineError as exc:
@@ -508,6 +512,27 @@ class EngineRegistry:
             _, oldest = live.pop(0)
             engine = self._engines.pop(oldest)
             threading.Thread(target=engine.close, daemon=True).start()
+
+    def _start_reaper(self) -> None:
+        """
+        Close idle children on a timer as well as on the next registry call,
+        so an engine nobody queries again still gives its memory back. The
+        thread ends when no child is left; the next start begins another.
+        """
+        if self._reaper is not None and self._reaper.is_alive():
+            return
+
+        def reap() -> None:
+            while True:
+                time.sleep(min(60.0, max(self.idle_seconds / 4, 0.05)))
+                with self._lock:
+                    self._reap_idle()
+                    if not self._engines:
+                        self._reaper = None
+                        return
+
+        self._reaper = threading.Thread(target=reap, name="dataflow-reaper", daemon=True)
+        self._reaper.start()
 
     def _reap_idle(self) -> None:
         now = time.monotonic()
