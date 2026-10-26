@@ -19,3 +19,10 @@ def poke(thing, value: str) -> None:
 def stamp() -> float:
     started = time.time()
     return started
+
+
+def connect(url: str):
+    # `notinstalled` is not installed: mypy names `Engine` after this module, its import names it outside.
+    from notinstalled import Engine
+
+    return Engine(url)

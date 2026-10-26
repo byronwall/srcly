@@ -212,10 +212,12 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     // Up, `configure(flag)` is never called, so nothing reaches its parameter.
     expect(stops.map((node) => [node.reason, node.label, node.line])).toEqual([["untraced", "flag", 9]]);
     expect(stops.every((node) => /^not traced further/.test(node.note ?? ""))).toBe(true);
-    // Every partial in the fixture names a stop.
-    for (const item of ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py", "app/stops.py", "app/schemas.py", "app/external.py", "app/web.py", "app/orm.py", "app/settings.py", "app/ends.py"].flatMap(definitions)) {
+    // Every partial in the fixture names a stop or an assumption.
+    for (const item of ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py", "app/stops.py", "app/schemas.py", "app/external.py", "app/web.py", "app/orm.py", "app/settings.py", "app/ends.py", "app/depends.py"].flatMap(definitions)) {
       const traced = anchor(item.file, item.name, item.line);
-      if (traced.outcome === "partial") expect(boxes(traced).some((node) => node.kind === "frontier" || node.kind === "boundary"), `${item.name} on line ${item.line}`).toBe(true);
+      // A partial names a stop, or steps through an assumption that says so in its proof.
+      const named = boxes(traced).some((node) => node.kind === "frontier" || node.kind === "boundary") || traced.edges.some((edge) => edge.proof.some((item) => item?.kind === "external-call"));
+      if (traced.outcome === "partial") expect(named, `${item.name} on line ${item.line}`).toBe(true);
     }
   });
 
@@ -250,6 +252,8 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     const facts = (session.tier1() as PythonTier1).facts;
     const external = (label: string) => facts.elements.find((element) => element.l === label)?.a?.externalCallee;
     expect(external("json.dumps(…)")).toBe("json.dumps");
+    // A package the checker cannot find is still outside the program by its import.
+    expect(external("Engine(…)")).toBe("Engine");
     // `thing` has no annotation, so the checker cannot say where `thing.anything` goes: not named.
     expect(external("thing.anything(…)")).toBeUndefined();
     // A first-party call is entered, never external.
@@ -285,6 +289,26 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     const cached = anchor("app/web.py", "cached", 33);
     expect(cached.origins).toEqual([]);
     expect(boxes(cached, "frontier").map((node) => [node.reason, node.label])).toEqual([["untraced", "value"]]);
+  });
+
+  it("enters a function handed to code outside the program, and no helper nothing hands on", () => {
+    const token = anchor("app/depends.py", "get_token", 12);
+    expect(token.origins.map((origin) => origin.label)).toEqual(["enters from Depends(…) → authorization"]);
+    // That FastAPI calls it is assumed, as a library callback is: partial, with the assumption as its proof.
+    expect(token.outcome).toBe("partial");
+    expect(token.edges.filter((edge) => edge.kind === "request-binding").map((edge) => [edge.status, edge.proof[0]?.kind])).toEqual([["partial", "external-call"]]);
+    const helper = anchor("app/depends.py", "helper", 35);
+    expect(helper.origins).toEqual([]);
+    expect(boxes(helper, "frontier").map((node) => node.reason)).toEqual(["untraced"]);
+  });
+
+  it("fills a FastAPI dependency parameter with what its function returns or yields", () => {
+    const me = anchor("app/depends.py", "me", 31);
+    // `Depends(fn)`'s result → parameter is FastAPI's rule (proven); entering `get_token` is assumed.
+    expect(me.edges.filter((edge) => edge.kind === "return-value").every((edge) => edge.status === "proven")).toBe(true);
+    // Both `session` (through the `SessionDep` alias and `get_session`'s yield) and `user` (through `get_user`'s return) reach `get_token`'s caller, FastAPI.
+    expect(me.origins.map((origin) => origin.label)).toEqual(["enters from Depends(…) → authorization"]);
+    expect(boxes(me).some((node) => node.label.includes("query"))).toBe(false);
   });
 
   it("names a file that did not parse, and a name that is not on its line", () => {
