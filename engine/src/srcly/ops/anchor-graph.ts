@@ -5,7 +5,7 @@ import { toSliceElement, toSliceRelation } from "../../analysis/evidence-slice-n
 import { DEFAULT_BOUNDARY_POLICY, scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
 import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
-import { DECLARATION_KINDS, elementsAt, endsInPlace, externalCallee, naturalEnd, needsOneCallSite, pairedInSlice, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
+import { DECLARATION_KINDS, elementsAt, endsInPlace, externalCallee, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
 import type { HostCandidate, LanguageHost } from "../host";
 import { clip, foldedLimit } from "../frontier-words";
 import { kindWords, syntaxWords } from "../anchor-words";
@@ -479,7 +479,8 @@ class AnchorGraphBuilder {
       const box = this.resolve(id);
       const node = this.nodes.get(box);
       const element = byId.get(id);
-      if (!node || !element || box === this.anchorId || !["value", "transform", "control"].includes(node.kind)) continue;
+      // A value that naturally begins here (a literal, an external import or global) is where a backward run lands, not a quiet end.
+      if (!node || !element || box === this.anchorId || !["value", "transform", "control"].includes(node.kind) || (side === "up" && isNaturalStart(this.tier1, element))) continue;
       const gap: EvidenceGap = { id: `end:${box}`, from: box, to: null, label: node.label, reason: "disconnected", status: "partial", location: element.location, proof: [] };
       (this.quiet.get(seed) ?? this.quiet.set(seed, []).get(seed)!).push({ gap, element: { label: node.label, kind: element.kind }, side });
     }
@@ -516,7 +517,7 @@ class AnchorGraphBuilder {
           const end = naturalEnd(this.tier1, element);
           if (side === "up" && end === "start") naturalStarts += 1;
           const consumed = side === "down" && end === "consumed" ? endsInPlace(this.tier1, element) : null, box = this.nodes.get(this.resolve(element.id));
-          if (consumed && box && ["value", "transform", "control"].includes(box.kind)) this.terminalRoles.set(Object.assign(box, { kind: "terminal", note: `ends here · ${consumed === "branch" ? "decides a branch" : "written, not read"}` }).id, [consumed]);
+          if (consumed && box && ["value", "transform", "control"].includes(box.kind)) this.terminalRoles.set(Object.assign(box, { kind: "terminal", note: IN_PLACE_NOTES[consumed] }).id, [consumed]);
           if (end === "unrecorded") (this.quiet.get(seedId) ?? this.quiet.set(seedId, []).get(seedId)!).push({ gap, element, side });
           // Reaching a declaration or a terminal claims nothing about the run: it is not one of the run's gaps.
           if (end === "bookkeeping") this.quietGaps.set(seedId, (this.quietGaps.get(seedId) ?? 0) + 1);

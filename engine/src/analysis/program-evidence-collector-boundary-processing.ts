@@ -154,6 +154,8 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
       ),
       "index-read",
     );
+    // A computed key reads some field of the receiver, which one the source does not say: the read is partial, not a stop.
+    const staticKey = !!node.argumentExpression && (this.ts.isStringLiteral(node.argumentExpression) || this.ts.isNumericLiteral(node.argumentExpression));
     this.addRelation(
       this.expression(node.expression, ownerId),
       id,
@@ -161,11 +163,13 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
       [this.location(node.expression)],
       proof(
         "property-access",
-        "The indexed receiver supplies the read value.",
+        staticKey ? "The indexed receiver supplies the read value." : "The indexed receiver supplies the read value; the computed key reads some field of it.",
         [this.location(node)],
       ),
-      "proven",
+      staticKey ? "proven" : "partial",
     );
+    // The key is a value occurrence of its own: it picks the field, so a walk that reaches it ends there.
+    if (node.argumentExpression && !staticKey) this.expression(node.argumentExpression, ownerId);
     const receiverText = node.expression.getText(node.getSourceFile());
     if (receiverText === "process.env") {
       const inputId = this.specialInput(
@@ -208,19 +212,6 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
           [this.location(node.expression), this.location(node)],
         ),
         "proven",
-      );
-    }
-    if (
-      !node.argumentExpression ||
-      (!this.ts.isStringLiteral(node.argumentExpression) &&
-        !this.ts.isNumericLiteral(node.argumentExpression))
-    ) {
-      this.gap(
-        id,
-        "forward",
-        "unsupported-syntax",
-        "The computed index is not a static source key.",
-        node.argumentExpression ?? node,
       );
     }
   }
