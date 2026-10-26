@@ -5,7 +5,7 @@ import { toSliceElement, toSliceRelation } from "../../analysis/evidence-slice-n
 import { DEFAULT_BOUNDARY_POLICY, scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
 import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
-import { CROSS_CALL, DECLARATION_KINDS, elementsAt, externalCallee, naturalEnd, pairedInSlice, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
+import { CROSS_CALL, DECLARATION_KINDS, elementsAt, endsInPlace, externalCallee, naturalEnd, pairedInSlice, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
 import type { HostCandidate, LanguageHost } from "../host";
 import { clip, foldedLimit } from "../frontier-words";
 import { ownFacts } from "../own-facts";
@@ -446,17 +446,14 @@ class AnchorGraphBuilder {
 
   /**
    * Every gap the slice reported becomes a frontier box at its location, hung
-   * off the element it stopped at. The slice raises `disconnected` only where
-   * a value stops somewhere other than a terminal (`evidence-slice.ts`, "No
-   * indexed relation continues"), so it is one of two things: a natural start
-   * (a literal, a constant, an external import: no box, R16) or a dead end,
-   * which is a frontier like any other and leaves the outcome partial. A seed
-   * missing from the index (no location) stays `unsupported`. A frontier is
-   * named by where it stopped (the element, the external callee), the way
-   * the ledger's boundary rows are; the reason is its detail and the
-   * sentence its note. Where the slice hit its element limit, every element
-   * it did not take is a gap from the same place: those fold into one
-   * frontier that names how many, so one limit reads as one stop.
+   * off the element it stopped at. A `disconnected` gap (no indexed relation
+   * continues) is a natural start (a literal, a constant, an external import
+   * or global: no box, R16), a value the code ends in place (a branch test, a
+   * write: its box becomes the terminal it lands at), or a dead end: a
+   * frontier that leaves the outcome partial. A seed missing from the index
+   * stays `unsupported`. A frontier is named by where it stopped (the element,
+   * the external callee); the reason is its detail and the sentence its note.
+   * One element limit's gaps fold into one frontier that names how many.
    */
   private gaps(gaps: readonly EvidenceGap[], side: Side, elements: Map<string, ProgramElement>): number {
     let naturalStarts = 0;
@@ -466,10 +463,7 @@ class AnchorGraphBuilder {
     for (const gap of gaps) {
       const id = `frontier:${gap.id}`;
       if (this.nodes.has(id) || folded.has(gap.id)) continue;
-      let label = clip(gap.label, 80);
-      let note = gap.label;
-      let reason: string = gap.reason;
-      let status = gap.status;
+      let [label, note, reason, status]: [string, string, string, EvidenceGap["status"]] = [clip(gap.label, 80), gap.label, gap.reason, gap.status];
       let elementKind: string | null = null;
       if (limited[0] === gap) ({ label, note } = foldedLimit(limited, labelOf, DEFAULT_BOUNDARY_POLICY.maxElements));
       else if (gap.reason === "disconnected") {
@@ -479,6 +473,8 @@ class AnchorGraphBuilder {
           status = "unsupported";
         } else if (naturalEnd(this.tier1, element)) {
           if (side === "up" && naturalEnd(this.tier1, element) === "start") naturalStarts += 1;
+          const consumed = side === "down" && naturalEnd(this.tier1, element) === "consumed" ? endsInPlace(this.tier1, element) : null, box = this.nodes.get(this.resolve(element.id));
+          if (consumed && box && ["value", "transform", "control"].includes(box.kind)) this.terminalRoles.set(Object.assign(box, { kind: "terminal", note: `ends here · ${consumed === "branch" ? "decides a branch" : "written, not read"}` }).id, [consumed]);
           continue;
         } else {
           const callee = externalCallee(this.tier1, element);

@@ -60,13 +60,16 @@ describe("routeGraph on solid-route", () => {
   });
 
   it("marks partial only the boxes that own a located gap, never the whole route", () => {
-    // /records is a partial route: two evidence-slice gaps stop at external
-    // response bodies. Those sit in data/*.ts, outside every drawn box, so
-    // they belong to the route box and every component box stays proven.
+    // /records is a partial route: its gaps stop at external response bodies
+    // in data/*.ts, outside every drawn box, so they belong to the route box.
+    // The slice also runs past its work budget (it follows `response.json()`
+    // into the records validator); that gap sits at a render slot, which is
+    // the one other box it marks. Every component box stays proven.
     expect(graph().status).toBe("partial");
     const partial = graph().nodes.filter((node) => node.status === "partial");
-    expect(partial.map((node) => node.kind)).toEqual(["route"]);
-    expect(partial[0].reason).toBe("external-code");
+    expect(partial[0]).toMatchObject({ kind: "route", reason: "incomplete-surface" });
+    const inside = (node: FlowNode, at: { file: string; line: number }) => node.file === at.file && node.span.startLine <= at.line && at.line <= node.span.endLine;
+    for (const node of partial.slice(1)) expect(graph().gaps.some((gap) => gap.location && inside(node, gap.location)), node.label).toBe(true);
     expect(graph().nodes.filter((node) => node.kind === "occurrence").every((node) => node.status === "proven")).toBe(true);
     const status = new Map(graph().nodes.map((node) => [node.id, node.status]));
     for (const edge of graph().edges.filter((item) => item.kind === "render")) expect(edge.status).toBe(status.get(edge.target));

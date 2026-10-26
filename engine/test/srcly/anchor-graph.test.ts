@@ -98,11 +98,14 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(boxes(graph, "frontier").map((node) => [node.reason, node.line])).toEqual([["disconnected", 4]]);
   });
 
-  it("enters a helper through its binding and ends where the body hands the value to external code", () => {
+  it("enters a helper through its binding, through the library method its body calls, and back out at its own call's slot", () => {
     const graph = anchorGraphOp(session, { ...find(basics, "src/two-call-helper.tsx", "props.a", "shout(props.a)"), direction: "forward" });
-    expect(graph.outcome).toBe("partial");
+    expect(graph.outcome).toBe("ok");
     expect(boxes(graph, "boundary")).toEqual([]);
-    expect(boxes(graph, "frontier").map((node) => [node.reason, node.line])).toEqual([["disconnected", 2]]);
+    // `value.toUpperCase()` has no body to enter: the call consumes its receiver.
+    expect(boxes(graph).some((node) => node.elementKind === "call" && node.label === "value.toUpperCase()")).toBe(true);
+    // Paired with its own call (T13): only line 8's slot, never line 9's.
+    expect(boxes(graph, "terminal").map((node) => node.line)).toEqual([8]);
   });
 
   it("anchors at a symbol by name and line, as the import graph names one", () => {
@@ -153,7 +156,58 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(unused.counts).toMatchObject({ terminals: 0, frontiers: 1 });
     const callback = anchorGraphOp(session, { ...find(basics, "src/dead-end.tsx", "props.onPick"), direction: "forward" });
     expect(callback.outcome).toBe("partial");
-    expect(boxes(callback, "frontier").map((node) => [node.reason, node.elementKind, node.line])).toEqual([["disconnected", "alias", 8]]);
+    // The callback is consumed by its call, whose body the engine cannot see: the dead end is the call.
+    expect(boxes(callback, "frontier").map((node) => [node.reason, node.elementKind, node.line])).toEqual([["disconnected", "call", 9]]);
+  });
+
+  it("carries a receiver through a library method, and begins a value at a global the program does not declare", () => {
+    const trimmed = anchorGraphOp(session, { ...find(basics, "src/callee-consumed.tsx", "props.title", "props.title.trim()"), direction: "forward" });
+    expect(trimmed.outcome).toBe("ok");
+    expect(boxes(trimmed, "terminal")).toMatchObject([{ elementKind: "render-terminal", line: 18 }]);
+    const json = anchorGraphOp(session, { ...find(basics, "src/callee-consumed.tsx", "JSON.stringify(props.data)", "<code>"), direction: "backward" });
+    expect(boxes(json).some((node) => node.label === "JSON")).toBe(true);
+    expect(json.counts.frontiers).toBe(0);
+  });
+
+  it("keeps a first-party method's receiver at a dead end: its body is not entered through `this`", () => {
+    const box = anchorGraphOp(session, { ...find(basics, "src/callee-consumed.tsx", "box", "<b>{box"), direction: "forward" });
+    expect(box.outcome).toBe("partial");
+    expect(boxes(box, "frontier").map((node) => [node.reason, node.label, node.line])).toEqual([["disconnected", "read", 20]]);
+  });
+
+  it("lands a value the code ends in place: a branch test is a terminal, not a dead end", () => {
+    const mode = anchorGraphOp(session, { ...find(basics, "src/ends-in-place.tsx", "props.mode", "if (props.mode"), direction: "forward" });
+    expect(mode.outcome).toBe("ok");
+    expect(boxes(mode, "terminal")).toMatchObject([{ elementKind: "derived", line: 7, note: "ends here · decides a branch" }]);
+    expect(mode.counts.frontiers).toBe(0);
+  });
+
+  it("keeps a value written into another object's field at a dead end: a write target ends nothing it is assigned", () => {
+    const note = anchorGraphOp(session, { ...find(basics, "src/ends-in-place.tsx", "props.note", "state.note ="), direction: "forward" });
+    expect(note.outcome).toBe("partial");
+    expect(boxes(note, "frontier").map((node) => [node.reason, node.elementKind, node.line])).toEqual([["disconnected", "field-read", 8]]);
+  });
+
+  it("carries operands into an operator's value: arithmetic and a template reach the slot", () => {
+    const count = anchorGraphOp(session, { ...find(basics, "src/derived-operands.tsx", "props.count", "props.count + 1"), direction: "forward" });
+    expect(count.outcome).toBe("ok");
+    expect(boxes(count).filter((node) => node.elementKind === "derived").map((node) => node.label)).toEqual(["props.count + 1", "`${props.count + 1} items`"]);
+    expect(boxes(count, "terminal")).toMatchObject([{ elementKind: "render-terminal", line: 6 }]);
+  });
+
+  it("keeps a derived value nothing reads at a dead end", () => {
+    const limit = anchorGraphOp(session, { ...find(basics, "src/derived-operands.tsx", "props.limit", "tooMany ="), direction: "forward" });
+    expect(limit.outcome).toBe("partial");
+    expect(boxes(limit, "frontier").map((node) => [node.reason, node.label, node.line])).toEqual([["disconnected", "tooMany", 5]]);
+  });
+
+  it("returns an arrow function's expression body to its own call, and keeps two calls apart (T13)", () => {
+    const a = anchorGraphOp(session, { ...find(basics, "src/arrow-body-return.tsx", "props.a", "shout(props.a)"), direction: "forward" });
+    expect(a.outcome).toBe("ok");
+    expect(boxes(a).some((node) => node.elementKind === "return" && node.line === 4)).toBe(true);
+    expect(boxes(a, "terminal").map((node) => node.line)).toEqual([9]);
+    const b = anchorGraphOp(session, { ...find(basics, "src/arrow-body-return.tsx", "props.b", "shout(props.b)"), direction: "forward" });
+    expect(boxes(b, "terminal").map((node) => node.line)).toEqual([10]);
   });
 
   it("takes a component's own parameters and returns, not those of the helpers nested inside it", () => {

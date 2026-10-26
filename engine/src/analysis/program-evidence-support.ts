@@ -279,6 +279,26 @@ export function isSelectionOperator(ts: typeof TypeScript, kind: TypeScript.Synt
   return [ts.SyntaxKind.BarBarToken, ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.QuestionQuestionToken].includes(kind);
 }
 
+/**
+ * The operands of an operator expression whose value derives from them (a
+ * comparison, arithmetic, `!`, `typeof`, a template), else null. Not an
+ * assignment, a comma, a negative number, or `&&`, `||`, `??`, which select.
+ */
+export function derivedOperands(ts: typeof TypeScript, node: TypeScript.Node): readonly TypeScript.Expression[] | null {
+  if (ts.isBinaryExpression(node)) {
+    const kind = node.operatorToken.kind;
+    const assigns = kind >= ts.SyntaxKind.FirstAssignment && kind <= ts.SyntaxKind.LastAssignment;
+    return assigns || kind === ts.SyntaxKind.CommaToken || isSelectionOperator(ts, kind) ? null : [node.left, node.right];
+  }
+  if (ts.isPrefixUnaryExpression(node)) {
+    const updates = node.operator === ts.SyntaxKind.PlusPlusToken || node.operator === ts.SyntaxKind.MinusMinusToken;
+    return updates || ts.isNumericLiteral(node.operand) ? null : [node.operand];
+  }
+  if (ts.isTypeOfExpression(node)) return [node.expression];
+  if (ts.isTemplateExpression(node)) return node.templateSpans.map((span) => span.expression);
+  return null;
+}
+
 export function jsxOpeningAncestor(ts: typeof TypeScript, node: TypeScript.JsxExpression) {
   let current: TypeScript.Node | undefined = node.parent;
   while (current) {

@@ -62,7 +62,7 @@ export function directConsumers(
           : /^on[A-Z]/.test(attribute.name.text) ? "handler" : "render";
         if (kind === "render" && tagName !== "A" && !fieldConsumer) continue;
         const handler = kind === "handler" ? resolveHandlerAction(ts, checker, root, access, value) : null;
-        const valueElement = index.element(value, elementKindForExpression(ts, value)) ?? index.element(value, "literal");
+        const valueElement = index.element(value, elementKindForExpression(ts, value)) ?? index.element(value, "literal") ?? index.element(value, "derived");
         const owner = fieldConsumer?.ownerId ? index.byId(fieldConsumer.ownerId) : null;
         if (!fieldConsumer || !owner
           || fieldConsumer.symbol !== compilerSymbolId(ts, checker, root, opening.tagName)
