@@ -258,9 +258,10 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
       return;
     }
     for (const property of node.properties) {
-      if (this.ts.isPropertyAssignment(property)) {
+      // `{ x }` is `{ x: x }`: the shorthand's name reads the value it packs.
+      if (this.ts.isPropertyAssignment(property) || this.ts.isShorthandPropertyAssignment(property)) {
         this.addRelation(
-          this.expression(property.initializer, ownerId),
+          this.expression(this.ts.isPropertyAssignment(property) ? property.initializer : property.name, ownerId),
           packId,
           "pack-field",
           [this.location(property)],
