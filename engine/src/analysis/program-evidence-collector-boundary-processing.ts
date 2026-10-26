@@ -1,6 +1,7 @@
 import * as TypeScript from "typescript";
 import { stateRoleOf } from "./program-evidence-state-pairs";
 import { ProgramEvidenceCollectorCallSupport } from "./program-evidence-collector-call-support";
+import { objectPackAttributes } from "./program-evidence-collector-expression-support";
 import {
   bindingIdentifiers,
   firstBindingIdentifier,
@@ -233,7 +234,7 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
       node,
       "object-pack",
       ownerId,
-      { operation: "object-pack" },
+      objectPackAttributes(this.ts, node, (item) => this.location(item)),
       null,
       null,
       null,

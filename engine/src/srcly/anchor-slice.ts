@@ -5,6 +5,7 @@ import type { AnalysisCancellationToken } from "../analysis/cancellation";
 import { toSliceElement, toSliceRelation } from "../analysis/evidence-slice-normalization";
 import type { EvidenceRelationSource } from "../analysis/evidence-slice-support";
 import { DEFAULT_BOUNDARY_POLICY, type ProgramElement, type ProgramRelation } from "../analysis/scope-seam";
+import { TERMINAL_KINDS } from "./facts";
 
 /**
  * Structural relations: they place elements (a function contains its body,
@@ -37,9 +38,22 @@ export const ANCHOR_LIMITS = {
   maxWalkedUses: 32,
 } as const;
 
-/** Whether a slice walks this relation: only one that moves a value, so what a slice spends is what the walk can draw. */
-export function movesValue(relation: Pick<ProgramRelation, "kind">): boolean {
-  return !STRUCTURAL_RELATIONS.has(relation.kind);
+/** Relations the anchor walk never draws: structural ones, and `invokes` (a call to the body it enters, which the walk reaches through the call's arguments and return). */
+export const UNDRAWN_RELATIONS: ReadonlySet<string> = new Set([...STRUCTURAL_RELATIONS, "invokes"]);
+
+/** Where the anchor walk ends a path: a terminal forward (a return still carries on to its paired call), an origin backward. */
+export function endsWalk(element: ProgramElement, forward: boolean): boolean {
+  if (!forward) return element.originRoles.length > 0;
+  return element.kind !== "return" && (element.terminalRoles.length > 0 || TERMINAL_KINDS.has(element.kind));
+}
+
+/**
+ * What a slice from `seedId` walks: only what the anchor walk can draw, so
+ * what a slice spends is what the walk can draw. No relation it never draws,
+ * and nothing past an element it ends at (the seed itself never ends it).
+ */
+export function walkFollows(seedId: string, forward: boolean): (relation: ProgramRelation, from: ProgramElement) => boolean {
+  return (relation, from) => !UNDRAWN_RELATIONS.has(relation.kind) && (from.id === seedId || !endsWalk(from, forward));
 }
 
 /** Relations that point a use (a call, an occurrence) at its definition. */
