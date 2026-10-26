@@ -38,16 +38,16 @@
       "errors": []
     },
     "value-flow-basics": {
-      "traces": 54,
+      "traces": 57,
       "outcomes": {
         "ok": 12,
-        "partial": 41,
-        "unsupported": 1
+        "partial": 42,
+        "unsupported": 3
       },
       "stops": {
         "frontier: budget-exhausted": 1,
         "frontier: disconnected": 6,
-        "frontier: unbound-read": 265,
+        "frontier: unbound-read": 266,
         "frontier: untraced": 3
       },
       "ok": [

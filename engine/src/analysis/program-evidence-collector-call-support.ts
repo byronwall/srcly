@@ -469,13 +469,13 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       moduleFor: (value) => this.moduleFor(value),
       isExternalCall: (value) => this.isExternalCall(value),
       specialInput: (...args) => this.specialInput(...args),
-      effect: (effectNode, effectCallId, effectOwnerId, effectKind, detail) => {
+      effect: (effectNode, effectCallId, effectOwnerId, effectKind, detail, proofKind = "host-api") => {
         const effectId = this.specialInput(
           effectNode,
           "external-effect",
           effectOwnerId,
           { effectKind },
-          "host-api",
+          proofKind,
           detail,
         );
         this.addRelation(
@@ -483,7 +483,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
           effectId,
           "effect-input",
           [this.location(effectNode)],
-          proof("host-api", detail, [this.location(effectNode)]),
+          proof(proofKind, detail, [this.location(effectNode)]),
           "proven",
         );
       },
