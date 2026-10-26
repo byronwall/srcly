@@ -1,0 +1,14 @@
+{
+  "id": "852532ec-e72d-49a6-928a-b7f7a3da6c9f",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:c7bc19",
+    "label": "Agent token ...c7bc19"
+  },
+  "createdAt": "2026-10-26T13:04:26.323Z",
+  "summary": "Set \"Entry-input rule\" priority to medium.",
+  "nodeIds": [
+    "task-entry-input-rule"
+  ]
+}

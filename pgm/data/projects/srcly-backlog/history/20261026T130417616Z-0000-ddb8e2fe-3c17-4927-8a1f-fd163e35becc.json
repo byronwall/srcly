@@ -1,0 +1,14 @@
+{
+  "id": "ddb8e2fe-3c17-4927-8a1f-fd163e35becc",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:78b640",
+    "label": "Agent token ...78b640"
+  },
+  "createdAt": "2026-10-26T13:04:17.616Z",
+  "summary": "Set \"Step 4: state pairs and resources as rows\" priority to medium.",
+  "nodeIds": [
+    "task-step-4-state-pairs-and-resources-as-rows"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "06e024ac-2419-4782-997a-af8ae6541f84",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:5cc5e2",
+    "label": "Agent token ...5cc5e2"
+  },
+  "createdAt": "2026-10-26T13:04:24.408Z",
+  "summary": "Set \"Library write into a non-local receiver\" priority to high.",
+  "nodeIds": [
+    "task-library-write-into-a-non-local-receiver"
+  ]
+}

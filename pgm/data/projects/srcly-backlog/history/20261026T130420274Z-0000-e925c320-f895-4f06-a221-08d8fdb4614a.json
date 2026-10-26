@@ -1,0 +1,14 @@
+{
+  "id": "e925c320-f895-4f06-a221-08d8fdb4614a",
+  "kind": "node.status.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:9b5725",
+    "label": "Agent token ...9b5725"
+  },
+  "createdAt": "2026-10-26T13:04:20.274Z",
+  "summary": "Changed \"Step 7: checker-resolved matching everywhere\" status to planned.",
+  "nodeIds": [
+    "task-step-7-checker-resolved-matching-everywhere"
+  ]
+}

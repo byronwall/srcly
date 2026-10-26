@@ -1,0 +1,14 @@
+{
+  "id": "6424048f-2c0a-40d1-9947-5b870d707c98",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:e64bcb",
+    "label": "Agent token ...e64bcb"
+  },
+  "createdAt": "2026-10-26T13:04:16.266Z",
+  "summary": "Set \"Exported-API end rule: open the PR\" priority to medium.",
+  "nodeIds": [
+    "task-exported-api-end-rule-open-the-pr"
+  ]
+}

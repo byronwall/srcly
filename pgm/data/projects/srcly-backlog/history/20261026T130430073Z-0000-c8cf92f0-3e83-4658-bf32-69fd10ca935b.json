@@ -1,0 +1,14 @@
+{
+  "id": "c8cf92f0-3e83-4658-bf32-69fd10ca935b",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:0723b6",
+    "label": "Agent token ...0723b6"
+  },
+  "createdAt": "2026-10-26T13:04:30.073Z",
+  "summary": "Set \"Recount the survey after the open PRs land\" priority to low.",
+  "nodeIds": [
+    "task-recount-the-survey-after-the-open-prs-land"
+  ]
+}

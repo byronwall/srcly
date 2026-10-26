@@ -1,0 +1,15 @@
+{
+  "id": "1a73ef23-3787-4bd8-bfaf-4877c5a65b80",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:ab4ac8",
+    "label": "Agent token ...ab4ac8"
+  },
+  "createdAt": "2026-10-26T13:04:25.850Z",
+  "summary": "Created \"Entry-input rule\" under \"Data flow: trace coverage\".",
+  "nodeIds": [
+    "task-entry-input-rule",
+    "area-data-flow-trace-coverage"
+  ]
+}

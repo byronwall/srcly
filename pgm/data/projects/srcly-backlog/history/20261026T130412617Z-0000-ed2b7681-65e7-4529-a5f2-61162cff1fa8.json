@@ -1,0 +1,14 @@
+{
+  "id": "ed2b7681-65e7-4529-a5f2-61162cff1fa8",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:12fc16",
+    "label": "Agent token ...12fc16"
+  },
+  "createdAt": "2026-10-26T13:04:12.617Z",
+  "summary": "Set \"Land #214: diff the survey gate against the PR's base\" priority to high.",
+  "nodeIds": [
+    "task-land-214-diff-the-survey-gate-against-the-pr-s-base"
+  ]
+}

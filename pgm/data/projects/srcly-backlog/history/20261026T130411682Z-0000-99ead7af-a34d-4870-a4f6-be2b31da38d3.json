@@ -1,0 +1,14 @@
+{
+  "id": "99ead7af-a34d-4870-a4f6-be2b31da38d3",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:f40438",
+    "label": "Agent token ...f40438"
+  },
+  "createdAt": "2026-10-26T13:04:11.682Z",
+  "summary": "Created \"Data flow: land the open PRs\".",
+  "nodeIds": [
+    "area-data-flow-land-the-open-prs"
+  ]
+}

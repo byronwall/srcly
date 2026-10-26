@@ -1,0 +1,15 @@
+{
+  "id": "87639010-79c5-4c18-9475-9b7dea6ff24d",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:1b574e",
+    "label": "Agent token ...1b574e"
+  },
+  "createdAt": "2026-10-26T13:04:26.760Z",
+  "summary": "Created \"Follow namespace-import reads\" under \"Data flow: trace coverage\".",
+  "nodeIds": [
+    "task-follow-namespace-import-reads",
+    "area-data-flow-trace-coverage"
+  ]
+}
