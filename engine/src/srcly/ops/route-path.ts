@@ -5,7 +5,7 @@ import { projectRouteTotality } from "../../api/projections/route-totality";
 import type { RouteTotality } from "../../api/route-totality-contracts";
 import { routePathResultSchema, type RoutePathResult } from "../contracts/route-path";
 import type { LedgerRow } from "../contracts/value-flow";
-import { TERMINAL_KINDS } from "../facts";
+import { elementTraits } from "../kinds";
 import { EngineError } from "../protocol";
 import { checkGeneration, requireTypescript, type EngineSession, type TsTier1 } from "../session";
 
@@ -233,7 +233,7 @@ class RowBuilder {
       const relation = index > 0 ? this.relations.get(relationIds[index - 1]) ?? this.relationBetween(elementIds[index - 1], elementId) : null;
       const kind: LedgerRow["kind"] =
         index === 0 ? "input"
-          : index === elementIds.length - 1 && (TERMINAL_KINDS.has(element.kind) || element.terminalRoles.length > 0) ? "terminal"
+          : index === elementIds.length - 1 && (elementTraits(element.kind).terminal || element.terminalRoles.length > 0) ? "terminal"
             : transformations.has(elementId) || /^(selection|object-pack|parse|serialization|validation|call-result)$/.test(element.kind) || (relation !== null && /^(map|filter|find|pack|includes|join)/.test(relation.kind)) ? "transform"
               : relation?.kind === "show-when" || element.kind === "type-narrow" ? "branch"
                 : "transfer";

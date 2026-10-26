@@ -13,7 +13,8 @@ import {
 } from "../contracts/value-flow";
 import { EngineError } from "../protocol";
 import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex, type CallSites } from "../call-sites";
-import { CROSS_CALL, elementsAt, externalCallee, naturalEnd, needsOneCallSite, pairedInSlice, seedFor, TERMINAL_KINDS } from "../facts";
+import { elementsAt, externalCallee, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
+import { elementTraits, relationTraits } from "../kinds";
 import type { HostCandidate } from "../host";
 import { candidatesAt, parseSpan, sameSpan, sourceFileFor, spanOf, type Span } from "../selection";
 import { checkGeneration, requireTypescript, type BaseTier1, type EngineSession, type Tier1, type TsTier1 } from "../session";
@@ -322,7 +323,7 @@ class LedgerBuilder {
       if (relation.kind === "contains" || relation.kind === "declares-parameter") continue;
       (out.get(relation.from) ?? out.set(relation.from, []).get(relation.from)!).push(relation);
     }
-    const rank = (kind: string) => (CROSS_CALL.has(kind) ? FOLLOW.length : FOLLOW.indexOf(kind) < 0 ? FOLLOW.length + 1 : FOLLOW.indexOf(kind));
+    const rank = (kind: string) => (relationTraits(kind).crossCall ? FOLLOW.length : FOLLOW.indexOf(kind) < 0 ? FOLLOW.length + 1 : FOLLOW.indexOf(kind));
     const visited = this.visited;
     visited.add(seed);
     const crossed = new Set<CallSites | string>();
@@ -351,7 +352,7 @@ class LedgerBuilder {
           }
         }
         // Bookkeeping elements at the seed's own span repeat the input.
-        const terminal = TERMINAL_KINDS.has(element.kind) || element.terminalRoles.length > 0;
+        const terminal = Boolean(elementTraits(element.kind).terminal) || element.terminalRoles.length > 0;
         const repeatsInput = sameSpan(element.location.span, seedSpan) && !terminal;
         // A return the slice carried on from (to its paired call) is a transfer, not where the value leaves (T13).
         const returnsToCaller = element.kind === "return" && (out.get(element.id) ?? []).some((item) => item.kind === "return-value");

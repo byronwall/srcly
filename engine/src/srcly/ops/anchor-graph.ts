@@ -3,10 +3,11 @@ import type { AnalysisCancellationToken } from "../../analysis/cancellation";
 import { queryEvidenceSlice, type EvidenceSlice } from "../../analysis/evidence-slice";
 import { toSliceElement, toSliceRelation } from "../../analysis/evidence-slice-normalization";
 import { scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
-import { ANCHOR_LIMITS, assumedThrough, UNDRAWN_RELATIONS, usesOf, walkFollows } from "../anchor-slice";
+import { ANCHOR_LIMITS, assumedThrough, undrawn, usesOf, walkFollows } from "../anchor-slice";
 import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
-import { DECLARATION_KINDS, elementsAt, endsInPlace, externalCallee, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
+import { elementsAt, endsInPlace, externalCallee, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
+import { elementTraits, proofStrength, relationTraits, SEED_KINDS } from "../kinds";
 import type { HostCandidate, LanguageHost } from "../host";
 import { clip, foldedLimit } from "../frontier-words";
 import { kindWords, syntaxWords, useWords } from "../anchor-words";
@@ -17,11 +18,6 @@ import { checkGeneration, type EngineSession, type Tier1 } from "../session";
 
 /** Anchor graphs bigger than this are refused as `budget-exhausted`, never truncated. */
 export const ANCHOR_GRAPH_MAX_BYTES = 8 * 1024 * 1024;
-/** What the walk never draws: the structural relations, and a call's link to its callee (the slice still follows it). */
-/** Element kinds that branch or narrow a value rather than carry it. */
-const CONTROL_KINDS = new Set(["type-narrow", "show-binding", "for-binding", "predicate-result"]);
-/** Element kinds that reshape a value. */
-const TRANSFORM_KINDS = new Set(["selection", "object-pack", "parse", "serialization", "validation", "call-result"]);
 const DIRECTIONS: AnchorDirection[] = ["forward", "backward", "both"];
 
 type Side = "up" | "down";
@@ -44,7 +40,6 @@ type Run = {
   use?: boolean;
 };
 /** Relations that bind a declaration's parameter to the places it is read. */
-const PARAMETER_READS = new Set(["references", "field-input"]);
 /** The declaration anchor's own links: they place its parameters, reads, returns and uses, and never carry a run's landing. */
 const DECLARATION_LINKS = new Set(["parameter", "prop-read", "returns", "used-by"]);
 
@@ -163,8 +158,8 @@ class AnchorGraphBuilder {
 
     const sides: Side[] = direction === "forward" ? ["down"] : direction === "backward" ? ["up"] : ["up", "down"];
     const coverage = { elements: 0, relations: 0, budget: { limit: 0, used: 0, exhausted: false } };
-    const runs: Run[] = fact && DECLARATION_KINDS.has(fact.kind) ? this.declarationRuns(file, span, seed, sides, fact.kind === "component-definition") : sides.map((side) => ({ seedId: seed, seedSpan: span, side }));
-    const isDeclaration = fact !== undefined && DECLARATION_KINDS.has(fact.kind);
+    const runs: Run[] = fact && elementTraits(fact.kind).declaration ? this.declarationRuns(file, span, seed, sides, fact.kind === "component-definition") : sides.map((side) => ({ seedId: seed, seedSpan: span, side }));
+    const isDeclaration = fact !== undefined && Boolean(elementTraits(fact.kind).declaration);
     const gapsBySeed = new Map<string, number>();
     const naturalBySeed = new Map<string, number>();
     for (const run of runs) {
@@ -209,7 +204,7 @@ class AnchorGraphBuilder {
     // A declaration whose runs reached nothing and reported nothing makes no claim: there is nothing to trace from it.
     if (!stopped && isDeclaration && landedRuns.length === 0) return this.finish(anchor, direction, "unsupported", "nothing-to-trace", coverage);
     // `ok` is proven: a path that lands only by assuming what code with no source does (an `external-call` proof) is partial.
-    const assumed = this.edges.some((edge) => edge.proof.some((item) => item?.kind === "external-call"));
+    const assumed = this.edges.some((edge) => edge.proof.some((item) => proofStrength(item?.kind) === "assumed"));
     const outcome = stopped ? "partial" : landed && !assumed ? "ok" : landed || !coverage.budget.exhausted ? "partial" : "budget";
     // Every partial names its stop: where a run that did not land ends in evidence that cannot call it a dead end.
     // A declaration whose every run landed, partial only because a step assumes what library code does, has no stop to name: its assumed edges say so.
@@ -241,7 +236,7 @@ class AnchorGraphBuilder {
   private runLanded(run: Run, gaps: number, naturalStarts: number): boolean | null {
     const want: AnchorNode["kind"] = run.side === "down" ? "terminal" : "origin";
     const seedNode = this.nodes.get(run.seedId);
-    if (run.side === "down" && seedNode?.elementKind && TERMINAL_KINDS.has(seedNode.elementKind)) return true;
+    if (run.side === "down" && seedNode?.elementKind && elementTraits(seedNode.elementKind).terminal) return true;
     if (run.side === "up" && naturalStarts > 0) return true;
     const next = new Map<string, string[]>();
     for (const edge of this.edges) {
@@ -358,7 +353,7 @@ class AnchorGraphBuilder {
         while (queue.length) {
           const fromId = queue.shift()!;
           for (const raw of provider.getRelations(fromId, "forward", this.cancellation)) {
-            if (!PARAMETER_READS.has(raw.kind) || seen.has(raw.to)) continue;
+            if (!relationTraits(raw.kind).parameterRead || seen.has(raw.to)) continue;
             seen.add(raw.to);
             const element = provider.facts.getElement(raw.to);
             if (!element) continue;
@@ -398,7 +393,7 @@ class AnchorGraphBuilder {
         this.addElement(use, use.terminalRoles.length ? "terminal" : "value", "down", relation.status, null, useWords(use.kind));
         this.pushEdge({ id: `use:${relation.id}`, source: seed, target: use.id, kind: "used-by", status: relation.status, proof: [relation.proof], label: null });
         // A component rendered here is where the value ends: its body is the anchor's own, already traced.
-        const endsHere = TERMINAL_KINDS.has(use.kind);
+        const endsHere = Boolean(elementTraits(use.kind).terminal);
         if (!endsHere && runs.filter((run) => run.use).length >= ANCHOR_LIMITS.maxWalkedUses) unwalked.push(use.label);
         else runs.push({ seedId: use.id, seedSpan: use.location.span, side: "down", ...(endsHere ? { endsHere } : { use: true }) });
       }
@@ -412,7 +407,7 @@ class AnchorGraphBuilder {
     const byId = new Map(slice.elements.map((element) => [element.id, element]));
     const next = new Map<string, ProgramRelation[]>();
     for (const relation of slice.relations) {
-      if (UNDRAWN_RELATIONS.has(relation.kind)) continue;
+      if (undrawn(relation.kind)) continue;
       const key = side === "down" ? relation.from : relation.to;
       (next.get(key) ?? next.set(key, []).get(key)!).push(relation);
     }
@@ -431,7 +426,7 @@ class AnchorGraphBuilder {
         if (!element || otherId === seed || otherId === this.anchorId) continue;
         continued.add(id);
         // Bookkeeping at the anchor's own span (its alias, its call) repeats the anchor.
-        if (sameSpan(element.location.span, seedSpan) && !TERMINAL_KINDS.has(element.kind) && !element.originRoles.length) {
+        if (sameSpan(element.location.span, seedSpan) && !elementTraits(element.kind).terminal && !element.originRoles.length) {
           this.alias.set(otherId, seed);
           if (!visited.has(otherId)) {
             visited.add(otherId);
@@ -743,9 +738,10 @@ function typeAttribute(element: ProgramElement): string | null {
  */
 function classify(relation: ProgramRelation, element: ProgramElement, side: Side): AnchorNode["kind"] {
   if (side === "up" && element.originRoles.length) return "origin";
-  if (side === "down" && (element.terminalRoles.length || TERMINAL_KINDS.has(element.kind))) return "terminal";
+  if (side === "down" && (element.terminalRoles.length || elementTraits(element.kind).terminal)) return "terminal";
   if (element.boundary) return "boundary";
-  if (relation.kind === "show-when" || CONTROL_KINDS.has(element.kind)) return "control";
-  if (/^(map|filter|find|pack|includes|join)/.test(relation.kind) || TRANSFORM_KINDS.has(element.kind)) return "transform";
+  const roles = [relationTraits(relation.kind).role, elementTraits(element.kind).role];
+  if (roles.includes("control")) return "control";
+  if (roles.includes("transform")) return "transform";
   return "value";
 }
