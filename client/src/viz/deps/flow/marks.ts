@@ -97,6 +97,7 @@ export const REPETITION_BADGE: Record<"conditional" | "collection", { glyph: str
 export const STOP_REASONS: Record<string, { word: string; hint: string }> = {
   "unbound-read": { word: "binding not traced", hint: "No caller's value is linked to this read, so where it comes from is not traced." },
   disconnected: { word: "dead end", hint: "Nothing the engine indexed continues from here." },
+  untraced: { word: "not traced further", hint: "The evidence for this language records nothing past here (a store, a condition, a parameter nothing passes), so the trace ends without a proven end." },
   "external-code": { word: "external code", hint: "The value goes into code outside the project: a library or a built-in." },
   "budget-exhausted": { word: "walk limit", hint: "The walk stopped at its size limit; more may follow." },
   "no-evidence-element": { word: "no evidence", hint: "The engine recorded nothing at this expression." },

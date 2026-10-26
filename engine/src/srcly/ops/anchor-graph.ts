@@ -8,6 +8,7 @@ import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type An
 import { CROSS_CALL, DECLARATION_KINDS, elementsAt, endsInPlace, externalCallee, naturalEnd, pairedInSlice, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
 import type { HostCandidate, LanguageHost } from "../host";
 import { clip, foldedLimit } from "../frontier-words";
+import { kindWords, syntaxWords } from "../anchor-words";
 import { ownFacts } from "../own-facts";
 import { EngineError } from "../protocol";
 import { parseSpan, sameSpan, type Span } from "../selection";
@@ -104,6 +105,10 @@ class AnchorGraphBuilder {
   private readonly terminalRoles = new Map<string, string[]>();
   /** The anchor itself: a walk from one of its parameters, returns or uses never draws it again as a step. */
   private anchorId: string | null = null;
+  /** Each run's `unrecorded` ends (`naturalEnd`): named only when that run lands nowhere else. */
+  private readonly quietGaps = new Map<string, number>();
+  private readonly named = new Set<string>();
+  private readonly quiet = new Map<string, { gap: EvidenceGap; element: { label: string; kind: string }; side: Side }[]>();
   private readonly root: string;
   private readonly host: LanguageHost;
 
@@ -166,7 +171,7 @@ class AnchorGraphBuilder {
       if (run.endsHere) continue;
       const slice = this.slice(run, anchor.text);
       this.walk(run.seedId, slice, run.side, run.seedSpan);
-      const natural = this.gaps(slice.gaps, run.side, new Map(slice.elements.map((element) => [element.id, element])));
+      const natural = this.gaps(slice.gaps, run.side, new Map(slice.elements.map((element) => [element.id, element])), run.seedId);
       naturalBySeed.set(run.seedId, (naturalBySeed.get(run.seedId) ?? 0) + natural);
       coverage.elements += slice.elements.length;
       coverage.relations += slice.relations.length;
@@ -175,7 +180,8 @@ class AnchorGraphBuilder {
       // Any limit the slice hit leaves the walk short of the budget's story, not only the relation budget.
       const cut = slice.coverage.truncation;
       coverage.budget.exhausted ||= cut.budget || cut.elements || cut.relations || cut.depth;
-      gapsBySeed.set(run.seedId, (gapsBySeed.get(run.seedId) ?? 0) + slice.gaps.length);
+      gapsBySeed.set(run.seedId, (gapsBySeed.get(run.seedId) ?? 0) + slice.gaps.length - (this.quietGaps.get(run.seedId) ?? 0));
+      this.quietGaps.delete(run.seedId);
     }
     const landedRuns = runs
       .filter((run) => !(run.placeholderFor && run.placeholderFor.length > 0))
@@ -199,7 +205,23 @@ class AnchorGraphBuilder {
     const landed = isDeclaration
       ? runs.length > 0 && landedRuns.every(Boolean)
       : (sides.includes("down") && kinds.includes("terminal")) || (sides.includes("up") && (kinds.includes("origin") || naturalStarts > 0));
+    // A declaration whose runs reached nothing and reported nothing makes no claim: there is nothing to trace from it.
+    if (!stopped && isDeclaration && landedRuns.length === 0) return this.finish(anchor, direction, "unsupported", "nothing-to-trace", coverage);
     const outcome = stopped ? "partial" : landed ? "ok" : coverage.budget.exhausted ? "budget" : "partial";
+    // Every partial names its stop: where a run that did not land ends in evidence that cannot call it a dead end.
+    if (outcome === "partial" && !stopped) {
+      const unlanded = runs.filter((run) => !run.endsHere && this.runLanded(run, gapsBySeed.get(run.seedId) ?? 0, naturalBySeed.get(run.seedId) ?? 0) !== true);
+      for (const run of unlanded) for (const end of this.quiet.get(run.seedId) ?? []) this.untraced(end.gap, end.element, end.side);
+      // Paths that only loop back, or end where nothing names an end: the run's own start is where the trace stops.
+      if (this.named.size === 0) {
+        for (const run of unlanded) {
+          const node = this.nodes.get(this.resolve(run.seedId));
+          if (!node || node.id === this.anchorId) continue;
+          const location = { file: node.file, line: node.line, column: node.span.startColumn, span: node.span };
+          this.untraced({ id: `end:${node.id}`, from: node.id, to: null, label: node.label, reason: "disconnected", status: "partial", location, proof: [] }, { label: node.label, kind: node.elementKind ?? node.kind }, run.side, "not traced to an end · no path from here reaches an end the engine can name");
+        }
+      }
+    }
     return this.finish(anchor, direction, outcome, null, coverage);
   }
 
@@ -379,13 +401,18 @@ class AnchorGraphBuilder {
     }
     const visited = new Set<string>([seed]);
     const queue: { id: string; depth: number }[] = [{ id: seed, depth: 0 }];
+    /** Elements the walk expanded, and those it went on from. */
+    const popped: string[] = [];
+    const continued = new Set<string>();
     while (queue.length) {
       this.cancellation?.throwIfCancelled();
       const { id, depth } = queue.shift()!;
+      popped.push(id);
       for (const relation of next.get(id) ?? []) {
         const otherId = side === "down" ? relation.to : relation.from;
         const element = byId.get(otherId);
         if (!element || otherId === seed || otherId === this.anchorId) continue;
+        continued.add(id);
         // Bookkeeping at the anchor's own span (its alias, its call) repeats the anchor.
         if (sameSpan(element.location.span, seedSpan) && !TERMINAL_KINDS.has(element.kind) && !element.originRoles.length) {
           this.alias.set(otherId, seed);
@@ -442,6 +469,24 @@ class AnchorGraphBuilder {
         }
       }
     }
+    this.walkEnds(seed, side, popped.filter((id) => !continued.has(id)), byId);
+  }
+
+  /**
+   * Boxes this run drew that nothing continues from on its side, though the
+   * slice reported no gap there (a call whose only onward relation names its
+   * definition, a value only a condition reads): quiet ends, named like the
+   * slice's own `unrecorded` ends when the run lands nowhere.
+   */
+  private walkEnds(seed: string, side: Side, ends: string[], byId: Map<string, ProgramElement>) {
+    for (const id of ends) {
+      const box = this.resolve(id);
+      const node = this.nodes.get(box);
+      const element = byId.get(id);
+      if (!node || !element || box === this.anchorId || !["value", "transform", "control"].includes(node.kind)) continue;
+      const gap: EvidenceGap = { id: `end:${box}`, from: box, to: null, label: node.label, reason: "disconnected", status: "partial", location: element.location, proof: [] };
+      (this.quiet.get(seed) ?? this.quiet.set(seed, []).get(seed)!).push({ gap, element: { label: node.label, kind: element.kind }, side });
+    }
   }
 
   /**
@@ -455,7 +500,7 @@ class AnchorGraphBuilder {
    * the external callee); the reason is its detail and the sentence its note.
    * One element limit's gaps fold into one frontier that names how many.
    */
-  private gaps(gaps: readonly EvidenceGap[], side: Side, elements: Map<string, ProgramElement>): number {
+  private gaps(gaps: readonly EvidenceGap[], side: Side, elements: Map<string, ProgramElement>, seedId: string): number {
     let naturalStarts = 0;
     const labelOf = (id: string | null | undefined) => (id ? (elements.get(id) ?? this.tier1.provider().facts.getElement(id))?.label : undefined);
     const limited = gaps.filter((gap) => gap.reason === "budget-exhausted" && /^Element limit/.test(gap.label));
@@ -472,9 +517,13 @@ class AnchorGraphBuilder {
           reason = "no-evidence-element";
           status = "unsupported";
         } else if (naturalEnd(this.tier1, element)) {
-          if (side === "up" && naturalEnd(this.tier1, element) === "start") naturalStarts += 1;
-          const consumed = side === "down" && naturalEnd(this.tier1, element) === "consumed" ? endsInPlace(this.tier1, element) : null, box = this.nodes.get(this.resolve(element.id));
+          const end = naturalEnd(this.tier1, element);
+          if (side === "up" && end === "start") naturalStarts += 1;
+          const consumed = side === "down" && end === "consumed" ? endsInPlace(this.tier1, element) : null, box = this.nodes.get(this.resolve(element.id));
           if (consumed && box && ["value", "transform", "control"].includes(box.kind)) this.terminalRoles.set(Object.assign(box, { kind: "terminal", note: `ends here · ${consumed === "branch" ? "decides a branch" : "written, not read"}` }).id, [consumed]);
+          if (end === "unrecorded") (this.quiet.get(seedId) ?? this.quiet.set(seedId, []).get(seedId)!).push({ gap, element, side });
+          // Reaching a declaration or a terminal claims nothing about the run: it is not one of the run's gaps.
+          if (end === "bookkeeping") this.quietGaps.set(seedId, (this.quietGaps.get(seedId) ?? 0) + 1);
           continue;
         } else {
           const callee = externalCallee(this.tier1, element);
@@ -485,33 +534,41 @@ class AnchorGraphBuilder {
           elementKind = element.kind;
         }
       }
-      const from = gap.from ? this.resolve(gap.from) : null;
-      const to = gap.to ? this.resolve(gap.to) : null;
-      const attached = (from ? this.nodes.get(from) : undefined) ?? (to ? this.nodes.get(to) : undefined) ?? null;
-      const at = gap.location ?? attached;
-      if (!at) continue;
-      const { file, span } = at;
-      this.addNode({
-        id,
-        kind: "frontier",
-        label,
-        detail: reason,
-        parent: this.scopeFor(file, span, side),
-        file,
-        line: span.startLine,
-        span,
-        status,
-        side,
-        elementKind,
-        typeText: null,
-        reason,
-        note,
-      });
-      const source = from && this.nodes.has(from) ? from : side === "up" && to && this.nodes.has(to) ? id : null;
-      const target = source === id ? to! : id;
-      if (source) this.pushEdge({ id: `gap:${gap.id}`, source, target, kind: "gap", status, proof: gap.proof, label: null });
+      this.frontier(gap, side, { label, note, reason, status, elementKind });
     }
     return naturalStarts;
+  }
+
+  /**
+   * Where a run that landed nowhere ends in evidence that cannot tell a dead
+   * end from the end of what it records (a Python store, a condition, a
+   * parameter nothing in the program passes): a frontier named by the
+   * element, so the partial says where it stops.
+   */
+  private untraced(gap: EvidenceGap, element: { label: string; kind: string }, side: Side, said?: string) {
+    // One stop per box, whichever way its end was found.
+    const box = gap.from ? this.resolve(gap.from) : gap.id;
+    if (this.named.has(box)) return;
+    this.named.add(box);
+    const note = said ?? (side === "down" ? "not traced further · the evidence records nothing that continues from here" : "not traced further · nothing the evidence records reaches here");
+    this.frontier(gap, side, { label: clip(element.label), note, reason: "untraced", status: "partial", elementKind: element.kind });
+  }
+
+  /** One frontier box at a gap, hung off the element it stopped at. */
+  private frontier(gap: EvidenceGap, side: Side, words: { label: string; note: string; reason: string; status: AnchorNode["status"]; elementKind: string | null }) {
+    const id = `frontier:${gap.id}`;
+    if (this.nodes.has(id)) return;
+    const from = gap.from ? this.resolve(gap.from) : null;
+    const to = gap.to ? this.resolve(gap.to) : null;
+    const attached = (from ? this.nodes.get(from) : undefined) ?? (to ? this.nodes.get(to) : undefined) ?? null;
+    const at = gap.location ?? attached;
+    if (!at) return;
+    const { file, span } = at;
+    const { label, note, reason, status, elementKind } = words;
+    this.addNode({ id, kind: "frontier", label, detail: reason, parent: this.scopeFor(file, span, side), file, line: span.startLine, span, status, side, elementKind, typeText: null, reason, note });
+    const source = from && this.nodes.has(from) ? from : side === "up" && to && this.nodes.has(to) ? id : null;
+    const target = source === id ? to! : id;
+    if (source) this.pushEdge({ id: `gap:${gap.id}`, source, target, kind: "gap", status, proof: gap.proof, label: null });
   }
 
   /** A declaration's own parameter or return as a plain value box (the file index knows it without roles or proof). */
@@ -665,65 +722,3 @@ function classify(relation: ProgramRelation, element: ProgramElement, side: Side
   if (/^(map|filter|find|pack|includes|join)/.test(relation.kind) || TRANSFORM_KINDS.has(element.kind)) return "transform";
   return "value";
 }
-
-const KIND_WORDS: Record<string, string> = {
-  "field-read": "field read",
-  "index-read": "index read",
-  "call-result": "call result",
-  "jsx-occurrence": "JSX occurrence",
-  "component-occurrence": "handed to a component",
-  "component-prop-binding": "prop binding",
-  "field-consumer": "field consumer",
-  "collection-element": "collection element",
-  "predicate-result": "predicate",
-  "return-expression": "return",
-  "for-binding": "For item",
-  "show-binding": "Show value",
-  "dom-terminal": "DOM attribute",
-  "render-terminal": "render slot",
-  "resource-input": "resource",
-  "resource-result": "resource result",
-  "fetch-input": "fetch",
-  "file-input": "file read",
-  "environment-input": "environment",
-  "process-input": "process input",
-  "network-request": "network request",
-  "external-read": "external read",
-  "http-response": "HTTP response",
-  "object-pack": "object",
-  "type-narrow": "type guard",
-  "function-entry": "function",
-  "component-definition": "component",
-};
-
-function kindWords(kind: string): string {
-  return KIND_WORDS[kind] ?? kind.replaceAll("-", " ");
-}
-
-const SYNTAX_WORDS: Record<string, string> = {
-  PropertyAccessExpression: "property read",
-  Identifier: "name",
-  CallExpression: "call",
-  BinaryExpression: "fallback",
-  ConditionalExpression: "conditional",
-  NonNullExpression: "assertion",
-  ParenthesizedExpression: "group",
-  JsxExpression: "JSX expression",
-  ElementAccessExpression: "index read",
-  // Python's ast node names.
-  Attribute: "attribute read",
-  Name: "name",
-  Call: "call",
-  Subscript: "index read",
-  BoolOp: "fallback",
-  IfExp: "conditional",
-  Await: "await",
-  arg: "parameter",
-  FunctionDef: "function",
-  AsyncFunctionDef: "function", ClassDef: "class",
-};
-
-function syntaxWords(kind: string): string {
-  return SYNTAX_WORDS[kind] ?? kind;
-}
-
