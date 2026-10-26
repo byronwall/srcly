@@ -275,6 +275,10 @@ export function staticTarget(node: TypeScript.CallExpression) {
   return first && (TypeScript.isStringLiteral(first) || TypeScript.isNoSubstitutionTemplateLiteral(first)) ? first.text : null;
 }
 
+export function isAssignmentOperator(ts: typeof TypeScript, kind: TypeScript.SyntaxKind) {
+  return kind >= ts.SyntaxKind.FirstAssignment && kind <= ts.SyntaxKind.LastAssignment;
+}
+
 export function isSelectionOperator(ts: typeof TypeScript, kind: TypeScript.SyntaxKind) {
   return [ts.SyntaxKind.BarBarToken, ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.QuestionQuestionToken].includes(kind);
 }
