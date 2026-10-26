@@ -17,7 +17,8 @@
     "capture-anchor-graph": "node --import tsx scripts/capture-anchor-graph.ts",
     "time-phases": "node --import tsx scripts/time-phases.ts",
     "memory-probe": "node --expose-gc --max-old-space-size=3072 --import tsx scripts/memory-probe.ts",
-    "bundle": "node scripts/bundle.mjs"
+    "survey-gate": "node --import tsx scripts/survey-gate.ts",
+    "bundle":"node scripts/bundle.mjs"
   },
   "dependencies": {
     "typescript": "5.9.3",

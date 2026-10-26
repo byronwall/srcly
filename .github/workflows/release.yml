@@ -119,6 +119,40 @@ jobs:
             tmp/e2e/report
           if-no-files-found: ignore
 
+  # Data-flow coverage gate: surveys client/, server/ and
+  # engine/examples/value-flow-basics and compares with
+  # engine/survey-baseline.json (engine/scripts/survey-gate.ts).
+  survey:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: |
+            client/pnpm-lock.yaml
+            engine/pnpm-lock.yaml
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: "3.13"
+      - name: Install client dependencies (the survey resolves its imports)
+        working-directory: client
+        run: pnpm install --frozen-lockfile
+      - name: Install engine dependencies
+        working-directory: engine
+        run: pnpm install --frozen-lockfile
+      - name: Install server dependencies (the Python survey uses its mypy)
+        working-directory: server
+        run: uv sync --locked
+      - name: Survey gate
+        working-directory: engine
+        run: pnpm survey-gate
+
   publish:
     if: startsWith(github.ref, 'refs/tags/')
     needs: build
