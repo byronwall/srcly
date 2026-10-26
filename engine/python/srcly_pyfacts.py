@@ -127,6 +127,12 @@ ORIGIN_READS: dict[str, Recognition] = {
 FASTAPI_PARAM_FUNCS = {"Query": "query", "Path": "path", "Body": "body", "Header": "header", "Cookie": "cookie", "Form": "form", "File": "file", "Depends": "dependency", "Security": "dependency"}
 FASTAPI_REQUEST_TYPES = {"Request", "WebSocket", "HTTPConnection"}
 FASTAPI_RUNTIME_TYPES = {"Response", "BackgroundTasks"}
+# Decorators that wrap a function without registering it anywhere: a function they decorate is not entered from outside.
+WRAPPER_DECORATORS = {
+    "builtins.staticmethod", "builtins.classmethod", "builtins.property", "functools.cache", "functools.lru_cache", "functools.wraps",
+    "functools.cached_property", "functools.singledispatch", "abc.abstractmethod", "typing.overload", "typing.override", "typing_extensions.override",
+    "contextlib.contextmanager", "contextlib.asynccontextmanager", "dataclasses.dataclass",
+}
 MODEL_BASES = {"BaseModel", "pydantic.BaseModel", "pydantic.main.BaseModel", "SQLModel", "TypedDict", "NamedTuple"}
 
 
@@ -749,6 +755,7 @@ class Program:
                 continue
             ModuleWalker(self, source).run()
         self.finish_returns()
+        self.finish_entries()
 
     def mount_routers(self) -> None:
         """`app.include_router(items.router, prefix="/v1")` adds the mount prefix to that router's routes."""
@@ -765,6 +772,65 @@ class Program:
                 for keyword in node.keywords:
                     if keyword.arg in ("prefix", "url_prefix") and isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
                         router["mounted"] = keyword.value.value
+
+    def framework_decorator(self, source: Source, decorator: ast.expr) -> bool:
+        """
+        A decorator that registers a function with code outside the program: its name resolves
+        outside the program's own packages (`@click.command()`, `@receiver(...)`), or it is a
+        method of an object whose checked type is outside them (`@cli.command()` on a `typer.Typer`),
+        or of a web app or router the program builds (`@app.cli.command()` on a `Flask`).
+        """
+        func = decorator.func if isinstance(decorator, ast.Call) else decorator
+        dotted = self.dotted(source, func)
+        if dotted in WRAPPER_DECORATORS:
+            return False
+        if dotted and dotted.split(".")[0] not in self.packages:
+            return True
+        if isinstance(func, ast.Attribute):
+            owner = func.value
+            receiver = self.checked.receivers.get(source.rel, {}).get(span_key(source.span(owner)))
+            if receiver and receiver not in WRAPPER_DECORATORS and receiver.split(".")[0] not in self.packages:
+                return True
+            while isinstance(owner, ast.Attribute):
+                owner = owner.value
+            return (self.dotted(source, owner) or "") in self.routers
+        return False
+
+    def finish_entries(self) -> None:
+        """
+        A function nothing in the program calls, registered with a framework by a decorator
+        (a CLI command, a signal receiver, a hook), is entered from that framework: each of its
+        parameters is an origin (`originRole: event`), "enters from @…". Route handlers already
+        bind theirs from the request.
+        """
+        for info in self.functions.values():
+            node = info.node
+            if isinstance(node, ast.Lambda) or info.route is not None or self.calls.get(info.entry_id, {}).get("calls"):
+                continue
+            source = info.source
+            decorator = next((item for item in node.decorator_list if self.framework_decorator(source, item)), None)
+            if decorator is None:
+                continue
+            words = clip(source.segment(decorator.func if isinstance(decorator, ast.Call) else decorator), 60)
+            at = source.span(decorator)
+            for param in info.params:
+                if info.is_method and param is info.params[0]:
+                    continue
+                target = element_id("parameter", source.rel, source.span(param))
+                if target not in self.elements:
+                    continue
+                detail = f"@{words} calls {info.qualname} from outside the program, passing {param.arg}"
+                origin = self.add_element({
+                    "id": element_id("entry", source.rel, at, f"#{param.arg}"),
+                    "kind": "parameter",
+                    "operationKind": None,
+                    "label": clip(f"enters from @{words} → {param.arg}"),
+                    "location": source.location(at),
+                    "ownerId": info.entry_id,
+                    "attributes": {"originRole": "event", "name": param.arg, "binding": "framework"},
+                    "proof": {"kind": "syntax", "detail": detail, "locations": [source.location(at)]},
+                })
+                self.relate(source, origin, target, "request-binding", detail, source.span(param))
 
     def finish_returns(self) -> None:
         """
