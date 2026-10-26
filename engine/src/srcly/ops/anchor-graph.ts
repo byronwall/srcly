@@ -3,7 +3,7 @@ import type { AnalysisCancellationToken } from "../../analysis/cancellation";
 import { queryEvidenceSlice, type EvidenceSlice } from "../../analysis/evidence-slice";
 import { toSliceElement, toSliceRelation } from "../../analysis/evidence-slice-normalization";
 import { scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
-import { ANCHOR_LIMITS, assumedThrough, foldAnnotatedUses, undrawn, usesOf, walkFollows } from "../anchor-slice";
+import { ANCHOR_LIMITS, assumedThrough, foldAnnotatedUses, performs, undrawn, usesOf, walkFollows } from "../anchor-slice";
 import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
 import { elementsAt, endsInPlace, externalCallee, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
@@ -103,6 +103,7 @@ class AnchorGraphBuilder {
   /** Each run's `unrecorded` ends (`naturalEnd`): named only when that run lands nowhere else. */
   private readonly quietGaps = new Map<string, number>();
   private readonly named = new Set<string>();
+  private readonly stops = new Set<string>(); // side:box:reason of each stop drawn
   private readonly quiet = new Map<string, { gap: EvidenceGap; element: { label: string; kind: string }; side: Side }[]>();
   private readonly root: string;
   private readonly host: LanguageHost;
@@ -501,7 +502,9 @@ class AnchorGraphBuilder {
         continue;
       }
       const gap: EvidenceGap = { id: `end:${box}`, from: box, to: null, label: node.label, reason: "disconnected", status: "partial", location: element.location, proof: [] };
-      (this.quiet.get(seed) ?? this.quiet.set(seed, []).get(seed)!).push({ gap, element: { label: node.label, kind: element.kind }, side });
+      const callee = side === "down" && performs(this.tier1.provider(), element.id) ? externalCallee(this.tier1, element) : null; // A classified library call (`xs.map(…)`) still ends outside the program.
+      if (callee) this.frontier(gap, side, { label: clip(callee), note: `${callee} is outside the program's own source`, reason: "external-code", status: "partial", elementKind: element.kind });
+      else (this.quiet.get(seed) ?? this.quiet.set(seed, []).get(seed)!).push({ gap, element: { label: node.label, kind: element.kind }, side });
     }
   }
 
@@ -577,8 +580,9 @@ class AnchorGraphBuilder {
   /** One frontier box at a gap, hung off the element it stopped at. */
   private frontier(gap: EvidenceGap, side: Side, words: { label: string; note: string; reason: string; status: AnchorNode["status"]; elementKind: string | null }) {
     const id = `frontier:${gap.id}`;
-    if (this.nodes.has(id)) return;
     const from = gap.from ? this.resolve(gap.from) : null;
+    // One stop per box, side and reason, however it was found (a slice gap, a walk's own end): a key already in leaves the set's size unchanged.
+    if (this.nodes.has(id) || this.stops.size === this.stops.add(`${side}:${from ?? id}:${words.reason}`).size) return;
     const to = gap.to ? this.resolve(gap.to) : null;
     const attached = (from ? this.nodes.get(from) : undefined) ?? (to ? this.nodes.get(to) : undefined) ?? null;
     const at = gap.location ?? attached;

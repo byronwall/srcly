@@ -156,20 +156,46 @@ export function callOperation(
   node: TypeScript.CallExpression,
 ): ProgramOperationKind | null {
   const name = calleeName(ts, node.expression);
-  const module = importModule(ts, checker, node.expression);
+  // A method library code declares (`xs.map`, `schema.safeParse`) is named by its own name, as a bare call is.
+  const member = libraryMember(ts, checker, node.expression) ? lastName(name) : null;
+  const named = (pattern: RegExp) => pattern.test(name) || (member !== null && pattern.test(member));
   if (name === "JSON.parse" || /(^|\.)parse$/.test(name)) return "parse";
   if (name === "JSON.stringify" || /(^|\.)(serialize|stringify|encode)$/.test(name)) return "serialize";
-  if (/^(validate|assert|check|safeParse|is[A-Z])/.test(name)) return "validate";
-  if (/^(select|pick|omit|filter|map|find|reduce|aggregate|pack)$/.test(name) || ["filter", "map", "reduce", "flatMap"].includes(name)) return "selection";
-  if (module === "solid-js" && name === "createResource") return "resource";
+  if (named(/^(validate|assert|check|safeParse|is[A-Z])/)) return "validate";
+  if (named(/^(select|pick|omit|filter|map|flatMap|find|reduce|aggregate|pack)$/)) return "selection";
+  if (isResourceFactory(ts, checker, node)) return "resource";
   return null;
 }
 
+/** Whether a method callee (`xs.map`) is declared by library code: a declaration file (TypeScript's own lib, a package's types). */
+function libraryMember(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): boolean {
+  if (!ts.isPropertyAccessExpression(callee)) return false;
+  return Boolean(symbolAtNode(checker, callee.name)?.declarations?.some((declaration) => declaration.getSourceFile().isDeclarationFile));
+}
+
+/**
+ * The library export a callee names, resolved through the checker: its
+ * import's module and the export's own name. `readFile` imported by name (or
+ * renamed), or `fs.readFile` through a namespace or default import. Null for
+ * a callee no import names.
+ */
+export function importedCallee(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): { module: string; name: string } | null {
+  const symbol = symbolAtNode(checker, callee);
+  const direct = importModule(ts, checker, callee, symbol);
+  if (direct) {
+    const specifier = symbol?.declarations?.find((declaration) => ts.isImportSpecifier(declaration));
+    const name = specifier && ts.isImportSpecifier(specifier) ? (specifier.propertyName ?? specifier.name).text : lastName(calleeName(ts, callee));
+    return { module: direct, name };
+  }
+  const module = ts.isPropertyAccessExpression(callee) ? importModule(ts, checker, callee.expression) : null;
+  return module && ts.isPropertyAccessExpression(callee) ? { module, name: callee.name.text } : null;
+}
+
+/** Solid's `createResource`, by the module its import names. */
 export function isResourceFactory(ts: typeof TypeScript, checker: TypeScript.TypeChecker, node: TypeScript.Expression) {
   if (!ts.isCallExpression(node)) return false;
-  const name = calleeName(ts, node.expression);
-  const module = importModule(ts, checker, node.expression);
-  return module === "solid-js" && name === "createResource" || /^(createResource|createQuery|useResource)$/.test(name);
+  const imported = importedCallee(ts, checker, node.expression);
+  return imported?.module === "solid-js" && imported.name === "createResource";
 }
 
 export function isFileOperation(
@@ -178,17 +204,14 @@ export function isFileOperation(
   operation: "read" | "write",
 ) {
   if (!module || !/^(node:)?fs(\/|$)/.test(module)) return false;
+  // `fs.readFile` through a namespace names the same export as `readFile`.
   return operation === "read"
-    ? /^(readFile|readFileSync|createReadStream|readdir|stat|access)$/.test(
-        name,
-      )
-    : /^(writeFile|writeFileSync|appendFile|appendFileSync|createWriteStream)$/.test(
-        name,
-      );
+    ? /^(readFile|readFileSync|createReadStream|readdir|stat|access)$/.test(lastName(name))
+    : /^(writeFile|writeFileSync|appendFile|appendFileSync|createWriteStream)$/.test(lastName(name));
 }
 
 export function isNetworkOperation(module: string | null, name: string) {
-  return Boolean(module && /^(node:)?https?$/.test(module) && /^(request|get|post)$/.test(name));
+  return Boolean(module && /^(node:)?https?$/.test(module) && /^(request|get|post)$/.test(lastName(name)));
 }
 
 export function isFrameworkCall(module: string, name: string) {

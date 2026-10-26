@@ -2,6 +2,7 @@ import * as TypeScript from "typescript";
 import {
   calleeName,
   externalServiceCallKind,
+  importedCallee,
   isExit,
   isFileOperation,
   isHttpResponse,
@@ -75,11 +76,14 @@ export function processProgramCallBoundary(
 ): void {
   const { ts, node, callId, ownerId } = context;
   const name = calleeName(ts, node.expression);
-  const module = context.moduleFor(node.expression);
-  const fileRead = isFileOperation(module, name, "read");
-  const fileWrite = isFileOperation(module, name, "write");
+  // A library export is its module and its own name, however the import names it (`fs.readFile`, `readFile as read`).
+  const imported = importedCallee(ts, context.checker, node.expression);
+  const module = context.moduleFor(node.expression) ?? imported?.module ?? null;
+  const exported = imported?.name ?? name;
+  const fileRead = isFileOperation(module, exported, "read");
+  const fileWrite = isFileOperation(module, exported, "write");
   const stream = outputKind(name, node);
-  if (name === "fetch" || isNetworkOperation(module, name)) {
+  if (name === "fetch" || isNetworkOperation(module, exported)) {
     const inputId = context.specialInput(
       node,
       "fetch-input",
