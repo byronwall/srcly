@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { IS_BUNDLE } from "../bundle";
+import { builtinLibraryModels, builtinModelFiles } from "../library-models";
 import { EngineError } from "../protocol";
 import type { PythonFactsOutput } from "./facts";
 
@@ -43,7 +44,9 @@ export function probePython(python: string): { python: string; executable: strin
 export function runPythonFacts(options: PythonRunOptions): PythonFactsOutput {
   const helper = helperPath();
   if (!fs.existsSync(helper)) throw new EngineError("internal", `The Python helper is missing: ${helper}`);
-  const args = ["-I", helper, "--root", options.root, "--source", options.source, ...(options.typesPython ? ["--types-python", options.typesPython] : [])];
+  // The helper reads the same built-in library model rows the engine loads (checked against their schema here first).
+  builtinLibraryModels();
+  const args = ["-I", helper, "--root", options.root, "--source", options.source, ...(options.typesPython ? ["--types-python", options.typesPython] : []), "--models", ...builtinModelFiles()];
   const result = spawnSync(options.python, args, {
     encoding: "utf8",
     maxBuffer: 1024 * 1024 * 1024,
