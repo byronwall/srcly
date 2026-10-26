@@ -34,8 +34,11 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       if (this.ts.isElementAccessExpression(node)) {
         this.processIndex(node, nextOwner);
       }
-      if (this.ts.isObjectLiteralExpression(node)) {
+      if (this.ts.isObjectLiteralExpression(node) || this.ts.isArrayLiteralExpression(node)) {
         this.processObject(node, nextOwner);
+      }
+      if (this.ts.isForOfStatement(node)) {
+        this.processForOf(node, nextOwner);
       }
       if (this.ts.isConditionalExpression(node)) {
         this.processSelection(node, nextOwner);
@@ -133,6 +136,20 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     }
     for (const attribute of opening.attributes.properties) {
       this.checkCancellation();
+      // A spread hands every field of its value to the occurrence: a component's props, or the element's attributes.
+      if (this.ts.isJsxSpreadAttribute(attribute)) {
+        const spreadId = this.expression(attribute.expression, ownerId);
+        this.addRelation(
+          spreadId,
+          occurrenceId,
+          target ? "component-prop" : "render-terminal",
+          [this.location(attribute)],
+          proof("jsx-tag", target ? "The JSX spread passes its fields as component props." : "The JSX spread reaches an intrinsic render occurrence.", [this.location(attribute)]),
+          target ? "proven" : "partial",
+        );
+        if (!target) this.addTerminal(attribute.expression, ownerId, "dom-attribute", "...", spreadId);
+        continue;
+      }
       if (!this.ts.isJsxAttribute(attribute)) continue;
       // A component's `label="toc"` is a prop value as much as `label={"toc"}`;
       // on an intrinsic element it is markup, with nothing upstream to trace.
