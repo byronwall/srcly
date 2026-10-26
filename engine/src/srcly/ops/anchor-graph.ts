@@ -494,7 +494,13 @@ class AnchorGraphBuilder {
       const node = this.nodes.get(box);
       const element = byId.get(id);
       // A value that naturally begins here (a literal, an external import or global) is where a backward run lands, not a quiet end.
-      if (!node || !element || box === this.anchorId || !["value", "transform", "control"].includes(node.kind) || (side === "up" && isNaturalStart(this.tier1, element))) continue;
+      if (!node || !element || box === this.anchorId || !["value", "transform", "control"].includes(node.kind) || (side === "up" && (isNaturalStart(this.tier1, element) || externalCallee(this.tier1, element)))) continue;
+      // A value the code ends in place (a branch test) has landed there, as at a slice gap.
+      const consumed = side === "down" ? endsInPlace(this.tier1, element) : null;
+      if (consumed) {
+        this.terminalRoles.set(Object.assign(node, { kind: "terminal", note: IN_PLACE_NOTES[consumed] }).id, [consumed]);
+        continue;
+      }
       const gap: EvidenceGap = { id: `end:${box}`, from: box, to: null, label: node.label, reason: "disconnected", status: "partial", location: element.location, proof: [] };
       (this.quiet.get(seed) ?? this.quiet.set(seed, []).get(seed)!).push({ gap, element: { label: node.label, kind: element.kind }, side });
     }
@@ -527,6 +533,10 @@ class AnchorGraphBuilder {
         if (!gap.location || !element) {
           reason = "no-evidence-element";
           status = "unsupported";
+        } else if (side === "up" && externalCallee(this.tier1, element)) {
+          // Upstream, a value made by code outside the program (`time.time()`, `uuid4()`) begins there, as an external import does.
+          naturalStarts += 1;
+          continue;
         } else if (naturalEnd(this.tier1, element)) {
           const end = naturalEnd(this.tier1, element);
           if (side === "up" && end === "start") naturalStarts += 1;

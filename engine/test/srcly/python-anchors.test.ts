@@ -157,16 +157,17 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect([...new Set(boxes(graph).filter((node) => node.side === "down").map((node) => node.line))]).toEqual(expect.arrayContaining([14, 15]));
   });
 
-  it("names where a partial trace stops when the evidence cannot call it a dead end", () => {
-    // `is_enabled(flag)` is only read by an `if`: the conditions the Python evidence leaves unrelated.
+  it("ends a value in place at a branch test, and names where a partial trace stops otherwise", () => {
+    // `is_enabled(flag)` is only read by an `if`: the value ends there, deciding the branch.
     const graph = anchor("app/stops.py", "is_enabled", 5);
+    expect(boxes(graph, "terminal").filter((node) => node.line === 10).map((node) => [node.label, node.note])).toEqual([["is_enabled(…)", "ends here · decides a branch"]]);
     expect(graph.outcome).toBe("partial");
     const stops = boxes(graph, "frontier");
     // Up, `configure(flag)` is never called, so nothing reaches its parameter.
-    expect(stops.map((node) => [node.reason, node.label, node.line])).toEqual([["untraced", "flag", 9], ["untraced", "is_enabled(…)", 10]]);
+    expect(stops.map((node) => [node.reason, node.label, node.line])).toEqual([["untraced", "flag", 9]]);
     expect(stops.every((node) => /^not traced further/.test(node.note ?? ""))).toBe(true);
     // Every partial in the fixture names a stop.
-    for (const item of ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py", "app/stops.py", "app/schemas.py"].flatMap(definitions)) {
+    for (const item of ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py", "app/stops.py", "app/schemas.py", "app/external.py"].flatMap(definitions)) {
       const traced = anchor(item.file, item.name, item.line);
       if (traced.outcome === "partial") expect(boxes(traced).some((node) => node.kind === "frontier" || node.kind === "boundary"), `${item.name} on line ${item.line}`).toBe(true);
     }
@@ -184,6 +185,31 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     const graph = anchor("app/service.py", "default_order", 14);
     expect(graph.outcome).toBe("ok");
     expect(boxes(graph, "frontier")).toEqual([]);
+  });
+
+  it("names a value handed to code outside the program as external code", () => {
+    const graph = anchorGraphOp(session, { ...at("app/external.py", "payload", "def save"), direction: "forward" });
+    expect(boxes(graph, "frontier").map((node) => [node.reason, node.label, node.line])).toEqual([["external-code", "json.dumps", 8]]);
+    const appended = anchorGraphOp(session, { ...at("app/external.py", "item: str", "def remember"), direction: "forward" });
+    expect(boxes(appended, "frontier").map((node) => [node.reason, node.label])).toEqual([["external-code", "items.append"]]);
+  });
+
+  it("begins a value at a call into code outside the program, walking upstream", () => {
+    const graph = anchorGraphOp(session, { ...at("app/external.py", "started", "return started"), direction: "backward" });
+    expect(graph.outcome).toBe("ok");
+    expect(boxes(graph, "frontier")).toEqual([]);
+  });
+
+  it("names a callee external only where the checker resolves it outside the program", () => {
+    const facts = (session.tier1() as PythonTier1).facts;
+    const external = (label: string) => facts.elements.find((element) => element.l === label)?.a?.externalCallee;
+    expect(external("json.dumps(…)")).toBe("json.dumps");
+    // `thing` has no annotation, so the checker cannot say where `thing.anything` goes: not named.
+    expect(external("thing.anything(…)")).toBeUndefined();
+    // A first-party call is entered, never external.
+    expect(facts.elements.filter((element) => element.l === "ident(…)").map((element) => element.a?.externalCallee)).toEqual([undefined, undefined]);
+    const poked = anchorGraphOp(session, { ...at("app/external.py", "value", "def poke"), direction: "forward" });
+    expect(boxes(poked, "frontier").map((node) => node.reason)).not.toContain("external-code");
   });
 
   it("names a file that did not parse, and a name that is not on its line", () => {
