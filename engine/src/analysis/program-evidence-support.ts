@@ -393,7 +393,8 @@ export function compilerSymbolId(ts: typeof TypeScript, checker: TypeScript.Type
   if (known !== undefined) return known;
   const declaration = symbol.declarations?.find((item) => inside(root, item.getSourceFile().fileName));
   const suffix = declaration ? `@${relative(root, declaration.getSourceFile().fileName)}:${declaration.getStart(declaration.getSourceFile())}` : "";
-  const id = `${checker.getFullyQualifiedName(symbol)}${suffix}`;
+  // A module symbol's qualified name spells its absolute path (`"/Users/…/src/x".f`): drop the root, so ids (and every order they set) do not depend on where the checkout lives.
+  const id = `${checker.getFullyQualifiedName(symbol).split(root).join("")}${suffix}`;
   ids.set(symbol, id);
   return id;
 }
