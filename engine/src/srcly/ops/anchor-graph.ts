@@ -3,7 +3,7 @@ import type { AnalysisCancellationToken } from "../../analysis/cancellation";
 import { queryEvidenceSlice, type EvidenceSlice } from "../../analysis/evidence-slice";
 import { toSliceElement, toSliceRelation } from "../../analysis/evidence-slice-normalization";
 import { scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
-import { ANCHOR_LIMITS, movesValue, STRUCTURAL_RELATIONS, usesOf } from "../anchor-slice";
+import { ANCHOR_LIMITS, assumedThrough, movesValue, STRUCTURAL_RELATIONS, usesOf } from "../anchor-slice";
 import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
 import { DECLARATION_KINDS, elementsAt, endsInPlace, externalCallee, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, SEED_KINDS, seedFor, TERMINAL_KINDS } from "../facts";
@@ -209,7 +209,9 @@ class AnchorGraphBuilder {
       : (sides.includes("down") && kinds.includes("terminal")) || (sides.includes("up") && (kinds.includes("origin") || naturalStarts > 0));
     // A declaration whose runs reached nothing and reported nothing makes no claim: there is nothing to trace from it.
     if (!stopped && isDeclaration && landedRuns.length === 0) return this.finish(anchor, direction, "unsupported", "nothing-to-trace", coverage);
-    const outcome = stopped ? "partial" : landed ? "ok" : coverage.budget.exhausted ? "budget" : "partial";
+    // `ok` is proven: a path that lands only by assuming what code with no source does (an `external-call` proof) is partial.
+    const assumed = this.edges.some((edge) => edge.proof.some((item) => item?.kind === "external-call"));
+    const outcome = stopped ? "partial" : landed && !assumed ? "ok" : landed || !coverage.budget.exhausted ? "partial" : "budget";
     // Every partial names its stop: where a run that did not land ends in evidence that cannot call it a dead end.
     if (outcome === "partial" && !stopped) {
       const unlanded = runs.filter((run) => !run.endsHere && this.runLanded(run, gapsBySeed.get(run.seedId) ?? 0, naturalBySeed.get(run.seedId) ?? 0) !== true);
@@ -648,7 +650,10 @@ class AnchorGraphBuilder {
     const target = this.resolve(relation.to);
     if (source === target) return;
     const label = /^(field-input|pack-field|consumer-value|field-consumer)$/.test(relation.kind) && element.fieldName ? element.fieldName : null;
-    this.pushEdge({ id: relation.id, source, target, kind: relation.kind, status: relation.status, proof: [relation.proof], label });
+    const callee = assumedThrough(this.tier1.provider(), relation);
+    if (!callee) return this.pushEdge({ id: relation.id, source, target, kind: relation.kind, status: relation.status, proof: [relation.proof], label });
+    const assumed = { kind: "external-call", detail: `Assumed: ${clip(callee, 80)} has no source to read, so its value is taken to derive from this ${relation.kind === "argument" ? "argument" : "receiver"}.`, locations: relation.proof.locations, status: "partial" as const };
+    this.pushEdge({ id: relation.id, source, target, kind: relation.kind, status: "partial", proof: [relation.proof, assumed], label });
   }
 
   private pushEdge(edge: AnchorEdge) {

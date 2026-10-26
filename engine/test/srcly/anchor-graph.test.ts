@@ -109,10 +109,16 @@ describe("anchorGraph on value-flow-basics", () => {
 
   it("enters a helper through its binding, through the library method its body calls, and back out at its own call's slot", () => {
     const graph = anchorGraphOp(session, { ...find(basics, "src/two-call-helper.tsx", "props.a", "shout(props.a)"), direction: "forward" });
-    expect(graph.outcome).toBe("ok");
+    // It lands with no stop, but only by assuming what `toUpperCase` does: partial, never ok.
+    expect(graph.outcome).toBe("partial");
     expect(boxes(graph, "boundary")).toEqual([]);
-    // `value.toUpperCase()` has no body to enter: the call consumes its receiver.
-    expect(boxes(graph).some((node) => node.elementKind === "call" && node.label === "value.toUpperCase()")).toBe(true);
+    expect(boxes(graph, "frontier")).toEqual([]);
+    // `value.toUpperCase()` has no body to enter: the call consumes its receiver, an assumed edge.
+    const upper = boxes(graph).find((node) => node.elementKind === "call" && node.label === "value.toUpperCase()")!;
+    expect(graph.edges.find((edge) => edge.target === upper.id)).toMatchObject({ status: "partial", proof: [expect.anything(), expect.objectContaining({ kind: "external-call" })] });
+    // `shout` has a body the walk enters: into it and back out assumes nothing; `toUpperCase` is the only assumption.
+    expect(graph.edges.filter((edge) => edge.status !== "proven").map((edge) => edge.target)).toEqual([upper.id]);
+    expect(graph.edges.filter((edge) => edge.kind === "argument-binding" || edge.kind === "return-value")).toMatchObject([{ status: "proven" }, { status: "proven" }]);
     // Paired with its own call (T13): only line 8's slot, never line 9's.
     expect(boxes(graph, "terminal").map((node) => node.line)).toEqual([8]);
   });
@@ -171,7 +177,8 @@ describe("anchorGraph on value-flow-basics", () => {
 
   it("carries a receiver through a library method, and begins a value at a global the program does not declare", () => {
     const trimmed = anchorGraphOp(session, { ...find(basics, "src/callee-consumed.tsx", "props.title", "props.title.trim()"), direction: "forward" });
-    expect(trimmed.outcome).toBe("ok");
+    expect(trimmed.outcome).toBe("partial");
+    expect(boxes(trimmed, "frontier")).toEqual([]);
     expect(boxes(trimmed, "terminal")).toMatchObject([{ elementKind: "render-terminal", line: 18 }]);
     const json = anchorGraphOp(session, { ...find(basics, "src/callee-consumed.tsx", "JSON.stringify(props.data)", "<code>"), direction: "backward" });
     expect(boxes(json).some((node) => node.label === "JSON")).toBe(true);
@@ -409,7 +416,8 @@ describe("anchorGraph on value-flow-basics", () => {
 
   it("keeps a discarded library call's argument in its receiver, as an assumption", () => {
     const pushed = anchorGraphOp(session, { ...find(basics, "src/external-calls.tsx", "props.tags[0]"), direction: "forward" });
-    expect(pushed.outcome).toBe("ok");
+    expect(pushed.outcome).toBe("partial");
+    expect(boxes(pushed, "frontier")).toEqual([]);
     const names = pushed.nodes.find((node) => node.elementKind === "alias" && node.label === "names")!;
     const write = pushed.edges.find((edge) => edge.target === names.id)!;
     expect(write).toMatchObject({ kind: "references", status: "partial" });
@@ -420,7 +428,8 @@ describe("anchorGraph on value-flow-basics", () => {
   it("never writes a call's argument into its receiver when the call's value is kept", () => {
     const concat = anchorGraphOp(session, { ...find(basics, "src/external-calls.tsx", "props.tags", "= kept.concat"), direction: "forward" });
     expect(concat.nodes.some((node) => node.label === "kept")).toBe(false);
-    expect(concat.edges.filter((edge) => edge.status === "partial")).toEqual([]);
+    // The only assumption is that `concat`'s value derives from its argument.
+    expect(concat.edges.filter((edge) => edge.status === "partial").map((edge) => edge.kind)).toEqual(["argument"]);
     expect(boxes(concat, "terminal")).toMatchObject([{ label: "more" }]);
     // Module state the function does not own: the push stays an external-code stop.
     const logged = anchorGraphOp(session, { ...find(basics, "src/external-calls.tsx", "entry", "log.push(entry)"), direction: "forward" });
