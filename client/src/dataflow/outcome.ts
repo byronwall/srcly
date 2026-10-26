@@ -15,6 +15,7 @@ const REASONS: Record<NaReason, string> = {
   "engine-crashed": "the engine stopped",
   "timed-out": "the engine timed out",
   "engine-protocol-mismatch": "the engine version does not match",
+  "memory-limit": "the program needs more memory than the engine's limit",
 };
 
 export function reasonText(reason: NaReason | null | undefined, message?: string | null): string {

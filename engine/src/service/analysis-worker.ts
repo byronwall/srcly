@@ -18,6 +18,7 @@ import { routeGraphOp, routeSurfaceOp } from "../srcly/ops/route-graph";
 import { routePathOp } from "../srcly/ops/route-path";
 import { routesOp } from "../srcly/ops/routes";
 import { selectExpressionOp, valueFlowOp } from "../srcly/ops/value-flow";
+import { MemoryGuard } from "../srcly/memory-guard";
 import { createEngineSession, type EngineSession } from "../srcly/session";
 import { createAnalysisCache } from "./cache";
 import { buildSourceExcerpt } from "./source-excerpts";
@@ -38,6 +39,8 @@ const reportProgress = (update: AnalyzerProgressUpdate) => {
 const cache = createAnalysisCache(args, reportProgress);
 // The tier-1 session srcly's protocol queries; null when the legacy cache drives the worker.
 const session = engine ? createEngineSession(engine, reportProgress) : null;
+// Bounds what the session keeps between requests (engine/src/srcly/memory-guard.ts).
+const guard = session ? new MemoryGuard(session) : null;
 let announcedGeneration = 0;
 
 function progress(requestId: number, operation: string, phase: AnalysisProgress["phase"], message: string) {
@@ -68,12 +71,15 @@ port.on("message", ({ requestId, operation, cancellationBuffer }: AnalysisWorker
     port.postMessage({ kind: "error", requestId, message: payload.message, code: payload.code, details: payload.details });
   } finally {
     activeRequest = null;
+    // After the reply: dropping the session's caches never delays an answer.
+    guard?.settle();
   }
 });
 
 function perform(operation: AnalysisOperation, requestId: number, cancellation: AnalysisCancellationToken) {
   if (operation.kind === "routes") return announce(routesOp(requireSession(), operation));
   if (operation.kind === "session-refresh") {
+    guard?.reset();
     requireSession().refresh();
     return announce(routesOp(requireSession(), {}));
   }
@@ -138,6 +144,7 @@ function perform(operation: AnalysisOperation, requestId: number, cancellation: 
 
 function requireSession(): EngineSession {
   if (!session) throw new Error("This worker was started without an engine session");
+  guard?.admit();
   return session;
 }
 

@@ -49,6 +49,7 @@ EngineErrorCode = Literal[
     "ambiguous-selection",
     "cancelled",
     "budget-exhausted",
+    "memory-limit",
     "internal",
 ]
 
@@ -67,6 +68,7 @@ NaReason = Literal[
     "engine-crashed",
     "timed-out",
     "engine-protocol-mismatch",
+    "memory-limit",
 ]
 
 NA_REASONS: frozenset[str] = frozenset(NaReason.__args__)  # type: ignore[attr-defined]

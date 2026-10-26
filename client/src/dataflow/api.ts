@@ -15,7 +15,8 @@ export type NaReason =
   | "no-python-files"
   | "engine-crashed"
   | "timed-out"
-  | "engine-protocol-mismatch";
+  | "engine-protocol-mismatch"
+  | "memory-limit";
 export type Progress = NonNullable<StatusResult["progress"]>;
 
 export interface DataflowStatus {

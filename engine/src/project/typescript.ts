@@ -87,6 +87,15 @@ export function collectSourceFiles(ts: typeof TypeScript, args: AnalyzerArgs) {
 // is valid), reflect the resolution onto `args` for downstream meta, and build
 // the program once. Shared by analyzeProject and createAnalyzer.
 export function buildProgram(args: AnalyzerArgs, reportProgress?: AnalyzerProgressReporter) {
+  const { ts, modulePath, program, resolution } = buildPrimaryProgram(args, reportProgress);
+  return { ts, modulePath, program, routing: buildProgramRouting(ts, resolution, args) };
+}
+
+// The primary program alone. The per-alias routing programs are a second copy
+// of the project, as big as the first; only the full report reads them, so a
+// caller that may never build that report builds them later with
+// `buildProgramRouting(ts, resolution, args)`.
+export function buildPrimaryProgram(args: AnalyzerArgs, reportProgress?: AnalyzerProgressReporter) {
   reportProgress?.({ step: "program", message: "Resolving TypeScript configuration" });
   const { ts, modulePath } = loadTypescript(args);
   const resolution = resolveProjectConfigs(ts, args);
@@ -109,10 +118,11 @@ export function buildProgram(args: AnalyzerArgs, reportProgress?: AnalyzerProgre
   }
   reportProgress?.({ step: "program", message: `Building TypeScript program for ${files.size} files`, completed: 0, total: files.size });
   const program = ts.createProgram([...files], resolution.primary.options);
-  const routing = buildProgramRouting(ts, resolution, args);
   reportProgress?.({ step: "program", message: `TypeScript program ready (${files.size} files)`, completed: files.size, total: files.size });
-  return { ts, modulePath, program, routing };
+  return { ts, modulePath, program, resolution };
 }
+
+export type ProgramResolution = ReturnType<typeof resolveProjectConfigs>;
 
 // Configs that declare module path aliases (`paths`, e.g. `~/*`, `@app/*`)
 // resolve their imports differently from the primary program's options. When a
@@ -124,7 +134,7 @@ export function buildProgram(args: AnalyzerArgs, reportProgress?: AnalyzerProgre
 // those imports resolve to their real declarations. Files no aliased config owns
 // stay on the primary program. Returns null when no config declares aliases (the
 // common single-project case), preserving the original single-program path.
-function buildProgramRouting(ts: typeof TypeScript, resolution: ReturnType<typeof resolveProjectConfigs>, args: AnalyzerArgs) {
+export function buildProgramRouting(ts: typeof TypeScript, resolution: ProgramResolution, args: AnalyzerArgs) {
   const aliased = resolution.configs.filter(
     (config: TsconfigInfo) =>
       config.options?.paths &&
