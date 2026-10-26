@@ -3,8 +3,9 @@
 // `Plain` is `Card` under another name, so its tag binds Card's props;
 // `Badge` and `Pill` come from a library factory, so a prop handed to them
 // ends at their occurrence. `Badge` and `Pill` are two values of one
-// factory: rendering one never renders the other. A value nothing renders
-// or reads (`Unused`, `labels`) is still a dead end. A shorthand `{ point }`
+// factory: rendering one never renders the other. An exported value nothing
+// in the program renders or reads (`Unused`, `labels`) ends at its export, the
+// module's API. A shorthand `{ point }`
 // packs the value `point` names.
 import { styled } from "ui-kit";
 
@@ -15,8 +16,8 @@ function Card(props: { title: string }) {
 export const Plain = Card; // @trace plain forward symbol Plain
 export const Badge = styled(Card, "badge"); // @trace badge forward symbol Badge @outcome badge ok
 export const Pill = styled(Card, "pill"); // @trace pill forward symbol Pill
-export const Unused = styled(Card, "unused"); // @trace unused-factory forward symbol Unused @outcome unused-factory partial @stop unused-factory disconnected * "Unused"
-export const labels = { badge: "Badge" }; // @trace labels-object forward symbol labels @outcome labels-object partial @stop labels-object disconnected * "labels"
+export const Unused = styled(Card, "unused"); // @trace unused-factory forward symbol Unused @outcome unused-factory ok @reaches unused-factory alias "Unused"
+export const labels = { badge: "Badge" }; // @trace labels-object forward symbol labels @outcome labels-object ok @reaches labels-object alias "labels"
 
 export function Shelf(props: { name: string; tone: string }) {
   const point = props.name; // @trace point forward symbol point @outcome point ok

@@ -138,7 +138,7 @@ function namesCallee(tier1: Tier1, element: Pick<ProgramElement, "location">): b
 }
 
 /** The note on a value the code ends in place, by how it ends there. */
-export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: "ends here · written, not read", key: "ends here · picks a field", discard: "ends here · its result is not used", throw: "ends here · thrown" };
+export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: "ends here · written, not read", key: "ends here · picks a field", discard: "ends here · its result is not used", throw: "ends here · thrown", "exported-api": "ends here · exported, and nothing in the program reads it" };
 
 /**
  * How the code ends the value at this element where it is used, without
@@ -146,7 +146,9 @@ export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: 
  * `case`, consumed by control; `write` when it is written rather than read
  * (an assignment's target, `++`/`--`, a `delete` operand); `key` when it
  * is a computed key, which picks a field without being the value read;
- * `throw` when it is what a `throw` throws, which leaves the code it is in.
+ * `throw` when it is what a `throw` throws, which leaves the code it is in;
+ * `exported-api` when it is an exported declaration: a walk that stops there
+ * has reached the module's API, which code outside the program may read.
  * Null otherwise.
  */
 export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "location" | "attributes">): keyof typeof IN_PLACE_NOTES | null {
@@ -165,8 +167,45 @@ export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "locatio
   if (updates || ts.isDeleteExpression(parent)) return "write";
   if (ts.isElementAccessExpression(parent) && parent.argumentExpression === node) return "key";
   if (ts.isThrowStatement(parent) && parent.expression === node) return "throw";
+  if (sourceFile && exportedDeclaration(ts, tier1.program.getTypeChecker(), sourceFile, node, readSymbols(tier1))) return "exported-api";
   const test = ts.isIfStatement(parent) || ts.isWhileStatement(parent) || ts.isDoStatement(parent) || ts.isSwitchStatement(parent) || ts.isCaseClause(parent) ? parent.expression : ts.isForStatement(parent) ? parent.condition : undefined;
   return test === node ? "branch" : null;
+}
+
+/** Whether the node is (or names) a declaration its module exports, by any form (`export const`, `export { x }`, `export default x`), that nothing in the program reads. */
+function exportedDeclaration(ts: typeof TypeScript, checker: TypeScript.TypeChecker, sourceFile: TypeScript.SourceFile, node: TypeScript.Node, read: ReadonlySet<TypeScript.Symbol>): boolean {
+  const declaration = ts.isIdentifier(node) ? node.parent : node;
+  if (!(ts.isVariableDeclaration(declaration) || ts.isFunctionDeclaration(declaration) || ts.isClassDeclaration(declaration)) || !declaration.name || !ts.isIdentifier(declaration.name)) return false;
+  if (ts.isIdentifier(node) && declaration.name !== node) return false;
+  const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
+  const symbol = checker.getSymbolAtLocation(declaration.name);
+  const exported = symbol && checker.getExportSymbolOfSymbol(symbol);
+  // Read in the program by its own name, or through the module (`import * as api`, `api.name`).
+  if (!moduleSymbol || !symbol || !exported || read.has(symbol) || read.has(exported)) return false;
+  return checker.getExportsOfModule(moduleSymbol).some((item) => item === exported || item === symbol || ((item.flags & ts.SymbolFlags.Alias) !== 0 && checker.getAliasedSymbol(item) === symbol));
+}
+
+const readCache = new WeakMap<TypeScript.Program, Set<TypeScript.Symbol>>();
+
+/** Every symbol some identifier in the program's own source reads (through an import alias too), once per Program: an export statement and a declaration's own name are not reads. */
+function readSymbols(tier1: TsTier1): Set<TypeScript.Symbol> {
+  const cached = readCache.get(tier1.program);
+  if (cached) return cached;
+  const { ts } = tier1;
+  const checker = tier1.program.getTypeChecker();
+  const root = path.resolve(tier1.args.root) + path.sep;
+  const read = new Set<TypeScript.Symbol>();
+  const visit = (node: TypeScript.Node) => {
+    if (ts.isIdentifier(node) && !ts.isExportSpecifier(node.parent) && !ts.isExportAssignment(node.parent) && !ts.isImportSpecifier(node.parent) && !ts.isImportClause(node.parent) && (!(ts.isDeclarationStatement(node.parent) || ts.isVariableDeclaration(node.parent) || ts.isParameter(node.parent) || ts.isBindingElement(node.parent)) || (node.parent as { name?: TypeScript.Node }).name !== node)) {
+      let symbol = ts.isShorthandPropertyAssignment(node.parent) ? checker.getShorthandAssignmentValueSymbol(node.parent) : checker.getSymbolAtLocation(node);
+      if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
+      if (symbol) read.add(symbol);
+    }
+    ts.forEachChild(node, visit);
+  };
+  for (const file of tier1.program.getSourceFiles()) if (!file.isDeclarationFile && path.resolve(file.fileName).startsWith(root) && !file.fileName.includes(`${path.sep}node_modules${path.sep}`)) visit(file);
+  readCache.set(tier1.program, read);
+  return read;
 }
 
 /** Facts at exactly this span in this file. */
