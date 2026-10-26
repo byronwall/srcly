@@ -12,8 +12,10 @@ import { DEFAULT_BOUNDARY_POLICY, type ProgramElement, type ProgramRelation } fr
  * values. From any element, `contains` climbs to its enclosing function and
  * from there to every element in it and every caller of it: a slice that
  * follows it fills its element limit with places no value reaches.
+ * `performs` names what a call or function is (a validation, a parse): the
+ * call itself carries its value on, so the classification is no step of its own.
  */
-export const STRUCTURAL_RELATIONS: ReadonlySet<string> = new Set(["contains", "declares-parameter", "definition"]);
+export const STRUCTURAL_RELATIONS: ReadonlySet<string> = new Set(["contains", "declares-parameter", "definition", "performs"]);
 
 /**
  * The anchor graph's limits, per slice. Once a slice walks only value

@@ -153,6 +153,32 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(graph.outcome).toBe("partial");
   });
 
+  it("binds a caller's attribute to a destructured or optional prop, and leaves a prop no occurrence passes unbound", () => {
+    const unbound = (graph: AnchorGraphResult) => boxes(graph, "frontier").filter((node) => node.reason === "unbound-read").map((node) => node.label);
+    // `title` and `item` are destructured: the caller's attributes reach them, so their reads land; `note` is never passed.
+    const section = anchorGraphOp(session, { file: "src/prop-bindings.tsx", name: "Section", line: 5, direction: "backward" });
+    expect(section.outcome).toBe("partial");
+    expect(unbound(section)).toEqual(["length"]);
+    expect(boxes(section).some((node) => node.elementKind === "literal" && node.label === '"Hello world"')).toBe(true);
+    // `hint` is optional and passed, so it binds; `tone` is optional and never passed.
+    const hint = anchorGraphOp(session, { file: "src/prop-bindings.tsx", name: "Hint", line: 14, direction: "backward" });
+    expect(unbound(hint)).toEqual(["tone"]);
+    expect(boxes(hint).some((node) => node.elementKind === "literal" && node.label === '"Try again"')).toBe(true);
+  });
+
+  it("follows a classified call (a validation, a serialization) as the call, and keeps one whose value nothing uses at a stop", () => {
+    for (const marker of ["JSON.stringify(props.state)", "isReady(props.state)"]) {
+      const graph = anchorGraphOp(session, { ...find(basics, "src/classified-calls.tsx", "props.state", marker), direction: "forward" });
+      expect(graph.outcome, marker).toBe("ok");
+      expect(boxes(graph, "frontier"), marker).toEqual([]);
+    }
+    const ready = anchorGraphOp(session, { file: "src/classified-calls.tsx", name: "isReady", line: 4, direction: "forward" });
+    expect(ready.outcome).toBe("ok");
+    const discarded = anchorGraphOp(session, { ...find(basics, "src/classified-calls.tsx", "props.count"), direction: "forward" });
+    expect(discarded.outcome).toBe("partial");
+    expect(boxes(discarded, "frontier").map((node) => [node.elementKind, node.line])).toEqual([["call", 8]]);
+  });
+
   it("reads partial when one of a component's prop walks stops short of an origin", () => {
     const graph = anchorGraphOp(session, { file: "src/half-landed.tsx", name: "Pair", line: 7, direction: "both" });
     expect(graph.outcome).toBe("partial");

@@ -13,7 +13,7 @@ type PendingComponentPropBinding = {
 };
 
 type ComponentPropReceiver = {
-  node: TypeScript.PropertyAccessExpression;
+  node: TypeScript.Node;
   elementId: string;
   parameterId: string;
   parameter: TypeScript.ParameterDeclaration;
@@ -104,15 +104,25 @@ export class ProgramEvidenceCollectorComponentBindingSupport extends ProgramEvid
     this.checkCancellation();
     if (target.declaration.parameters.length !== 1) return [];
     const parameter = target.declaration.parameters[0];
-    if (!this.ts.isIdentifier(parameter.name) || parameter.dotDotDotToken || parameter.questionToken || parameter.initializer) return [];
+    if (parameter.dotDotDotToken || parameter.questionToken || parameter.initializer) return [];
+    // An optional prop binds like a required one: the attribute at this occurrence is what it receives here.
+    const expectedProperty = this.checker.getPropertyOfType(this.checker.getTypeAtLocation(parameter.name), propName);
+    if (!expectedProperty) return [];
+    // A destructured parameter (`{ title }`) receives the prop in the binding that names it: that binding is the read.
+    if (this.ts.isObjectBindingPattern(parameter.name)) {
+      const element = parameter.name.elements.find((item) => {
+        const key = item.propertyName ?? item.name;
+        return !item.dotDotDotToken && this.ts.isIdentifier(item.name) && (this.ts.isIdentifier(key) || this.ts.isStringLiteral(key)) && key.text === propName;
+      });
+      const bindingId = element ? this.parametersBySymbol.get(this.symbolId(element.name) ?? "") : undefined;
+      return element && bindingId ? [{ node: element, elementId: bindingId, parameterId: bindingId, parameter }] : [];
+    }
+    if (!this.ts.isIdentifier(parameter.name)) return [];
     const parameterSymbol = this.checker.getSymbolAtLocation(parameter.name);
     const parameterId = parameterSymbol
       ? this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "") ?? null
       : null;
     if (!parameterSymbol || !parameterId) return [];
-    const parameterType = this.checker.getTypeAtLocation(parameter.name);
-    const expectedProperty = this.checker.getPropertyOfType(parameterType, propName);
-    if (!expectedProperty || expectedProperty.flags & this.ts.SymbolFlags.Optional) return [];
 
     const receivers: ComponentPropReceiver[] = [];
     const visit = (node: TypeScript.Node) => {
