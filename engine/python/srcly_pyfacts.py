@@ -659,6 +659,19 @@ class Program:
         target = self.imports.get(module, {}).get(attr)
         return self.functions.get(target) if target and target != name else None
 
+    def field_owner(self, info: ClassInfo, name: str, depth: int = 0) -> ClassInfo | None:
+        """The class (`info` or a first-party base) that declares the annotated field `name`."""
+        if name in info.fields:
+            return info
+        if depth > 8:
+            return None
+        for base in info.bases:
+            parent = self.resolve_class(base)
+            found = self.field_owner(parent, name, depth + 1) if parent is not None else None
+            if found is not None:
+                return found
+        return None
+
     def resolve_class(self, name: str | None) -> ClassInfo | None:
         if not name:
             return None
@@ -870,6 +883,16 @@ def block_bodies(stmt: ast.stmt) -> Iterable[list[ast.stmt]]:
         yield case.body
 
 
+def is_constructor(info: FunctionInfo) -> bool:
+    return info.class_name is not None and info.qualname.rsplit(".", 1)[-1] == "__init__"
+
+
+def field_id(klass: ClassInfo, name: str) -> str:
+    """A model field's parameter element: the target of its annotated declaration."""
+    declaration = klass.fields[name]
+    return element_id("parameter", klass.source.rel, klass.source.span(declaration.target))
+
+
 def element_id(kind: str, rel: str, span: dict[str, int], suffix: str = "") -> str:
     return f"py:{kind}:{rel}:{span_key(span)}{suffix}"
 
@@ -1051,7 +1074,12 @@ class BodyWalker:
             # `function-entry` is the id every call-site lookup uses; a handler keeps both.
             if kind != "function-entry":
                 self.element("function-entry", node, info.qualname, span=span, type_text=self.signature(info), type_source="annotation", attributes={"qualname": info.qualname})
-            self.program.scopes.setdefault(source.rel, []).append({"s": list(span.values()), "name": info.qualname, "id": info.entry_id, "kind": "function"})
+            # A constructor's parameters are its class's inputs: its scope is its body, so they sit in the class's own scope.
+            scope_span = span
+            if is_constructor(info) and node.body:
+                first = node.body[0]
+                scope_span = {**span, "startLine": first.lineno, "startColumn": source.col16(first.lineno, first.col_offset) + 1}
+            self.program.scopes.setdefault(source.rel, []).append({"s": list(scope_span.values()), "name": info.qualname, "id": info.entry_id, "kind": "function"})
             self.program.note_expression(source, node, "FunctionDef", info.qualname, self.signature(info), "annotation", span=source.name_span(node), n=node.name, d=1, f=[list(span.values())])
         for param in all_params(node.args):
             self.parameter(param, info, node)
@@ -1117,11 +1145,26 @@ class BodyWalker:
         proof = None
         if param.annotation is not None:
             proof = {"kind": "annotation", "detail": f"{param.arg}: {annotation_text}", "locations": [self.source.location(self.span(param.annotation))]}
-        element = self.element("parameter", param, param.arg, type_text=type_text, type_source=type_source, proof=proof, attributes={"name": param.arg})
+        receiver = info is not None and is_constructor(info) and bool(info.params) and info.params[0] is param
+        element = self.element("alias" if receiver else "parameter", param, param.arg, id_kind="parameter", type_text=type_text, type_source=type_source, proof=proof,
+                               attributes={"name": param.arg})
         self.note(param, "arg", ty=type_text, tsrc=type_source, n=param.arg, d=1)
         self.scope.bind(param.arg, (param.lineno, param.col_offset), element)
+        self.annotated_use(param, element)
         if info is not None and info.route is not None:
             self.request_origin(param, element, info)
+
+    def annotated_use(self, param: ast.arg, element: str) -> None:
+        """
+        A parameter annotated with a first-party class (`item: ItemCreate`, `Optional[...]`,
+        `Annotated[...]`) is a use of that class: `definition`, structural, never a value
+        moving. A collection of the class (`list[Item]`) is not an instance of it.
+        """
+        if param.annotation is None or param.arg in ("self", "cls"):
+            return
+        klass = self.program.resolve_class(self.program.dotted(self.source, strip_optional(param.annotation)))
+        if klass is not None:
+            self.relate(element, klass.entry_id, "definition", f"{param.arg} is annotated {klass.qualname}", param.annotation, proof_kind="annotation")
 
     def request_origin(self, param: ast.arg, element: str, info: FunctionInfo) -> None:
         """FastAPI binds a handler's parameters from the request: path, query, body, header, or a dependency."""
@@ -1182,7 +1225,9 @@ class BodyWalker:
         if isinstance(node, ast.AnnAssign):
             value = self.expr(node.value) if node.value is not None else None
             if node.value is not None or self.class_info is not None:
-                self.bind(node.target, value, node.value or node.target, "carrier", annotation=node.annotation)
+                # A dataclass, pydantic or SQLModel class takes its annotated fields as keyword arguments: they are its parameters.
+                field = self.scope.kind == "class" and self.class_info is not None and self.class_info.is_model
+                self.bind(node.target, value, node.value or node.target, "carrier", annotation=node.annotation, alias_kind="parameter" if field else "alias")
             return
         if isinstance(node, ast.AugAssign):
             value = self.expr(node.value)
@@ -1262,7 +1307,8 @@ class BodyWalker:
             if annotation is not None:
                 type_text, type_source = type_text or ast.unparse(annotation), type_source or "annotation"
                 proof = {"kind": "annotation", "detail": f"{target.id}: {ast.unparse(annotation)}", "locations": [self.source.location(self.span(annotation))]}
-            alias = self.element(alias_kind, target, target.id, type_text=type_text, type_source=type_source, proof=proof, operation="alias" if alias_kind == "alias" else None)
+            alias = self.element(alias_kind, target, target.id, type_text=type_text, type_source=type_source, proof=proof, operation="alias" if alias_kind == "alias" else None,
+                                 attributes={"name": target.id} if alias_kind == "parameter" else None)
             self.note(target, "Name", ty=type_text, tsrc=type_source, n=target.id, d=1, f=[list(self.span(value_node).values())] if value_node is not target else None)
             self.scope.bind(target.id, (target.lineno, target.col_offset), alias)
             words = {"carrier": f"assigned to `{target.id}`", "for-element": f"each item of {clip(self.source.segment(value_node), 40)} becomes `{target.id}`"}
@@ -1365,7 +1411,19 @@ class BodyWalker:
                                attributes={"property": node.attr})
         self.note(node, "Attribute", ty=type_text, tsrc=type_source)
         self.relate(base, element, "field-input", f"reads .{node.attr} from {clip(self.source.segment(node.value), 60)}", node)
+        declaring = self.field_class(node)
+        if declaring is not None:
+            # Flow-insensitive across instances, like a name read seeing every binding that can reach it: partial.
+            self.relate(field_id(declaring, node.attr), element, "carrier",
+                        f"any {declaring.qualname.rsplit('.', 1)[-1]}'s {node.attr} can be the one read here", node, status="partial")
         return element
+
+    def field_class(self, node: ast.Attribute) -> ClassInfo | None:
+        """The model class declaring the field `node` reads, by its receiver's checked type (or its annotation when the checker had none)."""
+        receiver = self.program.checked.receivers.get(self.source.rel, {}).get(span_key(self.span(node.value)))
+        info = self.program.resolve_class(receiver) if receiver else self.annotated_class(node.value)
+        declaring = self.program.field_owner(info, node.attr) if info is not None else None
+        return declaring if declaring is not None and declaring.is_model else None
 
     def field_declaration(self, node: ast.Attribute) -> tuple[dict[str, Any] | None, str | None]:
         """A pydantic / dataclass field read: cite the field's declaration."""
@@ -1601,6 +1659,8 @@ class BodyWalker:
                 declared = klass.fields.get(kw.arg or "")
                 detail = f"{name}.{kw.arg}" + (f": {ast.unparse(declared.annotation)}" if declared is not None else "")
                 self.relate(value, element, "pack-field", detail, kw.value, status="proven" if klass.is_model else "partial")
+            if klass.is_model:
+                self.bind_fields(klass, positional, keywords)
             return element
 
         # Library code: the value goes in, and the result is assumed to carry it.
@@ -1611,6 +1671,18 @@ class BodyWalker:
         for child, value in inputs:
             self.relate(value, element, "call-input", f"handed to {callee_text}, outside the program; its result is assumed to carry it", child, status="partial")
         return element
+
+    def bind_fields(self, klass: ClassInfo, positional: list[tuple[ast.expr, str | None]], keywords: list[tuple[ast.keyword, str | None]]) -> None:
+        """A model's constructor binds each keyword argument to the field of that name (declared on it or a base), and positional ones in declared order."""
+        name = klass.qualname.rsplit(".", 1)[-1]
+        own = list(klass.fields)
+        for index, (child, value) in enumerate(positional):
+            if index < len(own) and not isinstance(child, ast.Starred):
+                self.relate(value, field_id(klass, own[index]), "argument-binding", f"argument {index + 1} sets {name}.{own[index]}", child, status="partial")
+        for kw, value in keywords:
+            declaring = self.program.field_owner(klass, kw.arg or "")
+            if declaring is not None:
+                self.relate(value, field_id(declaring, kw.arg or ""), "argument-binding", f"{kw.arg}= sets {name}.{kw.arg}", kw.value)
 
     def method_target(self, node: ast.Call) -> FunctionInfo | None:
         """`self.helper(x)` inside a class, when the checker had no answer."""

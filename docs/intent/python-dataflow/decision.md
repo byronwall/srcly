@@ -79,7 +79,8 @@ The engine derives origin roles, terminal roles and boundaries from an element's
 | first-party call | `call-result`; `argument-binding` into the callee's parameters and `return-value` back; when the callee returns a value, each bound argument is also an `argument` of the call, so the slice pairs the return with the call it entered by (T13), as in TypeScript. A walk that starts inside a helper with several call sites still stops at its return (R7) |
 | library call | `call-result` with `call-input` relations marked partial: the result is assumed to carry its inputs |
 | pydantic / dataclass construction, dict and list literals | `object-pack` with `pack-field` per field |
-| a `class` | `function-entry` over the whole class, with a scope of its own, as a `def` is: anchored by name, it is a declaration whose uses are its constructor calls (`definition` from each `Foo(…)`, as from each first-party call to its `def`) |
+| a `class` | `function-entry` over the whole class, with a scope of its own, as a `def` is: anchored by name, it is a declaration whose uses are its constructor calls (`definition` from each `Foo(…)`, as from each first-party call to its `def`), and each parameter annotated with it (`item: ItemCreate`, through `Optional` / `Annotated`; a structural `definition`, never a value moving). Its inputs are its parameters: a model's annotated fields (`parameter` elements in the class's scope; a dataclass, pydantic, SQLModel, TypedDict or NamedTuple class), or its `__init__`'s, whose scope is its body so they sit in the class's |
+| a model's field | its `parameter`: each constructor keyword argument of that name binds it (`argument-binding`; positional ones in declared order, `partial`), and each read of that field on a value whose checked type (or annotation, when mypy has none) is that class or a subclass reaches the read by a `partial` `carrier`, flow-insensitive across instances as a name's bindings are |
 
 A file with syntax newer than the helper's interpreter is rewritten before it is parsed, when an older spelling exists that keeps every expression's columns: Python 3.14's `except A, B:` (PEP 758) becomes `except(A, B):`. mypy checks the same text. A file that still does not parse is a file gap, and anchoring a name in it says so.
 
@@ -98,6 +99,6 @@ On srcly's own server the `anchor_graph` handler's body comes back `partial`: it
 ## Not yet
 
 - `Depends()` parameters are plain inputs, not traced into the dependency function.
-- A class anchored by name has no up side: the declaration path takes only the parameters a declaration owns, and a class's inputs are its `__init__`'s parameters or, for a model, the `pack-field`s into each constructor call. Its down side is where each constructor call's instance goes.
+- A model returned from a function (`-> Item`) or serialized is not yet a use of its class; only constructor calls and annotated parameters are.
 - Attribute writes (`self.x = …`) end the path; values are not followed across methods through instance state.
 - The route graph (`routeGraph`) is TypeScript's render backbone and has no Python meaning; a Python route opens its handler in anchor mode instead.
