@@ -179,6 +179,7 @@ export const PROOF_TRAITS: Record<ProgramProofKind, { strength: ProofStrength }>
   "handler-consumer": { strength: "proven" },
   "field-consumer-terminal": { strength: "proven" },
   "context-continuity": { strength: "modelled" },
+  // The operation a function's name suggests: only on `performs`, which is structural and never drawn.
   "partial-classification": { strength: "assumed" },
   "http-bridge": { strength: "modelled" },
   "external-call": { strength: "assumed" },

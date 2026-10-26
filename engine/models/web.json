@@ -1,0 +1,29 @@
+{
+  "$schema": "./library-models.schema.json",
+  "rows": [
+    {
+      "language": "ts",
+      "module": "global",
+      "name": "fetch",
+      "model": "origin",
+      "role": "fetch-input",
+      "note": "A network request: its response comes from outside."
+    },
+    {
+      "language": "ts",
+      "module": "global",
+      "name": "Response.json",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "The response body leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "global",
+      "name": "import.meta.env",
+      "model": "origin",
+      "role": "environment-input",
+      "note": "A bundler's environment variables come from outside."
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import path from "node:path";
 import * as TypeScript from "typescript";
+import { boundaryRole, type LibraryModelRow } from "./library-models";
 import type {
   ProgramEvidenceLocation,
   ProgramRelationKind,
@@ -8,7 +9,6 @@ import {
   asFunctionLike,
   calleeName,
   callOperation,
-  isFileOperation,
   isResourceFactory,
   proof,
   unwrap,
@@ -35,6 +35,8 @@ type CarrierContext = {
   calls: readonly CallInfo[];
   symbolId: (node: TypeScript.Node) => string | null;
   moduleFor: (node: TypeScript.Node) => string | null;
+  /** The library model row a callee resolves to, if any. */
+  modelFor: (node: TypeScript.Node) => LibraryModelRow | null;
   elementFor: (node: TypeScript.Node, kind: string) => string | null;
   targetFunction: (node: TypeScript.Node) => FunctionInfo | null;
   functionForNode: (node: TypeScript.Node) => FunctionInfo | null;
@@ -173,9 +175,7 @@ function collectJsonParseCarriers(context: CarrierContext, calls: readonly CallE
     const argument = parse.node.arguments.length === 1 ? parse.node.arguments[0] : null;
     const awaited = argument && context.ts.isAwaitExpression(argument) ? argument.expression : null;
     if (!awaited || !context.ts.isCallExpression(awaited)) continue;
-    const module = context.moduleFor(awaited.expression);
-    const name = calleeName(context.ts, awaited.expression);
-    if (!isFileOperation(module, name, "read") || !context.symbolId(awaited.expression)) continue;
+    if (boundaryRole(context.modelFor(awaited.expression)) !== "file-input" || !context.symbolId(awaited.expression)) continue;
     const readId = context.elementFor(awaited, "call");
     if (!readId) continue;
     addCarrier(context, readId, parse.id, [awaited, parse.node], "The compiler resolves the filesystem read as the direct awaited argument of JSON.parse.");

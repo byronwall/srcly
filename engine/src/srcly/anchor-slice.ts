@@ -5,7 +5,7 @@ import type { AnalysisCancellationToken } from "../analysis/cancellation";
 import { toSliceElement, toSliceRelation } from "../analysis/evidence-slice-normalization";
 import type { EvidenceRelationSource } from "../analysis/evidence-slice-support";
 import { DEFAULT_BOUNDARY_POLICY, type ProgramElement, type ProgramRelation } from "../analysis/scope-seam";
-import { elementTraits, relationTraits } from "./kinds";
+import { elementTraits, proofStrength, relationTraits } from "./kinds";
 
 /**
  * The anchor graph's limits, per slice. Once a slice walks only value
@@ -102,7 +102,7 @@ export function assumedThrough(provider: EvidenceRelationSource, relation: Pick<
   const call = provider.factIndex.getElement(relation.to);
   if (call?.kind !== "call") return null;
   if (relation.kind === "references" && !["field-read", "value"].includes(provider.factIndex.getElement(relation.from)?.kind ?? "")) return null;
-  // A body to enter, or what the call does modelled by the framework's runtime (a resource, its accessor), its state (a state pair's factory or getter) or a classified operation (`performs`): not assumed.
+  // A body to enter, a classified operation (`performs`), a framework runtime boundary, or any relation at the call whose proof is `modelled` (a library model row, a framework's state or runtime, `kinds.ts`): not assumed.
   const sameSpan = (id: string) => {
     const other = provider.factIndex.getElement(id);
     return other && other.location.file === call.location.file && JSON.stringify(other.location.span) === JSON.stringify(call.location.span) ? toSliceElement(other) : null;
@@ -110,7 +110,7 @@ export function assumedThrough(provider: EvidenceRelationSource, relation: Pick<
   for (const item of provider.getRelations(call.id, "both")) {
     if (item.kind === "invokes" && item.from === call.id) return null;
     if (item.kind === "performs" && item.from === call.id) return null;
-    if (item.proof.kind === "framework-state") return null;
+    if (proofStrength(item.proof.kind) === "modelled") return null;
     if (sameSpan(item.from === call.id ? item.to : item.from)?.boundary === "framework-runtime") return null;
   }
   return call.label;

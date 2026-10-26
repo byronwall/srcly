@@ -9,6 +9,7 @@ import type {
   ProgramEvidenceDeclarationCatalogImportStats,
 } from "./program-evidence-declaration-catalog";
 import type { AnalysisCancellationToken } from "./cancellation";
+import type { LibraryModels } from "./library-models";
 import type { ComponentBindingMetadata } from "./program-component-binding-metadata";
 export type EvidenceConfidence = "proven" | "partial";
 export type ProgramEvidenceLocation = {
@@ -253,6 +254,8 @@ export type ProgramEvidenceOptions = {
   sourceFiles?: readonly TypeScript.SourceFile[];
   declarationCatalog?: ProgramEvidenceDeclarationCatalog;
   cancellation?: AnalysisCancellationToken;
+  /** What library code does (`library-models.ts`); the built-in rows when absent. */
+  libraryModels?: LibraryModels;
 };
 
 export type ProgramEvidenceMemorySample = {

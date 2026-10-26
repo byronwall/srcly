@@ -1,0 +1,285 @@
+{
+  "$schema": "./library-models.schema.json",
+  "rows": [
+    {
+      "language": "ts",
+      "module": "fs",
+      "name": "readFile",
+      "model": "origin",
+      "role": "file-input",
+      "note": "A filesystem read brings a file's contents in."
+    },
+    {
+      "language": "ts",
+      "module": "fs",
+      "name": "readdir",
+      "model": "origin",
+      "role": "file-input",
+      "note": "A filesystem read brings a file's contents in."
+    },
+    {
+      "language": "ts",
+      "module": "fs",
+      "name": "stat",
+      "model": "origin",
+      "role": "file-input",
+      "note": "A filesystem read brings a file's contents in."
+    },
+    {
+      "language": "ts",
+      "module": "fs",
+      "name": "access",
+      "model": "origin",
+      "role": "file-input",
+      "note": "A filesystem read brings a file's contents in."
+    },
+    {
+      "language": "ts",
+      "module": "fs",
+      "name": "readFileSync",
+      "model": "origin",
+      "role": "file-input",
+      "note": "A filesystem read brings a file's contents in."
+    },
+    {
+      "language": "ts",
+      "module": "fs",
+      "name": "createReadStream",
+      "model": "origin",
+      "role": "file-input",
+      "note": "A filesystem read brings a file's contents in."
+    },
+    {
+      "language": "ts",
+      "module": "fs",
+      "name": "writeFile",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "A filesystem write leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "fs",
+      "name": "appendFile",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "A filesystem write leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "fs",
+      "name": "writeFileSync",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "A filesystem write leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "fs",
+      "name": "appendFileSync",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "A filesystem write leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "fs",
+      "name": "createWriteStream",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "A filesystem write leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "fs/promises",
+      "name": "readFile",
+      "model": "origin",
+      "role": "file-input",
+      "note": "A filesystem read brings a file's contents in."
+    },
+    {
+      "language": "ts",
+      "module": "fs/promises",
+      "name": "readdir",
+      "model": "origin",
+      "role": "file-input",
+      "note": "A filesystem read brings a file's contents in."
+    },
+    {
+      "language": "ts",
+      "module": "fs/promises",
+      "name": "stat",
+      "model": "origin",
+      "role": "file-input",
+      "note": "A filesystem read brings a file's contents in."
+    },
+    {
+      "language": "ts",
+      "module": "fs/promises",
+      "name": "access",
+      "model": "origin",
+      "role": "file-input",
+      "note": "A filesystem read brings a file's contents in."
+    },
+    {
+      "language": "ts",
+      "module": "fs/promises",
+      "name": "writeFile",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "A filesystem write leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "fs/promises",
+      "name": "appendFile",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "A filesystem write leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "http",
+      "name": "request",
+      "model": "origin",
+      "role": "fetch-input",
+      "note": "An HTTP client request: its response comes from outside."
+    },
+    {
+      "language": "ts",
+      "module": "http",
+      "name": "get",
+      "model": "origin",
+      "role": "fetch-input",
+      "note": "An HTTP client request: its response comes from outside."
+    },
+    {
+      "language": "ts",
+      "module": "http",
+      "name": "post",
+      "model": "origin",
+      "role": "fetch-input",
+      "note": "An HTTP client request: its response comes from outside."
+    },
+    {
+      "language": "ts",
+      "module": "https",
+      "name": "request",
+      "model": "origin",
+      "role": "fetch-input",
+      "note": "An HTTP client request: its response comes from outside."
+    },
+    {
+      "language": "ts",
+      "module": "https",
+      "name": "get",
+      "model": "origin",
+      "role": "fetch-input",
+      "note": "An HTTP client request: its response comes from outside."
+    },
+    {
+      "language": "ts",
+      "module": "https",
+      "name": "post",
+      "model": "origin",
+      "role": "fetch-input",
+      "note": "An HTTP client request: its response comes from outside."
+    },
+    {
+      "language": "ts",
+      "module": "global",
+      "name": "console.log",
+      "model": "terminal",
+      "role": "stdout",
+      "note": "Console output leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "global",
+      "name": "console.info",
+      "model": "terminal",
+      "role": "stdout",
+      "note": "Console output leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "global",
+      "name": "console.debug",
+      "model": "terminal",
+      "role": "stdout",
+      "note": "Console output leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "global",
+      "name": "console.warn",
+      "model": "terminal",
+      "role": "stdout",
+      "note": "Console output leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "global",
+      "name": "console.error",
+      "model": "terminal",
+      "role": "stdout",
+      "note": "Console output leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "global",
+      "name": "process.stdout.write",
+      "model": "terminal",
+      "role": "stdout",
+      "note": "Process standard output leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "global",
+      "name": "process.stderr.write",
+      "model": "terminal",
+      "role": "stderr",
+      "note": "Process standard error leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "global",
+      "name": "process.exit",
+      "model": "terminal",
+      "role": "exit-status",
+      "note": "The process exits with this status."
+    },
+    {
+      "language": "ts",
+      "module": "global",
+      "name": "process.exitCode",
+      "model": "terminal",
+      "role": "exit-status",
+      "note": "Assigning the exit code sets the process's exit status."
+    },
+    {
+      "language": "ts",
+      "module": "global",
+      "name": "process.env",
+      "model": "origin",
+      "role": "environment-input",
+      "note": "The environment's variables come from outside."
+    },
+    {
+      "language": "ts",
+      "module": "global",
+      "name": "process.argv",
+      "model": "origin",
+      "role": "process-input",
+      "note": "The command line's arguments come from outside."
+    },
+    {
+      "language": "ts",
+      "module": "global",
+      "name": "process.stdin",
+      "model": "origin",
+      "role": "process-input",
+      "note": "Standard input comes from outside."
+    }
+  ]
+}

@@ -4,8 +4,8 @@
     "client": {
       "traces": 89,
       "outcomes": {
-        "ok": 13,
-        "partial": 75,
+        "ok": 14,
+        "partial": 74,
         "unsupported": 1
       },
       "stops": {
@@ -30,6 +30,7 @@
         "src/components/ui/PopoverPanel.tsx#OptionRow",
         "src/markdown/rehypeWrapSelection.ts#rehypeWrapSelection",
         "src/navigation/store.ts#canReturn",
+        "src/navigation/viewState.ts#registerViewState",
         "src/viz/deps/encoding.ts#EXTERNAL_BOX_DASH",
         "src/viz/deps/flow/FlowTools.tsx#FlowModeSwitch",
         "src/viz/deps/geometry.ts#countOverlaps",

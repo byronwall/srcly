@@ -5,7 +5,15 @@
 // fixed set of models. A row only upgrades a call from assumed to modelled;
 // a call no row names keeps the assumed fallback.
 import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import type * as TypeScript from "typescript";
 import { z } from "zod";
+import { calleeName } from "./program-evidence-support";
+
+// The bundle (`scripts/bundle.mjs`) is one flat folder: the built-in rows sit in `models/` beside the entry.
+declare const __SRCLY_ENGINE_BUNDLE__: boolean | undefined;
+const IS_BUNDLE = typeof __SRCLY_ENGINE_BUNDLE__ !== "undefined" && __SRCLY_ENGINE_BUNDLE__;
 
 /** The seven model types (plan §3). */
 export const LIBRARY_MODEL_TYPES = ["origin", "terminal", "state-pair", "passes-through", "consumes", "calls-back", "resource"] as const;
@@ -69,6 +77,56 @@ export class LibraryModels {
     const key = libraryModelKey(language, module, nameOrMember);
     return this.exact.get(key)?.row ?? this.prefixes.find((item) => key.startsWith(item.key))?.loaded.row ?? null;
   }
+
+  /** Every row, exact ones first. */
+  rows(): LibraryModelRow[] {
+    return [...[...this.exact.values()].map((item) => item.row), ...this.prefixes.map((item) => item.loaded.row)];
+  }
+}
+
+export const BUILTIN_MODELS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), IS_BUNDLE ? "models" : "../../models");
+
+/** The built-in row files, in name order (the schema file is not one). */
+export function builtinModelFiles(): string[] {
+  return fs.readdirSync(BUILTIN_MODELS_DIR)
+    .filter((file) => file.endsWith(".json") && !file.endsWith(".schema.json"))
+    .sort()
+    .map((file) => path.join(BUILTIN_MODELS_DIR, file));
+}
+
+let builtin: LibraryModels | null = null;
+
+/** The built-in rows, read once per process. */
+export function builtinLibraryModels(): LibraryModels {
+  builtin ??= loadLibraryModels(builtinModelFiles());
+  return builtin;
+}
+
+/** A TypeScript row's module: the import's module without a `node:` scheme, or `global` for a callee nothing imports. */
+export function tsModelModule(module: string | null): string {
+  return module === null ? "global" : module.replace(/^node:/, "");
+}
+
+/** The row for a TypeScript call or member: its import module (or `global`) and its dotted name as written. */
+export function tsModel(models: LibraryModels, ts: typeof TypeScript, module: string | null, expression: TypeScript.Node): LibraryModelRow | null {
+  return models.lookup("ts", tsModelModule(module), calleeName(ts, expression));
+}
+
+/** An origin's or terminal's role, the element kind it marks, else null. */
+export function boundaryRole(row: LibraryModelRow | null): string | null {
+  return row && (row.model === "origin" || row.model === "terminal") ? row.role ?? null : null;
+}
+
+/** The global members a row gives a role to (`process.env`, `process.argv`), for reads matched by the member they name. */
+export function globalMembers(models: LibraryModels, role: string): string[] {
+  return models.rows().filter((row) => row.language === "ts" && row.module === "global" && row.name && boundaryRole(row) === role).map((row) => row.name!);
+}
+
+/** The global members rows give a role to, matched where they are read or assigned (`process.env.X`, `process.exitCode = 1`). */
+export type GlobalReads = { environment: string[]; process: string[]; exit: string[] };
+
+export function globalReads(models: LibraryModels): GlobalReads {
+  return { environment: globalMembers(models, "environment-input"), process: globalMembers(models, "process-input"), exit: globalMembers(models, "exit-status") };
 }
 
 /** Read and check row files, in order. A file that is not valid JSON or does not match the schema is an error naming it, never skipped. */

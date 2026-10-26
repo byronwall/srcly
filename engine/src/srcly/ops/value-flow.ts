@@ -24,7 +24,7 @@ export const LEDGER_MAX_BYTES = 2 * 1024 * 1024;
 
 /** Relation kinds the walk follows, in this order of preference (plan 6-M3 step 4). */
 const FOLLOW = [
-  "field-input", "consumer-value", "alias", "references", "for-element", "for-callback-parameter", "show-when",
+  "field-input", "consumer-value", "references", "for-element", "for-callback-parameter", "show-when",
   "show-render-parameter", "component-prop", "component-prop-binding", "render-terminal", "renders", "performs",
   "pack-field", "map-element", "map-callback-parameter", "map-result", "filter-result", "find-result",
   "includes-membership", "join-source", "accessor-call",

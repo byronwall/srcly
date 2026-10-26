@@ -66,10 +66,7 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
         "proven",
       );
     }
-    const environmentBase = propertyBase(this.ts, node, [
-      "process.env",
-      "import.meta.env",
-    ]);
+    const environmentBase = propertyBase(this.ts, node, this.globalMembers.environment);
     if (environmentBase) {
       const baseIsValue = environmentBase === node;
       const inputId = this.specialInput(
@@ -115,10 +112,7 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
         );
       }
     }
-    const processBase = propertyBase(this.ts, node, [
-      "process.argv",
-      "process.stdin",
-    ]);
+    const processBase = propertyBase(this.ts, node, this.globalMembers.process);
     if (processBase) {
       const inputId = this.specialInput(
         processBase,
@@ -180,7 +174,7 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
     // The key is a value occurrence of its own: it picks the field, so a walk that reaches it ends there.
     if (node.argumentExpression && !staticKey) this.expression(node.argumentExpression, ownerId);
     const receiverText = node.expression.getText(node.getSourceFile());
-    if (receiverText === "process.env") {
+    if (this.globalMembers.environment.includes(receiverText)) {
       const inputId = this.specialInput(
         node.expression,
         "environment-input",
@@ -201,7 +195,7 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
         ),
         "proven",
       );
-    } else if (receiverText === "process.argv" || receiverText === "process.stdin") {
+    } else if (this.globalMembers.process.includes(receiverText)) {
       const inputId = this.specialInput(
         node.expression,
         "process-input",

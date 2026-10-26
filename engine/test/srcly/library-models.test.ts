@@ -2,8 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { LibraryModels, loadLibraryModels } from "../../src/analysis/library-models";
-import { builtinLibraryModels, builtinModelFiles } from "../../src/srcly/library-models";
+import { builtinLibraryModels, builtinModelFiles, LibraryModels, loadLibraryModels } from "../../src/analysis/library-models";
 
 function rowsFile(rows: unknown[], name = "rows.json"): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "srcly-models-"));

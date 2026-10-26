@@ -63,6 +63,7 @@ import {
   symbolAtNode,
 } from "./program-evidence-support";
 import { NO_ANALYSIS_CANCELLATION, type AnalysisCancellationToken } from "./cancellation";
+import { builtinLibraryModels, globalReads, tsModel, type GlobalReads, type LibraryModelRow, type LibraryModels } from "./library-models";
 import { stateFactory } from "./program-evidence-state-pairs";
 
 export type CollectorFunctionInfo = DeclarationCatalogFunctionInfo;
@@ -120,6 +121,9 @@ export class ProgramEvidenceCollectorSupport {
   protected declarationRelationCaptureEnabled = false;
   protected readonly declarationCatalog: ProgramEvidenceDeclarationCatalogView | null;
   protected readonly cancellation: AnalysisCancellationToken;
+  /** What library code does: one row per modelled member (`library-models.ts`). */
+  protected readonly libraryModels: LibraryModels;
+  protected readonly globalMembers: GlobalReads;
   protected declarationCatalogImportStats = emptyProgramEvidenceDeclarationCatalogImportStats();
   protected readonly collectionProfilingEnabled = process.env.TSX_DATA_FLOW_COLLECTOR_PROFILE === "1";
   protected collectionStats: ProgramEvidenceCollectionStats = emptyProgramEvidenceCollectionStats(0);
@@ -136,6 +140,8 @@ export class ProgramEvidenceCollectorSupport {
     this.root = path.resolve(root);
     this.relationSink = relationSink;
     this.cancellation = options.cancellation ?? NO_ANALYSIS_CANCELLATION;
+    this.libraryModels = options.libraryModels ?? builtinLibraryModels();
+    this.globalMembers = globalReads(this.libraryModels);
     const candidates = options.sourceFiles ?? program.getSourceFiles();
     this.files = [...candidates]
       .filter(
@@ -341,7 +347,7 @@ export class ProgramEvidenceCollectorSupport {
       ts: this.ts, checker: this.checker, root: this.root, files: this.files, facts: this.facts,
       calls: this.calls, handlers: [...this.functionsById.values()], parameters: this.parametersBySymbol,
       fetches: this.httpFetches, resources: this.httpResources, responses: this.httpResponses,
-      checkCancellation: () => this.checkCancellation(), symbolId: (node) => this.symbolId(node), moduleFor: (node) => this.moduleFor(node),
+      checkCancellation: () => this.checkCancellation(), symbolId: (node) => this.symbolId(node), moduleFor: (node) => this.moduleFor(node), modelFor: (node) => this.modelFor(node),
       elementFor: (node, kind) => this.elementIdsByNodeKind.get(`${locationKey(this.location(node))}:${kind}`) ?? null, targetFunction: (node) => this.targetFunction(node),
       functionForNode: (node) => this.functionsByNode.get(nodeKey(this.root, node)) ?? null, location: (node) => this.location(node),
       hydrateFact: (fact) => this.hydrateFact(fact, { typeText: false }), addRelation: (...args) => this.addRelation(...args),
@@ -567,6 +573,11 @@ export class ProgramEvidenceCollectorSupport {
     const value = compilerSymbolId(this.ts, this.checker, this.root, node, this.symbolAt(node));
     this.symbolIds.set(node, value);
     return value;
+  }
+
+  /** The library model row for a callee or member read, by its import module and dotted name. */
+  protected modelFor(node: TypeScript.Node): LibraryModelRow | null {
+    return tsModel(this.libraryModels, this.ts, this.moduleFor(node), node);
   }
 
   protected moduleFor(node: TypeScript.Node): string | null {

@@ -1,12 +1,9 @@
 import * as TypeScript from "typescript";
+import { boundaryRole, type LibraryModelRow } from "./library-models";
 import {
   calleeName,
   externalServiceCallKind,
-  isExit,
-  isFileOperation,
   isHttpResponse,
-  isNetworkOperation,
-  outputKind,
   proof,
   staticMethod,
   staticTarget,
@@ -32,6 +29,8 @@ export type ProgramEvidenceBoundaryContext = {
   ownerId: string | null;
   location: (node: TypeScript.Node) => ProgramEvidenceLocation;
   moduleFor: (node: TypeScript.Node) => string | null;
+  /** The library model row the callee resolves to, if any. */
+  model: LibraryModelRow | null;
   isExternalCall: (node: TypeScript.CallExpression) => boolean;
   specialInput: (
     node: TypeScript.Node,
@@ -76,10 +75,9 @@ export function processProgramCallBoundary(
   const { ts, node, callId, ownerId } = context;
   const name = calleeName(ts, node.expression);
   const module = context.moduleFor(node.expression);
-  const fileRead = isFileOperation(module, name, "read");
-  const fileWrite = isFileOperation(module, name, "write");
-  const stream = outputKind(name, node);
-  if (name === "fetch" || isNetworkOperation(module, name)) {
+  // A library model row says which boundary the call is; the role is the element kind it marks.
+  const role = boundaryRole(context.model);
+  if (role === "fetch-input") {
     const inputId = context.specialInput(
       node,
       "fetch-input",
@@ -112,7 +110,8 @@ export function processProgramCallBoundary(
       ),
       "proven",
     );
-    if (name === "fetch") context.addHttpFetch({ node, elementId: inputId, ownerId });
+    // The HTTP bridge pairs a global fetch with the route it requests.
+    if (context.model?.module === "global") context.addHttpFetch({ node, elementId: inputId, ownerId });
     context.gap(
       inputId,
       "forward",
@@ -121,7 +120,7 @@ export function processProgramCallBoundary(
       node,
     );
     context.effect(node, callId, ownerId, "network-request", "The network request leaves the analyzed source tree.");
-  } else if (fileRead) {
+  } else if (role === "file-input") {
     const inputId = context.specialInput(
       node,
       "file-input",
@@ -154,7 +153,7 @@ export function processProgramCallBoundary(
       ),
       "proven",
     );
-  } else if (fileWrite) {
+  } else if (role === "file-write") {
     const writeId = context.specialInput(
       node,
       "file-write",
@@ -176,16 +175,16 @@ export function processProgramCallBoundary(
       ),
       "proven",
     );
-  } else if (stream) {
+  } else if (role === "stdout" || role === "stderr") {
     const terminalId = context.specialInput(
       node,
-      stream,
+      role,
       ownerId,
       { operation: name },
       "host-api",
       "The host console or process stream is an output terminal.",
     );
-    context.effect(node, callId, ownerId, stream, "The host output call is an external side effect.");
+    context.effect(node, callId, ownerId, role, "The host output call is an external side effect.");
     context.addRelation(
       callId,
       terminalId,
@@ -194,7 +193,7 @@ export function processProgramCallBoundary(
       proof("host-api", "The output API identifies the terminal.", [context.location(node)]),
       "proven",
     );
-  } else if (isExit(name, node)) {
+  } else if (role === "exit-status") {
     const terminalId = context.specialInput(
       node,
       "exit-status",
@@ -216,7 +215,7 @@ export function processProgramCallBoundary(
       ),
       "proven",
     );
-  } else if (isHttpResponse(ts, node, context.checker)) {
+  } else if (role === "http-response" || isHttpResponse(ts, node)) {
     const terminalId = context.specialInput(
       node,
       "http-response",

@@ -1,7 +1,8 @@
 import path from "node:path";
 import type * as TypeScript from "typescript";
 import type { AnalysisCancellationToken } from "../cancellation";
-import { calleeName, isExit, isFileOperation, isNetworkOperation, lastName, outputKind } from "../program-evidence-support";
+import { boundaryRole, builtinLibraryModels, tsModel } from "../library-models";
+import { calleeName, importModule, lastName } from "../program-evidence-support";
 
 /**
  * What a function touches (M6, T14). A walk over the callable's own body
@@ -220,14 +221,14 @@ export function analyzeFunctionEffects(ts: typeof TypeScript, program: TypeScrip
       if (ts.isElementAccessExpression(expression)) return frontier("dynamic-dispatch", clip(expression.getText(sourceFile)), "The callee is computed; the checker cannot name it.");
 
       // Host and library behaviour, by resolved identity.
-      const module = importedFrom ?? moduleOf(ts, symbol);
-      const stream = outputKind(name, call);
+      // The boundary a library model row gives the callee, by its import module (or `global`) and dotted name.
+      const role = boundaryRole(tsModel(builtinLibraryModels(), ts, importModule(ts, checker, expression), expression));
       if (place === "library" || place === "none" || place === "intrinsic") {
-        if (name === "fetch" || isNetworkOperation(module, name)) return fact("external", "network-request", name, "A network request leaves the program.", place === "none" ? "partial" : "proven");
-        if (isFileOperation(module, name, "write")) return fact("external", "filesystem-write", name, "A filesystem write leaves the program.");
-        if (isFileOperation(module, name, "read")) return fact("input", "filesystem-read", name, "A filesystem read brings in what the function did not receive.");
-        if (stream) return fact("external", stream, name, `Host output on ${stream}.`);
-        if (isExit(name, call)) return fact("external", "exit-status", name, "The process exits.");
+        if (role === "fetch-input") return fact("external", "network-request", name, "A network request leaves the program.", place === "none" ? "partial" : "proven");
+        if (role === "file-write") return fact("external", "filesystem-write", name, "A filesystem write leaves the program.");
+        if (role === "file-input") return fact("input", "filesystem-read", name, "A filesystem read brings in what the function did not receive.");
+        if (role === "stdout" || role === "stderr") return fact("external", role, name, `Host output on ${role}.`);
+        if (role === "exit-status") return fact("external", "exit-status", name, "The process exits.");
         if (name === "setTimeout" || name === "setInterval" || name === "queueMicrotask" || name === "requestAnimationFrame") {
           fact("timer", "timer", name, `${name} schedules work for later.`);
           return;
