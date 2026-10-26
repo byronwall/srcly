@@ -167,7 +167,7 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(stops.map((node) => [node.reason, node.label, node.line])).toEqual([["untraced", "flag", 9]]);
     expect(stops.every((node) => /^not traced further/.test(node.note ?? ""))).toBe(true);
     // Every partial in the fixture names a stop.
-    for (const item of ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py", "app/stops.py", "app/schemas.py", "app/external.py"].flatMap(definitions)) {
+    for (const item of ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py", "app/stops.py", "app/schemas.py", "app/external.py", "app/web.py"].flatMap(definitions)) {
       const traced = anchor(item.file, item.name, item.line);
       if (traced.outcome === "partial") expect(boxes(traced).some((node) => node.kind === "frontier" || node.kind === "boundary"), `${item.name} on line ${item.line}`).toBe(true);
     }
@@ -224,11 +224,21 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(up.outcome).toBe("ok");
     expect(up.origins.map((origin) => origin.label)).toEqual(["the request"]);
     const down = anchorGraphOp(session, { ...at("app/web.py", "payload", "payload = request.json"), direction: "forward" });
-    expect(boxes(down, "terminal").map((node) => [node.line, node.elementKind])).toEqual([[11, "http-response"]]);
-    expect(anchor("app/web.py", "greet", 15).outcome).toBe("ok");
+    expect(boxes(down, "terminal").map((node) => [node.line, node.elementKind])).toEqual([[14, "http-response"]]);
+    expect(anchor("app/web.py", "greet", 18).outcome).toBe("ok");
     // A parameter that happens to be called `request` is not Flask's.
     const local = anchorGraphOp(session, { ...at("app/web.py", "request", "    return request"), direction: "backward" });
     expect(local.origins).toEqual([]);
+  });
+
+  it("enters a function a framework decorator registers, and nothing a wrapper decorates", () => {
+    const hello = anchor("app/web.py", "hello", 28);
+    expect(hello.outcome).toBe("ok");
+    expect(hello.origins.map((origin) => [origin.label, origin.roles])).toEqual([["enters from @click.command → name", ["event"]]]);
+    // `@functools.cache` wraps `cached` without registering it: nothing enters it from outside.
+    const cached = anchor("app/web.py", "cached", 33);
+    expect(cached.origins).toEqual([]);
+    expect(boxes(cached, "frontier").map((node) => [node.reason, node.label])).toEqual([["untraced", "value"]]);
   });
 
   it("names a file that did not parse, and a name that is not on its line", () => {

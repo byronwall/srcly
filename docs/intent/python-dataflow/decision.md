@@ -65,6 +65,7 @@ The engine derives origin roles, terminal roles and boundaries from an element's
 | --- | --- |
 | a FastAPI handler parameter's binding (path, query, body, header, cookie, form, file) | `parameter` with `originRole: request` at the route decorator, joined to the real parameter by `request-binding`; the proof names FastAPI's rule (`parses the JSON body of POST /v1/items into body: ItemIn`). A body annotated with a model also fills each of its fields (and its bases'), one `request-binding` per field, so a field's walk up starts at the request |
 | Flask's `request` global read by name (`request.json`, `request.args.get(…)`, `request.form`) | `parameter` with `originRole: request`, proven by the import; a parameter that is only called `request` is not it |
+| a parameter of a function nothing in the program calls, registered by a decorator that resolves outside the program (`@click.command()`, `@receiver(...)`, `@shared_task`) or is a method of an outside object or of a web app the program builds (`@cli.command()`, `@app.cli.command()`); wrappers that register nothing (`functools.cache`, `property`, `contextmanager`, … in `WRAPPER_DECORATORS`) do not count | `parameter` with `originRole: event` at the decorator, "enters from @…", joined to the real parameter by `request-binding` |
 | `os.environ[...]`, `os.getenv`, `os.environ.get` | `environment-input` (environment) |
 | `open()` to read, `Path.read_text`, `json.load` | `file-input` (filesystem) |
 | `requests` / `httpx` calls, `urlopen` | `fetch-input` (fetch, network) |
