@@ -1,0 +1,14 @@
+{
+  "id": "d669eaeb-aad7-4747-9a43-0d13581ab58c",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:969723",
+    "label": "Agent token ...969723"
+  },
+  "createdAt": "2026-10-26T13:04:22.536Z",
+  "summary": "Created \"Data flow: trace coverage\".",
+  "nodeIds": [
+    "area-data-flow-trace-coverage"
+  ]
+}

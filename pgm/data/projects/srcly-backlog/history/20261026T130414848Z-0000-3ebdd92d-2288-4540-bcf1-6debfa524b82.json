@@ -1,0 +1,15 @@
+{
+  "id": "3ebdd92d-2288-4540-bcf1-6debfa524b82",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:c9bbe1",
+    "label": "Agent token ...c9bbe1"
+  },
+  "createdAt": "2026-10-26T13:04:14.848Z",
+  "summary": "Created \"Land #211: TypeScript origins and terminals as library model rows\" under \"Data flow: land the open PRs\".",
+  "nodeIds": [
+    "task-land-211-typescript-origins-and-terminals-as-library-model-rows",
+    "area-data-flow-land-the-open-prs"
+  ]
+}

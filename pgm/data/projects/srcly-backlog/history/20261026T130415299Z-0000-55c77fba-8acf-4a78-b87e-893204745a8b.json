@@ -1,0 +1,14 @@
+{
+  "id": "55c77fba-8acf-4a78-b87e-893204745a8b",
+  "kind": "node.status.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:c0f40f",
+    "label": "Agent token ...c0f40f"
+  },
+  "createdAt": "2026-10-26T13:04:15.299Z",
+  "summary": "Changed \"Land #211: TypeScript origins and terminals as library model rows\" status to needs-review.",
+  "nodeIds": [
+    "task-land-211-typescript-origins-and-terminals-as-library-model-rows"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "01eb9d9a-8f44-45fd-afd6-038ebc45e554",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:0ce67c",
+    "label": "Agent token ...0ce67c"
+  },
+  "createdAt": "2026-10-26T13:04:14.415Z",
+  "summary": "Set \"Land #213: prove nothing from a call's being imported\" priority to high.",
+  "nodeIds": [
+    "task-land-213-prove-nothing-from-a-call-s-being-imported"
+  ]
+}

@@ -2,7 +2,7 @@
 title: "Data-flow library models as data — plan"
 slug: "dataflow-library-models"
 phase: plan
-status: planned
+status: in-progress
 last_updated: "2026-10-26"
 ---
 
@@ -143,6 +143,8 @@ Each step is one PR. Each must pass `pnpm survey-gate` (#192) with **no baseline
 6. **`calls-back`.** `map`/`find`/`filter`/`includes`/`forEach`/`then` and timers become rows. The named ones turn #184's partial callback edges into proven ones. The decomposition code stays and is keyed by the row's `proof`.
 7. **Checker-resolved matching everywhere.** Remove `calleeName` text matching. Namespace and default imports now match. This step moves the gate on purpose.
 8. **User rows** (§7), once a srcly config exists.
+
+**Progress.** Step 1 landed in #206 and step 2 in #212. #209 matches a library call by its import's module and export name, which covers part of step 7. Step 3 is open as #211. The remaining steps are tasks in the backlog grid (`pgm/data`, area "Data flow: library models as data").
 
 **Risks**
 - *A row matches more than the code did* (a prefix row, a namespace import): the survey gate catches ok and stop drift. Keep steps 2–6 exact-match only.

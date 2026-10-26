@@ -1,0 +1,14 @@
+{
+  "id": "ae55d247-70d5-48b1-9864-72f0c88a1563",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:73e8a6",
+    "label": "Agent token ...73e8a6"
+  },
+  "createdAt": "2026-10-26T13:04:22.074Z",
+  "summary": "Set \"Send proof strength to the client through the contract\" priority to medium.",
+  "nodeIds": [
+    "task-send-proof-strength-to-the-client-through-the-contract"
+  ]
+}

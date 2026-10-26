@@ -1,0 +1,14 @@
+{
+  "id": "2351fc6f-e5d9-4fbc-8a93-a7d085bd4df1",
+  "kind": "node.status.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:5cc5e2",
+    "label": "Agent token ...5cc5e2"
+  },
+  "createdAt": "2026-10-26T13:04:24.379Z",
+  "summary": "Changed \"Library write into a non-local receiver\" status to planned.",
+  "nodeIds": [
+    "task-library-write-into-a-non-local-receiver"
+  ]
+}

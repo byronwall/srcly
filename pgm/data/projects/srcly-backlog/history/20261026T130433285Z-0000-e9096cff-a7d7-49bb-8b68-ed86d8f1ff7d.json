@@ -1,0 +1,14 @@
+{
+  "id": "e9096cff-a7d7-49bb-8b68-ed86d8f1ff7d",
+  "kind": "node.status.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:0c5b3d",
+    "label": "Agent token ...0c5b3d"
+  },
+  "createdAt": "2026-10-26T13:04:33.285Z",
+  "summary": "Changed \"Delete the stale `claude/dfx-callbacks-wip` branch\" status to planned.",
+  "nodeIds": [
+    "task-delete-the-stale-claude-dfx-callbacks-wip-branch"
+  ]
+}

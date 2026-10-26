@@ -1,0 +1,14 @@
+{
+  "id": "b2290d1e-eaf1-4d76-a73f-5cab7212e8d9",
+  "kind": "node.status.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:e64bcb",
+    "label": "Agent token ...e64bcb"
+  },
+  "createdAt": "2026-10-26T13:04:16.255Z",
+  "summary": "Changed \"Exported-API end rule: open the PR\" status to working.",
+  "nodeIds": [
+    "task-exported-api-end-rule-open-the-pr"
+  ]
+}

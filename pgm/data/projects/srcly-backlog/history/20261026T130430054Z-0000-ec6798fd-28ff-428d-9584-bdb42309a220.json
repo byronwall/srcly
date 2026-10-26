@@ -1,0 +1,14 @@
+{
+  "id": "ec6798fd-28ff-428d-9584-bdb42309a220",
+  "kind": "node.status.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:0723b6",
+    "label": "Agent token ...0723b6"
+  },
+  "createdAt": "2026-10-26T13:04:30.054Z",
+  "summary": "Changed \"Recount the survey after the open PRs land\" status to planned.",
+  "nodeIds": [
+    "task-recount-the-survey-after-the-open-prs-land"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "id": "3ca41514-5ed1-44eb-a31e-c3b98ddcc58c",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:859608",
+    "label": "Agent token ...859608"
+  },
+  "createdAt": "2026-10-26T13:04:13.954Z",
+  "summary": "Created \"Land #213: prove nothing from a call's being imported\" under \"Data flow: land the open PRs\".",
+  "nodeIds": [
+    "task-land-213-prove-nothing-from-a-call-s-being-imported",
+    "area-data-flow-land-the-open-prs"
+  ]
+}
