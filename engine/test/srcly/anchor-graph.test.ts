@@ -460,6 +460,31 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(boxes(logged, "frontier")).toMatchObject([{ reason: "external-code", label: "log.push" }]);
   });
 
+  it("hands a library call's receiver to its callback's parameters whose type accepts it, and the callback's return to the call", () => {
+    const graph = anchorGraphOp(session, { ...find(basics, "src/library-callbacks.tsx", "props.items", "props.items.reduce"), direction: "forward" });
+    const item = graph.nodes.find((node) => node.elementKind === "parameter" && node.label === "item")!;
+    const bound = graph.edges.find((edge) => edge.kind === "callback-parameter" && edge.target === item.id)!;
+    expect(bound).toMatchObject({ status: "partial", proof: [expect.objectContaining({ kind: "external-call" })] });
+    // Only the receiver is handed in: never the call's other argument (`0`), and never to `sum`, a number, not an item.
+    const handed = graph.edges.filter((edge) => edge.kind === "callback-parameter");
+    expect(handed.map((edge) => graph.nodes.find((node) => node.id === edge.source)?.label)).toEqual(["props.items"]);
+    expect(graph.nodes.some((node) => node.elementKind === "parameter" && node.label === "sum")).toBe(false);
+    expect(graph.edges.some((edge) => edge.kind === "return-value" && edge.status === "partial")).toBe(true);
+    expect(boxes(graph, "boundary")).toEqual([]);
+    expect(boxes(graph, "frontier")).toEqual([]);
+    expect(boxes(graph, "terminal")).toMatchObject([{ label: "total" }]);
+    // Every step lands, but through assumptions: partial, not ok.
+    expect(graph.outcome).toBe("partial");
+  });
+
+  it("leaves a callback passed to a first-party function to that function's own pairing", () => {
+    const graph = anchorGraphOp(session, { ...find(basics, "src/library-callbacks.tsx", "props.n", "applyTo(props.n"), direction: "forward" });
+    expect(graph.edges.some((edge) => edge.kind === "callback-parameter")).toBe(false);
+    expect(graph.nodes.some((node) => node.label === "x")).toBe(false);
+    expect(graph.edges.find((edge) => edge.kind === "argument-binding")).toMatchObject({ status: "proven" });
+  });
+
+
   it("carries a collection method's named result on as the call's own value", () => {
     // The anchor is the result `find` names; it reaches `first` and the title slot through the call.
     const found = anchorGraphOp(session, { ...find(basics, "src/external-calls.tsx", "props.tags.find((tag) => tag.length > 1)"), direction: "forward" });
