@@ -1,6 +1,8 @@
 import * as TypeScript from "typescript";
 import { ProgramEvidenceCollectorCallSupport } from "./program-evidence-collector-call-support";
 import {
+  bindingIdentifiers,
+  firstBindingIdentifier,
   propertyBase,
   proof,
   responseReturnRole,
@@ -216,8 +218,9 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
     }
   }
 
+  /** An object or array literal packs its fields, its elements and what it spreads. */
   protected processObject(
-    node: TypeScript.ObjectLiteralExpression,
+    node: TypeScript.ObjectLiteralExpression | TypeScript.ArrayLiteralExpression,
     ownerId: string | null,
   ): void {
     const packId = this.ensureElement(
@@ -231,11 +234,29 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
       "proven",
       proof(
         "ast-node",
-        "The object literal packs source-backed fields.",
+        "The literal packs source-backed fields or elements.",
         [this.location(node)],
       ),
       "object-pack",
     );
+    if (this.ts.isArrayLiteralExpression(node)) {
+      for (const element of node.elements) {
+        if (this.ts.isOmittedExpression(element)) continue;
+        this.addRelation(
+          this.expression(this.ts.isSpreadElement(element) ? element.expression : element, ownerId),
+          packId,
+          "pack-field",
+          [this.location(element)],
+          proof(
+            "ast-node",
+            this.ts.isSpreadElement(element) ? "The spread contributes its elements to the array pack." : "The element contributes to the array pack.",
+            [this.location(element)],
+          ),
+          "proven",
+        );
+      }
+      return;
+    }
     for (const property of node.properties) {
       if (this.ts.isPropertyAssignment(property)) {
         this.addRelation(
@@ -264,6 +285,36 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
           "proven",
         );
       }
+    }
+  }
+
+  /** A `for…of` binding takes each element of what it iterates. */
+  protected processForOf(node: TypeScript.ForOfStatement, ownerId: string | null): void {
+    if (!this.ts.isVariableDeclarationList(node.initializer)) return;
+    for (const declaration of node.initializer.declarations) {
+      const aliasId = this.ensureElement(
+        declaration,
+        "alias",
+        ownerId,
+        { name: declaration.name.getText(declaration.getSourceFile()) },
+        this.symbolId(firstBindingIdentifier(this.ts, declaration.name) ?? declaration.name),
+        null,
+        null,
+        "proven",
+        proof("ast-node", "The loop binding names each element it iterates.", [this.location(declaration)]),
+      );
+      for (const binding of bindingIdentifiers(this.ts, declaration.name)) {
+        const bindingId = this.symbolId(binding);
+        if (bindingId && !this.variablesBySymbol.has(bindingId)) this.variablesBySymbol.set(bindingId, aliasId);
+      }
+      this.addRelation(
+        this.expression(node.expression, ownerId),
+        aliasId,
+        "for-element",
+        [this.location(node.expression)],
+        proof("ast-node", "Each element of the iterated value is bound to the loop variable.", [this.location(node)]),
+        "proven",
+      );
     }
   }
 

@@ -240,6 +240,24 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(fresh.edges.every((edge) => edge.status === "proven")).toBe(true);
   });
 
+  it("packs array elements and spreads, binds a `for…of` variable to each element, and hands a JSX spread to its element", () => {
+    for (const text of ["props.first", "props.rest"]) {
+      const graph = anchorGraphOp(session, { ...find(basics, "src/collections.tsx", text, "const all"), direction: "forward" });
+      expect(graph.outcome, text).toBe("ok");
+      expect(boxes(graph).some((node) => node.elementKind === "alias" && node.label === "item")).toBe(true);
+      expect(boxes(graph, "terminal")).toMatchObject([{ elementKind: "render-terminal", line: 9 }]);
+    }
+    const attrs = anchorGraphOp(session, { ...find(basics, "src/collections.tsx", "props.attrs", "<b {"), direction: "forward" });
+    expect(attrs.outcome).toBe("ok");
+    expect(attrs.counts.terminals).toBe(1);
+  });
+
+  it("never binds a `for…in` key to the values it iterates", () => {
+    const table = anchorGraphOp(session, { ...find(basics, "src/collections.tsx", "props.table", "for (const key"), direction: "forward" });
+    expect(table.counts.terminals).toBe(0);
+    expect(boxes(table, "frontier").map((node) => [node.reason, node.label])).toEqual([["disconnected", "table"]]);
+  });
+
   it("keeps a derived value nothing reads at a dead end", () => {
     const limit = anchorGraphOp(session, { ...find(basics, "src/derived-operands.tsx", "props.limit", "tooMany ="), direction: "forward" });
     expect(limit.outcome).toBe("partial");

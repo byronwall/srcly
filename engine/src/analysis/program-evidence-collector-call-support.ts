@@ -189,7 +189,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       );
     }
     for (const argument of node.arguments) {
-      const argumentId = this.expression(argument, ownerId);
+      // A spread argument passes its elements: the value is what it spreads.
+      const argumentId = this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId);
       this.addRelation(
         argumentId,
         callId,
