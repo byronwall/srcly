@@ -9,6 +9,7 @@
 - Add `!` before the colon for breaking changes, such as `feat!: remove an API`.
 - An optional scope is valid, such as `fix(scan): stop cancelled scans`.
 - Squash merge PRs. Keep the PR title as the squash commit title.
+- Merge a stack with `gh stack merge`, never layer by layer: #28 and #31 were squashed into bases that had already merged and never reached `main`.
 - `PR title`, `build` and `browser` are required. Wait with `gh pr checks <n> --watch`, not one status read, before merging or stacking the next PR.
 - Do not bump versions, add change fragments, or push release tags for normal changes.
 - Release Please opens and updates the release PR after changes merge into `main`.
@@ -18,12 +19,6 @@
 - Release Please creates the `v<version>` tag and GitHub release. The Release action publishes to PyPI.
 - Check the Release action and PyPI before reporting a release as complete.
 - For workflow setup, token renewal, and failed releases, use `docs/releases.md`.
-
-## Stacked PRs
-
-- Build and merge stacks with `gh stack` (the gh-stack skill), never `gh pr create --base <branch>`: merge the whole stack at once.
-- Never squash a PR into a base branch that has already merged; its change never reaches `main` (#28 and #31 were lost that way). Merged branches are deleted, so GitHub retargets their children to `main`.
-- To update a branch, merge `origin/main` into it and push; don't force-push shared branches.
 
 ## Checks
 
