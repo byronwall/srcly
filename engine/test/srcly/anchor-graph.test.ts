@@ -361,6 +361,37 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(boxes(few, "frontier").filter((node) => node.reason === "budget-exhausted")).toEqual([]);
   });
 
+  it("keeps a discarded library call's argument in its receiver, as an assumption", () => {
+    const pushed = anchorGraphOp(session, { ...find(basics, "src/external-calls.tsx", "props.tags[0]"), direction: "forward" });
+    expect(pushed.outcome).toBe("ok");
+    const names = pushed.nodes.find((node) => node.elementKind === "alias" && node.label === "names")!;
+    const write = pushed.edges.find((edge) => edge.target === names.id)!;
+    expect(write).toMatchObject({ kind: "references", status: "partial" });
+    expect(write.proof[0]).toMatchObject({ kind: "external-call" });
+    expect(boxes(pushed, "terminal")).toMatchObject([{ label: "names", line: 15 }]);
+  });
+
+  it("never writes a call's argument into its receiver when the call's value is kept", () => {
+    const concat = anchorGraphOp(session, { ...find(basics, "src/external-calls.tsx", "props.tags", "= kept.concat"), direction: "forward" });
+    expect(concat.nodes.some((node) => node.label === "kept")).toBe(false);
+    expect(concat.edges.filter((edge) => edge.status === "partial")).toEqual([]);
+    expect(boxes(concat, "terminal")).toMatchObject([{ label: "more" }]);
+    // Module state the function does not own: the push stays an external-code stop.
+    const logged = anchorGraphOp(session, { ...find(basics, "src/external-calls.tsx", "entry", "log.push(entry)"), direction: "forward" });
+    expect(logged.nodes.some((node) => node.label === "log")).toBe(false);
+    expect(boxes(logged, "frontier")).toMatchObject([{ reason: "external-code", label: "log.push" }]);
+  });
+
+  it("carries a collection method's named result on as the call's own value", () => {
+    // The anchor is the result `find` names; it reaches `first` and the title slot through the call.
+    const found = anchorGraphOp(session, { ...find(basics, "src/external-calls.tsx", "props.tags.find((tag) => tag.length > 1)"), direction: "forward" });
+    expect(found.anchor.text).toContain("find");
+    expect(found.nodes.find((node) => node.kind === "anchor")?.elementKind).toBe("call-result");
+    expect(boxes(found, "frontier")).toEqual([]);
+    expect(found.outcome).toBe("ok");
+    expect(boxes(found, "terminal")).toMatchObject([{ label: "first" }]);
+  });
+
   it("ends a backward walk at a literal with no frontier: that is where the value begins", () => {
     const graph = anchorGraphOp(session, { ...find(basics, "src/literal-start.tsx", "label", "{label}"), direction: "backward" });
     expect(graph.outcome).toBe("ok");
