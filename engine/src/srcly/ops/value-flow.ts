@@ -444,7 +444,7 @@ class LedgerBuilder {
 
 function classify(relation: ProgramRelation, element: ProgramElement): LedgerRow["kind"] {
   if (relation.kind === "show-when" || element.kind === "type-narrow") return "branch";
-  if (/^(map|filter|find|pack|includes|join)/.test(relation.kind) || element.kind === "selection" || element.kind === "object-pack") return "transform";
+  if (relationTraits(relation.kind).role === "transform" || element.kind === "selection" || element.kind === "object-pack") return "transform";
   return "transfer";
 }
 

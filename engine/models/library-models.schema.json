@@ -1,0 +1,106 @@
+{
+  "title": "LibraryModelFile",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "string",
+            "enum": [
+              "ts",
+              "py"
+            ],
+            "description": "`ts` or `py`."
+          },
+          "module": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The import module (`solid-js`, `node:fs`), `lib` for TypeScript's built-in lib.*.d.ts, `global` for a bare global, or a Python package."
+          },
+          "name": {
+            "description": "An exported name (`createSignal`). A trailing `*` matches a prefix.",
+            "type": "string",
+            "minLength": 1
+          },
+          "member": {
+            "description": "`Type.method` for a method on an instance (`Session.get`, `Array.find`). A trailing `*` matches a prefix.",
+            "type": "string",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "enum": [
+              "origin",
+              "terminal",
+              "state-pair",
+              "passes-through",
+              "consumes",
+              "calls-back",
+              "resource"
+            ],
+            "description": "What the member does."
+          },
+          "args": {
+            "description": "Which arguments the model is about: `0`, `1`, `*` (the default) or `this` for the receiver.",
+            "type": "string",
+            "pattern": "^(\\*|this|\\d+)$"
+          },
+          "role": {
+            "description": "An origin or terminal role.",
+            "type": "string",
+            "minLength": 1
+          },
+          "with": {
+            "description": "What a callback receives.",
+            "type": "string",
+            "enum": [
+              "element",
+              "receiver",
+              "awaited"
+            ]
+          },
+          "returns": {
+            "description": "What the call yields.",
+            "type": "string",
+            "enum": [
+              "element",
+              "boolean",
+              "same"
+            ]
+          },
+          "writes": {
+            "description": "For `consumes`: the receiver keeps the arguments (`push`, `set`).",
+            "type": "string",
+            "const": "this"
+          },
+          "proof": {
+            "description": "The proof kind its relations carry, so existing proof names survive.",
+            "type": "string",
+            "minLength": 1
+          },
+          "note": {
+            "description": "One line for the code map and the proof detail.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "language",
+          "module",
+          "model"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "rows"
+  ],
+  "additionalProperties": false
+}
