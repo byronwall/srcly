@@ -323,6 +323,8 @@ describe("anchorGraph on value-flow-basics", () => {
       expect(graph.outcome, text).toBe("ok");
       expect(boxes(graph, "terminal").filter((node) => node.elementKind === "render-terminal").map((node) => node.line), text).toEqual([line]);
       expect(graph.edges.some((edge) => edge.status === "partial" && edge.proof[0]?.kind === "framework-state"), text).toBe(true);
+      // The framework's model says what the factory, setter and getter calls do: none of them is library code assumed to pass the value on.
+      expect(graph.edges.some((edge) => edge.proof.some((item) => item?.kind === "external-call")), text).toBe(false);
     }
   });
 
