@@ -1,5 +1,6 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { anchorGraphOp } from "../../src/srcly/ops/anchor-graph";
 import { fileExportsOp } from "../../src/srcly/ops/file-exports";
 import { createEngineSession } from "../../src/srcly/session";
 import { chooseTypescript } from "../../src/srcly/typescript-choice";
@@ -21,6 +22,16 @@ describe("fileExports lists what a file or folder anchor fans out to (T19)", () 
     expect(card).toMatchObject({ kind: "component", traceable: true, reexported: false, file: "src/components/ViewerCard.tsx" });
     expect(card.id).toBe(`src/components/ViewerCard.tsx@ViewerCard:${card.line}`);
     expect(result.counts.exports).toBe(result.files[0].exports.length);
+  });
+
+  it("names a default-exported function by its own name, so its id anchors", () => {
+    const session = sessionFor(solidRoute);
+    const route = fileExportsOp(session, { file: "src/routes/records.tsx" }).files[0].exports.find((e) => e.name.startsWith("default"))!;
+    expect(route).toMatchObject({ name: "default (RecordsRoute)", traceable: true });
+    expect(route.id).toBe(`src/routes/records.tsx@RecordsRoute:${route.line}`);
+    // The UI anchors an export by its id's name and line.
+    const graph = anchorGraphOp(session, { file: route.file, name: "RecordsRoute", line: route.line, direction: "both" });
+    expect(graph.anchor.text).toBe("RecordsRoute");
   });
 
   it("walks a folder in path order, counts types as not traceable, and refuses a path outside the root or without program files", () => {
