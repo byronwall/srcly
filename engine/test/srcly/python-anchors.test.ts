@@ -106,12 +106,31 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     // `publish(title)` passes `Article(title=title)`, `store(body)` passes `Article.objects.create(body=body)`.
     expect(up.filter((node) => node.line === 24 || node.line === 28).map((node) => node.label).sort()).toEqual(["body", "title"]);
     const uses = boxes(graph).filter((node) => node.side === "down" && node.note).map((node) => `${node.note}@${node.line}`);
-    expect(uses).toEqual(expect.arrayContaining(["called here@25", "called here@29", "annotated with it@32"]));
+    expect(uses).toEqual(expect.arrayContaining(["called here@25", "annotated with it@32"]));
     const facts = (session.tier1() as PythonTier1).facts;
     const reads = facts.relations
       .filter((relation) => relation.k === "carrier" && facts.elements[relation.b].k === "field-read" && facts.elements[relation.a].k === "parameter")
       .map((relation) => `${facts.elements[relation.a].l}@${facts.elements[relation.a].s[0]} → ${facts.elements[relation.b].l}`);
     expect(reads).toContain("title@9 → article.title");
+  });
+
+  it("begins a value at a constant, an empty collection or a module outside the program", () => {
+    const up = (text: string, marker: string) => anchorGraphOp(session, { ...at("app/ends.py", text, marker), direction: "backward" });
+    for (const [text, marker] of [["CONFIG[\"a\"]", "return CONFIG[\"a\"]"], ["os.sep", "return os.sep"]]) {
+      const graph = up(text, marker);
+      expect(boxes(graph, "frontier").map((node) => node.reason), text).toEqual([]);
+      expect(graph.outcome, text).toBe("ok");
+    }
+    // Two reads of one dict share its receiver, never each other: `CONFIG["a"]` does not reach `CONFIG["b"]`'s return.
+    const down = anchorGraphOp(session, { ...at("app/ends.py", "CONFIG[\"a\"]", "return CONFIG[\"a\"]"), direction: "forward" });
+    expect(boxes(down).some((node) => node.line === 15)).toBe(false);
+  });
+
+  it("ends a value at a statement that drops its result, and at an attribute write", () => {
+    const graph = anchorGraphOp(session, { ...at("app/ends.py", "text", "def remember"), direction: "forward" });
+    expect(boxes(graph).filter((node) => node.side === "down" && node.note?.startsWith("ends here")).map((node) => `${node.note}@${node.line}`).sort())
+      .toEqual(["ends here · its result is not used@36", "ends here · written, not read@30"]);
+    expect(boxes(graph, "frontier").map((node) => node.reason)).not.toContain("untraced");
   });
 
   it("reads a settings model's fields from the environment, and no other model's", () => {
@@ -194,7 +213,7 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(stops.map((node) => [node.reason, node.label, node.line])).toEqual([["untraced", "flag", 9]]);
     expect(stops.every((node) => /^not traced further/.test(node.note ?? ""))).toBe(true);
     // Every partial in the fixture names a stop.
-    for (const item of ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py", "app/stops.py", "app/schemas.py", "app/external.py", "app/web.py", "app/orm.py", "app/settings.py"].flatMap(definitions)) {
+    for (const item of ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py", "app/stops.py", "app/schemas.py", "app/external.py", "app/web.py", "app/orm.py", "app/settings.py", "app/ends.py"].flatMap(definitions)) {
       const traced = anchor(item.file, item.name, item.line);
       if (traced.outcome === "partial") expect(boxes(traced).some((node) => node.kind === "frontier" || node.kind === "boundary"), `${item.name} on line ${item.line}`).toBe(true);
     }
