@@ -1,6 +1,11 @@
 # General
 .DS_Store
 node_modules/
+# Screenshots, briefs and scratch output (never committed).
+tmp/
+# Per-worktree ports, written by scripts/bootstrap.sh.
+.claude/launch.json
+.claude/worktrees/
 
 
 # Data files

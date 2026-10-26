@@ -358,5 +358,6 @@ The tsx-data-flow analysis lives in `engine/`, a standalone Node package with it
 - `DESIGN.md` — visual design system.
 - `docs/adding-a-metric.md` — the end-to-end checklist for a new metric.
 - `scripts/bootstrap.sh`, `scripts/check.sh`, `.githooks/pre-push` — worktree setup and the local copy of CI.
+- `scripts/dev-ports.sh`, `scripts/dev-server.sh` — per-worktree dev ports and the servers `.claude/launch.json` runs.
 - `docs/design-audits/`, `docs/analysis/` — past audits and language-analysis notes.
 - `docs/prd/` — product requirement drafts.

@@ -17,6 +17,34 @@ if [ ! -d "$ROOT_DIR/server/.venv" ]; then
   (cd "$ROOT_DIR/server" && uv sync --locked)
 fi
 
+# preview_start reads .claude/launch.json. Its ports differ per worktree, so it is
+# generated here rather than committed; delete it to regenerate.
+launch="$ROOT_DIR/.claude/launch.json"
+if [ ! -f "$launch" ]; then
+  read -r api_port client_port < <("$ROOT_DIR/scripts/dev-ports.sh")
+  mkdir -p "$ROOT_DIR/.claude"
+  cat >"$launch" <<EOF
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "srcly-api",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["scripts/dev-server.sh", "api"],
+      "port": $api_port
+    },
+    {
+      "name": "srcly-client",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["scripts/dev-server.sh", "client"],
+      "port": $client_port
+    }
+  ]
+}
+EOF
+  echo "==> .claude/launch.json: api $api_port, client $client_port"
+fi
+
 # Hooks live in the repo; worktrees share this config with the main checkout.
 if [ "$(git -C "$ROOT_DIR" config core.hooksPath || true)" != ".githooks" ]; then
   git -C "$ROOT_DIR" config core.hooksPath .githooks
