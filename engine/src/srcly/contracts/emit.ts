@@ -1,5 +1,6 @@
 import path from "node:path";
 import { z } from "zod";
+import { libraryModelFileSchema } from "../../analysis/library-models";
 import { CONTRACTS } from "./registry";
 
 type JsonSchema = {
@@ -33,6 +34,9 @@ export function emitContracts(): Map<string, string> {
     types.push(`export type ${contract.typeName} = ${printType(schema, 0)};`, "");
   }
   files.set("client/src/dataflow/contract.generated.ts", types.join("\n"));
+  // The library model row files' schema (`engine/models/*.json` point at it with `$schema`).
+  const models = z.toJSONSchema(libraryModelFileSchema, { target: "draft-2020-12" });
+  files.set("engine/models/library-models.schema.json", `${JSON.stringify({ title: "LibraryModelFile", ...models }, null, 2)}\n`);
   return files;
 }
 
