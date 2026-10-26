@@ -27,6 +27,12 @@ export const ANCHOR_LIMITS = {
   maxElements: 4 * DEFAULT_BOUNDARY_POLICY.maxElements,
   maxRelations: 4 * DEFAULT_BOUNDARY_POLICY.maxRelations,
   maxTerminals: 256,
+  /**
+   * Uses of a declaration walked forward. A hub (a tRPC proxy, a `cn()`)
+   * has hundreds, each a slice of its own; past these the rest are drawn and
+   * fold into one frontier.
+   */
+  maxWalkedUses: 32,
 } as const;
 
 /** Whether a slice walks this relation: only one that moves a value, so what a slice spends is what the walk can draw. */

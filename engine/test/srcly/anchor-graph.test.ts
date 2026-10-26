@@ -312,6 +312,18 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(graph.coverage.elements).toBeLessThan(40);
   });
 
+  it("draws every use of a hub but walks only its first ones, folding the rest into one frontier", () => {
+    const graph = anchorGraphOp(session, { file: "src/many-uses.ts", name: "label", line: 4, direction: "forward" });
+    expect(graph.nodes.filter((node) => node.note === "called here")).toHaveLength(40);
+    const stops = boxes(graph, "frontier").filter((node) => node.reason === "budget-exhausted");
+    expect(stops.map((node) => node.label)).toEqual([`${40 - ANCHOR_LIMITS.maxWalkedUses} uses not followed`]);
+    expect(stops[0].note).toMatch(/did not follow label\(32\)/);
+    expect(graph.coverage.budget.exhausted).toBe(true);
+    // A declaration used in fewer places walks every use: no such frontier.
+    const few = anchorGraphOp(session, { file: "src/function-field-reads.ts", name: "describeItem", line: 5, direction: "forward" });
+    expect(boxes(few, "frontier").filter((node) => node.reason === "budget-exhausted")).toEqual([]);
+  });
+
   it("ends a backward walk at a literal with no frontier: that is where the value begins", () => {
     const graph = anchorGraphOp(session, { ...find(basics, "src/literal-start.tsx", "label", "{label}"), direction: "backward" });
     expect(graph.outcome).toBe("ok");

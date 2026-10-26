@@ -138,9 +138,12 @@ export function queryEvidenceSlice(
   cancellation.throwIfCancelled();
   const boundary = normalizeBoundaryPolicy(normalizedRequest.boundaryPolicy);
   const terminals = normalizeTerminalPolicy(normalizedRequest.terminalPolicy);
+  // Work is relation visits, and a relation is visited once per invocation
+  // context (T13) and again when its target is already in: real routes spend
+  // about two visits per relation they keep, so the default affords two.
   const budget = positiveLimit(
     normalizedRequest.budget,
-    boundary.maxElements + boundary.maxRelations,
+    boundary.maxElements + 2 * boundary.maxRelations,
   );
   const provider = relationProviderFor(evidence);
   const indexed = indexProvider(provider);

@@ -41,6 +41,8 @@ type Run = {
   endsHere?: boolean;
   /** A read of the declaration's parameter: it lands only over its own drawn path, never through the shared parameter. */
   propRead?: boolean;
+  /** A call of the declaration, walked from where it is used. */
+  use?: boolean;
 };
 /** Relations that bind a declaration's parameter to the places it is read. */
 const PARAMETER_READS = new Set(["references", "field-input"]);
@@ -182,6 +184,7 @@ class AnchorGraphBuilder {
       gapsBySeed.set(run.seedId, (gapsBySeed.get(run.seedId) ?? 0) + slice.gaps.length - (this.quietGaps.get(run.seedId) ?? 0));
       this.quietGaps.delete(run.seedId);
     }
+    coverage.budget.exhausted ||= this.nodes.has(`frontier:uses:${seed}`);
     const landedRuns = runs
       .filter((run) => !(run.placeholderFor && run.placeholderFor.length > 0))
       .map((run) => {
@@ -292,6 +295,15 @@ class AnchorGraphBuilder {
     this.pushEdge({ id: `gap:unbound:${readId}`, source: id, target: readId, kind: "gap", status: "partial", proof: [], label: null });
   }
 
+  /** A declaration's uses past `maxWalkedUses`: drawn where they are, not walked; one frontier off the anchor names how many. */
+  private unwalkedUses(seed: string, labels: string[]) {
+    const anchor = this.nodes.get(seed)!;
+    const id = `frontier:uses:${seed}`;
+    const note = `The walk follows ${ANCHOR_LIMITS.maxWalkedUses} of its uses; it did not follow ${clip(labels.slice(0, 6).join(", "), 120)}${labels.length > 6 ? ", …" : ""}.`;
+    this.addNode({ ...anchor, id, kind: "frontier", label: `${labels.length} uses not followed`, detail: "budget-exhausted", status: "partial", side: "down", elementKind: null, typeText: null, reason: "budget-exhausted", note });
+    this.pushEdge({ id: `gap:uses:${seed}`, source: seed, target: id, kind: "gap", status: "partial", proof: [], label: null });
+  }
+
   /** Literal boxes drawn on the up side: a value that begins at `"x"` has come from somewhere (R16). */
   private literalStarts(): number {
     let count = 0;
@@ -376,13 +388,18 @@ class AnchorGraphBuilder {
         runs.push({ seedId: ret.id, seedSpan: ret.location.span, side: "down" });
       }
       // Where it is used: the calls and occurrences whose definition this is.
+      // A hub (a helper called everywhere) walks its first uses; the rest are drawn, not walked, and one frontier says how many.
+      const unwalked: string[] = [];
       for (const { relation, use } of usesOf(provider, seed, this.cancellation)) {
         if (this.nodes.has(use.id)) continue;
         this.addElement(use, "value", "down", relation.status, null, use.kind === "component-occurrence" || use.kind === "jsx-occurrence" ? "rendered here" : "called here");
         this.pushEdge({ id: `use:${relation.id}`, source: seed, target: use.id, kind: "used-by", status: relation.status, proof: [relation.proof], label: null });
         // A component rendered here is where the value ends: its body is the anchor's own, already traced.
-        runs.push({ seedId: use.id, seedSpan: use.location.span, side: "down", ...(TERMINAL_KINDS.has(use.kind) ? { endsHere: true } : {}) });
+        const endsHere = TERMINAL_KINDS.has(use.kind);
+        if (!endsHere && runs.filter((run) => run.use).length >= ANCHOR_LIMITS.maxWalkedUses) unwalked.push(use.label);
+        else runs.push({ seedId: use.id, seedSpan: use.location.span, side: "down", ...(endsHere ? { endsHere } : { use: true }) });
       }
+      if (unwalked.length) this.unwalkedUses(seed, unwalked);
     }
     return runs;
   }
