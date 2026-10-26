@@ -9,6 +9,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# A git hook exports GIT_DIR and friends. Tests that run git in temp repos would
+# then act on this repository (a `git init --bare` once made it bare).
+while IFS= read -r name; do unset "$name"; done < <(env | sed -n 's/^\(GIT_[A-Z_]*\)=.*/\1/p')
 "$ROOT_DIR/scripts/bootstrap.sh" >/dev/null
 
 areas=()
