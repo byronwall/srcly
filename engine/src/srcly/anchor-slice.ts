@@ -5,18 +5,7 @@ import type { AnalysisCancellationToken } from "../analysis/cancellation";
 import { toSliceElement, toSliceRelation } from "../analysis/evidence-slice-normalization";
 import type { EvidenceRelationSource } from "../analysis/evidence-slice-support";
 import { DEFAULT_BOUNDARY_POLICY, type ProgramElement, type ProgramRelation } from "../analysis/scope-seam";
-import { TERMINAL_KINDS } from "./facts";
-
-/**
- * Structural relations: they place elements (a function contains its body,
- * declares its parameters; a use names its definition), they do not move
- * values. From any element, `contains` climbs to its enclosing function and
- * from there to every element in it and every caller of it: a slice that
- * follows it fills its element limit with places no value reaches.
- * `performs` names what a call or function is (a validation, a parse): the
- * call itself carries its value on, so the classification is no step of its own.
- */
-export const STRUCTURAL_RELATIONS: ReadonlySet<string> = new Set(["contains", "declares-parameter", "definition", "performs"]);
+import { elementTraits, relationTraits } from "./kinds";
 
 /**
  * The anchor graph's limits, per slice. Once a slice walks only value
@@ -38,13 +27,24 @@ export const ANCHOR_LIMITS = {
   maxWalkedUses: 32,
 } as const;
 
-/** Relations the anchor walk never draws: structural ones, and `invokes` (a call to the body it enters, which the walk reaches through the call's arguments and return). */
-export const UNDRAWN_RELATIONS: ReadonlySet<string> = new Set([...STRUCTURAL_RELATIONS, "invokes"]);
+/**
+ * Whether the anchor walk never draws this relation: a structural one, which
+ * places elements and moves nothing (from any element, `contains` climbs to
+ * its enclosing function and from there to every element in it and every
+ * caller of it; `performs` names what a call is while the call itself carries
+ * its value on), or a callee link (`invokes`: a call to the body it enters,
+ * which the walk reaches through the call's arguments and return). Both come
+ * from `kinds.ts`.
+ */
+export function undrawn(kind: string): boolean {
+  const traits = relationTraits(kind);
+  return Boolean(traits.structural || traits.callee);
+}
 
 /** Where the anchor walk ends a path: a terminal forward (a return still carries on to its paired call), an origin backward. */
 export function endsWalk(element: ProgramElement, forward: boolean): boolean {
   if (!forward) return element.originRoles.length > 0;
-  return element.kind !== "return" && (element.terminalRoles.length > 0 || TERMINAL_KINDS.has(element.kind));
+  return element.kind !== "return" && (element.terminalRoles.length > 0 || Boolean(elementTraits(element.kind).terminal));
 }
 
 /**
@@ -53,11 +53,8 @@ export function endsWalk(element: ProgramElement, forward: boolean): boolean {
  * and nothing past an element it ends at (the seed itself never ends it).
  */
 export function walkFollows(seedId: string, forward: boolean): (relation: ProgramRelation, from: ProgramElement) => boolean {
-  return (relation, from) => !UNDRAWN_RELATIONS.has(relation.kind) && (from.id === seedId || !endsWalk(from, forward));
+  return (relation, from) => !undrawn(relation.kind) && (from.id === seedId || !endsWalk(from, forward));
 }
-
-/** Relations that point a use (a call, an occurrence) at its definition. */
-const USE_RELATIONS = new Set(["definition", "invokes", "function-call", "component-occurrence"]);
 
 /**
  * Where a declaration is used: the calls and occurrences one relation away
@@ -68,7 +65,7 @@ export function usesOf(provider: EvidenceRelationSource, declarationId: string, 
   const uses: { relation: ProgramRelation; use: ProgramElement }[] = [];
   for (const raw of provider.getRelations(declarationId, "backward", cancellation)) {
     const relation = toSliceRelation(raw);
-    if (relation.to !== declarationId || !USE_RELATIONS.has(relation.kind) || relation.status === "unsupported") continue;
+    if (relation.to !== declarationId || !relationTraits(relation.kind).use || relation.status === "unsupported") continue;
     const indexed = provider.factIndex.getElement(relation.from);
     const use = indexed ? toSliceElement(indexed) : null;
     if (use && use.status !== "unsupported") uses.push({ relation, use });

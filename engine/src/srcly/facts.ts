@@ -5,18 +5,9 @@ import path from "node:path";
 import type * as TypeScript from "typescript";
 import type { ProgramElement } from "../analysis/scope-seam";
 import type { CallSiteIndex, CallSites } from "./call-sites";
+import { elementTraits, relationTraits, SEED_KINDS } from "./kinds";
 import { sameSpan, spanOf, type Span } from "./selection";
 import type { BaseTier1, Tier1, TsTier1 } from "./session";
-
-/** Evidence elements a selection may start from, most specific first. */
-export const SEED_KINDS = ["field-read", "index-read", "selection", "call-result", "call", "value", "alias", "parameter", "jsx-occurrence", "literal"];
-
-/** Relations between a call and its callee. */
-export const CROSS_CALL = new Set(["invokes", "argument", "argument-binding", "function-call", "function-return", "return-value", "callback-parameter"]);
-
-/** Cross-calls that never leave the caller (an argument reaches its own call; `invokes` names the callee and carries no value), and those the slice pairs by its invocation stack (T13). */
-const LOCAL_CROSS_CALL = new Set(["argument", "invokes"]);
-const PAIRED_CROSS_CALL = new Set(["argument-binding", "return-value"]);
 
 /**
  * Whether following this relation needs R7's one-call-site rule. A walk
@@ -30,7 +21,8 @@ const PAIRED_CROSS_CALL = new Set(["argument-binding", "return-value"]);
  * cross-calls the slice does not pair (callbacks, accessors) keep the rule.
  */
 export function needsOneCallSite(kind: string, pairsCalls: boolean): boolean {
-  return CROSS_CALL.has(kind) && !LOCAL_CROSS_CALL.has(kind) && !(pairsCalls && PAIRED_CROSS_CALL.has(kind));
+  const crossCall = relationTraits(kind).crossCall;
+  return crossCall === "unpaired" || (crossCall === "paired" && !pairsCalls);
 }
 
 /**
@@ -46,15 +38,6 @@ export function pairedInSlice(sites: CallSites | null, elements: readonly Pick<P
   const walked = new Set(elements.filter((element) => element.kind === "call" || element.kind === "call-result").map((element) => `${element.location.file}:${element.location.line}`));
   return sites.calls.filter((site) => walked.has(site)).length === 1;
 }
-
-/** Element kinds where a value leaves the program's own data flow. */
-export const TERMINAL_KINDS = new Set(["render-terminal", "dom-terminal", "component-occurrence", "side-effect", "return"]);
-
-/** Declaration elements: they place a walk inside a function, they never carry a value of their own. */
-export const DECLARATION_KINDS = new Set(["component-definition", "function-entry", "handler-entry"]);
-
-/** Bookkeeping elements beside a carrier (a field consumer, a JSX tag name): a walk ending at one has not lost the value. */
-const BOOKKEEPING_KINDS = new Set(["field-consumer", "jsx-occurrence"]);
 
 /**
  * The callee of a call element when it resolves outside the program's own
@@ -93,7 +76,8 @@ export function externalCallee(tier1: Tier1, element: Pick<ProgramElement, "kind
  * but the place to name when the walk lands nowhere else. Null is a dead end.
  */
 export function naturalEnd(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module" | "attributes"> & { terminalRoles?: readonly string[] }): "start" | "bookkeeping" | "consumed" | "unrecorded" | null {
-  if (DECLARATION_KINDS.has(element.kind) || BOOKKEEPING_KINDS.has(element.kind) || TERMINAL_KINDS.has(element.kind) || (element.terminalRoles?.length ?? 0) > 0) return "bookkeeping";
+  const traits = elementTraits(element.kind);
+  if (traits.declaration || traits.bookkeeping || traits.terminal || (element.terminalRoles?.length ?? 0) > 0) return "bookkeeping";
   if (isNaturalStart(tier1, element)) return "start";
   if (endsInPlace(tier1, element)) return "consumed";
   // The callee of a call into first-party code names the function the walk enters; the call's own relations carry on (a callee with no body is related to its call).
