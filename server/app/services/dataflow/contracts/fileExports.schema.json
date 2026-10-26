@@ -7,6 +7,7 @@
       "type": "string",
       "enum": [
         "ok",
+        "assumed",
         "partial",
         "not-analyzed",
         "unsupported",

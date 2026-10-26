@@ -2,6 +2,7 @@
 // The anchor is the focus in the center; what the value comes from sits on
 // the left (`in`) and what it goes to on the right (`out`), the way the import
 // graph places importers and imports. Each box's owning function is its frame.
+import { isAssumedProof } from "../../../dataflow/outcome";
 import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
 import type { ViewEdge, ViewNode } from "../viewModel";
 import type { FlowViewModel } from "./adapter";
@@ -77,6 +78,7 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult): FlowViewModel 
       status: e.status,
       proof: e.proof.map((p) => ({ kind: p.kind, detail: p.detail, status: p.status, at: p.locations[0] ? `${baseName(p.locations[0].file)}:${p.locations[0].line}` : undefined })),
       relation: e.kind,
+      ...(e.status !== "structural" && e.proof.some((p) => isAssumedProof(p.kind)) ? { assumed: true } : {}),
     });
   }
   return {

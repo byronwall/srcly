@@ -97,6 +97,22 @@ describe("anchor overview and details", () => {
     expect(o.stops[0].rows[0]).toMatchObject({ id: "f1", line: 9 });
   });
 
+  it("lists the steps an assumed trace takes on trust, once per call, and the canvas marks those edges", () => {
+    expect(anchorOverview(anchorGraph).assumed).toEqual([]);
+    const [first, second, ...rest] = anchorGraph.edges;
+    const location = { file: "src/routes/records.tsx", line: 12, column: 3, span: { startLine: 12, startColumn: 3, endLine: 12, endColumn: 20 } };
+    const assumedProof = { kind: "external-call" as const, detail: "Assumed: name.trim has no source to read, so its value is taken to derive from this receiver.", locations: [location], status: "partial" as const };
+    const edges = [{ ...first, status: "partial" as const, proof: [...first.proof, assumedProof] }, { ...second, status: "partial" as const, proof: [assumedProof] }, ...rest];
+    const assumed = { ...anchorGraph, outcome: "assumed" as const, edges };
+    const o = anchorOverview(assumed);
+    expect(o.outcome).toBe("assumed");
+    expect(o.assumed).toEqual([{ id: first.target, label: "name.trim", detail: assumedProof.detail, file: location.file, line: 12 }]);
+    const view = anchorGraphToViewModel(assumed).vm.edges;
+    expect(view.find((e) => e.id === first.id)?.assumed).toBe(true);
+    expect(view.filter((e) => e.assumed).every((e) => e.id === first.id || e.id === second.id)).toBe(true);
+    expect(anchorGraphToViewModel(anchorGraph).vm.edges.some((e) => e.assumed)).toBe(false);
+  });
+
   it("details an anchor graph's box with the engine's kind words and its flows", () => {
     const anchor = anchorGraph.nodes.find((n) => n.kind === "anchor")!;
     const d = nodeDetails(am, anchor.id)!;

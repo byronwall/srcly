@@ -54,6 +54,8 @@
   --plc-warning-subtle: #fffbeb;
   --plc-warning-border: #fde68a;
   --plc-error: #b91c1c;
+  /* A data-flow trace that landed only by assuming what library code does: between proven and stopped. */
+  --plc-assumed: #0e7490;
   --plc-error-subtle: #fef2f2;
   --plc-error-border: #fecaca;
   --plc-chart-1: #2563eb;

@@ -4,8 +4,9 @@
     "client": {
       "traces": 89,
       "outcomes": {
+        "assumed": 12,
         "ok": 13,
-        "partial": 75,
+        "partial": 63,
         "unsupported": 1
       },
       "stops": {
@@ -13,7 +14,7 @@
         "boundary: framework-runtime": 11,
         "boundary: network": 1,
         "boundary: unproven-handoff": 10,
-        "frontier: budget-exhausted": 105,
+        "frontier: budget-exhausted": 99,
         "frontier: disconnected": 122,
         "frontier: external-code": 40,
         "frontier: unbound-read": 24,
@@ -35,14 +36,28 @@
         "src/viz/deps/geometry.ts#countOverlaps",
         "src/viz/deps/layout.ts#layoutView"
       ],
+      "assumed": [
+        "src/compare/bits.tsx#breakablePath",
+        "src/compare/metrics.ts#formatDelta",
+        "src/components/CodeModal/InspectMenu.tsx#InspectMenu",
+        "src/dataflow/availability.ts#watchProgress",
+        "src/dataflow/effectsModel.ts#ACTIVATION_WORDS",
+        "src/navigation/flowPlaces.ts#flowPlaceLabel",
+        "src/navigation/viewState.ts#registerViewState",
+        "src/utils/metricsStore.tsx#metricLabel",
+        "src/utils/scanProgress.ts#describeResult",
+        "src/viz/deps/boxText.ts#MIN_INK_SHARE",
+        "src/viz/deps/flow/marks.ts#markVar",
+        "src/viz/deps/goto.ts#highlight"
+      ],
       "errors": []
     },
     "value-flow-basics": {
-      "traces": 54,
+      "traces": 55,
       "outcomes": {
         "ok": 12,
         "partial": 41,
-        "unsupported": 1
+        "unsupported": 2
       },
       "stops": {
         "frontier: budget-exhausted": 1,
@@ -64,6 +79,7 @@
         "src/nested-helpers.tsx#RailHost",
         "src/prop-bindings.tsx#Page"
       ],
+      "assumed": [],
       "errors": []
     },
     "server": {
@@ -97,6 +113,7 @@
         "app/services/scan_workers.py#cancel_all_scans",
         "app/services/typescript/components.py#_is_inline_handler"
       ],
+      "assumed": [],
       "errors": []
     }
   }

@@ -2,9 +2,9 @@ import { createResource } from "solid-js";
 
 // A component whose two prop reads land differently: `title` comes from a
 // resource (an origin), `count` from a call into external code, where its
-// value begins. A declaration anchor on Pair reads `partial`, never `ok`:
+// value begins. A declaration anchor on Pair reads `assumed`, never `ok`:
 // `count`'s value is only assumed to be what `Math.random` returns.
-function Pair(props: { title: string; count: number }) { // @trace pair both symbol Pair @outcome pair partial @edge pair prop-read
+function Pair(props: { title: string; count: number }) { // @trace pair both symbol Pair @outcome pair assumed @edge pair prop-read
   return (
     <p>
       {/* @visits pair field-read "title" */}

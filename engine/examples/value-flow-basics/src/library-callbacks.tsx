@@ -5,7 +5,7 @@
 // nothing from `props.items`. To a first-party function (`applyTo`) the
 // callback is called from inside that body, where pairing works as before.
 export function Ranked(props: { items: { n: number }[] }) {
-  const total = props.items.reduce((sum, item) => sum + item.n, 0); // @trace reduce forward props.items @outcome reduce partial @edge reduce callback-parameter partial external-call @edge reduce return-value partial @visits reduce parameter "item" @never-reaches reduce parameter "sum"
+  const total = props.items.reduce((sum, item) => sum + item.n, 0); // @trace reduce forward props.items @outcome reduce assumed @edge reduce callback-parameter partial external-call @edge reduce return-value partial @visits reduce parameter "item" @never-reaches reduce parameter "sum"
   return <p>{total}</p>; // @reaches reduce * "total"
 }
 

@@ -33,6 +33,8 @@ export function labelFor(outcome: Outcome, reason?: NaReason | null, message?: s
   switch (outcome) {
     case "ok":
       return null;
+    case "assumed":
+      return ASSUMED_LABEL;
     case "partial":
       return "Partial: some paths stop at frontiers";
     case "not-analyzed":
@@ -46,6 +48,32 @@ export function labelFor(outcome: Outcome, reason?: NaReason | null, message?: s
     case "budget":
       return message ? `Stopped at budget: ${message}` : "Stopped at budget";
   }
+}
+
+/** An `assumed` trace landed with no stop, but some step takes what code with no source does on trust. */
+export const ASSUMED_LABEL = "Landed · assumes library code";
+
+/**
+ * Text color per outcome, from strongest to weakest: proven (`ok`), landed
+ * by assumption (`assumed`), stopped somewhere (`partial`), and the rest.
+ */
+export function outcomeClass(outcome: Outcome): string {
+  if (outcome === "ok") return "text-[var(--plc-success)]";
+  if (outcome === "assumed") return "text-[var(--plc-assumed)]";
+  if (outcome === "partial" || outcome === "budget" || outcome === "stale") return "text-[var(--plc-warning)]";
+  if (outcome === "unsupported") return "text-[var(--plc-error)]";
+  return "text-[var(--plc-on-muted)]";
+}
+
+/**
+ * Proof kinds the engine takes on trust, with nothing to read (its `assumed`
+ * proof strength, engine/src/srcly/kinds.ts): an edge carrying one is an
+ * assumed step.
+ */
+const ASSUMED_PROOF_KINDS = new Set(["external-call", "partial-classification"]);
+
+export function isAssumedProof(kind: string): boolean {
+  return ASSUMED_PROOF_KINDS.has(kind);
 }
 
 export type EvidenceStatus = "proven" | "partial" | "unsupported";

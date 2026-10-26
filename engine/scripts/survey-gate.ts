@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 // the committed `survey-baseline.json`. Always prints what moved.
 //
 // Fails when the run differs from the baseline in any way it records (trace
-// counts, outcomes up or down, stops by kind, the ok and error trace lists),
+// counts, outcomes up or down, stops by kind, the ok, assumed and error trace lists),
 // so each PR commits exactly the moves it causes, and when a trace runs past
 // its time limit. The survey is deterministic: every local and CI run so far
 // matched, so there is no tolerance.
@@ -36,7 +36,7 @@ const CORPUS: Corpus[] = [
 
 type Trace = { file: string; name: string; outcome: string; ms: number; code?: string; message?: string; stops?: { kind: string; reason: string | null }[] };
 type Survey = { tier1: { ok: boolean; code?: string; message?: string }; traces?: Trace[] };
-type RepoSummary = { traces: number; outcomes: Record<string, number>; stops: Record<string, number>; ok: string[]; errors: string[] };
+type RepoSummary = { traces: number; outcomes: Record<string, number>; stops: Record<string, number>; ok: string[]; assumed: string[]; errors: string[] };
 type Baseline = { note: string; repos: Record<string, RepoSummary> };
 
 const update = process.argv.includes("--update");
@@ -80,7 +80,7 @@ const UPDATE = "run `pnpm survey-gate --update` and commit the baseline";
 if (before) {
   for (const name of [...new Set([...Object.keys(before.repos), ...Object.keys(now)])]) {
     const [a, b] = [before.repos[name], now[name]];
-    const moved = !a || !b ? ["the repo"] : (["traces", "outcomes", "stops", "ok", "errors"] as const).filter((field) => JSON.stringify(a[field]) !== JSON.stringify(b[field]));
+    const moved = !a || !b ? ["the repo"] : (["traces", "outcomes", "stops", "ok", "assumed", "errors"] as const).filter((field) => JSON.stringify(a[field]) !== JSON.stringify(b[field]));
     if (moved.length) regressions.push(`${name}: ${moved.join(", ")} differ from the baseline: ${UPDATE}`);
   }
 } else {
@@ -115,24 +115,25 @@ function summarize(traces: Trace[]): RepoSummary {
     outcomes: sorted(outcomes),
     stops: sorted(stops),
     ok: traces.filter((trace) => trace.outcome === "ok").map(id).sort(),
+    assumed: traces.filter((trace) => trace.outcome === "assumed").map(id).sort(),
     errors: traces.filter((trace) => trace.outcome === "error").map((trace) => `${id(trace)}: ${trace.code}`).sort(),
   };
 }
 
-/** Before/after tables: outcomes for every repo, stops and ok traces only where they moved. */
+/** Before/after tables: outcomes for every repo, stops and ok and assumed traces only where they moved. */
 function diff(old: Record<string, RepoSummary>, next: Record<string, RepoSummary>): string[] {
-  const lines = ["| Repo | Traces | ok | partial | error | other |", "| --- | ---: | ---: | ---: | ---: | ---: |"];
+  const lines = ["| Repo | Traces | ok | assumed | partial | error | other |", "| --- | ---: | ---: | ---: | ---: | ---: | ---: |"];
   const names = [...new Set([...Object.keys(old), ...Object.keys(next)])];
   const cell = (a: number | undefined, b: number | undefined) => (a === b ? `${b ?? 0}` : `${a ?? 0} → ${b ?? 0}`);
-  const other = (repo?: RepoSummary) => (repo ? repo.traces - (repo.outcomes.ok ?? 0) - (repo.outcomes.partial ?? 0) - (repo.outcomes.error ?? 0) : undefined);
+  const other = (repo?: RepoSummary) => (repo ? repo.traces - (repo.outcomes.ok ?? 0) - (repo.outcomes.assumed ?? 0) - (repo.outcomes.partial ?? 0) - (repo.outcomes.error ?? 0) : undefined);
   const total = (pick: (repo: RepoSummary) => number | undefined, repos: Record<string, RepoSummary>) => sum(Object.values(repos).map((repo) => pick(repo) ?? 0));
   for (const name of names) {
     const a = old[name];
     const b = next[name];
-    lines.push(`| ${name} | ${cell(a?.traces, b?.traces)} | ${cell(a?.outcomes.ok, b?.outcomes.ok)} | ${cell(a?.outcomes.partial, b?.outcomes.partial)} | ${cell(a?.outcomes.error, b?.outcomes.error)} | ${cell(other(a), other(b))} |`);
+    lines.push(`| ${name} | ${cell(a?.traces, b?.traces)} | ${cell(a?.outcomes.ok, b?.outcomes.ok)} | ${cell(a?.outcomes.assumed, b?.outcomes.assumed)} | ${cell(a?.outcomes.partial, b?.outcomes.partial)} | ${cell(a?.outcomes.error, b?.outcomes.error)} | ${cell(other(a), other(b))} |`);
   }
   const pickOk = (repo: RepoSummary) => repo.outcomes.ok;
-  lines.push(`| **all** | ${cell(total((r) => r.traces, old), total((r) => r.traces, next))} | ${cell(total(pickOk, old), total(pickOk, next))} | ${cell(total((r) => r.outcomes.partial, old), total((r) => r.outcomes.partial, next))} | ${cell(total((r) => r.outcomes.error, old), total((r) => r.outcomes.error, next))} | ${cell(total(other, old), total(other, next))} |`);
+  lines.push(`| **all** | ${cell(total((r) => r.traces, old), total((r) => r.traces, next))} | ${cell(total(pickOk, old), total(pickOk, next))} | ${cell(total((r) => r.outcomes.assumed, old), total((r) => r.outcomes.assumed, next))} | ${cell(total((r) => r.outcomes.partial, old), total((r) => r.outcomes.partial, next))} | ${cell(total((r) => r.outcomes.error, old), total((r) => r.outcomes.error, next))} | ${cell(total(other, old), total(other, next))} |`);
 
   const moved: string[] = [];
   for (const name of names) {
@@ -148,6 +149,9 @@ function diff(old: Record<string, RepoSummary>, next: Record<string, RepoSummary
     const b = new Set(next[name]?.ok ?? []);
     for (const trace of [...a].filter((t) => !b.has(t))) traces.push(`- ${name}: ${trace} is no longer ok`);
     for (const trace of [...b].filter((t) => !a.has(t))) traces.push(`- ${name}: ${trace} is now ok`);
+    const [assumedBefore, assumedNow] = [new Set(old[name]?.assumed ?? []), new Set(next[name]?.assumed ?? [])];
+    for (const trace of [...assumedBefore].filter((t) => !assumedNow.has(t))) traces.push(`- ${name}: ${trace} is no longer assumed`);
+    for (const trace of [...assumedNow].filter((t) => !assumedBefore.has(t))) traces.push(`- ${name}: ${trace} is now assumed`);
     const [errorsBefore, errorsNow] = [new Set(old[name]?.errors ?? []), new Set(next[name]?.errors ?? [])];
     for (const trace of [...errorsNow].filter((t) => !errorsBefore.has(t))) traces.push(`- ${name}: ${trace} now errors`);
     for (const trace of [...errorsBefore].filter((t) => !errorsNow.has(t))) traces.push(`- ${name}: ${trace} no longer errors`);

@@ -2,6 +2,7 @@
 // as plain data from the engine's route graph and the drawn view model. No
 // UI here, so the rail's wording is testable against the fixture.
 import type { AnchorGraphResult, RouteGraphResult } from "../../../dataflow/contract.generated";
+import { isAssumedProof } from "../../../dataflow/outcome";
 import type { FlowBox, FlowViewModel } from "./adapter";
 import { humanizeDetail, MARK_OF_ANCHOR_KIND, MARK_OF_KIND, STOP_REASONS, stopWord, type FlowMark } from "./marks";
 
@@ -16,6 +17,8 @@ export interface NeighborRow {
   status?: "proven" | "partial" | "unsupported" | "structural";
   /** A field edge's path. */
   path?: string;
+  /** The step is assumed: library code with no source to read. */
+  assumed?: boolean;
 }
 
 export interface NodeDetails {
@@ -72,6 +75,8 @@ export interface AnchorOverview {
   coverage: AnchorGraphResult["coverage"];
   /** Where the trace stops, grouped by why, the most common reason first. */
   stops: { reason: string; word: string; hint: string; rows: { id: string; label: string; file: string; line: number }[] }[];
+  /** The steps the trace takes on trust: library code with no source, one row per call. Click selects the call's box. */
+  assumed: { id: string; label: string; detail: string; file: string; line: number }[];
 }
 
 /** What the rail says about an anchor graph when nothing is selected. */
@@ -92,7 +97,28 @@ export function anchorOverview(graph: AnchorGraphResult): AnchorOverview {
     terminals: graph.terminals.map((t) => ({ id: t.nodeId, label: t.label, roles: humanizeDetail(t.roles.join(" · ")) ?? "", status: t.status })),
     coverage: graph.coverage,
     stops: stopsOf(graph),
+    assumed: assumedOf(graph),
   };
+}
+
+/** Each assumed step once per call: the callee its proof names, at the call. */
+function assumedOf(graph: AnchorGraphResult): AnchorOverview["assumed"] {
+  const nodes = new Map(graph.nodes.map((n) => [n.id, n]));
+  const rows = new Map<string, AnchorOverview["assumed"][number]>();
+  for (const e of graph.edges) {
+    if (e.status === "structural") continue;
+    for (const p of e.proof) {
+      if (!isAssumedProof(p.kind)) continue;
+      const target = nodes.get(e.target);
+      const at = p.locations[0];
+      const label = /^Assumed: (.+?) has no source/.exec(p.detail)?.[1] ?? target?.label ?? e.target;
+      const file = at?.file ?? target?.file ?? "";
+      const line = at?.line ?? target?.line ?? 0;
+      const key = `${label}|${file}:${line}`;
+      if (!rows.has(key)) rows.set(key, { id: e.target, label, detail: p.detail, file, line });
+    }
+  }
+  return [...rows.values()].sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 }
 
 function stopsOf(graph: AnchorGraphResult): AnchorOverview["stops"] {
@@ -141,6 +167,7 @@ export function nodeDetails(m: FlowViewModel, id: string): NodeDetails | null {
     kind: e.style === "structural" ? "structural" : e.style === "field" ? "field" : e.style === "handoff" ? "handoff" : dir === "in" ? "rendered by" : "renders",
     ...(e.status ? { status: e.status } : {}),
     ...(e.label ? { path: e.label } : {}),
+    ...(e.assumed ? { assumed: true } : {}),
   });
   const flowsIn: NeighborRow[] = [];
   const flowsOut: NeighborRow[] = [];

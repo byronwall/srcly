@@ -15,7 +15,7 @@ import { chooseTypescript } from "../../src/srcly/typescript-choice";
 //
 //   @trace <id> <forward|backward|both> <text>   anchor at `text` on this line
 //   @trace <id> <direction> symbol <name>        anchor at the symbol `name` declared on this line
-//   @outcome <ids> <ok|partial|unsupported>
+//   @outcome <ids> <ok|assumed|partial|unsupported>
 //   @reaches <ids> [elementKind]                 a terminal (or origin) on this line
 //   @stop <ids> <reason> [elementKind]           a frontier or boundary on this line
 //   @visits <ids> [elementKind] [status]         some box on this line

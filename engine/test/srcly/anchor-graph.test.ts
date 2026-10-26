@@ -74,8 +74,8 @@ describe("anchorGraph on value-flow-basics", () => {
 
   it("enters a helper through its binding, through the library method its body calls, and back out at its own call's slot", () => {
     const graph = anchorGraphOp(session, { ...find(basics, "src/two-call-helper.tsx", "props.a", "shout(props.a)"), direction: "forward" });
-    // It lands with no stop, but only by assuming what `toUpperCase` does: partial, never ok.
-    expect(graph.outcome).toBe("partial");
+    // It lands with no stop, but only by assuming what `toUpperCase` does: assumed, never ok.
+    expect(graph.outcome).toBe("assumed");
     expect(boxes(graph, "boundary")).toEqual([]);
     expect(boxes(graph, "frontier")).toEqual([]);
     // `value.toUpperCase()` has no body to enter: the call consumes its receiver, an assumed edge.
