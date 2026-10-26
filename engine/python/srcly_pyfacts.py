@@ -11,7 +11,7 @@ prints one JSON document on stdout:
 - ``expressions``: per file, the expressions a selection may name, with their
   checked types (``ty``) and where each type came from (``ts``: ``mypy`` or
   ``annotation``).
-- ``scopes``: per file, every function, for the frames the anchor graph draws.
+- ``scopes``: per file, every function and class, for the frames the anchor graph draws.
 - ``callSites``: per function, its first-party call sites and whether it also
   escapes as a value (R7: a cross-call is followed only with one call site).
 - ``routes``: FastAPI and Flask handlers.
@@ -215,6 +215,84 @@ def clip(text: str, limit: int = 120) -> str:
     return one if len(one) <= limit else one[: limit - 1] + "…"
 
 
+def parse_source(text: str, filename: str) -> tuple[ast.Module, str]:
+    """
+    Parse one file; when it uses syntax newer than this interpreter, rewrite that
+    syntax to an older equivalent and parse again. Returns the tree and the text
+    it was parsed from (mypy checks the same text). Raises the original
+    ``SyntaxError`` when the rewrite does not help.
+    """
+    try:
+        return ast.parse(text, filename=filename), text
+    except SyntaxError as error:
+        rewritten = parenthesize_except_groups(text)
+        if rewritten is None:
+            raise
+        try:
+            return ast.parse(rewritten, filename=filename), rewritten
+        except SyntaxError:
+            raise error from None
+
+
+def parenthesize_except_groups(text: str) -> str | None:
+    """
+    Python 3.14 accepts ``except A, B:`` (PEP 758); older parsers need
+    ``except (A, B):``. The space after ``except`` becomes ``(`` and ``)`` goes
+    before the colon, so every expression on the line keeps its columns.
+    None when nothing needed rewriting.
+    """
+    import io  # noqa: PLC0415
+    import tokenize  # noqa: PLC0415
+
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(text).readline))
+    except (tokenize.TokenError, SyntaxError):
+        return None
+    edits: list[tuple[tuple[int, int], tuple[int, int], str]] = []  # (start, end) replaced by text
+    previous: tokenize.TokenInfo | None = None
+    for index, token in enumerate(tokens):
+        if token.type in (tokenize.NL, tokenize.COMMENT):
+            continue
+        at_start = previous is None or previous.type in (tokenize.NEWLINE, tokenize.INDENT, tokenize.DEDENT)
+        previous = token
+        if not (at_start and token.type == tokenize.NAME and token.string == "except"):
+            continue
+        first = index + 1
+        if first < len(tokens) and tokens[first].string == "*":
+            first += 1
+        depth, comma, named, colon = 0, False, False, None
+        for position in range(first, len(tokens)):
+            item = tokens[position]
+            if item.type == tokenize.OP and item.string in "([{":
+                depth += 1
+            elif item.type == tokenize.OP and item.string in ")]}":
+                depth -= 1
+            elif depth == 0 and item.type == tokenize.OP and item.string == ",":
+                comma = True
+            elif depth == 0 and item.type == tokenize.NAME and item.string == "as":
+                named = True
+            elif depth == 0 and item.type == tokenize.OP and item.string == ":":
+                colon = item
+                break
+            elif item.type == tokenize.NEWLINE:
+                break
+        if not comma or named or colon is None or first >= len(tokens):
+            continue
+        before, opening = tokens[first - 1], tokens[first]
+        if opening.start[0] != before.end[0] or opening.start[1] <= before.end[1]:
+            continue
+        # The space just before the first type becomes the opening parenthesis.
+        edits.append(((opening.start[0], opening.start[1] - 1), opening.start, "("))
+        edits.append((colon.start, colon.start, ")"))
+    if not edits:
+        return None
+    lines = text.splitlines(keepends=True)
+    for (row, col), (_, end_col), replacement in sorted(edits, reverse=True):
+        line = lines[row - 1]
+        lines[row - 1] = line[:col] + replacement + line[end_col:]
+    return "".join(lines)
+
+
 def discover(root: Path, source: Path, include_tests: bool = False) -> list[tuple[Path, str]]:
     """
     ``.py`` files under ``source`` with their module names. A module's name is
@@ -308,7 +386,8 @@ def run_mypy(sources: list[Source], types_python: str | None, files_root: Path) 
             continue
         seen.add(source.module)
         by_module[source.module] = source
-        build_sources.append(BuildSource(str(source.path), source.module))
+        # The text the helper parsed, which may have newer syntax rewritten (`parse_source`).
+        build_sources.append(BuildSource(str(source.path), source.module, source.text))
     try:
         result = build.build(build_sources, options)
     except Exception as exc:  # noqa: BLE001  (CompileError on a blocking error)
@@ -425,6 +504,8 @@ class ClassInfo:
     node: ast.ClassDef
     fullname: str
     bases: list[str]
+    qualname: str = ""
+    entry_id: str = ""
     fields: dict[str, ast.AnnAssign] = field(default_factory=dict)
     methods: dict[str, FunctionInfo] = field(default_factory=dict)
     is_model: bool = False
@@ -439,6 +520,7 @@ class Program:
         self.functions: dict[str, FunctionInfo] = {}  # fullname -> info
         self.functions_by_node: dict[int, FunctionInfo] = {}
         self.classes: dict[str, ClassInfo] = {}
+        self.classes_by_node: dict[int, ClassInfo] = {}
         self.imports: dict[str, dict[str, str]] = {}  # module -> local name -> dotted target
         self.module_names: dict[str, dict[str, str]] = {}  # module -> top-level name -> kind
         self.routers: dict[str, dict[str, Any]] = {}  # "module.var" -> {prefix, framework}
@@ -521,14 +603,16 @@ class Program:
                 self.index_defs(source, stmt.body, prefix=f"{qualname}.<locals>.", class_info=None)
             elif isinstance(stmt, ast.ClassDef):
                 fullname = f"{source.module}.{prefix}{stmt.name}"
-                info = ClassInfo(source=source, node=stmt, fullname=fullname, bases=[self.dotted(source, b) or dotted_name(b) for b in stmt.bases])
+                info = ClassInfo(source=source, node=stmt, fullname=fullname, bases=[self.dotted(source, b) or dotted_name(b) for b in stmt.bases],
+                                 qualname=f"{prefix}{stmt.name}", entry_id=element_id("function-entry", source.rel, source.span(stmt)))
                 for item in stmt.body:
                     if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
                         info.fields[item.target.id] = item
                 info.is_model = any(dotted_name(d).split(".")[-1] in ("dataclass", "define", "frozen") for d in stmt.decorator_list)
                 self.classes[fullname] = info
+                self.classes_by_node[id(stmt)] = info
                 self.index_defs(source, stmt.body, prefix=f"{prefix}{stmt.name}.", class_info=info)
-            elif isinstance(stmt, (ast.If, ast.Try, ast.With)):
+            else:
                 for block in block_bodies(stmt):
                     self.index_defs(source, block, prefix, class_info)
 
@@ -605,7 +689,7 @@ class Program:
             "proof": {"kind": proof_kind, "detail": detail, "locations": [source.location(at)], "status": status},
         }
 
-    def record_call(self, callee: FunctionInfo, source: Source, line: int) -> None:
+    def record_call(self, callee: FunctionInfo | ClassInfo, source: Source, line: int) -> None:
         sites = self.calls.setdefault(callee.entry_id, {"calls": [], "escapes": False, "name": callee.qualname})
         sites["calls"].append(f"{source.rel}:{line}")
 
@@ -773,12 +857,17 @@ def own_returns(fn: ast.AST) -> list[ast.Return]:
 
 
 def block_bodies(stmt: ast.stmt) -> Iterable[list[ast.stmt]]:
+    """The statement blocks of a compound statement that does not open a scope: `if`, `for`, `while`, `with`, `try`, `match`."""
+    if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return
     for name in ("body", "orelse", "finalbody"):
         block = getattr(stmt, name, None)
-        if block:
+        if isinstance(block, list) and block and isinstance(block[0], ast.stmt):
             yield block
     for handler in getattr(stmt, "handlers", []) or []:
         yield handler.body
+    for case in getattr(stmt, "cases", []) or []:
+        yield case.body
 
 
 def element_id(kind: str, rel: str, span: dict[str, int], suffix: str = "") -> str:
@@ -903,8 +992,7 @@ class BodyWalker:
             node, parent, class_info = self.pending.pop(0)
             if isinstance(node, ast.ClassDef):
                 scope = Scope(parent, "class")
-                fullname = class_fullname(self.program, self.source, node)
-                walker = BodyWalker(self.program, self.source, scope, self.function, class_info=self.program.classes.get(fullname))
+                walker = BodyWalker(self.program, self.source, scope, self.function, class_info=self.program.classes_by_node.get(id(node)))
                 walker.walk_body(node.body)
                 walker.close()
                 continue
@@ -974,6 +1062,26 @@ class BodyWalker:
             self.expr(node.body)
             return
         self.walk_body(node.body)
+
+    def class_entry(self, node: ast.ClassDef) -> None:
+        """
+        A class is recorded the way a function is: an entry element over the whole
+        class (the kind the anchor op treats as a declaration), a scope, its name in
+        the expression table, and its name bound in the enclosing scope. Each
+        constructor call relates to it by `definition` (`expr_Call`).
+        """
+        info = self.program.classes_by_node.get(id(node))
+        if info is None:
+            return
+        source = self.source
+        span = self.span(node)
+        name = info.qualname.rsplit(".", 1)[-1]
+        type_text = f"type[{name}]"
+        self.element("function-entry", node, info.qualname, span=span, type_text=type_text, type_source="annotation",
+                     attributes={"qualname": info.qualname, "class": info.fullname})
+        self.program.scopes.setdefault(source.rel, []).append({"s": list(span.values()), "name": info.qualname, "id": info.entry_id, "kind": "class"})
+        self.program.note_expression(source, node, "ClassDef", info.qualname, type_text, "annotation", span=source.name_span(node), n=node.name, d=1, f=[list(span.values())])
+        self.scope.bind(node.name, (node.lineno, node.col_offset), info.entry_id)
 
     def signature(self, info: FunctionInfo) -> str | None:
         node = info.node
@@ -1059,6 +1167,7 @@ class BodyWalker:
             self.pending.append((node, self.scope if self.class_info is None else (self.scope.parent or self.scope), self.class_info))
             return
         if isinstance(node, ast.ClassDef):
+            self.class_entry(node)
             self.pending.append((node, self.scope, None))
             for decorator in node.decorator_list:
                 self.expr(decorator)
@@ -1461,6 +1570,7 @@ class BodyWalker:
             element = self.element("call-result", node, f"{callee_text}(…)", attributes={"callee": function.entry_id, "calleeName": function.qualname},
                                    proof={"kind": proof_kind, "detail": proof_name or f"{callee_text} is {function.fullname}", "locations": [function.source.location(function.source.span(function.node))]})
             self.note(node, "Call", callee=function.entry_id)
+            self.relate(element, function.entry_id, "definition", f"{callee_text} calls {function.qualname}", node.func, proof_kind=proof_kind)
             self.program.record_call(function, source, node.lineno)
             self.bind_arguments(function, receiver, node, positional, keywords)
             for ret in function.returns:
@@ -1477,6 +1587,8 @@ class BodyWalker:
                                    operation="object-pack" if klass.is_model else None,
                                    proof={"kind": proof_kind, "detail": proof_name or f"{callee_text} is {klass.fullname}", "locations": [klass.source.location(klass.source.span(klass.node))]})
             self.note(node, "Call", ty=type_text or name, tsrc=type_source or "annotation")
+            self.relate(element, klass.entry_id, "definition", f"{callee_text} constructs {klass.qualname}", node.func, proof_kind=proof_kind)
+            self.program.record_call(klass, source, node.lineno)
             fields = list(klass.fields)
             init = klass.methods.get("__init__")
             if init is not None and not klass.is_model:
@@ -1530,13 +1642,6 @@ class BodyWalker:
             param = named.get(kw.arg or "")
             if param is not None:
                 self.relate(value, element_id("parameter", source.rel, source.span(param)), "argument-binding", f"{kw.arg}= binds {function.qualname}({param.arg})", kw.value)
-
-
-def class_fullname(program: Program, source: Source, node: ast.ClassDef) -> str:
-    for fullname, info in program.classes.items():
-        if info.node is node:
-            return fullname
-    return f"{source.module}.{node.name}"
 
 
 def assigned_names(stmt: ast.stmt) -> list[ast.Name]:
@@ -1735,11 +1840,13 @@ def main(argv: list[str]) -> int:
         except (OSError, UnicodeDecodeError) as exc:
             gaps.append({"file": rel, "reason": "unsupported-syntax", "message": f"unreadable: {exc}"})
             continue
-        source = Source(path, rel, module, text)
         try:
-            source.tree = ast.parse(text, filename=str(path))
+            tree, text = parse_source(text, str(path))
         except SyntaxError as exc:
+            tree = None
             gaps.append({"file": rel, "reason": "unsupported-syntax", "message": f"syntax error on line {exc.lineno}: {exc.msg}"})
+        source = Source(path, rel, module, text)
+        source.tree = tree
         sources.append(source)
     parsed_ms = int((time.perf_counter() - started) * 1000)
     types_python = args.types_python or find_types_python(root)
