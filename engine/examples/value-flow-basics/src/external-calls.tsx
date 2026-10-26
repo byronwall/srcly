@@ -5,13 +5,14 @@
 // collection method `find` names its result apart from the call; that
 // result is the call's own value, so it reaches `first`.
 export function Roster(props: { tags: string[] }) {
-  const names: string[] = [];
-  names.push(props.tags[0]);
-  const kept: string[] = [];
-  const more = kept.concat(props.tags);
-  const first = props.tags.find((tag) => tag.length > 1);
+  const names: string[] = []; // @edge pushed references partial external-call
+  names.push(props.tags[0]); // @trace pushed forward props.tags[0] @outcome pushed partial
+  const kept: string[] = []; // @never-reaches concat * "kept"
+  const more = kept.concat(props.tags); // @trace concat forward props.tags @edge concat argument partial @no-edge concat !argument partial
+  const first = props.tags.find((tag) => tag.length > 1); // @trace found forward props.tags.find((tag) => tag.length > 1) @outcome found ok @visits found call-result @stop found external-code external-read
   return (
-    <p title={first}>
+    <p title={first}> {/* @reaches found dom-terminal "first" */}
+      {/* @reaches pushed * "names" @reaches concat * "more" @never-reaches concat * "kept" */}
       {names} {kept} {more}
     </p>
   );
@@ -19,7 +20,7 @@ export function Roster(props: { tags: string[] }) {
 
 // `log` is module state this function does not own: the pushed value stops
 // at the library call instead of reaching every reader of `log`.
-const log: string[] = [];
+const log: string[] = []; // @never-reaches logged * "log"
 export function record(entry: string) {
-  log.push(entry);
+  log.push(entry); // @trace logged forward entry @stop logged external-code * "log.push" @never-reaches logged * "log"
 }

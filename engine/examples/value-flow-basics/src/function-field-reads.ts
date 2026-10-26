@@ -2,7 +2,7 @@
 // reads of `input` (`input.name`, `input.tags.length`) come from the object
 // the caller passes, so they land through the parameter. Only a component's
 // props are bound one by one.
-export function describeItem(input: { name: string; tags: string[] }) {
+export function describeItem(input: { name: string; tags: string[] }) { // @trace describe-item backward symbol describeItem @outcome describe-item ok @edge describe-item prop-read
   return `${input.name.trim()} (${input.tags.length})`;
 }
 
