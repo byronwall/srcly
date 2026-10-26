@@ -115,3 +115,8 @@ export function assumedThrough(provider: EvidenceRelationSource, relation: Pick<
   }
   return call.label;
 }
+
+/** Whether the collector classified this call (`performs`: a parse, a selection): its operation is bookkeeping at the call, not where its value goes. */
+export function performs(provider: EvidenceRelationSource, id: string): boolean {
+  return provider.getRelations(id, "forward").some((relation) => relation.kind === "performs" && relation.from === id);
+}
