@@ -18,6 +18,7 @@ import {
   readsThis,
   thisContainer,
   proof,
+  assumedProof,
   discardsValue,
   unwrap,
 } from "./program-evidence-support";
@@ -368,7 +369,9 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (resultId) {
       this.addRelation(resultId, call.id, "references", [this.location(call.node)], proof("ast-node", "The collection method's result is this call's own value.", [this.location(call.node)]), "proven");
     }
-    if (!this.ts.isCallExpression(call.node) || !discardsValue(this.ts, call.node)) return;
+    if (!this.ts.isCallExpression(call.node)) return;
+    this.connectExternalCallbacks(call, call.node);
+    if (!discardsValue(this.ts, call.node)) return;
     // The receiver's root name: `rows` in `rows.push(row)`, `section` in `section.rows.push(row)`.
     let root = unwrap(this.ts, call.node.expression);
     if (!this.ts.isPropertyAccessExpression(root)) return;
@@ -380,7 +383,44 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (!declaration || !this.ts.isVariableDeclaration(declaration) || scope(declaration) !== scope(call.node)) return;
     const bindingId = this.variablesBySymbol.get(this.symbolId(root) ?? "");
     if (!bindingId) return;
-    this.addRelation(call.id, bindingId, "references", [this.location(call.node), this.location(root)], proof("external-call", `Assumed: ${calleeName(this.ts, call.node.expression)} has no source to read and its value is discarded, so its arguments are kept in its receiver.`, [this.location(call.node), this.location(root)]), "partial");
+    this.addRelation(call.id, bindingId, "references", [this.location(call.node), this.location(root)], assumedProof(`Assumed: ${calleeName(this.ts, call.node.expression)} has no source to read and its value is discarded, so its arguments are kept in its receiver.`, [this.location(call.node), this.location(root)]), "partial");
+  }
+
+  /**
+   * A function written as an argument to a call with no source to read
+   * (`rows.find((row) => …)`, `promise.then((value) => …)`, `list.sort((a, b) => …)`)
+   * is called by that call, and by nothing else in the program. Its
+   * parameters receive what the call works on: its receiver's element where
+   * the receiver is indexed or awaited, else the receiver, each parameter
+   * only when the checker says its type accepts that value. Its returns reach
+   * the call's value. Both are assumed, so both are `partial`.
+   */
+  private connectExternalCallbacks(call: CollectorCallInfo, node: TypeScript.CallExpression): void {
+    const callee = calleeName(this.ts, node.expression);
+    const calleeNode = unwrap(this.ts, node.expression);
+    const receiver = this.ts.isPropertyAccessExpression(calleeNode) ? calleeNode.expression : null;
+    const receiverType = receiver ? this.checker.getTypeAtLocation(receiver) : null;
+    const awaited = receiverType ? this.checker.getAwaitedType(receiverType) : undefined;
+    const element = receiverType ? receiverType.getNumberIndexType() ?? (awaited && awaited !== receiverType ? awaited : undefined) ?? receiverType : null;
+    for (const argument of node.arguments) {
+      const fn = unwrap(this.ts, argument);
+      if (!this.ts.isArrowFunction(fn) && !this.ts.isFunctionExpression(fn)) continue;
+      const info = this.functionsByNode.get(nodeKey(this.root, fn));
+      if (!info) continue;
+      const where = [this.location(fn)];
+      if (receiver && element) {
+        const receiverId = this.expression(receiver, call.ownerId);
+        for (const parameter of fn.parameters) {
+          const binding = firstBindingIdentifier(this.ts, parameter.name);
+          const parameterId = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
+          if (!parameterId || !this.checker.isTypeAssignableTo(element, this.checker.getTypeAtLocation(parameter))) continue;
+          this.addRelation(receiverId, parameterId, "callback-parameter", [this.location(receiver), this.location(parameter)], assumedProof(`Assumed: ${callee} has no source to read, so it is taken to call this function with ${receiver.getText()}${element === receiverType ? "" : "'s elements"}.`, [this.location(receiver), this.location(parameter)]), "partial");
+        }
+      }
+      for (const returnId of this.returnsByFunction.get(info.id) ?? []) {
+        this.addRelation(returnId, call.id, "return-value", where, assumedProof(`Assumed: ${callee} has no source to read, so its value is taken to derive from what this function returns.`, where), "partial");
+      }
+    }
   }
 
   protected processCallBoundary(

@@ -53,6 +53,18 @@ export function createCallSiteIndex(tier1: TsTier1) {
     return result;
   };
 
+  /** Whether a call's callee has a body in the program's own source to walk into. */
+  const hasBody = (call: TypeScript.CallExpression): boolean => {
+    const target = ts.isPropertyAccessExpression(call.expression) ? call.expression.name : call.expression;
+    const symbol = resolve(checker.getSymbolAtLocation(target));
+    return (symbol?.declarations ?? []).some((declaration) => {
+      const file = declaration.getSourceFile();
+      const own = !file.isDeclarationFile && !path.relative(root, file.fileName).startsWith("..") && !file.fileName.includes(`${path.sep}node_modules${path.sep}`);
+      const body = ts.isFunctionLike(declaration) || (ts.isVariableDeclaration(declaration) && !!declaration.initializer && ts.isFunctionLike(declaration.initializer));
+      return own && body;
+    });
+  };
+
   /** The named function a declaration node belongs to (`function f`, `const f = () => …`). */
   const symbolOfFunction = (fn: TypeScript.Node): TypeScript.Symbol | undefined => {
     if (ts.isFunctionDeclaration(fn) && fn.name) return checker.getSymbolAtLocation(fn.name);
@@ -74,6 +86,13 @@ export function createCallSiteIndex(tier1: TsTier1) {
     forFunctionOf(node: TypeScript.Node): CallSites | null {
       let fn: TypeScript.Node | undefined = node;
       while (fn && !ts.isFunctionLike(fn)) fn = fn.parent;
+      // A function written as an argument to a call with no source to read is called by that call alone.
+      const call = fn?.parent;
+      if (fn && call && ts.isCallExpression(call) && call.arguments.some((argument) => argument === fn) && !hasBody(call)) {
+        const file = call.getSourceFile();
+        const point = file.getLineAndCharacterOfPosition(call.getStart(file));
+        return { calls: [`${path.relative(root, file.fileName).split(path.sep).join("/")}:${point.line + 1}`], escapes: false };
+      }
       const symbol = fn ? symbolOfFunction(fn) : undefined;
       return symbol ? sitesOf(symbol) : null;
     },

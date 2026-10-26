@@ -494,6 +494,11 @@ export function inside(root: string, file: string) {
   });
 }
 
+/** Proof for a hand-off through code with no source to read: assumed, never proven. */
+export function assumedProof(detail: string, locations: ProgramEvidenceLocation[]): ProgramProof {
+  return { kind: "external-call", detail, locations };
+}
+
 export function proof(kind: ProgramProofKind, detail: string, locations: ProgramEvidenceLocation[]): ProgramProof {
   return { kind, detail, locations };
 }
