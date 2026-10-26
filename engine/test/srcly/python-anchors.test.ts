@@ -13,6 +13,15 @@ const python = pythonForTests();
 
 const boxes = (graph: AnchorGraphResult, kind?: AnchorNode["kind"]) => graph.nodes.filter((node) => node.kind !== "scope" && node.kind !== "anchor" && (!kind || node.kind === kind));
 
+/** The span of `text` on the first line of `file` that contains `marker`. */
+function at(file: string, text: string, marker: string) {
+  const lines = fs.readFileSync(path.join(example, file), "utf8").split("\n");
+  const index = lines.findIndex((line) => line.includes(marker));
+  if (index < 0) throw new Error(`${marker} is not in ${file}`);
+  const column = lines[index].indexOf(text) + 1;
+  return { file, text, span: { startLine: index + 1, startColumn: column, endLine: index + 1, endColumn: column + text.length } };
+}
+
 /** Every top-level and nested `def` / `class` line, as the import graph and the survey name them. */
 function definitions(file: string) {
   return fs.readFileSync(path.join(example, file), "utf8").split("\n").flatMap((text, index) => {
@@ -26,7 +35,7 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
   const anchor = (file: string, name: string, line: number) => anchorGraphOp(session, { file, name, line, direction: "both" });
 
   it("anchors every def and class by name, whatever its shape", () => {
-    const all = ["app/deps.py", "app/models.py", "app/service.py"].flatMap(definitions);
+    const all = ["app/deps.py", "app/models.py", "app/service.py", "app/identity.py"].flatMap(definitions);
     expect(all.map((item) => item.name)).toEqual(expect.arrayContaining(["get_ledger", "parse_count", "load_count", "made_in_loop", "Order", "Ledger", "__init__", "Unused"]));
     for (const item of all) {
       const graph = anchor(item.file, item.name, item.line);
@@ -80,6 +89,42 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     // `load_count` is its one caller.
     expect(boxes(parse).filter((node) => node.note === "called here").map((node) => `${node.file}:${node.line}`)).toEqual(["app/deps.py:21"]);
     expect(anchor("app/deps.py", "get_ledger", 7).anchor).toMatchObject({ kind: "FunctionDef", text: "get_ledger" });
+  });
+
+  it("keeps two calls of one helper apart: each argument reaches its own call's print (T13)", () => {
+    const first = anchorGraphOp(session, { ...at("app/identity.py", "first", "def shout_both"), direction: "forward" });
+    expect(first.outcome).toBe("ok");
+    expect(boxes(first, "terminal").map((node) => node.line)).toEqual([14]);
+    expect(boxes(first, "boundary")).toEqual([]);
+    expect(first.nodes.some((node) => node.line === 15 && node.kind !== "scope")).toBe(false);
+    const second = anchorGraphOp(session, { ...at("app/identity.py", "second", "def shout_both"), direction: "forward" });
+    expect(boxes(second, "terminal").map((node) => node.line)).toEqual([15]);
+    expect(second.nodes.some((node) => node.line === 14 && node.kind !== "scope")).toBe(false);
+  });
+
+  it("records a call's arguments only where the callee returns a value to it", () => {
+    const facts = (session.tier1() as PythonTier1).facts;
+    const args = facts.relations.filter((relation) => relation.k === "argument").map((relation) => `${facts.elements[relation.a].l}@${facts.elements[relation.a].s[0]} → ${facts.elements[relation.b].l}`);
+    expect(args).toEqual(expect.arrayContaining(["first@14 → ident(…)", "second@15 → ident(…)", "first@19 → pick(…)", "second@19 → pick(…)"]));
+    // `Ledger.__init__` returns nothing, so its constructor's argument binds `owner` and is no argument of a result.
+    expect(args.filter((item) => item.includes("Ledger"))).toEqual([]);
+  });
+
+  it("never lets an argument the callee does not return reach that call's result (T13)", () => {
+    // `first` is pick's `a` at line 19, which pick never returns, and its `b` at line 20, which it does.
+    const graph = anchorGraphOp(session, { ...at("app/identity.py", "first", "def pick_twice"), direction: "forward" });
+    expect(boxes(graph, "terminal").map((node) => node.line)).toEqual([20]);
+    expect(boxes(graph, "boundary")).toEqual([]);
+    expect(graph.nodes.some((node) => node.line === 19 && node.kind !== "scope")).toBe(false);
+  });
+
+  it("still stops at a boundary when the walk starts inside the helper and leaves through its return (R7)", () => {
+    const graph = anchorGraphOp(session, { ...at("app/identity.py", "value", "return value"), direction: "forward" });
+    expect(graph.outcome).toBe("partial");
+    const boundary = boxes(graph, "boundary");
+    expect(boundary.map((node) => node.line).sort()).toEqual([14, 15]);
+    expect(boundary.every((node) => node.reason === "unproven-handoff" && /ident has 2 call sites/.test(node.note ?? ""))).toBe(true);
+    expect(graph.counts.terminals).toBe(0);
   });
 
   it("names a file that did not parse, and a name that is not on its line", () => {
