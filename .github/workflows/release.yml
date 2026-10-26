@@ -41,6 +41,9 @@ jobs:
       - name: Install client dependencies
         working-directory: client
         run: pnpm install --frozen-lockfile
+      - name: Typecheck client
+        working-directory: client
+        run: pnpm typecheck
       - name: Test client
         working-directory: client
         run: pnpm test
@@ -50,12 +53,18 @@ jobs:
       - name: Typecheck engine
         working-directory: engine
         run: pnpm typecheck
+      - name: Lint engine
+        working-directory: engine
+        run: pnpm lint
       - name: Install server dependencies (the engine's Python tests use its mypy)
         working-directory: server
         run: uv sync --locked
       - name: Test engine
         working-directory: engine
         run: pnpm test
+      - name: Lint server
+        working-directory: server
+        run: uv run --locked ruff check
       - name: Test server
         working-directory: server
         run: uv run --locked pytest

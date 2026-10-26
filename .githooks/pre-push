@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Run the checks for the areas this branch changed (scripts/check.sh --changed).
+# Skip once with `git push --no-verify`.
+exec "$(git rev-parse --show-toplevel)/scripts/check.sh" --changed

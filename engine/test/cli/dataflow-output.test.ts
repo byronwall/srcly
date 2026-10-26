@@ -12,7 +12,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "../..");
 const cli = resolve(repoRoot, "bin", "tsx-dataflow.ts");
 
-describe("tsx-dataflow CLI output", () => {
+// Each test starts the CLI in a fresh Node process that builds its own Program:
+// about 2s alone, past vitest's 5s default while the rest of the suite runs.
+describe("tsx-dataflow CLI output", { timeout: 60_000 }, () => {
   it("writes one markdown file per current report view for --view all --out", async () => {
     const { root, reportsDir } = await createProject("markdown");
 
