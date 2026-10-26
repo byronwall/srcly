@@ -212,7 +212,8 @@ class AnchorGraphBuilder {
     const assumed = this.edges.some((edge) => edge.proof.some((item) => item?.kind === "external-call"));
     const outcome = stopped ? "partial" : landed && !assumed ? "ok" : landed || !coverage.budget.exhausted ? "partial" : "budget";
     // Every partial names its stop: where a run that did not land ends in evidence that cannot call it a dead end.
-    if (outcome === "partial" && !stopped) {
+    // A declaration whose every run landed, partial only because a step assumes what library code does, has no stop to name: its assumed edges say so.
+    if (outcome === "partial" && !stopped && !(isDeclaration && landed && assumed)) {
       const unlanded = runs.filter((run) => !run.endsHere && this.runLanded(run, gapsBySeed.get(run.seedId) ?? 0, naturalBySeed.get(run.seedId) ?? 0) !== true);
       for (const run of unlanded) for (const end of this.quiet.get(run.seedId) ?? []) this.untraced(end.gap, end.element, end.side);
       // Paths that only loop back, or end where nothing names an end: the run's own start is where the trace stops.
@@ -242,16 +243,16 @@ class AnchorGraphBuilder {
     const seedNode = this.nodes.get(run.seedId);
     if (run.side === "down" && seedNode?.elementKind && TERMINAL_KINDS.has(seedNode.elementKind)) return true;
     if (run.side === "up" && naturalStarts > 0) return true;
-    const lands = (id: string) => {
-      const node = this.nodes.get(id);
-      return node?.kind === want || (run.side === "up" && node?.elementKind === "literal");
-    };
     const next = new Map<string, string[]>();
     for (const edge of this.edges) {
       if (edge.status === "structural" || DECLARATION_LINKS.has(edge.kind)) continue;
       const [from, to] = run.side === "down" ? [edge.source, edge.target] : [edge.target, edge.source];
       (next.get(from) ?? next.set(from, []).get(from)!).push(to);
     }
+    // A prop read's own path (its binding, not the whole props object) lands where a value naturally begins: a global or external import, or a value code outside the program makes (R16).
+    const element = (id: string) => (run.propRead && !next.has(id) ? this.tier1.provider().facts.getElement(id) : undefined);
+    const begins = (id: string, found = element(id)) => !!found && (isNaturalStart(this.tier1, found) || !!externalCallee(this.tier1, found));
+    const lands = (id: string) => this.nodes.get(id)?.kind === want || (run.side === "up" && (this.nodes.get(id)?.elementKind === "literal" || begins(id)));
     const seen = new Set<string>([run.seedId]);
     const queue = [run.seedId];
     let reached = 0;

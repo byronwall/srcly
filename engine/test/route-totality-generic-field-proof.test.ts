@@ -35,7 +35,8 @@ describe("generic route field proof fixture", () => {
     const source = inventory.sources.find((item) => item.routeKeys.includes(route?.key ?? ""));
     const flow = report.routeData.trajectories.find((item) => item.routeKey === route?.key);
     const detail = route && source && flow ? buildRouteDataDetail(report, route.key, flow.key, source.key) : null;
-    expect(detail?.totality?.counts.origins).toEqual({ emitted: 5, total: 5, totalStatus: "exact" });
+    // `projects.find(...)` is Array.prototype.find, a collection method: not an external read origin.
+    expect(detail?.totality?.counts.origins).toEqual({ emitted: 4, total: 4, totalStatus: "exact" });
     expect(detail?.totality?.fieldLineage.counts.fields).toBe(3);
     expect(detail?.totality?.fieldLineage.frontiers[0]).toMatchObject({ field: null, reason: "partial-proof", missingTransformationKind: "source-carrier" });
   });

@@ -26,7 +26,7 @@ export function Named(props: { start: string; next: string; other: number }) { /
 
 const state = (() => {
   const [doc, setDoc] = createStore({ title: "" });
-  return { doc, setDoc }; // @reaches title return
+  return { doc, setDoc }; // @visits title return
 })();
 
 export function Titled(props: { title: string }) {
