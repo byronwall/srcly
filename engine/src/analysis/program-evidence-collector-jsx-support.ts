@@ -68,6 +68,10 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       if (this.ts.isReturnStatement(node)) {
         this.processReturn(node, nextOwner);
       }
+      // A thrown value is a value the code uses: it ends at the `throw` (`endsInPlace`).
+      if (this.ts.isThrowStatement(node) && node.expression) {
+        this.expression(node.expression, nextOwner);
+      }
       if (this.ts.isArrowFunction(node) && !this.ts.isBlock(node.body)) {
         this.processReturn(node.body, nextOwner);
       }

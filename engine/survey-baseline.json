@@ -38,11 +38,11 @@
       "errors": []
     },
     "value-flow-basics": {
-      "traces": 54,
+      "traces": 57,
       "outcomes": {
-        "ok": 12,
+        "ok": 14,
         "partial": 41,
-        "unsupported": 1
+        "unsupported": 2
       },
       "stops": {
         "frontier: budget-exhausted": 1,
@@ -62,7 +62,9 @@
         "src/many-uses.ts#labels",
         "src/nested-helpers.tsx#Rail",
         "src/nested-helpers.tsx#RailHost",
-        "src/prop-bindings.tsx#Page"
+        "src/prop-bindings.tsx#Page",
+        "src/thrown.ts#errorFor",
+        "src/thrown.ts#parseCount"
       ],
       "errors": []
     },
@@ -77,8 +79,8 @@
         "boundary: external-code": 5,
         "boundary: filesystem": 16,
         "frontier: budget-exhausted": 87,
-        "frontier: external-code": 582,
-        "frontier: untraced": 95
+        "frontier: external-code": 548,
+        "frontier: untraced": 97
       },
       "ok": [
         "app/routers/analysis.py#get_analysis_context",

@@ -26,7 +26,7 @@ import { chooseTypescript } from "../../src/srcly/typescript-choice";
 // `@reaches` and `@stop` are exhaustive: a trace's every terminal and origin must be
 // claimed by a `@reaches`, and its every frontier and boundary by a `@stop`.
 // A trace with neither claims none. A claim about a box takes an optional
-// `"label"` (no spaces) the box must carry. In a pattern, `*` matches anything and
+// `"label"`, last, the box must carry. In a pattern, `*` matches anything and
 // `!x` anything but `x`.
 
 const FIXTURES = fileURLToPath(new URL("../../examples/value-flow-basics", import.meta.url));
@@ -80,9 +80,10 @@ function collectTraces(annotations: Annotation[]): Trace[] {
     for (const id of (item.args[0] ?? "").split(",")) {
       const trace = traces.get(id);
       if (!trace) throw new Error(`${item.file}:${item.line} @${item.keyword} names ${id || "no trace"}, which no @trace declares`);
-      const args = item.args.slice(1);
-      const label = args.find((arg) => /^".*"$/.test(arg));
-      trace.claims.push({ ...item, args: args.filter((arg) => arg !== label), label: label?.slice(1, -1) });
+      // A label is the claim's last word, quoted, and may hold spaces: `"new Error(text)"`.
+      const quoted = /(?:^|\s)"(.*)"$/.exec(item.rest);
+      const args = (quoted ? item.rest.slice(0, quoted.index) : item.rest).trim().split(/\s+/).slice(1);
+      trace.claims.push({ ...item, args, label: quoted?.[1] });
     }
   }
   return [...traces.values()];
