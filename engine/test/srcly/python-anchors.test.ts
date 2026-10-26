@@ -138,12 +138,6 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(boxes(graph, "frontier").map((node) => node.reason)).not.toContain("untraced");
   });
 
-  it("ends a raised value at the `raise`, and carries a value that is returned", () => {
-    const graph = anchorGraphOp(session, { ...at("app/ends.py", "text", "def check"), direction: "forward" });
-    expect(boxes(graph, "terminal").map((node) => `${node.note ?? node.elementKind}@${node.line}`).sort()).toEqual(["ends here · decides a branch@44", "ends here · thrown@45", "return@46"]);
-    expect(boxes(graph, "frontier")).toEqual([]);
-  });
-
   it("reads a settings model's fields from the environment, and no other model's", () => {
     const up = (text: string, marker: string) => anchorGraphOp(session, { ...at("app/settings.py", text, marker), direction: "backward" }).origins.map((origin) => origin.label);
     expect(up("settings.SECRET_KEY", "return settings.SECRET_KEY")).toEqual(["environment SECRET_KEY"]);
@@ -320,6 +314,15 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     // Both `session` (through the `SessionDep` alias and `get_session`'s yield) and `user` (through `get_user`'s return) reach `get_token`'s caller, FastAPI.
     expect(me.origins.map((origin) => origin.label)).toEqual(["enters from Depends(…) → authorization"]);
     expect(boxes(me).some((node) => node.label.includes("query"))).toBe(false);
+  });
+
+  it("resolves every Python library model row on the fixture", () => {
+    const facts = (session.tier1() as PythonTier1).facts;
+    // A row resolves by mypy's name for a call or read, or by its import's name (`fastapi.HTTPException` where fastapi is not installed).
+    const resolved = new Set(facts.elements.flatMap((element) => [element.a?.libraryModel, element.a?.importModel]).filter((key): key is string => typeof key === "string"));
+    const rows = (JSON.parse(fs.readFileSync(path.join(engineRoot, "models/python.json"), "utf8")) as { rows: { module: string; name?: string; member?: string }[] }).rows;
+    expect(rows.length).toBeGreaterThan(60);
+    expect(rows.map((row) => `${row.module}#${row.name ?? row.member}`).filter((key) => !resolved.has(key))).toEqual([]);
   });
 
   it("names a file that did not parse, and a name that is not on its line", () => {

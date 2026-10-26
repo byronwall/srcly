@@ -54,76 +54,66 @@ EXPRESSION_KINDS = (ast.Name, ast.Attribute, ast.Call, ast.Subscript, ast.BoolOp
 # external-read are origins; stdout, exit-status, file-write, http-response and
 # external-effect are terminals.
 Recognition = tuple[str, str, dict[str, Any]]
-ORIGIN_CALLS: dict[str, Recognition] = {
-    "os.getenv": ("environment-input", "environment", {}),
-    "os.environ.get": ("environment-input", "environment", {}),
-    "os._Environ.get": ("environment-input", "environment", {}),
-    "builtins.input": ("process-input", "stdin", {"name": "stdin"}),
-    "builtins.open": ("file-input", "file", {}),
-    "io.open": ("file-input", "file", {}),
-    "pathlib.Path.read_text": ("file-input", "file read", {}),
-    "pathlib.Path.read_bytes": ("file-input", "file read", {}),
-    "pathlib.Path.open": ("file-input", "file", {}),
-    "json.load": ("file-input", "JSON file read", {}),
-    "tomllib.load": ("file-input", "TOML file read", {}),
-    "yaml.safe_load": ("file-input", "YAML read", {}),
-    "subprocess.run": ("external-read", "subprocess", {}),
-    "subprocess.check_output": ("external-read", "subprocess", {}),
-    "subprocess.Popen": ("external-read", "subprocess", {}),
-    "urllib.request.urlopen": ("fetch-input", "network request", {}),
-    "requests.get": ("fetch-input", "network request", {}),
-    "requests.post": ("fetch-input", "network request", {}),
-    "requests.request": ("fetch-input", "network request", {}),
-    "requests.sessions.Session.": ("fetch-input", "network request", {}),
-    "httpx.get": ("fetch-input", "network request", {}),
-    "httpx.post": ("fetch-input", "network request", {}),
-    "httpx.request": ("fetch-input", "network request", {}),
-    "httpx._client.Client.": ("fetch-input", "network request", {}),
-    "httpx._client.AsyncClient.": ("fetch-input", "network request", {}),
-    "sqlite3.Cursor.execute": ("external-read", "database query", {}),
-    "sqlite3.Cursor.fetchall": ("external-read", "database rows", {}),
-    "sqlite3.Cursor.fetchone": ("external-read", "database row", {}),
-    "sqlite3.Connection.execute": ("external-read", "database query", {}),
-    "sqlalchemy.orm.session.Session.execute": ("external-read", "database query", {}),
-    "sqlalchemy.orm.session.Session.scalars": ("external-read", "database query", {}),
-    "sqlalchemy.orm.session.Session.get": ("external-read", "database row", {}),
-    "sqlalchemy.orm.session.Session.query": ("external-read", "database query", {}),
+# What library code does (an origin, a terminal) is data: the engine's library model rows
+# (`engine/models/*.json`; docs/intent/dataflow-library-models/plan.md), read once with `--models`.
+# A row names a mypy fullname by `module` and `name` or `Type.member` (a trailing `*` is a prefix);
+# its `role` names the element it makes, its `note` the element's label.
+ROLE_ELEMENTS: dict[str, tuple[str, dict[str, Any]]] = {
+    "stdin": ("process-input", {"name": "stdin"}),
+    "argument": ("process-input", {"name": "argv"}),
+    "request": ("parameter", {"originRole": "request", "name": "request"}),
 }
-TERMINAL_CALLS: dict[str, Recognition] = {
-    "builtins.print": ("stdout", "print", {}),
-    "sys.stdout.write": ("stdout", "stdout", {}),
-    "sys.exit": ("exit-status", "exit", {}),
-    "logging.Logger.": ("external-effect", "log", {}),
-    "logging.LoggerAdapter.": ("external-effect", "log", {}),
-    **{f"logging.{level}": ("external-effect", "log", {}) for level in ("debug", "info", "warning", "error", "exception", "critical", "log")},
-    "pathlib.Path.write_text": ("file-write", "file write", {}),
-    "pathlib.Path.write_bytes": ("file-write", "file write", {}),
-    "json.dump": ("file-write", "JSON file write", {}),
-    "typing.IO.write": ("file-write", "file write", {}),
-    "typing.TextIO.write": ("file-write", "file write", {}),
-    "io.TextIOWrapper.write": ("file-write", "file write", {}),
-    "_io.TextIOWrapper.write": ("file-write", "file write", {}),
-    "fastapi.HTTPException": ("http-response", "HTTP error", {}),
-    "fastapi.exceptions.HTTPException": ("http-response", "HTTP error", {}),
-    "starlette.exceptions.HTTPException": ("http-response", "HTTP error", {}),
-    "fastapi.responses.": ("http-response", "HTTP response", {}),
-    "starlette.responses.": ("http-response", "HTTP response", {}),
-    "flask.json.jsonify": ("http-response", "HTTP response", {}),
-    "flask.jsonify": ("http-response", "HTTP response", {}),
-    "flask.helpers.make_response": ("http-response", "HTTP response", {}),
-    "flask.make_response": ("http-response", "HTTP response", {}),
-    "flask.templating.render_template": ("http-response", "HTTP response", {}),
-    "flask.render_template": ("http-response", "HTTP response", {}),
-    "flask.abort": ("http-response", "HTTP error", {}),
-}
-# Reads (not calls) that are origins: `os.environ["X"]`, `sys.argv`, Flask's request global.
-ORIGIN_READS: dict[str, Recognition] = {
-    "os.environ": ("environment-input", "environment", {}),
-    "sys.argv": ("process-input", "command-line arguments", {"name": "argv"}),
-    "sys.stdin": ("process-input", "stdin", {"name": "stdin"}),
-    "flask.request": ("parameter", "the request", {"originRole": "request", "name": "request"}),
-    "flask.globals.request": ("parameter", "the request", {"originRole": "request", "name": "request"}),
-}
+
+
+class LibraryModels:
+    """Python's library model rows, found by fullname: an exact row first, then the longest prefix."""
+
+    def __init__(self) -> None:
+        self.exact: dict[str, tuple[str, Recognition]] = {}
+        self.prefixes: list[tuple[str, str, Recognition]] = []
+
+    def load(self, files: list[Path]) -> None:
+        for file in files:
+            for row in json.loads(file.read_text(encoding="utf-8")).get("rows", []):
+                if row.get("language") != "py" or row.get("model") not in ("origin", "terminal"):
+                    continue
+                path = row.get("name") or row.get("member")
+                key = f"{row['module']}.{path}"
+                kind, attributes = ROLE_ELEMENTS.get(row["role"], (row["role"], {}))
+                found = (row["model"], (kind, row.get("note") or kind, {**attributes, "libraryModel": f"{row['module']}#{path}"}))
+                if key.endswith("*"):
+                    self.prefixes.append((key[:-1], *found))
+                else:
+                    self.exact[key] = found
+        self.prefixes.sort(key=lambda item: -len(item[0]))
+
+    def find(self, name: str | None, models: tuple[str, ...]) -> Recognition | None:
+        if not name:
+            return None
+        hit = self.exact.get(name)
+        if hit is not None and hit[0] in models:
+            return hit[1]
+        return next((recognition for prefix, model, recognition in self.prefixes if model in models and name.startswith(prefix)), None)
+
+    def call(self, name: str | None) -> Recognition | None:
+        """A call that is an origin or a terminal: `os.getenv(...)`, `print(...)`."""
+        return self.find(name, ("origin", "terminal"))
+
+    def read(self, name: str | None) -> Recognition | None:
+        """A read that is an origin: `os.environ`, `sys.argv`, Flask's `request`."""
+        return self.find(name, ("origin",))
+
+
+MODELS = LibraryModels()
+
+
+def builtin_model_files() -> list[Path]:
+    """The engine's built-in row files when none are passed: `models/` beside this helper in a bundle, `engine/models/` in a checkout."""
+    here = Path(__file__).resolve().parent
+    folder = next((candidate for candidate in (here / "models", here.parent / "models") if candidate.is_dir()), None)
+    return sorted(path for path in folder.glob("*.json") if not path.name.endswith(".schema.json")) if folder else []
+
+
 FASTAPI_PARAM_FUNCS = {"Query": "query", "Path": "path", "Body": "body", "Header": "header", "Cookie": "cookie", "Form": "form", "File": "file", "Depends": "dependency", "Security": "dependency"}
 FASTAPI_REQUEST_TYPES = {"Request", "WebSocket", "HTTPConnection"}
 FASTAPI_RUNTIME_TYPES = {"Response", "BackgroundTasks"}
@@ -138,17 +128,6 @@ MODEL_BASES = {"BaseModel", "pydantic.BaseModel", "pydantic.main.BaseModel", "SQ
 SETTINGS_BASES = {"pydantic_settings.BaseSettings", "pydantic_settings.main.BaseSettings", "pydantic.BaseSettings", "pydantic.env_settings.BaseSettings"}
 # Calls on a model class's manager that set its fields by keyword: `Article.objects.create(title=…)` (Django).
 MODEL_KEYWORD_CALLS = {"objects.create", "objects.get_or_create"}
-
-
-def lookup(table: dict[str, Any], name: str | None) -> Any:
-    if not name:
-        return None
-    if name in table:
-        return table[name]
-    for key, value in table.items():
-        if key.endswith(".") and name.startswith(key):
-            return value
-    return None
 
 
 # --------------------------------------------------------------------------- sources
@@ -1486,10 +1465,7 @@ class BodyWalker:
             return
         if isinstance(node, ast.Raise):
             if node.exc is not None:
-                # A raised value leaves the code it is in: it ends at the `raise`, wherever its exception class comes from.
-                raised = self.program.elements.get(self.expr(node.exc) or "")
-                if raised is not None:
-                    raised["attributes"]["endsInPlace"] = "throw"
+                self.expr(node.exc)
             return
         if isinstance(node, ast.Assert):
             self.test(node.test)
@@ -1596,7 +1572,7 @@ class BodyWalker:
         owner = self.scope.owner_of(node.id)
         if owner is None:
             dotted = self.program.dotted(self.source, node)
-            read = lookup(ORIGIN_READS, dotted)
+            read = MODELS.read(dotted)
             if read is not None:
                 # An imported origin read by name (Flask's `request`): `request.json`, `request.args` are field reads of it.
                 kind, label, attributes = read
@@ -1625,7 +1601,7 @@ class BodyWalker:
         if not isinstance(node.ctx, ast.Load):
             return None
         dotted = self.program.dotted(self.source, node)
-        read = lookup(ORIGIN_READS, dotted)
+        read = MODELS.read(dotted)
         if read is not None:
             kind, label, attributes = read
             element = self.element(kind, node, f"{label} ({self.source.segment(node)})", attributes=attributes,
@@ -1715,7 +1691,7 @@ class BodyWalker:
             return None
         dotted = self.program.dotted(self.source, node.value)
         key = constant_key(node.slice)
-        read = lookup(ORIGIN_READS, dotted)
+        read = MODELS.read(dotted)
         if read is not None and dotted == "os.environ":
             kind, label, attributes = read
             element = self.element(kind, node, f"environment {key or self.source.segment(node.slice)}", attributes={**attributes, "name": key or "environ"},
@@ -1843,8 +1819,8 @@ class BodyWalker:
         function = self.program.resolve_function(target_name) or self.method_target(node)
         klass = None if function else self.program.resolve_class(target_name)
         receiver = None
-        origin_receiver = isinstance(node.func, ast.Attribute) and lookup(ORIGIN_READS, self.program.dotted(source, node.func.value)) is not None
-        early = lookup(TERMINAL_CALLS, target_name) or lookup(ORIGIN_CALLS, target_name)
+        origin_receiver = isinstance(node.func, ast.Attribute) and MODELS.read(self.program.dotted(source, node.func.value)) is not None
+        early = MODELS.call(target_name)
         if early is not None and origin_receiver:
             pass  # `os.environ.get(…)`: the call is the origin, not the mapping it is called on.
         elif isinstance(node.func, ast.Attribute) and not self.is_module_ref(node.func.value) and not (dotted and (self.program.resolve_class(dotted) or self.program.resolve_function(dotted))):
@@ -1857,9 +1833,12 @@ class BodyWalker:
         proof_name = f"mypy resolves {callee_text} to {checked}" if checked else (f"{callee_text} resolves to {dotted} through its imports" if dotted else None)
         proof_kind = "mypy" if checked else "import"
 
-        recognized = lookup(TERMINAL_CALLS, target_name) or lookup(ORIGIN_CALLS, target_name)
-        if recognized is None and dotted and dotted != target_name:
-            recognized = lookup(TERMINAL_CALLS, dotted) or lookup(ORIGIN_CALLS, dotted)
+        # mypy's name first; the import's name when mypy has none (a package that is not installed) or names no row.
+        by_import = MODELS.call(dotted) if dotted and dotted != target_name else None
+        recognized = MODELS.call(target_name) or by_import
+        if recognized is not None and by_import is not None and by_import is not recognized:
+            # The row the import's name also matches, kept so a test can see that every row resolves somewhere.
+            recognized = (recognized[0], recognized[1], {**recognized[2], "importModel": by_import[2]["libraryModel"]})
         if recognized is not None and recognized[0] == "file-input" and (target_name or "").endswith(".open") and opens_for_writing(node):
             recognized = ("file-write", "file write", {})
         if recognized is not None and function is None:
@@ -2200,6 +2179,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--types-python", help="interpreter whose site-packages mypy reads (default: the project's .venv)")
     parser.add_argument("--include-tests", action="store_true", help="also read tests/, test_*.py and conftest.py")
     parser.add_argument("--probe", action="store_true", help="report the interpreter and mypy, then exit")
+    parser.add_argument("--models", nargs="*", help="library model row files (default: the engine's built-in ones)")
     args = parser.parse_args(argv)
     python = ".".join(str(part) for part in sys.version_info[:3])
     mypy_version = mypy_available()
@@ -2211,6 +2191,7 @@ def main(argv: list[str]) -> int:
     if mypy_version is None:
         print(json.dumps({"python": python, "executable": sys.executable, "mypy": None, "error": "mypy is not importable in this interpreter"}))
         return 3
+    MODELS.load([Path(file) for file in args.models] if args.models is not None else builtin_model_files())
     root = Path(args.root).resolve()
     source_dir = Path(args.source).resolve() if args.source else root
     started = time.perf_counter()

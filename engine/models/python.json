@@ -1,0 +1,557 @@
+{
+  "$schema": "./library-models.schema.json",
+  "rows": [
+    {
+      "language": "py",
+      "module": "os",
+      "name": "getenv",
+      "model": "origin",
+      "role": "environment-input",
+      "note": "environment"
+    },
+    {
+      "language": "py",
+      "module": "os",
+      "name": "environ.get",
+      "model": "origin",
+      "role": "environment-input",
+      "note": "environment"
+    },
+    {
+      "language": "py",
+      "module": "os",
+      "member": "_Environ.get",
+      "model": "origin",
+      "role": "environment-input",
+      "note": "environment"
+    },
+    {
+      "language": "py",
+      "module": "builtins",
+      "name": "input",
+      "model": "origin",
+      "role": "stdin",
+      "note": "stdin"
+    },
+    {
+      "language": "py",
+      "module": "builtins",
+      "name": "open",
+      "model": "origin",
+      "role": "file-input",
+      "note": "file"
+    },
+    {
+      "language": "py",
+      "module": "io",
+      "name": "open",
+      "model": "origin",
+      "role": "file-input",
+      "note": "file"
+    },
+    {
+      "language": "py",
+      "module": "pathlib",
+      "member": "Path.read_text",
+      "model": "origin",
+      "role": "file-input",
+      "note": "file read"
+    },
+    {
+      "language": "py",
+      "module": "pathlib",
+      "member": "Path.read_bytes",
+      "model": "origin",
+      "role": "file-input",
+      "note": "file read"
+    },
+    {
+      "language": "py",
+      "module": "pathlib",
+      "member": "Path.open",
+      "model": "origin",
+      "role": "file-input",
+      "note": "file"
+    },
+    {
+      "language": "py",
+      "module": "json",
+      "name": "load",
+      "model": "origin",
+      "role": "file-input",
+      "note": "JSON file read"
+    },
+    {
+      "language": "py",
+      "module": "tomllib",
+      "name": "load",
+      "model": "origin",
+      "role": "file-input",
+      "note": "TOML file read"
+    },
+    {
+      "language": "py",
+      "module": "yaml",
+      "name": "safe_load",
+      "model": "origin",
+      "role": "file-input",
+      "note": "YAML read"
+    },
+    {
+      "language": "py",
+      "module": "subprocess",
+      "name": "run",
+      "model": "origin",
+      "role": "external-read",
+      "note": "subprocess"
+    },
+    {
+      "language": "py",
+      "module": "subprocess",
+      "name": "check_output",
+      "model": "origin",
+      "role": "external-read",
+      "note": "subprocess"
+    },
+    {
+      "language": "py",
+      "module": "subprocess",
+      "name": "Popen",
+      "model": "origin",
+      "role": "external-read",
+      "note": "subprocess"
+    },
+    {
+      "language": "py",
+      "module": "urllib.request",
+      "name": "urlopen",
+      "model": "origin",
+      "role": "fetch-input",
+      "note": "network request"
+    },
+    {
+      "language": "py",
+      "module": "requests",
+      "name": "get",
+      "model": "origin",
+      "role": "fetch-input",
+      "note": "network request"
+    },
+    {
+      "language": "py",
+      "module": "requests",
+      "name": "post",
+      "model": "origin",
+      "role": "fetch-input",
+      "note": "network request"
+    },
+    {
+      "language": "py",
+      "module": "requests",
+      "name": "request",
+      "model": "origin",
+      "role": "fetch-input",
+      "note": "network request"
+    },
+    {
+      "language": "py",
+      "module": "requests.sessions",
+      "member": "Session.*",
+      "model": "origin",
+      "role": "fetch-input",
+      "note": "network request"
+    },
+    {
+      "language": "py",
+      "module": "httpx",
+      "name": "get",
+      "model": "origin",
+      "role": "fetch-input",
+      "note": "network request"
+    },
+    {
+      "language": "py",
+      "module": "httpx",
+      "name": "post",
+      "model": "origin",
+      "role": "fetch-input",
+      "note": "network request"
+    },
+    {
+      "language": "py",
+      "module": "httpx",
+      "name": "request",
+      "model": "origin",
+      "role": "fetch-input",
+      "note": "network request"
+    },
+    {
+      "language": "py",
+      "module": "httpx._client",
+      "member": "Client.*",
+      "model": "origin",
+      "role": "fetch-input",
+      "note": "network request"
+    },
+    {
+      "language": "py",
+      "module": "httpx._client",
+      "member": "AsyncClient.*",
+      "model": "origin",
+      "role": "fetch-input",
+      "note": "network request"
+    },
+    {
+      "language": "py",
+      "module": "sqlite3",
+      "member": "Cursor.execute",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database query"
+    },
+    {
+      "language": "py",
+      "module": "sqlite3",
+      "member": "Cursor.fetchall",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database rows"
+    },
+    {
+      "language": "py",
+      "module": "sqlite3",
+      "member": "Cursor.fetchone",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database row"
+    },
+    {
+      "language": "py",
+      "module": "sqlite3",
+      "member": "Connection.execute",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database query"
+    },
+    {
+      "language": "py",
+      "module": "sqlalchemy.orm.session",
+      "member": "Session.execute",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database query"
+    },
+    {
+      "language": "py",
+      "module": "sqlalchemy.orm.session",
+      "member": "Session.scalars",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database query"
+    },
+    {
+      "language": "py",
+      "module": "sqlalchemy.orm.session",
+      "member": "Session.get",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database row"
+    },
+    {
+      "language": "py",
+      "module": "sqlalchemy.orm.session",
+      "member": "Session.query",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database query"
+    },
+    {
+      "language": "py",
+      "module": "os",
+      "name": "environ",
+      "model": "origin",
+      "role": "environment-input",
+      "note": "environment"
+    },
+    {
+      "language": "py",
+      "module": "sys",
+      "name": "argv",
+      "model": "origin",
+      "role": "argument",
+      "note": "command-line arguments"
+    },
+    {
+      "language": "py",
+      "module": "sys",
+      "name": "stdin",
+      "model": "origin",
+      "role": "stdin",
+      "note": "stdin"
+    },
+    {
+      "language": "py",
+      "module": "flask",
+      "name": "request",
+      "model": "origin",
+      "role": "request",
+      "note": "the request"
+    },
+    {
+      "language": "py",
+      "module": "flask.globals",
+      "name": "request",
+      "model": "origin",
+      "role": "request",
+      "note": "the request"
+    },
+    {
+      "language": "py",
+      "module": "builtins",
+      "name": "print",
+      "model": "terminal",
+      "role": "stdout",
+      "note": "print"
+    },
+    {
+      "language": "py",
+      "module": "sys",
+      "name": "stdout.write",
+      "model": "terminal",
+      "role": "stdout",
+      "note": "stdout"
+    },
+    {
+      "language": "py",
+      "module": "sys",
+      "name": "exit",
+      "model": "terminal",
+      "role": "exit-status",
+      "note": "exit"
+    },
+    {
+      "language": "py",
+      "module": "logging",
+      "member": "Logger.*",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "log"
+    },
+    {
+      "language": "py",
+      "module": "logging",
+      "member": "LoggerAdapter.*",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "log"
+    },
+    {
+      "language": "py",
+      "module": "logging",
+      "name": "debug",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "log"
+    },
+    {
+      "language": "py",
+      "module": "logging",
+      "name": "info",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "log"
+    },
+    {
+      "language": "py",
+      "module": "logging",
+      "name": "warning",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "log"
+    },
+    {
+      "language": "py",
+      "module": "logging",
+      "name": "error",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "log"
+    },
+    {
+      "language": "py",
+      "module": "logging",
+      "name": "exception",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "log"
+    },
+    {
+      "language": "py",
+      "module": "logging",
+      "name": "critical",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "log"
+    },
+    {
+      "language": "py",
+      "module": "logging",
+      "name": "log",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "log"
+    },
+    {
+      "language": "py",
+      "module": "pathlib",
+      "member": "Path.write_text",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "file write"
+    },
+    {
+      "language": "py",
+      "module": "pathlib",
+      "member": "Path.write_bytes",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "file write"
+    },
+    {
+      "language": "py",
+      "module": "json",
+      "name": "dump",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "JSON file write"
+    },
+    {
+      "language": "py",
+      "module": "typing",
+      "member": "IO.write",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "file write"
+    },
+    {
+      "language": "py",
+      "module": "typing",
+      "member": "TextIO.write",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "file write"
+    },
+    {
+      "language": "py",
+      "module": "io",
+      "member": "TextIOWrapper.write",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "file write"
+    },
+    {
+      "language": "py",
+      "module": "_io",
+      "member": "TextIOWrapper.write",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "file write"
+    },
+    {
+      "language": "py",
+      "module": "fastapi",
+      "name": "HTTPException",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP error"
+    },
+    {
+      "language": "py",
+      "module": "fastapi.exceptions",
+      "name": "HTTPException",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP error"
+    },
+    {
+      "language": "py",
+      "module": "starlette.exceptions",
+      "name": "HTTPException",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP error"
+    },
+    {
+      "language": "py",
+      "module": "fastapi.responses",
+      "name": "*",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP response"
+    },
+    {
+      "language": "py",
+      "module": "starlette.responses",
+      "name": "*",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP response"
+    },
+    {
+      "language": "py",
+      "module": "flask.json",
+      "name": "jsonify",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP response"
+    },
+    {
+      "language": "py",
+      "module": "flask",
+      "name": "jsonify",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP response"
+    },
+    {
+      "language": "py",
+      "module": "flask.helpers",
+      "name": "make_response",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP response"
+    },
+    {
+      "language": "py",
+      "module": "flask",
+      "name": "make_response",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP response"
+    },
+    {
+      "language": "py",
+      "module": "flask.templating",
+      "name": "render_template",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP response"
+    },
+    {
+      "language": "py",
+      "module": "flask",
+      "name": "render_template",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP response"
+    },
+    {
+      "language": "py",
+      "module": "flask",
+      "name": "abort",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP error"
+    }
+  ]
+}
