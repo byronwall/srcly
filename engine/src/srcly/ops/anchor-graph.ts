@@ -8,12 +8,13 @@ import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
 import { elementsAt, endsInPlace, externalCallee, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
 import { elementTraits, proofStrength, relationTraits, SEED_KINDS } from "../kinds";
-import type { HostCandidate, LanguageHost } from "../host";
+import type { LanguageHost } from "../host";
 import { clip, foldedLimit } from "../frontier-words";
 import { kindWords, syntaxWords, useWords } from "../anchor-words";
 import { ownFacts } from "../own-facts";
+import { resolveCandidate, type Resolved } from "./anchor-candidate";
 import { EngineError } from "../protocol";
-import { parseSpan, sameSpan, type Span } from "../selection";
+import { sameSpan, type Span } from "../selection";
 import { checkGeneration, type EngineSession, type Tier1 } from "../session";
 
 /** Anchor graphs bigger than this are refused as `budget-exhausted`, never truncated. */
@@ -21,8 +22,6 @@ export const ANCHOR_GRAPH_MAX_BYTES = 8 * 1024 * 1024;
 const DIRECTIONS: AnchorDirection[] = ["forward", "backward", "both"];
 
 type Side = "up" | "down";
-/** A host candidate (with the declaration spans to try when the engine has no evidence at the name itself); or an element named outright (T20). */
-type Resolved = HostCandidate & { seedId?: string };
 /** Declaration-level elements a symbol anchor may start from, before the ledger's seed kinds. */
 const DECLARATION_SEEDS = ["component-definition", "function-entry", "handler-entry", ...SEED_KINDS];
 /** One slice to walk: from which element, on which side of the anchor, with the span its own bookkeeping folds into. */
@@ -38,6 +37,8 @@ type Run = {
   propRead?: boolean;
   /** A call of the declaration, walked from where it is used. */
   use?: boolean;
+  /** A parameter walked forward through the body: it lands at the declaration's own return too, whose run goes on from there. */
+  body?: boolean;
 };
 /** Relations that bind a declaration's parameter to the places it is read. */
 /** The declaration anchor's own links: they place its parameters, reads, returns and uses, and never carry a run's landing. */
@@ -63,33 +64,6 @@ function parseDirection(value: unknown): AnchorDirection {
   throw new EngineError("invalid-request", `params.direction must be one of ${DIRECTIONS.join(", ")}`);
 }
 
-/**
- * The expression to anchor at: an exact span (plus its text, as `valueFlow`
- * takes it), or a `name` on a `line` for a symbol picked from the import
- * graph or the treemap, where only the declaration's line is known.
- */
-function resolveCandidate(tier1: Tier1, file: string, params: Record<string, unknown>): Resolved {
-  const { host } = tier1;
-  // A drawn box added as an anchor (T20): the element itself, so the two traces share ids by construction.
-  if (typeof params.elementId === "string" && params.elementId) {
-    const element = tier1.provider().facts.getElement(params.elementId);
-    if (!element) throw new EngineError("not-found", `No program element ${params.elementId}`);
-    return { kind: element.kind, text: element.label, span: element.location.span, seedId: element.id };
-  }
-  if (typeof params.name === "string" && params.name) {
-    if (!Number.isInteger(params.line) || (params.line as number) < 1) throw new EngineError("invalid-request", "params.name needs params.line");
-    const found = host.identifierOnLine(file, params.name, params.line as number);
-    if (!found) throw new EngineError("not-found", `No ${params.name} on line ${params.line} of ${path.basename(file)}`);
-    return found;
-  }
-  const span = parseSpan(params.span);
-  const text = typeof params.text === "string" ? params.text : null;
-  const candidates = host.candidates(file, span, text);
-  const candidate = candidates.find((item) => sameSpan(item.span, span)) ?? candidates[0];
-  if (!candidate) throw new EngineError("unsupported-selection", "No supported expression at this selection; pick a candidate from selectExpression", { span });
-  return candidate;
-}
-
 class AnchorGraphBuilder {
   private readonly nodes = new Map<string, AnchorNode>();
   private readonly edges: AnchorEdge[] = [];
@@ -100,6 +74,8 @@ class AnchorGraphBuilder {
   private readonly terminalRoles = new Map<string, string[]>();
   /** The anchor itself: a walk from one of its parameters, returns or uses never draws it again as a step. */
   private anchorId: string | null = null;
+  /** A declaration anchor's own returns: where a body run hands on to the return's run. */
+  private readonly ownReturns = new Set<string>();
   /** Each run's `unrecorded` ends (`naturalEnd`): named only when that run lands nowhere else. */
   private readonly quietGaps = new Map<string, number>();
   private readonly named = new Set<string>();
@@ -159,7 +135,7 @@ class AnchorGraphBuilder {
 
     const sides: Side[] = direction === "forward" ? ["down"] : direction === "backward" ? ["up"] : ["up", "down"];
     const coverage = { elements: 0, relations: 0, budget: { limit: 0, used: 0, exhausted: false } };
-    const runs: Run[] = fact && elementTraits(fact.kind).declaration ? this.declarationRuns(file, span, seed, sides, fact.kind === "component-definition") : sides.map((side) => ({ seedId: seed, seedSpan: span, side }));
+    const runs: Run[] = fact && elementTraits(fact.kind).declaration ? this.declarationRuns(file, span, seed, sides, fact.kind === "component-definition", /class/i.test(candidate.kind)) : sides.map((side) => ({ seedId: seed, seedSpan: span, side }));
     const isDeclaration = fact !== undefined && Boolean(elementTraits(fact.kind).declaration);
     const gapsBySeed = new Map<string, number>();
     const naturalBySeed = new Map<string, number>();
@@ -248,7 +224,7 @@ class AnchorGraphBuilder {
     // A prop read's own path (its binding, not the whole props object) lands where a value naturally begins: a global or external import, or a value code outside the program makes (R16).
     const element = (id: string) => (run.propRead && !next.has(id) ? this.tier1.provider().facts.getElement(id) : undefined);
     const begins = (id: string, found = element(id)) => !!found && (isNaturalStart(this.tier1, found) || !!externalCallee(this.tier1, found));
-    const lands = (id: string) => this.nodes.get(id)?.kind === want || (run.side === "up" && (this.nodes.get(id)?.elementKind === "literal" || begins(id)));
+    const lands = (id: string) => this.nodes.get(id)?.kind === want || (run.body === true && this.ownReturns.has(id)) || (run.side === "up" && (this.nodes.get(id)?.elementKind === "literal" || begins(id)));
     const seen = new Set<string>([run.seedId]);
     const queue = [run.seedId];
     let reached = 0;
@@ -332,7 +308,7 @@ class AnchorGraphBuilder {
    * keeping that relation's status and proof; where no relation exists there
    * is no edge, and nothing is guessed from the source text.
    */
-  private declarationRuns(file: string, span: Span, seed: string, sides: Side[], perProp: boolean): Run[] {
+  private declarationRuns(file: string, span: Span, seed: string, sides: Side[], perProp: boolean, isClass: boolean): Run[] {
     const inside = (s: Span) =>
       (s.startLine > span.startLine || (s.startLine === span.startLine && s.startColumn >= span.startColumn)) &&
       (s.endLine < span.endLine || (s.endLine === span.endLine && s.endColumn <= span.endColumn)) &&
@@ -375,6 +351,17 @@ class AnchorGraphBuilder {
       }
     }
     if (sides.includes("down")) {
+      // A function's body: each parameter walked forward reaches its writes, calls, returns and stops. A
+      // component's props reach its render slots through its uses, a class's fields are where it is built,
+      // and a method's receiver (`self`) is what it is called on.
+      for (const param of perProp || isClass ? [] : facts.filter((fact) => fact.kind === "parameter" && fact.attributes?.receiver !== true)) {
+        // Both ways, the parameter is already drawn on the left with its link in.
+        if (!this.nodes.has(param.id)) {
+          this.addFact(param, "down");
+          this.pushEdge({ id: `parameter:${param.id}`, source: seed, target: param.id, kind: "parameter", status: "structural", proof: [], label: null });
+        }
+        runs.push({ seedId: param.id, seedSpan: param.location.span, side: "down", body: true });
+      }
       const expressions = facts.filter((fact) => fact.kind === "return-expression");
       for (const ret of expressions.length ? expressions : facts.filter((fact) => fact.kind === "return")) {
         // A return that leaves the program (an HTTP response, an entry's result) is a terminal, not a carrier.
@@ -383,6 +370,7 @@ class AnchorGraphBuilder {
         if (element?.terminalRoles.length) this.addElement(element, "terminal", "down", "proven", null, null);
         else this.addFact(ret, "down");
         this.pushEdge({ id: `returns:${ret.id}`, source: seed, target: ret.id, kind: "returns", status: "structural", proof: [], label: null });
+        this.ownReturns.add(ret.id);
         runs.push({ seedId: ret.id, seedSpan: ret.location.span, side: "down" });
       }
       // Where it is used: the calls and occurrences whose definition this is.

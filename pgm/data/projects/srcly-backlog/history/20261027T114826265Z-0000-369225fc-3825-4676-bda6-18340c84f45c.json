@@ -1,0 +1,14 @@
+{
+  "id": "369225fc-3825-4676-bda6-18340c84f45c",
+  "kind": "node.context.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:d3e20c",
+    "label": "Agent token ...d3e20c"
+  },
+  "createdAt": "2026-10-27T11:48:26.265Z",
+  "summary": "Updated context for \"`ok` claims that are not true\".",
+  "nodeIds": [
+    "task-ok-claims-that-are-not-true"
+  ]
+}

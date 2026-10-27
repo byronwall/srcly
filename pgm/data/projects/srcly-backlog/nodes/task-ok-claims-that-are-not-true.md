@@ -16,10 +16,9 @@ rawContext: |
   - Files: `engine/src/srcly/ops/anchor-graph.ts`, `engine/python/srcly_pyfacts.py` (call-input / call-result for unmodelled library calls), `client/src/viz/deps/flow/FlowInspector.tsx`.
   - Done: each listed case is `partial` with a named stop, or proven; one stop count everywhere.
 ---
-G3 (rest). #223 made a trace through unmodelled library code `partial`. Two false `ok` cases remain:
+G3 (rest). #223 made a trace through unmodelled library code `partial`, and a function anchor now walks its body, so `create_item` is `partial` with its stops named. One false `ok` case remains:
 
-- A function anchor (a route's handler, T1 `create_item`) reads `ok` while its body stops inside (`session.refresh` is external code). The anchor shows parameters and returns only, so the stop is not on screen either.
 - A walk that reaches a variable a nested `def` reads (T5 mealie `_create_recipe_from_web` → `url`) ends with `ok` and no frontier (see G9).
-- Files: `engine/src/srcly/ops/anchor-graph.ts` (outcome), `engine/python/srcly_pyfacts.py`.
-- Done: both cases are `partial` with a named stop.
+- Files: `engine/python/srcly_pyfacts.py` (scopes), `engine/src/srcly/ops/anchor-graph.ts` (outcome).
+- Done: the closure case is `partial` with a named stop, or walked into (G9).
 
