@@ -439,7 +439,10 @@ class AnchorGraphBuilder {
         let status = relation.status;
         let reason: string | null = null;
         let note: string | null = null;
-        if (kind !== "origin" && kind !== "terminal" && needsOneCallSite(relation.kind, this.host.evidence.pairsCalls)) {
+        // A plain return of a function no call names, only handed on as a value (a callback), goes to whoever calls it: not where the value leaves.
+        const handedOn = kind === "terminal" && element.kind === "return" && side === "down" && element.terminalRoles.every((role) => role === "return") ? this.host.callSitesOf(element) : null;
+        if (handedOn?.sites?.escapes && !handedOn.sites.calls.length) [kind, status, reason, note] = ["boundary", "partial", "unproven-handoff", describeSites(handedOn.name, handedOn.sites)];
+        if (!reason && kind !== "origin" && kind !== "terminal" && needsOneCallSite(relation.kind, this.host.evidence.pairsCalls)) {
           // The callee side of a cross-call is its `to` end (the bound parameter, or the call a return reaches), whichever way the walk goes.
           const { sites, name } = this.host.callSitesOf(byId.get(relation.to) ?? element);
           if (!singleCall(sites) && !pairedInSlice(sites, slice.elements)) {

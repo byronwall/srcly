@@ -12,7 +12,7 @@
         "boundary: external-code": 1,
         "boundary: framework-runtime": 11,
         "boundary: network": 4,
-        "boundary: unproven-handoff": 12,
+        "boundary: unproven-handoff": 37,
         "frontier: budget-exhausted": 146,
         "frontier: disconnected": 125,
         "frontier: external-code": 90,
@@ -73,8 +73,9 @@
       "stops": {
         "boundary: external-code": 19,
         "boundary: filesystem": 29,
+        "boundary: unproven-handoff": 12,
         "frontier: budget-exhausted": 114,
-        "frontier: external-code": 849,
+        "frontier: external-code": 858,
         "frontier: untraced": 79
       },
       "ok": [

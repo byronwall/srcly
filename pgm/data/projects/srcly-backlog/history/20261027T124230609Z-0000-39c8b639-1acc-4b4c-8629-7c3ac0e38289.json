@@ -1,0 +1,14 @@
+{
+  "id": "39c8b639-1acc-4b4c-8629-7c3ac0e38289",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:3e94a0",
+    "label": "Agent token ...3e94a0"
+  },
+  "createdAt": "2026-10-27T12:42:30.609Z",
+  "summary": "Deleted \"`ok` claims that are not true\".",
+  "nodeIds": [
+    "task-ok-claims-that-are-not-true"
+  ]
+}
