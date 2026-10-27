@@ -29,6 +29,7 @@ import starlette.responses
 import yaml
 from httpx._client import AsyncClient, Client
 from requests.sessions import Session as HttpSession
+from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm.session import Session as DbSession
 
 log = logging.getLogger(__name__)
@@ -49,7 +50,7 @@ def origins(path: Path, cursor: sqlite3.Cursor, connection: sqlite3.Connection, 
     ]
 
 
-def terminals(value: str, path: Path, stream: typing.IO[str], text: typing.TextIO, wrapper: io.TextIOWrapper, raw: _io.TextIOWrapper) -> object:
+def terminals(value: str, path: Path, stream: typing.IO[str], text: typing.TextIO, wrapper: io.TextIOWrapper, raw: _io.TextIOWrapper, db: DbSession, adb: AsyncSession) -> object:
     print(value)
     sys.stdout.write(value)
     log.info(value)
@@ -68,6 +69,12 @@ def terminals(value: str, path: Path, stream: typing.IO[str], text: typing.TextI
     typing.TextIO.write(text, value)
     io.TextIOWrapper.write(wrapper, value)
     _io.TextIOWrapper.write(raw, value)
+    DbSession.add(db, value)
+    DbSession.add_all(db, [value])
+    DbSession.delete(db, value)
+    DbSession.merge(db, value)
+    AsyncSession.add(adb, value)
+    AsyncSession.delete(adb, value)
     flask.abort(400)
     responses = [
         fastapi.HTTPException(400), fastapi.exceptions.HTTPException(400), starlette.exceptions.HTTPException(400),
