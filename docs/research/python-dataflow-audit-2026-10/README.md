@@ -234,3 +234,26 @@ The gaps left, ranked by points across tasks, are in the backlog grid (`area-dat
 4. **G5 — one control per idea.** Trace From/Both/To beside Reach Both/Up/Down; no "trace from this box" on the canvas (Next 13/40).
 5. **G12 — framework hand-offs.** External-read keys (T2), Celery `apply_async` into a first-party task (T8, T9), DRF `request` as an origin.
 6. **G10, G11, G7 (Django).** Field writers, an effects view for Python, and Django's `save()` / `objects.create()`.
+
+## Round 4 — the biggest unlock per line of code
+
+Round 4 picks fixes by user-visible gain per line changed. Two consider-and-contrast passes chose them.
+
+**Pass 1: floods (G6).** Measured on template: `User.email` forward drew 62 boxes in 11 functions; `SECRET_KEY` both ways drew 177 boxes in 32 functions, and 106 of them sat in 16 routes two calls away. Value hops are a poor cut: `User.email` reaches 11 hops inside 4 functions. Function boundaries are a good one.
+
+| Approach | Boxes at Fit (T4) | Ends still named on screen | Direct uses drawn in full | Expand in one action | Code |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Fold each other function into one box (client) | 9 — 33 boxes | 8 — each box names its ends | 9 — the anchor's function stays open | 9 — the existing `open` list | ~80 lines, one adapter |
+| Engine hop limit with a "deeper" frontier | 8 | 3 — a database write three calls deep is cut | 8 | 5 — a new query per expand | contract, op, server, client, survey baseline |
+| Client hop filter (hide past N value hops) | 6 | 2 | 6 | 6 | a control and a filter |
+| Legibility only (larger text at Fit) | 1 — still 177 | 10 | 4 | — | small |
+
+Choice: fold by function (#&lt;fold PR&gt;). The canvas already opens and closes frames in place, and the inspector already offers "Open the frame". A trace over 40 boxes opens folded; smaller traces are unchanged.
+
+**Pass 2: the next unlock.** Next step scored 13/40, the weakest dimension. A canvas box had no "trace from here", so re-anchoring went through the code viewer (G5). The engine already anchors on an element id, so the fix is one inspector button (#&lt;trace-from PR&gt;). It is offered on value boxes only: a function's own anchor shows parameters and returns and still reads `ok` (G3), so a folded function offers Open the frame instead.
+
+The candidates left, by gain per line:
+
+1. **G3 for function anchors** — a function anchor reads `ok` with stops inside (T1). Engine outcome only.
+2. **G5, the rest** — Reach Both/Up/Down beside Trace From/Both/To. One control, UI only.
+3. **G9 nested functions**, **G12 framework hand-offs** — engine helper work, larger.
