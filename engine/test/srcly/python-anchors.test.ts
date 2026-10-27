@@ -57,6 +57,13 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(fs.readFileSync(path.join(example, "app/deps.py"), "utf8")).toContain('message = "except ValueError, TypeError:"');
   });
 
+  it("lets a `def` inside a method read the method's own names", () => {
+    // `create` closes over `cleaned`, a local of the method `make`, not of the class body.
+    const graph = anchorGraphOp(session, { ...at("app/closures.py", "cleaned", "        cleaned = url.strip()"), direction: "forward" });
+    expect(boxes(graph).some((node) => node.label === "text" && node.elementKind === "parameter")).toBe(true);
+    expect(boxes(graph, "boundary").map((node) => node.reason)).toEqual(["unproven-handoff"]);
+  });
+
   it("stops at a callback's return: the nested function is handed on as a value, so where its result goes is not proven", () => {
     // `clean` reaches `return finish(clean)` inside `create`, which `run(create)` calls through its parameter.
     const graph = anchorGraphOp(session, { ...at("app/closures.py", "clean", "    clean = url.strip()"), direction: "forward" });

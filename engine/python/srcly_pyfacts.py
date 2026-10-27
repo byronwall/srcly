@@ -1442,7 +1442,8 @@ class BodyWalker:
     def stmt(self, node: ast.stmt) -> None:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             self.scope.bind(node.name, (node.lineno, node.col_offset), element_id("function-entry", self.source.rel, self.span(node)))
-            self.pending.append((node, self.scope if self.class_info is None else (self.scope.parent or self.scope), self.class_info))
+            # A method's enclosing scope is outside its class body; a `def` inside a method closes over the method's own names.
+            self.pending.append((node, (self.scope.parent or self.scope) if self.scope.kind == "class" else self.scope, self.class_info))
             return
         if isinstance(node, ast.ClassDef):
             self.class_entry(node)

@@ -75,7 +75,7 @@
         "boundary: filesystem": 29,
         "boundary: unproven-handoff": 12,
         "frontier: budget-exhausted": 114,
-        "frontier: external-code": 849,
+        "frontier: external-code": 858,
         "frontier: untraced": 79
       },
       "ok": [
