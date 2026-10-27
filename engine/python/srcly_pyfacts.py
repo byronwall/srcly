@@ -1880,9 +1880,51 @@ class BodyWalker:
 
     # ---- calls
 
+    def celery_task(self, node: ast.Call) -> FunctionInfo | None:
+        """The first-party Celery task a `task.delay(…)` or `task.apply_async(…)` call queues, or None."""
+        func = node.func
+        if not (isinstance(func, ast.Attribute) and func.attr in ("delay", "apply_async")):
+            return None
+        task = self.program.resolve_function(self.program.dotted(self.source, func.value))
+        if task is None or isinstance(task.node, ast.Lambda):
+            return None
+        names = [dotted_name(d.func if isinstance(d, ast.Call) else d).rsplit(".", 1)[-1] for d in task.node.decorator_list]
+        return task if any(name in ("shared_task", "task") for name in names) else None
+
+    def queue_task(self, task: FunctionInfo, node: ast.Call) -> str:
+        """
+        A queued Celery task: `delay(*args, **kwargs)` and `apply_async(args=(…), kwargs={…})`
+        bind the task's parameters like a call. The call's result is the queued task's handle,
+        never what the task returns, so nothing relates the task's return to it.
+        """
+        func = node.func
+        assert isinstance(func, ast.Attribute)
+        if func.attr == "delay":
+            args, kws = list(node.args), list(node.keywords)
+        else:
+            named = {kw.arg: kw.value for kw in node.keywords}
+            packed, mapping = named.get("args"), named.get("kwargs")
+            args = list(packed.elts) if isinstance(packed, (ast.Tuple, ast.List)) else []
+            kws = [ast.keyword(arg=key.value, value=value) for key, value in zip(mapping.keys, mapping.values) if isinstance(key, ast.Constant) and isinstance(key.value, str)] if isinstance(mapping, ast.Dict) else []
+            for kw in node.keywords:
+                if kw.arg not in ("args", "kwargs"):
+                    self.expr(kw.value)
+        positional = [(arg, self.expr(arg) or self.literal(arg)) for arg in args]
+        keywords = [(kw, self.expr(kw.value) or self.literal(kw.value)) for kw in kws]
+        callee_text = self.source.segment(func)
+        element = self.element("call-result", node, f"{callee_text}(…)", attributes={"queues": task.entry_id, "calleeName": task.qualname},
+                               proof={"kind": "syntax", "detail": f"{callee_text} queues the Celery task {task.qualname}", "locations": [task.source.location(task.source.span(task.node))]})
+        self.note(node, "Call")
+        self.program.record_call(task, self.source, node.lineno)
+        self.bind_arguments(task, None, node, positional, keywords)
+        return element
+
     def expr_Call(self, node: ast.Call) -> str | None:
         source = self.source
         span = self.span(node)
+        task = self.celery_task(node)
+        if task is not None:
+            return self.queue_task(task, node)
         callee_text = source.segment(node.func)
         checked = self.program.checked.callees.get(source.rel, {}).get(span_key(span))
         dotted = self.program.dotted(source, node.func)

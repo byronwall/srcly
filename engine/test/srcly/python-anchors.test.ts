@@ -64,6 +64,16 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(boxes(graph, "boundary").map((node) => node.reason)).toEqual(["unproven-handoff"]);
   });
 
+  it("binds a queued Celery task's parameters at each `delay` and `apply_async` call", () => {
+    // `consume.delay(name, …)` and `consume.apply_async(kwargs={"path": source})` both bind `path`.
+    const callers = anchorGraphOp(session, { file: "app/tasks.py", name: "path", line: 5, direction: "backward" });
+    expect(boxes(callers, "value").filter((node) => node.elementKind === "parameter" && node.side === "up").map((node) => node.label).sort()).toEqual(["name", "source"]);
+    // Forward, the queued value enters the task's body; the call's result is the task's handle, so `handle.id` never carries it.
+    const queued = anchorGraphOp(session, { file: "app/tasks.py", name: "name", line: 9, direction: "forward" });
+    expect(boxes(queued).some((node) => node.label === "path.upper(…)")).toBe(true);
+    expect(boxes(queued).some((node) => node.line === 11)).toBe(false);
+  });
+
   it("stops at a callback's return: the nested function is handed on as a value, so where its result goes is not proven", () => {
     // `clean` reaches `return finish(clean)` inside `create`, which `run(create)` calls through its parameter.
     const graph = anchorGraphOp(session, { ...at("app/closures.py", "clean", "    clean = url.strip()"), direction: "forward" });
