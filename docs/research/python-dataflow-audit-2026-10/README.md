@@ -146,3 +146,44 @@ Lost points are grouped into gaps and ranked by the points they cost across task
 | G12 | Framework hand-offs not followed: an external read's key argument (`session.get(User, token.sub)`), Celery `apply_async`/`delay` into a first-party `@shared_task`, Django/DRF view `request` as an origin. | T2 T8 T9 | engine | Answer |
 
 Round 1's implement step takes G1, G4 and G2. All three are about whether the screen is clear and honest before any analysis runs, and every task pays for them. The engine gaps (G3, G6–G12) go to the backlog with their evidence.
+
+### Round 1 — implement
+
+Three PRs, each merged on its own after CI passed:
+
+- **G1 — [#218](https://github.com/byronwall/srcly/pull/218).** A TypeScript root names the Python apps below it (`status.pythonApps`: a Django folder, else the deepest project file). The route picker and the N/A and empty states open one in a click: template → `backend/`, mealie → `mealie/`, paperless-ngx → `src/`.
+- **G4 — [#220](https://github.com/byronwall/srcly/pull/220).** In anchor mode the inspector names the engine's relation (`request binding`, `carrier`, `field input`) instead of "rendered by". The legend has a value vocabulary. `status` reports the root's language. On Python, effects and file anchors say "Not available for Python yet" instead of a red 404, and the routes empty state names FastAPI and Flask.
+- **G2 — [#219](https://github.com/byronwall/srcly/pull/219).** The cause was not the 30 s limit itself. The client's `status` polls counted as queries, so the first build lost its size-scaled timeout. Polls no longer count, the background build waits up to the helper's own 10 minutes, and the progress panel shows the seconds so far. mealie now opens cold in 49 s with default settings.
+
+### Round 2 — test (2026-10-27, `main` at `5a34ea6`)
+
+| Task | Start | Answer | Focus | Reading | Honesty | Parts | Next | Total | Δ |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| T1 | 3 | 2 | 2 | 2 | 1 | 2 | 2 | **14** | +3 |
+| T2 | 2 | 2 | 3 | 3 | 2 | 2 | 2 | **16** | 0 |
+| T3 | 3 | 3 | 1 | 1 | 2 | 2 | 2 | **14** | +1 |
+| T4 | 3 | 3 | 0 | 1 | 3 | 2 | 1 | **13** | +1 |
+| T5 | 1 | 1 | 2 | 2 | 0 | 2 | 1 | **9** | +1 |
+| T6 | 2 | 0 | 2 | 2 | 0 | 2 | 1 | **9** | 0 |
+| T7 | 1 | 1 | 1 | 1 | 2 | 2 | 1 | **9** | +2 |
+| T8 | 2 | 2 | 1 | 2 | 0 | 2 | 1 | **10** | +1 |
+| T9 | 2 | 1 | 3 | 3 | 2 | 2 | 1 | **14** | 0 |
+| T10 | 2 | 0 | 1 | 1 | 3 | 2 | 1 | **10** | +3 |
+| **Total /40** | **21** | **15** | **16** | **18** | **15** | **20** | **13** | **118 / 280 (42%)** | **+12** |
+
+What moved:
+
+- Every repo now opens its Python app from its root in one visible click ([template](shots/r2-t1-01-root-offers-backend.png), [mealie](shots/r2-t5-01-mealie-root-offers-mealie.png), [paperless](shots/r2-t8-01-paperless-root-offers-src.png)). Start stays below 4 where the task still needs a detour: T5's route is still missing (G8), and re-anchoring from a box still goes through the code viewer (G5).
+- The inspector and legend speak about values ([T1](shots/r2-t1-02-item-in-inspector.png), [T3](shots/r2-t3-01-email-legend.png), [T7](shots/r2-t7-01-create-one-inspector.png)). Two direction controls still sit side by side, so Parts stays at 2.
+- Unsupported features say so plainly and point to what works ([T8 empty state](shots/r2-t8-02-django-no-routes-python-copy.png), [T10](shots/r2-t10-01-file-anchor-calm.png)).
+- Answer, Focus and Reading did not move. The rest of the score is in the engine: database writes (G7), lost routes (G8), false `ok` (G3), floods (G6), closures, field writers and framework hand-offs (G9, G10, G12).
+
+### Round 2 — synthesize
+
+The UI gaps that cost points on every task are fixed. The next points are in what the engine draws, ranked by points across tasks:
+
+1. **G8 — routes on `APIRouter` subclasses.** T5 Start and Answer. Contained in the helper's router table.
+2. **G7 — ORM writes as ends.** T1, T4, T7 Answer. Rows in `engine/models/python.json`.
+3. **G3 — false `ok`.** T1, T5, T6, T8 Honesty. Start with the library call whose result is assumed to carry its arguments (`apply_async(...).id`).
+
+Round 2's implement step takes them in that order.
