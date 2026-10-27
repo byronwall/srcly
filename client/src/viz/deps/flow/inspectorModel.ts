@@ -96,10 +96,11 @@ export function anchorOverview(graph: AnchorGraphResult): AnchorOverview {
   };
 }
 
-function stopsOf(graph: AnchorGraphResult): AnchorOverview["stops"] {
+/** Where a trace stops, as the engine counts it: each frontier, and each boundary the walk could not pass. The footer counts the same list. */
+export function stopsOf(graph: AnchorGraphResult): AnchorOverview["stops"] {
   const groups = new Map<string, AnchorOverview["stops"][number]>();
   for (const n of graph.nodes) {
-    if (n.kind !== "frontier") continue;
+    if (n.kind !== "frontier" && !(n.kind === "boundary" && n.status !== "proven")) continue;
     const reason = n.reason ?? "frontier";
     const group = groups.get(reason) ?? { reason, word: stopWord(n.reason), hint: STOP_REASONS[reason]?.hint ?? n.note ?? "", rows: [] };
     group.rows.push({ id: n.id, label: n.label, file: n.file, line: n.line });
