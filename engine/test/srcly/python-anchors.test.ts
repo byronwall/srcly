@@ -64,10 +64,10 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(boxes(graph, "boundary").map((node) => node.reason)).toEqual(["unproven-handoff"]);
   });
 
-  it("binds a queued Celery task's parameters at each `delay` and `apply_async` call", () => {
+  it("binds a queued Celery task's parameters at each `delay`, `apply_async` and signature (`s`) call", () => {
     // `consume.delay(name, …)` and `consume.apply_async(kwargs={"path": source})` both bind `path`.
     const callers = anchorGraphOp(session, { file: "app/tasks.py", name: "path", line: 5, direction: "backward" });
-    expect(boxes(callers, "value").filter((node) => node.elementKind === "parameter" && node.side === "up").map((node) => node.label).sort()).toEqual(["name", "source"]);
+    expect(boxes(callers, "value").filter((node) => node.elementKind === "parameter" && node.side === "up").map((node) => node.label).sort()).toEqual(["name", "scan", "source"]);
     // Forward, the queued value enters the task's body; the call's result is the task's handle, so `handle.id` never carries it.
     const queued = anchorGraphOp(session, { file: "app/tasks.py", name: "name", line: 9, direction: "forward" });
     expect(boxes(queued).some((node) => node.label === "path.upper(…)")).toBe(true);

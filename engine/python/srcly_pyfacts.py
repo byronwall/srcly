@@ -1881,9 +1881,9 @@ class BodyWalker:
     # ---- calls
 
     def celery_task(self, node: ast.Call) -> FunctionInfo | None:
-        """The first-party Celery task a `task.delay(…)` or `task.apply_async(…)` call queues, or None."""
+        """The first-party Celery task a `task.delay(…)`, `task.apply_async(…)` or signature (`task.s(…)`) call queues, or None."""
         func = node.func
-        if not (isinstance(func, ast.Attribute) and func.attr in ("delay", "apply_async")):
+        if not (isinstance(func, ast.Attribute) and func.attr in ("delay", "apply_async", "s", "si", "signature")):
             return None
         task = self.program.resolve_function(self.program.dotted(self.source, func.value))
         if task is None or isinstance(task.node, ast.Lambda):
@@ -1899,7 +1899,7 @@ class BodyWalker:
         """
         func = node.func
         assert isinstance(func, ast.Attribute)
-        if func.attr == "delay":
+        if func.attr in ("delay", "s", "si"):
             args, kws = list(node.args), list(node.keywords)
         else:
             named = {kw.arg: kw.value for kw in node.keywords}

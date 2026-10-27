@@ -13,3 +13,7 @@ def upload(name: str) -> str:
 
 def bulk(source: str) -> None:
     consume.apply_async(kwargs={"path": source}, countdown=3)
+
+
+def chained(scan: str) -> object:
+    return consume.s(scan)
