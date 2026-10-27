@@ -280,7 +280,10 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(up.origins.map((origin) => origin.label)).toEqual(["the request"]);
     const down = anchorGraphOp(session, { ...at("app/web.py", "payload", "payload = request.json"), direction: "forward" });
     expect(boxes(down, "terminal").map((node) => [node.line, node.elementKind])).toEqual([[14, "http-response"]]);
-    expect(anchor("app/web.py", "greet", 18).outcome).toBe("ok");
+    // The handler's body is walked too: `request.args.get(…)` is library code with no model, so its response is assumed, not proven.
+    const greet = anchor("app/web.py", "greet", 18);
+    expect(greet.outcome).toBe("partial");
+    expect(greet.terminals.map((terminal) => terminal.label)).toEqual(['return request.args.get("name", "") → GET /greet']);
     // A parameter that happens to be called `request` is not Flask's.
     const local = anchorGraphOp(session, { ...at("app/web.py", "request", "    return request"), direction: "backward" });
     expect(local.origins).toEqual([]);

@@ -4,21 +4,21 @@
     "client": {
       "traces": 89,
       "outcomes": {
-        "ok": 13,
-        "partial": 75,
+        "ok": 10,
+        "partial": 78,
         "unsupported": 1
       },
       "stops": {
         "boundary: external-code": 1,
         "boundary: framework-runtime": 11,
-        "boundary: network": 1,
+        "boundary: network": 4,
         "boundary: unproven-handoff": 12,
-        "frontier: budget-exhausted": 108,
-        "frontier: disconnected": 106,
-        "frontier: external-code": 63,
+        "frontier: budget-exhausted": 146,
+        "frontier: disconnected": 125,
+        "frontier: external-code": 89,
         "frontier: unbound-read": 24,
         "frontier: unresolved-symbol": 7,
-        "frontier: untraced": 6
+        "frontier: untraced": 4
       },
       "ok": [
         "src/App.tsx#default (App)",
@@ -26,35 +26,32 @@
         "src/compare/graphModel.ts#DEFAULT_GRAPH_OPTIONS",
         "src/compare/metrics.ts#STATUS_LABEL",
         "src/compare/metrics.ts#VERDICT_TEXT",
-        "src/compare/treemapLayout.ts#tileDelta",
         "src/components/ui/PopoverPanel.tsx#OptionRow",
         "src/markdown/rehypeWrapSelection.ts#rehypeWrapSelection",
         "src/navigation/store.ts#canReturn",
         "src/viz/deps/encoding.ts#EXTERNAL_BOX_DASH",
-        "src/viz/deps/flow/FlowTools.tsx#FlowModeSwitch",
-        "src/viz/deps/geometry.ts#countOverlaps",
-        "src/viz/deps/layout.ts#layoutView"
+        "src/viz/deps/flow/FlowTools.tsx#FlowModeSwitch"
       ],
       "errors": []
     },
     "value-flow-basics": {
-      "traces": 60,
+      "traces": 62,
       "outcomes": {
         "ok": 12,
-        "partial": 47,
-        "unsupported": 1
+        "partial": 50
       },
       "stops": {
         "frontier: budget-exhausted": 1,
         "frontier: disconnected": 6,
+        "frontier: external-code": 2,
         "frontier: unbound-read": 276,
         "frontier: untraced": 3
       },
       "ok": [
         "src/closure-props-host.tsx#ChipHost",
         "src/component-aliases.tsx#Tag",
+        "src/function-body.ts#wrapName",
         "src/function-field-reads.ts#describeFirst",
-        "src/function-field-reads.ts#describeItem",
         "src/half-landed.tsx#HalfLanded",
         "src/hook-return.tsx#HookReturn",
         "src/hook-return.tsx#orphan",
@@ -69,27 +66,21 @@
     "server": {
       "traces": 128,
       "outcomes": {
-        "ok": 11,
-        "partial": 114,
-        "unsupported": 3
+        "ok": 5,
+        "partial": 121,
+        "unsupported": 2
       },
       "stops": {
-        "boundary: external-code": 5,
-        "boundary: filesystem": 16,
-        "frontier: budget-exhausted": 86,
-        "frontier: external-code": 582,
-        "frontier: untraced": 95
+        "boundary: external-code": 19,
+        "boundary: filesystem": 29,
+        "frontier: budget-exhausted": 114,
+        "frontier: external-code": 849,
+        "frontier: untraced": 79
       },
       "ok": [
         "app/routers/analysis.py#get_analysis_context",
-        "app/routers/compare.py#cancel_compare",
-        "app/routers/compare.py#list_refs",
-        "app/routers/compare.py#start_compare",
         "app/services/activity.py#_measured",
-        "app/services/analysis.py#_compute_function_body_loc",
         "app/services/compare/diff.py#is_external",
-        "app/services/deps/python_deps.py#parse_py_file",
-        "app/services/deps/typescript_deps.py#parse_ts_file",
         "app/services/scan_workers.py#cancel_all_scans",
         "app/services/typescript/components.py#_is_inline_handler"
       ],
