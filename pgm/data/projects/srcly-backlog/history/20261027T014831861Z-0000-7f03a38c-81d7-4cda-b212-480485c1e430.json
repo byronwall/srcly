@@ -1,0 +1,15 @@
+{
+  "id": "7f03a38c-81d7-4cda-b212-480485c1e430",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:e1ca3f",
+    "label": "Agent token ...e1ca3f"
+  },
+  "createdAt": "2026-10-27T01:48:31.861Z",
+  "summary": "Created \"Python app hidden at a mixed repo's root\" under \"Data flow: Python usability (audit 2026-10)\".",
+  "nodeIds": [
+    "task-python-app-hidden-at-a-mixed-repo-s-root",
+    "area-data-flow-python-usability-audit-2026-10"
+  ]
+}

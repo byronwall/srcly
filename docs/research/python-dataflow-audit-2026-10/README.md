@@ -75,3 +75,74 @@ The loop stops after three rounds, or earlier when a round raises no task score.
 ## Rounds
 
 Scorecards, gaps and screenshots for each round follow below as the rounds run.
+
+### Round 1 — test (2026-10-26)
+
+Setup: `main` at `78a841e`. Each repo had its locked packages installed (`uv sync --no-dev`) so mypy could resolve FastAPI, SQLModel and Django. Browser at 1440×900. Screenshots are 2x captures of the same URLs.
+
+#### Scorecard
+
+| Task | Start | Answer | Focus | Reading | Honesty | Parts | Next | Total /28 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| T1 endpoint body (template) | 1 | 2 | 2 | 2 | 1 | 1 | 2 | **11** |
+| T2 where `current_user` comes from (template) | 2 | 2 | 3 | 3 | 2 | 2 | 2 | **16** |
+| T3 who reads `User.email` (template) | 3 | 3 | 1 | 1 | 2 | 1 | 2 | **13** |
+| T4 `SECRET_KEY` both ways (template) | 3 | 3 | 0 | 1 | 3 | 1 | 1 | **12** |
+| T5 recipe from URL, route to database (mealie) | 0 | 1 | 2 | 2 | 0 | 2 | 1 | **8** |
+| T6 where `slug` comes from (mealie) | 2 | 0 | 2 | 2 | 0 | 2 | 1 | **9** |
+| T7 what `create_one` touches (mealie) | 1 | 1 | 1 | 1 | 1 | 1 | 1 | **7** |
+| T8 where an upload goes (paperless) | 1 | 2 | 1 | 2 | 0 | 2 | 1 | **9** |
+| T9 what feeds `consume_file` (paperless) | 2 | 1 | 3 | 3 | 2 | 2 | 1 | **14** |
+| T10 how `serialisers.py` connects (paperless) | 2 | 0 | 1 | 1 | 2 | 1 | 0 | **7** |
+| **Total /40** | **17** | **15** | **16** | **18** | **13** | **15** | **12** | **106 / 280 (38%)** |
+
+The tool does best on small, local questions in a small FastAPI app (T2, T9). It does worst when the answer crosses a boundary that Python apps use all the time: an ORM write, a closure, a Celery task, a router subclass, or a pydantic validator. In those cases it often still says `ok`. Honesty (13/40) and Next step (12/40) are the weakest dimensions.
+
+#### What happened, task by task
+
+**T1 — `POST /api/v1/items/`.** At the repo root, Data flow picks TypeScript because `frontend/` has a `tsconfig`. The route picker lists ten `.tsx` routes and nothing shows that a Python backend exists ([shot](shots/r1-t1-01-root-picks-typescript.png)). Folder rows have no menu. The only way in is to type `…/backend` into the path box. There, the picker lists 23 routes, but without the app's `/api/v1` prefix ([shot](shots/r1-t1-04-python-route-picker.png)). The route opens a function anchor that shows parameters in and the return out ([shot](shots/r1-t1-02-create-item-anchor.png)). It does not show the body: `Item.model_validate(...)` and `session.add(item)` are not drawn. The engine knows `session.add`, but stops there as `external-code`, so the one thing a "create" endpoint does, the database write, is missing. The anchor still reads `ok`. Selecting `item_in` shows an inspector that says "rendered by", prints "structuralstructural", and ends with "Function effects failed (404): … TypeScript-only" ([shot](shots/r1-t1-03-item-in-selected.png)). A second direction control (Reach Both/Up/Down) appears next to Trace From/Both/To.
+
+**T2 — `current_user`.** A canvas box has no "trace from here". Right-click shows only a hover card. The path is: double-click → code viewer (a third of it is a metrics panel) → right-click the line → "Trace where it comes from". The menu also offers "Inspect value flow", a third tool with no word on how it differs. The trace stops at `session.get(User, token_data.sub)` and calls that the origin ([shot](shots/r1-t2-01-current-user-backward.png)). It does not follow the key into `jwt.decode`, the token and `SECRET_KEY`. The engine can: a trace from `token_data` reaches all of them ([shot](shots/r1-t2-02-token-data-backward.png)). In that trace, orange box borders and "Partial: some paths stop at frontiers" appear, but no frontier box is drawn and the inspector lists no stop. The token's origin says "enters from Depends(…)" at the `CurrentUser` alias, not at the `OAuth2PasswordBearer` header.
+
+**T3 — `User.email`.** Getting there is easy: tree → `models.py` → right-click → Trace where it goes. The answer is mostly right but unreadable: 61 boxes in 11 frames at about 6 px, with frame titles cut off ([shot](shots/r1-t3-01-email-forward.png)). The trace is `ok`, but about 25 boxes have the "Partial: the engine omitted some of what is inside" border. The legend is one static list in React/Solid words: "Terminal: where a value reaches the DOM", "Control: a Show, For, Suspense", "Rendered per item: inside a For" ([shot](shots/r1-t3-02-legend-tsx-vocabulary.png)). Branch tests (`user`, `settings.emails_enabled and user_in.email`) are listed as terminals.
+
+**T4 — `SECRET_KEY`.** The environment origin and all four JWT uses are found. The trace then follows the token into every route that uses `current_user`: 180 boxes downstream in 32 functions ([shot](shots/r1-t4-01-secret-key-both.png)). Data flow has no hop limit or "stop at first use". The inspector says "stops at 10 places" and the footer says 11.
+
+**T5 — mealie, recipe from URL.** At the repo root: "Data flow N/A — the tsconfig is not strict. frontend/tsconfig.json has strictNullChecks off" ([shot](shots/r1-t5-01-mealie-root-na.png)). At `mealie/mealie`: "the engine timed out. The engine did not answer routes within 30 s." The helper alone takes 40.6 s cold (1.6 GB) on 480 files. The progress bar does not move during the mypy phase. With the timeout raised to 240 s, 213 routes load, but the whole recipe controller is missing: the helper knows a router only by the names `APIRouter`, `FastAPI`, `Flask` and `Blueprint`, so 82 routes on `UserAPIRouter(APIRouter)` are lost (`engine/python/srcly_pyfacts.py:580`). From the code viewer, `req` traces to `url` and stops at the nested `async def create()` that passes it on ([shot](shots/r1-t5-02-req-forward-stops-at-closure.png)). The outcome is `ok` with no frontier. A name inside that closure cannot be selected ("No url on line 368"). From the scraper, the trace ends at the abstract `ABCScraperStrategy` and at attribute writes, with no network fetch and no database create ([shot](shots/r1-t5-03-scraper-url-forward.png)).
+
+**T6 — mealie, `slug`.** Backward from the `slug` field: 3 boxes, `ok`, no writers ([shot](shots/r1-t6-01-slug-field-backward-empty.png)). The real writers are the `validate_slug` validator, `slugify(name)` in the scraper's cleaner, and the de-duplication suffix in `repository_recipes.py:134`. The validator's parameter is `untraced`. `document.slug = …` cannot be selected.
+
+**T7 — mealie, what `create_one` touches.** The tile menu has no "what does this touch". The code viewer has no effects section for Python. The graph inspector shows "Function effects failed (404)" ([shot](shots/r1-t7-01-create-one-effects-404.png)). A function anchor mixes in what the callers do (a file write in `create_from_zip`). The method's own writes (`repos.recipes.create`, `user_ratings.create`, `recipe_timeline_events.create`) show as plain transform boxes. Inspector proof words are "renders id" and "handoff".
+
+**T8 — paperless, upload.** The build timed out at 240 s and kept running after the UI said N/A. It finished after about 7.5 minutes and 3.6 GB, with the whole machine deep in swap, so this time is not a clean measure. The helper also ignores the project's mypy plugins (`mypy_django_plugin`, `mypy_drf_plugin`). Data flow then says "No routes here — a file under a routes/ folder that default-exports a component" ([shot](shots/r1-t8-01-django-no-routes-tsx-copy.png)). `doc_data` correctly ends at the temp-file write. `input_doc` is shown flowing into `apply_async(...)`, then `async_task.id`, then the HTTP response, marked `ok` ([shot](shots/r1-t8-02-input-doc-false-ok-into-response.png)). That path is false: the task id does not carry the document, and the first-party `consume_file` task is never entered. `request` forward finds no request origin and draws 461 boxes before the budget runs out ([shot](shots/r1-t8-03-request-forward-461-boxes.png)).
+
+**T9 — paperless, `consume_file`.** Backward from `input_doc`: "enters from @shared_task", `ok`, 4 boxes ([shot](shots/r1-t9-01-consume-file-backward.png)). The entry is named, which is honest, but none of the 14 in-program `apply_async`/`delay` callers are linked.
+
+**T10 — paperless, `serialisers.py`.** A file anchor shows a red "Exports failed (404): A file's exports is TypeScript-only" in the middle of an empty canvas ([shot](shots/r1-t10-01-file-anchor.png)). The node menus still offer it on Python files.
+
+#### Environment notes
+
+- The pane's path box ignored typed input once. The audit opened repos by URL; Start scores count in-app moves only.
+- The 30 s query timeout was raised to 240 s (`SRCLY_DATAFLOW_TIMEOUT`, local `launch.json` only) so mealie and paperless could be tested at all. Start scores for T5–T10 still count the timeout.
+- `pnpm shot` captured the graph before layout settled (no edges). The audit used a capture that waits.
+
+### Round 1 — synthesize
+
+Lost points are grouped into gaps and ranked by the points they cost across tasks. Gaps that make the screen unclear rank first among equals. `ui` gaps need no engine change; `engine` gaps need the helper or the analysis.
+
+| # | Gap | Tasks | Cause | Cost |
+| --- | --- | --- | --- | --- |
+| G1 | Python is hidden at a mixed repo's root: a `tsconfig` anywhere within three levels wins, and a non-strict one refuses the whole root. All three repos hit it. No control switches language or points to the Python folder. | all | ui + server | Start on every task |
+| G2 | A mid-size Python app never opens: the 30 s query timeout covers the first build (mealie 40 s, paperless minutes). The progress bar freezes, N/A has no retry, and the helper keeps running after N/A. | T5–T10 | server + engine | Start 0–1, blocks the rest |
+| G3 | `ok` claims that are not true: function anchors with stops inside, a field with zero writers, a library call whose return is assumed to carry its arguments (`apply_async(...).id`), a closure the walk cannot enter. Status words disagree (`ok` with Partial borders; 10 vs 11 stops). | T1 T3 T5 T6 T8 | engine + ui | Honesty 13/40 |
+| G4 | TypeScript/Solid words and TypeScript-only features shown on Python: legend (DOM, Show/For, component), "rendered by", "renders id", "handoff", "structuralstructural", the routes empty state, and red 404 text for effects and file exports. | T1 T3 T7 T8 T10 | ui | Parts, Reading |
+| G5 | Too many ways to say the same thing: Trace From/Both/To beside Reach Both/Up/Down; three code-menu entries; reach counts in the inspector and the footer; no "trace from this box" on the canvas. | T1 T2 T4 T7 | ui | Parts, Next |
+| G6 | Floods: a forward trace follows a value into every route that touches it (61, 180, 461 boxes). No hop limit, no fold by file, unreadable at Fit. | T3 T4 T8 | ui + engine | Focus |
+| G7 | ORM and repository writes are not ends: `session.add/commit/delete`, `sqlmodel_update`, Django `save`/`objects.create` stop as `external-code`. | T1 T4 T7 | engine (rows) | Answer |
+| G8 | Routes on `APIRouter` subclasses are lost (mealie: 82). Mount prefixes from non-literal `include_router(prefix=settings.API_V1_STR)` are dropped. | T1 T5 | engine (helper) | Start, Answer |
+| G9 | A function or name inside a nested `def` is not walked or selectable. | T5 | engine (helper) | Answer, Honesty |
+| G10 | Writers of a model field (constructor kwargs, validators, `obj.field = …`) are not collected. Attribute assignment targets are not selectable. | T6 | engine (helper) | Answer |
+| G11 | No effects view for Python ("what does this function touch"). | T7 | engine + ui | Answer |
+| G12 | Framework hand-offs not followed: an external read's key argument (`session.get(User, token.sub)`), Celery `apply_async`/`delay` into a first-party `@shared_task`, Django/DRF view `request` as an origin. | T2 T8 T9 | engine | Answer |
+
+Round 1's implement step takes G1, G4 and G2. All three are about whether the screen is clear and honest before any analysis runs, and every task pays for them. The engine gaps (G3, G6–G12) go to the backlog with their evidence.
