@@ -69,8 +69,8 @@
     "server": {
       "traces": 128,
       "outcomes": {
-        "ok": 15,
-        "partial": 110,
+        "ok": 11,
+        "partial": 114,
         "unsupported": 3
       },
       "stops": {
@@ -85,12 +85,8 @@
         "app/routers/compare.py#cancel_compare",
         "app/routers/compare.py#list_refs",
         "app/routers/compare.py#start_compare",
-        "app/routers/dataflow.py#_contained_file",
         "app/services/activity.py#_measured",
         "app/services/analysis.py#_compute_function_body_loc",
-        "app/services/analysis.py#_has_pruned_component",
-        "app/services/analysis.py#_is_inside_git_work_tree",
-        "app/services/analysis.py#_load_gitignore_spec",
         "app/services/compare/diff.py#is_external",
         "app/services/deps/python_deps.py#parse_py_file",
         "app/services/deps/typescript_deps.py#parse_ts_file",
