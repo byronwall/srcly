@@ -166,7 +166,8 @@ export function FlowInspector(props: {
                 <span class="plc-data-sm min-w-0 break-all font-semibold text-[var(--plc-on-surface)]">{d().node.label}</span>
               </div>
               <div class="flex flex-wrap items-baseline gap-x-2 pl-5 text-[11px]">
-                <span class="text-[var(--plc-on-muted)]">{FLOW_MARKS[d().mark].label}</span>
+                {/* A folded function's box is its frame: an anchor graph's scope. */}
+                <span class="text-[var(--plc-on-muted)]">{"side" in d().node && d().node.kind === "scope" ? "function" : FLOW_MARKS[d().mark].label}</span>
                 <span class={`font-semibold ${STATUS_CLASS[d().node.status]}`}>{STATUS_WORD[d().node.status]}</span>
                 <Show when={repetition(d().node)}>{(r) => <span class="text-[var(--plc-on-muted)]">{REPETITION_BADGE[r()].title.toLowerCase()}</span>}</Show>
                 <Show when={external(d().node)}>
