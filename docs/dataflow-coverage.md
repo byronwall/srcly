@@ -40,6 +40,7 @@ The work came from the data-flow experience audit (October 2026). The audit trac
 - A root that is itself a package names its modules from above it, so its own imports resolve (#221).
 - A SQLAlchemy session write (`add`, `add_all`, `delete`, `merge`, and the async session's) ends a trace as a database write (#222).
 - A value handed to library code with no model is assumed to reach its result, so a trace that lands only through it is partial; a built-in type's or a standard container protocol's method is modelled (#223).
+- A file or folder anchor lists a Python module's public top-level functions and classes as its exports, each one opening into its trace.
 
 ## Python roots in the UI
 

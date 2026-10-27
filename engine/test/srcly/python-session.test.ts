@@ -5,6 +5,7 @@ import type { AnchorGraphResult, AnchorNode } from "../../src/srcly/contracts/an
 import type { RoutesResult } from "../../src/srcly/contracts/routes";
 import type { SelectExpressionResult, ValueFlowResult } from "../../src/srcly/contracts/value-flow";
 import { anchorGraphOp } from "../../src/srcly/ops/anchor-graph";
+import { fileExportsOp } from "../../src/srcly/ops/file-exports";
 import { routeGraphOp } from "../../src/srcly/ops/route-graph";
 import { selectExpressionOp, valueFlowOp } from "../../src/srcly/ops/value-flow";
 import { createEngineSession } from "../../src/srcly/session";
@@ -99,6 +100,17 @@ describe.skipIf(!python.python)(`Python session and ops (${python.reason})`, () 
     const flow: ValueFlowResult = valueFlowOp(session, { file: at.file, span: at.span, text: "body.name" });
     expect(flow.rows[0]).toMatchObject({ kind: "input", typeText: "str", status: "proven" });
     expect(flow.rows.filter((row) => row.kind === "terminal").map((row) => row.note)).toContain("HTTP response");
+  });
+
+  it("lists a module's public top-level functions and classes as its exports, each one traceable by name", () => {
+    const result = fileExportsOp(session, { file: "app/routers/items.py" });
+    expect(result.target.kind).toBe("file");
+    const exports = result.files[0].exports;
+    expect(exports.length).toBeGreaterThan(0);
+    expect(exports.every((item) => !item.name.includes(".") && !item.name.startsWith("_") && item.traceable)).toBe(true);
+    // Each export anchors by its name on its line.
+    const first = exports[0];
+    expect(anchorGraphOp(session, { file: first.file, name: first.name, line: first.line, direction: "forward" }).anchor.text).toBe(first.name);
   });
 
   it("refuses the route graph by name: it is TypeScript's render backbone", () => {

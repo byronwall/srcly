@@ -3,33 +3,39 @@ import type * as TypeScript from "typescript";
 import type { AnalysisCancellationToken } from "../../analysis/cancellation";
 import { fileExportsResultSchema, type FileExport, type FileExportsResult } from "../contracts/file-exports";
 import { EngineError } from "../protocol";
-import { checkGeneration, requireTypescript, type EngineSession, type TsTier1 } from "../session";
+import type { PythonTier1 } from "../python/session";
+import { checkGeneration, type EngineSession, type TsTier1 } from "../session";
 
 /**
  * The exported declarations of a file, or of every program file under a
  * folder (T19). Each export names the declaration it resolves to, through
  * re-exports, with the line the client anchors at; type-only exports are
  * listed as not traceable. Files are in path order and exports in source
- * order, so the result is stable for the cache.
+ * order, so the result is stable for the cache. A Python module's exports
+ * are its public top-level functions and classes.
  */
 export function fileExportsOp(session: EngineSession, params: { file?: unknown; expectedGeneration?: unknown }, cancellation?: AnalysisCancellationToken): FileExportsResult {
-  const tier1 = requireTypescript(session.tier1(), "A file's exports");
+  const tier1 = session.tier1();
   checkGeneration(tier1, params.expectedGeneration);
   if (typeof params.file !== "string" || !params.file) throw new EngineError("invalid-request", "fileExports needs params.file");
-  const root = path.resolve(tier1.args.root);
+  const root = path.resolve(tier1.root);
   const absolute = path.resolve(root, params.file);
   const relative = path.relative(root, absolute);
   if (relative.startsWith("..") || path.isAbsolute(relative)) throw new EngineError("invalid-request", `${params.file} is outside the engine root`);
   const rel = (file: string) => path.relative(root, file).split(path.sep).join("/");
-  const sources = tier1.program.getSourceFiles().filter((source) => firstParty(source, root) && (source.fileName === absolute || source.fileName.startsWith(absolute + path.sep)));
-  const single = sources.find((source) => source.fileName === absolute);
+  const under = (file: string) => file === absolute || file.startsWith(absolute + path.sep);
+  const listed =
+    tier1.language === "python"
+      ? tier1.facts.files.map((file) => path.resolve(root, file)).filter(under).map((absPath) => ({ absPath, exports: () => pythonExportsOf(tier1, rel(absPath), absPath) }))
+      : tier1.program.getSourceFiles().filter((source) => firstParty(source, root) && under(source.fileName)).map((source) => ({ absPath: source.fileName, exports: () => exportsOf(tier1, source, rel) }));
+  const single = listed.find((item) => item.absPath === absolute);
   const kind = single ? "file" : "folder";
-  if (!sources.length) throw new EngineError("not-found", `${relative || "."} has no TypeScript program file`);
-  const files = (single ? [single] : sources)
-    .sort((a, b) => (a.fileName < b.fileName ? -1 : a.fileName > b.fileName ? 1 : 0))
-    .map((source) => {
+  if (!listed.length) throw new EngineError("not-found", `${relative || "."} has no ${tier1.language === "python" ? "Python" : "TypeScript"} program file`);
+  const files = (single ? [single] : listed)
+    .sort((a, b) => (a.absPath < b.absPath ? -1 : a.absPath > b.absPath ? 1 : 0))
+    .map((item) => {
       cancellation?.throwIfCancelled();
-      return { file: rel(source.fileName), absPath: source.fileName, exports: exportsOf(tier1, source, rel) };
+      return { file: rel(item.absPath), absPath: item.absPath, exports: item.exports() };
     });
   const exports = files.flatMap((item) => item.exports);
   return fileExportsResultSchema.parse({
@@ -43,6 +49,14 @@ export function fileExportsOp(session: EngineSession, params: { file?: unknown; 
     files,
     counts: { files: files.length, exports: exports.length, traceable: exports.filter((item) => item.traceable).length },
   });
+}
+
+/** A Python module's public top-level functions and classes, from the helper's scopes, in source order. */
+function pythonExportsOf(tier1: PythonTier1, file: string, absPath: string): FileExport[] {
+  return (tier1.facts.scopes[file] ?? [])
+    .filter((scope) => !scope.name.includes(".") && !scope.name.startsWith("_"))
+    .sort((a, b) => a.s[0] - b.s[0])
+    .map((scope) => ({ id: `${file}@${scope.name}:${scope.s[0]}`, name: scope.name, kind: scope.kind, file, absPath, line: scope.s[0], column: scope.s[1], traceable: true, reexported: false }));
 }
 
 function firstParty(source: TypeScript.SourceFile, root: string): boolean {
