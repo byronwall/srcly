@@ -16,6 +16,8 @@ const DIRECTIONS: { id: Direction; label: string; title: string }[] = [
   { id: "forward", label: "To", title: "Where the value goes: render slots, effects, returns" },
 ];
 const DIRECTION_IDS = DIRECTIONS.map((d) => d.id);
+/** The reach a selected box lights for each trace direction: what it comes from is upstream, where it goes downstream. */
+export const REACH_OF_DIRECTION: Record<Direction, ReachMode> = { backward: "up", both: "both", forward: "down" };
 
 /** Anchor mode: which way the value is traced from the anchor. */
 export function DirectionSwitch(props: { dir: Direction; onChange: (dir: Direction) => void }) {

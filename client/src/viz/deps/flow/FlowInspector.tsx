@@ -201,8 +201,9 @@ export function FlowInspector(props: {
               <Show when={props.reach}>
                 {(r) => section("Reach", (
                   <div class="space-y-px">
-                    <Stat label="Proven to reach it" value={r().counts.up} title="Boxes upstream over proven edges" />
-                    <Stat label="It reaches" value={r().counts.down} title="Boxes downstream over proven edges" />
+                    {/* Only the lit direction: a side that was not walked is not 0. */}
+                    <Show when={r().mode !== "down"}><Stat label="Proven to reach it" value={r().counts.up} title="Boxes upstream over proven edges" /></Show>
+                    <Show when={r().mode !== "up"}><Stat label="It reaches" value={r().counts.down} title="Boxes downstream over proven edges" /></Show>
                     <Show when={r().counts.frontier}>
                       <Stat label="Stops at frontiers" value={r().counts.frontier} title="Boxes beyond a non-proven edge" />
                     </Show>

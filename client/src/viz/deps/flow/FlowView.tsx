@@ -21,7 +21,7 @@ import { exportsToViewModel } from "./exportsAdapter";
 import { anchorsToViewModel } from "./multiAnchorAdapter";
 import { FlowInspector } from "./FlowInspector";
 import { FlowLegend } from "./FlowLegend";
-import { DirectionSwitch, FlowModeSwitch, ReachModeSwitch, RecentFlowMenu } from "./FlowTools";
+import { DirectionSwitch, FlowModeSwitch, ReachModeSwitch, REACH_OF_DIRECTION, RecentFlowMenu } from "./FlowTools";
 import { createFetch } from "./fetchSignal";
 import { FlowProgress } from "./FlowProgress";
 import { PythonApps } from "./PythonApps";
@@ -292,12 +292,14 @@ export default function FlowView(props: {
   });
   const [hovered, setHovered] = createSignal<ViewNode | null>(null);
   const [reachMode, setReachMode] = createSignal<ReachMode>("both");
+  /** Anchor mode has one direction control: a selected box's reach follows the trace's direction. */
+  const reachShown = (): ReachMode => (anchorKey() ? REACH_OF_DIRECTION[dir()] : reachMode());
   /** The selected box's reach over the drawn view: what is proven to reach it, and what it reaches. */
   const reach = createMemo(() => {
     const m = model();
     const s = selected();
     if (!m || !s || !m.vm.nodes.some((n) => n.id === s)) return null;
-    return reachFrom(m.vm, s, reachMode(), { exclude: m.notFlow });
+    return reachFrom(m.vm, s, reachShown(), { exclude: m.notFlow });
   });
   /** What the canvas keeps lit: a selected box's reach, else the selected origin's destinations. */
   const highlight = () => {
@@ -455,7 +457,7 @@ export default function FlowView(props: {
       if (key === "/") setPicker(true);
       else if (key === "0") canvas?.fit();
       else if (key === "i") toggleInspector();
-      else if (key === "r" && selected()) setReachMode(REACH_MODES[(REACH_MODES.findIndex((m) => m.id === reachMode()) + 1) % REACH_MODES.length].id);
+      else if (key === "r" && selected() && !anchorKey()) setReachMode(REACH_MODES[(REACH_MODES.findIndex((m) => m.id === reachMode()) + 1) % REACH_MODES.length].id);
       else if (key === "Escape" && (selectedEdge() || selected() || field())) {
         if (selectedEdge()) setSelectedEdge(null);
         else if (selected()) setSelected(null);
@@ -592,7 +594,7 @@ export default function FlowView(props: {
           </select>
         </label>
         </Show>
-        <Show when={reach()}>
+        <Show when={reach() && !anchorKey()}>
           <ReachModeSwitch mode={reachMode()} onChange={setReachMode} />
         </Show>
         <Button variant="ghost" class="px-2" onClick={() => canvas?.fit()} title="Fit the graph to the window (0)" disabled={!layout()}>
