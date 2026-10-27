@@ -1352,9 +1352,12 @@ class BodyWalker:
         proof = None
         if param.annotation is not None:
             proof = {"kind": "annotation", "detail": f"{param.arg}: {annotation_text}", "locations": [self.source.location(self.span(param.annotation))]}
-        receiver = info is not None and is_constructor(info) and bool(info.params) and info.params[0] is param
+        first = info is not None and bool(info.params) and info.params[0] is param
+        receiver = first and is_constructor(info)
+        # A method's `self` or `cls`: the object it is called on, not an input its caller chooses.
+        attributes = {"name": param.arg, **({"receiver": True} if first and info.is_method else {})}
         element = self.element("alias" if receiver else "parameter", param, param.arg, id_kind="parameter", type_text=type_text, type_source=type_source, proof=proof,
-                               attributes={"name": param.arg})
+                               attributes=attributes)
         self.note(param, "arg", ty=type_text, tsrc=type_source, n=param.arg, d=1)
         self.scope.bind(param.arg, (param.lineno, param.col_offset), element)
         self.annotated_use(param, element)

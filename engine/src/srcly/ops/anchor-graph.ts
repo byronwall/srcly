@@ -352,8 +352,9 @@ class AnchorGraphBuilder {
     }
     if (sides.includes("down")) {
       // A function's body: each parameter walked forward reaches its writes, calls, returns and stops. A
-      // component's props reach its render slots through its uses, and a class's fields are where it is built.
-      for (const param of perProp || isClass ? [] : facts.filter((fact) => fact.kind === "parameter")) {
+      // component's props reach its render slots through its uses, a class's fields are where it is built,
+      // and a method's receiver (`self`) is what it is called on.
+      for (const param of perProp || isClass ? [] : facts.filter((fact) => fact.kind === "parameter" && fact.attributes?.receiver !== true)) {
         // Both ways, the parameter is already drawn on the left with its link in.
         if (!this.nodes.has(param.id)) {
           this.addFact(param, "down");

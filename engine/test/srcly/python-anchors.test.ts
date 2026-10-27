@@ -57,6 +57,13 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(fs.readFileSync(path.join(example, "app/deps.py"), "utf8")).toContain('message = "except ValueError, TypeError:"');
   });
 
+  it("walks a method's body from its inputs, never from its receiver", () => {
+    // `scaled(self, factor)` returns `self.quantity * factor`: `factor` is walked to the return, `self` is what it is called on.
+    const graph = anchorGraphOp(session, { file: "app/models.py", name: "scaled", line: 8, direction: "forward" });
+    const params = boxes(graph).filter((node) => node.elementKind === "parameter" && node.file === "app/models.py").map((node) => node.label);
+    expect(params).toEqual(["factor"]);
+  });
+
   it("anchors a class: its constructor calls are where it is used, and instances flow on from them", () => {
     const graph = anchor("app/models.py", "Order", 4);
     expect(graph.anchor).toMatchObject({ kind: "ClassDef", text: "Order", typeText: "type[Order]" });
