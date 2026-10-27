@@ -195,6 +195,13 @@ export default function FlowView(props: {
     setSelected(null);
     go({ anchor: encodeAnchors([...specs, next]) });
   };
+  /** Re-anchor on a drawn box by its element id, keeping the direction. */
+  const traceFrom = (id: string) => {
+    const box = model()?.byId.get(id);
+    if (!box || !("side" in box) || box.kind === "scope") return;
+    setSelected(null);
+    go({ anchor: encodeAnchor({ file: box.file, element: id }), open: undefined });
+  };
   const canAddAnchor = () => anchorSpecs().length >= 1 && anchorSpecs().length < MAX_ANCHORS && !exportsSpec();
   const anchorText = () => anchorGraph()?.graph?.anchor.text ?? (exportsSpec() ? `${exportsSpec()!.file || "."} (exports)` : anchorSpec() && "name" in anchorSpec()! ? (anchorSpec() as { name: string }).name : anchorKey()) ?? "";
   // Opened exports: each is its own anchor graph, fetched one at a time (the engine is serial) and kept by generation.
@@ -728,6 +735,7 @@ export default function FlowView(props: {
           onPickOrigin={pickOrigin}
           onToggleFrame={toggleFrame}
           onAddAnchor={canAddAnchor() ? addAnchorFrom : undefined}
+          onTraceFrom={anchorKey() && !exportsSpec() ? traceFrom : undefined}
           onClose={toggleInspector}
         />
       </Show>
