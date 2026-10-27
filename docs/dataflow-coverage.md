@@ -34,6 +34,18 @@ The work came from the data-flow experience audit (October 2026). The audit trac
 - Classes flow through fields and annotations (#172). ORM models get fields from assigned field instances (#189).
 - External-code and branch-test ends apply to Python (#177). A request starts at the request and its response ends at the return (#181). Values begin and end where the code does (#199).
 - A framework decorator's function is an entry (#185). A FastAPI dependency parameter fills from its function, and a function handed to outside code is entered (#204).
+- Routes: a first-party subclass of `APIRouter`, `FastAPI`, `Flask` or `Blueprint` is a router; a mount prefix carries through every router above it and may be a settings field with a literal default (#221).
+- A root that is itself a package names its modules from above it, so its own imports resolve (#221).
+- A SQLAlchemy session write (`add`, `add_all`, `delete`, `merge`, and the async session's) ends a trace as a database write (#222).
+- A value handed to library code with no model is assumed to reach its result, so a trace that lands only through it is partial; a built-in type's or a standard container protocol's method is modelled (#223).
+
+## Python roots in the UI
+
+These came from the Python data-flow usability audit (`docs/research/python-dataflow-audit-2026-10/`).
+
+- A TypeScript root names the Python apps below it and opens one in a click (#218).
+- On a Python root, the inspector names each relation, the legend uses value words, and unsupported features say so instead of failing (#220).
+- A Python app's first build gets its full timeout; status polls no longer spend it, and progress shows the seconds so far (#219).
 
 ## Engine structure
 
