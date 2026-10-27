@@ -127,7 +127,7 @@ export default function FlowView(props: {
     return spec && "exports" in spec ? spec : null;
   };
   const python = () => status()?.language === "python";
-  const exportsKey = createMemo(() => (availability() === "ready" && exportsSpec() && !python() ? `${root()}\n${exportsSpec()!.file}\n${generation() ?? ""}` : null));
+  const exportsKey = createMemo(() => (availability() === "ready" && exportsSpec() ? `${root()}\n${exportsSpec()!.file}\n${generation() ?? ""}` : null));
   const exportsFetch = createFetch(exportsKey, (key) => {
     const [path, file, gen] = key.split("\n");
     return fetchFileExports({ path, file, ...(gen ? { expectedGeneration: Number(gen) } : {}) });
@@ -640,13 +640,6 @@ export default function FlowView(props: {
                 : "Data flow starts from a route: a file under a routes/ folder that default-exports a component. Open a folder that has one."
             }
             actions={<PythonApps root={root()} apps={status()?.pythonApps} class="justify-center" />}
-          />
-        </Show>
-        <Show when={exportsSpec() && python()}>
-          <EmptyState
-            class="absolute inset-0"
-            title="Not available for Python yet"
-            description="Tracing a whole file works on TypeScript only. Trace a function or a value in it instead: open the file, right-click a line, and pick Trace where it goes."
           />
         </Show>
         <Show when={unanswered()}>
