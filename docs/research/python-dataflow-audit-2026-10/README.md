@@ -222,19 +222,6 @@ What moved:
 
 Focus went down (16 → 13). Resolving mealie's imports and following its real routes made traces reach further, and nothing on screen limits them yet. That is now the largest gap.
 
-## Where it stands
-
-Three rounds took the score from 106 to 124 (+17%). Six PRs merged: #218, #220, #219, #221, #222, #223. The loop stops here, after its third round.
-
-The gaps left, ranked by points across tasks, are in the backlog grid (`area-data-flow-python-usability-audit-2026-10`):
-
-1. **G6 — floods** (Focus 13/40). T3, T4, T6, T7, T8 draw 60 to 460 boxes. The view needs a hop limit, "stop at first use", or a fold by file that opens on demand. Now the top item.
-2. **G3 — remaining false `ok`.** A function anchor reads `ok` while its body stops inside (T1). A walk stops at a closure with no frontier (T5).
-3. **G9 — nested functions.** The closure stop in T5, and names in nested `def`s that cannot be selected.
-4. **G5 — one control per idea.** Trace From/Both/To beside Reach Both/Up/Down; no "trace from this box" on the canvas (Next 13/40).
-5. **G12 — framework hand-offs.** External-read keys (T2), Celery `apply_async` into a first-party task (T8, T9), DRF `request` as an origin.
-6. **G10, G11, G7 (Django).** Field writers, an effects view for Python, and Django's `save()` / `objects.create()`.
-
 ## Round 4 — the biggest unlock per line of code
 
 Round 4 picks fixes by user-visible gain per line changed. Two consider-and-contrast passes chose them.
@@ -257,3 +244,48 @@ The candidates left, by gain per line:
 1. **G3 for function anchors** — a function anchor reads `ok` with stops inside (T1). Engine outcome only.
 2. **G5, the rest** — Reach Both/Up/Down beside Trace From/Both/To. One control, UI only.
 3. **G9 nested functions**, **G12 framework hand-offs** — engine helper work, larger.
+
+### Round 4 and 5 — implement
+
+Round 4 took the passes above (#224, #225). Round 5 ran one more consider-and-contrast pass on what was left. Next step and Honesty were the weakest dimensions. A function anchor had the cheapest fix with the most reach, because every route opens its handler as one:
+
+- **G3, function anchors — [#227](https://github.com/byronwall/srcly/pull/227).** A function anchored by name walked only its returns and uses. Its body was not drawn, so `create_item` read `ok` with its database write off screen. Forward, each parameter now walks through the body. A method's receiver (`self`) is skipped: it drew 28 of `create_one`'s 43 boxes.
+- **G5, one control — [#228](https://github.com/byronwall/srcly/pull/228).** In anchor mode, a selected box's reach follows Trace From/Both/To, and the Reach switch shows in route mode only. The inspector and the footer count stops the same way (T7 read 8 beside 11).
+
+### Round 5 — test (2026-10-27, `main` with #224, #225, #227, #228)
+
+| Task | Start | Answer | Focus | Reading | Honesty | Parts | Next | Total | Δ R3 | Δ R1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| T1 | 3 | 4 | 3 | 3 | 3 | 3 | 3 | **22** | +7 | +11 |
+| T2 | 2 | 2 | 3 | 3 | 2 | 3 | 2 | **17** | +1 | +1 |
+| T3 | 3 | 3 | 3 | 3 | 2 | 3 | 3 | **20** | +6 | +7 |
+| T4 | 3 | 3 | 2 | 2 | 3 | 3 | 2 | **18** | +5 | +6 |
+| T5 | 2 | 2 | 1 | 2 | 0 | 3 | 2 | **12** | +2 | +4 |
+| T6 | 2 | 2 | 2 | 2 | 2 | 3 | 2 | **15** | +4 | +6 |
+| T7 | 1 | 3 | 2 | 2 | 3 | 3 | 2 | **16** | +7 | +9 |
+| T8 | 2 | 3 | 2 | 2 | 2 | 3 | 2 | **16** | +4 | +7 |
+| T9 | 2 | 1 | 3 | 3 | 2 | 3 | 1 | **15** | +1 | +1 |
+| T10 | 2 | 0 | 1 | 1 | 3 | 2 | 1 | **10** | 0 | +3 |
+| **Total /40** | **22** | **23** | **22** | **23** | **22** | **29** | **20** | **161 / 280 (58%)** | **+37** | **+55** |
+
+What moved:
+
+- **T1.** The route's handler now shows its body: the request body → `item_in` → `Item.model_validate` → `database write: session.add(item)` → the response. The owner comes from `current_user.id`. It is `partial`, with `session.commit` and `session.refresh` named as stops ([shot](shots/r5-t1-create-item-body.png)).
+- **T3, T4.** Folded by function: `User.email` draws 11 boxes, not 62, and each names what it reaches ("reaches log"). `SECRET_KEY` draws 33, not 177 ([T3](shots/r5-t3-email-folded.png), [T4](shots/r5-t4-secret-key-folded.png)). Each box opens in place.
+- **T6.** `slug` backward is 156 boxes in 27 functions, and opens folded.
+- **T7.** `create_one` forward walks its own body (12 boxes) and folds 50 functions. It names the repository's database write, the image file write, database queries and the notify call, and stops at 8 places, the same count in the inspector and the footer ([shot](shots/r5-t7-create-one-folded.png)).
+- **T8.** `PostDocumentView.post` forward reaches the temp-file write, the permission exit and `Response(async_task.id)` ([shot](shots/r5-t8-post-body.png)). Its own frame is still about 70 boxes, mostly `serializer.validated_data` reads.
+- **Parts** went from 20 to 29 on one direction control. **Next** went from 13 to 20 on Open the frame and Trace from here.
+- **Unchanged:** T2 still stops at `session.get(User, token_data.sub)` (G12). T5 still reads `ok` at the nested `create()` closure (G9). T9 still links none of `consume_file`'s callers (G12). T10's file anchor is TypeScript-only (G13).
+
+## Where it stands
+
+Five rounds took the score from 106 to 161 (+52%). Ten PRs merged: #218, #220, #219, #221, #222, #223, #224, #225, #227, #228.
+
+The gaps left, ranked by points across tasks, are in the backlog grid (`area-data-flow-python-usability-audit-2026-10`):
+
+1. **G9 — nested functions.** T5's Honesty is 0: a walk stops at a closure and reads `ok`. Also the last false `ok` (G3).
+2. **G12 — framework hand-offs.** The external-read key (T2), Celery `apply_async` into a first-party task (T8, T9). Next step stays at 1–2 on these tasks.
+3. **G13 — file anchors for Python.** T10's Answer is 0: a file anchor lists exports for TypeScript only.
+4. **G10, G11, G7 (Django).** Field writers (T6), an effects view (T7 Start), and Django's `save()`.
+5. **G5, the rest.** The code menu's three entries, and reach counts in the inspector and the footer.
