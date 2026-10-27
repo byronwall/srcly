@@ -155,6 +155,8 @@ class DataflowStatus(BaseModel):
     stale: bool = False
     rssBytes: int | None = None
     progress: Progress | None = None
+    # Python apps below a root analyzed as TypeScript, relative to it: where to open their data flow.
+    pythonApps: list[str] | None = None
 
 
 class RoutesResponse(BaseModel):

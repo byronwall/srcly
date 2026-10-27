@@ -24,6 +24,7 @@ import { FlowLegend } from "./FlowLegend";
 import { DirectionSwitch, FlowModeSwitch, ReachModeSwitch, RecentFlowMenu } from "./FlowTools";
 import { createFetch } from "./fetchSignal";
 import { FlowProgress } from "./FlowProgress";
+import { PythonApps } from "./PythonApps";
 import { reachFrom, REACH_MODES, type ReachMode } from "./reach";
 import { RoutePicker } from "./RoutePicker";
 
@@ -612,6 +613,7 @@ export default function FlowView(props: {
             class="absolute inset-0"
             title="Data flow N/A"
             description={`${reasonText(status()?.reason, status()?.message)}. ${status()?.message ?? ""}`.trim()}
+            actions={<PythonApps root={root()} apps={status()?.pythonApps} class="justify-center" />}
           />
         </Show>
         <Show when={!startError() && availability() !== "na" && waitingOn()}>
@@ -622,6 +624,7 @@ export default function FlowView(props: {
             class="absolute inset-0"
             title="No routes here"
             description="Data flow starts from a route: a file under a routes/ folder that default-exports a component. Open a folder that has one."
+            actions={<PythonApps root={root()} apps={status()?.pythonApps} class="justify-center" />}
           />
         </Show>
         <Show when={unanswered()}>
@@ -727,7 +730,7 @@ export default function FlowView(props: {
         </span>
       </div>
 
-      <RoutePicker open={picker()} routes={routeList()} current={currentRoute()?.key} onClose={() => setPicker(false)} onPick={(r) => pickRoute(r.key)} />
+      <RoutePicker open={picker()} routes={routeList()} current={currentRoute()?.key} onClose={() => setPicker(false)} onPick={(r) => pickRoute(r.key)} aside={<PythonApps root={root()} apps={status()?.pythonApps} />} />
     </div>
   );
 }
