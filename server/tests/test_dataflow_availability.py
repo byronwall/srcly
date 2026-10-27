@@ -20,6 +20,24 @@ def test_tsconfig_root_is_typescript(tmp_path, monkeypatch):
     assert found.available and found.language == "typescript" and found.python is None
 
 
+def _touch(root: Path, *paths: str) -> None:
+    for rel in paths:
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text("")
+
+
+def test_typescript_root_names_the_python_apps_inside_it(tmp_path):
+    # full-stack-fastapi-template: a workspace pyproject around backend/'s.
+    _touch(tmp_path / "a", "pyproject.toml", "frontend/tsconfig.json", "backend/pyproject.toml", "backend/app/__init__.py")
+    # paperless-ngx: manage.py in src/ beats the repo's pyproject.
+    _touch(tmp_path / "b", "pyproject.toml", "src-ui/tsconfig.json", "src/manage.py", "src/documents/__init__.py")
+    # mealie: the root's own pyproject names its package, not its tests.
+    _touch(tmp_path / "c", "pyproject.toml", "frontend/tsconfig.json", "mealie/__init__.py", "tests/__init__.py")
+    assert availability.python_apps(tmp_path / "a") == ("backend",)
+    assert availability.python_apps(tmp_path / "b") == ("src",)
+    assert availability.python_apps(tmp_path / "c") == ("mealie",)
+
+
 def test_python_project_is_python_with_this_interpreter(tmp_path, monkeypatch):
     _ready(monkeypatch)
     (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n")
