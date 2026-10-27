@@ -67,7 +67,7 @@ function NeighborList(props: { title: string; rows: NeighborRow[]; onSelect: (id
                 <span class="ml-auto shrink-0 text-[10.5px] text-[var(--plc-on-subtle)]">
                   {r.kind}
                   <Show when={r.path}>{(p) => <span class="pl-1 text-[var(--plc-accent)]">{p()}</span>}</Show>
-                  <Show when={r.status !== "proven" ? r.status : undefined}>{(s) => <span class={`pl-1 ${STATUS_CLASS[s()]}`}>{STATUS_WORD[s()]}</span>}</Show>
+                  <Show when={r.status !== "proven" && STATUS_WORD[r.status!] !== r.kind ? r.status : undefined}>{(s) => <span class={`pl-1 ${STATUS_CLASS[s()]}`}>{STATUS_WORD[s()]}</span>}</Show>
                 </span>
               </button>
             </li>
@@ -91,6 +91,8 @@ export function FlowInspector(props: {
   anchor?: AnchorGraphResult | null;
   model: FlowViewModel;
   rootPath: string;
+  /** Function effects is TypeScript-only: a Python root says so instead of asking. */
+  language?: "typescript" | "python";
   selected: string | null;
   reach: Reach | null;
   /** Flow node ids whose frames are opened in place. */
@@ -112,7 +114,7 @@ export function FlowInspector(props: {
   const effects = createEffectsQuery(() => {
     const d = details();
     const box = d?.node;
-    if (!props.anchor || !box) return null;
+    if (!props.anchor || !box || props.language === "python") return null;
     const scope = box.parent ? props.anchor.nodes.find((n) => n.id === box.parent && n.kind === "scope") : null;
     const target = box.kind === "anchor" && (box.elementKind === "component-definition" || box.elementKind === "function-entry" || box.elementKind === "handler-entry") ? box : scope;
     if (!target || target.detail === "module") return null;
@@ -220,6 +222,10 @@ export function FlowInspector(props: {
                     <EffectsPanel state={state()} title="Its function touches" onOpen={props.onOpen} />
                   </div>
                 )}
+              </Show>
+              <Show when={props.anchor && props.language === "python"}>
+                <h4 class={H}>Its function touches</h4>
+                <p class="text-[11px] text-[var(--plc-on-subtle)]">Not available for Python yet. Trace a value forward to see where it ends.</p>
               </Show>
               <Show when={props.graph && d().node.kind === "origin"}>
                 <Button variant="ghost" size="sm" class="mt-2 px-1.5" onClick={() => props.onPickOrigin(props.graph!.selectedSource === d().node.id ? undefined : d().node.id)}>

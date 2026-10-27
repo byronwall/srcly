@@ -157,6 +157,8 @@ class DataflowStatus(BaseModel):
     progress: Progress | None = None
     # Python apps below a root analyzed as TypeScript, relative to it: where to open their data flow.
     pythonApps: list[str] | None = None
+    # Which language the root is analyzed as, so the client words what it shows for it.
+    language: Literal["typescript", "python"] | None = None
 
 
 class RoutesResponse(BaseModel):
