@@ -248,9 +248,9 @@ Round 4 picks fixes by user-visible gain per line changed. Two consider-and-cont
 | Client hop filter (hide past N value hops) | 6 | 2 | 6 | 6 | a control and a filter |
 | Legibility only (larger text at Fit) | 1 — still 177 | 10 | 4 | — | small |
 
-Choice: fold by function (#&lt;fold PR&gt;). The canvas already opens and closes frames in place, and the inspector already offers "Open the frame". A trace over 40 boxes opens folded; smaller traces are unchanged.
+Choice: fold by function (#224). The canvas already opens and closes frames in place, and the inspector already offers "Open the frame". A trace over 40 boxes opens folded; smaller traces are unchanged.
 
-**Pass 2: the next unlock.** Next step scored 13/40, the weakest dimension. A canvas box had no "trace from here", so re-anchoring went through the code viewer (G5). The engine already anchors on an element id, so the fix is one inspector button (#&lt;trace-from PR&gt;). It is offered on value boxes only: a function's own anchor shows parameters and returns and still reads `ok` (G3), so a folded function offers Open the frame instead.
+**Pass 2: the next unlock.** Next step scored 13/40, the weakest dimension. A canvas box had no "trace from here", so re-anchoring went through the code viewer (G5). The engine already anchors on an element id, so the fix is one inspector button (#225). It is offered on value boxes only: a function's own anchor shows parameters and returns and still reads `ok` (G3), so a folded function offers Open the frame instead.
 
 The candidates left, by gain per line:
 
