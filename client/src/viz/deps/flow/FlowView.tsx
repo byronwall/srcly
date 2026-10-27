@@ -727,7 +727,8 @@ export default function FlowView(props: {
           }}
           onPickOrigin={pickOrigin}
           onToggleFrame={toggleFrame}
-          onAddAnchor={canAddAnchor() ? addAnchorFrom : undefined}          onClose={toggleInspector}
+          onAddAnchor={canAddAnchor() ? addAnchorFrom : undefined}
+          onClose={toggleInspector}
         />
       </Show>
       </div>
