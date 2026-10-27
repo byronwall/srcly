@@ -15,6 +15,7 @@ The work came from the data-flow experience audit (October 2026). The audit trac
 
 - A trace says what each side holds and where it stops (#151, #152, #155). A frontier box is labelled by why the trace stops (#158), and every partial trace names its stop (#169).
 - `ok` means proven. A trace that lands only through an assumed library step is not `ok` (#183).
+- A return of a function that no call names, only handed on as a value (a callback, a nested `def` passed to a runner), is an unproven hand-off, not where the value leaves: the trace is `partial` and names it. The Python helper counts a nested function read as a value as escaping.
 - A function anchored by name walks its body forward: each parameter reaches the function's writes, calls and returns, so a handler shows what it does with its input and reads `partial` when its body stops inside. Before, it walked only returns and uses, and `create_item` read `ok` with its database write off screen.
 - A budget-exhausted route slice names its omission (#161). Size limits are spent only on fields the trace reads and places it draws (#168, #197).
 - When nothing is drawn, the view says why and offers to try again (#160).

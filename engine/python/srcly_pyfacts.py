@@ -521,6 +521,7 @@ class Program:
         # The program's own top-level packages: a callee resolved under none of them is outside it.
         self.packages = {module.split(".")[0] for module in self.modules}
         self.functions: dict[str, FunctionInfo] = {}  # fullname -> info
+        self.functions_by_entry: dict[str, FunctionInfo] = {}  # entry id -> info, nested functions too
         self.functions_by_node: dict[int, FunctionInfo] = {}
         self.classes: dict[str, ClassInfo] = {}
         self.classes_by_node: dict[int, ClassInfo] = {}
@@ -652,6 +653,7 @@ class Program:
                 )
                 self.functions[info.fullname] = info
                 self.functions_by_node[id(stmt)] = info
+                self.functions_by_entry[info.entry_id] = info
                 if class_info is not None:
                     class_info.methods[stmt.name] = info
                 self.index_defs(source, stmt.body, prefix=f"{qualname}.<locals>.", class_info=None)
@@ -1653,9 +1655,11 @@ class BodyWalker:
             return None
         bound = owner.defs[node.id]
         if all(element.startswith("py:function-entry:") for _, element in bound):
-            target = self.program.functions.get(f"{self.source.module}.{node.id}")
-            if target is not None:
-                self.program.record_escape(target)
+            # A function read as a value (passed, stored): its callers are not all visible. By entry id, so a nested `def` counts too.
+            for _, entry in bound:
+                target = self.program.functions_by_entry.get(entry)
+                if target is not None:
+                    self.program.record_escape(target)
             return None
         element = self.load_name(node)
         # A plain read of a name repeats its binding: the anchor graph walks through it without a box of its own.
