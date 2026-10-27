@@ -1974,8 +1974,16 @@ class BodyWalker:
         element = self.element("call-result", node, f"{callee_text}(…)", attributes=attributes,
                                proof={"kind": proof_kind, "detail": proof_name, "locations": [source.location(span)]} if proof_name else None)
         self.note(node, "Call")
+        # A built-in type's method (`name.strip()`, `items.copy()`), or a standard container protocol's
+        # (`typing.Mapping.get` on a `Mapping`-annotated value), is the language's own: its result derives from
+        # its receiver and arguments by definition (modelled). Any other library code is assumed to carry the
+        # value, so a trace that lands only through it is partial, not ok.
+        builtin = bool(target_name and target_name.startswith(("builtins.", "typing.", "collections.abc.", "_collections_abc.")))
         for child, value in inputs:
-            self.relate(value, element, "call-input", f"handed to {callee_text}, outside the program; its result is assumed to carry it", child, status="partial")
+            if builtin:
+                self.relate(value, element, "call-input", f"handed to the built-in {callee_text}; its result derives from it", child, status="partial", proof_kind="host-api")
+            else:
+                self.relate(value, element, "call-input", f"handed to {callee_text}, outside the program; its result is assumed to carry it", child, status="partial", proof_kind="external-call")
         model = self.keyword_model(node)
         if model is not None:
             # `Article.objects.create(title=…)` builds an Article: a use of the class, and each keyword sets its field.
