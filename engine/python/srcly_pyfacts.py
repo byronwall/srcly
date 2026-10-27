@@ -43,6 +43,8 @@ SKIP_DIRS = {
     ".venv", ".git", ".tox", ".nox", ".mypy_cache", ".pytest_cache", ".ruff_cache",
 }
 TEST_DIRS = {"tests", "test", "testing"}
+# Framework classes a route-registering router is built from, or derives from.
+ROUTER_CLASSES = ("APIRouter", "FastAPI", "Flask", "Blueprint")
 HTTP_METHODS = {"get", "post", "put", "delete", "patch", "options", "head"}
 EXPRESSION_KINDS = (ast.Name, ast.Attribute, ast.Call, ast.Subscript, ast.BoolOp, ast.IfExp, ast.Await, ast.arg)
 
@@ -292,9 +294,13 @@ def discover(root: Path, source: Path, include_tests: bool = False) -> list[tupl
     ``.py`` files under ``source`` with their module names. A module's name is
     its path from the import root (``src/`` when the project has one, else the
     root), so namespace packages without ``__init__.py`` name the way imports do.
+    A root that is itself a package (mealie's ``mealie/``) names from above its
+    top package, so ``mealie.routes`` matches ``from mealie.routes import …``.
     Tests are left out unless asked for: they drive the app, they are not its data flow.
     """
     import_root = root / "src" if (root / "src").is_dir() and source.is_relative_to(root / "src") else root
+    while (import_root / "__init__.py").is_file() and import_root.parent != import_root:
+        import_root = import_root.parent
     found: list[tuple[Path, str]] = []
     for folder, dirs, files in os.walk(source):
         dirs[:] = sorted(
@@ -521,6 +527,8 @@ class Program:
         self.imports: dict[str, dict[str, str]] = {}  # module -> local name -> dotted target
         self.module_names: dict[str, dict[str, str]] = {}  # module -> top-level name -> kind
         self.routers: dict[str, dict[str, Any]] = {}  # "module.var" -> {prefix, framework}
+        # `router = UserAPIRouter(...)` before the program's classes are known: settled once they are.
+        self.pending_routers: list[tuple[Source, str, ast.Call, str]] = []
         self.elements: dict[str, dict[str, Any]] = {}
         self.relations: dict[str, dict[str, Any]] = {}
         self.gaps: list[dict[str, Any]] = []
@@ -571,19 +579,61 @@ class Program:
             self.index_defs(source, source.tree.body, prefix="", class_info=None)
         for info in self.classes.values():
             info.is_model = self.is_model(info)
+        for source, name, value, callee in self.pending_routers:
+            kind = self.router_kind(self.resolve_class(callee))
+            if kind:
+                self.add_router(source, name, value, kind)
 
     def note_router(self, source: Source, name: str, value: ast.expr | None) -> None:
         if not isinstance(value, ast.Call):
             return
         callee = self.dotted(source, value.func) or ""
         last = callee.rsplit(".", 1)[-1]
-        if last in ("APIRouter", "FastAPI", "Flask", "Blueprint"):
-            prefix = ""
-            for keyword in value.keywords:
-                if keyword.arg in ("prefix", "url_prefix") and isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
-                    prefix = keyword.value.value
-            framework = "flask" if last in ("Flask", "Blueprint") else "fastapi"
-            self.routers[f"{source.module}.{name}"] = {"prefix": prefix, "framework": framework, "mounted": ""}
+        if last in ROUTER_CLASSES:
+            self.add_router(source, name, value, last)
+        else:
+            self.pending_routers.append((source, name, value, callee))
+
+    def router_kind(self, info: ClassInfo | None, depth: int = 0) -> str | None:
+        """The framework router a first-party class derives from (`class UserAPIRouter(APIRouter)`), by its class name."""
+        if info is None or depth > 8:
+            return None
+        for base in info.bases:
+            if base.rsplit(".", 1)[-1] in ROUTER_CLASSES:
+                return base.rsplit(".", 1)[-1]
+            kind = self.router_kind(self.resolve_class(base), depth + 1)
+            if kind:
+                return kind
+        return None
+
+    def add_router(self, source: Source, name: str, value: ast.Call, kind: str) -> None:
+        prefix = next((self.literal_str(source, k.value) or "" for k in value.keywords if k.arg in ("prefix", "url_prefix")), "")
+        framework = "flask" if kind in ("Flask", "Blueprint") else "fastapi"
+        self.routers[f"{source.module}.{name}"] = {"prefix": prefix, "framework": framework, "mounted": ""}
+
+    def literal_str(self, source: Source, node: ast.expr) -> str | None:
+        """
+        A string a route prefix names: a literal, or a settings field with a literal default
+        (`prefix=settings.API_V1_STR`, where `settings = Settings()` and `API_V1_STR: str = "/api/v1"`).
+        """
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        if not (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)):
+            return None
+        owner = self.dotted(source, node.value) or ""
+        module, _, var = owner.rpartition(".")
+        if not module and not var:
+            return None
+        assigned = next((s for s in self.sources if s.module == (module or source.module) and s.tree is not None), None)
+        if assigned is None:
+            return None
+        for stmt in assigned.tree.body:
+            if isinstance(stmt, ast.Assign) and any(isinstance(t, ast.Name) and t.id == var for t in stmt.targets) and isinstance(stmt.value, ast.Call):
+                info = self.resolve_class(self.dotted(assigned, stmt.value.func))
+                declared = info.fields.get(node.attr) if info else None
+                if isinstance(declared, ast.AnnAssign) and isinstance(declared.value, ast.Constant) and isinstance(declared.value.value, str):
+                    return declared.value.value
+        return None
 
     def index_defs(self, source: Source, body: list[ast.stmt], prefix: str, class_info: ClassInfo | None) -> None:
         for stmt in body:
@@ -768,7 +818,11 @@ class Program:
         self.finish_returns()
 
     def mount_routers(self) -> None:
-        """`app.include_router(items.router, prefix="/v1")` adds the mount prefix to that router's routes."""
+        """
+        `app.include_router(items.router, prefix="/v1")` adds the mount prefix to that router's routes,
+        and so does every router above it: `api_router` mounted at `/api/v1` gives `items.router` its `/api/v1`.
+        """
+        mounts: dict[str, tuple[str | None, str]] = {}  # router -> (the router that includes it, the include's prefix)
         for source in self.sources:
             if source.tree is None:
                 continue
@@ -779,9 +833,18 @@ class Program:
                 router = self.routers.get(target or "")
                 if router is None:
                     continue
-                for keyword in node.keywords:
-                    if keyword.arg in ("prefix", "url_prefix") and isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
-                        router["mounted"] = keyword.value.value
+                parent = self.dotted(source, node.func.value)
+                prefix = next((self.literal_str(source, k.value) or "" for k in node.keywords if k.arg in ("prefix", "url_prefix")), "")
+                mounts[target or ""] = (parent if parent in self.routers else None, prefix)
+
+        def outer(key: str, depth: int = 0) -> str:
+            parent, prefix = mounts.get(key, (None, ""))
+            if parent is None or depth > 8:
+                return prefix
+            return outer(parent, depth + 1) + self.routers[parent]["prefix"] + prefix
+
+        for key, router in self.routers.items():
+            router["mounted"] = outer(key)
 
     def framework_decorator(self, source: Source, decorator: ast.expr) -> bool:
         """
