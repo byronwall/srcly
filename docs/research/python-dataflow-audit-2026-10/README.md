@@ -187,3 +187,50 @@ The UI gaps that cost points on every task are fixed. The next points are in wha
 3. **G3 — false `ok`.** T1, T5, T6, T8 Honesty. Start with the library call whose result is assumed to carry its arguments (`apply_async(...).id`).
 
 Round 2's implement step takes them in that order.
+
+### Round 2 — implement
+
+Three more PRs, each merged after CI passed:
+
+- **G8 — [#221](https://github.com/byronwall/srcly/pull/221).** A first-party subclass of `APIRouter` is a router. A mount prefix carries through every router above it, and may be a settings field with a literal default. A root that is itself a package names its modules from above it. mealie: 213 → 289 routes, `POST /api/recipes/create/url` listed, relations 73,729 → 81,734. Template routes show `/api/v1`.
+- **G7 — [#222](https://github.com/byronwall/srcly/pull/222).** SQLAlchemy and SQLModel session writes (`add`, `add_all`, `delete`, `merge`, and the async session's) end a trace as "database write".
+- **G3 — [#223](https://github.com/byronwall/srcly/pull/223).** A value handed to library code with no model carries the `external-call` proof, which counts as assumed, so a trace that lands only through it is `partial`. A built-in type's method, or a standard container protocol's, is modelled. srcly's own survey: four `server` traces that pass through `pathlib`, `subprocess` or a thread pool move from `ok` to `partial`.
+
+### Round 3 — test (2026-10-27, `main` at `079fc86`)
+
+| Task | Start | Answer | Focus | Reading | Honesty | Parts | Next | Total | Δ R2 | Δ R1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| T1 | 3 | 3 | 2 | 2 | 1 | 2 | 2 | **15** | +1 | +4 |
+| T2 | 2 | 2 | 3 | 3 | 2 | 2 | 2 | **16** | 0 | 0 |
+| T3 | 3 | 3 | 1 | 1 | 2 | 2 | 2 | **14** | 0 | +1 |
+| T4 | 3 | 3 | 0 | 1 | 3 | 2 | 1 | **13** | 0 | +1 |
+| T5 | 2 | 2 | 1 | 2 | 0 | 2 | 1 | **10** | +1 | +2 |
+| T6 | 2 | 2 | 1 | 1 | 2 | 2 | 1 | **11** | +2 | +2 |
+| T7 | 1 | 2 | 0 | 1 | 2 | 2 | 1 | **9** | 0 | +2 |
+| T8 | 2 | 2 | 1 | 2 | 2 | 2 | 1 | **12** | +2 | +3 |
+| T9 | 2 | 1 | 3 | 3 | 2 | 2 | 1 | **14** | 0 | 0 |
+| T10 | 2 | 0 | 1 | 1 | 3 | 2 | 1 | **10** | 0 | +3 |
+| **Total /40** | **22** | **20** | **13** | **17** | **19** | **20** | **13** | **124 / 280 (44%)** | **+6** | **+18** |
+
+What moved:
+
+- **T1.** A trace from `item_in` reaches "database write: session.add(item)" and the `POST /api/v1/items/` response ([shot](shots/r3-t1-01-item-in-reaches-write.png)). The route's own view is a function anchor that shows parameters and returns only, and it still reads `ok`, so Honesty stays at 1.
+- **T5.** The route is in the picker and mealie opens with default settings (cold build 46–52 s). `req` still stops at the nested `create()` closure with `ok` (G9), so Honesty stays at 0.
+- **T6.** Backward from `slug` now finds the `PUT`/`PATCH /api/recipes/{slug}` bodies, `resolve_name_and_slug` → `create_recipe_slug`, and the scraper path, and names the size-limit stop ([shot](shots/r3-t6-01-slug-writers.png)). It still misses the repository's de-duplication suffix and the validator, and draws 155 boxes in 27 functions.
+- **T7.** Forward from `create_one`'s data reaches the repository's `database write: self.session.add(new_document)`, but across 423 boxes in 63 functions ([shot](shots/r3-t7-01-create-one-flood.png)). Answer went up, and Focus went to 0.
+- **T8.** paperless-ngx opens with default settings (268 s, with the machine in swap). The upload's `input_doc` trace is `partial`, with `consume_file.apply_async` and `Response` named as assumed steps ([shot](shots/r3-t8-01-input-doc-partial.png)). It no longer claims the document reaches the response.
+
+Focus went down (16 → 13). Resolving mealie's imports and following its real routes made traces reach further, and nothing on screen limits them yet. That is now the largest gap.
+
+## Where it stands
+
+Three rounds took the score from 106 to 124 (+17%). Six PRs merged: #218, #220, #219, #221, #222, #223. The loop stops here, after its third round.
+
+The gaps left, ranked by points across tasks, are in the backlog grid (`area-data-flow-python-usability-audit-2026-10`):
+
+1. **G6 — floods** (Focus 13/40). T3, T4, T6, T7, T8 draw 60 to 460 boxes. The view needs a hop limit, "stop at first use", or a fold by file that opens on demand. Now the top item.
+2. **G3 — remaining false `ok`.** A function anchor reads `ok` while its body stops inside (T1). A walk stops at a closure with no frontier (T5).
+3. **G9 — nested functions.** The closure stop in T5, and names in nested `def`s that cannot be selected.
+4. **G5 — one control per idea.** Trace From/Both/To beside Reach Both/Up/Down; no "trace from this box" on the canvas (Next 13/40).
+5. **G12 — framework hand-offs.** External-read keys (T2), Celery `apply_async` into a first-party task (T8, T9), DRF `request` as an origin.
+6. **G10, G11, G7 (Django).** Field writers, an effects view for Python, and Django's `save()` / `objects.create()`.
