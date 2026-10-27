@@ -278,14 +278,50 @@ What moved:
 - **Parts** went from 20 to 29 on one direction control. **Next** went from 13 to 20 on Open the frame and Trace from here.
 - **Unchanged:** T2 still stops at `session.get(User, token_data.sub)` (G12). T5 still reads `ok` at the nested `create()` closure (G9). T9 still links none of `consume_file`'s callers (G12). T10's file anchor is TypeScript-only (G13).
 
+## Round 6 — the biggest gains left
+
+Round 6 took the three gaps worth the most points across tasks:
+
+| Gap | Tasks | Points at stake (round 5) | Fix |
+| --- | --- | ---: | --- |
+| G13 file anchors for Python | T10 | Answer 0, Next 1 | List a module's public top-level functions and classes from the helper's scopes ([#231](https://github.com/byronwall/srcly/pull/231)) |
+| G9 closures | T5 | Honesty 0 | A `def` inside a method sees the method's names. A callback's return is a named hand-off, not an end ([#232](https://github.com/byronwall/srcly/pull/232)) |
+| G12 Celery | T8, T9 | T9 Answer 1, Next 1 | `delay`, `apply_async` and signatures bind a first-party task's parameters ([#233](https://github.com/byronwall/srcly/pull/233)) |
+
+The closure fix had a second cause that the audit found on mealie itself. A nested function inside a method took the class body's scope as its parent. Every closure inside a method lost the method's locals. A fixture at module level never shows this.
+
+### Round 6 — test (2026-10-27, `main` with #231, #232, #233)
+
+| Task | Start | Answer | Focus | Reading | Honesty | Parts | Next | Total | Δ R5 | Δ R1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| T1 | 3 | 4 | 3 | 3 | 3 | 3 | 3 | **22** | 0 | +11 |
+| T2 | 2 | 2 | 3 | 3 | 2 | 3 | 2 | **17** | 0 | +1 |
+| T3 | 3 | 3 | 3 | 3 | 2 | 3 | 3 | **20** | 0 | +7 |
+| T4 | 3 | 3 | 2 | 2 | 3 | 3 | 2 | **18** | 0 | +6 |
+| T5 | 2 | 3 | 2 | 2 | 3 | 3 | 2 | **17** | +5 | +9 |
+| T6 | 2 | 2 | 2 | 2 | 2 | 3 | 2 | **15** | 0 | +6 |
+| T7 | 1 | 3 | 2 | 2 | 3 | 3 | 2 | **16** | 0 | +9 |
+| T8 | 2 | 3 | 2 | 2 | 3 | 3 | 2 | **17** | +1 | +8 |
+| T9 | 2 | 4 | 2 | 3 | 3 | 3 | 3 | **20** | +5 | +6 |
+| T10 | 3 | 2 | 2 | 2 | 3 | 3 | 3 | **18** | +8 | +11 |
+| **Total /40** | **23** | **29** | **23** | **24** | **27** | **30** | **24** | **180 / 280 (64%)** | **+19** | **+74** |
+
+What moved:
+
+- **T5.** `req` now walks into the nested `create` closure → `create_from_html` → the scraper → `resilient_fetch` → `network request: client.stream(…)`. It reads `partial` and names its stops ([shot](shots/r6-t5-req-through-closure.png)). The database create is not reached: `create`'s result returns through `_stream_recipe_creation`, which calls it through a parameter (G9, the rest).
+- **T9.** Backward from `consume_file`'s `input_doc` reaches every place that queues it: the upload view, the mail handler (through `consume_file.s(…)`), the folder watcher, bulk edit's merge, split and rotate, and barcodes. That is 42 functions, folded ([shot](shots/r6-t9-consume-file-callers.png)).
+- **T8.** The upload's `input_doc` now walks into `consume_file` and the consumer. The task handle no longer counts as an assumed step.
+- **T10.** `serialisers.py` lists its 66 serializers, and each opens into its trace ([shot](shots/r6-t10-serialisers.png)). Which views use each one still takes a click per serializer.
+- **Found during the test:** right after a rebuild, the first query on paperless timed out at 30 s while the fact index was built. The next query answered in under 1 s.
+
 ## Where it stands
 
-Five rounds took the score from 106 to 161 (+52%). Ten PRs merged: #218, #220, #219, #221, #222, #223, #224, #225, #227, #228.
+Six rounds took the score from 106 to 180 (+70%). Thirteen PRs merged: #218, #220, #219, #221, #222, #223, #224, #225, #227, #228, #231, #232, #233.
 
 The gaps left, ranked by points across tasks, are in the backlog grid (`area-data-flow-python-usability-audit-2026-10`):
 
-1. **G9 — nested functions.** T5's Honesty is 0: a walk stops at a closure and reads `ok`. Also the last false `ok` (G3).
-2. **G12 — framework hand-offs.** The external-read key (T2), Celery `apply_async` into a first-party task (T8, T9). Next step stays at 1–2 on these tasks.
-3. **G13 — file anchors for Python.** T10's Answer is 0: a file anchor lists exports for TypeScript only.
-4. **G10, G11, G7 (Django).** Field writers (T6), an effects view (T7 Start), and Django's `save()`.
-5. **G5, the rest.** The code menu's three entries, and reach counts in the inspector and the footer.
+1. **G9, the rest — callbacks.** Pair a function passed as a value with the call that runs it through a parameter. T5's database create, and the same gap for TypeScript (`task-calls-through-function-typed-params-and-props`).
+2. **G12, the rest.** An external read's key (T2: `session.get(User, token_data.sub)` → the token), and a DRF view's `request` as an origin.
+3. **G10, G11, G7 (Django).** Field writers (T6), an effects view (T7's Start is 1), and Django's `save()`.
+4. **First query after a rebuild.** The fact index build counts against the 30 s query timeout.
+5. **G5, the rest.** The code menu's three entries.
