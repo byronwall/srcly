@@ -125,7 +125,8 @@ export default function FlowView(props: {
     const spec = anchorSpec();
     return spec && "exports" in spec ? spec : null;
   };
-  const exportsKey = createMemo(() => (availability() === "ready" && exportsSpec() ? `${root()}\n${exportsSpec()!.file}\n${generation() ?? ""}` : null));
+  const python = () => status()?.language === "python";
+  const exportsKey = createMemo(() => (availability() === "ready" && exportsSpec() && !python() ? `${root()}\n${exportsSpec()!.file}\n${generation() ?? ""}` : null));
   const exportsFetch = createFetch(exportsKey, (key) => {
     const [path, file, gen] = key.split("\n");
     return fetchFileExports({ path, file, ...(gen ? { expectedGeneration: Number(gen) } : {}) });
@@ -623,8 +624,19 @@ export default function FlowView(props: {
           <EmptyState
             class="absolute inset-0"
             title="No routes here"
-            description="Data flow starts from a route: a file under a routes/ folder that default-exports a component. Open a folder that has one."
+            description={
+              python()
+                ? "Data flow found no FastAPI or Flask route here. Trace any value instead: open a file, right-click a line, and pick Trace where it goes."
+                : "Data flow starts from a route: a file under a routes/ folder that default-exports a component. Open a folder that has one."
+            }
             actions={<PythonApps root={root()} apps={status()?.pythonApps} class="justify-center" />}
+          />
+        </Show>
+        <Show when={exportsSpec() && python()}>
+          <EmptyState
+            class="absolute inset-0"
+            title="Not available for Python yet"
+            description="Tracing a whole file works on TypeScript only. Trace a function or a value in it instead: open the file, right-click a line, and pick Trace where it goes."
           />
         </Show>
         <Show when={unanswered()}>
@@ -690,7 +702,7 @@ export default function FlowView(props: {
                 linkCounts="flow"
                 {...(anchorKey() ? { regionTitles: { in: "← Where it comes from", out: "Where it goes →" } } : {})}
               />
-              <FlowLegend />
+              <FlowLegend mode={anchorKey() ? "anchor" : "route"} />
             </>
           )}
         </Show>
@@ -701,6 +713,7 @@ export default function FlowView(props: {
           anchor={anchorKey() ? (anchorGraph()?.graph ?? null) : null}
           model={model()!}
           rootPath={root()}
+          language={status()?.language}
           selected={location().dest ?? selected()}
           edge={selectedEdge()}
           edgePath={{ loading: edgePath.loading(), value: edgePath.value(), error: edgePath.error() }}

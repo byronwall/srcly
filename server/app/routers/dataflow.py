@@ -76,21 +76,22 @@ def _status(root: Path) -> DataflowStatus:
     registry = _registry()
     found = registry.probe(root)
     if not found.available:
-        return DataflowStatus(available=False, state="na", reason=found.reason, message=found.message, node=found.node)
+        return DataflowStatus(available=False, state="na", reason=found.reason, message=found.message, node=found.node, language=found.language)
     apps = list(found.python_apps) or None
     failure = registry.failure(root)
     if failure is not None:
         na = _na(failure)
-        return DataflowStatus(available=False, state="na", node=found.node, reason=na["reason"], message=na["message"], pythonApps=apps)
+        return DataflowStatus(available=False, state="na", node=found.node, reason=na["reason"], message=na["message"], pythonApps=apps, language=found.language)
     engine = registry.get(root)
     if engine is None:
         state = "starting" if registry.warming(root) else "idle"
-        return DataflowStatus(available=True, state=state, node=found.node, pythonApps=apps)
+        return DataflowStatus(available=True, state=state, node=found.node, pythonApps=apps, language=found.language)
     hello = engine.hello or {}
     base = {
         "available": True,
         "node": found.node,
         "pythonApps": apps,
+        "language": found.language,
         "engine": hello.get("engine"),
         "typescript": hello.get("typescript"),
         "typescriptFrom": hello.get("typescriptFrom"),
