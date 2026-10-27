@@ -40,7 +40,7 @@ def client():
 def test_status_never_spawns(client, use_fake, tmp_path):
     registry = use_fake()
     body = client.get("/api/dataflow/status", params={"path": str(tmp_path)}).json()
-    assert body == {"available": True, "state": "idle", "node": sys.executable, "stale": False}
+    assert body == {"available": True, "state": "idle", "node": sys.executable, "stale": False, "language": "typescript"}
     assert registry.live_count() == 0
 
 
