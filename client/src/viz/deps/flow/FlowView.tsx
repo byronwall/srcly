@@ -24,6 +24,7 @@ import { FlowLegend } from "./FlowLegend";
 import { DirectionSwitch, FlowModeSwitch, ReachModeSwitch, REACH_OF_DIRECTION, RecentFlowMenu } from "./FlowTools";
 import { createFetch } from "./fetchSignal";
 import { FlowProgress } from "./FlowProgress";
+import { stopsOf } from "./inspectorModel";
 import { PythonApps } from "./PythonApps";
 import { reachFrom, REACH_MODES, type ReachMode } from "./reach";
 import { RoutePicker } from "./RoutePicker";
@@ -480,7 +481,7 @@ export default function FlowView(props: {
     if (anchorKey()) {
       const a = anchorGraph();
       // A partial trace says how many places it stops; the rail lists them.
-      const stops = a?.graph && a.outcome === "partial" ? a.graph.counts.frontiers + a.graph.counts.boundaries : 0;
+      const stops = a?.graph && a.outcome === "partial" ? stopsOf(a.graph).reduce((sum, group) => sum + group.rows.length, 0) : 0;
       if (stops) return `Partial: the trace stops at ${stops} place${stops === 1 ? "" : "s"} (listed in the inspector)`;
       return a ? labelFor(a.outcome, a.reason, a.message ?? a.graph?.reason ?? undefined) : null;
     }
