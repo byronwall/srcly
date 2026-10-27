@@ -106,6 +106,8 @@ export function FlowInspector(props: {
   edge?: string | null;
   /** Anchor mode with room for one more anchor (T20): add the selected box by its span. */
   onAddAnchor?: (id: string) => void;
+  /** Anchor mode: trace from the selected box instead. */
+  onTraceFrom?: (id: string) => void;
   edgePath?: { loading: boolean; value: RoutePathResponse | undefined; error: Error | null };
   onSelectEdge?: (id: string | null) => void;
 }) {
@@ -180,11 +182,19 @@ export function FlowInspector(props: {
               {/* A stop srcly words is already said by its detail line; any other reason shows as the engine names it. */}
               <Show when={d().node.reason && !STOP_REASONS[d().node.reason!] ? d().node.reason : null}>{(r) => <div class="pl-5 text-[11px] text-[var(--plc-warning)]">{r()}</div>}</Show>
               <Where file={d().node.file} line={d().node.line} onOpen={() => props.onOpen(d().node.absPath, d().node.line)} />
-              <Show when={props.onAddAnchor}>
-                <div class="pl-5 pt-1">
-                  <Button variant="default" size="sm" class="px-2" onClick={() => props.onAddAnchor!(d().node.id)} title="Trace this box too, on the same canvas; boxes both traces reach are marked">
-                    Add to the trace
-                  </Button>
+              <Show when={(props.onTraceFrom || props.onAddAnchor) && d().node.kind !== "anchor"}>
+                <div class="flex gap-1.5 pl-5 pt-1">
+                  {/* A folded function opens instead: its own anchor shows only its parameters and returns. */}
+                  <Show when={props.onTraceFrom && d().node.kind !== "scope"}>
+                    <Button variant="default" size="sm" class="px-2" data-trace-from="" onClick={() => props.onTraceFrom!(d().node.id)} title="Make this box the anchor, keeping the direction">
+                      Trace from here
+                    </Button>
+                  </Show>
+                  <Show when={props.onAddAnchor}>
+                    <Button variant="default" size="sm" class="px-2" onClick={() => props.onAddAnchor!(d().node.id)} title="Trace this box too, on the same canvas; boxes both traces reach are marked">
+                      Add to the trace
+                    </Button>
+                  </Show>
                 </div>
               </Show>
 
