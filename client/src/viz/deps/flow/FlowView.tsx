@@ -264,7 +264,7 @@ export default function FlowView(props: {
       if (many) return many.model;
       if (anchorSpecs().length > 1 && !extraAnchors()) return null;
       const a = anchorGraph()?.graph;
-      return a ? anchorGraphToViewModel(a) : null;
+      return a ? anchorGraphToViewModel(a, { expanded: location().open ?? [] }) : null;
     }
     const g = drawnGraph();
     return g ? routeGraphToViewModel(g, { expanded: location().open ?? [] }) : null;

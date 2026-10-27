@@ -12,10 +12,10 @@
         "boundary: external-code": 1,
         "boundary: framework-runtime": 11,
         "boundary: network": 1,
-        "boundary: unproven-handoff": 10,
-        "frontier: budget-exhausted": 106,
+        "boundary: unproven-handoff": 12,
+        "frontier: budget-exhausted": 108,
         "frontier: disconnected": 106,
-        "frontier: external-code": 75,
+        "frontier: external-code": 72,
         "frontier: unbound-read": 24,
         "frontier: unresolved-symbol": 7,
         "frontier: untraced": 6
