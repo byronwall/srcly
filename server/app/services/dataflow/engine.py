@@ -30,6 +30,10 @@ TIMEOUT_ENV = "SRCLY_DATAFLOW_TIMEOUT"
 
 HELLO_TIMEOUT = 10.0
 QUERY_TIMEOUT = 30.0
+# The background build of tier 1: the engine's main thread stays free for
+# `status` while it runs, and a Python app's mypy pass takes minutes on a
+# large project. Matches the helper's own limit in engine/src/srcly/python/run.ts.
+BUILD_TIMEOUT = 600.0
 CANCEL_GRACE = 2.0
 STDERR_LINES = 64
 
@@ -215,7 +219,9 @@ class EngineProcess:
             pending = _Pending(op=op, on_progress=on_progress)
             self._pending[request_id] = pending
         self.last_used = time.monotonic()
-        self.queries += 1
+        # Status polls and the handshake are not queries: the first real one still builds tier 1.
+        if op not in ("status", "hello"):
+            self.queries += 1
         if not self._write({"id": request_id, "op": op, "params": payload}):
             with self._lock:
                 self._pending.pop(request_id, None)
@@ -443,7 +449,7 @@ class EngineRegistry:
         engine = self.ensure(root)
         if timeout is None:
             # The first query builds tier 1, which scales with the project.
-            timeout = QUERY_TIMEOUT if engine.queries > 1 else max(60.0, 0.25 * availability.count_source_files(engine.root, language=engine.language))
+            timeout = QUERY_TIMEOUT if engine.queries > 0 else max(60.0, 0.25 * availability.count_source_files(engine.root, language=engine.language))
         try:
             return engine.request(op, params, timeout=timeout, expected_generation=expected_generation)
         except EngineCrashed as exc:
@@ -460,7 +466,7 @@ class EngineRegistry:
 
             def warm() -> None:
                 try:
-                    self.query(key, "routes")
+                    self.query(key, "routes", timeout=BUILD_TIMEOUT)
                 except EngineError as exc:
                     if exc.code not in ("cancelled",):
                         with self._lock:

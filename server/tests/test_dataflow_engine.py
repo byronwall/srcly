@@ -225,3 +225,17 @@ def test_lifespan_closes_every_engine(tmp_path, monkeypatch):
         engine = registry.ensure(tmp_path)
         assert engine.alive
     assert not engine.alive
+
+
+def test_status_polls_do_not_spend_the_first_build_timeout(tmp_path, monkeypatch):
+    # The client polls status every 250 ms while tier 1 builds; those polls must not
+    # turn the first query's size-scaled timeout into the short one (mealie: 30 s for a 50 s build).
+    from app.services.dataflow import engine as engine_module
+
+    monkeypatch.setattr(engine_module, "QUERY_TIMEOUT", 0.1)
+    registry = _registry(tmp_path, "--delay", "routes=0.4")
+    engine = registry.ensure(tmp_path)
+    for _ in range(3):
+        engine.request("status", timeout=5)
+    assert registry.query(tmp_path, "routes")["routes"] is not None
+    registry.close_all()
