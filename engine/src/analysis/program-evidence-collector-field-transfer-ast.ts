@@ -50,7 +50,7 @@ export function isSolidComponent(
   ts: typeof TypeScript,
   checker: TypeScript.TypeChecker,
   tag: TypeScript.JsxTagNameExpression,
-  name: "Show" | "For",
+  name: "Show" | "Match" | "For",
 ): boolean {
   const symbol = checker.getSymbolAtLocation(tag);
   const target = symbol && symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;

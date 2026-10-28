@@ -553,14 +553,17 @@ export class ProgramEvidenceCollectorFieldTransferSupport extends ProgramEvidenc
 
   private connectSolidShow(node: TypeScript.JsxElement): void {
     const opening = node.openingElement;
-    if (!isSolidComponent(this.ts, this.checker, opening.tagName, "Show")) return;
+    // `Match` hands its `when` value to a callback child exactly as `Show` does.
+    const component = isSolidComponent(this.ts, this.checker, opening.tagName, "Show") ? "Show"
+      : isSolidComponent(this.ts, this.checker, opening.tagName, "Match") ? "Match" : null;
+    if (!component) return;
     const whenAttributes = opening.attributes.properties.filter((item): item is TypeScript.JsxAttribute => (
       this.ts.isJsxAttribute(item) && staticAttributeName(this.ts, item) === "when"
     ));
     if (whenAttributes.length !== 1) return;
     const initializer = whenAttributes[0].initializer;
     const when = initializer && this.ts.isJsxExpression(initializer) ? initializer.expression : null;
-    if (!when || !this.ts.isCallExpression(when)) return;
+    if (!when) return;
     const renderExpressions = node.children.flatMap((child) => (
       this.ts.isJsxExpression(child) && child.expression && this.ts.isArrowFunction(child.expression) ? [child] : []
     ));
@@ -571,18 +574,18 @@ export class ProgramEvidenceCollectorFieldTransferSupport extends ProgramEvidenc
       || render.parameters[0].dotDotDotToken
       || render.parameters[0].questionToken
       || render.parameters[0].initializer) return;
-    const whenId = this.elementFor(when, "call");
+    const whenId = this.ts.isCallExpression(when) ? this.elementFor(when, "call") : this.expression(when, this.ownerId(opening));
     const parameterId = this.elementFor(render.parameters[0].name, "parameter");
     const bindingId = this.ensureElement(
       opening,
       "show-binding",
       this.ownerId(opening),
-      { module: "solid-js", component: "Show" },
+      { module: "solid-js", component },
       this.symbolId(opening.tagName),
       "solid-js",
       null,
       "proven",
-      proof("solid-show-binding", "The compiler resolves this exact JSX occurrence to solid-js Show.", [this.location(opening.tagName)]),
+      proof("solid-show-binding", `The compiler resolves this exact JSX occurrence to solid-js ${component}.`, [this.location(opening.tagName)]),
     );
     this.addRelation(whenId, bindingId, "show-when", [this.location(when), this.location(opening)], proof("solid-show-when", "This exact call is the when expression of the resolved solid-js Show occurrence.", [this.location(when), this.location(opening)]), "proven");
     this.addRelation(bindingId, parameterId, "show-render-parameter", [this.location(opening), this.location(render.parameters[0])], proof("solid-show-render-parameter", "The resolved Show binding supplies its exact direct render callback parameter.", [this.location(opening), this.location(render.parameters[0])]), "proven");
