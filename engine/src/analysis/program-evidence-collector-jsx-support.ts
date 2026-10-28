@@ -69,8 +69,11 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       if (this.ts.isBinaryExpression(node) && isAssignmentOperator(this.ts, node.operatorToken.kind) && this.ts.isIdentifier(node.left)) {
         this.processAssignment(node as TypeScript.BinaryExpression & { left: TypeScript.Identifier }, nextOwner);
       }
-      if (this.ts.isBinaryExpression(node) && node.operatorToken.kind === this.ts.SyntaxKind.EqualsToken && this.ts.isPropertyAccessExpression(node.left) && this.ts.isIdentifier(node.left.expression)) {
-        this.processFieldAssignment(node as TypeScript.BinaryExpression & { left: TypeScript.PropertyAccessExpression & { expression: TypeScript.Identifier } }, nextOwner);
+      if (this.ts.isBinaryExpression(node) && node.operatorToken.kind === this.ts.SyntaxKind.EqualsToken && this.ts.isPropertyAccessExpression(node.left)) {
+        this.processFieldAssignment(node as TypeScript.BinaryExpression & { left: TypeScript.PropertyAccessExpression }, nextOwner);
+      }
+      if (this.ts.isPropertyAccessExpression(node) && !(this.ts.isBinaryExpression(node.parent) && node.parent.left === node && isAssignmentOperator(this.ts, node.parent.operatorToken.kind))) {
+        this.memberReads.push({ node, ownerId: nextOwner });
       }
       if (this.ts.isReturnStatement(node)) {
         this.processReturn(node, nextOwner);
@@ -409,6 +412,23 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
             "proven",
           );
         }
+      }
+    }
+    this.connectMemberState();
+  }
+
+  /** Every read of a member the project declares sees what was written into it (`memberWrites`). */
+  private connectMemberState(): void {
+    if (this.memberWrites.size === 0) return;
+    for (const read of this.memberReads) {
+      this.checkCancellation();
+      const key = this.memberSymbol(read.node);
+      const writes = key ? this.memberWrites.get(key) : undefined;
+      if (!writes) continue;
+      const readId = this.elementIfPresent(read.node, "field-read") ?? this.expression(read.node, read.ownerId);
+      for (const valueId of writes) {
+        if (valueId === readId) continue;
+        this.addRelation(valueId, readId, "member-state", [this.location(read.node)], proof("compiler-symbol", "The checker names the same member this value was written into.", [this.location(read.node)]), "proven");
       }
     }
   }

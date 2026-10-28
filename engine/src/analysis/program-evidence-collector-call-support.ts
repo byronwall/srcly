@@ -21,10 +21,8 @@ import {
   readsThis,
   thisContainer,
   proof,
-  assumedProof,
   discardsValue,
   importedCallee,
-  isStandardLibraryCallee,
   unwrap,
 } from "./program-evidence-support";
 
@@ -195,17 +193,6 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     const source = flow.source !== undefined ? argument(flow.source) : undefined;
     const parameterId = flow.callback !== undefined ? this.firstParameterId(argument(flow.callback)) : undefined;
     if (source && parameterId && !this.ts.isArrowFunction(source) && !this.ts.isFunctionExpression(source)) relate(source, parameterId, "The framework calls the callback with the source's value.");
-  }
-
-  /** The proof for what library code is taken to do: modelled for TypeScript's own library, assumed (and `partial`) for any other. */
-  private libraryProof(node: TypeScript.CallExpression, detail: string, locations: ProgramEvidenceLocation[]): [ReturnType<typeof proof>, "proven" | "partial"] {
-    if (isStandardLibraryCallee(this.ts, this.checker, node.expression)) return [proof("standard-library", `The standard library: ${detail}`, locations), "proven"];
-    return [assumedProof(`Assumed: it has no source to read, so ${detail}`, locations), "partial"];
-  }
-
-  private firstParameterId(fn: TypeScript.Expression | undefined): string | undefined {
-    const parameter = fn && (this.ts.isArrowFunction(fn) || this.ts.isFunctionExpression(fn)) ? fn.parameters[0] : undefined;
-    return parameter && this.ts.isIdentifier(parameter.name) ? this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "") : undefined;
   }
 
   protected processCall(
@@ -472,6 +459,10 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (!this.ts.isCallExpression(call.node)) return;
     this.connectExternalCallbacks(call, call.node);
     if (!discardsValue(this.ts, call.node)) return;
+    // A member the project declares keeps what is put into it (`this.items.set(key, value)`): its reads see it.
+    const method = unwrap(this.ts, call.node.expression);
+    const receiver = this.ts.isPropertyAccessExpression(method) ? unwrap(this.ts, method.expression) : null;
+    if (receiver && this.ts.isPropertyAccessExpression(receiver)) this.addMemberWrite(receiver, call.id);
     // The receiver's root name: `rows` in `rows.push(row)`, `section` in `section.rows.push(row)`.
     let root = unwrap(this.ts, call.node.expression);
     if (!this.ts.isPropertyAccessExpression(root)) return;

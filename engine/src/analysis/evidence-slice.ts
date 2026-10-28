@@ -94,7 +94,8 @@ export function normalizeProgramEvidence(evidence: ProgramEvidence): NormalizedP
  * entered callees through, newest last. Forward, an `argument-binding` whose
  * argument belongs to call C pushes C, and a `return-value` is followed only
  * to the call on top, which pops it. Backward the roles swap. An empty stack
- * (the seed sits inside the callee) keeps every call site, as before.
+ * (the seed sits inside the callee) keeps every call site, as before; a
+ * `member-state` step (a value kept in a member, read elsewhere) empties it.
  * `fields` is the field path (`evidence-slice-fields.ts`): which field of the
  * value the walk is after, so a pack is entered only through that field.
  */
@@ -299,6 +300,8 @@ export function queryEvidenceSlice(
       if (top === undefined) return calls;
       return top === call ? calls.slice(0, -1) : null;
     }
+    // Through a member's state the walk is in no one call: whoever reads the member, from any call.
+    if (relation.kind === "member-state") return [];
     if (relation.kind === "return-value") {
       // Forward: out of the callee to its call, which must be the one on top. Backward: into the callee from `to`'s call.
       const call = relation.to;

@@ -12,12 +12,12 @@
         "boundary: external-code": 1,
         "boundary: framework-runtime": 11,
         "boundary: network": 5,
-        "boundary: unproven-handoff": 32,
-        "frontier: budget-exhausted": 180,
-        "frontier: disconnected": 141,
-        "frontier: external-code": 122,
+        "boundary: unproven-handoff": 31,
+        "frontier: budget-exhausted": 185,
+        "frontier: disconnected": 144,
+        "frontier: external-code": 120,
         "frontier: unbound-read": 24,
-        "frontier: unresolved-symbol": 11,
+        "frontier: unresolved-symbol": 13,
         "frontier: untraced": 4
       },
       "ok": [
@@ -37,9 +37,9 @@
       "errors": []
     },
     "value-flow-basics": {
-      "traces": 81,
+      "traces": 82,
       "outcomes": {
-        "ok": 24,
+        "ok": 25,
         "partial": 57
       },
       "stops": {
@@ -68,6 +68,7 @@
         "src/hook-return.tsx#orphan",
         "src/literal-start.tsx#LiteralStart",
         "src/many-uses.ts#labels",
+        "src/member-state.ts#useCache",
         "src/nested-helpers.tsx#Rail",
         "src/nested-helpers.tsx#RailHost",
         "src/prop-bindings.tsx#Page",

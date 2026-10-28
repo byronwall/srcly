@@ -163,6 +163,7 @@ export type ProgramRelationKind =
   | "resource-source-parameter"
   | "context-value"
   | "framework-flow"
+  | "member-state"
   | "resource-result"
   | "effect-input"
   | "http-bridge"
