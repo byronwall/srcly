@@ -285,6 +285,24 @@ export function queryEvidenceSlice(
     return null;
   };
 
+  /** Whether function `inner` is written inside function `outer`, through its owners. */
+  const nestedIn = (inner: string, outer: string): boolean => {
+    let owner = indexed.elementFor(inner)?.ownerId ?? null;
+    for (let depth = 0; owner && depth < 32; depth++) {
+      if (owner === outer) return true;
+      owner = indexed.elementFor(owner)?.ownerId ?? null;
+    }
+    return false;
+  };
+
+  /** The function a call enters, by its `invokes` relation, or null. */
+  const invokedBy = (callId: string): string | null => {
+    for (const relation of provider.getRelations(callId, "forward", cancellation)) {
+      if (relation.kind === "invokes" && relation.from === callId) return relation.to;
+    }
+    return null;
+  };
+
   /**
    * The invocation stack after following `relation` from `calls`, or null when
    * the relation crosses to another call than the one the walk came through.
@@ -307,7 +325,11 @@ export function queryEvidenceSlice(
       const call = relation.to;
       if (forward) {
         if (top === undefined) return calls;
-        return top === call ? calls.slice(0, -1) : null;
+        if (top === call) return calls.slice(0, -1);
+        // A closure the callee made (`factory(v).read()`) returns from a function nested inside the one the call on top entered: it leaves through its own calls.
+        const returning = indexed.elementFor(relation.from)?.ownerId;
+        const entered = invokedBy(top);
+        return returning && entered && returning !== entered && nestedIn(returning, entered) ? calls : null;
       }
       return [...calls.slice(-(MAX_CALL_STACK - 1)), call];
     }
