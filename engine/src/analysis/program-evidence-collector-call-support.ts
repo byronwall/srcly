@@ -6,7 +6,8 @@ import {
   constructorExpressionElementEvidence,
 } from "./program-evidence-collector-expression-support";
 import { stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
-import { namesSeveralValues } from "./value-origin";
+import { namesSeveralValues, resolveValue } from "./value-origin";
+import { ACCESSOR_FACTORIES, FRAMEWORK_FLOWS } from "./framework-flows";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo } from "./program-evidence-collector-support";
 import {
@@ -22,8 +23,10 @@ import {
   proof,
   assumedProof,
   discardsValue,
+  importedCallee,
   unwrap,
 } from "./program-evidence-support";
+
 
 function frameworkState(detail: string, location: ProgramEvidenceLocation) {
   return proof("framework-state", detail, [location]);
@@ -167,6 +170,37 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     );
   }
 
+  /** The values a framework call moves (`FRAMEWORK_FLOWS`), and an accessor call of a value one made. */
+  private connectFrameworkFlow(node: TypeScript.CallExpression, callId: string, ownerId: string | null): void {
+    const relate = (from: TypeScript.Expression, to: string, detail: string) => this.addRelation(
+      this.expression(from, ownerId), to, "framework-flow", [this.location(from)], frameworkState(detail, this.location(node)), "proven",
+    );
+    const accessor = this.ts.isIdentifier(node.expression) ? resolveValue(this.ts, this.checker, node.expression)?.origin : null;
+    if (accessor && this.ts.isCallExpression(accessor)) {
+      const made = importedCallee(this.ts, this.checker, accessor.expression);
+      const holderId = made && ACCESSOR_FACTORIES.has(`${made.module}#${made.name}`) ? this.variablesBySymbol.get(this.symbolId(node.expression) ?? "") : undefined;
+      if (holderId) this.addRelation(holderId, callId, "accessor-call", [this.location(node)], frameworkState("Calling the accessor yields the value its factory computes.", this.location(node)), "proven");
+    }
+    const imported = importedCallee(this.ts, this.checker, node.expression);
+    const flow = imported ? FRAMEWORK_FLOWS[imported.module]?.[imported.name] : undefined;
+    if (!flow) return;
+    const argument = (index: number) => (node.arguments[index] ? unwrap(this.ts, node.arguments[index]) : undefined);
+    const passed = flow.passes === "*" ? node.arguments.map((_, index) => index) : flow.passes ?? [];
+    for (const index of passed) {
+      const value = argument(index);
+      if (value) relate(value, callId, "The framework call yields a value carrying this argument.");
+    }
+    // A source that is a value, not a function (`on(count, …)`): what it is reaches the callback now; a function's returns reach it after collection.
+    const source = flow.source !== undefined ? argument(flow.source) : undefined;
+    const parameterId = flow.callback !== undefined ? this.firstParameterId(argument(flow.callback)) : undefined;
+    if (source && parameterId && !this.ts.isArrowFunction(source) && !this.ts.isFunctionExpression(source)) relate(source, parameterId, "The framework calls the callback with the source's value.");
+  }
+
+  private firstParameterId(fn: TypeScript.Expression | undefined): string | undefined {
+    const parameter = fn && (this.ts.isArrowFunction(fn) || this.ts.isFunctionExpression(fn)) ? fn.parameters[0] : undefined;
+    return parameter && this.ts.isIdentifier(parameter.name) ? this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "") : undefined;
+  }
+
   protected processCall(
     node: TypeScript.CallExpression,
     ownerId: string | null,
@@ -188,6 +222,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     );
     const target = this.targetFunction(node.expression);
     this.calls.push({ node, id: callId, target, ownerId });
+    this.connectFrameworkFlow(node, callId, ownerId);
     if (target) {
       this.addRelation(
         callId,
@@ -454,6 +489,27 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
    * the call's value. Both are assumed, so both are `partial`.
    */
   private connectExternalCallbacks(call: CollectorCallInfo, node: TypeScript.CallExpression): void {
+    // A framework call whose flow is modelled (`FRAMEWORK_FLOWS`) needs no assumption.
+    const imported = importedCallee(this.ts, this.checker, node.expression);
+    const flow = imported ? FRAMEWORK_FLOWS[imported.module]?.[imported.name] : undefined;
+    if (flow) {
+      // What a function argument returns goes where the flow says: the call's value, or the callback's parameter.
+      const returnsOf = (index: number | undefined) => {
+        const fn = index !== undefined && node.arguments[index] ? unwrap(this.ts, node.arguments[index]) : undefined;
+        const info = fn ? this.functionsByNode.get(nodeKey(this.root, fn)) : undefined;
+        return { fn, ids: info ? this.returnsByFunction.get(info.id) ?? [] : [] };
+      };
+      const result = returnsOf(flow.returns);
+      for (const returnId of result.ids) {
+        this.addRelation(returnId, call.id, "framework-flow", [this.location(result.fn!)], frameworkState("The framework call yields what its callback returns.", this.location(node)), "proven");
+      }
+      const source = returnsOf(flow.source);
+      const parameterId = flow.callback !== undefined ? this.firstParameterId(node.arguments[flow.callback] && unwrap(this.ts, node.arguments[flow.callback])) : undefined;
+      for (const returnId of parameterId ? source.ids : []) {
+        this.addRelation(returnId, parameterId!, "framework-flow", [this.location(source.fn!)], frameworkState("The framework calls the callback with what the source returns.", this.location(node)), "proven");
+      }
+      return;
+    }
     const callee = calleeName(this.ts, node.expression);
     const calleeNode = unwrap(this.ts, node.expression);
     const receiver = this.ts.isPropertyAccessExpression(calleeNode) ? calleeNode.expression : null;
@@ -590,3 +646,4 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     );
   }
 }
+

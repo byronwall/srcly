@@ -41,6 +41,8 @@ export const RELATION_TRAITS: Record<ProgramRelationKind, RelationTraits> = {
   "input-call": {},
   "resource-loader": {},
   "resource-source-parameter": {},
+  "context-value": {},
+  "framework-flow": {},
   "resource-result": {},
   "effect-input": {},
   "http-bridge": {},
