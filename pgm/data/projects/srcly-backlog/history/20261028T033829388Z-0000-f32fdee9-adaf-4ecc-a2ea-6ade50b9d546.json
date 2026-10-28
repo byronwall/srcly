@@ -1,0 +1,15 @@
+{
+  "id": "f32fdee9-adaf-4ecc-a2ea-6ade50b9d546",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:f4509f",
+    "label": "Agent token ...f4509f"
+  },
+  "createdAt": "2026-10-28T03:38:29.388Z",
+  "summary": "Created \"Action parameters walk into their useAction sites\" under \"Data flow: TSX usability audit (2026-10)\".",
+  "nodeIds": [
+    "task-action-parameters-walk-into-their-useaction-sites",
+    "area-data-flow-tsx-usability-audit-2026-10"
+  ]
+}
