@@ -117,6 +117,11 @@ export function assumedThrough(provider: EvidenceRelationSource, relation: Pick<
       const end = provider.factIndex.getElement(item.to);
       if (end && ["external-read", "external-effect", "message"].includes(end.kind) && end.attributes?.operation !== undefined) return null;
     }
+    // A classified read whose value the call yields (a router's `useParams()`): the read is the call's origin, modelled.
+    if (item.kind === "carrier" && item.to === call.id) {
+      const start = provider.factIndex.getElement(item.from);
+      if (start?.kind === "external-read" && start.attributes?.operation !== undefined) return null;
+    }
     if (item.proof.kind === "framework-state") return null;
     if (sameSpan(item.from === call.id ? item.to : item.from)?.boundary === "framework-runtime") return null;
   }

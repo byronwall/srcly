@@ -70,6 +70,15 @@ export type ProgramEvidenceBoundaryContext = {
   addHttpResponse: (response: HttpBridgeResponse) => void;
 };
 
+/** Router hooks that read the page's URL: route parameters, the query string, the location. */
+const URL_READS: Record<string, readonly string[]> = {
+  "@solidjs/router": ["useParams", "useSearchParams", "useLocation"],
+  "react-router": ["useParams", "useSearchParams", "useLocation"],
+  "react-router-dom": ["useParams", "useSearchParams", "useLocation"],
+  "next/navigation": ["useParams", "useSearchParams", "usePathname"],
+  "@tanstack/react-router": ["useParams", "useSearch", "useLocation"],
+};
+
 /** Collect host, external, resource, and HTTP boundary facts for one call. */
 export function processProgramCallBoundary(
   context: ProgramEvidenceBoundaryContext,
@@ -83,7 +92,26 @@ export function processProgramCallBoundary(
   const fileRead = isFileOperation(module, exported, "read");
   const fileWrite = isFileOperation(module, exported, "write");
   const stream = outputKind(name, node);
-  if (name === "fetch" || isNetworkOperation(module, exported)) {
+  const urlRead = imported && URL_READS[imported.module]?.includes(imported.name);
+  if (urlRead) {
+    // What a router reads from the URL is where a page's input starts.
+    const inputId = context.specialInput(
+      node,
+      "external-read",
+      ownerId,
+      { operation: exported, name: `URL: ${node.getText(node.getSourceFile()).slice(0, 80)}` },
+      "host-api",
+      "The router reads this value from the page's URL.",
+    );
+    context.addRelation(
+      inputId,
+      callId,
+      "carrier",
+      [context.location(node)],
+      proof("carrier-boundary", "The router call yields what it reads from the URL.", [context.location(node)]),
+      "proven",
+    );
+  } else if (name === "fetch" || isNetworkOperation(module, exported)) {
     const inputId = context.specialInput(
       node,
       "fetch-input",

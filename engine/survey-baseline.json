@@ -35,9 +35,9 @@
       "errors": []
     },
     "value-flow-basics": {
-      "traces": 74,
+      "traces": 75,
       "outcomes": {
-        "ok": 19,
+        "ok": 20,
         "partial": 55
       },
       "stops": {
@@ -67,7 +67,8 @@
         "src/nested-helpers.tsx#RailHost",
         "src/prop-bindings.tsx#Page",
         "src/spread-props.tsx#Spread",
-        "src/spread-props.tsx#SpreadDestructured"
+        "src/spread-props.tsx#SpreadDestructured",
+        "src/url-reads.tsx#NotePage"
       ],
       "errors": []
     },
