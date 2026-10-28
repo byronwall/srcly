@@ -373,7 +373,9 @@ export function discardsValue(ts: typeof TypeScript, call: TypeScript.CallExpres
 }
 
 export function unwrap(ts: typeof TypeScript, node: TypeScript.Expression): TypeScript.Expression {
+  // `await p` is what `p` settles to: an async function's return arrives at its call.
   if (
+    ts.isAwaitExpression(node) ||
     ts.isParenthesizedExpression(node) ||
     ts.isAsExpression(node) ||
     ts.isTypeAssertionExpression(node) ||
