@@ -178,6 +178,14 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(boxes(few, "frontier").filter((node) => node.reason === "budget-exhausted")).toEqual([]);
   });
 
+  it("names an inline function's frame by where it is written, never \"(anonymous)\"", () => {
+    const graph = anchorGraphOp(session, { ...find(basics, "src/match-callbacks.tsx", "props.doc", "<Match when={props.doc}>"), direction: "forward" });
+    const frames = graph.nodes.filter((node) => node.kind === "scope").map((node) => node.label);
+    expect(frames).toContain("<Match> child");
+    expect(frames).toContain("<Show> child");
+    expect(frames.some((label) => label.includes("(anonymous)"))).toBe(false);
+  });
+
   it("hands a library call's receiver to its callback's parameter alone (the rest is annotated in the fixture)", () => {
     const graph = anchorGraphOp(session, { ...find(basics, "src/library-callbacks.tsx", "props.items", "props.items.reduce"), direction: "forward" });
     const item = graph.nodes.find((node) => node.elementKind === "parameter" && node.label === "item")!;
