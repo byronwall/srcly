@@ -27,7 +27,10 @@ export function asFunctionLike(
 export function functionNameNode(ts: typeof TypeScript, node: TypeScript.FunctionLikeDeclaration): TypeScript.Node | null {
   if (node.name) return node.name;
   const parent = node.parent;
-  return parent && ts.isVariableDeclaration(parent) ? parent.name : null;
+  if (parent && ts.isVariableDeclaration(parent)) return parent.name;
+  // Wrapped where it is declared (`const Card = memo((props) => …)`, `const getDoc = query(async (id) => …)`): the declaration names it.
+  const declaration = parent && ts.isCallExpression(parent) && parent.arguments[0] === node ? parent.parent : undefined;
+  return declaration && ts.isVariableDeclaration(declaration) && declaration.initializer === parent && ts.isIdentifier(declaration.name) ? declaration.name : null;
 }
 
 export function bindingIdentifiers(ts: typeof TypeScript, name: TypeScript.BindingName): TypeScript.Identifier[] {
@@ -239,6 +242,8 @@ const FRAMEWORK_CALLS: Record<string, RegExp> = {
   "solid-js/store": /^(createStore|createMutable|produce|reconcile|unwrap)$/,
   "@solidjs/router": /^(createAsync|createAsyncStore|useNavigate|useAction|useSubmission|useSubmissions|useBeforeLeave|query|cache|action|redirect|revalidate|reload)$/,
   "react": /^(useState|useReducer|useEffect|useLayoutEffect|useMemo|useCallback|useRef|useContext|useId|useTransition|useDeferredValue|createContext|memo|forwardRef)$/,
+  "@tanstack/react-query": /^(useQuery|useSuspenseQuery|useInfiniteQuery|useMutation|useQueryClient)$/,
+  "@tanstack/solid-query": /^(createQuery|createInfiniteQuery|createMutation|useQuery|useMutation|useQueryClient)$/,
 };
 
 export function isFrameworkCall(module: string, name: string) {

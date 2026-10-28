@@ -101,7 +101,10 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   ): void {
     const opening = this.ts.isJsxElement(node) ? node.openingElement : node;
     const tag = opening.tagName.getText(node.getSourceFile());
-    const { target, aliasId } = this.renderedComponent(opening.tagName);
+    const rendered = this.renderedComponent(opening.tagName);
+    // `<Dynamic component={Card} title={…} />` renders `Card`, and hands it the other attributes.
+    const dynamic = rendered.target ? undefined : this.dynamicComponent(opening);
+    const { target, aliasId } = dynamic ? { target: this.targetFunction(dynamic), aliasId: null } : rendered;
     const component = Boolean(target || aliasId);
     const kind: ProgramElementKind = component
       ? "component-occurrence"
@@ -159,6 +162,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     }
     for (const attribute of opening.attributes.properties) {
       this.checkCancellation();
+      if (dynamic && this.ts.isJsxAttribute(attribute) && attribute.name.getText() === "component") continue;
       // A spread hands every field of its value to the occurrence: a component's props, or the element's attributes.
       if (this.ts.isJsxSpreadAttribute(attribute)) {
         const spreadId = this.expression(attribute.expression, ownerId);
@@ -221,7 +225,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
    * a destructured parameter takes from it.
    */
   private bindSpreadProps(attribute: TypeScript.JsxSpreadAttribute, spreadId: string, target: CollectorFunctionInfo): void {
-    if (target.declaration.parameters.length !== 1) return;
+    if (target.declaration.parameters.length < 1) return;
     const parameter = target.declaration.parameters[0];
     const names = this.ts.isIdentifier(parameter.name)
       ? [parameter.name]
@@ -240,6 +244,16 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         "proven",
       );
     }
+  }
+
+  /** The `component` a Solid `<Dynamic>` renders, when the tag is `solid-js/web`'s `Dynamic`. */
+  private dynamicComponent(opening: TypeScript.JsxOpeningLikeElement): TypeScript.Expression | undefined {
+    if (!this.ts.isIdentifier(opening.tagName)) return undefined;
+    const imported = importedCallee(this.ts, this.checker, opening.tagName);
+    if (imported?.module !== "solid-js/web" || imported.name !== "Dynamic") return undefined;
+    const attribute = opening.attributes.properties.find((item): item is TypeScript.JsxAttribute => this.ts.isJsxAttribute(item) && item.name.getText() === "component");
+    const value = attribute?.initializer && this.ts.isJsxExpression(attribute.initializer) ? attribute.initializer.expression : undefined;
+    return value ?? undefined;
   }
 
   /**
