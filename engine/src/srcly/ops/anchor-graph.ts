@@ -513,7 +513,8 @@ class AnchorGraphBuilder {
       }
       const gap: EvidenceGap = { id: `end:${box}`, from: box, to: null, label: node.label, reason: "disconnected", status: "partial", location: element.location, proof: [] };
       const callee = side === "down" && performs(this.tier1.provider(), element.id) ? externalCallee(this.tier1, element) : null; // A classified library call (`xs.map(…)`) still ends outside the program.
-      if (callee) this.frontier(gap, side, { label: clip(callee), note: `${callee} is outside the program's own source`, reason: "external-code", status: "partial", elementKind: element.kind });
+      // The standard library is known, never "outside the program": a value it is given and nothing uses is a plain dead end.
+      if (callee && !standardLibraryCall(this.tier1, element)) this.frontier(gap, side, { label: clip(callee), note: `${callee} is outside the program's own source`, reason: "external-code", status: "partial", elementKind: element.kind });
       else (this.quiet.get(seed) ?? this.quiet.set(seed, []).get(seed)!).push({ gap, element: { label: node.label, kind: element.kind }, side });
     }
   }
