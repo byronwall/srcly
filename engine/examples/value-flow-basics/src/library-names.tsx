@@ -16,7 +16,7 @@ const own = { filter: (items: string[]) => items.join(",") };
 
 export function Listed(props: { items: string[]; more: string[] }) {
   const upper = props.items.filter(Boolean); // @trace lib-filter forward props.items @outcome lib-filter ok
-  const joined = own.filter(props.more); // @trace own-filter forward props.more @outcome own-filter partial
+  const joined = own.filter(props.more); // @trace own-filter forward props.more @outcome own-filter ok
   return <p>{upper}{joined}</p>; // @reaches lib-filter,own-filter render-terminal
 }
 

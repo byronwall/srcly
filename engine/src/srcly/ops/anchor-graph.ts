@@ -6,7 +6,7 @@ import { scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelatio
 import { ANCHOR_LIMITS, assumedThrough, foldAnnotatedUses, performs, undrawn, usesOf, walkFollows } from "../anchor-slice";
 import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
-import { elementsAt, endsInPlace, externalCallee, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
+import { elementsAt, endsInPlace, externalCallee, standardLibraryCall, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
 import { elementTraits, proofStrength, relationTraits, SEED_KINDS } from "../kinds";
 import type { LanguageHost } from "../host";
 import { clip, foldedLimit } from "../frontier-words";
@@ -644,8 +644,14 @@ class AnchorGraphBuilder {
     const label = /^(field-input|pack-field|consumer-value|field-consumer)$/.test(relation.kind) && element.fieldName ? element.fieldName : null;
     const callee = assumedThrough(this.tier1.provider(), relation);
     if (!callee) return this.pushEdge({ id: relation.id, source, target, kind: relation.kind, status: relation.status, proof: [relation.proof], label });
-    const assumed = { kind: "external-call", detail: `Assumed: ${clip(callee, 80)} has no source to read, so its value is taken to derive from this ${relation.kind === "argument" ? "argument" : "receiver"}.`, locations: relation.proof.locations, status: "partial" as const };
-    this.pushEdge({ id: relation.id, source, target, kind: relation.kind, status: "partial", proof: [relation.proof, assumed], label });
+    // TypeScript's own library (`trim`, `map`, `JSON.stringify`, `console.log`) is known: its value derives from what it is given, modelled.
+    const call = this.tier1.provider().factIndex.getElement(relation.to);
+    const standard = Boolean(call && standardLibraryCall(this.tier1, call));
+    const what = relation.kind === "argument" ? "argument" : "receiver";
+    const assumed = standard
+      ? { kind: "standard-library", detail: `${clip(callee, 80)} is the standard library: its value derives from this ${what}.`, locations: relation.proof.locations, status: "proven" as const }
+      : { kind: "external-call", detail: `Assumed: ${clip(callee, 80)} has no source to read, so its value is taken to derive from this ${what}.`, locations: relation.proof.locations, status: "partial" as const };
+    this.pushEdge({ id: relation.id, source, target, kind: relation.kind, status: standard ? relation.status : "partial", proof: [relation.proof, assumed], label });
   }
 
   private pushEdge(edge: AnchorEdge) {

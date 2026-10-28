@@ -185,6 +185,7 @@ export const PROOF_TRAITS: Record<ProgramProofKind, { strength: ProofStrength }>
   "partial-classification": { strength: "assumed" },
   "http-bridge": { strength: "modelled" },
   "external-call": { strength: "assumed" },
+  "standard-library": { strength: "modelled" },
   "framework-state": { strength: "modelled" },
 };
 
