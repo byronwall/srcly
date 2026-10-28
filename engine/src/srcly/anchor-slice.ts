@@ -112,6 +112,11 @@ export function assumedThrough(provider: EvidenceRelationSource, relation: Pick<
     if (item.kind === "performs" && item.from === call.id) return null;
     // A control-flow callback's accessor (`<Show when={x}>{(v) => v()}`): the binding says what it returns.
     if (item.kind === "accessor-call" && item.to === call.id) return null;
+    // A service client's read or write (`prisma.doc.update`) classified by its contract: the call is the boundary, modelled.
+    if ((item.kind === "input-call" || item.kind === "effect-input") && item.from === call.id) {
+      const end = provider.factIndex.getElement(item.to);
+      if (end && ["external-read", "external-effect", "message"].includes(end.kind) && end.attributes?.operation !== undefined) return null;
+    }
     if (item.proof.kind === "framework-state") return null;
     if (sameSpan(item.from === call.id ? item.to : item.from)?.boundary === "framework-runtime") return null;
   }

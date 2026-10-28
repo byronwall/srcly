@@ -96,7 +96,7 @@ export function parameterOriginRole(checker: TypeScript.TypeChecker, parameter: 
   return null;
 }
 
-export type ExternalServiceCallKind = "external-read" | "message" | null;
+export type ExternalServiceCallKind = "external-read" | "external-write" | "message" | null;
 
 export function externalServiceCallKind(
   ts: typeof TypeScript,
@@ -107,7 +107,9 @@ export function externalServiceCallKind(
   const declarations = checker.getSymbolAtLocation(node.expression)?.declarations ?? [];
   if (!declarations.some((declaration) => isUnimplementedServiceDeclaration(ts, declaration))) return null;
   const method = node.expression.name.text;
-  if (/^(query|find|findOne|findMany|get|load|read|lookup|scan|select)$/i.test(method)) return "external-read";
+  // Prisma's delegates (`prisma.doc.findUnique`, `.update`) are the common case: a client's method signatures with no body.
+  if (/^(query|find|findOne|findMany|findUnique|findUniqueOrThrow|findFirst|findFirstOrThrow|count|aggregate|groupBy|get|load|read|lookup|scan|select)$/i.test(method)) return "external-read";
+  if (/^(create|createMany|createManyAndReturn|update|updateMany|upsert|delete|deleteMany|insert|save)$/.test(method)) return "external-write";
   if (/^(put|publish|send|emit|enqueue|produce|dispatch)$/i.test(method)) return "message";
   return null;
 }

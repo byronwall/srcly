@@ -35,12 +35,13 @@
       "errors": []
     },
     "value-flow-basics": {
-      "traces": 64,
+      "traces": 67,
       "outcomes": {
-        "ok": 12,
+        "ok": 15,
         "partial": 52
       },
       "stops": {
+        "boundary: external-code": 1,
         "frontier: budget-exhausted": 1,
         "frontier: disconnected": 6,
         "frontier: external-code": 2,
@@ -50,6 +51,9 @@
       "ok": [
         "src/closure-props-host.tsx#ChipHost",
         "src/component-aliases.tsx#Tag",
+        "src/database-calls.ts#add",
+        "src/database-calls.ts#rename",
+        "src/database-calls.ts#titleOf",
         "src/function-body.ts#wrapName",
         "src/function-field-reads.ts#describeFirst",
         "src/half-landed.tsx#HalfLanded",
