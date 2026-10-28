@@ -42,7 +42,7 @@ type Run = {
 };
 /** Relations that bind a declaration's parameter to the places it is read. */
 /** The declaration anchor's own links: they place its parameters, reads, returns and uses, and never carry a run's landing. */
-const DECLARATION_LINKS = new Set(["parameter", "prop-read", "returns", "used-by"]);
+const DECLARATION_LINKS = new Set(["parameter", "prop-read", "returns", "used-by", "state"]);
 
 export function anchorGraphOp(session: EngineSession, params: Record<string, unknown>, cancellation?: AnalysisCancellationToken): AnchorGraphResult {
   const tier1 = session.tier1();
@@ -362,6 +362,15 @@ class AnchorGraphBuilder {
         }
         runs.push({ seedId: param.id, seedSpan: param.location.span, side: "down", body: true });
       }
+      // A component's own state: each value its body makes from a call (`useParams()`, `createResource(…)`,
+      // a signal, a memo) is where its data starts, so a route's component shows how its data flows.
+      if (perProp) {
+        for (const value of facts.filter((fact) => fact.kind === "alias" && this.madeByCall(fact.id))) {
+          this.addFact(value, "down");
+          this.pushEdge({ id: `state:${value.id}`, source: seed, target: value.id, kind: "state", status: "structural", proof: [], label: null });
+          runs.push({ seedId: value.id, seedSpan: value.location.span, side: "down" });
+        }
+      }
       const expressions = facts.filter((fact) => fact.kind === "return-expression");
       for (const ret of expressions.length ? expressions : facts.filter((fact) => fact.kind === "return")) {
         // A return that leaves the program (an HTTP response, an entry's result) is a terminal, not a carrier.
@@ -390,6 +399,16 @@ class AnchorGraphBuilder {
       if (unwalked.length) this.unwalkedUses(seed, unwalked);
     }
     return runs;
+  }
+
+  /** Whether a declaration's value comes from a call or a framework input (`const params = useParams()`, `const [doc] = createResource(…)`), not a function or a literal. */
+  private madeByCall(aliasId: string): boolean {
+    const provider = this.tier1.provider();
+    return provider.getRelations(aliasId, "backward", this.cancellation).some((relation) => {
+      if (relation.to !== aliasId) return false;
+      const from = provider.facts.getElement(relation.from);
+      return Boolean(from && ["call", "resource-input", "resource-result", "external-read", "fetch-input"].includes(from.kind));
+    });
   }
 
   /** Breadth first from the seed over the slice's relations, one side at a time; terminals, origins and boundaries end a path. */
