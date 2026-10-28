@@ -25,11 +25,12 @@ const MAX_STEPS = 8;
  * Library calls that return the function they are given, wrapped: calling
  * the result runs it with the same arguments. SolidStart's server `query` and
  * `action` (and the older `cache`), the router's `useAction` over an action,
- * React's `useCallback`, and the usual `debounce` and `throttle`.
+ * React's `useCallback`, `memo` and `forwardRef` (a component's props are its
+ * first argument), and the usual `debounce` and `throttle`.
  */
 const FUNCTION_WRAPPERS: Record<string, readonly string[]> = {
   "@solidjs/router": ["query", "cache", "action", "useAction"],
-  "react": ["useCallback"],
+  "react": ["useCallback", "memo", "forwardRef"],
   "lodash": ["debounce", "throttle"],
   "lodash-es": ["debounce", "throttle"],
   "lodash.debounce": ["default"],

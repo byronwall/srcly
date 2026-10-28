@@ -157,6 +157,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
           component ? "proven" : "partial",
         );
         if (!component) this.addTerminal(attribute.expression, ownerId, "dom-attribute", "...", spreadId);
+        if (target) this.bindSpreadProps(attribute, spreadId, target);
         continue;
       }
       if (!this.ts.isJsxAttribute(attribute)) continue;
@@ -193,6 +194,33 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
           valueId,
         );
       }
+    }
+  }
+
+  /**
+   * A spread into an in-project component (`<Card {...props} />`) hands its
+   * value to the component's props parameter: the whole object, or each name
+   * a destructured parameter takes from it.
+   */
+  private bindSpreadProps(attribute: TypeScript.JsxSpreadAttribute, spreadId: string, target: CollectorFunctionInfo): void {
+    if (target.declaration.parameters.length !== 1) return;
+    const parameter = target.declaration.parameters[0];
+    const names = this.ts.isIdentifier(parameter.name)
+      ? [parameter.name]
+      : this.ts.isObjectBindingPattern(parameter.name)
+        ? parameter.name.elements.flatMap((element) => (this.ts.isIdentifier(element.name) ? [element.name] : []))
+        : [];
+    for (const name of names) {
+      const parameterId = this.parametersBySymbol.get(this.symbolId(name) ?? "");
+      if (!parameterId) continue;
+      this.addRelation(
+        spreadId,
+        parameterId,
+        "component-prop-binding",
+        [this.location(attribute), this.location(name)],
+        proof("component-prop-binding", "The JSX spread passes its fields to the component's props parameter.", [this.location(attribute), this.location(name)]),
+        "proven",
+      );
     }
   }
 
