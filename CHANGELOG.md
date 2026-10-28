@@ -1,5 +1,56 @@
 # Changelog
 
+## [1.6.0](https://github.com/byronwall/srcly/compare/v1.5.0...v1.6.0) (2026-10-28)
+
+
+### Features
+
+* **dataflow:** file and folder anchors for Python ([#231](https://github.com/byronwall/srcly/issues/231)) ([da2d8e8](https://github.com/byronwall/srcly/commit/da2d8e83fa6af53e154705da35933b083b7ed8c8))
+* **dataflow:** fold a large trace into one box per function ([#224](https://github.com/byronwall/srcly/issues/224)) ([edaa1ec](https://github.com/byronwall/srcly/commit/edaa1ec7f28a629f2ed4b6c35bed16e0019003b7))
+* **dataflow:** one direction control in anchor mode ([#228](https://github.com/byronwall/srcly/issues/228)) ([91bb444](https://github.com/byronwall/srcly/commit/91bb444e1674e7da5499201858157e4cc63e8802))
+* **dataflow:** open a page route on its data, with its render tree one click away ([#252](https://github.com/byronwall/srcly/issues/252)) ([f370d05](https://github.com/byronwall/srcly/commit/f370d057202985bc0ec0c34cda60f2ab37ba83fd))
+* **dataflow:** point a TypeScript root to the Python apps inside it ([#218](https://github.com/byronwall/srcly/issues/218)) ([e18f0fe](https://github.com/byronwall/srcly/commit/e18f0fe09a694c7278c31c81c9c929a659c35ab1))
+* **dataflow:** trace from a selected box in one click ([#225](https://github.com/byronwall/srcly/issues/225)) ([eb831cb](https://github.com/byronwall/srcly/commit/eb831cb8699bd999567fafa981a4e02cc56d1cb9))
+* **dataflow:** trace values into Celery tasks ([#233](https://github.com/byronwall/srcly/issues/233)) ([b47efb8](https://github.com/byronwall/srcly/commit/b47efb89d248978765c5da045e161ee09be6fff9))
+
+
+### Bug Fixes
+
+* **dataflow:** a Python trace through unmodelled library code is not ok ([#223](https://github.com/byronwall/srcly/issues/223)) ([079fc86](https://github.com/byronwall/srcly/commit/079fc865772ba01ba99bb786ca19157cf3442cf6))
+* **dataflow:** bind a JSX spread to the component's props, and see through memo ([#240](https://github.com/byronwall/srcly/issues/240)) ([0ae3bfc](https://github.com/byronwall/srcly/commit/0ae3bfc565f9655b265be82a5e09d6570df47933))
+* **dataflow:** bind Match and any when to its callback child ([#236](https://github.com/byronwall/srcly/issues/236)) ([6eef49e](https://github.com/byronwall/srcly/commit/6eef49e29afc12747f8fb439ae430d39f1be716c))
+* **dataflow:** bind wrapped and dynamic components, and data hooks' options ([#250](https://github.com/byronwall/srcly/issues/250)) ([6d4b18d](https://github.com/byronwall/srcly/commit/6d4b18de3d17be56ef37d444a20ad2c7ed8b7b8a))
+* **dataflow:** call through query, action, useAction and other function wrappers ([#239](https://github.com/byronwall/srcly/issues/239)) ([ab4da02](https://github.com/byronwall/srcly/commit/ab4da02022f02f874b53a48d7a4141f1b7c61bd9))
+* **dataflow:** carry a value kept in a member to wherever the member is read ([#247](https://github.com/byronwall/srcly/issues/247)) ([a7c719b](https://github.com/byronwall/srcly/commit/a7c719b52182e5e6652ce0a65067a13a912b1284))
+* **dataflow:** carry a value out of a closure through the closure's own calls ([#249](https://github.com/byronwall/srcly/issues/249)) ([4ea93cd](https://github.com/byronwall/srcly/commit/4ea93cd10d761bd760ef2c22cf7031f2e14d8e06))
+* **dataflow:** carry a value through a field assignment to the field's reads ([#244](https://github.com/byronwall/srcly/issues/244)) ([fc26126](https://github.com/byronwall/srcly/commit/fc2612669ee9e1a1e91372d0c01ade57e3a92e72))
+* **dataflow:** carry an awaited call's value through the await ([#237](https://github.com/byronwall/srcly/issues/237)) ([7fcaa78](https://github.com/byronwall/srcly/commit/7fcaa78897e4a0797fadebeccccca3024c1f44f7))
+* **dataflow:** end a Python trace at a SQLAlchemy session write ([#222](https://github.com/byronwall/srcly/issues/222)) ([7ff22b3](https://github.com/byronwall/srcly/commit/7ff22b390646fbe79eb1a3e436c249f50ea3b952))
+* **dataflow:** find Python routes on router subclasses and nested mounts ([#221](https://github.com/byronwall/srcly/issues/221)) ([d87721f](https://github.com/byronwall/srcly/commit/d87721fd61aab862355910a0c0be68d3249693a3))
+* **dataflow:** hand a resource's source value to its fetcher ([#243](https://github.com/byronwall/srcly/issues/243)) ([a087f67](https://github.com/byronwall/srcly/commit/a087f67912f515aa73801ad9cdddb4654909ea87))
+* **dataflow:** let a Python app's first build finish ([#219](https://github.com/byronwall/srcly/issues/219)) ([5a34ea6](https://github.com/byronwall/srcly/commit/5a34ea6e25070556ae440c76bac6e2eca03a9e2f))
+* **dataflow:** model the standard library instead of assuming it ([#246](https://github.com/byronwall/srcly/issues/246)) ([f458bc9](https://github.com/byronwall/srcly/commit/f458bc9606e9b4e8b037fa5e6daa41fd15901fa8))
+* **dataflow:** model what Solid, React and router calls do with values ([#245](https://github.com/byronwall/srcly/issues/245)) ([1d63c2a](https://github.com/byronwall/srcly/commit/1d63c2a0750ad0253b23538e5dee074f5e10d478))
+* **dataflow:** name an inline function's frame by where it is written ([#253](https://github.com/byronwall/srcly/issues/253)) ([4a16097](https://github.com/byronwall/srcly/commit/4a16097b659b9df6d9b4dc937e9d69c151457a2c))
+* **dataflow:** name database reads and writes, Prisma's first ([#238](https://github.com/byronwall/srcly/issues/238)) ([fe53ff6](https://github.com/byronwall/srcly/commit/fe53ff6e55565f49eac05b672d90eba80bfdee87))
+* **dataflow:** name what the browser holds where the program reads or writes it ([#248](https://github.com/byronwall/srcly/issues/248)) ([59d9bf4](https://github.com/byronwall/srcly/commit/59d9bf41e722e7d1e2af1fb8218a7dea2f5e6ab1))
+* **dataflow:** never call the standard library "outside the program" ([#254](https://github.com/byronwall/srcly/issues/254)) ([99ea47b](https://github.com/byronwall/srcly/commit/99ea47b18486fc28361d7daacd5d9b30143c6974))
+* **dataflow:** start a page's input at the router's URL reads ([#242](https://github.com/byronwall/srcly/issues/242)) ([768686d](https://github.com/byronwall/srcly/commit/768686d9e671cafdb399fb25620f0b1b34ce72bf))
+* **dataflow:** start a value at the DOM event its element's handler receives ([#241](https://github.com/byronwall/srcly/issues/241)) ([35ed109](https://github.com/byronwall/srcly/commit/35ed10939354beb0ff5fc839371988605665553a))
+* **dataflow:** use value words and no 404s on a Python root ([#220](https://github.com/byronwall/srcly/issues/220)) ([88296c3](https://github.com/byronwall/srcly/commit/88296c374bbc16fdbce6688dc3f1ddec65899d34))
+* **dataflow:** walk a component's own state when it is anchored by name ([#251](https://github.com/byronwall/srcly/issues/251)) ([af90ead](https://github.com/byronwall/srcly/commit/af90ead4163c405b871f0ac21093dd764a7e17cc))
+* **dataflow:** walk a function anchor's body, so its stops make it partial ([#227](https://github.com/byronwall/srcly/issues/227)) ([1392027](https://github.com/byronwall/srcly/commit/1392027da174333d95ae66cde5ca17fea5c88c75))
+* **dataflow:** walk into closures, and stop honestly at a callback's return ([#232](https://github.com/byronwall/srcly/issues/232)) ([4307f7e](https://github.com/byronwall/srcly/commit/4307f7e735d5bd7710b0b76a24d5233a830c9e72))
+
+
+### Documentation
+
+* move the data-flow backlog into an in-repo Product Grid ([#215](https://github.com/byronwall/srcly/issues/215)) ([78a841e](https://github.com/byronwall/srcly/commit/78a841ea832fcba859e1f39bd6ccf224ad877019))
+* Python data-flow audit, round 6 ([#235](https://github.com/byronwall/srcly/issues/235)) ([d3f1b43](https://github.com/byronwall/srcly/commit/d3f1b4368b237224bab6cb29f61f848244dfc523))
+* Python data-flow audit, rounds 4 and 5 ([#230](https://github.com/byronwall/srcly/issues/230)) ([287be40](https://github.com/byronwall/srcly/commit/287be40605dd64351a4c798a31a13e8f3232d1ad))
+* Python data-flow usability audit, three rounds ([#217](https://github.com/byronwall/srcly/issues/217)) ([db9dc98](https://github.com/byronwall/srcly/commit/db9dc980e3da8375410819be61fe409f70891174))
+* TSX data-flow audit on visual-notes, round 1, the gap sweep and round 2 ([#255](https://github.com/byronwall/srcly/issues/255)) ([ee8a771](https://github.com/byronwall/srcly/commit/ee8a771ce94fb59573492445d0f5fa2411ad83c8))
+
 ## [1.5.0](https://github.com/byronwall/srcly/compare/v1.4.1...v1.5.0) (2026-10-26)
 
 
