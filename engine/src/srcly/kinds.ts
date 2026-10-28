@@ -40,6 +40,7 @@ export const RELATION_TRAITS: Record<ProgramRelationKind, RelationTraits> = {
   "render-terminal": {},
   "input-call": {},
   "resource-loader": {},
+  "resource-source-parameter": {},
   "resource-result": {},
   "effect-input": {},
   "http-bridge": {},

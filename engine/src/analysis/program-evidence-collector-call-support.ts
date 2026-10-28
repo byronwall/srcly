@@ -121,6 +121,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       if (symbolId) this.resourceBySymbol.set(symbolId, resourceId);
     }
     const loader = initializer.arguments[1];
+    this.bindResourceSource(initializer.arguments[0], loader, ownerId);
     this.httpResources.push({
       node: initializer,
       elementId: resourceId,
@@ -141,6 +142,29 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         "proven",
       );
     }
+  }
+
+  /**
+   * `createResource(source, fetcher)` calls the fetcher with the source's
+   * value: an arrow's returned expression, or the accessor it is given.
+   */
+  private bindResourceSource(source: TypeScript.Expression | undefined, loader: TypeScript.Expression | undefined, ownerId: string | null): void {
+    const fetcher = loader ? unwrap(this.ts, loader) : null;
+    if (!source || !fetcher || !(this.ts.isArrowFunction(fetcher) || this.ts.isFunctionExpression(fetcher))) return;
+    const parameter = fetcher.parameters[0];
+    if (!parameter || !this.ts.isIdentifier(parameter.name)) return;
+    const parameterId = this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "");
+    const value = unwrap(this.ts, source);
+    const returned = this.ts.isArrowFunction(value) && !this.ts.isBlock(value.body) ? value.body : value;
+    if (!parameterId || !this.ts.isExpression(returned)) return;
+    this.addRelation(
+      this.expression(returned, ownerId),
+      parameterId,
+      "resource-source-parameter",
+      [this.location(source), this.location(parameter)],
+      proof("resource-boundary", "The resource calls its fetcher with the source's value.", [this.location(source), this.location(parameter)]),
+      "proven",
+    );
   }
 
   protected processCall(

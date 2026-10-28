@@ -35,17 +35,17 @@
       "errors": []
     },
     "value-flow-basics": {
-      "traces": 75,
+      "traces": 76,
       "outcomes": {
         "ok": 20,
-        "partial": 55
+        "partial": 56
       },
       "stops": {
         "boundary: external-code": 1,
         "frontier: budget-exhausted": 1,
         "frontier: disconnected": 6,
         "frontier: external-code": 2,
-        "frontier: unbound-read": 280,
+        "frontier: unbound-read": 281,
         "frontier: untraced": 3
       },
       "ok": [

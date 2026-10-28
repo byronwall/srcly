@@ -159,6 +159,7 @@ export type ProgramRelationKind =
   | "render-terminal"
   | "input-call"
   | "resource-loader"
+  | "resource-source-parameter"
   | "resource-result"
   | "effect-input"
   | "http-bridge"
