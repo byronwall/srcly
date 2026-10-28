@@ -1,9 +1,9 @@
 import type * as TypeScript from "typescript";
-import { symbolAtNode, unwrap } from "./program-evidence-support";
+import { importedCallee, symbolAtNode, unwrap } from "./program-evidence-support";
 
 /** One step the checker proved on the way to a value's origin. */
 export type ValueStep = {
-  kind: "alias" | "const" | "shorthand" | "property" | "binding";
+  kind: "alias" | "const" | "shorthand" | "property" | "binding" | "wrapper";
   node: TypeScript.Node;
 };
 
@@ -20,6 +20,29 @@ export type ValueOrigin = {
 };
 
 const MAX_STEPS = 8;
+
+/**
+ * Library calls that return the function they are given, wrapped: calling
+ * the result runs it with the same arguments. SolidStart's server `query` and
+ * `action` (and the older `cache`), the router's `useAction` over an action,
+ * React's `useCallback`, and the usual `debounce` and `throttle`.
+ */
+const FUNCTION_WRAPPERS: Record<string, readonly string[]> = {
+  "@solidjs/router": ["query", "cache", "action", "useAction"],
+  "react": ["useCallback"],
+  "lodash": ["debounce", "throttle"],
+  "lodash-es": ["debounce", "throttle"],
+  "lodash.debounce": ["default"],
+  "lodash.throttle": ["default"],
+  "@solid-primitives/scheduled": ["debounce", "throttle", "leading", "leadingAndTrailing"],
+};
+
+/** The function a wrapper call (`query(async (id) => …, "key")`) is given, or null. */
+function wrappedArgument(ts: typeof TypeScript, checker: TypeScript.TypeChecker, value: TypeScript.Expression): TypeScript.Expression | null {
+  if (!ts.isCallExpression(value) || value.arguments.length === 0) return null;
+  const imported = importedCallee(ts, checker, value.expression);
+  return imported && FUNCTION_WRAPPERS[imported.module]?.includes(imported.name) ? unwrap(ts, value.arguments[0]) : null;
+}
 
 /**
  * What an expression's value is, through the checker: an import or export
@@ -65,6 +88,10 @@ export function resolveValue(ts: typeof TypeScript, checker: TypeScript.TypeChec
     if (!initializer) return null;
     steps.push({ kind: property ? "property" : "const", node: declaration });
     value = unwrap(ts, initializer);
+    for (let wrapped = wrappedArgument(ts, checker, value); wrapped && steps.length < MAX_STEPS; wrapped = wrappedArgument(ts, checker, value)) {
+      steps.push({ kind: "wrapper", node: value });
+      value = wrapped;
+    }
     if (ts.isArrowFunction(value) || ts.isFunctionExpression(value)) return { origin: value, declaration: value, steps };
     if (!ts.isIdentifier(value) && !ts.isPropertyAccessExpression(value)) return { origin: value, declaration, steps };
     symbol = at(value);
