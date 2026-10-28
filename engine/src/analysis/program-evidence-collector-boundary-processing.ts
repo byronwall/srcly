@@ -430,6 +430,50 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
     if (!entry.bindings.some((binding) => binding.id === bindingId)) entry.bindings.push({ id: bindingId, node });
   }
 
+  /**
+   * `o.title = value` on a variable or parameter the project declares packs
+   * the value into `o` under `title`, as `{ title: value }` would: a later
+   * read of `o.title` sees it, and a read of another field does not.
+   */
+  protected processFieldAssignment(
+    node: TypeScript.BinaryExpression & { left: TypeScript.PropertyAccessExpression & { expression: TypeScript.Identifier } },
+    ownerId: string | null,
+  ): void {
+    const receiver = node.left.expression;
+    const receiverSymbol = this.symbolId(receiver) ?? "";
+    const holderId = this.variablesBySymbol.get(receiverSymbol) ?? this.parametersBySymbol.get(receiverSymbol);
+    if (!holderId) return;
+    const field = node.left.name;
+    const { span } = this.location(field);
+    const packId = this.ensureElement(
+      node,
+      "object-pack",
+      ownerId,
+      { operation: "object-pack", fields: JSON.stringify({ [`${span.startLine}:${span.startColumn}`]: field.text }) },
+      null,
+      null,
+      null,
+      "proven",
+      proof("ast-node", "The assignment sets one field of the object.", [this.location(node)]),
+    );
+    this.addRelation(
+      this.expression(node.right, ownerId),
+      packId,
+      "pack-field",
+      [this.location(field)],
+      proof("ast-node", "The assigned value is packed under this field.", [this.location(field)]),
+      "proven",
+    );
+    this.addRelation(
+      packId,
+      holderId,
+      "references",
+      [this.location(receiver)],
+      proof("ast-node", "The object the assignment sets a field of.", [this.location(receiver)]),
+      "proven",
+    );
+  }
+
   protected processExitStatusAssignment(
     node: TypeScript.BinaryExpression,
     ownerId: string | null,
