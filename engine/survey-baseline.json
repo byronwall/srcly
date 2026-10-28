@@ -15,7 +15,7 @@
         "boundary: unproven-handoff": 31,
         "frontier: budget-exhausted": 176,
         "frontier: disconnected": 154,
-        "frontier: external-code": 146,
+        "frontier: external-code": 92,
         "frontier: unbound-read": 24,
         "frontier: unresolved-symbol": 15,
         "frontier: untraced": 4
