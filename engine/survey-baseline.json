@@ -12,10 +12,10 @@
         "boundary: external-code": 1,
         "boundary: framework-runtime": 11,
         "boundary: network": 5,
-        "boundary: unproven-handoff": 36,
+        "boundary: unproven-handoff": 32,
         "frontier: budget-exhausted": 180,
-        "frontier: disconnected": 130,
-        "frontier: external-code": 121,
+        "frontier: disconnected": 141,
+        "frontier: external-code": 122,
         "frontier: unbound-read": 24,
         "frontier: unresolved-symbol": 11,
         "frontier: untraced": 4
@@ -35,17 +35,17 @@
       "errors": []
     },
     "value-flow-basics": {
-      "traces": 77,
+      "traces": 79,
       "outcomes": {
         "ok": 20,
-        "partial": 57
+        "partial": 59
       },
       "stops": {
         "boundary: external-code": 1,
         "frontier: budget-exhausted": 1,
         "frontier: disconnected": 6,
         "frontier: external-code": 2,
-        "frontier: unbound-read": 281,
+        "frontier: unbound-read": 285,
         "frontier: untraced": 9
       },
       "ok": [

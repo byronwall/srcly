@@ -160,6 +160,8 @@ export type ProgramRelationKind =
   | "input-call"
   | "resource-loader"
   | "resource-source-parameter"
+  | "context-value"
+  | "framework-flow"
   | "resource-result"
   | "effect-input"
   | "http-bridge"

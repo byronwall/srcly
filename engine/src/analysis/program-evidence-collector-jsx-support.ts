@@ -3,8 +3,10 @@ import type { ProgramElementKind } from "./program-evidence";
 import type { CollectorFunctionInfo } from "./program-evidence-collector-support";
 import { ProgramEvidenceCollectorFieldTransferSupport } from "./program-evidence-collector-field-transfers";
 import { reachingBindings } from "./program-evidence-reaching-bindings";
+import { resolveValue } from "./value-origin";
 import {
   derivedOperands,
+  importedCallee,
   isAssignmentOperator,
   firstBindingIdentifier,
   isExitStatusAssignment,
@@ -16,6 +18,9 @@ import {
 } from "./program-evidence-support";
 
 export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollectorFieldTransferSupport {
+  /** Each context's provided values, by the `createContext()` call the context is. */
+  private readonly contextProviders = new Map<string, string[]>();
+
   protected collectNodes(file: TypeScript.SourceFile): void {
     const visit = (node: TypeScript.Node, ownerId: string | null) => {
       this.noteAstUnit();
@@ -171,6 +176,10 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         : component ? attribute.initializer : undefined;
       if (!value || !this.ts.isExpression(value)) continue;
       const valueId = this.expression(value, ownerId);
+      if (attribute.name.getText() === "value" && this.ts.isPropertyAccessExpression(opening.tagName) && opening.tagName.name.text === "Provider") {
+        const context = this.contextKey(opening.tagName.expression);
+        if (context) this.contextProviders.set(context, [...(this.contextProviders.get(context) ?? []), valueId]);
+      }
       this.addRelation(
         valueId,
         occurrenceId,
@@ -316,7 +325,37 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     );
   }
 
+  /** The `createContext()` call (Solid's or React's) a context expression is, as a key, or null. */
+  private contextKey(expression: TypeScript.Expression): string | null {
+    const origin = resolveValue(this.ts, this.checker, expression)?.origin;
+    if (!origin || !this.ts.isCallExpression(origin)) return null;
+    const imported = importedCallee(this.ts, this.checker, origin.expression);
+    const factory = imported?.name === "createContext" && (imported.module === "solid-js" || imported.module === "react");
+    return factory ? nodeKey(this.root, origin) : null;
+  }
+
+  /** `useContext(Ctx)` returns what a `<Ctx.Provider value={…}>` above it provides: every provider of that context. */
+  private connectContexts(): void {
+    for (const call of this.calls) {
+      if (!this.ts.isCallExpression(call.node)) continue;
+      const imported = importedCallee(this.ts, this.checker, call.node.expression);
+      if (imported?.name !== "useContext" || (imported.module !== "solid-js" && imported.module !== "react")) continue;
+      const context = call.node.arguments[0] ? this.contextKey(call.node.arguments[0]) : null;
+      for (const valueId of context ? this.contextProviders.get(context) ?? [] : []) {
+        this.addRelation(
+          valueId,
+          call.id,
+          "context-value",
+          [this.location(call.node)],
+          proof("framework-state", "The context's provider supplies the value useContext returns.", [this.location(call.node)]),
+          "proven",
+        );
+      }
+    }
+  }
+
   protected connectCalls(): void {
+    this.connectContexts();
     this.connectComponentPropBindings();
     this.connectFieldTransfers();
     for (const call of this.calls) {

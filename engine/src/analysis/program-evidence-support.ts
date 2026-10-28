@@ -230,8 +230,16 @@ export function isNetworkOperation(module: string | null, name: string) {
   return Boolean(module && /^(node:)?https?$/.test(module) && /^(request|get|post)$/.test(lastName(name)));
 }
 
+/** A UI framework's own reactive and routing calls: what they do with a value is the framework's model, never an external effect. */
+const FRAMEWORK_CALLS: Record<string, RegExp> = {
+  "solid-js": /^(createResource|createEffect|createRenderEffect|createComputed|createMemo|createSignal|createSelector|createContext|useContext|onMount|onCleanup|on|batch|untrack|mergeProps|splitProps|children|lazy|Show|For)$/,
+  "solid-js/store": /^(createStore|createMutable|produce|reconcile|unwrap)$/,
+  "@solidjs/router": /^(createAsync|createAsyncStore|useNavigate|useAction|useSubmission|useSubmissions|useBeforeLeave|query|cache|action|redirect|revalidate|reload)$/,
+  "react": /^(useState|useReducer|useEffect|useLayoutEffect|useMemo|useCallback|useRef|useContext|useId|useTransition|useDeferredValue|createContext|memo|forwardRef)$/,
+};
+
 export function isFrameworkCall(module: string, name: string) {
-  return module === "solid-js" && /^(createResource|createEffect|createMemo|createSignal|onMount|batch|untrack|Show|For)$/.test(name);
+  return Boolean(FRAMEWORK_CALLS[module]?.test(name));
 }
 
 export function outputKind(name: string, node: TypeScript.CallExpression): "stdout" | "stderr" | null {
