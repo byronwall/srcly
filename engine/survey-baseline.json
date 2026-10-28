@@ -4,25 +4,24 @@
     "client": {
       "traces": 89,
       "outcomes": {
-        "ok": 12,
-        "partial": 76,
+        "ok": 11,
+        "partial": 77,
         "unsupported": 1
       },
       "stops": {
         "boundary: external-code": 1,
-        "boundary: framework-runtime": 12,
-        "boundary: network": 5,
-        "boundary: unproven-handoff": 26,
-        "frontier: budget-exhausted": 167,
-        "frontier: disconnected": 141,
-        "frontier: external-code": 132,
+        "boundary: framework-runtime": 13,
+        "boundary: network": 9,
+        "boundary: unproven-handoff": 31,
+        "frontier: budget-exhausted": 172,
+        "frontier: disconnected": 155,
+        "frontier: external-code": 146,
         "frontier: unbound-read": 24,
         "frontier: unresolved-symbol": 15,
         "frontier: untraced": 4
       },
       "ok": [
         "src/App.tsx#default (App)",
-        "src/compare/CompareApp.tsx#default (CompareApp)",
         "src/compare/graphModel.ts#DEFAULT_GRAPH_OPTIONS",
         "src/compare/metrics.ts#STATUS_LABEL",
         "src/compare/metrics.ts#VERDICT_TEXT",
@@ -37,18 +36,19 @@
       "errors": []
     },
     "value-flow-basics": {
-      "traces": 89,
+      "traces": 90,
       "outcomes": {
         "ok": 29,
-        "partial": 60
+        "partial": 61
       },
       "stops": {
         "boundary: external-code": 1,
         "frontier: budget-exhausted": 1,
-        "frontier: disconnected": 6,
+        "frontier: disconnected": 7,
         "frontier: external-code": 2,
         "frontier: unbound-read": 291,
-        "frontier: untraced": 9
+        "frontier: unresolved-symbol": 1,
+        "frontier: untraced": 10
       },
       "ok": [
         "src/awaited-calls.ts#Logged",
@@ -57,6 +57,7 @@
         "src/closure-props-host.tsx#ChipHost",
         "src/closures.ts#readBack",
         "src/component-aliases.tsx#Tag",
+        "src/component-state.tsx#Counter",
         "src/database-calls.ts#add",
         "src/database-calls.ts#rename",
         "src/database-calls.ts#titleOf",
@@ -67,7 +68,6 @@
         "src/function-field-reads.ts#describeFirst",
         "src/function-field-reads.ts#describeItem",
         "src/function-wrappers.tsx#logNote",
-        "src/half-landed.tsx#HalfLanded",
         "src/hook-return.tsx#HookReturn",
         "src/hook-return.tsx#orphan",
         "src/literal-start.tsx#LiteralStart",
