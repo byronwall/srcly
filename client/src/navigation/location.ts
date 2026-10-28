@@ -34,6 +34,11 @@ export interface Location {
   /** Data flow mode: the selected destination (a node id). */
   dest?: string;
   /**
+   * Route mode: `components` shows the route's render backbone. Absent, a
+   * page route opens on its component's data trace (anchor mode) instead.
+   */
+  lens?: "components";
+  /**
    * Graph only: Data flow mode anchored at an expression instead of a route
    * (`encodeAnchor`): `file:line:col-line:col`, or `file@name:line` for a
    * symbol. Replaces `flow`.
@@ -110,6 +115,7 @@ const FIELD_PARAM = "field";
 const DEST_PARAM = "dest";
 const ANCHOR_PARAM = "anchor";
 const DIR_PARAM = "dir";
+const LENS_PARAM = "lens";
 /** Pre-location graph focus parameter. Read as an alias of `at` + graph view. */
 const LEGACY_FOCUS_PARAM = "depFocus";
 
@@ -134,6 +140,7 @@ export function parseLocation(search: string): Location {
   const flow = view === "graph" && anchor === null ? params.get(FLOW_PARAM) : null;
   const field = flow !== null ? params.get(FIELD_PARAM) : null;
   const dest = field !== null ? params.get(DEST_PARAM) : null;
+  const lens = flow !== null && params.get(LENS_PARAM) === "components" ? "components" : null;
   return {
     repo: params.get(REPO_PARAM) ?? "",
     at: normalizeAt(rawAt),
@@ -142,6 +149,7 @@ export function parseLocation(search: string): Location {
     ...(flow !== null ? { flow } : {}),
     ...(field ? { field } : {}),
     ...(dest ? { dest } : {}),
+    ...(lens ? { lens } : {}),
     ...(anchor !== null ? { anchor } : {}),
     ...(dir ? { dir } : {}),
   };
@@ -164,6 +172,7 @@ export function toSearch(loc: Location, currentSearch = ""): string {
   params.delete(DEST_PARAM);
   params.delete(ANCHOR_PARAM);
   params.delete(DIR_PARAM);
+  params.delete(LENS_PARAM);
   if (loc.repo) params.set(REPO_PARAM, loc.repo);
   if (loc.at) params.set(AT_PARAM, loc.at);
   if (loc.view !== "treemap") params.set(VIEW_PARAM, loc.view);
@@ -173,6 +182,7 @@ export function toSearch(loc: Location, currentSearch = ""): string {
     if (loc.dir && loc.dir !== "both") params.set(DIR_PARAM, loc.dir);
   } else if (loc.view === "graph" && loc.flow !== undefined) {
     params.set(FLOW_PARAM, loc.flow);
+    if (loc.lens) params.set(LENS_PARAM, loc.lens);
     if (loc.field) {
       params.set(FIELD_PARAM, loc.field);
       if (loc.dest) params.set(DEST_PARAM, loc.dest);
@@ -190,7 +200,7 @@ export function sameLocation(a: Location, b: Location): boolean {
 
 /** Same repo, focus, view and graph mode, whatever is opened in place or selected in Data flow mode (one history entry per place). */
 export function samePlace(a: Location, b: Location): boolean {
-  return a.repo === b.repo && a.at === b.at && a.view === b.view && a.flow === b.flow && a.anchor === b.anchor;
+  return a.repo === b.repo && a.at === b.at && a.view === b.view && a.flow === b.flow && a.lens === b.lens && a.anchor === b.anchor;
 }
 
 /** Data flow mode: a route, or an anchor. */

@@ -14,7 +14,7 @@ test.skip(!process.env.SRCLY_MEASURE, "set SRCLY_MEASURE=1 to measure");
 
 test("Return latency over 20 returns", async ({ page }) => {
   test.setTimeout(600_000);
-  await page.goto(url({ view: "graph", flow: "/records" }));
+  await page.goto(url({ view: "graph", flow: "/records", lens: "components" }));
   const status = page.getByText(/\d+ occurrences · \d+ boundaries|\d+ upstream · \d+ downstream/).first();
   await expect(status).toContainText("7 occurrences", { timeout: 90_000 });
   const svg = page.getByLabel("Dependency graph");

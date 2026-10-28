@@ -123,6 +123,8 @@ class RouteSummary(BaseModel):
     parameters: list[RouteParameter]
     # A handler route (FastAPI, Flask) has no render backbone; the client anchors at its handler.
     handler: RouteHandler | None = None
+    # A page route's component (its file's default export); the client traces its data from there.
+    component: RouteHandler | None = None
 
 
 class RoutesResult(BaseModel):

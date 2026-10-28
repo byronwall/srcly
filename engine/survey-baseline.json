@@ -2,10 +2,10 @@
   "note": "Data-flow coverage baseline for `pnpm survey-gate`. Regenerate with `pnpm survey-gate --update` in the PR that moves it.",
   "repos": {
     "client": {
-      "traces": 89,
+      "traces": 90,
       "outcomes": {
         "ok": 11,
-        "partial": 77,
+        "partial": 78,
         "unsupported": 1
       },
       "stops": {
@@ -13,8 +13,8 @@
         "boundary: framework-runtime": 13,
         "boundary: network": 9,
         "boundary: unproven-handoff": 31,
-        "frontier: budget-exhausted": 172,
-        "frontier: disconnected": 155,
+        "frontier: budget-exhausted": 176,
+        "frontier: disconnected": 154,
         "frontier: external-code": 146,
         "frontier: unbound-read": 24,
         "frontier: unresolved-symbol": 15,
