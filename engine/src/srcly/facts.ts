@@ -3,6 +3,7 @@
 // both start from the same seed and stop at the same boundaries (R7).
 import path from "node:path";
 import type * as TypeScript from "typescript";
+import { isStandardLibraryCallee } from "../analysis/program-evidence-support";
 import type { ProgramElement } from "../analysis/scope-seam";
 import type { CallSiteIndex, CallSites } from "./call-sites";
 import { elementTraits, relationTraits, SEED_KINDS } from "./kinds";
@@ -58,6 +59,16 @@ export function externalCallee(tier1: Tier1, element: Pick<ProgramElement, "kind
   const targetFile = target?.getSourceFile();
   const firstParty = targetFile && !targetFile.isDeclarationFile && !targetFile.fileName.includes(`${path.sep}node_modules${path.sep}`);
   return firstParty ? null : node.expression.getText(sourceFile);
+}
+
+/** Whether a call's callee is declared only by TypeScript's own lib files (`trim`, `map`, `JSON.stringify`, `console.log`). */
+export function standardLibraryCall(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location">): boolean {
+  if (element.kind !== "call" || tier1.language !== "typescript") return false;
+  const { ts } = tier1;
+  const sourceFile = tier1.program.getSourceFile(path.resolve(tier1.args.root, element.location.file));
+  const node = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
+  if (!node || !ts.isCallExpression(node)) return false;
+  return isStandardLibraryCallee(ts, tier1.program.getTypeChecker(), node.expression);
 }
 
 /**

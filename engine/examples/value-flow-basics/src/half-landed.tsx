@@ -17,5 +17,5 @@ function Pair(props: { title: string; count: number }) { // @trace pair both sym
 
 export function HalfLanded() {
   const [title] = createResource(async () => "x"); // @reaches pair resource-input
-  return <Pair title={title() ?? ""} count={Math.random()} />; // @reaches pair component-occurrence @stop pair framework-runtime resource-result @visits pair call @edge pair references partial external-call
+  return <Pair title={title() ?? ""} count={Math.random()} />; // @reaches pair component-occurrence @stop pair framework-runtime resource-result @visits pair call @edge pair references * standard-library
 }

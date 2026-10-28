@@ -24,6 +24,7 @@ import {
   assumedProof,
   discardsValue,
   importedCallee,
+  isStandardLibraryCallee,
   unwrap,
 } from "./program-evidence-support";
 
@@ -194,6 +195,12 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     const source = flow.source !== undefined ? argument(flow.source) : undefined;
     const parameterId = flow.callback !== undefined ? this.firstParameterId(argument(flow.callback)) : undefined;
     if (source && parameterId && !this.ts.isArrowFunction(source) && !this.ts.isFunctionExpression(source)) relate(source, parameterId, "The framework calls the callback with the source's value.");
+  }
+
+  /** The proof for what library code is taken to do: modelled for TypeScript's own library, assumed (and `partial`) for any other. */
+  private libraryProof(node: TypeScript.CallExpression, detail: string, locations: ProgramEvidenceLocation[]): [ReturnType<typeof proof>, "proven" | "partial"] {
+    if (isStandardLibraryCallee(this.ts, this.checker, node.expression)) return [proof("standard-library", `The standard library: ${detail}`, locations), "proven"];
+    return [assumedProof(`Assumed: it has no source to read, so ${detail}`, locations), "partial"];
   }
 
   private firstParameterId(fn: TypeScript.Expression | undefined): string | undefined {
@@ -476,7 +483,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (!declaration || !this.ts.isVariableDeclaration(declaration) || scope(declaration) !== scope(call.node)) return;
     const bindingId = this.variablesBySymbol.get(this.symbolId(root) ?? "");
     if (!bindingId) return;
-    this.addRelation(call.id, bindingId, "references", [this.location(call.node), this.location(root)], assumedProof(`Assumed: ${calleeName(this.ts, call.node.expression)} has no source to read and its value is discarded, so its arguments are kept in its receiver.`, [this.location(call.node), this.location(root)]), "partial");
+    const [kept, keptStatus] = this.libraryProof(call.node, `${calleeName(this.ts, call.node.expression)}'s value is discarded, so its arguments are kept in its receiver.`, [this.location(call.node), this.location(root)]);
+    this.addRelation(call.id, bindingId, "references", [this.location(call.node), this.location(root)], kept, keptStatus);
   }
 
   /**
@@ -528,11 +536,13 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
           const binding = firstBindingIdentifier(this.ts, parameter.name);
           const parameterId = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
           if (!parameterId || !this.checker.isTypeAssignableTo(element, this.checker.getTypeAtLocation(parameter))) continue;
-          this.addRelation(receiverId, parameterId, "callback-parameter", [this.location(receiver), this.location(parameter)], assumedProof(`Assumed: ${callee} has no source to read, so it is taken to call this function with ${receiver.getText()}${element === receiverType ? "" : "'s elements"}.`, [this.location(receiver), this.location(parameter)]), "partial");
+          const [called, calledStatus] = this.libraryProof(node, `${callee} calls this function with ${receiver.getText()}${element === receiverType ? "" : "'s elements"}.`, [this.location(receiver), this.location(parameter)]);
+          this.addRelation(receiverId, parameterId, "callback-parameter", [this.location(receiver), this.location(parameter)], called, calledStatus);
         }
       }
       for (const returnId of this.returnsByFunction.get(info.id) ?? []) {
-        this.addRelation(returnId, call.id, "return-value", where, assumedProof(`Assumed: ${callee} has no source to read, so its value is taken to derive from what this function returns.`, where), "partial");
+        const [derived, derivedStatus] = this.libraryProof(node, `${callee}'s value derives from what this function returns.`, where);
+        this.addRelation(returnId, call.id, "return-value", where, derived, derivedStatus);
       }
     }
   }

@@ -4,8 +4,8 @@
     "client": {
       "traces": 89,
       "outcomes": {
-        "ok": 10,
-        "partial": 78,
+        "ok": 12,
+        "partial": 76,
         "unsupported": 1
       },
       "stops": {
@@ -27,28 +27,31 @@
         "src/compare/metrics.ts#STATUS_LABEL",
         "src/compare/metrics.ts#VERDICT_TEXT",
         "src/components/ui/PopoverPanel.tsx#OptionRow",
+        "src/dataflow/effectsModel.ts#ACTIVATION_WORDS",
         "src/markdown/rehypeWrapSelection.ts#rehypeWrapSelection",
         "src/navigation/store.ts#canReturn",
+        "src/viz/deps/boxText.ts#MIN_INK_SHARE",
         "src/viz/deps/encoding.ts#EXTERNAL_BOX_DASH",
         "src/viz/deps/flow/FlowTools.tsx#FlowModeSwitch"
       ],
       "errors": []
     },
     "value-flow-basics": {
-      "traces": 79,
+      "traces": 81,
       "outcomes": {
-        "ok": 20,
-        "partial": 59
+        "ok": 24,
+        "partial": 57
       },
       "stops": {
         "boundary: external-code": 1,
         "frontier: budget-exhausted": 1,
         "frontier: disconnected": 6,
         "frontier: external-code": 2,
-        "frontier: unbound-read": 285,
+        "frontier: unbound-read": 287,
         "frontier: untraced": 9
       },
       "ok": [
+        "src/awaited-calls.ts#Logged",
         "src/closure-props-host.tsx#ChipHost",
         "src/component-aliases.tsx#Tag",
         "src/database-calls.ts#add",
@@ -58,6 +61,8 @@
         "src/dom-events.tsx#Search",
         "src/function-body.ts#wrapName",
         "src/function-field-reads.ts#describeFirst",
+        "src/function-field-reads.ts#describeItem",
+        "src/function-wrappers.tsx#logNote",
         "src/half-landed.tsx#HalfLanded",
         "src/hook-return.tsx#HookReturn",
         "src/hook-return.tsx#orphan",
@@ -68,6 +73,7 @@
         "src/prop-bindings.tsx#Page",
         "src/spread-props.tsx#Spread",
         "src/spread-props.tsx#SpreadDestructured",
+        "src/standard-library.ts#summarise",
         "src/url-reads.tsx#NotePage"
       ],
       "errors": []

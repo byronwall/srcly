@@ -65,6 +65,7 @@ export type ProgramProofKind =
   | "partial-classification"
   | "http-bridge"
   | "external-call"
+  | "standard-library"
   | "framework-state";
 export type ProgramProof = {
   kind: ProgramProofKind;

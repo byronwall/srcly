@@ -11,7 +11,7 @@ declare const records: Records;
 export function Called(props: { count: number; key: string; id: string }) {
   const next = ((n: number) => n + 1)(props.count); // @trace iife forward props.count @outcome iife ok @visits iife parameter "n" @visits iife return
   const names = new Map([["a", "Ann"]]);
-  const name = names.get(props.key); // @trace map-get forward props.key @outcome map-get partial
+  const name = names.get(props.key); // @trace map-get forward props.key @outcome map-get ok
   const row = records.find(props.id); // @trace service-read forward props.id @outcome service-read ok @stop service-read external-code external-read
   return (
     <p>

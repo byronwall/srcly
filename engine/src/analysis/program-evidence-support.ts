@@ -550,6 +550,18 @@ export function inside(root: string, file: string) {
 }
 
 /** Proof for a hand-off through code with no source to read: assumed, never proven. */
+/**
+ * Whether a callee is the standard library: declared only by TypeScript's own
+ * lib files (`trim`, `map`, `JSON.stringify`), or the global `console`, which
+ * Node's types declare too. What it does with its receiver and arguments is known.
+ */
+export function isStandardLibraryCallee(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): boolean {
+  const node = unwrap(ts, callee);
+  if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "console") return true;
+  const declarations = checker.getSymbolAtLocation(ts.isPropertyAccessExpression(node) ? node.name : node)?.declarations ?? [];
+  return declarations.length > 0 && declarations.every((declaration) => declaration.getSourceFile().hasNoDefaultLib);
+}
+
 export function assumedProof(detail: string, locations: ProgramEvidenceLocation[]): ProgramProof {
   return { kind: "external-call", detail, locations };
 }
