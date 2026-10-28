@@ -35,9 +35,9 @@
       "errors": []
     },
     "value-flow-basics": {
-      "traces": 72,
+      "traces": 74,
       "outcomes": {
-        "ok": 17,
+        "ok": 19,
         "partial": 55
       },
       "stops": {
@@ -54,6 +54,8 @@
         "src/database-calls.ts#add",
         "src/database-calls.ts#rename",
         "src/database-calls.ts#titleOf",
+        "src/dom-events.tsx#Picked",
+        "src/dom-events.tsx#Search",
         "src/function-body.ts#wrapName",
         "src/function-field-reads.ts#describeFirst",
         "src/half-landed.tsx#HalfLanded",

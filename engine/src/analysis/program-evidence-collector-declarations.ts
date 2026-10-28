@@ -10,6 +10,7 @@ import {
   firstBindingIdentifier,
   functionNameNode,
   functionOperation,
+  isDomEventHandler,
   isHandlerLike,
   nodeKey,
   parameterOriginRole,
@@ -104,7 +105,7 @@ export class ProgramEvidenceCollectorDeclarations extends ProgramEvidenceCollect
     if (symbolId) this.functionsBySymbol.set(symbolId, info);
     for (const parameter of node.parameters) {
       for (const binding of bindingIdentifiers(this.ts, parameter.name)) {
-        const originRole = parameterOriginRole(this.checker, parameter, handler);
+        const originRole = parameterOriginRole(this.checker, parameter, handler || isDomEventHandler(this.ts, node));
         const bindingLocation = this.location(binding);
         const parameterId = this.ensureElement(
           binding,
