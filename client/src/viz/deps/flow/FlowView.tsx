@@ -21,7 +21,7 @@ import { exportsToViewModel } from "./exportsAdapter";
 import { anchorsToViewModel } from "./multiAnchorAdapter";
 import { FlowInspector } from "./FlowInspector";
 import { FlowLegend } from "./FlowLegend";
-import { DirectionSwitch, FlowModeSwitch, ReachModeSwitch, REACH_OF_DIRECTION, RecentFlowMenu } from "./FlowTools";
+import { DirectionSwitch, FlowModeSwitch, ReachModeSwitch, REACH_OF_DIRECTION, RecentFlowMenu, RouteLensSwitch } from "./FlowTools";
 import { createFetch } from "./fetchSignal";
 import { FlowProgress } from "./FlowProgress";
 import { stopsOf } from "./inspectorModel";
@@ -250,10 +250,26 @@ export default function FlowView(props: {
     const route = (routes()?.routes ?? []).find((r) => r.key === key || r.pathPattern === key);
     return route?.handler ? encodeAnchor({ file: route.file, name: route.handler.name, line: route.handler.line }) : null;
   }
-  // A link to a handler route opens its handler in anchor mode instead.
+  /** A page route's component as an anchor: its data trace starts there. */
+  function componentOf(key: string) {
+    const route = (routes()?.routes ?? []).find((r) => r.key === key || r.pathPattern === key);
+    return route?.component ? encodeAnchor({ file: route.file, name: route.component.name, line: route.component.line }) : null;
+  }
+  /** The page route whose component the single anchor is: the toolbar offers its render tree too. */
+  const anchorRoute = () => (anchorSpecs().length === 1 ? (routes()?.routes ?? []).find((r) => componentOf(r.key) === anchorKey()) ?? null : null);
+  /** Open a route: a handler or a page's component in anchor mode, or the render tree when asked for. */
+  const routeTarget = (key: string, lens?: "components") => {
+    const handler = handlerOf(key);
+    if (handler) return { flow: undefined, anchor: handler, dir: "both" as const, lens: undefined };
+    const component = lens ? null : componentOf(key);
+    if (component) return { flow: undefined, anchor: component, dir: "forward" as const, lens: undefined };
+    return { flow: key, anchor: undefined, dir: undefined, lens };
+  };
+  // A link to a route opens its data: a handler, or a page's component, in anchor mode. `lens=components` keeps the render tree.
   createEffect(() => {
-    const anchor = routeKey() && !anchorKey() ? handlerOf(routeKey()) : null;
-    if (anchor) untrack(() => replace({ flow: undefined, anchor, dir: "both", field: undefined, dest: undefined }));
+    if (!routeKey() || anchorKey() || location().lens === "components") return;
+    const target = routeTarget(routeKey());
+    if (target.anchor) untrack(() => replace({ ...target, field: undefined, dest: undefined }));
   });
 
   const [picker, setPicker] = createSignal(false);
@@ -393,9 +409,7 @@ export default function FlowView(props: {
   };
   const pickRoute = (key: string) => {
     setSelected(null);
-    const handler = handlerOf(key);
-    if (handler) go({ flow: undefined, anchor: handler, dir: "both", open: undefined, field: undefined, dest: undefined });
-    else go({ flow: key, anchor: undefined, dir: undefined, open: undefined, field: undefined, dest: undefined });
+    go({ ...routeTarget(key), open: undefined, field: undefined, dest: undefined });
   };
   /** Leave anchor mode for the route picker. */
   const toRoutes = () => {
@@ -541,6 +555,18 @@ export default function FlowView(props: {
       <ViewTools>
         <span aria-hidden="true" class="mx-1 h-4 w-px shrink-0 bg-[var(--plc-border)]" />
         <FlowModeSwitch />
+        <Show when={anchorRoute() ?? (!anchorSpec() && currentRoute()?.component ? currentRoute() : null)}>
+          {(route) => (
+            <RouteLensSwitch
+              route={anchorSpec() ? route().pathPattern : ""}
+              lens={anchorSpec() ? "data" : "components"}
+              onChange={(lens) => {
+                setSelected(null);
+                go({ ...routeTarget(route().key, lens === "components" ? "components" : undefined), open: undefined, field: undefined, dest: undefined });
+              }}
+            />
+          )}
+        </Show>
         <Show when={anchorSpec()}>
           <Button
             variant="ghost"
