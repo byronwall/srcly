@@ -4,6 +4,7 @@ import { ProgramEvidenceCollectorCallSupport } from "./program-evidence-collecto
 import { objectPackAttributes } from "./program-evidence-collector-expression-support";
 import {
   bindingIdentifiers,
+  browserMember,
   firstBindingIdentifier,
   propertyBase,
   proof,
@@ -443,7 +444,12 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
     const receiverSymbol = this.ts.isIdentifier(receiver) ? this.symbolId(receiver) ?? "" : "";
     const holderId = this.variablesBySymbol.get(receiverSymbol) ?? this.parametersBySymbol.get(receiverSymbol);
     // `this.title = value`, `state.card.title = value`: no local object to pack into, so the member itself keeps it.
-    if (!holderId) return this.addMemberWrite(node.left, this.expression(node.right, ownerId));
+    // A property the browser declares (`document.title`, `el.textContent`) is written to the page.
+    if (!holderId) {
+      const valueId = this.expression(node.right, ownerId);
+      if (browserMember(this.ts, this.checker, node.left)) return this.processBrowserWrite(node, valueId, ownerId);
+      return this.addMemberWrite(node.left, valueId);
+    }
     const field = node.left.name;
     const { span } = this.location(field);
     const packId = this.ensureElement(
@@ -473,6 +479,18 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
       proof("ast-node", "The object the assignment sets a field of.", [this.location(receiver)]),
       "proven",
     );
+  }
+
+  /** `location.search`, `document.cookie`: the browser hands the program this value, an origin. */
+  protected processBrowserRead(node: TypeScript.PropertyAccessExpression, ownerId: string | null): void {
+    const readId = this.specialInput(node, "external-read", ownerId, { operation: node.name.text, name: `browser read: ${node.getText(node.getSourceFile())}` }, "host-api", "The browser hands the program this value.");
+    this.addRelation(readId, this.expression(node, ownerId), "carrier", [this.location(node)], proof("carrier-boundary", "The property read yields what the browser holds.", [this.location(node)]), "proven");
+  }
+
+  /** `document.title = value`: the value is written into the page, an end. */
+  protected processBrowserWrite(node: TypeScript.BinaryExpression & { left: TypeScript.PropertyAccessExpression }, valueId: string, ownerId: string | null): void {
+    const writeId = this.specialInput(node, "external-effect", ownerId, { operation: node.left.name.text, name: `page write: ${node.left.getText(node.getSourceFile())}` }, "host-api", "The assignment writes the value into the page.");
+    this.addRelation(valueId, writeId, "effect-input", [this.location(node)], proof("host-api", "The browser property keeps the assigned value.", [this.location(node)]), "proven");
   }
 
   protected processExitStatusAssignment(

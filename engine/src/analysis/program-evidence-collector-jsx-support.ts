@@ -5,6 +5,8 @@ import { ProgramEvidenceCollectorFieldTransferSupport } from "./program-evidence
 import { reachingBindings } from "./program-evidence-reaching-bindings";
 import { resolveValue } from "./value-origin";
 import {
+  browserMember,
+  browserPropertyRead,
   derivedOperands,
   importedCallee,
   isAssignmentOperator,
@@ -74,6 +76,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       }
       if (this.ts.isPropertyAccessExpression(node) && !(this.ts.isBinaryExpression(node.parent) && node.parent.left === node && isAssignmentOperator(this.ts, node.parent.operatorToken.kind))) {
         this.memberReads.push({ node, ownerId: nextOwner });
+        if (browserPropertyRead(browserMember(this.ts, this.checker, node))) this.processBrowserRead(node, nextOwner);
       }
       if (this.ts.isReturnStatement(node)) {
         this.processReturn(node, nextOwner);

@@ -67,7 +67,8 @@ export function standardLibraryCall(tier1: Tier1, element: Pick<ProgramElement, 
   const { ts } = tier1;
   const sourceFile = tier1.program.getSourceFile(path.resolve(tier1.args.root, element.location.file));
   const node = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
-  if (!node || !ts.isCallExpression(node)) return false;
+  // A constructor too: `new URLSearchParams(search)`, `new Map(entries)`, `new Date(value)`.
+  if (!node || !(ts.isCallExpression(node) || ts.isNewExpression(node))) return false;
   return isStandardLibraryCallee(ts, tier1.program.getTypeChecker(), node.expression);
 }
 

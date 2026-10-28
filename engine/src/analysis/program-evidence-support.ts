@@ -86,12 +86,15 @@ export function isHandlerLike(
 
 /**
  * A function written as an element's event attribute (`<input onInput={(e) => …}>`,
- * Solid's `on:click`): the browser calls it with the event. Only an intrinsic
- * element's: a component's `onChange` is a prop its own code calls.
+ * Solid's `on:click`) or given to `addEventListener`: the browser calls it with
+ * the event. Only an intrinsic element's: a component's `onChange` is a prop its
+ * own code calls.
  */
 export function isDomEventHandler(ts: typeof TypeScript, node: TypeScript.FunctionLikeDeclaration): boolean {
   let parent = node.parent;
   while (parent && ts.isParenthesizedExpression(parent)) parent = parent.parent;
+  // `el.addEventListener("input", (event) => …)`: the browser calls it with the event too.
+  if (parent && ts.isCallExpression(parent) && parent.arguments[1] === node && ts.isPropertyAccessExpression(parent.expression) && parent.expression.name.text === "addEventListener") return true;
   if (!parent || !ts.isJsxExpression(parent) || !ts.isJsxAttribute(parent.parent)) return false;
   const opening = parent.parent.parent.parent;
   const intrinsic = ts.isIdentifier(opening.tagName) && /^[a-z]/.test(opening.tagName.text);
@@ -552,14 +555,44 @@ export function inside(root: string, file: string) {
 /** Proof for a hand-off through code with no source to read: assumed, never proven. */
 /**
  * Whether a callee is the standard library: declared only by TypeScript's own
- * lib files (`trim`, `map`, `JSON.stringify`), or the global `console`, which
- * Node's types declare too. What it does with its receiver and arguments is known.
+ * lib files (`trim`, `map`, `JSON.stringify`) or Node's (`URLSearchParams`,
+ * `Buffer.from`, which both may declare), or the global `console`. What it
+ * does with its receiver and arguments is known.
  */
 export function isStandardLibraryCallee(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): boolean {
   const node = unwrap(ts, callee);
   if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "console") return true;
   const declarations = checker.getSymbolAtLocation(ts.isPropertyAccessExpression(node) ? node.name : node)?.declarations ?? [];
-  return declarations.length > 0 && declarations.every((declaration) => declaration.getSourceFile().hasNoDefaultLib);
+  const standard = (file: TypeScript.SourceFile) => file.hasNoDefaultLib || /[\\/]node_modules[\\/]@types[\\/]node[\\/]/.test(file.fileName);
+  return declarations.length > 0 && declarations.every((declaration) => standard(declaration.getSourceFile()));
+}
+
+/**
+ * The browser's own interface a member belongs to (`Location`, `Storage`,
+ * `History`, `Document`, an element's), when TypeScript's DOM lib declares it:
+ * `{ owner: "Storage", name: "getItem" }`. Null for anything else.
+ */
+export function browserMember(ts: typeof TypeScript, checker: TypeScript.TypeChecker, access: TypeScript.Expression): { owner: string; name: string } | null {
+  const node = unwrap(ts, access);
+  if (!ts.isPropertyAccessExpression(node)) return null;
+  const declaration = checker.getSymbolAtLocation(node.name)?.declarations?.[0];
+  const owner = declaration?.parent;
+  if (!declaration?.getSourceFile().hasNoDefaultLib || !owner || !ts.isInterfaceDeclaration(owner)) return null;
+  return { owner: owner.name.text, name: node.name.text };
+}
+
+/** What the browser keeps outside the program: the URL and the cookie are read as a page's input; storage, history and navigation are read and written. */
+export function browserCall(member: { owner: string; name: string } | null): "read" | "write" | null {
+  if (!member) return null;
+  if (member.owner === "Storage") return member.name === "getItem" || member.name === "key" ? "read" : "write";
+  if (member.owner === "History") return /^(pushState|replaceState)$/.test(member.name) ? "write" : null;
+  if (member.owner === "Location") return /^(assign|replace|reload)$/.test(member.name) ? "write" : null;
+  return null;
+}
+
+/** A property read of the page's URL (`location.search`) or `document.cookie`: where the browser hands the program a value. */
+export function browserPropertyRead(member: { owner: string; name: string } | null): boolean {
+  return Boolean(member && (member.owner === "Location" || (member.owner === "Document" && member.name === "cookie")));
 }
 
 export function assumedProof(detail: string, locations: ProgramEvidenceLocation[]): ProgramProof {

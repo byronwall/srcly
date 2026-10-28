@@ -13,9 +13,9 @@
         "boundary: framework-runtime": 11,
         "boundary: network": 5,
         "boundary: unproven-handoff": 31,
-        "frontier: budget-exhausted": 185,
-        "frontier: disconnected": 144,
-        "frontier: external-code": 120,
+        "frontier: budget-exhausted": 186,
+        "frontier: disconnected": 135,
+        "frontier: external-code": 116,
         "frontier: unbound-read": 24,
         "frontier: unresolved-symbol": 13,
         "frontier: untraced": 4
@@ -37,9 +37,9 @@
       "errors": []
     },
     "value-flow-basics": {
-      "traces": 82,
+      "traces": 85,
       "outcomes": {
-        "ok": 25,
+        "ok": 28,
         "partial": 57
       },
       "stops": {
@@ -52,6 +52,8 @@
       },
       "ok": [
         "src/awaited-calls.ts#Logged",
+        "src/browser-io.ts#restore",
+        "src/browser-io.ts#show",
         "src/closure-props-host.tsx#ChipHost",
         "src/component-aliases.tsx#Tag",
         "src/database-calls.ts#add",
@@ -59,6 +61,7 @@
         "src/database-calls.ts#titleOf",
         "src/dom-events.tsx#Picked",
         "src/dom-events.tsx#Search",
+        "src/function-body.ts#saveName",
         "src/function-body.ts#wrapName",
         "src/function-field-reads.ts#describeFirst",
         "src/function-field-reads.ts#describeItem",

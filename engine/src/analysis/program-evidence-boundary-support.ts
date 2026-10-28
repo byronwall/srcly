@@ -1,5 +1,7 @@
 import * as TypeScript from "typescript";
 import {
+  browserCall,
+  browserMember,
   calleeName,
   externalServiceCallKind,
   importedCallee,
@@ -93,7 +95,21 @@ export function processProgramCallBoundary(
   const fileWrite = isFileOperation(module, exported, "write");
   const stream = outputKind(name, node);
   const urlRead = imported && URL_READS[imported.module]?.includes(imported.name);
-  if (urlRead) {
+  const browser = browserCall(browserMember(ts, context.checker, node.expression));
+  if (browser) {
+    // Browser storage, history and navigation: outside the program, named by what they are.
+    const text = `${node.expression.getText(node.getSourceFile())}(…)`;
+    const id = context.specialInput(
+      node,
+      browser === "read" ? "external-read" : "external-effect",
+      ownerId,
+      { operation: exported, name: browser === "read" ? `browser read: ${text}` : `browser write: ${text}` },
+      "host-api",
+      browser === "read" ? "The browser hands the program this stored value." : "The browser keeps this value outside the program.",
+    );
+    if (browser === "read") context.addRelation(id, callId, "carrier", [context.location(node)], proof("carrier-boundary", "The browser call yields what it reads.", [context.location(node)]), "proven");
+    else context.addRelation(callId, id, "effect-input", [context.location(node)], proof("host-api", "The browser call keeps what it is given.", [context.location(node)]), "proven");
+  } else if (urlRead) {
     // What a router reads from the URL is where a page's input starts.
     const inputId = context.specialInput(
       node,
