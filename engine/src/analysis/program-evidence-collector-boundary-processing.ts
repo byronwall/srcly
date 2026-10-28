@@ -436,13 +436,14 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
    * read of `o.title` sees it, and a read of another field does not.
    */
   protected processFieldAssignment(
-    node: TypeScript.BinaryExpression & { left: TypeScript.PropertyAccessExpression & { expression: TypeScript.Identifier } },
+    node: TypeScript.BinaryExpression & { left: TypeScript.PropertyAccessExpression },
     ownerId: string | null,
   ): void {
     const receiver = node.left.expression;
-    const receiverSymbol = this.symbolId(receiver) ?? "";
+    const receiverSymbol = this.ts.isIdentifier(receiver) ? this.symbolId(receiver) ?? "" : "";
     const holderId = this.variablesBySymbol.get(receiverSymbol) ?? this.parametersBySymbol.get(receiverSymbol);
-    if (!holderId) return;
+    // `this.title = value`, `state.card.title = value`: no local object to pack into, so the member itself keeps it.
+    if (!holderId) return this.addMemberWrite(node.left, this.expression(node.right, ownerId));
     const field = node.left.name;
     const { span } = this.location(field);
     const packId = this.ensureElement(

@@ -1,10 +1,12 @@
 import * as TypeScript from "typescript";
 import type {
   ProgramElementKind,
+  ProgramEvidenceLocation,
 } from "./program-evidence";
 import { ProgramEvidenceCollectorSupport } from "./program-evidence-collector-support";
 import {
   asFunctionLike,
+  assumedProof,
   bindingIdentifiers,
   containsJsx,
   firstBindingIdentifier,
@@ -12,6 +14,7 @@ import {
   functionOperation,
   isDomEventHandler,
   isHandlerLike,
+  isStandardLibraryCallee,
   nodeKey,
   parameterOriginRole,
   proof,
@@ -210,5 +213,34 @@ export class ProgramEvidenceCollectorDeclarations extends ProgramEvidenceCollect
       const bindingId = this.symbolId(binding);
       if (bindingId) this.variablesBySymbol.set(bindingId, aliasId);
     }
+  }
+
+  /** What is written into a member the project declares (`this.items`, a shared shape's `title`), by its property symbol: every read of that member sees it. */
+  protected readonly memberWrites = new Map<string, string[]>();
+  /** Reads of members the project declares, matched to `memberWrites` once every write is known. */
+  protected readonly memberReads: { node: TypeScript.PropertyAccessExpression; ownerId: string | null }[] = [];
+
+  /** The property symbol a member access names, when the project itself declares that property; else null. */
+  protected memberSymbol(access: TypeScript.PropertyAccessExpression): string | null {
+    const symbol = this.checker.getSymbolAtLocation(access.name);
+    const declarations = symbol && symbol.flags & this.ts.SymbolFlags.Property ? symbol.declarations ?? [] : [];
+    if (!declarations.length || declarations.some((declaration) => declaration.getSourceFile().isDeclarationFile)) return null;
+    return this.symbolId(access.name);
+  }
+
+  protected addMemberWrite(access: TypeScript.PropertyAccessExpression, valueId: string): void {
+    const key = this.memberSymbol(access);
+    if (key) this.memberWrites.set(key, [...(this.memberWrites.get(key) ?? []), valueId]);
+  }
+
+  /** The proof for what library code is taken to do: modelled for TypeScript's own library, assumed (and `partial`) for any other. */
+  protected libraryProof(node: TypeScript.CallExpression, detail: string, locations: ProgramEvidenceLocation[]): [ReturnType<typeof proof>, "proven" | "partial"] {
+    if (isStandardLibraryCallee(this.ts, this.checker, node.expression)) return [proof("standard-library", `The standard library: ${detail}`, locations), "proven"];
+    return [assumedProof(`Assumed: it has no source to read, so ${detail}`, locations), "partial"];
+  }
+
+  protected firstParameterId(fn: TypeScript.Expression | undefined): string | undefined {
+    const parameter = fn && (this.ts.isArrowFunction(fn) || this.ts.isFunctionExpression(fn)) ? fn.parameters[0] : undefined;
+    return parameter && this.ts.isIdentifier(parameter.name) ? this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "") : undefined;
   }
 }

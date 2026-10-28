@@ -78,6 +78,7 @@ export const SUPPORTED_LAZY_RELATION_KINDS: readonly ProgramRelationKind[] = [
   "resource-source-parameter",
   "context-value",
   "framework-flow",
+  "member-state",
   "resource-result",
   "effect-input",
   "http-bridge",
