@@ -84,6 +84,20 @@ export function isHandlerLike(
   );
 }
 
+/**
+ * A function written as an element's event attribute (`<input onInput={(e) => …}>`,
+ * Solid's `on:click`): the browser calls it with the event. Only an intrinsic
+ * element's: a component's `onChange` is a prop its own code calls.
+ */
+export function isDomEventHandler(ts: typeof TypeScript, node: TypeScript.FunctionLikeDeclaration): boolean {
+  let parent = node.parent;
+  while (parent && ts.isParenthesizedExpression(parent)) parent = parent.parent;
+  if (!parent || !ts.isJsxExpression(parent) || !ts.isJsxAttribute(parent.parent)) return false;
+  const opening = parent.parent.parent.parent;
+  const intrinsic = ts.isIdentifier(opening.tagName) && /^[a-z]/.test(opening.tagName.text);
+  return intrinsic && /^on(:|[A-Z])/.test(parent.parent.name.getText());
+}
+
 export type ParameterOriginRole = "request" | "event" | null;
 
 export function parameterOriginRole(checker: TypeScript.TypeChecker, parameter: TypeScript.ParameterDeclaration, handler: boolean): ParameterOriginRole {
