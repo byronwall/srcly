@@ -75,6 +75,7 @@ export const SUPPORTED_LAZY_RELATION_KINDS: readonly ProgramRelationKind[] = [
   "render-terminal",
   "input-call",
   "resource-loader",
+  "resource-source-parameter",
   "resource-result",
   "effect-input",
   "http-bridge",
