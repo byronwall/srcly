@@ -12,10 +12,10 @@
         "boundary: external-code": 1,
         "boundary: framework-runtime": 11,
         "boundary: network": 5,
-        "boundary: unproven-handoff": 31,
-        "frontier: budget-exhausted": 186,
-        "frontier: disconnected": 135,
-        "frontier: external-code": 116,
+        "boundary: unproven-handoff": 28,
+        "frontier: budget-exhausted": 187,
+        "frontier: disconnected": 136,
+        "frontier: external-code": 117,
         "frontier: unbound-read": 24,
         "frontier: unresolved-symbol": 13,
         "frontier: untraced": 4
@@ -37,9 +37,9 @@
       "errors": []
     },
     "value-flow-basics": {
-      "traces": 85,
+      "traces": 86,
       "outcomes": {
-        "ok": 28,
+        "ok": 29,
         "partial": 57
       },
       "stops": {
@@ -55,6 +55,7 @@
         "src/browser-io.ts#restore",
         "src/browser-io.ts#show",
         "src/closure-props-host.tsx#ChipHost",
+        "src/closures.ts#readBack",
         "src/component-aliases.tsx#Tag",
         "src/database-calls.ts#add",
         "src/database-calls.ts#rename",
