@@ -264,7 +264,7 @@ export function processProgramCallBoundary(
         node,
         "external-read",
         ownerId,
-        { operation: name },
+        { operation: name, name: `database read: ${node.expression.getText()}(…)` },
         "compiler-symbol",
         "The compiler-resolved service method has a source-backed contract without an in-project implementation.",
       );
@@ -276,6 +276,40 @@ export function processProgramCallBoundary(
         proof(
           "compiler-symbol",
           "The service contract identifies this call as an external read boundary.",
+          [context.location(node)],
+        ),
+        "proven",
+      );
+      // What the read returns is what the call yields: backward, the call's value starts at the read.
+      context.addRelation(
+        readId,
+        callId,
+        "carrier",
+        [context.location(node)],
+        proof(
+          "carrier-boundary",
+          "The compiler-resolved service read has one exact forward carrier endpoint.",
+          [context.location(node)],
+        ),
+        "proven",
+      );
+    } else if (serviceCallKind === "external-write") {
+      const writeId = context.specialInput(
+        node,
+        "external-effect",
+        ownerId,
+        { operation: name, name: `database write: ${node.expression.getText()}(…)` },
+        "compiler-symbol",
+        "The compiler-resolved service method has a source-backed write contract without an in-project implementation.",
+      );
+      context.addRelation(
+        callId,
+        writeId,
+        "effect-input",
+        [context.location(node)],
+        proof(
+          "compiler-symbol",
+          "The service contract identifies this call as a write terminal.",
           [context.location(node)],
         ),
         "proven",
