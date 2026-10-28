@@ -110,6 +110,8 @@ export function assumedThrough(provider: EvidenceRelationSource, relation: Pick<
   for (const item of provider.getRelations(call.id, "both")) {
     if (item.kind === "invokes" && item.from === call.id) return null;
     if (item.kind === "performs" && item.from === call.id) return null;
+    // A control-flow callback's accessor (`<Show when={x}>{(v) => v()}`): the binding says what it returns.
+    if (item.kind === "accessor-call" && item.to === call.id) return null;
     if (item.proof.kind === "framework-state") return null;
     if (sameSpan(item.from === call.id ? item.to : item.from)?.boundary === "framework-runtime") return null;
   }
