@@ -49,6 +49,10 @@ export type RoutesResult = {
       name: string;
       line: number;
     } | null;
+    component: {
+      name: string;
+      line: number;
+    } | null;
   }[];
 };
 

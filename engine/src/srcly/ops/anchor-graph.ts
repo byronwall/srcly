@@ -3,17 +3,18 @@ import type { AnalysisCancellationToken } from "../../analysis/cancellation";
 import { queryEvidenceSlice, type EvidenceSlice } from "../../analysis/evidence-slice";
 import { toSliceElement, toSliceRelation } from "../../analysis/evidence-slice-normalization";
 import { scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
-import { ANCHOR_LIMITS, assumedThrough, foldAnnotatedUses, undrawn, usesOf, walkFollows } from "../anchor-slice";
+import { ANCHOR_LIMITS, assumedThrough, foldAnnotatedUses, performs, undrawn, usesOf, walkFollows } from "../anchor-slice";
 import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
-import { elementsAt, endsInPlace, externalCallee, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
+import { elementsAt, endsInPlace, externalCallee, standardLibraryCall, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
 import { elementTraits, proofStrength, relationTraits, SEED_KINDS } from "../kinds";
-import type { HostCandidate, LanguageHost } from "../host";
+import type { LanguageHost } from "../host";
 import { clip, foldedLimit } from "../frontier-words";
 import { kindWords, syntaxWords, useWords } from "../anchor-words";
 import { ownFacts } from "../own-facts";
+import { resolveCandidate, type Resolved } from "./anchor-candidate";
 import { EngineError } from "../protocol";
-import { parseSpan, sameSpan, type Span } from "../selection";
+import { sameSpan, type Span } from "../selection";
 import { checkGeneration, type EngineSession, type Tier1 } from "../session";
 
 /** Anchor graphs bigger than this are refused as `budget-exhausted`, never truncated. */
@@ -21,8 +22,6 @@ export const ANCHOR_GRAPH_MAX_BYTES = 8 * 1024 * 1024;
 const DIRECTIONS: AnchorDirection[] = ["forward", "backward", "both"];
 
 type Side = "up" | "down";
-/** A host candidate (with the declaration spans to try when the engine has no evidence at the name itself); or an element named outright (T20). */
-type Resolved = HostCandidate & { seedId?: string };
 /** Declaration-level elements a symbol anchor may start from, before the ledger's seed kinds. */
 const DECLARATION_SEEDS = ["component-definition", "function-entry", "handler-entry", ...SEED_KINDS];
 /** One slice to walk: from which element, on which side of the anchor, with the span its own bookkeeping folds into. */
@@ -38,10 +37,12 @@ type Run = {
   propRead?: boolean;
   /** A call of the declaration, walked from where it is used. */
   use?: boolean;
+  /** A parameter walked forward through the body: it lands at the declaration's own return too, whose run goes on from there. */
+  body?: boolean;
 };
 /** Relations that bind a declaration's parameter to the places it is read. */
 /** The declaration anchor's own links: they place its parameters, reads, returns and uses, and never carry a run's landing. */
-const DECLARATION_LINKS = new Set(["parameter", "prop-read", "returns", "used-by"]);
+const DECLARATION_LINKS = new Set(["parameter", "prop-read", "returns", "used-by", "state"]);
 
 export function anchorGraphOp(session: EngineSession, params: Record<string, unknown>, cancellation?: AnalysisCancellationToken): AnchorGraphResult {
   const tier1 = session.tier1();
@@ -63,33 +64,6 @@ function parseDirection(value: unknown): AnchorDirection {
   throw new EngineError("invalid-request", `params.direction must be one of ${DIRECTIONS.join(", ")}`);
 }
 
-/**
- * The expression to anchor at: an exact span (plus its text, as `valueFlow`
- * takes it), or a `name` on a `line` for a symbol picked from the import
- * graph or the treemap, where only the declaration's line is known.
- */
-function resolveCandidate(tier1: Tier1, file: string, params: Record<string, unknown>): Resolved {
-  const { host } = tier1;
-  // A drawn box added as an anchor (T20): the element itself, so the two traces share ids by construction.
-  if (typeof params.elementId === "string" && params.elementId) {
-    const element = tier1.provider().facts.getElement(params.elementId);
-    if (!element) throw new EngineError("not-found", `No program element ${params.elementId}`);
-    return { kind: element.kind, text: element.label, span: element.location.span, seedId: element.id };
-  }
-  if (typeof params.name === "string" && params.name) {
-    if (!Number.isInteger(params.line) || (params.line as number) < 1) throw new EngineError("invalid-request", "params.name needs params.line");
-    const found = host.identifierOnLine(file, params.name, params.line as number);
-    if (!found) throw new EngineError("not-found", `No ${params.name} on line ${params.line} of ${path.basename(file)}`);
-    return found;
-  }
-  const span = parseSpan(params.span);
-  const text = typeof params.text === "string" ? params.text : null;
-  const candidates = host.candidates(file, span, text);
-  const candidate = candidates.find((item) => sameSpan(item.span, span)) ?? candidates[0];
-  if (!candidate) throw new EngineError("unsupported-selection", "No supported expression at this selection; pick a candidate from selectExpression", { span });
-  return candidate;
-}
-
 class AnchorGraphBuilder {
   private readonly nodes = new Map<string, AnchorNode>();
   private readonly edges: AnchorEdge[] = [];
@@ -100,9 +74,12 @@ class AnchorGraphBuilder {
   private readonly terminalRoles = new Map<string, string[]>();
   /** The anchor itself: a walk from one of its parameters, returns or uses never draws it again as a step. */
   private anchorId: string | null = null;
+  /** A declaration anchor's own returns: where a body run hands on to the return's run. */
+  private readonly ownReturns = new Set<string>();
   /** Each run's `unrecorded` ends (`naturalEnd`): named only when that run lands nowhere else. */
   private readonly quietGaps = new Map<string, number>();
   private readonly named = new Set<string>();
+  private readonly stops = new Set<string>(); // side:box:reason of each stop drawn
   private readonly quiet = new Map<string, { gap: EvidenceGap; element: { label: string; kind: string }; side: Side }[]>();
   private readonly root: string;
   private readonly host: LanguageHost;
@@ -158,7 +135,7 @@ class AnchorGraphBuilder {
 
     const sides: Side[] = direction === "forward" ? ["down"] : direction === "backward" ? ["up"] : ["up", "down"];
     const coverage = { elements: 0, relations: 0, budget: { limit: 0, used: 0, exhausted: false } };
-    const runs: Run[] = fact && elementTraits(fact.kind).declaration ? this.declarationRuns(file, span, seed, sides, fact.kind === "component-definition") : sides.map((side) => ({ seedId: seed, seedSpan: span, side }));
+    const runs: Run[] = fact && elementTraits(fact.kind).declaration ? this.declarationRuns(file, span, seed, sides, fact.kind === "component-definition", /class/i.test(candidate.kind)) : sides.map((side) => ({ seedId: seed, seedSpan: span, side }));
     const isDeclaration = fact !== undefined && Boolean(elementTraits(fact.kind).declaration);
     const gapsBySeed = new Map<string, number>();
     const naturalBySeed = new Map<string, number>();
@@ -247,7 +224,7 @@ class AnchorGraphBuilder {
     // A prop read's own path (its binding, not the whole props object) lands where a value naturally begins: a global or external import, or a value code outside the program makes (R16).
     const element = (id: string) => (run.propRead && !next.has(id) ? this.tier1.provider().facts.getElement(id) : undefined);
     const begins = (id: string, found = element(id)) => !!found && (isNaturalStart(this.tier1, found) || !!externalCallee(this.tier1, found));
-    const lands = (id: string) => this.nodes.get(id)?.kind === want || (run.side === "up" && (this.nodes.get(id)?.elementKind === "literal" || begins(id)));
+    const lands = (id: string) => this.nodes.get(id)?.kind === want || (run.body === true && this.ownReturns.has(id)) || (run.side === "up" && (this.nodes.get(id)?.elementKind === "literal" || begins(id)));
     const seen = new Set<string>([run.seedId]);
     const queue = [run.seedId];
     let reached = 0;
@@ -331,7 +308,7 @@ class AnchorGraphBuilder {
    * keeping that relation's status and proof; where no relation exists there
    * is no edge, and nothing is guessed from the source text.
    */
-  private declarationRuns(file: string, span: Span, seed: string, sides: Side[], perProp: boolean): Run[] {
+  private declarationRuns(file: string, span: Span, seed: string, sides: Side[], perProp: boolean, isClass: boolean): Run[] {
     const inside = (s: Span) =>
       (s.startLine > span.startLine || (s.startLine === span.startLine && s.startColumn >= span.startColumn)) &&
       (s.endLine < span.endLine || (s.endLine === span.endLine && s.endColumn <= span.endColumn)) &&
@@ -374,6 +351,26 @@ class AnchorGraphBuilder {
       }
     }
     if (sides.includes("down")) {
+      // A function's body: each parameter walked forward reaches its writes, calls, returns and stops. A
+      // component's props reach its render slots through its uses, a class's fields are where it is built,
+      // and a method's receiver (`self`) is what it is called on.
+      for (const param of perProp || isClass ? [] : facts.filter((fact) => fact.kind === "parameter" && fact.attributes?.receiver !== true)) {
+        // Both ways, the parameter is already drawn on the left with its link in.
+        if (!this.nodes.has(param.id)) {
+          this.addFact(param, "down");
+          this.pushEdge({ id: `parameter:${param.id}`, source: seed, target: param.id, kind: "parameter", status: "structural", proof: [], label: null });
+        }
+        runs.push({ seedId: param.id, seedSpan: param.location.span, side: "down", body: true });
+      }
+      // A component's own state: each value its body makes from a call (`useParams()`, `createResource(…)`,
+      // a signal, a memo) is where its data starts, so a route's component shows how its data flows.
+      if (perProp) {
+        for (const value of facts.filter((fact) => fact.kind === "alias" && this.madeByCall(fact.id))) {
+          this.addFact(value, "down");
+          this.pushEdge({ id: `state:${value.id}`, source: seed, target: value.id, kind: "state", status: "structural", proof: [], label: null });
+          runs.push({ seedId: value.id, seedSpan: value.location.span, side: "down" });
+        }
+      }
       const expressions = facts.filter((fact) => fact.kind === "return-expression");
       for (const ret of expressions.length ? expressions : facts.filter((fact) => fact.kind === "return")) {
         // A return that leaves the program (an HTTP response, an entry's result) is a terminal, not a carrier.
@@ -382,6 +379,7 @@ class AnchorGraphBuilder {
         if (element?.terminalRoles.length) this.addElement(element, "terminal", "down", "proven", null, null);
         else this.addFact(ret, "down");
         this.pushEdge({ id: `returns:${ret.id}`, source: seed, target: ret.id, kind: "returns", status: "structural", proof: [], label: null });
+        this.ownReturns.add(ret.id);
         runs.push({ seedId: ret.id, seedSpan: ret.location.span, side: "down" });
       }
       // Where it is used: the calls and occurrences whose definition this is.
@@ -401,6 +399,16 @@ class AnchorGraphBuilder {
       if (unwalked.length) this.unwalkedUses(seed, unwalked);
     }
     return runs;
+  }
+
+  /** Whether a declaration's value comes from a call or a framework input (`const params = useParams()`, `const [doc] = createResource(…)`), not a function or a literal. */
+  private madeByCall(aliasId: string): boolean {
+    const provider = this.tier1.provider();
+    return provider.getRelations(aliasId, "backward", this.cancellation).some((relation) => {
+      if (relation.to !== aliasId) return false;
+      const from = provider.facts.getElement(relation.from);
+      return Boolean(from && ["call", "resource-input", "resource-result", "external-read", "fetch-input"].includes(from.kind));
+    });
   }
 
   /** Breadth first from the seed over the slice's relations, one side at a time; terminals, origins and boundaries end a path. */
@@ -446,11 +454,14 @@ class AnchorGraphBuilder {
         }
         let kind = classify(relation, element, side);
         // A return the slice carried on from (to its paired call) is a carrier here, not where the value leaves.
-        if (kind === "terminal" && element.kind === "return" && side === "down" && (next.get(element.id) ?? []).some((item) => item.kind === "return-value")) kind = "value";
+        if (kind === "terminal" && element.kind === "return" && side === "down" && (next.get(element.id) ?? []).some((item) => item.kind === "return-value" || item.kind === "framework-flow")) kind = "value";
         let status = relation.status;
         let reason: string | null = null;
         let note: string | null = null;
-        if (kind !== "origin" && kind !== "terminal" && needsOneCallSite(relation.kind, this.host.evidence.pairsCalls)) {
+        // A plain return of a function no call names, only handed on as a value (a callback), goes to whoever calls it: not where the value leaves.
+        const handedOn = kind === "terminal" && element.kind === "return" && side === "down" && element.terminalRoles.every((role) => role === "return") ? this.host.callSitesOf(element) : null;
+        if (handedOn?.sites?.escapes && !handedOn.sites.calls.length) [kind, status, reason, note] = ["boundary", "partial", "unproven-handoff", describeSites(handedOn.name, handedOn.sites)];
+        if (!reason && kind !== "origin" && kind !== "terminal" && needsOneCallSite(relation.kind, this.host.evidence.pairsCalls)) {
           // The callee side of a cross-call is its `to` end (the bound parameter, or the call a return reaches), whichever way the walk goes.
           const { sites, name } = this.host.callSitesOf(byId.get(relation.to) ?? element);
           if (!singleCall(sites) && !pairedInSlice(sites, slice.elements)) {
@@ -501,7 +512,10 @@ class AnchorGraphBuilder {
         continue;
       }
       const gap: EvidenceGap = { id: `end:${box}`, from: box, to: null, label: node.label, reason: "disconnected", status: "partial", location: element.location, proof: [] };
-      (this.quiet.get(seed) ?? this.quiet.set(seed, []).get(seed)!).push({ gap, element: { label: node.label, kind: element.kind }, side });
+      const callee = side === "down" && performs(this.tier1.provider(), element.id) ? externalCallee(this.tier1, element) : null; // A classified library call (`xs.map(…)`) still ends outside the program.
+      // The standard library is known, never "outside the program": a value it is given and nothing uses is a plain dead end.
+      if (callee && !standardLibraryCall(this.tier1, element)) this.frontier(gap, side, { label: clip(callee), note: `${callee} is outside the program's own source`, reason: "external-code", status: "partial", elementKind: element.kind });
+      else (this.quiet.get(seed) ?? this.quiet.set(seed, []).get(seed)!).push({ gap, element: { label: node.label, kind: element.kind }, side });
     }
   }
 
@@ -577,8 +591,9 @@ class AnchorGraphBuilder {
   /** One frontier box at a gap, hung off the element it stopped at. */
   private frontier(gap: EvidenceGap, side: Side, words: { label: string; note: string; reason: string; status: AnchorNode["status"]; elementKind: string | null }) {
     const id = `frontier:${gap.id}`;
-    if (this.nodes.has(id)) return;
     const from = gap.from ? this.resolve(gap.from) : null;
+    // One stop per box, side and reason, however it was found (a slice gap, a walk's own end): a key already in leaves the set's size unchanged.
+    if (this.nodes.has(id) || this.stops.size === this.stops.add(`${side}:${from ?? id}:${words.reason}`).size) return;
     const to = gap.to ? this.resolve(gap.to) : null;
     const attached = (from ? this.nodes.get(from) : undefined) ?? (to ? this.nodes.get(to) : undefined) ?? null;
     const at = gap.location ?? attached;
@@ -649,8 +664,14 @@ class AnchorGraphBuilder {
     const label = /^(field-input|pack-field|consumer-value|field-consumer)$/.test(relation.kind) && element.fieldName ? element.fieldName : null;
     const callee = assumedThrough(this.tier1.provider(), relation);
     if (!callee) return this.pushEdge({ id: relation.id, source, target, kind: relation.kind, status: relation.status, proof: [relation.proof], label });
-    const assumed = { kind: "external-call", detail: `Assumed: ${clip(callee, 80)} has no source to read, so its value is taken to derive from this ${relation.kind === "argument" ? "argument" : "receiver"}.`, locations: relation.proof.locations, status: "partial" as const };
-    this.pushEdge({ id: relation.id, source, target, kind: relation.kind, status: "partial", proof: [relation.proof, assumed], label });
+    // TypeScript's own library (`trim`, `map`, `JSON.stringify`, `console.log`) is known: its value derives from what it is given, modelled.
+    const call = this.tier1.provider().factIndex.getElement(relation.to);
+    const standard = Boolean(call && standardLibraryCall(this.tier1, call));
+    const what = relation.kind === "argument" ? "argument" : "receiver";
+    const assumed = standard
+      ? { kind: "standard-library", detail: `${clip(callee, 80)} is the standard library: its value derives from this ${what}.`, locations: relation.proof.locations, status: "proven" as const }
+      : { kind: "external-call", detail: `Assumed: ${clip(callee, 80)} has no source to read, so its value is taken to derive from this ${what}.`, locations: relation.proof.locations, status: "partial" as const };
+    this.pushEdge({ id: relation.id, source, target, kind: relation.kind, status: standard ? relation.status : "partial", proof: [relation.proof, assumed], label });
   }
 
   private pushEdge(edge: AnchorEdge) {

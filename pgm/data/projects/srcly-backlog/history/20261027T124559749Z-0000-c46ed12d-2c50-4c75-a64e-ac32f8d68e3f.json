@@ -1,0 +1,14 @@
+{
+  "id": "c46ed12d-2c50-4c75-a64e-ac32f8d68e3f",
+  "kind": "node.context.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:c4a6a8",
+    "label": "Agent token ...c4a6a8"
+  },
+  "createdAt": "2026-10-27T12:45:59.749Z",
+  "summary": "Updated context for \"Framework hand-offs: external-read keys, Celery tasks, DRF request\".",
+  "nodeIds": [
+    "task-framework-hand-offs-external-read-keys-celery-tasks-drf-request"
+  ]
+}

@@ -102,7 +102,8 @@ export class ProgramEvidenceCollectorComponentBindingSupport extends ProgramEvid
     propName: string,
   ): ComponentPropReceiver[] {
     this.checkCancellation();
-    if (target.declaration.parameters.length !== 1) return [];
+    // A component's props are its first parameter; `forwardRef`'s render takes the ref second.
+    if (target.declaration.parameters.length < 1) return [];
     const parameter = target.declaration.parameters[0];
     if (parameter.dotDotDotToken || parameter.questionToken || parameter.initializer) return [];
     // An optional prop binds like a required one: the attribute at this occurrence is what it receives here.

@@ -1,0 +1,14 @@
+{
+  "id": "5fa93627-94bf-4226-a176-e625f8e020b8",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:2d3ac7",
+    "label": "Agent token ...2d3ac7"
+  },
+  "createdAt": "2026-10-26T13:04:32.374Z",
+  "summary": "Set \"Collectors record end attributes for TypeScript\" priority to low.",
+  "nodeIds": [
+    "task-collectors-record-end-attributes-for-typescript"
+  ]
+}

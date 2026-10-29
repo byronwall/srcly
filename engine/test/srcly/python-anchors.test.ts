@@ -57,6 +57,38 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(fs.readFileSync(path.join(example, "app/deps.py"), "utf8")).toContain('message = "except ValueError, TypeError:"');
   });
 
+  it("lets a `def` inside a method read the method's own names", () => {
+    // `create` closes over `cleaned`, a local of the method `make`, not of the class body.
+    const graph = anchorGraphOp(session, { ...at("app/closures.py", "cleaned", "        cleaned = url.strip()"), direction: "forward" });
+    expect(boxes(graph).some((node) => node.label === "text" && node.elementKind === "parameter")).toBe(true);
+    expect(boxes(graph, "boundary").map((node) => node.reason)).toEqual(["unproven-handoff"]);
+  });
+
+  it("binds a queued Celery task's parameters at each `delay`, `apply_async` and signature (`s`) call", () => {
+    // `consume.delay(name, …)` and `consume.apply_async(kwargs={"path": source})` both bind `path`.
+    const callers = anchorGraphOp(session, { file: "app/tasks.py", name: "path", line: 5, direction: "backward" });
+    expect(boxes(callers, "value").filter((node) => node.elementKind === "parameter" && node.side === "up").map((node) => node.label).sort()).toEqual(["name", "scan", "source"]);
+    // Forward, the queued value enters the task's body; the call's result is the task's handle, so `handle.id` never carries it.
+    const queued = anchorGraphOp(session, { file: "app/tasks.py", name: "name", line: 9, direction: "forward" });
+    expect(boxes(queued).some((node) => node.label === "path.upper(…)")).toBe(true);
+    expect(boxes(queued).some((node) => node.line === 11)).toBe(false);
+  });
+
+  it("stops at a callback's return: the nested function is handed on as a value, so where its result goes is not proven", () => {
+    // `clean` reaches `return finish(clean)` inside `create`, which `run(create)` calls through its parameter.
+    const graph = anchorGraphOp(session, { ...at("app/closures.py", "clean", "    clean = url.strip()"), direction: "forward" });
+    expect(graph.outcome).toBe("partial");
+    expect(boxes(graph, "boundary").map((node) => [node.line, node.reason])).toEqual([[21, "unproven-handoff"]]);
+    expect(boxes(graph, "terminal")).toEqual([]);
+  });
+
+  it("walks a method's body from its inputs, never from its receiver", () => {
+    // `scaled(self, factor)` returns `self.quantity * factor`: `factor` is walked to the return, `self` is what it is called on.
+    const graph = anchorGraphOp(session, { file: "app/models.py", name: "scaled", line: 8, direction: "forward" });
+    const params = boxes(graph).filter((node) => node.elementKind === "parameter" && node.file === "app/models.py").map((node) => node.label);
+    expect(params).toEqual(["factor"]);
+  });
+
   it("anchors a class: its constructor calls are where it is used, and instances flow on from them", () => {
     const graph = anchor("app/models.py", "Order", 4);
     expect(graph.anchor).toMatchObject({ kind: "ClassDef", text: "Order", typeText: "type[Order]" });
@@ -280,7 +312,10 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(up.origins.map((origin) => origin.label)).toEqual(["the request"]);
     const down = anchorGraphOp(session, { ...at("app/web.py", "payload", "payload = request.json"), direction: "forward" });
     expect(boxes(down, "terminal").map((node) => [node.line, node.elementKind])).toEqual([[14, "http-response"]]);
-    expect(anchor("app/web.py", "greet", 18).outcome).toBe("ok");
+    // The handler's body is walked too: `request.args.get(…)` is library code with no model, so its response is assumed, not proven.
+    const greet = anchor("app/web.py", "greet", 18);
+    expect(greet.outcome).toBe("partial");
+    expect(greet.terminals.map((terminal) => terminal.label)).toEqual(['return request.args.get("name", "") → GET /greet']);
     // A parameter that happens to be called `request` is not Flask's.
     const local = anchorGraphOp(session, { ...at("app/web.py", "request", "    return request"), direction: "backward" });
     expect(local.origins).toEqual([]);

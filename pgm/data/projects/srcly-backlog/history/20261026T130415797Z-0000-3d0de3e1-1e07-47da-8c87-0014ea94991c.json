@@ -1,0 +1,15 @@
+{
+  "id": "3d0de3e1-1e07-47da-8c87-0014ea94991c",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:22911c",
+    "label": "Agent token ...22911c"
+  },
+  "createdAt": "2026-10-26T13:04:15.797Z",
+  "summary": "Created \"Exported-API end rule: open the PR\" under \"Data flow: land the open PRs\".",
+  "nodeIds": [
+    "task-exported-api-end-rule-open-the-pr",
+    "area-data-flow-land-the-open-prs"
+  ]
+}

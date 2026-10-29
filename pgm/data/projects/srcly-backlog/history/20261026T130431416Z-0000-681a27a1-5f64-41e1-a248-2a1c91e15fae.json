@@ -1,0 +1,14 @@
+{
+  "id": "681a27a1-5f64-41e1-a248-2a1c91e15fae",
+  "kind": "node.status.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:397776",
+    "label": "Agent token ...397776"
+  },
+  "createdAt": "2026-10-26T13:04:31.416Z",
+  "summary": "Changed \"Ledger `classify()` reads kind traits\" status to planned.",
+  "nodeIds": [
+    "task-ledger-classify-reads-kind-traits"
+  ]
+}

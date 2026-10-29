@@ -3,6 +3,7 @@
 // both start from the same seed and stop at the same boundaries (R7).
 import path from "node:path";
 import type * as TypeScript from "typescript";
+import { isStandardLibraryCallee } from "../analysis/program-evidence-support";
 import type { ProgramElement } from "../analysis/scope-seam";
 import type { CallSiteIndex, CallSites } from "./call-sites";
 import { elementTraits, relationTraits, SEED_KINDS } from "./kinds";
@@ -58,6 +59,17 @@ export function externalCallee(tier1: Tier1, element: Pick<ProgramElement, "kind
   const targetFile = target?.getSourceFile();
   const firstParty = targetFile && !targetFile.isDeclarationFile && !targetFile.fileName.includes(`${path.sep}node_modules${path.sep}`);
   return firstParty ? null : node.expression.getText(sourceFile);
+}
+
+/** Whether a call's callee is declared only by TypeScript's own lib files (`trim`, `map`, `JSON.stringify`, `console.log`). */
+export function standardLibraryCall(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location">): boolean {
+  if (element.kind !== "call" || tier1.language !== "typescript") return false;
+  const { ts } = tier1;
+  const sourceFile = tier1.program.getSourceFile(path.resolve(tier1.args.root, element.location.file));
+  const node = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
+  // A constructor too: `new URLSearchParams(search)`, `new Map(entries)`, `new Date(value)`.
+  if (!node || !(ts.isCallExpression(node) || ts.isNewExpression(node))) return false;
+  return isStandardLibraryCallee(ts, tier1.program.getTypeChecker(), node.expression);
 }
 
 /**
@@ -206,11 +218,37 @@ export function enclosingFunction(ts: typeof TypeScript, node: TypeScript.Node):
   return fn && ts.isFunctionLike(fn) ? fn : null;
 }
 
-/** A function's name as the code says it: `const name = () =>`, `function name`, a method, or null for an anonymous one. */
+/**
+ * A function's name as the code says it: `const name = () =>`, `function name`,
+ * a method or an object property. An inline function is named by where it is
+ * written: `getDoc` for `const getDoc = query(async () => …)`, `<Match> child`,
+ * `onClick on <button>`, `createResource callback`, `items.map callback`. Null
+ * only when nothing around it names it.
+ */
 export function functionName(ts: typeof TypeScript, fn: TypeScript.Node, sourceFile: TypeScript.SourceFile): string | null {
   if (ts.isVariableDeclaration(fn.parent)) return fn.parent.name.getText(sourceFile);
   if (ts.isPropertyAssignment(fn.parent)) return fn.parent.name.getText(sourceFile);
   if ("name" in fn && fn.name) return (fn.name as TypeScript.Node).getText(sourceFile);
+  let parent = fn.parent;
+  while (parent && ts.isParenthesizedExpression(parent)) parent = parent.parent;
+  if (!parent) return null;
+  const tagOf = (element: TypeScript.Node) => {
+    const opening = ts.isJsxElement(element) ? element.openingElement : ts.isJsxSelfClosingElement(element) ? element : null;
+    return opening ? opening.tagName.getText(sourceFile) : null;
+  };
+  if (ts.isJsxExpression(parent)) {
+    if (ts.isJsxAttribute(parent.parent)) {
+      const tag = tagOf(parent.parent.parent.parent);
+      return `${parent.parent.name.getText(sourceFile)}${tag ? ` on <${tag}>` : ""}`;
+    }
+    const tag = tagOf(parent.parent);
+    return tag ? `<${tag}> child` : null;
+  }
+  if (ts.isCallExpression(parent) && parent.arguments.includes(fn as TypeScript.Expression)) {
+    if (ts.isVariableDeclaration(parent.parent) && ts.isIdentifier(parent.parent.name) && parent.arguments[0] === fn) return parent.parent.name.text;
+    const callee = parent.expression.getText(sourceFile).split(".").slice(-2).join(".");
+    return callee.length <= 40 ? `${callee} callback` : null;
+  }
   return null;
 }
 

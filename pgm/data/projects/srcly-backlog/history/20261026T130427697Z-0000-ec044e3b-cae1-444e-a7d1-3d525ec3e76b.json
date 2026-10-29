@@ -1,0 +1,15 @@
+{
+  "id": "ec044e3b-cae1-444e-a7d1-3d525ec3e76b",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:012fdb",
+    "label": "Agent token ...012fdb"
+  },
+  "createdAt": "2026-10-26T13:04:27.697Z",
+  "summary": "Created \"Move the remaining alias-resolution sites to the value-origin resolver\" under \"Data flow: trace coverage\".",
+  "nodeIds": [
+    "task-move-the-remaining-alias-resolution-sites-to-the-value-origin-resolver",
+    "area-data-flow-trace-coverage"
+  ]
+}

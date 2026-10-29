@@ -1,0 +1,15 @@
+{
+  "id": "4652f705-b69e-4ca8-a55c-aa81fcd6c685",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:8cf65a",
+    "label": "Agent token ...8cf65a"
+  },
+  "createdAt": "2026-10-28T03:38:29.864Z",
+  "summary": "Created \"Show and Match when is not a DOM attribute\" under \"Data flow: TSX usability audit (2026-10)\".",
+  "nodeIds": [
+    "task-show-and-match-when-is-not-a-dom-attribute",
+    "area-data-flow-tsx-usability-audit-2026-10"
+  ]
+}

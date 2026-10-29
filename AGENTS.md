@@ -33,6 +33,15 @@
 
 Start with `docs/CODE_MAP.md`: a feature → file index for the backend, API, and client. When you add, move, or remove a feature's main files, update the matching row in the same change.
 
+## Backlog
+
+Open work lives in a Product Grid project in `pgm/data` (project `srcly-backlog`). Each area is a workstream; each task's context holds its evidence, files and done condition.
+
+- Read it: `pgm --local pgm/data --project srcly-backlog node list --preset status --json`, then `node view <id> --with-context --json`. `pgm viewer` from the repo root opens it in a browser.
+- Change it with `pgm --local pgm/data --project srcly-backlog node create|update ...`, and commit `pgm/data` with the change it tracks.
+- The grid holds open work only. When a task lands, record it in the docs (for data flow, `docs/dataflow-coverage.md` or the initiative's plan), then delete the node. Do not keep `implemented` nodes.
+- Do not track backlogs in scratchpad or `tmp/` files.
+
 ## Engine
 
 `engine/` is the data-flow engine: tsx-data-flow's analysis behind a stdio protocol, a standalone pnpm package with its own lockfile. Provenance is in `engine/UPSTREAM.md`; the plan is `docs/intent/tsx-dataflow-integration/detailed-plan.md`.
@@ -51,8 +60,10 @@ Start with `docs/CODE_MAP.md`: a feature → file index for the backend, API, an
 - Any script that builds a Program on a real repo (the survey, `pnpm memory-probe`, an ad-hoc spike) runs under `node --max-old-space-size=4096`, one repo per process, one process at a time across all sessions: a big repo's Program takes 2–3 GB, and parallel runs swap the Mac. `~/Projects/visual-notes` is the standard big-repo benchmark.
 - A packaging change is done when the wheel works with dev mode off: `bash build-srcly.sh`, then `uv run --no-project --with ./server/dist/srcly-*.whl pytest scripts/test_package.py` (CI runs the same).
 - A new analysis rule's test is its annotated fixture: add a file to `engine/examples/value-flow-basics/src/` with `@trace`, `@outcome`, `@reaches`, `@stop` and the other comment claims that `engine/test/srcly/fixture-annotations.test.ts` documents and checks, not a hand-written test that pins line numbers. `@reaches` and `@stop` are exhaustive, so a new terminal or stop fails until a fixture claims it.
-- Coverage gate: `cd engine && pnpm survey-gate` (CI's `survey` job) surveys `client/`, `server/` and `examples/value-flow-basics` (a fixed hash sample of exports) and compares with `engine/survey-baseline.json`. It fails when the run differs from the baseline at all (outcome counts up or down, stops by kind, the ok and error trace lists; the survey is deterministic, so there is no tolerance) or a trace runs past 5 s (30 s for a repo's first, which builds the index), and always prints what moved. Run it before pushing any change to the analysis or to the corpus; it needs `client/` installed and `server/.venv` (`uv sync`).
-- Any change that moves the gate (a rule that marks an assumed step `partial`, a fix that makes traces ok, a new export in the corpus) runs `pnpm survey-gate --update` and commits `engine/survey-baseline.json` in the same PR, so each PR owns exactly its own moves and review sees them. Regenerate it after rebasing on `main`.
+- Coverage gate: `cd engine && pnpm survey-gate` (`engine/scripts/survey-gate.ts`, CI's `survey` job in `.github/workflows/survey.yml`) surveys `client/`, `server/` and `examples/value-flow-basics` (a fixed hash sample of exports) at a base and at the head and diffs them; nothing is committed. Both sides run one after the other in one worktree outside the checkout (some traces depend on the corpus's absolute path). Locally the head is the working tree and the base its merge base with `origin/main` (`git fetch` first; `--base <ref>` picks another); it needs `server/.venv` (`uv sync`). CI diffs the PR's merge commit against the base branch tip, about 2 minutes more than one survey.
+- A move is any difference: outcome counts, stops by kind, the ok and error trace lists (the survey is deterministic, so there is no tolerance). Run `pnpm survey-gate` before pushing any change to the analysis or to the corpus. When it reports moves, put a `Survey moves:` line in the PR body that explains them; CI fails unacknowledged moves and re-runs when the body is edited. A new error, or a trace past 5 s (30 s for a repo's first, which builds the index), fails even when acknowledged.
+- After merging, `survey-main` diffs each push to `main` against its first parent and compares that with the merged PR's own survey, so two PRs that move traces only together surface. It fails and keeps one issue, `Data-flow gate: unacknowledged moves on main`, up to date, and closes it on the next clean push.
+- Open a data-flow PR, then run `gh pr merge <n> --squash --auto` and stop: auto-merge lands it when the checks pass. Don't run your own multi-repo surveys to prove a rule unless it targets code the gate's corpus doesn't contain.
 - A new relation, element or proof kind gets one entry in `engine/src/srcly/kinds.ts` (`RELATION_TRAITS`, `ELEMENT_TRAITS`, `PROOF_TRAITS`); the engine does not build until it has one. Rules read its traits (`structural`, `crossCall`, `terminal`, a proof's `strength`), never their own lists of kind names.
 - Never edit `engine/src/analysis` to recognise srcly-specific code. The only planned analysis edits are M5's four invocation-identity changes, each with a negative fixture.
 

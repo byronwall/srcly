@@ -1,0 +1,14 @@
+{
+  "id": "933382bc-c00f-425b-8963-93599628083a",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:cae2b3",
+    "label": "Agent token ...cae2b3"
+  },
+  "createdAt": "2026-10-26T13:04:23.465Z",
+  "summary": "Set \"Calls through function-typed params and props\" priority to high.",
+  "nodeIds": [
+    "task-calls-through-function-typed-params-and-props"
+  ]
+}

@@ -16,6 +16,8 @@ const DIRECTIONS: { id: Direction; label: string; title: string }[] = [
   { id: "forward", label: "To", title: "Where the value goes: render slots, effects, returns" },
 ];
 const DIRECTION_IDS = DIRECTIONS.map((d) => d.id);
+/** The reach a selected box lights for each trace direction: what it comes from is upstream, where it goes downstream. */
+export const REACH_OF_DIRECTION: Record<Direction, ReachMode> = { backward: "up", both: "both", forward: "down" };
 
 /** Anchor mode: which way the value is traced from the anchor. */
 export function DirectionSwitch(props: { dir: Direction; onChange: (dir: Direction) => void }) {
@@ -47,6 +49,38 @@ export function DirectionSwitch(props: { dir: Direction; onChange: (dir: Directi
         </For>
       </div>
     </label>
+  );
+}
+
+const LENSES = [
+  { id: "data", label: "Data", title: "How the route's data flows: its params, resources and state, to what it renders" },
+  { id: "components", label: "Components", title: "The route's render tree: every component, Show and For it renders" },
+] as const;
+type Lens = (typeof LENSES)[number]["id"];
+
+/** A page route: its data trace (the component's anchor) or its render tree. */
+export function RouteLensSwitch(props: { route: string; lens: Lens; onChange: (lens: Lens) => void }) {
+  return (
+    <div class="flex shrink-0 items-center gap-1 px-1 text-[12px]" data-route-lens={props.lens}>
+      <Show when={props.route}>
+        <span class="text-[var(--plc-on-muted)]">Route</span>
+        <span class="max-w-[12rem] truncate font-medium">{props.route}</span>
+      </Show>
+      <div
+        role="radiogroup"
+        aria-label="Route lens"
+        onKeyDown={(e) => segmentedKeyDown(e, LENSES.map((l) => l.id), props.lens, props.onChange)}
+        class="flex shrink-0 rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface-muted)] p-0.5"
+      >
+        <For each={LENSES}>
+          {(l) => (
+            <Button variant="tab" size="sm" role="radio" aria-checked={props.lens === l.id} tabIndex={props.lens === l.id ? 0 : -1} active={props.lens === l.id} class="px-2" title={l.title} onClick={() => props.onChange(l.id)}>
+              {l.label}
+            </Button>
+          )}
+        </For>
+      </div>
+    </div>
   );
 }
 

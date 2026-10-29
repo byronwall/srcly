@@ -33,6 +33,9 @@ export interface DataflowStatus {
   stale: boolean;
   rssBytes?: number;
   progress?: Progress;
+  /** Python apps below a root analyzed as TypeScript, relative to it. */
+  pythonApps?: string[];
+  language?: "typescript" | "python";
 }
 
 /** Every analysis state is a 200 with an outcome; these fields say which. */

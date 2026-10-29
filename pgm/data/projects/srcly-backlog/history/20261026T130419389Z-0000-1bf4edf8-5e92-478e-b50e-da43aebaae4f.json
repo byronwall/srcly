@@ -1,0 +1,14 @@
+{
+  "id": "1bf4edf8-5e92-478e-b50e-da43aebaae4f",
+  "kind": "node.status.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:889a63",
+    "label": "Agent token ...889a63"
+  },
+  "createdAt": "2026-10-26T13:04:19.389Z",
+  "summary": "Changed \"Step 6: calls-back rows\" status to planned.",
+  "nodeIds": [
+    "task-step-6-calls-back-rows"
+  ]
+}

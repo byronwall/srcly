@@ -1,0 +1,14 @@
+{
+  "id": "71655197-4752-4f33-a867-5809de143896",
+  "kind": "node.status.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:c7bc19",
+    "label": "Agent token ...c7bc19"
+  },
+  "createdAt": "2026-10-26T13:04:26.310Z",
+  "summary": "Changed \"Entry-input rule\" status to planned.",
+  "nodeIds": [
+    "task-entry-input-rule"
+  ]
+}

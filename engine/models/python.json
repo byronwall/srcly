@@ -459,6 +459,54 @@
     },
     {
       "language": "py",
+      "module": "sqlalchemy.orm.session",
+      "member": "Session.add",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "sqlalchemy.orm.session",
+      "member": "Session.add_all",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "sqlalchemy.orm.session",
+      "member": "Session.delete",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "sqlalchemy.orm.session",
+      "member": "Session.merge",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "sqlalchemy.ext.asyncio.session",
+      "member": "AsyncSession.add",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "sqlalchemy.ext.asyncio.session",
+      "member": "AsyncSession.delete",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
       "module": "fastapi",
       "name": "HTTPException",
       "model": "terminal",

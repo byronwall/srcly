@@ -1,0 +1,15 @@
+{
+  "id": "a2215027-fdf7-4443-a929-1a066c4549b6",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:69c72f",
+    "label": "Agent token ...69c72f"
+  },
+  "createdAt": "2026-10-26T13:04:13.054Z",
+  "summary": "Created \"Land #210: the `assumed` outcome\" under \"Data flow: land the open PRs\".",
+  "nodeIds": [
+    "task-land-210-the-assumed-outcome",
+    "area-data-flow-land-the-open-prs"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "id": "b63a9bdc-5809-4f55-84a6-630b91b93612",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:9adc08",
+    "label": "Agent token ...9adc08"
+  },
+  "createdAt": "2026-10-26T13:04:28.646Z",
+  "summary": "Created \"explorEDA trace timeouts\" under \"Data flow: trace coverage\".",
+  "nodeIds": [
+    "task-exploreda-trace-timeouts",
+    "area-data-flow-trace-coverage"
+  ]
+}

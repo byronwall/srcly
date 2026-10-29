@@ -1,0 +1,14 @@
+{
+  "id": "9d950f4b-f4e6-4559-baaa-b43d0ffa7b38",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:b86350",
+    "label": "Agent token ...b86350"
+  },
+  "createdAt": "2026-10-27T01:48:44.678Z",
+  "summary": "Set \"First Python build outlasts the 30 s timeout\" priority to high.",
+  "nodeIds": [
+    "task-first-python-build-outlasts-the-30-s-timeout"
+  ]
+}

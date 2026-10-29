@@ -1,0 +1,14 @@
+{
+  "id": "3961b1ee-1e6b-45ed-92be-00d060f742db",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:afb123",
+    "label": "Agent token ...afb123"
+  },
+  "createdAt": "2026-10-27T02:37:36.156Z",
+  "summary": "Deleted \"First Python build outlasts the 30 s timeout\".",
+  "nodeIds": [
+    "task-first-python-build-outlasts-the-30-s-timeout"
+  ]
+}

@@ -1,0 +1,132 @@
+name: Survey
+
+# Data-flow coverage gate (engine/scripts/survey-gate.ts): surveys client/,
+# server/ and engine/examples/value-flow-basics at a base commit and at the
+# head, in one worktree, and diffs them. Nothing is committed.
+#
+# - `survey` (pull requests): the PR's merge commit against its first parent,
+#   the base branch tip. Moves fail until the PR body has a `Survey moves:`
+#   line; editing the body re-runs it. New errors and slow traces always fail.
+# - `survey-main` (pushes to main): the pushed commit against its first parent,
+#   compared with the merged PR's own survey, so moves that two PRs make only
+#   together show up. It can't block a merge, so it fails, writes the diff to
+#   the summary, and keeps one tracking issue up to date.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: survey-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  survey:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: ./.github/actions/survey-setup
+      - name: Survey base and head
+        working-directory: engine
+        run: pnpm survey-gate --base HEAD^1 --worktree "$RUNNER_TEMP/survey" --survey-only
+      # Read after the survey, so a body edited while it ran still counts.
+      - name: Read the PR body
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json body --jq .body > "$RUNNER_TEMP/pr-body.md"
+      - name: Survey gate
+        working-directory: engine
+        run: pnpm survey-gate --reuse tmp/survey-gate/result.json --body-file "$RUNNER_TEMP/pr-body.md"
+      # survey-main compares main's moves with these.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: survey-result
+          path: engine/tmp/survey-gate/result.json
+          if-no-files-found: ignore
+
+  survey-main:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: ./.github/actions/survey-setup
+      # The merged PR's last passing survey holds the moves it acknowledged;
+      # without one, fall back to its body, and without a PR to an empty one.
+      - name: Find the merged PR's survey
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          : > "$RUNNER_TEMP/pr-body.md"
+          flags="--body-file $RUNNER_TEMP/pr-body.md"
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq '.[0].number // empty')
+          if [ -n "$pr" ]; then
+            gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json body --jq .body > "$RUNNER_TEMP/pr-body.md"
+            head=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json headRefOid --jq .headRefOid)
+            run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow survey.yml --event pull_request --commit "$head" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+            if [ -n "$run" ] && gh run download "$run" --repo "$GITHUB_REPOSITORY" --name survey-result --dir "$RUNNER_TEMP/pr-survey"; then
+              flags="--expect $RUNNER_TEMP/pr-survey/result.json"
+            fi
+          fi
+          echo "PR: ${pr:-none}; gate flags: $flags"
+          echo "pr=$pr" >> "$GITHUB_OUTPUT"
+          echo "flags=$flags" >> "$GITHUB_OUTPUT"
+      - name: Survey gate
+        id: gate
+        working-directory: engine
+        run: pnpm survey-gate --base HEAD^1 --worktree "$RUNNER_TEMP/survey" ${{ steps.pr.outputs.flags }}
+      - name: Update the tracking issue
+        if: always() && (steps.gate.outcome == 'success' || steps.gate.outcome == 'failure')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.gate.outcome }}
+          PR: ${{ steps.pr.outputs.pr }}
+        run: |
+          set -euo pipefail
+          title="Data-flow gate: unacknowledged moves on main"
+          found=$(gh issue list --repo "$GITHUB_REPOSITORY" --state all --limit 200 --json number,title,state \
+            --jq "[.[] | select(.title == \"$title\")] | sort_by(.number) | last | select(.) | \"\(.number) \(.state)\"")
+          number=${found%% *}
+          state=${found##* }
+          commit="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$GITHUB_SHA"
+          run="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          from=${PR:+ (#$PR)}
+          if [ "$OUTCOME" = failure ]; then
+            {
+              echo "The survey gate failed on main at $commit${from}: moves its PR did not acknowledge, a new error, or a slow trace. Run: $run"
+              echo
+              cat engine/tmp/survey-gate/summary.md
+            } > "$RUNNER_TEMP/issue.md"
+            if [ -z "$found" ]; then
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body-file "$RUNNER_TEMP/issue.md"
+            else
+              if [ "$state" = CLOSED ]; then gh issue reopen "$number" --repo "$GITHUB_REPOSITORY"; fi
+              gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/issue.md"
+            fi
+          elif [ -n "$found" ] && [ "$state" = OPEN ]; then
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "Clean at $commit${from}: main's moves match what its PR acknowledged. Run: $run"
+            gh issue close "$number" --repo "$GITHUB_REPOSITORY"
+          fi

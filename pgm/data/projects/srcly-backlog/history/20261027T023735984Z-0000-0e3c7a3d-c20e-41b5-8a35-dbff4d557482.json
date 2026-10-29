@@ -1,0 +1,14 @@
+{
+  "id": "0e3c7a3d-c20e-41b5-8a35-dbff4d557482",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:afb123",
+    "label": "Agent token ...afb123"
+  },
+  "createdAt": "2026-10-27T02:37:35.984Z",
+  "summary": "Deleted \"Python app hidden at a mixed repo's root\".",
+  "nodeIds": [
+    "task-python-app-hidden-at-a-mixed-repo-s-root"
+  ]
+}
