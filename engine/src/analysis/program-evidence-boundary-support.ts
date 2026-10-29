@@ -51,6 +51,8 @@ export type ProgramEvidenceBoundaryContext = {
     ownerId: string | null,
     effectKind: string,
     detail: string,
+    /** `host-api` for an effect a host API is known to have; `external-call` (assumed) when only the call's module is known. */
+    proofKind?: ProgramProofKind,
   ) => void;
   addRelation: (
     from: string,
@@ -380,7 +382,8 @@ export function processProgramCallBoundary(
         "proven",
       );
     } else if (context.isExternalCall(node)) {
-      context.effect(node, callId, ownerId, "external-effect", "The call resolves outside the analyzed source tree.");
+      // That the call resolves outside the source is read; that it is an effect, and what it does with its arguments, is not: no model says so.
+      context.effect(node, callId, ownerId, "external-effect", "Assumed: the call resolves outside the analyzed source tree, so it is taken to be an external effect.", "external-call");
     }
   }
 }

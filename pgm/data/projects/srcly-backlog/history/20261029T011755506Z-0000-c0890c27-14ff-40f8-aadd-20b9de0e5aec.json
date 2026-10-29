@@ -1,0 +1,14 @@
+{
+  "id": "c0890c27-14ff-40f8-aadd-20b9de0e5aec",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:39e363",
+    "label": "Agent token ...39e363"
+  },
+  "createdAt": "2026-10-29T01:17:55.506Z",
+  "summary": "Deleted \"Land #213: prove nothing from a call's being imported\".",
+  "nodeIds": [
+    "task-land-213-prove-nothing-from-a-call-s-being-imported"
+  ]
+}
