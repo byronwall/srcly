@@ -1,4 +1,5 @@
 import type { ProgramEvidence } from "./program-evidence";
+import type { SourceSpan } from "./scope-seam";
 import { stepFieldPath, type FieldPath, type PackFieldCache } from "./evidence-slice-fields";
 import {
   NO_ANALYSIS_CANCELLATION,
@@ -285,6 +286,23 @@ export function queryEvidenceSlice(
     return null;
   };
 
+  const isOccurrence = (id: string): boolean => indexed.elementFor(id)?.kind === "component-occurrence";
+
+  /**
+   * Whether a handler binding (`bound-handler`: its proof's third location is
+   * where the function was handed in) belongs to this walk: the stack is
+   * empty (the seed is inside the callee), or one of its calls or occurrences
+   * is where the handler was handed in.
+   */
+  const handedInHere = (relation: ProgramRelation, calls: readonly string[]): boolean => {
+    const at = relation.proof.kind === "bound-handler" ? relation.proof.locations[2] : undefined;
+    if (!at || calls.length === 0) return true;
+    return calls.some((id) => {
+      const where = indexed.elementFor(id)?.location;
+      return Boolean(where && where.file === at.file && contains(where.span, at.span));
+    });
+  };
+
   /** Whether function `inner` is written inside function `outer`, through its owners. */
   const nestedIn = (inner: string, outer: string): boolean => {
     let owner = indexed.elementFor(inner)?.ownerId ?? null;
@@ -309,14 +327,23 @@ export function queryEvidenceSlice(
    */
   const pairInvocation = (relation: ProgramRelation, calls: readonly string[]): readonly string[] | null => {
     const forward = normalizedRequest.direction === "forward";
-    const top = calls[calls.length - 1];
+    // A component occurrence on the stack is the props the walk came in by; it pairs handed-in handlers, never a return.
+    let callIndex = calls.length - 1;
+    while (callIndex >= 0 && isOccurrence(calls[callIndex]!)) callIndex -= 1;
+    const top = callIndex >= 0 ? calls[callIndex] : undefined;
+    // Forward into a component through one occurrence's prop: that occurrence's handlers are the ones its calls run.
+    if (relation.kind === "component-prop-binding" && forward) {
+      const occurrence = indexed.elementFor(relation.to)?.attributes?.componentOccurrenceElementId;
+      return typeof occurrence === "string" && calls[calls.length - 1] !== occurrence ? [...calls.slice(-(MAX_CALL_STACK - 1)), occurrence] : calls;
+    }
     if (relation.kind === "argument-binding") {
       // Forward: into the callee at `from`'s call. Backward: out of the callee, which must be the call we came in by.
       const call = callOfArgument(relation.from);
       if (!call) return calls;
+      if (forward && !handedInHere(relation, calls)) return null;
       if (forward) return [...calls.slice(-(MAX_CALL_STACK - 1)), call];
       if (top === undefined) return calls;
-      return top === call ? calls.slice(0, -1) : null;
+      return top === call ? calls.filter((_, index) => index !== callIndex) : null;
     }
     // Through a member's state the walk is in no one call: whoever reads the member, from any call.
     if (relation.kind === "member-state") return [];
@@ -325,7 +352,7 @@ export function queryEvidenceSlice(
       const call = relation.to;
       if (forward) {
         if (top === undefined) return calls;
-        if (top === call) return calls.slice(0, -1);
+        if (top === call) return calls.filter((_, index) => index !== callIndex);
         // A closure the callee made (`factory(v).read()`) returns from a function nested inside the one the call on top entered: it leaves through its own calls.
         const returning = indexed.elementFor(relation.from)?.ownerId;
         const entered = invokedBy(top);
@@ -608,4 +635,9 @@ function normalizeRequest(
 
 function isSeed(request: SliceQuery | ScopeSliceQuery | ScopeSeed): request is ScopeSeed {
   return "entryElementId" in request;
+}
+
+function contains(outer: SourceSpan, inner: SourceSpan): boolean {
+  const before = (a: number, b: number, c: number, d: number) => a < c || (a === c && b <= d);
+  return before(outer.startLine, outer.startColumn, inner.startLine, inner.startColumn) && before(inner.endLine, inner.endColumn, outer.endLine, outer.endColumn);
 }

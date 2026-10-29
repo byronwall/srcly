@@ -3,7 +3,7 @@ import type { CollectorFunctionInfo } from "./program-evidence-collector-support
 import { ProgramEvidenceCollectorBoundaryProcessing } from "./program-evidence-collector-boundary-processing";
 import { proof } from "./program-evidence-support";
 
-type PendingComponentPropBinding = {
+export type PendingComponentPropBinding = {
   opening: TypeScript.JsxOpeningLikeElement;
   attribute: TypeScript.JsxAttribute;
   valueId: string;
