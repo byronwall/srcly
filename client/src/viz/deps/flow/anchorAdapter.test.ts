@@ -88,27 +88,33 @@ describe("anchor graph → ViewModel", () => {
 });
 
 describe("a trace over the fold budget", () => {
-  // Pad the anchor's own function past the budget: its boxes stay drawn, every other function folds.
+  // Pad the anchor's own component past the budget: its boxes stay drawn. RecordsRoute hands it `viewer`.
   const anchor = graph.nodes.find((n) => n.kind === "anchor")!;
+  const route = graph.nodes.find((n) => n.kind === "scope" && n.label === "RecordsRoute")!;
   const pad = Array.from({ length: ANCHOR_FOLD_BUDGET }, (_, i) => ({ ...anchor, id: `pad:${i}`, kind: "value" as const }));
-  const big = { ...graph, nodes: [...graph.nodes, ...pad] };
-  const others = graph.nodes.filter((n) => n.kind !== "scope" && n.parent && n.parent !== anchor.parent);
-  const scope = others[0].parent!;
+  // A callback written inside RecordsRoute belongs to its component.
+  const callback = { ...route, id: "scope:callback", label: "createMemo callback", span: { ...route.span, startLine: route.span.startLine + 2, endLine: route.span.startLine + 4 } };
+  const inCallback = { ...anchor, id: "in-callback", kind: "value" as const, parent: callback.id, side: "up" as const };
+  const big = { ...graph, nodes: [...graph.nodes, ...pad, callback, inCallback] };
+  const handoff = graph.edges.find((e) => e.kind === "component-prop-binding")!;
+  const rest = graph.nodes.filter((n) => n.parent === route.id && n.id !== handoff.source);
 
-  it("folds each other function into one box that opens in place and names what it reaches", () => {
+  it("draws the first box of a component the value comes from, and folds the rest of it, callbacks too, into one box", () => {
     const m = anchorGraphToViewModel(big, { expanded: [] });
-    expect(m.vm.nodes.some((n) => n.id === others[0].id)).toBe(false);
-    const box = m.vm.nodes.find((n) => n.id === scope)!;
-    expect(box).toMatchObject({ expandable: true, outline: "dotted", memberCount: others.filter((n) => n.parent === scope).length });
-    expect(m.shownAs.get(others[0].id)).toBe(scope);
-    expect(m.vm.edges.every((e) => m.vm.nodes.some((n) => n.id === e.source) && m.vm.nodes.some((n) => n.id === e.target))).toBe(true);
+    expect(m.vm.nodes.some((n) => n.id === handoff.source)).toBe(true);
+    expect(m.vm.nodes.some((n) => n.id === rest[0].id || n.id === "in-callback")).toBe(false);
+    const box = m.vm.nodes.find((n) => n.id === route.id)!;
+    expect(box).toMatchObject({ expandable: true, outline: "dotted", memberCount: rest.length + 1 });
+    expect(m.shownAs.get("in-callback")).toBe(route.id);
     expect(m.vm.nodes.some((n) => n.id === "pad:0")).toBe(true);
+    expect(m.vm.edges.every((e) => m.vm.nodes.some((n) => n.id === e.source) && m.vm.nodes.some((n) => n.id === e.target))).toBe(true);
   });
 
-  it("draws an opened function's boxes under its id, and folds nothing without options", () => {
-    const opened = anchorGraphToViewModel(big, { expanded: [scope] });
-    expect(opened.vm.nodes.find((n) => n.id === others.find((o) => o.parent === scope)!.id)?.graphId).toMatch(new RegExp(`^${scope}#`));
-    expect(anchorGraphToViewModel(big).vm.nodes.some((n) => n.id === scope)).toBe(false);
+  it("draws an opened component's boxes under its id, and folds nothing without options", () => {
+    const opened = anchorGraphToViewModel(big, { expanded: [route.id] });
+    expect(opened.vm.nodes.find((n) => n.id === "in-callback")?.graphId).toBe(`${route.id}#in-callback`);
+    expect(opened.vm.nodes.some((n) => n.expandable)).toBe(false);
+    expect(anchorGraphToViewModel(big).vm.nodes.some((n) => n.id === route.id)).toBe(false);
   });
 });
 

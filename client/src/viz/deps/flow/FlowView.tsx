@@ -327,6 +327,8 @@ export default function FlowView(props: {
   let canvas: CanvasApi | undefined;
   let host!: HTMLDivElement;
   let pendingAnchor: string | null = null;
+  /** A picked origin: layouts keep their places around it until its graph arrives, so picking never reshuffles the canvas. */
+  let keepAround: string | null = null;
   // ---- view state (T17): what Return restores that the URL does not carry ----
   /** A camera for the next layout instead of a fit: the one the place was left with, for that place's URL only. */
   let restoreCamera: { camera: Camera; search: string } | null = null;
@@ -360,8 +362,10 @@ export default function FlowView(props: {
     const rect = host?.getBoundingClientRect();
     const viewport = rect && rect.height > 0 ? { width: rect.width, height: rect.height } : undefined;
     const aspectRatio = viewport ? viewport.width / viewport.height : 1.6;
-    const anchorId = pendingAnchor;
+    const kept = keepAround && m.byId.has(keepAround) ? keepAround : null;
+    const anchorId = pendingAnchor ?? kept;
     pendingAnchor = null;
+    if (untrack(() => (drawnGraph()?.selectedSource ?? undefined) === field())) keepAround = null;
     const previous = anchorId ? (untrack(layout) ?? undefined) : undefined;
     void Promise.resolve().then(() => {
       if (mine !== token) return;
@@ -418,6 +422,7 @@ export default function FlowView(props: {
   };
   /** Pick an origin (or clear it): its proven destinations light up. No Back step. */
   const pickOrigin = (id: string | undefined) => {
+    keepAround = id ?? field() ?? null;
     setSelected(null);
     replace({ field: id, dest: undefined });
   };
@@ -439,7 +444,8 @@ export default function FlowView(props: {
       : `${name} reaches no proven render site`;
     const lineage = g.lineage;
     if (!lineage) return reach;
-    if (lineage.status === "unavailable") return `${reach} · field lineage N/A: ${lineage.unavailableReason ?? "unavailable"}`;
+    // The engine's reason names its proof ("no unique compiler-backed filesystem origin"); say what it means.
+    if (lineage.status === "unavailable") return `${reach} · its fields are not traced: it does not start from one place in this project`;
     return `${reach} · ${lineage.fields} field${lineage.fields === 1 ? "" : "s"}${lineage.frontiers ? `, ${lineage.frontiers} stop at frontiers` : ""}`;
   };
   /** The selected box's reach, for the status line. */
@@ -523,7 +529,9 @@ export default function FlowView(props: {
       }
       const c = a.counts;
       const folded = m.vm.rolledUp ? ` · ${m.vm.rolledUp} repeated reference${m.vm.rolledUp === 1 ? "" : "s"} folded` : "";
-      return `${c.up} upstream · ${c.down} downstream · ${c.scopes} function${c.scopes === 1 ? "" : "s"}${folded}`;
+      const shut = m.vm.nodes.filter((n) => n.expandable).length;
+      const components = shut ? ` · ${shut} component${shut === 1 ? "" : "s"} folded` : "";
+      return `${c.up} upstream · ${c.down} downstream · ${c.scopes} function${c.scopes === 1 ? "" : "s"}${components}${folded}`;
     }
     const g = drawnGraph();
     if (!m || !g) return "";

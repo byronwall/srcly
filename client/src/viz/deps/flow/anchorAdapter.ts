@@ -15,9 +15,11 @@ export type AnchorEdge = AnchorGraphResult["edges"][number];
 const CROSSING = new Set(["argument", "argument-binding", "invokes", "function-call", "function-return", "return-value", "callback-parameter", "component-prop", "component-prop-binding", "http-bridge", "carrier", "gap"]);
 
 /**
- * A trace with more boxes than this draws the anchor's own function in full
- * and folds every other function into one box, named by what it reaches,
- * until it is opened (the URL's `open` list holds scope ids).
+ * A trace with more boxes than this draws the anchor's own component in full
+ * (its function and the callbacks inside it), and of each component it hands
+ * a value to only the boxes that take the value. The rest of every other
+ * component folds into one box, named by what it reaches, until it is opened
+ * (the URL's `open` list holds each component's outermost scope id).
  */
 export const ANCHOR_FOLD_BUDGET = 40;
 
@@ -41,6 +43,7 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult, options?: Ancho
   if (!anchor) return empty;
   const boxes = graph.nodes.filter((n) => n.kind !== "scope");
   const opened = new Set(options?.expanded ?? []);
+  const component = components(graph);
   const nodes: ViewNode[] = boxes.map((n) => {
     const mark = MARK_OF_ANCHOR_KIND[n.kind];
     const scope = n.parent ? scopes.get(n.parent) : undefined;
@@ -50,7 +53,7 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult, options?: Ancho
     return {
       id: n.id,
       // Under an opened function's id, so the camera and layout move its boxes out of the box they opened from.
-      graphId: n.parent && opened.has(n.parent) ? `${n.parent}#${n.id}` : n.id,
+      graphId: n.parent && opened.has(component.get(n.parent)!) ? `${component.get(n.parent)}#${n.id}` : n.id,
       region: n.side === "up" ? "in" : n.side === "down" ? "out" : "center",
       kind: "symbol",
       symbolKind: mark,
@@ -67,7 +70,9 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult, options?: Ancho
     };
   });
   const passThrough = passThroughs(graph);
-  const fold = folds(graph, anchor, opened, options);
+  // A box that repeats another's place joins it the way a pass-through does.
+  for (const [id, first] of twins(graph, passThrough)) passThrough.set(id, first);
+  const fold = folds(graph, anchor, component, passThrough, opened, options);
   const drawnNodes = [...nodes.filter((n) => !passThrough.has(n.id) && !fold.has(n.id)), ...foldedBoxes(graph, fold)];
   const ids = new Set(drawnNodes.map((n) => n.id));
   const seen = new Set<string>();
@@ -76,8 +81,9 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult, options?: Ancho
     // An edge out of a folded reference leaves from the value it repeats; the reference link itself goes.
     if (passThrough.get(raw.target) === raw.source) continue;
     const from = passThrough.get(raw.source) ?? raw.source;
+    const to = passThrough.get(raw.target) ?? raw.target;
     // An edge into or out of a folded function joins its box.
-    const e = { ...raw, source: fold.get(from) ?? from, target: fold.get(raw.target) ?? raw.target };
+    const e = { ...raw, source: fold.get(from) ?? from, target: fold.get(to) ?? to };
     if (!ids.has(e.source) || !ids.has(e.target) || e.source === e.target) continue;
     const key = `${e.source}|${e.target}`;
     if (seen.has(key)) continue;
@@ -111,16 +117,65 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult, options?: Ancho
   };
 }
 
-/** Each box of a folded function → its scope id. Empty while the trace fits the budget. */
-function folds(graph: AnchorGraphResult, anchor: AnchorNode, opened: Set<string>, options?: AnchorViewOptions): Map<string, string> {
+/**
+ * Each scope → its component: the outermost scope of the same file whose span
+ * holds it. A callback, an effect or a handler belongs to the function it is
+ * written in; a module's top level is a component of its own.
+ */
+function components(graph: AnchorGraphResult): Map<string, string> {
+  const scopes = graph.nodes.filter((n) => n.kind === "scope");
+  const holds = (outer: AnchorNode, inner: AnchorNode) =>
+    outer.file === inner.file && outer.detail !== "module" && before(outer.span.startLine, outer.span.startColumn, inner.span.startLine, inner.span.startColumn) && before(inner.span.endLine, inner.span.endColumn, outer.span.endLine, outer.span.endColumn);
   const out = new Map<string, string>();
-  const boxes = graph.nodes.filter((n) => n.kind !== "scope");
-  if (!options || boxes.length <= ANCHOR_FOLD_BUDGET) return out;
-  for (const n of boxes) if (n.parent && n.parent !== anchor.parent && !opened.has(n.parent)) out.set(n.id, n.parent);
+  for (const s of scopes) {
+    let root = s;
+    if (s.detail !== "module") for (const o of scopes) if (o !== root && holds(o, root)) root = o;
+    out.set(s.id, root.id);
+  }
   return out;
 }
 
-/** One box per folded function: its name, how many steps it holds, and the ends and stops inside. */
+function before(line: number, column: number, otherLine: number, otherColumn: number): boolean {
+  return line < otherLine || (line === otherLine && column <= otherColumn);
+}
+
+/** Each folded box → its component's scope id. Empty while the trace fits the budget. */
+function folds(graph: AnchorGraphResult, anchor: AnchorNode, component: Map<string, string>, passThrough: Map<string, string>, opened: Set<string>, options?: AnchorViewOptions): Map<string, string> {
+  const out = new Map<string, string>();
+  const boxes = graph.nodes.filter((n) => n.kind !== "scope");
+  if (!options || boxes.length <= ANCHOR_FOLD_BUDGET) return out;
+  const home = anchor.parent ? component.get(anchor.parent) : undefined;
+  const owner = new Map(boxes.map((n) => [n.id, n.parent ? component.get(n.parent) : undefined]));
+  // The boxes a value enters another component through: drawn, so the first hand-off reads without a click.
+  // One per name in each component: a prop read in ten places draws once.
+  const byId = new Map(boxes.map((n) => [n.id, n]));
+  const entries = new Set<string>();
+  const named = new Set<string>();
+  const enter = (raw: string, root: string) => {
+    // The box that stands for it: a repeat enters through the box it repeats.
+    const id = passThrough.get(raw) ?? raw;
+    const key = `${root}|${byId.get(id)?.label}`;
+    if (named.has(key)) return;
+    named.add(key);
+    entries.add(id);
+  };
+  for (const e of graph.edges) {
+    const [from, to] = [owner.get(e.source), owner.get(e.target)];
+    if (from === home && to && to !== home) enter(e.target, to);
+    if (to === home && from && from !== home) enter(e.source, from);
+  }
+  for (const n of boxes) {
+    const root = owner.get(n.id);
+    if (root && root !== home && !opened.has(root) && !entries.has(n.id)) out.set(n.id, root);
+  }
+  // A fold that would hold one box draws the box instead: the fold is no smaller.
+  const sizes = new Map<string, number>();
+  for (const root of out.values()) sizes.set(root, (sizes.get(root) ?? 0) + 1);
+  for (const [id, root] of out) if (sizes.get(root) === 1) out.delete(id);
+  return out;
+}
+
+/** One box per folded component: its name, how many steps it holds, and the ends and stops inside. */
 function foldedBoxes(graph: AnchorGraphResult, fold: Map<string, string>): ViewNode[] {
   const members = new Map<string, AnchorNode[]>();
   for (const n of graph.nodes) {
@@ -179,6 +234,24 @@ function passThroughs(graph: AnchorGraphResult): Map<string, string> {
     let to = source;
     while (out.has(to)) to = out.get(to)!;
     out.set(id, to);
+  }
+  return out;
+}
+
+/**
+ * Boxes that repeat one place: the same kind and words at the same spot in
+ * the same function (a prop binding the engine records once per read it
+ * reaches). Maps each repeat to the first.
+ */
+function twins(graph: AnchorGraphResult, passThrough: Map<string, string>): Map<string, string> {
+  const first = new Map<string, string>();
+  const out = new Map<string, string>();
+  for (const n of graph.nodes) {
+    if (n.kind === "scope" || n.kind === "anchor" || passThrough.has(n.id)) continue;
+    const key = [n.parent, n.kind, n.label, n.side, n.file, n.span.startLine, n.span.startColumn, n.span.endLine, n.span.endColumn].join("|");
+    const seen = first.get(key);
+    if (seen) out.set(n.id, seen);
+    else first.set(key, n.id);
   }
   return out;
 }
