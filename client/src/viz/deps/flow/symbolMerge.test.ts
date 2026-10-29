@@ -35,12 +35,27 @@ describe("one box per symbol", () => {
     expect(new Set(ids.map((n) => symbols.shownAs.get(n.id))).size).toBe(ids.length);
   });
 
-  it("keeps a box with no symbol, and every end, its own box", () => {
-    // Never into a symbol's box; at most into a box that repeats its place.
-    const label = new Map(symbols.vm.nodes.map((b) => [b.id, b.label]));
-    for (const n of graph.nodes) if (n.kind !== "scope" && n.kind !== "frontier" && !n.symbol) expect(label.get(symbols.shownAs.get(n.id)!)).toBe(n.label);
-    const ends = graph.nodes.filter((n) => n.kind === "terminal" && !n.symbol);
-    expect(ends.every((n) => symbols.vm.nodes.some((b) => b.id === n.id))).toBe(true);
+  it("keeps every origin, end, boundary and stop its own box", () => {
+    const own = graph.nodes.filter((n) => ["origin", "terminal", "boundary", "frontier", "control"].includes(n.kind) && !n.symbol);
+    expect(own.length).toBeGreaterThan(0);
+    // Its own box, or the box that repeats its place exactly.
+    const raw = new Map(graph.nodes.map((n) => [n.id, n]));
+    for (const n of own) expect(raw.get(symbols.shownAs.get(n.id)!)?.label).toBe(n.label);
+  });
+
+  it("folds an unnamed step into the edge that skips it, named by what the step does", () => {
+    const call = graph.nodes.find((n) => n.label === "fetchNote(id)")!;
+    expect(symbols.vm.nodes.some((n) => n.id === call.id)).toBe(false);
+    expect(symbols.vm.edges.some((e) => e.label?.includes("fetchNote()"))).toBe(true);
+    // Every drawn edge joins two drawn boxes, and keeps the proof of each step it skips.
+    const ids = new Set(symbols.vm.nodes.map((n) => n.id));
+    for (const e of symbols.vm.edges) expect(ids.has(e.source) && ids.has(e.target)).toBe(true);
+    expect(symbols.vm.edges.some((e) => (e.proof?.length ?? 0) > 1)).toBe(true);
+  });
+
+  it("draws state a framework call made as state: the resource, the store and the memo", () => {
+    const states = symbols.vm.nodes.filter((n) => n.symbolKind === "state").map((n) => n.label);
+    expect(states).toEqual(expect.arrayContaining(["note", "draft", "label"]));
   });
 
   it("cuts the route's boxes by a quarter or more against one box per step", () => {

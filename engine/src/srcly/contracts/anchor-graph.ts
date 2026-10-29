@@ -66,6 +66,10 @@ export const anchorNodeSchema = z.strictObject({
   symbol: z.string().nullable(),
   /** The field path read from `symbol` (`title`, `note.tags`); null for the binding itself. */
   field: z.string().nullable(),
+  /** The operation the element performs, by the compiler (`map`, `filter`, `parse`, `object-pack`, `resource`); null for none. */
+  operation: z.string().nullable(),
+  /** What kind of state `symbol` holds, by the call that made it (`createSignal`, `createStore`, `createResource`, `createMemo`, `useContext`); null for a plain binding. */
+  state: z.enum(["signal", "store", "resource", "memo", "context"]).nullable(),
   /** A boundary's or frontier's words: which call sites, what the gap was. */
   note: z.string().nullable(),
 });

@@ -309,6 +309,8 @@ export type AnchorGraphResult = {
     reason: string | null;
     symbol: string | null;
     field: string | null;
+    operation: string | null;
+    state: "signal" | "store" | "resource" | "memo" | "context" | null;
     note: string | null;
   }[];
   edges: {

@@ -28,6 +28,9 @@ import { FRAME_LABEL_H, MAX_SCALE, type PositionedEdge, type PositionedNode, typ
 import type { ViewEdge, ViewNode } from "./viewModel";
 import { FlowMarkGlyph, RepetitionBadge } from "./flow/FlowMark";
 import { isFlowMark, REPETITION_BADGE } from "./flow/marks";
+/** Symbol view: the value-flow line stands out from calls, reads and context. */
+const BOLD_EDGE_WIDTH = 2;
+const BOLD_EDGE_OPACITY = 0.85;
 
 const LABEL_FONT = "600 12.5px Inter, ui-sans-serif, system-ui, sans-serif";
 const SUBTITLE_FONT = "400 11px Inter, ui-sans-serif, system-ui, sans-serif";
@@ -1057,8 +1060,8 @@ export function DependencyCanvas(props: {
                     <path
                       d={edgePath(e)}
                       stroke={e.edge.style === "structural" ? "var(--plc-on-disabled)" : active() || e.edge.style === "field" ? "var(--plc-accent)" : e.edge.assumed ? "var(--plc-assumed)" : "var(--plc-tertiary)"}
-                      stroke-width={e.edge.style === "structural" ? 1 : edgeStrokeWidth(e.edge.weight, e.edge.faint)}
-                      stroke-opacity={dimmed() ? 0.12 : lightEdge(e.id) ? 0.4 : e.edge.faint && !active() ? CONTEXT_EDGE_OPACITY : EDGE_OPACITY}
+                      stroke-width={e.edge.style === "structural" ? 1 : e.edge.bold ? BOLD_EDGE_WIDTH : edgeStrokeWidth(e.edge.weight, e.edge.faint)}
+                      stroke-opacity={dimmed() ? 0.12 : lightEdge(e.id) ? 0.4 : e.edge.bold ? BOLD_EDGE_OPACITY : e.edge.faint && !active() ? CONTEXT_EDGE_OPACITY : EDGE_OPACITY}
                       stroke-dasharray={e.edge.style === "structural" ? STRUCTURAL_EDGE_DASH : e.edge.style === "handoff" ? HANDOFF_EDGE_DASH : e.edge.faint ? CONTEXT_EDGE_DASH : undefined}
                       stroke-linejoin="round"
                       marker-end={active() ? "url(#dv-arrow-active)" : "url(#dv-arrow)"}
@@ -1088,7 +1091,7 @@ export function DependencyCanvas(props: {
                         setCard(null);
                       }}
                     />
-                    <Show when={e.edge.label && !dimmed() && (labelAt().get(e.id) || hoverEdge() === e.id)}>
+                    <Show when={e.edge.label && !dimmed() && (labelAt().get(e.id) || hoverEdge() === e.id || e.edge.bold)}>
                       <EdgeLabel edge={e} strong={active()} at={labelAt().get(e.id) ?? null} />
                     </Show>
                   </g>

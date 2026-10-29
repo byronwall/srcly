@@ -262,7 +262,7 @@ class FakeEngine:
         direction = params.get("direction", "both")
         node = lambda **fields: {**example(item_schema(schema, "nodes")), "file": file, "absPath": f"{self.args.root}/{file}",
                                  "line": span["startLine"], "span": span, "status": "proven", "side": "seed", "detail": None,
-                                 "parent": "scope:f", "elementKind": None, "typeText": None, "reason": None, "note": None, "symbol": None, "field": None, **fields}
+                                 "parent": "scope:f", "elementKind": None, "typeText": None, "reason": None, "note": None, "symbol": None, "field": None, "operation": None, "state": None, **fields}
         scope = node(id="scope:f", kind="scope", label="Card", detail="f.tsx", parent=None)
         anchor = node(id="el:1", kind="anchor", label=text, detail="property read", elementKind="field-read", typeText="string")
         slot = node(id="el:2", kind="terminal", label="slot", detail="render slot", side="down", elementKind="render-terminal")
