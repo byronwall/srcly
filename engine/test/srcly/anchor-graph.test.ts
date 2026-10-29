@@ -282,7 +282,8 @@ describe("anchorGraph by element id (T20)", () => {
 
 describe("anchorGraph symbols on symbol-graph", () => {
   const root = fileURLToPath(new URL("../../examples/symbol-graph", import.meta.url));
-  const graph = anchorGraphOp(sessionFor(root), { file: "src/routes/notes/[id].tsx", name: "NotePage", line: 6, direction: "forward" });
+  const session = sessionFor(root);
+  const graph = anchorGraphOp(session, { file: "src/routes/notes/[id].tsx", name: "NotePage", line: 6, direction: "forward" });
   const of = (label: string, elementKind?: string) => graph.nodes.filter((n) => n.label === label && (!elementKind || n.elementKind === elementKind));
 
   it("names the local binding every read of a value reads: as is, called as an accessor, through a field, and as a Match test", () => {
@@ -303,14 +304,17 @@ describe("anchorGraph symbols on symbol-graph", () => {
   }, 60_000);
 
   it("names each frame's role: component, fetcher, server code, handler, helper and callback", () => {
-    const role = (label: string) => graph.nodes.filter((n) => n.kind === "scope" && n.label === label).map((n) => n.role);
-    expect(role("NotePage")).toEqual(["component"]);
-    expect(role("createResource callback").sort()).toEqual(["callback", "fetcher"]);
-    expect(role("fetchNote")).toEqual(["server"]);
-    expect(role("saveTitle")).toEqual(["server"]);
-    expect(role("save")).toEqual(["handler"]);
-    expect(role("toDetail")).toEqual(["helper"]);
-    expect(role("tags.map callback")).toEqual(["callback"]);
+    const role = (g: AnchorGraphResult, label: string) => g.nodes.filter((n) => n.kind === "scope" && n.label === label).map((n) => n.role);
+    expect(role(graph, "NotePage")).toEqual(["component"]);
+    expect(role(graph, "createResource callback").sort()).toEqual(["callback", "fetcher"]);
+    expect(role(graph, "fetchNote")).toEqual(["server"]);
+    // Plain TS helpers, each traced from itself so no walk limit decides whether it is drawn.
+    const helper = anchorGraphOp(session, { file: "src/lib/notes.ts", name: "formatTags", line: 15, direction: "forward" });
+    expect(role(helper, "formatTags")).toEqual(["helper"]);
+    expect(role(helper, "tags.map callback")).toEqual(["callback"]);
+    const view = anchorGraphOp(session, { file: "src/components/NoteView.tsx", name: "NoteView", line: 6, direction: "forward" });
+    expect(role(view, "NoteView")).toEqual(["component"]);
+    expect(role(view, "save")).toEqual(["handler"]);
   }, 60_000);
 
   it("gives no binding to a call that is not an accessor, a render slot, or an origin, and keeps two `id`s apart", () => {

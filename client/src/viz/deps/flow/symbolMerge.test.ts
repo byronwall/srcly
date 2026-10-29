@@ -64,7 +64,7 @@ describe("one box per symbol", () => {
 });
 
 describe("folded functions say what they are", () => {
-  const folded = anchorGraphToViewModel(graph, { expanded: [], depth: 99 });
+  const folded = anchorGraphToViewModel(graph, { expanded: [] });
   const roleOf = new Map(graph.nodes.filter((n) => n.kind === "scope").map((n) => [n.id, n.role]));
   const folds = folded.vm.nodes.filter((n) => n.expandable && roleOf.has(n.id));
 
