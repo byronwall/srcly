@@ -1,0 +1,15 @@
+{
+  "id": "1b4a69cf-0f08-40ef-929d-d46adceee943",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:a4329e",
+    "label": "Agent token ...a4329e"
+  },
+  "createdAt": "2026-10-26T13:04:18.958Z",
+  "summary": "Created \"Step 6: calls-back rows\" under \"Data flow: library models as data\".",
+  "nodeIds": [
+    "task-step-6-calls-back-rows",
+    "area-data-flow-library-models-as-data"
+  ]
+}

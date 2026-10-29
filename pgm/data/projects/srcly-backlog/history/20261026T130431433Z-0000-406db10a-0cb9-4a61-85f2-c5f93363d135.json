@@ -1,0 +1,14 @@
+{
+  "id": "406db10a-0cb9-4a61-85f2-c5f93363d135",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:397776",
+    "label": "Agent token ...397776"
+  },
+  "createdAt": "2026-10-26T13:04:31.433Z",
+  "summary": "Set \"Ledger `classify()` reads kind traits\" priority to low.",
+  "nodeIds": [
+    "task-ledger-classify-reads-kind-traits"
+  ]
+}

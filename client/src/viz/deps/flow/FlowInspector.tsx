@@ -67,7 +67,7 @@ function NeighborList(props: { title: string; rows: NeighborRow[]; onSelect: (id
                 <span class="ml-auto shrink-0 text-[10.5px] text-[var(--plc-on-subtle)]">
                   {r.kind}
                   <Show when={r.path}>{(p) => <span class="pl-1 text-[var(--plc-accent)]">{p()}</span>}</Show>
-                  <Show when={r.status !== "proven" ? r.status : undefined}>
+                  <Show when={r.status !== "proven" && STATUS_WORD[r.status!] !== r.kind ? r.status : undefined}>
                     {(s) => (r.assumed ? <span class="pl-1 text-[var(--plc-assumed)]">assumed</span> : <span class={`pl-1 ${STATUS_CLASS[s()]}`}>{STATUS_WORD[s()]}</span>)}
                   </Show>
                 </span>
@@ -93,6 +93,8 @@ export function FlowInspector(props: {
   anchor?: AnchorGraphResult | null;
   model: FlowViewModel;
   rootPath: string;
+  /** Function effects is TypeScript-only: a Python root says so instead of asking. */
+  language?: "typescript" | "python";
   selected: string | null;
   reach: Reach | null;
   /** Flow node ids whose frames are opened in place. */
@@ -106,6 +108,8 @@ export function FlowInspector(props: {
   edge?: string | null;
   /** Anchor mode with room for one more anchor (T20): add the selected box by its span. */
   onAddAnchor?: (id: string) => void;
+  /** Anchor mode: trace from the selected box instead. */
+  onTraceFrom?: (id: string) => void;
   edgePath?: { loading: boolean; value: RoutePathResponse | undefined; error: Error | null };
   onSelectEdge?: (id: string | null) => void;
 }) {
@@ -114,7 +118,7 @@ export function FlowInspector(props: {
   const effects = createEffectsQuery(() => {
     const d = details();
     const box = d?.node;
-    if (!props.anchor || !box) return null;
+    if (!props.anchor || !box || props.language === "python") return null;
     const scope = box.parent ? props.anchor.nodes.find((n) => n.id === box.parent && n.kind === "scope") : null;
     const target = box.kind === "anchor" && (box.elementKind === "component-definition" || box.elementKind === "function-entry" || box.elementKind === "handler-entry") ? box : scope;
     if (!target || target.detail === "module") return null;
@@ -166,7 +170,8 @@ export function FlowInspector(props: {
                 <span class="plc-data-sm min-w-0 break-all font-semibold text-[var(--plc-on-surface)]">{d().node.label}</span>
               </div>
               <div class="flex flex-wrap items-baseline gap-x-2 pl-5 text-[11px]">
-                <span class="text-[var(--plc-on-muted)]">{FLOW_MARKS[d().mark].label}</span>
+                {/* A folded function's box is its frame: an anchor graph's scope. */}
+                <span class="text-[var(--plc-on-muted)]">{"side" in d().node && d().node.kind === "scope" ? "function" : FLOW_MARKS[d().mark].label}</span>
                 <span class={`font-semibold ${STATUS_CLASS[d().node.status]}`}>{STATUS_WORD[d().node.status]}</span>
                 <Show when={repetition(d().node)}>{(r) => <span class="text-[var(--plc-on-muted)]">{REPETITION_BADGE[r()].title.toLowerCase()}</span>}</Show>
                 <Show when={external(d().node)}>
@@ -179,19 +184,28 @@ export function FlowInspector(props: {
               {/* A stop srcly words is already said by its detail line; any other reason shows as the engine names it. */}
               <Show when={d().node.reason && !STOP_REASONS[d().node.reason!] ? d().node.reason : null}>{(r) => <div class="pl-5 text-[11px] text-[var(--plc-warning)]">{r()}</div>}</Show>
               <Where file={d().node.file} line={d().node.line} onOpen={() => props.onOpen(d().node.absPath, d().node.line)} />
-              <Show when={props.onAddAnchor}>
-                <div class="pl-5 pt-1">
-                  <Button variant="default" size="sm" class="px-2" onClick={() => props.onAddAnchor!(d().node.id)} title="Trace this box too, on the same canvas; boxes both traces reach are marked">
-                    Add to the trace
-                  </Button>
+              <Show when={(props.onTraceFrom || props.onAddAnchor) && d().node.kind !== "anchor"}>
+                <div class="flex gap-1.5 pl-5 pt-1">
+                  {/* A folded function opens instead: its own anchor shows only its parameters and returns. */}
+                  <Show when={props.onTraceFrom && d().node.kind !== "scope"}>
+                    <Button variant="default" size="sm" class="px-2" data-trace-from="" onClick={() => props.onTraceFrom!(d().node.id)} title="Make this box the anchor, keeping the direction">
+                      Trace from here
+                    </Button>
+                  </Show>
+                  <Show when={props.onAddAnchor}>
+                    <Button variant="default" size="sm" class="px-2" onClick={() => props.onAddAnchor!(d().node.id)} title="Trace this box too, on the same canvas; boxes both traces reach are marked">
+                      Add to the trace
+                    </Button>
+                  </Show>
                 </div>
               </Show>
 
               <Show when={props.reach}>
                 {(r) => section("Reach", (
                   <div class="space-y-px">
-                    <Stat label="Proven to reach it" value={r().counts.up} title="Boxes upstream over proven edges" />
-                    <Stat label="It reaches" value={r().counts.down} title="Boxes downstream over proven edges" />
+                    {/* Only the lit direction: a side that was not walked is not 0. */}
+                    <Show when={r().mode !== "down"}><Stat label="Proven to reach it" value={r().counts.up} title="Boxes upstream over proven edges" /></Show>
+                    <Show when={r().mode !== "up"}><Stat label="It reaches" value={r().counts.down} title="Boxes downstream over proven edges" /></Show>
                     <Show when={r().counts.frontier}>
                       <Stat label="Stops at frontiers" value={r().counts.frontier} title="Boxes beyond a non-proven edge" />
                     </Show>
@@ -222,6 +236,10 @@ export function FlowInspector(props: {
                     <EffectsPanel state={state()} title="Its function touches" onOpen={props.onOpen} />
                   </div>
                 )}
+              </Show>
+              <Show when={props.anchor && props.language === "python"}>
+                <h4 class={H}>Its function touches</h4>
+                <p class="text-[11px] text-[var(--plc-on-subtle)]">Not available for Python yet. Trace a value forward to see where it ends.</p>
               </Show>
               <Show when={props.graph && d().node.kind === "origin"}>
                 <Button variant="ghost" size="sm" class="mt-2 px-1.5" onClick={() => props.onPickOrigin(props.graph!.selectedSource === d().node.id ? undefined : d().node.id)}>

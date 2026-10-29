@@ -1,0 +1,14 @@
+{
+  "id": "e0c8bcb7-7c1e-49c3-95c9-b83071a2366f",
+  "kind": "node.status.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:2d3ac7",
+    "label": "Agent token ...2d3ac7"
+  },
+  "createdAt": "2026-10-26T13:04:32.354Z",
+  "summary": "Changed \"Collectors record end attributes for TypeScript\" status to planned.",
+  "nodeIds": [
+    "task-collectors-record-end-attributes-for-typescript"
+  ]
+}

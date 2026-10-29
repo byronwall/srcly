@@ -1,0 +1,14 @@
+{
+  "id": "8a1adc9e-3ea7-48ef-bda4-657e7d894443",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:9b5725",
+    "label": "Agent token ...9b5725"
+  },
+  "createdAt": "2026-10-26T13:04:20.289Z",
+  "summary": "Set \"Step 7: checker-resolved matching everywhere\" priority to low.",
+  "nodeIds": [
+    "task-step-7-checker-resolved-matching-everywhere"
+  ]
+}

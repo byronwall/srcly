@@ -1,11 +1,11 @@
 // Functions written as arguments. To a library call (`reduce`, `sort`) the
 // function is called by that call alone: a parameter whose type accepts the
 // receiver's element receives it, and the function's return reaches the
-// call's value, both assumed. `sum` is a number, not an item, so it receives
+// call's value. For the standard library both are modelled. `sum` is a number, not an item, so it receives
 // nothing from `props.items`. To a first-party function (`applyTo`) the
 // callback is called from inside that body, where pairing works as before.
 export function Ranked(props: { items: { n: number }[] }) {
-  const total = props.items.reduce((sum, item) => sum + item.n, 0); // @trace reduce forward props.items @outcome reduce assumed @edge reduce callback-parameter partial external-call @edge reduce return-value partial @visits reduce parameter "item" @never-reaches reduce parameter "sum"
+  const total = props.items.reduce((sum, item) => sum + item.n, 0); // @trace reduce forward props.items @outcome reduce ok @edge reduce callback-parameter proven standard-library @edge reduce return-value proven standard-library @visits reduce parameter "item" @never-reaches reduce parameter "sum"
   return <p>{total}</p>; // @reaches reduce * "total"
 }
 

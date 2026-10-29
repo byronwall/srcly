@@ -43,6 +43,8 @@ SKIP_DIRS = {
     ".venv", ".git", ".tox", ".nox", ".mypy_cache", ".pytest_cache", ".ruff_cache",
 }
 TEST_DIRS = {"tests", "test", "testing"}
+# Framework classes a route-registering router is built from, or derives from.
+ROUTER_CLASSES = ("APIRouter", "FastAPI", "Flask", "Blueprint")
 HTTP_METHODS = {"get", "post", "put", "delete", "patch", "options", "head"}
 EXPRESSION_KINDS = (ast.Name, ast.Attribute, ast.Call, ast.Subscript, ast.BoolOp, ast.IfExp, ast.Await, ast.arg)
 
@@ -54,76 +56,66 @@ EXPRESSION_KINDS = (ast.Name, ast.Attribute, ast.Call, ast.Subscript, ast.BoolOp
 # external-read are origins; stdout, exit-status, file-write, http-response and
 # external-effect are terminals.
 Recognition = tuple[str, str, dict[str, Any]]
-ORIGIN_CALLS: dict[str, Recognition] = {
-    "os.getenv": ("environment-input", "environment", {}),
-    "os.environ.get": ("environment-input", "environment", {}),
-    "os._Environ.get": ("environment-input", "environment", {}),
-    "builtins.input": ("process-input", "stdin", {"name": "stdin"}),
-    "builtins.open": ("file-input", "file", {}),
-    "io.open": ("file-input", "file", {}),
-    "pathlib.Path.read_text": ("file-input", "file read", {}),
-    "pathlib.Path.read_bytes": ("file-input", "file read", {}),
-    "pathlib.Path.open": ("file-input", "file", {}),
-    "json.load": ("file-input", "JSON file read", {}),
-    "tomllib.load": ("file-input", "TOML file read", {}),
-    "yaml.safe_load": ("file-input", "YAML read", {}),
-    "subprocess.run": ("external-read", "subprocess", {}),
-    "subprocess.check_output": ("external-read", "subprocess", {}),
-    "subprocess.Popen": ("external-read", "subprocess", {}),
-    "urllib.request.urlopen": ("fetch-input", "network request", {}),
-    "requests.get": ("fetch-input", "network request", {}),
-    "requests.post": ("fetch-input", "network request", {}),
-    "requests.request": ("fetch-input", "network request", {}),
-    "requests.sessions.Session.": ("fetch-input", "network request", {}),
-    "httpx.get": ("fetch-input", "network request", {}),
-    "httpx.post": ("fetch-input", "network request", {}),
-    "httpx.request": ("fetch-input", "network request", {}),
-    "httpx._client.Client.": ("fetch-input", "network request", {}),
-    "httpx._client.AsyncClient.": ("fetch-input", "network request", {}),
-    "sqlite3.Cursor.execute": ("external-read", "database query", {}),
-    "sqlite3.Cursor.fetchall": ("external-read", "database rows", {}),
-    "sqlite3.Cursor.fetchone": ("external-read", "database row", {}),
-    "sqlite3.Connection.execute": ("external-read", "database query", {}),
-    "sqlalchemy.orm.session.Session.execute": ("external-read", "database query", {}),
-    "sqlalchemy.orm.session.Session.scalars": ("external-read", "database query", {}),
-    "sqlalchemy.orm.session.Session.get": ("external-read", "database row", {}),
-    "sqlalchemy.orm.session.Session.query": ("external-read", "database query", {}),
+# What library code does (an origin, a terminal) is data: the engine's library model rows
+# (`engine/models/*.json`; docs/intent/dataflow-library-models/plan.md), read once with `--models`.
+# A row names a mypy fullname by `module` and `name` or `Type.member` (a trailing `*` is a prefix);
+# its `role` names the element it makes, its `note` the element's label.
+ROLE_ELEMENTS: dict[str, tuple[str, dict[str, Any]]] = {
+    "stdin": ("process-input", {"name": "stdin"}),
+    "argument": ("process-input", {"name": "argv"}),
+    "request": ("parameter", {"originRole": "request", "name": "request"}),
 }
-TERMINAL_CALLS: dict[str, Recognition] = {
-    "builtins.print": ("stdout", "print", {}),
-    "sys.stdout.write": ("stdout", "stdout", {}),
-    "sys.exit": ("exit-status", "exit", {}),
-    "logging.Logger.": ("external-effect", "log", {}),
-    "logging.LoggerAdapter.": ("external-effect", "log", {}),
-    **{f"logging.{level}": ("external-effect", "log", {}) for level in ("debug", "info", "warning", "error", "exception", "critical", "log")},
-    "pathlib.Path.write_text": ("file-write", "file write", {}),
-    "pathlib.Path.write_bytes": ("file-write", "file write", {}),
-    "json.dump": ("file-write", "JSON file write", {}),
-    "typing.IO.write": ("file-write", "file write", {}),
-    "typing.TextIO.write": ("file-write", "file write", {}),
-    "io.TextIOWrapper.write": ("file-write", "file write", {}),
-    "_io.TextIOWrapper.write": ("file-write", "file write", {}),
-    "fastapi.HTTPException": ("http-response", "HTTP error", {}),
-    "fastapi.exceptions.HTTPException": ("http-response", "HTTP error", {}),
-    "starlette.exceptions.HTTPException": ("http-response", "HTTP error", {}),
-    "fastapi.responses.": ("http-response", "HTTP response", {}),
-    "starlette.responses.": ("http-response", "HTTP response", {}),
-    "flask.json.jsonify": ("http-response", "HTTP response", {}),
-    "flask.jsonify": ("http-response", "HTTP response", {}),
-    "flask.helpers.make_response": ("http-response", "HTTP response", {}),
-    "flask.make_response": ("http-response", "HTTP response", {}),
-    "flask.templating.render_template": ("http-response", "HTTP response", {}),
-    "flask.render_template": ("http-response", "HTTP response", {}),
-    "flask.abort": ("http-response", "HTTP error", {}),
-}
-# Reads (not calls) that are origins: `os.environ["X"]`, `sys.argv`, Flask's request global.
-ORIGIN_READS: dict[str, Recognition] = {
-    "os.environ": ("environment-input", "environment", {}),
-    "sys.argv": ("process-input", "command-line arguments", {"name": "argv"}),
-    "sys.stdin": ("process-input", "stdin", {"name": "stdin"}),
-    "flask.request": ("parameter", "the request", {"originRole": "request", "name": "request"}),
-    "flask.globals.request": ("parameter", "the request", {"originRole": "request", "name": "request"}),
-}
+
+
+class LibraryModels:
+    """Python's library model rows, found by fullname: an exact row first, then the longest prefix."""
+
+    def __init__(self) -> None:
+        self.exact: dict[str, tuple[str, Recognition]] = {}
+        self.prefixes: list[tuple[str, str, Recognition]] = []
+
+    def load(self, files: list[Path]) -> None:
+        for file in files:
+            for row in json.loads(file.read_text(encoding="utf-8")).get("rows", []):
+                if row.get("language") != "py" or row.get("model") not in ("origin", "terminal"):
+                    continue
+                path = row.get("name") or row.get("member")
+                key = f"{row['module']}.{path}"
+                kind, attributes = ROLE_ELEMENTS.get(row["role"], (row["role"], {}))
+                found = (row["model"], (kind, row.get("note") or kind, {**attributes, "libraryModel": f"{row['module']}#{path}"}))
+                if key.endswith("*"):
+                    self.prefixes.append((key[:-1], *found))
+                else:
+                    self.exact[key] = found
+        self.prefixes.sort(key=lambda item: -len(item[0]))
+
+    def find(self, name: str | None, models: tuple[str, ...]) -> Recognition | None:
+        if not name:
+            return None
+        hit = self.exact.get(name)
+        if hit is not None and hit[0] in models:
+            return hit[1]
+        return next((recognition for prefix, model, recognition in self.prefixes if model in models and name.startswith(prefix)), None)
+
+    def call(self, name: str | None) -> Recognition | None:
+        """A call that is an origin or a terminal: `os.getenv(...)`, `print(...)`."""
+        return self.find(name, ("origin", "terminal"))
+
+    def read(self, name: str | None) -> Recognition | None:
+        """A read that is an origin: `os.environ`, `sys.argv`, Flask's `request`."""
+        return self.find(name, ("origin",))
+
+
+MODELS = LibraryModels()
+
+
+def builtin_model_files() -> list[Path]:
+    """The engine's built-in row files when none are passed: `models/` beside this helper in a bundle, `engine/models/` in a checkout."""
+    here = Path(__file__).resolve().parent
+    folder = next((candidate for candidate in (here / "models", here.parent / "models") if candidate.is_dir()), None)
+    return sorted(path for path in folder.glob("*.json") if not path.name.endswith(".schema.json")) if folder else []
+
+
 FASTAPI_PARAM_FUNCS = {"Query": "query", "Path": "path", "Body": "body", "Header": "header", "Cookie": "cookie", "Form": "form", "File": "file", "Depends": "dependency", "Security": "dependency"}
 FASTAPI_REQUEST_TYPES = {"Request", "WebSocket", "HTTPConnection"}
 FASTAPI_RUNTIME_TYPES = {"Response", "BackgroundTasks"}
@@ -138,17 +130,6 @@ MODEL_BASES = {"BaseModel", "pydantic.BaseModel", "pydantic.main.BaseModel", "SQ
 SETTINGS_BASES = {"pydantic_settings.BaseSettings", "pydantic_settings.main.BaseSettings", "pydantic.BaseSettings", "pydantic.env_settings.BaseSettings"}
 # Calls on a model class's manager that set its fields by keyword: `Article.objects.create(title=…)` (Django).
 MODEL_KEYWORD_CALLS = {"objects.create", "objects.get_or_create"}
-
-
-def lookup(table: dict[str, Any], name: str | None) -> Any:
-    if not name:
-        return None
-    if name in table:
-        return table[name]
-    for key, value in table.items():
-        if key.endswith(".") and name.startswith(key):
-            return value
-    return None
 
 
 # --------------------------------------------------------------------------- sources
@@ -313,9 +294,13 @@ def discover(root: Path, source: Path, include_tests: bool = False) -> list[tupl
     ``.py`` files under ``source`` with their module names. A module's name is
     its path from the import root (``src/`` when the project has one, else the
     root), so namespace packages without ``__init__.py`` name the way imports do.
+    A root that is itself a package (mealie's ``mealie/``) names from above its
+    top package, so ``mealie.routes`` matches ``from mealie.routes import …``.
     Tests are left out unless asked for: they drive the app, they are not its data flow.
     """
     import_root = root / "src" if (root / "src").is_dir() and source.is_relative_to(root / "src") else root
+    while (import_root / "__init__.py").is_file() and import_root.parent != import_root:
+        import_root = import_root.parent
     found: list[tuple[Path, str]] = []
     for folder, dirs, files in os.walk(source):
         dirs[:] = sorted(
@@ -536,12 +521,15 @@ class Program:
         # The program's own top-level packages: a callee resolved under none of them is outside it.
         self.packages = {module.split(".")[0] for module in self.modules}
         self.functions: dict[str, FunctionInfo] = {}  # fullname -> info
+        self.functions_by_entry: dict[str, FunctionInfo] = {}  # entry id -> info, nested functions too
         self.functions_by_node: dict[int, FunctionInfo] = {}
         self.classes: dict[str, ClassInfo] = {}
         self.classes_by_node: dict[int, ClassInfo] = {}
         self.imports: dict[str, dict[str, str]] = {}  # module -> local name -> dotted target
         self.module_names: dict[str, dict[str, str]] = {}  # module -> top-level name -> kind
         self.routers: dict[str, dict[str, Any]] = {}  # "module.var" -> {prefix, framework}
+        # `router = UserAPIRouter(...)` before the program's classes are known: settled once they are.
+        self.pending_routers: list[tuple[Source, str, ast.Call, str]] = []
         self.elements: dict[str, dict[str, Any]] = {}
         self.relations: dict[str, dict[str, Any]] = {}
         self.gaps: list[dict[str, Any]] = []
@@ -592,19 +580,61 @@ class Program:
             self.index_defs(source, source.tree.body, prefix="", class_info=None)
         for info in self.classes.values():
             info.is_model = self.is_model(info)
+        for source, name, value, callee in self.pending_routers:
+            kind = self.router_kind(self.resolve_class(callee))
+            if kind:
+                self.add_router(source, name, value, kind)
 
     def note_router(self, source: Source, name: str, value: ast.expr | None) -> None:
         if not isinstance(value, ast.Call):
             return
         callee = self.dotted(source, value.func) or ""
         last = callee.rsplit(".", 1)[-1]
-        if last in ("APIRouter", "FastAPI", "Flask", "Blueprint"):
-            prefix = ""
-            for keyword in value.keywords:
-                if keyword.arg in ("prefix", "url_prefix") and isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
-                    prefix = keyword.value.value
-            framework = "flask" if last in ("Flask", "Blueprint") else "fastapi"
-            self.routers[f"{source.module}.{name}"] = {"prefix": prefix, "framework": framework, "mounted": ""}
+        if last in ROUTER_CLASSES:
+            self.add_router(source, name, value, last)
+        else:
+            self.pending_routers.append((source, name, value, callee))
+
+    def router_kind(self, info: ClassInfo | None, depth: int = 0) -> str | None:
+        """The framework router a first-party class derives from (`class UserAPIRouter(APIRouter)`), by its class name."""
+        if info is None or depth > 8:
+            return None
+        for base in info.bases:
+            if base.rsplit(".", 1)[-1] in ROUTER_CLASSES:
+                return base.rsplit(".", 1)[-1]
+            kind = self.router_kind(self.resolve_class(base), depth + 1)
+            if kind:
+                return kind
+        return None
+
+    def add_router(self, source: Source, name: str, value: ast.Call, kind: str) -> None:
+        prefix = next((self.literal_str(source, k.value) or "" for k in value.keywords if k.arg in ("prefix", "url_prefix")), "")
+        framework = "flask" if kind in ("Flask", "Blueprint") else "fastapi"
+        self.routers[f"{source.module}.{name}"] = {"prefix": prefix, "framework": framework, "mounted": ""}
+
+    def literal_str(self, source: Source, node: ast.expr) -> str | None:
+        """
+        A string a route prefix names: a literal, or a settings field with a literal default
+        (`prefix=settings.API_V1_STR`, where `settings = Settings()` and `API_V1_STR: str = "/api/v1"`).
+        """
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        if not (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)):
+            return None
+        owner = self.dotted(source, node.value) or ""
+        module, _, var = owner.rpartition(".")
+        if not module and not var:
+            return None
+        assigned = next((s for s in self.sources if s.module == (module or source.module) and s.tree is not None), None)
+        if assigned is None:
+            return None
+        for stmt in assigned.tree.body:
+            if isinstance(stmt, ast.Assign) and any(isinstance(t, ast.Name) and t.id == var for t in stmt.targets) and isinstance(stmt.value, ast.Call):
+                info = self.resolve_class(self.dotted(assigned, stmt.value.func))
+                declared = info.fields.get(node.attr) if info else None
+                if isinstance(declared, ast.AnnAssign) and isinstance(declared.value, ast.Constant) and isinstance(declared.value.value, str):
+                    return declared.value.value
+        return None
 
     def index_defs(self, source: Source, body: list[ast.stmt], prefix: str, class_info: ClassInfo | None) -> None:
         for stmt in body:
@@ -623,6 +653,7 @@ class Program:
                 )
                 self.functions[info.fullname] = info
                 self.functions_by_node[id(stmt)] = info
+                self.functions_by_entry[info.entry_id] = info
                 if class_info is not None:
                     class_info.methods[stmt.name] = info
                 self.index_defs(source, stmt.body, prefix=f"{qualname}.<locals>.", class_info=None)
@@ -789,7 +820,11 @@ class Program:
         self.finish_returns()
 
     def mount_routers(self) -> None:
-        """`app.include_router(items.router, prefix="/v1")` adds the mount prefix to that router's routes."""
+        """
+        `app.include_router(items.router, prefix="/v1")` adds the mount prefix to that router's routes,
+        and so does every router above it: `api_router` mounted at `/api/v1` gives `items.router` its `/api/v1`.
+        """
+        mounts: dict[str, tuple[str | None, str]] = {}  # router -> (the router that includes it, the include's prefix)
         for source in self.sources:
             if source.tree is None:
                 continue
@@ -800,9 +835,18 @@ class Program:
                 router = self.routers.get(target or "")
                 if router is None:
                     continue
-                for keyword in node.keywords:
-                    if keyword.arg in ("prefix", "url_prefix") and isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
-                        router["mounted"] = keyword.value.value
+                parent = self.dotted(source, node.func.value)
+                prefix = next((self.literal_str(source, k.value) or "" for k in node.keywords if k.arg in ("prefix", "url_prefix")), "")
+                mounts[target or ""] = (parent if parent in self.routers else None, prefix)
+
+        def outer(key: str, depth: int = 0) -> str:
+            parent, prefix = mounts.get(key, (None, ""))
+            if parent is None or depth > 8:
+                return prefix
+            return outer(parent, depth + 1) + self.routers[parent]["prefix"] + prefix
+
+        for key, router in self.routers.items():
+            router["mounted"] = outer(key)
 
     def framework_decorator(self, source: Source, decorator: ast.expr) -> bool:
         """
@@ -1310,9 +1354,12 @@ class BodyWalker:
         proof = None
         if param.annotation is not None:
             proof = {"kind": "annotation", "detail": f"{param.arg}: {annotation_text}", "locations": [self.source.location(self.span(param.annotation))]}
-        receiver = info is not None and is_constructor(info) and bool(info.params) and info.params[0] is param
+        first = info is not None and bool(info.params) and info.params[0] is param
+        receiver = first and is_constructor(info)
+        # A method's `self` or `cls`: the object it is called on, not an input its caller chooses.
+        attributes = {"name": param.arg, **({"receiver": True} if first and info.is_method else {})}
         element = self.element("alias" if receiver else "parameter", param, param.arg, id_kind="parameter", type_text=type_text, type_source=type_source, proof=proof,
-                               attributes={"name": param.arg})
+                               attributes=attributes)
         self.note(param, "arg", ty=type_text, tsrc=type_source, n=param.arg, d=1)
         self.scope.bind(param.arg, (param.lineno, param.col_offset), element)
         self.annotated_use(param, element)
@@ -1395,7 +1442,8 @@ class BodyWalker:
     def stmt(self, node: ast.stmt) -> None:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             self.scope.bind(node.name, (node.lineno, node.col_offset), element_id("function-entry", self.source.rel, self.span(node)))
-            self.pending.append((node, self.scope if self.class_info is None else (self.scope.parent or self.scope), self.class_info))
+            # A method's enclosing scope is outside its class body; a `def` inside a method closes over the method's own names.
+            self.pending.append((node, (self.scope.parent or self.scope) if self.scope.kind == "class" else self.scope, self.class_info))
             return
         if isinstance(node, ast.ClassDef):
             self.class_entry(node)
@@ -1593,7 +1641,7 @@ class BodyWalker:
         owner = self.scope.owner_of(node.id)
         if owner is None:
             dotted = self.program.dotted(self.source, node)
-            read = lookup(ORIGIN_READS, dotted)
+            read = MODELS.read(dotted)
             if read is not None:
                 # An imported origin read by name (Flask's `request`): `request.json`, `request.args` are field reads of it.
                 kind, label, attributes = read
@@ -1608,9 +1656,11 @@ class BodyWalker:
             return None
         bound = owner.defs[node.id]
         if all(element.startswith("py:function-entry:") for _, element in bound):
-            target = self.program.functions.get(f"{self.source.module}.{node.id}")
-            if target is not None:
-                self.program.record_escape(target)
+            # A function read as a value (passed, stored): its callers are not all visible. By entry id, so a nested `def` counts too.
+            for _, entry in bound:
+                target = self.program.functions_by_entry.get(entry)
+                if target is not None:
+                    self.program.record_escape(target)
             return None
         element = self.load_name(node)
         # A plain read of a name repeats its binding: the anchor graph walks through it without a box of its own.
@@ -1622,7 +1672,7 @@ class BodyWalker:
         if not isinstance(node.ctx, ast.Load):
             return None
         dotted = self.program.dotted(self.source, node)
-        read = lookup(ORIGIN_READS, dotted)
+        read = MODELS.read(dotted)
         if read is not None:
             kind, label, attributes = read
             element = self.element(kind, node, f"{label} ({self.source.segment(node)})", attributes=attributes,
@@ -1712,7 +1762,7 @@ class BodyWalker:
             return None
         dotted = self.program.dotted(self.source, node.value)
         key = constant_key(node.slice)
-        read = lookup(ORIGIN_READS, dotted)
+        read = MODELS.read(dotted)
         if read is not None and dotted == "os.environ":
             kind, label, attributes = read
             element = self.element(kind, node, f"environment {key or self.source.segment(node.slice)}", attributes={**attributes, "name": key or "environ"},
@@ -1830,9 +1880,51 @@ class BodyWalker:
 
     # ---- calls
 
+    def celery_task(self, node: ast.Call) -> FunctionInfo | None:
+        """The first-party Celery task a `task.delay(…)`, `task.apply_async(…)` or signature (`task.s(…)`) call queues, or None."""
+        func = node.func
+        if not (isinstance(func, ast.Attribute) and func.attr in ("delay", "apply_async", "s", "si", "signature")):
+            return None
+        task = self.program.resolve_function(self.program.dotted(self.source, func.value))
+        if task is None or isinstance(task.node, ast.Lambda):
+            return None
+        names = [dotted_name(d.func if isinstance(d, ast.Call) else d).rsplit(".", 1)[-1] for d in task.node.decorator_list]
+        return task if any(name in ("shared_task", "task") for name in names) else None
+
+    def queue_task(self, task: FunctionInfo, node: ast.Call) -> str:
+        """
+        A queued Celery task: `delay(*args, **kwargs)` and `apply_async(args=(…), kwargs={…})`
+        bind the task's parameters like a call. The call's result is the queued task's handle,
+        never what the task returns, so nothing relates the task's return to it.
+        """
+        func = node.func
+        assert isinstance(func, ast.Attribute)
+        if func.attr in ("delay", "s", "si"):
+            args, kws = list(node.args), list(node.keywords)
+        else:
+            named = {kw.arg: kw.value for kw in node.keywords}
+            packed, mapping = named.get("args"), named.get("kwargs")
+            args = list(packed.elts) if isinstance(packed, (ast.Tuple, ast.List)) else []
+            kws = [ast.keyword(arg=key.value, value=value) for key, value in zip(mapping.keys, mapping.values) if isinstance(key, ast.Constant) and isinstance(key.value, str)] if isinstance(mapping, ast.Dict) else []
+            for kw in node.keywords:
+                if kw.arg not in ("args", "kwargs"):
+                    self.expr(kw.value)
+        positional = [(arg, self.expr(arg) or self.literal(arg)) for arg in args]
+        keywords = [(kw, self.expr(kw.value) or self.literal(kw.value)) for kw in kws]
+        callee_text = self.source.segment(func)
+        element = self.element("call-result", node, f"{callee_text}(…)", attributes={"queues": task.entry_id, "calleeName": task.qualname},
+                               proof={"kind": "syntax", "detail": f"{callee_text} queues the Celery task {task.qualname}", "locations": [task.source.location(task.source.span(task.node))]})
+        self.note(node, "Call")
+        self.program.record_call(task, self.source, node.lineno)
+        self.bind_arguments(task, None, node, positional, keywords)
+        return element
+
     def expr_Call(self, node: ast.Call) -> str | None:
         source = self.source
         span = self.span(node)
+        task = self.celery_task(node)
+        if task is not None:
+            return self.queue_task(task, node)
         callee_text = source.segment(node.func)
         checked = self.program.checked.callees.get(source.rel, {}).get(span_key(span))
         dotted = self.program.dotted(source, node.func)
@@ -1840,8 +1932,8 @@ class BodyWalker:
         function = self.program.resolve_function(target_name) or self.method_target(node)
         klass = None if function else self.program.resolve_class(target_name)
         receiver = None
-        origin_receiver = isinstance(node.func, ast.Attribute) and lookup(ORIGIN_READS, self.program.dotted(source, node.func.value)) is not None
-        early = lookup(TERMINAL_CALLS, target_name) or lookup(ORIGIN_CALLS, target_name)
+        origin_receiver = isinstance(node.func, ast.Attribute) and MODELS.read(self.program.dotted(source, node.func.value)) is not None
+        early = MODELS.call(target_name)
         if early is not None and origin_receiver:
             pass  # `os.environ.get(…)`: the call is the origin, not the mapping it is called on.
         elif isinstance(node.func, ast.Attribute) and not self.is_module_ref(node.func.value) and not (dotted and (self.program.resolve_class(dotted) or self.program.resolve_function(dotted))):
@@ -1854,9 +1946,12 @@ class BodyWalker:
         proof_name = f"mypy resolves {callee_text} to {checked}" if checked else (f"{callee_text} resolves to {dotted} through its imports" if dotted else None)
         proof_kind = "mypy" if checked else "import"
 
-        recognized = lookup(TERMINAL_CALLS, target_name) or lookup(ORIGIN_CALLS, target_name)
-        if recognized is None and dotted and dotted != target_name:
-            recognized = lookup(TERMINAL_CALLS, dotted) or lookup(ORIGIN_CALLS, dotted)
+        # mypy's name first; the import's name when mypy has none (a package that is not installed) or names no row.
+        by_import = MODELS.call(dotted) if dotted and dotted != target_name else None
+        recognized = MODELS.call(target_name) or by_import
+        if recognized is not None and by_import is not None and by_import is not recognized:
+            # The row the import's name also matches, kept so a test can see that every row resolves somewhere.
+            recognized = (recognized[0], recognized[1], {**recognized[2], "importModel": by_import[2]["libraryModel"]})
         if recognized is not None and recognized[0] == "file-input" and (target_name or "").endswith(".open") and opens_for_writing(node):
             recognized = ("file-write", "file write", {})
         if recognized is not None and function is None:
@@ -1929,8 +2024,16 @@ class BodyWalker:
         element = self.element("call-result", node, f"{callee_text}(…)", attributes=attributes,
                                proof={"kind": proof_kind, "detail": proof_name, "locations": [source.location(span)]} if proof_name else None)
         self.note(node, "Call")
+        # A built-in type's method (`name.strip()`, `items.copy()`), or a standard container protocol's
+        # (`typing.Mapping.get` on a `Mapping`-annotated value), is the language's own: its result derives from
+        # its receiver and arguments by definition (modelled). Any other library code is assumed to carry the
+        # value, so a trace that lands only through it is partial, not ok.
+        builtin = bool(target_name and target_name.startswith(("builtins.", "typing.", "collections.abc.", "_collections_abc.")))
         for child, value in inputs:
-            self.relate(value, element, "call-input", f"handed to {callee_text}, outside the program; its result is assumed to carry it", child, status="partial")
+            if builtin:
+                self.relate(value, element, "call-input", f"handed to the built-in {callee_text}; its result derives from it", child, status="partial", proof_kind="host-api")
+            else:
+                self.relate(value, element, "call-input", f"handed to {callee_text}, outside the program; its result is assumed to carry it", child, status="partial", proof_kind="external-call")
         model = self.keyword_model(node)
         if model is not None:
             # `Article.objects.create(title=…)` builds an Article: a use of the class, and each keyword sets its field.
@@ -2197,6 +2300,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--types-python", help="interpreter whose site-packages mypy reads (default: the project's .venv)")
     parser.add_argument("--include-tests", action="store_true", help="also read tests/, test_*.py and conftest.py")
     parser.add_argument("--probe", action="store_true", help="report the interpreter and mypy, then exit")
+    parser.add_argument("--models", nargs="*", help="library model row files (default: the engine's built-in ones)")
     args = parser.parse_args(argv)
     python = ".".join(str(part) for part in sys.version_info[:3])
     mypy_version = mypy_available()
@@ -2208,6 +2312,7 @@ def main(argv: list[str]) -> int:
     if mypy_version is None:
         print(json.dumps({"python": python, "executable": sys.executable, "mypy": None, "error": "mypy is not importable in this interpreter"}))
         return 3
+    MODELS.load([Path(file) for file in args.models] if args.models is not None else builtin_model_files())
     root = Path(args.root).resolve()
     source_dir = Path(args.source).resolve() if args.source else root
     started = time.perf_counter()

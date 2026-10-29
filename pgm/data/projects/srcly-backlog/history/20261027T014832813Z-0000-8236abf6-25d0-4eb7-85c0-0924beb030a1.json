@@ -1,0 +1,15 @@
+{
+  "id": "8236abf6-25d0-4eb7-85c0-0924beb030a1",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:4a92f8",
+    "label": "Agent token ...4a92f8"
+  },
+  "createdAt": "2026-10-27T01:48:32.813Z",
+  "summary": "Created \"`ok` claims that are not true\" under \"Data flow: Python usability (audit 2026-10)\".",
+  "nodeIds": [
+    "task-ok-claims-that-are-not-true",
+    "area-data-flow-python-usability-audit-2026-10"
+  ]
+}

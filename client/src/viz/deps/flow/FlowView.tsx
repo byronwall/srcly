@@ -21,9 +21,11 @@ import { exportsToViewModel } from "./exportsAdapter";
 import { anchorsToViewModel } from "./multiAnchorAdapter";
 import { FlowInspector } from "./FlowInspector";
 import { FlowLegend } from "./FlowLegend";
-import { DirectionSwitch, FlowModeSwitch, ReachModeSwitch, RecentFlowMenu } from "./FlowTools";
+import { DirectionSwitch, FlowModeSwitch, ReachModeSwitch, REACH_OF_DIRECTION, RecentFlowMenu, RouteLensSwitch } from "./FlowTools";
 import { createFetch } from "./fetchSignal";
 import { FlowProgress } from "./FlowProgress";
+import { stopsOf } from "./inspectorModel";
+import { PythonApps } from "./PythonApps";
 import { reachFrom, REACH_MODES, type ReachMode } from "./reach";
 import { RoutePicker } from "./RoutePicker";
 
@@ -124,6 +126,7 @@ export default function FlowView(props: {
     const spec = anchorSpec();
     return spec && "exports" in spec ? spec : null;
   };
+  const python = () => status()?.language === "python";
   const exportsKey = createMemo(() => (availability() === "ready" && exportsSpec() ? `${root()}\n${exportsSpec()!.file}\n${generation() ?? ""}` : null));
   const exportsFetch = createFetch(exportsKey, (key) => {
     const [path, file, gen] = key.split("\n");
@@ -193,6 +196,13 @@ export default function FlowView(props: {
     setSelected(null);
     go({ anchor: encodeAnchors([...specs, next]) });
   };
+  /** Re-anchor on a drawn box by its element id, keeping the direction. */
+  const traceFrom = (id: string) => {
+    const box = model()?.byId.get(id);
+    if (!box || !("side" in box) || box.kind === "scope") return;
+    setSelected(null);
+    go({ anchor: encodeAnchor({ file: box.file, element: id }), open: undefined });
+  };
   const canAddAnchor = () => anchorSpecs().length >= 1 && anchorSpecs().length < MAX_ANCHORS && !exportsSpec();
   const anchorText = () => anchorGraph()?.graph?.anchor.text ?? (exportsSpec() ? `${exportsSpec()!.file || "."} (exports)` : anchorSpec() && "name" in anchorSpec()! ? (anchorSpec() as { name: string }).name : anchorKey()) ?? "";
   // Opened exports: each is its own anchor graph, fetched one at a time (the engine is serial) and kept by generation.
@@ -240,10 +250,26 @@ export default function FlowView(props: {
     const route = (routes()?.routes ?? []).find((r) => r.key === key || r.pathPattern === key);
     return route?.handler ? encodeAnchor({ file: route.file, name: route.handler.name, line: route.handler.line }) : null;
   }
-  // A link to a handler route opens its handler in anchor mode instead.
+  /** A page route's component as an anchor: its data trace starts there. */
+  function componentOf(key: string) {
+    const route = (routes()?.routes ?? []).find((r) => r.key === key || r.pathPattern === key);
+    return route?.component ? encodeAnchor({ file: route.file, name: route.component.name, line: route.component.line }) : null;
+  }
+  /** The page route whose component the single anchor is: the toolbar offers its render tree too. */
+  const anchorRoute = () => (anchorSpecs().length === 1 ? (routes()?.routes ?? []).find((r) => componentOf(r.key) === anchorKey()) ?? null : null);
+  /** Open a route: a handler or a page's component in anchor mode, or the render tree when asked for. */
+  const routeTarget = (key: string, lens?: "components") => {
+    const handler = handlerOf(key);
+    if (handler) return { flow: undefined, anchor: handler, dir: "both" as const, lens: undefined };
+    const component = lens ? null : componentOf(key);
+    if (component) return { flow: undefined, anchor: component, dir: "forward" as const, lens: undefined };
+    return { flow: key, anchor: undefined, dir: undefined, lens };
+  };
+  // A link to a route opens its data: a handler, or a page's component, in anchor mode. `lens=components` keeps the render tree.
   createEffect(() => {
-    const anchor = routeKey() && !anchorKey() ? handlerOf(routeKey()) : null;
-    if (anchor) untrack(() => replace({ flow: undefined, anchor, dir: "both", field: undefined, dest: undefined }));
+    if (!routeKey() || anchorKey() || location().lens === "components") return;
+    const target = routeTarget(routeKey());
+    if (target.anchor) untrack(() => replace({ ...target, field: undefined, dest: undefined }));
   });
 
   const [picker, setPicker] = createSignal(false);
@@ -262,7 +288,7 @@ export default function FlowView(props: {
       if (many) return many.model;
       if (anchorSpecs().length > 1 && !extraAnchors()) return null;
       const a = anchorGraph()?.graph;
-      return a ? anchorGraphToViewModel(a) : null;
+      return a ? anchorGraphToViewModel(a, { expanded: location().open ?? [] }) : null;
     }
     const g = drawnGraph();
     return g ? routeGraphToViewModel(g, { expanded: location().open ?? [] }) : null;
@@ -283,12 +309,14 @@ export default function FlowView(props: {
   });
   const [hovered, setHovered] = createSignal<ViewNode | null>(null);
   const [reachMode, setReachMode] = createSignal<ReachMode>("both");
+  /** Anchor mode has one direction control: a selected box's reach follows the trace's direction. */
+  const reachShown = (): ReachMode => (anchorKey() ? REACH_OF_DIRECTION[dir()] : reachMode());
   /** The selected box's reach over the drawn view: what is proven to reach it, and what it reaches. */
   const reach = createMemo(() => {
     const m = model();
     const s = selected();
     if (!m || !s || !m.vm.nodes.some((n) => n.id === s)) return null;
-    return reachFrom(m.vm, s, reachMode(), { exclude: m.notFlow });
+    return reachFrom(m.vm, s, reachShown(), { exclude: m.notFlow });
   });
   /** What the canvas keeps lit: a selected box's reach, else the selected origin's destinations. */
   const highlight = () => {
@@ -381,9 +409,7 @@ export default function FlowView(props: {
   };
   const pickRoute = (key: string) => {
     setSelected(null);
-    const handler = handlerOf(key);
-    if (handler) go({ flow: undefined, anchor: handler, dir: "both", open: undefined, field: undefined, dest: undefined });
-    else go({ flow: key, anchor: undefined, dir: undefined, open: undefined, field: undefined, dest: undefined });
+    go({ ...routeTarget(key), open: undefined, field: undefined, dest: undefined });
   };
   /** Leave anchor mode for the route picker. */
   const toRoutes = () => {
@@ -446,7 +472,7 @@ export default function FlowView(props: {
       if (key === "/") setPicker(true);
       else if (key === "0") canvas?.fit();
       else if (key === "i") toggleInspector();
-      else if (key === "r" && selected()) setReachMode(REACH_MODES[(REACH_MODES.findIndex((m) => m.id === reachMode()) + 1) % REACH_MODES.length].id);
+      else if (key === "r" && selected() && !anchorKey()) setReachMode(REACH_MODES[(REACH_MODES.findIndex((m) => m.id === reachMode()) + 1) % REACH_MODES.length].id);
       else if (key === "Escape" && (selectedEdge() || selected() || field())) {
         if (selectedEdge()) setSelectedEdge(null);
         else if (selected()) setSelected(null);
@@ -469,7 +495,7 @@ export default function FlowView(props: {
     if (anchorKey()) {
       const a = anchorGraph();
       // A partial trace says how many places it stops; the rail lists them.
-      const stops = a?.graph && a.outcome === "partial" ? a.graph.counts.frontiers + a.graph.counts.boundaries : 0;
+      const stops = a?.graph && a.outcome === "partial" ? stopsOf(a.graph).reduce((sum, group) => sum + group.rows.length, 0) : 0;
       if (stops) return `Partial: the trace stops at ${stops} place${stops === 1 ? "" : "s"} (listed in the inspector)`;
       // An assumed trace names no stop: its assumed library steps are the explanation, listed in the inspector.
       if (a?.graph && a.outcome === "assumed") return `${ASSUMED_LABEL} (the assumed steps are listed in the inspector)`;
@@ -531,6 +557,18 @@ export default function FlowView(props: {
       <ViewTools>
         <span aria-hidden="true" class="mx-1 h-4 w-px shrink-0 bg-[var(--plc-border)]" />
         <FlowModeSwitch />
+        <Show when={anchorRoute() ?? (!anchorSpec() && currentRoute()?.component ? currentRoute() : null)}>
+          {(route) => (
+            <RouteLensSwitch
+              route={anchorSpec() ? route().pathPattern : ""}
+              lens={anchorSpec() ? "data" : "components"}
+              onChange={(lens) => {
+                setSelected(null);
+                go({ ...routeTarget(route().key, lens === "components" ? "components" : undefined), open: undefined, field: undefined, dest: undefined });
+              }}
+            />
+          )}
+        </Show>
         <Show when={anchorSpec()}>
           <Button
             variant="ghost"
@@ -585,7 +623,7 @@ export default function FlowView(props: {
           </select>
         </label>
         </Show>
-        <Show when={reach()}>
+        <Show when={reach() && !anchorKey()}>
           <ReachModeSwitch mode={reachMode()} onChange={setReachMode} />
         </Show>
         <Button variant="ghost" class="px-2" onClick={() => canvas?.fit()} title="Fit the graph to the window (0)" disabled={!layout()}>
@@ -614,6 +652,7 @@ export default function FlowView(props: {
             class="absolute inset-0"
             title="Data flow N/A"
             description={`${reasonText(status()?.reason, status()?.message)}. ${status()?.message ?? ""}`.trim()}
+            actions={<PythonApps root={root()} apps={status()?.pythonApps} class="justify-center" />}
           />
         </Show>
         <Show when={!startError() && availability() !== "na" && waitingOn()}>
@@ -623,7 +662,12 @@ export default function FlowView(props: {
           <EmptyState
             class="absolute inset-0"
             title="No routes here"
-            description="Data flow starts from a route: a file under a routes/ folder that default-exports a component. Open a folder that has one."
+            description={
+              python()
+                ? "Data flow found no FastAPI or Flask route here. Trace any value instead: open a file, right-click a line, and pick Trace where it goes."
+                : "Data flow starts from a route: a file under a routes/ folder that default-exports a component. Open a folder that has one."
+            }
+            actions={<PythonApps root={root()} apps={status()?.pythonApps} class="justify-center" />}
           />
         </Show>
         <Show when={unanswered()}>
@@ -689,7 +733,7 @@ export default function FlowView(props: {
                 linkCounts="flow"
                 {...(anchorKey() ? { regionTitles: { in: "← Where it comes from", out: "Where it goes →" } } : {})}
               />
-              <FlowLegend />
+              <FlowLegend mode={anchorKey() ? "anchor" : "route"} />
             </>
           )}
         </Show>
@@ -700,6 +744,7 @@ export default function FlowView(props: {
           anchor={anchorKey() ? (anchorGraph()?.graph ?? null) : null}
           model={model()!}
           rootPath={root()}
+          language={status()?.language}
           selected={location().dest ?? selected()}
           edge={selectedEdge()}
           edgePath={{ loading: edgePath.loading(), value: edgePath.value(), error: edgePath.error() }}
@@ -714,6 +759,7 @@ export default function FlowView(props: {
           onPickOrigin={pickOrigin}
           onToggleFrame={toggleFrame}
           onAddAnchor={canAddAnchor() ? addAnchorFrom : undefined}
+          onTraceFrom={anchorKey() && !exportsSpec() ? traceFrom : undefined}
           onClose={toggleInspector}
         />
       </Show>
@@ -729,7 +775,7 @@ export default function FlowView(props: {
         </span>
       </div>
 
-      <RoutePicker open={picker()} routes={routeList()} current={currentRoute()?.key} onClose={() => setPicker(false)} onPick={(r) => pickRoute(r.key)} />
+      <RoutePicker open={picker()} routes={routeList()} current={currentRoute()?.key} onClose={() => setPicker(false)} onPick={(r) => pickRoute(r.key)} aside={<PythonApps root={root()} apps={status()?.pythonApps} />} />
     </div>
   );
 }

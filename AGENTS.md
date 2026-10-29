@@ -33,6 +33,15 @@
 
 Start with `docs/CODE_MAP.md`: a feature → file index for the backend, API, and client. When you add, move, or remove a feature's main files, update the matching row in the same change.
 
+## Backlog
+
+Open work lives in a Product Grid project in `pgm/data` (project `srcly-backlog`). Each area is a workstream; each task's context holds its evidence, files and done condition.
+
+- Read it: `pgm --local pgm/data --project srcly-backlog node list --preset status --json`, then `node view <id> --with-context --json`. `pgm viewer` from the repo root opens it in a browser.
+- Change it with `pgm --local pgm/data --project srcly-backlog node create|update ...`, and commit `pgm/data` with the change it tracks.
+- The grid holds open work only. When a task lands, record it in the docs (for data flow, `docs/dataflow-coverage.md` or the initiative's plan), then delete the node. Do not keep `implemented` nodes.
+- Do not track backlogs in scratchpad or `tmp/` files.
+
 ## Engine
 
 `engine/` is the data-flow engine: tsx-data-flow's analysis behind a stdio protocol, a standalone pnpm package with its own lockfile. Provenance is in `engine/UPSTREAM.md`; the plan is `docs/intent/tsx-dataflow-integration/detailed-plan.md`.

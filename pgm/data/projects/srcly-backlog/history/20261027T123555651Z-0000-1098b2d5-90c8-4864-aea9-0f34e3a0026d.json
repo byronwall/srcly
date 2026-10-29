@@ -1,0 +1,14 @@
+{
+  "id": "1098b2d5-90c8-4864-aea9-0f34e3a0026d",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:609b90",
+    "label": "Agent token ...609b90"
+  },
+  "createdAt": "2026-10-27T12:35:55.651Z",
+  "summary": "Deleted \"File anchors for Python\".",
+  "nodeIds": [
+    "task-file-anchors-for-python"
+  ]
+}

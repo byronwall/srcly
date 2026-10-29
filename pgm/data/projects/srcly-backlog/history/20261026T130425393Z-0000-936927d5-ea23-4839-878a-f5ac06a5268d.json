@@ -1,0 +1,14 @@
+{
+  "id": "936927d5-ea23-4839-878a-f5ac06a5268d",
+  "kind": "node.status.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:fd5494",
+    "label": "Agent token ...fd5494"
+  },
+  "createdAt": "2026-10-26T13:04:25.393Z",
+  "summary": "Changed \"Hub summaries for size-limited slices\" status to planned.",
+  "nodeIds": [
+    "task-hub-summaries-for-size-limited-slices"
+  ]
+}

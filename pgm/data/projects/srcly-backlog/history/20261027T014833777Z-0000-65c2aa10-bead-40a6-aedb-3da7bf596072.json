@@ -1,0 +1,15 @@
+{
+  "id": "65c2aa10-bead-40a6-aedb-3da7bf596072",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:beeed5",
+    "label": "Agent token ...beeed5"
+  },
+  "createdAt": "2026-10-27T01:48:33.777Z",
+  "summary": "Created \"One control per idea; trace from a box\" under \"Data flow: Python usability (audit 2026-10)\".",
+  "nodeIds": [
+    "task-one-control-per-idea-trace-from-a-box",
+    "area-data-flow-python-usability-audit-2026-10"
+  ]
+}

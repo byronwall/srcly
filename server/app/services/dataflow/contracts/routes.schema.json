@@ -94,6 +94,31 @@
                 "type": "null"
               }
             ]
+          },
+          "component": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "name",
+                  "line"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -102,7 +127,8 @@
           "file",
           "absPath",
           "parameters",
-          "handler"
+          "handler",
+          "component"
         ],
         "additionalProperties": false
       }

@@ -1,0 +1,14 @@
+{
+  "id": "4d00bd5c-4c0e-4fc4-9829-19a1da6f2224",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:a9aac8",
+    "label": "Agent token ...a9aac8"
+  },
+  "createdAt": "2026-10-26T13:04:18.534Z",
+  "summary": "Set \"Step 5: passes-through and consumes rows\" priority to medium.",
+  "nodeIds": [
+    "task-step-5-passes-through-and-consumes-rows"
+  ]
+}

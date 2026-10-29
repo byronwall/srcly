@@ -14,6 +14,7 @@ has mypy because srcly depends on it.
 
 from __future__ import annotations
 
+import functools
 import importlib.util
 import os
 import shutil
@@ -52,6 +53,8 @@ class Availability:
     language: str = "typescript"  # "typescript" | "python"
     # The interpreter that runs the engine's Python helper (Python roots only).
     python: str | None = None
+    # Python apps below a root that is analyzed as TypeScript, relative to it.
+    python_apps: tuple[str, ...] = ()
 
 
 def locate_node() -> str | None:
@@ -125,6 +128,46 @@ def is_python_root(root: Path, max_depth: int = 2) -> bool:
     return False
 
 
+@functools.cache
+def python_apps(root: Path, max_depth: int = 3) -> tuple[str, ...]:
+    """
+    Folders below ``root`` to analyze as Python, where their imports resolve:
+    a folder with ``manage.py`` (Django) wins over the project files around it;
+    otherwise the deepest folder with a project file. A project file at the
+    root itself names its packages instead (``mealie/``), since the root is
+    taken by TypeScript.
+    """
+    django: list[Path] = []
+    projects: list[Path] = []
+    stack = [(root, 0)]
+    while stack:
+        folder, depth = stack.pop()
+        try:
+            entries = list(os.scandir(folder))
+        except OSError:
+            continue
+        names = {e.name for e in entries if e.is_file()}
+        if "manage.py" in names:
+            django.append(folder)
+        elif any(name in names for name in _PYTHON_PROJECT_FILES):
+            projects.append(folder)
+        for entry in entries:
+            if depth < max_depth and entry.is_dir(follow_symlinks=False) and entry.name not in _SKIP_DIRS and not entry.name.startswith("."):
+                stack.append((Path(entry.path), depth + 1))
+    found = django or projects
+    # A project file that only wraps a deeper app (a workspace, or the repo around src/manage.py) is not the app.
+    apps = [f for f in found if not any(o != f and o.is_relative_to(f) for o in django + projects)]
+    out: list[str] = []
+    for app in apps:
+        if app != root:
+            out.append(app.relative_to(root).as_posix())
+            continue
+        for entry in sorted(os.scandir(root), key=lambda e: e.name):
+            if entry.is_dir() and not entry.name.startswith(("test", ".")) and (Path(entry.path) / "__init__.py").is_file():
+                out.append(entry.name)
+    return tuple(sorted(out))
+
+
 def python_checker() -> str | None:
     """This interpreter, when it can import mypy (the Python provider's type checker)."""
     return sys.executable if importlib.util.find_spec("mypy") is not None else None
@@ -144,7 +187,7 @@ def probe(root: Path) -> Availability:
             node=node,
         )
     if has_tsconfig(root):
-        return Availability(True, node=node, launch=launch)
+        return Availability(True, node=node, launch=launch, python_apps=python_apps(root))
     if is_python_root(root):
         python = python_checker()
         if python is None:

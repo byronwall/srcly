@@ -7,7 +7,6 @@ import { verifyExactSourceCarrier } from "./route-totality-field-transfer-carrie
 import { deriveTargetConsumerDescriptor, sameTargetConsumerDescriptor } from "./route-totality-field-target-consumer";
 import { deriveFilterForTargetPolicy, FILTER_FOR_FIELD_TRANSFER_KINDS } from "./route-totality-field-filter-for-policy";
 import { CROSS_COLLECTION_FIELD_TRANSFER_KINDS, deriveCrossCollectionTargetPolicy, type CrossCollectionFieldTransferKind } from "./route-totality-field-cross-collection-policy";
-/* eslint-disable max-lines */
 
 export const EXACT_FIELD_TRANSFER_KINDS = [
   "source-carrier",

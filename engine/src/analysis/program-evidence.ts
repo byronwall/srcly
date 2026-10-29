@@ -65,6 +65,7 @@ export type ProgramProofKind =
   | "partial-classification"
   | "http-bridge"
   | "external-call"
+  | "standard-library"
   | "framework-state";
 export type ProgramProof = {
   kind: ProgramProofKind;
@@ -159,6 +160,10 @@ export type ProgramRelationKind =
   | "render-terminal"
   | "input-call"
   | "resource-loader"
+  | "resource-source-parameter"
+  | "context-value"
+  | "framework-flow"
+  | "member-state"
   | "resource-result"
   | "effect-input"
   | "http-bridge"

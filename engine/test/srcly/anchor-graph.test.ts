@@ -74,15 +74,15 @@ describe("anchorGraph on value-flow-basics", () => {
 
   it("enters a helper through its binding, through the library method its body calls, and back out at its own call's slot", () => {
     const graph = anchorGraphOp(session, { ...find(basics, "src/two-call-helper.tsx", "props.a", "shout(props.a)"), direction: "forward" });
-    // It lands with no stop, but only by assuming what `toUpperCase` does: assumed, never ok.
-    expect(graph.outcome).toBe("assumed");
+    // It lands with no stop; what `toUpperCase` does is the standard library's, modelled: ok.
+    expect(graph.outcome).toBe("ok");
     expect(boxes(graph, "boundary")).toEqual([]);
     expect(boxes(graph, "frontier")).toEqual([]);
-    // `value.toUpperCase()` has no body to enter: the call consumes its receiver, an assumed edge.
+    // `value.toUpperCase()` has no body to enter: the call consumes its receiver, modelled as the standard library.
     const upper = boxes(graph).find((node) => node.elementKind === "call" && node.label === "value.toUpperCase()")!;
-    expect(graph.edges.find((edge) => edge.target === upper.id)).toMatchObject({ status: "partial", proof: [expect.anything(), expect.objectContaining({ kind: "external-call" })] });
-    // `shout` has a body the walk enters: into it and back out assumes nothing; `toUpperCase` is the only assumption.
-    expect(graph.edges.filter((edge) => edge.status !== "proven").map((edge) => edge.target)).toEqual([upper.id]);
+    expect(graph.edges.find((edge) => edge.target === upper.id)).toMatchObject({ status: "proven", proof: [expect.anything(), expect.objectContaining({ kind: "standard-library" })] });
+    // `shout` has a body the walk enters: into it and back out assumes nothing either.
+    expect(graph.edges.filter((edge) => edge.status !== "proven")).toEqual([]);
     expect(graph.edges.filter((edge) => edge.kind === "argument-binding" || edge.kind === "return-value")).toMatchObject([{ status: "proven" }, { status: "proven" }]);
     // Paired with its own call (T13): only line 8's slot, never line 9's.
     expect(boxes(graph, "terminal").map((node) => node.line)).toEqual([8]);
@@ -178,10 +178,18 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(boxes(few, "frontier").filter((node) => node.reason === "budget-exhausted")).toEqual([]);
   });
 
+  it("names an inline function's frame by where it is written, never \"(anonymous)\"", () => {
+    const graph = anchorGraphOp(session, { ...find(basics, "src/match-callbacks.tsx", "props.doc", "<Match when={props.doc}>"), direction: "forward" });
+    const frames = graph.nodes.filter((node) => node.kind === "scope").map((node) => node.label);
+    expect(frames).toContain("<Match> child");
+    expect(frames).toContain("<Show> child");
+    expect(frames.some((label) => label.includes("(anonymous)"))).toBe(false);
+  });
+
   it("hands a library call's receiver to its callback's parameter alone (the rest is annotated in the fixture)", () => {
     const graph = anchorGraphOp(session, { ...find(basics, "src/library-callbacks.tsx", "props.items", "props.items.reduce"), direction: "forward" });
     const item = graph.nodes.find((node) => node.elementKind === "parameter" && node.label === "item")!;
-    expect(graph.edges.find((edge) => edge.kind === "callback-parameter" && edge.target === item.id)).toMatchObject({ status: "partial" });
+    expect(graph.edges.find((edge) => edge.kind === "callback-parameter" && edge.target === item.id)).toMatchObject({ status: "proven" });
     // Only the receiver is handed in: never the call's other argument (`0`).
     const handed = graph.edges.filter((edge) => edge.kind === "callback-parameter");
     expect(handed.map((edge) => graph.nodes.find((node) => node.id === edge.source)?.label)).toEqual(["props.items"]);

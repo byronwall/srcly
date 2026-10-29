@@ -1,0 +1,14 @@
+{
+  "id": "560d8313-12d4-4e81-95e1-f916337434b8",
+  "kind": "node.status.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:2547fb",
+    "label": "Agent token ...2547fb"
+  },
+  "createdAt": "2026-10-26T13:04:29.113Z",
+  "summary": "Changed \"explorEDA trace timeouts\" status to planned.",
+  "nodeIds": [
+    "task-exploreda-trace-timeouts"
+  ]
+}

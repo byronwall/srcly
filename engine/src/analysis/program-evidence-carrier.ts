@@ -8,6 +8,7 @@ import {
   asFunctionLike,
   calleeName,
   callOperation,
+  importedCallee,
   isFileOperation,
   isResourceFactory,
   proof,
@@ -173,8 +174,9 @@ function collectJsonParseCarriers(context: CarrierContext, calls: readonly CallE
     const argument = parse.node.arguments.length === 1 ? parse.node.arguments[0] : null;
     const awaited = argument && context.ts.isAwaitExpression(argument) ? argument.expression : null;
     if (!awaited || !context.ts.isCallExpression(awaited)) continue;
-    const module = context.moduleFor(awaited.expression);
-    const name = calleeName(context.ts, awaited.expression);
+    const imported = importedCallee(context.ts, context.checker, awaited.expression);
+    const module = context.moduleFor(awaited.expression) ?? imported?.module ?? null;
+    const name = imported?.name ?? calleeName(context.ts, awaited.expression);
     if (!isFileOperation(module, name, "read") || !context.symbolId(awaited.expression)) continue;
     const readId = context.elementFor(awaited, "call");
     if (!readId) continue;

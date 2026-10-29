@@ -1,0 +1,15 @@
+{
+  "id": "51ac00e0-8d6d-4e41-85b6-f1eacbea3eed",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:e22018",
+    "label": "Agent token ...e22018"
+  },
+  "createdAt": "2026-10-26T13:04:31.885Z",
+  "summary": "Created \"Collectors record end attributes for TypeScript\" under \"Data flow: engine structure\".",
+  "nodeIds": [
+    "task-collectors-record-end-attributes-for-typescript",
+    "area-data-flow-engine-structure"
+  ]
+}

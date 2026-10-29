@@ -3,7 +3,7 @@ import { createSignal, For, type JSX, Show } from "solid-js";
 import { IconButton } from "../../../components/ui/IconButton";
 import { DOTTED_BOX_DASH, EDGE_OPACITY, FRONTIER_BOX_DASH, HANDOFF_EDGE_DASH, STRUCTURAL_EDGE_DASH } from "../encoding";
 import { FlowMarkGlyph, RepetitionBadge } from "./FlowMark";
-import { FLOW_MARK_ORDER, FLOW_MARKS, REPETITION_BADGE, markVar } from "./marks";
+import { FLOW_MARK_ORDER, FLOW_MARKS, REPETITION_BADGE, markVar, type FlowMark } from "./marks";
 
 const COLLAPSED_KEY = "srcly.flowLegendCollapsed";
 const SW = 30;
@@ -88,17 +88,57 @@ const KEYS: [keys: string, label: string][] = [
   ["Esc", "Clear the selection"],
 ];
 
-const GROUPS: { title: string; items: { swatch: () => JSX.Element; label: string }[] }[] = [
+type Group = { title: string; items: { swatch: () => JSX.Element; label: string }[] };
+
+const markItem = (mark: FlowMark, hint = FLOW_MARKS[mark].hint) => ({
+  swatch: () => <MarkSwatch mark={mark} />,
+  label: `${FLOW_MARKS[mark].label[0].toUpperCase()}${FLOW_MARKS[mark].label.slice(1)}: ${hint}`,
+});
+
+/** Anchor mode traces values, in either language: no routes, components, render frames or repetition badges. */
+const ANCHOR_GROUPS: Group[] = [
+  {
+    title: "Keys",
+    items: KEYS.filter(([keys]) => keys !== "/").map(([keys, label]) => ({ swatch: () => <KeySwatch keys={keys} />, label })),
+  },
+  {
+    title: "Marks",
+    items: [
+      markItem("anchor"),
+      markItem("origin", "where a value enters: a request, a file, the environment, a database read"),
+      markItem("value"),
+      markItem("transform", "a step that reshapes the value: a call, a constructor, a packed object"),
+      markItem("terminal", "where a value ends: a response, a write, a return, a branch test"),
+      markItem("boundary"),
+      markItem("frontier"),
+    ],
+  },
+  {
+    title: "Edges",
+    items: [
+      { swatch: () => <EdgeSwatch />, label: "Flow: the value moves to the next box" },
+      { swatch: () => <EdgeSwatch dash={HANDOFF_EDGE_DASH} />, label: "Crosses a call: an argument, a return or a binding" },
+      { swatch: () => <EdgeSwatch dash={STRUCTURAL_EDGE_DASH} muted />, label: "Structural: found by structure, not traced" },
+    ],
+  },
+  {
+    title: "Boxes",
+    items: [
+      { swatch: () => <BoxSwatch frame />, label: "Frame: one function, class or module" },
+      { swatch: () => <BoxSwatch stroke="var(--plc-warning)" width={1.5} />, label: "Partial: the engine omitted some of what is inside" },
+      { swatch: () => <BoxSwatch stroke="var(--plc-error)" width={1.5} />, label: "Unsupported: not analyzed; the box says why" },
+    ],
+  },
+];
+
+const GROUPS: Group[] = [
   {
     title: "Keys",
     items: KEYS.map(([keys, label]) => ({ swatch: () => <KeySwatch keys={keys} />, label })),
   },
   {
     title: "Marks",
-    items: FLOW_MARK_ORDER.map((mark) => ({
-      swatch: () => <MarkSwatch mark={mark} />,
-      label: `${FLOW_MARKS[mark].label[0].toUpperCase()}${FLOW_MARKS[mark].label.slice(1)}: ${FLOW_MARKS[mark].hint}`,
-    })),
+    items: FLOW_MARK_ORDER.map((mark) => markItem(mark)),
   },
   {
     title: "Edges",
@@ -130,8 +170,8 @@ const GROUPS: { title: string; items: { swatch: () => JSX.Element; label: string
   },
 ];
 
-/** Bottom-right key to Data flow mode's encodings; collapses to an icon. */
-export function FlowLegend() {
+/** Bottom-right key to Data flow mode's encodings; collapses to an icon. Route mode draws renders; anchor mode traces values. */
+export function FlowLegend(props: { mode: "route" | "anchor" }) {
   const [collapsed, setCollapsed] = createSignal(readCollapsed());
   const toggle = () => {
     const next = !collapsed();
@@ -156,7 +196,7 @@ export function FlowLegend() {
               <ChevronDown size={13} aria-hidden="true" />
             </IconButton>
           </div>
-          <For each={GROUPS}>
+          <For each={props.mode === "anchor" ? ANCHOR_GROUPS : GROUPS}>
             {(group, gi) => (
               <section classList={{ "mt-1.5": gi() > 0 }}>
                 <h4 class="pb-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--plc-on-subtle)]">{group.title}</h4>

@@ -62,6 +62,7 @@ import {
   stableSerialize,
   symbolAtNode,
 } from "./program-evidence-support";
+import { resolveValue } from "./value-origin";
 import { NO_ANALYSIS_CANCELLATION, type AnalysisCancellationToken } from "./cancellation";
 import { stateFactory } from "./program-evidence-state-pairs";
 
@@ -531,7 +532,11 @@ export class ProgramEvidenceCollectorSupport {
     while (this.ts.isParenthesizedExpression(callee)) callee = callee.expression;
     if (this.ts.isArrowFunction(callee) || this.ts.isFunctionExpression(callee)) return this.functionsByNode.get(nodeKey(this.root, callee)) ?? null;
     const symbolId = this.symbolId(node);
-    return symbolId ? this.functionsBySymbol.get(symbolId) ?? null : null;
+    const named = symbolId ? this.functionsBySymbol.get(symbolId) : undefined;
+    if (named) return named;
+    // Reached through an object, a destructured binding or an alias: the one function the checker names.
+    const value = this.ts.isExpression(node) ? resolveValue(this.ts, this.checker, node) : null;
+    return value ? this.functionsByNode.get(nodeKey(this.root, value.origin)) ?? null : null;
   }
 
   protected isExternalCall(node: TypeScript.CallExpression): boolean {

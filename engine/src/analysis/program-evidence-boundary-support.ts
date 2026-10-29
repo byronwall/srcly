@@ -1,7 +1,10 @@
 import * as TypeScript from "typescript";
 import {
+  browserCall,
+  browserMember,
   calleeName,
   externalServiceCallKind,
+  importedCallee,
   isExit,
   isFileOperation,
   isHttpResponse,
@@ -69,17 +72,62 @@ export type ProgramEvidenceBoundaryContext = {
   addHttpResponse: (response: HttpBridgeResponse) => void;
 };
 
+/** Router hooks that read the page's URL: route parameters, the query string, the location. */
+const URL_READS: Record<string, readonly string[]> = {
+  "@solidjs/router": ["useParams", "useSearchParams", "useLocation"],
+  "react-router": ["useParams", "useSearchParams", "useLocation"],
+  "react-router-dom": ["useParams", "useSearchParams", "useLocation"],
+  "next/navigation": ["useParams", "useSearchParams", "usePathname"],
+  "@tanstack/react-router": ["useParams", "useSearch", "useLocation"],
+};
+
 /** Collect host, external, resource, and HTTP boundary facts for one call. */
 export function processProgramCallBoundary(
   context: ProgramEvidenceBoundaryContext,
 ): void {
   const { ts, node, callId, ownerId } = context;
   const name = calleeName(ts, node.expression);
-  const module = context.moduleFor(node.expression);
-  const fileRead = isFileOperation(module, name, "read");
-  const fileWrite = isFileOperation(module, name, "write");
+  // A library export is its module and its own name, however the import names it (`fs.readFile`, `readFile as read`).
+  const imported = importedCallee(ts, context.checker, node.expression);
+  const module = context.moduleFor(node.expression) ?? imported?.module ?? null;
+  const exported = imported?.name ?? name;
+  const fileRead = isFileOperation(module, exported, "read");
+  const fileWrite = isFileOperation(module, exported, "write");
   const stream = outputKind(name, node);
-  if (name === "fetch" || isNetworkOperation(module, name)) {
+  const urlRead = imported && URL_READS[imported.module]?.includes(imported.name);
+  const browser = browserCall(browserMember(ts, context.checker, node.expression));
+  if (browser) {
+    // Browser storage, history and navigation: outside the program, named by what they are.
+    const text = `${node.expression.getText(node.getSourceFile())}(…)`;
+    const id = context.specialInput(
+      node,
+      browser === "read" ? "external-read" : "external-effect",
+      ownerId,
+      { operation: exported, name: browser === "read" ? `browser read: ${text}` : `browser write: ${text}` },
+      "host-api",
+      browser === "read" ? "The browser hands the program this stored value." : "The browser keeps this value outside the program.",
+    );
+    if (browser === "read") context.addRelation(id, callId, "carrier", [context.location(node)], proof("carrier-boundary", "The browser call yields what it reads.", [context.location(node)]), "proven");
+    else context.addRelation(callId, id, "effect-input", [context.location(node)], proof("host-api", "The browser call keeps what it is given.", [context.location(node)]), "proven");
+  } else if (urlRead) {
+    // What a router reads from the URL is where a page's input starts.
+    const inputId = context.specialInput(
+      node,
+      "external-read",
+      ownerId,
+      { operation: exported, name: `URL: ${node.getText(node.getSourceFile()).slice(0, 80)}` },
+      "host-api",
+      "The router reads this value from the page's URL.",
+    );
+    context.addRelation(
+      inputId,
+      callId,
+      "carrier",
+      [context.location(node)],
+      proof("carrier-boundary", "The router call yields what it reads from the URL.", [context.location(node)]),
+      "proven",
+    );
+  } else if (name === "fetch" || isNetworkOperation(module, exported)) {
     const inputId = context.specialInput(
       node,
       "fetch-input",
@@ -260,7 +308,7 @@ export function processProgramCallBoundary(
         node,
         "external-read",
         ownerId,
-        { operation: name },
+        { operation: name, name: `database read: ${node.expression.getText()}(…)` },
         "compiler-symbol",
         "The compiler-resolved service method has a source-backed contract without an in-project implementation.",
       );
@@ -272,6 +320,40 @@ export function processProgramCallBoundary(
         proof(
           "compiler-symbol",
           "The service contract identifies this call as an external read boundary.",
+          [context.location(node)],
+        ),
+        "proven",
+      );
+      // What the read returns is what the call yields: backward, the call's value starts at the read.
+      context.addRelation(
+        readId,
+        callId,
+        "carrier",
+        [context.location(node)],
+        proof(
+          "carrier-boundary",
+          "The compiler-resolved service read has one exact forward carrier endpoint.",
+          [context.location(node)],
+        ),
+        "proven",
+      );
+    } else if (serviceCallKind === "external-write") {
+      const writeId = context.specialInput(
+        node,
+        "external-effect",
+        ownerId,
+        { operation: name, name: `database write: ${node.expression.getText()}(…)` },
+        "compiler-symbol",
+        "The compiler-resolved service method has a source-backed write contract without an in-project implementation.",
+      );
+      context.addRelation(
+        callId,
+        writeId,
+        "effect-input",
+        [context.location(node)],
+        proof(
+          "compiler-symbol",
+          "The service contract identifies this call as a write terminal.",
           [context.location(node)],
         ),
         "proven",
