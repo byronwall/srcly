@@ -472,7 +472,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     }
     if (!this.ts.isCallExpression(call.node)) return;
     this.connectExternalCallbacks(call, call.node);
-    if (!discardsValue(this.ts, call.node)) return;
+    if (!discardsValue(this.ts, call.node, this.checker)) return;
     // A member the project declares keeps what is put into it (`this.items.set(key, value)`): its reads see it.
     const method = unwrap(this.ts, call.node.expression);
     const receiver = this.ts.isPropertyAccessExpression(method) ? unwrap(this.ts, method.expression) : null;
@@ -480,7 +480,13 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     // The receiver's root name: `rows` in `rows.push(row)`, `section` in `section.rows.push(row)`, `groups` in `groups[key].push(row)`.
     let root = unwrap(this.ts, call.node.expression);
     if (!this.ts.isPropertyAccessExpression(root)) return;
-    while (this.ts.isPropertyAccessExpression(root) || this.ts.isElementAccessExpression(root)) root = unwrap(this.ts, root.expression);
+    root = unwrap(this.ts, root.expression);
+    // The fields from the root to the receiver (`rows` in `section.rows`), innermost first; an index on the way writes the whole value from there.
+    let fields: TypeScript.PropertyAccessExpression[] = [];
+    while (this.ts.isPropertyAccessExpression(root) || this.ts.isElementAccessExpression(root)) {
+      fields = this.ts.isPropertyAccessExpression(root) ? [...fields, root] : [];
+      root = unwrap(this.ts, root.expression);
+    }
     if (!this.ts.isIdentifier(root)) return;
     // A variable a function declares, this one or one it is written in (a closure's), or a parameter: module state and globals are written for code no one function owns.
     const declaration = this.checker.getSymbolAtLocation(root)?.valueDeclaration;
@@ -489,7 +495,20 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     const bindingId = this.variablesBySymbol.get(this.symbolId(root) ?? "") ?? this.parametersBySymbol.get(this.symbolId(root) ?? "");
     if (!bindingId) return;
     const [kept, keptStatus] = this.libraryProof(call.node, `${calleeName(this.ts, call.node.expression)}'s value is discarded, so its arguments are kept in its receiver.`, [this.location(call.node), this.location(root)]);
-    this.addRelation(call.id, bindingId, "references", [this.location(call.node), this.location(root)], kept, keptStatus);
+    if (fields.length === 0) {
+      this.addRelation(call.id, bindingId, "references", [this.location(call.node), this.location(root)], kept, keptStatus);
+      return;
+    }
+    // Packed field by field into the root (`section.rows.push(row)` packs into `rows` of `section`), as `section.rows = …` would.
+    let valueId = call.id;
+    fields.forEach((access, index) => {
+      const { span } = this.location(access.name);
+      const packId = this.ensureElement(access, "object-pack", call.ownerId, { operation: "object-pack", fields: JSON.stringify({ [`${span.startLine}:${span.startColumn}`]: access.name.text }) }, null, null, null, "proven", proof("ast-node", "The receiver is one field of the object it is read from.", [this.location(access)]));
+      const [packProof, packStatus] = index === 0 ? [kept, keptStatus] : [proof("ast-node", "The field holds the value written into it.", [this.location(access.name)]), "proven" as const];
+      this.addRelation(valueId, packId, "pack-field", [this.location(access.name)], { ...packProof, locations: [this.location(access.name), ...packProof.locations] }, packStatus);
+      valueId = packId;
+    });
+    this.addRelation(valueId, bindingId, "references", [this.location(root)], proof("ast-node", "The object the call writes a field of.", [this.location(root)]), "proven");
   }
 
   /**
