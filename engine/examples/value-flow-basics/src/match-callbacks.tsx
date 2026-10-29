@@ -13,7 +13,7 @@ export function DocPage(props: { doc: Doc | undefined; failed: boolean }) {
       <Match when={props.failed}>
         <p>failed</p>
       </Match>
-      {/* @trace doc forward props.doc @outcome doc ok @reaches doc dom-terminal */}
+      {/* @trace doc forward props.doc @outcome doc ok @reaches doc branch-condition */}
       <Match when={props.doc}>
         {(d) => (
           <>

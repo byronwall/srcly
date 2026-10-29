@@ -1,179 +1,245 @@
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ACK_LINE, acknowledged, difference, moves, newErrors, summarize, table, traceId, type Summaries, type Trace } from "./survey-gate-moves";
 
-// A data-flow coverage regression gate. Surveys a small fixed corpus that
-// lives in this repo (srcly's own client and server, and one example) with
-// `survey-blockers.ts`, one repo per process, and compares the outcomes with
-// the committed `survey-baseline.json`. Always prints what moved.
+// A data-flow coverage gate. Surveys a small fixed corpus that lives in this
+// repo (srcly's own client and server, and one example) twice, at a base
+// commit and at the head, with each side's own engine and
+// `survey-blockers.ts`, one repo per process, one process at a time, and
+// diffs the two. Nothing is committed.
 //
-// Fails when the run differs from the baseline in any way it records (trace
-// counts, outcomes up or down, stops by kind, the ok, assumed and error trace lists),
-// so each PR commits exactly the moves it causes, and when a trace runs past
-// its time limit. The survey is deterministic: every local and CI run so far
-// matched, so there is no tolerance.
+// Both sides are surveyed in one git worktree outside the checkout, the base
+// checked out first and then the head (a snapshot commit of the working tree,
+// untracked files included), because some traces depend on the corpus's
+// absolute path: two folders can disagree on the same commit.
 //
-//   pnpm survey-gate            # check
-//   pnpm survey-gate --update   # rewrite the baseline (commit it with the change that moved it)
+// Always fails on a survey that crashes, a repo the engine cannot open, a
+// trace that newly errors, and a head trace past its time limit. Any other
+// difference (trace counts, outcomes, stops by kind, the ok, assumed and error
+// trace lists) is a move: CI fails it unless the PR body has a `Survey moves:` line
+// explaining it. The survey is deterministic in one folder, so there is no tolerance.
+//
+//   pnpm survey-gate                        # the working tree against its merge base with origin/main
+//   pnpm survey-gate --base <ref>           # against another commit
+//   pnpm survey-gate --body-file pr.md      # also require `Survey moves:` in that body when anything moved (CI)
+//   pnpm survey-gate --expect result.json   # require exactly the moves of an earlier run (the post-merge check on main)
+//   pnpm survey-gate --survey-only          # survey and write the result, but don't judge it
+//   pnpm survey-gate --reuse result.json    # judge an earlier result without surveying again
+//
+// Other flags: `--worktree <dir>` (where the surveyed worktree lives; default
+// a folder in the OS temp dir, kept for the next run), `--out <file>` (the
+// result JSON; default `engine/tmp/survey-gate/result.json`, beside `summary.md`).
 
 const ENGINE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const REPO = path.dirname(ENGINE);
-const BASELINE = path.join(ENGINE, "survey-baseline.json");
 const OUT = path.join(ENGINE, "tmp/survey-gate");
 
 /** A repo's first trace builds the shared evidence index, so it gets its own limit. Measured in CI: see AGENTS.md. */
 const FIRST_TRACE_LIMIT_MS = 30_000;
 const TRACE_LIMIT_MS = 5_000;
 
-type Corpus = { name: string; root: string; every: number; language?: "python"; needs: string };
-const python = process.env.SRCLY_PYTHON ?? path.join(REPO, "server/.venv/bin/python");
+type Corpus = { name: string; dir: string; every: number; language?: "python" };
 const CORPUS: Corpus[] = [
-  { name: "client", root: path.join(REPO, "client"), every: 6, needs: path.join(REPO, "client/node_modules") },
-  { name: "value-flow-basics", root: path.join(ENGINE, "examples/value-flow-basics"), every: 1, needs: path.join(ENGINE, "node_modules") },
-  { name: "server", root: path.join(REPO, "server"), every: 5, language: "python", needs: python },
+  { name: "client", dir: "client", every: 6 },
+  { name: "value-flow-basics", dir: "engine/examples/value-flow-basics", every: 1 },
+  { name: "server", dir: "server", every: 5, language: "python" },
 ];
 
-type Trace = { file: string; name: string; outcome: string; ms: number; code?: string; message?: string; stops?: { kind: string; reason: string | null }[] };
+type Side = { summaries: Summaries; failures: string[]; timing: string[]; ms: number; prepareMs: number };
+type Result = { base: { ref: string; sha: string }; head: { sha: string; dirty: boolean }; sides: { base: Side; head: Side }; moves: string[] };
 type Survey = { tier1: { ok: boolean; code?: string; message?: string }; traces?: Trace[] };
-type RepoSummary = { traces: number; outcomes: Record<string, number>; stops: Record<string, number>; ok: string[]; assumed: string[]; errors: string[] };
-type Baseline = { note: string; repos: Record<string, RepoSummary> };
 
-const update = process.argv.includes("--update");
-for (const repo of CORPUS) {
-  if (!fs.existsSync(repo.needs)) fail(`${repo.name} needs ${path.relative(REPO, repo.needs)}: install the client (pnpm install), the engine (pnpm install) and the server (uv sync) first.`);
+const args = parseArgs(process.argv.slice(2));
+const resultFile = path.resolve(args.out ?? path.join(OUT, "result.json"));
+
+const result: Result = args.reuse ? JSON.parse(fs.readFileSync(args.reuse, "utf8")) : surveyBoth();
+if (!args.reuse) {
+  fs.mkdirSync(path.dirname(resultFile), { recursive: true });
+  fs.writeFileSync(resultFile, `${JSON.stringify(result, null, 2)}\n`);
+}
+if (args["survey-only"]) {
+  process.stdout.write(`\n${report(result, [], []).join("\n")}\n\nWrote ${path.relative(process.cwd(), resultFile)}; judge it with --reuse.\n`);
+  process.exit(0);
+}
+judge(result);
+
+function surveyBoth(): Result {
+  const python = process.env.SRCLY_PYTHON ?? path.join(REPO, "server/.venv/bin/python");
+  if (!fs.existsSync(python)) fail(`The Python survey needs ${path.relative(REPO, python)} (mypy): run \`uv sync\` in server/ first, or set SRCLY_PYTHON.`);
+  const ref = args.base ?? "origin/main";
+  const baseSha = args.base ? git(["rev-parse", "--verify", `${args.base}^{commit}`]) : mergeBase(ref);
+  const dirty = git(["status", "--porcelain"]) !== "";
+  const head = { sha: git(["rev-parse", "HEAD"]), dirty };
+  process.stdout.write(`Survey gate: base ${baseSha.slice(0, 10)} (${args.base ? ref : `merge base with ${ref}`}), head ${head.sha.slice(0, 10)}${dirty ? " + working tree" : ""}\n`);
+  const headSha = dirty ? snapshot() : head.sha;
+  const dir = path.resolve(args.worktree ?? path.join(os.tmpdir(), `srcly-survey-${createHash("sha1").update(REPO).digest("hex").slice(0, 8)}`));
+
+  // Base first: the head's time limits are then measured on a warm disk.
+  const base = survey("base", baseSha, dir, python, false);
+  const headSide = survey("head", headSha, dir, python, true);
+  return { base: { ref, sha: baseSha }, head, sides: { base, head: headSide }, moves: moves(base.summaries, headSide.summaries) };
 }
 
-fs.rmSync(OUT, { recursive: true, force: true });
-const now: Record<string, RepoSummary> = {};
-/** Always fail: a survey that crashes, a repo the engine cannot open, a trace past its limit. */
-const failures: string[] = [];
-/** Fail a check, not an update: what moved against the baseline. */
-const regressions: string[] = [];
-const timing: string[] = [];
-for (const repo of CORPUS) {
-  const flags = ["--root", repo.root, "--name", repo.name, "--out", OUT, "--every", String(repo.every), "--deadline", String(FIRST_TRACE_LIMIT_MS * 2)];
-  if (repo.language) flags.push("--language", repo.language, "--python", python);
-  const run = spawnSync(process.execPath, ["--max-old-space-size=3072", "--import", "tsx", "scripts/survey-blockers.ts", ...flags], { cwd: ENGINE, stdio: ["ignore", "inherit", "inherit"] });
-  const file = path.join(OUT, `${repo.name}.json`);
-  if (run.status !== 0 || !fs.existsSync(file)) {
-    failures.push(`${repo.name}: the survey exited ${run.status ?? run.signal}`);
-    continue;
+/** A commit of the working tree, untracked files included, made through a scratch index: the checkout, its index and its refs are untouched. */
+function snapshot(): string {
+  const index = path.join(os.tmpdir(), `srcly-survey-index-${process.pid}`);
+  const env = { ...process.env, GIT_INDEX_FILE: index };
+  try {
+    git(["read-tree", "HEAD"], env);
+    git(["add", "--all"], env);
+    const tree = git(["write-tree"], env);
+    return git(["commit-tree", tree, "-p", "HEAD", "-m", "survey-gate: working tree"]);
+  } finally {
+    fs.rmSync(index, { force: true });
   }
-  const survey: Survey = JSON.parse(fs.readFileSync(file, "utf8"));
-  if (!survey.tier1.ok) failures.push(`${repo.name}: the engine cannot open it: ${survey.tier1.code}: ${survey.tier1.message?.split("\n")[0]}`);
-  const traces = survey.traces ?? [];
-  now[repo.name] = summarize(traces);
-  traces.forEach((trace, index) => {
-    const limit = index === 0 ? FIRST_TRACE_LIMIT_MS : TRACE_LIMIT_MS;
-    if (trace.ms > limit) failures.push(`${repo.name}: ${id(trace)} took ${trace.ms} ms (limit ${limit} ms)`);
-  });
-  const slowest = traces.slice(1).reduce<Trace | null>((max, trace) => (!max || trace.ms > max.ms ? trace : max), null);
-  timing.push(`${repo.name}: first trace ${traces[0]?.ms ?? "–"} ms, slowest after it ${slowest ? `${slowest.ms} ms (${id(slowest)})` : "–"}`);
 }
 
-const before: Baseline | null = fs.existsSync(BASELINE) ? JSON.parse(fs.readFileSync(BASELINE, "utf8")) : null;
-const report = diff(before?.repos ?? {}, now);
-report.push("", ...timing.map((line) => `- ${line}`));
-
-const UPDATE = "run `pnpm survey-gate --update` and commit the baseline";
-if (before) {
-  for (const name of [...new Set([...Object.keys(before.repos), ...Object.keys(now)])]) {
-    const [a, b] = [before.repos[name], now[name]];
-    const moved = !a || !b ? ["the repo"] : (["traces", "outcomes", "stops", "ok", "assumed", "errors"] as const).filter((field) => JSON.stringify(a[field]) !== JSON.stringify(b[field]));
-    if (moved.length) regressions.push(`${name}: ${moved.join(", ")} differ from the baseline: ${UPDATE}`);
+/**
+ * Checks `sha` out in the detached worktree `dir` (made on first use) and
+ * installs its engine and client from the shared pnpm store. Returns the
+ * worktree's real path (the compiler reports files by real path, and macOS's
+ * temp dir is a symlink) and the Python to survey its server with.
+ */
+function checkout(sha: string, dir: string, headPython: string): { root: string; python: string } {
+  const common = realpath(git(["rev-parse", "--path-format=absolute", "--git-common-dir"]));
+  const existing = fs.existsSync(dir) ? spawnSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir", "--show-toplevel"], { cwd: dir, encoding: "utf8" }) : null;
+  const [theirCommon, theirTop] = existing?.status === 0 ? existing.stdout.trim().split("\n") : [];
+  if (theirCommon && realpath(theirCommon) === common && realpath(theirTop) === realpath(dir)) {
+    run("git", ["checkout", "--quiet", "--detach", "--force", sha], dir);
+    run("git", ["clean", "--quiet", "-fd"], dir);
+  } else {
+    fs.rmSync(dir, { recursive: true, force: true });
+    run("git", ["worktree", "prune"], REPO);
+    run("git", ["worktree", "add", "--quiet", "--detach", "--force", dir, sha], REPO);
   }
-} else {
-  regressions.push(`no baseline: ${UPDATE}`);
+  for (const sub of ["engine", "client"]) run("pnpm", ["install", "--frozen-lockfile", "--prefer-offline", "--reporter=silent"], path.join(dir, sub));
+  if (!fs.existsSync(path.join(dir, "engine/scripts/survey-blockers.ts"))) fail(`${sha} has no engine/scripts/survey-blockers.ts to survey with.`);
+  const root = fs.realpathSync(dir);
+  // The server's interpreter only lends mypy and the server's dependencies; sync the worktree's own only when its lock differs.
+  const lock = (repo: string) => fs.readFileSync(path.join(repo, "server/uv.lock"), "utf8");
+  if (lock(dir) === lock(REPO)) return { root, python: headPython };
+  run("uv", ["sync", "--locked", "--quiet"], path.join(dir, "server"));
+  return { root, python: path.join(root, "server/.venv/bin/python") };
 }
 
-if (update) {
-  const next: Baseline = { note: "Data-flow coverage baseline for `pnpm survey-gate`. Regenerate with `pnpm survey-gate --update` in the PR that moves it.", repos: now };
-  fs.writeFileSync(BASELINE, `${JSON.stringify(next, null, 2)}\n`);
-  report.push("", `Wrote ${path.relative(REPO, BASELINE)}.`);
-}
-const realFailures = update ? failures : [...failures, ...regressions];
-if (realFailures.length) report.push("", "**Survey gate failed:**", ...realFailures.map((line) => `- ${line}`));
-else report.push("", update ? "Baseline updated." : "Survey gate passed.");
-const text = report.join("\n");
-process.stdout.write(`\n${text}\n`);
-if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Data-flow survey gate\n\n${text}\n`);
-process.exit(realFailures.length ? 1 : 0);
-
-function summarize(traces: Trace[]): RepoSummary {
-  const outcomes: Record<string, number> = {};
-  const stops: Record<string, number> = {};
-  for (const trace of traces) {
-    outcomes[trace.outcome] = (outcomes[trace.outcome] ?? 0) + 1;
-    for (const stop of trace.stops ?? []) {
-      const key = `${stop.kind}: ${stop.reason ?? "-"}`;
-      stops[key] = (stops[key] ?? 0) + 1;
+function survey(side: "base" | "head", sha: string, dir: string, headPython: string, timed: boolean): Side {
+  const prepared = performance.now();
+  const { root, python } = checkout(sha, dir, headPython);
+  const started = performance.now();
+  const out = path.join(OUT, side);
+  fs.rmSync(out, { recursive: true, force: true });
+  const summaries: Summaries = {};
+  const failures: string[] = [];
+  const timing: string[] = [];
+  for (const repo of CORPUS) {
+    process.stdout.write(`[${side}] `);
+    const flags = ["--root", path.join(root, repo.dir), "--name", repo.name, "--out", out, "--every", String(repo.every), "--deadline", String(FIRST_TRACE_LIMIT_MS * 2)];
+    if (repo.language) flags.push("--language", repo.language, "--python", python);
+    // The side's own engine and tsx: `--import tsx` resolves from the working directory.
+    const child = spawnSync(process.execPath, ["--max-old-space-size=3072", "--import", "tsx", "scripts/survey-blockers.ts", ...flags], { cwd: path.join(root, "engine"), stdio: ["ignore", "inherit", "inherit"] });
+    const file = path.join(out, `${repo.name}.json`);
+    if (child.status !== 0 || !fs.existsSync(file)) {
+      failures.push(`${side} ${repo.name}: the survey exited ${child.status ?? child.signal}`);
+      continue;
     }
+    const parsed: Survey = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (!parsed.tier1.ok) failures.push(`${side} ${repo.name}: the engine cannot open it: ${parsed.tier1.code}: ${parsed.tier1.message?.split("\n")[0]}`);
+    const traces = parsed.traces ?? [];
+    summaries[repo.name] = summarize(traces);
+    if (!timed) continue;
+    traces.forEach((trace, index) => {
+      const limit = index === 0 ? FIRST_TRACE_LIMIT_MS : TRACE_LIMIT_MS;
+      if (trace.ms > limit) failures.push(`${repo.name}: ${traceId(trace)} took ${trace.ms} ms (limit ${limit} ms)`);
+    });
+    const slowest = traces.slice(1).reduce<Trace | null>((max, trace) => (!max || trace.ms > max.ms ? trace : max), null);
+    timing.push(`${repo.name}: first trace ${traces[0]?.ms ?? "–"} ms, slowest after it ${slowest ? `${slowest.ms} ms (${traceId(slowest)})` : "–"}`);
   }
-  return {
-    traces: traces.length,
-    outcomes: sorted(outcomes),
-    stops: sorted(stops),
-    ok: traces.filter((trace) => trace.outcome === "ok").map(id).sort(),
-    assumed: traces.filter((trace) => trace.outcome === "assumed").map(id).sort(),
-    errors: traces.filter((trace) => trace.outcome === "error").map((trace) => `${id(trace)}: ${trace.code}`).sort(),
-  };
+  return { summaries, failures, timing, ms: Math.round(performance.now() - started), prepareMs: Math.round(started - prepared) };
 }
 
-/** Before/after tables: outcomes for every repo, stops and ok and assumed traces only where they moved. */
-function diff(old: Record<string, RepoSummary>, next: Record<string, RepoSummary>): string[] {
-  const lines = ["| Repo | Traces | ok | assumed | partial | error | other |", "| --- | ---: | ---: | ---: | ---: | ---: | ---: |"];
-  const names = [...new Set([...Object.keys(old), ...Object.keys(next)])];
-  const cell = (a: number | undefined, b: number | undefined) => (a === b ? `${b ?? 0}` : `${a ?? 0} → ${b ?? 0}`);
-  const other = (repo?: RepoSummary) => (repo ? repo.traces - (repo.outcomes.ok ?? 0) - (repo.outcomes.assumed ?? 0) - (repo.outcomes.partial ?? 0) - (repo.outcomes.error ?? 0) : undefined);
-  const total = (pick: (repo: RepoSummary) => number | undefined, repos: Record<string, RepoSummary>) => sum(Object.values(repos).map((repo) => pick(repo) ?? 0));
-  for (const name of names) {
-    const a = old[name];
-    const b = next[name];
-    lines.push(`| ${name} | ${cell(a?.traces, b?.traces)} | ${cell(a?.outcomes.ok, b?.outcomes.ok)} | ${cell(a?.outcomes.assumed, b?.outcomes.assumed)} | ${cell(a?.outcomes.partial, b?.outcomes.partial)} | ${cell(a?.outcomes.error, b?.outcomes.error)} | ${cell(other(a), other(b))} |`);
+function judge(result: Result): never {
+  const { base, head } = result.sides;
+  const failures = [...base.failures, ...head.failures, ...newErrors(base.summaries, head.summaries).map((line) => `new error: ${line}`)];
+  const notes: string[] = [];
+  if (args.expect) {
+    const expected: Result = JSON.parse(fs.readFileSync(args.expect, "utf8"));
+    const { unexpected, missing } = difference(expected.moves, result.moves);
+    if (unexpected.length || missing.length) {
+      failures.push(`the moves differ from the expected run's (${path.basename(args.expect)}, base ${expected.base.sha.slice(0, 10)}):`);
+      failures.push(...unexpected.map((line) => `  unexpected: ${line}`), ...missing.map((line) => `  expected but missing: ${line}`));
+    } else if (result.moves.length) {
+      notes.push(`The ${result.moves.length} moves match the expected run's.`);
+    }
+  } else if (result.moves.length) {
+    const body = args["body-file"] === undefined ? null : fs.readFileSync(args["body-file"], "utf8");
+    if (body === null) notes.push(`${result.moves.length} moves. CI fails them until the PR body has a \`${ACK_LINE}\` line that explains them.`);
+    else if (acknowledged(body)) notes.push(`${result.moves.length} moves, acknowledged by the PR body's \`${ACK_LINE}\` line.`);
+    else failures.push(`${result.moves.length} unacknowledged moves: add a \`${ACK_LINE}\` line to the PR body that explains them (editing the body re-runs this check).`);
   }
-  const pickOk = (repo: RepoSummary) => repo.outcomes.ok;
-  lines.push(`| **all** | ${cell(total((r) => r.traces, old), total((r) => r.traces, next))} | ${cell(total(pickOk, old), total(pickOk, next))} | ${cell(total((r) => r.outcomes.assumed, old), total((r) => r.outcomes.assumed, next))} | ${cell(total((r) => r.outcomes.partial, old), total((r) => r.outcomes.partial, next))} | ${cell(total((r) => r.outcomes.error, old), total((r) => r.outcomes.error, next))} | ${cell(total(other, old), total(other, next))} |`);
+  const text = report(result, failures, notes).join("\n");
+  process.stdout.write(`\n${text}\n`);
+  fs.mkdirSync(OUT, { recursive: true });
+  fs.writeFileSync(path.join(OUT, "summary.md"), `${text}\n`);
+  if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Data-flow survey gate\n\n${text}\n`);
+  process.exit(failures.length ? 1 : 0);
+}
 
-  const moved: string[] = [];
-  for (const name of names) {
-    const a = old[name]?.stops ?? {};
-    const b = next[name]?.stops ?? {};
-    for (const key of [...new Set([...Object.keys(a), ...Object.keys(b)])].sort()) if (a[key] !== b[key]) moved.push(`| ${name} | ${key} | ${a[key] ?? 0} | ${b[key] ?? 0} | ${signed((b[key] ?? 0) - (a[key] ?? 0))} |`);
-  }
-  lines.push("", moved.length ? ["| Repo | Stop | Before | After | Δ |", "| --- | --- | ---: | ---: | ---: |", ...moved].join("\n") : "Stops: no change.");
-
-  const traces: string[] = [];
-  for (const name of names.filter((repo) => old[repo] && next[repo])) {
-    const a = new Set(old[name]?.ok ?? []);
-    const b = new Set(next[name]?.ok ?? []);
-    for (const trace of [...a].filter((t) => !b.has(t))) traces.push(`- ${name}: ${trace} is no longer ok`);
-    for (const trace of [...b].filter((t) => !a.has(t))) traces.push(`- ${name}: ${trace} is now ok`);
-    const [assumedBefore, assumedNow] = [new Set(old[name]?.assumed ?? []), new Set(next[name]?.assumed ?? [])];
-    for (const trace of [...assumedBefore].filter((t) => !assumedNow.has(t))) traces.push(`- ${name}: ${trace} is no longer assumed`);
-    for (const trace of [...assumedNow].filter((t) => !assumedBefore.has(t))) traces.push(`- ${name}: ${trace} is now assumed`);
-    const [errorsBefore, errorsNow] = [new Set(old[name]?.errors ?? []), new Set(next[name]?.errors ?? [])];
-    for (const trace of [...errorsNow].filter((t) => !errorsBefore.has(t))) traces.push(`- ${name}: ${trace} now errors`);
-    for (const trace of [...errorsBefore].filter((t) => !errorsNow.has(t))) traces.push(`- ${name}: ${trace} no longer errors`);
-  }
-  if (traces.length) lines.push("", ...traces);
+function report(result: Result, failures: string[], notes: string[]): string[] {
+  const { base, head } = result.sides;
+  const lines = [
+    `Base \`${result.base.sha.slice(0, 10)}\` → head \`${result.head.sha.slice(0, 10)}\`${result.head.dirty ? " + working tree" : ""}. Surveys: base ${seconds(base.ms)}, head ${seconds(head.ms)}; checkout and install ${seconds(base.prepareMs)} and ${seconds(head.prepareMs)}.`,
+    "",
+    ...table(base.summaries, head.summaries),
+    "",
+    ...head.timing.map((line) => `- ${line}`),
+  ];
+  if (result.moves.length) lines.push("", `<details><summary>${result.moves.length} moves</summary>`, "", "```", ...result.moves, "```", "", "</details>");
+  else lines.push("", "No moves.");
+  if (notes.length) lines.push("", ...notes);
+  if (failures.length) lines.push("", "**Survey gate failed:**", ...failures.map((line) => (line.startsWith("  ") ? `  - ${line.trim()}` : `- ${line}`)));
+  else if (!args["survey-only"]) lines.push("", "Survey gate passed.");
   return lines;
 }
 
-function id(trace: Trace): string {
-  return `${trace.file}#${trace.name}`;
+function mergeBase(ref: string): string {
+  const found = spawnSync("git", ["merge-base", "HEAD", ref], { cwd: REPO, encoding: "utf8" });
+  if (found.status !== 0) fail(`No merge base with ${ref}: run \`git fetch origin\`, or pass --base <ref>.`);
+  return found.stdout.trim();
 }
 
-function sorted(counts: Record<string, number>): Record<string, number> {
-  return Object.fromEntries(Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)));
+function git(argv: string[], env: NodeJS.ProcessEnv = process.env): string {
+  const child = spawnSync("git", argv, { cwd: REPO, encoding: "utf8", env });
+  if (child.status !== 0) fail(`git ${argv.join(" ")}: ${child.stderr.trim()}`);
+  return child.stdout.trim();
 }
 
-function signed(n: number): string {
-  return n > 0 ? `+${n}` : `${n}`;
+function run(command: string, argv: string[], cwd: string): void {
+  const child = spawnSync(command, argv, { cwd, stdio: ["ignore", "inherit", "inherit"] });
+  if (child.status !== 0) fail(`${command} ${argv.join(" ")} (in ${cwd}) exited ${child.status ?? child.signal}`);
 }
 
-function sum(values: number[]): number {
-  return values.reduce((a, b) => a + b, 0);
+function realpath(file: string): string {
+  return fs.existsSync(file) ? fs.realpathSync(file) : path.resolve(file);
+}
+
+function seconds(ms: number): string {
+  return `${Math.round(ms / 1000)} s`;
+}
+
+function parseArgs(argv: string[]): Record<string, string | undefined> {
+  const flags: Record<string, string | undefined> = {};
+  const valued = new Set(["base", "worktree", "body-file", "expect", "out", "reuse"]);
+  for (let i = 0; i < argv.length; i++) {
+    const flag = argv[i].replace(/^--/, "");
+    if (valued.has(flag)) flags[flag] = argv[++i];
+    else if (flag === "survey-only") flags[flag] = "true";
+    else fail(`Unknown flag ${argv[i]}. See the comment at the top of engine/scripts/survey-gate.ts.`);
+  }
+  return flags;
 }
 
 function fail(message: string): never {

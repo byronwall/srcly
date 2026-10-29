@@ -6,7 +6,7 @@ import {
   constructorExpressionElementEvidence,
 } from "./program-evidence-collector-expression-support";
 import { stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
-import { namesSeveralValues, resolveValue } from "./value-origin";
+import { namesSeveralValues, resolveValue, wrappedArgument } from "./value-origin";
 import { ACCESSOR_FACTORIES, FRAMEWORK_FLOWS } from "./framework-flows";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo } from "./program-evidence-collector-support";
@@ -515,12 +515,15 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     const receiverType = receiver ? this.checker.getTypeAtLocation(receiver) : null;
     const awaited = receiverType ? this.checker.getAwaitedType(receiverType) : undefined;
     const element = receiverType ? receiverType.getNumberIndexType() ?? (awaited && awaited !== receiverType ? awaited : undefined) ?? receiverType : null;
+    // A wrapper (`action(fn)`, `useCallback(fn)`) returns the function itself: what it returns reaches the wrapper's call sites, not this call.
+    const wrapped = wrappedArgument(this.ts, this.checker, node);
     for (const argument of node.arguments) {
       const fn = unwrap(this.ts, argument);
       if (!this.ts.isArrowFunction(fn) && !this.ts.isFunctionExpression(fn)) continue;
       const info = this.functionsByNode.get(nodeKey(this.root, fn));
       if (!info) continue;
       const where = [this.location(fn)];
+      if (fn === wrapped) continue;
       if (receiver && element) {
         const receiverId = this.expression(receiver, call.ownerId);
         for (const parameter of fn.parameters) {
@@ -553,13 +556,13 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       moduleFor: (value) => this.moduleFor(value),
       isExternalCall: (value) => this.isExternalCall(value),
       specialInput: (...args) => this.specialInput(...args),
-      effect: (effectNode, effectCallId, effectOwnerId, effectKind, detail) => {
+      effect: (effectNode, effectCallId, effectOwnerId, effectKind, detail, proofKind = "host-api") => {
         const effectId = this.specialInput(
           effectNode,
           "external-effect",
           effectOwnerId,
           { effectKind },
-          "host-api",
+          proofKind,
           detail,
         );
         this.addRelation(
@@ -567,7 +570,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
           effectId,
           "effect-input",
           [this.location(effectNode)],
-          proof("host-api", detail, [this.location(effectNode)]),
+          proof(proofKind, detail, [this.location(effectNode)]),
           "proven",
         );
       },

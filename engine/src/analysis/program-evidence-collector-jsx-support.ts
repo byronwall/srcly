@@ -1,9 +1,11 @@
 import * as TypeScript from "typescript";
 import type { ProgramElementKind } from "./program-evidence";
-import type { CollectorFunctionInfo } from "./program-evidence-collector-support";
+import type { CollectorCallInfo, CollectorFunctionInfo } from "./program-evidence-collector-support";
+import type { PendingComponentPropBinding } from "./program-evidence-collector-component-binding";
 import { ProgramEvidenceCollectorFieldTransferSupport } from "./program-evidence-collector-field-transfers";
 import { reachingBindings } from "./program-evidence-reaching-bindings";
 import { resolveValue } from "./value-origin";
+import { isSolidComponent } from "./program-evidence-collector-field-transfer-ast";
 import {
   browserMember,
   browserPropertyRead,
@@ -208,10 +210,13 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         this.queueComponentPropBinding(opening, attribute, valueId, occurrenceId, ownerId, target);
       }
       if (!component) {
+        // Solid's `<Show when>` and `<Match when>` decide which branch renders; the value is no DOM attribute.
+        const branch = attribute.name.getText() === "when"
+          && (isSolidComponent(this.ts, this.checker, opening.tagName, "Show") || isSolidComponent(this.ts, this.checker, opening.tagName, "Match"));
         this.addTerminal(
           value,
           ownerId,
-          "dom-attribute",
+          branch ? "branch-condition" : "dom-attribute",
           attribute.name.getText(),
           valueId,
         );
@@ -309,13 +314,13 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   protected addTerminal(
     node: TypeScript.Expression,
     ownerId: string | null,
-    terminalKind: "jsx-text" | "dom-attribute" | "style",
+    terminalKind: "jsx-text" | "dom-attribute" | "style" | "branch-condition",
     label: string,
     valueId: string,
   ): void {
     const kind: ProgramElementKind = terminalKind === "jsx-text"
       ? "render-terminal"
-      : "dom-terminal";
+      : terminalKind === "branch-condition" ? "branch-condition" : "dom-terminal";
     const terminalId = this.ensureElement(
       node,
       kind,
@@ -376,11 +381,13 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
 
   protected connectCalls(): void {
     this.connectContexts();
+    const props = [...this.pendingComponentPropBindings];
     this.connectComponentPropBindings();
     this.connectFieldTransfers();
     for (const call of this.calls) {
       this.checkCancellation();
       if (!call.target) this.connectExternalCall(call);
+      if (!call.target) this.connectBoundHandlers(call, props);
       if (call.target) {
         for (const parameter of call.target.declaration.parameters) {
           this.checkCancellation();
@@ -432,6 +439,75 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       }
     }
     this.connectMemberState();
+  }
+
+  /**
+   * A call through a parameter (`visit(item)`) or a prop (`props.onSave(v)`)
+   * runs each function a caller hands in there: a call's argument, or a JSX
+   * occurrence's attribute. Its arguments bind that function's parameters and
+   * its returns come back out here. Each binding's proof names where the
+   * function was handed in, and the slice follows it only from that call or
+   * occurrence (`evidence-slice.ts`), so two callers' handlers never cross.
+   */
+  private connectBoundHandlers(call: CollectorCallInfo, props: readonly PendingComponentPropBinding[]): void {
+    if (!this.ts.isCallExpression(call.node)) return;
+    const slot = this.handlerSlot(call.node.expression);
+    if (!slot) return;
+    const handed: TypeScript.Expression[] = typeof slot.index === "number"
+      ? this.calls.flatMap((outer) => outer.target?.id === slot.owner.id && this.ts.isCallExpression(outer.node) && outer.node.arguments[slot.index as number] ? [outer.node.arguments[slot.index as number]] : [])
+      : props.flatMap((pending) => {
+        const value = pending.attribute.initializer && this.ts.isJsxExpression(pending.attribute.initializer) ? pending.attribute.initializer.expression : undefined;
+        return pending.target.id === slot.owner.id && pending.attribute.name.getText() === slot.index && value ? [value] : [];
+      });
+    for (const value of handed) {
+      const fn = unwrap(this.ts, value);
+      const handler = this.functionsByNode.get(nodeKey(this.root, fn)) ?? this.targetFunction(fn);
+      if (!handler || handler.id === slot.owner.id) continue;
+      const boundAt = this.location(value);
+      handler.declaration.parameters.forEach((parameter, index) => {
+        const argument = (call.node as TypeScript.CallExpression).arguments[index];
+        const binding = firstBindingIdentifier(this.ts, parameter.name);
+        const parameterId = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
+        if (!argument || !parameterId) return;
+        const where = [this.location(argument), this.location(parameter), boundAt];
+        this.addRelation(this.expression(argument, call.ownerId), parameterId, "argument-binding", where, proof("bound-handler", `The call runs the function handed in at ${value.getText()}: the argument binds its parameter.`, where), "proven");
+      });
+      for (const returnId of this.returnsByFunction.get(handler.id) ?? []) {
+        const where = [this.location(call.node), boundAt];
+        this.addRelation(returnId, call.id, "return-value", where, proof("bound-handler", `The call returns what the function handed in at ${value.getText()} returns.`, where), "proven");
+      }
+    }
+  }
+
+  /**
+   * The slot a callee reads a function from: a parameter of the function it is
+   * written in (`index` its position), or a prop of a component's first
+   * parameter (`index` the prop's name), through `props.onSave` or a
+   * destructured `{ onSave }`.
+   */
+  private handlerSlot(callee: TypeScript.Expression): { owner: CollectorFunctionInfo; index: number | string } | null {
+    const node = unwrap(this.ts, callee);
+    const ownerOf = (parameter: TypeScript.ParameterDeclaration) => this.functionsByNode.get(nodeKey(this.root, parameter.parent)) ?? null;
+    if (this.ts.isPropertyAccessExpression(node) && this.ts.isIdentifier(node.expression)) {
+      const declaration = this.checker.getSymbolAtLocation(node.expression)?.valueDeclaration;
+      if (!declaration || !this.ts.isParameter(declaration) || declaration.parent.parameters[0] !== declaration) return null;
+      const owner = ownerOf(declaration);
+      return owner ? { owner, index: node.name.text } : null;
+    }
+    if (!this.ts.isIdentifier(node)) return null;
+    const declaration = this.checker.getSymbolAtLocation(node)?.valueDeclaration;
+    if (!declaration) return null;
+    if (this.ts.isParameter(declaration)) {
+      const owner = ownerOf(declaration);
+      return owner ? { owner, index: declaration.parent.parameters.indexOf(declaration) } : null;
+    }
+    // `function Editor({ onSave })`: the prop the binding takes from the first parameter.
+    if (this.ts.isBindingElement(declaration) && this.ts.isObjectBindingPattern(declaration.parent) && this.ts.isParameter(declaration.parent.parent) && declaration.parent.parent.parent.parameters[0] === declaration.parent.parent && !declaration.dotDotDotToken) {
+      const key = declaration.propertyName ?? declaration.name;
+      const owner = ownerOf(declaration.parent.parent);
+      return owner && this.ts.isIdentifier(key) ? { owner, index: key.text } : null;
+    }
+    return null;
   }
 
   /** Every read of a member the project declares sees what was written into it (`memberWrites`). */

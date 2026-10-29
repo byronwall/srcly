@@ -1,0 +1,14 @@
+{
+  "id": "ff9adb03-e17c-44b2-b2ee-c643569d0e35",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:e0e0ae",
+    "label": "Agent token ...e0e0ae"
+  },
+  "createdAt": "2026-10-29T01:09:23.238Z",
+  "summary": "Deleted \"Land #214: diff the survey gate against the PR's base\".",
+  "nodeIds": [
+    "task-land-214-diff-the-survey-gate-against-the-pr-s-base"
+  ]
+}
