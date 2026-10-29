@@ -15,6 +15,7 @@ const KIND_WORDS: Record<string, string> = {
   "for-binding": "For item",
   "show-binding": "Show value",
   "dom-terminal": "DOM attribute",
+  "branch-condition": "decides a branch",
   "render-terminal": "render slot",
   "resource-input": "resource",
   "resource-result": "resource result",
