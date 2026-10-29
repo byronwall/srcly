@@ -287,6 +287,20 @@ export function queryEvidenceSlice(
   };
 
   const isOccurrence = (id: string): boolean => indexed.elementFor(id)?.kind === "component-occurrence";
+  const isMarker = (id: string): boolean => id.startsWith("@");
+  /** The newest call on a stack and its index, past any occurrence or marker above it. */
+  const topCall = (stack: readonly string[]): [number, string | undefined] => {
+    let index = stack.length - 1;
+    while (index >= 0 && (isOccurrence(stack[index]!) || isMarker(stack[index]!))) index -= 1;
+    return [index, index >= 0 ? stack[index] : undefined];
+  };
+  const markerOf = (at: { file: string; span: SourceSpan }): string => `@${JSON.stringify([at.file, at.span])}`;
+  /** Whether element `id` (a call or an occurrence) is where the marker's handler was handed in. */
+  const holds = (id: string, marker: string): boolean => {
+    const [file, span] = JSON.parse(marker.slice(1)) as [string, SourceSpan];
+    const where = indexed.elementFor(id)?.location;
+    return Boolean(where && where.file === file && contains(where.span, span));
+  };
 
   /**
    * Whether a handler binding (`bound-handler`: its proof's third location is
@@ -327,14 +341,19 @@ export function queryEvidenceSlice(
    */
   const pairInvocation = (relation: ProgramRelation, calls: readonly string[]): readonly string[] | null => {
     const forward = normalizedRequest.direction === "forward";
-    // A component occurrence on the stack is the props the walk came in by; it pairs handed-in handlers, never a return.
-    let callIndex = calls.length - 1;
-    while (callIndex >= 0 && isOccurrence(calls[callIndex]!)) callIndex -= 1;
-    const top = callIndex >= 0 ? calls[callIndex] : undefined;
-    // Forward into a component through one occurrence's prop: that occurrence's handlers are the ones its calls run.
-    if (relation.kind === "component-prop-binding" && forward) {
-      const occurrence = indexed.elementFor(relation.to)?.attributes?.componentOccurrenceElementId;
-      return typeof occurrence === "string" && calls[calls.length - 1] !== occurrence ? [...calls.slice(-(MAX_CALL_STACK - 1)), occurrence] : calls;
+    // A component occurrence on the stack is the props the walk came in by, and a marker (backward) is where a handler was handed in: both pair handlers, never a return.
+    const [callIndex, top] = topCall(calls);
+    // Backward out of a handler, the walk must leave the caller through the call or occurrence that handed it in: the marker on top says where.
+    const marker = calls.length > 0 && isMarker(calls[calls.length - 1]!) ? calls[calls.length - 1]! : undefined;
+    const leaves = (id: string | undefined): readonly string[] | null => {
+      if (!marker || !id) return calls;
+      return holds(id, marker) ? calls.slice(0, -1) : null;
+    };
+    if (relation.kind === "component-prop-binding") {
+      // Forward into a component through one occurrence's prop: that occurrence's handlers are the ones its calls run.
+      const binding = [relation.to, relation.from].map((id) => indexed.elementFor(id)?.attributes?.componentOccurrenceElementId).find((id) => typeof id === "string") as string | undefined;
+      if (!forward) return leaves(binding);
+      return binding && calls[calls.length - 1] !== binding ? [...calls.slice(-(MAX_CALL_STACK - 1)), binding] : calls;
     }
     if (relation.kind === "argument-binding") {
       // Forward: into the callee at `from`'s call. Backward: out of the callee, which must be the call we came in by.
@@ -342,8 +361,14 @@ export function queryEvidenceSlice(
       if (!call) return calls;
       if (forward && !handedInHere(relation, calls)) return null;
       if (forward) return [...calls.slice(-(MAX_CALL_STACK - 1)), call];
-      if (top === undefined) return calls;
-      return top === call ? calls.filter((_, index) => index !== callIndex) : null;
+      // Backward out of a handed-in handler: remember where it was handed in.
+      const at = relation.proof.kind === "bound-handler" ? relation.proof.locations[2] : undefined;
+      const out = at ? calls : leaves(call);
+      if (!out) return null;
+      const [outIndex, outTop] = topCall(out);
+      const popped = outTop === undefined ? out : outTop === call ? out.filter((_, index) => index !== outIndex) : null;
+      if (!popped) return null;
+      return at ? [...popped.slice(-(MAX_CALL_STACK - 1)), markerOf(at)] : popped;
     }
     // Through a member's state the walk is in no one call: whoever reads the member, from any call.
     if (relation.kind === "member-state") return [];

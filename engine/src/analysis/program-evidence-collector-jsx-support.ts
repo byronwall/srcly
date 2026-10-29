@@ -5,6 +5,8 @@ import type { PendingComponentPropBinding } from "./program-evidence-collector-c
 import { ProgramEvidenceCollectorFieldTransferSupport } from "./program-evidence-collector-field-transfers";
 import { reachingBindings } from "./program-evidence-reaching-bindings";
 import { resolveValue } from "./value-origin";
+import { stateRoleOf } from "./program-evidence-state-pairs";
+import type { ProgramEvidenceLocation } from "./program-evidence";
 import { isSolidComponent } from "./program-evidence-collector-field-transfer-ast";
 import {
   browserMember,
@@ -25,6 +27,8 @@ import {
 export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollectorFieldTransferSupport {
   /** Each context's provided values, by the `createContext()` call the context is. */
   private readonly contextProviders = new Map<string, string[]>();
+  /** Each context's provided values as written (`value={{ save }}`), to find the function a context method names. */
+  private readonly contextValues = new Map<string, TypeScript.Expression[]>();
 
   protected collectNodes(file: TypeScript.SourceFile): void {
     const visit = (node: TypeScript.Node, ownerId: string | null) => {
@@ -196,6 +200,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       if (attribute.name.getText() === "value" && this.ts.isPropertyAccessExpression(opening.tagName) && opening.tagName.name.text === "Provider") {
         const context = this.contextKey(opening.tagName.expression);
         if (context) this.contextProviders.set(context, [...(this.contextProviders.get(context) ?? []), valueId]);
+        if (context) this.contextValues.set(context, [...(this.contextValues.get(context) ?? []), value]);
       }
       this.addRelation(
         valueId,
@@ -456,32 +461,73 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
    */
   private connectBoundHandlers(call: CollectorCallInfo, props: readonly PendingComponentPropBinding[]): void {
     if (!this.ts.isCallExpression(call.node)) return;
-    const slot = this.handlerSlot(call.node.expression);
-    if (!slot) return;
-    const handed: TypeScript.Expression[] = typeof slot.index === "number"
-      ? this.calls.flatMap((outer) => outer.target?.id === slot.owner.id && this.ts.isCallExpression(outer.node) && outer.node.arguments[slot.index as number] ? [outer.node.arguments[slot.index as number]] : [])
-      : props.flatMap((pending) => {
-        const value = pending.attribute.initializer && this.ts.isJsxExpression(pending.attribute.initializer) ? pending.attribute.initializer.expression : undefined;
-        return pending.target.id === slot.owner.id && pending.attribute.name.getText() === slot.index && value ? [value] : [];
-      });
-    for (const value of handed) {
-      const fn = unwrap(this.ts, value);
-      const handler = this.functionsByNode.get(nodeKey(this.root, fn)) ?? this.targetFunction(fn);
-      if (!handler || handler.id === slot.owner.id) continue;
+    const node = call.node;
+    const slot = this.handlerSlot(node.expression);
+    // A handler handed in by a caller is paired with that caller; a context's provider is above every reader, so its handler is not.
+    const handed: { value: TypeScript.Node; paired: boolean }[] = !slot
+      ? this.contextMethod(node.expression).map((value) => ({ value, paired: false }))
+      : typeof slot.index === "number"
+        ? this.calls.flatMap((outer) => outer.target?.id === slot.owner.id && this.ts.isCallExpression(outer.node) && outer.node.arguments[slot.index as number] ? [{ value: outer.node.arguments[slot.index as number], paired: true }] : [])
+        : props.flatMap((pending) => {
+          const value = pending.attribute.initializer && this.ts.isJsxExpression(pending.attribute.initializer) ? pending.attribute.initializer.expression : undefined;
+          return pending.target.id === slot.owner.id && pending.attribute.name.getText() === slot.index && value ? [{ value, paired: true }] : [];
+        });
+    for (const { value, paired } of handed) {
       const boundAt = this.location(value);
+      const handledBy = (detail: string, where: ProgramEvidenceLocation[]) => paired ? proof("bound-handler", detail, [...where, boundAt]) : proof("argument-binding", detail, where);
+      // A state setter handed in (`onPick={setPicked}`): the call's argument is the new state.
+      const role = this.ts.isExpression(value) ? stateRoleOf(this.ts, this.checker, value) : null;
+      if (role?.role === "setter" && node.arguments[0]) {
+        // The proof's first two locations are the argument and the state, so a paired proof's third is where the setter was handed in, as for a function.
+        const where = [this.location(node.arguments[0]), this.location(role.getter)];
+        this.addRelation(this.expression(node.arguments[0], call.ownerId), this.stateElement(role.getter), "argument-binding", where, handledBy(`The call runs the setter handed in at ${value.getText()}: its argument becomes the state.`, where), "partial");
+        continue;
+      }
+      const fn = this.ts.isExpression(value) ? unwrap(this.ts, value) : value;
+      const handler = this.functionsByNode.get(nodeKey(this.root, fn)) ?? this.targetFunction(fn);
+      if (!handler || handler.id === slot?.owner.id) continue;
       handler.declaration.parameters.forEach((parameter, index) => {
-        const argument = (call.node as TypeScript.CallExpression).arguments[index];
+        const argument = node.arguments[index];
         const binding = firstBindingIdentifier(this.ts, parameter.name);
         const parameterId = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
         if (!argument || !parameterId) return;
-        const where = [this.location(argument), this.location(parameter), boundAt];
-        this.addRelation(this.expression(argument, call.ownerId), parameterId, "argument-binding", where, proof("bound-handler", `The call runs the function handed in at ${value.getText()}: the argument binds its parameter.`, where), "proven");
+        const where = [this.location(argument), this.location(parameter)];
+        this.addRelation(this.expression(argument, call.ownerId), parameterId, "argument-binding", where, handledBy(`The call runs the function handed in at ${value.getText()}: the argument binds its parameter.`, where), "proven");
       });
       for (const returnId of this.returnsByFunction.get(handler.id) ?? []) {
-        const where = [this.location(call.node), boundAt];
-        this.addRelation(returnId, call.id, "return-value", where, proof("bound-handler", `The call returns what the function handed in at ${value.getText()} returns.`, where), "proven");
+        const where = [this.location(node), this.location(value)];
+        this.addRelation(returnId, call.id, "return-value", where, handledBy(`The call returns what the function handed in at ${value.getText()} returns.`, where), "proven");
       }
     }
+  }
+
+  /**
+   * The functions a context method names (`store.save` after `const store =
+   * useContext(Store)`): the `save` of each provider's value object.
+   */
+  private contextMethod(callee: TypeScript.Expression): TypeScript.Node[] {
+    const node = unwrap(this.ts, callee);
+    if (!this.ts.isPropertyAccessExpression(node)) return [];
+    let holder = unwrap(this.ts, node.expression);
+    if (this.ts.isIdentifier(holder)) {
+      const declaration = this.checker.getSymbolAtLocation(holder)?.valueDeclaration;
+      if (!declaration || !this.ts.isVariableDeclaration(declaration) || !this.ts.isIdentifier(declaration.name) || !declaration.initializer) return [];
+      holder = unwrap(this.ts, declaration.initializer);
+    }
+    if (!this.ts.isCallExpression(holder) || !holder.arguments[0]) return [];
+    const imported = importedCallee(this.ts, this.checker, holder.expression);
+    if (imported?.name !== "useContext" || (imported.module !== "solid-js" && imported.module !== "react")) return [];
+    const context = this.contextKey(holder.arguments[0]);
+    const name = node.name.text;
+    return (context ? this.contextValues.get(context) ?? [] : []).flatMap<TypeScript.Node>((provided) => {
+      const value = unwrap(this.ts, provided);
+      if (!this.ts.isObjectLiteralExpression(value)) return [];
+      const member = value.properties.find((property) => property.name && this.ts.isIdentifier(property.name) && property.name.text === name);
+      if (!member) return [];
+      if (this.ts.isPropertyAssignment(member)) return [member.initializer];
+      if (this.ts.isShorthandPropertyAssignment(member)) return [member.name];
+      return this.ts.isMethodDeclaration(member) ? [member] : [];
+    });
   }
 
   /**
