@@ -545,6 +545,12 @@ export class ProgramEvidenceCollectorSupport {
     return value ? this.functionsByNode.get(nodeKey(this.root, value.origin)) ?? null : null;
   }
 
+  /** The in-project constructor a `new X(…)` or `super(…)` call runs, by the signature the checker resolves. */
+  protected constructorTarget(node: TypeScript.CallExpression | TypeScript.NewExpression): CollectorFunctionInfo | null {
+    const declaration = this.checker.getResolvedSignature(node)?.declaration;
+    return declaration && this.ts.isConstructorDeclaration(declaration) ? this.functionsByNode.get(nodeKey(this.root, declaration)) ?? null : null;
+  }
+
   protected isExternalCall(node: TypeScript.CallExpression): boolean {
     if (this.targetFunction(node.expression)) return false;
     // A state factory is modelled (`program-evidence-state-pairs.ts`): what it does with its argument is the pair's state, not an external effect.

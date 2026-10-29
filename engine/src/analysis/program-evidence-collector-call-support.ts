@@ -214,7 +214,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         [this.location(node)],
       ),
     );
-    const target = this.targetFunction(node.expression);
+    // `super(name)` runs the base class's constructor.
+    const target = this.targetFunction(node.expression) ?? (node.expression.kind === this.ts.SyntaxKind.SuperKeyword ? this.constructorTarget(node) : null);
     this.calls.push({ node, id: callId, target, ownerId });
     this.connectFrameworkFlow(node, callId, ownerId);
     if (target) {
@@ -410,6 +411,12 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       "proven",
       evidence.proof,
     );
+    // `new Named(name)` runs the class's constructor: its arguments bind the constructor's parameters (`connectCalls`).
+    const target = this.constructorTarget(node);
+    if (target) {
+      this.calls.push({ node, id: callId, target, ownerId });
+      this.addRelation(callId, target.id, "invokes", [this.location(node.expression)], proof("compiler-symbol", "The constructor call resolves to an in-project constructor.", [this.location(node.expression)]), "proven");
+    }
     for (const argument of node.arguments ?? []) {
       this.addRelation(
         this.expression(argument, ownerId),

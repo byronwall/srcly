@@ -9,6 +9,7 @@ import { isSolidComponent } from "./program-evidence-collector-field-transfer-as
 import {
   browserMember,
   browserPropertyRead,
+  compilerSymbolId,
   derivedOperands,
   importedCallee,
   isAssignmentOperator,
@@ -82,6 +83,10 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       }
       if (this.ts.isReturnStatement(node)) {
         this.processReturn(node, nextOwner);
+      }
+      // A generator's `yield x` hands x to its caller's iteration (`for (const v of gen())`), as a return hands it to the call.
+      if (this.ts.isYieldExpression(node) && node.expression && !node.asteriskToken) {
+        this.processReturn(node.expression, nextOwner);
       }
       if (this.ts.isArrowFunction(node) && !this.ts.isBlock(node.body)) {
         this.processReturn(node.body, nextOwner);
@@ -512,6 +517,22 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
 
   /** Every read of a member the project declares sees what was written into it (`memberWrites`). */
   private connectMemberState(): void {
+    // A parameter property (`constructor(public label: string)`) writes its member, as `this.label = label` would.
+    for (const fn of this.functionsById.values()) {
+      // A getter's returns are what each read of its member sees (`named.shout`).
+      if (this.ts.isGetAccessorDeclaration(fn.declaration)) {
+        const key = this.symbolId(fn.declaration.name);
+        if (key) this.memberWrites.set(key, [...(this.memberWrites.get(key) ?? []), ...(this.returnsByFunction.get(fn.id) ?? [])]);
+      }
+      if (!this.ts.isConstructorDeclaration(fn.declaration)) continue;
+      for (const parameter of fn.declaration.parameters) {
+        if (!this.ts.isParameterPropertyDeclaration(parameter, fn.declaration) || !this.ts.isIdentifier(parameter.name)) continue;
+        const property = this.checker.getSymbolsOfParameterPropertyDeclaration(parameter, parameter.name.text)[1];
+        const key = property ? compilerSymbolId(this.ts, this.checker, this.root, parameter.name, property) : null;
+        const parameterId = this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "");
+        if (key && parameterId) this.memberWrites.set(key, [...(this.memberWrites.get(key) ?? []), parameterId]);
+      }
+    }
     if (this.memberWrites.size === 0) return;
     for (const read of this.memberReads) {
       this.checkCancellation();
