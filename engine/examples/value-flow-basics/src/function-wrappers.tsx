@@ -9,9 +9,10 @@ const loadNote = query(async (id: string) => {
   return { id, title: `note ${id}` }; // @visits note-id return
 }, "note");
 
-const saveTitle = action(async (title: string) => {
+const saveTitle = action(async (title: string) => { // @trace action-arg forward symbol title
   "use server";
-  console.log(title); // @reaches saved
+  console.log(title); // @reaches saved,action-arg
+  return { saved: title };
 }, "save-title");
 
 export async function logNote(id: string) { // @trace note-id forward symbol id
@@ -19,6 +20,6 @@ export async function logNote(id: string) { // @trace note-id forward symbol id
 }
 
 export function Note(props: { title: string }) {
-  const save = useAction(saveTitle);
-  return <button onClick={() => save(props.title)}>save</button>; // @trace saved forward props.title
+  const save = useAction(saveTitle); // @never-reaches action-arg
+  return <button onClick={() => save(props.title)}>save</button>; // @trace saved forward props.title @reaches saved,action-arg return
 }
