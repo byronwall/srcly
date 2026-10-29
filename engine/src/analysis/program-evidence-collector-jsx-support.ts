@@ -85,7 +85,8 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         this.processReturn(node, nextOwner);
       }
       // A generator's `yield x` hands x to its caller's iteration (`for (const v of gen())`), as a return hands it to the call.
-      if (this.ts.isYieldExpression(node) && node.expression && !node.asteriskToken) {
+      // `yield* list` hands on each element of `list`: the call's value is iterated as `list` is.
+      if (this.ts.isYieldExpression(node) && node.expression) {
         this.processReturn(node.expression, nextOwner);
       }
       if (this.ts.isArrowFunction(node) && !this.ts.isBlock(node.body)) {
@@ -193,7 +194,8 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         : component ? attribute.initializer : undefined;
       if (!value || !this.ts.isExpression(value)) continue;
       const valueId = this.expression(value, ownerId);
-      if (attribute.name.getText() === "value" && this.ts.isPropertyAccessExpression(opening.tagName) && opening.tagName.name.text === "Provider") {
+      const providing = attribute.name.getText() === "value" && this.ts.isPropertyAccessExpression(opening.tagName) && opening.tagName.name.text === "Provider";
+      if (providing && this.ts.isPropertyAccessExpression(opening.tagName)) {
         const context = this.contextKey(opening.tagName.expression);
         if (context) this.contextProviders.set(context, [...(this.contextProviders.get(context) ?? []), valueId]);
       }
@@ -214,7 +216,8 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       if (target) {
         this.queueComponentPropBinding(opening, attribute, valueId, occurrenceId, ownerId, target);
       }
-      if (!component) {
+      // A context's provided value goes to its readers (`connectContexts`), not into the page.
+      if (!component && !(providing && this.ts.isPropertyAccessExpression(opening.tagName) && this.contextKey(opening.tagName.expression))) {
         // Solid's `<Show when>` and `<Match when>` decide which branch renders; the value is no DOM attribute.
         const branch = attribute.name.getText() === "when"
           && (isSolidComponent(this.ts, this.checker, opening.tagName, "Show") || isSolidComponent(this.ts, this.checker, opening.tagName, "Match"));
@@ -393,6 +396,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       this.checkCancellation();
       if (!call.target) this.connectExternalCall(call);
       if (!call.target) this.connectBoundHandlers(call, props);
+      if (!call.target) this.connectEmitter(call);
       if (call.target) {
         for (const parameter of call.target.declaration.parameters) {
           this.checkCancellation();
@@ -444,6 +448,38 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       }
     }
     this.connectMemberState();
+  }
+
+  /**
+   * An emitter's `emit("save", text)` runs each listener its receiver
+   * registered for that event (`on`, `once`, `addListener`): the arguments
+   * after the name bind the listener's parameters. Node's `EventEmitter`,
+   * `mitt` and the like share the shape; the receiver is matched by symbol and
+   * the event by its literal name.
+   */
+  private connectEmitter(call: CollectorCallInfo): void {
+    const event = (node: TypeScript.Node, names: RegExp) => {
+      if (!this.ts.isCallExpression(node) || !this.ts.isPropertyAccessExpression(node.expression) || !names.test(node.expression.name.text)) return null;
+      const name = node.arguments[0];
+      const receiver = this.symbolId(node.expression.expression);
+      return name && this.ts.isStringLiteralLike(name) && receiver ? { name: name.text, receiver } : null;
+    };
+    const emitted = event(call.node, /^emit$/);
+    if (!emitted || !this.ts.isCallExpression(call.node)) return;
+    const args = call.node.arguments.slice(1);
+    for (const other of this.calls) {
+      const listened = event(other.node, /^(on|once|addListener|prependListener)$/);
+      if (!listened || listened.name !== emitted.name || listened.receiver !== emitted.receiver || !this.ts.isCallExpression(other.node) || !other.node.arguments[1]) continue;
+      const fn = unwrap(this.ts, other.node.arguments[1]);
+      const listener = this.functionsByNode.get(nodeKey(this.root, fn)) ?? this.targetFunction(fn);
+      listener?.declaration.parameters.forEach((parameter, index) => {
+        const binding = firstBindingIdentifier(this.ts, parameter.name);
+        const parameterId = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
+        if (!args[index] || !parameterId) return;
+        const where = [this.location(args[index]!), this.location(parameter)];
+        this.addRelation(this.expression(args[index]!, call.ownerId), parameterId, "argument-binding", where, proof("argument-binding", `The emitter runs the "${emitted.name}" listener with this argument.`, where), "proven");
+      });
+    }
   }
 
   /**

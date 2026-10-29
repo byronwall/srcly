@@ -265,7 +265,7 @@ export function processProgramCallBoundary(
       ),
       "proven",
     );
-  } else if (role === "http-response" || isHttpResponse(ts, node)) {
+  } else if (role === "http-response" || isHttpResponse(ts, node, context.checker)) {
     const terminalId = context.specialInput(
       node,
       "http-response",

@@ -11,5 +11,5 @@ function Badge() {
 
 export function App(props: { theme: string }) {
   {/* @trace provided forward props.theme */}
-  return <Theme.Provider value={props.theme}><Badge /></Theme.Provider>; // @reaches provided dom-terminal
+  return <Theme.Provider value={props.theme}><Badge /></Theme.Provider>; // @never-reaches provided dom-terminal
 }
