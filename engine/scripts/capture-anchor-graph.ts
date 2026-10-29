@@ -28,3 +28,14 @@ const write = (name: string, params: Record<string, unknown>) => {
 write("solid-route.anchor-graph.json", { file, text, span, direction: "both" });
 // A declaration anchor (ViewerCard by name): its parameter and return links are structural.
 write("solid-route-viewer-card.anchor-graph.json", { file, name: "ViewerCard", line: 3, direction: "both" });
+
+// The symbol-graph example's route component, traced forward: the client's symbol merge reads it.
+{
+  const exampleRoot = path.join(engineRoot, "examples/symbol-graph");
+  const example = createEngineSession({ root: exampleRoot, source: path.join(exampleRoot, "src"), tsconfig: null, typescriptFrom: ENGINE_PACKAGE_DIR });
+  const graph = anchorGraphOp(example, { file: "src/routes/notes/[id].tsx", name: "NotePage", line: 6, direction: "forward" });
+  const out = JSON.stringify(graph, null, 1).replaceAll(exampleRoot, "/fixture/symbol-graph").replaceAll(ENGINE_PACKAGE_DIR, "/fixture/engine");
+  const target = path.join(engineRoot, "test/srcly/__fixtures__/symbol-graph.anchor-graph.json");
+  fs.writeFileSync(target, `${out}\n`);
+  process.stdout.write(`wrote ${path.relative(engineRoot, target)} (${graph.nodes.length} nodes, ${graph.edges.length} edges, ${graph.outcome})\n`);
+}

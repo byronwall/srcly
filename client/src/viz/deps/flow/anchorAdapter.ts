@@ -26,6 +26,8 @@ export const ANCHOR_FOLD_BUDGET = 40;
 export interface AnchorViewOptions {
   /** Scope ids opened in place. Without options nothing folds (an export's merged trace). */
   expanded: Iterable<string>;
+  /** `steps` draws every step the engine walked; absent draws one box per symbol and frame. */
+  model?: "steps";
 }
 
 export function anchorGraphToViewModel(graph: AnchorGraphResult, options?: AnchorViewOptions): FlowViewModel {
@@ -69,26 +71,33 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult, options?: Ancho
       ...(n.kind === "frontier" ? { outline: "hatched" as const } : n.kind === "boundary" ? { outline: "dotted" as const } : {}),
     };
   });
-  const passThrough = passThroughs(graph);
+  const symbols = options && options.model !== "steps";
+  const passThrough = symbols ? symbolMerges(graph) : passThroughs(graph);
   // A box that repeats another's place joins it the way a pass-through does.
   for (const [id, first] of twins(graph, passThrough)) passThrough.set(id, first);
+  const shown = (id: string) => passThrough.get(id) ?? id;
+  if (symbols) for (const box of nodes) if (!passThrough.has(box.id)) Object.assign(box, symbolBox(graph, passThrough, byId.get(box.id)!) ?? {});
   const fold = folds(graph, anchor, component, passThrough, opened, options);
   const drawnNodes = [...nodes.filter((n) => !passThrough.has(n.id) && !fold.has(n.id)), ...foldedBoxes(graph, fold)];
   const ids = new Set(drawnNodes.map((n) => n.id));
-  const seen = new Set<string>();
+  const seen = new Map<string, ViewEdge>();
   const edges: ViewEdge[] = [];
   for (const raw of graph.edges) {
     // An edge out of a folded reference leaves from the value it repeats; the reference link itself goes.
     if (passThrough.get(raw.target) === raw.source) continue;
-    const from = passThrough.get(raw.source) ?? raw.source;
-    const to = passThrough.get(raw.target) ?? raw.target;
+    const from = shown(raw.source);
+    const to = shown(raw.target);
     // An edge into or out of a folded function joins its box.
-    const e = { ...raw, source: fold.get(from) ?? from, target: fold.get(to) ?? to };
+    const e = { ...raw, source: fold.get(from) ?? from, target: fold.get(to) ?? to, label: symbols ? (byId.get(raw.source)?.field ?? raw.label) : raw.label };
     if (!ids.has(e.source) || !ids.has(e.target) || e.source === e.target) continue;
     const key = `${e.source}|${e.target}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    edges.push({
+    const known = seen.get(key);
+    if (known) {
+      // One edge per pair of boxes: the fields read along it all name it (`error, title`).
+      if (e.label && !(known.label ?? "").split(", ").includes(e.label)) known.label = known.label ? `${known.label}, ${e.label}` : e.label;
+      continue;
+    }
+    const edge: ViewEdge = {
       id: e.id,
       source: e.source,
       target: e.target,
@@ -102,17 +111,16 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult, options?: Ancho
       proof: e.proof.map((p) => ({ kind: p.kind, detail: p.detail, status: p.status, at: p.locations[0] ? `${baseName(p.locations[0].file)}:${p.locations[0].line}` : undefined })),
       relation: e.kind,
       ...(e.status !== "structural" && e.proof.some((p) => isAssumedProof(p.kind)) ? { assumed: true } : {}),
-    });
+    };
+    seen.set(key, edge);
+    edges.push(edge);
   }
   return {
     vm: { focusId: anchor.id, focusKind: "symbol", focusLabel: graph.anchor.text, breadcrumbs: [], nodes: drawnNodes, edges, rolledUp: passThrough.size },
     hidden: new Set(),
     notFlow: new Set(),
     byId,
-    shownAs: new Map(boxes.map((n) => {
-      const shown = passThrough.get(n.id) ?? n.id;
-      return [n.id, fold.get(shown) ?? shown];
-    })),
+    shownAs: new Map(boxes.map((n) => [n.id, fold.get(shown(n.id)) ?? shown(n.id)])),
     lit: null,
   };
 }
@@ -143,7 +151,9 @@ function before(line: number, column: number, otherLine: number, otherColumn: nu
 function folds(graph: AnchorGraphResult, anchor: AnchorNode, component: Map<string, string>, passThrough: Map<string, string>, opened: Set<string>, options?: AnchorViewOptions): Map<string, string> {
   const out = new Map<string, string>();
   const boxes = graph.nodes.filter((n) => n.kind !== "scope");
-  if (!options || boxes.length <= ANCHOR_FOLD_BUDGET) return out;
+  // In the symbol view the budget counts drawn boxes: every read of a symbol is drawn as one.
+  const counted = options?.model === "steps" ? boxes.length : boxes.filter((n) => !passThrough.has(n.id)).length;
+  if (!options || counted <= ANCHOR_FOLD_BUDGET) return out;
   const home = anchor.parent ? component.get(anchor.parent) : undefined;
   const owner = new Map(boxes.map((n) => [n.id, n.parent ? component.get(n.parent) : undefined]));
   // The boxes a value enters another component through: drawn, so the first hand-off reads without a click.
@@ -279,4 +289,47 @@ function capitalize(text: string): string {
 
 function baseName(file: string): string {
   return file.slice(file.lastIndexOf("/") + 1);
+}
+
+/** Which box stands for a symbol: the anchor, else the box whose kind says most about the value, else the binding itself. */
+const SYMBOL_RANK: Record<AnchorNode["kind"], number> = { anchor: 0, origin: 1, boundary: 2, transform: 3, control: 4, value: 5, terminal: 6, frontier: 7, scope: 8 };
+
+/**
+ * One box per symbol and frame: every box that reads one local binding (`doc`, `doc()`, `doc.error`,
+ * the `when` of a `<Match>`) folds into one. Symbols come from the engine's checker, never from labels,
+ * so two different `x`s stay apart, and a box with no symbol keeps its own box. Maps each folded box
+ * to the box that stands for its symbol.
+ */
+function symbolMerges(graph: AnchorGraphResult): Map<string, string> {
+  const groups = new Map<string, AnchorNode[]>();
+  for (const n of graph.nodes) {
+    if (n.kind === "scope" || !n.symbol) continue;
+    const key = `${n.parent}|${n.symbol}`;
+    groups.set(key, [...(groups.get(key) ?? []), n]);
+  }
+  const out = new Map<string, string>();
+  for (const members of groups.values()) {
+    if (members.length < 2) continue;
+    const rep = [...members].sort((a, b) => SYMBOL_RANK[a.kind] - SYMBOL_RANK[b.kind] || Number(a.field !== null) - Number(b.field !== null))[0];
+    for (const n of members) if (n.id !== rep.id) out.set(n.id, rep.id);
+  }
+  return out;
+}
+
+/** A symbol's box: named by its binding, with its reads (`doc · 4 reads · error, title`) and the strongest kind among them. */
+function symbolBox(graph: AnchorGraphResult, merged: Map<string, string>, rep: AnchorNode): Partial<ViewNode> | null {
+  if (!rep.symbol || rep.kind === "anchor") return null;
+  const members = [rep, ...graph.nodes.filter((n) => merged.get(n.id) === rep.id)];
+  if (members.length < 2 && !rep.field) return null;
+  const name = rep.symbol.slice(0, rep.symbol.indexOf("@"));
+  const fields = [...new Set(members.map((n) => n.field).filter((f): f is string => Boolean(f)))];
+  const reads = `${members.length} read${members.length === 1 ? "" : "s"}`;
+  const where = `${baseName(rep.file)}:${rep.line}`;
+  return {
+    label: name,
+    title: [name, ...new Set(members.map((n) => n.label))].join(" · "),
+    subtitle: [reads, where].join(" · "),
+    note: fields.length ? `reads ${fields.join(", ")}` : (rep.typeText ?? undefined),
+    memberCount: members.length,
+  };
 }

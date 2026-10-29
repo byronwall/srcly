@@ -58,6 +58,14 @@ export const anchorNodeSchema = z.strictObject({
   typeText: z.string().nullable(),
   /** Why a boundary or frontier stops: `unproven-handoff`, `external-code`, `budget-exhausted`, …. */
   reason: z.string().nullable(),
+  /**
+   * The local binding this box reads, by the checker's symbol (`doc@src/x.tsx:120`): a variable,
+   * parameter or destructured name, read as is (`doc`), called as an accessor (`doc()`) or through
+   * fields (`doc().title`). Boxes of one symbol in one frame are one value; null for anything else.
+   */
+  symbol: z.string().nullable(),
+  /** The field path read from `symbol` (`title`, `note.tags`); null for the binding itself. */
+  field: z.string().nullable(),
   /** A boundary's or frontier's words: which call sites, what the gap was. */
   note: z.string().nullable(),
 });

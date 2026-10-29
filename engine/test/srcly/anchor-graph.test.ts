@@ -279,3 +279,25 @@ describe("anchorGraph by element id (T20)", () => {
     expect(() => anchorGraphOp(session, { file: box.file, elementId: "program-element:nope", direction: "both" })).toThrowError(expect.objectContaining({ code: "not-found" }));
   }, 60_000);
 });
+
+describe("anchorGraph symbols on symbol-graph", () => {
+  const root = fileURLToPath(new URL("../../examples/symbol-graph", import.meta.url));
+  const graph = anchorGraphOp(sessionFor(root), { file: "src/routes/notes/[id].tsx", name: "NotePage", line: 6, direction: "forward" });
+  const of = (label: string, elementKind?: string) => graph.nodes.filter((n) => n.label === label && (!elementKind || n.elementKind === elementKind));
+
+  it("names the local binding every read of a value reads: as is, called as an accessor, through a field, and as a Match test", () => {
+    const note = of("[note]")[0].symbol;
+    expect(note).toMatch(/^note@src\/routes\/notes\/\[id\]\.tsx:\d+$/);
+    for (const n of [...of("note", "value"), ...of("note()", "call"), ...of("note()", "dom-terminal")]) expect(n.symbol).toBe(note);
+    for (const n of of("error", "field-read")) expect(n).toMatchObject({ symbol: note, field: "error" });
+    // A prop handed on reads the accessor it is given.
+    expect(of("note={n()}")[0].symbol).toBe(of("n", "parameter")[0].symbol);
+  }, 60_000);
+
+  it("gives no binding to a call that is not an accessor, a render slot, or an origin, and keeps two `id`s apart", () => {
+    expect(of("fetchNote(id)")[0].symbol).toBeNull();
+    expect(of("n().title", "render-terminal")[0].symbol).toBeNull();
+    for (const n of graph.nodes.filter((x) => x.kind === "origin" || x.kind === "scope")) expect(n.symbol).toBeNull();
+    expect(new Set(of("id", "parameter").map((n) => n.symbol)).size).toBe(of("id", "parameter").length);
+  }, 60_000);
+});

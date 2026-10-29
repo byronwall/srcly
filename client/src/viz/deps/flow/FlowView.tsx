@@ -21,7 +21,7 @@ import { exportsToViewModel } from "./exportsAdapter";
 import { anchorsToViewModel } from "./multiAnchorAdapter";
 import { FlowInspector } from "./FlowInspector";
 import { FlowLegend } from "./FlowLegend";
-import { DirectionSwitch, FlowModeSwitch, ReachModeSwitch, REACH_OF_DIRECTION, RecentFlowMenu, RouteLensSwitch } from "./FlowTools";
+import { DirectionSwitch, FlowModeSwitch, ModelSwitch, ReachModeSwitch, REACH_OF_DIRECTION, RecentFlowMenu, RouteLensSwitch } from "./FlowTools";
 import { createFetch } from "./fetchSignal";
 import { FlowProgress } from "./FlowProgress";
 import { stopsOf } from "./inspectorModel";
@@ -288,7 +288,7 @@ export default function FlowView(props: {
       if (many) return many.model;
       if (anchorSpecs().length > 1 && !extraAnchors()) return null;
       const a = anchorGraph()?.graph;
-      return a ? anchorGraphToViewModel(a, { expanded: location().open ?? [] }) : null;
+      return a ? anchorGraphToViewModel(a, { expanded: location().open ?? [], model: location().model }) : null;
     }
     const g = drawnGraph();
     return g ? routeGraphToViewModel(g, { expanded: location().open ?? [] }) : null;
@@ -607,6 +607,7 @@ export default function FlowView(props: {
             )}
           </For>
           <DirectionSwitch dir={dir()} onChange={(d) => replace({ dir: d === "both" ? undefined : d })} />
+          <ModelSwitch model={location().model ?? "symbols"} onChange={(m) => replace({ model: m === "steps" ? "steps" : undefined, open: undefined })} />
           <Button variant="ghost" class="px-2" onClick={toRoutes} title="Trace a route instead (/)">
             Routes
           </Button>

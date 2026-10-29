@@ -108,6 +108,9 @@ export function createPythonHost(tier1: PythonTier1): LanguageHost {
       const fact = tier1.provider().facts.fileCandidates(file).find((item) => sameSpan(item.location.span, span) && typeof item.attributes.typeText === "string");
       return fact ? String(fact.attributes.typeText) : null;
     },
+    bindingAt() {
+      return null;
+    },
     scopeAt(file, span) {
       const scope = scopeFor(file, span);
       return scope ? { span: toSpan(scope.s as [number, number, number, number]), name: scope.name } : null;

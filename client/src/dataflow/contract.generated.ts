@@ -307,6 +307,8 @@ export type AnchorGraphResult = {
     elementKind: string | null;
     typeText: string | null;
     reason: string | null;
+    symbol: string | null;
+    field: string | null;
     note: string | null;
   }[];
   edges: {

@@ -37,6 +37,12 @@ export interface LanguageHost {
   textAt(file: string, span: Span): string | null;
   /** The checked type at exactly this span. */
   typeTextAt(file: string, span: Span): string | null;
+  /**
+   * The local binding an expression reads, and the field path read from it: `doc`, `doc()`,
+   * `doc().title`, `props.note.tags`. Null for a call that is not an accessor, a library or module
+   * symbol, or a language that records none. `attribute` names the JSX attribute the expression fills.
+   */
+  bindingAt(file: string, span: Span): { symbol: string; field: string | null; attribute: string | null } | null;
   /** The function that owns a span (its span and name), or null at module level. */
   scopeAt(file: string, span: Span): { span: Span; name: string | null } | null;
   /** The call sites of the function a cross-call element belongs to: a call, a parameter or the function itself. */

@@ -76,6 +76,10 @@ test.describe("Data flow on solid-route", () => {
 
   test("a route's data trace draws its own component and folds each other component into one box that opens in place", async ({ page }) => {
     await page.goto(url({ view: "graph", flow: "/records" }));
+    // Every step the engine walked: the symbol view's first screen fits without folding.
+    await expect(page.getByRole("radio", { name: "Steps" })).toBeVisible({ timeout: 90_000 });
+    await page.getByRole("radio", { name: "Steps" }).click();
+    await expect(page).toHaveURL(/model=steps/);
     await expect(status(page)).toContainText("components folded", { timeout: 90_000 });
     // The route's own frame is drawn: its resource and what it renders.
     await expect(boxLabelled(page, "createResource(loadViewer)")).toBeVisible();
@@ -251,8 +255,8 @@ test.describe("Data flow on solid-route", () => {
     await page.goto(url({ view: "graph", anchor: "src/components/ViewerCard.tsx@ViewerCard:3", dir: "backward" }));
     await expect(status(page)).toContainText("upstream", { timeout: 90_000 });
     const before = await page.locator("[data-box]").count();
-    // Select an expression box the trace reached and add it as an anchor of its own (by its span).
-    await box(page, "viewer()").click();
+    // Select a box the trace reached (`viewer`, one box for the binding and its `viewer()` reads) and add it as an anchor of its own.
+    await page.locator('[data-box][data-label="viewer"]').first().click();
     const inspector = page.getByLabel("Data flow inspector");
     await expect(inspector).toContainText("Selected box");
     await inspector.getByRole("button", { name: "Add to the trace" }).click();

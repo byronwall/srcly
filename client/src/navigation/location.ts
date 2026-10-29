@@ -46,6 +46,8 @@ export interface Location {
   anchor?: string;
   /** Anchor mode: which way the value is traced; absent is both. */
   dir?: Direction;
+  /** Anchor mode: `steps` draws every step the engine walked; absent draws one box per symbol. */
+  model?: "steps";
 }
 
 export type Direction = "forward" | "backward" | "both";
@@ -116,6 +118,7 @@ const DEST_PARAM = "dest";
 const ANCHOR_PARAM = "anchor";
 const DIR_PARAM = "dir";
 const LENS_PARAM = "lens";
+const MODEL_PARAM = "model";
 /** Pre-location graph focus parameter. Read as an alias of `at` + graph view. */
 const LEGACY_FOCUS_PARAM = "depFocus";
 
@@ -137,6 +140,7 @@ export function parseLocation(search: string): Location {
   const anchor = view === "graph" && parseAnchors(params.get(ANCHOR_PARAM) ?? undefined).length ? params.get(ANCHOR_PARAM) : null;
   const rawDir = anchor !== null ? params.get(DIR_PARAM) : null;
   const dir = rawDir === "forward" || rawDir === "backward" ? rawDir : null;
+  const model = anchor !== null && params.get(MODEL_PARAM) === "steps" ? "steps" : null;
   const flow = view === "graph" && anchor === null ? params.get(FLOW_PARAM) : null;
   const field = flow !== null ? params.get(FIELD_PARAM) : null;
   const dest = field !== null ? params.get(DEST_PARAM) : null;
@@ -152,6 +156,7 @@ export function parseLocation(search: string): Location {
     ...(lens ? { lens } : {}),
     ...(anchor !== null ? { anchor } : {}),
     ...(dir ? { dir } : {}),
+    ...(model ? { model } : {}),
   };
 }
 
@@ -173,6 +178,7 @@ export function toSearch(loc: Location, currentSearch = ""): string {
   params.delete(ANCHOR_PARAM);
   params.delete(DIR_PARAM);
   params.delete(LENS_PARAM);
+  params.delete(MODEL_PARAM);
   if (loc.repo) params.set(REPO_PARAM, loc.repo);
   if (loc.at) params.set(AT_PARAM, loc.at);
   if (loc.view !== "treemap") params.set(VIEW_PARAM, loc.view);
@@ -180,6 +186,7 @@ export function toSearch(loc: Location, currentSearch = ""): string {
   if (loc.view === "graph" && loc.anchor) {
     params.set(ANCHOR_PARAM, loc.anchor);
     if (loc.dir && loc.dir !== "both") params.set(DIR_PARAM, loc.dir);
+    if (loc.model) params.set(MODEL_PARAM, loc.model);
   } else if (loc.view === "graph" && loc.flow !== undefined) {
     params.set(FLOW_PARAM, loc.flow);
     if (loc.lens) params.set(LENS_PARAM, loc.lens);
@@ -194,7 +201,7 @@ export function toSearch(loc: Location, currentSearch = ""): string {
 
 export function sameLocation(a: Location, b: Location): boolean {
   return (
-    samePlace(a, b) && (a.open ?? []).join(",") === (b.open ?? []).join(",") && a.field === b.field && a.dest === b.dest && (a.dir ?? "both") === (b.dir ?? "both")
+    samePlace(a, b) && (a.open ?? []).join(",") === (b.open ?? []).join(",") && a.field === b.field && a.dest === b.dest && (a.dir ?? "both") === (b.dir ?? "both") && a.model === b.model
   );
 }
 

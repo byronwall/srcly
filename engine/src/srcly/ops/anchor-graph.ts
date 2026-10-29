@@ -130,6 +130,10 @@ class AnchorGraphBuilder {
       reason: seed ? null : "no-evidence-element",
       note: seed ? null : "The engine has no evidence element at exactly this expression, so nothing can be traced from it.",
     });
+    // A name anchored on its initializer still reads its own binding: the name itself says which.
+    const own = this.nodes.get(anchorId)!;
+    const named = own.symbol ? null : this.host.bindingAt(file, candidate.span);
+    if (named) Object.assign(own, { symbol: named.symbol, field: named.field });
     const empty = { elements: 0, relations: 0, budget: { limit: 0, used: 0, exhausted: false } };
     if (!seed) return this.finish(anchor, direction, "unsupported", "no-evidence-element", empty);
 
@@ -607,7 +611,7 @@ class AnchorGraphBuilder {
   }
 
   /** A declaration's own parameter or return as a plain value box (the file index knows it without roles or proof). */
-  private addFact(fact: { id: string; kind: string; label: string; location: { file: string; line: number; span: Span } }, side: Side) {
+  private addFact(fact: { id: string; kind: string; label: string; symbolId?: string | null; location: { file: string; line: number; span: Span } }, side: Side) {
     if (this.nodes.has(fact.id)) return;
     this.addNode({
       id: fact.id,
@@ -624,7 +628,7 @@ class AnchorGraphBuilder {
       typeText: this.host.typeTextAt(fact.location.file, fact.location.span),
       reason: null,
       note: null,
-    });
+    }, { kind: fact.kind, symbol: fact.symbolId ?? null });
   }
 
   private resolve(id: string): string {
@@ -652,7 +656,7 @@ class AnchorGraphBuilder {
       typeText: this.host.typeTextAt(element.location.file, element.location.span) ?? typeAttribute(element),
       reason,
       note,
-    });
+    }, element);
     if (element.originRoles.length) this.originRoles.set(element.id, [...element.originRoles]);
     if (kind === "terminal") this.terminalRoles.set(element.id, element.terminalRoles.length ? [...element.terminalRoles] : [element.kind]);
   }
@@ -682,8 +686,24 @@ class AnchorGraphBuilder {
     this.edges.push(edge);
   }
 
-  private addNode(node: Omit<AnchorNode, "absPath">) {
-    this.nodes.set(node.id, { ...node, absPath: path.resolve(this.root, node.file) });
+  private addNode(node: Omit<AnchorNode, "absPath" | "symbol" | "field">, element?: Pick<ProgramElement, "kind" | "symbol">) {
+    this.nodes.set(node.id, { ...node, ...this.bindingOf(node, element), absPath: path.resolve(this.root, node.file) });
+  }
+
+  /**
+   * The local binding a box reads, so the client can draw one box per symbol and frame. Origins and
+   * frontiers keep their own box, and so does an end, except the `when` or `each` of a control
+   * (`<Match when={doc()}>`), which only reads the value it tests.
+   */
+  private bindingOf(node: Omit<AnchorNode, "absPath" | "symbol" | "field">, element?: Pick<ProgramElement, "kind" | "symbol">): Pick<AnchorNode, "symbol" | "field"> {
+    const none = { symbol: null, field: null };
+    if (node.kind === "scope" || node.kind === "origin" || node.kind === "frontier") return none;
+    const found = this.host.bindingAt(node.file, node.span);
+    if (node.kind === "terminal") return found && (found.attribute === "when" || found.attribute === "each") ? { symbol: found.symbol, field: found.field } : none;
+    if (found) return { symbol: found.symbol, field: found.field };
+    // `const [doc] = createResource(…)`: the declaration's span is the pattern, but the element names its binding.
+    const symbol = element?.symbol;
+    return symbol && BINDING_KINDS.has(element.kind) && LOCAL_SYMBOL.test(symbol) ? { symbol, field: null } : none;
   }
 
   /** The frame an element sits in: its enclosing function (the module when there is none), one box per function and file. */
@@ -758,6 +778,10 @@ function typeAttribute(element: ProgramElement): string | null {
  * round the same element is a carrier (upstream, a callee's `return` is where
  * the value comes from), so it takes whatever role it has besides.
  */
+/** Element kinds that declare a binding, and a checker symbol id for a local one (`doc@src/x.tsx:120`, never a module's `"/src/x".f`). */
+const BINDING_KINDS = new Set(["alias", "value", "parameter"]);
+const LOCAL_SYMBOL = /^[A-Za-z_$][\w$]*@[^"]+:\d+$/;
+
 function classify(relation: ProgramRelation, element: ProgramElement, side: Side): AnchorNode["kind"] {
   if (side === "up" && element.originRoles.length) return "origin";
   if (side === "down" && (element.terminalRoles.length || elementTraits(element.kind).terminal)) return "terminal";
