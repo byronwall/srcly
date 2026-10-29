@@ -1,0 +1,14 @@
+{
+  "id": "80a4fee9-9b70-44a0-827e-0fe4d9fb1093",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:82a380",
+    "label": "Agent token ...82a380"
+  },
+  "createdAt": "2026-10-29T01:37:50.603Z",
+  "summary": "Deleted \"Follow namespace-import reads\".",
+  "nodeIds": [
+    "task-follow-namespace-import-reads"
+  ]
+}

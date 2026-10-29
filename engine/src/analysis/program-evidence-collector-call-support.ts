@@ -641,6 +641,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         parametersBySymbol: this.parametersBySymbol,
         functionsBySymbol: this.functionsBySymbol,
         symbolId: (value) => this.symbolId(value),
+        readsNamespace: (value) => this.ts.isIdentifier(value.expression) && Boolean(this.checker.getSymbolAtLocation(value.expression)?.declarations?.some((item) => this.ts.isNamespaceImport(item))),
         moduleFor: (value) => this.moduleFor(value),
         location: (value) => this.location(value),
         ensureElement: (...args) => this.ensureElement(...args),
