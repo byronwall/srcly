@@ -1,0 +1,14 @@
+{
+  "id": "f47ac540-4246-4832-b3e8-58dda0a33722",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:40bbaf",
+    "label": "Agent token ...40bbaf"
+  },
+  "createdAt": "2026-10-29T01:17:21.820Z",
+  "summary": "Deleted \"Action parameters walk into their useAction sites\".",
+  "nodeIds": [
+    "task-action-parameters-walk-into-their-useaction-sites"
+  ]
+}
