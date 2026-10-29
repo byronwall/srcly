@@ -1,0 +1,473 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Show the logic, not only the components, in TS/TSX data flow",
+    "slug": "dataflow-logic-visibility",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-28",
+    "summary": "Make non-component code (helpers, hooks, handlers, server queries, transforms, state) visible in the TSX Data flow graph.",
+    "status": "planned",
+    "next_action": "Land #210 and #211, then start m1 on a branch"
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-28"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-28"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-28"
+    }
+  },
+  "sources": [
+    {
+      "id": "S1",
+      "type": "transcript",
+      "location": "conversation 2026-10-28",
+      "anchor": "see non TSX stuff in the data flow graph",
+      "authority": "user"
+    },
+    {
+      "id": "S2",
+      "type": "repo",
+      "location": "client/src/viz/deps/flow/anchorAdapter.ts",
+      "anchor": "ANCHOR_FOLD_BUDGET, foldedBoxes symbolKind value",
+      "authority": "repo"
+    },
+    {
+      "id": "S3",
+      "type": "repo",
+      "location": "client/src/viz/deps/flow/marks.ts",
+      "anchor": "value and component share --plc-tertiary",
+      "authority": "repo"
+    },
+    {
+      "id": "S4",
+      "type": "repo",
+      "location": "engine/src/srcly/ops/anchor-graph.ts",
+      "anchor": "scopeFor: scope has name and file only; classify()",
+      "authority": "repo"
+    },
+    {
+      "id": "S5",
+      "type": "doc",
+      "location": "docs/research/tsx-dataflow-audit-2026-10/README.md",
+      "anchor": "Round 2, Where it stands: Focus 7/16",
+      "authority": "repo"
+    },
+    {
+      "id": "S6",
+      "type": "doc",
+      "location": "https://github.com/byronwall/srcly/pull/256",
+      "anchor": "Pro research prompt: dependency analysis and investigation UI",
+      "authority": "inferred"
+    },
+    {
+      "id": "S7",
+      "type": "doc",
+      "location": "https://github.com/byronwall/srcly/pull/153",
+      "anchor": "projection witness preservation",
+      "authority": "inferred"
+    },
+    {
+      "id": "S8",
+      "type": "repo",
+      "location": "pgm/data srcly-backlog",
+      "anchor": "task-route-data-traces-flood-the-canvas, task-hub-summaries-for-size-limited-slices",
+      "authority": "repo"
+    },
+    {
+      "id": "qa-round-1",
+      "type": "qa",
+      "location": "conversation",
+      "anchor": "round 1",
+      "authority": "user"
+    },
+    {
+      "id": "qa-round-2",
+      "type": "qa",
+      "location": "conversation",
+      "anchor": "round 2",
+      "authority": "user"
+    },
+    {
+      "id": "qa-round-3",
+      "type": "qa",
+      "location": "conversation",
+      "anchor": "round 3",
+      "authority": "user"
+    },
+    {
+      "id": "S9",
+      "type": "qa",
+      "location": "conversation 2026-10-28",
+      "anchor": "three boxes for doc: condense into a single box",
+      "authority": "user"
+    },
+    {
+      "id": "S10",
+      "type": "repo",
+      "location": "engine/src/analysis/program-evidence-compact-facts.ts",
+      "anchor": "symbolId: string | null",
+      "authority": "repo"
+    },
+    {
+      "id": "qa-shape",
+      "type": "qa",
+      "location": "conversation",
+      "anchor": "take both proposals",
+      "authority": "user"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "Byron wants non-component code visible in the TS/TSX data-flow graph.",
+        "kind": "goal",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C2",
+        "statement": "The graph reads as all components because folded functions use the grey value mark, which matches the component grey, and frames carry no role.",
+        "kind": "finding",
+        "sources": [
+          "S2",
+          "S3",
+          "S4"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C3",
+        "statement": "The goal is to see how data is reshaped, stored and handed across the server line, with components as one stop.",
+        "kind": "hypothesis",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C4",
+        "statement": "Folding and merging must keep the witness for each claim.",
+        "kind": "constraint",
+        "sources": [
+          "S7"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C5",
+        "statement": "Two equal jobs: follow a full route, and spider out from a known symbol to what it touches or depends on.",
+        "kind": "goal",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C6",
+        "statement": "Emphasize the symbols involved and how they relate and depend on each other.",
+        "kind": "goal",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C7",
+        "statement": "Must show transforms, state containers and the server boundary; plain helpers matter less.",
+        "kind": "priority",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C8",
+        "statement": "Engine changes are allowed when the client lacks the facts.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C9",
+        "statement": "Proposal (consider-contrast): symbol graph with named bindings as boxes, unnamed steps as labelled edges, functions as role-tinted frames, server as a band.",
+        "kind": "hypothesis",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C10",
+        "statement": "Spidering covers data plus calls and state reads/writes and callers, not only value flow.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C11",
+        "statement": "Start with a reasonable first screen; grow by keyboard shortcut or depth slider, never by many single clicks.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C12",
+        "statement": "Components are frames like hooks or helpers in the Data lens; the Components lens stays for the render tree.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C13",
+        "statement": "A route first screen reaches through the server boundary to the database.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C14",
+        "statement": "Value flow is the bold main line with its operation labelled; calls and reads/writes are thin grey links that can be toggled.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C15",
+        "statement": "First screen is the main path from origins to ends, about 25 symbols, with side branches as +N stubs that grow by key or slider.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C16",
+        "statement": "Plain TS modules with no routes or components are an equal target.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C17",
+        "statement": "Dial in the UX on a small reasonable example; use larger repos to build out the engine and find errors.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C18",
+        "statement": "All reads of one binding (doc, doc(), doc() in Match when) are one symbol box; the pattern recurs widely.",
+        "kind": "goal",
+        "sources": [
+          "S9"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C19",
+        "statement": "Field reads merge into their symbol with the field name on the edge; symbol kind carries the strong color, frames neutral with a role word.",
+        "kind": "decision",
+        "sources": [
+          "qa-shape"
+        ],
+        "confidence": "high"
+      }
+    ],
+    "themes": [],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "One initiative: replace the Data lens box model and folding; walk, routes and Components lens unchanged.",
+    "problem": "The Data lens draws functions as grey component-like boxes and repeats one symbol across several boxes, hiding transforms, state and the server hop.",
+    "recommended_shape": "Symbol graph: one box per checker symbol per frame, bold labelled value-flow edges, thin toggled call/read links, role frames, server band, main path first with +/- and depth slider.",
+    "success_moves": [
+      "Merge by symbolId sent through the contract, never by label",
+      "Prove the merge on a small fixture before visual-notes",
+      "Keep the old box model behind a view switch until the visual-notes check passes",
+      "Reuse function-effects facts for call and read links; no new walk semantics",
+      "Keep each merged edge opening to every original proof (#153)"
+    ],
+    "first_proof": {
+      "question": "Does merging by checker symbol cut the box count enough to build a main-path first screen on symbols?",
+      "artifact": "anchor contract symbol field + anchorAdapter merge, run on a new small fixture and on visual-notes /docs/[id]",
+      "decision_rule": "A cut of a third or more on /docs/[id], with no wrong merges, means build on symbols; otherwise move main-path selection into the engine first."
+    },
+    "rabbit_holes": [
+      "Main-path selection needs a ranking the engine may not have",
+      "symbolId may be null or the callee symbol for accessor calls",
+      "Role detection for frames could drift into srcly-specific analysis edits"
+    ],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "planned",
+    "repository_snapshot": {
+      "root": null,
+      "revision": null,
+      "worktree_status": null,
+      "subsystems": [],
+      "test_commands": [],
+      "deployment_surfaces": []
+    },
+    "dependencies": [
+      {
+        "name": "anchor-graph contract",
+        "first_proof_role": "real",
+        "seam": "engine/src/srcly/contracts/anchor-graph.ts -> anchorAdapter.ts",
+        "proof_strategy": "engine tests on a small example app, fake-engine snapshots, visual-notes scale check"
+      }
+    ],
+    "fast_local_loop": {
+      "command": "cd engine && pnpm vitest run test/srcly/anchor-graph.test.ts && cd ../client && pnpm vitest run src/viz/deps/flow"
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "One box per symbol",
+        "outcome": "/docs/[id] shows one doc box with labelled out-edges; box counts before and after are recorded.",
+        "dependencies_introduced": [
+          "anchor contract symbol and field"
+        ],
+        "proof": "engine anchor-graph test on symbol-graph example; adapter tests; visual-notes counts",
+        "valid_intermediate_state": "model=steps remains available; new contract fields are additive",
+        "rollback": "switch to model=steps; drop the adapter merge",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m2",
+        "title": "Edges that say what happens, colored symbol kinds",
+        "outcome": "Unnamed intermediates fold into labelled edges; state, transform, origin and end symbols are colored apart.",
+        "dependencies_introduced": [
+          "edge operation",
+          "symbolKind trait"
+        ],
+        "proof": "adapter tests; survey gate; screenshots",
+        "valid_intermediate_state": "frames unchanged; legend matches marks",
+        "rollback": "model=steps",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m3",
+        "title": "Frames with a role, and the server band",
+        "outcome": "Frames read component, hook, helper, handler, fetcher, server or unknown; server frames and DB ends sit in a band.",
+        "dependencies_introduced": [
+          "scope role"
+        ],
+        "proof": "engine test on symbol-graph roles; /docs/[id] screenshot",
+        "valid_intermediate_state": "unknown role renders neutral",
+        "rollback": "model=steps",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m4",
+        "title": "Main path first, then grow",
+        "outcome": "/docs/[id] opens on about 25 symbols; +/- and a depth slider grow it; symbols becomes the default.",
+        "dependencies_introduced": [
+          "path rank (client or engine per m1)"
+        ],
+        "proof": "adapter tests; pnpm e2e depth control; audit round 3",
+        "valid_intermediate_state": "steps model stays behind the switch",
+        "rollback": "default back to model=steps",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m5",
+        "title": "Calls and reads as thin links, plain TS",
+        "outcome": "Calls, callers and state reads/writes draw as toggled thin links; plain TS anchors read well.",
+        "dependencies_introduced": [
+          "anchor links from function-effects facts"
+        ],
+        "proof": "engine test; plain TS anchors in engine and client utils",
+        "valid_intermediate_state": "links toggle off by default if noisy",
+        "rollback": "hide links toggle",
+        "status": "planned",
+        "evidence": []
+      }
+    ],
+    "cut_line": [
+      "Types overlay",
+      "Symbol view for Components lens",
+      "Python frame roles",
+      "Cross-generation hub summaries",
+      "New walk semantics"
+    ],
+    "open_decisions": [
+      "Where the main path is ranked (client or engine), decided by m1 counts",
+      "Symbol identity for accessor calls"
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-28",
+      "event": "Initiative created from Byron's request; intent brief drafted from repo, audit and open PRs."
+    },
+    {
+      "date": "2026-10-28",
+      "event": "Question round 1 recorded; consider-contrast picked a symbol-graph hybrid as the working proposal."
+    },
+    {
+      "date": "2026-10-28",
+      "event": "Question round 2 recorded."
+    },
+    {
+      "date": "2026-10-28",
+      "event": "Question round 3 recorded; intent brief rewritten as shape-ready."
+    },
+    {
+      "date": "2026-10-28",
+      "event": "Symbol merging added to intent from Byron screenshot; shape brief drafted."
+    },
+    {
+      "date": "2026-10-28",
+      "event": "Both shape choices taken; implementation plan written with five milestones."
+    }
+  ],
+  "closure": null
+}
