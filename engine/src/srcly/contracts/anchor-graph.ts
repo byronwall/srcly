@@ -114,6 +114,12 @@ export const anchorGraphResultSchema = z.strictObject({
   direction: anchorDirectionSchema,
   nodes: z.array(anchorNodeSchema),
   edges: z.array(anchorEdgeSchema),
+  /**
+   * What each drawn function touches besides the value traced: the drawn functions it calls (scope to
+   * scope), and the drawn bindings declared outside it that it reads or writes (scope to box). Found by
+   * syntax and the checker, never part of the value's proof.
+   */
+  links: z.array(z.strictObject({ id: z.string(), source: z.string(), target: z.string(), kind: z.enum(["calls", "reads", "writes"]) })),
   origins: z.array(z.strictObject({ nodeId: z.string(), label: z.string(), roles: z.array(originRoleSchema), status: evidenceStatusSchema })),
   terminals: z.array(z.strictObject({ nodeId: z.string(), label: z.string(), roles: z.array(z.string()), status: evidenceStatusSchema })),
   counts: z.strictObject({

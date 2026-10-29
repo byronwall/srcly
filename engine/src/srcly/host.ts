@@ -48,6 +48,12 @@ export interface LanguageHost {
    * symbol, or a language that records none. `attribute` names the JSX attribute the expression fills.
    */
   bindingAt(file: string, span: Span): { symbol: string; field: string | null; attribute: string | null; state: BindingState | null } | null;
+  /**
+   * What a function touches besides the values it is handed: the functions of the root it calls (by
+   * their spans), and the local bindings declared outside it that it reads or writes (by symbol). A
+   * setter (`setDoc` of `const [doc, setDoc]`) writes its pair's first name. Empty where a language records none.
+   */
+  linksOf(file: string, span: Span): { calls: { file: string; span: Span }[]; reads: string[]; writes: string[] };
   /** The function that owns a span (its span and name), or null at module level. */
   scopeAt(file: string, span: Span): { span: Span; name: string | null; role?: ScopeRole } | null;
   /** The call sites of the function a cross-call element belongs to: a call, a parameter or the function itself. */

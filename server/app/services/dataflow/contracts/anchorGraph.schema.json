@@ -462,6 +462,38 @@
         "additionalProperties": false
       }
     },
+    "links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "calls",
+              "reads",
+              "writes"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "target",
+          "kind"
+        ],
+        "additionalProperties": false
+      }
+    },
     "origins": {
       "type": "array",
       "items": {
@@ -653,6 +685,7 @@
     "direction",
     "nodes",
     "edges",
+    "links",
     "origins",
     "terminals",
     "counts",

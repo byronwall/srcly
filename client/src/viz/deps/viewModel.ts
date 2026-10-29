@@ -79,6 +79,8 @@ export interface ViewEdge {
   relation?: string;
   /** Symbol view: a value-flow edge, the main line, drawn bold with its label always shown. */
   bold?: boolean;
+  /** Symbol view: not value flow but what a function calls, reads or writes; drawn thin and dotted. */
+  link?: "calls" | "reads" | "writes";
 }
 
 export interface ViewModel {

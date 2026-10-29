@@ -111,6 +111,9 @@ export function createPythonHost(tier1: PythonTier1): LanguageHost {
     bindingAt() {
       return null;
     },
+    linksOf() {
+      return { calls: [], reads: [], writes: [] };
+    },
     scopeAt(file, span) {
       const scope = scopeFor(file, span);
       return scope ? { span: toSpan(scope.s as [number, number, number, number]), name: scope.name } : null;

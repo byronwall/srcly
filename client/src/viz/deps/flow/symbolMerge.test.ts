@@ -113,3 +113,17 @@ describe("the first screen and growing it", () => {
     expect(real(opened).length).toBeGreaterThan(real(first).length);
   });
 });
+
+describe("links for what a function calls, reads and writes", () => {
+  const withLinks = anchorGraphToViewModel(graph, { expanded: everyFrame, depth: 99 });
+  const without = anchorGraphToViewModel(graph, { expanded: everyFrame, depth: 99, links: false });
+
+  it("draws them thin between drawn boxes, apart from the value flow, and hides them on request", () => {
+    const links = withLinks.vm.edges.filter((e) => e.link);
+    expect(links.length).toBeGreaterThan(0);
+    const ids = new Set(withLinks.vm.nodes.map((n) => n.id));
+    for (const e of links) expect(ids.has(e.source) && ids.has(e.target) && !e.bold).toBe(true);
+    expect(without.vm.edges.some((e) => e.link)).toBe(false);
+    expect(without.vm.edges.length).toBe(withLinks.vm.edges.length - links.length);
+  });
+});

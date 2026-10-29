@@ -317,6 +317,23 @@ describe("anchorGraph symbols on symbol-graph", () => {
     expect(role(view, "save")).toEqual(["handler"]);
   }, 60_000);
 
+  it("links each drawn function to the drawn functions it calls and the outer bindings it reads", () => {
+    const said = (g: AnchorGraphResult) => {
+      const label = new Map(g.nodes.map((n) => [n.id, n.label]));
+      return g.links.map((l) => `${l.kind} ${label.get(l.source)} > ${label.get(l.target)}`);
+    };
+    expect(said(graph)).toEqual(expect.arrayContaining(["reads createResource callback > params"]));
+    // Traced from the server read itself, so no walk limit decides which helpers are drawn.
+    const server = anchorGraphOp(session, { file: "src/server/notes.ts", name: "fetchNote", line: 4, direction: "forward" });
+    expect(said(server)).toEqual(expect.arrayContaining(["calls fetchNote > toDetail", "calls toDetail > parseTags"]));
+    const view = anchorGraphOp(session, { file: "src/components/NoteView.tsx", name: "NoteView", line: 6, direction: "forward" });
+    expect(said(view)).toEqual(expect.arrayContaining(["calls save > saveTitle"]));
+    for (const g of [graph, server, view]) {
+      const ids = new Set(g.nodes.map((n) => n.id));
+      for (const l of g.links) expect(ids.has(l.source) && ids.has(l.target)).toBe(true);
+    }
+  }, 60_000);
+
   it("gives no binding to a call that is not an accessor, a render slot, or an origin, and keeps two `id`s apart", () => {
     expect(of("fetchNote(id)")[0].symbol).toBeNull();
     expect(of("n().title", "render-terminal")[0].symbol).toBeNull();

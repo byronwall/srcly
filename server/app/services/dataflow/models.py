@@ -683,6 +683,13 @@ class AnchorCounts(BaseModel):
     frontiers: int
 
 
+class AnchorLink(BaseModel):
+    id: str
+    source: str
+    target: str
+    kind: Literal["calls", "reads", "writes"]
+
+
 class AnchorGraphResult(BaseModel):
     outcome: Outcome
     generation: int
@@ -694,6 +701,7 @@ class AnchorGraphResult(BaseModel):
     direction: Literal["forward", "backward", "both"]
     nodes: list[AnchorNode]
     edges: list[AnchorEdge]
+    links: list[AnchorLink]
     origins: list[AnchorOrigin]
     terminals: list[AnchorTerminal]
     counts: AnchorCounts

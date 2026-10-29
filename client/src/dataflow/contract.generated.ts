@@ -338,6 +338,12 @@ export type AnchorGraphResult = {
     }[];
     label: string | null;
   }[];
+  links: {
+    id: string;
+    source: string;
+    target: string;
+    kind: "calls" | "reads" | "writes";
+  }[];
   origins: {
     nodeId: string;
     label: string;
