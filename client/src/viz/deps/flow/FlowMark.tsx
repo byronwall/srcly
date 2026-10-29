@@ -34,6 +34,15 @@ export function FlowMarkGlyph(props: { mark: FlowMark; x: number; y: number }) {
         <path d="M6 0 V3 M6 9 V12 M0 6 H3 M9 6 H12" stroke="currentColor" stroke-width="1.3" />
         <circle cx="6" cy="6" r="1.4" fill="currentColor" />
       </Show>
+      <Show when={props.mark === "frame"}>
+        <path d="M4 1.2 C2.2 1.2 2.6 5.2 1 6 C2.6 6.8 2.2 10.8 4 10.8 M8 1.2 C9.8 1.2 9.4 5.2 11 6 C9.4 6.8 9.8 10.8 8 10.8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+      </Show>
+      <Show when={props.mark === "server"}>
+        <rect x="1.5" y="1.5" width="9" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.3" />
+        <rect x="1.5" y="6.5" width="9" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.3" />
+        <circle cx="3.6" cy="3.5" r="0.8" fill="currentColor" />
+        <circle cx="3.6" cy="8.5" r="0.8" fill="currentColor" />
+      </Show>
       <Show when={props.mark === "state"}>
         <ellipse cx="6" cy="2.8" rx="4.5" ry="1.8" fill="none" stroke="currentColor" stroke-width="1.3" />
         <path d="M1.5 2.8 V9.2 C1.5 11.6 10.5 11.6 10.5 9.2 V2.8" fill="none" stroke="currentColor" stroke-width="1.3" />

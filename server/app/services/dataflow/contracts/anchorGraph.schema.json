@@ -265,6 +265,26 @@
               }
             ]
           },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "component",
+                  "hook",
+                  "handler",
+                  "fetcher",
+                  "server",
+                  "callback",
+                  "helper",
+                  "module"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "note": {
             "type": [
               "string",
@@ -291,6 +311,7 @@
           "field",
           "operation",
           "state",
+          "role",
           "note"
         ],
         "additionalProperties": false

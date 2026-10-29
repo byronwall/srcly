@@ -45,6 +45,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "component",
    "note": null
   },
   {
@@ -71,6 +72,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -97,6 +99,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -123,6 +126,7 @@
    "field": null,
    "operation": null,
    "state": "resource",
+   "role": null,
    "note": null
   },
   {
@@ -149,6 +153,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -175,6 +180,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -201,6 +207,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "callback",
    "note": null
   },
   {
@@ -227,6 +234,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -253,6 +261,7 @@
    "field": "id",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -279,6 +288,7 @@
    "field": "id",
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -305,6 +315,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "fetcher",
    "note": null
   },
   {
@@ -331,6 +342,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -357,6 +369,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -383,6 +396,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -409,6 +423,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": "createResource(() => params.id, (id) => fetchNote(id)) is framework runtime; what it carries is proven only as far as the engine's relations go"
   },
   {
@@ -435,6 +450,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "server",
    "note": null
   },
   {
@@ -461,6 +477,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -487,6 +504,7 @@
    "field": null,
    "operation": null,
    "state": "resource",
+   "role": null,
    "note": "note() is framework runtime; what it carries is proven only as far as the engine's relations go"
   },
   {
@@ -513,6 +531,7 @@
    "field": null,
    "operation": null,
    "state": "resource",
+   "role": null,
    "note": null
   },
   {
@@ -539,6 +558,7 @@
    "field": null,
    "operation": null,
    "state": "resource",
+   "role": null,
    "note": null
   },
   {
@@ -565,6 +585,7 @@
    "field": null,
    "operation": null,
    "state": "resource",
+   "role": null,
    "note": null
   },
   {
@@ -591,6 +612,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -617,6 +639,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -643,6 +666,7 @@
    "field": null,
    "operation": null,
    "state": "resource",
+   "role": null,
    "note": null
   },
   {
@@ -669,6 +693,7 @@
    "field": "error",
    "operation": "field-read",
    "state": "resource",
+   "role": null,
    "note": null
   },
   {
@@ -695,6 +720,7 @@
    "field": "error",
    "operation": "field-read",
    "state": "resource",
+   "role": null,
    "note": null
   },
   {
@@ -721,6 +747,7 @@
    "field": null,
    "operation": "object-pack",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -747,6 +774,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -773,6 +801,7 @@
    "field": null,
    "operation": null,
    "state": "resource",
+   "role": null,
    "note": null
   },
   {
@@ -799,6 +828,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -825,6 +855,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -851,6 +882,7 @@
    "field": "error",
    "operation": null,
    "state": "resource",
+   "role": null,
    "note": null
   },
   {
@@ -877,6 +909,7 @@
    "field": "error",
    "operation": null,
    "state": "resource",
+   "role": null,
    "note": null
   },
   {
@@ -903,6 +936,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -929,6 +963,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -955,6 +990,7 @@
    "field": null,
    "operation": "object-pack",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -981,6 +1017,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1007,6 +1044,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "callback",
    "note": null
   },
   {
@@ -1033,6 +1071,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1059,6 +1098,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1085,6 +1125,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1111,6 +1152,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1137,6 +1179,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1163,6 +1206,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1189,6 +1233,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1215,6 +1260,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1241,6 +1287,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1267,6 +1314,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1293,6 +1341,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1319,6 +1368,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": "database read: db.note.findUnique(…) is outside the program's own source"
   },
   {
@@ -1345,6 +1395,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1371,6 +1422,7 @@
    "field": "title",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1397,6 +1449,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1423,6 +1476,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1449,6 +1503,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1475,6 +1530,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1501,6 +1557,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1527,6 +1584,7 @@
    "field": "sourceId",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1553,6 +1611,7 @@
    "field": "sourceId",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1579,6 +1638,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1605,6 +1665,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1631,6 +1692,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1657,6 +1719,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "component",
    "note": null
   },
   {
@@ -1683,6 +1746,7 @@
    "field": "note",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1709,6 +1773,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "handler",
    "note": null
   },
   {
@@ -1735,6 +1800,7 @@
    "field": "note",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1761,6 +1827,7 @@
    "field": "note",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1787,6 +1854,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "callback",
    "note": null
   },
   {
@@ -1813,6 +1881,7 @@
    "field": "note",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1839,6 +1908,7 @@
    "field": "sourceId",
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1865,6 +1935,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1891,6 +1962,7 @@
    "field": "sourceId",
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1917,6 +1989,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -1943,6 +2016,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": "ends here · decides a branch"
   },
   {
@@ -1969,6 +2043,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "helper",
    "note": null
   },
   {
@@ -1995,6 +2070,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2021,6 +2097,7 @@
    "field": "note",
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2047,6 +2124,7 @@
    "field": "note.tags",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2073,6 +2151,7 @@
    "field": "note.id",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2099,6 +2178,7 @@
    "field": "note.title",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2125,6 +2205,7 @@
    "field": "note.tags",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2151,6 +2232,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2177,6 +2259,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2203,6 +2286,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2229,6 +2313,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2255,6 +2340,7 @@
    "field": "note.tags",
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2281,6 +2367,7 @@
    "field": "note.tags",
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2307,6 +2394,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2333,6 +2421,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2359,6 +2448,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "server",
    "note": null
   },
   {
@@ -2385,6 +2475,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2411,6 +2502,7 @@
    "field": null,
    "operation": "object-pack",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2437,6 +2529,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "helper",
    "note": null
   },
   {
@@ -2463,6 +2556,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2489,6 +2583,7 @@
    "field": "tagsJson",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2515,6 +2610,7 @@
    "field": "id",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2541,6 +2637,7 @@
    "field": "title",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2567,6 +2664,7 @@
    "field": "sourceId",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2593,6 +2691,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "callback",
    "note": null
   },
   {
@@ -2619,6 +2718,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2645,6 +2745,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2671,6 +2772,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2697,6 +2799,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2723,6 +2826,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "helper",
    "note": null
   },
   {
@@ -2749,6 +2853,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2775,6 +2880,7 @@
    "field": null,
    "operation": "object-pack",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2801,6 +2907,7 @@
    "field": "title.trim",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2827,6 +2934,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2853,6 +2961,7 @@
    "field": null,
    "operation": "object-pack",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2879,6 +2988,7 @@
    "field": null,
    "operation": null,
    "state": "store",
+   "role": null,
    "note": null
   },
   {
@@ -2905,6 +3015,7 @@
    "field": "map",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2931,6 +3042,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "callback",
    "note": null
   },
   {
@@ -2957,6 +3069,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -2983,6 +3096,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3009,6 +3123,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3035,6 +3150,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3061,6 +3177,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3087,6 +3204,7 @@
    "field": null,
    "operation": "object-pack",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3113,6 +3231,7 @@
    "field": null,
    "operation": null,
    "state": "store",
+   "role": null,
    "note": null
   },
   {
@@ -3139,6 +3258,7 @@
    "field": null,
    "operation": null,
    "state": "store",
+   "role": null,
    "note": null
   },
   {
@@ -3165,6 +3285,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3191,6 +3312,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3217,6 +3339,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3243,6 +3366,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3269,6 +3393,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3295,6 +3420,7 @@
    "field": "title",
    "operation": "field-read",
    "state": "store",
+   "role": null,
    "note": null
   },
   {
@@ -3321,6 +3447,7 @@
    "field": "title",
    "operation": "field-read",
    "state": "store",
+   "role": null,
    "note": null
   },
   {
@@ -3347,6 +3474,7 @@
    "field": null,
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3373,6 +3501,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3399,6 +3528,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3425,6 +3555,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3451,6 +3582,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3477,6 +3609,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3503,6 +3636,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3529,6 +3663,7 @@
    "field": "title",
    "operation": null,
    "state": "store",
+   "role": null,
    "note": null
   },
   {
@@ -3555,6 +3690,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3581,6 +3717,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3607,6 +3744,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3633,6 +3771,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3659,6 +3798,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3685,6 +3825,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3711,6 +3852,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3737,6 +3879,7 @@
    "field": "map",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3763,6 +3906,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "callback",
    "note": null
   },
   {
@@ -3789,6 +3933,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3815,6 +3960,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3841,6 +3987,7 @@
    "field": "trim",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3867,6 +4014,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3893,6 +4041,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3919,6 +4068,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3945,6 +4095,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3971,6 +4122,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -3997,6 +4149,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4023,6 +4176,7 @@
    "field": null,
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4049,6 +4203,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "callback",
    "note": null
   },
   {
@@ -4075,6 +4230,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4101,6 +4257,7 @@
    "field": "trim",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4127,6 +4284,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4153,6 +4311,7 @@
    "field": null,
    "operation": null,
    "state": "memo",
+   "role": null,
    "note": null
   },
   {
@@ -4179,6 +4338,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4205,6 +4365,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4231,6 +4392,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4257,6 +4419,7 @@
    "field": "trim",
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4283,6 +4446,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4309,6 +4473,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4335,6 +4500,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4361,6 +4527,7 @@
    "field": null,
    "operation": null,
    "state": "memo",
+   "role": null,
    "note": null
   },
   {
@@ -4387,6 +4554,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4413,6 +4581,7 @@
    "field": "length",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4439,6 +4608,7 @@
    "field": null,
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4465,6 +4635,7 @@
    "field": null,
    "operation": "object-pack",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4491,6 +4662,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4517,6 +4689,7 @@
    "field": "length",
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4543,6 +4716,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4569,6 +4743,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4595,6 +4770,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4621,6 +4797,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4647,6 +4824,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4673,6 +4851,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4699,6 +4878,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4725,6 +4905,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -4751,6 +4932,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": "raw.map((tag) => tag.trim().toLowerCase()).filter has 0 call sites; it is also passed as a value; its values cannot be paired with this call until invocation identity lands"
   },
   {
@@ -4777,6 +4959,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": "dead end · nothing continues from here"
   }
  ],

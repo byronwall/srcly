@@ -311,6 +311,7 @@ export type AnchorGraphResult = {
     field: string | null;
     operation: string | null;
     state: "signal" | "store" | "resource" | "memo" | "context" | null;
+    role: "component" | "hook" | "handler" | "fetcher" | "server" | "callback" | "helper" | "module" | null;
     note: string | null;
   }[];
   edges: {

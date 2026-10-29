@@ -915,9 +915,11 @@ export function DependencyCanvas(props: {
                     width={f.width}
                     height={f.height}
                     rx="6"
-                    fill="var(--plc-surface)"
-                    fill-opacity="0.6"
-                    stroke={closable() ? "var(--plc-accent-border)" : "var(--plc-border)"}
+                    fill={f.tone === "server" ? "var(--plc-server-subtle)" : "var(--plc-surface)"}
+                    fill-opacity={f.tone === "server" ? 1 : 0.6}
+                    stroke={f.tone === "server" ? "var(--plc-server)" : closable() ? "var(--plc-accent-border)" : "var(--plc-border)"}
+                    stroke-dasharray={f.tone === "server" ? "4 2" : undefined}
+                    data-frame-tone={f.tone}
                   />
                   {/* The label band above the first box is fixed: larger labels grow up past the frame's top, haloed. */}
                   <Show

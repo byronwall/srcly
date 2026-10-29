@@ -62,3 +62,25 @@ describe("one box per symbol", () => {
     expect(symbols.vm.nodes.length).toBeLessThanOrEqual(Math.round(steps.vm.nodes.length * 0.75));
   });
 });
+
+describe("folded functions say what they are", () => {
+  const folded = anchorGraphToViewModel(graph, { expanded: [], depth: 99 });
+  const roleOf = new Map(graph.nodes.filter((n) => n.kind === "scope").map((n) => [n.id, n.role]));
+  const folds = folded.vm.nodes.filter((n) => n.expandable && roleOf.has(n.id));
+
+  it("draws server code as server, a component as a component, and the rest as functions with their role", () => {
+    expect(folds.length).toBeGreaterThan(0);
+    for (const box of folds) {
+      const role = roleOf.get(box.id);
+      expect(box.symbolKind).toBe(role === "server" ? "server" : role === "component" ? "component" : "frame");
+      if (role && role !== "module") expect(box.subtitle).toMatch(new RegExp(`^${role} · `));
+    }
+    expect(folds.some((b) => b.symbolKind === "server")).toBe(true);
+  });
+
+  it("names what goes into a folded function and comes out of it", () => {
+    expect(folds.every((b) => b.subtitle?.includes("→") || b.subtitle?.includes("reaches") || b.subtitle?.includes("step"))).toBe(true);
+    expect(folds.some((b) => b.subtitle?.includes("→"))).toBe(true);
+  });
+});
+

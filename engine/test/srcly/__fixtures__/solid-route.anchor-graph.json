@@ -45,6 +45,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "component",
    "note": null
   },
   {
@@ -71,6 +72,7 @@
    "field": "viewer.name",
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -97,6 +99,7 @@
    "field": "viewer",
    "operation": "field-read",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -123,6 +126,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -149,6 +153,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": "component",
    "note": null
   },
   {
@@ -175,6 +180,7 @@
    "field": null,
    "operation": null,
    "state": "resource",
+   "role": null,
    "note": null
   },
   {
@@ -201,6 +207,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -227,6 +234,7 @@
    "field": null,
    "operation": null,
    "state": "resource",
+   "role": null,
    "note": null
   },
   {
@@ -253,6 +261,7 @@
    "field": null,
    "operation": null,
    "state": "resource",
+   "role": null,
    "note": "viewer() is framework runtime; what it carries is proven only as far as the engine's relations go"
   },
   {
@@ -279,6 +288,7 @@
    "field": null,
    "operation": null,
    "state": "resource",
+   "role": null,
    "note": null
   },
   {
@@ -305,6 +315,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -331,6 +342,7 @@
    "field": null,
    "operation": null,
    "state": "resource",
+   "role": null,
    "note": null
   },
   {
@@ -357,6 +369,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -383,6 +396,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -409,6 +423,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -435,6 +450,7 @@
    "field": null,
    "operation": "selection",
    "state": null,
+   "role": null,
    "note": null
   },
   {
@@ -461,6 +477,7 @@
    "field": null,
    "operation": null,
    "state": null,
+   "role": null,
    "note": null
   }
  ],

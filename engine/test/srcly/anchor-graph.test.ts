@@ -302,6 +302,17 @@ describe("anchorGraph symbols on symbol-graph", () => {
     expect(graph.nodes.some((n) => n.operation === "object-pack")).toBe(true);
   }, 60_000);
 
+  it("names each frame's role: component, fetcher, server code, handler, helper and callback", () => {
+    const role = (label: string) => graph.nodes.filter((n) => n.kind === "scope" && n.label === label).map((n) => n.role);
+    expect(role("NotePage")).toEqual(["component"]);
+    expect(role("createResource callback").sort()).toEqual(["callback", "fetcher"]);
+    expect(role("fetchNote")).toEqual(["server"]);
+    expect(role("saveTitle")).toEqual(["server"]);
+    expect(role("save")).toEqual(["handler"]);
+    expect(role("toDetail")).toEqual(["helper"]);
+    expect(role("tags.map callback")).toEqual(["callback"]);
+  }, 60_000);
+
   it("gives no binding to a call that is not an accessor, a render slot, or an origin, and keeps two `id`s apart", () => {
     expect(of("fetchNote(id)")[0].symbol).toBeNull();
     expect(of("n().title", "render-terminal")[0].symbol).toBeNull();

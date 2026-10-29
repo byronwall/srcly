@@ -686,8 +686,8 @@ class AnchorGraphBuilder {
     this.edges.push(edge);
   }
 
-  private addNode(node: Omit<AnchorNode, "absPath" | "symbol" | "field" | "operation" | "state">, element?: Pick<ProgramElement, "kind" | "symbol"> & { operationKind?: string | null }) {
-    this.nodes.set(node.id, { ...node, ...this.bindingOf(node, element), operation: element?.operationKind ?? null, absPath: path.resolve(this.root, node.file) });
+  private addNode(node: Omit<AnchorNode, "absPath" | "symbol" | "field" | "operation" | "state" | "role"> & { role?: AnchorNode["role"] }, element?: Pick<ProgramElement, "kind" | "symbol"> & { operationKind?: string | null }) {
+    this.nodes.set(node.id, { ...node, role: node.role ?? null, ...this.bindingOf(node, element), operation: element?.operationKind ?? null, absPath: path.resolve(this.root, node.file) });
   }
 
   /**
@@ -695,7 +695,7 @@ class AnchorGraphBuilder {
    * frontiers keep their own box, and so does an end, except the `when` or `each` of a control
    * (`<Match when={doc()}>`), which only reads the value it tests.
    */
-  private bindingOf(node: Omit<AnchorNode, "absPath" | "symbol" | "field" | "operation" | "state">, element?: Pick<ProgramElement, "kind" | "symbol">): Pick<AnchorNode, "symbol" | "field" | "state"> {
+  private bindingOf(node: Pick<AnchorNode, "kind" | "file" | "span">, element?: Pick<ProgramElement, "kind" | "symbol">): Pick<AnchorNode, "symbol" | "field" | "state"> {
     const none = { symbol: null, field: null, state: null };
     if (node.kind === "scope" || node.kind === "origin" || node.kind === "frontier") return none;
     const found = this.host.bindingAt(node.file, node.span);
@@ -721,6 +721,7 @@ class AnchorGraphBuilder {
       kind: "scope",
       label: scope?.name ?? (scope ? `(anonymous) in ${path.basename(file)}` : path.basename(file)),
       detail: scope ? path.basename(file) : "module",
+      role: scope ? (scope.role ?? null) : "module",
       parent: null,
       file,
       line: fnSpan?.startLine ?? 1,

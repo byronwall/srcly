@@ -44,9 +44,9 @@ describe("anchor graph → ViewModel", () => {
     expect(m.vm.edges.some((e) => e.source === param && e.target === read.target && e.relation === "field-input")).toBe(true);
   });
 
-  it("frames every box by the function that owns it, with the file in the frame's name", () => {
-    expect(byLabel("props.viewer?.name").group).toMatchObject({ label: "ViewerCard · ViewerCard.tsx", opened: true });
-    expect(byLabel("createResource(loadViewer)").group?.label).toMatch(/^RecordsRoute · records\.tsx$/);
+  it("frames every box by the function that owns it, with its role and file in the frame's name", () => {
+    expect(byLabel("props.viewer?.name").group).toMatchObject({ label: "ViewerCard · component · ViewerCard.tsx", opened: true });
+    expect(byLabel("createResource(loadViewer)").group?.label).toMatch(/^RecordsRoute · component · records\.tsx$/);
     expect(m.vm.nodes.every((n) => n.group)).toBe(true);
   });
 
