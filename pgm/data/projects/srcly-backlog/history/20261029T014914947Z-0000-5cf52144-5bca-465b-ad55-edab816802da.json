@@ -1,0 +1,14 @@
+{
+  "id": "5cf52144-5bca-465b-ad55-edab816802da",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:4134d1",
+    "label": "Agent token ...4134d1"
+  },
+  "createdAt": "2026-10-29T01:49:14.947Z",
+  "summary": "Deleted \"Land #210: the `assumed` outcome\".",
+  "nodeIds": [
+    "task-land-210-the-assumed-outcome"
+  ]
+}

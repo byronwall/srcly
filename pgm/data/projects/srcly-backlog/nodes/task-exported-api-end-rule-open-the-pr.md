@@ -4,7 +4,7 @@ label: "Exported-API end rule: open the PR"
 type: task
 status: working
 priority: medium
-parent: area-data-flow-land-the-open-prs
+parent: area-data-flow-trace-coverage
 ---
 Branch: `claude/dfx-exported-api-end` (commit 3aafcfa "wip exported-api", pushed, no PR).
 

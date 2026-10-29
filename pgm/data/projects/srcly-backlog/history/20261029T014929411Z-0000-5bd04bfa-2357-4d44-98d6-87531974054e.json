@@ -1,0 +1,15 @@
+{
+  "id": "5bd04bfa-2357-4d44-98d6-87531974054e",
+  "kind": "node.moved",
+  "actor": {
+    "kind": "agent",
+    "id": "token:e1aa07",
+    "label": "Agent token ...e1aa07"
+  },
+  "createdAt": "2026-10-29T01:49:29.411Z",
+  "summary": "Moved \"Exported-API end rule: open the PR\" under \"Data flow: trace coverage\".",
+  "nodeIds": [
+    "task-exported-api-end-rule-open-the-pr",
+    "area-data-flow-trace-coverage"
+  ]
+}

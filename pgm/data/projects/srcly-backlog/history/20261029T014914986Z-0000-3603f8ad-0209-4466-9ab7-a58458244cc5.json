@@ -1,0 +1,14 @@
+{
+  "id": "3603f8ad-0209-4466-9ab7-a58458244cc5",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:4134d1",
+    "label": "Agent token ...4134d1"
+  },
+  "createdAt": "2026-10-29T01:49:14.986Z",
+  "summary": "Deleted \"Land #211: TypeScript origins and terminals as library model rows\".",
+  "nodeIds": [
+    "task-land-211-typescript-origins-and-terminals-as-library-model-rows"
+  ]
+}

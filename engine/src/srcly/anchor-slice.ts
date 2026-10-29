@@ -122,8 +122,6 @@ export function assumedThrough(provider: EvidenceRelationSource, relation: Pick<
       const start = provider.factIndex.getElement(item.from);
       if (start?.kind === "external-read" && start.attributes?.operation !== undefined) return null;
     }
-    // The fallback effect any unresolved library call gets (`isExternalCall`) is no model: the call stays assumed.
-    if (item.kind === "effect-input" && item.from === call.id && provider.factIndex.getElement(item.to)?.attributes?.effectKind === "external-effect") continue;
     if (proofStrength(item.proof.kind) === "modelled") return null;
     if (sameSpan(item.from === call.id ? item.to : item.from)?.boundary === "framework-runtime") return null;
   }
