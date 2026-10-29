@@ -463,16 +463,16 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     const method = unwrap(this.ts, call.node.expression);
     const receiver = this.ts.isPropertyAccessExpression(method) ? unwrap(this.ts, method.expression) : null;
     if (receiver && this.ts.isPropertyAccessExpression(receiver)) this.addMemberWrite(receiver, call.id);
-    // The receiver's root name: `rows` in `rows.push(row)`, `section` in `section.rows.push(row)`.
+    // The receiver's root name: `rows` in `rows.push(row)`, `section` in `section.rows.push(row)`, `groups` in `groups[key].push(row)`.
     let root = unwrap(this.ts, call.node.expression);
     if (!this.ts.isPropertyAccessExpression(root)) return;
-    while (this.ts.isPropertyAccessExpression(root)) root = unwrap(this.ts, root.expression);
+    while (this.ts.isPropertyAccessExpression(root) || this.ts.isElementAccessExpression(root)) root = unwrap(this.ts, root.expression);
     if (!this.ts.isIdentifier(root)) return;
-    // Only a variable the same function declares (`const rows = []; rows.push(row)`): shared state, a parameter or a global is written for code this function does not own.
+    // A variable a function declares, this one or one it is written in (a closure's), or a parameter: module state and globals are written for code no one function owns.
     const declaration = this.checker.getSymbolAtLocation(root)?.valueDeclaration;
-    const scope = (node: TypeScript.Node) => this.ts.findAncestor(node.parent, this.ts.isFunctionLike);
-    if (!declaration || !this.ts.isVariableDeclaration(declaration) || scope(declaration) !== scope(call.node)) return;
-    const bindingId = this.variablesBySymbol.get(this.symbolId(root) ?? "");
+    const local = declaration && this.ts.isVariableDeclaration(declaration) && this.ts.findAncestor(declaration.parent, this.ts.isFunctionLike);
+    if (!local && !(declaration && this.ts.isParameter(declaration))) return;
+    const bindingId = this.variablesBySymbol.get(this.symbolId(root) ?? "") ?? this.parametersBySymbol.get(this.symbolId(root) ?? "");
     if (!bindingId) return;
     const [kept, keptStatus] = this.libraryProof(call.node, `${calleeName(this.ts, call.node.expression)}'s value is discarded, so its arguments are kept in its receiver.`, [this.location(call.node), this.location(root)]);
     this.addRelation(call.id, bindingId, "references", [this.location(call.node), this.location(root)], kept, keptStatus);
