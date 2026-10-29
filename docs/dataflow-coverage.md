@@ -29,7 +29,7 @@ The work came from the data-flow experience audit (October 2026). The audit trac
 - Library calls: a discarded call's arguments stay in a receiver its function declares (#175); a library call's receiver reaches the function it is given (#184); a library call is known by its import's module and export name (#209).
 - Components: prop reads in closures and string-literal props bind to the caller (#159); destructured and optional props bind (#186); a factory or alias component renders at the JSX tag that names it (#180); a default-exported function anchors by its own name (#178).
 - State: a setter's value reaches its getter's reads (#182); state-pair factory and getter calls are framework-modelled (#188), modelled in the collector (#196).
-- Ends: a thrown value ends at the throw (#207). A class's annotated uses fold by file (#208).
+- Ends: a thrown value ends at the throw (#207). A class's annotated uses fold by file (#208). A `when` on Solid's `Show` or `Match` ends as "decides a branch", not a DOM attribute.
 
 ## Python rules
 

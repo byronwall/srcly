@@ -124,6 +124,7 @@ export type ProgramElementKind =
   | "for-binding"
   | "show-binding"
   | "dom-terminal"
+  | "branch-condition"
   | "render-terminal"
   | "environment-input"
   | "process-input"

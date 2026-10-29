@@ -1,0 +1,14 @@
+{
+  "id": "061004e8-ef18-4617-af40-14488b5f0347",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:b7b386",
+    "label": "Agent token ...b7b386"
+  },
+  "createdAt": "2026-10-29T01:10:34.074Z",
+  "summary": "Deleted \"Show and Match when is not a DOM attribute\".",
+  "nodeIds": [
+    "task-show-and-match-when-is-not-a-dom-attribute"
+  ]
+}
