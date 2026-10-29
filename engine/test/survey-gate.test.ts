@@ -26,6 +26,7 @@ describe("survey gate moves", () => {
       "client: outcome error +1",
       "client: outcome ok -1",
       "client: no longer ok src/a.ts#a",
+      "client: now assumed src/a.ts#b",
       "client: now errors src/a.ts#d: Crash",
     ]);
     expect(newErrors(base, head)).toEqual(["client: now errors src/a.ts#d: Crash"]);

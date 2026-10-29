@@ -3,7 +3,7 @@
 // acknowledgement. Kept apart so the tests can import it without running a survey.
 
 export type Trace = { file: string; name: string; outcome: string; ms: number; code?: string; message?: string; stops?: { kind: string; reason: string | null }[] };
-export type RepoSummary = { traces: number; outcomes: Record<string, number>; stops: Record<string, number>; ok: string[]; errors: string[] };
+export type RepoSummary = { traces: number; outcomes: Record<string, number>; stops: Record<string, number>; ok: string[]; assumed: string[]; errors: string[] };
 export type Summaries = Record<string, RepoSummary>;
 
 /** The acknowledgement a PR body carries when the gate reports moves. */
@@ -24,6 +24,7 @@ export function summarize(traces: Trace[]): RepoSummary {
     outcomes: sorted(outcomes),
     stops: sorted(stops),
     ok: traces.filter((trace) => trace.outcome === "ok").map(traceId).sort(),
+    assumed: traces.filter((trace) => trace.outcome === "assumed").map(traceId).sort(),
     errors: traces.filter((trace) => trace.outcome === "error").map((trace) => `${traceId(trace)}: ${trace.code}`).sort(),
   };
 }
@@ -50,6 +51,7 @@ export function moves(base: Summaries, head: Summaries): string[] {
     for (const key of union(a.outcomes, b.outcomes)) if (a.outcomes[key] !== b.outcomes[key]) lines.push(`${name}: outcome ${key} ${signed((b.outcomes[key] ?? 0) - (a.outcomes[key] ?? 0))}`);
     for (const key of union(a.stops, b.stops)) if (a.stops[key] !== b.stops[key]) lines.push(`${name}: stop ${key} ${signed((b.stops[key] ?? 0) - (a.stops[key] ?? 0))}`);
     lines.push(...listMoves(name, a.ok, b.ok, "now ok", "no longer ok"));
+    lines.push(...listMoves(name, a.assumed ?? [], b.assumed ?? [], "now assumed", "no longer assumed"));
     lines.push(...listMoves(name, a.errors, b.errors, "now errors", "no longer errors"));
   }
   return lines;
@@ -89,7 +91,7 @@ export function table(base: Summaries, head: Summaries): string[] {
 
   const traces = names
     .filter((name) => base[name] && head[name])
-    .flatMap((name) => [...listMoves(name, base[name].ok, head[name].ok, "now ok", "no longer ok"), ...listMoves(name, base[name].errors, head[name].errors, "now errors", "no longer errors")]);
+    .flatMap((name) => [...listMoves(name, base[name].ok, head[name].ok, "now ok", "no longer ok"), ...listMoves(name, base[name].assumed ?? [], head[name].assumed ?? [], "now assumed", "no longer assumed"), ...listMoves(name, base[name].errors, head[name].errors, "now errors", "no longer errors")]);
   if (traces.length) lines.push("", ...traces.map((line) => `- ${line}`));
   return lines;
 }

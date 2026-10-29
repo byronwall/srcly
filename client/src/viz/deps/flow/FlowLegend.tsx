@@ -26,8 +26,8 @@ function writeCollapsed(collapsed: boolean) {
   }
 }
 
-function EdgeSwatch(props: { dash?: string; accent?: boolean; muted?: boolean }) {
-  const ink = () => (props.accent ? "var(--plc-accent)" : props.muted ? "var(--plc-on-disabled)" : "var(--plc-tertiary)");
+function EdgeSwatch(props: { dash?: string; accent?: boolean; muted?: boolean; assumed?: boolean }) {
+  const ink = () => (props.accent ? "var(--plc-accent)" : props.assumed ? "var(--plc-assumed)" : props.muted ? "var(--plc-on-disabled)" : "var(--plc-tertiary)");
   return (
     <svg width={SW} height={SH} viewBox={`0 0 ${SW} ${SH}`} aria-hidden="true">
       <line x1="1" y1={SH / 2} x2={SW - 6} y2={SH / 2} stroke={ink()} stroke-width="1.4" stroke-opacity={EDGE_OPACITY} stroke-dasharray={props.dash} />
@@ -147,6 +147,7 @@ const GROUPS: Group[] = [
       { swatch: () => <EdgeSwatch dash={HANDOFF_EDGE_DASH} />, label: "Handoff: an origin proven to reach a render site" },
       { swatch: () => <EdgeSwatch accent />, label: "Field: the selected origin's proven path" },
       { swatch: () => <EdgeSwatch dash={STRUCTURAL_EDGE_DASH} muted />, label: "Structural: found by structure, not traced" },
+      { swatch: () => <EdgeSwatch assumed />, label: "Assumed: a step through library code with no source to read" },
     ],
   },
   {

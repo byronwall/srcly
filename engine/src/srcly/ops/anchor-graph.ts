@@ -180,12 +180,12 @@ class AnchorGraphBuilder {
       : (sides.includes("down") && kinds.includes("terminal")) || (sides.includes("up") && (kinds.includes("origin") || naturalStarts > 0));
     // A declaration whose runs reached nothing and reported nothing makes no claim: there is nothing to trace from it.
     if (!stopped && isDeclaration && landedRuns.length === 0) return this.finish(anchor, direction, "unsupported", "nothing-to-trace", coverage);
-    // `ok` is proven: a path that lands only by assuming what code with no source does (an `external-call` proof) is partial.
+    // `ok` is proven. A path that lands with no stop, but only by assuming what code with no source does (an `external-call` proof), is `assumed`; a stopped path stays partial whatever it assumes.
     const assumed = this.edges.some((edge) => edge.proof.some((item) => proofStrength(item?.kind) === "assumed"));
-    const outcome = stopped ? "partial" : landed && !assumed ? "ok" : landed || !coverage.budget.exhausted ? "partial" : "budget";
+    const outcome = stopped ? "partial" : landed ? (assumed ? "assumed" : "ok") : coverage.budget.exhausted ? "budget" : "partial";
     // Every partial names its stop: where a run that did not land ends in evidence that cannot call it a dead end.
-    // A declaration whose every run landed, partial only because a step assumes what library code does, has no stop to name: its assumed edges say so.
-    if (outcome === "partial" && !stopped && !(isDeclaration && landed && assumed)) {
+    // An `assumed` trace has no stop to name: its assumed edges say what it takes on trust.
+    if (outcome === "partial" && !stopped) {
       const unlanded = runs.filter((run) => !run.endsHere && this.runLanded(run, gapsBySeed.get(run.seedId) ?? 0, naturalBySeed.get(run.seedId) ?? 0) !== true);
       for (const run of unlanded) for (const end of this.quiet.get(run.seedId) ?? []) this.untraced(end.gap, end.element, end.side);
       // Paths that only loop back, or end where nothing names an end: the run's own start is where the trace stops.

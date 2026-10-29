@@ -28,14 +28,14 @@ say();
 
 say(`## Repos`);
 say();
-say(`| Repo | Program | Files | Exports traceable | Traces | ok | partial | error | p50 ms | max ms |`);
-say(`| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |`);
+say(`| Repo | Program | Files | Exports traceable | Traces | ok | assumed | partial | error | p50 ms | max ms |`);
+say(`| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |`);
 for (const repo of repos.sort((a, b) => a.repo.localeCompare(b.repo))) {
   const own = repo.traces ?? [];
   const ms = own.map((t) => t.ms).sort((a, b) => a - b);
   const by = (outcome: string) => own.filter((t) => t.outcome === outcome).length;
   const program = repo.tier1.ok ? `${repo.tier1.ms} ms` : `**${repo.tier1.code}**`;
-  say(`| ${repo.repo} | ${program} | ${repo.tier1.files ?? "–"} | ${repo.exports ? `${repo.exports.traceable}/${repo.exports.total}` : "–"} | ${own.length} | ${by("ok")} | ${by("partial")} | ${by("error")} | ${ms[Math.floor(ms.length / 2)] ?? "–"} | ${ms.at(-1) ?? "–"} |`);
+  say(`| ${repo.repo} | ${program} | ${repo.tier1.files ?? "–"} | ${repo.exports ? `${repo.exports.traceable}/${repo.exports.total}` : "–"} | ${own.length} | ${by("ok")} | ${by("assumed")} | ${by("partial")} | ${by("error")} | ${ms[Math.floor(ms.length / 2)] ?? "–"} | ${ms.at(-1) ?? "–"} |`);
 }
 say();
 
@@ -62,7 +62,7 @@ table(["Error", "Traces", "Repos", "Example"], errors.map((g) => [g.key, g.items
 const finished = traces.filter((t) => t.outcome !== "error");
 say(`## Where traces stop`);
 say();
-say(`${finished.length} traces finished: ${pct(finished.filter((t) => t.outcome === "ok").length, finished.length)} ok, ${pct(finished.filter((t) => t.outcome === "partial").length, finished.length)} partial. ${finished.filter((t) => t.budget?.exhausted).length} hit a size limit.`);
+say(`${finished.length} traces finished: ${pct(finished.filter((t) => t.outcome === "ok").length, finished.length)} ok, ${pct(finished.filter((t) => t.outcome === "assumed").length, finished.length)} assumed (landed through a library step with no source), ${pct(finished.filter((t) => t.outcome === "partial").length, finished.length)} partial. ${finished.filter((t) => t.budget?.exhausted).length} hit a size limit.`);
 say();
 say(`Ranked by the traces each stop cuts short: the first rows are the biggest unlocks.`);
 say();

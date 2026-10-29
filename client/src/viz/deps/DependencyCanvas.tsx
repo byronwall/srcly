@@ -1056,7 +1056,7 @@ export function DependencyCanvas(props: {
                   <g>
                     <path
                       d={edgePath(e)}
-                      stroke={e.edge.style === "structural" ? "var(--plc-on-disabled)" : active() || e.edge.style === "field" ? "var(--plc-accent)" : "var(--plc-tertiary)"}
+                      stroke={e.edge.style === "structural" ? "var(--plc-on-disabled)" : active() || e.edge.style === "field" ? "var(--plc-accent)" : e.edge.assumed ? "var(--plc-assumed)" : "var(--plc-tertiary)"}
                       stroke-width={e.edge.style === "structural" ? 1 : edgeStrokeWidth(e.edge.weight, e.edge.faint)}
                       stroke-opacity={dimmed() ? 0.12 : lightEdge(e.id) ? 0.4 : e.edge.faint && !active() ? CONTEXT_EDGE_OPACITY : EDGE_OPACITY}
                       stroke-dasharray={e.edge.style === "structural" ? STRUCTURAL_EDGE_DASH : e.edge.style === "handoff" ? HANDOFF_EDGE_DASH : e.edge.faint ? CONTEXT_EDGE_DASH : undefined}
@@ -1761,8 +1761,8 @@ function EdgeCard(props: { edge: PositionedEdge; nodes: Map<string, PositionedNo
               </span>
               <Show when={e().status}>
                 {(st) => (
-                  <span class="font-semibold" style={{ color: STATUS_COLOR[st()] }}>
-                    {st() === "proven" ? "proven" : st() === "partial" ? "partial proof" : st() === "structural" ? "structural" : "unsupported"}
+                  <span class="font-semibold" style={{ color: e().assumed ? "var(--plc-assumed)" : STATUS_COLOR[st()] }}>
+                    {e().assumed ? "assumed: library code with no source" : st() === "proven" ? "proven" : st() === "partial" ? "partial proof" : st() === "structural" ? "structural" : "unsupported"}
                   </span>
                 )}
               </Show>

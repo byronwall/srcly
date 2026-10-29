@@ -31,7 +31,7 @@ export type StatusResult = {
 
 /** Result of the `routes` op. */
 export type RoutesResult = {
-  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  outcome: "ok" | "assumed" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
   generation: number;
   programHash: string;
   tsconfig: string;
@@ -58,7 +58,7 @@ export type RoutesResult = {
 
 /** Result of the `routeGraph` op. */
 export type RouteGraphResult = {
-  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  outcome: "ok" | "assumed" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
   generation: number;
   programHash: string;
   tsconfig: string;
@@ -163,7 +163,7 @@ export type RouteGraphResult = {
 
 /** Result of the `selectExpression` op. */
 export type SelectExpressionResult = {
-  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  outcome: "ok" | "assumed" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
   generation: number;
   programHash: string;
   tsconfig: string;
@@ -185,7 +185,7 @@ export type SelectExpressionResult = {
 
 /** Result of the `valueFlow` op. */
 export type ValueFlowResult = {
-  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  outcome: "ok" | "assumed" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
   generation: number;
   programHash: string;
   tsconfig: string;
@@ -266,7 +266,7 @@ export type ValueFlowResult = {
 
 /** Result of the `anchorGraph` op. */
 export type AnchorGraphResult = {
-  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  outcome: "ok" | "assumed" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
   generation: number;
   programHash: string;
   tsconfig: string;
@@ -367,7 +367,7 @@ export type AnchorGraphResult = {
 
 /** Result of the `functionEffects` op. */
 export type FunctionEffectsResult = {
-  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  outcome: "ok" | "assumed" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
   generation: number;
   programHash: string;
   tsconfig: string;
@@ -463,7 +463,7 @@ export type FunctionEffectsResult = {
 
 /** Result of the `fileExports` op. */
 export type FileExportsResult = {
-  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  outcome: "ok" | "assumed" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
   generation: number;
   programHash: string;
   tsconfig: string;
@@ -498,7 +498,7 @@ export type FileExportsResult = {
 
 /** Result of the `routePath` op. */
 export type RoutePathResult = {
-  outcome: "ok" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  outcome: "ok" | "assumed" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
   generation: number;
   programHash: string;
   tsconfig: string;

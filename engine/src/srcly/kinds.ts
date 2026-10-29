@@ -135,7 +135,7 @@ export const ELEMENT_TRAITS: Record<ProgramElementKind, ElementTraits> = {
  * How much a proof claims. `proven` is read from the program (syntax, the
  * checker); `modelled` is what the engine knows a framework, host or library
  * does; `assumed` is taken with nothing to read (code with no source, a
- * name). A trace is `ok` only when no step it draws is assumed.
+ * name). A trace is `ok` only when no step it draws is assumed; one that lands through an assumed step is `assumed`.
  */
 export type ProofStrength = "proven" | "modelled" | "assumed";
 

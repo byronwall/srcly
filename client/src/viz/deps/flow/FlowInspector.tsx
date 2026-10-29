@@ -2,7 +2,7 @@ import { ExternalLink, X } from "lucide-solid";
 import { createMemo, For, type JSX, Show } from "solid-js";
 import type { AnchorGraphResult, RouteGraphResult, RoutePathResult } from "../../../dataflow/contract.generated";
 import type { RoutePathResponse } from "../../../dataflow/api";
-import { labelFor } from "../../../dataflow/outcome";
+import { ASSUMED_LABEL, labelFor, outcomeClass } from "../../../dataflow/outcome";
 import { Button } from "../../../components/ui/Button";
 import { IconButton } from "../../../components/ui/IconButton";
 import type { FlowBox, FlowViewModel } from "./adapter";
@@ -67,7 +67,9 @@ function NeighborList(props: { title: string; rows: NeighborRow[]; onSelect: (id
                 <span class="ml-auto shrink-0 text-[10.5px] text-[var(--plc-on-subtle)]">
                   {r.kind}
                   <Show when={r.path}>{(p) => <span class="pl-1 text-[var(--plc-accent)]">{p()}</span>}</Show>
-                  <Show when={r.status !== "proven" && STATUS_WORD[r.status!] !== r.kind ? r.status : undefined}>{(s) => <span class={`pl-1 ${STATUS_CLASS[s()]}`}>{STATUS_WORD[s()]}</span>}</Show>
+                  <Show when={r.status !== "proven" && STATUS_WORD[r.status!] !== r.kind ? r.status : undefined}>
+                    {(s) => (r.assumed ? <span class="pl-1 text-[var(--plc-assumed)]">assumed</span> : <span class={`pl-1 ${STATUS_CLASS[s()]}`}>{STATUS_WORD[s()]}</span>)}
+                  </Show>
                 </span>
               </button>
             </li>
@@ -392,7 +394,6 @@ const DIRECTION_WORD: Record<AnchorOverview["direction"], string> = { forward: "
 
 function AnchorOverviewView(props: { o: AnchorOverview; onOpen: (absPath: string, line: number) => void; onSelect: (id: string | null) => void }) {
   const o = () => props.o;
-  const status = () => (o().outcome === "ok" ? "proven" : o().outcome === "unsupported" ? "unsupported" : "partial") as "proven" | "partial" | "unsupported";
   const stopCount = () => o().stops.reduce((sum, group) => sum + group.rows.length, 0);
   const list = (title: string, rows: AnchorOverview["origins"], mark: "origin" | "terminal") => (
     <Show when={rows.length}>
@@ -427,7 +428,14 @@ function AnchorOverviewView(props: { o: AnchorOverview; onOpen: (absPath: string
       </div>
       <div class="flex flex-wrap items-baseline gap-x-2 pl-5 text-[11px]">
         <span class="text-[var(--plc-on-muted)]">{o().kind}</span>
-        <span class={`font-semibold ${STATUS_CLASS[status()]}`}>{o().outcome}</span>
+        <span class={`font-semibold ${outcomeClass(o().outcome)}`} title={o().outcome === "assumed" ? ASSUMED_LABEL : undefined}>
+          {o().outcome}
+        </span>
+        <Show when={o().outcome === "assumed"}>
+          <span class="text-[var(--plc-on-muted)]">
+            landed · assumes {o().assumed.length} library step{o().assumed.length === 1 ? "" : "s"}
+          </span>
+        </Show>
         <Show when={stopCount()}>
           <span class="text-[var(--plc-on-muted)]">
             stops at {stopCount()} place{stopCount() === 1 ? "" : "s"}
@@ -482,6 +490,26 @@ function AnchorOverviewView(props: { o: AnchorOverview; onOpen: (absPath: string
             </div>
           )}
         </For>
+      </Show>
+      <Show when={o().assumed.length}>
+        <h4 class={H}>
+          Assumed library steps <span class="font-normal normal-case tracking-normal text-[var(--plc-on-subtle)]">· click selects</span>
+        </h4>
+        <div class="px-1 text-[11px] text-[var(--plc-on-muted)]">The call has no source to read, so its value is taken to derive from what goes in.</div>
+        <ul>
+          <For each={o().assumed}>
+            {(r) => (
+              <li>
+                <button type="button" class={ROW} onClick={() => props.onSelect(r.id)} title={r.detail}>
+                  <span class="plc-data-sm min-w-0 truncate !font-normal text-[var(--plc-assumed)]">{r.label}</span>
+                  <span class="ml-auto shrink-0 text-[10.5px] tabular-nums text-[var(--plc-on-subtle)]">
+                    {baseName(r.file)}:{r.line}
+                  </span>
+                </button>
+              </li>
+            )}
+          </For>
+        </ul>
       </Show>
       {list("Origins", o().origins, "origin")}
       {list("Terminals", o().terminals, "terminal")}

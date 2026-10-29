@@ -19,8 +19,8 @@ import { ACK_LINE, acknowledged, difference, moves, newErrors, summarize, table,
 //
 // Always fails on a survey that crashes, a repo the engine cannot open, a
 // trace that newly errors, and a head trace past its time limit. Any other
-// difference (trace counts, outcomes, stops by kind, the ok and error trace
-// lists) is a move: CI fails it unless the PR body has a `Survey moves:` line
+// difference (trace counts, outcomes, stops by kind, the ok, assumed and error
+// trace lists) is a move: CI fails it unless the PR body has a `Survey moves:` line
 // explaining it. The survey is deterministic in one folder, so there is no tolerance.
 //
 //   pnpm survey-gate                        # the working tree against its merge base with origin/main

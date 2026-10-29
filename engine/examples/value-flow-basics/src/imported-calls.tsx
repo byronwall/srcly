@@ -6,7 +6,7 @@ import { onCleanup } from "solid-js";
 // at all, are assumed, never proven: knowing only that the call leaves the
 // program says nothing about what it does.
 export function Tag(props: { tone: string }) {
-  const className = cx("tag", props.tone); // @trace classed forward props.tone @outcome classed partial @reaches classed external-effect @edge classed argument partial external-call @edge classed effect-input * external-call @no-edge classed * * host-api
+  const className = cx("tag", props.tone); // @trace classed forward props.tone @outcome classed assumed @reaches classed external-effect @edge classed argument partial external-call @edge classed effect-input * external-call @no-edge classed * * host-api
   return <span class={className} />; // @reaches classed dom-terminal
 }
 

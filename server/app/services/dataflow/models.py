@@ -19,6 +19,8 @@ class Outcome(str, Enum):
     """The query outcome, one per reply (plan section 3.4)."""
 
     ok = "ok"
+    # Landed with no stop, but some step assumes what code with no source does.
+    assumed = "assumed"
     partial = "partial"
     not_analyzed = "not-analyzed"
     unsupported = "unsupported"

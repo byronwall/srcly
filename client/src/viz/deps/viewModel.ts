@@ -73,6 +73,8 @@ export interface ViewEdge {
   status?: "proven" | "partial" | "unsupported" | "structural";
   /** Data flow mode: the engine's proof records behind the edge, for its card. */
   proof?: { kind: string; detail: string; status: "proven" | "partial" | "unsupported"; at?: string }[];
+  /** Anchor mode: a step the engine assumes, through code with no source (an `external-call` proof); drawn in the assumed color. */
+  assumed?: boolean;
   /** Anchor mode: the engine's relation kind (`field-input`, `argument`, …), for its card. */
   relation?: string;
 }

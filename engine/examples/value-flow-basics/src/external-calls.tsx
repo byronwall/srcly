@@ -28,9 +28,17 @@ export function record(entry: string) {
 }
 
 // Library code that is not the standard library has no source to read and no
-// model: its value is assumed to derive from its argument, so the trace is
-// `partial` and names the assumption.
+// model: its value is assumed to derive from its argument. The trace lands
+// with no stop, but only through that assumption, so it is `assumed` and its
+// assumed edge is the explanation.
 export function Slug(props: { title: string }) {
-  const slug = slugify(props.title); // @trace slug forward props.title @outcome slug partial @edge slug argument partial external-call @reaches slug external-effect
+  const slug = slugify(props.title); // @trace slug forward props.title @outcome slug assumed @edge slug argument partial external-call @reaches slug external-effect
   return <a href={slug}>{props.title}</a>; // @reaches slug dom-terminal
+}
+
+// Assuming one step does not make up for a stop: the value goes through a
+// library call (`slugify`) and then stops at `log.push`, so the trace stays
+// partial, not assumed.
+export function recordShout(entry: string) {
+  log.push(slugify(entry)); // @trace shouted forward entry @outcome shouted partial @stop shouted external-code * "log.push" @edge shouted argument partial external-call @reaches shouted external-effect
 }

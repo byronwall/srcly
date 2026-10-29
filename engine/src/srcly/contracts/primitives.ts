@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** The query outcome, one per reply (plan section 3.4). */
-export const outcomeSchema = z.enum(["ok", "partial", "not-analyzed", "unsupported", "stale", "cancelled", "budget"]);
+export const outcomeSchema = z.enum(["ok", "assumed", "partial", "not-analyzed", "unsupported", "stale", "cancelled", "budget"]);
 
 /** Every tier-1 result names the Program it was computed from. */
 export const generationFields = {

@@ -6,7 +6,7 @@ import { IconButton } from "../../../components/ui/IconButton";
 import { fetchAnchorGraph, fetchFileExports, fetchRouteGraph, fetchRoutePath, fetchRouteSurface, fetchRoutes, type NaReason } from "../../../dataflow/api";
 import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
 import { availabilityFor, ensureStarted, refresh as refreshEngine, statusFor, watchProgress, watchStaleness } from "../../../dataflow/availability";
-import { labelFor, reasonText } from "../../../dataflow/outcome";
+import { ASSUMED_LABEL, labelFor, reasonText } from "../../../dataflow/outcome";
 import { atFromTreePath, encodeAnchor, encodeAnchors, MAX_ANCHORS, parseAnchor, parseAnchors, type Anchor, type Direction } from "../../../navigation/location";
 import { canReturn, go, location, replace, returnBack } from "../../../navigation/store";
 import { registerViewState } from "../../../navigation/viewState";
@@ -497,6 +497,8 @@ export default function FlowView(props: {
       // A partial trace says how many places it stops; the rail lists them.
       const stops = a?.graph && a.outcome === "partial" ? stopsOf(a.graph).reduce((sum, group) => sum + group.rows.length, 0) : 0;
       if (stops) return `Partial: the trace stops at ${stops} place${stops === 1 ? "" : "s"} (listed in the inspector)`;
+      // An assumed trace names no stop: its assumed library steps are the explanation, listed in the inspector.
+      if (a?.graph && a.outcome === "assumed") return `${ASSUMED_LABEL} (the assumed steps are listed in the inspector)`;
       return a ? labelFor(a.outcome, a.reason, a.message ?? a.graph?.reason ?? undefined) : null;
     }
     const g = graph();

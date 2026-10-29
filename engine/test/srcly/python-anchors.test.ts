@@ -312,9 +312,9 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(up.origins.map((origin) => origin.label)).toEqual(["the request"]);
     const down = anchorGraphOp(session, { ...at("app/web.py", "payload", "payload = request.json"), direction: "forward" });
     expect(boxes(down, "terminal").map((node) => [node.line, node.elementKind])).toEqual([[14, "http-response"]]);
-    // The handler's body is walked too: `request.args.get(…)` is library code with no model, so its response is assumed, not proven.
+    // The handler's body is walked too: `request.args.get(…)` is library code with no model, so its response lands only by assumption: `assumed`, not ok.
     const greet = anchor("app/web.py", "greet", 18);
-    expect(greet.outcome).toBe("partial");
+    expect(greet.outcome).toBe("assumed");
     expect(greet.terminals.map((terminal) => terminal.label)).toEqual(['return request.args.get("name", "") → GET /greet']);
     // A parameter that happens to be called `request` is not Flask's.
     const local = anchorGraphOp(session, { ...at("app/web.py", "request", "    return request"), direction: "backward" });
@@ -334,8 +334,8 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
   it("enters a function handed to code outside the program, and no helper nothing hands on", () => {
     const token = anchor("app/depends.py", "get_token", 12);
     expect(token.origins.map((origin) => origin.label)).toEqual(["enters from Depends(…) → authorization"]);
-    // That FastAPI calls it is assumed, as a library callback is: partial, with the assumption as its proof.
-    expect(token.outcome).toBe("partial");
+    // That FastAPI calls it is assumed, as a library callback is: the trace lands `assumed`, with the assumption as its proof.
+    expect(token.outcome).toBe("assumed");
     expect(token.edges.filter((edge) => edge.kind === "request-binding").map((edge) => [edge.status, edge.proof[0]?.kind])).toEqual([["partial", "external-call"]]);
     const helper = anchor("app/depends.py", "helper", 35);
     expect(helper.origins).toEqual([]);
