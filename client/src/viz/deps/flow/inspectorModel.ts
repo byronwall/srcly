@@ -75,13 +75,33 @@ const GAP_WORDS: { pattern: RegExp; title: string; hint: string }[] = [
     title: "Spread props: children not proven",
     hint: "The component takes {...props}, so which children it renders is not proven.",
   },
+  {
+    pattern: /^<(.+)> has dynamic framework ownership\.$/s,
+    title: "Picked at run time: children not proven",
+    hint: "The component to render is chosen while the app runs, so srcly cannot say what it renders.",
+  },
+  {
+    pattern: /^Provider identity at (.+) is not compiler-resolved to one createContext declaration\.$/s,
+    title: "Context provider with no single context",
+    hint: "srcly cannot tell which createContext this provider gives a value for.",
+  },
+  {
+    pattern: /^No Provider occurrence reaches context consumer .+?, and no statically proven createContext default exists\.$/s,
+    title: "Context read with no provider above it",
+    hint: "No provider renders above this read, and the context has no default srcly can read.",
+  },
+  {
+    pattern: /^The selected evidence id has no exact filesystem input element\.$/s,
+    title: "The picked origin's fields are not traced",
+    hint: "Field lineage starts only at a value read from one place in the project, such as a file or a request.",
+  },
 ];
 
 export function groupGaps(gaps: RouteGraphResult["gaps"], absRoot?: string): GapGroup[] {
   const groups = new Map<string, GapGroup>();
   for (const g of gaps) {
     const words = GAP_WORDS.find((w) => w.pattern.test(g.label));
-    const name = words ? words.pattern.exec(g.label)![1] : undefined;
+    const name = words?.pattern.exec(g.label)?.[1];
     const key = words?.title ?? `${g.reason}|${g.label}`;
     const group = groups.get(key) ?? { title: words?.title ?? g.label, hint: words?.hint ?? STOP_REASONS[g.reason]?.hint ?? "", names: [], places: [] };
     if (name && !group.names.includes(name)) group.names.push(name);

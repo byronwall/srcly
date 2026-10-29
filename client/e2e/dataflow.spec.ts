@@ -74,6 +74,25 @@ test.describe("Data flow on solid-route", () => {
     await expect(page).toHaveURL(/anchor=.*RecordsRoute/);
   });
 
+  test("a route's data trace draws its own component and folds each other component into one box that opens in place", async ({ page }) => {
+    await page.goto(url({ view: "graph", flow: "/records" }));
+    await expect(status(page)).toContainText("components folded", { timeout: 90_000 });
+    // The route's own frame is drawn: its resource and what it renders.
+    await expect(boxLabelled(page, "createResource(loadViewer)")).toBeVisible();
+    const folded = page.locator("[data-box][data-expandable]");
+    await expect.poll(() => folded.count()).toBeGreaterThan(1);
+    await shot(page, "route-data-folded");
+    const drawn = await page.locator("[data-box]").count();
+    const first = folded.first();
+    const id = (await first.getAttribute("data-box"))!;
+    // One Shift-click opens the component in place.
+    await first.click({ modifiers: ["Shift"] });
+    await expect.poll(() => new URL(page.url()).searchParams.get("open")?.split(",") ?? []).toContain(id);
+    await expect(page.locator(`[data-box="${id}"]`)).toHaveCount(0);
+    await expect.poll(() => page.locator("[data-box]").count()).toBeGreaterThan(drawn);
+    await shot(page, "route-data-opened");
+  });
+
   test("anchor from the code viewer: trace where a prop read goes", async ({ page }) => {
     await page.goto(url({ view: "graph", flow: "/records", lens: "components" }));
     await expect(status(page)).toContainText("7 occurrences", { timeout: 90_000 });

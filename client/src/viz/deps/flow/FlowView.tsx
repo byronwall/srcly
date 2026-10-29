@@ -327,8 +327,8 @@ export default function FlowView(props: {
   let canvas: CanvasApi | undefined;
   let host!: HTMLDivElement;
   let pendingAnchor: string | null = null;
-  /** A picked origin: layouts keep their places around it until its graph arrives, so picking never reshuffles the canvas. */
-  let keepAround: string | null = null;
+  /** An origin was picked: layouts keep the camera until its graph arrives, so the canvas does not jump. The same boxes lay out the same. */
+  let holdCamera = false;
   // ---- view state (T17): what Return restores that the URL does not carry ----
   /** A camera for the next layout instead of a fit: the one the place was left with, for that place's URL only. */
   let restoreCamera: { camera: Camera; search: string } | null = null;
@@ -350,7 +350,10 @@ export default function FlowView(props: {
   const cameraForLayout = () => {
     const held = restoreCamera;
     restoreCamera = null;
-    return held && held.search === window.location.search ? held.camera : null;
+    if (held && held.search === window.location.search) return held.camera;
+    if (!holdCamera) return null;
+    if ((drawnGraph()?.selectedSource ?? undefined) === field()) holdCamera = false;
+    return canvas?.getCamera() ?? null;
   };
   const [anchor, setAnchor] = createSignal<string | null>(null);
 
@@ -362,10 +365,8 @@ export default function FlowView(props: {
     const rect = host?.getBoundingClientRect();
     const viewport = rect && rect.height > 0 ? { width: rect.width, height: rect.height } : undefined;
     const aspectRatio = viewport ? viewport.width / viewport.height : 1.6;
-    const kept = keepAround && m.byId.has(keepAround) ? keepAround : null;
-    const anchorId = pendingAnchor ?? kept;
+    const anchorId = pendingAnchor;
     pendingAnchor = null;
-    if (untrack(() => (drawnGraph()?.selectedSource ?? undefined) === field())) keepAround = null;
     const previous = anchorId ? (untrack(layout) ?? undefined) : undefined;
     void Promise.resolve().then(() => {
       if (mine !== token) return;
@@ -422,7 +423,7 @@ export default function FlowView(props: {
   };
   /** Pick an origin (or clear it): its proven destinations light up. No Back step. */
   const pickOrigin = (id: string | undefined) => {
-    keepAround = id ?? field() ?? null;
+    holdCamera = true;
     setSelected(null);
     replace({ field: id, dest: undefined });
   };
