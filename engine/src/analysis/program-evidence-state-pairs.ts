@@ -1,26 +1,26 @@
 import type * as TypeScript from "typescript";
 import { calleeName, importModule, lastName } from "./program-evidence-support";
 import { resolveValue } from "./value-origin";
+import { makesStatePair, reducerArgument } from "./framework-flows";
 
 /**
- * Reactive state pairs: a factory that returns `[getter, setter]`, where what
- * goes into the setter is what later reads of the getter see, and what the
- * factory is called with (the initial value) seeds it. One table entry per
- * factory; the mechanism is the same for each.
+ * Reactive state pairs: a factory (a `state-pair` row) that returns
+ * `[getter, setter]`, where what goes into the setter is what later reads of
+ * the getter see, and what the factory is called with (the initial value)
+ * seeds it. The mechanism is the same for each factory.
  */
-const STATE_FACTORIES: Record<string, readonly string[]> = {
-  "solid-js": ["createSignal"],
-  "solid-js/store": ["createStore"],
-  react: ["useState", "useReducer"],
-};
+
+/** The module and export name a state factory call is made through: `useState` imported by name, or `React.useState` through a namespace. */
+function factoryName(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): { module: string; name: string } | null {
+  const module = importModule(ts, checker, callee) ?? (ts.isPropertyAccessExpression(callee) ? importModule(ts, checker, callee.expression) : null);
+  return module ? { module, name: lastName(calleeName(ts, callee)) } : null;
+}
 
 /** Whether this call is a state factory. */
 export function stateFactory(ts: typeof TypeScript, checker: TypeScript.TypeChecker, call: TypeScript.Expression): boolean {
   if (!ts.isCallExpression(call)) return false;
-  const callee = call.expression;
-  // `useState` imported by name, or `React.useState` through the namespace it was imported as.
-  const module = importModule(ts, checker, callee) ?? (ts.isPropertyAccessExpression(callee) ? importModule(ts, checker, callee.expression) : null);
-  return !!module && (STATE_FACTORIES[module]?.includes(lastName(calleeName(ts, callee))) ?? false);
+  const factory = factoryName(ts, checker, call.expression);
+  return !!factory && makesStatePair(factory.module, factory.name);
 }
 
 export type StateRole = { getter: TypeScript.Identifier; role: "getter" | "setter" };
@@ -41,11 +41,11 @@ export function stateRoleOf(ts: typeof TypeScript, checker: TypeScript.TypeCheck
   return { getter: first.name, role: index === 0 ? "getter" : "setter" };
 }
 
-/** The reducer of a `useReducer` pair (its first argument), which its dispatch calls with the action; null for any other pair. */
+/** The reducer of a reducer pair (`useReducer(reducer, …)`, the row's `args`), which its dispatch calls with the action; null for any other pair. */
 export function reducerOf(ts: typeof TypeScript, checker: TypeScript.TypeChecker, getter: TypeScript.Identifier): TypeScript.Expression | null {
   const pair = getter.parent.parent.parent;
   if (!ts.isVariableDeclaration(pair) || !pair.initializer || !ts.isCallExpression(pair.initializer)) return null;
-  const callee = pair.initializer.expression;
-  const module = importModule(ts, checker, callee) ?? (ts.isPropertyAccessExpression(callee) ? importModule(ts, checker, callee.expression) : null);
-  return module === "react" && lastName(calleeName(ts, callee)) === "useReducer" ? pair.initializer.arguments[0] ?? null : null;
+  const factory = factoryName(ts, checker, pair.initializer.expression);
+  const at = factory ? reducerArgument(factory.module, factory.name) : null;
+  return at === null ? null : pair.initializer.arguments[at] ?? null;
 }

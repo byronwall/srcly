@@ -15,8 +15,8 @@ import { calleeName, importedCallee } from "./program-evidence-support";
 declare const __SRCLY_ENGINE_BUNDLE__: boolean | undefined;
 const IS_BUNDLE = typeof __SRCLY_ENGINE_BUNDLE__ !== "undefined" && __SRCLY_ENGINE_BUNDLE__;
 
-/** The seven model types (plan §3). */
-export const LIBRARY_MODEL_TYPES = ["origin", "terminal", "state-pair", "passes-through", "consumes", "calls-back", "resource"] as const;
+/** The model types (plan §3), and `wraps`: a call that returns the function it is given. */
+export const LIBRARY_MODEL_TYPES = ["origin", "terminal", "state-pair", "passes-through", "consumes", "calls-back", "resource", "wraps"] as const;
 
 export const libraryModelRowSchema = z
   .object({
@@ -28,7 +28,10 @@ export const libraryModelRowSchema = z
     args: z.string().regex(/^(\*|this|\d+)$/).optional().describe("Which arguments the model is about: `0`, `1`, `*` (the default) or `this` for the receiver."),
     role: z.string().min(1).optional().describe("An origin or terminal role."),
     with: z.enum(["element", "receiver", "awaited"]).optional().describe("What a callback receives."),
-    returns: z.enum(["element", "boolean", "same"]).optional().describe("What the call yields."),
+    returns: z.enum(["element", "boolean", "same", "callback"]).optional().describe("What the call yields: `callback` is what the callback at `args` returns."),
+    source: z.string().regex(/^\d+$/).optional().describe("For `calls-back`: the argument whose value (or return) the callback's first parameter receives."),
+    accessor: z.literal(true).optional().describe("For `calls-back`: the call makes an accessor, and calling it yields the callback's return."),
+    option: z.string().min(1).optional().describe("For `calls-back`: the options key that holds the callback (`queryFn`)."),
     writes: z.literal("this").optional().describe("For `consumes`: the receiver keeps the arguments (`push`, `set`)."),
     proof: z.string().min(1).optional().describe("The proof kind its relations carry, so existing proof names survive."),
     note: z.string().optional().describe("One line for the code map and the proof detail."),

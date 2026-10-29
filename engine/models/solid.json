@@ -1,0 +1,268 @@
+{
+  "$schema": "./library-models.schema.json",
+  "rows": [
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "createSignal",
+      "model": "state-pair",
+      "note": "A getter and setter: what the setter receives, the getter reads."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "createMemo",
+      "model": "calls-back",
+      "args": "0",
+      "returns": "callback",
+      "accessor": true,
+      "note": "The call makes an accessor that yields what its callback returns."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "children",
+      "model": "calls-back",
+      "args": "0",
+      "returns": "callback",
+      "accessor": true,
+      "note": "The call makes an accessor that yields what its callback returns."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "untrack",
+      "model": "calls-back",
+      "args": "0",
+      "returns": "callback",
+      "note": "The call's value is what its callback returns."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "batch",
+      "model": "calls-back",
+      "args": "0",
+      "returns": "callback",
+      "note": "The call's value is what its callback returns."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "on",
+      "model": "calls-back",
+      "args": "1",
+      "returns": "callback",
+      "source": "0",
+      "note": "The callback receives what the source returns (or is); the call's value is what the callback returns."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "splitProps",
+      "model": "passes-through",
+      "args": "0",
+      "note": "The split objects carry the props they are given."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "mergeProps",
+      "model": "passes-through",
+      "args": "*",
+      "note": "The merged object carries every object it is given."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "createEffect",
+      "model": "calls-back",
+      "args": "0",
+      "returns": "callback",
+      "note": "The framework runs the callback for what it does; the call's own value is unused."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "createRenderEffect",
+      "model": "calls-back",
+      "args": "0",
+      "returns": "callback",
+      "note": "The framework runs the callback for what it does; the call's own value is unused."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "createComputed",
+      "model": "calls-back",
+      "args": "0",
+      "returns": "callback",
+      "note": "The framework runs the callback for what it does; the call's own value is unused."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "onMount",
+      "model": "calls-back",
+      "args": "0",
+      "returns": "callback",
+      "note": "The framework runs the callback for what it does; the call's own value is unused."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "onCleanup",
+      "model": "calls-back",
+      "args": "0",
+      "returns": "callback",
+      "note": "The framework runs the callback for what it does; the call's own value is unused."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js/store",
+      "name": "createStore",
+      "model": "state-pair",
+      "note": "A store and its setter: what the setter receives, the store reads."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js/store",
+      "name": "unwrap",
+      "model": "passes-through",
+      "args": "0",
+      "note": "The plain object is the store it is given."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js/store",
+      "name": "createMutable",
+      "model": "passes-through",
+      "args": "0",
+      "note": "The mutable store carries the object it is given."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
+      "name": "createAsync",
+      "model": "calls-back",
+      "args": "0",
+      "returns": "callback",
+      "accessor": true,
+      "note": "The call makes an accessor that yields what its callback returns."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
+      "name": "createAsyncStore",
+      "model": "calls-back",
+      "args": "0",
+      "returns": "callback",
+      "accessor": true,
+      "note": "The call makes an accessor that yields what its callback returns."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
+      "name": "query",
+      "model": "wraps",
+      "args": "0",
+      "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
+      "name": "cache",
+      "model": "wraps",
+      "args": "0",
+      "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
+      "name": "action",
+      "model": "wraps",
+      "args": "0",
+      "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
+      "name": "useAction",
+      "model": "wraps",
+      "args": "0",
+      "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
+    },
+    {
+      "language": "ts",
+      "module": "@solid-primitives/scheduled",
+      "name": "debounce",
+      "model": "wraps",
+      "args": "0",
+      "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
+    },
+    {
+      "language": "ts",
+      "module": "@solid-primitives/scheduled",
+      "name": "throttle",
+      "model": "wraps",
+      "args": "0",
+      "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
+    },
+    {
+      "language": "ts",
+      "module": "@solid-primitives/scheduled",
+      "name": "leading",
+      "model": "wraps",
+      "args": "0",
+      "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
+    },
+    {
+      "language": "ts",
+      "module": "@solid-primitives/scheduled",
+      "name": "leadingAndTrailing",
+      "model": "wraps",
+      "args": "0",
+      "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/solid-query",
+      "name": "createQuery",
+      "model": "calls-back",
+      "option": "queryFn",
+      "note": "The query's value is what its `queryFn` returns."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/solid-query",
+      "name": "createInfiniteQuery",
+      "model": "calls-back",
+      "option": "queryFn",
+      "note": "The query's value is what its `queryFn` returns."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/solid-query",
+      "name": "useQuery",
+      "model": "calls-back",
+      "option": "queryFn",
+      "note": "The query's value is what its `queryFn` returns."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/solid-query",
+      "name": "createMutation",
+      "model": "calls-back",
+      "option": "mutationFn",
+      "note": "`mutate(x)` calls the `mutationFn` with `x`."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/solid-query",
+      "name": "useMutation",
+      "model": "calls-back",
+      "option": "mutationFn",
+      "note": "`mutate(x)` calls the `mutationFn` with `x`."
+    }
+  ]
+}

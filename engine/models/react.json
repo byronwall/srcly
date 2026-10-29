@@ -1,0 +1,111 @@
+{
+  "$schema": "./library-models.schema.json",
+  "rows": [
+    {
+      "language": "ts",
+      "module": "react",
+      "name": "useState",
+      "model": "state-pair",
+      "note": "A state value and its setter: what the setter receives, the state reads."
+    },
+    {
+      "language": "ts",
+      "module": "react",
+      "name": "useReducer",
+      "model": "state-pair",
+      "args": "0",
+      "note": "A reducer pair: dispatch calls the reducer (at `args`) with the action, and what it returns is the state."
+    },
+    {
+      "language": "ts",
+      "module": "react",
+      "name": "useMemo",
+      "model": "calls-back",
+      "args": "0",
+      "returns": "callback",
+      "note": "The call's value is what its callback returns."
+    },
+    {
+      "language": "ts",
+      "module": "react",
+      "name": "useDeferredValue",
+      "model": "passes-through",
+      "args": "0",
+      "note": "The deferred value is the value it is given."
+    },
+    {
+      "language": "ts",
+      "module": "react",
+      "name": "useEffect",
+      "model": "calls-back",
+      "args": "0",
+      "returns": "callback",
+      "note": "The framework runs the callback for what it does; the call's own value is unused."
+    },
+    {
+      "language": "ts",
+      "module": "react",
+      "name": "useLayoutEffect",
+      "model": "calls-back",
+      "args": "0",
+      "returns": "callback",
+      "note": "The framework runs the callback for what it does; the call's own value is unused."
+    },
+    {
+      "language": "ts",
+      "module": "react",
+      "name": "useCallback",
+      "model": "wraps",
+      "args": "0",
+      "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
+    },
+    {
+      "language": "ts",
+      "module": "react",
+      "name": "memo",
+      "model": "wraps",
+      "args": "0",
+      "note": "The component it is given, wrapped: its props are the first argument."
+    },
+    {
+      "language": "ts",
+      "module": "react",
+      "name": "forwardRef",
+      "model": "wraps",
+      "args": "0",
+      "note": "The render function it is given, wrapped: its props are the first argument."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/react-query",
+      "name": "useQuery",
+      "model": "calls-back",
+      "option": "queryFn",
+      "note": "The query's value is what its `queryFn` returns."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/react-query",
+      "name": "useSuspenseQuery",
+      "model": "calls-back",
+      "option": "queryFn",
+      "note": "The query's value is what its `queryFn` returns."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/react-query",
+      "name": "useInfiniteQuery",
+      "model": "calls-back",
+      "option": "queryFn",
+      "note": "The query's value is what its `queryFn` returns."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/react-query",
+      "name": "useMutation",
+      "model": "calls-back",
+      "option": "mutationFn",
+      "note": "`mutate(x)` calls the `mutationFn` with `x`."
+    }
+  ]
+}

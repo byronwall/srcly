@@ -43,7 +43,8 @@
               "passes-through",
               "consumes",
               "calls-back",
-              "resource"
+              "resource",
+              "wraps"
             ],
             "description": "What the member does."
           },
@@ -67,13 +68,29 @@
             ]
           },
           "returns": {
-            "description": "What the call yields.",
+            "description": "What the call yields: `callback` is what the callback at `args` returns.",
             "type": "string",
             "enum": [
               "element",
               "boolean",
-              "same"
+              "same",
+              "callback"
             ]
+          },
+          "source": {
+            "description": "For `calls-back`: the argument whose value (or return) the callback's first parameter receives.",
+            "type": "string",
+            "pattern": "^\\d+$"
+          },
+          "accessor": {
+            "description": "For `calls-back`: the call makes an accessor, and calling it yields the callback's return.",
+            "type": "boolean",
+            "const": true
+          },
+          "option": {
+            "description": "For `calls-back`: the options key that holds the callback (`queryFn`).",
+            "type": "string",
+            "minLength": 1
           },
           "writes": {
             "description": "For `consumes`: the receiver keeps the arguments (`push`, `set`).",

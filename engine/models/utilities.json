@@ -1,0 +1,53 @@
+{
+  "$schema": "./library-models.schema.json",
+  "rows": [
+    {
+      "language": "ts",
+      "module": "lodash",
+      "name": "debounce",
+      "model": "wraps",
+      "args": "0",
+      "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
+    },
+    {
+      "language": "ts",
+      "module": "lodash",
+      "name": "throttle",
+      "model": "wraps",
+      "args": "0",
+      "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
+    },
+    {
+      "language": "ts",
+      "module": "lodash-es",
+      "name": "debounce",
+      "model": "wraps",
+      "args": "0",
+      "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
+    },
+    {
+      "language": "ts",
+      "module": "lodash-es",
+      "name": "throttle",
+      "model": "wraps",
+      "args": "0",
+      "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
+    },
+    {
+      "language": "ts",
+      "module": "lodash.debounce",
+      "name": "default",
+      "model": "wraps",
+      "args": "0",
+      "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
+    },
+    {
+      "language": "ts",
+      "module": "lodash.throttle",
+      "name": "default",
+      "model": "wraps",
+      "args": "0",
+      "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
+    }
+  ]
+}

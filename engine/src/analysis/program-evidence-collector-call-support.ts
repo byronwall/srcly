@@ -7,7 +7,7 @@ import {
 } from "./program-evidence-collector-expression-support";
 import { reducerOf, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { namesSeveralValues, resolveValue, wrappedArgument } from "./value-origin";
-import { ACCESSOR_FACTORIES, FRAMEWORK_FLOWS } from "./framework-flows";
+import { frameworkFlow, makesAccessor } from "./framework-flows";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo } from "./program-evidence-collector-support";
 import {
@@ -169,7 +169,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     );
   }
 
-  /** The values a framework call moves (`FRAMEWORK_FLOWS`), and an accessor call of a value one made. */
+  /** The values a framework call moves (its row, `frameworkFlow`), and an accessor call of a value one made. */
   private connectFrameworkFlow(node: TypeScript.CallExpression, callId: string, ownerId: string | null): void {
     const relate = (from: TypeScript.Expression, to: string, detail: string) => this.addRelation(
       this.expression(from, ownerId), to, "framework-flow", [this.location(from)], frameworkState(detail, this.location(node)), "proven",
@@ -177,11 +177,11 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     const accessor = this.ts.isIdentifier(node.expression) ? resolveValue(this.ts, this.checker, node.expression)?.origin : null;
     if (accessor && this.ts.isCallExpression(accessor)) {
       const made = importedCallee(this.ts, this.checker, accessor.expression);
-      const holderId = made && ACCESSOR_FACTORIES.has(`${made.module}#${made.name}`) ? this.variablesBySymbol.get(this.symbolId(node.expression) ?? "") : undefined;
+      const holderId = made && makesAccessor(made.module, made.name) ? this.variablesBySymbol.get(this.symbolId(node.expression) ?? "") : undefined;
       if (holderId) this.addRelation(holderId, callId, "accessor-call", [this.location(node)], frameworkState("Calling the accessor yields the value its factory computes.", this.location(node)), "proven");
     }
     const imported = importedCallee(this.ts, this.checker, node.expression);
-    const flow = imported ? FRAMEWORK_FLOWS[imported.module]?.[imported.name] : undefined;
+    const flow = imported ? frameworkFlow(imported.module, imported.name) : undefined;
     if (!flow) return;
     const argument = (index: number) => (node.arguments[index] ? unwrap(this.ts, node.arguments[index]) : undefined);
     const passed = flow.passes === "*" ? node.arguments.map((_, index) => index) : flow.passes ?? [];
@@ -261,7 +261,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       if (role.role === "getter") {
         this.addRelation(stateId, callId, "references", [this.location(node)], frameworkState("The getter's call reads the state its setter writes; order and time are not proven.", this.location(node)), "partial");
       }
-      // A reducer's dispatch hands its action to the reducer, whose return (`FRAMEWORK_FLOWS`) is the new state.
+      // A reducer's dispatch hands its action to the reducer, whose return (`frameworkFlow`) is the new state.
       const reducer = role.role === "setter" ? reducerOf(this.ts, this.checker, role.getter) : null;
       const action = reducer ? this.targetFunction(unwrap(this.ts, reducer))?.declaration.parameters[1] : undefined;
       const actionId = action && this.ts.isIdentifier(action.name) ? this.parametersBySymbol.get(this.symbolId(action.name) ?? "") : undefined;
@@ -502,9 +502,9 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
    * the call's value. Both are assumed, so both are `partial`.
    */
   private connectExternalCallbacks(call: CollectorCallInfo, node: TypeScript.CallExpression): void {
-    // A framework call whose flow is modelled (`FRAMEWORK_FLOWS`) needs no assumption.
+    // A framework call whose flow a row models (`frameworkFlow`) needs no assumption.
     const imported = importedCallee(this.ts, this.checker, node.expression);
-    const flow = imported ? FRAMEWORK_FLOWS[imported.module]?.[imported.name] : undefined;
+    const flow = imported ? frameworkFlow(imported.module, imported.name) : undefined;
     if (flow) {
       // What a function argument returns goes where the flow says: the call's value, or the callback's parameter.
       const returnsOf = (index: number | undefined) => {

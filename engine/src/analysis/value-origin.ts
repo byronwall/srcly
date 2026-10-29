@@ -1,5 +1,6 @@
 import type * as TypeScript from "typescript";
 import { importedCallee, symbolAtNode, unwrap } from "./program-evidence-support";
+import { wrapsFunction } from "./framework-flows";
 
 /** One step the checker proved on the way to a value's origin. */
 export type ValueStep = {
@@ -21,28 +22,11 @@ export type ValueOrigin = {
 
 const MAX_STEPS = 8;
 
-/**
- * Library calls that return the function they are given, wrapped: calling
- * the result runs it with the same arguments. SolidStart's server `query` and
- * `action` (and the older `cache`), the router's `useAction` over an action,
- * React's `useCallback`, `memo` and `forwardRef` (a component's props are its
- * first argument), and the usual `debounce` and `throttle`.
- */
-const FUNCTION_WRAPPERS: Record<string, readonly string[]> = {
-  "@solidjs/router": ["query", "cache", "action", "useAction"],
-  "react": ["useCallback", "memo", "forwardRef"],
-  "lodash": ["debounce", "throttle"],
-  "lodash-es": ["debounce", "throttle"],
-  "lodash.debounce": ["default"],
-  "lodash.throttle": ["default"],
-  "@solid-primitives/scheduled": ["debounce", "throttle", "leading", "leadingAndTrailing"],
-};
-
-/** The function a wrapper call (`query(async (id) => …, "key")`) is given, or null. */
+/** The function a wrapper call (`query(async (id) => …, "key")`, a `wraps` row) is given, or null. */
 export function wrappedArgument(ts: typeof TypeScript, checker: TypeScript.TypeChecker, value: TypeScript.Expression): TypeScript.Expression | null {
   if (!ts.isCallExpression(value) || value.arguments.length === 0) return null;
   const imported = importedCallee(ts, checker, value.expression);
-  return imported && FUNCTION_WRAPPERS[imported.module]?.includes(imported.name) ? unwrap(ts, value.arguments[0]) : null;
+  return imported && wrapsFunction(imported.module, imported.name) ? unwrap(ts, value.arguments[0]) : null;
 }
 
 /**
