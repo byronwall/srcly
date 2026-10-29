@@ -567,6 +567,8 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
   ): void {
     if (!ownerId) return;
     const expression = this.ts.isReturnStatement(node) ? node.expression : node;
+    // An arrow's body that is a void call (`(name) => console.log(name)`) returns nothing: no value comes back out at its call.
+    if (!this.ts.isReturnStatement(node) && this.ts.isArrowFunction(node.parent) && this.checker.getTypeAtLocation(node).flags & this.ts.TypeFlags.Void) return;
     const terminalRole = expression
       ? responseReturnRole(this.ts, expression)
       : null;
