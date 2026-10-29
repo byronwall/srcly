@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { IS_BUNDLE } from "../bundle";
-import { builtinLibraryModels, builtinModelFiles } from "../library-models";
+import { builtinLibraryModels, builtinModelFiles } from "../../analysis/library-models";
 import { EngineError } from "../protocol";
 import type { PythonFactsOutput } from "./facts";
 

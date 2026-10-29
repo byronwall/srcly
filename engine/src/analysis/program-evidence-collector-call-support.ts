@@ -554,6 +554,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       ownerId,
       location: (value) => this.location(value),
       moduleFor: (value) => this.moduleFor(value),
+      model: this.modelFor(node.expression),
       isExternalCall: (value) => this.isExternalCall(value),
       specialInput: (...args) => this.specialInput(...args),
       effect: (effectNode, effectCallId, effectOwnerId, effectKind, detail, proofKind = "host-api") => {

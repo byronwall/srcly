@@ -220,22 +220,6 @@ export function isResourceFactory(ts: typeof TypeScript, checker: TypeScript.Typ
   return imported?.module === "solid-js" && imported.name === "createResource";
 }
 
-export function isFileOperation(
-  module: string | null,
-  name: string,
-  operation: "read" | "write",
-) {
-  if (!module || !/^(node:)?fs(\/|$)/.test(module)) return false;
-  // `fs.readFile` through a namespace names the same export as `readFile`.
-  return operation === "read"
-    ? /^(readFile|readFileSync|createReadStream|readdir|stat|access)$/.test(lastName(name))
-    : /^(writeFile|writeFileSync|appendFile|appendFileSync|createWriteStream)$/.test(lastName(name));
-}
-
-export function isNetworkOperation(module: string | null, name: string) {
-  return Boolean(module && /^(node:)?https?$/.test(module) && /^(request|get|post)$/.test(lastName(name)));
-}
-
 /** A UI framework's own reactive and routing calls: what they do with a value is the framework's model, never an external effect. */
 const FRAMEWORK_CALLS: Record<string, RegExp> = {
   "solid-js": /^(createResource|createEffect|createRenderEffect|createComputed|createMemo|createSignal|createSelector|createContext|useContext|onMount|onCleanup|on|batch|untrack|mergeProps|splitProps|children|lazy|Show|For)$/,
@@ -250,32 +234,10 @@ export function isFrameworkCall(module: string, name: string) {
   return Boolean(FRAMEWORK_CALLS[module]?.test(name));
 }
 
-export function outputKind(name: string, node: TypeScript.CallExpression): "stdout" | "stderr" | null {
-  const expression = node.expression.getText();
-  const operation = lastName(name);
-  if (expression === "process.stderr.write") return "stderr";
-  if (expression === "process.stdout.write") return "stdout";
-  return expression.startsWith("console.") && /^(log|info|debug|warn|error)$/.test(operation) ? "stdout" : null;
-}
-
-export function isExit(name: string, node: TypeScript.CallExpression) {
-  return lastName(name) === "exit" && /process\.exit$/.test(node.expression.getText());
-}
-
-export function isHttpResponse(
-  ts: typeof TypeScript,
-  node: TypeScript.CallExpression,
-  checker?: TypeScript.TypeChecker,
-) {
+/** A response method on a receiver named like a server response (`res.json`, `reply.send`): a convention, not a library member. */
+export function isHttpResponse(ts: typeof TypeScript, node: TypeScript.CallExpression) {
   const receiver = thisReceiver(ts, node.expression);
   const name = ts.isPropertyAccessExpression(node.expression) ? node.expression.name.text : "";
-  if (
-    ts.isPropertyAccessExpression(node.expression)
-    && node.expression.name.text === "json"
-    && ts.isIdentifier(node.expression.expression)
-    && node.expression.expression.text === "Response"
-    && checker?.getSymbolAtLocation(node.expression.expression)
-  ) return true;
   return Boolean(receiver && /^(end|json|send|write|writeHead|redirect)$/.test(name) && /^(res|response|reply)$/i.test(receiver.getText()));
 }
 
@@ -300,10 +262,11 @@ export function propertyBase(ts: typeof TypeScript, node: TypeScript.PropertyAcc
     : null;
 }
 
-export function isExitStatusAssignment(ts: typeof TypeScript, node: TypeScript.BinaryExpression) {
+/** An assignment to a global member a library model row makes an exit-status terminal (`process.exitCode = 1`). */
+export function isExitStatusAssignment(ts: typeof TypeScript, node: TypeScript.BinaryExpression, exitMembers: readonly string[]) {
   return (
     ts.isPropertyAccessExpression(node.left) &&
-    node.left.getText(node.getSourceFile()) === "process.exitCode" &&
+    exitMembers.includes(node.left.getText(node.getSourceFile())) &&
     node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
     node.operatorToken.kind <= ts.SyntaxKind.LastAssignment
   );

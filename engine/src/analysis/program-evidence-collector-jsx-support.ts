@@ -66,7 +66,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       }
       if (
         this.ts.isBinaryExpression(node) &&
-        isExitStatusAssignment(this.ts, node)
+        isExitStatusAssignment(this.ts, node, this.globalMembers.exit)
       ) {
         this.processExitStatusAssignment(node, nextOwner);
       }

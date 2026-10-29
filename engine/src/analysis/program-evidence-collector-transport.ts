@@ -1,4 +1,5 @@
 import * as TypeScript from "typescript";
+import type { LibraryModelRow } from "./library-models";
 import type {
   EvidenceConfidence,
   ProgramElement,
@@ -43,6 +44,7 @@ export type ProgramEvidenceTransportContext = {
   checkCancellation: () => void;
   symbolId: (node: TypeScript.Node) => string | null;
   moduleFor: (node: TypeScript.Node) => string | null;
+  modelFor: (node: TypeScript.Node) => LibraryModelRow | null;
   elementFor: (node: TypeScript.Node, kind: string) => string | null;
   targetFunction: (node: TypeScript.Node) => FunctionInfo | null;
   functionForNode: (node: TypeScript.Node) => FunctionInfo | null;
@@ -68,6 +70,7 @@ export function connectProgramEvidenceTransport(context: ProgramEvidenceTranspor
     calls: context.calls,
     symbolId: context.symbolId,
     moduleFor: context.moduleFor,
+    modelFor: context.modelFor,
     elementFor: context.elementFor,
     targetFunction: context.targetFunction,
     functionForNode: context.functionForNode,
