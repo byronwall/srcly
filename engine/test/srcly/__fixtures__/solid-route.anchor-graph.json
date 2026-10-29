@@ -1,7 +1,7 @@
 {
  "outcome": "ok",
  "generation": 1,
- "programHash": "0d8cc3009a239d7b",
+ "programHash": "3ac20199ea4f7b33",
  "tsconfig": "/fixture/solid-route/tsconfig.json",
  "typescript": "5.9.3",
  "reason": null,
@@ -41,6 +41,8 @@
    "elementKind": null,
    "typeText": null,
    "reason": null,
+   "symbol": null,
+   "field": null,
    "note": null
   },
   {
@@ -63,6 +65,8 @@
    "elementKind": "field-read",
    "typeText": "string | undefined",
    "reason": null,
+   "symbol": "props@src/components/ViewerCard.tsx:80",
+   "field": "viewer.name",
    "note": null
   },
   {
@@ -85,6 +89,8 @@
    "elementKind": "field-read",
    "typeText": "ViewerProfile | undefined",
    "reason": null,
+   "symbol": "props@src/components/ViewerCard.tsx:80",
+   "field": "viewer",
    "note": null
   },
   {
@@ -107,6 +113,8 @@
    "elementKind": "value",
    "typeText": "{ viewer: ViewerProfile | undefined; }",
    "reason": null,
+   "symbol": "props@src/components/ViewerCard.tsx:80",
+   "field": null,
    "note": null
   },
   {
@@ -129,6 +137,8 @@
    "elementKind": null,
    "typeText": null,
    "reason": null,
+   "symbol": null,
+   "field": null,
    "note": null
   },
   {
@@ -151,6 +161,8 @@
    "elementKind": "component-prop-binding",
    "typeText": "any",
    "reason": null,
+   "symbol": "viewer@src/routes/records.tsx:581",
+   "field": null,
    "note": null
   },
   {
@@ -173,6 +185,8 @@
    "elementKind": "parameter",
    "typeText": "{ viewer: ViewerProfile | undefined; }",
    "reason": null,
+   "symbol": "props@src/components/ViewerCard.tsx:80",
+   "field": null,
    "note": null
   },
   {
@@ -195,6 +209,8 @@
    "elementKind": "call",
    "typeText": "ViewerProfile | undefined",
    "reason": null,
+   "symbol": "viewer@src/routes/records.tsx:581",
+   "field": null,
    "note": null
   },
   {
@@ -217,6 +233,8 @@
    "elementKind": "resource-result",
    "typeText": "ViewerProfile | undefined",
    "reason": "framework-runtime",
+   "symbol": "viewer@src/routes/records.tsx:581",
+   "field": null,
    "note": "viewer() is framework runtime; what it carries is proven only as far as the engine's relations go"
   },
   {
@@ -239,6 +257,8 @@
    "elementKind": "value",
    "typeText": "Resource<ViewerProfile>",
    "reason": null,
+   "symbol": "viewer@src/routes/records.tsx:581",
+   "field": null,
    "note": null
   },
   {
@@ -261,6 +281,8 @@
    "elementKind": "resource-input",
    "typeText": "ResourceReturn<ViewerProfile, unknown>",
    "reason": null,
+   "symbol": null,
+   "field": null,
    "note": null
   },
   {
@@ -283,10 +305,12 @@
    "elementKind": "alias",
    "typeText": "any",
    "reason": null,
+   "symbol": "viewer@src/routes/records.tsx:581",
+   "field": null,
    "note": null
   },
   {
-   "id": "program-element:7ubk4y",
+   "id": "program-element:658xhs",
    "kind": "value",
    "label": "createResource(loadViewer)",
    "detail": "call",
@@ -305,10 +329,12 @@
    "elementKind": "call",
    "typeText": "ResourceReturn<ViewerProfile, unknown>",
    "reason": null,
+   "symbol": null,
+   "field": null,
    "note": null
   },
   {
-   "id": "program-element:4xrakc",
+   "id": "program-element:zd4mhu",
    "kind": "value",
    "label": "createResource",
    "detail": "value",
@@ -327,6 +353,8 @@
    "elementKind": "value",
    "typeText": "{ <T, R = unknown, I = T>(fetcher: (k: true, info: ResourceFetcherInfo<T | I, R>) => T | Promise<T>, options: ResourceOptions<T | I, true> & { ...; }): Initial…",
    "reason": null,
+   "symbol": null,
+   "field": null,
    "note": null
   },
   {
@@ -349,6 +377,8 @@
    "elementKind": "value",
    "typeText": "() => Promise<ViewerProfile>",
    "reason": null,
+   "symbol": null,
+   "field": null,
    "note": null
   },
   {
@@ -371,6 +401,8 @@
    "elementKind": "selection",
    "typeText": "string",
    "reason": null,
+   "symbol": null,
+   "field": null,
    "note": null
   },
   {
@@ -393,6 +425,8 @@
    "elementKind": "render-terminal",
    "typeText": "string",
    "reason": null,
+   "symbol": null,
+   "field": null,
    "note": null
   }
  ],
@@ -722,8 +756,8 @@
    "label": null
   },
   {
-   "id": "program-relation:4jhb4d",
-   "source": "program-element:7ubk4y",
+   "id": "program-relation:11g683d",
+   "source": "program-element:658xhs",
    "target": "program-element:1c1mvsc",
    "kind": "references",
    "status": "proven",
@@ -750,9 +784,9 @@
    "label": null
   },
   {
-   "id": "program-relation:9nbnw8",
-   "source": "program-element:4xrakc",
-   "target": "program-element:7ubk4y",
+   "id": "program-relation:hno3jx",
+   "source": "program-element:zd4mhu",
+   "target": "program-element:658xhs",
    "kind": "references",
    "status": "proven",
    "proof": [
@@ -778,9 +812,9 @@
    "label": null
   },
   {
-   "id": "program-relation:1fwsf9o",
+   "id": "program-relation:il48h4",
    "source": "program-element:pnc62j",
-   "target": "program-element:7ubk4y",
+   "target": "program-element:658xhs",
    "kind": "argument",
    "status": "proven",
    "proof": [

@@ -637,6 +637,8 @@ class AnchorNode(BaseModel):
     typeText: str | None
     reason: str | None
     note: str | None
+    symbol: str | None
+    field: str | None
 
 
 # Mirrors anchorEdgeStatusSchema: a proof status, or "structural" for a link the

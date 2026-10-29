@@ -39,6 +39,7 @@
       "absPath": "/fixture/src/f.tsx",
       "detail": "f.tsx",
       "elementKind": null,
+      "field": null,
       "file": "src/f.tsx",
       "id": "scope:f",
       "kind": "scope",
@@ -55,12 +56,14 @@
         "startLine": 1
       },
       "status": "proven",
+      "symbol": null,
       "typeText": null
     },
     {
       "absPath": "/fixture/src/f.tsx",
       "detail": "property read",
       "elementKind": null,
+      "field": null,
       "file": "src/f.tsx",
       "id": "anchor:f:1:1",
       "kind": "anchor",
@@ -77,6 +80,7 @@
         "startLine": 1
       },
       "status": "partial",
+      "symbol": null,
       "typeText": null
     }
   ],

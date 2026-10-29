@@ -3,6 +3,7 @@
 import path from "node:path";
 import type * as TypeScript from "typescript";
 import { createCallSiteIndex, type CallSiteIndex } from "./call-sites";
+import { compilerSymbolId } from "../analysis/program-evidence-support";
 import { callSitesOfElement, enclosingFunction, functionName, nodeAtSpan } from "./facts";
 import type { HostCandidate, LanguageHost } from "./host";
 import { candidatesAt, sourceFileFor, spanOf, type Span } from "./selection";
@@ -51,6 +52,10 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       } catch {
         return null;
       }
+    },
+    bindingAt(file, span) {
+      const at = nodeAt(file, span);
+      return at ? bindingOf(ts, checker, root, at.node) : null;
     },
     scopeAt(file, span) {
       const at = nodeAt(file, span);
@@ -104,4 +109,46 @@ function identifierOnLine(ts: typeof TypeScript, sourceFile: TypeScript.SourceFi
     if (ts.isVariableDeclarationList(declaration.parent) && ts.isVariableStatement(declaration.parent.parent)) fallbacks.push(declaration.parent.parent);
   }
   return { kind: ts.SyntaxKind[node.kind], text: name, span: spanOf(sourceFile, node), fallbacks: fallbacks.map((item) => spanOf(sourceFile, item)) };
+}
+
+/**
+ * The local binding under an expression: down through field reads, `!`, parentheses and argument-free
+ * calls of the binding itself (a Solid accessor) to an identifier declared as a variable, parameter or
+ * destructured name in a source file of the root. A method call (`x.trim()`) is a new value, not a read.
+ */
+function bindingOf(ts: typeof TypeScript, checker: TypeScript.TypeChecker, root: string, found: TypeScript.Node) {
+  // A lone attribute has the span of the attribute list around it.
+  const node = ts.isJsxAttributes(found) && found.properties.length === 1 ? found.properties[0] : found;
+  const fields: string[] = [];
+  // `note={n()}`: a prop binding reads its expression, and fills the attribute it names.
+  const filled = ts.isJsxAttribute(node) && node.initializer && ts.isJsxExpression(node.initializer) ? node.initializer.expression : undefined;
+  let at: TypeScript.Node = filled ?? (ts.isVariableDeclaration(node) || ts.isParameter(node) || ts.isBindingElement(node) ? node.name : node);
+  for (;;) {
+    if (ts.isParenthesizedExpression(at) || ts.isNonNullExpression(at)) at = at.expression;
+    else if (ts.isPropertyAccessExpression(at)) {
+      fields.unshift(at.name.text);
+      at = at.expression;
+    } else if (ts.isCallExpression(at) && at.arguments.length === 0 && ts.isIdentifier(skipWrappers(ts, at.expression))) at = skipWrappers(ts, at.expression);
+    else break;
+  }
+  if (!ts.isIdentifier(at)) return null;
+  let symbol: TypeScript.Symbol | undefined;
+  try {
+    symbol = ts.isShorthandPropertyAssignment(at.parent) && at.parent.name === at ? checker.getShorthandAssignmentValueSymbol(at.parent) : checker.getSymbolAtLocation(at);
+  } catch {
+    return null;
+  }
+  const declaration = symbol?.valueDeclaration ?? symbol?.declarations?.[0];
+  if (!symbol || !declaration || declaration.getSourceFile().isDeclarationFile) return null;
+  if (!(ts.isVariableDeclaration(declaration) || ts.isParameter(declaration) || ts.isBindingElement(declaration))) return null;
+  const id = compilerSymbolId(ts, checker, root, at, symbol);
+  if (!id) return null;
+  const parent = filled ? node : node.parent && ts.isJsxExpression(node.parent) ? node.parent.parent : node.parent;
+  const attribute = parent && ts.isJsxAttribute(parent) ? parent.name.getText() : null;
+  return { symbol: id, field: fields.length ? fields.join(".") : null, attribute };
+}
+
+function skipWrappers(ts: typeof TypeScript, node: TypeScript.Expression): TypeScript.Expression {
+  while (ts.isParenthesizedExpression(node) || ts.isNonNullExpression(node)) node = node.expression;
+  return node;
 }

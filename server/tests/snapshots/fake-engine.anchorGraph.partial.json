@@ -58,6 +58,7 @@
       "absPath": "/fixture/src/f.tsx",
       "detail": "f.tsx",
       "elementKind": null,
+      "field": null,
       "file": "src/f.tsx",
       "id": "scope:f",
       "kind": "scope",
@@ -74,12 +75,14 @@
         "startLine": 1
       },
       "status": "proven",
+      "symbol": null,
       "typeText": null
     },
     {
       "absPath": "/fixture/src/f.tsx",
       "detail": "property read",
       "elementKind": "field-read",
+      "field": null,
       "file": "src/f.tsx",
       "id": "el:1",
       "kind": "anchor",
@@ -96,12 +99,14 @@
         "startLine": 1
       },
       "status": "proven",
+      "symbol": null,
       "typeText": "string"
     },
     {
       "absPath": "/fixture/src/f.tsx",
       "detail": "render slot",
       "elementKind": "render-terminal",
+      "field": null,
       "file": "src/f.tsx",
       "id": "el:2",
       "kind": "terminal",
@@ -118,12 +123,14 @@
         "startLine": 1
       },
       "status": "proven",
+      "symbol": null,
       "typeText": null
     },
     {
       "absPath": "/fixture/src/f.tsx",
       "detail": "disconnected",
       "elementKind": "alias",
+      "field": null,
       "file": "src/f.tsx",
       "id": "frontier:gap-1",
       "kind": "frontier",
@@ -140,6 +147,7 @@
         "startLine": 1
       },
       "status": "partial",
+      "symbol": null,
       "typeText": null
     }
   ],

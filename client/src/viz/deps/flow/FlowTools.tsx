@@ -52,6 +52,34 @@ export function DirectionSwitch(props: { dir: Direction; onChange: (dir: Directi
   );
 }
 
+const MODELS = [
+  { id: "symbols", label: "Symbols", title: "One box per symbol: every read of a variable is one box" },
+  { id: "steps", label: "Steps", title: "Every step the engine walked, one box each" },
+] as const;
+export type BoxModel = (typeof MODELS)[number]["id"];
+const MODEL_IDS = MODELS.map((m) => m.id);
+
+/** Anchor mode: one box per symbol, or every step the engine walked. */
+export function ModelSwitch(props: { model: BoxModel; onChange: (model: BoxModel) => void }) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Boxes"
+      data-box-model={props.model}
+      onKeyDown={(e) => segmentedKeyDown(e, MODEL_IDS, props.model, props.onChange)}
+      class="flex shrink-0 rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface-muted)] p-0.5"
+    >
+      <For each={MODELS}>
+        {(m) => (
+          <Button variant="tab" size="sm" role="radio" aria-checked={props.model === m.id} tabIndex={props.model === m.id ? 0 : -1} active={props.model === m.id} class="px-2" title={m.title} onClick={() => props.onChange(m.id)}>
+            {m.label}
+          </Button>
+        )}
+      </For>
+    </div>
+  );
+}
+
 const LENSES = [
   { id: "data", label: "Data", title: "How the route's data flows: its params, resources and state, to what it renders" },
   { id: "components", label: "Components", title: "The route's render tree: every component, Show and For it renders" },

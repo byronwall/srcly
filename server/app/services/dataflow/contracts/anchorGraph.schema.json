@@ -230,6 +230,18 @@
               "null"
             ]
           },
+          "symbol": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "field": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "note": {
             "type": [
               "string",
@@ -252,6 +264,8 @@
           "elementKind",
           "typeText",
           "reason",
+          "symbol",
+          "field",
           "note"
         ],
         "additionalProperties": false
