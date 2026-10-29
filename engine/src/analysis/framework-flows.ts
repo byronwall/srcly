@@ -1,31 +1,61 @@
+// What framework calls do with the functions and values they are given, read
+// from their library-model rows (`engine/models/solid.json`, `react.json`,
+// `utilities.json`). Adding a framework is adding rows; these readers turn a
+// row into the shape each collector rule needs.
+import { builtinLibraryModels, tsModelModule, type LibraryModelRow } from "./library-models";
+
 /**
- * What a framework call does with the functions and values it is given:
  * `returns` the call's value is what its callback (at that argument) returns;
  * `passes` the call's value carries those arguments (`*` every one);
  * `source` and `callback` the callback's first parameter receives what the
- * source returns (or is). An accessor a `returns` factory makes yields that
- * value when called.
+ * source returns (or is).
  */
 export type FrameworkFlow = { returns?: number; passes?: number[] | "*"; source?: number; callback?: number };
-export const FRAMEWORK_FLOWS: Record<string, Record<string, FrameworkFlow>> = {
-  "solid-js": {
-    createMemo: { returns: 0 }, children: { returns: 0 }, untrack: { returns: 0 }, batch: { returns: 0 },
-    on: { source: 0, callback: 1, returns: 1 }, splitProps: { passes: [0] }, mergeProps: { passes: "*" },
-    // An effect runs its callback for what it does; the call's own value is unused, so a value ends there.
-    createEffect: { returns: 0 }, createRenderEffect: { returns: 0 }, createComputed: { returns: 0 }, onMount: { returns: 0 }, onCleanup: { returns: 0 },
-  },
-  "solid-js/store": { unwrap: { passes: [0] }, createMutable: { passes: [0] } },
-  "@solidjs/router": { createAsync: { returns: 0 }, createAsyncStore: { returns: 0 } },
-  "react": { useMemo: { returns: 0 }, useReducer: { returns: 0 }, useDeferredValue: { passes: [0] }, useEffect: { returns: 0 }, useLayoutEffect: { returns: 0 } },
-};
-export const ACCESSOR_FACTORIES = new Set(["solid-js#createMemo", "solid-js#children", "@solidjs/router#createAsync", "@solidjs/router#createAsyncStore"]);
 
-/**
- * Data libraries that take their functions in an options object: a query's
- * value is what its `queryFn` returns; a mutation's `mutate(x)` calls its
- * `mutationFn` with `x`. By module, the hook names and the option they read.
- */
-export const OPTION_FLOWS: Record<string, Record<string, "queryFn" | "mutationFn">> = {
-  "@tanstack/react-query": { useQuery: "queryFn", useSuspenseQuery: "queryFn", useInfiniteQuery: "queryFn", useMutation: "mutationFn" },
-  "@tanstack/solid-query": { createQuery: "queryFn", createInfiniteQuery: "queryFn", createMutation: "mutationFn", useQuery: "queryFn", useMutation: "mutationFn" },
-};
+/** The row for an imported framework call (`solid-js`'s `createMemo`), by its module and export name. */
+export function frameworkRow(module: string, name: string): LibraryModelRow | null {
+  return builtinLibraryModels().lookup("ts", tsModelModule(module), name);
+}
+
+const argument = (row: LibraryModelRow) => (row.args !== undefined && /^\d+$/.test(row.args) ? Number(row.args) : undefined);
+
+/** How the call moves values (`FrameworkFlow`), or undefined for a call no flow row names. */
+export function frameworkFlow(module: string, name: string): FrameworkFlow | undefined {
+  const row = frameworkRow(module, name);
+  if (!row) return undefined;
+  const at = argument(row);
+  if (row.model === "passes-through") return { passes: at === undefined ? "*" : [at] };
+  if (row.model === "calls-back" && row.returns === "callback" && at !== undefined) {
+    return row.source !== undefined ? { returns: at, source: Number(row.source), callback: at } : { returns: at };
+  }
+  // A reducer pair names its reducer: what the reducer returns is the state.
+  if (row.model === "state-pair" && at !== undefined) return { returns: at };
+  return undefined;
+}
+
+/** Whether the call returns the function it is given (`action(fn)`, `useCallback(fn)`, `debounce(fn)`). */
+export function wrapsFunction(module: string, name: string): boolean {
+  return frameworkRow(module, name)?.model === "wraps";
+}
+
+/** Whether the call makes an accessor that yields its callback's return (`createMemo`, `createAsync`). */
+export function makesAccessor(module: string, name: string): boolean {
+  return frameworkRow(module, name)?.accessor === true;
+}
+
+/** The options key a data hook reads its function from (`useQuery`'s `queryFn`), or null. */
+export function optionFlow(module: string, name: string): string | null {
+  const row = frameworkRow(module, name);
+  return row?.model === "calls-back" ? row.option ?? null : null;
+}
+
+/** Whether the call makes a state pair (`createSignal`, `useState`). */
+export function makesStatePair(module: string, name: string): boolean {
+  return frameworkRow(module, name)?.model === "state-pair";
+}
+
+/** The argument a reducer pair's reducer is at (`useReducer(reducer, …)`), or null for any other pair. */
+export function reducerArgument(module: string, name: string): number | null {
+  const row = frameworkRow(module, name);
+  return row?.model === "state-pair" ? argument(row) ?? null : null;
+}

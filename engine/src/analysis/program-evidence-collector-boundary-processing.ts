@@ -14,7 +14,7 @@ import {
   unwrap,
 } from "./program-evidence-support";
 import { indexReadAttributes } from "./program-index-read-metadata";
-import { OPTION_FLOWS } from "./framework-flows";
+import { optionFlow } from "./framework-flows";
 import { resolveValue } from "./value-origin";
 import type { CollectorCallInfo, CollectorFunctionInfo } from "./program-evidence-collector-support";
 
@@ -503,7 +503,7 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
     const call = unwrap(this.ts, hook);
     if (!this.ts.isCallExpression(call)) return null;
     const imported = importedCallee(this.ts, this.checker, call.expression);
-    if (!imported || OPTION_FLOWS[imported.module]?.[imported.name] !== option) return null;
+    if (!imported || optionFlow(imported.module, imported.name) !== option) return null;
     const options = call.arguments[0] ? unwrap(this.ts, call.arguments[0]) : undefined;
     const property = options && this.ts.isObjectLiteralExpression(options) ? options.properties.find((item) => item.name?.getText() === option) : undefined;
     if (!property || !(this.ts.isPropertyAssignment(property) || this.ts.isShorthandPropertyAssignment(property))) return null;
@@ -511,7 +511,7 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
     return this.functionsByNode.get(nodeKey(this.root, value)) ?? this.targetFunction(value);
   }
 
-  /** A query's value is what its `queryFn` returns; `mutation.mutate(x)` calls its `mutationFn` with `x` (`OPTION_FLOWS`). */
+  /** A query's value is what its `queryFn` returns; `mutation.mutate(x)` calls its `mutationFn` with `x` (a row's `option`). */
   private connectOptionFlows(call: CollectorCallInfo, node: TypeScript.CallExpression): void {
     const where = [this.location(node)];
     const query = this.optionFunction(node, "queryFn");
