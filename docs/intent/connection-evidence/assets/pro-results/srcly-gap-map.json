@@ -1,0 +1,1238 @@
+{
+  "schema_version": "1.0",
+  "topic_id": "srcly.dependency-analysis-tool-ui-deep-dive.v1",
+  "repository": "https://github.com/byronwall/srcly",
+  "assignment_pr": 256,
+  "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8",
+  "research_date": "2026-10-28",
+  "research_timezone": "America/Indianapolis",
+  "provenance": {
+    "packet_tracked_files": 729,
+    "packet_complete_checkout": false,
+    "packet_local_edits": false,
+    "packet_metadata": "SOURCE-PACKET.md",
+    "screenshots": "omitted in packet; four historical images fetched from fixed baseline",
+    "code_changes_made": false,
+    "integration_owner": "Codex",
+    "recommendations_approved": false,
+    "assistant_generated": true,
+    "independent_product_demand": false
+  },
+  "evidence_modes": [
+    "pinned source inspection",
+    "historical repository report",
+    "official documentation/figure or implementation inspection",
+    "isolated synthetic projection execution",
+    "source-derived inference",
+    "proposed experiment"
+  ],
+  "experiments": {
+    "executed": [
+      "P1",
+      "P2",
+      "P3",
+      "P4"
+    ],
+    "executed_scope": "Actual pure client projection bodies; synthetic inputs; visual stubs; no engine/schema/browser/layout run",
+    "proposed": [
+      "F1",
+      "F2",
+      "F3",
+      "F4",
+      "F5",
+      "F6",
+      "F7",
+      "A0-E/B-E/C-E comparison",
+      "A0-H/B-H/C-H equal-information prototypes",
+      "A1 versus A0 incremental test",
+      "cold/warm phase measurements"
+    ]
+  },
+  "gaps": [
+    {
+      "id": "DAG-001",
+      "recommendation_id": "DA-001",
+      "title": "Preserve and explain contributing connection evidence",
+      "disposition": "adopt-proposal",
+      "approval": "proposal only; Codex independently verifies and integrates",
+      "current_evidence": [
+        {
+          "id": "R-ENGINEPROJECT",
+          "path": "engine/src/srcly/ops/anchor-graph.ts",
+          "symbol": "AnchorGraphBuilder.addElement / addEdge / pushEdge",
+          "lines": [
+            634,
+            683
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L634-L683",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Engine edge construction and endpoint deduplication before the client."
+        },
+        {
+          "id": "R-ADAPTER",
+          "path": "client/src/viz/deps/flow/anchorAdapter.ts",
+          "symbol": "anchorGraphToViewModel / folds / passThroughs",
+          "lines": [
+            21,
+            207
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/anchorAdapter.ts#L21-L207",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Projection, function folding, pass-through reference removal, first-wins endpoint edge deduplication."
+        },
+        {
+          "id": "R-VIEWMODEL",
+          "path": "client/src/viz/deps/viewModel.ts",
+          "symbol": "ViewEdge",
+          "lines": [
+            59,
+            78
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/viewModel.ts#L59-L78",
+          "evidence_mode": "pinned source inspection",
+          "claim": "One proof/relation/status bundle rather than contributing raw members."
+        },
+        {
+          "id": "R-REACH",
+          "path": "client/src/viz/deps/flow/reach.ts",
+          "symbol": "reachFrom / walk",
+          "lines": [
+            1,
+            85
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/reach.ts#L1-L85",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Reachability over the displayed graph, with faint/structural handling."
+        },
+        {
+          "id": "R-MULTI",
+          "path": "client/src/viz/deps/flow/multiAnchorAdapter.ts",
+          "symbol": "anchorsToViewModel",
+          "lines": [
+            1,
+            64
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/multiAnchorAdapter.ts#L1-L64",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Independent anchor graph union; endpoint dedup; no per-query membership in ViewEdge."
+        }
+      ],
+      "observed_limitation": "Engine and client endpoint deduplication discard alternatives. Reference removal can discard a weaker serial proof; scope folding and multi-query union can create displayed reach not individually certified by the inputs.",
+      "candidate_mechanism": "Explain connection inside existing inspector; preserve members before first projection, exact source spans, hidden relations and query membership; pathCompatibility remains not-evaluated.",
+      "external_evidence": [
+        {
+          "source_id": "SPC33",
+          "url": "https://docs.scitools.com/help/dependencies/browse-and-export-dependencies.html",
+          "evidence_mode": "Official documentation; official UI screenshot actually downloaded and visually inspected"
+        },
+        {
+          "source_id": "IDE13",
+          "url": "https://github.com/microsoft/language-server-protocol/blob/gh-pages/_specifications/lsp/3.17/language/callHierarchy.md",
+          "evidence_mode": "specification source inspection"
+        },
+        {
+          "source_id": "IDE27",
+          "url": "https://github.com/microsoft/pyright/blob/1.1.414/packages/pyright-internal/src/languageService/callHierarchyProvider.ts",
+          "evidence_mode": "public implementation inspection"
+        }
+      ],
+      "confidence": {
+        "finding": "high: source plus isolated executed checks",
+        "benefit": "medium: proposed task hypothesis"
+      },
+      "relative_cost": "M: engine/contract/client, no new general analysis",
+      "existing_backlog_overlap": [
+        {
+          "task_id": "task-route-data-traces-flood-the-canvas",
+          "disposition": "already-owned",
+          "note": "Component folding remains owned; add provenance invariant to its projection.",
+          "path": "pgm/data/projects/srcly-backlog/nodes/task-route-data-traces-flood-the-canvas.md",
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-route-data-traces-flood-the-canvas.md"
+        },
+        {
+          "task_id": "task-send-proof-strength-to-the-client-through-the-contract",
+          "disposition": "extend",
+          "note": "Reuse normalized per-member strength.",
+          "path": "pgm/data/projects/srcly-backlog/nodes/task-send-proof-strength-to-the-client-through-the-contract.md",
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-send-proof-strength-to-the-client-through-the-contract.md"
+        },
+        {
+          "task_id": "task-components-lens-gap-list-repeats-and-uses-engine-words",
+          "disposition": "already-owned",
+          "note": "Do not duplicate route-gap grouping/layout task.",
+          "path": "pgm/data/projects/srcly-backlog/nodes/task-components-lens-gap-list-repeats-and-uses-engine-words.md",
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-components-lens-gap-list-repeats-and-uses-engine-words.md"
+        }
+      ],
+      "requirements": [
+        {
+          "missing_fact_or_preserved_information": "All raw contributing relation identities/endpoints/proofs/locations and projection lineage",
+          "producer": "AnchorGraphBuilder before pushEdge dedup; anchorAdapter passThroughs/folds; anchorsToViewModel",
+          "contract_change": "Member set keyed by query/generation/raw relation, hidden elements/relations, composition not-evaluated, coverage",
+          "consumer": "Existing edge inspector and source navigation",
+          "negative_fixture": "P1 disconnected folded members; P2 reorder; P3 partial reference; P4 union",
+          "relative_cost": "M; payload growth bounded with explicit coverage",
+          "run_status": "proposed; not implemented or executed"
+        }
+      ],
+      "proposed_acceptance": [
+        "Every raw member survives reorder/fold/merge or an explicit limit is shown.",
+        "Each source occurrence opens and Return restores exact member and camera.",
+        "No certified multi-hop path or unconditional-write claim from the bundle."
+      ],
+      "executed_evidence": [
+        "P1",
+        "P2",
+        "P3",
+        "P4"
+      ],
+      "remaining_validation": "Full application/engine correctness, interaction and latency tests not run."
+    },
+    {
+      "id": "DAG-002",
+      "recommendation_id": "DA-002",
+      "title": "Context-compatible witnesses and convergence completeness",
+      "disposition": "investigate",
+      "approval": "proposal only; Codex independently verifies and integrates",
+      "current_evidence": [
+        {
+          "id": "R-SLICE",
+          "path": "engine/src/analysis/evidence-slice.ts",
+          "symbol": "queryEvidenceSlice / addElement / pairInvocation",
+          "lines": [
+            92,
+            562
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/evidence-slice.ts#L92-L562",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Call/field state in traversal and element/relation maps in returned slice."
+        },
+        {
+          "id": "R-ANCHORCONTRACT",
+          "path": "engine/src/srcly/contracts/anchor-graph.ts",
+          "symbol": "anchorGraphResultSchema / anchorEdgeSchema",
+          "lines": [
+            39,
+            125
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/contracts/anchor-graph.ts#L39-L125",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Public anchor result carries nodes, edges, status, proof and generation, not traversal-state witnesses."
+        },
+        {
+          "id": "R-ANCHOROP",
+          "path": "engine/src/srcly/ops/anchor-graph.ts",
+          "symbol": "anchorGraphOp / AnchorGraphBuilder",
+          "lines": [
+            47,
+            205
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L47-L205",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Anchor selection, directional runs, landing and outcome construction."
+        }
+      ],
+      "observed_limitation": "Call/field state exists during traversal but returned elements/relations flatten by ID. addElement early-return may suppress a new invocation context with unchanged field path; this is unexecuted hypothesis.",
+      "candidate_mechanism": "Retain bounded accepted traversal-state transitions and selected witness identity, not all-path enumeration.",
+      "external_evidence": [
+        {
+          "source_id": "SPC06",
+          "url": "https://codeql.github.com/docs/writing-codeql-queries/creating-path-queries/",
+          "evidence_mode": "Official documentation"
+        },
+        {
+          "source_id": "SPC09",
+          "url": "https://codeql.github.com/docs/writing-codeql-queries/debugging-data-flow-queries-using-partial-flow/",
+          "evidence_mode": "Official documentation"
+        }
+      ],
+      "confidence": {
+        "finding": "high for contract gap; medium unexecuted requeue hypothesis",
+        "benefit": "high prerequisite for certified paths"
+      },
+      "relative_cost": "L: traversal, storage, contracts and negatives",
+      "existing_backlog_overlap": [
+        {
+          "task_id": "task-calls-through-function-typed-params-and-props",
+          "disposition": "extend",
+          "note": "Keep callback resolution ownership; add explicit witness/context tests.",
+          "path": "pgm/data/projects/srcly-backlog/nodes/task-calls-through-function-typed-params-and-props.md",
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-calls-through-function-typed-params-and-props.md"
+        },
+        {
+          "task_id": "task-hub-summaries-for-size-limited-slices",
+          "disposition": "extend",
+          "note": "Cache only under sufficient query/context/field/generation identity.",
+          "path": "pgm/data/projects/srcly-backlog/nodes/task-hub-summaries-for-size-limited-slices.md",
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-hub-summaries-for-size-limited-slices.md"
+        }
+      ],
+      "requirements": [
+        {
+          "missing_fact_or_preserved_information": "Compatible predecessor/successor state for each accepted transition",
+          "producer": "queryEvidenceSlice / addElement / pairInvocation",
+          "contract_change": "State IDs, query/run IDs, call push/pop match, field path and widening, raw relation IDs, truncation",
+          "consumer": "Certified selected path / context-aware reach",
+          "negative_fixture": "F4 two-call forbidden return; fanout must reach both returns; same-line call spans",
+          "relative_cost": "L; share states, cap exploration explicitly",
+          "run_status": "proposed; not implemented or executed"
+        }
+      ],
+      "proposed_acceptance": [
+        "No callA entry to callB return chain.",
+        "Both fanout branches reachable from common input.",
+        "Union of query membership never becomes a witness without verification."
+      ],
+      "executed_evidence": [],
+      "remaining_validation": "Full application/engine correctness, interaction and latency tests not run."
+    },
+    {
+      "id": "DAG-003",
+      "recommendation_id": "DA-003",
+      "title": "Execution conditions, framework activation and object identity",
+      "disposition": "investigate",
+      "approval": "proposal only; Codex independently verifies and integrates",
+      "current_evidence": [
+        {
+          "path": "engine/src/analysis/program-evidence-collector-jsx-support.ts",
+          "symbol": "collectNodes",
+          "lines": [
+            26,
+            95
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/program-evidence-collector-jsx-support.ts#L26-L95",
+          "evidence_mode": "pinned source inspection",
+          "claim": "No general guard-to-statement control-dependence pass here."
+        },
+        {
+          "path": "engine/src/analysis/program-evidence-collector-boundary-processing.ts",
+          "symbol": "processSelection",
+          "lines": [
+            336,
+            375
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/program-evidence-collector-boundary-processing.ts#L336-L375",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Condition and arms join without typed polarity."
+        },
+        {
+          "path": "engine/src/analysis/program-evidence-collector-jsx-support.ts",
+          "symbol": "connectMemberState",
+          "lines": [
+            437,
+            451
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/program-evidence-collector-jsx-support.ts#L437-L451",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Shared property-symbol matching, not individual receiver identity."
+        },
+        {
+          "path": "engine/src/analysis/program-evidence-collector-call-support.ts",
+          "symbol": "bindResourceSource",
+          "lines": [
+            149,
+            169
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/program-evidence-collector-call-support.ts#L149-L169",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Framework value handoff, not activation predicate."
+        }
+      ],
+      "observed_limitation": "Producer relations and branch terminals cannot answer the general guard-to-write question. Shared declared property does not certify same object. Resource delivery does not specify execution.",
+      "candidate_mechanism": "Visible condition/identity coverage now; scoped fact producers and explicit expansion later.",
+      "external_evidence": [
+        {
+          "source_id": "SPC26",
+          "url": "https://docs.joern.io/cpgql/control-flow-steps/",
+          "evidence_mode": "Official documentation"
+        },
+        {
+          "source_id": "SPC02",
+          "url": "https://wala.github.io/javadoc/com/ibm/wala/ipa/slicer/Slicer.DataDependenceOptions.html",
+          "evidence_mode": "Official API documentation"
+        },
+        {
+          "source_id": "EXT01",
+          "url": "https://docs.solidjs.com/reference/basic-reactivity/create-resource",
+          "evidence_mode": "official documentation inspected; no resource run"
+        }
+      ],
+      "confidence": {
+        "finding": "high",
+        "benefit": "medium pending task comparison"
+      },
+      "relative_cost": "L for general control/identity; M for scoped framework model",
+      "existing_backlog_overlap": [
+        {
+          "task_id": "task-show-and-match-when-is-not-a-dom-attribute",
+          "disposition": "already-owned",
+          "note": "Branch vocabulary is narrower than general control dependence.",
+          "path": "pgm/data/projects/srcly-backlog/nodes/task-show-and-match-when-is-not-a-dom-attribute.md",
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-show-and-match-when-is-not-a-dom-attribute.md"
+        },
+        {
+          "task_id": "task-move-the-remaining-alias-resolution-sites-to-the-value-origin-resolver",
+          "disposition": "reuse",
+          "note": "Resolver consolidation is not a heap-identity proof.",
+          "path": "pgm/data/projects/srcly-backlog/nodes/task-move-the-remaining-alias-resolution-sites-to-the-value-origin-resolver.md",
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-move-the-remaining-alias-resolution-sites-to-the-value-origin-resolver.md"
+        },
+        {
+          "task_id": "task-library-write-into-a-non-local-receiver",
+          "disposition": "already-owned",
+          "note": "Retain mutation/model ownership; add receiver evidence requirements.",
+          "path": "pgm/data/projects/srcly-backlog/nodes/task-library-write-into-a-non-local-receiver.md",
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-library-write-into-a-non-local-receiver.md"
+        }
+      ],
+      "requirements": [
+        {
+          "missing_fact_or_preserved_information": "Predicate controlling target with polarity and coverage",
+          "producer": "Scoped TS control analysis; Python statement/control provider later",
+          "contract_change": "Predicate/target/span/polarity and unsupported exceptional-control coverage",
+          "consumer": "Conditions panel",
+          "negative_fixture": "F3 early exit and guarded persist; unsupported try/finally remains explicit",
+          "relative_cost": "L",
+          "run_status": "proposed; not implemented or executed"
+        },
+        {
+          "missing_fact_or_preserved_information": "Receiver/allocation or supported alias witness",
+          "producer": "Receiver/value-origin/heap producer, separate from memberSymbol",
+          "contract_change": "Identity class/evidence/unknown/widened fields",
+          "consumer": "Identity panel",
+          "negative_fixture": "F6 first.set(input), second.get() must not certify input as producer",
+          "relative_cost": "L",
+          "run_status": "proposed; not implemented or executed"
+        },
+        {
+          "missing_fact_or_preserved_information": "Resource activation distinct from delivery",
+          "producer": "Named framework model plus source selection",
+          "contract_change": "Model/version, activation prerequisite and separate value binding",
+          "consumer": "Callback evidence card",
+          "negative_fixture": "F1 disabled source; two resource occurrences",
+          "relative_cost": "M–L",
+          "run_status": "proposed; not implemented or executed"
+        }
+      ],
+      "proposed_acceptance": [
+        "No false unconditional write.",
+        "No property-declaration equality promoted to object identity.",
+        "Missing fact is visible not-analyzed, not zero."
+      ],
+      "executed_evidence": [],
+      "remaining_validation": "Full application/engine correctness, interaction and latency tests not run."
+    },
+    {
+      "id": "DAG-004",
+      "recommendation_id": "DA-004",
+      "title": "Question-specific dependency contracts",
+      "disposition": "adopt-proposal",
+      "approval": "proposal only; Codex independently verifies and integrates",
+      "current_evidence": [
+        {
+          "id": "R-IMPORTCONTRACT",
+          "path": "client/src/viz/deps/contract.ts",
+          "symbol": "GraphEdge",
+          "lines": [
+            1,
+            46
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/contract.ts#L1-L46",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Imports contract does not carry value-flow path proof or coverage outcome."
+        },
+        {
+          "id": "R-KINDS",
+          "path": "engine/src/srcly/kinds.ts",
+          "symbol": "RELATION_TRAITS / PROOF_TRAITS / proofStrength",
+          "lines": [
+            8,
+            211
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/kinds.ts#L8-L211",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Structural versus value/call matching; proof strength classification including unknown null."
+        },
+        {
+          "id": "R-EFFECTSCONTRACT",
+          "path": "engine/src/srcly/contracts/function-effects.ts",
+          "symbol": "effect result schemas",
+          "lines": [
+            1,
+            112
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/contracts/function-effects.ts#L1-L112",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Activation, handling, witnesses, assumptions and frontiers."
+        }
+      ],
+      "observed_limitation": "Imports, symbol uses, structural links, calls, values and effects have different meanings and incomplete coverage. A generic dependency label can overclaim.",
+      "candidate_mechanism": "Persistent question/root/direction/scope; typed relation wording; explicit reroot.",
+      "external_evidence": [
+        {
+          "source_id": "IDE20",
+          "url": "https://learn.microsoft.com/en-us/visualstudio/ide/call-hierarchy?view=vs-2022",
+          "evidence_mode": "documentation + inspected official figure"
+        },
+        {
+          "source_id": "IDE28",
+          "url": "https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/ide/src/call_hierarchy.rs",
+          "evidence_mode": "public implementation inspection"
+        },
+        {
+          "source_id": "SPC05",
+          "url": "https://codeql.github.com/docs/writing-codeql-queries/about-data-flow-analysis/",
+          "evidence_mode": "Official documentation"
+        }
+      ],
+      "confidence": {
+        "finding": "high",
+        "benefit": "high clarity hypothesis"
+      },
+      "relative_cost": "S presentation; no new general facts",
+      "existing_backlog_overlap": [],
+      "requirements": [],
+      "proposed_acceptance": [
+        "Five question entry points identify semantic contract.",
+        "Reference/call/module reach never presented as value proof.",
+        "Static possibility distinct from observed execution."
+      ],
+      "executed_evidence": [],
+      "remaining_validation": "Full application/engine correctness, interaction and latency tests not run."
+    },
+    {
+      "id": "DAG-005",
+      "recommendation_id": "DA-005",
+      "title": "Proof normalization and separate honesty axes",
+      "disposition": "adopt-proposal",
+      "approval": "proposal only; Codex independently verifies and integrates",
+      "current_evidence": [
+        {
+          "id": "R-KINDS",
+          "path": "engine/src/srcly/kinds.ts",
+          "symbol": "RELATION_TRAITS / PROOF_TRAITS / proofStrength",
+          "lines": [
+            8,
+            211
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/kinds.ts#L8-L211",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Structural versus value/call matching; proof strength classification including unknown null."
+        },
+        {
+          "id": "R-ANCHORCONTRACT",
+          "path": "engine/src/srcly/contracts/anchor-graph.ts",
+          "symbol": "anchorGraphResultSchema / anchorEdgeSchema",
+          "lines": [
+            39,
+            125
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/contracts/anchor-graph.ts#L39-L125",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Public anchor result carries nodes, edges, status, proof and generation, not traversal-state witnesses."
+        },
+        {
+          "path": "engine/src/srcly/python/facts.ts",
+          "symbol": "Python wire-fact adaptation",
+          "lines": [
+            94,
+            139
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/python/facts.ts#L94-L139",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Wire proof kinds may not all have registry strengths."
+        }
+      ],
+      "observed_limitation": "Unknown wire proof kinds can lack registry strength; duplicated client classification can diverge. Proof strength is not completeness, compatibility, condition coverage or occurrence.",
+      "candidate_mechanism": "Emit normalized proven/modelled/assumed/unknown per proof; preserve mixed members and separate outcome fields.",
+      "external_evidence": [
+        {
+          "source_id": "SPC27",
+          "url": "https://docs.joern.io/dataflow-semantics/",
+          "evidence_mode": "Official documentation"
+        },
+        {
+          "source_id": "SPC15",
+          "url": "https://docs.semgrep.dev/writing-rules/data-flow/taint-mode/advanced",
+          "evidence_mode": "Official documentation"
+        }
+      ],
+      "confidence": {
+        "finding": "high",
+        "benefit": "high prerequisite"
+      },
+      "relative_cost": "M contract/provider/client",
+      "existing_backlog_overlap": [
+        {
+          "task_id": "task-send-proof-strength-to-the-client-through-the-contract",
+          "disposition": "extend",
+          "note": "Existing owner; include unknown Python kinds and per-member aggregation.",
+          "path": "pgm/data/projects/srcly-backlog/nodes/task-send-proof-strength-to-the-client-through-the-contract.md",
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-send-proof-strength-to-the-client-through-the-contract.md"
+        },
+        {
+          "task_id": "task-ledger-classify-reads-kind-traits",
+          "disposition": "reuse",
+          "note": "Reuse kind traits if ledger rows are touched.",
+          "path": "pgm/data/projects/srcly-backlog/nodes/task-ledger-classify-reads-kind-traits.md",
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-ledger-classify-reads-kind-traits.md"
+        }
+      ],
+      "requirements": [
+        {
+          "missing_fact_or_preserved_information": "Normalized proof strength without fabricated certainty",
+          "producer": "PROOF_TRAITS plus explicit Python normalization preserving unknown",
+          "contract_change": "Per-proof strength enum including unknown; distinct query outcome/condition/composition fields",
+          "consumer": "Connection card and ledger",
+          "negative_fixture": "Unknown proof kind and mixed parallel/serial status",
+          "relative_cost": "M; classification only, not new precision",
+          "run_status": "proposed; not implemented or executed"
+        }
+      ],
+      "proposed_acceptance": [
+        "Unknown never defaults to proven.",
+        "Mixed bundle reports counts/labels rather than confidence percentage.",
+        "Cancelled/stale/partial remains visible."
+      ],
+      "executed_evidence": [],
+      "remaining_validation": "Full application/engine correctness, interaction and latency tests not run."
+    },
+    {
+      "id": "DAG-006",
+      "recommendation_id": "DA-006",
+      "title": "Equal-evidence comparison of graph, producer view and source-first view",
+      "disposition": "investigate",
+      "approval": "proposal only; Codex independently verifies and integrates",
+      "current_evidence": [
+        {
+          "id": "R-TSX",
+          "path": "docs/research/tsx-dataflow-audit-2026-10/README.md",
+          "symbol": "T1–T4 / round two",
+          "lines": [
+            17,
+            136
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/docs/research/tsx-dataflow-audit-2026-10/README.md#L17-L136",
+          "evidence_mode": "historical repository report",
+          "claim": "Historical author-scored audit, questions, noise and existing task ownership."
+        },
+        {
+          "id": "R-PY",
+          "path": "docs/research/python-dataflow-audit-2026-10/README.md",
+          "symbol": "rounds five and six",
+          "lines": [
+            255,
+            327
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/docs/research/python-dataflow-audit-2026-10/README.md#L255-L327",
+          "evidence_mode": "historical repository report",
+          "claim": "Historical Python folding, closure and task-queue observations."
+        },
+        {
+          "id": "R-LEDGER",
+          "path": "client/src/components/CodeModal/ValueFlowLedger.tsx",
+          "symbol": "ValueFlowLedger",
+          "lines": [
+            1,
+            121
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/components/CodeModal/ValueFlowLedger.tsx#L1-L121",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Existing source-first value ledger; cross-file rows disabled in current component."
+        },
+        {
+          "path": "engine/src/srcly/ops/value-flow.ts",
+          "symbol": "walk / addRow",
+          "lines": [
+            318,
+            390
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/value-flow.ts#L318-L390",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Current ledger uses flat element adjacency and row dedup; row cap is not a universal witness contract."
+        }
+      ],
+      "observed_limitation": "Historical Focus is weak; current ledger is not a context-preserving fallback. A different representation has no measured advantage yet.",
+      "candidate_mechanism": "A0 frozen baseline; A1 inspector increment separately; B producer-first and C source-first, with engine-realistic and explicitly hand-authored equal-information tracks.",
+      "external_evidence": [
+        {
+          "source_id": "IDE01",
+          "url": "https://www.jetbrains.com/help/idea/analyzing-data-flow.html",
+          "evidence_mode": "documentation + inspected official figure"
+        },
+        {
+          "source_id": "IDE09",
+          "url": "https://code.visualstudio.com/docs/editing/editingevolved",
+          "evidence_mode": "documentation + inspected official figure"
+        },
+        {
+          "source_id": "SPC13",
+          "url": "https://docs.github.com/en/code-security/how-tos/manage-security-alerts/manage-code-scanning-alerts/assess-alerts",
+          "evidence_mode": "Official UI screenshot actually downloaded and visually inspected"
+        }
+      ],
+      "confidence": {
+        "finding": "high historical/source evidence",
+        "benefit": "unproven"
+      },
+      "relative_cost": "M prototypes; L if new analysis mixed in",
+      "existing_backlog_overlap": [
+        {
+          "task_id": "task-route-data-traces-flood-the-canvas",
+          "disposition": "reuse",
+          "note": "Use audit questions; keep existing component-fold task distinct.",
+          "path": "pgm/data/projects/srcly-backlog/nodes/task-route-data-traces-flood-the-canvas.md",
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-route-data-traces-flood-the-canvas.md"
+        }
+      ],
+      "requirements": [],
+      "proposed_acceptance": [
+        "Run F1–F7 and audit T1–T4/Python tasks with correctness-first gates.",
+        "Compare matched correct answers; report errors/censoring.",
+        "Retain baseline if no task benefit."
+      ],
+      "executed_evidence": [],
+      "remaining_validation": "Full application/engine correctness, interaction and latency tests not run."
+    },
+    {
+      "id": "DAG-007",
+      "recommendation_id": "DA-007",
+      "title": "Source navigation and return to exact evidence",
+      "disposition": "adopt-proposal",
+      "approval": "proposal only; Codex independently verifies and integrates",
+      "current_evidence": [
+        {
+          "id": "R-FLOWSTATE",
+          "path": "client/src/viz/deps/flow/FlowView.tsx",
+          "symbol": "edgePath / reach / view state / open source",
+          "lines": [
+            286,
+            408
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/FlowView.tsx#L286-L408",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Route path precedent, projected reach, preserved camera and source-return state."
+        },
+        {
+          "id": "R-FLOWKEYS",
+          "path": "client/src/viz/deps/flow/FlowView.tsx",
+          "symbol": "keyboard handler",
+          "lines": [
+            445,
+            492
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/FlowView.tsx#L445-L492",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Existing history, source-open and expansion keyboard support."
+        },
+        {
+          "id": "R-LEDGER",
+          "path": "client/src/components/CodeModal/ValueFlowLedger.tsx",
+          "symbol": "ValueFlowLedger",
+          "lines": [
+            1,
+            121
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/components/CodeModal/ValueFlowLedger.tsx#L1-L121",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Existing source-first value ledger; cross-file rows disabled in current component."
+        },
+        {
+          "id": "R-EDGESTEPS",
+          "path": "client/src/viz/deps/flow/FlowInspector.tsx",
+          "symbol": "EdgeStepsView",
+          "lines": [
+            334,
+            393
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/FlowInspector.tsx#L334-L393",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Route-only ordered source-linked path presentation precedent."
+        }
+      ],
+      "observed_limitation": "Existing state/history can be reused; new contributor identity must survive source open and return. Ledger cross-file rows are currently disabled.",
+      "candidate_mechanism": "Extend existing navigation state with selected member; keep source span/generation exact and keyboard focus stable.",
+      "external_evidence": [
+        {
+          "source_id": "IDE17",
+          "url": "https://help.eclipse.org/latest/topic/org.eclipse.jdt.doc.user/reference/views/ref-call-hierarchy.htm",
+          "evidence_mode": "documentation"
+        },
+        {
+          "source_id": "IDE09",
+          "url": "https://code.visualstudio.com/docs/editing/editingevolved",
+          "evidence_mode": "documentation + inspected official figure"
+        }
+      ],
+      "confidence": {
+        "finding": "high",
+        "benefit": "high reuse"
+      },
+      "relative_cost": "S–M",
+      "existing_backlog_overlap": [
+        {
+          "task_id": "task-one-control-per-idea-trace-from-a-box",
+          "disposition": "extend",
+          "note": "Trace-from and one direction are partly implemented; extend remaining controls, not duplicate history.",
+          "path": "pgm/data/projects/srcly-backlog/nodes/task-one-control-per-idea-trace-from-a-box.md",
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-one-control-per-idea-trace-from-a-box.md"
+        }
+      ],
+      "requirements": [],
+      "proposed_acceptance": [
+        "Second contributing occurrence opens exact span.",
+        "Return restores root/direction/member/expansion/camera.",
+        "Changed generation is explicit stale and never silently merged."
+      ],
+      "executed_evidence": [],
+      "remaining_validation": "Full application/engine correctness, interaction and latency tests not run."
+    },
+    {
+      "id": "DAG-008",
+      "recommendation_id": "DA-008",
+      "title": "Inspectable imports and resolution coverage",
+      "disposition": "defer",
+      "approval": "proposal only; Codex independently verifies and integrates",
+      "current_evidence": [
+        {
+          "id": "R-IMPORT",
+          "path": "server/app/services/deps/graph.py",
+          "symbol": "collect_edges / build_graph",
+          "lines": [
+            27,
+            171
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/server/app/services/deps/graph.py#L27-L171",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Import graph collection, caching, hierarchy and endpoint aggregation."
+        },
+        {
+          "id": "R-TSIMPORT",
+          "path": "server/app/services/deps/typescript_deps.py",
+          "symbol": "imports_in / resolve / collect_usages",
+          "lines": [
+            74,
+            466
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/server/app/services/deps/typescript_deps.py#L74-L466",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Tree-sitter import and syntactic usage collection; literal dynamic imports; heuristic resolution."
+        },
+        {
+          "id": "R-PYIMPORT",
+          "path": "server/app/services/deps/python_deps.py",
+          "symbol": "module_index / find_definer / collect_usages",
+          "lines": [
+            51,
+            402
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/server/app/services/deps/python_deps.py#L51-L402",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Python AST import and syntactic symbol-use collection."
+        },
+        {
+          "id": "R-IMPORTFILTER",
+          "path": "server/app/services/deps/common.py",
+          "symbol": "source_files / emit_symbol_edges",
+          "lines": [
+            53,
+            191
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/server/app/services/deps/common.py#L53-L191",
+          "evidence_mode": "pinned source inspection",
+          "claim": "File eligibility, file-level unused-import edges and same-file exclusion."
+        },
+        {
+          "id": "R-IMPORTCONTRACT",
+          "path": "client/src/viz/deps/contract.ts",
+          "symbol": "GraphEdge",
+          "lines": [
+            1,
+            46
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/contract.ts#L1-L46",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Imports contract does not carry value-flow path proof or coverage outcome."
+        }
+      ],
+      "observed_limitation": "Import collector heuristics and syntactic usage differ from compiler-bound value evidence; unresolved/skipped inputs lack a full coverage contract.",
+      "candidate_mechanism": "Later reuse occurrence-inspection presentation with separate import semantic type and resolver/skipped evidence.",
+      "external_evidence": [
+        {
+          "source_id": "SPC49",
+          "url": "https://github.com/sverweij/dependency-cruiser/blob/main/doc/options-reference.md",
+          "evidence_mode": "Official documentation"
+        },
+        {
+          "source_id": "SPC44",
+          "url": "https://www.ndepend.com/docs/dependency-structure-matrix-dsm/",
+          "evidence_mode": "Official documentation and documented UI behavior"
+        }
+      ],
+      "confidence": {
+        "finding": "high source-based limits",
+        "benefit": "medium separate task"
+      },
+      "relative_cost": "M",
+      "existing_backlog_overlap": [],
+      "requirements": [
+        {
+          "missing_fact_or_preserved_information": "Resolution outcome and contributing import/use spans",
+          "producer": "TypeScript/Python import collectors and graph assembler",
+          "contract_change": "Occurrence list; resolved/external/unresolved; skipped files/reasons and policy identity",
+          "consumer": "Import edge inspector / architecture view",
+          "negative_fixture": "Unresolved relative import, shadowed name and type-only edge",
+          "relative_cost": "M; additional metadata, not full checker migration",
+          "run_status": "proposed; not implemented or executed"
+        }
+      ],
+      "proposed_acceptance": [
+        "Unresolved import not reported as proof of absence.",
+        "No same-file usage completeness claim from module graph.",
+        "Import path never labelled value witness."
+      ],
+      "executed_evidence": [],
+      "remaining_validation": "Full application/engine correctness, interaction and latency tests not run."
+    },
+    {
+      "id": "DAG-009",
+      "recommendation_id": "DA-009",
+      "title": "Budgets, cancellation and generation-safe caching",
+      "disposition": "extend-owned",
+      "approval": "proposal only; Codex independently verifies and integrates",
+      "current_evidence": [
+        {
+          "id": "R-FETCH",
+          "path": "client/src/viz/deps/flow/fetchSignal.ts",
+          "symbol": "createFetchSignal",
+          "lines": [
+            1,
+            40
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/fetchSignal.ts#L1-L40",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Superseded-response guard without network cancellation."
+        },
+        {
+          "id": "R-FLOWQUERY",
+          "path": "client/src/viz/deps/flow/FlowView.tsx",
+          "symbol": "query keys and anchorGraph requests",
+          "lines": [
+            50,
+            177
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/FlowView.tsx#L50-L177",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Generation-keyed asynchronous graph and additional-anchor requests."
+        },
+        {
+          "id": "R-ANCHORCONTRACT",
+          "path": "engine/src/srcly/contracts/anchor-graph.ts",
+          "symbol": "anchorGraphResultSchema / anchorEdgeSchema",
+          "lines": [
+            39,
+            125
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/contracts/anchor-graph.ts#L39-L125",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Public anchor result carries nodes, edges, status, proof and generation, not traversal-state witnesses."
+        },
+        {
+          "id": "R-ANCHORSLICE",
+          "path": "engine/src/srcly/anchor-slice.ts",
+          "symbol": "ANCHOR_LIMITS / undrawn / walkFollows",
+          "lines": [
+            17,
+            134
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/anchor-slice.ts#L17-L134",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Budget and relationship filtering; structural membership is not value transfer."
+        }
+      ],
+      "observed_limitation": "Stale-response suppression is not computation cancellation. Display folding is downstream of analysis. Summary caches need query/context identity.",
+      "candidate_mechanism": "Reuse generations/outcomes; measure cold/warm phases independently; actual cancellation and explicit budget coverage.",
+      "external_evidence": [
+        {
+          "source_id": "IDE14",
+          "url": "https://code.visualstudio.com/api/references/vscode-api#CallHierarchyProvider",
+          "evidence_mode": "API documentation"
+        },
+        {
+          "source_id": "IDE29",
+          "url": "https://rust-analyzer.github.io/book/contributing/architecture.html",
+          "evidence_mode": "maintainer design documentation"
+        }
+      ],
+      "confidence": {
+        "finding": "high",
+        "benefit": "unmeasured"
+      },
+      "relative_cost": "M",
+      "existing_backlog_overlap": [
+        {
+          "task_id": "task-first-query-after-a-rebuild-times-out",
+          "disposition": "already-owned",
+          "note": "Cold index/query timing and timeout remain here.",
+          "path": "pgm/data/projects/srcly-backlog/nodes/task-first-query-after-a-rebuild-times-out.md",
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-first-query-after-a-rebuild-times-out.md"
+        },
+        {
+          "task_id": "task-hub-summaries-for-size-limited-slices",
+          "disposition": "extend",
+          "note": "Coordinate with context-compatible state and visible coverage.",
+          "path": "pgm/data/projects/srcly-backlog/nodes/task-hub-summaries-for-size-limited-slices.md",
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-hub-summaries-for-size-limited-slices.md"
+        }
+      ],
+      "requirements": [
+        {
+          "missing_fact_or_preserved_information": "Measured phase/cancel lifecycle, not an inferred speedup",
+          "producer": "Engine/server/client request instrumentation",
+          "contract_change": "Query/generation timestamps, cancel acknowledgement and named outcome",
+          "consumer": "Loading/status and benchmark log",
+          "negative_fixture": "Cancel superseded query; old-generation detail; explicit member truncation",
+          "relative_cost": "M; no new value semantics",
+          "run_status": "proposed; not implemented or executed"
+        }
+      ],
+      "proposed_acceptance": [
+        "Cancelled query is not empty success.",
+        "Warm cache and cold indexing reported separately.",
+        "No cache hit joins incompatible context or generation."
+      ],
+      "executed_evidence": [],
+      "remaining_validation": "Full application/engine correctness, interaction and latency tests not run."
+    },
+    {
+      "id": "DAG-010",
+      "recommendation_id": "DA-010",
+      "title": "Reuse existing TypeScript effects; keep Python extension owned",
+      "disposition": "reuse-and-defer-extension",
+      "approval": "proposal only; Codex independently verifies and integrates",
+      "current_evidence": [
+        {
+          "id": "R-EFFECTS",
+          "path": "engine/src/srcly/ops/function-effects.ts",
+          "symbol": "functionEffectsOp",
+          "lines": [
+            1,
+            55
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/function-effects.ts#L1-L55",
+          "evidence_mode": "pinned source inspection",
+          "claim": "TypeScript-only effects operation and generation checks."
+        },
+        {
+          "id": "R-EFFECTSCONTRACT",
+          "path": "engine/src/srcly/contracts/function-effects.ts",
+          "symbol": "effect result schemas",
+          "lines": [
+            1,
+            112
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/contracts/function-effects.ts#L1-L112",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Activation, handling, witnesses, assumptions and frontiers."
+        },
+        {
+          "id": "R-INSPECTOR",
+          "path": "client/src/viz/deps/flow/FlowInspector.tsx",
+          "symbol": "FlowInspector / EdgeStepsView",
+          "lines": [
+            116,
+            240
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/FlowInspector.tsx#L116-L240",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Existing inspector, trace-from and TS-only effects; route ordered-step precedent later in file."
+        }
+      ],
+      "observed_limitation": "Effects answer differs from value reach; TS operation exists while Python capability is unavailable.",
+      "candidate_mechanism": "Use current activation/handling/witness/frontier schema for function question; extend Python provider under existing task.",
+      "external_evidence": [
+        {
+          "source_id": "IDE21",
+          "url": "https://learn.microsoft.com/en-us/visualstudio/debugger/using-breakpoints?view=vs-2022",
+          "evidence_mode": "documentation"
+        }
+      ],
+      "confidence": {
+        "finding": "high",
+        "benefit": "high reuse; Python untested"
+      },
+      "relative_cost": "S UI reuse / L provider",
+      "existing_backlog_overlap": [
+        {
+          "task_id": "task-effects-view-for-python",
+          "disposition": "already-owned",
+          "note": "Do not create competing Python effects project.",
+          "path": "pgm/data/projects/srcly-backlog/nodes/task-effects-view-for-python.md",
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-effects-view-for-python.md"
+        },
+        {
+          "task_id": "task-writers-of-a-model-field",
+          "disposition": "already-owned",
+          "note": "Field-producer discovery is distinct from UI filtering.",
+          "path": "pgm/data/projects/srcly-backlog/nodes/task-writers-of-a-model-field.md",
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-writers-of-a-model-field.md"
+        }
+      ],
+      "requirements": [
+        {
+          "missing_fact_or_preserved_information": "Python effect witnesses with activation/handling and frontiers if extension proceeds",
+          "producer": "Owned Python effects/provider work",
+          "contract_change": "Reuse effect family/witness/activation/outcome with provider capabilities",
+          "consumer": "Function touches inspector",
+          "negative_fixture": "Latent callback versus direct mutation; unsupported external call must prevent purity claim",
+          "relative_cost": "L; deferred provider work",
+          "run_status": "proposed; not implemented or executed"
+        }
+      ],
+      "proposed_acceptance": [
+        "Static effect not called observed mutation.",
+        "Partial scope not paraphrased as pure.",
+        "Python unavailability named until supported."
+      ],
+      "executed_evidence": [],
+      "remaining_validation": "Full application/engine correctness, interaction and latency tests not run."
+    },
+    {
+      "id": "DAG-011",
+      "recommendation_id": "DA-011",
+      "title": "Runtime execution-specific why/why-not",
+      "disposition": "defer",
+      "approval": "proposal only; Codex independently verifies and integrates",
+      "current_evidence": [
+        {
+          "id": "R-ANCHORCONTRACT",
+          "path": "engine/src/srcly/contracts/anchor-graph.ts",
+          "symbol": "anchorGraphResultSchema / anchorEdgeSchema",
+          "lines": [
+            39,
+            125
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/contracts/anchor-graph.ts#L39-L125",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Public anchor result carries nodes, edges, status, proof and generation, not traversal-state witnesses."
+        }
+      ],
+      "observed_limitation": "Current static contract has no run identity, observed event sequence or instrumentation evidence.",
+      "candidate_mechanism": "Only after task demand, introduce separate observed-event evidence with run identity and source correlation.",
+      "external_evidence": [
+        {
+          "source_id": "SPC54",
+          "url": "https://faculty.washington.edu/ajko/papers/Ko2009JavaWhylineUI.pdf",
+          "evidence_mode": "Original research paper inspected"
+        },
+        {
+          "source_id": "IDE21",
+          "url": "https://learn.microsoft.com/en-us/visualstudio/debugger/using-breakpoints?view=vs-2022",
+          "evidence_mode": "documentation"
+        }
+      ],
+      "confidence": {
+        "finding": "high scope distinction",
+        "benefit": "unknown local demand"
+      },
+      "relative_cost": "L",
+      "existing_backlog_overlap": [],
+      "requirements": [
+        {
+          "missing_fact_or_preserved_information": "Observed dependency and condition event",
+          "producer": "Instrumented runtime/debugger integration",
+          "contract_change": "Run/environment/event identity and ordering; static/observed discrimination",
+          "consumer": "Execution-specific question view",
+          "negative_fixture": "An absent event in one run must not erase static possibility",
+          "relative_cost": "L; infrastructure and language/runtime-specific integration",
+          "run_status": "proposed; not implemented or executed"
+        }
+      ],
+      "proposed_acceptance": [
+        "One reproducible run with explicit identity.",
+        "Observed and possible edges remain separate.",
+        "Do not require runtime work for DA-001."
+      ],
+      "executed_evidence": [],
+      "remaining_validation": "Full application/engine correctness, interaction and latency tests not run."
+    },
+    {
+      "id": "DAG-012",
+      "recommendation_id": "DA-012",
+      "title": "Reject wholesale default/infrastructure replacement before evidence",
+      "disposition": "reject-now",
+      "approval": "proposal only; Codex independently verifies and integrates",
+      "current_evidence": [
+        {
+          "id": "R-DECISIONS",
+          "path": "docs/intent/dataflow-robustness/decision-log.md",
+          "symbol": "R1, R8, R18",
+          "lines": [
+            1,
+            32
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/docs/intent/dataflow-robustness/decision-log.md#L1-L32",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Graph remains primary; prior workspace and export-union alternatives have explicit decisions."
+        },
+        {
+          "id": "R-ADAPTER",
+          "path": "client/src/viz/deps/flow/anchorAdapter.ts",
+          "symbol": "anchorGraphToViewModel / folds / passThroughs",
+          "lines": [
+            21,
+            207
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/anchorAdapter.ts#L21-L207",
+          "evidence_mode": "pinned source inspection",
+          "claim": "Projection, function folding, pass-through reference removal, first-wins endpoint edge deduplication."
+        },
+        {
+          "id": "R-TSX",
+          "path": "docs/research/tsx-dataflow-audit-2026-10/README.md",
+          "symbol": "T1–T4 / round two",
+          "lines": [
+            17,
+            136
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/docs/research/tsx-dataflow-audit-2026-10/README.md#L17-L136",
+          "evidence_mode": "historical repository report",
+          "claim": "Historical author-scored audit, questions, noise and existing task ownership."
+        }
+      ],
+      "observed_limitation": "Missing semantic facts and projection losses precede a choice of representation. Existing graph/ledger/source systems and backlog are substantial.",
+      "candidate_mechanism": "Prefer bounded inspector proof; evaluate alternatives; avoid full CPG service, universal thin default, generic new graph library or resurrected workspace.",
+      "external_evidence": [
+        {
+          "source_id": "SPC24",
+          "url": "https://docs.joern.io/quickstart/",
+          "evidence_mode": "Official documentation and REPL transcript inspection"
+        },
+        {
+          "source_id": "SPC42",
+          "url": "https://github.com/CoatiSoftware/Sourcetrail",
+          "evidence_mode": "Primary archived implementation/readme/license inspection"
+        },
+        {
+          "source_id": "SPC44",
+          "url": "https://www.ndepend.com/docs/dependency-structure-matrix-dsm/",
+          "evidence_mode": "Official documentation and documented UI behavior"
+        }
+      ],
+      "confidence": {
+        "finding": "high sequencing rationale",
+        "benefit": "not a permanent product judgment"
+      },
+      "relative_cost": "L avoided",
+      "existing_backlog_overlap": [],
+      "requirements": [],
+      "proposed_acceptance": [
+        "Reconsider only after measured correct-task benefit and affordable semantic support.",
+        "Retain A0 if A1/B/C fail correctness or interaction gates.",
+        "Assistant research is not independent demand/progress."
+      ],
+      "executed_evidence": [],
+      "remaining_validation": "Full application/engine correctness, interaction and latency tests not run."
+    }
+  ]
+}

@@ -21,7 +21,7 @@
 - Follow-up count: 0. At most one follow-up for a missing priority answer or unusable deliverable.
 - Blockers: none.
 - Heartbeat: `collect-srcly-dependency-ui-research`, deleted after completion on October 28 at about 22:38 EDT. No further collection checks remain scheduled.
-- Collected reports: all eight requested companions, archive, figures, mockups, and experiment evidence under ignored `tmp/pro/dependency-analysis-ui/collected/`.
+- Collected reports: all eight requested companions, archive, figures, mockups, and experiment evidence. Initial collection is under ignored `tmp/pro/dependency-analysis-ui/collected/`; the complete result package is now committed under `docs/intent/connection-evidence/assets/pro-results/` at Byron's explicit request.
 - Collection: download event timed out, but the archive was present in Downloads. Verified the actual file before retrying. Archive path/type checks and all 30 manifest entries passed. No downloaded program was executed.
 - Analysis: reviewed all companions. No material deliverable gap required a follow-up. Recommendation dispositions cover DA-001 through DA-012 in `reconciliation.md`.
 - Current-code reconciliation: main `47aa9279d24a3953b89bea3889a5e29a0a70679d`; accounted for landed folding, gap grouping, branch, action, callback, receiver, and model-row changes.
@@ -29,7 +29,8 @@
 - External checks: official Understand occurrence inspection, LSP call ranges, and CodeQL path contracts support the decisive design transfer. Other comparative claims stay attributed to Pro.
 - Integrated outputs: `README.md`, `reconciliation.md`, and `docs/intent/connection-evidence/implementation-plan.md`. No research catalogue was present to update.
 - Product decision: plan Explain connection within the current inspector. Explore certified witnesses and alternative views separately. No application change or default-view change is approved by the research.
-- Final verification: PR #256 is open against main, with the updated Conventional Commit title, saved body, and five documentation files verified. The prompt is unchanged; originals remain ignored. Whitespace, local links, all twelve dispositions, and `scripts/check.sh --changed` passed. That changed-area check selected no application suites.
+- Initial verification: PR #256 was open against main, with the updated Conventional Commit title, saved body, and five documentation files verified. Whitespace, local links, all twelve dispositions, and `scripts/check.sh --changed` passed. That changed-area check selected no application suites.
+- Asset follow-up: Byron requested ALL Pro result materials in the PR as intent assets. Preserved the 31 archive entries and original ZIP byte-for-byte, with a linked asset index. This explicit request supersedes the skill's default of leaving originals uncommitted. The input source packet and Codex verification helpers are not Pro results.
 - Commits: `26a7c31` records submission; `de486ca` integrates findings and the plan; the final run-record commit records completion. Both Git identities were verified as Byron Wall <byron@byroni.us> before each commit.
 - Bootstrap: passed with Python 3.14. Client and engine dependencies and server environment installed.
 - Integration note: main advanced after the prompt baseline. Reconcile current code before accepting recommendations, including action returns and branch classification fixes.

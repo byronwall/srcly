@@ -66,8 +66,9 @@ Missing condition evidence must read “not analyzed.”
 
 [Pro conversation and downloadable reports](https://chatgpt.com/c/6ae2a1fc-1100-83e9-a8de-39abe701f030).
 All eight requested companions were collected and reviewed. No follow-up was needed.
-Original reports, figures, mockups, and the archive remain under ignored `tmp/pro/dependency-analysis-ui/`.
-The conversation is the durable source record; originals are not committed.
+[All original Pro materials](../../intent/connection-evidence/assets/pro-results/README.md) are committed as assets of the intent entry.
+They include the original ZIP and all extracted reports, figures, mockups, experiment files, source register, and manifest.
+Byron requested the complete result package in the PR after the initial summary integration.
 
 No application implementation, browser test, benchmark, or user comparison was performed during integration.
 Assistant-generated research and derivatives are excluded from substantive-activity ranking and independent product demand.

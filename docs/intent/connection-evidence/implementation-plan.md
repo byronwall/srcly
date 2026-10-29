@@ -3,6 +3,12 @@
 Status: planned for review; application implementation is not authorized by this research run.
 [Research summary](../../research/dependency-analysis-ui-2026-10-28/README.md) · [Recommendation review](../../research/dependency-analysis-ui-2026-10-28/reconciliation.md)
 
+## Complete Pro materials
+
+[All Pro reports and assets](assets/pro-results/README.md) are preserved with this intent entry.
+The package includes all eight reports, figures, mockups, experiment source and results, source register, manifest, and original ZIP.
+The originals retain their supplied content and directory structure. Use the reviewed plan below for implementation decisions.
+
 ## Outcome and boundary
 
 A selected connection explains which source relations caused it to appear.
