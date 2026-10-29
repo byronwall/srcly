@@ -251,8 +251,8 @@ test.describe("Data flow on solid-route", () => {
     await page.goto(url({ view: "graph", anchor: "src/components/ViewerCard.tsx@ViewerCard:3", dir: "backward" }));
     await expect(status(page)).toContainText("upstream", { timeout: 90_000 });
     const before = await page.locator("[data-box]").count();
-    // Select an expression box the trace reached and add it as an anchor of its own (by its span).
-    await box(page, "viewer()").click();
+    // Select a box the trace reached (`viewer`, one box for the binding and its `viewer()` reads) and add it as an anchor of its own.
+    await page.locator('[data-box][data-label="viewer"]').first().click();
     const inspector = page.getByLabel("Data flow inspector");
     await expect(inspector).toContainText("Selected box");
     await inspector.getByRole("button", { name: "Add to the trace" }).click();
