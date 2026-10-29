@@ -9,6 +9,7 @@ from pathlib import Path
 
 import uvicorn
 
+from app import startup_info
 from app.services import activity, metric_catalog, quadrants, reporting
 from app.services.scan_workers import ScanCancelled
 
@@ -79,6 +80,8 @@ def _main(argv: list[str] | None = None) -> None:
     """
     argv = list(argv) if argv is not None else sys.argv[1:]
     if argv and argv[0] in {"scan", "report", "hotspots", "explain", "compare"}:
+        # stderr, so JSON on stdout stays clean.
+        print(startup_info.version_line(), file=sys.stderr, flush=True)
         _run_headless(argv)
         return
 
@@ -98,6 +101,7 @@ def _main(argv: list[str] | None = None) -> None:
             'Use "." explicitly to analyze the current directory.'
         ),
     )
+    parser.add_argument("--version", action="version", version=startup_info.version_line())
     parser.add_argument(
         "--host",
         default="127.0.0.1",
@@ -114,15 +118,17 @@ def _main(argv: list[str] | None = None) -> None:
 
     if args.path is None:
         target_path = _find_repo_root(os.getcwd())
+        in_repo = os.path.exists(os.path.join(target_path, ".git"))
+        source = "enclosing Git repo root" if in_repo else "current directory, not in a Git repo"
     else:
         target_path = os.path.abspath(args.path)
+        source = "path argument"
 
     if not os.path.exists(target_path):
         raise SystemExit(f"Path does not exist: {target_path}")
 
     # Change working directory so the API defaults to this path.
     os.chdir(target_path)
-    print(f"📂 Analyzing codebase at: {target_path}")
 
     port = args.port
     if port is None:
@@ -132,8 +138,11 @@ def _main(argv: list[str] | None = None) -> None:
             port = s.getsockname()[1]
 
     url = f"http://{args.host}:{port}"
-    print(f"🚀 Starting server at {url}")
-    print("   Press Ctrl+C to stop.")
+    # Importing the app here finds the client build; uvicorn reuses the module.
+    from app.main import static_dir
+
+    print(startup_info.banner(Path(target_path), source, url, static_dir))
+    print("Press Ctrl+C to stop.", flush=True)
 
     _open_browser_later(url)
 
