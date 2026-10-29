@@ -171,6 +171,7 @@ export const PROOF_TRAITS: Record<ProgramProofKind, { strength: ProofStrength }>
   "array-includes-argument": { strength: "modelled" },
   "array-join-source": { strength: "modelled" },
   "function-call": { strength: "proven" },
+  "bound-handler": { strength: "proven" },
   "solid-show-binding": { strength: "modelled" },
   "solid-show-when": { strength: "modelled" },
   "solid-show-render-parameter": { strength: "modelled" },
