@@ -123,14 +123,20 @@ What moved:
 - **T4.** Saving ends at three named writes: `database write: prisma.doc.update(…)`, `tx.actionEvent.create(…)` and `tx.docActivityDaily.upsert(…)` ([shot](shots/r2-t4-01-database-writes.png)). Six `runUpdateDoc` dead ends are noise: the walk reaches the action's `useAction` sites.
 - **Opening time.** A rebuild of visual-notes takes about 6 s. The first data query after it takes 15–22 s while the fact index builds. Later queries take under 1 s, or 0.03 s from the result cache.
 
+## Round 2 — implement
+
+Floods and the Components lens, in one client-only PR:
+
+- **Fold by component.** A trace over 40 boxes draws the anchor's own component in full: its function and every callback written inside it (`<Match> child`, `createResource callback`, `onClick`). Of each component it hands a value to, it draws only the box that takes the value, one per name. Every other component folds into one box named by what it reaches; Shift-click opens it in place (`open=<scope id>`). A component is the outermost function of its file whose span holds the scope. Boxes that repeat one place (`doc={d()}` once per read it reaches, 23 times) draw once. `/docs/[id]` goes from 555 values in 74 function boxes to about 100 boxes and 26 folded components, and reads left to right: `params` → `createResource` → `doc` → both `Match` branches → `d` → `<Title>`, `<Meta>`, `DocumentViewer`.
+- **Gaps grouped.** The Components lens's 318 gaps are 8 lines, each with a count: "Not drawn: past the size limit ×256", "Components with no body to read ×25", "Library components, not opened ×23", "Spread props: children not proven ×11", and four single gaps. Each line opens to its names and places. No line says "route source scope" or "compiler-backed".
+- **Picking an origin keeps the canvas.** The camera holds until the origin's graph arrives, and the same boxes lay out the same, so no box moves. The lineage line says "its fields are not traced: it does not start from one place in this project" instead of the engine's proof words.
+
 ## Where it stands
 
 From 47 to 77 of 112 (+64%), with 19 PRs: #236–#254.
 
 Focus is now the weakest dimension (7/16). The open gaps are in the backlog grid (`area-data-flow-tsx-usability-audit-2026-10`):
 
-1. **Floods.** A route's data trace draws 500+ values. Open the route's own frame and the first component each value goes to, and fold the rest by component.
-2. **Components lens.** The gap list repeats one line hundreds of times in engine words, and selecting an origin re-lays out the canvas.
-3. **Action parameters** walk into their `useAction` sites (T4's noise).
-4. **`when`** on `Show` and `Match` reads "DOM attribute"; it decides a branch.
-5. **First query after a rebuild** (shared with the Python audit's `task-first-query-after-a-rebuild-times-out`).
+1. **Action parameters** walk into their `useAction` sites (T4's noise).
+2. **`when`** on `Show` and `Match` reads "DOM attribute"; it decides a branch.
+3. **First query after a rebuild** (shared with the Python audit's `task-first-query-after-a-rebuild-times-out`).
