@@ -4,11 +4,11 @@
     "title": "Show the logic, not only the components, in TS/TSX data flow",
     "slug": "dataflow-logic-visibility",
     "scale": "capability",
-    "current_phase": "plan",
+    "current_phase": "execution",
     "last_updated": "2026-10-28",
     "summary": "Make non-component code (helpers, hooks, handlers, server queries, transforms, state) visible in the TSX Data flow graph.",
-    "status": "planned",
-    "next_action": "Land #210 and #211, then start m1 on a branch"
+    "status": "active",
+    "next_action": "Merge the stack with gh stack merge; then run audit round 3 on visual-notes and retire"
   },
   "artifacts": {
     "intent_brief": {
@@ -343,7 +343,7 @@
     "open_decisions": []
   },
   "implementation": {
-    "status": "planned",
+    "status": "active",
     "repository_snapshot": {
       "root": null,
       "revision": null,
@@ -374,8 +374,10 @@
         "proof": "engine anchor-graph test on symbol-graph example; adapter tests; visual-notes counts",
         "valid_intermediate_state": "model=steps remains available; new contract fields are additive",
         "rollback": "switch to model=steps; drop the adapter merge",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #268; visual-notes DocView 557 -> 225 boxes (60% cut); client/src/viz/deps/flow/symbolMerge.test.ts"
+        ]
       },
       {
         "id": "m2",
@@ -388,8 +390,10 @@
         "proof": "adapter tests; survey gate; screenshots",
         "valid_intermediate_state": "frames unchanged; legend matches marks",
         "rollback": "model=steps",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #272; symbolView.ts, state mark"
+        ]
       },
       {
         "id": "m3",
@@ -401,8 +405,10 @@
         "proof": "engine test on symbol-graph roles; /docs/[id] screenshot",
         "valid_intermediate_state": "unknown role renders neutral",
         "rollback": "model=steps",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #274; engine/src/srcly/scope-roles.ts"
+        ]
       },
       {
         "id": "m4",
@@ -414,8 +420,10 @@
         "proof": "adapter tests; pnpm e2e depth control; audit round 3",
         "valid_intermediate_state": "steps model stays behind the switch",
         "rollback": "default back to model=steps",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #278; depth.ts, e2e Symbol view on symbol-graph"
+        ]
       },
       {
         "id": "m5",
@@ -427,8 +435,10 @@
         "proof": "engine test; plain TS anchors in engine and client utils",
         "valid_intermediate_state": "links toggle off by default if noisy",
         "rollback": "hide links toggle",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #279; links, plain TS anchor on client edgeLabel"
+        ]
       }
     ],
     "cut_line": [
@@ -467,6 +477,10 @@
     {
       "date": "2026-10-28",
       "event": "Both shape choices taken; implementation plan written with five milestones."
+    },
+    {
+      "date": "2026-10-28",
+      "event": "M1-M5 implemented as a gh stack (#265, #268, #272, #274, #278, #279), rebased on main after #210, #211 and #273 landed. Main path ranks in the client (M1 rule met). Server band shipped as a frame tone, not a layout band."
     }
   ],
   "closure": null
