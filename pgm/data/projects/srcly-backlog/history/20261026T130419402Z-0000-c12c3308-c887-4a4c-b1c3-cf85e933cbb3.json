@@ -1,0 +1,14 @@
+{
+  "id": "c12c3308-c887-4a4c-b1c3-cf85e933cbb3",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:889a63",
+    "label": "Agent token ...889a63"
+  },
+  "createdAt": "2026-10-26T13:04:19.402Z",
+  "summary": "Set \"Step 6: calls-back rows\" priority to low.",
+  "nodeIds": [
+    "task-step-6-calls-back-rows"
+  ]
+}

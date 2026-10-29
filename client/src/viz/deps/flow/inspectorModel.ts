@@ -5,7 +5,8 @@ import type { AnchorGraphResult, RouteGraphResult } from "../../../dataflow/cont
 import type { FlowBox, FlowViewModel } from "./adapter";
 import { humanizeDetail, MARK_OF_ANCHOR_KIND, MARK_OF_KIND, STOP_REASONS, stopWord, type FlowMark } from "./marks";
 
-export type EdgeKindWord = "renders" | "rendered by" | "handoff" | "field" | "structural";
+/** Route mode words for the render backbone; anchor mode names the engine's relation (`argument`, `return value`, …). */
+export type EdgeKindWord = "renders" | "rendered by" | "handoff" | "field" | "structural" | (string & {});
 
 export interface NeighborRow {
   /** The drawn box at the other end. */
@@ -95,10 +96,11 @@ export function anchorOverview(graph: AnchorGraphResult): AnchorOverview {
   };
 }
 
-function stopsOf(graph: AnchorGraphResult): AnchorOverview["stops"] {
+/** Where a trace stops, as the engine counts it: each frontier, and each boundary the walk could not pass. The footer counts the same list. */
+export function stopsOf(graph: AnchorGraphResult): AnchorOverview["stops"] {
   const groups = new Map<string, AnchorOverview["stops"][number]>();
   for (const n of graph.nodes) {
-    if (n.kind !== "frontier") continue;
+    if (n.kind !== "frontier" && !(n.kind === "boundary" && n.status !== "proven")) continue;
     const reason = n.reason ?? "frontier";
     const group = groups.get(reason) ?? { reason, word: stopWord(n.reason), hint: STOP_REASONS[reason]?.hint ?? n.note ?? "", rows: [] };
     group.rows.push({ id: n.id, label: n.label, file: n.file, line: n.line });
@@ -138,7 +140,7 @@ export function nodeDetails(m: FlowViewModel, id: string): NodeDetails | null {
     id: otherId,
     label: labelOf(m, otherId),
     mark: markOf(m, otherId),
-    kind: e.style === "structural" ? "structural" : e.style === "field" ? "field" : e.style === "handoff" ? "handoff" : dir === "in" ? "rendered by" : "renders",
+    kind: e.style === "structural" ? "structural" : e.relation ? e.relation.replaceAll("-", " ") : e.style === "field" ? "field" : e.style === "handoff" ? "handoff" : dir === "in" ? "rendered by" : "renders",
     ...(e.status ? { status: e.status } : {}),
     ...(e.label ? { path: e.label } : {}),
   });

@@ -1,0 +1,14 @@
+{
+  "id": "7f1ddfb8-dfaf-49a5-9e8b-c6adda2ed4c0",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:3a4579",
+    "label": "Agent token ...3a4579"
+  },
+  "createdAt": "2026-10-26T13:04:21.170Z",
+  "summary": "Set \"Python row: SQLAlchemy and SQLModel `Session(engine)`\" priority to medium.",
+  "nodeIds": [
+    "task-python-row-sqlalchemy-and-sqlmodel-session-engine"
+  ]
+}

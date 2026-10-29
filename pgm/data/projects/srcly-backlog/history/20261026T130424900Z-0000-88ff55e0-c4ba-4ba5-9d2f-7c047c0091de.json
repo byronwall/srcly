@@ -1,0 +1,15 @@
+{
+  "id": "88ff55e0-c4ba-4ba5-9d2f-7c047c0091de",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:c082a6",
+    "label": "Agent token ...c082a6"
+  },
+  "createdAt": "2026-10-26T13:04:24.900Z",
+  "summary": "Created \"Hub summaries for size-limited slices\" under \"Data flow: trace coverage\".",
+  "nodeIds": [
+    "task-hub-summaries-for-size-limited-slices",
+    "area-data-flow-trace-coverage"
+  ]
+}

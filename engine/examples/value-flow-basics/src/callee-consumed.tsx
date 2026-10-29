@@ -15,7 +15,7 @@ export function Trimmed(props: { title: string; data: object }) { // @stop json 
   const box = new Box(props.title);
   return (
     <p>
-      {/* @trace trimmed forward props.title @outcome trimmed partial @reaches trimmed render-terminal */}
+      {/* @trace trimmed forward props.title @outcome trimmed ok @reaches trimmed render-terminal */}
       <span>{props.title.trim()}</span>
       {/* JSON is where its value begins, never a stop; an argument stays at its own call. */}
       {/* @trace json backward JSON.stringify(props.data) @visits json value "JSON" */}

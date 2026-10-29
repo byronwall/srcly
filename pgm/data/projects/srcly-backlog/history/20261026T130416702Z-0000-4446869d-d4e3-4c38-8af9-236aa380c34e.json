@@ -1,0 +1,14 @@
+{
+  "id": "4446869d-d4e3-4c38-8af9-236aa380c34e",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:8766c2",
+    "label": "Agent token ...8766c2"
+  },
+  "createdAt": "2026-10-26T13:04:16.702Z",
+  "summary": "Created \"Data flow: library models as data\".",
+  "nodeIds": [
+    "area-data-flow-library-models-as-data"
+  ]
+}

@@ -32,9 +32,9 @@ describe("routeGraph with a selected origin", () => {
   it("never lights ViewerCard from the records origin, and names why field lineage is unavailable", () => {
     const graph = routeGraphOp(solid, { route: "/records", source: origin("createResource(loadRecords)") });
     for (const id of graph.destinations) expect(ownerChain(graph, id)).not.toContain("ViewerCard");
-    // At srcly-port-base the records walk stops at selectVisibleRecords's return,
-    // and exact field lineage starts only at a filesystem origin.
-    expect(graph.destinations).toEqual([]);
+    // The records reach their slots through `createMemo`, which the framework
+    // model carries; exact field lineage still starts only at a filesystem origin.
+    expect(graph.destinations.length).toBeGreaterThan(0);
     expect(graph.lineage).toMatchObject({ status: "unavailable", fields: 0 });
     expect(graph.lineage?.unavailableReason).toMatch(/filesystem origin/);
   }, 60_000);

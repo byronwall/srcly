@@ -1,0 +1,14 @@
+{
+  "id": "219df9b2-b123-4854-87ed-a7b13116f574",
+  "kind": "node.context.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:c7881d",
+    "label": "Agent token ...c7881d"
+  },
+  "createdAt": "2026-10-27T12:42:30.122Z",
+  "summary": "Updated context for \"Walk into nested functions\".",
+  "nodeIds": [
+    "task-walk-into-nested-functions"
+  ]
+}

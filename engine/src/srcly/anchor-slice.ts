@@ -110,8 +110,27 @@ export function assumedThrough(provider: EvidenceRelationSource, relation: Pick<
   for (const item of provider.getRelations(call.id, "both")) {
     if (item.kind === "invokes" && item.from === call.id) return null;
     if (item.kind === "performs" && item.from === call.id) return null;
+    // A control-flow callback's accessor (`<Show when={x}>{(v) => v()}`): the binding says what it returns.
+    if (item.kind === "accessor-call" && item.to === call.id) return null;
+    // A service client's read or write (`prisma.doc.update`) classified by its contract: the call is the boundary, modelled.
+    if ((item.kind === "input-call" || item.kind === "effect-input") && item.from === call.id) {
+      const end = provider.factIndex.getElement(item.to);
+      if (end && ["external-read", "external-effect", "message"].includes(end.kind) && end.attributes?.operation !== undefined) return null;
+    }
+    // A classified read whose value the call yields (a router's `useParams()`): the read is the call's origin, modelled.
+    if (item.kind === "carrier" && item.to === call.id) {
+      const start = provider.factIndex.getElement(item.from);
+      if (start?.kind === "external-read" && start.attributes?.operation !== undefined) return null;
+    }
+    // The fallback effect any unresolved library call gets (`isExternalCall`) is no model: the call stays assumed.
+    if (item.kind === "effect-input" && item.from === call.id && provider.factIndex.getElement(item.to)?.attributes?.effectKind === "external-effect") continue;
     if (proofStrength(item.proof.kind) === "modelled") return null;
     if (sameSpan(item.from === call.id ? item.to : item.from)?.boundary === "framework-runtime") return null;
   }
   return call.label;
+}
+
+/** Whether the collector classified this call (`performs`: a parse, a selection): its operation is bookkeeping at the call, not where its value goes. */
+export function performs(provider: EvidenceRelationSource, id: string): boolean {
+  return provider.getRelations(id, "forward").some((relation) => relation.kind === "performs" && relation.from === id);
 }

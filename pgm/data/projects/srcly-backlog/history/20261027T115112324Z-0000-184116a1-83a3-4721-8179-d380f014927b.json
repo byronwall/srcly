@@ -1,0 +1,14 @@
+{
+  "id": "184116a1-83a3-4721-8179-d380f014927b",
+  "kind": "node.context.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:c01019",
+    "label": "Agent token ...c01019"
+  },
+  "createdAt": "2026-10-27T11:51:12.324Z",
+  "summary": "Updated context for \"One control per idea; trace from a box\".",
+  "nodeIds": [
+    "task-one-control-per-idea-trace-from-a-box"
+  ]
+}

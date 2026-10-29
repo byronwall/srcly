@@ -1,0 +1,14 @@
+{
+  "id": "4631deac-d5cb-4ec2-9586-9ff37ea1131a",
+  "kind": "node.status.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:78b640",
+    "label": "Agent token ...78b640"
+  },
+  "createdAt": "2026-10-26T13:04:17.603Z",
+  "summary": "Changed \"Step 4: state pairs and resources as rows\" status to planned.",
+  "nodeIds": [
+    "task-step-4-state-pairs-and-resources-as-rows"
+  ]
+}

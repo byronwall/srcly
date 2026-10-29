@@ -4,12 +4,19 @@ import { ProgramEvidenceCollectorCallSupport } from "./program-evidence-collecto
 import { objectPackAttributes } from "./program-evidence-collector-expression-support";
 import {
   bindingIdentifiers,
+  browserMember,
   firstBindingIdentifier,
+  importedCallee,
+  nodeKey,
   propertyBase,
   proof,
   responseReturnRole,
+  unwrap,
 } from "./program-evidence-support";
 import { indexReadAttributes } from "./program-index-read-metadata";
+import { OPTION_FLOWS } from "./framework-flows";
+import { resolveValue } from "./value-origin";
+import type { CollectorCallInfo, CollectorFunctionInfo } from "./program-evidence-collector-support";
 
 export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceCollectorCallSupport {
   protected processProperty(
@@ -422,6 +429,105 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
     }
     const entry = this.assignments.get(symbolId) ?? this.assignments.set(symbolId, { declaration, bindings: [] }).get(symbolId)!;
     if (!entry.bindings.some((binding) => binding.id === bindingId)) entry.bindings.push({ id: bindingId, node });
+  }
+
+  /**
+   * `o.title = value` on a variable or parameter the project declares packs
+   * the value into `o` under `title`, as `{ title: value }` would: a later
+   * read of `o.title` sees it, and a read of another field does not.
+   */
+  protected processFieldAssignment(
+    node: TypeScript.BinaryExpression & { left: TypeScript.PropertyAccessExpression },
+    ownerId: string | null,
+  ): void {
+    const receiver = node.left.expression;
+    const receiverSymbol = this.ts.isIdentifier(receiver) ? this.symbolId(receiver) ?? "" : "";
+    const holderId = this.variablesBySymbol.get(receiverSymbol) ?? this.parametersBySymbol.get(receiverSymbol);
+    // `this.title = value`, `state.card.title = value`: no local object to pack into, so the member itself keeps it.
+    // A property the browser declares (`document.title`, `el.textContent`) is written to the page.
+    if (!holderId) {
+      const valueId = this.expression(node.right, ownerId);
+      if (browserMember(this.ts, this.checker, node.left)) return this.processBrowserWrite(node, valueId, ownerId);
+      return this.addMemberWrite(node.left, valueId);
+    }
+    const field = node.left.name;
+    const { span } = this.location(field);
+    const packId = this.ensureElement(
+      node,
+      "object-pack",
+      ownerId,
+      { operation: "object-pack", fields: JSON.stringify({ [`${span.startLine}:${span.startColumn}`]: field.text }) },
+      null,
+      null,
+      null,
+      "proven",
+      proof("ast-node", "The assignment sets one field of the object.", [this.location(node)]),
+    );
+    this.addRelation(
+      this.expression(node.right, ownerId),
+      packId,
+      "pack-field",
+      [this.location(field)],
+      proof("ast-node", "The assigned value is packed under this field.", [this.location(field)]),
+      "proven",
+    );
+    this.addRelation(
+      packId,
+      holderId,
+      "references",
+      [this.location(receiver)],
+      proof("ast-node", "The object the assignment sets a field of.", [this.location(receiver)]),
+      "proven",
+    );
+  }
+
+  /** `location.search`, `document.cookie`: the browser hands the program this value, an origin. */
+  protected processBrowserRead(node: TypeScript.PropertyAccessExpression, ownerId: string | null): void {
+    const readId = this.specialInput(node, "external-read", ownerId, { operation: node.name.text, name: `browser read: ${node.getText(node.getSourceFile())}` }, "host-api", "The browser hands the program this value.");
+    this.addRelation(readId, this.expression(node, ownerId), "carrier", [this.location(node)], proof("carrier-boundary", "The property read yields what the browser holds.", [this.location(node)]), "proven");
+  }
+
+  /** `document.title = value`: the value is written into the page, an end. */
+  protected processBrowserWrite(node: TypeScript.BinaryExpression & { left: TypeScript.PropertyAccessExpression }, valueId: string, ownerId: string | null): void {
+    const writeId = this.specialInput(node, "external-effect", ownerId, { operation: node.left.name.text, name: `page write: ${node.left.getText(node.getSourceFile())}` }, "host-api", "The assignment writes the value into the page.");
+    this.addRelation(valueId, writeId, "effect-input", [this.location(node)], proof("host-api", "The browser property keeps the assigned value.", [this.location(node)]), "proven");
+  }
+
+  protected connectExternalCall(call: CollectorCallInfo): void {
+    super.connectExternalCall(call);
+    if (this.ts.isCallExpression(call.node)) this.connectOptionFlows(call, call.node);
+  }
+
+  /** The function a data hook's options object names under `option` (`useQuery({ queryFn })`), or null. */
+  private optionFunction(hook: TypeScript.Expression, option: "queryFn" | "mutationFn"): CollectorFunctionInfo | null {
+    const call = unwrap(this.ts, hook);
+    if (!this.ts.isCallExpression(call)) return null;
+    const imported = importedCallee(this.ts, this.checker, call.expression);
+    if (!imported || OPTION_FLOWS[imported.module]?.[imported.name] !== option) return null;
+    const options = call.arguments[0] ? unwrap(this.ts, call.arguments[0]) : undefined;
+    const property = options && this.ts.isObjectLiteralExpression(options) ? options.properties.find((item) => item.name?.getText() === option) : undefined;
+    if (!property || !(this.ts.isPropertyAssignment(property) || this.ts.isShorthandPropertyAssignment(property))) return null;
+    const value = this.ts.isPropertyAssignment(property) ? unwrap(this.ts, property.initializer) : property.name;
+    return this.functionsByNode.get(nodeKey(this.root, value)) ?? this.targetFunction(value);
+  }
+
+  /** A query's value is what its `queryFn` returns; `mutation.mutate(x)` calls its `mutationFn` with `x` (`OPTION_FLOWS`). */
+  private connectOptionFlows(call: CollectorCallInfo, node: TypeScript.CallExpression): void {
+    const where = [this.location(node)];
+    const query = this.optionFunction(node, "queryFn");
+    for (const returnId of query ? this.returnsByFunction.get(query.id) ?? [] : []) {
+      this.addRelation(returnId, call.id, "framework-flow", where, proof("framework-state", "The query's value is what its queryFn returns.", where), "proven");
+    }
+    const callee = unwrap(this.ts, node.expression);
+    if (!this.ts.isPropertyAccessExpression(callee) || !/^(mutate|mutateAsync)$/.test(callee.name.text) || !node.arguments[0]) return;
+    const hook = resolveValue(this.ts, this.checker, callee.expression)?.origin;
+    const mutation = hook && this.ts.isExpression(hook) ? this.optionFunction(hook, "mutationFn") : null;
+    const parameter = mutation?.declaration.parameters[0];
+    const parameterId = parameter && this.ts.isIdentifier(parameter.name) ? this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "") : undefined;
+    if (parameterId) this.addRelation(this.expression(node.arguments[0], call.ownerId), parameterId, "framework-flow", where, proof("framework-state", "The mutation calls its mutationFn with what mutate is given.", where), "proven");
+    for (const returnId of mutation ? this.returnsByFunction.get(mutation.id) ?? [] : []) {
+      this.addRelation(returnId, call.id, "framework-flow", where, proof("framework-state", "mutateAsync yields what the mutationFn returns.", where), "proven");
+    }
   }
 
   protected processExitStatusAssignment(

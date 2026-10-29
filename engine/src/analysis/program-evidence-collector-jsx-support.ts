@@ -3,8 +3,12 @@ import type { ProgramElementKind } from "./program-evidence";
 import type { CollectorFunctionInfo } from "./program-evidence-collector-support";
 import { ProgramEvidenceCollectorFieldTransferSupport } from "./program-evidence-collector-field-transfers";
 import { reachingBindings } from "./program-evidence-reaching-bindings";
+import { resolveValue } from "./value-origin";
 import {
+  browserMember,
+  browserPropertyRead,
   derivedOperands,
+  importedCallee,
   isAssignmentOperator,
   firstBindingIdentifier,
   isExitStatusAssignment,
@@ -12,11 +16,13 @@ import {
   jsxOpeningAncestor,
   nodeKey,
   proof,
-  symbolAtNode,
   unwrap,
 } from "./program-evidence-support";
 
 export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollectorFieldTransferSupport {
+  /** Each context's provided values, by the `createContext()` call the context is. */
+  private readonly contextProviders = new Map<string, string[]>();
+
   protected collectNodes(file: TypeScript.SourceFile): void {
     const visit = (node: TypeScript.Node, ownerId: string | null) => {
       this.noteAstUnit();
@@ -65,12 +71,15 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       if (this.ts.isBinaryExpression(node) && isAssignmentOperator(this.ts, node.operatorToken.kind) && this.ts.isIdentifier(node.left)) {
         this.processAssignment(node as TypeScript.BinaryExpression & { left: TypeScript.Identifier }, nextOwner);
       }
+      if (this.ts.isBinaryExpression(node) && node.operatorToken.kind === this.ts.SyntaxKind.EqualsToken && this.ts.isPropertyAccessExpression(node.left)) {
+        this.processFieldAssignment(node as TypeScript.BinaryExpression & { left: TypeScript.PropertyAccessExpression }, nextOwner);
+      }
+      if (this.ts.isPropertyAccessExpression(node) && !(this.ts.isBinaryExpression(node.parent) && node.parent.left === node && isAssignmentOperator(this.ts, node.parent.operatorToken.kind))) {
+        this.memberReads.push({ node, ownerId: nextOwner });
+        if (browserPropertyRead(browserMember(this.ts, this.checker, node))) this.processBrowserRead(node, nextOwner);
+      }
       if (this.ts.isReturnStatement(node)) {
         this.processReturn(node, nextOwner);
-      }
-      // A thrown value is a value the code uses: it ends at the `throw` (`endsInPlace`).
-      if (this.ts.isThrowStatement(node) && node.expression) {
-        this.expression(node.expression, nextOwner);
       }
       if (this.ts.isArrowFunction(node) && !this.ts.isBlock(node.body)) {
         this.processReturn(node.body, nextOwner);
@@ -92,7 +101,10 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   ): void {
     const opening = this.ts.isJsxElement(node) ? node.openingElement : node;
     const tag = opening.tagName.getText(node.getSourceFile());
-    const { target, aliasId } = this.renderedComponent(opening.tagName);
+    const rendered = this.renderedComponent(opening.tagName);
+    // `<Dynamic component={Card} title={…} />` renders `Card`, and hands it the other attributes.
+    const dynamic = rendered.target ? undefined : this.dynamicComponent(opening);
+    const { target, aliasId } = dynamic ? { target: this.targetFunction(dynamic), aliasId: null } : rendered;
     const component = Boolean(target || aliasId);
     const kind: ProgramElementKind = component
       ? "component-occurrence"
@@ -150,6 +162,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     }
     for (const attribute of opening.attributes.properties) {
       this.checkCancellation();
+      if (dynamic && this.ts.isJsxAttribute(attribute) && attribute.name.getText() === "component") continue;
       // A spread hands every field of its value to the occurrence: a component's props, or the element's attributes.
       if (this.ts.isJsxSpreadAttribute(attribute)) {
         const spreadId = this.expression(attribute.expression, ownerId);
@@ -162,6 +175,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
           component ? "proven" : "partial",
         );
         if (!component) this.addTerminal(attribute.expression, ownerId, "dom-attribute", "...", spreadId);
+        if (target) this.bindSpreadProps(attribute, spreadId, target);
         continue;
       }
       if (!this.ts.isJsxAttribute(attribute)) continue;
@@ -172,6 +186,10 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         : component ? attribute.initializer : undefined;
       if (!value || !this.ts.isExpression(value)) continue;
       const valueId = this.expression(value, ownerId);
+      if (attribute.name.getText() === "value" && this.ts.isPropertyAccessExpression(opening.tagName) && opening.tagName.name.text === "Provider") {
+        const context = this.contextKey(opening.tagName.expression);
+        if (context) this.contextProviders.set(context, [...(this.contextProviders.get(context) ?? []), valueId]);
+      }
       this.addRelation(
         valueId,
         occurrenceId,
@@ -202,6 +220,43 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   }
 
   /**
+   * A spread into an in-project component (`<Card {...props} />`) hands its
+   * value to the component's props parameter: the whole object, or each name
+   * a destructured parameter takes from it.
+   */
+  private bindSpreadProps(attribute: TypeScript.JsxSpreadAttribute, spreadId: string, target: CollectorFunctionInfo): void {
+    if (target.declaration.parameters.length < 1) return;
+    const parameter = target.declaration.parameters[0];
+    const names = this.ts.isIdentifier(parameter.name)
+      ? [parameter.name]
+      : this.ts.isObjectBindingPattern(parameter.name)
+        ? parameter.name.elements.flatMap((element) => (this.ts.isIdentifier(element.name) ? [element.name] : []))
+        : [];
+    for (const name of names) {
+      const parameterId = this.parametersBySymbol.get(this.symbolId(name) ?? "");
+      if (!parameterId) continue;
+      this.addRelation(
+        spreadId,
+        parameterId,
+        "component-prop-binding",
+        [this.location(attribute), this.location(name)],
+        proof("component-prop-binding", "The JSX spread passes its fields to the component's props parameter.", [this.location(attribute), this.location(name)]),
+        "proven",
+      );
+    }
+  }
+
+  /** The `component` a Solid `<Dynamic>` renders, when the tag is `solid-js/web`'s `Dynamic`. */
+  private dynamicComponent(opening: TypeScript.JsxOpeningLikeElement): TypeScript.Expression | undefined {
+    if (!this.ts.isIdentifier(opening.tagName)) return undefined;
+    const imported = importedCallee(this.ts, this.checker, opening.tagName);
+    if (imported?.module !== "solid-js/web" || imported.name !== "Dynamic") return undefined;
+    const attribute = opening.attributes.properties.find((item): item is TypeScript.JsxAttribute => this.ts.isJsxAttribute(item) && item.name.getText() === "component");
+    const value = attribute?.initializer && this.ts.isJsxExpression(attribute.initializer) ? attribute.initializer.expression : undefined;
+    return value ?? undefined;
+  }
+
+  /**
    * What a JSX tag renders. A tag that names an in-project function renders
    * that component. A tag that names a value the program declares renders
    * that value (`aliasId`): a component made by a factory (`styled(…)`) or
@@ -211,20 +266,10 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
    * component, so the tag's own symbol is the whole proof.
    */
   protected renderedComponent(tagName: TypeScript.JsxTagNameExpression): { target: CollectorFunctionInfo | null; aliasId: string | null } {
-    const target = this.targetFunction(tagName);
-    if (target) return { target, aliasId: null };
-    const aliasId = this.variablesBySymbol.get(this.symbolId(tagName) ?? "") ?? null;
-    let name: TypeScript.Node = tagName;
-    for (let hops = 0; aliasId && hops < 8; hops += 1) {
-      const symbol = symbolAtNode(this.checker, name);
-      const declaration = (symbol && symbol.flags & this.ts.SymbolFlags.Alias ? this.checker.getAliasedSymbol(symbol) : symbol)?.valueDeclaration;
-      const initializer = declaration && this.ts.isVariableDeclaration(declaration) && declaration.initializer ? unwrap(this.ts, declaration.initializer) : null;
-      if (!initializer || !(this.ts.isIdentifier(initializer) || this.ts.isPropertyAccessExpression(initializer))) break;
-      const aliased = this.targetFunction(initializer);
-      if (aliased) return { target: aliased, aliasId };
-      name = initializer;
-    }
-    return { target: null, aliasId };
+    const named = this.functionsBySymbol.get(this.symbolId(tagName) ?? "");
+    if (named) return { target: named, aliasId: null };
+    // `targetFunction` follows the value to the one function it is, through `const` copies and imports.
+    return { target: this.targetFunction(tagName), aliasId: this.variablesBySymbol.get(this.symbolId(tagName) ?? "") ?? null };
   }
 
   protected processJsxExpression(
@@ -300,7 +345,37 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     );
   }
 
+  /** The `createContext()` call (Solid's or React's) a context expression is, as a key, or null. */
+  private contextKey(expression: TypeScript.Expression): string | null {
+    const origin = resolveValue(this.ts, this.checker, expression)?.origin;
+    if (!origin || !this.ts.isCallExpression(origin)) return null;
+    const imported = importedCallee(this.ts, this.checker, origin.expression);
+    const factory = imported?.name === "createContext" && (imported.module === "solid-js" || imported.module === "react");
+    return factory ? nodeKey(this.root, origin) : null;
+  }
+
+  /** `useContext(Ctx)` returns what a `<Ctx.Provider value={…}>` above it provides: every provider of that context. */
+  private connectContexts(): void {
+    for (const call of this.calls) {
+      if (!this.ts.isCallExpression(call.node)) continue;
+      const imported = importedCallee(this.ts, this.checker, call.node.expression);
+      if (imported?.name !== "useContext" || (imported.module !== "solid-js" && imported.module !== "react")) continue;
+      const context = call.node.arguments[0] ? this.contextKey(call.node.arguments[0]) : null;
+      for (const valueId of context ? this.contextProviders.get(context) ?? [] : []) {
+        this.addRelation(
+          valueId,
+          call.id,
+          "context-value",
+          [this.location(call.node)],
+          proof("framework-state", "The context's provider supplies the value useContext returns.", [this.location(call.node)]),
+          "proven",
+        );
+      }
+    }
+  }
+
   protected connectCalls(): void {
+    this.connectContexts();
     this.connectComponentPropBindings();
     this.connectFieldTransfers();
     for (const call of this.calls) {
@@ -354,6 +429,23 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
             "proven",
           );
         }
+      }
+    }
+    this.connectMemberState();
+  }
+
+  /** Every read of a member the project declares sees what was written into it (`memberWrites`). */
+  private connectMemberState(): void {
+    if (this.memberWrites.size === 0) return;
+    for (const read of this.memberReads) {
+      this.checkCancellation();
+      const key = this.memberSymbol(read.node);
+      const writes = key ? this.memberWrites.get(key) : undefined;
+      if (!writes) continue;
+      const readId = this.elementIfPresent(read.node, "field-read") ?? this.expression(read.node, read.ownerId);
+      for (const valueId of writes) {
+        if (valueId === readId) continue;
+        this.addRelation(valueId, readId, "member-state", [this.location(read.node)], proof("compiler-symbol", "The checker names the same member this value was written into.", [this.location(read.node)]), "proven");
       }
     }
   }

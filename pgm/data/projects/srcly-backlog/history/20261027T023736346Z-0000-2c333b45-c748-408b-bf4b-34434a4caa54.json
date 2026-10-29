@@ -1,0 +1,14 @@
+{
+  "id": "2c333b45-c748-408b-bf4b-34434a4caa54",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:afb123",
+    "label": "Agent token ...afb123"
+  },
+  "createdAt": "2026-10-27T02:37:36.346Z",
+  "summary": "Deleted \"TypeScript words and 404s on a Python root\".",
+  "nodeIds": [
+    "task-typescript-words-and-404s-on-a-python-root"
+  ]
+}

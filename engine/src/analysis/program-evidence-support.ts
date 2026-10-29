@@ -27,7 +27,10 @@ export function asFunctionLike(
 export function functionNameNode(ts: typeof TypeScript, node: TypeScript.FunctionLikeDeclaration): TypeScript.Node | null {
   if (node.name) return node.name;
   const parent = node.parent;
-  return parent && ts.isVariableDeclaration(parent) ? parent.name : null;
+  if (parent && ts.isVariableDeclaration(parent)) return parent.name;
+  // Wrapped where it is declared (`const Card = memo((props) => …)`, `const getDoc = query(async (id) => …)`): the declaration names it.
+  const declaration = parent && ts.isCallExpression(parent) && parent.arguments[0] === node ? parent.parent : undefined;
+  return declaration && ts.isVariableDeclaration(declaration) && declaration.initializer === parent && ts.isIdentifier(declaration.name) ? declaration.name : null;
 }
 
 export function bindingIdentifiers(ts: typeof TypeScript, name: TypeScript.BindingName): TypeScript.Identifier[] {
@@ -84,6 +87,23 @@ export function isHandlerLike(
   );
 }
 
+/**
+ * A function written as an element's event attribute (`<input onInput={(e) => …}>`,
+ * Solid's `on:click`) or given to `addEventListener`: the browser calls it with
+ * the event. Only an intrinsic element's: a component's `onChange` is a prop its
+ * own code calls.
+ */
+export function isDomEventHandler(ts: typeof TypeScript, node: TypeScript.FunctionLikeDeclaration): boolean {
+  let parent = node.parent;
+  while (parent && ts.isParenthesizedExpression(parent)) parent = parent.parent;
+  // `el.addEventListener("input", (event) => …)`: the browser calls it with the event too.
+  if (parent && ts.isCallExpression(parent) && parent.arguments[1] === node && ts.isPropertyAccessExpression(parent.expression) && parent.expression.name.text === "addEventListener") return true;
+  if (!parent || !ts.isJsxExpression(parent) || !ts.isJsxAttribute(parent.parent)) return false;
+  const opening = parent.parent.parent.parent;
+  const intrinsic = ts.isIdentifier(opening.tagName) && /^[a-z]/.test(opening.tagName.text);
+  return intrinsic && /^on(:|[A-Z])/.test(parent.parent.name.getText());
+}
+
 export type ParameterOriginRole = "request" | "event" | null;
 
 export function parameterOriginRole(checker: TypeScript.TypeChecker, parameter: TypeScript.ParameterDeclaration, handler: boolean): ParameterOriginRole {
@@ -96,7 +116,7 @@ export function parameterOriginRole(checker: TypeScript.TypeChecker, parameter: 
   return null;
 }
 
-export type ExternalServiceCallKind = "external-read" | "message" | null;
+export type ExternalServiceCallKind = "external-read" | "external-write" | "message" | null;
 
 export function externalServiceCallKind(
   ts: typeof TypeScript,
@@ -107,7 +127,9 @@ export function externalServiceCallKind(
   const declarations = checker.getSymbolAtLocation(node.expression)?.declarations ?? [];
   if (!declarations.some((declaration) => isUnimplementedServiceDeclaration(ts, declaration))) return null;
   const method = node.expression.name.text;
-  if (/^(query|find|findOne|findMany|get|load|read|lookup|scan|select)$/i.test(method)) return "external-read";
+  // Prisma's delegates (`prisma.doc.findUnique`, `.update`) are the common case: a client's method signatures with no body.
+  if (/^(query|find|findOne|findMany|findUnique|findUniqueOrThrow|findFirst|findFirstOrThrow|count|aggregate|groupBy|get|load|read|lookup|scan|select)$/i.test(method)) return "external-read";
+  if (/^(create|createMany|createManyAndReturn|update|updateMany|upsert|delete|deleteMany|insert|save)$/.test(method)) return "external-write";
   if (/^(put|publish|send|emit|enqueue|produce|dispatch)$/i.test(method)) return "message";
   return null;
 }
@@ -156,24 +178,60 @@ export function callOperation(
   node: TypeScript.CallExpression,
 ): ProgramOperationKind | null {
   const name = calleeName(ts, node.expression);
-  const module = importModule(ts, checker, node.expression);
+  // A method library code declares (`xs.map`, `schema.safeParse`) is named by its own name, as a bare call is.
+  const member = libraryMember(ts, checker, node.expression) ? lastName(name) : null;
+  const named = (pattern: RegExp) => pattern.test(name) || (member !== null && pattern.test(member));
   if (name === "JSON.parse" || /(^|\.)parse$/.test(name)) return "parse";
   if (name === "JSON.stringify" || /(^|\.)(serialize|stringify|encode)$/.test(name)) return "serialize";
-  if (/^(validate|assert|check|safeParse|is[A-Z])/.test(name)) return "validate";
-  if (/^(select|pick|omit|filter|map|find|reduce|aggregate|pack)$/.test(name) || ["filter", "map", "reduce", "flatMap"].includes(name)) return "selection";
-  if (module === "solid-js" && name === "createResource") return "resource";
+  if (named(/^(validate|assert|check|safeParse|is[A-Z])/)) return "validate";
+  if (named(/^(select|pick|omit|filter|map|flatMap|find|reduce|aggregate|pack)$/)) return "selection";
+  if (isResourceFactory(ts, checker, node)) return "resource";
   return null;
 }
 
-export function isResourceFactory(ts: typeof TypeScript, checker: TypeScript.TypeChecker, node: TypeScript.Expression) {
-  if (!ts.isCallExpression(node)) return false;
-  const name = calleeName(ts, node.expression);
-  const module = importModule(ts, checker, node.expression);
-  return module === "solid-js" && name === "createResource" || /^(createResource|createQuery|useResource)$/.test(name);
+/** Whether a method callee (`xs.map`) is declared by library code: a declaration file (TypeScript's own lib, a package's types). */
+function libraryMember(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): boolean {
+  if (!ts.isPropertyAccessExpression(callee)) return false;
+  return Boolean(symbolAtNode(checker, callee.name)?.declarations?.some((declaration) => declaration.getSourceFile().isDeclarationFile));
 }
 
+/**
+ * The library export a callee names, resolved through the checker: its
+ * import's module and the export's own name. `readFile` imported by name (or
+ * renamed), or `fs.readFile` through a namespace or default import. Null for
+ * a callee no import names.
+ */
+export function importedCallee(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): { module: string; name: string } | null {
+  const symbol = symbolAtNode(checker, callee);
+  const direct = importModule(ts, checker, callee, symbol);
+  if (direct) {
+    const specifier = symbol?.declarations?.find((declaration) => ts.isImportSpecifier(declaration));
+    const name = specifier && ts.isImportSpecifier(specifier) ? (specifier.propertyName ?? specifier.name).text : lastName(calleeName(ts, callee));
+    return { module: direct, name };
+  }
+  const module = ts.isPropertyAccessExpression(callee) ? importModule(ts, checker, callee.expression) : null;
+  return module && ts.isPropertyAccessExpression(callee) ? { module, name: callee.name.text } : null;
+}
+
+/** Solid's `createResource`, by the module its import names. */
+export function isResourceFactory(ts: typeof TypeScript, checker: TypeScript.TypeChecker, node: TypeScript.Expression) {
+  if (!ts.isCallExpression(node)) return false;
+  const imported = importedCallee(ts, checker, node.expression);
+  return imported?.module === "solid-js" && imported.name === "createResource";
+}
+
+/** A UI framework's own reactive and routing calls: what they do with a value is the framework's model, never an external effect. */
+const FRAMEWORK_CALLS: Record<string, RegExp> = {
+  "solid-js": /^(createResource|createEffect|createRenderEffect|createComputed|createMemo|createSignal|createSelector|createContext|useContext|onMount|onCleanup|on|batch|untrack|mergeProps|splitProps|children|lazy|Show|For)$/,
+  "solid-js/store": /^(createStore|createMutable|produce|reconcile|unwrap)$/,
+  "@solidjs/router": /^(createAsync|createAsyncStore|useNavigate|useAction|useSubmission|useSubmissions|useBeforeLeave|query|cache|action|redirect|revalidate|reload)$/,
+  "react": /^(useState|useReducer|useEffect|useLayoutEffect|useMemo|useCallback|useRef|useContext|useId|useTransition|useDeferredValue|createContext|memo|forwardRef)$/,
+  "@tanstack/react-query": /^(useQuery|useSuspenseQuery|useInfiniteQuery|useMutation|useQueryClient)$/,
+  "@tanstack/solid-query": /^(createQuery|createInfiniteQuery|createMutation|useQuery|useMutation|useQueryClient)$/,
+};
+
 export function isFrameworkCall(module: string, name: string) {
-  return module === "solid-js" && /^(createResource|createEffect|createMemo|createSignal|onMount|batch|untrack|Show|For)$/.test(name);
+  return Boolean(FRAMEWORK_CALLS[module]?.test(name));
 }
 
 /** A response method on a receiver named like a server response (`res.json`, `reply.send`): a convention, not a library member. */
@@ -310,7 +368,9 @@ export function discardsValue(ts: typeof TypeScript, call: TypeScript.CallExpres
 }
 
 export function unwrap(ts: typeof TypeScript, node: TypeScript.Expression): TypeScript.Expression {
+  // `await p` is what `p` settles to: an async function's return arrives at its call.
   if (
+    ts.isAwaitExpression(node) ||
     ts.isParenthesizedExpression(node) ||
     ts.isAsExpression(node) ||
     ts.isTypeAssertionExpression(node) ||
@@ -353,7 +413,8 @@ export function compilerSymbolId(ts: typeof TypeScript, checker: TypeScript.Type
   if (known !== undefined) return known;
   const declaration = symbol.declarations?.find((item) => inside(root, item.getSourceFile().fileName));
   const suffix = declaration ? `@${relative(root, declaration.getSourceFile().fileName)}:${declaration.getStart(declaration.getSourceFile())}` : "";
-  const id = `${checker.getFullyQualifiedName(symbol)}${suffix}`;
+  // A module symbol's qualified name spells its absolute path (`"/Users/…/src/x".f`): drop the root, so ids (and every order they set) do not depend on where the checkout lives.
+  const id = `${checker.getFullyQualifiedName(symbol).split(root).join("")}${suffix}`;
   ids.set(symbol, id);
   return id;
 }
@@ -460,6 +521,48 @@ export function inside(root: string, file: string) {
 }
 
 /** Proof for a hand-off through code with no source to read: assumed, never proven. */
+/**
+ * Whether a callee is the standard library: declared only by TypeScript's own
+ * lib files (`trim`, `map`, `JSON.stringify`) or Node's (`URLSearchParams`,
+ * `Buffer.from`, which both may declare), or the global `console`. What it
+ * does with its receiver and arguments is known.
+ */
+export function isStandardLibraryCallee(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): boolean {
+  const node = unwrap(ts, callee);
+  if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "console") return true;
+  const declarations = checker.getSymbolAtLocation(ts.isPropertyAccessExpression(node) ? node.name : node)?.declarations ?? [];
+  const standard = (file: TypeScript.SourceFile) => file.hasNoDefaultLib || /[\\/]node_modules[\\/]@types[\\/]node[\\/]/.test(file.fileName);
+  return declarations.length > 0 && declarations.every((declaration) => standard(declaration.getSourceFile()));
+}
+
+/**
+ * The browser's own interface a member belongs to (`Location`, `Storage`,
+ * `History`, `Document`, an element's), when TypeScript's DOM lib declares it:
+ * `{ owner: "Storage", name: "getItem" }`. Null for anything else.
+ */
+export function browserMember(ts: typeof TypeScript, checker: TypeScript.TypeChecker, access: TypeScript.Expression): { owner: string; name: string } | null {
+  const node = unwrap(ts, access);
+  if (!ts.isPropertyAccessExpression(node)) return null;
+  const declaration = checker.getSymbolAtLocation(node.name)?.declarations?.[0];
+  const owner = declaration?.parent;
+  if (!declaration?.getSourceFile().hasNoDefaultLib || !owner || !ts.isInterfaceDeclaration(owner)) return null;
+  return { owner: owner.name.text, name: node.name.text };
+}
+
+/** What the browser keeps outside the program: the URL and the cookie are read as a page's input; storage, history and navigation are read and written. */
+export function browserCall(member: { owner: string; name: string } | null): "read" | "write" | null {
+  if (!member) return null;
+  if (member.owner === "Storage") return member.name === "getItem" || member.name === "key" ? "read" : "write";
+  if (member.owner === "History") return /^(pushState|replaceState)$/.test(member.name) ? "write" : null;
+  if (member.owner === "Location") return /^(assign|replace|reload)$/.test(member.name) ? "write" : null;
+  return null;
+}
+
+/** A property read of the page's URL (`location.search`) or `document.cookie`: where the browser hands the program a value. */
+export function browserPropertyRead(member: { owner: string; name: string } | null): boolean {
+  return Boolean(member && (member.owner === "Location" || (member.owner === "Document" && member.name === "cookie")));
+}
+
 export function assumedProof(detail: string, locations: ProgramEvidenceLocation[]): ProgramProof {
   return { kind: "external-call", detail, locations };
 }

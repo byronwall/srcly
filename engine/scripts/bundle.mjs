@@ -28,7 +28,7 @@ await build({ ...shared, entryPoints: [path.join(engineDir, "bin/srcly-engine.ts
 await build({ ...shared, entryPoints: [path.join(engineDir, "bin/engine-worker.ts")], outfile: path.join(outDir, "analysis-worker.js") });
 fs.writeFileSync(path.join(outDir, "package.json"), `${JSON.stringify({ type: "module", private: true }, null, 2)}\n`);
 fs.copyFileSync(path.join(engineDir, "python/srcly_pyfacts.py"), path.join(outDir, "srcly_pyfacts.py"));
-// The built-in library model rows (`src/srcly/library-models.ts` reads `models/` beside the entry).
+// The built-in library model rows (`src/analysis/library-models.ts` reads `models/` beside the entry).
 fs.cpSync(path.join(engineDir, "models"), path.join(outDir, "models"), { recursive: true });
 
 const tsSource = path.join(engineDir, "node_modules/typescript");

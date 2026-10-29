@@ -1,0 +1,14 @@
+{
+  "id": "f8c3ecb2-0a60-4113-8942-d611d9af1405",
+  "kind": "node.status.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:4cd6bf",
+    "label": "Agent token ...4cd6bf"
+  },
+  "createdAt": "2026-10-26T13:04:28.166Z",
+  "summary": "Changed \"Move the remaining alias-resolution sites to the value-origin resolver\" status to planned.",
+  "nodeIds": [
+    "task-move-the-remaining-alias-resolution-sites-to-the-value-origin-resolver"
+  ]
+}

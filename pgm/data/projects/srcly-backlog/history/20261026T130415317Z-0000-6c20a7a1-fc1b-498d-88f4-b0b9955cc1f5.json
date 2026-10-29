@@ -1,0 +1,14 @@
+{
+  "id": "6c20a7a1-fc1b-498d-88f4-b0b9955cc1f5",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:c0f40f",
+    "label": "Agent token ...c0f40f"
+  },
+  "createdAt": "2026-10-26T13:04:15.317Z",
+  "summary": "Set \"Land #211: TypeScript origins and terminals as library model rows\" priority to high.",
+  "nodeIds": [
+    "task-land-211-typescript-origins-and-terminals-as-library-model-rows"
+  ]
+}

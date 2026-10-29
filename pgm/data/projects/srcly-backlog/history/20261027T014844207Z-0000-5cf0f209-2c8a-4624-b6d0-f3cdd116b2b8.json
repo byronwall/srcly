@@ -1,0 +1,14 @@
+{
+  "id": "5cf0f209-2c8a-4624-b6d0-f3cdd116b2b8",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:d2e10f",
+    "label": "Agent token ...d2e10f"
+  },
+  "createdAt": "2026-10-27T01:48:44.207Z",
+  "summary": "Set \"Python app hidden at a mixed repo's root\" priority to high.",
+  "nodeIds": [
+    "task-python-app-hidden-at-a-mixed-repo-s-root"
+  ]
+}

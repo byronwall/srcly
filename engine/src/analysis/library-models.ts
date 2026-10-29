@@ -9,7 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type * as TypeScript from "typescript";
 import { z } from "zod";
-import { calleeName } from "./program-evidence-support";
+import { calleeName, importedCallee } from "./program-evidence-support";
 
 // The bundle (`scripts/bundle.mjs`) is one flat folder: the built-in rows sit in `models/` beside the entry.
 declare const __SRCLY_ENGINE_BUNDLE__: boolean | undefined;
@@ -107,8 +107,14 @@ export function tsModelModule(module: string | null): string {
   return module === null ? "global" : module.replace(/^node:/, "");
 }
 
-/** The row for a TypeScript call or member: its import module (or `global`) and its dotted name as written. */
-export function tsModel(models: LibraryModels, ts: typeof TypeScript, module: string | null, expression: TypeScript.Node): LibraryModelRow | null {
+/**
+ * The row for a TypeScript call or member. An imported callee is found by its
+ * module and export name, however the import names it (`readFile as read`,
+ * `fs.readFile`); anything else by its module (or `global`) and dotted name as written.
+ */
+export function tsModel(models: LibraryModels, ts: typeof TypeScript, checker: TypeScript.TypeChecker, module: string | null, expression: TypeScript.Node): LibraryModelRow | null {
+  const imported = ts.isExpression(expression) ? importedCallee(ts, checker, expression) : null;
+  if (imported) return models.lookup("ts", tsModelModule(imported.module), imported.name);
   return models.lookup("ts", tsModelModule(module), calleeName(ts, expression));
 }
 

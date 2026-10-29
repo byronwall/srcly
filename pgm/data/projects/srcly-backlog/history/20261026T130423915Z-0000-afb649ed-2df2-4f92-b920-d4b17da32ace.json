@@ -1,0 +1,15 @@
+{
+  "id": "afb649ed-2df2-4f92-b920-d4b17da32ace",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:136348",
+    "label": "Agent token ...136348"
+  },
+  "createdAt": "2026-10-26T13:04:23.915Z",
+  "summary": "Created \"Library write into a non-local receiver\" under \"Data flow: trace coverage\".",
+  "nodeIds": [
+    "task-library-write-into-a-non-local-receiver",
+    "area-data-flow-trace-coverage"
+  ]
+}

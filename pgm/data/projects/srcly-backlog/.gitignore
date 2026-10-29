@@ -1,0 +1,3 @@
+# Written by Product Grid: keep local backups and interrupted writes out of git.
+*.bak
+*.tmp

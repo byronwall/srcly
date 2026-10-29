@@ -6,6 +6,8 @@ import {
   constructorExpressionElementEvidence,
 } from "./program-evidence-collector-expression-support";
 import { stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
+import { namesSeveralValues, resolveValue } from "./value-origin";
+import { ACCESSOR_FACTORIES, FRAMEWORK_FLOWS } from "./framework-flows";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo } from "./program-evidence-collector-support";
 import {
@@ -19,10 +21,11 @@ import {
   readsThis,
   thisContainer,
   proof,
-  assumedProof,
   discardsValue,
+  importedCallee,
   unwrap,
 } from "./program-evidence-support";
+
 
 function frameworkState(detail: string, location: ProgramEvidenceLocation) {
   return proof("framework-state", detail, [location]);
@@ -120,6 +123,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       if (symbolId) this.resourceBySymbol.set(symbolId, resourceId);
     }
     const loader = initializer.arguments[1];
+    this.bindResourceSource(initializer.arguments[0], loader, ownerId);
     this.httpResources.push({
       node: initializer,
       elementId: resourceId,
@@ -140,6 +144,55 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         "proven",
       );
     }
+  }
+
+  /**
+   * `createResource(source, fetcher)` calls the fetcher with the source's
+   * value: an arrow's returned expression, or the accessor it is given.
+   */
+  private bindResourceSource(source: TypeScript.Expression | undefined, loader: TypeScript.Expression | undefined, ownerId: string | null): void {
+    const fetcher = loader ? unwrap(this.ts, loader) : null;
+    if (!source || !fetcher || !(this.ts.isArrowFunction(fetcher) || this.ts.isFunctionExpression(fetcher))) return;
+    const parameter = fetcher.parameters[0];
+    if (!parameter || !this.ts.isIdentifier(parameter.name)) return;
+    const parameterId = this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "");
+    const value = unwrap(this.ts, source);
+    const returned = this.ts.isArrowFunction(value) && !this.ts.isBlock(value.body) ? value.body : value;
+    if (!parameterId || !this.ts.isExpression(returned)) return;
+    this.addRelation(
+      this.expression(returned, ownerId),
+      parameterId,
+      "resource-source-parameter",
+      [this.location(source), this.location(parameter)],
+      proof("resource-boundary", "The resource calls its fetcher with the source's value.", [this.location(source), this.location(parameter)]),
+      "proven",
+    );
+  }
+
+  /** The values a framework call moves (`FRAMEWORK_FLOWS`), and an accessor call of a value one made. */
+  private connectFrameworkFlow(node: TypeScript.CallExpression, callId: string, ownerId: string | null): void {
+    const relate = (from: TypeScript.Expression, to: string, detail: string) => this.addRelation(
+      this.expression(from, ownerId), to, "framework-flow", [this.location(from)], frameworkState(detail, this.location(node)), "proven",
+    );
+    const accessor = this.ts.isIdentifier(node.expression) ? resolveValue(this.ts, this.checker, node.expression)?.origin : null;
+    if (accessor && this.ts.isCallExpression(accessor)) {
+      const made = importedCallee(this.ts, this.checker, accessor.expression);
+      const holderId = made && ACCESSOR_FACTORIES.has(`${made.module}#${made.name}`) ? this.variablesBySymbol.get(this.symbolId(node.expression) ?? "") : undefined;
+      if (holderId) this.addRelation(holderId, callId, "accessor-call", [this.location(node)], frameworkState("Calling the accessor yields the value its factory computes.", this.location(node)), "proven");
+    }
+    const imported = importedCallee(this.ts, this.checker, node.expression);
+    const flow = imported ? FRAMEWORK_FLOWS[imported.module]?.[imported.name] : undefined;
+    if (!flow) return;
+    const argument = (index: number) => (node.arguments[index] ? unwrap(this.ts, node.arguments[index]) : undefined);
+    const passed = flow.passes === "*" ? node.arguments.map((_, index) => index) : flow.passes ?? [];
+    for (const index of passed) {
+      const value = argument(index);
+      if (value) relate(value, callId, "The framework call yields a value carrying this argument.");
+    }
+    // A source that is a value, not a function (`on(count, …)`): what it is reaches the callback now; a function's returns reach it after collection.
+    const source = flow.source !== undefined ? argument(flow.source) : undefined;
+    const parameterId = flow.callback !== undefined ? this.firstParameterId(argument(flow.callback)) : undefined;
+    if (source && parameterId && !this.ts.isArrowFunction(source) && !this.ts.isFunctionExpression(source)) relate(source, parameterId, "The framework calls the callback with the source's value.");
   }
 
   protected processCall(
@@ -163,6 +216,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     );
     const target = this.targetFunction(node.expression);
     this.calls.push({ node, id: callId, target, ownerId });
+    this.connectFrameworkFlow(node, callId, ownerId);
     if (target) {
       this.addRelation(
         callId,
@@ -184,6 +238,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         "The computed callee cannot be compiler-resolved.",
         node.expression,
       );
+    } else if (namesSeveralValues(this.ts, this.checker, node.expression)) {
+      this.gap(callId, "forward", "dynamic-dispatch", "The callee is one of several in-project values (a union): the call is not paired with one.", node.expression);
     } else if (
       !this.symbolId(node.expression) &&
       !isKnownGlobal(calleeName(this.ts, node.expression))
@@ -403,6 +459,10 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (!this.ts.isCallExpression(call.node)) return;
     this.connectExternalCallbacks(call, call.node);
     if (!discardsValue(this.ts, call.node)) return;
+    // A member the project declares keeps what is put into it (`this.items.set(key, value)`): its reads see it.
+    const method = unwrap(this.ts, call.node.expression);
+    const receiver = this.ts.isPropertyAccessExpression(method) ? unwrap(this.ts, method.expression) : null;
+    if (receiver && this.ts.isPropertyAccessExpression(receiver)) this.addMemberWrite(receiver, call.id);
     // The receiver's root name: `rows` in `rows.push(row)`, `section` in `section.rows.push(row)`.
     let root = unwrap(this.ts, call.node.expression);
     if (!this.ts.isPropertyAccessExpression(root)) return;
@@ -414,7 +474,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (!declaration || !this.ts.isVariableDeclaration(declaration) || scope(declaration) !== scope(call.node)) return;
     const bindingId = this.variablesBySymbol.get(this.symbolId(root) ?? "");
     if (!bindingId) return;
-    this.addRelation(call.id, bindingId, "references", [this.location(call.node), this.location(root)], assumedProof(`Assumed: ${calleeName(this.ts, call.node.expression)} has no source to read and its value is discarded, so its arguments are kept in its receiver.`, [this.location(call.node), this.location(root)]), "partial");
+    const [kept, keptStatus] = this.libraryProof(call.node, `${calleeName(this.ts, call.node.expression)}'s value is discarded, so its arguments are kept in its receiver.`, [this.location(call.node), this.location(root)]);
+    this.addRelation(call.id, bindingId, "references", [this.location(call.node), this.location(root)], kept, keptStatus);
   }
 
   /**
@@ -427,6 +488,27 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
    * the call's value. Both are assumed, so both are `partial`.
    */
   private connectExternalCallbacks(call: CollectorCallInfo, node: TypeScript.CallExpression): void {
+    // A framework call whose flow is modelled (`FRAMEWORK_FLOWS`) needs no assumption.
+    const imported = importedCallee(this.ts, this.checker, node.expression);
+    const flow = imported ? FRAMEWORK_FLOWS[imported.module]?.[imported.name] : undefined;
+    if (flow) {
+      // What a function argument returns goes where the flow says: the call's value, or the callback's parameter.
+      const returnsOf = (index: number | undefined) => {
+        const fn = index !== undefined && node.arguments[index] ? unwrap(this.ts, node.arguments[index]) : undefined;
+        const info = fn ? this.functionsByNode.get(nodeKey(this.root, fn)) : undefined;
+        return { fn, ids: info ? this.returnsByFunction.get(info.id) ?? [] : [] };
+      };
+      const result = returnsOf(flow.returns);
+      for (const returnId of result.ids) {
+        this.addRelation(returnId, call.id, "framework-flow", [this.location(result.fn!)], frameworkState("The framework call yields what its callback returns.", this.location(node)), "proven");
+      }
+      const source = returnsOf(flow.source);
+      const parameterId = flow.callback !== undefined ? this.firstParameterId(node.arguments[flow.callback] && unwrap(this.ts, node.arguments[flow.callback])) : undefined;
+      for (const returnId of parameterId ? source.ids : []) {
+        this.addRelation(returnId, parameterId!, "framework-flow", [this.location(source.fn!)], frameworkState("The framework calls the callback with what the source returns.", this.location(node)), "proven");
+      }
+      return;
+    }
     const callee = calleeName(this.ts, node.expression);
     const calleeNode = unwrap(this.ts, node.expression);
     const receiver = this.ts.isPropertyAccessExpression(calleeNode) ? calleeNode.expression : null;
@@ -445,11 +527,13 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
           const binding = firstBindingIdentifier(this.ts, parameter.name);
           const parameterId = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
           if (!parameterId || !this.checker.isTypeAssignableTo(element, this.checker.getTypeAtLocation(parameter))) continue;
-          this.addRelation(receiverId, parameterId, "callback-parameter", [this.location(receiver), this.location(parameter)], assumedProof(`Assumed: ${callee} has no source to read, so it is taken to call this function with ${receiver.getText()}${element === receiverType ? "" : "'s elements"}.`, [this.location(receiver), this.location(parameter)]), "partial");
+          const [called, calledStatus] = this.libraryProof(node, `${callee} calls this function with ${receiver.getText()}${element === receiverType ? "" : "'s elements"}.`, [this.location(receiver), this.location(parameter)]);
+          this.addRelation(receiverId, parameterId, "callback-parameter", [this.location(receiver), this.location(parameter)], called, calledStatus);
         }
       }
       for (const returnId of this.returnsByFunction.get(info.id) ?? []) {
-        this.addRelation(returnId, call.id, "return-value", where, assumedProof(`Assumed: ${callee} has no source to read, so its value is taken to derive from what this function returns.`, where), "partial");
+        const [derived, derivedStatus] = this.libraryProof(node, `${callee}'s value derives from what this function returns.`, where);
+        this.addRelation(returnId, call.id, "return-value", where, derived, derivedStatus);
       }
     }
   }
@@ -564,3 +648,4 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     );
   }
 }
+

@@ -1,0 +1,14 @@
+{
+  "id": "10720aaa-170b-407f-aa1d-86bee4527884",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:62e9d1",
+    "label": "Agent token ...62e9d1"
+  },
+  "createdAt": "2026-10-27T01:48:45.144Z",
+  "summary": "Set \"TypeScript words and 404s on a Python root\" priority to high.",
+  "nodeIds": [
+    "task-typescript-words-and-404s-on-a-python-root"
+  ]
+}

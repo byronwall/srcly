@@ -1,14 +1,16 @@
+import { slugify } from "slug-kit";
+
 // Values handed to calls with no source in the program. `names.push(...)`
 // throws its value away, so its argument can only stay in `names`: it
-// reaches the binding, as an assumption (partial). `kept.concat(...)` keeps
+// reaches the binding, modelled as the standard library. `kept.concat(...)` keeps
 // its value, so its argument goes to `more`, never into `kept`. The
 // collection method `find` names its result apart from the call; that
 // result is the call's own value, so it reaches `first`.
 export function Roster(props: { tags: string[] }) {
-  const names: string[] = []; // @edge pushed references partial external-call
-  names.push(props.tags[0]); // @trace pushed forward props.tags[0] @outcome pushed partial
+  const names: string[] = []; // @edge pushed references proven standard-library
+  names.push(props.tags[0]); // @trace pushed forward props.tags[0] @outcome pushed ok
   const kept: string[] = []; // @never-reaches concat * "kept"
-  const more = kept.concat(props.tags); // @trace concat forward props.tags @edge concat argument partial @no-edge concat !argument partial
+  const more = kept.concat(props.tags); // @trace concat forward props.tags @edge concat argument proven standard-library @no-edge concat * partial
   const first = props.tags.find((tag) => tag.length > 1); // @trace found forward props.tags.find((tag) => tag.length > 1) @outcome found ok @visits found call-result
   return (
     <p title={first}> {/* @reaches found dom-terminal "first" */}
@@ -23,4 +25,12 @@ export function Roster(props: { tags: string[] }) {
 const log: string[] = []; // @never-reaches logged * "log"
 export function record(entry: string) {
   log.push(entry); // @trace logged forward entry @stop logged external-code * "log.push" @never-reaches logged * "log"
+}
+
+// Library code that is not the standard library has no source to read and no
+// model: its value is assumed to derive from its argument, so the trace is
+// `partial` and names the assumption.
+export function Slug(props: { title: string }) {
+  const slug = slugify(props.title); // @trace slug forward props.title @outcome slug partial @edge slug argument partial external-call @reaches slug external-effect
+  return <a href={slug}>{props.title}</a>; // @reaches slug dom-terminal
 }

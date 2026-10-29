@@ -23,7 +23,7 @@ const boxLabelled = (page: Page, label: string) => page.locator(`[data-box][data
 
 test.describe("Data flow on solid-route", () => {
   test("route graph: picker, origin select, reach and the inspector", async ({ page }) => {
-    await page.goto(url({ view: "graph", flow: "/records" }));
+    await page.goto(url({ view: "graph", flow: "/records", lens: "components" }));
     // The backbone may draw first; the complete graph is the one with origins.
     await expect(status(page)).toContainText("7 occurrences", { timeout: 90_000 });
     await expect(status(page)).toContainText("4 origins", { timeout: 90_000 });
@@ -60,8 +60,22 @@ test.describe("Data flow on solid-route", () => {
     await expect(inspector).toHaveAttribute("aria-pressed", "true");
   });
 
-  test("anchor from the code viewer: trace where a prop read goes", async ({ page }) => {
+  test("a page route opens on its component's data, and the lens switch shows its render tree", async ({ page }) => {
     await page.goto(url({ view: "graph", flow: "/records" }));
+    await expect(page).toHaveURL(/anchor=.*RecordsRoute.*dir=forward/);
+    await expect(status(page)).toContainText("downstream", { timeout: 90_000 });
+    const lens = page.getByRole("radiogroup", { name: "Route lens" });
+    await expect(lens.getByRole("radio", { name: "Data" })).toHaveAttribute("aria-checked", "true");
+    await shot(page, "route-data");
+    await lens.getByRole("radio", { name: "Components" }).click();
+    await expect(page).toHaveURL(/lens=components/);
+    await expect(status(page)).toContainText("7 occurrences", { timeout: 90_000 });
+    await page.getByRole("radiogroup", { name: "Route lens" }).getByRole("radio", { name: "Data" }).click();
+    await expect(page).toHaveURL(/anchor=.*RecordsRoute/);
+  });
+
+  test("anchor from the code viewer: trace where a prop read goes", async ({ page }) => {
+    await page.goto(url({ view: "graph", flow: "/records", lens: "components" }));
     await expect(status(page)).toContainText("7 occurrences", { timeout: 90_000 });
     // Double-click opens the box's code in the viewer: the render slot sits in ViewerCard.tsx.
     await boxLabelled(page, "props.viewer?.name").dblclick();
@@ -94,7 +108,7 @@ test.describe("Data flow on solid-route", () => {
   });
 
   test("a lit edge, clicked, lists its steps in order in the inspector", async ({ page }) => {
-    await page.goto(url({ view: "graph", flow: "/records" }));
+    await page.goto(url({ view: "graph", flow: "/records", lens: "components" }));
     await expect(status(page)).toContainText("occurrences", { timeout: 90_000 });
     await page.getByLabel("Origin whose proven destinations light up").selectOption({ label: "createResource(loadViewer)" });
     await expect(page.getByText(/reaches \d+ proven/)).toBeVisible({ timeout: 90_000 });
@@ -115,7 +129,7 @@ test.describe("Data flow on solid-route", () => {
   });
 
   test("Return restores the place as it was left: camera, selection, metric", async ({ page }) => {
-    await page.goto(url({ view: "graph", flow: "/records" }));
+    await page.goto(url({ view: "graph", flow: "/records", lens: "components" }));
     await expect(status(page)).toContainText("7 occurrences", { timeout: 90_000 });
     const svg = page.getByLabel("Dependency graph");
     const camera = svg.locator("> g[transform]").first();
@@ -167,19 +181,23 @@ test.describe("Data flow on solid-route", () => {
     await expect(status(page)).toContainText("downstream", { timeout: 90_000 });
     // The route picker is an in-app move: a second place in this tab.
     await page.getByRole("button", { name: "Routes", exact: true }).filter({ hasText: /^Routes$/ }).first().click();
+    // A page route opens on its component's data; its render tree is one click away.
     await page.getByRole("dialog", { name: "Pick a route" }).getByRole("option", { name: /\/records/ }).click();
+    await expect(page).toHaveURL(/anchor=.*RecordsRoute/);
+    await page.getByRole("radiogroup", { name: "Route lens" }).getByRole("radio", { name: "Components" }).click();
     await expect(status(page)).toContainText("7 occurrences", { timeout: 90_000 });
     await page.getByRole("button", { name: "Recent anchors and routes" }).click();
     const menu = page.getByRole("menu", { name: "Recent anchors and routes" });
     await expect(menu).toBeVisible();
     const items = menu.getByRole("menuitem");
-    await expect(items).toHaveCount(2);
+    await expect(items).toHaveCount(3);
     await expect(items.nth(0)).toContainText("/records");
-    await expect(items.nth(1)).toContainText("ViewerCard");
-    await expect(items.nth(1)).toContainText("to");
-    await expect(items.nth(1)).toContainText("src/components/ViewerCard.tsx");
+    await expect(items.nth(1)).toContainText("RecordsRoute");
+    await expect(items.nth(2)).toContainText("ViewerCard");
+    await expect(items.nth(2)).toContainText("to");
+    await expect(items.nth(2)).toContainText("src/components/ViewerCard.tsx");
     await shot(page, "recent-menu");
-    await items.nth(1).click();
+    await items.nth(2).click();
     await expect(page).toHaveURL(/anchor=.*ViewerCard/);
     await expect(status(page)).toContainText("downstream", { timeout: 90_000 });
     // Forward and Return walk the same history.
@@ -267,7 +285,7 @@ test.describe("Field labels on compact-field-proof", () => {
   const COMPACT = path.resolve(here, "../../engine/examples/compact-field-proof");
 
   test("no field label covers a box (T22)", async ({ page }) => {
-    await page.goto(`/?${new URLSearchParams({ repo: COMPACT, view: "graph", flow: "/projects" })}`);
+    await page.goto(`/?${new URLSearchParams({ repo: COMPACT, view: "graph", flow: "/projects", lens: "components" })}`);
     await expect(status(page)).toContainText("occurrences", { timeout: 180_000 });
     await expect(status(page)).toContainText("origins", { timeout: 180_000 });
     const origin = page.getByLabel("Origin whose proven destinations light up");
@@ -295,7 +313,7 @@ test.describe("Stale sources", () => {
     const file = path.join(REPO, "src/components/MetricCard.tsx");
     const original = fs.readFileSync(file, "utf8");
     try {
-      await page.goto(url({ view: "graph", flow: "/records" }));
+      await page.goto(url({ view: "graph", flow: "/records", lens: "components" }));
       await expect(status(page)).toHaveAttribute("data-generation", "1", { timeout: 90_000 });
       await expect(page.getByRole("status").filter({ hasText: "Source changed" })).toBeHidden();
       // Touch a source file the route's program includes.
@@ -320,7 +338,7 @@ test.describe("Data flow in dark mode", () => {
   test.use({ colorScheme: "dark" });
 
   test("the route graph and its legend render under prefers-color-scheme: dark", async ({ page }) => {
-    await page.goto(url({ view: "graph", flow: "/records" }));
+    await page.goto(url({ view: "graph", flow: "/records", lens: "components" }));
     await expect(status(page)).toContainText("7 occurrences", { timeout: 90_000 });
     await page.getByRole("button", { name: "Show legend" }).click().catch(() => undefined);
     await shot(page, "route-graph-dark");
