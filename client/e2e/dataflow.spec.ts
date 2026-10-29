@@ -76,6 +76,10 @@ test.describe("Data flow on solid-route", () => {
 
   test("a route's data trace draws its own component and folds each other component into one box that opens in place", async ({ page }) => {
     await page.goto(url({ view: "graph", flow: "/records" }));
+    // Every step the engine walked: the symbol view's first screen fits without folding.
+    await expect(page.getByRole("radio", { name: "Steps" })).toBeVisible({ timeout: 90_000 });
+    await page.getByRole("radio", { name: "Steps" }).click();
+    await expect(page).toHaveURL(/model=steps/);
     await expect(status(page)).toContainText("components folded", { timeout: 90_000 });
     // The route's own frame is drawn: its resource and what it renders.
     await expect(boxLabelled(page, "createResource(loadViewer)")).toBeVisible();
