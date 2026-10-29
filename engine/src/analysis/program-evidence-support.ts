@@ -235,10 +235,13 @@ export function isFrameworkCall(module: string, name: string) {
 }
 
 /** A response method on a receiver named like a server response (`res.json`, `reply.send`): a convention, not a library member. */
-export function isHttpResponse(ts: typeof TypeScript, node: TypeScript.CallExpression) {
+export function isHttpResponse(ts: typeof TypeScript, node: TypeScript.CallExpression, checker?: TypeScript.TypeChecker) {
   const receiver = thisReceiver(ts, node.expression);
   const name = ts.isPropertyAccessExpression(node.expression) ? node.expression.name.text : "";
-  return Boolean(receiver && /^(end|json|send|write|writeHead|redirect)$/.test(name) && /^(res|response|reply)$/i.test(receiver.getText()));
+  if (!receiver || !/^(end|json|send|write|writeHead|redirect)$/.test(name) || !/^(res|response|reply)$/i.test(receiver.getText())) return false;
+  // `response.json()` on a `fetch` result reads the body: the browser's own `Response` is what came back, not what the program sends.
+  const type = checker && ts.isPropertyAccessExpression(node.expression) ? checker.getTypeAtLocation(node.expression.expression).getSymbol() : undefined;
+  return !(type?.getName() === "Response" && type.declarations?.some((declaration) => declaration.getSourceFile().hasNoDefaultLib));
 }
 
 export function isEffectName(name: string) {

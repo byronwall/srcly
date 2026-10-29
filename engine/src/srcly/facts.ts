@@ -150,7 +150,9 @@ function namesCallee(tier1: Tier1, element: Pick<ProgramElement, "location">): b
 }
 
 /** The note on a value the code ends in place, by how it ends there. */
-export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: "ends here · written, not read", key: "ends here · picks a field", discard: "ends here · its result is not used" };
+const TIMERS = new Set(["setTimeout", "setInterval", "setImmediate", "queueMicrotask", "requestAnimationFrame", "requestIdleCallback"]);
+
+export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: "ends here · written, not read", key: "ends here · picks a field", discard: "ends here · its result is not used", schedule: "ends here · the callback runs later" };
 
 /**
  * How the code ends the value at this element where it is used, without
@@ -171,6 +173,8 @@ export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "locatio
   while (node?.parent && (ts.isParenthesizedExpression(node.parent) || ts.isAsExpression(node.parent) || ts.isNonNullExpression(node.parent) || ts.isSatisfiesExpression(node.parent))) node = node.parent;
   const parent = node?.parent;
   if (!node || !parent) return null;
+  // A timer (`setTimeout(() => …)`) runs the function it is given later; what reaches the call is that function, not data it hands on.
+  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && TIMERS.has(node.expression.text) && isStandardLibraryCallee(ts, tier1.program.getTypeChecker(), node.expression)) return "schedule";
   if (ts.isBinaryExpression(parent) && parent.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && parent.operatorToken.kind <= ts.SyntaxKind.LastAssignment) return parent.left === node ? "write" : null;
   const updates = (ts.isPrefixUnaryExpression(parent) || ts.isPostfixUnaryExpression(parent)) && (parent.operator === ts.SyntaxKind.PlusPlusToken || parent.operator === ts.SyntaxKind.MinusMinusToken);
   if (updates || ts.isDeleteExpression(parent)) return "write";
