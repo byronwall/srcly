@@ -35,6 +35,82 @@ export interface NodeDetails {
   structural: number;
 }
 
+export interface GapPlace {
+  label: string;
+  file?: string;
+  absPath?: string;
+  line?: number;
+}
+
+/** Gaps of one kind, said once: what happened in a developer's words, the names it hit, and every place. */
+export interface GapGroup {
+  title: string;
+  hint: string;
+  names: string[];
+  places: GapPlace[];
+}
+
+/**
+ * The engine's gap sentences, by pattern: each match is one group whose
+ * capture is a name it lists. A gap no pattern matches keeps its own words.
+ */
+const GAP_WORDS: { pattern: RegExp; title: string; hint: string }[] = [
+  {
+    pattern: /^(?:Element|Terminal|Depth|Relation) limit reached before (.+)\.$/s,
+    title: "Not drawn: past the size limit",
+    hint: "The render tree is larger than srcly walks for one route, so these places are left out. The Data lens traces the route's values instead.",
+  },
+  {
+    pattern: /^The (.+) definition is outside the route source scope\.$/s,
+    title: "Library components, not opened",
+    hint: "They come from a package or a generated folder, so srcly draws them without looking inside.",
+  },
+  {
+    pattern: /^The (.+) definition has no render declaration\.$/s,
+    title: "Components with no body to read",
+    hint: "srcly found the name but no function that renders it: a re-export, a styled factory or a type.",
+  },
+  {
+    pattern: /^<(.+)> receives spread props, so child ownership is not fully proven\.$/s,
+    title: "Spread props: children not proven",
+    hint: "The component takes {...props}, so which children it renders is not proven.",
+  },
+  {
+    pattern: /^<(.+)> has dynamic framework ownership\.$/s,
+    title: "Picked at run time: children not proven",
+    hint: "The component to render is chosen while the app runs, so srcly cannot say what it renders.",
+  },
+  {
+    pattern: /^Provider identity at (.+) is not compiler-resolved to one createContext declaration\.$/s,
+    title: "Context provider with no single context",
+    hint: "srcly cannot tell which createContext this provider gives a value for.",
+  },
+  {
+    pattern: /^No Provider occurrence reaches context consumer .+?, and no statically proven createContext default exists\.$/s,
+    title: "Context read with no provider above it",
+    hint: "No provider renders above this read, and the context has no default srcly can read.",
+  },
+  {
+    pattern: /^The selected evidence id has no exact filesystem input element\.$/s,
+    title: "The picked origin's fields are not traced",
+    hint: "Field lineage starts only at a value read from one place in the project, such as a file or a request.",
+  },
+];
+
+export function groupGaps(gaps: RouteGraphResult["gaps"], absRoot?: string): GapGroup[] {
+  const groups = new Map<string, GapGroup>();
+  for (const g of gaps) {
+    const words = GAP_WORDS.find((w) => w.pattern.test(g.label));
+    const name = words?.pattern.exec(g.label)?.[1];
+    const key = words?.title ?? `${g.reason}|${g.label}`;
+    const group = groups.get(key) ?? { title: words?.title ?? g.label, hint: words?.hint ?? STOP_REASONS[g.reason]?.hint ?? "", names: [], places: [] };
+    if (name && !group.names.includes(name)) group.names.push(name);
+    group.places.push({ label: name ?? g.label, ...(g.location ? { file: g.location.file, absPath: absRoot ? `${absRoot}/${g.location.file}` : undefined, line: g.location.line } : {}) });
+    groups.set(key, group);
+  }
+  return [...groups.values()].sort((a, b) => b.places.length - a.places.length);
+}
+
 export interface RouteOverview {
   pathPattern: string;
   file: string;
@@ -44,7 +120,7 @@ export interface RouteOverview {
   unavailableReason: string | null;
   generation: number;
   counts: RouteGraphResult["counts"] & { folded: number };
-  gaps: { reason: string; label: string; file?: string; absPath?: string; line?: number }[];
+  gaps: GapGroup[];
   origins: { id: string; label: string; roles: string; status: RouteGraphResult["origins"][number]["status"]; reaches: number }[];
 }
 
@@ -149,11 +225,7 @@ export function routeOverview(graph: RouteGraphResult, m: FlowViewModel, absRoot
     unavailableReason: graph.unavailableReason,
     generation: graph.generation,
     counts: { ...graph.counts, folded: m.vm.rolledUp },
-    gaps: graph.gaps.map((g) => ({
-      reason: g.reason,
-      label: g.label,
-      ...(g.location ? { file: g.location.file, absPath: absRoot ? `${absRoot}/${g.location.file}` : undefined, line: g.location.line } : {}),
-    })),
+    gaps: groupGaps(graph.gaps, absRoot),
     origins: graph.origins.map((o) => ({ id: o.nodeId, label: o.label, roles: humanizeDetail(o.roles.join(" · ")) ?? "", status: o.status, reaches: reaches.get(o.nodeId) ?? 0 })),
   };
 }

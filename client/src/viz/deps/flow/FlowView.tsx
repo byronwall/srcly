@@ -327,6 +327,8 @@ export default function FlowView(props: {
   let canvas: CanvasApi | undefined;
   let host!: HTMLDivElement;
   let pendingAnchor: string | null = null;
+  /** An origin was picked: layouts keep the camera until its graph arrives, so the canvas does not jump. The same boxes lay out the same. */
+  let holdCamera = false;
   // ---- view state (T17): what Return restores that the URL does not carry ----
   /** A camera for the next layout instead of a fit: the one the place was left with, for that place's URL only. */
   let restoreCamera: { camera: Camera; search: string } | null = null;
@@ -348,7 +350,10 @@ export default function FlowView(props: {
   const cameraForLayout = () => {
     const held = restoreCamera;
     restoreCamera = null;
-    return held && held.search === window.location.search ? held.camera : null;
+    if (held && held.search === window.location.search) return held.camera;
+    if (!holdCamera) return null;
+    if ((drawnGraph()?.selectedSource ?? undefined) === field()) holdCamera = false;
+    return canvas?.getCamera() ?? null;
   };
   const [anchor, setAnchor] = createSignal<string | null>(null);
 
@@ -418,6 +423,7 @@ export default function FlowView(props: {
   };
   /** Pick an origin (or clear it): its proven destinations light up. No Back step. */
   const pickOrigin = (id: string | undefined) => {
+    holdCamera = true;
     setSelected(null);
     replace({ field: id, dest: undefined });
   };
@@ -439,7 +445,8 @@ export default function FlowView(props: {
       : `${name} reaches no proven render site`;
     const lineage = g.lineage;
     if (!lineage) return reach;
-    if (lineage.status === "unavailable") return `${reach} · field lineage N/A: ${lineage.unavailableReason ?? "unavailable"}`;
+    // The engine's reason names its proof ("no unique compiler-backed filesystem origin"); say what it means.
+    if (lineage.status === "unavailable") return `${reach} · its fields are not traced: it does not start from one place in this project`;
     return `${reach} · ${lineage.fields} field${lineage.fields === 1 ? "" : "s"}${lineage.frontiers ? `, ${lineage.frontiers} stop at frontiers` : ""}`;
   };
   /** The selected box's reach, for the status line. */
@@ -523,7 +530,9 @@ export default function FlowView(props: {
       }
       const c = a.counts;
       const folded = m.vm.rolledUp ? ` · ${m.vm.rolledUp} repeated reference${m.vm.rolledUp === 1 ? "" : "s"} folded` : "";
-      return `${c.up} upstream · ${c.down} downstream · ${c.scopes} function${c.scopes === 1 ? "" : "s"}${folded}`;
+      const shut = m.vm.nodes.filter((n) => n.expandable).length;
+      const components = shut ? ` · ${shut} component${shut === 1 ? "" : "s"} folded` : "";
+      return `${c.up} upstream · ${c.down} downstream · ${c.scopes} function${c.scopes === 1 ? "" : "s"}${components}${folded}`;
     }
     const g = drawnGraph();
     if (!m || !g) return "";

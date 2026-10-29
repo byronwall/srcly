@@ -1135,6 +1135,7 @@ export function DependencyCanvas(props: {
                 <g
                   data-box={n.id}
                   data-label={n.node.label}
+                  data-expandable={n.node.expandable ? "" : undefined}
                   class={flight ? "dv-fly" : undefined}
                   style={{
                     ...(flight?.delay ? { "animation-delay": `${flight.delay}ms` } : {}),

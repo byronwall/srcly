@@ -1,0 +1,14 @@
+{
+  "id": "5e78122d-c8fe-4147-91ef-8f7e9ad0aa67",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:de6a5c",
+    "label": "Agent token ...de6a5c"
+  },
+  "createdAt": "2026-10-29T02:14:53.184Z",
+  "summary": "Deleted \"Components lens gap list repeats and uses engine words\".",
+  "nodeIds": [
+    "task-components-lens-gap-list-repeats-and-uses-engine-words"
+  ]
+}

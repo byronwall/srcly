@@ -7,7 +7,7 @@ import { Button } from "../../../components/ui/Button";
 import { IconButton } from "../../../components/ui/IconButton";
 import type { FlowBox, FlowViewModel } from "./adapter";
 import { FlowMarkGlyph } from "./FlowMark";
-import { anchorOverview, nodeDetails, routeOverview, STATUS_WORD, type AnchorOverview, type NeighborRow } from "./inspectorModel";
+import { anchorOverview, nodeDetails, routeOverview, STATUS_WORD, type AnchorOverview, type GapGroup, type GapPlace, type NeighborRow } from "./inspectorModel";
 import { FLOW_MARKS, REPETITION_BADGE, STOP_REASONS, type FlowMark } from "./marks";
 import type { Reach } from "./reach";
 import { createEffectsQuery, EffectsPanel } from "../../../dataflow/EffectsPanel";
@@ -254,6 +254,41 @@ export function FlowInspector(props: {
   );
 }
 
+/** One kind of gap: its words and count; a repeated one opens to list its places. */
+function GapRow(props: { g: GapGroup; onOpen: (absPath: string, line: number) => void }) {
+  const g = () => props.g;
+  const place = (p: GapPlace, text: string) => (
+    <button type="button" class={`${ROW} text-[10.5px]`} disabled={!p.absPath} onClick={() => p.absPath && p.line && props.onOpen(p.absPath, p.line)} title={p.absPath ? "Open in the code viewer" : undefined}>
+      <span class="min-w-0 truncate text-[var(--plc-on-surface)]">{text}</span>
+      <Show when={p.file}>
+        <span class="ml-auto shrink-0 text-[var(--plc-on-subtle)]">
+          {baseName(p.file!)}:{p.line}
+        </span>
+      </Show>
+    </button>
+  );
+  const names = () => (g().names.length > 6 ? `${g().names.slice(0, 6).join(", ")}, …` : g().names.join(", "));
+  return (
+    <li data-gap-group={g().title} data-gap-count={g().places.length}>
+      <Show when={g().places.length > 1} fallback={<div title={g().hint}>{place(g().places[0], g().names.length ? `${g().title}: ${g().names[0]}` : g().title)}</div>}>
+        <details>
+          <summary class={`${ROW} cursor-pointer`} title={g().hint}>
+            <span class="min-w-0 truncate text-[var(--plc-on-surface)]">{g().title}</span>
+            <span class="ml-auto shrink-0 tabular-nums text-[10.5px] text-[var(--plc-warning)]">×{g().places.length}</span>
+          </summary>
+          <p class="px-1 pb-0.5 text-[10.5px] text-[var(--plc-on-subtle)]">
+            {g().hint}
+            <Show when={g().names.length}> {names()}</Show>
+          </p>
+          <ul class="pl-3">
+            <For each={g().places}>{(p) => <li>{place(p, p.label)}</li>}</For>
+          </ul>
+        </details>
+      </Show>
+    </li>
+  );
+}
+
 function Overview(props: { o: ReturnType<typeof routeOverview>; onOpen: (absPath: string, line: number) => void; onPickOrigin: (id: string | undefined) => void }) {
   const o = () => props.o;
   const status = () => (o().status === "complete" ? "proven" : o().status === "partial" ? "partial" : "unsupported") as "proven" | "partial" | "unsupported";
@@ -301,32 +336,10 @@ function Overview(props: { o: ReturnType<typeof routeOverview>; onOpen: (absPath
       </ul>
       <Show when={o().gaps.length}>
         <h4 class={H}>
-          Gaps <span class="font-normal normal-case tracking-normal text-[var(--plc-on-subtle)]">· where the engine could not follow</span>
+          Gaps <span class="font-normal normal-case tracking-normal text-[var(--plc-on-subtle)]">· where srcly could not follow</span>
         </h4>
         <ul>
-          <For each={o().gaps}>
-            {(g) => (
-              <li>
-                <button
-                  type="button"
-                  class={`${ROW} flex-col !items-start gap-0`}
-                  disabled={!g.absPath}
-                  onClick={() => g.absPath && g.line && props.onOpen(g.absPath, g.line)}
-                  title={g.absPath ? "Open in the code viewer" : undefined}
-                >
-                  <span class="text-[var(--plc-on-surface)]">{g.label}</span>
-                  <span class="text-[10.5px] text-[var(--plc-warning)]">
-                    {g.reason}
-                    <Show when={g.file}>
-                      <span class="text-[var(--plc-on-subtle)]">
-                        {" "}· {g.file}:{g.line}
-                      </span>
-                    </Show>
-                  </span>
-                </button>
-              </li>
-            )}
-          </For>
+          <For each={o().gaps}>{(g) => <GapRow g={g} onOpen={props.onOpen} />}</For>
         </ul>
       </Show>
     </>

@@ -5,7 +5,7 @@ import { routeGraphToViewModel } from "./adapter";
 import anchorFixture from "../../../../../engine/test/srcly/__fixtures__/solid-route.anchor-graph.json";
 import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
 import { anchorGraphToViewModel } from "./anchorAdapter";
-import { anchorOverview, markOfBox, nodeDetails, routeOverview } from "./inspectorModel";
+import { anchorOverview, groupGaps, markOfBox, nodeDetails, routeOverview } from "./inspectorModel";
 
 const graph = fixture as unknown as RouteGraphResult;
 const m = routeGraphToViewModel(graph);
@@ -16,12 +16,34 @@ describe("route overview", () => {
     const o = routeOverview(graph, m, "/root");
     expect(o.pathPattern).toBe("/records");
     expect(o.counts).toMatchObject({ occurrences: 7, boundaries: 3, terminals: 18, origins: 4, handoffs: 3, folded: 0 });
-    expect(o.gaps.length).toBe(graph.gaps.length);
-    for (const g of o.gaps) expect(g.reason).toBeTruthy();
+    expect(o.gaps.reduce((a, g) => a + g.places.length, 0)).toBe(graph.gaps.length);
+    for (const g of o.gaps) expect(g.title).toBeTruthy();
     const viewer = o.origins.find((x) => x.label === "createResource(loadViewer)")!;
     expect(viewer.reaches).toBe(3);
     expect(viewer.roles).toBe("resource");
     expect(o.origins.find((x) => x.label.startsWith("fetch"))!.roles).toContain("fetch");
+  });
+});
+
+describe("route gaps", () => {
+  const at = (file: string, line: number) => ({ file, line, column: 1, span: { startLine: line, startColumn: 1, endLine: line, endColumn: 2 } });
+  it("says each kind of gap once, in plain words, with its count, names and places", () => {
+    const gaps = [
+      ...Array.from({ length: 3 }, (_, i) => ({ reason: "budget-exhausted", label: "Element limit reached before Text.", location: at("a.tsx", i + 1) })),
+      { reason: "budget-exhausted", label: "Terminal limit reached before Text.", location: at("a.tsx", 9) },
+      { reason: "external-code", label: "The Box definition is outside the route source scope.", location: at("b.tsx", 4) },
+      { reason: "external-code", label: "The Stack definition is outside the route source scope.", location: at("b.tsx", 5) },
+      { reason: "missing-provider", label: "No Provider occurrence reaches context consumer x.", location: null },
+    ];
+    const groups = groupGaps(gaps as RouteGraphResult["gaps"], "/root");
+    expect(groups.map((g) => [g.title, g.places.length])).toEqual([
+      ["Not drawn: past the size limit", 4],
+      ["Library components, not opened", 2],
+      ["No Provider occurrence reaches context consumer x.", 1],
+    ]);
+    expect(groups[1].names).toEqual(["Box", "Stack"]);
+    expect(groups[1].places[0]).toEqual({ label: "Box", file: "b.tsx", absPath: "/root/b.tsx", line: 4 });
+    expect(groups.every((g) => !/route source scope|compiler-backed/.test(g.title + g.hint))).toBe(true);
   });
 });
 

@@ -1,0 +1,14 @@
+{
+  "id": "4b18e260-8298-497b-8a87-0d5076d02af2",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:531419",
+    "label": "Agent token ...531419"
+  },
+  "createdAt": "2026-10-29T02:14:50.800Z",
+  "summary": "Deleted \"Route data traces flood the canvas\".",
+  "nodeIds": [
+    "task-route-data-traces-flood-the-canvas"
+  ]
+}
