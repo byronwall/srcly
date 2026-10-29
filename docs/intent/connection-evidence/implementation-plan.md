@@ -6,7 +6,8 @@ Status: planned for review; application implementation is not authorized by this
 ## Complete Pro materials
 
 [All Pro reports and assets](assets/pro-results/README.md) are preserved with this intent entry.
-The package includes all eight reports, figures, mockups, experiment source and results, source register, manifest, and original ZIP.
+The package includes all eight reports, figures, mockups, experiment source and results, source register, and manifest.
+The ZIP container remains in ignored local storage.
 The originals retain their supplied content and directory structure. Use the reviewed plan below for implementation decisions.
 
 ## Outcome and boundary

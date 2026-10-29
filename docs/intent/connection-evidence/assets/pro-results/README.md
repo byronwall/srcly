@@ -39,7 +39,6 @@ Mockups are proposals, not screenshots of implemented features.
 - [Pro's experiment results](assets/experiments/projection-check-results.json)
 - [Machine-readable source register](assets/source-register.json)
 - [Original manifest](manifest.json), covering 30 files; excludes itself and the outer ZIP
-- [Original complete ZIP](srcly-design-research-pr256.zip), containing all 31 original entries
 
 All 31 extracted files match the ZIP. All 30 manifest entries passed byte-count and SHA-256 checks.
-The original ZIP is also preserved without modification.
+The original ZIP remains in ignored local storage. All 31 extracted result files are committed here.

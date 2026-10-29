@@ -36,3 +36,5 @@
 - Integration note: main advanced after the prompt baseline. Reconcile current code before accepting recommendations, including action returns and branch classification fixes.
 - Recovery: inspect the recorded conversation before any resend. A slow response is not a failure.
 - Provenance: assistant-generated research; exclude this run and derivatives from substantive-activity ranking.
+
+- Asset policy update: all 31 extracted result files remain committed. At Byron's request, the ZIP container is removed from the PR and retained only in ignored local storage. The skill now requires original result assets under each intent entry.
