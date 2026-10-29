@@ -10657,6 +10657,62 @@
    "label": null
   }
  ],
+ "links": [
+  {
+   "id": "reads:scope:src/routes/notes/[id].tsx:8:33>program-element:1dhp4q0",
+   "source": "scope:src/routes/notes/[id].tsx:8:33",
+   "target": "program-element:1dhp4q0",
+   "kind": "reads"
+  },
+  {
+   "id": "calls:scope:src/routes/notes/[id].tsx:8:50>scope:src/server/notes.ts:4:1",
+   "source": "scope:src/routes/notes/[id].tsx:8:50",
+   "target": "scope:src/server/notes.ts:4:1",
+   "kind": "calls"
+  },
+  {
+   "id": "calls:scope:src/server/notes.ts:4:1>scope:src/lib/notes.ts:10:1",
+   "source": "scope:src/server/notes.ts:4:1",
+   "target": "scope:src/lib/notes.ts:10:1",
+   "kind": "calls"
+  },
+  {
+   "id": "calls:scope:src/components/NoteView.tsx:9:16>scope:src/server/notes.ts:11:1",
+   "source": "scope:src/components/NoteView.tsx:9:16",
+   "target": "scope:src/server/notes.ts:11:1",
+   "kind": "calls"
+  },
+  {
+   "id": "reads:scope:src/components/NoteView.tsx:9:16>program-element:kfzlap",
+   "source": "scope:src/components/NoteView.tsx:9:16",
+   "target": "program-element:kfzlap",
+   "kind": "reads"
+  },
+  {
+   "id": "reads:scope:src/components/NoteView.tsx:9:16>program-element:1prf2td",
+   "source": "scope:src/components/NoteView.tsx:9:16",
+   "target": "program-element:1prf2td",
+   "kind": "reads"
+  },
+  {
+   "id": "calls:scope:src/components/NoteView.tsx:8:28>scope:src/lib/notes.ts:15:1",
+   "source": "scope:src/components/NoteView.tsx:8:28",
+   "target": "scope:src/lib/notes.ts:15:1",
+   "kind": "calls"
+  },
+  {
+   "id": "reads:scope:src/components/NoteView.tsx:8:28>program-element:kfzlap",
+   "source": "scope:src/components/NoteView.tsx:8:28",
+   "target": "program-element:kfzlap",
+   "kind": "reads"
+  },
+  {
+   "id": "calls:scope:src/lib/notes.ts:10:1>scope:src/lib/notes.ts:5:1",
+   "source": "scope:src/lib/notes.ts:10:1",
+   "target": "scope:src/lib/notes.ts:5:1",
+   "kind": "calls"
+  }
+ ],
  "origins": [],
  "terminals": [
   {

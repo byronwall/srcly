@@ -289,7 +289,7 @@ export default function FlowView(props: {
       if (many) return many.model;
       if (anchorSpecs().length > 1 && !extraAnchors()) return null;
       const a = anchorGraph()?.graph;
-      return a ? anchorGraphToViewModel(a, { expanded: location().open ?? [], model: location().model, depth: location().depth }) : null;
+      return a ? anchorGraphToViewModel(a, { expanded: location().open ?? [], model: location().model, depth: location().depth, links: location().links !== "off" }) : null;
     }
     const g = drawnGraph();
     return g ? routeGraphToViewModel(g, { expanded: location().open ?? [] }) : null;
@@ -493,6 +493,7 @@ export default function FlowView(props: {
         else if (selected()) setSelected(null);
         else pickOrigin(undefined);
       }
+      else if (key === "l" && anchorKey() && !location().model) replace({ links: location().links === "off" ? undefined : "off" });
       else if ((key === "+" || key === "=") && model()?.levels) stepDepth(1);
       else if ((key === "-" || key === "_") && model()?.levels) stepDepth(-1);
       else if (n && (key === "o" || key === "Enter")) n.expandable && n.id.startsWith(STUB_PREFIX) ? toggleOpen(n) : openNode(n);
@@ -617,6 +618,18 @@ export default function FlowView(props: {
             )}
           </For>
           <Show when={model()?.levels}>{(lv) => <DepthControl depth={lv().depth} max={lv().max} onChange={setDepth} />}</Show>
+          <Show when={!location().model}>
+            <Button
+              variant="ghost"
+              class="px-2"
+              aria-pressed={location().links !== "off"}
+              active={location().links !== "off"}
+              title="Thin dotted links for what each function calls, reads and writes (L)"
+              onClick={() => replace({ links: location().links === "off" ? undefined : "off" })}
+            >
+              Links
+            </Button>
+          </Show>
           <DirectionSwitch dir={dir()} onChange={(d) => replace({ dir: d === "both" ? undefined : d })} />
           <ModelSwitch model={location().model ?? "symbols"} onChange={(m) => replace({ model: m === "steps" ? "steps" : undefined, depth: undefined, open: undefined })} />
           <Button variant="ghost" class="px-2" onClick={toRoutes} title="Trace a route instead (/)">

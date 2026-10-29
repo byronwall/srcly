@@ -31,6 +31,9 @@ import { isFlowMark, REPETITION_BADGE } from "./flow/marks";
 /** Symbol view: the value-flow line stands out from calls, reads and context. */
 const BOLD_EDGE_WIDTH = 2;
 const BOLD_EDGE_OPACITY = 0.85;
+/** Symbol view: calls, reads and writes are context, quieter than any value-flow edge. */
+const LINK_EDGE_OPACITY = 0.45;
+const LINK_EDGE_DASH = "1 3";
 
 const LABEL_FONT = "600 12.5px Inter, ui-sans-serif, system-ui, sans-serif";
 const SUBTITLE_FONT = "400 11px Inter, ui-sans-serif, system-ui, sans-serif";
@@ -1062,9 +1065,10 @@ export function DependencyCanvas(props: {
                     <path
                       d={edgePath(e)}
                       stroke={e.edge.style === "structural" ? "var(--plc-on-disabled)" : active() || e.edge.style === "field" ? "var(--plc-accent)" : e.edge.assumed ? "var(--plc-assumed)" : "var(--plc-tertiary)"}
-                      stroke-width={e.edge.style === "structural" ? 1 : e.edge.bold ? BOLD_EDGE_WIDTH : edgeStrokeWidth(e.edge.weight, e.edge.faint)}
-                      stroke-opacity={dimmed() ? 0.12 : lightEdge(e.id) ? 0.4 : e.edge.bold ? BOLD_EDGE_OPACITY : e.edge.faint && !active() ? CONTEXT_EDGE_OPACITY : EDGE_OPACITY}
-                      stroke-dasharray={e.edge.style === "structural" ? STRUCTURAL_EDGE_DASH : e.edge.style === "handoff" ? HANDOFF_EDGE_DASH : e.edge.faint ? CONTEXT_EDGE_DASH : undefined}
+                      stroke-width={e.edge.style === "structural" || e.edge.link ? 1 : e.edge.bold ? BOLD_EDGE_WIDTH : edgeStrokeWidth(e.edge.weight, e.edge.faint)}
+                      stroke-opacity={dimmed() ? 0.12 : lightEdge(e.id) ? 0.4 : e.edge.link && !active() ? LINK_EDGE_OPACITY : e.edge.bold ? BOLD_EDGE_OPACITY : e.edge.faint && !active() ? CONTEXT_EDGE_OPACITY : EDGE_OPACITY}
+                      data-link={e.edge.link}
+                      stroke-dasharray={e.edge.link ? LINK_EDGE_DASH : e.edge.style === "structural" ? STRUCTURAL_EDGE_DASH : e.edge.style === "handoff" ? HANDOFF_EDGE_DASH : e.edge.faint ? CONTEXT_EDGE_DASH : undefined}
                       stroke-linejoin="round"
                       marker-end={active() ? "url(#dv-arrow-active)" : "url(#dv-arrow)"}
                       style={{ transition: "stroke 140ms ease, stroke-opacity 140ms ease" }}
@@ -1093,7 +1097,7 @@ export function DependencyCanvas(props: {
                         setCard(null);
                       }}
                     />
-                    <Show when={e.edge.label && !dimmed() && (labelAt().get(e.id) || hoverEdge() === e.id || e.edge.bold)}>
+                    <Show when={e.edge.label && !dimmed() && (e.edge.link ? hoverEdge() === e.id || active() : labelAt().get(e.id) || hoverEdge() === e.id || e.edge.bold)}>
                       <EdgeLabel edge={e} strong={active()} at={labelAt().get(e.id) ?? null} />
                     </Show>
                   </g>

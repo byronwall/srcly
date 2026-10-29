@@ -53,6 +53,7 @@
     }
   ],
   "generation": 1,
+  "links": [],
   "nodes": [
     {
       "absPath": "/fixture/src/f.tsx",

@@ -54,6 +54,10 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
         return null;
       }
     },
+    linksOf(file, span) {
+      const at = nodeAt(file, span);
+      return at && ts.isFunctionLike(at.node) ? linksOf(ts, checker, root, at.node) : { calls: [], reads: [], writes: [] };
+    },
     bindingAt(file, span) {
       const at = nodeAt(file, span);
       return at ? bindingOf(ts, checker, root, at.node) : null;
@@ -197,4 +201,64 @@ function stateOf(ts: typeof TypeScript, checker: TypeScript.TypeChecker, declara
 function skipWrappers(ts: typeof TypeScript, node: TypeScript.Expression): TypeScript.Expression {
   while (ts.isParenthesizedExpression(node) || ts.isNonNullExpression(node)) node = node.expression;
   return node;
+}
+
+/** A function's calls into the root and the outer bindings it reads and writes; nested functions are their own. */
+function linksOf(ts: typeof TypeScript, checker: TypeScript.TypeChecker, root: string, fn: TypeScript.SignatureDeclaration) {
+  const calls = new Map<string, { file: string; span: Span }>();
+  const reads = new Set<string>();
+  const writes = new Set<string>();
+  const outer = (id: TypeScript.Identifier): { symbol: TypeScript.Symbol; declaration: TypeScript.Declaration } | null => {
+    let symbol: TypeScript.Symbol | undefined;
+    try {
+      symbol = checker.getSymbolAtLocation(id);
+      if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
+    } catch {
+      return null;
+    }
+    const declaration = symbol?.valueDeclaration ?? symbol?.declarations?.[0];
+    if (!symbol || !declaration || declaration.getSourceFile().isDeclarationFile) return null;
+    // Declared inside this function: its own, not something it reaches out to.
+    if (declaration.pos >= fn.pos && declaration.end <= fn.end && declaration.getSourceFile() === fn.getSourceFile()) return null;
+    return { symbol, declaration };
+  };
+  const idOf = (node: TypeScript.Identifier, symbol: TypeScript.Symbol) => compilerSymbolId(ts, checker, root, node, symbol);
+  const visit = (node: TypeScript.Node) => {
+    if (node !== fn && ts.isFunctionLike(node)) return;
+    if (ts.isCallExpression(node)) {
+      const callee = skipWrappers(ts, node.expression);
+      const name = ts.isIdentifier(callee) ? callee : ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.name) ? callee.name : null;
+      const target = name ? outer(name) : null;
+      const decl = target?.declaration;
+      const body = decl && (ts.isFunctionLike(decl) ? decl : ts.isVariableDeclaration(decl) && decl.initializer && ts.isFunctionLike(skipWrappers(ts, decl.initializer)) ? skipWrappers(ts, decl.initializer) : null);
+      if (body && path.resolve(body.getSourceFile().fileName).startsWith(root)) {
+        const sf = body.getSourceFile();
+        const file = path.relative(root, sf.fileName).split(path.sep).join("/");
+        const span = spanOf(sf, body);
+        calls.set(`${file}:${span.startLine}:${span.startColumn}`, { file, span });
+      }
+      // `setDoc(…)`: a state setter writes the value its pair reads.
+      if (target && ts.isIdentifier(callee) && ts.isBindingElement(target.declaration) && ts.isArrayBindingPattern(target.declaration.parent)) {
+        const pair = target.declaration.parent.elements;
+        const first = pair[0];
+        if (pair.indexOf(target.declaration) === 1 && first && ts.isBindingElement(first) && ts.isIdentifier(first.name)) {
+          const read = checker.getSymbolAtLocation(first.name);
+          const id = read ? idOf(first.name, read) : null;
+          if (id) writes.add(id);
+        }
+      }
+    }
+    if (ts.isIdentifier(node) && !(ts.isPropertyAccessExpression(node.parent) && node.parent.name === node)) {
+      const found = outer(node);
+      const d = found?.declaration;
+      if (found && d && (ts.isVariableDeclaration(d) || ts.isBindingElement(d) || ts.isParameter(d))) {
+        const id = idOf(node, found.symbol);
+        const assigned = ts.isBinaryExpression(node.parent) && node.parent.left === node && node.parent.operatorToken.kind === ts.SyntaxKind.EqualsToken;
+        if (id) (assigned ? writes : reads).add(id);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(fn);
+  return { calls: [...calls.values()], reads: [...reads], writes: [...writes] };
 }

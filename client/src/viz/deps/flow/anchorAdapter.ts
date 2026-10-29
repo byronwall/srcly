@@ -32,6 +32,8 @@ export interface AnchorViewOptions {
   model?: "steps";
   /** Symbol view: how many hops from the anchor to draw; absent fits the first screen. */
   depth?: number;
+  /** Symbol view: false hides the thin links for what each function calls, reads and writes. */
+  links?: boolean;
 }
 
 export function anchorGraphToViewModel(input: AnchorGraphResult, options?: AnchorViewOptions): FlowViewModel {
@@ -133,6 +135,7 @@ export function anchorGraphToViewModel(input: AnchorGraphResult, options?: Ancho
     const from = fold.get(stub.from.id) ?? stub.from.id;
     edges.push({ id: `${stub.id}:edge`, source: stub.downstream ? from : stub.id, target: stub.downstream ? stub.id : from, weight: 1, faint: true, symbols: [], status: "proven" });
   }
+  if (view && options?.links !== false) edges.push(...linkEdges(input, drawnNodes, (id) => fold.get(shown(id)) ?? shown(id), component, edges));
   return {
     vm: { focusId: anchor.id, focusKind: "symbol", focusLabel: graph.anchor.text, breadcrumbs: [], nodes: drawnNodes, edges, rolledUp: passThrough.size },
     hidden: new Set(),
@@ -386,4 +389,31 @@ function crossings(graph: AnchorGraphResult, fold: Map<string, string>, scope: s
 function short(names: string[]): string {
   if (!names.length) return "…";
   return names.length > 2 ? `${names.slice(0, 2).join(", ")} +${names.length - 2}` : names.join(", ");
+}
+
+/**
+ * The thin links of the symbol view: a function's calls to another drawn function, and its reads and
+ * writes of a drawn binding declared outside it. A function is reached through its folded box, else its
+ * first drawn box; a link whose ends are not drawn, or that a value-flow edge already draws, is left out.
+ */
+function linkEdges(graph: AnchorGraphResult, drawn: ViewNode[], drawnAs: (id: string) => string, component: Map<string, string>, flow: ViewEdge[]): ViewEdge[] {
+  const ids = new Set(drawn.map((n) => n.id));
+  const first = new Map<string, string>();
+  for (const n of drawn) if (n.group && !first.has(n.group.id)) first.set(n.group.id, n.id);
+  const scopes = new Set(graph.nodes.filter((n) => n.kind === "scope").map((n) => n.id));
+  const end = (id: string) => {
+    if (!scopes.has(id)) return drawnAs(id);
+    const root = component.get(id);
+    return root && ids.has(root) ? root : first.get(id) ?? "";
+  };
+  const taken = new Set(flow.map((e) => `${e.source}|${e.target}`));
+  const out: ViewEdge[] = [];
+  for (const link of graph.links ?? []) {
+    const [source, target] = [end(link.source), end(link.target)];
+    const key = `${source}|${target}`;
+    if (!ids.has(source) || !ids.has(target) || source === target || taken.has(key) || taken.has(`${target}|${source}`)) continue;
+    taken.add(key);
+    out.push({ id: `link:${link.id}`, source, target, weight: 1, faint: true, symbols: [], link: link.kind, ...(link.kind === "calls" ? {} : { label: link.kind }) });
+  }
+  return out;
 }

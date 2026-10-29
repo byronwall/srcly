@@ -277,7 +277,7 @@ class FakeEngine:
         base = {**example(schema), "outcome": "ok", **self.generation_fields(), "reason": None,
                 "anchor": {"file": file, "absPath": f"{self.args.root}/{file}", "span": span, "text": text,
                            "kind": "PropertyAccessExpression", "elementId": "el:1", "typeText": "string"},
-                "direction": direction, "nodes": nodes, "edges": edges, "origins": [],
+                "direction": direction, "nodes": nodes, "edges": edges, "links": [], "origins": [],
                 "terminals": [{"nodeId": "el:2", "label": "slot", "roles": ["render"], "status": "proven"}] if direction != "backward" else [],
                 "counts": counts,
                 "coverage": {"elements": len(nodes) - 1, "relations": len(edges), "budget": {"limit": 256, "used": len(edges), "exhausted": False}}}

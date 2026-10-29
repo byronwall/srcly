@@ -736,6 +736,28 @@ class AnchorGraphBuilder {
     return id;
   }
 
+  /** Calls, reads and writes of each drawn function, among the drawn functions and boxes. */
+  private links(nodes: AnchorNode[]): AnchorGraphResult["links"] {
+    const scopes = new Set(nodes.filter((n) => n.kind === "scope").map((n) => n.id));
+    const bySymbol = new Map<string, string>();
+    for (const n of nodes) if (n.symbol && n.kind !== "scope" && !bySymbol.has(n.symbol)) bySymbol.set(n.symbol, n.id);
+    const out: AnchorGraphResult["links"] = [];
+    for (const scope of nodes) {
+      if (scope.kind !== "scope" || scope.role === "module") continue;
+      const found = this.host.linksOf(scope.file, scope.span);
+      for (const call of found.calls) {
+        const target = `scope:${call.file}:${call.span.startLine}:${call.span.startColumn}`;
+        if (target !== scope.id && scopes.has(target)) out.push({ id: `calls:${scope.id}>${target}`, source: scope.id, target, kind: "calls" });
+      }
+      for (const [kind, symbols] of [["reads", found.reads], ["writes", found.writes]] as const)
+        for (const symbol of symbols) {
+          const target = bySymbol.get(symbol);
+          if (target) out.push({ id: `${kind}:${scope.id}>${target}`, source: scope.id, target, kind });
+        }
+    }
+    return out;
+  }
+
   private finish(anchor: AnchorGraphResult["anchor"], direction: AnchorDirection, outcome: AnchorGraphResult["outcome"], reason: string | null, coverage: AnchorGraphResult["coverage"]): AnchorGraphResult {
     const nodes = [...this.nodes.values()];
     const boxes = nodes.filter((node) => node.kind !== "scope");
@@ -751,6 +773,7 @@ class AnchorGraphBuilder {
       direction,
       nodes,
       edges: this.edges,
+      links: this.links(nodes),
       origins: boxes.filter((node) => node.kind === "origin").map((node) => ({ nodeId: node.id, label: node.label, roles: this.originRoles.get(node.id) ?? [], status: node.status })),
       terminals: boxes.filter((node) => node.kind === "terminal").map((node) => ({ nodeId: node.id, label: node.label, roles: this.terminalRoles.get(node.id) ?? [], status: node.status })),
       counts: {
