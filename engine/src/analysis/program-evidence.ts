@@ -50,6 +50,7 @@ export type ProgramProofKind =
   | "array-includes-argument"
   | "array-join-source"
   | "function-call"
+  | "bound-handler"
   | "solid-show-binding"
   | "solid-show-when"
   | "solid-show-render-parameter"

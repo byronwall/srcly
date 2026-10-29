@@ -1,0 +1,14 @@
+{
+  "id": "8073fa50-38a6-402d-8d84-cec06f0566a5",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:19dd9f",
+    "label": "Agent token ...19dd9f"
+  },
+  "createdAt": "2026-10-29T01:25:11.515Z",
+  "summary": "Deleted \"Calls through function-typed params and props\".",
+  "nodeIds": [
+    "task-calls-through-function-typed-params-and-props"
+  ]
+}

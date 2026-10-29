@@ -1,0 +1,14 @@
+{
+  "id": "a52971aa-c972-4b32-88dd-82e52eee41da",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:f2af31",
+    "label": "Agent token ...f2af31"
+  },
+  "createdAt": "2026-10-29T01:32:29.583Z",
+  "summary": "Deleted \"Library write into a non-local receiver\".",
+  "nodeIds": [
+    "task-library-write-into-a-non-local-receiver"
+  ]
+}
