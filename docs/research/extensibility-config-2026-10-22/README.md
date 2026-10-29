@@ -99,3 +99,7 @@ The new initiative remains planned. No application behavior changed. No open PR 
 ## Remaining inputs
 
 A real producer sample determines file-local versus repository-dependent freshness. A real saved diagnostic artifact selects SARIF or ESLint first. Process tests determine supported execution platforms. None blocks the deterministic first proof.
+
+## Preserved Pro result materials
+
+[Complete original Pro artifacts](../../intent/custom-metrics-and-repo-config/assets/pro-results/extensibility-config-2026-10-22/ASSET_INDEX.md) are preserved under the intent entry. ZIP containers remain local.

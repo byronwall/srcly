@@ -143,3 +143,9 @@ No current open PR overlaps these modules; `gh pr list` returned none on October
 - Coverage ratios, weighted means, distributions, and graph interchange. They require distinct evidence shapes and proofs.
 - Automatic custom execution, watchers, execution caching, trends, remote services, marketplaces, and in-process plugins.
 - Compatibility layers or a built-in analyzer rewrite.
+
+## Preserved Pro result materials
+
+[Original Pro reports and artifacts for #100](assets/pro-results/extensibility-config-2026-10-22/ASSET_INDEX.md)
+
+All extracted result materials are preserved without ZIP containers. Original bytes and attribution are unchanged.

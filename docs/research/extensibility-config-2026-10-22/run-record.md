@@ -56,3 +56,7 @@ Pushed scoped research commits with Byron's author and committer identity. Opene
 The saved body uses repository links for the shape, plan, and summary. No screenshot is required because no product UI changed. Removed the completed heartbeat and verified the delete result.
 
 The run is complete. The initiative remains planned for separate implementation authorization.
+
+## Preserved Pro result materials
+
+Backfill requested by Byron: [3 original result files](../../intent/custom-metrics-and-repo-config/assets/pro-results/extensibility-config-2026-10-22/ASSET_INDEX.md) are now committed under the intent entry. This supersedes earlier instructions to leave originals ignored. ZIPs and input source packets remain local. Byte equality and supplied manifest entries were checked; no downloaded code was executed.
