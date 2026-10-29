@@ -1,0 +1,28 @@
+# Dependency analysis and UI research run
+
+- Mission: run PR #256's existing Design assignment, verify findings, and integrate a summary, dispositions, and implementation plan.
+- Completion: collect and read reports, verify decisive claims, update this PR, and disable its collection heartbeat. No merge or application implementation authorized.
+- Repository: https://github.com/byronwall/srcly
+- PR: https://github.com/byronwall/srcly/pull/256
+- Checkout: `/Users/byronwall/.codex/worktrees/7b15/srcly`
+- Branch: `codex/dependency-analysis-ui-pro-research`
+- Source baseline: `ee8a771ce94fb59573492445d0f5fa2411ad83c8`.
+- Prompt commit: `207342c79a5390de2e956837319838cace831d5f`.
+- Prompt: `pro-prompt.md`, unchanged from the existing assignment.
+- Attachment: `tmp/pro/dependency-analysis-ui/source-packet.zip`. Contains 729 selected tracked files from the baseline. Excludes dependencies, secrets, build output, and audit screenshots. This is a source reference, not a complete runnable checkout.
+- Source visibility: GitHub reports PUBLIC. Upload to ChatGPT Pro is authorized by the full-process request and invoked skill.
+- Chrome: connected `byroni.us` profile, signed-in ChatGPT. Live selector verified Pro, power 5 of 5.
+- Phase: submitted; Pro is working. Collection and analysis remain pending.
+- Conversation: https://chatgpt.com/c/6ae2a1fc-1100-83e9-a8de-39abe701f030
+- Submission time: October 28, 2026, 21:32 EDT (October 29, 01:32 UTC).
+- Verification: both attachments appear in the sent message. ChatGPT shows Working, responding, and Stop. Model selector shows Pro.
+- Uploaded names: `pro-prompt(20261029-013140).md` and `source-packet(7).zip`.
+- Next check: October 28, 2026, about 22:32 EDT. Check hourly while running.
+- Follow-up count: 0. At most one follow-up for a missing priority answer or unusable deliverable.
+- Blockers: none.
+- Heartbeat: `collect-srcly-dependency-ui-research`, ACTIVE. Attached to this chat; hourly at minute 32. Disable after completion or an essential user-action blocker.
+- Collected reports: none.
+- Bootstrap: passed with Python 3.14. Client and engine dependencies and server environment installed.
+- Integration note: main advanced after the prompt baseline. Reconcile current code before accepting recommendations, including action returns and branch classification fixes.
+- Recovery: inspect the recorded conversation before any resend. A slow response is not a failure.
+- Provenance: assistant-generated research; exclude this run and derivatives from substantive-activity ranking.
