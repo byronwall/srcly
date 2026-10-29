@@ -5,7 +5,7 @@ import {
   collectProgramEvidenceExpression,
   constructorExpressionElementEvidence,
 } from "./program-evidence-collector-expression-support";
-import { stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
+import { reducerOf, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { namesSeveralValues, resolveValue, wrappedArgument } from "./value-origin";
 import { ACCESSOR_FACTORIES, FRAMEWORK_FLOWS } from "./framework-flows";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
@@ -260,9 +260,16 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       if (role.role === "getter") {
         this.addRelation(stateId, callId, "references", [this.location(node)], frameworkState("The getter's call reads the state its setter writes; order and time are not proven.", this.location(node)), "partial");
       }
+      // A reducer's dispatch hands its action to the reducer, whose return (`FRAMEWORK_FLOWS`) is the new state.
+      const reducer = role.role === "setter" ? reducerOf(this.ts, this.checker, role.getter) : null;
+      const action = reducer ? this.targetFunction(unwrap(this.ts, reducer))?.declaration.parameters[1] : undefined;
+      const actionId = action && this.ts.isIdentifier(action.name) ? this.parametersBySymbol.get(this.symbolId(action.name) ?? "") : undefined;
+      if (actionId && node.arguments[0]) {
+        this.addRelation(this.expression(node.arguments[0], ownerId), actionId, "framework-flow", [this.location(node.arguments[0]), this.location(action!)], frameworkState("The dispatch calls the reducer with this action.", this.location(node)), "proven");
+      }
       // One argument is the new state (or an updater); several are a path into it and the value there, packed into the state.
       const kind = node.arguments.length === 1 ? "references" : "pack-field";
-      for (const argument of role.role === "setter" ? node.arguments : []) {
+      for (const argument of role.role === "setter" && !actionId ? node.arguments : []) {
         this.addRelation(this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId), stateId, kind, [this.location(argument)], frameworkState("The setter's argument becomes the state its getter reads; order and time are not proven.", this.location(argument)), "partial");
       }
     }
@@ -495,7 +502,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       // What a function argument returns goes where the flow says: the call's value, or the callback's parameter.
       const returnsOf = (index: number | undefined) => {
         const fn = index !== undefined && node.arguments[index] ? unwrap(this.ts, node.arguments[index]) : undefined;
-        const info = fn ? this.functionsByNode.get(nodeKey(this.root, fn)) : undefined;
+        const info = fn ? this.functionsByNode.get(nodeKey(this.root, fn)) ?? this.targetFunction(fn) ?? undefined : undefined;
         return { fn, ids: info ? this.returnsByFunction.get(info.id) ?? [] : [] };
       };
       const result = returnsOf(flow.returns);
