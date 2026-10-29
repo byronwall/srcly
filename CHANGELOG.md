@@ -1,5 +1,40 @@
 # Changelog
 
+## [1.7.0](https://github.com/byronwall/srcly/compare/v1.6.0...v1.7.0) (2026-10-29)
+
+
+### Features
+
+* **cli:** print a startup banner with version and runtime details ([#261](https://github.com/byronwall/srcly/issues/261)) ([ae325f9](https://github.com/byronwall/srcly/commit/ae325f936a8a1f7de7f4d2191651212e8145e6c5))
+* **dataflow:** a discarded library call writes into a closure's, a parameter's or an element's receiver ([#262](https://github.com/byronwall/srcly/issues/262)) ([37975c5](https://github.com/byronwall/srcly/commit/37975c5d99fefac91766e55208b6ce4dcde186d4))
+* **dataflow:** a receiver write lands in its field, and a void callback's push is a write ([#271](https://github.com/byronwall/srcly/issues/271)) ([ca8866e](https://github.com/byronwall/srcly/commit/ca8866e9bcaca2f5dc98a99028a4d7f0068fdb08))
+* **dataflow:** a useReducer dispatch runs its reducer ([#264](https://github.com/byronwall/srcly/issues/264)) ([0a7fa67](https://github.com/byronwall/srcly/commit/0a7fa679971de5366c5ad83f60afdfb99075db95))
+* **dataflow:** draw one box per symbol in an anchor trace ([#268](https://github.com/byronwall/srcly/issues/268)) ([f0e1f9f](https://github.com/byronwall/srcly/commit/f0e1f9f8cd09db4397f33da3253c93ecfa7c4faf))
+* **dataflow:** emitters, timers, delegating generators and fetch reads ([#275](https://github.com/byronwall/srcly/issues/275)) ([0692ca2](https://github.com/byronwall/srcly/commit/0692ca254b135ba128bab831b37c812143c6661a))
+* **dataflow:** enter constructors, getters and generators ([#266](https://github.com/byronwall/srcly/issues/266)) ([24e2c67](https://github.com/byronwall/srcly/commit/24e2c678b20ae402638335c3548f01bafa5ac3a3))
+* **dataflow:** enter the function a caller hands in through a parameter or prop ([#260](https://github.com/byronwall/srcly/issues/260)) ([562d834](https://github.com/byronwall/srcly/commit/562d834e9090ed8dc821934d50972a4e8ade9d17))
+* **dataflow:** fold a route's data trace by component and group route gaps ([#273](https://github.com/byronwall/srcly/issues/273)) ([fdf1414](https://github.com/byronwall/srcly/commit/fdf14143d47b6f479f0100edfcee25a76ee6eb80))
+* **dataflow:** link each function to what it calls, reads and writes ([#279](https://github.com/byronwall/srcly/issues/279)) ([fbe36c0](https://github.com/byronwall/srcly/commit/fbe36c07d39d32767d0acfeaf124e6519f903d84))
+* **dataflow:** name each function's role in a data-flow trace ([#274](https://github.com/byronwall/srcly/issues/274)) ([1fdabd3](https://github.com/byronwall/srcly/commit/1fdabd300f0c07212d41801d8130bd1499a89aa3))
+* **dataflow:** name traces that land through an assumed library step `assumed` ([#210](https://github.com/byronwall/srcly/issues/210)) ([9cb0931](https://github.com/byronwall/srcly/commit/9cb0931490dfddbef2b2d2102b24d4720c08821e))
+* **dataflow:** name what happens along an edge and draw state as state ([#272](https://github.com/byronwall/srcly/issues/272)) ([15b2c8e](https://github.com/byronwall/srcly/commit/15b2c8e7bf5bd3626acd2d6440621bc66b6e7c24))
+* **dataflow:** open a symbol view on its main path and grow it by depth ([#278](https://github.com/byronwall/srcly/issues/278)) ([ac1047a](https://github.com/byronwall/srcly/commit/ac1047ac78fd6d7730e74e7a556cdc1f70aa8da3))
+* **dataflow:** read TypeScript origins and terminals from library model rows ([#211](https://github.com/byronwall/srcly/issues/211)) ([75226dd](https://github.com/byronwall/srcly/commit/75226dd60a5d1afe2354cb315a46ef1b88442e29))
+* **dataflow:** setters and context methods as handlers, paired both ways ([#270](https://github.com/byronwall/srcly/issues/270)) ([29bb55c](https://github.com/byronwall/srcly/commit/29bb55c31574571c22070111a160241ca1bb58c8))
+
+
+### Bug Fixes
+
+* **dataflow:** a namespace import's read reaches the export it names ([#263](https://github.com/byronwall/srcly/issues/263)) ([0181b45](https://github.com/byronwall/srcly/commit/0181b4568f61462eedb0c07302f897f49c41ef98))
+* **dataflow:** a Show or Match when decides a branch, not a DOM attribute ([#257](https://github.com/byronwall/srcly/issues/257)) ([054e0b2](https://github.com/byronwall/srcly/commit/054e0b21532303861ed55aab09dc0b537bfda456))
+* **dataflow:** an action's return reaches its call sites, not its useAction ([#258](https://github.com/byronwall/srcly/issues/258)) ([432a0ca](https://github.com/byronwall/srcly/commit/432a0ca6ade3fc992942c068b0ce30139e2516ca))
+* **dataflow:** prove nothing from a call's being imported ([#213](https://github.com/byronwall/srcly/issues/213)) ([5529a4c](https://github.com/byronwall/srcly/commit/5529a4c116d7913ed1b5f1a62cdce6ca9305585d))
+
+
+### Documentation
+
+* **dataflow:** plan showing logic, not only components, in TS/TSX data flow ([#265](https://github.com/byronwall/srcly/issues/265)) ([c52e995](https://github.com/byronwall/srcly/commit/c52e995040802ab1a039a81dbf2d4e345d33daac))
+
 ## [1.6.0](https://github.com/byronwall/srcly/compare/v1.5.0...v1.6.0) (2026-10-28)
 
 
