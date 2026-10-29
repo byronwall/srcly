@@ -297,6 +297,7 @@ function rolesFor(element: CompactProgramFact): string[] {
       break;
     case "render-terminal":
     case "dom-terminal":
+    case "branch-condition":
       roles.push("render");
       break;
     case "stdout":

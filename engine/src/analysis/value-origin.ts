@@ -39,7 +39,7 @@ const FUNCTION_WRAPPERS: Record<string, readonly string[]> = {
 };
 
 /** The function a wrapper call (`query(async (id) => …, "key")`) is given, or null. */
-function wrappedArgument(ts: typeof TypeScript, checker: TypeScript.TypeChecker, value: TypeScript.Expression): TypeScript.Expression | null {
+export function wrappedArgument(ts: typeof TypeScript, checker: TypeScript.TypeChecker, value: TypeScript.Expression): TypeScript.Expression | null {
   if (!ts.isCallExpression(value) || value.arguments.length === 0) return null;
   const imported = importedCallee(ts, checker, value.expression);
   return imported && FUNCTION_WRAPPERS[imported.module]?.includes(imported.name) ? unwrap(ts, value.arguments[0]) : null;

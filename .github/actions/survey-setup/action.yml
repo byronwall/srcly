@@ -1,0 +1,27 @@
+name: Survey setup
+description: Node, pnpm and uv, the engine's dependencies and the server's venv, for engine/scripts/survey-gate.ts. The gate installs each surveyed commit's engine and client itself, from the same pnpm store.
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 11.9.0
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+        cache-dependency-path: |
+          client/pnpm-lock.yaml
+          engine/pnpm-lock.yaml
+    - uses: astral-sh/setup-uv@v10.2.0
+      with:
+        python-version: "3.13"
+    - name: Install engine dependencies (to run the gate)
+      shell: bash
+      working-directory: engine
+      run: pnpm install --frozen-lockfile
+    - name: Install server dependencies (the Python survey uses its mypy)
+      shell: bash
+      working-directory: server
+      run: uv sync --locked

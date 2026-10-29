@@ -451,6 +451,7 @@ function classify(relation: ProgramRelation, element: ProgramElement): LedgerRow
 function terminalNote(element: ProgramElement): string {
   if (element.kind === "render-terminal") return "JSX render slot";
   if (element.kind === "dom-terminal") return "DOM attribute or property";
+  if (element.kind === "branch-condition") return "decides which branch renders";
   if (element.kind === "component-occurrence") return "handed to a component";
   if (element.kind === "side-effect") return "side effect";
   if (element.terminalRoles.includes("http-response")) return "HTTP response";

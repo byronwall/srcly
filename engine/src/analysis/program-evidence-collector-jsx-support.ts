@@ -4,6 +4,7 @@ import type { CollectorFunctionInfo } from "./program-evidence-collector-support
 import { ProgramEvidenceCollectorFieldTransferSupport } from "./program-evidence-collector-field-transfers";
 import { reachingBindings } from "./program-evidence-reaching-bindings";
 import { resolveValue } from "./value-origin";
+import { isSolidComponent } from "./program-evidence-collector-field-transfer-ast";
 import {
   browserMember,
   browserPropertyRead,
@@ -208,10 +209,13 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         this.queueComponentPropBinding(opening, attribute, valueId, occurrenceId, ownerId, target);
       }
       if (!component) {
+        // Solid's `<Show when>` and `<Match when>` decide which branch renders; the value is no DOM attribute.
+        const branch = attribute.name.getText() === "when"
+          && (isSolidComponent(this.ts, this.checker, opening.tagName, "Show") || isSolidComponent(this.ts, this.checker, opening.tagName, "Match"));
         this.addTerminal(
           value,
           ownerId,
-          "dom-attribute",
+          branch ? "branch-condition" : "dom-attribute",
           attribute.name.getText(),
           valueId,
         );
@@ -309,13 +313,13 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   protected addTerminal(
     node: TypeScript.Expression,
     ownerId: string | null,
-    terminalKind: "jsx-text" | "dom-attribute" | "style",
+    terminalKind: "jsx-text" | "dom-attribute" | "style" | "branch-condition",
     label: string,
     valueId: string,
   ): void {
     const kind: ProgramElementKind = terminalKind === "jsx-text"
       ? "render-terminal"
-      : "dom-terminal";
+      : terminalKind === "branch-condition" ? "branch-condition" : "dom-terminal";
     const terminalId = this.ensureElement(
       node,
       kind,

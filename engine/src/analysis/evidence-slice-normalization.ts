@@ -176,6 +176,7 @@ function terminalRolesFor(element: IndexedProgramElement): TerminalRole[] {
   switch (element.kind) {
     case "render-terminal":
     case "dom-terminal":
+    case "branch-condition":
       return ["render"];
     case "stdout":
       return isStderrExpression(element) ? ["side-effect"] : ["stdout"];

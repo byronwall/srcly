@@ -112,6 +112,7 @@ export const ELEMENT_TRAITS: Record<ProgramElementKind, ElementTraits> = {
   "for-binding": { role: "control" },
   "show-binding": { role: "control" },
   "dom-terminal": { terminal: true },
+  "branch-condition": { terminal: true },
   "render-terminal": { terminal: true },
   "environment-input": {},
   "process-input": {},
