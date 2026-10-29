@@ -17,11 +17,12 @@ import type { ViewLayout } from "../layout";
 import type { ViewNode } from "../viewModel";
 import { routeGraphToViewModel } from "./adapter";
 import { anchorGraphToViewModel } from "./anchorAdapter";
+import { STUB_PREFIX } from "./depth";
 import { exportsToViewModel } from "./exportsAdapter";
 import { anchorsToViewModel } from "./multiAnchorAdapter";
 import { FlowInspector } from "./FlowInspector";
 import { FlowLegend } from "./FlowLegend";
-import { DirectionSwitch, FlowModeSwitch, ModelSwitch, ReachModeSwitch, REACH_OF_DIRECTION, RecentFlowMenu, RouteLensSwitch } from "./FlowTools";
+import { DepthControl, DirectionSwitch, FlowModeSwitch, ModelSwitch, ReachModeSwitch, REACH_OF_DIRECTION, RecentFlowMenu, RouteLensSwitch } from "./FlowTools";
 import { createFetch } from "./fetchSignal";
 import { FlowProgress } from "./FlowProgress";
 import { stopsOf } from "./inspectorModel";
@@ -288,7 +289,7 @@ export default function FlowView(props: {
       if (many) return many.model;
       if (anchorSpecs().length > 1 && !extraAnchors()) return null;
       const a = anchorGraph()?.graph;
-      return a ? anchorGraphToViewModel(a, { expanded: location().open ?? [], model: location().model }) : null;
+      return a ? anchorGraphToViewModel(a, { expanded: location().open ?? [], model: location().model, depth: location().depth }) : null;
     }
     const g = drawnGraph();
     return g ? routeGraphToViewModel(g, { expanded: location().open ?? [] }) : null;
@@ -377,6 +378,13 @@ export default function FlowView(props: {
       });
     });
   });
+
+  // ---- symbol view depth: `+` / `−` and the slider; the last stop draws everything ----
+  const setDepth = (depth: number) => replace({ depth: Math.max(1, depth), open: undefined });
+  const stepDepth = (by: number) => {
+    const lv = model()?.levels;
+    if (lv) setDepth(Math.min(lv.max, lv.depth + by));
+  };
 
   // ---- expand in place: the URL's `open` list holds flow node ids ----
   const openList = () => location().open ?? [];
@@ -485,7 +493,9 @@ export default function FlowView(props: {
         else if (selected()) setSelected(null);
         else pickOrigin(undefined);
       }
-      else if (n && (key === "o" || key === "Enter")) openNode(n);
+      else if ((key === "+" || key === "=") && model()?.levels) stepDepth(1);
+      else if ((key === "-" || key === "_") && model()?.levels) stepDepth(-1);
+      else if (n && (key === "o" || key === "Enter")) n.expandable && n.id.startsWith(STUB_PREFIX) ? toggleOpen(n) : openNode(n);
       else if (n && (key === "e" || key === " ")) toggleOpen(n);
       else return;
       e.preventDefault();
@@ -606,8 +616,9 @@ export default function FlowView(props: {
               </span>
             )}
           </For>
+          <Show when={model()?.levels}>{(lv) => <DepthControl depth={lv().depth} max={lv().max} onChange={setDepth} />}</Show>
           <DirectionSwitch dir={dir()} onChange={(d) => replace({ dir: d === "both" ? undefined : d })} />
-          <ModelSwitch model={location().model ?? "symbols"} onChange={(m) => replace({ model: m === "steps" ? "steps" : undefined, open: undefined })} />
+          <ModelSwitch model={location().model ?? "symbols"} onChange={(m) => replace({ model: m === "steps" ? "steps" : undefined, depth: undefined, open: undefined })} />
           <Button variant="ghost" class="px-2" onClick={toRoutes} title="Trace a route instead (/)">
             Routes
           </Button>

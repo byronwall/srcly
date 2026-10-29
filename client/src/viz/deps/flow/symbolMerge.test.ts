@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest";
 import fixture from "../../../../../engine/test/srcly/__fixtures__/symbol-graph.anchor-graph.json";
 import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
 import { anchorGraphToViewModel } from "./anchorAdapter";
+import { FIRST_SCREEN, STUB_PREFIX } from "./depth";
 
 // Captured from engine/examples/symbol-graph by `cd engine && pnpm capture-anchor-graph`:
 // forward from the `/notes/[id]` route component, `NotePage`.
 const graph = fixture as unknown as AnchorGraphResult;
 const everyFrame = graph.nodes.filter((n) => n.kind === "scope").map((n) => n.id);
-const symbols = anchorGraphToViewModel(graph, { expanded: everyFrame });
+const symbols = anchorGraphToViewModel(graph, { expanded: everyFrame, depth: 99 });
 const steps = anchorGraphToViewModel(graph, { expanded: everyFrame, model: "steps" });
 const scopeOf = (label: string) => graph.nodes.find((n) => n.kind === "scope" && n.label === label)!.id;
 
@@ -64,7 +65,7 @@ describe("one box per symbol", () => {
 });
 
 describe("folded functions say what they are", () => {
-  const folded = anchorGraphToViewModel(graph, { expanded: [] });
+  const folded = anchorGraphToViewModel(graph, { expanded: [], depth: 99 });
   const roleOf = new Map(graph.nodes.filter((n) => n.kind === "scope").map((n) => [n.id, n.role]));
   const folds = folded.vm.nodes.filter((n) => n.expandable && roleOf.has(n.id));
 
@@ -84,3 +85,31 @@ describe("folded functions say what they are", () => {
   });
 });
 
+describe("the first screen and growing it", () => {
+  const first = anchorGraphToViewModel(graph, { expanded: [] });
+  const real = (m: typeof first) => m.vm.nodes.filter((n) => !n.id.startsWith(STUB_PREFIX));
+
+  it("opens on the hops nearest the anchor, fitting the first screen, with the rest behind stubs", () => {
+    expect(first.levels!.depth).toBeLessThan(first.levels!.max);
+    expect(real(first).length).toBeLessThanOrEqual(FIRST_SCREEN);
+    const stubs = first.vm.nodes.filter((n) => n.id.startsWith(STUB_PREFIX));
+    expect(stubs.length).toBeGreaterThan(0);
+    expect(stubs.every((n) => n.expandable && /^\+\d+ more$/.test(n.label))).toBe(true);
+    // Every box of the trace is drawn, held by a stub, or folded into one that is.
+    const drawn = new Set(first.vm.nodes.map((n) => n.id));
+    for (const [, to] of first.shownAs) expect(drawn.has(to)).toBe(true);
+  });
+
+  it("draws one more hop per step of depth, and everything at the last stop", () => {
+    const deeper = anchorGraphToViewModel(graph, { expanded: [], depth: first.levels!.depth + 1 });
+    expect(real(deeper).length).toBeGreaterThan(real(first).length);
+    const all = anchorGraphToViewModel(graph, { expanded: [], depth: first.levels!.max });
+    expect(all.vm.nodes.some((n) => n.id.startsWith(STUB_PREFIX))).toBe(false);
+  });
+
+  it("opens one stub's next hop in place", () => {
+    const stub = first.vm.nodes.find((n) => n.id.startsWith(STUB_PREFIX))!;
+    const opened = anchorGraphToViewModel(graph, { expanded: [stub.id] });
+    expect(real(opened).length).toBeGreaterThan(real(first).length);
+  });
+});

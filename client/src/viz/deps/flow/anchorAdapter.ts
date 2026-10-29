@@ -8,6 +8,7 @@ import type { ViewEdge, ViewNode } from "../viewModel";
 import type { FlowViewModel } from "./adapter";
 import { humanizeDetail, MARK_OF_ANCHOR_KIND, markColor, stopWord, type FlowMark } from "./marks";
 import { symbolView, type SymbolView } from "./symbolView";
+import { limitDepth, type Stub } from "./depth";
 
 export type AnchorNode = AnchorGraphResult["nodes"][number];
 export type AnchorEdge = AnchorGraphResult["edges"][number];
@@ -29,11 +30,16 @@ export interface AnchorViewOptions {
   expanded: Iterable<string>;
   /** `steps` draws every step the engine walked; absent draws one box per symbol and frame. */
   model?: "steps";
+  /** Symbol view: how many hops from the anchor to draw; absent fits the first screen. */
+  depth?: number;
 }
 
 export function anchorGraphToViewModel(input: AnchorGraphResult, options?: AnchorViewOptions): FlowViewModel {
   const view = options && options.model !== "steps" ? symbolView(input) : null;
-  const graph = view?.graph ?? input;
+  const seed = input.nodes.find((n) => n.kind === "anchor");
+  const owner = view ? components(view.graph) : null;
+  const limited = view && seed ? limitDepth(view.graph, view.shownAs.get(seed.id) ?? seed.id, options?.depth, options?.expanded ?? [], (n) => (n.parent ? owner!.get(n.parent) : undefined)) : null;
+  const graph = limited?.graph ?? view?.graph ?? input;
   const byId = new Map<string, AnchorNode>(graph.nodes.map((n) => [n.id, n]));
   const scopes = new Map(graph.nodes.filter((n) => n.kind === "scope").map((n) => [n.id, n]));
   const anchor = graph.nodes.find((n) => n.kind === "anchor");
@@ -79,11 +85,13 @@ export function anchorGraphToViewModel(input: AnchorGraphResult, options?: Ancho
   for (const [id, first] of twins(graph, passThrough)) passThrough.set(id, first);
   const shown = (id: string) => {
     const at = view?.shownAs.get(id) ?? id;
-    return passThrough.get(at) ?? at;
+    const limitedAt = limited?.shownAs.get(at) ?? at;
+    return passThrough.get(limitedAt) ?? limitedAt;
   };
   if (view) for (const box of nodes) if (!passThrough.has(box.id)) Object.assign(box, symbolBox(view, byId.get(box.id)!) ?? {});
   const fold = folds(graph, anchor, component, passThrough, opened, options);
-  const drawnNodes = [...nodes.filter((n) => !passThrough.has(n.id) && !fold.has(n.id)), ...foldedBoxes(graph, fold)];
+  const stubs = limited?.stubs ?? [];
+  const drawnNodes = [...nodes.filter((n) => !passThrough.has(n.id) && !fold.has(n.id)), ...foldedBoxes(graph, fold), ...stubs.map(stubBox)];
   const ids = new Set(drawnNodes.map((n) => n.id));
   const seen = new Map<string, ViewEdge>();
   const edges: ViewEdge[] = [];
@@ -121,6 +129,10 @@ export function anchorGraphToViewModel(input: AnchorGraphResult, options?: Ancho
     seen.set(key, edge);
     edges.push(edge);
   }
+  for (const stub of stubs) {
+    const from = fold.get(stub.from.id) ?? stub.from.id;
+    edges.push({ id: `${stub.id}:edge`, source: stub.downstream ? from : stub.id, target: stub.downstream ? stub.id : from, weight: 1, faint: true, symbols: [], status: "proven" });
+  }
   return {
     vm: { focusId: anchor.id, focusKind: "symbol", focusLabel: graph.anchor.text, breadcrumbs: [], nodes: drawnNodes, edges, rolledUp: passThrough.size },
     hidden: new Set(),
@@ -128,6 +140,30 @@ export function anchorGraphToViewModel(input: AnchorGraphResult, options?: Ancho
     byId,
     shownAs: new Map(input.nodes.filter((n) => n.kind !== "scope").map((n) => [n.id, fold.get(shown(n.id)) ?? shown(n.id)])),
     lit: null,
+    ...(limited ? { levels: { depth: limited.depth, max: limited.max } } : {}),
+  };
+}
+
+/** A stub: the boxes past the drawn depth that hang off one box, opened in place with a click or `E`. */
+function stubBox(stub: Stub): ViewNode {
+  const names = [...new Set(stub.hidden.map((n) => (n.symbol ? n.symbol.slice(0, n.symbol.indexOf("@")) : n.label)))];
+  const ends = stub.hidden.filter((n) => n.kind === "terminal" || n.kind === "origin").length;
+  return {
+    id: stub.id,
+    graphId: stub.id,
+    region: stub.downstream ? "out" : "in",
+    kind: "symbol",
+    symbolKind: "value",
+    label: `+${stub.hidden.length} more`,
+    title: [`${stub.hidden.length} more past ${stub.from.label}`, names.slice(0, 6).join(", ")].join(" · "),
+    subtitle: names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3}` : ""),
+    note: ends ? `${ends} end${ends === 1 ? "" : "s"}` : undefined,
+    memberCount: stub.hidden.length,
+    isFocus: false,
+    expandable: true,
+    outline: "dotted",
+    status: "proven",
+    tint: markColor("value"),
   };
 }
 

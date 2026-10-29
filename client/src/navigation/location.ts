@@ -48,6 +48,8 @@ export interface Location {
   dir?: Direction;
   /** Anchor mode: `steps` draws every step the engine walked; absent draws one box per symbol. */
   model?: "steps";
+  /** Anchor mode's symbol view: hops from the anchor to draw; absent fits the first screen. */
+  depth?: number;
 }
 
 export type Direction = "forward" | "backward" | "both";
@@ -119,6 +121,7 @@ const ANCHOR_PARAM = "anchor";
 const DIR_PARAM = "dir";
 const LENS_PARAM = "lens";
 const MODEL_PARAM = "model";
+const DEPTH_PARAM = "depth";
 /** Pre-location graph focus parameter. Read as an alias of `at` + graph view. */
 const LEGACY_FOCUS_PARAM = "depFocus";
 
@@ -141,6 +144,8 @@ export function parseLocation(search: string): Location {
   const rawDir = anchor !== null ? params.get(DIR_PARAM) : null;
   const dir = rawDir === "forward" || rawDir === "backward" ? rawDir : null;
   const model = anchor !== null && params.get(MODEL_PARAM) === "steps" ? "steps" : null;
+  const rawDepth = anchor !== null && model === null ? Number(params.get(DEPTH_PARAM)) : NaN;
+  const depth = Number.isInteger(rawDepth) && rawDepth > 0 ? rawDepth : null;
   const flow = view === "graph" && anchor === null ? params.get(FLOW_PARAM) : null;
   const field = flow !== null ? params.get(FIELD_PARAM) : null;
   const dest = field !== null ? params.get(DEST_PARAM) : null;
@@ -157,6 +162,7 @@ export function parseLocation(search: string): Location {
     ...(anchor !== null ? { anchor } : {}),
     ...(dir ? { dir } : {}),
     ...(model ? { model } : {}),
+    ...(depth ? { depth } : {}),
   };
 }
 
@@ -179,6 +185,7 @@ export function toSearch(loc: Location, currentSearch = ""): string {
   params.delete(DIR_PARAM);
   params.delete(LENS_PARAM);
   params.delete(MODEL_PARAM);
+  params.delete(DEPTH_PARAM);
   if (loc.repo) params.set(REPO_PARAM, loc.repo);
   if (loc.at) params.set(AT_PARAM, loc.at);
   if (loc.view !== "treemap") params.set(VIEW_PARAM, loc.view);
@@ -187,6 +194,7 @@ export function toSearch(loc: Location, currentSearch = ""): string {
     params.set(ANCHOR_PARAM, loc.anchor);
     if (loc.dir && loc.dir !== "both") params.set(DIR_PARAM, loc.dir);
     if (loc.model) params.set(MODEL_PARAM, loc.model);
+    else if (loc.depth) params.set(DEPTH_PARAM, String(loc.depth));
   } else if (loc.view === "graph" && loc.flow !== undefined) {
     params.set(FLOW_PARAM, loc.flow);
     if (loc.lens) params.set(LENS_PARAM, loc.lens);
@@ -201,7 +209,7 @@ export function toSearch(loc: Location, currentSearch = ""): string {
 
 export function sameLocation(a: Location, b: Location): boolean {
   return (
-    samePlace(a, b) && (a.open ?? []).join(",") === (b.open ?? []).join(",") && a.field === b.field && a.dest === b.dest && (a.dir ?? "both") === (b.dir ?? "both") && a.model === b.model
+    samePlace(a, b) && (a.open ?? []).join(",") === (b.open ?? []).join(",") && a.field === b.field && a.dest === b.dest && (a.dir ?? "both") === (b.dir ?? "both") && a.model === b.model && a.depth === b.depth
   );
 }
 

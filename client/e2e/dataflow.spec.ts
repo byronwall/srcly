@@ -400,3 +400,25 @@ test.describe("Data flow in dark mode", () => {
     expect(literal).toBe(0);
   });
 });
+
+test.describe("Symbol view on symbol-graph", () => {
+  const EXAMPLE = path.resolve(here, "../../engine/examples/symbol-graph");
+  const at = (params: Record<string, string>) => `/?${new URLSearchParams({ repo: EXAMPLE, view: "graph", ...params })}`;
+
+  test("opens a route component on its main path and grows it a hop at a time", async ({ page }) => {
+    await page.goto(at({ anchor: "src/routes/notes/[id].tsx@NotePage:6", dir: "forward" }));
+    const depth = page.locator("[data-depth]");
+    await expect(depth).toBeVisible({ timeout: 90_000 });
+    // One box per symbol: the resource is one box, drawn as state.
+    await expect(page.locator('[data-box][data-label="note"]')).toHaveCount(1);
+    // Server code and the database read are on the first screen.
+    await expect(page.locator('[data-frame-tone="server"]').first()).toBeVisible();
+    await expect(page.locator('[data-box][data-label^="database read"]').first()).toBeVisible();
+    const first = Number(await depth.getAttribute("data-depth"));
+    await page.locator("[data-box]").first().hover();
+    await page.keyboard.press("+");
+    await expect(page).toHaveURL(new RegExp(`depth=${first + 1}`));
+    await expect(depth).toHaveAttribute("data-depth", String(first + 1));
+    await shot(page, "symbol-view-depth");
+  });
+});

@@ -80,6 +80,30 @@ export function ModelSwitch(props: { model: BoxModel; onChange: (model: BoxModel
   );
 }
 
+/**
+ * Symbol view: how many hops from the anchor are drawn. The slider's last stop draws everything;
+ * `+` and `−` step it from the keyboard.
+ */
+export function DepthControl(props: { depth: number; max: number; onChange: (depth: number) => void }) {
+  const all = () => props.depth >= props.max;
+  return (
+    <label class="flex shrink-0 items-center gap-1.5 px-1 text-[12px]" title="Hops from the anchor to draw (+ and −)" data-depth={props.depth} data-depth-max={props.max}>
+      <span class="text-[var(--plc-on-muted)]">Depth</span>
+      <input
+        type="range"
+        min="1"
+        max={Math.max(1, props.max)}
+        step="1"
+        value={Math.min(props.depth, props.max)}
+        aria-label="Hops from the anchor to draw"
+        class="w-20 accent-[var(--plc-accent)]"
+        onInput={(e) => props.onChange(Number(e.currentTarget.value))}
+      />
+      <span class="w-6 tabular-nums">{all() ? "all" : props.depth}</span>
+    </label>
+  );
+}
+
 const LENSES = [
   { id: "data", label: "Data", title: "How the route's data flows: its params, resources and state, to what it renders" },
   { id: "components", label: "Components", title: "The route's render tree: every component, Show and For it renders" },

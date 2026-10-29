@@ -33,6 +33,8 @@ export interface FlowViewModel {
   shownAs: Map<string, string>;
   /** The selected origin's proven destinations and the edges that reach them, as drawn ids. */
   lit: { nodes: Set<string>; edges: Set<string> } | null;
+  /** Anchor mode's symbol view: the depth drawn and the deepest hop of the trace (`depth >= max` draws it all). */
+  levels?: { depth: number; max: number };
 }
 
 /** Drawn edges between frames: what renders what. Terminals and origins are owned, not rendered. */

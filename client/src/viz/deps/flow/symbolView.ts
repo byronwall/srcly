@@ -39,8 +39,8 @@ export function symbolView(graph: AnchorGraphResult): SymbolView {
     if (!isUnnamedStep(step, merged)) continue;
     const ins = edges.filter((e) => e.target === step.id);
     const outs = edges.filter((e) => e.source === step.id);
-    // A JSX occurrence the value ends in (`<Match>` past its `when`): the control box beside it says it already.
-    if (ins.length && !outs.length && step.elementKind === "jsx-occurrence") {
+    // A JSX occurrence the value ends in (`<Match>` past its `when`), or a return nothing reads: the box before it says it already.
+    if (ins.length && !outs.length && (step.elementKind === "jsx-occurrence" || step.elementKind === "return")) {
       edges = edges.filter((e) => e.target !== step.id);
       shownAs.set(step.id, ins[0].source);
       continue;
