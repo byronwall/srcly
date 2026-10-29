@@ -65,6 +65,7 @@
       "label": "Card",
       "line": 1,
       "note": null,
+      "operation": null,
       "parent": null,
       "reason": null,
       "side": "seed",
@@ -74,6 +75,7 @@
         "startColumn": 42,
         "startLine": 1
       },
+      "state": null,
       "status": "proven",
       "symbol": null,
       "typeText": null
@@ -89,6 +91,7 @@
       "label": "props.item.title",
       "line": 1,
       "note": null,
+      "operation": null,
       "parent": "scope:f",
       "reason": null,
       "side": "seed",
@@ -98,6 +101,7 @@
         "startColumn": 42,
         "startLine": 1
       },
+      "state": null,
       "status": "proven",
       "symbol": null,
       "typeText": "string"
@@ -113,6 +117,7 @@
       "label": "slot",
       "line": 1,
       "note": null,
+      "operation": null,
       "parent": "scope:f",
       "reason": null,
       "side": "down",
@@ -122,6 +127,7 @@
         "startColumn": 42,
         "startLine": 1
       },
+      "state": null,
       "status": "proven",
       "symbol": null,
       "typeText": null
@@ -137,6 +143,7 @@
       "label": "unused",
       "line": 1,
       "note": "dead end \u00b7 nothing continues from here",
+      "operation": null,
       "parent": "scope:f",
       "reason": "disconnected",
       "side": "down",
@@ -146,6 +153,7 @@
         "startColumn": 42,
         "startLine": 1
       },
+      "state": null,
       "status": "partial",
       "symbol": null,
       "typeText": null

@@ -77,6 +77,8 @@ export interface ViewEdge {
   assumed?: boolean;
   /** Anchor mode: the engine's relation kind (`field-input`, `argument`, …), for its card. */
   relation?: string;
+  /** Symbol view: a value-flow edge, the main line, drawn bold with its label always shown. */
+  bold?: boolean;
 }
 
 export interface ViewModel {

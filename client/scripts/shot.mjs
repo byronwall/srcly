@@ -2,7 +2,7 @@
 // The browser pane scales captures to ~800px; this takes them at 2x.
 //
 //   pnpm shot <url> <out.png> [--width 1440] [--height 900] [--scale 2] [--dark]
-//             [--wait-for <selector>] [--click <selector>]... [--full] [--selector <el>]
+//             [--wait-for <selector>] [--click <selector>]... [--full] [--selector <el>] [--delay <ms>]
 //
 // It waits for the scan to finish painting (`data-scan-state="ready"` on the app
 // shell) before --wait-for, so a capture never catches the progress panel.
@@ -28,6 +28,8 @@ const { values, positionals } = parseArgs({
     full: { type: "boolean", default: false },
     selector: { type: "string" },
     timeout: { type: "string", default: "60000" },
+    // A canvas that animates into place (the graph's edges settle) needs a moment after it appears.
+    delay: { type: "string", default: "0" },
   },
 });
 
@@ -57,6 +59,7 @@ try {
   }
   fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
   const target = values.selector ? page.locator(values.selector).first() : page;
+  await page.waitForTimeout(Number(values.delay));
   await target.screenshot({ path: out, ...(values.selector ? {} : { fullPage: values.full }) });
   console.log(path.resolve(out));
 } finally {

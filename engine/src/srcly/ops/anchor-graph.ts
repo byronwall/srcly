@@ -133,7 +133,7 @@ class AnchorGraphBuilder {
     // A name anchored on its initializer still reads its own binding: the name itself says which.
     const own = this.nodes.get(anchorId)!;
     const named = own.symbol ? null : this.host.bindingAt(file, candidate.span);
-    if (named) Object.assign(own, { symbol: named.symbol, field: named.field });
+    if (named) Object.assign(own, { symbol: named.symbol, field: named.field, state: named.state });
     const empty = { elements: 0, relations: 0, budget: { limit: 0, used: 0, exhausted: false } };
     if (!seed) return this.finish(anchor, direction, "unsupported", "no-evidence-element", empty);
 
@@ -686,8 +686,8 @@ class AnchorGraphBuilder {
     this.edges.push(edge);
   }
 
-  private addNode(node: Omit<AnchorNode, "absPath" | "symbol" | "field">, element?: Pick<ProgramElement, "kind" | "symbol">) {
-    this.nodes.set(node.id, { ...node, ...this.bindingOf(node, element), absPath: path.resolve(this.root, node.file) });
+  private addNode(node: Omit<AnchorNode, "absPath" | "symbol" | "field" | "operation" | "state">, element?: Pick<ProgramElement, "kind" | "symbol"> & { operationKind?: string | null }) {
+    this.nodes.set(node.id, { ...node, ...this.bindingOf(node, element), operation: element?.operationKind ?? null, absPath: path.resolve(this.root, node.file) });
   }
 
   /**
@@ -695,15 +695,15 @@ class AnchorGraphBuilder {
    * frontiers keep their own box, and so does an end, except the `when` or `each` of a control
    * (`<Match when={doc()}>`), which only reads the value it tests.
    */
-  private bindingOf(node: Omit<AnchorNode, "absPath" | "symbol" | "field">, element?: Pick<ProgramElement, "kind" | "symbol">): Pick<AnchorNode, "symbol" | "field"> {
-    const none = { symbol: null, field: null };
+  private bindingOf(node: Omit<AnchorNode, "absPath" | "symbol" | "field" | "operation" | "state">, element?: Pick<ProgramElement, "kind" | "symbol">): Pick<AnchorNode, "symbol" | "field" | "state"> {
+    const none = { symbol: null, field: null, state: null };
     if (node.kind === "scope" || node.kind === "origin" || node.kind === "frontier") return none;
     const found = this.host.bindingAt(node.file, node.span);
-    if (node.kind === "terminal") return found && (found.attribute === "when" || found.attribute === "each") ? { symbol: found.symbol, field: found.field } : none;
-    if (found) return { symbol: found.symbol, field: found.field };
+    if (node.kind === "terminal") return found && (found.attribute === "when" || found.attribute === "each") ? { symbol: found.symbol, field: found.field, state: found.state } : none;
+    if (found) return { symbol: found.symbol, field: found.field, state: found.state };
     // `const [doc] = createResource(…)`: the declaration's span is the pattern, but the element names its binding.
     const symbol = element?.symbol;
-    return symbol && BINDING_KINDS.has(element.kind) && LOCAL_SYMBOL.test(symbol) ? { symbol, field: null } : none;
+    return symbol && BINDING_KINDS.has(element.kind) && LOCAL_SYMBOL.test(symbol) ? { symbol, field: null, state: null } : none;
   }
 
   /** The frame an element sits in: its enclosing function (the module when there is none), one box per function and file. */

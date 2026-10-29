@@ -34,6 +34,10 @@ export function FlowMarkGlyph(props: { mark: FlowMark; x: number; y: number }) {
         <path d="M6 0 V3 M6 9 V12 M0 6 H3 M9 6 H12" stroke="currentColor" stroke-width="1.3" />
         <circle cx="6" cy="6" r="1.4" fill="currentColor" />
       </Show>
+      <Show when={props.mark === "state"}>
+        <ellipse cx="6" cy="2.8" rx="4.5" ry="1.8" fill="none" stroke="currentColor" stroke-width="1.3" />
+        <path d="M1.5 2.8 V9.2 C1.5 11.6 10.5 11.6 10.5 9.2 V2.8" fill="none" stroke="currentColor" stroke-width="1.3" />
+      </Show>
       <Show when={props.mark === "value"}>
         <circle cx="6" cy="6" r="3" fill="currentColor" />
       </Show>

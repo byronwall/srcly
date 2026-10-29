@@ -294,6 +294,14 @@ describe("anchorGraph symbols on symbol-graph", () => {
     expect(of("note={n()}")[0].symbol).toBe(of("n", "parameter")[0].symbol);
   }, 60_000);
 
+  it("names the state a framework call made, and the operation a step performs", () => {
+    expect(of("[note]")[0].state).toBe("resource");
+    expect(graph.nodes.find((n) => n.symbol?.startsWith("draft@"))?.state).toBe("store");
+    expect(graph.nodes.find((n) => n.symbol?.startsWith("label@"))?.state).toBe("memo");
+    expect(of("n", "parameter")[0].state).toBeNull();
+    expect(graph.nodes.some((n) => n.operation === "object-pack")).toBe(true);
+  }, 60_000);
+
   it("gives no binding to a call that is not an accessor, a render slot, or an origin, and keeps two `id`s apart", () => {
     expect(of("fetchNote(id)")[0].symbol).toBeNull();
     expect(of("n().title", "render-terminal")[0].symbol).toBeNull();

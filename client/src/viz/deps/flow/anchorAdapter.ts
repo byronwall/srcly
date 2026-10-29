@@ -6,7 +6,8 @@ import { isAssumedProof } from "../../../dataflow/outcome";
 import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
 import type { ViewEdge, ViewNode } from "../viewModel";
 import type { FlowViewModel } from "./adapter";
-import { humanizeDetail, MARK_OF_ANCHOR_KIND, markColor, stopWord } from "./marks";
+import { humanizeDetail, MARK_OF_ANCHOR_KIND, markColor, stopWord, type FlowMark } from "./marks";
+import { symbolView, type SymbolView } from "./symbolView";
 
 export type AnchorNode = AnchorGraphResult["nodes"][number];
 export type AnchorEdge = AnchorGraphResult["edges"][number];
@@ -30,7 +31,9 @@ export interface AnchorViewOptions {
   model?: "steps";
 }
 
-export function anchorGraphToViewModel(graph: AnchorGraphResult, options?: AnchorViewOptions): FlowViewModel {
+export function anchorGraphToViewModel(input: AnchorGraphResult, options?: AnchorViewOptions): FlowViewModel {
+  const view = options && options.model !== "steps" ? symbolView(input) : null;
+  const graph = view?.graph ?? input;
   const byId = new Map<string, AnchorNode>(graph.nodes.map((n) => [n.id, n]));
   const scopes = new Map(graph.nodes.filter((n) => n.kind === "scope").map((n) => [n.id, n]));
   const anchor = graph.nodes.find((n) => n.kind === "anchor");
@@ -71,12 +74,14 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult, options?: Ancho
       ...(n.kind === "frontier" ? { outline: "hatched" as const } : n.kind === "boundary" ? { outline: "dotted" as const } : {}),
     };
   });
-  const symbols = options && options.model !== "steps";
-  const passThrough = symbols ? symbolMerges(graph) : passThroughs(graph);
+  const passThrough = view ? new Map<string, string>() : passThroughs(graph);
   // A box that repeats another's place joins it the way a pass-through does.
   for (const [id, first] of twins(graph, passThrough)) passThrough.set(id, first);
-  const shown = (id: string) => passThrough.get(id) ?? id;
-  if (symbols) for (const box of nodes) if (!passThrough.has(box.id)) Object.assign(box, symbolBox(graph, passThrough, byId.get(box.id)!) ?? {});
+  const shown = (id: string) => {
+    const at = view?.shownAs.get(id) ?? id;
+    return passThrough.get(at) ?? at;
+  };
+  if (view) for (const box of nodes) if (!passThrough.has(box.id)) Object.assign(box, symbolBox(view, byId.get(box.id)!) ?? {});
   const fold = folds(graph, anchor, component, passThrough, opened, options);
   const drawnNodes = [...nodes.filter((n) => !passThrough.has(n.id) && !fold.has(n.id)), ...foldedBoxes(graph, fold)];
   const ids = new Set(drawnNodes.map((n) => n.id));
@@ -85,16 +90,16 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult, options?: Ancho
   for (const raw of graph.edges) {
     // An edge out of a folded reference leaves from the value it repeats; the reference link itself goes.
     if (passThrough.get(raw.target) === raw.source) continue;
-    const from = shown(raw.source);
-    const to = shown(raw.target);
+    const from = passThrough.get(raw.source) ?? raw.source;
+    const to = passThrough.get(raw.target) ?? raw.target;
     // An edge into or out of a folded function joins its box.
-    const e = { ...raw, source: fold.get(from) ?? from, target: fold.get(to) ?? to, label: symbols ? (byId.get(raw.source)?.field ?? raw.label) : raw.label };
+    const e = { ...raw, source: fold.get(from) ?? from, target: fold.get(to) ?? to };
     if (!ids.has(e.source) || !ids.has(e.target) || e.source === e.target) continue;
     const key = `${e.source}|${e.target}`;
     const known = seen.get(key);
     if (known) {
       // One edge per pair of boxes: the fields read along it all name it (`error, title`).
-      if (e.label && !(known.label ?? "").split(", ").includes(e.label)) known.label = known.label ? `${known.label}, ${e.label}` : e.label;
+      if (e.label && !(known.label ?? "").split(", ").includes(e.label)) known.label = known.label ? (known.label.includes(", ") ? known.label : `${known.label}, ${e.label}`) : e.label;
       continue;
     }
     const edge: ViewEdge = {
@@ -111,6 +116,7 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult, options?: Ancho
       proof: e.proof.map((p) => ({ kind: p.kind, detail: p.detail, status: p.status, at: p.locations[0] ? `${baseName(p.locations[0].file)}:${p.locations[0].line}` : undefined })),
       relation: e.kind,
       ...(e.status !== "structural" && e.proof.some((p) => isAssumedProof(p.kind)) ? { assumed: true } : {}),
+      ...(view && e.status !== "structural" ? { bold: true } : {}),
     };
     seen.set(key, edge);
     edges.push(edge);
@@ -120,7 +126,7 @@ export function anchorGraphToViewModel(graph: AnchorGraphResult, options?: Ancho
     hidden: new Set(),
     notFlow: new Set(),
     byId,
-    shownAs: new Map(boxes.map((n) => [n.id, fold.get(shown(n.id)) ?? shown(n.id)])),
+    shownAs: new Map(input.nodes.filter((n) => n.kind !== "scope").map((n) => [n.id, fold.get(shown(n.id)) ?? shown(n.id)])),
     lit: null,
   };
 }
@@ -291,45 +297,22 @@ function baseName(file: string): string {
   return file.slice(file.lastIndexOf("/") + 1);
 }
 
-/** Which box stands for a symbol: the anchor, else the box whose kind says most about the value, else the binding itself. */
-const SYMBOL_RANK: Record<AnchorNode["kind"], number> = { anchor: 0, origin: 1, boundary: 2, transform: 3, control: 4, value: 5, terminal: 6, frontier: 7, scope: 8 };
-
-/**
- * One box per symbol and frame: every box that reads one local binding (`doc`, `doc()`, `doc.error`,
- * the `when` of a `<Match>`) folds into one. Symbols come from the engine's checker, never from labels,
- * so two different `x`s stay apart, and a box with no symbol keeps its own box. Maps each folded box
- * to the box that stands for its symbol.
- */
-function symbolMerges(graph: AnchorGraphResult): Map<string, string> {
-  const groups = new Map<string, AnchorNode[]>();
-  for (const n of graph.nodes) {
-    if (n.kind === "scope" || !n.symbol) continue;
-    const key = `${n.parent}|${n.symbol}`;
-    groups.set(key, [...(groups.get(key) ?? []), n]);
-  }
-  const out = new Map<string, string>();
-  for (const members of groups.values()) {
-    if (members.length < 2) continue;
-    const rep = [...members].sort((a, b) => SYMBOL_RANK[a.kind] - SYMBOL_RANK[b.kind] || Number(a.field !== null) - Number(b.field !== null))[0];
-    for (const n of members) if (n.id !== rep.id) out.set(n.id, rep.id);
-  }
-  return out;
-}
-
-/** A symbol's box: named by its binding, with its reads (`doc · 4 reads · error, title`) and the strongest kind among them. */
-function symbolBox(graph: AnchorGraphResult, merged: Map<string, string>, rep: AnchorNode): Partial<ViewNode> | null {
-  if (!rep.symbol || rep.kind === "anchor") return null;
-  const members = [rep, ...graph.nodes.filter((n) => merged.get(n.id) === rep.id)];
-  if (members.length < 2 && !rep.field) return null;
+/** A symbol's box: named by its binding, with its reads (`doc · 4 reads · error, title`), and drawn as state when a framework call made it. */
+function symbolBox(view: SymbolView, rep: AnchorNode): Partial<ViewNode> | null {
+  const members = view.members.get(rep.id);
+  if (!members || !rep.symbol) return null;
+  const state = members.find((n) => n.state)?.state ?? null;
+  const mark: FlowMark | null = state && rep.kind !== "anchor" && rep.kind !== "origin" ? "state" : null;
+  if (rep.kind === "anchor") return mark ? { symbolKind: mark } : null;
   const name = rep.symbol.slice(0, rep.symbol.indexOf("@"));
   const fields = [...new Set(members.map((n) => n.field).filter((f): f is string => Boolean(f)))];
   const reads = `${members.length} read${members.length === 1 ? "" : "s"}`;
-  const where = `${baseName(rep.file)}:${rep.line}`;
   return {
     label: name,
     title: [name, ...new Set(members.map((n) => n.label))].join(" · "),
-    subtitle: [reads, where].join(" · "),
+    subtitle: [state, reads, `${baseName(rep.file)}:${rep.line}`].filter(Boolean).join(" · "),
     note: fields.length ? `reads ${fields.join(", ")}` : (rep.typeText ?? undefined),
     memberCount: members.length,
+    ...(mark ? { symbolKind: mark, tint: markColor(mark) } : {}),
   };
 }

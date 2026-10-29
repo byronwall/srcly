@@ -43,6 +43,8 @@
    "reason": null,
    "symbol": null,
    "field": null,
+   "operation": null,
+   "state": null,
    "note": null
   },
   {
@@ -67,6 +69,8 @@
    "reason": null,
    "symbol": "props@src/components/ViewerCard.tsx:80",
    "field": "viewer.name",
+   "operation": null,
+   "state": null,
    "note": null
   },
   {
@@ -91,6 +95,8 @@
    "reason": null,
    "symbol": "props@src/components/ViewerCard.tsx:80",
    "field": "viewer",
+   "operation": "field-read",
+   "state": null,
    "note": null
   },
   {
@@ -115,6 +121,8 @@
    "reason": null,
    "symbol": "props@src/components/ViewerCard.tsx:80",
    "field": null,
+   "operation": null,
+   "state": null,
    "note": null
   },
   {
@@ -139,6 +147,8 @@
    "reason": null,
    "symbol": null,
    "field": null,
+   "operation": null,
+   "state": null,
    "note": null
   },
   {
@@ -163,6 +173,8 @@
    "reason": null,
    "symbol": "viewer@src/routes/records.tsx:581",
    "field": null,
+   "operation": null,
+   "state": "resource",
    "note": null
   },
   {
@@ -187,6 +199,8 @@
    "reason": null,
    "symbol": "props@src/components/ViewerCard.tsx:80",
    "field": null,
+   "operation": null,
+   "state": null,
    "note": null
   },
   {
@@ -211,6 +225,8 @@
    "reason": null,
    "symbol": "viewer@src/routes/records.tsx:581",
    "field": null,
+   "operation": null,
+   "state": "resource",
    "note": null
   },
   {
@@ -235,6 +251,8 @@
    "reason": "framework-runtime",
    "symbol": "viewer@src/routes/records.tsx:581",
    "field": null,
+   "operation": null,
+   "state": "resource",
    "note": "viewer() is framework runtime; what it carries is proven only as far as the engine's relations go"
   },
   {
@@ -259,6 +277,8 @@
    "reason": null,
    "symbol": "viewer@src/routes/records.tsx:581",
    "field": null,
+   "operation": null,
+   "state": "resource",
    "note": null
   },
   {
@@ -283,6 +303,8 @@
    "reason": null,
    "symbol": null,
    "field": null,
+   "operation": null,
+   "state": null,
    "note": null
   },
   {
@@ -307,6 +329,8 @@
    "reason": null,
    "symbol": "viewer@src/routes/records.tsx:581",
    "field": null,
+   "operation": null,
+   "state": "resource",
    "note": null
   },
   {
@@ -331,6 +355,8 @@
    "reason": null,
    "symbol": null,
    "field": null,
+   "operation": null,
+   "state": null,
    "note": null
   },
   {
@@ -355,6 +381,8 @@
    "reason": null,
    "symbol": null,
    "field": null,
+   "operation": null,
+   "state": null,
    "note": null
   },
   {
@@ -379,6 +407,8 @@
    "reason": null,
    "symbol": null,
    "field": null,
+   "operation": null,
+   "state": null,
    "note": null
   },
   {
@@ -403,6 +433,8 @@
    "reason": null,
    "symbol": null,
    "field": null,
+   "operation": "selection",
+   "state": null,
    "note": null
   },
   {
@@ -427,6 +459,8 @@
    "reason": null,
    "symbol": null,
    "field": null,
+   "operation": null,
+   "state": null,
    "note": null
   }
  ],

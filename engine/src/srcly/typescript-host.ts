@@ -5,7 +5,7 @@ import type * as TypeScript from "typescript";
 import { createCallSiteIndex, type CallSiteIndex } from "./call-sites";
 import { compilerSymbolId } from "../analysis/program-evidence-support";
 import { callSitesOfElement, enclosingFunction, functionName, nodeAtSpan } from "./facts";
-import type { HostCandidate, LanguageHost } from "./host";
+import type { BindingState, HostCandidate, LanguageHost } from "./host";
 import { candidatesAt, sourceFileFor, spanOf, type Span } from "./selection";
 import type { TsTier1 } from "./session";
 
@@ -123,6 +123,13 @@ function bindingOf(ts: typeof TypeScript, checker: TypeScript.TypeChecker, root:
   // `note={n()}`: a prop binding reads its expression, and fills the attribute it names.
   const filled = ts.isJsxAttribute(node) && node.initializer && ts.isJsxExpression(node.initializer) ? node.initializer.expression : undefined;
   let at: TypeScript.Node = filled ?? (ts.isVariableDeclaration(node) || ts.isParameter(node) || ts.isBindingElement(node) ? node.name : node);
+  // `const [doc, setDoc] = …`: a pattern stands for its first name, the value it reads.
+  while (ts.isArrayBindingPattern(at) || ts.isObjectBindingPattern(at)) {
+    const elements: readonly TypeScript.Node[] = at.elements;
+    const first = elements.find((item): item is TypeScript.BindingElement => ts.isBindingElement(item));
+    if (!first) return null;
+    at = first.name;
+  }
   for (;;) {
     if (ts.isParenthesizedExpression(at) || ts.isNonNullExpression(at)) at = at.expression;
     else if (ts.isPropertyAccessExpression(at)) {
@@ -145,7 +152,45 @@ function bindingOf(ts: typeof TypeScript, checker: TypeScript.TypeChecker, root:
   if (!id) return null;
   const parent = filled ? node : node.parent && ts.isJsxExpression(node.parent) ? node.parent.parent : node.parent;
   const attribute = parent && ts.isJsxAttribute(parent) ? parent.name.getText() : null;
-  return { symbol: id, field: fields.length ? fields.join(".") : null, attribute };
+  return { symbol: id, field: fields.length ? fields.join(".") : null, attribute, state: stateOf(ts, checker, declaration) };
+}
+
+/** The framework calls that make state, by name, when the callee is declared in a framework package. */
+const STATE_CALLS: Record<string, BindingState> = {
+  createSignal: "signal",
+  useState: "signal",
+  createStore: "store",
+  createMutable: "store",
+  useReducer: "store",
+  createResource: "resource",
+  createAsync: "resource",
+  useQuery: "resource",
+  useSWR: "resource",
+  createMemo: "memo",
+  useMemo: "memo",
+  useContext: "context",
+};
+const FRAMEWORK_PACKAGE = /node_modules\/(solid-js|react|@solidjs\/router|@tanstack\/[^/]+-query|swr)\//;
+
+/** `const [doc] = createResource(…)`: the state the declaration's initializer makes, else null. */
+function stateOf(ts: typeof TypeScript, checker: TypeScript.TypeChecker, declaration: TypeScript.Declaration): BindingState | null {
+  let at: TypeScript.Node = declaration;
+  while (ts.isBindingElement(at) || ts.isArrayBindingPattern(at) || ts.isObjectBindingPattern(at)) at = at.parent;
+  if (!ts.isVariableDeclaration(at) || !at.initializer) return null;
+  const init = skipWrappers(ts, at.initializer);
+  if (!ts.isCallExpression(init)) return null;
+  const callee = skipWrappers(ts, init.expression);
+  const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : null;
+  const state = name ? STATE_CALLS[name] : undefined;
+  if (!state) return null;
+  try {
+    let symbol = checker.getSymbolAtLocation(ts.isPropertyAccessExpression(callee) ? callee.name : callee);
+    if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
+    const file = symbol?.declarations?.[0]?.getSourceFile().fileName ?? "";
+    return FRAMEWORK_PACKAGE.test(file) ? state : null;
+  } catch {
+    return null;
+  }
 }
 
 function skipWrappers(ts: typeof TypeScript, node: TypeScript.Expression): TypeScript.Expression {

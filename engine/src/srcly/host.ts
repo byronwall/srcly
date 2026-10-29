@@ -15,6 +15,9 @@ export type HostCandidate = {
   fallbacks?: Span[];
 };
 
+/** The kind of state a binding holds, by the framework call that made it. */
+export type BindingState = "signal" | "store" | "resource" | "memo" | "context";
+
 export interface LanguageHost {
   readonly language: "typescript" | "python";
   /**
@@ -42,7 +45,7 @@ export interface LanguageHost {
    * `doc().title`, `props.note.tags`. Null for a call that is not an accessor, a library or module
    * symbol, or a language that records none. `attribute` names the JSX attribute the expression fills.
    */
-  bindingAt(file: string, span: Span): { symbol: string; field: string | null; attribute: string | null } | null;
+  bindingAt(file: string, span: Span): { symbol: string; field: string | null; attribute: string | null; state: BindingState | null } | null;
   /** The function that owns a span (its span and name), or null at module level. */
   scopeAt(file: string, span: Span): { span: Span; name: string | null } | null;
   /** The call sites of the function a cross-call element belongs to: a call, a parameter or the function itself. */

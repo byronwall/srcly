@@ -8,7 +8,7 @@
 import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
 import type { FlowNode } from "./adapter";
 
-export type FlowMark = "route" | "anchor" | "origin" | "value" | "transform" | "component" | "control" | "terminal" | "boundary" | "frontier";
+export type FlowMark = "route" | "anchor" | "origin" | "state" | "value" | "transform" | "component" | "control" | "terminal" | "boundary" | "frontier";
 
 export interface FlowMarkSpec {
   /** Short word for cards and the legend. */
@@ -25,6 +25,7 @@ export const FLOW_MARKS: Record<FlowMark, FlowMarkSpec> = {
   route: { label: "route", hint: "the page component this flow starts from", token: "--plc-accent", color: "#2563eb" },
   anchor: { label: "anchor", hint: "the expression this flow is traced from", token: "--plc-accent", color: "#2563eb" },
   origin: { label: "origin", hint: "where a value enters: a fetch, resource or file read", token: "--plc-success", color: "#15803d" },
+  state: { label: "state", hint: "where data is held: a signal, store, resource, memo or context", token: "--plc-chart-7", color: "#db2777" },
   value: { label: "value", hint: "a carrier: a variable, parameter, field read or call result", token: "--plc-tertiary", color: "#64748b" },
   transform: { label: "transform", hint: "a reshaping step: map, filter, pack, parse, a one-site call", token: "--plc-chart-2", color: "#0891b2" },
   component: { label: "component", hint: "one occurrence of a component", token: "--plc-tertiary", color: "#64748b" },
@@ -57,7 +58,7 @@ export function tokenColor(token: string, fallback: string): string {
 /** The mark's color as a real color value, for mixing (the box tint) rather than for CSS. */
 export const markColor = (mark: FlowMark): string => tokenColor(FLOW_MARKS[mark].token, FLOW_MARKS[mark].color);
 
-export const FLOW_MARK_ORDER: FlowMark[] = ["route", "anchor", "origin", "value", "transform", "component", "control", "terminal", "boundary", "frontier"];
+export const FLOW_MARK_ORDER: FlowMark[] = ["route", "anchor", "origin", "state", "value", "transform", "component", "control", "terminal", "boundary", "frontier"];
 
 /** The mark for an anchor graph's node kind (scopes are frames, never boxes). */
 export const MARK_OF_ANCHOR_KIND: Record<AnchorGraphResult["nodes"][number]["kind"], FlowMark> = {

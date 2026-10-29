@@ -242,6 +242,29 @@
               "null"
             ]
           },
+          "operation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "signal",
+                  "store",
+                  "resource",
+                  "memo",
+                  "context"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "note": {
             "type": [
               "string",
@@ -266,6 +289,8 @@
           "reason",
           "symbol",
           "field",
+          "operation",
+          "state",
           "note"
         ],
         "additionalProperties": false
