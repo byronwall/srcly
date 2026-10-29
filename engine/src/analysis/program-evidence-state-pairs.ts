@@ -40,3 +40,12 @@ export function stateRoleOf(ts: typeof TypeScript, checker: TypeScript.TypeCheck
   if (!first || ts.isOmittedExpression(first) || !ts.isIdentifier(first.name)) return null;
   return { getter: first.name, role: index === 0 ? "getter" : "setter" };
 }
+
+/** The reducer of a `useReducer` pair (its first argument), which its dispatch calls with the action; null for any other pair. */
+export function reducerOf(ts: typeof TypeScript, checker: TypeScript.TypeChecker, getter: TypeScript.Identifier): TypeScript.Expression | null {
+  const pair = getter.parent.parent.parent;
+  if (!ts.isVariableDeclaration(pair) || !pair.initializer || !ts.isCallExpression(pair.initializer)) return null;
+  const callee = pair.initializer.expression;
+  const module = importModule(ts, checker, callee) ?? (ts.isPropertyAccessExpression(callee) ? importModule(ts, checker, callee.expression) : null);
+  return module === "react" && lastName(calleeName(ts, callee)) === "useReducer" ? pair.initializer.arguments[0] ?? null : null;
+}

@@ -16,7 +16,7 @@ export const FRAMEWORK_FLOWS: Record<string, Record<string, FrameworkFlow>> = {
   },
   "solid-js/store": { unwrap: { passes: [0] }, createMutable: { passes: [0] } },
   "@solidjs/router": { createAsync: { returns: 0 }, createAsyncStore: { returns: 0 } },
-  "react": { useMemo: { returns: 0 }, useDeferredValue: { passes: [0] }, useEffect: { returns: 0 }, useLayoutEffect: { returns: 0 } },
+  "react": { useMemo: { returns: 0 }, useReducer: { returns: 0 }, useDeferredValue: { passes: [0] }, useEffect: { returns: 0 }, useLayoutEffect: { returns: 0 } },
 };
 export const ACCESSOR_FACTORIES = new Set(["solid-js#createMemo", "solid-js#children", "@solidjs/router#createAsync", "@solidjs/router#createAsyncStore"]);
 
