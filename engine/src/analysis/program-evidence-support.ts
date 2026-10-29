@@ -361,10 +361,15 @@ export function jsxOpeningAncestor(ts: typeof TypeScript, node: TypeScript.JsxEx
 }
 
 /** Whether a call's value is thrown away: it is a statement of its own (`rows.push(row);`, `await save(x);`, `void run()`). */
-export function discardsValue(ts: typeof TypeScript, call: TypeScript.CallExpression): boolean {
+export function discardsValue(ts: typeof TypeScript, call: TypeScript.CallExpression, checker?: TypeScript.TypeChecker): boolean {
   let node: TypeScript.Node = call;
   while (ts.isParenthesizedExpression(node.parent) || ts.isAwaitExpression(node.parent) || ts.isVoidExpression(node.parent) || ts.isNonNullExpression(node.parent)) node = node.parent;
-  return ts.isExpressionStatement(node.parent);
+  if (ts.isExpressionStatement(node.parent)) return true;
+  // An arrow's body whose caller ignores what it returns (`forEach((x) => rows.push(x))`: the callback's contextual return type is void).
+  const arrow = node.parent;
+  if (!checker || !ts.isArrowFunction(arrow) || arrow.body !== node) return false;
+  const signature = checker.getContextualType(arrow)?.getCallSignatures()[0];
+  return Boolean(signature && checker.getReturnTypeOfSignature(signature).flags & ts.TypeFlags.Void);
 }
 
 export function unwrap(ts: typeof TypeScript, node: TypeScript.Expression): TypeScript.Expression {
