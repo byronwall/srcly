@@ -43,6 +43,8 @@ export type ProgramEvidenceExpressionContext = {
   parametersBySymbol: ReadonlyMap<string, string>;
   functionsBySymbol: ReadonlyMap<string, CollectorFunctionInfo>;
   symbolId: (node: TypeScript.Node) => string | null;
+  /** Whether a property read names an export through a namespace import (`api.load` after `import * as api`). */
+  readsNamespace: (node: TypeScript.PropertyAccessExpression) => boolean;
   moduleFor: (node: TypeScript.Node) => string | null;
   location: (node: TypeScript.Node) => ProgramEvidenceLocation;
   ensureElement: (
@@ -109,7 +111,7 @@ export function collectProgramEvidenceExpression(
     );
   }
   if (context.ts.isPropertyAccessExpression(unwrapped)) {
-    return context.ensureElement(
+    const id = context.ensureElement(
       unwrapped,
       "field-read",
       ownerId,
@@ -125,6 +127,9 @@ export function collectProgramEvidenceExpression(
       ),
       "field-read",
     );
+    // `api.greeting` reads the export itself, as `greeting` would after a named import.
+    if (context.ts.isIdentifier(unwrapped.name) && context.readsNamespace(unwrapped)) context.references.push({ node: unwrapped.name, id, symbolId: context.symbolId(unwrapped.name) });
+    return id;
   }
   if (context.ts.isElementAccessExpression(unwrapped)) {
     return context.ensureElement(
