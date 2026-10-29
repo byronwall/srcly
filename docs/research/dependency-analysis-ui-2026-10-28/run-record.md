@@ -12,7 +12,7 @@
 - Attachment: `tmp/pro/dependency-analysis-ui/source-packet.zip`. Contains 729 selected tracked files from the baseline. Excludes dependencies, secrets, build output, and audit screenshots. This is a source reference, not a complete runnable checkout.
 - Source visibility: GitHub reports PUBLIC. Upload to ChatGPT Pro is authorized by the full-process request and invoked skill.
 - Chrome: connected `byroni.us` profile, signed-in ChatGPT. Live selector verified Pro, power 5 of 5.
-- Phase: Pro finished; reports collected and reviewed. Summary, recommendation review, and implementation plan prepared for this PR.
+- Phase: complete. Pro finished; reports collected and reviewed. Summary, recommendation review, and implementation plan are in the open review PR.
 - Conversation: https://chatgpt.com/c/6ae2a1fc-1100-83e9-a8de-39abe701f030
 - Submission time: October 28, 2026, 21:32 EDT (October 29, 01:32 UTC).
 - Verification: both attachments appear in the sent message. ChatGPT shows Working, responding, and Stop. Model selector shows Pro.
@@ -20,7 +20,7 @@
 - Collection check: October 28, 2026, at about 22:30 EDT. Pro finished after 31 minutes, 19 seconds.
 - Follow-up count: 0. At most one follow-up for a missing priority answer or unusable deliverable.
 - Blockers: none.
-- Heartbeat: `collect-srcly-dependency-ui-research`, ACTIVE. Attached to this chat; hourly at minute 32. Disable after completion or an essential user-action blocker.
+- Heartbeat: `collect-srcly-dependency-ui-research`, deleted after completion on October 28 at about 22:38 EDT. No further collection checks remain scheduled.
 - Collected reports: all eight requested companions, archive, figures, mockups, and experiment evidence under ignored `tmp/pro/dependency-analysis-ui/collected/`.
 - Collection: download event timed out, but the archive was present in Downloads. Verified the actual file before retrying. Archive path/type checks and all 30 manifest entries passed. No downloaded program was executed.
 - Analysis: reviewed all companions. No material deliverable gap required a follow-up. Recommendation dispositions cover DA-001 through DA-012 in `reconciliation.md`.
@@ -29,6 +29,8 @@
 - External checks: official Understand occurrence inspection, LSP call ranges, and CodeQL path contracts support the decisive design transfer. Other comparative claims stay attributed to Pro.
 - Integrated outputs: `README.md`, `reconciliation.md`, and `docs/intent/connection-evidence/implementation-plan.md`. No research catalogue was present to update.
 - Product decision: plan Explain connection within the current inspector. Explore certified witnesses and alternative views separately. No application change or default-view change is approved by the research.
+- Final verification: PR #256 is open against main, with the updated Conventional Commit title, saved body, and five documentation files verified. The prompt is unchanged; originals remain ignored. Whitespace, local links, all twelve dispositions, and `scripts/check.sh --changed` passed. That changed-area check selected no application suites.
+- Commits: `26a7c31` records submission; `de486ca` integrates findings and the plan; the final run-record commit records completion. Both Git identities were verified as Byron Wall <byron@byroni.us> before each commit.
 - Bootstrap: passed with Python 3.14. Client and engine dependencies and server environment installed.
 - Integration note: main advanced after the prompt baseline. Reconcile current code before accepting recommendations, including action returns and branch classification fixes.
 - Recovery: inspect the recorded conversation before any resend. A slow response is not a failure.
