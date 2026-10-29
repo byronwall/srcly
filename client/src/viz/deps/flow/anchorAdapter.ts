@@ -37,7 +37,8 @@ export interface AnchorViewOptions {
 export function anchorGraphToViewModel(input: AnchorGraphResult, options?: AnchorViewOptions): FlowViewModel {
   const view = options && options.model !== "steps" ? symbolView(input) : null;
   const seed = input.nodes.find((n) => n.kind === "anchor");
-  const limited = view && seed ? limitDepth(view.graph, view.shownAs.get(seed.id) ?? seed.id, options?.depth, options?.expanded ?? []) : null;
+  const owner = view ? components(view.graph) : null;
+  const limited = view && seed ? limitDepth(view.graph, view.shownAs.get(seed.id) ?? seed.id, options?.depth, options?.expanded ?? [], (n) => (n.parent ? owner!.get(n.parent) : undefined)) : null;
   const graph = limited?.graph ?? view?.graph ?? input;
   const byId = new Map<string, AnchorNode>(graph.nodes.map((n) => [n.id, n]));
   const scopes = new Map(graph.nodes.filter((n) => n.kind === "scope").map((n) => [n.id, n]));

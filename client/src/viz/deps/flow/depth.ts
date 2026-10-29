@@ -36,7 +36,7 @@ export interface DepthView {
  * a depth, the deepest one whose boxes fit the first screen. Boxes past the depth fold into stubs,
  * except the next hop of each stub named in `opened`.
  */
-export function limitDepth(graph: AnchorGraphResult, anchorId: string, depth: number | undefined, opened: Iterable<string>): DepthView {
+export function limitDepth(graph: AnchorGraphResult, anchorId: string, depth: number | undefined, opened: Iterable<string>, componentOf: (n: AnchorNode) => string | undefined = () => undefined): DepthView {
   const boxes = graph.nodes.filter((n) => n.kind !== "scope");
   const near = new Map<string, Set<string>>();
   const link = (a: string, b: string) => (near.get(a) ?? near.set(a, new Set()).get(a)!).add(b);
@@ -69,11 +69,16 @@ export function limitDepth(graph: AnchorGraphResult, anchorId: string, depth: nu
   // The last stop draws everything, a box no hop reaches (a stray piece of the trace) too.
   if (drawn >= max) return { graph, stubs: [], shownAs: new Map(), depth: drawn, max };
   const shown = new Set(boxes.filter((n) => (hops.get(n.id) ?? Infinity) <= drawn).map((n) => n.id));
-  // An opened stub shows its box's next hop.
-  for (const id of opened) {
+  // An opened stub shows its box's next hop; an opened component shows all of its boxes the trace reached.
+  const openedIds = new Set(opened);
+  for (const id of openedIds) {
     if (!id.startsWith(STUB_PREFIX)) continue;
     const from = id.slice(STUB_PREFIX.length);
     if (shown.has(from)) for (const to of near.get(from) ?? []) shown.add(to);
+  }
+  for (const n of boxes) {
+    const root = componentOf(n);
+    if (root && openedIds.has(root)) shown.add(n.id);
   }
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));
   // Each hidden box hangs off the first drawn box on its way back to the anchor.
