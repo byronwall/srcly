@@ -16,13 +16,12 @@ export function report(message: string) {
   console.log(message); // @trace logged-out forward message @reaches logged-out stdout @reaches logged-out external-effect @edge logged-out effect-input * host-api @no-edge logged-out effect-input * external-call
 }
 
-// `onCleanup` is Solid's, but nothing models it (no row, no runtime
-// boundary): that it hands back the function it is given, or does anything
-// with it, is assumed. Only a model of what it does could make this proven.
+// `onCleanup` is a Solid framework call: what Solid does with the function is
+// its model, never an external effect, so no edge here is a guess.
 export function useRegistration(key: string) {
-  onCleanup(leave(key)); // @reaches leave external-effect
+  onCleanup(leave(key)); // @stop leave untraced * "onCleanup(leave(key))"
 }
 
-function leave(key: string) { // @trace leave forward symbol leave @outcome leave partial @edge leave argument partial external-call @edge leave effect-input * external-call @no-edge leave * * host-api
-  return () => key;
+function leave(key: string) { // @trace leave forward symbol leave @outcome leave partial @no-edge leave effect-input * external-call @no-edge leave * * host-api
+  return () => key; // @reaches leave return
 }
