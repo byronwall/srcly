@@ -1,0 +1,14 @@
+{
+  "id": "37b52b27-4135-4db9-937c-06b845d767d6",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:2547fb",
+    "label": "Agent token ...2547fb"
+  },
+  "createdAt": "2026-10-26T13:04:29.131Z",
+  "summary": "Set \"explorEDA trace timeouts\" priority to low.",
+  "nodeIds": [
+    "task-exploreda-trace-timeouts"
+  ]
+}

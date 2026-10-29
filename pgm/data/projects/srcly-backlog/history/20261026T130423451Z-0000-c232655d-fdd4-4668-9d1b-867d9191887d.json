@@ -1,0 +1,14 @@
+{
+  "id": "c232655d-fdd4-4668-9d1b-867d9191887d",
+  "kind": "node.status.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:cae2b3",
+    "label": "Agent token ...cae2b3"
+  },
+  "createdAt": "2026-10-26T13:04:23.451Z",
+  "summary": "Changed \"Calls through function-typed params and props\" status to planned.",
+  "nodeIds": [
+    "task-calls-through-function-typed-params-and-props"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "id": "49c69e5e-f543-4b42-89d7-a576e6518275",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:b817ed",
+    "label": "Agent token ...b817ed"
+  },
+  "createdAt": "2026-10-26T13:04:18.065Z",
+  "summary": "Created \"Step 5: passes-through and consumes rows\" under \"Data flow: library models as data\".",
+  "nodeIds": [
+    "task-step-5-passes-through-and-consumes-rows",
+    "area-data-flow-library-models-as-data"
+  ]
+}

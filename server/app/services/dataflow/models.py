@@ -123,6 +123,8 @@ class RouteSummary(BaseModel):
     parameters: list[RouteParameter]
     # A handler route (FastAPI, Flask) has no render backbone; the client anchors at its handler.
     handler: RouteHandler | None = None
+    # A page route's component (its file's default export); the client traces its data from there.
+    component: RouteHandler | None = None
 
 
 class RoutesResult(BaseModel):
@@ -155,6 +157,10 @@ class DataflowStatus(BaseModel):
     stale: bool = False
     rssBytes: int | None = None
     progress: Progress | None = None
+    # Python apps below a root analyzed as TypeScript, relative to it: where to open their data flow.
+    pythonApps: list[str] | None = None
+    # Which language the root is analyzed as, so the client words what it shows for it.
+    language: Literal["typescript", "python"] | None = None
 
 
 class RoutesResponse(BaseModel):

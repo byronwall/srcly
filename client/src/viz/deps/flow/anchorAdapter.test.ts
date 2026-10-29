@@ -3,7 +3,7 @@ import fixture from "../../../../../engine/test/srcly/__fixtures__/solid-route.a
 import declarationFixture from "../../../../../engine/test/srcly/__fixtures__/solid-route-viewer-card.anchor-graph.json";
 import type { AnchorGraphResult } from "../../../dataflow/contract.generated";
 import { layoutWithHubs } from "../hubs";
-import { anchorGraphToViewModel } from "./anchorAdapter";
+import { ANCHOR_FOLD_BUDGET, anchorGraphToViewModel } from "./anchorAdapter";
 import { FLOW_MARKS } from "./marks";
 import { reachFrom } from "./reach";
 
@@ -84,6 +84,31 @@ describe("anchor graph → ViewModel", () => {
     const r = reachFrom(m.vm, m.vm.focusId, "both", { exclude: m.notFlow });
     expect(r.strong.nodes.has(byLabel("createResource(loadViewer)").id)).toBe(true);
     expect([...r.light.nodes, ...r.strong.nodes].some((id) => m.vm.nodes.find((n) => n.id === id)?.symbolKind === "terminal")).toBe(true);
+  });
+});
+
+describe("a trace over the fold budget", () => {
+  // Pad the anchor's own function past the budget: its boxes stay drawn, every other function folds.
+  const anchor = graph.nodes.find((n) => n.kind === "anchor")!;
+  const pad = Array.from({ length: ANCHOR_FOLD_BUDGET }, (_, i) => ({ ...anchor, id: `pad:${i}`, kind: "value" as const }));
+  const big = { ...graph, nodes: [...graph.nodes, ...pad] };
+  const others = graph.nodes.filter((n) => n.kind !== "scope" && n.parent && n.parent !== anchor.parent);
+  const scope = others[0].parent!;
+
+  it("folds each other function into one box that opens in place and names what it reaches", () => {
+    const m = anchorGraphToViewModel(big, { expanded: [] });
+    expect(m.vm.nodes.some((n) => n.id === others[0].id)).toBe(false);
+    const box = m.vm.nodes.find((n) => n.id === scope)!;
+    expect(box).toMatchObject({ expandable: true, outline: "dotted", memberCount: others.filter((n) => n.parent === scope).length });
+    expect(m.shownAs.get(others[0].id)).toBe(scope);
+    expect(m.vm.edges.every((e) => m.vm.nodes.some((n) => n.id === e.source) && m.vm.nodes.some((n) => n.id === e.target))).toBe(true);
+    expect(m.vm.nodes.some((n) => n.id === "pad:0")).toBe(true);
+  });
+
+  it("draws an opened function's boxes under its id, and folds nothing without options", () => {
+    const opened = anchorGraphToViewModel(big, { expanded: [scope] });
+    expect(opened.vm.nodes.find((n) => n.id === others.find((o) => o.parent === scope)!.id)?.graphId).toMatch(new RegExp(`^${scope}#`));
+    expect(anchorGraphToViewModel(big).vm.nodes.some((n) => n.id === scope)).toBe(false);
   });
 });
 

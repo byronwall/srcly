@@ -1,0 +1,15 @@
+{
+  "id": "9967a029-bd56-4490-90b9-52986249259c",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:d4df59",
+    "label": "Agent token ...d4df59"
+  },
+  "createdAt": "2026-10-26T13:04:30.950Z",
+  "summary": "Created \"Ledger `classify()` reads kind traits\" under \"Data flow: engine structure\".",
+  "nodeIds": [
+    "task-ledger-classify-reads-kind-traits",
+    "area-data-flow-engine-structure"
+  ]
+}

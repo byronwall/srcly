@@ -1,0 +1,14 @@
+{
+  "id": "a2f78027-5da8-4e21-8a5c-beaf2941b995",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:214135",
+    "label": "Agent token ...214135"
+  },
+  "createdAt": "2026-10-27T03:32:34.164Z",
+  "summary": "Set \"Floods: hop limit and fold by file\" priority to high.",
+  "nodeIds": [
+    "task-floods-hop-limit-and-fold-by-file"
+  ]
+}

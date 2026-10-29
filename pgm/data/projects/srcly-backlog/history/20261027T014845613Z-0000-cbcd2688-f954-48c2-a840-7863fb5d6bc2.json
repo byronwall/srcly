@@ -1,0 +1,14 @@
+{
+  "id": "cbcd2688-f954-48c2-a840-7863fb5d6bc2",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:d7ce26",
+    "label": "Agent token ...d7ce26"
+  },
+  "createdAt": "2026-10-27T01:48:45.613Z",
+  "summary": "Set \"`ok` claims that are not true\" priority to high.",
+  "nodeIds": [
+    "task-ok-claims-that-are-not-true"
+  ]
+}

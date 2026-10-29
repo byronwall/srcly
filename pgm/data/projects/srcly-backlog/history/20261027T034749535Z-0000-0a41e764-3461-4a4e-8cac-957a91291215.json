@@ -1,0 +1,14 @@
+{
+  "id": "0a41e764-3461-4a4e-8cac-957a91291215",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:f3f291",
+    "label": "Agent token ...f3f291"
+  },
+  "createdAt": "2026-10-27T03:47:49.535Z",
+  "summary": "Deleted \"Floods: hop limit and fold by file\".",
+  "nodeIds": [
+    "task-floods-hop-limit-and-fold-by-file"
+  ]
+}

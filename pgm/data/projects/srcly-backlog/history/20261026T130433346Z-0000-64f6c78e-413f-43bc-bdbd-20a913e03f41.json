@@ -1,0 +1,14 @@
+{
+  "id": "64f6c78e-413f-43bc-bdbd-20a913e03f41",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:0c5b3d",
+    "label": "Agent token ...0c5b3d"
+  },
+  "createdAt": "2026-10-26T13:04:33.346Z",
+  "summary": "Set \"Delete the stale `claude/dfx-callbacks-wip` branch\" priority to low.",
+  "nodeIds": [
+    "task-delete-the-stale-claude-dfx-callbacks-wip-branch"
+  ]
+}

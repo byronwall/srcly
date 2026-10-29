@@ -1,11 +1,11 @@
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import { DialogShell } from "../../../components/dialog/DialogShell";
 import type { RoutesResult } from "../../../dataflow/contract.generated";
 
 type Route = RoutesResult["routes"][number];
 
 /** `/` in Data flow mode: pick the route whose render backbone to draw. */
-export function RoutePicker(props: { open: boolean; routes: Route[]; current: string | undefined; onClose: () => void; onPick: (route: Route) => void }) {
+export function RoutePicker(props: { open: boolean; routes: Route[]; current: string | undefined; onClose: () => void; onPick: (route: Route) => void; aside?: JSX.Element }) {
   const [query, setQuery] = createSignal("");
   const [active, setActive] = createSignal(0);
   let input: HTMLInputElement | undefined;
@@ -76,6 +76,9 @@ export function RoutePicker(props: { open: boolean; routes: Route[]; current: st
           </For>
         </Show>
       </div>
+      <Show when={props.aside}>
+        <div class="border-t border-[var(--plc-border)] px-3 py-1.5">{props.aside}</div>
+      </Show>
       <div class="flex gap-4 whitespace-nowrap border-t border-[var(--plc-border)] px-3 py-1.5 text-[11px] text-[var(--plc-on-subtle)]">
         <span>
           <b class="font-medium text-[var(--plc-on-muted)]">Enter</b> draw its data flow

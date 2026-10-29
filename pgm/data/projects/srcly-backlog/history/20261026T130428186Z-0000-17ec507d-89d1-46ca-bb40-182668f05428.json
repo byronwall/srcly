@@ -1,0 +1,14 @@
+{
+  "id": "17ec507d-89d1-46ca-bb40-182668f05428",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:4cd6bf",
+    "label": "Agent token ...4cd6bf"
+  },
+  "createdAt": "2026-10-26T13:04:28.186Z",
+  "summary": "Set \"Move the remaining alias-resolution sites to the value-origin resolver\" priority to medium.",
+  "nodeIds": [
+    "task-move-the-remaining-alias-resolution-sites-to-the-value-origin-resolver"
+  ]
+}

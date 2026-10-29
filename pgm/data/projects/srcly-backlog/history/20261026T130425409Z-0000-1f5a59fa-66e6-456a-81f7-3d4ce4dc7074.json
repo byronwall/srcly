@@ -1,0 +1,14 @@
+{
+  "id": "1f5a59fa-66e6-456a-81f7-3d4ce4dc7074",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:fd5494",
+    "label": "Agent token ...fd5494"
+  },
+  "createdAt": "2026-10-26T13:04:25.409Z",
+  "summary": "Set \"Hub summaries for size-limited slices\" priority to high.",
+  "nodeIds": [
+    "task-hub-summaries-for-size-limited-slices"
+  ]
+}

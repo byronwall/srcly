@@ -1,0 +1,12 @@
+{
+  "id": "e9195d59-58b1-4150-8673-bcfb18815af4",
+  "kind": "project.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:16bfad",
+    "label": "Agent token ...16bfad"
+  },
+  "createdAt": "2026-10-26T13:03:04.970Z",
+  "summary": "Created project \"srcly backlog\".",
+  "nodeIds": []
+}

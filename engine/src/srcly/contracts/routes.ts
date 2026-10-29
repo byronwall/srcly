@@ -14,6 +14,12 @@ export const routeSummarySchema = z.strictObject({
    * the client opens its handler in anchor mode by name and line instead.
    */
   handler: z.strictObject({ name: z.string(), line: z.number().int().positive() }).nullable(),
+  /**
+   * The component a page route renders (its file's default export), by name
+   * and the line that declares it: the client traces its data from there, and
+   * keeps the render backbone as a second lens. Null for a handler route.
+   */
+  component: z.strictObject({ name: z.string(), line: z.number().int().positive() }).nullable(),
 });
 
 export const routesResultSchema = z.strictObject({

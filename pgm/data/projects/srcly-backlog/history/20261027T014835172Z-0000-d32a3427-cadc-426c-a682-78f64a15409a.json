@@ -1,0 +1,15 @@
+{
+  "id": "d32a3427-cadc-426c-a682-78f64a15409a",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:9640f0",
+    "label": "Agent token ...9640f0"
+  },
+  "createdAt": "2026-10-27T01:48:35.172Z",
+  "summary": "Created \"Routes on APIRouter subclasses and computed mount prefixes\" under \"Data flow: Python usability (audit 2026-10)\".",
+  "nodeIds": [
+    "task-routes-on-apirouter-subclasses-and-computed-mount-prefixes",
+    "area-data-flow-python-usability-audit-2026-10"
+  ]
+}

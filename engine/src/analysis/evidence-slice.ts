@@ -94,7 +94,8 @@ export function normalizeProgramEvidence(evidence: ProgramEvidence): NormalizedP
  * entered callees through, newest last. Forward, an `argument-binding` whose
  * argument belongs to call C pushes C, and a `return-value` is followed only
  * to the call on top, which pops it. Backward the roles swap. An empty stack
- * (the seed sits inside the callee) keeps every call site, as before.
+ * (the seed sits inside the callee) keeps every call site, as before; a
+ * `member-state` step (a value kept in a member, read elsewhere) empties it.
  * `fields` is the field path (`evidence-slice-fields.ts`): which field of the
  * value the walk is after, so a pack is entered only through that field.
  */
@@ -284,6 +285,24 @@ export function queryEvidenceSlice(
     return null;
   };
 
+  /** Whether function `inner` is written inside function `outer`, through its owners. */
+  const nestedIn = (inner: string, outer: string): boolean => {
+    let owner = indexed.elementFor(inner)?.ownerId ?? null;
+    for (let depth = 0; owner && depth < 32; depth++) {
+      if (owner === outer) return true;
+      owner = indexed.elementFor(owner)?.ownerId ?? null;
+    }
+    return false;
+  };
+
+  /** The function a call enters, by its `invokes` relation, or null. */
+  const invokedBy = (callId: string): string | null => {
+    for (const relation of provider.getRelations(callId, "forward", cancellation)) {
+      if (relation.kind === "invokes" && relation.from === callId) return relation.to;
+    }
+    return null;
+  };
+
   /**
    * The invocation stack after following `relation` from `calls`, or null when
    * the relation crosses to another call than the one the walk came through.
@@ -299,12 +318,18 @@ export function queryEvidenceSlice(
       if (top === undefined) return calls;
       return top === call ? calls.slice(0, -1) : null;
     }
+    // Through a member's state the walk is in no one call: whoever reads the member, from any call.
+    if (relation.kind === "member-state") return [];
     if (relation.kind === "return-value") {
       // Forward: out of the callee to its call, which must be the one on top. Backward: into the callee from `to`'s call.
       const call = relation.to;
       if (forward) {
         if (top === undefined) return calls;
-        return top === call ? calls.slice(0, -1) : null;
+        if (top === call) return calls.slice(0, -1);
+        // A closure the callee made (`factory(v).read()`) returns from a function nested inside the one the call on top entered: it leaves through its own calls.
+        const returning = indexed.elementFor(relation.from)?.ownerId;
+        const entered = invokedBy(top);
+        return returning && entered && returning !== entered && nestedIn(returning, entered) ? calls : null;
       }
       return [...calls.slice(-(MAX_CALL_STACK - 1)), call];
     }

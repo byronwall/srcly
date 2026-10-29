@@ -27,7 +27,7 @@ const FOLLOW = [
   "field-input", "consumer-value", "alias", "references", "for-element", "for-callback-parameter", "show-when",
   "show-render-parameter", "component-prop", "component-prop-binding", "render-terminal", "renders", "performs",
   "pack-field", "map-element", "map-callback-parameter", "map-result", "filter-result", "find-result",
-  "includes-membership", "join-source", "accessor-call",
+  "includes-membership", "join-source", "accessor-call", "resource-source-parameter", "context-value", "framework-flow", "member-state",
 ];
 const MAX_ROWS = 64;
 const callSiteIndexes = new WeakMap<TsTier1, CallSiteIndex>();

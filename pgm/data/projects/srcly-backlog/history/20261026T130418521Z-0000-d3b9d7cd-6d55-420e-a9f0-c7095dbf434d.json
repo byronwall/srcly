@@ -1,0 +1,14 @@
+{
+  "id": "d3b9d7cd-6d55-420e-a9f0-c7095dbf434d",
+  "kind": "node.status.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:a9aac8",
+    "label": "Agent token ...a9aac8"
+  },
+  "createdAt": "2026-10-26T13:04:18.521Z",
+  "summary": "Changed \"Step 5: passes-through and consumes rows\" status to planned.",
+  "nodeIds": [
+    "task-step-5-passes-through-and-consumes-rows"
+  ]
+}

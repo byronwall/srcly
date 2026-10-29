@@ -20,10 +20,10 @@ describe("routePath explains a lit edge in order (M4, T16)", () => {
     const graph = routeGraphOp(session, { route: "/records" });
     const origin = graph.origins.find((item) => item.label === "createResource(loadViewer)")!;
     const lit = routeGraphOp(session, { route: "/records", source: origin.elementId });
-    // The viewer's three handoffs; the records' reach their slots through `createMemo`'s callbacks, an assumed hand-off (partial).
+    // The viewer's three handoffs; the records' reach their slots through `createMemo`'s callbacks, which the framework model proves.
     const handoffs = lit.edges.filter((edge) => edge.kind === "handoff" && edge.source === origin.nodeId);
     expect(handoffs.length).toBe(3);
-    expect(lit.edges.filter((edge) => edge.kind === "handoff" && edge.source !== origin.nodeId).every((edge) => edge.status === "partial")).toBe(true);
+    expect(lit.edges.filter((edge) => edge.kind === "handoff" && edge.source !== origin.nodeId).every((edge) => edge.status === "proven")).toBe(true);
     for (const edge of handoffs) {
       const result = routePathOp(session, { route: "/records", source: origin.elementId, edge: edge.id });
       expect(result.edge).toMatchObject({ id: edge.id, kind: "handoff", status: edge.status, source: edge.source });

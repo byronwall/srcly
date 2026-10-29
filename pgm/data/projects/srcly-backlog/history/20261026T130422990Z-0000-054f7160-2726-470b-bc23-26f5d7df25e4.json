@@ -1,0 +1,15 @@
+{
+  "id": "054f7160-2726-470b-bc23-26f5d7df25e4",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:dadd72",
+    "label": "Agent token ...dadd72"
+  },
+  "createdAt": "2026-10-26T13:04:22.990Z",
+  "summary": "Created \"Calls through function-typed params and props\" under \"Data flow: trace coverage\".",
+  "nodeIds": [
+    "task-calls-through-function-typed-params-and-props",
+    "area-data-flow-trace-coverage"
+  ]
+}

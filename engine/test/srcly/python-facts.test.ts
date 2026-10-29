@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { queryEvidenceSlice } from "../../src/analysis/evidence-slice";
@@ -39,6 +40,24 @@ describe.skipIf(!python.python)(`Python evidence provider (${python.reason})`, (
     expect(probe.mypy).toMatch(/^\d+\.\d+/);
     expect(output.checker.status).toBe("ok");
   });
+
+  it("finds routes on router subclasses, through nested mounts and a settings prefix, in a root that is a package", () => {
+    // mealie's shape: the root is the `shop/` package itself, its routers subclass APIRouter, and
+    // full-stack-fastapi-template's: an `api_router` mounted at `settings.API_V1_STR` that includes the others.
+    const root = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "srcly-routers-"));
+    const pkg = path.join(root, "shop");
+    fs.mkdirSync(path.join(pkg, "routes"), { recursive: true });
+    const write = (rel: string, text: string) => fs.writeFileSync(path.join(pkg, rel), text);
+    write("__init__.py", "");
+    write("routes/__init__.py", "");
+    write("config.py", "from pydantic import BaseModel\n\nclass Settings(BaseModel):\n    API_V1_STR: str = \"/api/v1\"\n\nsettings = Settings()\n");
+    write("routes/base.py", "from fastapi import APIRouter\n\nclass UserRouter(APIRouter):\n    pass\n");
+    write("routes/orders.py", "from shop.routes.base import UserRouter\n\nrouter = UserRouter(prefix=\"/orders\")\n\n@router.get(\"/{order_id}\")\ndef read_order(order_id: int) -> int:\n    return order_id\n");
+    write("main.py", "from fastapi import APIRouter, FastAPI\nfrom shop.config import settings\nfrom shop.routes import orders\n\napi_router = APIRouter()\napi_router.include_router(orders.router)\napp = FastAPI()\napp.include_router(api_router, prefix=settings.API_V1_STR)\n");
+    const out = runPythonFacts({ python: python.python!, root: pkg, source: pkg, typesPython: python.python });
+    expect(out.routes.map((route) => route.key)).toEqual(["GET /api/v1/orders/{order_id}"]);
+    fs.rmSync(root, { recursive: true, force: true });
+  }, 120_000);
 
   it("lists every FastAPI handler as a route, with router and mount prefixes", () => {
     expect(output.routes.map((route) => route.key)).toEqual([

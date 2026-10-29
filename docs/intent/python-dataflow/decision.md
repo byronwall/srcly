@@ -59,7 +59,7 @@ All 34 FastAPI handlers in `server/app` come back with their router prefixes (`P
 
 ## How Python maps onto the engine's evidence
 
-The engine derives origin roles, terminal roles and boundaries from an element's `kind` (`engine/src/analysis/evidence-slice-normalization.ts`), and `src/analysis` is never edited for srcly. So the helper speaks that vocabulary:
+The engine derives origin roles, terminal roles and boundaries from an element's `kind` (`engine/src/analysis/evidence-slice-normalization.ts`), and `src/analysis` is never edited for srcly. So the helper speaks that vocabulary. Which library calls and reads are origins and terminals is data: the `py` rows of `engine/models/python.json` (library models, `docs/intent/dataflow-library-models/plan.md`), which the engine checks and passes to the helper with `--models`; a row's `role` names the element kind (`stdin`, `argument` and `request` map to `process-input` / `parameter` in the helper's `ROLE_ELEMENTS`):
 
 | Python | Element kind (roles the engine derives) |
 | --- | --- |

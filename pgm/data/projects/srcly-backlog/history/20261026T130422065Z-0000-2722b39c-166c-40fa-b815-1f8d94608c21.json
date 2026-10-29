@@ -1,0 +1,14 @@
+{
+  "id": "2722b39c-166c-40fa-b815-1f8d94608c21",
+  "kind": "node.status.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:73e8a6",
+    "label": "Agent token ...73e8a6"
+  },
+  "createdAt": "2026-10-26T13:04:22.065Z",
+  "summary": "Changed \"Send proof strength to the client through the contract\" status to planned.",
+  "nodeIds": [
+    "task-send-proof-strength-to-the-client-through-the-contract"
+  ]
+}

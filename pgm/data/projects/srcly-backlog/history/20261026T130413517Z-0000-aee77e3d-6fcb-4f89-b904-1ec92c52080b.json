@@ -1,0 +1,14 @@
+{
+  "id": "aee77e3d-6fcb-4f89-b904-1ec92c52080b",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:806f6f",
+    "label": "Agent token ...806f6f"
+  },
+  "createdAt": "2026-10-26T13:04:13.517Z",
+  "summary": "Set \"Land #210: the `assumed` outcome\" priority to high.",
+  "nodeIds": [
+    "task-land-210-the-assumed-outcome"
+  ]
+}
