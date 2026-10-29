@@ -454,7 +454,7 @@ class AnchorGraphBuilder {
         }
         let kind = classify(relation, element, side);
         // A return the slice carried on from (to its paired call) is a carrier here, not where the value leaves.
-        if (kind === "terminal" && element.kind === "return" && side === "down" && (next.get(element.id) ?? []).some((item) => item.kind === "return-value" || item.kind === "framework-flow")) kind = "value";
+        if (kind === "terminal" && element.kind === "return" && side === "down" && (next.get(element.id) ?? []).some((item) => item.kind === "return-value" || item.kind === "framework-flow" || item.kind === "member-state")) kind = "value";
         let status = relation.status;
         let reason: string | null = null;
         let note: string | null = null;

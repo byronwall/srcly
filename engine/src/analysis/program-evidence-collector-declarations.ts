@@ -223,7 +223,7 @@ export class ProgramEvidenceCollectorDeclarations extends ProgramEvidenceCollect
   /** The property symbol a member access names, when the project itself declares that property; else null. */
   protected memberSymbol(access: TypeScript.PropertyAccessExpression): string | null {
     const symbol = this.checker.getSymbolAtLocation(access.name);
-    const declarations = symbol && symbol.flags & this.ts.SymbolFlags.Property ? symbol.declarations ?? [] : [];
+    const declarations = symbol && symbol.flags & (this.ts.SymbolFlags.Property | this.ts.SymbolFlags.GetAccessor) ? symbol.declarations ?? [] : [];
     if (!declarations.length || declarations.some((declaration) => declaration.getSourceFile().isDeclarationFile)) return null;
     return this.symbolId(access.name);
   }
