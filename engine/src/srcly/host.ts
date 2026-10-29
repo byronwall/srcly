@@ -6,6 +6,8 @@ import type { ProgramElement } from "../analysis/scope-seam";
 import type { CallSites } from "./call-sites";
 import type { Span } from "./selection";
 
+import type { ScopeRole } from "./scope-roles";
+
 /** A supported expression: its syntax kind in the language's own words, its text and span. */
 export type HostCandidate = {
   kind: string;
@@ -47,7 +49,7 @@ export interface LanguageHost {
    */
   bindingAt(file: string, span: Span): { symbol: string; field: string | null; attribute: string | null; state: BindingState | null } | null;
   /** The function that owns a span (its span and name), or null at module level. */
-  scopeAt(file: string, span: Span): { span: Span; name: string | null } | null;
+  scopeAt(file: string, span: Span): { span: Span; name: string | null; role?: ScopeRole } | null;
   /** The call sites of the function a cross-call element belongs to: a call, a parameter or the function itself. */
   callSitesOf(element: ProgramElement): { sites: CallSites | null; name: string };
 }

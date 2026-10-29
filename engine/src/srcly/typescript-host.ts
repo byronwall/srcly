@@ -4,6 +4,7 @@ import path from "node:path";
 import type * as TypeScript from "typescript";
 import { createCallSiteIndex, type CallSiteIndex } from "./call-sites";
 import { compilerSymbolId } from "../analysis/program-evidence-support";
+import { scopeRole } from "./scope-roles";
 import { callSitesOfElement, enclosingFunction, functionName, nodeAtSpan } from "./facts";
 import type { BindingState, HostCandidate, LanguageHost } from "./host";
 import { candidatesAt, sourceFileFor, spanOf, type Span } from "./selection";
@@ -61,7 +62,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       const at = nodeAt(file, span);
       const fn = at ? enclosingFunction(ts, at.node) : null;
       if (!fn || !at) return null;
-      return { span: spanOf(at.sourceFile, fn), name: functionName(ts, fn, at.sourceFile) };
+      return { span: spanOf(at.sourceFile, fn), name: functionName(ts, fn, at.sourceFile), role: scopeRole(ts, fn, at.sourceFile) };
     },
     callSitesOf(element) {
       sites ??= createCallSiteIndex(tier1);

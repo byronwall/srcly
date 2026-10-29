@@ -37,7 +37,7 @@ export interface ViewNode {
    * the deepest folder they share with the focus. Boxes of one group stay
    * together in a column and get a labeled frame.
    */
-  group?: { id: string; label: string; opened?: boolean };
+  group?: { id: string; label: string; opened?: boolean; tone?: "server" };
   /** Side symbols only: the owning file, so symbols of one file sit together inside their group. */
   subgroup?: string;
   /** A folder (or a file with symbols) that can open in place into its children. */

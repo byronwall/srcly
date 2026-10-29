@@ -68,7 +68,7 @@ export function anchorGraphToViewModel(input: AnchorGraphResult, options?: Ancho
       note: noteFor(n),
       memberCount: 1,
       isFocus: n.kind === "anchor",
-      ...(scope ? { group: { id: scope.id, label: scope.detail === "module" ? scope.label : `${scope.label} · ${scope.detail}`, opened: true } } : {}),
+      ...(scope ? { group: { id: scope.id, label: frameLabel(scope), opened: true, ...(scope.role === "server" ? { tone: "server" as const } : {}) } } : {}),
       status: n.status,
       tint: markColor(mark),
       ...(n.kind === "frontier" ? { outline: "hatched" as const } : n.kind === "boundary" ? { outline: "dotted" as const } : {}),
@@ -201,6 +201,7 @@ function foldedBoxes(graph: AnchorGraphResult, fold: Map<string, string>): ViewN
   const scopes = new Map(graph.nodes.map((n) => [n.id, n]));
   return [...members].map(([id, inside]) => {
     const scope = scopes.get(id)!;
+    const io = crossings(graph, fold, id);
     const ends = [...new Set(inside.filter((n) => n.kind === "terminal").map(endWord).filter(Boolean))];
     const stops = inside.filter((n) => n.kind === "frontier").length;
     const up = inside.filter((n) => n.side === "up").length;
@@ -211,18 +212,19 @@ function foldedBoxes(graph: AnchorGraphResult, fold: Map<string, string>): ViewN
       graphId: id,
       region: up > inside.length / 2 ? "in" : "out",
       kind: "symbol",
-      symbolKind: "value",
+      symbolKind: FOLD_MARK[scope.role ?? ""] ?? "frame",
       label: scope.label,
-      title: [scope.label, `${scope.file}:${scope.line}`, `${steps} folded`, ends.length ? `reaches ${ends.join(", ")}` : ""].filter(Boolean).join(" · "),
-      // The ends last: a symbol's subtitle is cut from the start.
-      subtitle: [`${baseName(scope.file)}:${scope.line}`, ends.length ? `reaches ${ends.join(", ")}` : steps].join(" · "),
+      title: [scope.label, scope.role, `${scope.file}:${scope.line}`, `${steps} folded`, io.in.length || io.out.length ? `${io.in.join(", ") || "…"} → ${io.out.join(", ") || "…"}` : "", ends.length ? `reaches ${ends.join(", ")}` : ""].filter(Boolean).join(" · "),
+      // What goes in and what comes out, after the role: `server · id → DocDetail`.
+      subtitle: [scope.role && scope.role !== "module" ? scope.role : baseName(scope.file), io.in.length || io.out.length ? `${short(io.in)} → ${short(io.out)}` : ends.length ? `reaches ${ends.join(", ")}` : steps].join(" · "),
       note: [ends.length ? steps : "", stops ? `${stops} stop${stops === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ") || undefined,
       memberCount: inside.length,
       isFocus: false,
       expandable: true,
       outline: "dotted",
       status,
-      tint: markColor("value"),
+      tint: markColor(FOLD_MARK[scope.role ?? ""] ?? "frame"),
+      ...(scope.role === "server" ? { group: { id: `band:server`, label: "server", tone: "server" as const } } : {}),
     } satisfies ViewNode;
   });
 }
@@ -315,4 +317,37 @@ function symbolBox(view: SymbolView, rep: AnchorNode): Partial<ViewNode> | null 
     memberCount: members.length,
     ...(mark ? { symbolKind: mark, tint: markColor(mark) } : {}),
   };
+}
+
+/** A folded function's mark: a component is a component, server code is server code, the rest a function. */
+const FOLD_MARK: Record<string, FlowMark> = { component: "component", server: "server" };
+
+/** A frame's title: its name, its role (`save · handler · NoteView.tsx`), and its file. */
+function frameLabel(scope: AnchorNode): string {
+  if (scope.detail === "module") return scope.label;
+  return [scope.label, scope.role && scope.role !== "module" ? scope.role : null, scope.detail].filter(Boolean).join(" · ");
+}
+
+/** The names that go into a folded function and come out of it: the boxes inside joined to boxes outside. */
+function crossings(graph: AnchorGraphResult, fold: Map<string, string>, scope: string): { in: string[]; out: string[] } {
+  const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+  const name = (id: string) => {
+    const n = byId.get(id)!;
+    return n.symbol ? n.symbol.slice(0, n.symbol.indexOf("@")) : n.label.length > 18 ? `${n.label.slice(0, 17)}…` : n.label;
+  };
+  const ins = new Set<string>();
+  const outs = new Set<string>();
+  for (const e of graph.edges) {
+    const from = fold.get(e.source) === scope;
+    const to = fold.get(e.target) === scope;
+    if (to && !from) ins.add(name(e.target));
+    if (from && !to) outs.add(name(e.source));
+  }
+  return { in: [...ins], out: [...outs] };
+}
+
+/** At most two names, then a count. */
+function short(names: string[]): string {
+  if (!names.length) return "…";
+  return names.length > 2 ? `${names.slice(0, 2).join(", ")} +${names.length - 2}` : names.join(", ");
 }

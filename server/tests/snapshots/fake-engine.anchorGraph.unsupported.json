@@ -49,6 +49,7 @@
       "operation": null,
       "parent": null,
       "reason": null,
+      "role": null,
       "side": "seed",
       "span": {
         "endColumn": 58,
@@ -75,6 +76,7 @@
       "operation": null,
       "parent": "scope:f",
       "reason": "no-evidence-element",
+      "role": null,
       "side": "seed",
       "span": {
         "endColumn": 58,

@@ -75,6 +75,8 @@ export interface GroupFrame {
   id: string;
   groupId: string;
   label: string;
+  /** Data flow mode: a frame of server code, drawn in the server tone. */
+  tone?: "server";
   column: number;
   /** Last column it spans: an opened folder too big for one column wraps all of them. */
   lastColumn: number;
@@ -681,7 +683,7 @@ function placeAndRoute(
   }
 
   // ---- Group frames: runs of ≥2 boxes of one group in a column ----
-  const runs: { groupId: string; label: string; column: number; first: number; last: number }[] = [];
+  const runs: { groupId: string; label: string; tone?: "server"; column: number; first: number; last: number }[] = [];
   columns.forEach((col, ci) => {
     const byRow = [...col].sort((a, b) => rowOf.get(a.id)! - rowOf.get(b.id)!);
     let i = 0;
@@ -690,7 +692,7 @@ function placeAndRoute(
       let j = i;
       while (g && j + 1 < byRow.length && byRow[j + 1].group?.id === g.id) j++;
       // An opened folder frames even a single box, so it never loses its name.
-      if (g && (j > i || g.opened)) runs.push({ groupId: g.id, label: g.label, column: ci, first: rowOf.get(byRow[i].id)!, last: rowOf.get(byRow[j].id)! });
+      if (g && (j > i || g.opened)) runs.push({ groupId: g.id, label: g.label, ...(g.tone ? { tone: g.tone } : {}), column: ci, first: rowOf.get(byRow[i].id)!, last: rowOf.get(byRow[j].id)! });
       i = j + 1;
     }
   });
@@ -1079,6 +1081,7 @@ function placeAndRoute(
       id: `${r.column}|${r.groupId}|${r.first}`,
       groupId: r.groupId,
       label: r.label,
+      ...(r.tone ? { tone: r.tone } : {}),
       column: r.column,
       lastColumn: r.lastColumn,
       x: colX[r.column] - FRAME_PAD,

@@ -70,6 +70,8 @@ export const anchorNodeSchema = z.strictObject({
   operation: z.string().nullable(),
   /** What kind of state `symbol` holds, by the call that made it (`createSignal`, `createStore`, `createResource`, `createMemo`, `useContext`); null for a plain binding. */
   state: z.enum(["signal", "store", "resource", "memo", "context"]).nullable(),
+  /** A scope's role, by how the code writes and uses the function (`scope-roles.ts`); `module` for top-level code; null for a box, or a function the host cannot place. */
+  role: z.enum(["component", "hook", "handler", "fetcher", "server", "callback", "helper", "module"]).nullable(),
   /** A boundary's or frontier's words: which call sites, what the gap was. */
   note: z.string().nullable(),
 });

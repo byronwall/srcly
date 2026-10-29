@@ -68,6 +68,7 @@
       "operation": null,
       "parent": null,
       "reason": null,
+      "role": null,
       "side": "seed",
       "span": {
         "endColumn": 58,
@@ -94,6 +95,7 @@
       "operation": null,
       "parent": "scope:f",
       "reason": null,
+      "role": null,
       "side": "seed",
       "span": {
         "endColumn": 58,
@@ -120,6 +122,7 @@
       "operation": null,
       "parent": "scope:f",
       "reason": null,
+      "role": null,
       "side": "down",
       "span": {
         "endColumn": 58,
@@ -146,6 +149,7 @@
       "operation": null,
       "parent": "scope:f",
       "reason": "disconnected",
+      "role": null,
       "side": "down",
       "span": {
         "endColumn": 58,

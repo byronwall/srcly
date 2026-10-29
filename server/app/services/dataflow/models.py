@@ -641,6 +641,7 @@ class AnchorNode(BaseModel):
     field: str | None
     operation: str | None
     state: Literal["signal", "store", "resource", "memo", "context"] | None
+    role: Literal["component", "hook", "handler", "fetcher", "server", "callback", "helper", "module"] | None
 
 
 # Mirrors anchorEdgeStatusSchema: a proof status, or "structural" for a link the
