@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.8.0](https://github.com/byronwall/srcly/compare/v1.7.0...v1.8.0) (2026-10-30)
+
+
+### Features
+
+* **dataflow:** trace a value through a zustand store ([#304](https://github.com/byronwall/srcly/issues/304)) ([cde9417](https://github.com/byronwall/srcly/commit/cde9417364480d5e3478dd4ae885d40db5b51d6e))
+
+
+### Bug Fixes
+
+* **dataflow:** bind a prop to its read through mergeProps and splitProps ([#296](https://github.com/byronwall/srcly/issues/296)) ([a19f19a](https://github.com/byronwall/srcly/commit/a19f19af46d391f4b4d5533ac7c29d500f2ea095))
+* **dataflow:** carry a compound field write, and drop a page handler's return ([#301](https://github.com/byronwall/srcly/issues/301)) ([70e5ea1](https://github.com/byronwall/srcly/commit/70e5ea11f8ad16f9ad4e2cd6c087b7e9e55e0914))
+* **dataflow:** carry a state updater's return into the state ([#285](https://github.com/byronwall/srcly/issues/285)) ([135615d](https://github.com/byronwall/srcly/commit/135615db098ffe5b8ec02d9acd660fb3098d3459))
+* **dataflow:** choose the survey's TypeScript as the server does ([#293](https://github.com/byronwall/srcly/issues/293)) ([018748b](https://github.com/byronwall/srcly/commit/018748bd0086484660b6ba5256ff381b88b4ab10))
+* **dataflow:** end a binding that only decides branches at the binding ([#305](https://github.com/byronwall/srcly/issues/305)) ([317dd46](https://github.com/byronwall/srcly/commit/317dd464bc840a87c22296b5758a2a50d7c166cf))
+* **dataflow:** end a callback call at the module's API, and start a library-filled parameter ([#299](https://github.com/byronwall/srcly/issues/299)) ([b479466](https://github.com/byronwall/srcly/commit/b479466f6e24c6f755e95061e29ccc6d84805ef6))
+* **dataflow:** end a computed object key in place, and model createSelector ([#298](https://github.com/byronwall/srcly/issues/298)) ([d7f09db](https://github.com/byronwall/srcly/commit/d7f09dbfe24e537f044056e6a1df46d63b608202))
+* **dataflow:** end a value at a library function called under a local name ([#286](https://github.com/byronwall/srcly/issues/286)) ([52973a7](https://github.com/byronwall/srcly/commit/52973a781236ca49f13f57ff38b61fb3bc3bd02f))
+* **dataflow:** end a value at any DOM call made for its effect ([#284](https://github.com/byronwall/srcly/issues/284)) ([dd20a02](https://github.com/byronwall/srcly/commit/dd20a02f70f2bf8c3fb85ad44fb53d2707daf2de))
+* **dataflow:** end a value nothing reads at its binding, never read ([#295](https://github.com/byronwall/srcly/issues/295)) ([fa166b1](https://github.com/byronwall/srcly/commit/fa166b18e857a3be8b579537eefd14c01937255f))
+* **dataflow:** end an unread exported value at its export ([#282](https://github.com/byronwall/srcly/issues/282)) ([ffbc58b](https://github.com/byronwall/srcly/commit/ffbc58b84862551ed72d36e5739a8d306e4411a5))
+* **dataflow:** hand a value back through a callback the library supplied ([#300](https://github.com/byronwall/srcly/issues/300)) ([81b4f96](https://github.com/byronwall/srcly/commit/81b4f9681a04da6fdafcd1551e0cb8b639b586e4))
+* **dataflow:** judge a returned call by its own function's call sites ([#287](https://github.com/byronwall/srcly/issues/287)) ([95f82ba](https://github.com/byronwall/srcly/commit/95f82baf58fe0672a7fc0c8c7699876d65bb7ccf))
+* **dataflow:** keep a dropped write in a module cache its file reads back ([#297](https://github.com/byronwall/srcly/issues/297)) ([c929c5e](https://github.com/byronwall/srcly/commit/c929c5e68e4a3559f33b6ba6bada546609f5f70c))
+* **dataflow:** land a backward trace at an empty {} or [] ([#288](https://github.com/byronwall/srcly/issues/288)) ([2554a2c](https://github.com/byronwall/srcly/commit/2554a2c59075a59199da7333a3b1ca5d966a8bd6))
+* **dataflow:** restore the thrown-value end that [#212](https://github.com/byronwall/srcly/issues/212) reverted ([#281](https://github.com/byronwall/srcly/issues/281)) ([af17db9](https://github.com/byronwall/srcly/commit/af17db9bacfa877f916c4a887d70e9d19fdfd7f6))
+* **dataflow:** run a function read straight from a context ([#302](https://github.com/byronwall/srcly/issues/302)) ([5dafa03](https://github.com/byronwall/srcly/commit/5dafa03fe7493c48c4d4e14f80ac8e566b1ae8a9))
+* **dataflow:** stop counting a fetch's response body as a stop ([#283](https://github.com/byronwall/srcly/issues/283)) ([8e00cf6](https://github.com/byronwall/srcly/commit/8e00cf678e481f60c725640fe17d33b9df7d252c))
+* **dataflow:** stop naming a callback prop's call a database write ([#294](https://github.com/byronwall/srcly/issues/294)) ([39e3489](https://github.com/byronwall/srcly/commit/39e34897c39cf612f70328ab0746fe3e60175c99))
+* **dataflow:** widen the anchor graph's limits, and narrow them before refusing a graph ([#292](https://github.com/byronwall/srcly/issues/292)) ([b614a4f](https://github.com/byronwall/srcly/commit/b614a4fb8630b523f33394d1afd34a76e091c4c5))
+
+
+### Documentation
+
+* **dataflow:** measure everyday-pattern coverage with a pattern catalog ([#289](https://github.com/byronwall/srcly/issues/289)) ([e6ac784](https://github.com/byronwall/srcly/commit/e6ac78409878fa012538f90bb2a12258cc17cfb5))
+* **dataflow:** record round 2 of the pattern-coverage work ([#306](https://github.com/byronwall/srcly/issues/306)) ([6b8f1f7](https://github.com/byronwall/srcly/commit/6b8f1f7ddf3080c7544433f1c169c6e3e0147b00))
+
 ## [1.7.0](https://github.com/byronwall/srcly/compare/v1.6.0...v1.7.0) (2026-10-29)
 
 
