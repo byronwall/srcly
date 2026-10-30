@@ -44,7 +44,8 @@
               "consumes",
               "calls-back",
               "resource",
-              "wraps"
+              "wraps",
+              "store"
             ],
             "description": "What the member does."
           },
