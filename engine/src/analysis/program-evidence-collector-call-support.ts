@@ -492,10 +492,12 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       root = unwrap(this.ts, root.expression);
     }
     if (!this.ts.isIdentifier(root)) return;
-    // A variable a function declares, this one or one it is written in (a closure's), or a parameter: module state and globals are written for code no one function owns.
+    // A variable a function declares, this one or one it is written in (a closure's), or a parameter: what it keeps, its reads see.
+    // A module's own container is kept into only when its file reads it back (`cache.set(k, v)` and `cache.get(k)`); one only
+    // written to (a log) stops here, and module state shared across files and globals are written for code no one function owns.
     const declaration = this.checker.getSymbolAtLocation(root)?.valueDeclaration;
     const local = declaration && this.ts.isVariableDeclaration(declaration) && this.ts.findAncestor(declaration.parent, this.ts.isFunctionLike);
-    if (!local && !(declaration && this.ts.isParameter(declaration))) return;
+    if (!local && !(declaration && this.ts.isParameter(declaration)) && !(declaration && this.ts.isVariableDeclaration(declaration) && this.readBackInFile(declaration))) return;
     const bindingId = this.variablesBySymbol.get(this.symbolId(root) ?? "") ?? this.parametersBySymbol.get(this.symbolId(root) ?? "");
     if (!bindingId) return;
     const [kept, keptStatus] = this.libraryProof(call.node, `${calleeName(this.ts, call.node.expression)}'s value is discarded, so its arguments are kept in its receiver.`, [this.location(call.node), this.location(root)]);
@@ -513,6 +515,30 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       valueId = packId;
     });
     this.addRelation(valueId, bindingId, "references", [this.location(root)], proof("ast-node", "The object the call writes a field of.", [this.location(root)]), "proven");
+  }
+
+  /**
+   * Whether a module's own variable (unexported) is read in its file other
+   * than as the receiver of a call whose value is dropped: `cache.get(key)`
+   * reads the container back, `log.push(entry);` only writes into it.
+   */
+  private readBackInFile(declaration: TypeScript.VariableDeclaration): boolean {
+    const statement = declaration.parent?.parent;
+    if (!this.ts.isIdentifier(declaration.name) || !statement || !this.ts.isVariableStatement(statement) || !this.ts.isSourceFile(statement.parent)) return false;
+    if (statement.modifiers?.some((modifier) => modifier.kind === this.ts.SyntaxKind.ExportKeyword)) return false;
+    const symbol = this.checker.getSymbolAtLocation(declaration.name);
+    let found = false;
+    const visit = (node: TypeScript.Node) => {
+      if (found) return;
+      if (this.ts.isIdentifier(node) && node !== declaration.name && this.checker.getSymbolAtLocation(node) === symbol) {
+        const access = node.parent;
+        const call = this.ts.isPropertyAccessExpression(access) && access.expression === node && this.ts.isCallExpression(access.parent) && access.parent.expression === access ? access.parent : null;
+        if (!call || !discardsValue(this.ts, call, this.checker)) found = true;
+      }
+      this.ts.forEachChild(node, visit);
+    };
+    visit(statement.parent);
+    return found;
   }
 
   /**
