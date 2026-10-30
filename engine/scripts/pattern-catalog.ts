@@ -13,10 +13,12 @@ import { chooseTypescript } from "../src/srcly/typescript-choice";
 //
 //   node --import tsx scripts/pattern-catalog.ts [--only <id>] [--json out.json] [-v]
 //
-// `// @trace <id> <forward|backward|both> <text>` anchors at `text` on its own
-// line or one of the next few; `symbol <name>` anchors at a declaration.
+// `// @trace <id> <forward|backward|both> <text> @want <kind|kind>` anchors at
+// `text` on its own line or one of the next few (`symbol <name>` at a
+// declaration). A trace is correct when it lands (`ok` or `assumed`) and one
+// of its ends is a wanted element kind: landing somewhere else is not.
 
-type Row = { framework: string; id: string; file: string; outcome: string; reason?: string | null; stops: string[]; ends: string[] };
+type Row = { framework: string; id: string; file: string; outcome: string; reason?: string | null; stops: string[]; ends: string[]; want: string[]; correct: boolean };
 
 const args = process.argv.slice(2);
 const flag = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
@@ -37,9 +39,10 @@ for (const framework of fs.readdirSync(catalog).filter((name) => fs.statSync(pat
     const file = `src/${name}`;
     const lines = fs.readFileSync(path.join(src, name), "utf8").split("\n");
     lines.forEach((line, index) => {
-      const match = /@trace\s+(\S+)\s+(forward|backward|both)\s+(.*?)\s*$/.exec(line);
+      const match = /@trace\s+(\S+)\s+(forward|backward|both)\s+(.*?)(?:\s+@want\s+(\S+))?\s*$/.exec(line);
       if (!match || (only && match[1] !== only)) return;
-      const [, id, direction, rest] = match;
+      const [, id, direction, rest, wanted] = match;
+      const want = wanted ? wanted.split("|") : [];
       let anchor: Record<string, unknown>;
       if (rest.startsWith("symbol ")) anchor = { file, name: rest.slice(7).trim(), line: index + 1, direction };
       else {
@@ -48,7 +51,14 @@ for (const framework of fs.readdirSync(catalog).filter((name) => fs.statSync(pat
         const column = lines[index + at].indexOf(rest) + 1;
         anchor = { file, text: rest, span: { startLine: index + at + 1, startColumn: column, endLine: index + at + 1, endColumn: column + rest.length }, direction };
       }
-      const graph = anchorGraphOp(session, anchor);
+      let graph: ReturnType<typeof anchorGraphOp>;
+      try {
+        graph = anchorGraphOp(session, anchor);
+      } catch (error) {
+        // A refused anchor is the engine's answer too: count it, named.
+        rows.push({ framework, id, file, outcome: "error", reason: error instanceof Error ? error.message : String(error), stops: [], ends: [], want, correct: false });
+        return;
+      }
       const boxes = graph.nodes.filter((node) => node.kind !== "scope");
       if (verbose) for (const node of boxes) process.stdout.write(`    ${node.kind} ${node.elementKind ?? "-"} ${node.reason ?? ""} ${node.file}:${node.line} ${JSON.stringify(node.label.slice(0, 50))}\n`);
       rows.push({
@@ -58,21 +68,28 @@ for (const framework of fs.readdirSync(catalog).filter((name) => fs.statSync(pat
         outcome: graph.outcome,
         reason: graph.reason,
         stops: boxes.filter((node) => node.kind === "frontier" || node.kind === "boundary").map((node) => `${node.kind} ${node.reason}/${node.elementKind ?? "-"} ${node.file}:${node.line} "${node.label.slice(0, 40)}"`),
-        ends: boxes.filter((node) => node.kind === "terminal" || node.kind === "origin").map((node) => `${node.elementKind}@${node.line}`),
+        // Backward, a literal or a parameter a library fills is where a value begins (R16): it counts as an end.
+        ends: boxes.filter((node) => node.kind === "terminal" || node.kind === "origin" || (direction !== "forward" && (node.elementKind === "literal" || node.elementKind === "parameter"))).map((node) => `${node.elementKind}@${node.line}`),
+        want,
+        correct: false,
       });
+      const row = rows[rows.length - 1];
+      // Correct: it lands, and at the end the pattern names (`@want kind|kind`).
+      row.correct = (row.outcome === "ok" || row.outcome === "assumed") && row.ends.some((end) => want.includes(end.split("@")[0]));
     });
   }
 }
 
 for (const row of rows) {
-  process.stdout.write(`${row.outcome === "ok" ? "✓" : "✗"} ${`${row.framework}/${row.id}`.padEnd(32)} ${row.outcome.padEnd(9)} ends=[${row.ends.join(",")}]${row.reason ? ` (${row.reason})` : ""}\n`);
-  if (row.outcome !== "ok") for (const stop of row.stops) process.stdout.write(`      ${stop}\n`);
+  const mark = row.outcome === "ok" && row.correct ? "✓" : row.correct ? "~" : "✗";
+  process.stdout.write(`${mark} ${`${row.framework}/${row.id}`.padEnd(32)} ${row.outcome.padEnd(9)} ends=[${row.ends.join(",")}] want=${row.want.join("|")}${row.reason ? ` (${row.reason})` : ""}\n`);
+  if (mark !== "✓") for (const stop of row.stops) process.stdout.write(`      ${stop}\n`);
 }
-process.stdout.write("\n| Framework | Patterns | ok | assumed | partial |\n| --- | ---: | ---: | ---: | ---: |\n");
+process.stdout.write("\n| Framework | Patterns | ok | assumed | partial | correct end |\n| --- | ---: | ---: | ---: | ---: | ---: |\n");
 for (const framework of [...new Set(rows.map((row) => row.framework)), "all"]) {
   const own = rows.filter((row) => framework === "all" || row.framework === framework);
   const count = (outcome: string) => own.filter((row) => row.outcome === outcome).length;
-  process.stdout.write(`| ${framework} | ${own.length} | ${count("ok")} | ${count("assumed")} | ${own.length - count("ok") - count("assumed")} |\n`);
+  process.stdout.write(`| ${framework} | ${own.length} | ${count("ok")} | ${count("assumed")} | ${own.length - count("ok") - count("assumed")} | ${own.filter((row) => row.correct).length} |\n`);
 }
 const out = flag("--json");
 if (out) fs.writeFileSync(out, `${JSON.stringify(rows, null, 1)}\n`);
