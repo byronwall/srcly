@@ -385,14 +385,15 @@ export function seedFor(tier1: BaseTier1, file: string, span: Span): string | nu
 /** The node whose span is exactly `span` (the outermost one when several share it). */
 export function nodeAtSpan(ts: typeof TypeScript, sourceFile: TypeScript.SourceFile, span: Span): TypeScript.Node | null {
   let found: TypeScript.Node | null = null;
+  const start = sourceFile.getPositionOfLineAndCharacter(span.startLine - 1, span.startColumn - 1);
   const visit = (node: TypeScript.Node) => {
-    if (found) return;
+    // `pos` and `end` are plain fields: a wide JSX list has hundreds of siblings, and only these two checks are cheap enough to run on each.
+    if (found || start < node.pos || start > node.end) return;
     const own = spanOf(sourceFile, node);
     if (sameSpan(own, span)) {
       found = node;
       return;
     }
-    const start = sourceFile.getPositionOfLineAndCharacter(span.startLine - 1, span.startColumn - 1);
     if (node.getStart(sourceFile) <= start && start < node.getEnd()) ts.forEachChild(node, visit);
   };
   ts.forEachChild(sourceFile, visit);

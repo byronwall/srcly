@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { AnchorGraphResult, AnchorNode } from "../../src/srcly/contracts/anchor-graph";
-import { ANCHOR_LIMITS } from "../../src/srcly/anchor-slice";
+import { ANCHOR_LIMITS, NARROW_ANCHOR_LIMITS } from "../../src/srcly/anchor-slice";
 import { anchorGraphOp } from "../../src/srcly/ops/anchor-graph";
 import { createEngineSession } from "../../src/srcly/session";
 import { chooseTypescript } from "../../src/srcly/typescript-choice";
@@ -153,6 +153,13 @@ describe("anchorGraph on value-flow-basics", () => {
     // A limit hit is the budget exhausted, whichever limit it was.
     expect(graph.coverage.budget.exhausted).toBe(true);
     expect(graph.outcome).toBe("partial");
+  });
+
+  it("builds a graph over the byte bound again at the narrow limits, and refuses it only when that is over too", () => {
+    const params = { file: "src/wide-walk.tsx", name: "props", line: 5, direction: "forward" };
+    const narrow = anchorGraphOp(session, params, undefined, 1_000_000);
+    expect(boxes(narrow, "frontier")[0].note).toMatch(new RegExp(`^The walk stops at ${NARROW_ANCHOR_LIMITS.maxElements} elements`));
+    expect(() => anchorGraphOp(session, params, undefined, 1000)).toThrow(/over the 1000-byte bound/);
   });
 
   it("follows a value through a big helper without spending its limits on everything the helper's body contains", () => {

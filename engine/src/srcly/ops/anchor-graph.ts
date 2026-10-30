@@ -3,7 +3,7 @@ import type { AnalysisCancellationToken } from "../../analysis/cancellation";
 import { queryEvidenceSlice, type EvidenceSlice } from "../../analysis/evidence-slice";
 import { toSliceElement, toSliceRelation } from "../../analysis/evidence-slice-normalization";
 import { scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelation } from "../../analysis/scope-seam";
-import { ANCHOR_LIMITS, assumedThrough, foldAnnotatedUses, performs, undrawn, usesOf, walkFollows } from "../anchor-slice";
+import { ANCHOR_LIMITS, NARROW_ANCHOR_LIMITS, type AnchorLimits, assumedThrough, foldAnnotatedUses, performs, undrawn, usesOf, walkFollows } from "../anchor-slice";
 import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
 import { beginsHere, elementsAt, endsInPlace, externalCallee, standardLibraryCall, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
@@ -17,8 +17,8 @@ import { EngineError } from "../protocol";
 import { sameSpan, type Span } from "../selection";
 import { checkGeneration, type EngineSession, type Tier1 } from "../session";
 
-/** Anchor graphs bigger than this are refused as `budget-exhausted`, never truncated. */
-export const ANCHOR_GRAPH_MAX_BYTES = 8 * 1024 * 1024;
+/** Anchor graphs bigger than this are built again at narrower limits, then refused as `budget-exhausted`, never truncated. */
+export const ANCHOR_GRAPH_MAX_BYTES = 6 * 1024 * 1024;
 const DIRECTIONS: AnchorDirection[] = ["forward", "backward", "both"];
 
 type Side = "up" | "down";
@@ -44,19 +44,33 @@ type Run = {
 /** The declaration anchor's own links: they place its parameters, reads, returns and uses, and never carry a run's landing. */
 const DECLARATION_LINKS = new Set(["parameter", "prop-read", "returns", "used-by", "state"]);
 
-export function anchorGraphOp(session: EngineSession, params: Record<string, unknown>, cancellation?: AnalysisCancellationToken): AnchorGraphResult {
+export function anchorGraphOp(session: EngineSession, params: Record<string, unknown>, cancellation?: AnalysisCancellationToken, maxBytes = ANCHOR_GRAPH_MAX_BYTES): AnchorGraphResult {
   const tier1 = session.tier1();
   checkGeneration(tier1, params.expectedGeneration);
   const direction = parseDirection(params.direction);
   const { relative } = tier1.host.file(params.file);
   const candidate = resolveCandidate(tier1, relative, params);
-  const result = new AnchorGraphBuilder(tier1, cancellation).build(relative, candidate, direction);
-  const bytes = Buffer.byteLength(JSON.stringify(result));
-  if (bytes > ANCHOR_GRAPH_MAX_BYTES) {
-    throw new EngineError("budget-exhausted", `The anchor graph is ${bytes} bytes, over the ${ANCHOR_GRAPH_MAX_BYTES}-byte bound`, { bytes, nodes: result.nodes.length });
+  // A hub's graph at the wide limits can pass the bound; the narrow ones draw a quarter as much, and their frontier names the narrower limit.
+  let bytes = 0;
+  let nodes = 0;
+  for (const limits of [ANCHOR_LIMITS, NARROW_ANCHOR_LIMITS]) {
+    // A wide build stops once its boxes and edges alone pass the bound, so the fallback costs less than two builds.
+    const builder = new AnchorGraphBuilder(tier1, limits, cancellation, limits === ANCHOR_LIMITS ? maxBytes : Infinity);
+    let result: AnchorGraphResult;
+    try {
+      result = builder.build(relative, candidate, direction);
+    } catch (error) {
+      if (error instanceof OverBound) continue;
+      throw error;
+    }
+    bytes = Buffer.byteLength(JSON.stringify(result));
+    nodes = result.nodes.length;
+    if (bytes <= maxBytes) return result;
   }
-  return result;
+  throw new EngineError("budget-exhausted", `The anchor graph is ${bytes} bytes, over the ${maxBytes}-byte bound`, { bytes, nodes });
 }
+
+class OverBound extends Error {}
 
 function parseDirection(value: unknown): AnchorDirection {
   if (value === undefined) return "both";
@@ -83,8 +97,10 @@ class AnchorGraphBuilder {
   private readonly quiet = new Map<string, { gap: EvidenceGap; element: { label: string; kind: string }; side: Side }[]>();
   private readonly root: string;
   private readonly host: LanguageHost;
+  /** Characters of JSON in the boxes and edges so far: never more than the finished graph's bytes. */
+  private drawnChars = 0;
 
-  constructor(private readonly tier1: Tier1, private readonly cancellation?: AnalysisCancellationToken) {
+  constructor(private readonly tier1: Tier1, private readonly limits: AnchorLimits, private readonly cancellation?: AnalysisCancellationToken, private readonly maxDrawn = Infinity) {
     this.root = tier1.root;
     this.host = tier1.host;
   }
@@ -152,7 +168,7 @@ class AnchorGraphBuilder {
       coverage.elements += slice.elements.length;
       coverage.relations += slice.relations.length;
       coverage.budget.used += slice.relations.length;
-      coverage.budget.limit += ANCHOR_LIMITS.maxRelations;
+      coverage.budget.limit += this.limits.maxRelations;
       // Any limit the slice hit leaves the walk short of the budget's story, not only the relation budget.
       const cut = slice.coverage.truncation;
       coverage.budget.exhausted ||= cut.budget || cut.elements || cut.relations || cut.depth;
@@ -281,7 +297,7 @@ class AnchorGraphBuilder {
   private unwalkedUses(seed: string, labels: string[]) {
     const anchor = this.nodes.get(seed)!;
     const id = `frontier:uses:${seed}`;
-    const note = `The walk follows ${ANCHOR_LIMITS.maxWalkedUses} of its uses; it did not follow ${clip(labels.slice(0, 6).join(", "), 120)}${labels.length > 6 ? ", …" : ""}.`;
+    const note = `The walk follows ${this.limits.maxWalkedUses} of its uses; it did not follow ${clip(labels.slice(0, 6).join(", "), 120)}${labels.length > 6 ? ", …" : ""}.`;
     this.addNode({ ...anchor, id, kind: "frontier", label: `${labels.length} uses not followed`, detail: "budget-exhausted", status: "partial", side: "down", elementKind: null, typeText: null, reason: "budget-exhausted", note });
     this.pushEdge({ id: `gap:uses:${seed}`, source: seed, target: id, kind: "gap", status: "partial", proof: [], label: null });
   }
@@ -298,8 +314,8 @@ class AnchorGraphBuilder {
     return queryEvidenceSlice(this.tier1.provider(), {
       seed: { candidateId: `anchor:${run.seedId}:${dir}`, entryElementId: run.seedId, adapter: "anchor-graph", label, framework: null, proof: [], defaults: scopePolicy({ direction: dir }) },
       direction: dir,
-      boundaryPolicy: { maxDepth: ANCHOR_LIMITS.maxDepth, maxElements: ANCHOR_LIMITS.maxElements, maxRelations: ANCHOR_LIMITS.maxRelations },
-      terminalPolicy: { maxTerminals: ANCHOR_LIMITS.maxTerminals, ...(dir === "forward" ? { roles: ["render", "component-occurrence", "side-effect", "return"] } : {}) },
+      boundaryPolicy: { maxDepth: this.limits.maxDepth, maxElements: this.limits.maxElements, maxRelations: this.limits.maxRelations },
+      terminalPolicy: { maxTerminals: this.limits.maxTerminals, ...(dir === "forward" ? { roles: ["render", "component-occurrence", "side-effect", "return"] } : {}) },
       follow: walkFollows(run.seedId, dir === "forward"),
       cancellation: this.cancellation,
     });
@@ -401,7 +417,7 @@ class AnchorGraphBuilder {
         this.pushEdge({ id: `use:${relation.id}`, source: seed, target: use.id, kind: "used-by", status: relation.status, proof: [relation.proof], label: null });
         // A component rendered here is where the value ends: its body is the anchor's own, already traced.
         const endsHere = Boolean(elementTraits(use.kind).terminal);
-        if (!endsHere && runs.filter((run) => run.use).length >= ANCHOR_LIMITS.maxWalkedUses) unwalked.push(use.label);
+        if (!endsHere && runs.filter((run) => run.use).length >= this.limits.maxWalkedUses) unwalked.push(use.label);
         else runs.push({ seedId: use.id, seedSpan: use.location.span, side: "down", ...(endsHere ? { endsHere } : { use: true }) });
       }
       if (unwalked.length) this.unwalkedUses(seed, unwalked);
@@ -491,7 +507,7 @@ class AnchorGraphBuilder {
         this.addEdge(relation, element);
         // `classify` gives each side only its own end: a terminal forward, an origin backward.
         const ends = crossCallStop || kind === "terminal" || kind === "origin";
-        if (!ends && !visited.has(otherId) && depth < ANCHOR_LIMITS.maxDepth) {
+        if (!ends && !visited.has(otherId) && depth < this.limits.maxDepth) {
           visited.add(otherId);
           queue.push({ id: otherId, depth: depth + 1 });
         }
@@ -556,7 +572,7 @@ class AnchorGraphBuilder {
       if (this.nodes.has(id) || folded.has(gap.id)) continue;
       let [label, note, reason, status]: [string, string, string, EvidenceGap["status"]] = [clip(gap.label, 80), gap.label, gap.reason, gap.status];
       let elementKind: string | null = null;
-      if (limited[0] === gap) ({ label, note } = foldedLimit(limited, labelOf, ANCHOR_LIMITS));
+      if (limited[0] === gap) ({ label, note } = foldedLimit(limited, labelOf, this.limits));
       else if (gap.reason === "external-code" && this.crossesAt(gap.from ? elements.get(gap.from) : undefined, side)) {
         // The walk already ended at this boundary: forward, the value left through the call (a request sent) and what comes back is the other side's answer; backward, the answer is where the value begins.
         continue;
@@ -707,10 +723,19 @@ class AnchorGraphBuilder {
     if (this.edgeKeys.has(key) || !this.nodes.has(edge.source) || !this.nodes.has(edge.target)) return;
     this.edgeKeys.add(key);
     this.edges.push(edge);
+    this.countDrawn(edge);
+  }
+
+  private countDrawn(item: AnchorNode | AnchorEdge) {
+    this.drawnChars += JSON.stringify(item).length;
+    if (this.drawnChars > this.maxDrawn) throw new OverBound();
   }
 
   private addNode(node: Omit<AnchorNode, "absPath" | "symbol" | "field" | "operation" | "state" | "role"> & { role?: AnchorNode["role"] }, element?: Pick<ProgramElement, "kind" | "symbol"> & { operationKind?: string | null }) {
-    this.nodes.set(node.id, { ...node, role: node.role ?? null, ...this.bindingOf(node, element), operation: element?.operationKind ?? null, absPath: path.resolve(this.root, node.file) });
+    const fresh = !this.nodes.has(node.id);
+    const drawn = { ...node, role: node.role ?? null, ...this.bindingOf(node, element), operation: element?.operationKind ?? null, absPath: path.resolve(this.root, node.file) };
+    this.nodes.set(node.id, drawn);
+    if (fresh) this.countDrawn(drawn);
   }
 
   /**

@@ -7,25 +7,43 @@ import type { EvidenceRelationSource } from "../analysis/evidence-slice-support"
 import { DEFAULT_BOUNDARY_POLICY, type ProgramElement, type ProgramRelation } from "../analysis/scope-seam";
 import { elementTraits, proofStrength, relationTraits } from "./kinds";
 
-/**
- * The anchor graph's limits, per slice. Once a slice walks only value
- * relations, real files' closures are a few hundred elements; four times the
- * engine's defaults finish all but the true hubs (a `cn()` every className
- * passes through, a theme object of hundreds of literals) in tens of
- * milliseconds, and those still fold into one named frontier.
- */
-export const ANCHOR_LIMITS = {
-  maxDepth: DEFAULT_BOUNDARY_POLICY.maxDepth,
-  maxElements: 4 * DEFAULT_BOUNDARY_POLICY.maxElements,
-  maxRelations: 4 * DEFAULT_BOUNDARY_POLICY.maxRelations,
-  maxTerminals: 256,
+export type AnchorLimits = {
+  maxDepth: number;
+  maxElements: number;
+  maxRelations: number;
+  maxTerminals: number;
   /**
    * Uses of a declaration walked forward. A hub (a tRPC proxy, a `cn()`)
    * has hundreds, each a slice of its own; past these the rest are drawn and
    * fold into one frontier.
    */
+  maxWalkedUses: number;
+};
+
+/**
+ * The anchor graph's limits, per slice: sixteen times the engine's element
+ * and relation defaults, four times its depth. Surveyed on srcly's client and
+ * a diagram editor (80 traces each), these find about twice the ends the
+ * quarter-size limits did, at a p90 under two seconds, and no walk stops at
+ * its depth. Wider still finds nothing more: a quarter of one repo's graphs
+ * then pass the byte bound, and those draw nothing.
+ */
+export const ANCHOR_LIMITS: Readonly<AnchorLimits> = {
+  maxDepth: 4 * DEFAULT_BOUNDARY_POLICY.maxDepth,
+  maxElements: 16 * DEFAULT_BOUNDARY_POLICY.maxElements,
+  maxRelations: 16 * DEFAULT_BOUNDARY_POLICY.maxRelations,
+  maxTerminals: 1024,
   maxWalkedUses: 32,
-} as const;
+};
+
+/** A quarter of `ANCHOR_LIMITS`: a graph over the byte bound is built again at these before it is refused. */
+export const NARROW_ANCHOR_LIMITS: Readonly<AnchorLimits> = {
+  maxDepth: DEFAULT_BOUNDARY_POLICY.maxDepth,
+  maxElements: 4 * DEFAULT_BOUNDARY_POLICY.maxElements,
+  maxRelations: 4 * DEFAULT_BOUNDARY_POLICY.maxRelations,
+  maxTerminals: 256,
+  maxWalkedUses: 32,
+};
 
 /**
  * Whether the anchor walk never draws this relation: a structural one, which
