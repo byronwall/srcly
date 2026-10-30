@@ -99,6 +99,15 @@ export function naturalEnd(tier1: Tier1, element: Pick<ProgramElement, "kind" | 
   return tier1.host.evidence.deadEnds ? null : "unrecorded";
 }
 
+/** Whether the element is an empty `{}` or `[]`: a new value the code makes, as a literal is, whatever fills it later. */
+export function isEmptyLiteral(tier1: Tier1, element: Pick<ProgramElement, "location">): boolean {
+  if (tier1.language !== "typescript") return false;
+  const { ts } = tier1;
+  const sourceFile = tier1.program.getSourceFile(path.resolve(tier1.args.root, element.location.file));
+  const node = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
+  return !!node && ((ts.isObjectLiteralExpression(node) && node.properties.length === 0) || (ts.isArrayLiteralExpression(node) && node.elements.length === 0));
+}
+
 /** Whether a value naturally begins at this element: a literal, a literal constant, an external import or global. */
 export function isNaturalStart(tier1: Tier1, element: Pick<ProgramElement, "kind" | "location" | "module"> & { attributes?: ProgramElement["attributes"] }): boolean {
   // A provider may mark a start it found itself (`naturalStart`), as the Python helper does for a module outside the program (`os.path`).
@@ -120,7 +129,7 @@ export function isNaturalStart(tier1: Tier1, element: Pick<ProgramElement, "kind
   const isLiteral = (n: TypeScript.Node) =>
     ts.isStringLiteral(n) || ts.isNumericLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) || n.kind === ts.SyntaxKind.TrueKeyword || n.kind === ts.SyntaxKind.FalseKeyword || n.kind === ts.SyntaxKind.NullKeyword
     || (ts.isPrefixUnaryExpression(n) && ts.isNumericLiteral(n.operand));
-  if (isLiteral(node)) return true;
+  if (isLiteral(node) || isEmptyLiteral(tier1, element)) return true;
   const declaration = ts.isVariableDeclaration(node) ? node : ts.isVariableDeclaration(node.parent) && node.parent.name === node ? node.parent : null;
   if (declaration?.initializer && isLiteral(declaration.initializer)) {
     const list = declaration.parent;
