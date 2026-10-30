@@ -1,7 +1,8 @@
 import * as TypeScript from "typescript";
 import type { CollectorFunctionInfo } from "./program-evidence-collector-support";
 import { ProgramEvidenceCollectorBoundaryProcessing } from "./program-evidence-collector-boundary-processing";
-import { proof } from "./program-evidence-support";
+import { importedCallee, proof, unwrap } from "./program-evidence-support";
+import { frameworkFlow } from "./framework-flows";
 
 export type PendingComponentPropBinding = {
   opening: TypeScript.JsxOpeningLikeElement;
@@ -125,16 +126,18 @@ export class ProgramEvidenceCollectorComponentBindingSupport extends ProgramEvid
       : null;
     if (!parameterSymbol || !parameterId) return [];
 
+    const views = this.propsViews(target.declaration, parameterSymbol);
     const receivers: ComponentPropReceiver[] = [];
     const visit = (node: TypeScript.Node) => {
       this.checkCancellation();
+      const receiver = this.ts.isPropertyAccessExpression(node) && this.ts.isIdentifier(node.expression) ? this.checker.getSymbolAtLocation(node.expression) : undefined;
       if (
         this.ts.isPropertyAccessExpression(node)
         && !node.questionDotToken
-        && this.ts.isIdentifier(node.expression)
         && node.name.text === propName
-        && sameCompilerSymbol(this.checker.getSymbolAtLocation(node.expression), parameterSymbol)
-        && sameCompilerSymbol(this.checker.getSymbolAtLocation(node.name), expectedProperty)
+        && receiver
+        // `props.label` reads the prop itself; a view's `local.label` reads the field of the same name.
+        && (sameCompilerSymbol(receiver, parameterSymbol) ? sameCompilerSymbol(this.checker.getSymbolAtLocation(node.name), expectedProperty) : views.has(receiver))
       ) {
         receivers.push({
           node,
@@ -148,6 +151,43 @@ export class ProgramEvidenceCollectorComponentBindingSupport extends ProgramEvid
     visit(target.declaration);
     this.checkCancellation();
     return receivers;
+  }
+
+  /**
+   * The bindings in a component that hold a view of its props: a `const`
+   * copy, or what a framework call that passes its argument through returns
+   * (`mergeProps(defaults, props)`, both halves of `splitProps(props, keys)`),
+   * from props or from another view. A field read of a view reads that prop.
+   */
+  private propsViews(declaration: TypeScript.SignatureDeclaration, props: TypeScript.Symbol): Set<TypeScript.Symbol> {
+    const views = new Set<TypeScript.Symbol>();
+    const isView = (expression: TypeScript.Expression) => {
+      const symbol = this.ts.isIdentifier(expression) ? this.checker.getSymbolAtLocation(expression) : undefined;
+      return !!symbol && (symbol === props || views.has(symbol));
+    };
+    const passesView = (initializer: TypeScript.Expression) => {
+      const value = unwrap(this.ts, initializer);
+      if (isView(value)) return true;
+      if (!this.ts.isCallExpression(value)) return false;
+      const imported = importedCallee(this.ts, this.checker, value.expression);
+      const passes = imported ? frameworkFlow(imported.module, imported.name)?.passes : undefined;
+      if (!passes) return false;
+      return value.arguments.some((argument, index) => (passes === "*" || passes.includes(index)) && isView(unwrap(this.ts, argument)));
+    };
+    // In source order, so a view built from an earlier view is found in one pass.
+    const visit = (node: TypeScript.Node) => {
+      if (this.ts.isVariableDeclaration(node) && node.initializer && passesView(node.initializer)) {
+        const names = this.ts.isIdentifier(node.name) ? [node.name] : this.ts.isArrayBindingPattern(node.name) ? node.name.elements.flatMap((item) => (this.ts.isBindingElement(item) && this.ts.isIdentifier(item.name) ? [item.name] : [])) : [];
+        for (const name of names) {
+          const symbol = this.checker.getSymbolAtLocation(name);
+          if (symbol) views.add(symbol);
+        }
+      }
+      this.ts.forEachChild(node, visit);
+    };
+    const body = (declaration as { body?: TypeScript.Node }).body;
+    if (body) visit(body);
+    return views;
   }
 }
 

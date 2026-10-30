@@ -54,6 +54,11 @@ export function makesStatePair(module: string, name: string): boolean {
   return frameworkRow(module, name)?.model === "state-pair";
 }
 
+/** Whether the call makes a store hook (`zustand`'s `create`): its function's return and what its `set` receives are the store, and calling the hook with a selector reads it. */
+export function makesStore(module: string, name: string): boolean {
+  return frameworkRow(module, name)?.model === "store";
+}
+
 /** Whether a state factory calls a function initial value for the state (`useState(() => …)`), as Solid's `createSignal` does not. */
 export function callsInitialValue(module: string, name: string): boolean {
   const row = frameworkRow(module, name);

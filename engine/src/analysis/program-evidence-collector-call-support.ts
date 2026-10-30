@@ -413,8 +413,9 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     );
     // `new Named(name)` runs the class's constructor: its arguments bind the constructor's parameters (`connectCalls`).
     const target = this.constructorTarget(node);
+    // A library constructor (`new Promise(…)`) is connected once every element exists too (`connectExternalCall`).
+    this.calls.push({ node, id: callId, target, ownerId });
     if (target) {
-      this.calls.push({ node, id: callId, target, ownerId });
       this.addRelation(callId, target.id, "invokes", [this.location(node.expression)], proof("compiler-symbol", "The constructor call resolves to an in-project constructor.", [this.location(node.expression)]), "proven");
     }
     for (const argument of node.arguments ?? []) {
@@ -470,6 +471,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (resultId) {
       this.addRelation(resultId, call.id, "references", [this.location(call.node)], proof("ast-node", "The collection method's result is this call's own value.", [this.location(call.node)]), "proven");
     }
+    if (this.ts.isCallExpression(call.node) || this.ts.isNewExpression(call.node)) this.connectSuppliedCallbacks(call, call.node);
     if (!this.ts.isCallExpression(call.node)) return;
     const stateFunctions = this.connectStateFunctions(call.node);
     this.connectExternalCallbacks(call, call.node, stateFunctions);
@@ -492,10 +494,12 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       root = unwrap(this.ts, root.expression);
     }
     if (!this.ts.isIdentifier(root)) return;
-    // A variable a function declares, this one or one it is written in (a closure's), or a parameter: module state and globals are written for code no one function owns.
+    // A variable a function declares, this one or one it is written in (a closure's), or a parameter: what it keeps, its reads see.
+    // A module's own container is kept into only when its file reads it back (`cache.set(k, v)` and `cache.get(k)`); one only
+    // written to (a log) stops here, and module state shared across files and globals are written for code no one function owns.
     const declaration = this.checker.getSymbolAtLocation(root)?.valueDeclaration;
     const local = declaration && this.ts.isVariableDeclaration(declaration) && this.ts.findAncestor(declaration.parent, this.ts.isFunctionLike);
-    if (!local && !(declaration && this.ts.isParameter(declaration))) return;
+    if (!local && !(declaration && this.ts.isParameter(declaration)) && !(declaration && this.ts.isVariableDeclaration(declaration) && this.readBackInFile(declaration))) return;
     const bindingId = this.variablesBySymbol.get(this.symbolId(root) ?? "") ?? this.parametersBySymbol.get(this.symbolId(root) ?? "");
     if (!bindingId) return;
     const [kept, keptStatus] = this.libraryProof(call.node, `${calleeName(this.ts, call.node.expression)}'s value is discarded, so its arguments are kept in its receiver.`, [this.location(call.node), this.location(root)]);
@@ -513,6 +517,59 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       valueId = packId;
     });
     this.addRelation(valueId, bindingId, "references", [this.location(root)], proof("ast-node", "The object the call writes a field of.", [this.location(root)]), "proven");
+  }
+
+  /**
+   * A function written as an argument to library code may be handed a
+   * function of the library's own (`new Promise((resolve) => …)`): calling it
+   * (`resolve(value)`) hands the value back to the library call that supplied
+   * it, so the value reaches that call's own value. Proven for the standard
+   * library, assumed for a package.
+   */
+  private connectSuppliedCallbacks(call: CollectorCallInfo, node: TypeScript.CallExpression | TypeScript.NewExpression): void {
+    for (const argument of node.arguments ?? []) {
+      const fn = unwrap(this.ts, argument);
+      if (!this.ts.isArrowFunction(fn) && !this.ts.isFunctionExpression(fn)) continue;
+      const info = this.functionsByNode.get(nodeKey(this.root, fn));
+      const supplied = new Set(fn.parameters.flatMap((parameter) => {
+        const symbol = this.ts.isIdentifier(parameter.name) ? this.checker.getSymbolAtLocation(parameter.name) : undefined;
+        return symbol && this.checker.getTypeAtLocation(parameter).getCallSignatures().length > 0 ? [symbol] : [];
+      }));
+      if (!info || supplied.size === 0) continue;
+      const visit = (inner: TypeScript.Node) => {
+        if (this.ts.isCallExpression(inner) && this.ts.isIdentifier(inner.expression) && supplied.has(this.checker.getSymbolAtLocation(inner.expression)!) && inner.arguments[0]) {
+          const where = [this.location(inner.arguments[0]), this.location(node)];
+          const [handed, handedStatus] = this.libraryProof(node, `${inner.expression.text} hands its argument back to the call that supplied it.`, where);
+          this.addRelation(this.expression(inner.arguments[0], info.id), call.id, "return-value", where, handed, handedStatus);
+        }
+        this.ts.forEachChild(inner, visit);
+      };
+      visit(fn.body);
+    }
+  }
+
+  /**
+   * Whether a module's own variable (unexported) is read in its file other
+   * than as the receiver of a call whose value is dropped: `cache.get(key)`
+   * reads the container back, `log.push(entry);` only writes into it.
+   */
+  private readBackInFile(declaration: TypeScript.VariableDeclaration): boolean {
+    const statement = declaration.parent?.parent;
+    if (!this.ts.isIdentifier(declaration.name) || !statement || !this.ts.isVariableStatement(statement) || !this.ts.isSourceFile(statement.parent)) return false;
+    if (statement.modifiers?.some((modifier) => modifier.kind === this.ts.SyntaxKind.ExportKeyword)) return false;
+    const symbol = this.checker.getSymbolAtLocation(declaration.name);
+    let found = false;
+    const visit = (node: TypeScript.Node) => {
+      if (found) return;
+      if (this.ts.isIdentifier(node) && node !== declaration.name && this.checker.getSymbolAtLocation(node) === symbol) {
+        const access = node.parent;
+        const call = this.ts.isPropertyAccessExpression(access) && access.expression === node && this.ts.isCallExpression(access.parent) && access.parent.expression === access ? access.parent : null;
+        if (!call || !discardsValue(this.ts, call, this.checker)) found = true;
+      }
+      this.ts.forEachChild(node, visit);
+    };
+    visit(statement.parent);
+    return found;
   }
 
   /**

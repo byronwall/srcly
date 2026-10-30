@@ -15,8 +15,8 @@ import { calleeName, importedCallee } from "./program-evidence-support";
 declare const __SRCLY_ENGINE_BUNDLE__: boolean | undefined;
 const IS_BUNDLE = typeof __SRCLY_ENGINE_BUNDLE__ !== "undefined" && __SRCLY_ENGINE_BUNDLE__;
 
-/** The model types (plan §3), and `wraps`: a call that returns the function it is given. */
-export const LIBRARY_MODEL_TYPES = ["origin", "terminal", "state-pair", "passes-through", "consumes", "calls-back", "resource", "wraps"] as const;
+/** The model types (plan §3), `wraps`: a call that returns the function it is given, and `store`: a call that makes a store hook from the function it is given. */
+export const LIBRARY_MODEL_TYPES = ["origin", "terminal", "state-pair", "passes-through", "consumes", "calls-back", "resource", "wraps", "store"] as const;
 
 export const libraryModelRowSchema = z
   .object({

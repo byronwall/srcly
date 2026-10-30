@@ -6,7 +6,7 @@ import { scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelatio
 import { ANCHOR_LIMITS, NARROW_ANCHOR_LIMITS, type AnchorLimits, assumedThrough, foldAnnotatedUses, performs, undrawn, usesOf, walkFollows } from "../anchor-slice";
 import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
-import { elementsAt, endsInPlace, isEmptyLiteral, externalCallee, standardLibraryCall, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
+import { beginsHere, elementsAt, endsInPlace, externalCallee, standardLibraryCall, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
 import { elementTraits, proofStrength, relationTraits, SEED_KINDS } from "../kinds";
 import type { LanguageHost } from "../host";
 import { clip, foldedLimit } from "../frontier-words";
@@ -183,9 +183,12 @@ class AnchorGraphBuilder {
     // and use links are structural, found by syntax, so they prove nothing
     // on their own.
     // Backward, a path that starts at a literal, a constant or an external import has landed too (R16).
+    // A value the code ends where it is anchored (a parameter nothing reads, a branch test) has landed there going forward.
+    const endsAtAnchor = !isDeclaration && sides.includes("down") && fact ? endsInPlace(this.tier1, fact) : null;
+    if (endsAtAnchor) own.note = IN_PLACE_NOTES[endsAtAnchor];
     const landed = isDeclaration
       ? runs.length > 0 && landedRuns.every(Boolean)
-      : (sides.includes("down") && kinds.includes("terminal")) || (sides.includes("up") && (kinds.includes("origin") || naturalStarts > 0));
+      : (sides.includes("down") && (kinds.includes("terminal") || endsAtAnchor !== null)) || (sides.includes("up") && (kinds.includes("origin") || naturalStarts > 0));
     // A declaration whose runs reached nothing and reported nothing makes no claim: there is nothing to trace from it.
     if (!stopped && isDeclaration && landedRuns.length === 0) return this.finish(anchor, direction, "unsupported", "nothing-to-trace", coverage);
     // `ok` is proven. A path that lands with no stop, but only by assuming what code with no source does (an `external-call` proof), is `assumed`; a stopped path stays partial whatever it assumes.
@@ -199,8 +202,9 @@ class AnchorGraphBuilder {
       // Paths that only loop back, or end where nothing names an end: the run's own start is where the trace stops.
       if (this.named.size === 0) {
         for (const run of unlanded) {
+          // The anchor too, when nothing the evidence records continues from it at all.
           const node = this.nodes.get(this.resolve(run.seedId));
-          if (!node || node.id === this.anchorId) continue;
+          if (!node) continue;
           const location = { file: node.file, line: node.line, column: node.span.startColumn, span: node.span };
           this.untraced({ id: `end:${node.id}`, from: node.id, to: null, label: node.label, reason: "disconnected", status: "partial", location, proof: [] }, { label: node.label, kind: node.elementKind ?? node.kind }, run.side, "not traced to an end · no path from here reaches an end the engine can name");
         }
@@ -505,7 +509,7 @@ class AnchorGraphBuilder {
    * slice reported no gap there (a call whose only onward relation names its
    * definition, a value only a condition reads): quiet ends, named like the
    * slice's own `unrecorded` ends when the run lands nowhere. Upstream, an
-   * empty `{}` or `[]` is a landing, as a literal is: the count.
+   * empty `{}` or a parameter a package fills is a landing, as a literal is: the count.
    */
   private walkEnds(seed: string, side: Side, ends: string[], byId: Map<string, ProgramElement>): number {
     let begun = 0;
@@ -516,8 +520,8 @@ class AnchorGraphBuilder {
       // A value that naturally begins here (a literal, an external import or global) is where a backward run lands, not a quiet end.
       if (!node || !element || box === this.anchorId || !["value", "transform", "control"].includes(node.kind)) continue;
       if (side === "up" && (isNaturalStart(this.tier1, element) || externalCallee(this.tier1, element))) {
-        // An empty `{}` lands as a literal box does (`literalStarts`).
-        if (isEmptyLiteral(this.tier1, element)) begun += 1;
+        // An empty `{}` or a parameter a package fills lands as a literal box does (`literalStarts`).
+        if (beginsHere(this.tier1, element)) begun += 1;
         continue;
       }
       // A value the code ends in place (a branch test) has landed there, as at a slice gap.
