@@ -545,7 +545,10 @@ class AnchorGraphBuilder {
       let [label, note, reason, status]: [string, string, string, EvidenceGap["status"]] = [clip(gap.label, 80), gap.label, gap.reason, gap.status];
       let elementKind: string | null = null;
       if (limited[0] === gap) ({ label, note } = foldedLimit(limited, labelOf, ANCHOR_LIMITS));
-      else if (gap.reason === "disconnected") {
+      else if (gap.reason === "external-code" && this.crossesAt(gap.from ? elements.get(gap.from) : undefined, side)) {
+        // The walk already ended at this boundary: forward, the value left through the call (a request sent) and what comes back is the other side's answer; backward, the answer is where the value begins.
+        continue;
+      } else if (gap.reason === "disconnected") {
         const element = gap.from ? elements.get(gap.from) ?? this.tier1.provider().facts.getElement(gap.from) : undefined;
         if (!gap.location || !element) {
           reason = "no-evidence-element";
@@ -575,6 +578,14 @@ class AnchorGraphBuilder {
       this.frontier(gap, side, { label, note, reason, status, elementKind });
     }
     return naturalStarts;
+  }
+
+  /** Whether the walk already ended at this engine boundary on this side: a terminal at its call going down, the boundary itself as an origin going up. */
+  private crossesAt(element: ProgramElement | undefined, side: Side): boolean {
+    if (!element?.boundary) return false;
+    const { file, span } = element.location;
+    const end = side === "down" ? "terminal" : "origin";
+    return [...this.nodes.values()].some((node) => node.kind === end && node.file === file && sameSpan(node.span, span));
   }
 
   /**

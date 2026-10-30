@@ -43,8 +43,9 @@ export function later(value: string) { // @trace ev-timer forward symbol value
 
 // fetch, then its JSON.
 export async function load(url: string) { // @trace ev-fetch forward symbol url
-  // The URL leaves in the request. The call's value is taken to carry its argument, so the trace also reaches the return.
-  const data = await fetch(url).then((response) => response.json()); // @reaches ev-fetch external-effect @stop ev-fetch network @stop ev-fetch external-code
+  // The URL leaves in the request, which ends it there: the response is the server's answer, not a stop on the URL's path. The
+  // call's value is taken to carry its argument, so the trace also reaches the return.
+  const data = await fetch(url).then((response) => response.json()); // @reaches ev-fetch external-effect @stop ev-fetch network
   return data; // @reaches ev-fetch return
 }
 
