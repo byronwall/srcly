@@ -42,7 +42,7 @@ export function createCallSiteIndex(tier1: TsTier1) {
           if (callee) {
             const point = file.getLineAndCharacterOfPosition(node.getStart(file));
             calls.push(`${path.relative(root, file.fileName).split(path.sep).join("/")}:${point.line + 1}`);
-          } else if (!isDeclarationName && !isImport) escapes = true;
+          } else if (!isDeclarationName && !isImport && !handedToPage(ts, node)) escapes = true;
         }
         ts.forEachChild(node, visit);
       };
@@ -100,6 +100,19 @@ export function createCallSiteIndex(tier1: TsTier1) {
 }
 
 export type CallSiteIndex = ReturnType<typeof createCallSiteIndex>;
+
+/**
+ * Whether a function value is handed to a page element as a handler
+ * (`<button onClick={click}>`): the page calls it and drops what it returns,
+ * so the hand-off takes nothing back into the program.
+ */
+function handedToPage(ts: typeof TypeScript, node: TypeScript.Identifier): boolean {
+  const expression = node.parent;
+  const attribute = ts.isJsxExpression(expression) ? expression.parent : undefined;
+  if (!attribute || !ts.isJsxAttribute(attribute) || !ts.isIdentifier(attribute.name) || !/^on[A-Z]/.test(attribute.name.text)) return false;
+  const tag = attribute.parent.parent.tagName;
+  return ts.isIdentifier(tag) && /^[a-z]/.test(tag.text);
+}
 
 /** One call and no escape: the only shape the M3 walk may cross. */
 export function singleCall(sites: CallSites | null): boolean {
