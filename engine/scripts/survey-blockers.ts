@@ -5,7 +5,7 @@ import { anchorGraphOp } from "../src/srcly/ops/anchor-graph";
 import { fileExportsOp } from "../src/srcly/ops/file-exports";
 import { EngineError } from "../src/srcly/protocol";
 import { createEngineSession } from "../src/srcly/session";
-import { ENGINE_PACKAGE_DIR } from "../src/srcly/typescript-choice";
+import { chooseTypescript } from "../src/srcly/typescript-choice";
 
 // Where does data flow stop, across a real repo? Traces a spread of one
 // repo's exports in both directions and writes every outcome and every stop
@@ -35,7 +35,8 @@ const session = createEngineSession({
   root,
   source,
   tsconfig: null,
-  typescriptFrom: fs.existsSync(path.join(root, "node_modules/typescript")) ? root : ENGINE_PACKAGE_DIR,
+  // As the server does (decision D4): the project's own typescript only when its major.minor matches the engine's (TypeScript 7 has no JS API).
+  typescriptFrom: chooseTypescript(root, path.resolve(root, source)).from,
   language,
   python: args.python ?? (fs.existsSync(venv) ? venv : null),
 });
