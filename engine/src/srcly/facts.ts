@@ -178,6 +178,8 @@ export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "locatio
   if (!node || !parent) return null;
   // A timer (`setTimeout(() => …)`) runs the function it is given later; what reaches the call is that function, not data it hands on.
   if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && TIMERS.has(node.expression.text) && isStandardLibraryCallee(ts, tier1.program.getTypeChecker(), node.expression)) return "schedule";
+  // A promise chain the code drops (`load().then(show);`) ends there: the standard library's promise carries nothing further. A dropped `map.set(k, v)` does not: its receiver keeps the value.
+  if (ts.isCallExpression(node) && (ts.isExpressionStatement(parent) || ts.isVoidExpression(parent)) && isStandardLibraryCallee(ts, tier1.program.getTypeChecker(), node.expression) && tier1.program.getTypeChecker().getTypeAtLocation(node).getProperty("then")) return "discard";
   if (ts.isBinaryExpression(parent) && parent.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && parent.operatorToken.kind <= ts.SyntaxKind.LastAssignment) return parent.left === node ? "write" : null;
   const updates = (ts.isPrefixUnaryExpression(parent) || ts.isPostfixUnaryExpression(parent)) && (parent.operator === ts.SyntaxKind.PlusPlusToken || parent.operator === ts.SyntaxKind.MinusMinusToken);
   if (updates || ts.isDeleteExpression(parent)) return "write";
