@@ -38,3 +38,9 @@ def remember(text: str) -> None:
 
 def shout(text: str) -> str:
     return text.upper()
+
+
+def check(text: str) -> str:
+    if not text:
+        raise ValueError(text)
+    return text

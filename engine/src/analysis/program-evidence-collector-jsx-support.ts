@@ -88,6 +88,10 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       if (this.ts.isReturnStatement(node)) {
         this.processReturn(node, nextOwner);
       }
+      // A thrown value is a value the code uses: it ends at the `throw` (`endsInPlace`).
+      if (this.ts.isThrowStatement(node) && node.expression) {
+        this.expression(node.expression, nextOwner);
+      }
       // A generator's `yield x` hands x to its caller's iteration (`for (const v of gen())`), as a return hands it to the call.
       // `yield* list` hands on each element of `list`: the call's value is iterated as `list` is.
       if (this.ts.isYieldExpression(node) && node.expression) {
