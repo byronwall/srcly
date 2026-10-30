@@ -3,6 +3,7 @@ import { boundaryRole, type LibraryModelRow } from "./library-models";
 import {
   browserCall,
   browserMember,
+  pageEffectCall,
   calleeName,
   externalServiceCallKind,
   importedCallee,
@@ -95,7 +96,7 @@ export function processProgramCallBoundary(
   // A library model row says which boundary the call is; the role is the element kind it marks.
   const role = boundaryRole(context.model);
   const urlRead = imported && URL_READS[imported.module]?.includes(imported.name);
-  const browser = browserCall(browserMember(ts, context.checker, node.expression));
+  const browser = browserCall(browserMember(ts, context.checker, node.expression)) ?? (pageEffectCall(ts, context.checker, node) ? "write" : null);
   if (browser) {
     // Browser storage, history and navigation: outside the program, named by what they are.
     const text = `${node.expression.getText(node.getSourceFile())}(…)`;
