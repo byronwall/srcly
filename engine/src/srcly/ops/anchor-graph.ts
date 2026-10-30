@@ -198,8 +198,9 @@ class AnchorGraphBuilder {
       // Paths that only loop back, or end where nothing names an end: the run's own start is where the trace stops.
       if (this.named.size === 0) {
         for (const run of unlanded) {
+          // The anchor too, when nothing the evidence records continues from it at all.
           const node = this.nodes.get(this.resolve(run.seedId));
-          if (!node || node.id === this.anchorId) continue;
+          if (!node) continue;
           const location = { file: node.file, line: node.line, column: node.span.startColumn, span: node.span };
           this.untraced({ id: `end:${node.id}`, from: node.id, to: null, label: node.label, reason: "disconnected", status: "partial", location, proof: [] }, { label: node.label, kind: node.elementKind ?? node.kind }, run.side, "not traced to an end · no path from here reaches an end the engine can name");
         }

@@ -78,7 +78,8 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       if (this.ts.isBinaryExpression(node) && isAssignmentOperator(this.ts, node.operatorToken.kind) && this.ts.isIdentifier(node.left)) {
         this.processAssignment(node as TypeScript.BinaryExpression & { left: TypeScript.Identifier }, nextOwner);
       }
-      if (this.ts.isBinaryExpression(node) && node.operatorToken.kind === this.ts.SyntaxKind.EqualsToken && this.ts.isPropertyAccessExpression(node.left)) {
+      // `obj.field = value`, and a compound one (`count.current += step`, `cache.hit ??= value`): the right side goes into the field.
+      if (this.ts.isBinaryExpression(node) && isAssignmentOperator(this.ts, node.operatorToken.kind) && this.ts.isPropertyAccessExpression(node.left)) {
         this.processFieldAssignment(node as TypeScript.BinaryExpression & { left: TypeScript.PropertyAccessExpression }, nextOwner);
       }
       if (this.ts.isPropertyAccessExpression(node) && !(this.ts.isBinaryExpression(node.parent) && node.parent.left === node && isAssignmentOperator(this.ts, node.parent.operatorToken.kind))) {
