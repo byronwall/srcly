@@ -1534,7 +1534,10 @@ class BodyWalker:
             return
         if isinstance(node, ast.Raise):
             if node.exc is not None:
-                self.expr(node.exc)
+                # A raised value leaves the code it is in: it ends at the `raise`, wherever its exception class comes from.
+                raised = self.program.elements.get(self.expr(node.exc) or "")
+                if raised is not None:
+                    raised["attributes"]["endsInPlace"] = "throw"
             return
         if isinstance(node, ast.Assert):
             self.test(node.test)

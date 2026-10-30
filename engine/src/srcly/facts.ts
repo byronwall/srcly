@@ -152,14 +152,15 @@ function namesCallee(tier1: Tier1, element: Pick<ProgramElement, "location">): b
 /** The note on a value the code ends in place, by how it ends there. */
 const TIMERS = new Set(["setTimeout", "setInterval", "setImmediate", "queueMicrotask", "requestAnimationFrame", "requestIdleCallback"]);
 
-export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: "ends here · written, not read", key: "ends here · picks a field", discard: "ends here · its result is not used", schedule: "ends here · the callback runs later" };
+export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: "ends here · written, not read", key: "ends here · picks a field", discard: "ends here · its result is not used", schedule: "ends here · the callback runs later", throw: "ends here · thrown" };
 
 /**
  * How the code ends the value at this element where it is used, without
  * carrying it on: `branch` when it is the test of an `if`, loop, `switch` or
  * `case`, consumed by control; `write` when it is written rather than read
  * (an assignment's target, `++`/`--`, a `delete` operand); `key` when it
- * is a computed key, which picks a field without being the value read.
+ * is a computed key, which picks a field without being the value read;
+ * `throw` when it is what a `throw` throws, which leaves the code it is in.
  * Null otherwise.
  */
 export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "location" | "attributes">): keyof typeof IN_PLACE_NOTES | null {
@@ -179,6 +180,7 @@ export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "locatio
   const updates = (ts.isPrefixUnaryExpression(parent) || ts.isPostfixUnaryExpression(parent)) && (parent.operator === ts.SyntaxKind.PlusPlusToken || parent.operator === ts.SyntaxKind.MinusMinusToken);
   if (updates || ts.isDeleteExpression(parent)) return "write";
   if (ts.isElementAccessExpression(parent) && parent.argumentExpression === node) return "key";
+  if (ts.isThrowStatement(parent) && parent.expression === node) return "throw";
   const test = ts.isIfStatement(parent) || ts.isWhileStatement(parent) || ts.isDoStatement(parent) || ts.isSwitchStatement(parent) || ts.isCaseClause(parent) ? parent.expression : ts.isForStatement(parent) ? parent.condition : undefined;
   return test === node ? "branch" : null;
 }
