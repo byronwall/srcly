@@ -92,6 +92,11 @@
             "type": "string",
             "minLength": 1
           },
+          "lazy": {
+            "description": "For `state-pair`: a function initial value is called, and what it returns seeds the state (`useState(() => …)`).",
+            "type": "boolean",
+            "const": true
+          },
           "writes": {
             "description": "For `consumes`: the receiver keeps the arguments (`push`, `set`).",
             "type": "string",

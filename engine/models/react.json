@@ -6,7 +6,8 @@
       "module": "react",
       "name": "useState",
       "model": "state-pair",
-      "note": "A state value and its setter: what the setter receives, the state reads."
+      "lazy": true,
+      "note": "A state value and its setter: what the setter receives, the state reads. A function initial value is called for the state."
     },
     {
       "language": "ts",

@@ -5,7 +5,7 @@ import {
   collectProgramEvidenceExpression,
   constructorExpressionElementEvidence,
 } from "./program-evidence-collector-expression-support";
-import { reducerOf, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
+import { lazyFactoryGetter, reducerOf, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { namesSeveralValues, resolveValue, wrappedArgument } from "./value-origin";
 import { frameworkFlow, makesAccessor } from "./framework-flows";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
@@ -471,7 +471,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       this.addRelation(resultId, call.id, "references", [this.location(call.node)], proof("ast-node", "The collection method's result is this call's own value.", [this.location(call.node)]), "proven");
     }
     if (!this.ts.isCallExpression(call.node)) return;
-    this.connectExternalCallbacks(call, call.node);
+    const stateFunctions = this.connectStateFunctions(call.node);
+    this.connectExternalCallbacks(call, call.node, stateFunctions);
     if (!discardsValue(this.ts, call.node, this.checker)) return;
     // A member the project declares keeps what is put into it (`this.items.set(key, value)`): its reads see it.
     const method = unwrap(this.ts, call.node.expression);
@@ -512,6 +513,34 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
   }
 
   /**
+   * A function handed to a state pair where a value goes stands for what it
+   * returns: a setter's updater (`setCount((c) => c + step)`, a store path's
+   * `setState("todos", (list) => [...list, item])`) and a lazy initial value
+   * (`useState(() => compute(seed))`). Its returns become the state, and an
+   * updater's parameter receives the current state.
+   */
+  private connectStateFunctions(node: TypeScript.CallExpression): Set<TypeScript.Node> {
+    const handled = new Set<TypeScript.Node>();
+    const role = stateRoleOf(this.ts, this.checker, node.expression);
+    const getter = role?.role === "setter" ? role.getter : lazyFactoryGetter(this.ts, this.checker, node);
+    if (!getter) return handled;
+    const stateId = this.stateElement(getter);
+    for (const argument of node.arguments) {
+      const fn = unwrap(this.ts, argument);
+      if (!this.ts.isArrowFunction(fn) && !this.ts.isFunctionExpression(fn)) continue;
+      const info = this.functionsByNode.get(nodeKey(this.root, fn));
+      if (!info) continue;
+      handled.add(fn);
+      for (const returnId of this.returnsByFunction.get(info.id) ?? []) {
+        this.addRelation(returnId, stateId, "framework-flow", [this.location(fn)], frameworkState("The function's return becomes the state its getter reads; order and time are not proven.", this.location(fn)), "partial");
+      }
+      const parameterId = role ? this.firstParameterId(fn) : undefined;
+      if (parameterId) this.addRelation(stateId, parameterId, "references", [this.location(fn)], frameworkState("The updater receives the current state.", this.location(fn)), "partial");
+    }
+    return handled;
+  }
+
+  /**
    * A function written as an argument to a call with no source to read
    * (`rows.find((row) => …)`, `promise.then((value) => …)`, `list.sort((a, b) => …)`)
    * is called by that call, and by nothing else in the program. Its
@@ -520,7 +549,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
    * only when the checker says its type accepts that value. Its returns reach
    * the call's value. Both are assumed, so both are `partial`.
    */
-  private connectExternalCallbacks(call: CollectorCallInfo, node: TypeScript.CallExpression): void {
+  private connectExternalCallbacks(call: CollectorCallInfo, node: TypeScript.CallExpression, stateFunctions: ReadonlySet<TypeScript.Node>): void {
     // A framework call whose flow a row models (`frameworkFlow`) needs no assumption.
     const imported = importedCallee(this.ts, this.checker, node.expression);
     const flow = imported ? frameworkFlow(imported.module, imported.name) : undefined;
@@ -552,7 +581,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     const wrapped = wrappedArgument(this.ts, this.checker, node);
     for (const argument of node.arguments) {
       const fn = unwrap(this.ts, argument);
-      if (!this.ts.isArrowFunction(fn) && !this.ts.isFunctionExpression(fn)) continue;
+      if ((!this.ts.isArrowFunction(fn) && !this.ts.isFunctionExpression(fn)) || stateFunctions.has(fn)) continue;
       const info = this.functionsByNode.get(nodeKey(this.root, fn));
       if (!info) continue;
       const where = [this.location(fn)];

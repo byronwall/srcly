@@ -32,6 +32,7 @@ export const libraryModelRowSchema = z
     source: z.string().regex(/^\d+$/).optional().describe("For `calls-back`: the argument whose value (or return) the callback's first parameter receives."),
     accessor: z.literal(true).optional().describe("For `calls-back`: the call makes an accessor, and calling it yields the callback's return."),
     option: z.string().min(1).optional().describe("For `calls-back`: the options key that holds the callback (`queryFn`)."),
+    lazy: z.literal(true).optional().describe("For `state-pair`: a function initial value is called, and what it returns seeds the state (`useState(() => …)`)."),
     writes: z.literal("this").optional().describe("For `consumes`: the receiver keeps the arguments (`push`, `set`)."),
     proof: z.string().min(1).optional().describe("The proof kind its relations carry, so existing proof names survive."),
     note: z.string().optional().describe("One line for the code map and the proof detail."),

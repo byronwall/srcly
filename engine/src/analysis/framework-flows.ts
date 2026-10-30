@@ -54,6 +54,12 @@ export function makesStatePair(module: string, name: string): boolean {
   return frameworkRow(module, name)?.model === "state-pair";
 }
 
+/** Whether a state factory calls a function initial value for the state (`useState(() => …)`), as Solid's `createSignal` does not. */
+export function callsInitialValue(module: string, name: string): boolean {
+  const row = frameworkRow(module, name);
+  return row?.model === "state-pair" && row.lazy === true;
+}
+
 /** The argument a reducer pair's reducer is at (`useReducer(reducer, …)`), or null for any other pair. */
 export function reducerArgument(module: string, name: string): number | null {
   const row = frameworkRow(module, name);
