@@ -413,8 +413,9 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     );
     // `new Named(name)` runs the class's constructor: its arguments bind the constructor's parameters (`connectCalls`).
     const target = this.constructorTarget(node);
+    // A library constructor (`new Promise(…)`) is connected once every element exists too (`connectExternalCall`).
+    this.calls.push({ node, id: callId, target, ownerId });
     if (target) {
-      this.calls.push({ node, id: callId, target, ownerId });
       this.addRelation(callId, target.id, "invokes", [this.location(node.expression)], proof("compiler-symbol", "The constructor call resolves to an in-project constructor.", [this.location(node.expression)]), "proven");
     }
     for (const argument of node.arguments ?? []) {
@@ -470,6 +471,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (resultId) {
       this.addRelation(resultId, call.id, "references", [this.location(call.node)], proof("ast-node", "The collection method's result is this call's own value.", [this.location(call.node)]), "proven");
     }
+    if (this.ts.isCallExpression(call.node) || this.ts.isNewExpression(call.node)) this.connectSuppliedCallbacks(call, call.node);
     if (!this.ts.isCallExpression(call.node)) return;
     const stateFunctions = this.connectStateFunctions(call.node);
     this.connectExternalCallbacks(call, call.node, stateFunctions);
@@ -515,6 +517,35 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       valueId = packId;
     });
     this.addRelation(valueId, bindingId, "references", [this.location(root)], proof("ast-node", "The object the call writes a field of.", [this.location(root)]), "proven");
+  }
+
+  /**
+   * A function written as an argument to library code may be handed a
+   * function of the library's own (`new Promise((resolve) => …)`): calling it
+   * (`resolve(value)`) hands the value back to the library call that supplied
+   * it, so the value reaches that call's own value. Proven for the standard
+   * library, assumed for a package.
+   */
+  private connectSuppliedCallbacks(call: CollectorCallInfo, node: TypeScript.CallExpression | TypeScript.NewExpression): void {
+    for (const argument of node.arguments ?? []) {
+      const fn = unwrap(this.ts, argument);
+      if (!this.ts.isArrowFunction(fn) && !this.ts.isFunctionExpression(fn)) continue;
+      const info = this.functionsByNode.get(nodeKey(this.root, fn));
+      const supplied = new Set(fn.parameters.flatMap((parameter) => {
+        const symbol = this.ts.isIdentifier(parameter.name) ? this.checker.getSymbolAtLocation(parameter.name) : undefined;
+        return symbol && this.checker.getTypeAtLocation(parameter).getCallSignatures().length > 0 ? [symbol] : [];
+      }));
+      if (!info || supplied.size === 0) continue;
+      const visit = (inner: TypeScript.Node) => {
+        if (this.ts.isCallExpression(inner) && this.ts.isIdentifier(inner.expression) && supplied.has(this.checker.getSymbolAtLocation(inner.expression)!) && inner.arguments[0]) {
+          const where = [this.location(inner.arguments[0]), this.location(node)];
+          const [handed, handedStatus] = this.libraryProof(node, `${inner.expression.text} hands its argument back to the call that supplied it.`, where);
+          this.addRelation(this.expression(inner.arguments[0], info.id), call.id, "return-value", where, handed, handedStatus);
+        }
+        this.ts.forEachChild(inner, visit);
+      };
+      visit(fn.body);
+    }
   }
 
   /**

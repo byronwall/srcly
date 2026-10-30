@@ -69,7 +69,10 @@ export function standardLibraryCall(tier1: Tier1, element: Pick<ProgramElement, 
   const node = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
   // A constructor too: `new URLSearchParams(search)`, `new Map(entries)`, `new Date(value)`.
   if (!node || !(ts.isCallExpression(node) || ts.isNewExpression(node))) return false;
-  return isStandardLibraryCallee(ts, tier1.program.getTypeChecker(), node.expression);
+  const checker = tier1.program.getTypeChecker();
+  if (isStandardLibraryCallee(ts, checker, node.expression)) return true;
+  // A function the standard library supplied under a local name (`resolve` in `new Promise((resolve) => …)`): its signature is the lib's.
+  return ts.isCallExpression(node) && !!checker.getResolvedSignature(node)?.declaration?.getSourceFile().hasNoDefaultLib;
 }
 
 /**
@@ -157,6 +160,19 @@ export function isNaturalStart(tier1: Tier1, element: Pick<ProgramElement, "kind
   return false;
 }
 
+/** Whether the identifier names a parameter of a function written as an argument to a call or `new` with no source in the program (`resolve` in `new Promise((resolve) => …)`). */
+function suppliedByLibrary(ts: typeof TypeScript, checker: TypeScript.TypeChecker, name: TypeScript.Identifier): boolean {
+  const parameter = checker.getSymbolAtLocation(name)?.valueDeclaration;
+  if (!parameter || !ts.isParameter(parameter)) return false;
+  let fn: TypeScript.Node = parameter.parent;
+  if (!ts.isArrowFunction(fn) && !ts.isFunctionExpression(fn)) return false;
+  while (ts.isParenthesizedExpression(fn.parent)) fn = fn.parent;
+  const call = fn.parent;
+  if (!(ts.isCallExpression(call) || ts.isNewExpression(call)) || !call.arguments?.includes(fn as TypeScript.Expression)) return false;
+  const declaration = ts.isCallExpression(call) ? checker.getResolvedSignature(call)?.declaration : checker.getSymbolAtLocation(call.expression)?.declarations?.[0];
+  return !!declaration && declaration.getSourceFile().isDeclarationFile;
+}
+
 /**
  * Whether the node is (or names) a parameter of a function written as an
  * argument to a call into a package (declarations with no body), not the
@@ -189,7 +205,7 @@ function namesCallee(tier1: Tier1, element: Pick<ProgramElement, "location">): b
 /** The note on a value the code ends in place, by how it ends there. */
 const TIMERS = new Set(["setTimeout", "setInterval", "setImmediate", "queueMicrotask", "requestAnimationFrame", "requestIdleCallback"]);
 
-export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: "ends here · written, not read", key: "ends here · picks a field", discard: "ends here · its result is not used", schedule: "ends here · the callback runs later", throw: "ends here · thrown", "exported-api": "ends here · exported, and nothing in the program reads it", unused: "ends here · never read" };
+export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: "ends here · written, not read", key: "ends here · picks a field", discard: "ends here · its result is not used", schedule: "ends here · the callback runs later", throw: "ends here · thrown", "exported-api": "ends here · exported, and nothing in the program reads it", unused: "ends here · never read", "handed-back": "ends here · handed back to the library" };
 
 /**
  * How the code ends the value at this element where it is used, without
@@ -227,6 +243,8 @@ export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "locatio
   if (sourceFile && exportedDeclaration(ts, tier1.program.getTypeChecker(), sourceFile, node, readSymbols(tier1))) return "exported-api";
   if (unreadBinding(ts, tier1.program.getTypeChecker(), node, readSymbols(tier1))) return "unused";
   if (sourceFile && apiCallback(ts, tier1.program.getTypeChecker(), sourceFile, node, readSymbols(tier1))) return "exported-api";
+  // A call through a function the library supplied (`resolve(value)` in `new Promise((resolve) => …)`) hands its argument back to that library.
+  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && suppliedByLibrary(ts, tier1.program.getTypeChecker(), node.expression)) return "handed-back";
   const test = ts.isIfStatement(parent) || ts.isWhileStatement(parent) || ts.isDoStatement(parent) || ts.isSwitchStatement(parent) || ts.isCaseClause(parent) ? parent.expression : ts.isForStatement(parent) ? parent.condition : undefined;
   return test === node ? "branch" : null;
 }
