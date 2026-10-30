@@ -99,13 +99,21 @@ export function naturalEnd(tier1: Tier1, element: Pick<ProgramElement, "kind" | 
   return tier1.host.evidence.deadEnds ? null : "unrecorded";
 }
 
-/** Whether the element is an empty `{}` or `[]`: a new value the code makes, as a literal is, whatever fills it later. */
-export function isEmptyLiteral(tier1: Tier1, element: Pick<ProgramElement, "location">): boolean {
+/**
+ * Whether a value concretely begins at the element, as a literal does: an
+ * empty `{}` or `[]` the code makes, or a parameter a package fills
+ * (`libraryFilledParameter`). A backward walk that reaches one has landed.
+ */
+export function beginsHere(tier1: Tier1, element: Pick<ProgramElement, "location">): boolean {
   if (tier1.language !== "typescript") return false;
   const { ts } = tier1;
   const sourceFile = tier1.program.getSourceFile(path.resolve(tier1.args.root, element.location.file));
   const node = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
-  return !!node && ((ts.isObjectLiteralExpression(node) && node.properties.length === 0) || (ts.isArrayLiteralExpression(node) && node.elements.length === 0));
+  return !!node && (isEmptyLiteral(ts, node) || libraryFilledParameter(ts, tier1.program.getTypeChecker(), node));
+}
+
+function isEmptyLiteral(ts: typeof TypeScript, node: TypeScript.Node): boolean {
+  return (ts.isObjectLiteralExpression(node) && node.properties.length === 0) || (ts.isArrayLiteralExpression(node) && node.elements.length === 0);
 }
 
 /** Whether a value naturally begins at this element: a literal, a literal constant, an external import or global. */
@@ -129,12 +137,14 @@ export function isNaturalStart(tier1: Tier1, element: Pick<ProgramElement, "kind
   const isLiteral = (n: TypeScript.Node) =>
     ts.isStringLiteral(n) || ts.isNumericLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) || n.kind === ts.SyntaxKind.TrueKeyword || n.kind === ts.SyntaxKind.FalseKeyword || n.kind === ts.SyntaxKind.NullKeyword
     || (ts.isPrefixUnaryExpression(n) && ts.isNumericLiteral(n.operand));
-  if (isLiteral(node) || isEmptyLiteral(tier1, element)) return true;
+  if (isLiteral(node) || isEmptyLiteral(ts, node)) return true;
   const declaration = ts.isVariableDeclaration(node) ? node : ts.isVariableDeclaration(node.parent) && node.parent.name === node ? node.parent : null;
   if (declaration?.initializer && isLiteral(declaration.initializer)) {
     const list = declaration.parent;
     return ts.isVariableDeclarationList(list) && (list.flags & ts.NodeFlags.Const) !== 0;
   }
+  // A parameter of a function written as an argument to a library call (`handleSubmit((values) => …)`) is filled by that library: it begins there.
+  if (libraryFilledParameter(ts, tier1.program.getTypeChecker(), node)) return true;
   // A global the program does not declare (`JSON`, `document`, `window`) begins outside it, as an external import does.
   if (ts.isIdentifier(node)) {
     const declarations = tier1.program.getTypeChecker().getSymbolAtLocation(node)?.declarations ?? [];
@@ -145,6 +155,24 @@ export function isNaturalStart(tier1: Tier1, element: Pick<ProgramElement, "kind
     if (declaration && ts.isStringLiteral(declaration.moduleSpecifier)) return outsideModule(declaration.moduleSpecifier.text);
   }
   return false;
+}
+
+/**
+ * Whether the node is (or names) a parameter of a function written as an
+ * argument to a call into a package (declarations with no body), not the
+ * standard library, whose callbacks the engine models: the package calls it
+ * with values it makes.
+ */
+function libraryFilledParameter(ts: typeof TypeScript, checker: TypeScript.TypeChecker, node: TypeScript.Node): boolean {
+  const parameter = ts.isIdentifier(node) && ts.isParameter(node.parent) ? node.parent : node;
+  if (!ts.isParameter(parameter)) return false;
+  let fn: TypeScript.Node = parameter.parent;
+  if (!ts.isArrowFunction(fn) && !ts.isFunctionExpression(fn)) return false;
+  while (ts.isParenthesizedExpression(fn.parent)) fn = fn.parent;
+  const call = fn.parent;
+  if (!ts.isCallExpression(call) || !call.arguments.includes(fn as TypeScript.Expression) || isStandardLibraryCallee(ts, checker, call.expression)) return false;
+  const declaration = checker.getResolvedSignature(call)?.declaration;
+  return !!declaration && declaration.getSourceFile().isDeclarationFile && !declaration.getSourceFile().hasNoDefaultLib;
 }
 
 /** Whether the element is the callee expression of a call or `new`. */
@@ -198,6 +226,7 @@ export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "locatio
   if (ts.isThrowStatement(parent) && parent.expression === node) return "throw";
   if (sourceFile && exportedDeclaration(ts, tier1.program.getTypeChecker(), sourceFile, node, readSymbols(tier1))) return "exported-api";
   if (unreadBinding(ts, tier1.program.getTypeChecker(), node, readSymbols(tier1))) return "unused";
+  if (sourceFile && apiCallback(ts, tier1.program.getTypeChecker(), sourceFile, node, readSymbols(tier1))) return "exported-api";
   const test = ts.isIfStatement(parent) || ts.isWhileStatement(parent) || ts.isDoStatement(parent) || ts.isSwitchStatement(parent) || ts.isCaseClause(parent) ? parent.expression : ts.isForStatement(parent) ? parent.condition : undefined;
   return test === node ? "branch" : null;
 }
@@ -217,6 +246,29 @@ function unreadBinding(ts: typeof TypeScript, checker: TypeScript.TypeChecker, n
   if (!symbol) return false;
   const symbols = ts.isParameter(declaration) && ts.isParameterPropertyDeclaration(declaration, declaration.parent) ? checker.getSymbolsOfParameterPropertyDeclaration(declaration, name.text) : [symbol];
   return symbols.every((item) => !read.has(item));
+}
+
+/**
+ * Whether the node is a call through a callback its function was handed
+ * (`onSeen(id)`, `props.onPick(label)`), where that function is an export
+ * nothing in the program calls or renders: whoever calls it from outside
+ * hands the callback in, so the value leaves through the module's API.
+ */
+function apiCallback(ts: typeof TypeScript, checker: TypeScript.TypeChecker, sourceFile: TypeScript.SourceFile, node: TypeScript.Node, read: ReadonlySet<TypeScript.Symbol>): boolean {
+  if (!ts.isCallExpression(node)) return false;
+  let callee: TypeScript.Expression = node.expression;
+  while (ts.isParenthesizedExpression(callee) || ts.isNonNullExpression(callee)) callee = callee.expression;
+  // The callback itself (`onSeen`), or a function-valued field the project declares on the parameter (`props.onPick`), never a method (`items.forEach`).
+  if (ts.isPropertyAccessExpression(callee)) {
+    const member = checker.getSymbolAtLocation(callee.name)?.valueDeclaration;
+    if (!member || !ts.isPropertySignature(member) || member.getSourceFile().isDeclarationFile) return false;
+  }
+  const holder = ts.isPropertyAccessExpression(callee) ? callee.expression : callee;
+  const parameter = ts.isIdentifier(holder) ? checker.getSymbolAtLocation(holder)?.valueDeclaration : undefined;
+  if (!parameter || !ts.isParameter(parameter)) return false;
+  const fn = parameter.parent;
+  const name = ts.isFunctionDeclaration(fn) ? fn.name : (ts.isArrowFunction(fn) || ts.isFunctionExpression(fn)) && ts.isVariableDeclaration(fn.parent) ? fn.parent.name : undefined;
+  return !!name && ts.isIdentifier(name) && exportedDeclaration(ts, checker, sourceFile, name, read);
 }
 
 /** Whether the node is (or names) a declaration its module exports, by any form (`export const`, `export { x }`, `export default x`), that nothing in the program reads. */

@@ -6,7 +6,7 @@ import { scopePolicy, type EvidenceGap, type ProgramElement, type ProgramRelatio
 import { ANCHOR_LIMITS, assumedThrough, foldAnnotatedUses, performs, undrawn, usesOf, walkFollows } from "../anchor-slice";
 import { describeSites, singleCall } from "../call-sites";
 import { anchorGraphResultSchema, type AnchorDirection, type AnchorEdge, type AnchorGraphResult, type AnchorNode } from "../contracts/anchor-graph";
-import { elementsAt, endsInPlace, isEmptyLiteral, externalCallee, standardLibraryCall, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
+import { beginsHere, elementsAt, endsInPlace, externalCallee, standardLibraryCall, IN_PLACE_NOTES, isNaturalStart, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
 import { elementTraits, proofStrength, relationTraits, SEED_KINDS } from "../kinds";
 import type { LanguageHost } from "../host";
 import { clip, foldedLimit } from "../frontier-words";
@@ -504,7 +504,7 @@ class AnchorGraphBuilder {
    * slice reported no gap there (a call whose only onward relation names its
    * definition, a value only a condition reads): quiet ends, named like the
    * slice's own `unrecorded` ends when the run lands nowhere. Upstream, an
-   * empty `{}` or `[]` is a landing, as a literal is: the count.
+   * empty `{}` or a parameter a package fills is a landing, as a literal is: the count.
    */
   private walkEnds(seed: string, side: Side, ends: string[], byId: Map<string, ProgramElement>): number {
     let begun = 0;
@@ -515,8 +515,8 @@ class AnchorGraphBuilder {
       // A value that naturally begins here (a literal, an external import or global) is where a backward run lands, not a quiet end.
       if (!node || !element || box === this.anchorId || !["value", "transform", "control"].includes(node.kind)) continue;
       if (side === "up" && (isNaturalStart(this.tier1, element) || externalCallee(this.tier1, element))) {
-        // An empty `{}` lands as a literal box does (`literalStarts`).
-        if (isEmptyLiteral(this.tier1, element)) begun += 1;
+        // An empty `{}` or a parameter a package fills lands as a literal box does (`literalStarts`).
+        if (beginsHere(this.tier1, element)) begun += 1;
         continue;
       }
       // A value the code ends in place (a branch test) has landed there, as at a slice gap.
