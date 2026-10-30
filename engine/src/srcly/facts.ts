@@ -242,6 +242,7 @@ export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "locatio
   if (ts.isThrowStatement(parent) && parent.expression === node) return "throw";
   if (sourceFile && exportedDeclaration(ts, tier1.program.getTypeChecker(), sourceFile, node, readSymbols(tier1))) return "exported-api";
   if (unreadBinding(ts, tier1.program.getTypeChecker(), node, readSymbols(tier1))) return "unused";
+  if (testedOnly(ts, tier1.program.getTypeChecker(), node)) return "branch";
   if (sourceFile && apiCallback(ts, tier1.program.getTypeChecker(), sourceFile, node, readSymbols(tier1))) return "exported-api";
   // A call through a function the library supplied (`resolve(value)` in `new Promise((resolve) => …)`) hands its argument back to that library.
   if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && suppliedByLibrary(ts, tier1.program.getTypeChecker(), node.expression)) return "handed-back";
@@ -287,6 +288,47 @@ function apiCallback(ts: typeof TypeScript, checker: TypeScript.TypeChecker, sou
   const fn = parameter.parent;
   const name = ts.isFunctionDeclaration(fn) ? fn.name : (ts.isArrowFunction(fn) || ts.isFunctionExpression(fn)) && ts.isVariableDeclaration(fn.parent) ? fn.parent.name : undefined;
   return !!name && ts.isIdentifier(name) && exportedDeclaration(ts, checker, sourceFile, name, read);
+}
+
+/**
+ * Whether the node is (or names) a binding every read of which decides a
+ * branch (`if (forgotten)`, `isClient ? a : b`, `ready && <X />`,
+ * `<Show when={isVisible()}>`), through `!`, parentheses or an accessor's
+ * call: the value ends where it is tested, at its binding.
+ */
+function testedOnly(ts: typeof TypeScript, checker: TypeScript.TypeChecker, node: TypeScript.Node): boolean {
+  const declaration = ts.isIdentifier(node) ? node.parent : node;
+  if (!(ts.isVariableDeclaration(declaration) || ts.isBindingElement(declaration) || ts.isParameter(declaration)) || !ts.isIdentifier(declaration.name)) return false;
+  if (ts.isIdentifier(node) && node !== declaration.name) return false;
+  const name = declaration.name;
+  const symbol = checker.getSymbolAtLocation(name);
+  const scope = ts.findAncestor(declaration.parent, ts.isFunctionLike) ?? declaration.getSourceFile();
+  if (!symbol) return false;
+  let reads = 0;
+  let tested = true;
+  const decides = (read: TypeScript.Node): boolean => {
+    let use = read;
+    for (;;) {
+      const parent = use.parent;
+      if (ts.isParenthesizedExpression(parent) || ts.isNonNullExpression(parent) || (ts.isPrefixUnaryExpression(parent) && parent.operator === ts.SyntaxKind.ExclamationToken) || (ts.isCallExpression(parent) && parent.expression === use && parent.arguments.length === 0)) use = parent;
+      else break;
+    }
+    const parent = use.parent;
+    if ((ts.isIfStatement(parent) || ts.isWhileStatement(parent) || ts.isDoStatement(parent)) && parent.expression === use) return true;
+    if ((ts.isConditionalExpression(parent) && parent.condition === use) || (ts.isForStatement(parent) && parent.condition === use)) return true;
+    if (ts.isBinaryExpression(parent) && parent.left === use && (parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken || parent.operatorToken.kind === ts.SyntaxKind.BarBarToken)) return decides(parent) || ts.isJsxExpression(parent.parent);
+    return ts.isJsxExpression(parent) && ts.isJsxAttribute(parent.parent) && parent.parent.name.getText() === "when";
+  };
+  const visit = (child: TypeScript.Node) => {
+    if (!tested) return;
+    if (ts.isIdentifier(child) && child !== name && checker.getSymbolAtLocation(child) === symbol) {
+      reads += 1;
+      tested = decides(child);
+    }
+    ts.forEachChild(child, visit);
+  };
+  visit(scope);
+  return tested && reads > 0;
 }
 
 /** Whether the node is (or names) a declaration its module exports, by any form (`export const`, `export { x }`, `export default x`), that nothing in the program reads. */
