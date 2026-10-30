@@ -161,7 +161,7 @@ function namesCallee(tier1: Tier1, element: Pick<ProgramElement, "location">): b
 /** The note on a value the code ends in place, by how it ends there. */
 const TIMERS = new Set(["setTimeout", "setInterval", "setImmediate", "queueMicrotask", "requestAnimationFrame", "requestIdleCallback"]);
 
-export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: "ends here · written, not read", key: "ends here · picks a field", discard: "ends here · its result is not used", schedule: "ends here · the callback runs later", throw: "ends here · thrown", "exported-api": "ends here · exported, and nothing in the program reads it" };
+export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: "ends here · written, not read", key: "ends here · picks a field", discard: "ends here · its result is not used", schedule: "ends here · the callback runs later", throw: "ends here · thrown", "exported-api": "ends here · exported, and nothing in the program reads it", unused: "ends here · never read" };
 
 /**
  * How the code ends the value at this element where it is used, without
@@ -171,7 +171,8 @@ export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: 
  * is a computed key, which picks a field without being the value read;
  * `throw` when it is what a `throw` throws, which leaves the code it is in;
  * `exported-api` when it is an exported declaration: a walk that stops there
- * has reached the module's API, which code outside the program may read.
+ * has reached the module's API, which code outside the program may read;
+ * `unused` when it is a parameter or local binding nothing reads.
  * Null otherwise.
  */
 export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "location" | "attributes">): keyof typeof IN_PLACE_NOTES | null {
@@ -195,8 +196,26 @@ export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "locatio
   if (ts.isElementAccessExpression(parent) && parent.argumentExpression === node) return "key";
   if (ts.isThrowStatement(parent) && parent.expression === node) return "throw";
   if (sourceFile && exportedDeclaration(ts, tier1.program.getTypeChecker(), sourceFile, node, readSymbols(tier1))) return "exported-api";
+  if (unreadBinding(ts, tier1.program.getTypeChecker(), node, readSymbols(tier1))) return "unused";
   const test = ts.isIfStatement(parent) || ts.isWhileStatement(parent) || ts.isDoStatement(parent) || ts.isSwitchStatement(parent) || ts.isCaseClause(parent) ? parent.expression : ts.isForStatement(parent) ? parent.condition : undefined;
   return test === node ? "branch" : null;
+}
+
+/**
+ * Whether the node is (or names) a parameter or a local binding the program
+ * never reads (`_level`, `const { isSuccess } = useQuery()`): the checker
+ * resolves no read to it, so the value it holds ends there. A parameter
+ * property (`constructor(private width: number)`) is read through its member.
+ */
+function unreadBinding(ts: typeof TypeScript, checker: TypeScript.TypeChecker, node: TypeScript.Node, read: ReadonlySet<TypeScript.Symbol>): boolean {
+  const declaration = ts.isIdentifier(node) ? node.parent : node;
+  if (!(ts.isParameter(declaration) || ts.isBindingElement(declaration) || (ts.isVariableDeclaration(declaration) && ts.findAncestor(declaration, ts.isFunctionLike)))) return false;
+  const name = declaration.name;
+  if (!ts.isIdentifier(name) || (ts.isIdentifier(node) && node !== name)) return false;
+  const symbol = checker.getSymbolAtLocation(name);
+  if (!symbol) return false;
+  const symbols = ts.isParameter(declaration) && ts.isParameterPropertyDeclaration(declaration, declaration.parent) ? checker.getSymbolsOfParameterPropertyDeclaration(declaration, name.text) : [symbol];
+  return symbols.every((item) => !read.has(item));
 }
 
 /** Whether the node is (or names) a declaration its module exports, by any form (`export const`, `export { x }`, `export default x`), that nothing in the program reads. */
