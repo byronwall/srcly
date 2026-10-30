@@ -1,7 +1,7 @@
 import type * as TypeScript from "typescript";
 import { calleeName, importModule, lastName } from "./program-evidence-support";
 import { resolveValue } from "./value-origin";
-import { makesStatePair, reducerArgument } from "./framework-flows";
+import { callsInitialValue, makesStatePair, reducerArgument } from "./framework-flows";
 
 /**
  * Reactive state pairs: a factory (a `state-pair` row) that returns
@@ -48,4 +48,13 @@ export function reducerOf(ts: typeof TypeScript, checker: TypeScript.TypeChecker
   const factory = factoryName(ts, checker, pair.initializer.expression);
   const at = factory ? reducerArgument(factory.module, factory.name) : null;
   return at === null ? null : pair.initializer.arguments[at] ?? null;
+}
+
+/** The getter of the state pair this factory call makes, when the factory calls a function initial value (`const [n] = useState(() => …)`); null otherwise. */
+export function lazyFactoryGetter(ts: typeof TypeScript, checker: TypeScript.TypeChecker, call: TypeScript.CallExpression): TypeScript.Identifier | null {
+  const factory = factoryName(ts, checker, call.expression);
+  if (!factory || !callsInitialValue(factory.module, factory.name)) return null;
+  const pair = call.parent;
+  const first = ts.isVariableDeclaration(pair) && pair.initializer === call && ts.isArrayBindingPattern(pair.name) ? pair.name.elements[0] : undefined;
+  return first && ts.isBindingElement(first) && ts.isIdentifier(first.name) ? first.name : null;
 }
