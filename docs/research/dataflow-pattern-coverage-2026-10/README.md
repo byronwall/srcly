@@ -96,3 +96,68 @@ Two repos could not be opened at all:
 - **Everyday patterns: about 99% landed is reachable.** The catalog is at 97% landed and 92% `ok`. The remaining gaps are five library rows and one module-state rule.
 - **Whole-export traces on real apps: 99% is not reachable in the near term.** They are at 22% `ok` and 43% landed. The biggest single gap is the size budget (29% of traces), which is an architecture change (hub summaries), not a pattern rule. An `ok` here also needs every path through a large component to land, so one unmodelled library on any path makes the trace `partial`.
 - **A better target:** measure coverage for each step, not each trace. Count the share of boxes in a trace that are proven or end at a named terminal. The survey already records stops for each trace, so this number can be computed from the same data. Set the 99% target on that measure. For whole traces, a realistic goal is about 60% `ok` and 85% landed, once hub summaries and the library rows are done.
+
+## Round 2 (30 October 2026)
+
+### Catalog: 105 patterns, graded by where each trace ends
+
+Each pattern now names the end it must reach (`@want`), so the catalog counts correct ends, not only landings. It grew from 71 to 105 patterns.
+
+| Framework | Patterns | `ok` | `assumed` | `partial` | Correct end |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Vanilla | 38 | 37 | 1 | 0 | 38 |
+| React | 35 | 32 | 3 | 0 | 35 |
+| Solid | 32 | 27 | 5 | 0 | 32 |
+| **All** | **105** | **96 (91%)** | 9 | **0** | **105 (100%)** |
+
+Every pattern now lands at the right end. The 9 `assumed` patterns trust a library step that has no model row:
+- React Query's `mutate`.
+- Next's `router.push`.
+- Solid's `navigate`, `setSearch` and `createResource`.
+- `makePersisted`.
+- An `IntersectionObserver` callback.
+- A `localStorage` initial value.
+- An accessor prop.
+
+### What changed
+
+| Fix | Rule |
+| --- | --- |
+| Survey TypeScript | `survey-blockers.ts` picks TypeScript as the server does. A TypeScript 7 project (no JS API) failed to open before. |
+| Callback props | A callback prop the project declares (`props.save`) is never a "database write". |
+| Never read | A parameter or local binding nothing reads ends at its binding, "never read" (`ok`). This reverses the rule that an unread value is a `partial` dead end. The value-flow ledger now draws every in-place end as a terminal row. |
+| Props views | A prop binds to a field read through `mergeProps` and either half of `splitProps`. |
+| Module cache | A dropped write into a module's own container that its file reads back (`cache.set` → `cache.get`) is kept. A write-only log still stops. |
+| Computed keys | `{ [k]: v }` picks a field and ends there. Solid's `createSelector` has a row. |
+| Export callbacks | A call through a callback that an unread export was handed ends at the module's API. Traced backward, a parameter that a package fills (`handleSubmit((values) => …)`) begins there. |
+| Supplied callbacks | `resolve(value)` in `new Promise((resolve) => …)` hands the value back to the promise. |
+| Compound writes | `ref.current += step` writes the field. A handler handed to a page element (`onClick={click}`) does not escape. An anchor with nothing beyond it names its stop. |
+| Context functions | `const dispatch = useContext(Dispatch)` and a destructured `{ rename }` run what the provider hands in. |
+| Zustand | A `store` row: `create`'s state is its function's return plus what `set` receives. A selector reads it, and `useStore((s) => s.setCount)` runs the store's own function, not the selector. |
+| Branch-only bindings | A binding whose every read is a test (`if (forgotten)` in nested branches, `when={isVisible()}`) ends at the binding. |
+
+### Real repos: 9 repos, 464 traces
+
+The second-round survey covers 3 React, 4 Solid and 2 vanilla TypeScript repos (`user-flow-workbench` is refused as non-strict; see below).
+
+| | Before round 2 | After round 2 |
+| --- | ---: | ---: |
+| `ok` | 87 (19%) | 88 (19%) |
+| `assumed` | 70 (15%) | 70 (15%) |
+| Hit the size budget | 183 (39%) | 184 (40%) |
+| `disconnected · parameter` stops | 49 traces | 0 in the top rows |
+| `disconnected · alias` stops | 77 traces | 59 traces |
+
+The rules remove stops, but whole-export traces have several stops each, and 40% of them hit the size budget before anything else. The size limits are being raised in the "TypeScript dataflow graph size limits" session. Until that lands, real-repo `ok` will not move much.
+
+### Open product decision
+
+`user-flow-workbench` (Solid, `strict: false`) is refused by design (R3 in `docs/intent/tsx-dataflow-integration/detailed-plan.md`): a loose tsconfig makes null verdicts unsound. Data flow itself does not need `strictNullChecks`. One option is to analyze loose projects with `strictNullChecks` forced on and mark their null verdicts as unproven. Byron decides whether to do that.
+
+### Gaps that remain
+
+- **Size budget:** 40% of real traces. This is the size-limits session.
+- **Unmodelled third-party methods** (`column.setFilterValue`, Prisma, `table.nextPage`): 51 traces. These need rows, or a "dropped call into a package is an assumed effect" rule extended to method calls.
+- **Calls with no resolved symbol** (tRPC proxies, `any`): 50 traces.
+- **Callback props that no caller hands a function to** (`onConfirm()`): 53 traces. Some are real unknowns. The rest are components that only a library renders.
+- **Solid `createResource` input and result boundaries:** 27 and 34 traces. The boundary is shown as framework runtime, not proven.
