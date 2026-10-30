@@ -85,17 +85,17 @@ describe("value-flow basics", () => {
 
   it("never lets an argument the callee does not return reach the result (T13)", () => {
     const ledger = valueFlowOp(session, find(basics, "src/returns-other-argument.tsx", "props.first", "pick(props.first"));
-    expect(ledger.outcome).toBe("partial");
-    expect(ledger.terminals).toEqual([]);
-    expect(ledger.frontiers.map((frontier) => frontier.reason)).toEqual(["disconnected"]);
+    // It ends at `a`, which pick never reads: never at the slot.
+    const ends = ledger.rows.filter((row) => row.kind === "terminal");
+    expect(ends.map((row) => [row.label, row.line, row.note])).toEqual([["a", 4, "ends here · never read"]]);
+    expect(ledger.frontiers).toEqual([]);
   });
 
-  it("names a dead end as a boundary row, so the ledger agrees with the anchor graph", () => {
+  it("names a value nothing reads as a terminal row, so the ledger agrees with the anchor graph", () => {
     const ledger = valueFlowOp(session, find(basics, "src/dead-end.tsx", "props.label", "unused ="));
-    expect(ledger.outcome).toBe("partial");
-    const boundary = ledger.rows.find((row) => row.kind === "boundary")!;
-    expect(boundary).toMatchObject({ reason: "disconnected", status: "partial", label: "unused", note: "dead end · nothing continues from here" });
-    expect(ledger.frontiers).toEqual([{ rowId: boundary.id, reason: "disconnected", label: "unused" }]);
+    expect(ledger.outcome).toBe("ok");
+    expect(ledger.rows.find((row) => row.kind === "terminal")).toMatchObject({ status: "proven", label: "unused", note: "ends here · never read" });
+    expect(ledger.frontiers).toEqual([]);
   });
 
   it("offers candidates innermost first and refuses a selection that is not one expression", () => {

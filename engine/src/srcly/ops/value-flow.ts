@@ -13,7 +13,7 @@ import {
 } from "../contracts/value-flow";
 import { EngineError } from "../protocol";
 import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex, type CallSites } from "../call-sites";
-import { elementsAt, externalCallee, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
+import { elementsAt, endsInPlace, externalCallee, IN_PLACE_NOTES, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
 import { elementTraits, relationTraits } from "../kinds";
 import type { HostCandidate } from "../host";
 import { candidatesAt, parseSpan, sameSpan, sourceFileFor, spanOf, type Span } from "../selection";
@@ -289,7 +289,9 @@ class LedgerBuilder {
   /**
    * The same rule as the anchor graph (R16): a `disconnected` gap is a dead
    * end unless the element is where a value naturally begins. A dead end is a
-   * boundary row, so the ledger and the graph agree on where a path stops.
+   * boundary row, so the ledger and the graph agree on where a path stops. A
+   * value the code ends in place (a branch test, a write, never read) is a
+   * terminal row named by how it ends, as the graph draws it.
    */
   private deadEnds(elements: readonly ProgramElement[], gaps: readonly EvidenceGap[]) {
     const byId = new Map(elements.map((element) => [element.id, element]));
@@ -297,8 +299,15 @@ class LedgerBuilder {
       if (gap.reason !== "disconnected" || !gap.from || !gap.location) continue;
       const element = byId.get(gap.from);
       // Only where the ledger's own walk went: a gap past a boundary it already stopped at is not a second stop.
-      if (!element || !this.visited.has(element.id) || naturalEnd(this.tier1, element) || this.rows.some((row) => row.kind === "boundary" && row.elementId === element.id)) continue;
+      if (!element || !this.visited.has(element.id) || this.rows.some((row) => (row.kind === "boundary" || row.kind === "terminal") && row.elementId === element.id)) continue;
+      const end = naturalEnd(this.tier1, element);
       if (this.rows.length >= MAX_ROWS) return;
+      const consumed = end === "consumed" ? endsInPlace(this.tier1, element) : null;
+      if (consumed) {
+        this.add({ kind: "terminal", label: element.label, file: element.location.file, span: element.location.span, status: "proven", elementId: element.id, proof: gap.proof, note: IN_PLACE_NOTES[consumed] });
+        continue;
+      }
+      if (end) continue;
       const callee = externalCallee(this.tier1, element);
       this.add({
         kind: "boundary",

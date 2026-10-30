@@ -179,9 +179,12 @@ class AnchorGraphBuilder {
     // and use links are structural, found by syntax, so they prove nothing
     // on their own.
     // Backward, a path that starts at a literal, a constant or an external import has landed too (R16).
+    // A value the code ends where it is anchored (a parameter nothing reads, a branch test) has landed there going forward.
+    const endsAtAnchor = !isDeclaration && sides.includes("down") && fact ? endsInPlace(this.tier1, fact) : null;
+    if (endsAtAnchor) own.note = IN_PLACE_NOTES[endsAtAnchor];
     const landed = isDeclaration
       ? runs.length > 0 && landedRuns.every(Boolean)
-      : (sides.includes("down") && kinds.includes("terminal")) || (sides.includes("up") && (kinds.includes("origin") || naturalStarts > 0));
+      : (sides.includes("down") && (kinds.includes("terminal") || endsAtAnchor !== null)) || (sides.includes("up") && (kinds.includes("origin") || naturalStarts > 0));
     // A declaration whose runs reached nothing and reported nothing makes no claim: there is nothing to trace from it.
     if (!stopped && isDeclaration && landedRuns.length === 0) return this.finish(anchor, direction, "unsupported", "nothing-to-trace", coverage);
     // `ok` is proven. A path that lands with no stop, but only by assuming what code with no source does (an `external-call` proof), is `assumed`; a stopped path stays partial whatever it assumes.
