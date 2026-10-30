@@ -3,3 +3,5 @@ dist/
 .tsx-dataflow/
 *.log
 tmp/
+# The pattern catalog links an app's node_modules (examples/pattern-catalog/README.md).
+examples/pattern-catalog/*/node_modules
