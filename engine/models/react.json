@@ -107,6 +107,13 @@
       "model": "calls-back",
       "option": "mutationFn",
       "note": "`mutate(x)` calls the `mutationFn` with `x`."
+    },
+    {
+      "language": "ts",
+      "module": "zustand",
+      "name": "create",
+      "model": "store",
+      "note": "A store hook: what its function returns and what its set receives are the store, and calling the hook with a selector reads it."
     }
   ]
 }
