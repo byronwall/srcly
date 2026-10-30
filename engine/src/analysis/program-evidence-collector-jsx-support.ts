@@ -543,24 +543,40 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   }
 
   /**
-   * The functions a context method names (`store.save` after `const store =
-   * useContext(Store)`): the `save` of each provider's value object.
+   * The functions a context names: a method of its value (`store.save` after
+   * `const store = useContext(Store)`, or a destructured `{ save }`), the
+   * `save` of each provider's value object; or the value itself when it is a
+   * function (`const dispatch = useContext(Dispatch)`), each provided value.
    */
   private contextMethod(callee: TypeScript.Expression): TypeScript.Node[] {
     const node = unwrap(this.ts, callee);
-    if (!this.ts.isPropertyAccessExpression(node)) return [];
-    let holder = unwrap(this.ts, node.expression);
-    if (this.ts.isIdentifier(holder)) {
-      const declaration = this.checker.getSymbolAtLocation(holder)?.valueDeclaration;
-      if (!declaration || !this.ts.isVariableDeclaration(declaration) || !this.ts.isIdentifier(declaration.name) || !declaration.initializer) return [];
-      holder = unwrap(this.ts, declaration.initializer);
+    let holder: TypeScript.Expression | undefined;
+    let name: string | null = null;
+    if (this.ts.isPropertyAccessExpression(node)) {
+      holder = unwrap(this.ts, node.expression);
+      name = node.name.text;
+      if (this.ts.isIdentifier(holder)) {
+        const declaration = this.checker.getSymbolAtLocation(holder)?.valueDeclaration;
+        if (!declaration || !this.ts.isVariableDeclaration(declaration) || !this.ts.isIdentifier(declaration.name) || !declaration.initializer) return [];
+        holder = unwrap(this.ts, declaration.initializer);
+      }
+    } else if (this.ts.isIdentifier(node)) {
+      const declaration = this.checker.getSymbolAtLocation(node)?.valueDeclaration;
+      if (declaration && this.ts.isVariableDeclaration(declaration) && this.ts.isIdentifier(declaration.name) && declaration.initializer) holder = unwrap(this.ts, declaration.initializer);
+      else if (declaration && this.ts.isBindingElement(declaration) && this.ts.isObjectBindingPattern(declaration.parent) && this.ts.isVariableDeclaration(declaration.parent.parent) && declaration.parent.parent.initializer && !declaration.dotDotDotToken) {
+        const key = declaration.propertyName ?? declaration.name;
+        if (!this.ts.isIdentifier(key)) return [];
+        holder = unwrap(this.ts, declaration.parent.parent.initializer);
+        name = key.text;
+      }
     }
-    if (!this.ts.isCallExpression(holder) || !holder.arguments[0]) return [];
+    if (!holder || !this.ts.isCallExpression(holder) || !holder.arguments[0]) return [];
     const imported = importedCallee(this.ts, this.checker, holder.expression);
     if (imported?.name !== "useContext" || (imported.module !== "solid-js" && imported.module !== "react")) return [];
     const context = this.contextKey(holder.arguments[0]);
-    const name = node.name.text;
     return (context ? this.contextValues.get(context) ?? [] : []).flatMap<TypeScript.Node>((provided) => {
+      // The context's value is itself the function the call runs.
+      if (name === null) return [provided];
       const value = unwrap(this.ts, provided);
       if (!this.ts.isObjectLiteralExpression(value)) return [];
       const member = value.properties.find((property) => property.name && this.ts.isIdentifier(property.name) && property.name.text === name);
