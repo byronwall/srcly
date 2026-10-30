@@ -18,7 +18,7 @@ import { sameSpan, type Span } from "../selection";
 import { checkGeneration, type EngineSession, type Tier1 } from "../session";
 
 /** Anchor graphs bigger than this are built again at narrower limits, then refused as `budget-exhausted`, never truncated. */
-export const ANCHOR_GRAPH_MAX_BYTES = 8 * 1024 * 1024;
+export const ANCHOR_GRAPH_MAX_BYTES = 6 * 1024 * 1024;
 const DIRECTIONS: AnchorDirection[] = ["forward", "backward", "both"];
 
 type Side = "up" | "down";
@@ -54,13 +54,23 @@ export function anchorGraphOp(session: EngineSession, params: Record<string, unk
   let bytes = 0;
   let nodes = 0;
   for (const limits of [ANCHOR_LIMITS, NARROW_ANCHOR_LIMITS]) {
-    const result = new AnchorGraphBuilder(tier1, limits, cancellation).build(relative, candidate, direction);
+    // A wide build stops once its boxes and edges alone pass the bound, so the fallback costs less than two builds.
+    const builder = new AnchorGraphBuilder(tier1, limits, cancellation, limits === ANCHOR_LIMITS ? maxBytes : Infinity);
+    let result: AnchorGraphResult;
+    try {
+      result = builder.build(relative, candidate, direction);
+    } catch (error) {
+      if (error instanceof OverBound) continue;
+      throw error;
+    }
     bytes = Buffer.byteLength(JSON.stringify(result));
     nodes = result.nodes.length;
     if (bytes <= maxBytes) return result;
   }
   throw new EngineError("budget-exhausted", `The anchor graph is ${bytes} bytes, over the ${maxBytes}-byte bound`, { bytes, nodes });
 }
+
+class OverBound extends Error {}
 
 function parseDirection(value: unknown): AnchorDirection {
   if (value === undefined) return "both";
@@ -87,8 +97,10 @@ class AnchorGraphBuilder {
   private readonly quiet = new Map<string, { gap: EvidenceGap; element: { label: string; kind: string }; side: Side }[]>();
   private readonly root: string;
   private readonly host: LanguageHost;
+  /** Characters of JSON in the boxes and edges so far: never more than the finished graph's bytes. */
+  private drawnChars = 0;
 
-  constructor(private readonly tier1: Tier1, private readonly limits: AnchorLimits, private readonly cancellation?: AnalysisCancellationToken) {
+  constructor(private readonly tier1: Tier1, private readonly limits: AnchorLimits, private readonly cancellation?: AnalysisCancellationToken, private readonly maxDrawn = Infinity) {
     this.root = tier1.root;
     this.host = tier1.host;
   }
@@ -711,10 +723,19 @@ class AnchorGraphBuilder {
     if (this.edgeKeys.has(key) || !this.nodes.has(edge.source) || !this.nodes.has(edge.target)) return;
     this.edgeKeys.add(key);
     this.edges.push(edge);
+    this.countDrawn(edge);
+  }
+
+  private countDrawn(item: AnchorNode | AnchorEdge) {
+    this.drawnChars += JSON.stringify(item).length;
+    if (this.drawnChars > this.maxDrawn) throw new OverBound();
   }
 
   private addNode(node: Omit<AnchorNode, "absPath" | "symbol" | "field" | "operation" | "state" | "role"> & { role?: AnchorNode["role"] }, element?: Pick<ProgramElement, "kind" | "symbol"> & { operationKind?: string | null }) {
-    this.nodes.set(node.id, { ...node, role: node.role ?? null, ...this.bindingOf(node, element), operation: element?.operationKind ?? null, absPath: path.resolve(this.root, node.file) });
+    const fresh = !this.nodes.has(node.id);
+    const drawn = { ...node, role: node.role ?? null, ...this.bindingOf(node, element), operation: element?.operationKind ?? null, absPath: path.resolve(this.root, node.file) };
+    this.nodes.set(node.id, drawn);
+    if (fresh) this.countDrawn(drawn);
   }
 
   /**
