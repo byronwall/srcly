@@ -1,0 +1,14 @@
+{
+  "id": "7dcc8f79-8475-4c09-a19c-8153dfc40b2c",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:b5ef6c",
+    "label": "Agent token ...b5ef6c"
+  },
+  "createdAt": "2026-10-30T02:44:20.157Z",
+  "summary": "Deleted \"Exported-API end rule: open the PR\".",
+  "nodeIds": [
+    "task-exported-api-end-rule-open-the-pr"
+  ]
+}
