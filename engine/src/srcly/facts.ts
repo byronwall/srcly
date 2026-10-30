@@ -305,7 +305,8 @@ export function callSitesOfElement(tier1: TsTier1, sites: CallSiteIndex, element
   const sourceFile = tier1.program.getSourceFile(path.resolve(tier1.args.root, element.location.file));
   const node = sourceFile ? nodeAtSpan(ts, sourceFile, element.location.span) : null;
   if (!node || !sourceFile) return { sites: null, name: element.label };
-  const call = ts.isCallExpression(node) ? node : null;
+  // A return (an arrow's call body, a `yield f(x)`) spans the call it returns, but its sites are its function's.
+  const call = ts.isCallExpression(node) && element.kind !== "return" ? node : null;
   if (call) return { sites: sites.forCall(call), name: call.expression.getText(sourceFile) };
   const fn = enclosingFunction(ts, node);
   const name = (fn && functionName(ts, fn, sourceFile)) ?? element.label;
