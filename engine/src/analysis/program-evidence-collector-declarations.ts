@@ -234,7 +234,7 @@ export class ProgramEvidenceCollectorDeclarations extends ProgramEvidenceCollect
   }
 
   /** The proof for what library code is taken to do: modelled for TypeScript's own library, assumed (and `partial`) for any other. */
-  protected libraryProof(node: TypeScript.CallExpression, detail: string, locations: ProgramEvidenceLocation[]): [ReturnType<typeof proof>, "proven" | "partial"] {
+  protected libraryProof(node: TypeScript.CallExpression | TypeScript.NewExpression, detail: string, locations: ProgramEvidenceLocation[]): [ReturnType<typeof proof>, "proven" | "partial"] {
     if (isStandardLibraryCallee(this.ts, this.checker, node.expression)) return [proof("standard-library", `The standard library: ${detail}`, locations), "proven"];
     return [assumedProof(`Assumed: it has no source to read, so ${detail}`, locations), "partial"];
   }
