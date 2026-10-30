@@ -21,6 +21,16 @@
     {
       "language": "ts",
       "module": "solid-js",
+      "name": "createSelector",
+      "model": "calls-back",
+      "args": "0",
+      "returns": "callback",
+      "accessor": true,
+      "note": "The call makes an accessor that tests a key against what its source returns."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
       "name": "children",
       "model": "calls-back",
       "args": "0",
