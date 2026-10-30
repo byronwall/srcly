@@ -193,7 +193,8 @@ export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "locatio
   if (ts.isBinaryExpression(parent) && parent.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && parent.operatorToken.kind <= ts.SyntaxKind.LastAssignment) return parent.left === node ? "write" : null;
   const updates = (ts.isPrefixUnaryExpression(parent) || ts.isPostfixUnaryExpression(parent)) && (parent.operator === ts.SyntaxKind.PlusPlusToken || parent.operator === ts.SyntaxKind.MinusMinusToken);
   if (updates || ts.isDeleteExpression(parent)) return "write";
-  if (ts.isElementAccessExpression(parent) && parent.argumentExpression === node) return "key";
+  // A computed key picks a field without being the value read or written: `obj[k]`, `{ [k]: v }`, `{ [k]: v } = obj`.
+  if ((ts.isElementAccessExpression(parent) && parent.argumentExpression === node) || ts.isComputedPropertyName(parent)) return "key";
   if (ts.isThrowStatement(parent) && parent.expression === node) return "throw";
   if (sourceFile && exportedDeclaration(ts, tier1.program.getTypeChecker(), sourceFile, node, readSymbols(tier1))) return "exported-api";
   if (unreadBinding(ts, tier1.program.getTypeChecker(), node, readSymbols(tier1))) return "unused";
