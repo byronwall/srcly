@@ -137,8 +137,9 @@ export function externalServiceCallKind(
 function isUnimplementedServiceDeclaration(ts: typeof TypeScript, declaration: TypeScript.Declaration) {
   // The standard library's own methods (`Array.find`, `Map.get`) are collection methods, not a service's contract.
   if (declaration.getSourceFile().hasNoDefaultLib) return false;
+  // A function-valued field the project declares in its own source (`props.save` on a component's props) is a callback a caller hands in, not a client's contract.
   return ts.isMethodSignature(declaration)
-    || ts.isPropertySignature(declaration)
+    || ts.isPropertySignature(declaration) && declaration.getSourceFile().isDeclarationFile
     || ts.isMethodDeclaration(declaration) && !declaration.body
     || ts.isPropertyDeclaration(declaration) && !declaration.initializer;
 }
