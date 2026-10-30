@@ -371,9 +371,10 @@ export function discardsValue(ts: typeof TypeScript, call: TypeScript.CallExpres
   // An arrow's body whose caller ignores what it returns (`forEach((x) => rows.push(x))`: the callback's contextual return type is void).
   const arrow = node.parent;
   if (!checker || !ts.isArrowFunction(arrow) || arrow.body !== node) return false;
-  // An optional handler prop (`onClick?: () => void`) is contextually `handler | undefined`: its signature is the handler's.
+  // An optional handler prop (`onClick?: () => void`) is contextually `handler | undefined`, and Solid's is a handler or a bound `[handler, data]` pair: its signature is the handler's.
   const contextual = checker.getContextualType(arrow);
-  const signature = contextual && checker.getNonNullableType(contextual).getCallSignatures()[0];
+  const handler = contextual && checker.getNonNullableType(contextual);
+  const signature = handler && (handler.isUnion() ? handler.types.flatMap((part) => part.getCallSignatures()) : handler.getCallSignatures())[0];
   return Boolean(signature && checker.getReturnTypeOfSignature(signature).flags & ts.TypeFlags.Void);
 }
 

@@ -52,6 +52,7 @@ import {
   groupRelations,
   importModule,
   inside,
+  discardsValue,
   isEffectName,
   isFrameworkCall,
   locationFor,
@@ -65,7 +66,7 @@ import {
 import { resolveValue } from "./value-origin";
 import { NO_ANALYSIS_CANCELLATION, type AnalysisCancellationToken } from "./cancellation";
 import { builtinLibraryModels, globalReads, tsModel, type GlobalReads, type LibraryModelRow, type LibraryModels } from "./library-models";
-import { stateFactory } from "./program-evidence-state-pairs";
+import { stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 
 export type CollectorFunctionInfo = DeclarationCatalogFunctionInfo;
 
@@ -558,8 +559,22 @@ export class ProgramEvidenceCollectorSupport {
     const module = this.moduleFor(node.expression);
     return Boolean(
       (module && !isFrameworkCall(module, calleeName(this.ts, node.expression))) ||
-        isEffectName(calleeName(this.ts, node.expression)),
+        isEffectName(calleeName(this.ts, node.expression)) ||
+        (!module && this.droppedLibraryCall(node)),
     );
+  }
+
+  /**
+   * A call made for its effect through a function a package declares, held
+   * under a local name (`navigate(url)` after `useNavigate()`, a store's
+   * `setFilters(next)`, `refetch()`): the checker resolves its signature to
+   * declarations with no body (a package's `.d.ts`). A state pair's half is modelled, and a call
+   * whose value the code uses is a read, not an effect.
+   */
+  private droppedLibraryCall(node: TypeScript.CallExpression): boolean {
+    if (!discardsValue(this.ts, node, this.checker) || stateRoleOf(this.ts, this.checker, node.expression)) return false;
+    const file = this.checker.getResolvedSignature(node)?.declaration?.getSourceFile();
+    return Boolean(file && file.isDeclarationFile && !file.hasNoDefaultLib);
   }
 
   protected variableId(node: TypeScript.VariableDeclaration): string | null {

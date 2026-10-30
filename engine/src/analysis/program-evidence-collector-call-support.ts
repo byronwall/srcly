@@ -474,8 +474,11 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     const stateFunctions = this.connectStateFunctions(call.node);
     this.connectExternalCallbacks(call, call.node, stateFunctions);
     if (!discardsValue(this.ts, call.node, this.checker)) return;
-    // A member the project declares keeps what is put into it (`this.items.set(key, value)`): its reads see it.
     const method = unwrap(this.ts, call.node.expression);
+    // A function held in a field (`props.onPick(label)`) is called, not its object changed: only a method keeps its arguments in its receiver.
+    const member = this.ts.isPropertyAccessExpression(method) ? this.checker.getSymbolAtLocation(method.name)?.declarations?.[0] : undefined;
+    if (member && (this.ts.isPropertySignature(member) || this.ts.isPropertyDeclaration(member) || this.ts.isPropertyAssignment(member))) return;
+    // A member the project declares keeps what is put into it (`this.items.set(key, value)`): its reads see it.
     const receiver = this.ts.isPropertyAccessExpression(method) ? unwrap(this.ts, method.expression) : null;
     if (receiver && this.ts.isPropertyAccessExpression(receiver)) this.addMemberWrite(receiver, call.id);
     // The receiver's root name: `rows` in `rows.push(row)`, `section` in `section.rows.push(row)`, `groups` in `groups[key].push(row)`.
