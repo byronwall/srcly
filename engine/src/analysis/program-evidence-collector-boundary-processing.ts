@@ -560,6 +560,13 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
     );
   }
 
+  /** Whether a value is void, or void only short of an optional call (`void | undefined`). */
+  private returnsNothing(node: TypeScript.Node): boolean {
+    const type = this.checker.getTypeAtLocation(node);
+    const parts = type.isUnion() ? type.types : [type];
+    return parts.some((part) => part.flags & this.ts.TypeFlags.Void) && parts.every((part) => part.flags & (this.ts.TypeFlags.Void | this.ts.TypeFlags.Undefined));
+  }
+
   /** A return statement, or an arrow function's expression body, which is its return. */
   protected processReturn(
     node: TypeScript.ReturnStatement | TypeScript.Expression,
@@ -567,8 +574,8 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
   ): void {
     if (!ownerId) return;
     const expression = this.ts.isReturnStatement(node) ? node.expression : node;
-    // An arrow's body that is a void call (`(name) => console.log(name)`) returns nothing: no value comes back out at its call.
-    if (!this.ts.isReturnStatement(node) && this.ts.isArrowFunction(node.parent) && this.checker.getTypeAtLocation(node).flags & this.ts.TypeFlags.Void) return;
+    // An arrow's body that is a void call (`(name) => console.log(name)`, `() => ref.current?.focus()`) returns nothing: no value comes back out at its call.
+    if (!this.ts.isReturnStatement(node) && this.ts.isArrowFunction(node.parent) && this.returnsNothing(node)) return;
     const terminalRole = expression
       ? responseReturnRole(this.ts, expression)
       : null;

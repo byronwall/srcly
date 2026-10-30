@@ -371,7 +371,9 @@ export function discardsValue(ts: typeof TypeScript, call: TypeScript.CallExpres
   // An arrow's body whose caller ignores what it returns (`forEach((x) => rows.push(x))`: the callback's contextual return type is void).
   const arrow = node.parent;
   if (!checker || !ts.isArrowFunction(arrow) || arrow.body !== node) return false;
-  const signature = checker.getContextualType(arrow)?.getCallSignatures()[0];
+  // An optional handler prop (`onClick?: () => void`) is contextually `handler | undefined`: its signature is the handler's.
+  const contextual = checker.getContextualType(arrow);
+  const signature = contextual && checker.getNonNullableType(contextual).getCallSignatures()[0];
   return Boolean(signature && checker.getReturnTypeOfSignature(signature).flags & ts.TypeFlags.Void);
 }
 
@@ -564,6 +566,20 @@ export function browserCall(member: { owner: string; name: string } | null): "re
   if (member.owner === "History") return /^(pushState|replaceState)$/.test(member.name) ? "write" : null;
   if (member.owner === "Location") return /^(assign|replace|reload)$/.test(member.name) ? "write" : null;
   return null;
+}
+
+/**
+ * A call into the page whose value the code drops (`el.classList.add(name);`,
+ * `target.dispatchEvent(event);`, `input.focus()`): TypeScript's DOM lib
+ * declares the member, and a call made for its effect hands its arguments to
+ * the page. A DOM call whose value the code uses is a read, not this.
+ */
+export function pageEffectCall(ts: typeof TypeScript, checker: TypeScript.TypeChecker, call: TypeScript.CallExpression): boolean {
+  const node = unwrap(ts, call.expression);
+  if (!ts.isPropertyAccessExpression(node)) return false;
+  const declarations = checker.getSymbolAtLocation(node.name)?.declarations ?? [];
+  const dom = (file: TypeScript.SourceFile) => file.hasNoDefaultLib && /[\\/]lib\.(dom|webworker)[.\w]*\.d\.ts$/.test(file.fileName);
+  return declarations.length > 0 && declarations.every((declaration) => dom(declaration.getSourceFile())) && discardsValue(ts, call, checker);
 }
 
 /** A property read of the page's URL (`location.search`) or `document.cookie`: where the browser hands the program a value. */
