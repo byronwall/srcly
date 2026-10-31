@@ -23,7 +23,8 @@ Return expansion uses the active invocation to avoid loading unrelated callers.
 The old end-of-flow classifier resolved every project identifier before checking one unused binding.
 It now uses the shared candidate index. Symbol identity still distinguishes shadowed names.
 
-The provider refreshes cached frontiers when the relation index grows.
+The provider refreshes a cached frontier when its relations or eligible producer files change.
+Unrelated additions keep that frontier's cache valid.
 Failed collection invalidates the provider. The session rebuilds it before another query.
 Route totality also drops its captured provider after a failure.
 
@@ -60,6 +61,21 @@ Each process traces `app/src/routes/docs/[id].tsx:DocView:49` forward three time
 Processes run one at a time, with a 4 GB Node heap limit and no saved result cache.
 The first call includes Program construction. Two further calls measure session reuse.
 
+The final implementation is commit `2c4e93a`. The machine is an Apple M3 Pro with 18 GB RAM.
+It runs Node 22.21.1 and TypeScript 5.9.3. No two benchmark processes run together.
+
+| Measurement | Full collection | On demand | Change |
+| --- | ---: | ---: | ---: |
+| Cold median, three fresh processes | 16.342 s | 7.576 s | 54% less time; 2.16× faster |
+| Cold range | 16.101–16.851 s | 7.500–7.957 s | |
+| Warm median, six calls | 0.235 s | 0.208 s | 12% less time |
+| Warm range | 0.201–0.254 s | 0.196–0.219 s | |
+| Retained heap after the cold call | 1,432–1,433 MiB | 934 MiB | 35% less |
+
+All six saved graphs passed deep equality. A separate final cold-only graph also matched.
+Their common JSON SHA-256 is `6890717b7ad5241f81e377fc1ccb9571070a40ad17a4a75701081ad9a033e521`.
+Raw timings and responses are in ignored `tmp/on-demand-proof/` files.
+
 Run from the repository root:
 
 ```sh
@@ -80,3 +96,19 @@ It retains 10,754 compact facts and hydrates 2,441 elements.
 Regression checks cover exact eager/demand graph equality, callback and HTTP joins, cancellation recovery,
 new relations after earlier queries, unused-symbol classification, and cumulative collection measurements.
 The existing annotated fixtures remain the behavior gate.
+
+The complete engine check passed 561 tests. Client checks passed 453 tests; server checks passed 499.
+The browser suite passed 16 tests and skipped one optional latency test.
+The coverage gate reported no changed outcomes or stops across 401 traces.
+Its slowest query after initialization took 3.739 seconds, below the five-second gate limit.
+
+The broad client sweep is slower: 92 traces took 27.669 seconds, compared with 23.575 seconds before.
+This is a 17% regression, despite the lower cold DocView cost.
+The full three-corpus gate took 39 seconds after the change and 34 seconds before it.
+The timing includes deferred joins across different anchors; it is separate from repeated DocView calls.
+
+A separate browser check loaded the normal partial graph, inspected a node, and reloaded successfully.
+Start and graph requests returned HTTP 200. The browser reported no console errors or warnings.
+Screenshots show the complete graph and the selected `<Match when={doc()}>` node at 1440 × 900.
+The final cold HTTP request returned 200 in 9.086 seconds with result caching disabled.
+Its complete graph passed deep equality against the baseline.
