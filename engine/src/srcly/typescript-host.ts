@@ -15,6 +15,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
   const checker = program.getTypeChecker();
   const root = path.resolve(tier1.args.root);
   let sites: CallSiteIndex | null = null;
+  const scopes = new WeakMap<TypeScript.SignatureDeclaration, NonNullable<ReturnType<LanguageHost["scopeAt"]>>>();
   const sourceFile = (file: string) => program.getSourceFile(path.resolve(root, file));
   const nodeAt = (file: string, span: Span) => {
     const found = sourceFile(file);
@@ -66,7 +67,12 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       const at = nodeAt(file, span);
       const fn = at ? enclosingFunction(ts, at.node) : null;
       if (!fn || !at) return null;
-      return { span: spanOf(at.sourceFile, fn), name: functionName(ts, fn, at.sourceFile), role: scopeRole(ts, fn, at.sourceFile) };
+      let scope = scopes.get(fn);
+      if (!scope) {
+        scope = { span: spanOf(at.sourceFile, fn), name: functionName(ts, fn, at.sourceFile), role: scopeRole(ts, fn, at.sourceFile) };
+        scopes.set(fn, scope);
+      }
+      return scope;
     },
     callSitesOf(element) {
       sites ??= createCallSiteIndex(tier1);

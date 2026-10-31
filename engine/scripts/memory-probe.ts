@@ -9,8 +9,9 @@ import { createEngineSession } from "../src/srcly/session";
 // full GC. Either one anchor traced again and again, or a spread of the
 // root's traceable exports traced in turn (what a survey does).
 //
-//   node --expose-gc --max-old-space-size=3072 --import tsx scripts/memory-probe.ts --root <app>
+//   node --expose-gc --max-old-space-size=4096 --import tsx scripts/memory-probe.ts --root <app>
 //     [--anchor file:name:line | --exports 120] [--calls 120] [--every 10]
+//     [--direction forward|backward|both]   default: both
 //     [--limit MB]   run the engine's memory guard after each call, at this limit
 //     [--json dir]   write each result, to diff two engines' answers
 //
@@ -20,6 +21,8 @@ for (let i = 2; i < process.argv.length; i += 2) args.set(process.argv[i].replac
 const root = path.resolve(args.get("root") ?? ".");
 const calls = Number(args.get("calls") ?? 20);
 const every = Number(args.get("every") ?? 5);
+const direction = args.get("direction") ?? "both";
+if (!["forward", "backward", "both"].includes(direction)) throw new Error(`Unknown direction: ${direction}`);
 const jsonDir = args.get("json");
 const gc = (globalThis as { gc?: () => void }).gc;
 if (!gc) throw new Error("run with --expose-gc");
@@ -63,7 +66,7 @@ for (let call = 1; call <= calls; call += 1) {
   let summary: string;
   try {
     guard?.admit();
-    const result = anchorGraphOp(session, { file: anchor.file, name: anchor.name, line: anchor.line, direction: "both" });
+    const result = anchorGraphOp(session, { file: anchor.file, name: anchor.name, line: anchor.line, direction });
     summary = `${result.outcome} ${result.nodes.length}n ${result.edges.length}e gen ${result.generation}`;
     if (jsonDir) fs.writeFileSync(path.join(jsonDir, `${anchor.file.replaceAll("/", "_")}.${anchor.name}.${anchor.line}.json`), JSON.stringify(result));
   } catch (error) {

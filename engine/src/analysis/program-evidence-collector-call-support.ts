@@ -554,14 +554,17 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
    * reads the container back, `log.push(entry);` only writes into it.
    */
   private readBackInFile(declaration: TypeScript.VariableDeclaration): boolean {
+    const cached = this.moduleReadBack.get(declaration);
+    if (cached !== undefined) return cached;
     const statement = declaration.parent?.parent;
     if (!this.ts.isIdentifier(declaration.name) || !statement || !this.ts.isVariableStatement(statement) || !this.ts.isSourceFile(statement.parent)) return false;
     if (statement.modifiers?.some((modifier) => modifier.kind === this.ts.SyntaxKind.ExportKeyword)) return false;
+    const name = declaration.name.text;
     const symbol = this.checker.getSymbolAtLocation(declaration.name);
     let found = false;
     const visit = (node: TypeScript.Node) => {
       if (found) return;
-      if (this.ts.isIdentifier(node) && node !== declaration.name && this.checker.getSymbolAtLocation(node) === symbol) {
+      if (this.ts.isIdentifier(node) && node.text === name && node !== declaration.name && this.checker.getSymbolAtLocation(node) === symbol) {
         const access = node.parent;
         const call = this.ts.isPropertyAccessExpression(access) && access.expression === node && this.ts.isCallExpression(access.parent) && access.parent.expression === access ? access.parent : null;
         if (!call || !discardsValue(this.ts, call, this.checker)) found = true;
@@ -569,8 +572,11 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       this.ts.forEachChild(node, visit);
     };
     visit(statement.parent);
+    this.moduleReadBack.set(declaration, found);
     return found;
   }
+
+  private readonly moduleReadBack = new WeakMap<TypeScript.VariableDeclaration, boolean>();
 
   /**
    * A function handed to a state pair where a value goes stands for what it
