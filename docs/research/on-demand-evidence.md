@@ -15,6 +15,10 @@ The checker resolves those candidates only when a frontier needs them.
 Body collection uses top-level source statements as partitions. Each partition runs once.
 Declarations and return summaries load when needed. The collector delays handler classification and type formatting.
 
+Forward traces use this demand collector. Backward and bidirectional traces search across callers.
+Their first query builds the complete catalog in the original source order.
+Later queries reuse that catalog, including forward queries. The session still holds one Program and one current provider.
+
 Dependency discovery includes callers, callback bindings, component props, contexts, event listeners, and HTTP counterparts.
 HTTP candidates include renamed handler calls behind route guards.
 The existing proof rules still decide whether each candidate produces a relation.
@@ -46,12 +50,23 @@ The latency scores compare measured experiments; they are not forecasts.
 | --- | ---: | ---: | --- |
 | Existing full collection | 10: exact baseline | 1: exceeds the target | Replace body collection |
 | Demand collection without type preparation | 0: IDs and type strings change | 7: 7.1 seconds | Reject output changes |
-| Demand collection with type preparation | 10: deep equality passes | 6: about eight seconds | Preserve output |
+| Demand collection with type preparation | 10: deep equality passes | 7: 6.65 seconds | Preserve output |
 
 The five-second target is not yet met. A profile attributes about 3.3 seconds to type preparation.
 Program construction takes about 2.8 seconds in that run.
 Removing type preparation requires a deliberate change to type formatting and merged-symbol identity.
 That would change existing output, so it is outside this change's compatibility constraint.
+
+Caller searches need a separate choice. Scores use 10 for exact trace summaries and sub-second repeated caller searches.
+
+| Approach | Exact client trace summaries | Repeated caller searches | Decision |
+| --- | ---: | ---: | --- |
+| Demand collection for every direction | 10: summaries match | 2: two CI traces exceed five seconds | Keep for forward traces only |
+| Remove unknown-ID fallback | 0: later trace results change | 0: the sweep grows to about 94 seconds | Reject |
+| Complete catalog for backward and both | 10: all 92 summaries match | 10: slowest later query is 0.69 seconds locally | Select |
+
+The complete catalog pays its collection cost on the first caller search.
+This preserves the original collector order and avoids repeated partial scans across callers.
 
 ## Verification
 
@@ -61,16 +76,16 @@ Each process traces `app/src/routes/docs/[id].tsx:DocView:49` forward three time
 Processes run one at a time, with a 4 GB Node heap limit and no saved result cache.
 The first call includes Program construction. Two further calls measure session reuse.
 
-The final implementation is commit `19ed77c`. The machine is an Apple M3 Pro with 18 GB RAM.
+The final implementation is commit `e861c22`. The machine is an Apple M3 Pro with 18 GB RAM.
 It runs Node 22.21.1 and TypeScript 5.9.3. No two benchmark processes run together.
 
 | Measurement | Full collection | On demand | Change |
 | --- | ---: | ---: | ---: |
-| Cold median, three fresh processes | 16.342 s | 6.697 s | 59% less time; 2.44× faster |
-| Cold range | 16.101–16.851 s | 6.642–7.310 s | |
-| Warm median, six calls | 0.235 s | 0.131 s | 44% less time |
-| Warm range | 0.201–0.254 s | 0.123–0.142 s | |
-| Retained heap after the cold call | 1,432–1,433 MiB | 930 MiB | 35% less |
+| Cold median, three fresh processes | 16.342 s | 6.654 s | 59% less time; 2.46× faster |
+| Cold range | 16.101–16.851 s | 6.626–7.379 s | |
+| Warm median, six calls | 0.235 s | 0.130 s | 45% less time |
+| Warm range | 0.201–0.254 s | 0.118–0.139 s | |
+| Retained heap after the cold call | 1,432–1,433 MiB | 929 MiB | 35% less |
 
 All six saved graphs passed deep equality. The final cold HTTP graph also matched.
 Their common JSON SHA-256 is `6890717b7ad5241f81e377fc1ccb9571070a40ad17a4a75701081ad9a033e521`.
@@ -97,22 +112,24 @@ Regression checks cover exact eager/demand graph equality, callback and HTTP joi
 new relations after earlier queries, unused-symbol classification, and cumulative collection measurements.
 The existing annotated fixtures remain the behavior gate.
 
-The complete engine check passed 562 tests. Client checks passed 453 tests; server checks passed 499.
+The complete engine check passed 564 tests. Client checks passed 453 tests; server checks passed 499.
 The browser suite passed 16 tests and skipped one optional latency test.
 The coverage gate reported no changed outcomes or stops across 401 traces.
-Its slowest query after initialization took 2.968 seconds, below the five-second gate limit.
+Its slowest query after initialization took 0.691 seconds, below the five-second gate limit.
 
-The final broad client sweep took 20.144 seconds, compared with 21.868 seconds before: 8% less time.
-The fixture sweep took 2.174 seconds, compared with 1.756 seconds before: 24% more time.
-The Python sweep took 6.444 seconds, compared with 6.511 seconds before.
-The full three-corpus gate took 31 seconds after the change and 32 seconds before it.
+The final broad client sweep took 18.345 seconds, compared with 23.170 seconds before: 21% less time.
+The fixture sweep took 1.565 seconds, compared with 1.850 seconds before: 15% less time.
+The Python sweep took 6.654 seconds, compared with 6.834 seconds before.
+The full three-corpus gate took 28 seconds after the change and 34 seconds before it.
 These measurements include different anchors; they are separate from repeated DocView calls.
 
-The first CI run passed build and browser checks but failed two query timing limits.
+Earlier CI runs passed build and browser checks but failed two query timing limits.
 Profiling found repeated source-span searches, type formatting, and relation metadata allocation.
 The final change caches source lookups, types, priorities, and immutable locations.
 It removes duplicate direction indexes and skips HTTP preparation when required endpoints are absent.
 Relation IDs use the same hash and field order without sorting each location again.
+Expression collection reuses its context, source text, and previously collected expression facts.
+Caller searches use the complete collector; forward queries keep demand collection until that first caller search.
 
 Synthetic callback markers can trigger full collection through an unknown-ID lookup.
 Removing that fallback changed later survey traces and slowed the broad sweep.
@@ -121,5 +138,5 @@ This change preserves it. A future change must prove complete dependencies befor
 A separate browser check loaded the normal partial graph, inspected a node, and reloaded successfully.
 Start and graph requests returned HTTP 200. The browser reported no console errors or warnings.
 Screenshots show the complete graph and the selected `<Match when={doc()}>` node at 1440 × 900.
-The final cold HTTP request returned 200 in 8.159 seconds with result caching disabled.
+The final cold HTTP request returned 200 in 8.086 seconds with result caching disabled.
 Its complete graph passed deep equality against the baseline.
