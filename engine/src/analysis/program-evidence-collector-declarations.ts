@@ -21,6 +21,54 @@ import {
 } from "./program-evidence-support";
 
 export class ProgramEvidenceCollectorDeclarations extends ProgramEvidenceCollectorSupport {
+  /** Register source declarations without asking for their parameter types. */
+  protected deferDeclarations(file: TypeScript.SourceFile): void {
+    const visit = (node: TypeScript.Node, owner: (() => string) | null) => {
+      const fn = asFunctionLike(this.ts, node);
+      let nextOwner = owner;
+      if (fn) {
+        let id: string | undefined;
+        const load = () => {
+          if (id) return id;
+          const info = this.addFunction(fn, owner?.() ?? null);
+          id = info.id;
+          this.functionsByNode.set(nodeKey(this.root, fn), info);
+          const parent = fn.parent;
+          if (this.ts.isVariableDeclaration(parent)) {
+            const variable = this.variableId(parent);
+            if (variable) this.addRelation(variable, id, "definition", [this.location(fn)], proof("compiler-symbol", "The variable initializer is a compiler-resolved function declaration.", [this.location(fn)]), "proven");
+          }
+          return id;
+        };
+        this.functionsByNode.defer(nodeKey(this.root, fn), load);
+        const name = functionNameNode(this.ts, fn);
+        const symbol = name ? this.symbolId(name) : null;
+        if (symbol) this.functionsBySymbol.defer(symbol, load);
+        for (const parameter of fn.parameters) {
+          for (const binding of bindingIdentifiers(this.ts, parameter.name)) {
+            const parameterSymbol = this.symbolId(binding);
+            if (parameterSymbol) this.parametersBySymbol.defer(parameterSymbol, load);
+          }
+        }
+        nextOwner = load;
+      }
+      if (this.ts.isVariableDeclaration(node) && node.initializer) {
+        let loaded = false;
+        const load = () => {
+          if (loaded) return;
+          loaded = true;
+          this.addVariable(node, nextOwner?.() ?? null);
+        };
+        for (const binding of bindingIdentifiers(this.ts, node.name)) {
+          const symbol = this.symbolId(binding);
+          if (symbol) this.variablesBySymbol.defer(symbol, load);
+        }
+      }
+      this.ts.forEachChild(node, (child) => visit(child, nextOwner));
+    };
+    visit(file, null);
+  }
+
   protected collectDeclarations(file: TypeScript.SourceFile): void {
     const visit = (node: TypeScript.Node, ownerId: string | null) => {
       this.noteAstUnit();

@@ -765,7 +765,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     return collectProgramEvidenceExpression(
       {
         ts: this.ts,
-        references: this.references,
+        addReference: (reference) => this.addReference(reference),
         parametersBySymbol: this.parametersBySymbol,
         functionsBySymbol: this.functionsBySymbol,
         symbolId: (value) => this.symbolId(value),

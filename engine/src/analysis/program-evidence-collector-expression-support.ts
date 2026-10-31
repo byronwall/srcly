@@ -39,7 +39,7 @@ export function constructorExpressionElementEvidence(
 
 export type ProgramEvidenceExpressionContext = {
   ts: typeof TypeScript;
-  references: CollectorReferenceInfo[];
+  addReference: (reference: CollectorReferenceInfo) => void;
   parametersBySymbol: ReadonlyMap<string, string>;
   functionsBySymbol: ReadonlyMap<string, CollectorFunctionInfo>;
   symbolId: (node: TypeScript.Node) => string | null;
@@ -128,7 +128,7 @@ export function collectProgramEvidenceExpression(
       "field-read",
     );
     // `api.greeting` reads the export itself, as `greeting` would after a named import.
-    if (context.ts.isIdentifier(unwrapped.name) && context.readsNamespace(unwrapped)) context.references.push({ node: unwrapped.name, id, symbolId: context.symbolId(unwrapped.name) });
+    if (context.ts.isIdentifier(unwrapped.name) && context.readsNamespace(unwrapped)) context.addReference({ node: unwrapped.name, id, symbolId: context.symbolId(unwrapped.name) });
     return id;
   }
   if (context.ts.isElementAccessExpression(unwrapped)) {
@@ -212,7 +212,7 @@ export function collectProgramEvidenceExpression(
         [context.location(unwrapped)],
       ),
     );
-    context.references.push({ node: unwrapped, id, symbolId });
+    context.addReference({ node: unwrapped, id, symbolId });
     const parameterId = context.parametersBySymbol.get(symbolId ?? "");
     if (parameterId) {
       context.addRelation(

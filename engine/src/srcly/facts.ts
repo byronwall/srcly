@@ -4,6 +4,7 @@
 import path from "node:path";
 import type * as TypeScript from "typescript";
 import { isStandardLibraryCallee } from "../analysis/program-evidence-support";
+import { programEvidenceCandidateIndex, type ProgramEvidenceCandidateIndex } from "../analysis/program-evidence-candidate-index";
 import type { ProgramElement } from "../analysis/scope-seam";
 import type { CallSiteIndex, CallSites } from "./call-sites";
 import { elementTraits, relationTraits, SEED_KINDS } from "./kinds";
@@ -240,10 +241,11 @@ export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "locatio
   // A computed key picks a field without being the value read or written: `obj[k]`, `{ [k]: v }`, `{ [k]: v } = obj`.
   if ((ts.isElementAccessExpression(parent) && parent.argumentExpression === node) || ts.isComputedPropertyName(parent)) return "key";
   if (ts.isThrowStatement(parent) && parent.expression === node) return "throw";
-  if (sourceFile && exportedDeclaration(ts, tier1.program.getTypeChecker(), sourceFile, node, readSymbols(tier1))) return "exported-api";
-  if (unreadBinding(ts, tier1.program.getTypeChecker(), node, readSymbols(tier1))) return "unused";
+  const candidates = programEvidenceCandidateIndex(ts, tier1.program, tier1.root);
+  if (sourceFile && exportedDeclaration(ts, tier1.program.getTypeChecker(), sourceFile, node, candidates)) return "exported-api";
+  if (unreadBinding(ts, tier1.program.getTypeChecker(), node, candidates)) return "unused";
   if (testedOnly(ts, tier1.program.getTypeChecker(), node)) return "branch";
-  if (sourceFile && apiCallback(ts, tier1.program.getTypeChecker(), sourceFile, node, readSymbols(tier1))) return "exported-api";
+  if (sourceFile && apiCallback(ts, tier1.program.getTypeChecker(), sourceFile, node, candidates)) return "exported-api";
   // A call through a function the library supplied (`resolve(value)` in `new Promise((resolve) => …)`) hands its argument back to that library.
   if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && suppliedByLibrary(ts, tier1.program.getTypeChecker(), node.expression)) return "handed-back";
   const test = ts.isIfStatement(parent) || ts.isWhileStatement(parent) || ts.isDoStatement(parent) || ts.isSwitchStatement(parent) || ts.isCaseClause(parent) ? parent.expression : ts.isForStatement(parent) ? parent.condition : undefined;
@@ -256,7 +258,7 @@ export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "locatio
  * resolves no read to it, so the value it holds ends there. A parameter
  * property (`constructor(private width: number)`) is read through its member.
  */
-function unreadBinding(ts: typeof TypeScript, checker: TypeScript.TypeChecker, node: TypeScript.Node, read: ReadonlySet<TypeScript.Symbol>): boolean {
+function unreadBinding(ts: typeof TypeScript, checker: TypeScript.TypeChecker, node: TypeScript.Node, candidates: ProgramEvidenceCandidateIndex): boolean {
   const declaration = ts.isIdentifier(node) ? node.parent : node;
   if (!(ts.isParameter(declaration) || ts.isBindingElement(declaration) || (ts.isVariableDeclaration(declaration) && ts.findAncestor(declaration, ts.isFunctionLike)))) return false;
   const name = declaration.name;
@@ -264,7 +266,7 @@ function unreadBinding(ts: typeof TypeScript, checker: TypeScript.TypeChecker, n
   const symbol = checker.getSymbolAtLocation(name);
   if (!symbol) return false;
   const symbols = ts.isParameter(declaration) && ts.isParameterPropertyDeclaration(declaration, declaration.parent) ? checker.getSymbolsOfParameterPropertyDeclaration(declaration, name.text) : [symbol];
-  return symbols.every((item) => !read.has(item));
+  return symbols.every((item) => !candidates.hasRead(name, [item]));
 }
 
 /**
@@ -273,7 +275,7 @@ function unreadBinding(ts: typeof TypeScript, checker: TypeScript.TypeChecker, n
  * nothing in the program calls or renders: whoever calls it from outside
  * hands the callback in, so the value leaves through the module's API.
  */
-function apiCallback(ts: typeof TypeScript, checker: TypeScript.TypeChecker, sourceFile: TypeScript.SourceFile, node: TypeScript.Node, read: ReadonlySet<TypeScript.Symbol>): boolean {
+function apiCallback(ts: typeof TypeScript, checker: TypeScript.TypeChecker, sourceFile: TypeScript.SourceFile, node: TypeScript.Node, candidates: ProgramEvidenceCandidateIndex): boolean {
   if (!ts.isCallExpression(node)) return false;
   let callee: TypeScript.Expression = node.expression;
   while (ts.isParenthesizedExpression(callee) || ts.isNonNullExpression(callee)) callee = callee.expression;
@@ -287,7 +289,7 @@ function apiCallback(ts: typeof TypeScript, checker: TypeScript.TypeChecker, sou
   if (!parameter || !ts.isParameter(parameter)) return false;
   const fn = parameter.parent;
   const name = ts.isFunctionDeclaration(fn) ? fn.name : (ts.isArrowFunction(fn) || ts.isFunctionExpression(fn)) && ts.isVariableDeclaration(fn.parent) ? fn.parent.name : undefined;
-  return !!name && ts.isIdentifier(name) && exportedDeclaration(ts, checker, sourceFile, name, read);
+  return !!name && ts.isIdentifier(name) && exportedDeclaration(ts, checker, sourceFile, name, candidates);
 }
 
 /**
@@ -332,7 +334,7 @@ function testedOnly(ts: typeof TypeScript, checker: TypeScript.TypeChecker, node
 }
 
 /** Whether the node is (or names) a declaration its module exports, by any form (`export const`, `export { x }`, `export default x`), that nothing in the program reads. */
-function exportedDeclaration(ts: typeof TypeScript, checker: TypeScript.TypeChecker, sourceFile: TypeScript.SourceFile, node: TypeScript.Node, read: ReadonlySet<TypeScript.Symbol>): boolean {
+function exportedDeclaration(ts: typeof TypeScript, checker: TypeScript.TypeChecker, sourceFile: TypeScript.SourceFile, node: TypeScript.Node, candidates: ProgramEvidenceCandidateIndex): boolean {
   const declaration = ts.isIdentifier(node) ? node.parent : node;
   if (!(ts.isVariableDeclaration(declaration) || ts.isFunctionDeclaration(declaration) || ts.isClassDeclaration(declaration)) || !declaration.name || !ts.isIdentifier(declaration.name)) return false;
   if (ts.isIdentifier(node) && declaration.name !== node) return false;
@@ -340,36 +342,13 @@ function exportedDeclaration(ts: typeof TypeScript, checker: TypeScript.TypeChec
   const symbol = checker.getSymbolAtLocation(declaration.name);
   const exported = symbol && checker.getExportSymbolOfSymbol(symbol);
   // Read in the program by its own name, or through the module (`import * as api`, `api.name`).
-  if (!moduleSymbol || !symbol || !exported || read.has(symbol) || read.has(exported)) return false;
+  if (!moduleSymbol || !symbol || !exported || candidates.hasRead(declaration.name, [symbol, exported])) return false;
   return checker.getExportsOfModule(moduleSymbol).some((item) => item === exported || item === symbol || ((item.flags & ts.SymbolFlags.Alias) !== 0 && checker.getAliasedSymbol(item) === symbol));
-}
-
-const readCache = new WeakMap<TypeScript.Program, Set<TypeScript.Symbol>>();
-
-/** Every symbol some identifier in the program's own source reads (through an import alias too), once per Program: an export statement and a declaration's own name are not reads. */
-function readSymbols(tier1: TsTier1): Set<TypeScript.Symbol> {
-  const cached = readCache.get(tier1.program);
-  if (cached) return cached;
-  const { ts } = tier1;
-  const checker = tier1.program.getTypeChecker();
-  const root = path.resolve(tier1.args.root) + path.sep;
-  const read = new Set<TypeScript.Symbol>();
-  const visit = (node: TypeScript.Node) => {
-    if (ts.isIdentifier(node) && !ts.isExportSpecifier(node.parent) && !ts.isExportAssignment(node.parent) && !ts.isImportSpecifier(node.parent) && !ts.isImportClause(node.parent) && (!(ts.isDeclarationStatement(node.parent) || ts.isVariableDeclaration(node.parent) || ts.isParameter(node.parent) || ts.isBindingElement(node.parent)) || (node.parent as { name?: TypeScript.Node }).name !== node)) {
-      let symbol = ts.isShorthandPropertyAssignment(node.parent) ? checker.getShorthandAssignmentValueSymbol(node.parent) : checker.getSymbolAtLocation(node);
-      if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
-      if (symbol) read.add(symbol);
-    }
-    ts.forEachChild(node, visit);
-  };
-  for (const file of tier1.program.getSourceFiles()) if (!file.isDeclarationFile && path.resolve(file.fileName).startsWith(root) && !file.fileName.includes(`${path.sep}node_modules${path.sep}`)) visit(file);
-  readCache.set(tier1.program, read);
-  return read;
 }
 
 /** Facts at exactly this span in this file. */
 export function elementsAt(tier1: BaseTier1, file: string, span: Span) {
-  return tier1.provider().facts.fileCandidates(file).filter((fact) => sameSpan(fact.location.span, span));
+  return tier1.provider().facts.fileCandidates(file, span).filter((fact) => sameSpan(fact.location.span, span));
 }
 
 /** The evidence element a selection starts from: the most specific fact at exactly its span. */

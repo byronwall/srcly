@@ -4,6 +4,7 @@ import type {
   ProgramEvidenceLocation,
   ProgramProof,
   ProgramRelationKind,
+  ProgramEvidenceGap,
 } from "./program-evidence";
 import {
   CompactRelationIndex,
@@ -54,6 +55,8 @@ export class RelationRecipeStore {
 
 export type RelationFrontier = {
   recipes: readonly RelationRecipe[];
+  /** Changes when another demanded pass can add a relation to this endpoint. */
+  revision?: number;
   relationIndexCount: number;
   sourceFilesVisited: number;
   astUnitsVisited: number;
@@ -62,8 +65,20 @@ export type RelationFrontier = {
   collectorStats: ProgramEvidenceCollectionStats;
 };
 
+/** Cumulative work performed by demand collection for one Program. */
+export type ProgramEvidenceDemandStats = {
+  collectionElapsedMs: number;
+  partitionsVisited: number;
+  sourceFilesVisited: number;
+  astUnitsVisited: number;
+  collectorStats: ProgramEvidenceCollectionStats;
+};
+
 export interface RelationFrontierLoader {
-  load(elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken): RelationFrontier;
+  load(elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken, returnTo?: string): RelationFrontier;
+  currentRevision?(): number;
+  gaps?(elementId: string): readonly ProgramEvidenceGap[];
+  getDemandStats?(): ProgramEvidenceDemandStats | null;
 }
 
 /**
@@ -75,10 +90,25 @@ export class ProgramEvidenceRelationFrontierLoader implements RelationFrontierLo
   constructor(
     private readonly factIndex: ProgramFactIndex,
     private readonly index: CompactRelationIndex,
+    private readonly demand?: {
+      prepare(id: string, direction: SliceDirection, returnTo?: string, cancellation?: AnalysisCancellationToken): void;
+      gaps(id: string): readonly ProgramEvidenceGap[];
+      getDemandStats?(): ProgramEvidenceDemandStats | null;
+    },
   ) {}
 
-  load(elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken): RelationFrontier {
+  currentRevision(): number { return this.index.size + this.factIndex.factCount; }
+
+  load(elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken, returnTo?: string): RelationFrontier {
     cancellation?.throwIfCancelled();
+    const before = this.demand?.getDemandStats?.() ?? null;
+    const beforeCounts = before && {
+      sourceFilesVisited: before.sourceFilesVisited,
+      astUnitsVisited: before.astUnitsVisited,
+      partitionsVisited: before.partitionsVisited,
+    };
+    this.demand?.prepare(elementId, direction, returnTo, cancellation);
+    const after = this.demand?.getDemandStats?.() ?? null;
     const recipes = new RelationRecipeStore();
     let recipesExamined = 0;
     for (const primaryFile of this.factIndex.relationSourceFilesFor(elementId)) {
@@ -95,14 +125,22 @@ export class ProgramEvidenceRelationFrontierLoader implements RelationFrontierLo
     }
     return {
       recipes: recipes.values,
+      revision: this.currentRevision(),
       relationIndexCount: recipes.size * 2,
-      sourceFilesVisited: 0,
-      astUnitsVisited: 0,
-      partitionsVisited: 0,
+      sourceFilesVisited: statDelta(beforeCounts?.sourceFilesVisited, after?.sourceFilesVisited),
+      astUnitsVisited: statDelta(beforeCounts?.astUnitsVisited, after?.astUnitsVisited),
+      partitionsVisited: statDelta(beforeCounts?.partitionsVisited, after?.partitionsVisited),
       recipesExamined,
       collectorStats: emptyProgramEvidenceCollectionStats(0),
     };
   }
+
+  gaps(elementId: string): readonly ProgramEvidenceGap[] { return this.demand?.gaps(elementId) ?? []; }
+  getDemandStats(): ProgramEvidenceDemandStats | null { return this.demand?.getDemandStats?.() ?? null; }
+}
+
+function statDelta(before: number | undefined, after: number | undefined): number {
+  return before === undefined || after === undefined ? 0 : Math.max(0, after - before);
 }
 
 /** Capture compact descriptors during the same pass that collects facts. */

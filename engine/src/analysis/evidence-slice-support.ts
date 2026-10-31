@@ -60,7 +60,7 @@ export type EvidenceRelationSource = {
     comparePriority: (leftId: string, rightId: string, direction: SliceDirection) => number;
     priorityFor: (elementId: string, direction: SliceDirection) => number;
   };
-  getRelations: (elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken) => readonly IndexedProgramRelation[];
+  getRelations: (elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken, returnTo?: string) => readonly IndexedProgramRelation[];
   getGaps: (elementId: string) => readonly ProgramEvidenceGap[];
 };
 
@@ -248,9 +248,10 @@ export function relationsForProvider(
   elementId: string,
   direction: SliceDirection,
   cancellation?: AnalysisCancellationToken,
+  returnTo?: string,
 ): RelationCandidate[] {
   const candidates: Array<RelationCandidate & { index: number }> = [];
-  for (const [index, relation] of provider.getRelations(elementId, direction, cancellation).entries()) {
+  for (const [index, relation] of provider.getRelations(elementId, direction, cancellation, returnTo).entries()) {
     cancellation?.throwIfCancelled();
     const targetId = targetFor(relation, elementId, direction);
     if (!targetId) continue;

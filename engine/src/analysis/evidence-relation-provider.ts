@@ -7,7 +7,8 @@ import type {
   ProgramRelation,
   ProgramRelationKind,
 } from "./program-evidence";
-import { EvidenceCollector, type ProgramEvidenceOptions } from "./program-evidence";
+import { type ProgramEvidenceOptions } from "./program-evidence";
+import { ProgramEvidenceDemandCollector } from "./program-evidence-demand-collector";
 import { ProgramFactIndex } from "./program-fact-index";
 import { CompactRelationIndex } from "./program-evidence-connector-index";
 import { programForRoot } from "./program-evidence-loading";
@@ -49,7 +50,8 @@ export type EvidenceProviderInstrumentation = InstrumentationEvidenceProviderIns
 export interface EvidenceRelationProvider {
   readonly factIndex: ProgramFactIndex;
   readonly facts: ProgramFactIndex;
-  getRelations(elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken): readonly ProgramRelation[];
+  readonly isPoisoned?: boolean;
+  getRelations(elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken, returnTo?: string): readonly ProgramRelation[];
   getGaps(elementId: string): readonly ProgramEvidenceGap[];
   getInstrumentation(): EvidenceProviderInstrumentation;
 }
@@ -121,20 +123,26 @@ export class LazyEvidenceRelationProvider extends LazyEvidenceRelationProviderCo
     recipes: readonly RelationRecipe[],
     gaps?: readonly ProgramEvidenceGap[],
     options?: ProviderOptions,
+    onFailure?: () => void,
+    externallyPoisoned?: () => boolean,
   );
   constructor(
     factIndex: ProgramFactIndex,
     frontierLoader: RelationFrontierLoader,
     gaps?: readonly ProgramEvidenceGap[],
     options?: ProviderOptions,
+    onFailure?: () => void,
+    externallyPoisoned?: () => boolean,
   );
   constructor(
     factIndex: ProgramFactIndex,
     recipesOrLoader: readonly RelationRecipe[] | RelationFrontierLoader,
     gaps: readonly ProgramEvidenceGap[] = [],
     options: ProviderOptions = {},
+    onFailure?: () => void,
+    externallyPoisoned?: () => boolean,
   ) {
-    super(factIndex, recipesOrLoader, gaps, options);
+    super(factIndex, recipesOrLoader, gaps, options, onFailure, externallyPoisoned);
   }
 }
 
@@ -281,23 +289,42 @@ function createLazyProvider(
 ): LazyProgramEvidenceProvider {
   const started = performance.now();
   const index = new CompactRelationIndex();
-  const collector = new EvidenceCollector(ts, program, root, options, relationIndexSink(index));
-  const collected = collector.collectDeferredFacts();
+  const collector = new ProgramEvidenceDemandCollector(ts, program, root, options, relationIndexSink(index));
+  let collectionFailed = false;
+  const prepare = (operation: () => void) => {
+    try { operation(); }
+    catch (error) { collectionFailed = true; throw error; }
+  };
   if (process.env.TSX_DATA_FLOW_COLLECTOR_PROFILE === "1") {
     process.stderr.write(`[collector-profile] ${JSON.stringify({ relationSource: "provider", descriptors: index.size, ...collector.getCollectionStats() })}\n`);
   }
+  let indexed = 0;
+  const sync = () => {
+    const collected = collector.collected.facts;
+    facts.addFacts(collected.slice(indexed));
+    indexed = collected.length;
+  };
   const facts = new ProgramFactIndex(
-    collected.facts,
-    collected.sourceFiles,
+    [],
+    collector.sourceFiles.map((file) => path.relative(root, file.fileName).split(path.sep).join("/")),
     (fact) => collector.hydrateFact(fact),
+    {
+      file: (file, span) => prepare(() => { collector.ensureFile(file, span); sync(); }),
+      all: () => prepare(() => { collector.ensureAll(); sync(); }),
+    },
   );
-  const frontierLoader = new ProgramEvidenceRelationFrontierLoader(facts, index);
+  const frontierLoader = new ProgramEvidenceRelationFrontierLoader(facts, index, {
+    prepare: (id, direction, returnTo, cancellation) => prepare(() => { collector.ensureFrontier(id, direction, returnTo, cancellation); sync(); }),
+    gaps: (id) => collector.collected.gaps.filter((gap) => gap.from === id),
+    getDemandStats: () => collector.getDemandStats(),
+  });
   const provider = new LazyEvidenceRelationProvider(
     facts,
     frontierLoader,
-    collected.gaps,
+    [],
     { collectionTimeMs: performance.now() - started },
+    () => { collectionFailed = true; },
+    () => collectionFailed,
   );
-  collector.releaseTransientState();
   return provider;
 }

@@ -23,6 +23,7 @@ type ComponentPropReceiver = {
 /** Collect exact JSX-to-component parameter member evidence after node facts exist. */
 export class ProgramEvidenceCollectorComponentBindingSupport extends ProgramEvidenceCollectorBoundaryProcessing {
   protected readonly pendingComponentPropBindings: PendingComponentPropBinding[] = [];
+  protected readonly componentPropBindings: PendingComponentPropBinding[] = [];
 
   protected queueComponentPropBinding(
     opening: TypeScript.JsxOpeningLikeElement,
@@ -33,6 +34,7 @@ export class ProgramEvidenceCollectorComponentBindingSupport extends ProgramEvid
     target: CollectorFunctionInfo,
   ): void {
     this.pendingComponentPropBindings.push({ opening, attribute, valueId, occurrenceId, ownerId, target });
+    this.componentPropBindings.push({ opening, attribute, valueId, occurrenceId, ownerId, target });
   }
 
   protected connectComponentPropBindings(): void {
@@ -139,6 +141,7 @@ export class ProgramEvidenceCollectorComponentBindingSupport extends ProgramEvid
         // `props.label` reads the prop itself; a view's `local.label` reads the field of the same name.
         && (sameCompilerSymbol(receiver, parameterSymbol) ? sameCompilerSymbol(this.checker.getSymbolAtLocation(node.name), expectedProperty) : views.has(receiver))
       ) {
+        this.prepareComponentReceiver(node);
         receivers.push({
           node,
           elementId: this.elementFor(node, "field-read"),

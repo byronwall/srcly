@@ -6,6 +6,7 @@ import {
   type CompactProgramFact,
 } from "./program-evidence-compact-facts";
 import type { SliceDirection } from "./scope-seam";
+import type { SourceSpan } from "../types";
 
 export type ProgramFactRole = string;
 
@@ -28,11 +29,12 @@ export type ProgramFactHydrator = (fact: CompactProgramFact) => ProgramElement;
  */
 export class ProgramFactIndex {
   /** Route-file candidates only. This compatibility view is intentionally bounded. */
-  private readonly routeCandidateFacts: readonly CompactProgramFact[];
-  readonly facts: readonly CompactProgramFact[];
+  private readonly routeCandidateFacts: CompactProgramFact[] = [];
+  private readonly records: CompactProgramFact[] = [];
+  get facts(): readonly CompactProgramFact[] { this.prepareAll(); return this.records; }
   readonly sourceFiles: readonly string[];
-  readonly factCount: number;
-  readonly compactFactBytesEstimate: number;
+  get factCount(): number { return this.records.length; }
+  compactFactBytesEstimate = 0;
 
   private readonly factsById = new Map<string, CompactProgramFact>();
   private readonly factsByRole = new Map<ProgramFactRole, CompactProgramFact[]>();
@@ -45,14 +47,16 @@ export class ProgramFactIndex {
   private hydrationTimeMs = 0;
   private factIterations = 0;
   private memoHits = 0;
+  private allPrepared = false;
 
   constructor(
     records: readonly (CompactProgramFact | ProgramElement)[],
     sourceFiles: readonly string[],
     hydrator?: ProgramFactHydrator,
+    private readonly prepare?: { file(file: string, span?: SourceSpan): void; all(): void },
   ) {
     const eagerElements = new Map<string, ProgramElement>();
-    this.facts = records.map((record) => {
+    const compact = records.map((record) => {
       if (isCompactFact(record)) return record;
       eagerElements.set(record.id, record);
       return compactFactFromElement(record);
@@ -63,11 +67,16 @@ export class ProgramFactIndex {
       return element;
     });
     this.sourceFiles = [...new Set(sourceFiles)];
-    this.factCount = this.facts.length;
-    this.compactFactBytesEstimate = this.facts.reduce((total, fact) => total + compactFactBytes(fact), 0);
+    this.addFacts(compact);
+  }
 
-    for (const fact of this.facts) {
-      if (!this.factsById.has(fact.id)) this.factsById.set(fact.id, fact);
+  addFacts(facts: readonly CompactProgramFact[]): void {
+    for (const fact of facts) {
+      if (this.factsById.has(fact.id)) continue;
+      this.records.push(fact);
+      this.compactFactBytesEstimate += compactFactBytes(fact);
+      this.factsById.set(fact.id, fact);
+      if (isRouteCandidateFile(fact.location.file)) this.routeCandidateFacts.push(fact);
       const fileFacts = this.factsByFile.get(fact.location.file) ?? [];
       fileFacts.push(fact);
       this.factsByFile.set(fact.location.file, fileFacts);
@@ -86,12 +95,10 @@ export class ProgramFactIndex {
       }
     }
 
-    this.routeCandidateFacts = this.sourceFiles
-      .filter(isRouteCandidateFile)
-      .flatMap((file) => this.factsByFile.get(file) ?? []);
   }
 
   get elements(): readonly CompactProgramFact[] {
+    for (const file of this.sourceFiles.filter(isRouteCandidateFile)) this.prepare?.file(file);
     this.factIterations += this.routeCandidateFacts.length;
     return this.routeCandidateFacts;
   }
@@ -99,7 +106,12 @@ export class ProgramFactIndex {
   /** Return compact metadata without hydrating a full element. */
   getFact(elementId: string): CompactProgramFact | undefined {
     this.factIterations += 1;
-    return this.factsById.get(elementId);
+    let fact = this.factsById.get(elementId);
+    if (!fact && this.prepare) {
+      this.prepareAll();
+      fact = this.factsById.get(elementId);
+    }
+    return fact;
   }
 
   /** Return one full source element and cache only queried IDs. */
@@ -135,6 +147,7 @@ export class ProgramFactIndex {
   }
 
   roleCandidates(role: ProgramFactRole): readonly CompactProgramFact[] {
+    this.prepareAll();
     const candidates = this.factsByRole.get(role) ?? [];
     this.factIterations += candidates.length;
     return candidates;
@@ -150,7 +163,8 @@ export class ProgramFactIndex {
     return candidates;
   }
 
-  fileCandidates(file: string): readonly CompactProgramFact[] {
+  fileCandidates(file: string, span?: SourceSpan): readonly CompactProgramFact[] {
+    this.prepare?.file(file, span);
     const candidates = this.factsByFile.get(file) ?? [];
     this.factIterations += candidates.length;
     return candidates;
@@ -228,6 +242,12 @@ export class ProgramFactIndex {
 
   private orderedFiles(files: ReadonlySet<string>): readonly string[] {
     return this.sourceFiles.filter((file) => files.has(file));
+  }
+
+  private prepareAll(): void {
+    if (!this.prepare || this.allPrepared) return;
+    this.prepare.all();
+    this.allPrepared = true;
   }
 }
 

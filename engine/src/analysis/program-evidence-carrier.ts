@@ -31,7 +31,7 @@ type CarrierContext = {
   ts: typeof TypeScript;
   checker: TypeScript.TypeChecker;
   root: string;
-  files: readonly TypeScript.SourceFile[];
+  roots: readonly TypeScript.Node[];
   calls: readonly CallInfo[];
   symbolId: (node: TypeScript.Node) => string | null;
   moduleFor: (node: TypeScript.Node) => string | null;
@@ -87,8 +87,8 @@ export function collectProgramEvidenceCarriers(context: CarrierContext): void {
   const contextReads: ContextRead[] = [];
   const allCallsByNode = new Map(calls.map((item) => [item.node, item]));
 
-  for (const file of context.files) {
-    context.ts.forEachChild(file, (node) => collectSyntax(context, node, variables, returns, providers, contextReads));
+  for (const node of context.roots) {
+    collectSyntax(context, node, variables, returns, providers, contextReads);
   }
 
   collectJsonParseCarriers(context, calls);

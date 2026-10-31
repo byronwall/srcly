@@ -338,7 +338,7 @@ class AnchorGraphBuilder {
       (s.endLine < span.endLine || (s.endLine === span.endLine && s.endColumn <= span.endColumn)) &&
       !(s.startLine === span.startLine && s.startColumn === span.startColumn && s.endLine === span.endLine && s.endColumn === span.endColumn);
     const provider = this.tier1.provider();
-    const facts = ownFacts(this.host, file, span, provider.facts.fileCandidates(file).filter((fact) => inside(fact.location.span)));
+    const facts = ownFacts(this.host, file, span, provider.facts.fileCandidates(file, span).filter((fact) => inside(fact.location.span)));
     const runs: Run[] = [];
     if (sides.includes("up")) {
       for (const param of facts.filter((fact) => fact.kind === "parameter")) {

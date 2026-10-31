@@ -67,6 +67,7 @@ import { resolveValue } from "./value-origin";
 import { NO_ANALYSIS_CANCELLATION, type AnalysisCancellationToken } from "./cancellation";
 import { builtinLibraryModels, globalReads, tsModel, type GlobalReads, type LibraryModelRow, type LibraryModels } from "./library-models";
 import { stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
+import { DeferredMap } from "./deferred-map";
 
 export type CollectorFunctionInfo = DeclarationCatalogFunctionInfo;
 
@@ -88,6 +89,8 @@ export class ProgramEvidenceCollectorSupport {
   protected readonly root: string;
   protected readonly files: TypeScript.SourceFile[];
   protected readonly facts: CompactProgramFact[] = [];
+  protected readonly factsById = new Map<string, CompactProgramFact>();
+  protected readonly factNodes = new Map<string, TypeScript.Node>();
   protected readonly relations: ProgramRelation[] = [];
   protected readonly gaps: ProgramEvidenceGap[] = [];
   protected readonly elementKeys = new Map<string, string>();
@@ -98,15 +101,16 @@ export class ProgramEvidenceCollectorSupport {
   protected readonly symbolIds = new WeakMap<TypeScript.Node, string | null>();
   private readonly symbols = new WeakMap<TypeScript.Node, TypeScript.Symbol | null | undefined>();
   protected readonly moduleNames = new WeakMap<TypeScript.Node, string | null>();
-  protected readonly functionsByNode = new Map<string, CollectorFunctionInfo>();
-  protected readonly functionsBySymbol = new Map<string, CollectorFunctionInfo>();
+  protected readonly functionsByNode = new DeferredMap<string, CollectorFunctionInfo>();
+  protected readonly functionsBySymbol = new DeferredMap<string, CollectorFunctionInfo>();
   protected readonly functionsById = new Map<string, CollectorFunctionInfo>();
-  protected readonly parametersBySymbol = new Map<string, string>();
-  protected readonly variablesBySymbol = new Map<string, string>();
+  protected readonly parametersBySymbol = new DeferredMap<string, string>();
+  protected readonly variablesBySymbol = new DeferredMap<string, string>();
   protected readonly resourceBySymbol = new Map<string, string>();
-  protected readonly returnsByFunction = new Map<string, string[]>();
+  protected readonly returnsByFunction = new DeferredMap<string, string[]>();
   protected readonly calls: CollectorCallInfo[] = [];
   protected readonly references: CollectorReferenceInfo[] = [];
+  protected readonly referenceIds = new Set<string>();
   /** The state element of each reactive pair's getter (by symbol): its reads see the state, not the pair's pattern. */
   protected readonly stateBySymbol = new Map<string, string>();
   /** Assignments to each local variable or parameter (by symbol), with the declaration they rebind. */
@@ -286,6 +290,17 @@ export class ProgramEvidenceCollectorSupport {
     return this.files;
   }
 
+  protected bodyRoots(): readonly TypeScript.Node[] { return this.files; }
+  protected bodyCollected(_node: TypeScript.Node): boolean { return true; }
+  protected requireReferences(_node: TypeScript.Node): void {}
+  protected prepareComponentReceiver(_node: TypeScript.PropertyAccessExpression): void {}
+  protected shouldConnectCall(_call: CollectorCallInfo): boolean { return true; }
+  protected addReference(reference: CollectorReferenceInfo): void {
+    if (this.referenceIds.has(reference.id)) return;
+    this.referenceIds.add(reference.id);
+    this.references.push(reference);
+  }
+
   public releaseTransientState(): void {
     this.relationSink = null;
     releaseProgramEvidenceTransientState({
@@ -345,9 +360,9 @@ export class ProgramEvidenceCollectorSupport {
     );
   }
 
-  protected connectProgramEvidenceTransport(): void {
+  protected connectProgramEvidenceTransport(roots: readonly TypeScript.Node[] = this.files): void {
     connectProgramEvidenceTransport({
-      ts: this.ts, checker: this.checker, root: this.root, files: this.files, facts: this.facts,
+      ts: this.ts, checker: this.checker, root: this.root, roots, facts: this.facts,
       calls: this.calls, handlers: [...this.functionsById.values()], parameters: this.parametersBySymbol,
       fetches: this.httpFetches, resources: this.httpResources, responses: this.httpResponses,
       checkCancellation: () => this.checkCancellation(), symbolId: (node) => this.symbolId(node), moduleFor: (node) => this.moduleFor(node), modelFor: (node) => this.modelFor(node),
@@ -426,6 +441,8 @@ export class ProgramEvidenceCollectorSupport {
       proofKind: proofValue.kind,
       proofDetail: proofValue.detail,
     });
+    this.factsById.set(id, this.facts[this.facts.length - 1]);
+    this.factNodes.set(id, node);
     if (ownerId) {
       this.addRelation(
         ownerId,

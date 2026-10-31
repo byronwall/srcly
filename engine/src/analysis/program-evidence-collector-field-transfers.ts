@@ -19,8 +19,10 @@ import {
 
 /** Collect compiler-backed facts for exact collection and JSX field transfers. */
 export class ProgramEvidenceCollectorFieldTransferSupport extends ProgramEvidenceCollectorDirectConsumerSupport {
-  protected connectFieldTransfers(): void {
-    for (const file of this.files) {
+  protected connectFieldTransfers(roots = this.bodyRoots()): void {
+    const included = new Set(roots);
+    const contains = (node: TypeScript.Node): boolean => included.has(node) || !!node.parent && contains(node.parent);
+    for (const file of roots) {
       this.checkCancellation();
       this.visit(file, (node) => {
         if (this.ts.isCallExpression(node)) this.connectArrayFind(node);
@@ -35,7 +37,7 @@ export class ProgramEvidenceCollectorFieldTransferSupport extends ProgramEvidenc
       });
     }
     for (const owner of this.functionsById.values()) {
-      if (!owner.component) continue;
+      if (!owner.component || !contains(owner.declaration)) continue;
       this.visit(owner.declaration, (node) => {
         if (this.ts.isPropertyAccessExpression(node)) this.connectComponentFieldConsumerForOwner(node, owner.id, owner.declaration);
       });

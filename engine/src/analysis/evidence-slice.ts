@@ -425,7 +425,11 @@ export function queryEvidenceSlice(
       break;
     }
 
-    const candidates = relationsForProvider(provider, current.elementId, normalizedRequest.direction, cancellation);
+    // The existing invocation rule rejects every other call's return. Let a
+    // demand collector avoid building those callers in the first place.
+    const top = normalizedRequest.direction === "forward" && element.kind === "return" ? topCall(current.calls)[1] : undefined;
+    const returnTo = top && element.ownerId === invokedBy(top) ? top : undefined;
+    const candidates = relationsForProvider(provider, current.elementId, normalizedRequest.direction, cancellation, returnTo);
     if (candidates.length === 0 && !hasSliceRole(element, terminals)) {
       addGap({
         from: element.id,

@@ -31,6 +31,9 @@ export class ProgramEvidenceCandidateIndex {
       this.files.set(relativePath(this.root, file.fileName), file);
       this.indexFile(file);
     }
+    const roots = indexesByProgram.get(program) ?? new Map<string, ProgramEvidenceCandidateIndex>();
+    if (!roots.has(this.root)) roots.set(this.root, this);
+    indexesByProgram.set(program, roots);
   }
 
   fileFor(relative: string): TypeScript.SourceFile | undefined {
@@ -55,6 +58,26 @@ export class ProgramEvidenceCandidateIndex {
       .sort((left, right) => compareNodes(left, right));
     this.referencesBySymbol.set(symbolId, references);
     return references;
+  }
+
+  /** Whether a same-name AST candidate resolves to one of these symbols as a value read. */
+  hasRead(node: TypeScript.Node, symbols: readonly TypeScript.Symbol[] = []): boolean {
+    const targets = new Set<string>();
+    const own = this.symbolId(node);
+    if (own) targets.add(own);
+    for (const symbol of symbols) {
+      const id = compilerSymbolId(this.ts, this.checker, this.root, node, symbol);
+      if (id) targets.add(id);
+    }
+    if (targets.size === 0) return false;
+    for (const name of this.namesFor(identifierName(node))) {
+      for (const candidate of this.nodesByName.get(name) ?? []) {
+        if (candidate.getSourceFile().fileName.includes(`${path.sep}node_modules${path.sep}`)) continue;
+        if (!isValueRead(this.ts, candidate)) continue;
+        if (targets.has(this.symbolId(candidate) ?? "")) return true;
+      }
+    }
+    return false;
   }
 
   private symbolId(node: TypeScript.Node): string | null {
@@ -129,6 +152,20 @@ export class ProgramEvidenceCandidateIndex {
   }
 }
 
+const indexesByProgram = new WeakMap<TypeScript.Program, Map<string, ProgramEvidenceCandidateIndex>>();
+
+/** Share the provider's AST index with query-time fact classification. */
+export function programEvidenceCandidateIndex(
+  ts: typeof TypeScript,
+  program: TypeScript.Program,
+  root: string,
+  sourceFiles?: readonly TypeScript.SourceFile[],
+): ProgramEvidenceCandidateIndex {
+  const key = path.resolve(root);
+  const cached = indexesByProgram.get(program)?.get(key);
+  return cached ?? new ProgramEvidenceCandidateIndex(ts, program, key, sourceFiles);
+}
+
 function hasDefaultModifier(ts: typeof TypeScript, node: TypeScript.Node): boolean {
   return Boolean(ts.canHaveModifiers(node) && ts.getModifiers(node)?.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword));
 }
@@ -156,6 +193,17 @@ function identifierName(node: TypeScript.Node): string | null {
   if (TypeScript.isIdentifier(node)) return node.text;
   if (TypeScript.isStringLiteral(node) || TypeScript.isNoSubstitutionTemplateLiteral(node)) return node.text;
   return null;
+}
+
+function isValueRead(ts: typeof TypeScript, node: TypeScript.Node): boolean {
+  if (!ts.isIdentifier(node)) return false;
+  const parent = node.parent;
+  return !ts.isExportSpecifier(parent)
+    && !ts.isExportAssignment(parent)
+    && !ts.isImportSpecifier(parent)
+    && !ts.isImportClause(parent)
+    && (!(ts.isDeclarationStatement(parent) || ts.isVariableDeclaration(parent) || ts.isParameter(parent) || ts.isBindingElement(parent))
+      || (parent as { name?: TypeScript.Node }).name !== node);
 }
 
 function relativePath(root: string, file: string): string {

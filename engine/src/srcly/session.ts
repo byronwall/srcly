@@ -151,7 +151,10 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
     let totality: RouteDataTotalitySession | null = null;
     let report: AnalysisReport | null = null;
     const surfaces = new Map<string, RouteSurfaceRecord | null>();
-    const providerFor = () => (provider ??= createLazyProgramEvidenceProvider(ts, program, root));
+    const providerFor = () => {
+      if (provider?.isPoisoned) provider = null;
+      return provider ??= createLazyProgramEvidenceProvider(ts, program, root);
+    };
     const surfaceFor = (routeKey: string, cancellation?: AnalysisCancellationToken): RouteSurfaceRecord | null => {
       const known = surfaces.get(routeKey);
       if (known !== undefined) return known;
@@ -181,7 +184,7 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
       provider: providerFor,
       surface: surfaceFor,
       totality: () => {
-        if (!totality) {
+        if (!totality || provider?.isPoisoned) {
           const facts = providerFor();
           const candidates = discoverSolidRouteCandidates(root, { elements: facts.facts.elements, relations: [] });
           totality = createRouteDataTotalitySession(ts, program, root, routes, facts, candidates, []);

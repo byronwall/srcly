@@ -202,7 +202,19 @@ function libraryMember(ts: typeof TypeScript, checker: TypeScript.TypeChecker, c
  * renamed), or `fs.readFile` through a namespace or default import. Null for
  * a callee no import names.
  */
-export function importedCallee(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): { module: string; name: string } | null {
+type ImportedCallee = { module: string; name: string } | null;
+const importedCallees = new WeakMap<TypeScript.TypeChecker, WeakMap<TypeScript.Expression, ImportedCallee>>();
+
+export function importedCallee(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): ImportedCallee {
+  let cache = importedCallees.get(checker);
+  if (!cache) { cache = new WeakMap(); importedCallees.set(checker, cache); }
+  if (cache.has(callee)) return cache.get(callee)!;
+  const imported = resolveImportedCallee(ts, checker, callee);
+  cache.set(callee, imported);
+  return imported;
+}
+
+function resolveImportedCallee(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): ImportedCallee {
   const symbol = symbolAtNode(checker, callee);
   const direct = importModule(ts, checker, callee, symbol);
   if (direct) {
@@ -395,12 +407,16 @@ export function unwrap(ts: typeof TypeScript, node: TypeScript.Expression): Type
 }
 
 /** The checker's symbol at a node, or null where the checker throws; `undefined` where it has none. */
+const symbolsByChecker = new WeakMap<TypeScript.TypeChecker, WeakMap<TypeScript.Node, TypeScript.Symbol | null | undefined>>();
+
 export function symbolAtNode(checker: TypeScript.TypeChecker, node: TypeScript.Node): TypeScript.Symbol | null | undefined {
-  try {
-    return checker.getSymbolAtLocation(node);
-  } catch {
-    return null;
-  }
+  let symbols = symbolsByChecker.get(checker);
+  if (!symbols) { symbols = new WeakMap(); symbolsByChecker.set(checker, symbols); }
+  if (symbols.has(node)) return symbols.get(node);
+  let symbol: TypeScript.Symbol | null | undefined;
+  try { symbol = checker.getSymbolAtLocation(node); } catch { symbol = null; }
+  symbols.set(node, symbol);
+  return symbol;
 }
 
 // A symbol's id is a function of the symbol alone (its qualified name and
