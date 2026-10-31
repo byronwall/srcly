@@ -120,13 +120,6 @@ export class CompactRelationIndex {
   private readonly byProducerFile = new Map<string, Set<string>>();
   private readonly byContributingFile = new Map<string, Set<string>>();
   private readonly endpointRevisions = new Map<string, number>();
-  private readonly byDirection = new Map<
-    CompactRelationDirection,
-    Map<string, Set<string>>
-  >([
-    ["forward", new Map<string, Set<string>>()],
-    ["backward", new Map<string, Set<string>>()],
-  ]);
 
   constructor(descriptors: readonly CompactRelationDescriptorInput[] = []) {
     this.addMany(descriptors);
@@ -203,10 +196,10 @@ export class CompactRelationIndex {
       for (const id of ids ?? []) values.add(id);
     };
     if (direction === "forward" || direction === "both") {
-      add(this.byDirection.get("forward")?.get(elementId));
+      add(this.byFrom.get(elementId));
     }
     if (direction === "backward" || direction === "both") {
-      add(this.byDirection.get("backward")?.get(elementId));
+      add(this.byTo.get(elementId));
     }
     return values;
   }
@@ -214,8 +207,6 @@ export class CompactRelationIndex {
   private addIndexes(descriptor: CompactRelationDescriptor): void {
     addToMap(this.byFrom, descriptor.from, descriptor.descriptorId);
     addToMap(this.byTo, descriptor.to, descriptor.descriptorId);
-    addToMap(this.byDirection.get("forward")!, descriptor.from, descriptor.descriptorId);
-    addToMap(this.byDirection.get("backward")!, descriptor.to, descriptor.descriptorId);
     addToMap(this.byProducerFile, fileKey(descriptor.producerFile), descriptor.descriptorId);
     for (const file of descriptor.contributingFiles) {
       addToMap(this.byContributingFile, file, descriptor.descriptorId);
@@ -225,8 +216,6 @@ export class CompactRelationIndex {
   private removeIndexes(descriptor: CompactRelationDescriptor): void {
     removeFromMap(this.byFrom, descriptor.from, descriptor.descriptorId);
     removeFromMap(this.byTo, descriptor.to, descriptor.descriptorId);
-    removeFromMap(this.byDirection.get("forward")!, descriptor.from, descriptor.descriptorId);
-    removeFromMap(this.byDirection.get("backward")!, descriptor.to, descriptor.descriptorId);
     removeFromMap(this.byProducerFile, fileKey(descriptor.producerFile), descriptor.descriptorId);
     for (const file of descriptor.contributingFiles) {
       removeFromMap(this.byContributingFile, file, descriptor.descriptorId);
@@ -243,7 +232,7 @@ function isDescriptor(
 function freezeLocations(
   locations: readonly CompactRelationLocationToken[],
 ): readonly CompactRelationLocationToken[] {
-  return Object.freeze(locations.map((location) => Object.freeze({
+  return Object.freeze(locations.map((location) => Object.isFrozen(location) && Object.isFrozen(location.start) && Object.isFrozen(location.end) ? location : Object.freeze({
     file: location.file,
     start: Object.freeze({ ...location.start }),
     end: Object.freeze({ ...location.end }),

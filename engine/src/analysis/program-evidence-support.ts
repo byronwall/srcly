@@ -492,24 +492,30 @@ export function safeType(checker: TypeScript.TypeChecker, node: TypeScript.Node)
   return text;
 }
 
+const locationsByNode = new WeakMap<TypeScript.Node, { root: string; location: ProgramEvidenceLocation }>();
+
 export function locationFor(
   root: string,
   file: TypeScript.SourceFile,
   node: TypeScript.Node,
 ): ProgramEvidenceLocation {
+  const cached = locationsByNode.get(node);
+  if (cached?.root === root) return cached.location;
   const start = file.getLineAndCharacterOfPosition(node.getStart(file));
   const end = file.getLineAndCharacterOfPosition(node.getEnd());
-  return {
+  const location = Object.freeze({
     file: relative(root, file.fileName),
     line: start.line + 1,
     column: start.character + 1,
-    span: {
+    span: Object.freeze({
       startLine: start.line + 1,
       startColumn: start.character + 1,
       endLine: end.line + 1,
       endColumn: end.character + 1,
-    },
-  };
+    }),
+  });
+  locationsByNode.set(node, { root, location });
+  return location;
 }
 
 export function nodeKey(root: string, node: TypeScript.Node) {
@@ -614,8 +620,19 @@ export function proof(kind: ProgramProofKind, detail: string, locations: Program
 }
 
 export function stableId(prefix: string, fields: unknown[]) {
+  return hashId(prefix, fields.map(stableSerialize).join("|"));
+}
+
+/** The relation schema has a fixed field order; avoid sorting each location again. */
+export function stableRelationId(from: string, to: string, kind: string, locations: readonly ProgramEvidenceLocation[], proofKind: string, detail: string): string {
+  const evidence = locations.map(({ file, line, column, span }) =>
+    `{column:${column},file:${file},line:${line},span:{endColumn:${span.endColumn},endLine:${span.endLine},startColumn:${span.startColumn},startLine:${span.startLine}}}`,
+  ).join(",");
+  return hashId("program-relation", `${from}|${to}|${kind}|[${evidence}]|${proofKind}|${detail}`);
+}
+
+function hashId(prefix: string, value: string): string {
   let hash = 2166136261;
-  const value = fields.map(stableSerialize).join("|");
   for (let index = 0; index < value.length; index += 1) {
     hash ^= value.charCodeAt(index);
     hash = Math.imul(hash, 16777619);
@@ -627,9 +644,10 @@ export function stableSerialize(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (Array.isArray(value)) return `[${value.map(stableSerialize).join(",")}]`;
   if (typeof value === "object") {
-    return `{${Object.entries(value as Record<string, unknown>)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, item]) => `${key}:${stableSerialize(item)}`)
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort((left, right) => left.localeCompare(right))
+      .map((key) => `${key}:${stableSerialize(record[key])}`)
       .join(",")}}`;
   }
   return String(value);

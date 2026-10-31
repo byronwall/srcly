@@ -43,6 +43,7 @@ export class ProgramFactIndex {
   private readonly filesByKind = new Map<ProgramElementKind, Set<string>>();
   private readonly relationSourceRevisionCache = new Map<string, { factCount: number; revision: number }>();
   private readonly hydratedById = new Map<string, ProgramElement>();
+  private readonly priorities = new Map<string, Map<SliceDirection, number>>();
   private readonly hydrator: ProgramFactHydrator;
   private hydrationCount = 0;
   private hydrationTimeMs = 0;
@@ -226,6 +227,10 @@ export class ProgramFactIndex {
   priorityFor(elementId: string, direction: SliceDirection = "forward"): number {
     const element = this.factsById.get(elementId);
     if (!element) return 0;
+    let cached = this.priorities.get(elementId);
+    if (!cached) this.priorities.set(elementId, cached = new Map());
+    const known = cached.get(direction);
+    if (known !== undefined) return known;
     const roles = rolesFor(element);
     const hasOrigin = roles.some((role) => ORIGIN_ROLES.has(role));
     const hasTerminal = roles.some((role) => TERMINAL_ROLES.has(role));
@@ -237,7 +242,9 @@ export class ProgramFactIndex {
       : 0;
     const boundaryWeight = boundaryFor(element) ? 2_000 : 0;
     const kindWeight = element.kind === "source-file" ? 100 : element.kind.endsWith("-entry") ? 80 : 0;
-    return Math.max(originWeight, terminalWeight, boundaryWeight) + kindWeight;
+    const priority = Math.max(originWeight, terminalWeight, boundaryWeight) + kindWeight;
+    cached.set(direction, priority);
+    return priority;
   }
 
   stablePriority(elementId: string, direction: SliceDirection = "forward"): number {

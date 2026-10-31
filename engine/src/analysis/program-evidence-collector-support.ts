@@ -60,6 +60,7 @@ import {
   relative,
   proof,
   stableId,
+  stableRelationId,
   stableSerialize,
   symbolAtNode,
 } from "./program-evidence-support";
@@ -472,7 +473,7 @@ export class ProgramEvidenceCollectorSupport {
     if (instrumented) this.collectionStats.relation.candidateCalls += 1;
     if (this.relationsDiscarded) {
       if (this.declarationRelationCaptureEnabled && from && to && from !== to) {
-        const id = stableId("program-relation", [from, to, kind, locations, proofValue.kind, proofValue.detail]);
+        const id = stableRelationId(from, to, kind, locations, proofValue.kind, proofValue.detail);
         this.declarationRelationDescriptors.push({
           id,
           from,
@@ -494,14 +495,7 @@ export class ProgramEvidenceCollectorSupport {
       this.collectionStats.relation.proofLocationCount += proofValue.locations.length;
     }
     const stableIdStarted = instrumented ? performance.now() : 0;
-    const id = stableId("program-relation", [
-      from,
-      to,
-      kind,
-      locations,
-      proofValue.kind,
-      proofValue.detail,
-    ]);
+    const id = stableRelationId(from, to, kind, locations, proofValue.kind, proofValue.detail);
     if (instrumented) {
       this.collectionStats.relation.relationIdCalls += 1;
       this.collectionStats.relation.relationIdElapsedMs += performance.now() - stableIdStarted;

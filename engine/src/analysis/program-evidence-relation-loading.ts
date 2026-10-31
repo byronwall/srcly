@@ -184,18 +184,25 @@ export function relationIndexSink(index: CompactRelationIndex): RelationSink {
   };
 }
 
+const compactLocations = new WeakMap<ProgramEvidenceLocation, CompactRelationLocationToken>();
+
 function compactLocation(location: ProgramEvidenceLocation): CompactRelationLocationToken {
-  return {
+  const immutable = Object.isFrozen(location) && Object.isFrozen(location.span);
+  const cached = immutable ? compactLocations.get(location) : undefined;
+  if (cached) return cached;
+  const compact = Object.freeze({
     file: location.file,
-    start: {
+    start: Object.freeze({
       line: location.span.startLine,
       column: location.span.startColumn,
-    },
-    end: {
+    }),
+    end: Object.freeze({
       line: location.span.endLine,
       column: location.span.endColumn,
-    },
-  };
+    }),
+  });
+  if (immutable) compactLocations.set(location, compact);
+  return compact;
 }
 
 function expandLocation(location: CompactRelationLocationToken): ProgramEvidenceLocation {

@@ -77,6 +77,8 @@ export function connectProgramEvidenceTransport(context: ProgramEvidenceTranspor
     location: context.location,
     addRelation: context.addRelation,
   });
+  // A bridge needs all three endpoints; avoid hydrating the catalog without them.
+  if (!context.fetches.length || !context.resources.length || !context.responses.length) return;
   connectProgramHttpBridges({
     checkCancellation: context.checkCancellation,
     root: context.root,

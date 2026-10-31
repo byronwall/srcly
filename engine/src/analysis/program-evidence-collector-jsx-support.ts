@@ -405,7 +405,12 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   protected connectCalls(): void {
     this.connectContexts();
     this.connectStores();
-    const props = this.componentPropBindings;
+    const props = new Map<string, PendingComponentPropBinding[]>();
+    for (const prop of this.componentPropBindings) {
+      const bindings = props.get(prop.target.id) ?? [];
+      bindings.push(prop);
+      props.set(prop.target.id, bindings);
+    }
     this.connectComponentPropBindings();
     this.connectFieldTransfers();
     for (const named of this.calls) {
@@ -515,7 +520,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
    * function was handed in, and the slice follows it only from that call or
    * occurrence (`evidence-slice.ts`), so two callers' handlers never cross.
    */
-  private connectBoundHandlers(call: CollectorCallInfo, props: readonly PendingComponentPropBinding[]): void {
+  private connectBoundHandlers(call: CollectorCallInfo, props: ReadonlyMap<string, readonly PendingComponentPropBinding[]>): void {
     if (!this.ts.isCallExpression(call.node)) return;
     const node = call.node;
     const slot = this.handlerSlot(node.expression);
@@ -524,7 +529,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       ? [...this.contextMethod(node.expression), ...this.storeMethod(node.expression)].map((value) => ({ value, paired: false }))
       : typeof slot.index === "number"
         ? this.calls.flatMap((outer) => outer.target?.id === slot.owner.id && this.ts.isCallExpression(outer.node) && outer.node.arguments[slot.index as number] ? [{ value: outer.node.arguments[slot.index as number], paired: true }] : [])
-        : props.flatMap((pending) => {
+        : (props.get(slot.owner.id) ?? []).flatMap((pending) => {
           const value = pending.attribute.initializer && this.ts.isJsxExpression(pending.attribute.initializer) ? pending.attribute.initializer.expression : undefined;
           return pending.target.id === slot.owner.id && pending.attribute.name.getText() === slot.index && value ? [{ value, paired: true }] : [];
         });

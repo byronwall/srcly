@@ -361,8 +361,14 @@ export function seedFor(tier1: BaseTier1, file: string, span: Span): string | nu
   return null;
 }
 
+const nodesBySpan = new WeakMap<TypeScript.SourceFile, Map<string, TypeScript.Node | null>>();
+
 /** The node whose span is exactly `span` (the outermost one when several share it). */
 export function nodeAtSpan(ts: typeof TypeScript, sourceFile: TypeScript.SourceFile, span: Span): TypeScript.Node | null {
+  let cached = nodesBySpan.get(sourceFile);
+  if (!cached) nodesBySpan.set(sourceFile, cached = new Map());
+  const key = `${span.startLine}:${span.startColumn}:${span.endLine}:${span.endColumn}`;
+  if (cached.has(key)) return cached.get(key)!;
   let found: TypeScript.Node | null = null;
   const start = sourceFile.getPositionOfLineAndCharacter(span.startLine - 1, span.startColumn - 1);
   const visit = (node: TypeScript.Node) => {
@@ -376,6 +382,7 @@ export function nodeAtSpan(ts: typeof TypeScript, sourceFile: TypeScript.SourceF
     if (node.getStart(sourceFile) <= start && start < node.getEnd()) ts.forEachChild(node, visit);
   };
   ts.forEachChild(sourceFile, visit);
+  cached.set(key, found);
   return found;
 }
 
