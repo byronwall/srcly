@@ -13,3 +13,5 @@
 - Bootstrap: `scripts/bootstrap.sh` failed because the sandbox could not resolve registry.npmjs.org. The local CLI run used the main checkout's Python environment with this checkout's source. Cache writes were blocked by the sandbox.
 - 2026-10-31 00:23 EDT: Pro completed. Downloaded `srcly-cli-audit-aa56155.zip`, checked paths and symlinks before extraction, and preserved all five files under `docs/intent/agent-reporting/assets/pro-results/2026-10-31/`. Original files match the extracted inventory; both JSON companions parse. ZIP remains in ignored `tmp/pro/agent-reporting/`.
 - Phase: integrated; primary source claims checked locally. The concise plan and grouped dispositions distinguish the selected work from hypotheses. Follow-ups: 0. Preparing PR.
+- PR: https://github.com/byronwall/srcly/pull/311. Body and original artifact inventory verified. `git diff --check` passed; pre-push selected no checks for docs-only changes. No full application suite run.
+- Phase: complete, pending review; heartbeat scheduled for deletion after final record push. No merge requested.
