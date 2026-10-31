@@ -1,0 +1,1951 @@
+{
+  "schema": "srcly.audit.proposed-contract-cases.v1",
+  "baseline_commit": "aa56155c9268ce9da3a54180cb6a77ae6635d190",
+  "status": "proposal_not_implemented",
+  "artifact_kind": "data_only_contract_fixtures",
+  "execution_status": "not_executed",
+  "provenance": "All inputs are small synthetic data facts. Current behavior is derived from pinned source and elementary arithmetic, not observed by running Srcly. No downloaded repository artifact was executed. Expected fields propose a future contract and are not claims about shipped output. SHA-256 values were calculated only for the explicitly supplied fixture bytes.",
+  "normalization_note": "Unless a case says otherwise, unlisted profile metrics are null and the path multiplier is 1. No actual repository scan measurements are invented.",
+  "case_count": 25,
+  "cases": [
+    {
+      "id": "FX-001",
+      "title": "Adding an unrelated extreme peer changes both composite severity and order",
+      "input": {
+        "profile": "general",
+        "path_multiplier": 1,
+        "all_other_weighted_metrics": null,
+        "before": [
+          {
+            "id": "A",
+            "complexity": 10,
+            "loc": 100
+          },
+          {
+            "id": "B",
+            "complexity": 20,
+            "loc": 50
+          }
+        ],
+        "after_added_peer": {
+          "id": "C",
+          "complexity": 200,
+          "loc": 100
+        },
+        "weights_used": {
+          "complexity": 1.5,
+          "loc": 1.1
+        }
+      },
+      "current_source_derived": {
+        "before_maxima": {
+          "complexity": 20,
+          "loc": 100
+        },
+        "before_scores": {
+          "A": 0.7115,
+          "B": 0.7885
+        },
+        "before_priorities": {
+          "A": "high",
+          "B": "high"
+        },
+        "before_order": [
+          "B",
+          "A"
+        ],
+        "after_maxima": {
+          "complexity": 200,
+          "loc": 100
+        },
+        "after_scores": {
+          "A": 0.4519,
+          "B": 0.2692,
+          "C": 1
+        },
+        "after_priorities": {
+          "A": "medium",
+          "B": "low",
+          "C": "high"
+        },
+        "after_order": [
+          "C",
+          "A",
+          "B"
+        ],
+        "calculation": "A before=(1.5*(10/20)+1.1*(100/100))/2.6=37/52; A after=47/104. B before=41/52; B after=7/26. A and B source observations are unchanged."
+      },
+      "proposed_expected": {
+        "complexity_lane_order_before": [
+          "B",
+          "A"
+        ],
+        "complexity_lane_order_after": [
+          "C",
+          "B",
+          "A"
+        ],
+        "unchanged_observations": {
+          "A": 10,
+          "B": 20
+        },
+        "quality_severity_from_relative_rank": null,
+        "compare_raw_delta_for_A": 0,
+        "compare_raw_delta_for_B": 0,
+        "rule": "A newly observed peer may change a displayed rank, but cannot turn unchanged measurements into an improvement, defect finding, or changed absolute threshold decision."
+      },
+      "sources": [
+        {
+          "path": "server/app/services/reporting.py",
+          "symbol": "rank_nodes",
+          "lines": [
+            280,
+            355
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py#L280-L355"
+        },
+        {
+          "path": "server/app/services/reporting.py",
+          "symbol": "_priority_for_score",
+          "lines": [
+            765,
+            770
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py#L765-L770"
+        },
+        {
+          "path": "server/app/services/metric_catalog.py",
+          "symbol": "METRICS weights",
+          "lines": [
+            135,
+            151
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/metric_catalog.py#L135-L151"
+        }
+      ]
+    },
+    {
+      "id": "FX-002",
+      "title": "Measured zero affects the composite denominator but is absent from serialized evidence",
+      "input": {
+        "profile": "general",
+        "path_multiplier": 1,
+        "all_other_weighted_metrics": null,
+        "peer": {
+          "id": "P",
+          "complexity": 10,
+          "loc": 100
+        },
+        "variants": [
+          {
+            "id": "zero",
+            "complexity": 0,
+            "loc": 100
+          },
+          {
+            "id": "missing",
+            "complexity": null,
+            "loc": 100
+          }
+        ]
+      },
+      "current_source_derived": {
+        "scores": {
+          "zero": 0.4231,
+          "missing": 1
+        },
+        "exact_scores": {
+          "zero": "11/26",
+          "missing": "1"
+        },
+        "denominator_weights": {
+          "zero": 2.6,
+          "missing": 1.1
+        },
+        "serialized_metrics": {
+          "zero": {
+            "loc": 100
+          },
+          "missing": {
+            "loc": 100
+          }
+        },
+        "reason": "rank_nodes includes the measured zero's weight; _metrics_subset tests truthiness and drops zero and null alike."
+      },
+      "proposed_expected": {
+        "cells": {
+          "zero": {
+            "value": 0,
+            "status": "measured"
+          },
+          "missing": {
+            "value": null,
+            "status": "unsupported"
+          }
+        },
+        "missing_reason_required": true,
+        "serialized_zero_preserved": true,
+        "weighted_composite": null,
+        "rule": "A consumer can distinguish clean measurement from absent evidence without recomputing an undocumented denominator."
+      },
+      "sources": [
+        {
+          "path": "server/app/services/reporting.py",
+          "symbol": "rank_nodes",
+          "lines": [
+            291,
+            328
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py#L291-L328"
+        },
+        {
+          "path": "server/app/services/reporting.py",
+          "symbol": "_metrics_subset",
+          "lines": [
+            732,
+            738
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py#L732-L738"
+        }
+      ]
+    },
+    {
+      "id": "FX-003",
+      "title": "A documentation-only cohort produces a maximum score even for a one-line file",
+      "input": {
+        "profile": "general",
+        "path_multiplier": 1,
+        "all_other_weighted_metrics": null,
+        "independent_snapshots": [
+          {
+            "id": "small-doc",
+            "files": [
+              {
+                "path": "README.md",
+                "loc": 1
+              }
+            ]
+          },
+          {
+            "id": "larger-doc",
+            "files": [
+              {
+                "path": "README.md",
+                "loc": 100
+              }
+            ]
+          }
+        ]
+      },
+      "current_source_derived": {
+        "scores": {
+          "small-doc": 1,
+          "larger-doc": 1
+        },
+        "priorities": {
+          "small-doc": "high",
+          "larger-doc": "high"
+        },
+        "denominator_weight": 1.1,
+        "derivation": "Each cohort's only measured weighted metric is LOC and its only file is its own maximum."
+      },
+      "proposed_expected": {
+        "category": "documentation",
+        "default_production_tooling_task_count": 0,
+        "retained_inventory_file_count": 1,
+        "quality_severity": null,
+        "rule": "Documentation remains inspectable and can have a selected documentation lens; relative size alone does not establish a source-code defect."
+      },
+      "sources": [
+        {
+          "path": "server/app/services/reporting.py",
+          "symbol": "rank_nodes",
+          "lines": [
+            295,
+            355
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py#L295-L355"
+        },
+        {
+          "path": "server/app/services/reporting.py",
+          "symbol": "build_findings",
+          "lines": [
+            358,
+            395
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py#L358-L395"
+        },
+        {
+          "path": "server/app/services/metric_catalog.py",
+          "symbol": "loc",
+          "lines": [
+            147,
+            151
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/metric_catalog.py#L147-L151"
+        }
+      ]
+    },
+    {
+      "id": "FX-004",
+      "title": "An all-zero measured cohort has no actionable metric task",
+      "input": {
+        "profile": "docs",
+        "nodes": [
+          {
+            "path": "a.md",
+            "loc": 0,
+            "md_data_url_count": 0
+          },
+          {
+            "path": "b.md",
+            "loc": 0,
+            "md_data_url_count": 0
+          }
+        ],
+        "selected_metric": "md_data_url_count",
+        "all_other_metrics": null,
+        "limit": 10
+      },
+      "current_source_derived": {
+        "rank_by_metric_values": [
+          0,
+          0
+        ],
+        "rank_by_metric_scores": [
+          0,
+          0
+        ],
+        "profile_scores": [
+          0,
+          0
+        ],
+        "build_findings_count": 2,
+        "build_findings_priority": "low",
+        "build_findings_category": "size",
+        "derivation": "The profile denominator is nonzero even when every observation is zero; build_findings does not apply a minimum signal gate."
+      },
+      "proposed_expected": {
+        "measured_count": 2,
+        "observed_zero_count": 2,
+        "unsupported_count": 0,
+        "metric_task_queue": [],
+        "queue_empty_reason": "No selected inspection threshold was met",
+        "metric_inventory_values": [
+          0,
+          0
+        ]
+      },
+      "sources": [
+        {
+          "path": "server/app/services/reporting.py",
+          "symbol": "rank_by_metric",
+          "lines": [
+            245,
+            277
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py#L245-L277"
+        },
+        {
+          "path": "server/app/services/reporting.py",
+          "symbol": "rank_nodes/build_findings",
+          "lines": [
+            306,
+            395
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py#L306-L395"
+        },
+        {
+          "path": "server/app/services/reporting.py",
+          "symbol": "_category_for_metrics",
+          "lines": [
+            751,
+            762
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py#L751-L762"
+        }
+      ]
+    },
+    {
+      "id": "FX-005",
+      "title": "Rounding before sorting conceals a true raw order",
+      "input": {
+        "profile": "general",
+        "all_other_weighted_metrics": null,
+        "path_multiplier": 1,
+        "traversal_order": [
+          {
+            "path": "a.py",
+            "loc": 20000
+          },
+          {
+            "path": "b.py",
+            "loc": 20001
+          }
+        ]
+      },
+      "current_source_derived": {
+        "exact_scores": {
+          "a.py": "20000/20001",
+          "b.py": "1"
+        },
+        "emitted_scores": {
+          "a.py": 1,
+          "b.py": 1
+        },
+        "order": [
+          "a.py",
+          "b.py"
+        ],
+        "basis": "Rounded scores are the sole sort key, so stable sorting retains the supplied traversal order. Ordinary scan traversal is already sorted; this is a precision/tie policy defect, not a claim of routine run-to-run nondeterminism."
+      },
+      "proposed_expected": {
+        "loc_lane_order": [
+          "b.py",
+          "a.py"
+        ],
+        "ordering_key": [
+          "raw metric descending",
+          "repository-relative path bytes ascending",
+          "start byte ascending",
+          "end byte ascending",
+          "node kind ascending"
+        ],
+        "round_only_for_display": true
+      },
+      "sources": [
+        {
+          "path": "server/app/services/reporting.py",
+          "symbol": "rank_nodes",
+          "lines": [
+            328,
+            355
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py#L328-L355"
+        },
+        {
+          "path": "server/app/services/reporting.py",
+          "symbol": "rank_by_metric",
+          "lines": [
+            250,
+            257
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py#L250-L257"
+        },
+        {
+          "path": "server/app/services/analysis.py",
+          "symbol": "_scan_codebase deterministic result order",
+          "lines": [
+            1153,
+            1155
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis.py#L1153-L1155"
+        }
+      ]
+    },
+    {
+      "id": "FX-006",
+      "title": "Equal maximum witnesses have a declared canonical tie rule",
+      "input": {
+        "file": "a.ts",
+        "same_maximum": 20,
+        "synthetic_scope_input_orders": [
+          [
+            {
+              "name": "late",
+              "start_line": 20,
+              "start_byte": 200,
+              "end_byte": 250,
+              "complexity": 20
+            },
+            {
+              "name": "early",
+              "start_line": 5,
+              "start_byte": 40,
+              "end_byte": 90,
+              "complexity": 20
+            }
+          ],
+          [
+            {
+              "name": "early",
+              "start_line": 5,
+              "start_byte": 40,
+              "end_byte": 90,
+              "complexity": 20
+            },
+            {
+              "name": "late",
+              "start_line": 20,
+              "start_byte": 200,
+              "end_byte": 250,
+              "complexity": 20
+            }
+          ]
+        ]
+      },
+      "current_source_derived": {
+        "selected_names_by_input_order": [
+          "late",
+          "early"
+        ],
+        "rule": "Strict greater-than chooses the first maximum in depth-first input order; the normal analyzer provides source order."
+      },
+      "proposed_expected": {
+        "maximum": 20,
+        "selected_name_in_both_orders": "early",
+        "selected_span_bytes": [
+          40,
+          90
+        ],
+        "tie_count": 2,
+        "tie_rule": "repository-relative path bytes, then start byte, end byte, and node kind",
+        "semantic_warning": "A maximum's witness is one of the maxima, not proof that it is the unique source of difficulty."
+      },
+      "sources": [
+        {
+          "path": "server/app/services/analysis.py",
+          "symbol": "_most_complex_function",
+          "lines": [
+            263,
+            273
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis.py#L263-L273"
+        },
+        {
+          "path": "server/app/services/analysis.py",
+          "symbol": "aggregate_metrics witness selection",
+          "lines": [
+            875,
+            888
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis.py#L875-L888"
+        }
+      ]
+    },
+    {
+      "id": "FX-007",
+      "title": "Unweighted means in compare can reverse the direction of the function-weighted mean",
+      "input": {
+        "metric": "complexity_avg",
+        "before": [
+          {
+            "path": "a.py",
+            "function_count": 100,
+            "complexity_avg": 1
+          },
+          {
+            "path": "b.py",
+            "function_count": 1,
+            "complexity_avg": 10
+          }
+        ],
+        "after": [
+          {
+            "path": "a.py",
+            "function_count": 100,
+            "complexity_avg": 2
+          },
+          {
+            "path": "b.py",
+            "function_count": 1,
+            "complexity_avg": 1
+          }
+        ]
+      },
+      "current_source_derived": {
+        "tree_aggregate_before_exact": "110/101",
+        "tree_aggregate_after_exact": "201/101",
+        "tree_aggregate_before_rounded4": 1.0891,
+        "tree_aggregate_after_rounded4": 1.9901,
+        "compare_total_before": 5.5,
+        "compare_total_after": 1.5,
+        "compare_delta": -4,
+        "compare_verdict": "better",
+        "basis": "The tree weights by executable function count, but compare _total takes a simple mean of file means."
+      },
+      "proposed_expected": {
+        "matched_file_count": 2,
+        "matched_function_count_before": 101,
+        "matched_function_count_after": 101,
+        "weighted_mean_before_exact": "110/101",
+        "weighted_mean_after_exact": "201/101",
+        "delta_exact": "91/101",
+        "direction": "increased",
+        "quality_verdict": null,
+        "rule": "Use catalog-declared sufficient statistics (sum and count), state population changes, and describe metric direction separately from behavior quality."
+      },
+      "sources": [
+        {
+          "path": "server/app/services/analysis.py",
+          "symbol": "aggregate_metrics",
+          "lines": [
+            863,
+            873
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis.py#L863-L873"
+        },
+        {
+          "path": "server/app/services/metric_catalog.py",
+          "symbol": "complexity_avg",
+          "lines": [
+            142,
+            145
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/metric_catalog.py#L142-L145"
+        },
+        {
+          "path": "server/app/services/compare/diff.py",
+          "symbol": "_total",
+          "lines": [
+            160,
+            167
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/compare/diff.py#L160-L167"
+        },
+        {
+          "path": "server/app/services/compare/diff.py",
+          "symbol": "_summary",
+          "lines": [
+            252,
+            278
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/compare/diff.py#L252-L278"
+        }
+      ]
+    },
+    {
+      "id": "FX-008",
+      "title": "Complete loss of measurement must not become an improvement",
+      "input": {
+        "status": "modified",
+        "path": "a.py",
+        "metric": "complexity",
+        "before": {
+          "value": 20,
+          "analysis_status": "ok"
+        },
+        "after": {
+          "value": null,
+          "analysis_status": "error"
+        }
+      },
+      "current_source_derived": {
+        "per_file_metric_delta_absent": true,
+        "summary": {
+          "before": 20,
+          "after": null,
+          "delta": -20,
+          "verdict": "better"
+        },
+        "basis": "The per-file guard skips an incomparable metric, but max/mean summary verdicts substitute zero for a missing total."
+      },
+      "proposed_expected": {
+        "comparison_status": "not-comparable",
+        "before": 20,
+        "after": null,
+        "delta": null,
+        "quality_verdict": null,
+        "coverage": {
+          "before_measured": 1,
+          "after_measured": 0,
+          "after_failed": 1
+        },
+        "reason": "measurement_unavailable_after"
+      },
+      "sources": [
+        {
+          "path": "server/app/services/compare/diff.py",
+          "symbol": "diff_sides per-file null guard",
+          "lines": [
+            193,
+            205
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/compare/diff.py#L193-L205"
+        },
+        {
+          "path": "server/app/services/compare/diff.py",
+          "symbol": "_summary",
+          "lines": [
+            252,
+            278
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/compare/diff.py#L252-L278"
+        }
+      ]
+    },
+    {
+      "id": "FX-009",
+      "title": "Losing only the maximum observation still produces an apparent improvement",
+      "input": {
+        "metric": "complexity",
+        "before": [
+          {
+            "path": "a.py",
+            "value": 20,
+            "status": "observed"
+          },
+          {
+            "path": "b.py",
+            "value": 10,
+            "status": "observed"
+          }
+        ],
+        "after": [
+          {
+            "path": "a.py",
+            "value": null,
+            "status": "failed"
+          },
+          {
+            "path": "b.py",
+            "value": 10,
+            "status": "observed"
+          }
+        ]
+      },
+      "current_source_derived": {
+        "summary": {
+          "before": 20,
+          "after": 10,
+          "delta": -10,
+          "verdict": "better"
+        },
+        "measured_file_counts": {
+          "before": 2,
+          "after": 1
+        }
+      },
+      "proposed_expected": {
+        "whole_population_comparison_status": "coverage_changed",
+        "whole_population_delta": null,
+        "matched_population": {
+          "files": [
+            "b.py"
+          ],
+          "before_max": 10,
+          "after_max": 10,
+          "delta": 0
+        },
+        "coverage_loss": [
+          "a.py"
+        ],
+        "quality_verdict": null
+      },
+      "sources": [
+        {
+          "path": "server/app/services/compare/diff.py",
+          "symbol": "_summary independently selected observed cohorts",
+          "lines": [
+            252,
+            278
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/compare/diff.py#L252-L278"
+        }
+      ]
+    },
+    {
+      "id": "FX-010",
+      "title": "Recovered parse observations carry partial coverage",
+      "input": {
+        "file": "broken.ts",
+        "parser_result": {
+          "root_has_error": true,
+          "error_byte_ranges": [
+            [
+              5,
+              6
+            ]
+          ],
+          "missing_node_ranges": []
+        },
+        "observed_scope": {
+          "name": "f",
+          "complexity": 2
+        },
+        "note": "A synthetic parser-result contract, not a claim that these bytes were parsed during the audit."
+      },
+      "current_source_derived": {
+        "main_analyzer_checks_root_has_error": false,
+        "result_attached_as_analysis_status": "ok",
+        "conditional_observation": "If the parser returns recovered nodes rather than throwing, the main traversal has no recovery-state branch."
+      },
+      "proposed_expected": {
+        "analysis_status": "partial",
+        "parse_recovered": true,
+        "error_byte_ranges": [
+          [
+            5,
+            6
+          ]
+        ],
+        "complexity": {
+          "value": 2,
+          "status": "partial"
+        },
+        "complete_measurement_count": 0,
+        "partial_measurement_count": 1,
+        "clean_or_safe_claim_allowed": false
+      },
+      "sources": [
+        {
+          "path": "server/app/services/typescript/typescript_analysis.py",
+          "symbol": "TreeSitterAnalyzer.analyze_file",
+          "lines": [
+            57,
+            132
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/typescript/typescript_analysis.py#L57-L132"
+        },
+        {
+          "path": "server/app/services/python/python_analysis.py",
+          "symbol": "analyze_file",
+          "lines": [
+            63,
+            128
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/python/python_analysis.py#L63-L128"
+        },
+        {
+          "path": "server/app/services/analysis.py",
+          "symbol": "attach_file_metrics",
+          "lines": [
+            185,
+            260
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis.py#L185-L260"
+        },
+        {
+          "path": "server/app/models.py",
+          "symbol": "Metrics.analysis_status",
+          "lines": [
+            97,
+            104
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/models.py#L97-L104"
+        }
+      ]
+    },
+    {
+      "id": "FX-011",
+      "title": "Same size and mtime with different bytes invalidates content identity",
+      "input": {
+        "path": "a.py",
+        "mtime_ns_before": 123000,
+        "mtime_ns_after": 123000,
+        "size_bytes_before": 4,
+        "size_bytes_after": 4,
+        "installed_srcly_version": "1.8.0",
+        "cache_format": 3,
+        "before_bytes_hex": "783d310a",
+        "after_bytes_hex": "783d320a"
+      },
+      "current_source_derived": {
+        "fingerprint_equal": true,
+        "basis": "The fingerprint includes version, format, path, mtime_ns and size, not these content bytes."
+      },
+      "proposed_expected": {
+        "before_sha256": "98752ee28d5484bdc2814fb70adb6a0b2fb31f6a9b8ee7ae81fd2fc9cf300b3b",
+        "after_sha256": "7b519d327803fabd4c74e1b993360e8d48b414771a12d0a868d6edf7cfec50bb",
+        "snapshot_content_identity_equal": false,
+        "reuse_previous_metric_payload": false,
+        "rule": "Stat metadata can be a cache hint; evidence reuse is bound to exact source bytes and analyzer/config identities."
+      },
+      "sources": [
+        {
+          "path": "server/app/services/cache.py",
+          "symbol": "fingerprint",
+          "lines": [
+            90,
+            127
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/cache.py#L90-L127"
+        }
+      ]
+    },
+    {
+      "id": "FX-012",
+      "title": "Folder projection must follow descendant work instead of a fabricated zero score",
+      "input": {
+        "root": {
+          "path": "",
+          "children": [
+            {
+              "path": "large",
+              "type": "folder",
+              "loc": 100000,
+              "children": [
+                {
+                  "path": "large/a.py",
+                  "type": "file",
+                  "loc": 100000
+                }
+              ]
+            },
+            {
+              "path": "urgent",
+              "type": "folder",
+              "loc": 10,
+              "children": [
+                {
+                  "path": "urgent/b.py",
+                  "type": "file",
+                  "loc": 10
+                }
+              ]
+            }
+          ]
+        },
+        "ranked_files": [
+          {
+            "path": "urgent/b.py",
+            "score": 0.9,
+            "start_line": 0,
+            "end_line": 0,
+            "node_type": "file"
+          },
+          {
+            "path": "large/a.py",
+            "score": 0.1,
+            "start_line": 0,
+            "end_line": 0,
+            "node_type": "file"
+          }
+        ],
+        "tree_top": 1
+      },
+      "current_source_derived": {
+        "folder_hotspot_scores": {
+          "large": 0,
+          "urgent": 0
+        },
+        "root_visible_children": [
+          "large"
+        ],
+        "basis": "Only files are in the score map; folder scores default to zero and then LOC breaks their tie."
+      },
+      "proposed_expected": {
+        "folder_quality_score": null,
+        "folder_summaries": {
+          "large": {
+            "descendant_task_count": 1,
+            "best_task_id": "task-a"
+          },
+          "urgent": {
+            "descendant_task_count": 1,
+            "best_task_id": "task-b"
+          }
+        },
+        "root_visible_children": [
+          "urgent"
+        ],
+        "omitted_child_count": 1,
+        "ordering_rule": "A folder query projects the same bounded task ordering as its descendants; it does not create another health score."
+      },
+      "sources": [
+        {
+          "path": "server/app/services/reporting.py",
+          "symbol": "build_report_payload file cohort",
+          "lines": [
+            79,
+            97
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py#L79-L97"
+        },
+        {
+          "path": "server/app/services/reporting.py",
+          "symbol": "summarize_tree",
+          "lines": [
+            398,
+            441
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py#L398-L441"
+        }
+      ]
+    },
+    {
+      "id": "FX-013",
+      "title": "A capped fallback line count is a lower bound",
+      "input": {
+        "file": "large.py",
+        "data_unit_hex": "6c696e650a",
+        "repeat_count": 100,
+        "total_bytes": 500,
+        "fallback_read_cap_bytes": 50,
+        "analysis_size_cap_bytes": 200
+      },
+      "current_source_derived": {
+        "fallback_loc": 10,
+        "full_nonblank_lines_by_fixture_construction": 100,
+        "serialized_bound_indicator": null,
+        "analysis_status": "too_large",
+        "analysis_failed_count": 0,
+        "basis": "The current fallback stops at the byte budget but returns an ordinary integer; too_large is intentionally not a failure."
+      },
+      "proposed_expected": {
+        "loc": {
+          "value": 10,
+          "status": "partial",
+          "bound": "lower",
+          "basis": "nonblank physical lines"
+        },
+        "bytes_read": 50,
+        "total_bytes": 500,
+        "analysis_status": "too-large",
+        "reason": "size_limit",
+        "coverage": {
+          "complete": 0,
+          "partial": 1,
+          "skipped_full_analysis": 1
+        },
+        "exact_total_loc_claim_allowed": false
+      },
+      "sources": [
+        {
+          "path": "server/app/services/analysis.py",
+          "symbol": "count_fallback_loc",
+          "lines": [
+            993,
+            1007
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis.py#L993-L1007"
+        },
+        {
+          "path": "server/app/services/analysis.py",
+          "symbol": "attach_fallback_metrics",
+          "lines": [
+            1037,
+            1049
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis.py#L1037-L1049"
+        },
+        {
+          "path": "server/tests/test_large_and_unparsed_files.py",
+          "symbol": "test_count_fallback_loc_streams_up_to_byte_limit",
+          "lines": [
+            119,
+            124
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_large_and_unparsed_files.py#L119-L124"
+        }
+      ]
+    },
+    {
+      "id": "FX-014",
+      "title": "An unreadable file is different from a measured empty file",
+      "input": {
+        "variants": [
+          {
+            "path": "unreadable.py",
+            "read_result": "OSError",
+            "stat_result": "OSError"
+          },
+          {
+            "path": "empty.py",
+            "read_result": "success",
+            "content_bytes_hex": "",
+            "stat_result": "success",
+            "size_bytes": 0
+          }
+        ]
+      },
+      "current_source_derived": {
+        "unreadable_fallback_loc": 0,
+        "unreadable_stat_fallback_size": 0,
+        "empty_nonblank_loc": 0,
+        "basis": "Separate status/error fields exist, but the numeric zero still conflates unknown content and measured emptiness."
+      },
+      "proposed_expected": {
+        "unreadable": {
+          "loc": {
+            "value": null,
+            "status": "failed"
+          },
+          "size_bytes": null
+        },
+        "empty": {
+          "loc": {
+            "value": 0,
+            "status": "measured"
+          },
+          "size_bytes": 0
+        },
+        "aggregate_unknown_count": 1,
+        "measured_zero_count": 1
+      },
+      "sources": [
+        {
+          "path": "server/app/services/analysis.py",
+          "symbol": "count_fallback_loc",
+          "lines": [
+            993,
+            1007
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis.py#L993-L1007"
+        },
+        {
+          "path": "server/app/services/analysis.py",
+          "symbol": "_scan_codebase stat fallback",
+          "lines": [
+            1191,
+            1197
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis.py#L1191-L1197"
+        },
+        {
+          "path": "server/tests/test_scan_error_handling.py",
+          "symbol": "test_count_fallback_loc_missing_file",
+          "lines": [
+            119,
+            123
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_scan_error_handling.py#L119-L123"
+        }
+      ]
+    },
+    {
+      "id": "FX-015",
+      "title": "Source identity and spans use exact UTF-8 bytes",
+      "input": {
+        "source_bytes_hex": "ceb1c3a9f09f99820d0a",
+        "decoded_text": "αé🙂\r\n",
+        "newline": "CRLF",
+        "file_paths": [
+          {
+            "representation": "NFC",
+            "path": "café.ts",
+            "utf8_hex": "636166c3a92e7473"
+          },
+          {
+            "representation": "NFD",
+            "path": "café.ts",
+            "utf8_hex": "63616665cc812e7473"
+          }
+        ]
+      },
+      "current_source_derived": {
+        "metrics_scope_location_fields": [
+          "start_line",
+          "end_line"
+        ],
+        "snapshot_content_digest_field_present": false,
+        "basis": "The current Node/MetricWitness locations identify line spans and path/name; exact-byte content binding is a proposed replacement contract."
+      },
+      "proposed_expected": {
+        "byte_length": 10,
+        "sha256": "dc754e91f417c1e4ef762e7eaecd8bea64dc8d44bc87af5ea4dfdbc148146a35",
+        "spans": [
+          {
+            "text": "α",
+            "start_byte": 0,
+            "end_byte": 2,
+            "canonical_range": {
+              "start_line": 1,
+              "start_column": 1,
+              "end_line": 1,
+              "end_column": 2
+            }
+          },
+          {
+            "text": "é",
+            "start_byte": 2,
+            "end_byte": 4,
+            "canonical_range": {
+              "start_line": 1,
+              "start_column": 2,
+              "end_line": 1,
+              "end_column": 3
+            }
+          },
+          {
+            "text": "🙂",
+            "start_byte": 4,
+            "end_byte": 8,
+            "canonical_range": {
+              "start_line": 1,
+              "start_column": 3,
+              "end_line": 1,
+              "end_column": 4
+            }
+          },
+          {
+            "text": "\r\n",
+            "start_byte": 8,
+            "end_byte": 10,
+            "canonical_range": {
+              "start_line": 1,
+              "start_column": 4,
+              "end_line": 2,
+              "end_column": 1
+            }
+          }
+        ],
+        "unicode_normalization_applied_to_source": false,
+        "path_byte_identities_equal": false,
+        "path_rendering_separator": "/",
+        "rule": "The fixture is data. Retain exact byte spans for source/evidence identity and the converted scalar ranges for the canonical location contract. Preserve source and path identity without decoding-and-normalizing away differences.",
+        "byte_span_convention": "zero-based, half-open UTF-8 byte offsets",
+        "canonical_range_convention": "one-based lines and Unicode scalar columns; exclusive end; converted from exact bytes, never relabeled"
+      },
+      "sources": [
+        {
+          "path": "server/app/models.py",
+          "symbol": "Witness",
+          "lines": [
+            4,
+            10
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/models.py#L4-L10"
+        },
+        {
+          "path": "server/app/models.py",
+          "symbol": "Node",
+          "lines": [
+            151,
+            168
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/models.py#L151-L168"
+        },
+        {
+          "path": "server/app/services/analysis.py",
+          "symbol": "convert_function",
+          "lines": [
+            206,
+            216
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis.py#L206-L216"
+        }
+      ]
+    },
+    {
+      "id": "FX-016",
+      "title": "Two executable scopes on one line remain two evaluation observations",
+      "input": {
+        "file": "a.ts",
+        "scopes": [
+          {
+            "name": "(anonymous)",
+            "start_line": 1,
+            "end_line": 1,
+            "start_byte": 10,
+            "end_byte": 20,
+            "complexity": 1
+          },
+          {
+            "name": "(anonymous)",
+            "start_line": 1,
+            "end_line": 1,
+            "start_byte": 30,
+            "end_byte": 40,
+            "complexity": 3
+          }
+        ],
+        "language": "ts",
+        "scope_kind": "function"
+      },
+      "current_source_derived": {
+        "evaluation_node_ids": [
+          "a.ts:1",
+          "a.ts:1"
+        ],
+        "evaluation_rows_after_assignment": 1,
+        "remaining_complexity": 3,
+        "basis": "The evaluator keys rows by relative file and start line; the second assignment replaces the first."
+      },
+      "proposed_expected": {
+        "evaluation_rows": 2,
+        "distinct_scope_ids": 2,
+        "complexity_values": [
+          1,
+          3
+        ],
+        "scope_id_components": [
+          "snapshot content identity",
+          "path byte identity",
+          "start byte",
+          "end byte",
+          "kind"
+        ],
+        "name_used_as_unique_id": false
+      },
+      "sources": [
+        {
+          "path": "server/scripts/evaluate_metric_portfolio.py",
+          "symbol": "node_id",
+          "lines": [
+            173,
+            175
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/scripts/evaluate_metric_portfolio.py#L173-L175"
+        },
+        {
+          "path": "server/scripts/evaluate_metric_portfolio.py",
+          "symbol": "build_strata",
+          "lines": [
+            191,
+            208
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/scripts/evaluate_metric_portfolio.py#L191-L208"
+        },
+        {
+          "path": "server/app/services/analysis.py",
+          "symbol": "convert_function path",
+          "lines": [
+            206,
+            216
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis.py#L206-L216"
+        }
+      ]
+    },
+    {
+      "id": "FX-017",
+      "title": "File nonblank lines and symbol physical span length are explicitly different measures",
+      "input": {
+        "synthetic_file_line_partition": {
+          "code_only": 5,
+          "comment_only": 4,
+          "blank": 3
+        },
+        "symbol_span": {
+          "start_line": 1,
+          "end_line": 12
+        },
+        "note": "This is a declared line partition, not a source file parsed during the audit."
+      },
+      "current_source_derived": {
+        "python_or_typescript_file_loc": 9,
+        "symbol_loc": 12,
+        "catalog_description": "Lines of code, excluding comments and blanks where the analyzer can tell."
+      },
+      "proposed_expected": {
+        "physical_lines": 12,
+        "nonblank_lines": 9,
+        "comment_only_lines": 4,
+        "code_only_lines": 5,
+        "metric_basis_required": true,
+        "compatible_comparison_required": true,
+        "rule": "Name and document each measured basis. Do not combine file nonblank length, comment-excluding Lizard NLOC, and symbol physical span as interchangeable code-line observations."
+      },
+      "sources": [
+        {
+          "path": "server/app/services/python/python_analysis.py",
+          "symbol": "analyze_file nloc",
+          "lines": [
+            63,
+            70
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/python/python_analysis.py#L63-L70"
+        },
+        {
+          "path": "server/app/services/typescript/typescript_analysis.py",
+          "symbol": "analyze_file nloc",
+          "lines": [
+            57,
+            66
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/typescript/typescript_analysis.py#L57-L66"
+        },
+        {
+          "path": "server/app/services/typescript/typescript_analysis.py",
+          "symbol": "_create_scope_metrics",
+          "lines": [
+            386,
+            400
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/typescript/typescript_analysis.py#L386-L400"
+        },
+        {
+          "path": "server/app/services/metric_catalog.py",
+          "symbol": "loc",
+          "lines": [
+            147,
+            150
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/metric_catalog.py#L147-L150"
+        }
+      ]
+    },
+    {
+      "id": "FX-018",
+      "title": "Uppercase suffix dispatch and declared language support agree",
+      "input": {
+        "paths": [
+          "a.ts",
+          "a.TS"
+        ],
+        "upper_case_fallback_result": {
+          "nloc": 1,
+          "function_list": [],
+          "ts_any_usage_count_attribute": "absent"
+        }
+      },
+      "current_source_derived": {
+        "language_for_both": "ts",
+        "dedicated_ts_dispatch": {
+          "a.ts": true,
+          "a.TS": false
+        },
+        "attached_uppercase_ts_any_usage_count_if_fallback_result_used": 0,
+        "basis": "Language support lowercases the suffix; analyzer dispatch does not. attach_file_metrics defaults a declared-supported missing field to zero. This case does not assume a particular Lizard reader outcome."
+      },
+      "proposed_expected": {
+        "dedicated_ts_dispatch": {
+          "a.ts": true,
+          "a.TS": true
+        },
+        "silent_missing_attribute_as_observed_zero": false,
+        "rule": "Normalize suffix selection once and carry the analyzer's explicit support/status into the measurement."
+      },
+      "sources": [
+        {
+          "path": "server/app/services/analysis.py",
+          "symbol": "language_for_path",
+          "lines": [
+            128,
+            143
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis.py#L128-L143"
+        },
+        {
+          "path": "server/app/services/analysis.py",
+          "symbol": "attach_file_metrics",
+          "lines": [
+            185,
+            196
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis.py#L185-L196"
+        },
+        {
+          "path": "server/app/services/analysis.py",
+          "symbol": "analyze_single_file",
+          "lines": [
+            899,
+            923
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis.py#L899-L923"
+        }
+      ]
+    },
+    {
+      "id": "FX-019",
+      "title": "A folder maximum is accompanied by its eligible and measured population",
+      "input": {
+        "files": [
+          {
+            "path": "a.py",
+            "complexity": 5,
+            "status": "observed",
+            "eligible": true
+          },
+          {
+            "path": "b.py",
+            "complexity": null,
+            "status": "failed",
+            "eligible": true
+          },
+          {
+            "path": "README.md",
+            "complexity": null,
+            "status": "not-applicable",
+            "eligible": false
+          }
+        ]
+      },
+      "current_source_derived": {
+        "folder_complexity": 5,
+        "file_count": 3,
+        "analysis_failed_count": 1,
+        "per_metric_eligible_count_field": null,
+        "per_metric_measured_count_field": null,
+        "basis": "The aggregate correctly skips nulls, but provides no metric-specific population denominator."
+      },
+      "proposed_expected": {
+        "complexity": {
+          "value": 5,
+          "status": "partial",
+          "aggregation": "max",
+          "witness_path": "a.py"
+        },
+        "coverage": {
+          "inventory": 3,
+          "eligible": 2,
+          "complete": 1,
+          "partial": 0,
+          "failed": 1,
+          "not_applicable": 1
+        },
+        "eligible_coverage_fraction": "1/2",
+        "unknown_as_zero": false
+      },
+      "sources": [
+        {
+          "path": "server/app/services/analysis.py",
+          "symbol": "aggregate_metrics",
+          "lines": [
+            846,
+            891
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis.py#L846-L891"
+        },
+        {
+          "path": "server/app/models.py",
+          "symbol": "Metrics",
+          "lines": [
+            17,
+            99
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/models.py#L17-L99"
+        }
+      ]
+    },
+    {
+      "id": "FX-020",
+      "title": "Multiple inline comment nodes do not imply more than one occupied source line",
+      "input": {
+        "typescript_parser_comment_nodes": [
+          {
+            "start_line": 1,
+            "end_line": 1
+          },
+          {
+            "start_line": 1,
+            "end_line": 1
+          }
+        ],
+        "file_nonblank_lines": 1,
+        "line_1_contains_code": true
+      },
+      "current_source_derived": {
+        "comment_lines": 2,
+        "loc": 1,
+        "comment_ratio": 2,
+        "basis": "The TypeScript visitor adds each comment node's row span; the quadrant divides that sum by file LOC."
+      },
+      "proposed_expected": {
+        "unique_comment_occupied_lines": 1,
+        "comment_only_lines": 0,
+        "mixed_code_comment_lines": 1,
+        "nonblank_lines": 1,
+        "comment_occupied_line_share": 1,
+        "comment_to_code_only_ratio": null,
+        "automatic_trim_comment_action": false,
+        "rule": "Ratios use declared non-overlapping or explicitly overlapping populations. A comment signal is an inspection hint, not evidence the comment is unnecessary."
+      },
+      "sources": [
+        {
+          "path": "server/app/services/typescript/typescript_analysis.py",
+          "symbol": "_scan_tree comment counting",
+          "lines": [
+            236,
+            249
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/typescript/typescript_analysis.py#L236-L249"
+        },
+        {
+          "path": "server/app/services/quadrants.py",
+          "symbol": "comment_ratio",
+          "lines": [
+            222,
+            227
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/quadrants.py#L222-L227"
+        },
+        {
+          "path": "server/app/services/quadrants.py",
+          "symbol": "comment_noise preset",
+          "lines": [
+            154,
+            166
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/quadrants.py#L154-L166"
+        }
+      ]
+    },
+    {
+      "id": "FX-021",
+      "title": "Display containers never contaminate executable-function cohorts",
+      "input": {
+        "nodes": [
+          {
+            "id": "f",
+            "type": "function",
+            "kind": "function",
+            "complexity": 10
+          },
+          {
+            "id": "class-display",
+            "type": "function",
+            "kind": "class",
+            "complexity": 100
+          },
+          {
+            "id": "body-display",
+            "type": "function_body",
+            "kind": null,
+            "complexity": null,
+            "loc": 500
+          }
+        ]
+      },
+      "current_source_derived": {
+        "executable_cohort_ids": [
+          "f"
+        ],
+        "retained_behavior": true,
+        "basis": "cohort_nodes and iter_executable_scopes select executable functions, excluding classes and synthetic bodies."
+      },
+      "proposed_expected": {
+        "executable_cohort_ids": [
+          "f"
+        ],
+        "measured_function_count": 1,
+        "display_container_count": 2,
+        "complexity_max": 10,
+        "retain_display_hierarchy_for_inspect": true
+      },
+      "sources": [
+        {
+          "path": "server/app/services/reporting.py",
+          "symbol": "cohort_nodes",
+          "lines": [
+            212,
+            219
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py#L212-L219"
+        },
+        {
+          "path": "server/app/services/analysis_types.py",
+          "symbol": "iter_executable_scopes",
+          "lines": [
+            90,
+            95
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis_types.py#L90-L95"
+        },
+        {
+          "path": "server/app/services/analysis.py",
+          "symbol": "attach_file_metrics",
+          "lines": [
+            198,
+            204
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis.py#L198-L204"
+        }
+      ]
+    },
+    {
+      "id": "FX-022",
+      "title": "Few observed importers do not establish refactor safety",
+      "input": {
+        "file": "public-api.ts",
+        "complexity": 20,
+        "observed_distinct_importing_files": 0,
+        "external_consumers": "unknown",
+        "dynamic_calls": "unresolved",
+        "preset_cutoffs": {
+          "complexity": 10,
+          "fan_in": 5
+        }
+      },
+      "current_source_derived": {
+        "quadrant": "high_x",
+        "name": "Isolated mess",
+        "description": "Complex, few importers: safe to rework."
+      },
+      "proposed_expected": {
+        "axis_observations": {
+          "complexity": 20,
+          "observed_fan_in": 0
+        },
+        "label": "High complexity, few observed importers",
+        "safety_verdict": "unknown",
+        "required_inspection_evidence": [
+          "public API and external usage",
+          "relevant tests",
+          "unresolved dependency coverage"
+        ],
+        "no_automatic_refactor_permission": true
+      },
+      "sources": [
+        {
+          "path": "server/app/services/quadrants.py",
+          "symbol": "blast_radius preset",
+          "lines": [
+            124,
+            138
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/quadrants.py#L124-L138"
+        },
+        {
+          "path": "server/app/services/quadrants.py",
+          "symbol": "fan_in_by_path",
+          "lines": [
+            230,
+            243
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/quadrants.py#L230-L243"
+        }
+      ]
+    },
+    {
+      "id": "FX-023",
+      "title": "Evaluation overlap declares the population it measures",
+      "input": {
+        "rows": [
+          {
+            "id": "1",
+            "A": 1,
+            "B": null
+          },
+          {
+            "id": "2",
+            "A": 2,
+            "B": 3
+          },
+          {
+            "id": "3",
+            "A": 3,
+            "B": null
+          },
+          {
+            "id": "4",
+            "A": null,
+            "B": 1
+          },
+          {
+            "id": "5",
+            "A": null,
+            "B": 2
+          }
+        ],
+        "k": 10,
+        "minimum_paired_values": 5
+      },
+      "current_source_derived": {
+        "paired_count": 1,
+        "spearman": null,
+        "top_A": [
+          "3",
+          "2"
+        ],
+        "top_B": [
+          "2",
+          "5"
+        ],
+        "overlap": {
+          "shared": 1,
+          "of": 2,
+          "jaccard": 0.333
+        },
+        "documentation_claim": "README says fewer than five paired values produces undefined rho and overlap."
+      },
+      "proposed_expected": {
+        "paired_count": 1,
+        "spearman": null,
+        "paired_overlap": null,
+        "independent_supported_queue_overlap": {
+          "shared": 1,
+          "of": 2,
+          "jaccard": 0.333,
+          "population": "each metric's supported rows, above its own minimum"
+        },
+        "rule": "Either omit independent overlap under the documented paired protocol or give it this distinct population label; do not present it as a five-pair-supported statistic."
+      },
+      "sources": [
+        {
+          "path": "server/scripts/evaluate_metric_portfolio.py",
+          "symbol": "top_k/overlap",
+          "lines": [
+            95,
+            116
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/scripts/evaluate_metric_portfolio.py#L95-L116"
+        },
+        {
+          "path": "server/scripts/evaluate_metric_portfolio.py",
+          "symbol": "evaluate_stratum",
+          "lines": [
+            145,
+            162
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/scripts/evaluate_metric_portfolio.py#L145-L162"
+        },
+        {
+          "path": "docs/research/metric-pilot-2026-10/README.md",
+          "symbol": "Script methodology",
+          "lines": [
+            55,
+            60
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/research/metric-pilot-2026-10/README.md#L55-L60"
+        }
+      ]
+    },
+    {
+      "id": "FX-024",
+      "title": "A bounded queue merges reasons using an explicit deterministic lane schedule",
+      "input": {
+        "limit": 3,
+        "lane_order": [
+          "diagnostics",
+          "complexity"
+        ],
+        "lane_items": {
+          "diagnostics": [
+            {
+              "task_id": "A",
+              "value": 3
+            },
+            {
+              "task_id": "C",
+              "value": 1
+            }
+          ],
+          "complexity": [
+            {
+              "task_id": "A",
+              "value": 20
+            },
+            {
+              "task_id": "B",
+              "value": 15
+            }
+          ]
+        },
+        "dedupe_key": "task_id",
+        "schedule": "Round robin in lane_order; skip already emitted IDs to the next unseen ID in that lane; retain every selected task's matching lane reasons.",
+        "task_id_semantics": "A, B and C are canonical file work-item IDs at repository triage scope; symbol witnesses and all matching reasons remain attached to each selected file."
+      },
+      "current_source_derived": {
+        "multi_lane_round_robin_contract_present": false,
+        "basis": "Current build_findings walks one composite ranking and deduplicates by path plus one derived category."
+      },
+      "proposed_expected": {
+        "task_order": [
+          "A",
+          "B",
+          "C"
+        ],
+        "task_reasons": {
+          "A": [
+            "diagnostics",
+            "complexity"
+          ],
+          "B": [
+            "complexity"
+          ],
+          "C": [
+            "diagnostics"
+          ]
+        },
+        "result_count": 3,
+        "complete_result_count": 3,
+        "truncated": false,
+        "weighted_composite": null,
+        "sort_and_dedupe_policy_version_required": true
+      },
+      "sources": [
+        {
+          "path": "server/app/services/reporting.py",
+          "symbol": "build_findings",
+          "lines": [
+            358,
+            395
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py#L358-L395"
+        },
+        {
+          "path": "server/app/services/reporting.py",
+          "symbol": "_category_for_metrics",
+          "lines": [
+            751,
+            762
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py#L751-L762"
+        }
+      ]
+    },
+    {
+      "id": "FX-025",
+      "title": "A tiny uniform cohort can have ranks without producing work",
+      "input": {
+        "selected_metric": "complexity",
+        "cohort": "function",
+        "nodes": [
+          {
+            "path": "a.py::f",
+            "start_line": 1,
+            "value": 1
+          },
+          {
+            "path": "b.py::g",
+            "start_line": 1,
+            "value": 1
+          },
+          {
+            "path": "c.py::h",
+            "start_line": 1,
+            "value": 1
+          }
+        ],
+        "proposed_inspection_gate": {
+          "metric": "complexity",
+          "operator": ">=",
+          "value": 10,
+          "meaning": "heuristic inspection threshold, not a defect threshold"
+        }
+      },
+      "current_source_derived": {
+        "single_metric_scores": [
+          1,
+          1,
+          1
+        ],
+        "ranks": [
+          1,
+          2,
+          3
+        ],
+        "basis": "Each positive value equals the cohort maximum, so rank_by_metric reports normalized score 1."
+      },
+      "proposed_expected": {
+        "measured_count": 3,
+        "metric_inventory_values": [
+          1,
+          1,
+          1
+        ],
+        "rank_order_if_explicitly_requested": [
+          "a.py::f",
+          "b.py::g",
+          "c.py::h"
+        ],
+        "task_queue": [],
+        "threshold_matches": 0,
+        "defect_count_inferred": null,
+        "calibration_status": "Threshold 10 is a named initial inspection heuristic retained from existing quadrants; broader validation is required."
+      },
+      "sources": [
+        {
+          "path": "server/app/services/reporting.py",
+          "symbol": "rank_by_metric",
+          "lines": [
+            248,
+            277
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py#L248-L277"
+        },
+        {
+          "path": "server/app/services/quadrants.py",
+          "symbol": "absolute complexity cutoffs",
+          "lines": [
+            104,
+            129
+          ],
+          "url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/quadrants.py#L104-L129"
+        }
+      ]
+    }
+  ]
+}
