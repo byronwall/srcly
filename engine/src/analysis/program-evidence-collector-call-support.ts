@@ -4,6 +4,7 @@ import { processProgramCallBoundary } from "./program-evidence-boundary-support"
 import {
   collectProgramEvidenceExpression,
   constructorExpressionElementEvidence,
+  type ProgramEvidenceExpressionContext,
 } from "./program-evidence-collector-expression-support";
 import { lazyFactoryGetter, reducerOf, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { namesSeveralValues, resolveValue, wrappedArgument } from "./value-origin";
@@ -32,6 +33,18 @@ function frameworkState(detail: string, location: ProgramEvidenceLocation) {
 }
 
 export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollectorDeclarations {
+  private readonly expressionContext: ProgramEvidenceExpressionContext = {
+    ts: this.ts,
+    addReference: (reference) => this.addReference(reference),
+    parametersBySymbol: this.parametersBySymbol,
+    functionsBySymbol: this.functionsBySymbol,
+    symbolId: (value) => this.symbolId(value),
+    readsNamespace: (value) => this.ts.isIdentifier(value.expression) && Boolean(this.checker.getSymbolAtLocation(value.expression)?.declarations?.some((item) => this.ts.isNamespaceImport(item))),
+    moduleFor: (value) => this.moduleFor(value),
+    location: (value) => this.location(value),
+    ensureElement: (...args) => this.ensureElement(...args),
+    addRelation: (...args) => this.addRelation(...args),
+  };
   protected processVariable(
     node: TypeScript.VariableDeclaration,
     ownerId: string | null,
@@ -763,18 +776,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       return id;
     }
     return collectProgramEvidenceExpression(
-      {
-        ts: this.ts,
-        addReference: (reference) => this.addReference(reference),
-        parametersBySymbol: this.parametersBySymbol,
-        functionsBySymbol: this.functionsBySymbol,
-        symbolId: (value) => this.symbolId(value),
-        readsNamespace: (value) => this.ts.isIdentifier(value.expression) && Boolean(this.checker.getSymbolAtLocation(value.expression)?.declarations?.some((item) => this.ts.isNamespaceImport(item))),
-        moduleFor: (value) => this.moduleFor(value),
-        location: (value) => this.location(value),
-        ensureElement: (...args) => this.ensureElement(...args),
-        addRelation: (...args) => this.addRelation(...args),
-      },
+      this.expressionContext,
       node,
       ownerId,
     );

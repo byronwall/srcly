@@ -493,6 +493,20 @@ export function safeType(checker: TypeScript.TypeChecker, node: TypeScript.Node)
 }
 
 const locationsByNode = new WeakMap<TypeScript.Node, { root: string; location: ProgramEvidenceLocation }>();
+const expressionTexts = new WeakMap<TypeScript.Node, string>();
+
+export function expressionText(node: TypeScript.Node): string {
+  const cached = expressionTexts.get(node);
+  if (cached !== undefined) return cached;
+  const text = node.getText(node.getSourceFile()).replace(/\s+/g, " ").trim();
+  expressionTexts.set(node, text);
+  return text;
+}
+
+export function nodeLocation(root: string, node: TypeScript.Node): ProgramEvidenceLocation {
+  const cached = locationsByNode.get(node);
+  return cached?.root === root ? cached.location : locationFor(root, node.getSourceFile(), node);
+}
 
 export function locationFor(
   root: string,
@@ -518,9 +532,14 @@ export function locationFor(
   return location;
 }
 
+const keysByNode = new WeakMap<TypeScript.Node, { root: string; key: string }>();
 export function nodeKey(root: string, node: TypeScript.Node) {
-  const location = locationFor(root, node.getSourceFile(), node);
-  return `${location.file}:${location.span.startLine}:${location.span.startColumn}:${location.span.endLine}:${location.span.endColumn}`;
+  const cached = keysByNode.get(node);
+  if (cached?.root === root) return cached.key;
+  const location = nodeLocation(root, node);
+  const key = `${location.file}:${location.span.startLine}:${location.span.startColumn}:${location.span.endLine}:${location.span.endColumn}`;
+  keysByNode.set(node, { root, key });
+  return key;
 }
 
 // Every element location, symbol id and identity point asks for a file's

@@ -9,6 +9,7 @@ import type {
 } from "./program-evidence";
 import { type ProgramEvidenceOptions } from "./program-evidence";
 import { ProgramEvidenceDemandCollector } from "./program-evidence-demand-collector";
+import { ProgramEvidenceCollector } from "./program-evidence-collector";
 import { ProgramFactIndex } from "./program-fact-index";
 import { CompactRelationIndex } from "./program-evidence-connector-index";
 import { programForRoot } from "./program-evidence-loading";
@@ -326,5 +327,24 @@ function createLazyProvider(
     () => { collectionFailed = true; },
     () => collectionFailed,
   );
+  return provider;
+}
+
+/** Caller searches use the complete collector and its original source order. */
+export function createCompleteProgramEvidenceProvider(
+  ts: typeof TypeScript,
+  program: TypeScript.Program,
+  root: string,
+  cancellation?: AnalysisCancellationToken,
+): EvidenceRelationProvider {
+  const started = performance.now();
+  const index = new CompactRelationIndex();
+  const collector = new ProgramEvidenceCollector(ts, program, root, { cancellation }, relationIndexSink(index));
+  const collected = collector.collectDeferredFacts();
+  const facts = new ProgramFactIndex(collected.facts, collected.sourceFiles, (fact) => collector.hydrateFact(fact));
+  const provider = new LazyEvidenceRelationProvider(facts, new ProgramEvidenceRelationFrontierLoader(facts, index), collected.gaps, {
+    collectionTimeMs: performance.now() - started,
+  });
+  collector.releaseTransientState();
   return provider;
 }

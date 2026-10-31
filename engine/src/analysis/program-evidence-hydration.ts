@@ -10,7 +10,7 @@ import {
   expandLocation,
   type CompactProgramFact,
 } from "./program-evidence-compact-facts";
-import { proof, typeId } from "./program-evidence-support";
+import { expressionText, proof, typeId } from "./program-evidence-support";
 import {
   collectHttpBridgeEvidence,
   type HttpBridgeFetch,
@@ -33,8 +33,7 @@ export function hydrateProgramFact(
 ): ProgramElement {
   const node = findFactNode(context.ts, context.filesByRelativeName, fact);
   const location = expandLocation(fact.location);
-  const expression =
-    node?.getText(node.getSourceFile()).replace(/\s+/g, " ").trim() ?? null;
+  const expression = node ? expressionText(node) : null;
   return {
     id: fact.id,
     kind: fact.kind,

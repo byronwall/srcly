@@ -48,6 +48,9 @@ export function anchorGraphOp(session: EngineSession, params: Record<string, unk
   const tier1 = session.tier1();
   checkGeneration(tier1, params.expectedGeneration);
   const direction = parseDirection(params.direction);
+  // Caller searches need the complete source order. Forward queries retain
+  // demand collection until this session first searches across callers.
+  if (direction !== "forward") tier1.provider(true, cancellation);
   const { relative } = tier1.host.file(params.file);
   const candidate = resolveCandidate(tier1, relative, params);
   // A hub's graph at the wide limits can pass the bound; the narrow ones draw a quarter as much, and their frontier names the narrower limit.

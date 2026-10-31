@@ -26,6 +26,10 @@ export class ProgramEvidenceDemandCollector extends ProgramEvidenceCollector {
   private readonly variableSummaries = new WeakSet<TypeScript.VariableDeclaration>();
   private readonly collectedCalls = new WeakSet<TypeScript.CallExpression>();
   private readonly summarizedNodes = new WeakSet<TypeScript.Node>();
+  private readonly expressions = new WeakMap<TypeScript.Expression, string>();
+  private summarizedCalls = 0;
+  private summarizedReferences = 0;
+  private readonly partitions = new WeakMap<TypeScript.Node, TypeScript.Node>();
   private readonly connectedCalls = new Map<string, string | null>();
   private readonly connectedReferences = new Map<string, string>();
 
@@ -109,6 +113,15 @@ export class ProgramEvidenceDemandCollector extends ProgramEvidenceCollector {
     super.processCall(node, ownerId);
   }
 
+  protected override expression(node: TypeScript.Expression, ownerId: string | null): string {
+    const expression = unwrap(this.ts, node);
+    const cached = this.expressions.get(expression);
+    if (cached) return cached;
+    const id = super.expression(expression, ownerId);
+    this.expressions.set(expression, id);
+    return id;
+  }
+
   protected override elementFor(node: TypeScript.Node, kind: ProgramElementKind): string {
     const known = this.elementIfPresent(node, kind);
     if (known) return known;
@@ -144,7 +157,11 @@ export class ProgramEvidenceDemandCollector extends ProgramEvidenceCollector {
   }
 
   private partition(node: TypeScript.Node): TypeScript.Node {
+    const cached = this.partitions.get(node);
+    if (cached) return cached;
+    const original = node;
     while (node.parent && !this.ts.isSourceFile(node.parent)) node = node.parent;
+    this.partitions.set(original, node);
     return node;
   }
 
@@ -300,8 +317,8 @@ export class ProgramEvidenceDemandCollector extends ProgramEvidenceCollector {
             if (declaration.initializer && !this.variableSummaries.has(declaration)) this.processVariable(declaration, this.ownerId(declaration));
           }
         };
-        for (const call of this.calls) summarize(call.node.expression);
-        for (const reference of this.references) summarize(reference.node);
+        while (this.summarizedCalls < this.calls.length) summarize(this.calls[this.summarizedCalls++].node.expression);
+        while (this.summarizedReferences < this.references.length) summarize(this.references[this.summarizedReferences++].node);
         for (const node of this.requestedRoots) demand(node);
         this.requestedRoots.clear();
         if (!pending.size) {

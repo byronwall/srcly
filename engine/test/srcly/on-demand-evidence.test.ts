@@ -29,8 +29,7 @@ function sessionFor(root: string) {
   return createEngineSession({ root, source: root, tsconfig: null, typescriptFrom: ENGINE_PACKAGE_DIR });
 }
 
-function compareWithEager(root: string, query: Record<string, unknown>) {
-  const demandSession = sessionFor(root);
+function eagerSessionFor(root: string) {
   const eagerSession = sessionFor(root);
   const tier = requireTypescript(eagerSession.tier1(), "eager evidence oracle");
   const compactRelations = new CompactRelationIndex();
@@ -42,9 +41,13 @@ function compareWithEager(root: string, query: Record<string, unknown>) {
     new ProgramEvidenceRelationFrontierLoader(facts, compactRelations),
     evidence.gaps,
   );
+  return eagerSession;
+}
+
+function compareWithEager(root: string, query: Record<string, unknown>) {
   return {
-    demand: anchorGraphOp(demandSession, query),
-    eager: anchorGraphOp(eagerSession, query),
+    demand: anchorGraphOp(sessionFor(root), query),
+    eager: anchorGraphOp(eagerSessionFor(root), query),
   };
 }
 
@@ -61,6 +64,31 @@ function expressionQuery(root: string, file: string, expression: string, directi
 }
 
 describe("on-demand evidence parity", () => {
+  it("preserves graphs and unresolved stops across direction changes and cancelled collection", () => {
+    const root = fixture({
+      "index.ts": [
+        `export function target(value: string) { return unresolved(value); }`,
+        `export function caller(input: string) { return target(input); }`,
+      ].join("\n"),
+    });
+    try {
+      const session = sessionFor(root);
+      const eager = eagerSessionFor(root);
+      const query = { file: "index.ts", name: "target", line: 1 };
+      const forward = anchorGraphOp(session, { ...query, direction: "forward" });
+      expect(forward).toEqual(anchorGraphOp(eager, { ...query, direction: "forward" }));
+      expect(() => session.tier1().provider(true, {
+        throwIfCancelled() { throw new Error("cancelled during complete collection"); },
+      })).toThrow("cancelled during complete collection");
+      expect(anchorGraphOp(session, { ...query, direction: "forward" })).toEqual(forward);
+      for (const direction of ["backward", "both", "forward"]) {
+        expect(anchorGraphOp(session, { ...query, direction })).toEqual(anchorGraphOp(eager, { ...query, direction }));
+      }
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("matches backward parameter traces through a same-file function alias", () => {
     const aliases = [
       { label: "a const alias", statements: [`const alias = target;`, `export function caller(input: string) { alias(input); }`] },

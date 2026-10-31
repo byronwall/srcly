@@ -77,7 +77,7 @@ export type ProgramEvidenceDemandStats = {
 export interface RelationFrontierLoader {
   load(elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken, returnTo?: string): RelationFrontier;
   currentRevision?(elementId: string): number;
-  gaps?(elementId: string): readonly ProgramEvidenceGap[];
+  gaps?(elementId: string): readonly ProgramEvidenceGap[] | undefined;
   getDemandStats?(): ProgramEvidenceDemandStats | null;
 }
 
@@ -141,7 +141,7 @@ export class ProgramEvidenceRelationFrontierLoader implements RelationFrontierLo
     };
   }
 
-  gaps(elementId: string): readonly ProgramEvidenceGap[] { return this.demand?.gaps(elementId) ?? []; }
+  gaps(elementId: string): readonly ProgramEvidenceGap[] | undefined { return this.demand?.gaps(elementId); }
   getDemandStats(): ProgramEvidenceDemandStats | null { return this.demand?.getDemandStats?.() ?? null; }
 }
 
@@ -173,10 +173,7 @@ export function relationIndexSink(index: CompactRelationIndex): RelationSink {
       sourceSequence,
       contributingFiles: contributingFiles(input),
       producerFile,
-    });
-    if (descriptor.descriptorId !== input.id) {
-      throw new Error(`Compact relation identity mismatch for ${input.id}.`);
-    }
+    }, input.id);
     seen.add(input.id);
     seenByProducer.set(producerKey, seen);
     sequenceByProducer.set(producerKey, sourceSequence + 1);

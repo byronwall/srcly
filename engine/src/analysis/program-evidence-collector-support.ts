@@ -55,7 +55,8 @@ import {
   discardsValue,
   isEffectName,
   isFrameworkCall,
-  locationFor,
+  nodeLocation,
+  expressionText,
   nodeKey,
   relative,
   proof,
@@ -405,7 +406,7 @@ export class ProgramEvidenceCollectorSupport {
     const key = `${locationKey(location)}:${kind}:${operationKind ?? ""}:${symbolId ?? ""}:${stableSerialize(attributes)}`;
     const existing = this.elementKeys.get(key);
     if (existing) return existing;
-    const expression = node.getText(node.getSourceFile()).replace(/\s+/g, " ").trim();
+    const expression = expressionText(node);
     const id = stableId("program-element", [
       location.file,
       location.span,
@@ -626,9 +627,9 @@ export class ProgramEvidenceCollectorSupport {
   }
 
   protected location(node: TypeScript.Node): ProgramEvidenceLocation {
-    if (!this.relationSink || !this.collectionProfilingEnabled) return locationFor(this.root, node.getSourceFile(), node);
+    if (!this.relationSink || !this.collectionProfilingEnabled) return nodeLocation(this.root, node);
     const started = performance.now();
-    const location = locationFor(this.root, node.getSourceFile(), node);
+    const location = nodeLocation(this.root, node);
     this.collectionStats.relation.locationCalls += 1;
     this.collectionStats.relation.locationElapsedMs += performance.now() - started;
     return location;
@@ -671,6 +672,11 @@ export class ProgramEvidenceCollectorSupport {
   }
 }
 
+const locationKeys = new WeakMap<ProgramEvidenceLocation, string>();
 function locationKey(location: ProgramEvidenceLocation): string {
-  return `${location.file}:${location.span.startLine}:${location.span.startColumn}:${location.span.endLine}:${location.span.endColumn}`;
+  const cached = locationKeys.get(location);
+  if (cached) return cached;
+  const key = `${location.file}:${location.span.startLine}:${location.span.startColumn}:${location.span.endLine}:${location.span.endColumn}`;
+  if (Object.isFrozen(location) && Object.isFrozen(location.span)) locationKeys.set(location, key);
+  return key;
 }

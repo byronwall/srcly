@@ -6,7 +6,6 @@ import { ProgramFactIndex } from "../../src/analysis/program-fact-index";
 import { compactFactFromElement } from "../../src/analysis/program-evidence-compact-facts";
 import type { ProgramElement } from "../../src/analysis/program-evidence";
 import { emptyProgramEvidenceCollectionStats } from "../../src/analysis/program-evidence-collector-instrumentation";
-import type { ProgramElement } from "../../src/analysis/program-evidence";
 import { ProgramEvidenceRelationFrontierLoader } from "../../src/analysis/program-evidence-relation-loading";
 import type { RelationRecipe } from "../../src/analysis/program-evidence-relation-loading";
 
@@ -92,6 +91,19 @@ function element(id: string): ProgramElement {
 }
 
 describe("demand provider lifecycle", () => {
+  it("preserves stored gaps when the frontier loader has no demand collector", () => {
+    const origin = sourceFact("origin", "src/a.ts", null);
+    const facts = new ProgramFactIndex([origin], ["src/a.ts"]);
+    const gap = {
+      id: "unresolved", from: origin.id, to: null, direction: "forward" as const,
+      reason: "unresolved-symbol" as const, detail: "The callee has no compiler-resolved symbol.",
+      location: origin.location,
+    };
+    const loader = new ProgramEvidenceRelationFrontierLoader(facts, new CompactRelationIndex());
+    const provider = new LazyEvidenceRelationProvider(facts, loader, [gap]);
+    expect(provider.getGaps(origin.id)).toEqual([gap]);
+  });
+
   it("looks up a known ID without materializing all, and falls back once for an unknown ID", () => {
     const expected = element("program-element:eager-id");
     const eager = new ProgramFactIndex([expected], []);
@@ -188,8 +200,11 @@ describe("demand provider lifecycle", () => {
   it("advances endpoint revisions on successful additions and replacements only", () => {
     const index = new CompactRelationIndex();
     const first = descriptor("left", "right", "src/a.ts", "proven");
+    expect(index.query({ producerFile: "src/a.ts" })).toEqual([]);
     expect(index.revisionFor("left")).toBe(0);
     index.add(first);
+    expect(index.query({ producerFile: "src/a.ts" })).toEqual([first]);
+    expect(index.query({ elementId: "right", direction: "backward", contributingFile: "src/a.ts" })).toEqual([first]);
     expect(index.revisionFor("left")).toBe(1);
     expect(index.revisionFor("right")).toBe(1);
     index.add(first);
@@ -197,6 +212,7 @@ describe("demand provider lifecycle", () => {
 
     const replacement = descriptor("left", "right", "src/a.ts", "partial");
     expect(index.add(replacement)).toBe(replacement);
+    expect(index.query({ producerFile: "src/a.ts", contributingFile: "src/a.ts" })).toEqual([replacement]);
     expect(index.revisionFor("left")).toBe(2);
     expect(index.revisionFor("right")).toBe(2);
   });
