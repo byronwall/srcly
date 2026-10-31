@@ -459,7 +459,9 @@ export function DependencyCanvas(props: {
     } else {
       // A fresh hold, or the one from the last layout: the backbone draws first and the complete graph replaces it (T9).
       heldCamera = props.cameraForLayout?.() ?? heldCamera;
-      queueMicrotask(() => fit(true));
+      let cancelled = false;
+      onCleanup(() => { cancelled = true; });
+      queueMicrotask(() => { if (!cancelled) fit(true); });
     }
   });
   const info = createMemo(() => boxInfo(props.layout));

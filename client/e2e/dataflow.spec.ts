@@ -22,6 +22,24 @@ const box = (page: Page, label: string) => page.locator("[data-box]").filter({ h
 const boxLabelled = (page: Page, label: string) => page.locator(`[data-box][data-label^="${label}"]`).first();
 
 test.describe("Data flow on solid-route", () => {
+  test("switches trace direction without stale canvas work", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(url({ view: "graph", anchor: "src/components/ViewerCard.tsx@ViewerCard:3", dir: "forward" }));
+    await expect(page.locator("[data-box]").first()).toBeVisible({ timeout: 90_000 });
+    const before = await page.locator("[data-generation]").textContent();
+    for (const direction of ["backward", "both", "forward"]) {
+      const response = page.waitForResponse((reply) => reply.url().includes("/api/dataflow/anchor-graph") && reply.request().method() === "POST");
+      await page.locator(`[data-trace-direction="${direction}"]`).click();
+      expect((await response).status()).toBe(200);
+      await expect(page.locator(`[data-trace-direction="${direction}"]`)).toHaveAttribute("aria-checked", "true");
+      await expect(page.locator("[data-box]").first()).toBeVisible();
+    }
+    await expect(page.locator("[data-generation]")).toHaveText(before!);
+    await shot(page, "trace-direction-restored");
+    expect(errors).toEqual([]);
+  });
+
   test("route graph: picker, origin select, reach and the inspector", async ({ page }) => {
     await page.goto(url({ view: "graph", flow: "/records", lens: "components" }));
     // The backbone may draw first; the complete graph is the one with origins.
