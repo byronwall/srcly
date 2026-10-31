@@ -11,3 +11,5 @@
 - Phase: submitted; verified responding and Stop control. Follow-ups: 0. Heartbeat: `collect-srcly-reporting-research`, active hourly. PR: not yet created.
 - Local evidence: `report --agent-compact --limit 10` and `explain --format json`; see prompt for conditions and limitations.
 - Bootstrap: `scripts/bootstrap.sh` failed because the sandbox could not resolve registry.npmjs.org. The local CLI run used the main checkout's Python environment with this checkout's source. Cache writes were blocked by the sandbox.
+- 2026-10-31 00:23 EDT: Pro completed. Downloaded `srcly-cli-audit-aa56155.zip`, checked paths and symlinks before extraction, and preserved all five files under `docs/intent/agent-reporting/assets/pro-results/2026-10-31/`. Original files match the extracted inventory; both JSON companions parse. ZIP remains in ignored `tmp/pro/agent-reporting/`.
+- Phase: integrated; primary source claims checked locally. The concise plan and grouped dispositions distinguish the selected work from hypotheses. Follow-ups: 0. Preparing PR.
