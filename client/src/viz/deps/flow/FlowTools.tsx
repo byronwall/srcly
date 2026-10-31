@@ -36,6 +36,8 @@ export function DirectionSwitch(props: { dir: Direction; onChange: (dir: Directi
               variant="tab"
               size="sm"
               role="radio"
+              aria-label={d.label}
+              data-trace-direction={d.id}
               aria-checked={props.dir === d.id}
               tabIndex={props.dir === d.id ? 0 : -1}
               active={props.dir === d.id}
