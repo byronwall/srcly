@@ -286,8 +286,15 @@ export class ProgramEvidenceDemandCollector extends ProgramEvidenceCollector {
           if (symbol && symbol.flags & this.ts.SymbolFlags.Alias) symbol = this.checker.getAliasedSymbol(symbol);
           let declaration = symbol?.valueDeclaration;
           while (declaration && this.ts.isBindingElement(declaration)) declaration = declaration.parent.parent;
-          if (declaration && this.ts.isVariableDeclaration(declaration) && declaration.initializer && this.isProjectSymbol(node) && !this.variableSummaries.has(declaration)) {
-            this.processVariable(declaration, this.ownerId(declaration));
+          if (declaration && this.ts.isVariableDeclaration(declaration) && this.isProjectSymbol(node)) {
+            // A module binding can be assigned in another statement. Complete its writes
+            // before publishing a read, including the reaching-binding confidence.
+            if (this.ts.isVariableDeclarationList(declaration.parent)
+              && !(declaration.parent.flags & this.ts.NodeFlags.Const)
+              && !this.ts.findAncestor(declaration, (ancestor) => !!asFunctionLike(this.ts, ancestor))) {
+              for (const binding of bindingIdentifiers(this.ts, declaration.name)) this.requireReferences(binding);
+            }
+            if (declaration.initializer && !this.variableSummaries.has(declaration)) this.processVariable(declaration, this.ownerId(declaration));
           }
         };
         for (const call of this.calls) summarize(call.node.expression);

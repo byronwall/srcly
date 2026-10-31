@@ -119,6 +119,7 @@ export class CompactRelationIndex {
   private readonly byTo = new Map<string, Set<string>>();
   private readonly byProducerFile = new Map<string, Set<string>>();
   private readonly byContributingFile = new Map<string, Set<string>>();
+  private readonly endpointRevisions = new Map<string, number>();
   private readonly byDirection = new Map<
     CompactRelationDirection,
     Map<string, Set<string>>
@@ -135,6 +136,10 @@ export class CompactRelationIndex {
     return this.descriptors.size;
   }
 
+  revisionFor(elementId: string): number {
+    return this.endpointRevisions.get(elementId) ?? 0;
+  }
+
   add(input: CompactRelationDescriptorInput | CompactRelationDescriptor): CompactRelationDescriptor {
     const descriptor = isDescriptor(input)
       ? input
@@ -146,6 +151,12 @@ export class CompactRelationIndex {
     if (existing) this.removeIndexes(existing);
     this.descriptors.set(descriptor.descriptorId, descriptor);
     this.addIndexes(descriptor);
+    const changed = new Set([descriptor.from, descriptor.to]);
+    if (existing) {
+      changed.add(existing.from);
+      changed.add(existing.to);
+    }
+    for (const elementId of changed) this.endpointRevisions.set(elementId, this.revisionFor(elementId) + 1);
     return descriptor;
   }
 

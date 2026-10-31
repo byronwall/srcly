@@ -41,6 +41,7 @@ export class ProgramFactIndex {
   private readonly factsByFile = new Map<string, CompactProgramFact[]>();
   private readonly filesBySymbolId = new Map<string, Set<string>>();
   private readonly filesByKind = new Map<ProgramElementKind, Set<string>>();
+  private readonly relationSourceRevisionCache = new Map<string, { factCount: number; revision: number }>();
   private readonly hydratedById = new Map<string, ProgramElement>();
   private readonly hydrator: ProgramFactHydrator;
   private hydrationCount = 0;
@@ -178,6 +179,22 @@ export class ProgramFactIndex {
   relationSourceFilesFor(elementId: string): readonly string[] {
     const element = this.getFact(elementId);
     if (!element) return [];
+    return this.orderedFiles(this.relationSourceFileSetFor(elementId));
+  }
+
+  /** Count eligible producer files without ordering the full source catalog. */
+  relationSourceRevision(elementId: string): number {
+    const factCount = this.factCount;
+    const cached = this.relationSourceRevisionCache.get(elementId);
+    if (cached?.factCount === factCount) return cached.revision;
+    const revision = this.relationSourceFileSetFor(elementId).size;
+    this.relationSourceRevisionCache.set(elementId, { factCount, revision });
+    return revision;
+  }
+
+  private relationSourceFileSetFor(elementId: string): Set<string> {
+    const element = this.factsById.get(elementId);
+    if (!element) return new Set<string>();
     const files = new Set<string>();
     const seen = new Set<string>();
     const addElement = (candidate: CompactProgramFact | undefined) => {
@@ -203,7 +220,7 @@ export class ProgramFactIndex {
         for (const file of this.filesByKind.get(kind) ?? []) files.add(file);
       }
     }
-    return this.orderedFiles(files);
+    return files;
   }
 
   priorityFor(elementId: string, direction: SliceDirection = "forward"): number {

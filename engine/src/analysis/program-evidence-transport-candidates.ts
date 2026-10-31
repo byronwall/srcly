@@ -27,6 +27,10 @@ export function transportCandidates(
     }
     if (ts.isImportSpecifier(node)) addAlias(node.propertyName?.text ?? node.name.text, node.name.text);
     if (ts.isExportSpecifier(node)) addAlias(node.propertyName?.text ?? node.name.text, node.name.text);
+    if (ts.isImportClause(node) && node.name) addAlias("default", node.name.text);
+    if (ts.isExportAssignment(node) && ts.isIdentifier(node.expression)) addAlias("default", node.expression.text);
+    if ((ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node))
+      && node.name && hasDefaultModifier(ts, node)) addAlias("default", node.name.text);
     if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
       const initializer = unwrap(ts, node.initializer);
       if (ts.isIdentifier(initializer)) addAlias(node.name.text, initializer.text);
@@ -95,6 +99,14 @@ export function transportCandidates(
   return [...candidates].sort((left, right) =>
     left.getSourceFile().fileName.localeCompare(right.getSourceFile().fileName) || left.pos - right.pos,
   );
+}
+
+function hasDefaultModifier(
+  ts: typeof TypeScript,
+  node: TypeScript.FunctionDeclaration | TypeScript.ClassDeclaration,
+): boolean {
+  return ts.canHaveModifiers(node)
+    && (ts.getModifiers(node)?.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword) ?? false);
 }
 
 function unwrap(ts: typeof TypeScript, expression: TypeScript.Expression): TypeScript.Expression {

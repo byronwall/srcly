@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DeferredMap } from "../../src/analysis/deferred-map";
 import { LazyEvidenceRelationProvider } from "../../src/analysis/evidence-relation-provider";
-import { CompactRelationIndex } from "../../src/analysis/program-evidence-connector-index";
+import { CompactRelationIndex, createCompactRelationDescriptor } from "../../src/analysis/program-evidence-connector-index";
 import { ProgramFactIndex } from "../../src/analysis/program-fact-index";
 import { compactFactFromElement } from "../../src/analysis/program-evidence-compact-facts";
 import type { ProgramElement } from "../../src/analysis/program-evidence";
@@ -34,6 +34,40 @@ function frontier(recipes: readonly RelationRecipe[], revision: number) {
     recipesExamined: recipes.length,
     collectorStats: emptyProgramEvidenceCollectionStats(0),
   };
+}
+
+function sourceFact(id: string, file: string, symbolId: string | null): ProgramElement {
+  return {
+    id,
+    kind: "value",
+    operationKind: null,
+    label: id,
+    expression: id,
+    location: { file, line: 1, column: 1, span: { startLine: 1, startColumn: 1, endLine: 1, endColumn: id.length + 1 } },
+    symbolId,
+    typeId: null,
+    module: null,
+    definitionId: null,
+    ownerId: null,
+    attributes: {},
+    componentBinding: null,
+    confidence: "proven",
+    proof: { kind: "ast-node", detail: "fixture", locations: [] },
+  };
+}
+
+function descriptor(from: string, to: string, producerFile: string, confidence: "proven" | "partial" = "proven") {
+  return createCompactRelationDescriptor({
+    from,
+    to,
+    kind: "references",
+    evidence: [{ file: producerFile, start: { line: 1, column: 1 }, end: { line: 1, column: 2 } }],
+    proof: { kind: "ast-node", detail: "fixture", locations: [] },
+    confidence,
+    sourceSequence: 0,
+    contributingFiles: [producerFile],
+    producerFile,
+  });
 }
 
 function element(id: string): ProgramElement {
@@ -122,30 +156,49 @@ describe("demand provider lifecycle", () => {
     expect(loads).toBe(2);
   });
 
-  it("advances the source frontier revision when facts are added", () => {
-    const facts = new ProgramFactIndex([], []);
-    const loader = new ProgramEvidenceRelationFrontierLoader(facts, new CompactRelationIndex());
-    const revision = loader.currentRevision();
-    const element: ProgramElement = {
-      id: "value:a.ts:1",
-      kind: "value",
-      operationKind: null,
-      label: "value",
-      expression: "value",
-      location: { file: "src/a.ts", line: 1, column: 1, span: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 6 } },
-      symbolId: null,
-      typeId: null,
-      module: null,
-      definitionId: null,
-      ownerId: null,
-      attributes: {},
-      componentBinding: null,
-      confidence: "proven",
-      proof: { kind: "ast-node", detail: "fixture", locations: [] },
-    };
+  it("does not reload an endpoint for unrelated facts or relations, then sees eligible files and new relations", () => {
+    const origin = sourceFact("origin", "src/a.ts", "shared-symbol");
+    const facts = new ProgramFactIndex([origin], ["src/a.ts", "src/b.ts", "src/c.ts"]);
+    const index = new CompactRelationIndex();
+    let prepares = 0;
+    const loader = new ProgramEvidenceRelationFrontierLoader(facts, index, {
+      prepare: () => { prepares += 1; },
+      gaps: () => [],
+    });
+    const provider = new LazyEvidenceRelationProvider(facts, loader);
 
-    facts.addFacts([compactFactFromElement(element)]);
-    expect(loader.currentRevision()).toBe(revision + 1);
+    expect(provider.getRelations("origin", "forward")).toEqual([]);
+    expect(prepares).toBe(1);
+
+    facts.addFacts([compactFactFromElement(sourceFact("unrelated", "src/c.ts", "other-symbol"))]);
+    index.add(descriptor("unrelated-source", "unrelated-target", "src/c.ts"));
+    expect(provider.getRelations("origin", "forward")).toEqual([]);
+    expect(prepares).toBe(1);
+
+    facts.addFacts([compactFactFromElement(sourceFact("related", "src/b.ts", "shared-symbol"))]);
+    expect(provider.getRelations("origin", "forward")).toEqual([]);
+    expect(prepares).toBe(2);
+
+    const endpointRelation = descriptor("origin", "related", "src/b.ts");
+    index.add(endpointRelation);
+    expect(provider.getRelations("origin", "forward").map((relation) => relation.id)).toEqual([endpointRelation.descriptorId]);
+    expect(prepares).toBe(3);
+  });
+
+  it("advances endpoint revisions on successful additions and replacements only", () => {
+    const index = new CompactRelationIndex();
+    const first = descriptor("left", "right", "src/a.ts", "proven");
+    expect(index.revisionFor("left")).toBe(0);
+    index.add(first);
+    expect(index.revisionFor("left")).toBe(1);
+    expect(index.revisionFor("right")).toBe(1);
+    index.add(first);
+    expect(index.revisionFor("left")).toBe(1);
+
+    const replacement = descriptor("left", "right", "src/a.ts", "partial");
+    expect(index.add(replacement)).toBe(replacement);
+    expect(index.revisionFor("left")).toBe(2);
+    expect(index.revisionFor("right")).toBe(2);
   });
 
   it("marks a provider unusable after a failed frontier load", () => {

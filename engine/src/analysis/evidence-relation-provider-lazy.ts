@@ -105,7 +105,7 @@ export class LazyEvidenceRelationProviderCore {
       return cached.relations;
     }
     if (cached && this.frontierLoader?.currentRevision) {
-      if (cached.revision === this.frontierLoader.currentRevision()) {
+      if (cached.revision === this.frontierLoader.currentRevision(elementId)) {
         this.state.memoHits += 1;
         this.resetLastExpansionStats();
         return cached.relations;

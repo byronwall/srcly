@@ -76,7 +76,7 @@ export type ProgramEvidenceDemandStats = {
 
 export interface RelationFrontierLoader {
   load(elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken, returnTo?: string): RelationFrontier;
-  currentRevision?(): number;
+  currentRevision?(elementId: string): number;
   gaps?(elementId: string): readonly ProgramEvidenceGap[];
   getDemandStats?(): ProgramEvidenceDemandStats | null;
 }
@@ -97,7 +97,11 @@ export class ProgramEvidenceRelationFrontierLoader implements RelationFrontierLo
     },
   ) {}
 
-  currentRevision(): number { return this.index.size + this.factIndex.factCount; }
+  currentRevision(elementId?: string): number {
+    return elementId === undefined
+      ? this.index.size + this.factIndex.factCount
+      : this.index.revisionFor(elementId) + this.factIndex.relationSourceRevision(elementId);
+  }
 
   load(elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken, returnTo?: string): RelationFrontier {
     cancellation?.throwIfCancelled();
@@ -125,7 +129,7 @@ export class ProgramEvidenceRelationFrontierLoader implements RelationFrontierLo
     }
     return {
       recipes: recipes.values,
-      revision: this.currentRevision(),
+      revision: this.currentRevision(elementId),
       relationIndexCount: recipes.size * 2,
       sourceFilesVisited: statDelta(beforeCounts?.sourceFilesVisited, after?.sourceFilesVisited),
       astUnitsVisited: statDelta(beforeCounts?.astUnitsVisited, after?.astUnitsVisited),

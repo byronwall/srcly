@@ -10,7 +10,7 @@ import { ProgramEvidenceRelationFrontierLoader, relationIndexSink } from "../../
 import { createEngineSession, requireTypescript } from "../../src/srcly/session";
 import { ENGINE_PACKAGE_DIR } from "../../src/srcly/typescript-choice";
 
-function fixture(guarded = false): string {
+function fixture(guarded: false | "named" | "default" = false): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "srcly-demand-http-"));
   fs.writeFileSync(path.join(root, "tsconfig.json"), JSON.stringify({
     compilerOptions: { strict: true, target: "ESNext", module: "NodeNext", moduleResolution: "NodeNext", jsx: "preserve", lib: ["ESNext", "DOM"] },
@@ -28,7 +28,7 @@ function fixture(guarded = false): string {
       `  return projects()?.[0]?.name ?? "";`,
       `}`,
     ].join("\n"),
-    ...(guarded ? {
+    ...(guarded === "named" ? {
       "src/handlers.ts": [
         `export async function GET(request: Request) {`,
         `  return Response.json([{ name: request.url }]);`,
@@ -36,6 +36,20 @@ function fixture(guarded = false): string {
       ].join("\n"),
       "src/dispatch.ts": [
         `import { GET as loadProjects } from "./handlers.js";`,
+        `export function dispatch(request: Request) {`,
+        `  const pathname = new URL(request.url).pathname;`,
+        `  if (request.method === "GET" && pathname === "/api/projects") return loadProjects(request);`,
+        `  return null;`,
+        `}`,
+      ].join("\n"),
+    } : guarded === "default" ? {
+      "src/handlers.ts": [
+        `export default async function GET(request: Request) {`,
+        `  return Response.json([{ name: request.url }]);`,
+        `}`,
+      ].join("\n"),
+      "src/dispatch.ts": [
+        `import loadProjects from "./handlers.js";`,
         `export function dispatch(request: Request) {`,
         `  const pathname = new URL(request.url).pathname;`,
         `  if (request.method === "GET" && pathname === "/api/projects") return loadProjects(request);`,
@@ -59,7 +73,7 @@ function fixture(guarded = false): string {
 }
 
 describe("on-demand HTTP transport", () => {
-  it.each([false, true])( "matches the eager frontier graph for a cross-file fetch, resource, and API response (guarded=%s)", (guarded) => {
+  it.each([false, "named", "default"] as const)("matches the eager frontier graph for a cross-file fetch, resource, and API response (guarded=%s)", (guarded) => {
     const root = fixture(guarded);
     try {
       const demandSession = createEngineSession({ root, source: root, tsconfig: null, typescriptFrom: ENGINE_PACKAGE_DIR });

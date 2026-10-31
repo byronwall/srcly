@@ -97,6 +97,27 @@ describe("on-demand evidence parity", () => {
     }
   }, 30_000);
 
+  it("matches eager traces through a mutable module variable", () => {
+    const root = fixture({
+      "index.ts": [
+        `let current = "seed";`,
+        `export function write(next: string) { current = next; }`,
+        `export function read() { return current; }`,
+      ].join("\n"),
+    });
+    try {
+      for (const query of [
+        { file: "index.ts", name: "current", line: 3, direction: "backward" },
+        { file: "index.ts", name: "current", line: 1, direction: "forward" },
+      ]) {
+        const { demand, eager } = compareWithEager(root, query);
+        expect.soft(demand, query.direction).toEqual(eager);
+      }
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }, 30_000);
+
   it("matches eager traces across renamed imports and nested cross-file member writes", () => {
     const root = fixture({
       "shared.ts": `type Card = { label: string }; export const state: { card: Card } = { card: { label: "" } };\n`,
