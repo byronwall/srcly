@@ -287,6 +287,7 @@ export class ProgramEvidenceCollectorSupport {
   }
 
   public releaseTransientState(): void {
+    this.relationSink = null;
     releaseProgramEvidenceTransientState({
       maps: [
         this.elementKeys,

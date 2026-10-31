@@ -9,12 +9,14 @@ import type {
 } from "./program-evidence";
 import { EvidenceCollector, type ProgramEvidenceOptions } from "./program-evidence";
 import { ProgramFactIndex } from "./program-fact-index";
+import { CompactRelationIndex } from "./program-evidence-connector-index";
 import { programForRoot } from "./program-evidence-loading";
 import {
   emptyProgramEvidenceCollectionStats,
 } from "./program-evidence-collector-instrumentation";
 import {
   ProgramEvidenceRelationFrontierLoader,
+  relationIndexSink,
   RelationRecipeStore as ProgramEvidenceRelationRecipeStore,
 } from "./program-evidence-relation-loading";
 import type {
@@ -278,23 +280,18 @@ function createLazyProvider(
   options: ProgramEvidenceOptions,
 ): LazyProgramEvidenceProvider {
   const started = performance.now();
-  const collector = new EvidenceCollector(ts, program, root, options);
-  const collected = collector.collectFactsOnly();
-  const declarationCatalog = collector.createDeclarationCatalog();
+  const index = new CompactRelationIndex();
+  const collector = new EvidenceCollector(ts, program, root, options, relationIndexSink(index));
+  const collected = collector.collectDeferredFacts();
+  if (process.env.TSX_DATA_FLOW_COLLECTOR_PROFILE === "1") {
+    process.stderr.write(`[collector-profile] ${JSON.stringify({ relationSource: "provider", descriptors: index.size, ...collector.getCollectionStats() })}\n`);
+  }
   const facts = new ProgramFactIndex(
     collected.facts,
     collected.sourceFiles,
     (fact) => collector.hydrateFact(fact),
   );
-  const frontierLoader = new ProgramEvidenceRelationFrontierLoader(
-    ts,
-    program,
-    root,
-    options,
-    facts,
-    collector.sourceFiles,
-    declarationCatalog,
-  );
+  const frontierLoader = new ProgramEvidenceRelationFrontierLoader(facts, index);
   const provider = new LazyEvidenceRelationProvider(
     facts,
     frontierLoader,

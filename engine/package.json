@@ -16,7 +16,7 @@
     "capture-route-graph": "node --import tsx scripts/capture-route-graph.ts",
     "capture-anchor-graph": "node --import tsx scripts/capture-anchor-graph.ts",
     "time-phases": "node --import tsx scripts/time-phases.ts",
-    "memory-probe": "node --expose-gc --max-old-space-size=3072 --import tsx scripts/memory-probe.ts",
+    "memory-probe": "node --expose-gc --max-old-space-size=4096 --import tsx scripts/memory-probe.ts",
     "survey-gate": "node --import tsx scripts/survey-gate.ts",
     "bundle":"node scripts/bundle.mjs"
   },
