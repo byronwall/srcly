@@ -82,7 +82,7 @@ export function instrumentationSnapshot(
 ): EvidenceProviderInstrumentation {
   const facts = factIndex.getInstrumentation();
   return {
-    factCount: state.factCount,
+    factCount: facts.compactFactCount,
     compactFactCount: facts.compactFactCount,
     compactFactBytesEstimate: facts.compactFactBytesEstimate,
     hydratedElementCount: facts.hydratedElementCount,

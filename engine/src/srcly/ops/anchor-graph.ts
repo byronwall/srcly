@@ -48,6 +48,9 @@ export function anchorGraphOp(session: EngineSession, params: Record<string, unk
   const tier1 = session.tier1();
   checkGeneration(tier1, params.expectedGeneration);
   const direction = parseDirection(params.direction);
+  // Caller searches need the complete source order. Forward queries retain
+  // demand collection until this session first searches across callers.
+  if (direction !== "forward") tier1.provider(true, cancellation);
   const { relative } = tier1.host.file(params.file);
   const candidate = resolveCandidate(tier1, relative, params);
   // A hub's graph at the wide limits can pass the bound; the narrow ones draw a quarter as much, and their frontier names the narrower limit.
@@ -338,7 +341,7 @@ class AnchorGraphBuilder {
       (s.endLine < span.endLine || (s.endLine === span.endLine && s.endColumn <= span.endColumn)) &&
       !(s.startLine === span.startLine && s.startColumn === span.startColumn && s.endLine === span.endLine && s.endColumn === span.endColumn);
     const provider = this.tier1.provider();
-    const facts = ownFacts(this.host, file, span, provider.facts.fileCandidates(file).filter((fact) => inside(fact.location.span)));
+    const facts = ownFacts(this.host, file, span, provider.facts.fileCandidates(file, span).filter((fact) => inside(fact.location.span)));
     const runs: Run[] = [];
     if (sides.includes("up")) {
       for (const param of facts.filter((fact) => fact.kind === "parameter")) {

@@ -15,6 +15,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
   const checker = program.getTypeChecker();
   const root = path.resolve(tier1.args.root);
   let sites: CallSiteIndex | null = null;
+  const typeTexts = new WeakMap<TypeScript.Node, string | null>();
   const scopes = new WeakMap<TypeScript.SignatureDeclaration, NonNullable<ReturnType<LanguageHost["scopeAt"]>>>();
   const sourceFile = (file: string) => program.getSourceFile(path.resolve(root, file));
   const nodeAt = (file: string, span: Span) => {
@@ -48,10 +49,14 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
     typeTextAt(file, span) {
       const at = nodeAt(file, span);
       if (!at) return null;
+      if (typeTexts.has(at.node)) return typeTexts.get(at.node)!;
       try {
         const text = checker.typeToString(checker.getTypeAtLocation(at.node));
-        return text.length > 160 ? `${text.slice(0, 159)}…` : text;
+        const clipped = text.length > 160 ? `${text.slice(0, 159)}…` : text;
+        typeTexts.set(at.node, clipped);
+        return clipped;
       } catch {
+        typeTexts.set(at.node, null);
         return null;
       }
     },

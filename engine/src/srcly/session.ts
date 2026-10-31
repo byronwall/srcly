@@ -2,7 +2,7 @@ import path from "node:path";
 import type * as TypeScript from "typescript";
 import { parseArgs } from "../cli/args";
 import { createAnalyzer } from "../core";
-import { createLazyProgramEvidenceProvider, type EvidenceRelationProvider } from "../analysis/evidence-relation-provider";
+import { createCompleteProgramEvidenceProvider, createLazyProgramEvidenceProvider, type EvidenceRelationProvider } from "../analysis/evidence-relation-provider";
 import type { AnalysisCancellationToken } from "../analysis/cancellation";
 import { ProgramEvidenceCollector } from "../analysis/program-evidence-collector";
 import { ProgramFactIndex } from "../analysis/program-fact-index";
@@ -62,7 +62,7 @@ export type BaseTier1 = {
   inputs: ProgramInputs;
   generation: Generation;
   /** The evidence provider behind the fact index; built on first use by a query that needs facts. */
-  provider: () => EvidenceRelationProvider;
+  provider: (complete?: boolean, cancellation?: AnalysisCancellationToken) => EvidenceRelationProvider;
   /** Files, selections, text, types, scopes and call sites in the language's own terms. */
   host: LanguageHost;
 };
@@ -148,10 +148,19 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
       typescript: ts.version,
     };
     let provider: ReturnType<typeof createLazyProgramEvidenceProvider> | null = null;
+    let complete = false;
     let totality: RouteDataTotalitySession | null = null;
     let report: AnalysisReport | null = null;
     const surfaces = new Map<string, RouteSurfaceRecord | null>();
-    const providerFor = () => (provider ??= createLazyProgramEvidenceProvider(ts, program, root));
+    const providerFor = (all = false, cancellation?: AnalysisCancellationToken) => {
+      if (provider?.isPoisoned) { provider = null; complete = false; totality = null; }
+      if (all && !complete) {
+        provider = createCompleteProgramEvidenceProvider(ts, program, root, cancellation);
+        complete = true;
+        totality = null;
+      }
+      return provider ??= createLazyProgramEvidenceProvider(ts, program, root);
+    };
     const surfaceFor = (routeKey: string, cancellation?: AnalysisCancellationToken): RouteSurfaceRecord | null => {
       const known = surfaces.get(routeKey);
       if (known !== undefined) return known;
@@ -181,7 +190,7 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
       provider: providerFor,
       surface: surfaceFor,
       totality: () => {
-        if (!totality) {
+        if (!totality || provider?.isPoisoned) {
           const facts = providerFor();
           const candidates = discoverSolidRouteCandidates(root, { elements: facts.facts.elements, relations: [] });
           totality = createRouteDataTotalitySession(ts, program, root, routes, facts, candidates, []);

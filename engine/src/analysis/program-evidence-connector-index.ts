@@ -51,6 +51,7 @@ export type CompactRelationQuery = {
 /** Build a descriptor while retaining only compact scalar location data. */
 export function createCompactRelationDescriptor(
   input: CompactRelationDescriptorInput,
+  knownId?: string,
 ): CompactRelationDescriptor {
   if (!input.from || !input.to || input.from === input.to) {
     throw new Error("A compact relation descriptor requires distinct endpoints.");
@@ -76,7 +77,7 @@ export function createCompactRelationDescriptor(
     sourceSequence: input.sourceSequence,
     contributingFiles,
     producerFile: input.producerFile,
-    descriptorId: compactRelationStableId(input.from, input.to, input.kind, evidence, proof),
+    descriptorId: knownId ?? compactRelationStableId(input.from, input.to, input.kind, evidence, proof),
   } satisfies CompactRelationDescriptor;
   return Object.freeze(descriptor);
 }
@@ -117,15 +118,9 @@ export class CompactRelationIndex {
   private readonly descriptors = new Map<string, CompactRelationDescriptor>();
   private readonly byFrom = new Map<string, Set<string>>();
   private readonly byTo = new Map<string, Set<string>>();
-  private readonly byProducerFile = new Map<string, Set<string>>();
-  private readonly byContributingFile = new Map<string, Set<string>>();
-  private readonly byDirection = new Map<
-    CompactRelationDirection,
-    Map<string, Set<string>>
-  >([
-    ["forward", new Map<string, Set<string>>()],
-    ["backward", new Map<string, Set<string>>()],
-  ]);
+  private byProducerFile: Map<string, Set<string>> | null = null;
+  private byContributingFile: Map<string, Set<string>> | null = null;
+  private readonly endpointRevisions = new Map<string, number>();
 
   constructor(descriptors: readonly CompactRelationDescriptorInput[] = []) {
     this.addMany(descriptors);
@@ -133,6 +128,10 @@ export class CompactRelationIndex {
 
   get size(): number {
     return this.descriptors.size;
+  }
+
+  revisionFor(elementId: string): number {
+    return this.endpointRevisions.get(elementId) ?? 0;
   }
 
   add(input: CompactRelationDescriptorInput | CompactRelationDescriptor): CompactRelationDescriptor {
@@ -146,6 +145,11 @@ export class CompactRelationIndex {
     if (existing) this.removeIndexes(existing);
     this.descriptors.set(descriptor.descriptorId, descriptor);
     this.addIndexes(descriptor);
+    const advance = (id: string) => this.endpointRevisions.set(id, this.revisionFor(id) + 1);
+    advance(descriptor.from);
+    advance(descriptor.to);
+    if (existing?.from && existing.from !== descriptor.from && existing.from !== descriptor.to) advance(existing.from);
+    if (existing?.to && existing.to !== descriptor.from && existing.to !== descriptor.to) advance(existing.to);
     return descriptor;
   }
 
@@ -172,14 +176,19 @@ export class CompactRelationIndex {
     }
     if (query.from) ids = intersect(ids, this.byFrom.get(query.from));
     if (query.to) ids = intersect(ids, this.byTo.get(query.to));
-    if (query.producerFile !== undefined) {
-      ids = intersect(ids, this.byProducerFile.get(fileKey(query.producerFile)));
+    // Frontier queries already have a small endpoint set. File-wide indexes
+    // are useful only when a caller asks for a file without an endpoint.
+    if (ids === null && (query.producerFile !== undefined || query.contributingFile)) {
+      this.indexFiles();
+      if (query.producerFile !== undefined) ids = intersect(ids, this.byProducerFile!.get(fileKey(query.producerFile)));
+      if (query.contributingFile) ids = intersect(ids, this.byContributingFile!.get(query.contributingFile));
     }
-    if (query.contributingFile) ids = intersect(ids, this.byContributingFile.get(query.contributingFile));
     const candidates = ids ?? new Set(this.descriptors.keys());
     return [...candidates]
       .map((id) => this.descriptors.get(id))
       .filter((descriptor): descriptor is CompactRelationDescriptor => Boolean(descriptor))
+      .filter((descriptor) => (query.producerFile === undefined || descriptor.producerFile === query.producerFile)
+        && (!query.contributingFile || descriptor.contributingFiles.includes(query.contributingFile)))
       .sort(compareCompactRelationDescriptors);
   }
 
@@ -192,10 +201,10 @@ export class CompactRelationIndex {
       for (const id of ids ?? []) values.add(id);
     };
     if (direction === "forward" || direction === "both") {
-      add(this.byDirection.get("forward")?.get(elementId));
+      add(this.byFrom.get(elementId));
     }
     if (direction === "backward" || direction === "both") {
-      add(this.byDirection.get("backward")?.get(elementId));
+      add(this.byTo.get(elementId));
     }
     return values;
   }
@@ -203,22 +212,28 @@ export class CompactRelationIndex {
   private addIndexes(descriptor: CompactRelationDescriptor): void {
     addToMap(this.byFrom, descriptor.from, descriptor.descriptorId);
     addToMap(this.byTo, descriptor.to, descriptor.descriptorId);
-    addToMap(this.byDirection.get("forward")!, descriptor.from, descriptor.descriptorId);
-    addToMap(this.byDirection.get("backward")!, descriptor.to, descriptor.descriptorId);
-    addToMap(this.byProducerFile, fileKey(descriptor.producerFile), descriptor.descriptorId);
+    if (this.byProducerFile) addToMap(this.byProducerFile, fileKey(descriptor.producerFile), descriptor.descriptorId);
     for (const file of descriptor.contributingFiles) {
-      addToMap(this.byContributingFile, file, descriptor.descriptorId);
+      if (this.byContributingFile) addToMap(this.byContributingFile, file, descriptor.descriptorId);
     }
   }
 
   private removeIndexes(descriptor: CompactRelationDescriptor): void {
     removeFromMap(this.byFrom, descriptor.from, descriptor.descriptorId);
     removeFromMap(this.byTo, descriptor.to, descriptor.descriptorId);
-    removeFromMap(this.byDirection.get("forward")!, descriptor.from, descriptor.descriptorId);
-    removeFromMap(this.byDirection.get("backward")!, descriptor.to, descriptor.descriptorId);
-    removeFromMap(this.byProducerFile, fileKey(descriptor.producerFile), descriptor.descriptorId);
+    if (this.byProducerFile) removeFromMap(this.byProducerFile, fileKey(descriptor.producerFile), descriptor.descriptorId);
     for (const file of descriptor.contributingFiles) {
-      removeFromMap(this.byContributingFile, file, descriptor.descriptorId);
+      if (this.byContributingFile) removeFromMap(this.byContributingFile, file, descriptor.descriptorId);
+    }
+  }
+
+  private indexFiles(): void {
+    if (this.byProducerFile) return;
+    this.byProducerFile = new Map();
+    this.byContributingFile = new Map();
+    for (const descriptor of this.descriptors.values()) {
+      addToMap(this.byProducerFile, fileKey(descriptor.producerFile), descriptor.descriptorId);
+      for (const file of descriptor.contributingFiles) addToMap(this.byContributingFile, file, descriptor.descriptorId);
     }
   }
 }
@@ -232,7 +247,7 @@ function isDescriptor(
 function freezeLocations(
   locations: readonly CompactRelationLocationToken[],
 ): readonly CompactRelationLocationToken[] {
-  return Object.freeze(locations.map((location) => Object.freeze({
+  return Object.freeze(locations.map((location) => Object.isFrozen(location) && Object.isFrozen(location.start) && Object.isFrozen(location.end) ? location : Object.freeze({
     file: location.file,
     start: Object.freeze({ ...location.start }),
     end: Object.freeze({ ...location.end }),
@@ -276,9 +291,9 @@ function fileKey(file: string | null): string {
 }
 
 function addToMap(map: Map<string, Set<string>>, key: string, value: string): void {
-  const values = map.get(key) ?? new Set<string>();
+  let values = map.get(key);
+  if (!values) map.set(key, values = new Set());
   values.add(value);
-  map.set(key, values);
 }
 
 function removeFromMap(map: Map<string, Set<string>>, key: string, value: string): void {

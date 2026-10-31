@@ -4,6 +4,7 @@ import type {
   ProgramEvidenceLocation,
   ProgramProof,
   ProgramRelationKind,
+  ProgramEvidenceGap,
 } from "./program-evidence";
 import {
   CompactRelationIndex,
@@ -54,6 +55,8 @@ export class RelationRecipeStore {
 
 export type RelationFrontier = {
   recipes: readonly RelationRecipe[];
+  /** Changes when another demanded pass can add a relation to this endpoint. */
+  revision?: number;
   relationIndexCount: number;
   sourceFilesVisited: number;
   astUnitsVisited: number;
@@ -62,23 +65,56 @@ export type RelationFrontier = {
   collectorStats: ProgramEvidenceCollectionStats;
 };
 
+/** Cumulative work performed by demand collection for one Program. */
+export type ProgramEvidenceDemandStats = {
+  collectionElapsedMs: number;
+  partitionsVisited: number;
+  sourceFilesVisited: number;
+  astUnitsVisited: number;
+  collectorStats: ProgramEvidenceCollectionStats;
+};
+
 export interface RelationFrontierLoader {
-  load(elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken): RelationFrontier;
+  load(elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken, returnTo?: string): RelationFrontier;
+  currentRevision?(elementId: string): number;
+  gaps?(elementId: string): readonly ProgramEvidenceGap[] | undefined;
+  getDemandStats?(): ProgramEvidenceDemandStats | null;
 }
 
+const NO_COLLECTION_WORK = emptyProgramEvidenceCollectionStats(0);
+
 /**
- * Materialize only requested endpoints from the index built alongside facts.
- * Fact collection already runs every relation-producing pass; retain its
- * compact descriptors so the first query never repeats those passes.
+ * Load a frontier's source dependencies, then materialize its indexed endpoints.
+ * Completed statement partitions retain their compact relation descriptors.
+ * Eager callers can supply the same index without a demand hook.
  */
 export class ProgramEvidenceRelationFrontierLoader implements RelationFrontierLoader {
   constructor(
     private readonly factIndex: ProgramFactIndex,
     private readonly index: CompactRelationIndex,
+    private readonly demand?: {
+      prepare(id: string, direction: SliceDirection, returnTo?: string, cancellation?: AnalysisCancellationToken): void;
+      gaps(id: string): readonly ProgramEvidenceGap[];
+      getDemandStats?(): ProgramEvidenceDemandStats | null;
+    },
   ) {}
 
-  load(elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken): RelationFrontier {
+  currentRevision(elementId?: string): number {
+    return elementId === undefined
+      ? this.index.size + this.factIndex.factCount
+      : this.index.revisionFor(elementId) + this.factIndex.relationSourceRevision(elementId);
+  }
+
+  load(elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken, returnTo?: string): RelationFrontier {
     cancellation?.throwIfCancelled();
+    const before = this.demand?.getDemandStats?.() ?? null;
+    const beforeCounts = before && {
+      sourceFilesVisited: before.sourceFilesVisited,
+      astUnitsVisited: before.astUnitsVisited,
+      partitionsVisited: before.partitionsVisited,
+    };
+    this.demand?.prepare(elementId, direction, returnTo, cancellation);
+    const after = this.demand?.getDemandStats?.() ?? null;
     const recipes = new RelationRecipeStore();
     let recipesExamined = 0;
     for (const primaryFile of this.factIndex.relationSourceFilesFor(elementId)) {
@@ -95,14 +131,22 @@ export class ProgramEvidenceRelationFrontierLoader implements RelationFrontierLo
     }
     return {
       recipes: recipes.values,
+      revision: this.currentRevision(elementId),
       relationIndexCount: recipes.size * 2,
-      sourceFilesVisited: 0,
-      astUnitsVisited: 0,
-      partitionsVisited: 0,
+      sourceFilesVisited: statDelta(beforeCounts?.sourceFilesVisited, after?.sourceFilesVisited),
+      astUnitsVisited: statDelta(beforeCounts?.astUnitsVisited, after?.astUnitsVisited),
+      partitionsVisited: statDelta(beforeCounts?.partitionsVisited, after?.partitionsVisited),
       recipesExamined,
-      collectorStats: emptyProgramEvidenceCollectionStats(0),
+      collectorStats: NO_COLLECTION_WORK,
     };
   }
+
+  gaps(elementId: string): readonly ProgramEvidenceGap[] | undefined { return this.demand?.gaps(elementId); }
+  getDemandStats(): ProgramEvidenceDemandStats | null { return this.demand?.getDemandStats?.() ?? null; }
+}
+
+function statDelta(before: number | undefined, after: number | undefined): number {
+  return before === undefined || after === undefined ? 0 : Math.max(0, after - before);
 }
 
 /** Capture compact descriptors during the same pass that collects facts. */
@@ -129,10 +173,7 @@ export function relationIndexSink(index: CompactRelationIndex): RelationSink {
       sourceSequence,
       contributingFiles: contributingFiles(input),
       producerFile,
-    });
-    if (descriptor.descriptorId !== input.id) {
-      throw new Error(`Compact relation identity mismatch for ${input.id}.`);
-    }
+    }, input.id);
     seen.add(input.id);
     seenByProducer.set(producerKey, seen);
     sequenceByProducer.set(producerKey, sourceSequence + 1);
@@ -140,18 +181,25 @@ export function relationIndexSink(index: CompactRelationIndex): RelationSink {
   };
 }
 
+const compactLocations = new WeakMap<ProgramEvidenceLocation, CompactRelationLocationToken>();
+
 function compactLocation(location: ProgramEvidenceLocation): CompactRelationLocationToken {
-  return {
+  const immutable = Object.isFrozen(location) && Object.isFrozen(location.span);
+  const cached = immutable ? compactLocations.get(location) : undefined;
+  if (cached) return cached;
+  const compact = Object.freeze({
     file: location.file,
-    start: {
+    start: Object.freeze({
       line: location.span.startLine,
       column: location.span.startColumn,
-    },
-    end: {
+    }),
+    end: Object.freeze({
       line: location.span.endLine,
       column: location.span.endColumn,
-    },
-  };
+    }),
+  });
+  if (immutable) compactLocations.set(location, compact);
+  return compact;
 }
 
 function expandLocation(location: CompactRelationLocationToken): ProgramEvidenceLocation {

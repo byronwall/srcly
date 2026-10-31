@@ -34,27 +34,36 @@ export class LazyEvidenceRelationProviderCore {
   private readonly loadedRecipeIds = new Set<string>();
   private readonly loadedSemanticKeys = new Set<string>();
   private readonly gapsByElement = new Map<string, ProgramEvidenceGap[]>();
-  private readonly relationCache = new Map<string, readonly ProgramRelation[]>();
+  private readonly relationCache = new Map<string, { revision?: number; relations: readonly ProgramRelation[] }>();
   private readonly materializedById = new Map<string, ProgramRelation>();
   private readonly frontierLoader: RelationFrontierLoader | null;
   private readonly state: InstrumentationState;
+  private readonly initialCollectionTimeMs: number;
+  private readonly onFailure?: () => void;
+  private readonly externallyPoisoned?: () => boolean;
+  private poisoned = false;
 
   constructor(
     factIndex: ProgramFactIndex,
     recipesOrLoader: readonly RelationRecipe[] | RelationFrontierLoader,
     gaps: readonly ProgramEvidenceGap[] = [],
     options: ProviderOptions = {},
+    onFailure?: () => void,
+    externallyPoisoned?: () => boolean,
   ) {
     this.facts = factIndex;
     this.factIndex = factIndex;
     this.frontierLoader = isRelationFrontierLoader(recipesOrLoader) ? recipesOrLoader : null;
+    this.initialCollectionTimeMs = options.collectionTimeMs ?? 0;
+    this.onFailure = onFailure;
+    this.externallyPoisoned = externallyPoisoned;
     const initialRecipeCount = isRelationFrontierLoader(recipesOrLoader) ? 0 : recipesOrLoader.length;
     this.state = {
       factCount: factIndex.factCount,
       expansionRequests: 0,
       materializedRelationCount: 0,
       memoHits: 0,
-      collectionTimeMs: options.collectionTimeMs ?? 0,
+      collectionTimeMs: this.initialCollectionTimeMs,
       expansionTimeMs: 0,
       recipeCount: initialRecipeCount,
       relationIndexCount: initialRecipeCount * 2,
@@ -84,40 +93,66 @@ export class LazyEvidenceRelationProviderCore {
     }
   }
 
-  getRelations(elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken): readonly ProgramRelation[] {
+  getRelations(elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken, returnTo?: string): readonly ProgramRelation[] {
     cancellation?.throwIfCancelled();
+    if (this.isPoisoned) throw new Error("Evidence provider is invalid after a failed frontier load; recreate it before querying.");
     this.state.expansionRequests += 1;
-    const cacheKey = `${elementId}:${direction}`;
+    const cacheKey = `${elementId}:${direction}:${returnTo ?? ""}`;
     const cached = this.relationCache.get(cacheKey);
-    if (cached) {
+    if (cached && !this.frontierLoader) {
       this.state.memoHits += 1;
       this.resetLastExpansionStats();
-      return cached;
+      return cached.relations;
+    }
+    if (cached && this.frontierLoader?.currentRevision) {
+      if (cached.revision === this.frontierLoader.currentRevision(elementId)) {
+        this.state.memoHits += 1;
+        this.resetLastExpansionStats();
+        return cached.relations;
+      }
     }
 
     const started = performance.now();
-    this.loadFrontier(elementId, direction, cancellation);
-    cancellation?.throwIfCancelled();
+    let revision: number | undefined;
+    try {
+      revision = this.loadFrontier(elementId, direction, cancellation, returnTo);
+      cancellation?.throwIfCancelled();
+    } catch (error) {
+      if (this.frontierLoader) {
+        this.poisoned = true;
+        this.onFailure?.();
+      }
+      throw error;
+    }
+    if (cached && revision !== undefined && cached.revision === revision) {
+      this.state.memoHits += 1;
+      this.resetLastExpansionStats();
+      return cached.relations;
+    }
     const candidates = this.candidatesFor(elementId, direction);
     const relations = candidates
+      .filter(({ recipe }) => !returnTo || recipe.kind !== "return-value" || recipe.to === returnTo)
       .sort((left, right) => this.compareCandidates(left, right, direction))
       .map(({ recipe }) => this.materialize(recipe));
-    this.relationCache.set(cacheKey, relations);
+    this.relationCache.set(cacheKey, { revision, relations });
     this.state.expansionTimeMs += performance.now() - started;
     return relations;
   }
 
   getGaps(elementId: string): readonly ProgramEvidenceGap[] {
-    return this.gapsByElement.get(elementId) ?? [];
+    return this.frontierLoader?.gaps?.(elementId) ?? this.gapsByElement.get(elementId) ?? [];
   }
 
   getInstrumentation(): EvidenceProviderInstrumentation {
+    this.syncDemandInstrumentation();
     return instrumentationSnapshot(this.state, this.factIndex);
   }
 
   get instrumentation(): EvidenceProviderInstrumentation {
     return this.getInstrumentation();
   }
+
+  get isPoisoned(): boolean { return this.poisoned || this.externallyPoisoned?.() === true; }
 
   private candidatesFor(elementId: string, direction: SliceDirection): RelationCandidate[] {
     const candidates: RelationCandidate[] = [];
@@ -132,12 +167,12 @@ export class LazyEvidenceRelationProviderCore {
     return [...unique.values()];
   }
 
-  private loadFrontier(elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken): void {
+  private loadFrontier(elementId: string, direction: SliceDirection, cancellation?: AnalysisCancellationToken, returnTo?: string): number | undefined {
     this.resetLastExpansionStats();
-    if (!this.frontierLoader) return;
-    const frontier = this.frontierLoader.load(elementId, direction, cancellation);
+    if (!this.frontierLoader) return undefined;
+    const frontier = this.frontierLoader.load(elementId, direction, cancellation, returnTo);
     cancellation?.throwIfCancelled();
-    addProgramEvidenceCollectionStats(this.state.deferredCollection, frontier.collectorStats);
+    if (!this.frontierLoader.getDemandStats?.()) addProgramEvidenceCollectionStats(this.state.deferredCollection, frontier.collectorStats);
     for (const recipe of frontier.recipes) this.addRecipe(recipe);
     this.state.lastExpansionRecipeCount = frontier.recipes.length;
     this.state.lastExpansionRelationIndexCount = frontier.relationIndexCount;
@@ -151,6 +186,19 @@ export class LazyEvidenceRelationProviderCore {
     this.state.totalExpansionAstUnitsVisited += frontier.astUnitsVisited;
     this.state.totalExpansionPartitionsVisited += frontier.partitionsVisited;
     this.state.totalExpansionRecipesExamined += frontier.recipesExamined;
+    return frontier.revision;
+  }
+
+  private syncDemandInstrumentation(): boolean {
+    const demand = this.frontierLoader?.getDemandStats?.();
+    if (!demand) return false;
+    this.state.collectionTimeMs = this.initialCollectionTimeMs + demand.collectionElapsedMs;
+    this.state.deferredCollection = emptyProgramEvidenceCollectionStats(0);
+    addProgramEvidenceCollectionStats(this.state.deferredCollection, demand.collectorStats);
+    this.state.totalExpansionSourceFilesVisited = demand.sourceFilesVisited;
+    this.state.totalExpansionAstUnitsVisited = demand.astUnitsVisited;
+    this.state.totalExpansionPartitionsVisited = demand.partitionsVisited;
+    return true;
   }
 
   private addRecipe(recipe: RelationRecipe): void {

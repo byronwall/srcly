@@ -202,7 +202,19 @@ function libraryMember(ts: typeof TypeScript, checker: TypeScript.TypeChecker, c
  * renamed), or `fs.readFile` through a namespace or default import. Null for
  * a callee no import names.
  */
-export function importedCallee(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): { module: string; name: string } | null {
+type ImportedCallee = { module: string; name: string } | null;
+const importedCallees = new WeakMap<TypeScript.TypeChecker, WeakMap<TypeScript.Expression, ImportedCallee>>();
+
+export function importedCallee(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): ImportedCallee {
+  let cache = importedCallees.get(checker);
+  if (!cache) { cache = new WeakMap(); importedCallees.set(checker, cache); }
+  if (cache.has(callee)) return cache.get(callee)!;
+  const imported = resolveImportedCallee(ts, checker, callee);
+  cache.set(callee, imported);
+  return imported;
+}
+
+function resolveImportedCallee(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): ImportedCallee {
   const symbol = symbolAtNode(checker, callee);
   const direct = importModule(ts, checker, callee, symbol);
   if (direct) {
@@ -395,12 +407,16 @@ export function unwrap(ts: typeof TypeScript, node: TypeScript.Expression): Type
 }
 
 /** The checker's symbol at a node, or null where the checker throws; `undefined` where it has none. */
+const symbolsByChecker = new WeakMap<TypeScript.TypeChecker, WeakMap<TypeScript.Node, TypeScript.Symbol | null | undefined>>();
+
 export function symbolAtNode(checker: TypeScript.TypeChecker, node: TypeScript.Node): TypeScript.Symbol | null | undefined {
-  try {
-    return checker.getSymbolAtLocation(node);
-  } catch {
-    return null;
-  }
+  let symbols = symbolsByChecker.get(checker);
+  if (!symbols) { symbols = new WeakMap(); symbolsByChecker.set(checker, symbols); }
+  if (symbols.has(node)) return symbols.get(node);
+  let symbol: TypeScript.Symbol | null | undefined;
+  try { symbol = checker.getSymbolAtLocation(node); } catch { symbol = null; }
+  symbols.set(node, symbol);
+  return symbol;
 }
 
 // A symbol's id is a function of the symbol alone (its qualified name and
@@ -476,29 +492,54 @@ export function safeType(checker: TypeScript.TypeChecker, node: TypeScript.Node)
   return text;
 }
 
+const locationsByNode = new WeakMap<TypeScript.Node, { root: string; location: ProgramEvidenceLocation }>();
+const expressionTexts = new WeakMap<TypeScript.Node, string>();
+
+export function expressionText(node: TypeScript.Node): string {
+  const cached = expressionTexts.get(node);
+  if (cached !== undefined) return cached;
+  const text = node.getText(node.getSourceFile()).replace(/\s+/g, " ").trim();
+  expressionTexts.set(node, text);
+  return text;
+}
+
+export function nodeLocation(root: string, node: TypeScript.Node): ProgramEvidenceLocation {
+  const cached = locationsByNode.get(node);
+  return cached?.root === root ? cached.location : locationFor(root, node.getSourceFile(), node);
+}
+
 export function locationFor(
   root: string,
   file: TypeScript.SourceFile,
   node: TypeScript.Node,
 ): ProgramEvidenceLocation {
+  const cached = locationsByNode.get(node);
+  if (cached?.root === root) return cached.location;
   const start = file.getLineAndCharacterOfPosition(node.getStart(file));
   const end = file.getLineAndCharacterOfPosition(node.getEnd());
-  return {
+  const location = Object.freeze({
     file: relative(root, file.fileName),
     line: start.line + 1,
     column: start.character + 1,
-    span: {
+    span: Object.freeze({
       startLine: start.line + 1,
       startColumn: start.character + 1,
       endLine: end.line + 1,
       endColumn: end.character + 1,
-    },
-  };
+    }),
+  });
+  locationsByNode.set(node, { root, location });
+  return location;
 }
 
+const keysByNode = new WeakMap<TypeScript.Node, { root: string; key: string }>();
 export function nodeKey(root: string, node: TypeScript.Node) {
-  const location = locationFor(root, node.getSourceFile(), node);
-  return `${location.file}:${location.span.startLine}:${location.span.startColumn}:${location.span.endLine}:${location.span.endColumn}`;
+  const cached = keysByNode.get(node);
+  if (cached?.root === root) return cached.key;
+  const location = nodeLocation(root, node);
+  const key = `${location.file}:${location.span.startLine}:${location.span.startColumn}:${location.span.endLine}:${location.span.endColumn}`;
+  keysByNode.set(node, { root, key });
+  return key;
 }
 
 // Every element location, symbol id and identity point asks for a file's
@@ -598,8 +639,19 @@ export function proof(kind: ProgramProofKind, detail: string, locations: Program
 }
 
 export function stableId(prefix: string, fields: unknown[]) {
+  return hashId(prefix, fields.map(stableSerialize).join("|"));
+}
+
+/** The relation schema has a fixed field order; avoid sorting each location again. */
+export function stableRelationId(from: string, to: string, kind: string, locations: readonly ProgramEvidenceLocation[], proofKind: string, detail: string): string {
+  const evidence = locations.map(({ file, line, column, span }) =>
+    `{column:${column},file:${file},line:${line},span:{endColumn:${span.endColumn},endLine:${span.endLine},startColumn:${span.startColumn},startLine:${span.startLine}}}`,
+  ).join(",");
+  return hashId("program-relation", `${from}|${to}|${kind}|[${evidence}]|${proofKind}|${detail}`);
+}
+
+function hashId(prefix: string, value: string): string {
   let hash = 2166136261;
-  const value = fields.map(stableSerialize).join("|");
   for (let index = 0; index < value.length; index += 1) {
     hash ^= value.charCodeAt(index);
     hash = Math.imul(hash, 16777619);
@@ -611,9 +663,10 @@ export function stableSerialize(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (Array.isArray(value)) return `[${value.map(stableSerialize).join(",")}]`;
   if (typeof value === "object") {
-    return `{${Object.entries(value as Record<string, unknown>)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, item]) => `${key}:${stableSerialize(item)}`)
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort((left, right) => left.localeCompare(right))
+      .map((key) => `${key}:${stableSerialize(record[key])}`)
       .join(",")}}`;
   }
   return String(value);

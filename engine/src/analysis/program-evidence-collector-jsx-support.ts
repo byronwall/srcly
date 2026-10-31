@@ -10,6 +10,7 @@ import { makesStore } from "./framework-flows";
 import type { ProgramEvidenceLocation } from "./program-evidence";
 import { isSolidComponent } from "./program-evidence-collector-field-transfer-ast";
 import {
+  asFunctionLike,
   browserMember,
   browserPropertyRead,
   compilerSymbolId,
@@ -33,10 +34,10 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   /** Each context's provided values as written (`value={{ save }}`), to find the function a context method names. */
   private readonly contextValues = new Map<string, TypeScript.Expression[]>();
 
-  protected collectNodes(file: TypeScript.SourceFile): void {
+  protected collectNodes(root: TypeScript.Node): void {
     const visit = (node: TypeScript.Node, ownerId: string | null) => {
       this.noteAstUnit();
-      const info = this.functionsByNode.get(nodeKey(this.root, node));
+      const info = asFunctionLike(this.ts, node) ? this.functionsByNode.get(nodeKey(this.root, node)) : undefined;
       const nextOwner = info?.id ?? ownerId;
       if (this.ts.isVariableDeclaration(node) && node.initializer) {
         this.processVariable(node, nextOwner);
@@ -112,7 +113,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       }
       this.ts.forEachChild(node, (child) => visit(child, nextOwner));
     };
-    visit(file, null);
+    visit(root, null);
   }
 
   protected processJsx(
@@ -377,6 +378,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     if (!origin || !this.ts.isCallExpression(origin)) return null;
     const imported = importedCallee(this.ts, this.checker, origin.expression);
     const factory = imported?.name === "createContext" && (imported.module === "solid-js" || imported.module === "react");
+    if (factory) this.requireReferences(expression);
     return factory ? nodeKey(this.root, origin) : null;
   }
 
@@ -403,21 +405,28 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   protected connectCalls(): void {
     this.connectContexts();
     this.connectStores();
-    const props = [...this.pendingComponentPropBindings];
+    const props = new Map<string, PendingComponentPropBinding[]>();
+    for (const prop of this.componentPropBindings) {
+      const bindings = props.get(prop.target.id) ?? [];
+      bindings.push(prop);
+      props.set(prop.target.id, bindings);
+    }
     this.connectComponentPropBindings();
     this.connectFieldTransfers();
     for (const named of this.calls) {
       this.checkCancellation();
+      if (!this.bodyCollected(named.node)) continue;
       // A store member read through its hook (`setCount` after `useStore((s) => s.setCount)`) runs the store's function, never the selector it is written beside.
       const call = named.target && this.storeMethod(named.node.expression).length ? { ...named, target: null } : named;
+      const connect = this.shouldConnectCall(call);
       if (call !== named && this.ts.isCallExpression(call.node)) {
         const where = [this.location(call.node.expression)];
         this.addRelation(this.expression(call.node.expression, call.ownerId), call.id, "references", where, proof("ast-node", "The store's function is consumed by this call.", where), "proven");
       }
-      if (!call.target) this.connectExternalCall(call);
+      if (!call.target && connect) this.connectExternalCall(call);
       if (!call.target) this.connectBoundHandlers(call, props);
       if (!call.target) this.connectEmitter(call);
-      if (call.target) {
+      if (call.target && connect) {
         for (const parameter of call.target.declaration.parameters) {
           this.checkCancellation();
           const index = call.target.declaration.parameters.indexOf(parameter);
@@ -486,6 +495,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     };
     const emitted = event(call.node, /^emit$/);
     if (!emitted || !this.ts.isCallExpression(call.node)) return;
+    if (this.ts.isPropertyAccessExpression(call.node.expression)) this.requireReferences(call.node.expression.expression);
     const args = call.node.arguments.slice(1);
     for (const other of this.calls) {
       const listened = event(other.node, /^(on|once|addListener|prependListener)$/);
@@ -510,7 +520,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
    * function was handed in, and the slice follows it only from that call or
    * occurrence (`evidence-slice.ts`), so two callers' handlers never cross.
    */
-  private connectBoundHandlers(call: CollectorCallInfo, props: readonly PendingComponentPropBinding[]): void {
+  private connectBoundHandlers(call: CollectorCallInfo, props: ReadonlyMap<string, readonly PendingComponentPropBinding[]>): void {
     if (!this.ts.isCallExpression(call.node)) return;
     const node = call.node;
     const slot = this.handlerSlot(node.expression);
@@ -519,7 +529,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       ? [...this.contextMethod(node.expression), ...this.storeMethod(node.expression)].map((value) => ({ value, paired: false }))
       : typeof slot.index === "number"
         ? this.calls.flatMap((outer) => outer.target?.id === slot.owner.id && this.ts.isCallExpression(outer.node) && outer.node.arguments[slot.index as number] ? [{ value: outer.node.arguments[slot.index as number], paired: true }] : [])
-        : props.flatMap((pending) => {
+        : (props.get(slot.owner.id) ?? []).flatMap((pending) => {
           const value = pending.attribute.initializer && this.ts.isJsxExpression(pending.attribute.initializer) ? pending.attribute.initializer.expression : undefined;
           return pending.target.id === slot.owner.id && pending.attribute.name.getText() === slot.index && value ? [{ value, paired: true }] : [];
         });
@@ -644,34 +654,14 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
    * `save` of each provider's value object; or the value itself when it is a
    * function (`const dispatch = useContext(Dispatch)`), each provided value.
    */
+  private readonly contextMethods = new WeakMap<TypeScript.Expression, { context: string; name: string | null } | null>();
+
   private contextMethod(callee: TypeScript.Expression): TypeScript.Node[] {
-    const node = unwrap(this.ts, callee);
-    let holder: TypeScript.Expression | undefined;
-    let name: string | null = null;
-    if (this.ts.isPropertyAccessExpression(node)) {
-      holder = unwrap(this.ts, node.expression);
-      name = node.name.text;
-      if (this.ts.isIdentifier(holder)) {
-        const declaration = this.checker.getSymbolAtLocation(holder)?.valueDeclaration;
-        if (!declaration || !this.ts.isVariableDeclaration(declaration) || !this.ts.isIdentifier(declaration.name) || !declaration.initializer) return [];
-        holder = unwrap(this.ts, declaration.initializer);
-      }
-    } else if (this.ts.isIdentifier(node)) {
-      const declaration = this.checker.getSymbolAtLocation(node)?.valueDeclaration;
-      if (declaration && this.ts.isVariableDeclaration(declaration) && this.ts.isIdentifier(declaration.name) && declaration.initializer) holder = unwrap(this.ts, declaration.initializer);
-      else if (declaration && this.ts.isBindingElement(declaration) && this.ts.isObjectBindingPattern(declaration.parent) && this.ts.isVariableDeclaration(declaration.parent.parent) && declaration.parent.parent.initializer && !declaration.dotDotDotToken) {
-        const key = declaration.propertyName ?? declaration.name;
-        if (!this.ts.isIdentifier(key)) return [];
-        holder = unwrap(this.ts, declaration.parent.parent.initializer);
-        name = key.text;
-      }
-    }
-    if (!holder || !this.ts.isCallExpression(holder) || !holder.arguments[0]) return [];
-    const imported = importedCallee(this.ts, this.checker, holder.expression);
-    if (imported?.name !== "useContext" || (imported.module !== "solid-js" && imported.module !== "react")) return [];
-    const context = this.contextKey(holder.arguments[0]);
-    return (context ? this.contextValues.get(context) ?? [] : []).flatMap<TypeScript.Node>((provided) => {
-      // The context's value is itself the function the call runs.
+    if (!this.contextMethods.has(callee)) this.contextMethods.set(callee, this.contextMethodBinding(callee));
+    const binding = this.contextMethods.get(callee);
+    if (!binding) return [];
+    const { context, name } = binding;
+    return (this.contextValues.get(context) ?? []).flatMap<TypeScript.Node>((provided) => {
       if (name === null) return [provided];
       const value = unwrap(this.ts, provided);
       if (!this.ts.isObjectLiteralExpression(value)) return [];
@@ -683,13 +673,51 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     });
   }
 
+  private contextMethodBinding(callee: TypeScript.Expression): { context: string; name: string | null } | null {
+    const node = unwrap(this.ts, callee);
+    let holder: TypeScript.Expression | undefined;
+    let name: string | null = null;
+    if (this.ts.isPropertyAccessExpression(node)) {
+      holder = unwrap(this.ts, node.expression);
+      name = node.name.text;
+      if (this.ts.isIdentifier(holder)) {
+        const declaration = this.checker.getSymbolAtLocation(holder)?.valueDeclaration;
+        if (!declaration || !this.ts.isVariableDeclaration(declaration) || !this.ts.isIdentifier(declaration.name) || !declaration.initializer) return null;
+        holder = unwrap(this.ts, declaration.initializer);
+      }
+    } else if (this.ts.isIdentifier(node)) {
+      const declaration = this.checker.getSymbolAtLocation(node)?.valueDeclaration;
+      if (declaration && this.ts.isVariableDeclaration(declaration) && this.ts.isIdentifier(declaration.name) && declaration.initializer) holder = unwrap(this.ts, declaration.initializer);
+      else if (declaration && this.ts.isBindingElement(declaration) && this.ts.isObjectBindingPattern(declaration.parent) && this.ts.isVariableDeclaration(declaration.parent.parent) && declaration.parent.parent.initializer && !declaration.dotDotDotToken) {
+        const key = declaration.propertyName ?? declaration.name;
+        if (!this.ts.isIdentifier(key)) return null;
+        holder = unwrap(this.ts, declaration.parent.parent.initializer);
+        name = key.text;
+      }
+    }
+    if (!holder || !this.ts.isCallExpression(holder) || !holder.arguments[0]) return null;
+    const imported = importedCallee(this.ts, this.checker, holder.expression);
+    if (imported?.name !== "useContext" || (imported.module !== "solid-js" && imported.module !== "react")) return null;
+    const context = this.contextKey(holder.arguments[0]);
+    return context ? { context, name } : null;
+  }
+
   /**
    * The slot a callee reads a function from: a parameter of the function it is
    * written in (`index` its position), or a prop of a component's first
    * parameter (`index` the prop's name), through `props.onSave` or a
    * destructured `{ onSave }`.
    */
+  private readonly handlerSlots = new WeakMap<TypeScript.Expression, { owner: CollectorFunctionInfo; index: number | string } | null>();
+
   private handlerSlot(callee: TypeScript.Expression): { owner: CollectorFunctionInfo; index: number | string } | null {
+    if (this.handlerSlots.has(callee)) return this.handlerSlots.get(callee)!;
+    const slot = this.findHandlerSlot(callee);
+    this.handlerSlots.set(callee, slot);
+    return slot;
+  }
+
+  private findHandlerSlot(callee: TypeScript.Expression): { owner: CollectorFunctionInfo; index: number | string } | null {
     const node = unwrap(this.ts, callee);
     const ownerOf = (parameter: TypeScript.ParameterDeclaration) => this.functionsByNode.get(nodeKey(this.root, parameter.parent)) ?? null;
     if (this.ts.isPropertyAccessExpression(node) && this.ts.isIdentifier(node.expression)) {
@@ -746,8 +774,8 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     }
   }
 
-  protected connectPendingReferences(): void {
-    for (const reference of this.references) {
+  protected connectPendingReferences(references = this.references): void {
+    for (const reference of references) {
       this.checkCancellation();
       // A state pair's getter reads its state, not the pattern it was declared in (which its setter shares).
       const target = reference.symbolId

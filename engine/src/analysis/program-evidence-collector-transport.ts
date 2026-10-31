@@ -33,7 +33,7 @@ export type ProgramEvidenceTransportContext = {
   ts: typeof TypeScript;
   checker: TypeScript.TypeChecker;
   root: string;
-  files: readonly TypeScript.SourceFile[];
+  roots: readonly TypeScript.Node[];
   facts: readonly CompactProgramFact[];
   calls: readonly CallInfo[];
   handlers: readonly FunctionInfo[];
@@ -66,7 +66,7 @@ export function connectProgramEvidenceTransport(context: ProgramEvidenceTranspor
     ts: context.ts,
     checker: context.checker,
     root: context.root,
-    files: context.files,
+    roots: context.roots,
     calls: context.calls,
     symbolId: context.symbolId,
     moduleFor: context.moduleFor,
@@ -77,6 +77,8 @@ export function connectProgramEvidenceTransport(context: ProgramEvidenceTranspor
     location: context.location,
     addRelation: context.addRelation,
   });
+  // A bridge needs all three endpoints; avoid hydrating the catalog without them.
+  if (!context.fetches.length || !context.resources.length || !context.responses.length) return;
   connectProgramHttpBridges({
     checkCancellation: context.checkCancellation,
     root: context.root,
