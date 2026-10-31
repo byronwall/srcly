@@ -12,6 +12,7 @@ export class ProgramEvidenceCandidateIndex {
   private readonly nodesByName = new Map<string, TypeScript.Node[]>();
   private readonly aliasesByName = new Map<string, Set<string>>();
   private readonly referencesBySymbol = new Map<string, readonly TypeScript.Node[]>();
+  private readonly readsBySymbols = new Map<string, boolean>();
   private readonly symbolsByNode = new WeakMap<TypeScript.Node, string | null>();
 
   constructor(
@@ -70,13 +71,17 @@ export class ProgramEvidenceCandidateIndex {
       if (id) targets.add(id);
     }
     if (targets.size === 0) return false;
+    const key = [...targets].sort().join("\0");
+    const cached = this.readsBySymbols.get(key);
+    if (cached !== undefined) return cached;
     for (const name of this.namesFor(identifierName(node))) {
       for (const candidate of this.nodesByName.get(name) ?? []) {
         if (candidate.getSourceFile().fileName.includes(`${path.sep}node_modules${path.sep}`)) continue;
         if (!isValueRead(this.ts, candidate)) continue;
-        if (targets.has(this.symbolId(candidate) ?? "")) return true;
+        if (targets.has(this.symbolId(candidate) ?? "")) { this.readsBySymbols.set(key, true); return true; }
       }
     }
+    this.readsBySymbols.set(key, false);
     return false;
   }
 

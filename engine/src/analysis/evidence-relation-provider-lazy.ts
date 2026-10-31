@@ -172,7 +172,7 @@ export class LazyEvidenceRelationProviderCore {
     if (!this.frontierLoader) return undefined;
     const frontier = this.frontierLoader.load(elementId, direction, cancellation, returnTo);
     cancellation?.throwIfCancelled();
-    if (!this.syncDemandInstrumentation()) addProgramEvidenceCollectionStats(this.state.deferredCollection, frontier.collectorStats);
+    if (!this.frontierLoader.getDemandStats?.()) addProgramEvidenceCollectionStats(this.state.deferredCollection, frontier.collectorStats);
     for (const recipe of frontier.recipes) this.addRecipe(recipe);
     this.state.lastExpansionRecipeCount = frontier.recipes.length;
     this.state.lastExpansionRelationIndexCount = frontier.relationIndexCount;

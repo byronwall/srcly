@@ -81,10 +81,12 @@ export interface RelationFrontierLoader {
   getDemandStats?(): ProgramEvidenceDemandStats | null;
 }
 
+const NO_COLLECTION_WORK = emptyProgramEvidenceCollectionStats(0);
+
 /**
- * Materialize only requested endpoints from the index built alongside facts.
- * Fact collection already runs every relation-producing pass; retain its
- * compact descriptors so the first query never repeats those passes.
+ * Load a frontier's source dependencies, then materialize its indexed endpoints.
+ * Completed statement partitions retain their compact relation descriptors.
+ * Eager callers can supply the same index without a demand hook.
  */
 export class ProgramEvidenceRelationFrontierLoader implements RelationFrontierLoader {
   constructor(
@@ -135,7 +137,7 @@ export class ProgramEvidenceRelationFrontierLoader implements RelationFrontierLo
       astUnitsVisited: statDelta(beforeCounts?.astUnitsVisited, after?.astUnitsVisited),
       partitionsVisited: statDelta(beforeCounts?.partitionsVisited, after?.partitionsVisited),
       recipesExamined,
-      collectorStats: emptyProgramEvidenceCollectionStats(0),
+      collectorStats: NO_COLLECTION_WORK,
     };
   }
 

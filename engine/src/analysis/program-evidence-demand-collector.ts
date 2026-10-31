@@ -14,6 +14,7 @@ import { asFunctionLike, bindingIdentifiers, firstBindingIdentifier, functionNam
 export class ProgramEvidenceDemandCollector extends ProgramEvidenceCollector {
   private readonly candidates: ProgramEvidenceCandidateIndex;
   private readonly roots = new Set<TypeScript.Node>();
+  private readonly loadedFiles = new Set<TypeScript.SourceFile>();
   private readonly expanded = new Set<string>();
   private collecting = false;
   private collectionElapsedMs = 0;
@@ -52,7 +53,7 @@ export class ProgramEvidenceDemandCollector extends ProgramEvidenceCollector {
   protected override noteAstUnit(): void { this.astUnitsVisited += 1; super.noteAstUnit(); }
 
   getDemandStats() {
-    const sourceFilesVisited = new Set([...this.roots].map((node) => node.getSourceFile())).size;
+    const sourceFilesVisited = this.loadedFiles.size;
     return {
       collectionElapsedMs: this.collectionElapsedMs, partitionsVisited: this.roots.size,
       sourceFilesVisited, astUnitsVisited: this.astUnitsVisited,
@@ -114,6 +115,7 @@ export class ProgramEvidenceDemandCollector extends ProgramEvidenceCollector {
     const root = this.partition(node);
     if (!this.roots.has(root) && this.filesByRelativeName.has(relative(this.root, node.getSourceFile().fileName))) {
       this.roots.add(root);
+      this.loadedFiles.add(root.getSourceFile());
       this.collectNodes(root);
       this.requestedRoots.add(root);
     }
@@ -272,6 +274,7 @@ export class ProgramEvidenceDemandCollector extends ProgramEvidenceCollector {
           if (this.roots.has(file)) continue;
           this.checkCancellation();
           this.roots.add(file);
+          this.loadedFiles.add(file.getSourceFile());
           this.measurePhase("nodes", 1, () => this.collectNodes(file));
         }
         const demand = (node: TypeScript.Node | undefined) => {
