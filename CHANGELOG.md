@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.8.1](https://github.com/byronwall/srcly/compare/v1.8.0...v1.8.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **graph:** cancel camera work when a trace view unmounts ([#313](https://github.com/byronwall/srcly/issues/313)) ([f47736b](https://github.com/byronwall/srcly/commit/f47736bf0f548e3dbf4ba33cf7416a8fce38ae31))
+
+
+### Performance Improvements
+
+* **dataflow:** collect evidence on demand and defer classification ([#312](https://github.com/byronwall/srcly/issues/312)) ([4605a47](https://github.com/byronwall/srcly/commit/4605a47d5304de2cb0926e48d8ffb49d627b4a26))
+* **dataflow:** remove repeated work from anchor traces ([#309](https://github.com/byronwall/srcly/issues/309)) ([e07cc51](https://github.com/byronwall/srcly/commit/e07cc510087b5c028273cad785b97ee36c6c3b35))
+
 ## [1.8.0](https://github.com/byronwall/srcly/compare/v1.7.0...v1.8.0) (2026-10-30)
 
 
