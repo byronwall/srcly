@@ -34,12 +34,15 @@ Its outcome remains `partial`; faster analysis does not change its proof limits.
 
 A separate run without CPU profiling confirmed the improvement, including session construction:
 
-| Measurement | Original | Fixed |
-| --- | ---: | ---: |
-| Cold trace | 45.641 s | 20.694 s |
-| Retained heap after three calls | 1,491 MB | 1,463 MB |
+| Measurement | Original | After collection fixes | Final code |
+| --- | ---: | ---: | ---: |
+| Cold trace | 45.641 s | 20.694 s | 29.923 s |
+| Retained heap after three calls | 1,491 MB | 1,463 MB | 1,434 MB |
 
-This is a 2.2× cold improvement, not a tenfold result.
+The initial experiment improved cold time by 2.2×; the final run improved it by 1.5×.
+These are individual cold runs on an Apple M3 Pro with 18 GB RAM and Node 22.21.1.
+Each process then repeated the trace twice. Machine load was not controlled.
+Warm times were 0.286–0.390 seconds originally and 0.532–0.545 seconds in the final run.
 Memory readings followed full garbage collection. RSS varied with macOS memory compression.
 
 The original CPU profile identified these costs:
@@ -128,7 +131,7 @@ The test also checks that a shadowed name does not become a module read.
 It uses operation counts instead of a machine-dependent time limit.
 
 The 208 annotated trace fixtures and 27 anchor-graph tests passed after the change.
-The full checks passed: 533 engine tests, 453 client tests, and 499 server tests.
+The full checks passed: 534 engine tests, 453 client tests, and 499 server tests.
 Engine and client type checks, engine lint, and server Ruff also passed.
 
 The first coverage comparison found no changed outcomes or stops across 401 traces.
@@ -140,3 +143,15 @@ Both regression tests fail against their respective original code.
 The exact HTTP request returned 200 in 28.037 seconds with disk result caching disabled.
 The engine used its default 30-second query timeout.
 The API response was deeply identical to the original saved response, including all proof data.
+
+The separate browser check opened the forward graph, inspected `doc()`, and reloaded successfully.
+It reported no engine timeout and no console errors or warnings.
+The screenshots show the loaded graph and selected-node inspector at 1440 × 900.
+The browser check also found existing toolbar clipping and limited node accessibility in the graph snapshot.
+Those interface issues are outside this engine change.
+
+The final coverage gate passed with no moves across all 401 traces.
+The client survey fell from 69.167 to 46.953 seconds.
+Its slowest trace after initialization took 1.861 seconds, below the five-second limit.
+The complete corpus took 87 seconds before and 62 seconds after, excluding checkout and install.
+The browser regression suite passed 16 tests; one optional latency test was skipped.
