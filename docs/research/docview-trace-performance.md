@@ -32,6 +32,16 @@ It removes that work from the first frontier expansion.
 The full graph remained byte-for-byte identical in both experiments: 2,333 nodes and 2,540 edges.
 Its outcome remains `partial`; faster analysis does not change its proof limits.
 
+A separate run without CPU profiling confirmed the improvement, including session construction:
+
+| Measurement | Original | Fixed |
+| --- | ---: | ---: |
+| Cold trace | 45.641 s | 20.694 s |
+| Retained heap after three calls | 1,491 MB | 1,463 MB |
+
+This is a 2.2× cold improvement, not a tenfold result.
+Memory readings followed full garbage collection. RSS varied with macOS memory compression.
+
 The original CPU profile identified these costs:
 
 - `readBackInFile`: 18.2 seconds across both collection passes.
@@ -41,6 +51,9 @@ The original CPU profile identified these costs:
   The first frontier repeated those passes to build compact relation descriptors.
 - Handler classification spent 5.5 seconds checking parameter types.
   This remains useful work. Changing its rules would change analysis coverage.
+- Graph frame classification also scanned files repeatedly, once for each drawn value.
+  A follow-up profile of `pickHubs` attributed 4.6 seconds across three calls to this scan.
+  The language host now caches each function's span, name, and role.
 
 ## Options considered
 
@@ -83,6 +96,10 @@ Frontier requests read the existing endpoint and producer-file indexes.
 They still materialize only requested relations, with the same ordering and proof data.
 The collector releases its relation sink after collection.
 
+The TypeScript host caches function descriptions within its current Program.
+Every value in the same function reuses its frame description.
+A refreshed session builds a new cache. Python behavior is unchanged.
+
 ## Reproduce
 
 Run from `engine/`. Do not run another large-repository probe at the same time.
@@ -111,3 +128,15 @@ The test also checks that a shadowed name does not become a module read.
 It uses operation counts instead of a machine-dependent time limit.
 
 The 208 annotated trace fixtures and 27 anchor-graph tests passed after the change.
+The full checks passed: 533 engine tests, 453 client tests, and 499 server tests.
+Engine and client type checks, engine lint, and server Ruff also passed.
+
+The first coverage comparison found no changed outcomes or stops across 401 traces.
+It flagged `pickHubs` at 6.104 seconds, above its five-second limit.
+That result led to the function-description cache and a second regression test.
+The test confirms that later values do not repeat the file scan used to classify their function.
+Both regression tests fail against their respective original code.
+
+The exact HTTP request returned 200 in 28.037 seconds with disk result caching disabled.
+The engine used its default 30-second query timeout.
+The API response was deeply identical to the original saved response, including all proof data.
