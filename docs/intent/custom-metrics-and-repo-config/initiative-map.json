@@ -1,0 +1,456 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Custom metrics and repository settings",
+    "slug": "custom-metrics-and-repo-config",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-23",
+    "summary": "Use private file metrics and diagnostics in Srcly views, with repeatable repository settings. Imports and policy first; explicit commands follow.",
+    "status": "planned",
+    "next_action": "Review the shape and authorize implementation when ready; begin with the three-file import proof."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-23"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-23"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-23"
+    }
+  },
+  "sources": [
+    {
+      "id": "S1",
+      "type": "qa",
+      "location": "Codex conversation, 2026-10-22",
+      "anchor": "Coworker wants their own metrics processed; repository limits, thresholds, settings and defaults",
+      "authority": "user"
+    },
+    {
+      "id": "S2",
+      "type": "repo",
+      "location": "server/app/services/metric_catalog.py; server/app/services/findings/; server/app/config.py",
+      "anchor": "MetricSpec; apply_to_tree; fixed scan settings",
+      "authority": "repo"
+    },
+    {
+      "id": "S3",
+      "type": "doc",
+      "location": "https://chatgpt.com/c/6adac10a-5408-83ea-bc48-f4f0baa04b24",
+      "anchor": "Completed Pro response: research-report.md, implementation-plan.md, recommendations.md; all read on 2026-10-23.",
+      "authority": "inferred"
+    },
+    {
+      "id": "S4",
+      "type": "repo",
+      "location": "server/app/services/reporting.py; server/app/services/compare/diff.py; server/app/routers/files.py; client/src/utils/hotSpotRanking.ts; client/src/viz/treemap/utils/colors.ts",
+      "anchor": "Direct source checks against aea1015: fixed IDs, direct getters, static compare table, path-only evidence requests, current color/bar shortcuts",
+      "authority": "repo"
+    },
+    {
+      "id": "S5",
+      "type": "doc",
+      "location": "docs/research/extensibility-config-2026-10-22/README.md",
+      "anchor": "Recommendation dispositions and primary-source checks",
+      "authority": "inferred"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "Developers can use Srcly visualization with their own metrics and checks.",
+        "kind": "outcome",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high",
+        "importance": "core",
+        "commitment": "explicit",
+        "status": "active",
+        "time_horizon": "first release"
+      },
+      {
+        "id": "C2",
+        "statement": "Repository settings can define useful limits, thresholds, settings and defaults.",
+        "kind": "outcome",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high",
+        "importance": "core",
+        "commitment": "explicit",
+        "status": "active",
+        "time_horizon": "first release"
+      },
+      {
+        "id": "C3",
+        "statement": "Import, overlay and plugin mechanisms remain alternatives to research.",
+        "kind": "implementation hypothesis",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high",
+        "importance": "supporting",
+        "commitment": "tentative",
+        "status": "resolved"
+      },
+      {
+        "id": "C4",
+        "statement": "Preserve measured zero, unknown values, and source association in custom views and reports.",
+        "kind": "constraint",
+        "commitment": "derived",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "S2",
+          "S3",
+          "S4"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C5",
+        "statement": "Complete research and a new planned initiative before application implementation.",
+        "kind": "sequence",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      }
+    ],
+    "themes": [],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Three milestones for useful native imports and repo settings; later adapter and explicit command slices; conditional snapshot proof.",
+    "problem": "Private metrics cannot reach all Srcly consumers, and repository limits/defaults have no shared policy resolver.",
+    "recommended_shape": "Native file results with typed measurements and diagnostics, small custom-value accessors, per-scan effective context, one declarative repo policy. Explicit producers feed the same boundary later.",
+    "success_moves": [
+      "Use a deterministic three-file bundle before implementing an analyzer or command runner.",
+      "Keep custom observations beside fixed built-ins; adapt consumers through small shared accessors.",
+      "Install values and reactive definitions together per scan to prevent cross-repo leakage.",
+      "Separate source, artifact and interpretation invalidation; prove reload with AST reuse.",
+      "Defer profiles, CI gates and portable comparison beyond the first release.",
+      "Test actual descendant termination before exposing explicit custom execution."
+    ],
+    "first_proof": {
+      "question": "Can a new metric ID and separate diagnostic reach views and reports without losing zero or unknown semantics?",
+      "artifact": "Temporary three-file Git fixture, native bundle and minimal srcly.toml; one browser pass and raw report exports",
+      "decision_rule": "Continue only when a=2, b=0, c=unknown, folder subtotal=2 with 2/3 measured, and diagnostic opens a.ts:2 under the correct scan catalog."
+    },
+    "rabbit_holes": [
+      "General plugin API",
+      "External function identity",
+      "Coverage denominators",
+      "Repo-wide producer dependency closure",
+      "Custom profile scoring and gates",
+      "Portable compare before import use"
+    ],
+    "open_decisions": [],
+    "simpler_counterproposal": "Import diagnostics only through the existing findings runner. Rejected as the complete solution: it cannot carry arbitrary numeric units, aggregation or IDs. Retained as reuse for diagnostic presentation."
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/.codex/worktrees/fad6/srcly",
+      "revision": "aea1015258f56dd45b8e175f7288e2fef3abc6cf",
+      "worktree_status": "Clean application baseline; research/docs only on codex/extensibility-config-research",
+      "subsystems": [
+        "models and metric catalog",
+        "analysis and caches",
+        "findings runner/overlay/jobs",
+        "headless reporting",
+        "scan store and metric consumers",
+        "code viewer",
+        "compare"
+      ],
+      "test_commands": [
+        "cd server && uv run pytest",
+        "pnpm --dir client test",
+        "pnpm --dir client run build"
+      ],
+      "deployment_surfaces": [
+        "Local FastAPI server and bundled SolidJS client; no deployment needed for proof"
+      ],
+      "open_pr_check": "gh pr list returned [] on 2026-10-23"
+    },
+    "dependencies": [
+      {
+        "id": "native-results",
+        "name": "Private producer output",
+        "material": true,
+        "application_seam": "Validated native JSON file loader",
+        "first_proof_role": {
+          "mode": "local-substitute",
+          "rationale": "A deterministic bundle proves consumer semantics without the coworker analyzer."
+        },
+        "failure_modes": [
+          "missing artifact",
+          "source mismatch",
+          "zero versus unknown",
+          "partial coverage",
+          "conflicting definition"
+        ],
+        "proof_rungs": [
+          "deterministic three-file fixture",
+          "representative real producer artifact"
+        ],
+        "local_proof": "One custom ID, 2/0/unknown and one line finding in UI and report",
+        "live_proof": "No hosted dependency; inspect one actual coworker artifact before claiming its dependency closure",
+        "rollout": "Opt-in import; independent no-results bypass"
+      },
+      {
+        "id": "sarif",
+        "name": "Saved diagnostic format",
+        "material": true,
+        "application_seam": "One adapter into normalized diagnostics",
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "Native measurements and diagnostics establish the first useful workflow."
+        },
+        "failure_modes": [
+          "missing checked-file set",
+          "URI base ambiguity",
+          "unverified source",
+          "failed invocation"
+        ],
+        "proof_rungs": [
+          "captured producer artifact",
+          "shared normalized diagnostic contract"
+        ],
+        "local_proof": "Positive, empty and failed outputs preserve location and uncertainty",
+        "live_proof": "No live service; real captured tool output confirms format fidelity",
+        "rollout": "Optional named import after native release"
+      },
+      {
+        "id": "producer-command",
+        "name": "Local command execution",
+        "material": true,
+        "application_seam": "Explicit argv producer emits the same native bundle",
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "Importing existing data meets the first need without process lifecycle work."
+        },
+        "failure_modes": [
+          "timeout",
+          "child remains after cancellation",
+          "invalid output",
+          "source changes during run",
+          "accepted nonzero code"
+        ],
+        "proof_rungs": [
+          "deterministic local executable",
+          "platform process-tree test",
+          "one real producer smoke"
+        ],
+        "local_proof": "Fixture modes exercise success, malformed output, timeout and child cancellation",
+        "live_proof": "Run one authorized real local command; no cloud or deployment",
+        "rollout": "Explicit runs only; execution caching off; imports remain usable"
+      }
+    ],
+    "fast_local_loop": {
+      "command": "cd server && uv run pytest tests/test_results_end_to_end.py",
+      "status": "Proposed test target; not present yet",
+      "dependencies": "Temporary local fixture and bundle only; no private analyzer, network, or deployment",
+      "failure_injection": "Unknown, stale, malformed and conflicting file results",
+      "browser_loop": "./dev.sh against temporary fixture; focused client parity tests and pnpm build",
+      "network_required": false,
+      "shared_infrastructure_required": false
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "One imported metric and line diagnostic reach views and reports",
+        "outcome": "Custom file values and separate diagnostic appear across UI and reports with minimal repo config.",
+        "dependencies_introduced": [],
+        "modules": [
+          "models.py",
+          "services/results (new)",
+          "services/repo_config.py (new)",
+          "metric_catalog.py",
+          "scan_jobs.py",
+          "reporting.py",
+          "run.py",
+          "routers/files.py",
+          "client metric consumers and CodeModal"
+        ],
+        "proof": "Temporary fixture a=2, b=0, c=unknown; subtotal 2 and 2/3 measured; line 2 navigation; checks-off fresh/cache test; repo switch parity.",
+        "valid_intermediate_state": "Opt-in native import works for plain tracked file-local inputs; built-ins remain usable.",
+        "rollback": "Remove import or use explicit no-config/no-results/checks-off bypass.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m2",
+        "title": "Imports remain useful after edits and reloads",
+        "outcome": "Dirty/non-Git file imports, conflicts, source status and reload are dependable.",
+        "dependencies_introduced": [],
+        "modules": [
+          "results loader/overlay",
+          "cache.py",
+          "scan_jobs.py",
+          "reporting.py",
+          "run.py",
+          "file evidence requests",
+          "scanStore.ts"
+        ],
+        "proof": "Source edit removes current line marks without changing zero or denominator; artifact-only reload reuses AST; conflicting/malformed imports stay visible.",
+        "valid_intermediate_state": "File-local inputs work outside clean Git; uncertain repo-dependent computations remain inspectable only.",
+        "rollback": "Bypass results; preserve old data only as stale.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m3",
+        "title": "Repository settings give repeatable interpretation",
+        "outcome": "One selected policy defines defaults, exclusions, selected limits, colors, risk bands and named quadrant cutoffs.",
+        "dependencies_introduced": [],
+        "modules": [
+          "repo_config.py",
+          "run.py",
+          "analysis.py",
+          "scan_workers.py",
+          "quadrants.py",
+          "scan context",
+          "metric store",
+          "settings inspection"
+        ],
+        "proof": "Root/package/worktree fixture proves discovery and precedence; interpretation changes retain raw values; exclusions rebuild the tree; threshold equality checks.",
+        "valid_intermediate_state": "First useful release: dependable imports and repeatable repo policy without new profiles or gates.",
+        "rollback": "Explicit no-config and reset personal choices; invalid policy errors clearly.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m4",
+        "title": "One existing diagnostics format works without its tool",
+        "outcome": "A real saved SARIF or ESLint output feeds existing native results presentation.",
+        "dependencies_introduced": [
+          "sarif"
+        ],
+        "modules": [
+          "results/adapters (new)",
+          "results model",
+          "reporting.py",
+          "run.py",
+          "code viewer"
+        ],
+        "proof": "Captured positive/empty/failed outputs retain producer, rules, lines and unknown coverage; no tool executes.",
+        "valid_intermediate_state": "One named external format alongside native bundles.",
+        "rollback": "Disable adapter import.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m5",
+        "title": "A developer explicitly runs their own check",
+        "outcome": "A deliberate CLI/UI action runs a configured local command and accepts validated output.",
+        "dependencies_introduced": [
+          "producer-command"
+        ],
+        "modules": [
+          "findings/tools.py",
+          "findings/jobs.py",
+          "findings/ruff.py",
+          "results/producers.py (new)",
+          "run.py",
+          "scan jobs",
+          "explicit UI action"
+        ],
+        "proof": "Fixture executable tests literal argv, accepted codes, invalid output, timeout and child cancellation; real producer smoke follows.",
+        "valid_intermediate_state": "Explicit execution on tested platforms; imports work without executables.",
+        "rollback": "Disable execution and use imports.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m6",
+        "title": "Evaluate portable result comparison",
+        "outcome": "A conditional proof determines whether small saved-context comparison is worth adding.",
+        "dependencies_introduced": [],
+        "modules": [
+          "compare/snapshots.py",
+          "compare/diff.py",
+          "compare/service.py",
+          "client compare consumers",
+          "result context serialization"
+        ],
+        "proof": "Two saved fixture contexts compare without producers; policy-only edit stays distinct; missing head evidence is not zero.",
+        "valid_intermediate_state": "Either verified dependency-free snapshot compare or an explicit deferred extension; ordinary scans remain usable.",
+        "rollback": "Omit snapshot route; reject unsupported artifact versions directly.",
+        "status": "planned",
+        "evidence": []
+      }
+    ],
+    "cut_line": [
+      "Custom scoring profiles and CI gates beyond first release",
+      "External scope identity and source maps",
+      "Coverage ratios and graph interchange",
+      "Automatic execution, watchers and execution caches",
+      "Marketplace, plugin ABI and remote services",
+      "Compatibility frameworks and analyzer rewrite"
+    ],
+    "open_decisions": [
+      {
+        "id": "producer-inputs",
+        "decision": "First real producer dependency scope",
+        "default": "file-local plus declared shared inputs",
+        "evidence": "One representative coworker bundle",
+        "fallback": "Keep unknown closure unverified"
+      },
+      {
+        "id": "adapter-format",
+        "decision": "First saved diagnostic format",
+        "default": "SARIF",
+        "evidence": "Actual coworker output",
+        "fallback": "Use saved ESLint if it is the cheaper real input; native imports proceed"
+      },
+      {
+        "id": "execution-platforms",
+        "decision": "Platforms supported for explicit execution",
+        "default": "Only platforms with proven descendant termination",
+        "evidence": "Local process-tree cancellation tests",
+        "fallback": "Imports remain available"
+      }
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-22",
+      "change": "Created planned initiative and submitted Pro research. Shape and plan await the report."
+    },
+    {
+      "date": "2026-10-23",
+      "change": "Collected and read all three Pro reports. Checked decisive source and primary docs. Finished planned intent, shape and six-milestone plan; reduced first release by deferring profiles/gates; snapshot stage remains conditional. Reconciled older diagnostics ownership. No application implementation."
+    }
+  ],
+  "closure": null
+}

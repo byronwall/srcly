@@ -5,7 +5,7 @@
     "slug": "imported-quality-evidence",
     "scale": "capability",
     "current_phase": "plan",
-    "last_updated": "2026-10-15",
+    "last_updated": "2026-10-23",
     "summary": "Test original dependency edges and artifact-based clone, typed-finding and coverage workflows separately.",
     "status": "planned",
     "next_action": "After metric-trust, prove original dependency-edge witnesses without changing existing graph geometry."
@@ -14,7 +14,7 @@
     "intent_brief": {
       "path": "intent-brief.md",
       "status": "current",
-      "updated_at": "2026-10-15"
+      "updated_at": "2026-10-23"
     },
     "brainstorm": {
       "path": "brainstorm.md",
@@ -24,12 +24,12 @@
     "shape_brief": {
       "path": "shape-brief.md",
       "status": "current",
-      "updated_at": "2026-10-15"
+      "updated_at": "2026-10-23"
     },
     "implementation_plan": {
       "path": "implementation-plan.md",
       "status": "current",
-      "updated_at": "2026-10-15"
+      "updated_at": "2026-10-23"
     }
   },
   "sources": [
@@ -53,6 +53,13 @@
       "location": "server/app/services/deps/graph.py; server/app/services/deps/common.py; client/src/viz/deps/DependencyView.tsx; client/src/components/CodeModal/CodeModal.tsx; server/app/services/reporting.py",
       "anchor": "83dcbf40879ca06ab07cdfcf365b5c0ccb7608a4",
       "authority": "current source"
+    },
+    {
+      "id": "custom-results",
+      "type": "doc",
+      "location": "docs/intent/custom-metrics-and-repo-config/implementation-plan.md",
+      "anchor": "Milestones 1, 2 and 4 own the shared import and diagnostics path",
+      "authority": "inferred"
     }
   ],
   "intent": {
@@ -332,7 +339,8 @@
         "valid_intermediate_state": "One typed report joins rule evidence without running a new engine. Existing source-only scanning remains usable.",
         "rollback": "Revert the scoped milestone commit or omit optional evidence; no stored-data migration.",
         "status": "planned",
-        "evidence": []
+        "evidence": [],
+        "integration": "Reuse the custom-metrics-and-repo-config native results contract and saved diagnostics adapter. This milestone owns typed-rule usefulness only; no separate importer."
       },
       {
         "id": "m4",
@@ -371,6 +379,10 @@
     {
       "date": "2026-10-15",
       "change": "Created planned initiative from collected Pro research and independent source checks. Application proofs remain unrun."
+    },
+    {
+      "date": "2026-10-23",
+      "change": "Reconciled new custom-results initiative: reuse its shared source/diagnostic import path; preserve graph, clone and coverage goals. Current native scans already run checks; this plan adds no automatic execution. Lifecycle remains planned."
     }
   ],
   "closure": null
