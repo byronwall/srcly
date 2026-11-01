@@ -1,0 +1,127 @@
+{
+  "mission": "srcly-js-react-solid-gap-research",
+  "baseline": "e07cc510087b5c028273cad785b97ee36c6c3b35",
+  "executedAt": "2026-11-01T04:22:19.432Z",
+  "runtime": {
+    "node": "v24.22.1",
+    "platform": "linux",
+    "arch": "x64"
+  },
+  "scope": "Original isolated ECMAScript/Node controls only; no Srcly, React, Solid, browser, instrumented packet, or repository survey execution.",
+  "cases": [
+    {
+      "id": "N01",
+      "status": "passed",
+      "assertions": [
+        "source remains empty",
+        "concat returns a different array",
+        "copied element is token by reference",
+        "discarded concat still does not mutate"
+      ],
+      "actual": {
+        "sourceLength": 0,
+        "sameContainer": false,
+        "sameElement": true
+      }
+    },
+    {
+      "id": "N02",
+      "status": "passed",
+      "assertions": [
+        "used push result is length 1",
+        "receiver holds the identical token"
+      ],
+      "actual": {
+        "result": 1,
+        "receiverLength": 1,
+        "sameElement": true
+      }
+    },
+    {
+      "id": "N03",
+      "status": "passed",
+      "assertions": [
+        "map binds element/index/original array separately",
+        "forEach returns undefined",
+        "sort returns its receiver",
+        "sort comparator controls order"
+      ],
+      "actual": {
+        "mapArguments": [
+          [
+            10,
+            0,
+            true
+          ],
+          [
+            20,
+            1,
+            true
+          ]
+        ],
+        "forEachResult": {
+          "type": "undefined"
+        },
+        "sortSameReceiver": true,
+        "sorted": [
+          10,
+          20
+        ]
+      }
+    },
+    {
+      "id": "N04",
+      "status": "passed",
+      "assertions": [
+        "finally returns a distinct promise",
+        "normal finally return is ignored for fulfillment payload",
+        "then callback return becomes fulfillment payload",
+        "throw in finally overrides with rejection",
+        "reject never reaches fulfillment handler in this run",
+        "reject reason retains identity"
+      ],
+      "actual": {
+        "events": [
+          "finally",
+          "rejected"
+        ],
+        "samePromise": false,
+        "finallySamePayload": true,
+        "thenSameOther": true,
+        "thrownReasonSameOther": true,
+        "fulfillmentCallsAfterReject": 0,
+        "rejectReasonSameOther": true
+      }
+    },
+    {
+      "id": "N05",
+      "status": "passed",
+      "assertions": [
+        "left instance contains token",
+        "right instance remains null"
+      ],
+      "actual": {
+        "sameLeftValue": true,
+        "rightValue": null,
+        "sameInstance": false
+      }
+    },
+    {
+      "id": "N06",
+      "status": "passed",
+      "assertions": [
+        "registration window contains zero calls",
+        "removal before dispatch yields zero calls",
+        "positive dispatch invokes callback once"
+      ],
+      "actual": {
+        "registrationWindowCalls": 0,
+        "removedWindowCalls": 0,
+        "positiveWindowCalls": 1,
+        "runtime": "Node EventTarget; this is not a browser DOM test"
+      }
+    }
+  ],
+  "caseCount": 6,
+  "assertionCount": 21
+}

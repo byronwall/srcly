@@ -8,6 +8,8 @@ last_updated: "2026-10-26"
 
 # Library models as data
 
+**2026-11-01 follow-up:** the [JavaScript, React, and SolidJS research](../../research/dataflow-js-react-solid-2026-11-01/README.md) reviews incorrect summaries as well as missing models. Its [reviewed plan](../dataflow-js-react-solid/implementation-plan.md) extends this loader with finite callback/result roles. The original research assets are preserved; no new model behavior is implemented by that documentation.
+
 The engine knows what library code does in three different forms:
 
 - TypeScript tables and predicates in the collector;
