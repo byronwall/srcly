@@ -10,7 +10,7 @@
 - Seed PR: https://github.com/byronwall/srcly/pull/308
 - Seed head: `66804541fedb70ce91886c68e7dba3cb61c6f214`
 - Prompt: [pro-prompt.md](pro-prompt.md)
-- Phase: Pro finished; all seven assets collected and reviewed. Integration written; validation and PR publication in progress.
+- Phase: Complete. Pro results collected, reviewed, integrated, committed, and published for review.
 - Source packet: `tmp/pro/dataflow-js-react-solid/srcly-js-react-solid-source.zip` (224 baseline files, 465,318 ZIP bytes). Inventory: `tmp/pro/dataflow-js-react-solid/source-packet-inventory.md`. Both are ignored working files.
 - Attachments verified: `pro-prompt(20261101-041740).md` and `srcly-js-react-solid-source.zip`.
 - Pro conversation: https://chatgpt.com/c/6ae6bd64-1340-83e8-8609-abad82c3a205
@@ -18,14 +18,14 @@
 - Submission: 2026-11-01 04:17 UTC. Sent message, both attachments, canonical URL, Pro selector, and active Stop control verified.
 - Collection check: 2026-11-01 05:20 UTC. Pro finished after 28 minutes 20 seconds. No follow-up was needed.
 - Follow-ups used: 0.
-- Heartbeat: `collect-srcly-javascript-react-solid-research`, active, attached to this chat.
+- Heartbeat: `collect-srcly-javascript-react-solid-research`, deleted after verified completion.
 - Approval: Byron explicitly approved hourly checks, result collection, findings review, research branch push, and opening a PR.
 - Collected assets: `docs/intent/dataflow-js-react-solid/assets/pro-results/2026-11-01/` (seven original files; all ZIP entries compared byte for byte).
 - Archive: `tmp/pro/dataflow-js-react-solid/results/srcly-js-react-solid-research.zip` (ignored). Archive paths and sizes were checked before extraction. No downloaded program was executed.
 - Integration: [summary](README.md), [review dispositions](../../intent/dataflow-js-react-solid/review.md), [implementation plan](../../intent/dataflow-js-react-solid/implementation-plan.md), and [asset index](../../intent/dataflow-js-react-solid/assets/pro-results/2026-11-01/README.md).
 - Review: decisive source mechanisms checked; React/Solid/TanStack/TASER primary sources spot-checked. Framework graph failures remain predictions. Pro native observations are attributed, not locally rerun.
 - Dispositions: 20 Build, four Explore, two Defer, two Avoid. Broad identity and modern React inventory moved to Explore; old-row coexistence is not adopted.
-- PR: Pending.
+- PR: https://github.com/byronwall/srcly/pull/315 (open; base `main`; head `codex/dataflow-js-react-solid-research`). Saved body and 16-file inventory verified, including all seven original assets. No merge or implementation started.
 - Checks: Repository bootstrap completed. `scripts/check.sh --changed` passed with no application areas selected. `git diff --check` passed. No application changes or experiment runs.
 - Asset/link validation: all seven archive entries match preserved files byte for byte. Local links checked across 11 Markdown files; the original ZIP link is intentionally retained with an index explanation. Existing proof/matcher/model grid ownership checked.
 - Submission evidence: `tmp/pro/dataflow-js-react-solid/pro-submitted.png` (ignored).
