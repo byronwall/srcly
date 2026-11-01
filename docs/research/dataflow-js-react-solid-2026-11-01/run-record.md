@@ -1,0 +1,28 @@
+# Cross-environment data-flow research run
+
+- Mission: Research PR #308 across vanilla JavaScript, React, and SolidJS. Find gaps and design staged coverage improvements.
+- Mode: Design with evidence review and methods comparison.
+- Completion: Collect all Pro results, verify decisive code claims, record dispositions and a buildable plan, then open a research PR.
+- Repository: https://github.com/byronwall/srcly
+- Checkout: `/Users/byronwall/.codex/worktrees/088a/srcly`
+- Branch: `codex/dataflow-js-react-solid-research`
+- Baseline: `e07cc510087b5c028273cad785b97ee36c6c3b35`
+- Seed PR: https://github.com/byronwall/srcly/pull/308
+- Seed head: `66804541fedb70ce91886c68e7dba3cb61c6f214`
+- Prompt: [pro-prompt.md](pro-prompt.md)
+- Phase: Submitted; Pro is running. Collection and integration remain open.
+- Source packet: `tmp/pro/dataflow-js-react-solid/srcly-js-react-solid-source.zip` (224 baseline files, 465,318 ZIP bytes). Inventory: `tmp/pro/dataflow-js-react-solid/source-packet-inventory.md`. Both are ignored working files.
+- Attachments verified: `pro-prompt(20261101-041740).md` and `srcly-js-react-solid-source.zip`.
+- Pro conversation: https://chatgpt.com/c/6ae6bd64-1340-83e8-8609-abad82c3a205
+- Model: Pro, live selector showed effort 5 of 5.
+- Submission: 2026-11-01 04:17 UTC. Sent message, both attachments, canonical URL, Pro selector, and active Stop control verified.
+- Next check: About 2026-11-01 05:19 UTC; hourly at minute 19.
+- Follow-ups used: 0.
+- Heartbeat: `collect-srcly-javascript-react-solid-research`, active, attached to this chat.
+- Approval: Byron explicitly approved hourly checks, result collection, findings review, research branch push, and opening a PR.
+- Collected assets / PR: Pending.
+- Checks: Repository bootstrap completed. `scripts/check.sh --changed` passed with no application areas selected. `git diff --check` passed. No application changes or experiment runs.
+- Submission evidence: `tmp/pro/dataflow-js-react-solid/pro-submitted.png` (ignored).
+- Access review: Initial upload review declined a possible private-source disclosure. GitHub confirmed the repository is public. A second review accepted the packet after evidence showed it contains public commit snapshots only.
+- Schedule review: Initial review required explicit approval for recurring work and future actions. Byron approved; the hourly heartbeat was then created.
+- Limits: Research and planning only. No implementation, merge, deployment, or real-project runtime capture.
