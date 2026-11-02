@@ -9,10 +9,12 @@ import {
 import { lazyFactoryGetter, reducerOf, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
 import { frameworkFlow, makesAccessor, makesPredicate } from "./framework-flows";
+import { builtinLibraryModels, standardMemberModel } from "./library-models";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo } from "./program-evidence-collector-support";
 import {
   bindingIdentifiers,
+  browserMember,
   calleeName,
   callOperation,
   firstBindingIdentifier,
@@ -476,10 +478,12 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
    * receiver and arguments already reach its value (`processCall`); two more
    * hand-offs follow from the same fact. A collection method's result (the
    * `call-result` its field transfer names) is this call's own value. And a
-   * call whose value is discarded can only leave its arguments in its
-   * receiver (`rows.push(row)`, `seen.set(key, value)`): when the function
-   * declares that receiver, they reach its binding. That is assumed, not
-   * proven, so the relation is `partial` with an `external-call` proof.
+   * call can leave its arguments in its receiver: when the function declares
+   * that receiver, they reach its binding. A standard method's row says
+   * whether it does (`rows.push(row)` keeps its argument, value used or not;
+   * `rows.concat(row)` never does). Any other call is taken to only when its
+   * value is discarded: that is assumed, not proven, so the relation is
+   * `partial` with an `external-call` proof.
    */
   protected connectExternalCall(call: CollectorCallInfo): void {
     const resultId = this.elementIfPresent(call.node, "call-result");
@@ -490,7 +494,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (!this.ts.isCallExpression(call.node)) return;
     const stateFunctions = this.connectStateFunctions(call.node);
     this.connectExternalCallbacks(call, call.node, stateFunctions);
-    if (!discardsValue(this.ts, call.node, this.checker)) return;
+    const standard = standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, call.node.expression));
+    if (standard ? standard.writes !== "this" : !discardsValue(this.ts, call.node, this.checker)) return;
     const method = unwrap(this.ts, call.node.expression);
     // A function held in a field (`props.onPick(label)`) is called, not its object changed: only a method keeps its arguments in its receiver.
     const member = this.ts.isPropertyAccessExpression(method) ? this.checker.getSymbolAtLocation(method.name)?.declarations?.[0] : undefined;
@@ -517,7 +522,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (!local && !(declaration && this.ts.isParameter(declaration)) && !(declaration && this.ts.isVariableDeclaration(declaration) && this.readBackInFile(declaration))) return;
     const bindingId = this.variablesBySymbol.get(this.symbolId(root) ?? "") ?? this.parametersBySymbol.get(this.symbolId(root) ?? "");
     if (!bindingId) return;
-    const [kept, keptStatus] = this.libraryProof(call.node, `${calleeName(this.ts, call.node.expression)}'s value is discarded, so its arguments are kept in its receiver.`, [this.location(call.node), this.location(root)]);
+    const [kept, keptStatus] = this.libraryProof(call.node, standard ? `${calleeName(this.ts, call.node.expression)} keeps its arguments in its receiver.` : `${calleeName(this.ts, call.node.expression)}'s value is discarded, so its arguments are kept in its receiver.`, [this.location(call.node), this.location(root)]);
     if (fields.length === 0) {
       this.addRelation(call.id, bindingId, "references", [this.location(call.node), this.location(root)], kept, keptStatus);
       return;

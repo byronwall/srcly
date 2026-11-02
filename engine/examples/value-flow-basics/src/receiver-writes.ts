@@ -1,9 +1,9 @@
-// A library call whose value is discarded (`rows.push(row)`) leaves its
-// arguments in its receiver. The receiver's root may be a local, an element
-// of one (`groups[key].push(row)`), a closure's variable, or a parameter (a
-// later read of it sees the value). Module state is written for code this
-// function does not own, and a kept value (`const n = rows.push(row)`) is the
-// call's own result: neither is a write the trace follows.
+// A library call that keeps its arguments (`rows.push(row)`) leaves them in its
+// receiver. The receiver's root may be a local, an element of one
+// (`groups[key].push(row)`), a closure's variable, or a parameter (a later read
+// of it sees the value). Module state is written for code this function does
+// not own: that write is not one the trace follows. `const n = rows.push(row)`
+// keeps the argument too, and `n` is the count (`native-writes.js` is the pair).
 const log: string[] = [];
 
 export function group(key: string, row: string) { // @trace rw-indexed forward symbol row

@@ -1,4 +1,132 @@
 {
   "$schema": "./library-models.schema.json",
-  "rows": []
+  "rows": [
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.push",
+      "model": "consumes",
+      "writes": "this",
+      "note": "The receiver keeps the arguments, whatever the call's value is used for."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.unshift",
+      "model": "consumes",
+      "writes": "this",
+      "note": "The receiver keeps the arguments, whatever the call's value is used for."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.splice",
+      "model": "consumes",
+      "writes": "this",
+      "note": "The receiver keeps the arguments, whatever the call's value is used for."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.fill",
+      "model": "consumes",
+      "writes": "this",
+      "note": "The receiver keeps the arguments, whatever the call's value is used for."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Map.set",
+      "model": "consumes",
+      "writes": "this",
+      "note": "The receiver keeps the arguments, whatever the call's value is used for."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Set.add",
+      "model": "consumes",
+      "writes": "this",
+      "note": "The receiver keeps the arguments, whatever the call's value is used for."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "WeakMap.set",
+      "model": "consumes",
+      "writes": "this",
+      "note": "The receiver keeps the arguments, whatever the call's value is used for."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "WeakSet.add",
+      "model": "consumes",
+      "writes": "this",
+      "note": "The receiver keeps the arguments, whatever the call's value is used for."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.*",
+      "model": "consumes",
+      "note": "The receiver keeps nothing it is given, even when the call's value is dropped."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ReadonlyArray.*",
+      "model": "consumes",
+      "note": "The receiver keeps nothing it is given, even when the call's value is dropped."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Map.*",
+      "model": "consumes",
+      "note": "The receiver keeps nothing it is given, even when the call's value is dropped."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ReadonlyMap.*",
+      "model": "consumes",
+      "note": "The receiver keeps nothing it is given, even when the call's value is dropped."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Set.*",
+      "model": "consumes",
+      "note": "The receiver keeps nothing it is given, even when the call's value is dropped."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ReadonlySet.*",
+      "model": "consumes",
+      "note": "The receiver keeps nothing it is given, even when the call's value is dropped."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "WeakMap.*",
+      "model": "consumes",
+      "note": "The receiver keeps nothing it is given, even when the call's value is dropped."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "WeakSet.*",
+      "model": "consumes",
+      "note": "The receiver keeps nothing it is given, even when the call's value is dropped."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "String.*",
+      "model": "consumes",
+      "note": "The receiver keeps nothing it is given, even when the call's value is dropped."
+    }
+  ]
 }

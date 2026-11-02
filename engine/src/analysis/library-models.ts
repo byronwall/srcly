@@ -33,7 +33,7 @@ export const libraryModelRowSchema = z
     accessor: z.literal(true).optional().describe("For `calls-back`: the call makes an accessor, and calling it yields the callback's return (or, with `returns: boolean`, a test of it)."),
     option: z.string().min(1).optional().describe("For `calls-back`: the options key that holds the callback (`queryFn`)."),
     lazy: z.literal(true).optional().describe("For `state-pair`: a function initial value is called, and what it returns seeds the state (`useState(() => …)`)."),
-    writes: z.literal("this").optional().describe("For `consumes`: the receiver keeps the arguments (`push`, `set`)."),
+    writes: z.literal("this").optional().describe("For `consumes`: the receiver keeps the arguments (`push`, `set`). A `consumes` row without it keeps nothing (`concat`)."),
     proof: z.string().min(1).optional().describe("The proof kind its relations carry, so existing proof names survive."),
     note: z.string().optional().describe("One line for the code map and the proof detail."),
   })
@@ -120,6 +120,11 @@ export function tsModel(models: LibraryModels, ts: typeof TypeScript, checker: T
   const imported = ts.isExpression(expression) ? importedCallee(ts, checker, expression) : null;
   if (imported) return models.lookup("ts", tsModelModule(imported.module), imported.name);
   return models.lookup("ts", tsModelModule(module), calleeName(ts, expression));
+}
+
+/** The row for a method the standard library declares (`rows.push`), found by its interface (`Array.push`, a `lib` row). */
+export function standardMemberModel(models: LibraryModels, member: { owner: string; name: string } | null): LibraryModelRow | null {
+  return member ? models.lookup("ts", "lib", `${member.owner}.${member.name}`) : null;
 }
 
 /** An origin's or terminal's role, the element kind it marks, else null. */

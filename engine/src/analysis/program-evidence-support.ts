@@ -589,8 +589,8 @@ export function isStandardLibraryCallee(ts: typeof TypeScript, checker: TypeScri
 }
 
 /**
- * The browser's own interface a member belongs to (`Location`, `Storage`,
- * `History`, `Document`, an element's), when TypeScript's DOM lib declares it:
+ * The interface of TypeScript's own libs a member belongs to (`Array`, `Map`,
+ * and the browser's `Location`, `Storage`, `History`, `Document`, an element's):
  * `{ owner: "Storage", name: "getItem" }`. Null for anything else.
  */
 export function browserMember(ts: typeof TypeScript, checker: TypeScript.TypeChecker, access: TypeScript.Expression): { owner: string; name: string } | null {

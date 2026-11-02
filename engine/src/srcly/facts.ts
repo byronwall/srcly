@@ -3,7 +3,8 @@
 // both start from the same seed and stop at the same boundaries (R7).
 import path from "node:path";
 import type * as TypeScript from "typescript";
-import { isStandardLibraryCallee } from "../analysis/program-evidence-support";
+import { builtinLibraryModels, standardMemberModel } from "../analysis/library-models";
+import { browserMember, isStandardLibraryCallee } from "../analysis/program-evidence-support";
 import { programEvidenceCandidateIndex, type ProgramEvidenceCandidateIndex } from "../analysis/program-evidence-candidate-index";
 import type { ProgramElement } from "../analysis/scope-seam";
 import type { CallSiteIndex, CallSites } from "./call-sites";
@@ -235,6 +236,11 @@ export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "locatio
   if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && TIMERS.has(node.expression.text) && isStandardLibraryCallee(ts, tier1.program.getTypeChecker(), node.expression)) return "schedule";
   // A promise chain the code drops (`load().then(show);`) ends there: the standard library's promise carries nothing further. A dropped `map.set(k, v)` does not: its receiver keeps the value.
   if (ts.isCallExpression(node) && (ts.isExpressionStatement(parent) || ts.isVoidExpression(parent)) && isStandardLibraryCallee(ts, tier1.program.getTypeChecker(), node.expression) && tier1.program.getTypeChecker().getTypeAtLocation(node).getProperty("then")) return "discard";
+  // A standard method that keeps nothing in its receiver, its value dropped (`rows.concat(row);`, `rows.forEach(show);`): nothing carries the value on.
+  if (ts.isCallExpression(node) && (ts.isExpressionStatement(parent) || ts.isVoidExpression(parent))) {
+    const model = standardMemberModel(builtinLibraryModels(), browserMember(ts, tier1.program.getTypeChecker(), node.expression));
+    if (model && model.writes !== "this") return "discard";
+  }
   if (ts.isBinaryExpression(parent) && parent.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && parent.operatorToken.kind <= ts.SyntaxKind.LastAssignment) return parent.left === node ? "write" : null;
   const updates = (ts.isPrefixUnaryExpression(parent) || ts.isPostfixUnaryExpression(parent)) && (parent.operator === ts.SyntaxKind.PlusPlusToken || parent.operator === ts.SyntaxKind.MinusMinusToken);
   if (updates || ts.isDeleteExpression(parent)) return "write";
