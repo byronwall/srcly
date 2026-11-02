@@ -40,8 +40,8 @@
       "name": "useEffect",
       "model": "calls-back",
       "args": "0",
-      "returns": "callback",
-      "note": "The framework runs the callback for what it does; the call's own value is unused."
+      "returns": "void",
+      "note": "The framework runs the callback for what it does, and may run the function it returns later. The call itself has no value."
     },
     {
       "language": "ts",
@@ -49,8 +49,8 @@
       "name": "useLayoutEffect",
       "model": "calls-back",
       "args": "0",
-      "returns": "callback",
-      "note": "The framework runs the callback for what it does; the call's own value is unused."
+      "returns": "void",
+      "note": "The framework runs the callback for what it does, and may run the function it returns later. The call itself has no value."
     },
     {
       "language": "ts",

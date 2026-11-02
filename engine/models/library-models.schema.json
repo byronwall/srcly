@@ -69,13 +69,14 @@
             ]
           },
           "returns": {
-            "description": "What the call yields: `callback` is what the callback at `args` returns.",
+            "description": "What the call yields: `callback` is what the callback at `args` returns; `void` is nothing, whatever its callback returns.",
             "type": "string",
             "enum": [
               "element",
               "boolean",
               "same",
-              "callback"
+              "callback",
+              "void"
             ]
           },
           "source": {
