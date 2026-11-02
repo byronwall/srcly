@@ -36,6 +36,7 @@ export type RoutesResult = {
   programHash: string;
   tsconfig: string;
   typescript: string;
+  nullProof: boolean;
   routes: {
     key: string;
     pathPattern: string;
@@ -63,6 +64,7 @@ export type RouteGraphResult = {
   programHash: string;
   tsconfig: string;
   typescript: string;
+  nullProof: boolean;
   phase: "surface" | "complete";
   route: {
     key: string;
@@ -168,6 +170,7 @@ export type SelectExpressionResult = {
   programHash: string;
   tsconfig: string;
   typescript: string;
+  nullProof: boolean;
   file: string;
   reason: string | null;
   candidates: {
@@ -190,6 +193,7 @@ export type ValueFlowResult = {
   programHash: string;
   tsconfig: string;
   typescript: string;
+  nullProof: boolean;
   reason: string | null;
   selection: {
     file: string;
@@ -271,6 +275,7 @@ export type AnchorGraphResult = {
   programHash: string;
   tsconfig: string;
   typescript: string;
+  nullProof: boolean;
   reason: string | null;
   anchor: {
     file: string;
@@ -383,6 +388,7 @@ export type FunctionEffectsResult = {
   programHash: string;
   tsconfig: string;
   typescript: string;
+  nullProof: boolean;
   reason: string | null;
   callable: {
     name: string;
@@ -479,6 +485,7 @@ export type FileExportsResult = {
   programHash: string;
   tsconfig: string;
   typescript: string;
+  nullProof: boolean;
   reason: string | null;
   target: {
     path: string;
@@ -514,6 +521,7 @@ export type RoutePathResult = {
   programHash: string;
   tsconfig: string;
   typescript: string;
+  nullProof: boolean;
   reason: string | null;
   route: {
     key: string;

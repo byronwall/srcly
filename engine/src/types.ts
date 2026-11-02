@@ -42,6 +42,8 @@ export interface AnalyzerArgs {
   tsconfigs?: string[];
   tsconfigWarnings?: string[];
   tsconfigExplicit?: boolean;
+  /** With no config anywhere, analyze the source folder with inferred options (`inferProject`) rather than fail. */
+  inferProject?: boolean;
   typescriptFrom?: string | null;
   format: "json" | "markdown";
   view: string;

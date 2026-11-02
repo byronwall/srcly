@@ -73,6 +73,7 @@ import { NO_ANALYSIS_CANCELLATION, type AnalysisCancellationToken } from "./canc
 import { builtinLibraryModels, globalReads, tsModel, type GlobalReads, type LibraryModelRow, type LibraryModels } from "./library-models";
 import { stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { DeferredMap } from "./deferred-map";
+import { strictNulls } from "../project/typescript";
 
 export type CollectorFunctionInfo = DeclarationCatalogFunctionInfo;
 
@@ -138,6 +139,8 @@ export class ProgramEvidenceCollectorSupport {
   protected declarationCatalogImportStats = emptyProgramEvidenceDeclarationCatalogImportStats();
   protected readonly collectionProfilingEnabled = process.env.TSX_DATA_FLOW_COLLECTOR_PROFILE === "1";
   protected collectionStats: ProgramEvidenceCollectionStats = emptyProgramEvidenceCollectionStats(0);
+  /** Whether a type can say a value may be undefined (`strictNulls`). */
+  protected readonly strictNulls: boolean;
   private profileProgressMessages = 0;
 
   constructor(
@@ -148,6 +151,7 @@ export class ProgramEvidenceCollectorSupport {
     relationSink: RelationSink | null = null,
   ) {
     this.checker = program.getTypeChecker();
+    this.strictNulls = strictNulls(program);
     this.root = path.resolve(root);
     this.relationSink = relationSink;
     this.cancellation = options.cancellation ?? NO_ANALYSIS_CANCELLATION;

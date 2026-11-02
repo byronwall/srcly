@@ -100,7 +100,7 @@ export function buildPrimaryProgram(args: AnalyzerArgs, reportProgress?: Analyze
   const { ts, modulePath } = loadTypescript(args);
   const resolution = resolveProjectConfigs(ts, args);
   args.tsconfig = resolution.primary.file;
-  args.tsconfigs = resolution.configs.map((config) => config.file);
+  args.tsconfigs = resolution.configs.map((config) => config.file).filter(Boolean);
   args.tsconfigWarnings = resolution.warnings;
   for (const warning of resolution.warnings) {
     console.warn(`tsx-dataflow: ${warning}`);
@@ -120,6 +120,12 @@ export function buildPrimaryProgram(args: AnalyzerArgs, reportProgress?: Analyze
   const program = ts.createProgram([...files], resolution.primary.options);
   reportProgress?.({ step: "program", message: `TypeScript program ready (${files.size} files)`, completed: files.size, total: files.size });
   return { ts, modulePath, program, resolution };
+}
+
+/** Whether the Program's types hold `null` and `undefined`, so one can prove a value is never null. */
+export function strictNulls(program: TypeScript.Program): boolean {
+  const options = program.getCompilerOptions();
+  return options.strictNullChecks ?? options.strict ?? false;
 }
 
 export type ProgramResolution = ReturnType<typeof resolveProjectConfigs>;

@@ -457,6 +457,11 @@ function AnchorOverviewView(props: { o: AnchorOverview; onOpen: (absPath: string
       </div>
       <Show when={o().typeText}>{(t) => <div class="plc-data-sm pl-5 !font-normal text-[var(--plc-on-muted)]" title="The checked type (TypeScript, or mypy for Python)">{t()}</div>}</Show>
       <div class="pl-5 text-[11px] text-[var(--plc-on-muted)]">Traced {DIRECTION_WORD[o().direction]}</div>
+      <Show when={!o().nullProof}>
+        <div data-null-proof="none" class="pl-5 text-[11px] text-[var(--plc-on-muted)]" title="strictNullChecks is off or the project has no config. The trace still holds, but a type like string may be undefined here.">
+          No null proof: types here cannot show a value is never null
+        </div>
+      </Show>
       <Show when={o().reason}>{(r) => <div class="pl-5 text-[11px] text-[var(--plc-warning)]">{r()}</div>}</Show>
       <Where file={o().file} line={o().line} onOpen={() => props.onOpen(o().absPath, o().line)} />
       <h4 class={H}>Reach</h4>

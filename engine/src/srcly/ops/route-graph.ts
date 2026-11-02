@@ -105,6 +105,7 @@ export function projectRouteGraph(tier1: TsTier1, totality: SurfaceTotality, sel
     programHash: tier1.generation.programHash,
     tsconfig: tier1.generation.tsconfig,
     typescript: tier1.generation.typescript,
+    nullProof: tier1.generation.nullProof,
     route: { ...totality.route, absPath: routeAbsPath },
     status: totality.status,
     selectedSource,

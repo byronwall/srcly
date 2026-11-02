@@ -52,13 +52,33 @@ describe("project admission", () => {
     expect(members(root)).toEqual(["src/a.ts"]);
   }, 60_000);
 
-  it("still refuses a loose jsconfig by name: the null-proof limit stays", () => {
+  it("opens a loose jsconfig, and says its types prove nothing about null", () => {
     const root = project({ "jsconfig.json": JSON.stringify({ include: ["src"] }), "src/a.js": "export const a = 1;\n" });
-    expect(() => session(root).tier1()).toThrow(expect.objectContaining({ code: "non-strict-tsconfig" }));
+    const built = session(root).tier1();
+    expect(members(root)).toEqual(["src/a.js"]);
+    expect(built.generation).toMatchObject({ nullProof: false, tsconfig: path.join(root, "jsconfig.json") });
   }, 60_000);
 
-  it("names the refusal when a folder has no project config", () => {
-    const root = project({ "src/a.js": "export const a = 1;\n" });
+  it("keeps the null proof of a strict config", () => {
+    const root = project({ "tsconfig.json": strict, "src/a.ts": "export const a = 1;\n" });
+    expect(session(root).tier1().generation.nullProof).toBe(true);
+  }, 60_000);
+
+  it("analyzes a folder with no project config, and writes none", () => {
+    const root = project({ "src/a.js": "export const a = 1;\n", "src/b.jsx": "export const b = 2;\n", "src/skip.test.js": "export const c = 3;\n", "dist/out.js": "export const d = 4;\n" });
+    const before = fs.readdirSync(root).sort();
+    expect(members(root)).toEqual(["src/a.js", "src/b.jsx"]);
+    expect(session(root).tier1().generation).toMatchObject({ nullProof: false, tsconfig: "" });
+    expect(fs.readdirSync(root).sort()).toEqual(before);
+  }, 60_000);
+
+  it("still names a config it cannot read: a broken config is not a missing one", () => {
+    const root = project({ "jsconfig.json": "{ nope", "src/a.js": "export const a = 1;\n" });
+    expect(() => session(root).tier1()).toThrow(expect.objectContaining({ code: "no-tsconfig" }));
+  }, 60_000);
+
+  it("names the refusal when a folder has no project and no source", () => {
+    const root = project({ "src/notes.md": "hi\n" });
     expect(() => session(root).tier1()).toThrow(expect.objectContaining({ code: "no-tsconfig" }));
   }, 60_000);
 });

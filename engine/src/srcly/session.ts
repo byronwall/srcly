@@ -12,7 +12,7 @@ import type { RouteRecord } from "../analysis/route-data";
 import { discoverRoute } from "../analysis/route-discovery";
 import { createRouteDataTotalitySession, type RouteDataTotalitySession } from "../analysis/route-data-session";
 import { discoverSolidRouteCandidates } from "../analysis/scope-adapters/solid-route";
-import { loadTypescript } from "../project/typescript";
+import { loadTypescript, strictNulls } from "../project/typescript";
 import { resolveProjectConfigs } from "../project/tsconfig";
 import type { AnalysisReport, AnalyzerArgs } from "../types";
 import { hashProgramInputs, type ProgramInputs } from "./fingerprint";
@@ -47,6 +47,7 @@ export function engineArgs(config: EngineConfig): AnalyzerArgs {
     "--format", "json",
   ]);
   if (config.rootFiles?.length) args.rootFiles = config.rootFiles;
+  args.inferProject = true;
   return args;
 }
 
@@ -54,7 +55,7 @@ export function engineArgs(config: EngineConfig): AnalyzerArgs {
  * The program a tier-1 result was computed from. For Python, `tsconfig` names
  * the project file (`pyproject.toml`) and `typescript` the checker (`mypy 2.4.0 · Python 3.13.2`).
  */
-export type Generation = { id: number; programHash: string; tsconfig: string; typescript: string };
+export type Generation = { id: number; programHash: string; tsconfig: string; typescript: string; nullProof: boolean };
 
 /** What every tier-1 build has, whatever the language: the ops that work on both read only this. */
 export type BaseTier1 = {
@@ -146,6 +147,7 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
       programHash: hashProgramInputs(inputs),
       tsconfig: args.tsconfig ?? "",
       typescript: ts.version,
+      nullProof: strictNulls(program),
     };
     let provider: ReturnType<typeof createLazyProgramEvidenceProvider> | null = null;
     let complete = false;
@@ -240,12 +242,7 @@ export function checkGeneration(tier1: BaseTier1, expected: unknown) {
   }
 }
 
-/**
- * No project config, or only loose ones: name the refusal before building anything.
- * Strict configs beside a loose one keep working (the analysis warns for the
- * loose files), but a project with no strict config at all is refused, since
- * every nullish verdict would be unsound.
- */
+/** No project to read (a broken config, or nothing to analyze): name the refusal before building anything. */
 function refuseUnanalyzable(args: AnalyzerArgs) {
   let ts: typeof TypeScript;
   try {
@@ -253,19 +250,10 @@ function refuseUnanalyzable(args: AnalyzerArgs) {
   } catch (error) {
     throw new EngineError("typescript-not-found", error instanceof Error ? error.message : String(error));
   }
-  let resolution: ReturnType<typeof resolveProjectConfigs>;
   try {
-    resolution = resolveProjectConfigs(ts, { ...args });
+    resolveProjectConfigs(ts, { ...args });
   } catch (error) {
     throw new EngineError("no-tsconfig", error instanceof Error ? error.message : String(error));
-  }
-  const strict = resolution.configs.filter((config) => config.strictNullChecks);
-  if (!resolution.primary.strictNullChecks && strict.length === 0) {
-    throw new EngineError(
-      "non-strict-tsconfig",
-      `${path.relative(args.root, resolution.primary.file) || resolution.primary.file} has strictNullChecks off, and no governing tsconfig is strict`,
-      { tried: resolution.configs.map((config) => config.file) },
-    );
   }
 }
 

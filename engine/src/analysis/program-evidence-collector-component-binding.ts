@@ -230,7 +230,10 @@ export class ProgramEvidenceCollectorComponentBindingSupport extends ProgramEvid
     return object.properties.some((property) => {
       if (!this.ts.isPropertyAssignment(property) && !this.ts.isShorthandPropertyAssignment(property)) return false;
       if (!this.ts.isIdentifier(property.name) && !this.ts.isStringLiteralLike(property.name) || property.name.text !== field) return false;
-      const type = this.checker.getTypeAtLocation(this.ts.isPropertyAssignment(property) ? property.initializer : property.name);
+      const value = this.ts.isPropertyAssignment(property) ? unwrap(this.ts, property.initializer) : property.name;
+      // With `strictNullChecks` off a type never says `undefined`, so only a literal is sure to be there.
+      if (!this.strictNulls) return this.ts.isLiteralExpression(value) || value.kind === this.ts.SyntaxKind.TrueKeyword || value.kind === this.ts.SyntaxKind.FalseKeyword;
+      const type = this.checker.getTypeAtLocation(value);
       const parts = type.isUnion() ? type.types : [type];
       return parts.every((part) => !(part.flags & (this.ts.TypeFlags.Undefined | this.ts.TypeFlags.Any | this.ts.TypeFlags.Unknown)));
     });

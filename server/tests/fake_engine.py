@@ -104,7 +104,7 @@ class FakeEngine:
 
     def generation_fields(self) -> dict:
         return {"generation": self.state["generation"] or 1, "programHash": self.hash(),
-                "tsconfig": f"{self.args.root}/tsconfig.json", "typescript": "5.9.3"}
+                "tsconfig": f"{self.args.root}/tsconfig.json", "typescript": "5.9.3", "nullProof": True}
 
     def result_for(self, op: str, params: dict) -> dict:
         if op == "hello":

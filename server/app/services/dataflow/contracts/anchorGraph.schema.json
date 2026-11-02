@@ -30,6 +30,9 @@
     "typescript": {
       "type": "string"
     },
+    "nullProof": {
+      "type": "boolean"
+    },
     "reason": {
       "type": [
         "string",
@@ -680,6 +683,7 @@
     "programHash",
     "tsconfig",
     "typescript",
+    "nullProof",
     "reason",
     "anchor",
     "direction",

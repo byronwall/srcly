@@ -128,6 +128,7 @@
       "typeText": null
     }
   ],
+  "nullProof": true,
   "origins": [],
   "outcome": "ok",
   "programHash": "hash-1",

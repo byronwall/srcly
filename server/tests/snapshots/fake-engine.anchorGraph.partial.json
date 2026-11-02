@@ -164,6 +164,7 @@
       "typeText": null
     }
   ],
+  "nullProof": true,
   "origins": [],
   "outcome": "partial",
   "programHash": "hash-1",

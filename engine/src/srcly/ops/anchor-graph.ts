@@ -820,6 +820,7 @@ class AnchorGraphBuilder {
       programHash: this.tier1.generation.programHash,
       tsconfig: this.tier1.generation.tsconfig,
       typescript: this.tier1.generation.typescript,
+      nullProof: this.tier1.generation.nullProof,
       reason,
       anchor,
       direction,

@@ -7,7 +7,6 @@ export type NaReason =
   | "node-not-found"
   | "engine-missing"
   | "no-tsconfig"
-  | "non-strict-tsconfig"
   | "no-ts-files"
   | "typescript-not-found"
   | "python-not-found"

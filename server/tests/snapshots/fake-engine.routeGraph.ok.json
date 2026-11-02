@@ -35,6 +35,7 @@
       "status": "proven"
     }
   ],
+  "nullProof": true,
   "origins": [],
   "outcome": "ok",
   "phase": "complete",

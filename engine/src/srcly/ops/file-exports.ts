@@ -44,6 +44,7 @@ export function fileExportsOp(session: EngineSession, params: { file?: unknown; 
     programHash: tier1.generation.programHash,
     tsconfig: tier1.generation.tsconfig,
     typescript: tier1.generation.typescript,
+    nullProof: tier1.generation.nullProof,
     reason: null,
     target: { path: relative.split(path.sep).join("/") || ".", absPath: absolute, kind },
     files,

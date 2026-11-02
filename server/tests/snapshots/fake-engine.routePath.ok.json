@@ -9,6 +9,7 @@
   },
   "frontier": null,
   "generation": 1,
+  "nullProof": true,
   "outcome": "ok",
   "programHash": "hash-1",
   "proof": [],

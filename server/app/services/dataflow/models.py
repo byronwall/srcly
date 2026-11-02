@@ -39,7 +39,6 @@ class EvidenceStatus(str, Enum):
 EngineErrorCode = Literal[
     "invalid-request",
     "no-tsconfig",
-    "non-strict-tsconfig",
     "no-ts-files",
     "typescript-not-found",
     "python-not-found",
@@ -61,7 +60,6 @@ NaReason = Literal[
     "node-not-found",
     "engine-missing",
     "no-tsconfig",
-    "non-strict-tsconfig",
     "no-ts-files",
     "typescript-not-found",
     "python-not-found",
@@ -135,6 +133,7 @@ class RoutesResult(BaseModel):
     programHash: str
     tsconfig: str
     typescript: str
+    nullProof: bool
     routes: list[RouteSummary]
 
 
@@ -175,6 +174,7 @@ class RoutesResponse(BaseModel):
     programHash: str | None = None
     tsconfig: str | None = None
     typescript: str | None = None
+    nullProof: bool | None = None
     routes: list[RouteSummary] = []
 
 
@@ -278,6 +278,7 @@ class RouteGraphResult(BaseModel):
     programHash: str
     tsconfig: str
     typescript: str
+    nullProof: bool
     # surface: the render backbone alone, before the program-wide evidence; complete: the whole totality.
     phase: Literal["surface", "complete"]
     route: RouteRef
@@ -320,6 +321,7 @@ class SelectExpressionResult(BaseModel):
     programHash: str
     tsconfig: str
     typescript: str
+    nullProof: bool
     file: str
     reason: str | None
     candidates: list[SelectCandidate]
@@ -385,6 +387,7 @@ class ValueFlowResult(BaseModel):
     programHash: str
     tsconfig: str
     typescript: str
+    nullProof: bool
     reason: str | None
     selection: LedgerSelection
     rows: list[LedgerRow]
@@ -444,6 +447,7 @@ class RoutePathResult(BaseModel):
     programHash: str
     tsconfig: str
     typescript: str
+    nullProof: bool
     reason: str | None
     route: RoutePathRoute
     edge: RoutePathEdge
@@ -502,6 +506,7 @@ class FileExportsResult(BaseModel):
     programHash: str
     tsconfig: str
     typescript: str
+    nullProof: bool
     reason: str | None
     target: FileExportsTarget
     files: list[FileExportsFile]
@@ -587,6 +592,7 @@ class FunctionEffectsResult(BaseModel):
     programHash: str
     tsconfig: str
     typescript: str
+    nullProof: bool
     reason: str | None
     callable: EffectCallable
     facts: list[EffectFact]
@@ -696,6 +702,7 @@ class AnchorGraphResult(BaseModel):
     programHash: str
     tsconfig: str
     typescript: str
+    nullProof: bool
     reason: str | None
     anchor: AnchorRef
     direction: Literal["forward", "backward", "both"]

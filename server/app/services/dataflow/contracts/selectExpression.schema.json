@@ -30,6 +30,9 @@
     "typescript": {
       "type": "string"
     },
+    "nullProof": {
+      "type": "boolean"
+    },
     "file": {
       "type": "string"
     },
@@ -102,6 +105,7 @@
     "programHash",
     "tsconfig",
     "typescript",
+    "nullProof",
     "file",
     "reason",
     "candidates"

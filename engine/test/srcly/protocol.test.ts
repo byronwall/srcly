@@ -78,19 +78,27 @@ describe("srcly-engine stdio protocol", () => {
     await engine.close();
   }, 30_000);
 
-  it("refuses a project whose only tsconfig is not strict", async () => {
+  it("answers for a project whose only tsconfig is not strict, and names the limit", async () => {
     const root = tempProject({
       "tsconfig.json": JSON.stringify({ compilerOptions: { strict: false, jsx: "preserve" }, include: ["src"] }),
       "src/index.ts": "export const value: string = \"x\";\n",
     });
     const engine = startEngine(root);
     const reply = await engine.request(1, "routes");
-    expect(reply).toMatchObject({ ok: false, error: { code: "non-strict-tsconfig" } });
+    expect(reply).toMatchObject({ ok: true, result: { nullProof: false } });
     await engine.close();
   }, 60_000);
 
-  it("refuses a project with no tsconfig", async () => {
+  it("answers for a project with no tsconfig, and names the limit", async () => {
     const root = tempProject({ "src/index.ts": "export const value = 1;\n" });
+    const engine = startEngine(root);
+    const reply = await engine.request(1, "routes");
+    expect(reply).toMatchObject({ ok: true, result: { nullProof: false, tsconfig: "" } });
+    await engine.close();
+  }, 60_000);
+
+  it("refuses a project with no source at all", async () => {
+    const root = tempProject({ "src/notes.md": "hi\n" });
     const engine = startEngine(root);
     const reply = await engine.request(1, "routes");
     expect(reply).toMatchObject({ ok: false, error: { code: "no-tsconfig" } });
