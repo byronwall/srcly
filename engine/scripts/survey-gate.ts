@@ -140,7 +140,7 @@ function survey(side: "base" | "head", sha: string, dir: string, headPython: str
     const flags = ["--root", path.join(root, repo.dir), "--name", repo.name, "--out", out, "--every", String(repo.every), "--deadline", String(FIRST_TRACE_LIMIT_MS * 2)];
     if (repo.language) flags.push("--language", repo.language, "--python", python);
     // The side's own engine and tsx: `--import tsx` resolves from the working directory.
-    const child = spawnSync(process.execPath, ["--max-old-space-size=3072", "--import", "tsx", "scripts/survey-blockers.ts", ...flags], { cwd: path.join(root, "engine"), stdio: ["ignore", "inherit", "inherit"] });
+    const child = spawnSync(process.execPath, ["--max-old-space-size=4096", "--import", "tsx", "scripts/survey-blockers.ts", ...flags], { cwd: path.join(root, "engine"), stdio: ["ignore", "inherit", "inherit"] });
     const file = path.join(out, `${repo.name}.json`);
     if (child.status !== 0 || !fs.existsSync(file)) {
       failures.push(`${side} ${repo.name}: the survey exited ${child.status ?? child.signal}`);

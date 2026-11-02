@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { AnchorEdge, AnchorGraphResult, AnchorNode } from "../../src/srcly/contracts/anchor-graph";
 import { anchorGraphOp } from "../../src/srcly/ops/anchor-graph";
-import { createEngineSession } from "../../src/srcly/session";
+import { createEngineSession, requireTypescript } from "../../src/srcly/session";
 import { chooseTypescript } from "../../src/srcly/typescript-choice";
 
 // Fixture annotations: a fixture states what its traces must do in comments,
@@ -22,17 +22,27 @@ import { chooseTypescript } from "../../src/srcly/typescript-choice";
 //   @never-reaches <ids> [elementKind]           no box on this line
 //   @edge <ids> <kind|*> <status|*> [proofKind]  some edge matches (anywhere)
 //   @no-edge <ids> <kind|*> <status|*> [proofKind]  no edge matches
+//   @path <ids> "from" "to"                      the graph has a route from one box to the other
+//   @no-path <ids> "from" "to"                   it has none
 //
 // `@reaches` and `@stop` are exhaustive: a trace's every terminal and origin must be
 // claimed by a `@reaches`, and its every frontier and boundary by a `@stop`.
 // A trace with neither claims none. A claim about a box takes an optional
 // `"label"`, last, the box must carry. In a pattern, `*` matches anything and
 // `!x` anything but `x`.
+//
+// `@path` and `@no-path` catch a wrong route to an end a trace may reach. Each
+// label is a box's exact label. A label on several lines is read on the
+// claim's own line, and still several lines is a failure, never a guess. The
+// `from` box must be drawn, and a label that is not in the fixture's text is a
+// failure too, so a typo cannot pass a `@no-path`.
 
-const FIXTURES = fileURLToPath(new URL("../../examples/value-flow-basics", import.meta.url));
-const KEYWORDS = ["trace", "outcome", "reaches", "stop", "visits", "never-reaches", "edge", "no-edge"] as const;
+const example = (name: string) => fileURLToPath(new URL(`../../examples/${name}`, import.meta.url));
+// `value-flow-basics` is typed; `value-flow-js` is actual JavaScript, kept apart so a `.ts` twin cannot stand in for a `.js` file.
+const ROOTS = ["value-flow-basics", "value-flow-js"];
+const KEYWORDS = ["trace", "outcome", "reaches", "stop", "visits", "never-reaches", "edge", "no-edge", "path", "no-path"] as const;
 type Keyword = (typeof KEYWORDS)[number];
-type Annotation = { keyword: Keyword; args: string[]; label?: string; rest: string; file: string; line: number; code: string };
+type Annotation = { keyword: Keyword; args: string[]; label?: string; route?: [string, string]; rest: string; file: string; line: number; code: string };
 type Trace = { id: string; file: string; line: number; code: string; direction: string; text: string | null; symbol: string | null; claims: Annotation[] };
 
 const COMMENT = new RegExp(`(?:\\/\\/|\\/\\*)\\s*(@(?:${KEYWORDS.join("|")})\\b.*?)\\s*(?:\\*\\/|$)`, "g");
@@ -41,7 +51,7 @@ const SPLIT = new RegExp(`\\s+(?=@(?:${KEYWORDS.join("|")})\\b)`);
 function readAnnotations(root: string): Annotation[] {
   const found: Annotation[] = [];
   const src = path.join(root, "src");
-  for (const name of fs.readdirSync(src).filter((item) => /\.tsx?$/.test(item)).sort()) {
+  for (const name of fs.readdirSync(src).filter((item) => /\.[cm]?[jt]sx?$/.test(item)).sort()) {
     const file = `src/${name}`;
     const lines = fs.readFileSync(path.join(src, name), "utf8").split("\n");
     const code = (text: string) => text.slice(0, text.search(COMMENT) < 0 ? text.length : text.search(COMMENT));
@@ -80,6 +90,12 @@ function collectTraces(annotations: Annotation[]): Trace[] {
     for (const id of (item.args[0] ?? "").split(",")) {
       const trace = traces.get(id);
       if (!trace) throw new Error(`${item.file}:${item.line} @${item.keyword} names ${id || "no trace"}, which no @trace declares`);
+      if (item.keyword === "path" || item.keyword === "no-path") {
+        const route = /\s"([^"]+)"\s+"([^"]+)"$/.exec(item.rest);
+        if (!route) throw new Error(`${item.file}:${item.line} @${item.keyword}: write "from" "to"`);
+        trace.claims.push({ ...item, args: [], route: [route[1], route[2]] });
+        continue;
+      }
       // A label is the claim's last word, quoted, and may hold spaces: `"new Error(text)"`.
       const quoted = /(?:^|\s)"(.*)"$/.exec(item.rest);
       const args = (quoted ? item.rest.slice(0, quoted.index) : item.rest).trim().split(/\s+/).slice(1);
@@ -98,8 +114,55 @@ const fits = (value: string | null | undefined, pattern: string | undefined) =>
   !pattern || pattern === "*" || (pattern.startsWith("!") ? value !== pattern.slice(1) : value === pattern);
 const edgeMatches = (edge: AnchorEdge, [kind, status, proof]: string[]) => fits(edge.kind, kind) && fits(edge.status, status) && (!proof || edge.proof.some((item) => item?.kind === proof));
 
+/** The boxes a label names, or why it names none: same-line boxes are one point of the code (a call and the effect it ends at). */
+function endpoint(graph: AnchorGraphResult, claim: Annotation, label: string): AnchorNode[] | string {
+  const named = boxes(graph).filter((node) => node.label === label);
+  const lines = new Set(named.map(at));
+  const here = lines.size > 1 ? named.filter((node) => at(node) === where(claim)) : named;
+  if (lines.size > 1 && here.length === 0) return `"${label}" is on ${[...lines].join(", ")}, so it names no one box from this line`;
+  return here;
+}
+
+/** Whether the graph's edges lead from one set of boxes to the other, in the direction the value moves. */
+function routeExists(graph: AnchorGraphResult, from: AnchorNode[], to: AnchorNode[]): boolean {
+  const ends = new Set(to.map((node) => node.id));
+  const seen = new Set(from.map((node) => node.id));
+  const queue = [...seen];
+  for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
+    if (ends.has(id)) return true;
+    for (const edge of graph.edges) {
+      if (edge.source === id && !seen.has(edge.target)) {
+        seen.add(edge.target);
+        queue.push(edge.target);
+      }
+    }
+  }
+  return false;
+}
+
+function checkRoutes(claims: Annotation[], graph: AnchorGraphResult, source: (file: string) => string): string[] {
+  const failures: string[] = [];
+  for (const claim of claims) {
+    const [from, to] = claim.route!;
+    const name = `${where(claim)} @${claim.keyword} "${from}" "${to}"`;
+    const missing = [from, to].filter((label) => !source(claim.file).includes(label));
+    if (missing.length) {
+      failures.push(`${name}: ${missing.map((label) => `"${label}"`).join(", ")} is not in the fixture`);
+      continue;
+    }
+    const start = endpoint(graph, claim, from);
+    const end = endpoint(graph, claim, to);
+    for (const item of [start, end]) if (typeof item === "string") failures.push(`${name}: ${item}`);
+    if (typeof start === "string" || typeof end === "string") continue;
+    if (start.length === 0) failures.push(`${name}: no box is labelled "${from}"; the trace draws ${boxes(graph).map(describeNode).join(", ")}`);
+    else if (claim.keyword === "path" && end.length === 0) failures.push(`${name}: no box is labelled "${to}"; the trace draws ${boxes(graph).map(describeNode).join(", ")}`);
+    else if (routeExists(graph, start, end) !== (claim.keyword === "path")) failures.push(`${name}: ${claim.keyword === "path" ? "no route joins them" : "a route joins them"}; edges: ${graph.edges.map((edge) => `${edge.kind}/${edge.status}`).join(", ")}`);
+  }
+  return failures;
+}
+
 /** Every claim the trace's graph breaks, each naming the fixture line that claims it. */
-function check(trace: Trace, graph: AnchorGraphResult): string[] {
+function check(trace: Trace, graph: AnchorGraphResult, source: (file: string) => string): string[] {
   const failures: string[] = [];
   const claims = (keyword: Keyword) => trace.claims.filter((claim) => claim.keyword === keyword);
   for (const claim of claims("outcome")) {
@@ -137,6 +200,7 @@ function check(trace: Trace, graph: AnchorGraphResult): string[] {
     const hit = graph.edges.filter((edge) => edgeMatches(edge, claim.args));
     if (hit.length) failures.push(`${where(claim)} @no-edge ${claim.args.join(" ")}: ${hit.map((edge) => `${edge.kind}/${edge.status}`).join(", ")} matches`);
   }
+  failures.push(...checkRoutes([...claims("path"), ...claims("no-path")], graph, source));
   return failures;
 }
 
@@ -148,17 +212,55 @@ function anchorFor(trace: Trace) {
   return { file: trace.file, text: trace.text!, span: { startLine: trace.line, startColumn: column, endLine: trace.line, endColumn: column + trace.text!.length }, direction };
 }
 
-describe("fixture annotations in value-flow-basics", () => {
-  const source = path.join(FIXTURES, "src");
-  const session = createEngineSession({ root: FIXTURES, source, tsconfig: null, typescriptFrom: chooseTypescript(FIXTURES, source).from });
-  const traces = collectTraces(readAnnotations(FIXTURES));
+describe.each(ROOTS)("fixture annotations in %s", (name) => {
+  const root = example(name);
+  const source = path.join(root, "src");
+  const session = createEngineSession({ root, source, tsconfig: null, typescriptFrom: chooseTypescript(root, source).from });
+  const traces = collectTraces(readAnnotations(root));
+  const text = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
 
   it("declares traces", () => {
     expect(traces.length).toBeGreaterThan(0);
   });
 
+  it("has every fixture file in its Program", () => {
+    const tier1 = requireTypescript(session.tier1(), "the fixture check");
+    const absent = [...new Set(traces.map((trace) => trace.file))].filter((file) => !tier1.program.getSourceFile(path.join(root, file)));
+    expect(absent).toEqual([]);
+  });
+
   it.each(traces.map((trace) => [`${trace.file}:${trace.line} ${trace.id} (${trace.direction} ${trace.symbol ?? trace.text})`, trace] as const))("%s", (_name, trace) => {
     const graph = anchorGraphOp(session, anchorFor(trace));
-    expect(check(trace, graph), `${trace.file}:${trace.line} @trace ${trace.id}`).toEqual([]);
+    expect(check(trace, graph, text), `${trace.file}:${trace.line} @trace ${trace.id}`).toEqual([]);
   }, 60_000);
+});
+
+// A trace can end where it may and still get there the wrong way: `a → c → end` with `a → b → end` claimed.
+describe("route claims", () => {
+  const node = (id: string, line: number): AnchorNode => ({ id, label: id, file: "f.ts", line, kind: "value" }) as AnchorNode;
+  const graph = (edges: [string, string][]) => ({
+    nodes: [node("a", 1), node("b", 2), node("c", 3), node("end", 4)],
+    edges: edges.map(([source, target]) => ({ source, target, kind: "references", status: "proven", proof: [], label: null })),
+  }) as unknown as AnchorGraphResult;
+  const claim = (keyword: "path" | "no-path", from: string, to: string, line = 9): Annotation => ({ keyword, args: [], route: [from, to], rest: "", file: "f.ts", line, code: "" });
+  const trace = (...claims: Annotation[]): Trace => ({ id: "t", file: "f.ts", line: 1, code: "", direction: "forward", text: "a", symbol: null, claims });
+  const source = () => "a b c end";
+
+  it("passes a route that is there and a forbidden one that is not", () => {
+    expect(check(trace(claim("path", "a", "end"), claim("no-path", "c", "end")), graph([["a", "b"], ["b", "end"]]), source)).toEqual([]);
+  });
+
+  it("fails a wrong route to an end the trace may reach", () => {
+    expect(check(trace(claim("no-path", "c", "end")), graph([["a", "c"], ["c", "end"]]), source)).toEqual([expect.stringContaining("a route joins them")]);
+  });
+
+  it("fails a label on several lines rather than guess", () => {
+    const twice = graph([]);
+    twice.nodes.push({ ...node("x", 5), label: "a" });
+    expect(check(trace(claim("no-path", "a", "end")), twice, source)).toEqual([expect.stringContaining("names no one box")]);
+  });
+
+  it("fails a label the fixture does not have, so a typo cannot pass", () => {
+    expect(check(trace(claim("no-path", "a", "ned")), graph([]), source)).toEqual([expect.stringContaining("not in the fixture")]);
+  });
 });

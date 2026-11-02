@@ -8,7 +8,7 @@ The work came from the data-flow experience audit (October 2026). The audit trac
 
 - `engine/scripts/survey-blockers.ts` traces a sample of exports in both directions and writes every outcome and stop as JSON (#162). `engine/scripts/survey-report.ts` ranks the stops.
 - `pnpm survey-gate` (CI's `survey` job) surveys `client/`, `server/` and `examples/value-flow-basics` and fails on any move the PR does not record (#192, #205).
-- A rule's test is an annotated fixture in `engine/examples/value-flow-basics/src/`. `engine/test/srcly/fixture-annotations.test.ts` checks the `@trace`, `@outcome`, `@reaches` and `@stop` claims (#201).
+- A rule's test is an annotated fixture in `engine/examples/value-flow-basics/src/`. `engine/test/srcly/fixture-annotations.test.ts` checks the `@trace`, `@outcome`, `@reaches` and `@stop` claims (#201). `@path` and `@no-path` name a route between two labelled boxes, so a wrong route to a legal end fails. `engine/examples/value-flow-js/` runs the same claims on actual `.js` files, after a check that each file is in the Program.
 - The r3 survey, before #198, was 19% ok: TypeScript 16%, Python 25%.
 
 ## Outcomes and honesty

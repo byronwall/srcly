@@ -16,9 +16,16 @@ import { chooseTypescript } from "../src/srcly/typescript-choice";
 // `// @trace <id> <forward|backward|both> <text> @want <kind|kind>` anchors at
 // `text` on its own line or one of the next few (`symbol <name>` at a
 // declaration). A trace is correct when it lands (`ok` or `assumed`) and one
-// of its ends is a wanted element kind: landing somewhere else is not.
+// of its ends is a wanted element kind: landing somewhere else is not. That
+// score accepts any wanted end, so it does not show the path was right; the
+// exact claims live in the annotated fixtures (`value-flow-basics`, `value-flow-js`).
+//
+// Every `@trace` counts. One the run cannot try is `skipped` (its root has no
+// library types) or `refused` (the engine answered with an error), never left
+// out, and each row names its language so actual JavaScript stays apart from
+// TypeScript.
 
-type Row = { framework: string; id: string; file: string; outcome: string; reason?: string | null; stops: string[]; ends: string[]; want: string[]; correct: boolean };
+type Row = { framework: string; language: "ts" | "js"; id: string; file: string; outcome: string; reason?: string | null; stops: string[]; ends: string[]; want: string[]; correct: boolean };
 
 const args = process.argv.slice(2);
 const flag = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
@@ -26,20 +33,33 @@ const only = flag("--only");
 const verbose = args.includes("-v");
 const catalog = fileURLToPath(new URL("../examples/pattern-catalog", import.meta.url));
 const rows: Row[] = [];
+// These roots have no library types to grade against, so they need no `node_modules`.
+const NEEDS_NO_LIBRARIES = new Set(["vanilla", "javascript"]);
+const SOURCE = /\.[cm]?[jt]sx?$/;
+const TRACE = /@trace\s+(\S+)\s+(forward|backward|both)\s+(.*?)(?:\s+@want\s+(\S+))?\s*$/;
+const languageOf = (name: string) => (/\.[cm]?jsx?$/.test(name) ? "js" as const : "ts" as const);
+const sources = (src: string) => fs.readdirSync(src).filter((item) => SOURCE.test(item) && !/\.d\.[cm]?ts$/.test(item)).sort();
 
 for (const framework of fs.readdirSync(catalog).filter((name) => fs.statSync(path.join(catalog, name)).isDirectory()).sort()) {
   const root = path.join(catalog, framework);
   const src = path.join(root, "src");
-  if (framework !== "vanilla" && !fs.existsSync(path.join(root, "node_modules"))) {
+  if (!NEEDS_NO_LIBRARIES.has(framework) && !fs.existsSync(path.join(root, "node_modules"))) {
     process.stderr.write(`${framework}: skipped, no node_modules (see examples/pattern-catalog/README.md)\n`);
+    for (const name of sources(src)) {
+      for (const line of fs.readFileSync(path.join(src, name), "utf8").split("\n")) {
+        const match = TRACE.exec(line);
+        if (match && (!only || match[1] === only)) rows.push({ framework, language: languageOf(name), id: match[1], file: `src/${name}`, outcome: "skipped", reason: "no node_modules", stops: [], ends: [], want: match[4]?.split("|") ?? [], correct: false });
+      }
+    }
     continue;
   }
   const session = createEngineSession({ root, source: src, tsconfig: null, typescriptFrom: chooseTypescript(root, src).from });
-  for (const name of fs.readdirSync(src).filter((item) => /\.tsx?$/.test(item)).sort()) {
+  for (const name of sources(src)) {
     const file = `src/${name}`;
+    const language = languageOf(name);
     const lines = fs.readFileSync(path.join(src, name), "utf8").split("\n");
     lines.forEach((line, index) => {
-      const match = /@trace\s+(\S+)\s+(forward|backward|both)\s+(.*?)(?:\s+@want\s+(\S+))?\s*$/.exec(line);
+      const match = TRACE.exec(line);
       if (!match || (only && match[1] !== only)) return;
       const [, id, direction, rest, wanted] = match;
       const want = wanted ? wanted.split("|") : [];
@@ -56,13 +76,14 @@ for (const framework of fs.readdirSync(catalog).filter((name) => fs.statSync(pat
         graph = anchorGraphOp(session, anchor);
       } catch (error) {
         // A refused anchor is the engine's answer too: count it, named.
-        rows.push({ framework, id, file, outcome: "error", reason: error instanceof Error ? error.message : String(error), stops: [], ends: [], want, correct: false });
+        rows.push({ framework, language, id, file, outcome: "error", reason: error instanceof Error ? error.message : String(error), stops: [], ends: [], want, correct: false });
         return;
       }
       const boxes = graph.nodes.filter((node) => node.kind !== "scope");
       if (verbose) for (const node of boxes) process.stdout.write(`    ${node.kind} ${node.elementKind ?? "-"} ${node.reason ?? ""} ${node.file}:${node.line} ${JSON.stringify(node.label.slice(0, 50))}\n`);
       rows.push({
         framework,
+        language,
         id,
         file,
         outcome: graph.outcome,
@@ -85,11 +106,14 @@ for (const row of rows) {
   process.stdout.write(`${mark} ${`${row.framework}/${row.id}`.padEnd(32)} ${row.outcome.padEnd(9)} ends=[${row.ends.join(",")}] want=${row.want.join("|")}${row.reason ? ` (${row.reason})` : ""}\n`);
   if (mark !== "✓") for (const stop of row.stops) process.stdout.write(`      ${stop}\n`);
 }
-process.stdout.write("\n| Framework | Patterns | ok | assumed | partial | correct end |\n| --- | ---: | ---: | ---: | ---: | ---: |\n");
-for (const framework of [...new Set(rows.map((row) => row.framework)), "all"]) {
-  const own = rows.filter((row) => framework === "all" || row.framework === framework);
+process.stdout.write("\n| Framework | Patterns | Skipped | Refused | ok | assumed | partial | any wanted end |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n");
+const line = (name: string, own: Row[]) => {
   const count = (outcome: string) => own.filter((row) => row.outcome === outcome).length;
-  process.stdout.write(`| ${framework} | ${own.length} | ${count("ok")} | ${count("assumed")} | ${own.length - count("ok") - count("assumed")} | ${own.filter((row) => row.correct).length} |\n`);
-}
+  const tried = own.length - count("skipped") - count("error");
+  process.stdout.write(`| ${name} | ${own.length} | ${count("skipped")} | ${count("error")} | ${count("ok")} | ${count("assumed")} | ${tried - count("ok") - count("assumed")} | ${own.filter((row) => row.correct).length} |\n`);
+};
+for (const framework of new Set(rows.map((row) => row.framework))) line(framework, rows.filter((row) => row.framework === framework));
+line("all", rows);
+line("actual JS", rows.filter((row) => row.language === "js"));
 const out = flag("--json");
 if (out) fs.writeFileSync(out, `${JSON.stringify(rows, null, 1)}\n`);

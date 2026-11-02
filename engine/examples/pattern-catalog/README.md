@@ -15,6 +15,10 @@ ln -s ~/Projects/<a React app>/node_modules engine/examples/pattern-catalog/reac
 ln -s ~/Projects/<a Solid app>/node_modules engine/examples/pattern-catalog/solid/node_modules
 ```
 
-React needs `react`, `@types/react`, `@tanstack/react-query` and `zustand`. Solid needs `solid-js` and `@solidjs/router`. A root without `node_modules` is skipped.
+React needs `react`, `@types/react`, `@tanstack/react-query` and `zustand`. Solid needs `solid-js` and `@solidjs/router`. A root without `node_modules` is skipped, and each of its traces counts as `Skipped`. An anchor the engine refuses counts as `Refused`.
+
+`vanilla` is typed; `javascript` is actual `.js`. The last table row counts actual JavaScript alone.
+
+`any wanted end` is the historical score: a trace passes when any end has a wanted kind. It does not show that the path was right. Exact claims live in the annotated fixtures (`@path`, `@no-path`, exhaustive `@reaches`).
 
 Results and the gap list are in `docs/research/dataflow-pattern-coverage-2026-10/README.md`.
