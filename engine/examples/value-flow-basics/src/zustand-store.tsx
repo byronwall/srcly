@@ -9,7 +9,7 @@ const useOther = create<{ label: string }>(() => ({ label: "other" }));
 
 export function Counter(props: { n: number }) {
   const count = useCounter((s) => s.count);
-  const setCount = useCounter((s) => s.setCount);
+  const setCount = useCounter((s) => s.setCount); // @never-reaches store-set field-read
   const label = useOther((s) => s.label); // @never-reaches store-set
-  return <button onClick={() => setCount(props.n)}>{count}{label}</button>; // @trace store-set forward props.n @outcome store-set ok @reaches store-set render-terminal "count" @reaches store-set return
+  return <button onClick={() => setCount(props.n)}>{count}{label}</button>; // @trace store-set forward props.n @outcome store-set ok @reaches store-set render-terminal "count"
 }

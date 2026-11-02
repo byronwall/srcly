@@ -283,7 +283,8 @@ export function collectProgramEvidenceExpression(
  * An object or array literal's attributes. An object literal names the field
  * each property packs, keyed by the property's start (where its `pack-field`
  * relation points), so a slice can enter the pack through the one field it is
- * after (`evidence-slice-fields.ts`). A computed key or a spread names none.
+ * after (`evidence-slice-fields.ts`). A spread, a computed key or a method
+ * names none, and marks the pack `open`: it may hold any field.
  */
 export function objectPackAttributes(
   ts: typeof TypeScript,
@@ -292,11 +293,14 @@ export function objectPackAttributes(
 ): Record<string, string> {
   if (!ts.isObjectLiteralExpression(node)) return { operation: "object-pack" };
   const fields: Record<string, string> = {};
+  let open = false;
   for (const property of node.properties) {
-    if (!ts.isPropertyAssignment(property) && !ts.isShorthandPropertyAssignment(property)) continue;
-    if (ts.isComputedPropertyName(property.name) || ts.isPrivateIdentifier(property.name)) continue;
+    if ((!ts.isPropertyAssignment(property) && !ts.isShorthandPropertyAssignment(property)) || ts.isComputedPropertyName(property.name) || ts.isPrivateIdentifier(property.name)) {
+      open = true;
+      continue;
+    }
     const { span } = location(property);
     fields[`${span.startLine}:${span.startColumn}`] = property.name.text;
   }
-  return { operation: "object-pack", fields: JSON.stringify(fields) };
+  return { operation: "object-pack", fields: JSON.stringify(fields), ...(open ? { open: "true" } : {}) };
 }
