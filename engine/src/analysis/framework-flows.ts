@@ -14,6 +14,19 @@ import { builtinLibraryModels, tsModelModule, type LibraryModelRow } from "./lib
  */
 export type FrameworkFlow = { returns?: number; compares?: boolean; passes?: number[] | "*"; source?: number; callback?: number };
 
+/**
+ * A promise's outcomes are separate channels. `fulfilled` and `rejected` name
+ * the callback that takes each one, and `returns` the callbacks whose return
+ * fulfils the new promise. `then`'s value is only what its callbacks return,
+ * `catch` keeps the fulfilled value, and `finally` keeps it and drops what its
+ * callback returns.
+ */
+export const PROMISE_CHANNELS: Record<"then" | "catch" | "finally", { fulfilled?: number; rejected?: number; returns: readonly number[] }> = {
+  then: { fulfilled: 0, rejected: 1, returns: [0, 1] },
+  catch: { rejected: 0, returns: [0] },
+  finally: { returns: [] },
+};
+
 /** The row for an imported framework call (`solid-js`'s `createMemo`), by its module and export name. */
 export function frameworkRow(module: string, name: string): LibraryModelRow | null {
   return builtinLibraryModels().lookup("ts", tsModelModule(module), name);

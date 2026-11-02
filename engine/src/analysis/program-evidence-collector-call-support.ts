@@ -8,7 +8,7 @@ import {
 } from "./program-evidence-collector-expression-support";
 import { lazyFactoryGetter, reducerOf, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
-import { frameworkFlow, makesAccessor, makesPredicate, type FrameworkFlow } from "./framework-flows";
+import { frameworkFlow, makesAccessor, makesPredicate, PROMISE_CHANNELS, type FrameworkFlow } from "./framework-flows";
 import { builtinLibraryModels, standardMemberModel } from "./library-models";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo } from "./program-evidence-collector-support";
@@ -280,8 +280,9 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         this.addRelation(this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId), stateId, kind, [this.location(argument)], frameworkState("The setter's argument becomes the state its getter reads; order and time are not proven.", this.location(argument)), "partial");
       }
     }
-    // A callee with no body to enter (a library method, a callback, an accessor) is consumed by its call, as its arguments are.
-    if (!role && !target && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
+    // A callee with no body to enter (a library method, a callback, an accessor) is consumed by its call, as its arguments are. A `then` with a handler holds what the handler returns, not its receiver.
+    const handled = this.settles(node) === "then" && this.promiseHandler(node, 0);
+    if (!role && !target && !handled && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
       this.addRelation(
         this.expression(node.expression, ownerId),
         callId,
@@ -301,6 +302,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       const argumentId = this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId);
       // The flow moves these: a passed value goes through whole, so a field stays that field, and a resource's source reaches the fetcher's parameter, never the resource.
       if (flow?.passes === "*" || flow?.passes?.includes(index) || (flow?.source === index && isResourceFactory(this.ts, this.checker, node))) continue;
+      // A rejection reason is not the promise's value: it reaches a rejection handler, or ends there.
+      if (this.settles(node) === "reject") continue;
       this.addRelation(
         argumentId,
         callId,
@@ -545,7 +548,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       const info = this.functionsByNode.get(nodeKey(this.root, fn));
       const supplied = new Set(fn.parameters.flatMap((parameter) => {
         const symbol = this.ts.isIdentifier(parameter.name) ? this.checker.getSymbolAtLocation(parameter.name) : undefined;
-        return symbol && this.checker.getTypeAtLocation(parameter).getCallSignatures().length > 0 ? [symbol] : [];
+        return symbol && this.checker.getTypeAtLocation(parameter).getCallSignatures().length > 0 && !this.isRejectParameter(node, fn, parameter) ? [symbol] : [];
       }));
       if (!info || supplied.size === 0) continue;
       const visit = (inner: TypeScript.Node) => {
@@ -558,6 +561,11 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       };
       visit(fn.body);
     }
+  }
+
+  /** `reject` in `new Promise((resolve, reject) => …)`: what it is given rejects the promise, so it is no part of the promise's value. */
+  private isRejectParameter(node: TypeScript.CallExpression | TypeScript.NewExpression, fn: TypeScript.SignatureDeclaration, parameter: TypeScript.ParameterDeclaration): boolean {
+    return this.ts.isNewExpression(node) && fn.parameters[1] === parameter && this.checker.getTypeAtLocation(node).getSymbol()?.name === "Promise";
   }
 
   /**
@@ -653,6 +661,11 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     }
     const callee = calleeName(this.ts, node.expression);
     const calleeNode = unwrap(this.ts, node.expression);
+    const settles = this.settles(node);
+    if (settles && settles !== "reject" && this.ts.isPropertyAccessExpression(calleeNode)) {
+      this.connectPromiseChannels(call, node, calleeNode.expression, settles);
+      return;
+    }
     const receiver = this.ts.isPropertyAccessExpression(calleeNode) ? calleeNode.expression : null;
     const receiverType = receiver ? this.checker.getTypeAtLocation(receiver) : null;
     const awaited = receiverType ? this.checker.getAwaitedType(receiverType) : undefined;
@@ -681,6 +694,69 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         this.addRelation(returnId, call.id, "return-value", where, derived, derivedStatus);
       }
     }
+  }
+
+  /** How a standard promise member settles (its row's `settles`), or undefined for any other call. */
+  private settles(node: TypeScript.CallExpression) {
+    return standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression))?.settles;
+  }
+
+  /** The function a promise method is given at this argument, written there or named. */
+  private promiseHandler(node: TypeScript.CallExpression, index: number | undefined) {
+    const handler = index !== undefined && node.arguments[index] ? unwrap(this.ts, node.arguments[index]) : null;
+    return handler ? this.functionsByNode.get(nodeKey(this.root, handler)) ?? this.targetFunction(handler) : null;
+  }
+
+  /** Each of a promise method's callbacks on its own channel (`PROMISE_CHANNELS`). */
+  private connectPromiseChannels(call: CollectorCallInfo, node: TypeScript.CallExpression, receiver: TypeScript.Expression, settles: keyof typeof PROMISE_CHANNELS): void {
+    const channels = PROMISE_CHANNELS[settles];
+    const name = calleeName(this.ts, node.expression);
+    const fill = (value: TypeScript.Expression | null, index: number | undefined, outcome: string) => {
+      const parameter = this.promiseHandler(node, index)?.declaration.parameters[0];
+      const binding = parameter ? firstBindingIdentifier(this.ts, parameter.name) : null;
+      const parameterId = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
+      if (!value || !parameter || !parameterId) return;
+      const where = [this.location(value), this.location(parameter)];
+      const [called, calledStatus] = this.libraryProof(node, `${name} calls this function with the promise's ${outcome}.`, where);
+      this.addRelation(this.expression(value, call.ownerId), parameterId, "framework-flow", where, called, calledStatus);
+    };
+    fill(receiver, channels.fulfilled, "fulfilled value");
+    fill(this.rejectionOf(receiver), channels.rejected, "rejection");
+    // No callback takes the fulfilled value, so the new promise holds it, each field still that field.
+    if (!this.promiseHandler(node, channels.fulfilled)) {
+      const where = [this.location(receiver)];
+      const [kept, keptStatus] = this.libraryProof(node, `${name} keeps the fulfilled value.`, where);
+      this.addRelation(this.expression(receiver, call.ownerId), call.id, "framework-flow", where, kept, keptStatus);
+    }
+    for (const index of channels.returns) {
+      const handler = this.promiseHandler(node, index);
+      if (!handler) continue;
+      const where = [this.location(node.arguments[index])];
+      for (const returnId of this.returnsByFunction.get(handler.id) ?? []) {
+        const [derived, derivedStatus] = this.libraryProof(node, `${name}'s promise fulfils with what this function returns.`, where);
+        this.addRelation(returnId, call.id, "return-value", where, derived, derivedStatus);
+      }
+    }
+  }
+
+  /** The reason a promise rejects with, where the code says so: `Promise.reject(reason)`, through bindings and the links it skips. Null for a promise that may settle any way. */
+  private rejectionOf(expression: TypeScript.Expression): TypeScript.Expression | null {
+    let value: TypeScript.Expression | undefined = unwrap(this.ts, expression);
+    for (let step = 0; step < 8 && value; step++) {
+      if (this.ts.isIdentifier(value)) {
+        const origin: TypeScript.Node | undefined = resolveValue(this.ts, this.checker, value)?.origin;
+        value = origin && this.ts.isExpression(origin) ? unwrap(this.ts, origin) : undefined;
+        continue;
+      }
+      if (!this.ts.isCallExpression(value)) return null;
+      const settles = this.settles(value);
+      if (settles === "reject") return value.arguments[0] ?? null;
+      const method = unwrap(this.ts, value.expression);
+      const skips = settles === "finally" || (settles === "then" && !value.arguments[1]);
+      if (!skips || !this.ts.isPropertyAccessExpression(method)) return null;
+      value = unwrap(this.ts, method.expression);
+    }
+    return null;
   }
 
   protected processCallBoundary(

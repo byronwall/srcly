@@ -127,6 +127,38 @@
       "member": "String.*",
       "model": "consumes",
       "note": "The receiver keeps nothing it is given, even when the call's value is dropped."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Promise.then",
+      "model": "calls-back",
+      "settles": "then",
+      "note": "The first callback takes the fulfilled value and the second the rejection. The new promise holds what they return."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Promise.catch",
+      "model": "calls-back",
+      "settles": "catch",
+      "note": "The callback takes the rejection. The new promise holds the fulfilled value or what the callback returns."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Promise.finally",
+      "model": "calls-back",
+      "settles": "finally",
+      "note": "The callback takes nothing and its return is dropped. The new promise holds the fulfilled value."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "PromiseConstructor.reject",
+      "model": "consumes",
+      "settles": "reject",
+      "note": "The promise only rejects: its argument is no value of the promise."
     }
   ]
 }

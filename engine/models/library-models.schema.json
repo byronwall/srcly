@@ -104,6 +104,16 @@
             "type": "string",
             "const": "this"
           },
+          "settles": {
+            "description": "For a promise's member: which outcome each callback takes and what the new promise holds (`PROMISE_CHANNELS`); `reject` makes a promise that only rejects.",
+            "type": "string",
+            "enum": [
+              "then",
+              "catch",
+              "finally",
+              "reject"
+            ]
+          },
           "proof": {
             "description": "The proof kind its relations carry, so existing proof names survive.",
             "type": "string",
