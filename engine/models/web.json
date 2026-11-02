@@ -24,6 +24,104 @@
       "model": "origin",
       "role": "environment-input",
       "note": "A bundler's environment variables come from outside."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ParentNode.querySelector",
+      "model": "consumes",
+      "note": "A read of the page: dropping its value changes nothing, and what it is given stays in the program."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ParentNode.querySelectorAll",
+      "model": "consumes",
+      "note": "A read of the page: dropping its value changes nothing, and what it is given stays in the program."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "NonElementParentNode.getElementById",
+      "model": "consumes",
+      "note": "A read of the page: dropping its value changes nothing, and what it is given stays in the program."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Document.getElementsByClassName",
+      "model": "consumes",
+      "note": "A read of the page: dropping its value changes nothing, and what it is given stays in the program."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Document.getElementsByTagName",
+      "model": "consumes",
+      "note": "A read of the page: dropping its value changes nothing, and what it is given stays in the program."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Document.getElementsByName",
+      "model": "consumes",
+      "note": "A read of the page: dropping its value changes nothing, and what it is given stays in the program."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Element.getElementsByClassName",
+      "model": "consumes",
+      "note": "A read of the page: dropping its value changes nothing, and what it is given stays in the program."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Element.getElementsByTagName",
+      "model": "consumes",
+      "note": "A read of the page: dropping its value changes nothing, and what it is given stays in the program."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Element.closest",
+      "model": "consumes",
+      "note": "A read of the page: dropping its value changes nothing, and what it is given stays in the program."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Element.matches",
+      "model": "consumes",
+      "note": "A read of the page: dropping its value changes nothing, and what it is given stays in the program."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Element.getAttribute",
+      "model": "consumes",
+      "note": "A read of the page: dropping its value changes nothing, and what it is given stays in the program."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Element.hasAttribute",
+      "model": "consumes",
+      "note": "A read of the page: dropping its value changes nothing, and what it is given stays in the program."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Element.getBoundingClientRect",
+      "model": "consumes",
+      "note": "A read of the page: dropping its value changes nothing, and what it is given stays in the program."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Node.contains",
+      "model": "consumes",
+      "note": "A read of the page: dropping its value changes nothing, and what it is given stays in the program."
     }
   ]
 }

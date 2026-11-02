@@ -14,6 +14,29 @@ export function focusAll(fields: HTMLInputElement[]) { // @trace focus-all forwa
   fields.forEach((field) => field.focus()); // @reaches focus-all external-effect @reaches focus-all call
 }
 
+// A query is a read with its value kept or dropped: only what the code does
+// with the node can change the page. A host of the project's own with the same
+// method name is not the page at all.
+export function probe(root: HTMLElement, selector: string) {
+  root.querySelector(selector); // @trace dropped-query forward selector @never-reaches dropped-query external-effect @reaches dropped-query call
+}
+
+export function write(root: HTMLElement, label: string) {
+  root.setAttribute("title", label); // @trace page-write forward label @reaches page-write external-effect
+}
+
+class FakeHost {
+  querySelector(selector: string) {
+    return selector;
+  }
+}
+
+export function fakeHost(selector: string) {
+  const host = new FakeHost();
+  const found = host.querySelector(selector); // @trace fake-query forward selector @never-reaches fake-query external-effect
+  return found; // @reaches fake-query return
+}
+
 export function findRow(root: HTMLElement, selector: string) { // @trace find-row forward symbol selector @outcome find-row ok
   const row = root.querySelector(selector); // @never-reaches find-row external-effect
   return row; // @reaches find-row return
