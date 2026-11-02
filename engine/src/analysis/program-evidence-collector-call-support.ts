@@ -295,12 +295,12 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         "proven",
       );
     }
-    // A resource's source says what to fetch: it reaches the fetcher's parameter, never the resource.
-    const source = isResourceFactory(this.ts, this.checker, node) ? node.arguments[resourceFlow(this.ts, this.checker, node).source ?? -1] : undefined;
-    for (const argument of role ? [] : node.arguments) {
+    const flow = this.flowOf(node);
+    for (const [index, argument] of (role ? [] : node.arguments).entries()) {
       // A spread argument passes its elements: the value is what it spreads.
       const argumentId = this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId);
-      if (argument === source) continue;
+      // The flow moves these: a passed value goes through whole, so a field stays that field, and a resource's source reaches the fetcher's parameter, never the resource.
+      if (flow?.passes === "*" || flow?.passes?.includes(index) || (flow?.source === index && isResourceFactory(this.ts, this.checker, node))) continue;
       this.addRelation(
         argumentId,
         callId,

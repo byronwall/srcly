@@ -15,18 +15,22 @@ import type { ProgramElement, ProgramRelation } from "./scope-seam";
 export type FieldPath = readonly string[];
 
 const MAX_FIELD_PATH = 4;
-const KEEPS_IDENTITY = new Set(["references", "argument-binding", "return-expression", "return-value"]);
+const KEEPS_IDENTITY = new Set(["references", "argument-binding", "return-expression", "return-value", "framework-flow"]);
 const SPREAD = Symbol("spread");
 
 export type PackFieldCache = Map<string, Record<string, string> | null>;
 
-/** The field an object pack holds at a property's position (its `fields` attribute), a spread or computed key, or null when the pack names none. */
-function packedField(pack: ProgramElement, relation: ProgramRelation, cache: PackFieldCache): string | typeof SPREAD | null {
+function packFields(pack: ProgramElement, cache: PackFieldCache): Record<string, string> | null {
   if (!cache.has(pack.id)) {
     const raw = pack.attributes?.fields;
     cache.set(pack.id, typeof raw === "string" ? (JSON.parse(raw) as Record<string, string>) : null);
   }
-  const fields = cache.get(pack.id);
+  return cache.get(pack.id) ?? null;
+}
+
+/** The field an object pack holds at a property's position (its `fields` attribute), a spread or computed key, or null when the pack names none. */
+function packedField(pack: ProgramElement, relation: ProgramRelation, cache: PackFieldCache): string | typeof SPREAD | null {
+  const fields = packFields(pack, cache);
   if (!fields) return null;
   const span = relation.proof.locations[0]?.span;
   return (span && fields[`${span.startLine}:${span.startColumn}`]) || SPREAD;
@@ -56,6 +60,11 @@ export function stepFieldPath(
     if (field === null) return [];
     if (field === SPREAD) return path;
     return forward ? push(field) : pop(field);
+  }
+  // Backward through a call that passes objects on (`mergeProps`): a pack that names other fields is not where this one came from.
+  if (relation.kind === "framework-flow" && !forward && path.length) {
+    const fields = packFields(target, cache);
+    if (fields && !target.attributes?.open && !Object.values(fields).includes(path[path.length - 1])) return null;
   }
   return KEEPS_IDENTITY.has(relation.kind) ? path : [];
 }
