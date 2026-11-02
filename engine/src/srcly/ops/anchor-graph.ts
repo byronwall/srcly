@@ -160,7 +160,8 @@ class AnchorGraphBuilder {
     const coverage = { elements: 0, relations: 0, budget: { limit: 0, used: 0, exhausted: false } };
     const runs: Run[] = fact && elementTraits(fact.kind).declaration ? this.declarationRuns(file, span, seed, sides, fact.kind === "component-definition", /class/i.test(candidate.kind)) : sides.map((side) => ({ seedId: seed, seedSpan: span, side }));
     const isDeclaration = fact !== undefined && Boolean(elementTraits(fact.kind).declaration);
-    const gapsBySeed = new Map<string, number>();
+    // By run, not seed: a parameter's two sides share a seed, and an end one side reaches says nothing about the other.
+    const gapsByRun = new Map<Run, number>();
     const naturalBySeed = new Map<string, number>();
     for (const run of runs) {
       if (run.endsHere) continue;
@@ -175,7 +176,7 @@ class AnchorGraphBuilder {
       // Any limit the slice hit leaves the walk short of the budget's story, not only the relation budget.
       const cut = slice.coverage.truncation;
       coverage.budget.exhausted ||= cut.budget || cut.elements || cut.relations || cut.depth;
-      gapsBySeed.set(run.seedId, (gapsBySeed.get(run.seedId) ?? 0) + slice.gaps.length - (this.quietGaps.get(run.seedId) ?? 0));
+      gapsByRun.set(run, slice.gaps.length - (this.quietGaps.get(run.seedId) ?? 0));
       this.quietGaps.delete(run.seedId);
     }
     coverage.budget.exhausted ||= this.nodes.has(`frontier:uses:${seed}`);
@@ -183,7 +184,7 @@ class AnchorGraphBuilder {
       .filter((run) => !(run.placeholderFor && run.placeholderFor.length > 0))
       .map((run) => {
         // A prop read's slice walks back through the whole props object, so a natural start it finds may be another prop's.
-        const landed = this.runLanded(run, gapsBySeed.get(run.seedId) ?? 0, run.propRead ? 0 : naturalBySeed.get(run.seedId) ?? 0);
+        const landed = this.runLanded(run, gapsByRun.get(run) ?? 0, run.propRead ? 0 : naturalBySeed.get(run.seedId) ?? 0);
         if (run.propRead && landed !== true) this.unboundRead(run.seedId);
         return run.propRead ? landed === true : landed;
       })
@@ -212,7 +213,7 @@ class AnchorGraphBuilder {
     // Every partial names its stop: where a run that did not land ends in evidence that cannot call it a dead end.
     // An `assumed` trace has no stop to name: its assumed edges say what it takes on trust.
     if (outcome === "partial" && !stopped) {
-      const unlanded = runs.filter((run) => !run.endsHere && this.runLanded(run, gapsBySeed.get(run.seedId) ?? 0, naturalBySeed.get(run.seedId) ?? 0) !== true);
+      const unlanded = runs.filter((run) => !run.endsHere && this.runLanded(run, gapsByRun.get(run) ?? 0, naturalBySeed.get(run.seedId) ?? 0) !== true);
       for (const run of unlanded) for (const end of this.quiet.get(run.seedId) ?? []) this.untraced(end.gap, end.element, end.side);
       // Paths that only loop back, or end where nothing names an end: the run's own start is where the trace stops.
       if (this.named.size === 0) {
