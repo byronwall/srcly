@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import type * as ReportBuilder from "../../src/analysis/report-builder";
-import { createEngineSession } from "../../src/srcly/session";
+import { createEngineSession, requireTypescript } from "../../src/srcly/session";
 import { routesOp } from "../../src/srcly/ops/routes";
 import { ENGINE_PACKAGE_DIR } from "../../src/srcly/typescript-choice";
 import { solidRoute } from "./engine-process";
@@ -23,6 +23,45 @@ afterAll(() => {
 function session(root: string) {
   return createEngineSession({ root, source: path.join(root, "src"), tsconfig: null, typescriptFrom: ENGINE_PACKAGE_DIR });
 }
+
+describe("project admission", () => {
+  const project = (files: Record<string, string>) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "srcly-admission-"));
+    temporary.push(root);
+    for (const [name, text] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(root, name)), { recursive: true });
+      fs.writeFileSync(path.join(root, name), text);
+    }
+    return root;
+  };
+  const members = (root: string) => requireTypescript(session(root).tier1(), "the test").program.getSourceFiles().filter((file) => !file.isDeclarationFile).map((file) => path.relative(root, file.fileName)).sort();
+  const strict = JSON.stringify({ compilerOptions: { strict: true }, include: ["src"] });
+
+  it("reads a jsconfig.json and every JavaScript root, the root-only .mjs included", () => {
+    const root = project({ "jsconfig.json": strict, "src/a.js": "export const a = 1;\n", "src/b.mjs": "export const b = 2;\n", "src/c.cjs": "module.exports = 3;\n", "src/d.jsx": "export const d = <i />;\n" });
+    expect(members(root)).toEqual(["src/a.js", "src/b.mjs", "src/c.cjs", "src/d.jsx"]);
+  }, 60_000);
+
+  it("reads .mts and .cts roots, and no declaration file as a root", () => {
+    const root = project({ "tsconfig.json": strict, "src/a.mts": "export const a = 1;\n", "src/b.cts": "export const b = 2;\n", "src/c.d.mts": "export declare const c: number;\n" });
+    expect(members(root)).toEqual(["src/a.mts", "src/b.cts"]);
+  }, 60_000);
+
+  it("prefers a folder's tsconfig.json to its jsconfig.json", () => {
+    const root = project({ "tsconfig.json": strict, "jsconfig.json": JSON.stringify({ include: ["other"] }), "src/a.ts": "export const a = 1;\n", "other/b.js": "export const b = 2;\n" });
+    expect(members(root)).toEqual(["src/a.ts"]);
+  }, 60_000);
+
+  it("still refuses a loose jsconfig by name: the null-proof limit stays", () => {
+    const root = project({ "jsconfig.json": JSON.stringify({ include: ["src"] }), "src/a.js": "export const a = 1;\n" });
+    expect(() => session(root).tier1()).toThrow(expect.objectContaining({ code: "non-strict-tsconfig" }));
+  }, 60_000);
+
+  it("names the refusal when a folder has no project config", () => {
+    const root = project({ "src/a.js": "export const a = 1;\n" });
+    expect(() => session(root).tier1()).toThrow(expect.objectContaining({ code: "no-tsconfig" }));
+  }, 60_000);
+});
 
 describe("engine session", () => {
   it("answers routes from tier 1 without building the legacy report", () => {

@@ -126,7 +126,7 @@ export function createEngineSession(config: EngineConfig, progress?: AnalyzerPro
     const root = path.resolve(args.root);
     const sourceFiles = program.getSourceFiles().filter((file) => !file.isDeclarationFile && isWithin(file.fileName, root));
     if (sourceFiles.length === 0) {
-      throw new EngineError("no-ts-files", `No TypeScript source files under ${root}`, { tsconfigs: args.tsconfigs ?? [] });
+      throw new EngineError("no-ts-files", `No TypeScript or JavaScript source files under ${root}`, { tsconfigs: args.tsconfigs ?? [] });
     }
     progress?.({ step: "summarize", message: `Discovering routes in ${sourceFiles.length} files`, completed: 0, total: sourceFiles.length });
     const checker = program.getTypeChecker();
@@ -241,7 +241,7 @@ export function checkGeneration(tier1: BaseTier1, expected: unknown) {
 }
 
 /**
- * No tsconfig, or only loose ones: name the refusal before building anything.
+ * No project config, or only loose ones: name the refusal before building anything.
  * Strict configs beside a loose one keep working (the analysis warns for the
  * loose files), but a project with no strict config at all is refused, since
  * every nullish verdict would be unsound.
