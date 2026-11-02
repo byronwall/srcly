@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.9.0](https://github.com/byronwall/srcly/compare/v1.8.0...v1.9.0) (2026-11-02)
+
+
+### Features
+
+* **dataflow:** analyze a loose project or one with no config, and name the null-proof limit ([#329](https://github.com/byronwall/srcly/issues/329)) ([3863309](https://github.com/byronwall/srcly/commit/3863309b3b51c90c750c16e69ebd49f9ba169694))
+
+
+### Bug Fixes
+
+* **dataflow:** a changed model row misses the result cache ([#325](https://github.com/byronwall/srcly/issues/325)) ([228a9d3](https://github.com/byronwall/srcly/commit/228a9d3e479255b26960dfbb456530abb0d9074b))
+* **dataflow:** a dropped DOM query is a read, not a page write ([#324](https://github.com/byronwall/srcly/issues/324)) ([7f99cdd](https://github.com/byronwall/srcly/commit/7f99cddd7dc51285c416e743dd8e0226e7fcc7b5))
+* **dataflow:** a native method's writes come from the method, not its caller ([#321](https://github.com/byronwall/srcly/issues/321)) ([8e8757f](https://github.com/byronwall/srcly/commit/8e8757f6091fcf132662f2244e78e4e3b0667ead))
+* **dataflow:** a props view holds fields, in key and merge order ([#327](https://github.com/byronwall/srcly/issues/327)) ([700a7a9](https://github.com/byronwall/srcly/commit/700a7a931e7bf29adfa74a9c1e774322bfbc9e63))
+* **dataflow:** a React effect has no value, and mutate is not mutateAsync ([#318](https://github.com/byronwall/srcly/issues/318)) ([8ca916e](https://github.com/byronwall/srcly/commit/8ca916e81d1b0ca41a711b9768085c0293bee76d))
+* **dataflow:** give each Solid call its own kind of result ([#319](https://github.com/byronwall/srcly/issues/319)) ([94ac8d2](https://github.com/byronwall/srcly/commit/94ac8d2498c28c771e98df8b0db6b344fd892a6d))
+* **dataflow:** judge each side of a trace by its own gaps ([#320](https://github.com/byronwall/srcly/issues/320)) ([b9077e0](https://github.com/byronwall/srcly/commit/b9077e0d24abda5e8fe705987dd35f21f44bf622))
+* **dataflow:** keep a promise's outcomes on separate channels ([#328](https://github.com/byronwall/srcly/issues/328)) ([59820a3](https://github.com/byronwall/srcly/commit/59820a3f39d41c0f10f77ed8a90e54356202d4e0))
+* **dataflow:** open a jsconfig project and its .mjs roots ([#317](https://github.com/byronwall/srcly/issues/317)) ([3633113](https://github.com/byronwall/srcly/commit/3633113fd0aa5a5c49d5199828b32a68a6cd6aec))
+* **dataflow:** read createResource's overload per call, and only its fetcher's return ([#326](https://github.com/byronwall/srcly/issues/326)) ([3b5558b](https://github.com/byronwall/srcly/commit/3b5558b29e6f28ff453cec76454c4c91dcabef72))
+* **dataflow:** run the reducer when a dispatch is handed down ([#322](https://github.com/byronwall/srcly/issues/322)) ([a05d424](https://github.com/byronwall/srcly/commit/a05d424b7382b29bbd9a8aecba140e86efe60603))
+* **graph:** cancel camera work when a trace view unmounts ([#313](https://github.com/byronwall/srcly/issues/313)) ([f47736b](https://github.com/byronwall/srcly/commit/f47736bf0f548e3dbf4ba33cf7416a8fce38ae31))
+
+
+### Performance Improvements
+
+* **dataflow:** collect evidence on demand and defer classification ([#312](https://github.com/byronwall/srcly/issues/312)) ([4605a47](https://github.com/byronwall/srcly/commit/4605a47d5304de2cb0926e48d8ffb49d627b4a26))
+* **dataflow:** remove repeated work from anchor traces ([#309](https://github.com/byronwall/srcly/issues/309)) ([e07cc51](https://github.com/byronwall/srcly/commit/e07cc510087b5c028273cad785b97ee36c6c3b35))
+
 ## [1.8.0](https://github.com/byronwall/srcly/compare/v1.7.0...v1.8.0) (2026-10-30)
 
 
