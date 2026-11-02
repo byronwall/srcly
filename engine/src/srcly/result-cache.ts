@@ -132,16 +132,21 @@ export class ResultCache {
   }
 }
 
+/** The folders the engine's results depend on: the bundle's own, or in a checkout its source, its Python helper and its library model rows. */
+export function engineRoots(): string[] {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  return IS_BUNDLE ? [here] : [path.resolve(here, ".."), path.resolve(here, "../../python"), path.resolve(here, "../../models")];
+}
+
 /**
- * A short hash of the engine's own code: every script beside the bundled
- * entry, or in a checkout every source file's path, size and mtime under
- * `engine/src` and `engine/python` (no reads). Its results are a function of
- * this code as much as of the Program.
+ * A short hash of the engine's own code and model rows: every script and row
+ * file beside the bundled entry, or in a checkout every such file's path, size
+ * and mtime under `engineRoots` (no reads). Its results are a function of these
+ * as much as of the Program, so a change to one model row alone misses the cache.
  */
-export function engineFingerprint(): string {
+export function engineFingerprint(roots: readonly string[] = engineRoots()): string {
   const hash = createHash("sha256");
   const here = path.dirname(fileURLToPath(import.meta.url));
-  const roots = IS_BUNDLE ? [here] : [path.resolve(here, ".."), path.resolve(here, "../../python")];
   const walk = (dir: string) => {
     let entries: fs.Dirent[];
     try {
@@ -153,7 +158,7 @@ export function engineFingerprint(): string {
       const file = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (entry.name !== "node_modules" && entry.name !== "__pycache__") walk(file);
-      } else if (/\.(m?[jt]s|py)$/.test(entry.name)) {
+      } else if (/\.(m?[jt]s|py|json)$/.test(entry.name)) {
         if (IS_BUNDLE) hash.update(entry.name).update(fs.readFileSync(file));
         else {
           const stat = fs.statSync(file);
