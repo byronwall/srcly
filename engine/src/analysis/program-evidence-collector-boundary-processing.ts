@@ -6,17 +6,12 @@ import {
   bindingIdentifiers,
   browserMember,
   firstBindingIdentifier,
-  importedCallee,
-  nodeKey,
   propertyBase,
   proof,
   responseReturnRole,
-  unwrap,
 } from "./program-evidence-support";
 import { indexReadAttributes } from "./program-index-read-metadata";
-import { optionFlow } from "./framework-flows";
-import { resolveValue } from "./value-origin";
-import type { CollectorCallInfo, CollectorFunctionInfo } from "./program-evidence-collector-support";
+import type { CollectorCallInfo } from "./program-evidence-collector-support";
 
 export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceCollectorCallSupport {
   protected processProperty(
@@ -498,35 +493,12 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
     if (this.ts.isCallExpression(call.node)) this.connectOptionFlows(call, call.node);
   }
 
-  /** The function a data hook's options object names under `option` (`useQuery({ queryFn })`), or null. */
-  private optionFunction(hook: TypeScript.Expression, option: "queryFn" | "mutationFn"): CollectorFunctionInfo | null {
-    const call = unwrap(this.ts, hook);
-    if (!this.ts.isCallExpression(call)) return null;
-    const imported = importedCallee(this.ts, this.checker, call.expression);
-    if (!imported || optionFlow(imported.module, imported.name) !== option) return null;
-    const options = call.arguments[0] ? unwrap(this.ts, call.arguments[0]) : undefined;
-    const property = options && this.ts.isObjectLiteralExpression(options) ? options.properties.find((item) => item.name?.getText() === option) : undefined;
-    if (!property || !(this.ts.isPropertyAssignment(property) || this.ts.isShorthandPropertyAssignment(property))) return null;
-    const value = this.ts.isPropertyAssignment(property) ? unwrap(this.ts, property.initializer) : property.name;
-    return this.functionsByNode.get(nodeKey(this.root, value)) ?? this.targetFunction(value);
-  }
-
-  /** A query's value is what its `queryFn` returns; `mutation.mutate(x)` calls its `mutationFn` with `x` (a row's `option`). */
+  /** A query's value is what its `queryFn` returns (a row's `option`). */
   private connectOptionFlows(call: CollectorCallInfo, node: TypeScript.CallExpression): void {
     const where = [this.location(node)];
     const query = this.optionFunction(node, "queryFn");
     for (const returnId of query ? this.returnsByFunction.get(query.id) ?? [] : []) {
       this.addRelation(returnId, call.id, "framework-flow", where, proof("framework-state", "The query's value is what its queryFn returns.", where), "proven");
-    }
-    const callee = unwrap(this.ts, node.expression);
-    if (!this.ts.isPropertyAccessExpression(callee) || !/^(mutate|mutateAsync)$/.test(callee.name.text) || !node.arguments[0]) return;
-    const hook = resolveValue(this.ts, this.checker, callee.expression)?.origin;
-    const mutation = hook && this.ts.isExpression(hook) ? this.optionFunction(hook, "mutationFn") : null;
-    const parameter = mutation?.declaration.parameters[0];
-    const parameterId = parameter && this.ts.isIdentifier(parameter.name) ? this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "") : undefined;
-    if (parameterId) this.addRelation(this.expression(node.arguments[0], call.ownerId), parameterId, "framework-flow", where, proof("framework-state", "The mutation calls its mutationFn with what mutate is given.", where), "proven");
-    for (const returnId of mutation ? this.returnsByFunction.get(mutation.id) ?? [] : []) {
-      this.addRelation(returnId, call.id, "framework-flow", where, proof("framework-state", "mutateAsync yields what the mutationFn returns.", where), "proven");
     }
   }
 

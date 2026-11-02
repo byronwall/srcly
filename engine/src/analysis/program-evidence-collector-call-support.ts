@@ -68,7 +68,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       this.addRelation(initializerId ?? aliasId, stateId, "references", [this.location(initializer)], frameworkState("The factory's initial value seeds the state its getter reads.", this.location(initializer)), "partial");
     }
     // A state pair's `[getter, setter]` binds two functions, not the value: the value goes through the state.
-    if (initializerId && !getter) {
+    // A call with no value binds nothing.
+    if (initializerId && !getter && !(this.ts.isCallExpression(initializer) && this.callHasNoValue(initializer))) {
       this.addRelation(
         initializerId,
         aliasId,
@@ -228,7 +229,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       ),
     );
     // `super(name)` runs the base class's constructor.
-    const target = this.targetFunction(node.expression) ?? (node.expression.kind === this.ts.SyntaxKind.SuperKeyword ? this.constructorTarget(node) : null);
+    const target = this.targetFunction(node.expression) ?? (node.expression.kind === this.ts.SyntaxKind.SuperKeyword ? this.constructorTarget(node) : null) ?? this.mutationFunction(node);
     this.calls.push({ node, id: callId, target, ownerId });
     this.connectFrameworkFlow(node, callId, ownerId);
     if (target) {

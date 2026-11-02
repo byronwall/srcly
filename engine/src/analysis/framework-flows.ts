@@ -8,7 +8,8 @@ import { builtinLibraryModels, tsModelModule, type LibraryModelRow } from "./lib
  * `returns` the call's value is what its callback (at that argument) returns;
  * `passes` the call's value carries those arguments (`*` every one);
  * `source` and `callback` the callback's first parameter receives what the
- * source returns (or is).
+ * source returns (or is). A flow with none of these is a call with no value:
+ * its callback runs for what it does (`useEffect`), and nothing comes back.
  */
 export type FrameworkFlow = { returns?: number; passes?: number[] | "*"; source?: number; callback?: number };
 
@@ -16,6 +17,8 @@ export type FrameworkFlow = { returns?: number; passes?: number[] | "*"; source?
 export function frameworkRow(module: string, name: string): LibraryModelRow | null {
   return builtinLibraryModels().lookup("ts", tsModelModule(module), name);
 }
+
+const yieldsNothing = (row: LibraryModelRow | null) => row?.model === "calls-back" && row.returns === "void";
 
 const argument = (row: LibraryModelRow) => (row.args !== undefined && /^\d+$/.test(row.args) ? Number(row.args) : undefined);
 
@@ -25,12 +28,18 @@ export function frameworkFlow(module: string, name: string): FrameworkFlow | und
   if (!row) return undefined;
   const at = argument(row);
   if (row.model === "passes-through") return { passes: at === undefined ? "*" : [at] };
+  if (yieldsNothing(row)) return {};
   if (row.model === "calls-back" && row.returns === "callback" && at !== undefined) {
     return row.source !== undefined ? { returns: at, source: Number(row.source), callback: at } : { returns: at };
   }
   // A reducer pair names its reducer: what the reducer returns is the state.
   if (row.model === "state-pair" && at !== undefined) return { returns: at };
   return undefined;
+}
+
+/** Whether the call has no value (`useEffect`): nothing it is given, and nothing its callback returns, reaches what binds it. */
+export function hasNoValue(module: string, name: string): boolean {
+  return yieldsNothing(frameworkRow(module, name));
 }
 
 /** Whether the call returns the function it is given (`action(fn)`, `useCallback(fn)`, `debounce(fn)`). */

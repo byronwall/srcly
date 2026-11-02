@@ -50,6 +50,7 @@ import {
   firstBindingIdentifier,
   groupElements,
   groupRelations,
+  importedCallee,
   importModule,
   inside,
   discardsValue,
@@ -64,7 +65,9 @@ import {
   stableRelationId,
   stableSerialize,
   symbolAtNode,
+  unwrap,
 } from "./program-evidence-support";
+import { hasNoValue, optionFlow } from "./framework-flows";
 import { resolveValue } from "./value-origin";
 import { NO_ANALYSIS_CANCELLATION, type AnalysisCancellationToken } from "./cancellation";
 import { builtinLibraryModels, globalReads, tsModel, type GlobalReads, type LibraryModelRow, type LibraryModels } from "./library-models";
@@ -559,6 +562,35 @@ export class ProgramEvidenceCollectorSupport {
     return value ? this.functionsByNode.get(nodeKey(this.root, value.origin)) ?? null : null;
   }
 
+  /** The function a data hook's options object names under `option` (`useQuery({ queryFn })`), or null. */
+  protected optionFunction(hook: TypeScript.Expression, option: "queryFn" | "mutationFn"): CollectorFunctionInfo | null {
+    const call = unwrap(this.ts, hook);
+    if (!this.ts.isCallExpression(call)) return null;
+    const imported = importedCallee(this.ts, this.checker, call.expression);
+    if (!imported || optionFlow(imported.module, imported.name) !== option) return null;
+    const options = call.arguments[0] ? unwrap(this.ts, call.arguments[0]) : undefined;
+    const property = options && this.ts.isObjectLiteralExpression(options) ? options.properties.find((item) => item.name?.getText() === option) : undefined;
+    if (!property || !(this.ts.isPropertyAssignment(property) || this.ts.isShorthandPropertyAssignment(property))) return null;
+    const value = this.ts.isPropertyAssignment(property) ? unwrap(this.ts, property.initializer) : property.name;
+    return this.functionsByNode.get(nodeKey(this.root, value)) ?? this.targetFunction(value);
+  }
+
+  /** The `mutationFn` that `mutation.mutate(x)` or `mutation.mutateAsync(x)` runs: the call's target, entered and left like a function of the project's. */
+  protected mutationFunction(node: TypeScript.CallExpression): CollectorFunctionInfo | null {
+    const callee = unwrap(this.ts, node.expression);
+    if (!this.ts.isPropertyAccessExpression(callee) || !/^(mutate|mutateAsync)$/.test(callee.name.text)) return null;
+    const hook = resolveValue(this.ts, this.checker, callee.expression)?.origin;
+    return hook && this.ts.isExpression(hook) ? this.optionFunction(hook, "mutationFn") : null;
+  }
+
+  /** Whether a call has no value: a row says so (`useEffect`), or it is `mutate`, which hands nothing back as `mutateAsync` does. */
+  protected callHasNoValue(node: TypeScript.CallExpression): boolean {
+    const imported = importedCallee(this.ts, this.checker, node.expression);
+    if (imported && hasNoValue(imported.module, imported.name)) return true;
+    const callee = unwrap(this.ts, node.expression);
+    return this.ts.isPropertyAccessExpression(callee) && callee.name.text === "mutate" && this.mutationFunction(node) !== null;
+  }
+
   /** The in-project constructor a `new X(…)` or `super(…)` call runs, by the signature the checker resolves. */
   protected constructorTarget(node: TypeScript.CallExpression | TypeScript.NewExpression): CollectorFunctionInfo | null {
     const declaration = this.checker.getResolvedSignature(node)?.declaration;
@@ -566,7 +598,7 @@ export class ProgramEvidenceCollectorSupport {
   }
 
   protected isExternalCall(node: TypeScript.CallExpression): boolean {
-    if (this.targetFunction(node.expression)) return false;
+    if (this.targetFunction(node.expression) || this.mutationFunction(node)) return false;
     // A state factory is modelled (`program-evidence-state-pairs.ts`): what it does with its argument is the pair's state, not an external effect.
     if (stateFactory(this.ts, this.checker, node)) return false;
     const module = this.moduleFor(node.expression);

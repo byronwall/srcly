@@ -427,10 +427,12 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       if (!call.target) this.connectBoundHandlers(call, props);
       if (!call.target) this.connectEmitter(call);
       if (call.target && connect) {
+        const callNode = this.ts.isCallExpression(call.node) ? call.node : null;
         for (const parameter of call.target.declaration.parameters) {
           this.checkCancellation();
           const index = call.target.declaration.parameters.indexOf(parameter);
-          const argument = call.node.arguments?.[index];
+          // `mutate(x, options)`: the options are the hook's own, not the `mutationFn`'s second argument.
+          const argument = index > 0 && callNode && this.mutationFunction(callNode) ? undefined : call.node.arguments?.[index];
           const binding = firstBindingIdentifier(this.ts, parameter.name);
           const parameterId = binding
             ? this.parametersBySymbol.get(this.symbolId(binding) ?? "")
@@ -459,7 +461,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
           this.addRelation(receiverId, call.id, "argument", at, proof("ast-node", "The receiver is passed to this call as `this`.", at), "proven");
           this.addRelation(receiverId, thisId, "argument-binding", at, proof("argument-binding", "The call's receiver binds to the method's `this`.", at), "proven");
         }
-        for (const returnId of this.returnsByFunction.get(call.target.id) ?? []) {
+        for (const returnId of callNode && this.callHasNoValue(callNode) ? [] : this.returnsByFunction.get(call.target.id) ?? []) {
           this.checkCancellation();
           this.addRelation(
             returnId,

@@ -33,7 +33,6 @@ export function Dynamo(props: { text: string }) {
 export function Note(props: { id: string; title: string }) {
   const note = useQuery({ queryKey: ["note"], queryFn: () => loadNote(props.id) }); // @trace queried forward props.id @outcome queried ok
   const save = useMutation({ mutationFn: saveNote });
-  // The library is not installed here, so `mutate` has no symbol: an unresolved stop.
-  {/* @trace mutated forward props.title @reaches mutated return @stop mutated unresolved-symbol */}
+  {/* @trace mutated forward props.title @outcome mutated ok */}
   return <p onClick={() => save.mutate(props.title)}>{note.data?.title}</p>; // @reaches queried render-terminal
 }

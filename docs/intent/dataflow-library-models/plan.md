@@ -81,7 +81,7 @@ A row is JSON. TypeScript reads it natively, and Python reads it with the standa
 | `name` or `member` | an exported name (`createSignal`), or `Type.method` for a method on an instance (`Session.get`, `Array.find`). The checker resolves it: TypeScript by the declaration's symbol and file, Python by mypy fullname. A trailing `*` matches a prefix (Python's existing `requests.Session.`). |
 | `model` | one of the types in §3 |
 | `args` | which arguments the model is about: `"0"`, `"1"`, `"*"`, or `"this"` for the receiver. Default `"*"`. |
-| `role`, `with`, `returns`, `proof` | the model's parameters. `role` is an origin or terminal role. `with` is what a callback receives (`element`, `receiver`, `awaited`). `returns` is what the call yields (`element`, `boolean`, `same`). `proof` names the proof kind, so existing proof names survive. |
+| `role`, `with`, `returns`, `proof` | the model's parameters. `role` is an origin or terminal role. `with` is what a callback receives (`element`, `receiver`, `awaited`). `returns` is what the call yields (`element`, `boolean`, `same`, `callback`, or `void` for a call with no value). `proof` names the proof kind, so existing proof names survive. |
 | `note` | one line for the code map and for the proof detail |
 
 Matching goes through the checker in both languages, never through callee text. This fixes the inventory's `calleeName` limit, where `fs.readFile` called through a namespace import is never matched.
