@@ -11,7 +11,7 @@ export function announce(target: EventTarget, message: string) { // @trace annou
 }
 
 export function focusAll(fields: HTMLInputElement[]) { // @trace focus-all forward symbol fields @outcome focus-all ok
-  fields.forEach((field) => field.focus()); // @reaches focus-all external-effect
+  fields.forEach((field) => field.focus()); // @reaches focus-all external-effect @reaches focus-all call
 }
 
 export function findRow(root: HTMLElement, selector: string) { // @trace find-row forward symbol selector @outcome find-row ok

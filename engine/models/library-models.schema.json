@@ -100,7 +100,7 @@
             "const": true
           },
           "writes": {
-            "description": "For `consumes`: the receiver keeps the arguments (`push`, `set`).",
+            "description": "For `consumes`: the receiver keeps the arguments (`push`, `set`). A `consumes` row without it keeps nothing (`concat`).",
             "type": "string",
             "const": "this"
           },
