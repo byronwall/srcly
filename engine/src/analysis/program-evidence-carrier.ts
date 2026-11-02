@@ -11,8 +11,10 @@ import {
   callOperation,
   isResourceFactory,
   proof,
+  resourceFlow,
   unwrap,
 } from "./program-evidence-support";
+import { resolveValue } from "./value-origin";
 
 type FunctionInfo = {
   id: string;
@@ -334,14 +336,15 @@ function collectResourceResultCarriers(
     if (!initializer || !context.ts.isCallExpression(initializer) || !isResourceFactory(context.ts, context.checker, initializer)) continue;
     const resourceId = context.elementFor(initializer, "resource-input");
     if (!resourceId) continue;
-    const loader = initializer.arguments[1] ? unwrap(context.ts, initializer.arguments[1]) : null;
+    const fetcher = initializer.arguments[resourceFlow(context.ts, context.checker, initializer).returns!];
+    const loader = fetcher ? unwrap(context.ts, fetcher) : null;
     if (!loader || !context.ts.isFunctionLike(loader)) continue;
     const returns = calls.filter((call) =>
       nearestFunctionNode(context.ts, call.node) === loader
       && context.ts.isPropertyAccessExpression(call.node.expression)
       && call.node.expression.name.text === "json",
     );
-    if (returns.length !== 1) continue;
+    if (returns.length !== 1 || !returnsExactly(context, loader, returns[0].node)) continue;
     const [responseJson] = returns;
     addCarrier(
       context,
@@ -351,6 +354,26 @@ function collectResourceResultCarriers(
       "The createResource loader returns this exact client response.json result to the resource input.",
     );
   }
+}
+
+/** Whether the function returns this call's value as it is: `return r.json()`, through an `await` or a const binding. A call it only reads, or reshapes, is not its result. */
+function returnsExactly(context: CarrierContext, fn: TypeScript.SignatureDeclaration, call: TypeScript.CallExpression): boolean {
+  const { ts, checker } = context;
+  const body = (fn as TypeScript.FunctionLikeDeclaration).body;
+  if (!body) return false;
+  const returned: TypeScript.Expression[] = [];
+  const visit = (node: TypeScript.Node): void => {
+    if (ts.isFunctionLike(node)) return;
+    if (ts.isReturnStatement(node) && node.expression) returned.push(node.expression);
+    ts.forEachChild(node, visit);
+  };
+  if (ts.isBlock(body)) ts.forEachChild(body, visit);
+  else returned.push(body);
+  return returned.some((expression) => {
+    const value = unwrap(ts, expression);
+    const origin = ts.isIdentifier(value) ? resolveValue(ts, checker, value)?.origin : value;
+    return origin && ts.isExpression(origin) && unwrap(ts, origin) === call;
+  });
 }
 
 function collectContextMemberCarriers(

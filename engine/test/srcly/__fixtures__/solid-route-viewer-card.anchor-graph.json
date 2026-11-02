@@ -1,7 +1,7 @@
 {
  "outcome": "ok",
  "generation": 1,
- "programHash": "3bb32fb30cc1acdc",
+ "programHash": "df9cc60fd1a804bb",
  "tsconfig": "/fixture/solid-route/tsconfig.json",
  "typescript": "5.9.3",
  "reason": null,
@@ -427,7 +427,7 @@
    "note": null
   },
   {
-   "id": "program-element:658xhs",
+   "id": "program-element:l11c1s",
    "kind": "value",
    "label": "createResource(loadViewer)",
    "detail": "call",
@@ -454,7 +454,61 @@
    "note": null
   },
   {
-   "id": "program-element:zd4mhu",
+   "id": "scope:src/data/viewer.ts:3:1",
+   "kind": "scope",
+   "label": "loadViewer",
+   "detail": "viewer.ts",
+   "parent": null,
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 3,
+   "span": {
+    "startLine": 3,
+    "startColumn": 1,
+    "endLine": 7,
+    "endColumn": 2
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": null,
+   "typeText": null,
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": "helper",
+   "note": null
+  },
+  {
+   "id": "program-element:1j37v4t",
+   "kind": "value",
+   "label": "return",
+   "detail": "return",
+   "parent": "scope:src/data/viewer.ts:3:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 6,
+   "span": {
+    "startLine": 6,
+    "startColumn": 3,
+    "endLine": 6,
+    "endColumn": 48
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "return",
+   "typeText": "any",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:bdab5e",
    "kind": "value",
    "label": "createResource",
    "detail": "value",
@@ -499,6 +553,519 @@
    "side": "up",
    "elementKind": "value",
    "typeText": "() => Promise<ViewerProfile>",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1cg9uwq",
+   "kind": "value",
+   "label": "validateViewer(await response.json())",
+   "detail": "call",
+   "parent": "scope:src/data/viewer.ts:3:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 6,
+   "span": {
+    "startLine": 6,
+    "startColumn": 10,
+    "endLine": 6,
+    "endColumn": 47
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "call",
+   "typeText": "ViewerProfile",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "scope:src/data/viewer.ts:9:1",
+   "kind": "scope",
+   "label": "validateViewer",
+   "detail": "viewer.ts",
+   "parent": null,
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 9,
+   "span": {
+    "startLine": 9,
+    "startColumn": 1,
+    "endLine": 20,
+    "endColumn": 2
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": null,
+   "typeText": null,
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": "helper",
+   "note": null
+  },
+  {
+   "id": "program-element:wg6x10",
+   "kind": "value",
+   "label": "return",
+   "detail": "return",
+   "parent": "scope:src/data/viewer.ts:9:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 19,
+   "span": {
+    "startLine": 19,
+    "startColumn": 3,
+    "endLine": 19,
+    "endColumn": 51
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "return",
+   "typeText": "any",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:ih7pab",
+   "kind": "transform",
+   "label": "{ name: viewer.name, team: viewer.team }",
+   "detail": "object",
+   "parent": "scope:src/data/viewer.ts:9:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 19,
+   "span": {
+    "startLine": 19,
+    "startColumn": 10,
+    "endLine": 19,
+    "endColumn": 50
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "object-pack",
+   "typeText": "{ name: string; team: string; }",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": "object-pack",
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:mjll5i",
+   "kind": "transform",
+   "label": "name",
+   "detail": "field read",
+   "parent": "scope:src/data/viewer.ts:9:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 19,
+   "span": {
+    "startLine": 19,
+    "startColumn": 18,
+    "endLine": 19,
+    "endColumn": 29
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "field-read",
+   "typeText": "string",
+   "reason": null,
+   "symbol": "viewer@src/data/viewer.ts:467",
+   "field": "name",
+   "operation": "field-read",
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:f259kc",
+   "kind": "transform",
+   "label": "team",
+   "detail": "field read",
+   "parent": "scope:src/data/viewer.ts:9:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 19,
+   "span": {
+    "startLine": 19,
+    "startColumn": 37,
+    "endLine": 19,
+    "endColumn": 48
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "field-read",
+   "typeText": "string",
+   "reason": null,
+   "symbol": "viewer@src/data/viewer.ts:467",
+   "field": "team",
+   "operation": "field-read",
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1junb18",
+   "kind": "value",
+   "label": "viewer",
+   "detail": "value",
+   "parent": "scope:src/data/viewer.ts:9:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 19,
+   "span": {
+    "startLine": 19,
+    "startColumn": 18,
+    "endLine": 19,
+    "endColumn": 24
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "value",
+   "typeText": "Record<string, unknown>",
+   "reason": null,
+   "symbol": "viewer@src/data/viewer.ts:467",
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1pt73c4",
+   "kind": "value",
+   "label": "viewer",
+   "detail": "value",
+   "parent": "scope:src/data/viewer.ts:9:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 19,
+   "span": {
+    "startLine": 19,
+    "startColumn": 37,
+    "endLine": 19,
+    "endColumn": 43
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "value",
+   "typeText": "Record<string, unknown>",
+   "reason": null,
+   "symbol": "viewer@src/data/viewer.ts:467",
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1t4nxt7",
+   "kind": "value",
+   "label": "viewer",
+   "detail": "alias",
+   "parent": "scope:src/data/viewer.ts:9:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 14,
+   "span": {
+    "startLine": 14,
+    "startColumn": 9,
+    "endLine": 14,
+    "endColumn": 52
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "alias",
+   "typeText": "Record<string, unknown>",
+   "reason": null,
+   "symbol": "viewer@src/data/viewer.ts:467",
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:jfwi1j",
+   "kind": "value",
+   "label": "payload",
+   "detail": "value",
+   "parent": "scope:src/data/viewer.ts:9:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 14,
+   "span": {
+    "startLine": 14,
+    "startColumn": 18,
+    "endLine": 14,
+    "endColumn": 25
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "value",
+   "typeText": "object",
+   "reason": null,
+   "symbol": "payload@src/data/viewer.ts:313",
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:ox8z01",
+   "kind": "value",
+   "label": "payload",
+   "detail": "parameter",
+   "parent": "scope:src/data/viewer.ts:9:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 9,
+   "span": {
+    "startLine": 9,
+    "startColumn": 25,
+    "endLine": 9,
+    "endColumn": 32
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "parameter",
+   "typeText": "unknown",
+   "reason": null,
+   "symbol": "payload@src/data/viewer.ts:313",
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1d9y5mo",
+   "kind": "value",
+   "label": "response.json()",
+   "detail": "call",
+   "parent": "scope:src/data/viewer.ts:3:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 6,
+   "span": {
+    "startLine": 6,
+    "startColumn": 31,
+    "endLine": 6,
+    "endColumn": 46
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "call",
+   "typeText": "Promise<any>",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1w3p3vn",
+   "kind": "value",
+   "label": "json",
+   "detail": "field read",
+   "parent": "scope:src/data/viewer.ts:3:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 6,
+   "span": {
+    "startLine": 6,
+    "startColumn": 31,
+    "endLine": 6,
+    "endColumn": 44
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "field-read",
+   "typeText": "() => Promise<any>",
+   "reason": null,
+   "symbol": "response@src/data/viewer.ts:116",
+   "field": "json",
+   "operation": "field-read",
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:6rnwn3",
+   "kind": "value",
+   "label": "response",
+   "detail": "value",
+   "parent": "scope:src/data/viewer.ts:3:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 6,
+   "span": {
+    "startLine": 6,
+    "startColumn": 31,
+    "endLine": 6,
+    "endColumn": 39
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "value",
+   "typeText": "Response",
+   "reason": null,
+   "symbol": "response@src/data/viewer.ts:116",
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:yjpfkd",
+   "kind": "value",
+   "label": "response",
+   "detail": "alias",
+   "parent": "scope:src/data/viewer.ts:3:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 4,
+   "span": {
+    "startLine": 4,
+    "startColumn": 9,
+    "endLine": 4,
+    "endColumn": 47
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "alias",
+   "typeText": "Response",
+   "reason": null,
+   "symbol": "response@src/data/viewer.ts:116",
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:1g84bus",
+   "kind": "value",
+   "label": "fetch(\"/viewer.json\")",
+   "detail": "call",
+   "parent": "scope:src/data/viewer.ts:3:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 4,
+   "span": {
+    "startLine": 4,
+    "startColumn": 26,
+    "endLine": 4,
+    "endColumn": 47
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "call",
+   "typeText": "Promise<Response>",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:kox34e",
+   "kind": "origin",
+   "label": "fetch(\"/viewer.json\")",
+   "detail": "fetch",
+   "parent": "scope:src/data/viewer.ts:3:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 4,
+   "span": {
+    "startLine": 4,
+    "startColumn": 26,
+    "endLine": 4,
+    "endColumn": 47
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "fetch-input",
+   "typeText": "Promise<Response>",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:gq8ar7",
+   "kind": "value",
+   "label": "fetch",
+   "detail": "value",
+   "parent": "scope:src/data/viewer.ts:3:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 4,
+   "span": {
+    "startLine": 4,
+    "startColumn": 26,
+    "endLine": 4,
+    "endColumn": 31
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "value",
+   "typeText": "{ (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>;…",
+   "reason": null,
+   "symbol": null,
+   "field": null,
+   "operation": null,
+   "state": null,
+   "role": null,
+   "note": null
+  },
+  {
+   "id": "program-element:dp364u",
+   "kind": "value",
+   "label": "\"/viewer.json\"",
+   "detail": "literal",
+   "parent": "scope:src/data/viewer.ts:3:1",
+   "file": "src/data/viewer.ts",
+   "absPath": "/fixture/solid-route/src/data/viewer.ts",
+   "line": 4,
+   "span": {
+    "startLine": 4,
+    "startColumn": 32,
+    "endLine": 4,
+    "endColumn": 46
+   },
+   "status": "proven",
+   "side": "up",
+   "elementKind": "literal",
+   "typeText": "\"/viewer.json\"",
    "reason": null,
    "symbol": null,
    "field": null,
@@ -962,8 +1529,8 @@
    "label": null
   },
   {
-   "id": "program-relation:11g683d",
-   "source": "program-element:658xhs",
+   "id": "program-relation:m0c16s",
+   "source": "program-element:l11c1s",
    "target": "program-element:1c1mvsc",
    "kind": "references",
    "status": "proven",
@@ -990,9 +1557,37 @@
    "label": null
   },
   {
-   "id": "program-relation:hno3jx",
-   "source": "program-element:zd4mhu",
-   "target": "program-element:658xhs",
+   "id": "program-relation:16oihz",
+   "source": "program-element:1j37v4t",
+   "target": "program-element:l11c1s",
+   "kind": "framework-flow",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "framework-state",
+     "detail": "The framework call yields what its callback returns.",
+     "locations": [
+      {
+       "file": "src/routes/records.tsx",
+       "line": 17,
+       "column": 20,
+       "span": {
+        "startLine": 17,
+        "startColumn": 20,
+        "endLine": 17,
+        "endColumn": 46
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:151cyi9",
+   "source": "program-element:bdab5e",
+   "target": "program-element:l11c1s",
    "kind": "references",
    "status": "proven",
    "proof": [
@@ -1018,9 +1613,9 @@
    "label": null
   },
   {
-   "id": "program-relation:il48h4",
+   "id": "program-relation:hwb6j5",
    "source": "program-element:pnc62j",
-   "target": "program-element:658xhs",
+   "target": "program-element:l11c1s",
    "kind": "argument",
    "status": "proven",
    "proof": [
@@ -1037,6 +1632,567 @@
         "startColumn": 35,
         "endLine": 17,
         "endColumn": 45
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1qzeg2o",
+   "source": "program-element:1cg9uwq",
+   "target": "program-element:1j37v4t",
+   "kind": "return-expression",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "return-expression",
+     "detail": "The return expression supplies the function return.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 6,
+       "column": 3,
+       "span": {
+        "startLine": 6,
+        "startColumn": 3,
+        "endLine": 6,
+        "endColumn": 48
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:2xq8mb",
+   "source": "program-element:wg6x10",
+   "target": "program-element:1cg9uwq",
+   "kind": "return-value",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "return-expression",
+     "detail": "The call target has a source-backed return expression.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 6,
+       "column": 10,
+       "span": {
+        "startLine": 6,
+        "startColumn": 10,
+        "endLine": 6,
+        "endColumn": 47
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:l05zg4",
+   "source": "program-element:ih7pab",
+   "target": "program-element:wg6x10",
+   "kind": "return-expression",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "return-expression",
+     "detail": "The return expression supplies the function return.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 19,
+       "column": 3,
+       "span": {
+        "startLine": 19,
+        "startColumn": 3,
+        "endLine": 19,
+        "endColumn": 51
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:raxflv",
+   "source": "program-element:mjll5i",
+   "target": "program-element:ih7pab",
+   "kind": "pack-field",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The property assignment contributes to the object pack.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 19,
+       "column": 12,
+       "span": {
+        "startLine": 19,
+        "startColumn": 12,
+        "endLine": 19,
+        "endColumn": 29
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": "name"
+  },
+  {
+   "id": "program-relation:13gy00b",
+   "source": "program-element:f259kc",
+   "target": "program-element:ih7pab",
+   "kind": "pack-field",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The property assignment contributes to the object pack.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 19,
+       "column": 31,
+       "span": {
+        "startLine": 19,
+        "startColumn": 31,
+        "endLine": 19,
+        "endColumn": 48
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": "team"
+  },
+  {
+   "id": "program-relation:1g1n786",
+   "source": "program-element:1junb18",
+   "target": "program-element:mjll5i",
+   "kind": "field-input",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "property-access",
+     "detail": "The receiver supplies the property-read value.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 19,
+       "column": 18,
+       "span": {
+        "startLine": 19,
+        "startColumn": 18,
+        "endLine": 19,
+        "endColumn": 29
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:11ha12f",
+   "source": "program-element:1pt73c4",
+   "target": "program-element:f259kc",
+   "kind": "field-input",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "property-access",
+     "detail": "The receiver supplies the property-read value.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 19,
+       "column": 37,
+       "span": {
+        "startLine": 19,
+        "startColumn": 37,
+        "endLine": 19,
+        "endColumn": 48
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1o1b4t",
+   "source": "program-element:1t4nxt7",
+   "target": "program-element:1junb18",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "compiler-symbol",
+     "detail": "The reference resolves to a source variable declaration.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 19,
+       "column": 18,
+       "span": {
+        "startLine": 19,
+        "startColumn": 18,
+        "endLine": 19,
+        "endColumn": 24
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1ixdw3d",
+   "source": "program-element:1t4nxt7",
+   "target": "program-element:1pt73c4",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "compiler-symbol",
+     "detail": "The reference resolves to a source variable declaration.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 19,
+       "column": 37,
+       "span": {
+        "startLine": 19,
+        "startColumn": 37,
+        "endLine": 19,
+        "endColumn": 43
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:8zi1q2",
+   "source": "program-element:jfwi1j",
+   "target": "program-element:1t4nxt7",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The variable initializer is assigned to the declared binding.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 14,
+       "column": 9,
+       "span": {
+        "startLine": 14,
+        "startColumn": 9,
+        "endLine": 14,
+        "endColumn": 52
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:12fr4l8",
+   "source": "program-element:ox8z01",
+   "target": "program-element:jfwi1j",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "compiler-symbol",
+     "detail": "The value occurrence resolves to a function parameter.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 14,
+       "column": 18,
+       "span": {
+        "startLine": 14,
+        "startColumn": 18,
+        "endLine": 14,
+        "endColumn": 25
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1teasy5",
+   "source": "program-element:1d9y5mo",
+   "target": "program-element:ox8z01",
+   "kind": "argument-binding",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "argument-binding",
+     "detail": "The compiler-resolved call argument binds to the target parameter.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 6,
+       "column": 25,
+       "span": {
+        "startLine": 6,
+        "startColumn": 25,
+        "endLine": 6,
+        "endColumn": 46
+       }
+      },
+      {
+       "file": "src/data/viewer.ts",
+       "line": 9,
+       "column": 25,
+       "span": {
+        "startLine": 9,
+        "startColumn": 25,
+        "endLine": 9,
+        "endColumn": 41
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1gblu7s",
+   "source": "program-element:1w3p3vn",
+   "target": "program-element:1d9y5mo",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The callee has no in-project body: its receiver or function value is consumed by this call.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 6,
+       "column": 31,
+       "span": {
+        "startLine": 6,
+        "startColumn": 31,
+        "endLine": 6,
+        "endColumn": 44
+       }
+      }
+     ],
+     "status": "proven"
+    },
+    {
+     "kind": "standard-library",
+     "detail": "response.json() is the standard library: its value derives from this receiver.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 6,
+       "column": 31,
+       "span": {
+        "startLine": 6,
+        "startColumn": 31,
+        "endLine": 6,
+        "endColumn": 44
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:qzddwe",
+   "source": "program-element:6rnwn3",
+   "target": "program-element:1w3p3vn",
+   "kind": "field-input",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "property-access",
+     "detail": "The receiver supplies the property-read value.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 6,
+       "column": 31,
+       "span": {
+        "startLine": 6,
+        "startColumn": 31,
+        "endLine": 6,
+        "endColumn": 44
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:l4l28o",
+   "source": "program-element:yjpfkd",
+   "target": "program-element:6rnwn3",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "compiler-symbol",
+     "detail": "The reference resolves to a source variable declaration.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 6,
+       "column": 31,
+       "span": {
+        "startLine": 6,
+        "startColumn": 31,
+        "endLine": 6,
+        "endColumn": 39
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1w28p28",
+   "source": "program-element:1g84bus",
+   "target": "program-element:yjpfkd",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The variable initializer is assigned to the declared binding.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 4,
+       "column": 9,
+       "span": {
+        "startLine": 4,
+        "startColumn": 9,
+        "endLine": 4,
+        "endColumn": 47
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:1rwti4o",
+   "source": "program-element:kox34e",
+   "target": "program-element:1g84bus",
+   "kind": "carrier",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "carrier-boundary",
+     "detail": "The compiler-resolved network call has one exact forward carrier endpoint.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 4,
+       "column": 26,
+       "span": {
+        "startLine": 4,
+        "startColumn": 26,
+        "endLine": 4,
+        "endColumn": 47
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:ssod9e",
+   "source": "program-element:gq8ar7",
+   "target": "program-element:1g84bus",
+   "kind": "references",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The callee has no in-project body: its receiver or function value is consumed by this call.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 4,
+       "column": 26,
+       "span": {
+        "startLine": 4,
+        "startColumn": 26,
+        "endLine": 4,
+        "endColumn": 31
+       }
+      }
+     ],
+     "status": "proven"
+    }
+   ],
+   "label": null
+  },
+  {
+   "id": "program-relation:11kdhdi",
+   "source": "program-element:dp364u",
+   "target": "program-element:1g84bus",
+   "kind": "argument",
+   "status": "proven",
+   "proof": [
+    {
+     "kind": "ast-node",
+     "detail": "The argument is passed at this call occurrence.",
+     "locations": [
+      {
+       "file": "src/data/viewer.ts",
+       "line": 4,
+       "column": 32,
+       "span": {
+        "startLine": 4,
+        "startColumn": 32,
+        "endLine": 4,
+        "endColumn": 46
        }
       }
      ],
@@ -1202,13 +2358,29 @@
    "label": null
   }
  ],
- "links": [],
+ "links": [
+  {
+   "id": "calls:scope:src/data/viewer.ts:3:1>scope:src/data/viewer.ts:9:1",
+   "source": "scope:src/data/viewer.ts:3:1",
+   "target": "scope:src/data/viewer.ts:9:1",
+   "kind": "calls"
+  }
+ ],
  "origins": [
   {
    "nodeId": "program-element:19rl76l",
    "label": "createResource(loadViewer)",
    "roles": [
     "resource"
+   ],
+   "status": "proven"
+  },
+  {
+   "nodeId": "program-element:kox34e",
+   "label": "fetch(\"/viewer.json\")",
+   "roles": [
+    "fetch",
+    "network"
    ],
    "status": "proven"
   }
@@ -1224,20 +2396,20 @@
   }
  ],
  "counts": {
-  "up": 15,
+  "up": 34,
   "down": 2,
-  "scopes": 2,
-  "origins": 1,
+  "scopes": 4,
+  "origins": 2,
   "terminals": 1,
   "boundaries": 1,
   "frontiers": 0
  },
  "coverage": {
-  "elements": 26,
-  "relations": 24,
+  "elements": 64,
+  "relations": 64,
   "budget": {
-   "limit": 4096,
-   "used": 24,
+   "limit": 16384,
+   "used": 64,
    "exhausted": false
   }
  }

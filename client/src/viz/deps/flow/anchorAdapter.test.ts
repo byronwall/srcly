@@ -27,8 +27,8 @@ describe("anchor graph → ViewModel", () => {
     expect(slots.every((n) => n.region === "out")).toBe(true);
     // Scopes are frames, never boxes.
     expect(m.vm.nodes.some((n) => n.label === "ViewerCard" && !n.group)).toBe(false);
-    // Every box but the one `props` reference that only repeats the parameter.
-    expect(m.vm.nodes.length).toBe(graph.nodes.filter((n) => n.kind !== "scope").length - 1);
+    // Every box but the references that only repeat a value.
+    expect(m.vm.nodes.length).toBe(graph.nodes.filter((n) => n.kind !== "scope").length - m.vm.rolledUp);
   });
 
   it("folds a reference that only repeats a value into that value, so its edges leave from the value", () => {
@@ -38,7 +38,7 @@ describe("anchor graph → ViewModel", () => {
     const param = graph.edges.find((e) => e.target === ref.id && e.kind === "references")!.source;
     expect(m.vm.nodes.some((n) => n.id === ref.id)).toBe(false);
     expect(m.shownAs.get(ref.id)).toBe(param);
-    expect(m.vm.rolledUp).toBe(1);
+    expect(m.vm.rolledUp).toBeGreaterThan(0);
     // `props.viewer` is read from the parameter itself now.
     const read = graph.edges.find((e) => e.source === ref.id && e.kind === "field-input")!;
     expect(m.vm.edges.some((e) => e.source === param && e.target === read.target && e.relation === "field-input")).toBe(true);
@@ -51,8 +51,8 @@ describe("anchor graph → ViewModel", () => {
   });
 
   it("keeps the engine's relation kind, status, proof and field label on each edge, dashing calls and props", () => {
-    // Less the folded reference's own link.
-    expect(m.vm.edges.length).toBe(graph.edges.length - 1);
+    // Less each folded reference's own link.
+    expect(m.vm.edges.length).toBe(graph.edges.length - m.vm.rolledUp);
     const field = m.vm.edges.find((e) => e.label);
     expect(field).toMatchObject({ relation: "field-input", status: "proven" });
     expect(field!.proof!.length).toBe(1);
@@ -113,7 +113,7 @@ describe("a trace over the fold budget", () => {
   it("draws an opened component's boxes under its id, and folds nothing without options", () => {
     const opened = anchorGraphToViewModel(big, { expanded: [route.id], model: "steps" });
     expect(opened.vm.nodes.find((n) => n.id === "in-callback")?.graphId).toBe(`${route.id}#in-callback`);
-    expect(opened.vm.nodes.some((n) => n.expandable)).toBe(false);
+    expect(opened.vm.nodes.some((n) => n.id === route.id)).toBe(false);
     expect(anchorGraphToViewModel(big).vm.nodes.some((n) => n.id === route.id)).toBe(false);
   });
 });

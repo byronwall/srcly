@@ -8,7 +8,7 @@ import {
 } from "./program-evidence-collector-expression-support";
 import { lazyFactoryGetter, reducerOf, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
-import { frameworkFlow, makesAccessor, makesPredicate } from "./framework-flows";
+import { frameworkFlow, makesAccessor, makesPredicate, type FrameworkFlow } from "./framework-flows";
 import { builtinLibraryModels, standardMemberModel } from "./library-models";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo } from "./program-evidence-collector-support";
@@ -22,6 +22,7 @@ import {
   isResourceFactory,
   nodeKey,
   readsThis,
+  resourceFlow,
   thisContainer,
   proof,
   discardsValue,
@@ -138,8 +139,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       const symbolId = this.symbolId(binding);
       if (symbolId) this.resourceBySymbol.set(symbolId, resourceId);
     }
-    const loader = initializer.arguments[1];
-    this.bindResourceSource(initializer.arguments[0], loader, ownerId);
+    const loader = initializer.arguments[resourceFlow(this.ts, this.checker, initializer).returns!];
     this.httpResources.push({
       node: initializer,
       elementId: resourceId,
@@ -162,27 +162,11 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     }
   }
 
-  /**
-   * `createResource(source, fetcher)` calls the fetcher with the source's
-   * value: an arrow's returned expression, or the accessor it is given.
-   */
-  private bindResourceSource(source: TypeScript.Expression | undefined, loader: TypeScript.Expression | undefined, ownerId: string | null): void {
-    const fetcher = loader ? unwrap(this.ts, loader) : null;
-    if (!source || !fetcher || !(this.ts.isArrowFunction(fetcher) || this.ts.isFunctionExpression(fetcher))) return;
-    const parameter = fetcher.parameters[0];
-    if (!parameter || !this.ts.isIdentifier(parameter.name)) return;
-    const parameterId = this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "");
-    const value = unwrap(this.ts, source);
-    const returned = this.ts.isArrowFunction(value) && !this.ts.isBlock(value.body) ? value.body : value;
-    if (!parameterId || !this.ts.isExpression(returned)) return;
-    this.addRelation(
-      this.expression(returned, ownerId),
-      parameterId,
-      "resource-source-parameter",
-      [this.location(source), this.location(parameter)],
-      proof("resource-boundary", "The resource calls its fetcher with the source's value.", [this.location(source), this.location(parameter)]),
-      "proven",
-    );
+  /** How a framework call moves values: its row, or for a resource the overload this call uses. */
+  private flowOf(node: TypeScript.CallExpression): FrameworkFlow | undefined {
+    if (isResourceFactory(this.ts, this.checker, node)) return resourceFlow(this.ts, this.checker, node);
+    const imported = importedCallee(this.ts, this.checker, node.expression);
+    return imported ? frameworkFlow(imported.module, imported.name) : undefined;
   }
 
   /** The values a framework call moves (its row, `frameworkFlow`), and an accessor call of a value one made. */
@@ -197,8 +181,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       const predicate = made && makesPredicate(made.module, made.name);
       if (holderId) this.addRelation(holderId, callId, "accessor-call", [this.location(node)], frameworkState(predicate ? "Calling the selector tests its key against the source: a boolean, not the source's value." : "Calling the accessor yields the value its factory computes.", this.location(node)), "proven");
     }
-    const imported = importedCallee(this.ts, this.checker, node.expression);
-    const flow = imported ? frameworkFlow(imported.module, imported.name) : undefined;
+    const flow = this.flowOf(node);
     if (!flow) return;
     const argument = (index: number) => (node.arguments[index] ? unwrap(this.ts, node.arguments[index]) : undefined);
     const passed = flow.passes === "*" ? node.arguments.map((_, index) => index) : flow.passes ?? [];
@@ -312,9 +295,12 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         "proven",
       );
     }
+    // A resource's source says what to fetch: it reaches the fetcher's parameter, never the resource.
+    const source = isResourceFactory(this.ts, this.checker, node) ? node.arguments[resourceFlow(this.ts, this.checker, node).source ?? -1] : undefined;
     for (const argument of role ? [] : node.arguments) {
       // A spread argument passes its elements: the value is what it spreads.
       const argumentId = this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId);
+      if (argument === source) continue;
       this.addRelation(
         argumentId,
         callId,
@@ -645,9 +631,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
    * the call's value. Both are assumed, so both are `partial`.
    */
   private connectExternalCallbacks(call: CollectorCallInfo, node: TypeScript.CallExpression, stateFunctions: ReadonlySet<TypeScript.Node>): void {
-    // A framework call whose flow a row models (`frameworkFlow`) needs no assumption.
-    const imported = importedCallee(this.ts, this.checker, node.expression);
-    const flow = imported ? frameworkFlow(imported.module, imported.name) : undefined;
+    // A framework call whose flow is modelled (`flowOf`) needs no assumption.
+    const flow = this.flowOf(node);
     if (flow) {
       // What a function argument returns goes where the flow says: the call's value, or the callback's parameter.
       const returnsOf = (index: number | undefined) => {

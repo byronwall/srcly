@@ -1,5 +1,6 @@
 import path from "node:path";
 import * as TypeScript from "typescript";
+import type { FrameworkFlow } from "./framework-flows";
 import type {
   ProgramElement,
   ProgramEvidenceLocation,
@@ -231,6 +232,20 @@ export function isResourceFactory(ts: typeof TypeScript, checker: TypeScript.Typ
   if (!ts.isCallExpression(node)) return false;
   const imported = importedCallee(ts, checker, node.expression);
   return imported?.module === "solid-js" && imported.name === "createResource";
+}
+
+/**
+ * The flow of one `createResource` call: `(fetcher, options?)` has no source,
+ * `(source, fetcher, options?)` has one, and only the fetcher's return is the
+ * resource's value. As in Solid, a second of two arguments that is an object
+ * is the options; one the checker cannot type counts as a fetcher.
+ */
+export function resourceFlow(ts: typeof TypeScript, checker: TypeScript.TypeChecker, call: TypeScript.CallExpression): FrameworkFlow {
+  const second = call.arguments[1] ? unwrap(ts, call.arguments[1]) : undefined;
+  const type = second && checker.getTypeAtLocation(second);
+  const options = second && call.arguments.length === 2 && (ts.isObjectLiteralExpression(second)
+    || !(type!.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown)) && type!.getCallSignatures().length === 0);
+  return !second || options ? { returns: 0 } : { returns: 1, source: 0, callback: 1 };
 }
 
 /** A UI framework's own reactive and routing calls: what they do with a value is the framework's model, never an external effect. */
