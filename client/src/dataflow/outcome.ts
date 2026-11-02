@@ -5,7 +5,7 @@ import type { NaReason, Outcome } from "./api";
 const REASONS: Record<NaReason, string> = {
   "node-not-found": "Node.js was not found",
   "engine-missing": "the data-flow engine is not installed",
-  "no-tsconfig": "no tsconfig.json or Python project",
+  "no-tsconfig": "no tsconfig.json, jsconfig.json or Python project",
   "non-strict-tsconfig": "the tsconfig is not strict",
   "no-ts-files": "no TypeScript files",
   "typescript-not-found": "TypeScript was not found",

@@ -10,7 +10,7 @@ export function findDefaultSource(root: string) {
 }
 
 // Best-effort, dependency-free guess at the governing tsconfig: the nearest
-// tsconfig.json found walking up from the source root (then the project root).
+// tsconfig.json or jsconfig.json found walking up from the source root (then the project root).
 // This is only a hint for meta/back-compat; the authoritative, type-aware
 // resolution (solution-file expansion, multi-project monorepos, validation)
 // happens in resolveProjectConfigs once TypeScript is loaded.
@@ -21,12 +21,12 @@ export function findDefaultTsconfig(root: string, sourceRoot: string) {
 }
 
 // Ascend from startDir up to and including stopDir, returning the first
-// tsconfig.json encountered (nearest wins).
+// tsconfig.json or jsconfig.json encountered (nearest wins).
 function walkUpForTsconfig(startDir: string, stopDir: string) {
   let dir = startDir;
   while (true) {
-    const candidate = path.join(dir, "tsconfig.json");
-    if (fs.existsSync(candidate)) return candidate;
+    const candidate = ["tsconfig.json", "jsconfig.json"].map((name) => path.join(dir, name)).find((file) => fs.existsSync(file));
+    if (candidate) return candidate;
     if (dir === stopDir) return null;
     const parent = path.dirname(dir);
     if (dir === parent) return null;

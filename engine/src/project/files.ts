@@ -13,12 +13,12 @@ export const DEFAULT_IGNORED_PARTS = new Set([
   "styled-system",
 ]);
 
-const SOURCE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".js", ".cjs"];
+const SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"];
 
 export function shouldAnalyzeFile(file: string, args: AnalyzerArgs) {
   const ext = path.extname(file);
   if (!SOURCE_EXTENSIONS.includes(ext)) return false;
-  if (file.endsWith(".d.ts")) return false;
+  if (/\.d\.[cm]?ts$/.test(file)) return false;
   if (!isWithin(file, args.source)) return false;
   const relativeParts = path.relative(args.root, file).split(path.sep);
   if (relativeParts.some((part) => DEFAULT_IGNORED_PARTS.has(part))) {

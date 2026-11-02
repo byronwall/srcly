@@ -11,13 +11,18 @@ export interface TsconfigInfo {
 }
 interface ConfigAttempt { file: string; status: string }
 
-// Collect every tsconfig.json walking up from startDir to stopDir, nearest first.
+// The config a folder holds: its tsconfig.json, or a JavaScript project's jsconfig.json.
+function configIn(dir: string) {
+  return ["tsconfig.json", "jsconfig.json"].map((name) => path.join(dir, name)).find((file) => fs.existsSync(file)) ?? null;
+}
+
+// Collect every project config walking up from startDir to stopDir, nearest first.
 function ascendCollectTsconfigs(startDir: string, stopDir: string) {
   const found: string[] = [];
   let dir = startDir;
   while (true) {
-    const candidate = path.join(dir, "tsconfig.json");
-    if (fs.existsSync(candidate)) found.push(candidate);
+    const candidate = configIn(dir);
+    if (candidate) found.push(candidate);
     if (dir === stopDir) break;
     const parent = path.dirname(dir);
     if (dir === parent) break;
@@ -26,7 +31,7 @@ function ascendCollectTsconfigs(startDir: string, stopDir: string) {
   return found;
 }
 
-// Scan downward under root for tsconfig.json files, skipping the usual build
+// Scan downward under root for project configs, skipping the usual build
 // and dependency directories. Used as a fallback when nothing is found walking
 // up — the common shape for solution-style monorepos whose only configs live in
 // per-app/per-package subdirectories.
@@ -48,7 +53,7 @@ function scanDownForTsconfigs(root: string) {
           continue;
         }
         walk(path.join(dir, entry.name));
-      } else if (entry.name === "tsconfig.json") {
+      } else if (entry.name === "tsconfig.json" || (entry.name === "jsconfig.json" && !fs.existsSync(path.join(dir, "tsconfig.json")))) {
         out.push(path.join(dir, entry.name));
       }
     }
@@ -225,7 +230,7 @@ function relativeTo(root: string, file: string) {
 
 function buildTsconfigFailureMessage(args: AnalyzerArgs, seeds: string[], attempts: ConfigAttempt[]) {
   const lines = [
-    "tsx-dataflow: could not resolve a valid tsconfig.json to type-check against.",
+    "tsx-dataflow: could not resolve a valid tsconfig.json or jsconfig.json to type-check against.",
     "",
     "A valid tsconfig is REQUIRED: without one the type checker runs with default",
     "(non-strict) options, which silently disables strictNullChecks and makes every",
@@ -240,7 +245,7 @@ function buildTsconfigFailureMessage(args: AnalyzerArgs, seeds: string[], attemp
     "",
     seeds.length
       ? "Candidates considered (walk-up from source/root, solution files expanded, then downward scan):"
-      : "No tsconfig.json files were found by walk-up from the source root or by scanning under the project root.",
+      : "No tsconfig.json or jsconfig.json files were found by walk-up from the source root or by scanning under the project root.",
   ];
   for (const attempt of attempts) {
     lines.push(`  - ${attempt.file}: ${attempt.status}`);

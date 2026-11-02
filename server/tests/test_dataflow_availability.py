@@ -20,6 +20,26 @@ def test_tsconfig_root_is_typescript(tmp_path, monkeypatch):
     assert found.available and found.language == "typescript" and found.python is None
 
 
+def test_jsconfig_root_is_typescript(tmp_path, monkeypatch):
+    _ready(monkeypatch)
+    (tmp_path / "jsconfig.json").write_text("{}")
+    found = availability.probe(tmp_path)
+    assert found.available and found.language == "typescript"
+
+
+def test_a_config_name_the_engine_never_reads_does_not_claim_the_root(tmp_path, monkeypatch):
+    _ready(monkeypatch)
+    (tmp_path / "tsconfig.app.json").write_text("{}")
+    assert not availability.has_tsconfig(tmp_path)
+    assert availability.probe(tmp_path).reason == "no-tsconfig"
+
+
+def test_javascript_files_are_counted_for_the_first_query_timeout(tmp_path):
+    for name in ("a.js", "b.mjs", "c.cjs", "d.jsx", "e.ts", "f.d.ts", "g.d.mts", "h.css"):
+        (tmp_path / name).write_text("")
+    assert availability.count_source_files(tmp_path) == 5
+
+
 def _touch(root: Path, *paths: str) -> None:
     for rel in paths:
         (root / rel).parent.mkdir(parents=True, exist_ok=True)

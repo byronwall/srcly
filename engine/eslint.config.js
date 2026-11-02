@@ -5,7 +5,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "node_modules/**", "tmp/**", "examples/bad-ish-solid/**", "examples/pattern-catalog/**"],
+    ignores: ["dist/**", "node_modules/**", "tmp/**", "examples/bad-ish-solid/**", "examples/pattern-catalog/**", "examples/value-flow-js/**"],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

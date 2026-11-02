@@ -6,7 +6,8 @@ can be decided without spawning (no Node, no engine, no TypeScript or Python
 project, no mypy for a Python one) are decided here; the rest (non-strict
 tsconfig, no source files, a crash) come from the child.
 
-A root with a tsconfig is analyzed as TypeScript. Otherwise a root with a
+A root with a tsconfig or jsconfig is analyzed as TypeScript (the engine reads
+both, and the checker reads JavaScript). Otherwise a root with a
 Python project file or ``.py`` files is analyzed as Python: the engine runs
 ``engine/python/srcly_pyfacts.py`` with this server's own interpreter, which
 has mypy because srcly depends on it.
@@ -32,6 +33,7 @@ ENGINE_DIR = _REPO_ROOT / "engine"
 
 _SKIP_DIRS = {"node_modules", ".git", "dist", "build", ".next", ".output", ".vinxi", "coverage", "__pycache__", "site-packages", "venv"}
 _PYTHON_PROJECT_FILES = ("pyproject.toml", "setup.py", "setup.cfg")
+_PROJECT_CONFIGS = ("tsconfig.json", "jsconfig.json")
 
 
 @dataclass(frozen=True)
@@ -91,7 +93,7 @@ def locate_bundle(node: str) -> Launch | None:
 
 
 def has_tsconfig(root: Path, max_depth: int = 3) -> bool:
-    """A ``tsconfig*.json`` at ``root`` or a few levels below (not in dependency or build folders)."""
+    """A ``tsconfig.json`` or ``jsconfig.json`` at ``root`` or a few levels below (not in dependency or build folders): the names the engine looks for."""
     stack = [(root, 0)]
     while stack:
         folder, depth = stack.pop()
@@ -100,7 +102,7 @@ def has_tsconfig(root: Path, max_depth: int = 3) -> bool:
         except OSError:
             continue
         for entry in entries:
-            if entry.is_file() and entry.name.startswith("tsconfig") and entry.name.endswith(".json"):
+            if entry.is_file() and entry.name in _PROJECT_CONFIGS:
                 return True
             if depth < max_depth and entry.is_dir(follow_symlinks=False):
                 if entry.name in _SKIP_DIRS or entry.name.startswith("."):
@@ -200,7 +202,7 @@ def probe(root: Path) -> Availability:
                 language="python",
             )
         return Availability(True, node=node, launch=launch, language="python", python=python)
-    return Availability(False, "no-tsconfig", f"No tsconfig.json or Python project was found in {root}.", node=node, launch=launch)
+    return Availability(False, "no-tsconfig", f"No tsconfig.json, jsconfig.json or Python project was found in {root}.", node=node, launch=launch)
 
 
 def default_source(root: Path) -> Path:
@@ -212,10 +214,10 @@ def default_source(root: Path) -> Path:
 def count_source_files(root: Path, limit: int = 20000, language: str = "typescript") -> int:
     """Source files under ``root`` (outside dependency and build folders), for the first-query timeout."""
     count = 0
-    suffixes = (".py",) if language == "python" else (".ts", ".tsx")
+    suffixes = (".py",) if language == "python" else (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
     for folder, dirs, files in os.walk(root):
         dirs[:] = [d for d in dirs if d not in _SKIP_DIRS and not d.startswith(".")]
-        count += sum(1 for name in files if name.endswith(suffixes) and not name.endswith(".d.ts"))
+        count += sum(1 for name in files if name.endswith(suffixes) and not name.endswith((".d.ts", ".d.mts", ".d.cts")))
         if count >= limit:
             break
     return count
