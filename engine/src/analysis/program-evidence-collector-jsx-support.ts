@@ -541,6 +541,14 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       const handledBy = (detail: string, where: ProgramEvidenceLocation[]) => paired ? proof("bound-handler", detail, [...where, boundAt]) : proof("argument-binding", detail, where);
       // A state setter handed in (`onPick={setPicked}`): the call's argument is the new state.
       const role = this.ts.isExpression(value) ? stateRoleOf(this.ts, this.checker, value) : null;
+      const action = role?.role === "setter" ? this.reducerAction(role.getter) : null;
+      if (action) {
+        // A dispatch handed in runs the reducer as a direct one does: the action is its parameter, and only what it returns is the state.
+        if (!node.arguments[0]) continue;
+        const where = [this.location(node.arguments[0]), this.location(action.parameter)];
+        this.addRelation(this.expression(node.arguments[0], call.ownerId), action.id, "argument-binding", where, handledBy(`The call runs the dispatch handed in at ${value.getText()}: the reducer receives this action.`, where), "proven");
+        continue;
+      }
       if (role?.role === "setter" && node.arguments[0]) {
         // The proof's first two locations are the argument and the state, so a paired proof's third is where the setter was handed in, as for a function.
         const where = [this.location(node.arguments[0]), this.location(role.getter)];

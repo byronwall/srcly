@@ -212,6 +212,14 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (source && parameterId && !this.ts.isArrowFunction(source) && !this.ts.isFunctionExpression(source)) relate(source, parameterId, "The framework calls the callback with the source's value.");
   }
 
+  /** The action parameter of a reducer pair's reducer: where `dispatch(action)` puts its argument, however it reaches the dispatch. Null for any other pair, or a reducer the checker cannot name. */
+  protected reducerAction(getter: TypeScript.Identifier): { parameter: TypeScript.ParameterDeclaration; id: string } | null {
+    const reducer = reducerOf(this.ts, this.checker, getter);
+    const parameter = reducer ? this.targetFunction(unwrap(this.ts, reducer))?.declaration.parameters[1] : undefined;
+    const id = parameter && this.ts.isIdentifier(parameter.name) ? this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "") : undefined;
+    return parameter && id ? { parameter, id } : null;
+  }
+
   protected processCall(
     node: TypeScript.CallExpression,
     ownerId: string | null,
@@ -279,15 +287,13 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         this.addRelation(stateId, callId, "references", [this.location(node)], frameworkState("The getter's call reads the state its setter writes; order and time are not proven.", this.location(node)), "partial");
       }
       // A reducer's dispatch hands its action to the reducer, whose return (`frameworkFlow`) is the new state.
-      const reducer = role.role === "setter" ? reducerOf(this.ts, this.checker, role.getter) : null;
-      const action = reducer ? this.targetFunction(unwrap(this.ts, reducer))?.declaration.parameters[1] : undefined;
-      const actionId = action && this.ts.isIdentifier(action.name) ? this.parametersBySymbol.get(this.symbolId(action.name) ?? "") : undefined;
-      if (actionId && node.arguments[0]) {
-        this.addRelation(this.expression(node.arguments[0], ownerId), actionId, "framework-flow", [this.location(node.arguments[0]), this.location(action!)], frameworkState("The dispatch calls the reducer with this action.", this.location(node)), "proven");
+      const action = role.role === "setter" ? this.reducerAction(role.getter) : null;
+      if (action && node.arguments[0]) {
+        this.addRelation(this.expression(node.arguments[0], ownerId), action.id, "framework-flow", [this.location(node.arguments[0]), this.location(action.parameter)], frameworkState("The dispatch calls the reducer with this action.", this.location(node)), "proven");
       }
       // One argument is the new state (or an updater); several are a path into it and the value there, packed into the state.
       const kind = node.arguments.length === 1 ? "references" : "pack-field";
-      for (const argument of role.role === "setter" && !actionId ? node.arguments : []) {
+      for (const argument of role.role === "setter" && !action ? node.arguments : []) {
         this.addRelation(this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId), stateId, kind, [this.location(argument)], frameworkState("The setter's argument becomes the state its getter reads; order and time are not proven.", this.location(argument)), "partial");
       }
     }
@@ -610,6 +616,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     const role = stateRoleOf(this.ts, this.checker, node.expression);
     const getter = role?.role === "setter" ? role.getter : lazyFactoryGetter(this.ts, this.checker, node);
     if (!getter) return handled;
+    const dispatches = role && reducerOf(this.ts, this.checker, getter);
     const stateId = this.stateElement(getter);
     for (const argument of node.arguments) {
       const fn = unwrap(this.ts, argument);
@@ -617,6 +624,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       const info = this.functionsByNode.get(nodeKey(this.root, fn));
       if (!info) continue;
       handled.add(fn);
+      // A function given to a dispatch is an action, for the reducer to read; nothing calls it.
+      if (dispatches) continue;
       for (const returnId of this.returnsByFunction.get(info.id) ?? []) {
         this.addRelation(returnId, stateId, "framework-flow", [this.location(fn)], frameworkState("The function's return becomes the state its getter reads; order and time are not proven.", this.location(fn)), "partial");
       }
