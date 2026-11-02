@@ -1,5 +1,5 @@
 import * as TypeScript from "typescript";
-import { boundaryRole, type LibraryModelRow } from "./library-models";
+import { boundaryRole, builtinLibraryModels, standardMemberModel, type LibraryModelRow } from "./library-models";
 import {
   browserCall,
   browserMember,
@@ -96,7 +96,10 @@ export function processProgramCallBoundary(
   // A library model row says which boundary the call is; the role is the element kind it marks.
   const role = boundaryRole(context.model);
   const urlRead = imported && URL_READS[imported.module]?.includes(imported.name);
-  const browser = browserCall(browserMember(ts, context.checker, node.expression)) ?? (pageEffectCall(ts, context.checker, node) ? "write" : null);
+  const member = browserMember(ts, context.checker, node.expression);
+  // A DOM member a row says keeps nothing (`querySelector`) is a read, even with its value dropped.
+  const reads = standardMemberModel(builtinLibraryModels(), member)?.model === "consumes";
+  const browser = browserCall(member) ?? (!reads && pageEffectCall(ts, context.checker, node) ? "write" : null);
   if (browser) {
     // Browser storage, history and navigation: outside the program, named by what they are.
     const text = `${node.expression.getText(node.getSourceFile())}(…)`;
