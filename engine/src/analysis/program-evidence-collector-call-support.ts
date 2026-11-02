@@ -7,8 +7,8 @@ import {
   type ProgramEvidenceExpressionContext,
 } from "./program-evidence-collector-expression-support";
 import { lazyFactoryGetter, reducerOf, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
-import { namesSeveralValues, resolveValue, wrappedArgument } from "./value-origin";
-import { frameworkFlow, makesAccessor } from "./framework-flows";
+import { namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
+import { frameworkFlow, makesAccessor, makesPredicate } from "./framework-flows";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo } from "./program-evidence-collector-support";
 import {
@@ -192,7 +192,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (accessor && this.ts.isCallExpression(accessor)) {
       const made = importedCallee(this.ts, this.checker, accessor.expression);
       const holderId = made && makesAccessor(made.module, made.name) ? this.variablesBySymbol.get(this.symbolId(node.expression) ?? "") : undefined;
-      if (holderId) this.addRelation(holderId, callId, "accessor-call", [this.location(node)], frameworkState("Calling the accessor yields the value its factory computes.", this.location(node)), "proven");
+      const predicate = made && makesPredicate(made.module, made.name);
+      if (holderId) this.addRelation(holderId, callId, "accessor-call", [this.location(node)], frameworkState(predicate ? "Calling the selector tests its key against the source: a boolean, not the source's value." : "Calling the accessor yields the value its factory computes.", this.location(node)), "proven");
     }
     const imported = importedCallee(this.ts, this.checker, node.expression);
     const flow = imported ? frameworkFlow(imported.module, imported.name) : undefined;
@@ -636,13 +637,13 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (flow) {
       // What a function argument returns goes where the flow says: the call's value, or the callback's parameter.
       const returnsOf = (index: number | undefined) => {
-        const fn = index !== undefined && node.arguments[index] ? unwrap(this.ts, node.arguments[index]) : undefined;
+        const fn = index !== undefined && node.arguments[index] ? throughWrappers(this.ts, this.checker, unwrap(this.ts, node.arguments[index])) : undefined;
         const info = fn ? this.functionsByNode.get(nodeKey(this.root, fn)) ?? this.targetFunction(fn) ?? undefined : undefined;
         return { fn, ids: info ? this.returnsByFunction.get(info.id) ?? [] : [] };
       };
       const result = returnsOf(flow.returns);
       for (const returnId of result.ids) {
-        this.addRelation(returnId, call.id, "framework-flow", [this.location(result.fn!)], frameworkState("The framework call yields what its callback returns.", this.location(node)), "proven");
+        this.addRelation(returnId, call.id, "framework-flow", [this.location(result.fn!)], frameworkState(flow.compares ? "The framework call tests keys against what its callback returns." : "The framework call yields what its callback returns.", this.location(node)), "proven");
       }
       const source = returnsOf(flow.source);
       const parameterId = flow.callback !== undefined ? this.firstParameterId(node.arguments[flow.callback] && unwrap(this.ts, node.arguments[flow.callback])) : undefined;

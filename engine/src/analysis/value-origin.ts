@@ -1,6 +1,6 @@
 import type * as TypeScript from "typescript";
 import { importedCallee, symbolAtNode, unwrap } from "./program-evidence-support";
-import { wrapsFunction } from "./framework-flows";
+import { frameworkFlow, wrappedPosition } from "./framework-flows";
 
 /** One step the checker proved on the way to a value's origin. */
 export type ValueStep = {
@@ -26,7 +26,28 @@ const MAX_STEPS = 8;
 export function wrappedArgument(ts: typeof TypeScript, checker: TypeScript.TypeChecker, value: TypeScript.Expression): TypeScript.Expression | null {
   if (!ts.isCallExpression(value) || value.arguments.length === 0) return null;
   const imported = importedCallee(ts, checker, value.expression);
-  return imported && wrapsFunction(imported.module, imported.name) ? unwrap(ts, value.arguments[0]) : null;
+  const at = imported ? wrappedPosition(imported.module, imported.name) : null;
+  return at !== null && value.arguments[at] ? unwrap(ts, value.arguments[at]) : null;
+}
+
+/** The function under any wrappers (`on(source, fn)` in `createMemo(on(source, fn))`), else the expression. */
+export function throughWrappers(ts: typeof TypeScript, checker: TypeScript.TypeChecker, value: TypeScript.Expression): TypeScript.Expression {
+  let current = value;
+  for (let step = 0; step < MAX_STEPS; step += 1) {
+    const inner = wrappedArgument(ts, checker, current);
+    if (!inner) break;
+    current = inner;
+  }
+  return current;
+}
+
+/** Whether calling this runs a function through a wrapper that fills its parameters itself (`on`'s fills them from its source), so the call's arguments do not bind them. */
+export function wrapperFillsParameters(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): boolean {
+  return (resolveValue(ts, checker, callee)?.steps ?? []).some((step) => {
+    if (step.kind !== "wrapper" || !ts.isCallExpression(step.node)) return false;
+    const imported = importedCallee(ts, checker, step.node.expression);
+    return imported !== null && frameworkFlow(imported.module, imported.name)?.source !== undefined;
+  });
 }
 
 /**
