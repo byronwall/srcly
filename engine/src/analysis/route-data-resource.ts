@@ -1,5 +1,6 @@
 import path from "node:path";
 import type * as TypeScript from "typescript";
+import { resourceFlow } from "./program-evidence-support";
 import { isCanonicalSolidCall } from "./solid-symbols";
 
 export function resourceBoundaryIdentity(root: string, declaration: TypeScript.VariableDeclaration) {
@@ -108,7 +109,7 @@ function propertyName(ts: typeof TypeScript, name: TypeScript.PropertyName) {
 }
 
 function resourceFetcherTargets(ts: typeof TypeScript, checker: TypeScript.TypeChecker, node: TypeScript.CallExpression) {
-  const fetcher = isCanonicalCreateResourceCall(ts, checker, node) && node.arguments.length >= 2 ? node.arguments[1] : node.arguments[0];
+  const fetcher = node.arguments[isCanonicalCreateResourceCall(ts, checker, node) ? resourceFlow(ts, checker, node).returns! : 0];
   if (!fetcher) return [];
   const returned = ts.isIdentifier(fetcher) || ts.isPropertyAccessExpression(fetcher)
     ? [fetcher]

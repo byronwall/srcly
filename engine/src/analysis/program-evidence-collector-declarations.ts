@@ -288,7 +288,7 @@ export class ProgramEvidenceCollectorDeclarations extends ProgramEvidenceCollect
   }
 
   protected firstParameterId(fn: TypeScript.Expression | undefined): string | undefined {
-    const parameter = fn && (this.ts.isArrowFunction(fn) || this.ts.isFunctionExpression(fn)) ? fn.parameters[0] : undefined;
+    const parameter = fn && (this.ts.isArrowFunction(fn) || this.ts.isFunctionExpression(fn) ? fn : this.targetFunction(fn)?.declaration)?.parameters[0];
     return parameter && this.ts.isIdentifier(parameter.name) ? this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "") : undefined;
   }
 }

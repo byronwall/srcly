@@ -21,8 +21,8 @@ export function scopeRole(ts: typeof TypeScript, fn: TypeScript.SignatureDeclara
   const call = ts.isCallExpression(parent) && parent.arguments.includes(fn as TypeScript.Expression) ? parent : null;
   const callee = call ? calleeName(ts, call) : null;
   if (callee && SERVER_WRAPPERS.has(callee)) return "server";
-  // `createResource(source, fetcher)`: with two functions, the first only says what to fetch.
-  if (callee && FETCHER_CALLS.has(callee) && (callee !== "createResource" || call!.arguments.length < 2 || call!.arguments[1] === fn)) return "fetcher";
+  // `createResource(source, fetcher)`: with two functions, the first only says what to fetch. `createResource(fetcher, { … })` has no source.
+  if (callee && FETCHER_CALLS.has(callee) && (callee !== "createResource" || call!.arguments.length < 2 || call!.arguments[1] === fn || ts.isObjectLiteralExpression(call!.arguments[1]))) return "fetcher";
   if (ts.isPropertyAssignment(parent) && FETCHER_KEYS.has(parent.name.getText(sourceFile))) return "fetcher";
   if (ts.isCallExpression(parent) && callee === "addEventListener") return "handler";
   if (ts.isJsxExpression(parent) && ts.isJsxAttribute(parent.parent) && /^on[A-Z:]/.test(parent.parent.name.getText(sourceFile))) return "handler";
