@@ -39,7 +39,8 @@ import { chooseTypescript } from "../../src/srcly/typescript-choice";
 
 const example = (name: string) => fileURLToPath(new URL(`../../examples/${name}`, import.meta.url));
 // `value-flow-basics` is typed; `value-flow-js` is actual JavaScript, kept apart so a `.ts` twin cannot stand in for a `.js` file.
-const ROOTS = ["value-flow-basics", "value-flow-js"];
+// `value-flow-loose` has a jsconfig with `strictNullChecks` off, and `value-flow-bare` has no config at all.
+const ROOTS = ["value-flow-basics", "value-flow-js", "value-flow-loose", "value-flow-bare"];
 const KEYWORDS = ["trace", "outcome", "reaches", "stop", "visits", "never-reaches", "edge", "no-edge", "path", "no-path"] as const;
 type Keyword = (typeof KEYWORDS)[number];
 type Annotation = { keyword: Keyword; args: string[]; label?: string; route?: [string, string]; rest: string; file: string; line: number; code: string };

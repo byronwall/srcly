@@ -102,10 +102,15 @@ def test_stale_sources_show_in_status_and_refresh_rebuilds(client, use_fake, tmp
     assert new["outcome"] == "ok" and new["graph"]["generation"] == 2
 
 
+def test_routes_carry_the_null_proof_limit(client, use_fake, tmp_path):
+    use_fake()
+    assert client.get("/api/dataflow/routes", params={"path": str(tmp_path)}).json()["nullProof"] is True
+
+
 def test_refusals_are_not_analyzed_with_the_reason(client, use_fake, tmp_path):
-    use_fake("--refuse", "non-strict-tsconfig")
+    use_fake("--refuse", "no-ts-files")
     body = client.get("/api/dataflow/routes", params={"path": str(tmp_path)}).json()
-    assert body == {"outcome": "not-analyzed", "reason": "non-strict-tsconfig", "message": "refused: non-strict-tsconfig", "routes": []}
+    assert body == {"outcome": "not-analyzed", "reason": "no-ts-files", "message": "refused: no-ts-files", "routes": []}
 
 
 def test_an_engine_over_its_memory_limit_is_not_analyzed_by_name(client, use_fake, tmp_path):

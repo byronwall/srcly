@@ -35,6 +35,7 @@
       "status": "unsupported"
     }
   ],
+  "nullProof": true,
   "origins": [],
   "outcome": "unsupported",
   "phase": "complete",

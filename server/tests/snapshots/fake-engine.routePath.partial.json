@@ -12,6 +12,7 @@
     "reason": "partial-proof"
   },
   "generation": 1,
+  "nullProof": true,
   "outcome": "partial",
   "programHash": "hash-1",
   "proof": [],

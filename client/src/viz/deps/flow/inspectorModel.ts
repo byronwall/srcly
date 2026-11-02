@@ -146,6 +146,8 @@ export interface AnchorOverview {
   outcome: AnchorGraphResult["outcome"];
   reason: string | null;
   generation: number;
+  /** False where a type cannot show a value is never null: `strictNullChecks` is off, or the project has no config. */
+  nullProof: boolean;
   counts: AnchorGraphResult["counts"];
   origins: { id: string; label: string; roles: string; status: AnchorGraphResult["origins"][number]["status"] }[];
   terminals: { id: string; label: string; roles: string; status: AnchorGraphResult["terminals"][number]["status"] }[];
@@ -169,6 +171,7 @@ export function anchorOverview(graph: AnchorGraphResult): AnchorOverview {
     outcome: graph.outcome,
     reason: graph.reason,
     generation: graph.generation,
+    nullProof: graph.nullProof,
     counts: graph.counts,
     origins: graph.origins.map((o) => ({ id: o.nodeId, label: o.label, roles: humanizeDetail(o.roles.join(" · ")) ?? "", status: o.status })),
     terminals: graph.terminals.map((t) => ({ id: t.nodeId, label: t.label, roles: humanizeDetail(t.roles.join(" · ")) ?? "", status: t.status })),

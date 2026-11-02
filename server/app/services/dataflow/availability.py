@@ -3,14 +3,16 @@ Where the data-flow engine comes from, and whether a root can use it.
 
 Pure lookups: nothing here starts a process. The reasons a root is N/A that
 can be decided without spawning (no Node, no engine, no TypeScript or Python
-project, no mypy for a Python one) are decided here; the rest (non-strict
-tsconfig, no source files, a crash) come from the child.
+project, no mypy for a Python one) are decided here; the rest (a broken config,
+no source files, a crash) come from the child.
 
 A root with a tsconfig or jsconfig is analyzed as TypeScript (the engine reads
-both, and the checker reads JavaScript). Otherwise a root with a
-Python project file or ``.py`` files is analyzed as Python: the engine runs
-``engine/python/srcly_pyfacts.py`` with this server's own interpreter, which
-has mypy because srcly depends on it.
+both, and the checker reads JavaScript), and so is a ``package.json`` root with
+source files. Otherwise a root with a Python project file or ``.py`` files is
+analyzed as Python: the engine runs ``engine/python/srcly_pyfacts.py`` with this
+server's own interpreter, which has mypy because srcly depends on it. Any other
+root with JavaScript or TypeScript files is analyzed with no config: the engine
+infers its options in memory and names the null-proof limit.
 """
 
 from __future__ import annotations
@@ -34,6 +36,8 @@ ENGINE_DIR = _REPO_ROOT / "engine"
 _SKIP_DIRS = {"node_modules", ".git", "dist", "build", ".next", ".output", ".vinxi", "coverage", "__pycache__", "site-packages", "venv"}
 _PYTHON_PROJECT_FILES = ("pyproject.toml", "setup.py", "setup.cfg")
 _PROJECT_CONFIGS = ("tsconfig.json", "jsconfig.json")
+_SCRIPT_SUFFIXES = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
+_DECLARATION_SUFFIXES = (".d.ts", ".d.mts", ".d.cts")
 
 
 @dataclass(frozen=True)
@@ -107,6 +111,23 @@ def has_tsconfig(root: Path, max_depth: int = 3) -> bool:
             if depth < max_depth and entry.is_dir(follow_symlinks=False):
                 if entry.name in _SKIP_DIRS or entry.name.startswith("."):
                     continue
+                stack.append((Path(entry.path), depth + 1))
+    return False
+
+
+def has_scripts(root: Path, max_depth: int = 3) -> bool:
+    """A JavaScript or TypeScript source file at ``root`` or a few levels below."""
+    stack = [(root, 0)]
+    while stack:
+        folder, depth = stack.pop()
+        try:
+            entries = list(os.scandir(folder))
+        except OSError:
+            continue
+        for entry in entries:
+            if entry.is_file() and entry.name.endswith(_SCRIPT_SUFFIXES) and not entry.name.endswith(_DECLARATION_SUFFIXES):
+                return True
+            if depth < max_depth and entry.is_dir(follow_symlinks=False) and entry.name not in _SKIP_DIRS and not entry.name.startswith("."):
                 stack.append((Path(entry.path), depth + 1))
     return False
 
@@ -188,7 +209,7 @@ def probe(root: Path) -> Availability:
             "The data-flow engine is not bundled in this install (in a checkout, run `bash build-srcly.sh`, or set SRCLY_ENGINE_DEV=1 after `cd engine && pnpm install`).",
             node=node,
         )
-    if has_tsconfig(root):
+    if has_tsconfig(root) or ((root / "package.json").is_file() and has_scripts(root)):
         return Availability(True, node=node, launch=launch, python_apps=python_apps(root))
     if is_python_root(root):
         python = python_checker()
@@ -202,7 +223,9 @@ def probe(root: Path) -> Availability:
                 language="python",
             )
         return Availability(True, node=node, launch=launch, language="python", python=python)
-    return Availability(False, "no-tsconfig", f"No tsconfig.json, jsconfig.json or Python project was found in {root}.", node=node, launch=launch)
+    if has_scripts(root):
+        return Availability(True, node=node, launch=launch)
+    return Availability(False, "no-tsconfig", f"No JavaScript, TypeScript or Python project was found in {root}.", node=node, launch=launch)
 
 
 def default_source(root: Path) -> Path:
@@ -214,10 +237,10 @@ def default_source(root: Path) -> Path:
 def count_source_files(root: Path, limit: int = 20000, language: str = "typescript") -> int:
     """Source files under ``root`` (outside dependency and build folders), for the first-query timeout."""
     count = 0
-    suffixes = (".py",) if language == "python" else (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
+    suffixes = (".py",) if language == "python" else _SCRIPT_SUFFIXES
     for folder, dirs, files in os.walk(root):
         dirs[:] = [d for d in dirs if d not in _SKIP_DIRS and not d.startswith(".")]
-        count += sum(1 for name in files if name.endswith(suffixes) and not name.endswith((".d.ts", ".d.mts", ".d.cts")))
+        count += sum(1 for name in files if name.endswith(suffixes) and not name.endswith(_DECLARATION_SUFFIXES))
         if count >= limit:
             break
     return count

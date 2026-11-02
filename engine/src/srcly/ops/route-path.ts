@@ -46,6 +46,7 @@ export function routePathOp(
     programHash: tier1.generation.programHash,
     tsconfig: tier1.generation.tsconfig,
     typescript: tier1.generation.typescript,
+    nullProof: tier1.generation.nullProof,
     route: { key: route.key, pathPattern: route.pathPattern },
   };
   const edgeId = params.edge;

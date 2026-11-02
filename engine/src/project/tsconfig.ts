@@ -2,7 +2,7 @@ import type * as TypeScript from "typescript";
 import type { AnalyzerArgs } from "../types";
 import fs from "node:fs";
 import path from "node:path";
-import { DEFAULT_IGNORED_PARTS, isWithin } from "./files";
+import { DEFAULT_IGNORED_PARTS, isWithin, shouldAnalyzeFile } from "./files";
 
 export interface TsconfigInfo {
   file: string; exists: boolean; error: string | null;
@@ -118,6 +118,31 @@ function referenceToConfigPath(refPath: string) {
   return refPath;
 }
 
+// A project with no config anywhere: the options a JavaScript project gets by
+// default, held in memory, and every source file under the source root. Nothing
+// is written to the project. No option here is strict, so the result names its
+// null-proof limit (`nullProof`). Null when there is nothing to analyze. Only the
+// engine asks for this: the report's nullish verdicts need a real config.
+function inferProject(ts: typeof TypeScript, args: AnalyzerArgs) {
+  const fileNames: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (DEFAULT_IGNORED_PARTS.has(entry.name) || entry.name.startsWith(".")) continue;
+      const file = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(file);
+      else if (shouldAnalyzeFile(file, args)) fileNames.push(file);
+    }
+  };
+  walk(args.source);
+  if (fileNames.length === 0) return null;
+  const options: TypeScript.CompilerOptions = {
+    allowJs: true, checkJs: false, noEmit: true, skipLibCheck: true, strict: false,
+    target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler ?? ts.ModuleResolutionKind.NodeNext, jsx: ts.JsxEmit.Preserve,
+  };
+  const primary: TsconfigInfo = { file: "", exists: false, error: null, options, fileNames, references: [], strictNullChecks: false, isSolution: false };
+  return { primary, configs: [primary], attempts: [] as ConfigAttempt[], warnings: [] as string[] };
+}
+
 // Authoritative, type-aware resolution of the tsconfig(s) that govern this run.
 // Walks up from the source root, expands solution files through their project
 // references, falls back to a downward scan for reference-only monorepos, and
@@ -125,6 +150,7 @@ function referenceToConfigPath(refPath: string) {
 // loud, actionable error when nothing valid can be found — we never silently
 // analyze with default (non-strict) options, because that makes every nullish
 // verdict unsound (optional props look non-nullable, so `?? x` reads as dead).
+// The engine alone may ask for `inferProject`: it gives no nullish verdict.
 export function resolveProjectConfigs(ts: typeof TypeScript, args: AnalyzerArgs) {
   const attempts: ConfigAttempt[] = [];
   const note = (file: string, status: string) =>
@@ -142,6 +168,8 @@ export function resolveProjectConfigs(ts: typeof TypeScript, args: AnalyzerArgs)
     ];
     if (seeds.length === 0) seeds = scanDownForTsconfigs(args.root);
   }
+  const inferred = seeds.length === 0 && args.inferProject ? inferProject(ts, args) : null;
+  if (inferred) return inferred;
 
   const queue = [...new Set(seeds)];
   const visited = new Set();

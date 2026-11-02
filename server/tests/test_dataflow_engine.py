@@ -127,11 +127,11 @@ def test_a_non_protocol_stdout_line_is_a_crash(tmp_path):
 
 
 def test_engine_error_codes_come_through(tmp_path):
-    engine = process(tmp_path, "--refuse", "non-strict-tsconfig")
+    engine = process(tmp_path, "--refuse", "no-ts-files")
     engine.handshake()
     with pytest.raises(EngineError) as info:
         engine.request("routes", timeout=5)
-    assert info.value.code == "non-strict-tsconfig"
+    assert info.value.code == "no-ts-files"
     engine.close()
 
 

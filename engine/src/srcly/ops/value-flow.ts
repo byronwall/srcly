@@ -38,6 +38,7 @@ function base(tier1: BaseTier1) {
     programHash: tier1.generation.programHash,
     tsconfig: tier1.generation.tsconfig,
     typescript: tier1.generation.typescript,
+    nullProof: tier1.generation.nullProof,
   };
 }
 

@@ -91,6 +91,7 @@
       "typeText": null
     }
   ],
+  "nullProof": true,
   "origins": [],
   "outcome": "unsupported",
   "programHash": "hash-1",

@@ -24,6 +24,7 @@ export function functionEffectsOp(session: EngineSession, params: Record<string,
     programHash: tier1.generation.programHash,
     tsconfig: tier1.generation.tsconfig,
     typescript: tier1.generation.typescript,
+    nullProof: tier1.generation.nullProof,
     assumptions: ASSUMPTIONS,
   };
   if (!callable) {

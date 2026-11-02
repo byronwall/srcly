@@ -46,6 +46,7 @@ export function routesOp(session: EngineSession, params: { expectedGeneration?: 
     programHash: tier1.generation.programHash,
     tsconfig: tier1.generation.tsconfig,
     typescript: tier1.generation.typescript,
+    nullProof: tier1.generation.nullProof,
     routes: routes
       .map((route) => ({
         key: route.key,

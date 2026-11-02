@@ -21,6 +21,7 @@
   },
   "frontiers": [],
   "generation": 1,
+  "nullProof": true,
   "outcome": "unsupported",
   "programHash": "hash-1",
   "reason": "no-evidence-element",

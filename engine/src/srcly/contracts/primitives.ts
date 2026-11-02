@@ -7,8 +7,11 @@ export const outcomeSchema = z.enum(["ok", "assumed", "partial", "not-analyzed",
 export const generationFields = {
   generation: z.number().int().positive(),
   programHash: z.string(),
+  /** The config the Program was read with; empty for a project with no config. */
   tsconfig: z.string(),
   typescript: z.string(),
+  /** Whether a type can prove a value is never null. False with `strictNullChecks` off or no config: the trace still holds, but `string` may be undefined. */
+  nullProof: z.boolean(),
 };
 
 export const progressSchema = z.strictObject({

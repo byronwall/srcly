@@ -34,6 +34,29 @@ def test_a_config_name_the_engine_never_reads_does_not_claim_the_root(tmp_path, 
     assert availability.probe(tmp_path).reason == "no-tsconfig"
 
 
+def test_javascript_with_no_config_is_analyzed_as_typescript(tmp_path, monkeypatch):
+    _ready(monkeypatch)
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.js").write_text("")
+    found = availability.probe(tmp_path)
+    assert found.available and found.language == "typescript"
+
+
+def test_a_python_project_keeps_its_stray_scripts_as_python(tmp_path, monkeypatch):
+    _ready(monkeypatch)
+    (tmp_path / "pyproject.toml").write_text("")
+    (tmp_path / "tool.js").write_text("")
+    assert availability.probe(tmp_path).language == "python"
+
+
+def test_a_package_json_root_keeps_its_stray_python_as_javascript(tmp_path, monkeypatch):
+    _ready(monkeypatch)
+    (tmp_path / "package.json").write_text("{}")
+    (tmp_path / "app.js").write_text("")
+    (tmp_path / "tool.py").write_text("")
+    assert availability.probe(tmp_path).language == "typescript"
+
+
 def test_javascript_files_are_counted_for_the_first_query_timeout(tmp_path):
     for name in ("a.js", "b.mjs", "c.cjs", "d.jsx", "e.ts", "f.d.ts", "g.d.mts", "h.css"):
         (tmp_path / name).write_text("")

@@ -10,7 +10,6 @@ export const PROTOCOL_VERSION = 1;
 export const ENGINE_ERROR_CODES = [
   "invalid-request",
   "no-tsconfig",
-  "non-strict-tsconfig",
   "no-ts-files",
   "typescript-not-found",
   "python-not-found",

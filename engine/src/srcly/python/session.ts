@@ -30,6 +30,7 @@ export function createPythonTier1(config: EngineConfig, generationId: number, pr
   };
   const generation: Generation = {
     id: generationId,
+    nullProof: true,
     programHash: hashProgramInputs(inputs),
     tsconfig: project ? path.relative(root, project) : "",
     typescript: checker,

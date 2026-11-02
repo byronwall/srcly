@@ -83,6 +83,7 @@
       "status": "partial"
     }
   ],
+  "nullProof": true,
   "origins": [],
   "outcome": "partial",
   "phase": "complete",

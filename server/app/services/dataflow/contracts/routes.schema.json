@@ -30,6 +30,9 @@
     "typescript": {
       "type": "string"
     },
+    "nullProof": {
+      "type": "boolean"
+    },
     "routes": {
       "type": "array",
       "items": {
@@ -140,6 +143,7 @@
     "programHash",
     "tsconfig",
     "typescript",
+    "nullProof",
     "routes"
   ],
   "additionalProperties": false
