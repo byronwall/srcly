@@ -3,7 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { hashProgramInputs } from "../../src/srcly/fingerprint";
-import { engineFingerprint, ResultCache } from "../../src/srcly/result-cache";
+import { BUILTIN_MODELS_DIR } from "../../src/analysis/library-models";
+import { engineFingerprint, engineRoots, ResultCache } from "../../src/srcly/result-cache";
 import { solidRoute, startEngine } from "./engine-process";
 
 // T11: a second process with the same Program answers from disk before it builds.
@@ -65,6 +66,19 @@ describe("the result cache across engine builds", () => {
     expect(new ResultCache(dir, solidRoute, "engine-b").get("routeGraph", params)).toBeNull();
     // The real fingerprint is stable within one build.
     expect(engineFingerprint()).toBe(engineFingerprint());
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("misses when only a model row changes, so a corrected row never serves an old trace", () => {
+    expect(engineRoots()).toContain(BUILTIN_MODELS_DIR);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "srcly-result-cache-"));
+    const models = path.join(dir, "models");
+    fs.mkdirSync(models);
+    fs.writeFileSync(path.join(models, "rows.json"), '{"rows":[]}');
+    const before = engineFingerprint([models]);
+    expect(engineFingerprint([models])).toBe(before);
+    fs.writeFileSync(path.join(models, "rows.json"), '{"rows":[{"name":"x"}]}');
+    expect(engineFingerprint([models])).not.toBe(before);
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });
