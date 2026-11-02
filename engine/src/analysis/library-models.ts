@@ -34,6 +34,7 @@ export const libraryModelRowSchema = z
     option: z.string().min(1).optional().describe("For `calls-back`: the options key that holds the callback (`queryFn`)."),
     lazy: z.literal(true).optional().describe("For `state-pair`: a function initial value is called, and what it returns seeds the state (`useState(() => …)`)."),
     writes: z.literal("this").optional().describe("For `consumes`: the receiver keeps the arguments (`push`, `set`). A `consumes` row without it keeps nothing (`concat`)."),
+    settles: z.enum(["then", "catch", "finally", "reject"]).optional().describe("For a promise's member: which outcome each callback takes and what the new promise holds (`PROMISE_CHANNELS`); `reject` makes a promise that only rejects."),
     proof: z.string().min(1).optional().describe("The proof kind its relations carry, so existing proof names survive."),
     note: z.string().optional().describe("One line for the code map and the proof detail."),
   })

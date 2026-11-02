@@ -247,6 +247,8 @@ export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "locatio
   // A computed key picks a field without being the value read or written: `obj[k]`, `{ [k]: v }`, `{ [k]: v } = obj`.
   if ((ts.isElementAccessExpression(parent) && parent.argumentExpression === node) || ts.isComputedPropertyName(parent)) return "key";
   if (ts.isThrowStatement(parent) && parent.expression === node) return "throw";
+  // `Promise.reject(reason)` throws it too, for a handler the code may not show.
+  if (ts.isCallExpression(parent) && parent.arguments[0] === node && standardMemberModel(builtinLibraryModels(), browserMember(ts, tier1.program.getTypeChecker(), parent.expression))?.settles === "reject") return "throw";
   const candidates = programEvidenceCandidateIndex(ts, tier1.program, tier1.root);
   if (sourceFile && exportedDeclaration(ts, tier1.program.getTypeChecker(), sourceFile, node, candidates)) return "exported-api";
   if (unreadBinding(ts, tier1.program.getTypeChecker(), node, candidates)) return "unused";
