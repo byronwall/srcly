@@ -1,5 +1,5 @@
 import type * as TypeScript from "typescript";
-import { calleeName, importModule, lastName } from "./program-evidence-support";
+import { importedCallee } from "./program-evidence-support";
 import { resolveValue } from "./value-origin";
 import { callsInitialValue, makesStatePair, reducerArgument } from "./framework-flows";
 
@@ -10,16 +10,10 @@ import { callsInitialValue, makesStatePair, reducerArgument } from "./framework-
  * seeds it. The mechanism is the same for each factory.
  */
 
-/** The module and export name a state factory call is made through: `useState` imported by name, or `React.useState` through a namespace. */
-function factoryName(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): { module: string; name: string } | null {
-  const module = importModule(ts, checker, callee) ?? (ts.isPropertyAccessExpression(callee) ? importModule(ts, checker, callee.expression) : null);
-  return module ? { module, name: lastName(calleeName(ts, callee)) } : null;
-}
-
 /** Whether this call is a state factory. */
 export function stateFactory(ts: typeof TypeScript, checker: TypeScript.TypeChecker, call: TypeScript.Expression): boolean {
   if (!ts.isCallExpression(call)) return false;
-  const factory = factoryName(ts, checker, call.expression);
+  const factory = importedCallee(ts, checker, call.expression);
   return !!factory && makesStatePair(factory.module, factory.name);
 }
 
@@ -45,14 +39,14 @@ export function stateRoleOf(ts: typeof TypeScript, checker: TypeScript.TypeCheck
 export function reducerOf(ts: typeof TypeScript, checker: TypeScript.TypeChecker, getter: TypeScript.Identifier): TypeScript.Expression | null {
   const pair = getter.parent.parent.parent;
   if (!ts.isVariableDeclaration(pair) || !pair.initializer || !ts.isCallExpression(pair.initializer)) return null;
-  const factory = factoryName(ts, checker, pair.initializer.expression);
+  const factory = importedCallee(ts, checker, pair.initializer.expression);
   const at = factory ? reducerArgument(factory.module, factory.name) : null;
   return at === null ? null : pair.initializer.arguments[at] ?? null;
 }
 
 /** The getter of the state pair this factory call makes, when the factory calls a function initial value (`const [n] = useState(() => …)`); null otherwise. */
 export function lazyFactoryGetter(ts: typeof TypeScript, checker: TypeScript.TypeChecker, call: TypeScript.CallExpression): TypeScript.Identifier | null {
-  const factory = factoryName(ts, checker, call.expression);
+  const factory = importedCallee(ts, checker, call.expression);
   if (!factory || !callsInitialValue(factory.module, factory.name)) return null;
   const pair = call.parent;
   const first = ts.isVariableDeclaration(pair) && pair.initializer === call && ts.isArrayBindingPattern(pair.name) ? pair.name.elements[0] : undefined;

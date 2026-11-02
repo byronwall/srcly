@@ -4,7 +4,7 @@ import type { CollectorCallInfo, CollectorFunctionInfo } from "./program-evidenc
 import type { PendingComponentPropBinding } from "./program-evidence-collector-component-binding";
 import { ProgramEvidenceCollectorFieldTransferSupport } from "./program-evidence-collector-field-transfers";
 import { reachingBindings } from "./program-evidence-reaching-bindings";
-import { resolveValue } from "./value-origin";
+import { resolveValue, wrapperFillsParameters } from "./value-origin";
 import { stateRoleOf } from "./program-evidence-state-pairs";
 import { makesStore } from "./framework-flows";
 import type { ProgramEvidenceLocation } from "./program-evidence";
@@ -428,11 +428,12 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       if (!call.target) this.connectEmitter(call);
       if (call.target && connect) {
         const callNode = this.ts.isCallExpression(call.node) ? call.node : null;
+        const fillsOwnParameters = wrapperFillsParameters(this.ts, this.checker, call.node.expression);
         for (const parameter of call.target.declaration.parameters) {
           this.checkCancellation();
           const index = call.target.declaration.parameters.indexOf(parameter);
           // `mutate(x, options)`: the options are the hook's own, not the `mutationFn`'s second argument.
-          const argument = index > 0 && callNode && this.mutationFunction(callNode) ? undefined : call.node.arguments?.[index];
+          const argument = (index > 0 && callNode && this.mutationFunction(callNode)) || fillsOwnParameters ? undefined : call.node.arguments?.[index];
           const binding = firstBindingIdentifier(this.ts, parameter.name);
           const parameterId = binding
             ? this.parametersBySymbol.get(this.symbolId(binding) ?? "")

@@ -24,9 +24,9 @@
       "name": "createSelector",
       "model": "calls-back",
       "args": "0",
-      "returns": "callback",
+      "returns": "boolean",
       "accessor": true,
-      "note": "The call makes an accessor that tests a key against what its source returns."
+      "note": "The call makes a predicate: calling it tests a key against what its source returns, and yields a boolean."
     },
     {
       "language": "ts",
@@ -60,11 +60,10 @@
       "language": "ts",
       "module": "solid-js",
       "name": "on",
-      "model": "calls-back",
+      "model": "wraps",
       "args": "1",
-      "returns": "callback",
       "source": "0",
-      "note": "The callback receives what the source returns (or is); the call's value is what the callback returns."
+      "note": "The call returns a new function: calling it runs the callback with what the source returns, and yields the callback's return."
     },
     {
       "language": "ts",
@@ -88,8 +87,8 @@
       "name": "createEffect",
       "model": "calls-back",
       "args": "0",
-      "returns": "callback",
-      "note": "The framework runs the callback for what it does; the call's own value is unused."
+      "returns": "void",
+      "note": "The framework runs the callback for what it does. The call itself has no value."
     },
     {
       "language": "ts",
@@ -97,8 +96,8 @@
       "name": "createRenderEffect",
       "model": "calls-back",
       "args": "0",
-      "returns": "callback",
-      "note": "The framework runs the callback for what it does; the call's own value is unused."
+      "returns": "void",
+      "note": "The framework runs the callback for what it does. The call itself has no value."
     },
     {
       "language": "ts",
@@ -106,8 +105,8 @@
       "name": "createComputed",
       "model": "calls-back",
       "args": "0",
-      "returns": "callback",
-      "note": "The framework runs the callback for what it does; the call's own value is unused."
+      "returns": "void",
+      "note": "The framework runs the callback for what it does. The call itself has no value."
     },
     {
       "language": "ts",
@@ -115,17 +114,16 @@
       "name": "onMount",
       "model": "calls-back",
       "args": "0",
-      "returns": "callback",
-      "note": "The framework runs the callback for what it does; the call's own value is unused."
+      "returns": "void",
+      "note": "The framework runs the callback for what it does. The call itself has no value."
     },
     {
       "language": "ts",
       "module": "solid-js",
       "name": "onCleanup",
-      "model": "calls-back",
+      "model": "wraps",
       "args": "0",
-      "returns": "callback",
-      "note": "The framework runs the callback for what it does; the call's own value is unused."
+      "note": "The call returns the function it is given, and the framework runs that function when its owner is disposed."
     },
     {
       "language": "ts",

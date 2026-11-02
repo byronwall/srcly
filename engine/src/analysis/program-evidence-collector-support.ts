@@ -67,7 +67,7 @@ import {
   symbolAtNode,
   unwrap,
 } from "./program-evidence-support";
-import { hasNoValue, optionFlow } from "./framework-flows";
+import { hasNoValue, optionFlow, yieldsFirstFunction } from "./framework-flows";
 import { resolveValue } from "./value-origin";
 import { NO_ANALYSIS_CANCELLATION, type AnalysisCancellationToken } from "./cancellation";
 import { builtinLibraryModels, globalReads, tsModel, type GlobalReads, type LibraryModelRow, type LibraryModels } from "./library-models";
@@ -556,10 +556,18 @@ export class ProgramEvidenceCollectorSupport {
     if (this.ts.isArrowFunction(callee) || this.ts.isFunctionExpression(callee)) return this.functionsByNode.get(nodeKey(this.root, callee)) ?? null;
     const symbolId = this.symbolId(node);
     const named = symbolId ? this.functionsBySymbol.get(symbolId) : undefined;
-    if (named) return named;
+    if (named && this.bindsItsFunction(named)) return named;
     // Reached through an object, a destructured binding or an alias: the one function the checker names.
     const value = this.ts.isExpression(node) ? resolveValue(this.ts, this.checker, node) : null;
     return value ? this.functionsByNode.get(nodeKey(this.root, value.origin)) ?? null : null;
+  }
+
+  /** A function named by the declaration around the call it is given (`functionNameNode`) is what that name holds, unless a row says the call makes something else. */
+  private bindsItsFunction(info: CollectorFunctionInfo): boolean {
+    const call = info.declaration.parent;
+    if (!call || !this.ts.isCallExpression(call) || call.arguments[0] !== info.declaration) return true;
+    const imported = importedCallee(this.ts, this.checker, call.expression);
+    return !imported || yieldsFirstFunction(imported.module, imported.name);
   }
 
   /** The function a data hook's options object names under `option` (`useQuery({ queryFn })`), or null. */
@@ -602,8 +610,9 @@ export class ProgramEvidenceCollectorSupport {
     // A state factory is modelled (`program-evidence-state-pairs.ts`): what it does with its argument is the pair's state, not an external effect.
     if (stateFactory(this.ts, this.checker, node)) return false;
     const module = this.moduleFor(node.expression);
+    const name = importedCallee(this.ts, this.checker, node.expression)?.name ?? calleeName(this.ts, node.expression);
     return Boolean(
-      (module && !isFrameworkCall(module, calleeName(this.ts, node.expression))) ||
+      (module && !isFrameworkCall(module, name)) ||
         isEffectName(calleeName(this.ts, node.expression)) ||
         (!module && this.droppedLibraryCall(node)),
     );

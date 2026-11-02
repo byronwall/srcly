@@ -5,13 +5,14 @@
 import { builtinLibraryModels, tsModelModule, type LibraryModelRow } from "./library-models";
 
 /**
- * `returns` the call's value is what its callback (at that argument) returns;
+ * `returns` the call's value is what its callback (at that argument) returns,
+ * or with `compares` a boolean test of it;
  * `passes` the call's value carries those arguments (`*` every one);
  * `source` and `callback` the callback's first parameter receives what the
  * source returns (or is). A flow with none of these is a call with no value:
  * its callback runs for what it does (`useEffect`), and nothing comes back.
  */
-export type FrameworkFlow = { returns?: number; passes?: number[] | "*"; source?: number; callback?: number };
+export type FrameworkFlow = { returns?: number; compares?: boolean; passes?: number[] | "*"; source?: number; callback?: number };
 
 /** The row for an imported framework call (`solid-js`'s `createMemo`), by its module and export name. */
 export function frameworkRow(module: string, name: string): LibraryModelRow | null {
@@ -29,6 +30,9 @@ export function frameworkFlow(module: string, name: string): FrameworkFlow | und
   const at = argument(row);
   if (row.model === "passes-through") return { passes: at === undefined ? "*" : [at] };
   if (yieldsNothing(row)) return {};
+  if (row.model === "calls-back" && row.returns === "boolean" && at !== undefined) return { returns: at, compares: true };
+  // A wrapper that fills its function's first parameter from a source (`on(source, fn)`).
+  if (row.model === "wraps" && row.source !== undefined && at !== undefined) return { source: Number(row.source), callback: at };
   if (row.model === "calls-back" && row.returns === "callback" && at !== undefined) {
     return row.source !== undefined ? { returns: at, source: Number(row.source), callback: at } : { returns: at };
   }
@@ -42,9 +46,27 @@ export function hasNoValue(module: string, name: string): boolean {
   return yieldsNothing(frameworkRow(module, name));
 }
 
-/** Whether the call returns the function it is given (`action(fn)`, `useCallback(fn)`, `debounce(fn)`). */
-export function wrapsFunction(module: string, name: string): boolean {
-  return frameworkRow(module, name)?.model === "wraps";
+/** Which argument the call returns, wrapped (`action(fn)`, `useCallback(fn)`, `debounce(fn)`, `on(source, fn)`), or null for any other call. */
+export function wrappedPosition(module: string, name: string): number | null {
+  const row = frameworkRow(module, name);
+  return row?.model === "wraps" ? argument(row) ?? 0 : null;
+}
+
+/**
+ * Whether what `const x = call(fn)` binds runs `fn`, so `x()` is a call of it.
+ * True for a call no row names. False where a row says otherwise: an effect
+ * (no value), `batch(fn)` (what `fn` returns), `createSelector(fn)` (a test).
+ */
+export function yieldsFirstFunction(module: string, name: string): boolean {
+  const row = frameworkRow(module, name);
+  if (row?.model === "wraps") return wrappedPosition(module, name) === 0;
+  return row?.model !== "calls-back" || (row.accessor === true && row.returns === "callback");
+}
+
+/** Whether calling what the factory makes tests a key against its source (`createSelector`), rather than yields the source's value. */
+export function makesPredicate(module: string, name: string): boolean {
+  const row = frameworkRow(module, name);
+  return row?.accessor === true && row.returns === "boolean";
 }
 
 /** Whether the call makes an accessor that yields its callback's return (`createMemo`, `createAsync`). */
