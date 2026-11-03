@@ -64,7 +64,9 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       if (this.ts.isElementAccessExpression(node)) {
         this.processIndex(node, nextOwner);
       }
-      if (this.ts.isObjectLiteralExpression(node) || this.ts.isArrayLiteralExpression(node)) {
+      // `f.apply(t, [a, b])`'s list is no value of its own: each item is an argument (`callAdapter`).
+      const applyList = this.ts.isArrayLiteralExpression(node) && this.ts.isCallExpression(node.parent) && this.callAdapter(node.parent)?.list === node;
+      if ((this.ts.isObjectLiteralExpression(node) || this.ts.isArrayLiteralExpression(node)) && !applyList) {
         this.processObject(node, nextOwner);
       }
       if (this.ts.isForOfStatement(node)) {
@@ -93,8 +95,9 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         this.processAssignment(node as TypeScript.BinaryExpression & { left: TypeScript.Identifier }, nextOwner);
       }
       // `obj.field = value`, and a compound one (`count.current += step`, `cache.hit ??= value`): the right side goes into the field.
-      if (this.ts.isBinaryExpression(node) && isAssignmentOperator(this.ts, node.operatorToken.kind) && this.ts.isPropertyAccessExpression(node.left)) {
-        this.processFieldAssignment(node as TypeScript.BinaryExpression & { left: TypeScript.PropertyAccessExpression }, nextOwner);
+      // `obj["field"] = value` and `obj[key] = value` too, on a local object.
+      if (this.ts.isBinaryExpression(node) && isAssignmentOperator(this.ts, node.operatorToken.kind) && (this.ts.isPropertyAccessExpression(node.left) || this.ts.isElementAccessExpression(node.left))) {
+        this.processFieldAssignment(node as TypeScript.BinaryExpression & { left: TypeScript.PropertyAccessExpression | TypeScript.ElementAccessExpression }, nextOwner);
       }
       if (this.ts.isPropertyAccessExpression(node) && !(this.ts.isBinaryExpression(node.parent) && node.parent.left === node && isAssignmentOperator(this.ts, node.parent.operatorToken.kind))) {
         this.memberReads.push({ node, ownerId: nextOwner });
@@ -464,7 +467,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
           this.checkCancellation();
           const index = call.target.declaration.parameters.indexOf(parameter);
           // `mutate(x, options)`: the options are the hook's own, not the `mutationFn`'s second argument.
-          const argument = (index > 0 && callNode && this.mutationFunction(callNode)) || fillsOwnParameters ? undefined : call.node.arguments?.[index];
+          const argument = (index > 0 && callNode && this.mutationFunction(callNode)) || fillsOwnParameters ? undefined : call.adapter ? call.adapter.args[index] : call.node.arguments?.[index];
           const binding = firstBindingIdentifier(this.ts, parameter.name);
           const parameterId = binding
             ? this.parametersBySymbol.get(this.symbolId(binding) ?? "")
@@ -486,7 +489,14 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         }
         // A method that reads `this` takes the call's receiver as its receiver, bound like an argument and paired the same way (T13).
         const callee = unwrap(this.ts, call.node.expression);
-        const thisId = this.ts.isPropertyAccessExpression(callee) || this.ts.isElementAccessExpression(callee) ? this.thisBinding(call.target.declaration) : null;
+        // Through an adapter, `this` is the value it was handed (`f.call(t)`), never the function it was read from.
+        const adaptedThis = call.adapter?.thisArg && unwrap(this.ts, call.adapter.thisArg);
+        const adaptedThisId = adaptedThis && adaptedThis.kind !== this.ts.SyntaxKind.NullKeyword ? this.thisBinding(call.target.declaration) : null;
+        if (adaptedThis && adaptedThisId) {
+          const at = [this.location(adaptedThis)];
+          this.addRelation(this.expression(adaptedThis, call.ownerId), adaptedThisId, "argument-binding", at, proof("argument-binding", "The adapter hands this value to the function as its `this`.", at), "proven");
+        }
+        const thisId = !call.adapter && (this.ts.isPropertyAccessExpression(callee) || this.ts.isElementAccessExpression(callee)) ? this.thisBinding(call.target.declaration) : null;
         if (thisId && (this.ts.isPropertyAccessExpression(callee) || this.ts.isElementAccessExpression(callee))) {
           const receiverId = this.expression(callee.expression, call.ownerId);
           const at = [this.location(callee.expression)];

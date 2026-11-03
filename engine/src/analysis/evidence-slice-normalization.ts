@@ -74,9 +74,12 @@ export function toSliceElement(element: IndexedProgramElement): ProgramElement {
   return {
     id: element.id,
     kind: element.kind,
+    // A string-literal key (`bag["y"]`) reads that field, as `bag.y` does.
     fieldName: element.kind === "field-read" && element.operationKind === "field-read" && typeof element.attributes.property === "string"
       ? element.attributes.property
-      : null,
+      : element.operationKind === "index-read" && element.attributes.indexKind === "string-literal" && typeof element.attributes.indexValue === "string"
+        ? element.attributes.indexValue
+        : null,
     operationKind: element.operationKind,
     index: indexReadMetadataFromElement(element),
     label: element.label,

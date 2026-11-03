@@ -45,6 +45,7 @@ import {
   type ProgramEvidenceDeclarationCatalogView,
 } from "./program-evidence-declaration-catalog";
 import {
+  browserMember,
   calleeName,
   compilerSymbolId,
   firstBindingIdentifier,
@@ -82,7 +83,12 @@ export type CollectorCallInfo = {
   id: string;
   target: CollectorFunctionInfo | null;
   ownerId: string | null;
+  /** Set when the call runs `target` through `call`, `apply` or `bind` (`callAdapter`). */
+  adapter?: CallAdapter;
 };
+
+/** What a call through `f.call`, `f.apply` or a `f.bind` result hands `f`: its `this`, and the value at each parameter position. */
+export type CallAdapter = { target: CollectorFunctionInfo; thisArg: TypeScript.Expression | undefined; args: (TypeScript.Expression | undefined)[]; list?: TypeScript.Expression };
 
 export type CollectorReferenceInfo = {
   node: TypeScript.Identifier;
@@ -609,8 +615,36 @@ export class ProgramEvidenceCollectorSupport {
     return declaration && this.ts.isConstructorDeclaration(declaration) ? this.functionsByNode.get(nodeKey(this.root, declaration)) ?? null : null;
   }
 
+  /**
+   * A call that runs a function of the project's through the standard
+   * library's adapters: `f.call(t, a)`, `f.apply(t, [a])`, or a call of what
+   * `f.bind(t, a)` returned (`const g = f.bind(t, a); g(b)`). `f` gets `t` as
+   * its `this` and the arguments shifted into place. An `apply` whose list is
+   * not written out is null: which value lands where is not known.
+   */
+  protected callAdapter(node: TypeScript.CallExpression): CallAdapter | null {
+    const adapted = (call: TypeScript.CallExpression, name: string) => {
+      const callee = unwrap(this.ts, call.expression);
+      if (!this.ts.isPropertyAccessExpression(callee) || callee.name.text !== name) return null;
+      const owner = browserMember(this.ts, this.checker, callee)?.owner;
+      if (owner !== "Function" && owner !== "CallableFunction" && owner !== "NewableFunction") return null;
+      return this.targetFunction(callee.expression);
+    };
+    const [thisArg, ...rest] = node.arguments;
+    const called = adapted(node, "call");
+    if (called) return { target: called, thisArg, args: rest };
+    const applied = adapted(node, "apply");
+    const list = rest[0] && unwrap(this.ts, rest[0]);
+    if (applied && list && this.ts.isArrayLiteralExpression(list) && !list.elements.some((item) => this.ts.isSpreadElement(item))) return { target: applied, thisArg, args: [...list.elements], list: rest[0] };
+    const origin = this.ts.isIdentifier(unwrap(this.ts, node.expression)) ? resolveValue(this.ts, this.checker, node.expression)?.origin : unwrap(this.ts, node.expression);
+    const binder = origin && this.ts.isExpression(origin) ? unwrap(this.ts, origin) : undefined;
+    const bound = binder && this.ts.isCallExpression(binder) ? adapted(binder, "bind") : null;
+    if (bound && binder && this.ts.isCallExpression(binder)) return { target: bound, thisArg: binder.arguments[0], args: [...binder.arguments.slice(1), ...node.arguments] };
+    return null;
+  }
+
   protected isExternalCall(node: TypeScript.CallExpression): boolean {
-    if (this.targetFunction(node.expression) || this.mutationFunction(node)) return false;
+    if (this.targetFunction(node.expression) || this.mutationFunction(node) || this.callAdapter(node)) return false;
     // A state factory is modelled (`program-evidence-state-pairs.ts`): what it does with its argument is the pair's state, not an external effect.
     if (stateFactory(this.ts, this.checker, node)) return false;
     const module = this.moduleFor(node.expression);
