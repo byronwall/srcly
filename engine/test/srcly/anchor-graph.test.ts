@@ -193,13 +193,13 @@ describe("anchorGraph on value-flow-basics", () => {
     expect(frames.some((label) => label.includes("(anonymous)"))).toBe(false);
   });
 
-  it("hands a library call's receiver to its callback's parameter alone (the rest is annotated in the fixture)", () => {
+  it("hands a library call's receiver to the element parameter alone (the rest is annotated in the fixture)", () => {
     const graph = anchorGraphOp(session, { ...find(basics, "src/library-callbacks.tsx", "props.items", "props.items.reduce"), direction: "forward" });
-    const item = graph.nodes.find((node) => node.elementKind === "parameter" && node.label === "item")!;
-    expect(graph.edges.find((edge) => edge.kind === "callback-parameter" && edge.target === item.id)).toMatchObject({ status: "proven" });
-    // Only the receiver is handed in: never the call's other argument (`0`).
+    const label = (id: string) => graph.nodes.find((node) => node.id === id)?.label;
     const handed = graph.edges.filter((edge) => edge.kind === "callback-parameter");
-    expect(handed.map((edge) => graph.nodes.find((node) => node.id === edge.source)?.label)).toEqual(["props.items"]);
+    expect(handed.find((edge) => label(edge.target) === "item")).toMatchObject({ status: "proven" });
+    // The receiver goes to `item` only; `sum` takes the callback's own last return, never the receiver.
+    expect(handed.map((edge) => `${label(edge.source)} -> ${label(edge.target)}`).sort()).toEqual(["props.items -> item", "return -> sum"]);
   });
 
   it("refuses a direction it does not know and a name without a line", () => {
