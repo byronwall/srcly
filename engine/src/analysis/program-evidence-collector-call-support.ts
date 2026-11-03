@@ -226,8 +226,11 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       ),
     );
     // `super(name)` runs the base class's constructor.
-    const target = this.targetFunction(node.expression) ?? (node.expression.kind === this.ts.SyntaxKind.SuperKeyword ? this.constructorTarget(node) : null) ?? this.mutationFunction(node);
-    this.calls.push({ node, id: callId, target, ownerId });
+    // `f.call(t, a)`, `f.apply(t, [a])`, `g(a)` after `g = f.bind(t)`: the call runs `f` (`callAdapter`).
+    const direct = this.targetFunction(node.expression) ?? (node.expression.kind === this.ts.SyntaxKind.SuperKeyword ? this.constructorTarget(node) : null) ?? this.mutationFunction(node);
+    const adapter = direct ? null : this.callAdapter(node);
+    const target = direct ?? adapter?.target ?? null;
+    this.calls.push({ node, id: callId, target, ownerId, ...(adapter ? { adapter } : {}) });
     this.connectFrameworkFlow(node, callId, ownerId);
     if (target) {
       this.addRelation(
@@ -305,6 +308,11 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     }
     const flow = this.flowOf(node);
     for (const [index, argument] of (role ? [] : node.arguments).entries()) {
+      // `f.apply(t, [a, b])`: each listed value is an argument of its own, never the list.
+      if (argument === adapter?.list) {
+        for (const item of adapter.args) if (item) this.addRelation(this.expression(item, ownerId), callId, "argument", [this.location(item)], proof("ast-node", "The listed value is passed at this call occurrence.", [this.location(item)]), "proven");
+        continue;
+      }
       // A spread argument passes its elements: the value is what it spreads.
       const argumentId = this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId);
       // The flow moves these: a passed value goes through whole, so a field stays that field, and a resource's source reaches the fetcher's parameter, never the resource.

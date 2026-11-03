@@ -6,6 +6,7 @@ import {
   bindingIdentifiers,
   browserMember,
   firstBindingIdentifier,
+  nodeKey,
   propertyBase,
   proof,
   responseReturnRole,
@@ -429,29 +430,38 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
   /**
    * `o.title = value` on a variable or parameter the project declares packs
    * the value into `o` under `title`, as `{ title: value }` would: a later
-   * read of `o.title` sees it, and a read of another field does not.
+   * read of `o.title` sees it, and a read of another field does not. A literal
+   * key (`o["title"] = value`) packs the same way; a computed one
+   * (`o[key] = value`) packs into some field of `o`, which the source does not
+   * say, so the step is `partial` and every read of `o` may see it. An
+   * assignment to a setter the project declares (`cell.current = value`) runs
+   * the setter: the value binds its parameter, the receiver its `this`.
    */
   protected processFieldAssignment(
-    node: TypeScript.BinaryExpression & { left: TypeScript.PropertyAccessExpression },
+    node: TypeScript.BinaryExpression & { left: TypeScript.PropertyAccessExpression | TypeScript.ElementAccessExpression },
     ownerId: string | null,
   ): void {
     const receiver = node.left.expression;
+    if (this.processSetterAssignment(node, ownerId)) return;
     const receiverSymbol = this.ts.isIdentifier(receiver) ? this.symbolId(receiver) ?? "" : "";
     const holderId = this.variablesBySymbol.get(receiverSymbol) ?? this.parametersBySymbol.get(receiverSymbol);
+    // A name or a literal key names the field; any other key (`bag[key]`) is computed.
+    const key = this.ts.isPropertyAccessExpression(node.left) ? node.left.name : node.left.argumentExpression;
+    const literal = this.ts.isPropertyAccessExpression(node.left) ? node.left.name : this.ts.isStringLiteral(key) || this.ts.isNumericLiteral(key) ? key : null;
     // `this.title = value`, `state.card.title = value`: no local object to pack into, so the member itself keeps it.
     // A property the browser declares (`document.title`, `el.textContent`) is written to the page.
     if (!holderId) {
+      if (!this.ts.isPropertyAccessExpression(node.left)) return;
       const valueId = this.expression(node.right, ownerId);
-      if (browserMember(this.ts, this.checker, node.left)) return this.processBrowserWrite(node, valueId, ownerId);
+      if (browserMember(this.ts, this.checker, node.left)) return this.processBrowserWrite(node as TypeScript.BinaryExpression & { left: TypeScript.PropertyAccessExpression }, valueId, ownerId);
       return this.addMemberWrite(node.left, valueId);
     }
-    const field = node.left.name;
-    const { span } = this.location(field);
+    const { span } = this.location(key);
     const packId = this.ensureElement(
       node,
       "object-pack",
       ownerId,
-      { operation: "object-pack", fields: JSON.stringify({ [`${span.startLine}:${span.startColumn}`]: field.text }) },
+      { operation: "object-pack", fields: JSON.stringify(literal ? { [`${span.startLine}:${span.startColumn}`]: literal.text } : {}) },
       null,
       null,
       null,
@@ -462,10 +472,12 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
       this.expression(node.right, ownerId),
       packId,
       "pack-field",
-      [this.location(field)],
-      proof("ast-node", "The assigned value is packed under this field.", [this.location(field)]),
-      "proven",
+      [this.location(key)],
+      proof("ast-node", literal ? "The assigned value is packed under this field." : "The assigned value is packed under a computed key: some field of the object, which the source does not say.", [this.location(key)]),
+      literal ? "proven" : "partial",
     );
+    // The computed key is a value of its own: it picks the field, so a walk that reaches it ends there.
+    if (!literal) this.expression(key, ownerId);
     this.addRelation(
       packId,
       holderId,
@@ -474,6 +486,25 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
       proof("ast-node", "The object the assignment sets a field of.", [this.location(receiver)]),
       "proven",
     );
+  }
+
+  /** `cell.current = value` where the project declares `set current(…)`: the value binds the setter's parameter and the receiver its `this`. False for any other assignment. */
+  private processSetterAssignment(node: TypeScript.BinaryExpression & { left: TypeScript.PropertyAccessExpression | TypeScript.ElementAccessExpression }, ownerId: string | null): boolean {
+    if (!this.ts.isPropertyAccessExpression(node.left) || node.operatorToken.kind !== this.ts.SyntaxKind.EqualsToken) return false;
+    const setter = this.checker.getSymbolAtLocation(node.left.name)?.declarations?.find((declaration) => this.ts.isSetAccessorDeclaration(declaration));
+    const info = setter && this.functionsByNode.get(nodeKey(this.root, setter));
+    const parameter = info?.declaration.parameters[0];
+    const binding = parameter && firstBindingIdentifier(this.ts, parameter.name);
+    const parameterId = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
+    if (!info || !parameter || !parameterId) return false;
+    const where = [this.location(node.right), this.location(parameter)];
+    this.addRelation(this.expression(node.right, ownerId), parameterId, "argument-binding", where, proof("argument-binding", "The assignment runs the setter the checker resolves: the value binds its parameter.", where), "proven");
+    const thisId = this.thisBinding(info.declaration);
+    if (thisId) {
+      const at = [this.location(node.left.expression)];
+      this.addRelation(this.expression(node.left.expression, ownerId), thisId, "argument-binding", at, proof("argument-binding", "The assignment's receiver binds to the setter's `this`.", at), "proven");
+    }
+    return true;
   }
 
   /** `location.search`, `document.cookie`: the browser hands the program this value, an origin. */
