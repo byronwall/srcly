@@ -145,7 +145,7 @@ export class ProgramEvidenceCollectorSupport {
 
   constructor(
     protected readonly ts: typeof TypeScript,
-    program: TypeScript.Program,
+    protected readonly program: TypeScript.Program,
     root: string,
     options: ProgramEvidenceOptions,
     relationSink: RelationSink | null = null,

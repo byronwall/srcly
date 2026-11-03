@@ -9,6 +9,8 @@ import { stateRoleOf } from "./program-evidence-state-pairs";
 import { makesStore } from "./framework-flows";
 import type { ProgramEvidenceLocation } from "./program-evidence";
 import { isSolidComponent } from "./program-evidence-collector-field-transfer-ast";
+import { ContextAncestry, contextApplies } from "./program-evidence-context-ancestry";
+import { programEvidenceCandidateIndex } from "./program-evidence-candidate-index";
 import {
   asFunctionLike,
   browserMember,
@@ -33,6 +35,14 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   private readonly stores = new Map<TypeScript.Symbol, { stateId: string; fn: TypeScript.ArrowFunction | TypeScript.FunctionExpression }>();
   /** Each context's provided values as written (`value={{ save }}`), to find the function a context method names. */
   private readonly contextValues = new Map<string, TypeScript.Expression[]>();
+  /** Each context's `createContext()` call, by its key: its argument is the default. */
+  private readonly contextCalls = new Map<string, TypeScript.CallExpression>();
+  private readonly contextAncestry = new ContextAncestry({
+    ts: this.ts,
+    provided: (tag) => this.providedContext(tag),
+    component: (tag) => this.renderedComponent(tag).target?.declaration ?? null,
+    references: (name) => programEvidenceCandidateIndex(this.ts, this.program, this.root).referencesFor(name),
+  });
 
   protected collectNodes(root: TypeScript.Node): void {
     const visit = (node: TypeScript.Node, ownerId: string | null) => {
@@ -122,9 +132,11 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   ): void {
     const opening = this.ts.isJsxElement(node) ? node.openingElement : node;
     const tag = opening.tagName.getText(node.getSourceFile());
-    const rendered = this.renderedComponent(opening.tagName);
+    // A provider (`<Ctx.Provider>`, React 19's `<Ctx>`) hands its value to the context's readers, not to a component.
+    const provided = this.providedContext(opening.tagName);
+    const rendered = provided ? { target: null, aliasId: null } : this.renderedComponent(opening.tagName);
     // `<Dynamic component={Card} title={…} />` renders `Card`, and hands it the other attributes.
-    const dynamic = rendered.target ? undefined : this.dynamicComponent(opening);
+    const dynamic = rendered.target || provided ? undefined : this.dynamicComponent(opening);
     const { target, aliasId } = dynamic ? { target: this.targetFunction(dynamic), aliasId: null } : rendered;
     const component = Boolean(target || aliasId);
     const kind: ProgramElementKind = component
@@ -207,11 +219,10 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         : component ? attribute.initializer : undefined;
       if (!value || !this.ts.isExpression(value)) continue;
       const valueId = this.expression(value, ownerId);
-      const providing = attribute.name.getText() === "value" && this.ts.isPropertyAccessExpression(opening.tagName) && opening.tagName.name.text === "Provider";
-      if (providing && this.ts.isPropertyAccessExpression(opening.tagName)) {
-        const context = this.contextKey(opening.tagName.expression);
-        if (context) this.contextProviders.set(context, [...(this.contextProviders.get(context) ?? []), valueId]);
-        if (context) this.contextValues.set(context, [...(this.contextValues.get(context) ?? []), value]);
+      const context = attribute.name.getText() === "value" ? provided : null;
+      if (context) {
+        this.contextProviders.set(context, [...(this.contextProviders.get(context) ?? []), valueId]);
+        this.contextValues.set(context, [...(this.contextValues.get(context) ?? []), value]);
       }
       this.addRelation(
         valueId,
@@ -231,7 +242,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         this.queueComponentPropBinding(opening, attribute, valueId, occurrenceId, ownerId, target);
       }
       // A context's provided value goes to its readers (`connectContexts`), not into the page.
-      if (!component && !(providing && this.ts.isPropertyAccessExpression(opening.tagName) && this.contextKey(opening.tagName.expression))) {
+      if (!component && !context) {
         // Solid's `<Show when>` and `<Match when>` decide which branch renders; the value is no DOM attribute.
         const branch = attribute.name.getText() === "when"
           && (isSolidComponent(this.ts, this.checker, opening.tagName, "Show") || isSolidComponent(this.ts, this.checker, opening.tagName, "Match"));
@@ -373,31 +384,51 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   }
 
   /** The `createContext()` call (Solid's or React's) a context expression is, as a key, or null. */
-  private contextKey(expression: TypeScript.Expression): string | null {
+  private contextKey(expression: TypeScript.Expression, modules = ["solid-js", "react"]): string | null {
     const origin = resolveValue(this.ts, this.checker, expression)?.origin;
     if (!origin || !this.ts.isCallExpression(origin)) return null;
     const imported = importedCallee(this.ts, this.checker, origin.expression);
-    const factory = imported?.name === "createContext" && (imported.module === "solid-js" || imported.module === "react");
+    const factory = imported?.name === "createContext" && modules.includes(imported.module ?? "");
     if (factory) this.requireReferences(expression);
+    if (factory) this.contextCalls.set(nodeKey(this.root, origin), origin);
     return factory ? nodeKey(this.root, origin) : null;
   }
 
-  /** `useContext(Ctx)` returns what a `<Ctx.Provider value={…}>` above it provides: every provider of that context. */
+  protected override readsContext(node: TypeScript.CallExpression): boolean {
+    const imported = importedCallee(this.ts, this.checker, node.expression);
+    if (imported?.name !== "useContext" || (imported.module !== "solid-js" && imported.module !== "react")) return false;
+    return Boolean(node.arguments[0] && this.contextKey(node.arguments[0]));
+  }
+
+  /** The context a JSX tag provides: `<Ctx.Provider>`, or React 19's `<Ctx>`, which is its own provider. */
+  private providedContext(tag: TypeScript.JsxTagNameExpression): string | null {
+    if (this.ts.isPropertyAccessExpression(tag) && tag.name.text === "Provider") return this.contextKey(tag.expression);
+    if (this.ts.isIdentifier(tag) && /^[a-z]/.test(tag.text)) return null;
+    return this.ts.isIdentifier(tag) || this.ts.isPropertyAccessExpression(tag) ? this.contextKey(tag, ["react"]) : null;
+  }
+
+  /**
+   * `useContext(Ctx)` returns what the nearest `Ctx` provider above the reader
+   * hands in, or the context's default where none is (`ContextAncestry`).
+   * Where a reader's mounts are not known, every provider and the default may be.
+   */
   private connectContexts(): void {
     for (const call of this.calls) {
       if (!this.ts.isCallExpression(call.node)) continue;
       const imported = importedCallee(this.ts, this.checker, call.node.expression);
       if (imported?.name !== "useContext" || (imported.module !== "solid-js" && imported.module !== "react")) continue;
       const context = call.node.arguments[0] ? this.contextKey(call.node.arguments[0]) : null;
-      for (const valueId of context ? this.contextProviders.get(context) ?? [] : []) {
-        this.addRelation(
-          valueId,
-          call.id,
-          "context-value",
-          [this.location(call.node)],
-          proof("framework-state", "The context's provider supplies the value useContext returns.", [this.location(call.node)]),
-          "proven",
-        );
+      if (!context) continue;
+      const above = this.contextAncestry.above(call.node, context);
+      const values = this.contextValues.get(context) ?? [];
+      const at = [this.location(call.node)];
+      (this.contextProviders.get(context) ?? []).forEach((valueId, index) => {
+        if (!contextApplies(above, values[index])) return;
+        this.addRelation(valueId, call.id, "context-value", at, proof("framework-state", "The context's provider supplies the value useContext returns.", at), "proven");
+      });
+      const fallback = this.contextCalls.get(context)?.arguments[0];
+      if (fallback && above.fallback) {
+        this.addRelation(this.expression(fallback, this.ownerId(fallback)), call.id, "context-value", at, proof("framework-state", "No provider is above this reader, so useContext returns the context's default.", at), "proven");
       }
     }
   }

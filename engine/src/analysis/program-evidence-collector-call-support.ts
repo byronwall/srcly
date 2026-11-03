@@ -313,6 +313,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       if (this.settles(node) === "reject") continue;
       // A state pair's initial value seeds its state directly (`seedArgument`), not through the factory's call.
       if (index === 0 && seedArgument(this.ts, this.checker, node)) continue;
+      // `useContext(Ctx)` returns what a provider or the default holds, never the context object.
+      if (index === 0 && this.readsContext(node)) continue;
       this.addRelation(
         argumentId,
         callId,
@@ -812,6 +814,11 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
   }
 
   /** How a standard promise member settles (its row's `settles`), or undefined for any other call. */
+  /** Whether a call reads a context (`useContext(Ctx)`); the JSX support knows contexts. */
+  protected readsContext(_node: TypeScript.CallExpression): boolean {
+    return false;
+  }
+
   private settles(node: TypeScript.CallExpression) {
     return standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression))?.settles;
   }
