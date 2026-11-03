@@ -242,7 +242,10 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         this.queueComponentPropBinding(opening, attribute, valueId, occurrenceId, ownerId, target);
       }
       // A context's provided value goes to its readers (`connectContexts`), not into the page.
-      if (!component && !context) {
+      // Solid's `<For each>` and `<Index each>` hand their items to the render callback (`connectSolidFor`); the list is no DOM attribute.
+      const listed = attribute.name.getText() === "each"
+        && (isSolidComponent(this.ts, this.checker, opening.tagName, "For") || isSolidComponent(this.ts, this.checker, opening.tagName, "Index"));
+      if (!component && !context && !listed) {
         // Solid's `<Show when>` and `<Match when>` decide which branch renders; the value is no DOM attribute.
         const branch = attribute.name.getText() === "when"
           && (isSolidComponent(this.ts, this.checker, opening.tagName, "Show") || isSolidComponent(this.ts, this.checker, opening.tagName, "Match"));
