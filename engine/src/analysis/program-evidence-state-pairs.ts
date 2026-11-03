@@ -52,3 +52,20 @@ export function lazyFactoryGetter(ts: typeof TypeScript, checker: TypeScript.Typ
   const first = ts.isVariableDeclaration(pair) && pair.initializer === call && ts.isArrayBindingPattern(pair.name) ? pair.name.elements[0] : undefined;
   return first && ts.isBindingElement(first) && ts.isIdentifier(first.name) ? first.name : null;
 }
+
+/**
+ * The initial value a destructured state pair is seeded with as it is
+ * (`createStore({ left, right })`), which becomes the state whole, so its
+ * fields stay apart; null for a factory that calls its initial value or
+ * takes a reducer, a function held as the state, and a pair that is not
+ * destructured.
+ */
+export function seedArgument(ts: typeof TypeScript, checker: TypeScript.TypeChecker, call: TypeScript.CallExpression): TypeScript.Expression | null {
+  const factory = importedCallee(ts, checker, call.expression);
+  if (!factory || !makesStatePair(factory.module, factory.name) || callsInitialValue(factory.module, factory.name) || reducerArgument(factory.module, factory.name) !== null) return null;
+  const pair = call.parent;
+  const seed = call.arguments[0];
+  // A function held as the state is found through its call (`make()()`), so it keeps its argument edge.
+  if (!seed || ts.isSpreadElement(seed) || ts.isArrowFunction(seed) || ts.isFunctionExpression(seed)) return null;
+  return ts.isVariableDeclaration(pair) && pair.initializer === call && ts.isArrayBindingPattern(pair.name) ? seed : null;
+}

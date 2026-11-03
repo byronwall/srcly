@@ -6,12 +6,12 @@ import {
   constructorExpressionElementEvidence,
   type ProgramEvidenceExpressionContext,
 } from "./program-evidence-collector-expression-support";
-import { lazyFactoryGetter, reducerOf, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
+import { lazyFactoryGetter, reducerOf, seedArgument, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
 import { frameworkFlow, makesAccessor, makesPredicate, PROMISE_CHANNELS, type FrameworkFlow } from "./framework-flows";
 import { builtinLibraryModels, standardMemberModel } from "./library-models";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
-import type { CollectorCallInfo } from "./program-evidence-collector-support";
+import type { CollectorCallInfo, CollectorFunctionInfo } from "./program-evidence-collector-support";
 import {
   bindingIdentifiers,
   browserMember,
@@ -69,6 +69,9 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       if (symbolId) this.stateBySymbol.set(symbolId, stateId);
       // The factory's call (its arguments, the initial value among them) seeds the state.
       this.addRelation(initializerId ?? aliasId, stateId, "references", [this.location(initializer)], frameworkState("The factory's initial value seeds the state its getter reads.", this.location(initializer)), "partial");
+      // An initial value taken as it is seeds the state whole, field by field, not through the call (`seedArgument`).
+      const seed = this.ts.isCallExpression(initializer) ? seedArgument(this.ts, this.checker, initializer) : null;
+      if (seed) this.addRelation(this.expression(seed, ownerId), stateId, "references", [this.location(seed)], frameworkState("The factory's initial value seeds the state its getter reads.", this.location(seed)), "partial");
     }
     // A state pair's `[getter, setter]` binds two functions, not the value: the value goes through the state.
     // A call with no value binds nothing.
@@ -274,10 +277,14 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       if (action && node.arguments[0]) {
         this.addRelation(this.expression(node.arguments[0], ownerId), action.id, "framework-flow", [this.location(node.arguments[0]), this.location(action.parameter)], frameworkState("The dispatch calls the reducer with this action.", this.location(node)), "proven");
       }
-      // One argument is the new state (or an updater); several are a path into it and the value there, packed into the state.
-      const kind = node.arguments.length === 1 ? "references" : "pack-field";
-      for (const argument of role.role === "setter" && !action ? node.arguments : []) {
-        this.addRelation(this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId), stateId, kind, [this.location(argument)], frameworkState("The setter's argument becomes the state its getter reads; order and time are not proven.", this.location(argument)), "partial");
+      // One argument is the new state (or an updater); several are a store path and the value there, written at that path.
+      const values = role.role === "setter" && !action ? node.arguments : [];
+      if (values.length === 1) {
+        const [argument] = values;
+        this.addRelation(this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId), stateId, "references", [this.location(argument)], frameworkState("The setter's argument becomes the state its getter reads; order and time are not proven.", this.location(argument)), "partial");
+      } else if (values.length > 1) {
+        const value = values[values.length - 1];
+        if (!this.stateUpdater(value)) this.writeStorePath(node, this.expression(value, ownerId), stateId, ownerId, this.location(value));
       }
     }
     // A callee with no body to enter (a library method, a callback, an accessor) is consumed by its call, as its arguments are. A `then` with a handler holds what the handler returns, not its receiver.
@@ -304,6 +311,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       if (flow?.passes === "*" || flow?.passes?.includes(index) || (flow?.source === index && isResourceFactory(this.ts, this.checker, node))) continue;
       // A rejection reason is not the promise's value: it reaches a rejection handler, or ends there.
       if (this.settles(node) === "reject") continue;
+      // A state pair's initial value seeds its state directly (`seedArgument`), not through the factory's call.
+      if (index === 0 && seedArgument(this.ts, this.checker, node)) continue;
       this.addRelation(
         argumentId,
         callId,
@@ -487,7 +496,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     }
     if (this.ts.isCallExpression(call.node) || this.ts.isNewExpression(call.node)) this.connectSuppliedCallbacks(call, call.node);
     if (!this.ts.isCallExpression(call.node)) return;
-    const stateFunctions = this.connectStateFunctions(call.node);
+    const stateFunctions = this.connectStateFunctions(call.node, call.ownerId);
     this.connectExternalCallbacks(call, call.node, stateFunctions);
     const standard = standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, call.node.expression));
     if (standard ? standard.writes !== "this" : !discardsValue(this.ts, call.node, this.checker)) return;
@@ -605,28 +614,86 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
    * (`useState(() => compute(seed))`). Its returns become the state, and an
    * updater's parameter receives the current state.
    */
-  private connectStateFunctions(node: TypeScript.CallExpression): Set<TypeScript.Node> {
+  private connectStateFunctions(node: TypeScript.CallExpression, ownerId: string | null): Set<TypeScript.Node> {
     const handled = new Set<TypeScript.Node>();
     const role = stateRoleOf(this.ts, this.checker, node.expression);
     const getter = role?.role === "setter" ? role.getter : lazyFactoryGetter(this.ts, this.checker, node);
     if (!getter) return handled;
     const dispatches = role && reducerOf(this.ts, this.checker, getter);
     const stateId = this.stateElement(getter);
-    for (const argument of node.arguments) {
+    // A store path's last argument is its value; a function before it is a predicate that picks items, and what it returns is a test, never stored.
+    const path = role && node.arguments.length > 1;
+    for (const [index, argument] of node.arguments.entries()) {
       const fn = unwrap(this.ts, argument);
-      if (!this.ts.isArrowFunction(fn) && !this.ts.isFunctionExpression(fn)) continue;
-      const info = this.functionsByNode.get(nodeKey(this.root, fn));
+      const inline = this.ts.isArrowFunction(fn) || this.ts.isFunctionExpression(fn);
+      if (path && index < node.arguments.length - 1) {
+        if (inline) handled.add(fn);
+        continue;
+      }
+      const info = inline ? this.functionsByNode.get(nodeKey(this.root, fn)) : role ? this.stateUpdater(fn) : null;
       if (!info) continue;
       handled.add(fn);
       // A function given to a dispatch is an action, for the reducer to read; nothing calls it.
       if (dispatches) continue;
+      // At a store path, what the updater returns is one value, written at that path.
+      const valueId = path ? this.ensureElement(fn, "value", ownerId, { updater: true }, null, null, null, "partial", frameworkState("What the updater returns: the new value at the store path.", this.location(fn))) : stateId;
       for (const returnId of this.returnsByFunction.get(info.id) ?? []) {
-        this.addRelation(returnId, stateId, "framework-flow", [this.location(fn)], frameworkState("The function's return becomes the state its getter reads; order and time are not proven.", this.location(fn)), "partial");
+        this.addRelation(returnId, valueId, "framework-flow", [this.location(fn)], frameworkState("The function's return becomes the state its getter reads; order and time are not proven.", this.location(fn)), "partial");
       }
+      if (path) this.writeStorePath(node, valueId, stateId, ownerId, this.location(fn));
+      // The updater receives the value it replaces: the field at the store path, not the whole store.
       const parameterId = role ? this.firstParameterId(fn) : undefined;
-      if (parameterId) this.addRelation(stateId, parameterId, "references", [this.location(fn)], frameworkState("The updater receives the current state.", this.location(fn)), "partial");
+      if (parameterId) this.addRelation(path ? this.readStorePath(node, stateId, ownerId) : stateId, parameterId, "references", [this.location(fn)], frameworkState("The updater receives the current state.", this.location(fn)), "partial");
     }
     return handled;
+  }
+
+  /** The function a setter's value names (`setDoc("title", rename)`), called as an updater; null for any other value. */
+  private stateUpdater(value: TypeScript.Expression): CollectorFunctionInfo | null {
+    const fn = unwrap(this.ts, value);
+    if (this.ts.isArrowFunction(fn) || this.ts.isFunctionExpression(fn)) return this.functionsByNode.get(nodeKey(this.root, fn)) ?? null;
+    return this.ts.isIdentifier(fn) ? this.targetFunction(fn) : null;
+  }
+
+  /** The literal keys a store path starts with (`"left", "title"` in `setStore("left", "title", value)`), up to its first computed key or predicate. */
+  private storeKeys(node: TypeScript.CallExpression): TypeScript.StringLiteralLike[] {
+    const keys: TypeScript.StringLiteralLike[] = [];
+    for (const argument of node.arguments.slice(0, -1)) {
+      const key = unwrap(this.ts, argument);
+      if (!this.ts.isStringLiteralLike(key)) break;
+      keys.push(key);
+    }
+    return keys;
+  }
+
+  /**
+   * Writes a value at a store path: packed field by field into the state,
+   * innermost key first, so a read of a sibling field never sees it. Past a
+   * computed key or a predicate, the value is the whole field there; a path
+   * with no literal key writes a field the walk cannot name.
+   */
+  private writeStorePath(node: TypeScript.CallExpression, valueId: string, stateId: string, ownerId: string | null, location: ProgramEvidenceLocation): void {
+    const keys = this.storeKeys(node);
+    let from = valueId;
+    for (const key of [...keys].reverse()) {
+      const at = this.location(key);
+      const packId = this.ensureElement(key, "object-pack", ownerId, { operation: "object-pack", fields: JSON.stringify({ [`${at.span.startLine}:${at.span.startColumn}`]: key.text }) }, null, null, null, "proven", proof("ast-node", "The store path's key is one field of the state.", [at]));
+      this.addRelation(from, packId, "pack-field", [at], frameworkState("The setter writes this field of the store; order and time are not proven.", at), "partial");
+      from = packId;
+    }
+    this.addRelation(from, stateId, keys.length ? "references" : "pack-field", [location], frameworkState("The setter's value becomes the state its getter reads; order and time are not proven.", location), "partial");
+  }
+
+  /** The field at a store path, read from the state: what an updater there receives. */
+  private readStorePath(node: TypeScript.CallExpression, stateId: string, ownerId: string | null): string {
+    let from = stateId;
+    for (const key of this.storeKeys(node)) {
+      const at = this.location(key);
+      const readId = this.ensureElement(key, "field-read", ownerId, { property: key.text }, null, null, null, "proven", proof("ast-node", "The store path's key reads one field of the state.", [at]), "field-read");
+      this.addRelation(from, readId, "field-input", [at], frameworkState("The updater receives this field of the store.", at), "partial");
+      from = readId;
+    }
+    return from;
   }
 
   /**
