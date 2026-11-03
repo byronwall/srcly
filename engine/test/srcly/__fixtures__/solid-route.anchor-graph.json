@@ -1,9 +1,10 @@
 {
  "outcome": "ok",
  "generation": 1,
- "programHash": "df9cc60fd1a804bb",
+ "programHash": "ea919e40821c7a82",
  "tsconfig": "/fixture/solid-route/tsconfig.json",
  "typescript": "5.9.3",
+ "nullProof": true,
  "reason": null,
  "anchor": {
   "file": "src/components/ViewerCard.tsx",
@@ -346,7 +347,7 @@
    "note": null
   },
   {
-   "id": "program-element:l11c1s",
+   "id": "program-element:13bc7k7",
    "kind": "value",
    "label": "createResource(loadViewer)",
    "detail": "call",
@@ -427,7 +428,7 @@
    "note": null
   },
   {
-   "id": "program-element:bdab5e",
+   "id": "program-element:1xezxcf",
    "kind": "value",
    "label": "createResource",
    "detail": "value",
@@ -1075,7 +1076,7 @@
      "status": "proven"
     }
    ],
-   "label": "viewer"
+   "label": "name"
   },
   {
    "id": "program-relation:1r202w7",
@@ -1103,7 +1104,7 @@
      "status": "proven"
     }
    ],
-   "label": null
+   "label": "viewer"
   },
   {
    "id": "program-relation:114cyey",
@@ -1374,8 +1375,8 @@
    "label": null
   },
   {
-   "id": "program-relation:m0c16s",
-   "source": "program-element:l11c1s",
+   "id": "program-relation:zy3nsv",
+   "source": "program-element:13bc7k7",
    "target": "program-element:1c1mvsc",
    "kind": "references",
    "status": "proven",
@@ -1402,9 +1403,9 @@
    "label": null
   },
   {
-   "id": "program-relation:16oihz",
+   "id": "program-relation:16dr4y4",
    "source": "program-element:1j37v4t",
-   "target": "program-element:l11c1s",
+   "target": "program-element:13bc7k7",
    "kind": "framework-flow",
    "status": "proven",
    "proof": [
@@ -1430,9 +1431,9 @@
    "label": null
   },
   {
-   "id": "program-relation:151cyi9",
-   "source": "program-element:bdab5e",
-   "target": "program-element:l11c1s",
+   "id": "program-relation:oh6sga",
+   "source": "program-element:1xezxcf",
+   "target": "program-element:13bc7k7",
    "kind": "references",
    "status": "proven",
    "proof": [
@@ -1458,9 +1459,9 @@
    "label": null
   },
   {
-   "id": "program-relation:hwb6j5",
+   "id": "program-relation:1t8qr16",
    "source": "program-element:pnc62j",
-   "target": "program-element:l11c1s",
+   "target": "program-element:13bc7k7",
    "kind": "argument",
    "status": "proven",
    "proof": [
@@ -1651,7 +1652,7 @@
      "status": "proven"
     }
    ],
-   "label": null
+   "label": "name"
   },
   {
    "id": "program-relation:11ha12f",
@@ -1679,7 +1680,7 @@
      "status": "proven"
     }
    ],
-   "label": null
+   "label": "team"
   },
   {
    "id": "program-relation:1o1b4t",
@@ -1904,7 +1905,7 @@
      "status": "proven"
     }
    ],
-   "label": null
+   "label": "json"
   },
   {
    "id": "program-relation:l4l28o",

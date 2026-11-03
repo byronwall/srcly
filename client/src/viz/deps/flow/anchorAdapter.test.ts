@@ -50,6 +50,22 @@ describe("anchor graph → ViewModel", () => {
     expect(m.vm.nodes.every((n) => n.group)).toBe(true);
   });
 
+  it("draws two witnesses between the same boxes as one edge that keeps both, at the stronger status", () => {
+    const edge = graph.edges.find((e) => e.kind === "field-input")!;
+    const proof = (kind: string, status: "proven" | "partial") => ({ kind, detail: kind, status, locations: [] });
+    const witnesses = [
+      { ...edge, id: "w:assumed", kind: "argument", status: "partial" as const, proof: [proof("ast-node", "proven"), proof("external-call", "partial")], label: null },
+      { ...edge, id: "w:proven", kind: "consumer-value", status: "proven" as const, proof: [proof("jsx-consumer-value", "proven")], label: "title" },
+    ];
+    const merged = anchorGraphToViewModel({ ...graph, edges: [...graph.edges.filter((e) => e.id !== edge.id), ...witnesses] });
+    const drawn = merged.vm.edges.filter((e) => e.id.startsWith("w:"));
+    expect(drawn).toHaveLength(1);
+    expect(drawn[0]).toMatchObject({ relation: "argument, consumer-value", status: "proven", faint: false, label: "title" });
+    expect(drawn[0].proof!.map((p) => p.kind)).toEqual(["ast-node", "external-call", "jsx-consumer-value"]);
+    // A proven witness needs no assumption, so the drawn edge is not an assumed step.
+    expect(drawn[0].assumed).toBeUndefined();
+  });
+
   it("keeps the engine's relation kind, status, proof and field label on each edge, dashing calls and props", () => {
     // Less each folded reference's own link.
     expect(m.vm.edges.length).toBe(graph.edges.length - m.vm.rolledUp);

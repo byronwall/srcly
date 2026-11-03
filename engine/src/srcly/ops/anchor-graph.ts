@@ -46,6 +46,33 @@ const DECLARATION_LINKS = new Set(["parameter", "prop-read", "returns", "used-by
 /** Relations a return carries on by: to its paired call, a framework (a hook's `select`), or a hook's result field (`pack-field`). */
 const CARRIES_RETURN = new Set(["return-value", "framework-flow", "member-state", "pack-field"]);
 
+/**
+ * The field a relation moves, from its own field end, never from the side the
+ * walk came in by: a field read's name (`field-input`, `consumer-value`,
+ * `field-consumer`), or the field a pack holds at the packed value's position.
+ */
+function fieldOf(relation: ProgramRelation, to: ProgramElement | undefined): string | null {
+  if (!to) return null;
+  if (relation.kind === "pack-field") {
+    const raw = to.attributes?.fields;
+    const span = relation.proof.locations[0]?.span;
+    const fields = typeof raw === "string" ? (JSON.parse(raw) as Record<string, string>) : null;
+    return (fields && span && fields[`${span.startLine}:${span.startColumn}`]) || null;
+  }
+  return /^(field-input|consumer-value|field-consumer)$/.test(relation.kind) ? to.fieldName : null;
+}
+
+/** Whether some pair of boxes is joined only by witnesses that assume what code with no source does. */
+function assumedPairs(edges: readonly AnchorEdge[]): boolean {
+  const assumed = new Map<string, boolean>();
+  for (const edge of edges) {
+    const key = `${edge.source}|${edge.target}`;
+    const only = edge.proof.some((item) => proofStrength(item?.kind) === "assumed");
+    assumed.set(key, (assumed.get(key) ?? true) && only);
+  }
+  return [...assumed.values()].some(Boolean);
+}
+
 export function anchorGraphOp(session: EngineSession, params: Record<string, unknown>, cancellation?: AnalysisCancellationToken, maxBytes = ANCHOR_GRAPH_MAX_BYTES): AnchorGraphResult {
   const tier1 = session.tier1();
   checkGeneration(tier1, params.expectedGeneration);
@@ -210,7 +237,8 @@ class AnchorGraphBuilder {
     // A declaration whose runs reached nothing and reported nothing makes no claim: there is nothing to trace from it.
     if (!stopped && isDeclaration && landedRuns.length === 0) return this.finish(anchor, direction, "unsupported", "nothing-to-trace", coverage);
     // `ok` is proven. A path that lands with no stop, but only by assuming what code with no source does (an `external-call` proof), is `assumed`; a stopped path stays partial whatever it assumes.
-    const assumed = this.edges.some((edge) => edge.proof.some((item) => proofStrength(item?.kind) === "assumed"));
+    // A pair of boxes is assumed only when every witness joining them is: another proven relation between them needs no assumption.
+    const assumed = assumedPairs(this.edges);
     const outcome = stopped ? "partial" : landed ? (assumed ? "assumed" : "ok") : coverage.budget.exhausted ? "budget" : "partial";
     // Every partial names its stop: where a run that did not land ends in evidence that cannot call it a dead end.
     // An `assumed` trace has no stop to name: its assumed edges say what it takes on trust.
@@ -510,7 +538,7 @@ class AnchorGraphBuilder {
           note = element.boundary === "framework-runtime" ? `${element.label} is framework runtime; what it carries is proven only as far as the engine's relations go` : `${element.label} is outside the program's own source`;
         }
         this.addElement(element, kind, side, status, reason, note);
-        this.addEdge(relation, element);
+        this.addEdge(relation, byId);
         // `classify` gives each side only its own end: a terminal forward, an origin backward.
         const ends = crossCallStop || kind === "terminal" || kind === "origin";
         if (!ends && !visited.has(otherId) && depth < this.limits.maxDepth) {
@@ -706,13 +734,14 @@ class AnchorGraphBuilder {
     if (kind === "terminal") this.terminalRoles.set(element.id, element.terminalRoles.length ? [...element.terminalRoles] : [element.kind]);
   }
 
-  private addEdge(relation: ProgramRelation, element: ProgramElement) {
+  private addEdge(relation: ProgramRelation, byId: ReadonlyMap<string, ProgramElement>) {
     const source = this.resolve(relation.from);
     const target = this.resolve(relation.to);
     if (source === target) return;
-    const label = /^(field-input|pack-field|consumer-value|field-consumer)$/.test(relation.kind) && element.fieldName ? element.fieldName : null;
+    const label = fieldOf(relation, byId.get(relation.to));
     const callee = assumedThrough(this.tier1.provider(), relation);
     if (!callee) return this.pushEdge({ id: relation.id, source, target, kind: relation.kind, status: relation.status, proof: [relation.proof], label });
+    // `assumedCallee` is this same rule, for the ledger.
     // TypeScript's own library (`trim`, `map`, `JSON.stringify`, `console.log`) is known: its value derives from what it is given, modelled.
     const call = this.tier1.provider().factIndex.getElement(relation.to);
     const standard = Boolean(call && standardLibraryCall(this.tier1, call));
@@ -724,8 +753,8 @@ class AnchorGraphBuilder {
   }
 
   private pushEdge(edge: AnchorEdge) {
-    // One edge per pair of boxes: the first relation the walk meets names it.
-    const key = `${edge.source}|${edge.target}`;
+    // One edge per witness: relations that join the same boxes by another kind, field, status or proof each stay (the client draws them as one).
+    const key = `${edge.source}|${edge.target}|${edge.kind}|${edge.label}|${edge.status}|${edge.proof.map((item) => item?.kind).join(",")}`;
     if (this.edgeKeys.has(key) || !this.nodes.has(edge.source) || !this.nodes.has(edge.target)) return;
     this.edgeKeys.add(key);
     this.edges.push(edge);

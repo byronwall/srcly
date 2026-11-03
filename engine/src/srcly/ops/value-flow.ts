@@ -13,7 +13,7 @@ import {
 } from "../contracts/value-flow";
 import { EngineError } from "../protocol";
 import { createCallSiteIndex, describeSites, singleCall, type CallSiteIndex, type CallSites } from "../call-sites";
-import { elementsAt, endsInPlace, externalCallee, IN_PLACE_NOTES, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
+import { assumedCallee, elementsAt, endsInPlace, externalCallee, IN_PLACE_NOTES, naturalEnd, needsOneCallSite, pairedInSlice, seedFor } from "../facts";
 import { elementTraits, relationTraits } from "../kinds";
 import type { HostCandidate } from "../host";
 import { candidatesAt, parseSpan, sameSpan, sourceFileFor, spanOf, type Span } from "../selection";
@@ -91,6 +91,8 @@ export function valueFlowOp(session: EngineSession, params: Record<string, unkno
 
 class LedgerBuilder {
   private rows: LedgerRow[] = [];
+  /** Some step the ledger walked assumes what code with no source does (`assumedCallee`). */
+  private assumed = false;
   /** Elements the forward walk visited: a dead end counts only where the walk went. */
   private readonly visited = new Set<string>();
   private readonly root: string;
@@ -170,7 +172,8 @@ class LedgerBuilder {
     this.walk(seed, slice.elements, slice.relations, span);
     this.deadEnds(slice.elements, slice.gaps);
     const exhausted = slice.coverage.truncation.budget;
-    const outcome = this.rows.some((row) => row.kind === "boundary") ? "partial" : this.rows.some((row) => row.kind === "terminal") ? "ok" : exhausted ? "budget" : "partial";
+    // As the graph's: a path that lands only by assuming what code with no source does is `assumed`, not `ok`.
+    const outcome = this.rows.some((row) => row.kind === "boundary") ? "partial" : this.rows.some((row) => row.kind === "terminal") ? (this.assumed ? "assumed" : "ok") : exhausted ? "budget" : "partial";
     return this.finish(selection, outcome, null, {
       elements: slice.elements.length,
       relations: slice.relations.length,
@@ -383,6 +386,7 @@ class LedgerBuilder {
         const key = `${step.kind}|${step.element.id}`;
         if (seen.has(key)) continue;
         seen.add(key);
+        if (step.kind !== "boundary" && assumedCallee(this.tier1, step.relation)) this.assumed = true;
         this.add({
           kind: step.kind,
           label: step.element.label,
