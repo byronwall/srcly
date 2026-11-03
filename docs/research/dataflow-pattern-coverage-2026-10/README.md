@@ -1,5 +1,7 @@
 # Data-flow pattern coverage (October 2026)
 
+Follow-up: [JavaScript, React, and SolidJS correctness research](../dataflow-js-react-solid-2026-11-01/README.md) reviews admission, wrong paths, and proof limits. The figures below remain historical results.
+
 This report tests the target of 99% coverage for common Vanilla, React and SolidJS patterns. It measures coverage two ways: a catalog of everyday patterns, and a survey of real repos.
 
 ## How to read the outcomes
