@@ -19,12 +19,13 @@ export function Effects(props: { token: string; dep: string }) {
 }
 
 export function Mutations(props: { first: string; second: string }) {
-  const mutation = useMutation({ mutationFn: async (value: string) => ({ saved: value }) }); // @reaches mutate-void return
+  // What the function returns is the hook's `data`. This code never reads it.
+  const mutation = useMutation({ mutationFn: async (value: string) => ({ saved: value }) });
   // @trace mutate-void forward props.first @no-path mutate-void "props.first" "none" @no-path mutate-void "props.first" "some"
-  const none = mutation.mutate(props.first);
+  const none = mutation.mutate(props.first); // @stop mutate-void untraced value "mutation"
   console.log(none); // @never-reaches mutate-void
   // @trace mutate-async both props.second @path mutate-async "props.second" "some"
-  const some = mutation.mutateAsync(props.second);
+  const some = mutation.mutateAsync(props.second); // @stop mutate-void untraced value "mutation"
   console.log(some); // @reaches mutate-async stdout @reaches mutate-async external-effect
 }
 

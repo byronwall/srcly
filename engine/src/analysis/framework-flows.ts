@@ -93,6 +93,12 @@ export function optionFlow(module: string, name: string): string | null {
   return row?.model === "calls-back" ? row.option ?? null : null;
 }
 
+/** The result field a data hook's option callback fills (`data`), and the options key that maps it first (`select`), or null. */
+export function optionResult(module: string, name: string): { field: string; selector: string | null } | null {
+  const row = frameworkRow(module, name);
+  return row?.model === "calls-back" && row.option && row.field ? { field: row.field, selector: row.selector ?? null } : null;
+}
+
 /** Whether the call makes a state pair (`createSignal`, `useState`). */
 export function makesStatePair(module: string, name: string): boolean {
   return frameworkRow(module, name)?.model === "state-pair";

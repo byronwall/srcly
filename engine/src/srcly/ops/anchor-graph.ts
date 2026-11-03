@@ -43,6 +43,8 @@ type Run = {
 /** Relations that bind a declaration's parameter to the places it is read. */
 /** The declaration anchor's own links: they place its parameters, reads, returns and uses, and never carry a run's landing. */
 const DECLARATION_LINKS = new Set(["parameter", "prop-read", "returns", "used-by", "state"]);
+/** Relations a return carries on by: to its paired call, a framework (a hook's `select`), or a hook's result field (`pack-field`). */
+const CARRIES_RETURN = new Set(["return-value", "framework-flow", "member-state", "pack-field"]);
 
 export function anchorGraphOp(session: EngineSession, params: Record<string, unknown>, cancellation?: AnalysisCancellationToken, maxBytes = ANCHOR_GRAPH_MAX_BYTES): AnchorGraphResult {
   const tier1 = session.tier1();
@@ -481,8 +483,8 @@ class AnchorGraphBuilder {
           continue;
         }
         let kind = classify(relation, element, side);
-        // A return the slice carried on from (to its paired call) is a carrier here, not where the value leaves.
-        if (kind === "terminal" && element.kind === "return" && side === "down" && (next.get(element.id) ?? []).some((item) => item.kind === "return-value" || item.kind === "framework-flow" || item.kind === "member-state")) kind = "value";
+        // A return the slice carried on from (to its paired call, a framework, a hook's result field) is a carrier here, not where the value leaves.
+        if (kind === "terminal" && element.kind === "return" && side === "down" && (next.get(element.id) ?? []).some((item) => CARRIES_RETURN.has(item.kind))) kind = "value";
         let status = relation.status;
         let reason: string | null = null;
         let note: string | null = null;
