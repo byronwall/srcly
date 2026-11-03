@@ -1,4 +1,4 @@
-import { For, Index, Show, createSignal } from "solid-js";
+import { For, Index, Show } from "solid-js";
 
 type Row = { name: string; note: string };
 
