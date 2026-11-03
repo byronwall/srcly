@@ -1,6 +1,6 @@
 import * as TypeScript from "typescript";
 import { ProgramEvidenceCollectorDirectConsumerSupport } from "./program-evidence-collector-direct-consumers";
-import { proof } from "./program-evidence-support";
+import { proof, unwrap } from "./program-evidence-support";
 import { exactCallbackReturnExpression } from "./program-callback-return";
 import { resolvesArrayIncludes, resolvesArrayMap, resolvesCreateMemo } from "./route-totality-field-proof-ast";
 import {
@@ -426,40 +426,62 @@ export class ProgramEvidenceCollectorFieldTransferSupport extends ProgramEvidenc
     this.addRelation(argumentId, resultId, "includes-membership", [this.location(argument), this.location(call)], proof("array-includes-argument", "The exact property read supplies the Array.includes membership argument.", [this.location(argument), this.location(call)]), "proven");
   }
 
+  /**
+   * `<For each>` and `<Index each>` hand their callback child (inline or
+   * named) each item, in a role of their own: `For` passes the item as a
+   * value and its index as an accessor, `Index` the item as an accessor and
+   * its index as a number. Only the item comes from `each`, so a list never
+   * reaches the index's reads.
+   */
   private connectSolidFor(node: TypeScript.JsxElement): void {
     const opening = node.openingElement;
-    if (!isSolidComponent(this.ts, this.checker, opening.tagName, "For")) return;
+    const component = isSolidComponent(this.ts, this.checker, opening.tagName, "For") ? "For"
+      : isSolidComponent(this.ts, this.checker, opening.tagName, "Index") ? "Index" : null;
+    if (!component) return;
     const eachAttributes = opening.attributes.properties.filter((item): item is TypeScript.JsxAttribute => (
       this.ts.isJsxAttribute(item) && staticAttributeName(this.ts, item) === "each"
     ));
     const initializer = eachAttributes.length === 1 ? eachAttributes[0].initializer : null;
     const each = initializer && this.ts.isJsxExpression(initializer) ? initializer.expression : null;
-    const renders = node.children.flatMap((child) => (
-      this.ts.isJsxExpression(child) && child.expression && this.ts.isArrowFunction(child.expression) ? [child.expression] : []
-    ));
-    if (!each || !this.ts.isPropertyAccessExpression(each) || renders.length !== 1) return;
-    const render = renders[0];
-    if (render.parameters.length !== 1 || !this.ts.isIdentifier(render.parameters[0].name)
-      || render.parameters[0].dotDotDotToken || render.parameters[0].questionToken || render.parameters[0].initializer) return;
-    const parameterSymbol = this.checker.getSymbolAtLocation(render.parameters[0].name);
+    const children = node.children.flatMap((child) => (this.ts.isJsxExpression(child) && child.expression ? [child.expression] : []));
+    if (!each || children.length !== 1) return;
+    const child = unwrap(this.ts, children[0]);
+    const render = this.ts.isArrowFunction(child) || this.ts.isFunctionExpression(child) ? child
+      : this.ts.isIdentifier(child) ? this.targetFunction(child)?.declaration ?? null : null;
+    const item = render?.parameters[0];
+    if (!render || !item || !this.ts.isIdentifier(item.name) || item.dotDotDotToken || item.questionToken || item.initializer) return;
+    const parameterSymbol = this.checker.getSymbolAtLocation(item.name);
     if (!parameterSymbol) return;
     const ownerId = this.ownerId(opening);
-    const eachId = this.elementFor(each, "field-read");
+    const eachId = this.ts.isPropertyAccessExpression(each) ? this.elementFor(each, "field-read")
+      : this.ts.isCallExpression(each) ? this.elementFor(each, "call") : this.expression(each, ownerId);
     const bindingId = this.ensureElement(
       opening,
       "for-binding",
       ownerId,
-      { module: "solid-js", component: "For" },
+      { module: "solid-js", component },
       this.symbolId(opening.tagName),
       "solid-js",
       null,
       "proven",
-      proof("solid-for-binding", "The compiler resolves this exact JSX occurrence to solid-js For.", [this.location(opening.tagName)]),
+      proof("solid-for-binding", `The compiler resolves this exact JSX occurrence to solid-js ${component}.`, [this.location(opening.tagName)]),
     );
-    const parameterId = this.elementFor(render.parameters[0].name, "parameter");
-    this.addRelation(eachId, bindingId, "for-element", [this.location(each), this.location(opening)], proof("solid-for-each", "This exact field value is the each expression of the resolved solid-js For occurrence.", [this.location(each), this.location(opening)]), "proven");
-    this.addRelation(bindingId, parameterId, "for-callback-parameter", [this.location(opening), this.location(render.parameters[0])], proof("solid-for-render-parameter", "The resolved For binding supplies its exact direct render callback parameter.", [this.location(opening), this.location(render.parameters[0])]), "proven");
-    this.visit(render.body, (child) => {
+    const parameterId = this.elementFor(item.name, "parameter");
+    this.addRelation(eachId, bindingId, "for-element", [this.location(each), this.location(opening)], proof("solid-for-each", `This exact value is the each expression of the resolved solid-js ${component} occurrence.`, [this.location(each), this.location(opening)]), "proven");
+    this.addRelation(bindingId, parameterId, "for-callback-parameter", [this.location(opening), this.location(item)], proof("solid-for-render-parameter", `The resolved ${component} binding supplies each item to its render callback's first parameter.`, [this.location(opening), this.location(item)]), "proven");
+    const body = render.body;
+    if (!body) return;
+    // `Index` hands the item as an accessor: its calls read the item.
+    if (component === "Index") {
+      this.visit(body, (child) => {
+        if (!this.ts.isCallExpression(child) || this.checker.getSymbolAtLocation(child.expression) !== parameterSymbol) return;
+        this.addRelation(parameterId, this.elementFor(child, "call"), "accessor-call", [this.location(item), this.location(child)], proof("accessor-call", "The compiler resolves this exact accessor call to the Index render callback's item.", [this.location(item), this.location(child)]), "proven");
+      });
+      return;
+    }
+    // Each exact field read of a direct `For` callback's one parameter ends at its render consumer.
+    if (render !== child || render.parameters.length !== 1 || !this.ts.isPropertyAccessExpression(each)) return;
+    this.visit(body, (child) => {
       if (!this.ts.isPropertyAccessExpression(child) || !this.ts.isIdentifier(child.expression)
         || this.checker.getSymbolAtLocation(child.expression) !== parameterSymbol) return;
       const childOpening = directJsxChild(this.ts, child);
@@ -470,7 +492,7 @@ export class ProgramEvidenceCollectorFieldTransferSupport extends ProgramEvidenc
         parameterId,
         fieldId,
         "field-input",
-        [this.location(render.parameters[0]), this.location(child)],
+        [this.location(item), this.location(child)],
         proof("property-access", "The For callback parameter supplies this exact field read.", [this.location(child)]),
         "proven",
       );
