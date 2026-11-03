@@ -580,17 +580,23 @@ export class ProgramEvidenceCollectorSupport {
     return !imported || yieldsFirstFunction(imported.module, imported.name);
   }
 
-  /** The function a data hook's options object names under `option` (`useQuery({ queryFn })`), or null. */
-  protected optionFunction(hook: TypeScript.Expression, option: "queryFn" | "mutationFn"): CollectorFunctionInfo | null {
+  /** The function a data hook's options object names under `option` (`useQuery({ queryFn })`, its `select`), or null. */
+  protected optionFunction(hook: TypeScript.Expression, option: string): CollectorFunctionInfo | null {
+    const property = this.optionProperty(hook, option);
+    if (!property) return null;
+    const value = this.ts.isPropertyAssignment(property) ? unwrap(this.ts, property.initializer) : property.name;
+    return this.functionsByNode.get(nodeKey(this.root, value)) ?? this.targetFunction(value);
+  }
+
+  /** The property a data hook's options object (its row's `option`) has under `key`, or null. */
+  protected optionProperty(hook: TypeScript.Expression, key: string): TypeScript.PropertyAssignment | TypeScript.ShorthandPropertyAssignment | null {
     const call = unwrap(this.ts, hook);
     if (!this.ts.isCallExpression(call)) return null;
     const imported = importedCallee(this.ts, this.checker, call.expression);
-    if (!imported || optionFlow(imported.module, imported.name) !== option) return null;
+    if (!imported || !optionFlow(imported.module, imported.name)) return null;
     const options = call.arguments[0] ? unwrap(this.ts, call.arguments[0]) : undefined;
-    const property = options && this.ts.isObjectLiteralExpression(options) ? options.properties.find((item) => item.name?.getText() === option) : undefined;
-    if (!property || !(this.ts.isPropertyAssignment(property) || this.ts.isShorthandPropertyAssignment(property))) return null;
-    const value = this.ts.isPropertyAssignment(property) ? unwrap(this.ts, property.initializer) : property.name;
-    return this.functionsByNode.get(nodeKey(this.root, value)) ?? this.targetFunction(value);
+    const property = options && this.ts.isObjectLiteralExpression(options) ? options.properties.find((item) => item.name?.getText() === key) : undefined;
+    return property && (this.ts.isPropertyAssignment(property) || this.ts.isShorthandPropertyAssignment(property)) ? property : null;
   }
 
   /** The `mutationFn` that `mutation.mutate(x)` or `mutation.mutateAsync(x)` runs: the call's target, entered and left like a function of the project's. */

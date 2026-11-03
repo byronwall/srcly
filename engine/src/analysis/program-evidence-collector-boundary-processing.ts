@@ -6,12 +6,14 @@ import {
   bindingIdentifiers,
   browserMember,
   firstBindingIdentifier,
+  importedCallee,
   nodeKey,
   propertyBase,
   proof,
   responseReturnRole,
 } from "./program-evidence-support";
 import { indexReadAttributes } from "./program-index-read-metadata";
+import { optionFlow, optionResult } from "./framework-flows";
 import type { CollectorCallInfo } from "./program-evidence-collector-support";
 
 export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceCollectorCallSupport {
@@ -524,13 +526,39 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
     if (this.ts.isCallExpression(call.node)) this.connectOptionFlows(call, call.node);
   }
 
-  /** A query's value is what its `queryFn` returns (a row's `option`). */
+  /**
+   * A data hook's value is what its option function returns (a row's
+   * `option`: `queryFn`, `mutationFn`). A row with a `field` holds it in that
+   * field of the result only (`data`), after the `selector` function when the
+   * options have one (`select`); the result's other fields hold none of it.
+   */
   private connectOptionFlows(call: CollectorCallInfo, node: TypeScript.CallExpression): void {
+    const imported = importedCallee(this.ts, this.checker, node.expression);
+    const option = imported ? optionFlow(imported.module, imported.name) : null;
+    const fn = option ? this.optionFunction(node, option) : null;
+    if (!imported || !option || !fn) return;
     const where = [this.location(node)];
-    const query = this.optionFunction(node, "queryFn");
-    for (const returnId of query ? this.returnsByFunction.get(query.id) ?? [] : []) {
-      this.addRelation(returnId, call.id, "framework-flow", where, proof("framework-state", "The query's value is what its queryFn returns.", where), "proven");
+    const result = optionResult(imported.module, imported.name);
+    let returns = this.returnsByFunction.get(fn.id) ?? [];
+    if (!result) {
+      if (option !== "queryFn") return;
+      for (const returnId of returns) this.addRelation(returnId, call.id, "framework-flow", where, proof("framework-state", "The query's value is what its queryFn returns.", where), "proven");
+      return;
     }
+    let property = this.optionProperty(node, option)!;
+    const select = result.selector ? this.optionFunction(node, result.selector) : null;
+    const parameter = select?.declaration.parameters[0] && firstBindingIdentifier(this.ts, select.declaration.parameters[0].name);
+    const parameterId = parameter ? this.parametersBySymbol.get(this.symbolId(parameter) ?? "") : undefined;
+    if (select && parameterId) {
+      const at = [this.location(select.declaration.parameters[0])];
+      for (const returnId of returns) this.addRelation(returnId, parameterId, "framework-flow", at, proof("framework-state", `The hook calls ${result.selector} with what its ${option} returns.`, at), "proven");
+      returns = this.returnsByFunction.get(select.id) ?? [];
+      property = this.optionProperty(node, result.selector!)!;
+    }
+    const at = this.location(property);
+    const packId = this.ensureElement(property.name, "object-pack", call.ownerId, { operation: "object-pack", fields: JSON.stringify({ [`${at.span.startLine}:${at.span.startColumn}`]: result.field }) }, null, null, null, "proven", proof("framework-state", `The hook's result holds this in its ${result.field} field.`, [at]));
+    for (const returnId of returns) this.addRelation(returnId, packId, "pack-field", [at], proof("framework-state", `The hook's ${result.field} is what ${property.name.getText()} returns.`, [at]), "proven");
+    this.addRelation(packId, call.id, "framework-flow", where, proof("framework-state", `The hook's result holds ${result.field}; its other fields do not hold this value.`, where), "proven");
   }
 
   protected processExitStatusAssignment(

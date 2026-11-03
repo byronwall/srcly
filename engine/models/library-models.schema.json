@@ -107,6 +107,16 @@
             "type": "string",
             "minLength": 1
           },
+          "field": {
+            "description": "For an `option` row: the result field that holds what the callback returns (`data`). The result's other fields (`status`, `error`) do not hold it.",
+            "type": "string",
+            "minLength": 1
+          },
+          "selector": {
+            "description": "For an `option` row with a `field`: the options key of a function that takes what the callback returns, and whose return the field holds instead (`select`).",
+            "type": "string",
+            "minLength": 1
+          },
           "lazy": {
             "description": "For `state-pair`: a function initial value is called, and what it returns seeds the state (`useState(() => …)`).",
             "type": "boolean",

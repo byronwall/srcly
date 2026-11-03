@@ -82,7 +82,9 @@
       "name": "useQuery",
       "model": "calls-back",
       "option": "queryFn",
-      "note": "The query's value is what its `queryFn` returns."
+      "field": "data",
+      "selector": "select",
+      "note": "The query's `data` is what its `queryFn` returns, or what `select` makes of it. Its other fields (`status`, `error`, `isLoading`) do not hold that value."
     },
     {
       "language": "ts",
@@ -90,7 +92,9 @@
       "name": "useSuspenseQuery",
       "model": "calls-back",
       "option": "queryFn",
-      "note": "The query's value is what its `queryFn` returns."
+      "field": "data",
+      "selector": "select",
+      "note": "The query's `data` is what its `queryFn` returns, or what `select` makes of it. Its other fields (`status`, `error`, `isLoading`) do not hold that value."
     },
     {
       "language": "ts",
@@ -106,7 +110,8 @@
       "name": "useMutation",
       "model": "calls-back",
       "option": "mutationFn",
-      "note": "`mutate(x)` calls the `mutationFn` with `x`."
+      "field": "data",
+      "note": "`mutate(x)` calls the `mutationFn` with `x`. The mutation's `data` is what that function returns; its other fields do not hold it."
     },
     {
       "language": "ts",

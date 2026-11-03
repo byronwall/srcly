@@ -33,6 +33,8 @@ export const libraryModelRowSchema = z
     parameters: z.array(z.enum(["element", "index", "receiver", "accumulator"])).optional().describe("For a standard method's `calls-back`: what each callback parameter takes, in order. An `index` takes no value; an `accumulator` takes the `source` argument and what the callback returned before."),
     accessor: z.literal(true).optional().describe("For `calls-back`: the call makes an accessor, and calling it yields the callback's return (or, with `returns: boolean`, a test of it)."),
     option: z.string().min(1).optional().describe("For `calls-back`: the options key that holds the callback (`queryFn`)."),
+    field: z.string().min(1).optional().describe("For an `option` row: the result field that holds what the callback returns (`data`). The result's other fields (`status`, `error`) do not hold it."),
+    selector: z.string().min(1).optional().describe("For an `option` row with a `field`: the options key of a function that takes what the callback returns, and whose return the field holds instead (`select`)."),
     lazy: z.literal(true).optional().describe("For `state-pair`: a function initial value is called, and what it returns seeds the state (`useState(() => …)`)."),
     writes: z.literal("this").optional().describe("For `consumes`: the receiver keeps the arguments (`push`, `set`). A `consumes` row without it keeps nothing (`concat`)."),
     settles: z.enum(["then", "catch", "finally", "reject"]).optional().describe("For a promise's member: which outcome each callback takes and what the new promise holds (`PROMISE_CHANNELS`); `reject` makes a promise that only rejects."),
