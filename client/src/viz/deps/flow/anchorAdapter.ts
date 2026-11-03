@@ -36,6 +36,14 @@ export interface AnchorViewOptions {
   links?: boolean;
 }
 
+/** How strong an edge's status is, so a pair drawn as one edge shows its strongest witness. */
+const STRENGTH: Record<NonNullable<ViewEdge["status"]>, number> = { structural: 0, unsupported: 1, partial: 2, proven: 3 };
+
+const proofsOf = (e: AnchorGraphResult["edges"][number]) => e.proof.map((p) => ({ kind: p.kind, detail: p.detail, status: p.status, at: p.locations[0] ? `${baseName(p.locations[0].file)}:${p.locations[0].line}` : undefined }));
+
+/** A traced edge whose own proof assumes what code with no source does. */
+const assumedEdge = (e: AnchorGraphResult["edges"][number]) => e.status !== "structural" && e.proof.some((p) => isAssumedProof(p.kind));
+
 export function anchorGraphToViewModel(input: AnchorGraphResult, options?: AnchorViewOptions): FlowViewModel {
   const view = options && options.model !== "steps" ? symbolView(input) : null;
   const seed = input.nodes.find((n) => n.kind === "anchor");
@@ -110,6 +118,14 @@ export function anchorGraphToViewModel(input: AnchorGraphResult, options?: Ancho
     if (known) {
       // One edge per pair of boxes: the fields read along it all name it (`error, title`).
       if (e.label && !(known.label ?? "").split(", ").includes(e.label)) known.label = known.label ? (known.label.includes(", ") ? known.label : `${known.label}, ${e.label}`) : e.label;
+      // Every witness stays on the card: its relation, its proofs, and the strongest status any of them has.
+      if (!(known.relation ?? "").split(", ").includes(e.kind)) known.relation = known.relation ? `${known.relation}, ${e.kind}` : e.kind;
+      for (const p of proofsOf(e)) if (!known.proof?.some((item) => item.kind === p.kind && item.detail === p.detail)) known.proof = [...(known.proof ?? []), p];
+      if (STRENGTH[e.status] > STRENGTH[known.status ?? "structural"]) {
+        known.status = e.status;
+        known.faint = e.status !== "proven";
+      }
+      if (known.assumed && !assumedEdge(e)) delete known.assumed;
       continue;
     }
     const edge: ViewEdge = {
@@ -123,9 +139,9 @@ export function anchorGraphToViewModel(input: AnchorGraphResult, options?: Ancho
       ...(e.status === "structural" ? { style: "structural" as const } : CROSSING.has(e.kind) ? { style: "handoff" as const } : {}),
       ...(e.label ? { label: e.label } : {}),
       status: e.status,
-      proof: e.proof.map((p) => ({ kind: p.kind, detail: p.detail, status: p.status, at: p.locations[0] ? `${baseName(p.locations[0].file)}:${p.locations[0].line}` : undefined })),
+      proof: proofsOf(e),
       relation: e.kind,
-      ...(e.status !== "structural" && e.proof.some((p) => isAssumedProof(p.kind)) ? { assumed: true } : {}),
+      ...(assumedEdge(e) ? { assumed: true } : {}),
       ...(view && e.status !== "structural" ? { bold: true } : {}),
     };
     seen.set(key, edge);

@@ -6,7 +6,8 @@ import type * as TypeScript from "typescript";
 import { builtinLibraryModels, standardMemberModel } from "../analysis/library-models";
 import { browserMember, isStandardLibraryCallee } from "../analysis/program-evidence-support";
 import { programEvidenceCandidateIndex, type ProgramEvidenceCandidateIndex } from "../analysis/program-evidence-candidate-index";
-import type { ProgramElement } from "../analysis/scope-seam";
+import type { ProgramElement, ProgramRelation } from "../analysis/scope-seam";
+import { assumedThrough } from "./anchor-slice";
 import type { CallSiteIndex, CallSites } from "./call-sites";
 import { elementTraits, relationTraits, SEED_KINDS } from "./kinds";
 import { sameSpan, spanOf, type Span } from "./selection";
@@ -61,6 +62,18 @@ export function externalCallee(tier1: Tier1, element: Pick<ProgramElement, "kind
   const targetFile = target?.getSourceFile();
   const firstParty = targetFile && !targetFile.isDeclarationFile && !targetFile.fileName.includes(`${path.sep}node_modules${path.sep}`);
   return firstParty ? null : node.expression.getText(sourceFile);
+}
+
+/**
+ * The callee whose behaviour a relation takes on trust (code with no source,
+ * `assumedThrough`), or null. TypeScript's own library is known, never
+ * assumed. The graph's assumed edges and the ledger's `assumed` outcome both
+ * read this one rule.
+ */
+export function assumedCallee(tier1: Tier1, relation: Pick<ProgramRelation, "kind" | "from" | "to">): string | null {
+  const callee = assumedThrough(tier1.provider(), relation);
+  const call = callee ? tier1.provider().factIndex.getElement(relation.to) : null;
+  return callee && !(call && standardLibraryCall(tier1, call)) ? callee : null;
 }
 
 /** Whether a call's callee is declared only by TypeScript's own lib files (`trim`, `map`, `JSON.stringify`, `console.log`). */

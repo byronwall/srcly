@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { ValueFlowResult } from "../../src/srcly/contracts/value-flow";
+import { anchorGraphOp } from "../../src/srcly/ops/anchor-graph";
 import { selectExpressionOp, valueFlowOp } from "../../src/srcly/ops/value-flow";
 import { createEngineSession, type EngineSession } from "../../src/srcly/session";
 import { chooseTypescript } from "../../src/srcly/typescript-choice";
@@ -41,6 +42,14 @@ describe("value-flow basics", () => {
     expect(kinds(ledger)).toEqual(["input", "transfer", "terminal"]);
     expect(terminal(ledger)[0]).toMatchObject({ status: "proven", note: "JSX render slot", line: 2 });
     expect(ledger.rows[1].label).toBe("props.item");
+  }, 60_000);
+
+  it("names the same outcome as the graph for one expression: assumed through a sourceless call, ok through the standard library", () => {
+    for (const [file, text, outcome] of [["src/external-calls.tsx", "props.title", "assumed"], ["src/imported-calls.tsx", "props.tone", "assumed"], ["src/direct-property.tsx", "props.item.title", "ok"]] as const) {
+      const at = find(basics, file, text, file === "src/external-calls.tsx" ? "slugify(props.title)" : text);
+      expect(valueFlowOp(session, at).outcome, `${file} ${text}`).toBe(outcome);
+      expect(anchorGraphOp(session, { ...at, direction: "forward" }).outcome, `${file} ${text}`).toBe(outcome);
+    }
   }, 60_000);
 
   it("keeps two bindings with the same field name apart", () => {

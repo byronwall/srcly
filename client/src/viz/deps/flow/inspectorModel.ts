@@ -185,8 +185,10 @@ export function anchorOverview(graph: AnchorGraphResult): AnchorOverview {
 function assumedOf(graph: AnchorGraphResult): AnchorOverview["assumed"] {
   const nodes = new Map(graph.nodes.map((n) => [n.id, n]));
   const rows = new Map<string, AnchorOverview["assumed"][number]>();
+  // A pair another witness joins without assuming anything takes nothing on trust.
+  const sure = new Set(graph.edges.filter((e) => e.status !== "structural" && !e.proof.some((p) => isAssumedProof(p.kind))).map((e) => `${e.source}|${e.target}`));
   for (const e of graph.edges) {
-    if (e.status === "structural") continue;
+    if (e.status === "structural" || sure.has(`${e.source}|${e.target}`)) continue;
     for (const p of e.proof) {
       if (!isAssumedProof(p.kind)) continue;
       const target = nodes.get(e.target);
