@@ -667,6 +667,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       return;
     }
     const receiver = this.ts.isPropertyAccessExpression(calleeNode) ? calleeNode.expression : null;
+    if (receiver && this.connectStandardCallback(call, node, receiver)) return;
     const receiverType = receiver ? this.checker.getTypeAtLocation(receiver) : null;
     const awaited = receiverType ? this.checker.getAwaitedType(receiverType) : undefined;
     const element = receiverType ? receiverType.getNumberIndexType() ?? (awaited && awaited !== receiverType ? awaited : undefined) ?? receiverType : null;
@@ -694,6 +695,53 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         this.addRelation(returnId, call.id, "return-value", where, derived, derivedStatus);
       }
     }
+  }
+
+  /**
+   * A standard method whose row names its callback's parameters (`rows.map`,
+   * `rows.reduce`): each parameter takes its role's value, and the callback's
+   * return reaches the call's value only where the row says the call yields it
+   * (`returns: callback`). `forEach`'s return is dropped; `filter`'s, `find`'s
+   * and `sort`'s only test or order elements. False for any other call.
+   */
+  private connectStandardCallback(call: CollectorCallInfo, node: TypeScript.CallExpression, receiver: TypeScript.Expression): boolean {
+    const row = standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression));
+    if (row?.model !== "calls-back" || !row.parameters) return false;
+    const argument = node.arguments[Number(row.args ?? 0)];
+    const fn = argument && unwrap(this.ts, argument);
+    // Only a function written here, as before: a named one is joined where it is declared.
+    const info = fn && (this.ts.isArrowFunction(fn) || this.ts.isFunctionExpression(fn)) ? this.functionsByNode.get(nodeKey(this.root, fn)) : undefined;
+    if (!info) return true;
+    const name = calleeName(this.ts, node.expression);
+    const returns = this.returnsByFunction.get(info.id) ?? [];
+    const seed = row.source !== undefined ? node.arguments[Number(row.source)] : undefined;
+    info.declaration.parameters.forEach((parameter, index) => {
+      const role = row.parameters![index];
+      const binding = firstBindingIdentifier(this.ts, parameter.name);
+      const parameterId = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
+      if (!parameterId || !role || role === "index") return;
+      const where = [this.location(receiver), this.location(parameter)];
+      if (role === "accumulator") {
+        if (seed) {
+          const [called, calledStatus] = this.libraryProof(node, `${name} calls this function first with ${seed.getText()}.`, where);
+          this.addRelation(this.expression(seed, call.ownerId), parameterId, "callback-parameter", where, called, calledStatus);
+        }
+        for (const returnId of returns) {
+          const [called, calledStatus] = this.libraryProof(node, `${name} calls this function again with what it returned.`, where);
+          this.addRelation(returnId, parameterId, "callback-parameter", where, called, calledStatus);
+        }
+        return;
+      }
+      const [called, calledStatus] = this.libraryProof(node, `${name} calls this function with ${receiver.getText()}${role === "element" ? "'s elements" : ""}.`, where);
+      this.addRelation(this.expression(receiver, call.ownerId), parameterId, "callback-parameter", where, called, calledStatus);
+    });
+    if (row.returns !== "callback") return true;
+    const where = [this.location(argument)];
+    for (const returnId of returns) {
+      const [derived, derivedStatus] = this.libraryProof(node, `${name}'s value derives from what this function returns.`, where);
+      this.addRelation(returnId, call.id, "return-value", where, derived, derivedStatus);
+    }
+    return true;
   }
 
   /** How a standard promise member settles (its row's `settles`), or undefined for any other call. */

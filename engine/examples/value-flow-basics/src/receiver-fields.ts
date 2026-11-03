@@ -12,6 +12,6 @@ export function fill(row: string, title: string) { // @trace field-write forward
 
 export function gather(items: string[]) { // @trace arrow-push forward symbol items
   const rows: string[] = [];
-  items.forEach((item) => rows.push(item)); // @reaches arrow-push call
+  items.forEach((item) => rows.push(item)); // @reaches arrow-push call @reaches arrow-push return @no-edge arrow-push return-value *
   return rows; // @reaches arrow-push return
 }

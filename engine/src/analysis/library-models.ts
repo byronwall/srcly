@@ -30,6 +30,7 @@ export const libraryModelRowSchema = z
     with: z.enum(["element", "receiver", "awaited"]).optional().describe("What a callback receives."),
     returns: z.enum(["element", "boolean", "same", "callback", "void"]).optional().describe("What the call yields: `callback` is what the callback at `args` returns; `boolean` a test of it, not it (with `accessor`, on each call of the accessor); `void` is nothing, whatever its callback returns."),
     source: z.string().regex(/^\d+$/).optional().describe("For `calls-back` and `wraps`: the argument whose value (or return) the callback's first parameter receives."),
+    parameters: z.array(z.enum(["element", "index", "receiver", "accumulator"])).optional().describe("For a standard method's `calls-back`: what each callback parameter takes, in order. An `index` takes no value; an `accumulator` takes the `source` argument and what the callback returned before."),
     accessor: z.literal(true).optional().describe("For `calls-back`: the call makes an accessor, and calling it yields the callback's return (or, with `returns: boolean`, a test of it)."),
     option: z.string().min(1).optional().describe("For `calls-back`: the options key that holds the callback (`queryFn`)."),
     lazy: z.literal(true).optional().describe("For `state-pair`: a function initial value is called, and what it returns seeds the state (`useState(() => …)`)."),

@@ -84,6 +84,19 @@
             "type": "string",
             "pattern": "^\\d+$"
           },
+          "parameters": {
+            "description": "For a standard method's `calls-back`: what each callback parameter takes, in order. An `index` takes no value; an `accumulator` takes the `source` argument and what the callback returned before.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "element",
+                "index",
+                "receiver",
+                "accumulator"
+              ]
+            }
+          },
           "accessor": {
             "description": "For `calls-back`: the call makes an accessor, and calling it yields the callback's return (or, with `returns: boolean`, a test of it).",
             "type": "boolean",

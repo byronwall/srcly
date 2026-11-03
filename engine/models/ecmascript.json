@@ -68,6 +68,362 @@
     {
       "language": "ts",
       "module": "lib",
+      "member": "Array.map",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "callback",
+      "note": "The callback takes each element and its index. The new array holds what it returns."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.flatMap",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "callback",
+      "note": "The callback takes each element and its index. The new array holds what it returns, flattened once."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.forEach",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "void",
+      "note": "The callback takes each element and its index. Its return is dropped, and the call yields nothing."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.filter",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "same",
+      "note": "The callback takes each element and its index. Its return only tests the element; the new array holds the kept elements."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.find",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "element",
+      "note": "The callback takes each element and its index. Its return only tests the element; the call yields the element found."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.findLast",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "element",
+      "note": "The callback takes each element and its index. Its return only tests the element; the call yields the element found."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.findIndex",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "boolean",
+      "note": "The callback takes each element and its index. Its return only tests the element; the call yields a position."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.findLastIndex",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "boolean",
+      "note": "The callback takes each element and its index. Its return only tests the element; the call yields a position."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.some",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "boolean",
+      "note": "The callback takes each element and its index. The call yields a test of what it returns."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.every",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "boolean",
+      "note": "The callback takes each element and its index. The call yields a test of what it returns."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.sort",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "element"
+      ],
+      "returns": "same",
+      "note": "The comparator takes two elements. Its return only orders them; the call yields the sorted receiver."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.toSorted",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "element"
+      ],
+      "returns": "same",
+      "note": "The comparator takes two elements. Its return only orders them; the new array holds the receiver's elements."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.reduce",
+      "model": "calls-back",
+      "parameters": [
+        "accumulator",
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "callback",
+      "source": "1",
+      "note": "The callback takes the seed or its own last return, then each element. The call yields its last return."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "Array.reduceRight",
+      "model": "calls-back",
+      "parameters": [
+        "accumulator",
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "callback",
+      "source": "1",
+      "note": "The callback takes the seed or its own last return, then each element. The call yields its last return."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ReadonlyArray.map",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "callback",
+      "note": "The callback takes each element and its index. The new array holds what it returns."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ReadonlyArray.flatMap",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "callback",
+      "note": "The callback takes each element and its index. The new array holds what it returns, flattened once."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ReadonlyArray.forEach",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "void",
+      "note": "The callback takes each element and its index. Its return is dropped, and the call yields nothing."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ReadonlyArray.filter",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "same",
+      "note": "The callback takes each element and its index. Its return only tests the element; the new array holds the kept elements."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ReadonlyArray.find",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "element",
+      "note": "The callback takes each element and its index. Its return only tests the element; the call yields the element found."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ReadonlyArray.findLast",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "element",
+      "note": "The callback takes each element and its index. Its return only tests the element; the call yields the element found."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ReadonlyArray.findIndex",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "boolean",
+      "note": "The callback takes each element and its index. Its return only tests the element; the call yields a position."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ReadonlyArray.findLastIndex",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "boolean",
+      "note": "The callback takes each element and its index. Its return only tests the element; the call yields a position."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ReadonlyArray.some",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "boolean",
+      "note": "The callback takes each element and its index. The call yields a test of what it returns."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ReadonlyArray.every",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "boolean",
+      "note": "The callback takes each element and its index. The call yields a test of what it returns."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ReadonlyArray.toSorted",
+      "model": "calls-back",
+      "parameters": [
+        "element",
+        "element"
+      ],
+      "returns": "same",
+      "note": "The comparator takes two elements. Its return only orders them; the new array holds the receiver's elements."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ReadonlyArray.reduce",
+      "model": "calls-back",
+      "parameters": [
+        "accumulator",
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "callback",
+      "source": "1",
+      "note": "The callback takes the seed or its own last return, then each element. The call yields its last return."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "ReadonlyArray.reduceRight",
+      "model": "calls-back",
+      "parameters": [
+        "accumulator",
+        "element",
+        "index",
+        "receiver"
+      ],
+      "returns": "callback",
+      "source": "1",
+      "note": "The callback takes the seed or its own last return, then each element. The call yields its last return."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
       "member": "Array.*",
       "model": "consumes",
       "note": "The receiver keeps nothing it is given, even when the call's value is dropped."
