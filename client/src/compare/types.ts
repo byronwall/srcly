@@ -30,6 +30,8 @@ export interface CompareFile {
   before: Record<string, number | null> | null;
   after: Record<string, number | null> | null;
   deltas: Record<string, MetricDelta>;
+  /** Metrics measured on one side only: a coverage change, with no delta. */
+  coverage?: { lost: string[]; gained: string[] };
 }
 
 export interface CompareEdge {
@@ -39,9 +41,16 @@ export interface CompareEdge {
   crossFolder: boolean;
 }
 
-export interface MetricTotal extends MetricDelta {
+/** Totals leave out coverage changes; `delta` is null when a side has no measured value. */
+export interface MetricTotal {
+  before: number | null;
+  after: number | null;
+  delta: number | null;
+  verdict: Verdict;
   filesBetter: number;
   filesWorse: number;
+  coverageLost: number;
+  coverageGained: number;
 }
 
 /** PR context on a side resolved from `pr:<n>` or an `auto` base that found the head's PR. */
@@ -93,6 +102,7 @@ export interface ComparePayload {
   summary: {
     files: Record<ChangeStatus | "total", number>;
     lines: { additions: number; deletions: number };
+    coverage: { filesLost: number; filesGained: number };
     metrics: Record<string, MetricTotal>;
     net: Record<Verdict, number>;
     edges: { added: number; removed: number; crossFolderAdded: number; crossFolderRemoved: number };

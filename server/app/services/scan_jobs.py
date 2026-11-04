@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import sys
 import threading
 import time
 import uuid
@@ -393,7 +394,7 @@ class ScanJob(ScanObserver):
                 scan_seconds=snapshot["elapsed_seconds"],
             )
         except Exception as exc:  # noqa: BLE001 - the cache is best-effort
-            print(f"⚠️  Could not cache analysis of {self.root_path}: {exc}", flush=True)
+            print(f"⚠️  Could not cache analysis of {self.root_path}: {exc}", file=sys.stderr, flush=True)
 
     def _finish(self, phase: ScanPhase, **changes) -> None:
         with self._lock:

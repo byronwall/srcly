@@ -45,7 +45,8 @@ Use `uvx srcly scan . --out -` only when a caller explicitly wants raw tree JSON
 - Single metric list: `uvx srcly hotspots . --metric complexity --limit 20` (any non-neutral id from `metrics.schema.json`; `--cohort function` ranks functions)
 - Report ranked by another metric: `uvx srcly report . --out .srcly --metric comment_noise`
 - Named 2x2 (members per quadrant in `report.md` + `quadrants.json`): `uvx srcly report . --out .srcly --quadrant activity` ("Hot mess" = complex and changing often; also `blast_radius`, `component_weight`, `comment_noise`)
-- Focus one file: `uvx srcly explain . --file path/to/file`
+- Focus one file: `uvx srcly explain . --file path/to/file` (`--file` is relative to the analyzed path, not the cwd)
+- Compare two refs: `uvx srcly compare` (merge-base → working tree) or `uvx srcly compare pr:<n>`
 - Full raw tree: `uvx srcly scan . --out .srcly/tree.json`
 - CI gate: `uvx srcly report . --out .srcly --fail-on high`
 
@@ -62,7 +63,10 @@ uvx srcly report . --stdout
 uvx srcly hotspots . --format json
 uvx srcly explain . --file path/to/file --format json
 uvx srcly scan . --out -
+uvx srcly compare --json
 ```
+
+Progress, version banners and cache warnings go to stderr, so stdout stays parseable even when a cache write fails. `--limit`, `--tree-depth` and `--tree-top` must be 1 or more.
 
 ## How To Interpret Findings
 
@@ -73,6 +77,7 @@ uvx srcly scan . --out -
 - Import coupling and dependency graph density: dependency-boundary review targets.
 - TODOs in complex files: maintenance markers worth validating.
 - Low comment density only matters when paired with complexity, public API behavior, or non-obvious domain logic.
+- Compare: `null` is unavailable, never zero. A file measured on one side only shows under `coverage` (lost or gained) and stays out of the metric totals; report coverage changes apart from real improvements or regressions. A file missing from a side's dependency graph has unknown `fan_in`/`fan_out`.
 
 ## Response Pattern
 
@@ -89,4 +94,4 @@ When reporting back:
 - Do not claim Srcly findings are bugs without reading the code.
 - Do not paste large JSON artifacts into chat.
 - Do not edit based only on metric rank; inspect implementation and tests first.
-- If generated artifacts are stale after code changes, rerun `uvx srcly report . --out .srcly --refresh`.
+- If generated artifacts are stale after code changes, rerun `uvx srcly report . --out .srcly`. Every run rescans; add `--refresh` to also rerun lint and type checks instead of reading their cache.

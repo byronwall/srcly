@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 import shutil
+import sys
 import threading
 import time
 from contextlib import contextmanager
@@ -113,7 +114,7 @@ class SideCache:
                 for old in entries[MAX_SIDE_ENTRIES:]:
                     old.unlink(missing_ok=True)
         except OSError as exc:
-            print(f"⚠️  Could not cache compare side {side.ref.label}: {exc}", flush=True)
+            print(f"⚠️  Could not cache compare side {side.ref.label}: {exc}", file=sys.stderr, flush=True)
 
 
 side_cache = SideCache()

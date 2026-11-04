@@ -169,17 +169,20 @@ def render_markdown(payload: dict[str, Any], *, limit: int = 40) -> str:
         f"Dependency edges: +{summary['edges']['added']} / -{summary['edges']['removed']} "
         f"(cross-folder +{summary['edges']['crossFolderAdded']} / -{summary['edges']['crossFolderRemoved']})",
         f"Net: {summary['net']['better']} metrics better, {summary['net']['worse']} worse, "
-        f"{summary['net']['neutral']} size-only, {summary['net']['same']} unchanged",
+        f"{summary['net']['neutral']} size-only or unjudged, {summary['net']['same']} unchanged",
+        f"Coverage: {summary['coverage']['filesLost']} files lost a measured metric, "
+        f"{summary['coverage']['filesGained']} gained one (not counted in totals)",
         "",
         "## Metrics over changed files",
         "",
-        "| Metric | Before | After | Δ | Verdict | Files better / worse |",
-        "| --- | ---: | ---: | ---: | --- | ---: |",
+        "| Metric | Before | After | Δ | Verdict | Files better / worse | Coverage lost / gained |",
+        "| --- | ---: | ---: | ---: | --- | ---: | ---: |",
     ]
     for name, total in summary["metrics"].items():
         lines.append(
             f"| {name} | {_fmt(total['before'])} | {_fmt(total['after'])} | {_signed(total['delta'])} | "
-            f"{total['verdict']} | {total['filesBetter']} / {total['filesWorse']} |"
+            f"{total['verdict']} | {total['filesBetter']} / {total['filesWorse']} | "
+            f"{total['coverageLost']} / {total['coverageGained']} |"
         )
     lines += ["", "## Files", "", "| File | Status | +/- | Worse | Better |", "| --- | --- | ---: | --- | --- |"]
     for f in payload["files"][:limit]:
@@ -198,5 +201,7 @@ def _fmt(value: Optional[float]) -> str:
     return f"{value:g}"
 
 
-def _signed(value: float) -> str:
+def _signed(value: Optional[float]) -> str:
+    if value is None:
+        return "—"
     return f"{value:+g}"

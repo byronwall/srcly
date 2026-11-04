@@ -74,6 +74,10 @@ uvx srcly report . --out .srcly --verbose
 
 Use `uvx srcly scan . --out .srcly/tree.json` or `uvx srcly report . --include-tree` when you need the full raw tree. Use `--include-dependencies` to add the TypeScript/TSX dependency graph artifact.
 
+Machine-readable output (`report --stdout`, `--format json`, `scan --out -`, `compare --json`) is the only thing on stdout. Progress, the version banner and cache warnings go to stderr. `explain --file` is relative to the analyzed path, not the current directory. `--limit`, `--tree-depth` and `--tree-top` must be 1 or more. Every run rescans the code; `--refresh` also reruns lint and type checks instead of reading their cache.
+
+`uvx srcly compare [base] [head]` compares two refs (default: merge-base → working tree; `pr:<n>` for a PR). A metric that is unavailable stays `null`, never 0. A file measured on one side only is a coverage change: it has no delta, stays out of the totals, and is counted under `coverage` (and `coverageLost` / `coverageGained` per metric), so lost measurement never looks like an improvement. A file missing from a side's dependency graph has unknown fan-in and fan-out.
+
 ## What Srcly shows you
 
 - **Treemap of your codebase**

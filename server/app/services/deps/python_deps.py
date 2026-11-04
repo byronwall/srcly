@@ -221,7 +221,7 @@ def build_py_edges(root: Path, files: List[Path]) -> Tuple[List[DepEdge], Dict[s
         try:
             infos[f] = parse_py_file(f, mod)
         except Exception as e:  # pragma: no cover
-            print(f"[deps] failed to parse {f}: {e}")
+            print(f"[deps] failed to parse {f}: {e}", file=sys.stderr)
 
     defined: Dict[Path, Set[str]] = {f: {d.name for d in i.declarations} for f, i in infos.items()}
 

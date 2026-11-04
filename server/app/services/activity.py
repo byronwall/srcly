@@ -26,6 +26,7 @@ import gzip
 import hashlib
 import json
 import os
+import sys
 import threading
 import time
 from collections import OrderedDict
@@ -252,7 +253,7 @@ class ActivityCache:
             for stale in entries[MAX_DISK_ENTRIES:]:
                 stale.unlink(missing_ok=True)
         except Exception as exc:  # noqa: BLE001 - the cache is best-effort
-            print(f"⚠️  Could not cache Git activity: {exc}", flush=True)
+            print(f"⚠️  Could not cache Git activity: {exc}", file=sys.stderr, flush=True)
 
     def _remember(self, key: str, result: ActivityResult) -> None:
         with self._lock:

@@ -10,6 +10,7 @@ so the result endpoint never serializes on the event loop.
 from __future__ import annotations
 
 import json
+import sys
 import threading
 import time
 import uuid
@@ -176,7 +177,7 @@ class CompareJobManager:
                     time.sleep(0.2)
                 load_side(repo, resolved, cancel=self._prewarm_cancel)
             except Exception as exc:  # noqa: BLE001 - best effort
-                print(f"⚠️  Pre-warm of {resolved.label} failed: {exc}", flush=True)
+                print(f"⚠️  Pre-warm of {resolved.label} failed: {exc}", file=sys.stderr, flush=True)
             finally:
                 with self._lock:
                     self._prewarming.discard(key)

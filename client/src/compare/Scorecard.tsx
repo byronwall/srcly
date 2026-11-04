@@ -45,7 +45,8 @@ export function Scorecard(props: {
   const unchanged = createMemo(
     () => entries().filter((e) => e.def.direction !== "neutral" && e.total.verdict === "same").length
   );
-  const size = createMemo(() => entries().filter((e) => e.def.direction === "neutral" && e.total.delta !== 0));
+  const size = createMemo(() => entries().filter((e) => e.def.direction === "neutral" && Boolean(e.total.delta)));
+  const coverage = () => props.payload.summary.coverage;
   const maxFiles = createMemo(() =>
     Math.max(1, ...risk().map((e) => Math.max(e.total.filesBetter, e.total.filesWorse)))
   );
@@ -71,9 +72,9 @@ export function Scorecard(props: {
               <span class="truncate font-medium text-[var(--plc-on-surface)]">{compareMetricLabel(e.def.name)}</span>
               <span class={cx("plc-data-md font-semibold", VERDICT_TEXT[e.total.verdict])}>
                 {e.def.aggregation === "sum"
-                  ? e.total.verdict === "worse"
-                    ? "worse"
-                    : "better"
+                  ? e.total.verdict === "worse" || e.total.verdict === "better"
+                    ? e.total.verdict
+                    : "—"
                   : formatDelta(e.def.name, e.total.delta)}
               </span>
               <span class="plc-data-sm mt-0.5 text-[var(--plc-on-subtle)]">
@@ -90,6 +91,12 @@ export function Scorecard(props: {
       </Show>
       <Show when={unchanged()}>
         <p class="px-3 pt-1 text-[11px] text-[var(--plc-on-subtle)]">{unchanged()} other risk metrics unchanged</p>
+      </Show>
+      <Show when={coverage().filesLost || coverage().filesGained}>
+        <p class="px-3 pt-1 text-[11px] text-[var(--plc-on-subtle)]" data-compare-coverage>
+          Coverage changed: {coverage().filesLost} files lost a measured metric, {coverage().filesGained} gained one.
+          Not counted in totals.
+        </p>
       </Show>
 
       <Show when={size().length}>

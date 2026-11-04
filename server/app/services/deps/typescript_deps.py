@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
@@ -325,7 +326,7 @@ def build_ts_edges(root: Path, files: List[Path]) -> Tuple[List[DepEdge], Dict[P
         try:
             infos[f] = parse_ts_file(f)
         except Exception as e:  # pragma: no cover - parse failures are skipped
-            print(f"[deps] failed to parse {f}: {e}")
+            print(f"[deps] failed to parse {f}: {e}", file=sys.stderr)
     resolver = TsModuleResolver(root, file_set)
     resolved_cache: Dict[Tuple[Path, str], Optional[Path]] = {}
 
