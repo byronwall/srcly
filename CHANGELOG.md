@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.10.0](https://github.com/byronwall/srcly/compare/v1.9.0...v1.10.0) (2026-11-04)
+
+
+### Features
+
+* **cli:** scoped explain, reused analysis and code-only findings for agent audits ([#339](https://github.com/byronwall/srcly/issues/339)) ([f56791f](https://github.com/byronwall/srcly/commit/f56791fcb9167c5eb55acc1770864f36303be01f))
+
+
+### Bug Fixes
+
+* **cli:** every explain, hotspots and compare state reads as a sentence with a next step ([#341](https://github.com/byronwall/srcly/issues/341)) ([bb56f62](https://github.com/byronwall/srcly/commit/bb56f620eac43fcd645bb78c1d3949a0d9b2e9a5))
+* **dataflow:** a query's data holds the fetched value, its status does not ([#336](https://github.com/byronwall/srcly/issues/336)) ([4989f0f](https://github.com/byronwall/srcly/commit/4989f0f4bf427b161cbe72081cc0277283b89f96))
+* **dataflow:** a Solid store path writes its own field ([#332](https://github.com/byronwall/srcly/issues/332)) ([6f7fbb0](https://github.com/byronwall/srcly/commit/6f7fbb02848e0551ef542fcd511aa73b1dd512bd))
+* **dataflow:** bind standard callback parameters by role and drop ignored returns ([#331](https://github.com/byronwall/srcly/issues/331)) ([174466d](https://github.com/byronwall/srcly/commit/174466d5154f1a5bf35f8c8b0a54087a3326eeec))
+* **dataflow:** keep every relation between two boxes, and share the assumed rule with the ledger ([#337](https://github.com/byronwall/srcly/issues/337)) ([a89b0d2](https://github.com/byronwall/srcly/commit/a89b0d209be3bd2649e25a0005cf5ce531928632))
+* **dataflow:** read the nearest context provider, or the default ([#333](https://github.com/byronwall/srcly/issues/333)) ([8b87dbf](https://github.com/byronwall/srcly/commit/8b87dbf2be323d37df70163f3f2d69bf0842f498))
+* **dataflow:** route setters, literal and computed keys, and call/apply/bind ([#334](https://github.com/byronwall/srcly/issues/334)) ([1357b98](https://github.com/byronwall/srcly/commit/1357b9843002cfe33c1a03d91b7976f83f25e1da))
+* **dataflow:** Solid For and Index hand each item to their render callback ([#335](https://github.com/byronwall/srcly/issues/335)) ([86013a2](https://github.com/byronwall/srcly/commit/86013a27c50349f47c58d8364b22769c6e9d3b78))
+* keep unavailable metrics out of compare verdicts and stdout clean for agents ([#338](https://github.com/byronwall/srcly/issues/338)) ([1b056b4](https://github.com/byronwall/srcly/commit/1b056b415ce59b489d61d956978f03e2be5739ca))
+
+
+### Documentation
+
+* **dataflow:** research JavaScript React and Solid gaps ([#315](https://github.com/byronwall/srcly/issues/315)) ([705ae2f](https://github.com/byronwall/srcly/commit/705ae2fb9d5c4fd570d9646c05dba1dc61be3a6d))
+* plan evidence-first agent reporting ([#311](https://github.com/byronwall/srcly/issues/311)) ([0fb7c6d](https://github.com/byronwall/srcly/commit/0fb7c6d59f9a3d965c4ff70a1a9572d4b8678896))
+
 ## [1.9.0](https://github.com/byronwall/srcly/compare/v1.8.0...v1.9.0) (2026-11-02)
 
 
