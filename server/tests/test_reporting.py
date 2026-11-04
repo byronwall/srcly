@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from app.models import Metrics, Node
+from app.models import Metrics, Node, Witness
 from app.run import main
 from app.services import metric_catalog, reporting
 
@@ -285,8 +285,8 @@ def test_cli_explain_subcommand_prints_file_tree(
     main(["explain", str(root), "--file", str(file_path)])
 
     captured = capsys.readouterr()
-    assert "# Srcly Explain" in captured.out
-    assert "Dashboard.tsx" in captured.out
+    assert captured.out.startswith("# srcly explain client/src/Dashboard.tsx (file)")
+    assert "| `::Dashboard` | 10–80 | 12 |" in captured.out
 
 
 def _file(root: Path, name: str, **metrics) -> Node:
@@ -370,7 +370,7 @@ def test_report_names_the_complexity_witness(tmp_path: Path, monkeypatch: pytest
 
     finding = payload["findings"]["findings"][0]
     assert finding["complexity_witness"]["name"] == "Dashboard"
-    assert "complexity=12 in `Dashboard` (line 10)" in payload["report_markdown"]
+    assert "`client/src/Dashboard.tsx:10` `Dashboard`" in payload["report_markdown"]
     assert payload["hotspots"]["function_rankings"][0]["name"] == "Dashboard"
 
 
@@ -491,7 +491,7 @@ def test_cli_explain_file_resolves_against_the_analyzed_path_not_the_cwd(
 
     main(["explain", str(root), "--file", "client/src/Dashboard.tsx", "--format", "json"])
 
-    assert json.loads(capsys.readouterr().out)["path"] == "client/src/Dashboard.tsx"
+    assert json.loads(capsys.readouterr().out)["scope"] == "client/src/Dashboard.tsx"
     with pytest.raises(SystemExit, match="outside the analyzed path"):
         main(["explain", str(root), "--file", "../elsewhere/x.py"])
 
@@ -502,3 +502,82 @@ def test_cli_rejects_zero_and_negative_limits(tmp_path: Path, command: list[str]
     with pytest.raises(SystemExit) as exc:
         main([command[0], str(tmp_path), command[1], value])
     assert exc.value.code == 2
+
+
+def _audit_tree(root: Path) -> Node:
+    """Code under src/, a long doc at the root, and a snapshot fixture: only src/ is a refactor target."""
+
+    def file(rel: str, **metrics) -> Node:
+        return Node(name=rel.rsplit("/", 1)[-1], type="file", path=str(root / rel), metrics=Metrics(file_count=1, **metrics))
+
+    def folder(rel: str, *children: Node) -> Node:
+        return Node(name=rel, type="folder", path=str(root / rel), metrics=Metrics(), children=list(children))
+
+    fn = Node(
+        name="parse", type="function", kind="function", path=str(root / "src/core/parse.py") + "::parse",
+        start_line=10, end_line=90, metrics=Metrics(complexity=30, loc=80),
+    )
+    parse = file("src/core/parse.py", complexity=30, loc=300)
+    parse.metrics.complexity_witness = Witness(path=fn.path, name="parse", start_line=10, end_line=90)
+    parse.children = [fn]
+    return Node(
+        name="root", type="folder", path=str(root), metrics=Metrics(),
+        children=[
+            file("README.md", loc=900),
+            folder("src", folder("src/core", parse), file("src/app.py", complexity=4, loc=60)),
+            folder("tests", folder("tests/__snapshots__", file("tests/__snapshots__/golden.snap", loc=2000))),
+        ],
+    )
+
+
+def test_report_ranks_code_and_names_what_it_left_out(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = tmp_path.resolve()
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: _audit_tree(root))
+
+    payload = reporting.build_report_payload(root, verbose=False)
+
+    assert [f["path"] for f in payload["findings"]["findings"]] == ["src/core/parse.py", "src/app.py"]
+    report = payload["report_markdown"]
+    assert "docs 1 (mostly .md document; top `README.md`)" in report
+    assert "fixture 1 (mostly test snapshot (.snap); top `tests/__snapshots__/golden.snap`)" in report
+    # The folder ranks by its worst file, so src/ leads the tree instead of the root README.
+    assert payload["tree_summary"]["children"][0]["path"] == "src"
+    assert "| `src/` | 2 |" in report
+
+
+def test_explain_drills_from_folder_to_symbol(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path.resolve()
+    (root / "src/core").mkdir(parents=True)
+    (root / "src/core/parse.py").write_text("def parse(): pass\n", encoding="utf-8")
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: _audit_tree(root))
+
+    main(["explain", str(root), "--format", "json"])
+    repo = json.loads(capsys.readouterr().out)
+    assert repo["folders"][0]["path"] == "src"
+    assert repo["folders"][0]["worst"]["start_at"] == "src/core/parse.py:10 parse"
+    assert {row["class"] for row in repo["left_out"]} == {"docs", "fixture"}
+
+    main(["explain", str(root), "--at", "src/core/parse.py::parse", "--format", "json"])
+    symbol = json.loads(capsys.readouterr().out)
+    assert (symbol["kind"], symbol["lines"]) == ("symbol", [10, 90])
+    assert symbol["metrics"]["values"]["complexity"] == 30
+
+
+def test_scan_tree_reuses_the_cached_analysis_until_files_change(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services import analysis
+
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / "a.py").write_text("def f():\n    return 1\n", encoding="utf-8")
+    real_scan = analysis.scan_codebase
+    scans: list[Path] = []
+    monkeypatch.setattr(analysis, "scan_codebase", lambda path, **kw: scans.append(path) or real_scan(path, **kw))
+
+    reporting.scan_tree(root)
+    reporting.scan_tree(root)
+    assert len(scans) == 1
+    (root / "b.py").write_text("x = 1\n", encoding="utf-8")
+    reporting.scan_tree(root)
+    assert len(scans) == 2

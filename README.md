@@ -44,7 +44,8 @@ Srcly can also run without opening the UI and emit agent-ready artifacts:
 uvx srcly report . --out .srcly
 uvx srcly scan . --out .srcly/tree.json
 uvx srcly hotspots . --metric complexity --limit 25
-uvx srcly explain . --file client/src/App.tsx
+uvx srcly explain . --at client/src
+uvx srcly explain . --at "client/src/App.tsx::App"
 ```
 
 By default, `uvx srcly report` writes compact artifacts intended to be safe for agents to inspect:
@@ -74,7 +75,11 @@ uvx srcly report . --out .srcly --verbose
 
 Use `uvx srcly scan . --out .srcly/tree.json` or `uvx srcly report . --include-tree` when you need the full raw tree. Use `--include-dependencies` to add the TypeScript/TSX dependency graph artifact.
 
-Machine-readable output (`report --stdout`, `--format json`, `scan --out -`, `compare --json`) is the only thing on stdout. Progress, the version banner and cache warnings go to stderr. `explain --file` is relative to the analyzed path, not the current directory. `--limit`, `--tree-depth` and `--tree-top` must be 1 or more. Every run rescans the code; `--refresh` also reruns lint and type checks instead of reading their cache.
+`explain --at` reads one scope of the analysis: the repo or a folder (child folders ranked by their worst file, then the worst files below), a file (its functions and classes), or `file::symbol` (its lines and every measured metric). Commands share the app's analysis cache, so after the first scan each call takes about a second while no file has changed; `--refresh` rescans.
+
+Findings rank **code** files. Each file is also classed as test, docs, fixture, generated, vendored, config or data from its path, and the report names how many of each it left out and why (`--include-class test` ranks one too). A long README or a test snapshot is never a refactor target by accident, and never silently dropped.
+
+Machine-readable output (`report --stdout`, `--format json`, `scan --out -`, `compare --json`) is the only thing on stdout. Progress, the version banner and cache warnings go to stderr. `explain --file` is relative to the analyzed path, not the current directory. `--limit`, `--tree-depth` and `--tree-top` must be 1 or more. Progress is off unless you pass `--verbose`.
 
 `uvx srcly compare [base] [head]` compares two refs (default: merge-base → working tree; `pr:<n>` for a PR). A metric that is unavailable stays `null`, never 0. A file measured on one side only is a coverage change: it has no delta, stays out of the totals, and is counted under `coverage` (and `coverageLost` / `coverageGained` per metric), so lost measurement never looks like an improvement. A file missing from a side's dependency graph has unknown fan-in and fan-out.
 
