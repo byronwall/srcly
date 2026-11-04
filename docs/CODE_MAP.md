@@ -35,6 +35,7 @@ Browser
 | CLI entry point, arg parsing, port pick, browser open | `server/app/run.py` (`main`) |
 | Startup banner and `--version`: version, paths, client build, cache, data-flow engine, `SRCLY_*` overrides | `server/app/startup_info.py` |
 | Headless commands (`scan`, `report`, `hotspots`, `explain`; `report --quadrant <preset>`) | `server/app/run.py` (`_run_headless`) → `server/app/services/reporting.py` |
+| `explain --at` scopes (folder rollups, file symbols, `file::symbol`), file classes (code/test/docs/fixture/…) that the findings queue and folder scores use | `server/app/services/scopes.py`, `server/app/services/file_classes.py`; CLI reuses the analysis cache in `reporting.py` (`scan_tree`) |
 | FastAPI app, CORS, static SPA mount | `server/app/main.py` |
 | Ctrl+C / SIGTERM: cancel running scans, then uvicorn shutdown | `server/app/main.py` (`lifespan`, `_install_scan_cancelling_signal_handlers`); CLI exit code in `server/app/run.py` (`main`) |
 | Dev loop (uvicorn reload + Vite) | `dev.sh`; Vite proxies `/api` → `:8000` in `client/vite.config.ts` |

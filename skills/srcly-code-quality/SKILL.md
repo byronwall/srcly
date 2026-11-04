@@ -15,11 +15,18 @@ Use this skill when asked to review a codebase, find refactor targets, prioritiz
    uvx srcly report . --out .srcly --format both
    ```
 
-2. Read `.srcly/report.md` first. It is the compact, human-readable entry point.
-3. Read `.srcly/findings.json` for machine-readable targets with metric evidence and suggested actions.
-4. Read `.srcly/tree.summary.json` only when you need repository shape or sibling context around a target.
-5. Inspect the referenced source files and nearby tests before proposing or making changes.
-6. Treat metrics as triage signals, not proof of defects.
+2. Read `.srcly/report.md` first. Its findings rank code files only; each row names the function to start at. A "Not ranked as code" line counts tests, docs, fixtures, generated, vendored, config and data files with the reason.
+3. Drill down with `explain`, one scope at a time. Each call reuses the saved analysis (about a second) while no file has changed:
+
+   ```bash
+   uvx srcly explain .                                    # folders worst first, worst files, what was left out
+   uvx srcly explain . --at server/app                    # one folder
+   uvx srcly explain . --at server/app/run.py             # its functions and classes, most complex first
+   uvx srcly explain . --at 'server/app/run.py::_main'    # one symbol: lines, every measured metric
+   ```
+
+4. Inspect the referenced source files and nearby tests before proposing or making changes.
+5. Treat metrics as triage signals, not proof of defects.
 
 ## Token Discipline
 
@@ -45,7 +52,8 @@ Use `uvx srcly scan . --out -` only when a caller explicitly wants raw tree JSON
 - Single metric list: `uvx srcly hotspots . --metric complexity --limit 20` (any non-neutral id from `metrics.schema.json`; `--cohort function` ranks functions)
 - Report ranked by another metric: `uvx srcly report . --out .srcly --metric comment_noise`
 - Named 2x2 (members per quadrant in `report.md` + `quadrants.json`): `uvx srcly report . --out .srcly --quadrant activity` ("Hot mess" = complex and changing often; also `blast_radius`, `component_weight`, `comment_noise`)
-- Focus one file: `uvx srcly explain . --file path/to/file` (`--file` is relative to the analyzed path, not the cwd)
+- Drill into a folder, file or `file::symbol`: `uvx srcly explain . --at <path>` (relative to the analyzed path, not the cwd; `--file` still works)
+- Rank another file class too: `--include-class test` (also `docs`, `fixture`, `generated`, `vendored`, `config`, `data`)
 - Compare two refs: `uvx srcly compare` (merge-base → working tree) or `uvx srcly compare pr:<n>`
 - Full raw tree: `uvx srcly scan . --out .srcly/tree.json`
 - CI gate: `uvx srcly report . --out .srcly --fail-on high`
@@ -61,7 +69,7 @@ Machine-readable stdout is available through:
 ```bash
 uvx srcly report . --stdout
 uvx srcly hotspots . --format json
-uvx srcly explain . --file path/to/file --format json
+uvx srcly explain . --at path/to/file --format json
 uvx srcly scan . --out -
 uvx srcly compare --json
 ```
@@ -94,4 +102,4 @@ When reporting back:
 - Do not claim Srcly findings are bugs without reading the code.
 - Do not paste large JSON artifacts into chat.
 - Do not edit based only on metric rank; inspect implementation and tests first.
-- If generated artifacts are stale after code changes, rerun `uvx srcly report . --out .srcly`. Every run rescans; add `--refresh` to also rerun lint and type checks instead of reading their cache.
+- After code changes, rerun the command. The saved analysis is checked against every file and rescanned when anything changed; `--refresh` forces a rescan and fresh lint and type checks.
