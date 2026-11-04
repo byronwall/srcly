@@ -10,7 +10,7 @@ from pathlib import Path
 import uvicorn
 
 from app import startup_info
-from app.services import activity, metric_catalog, quadrants, reporting
+from app.services import activity, file_classes, metric_catalog, quadrants, reporting, scopes
 from app.services.scan_workers import ScanCancelled
 
 # Seconds uvicorn waits for open connections after Ctrl+C before closing them.
@@ -165,15 +165,15 @@ def _positive_int(text: str) -> int:
     return value
 
 
-def _resolve_explain_file(root: Path, file: str) -> Path:
-    """``--file`` is relative to the analyzed root, not the cwd, and must lie inside it."""
-    root = root.resolve()
-    file_path = (root / file).resolve()
-    if not file_path.is_relative_to(root):
-        raise SystemExit(f"--file {file} is outside the analyzed path {root}")
-    if not file_path.is_file():
-        raise SystemExit(f"--file {file} does not exist under the analyzed path {root}")
-    return file_path
+def _resolve_scope(root: Path, at: str) -> str:
+    """``--at`` relative to the analyzed root (an absolute path inside it also works); keeps ``::symbol``."""
+    file, sep, symbol = at.partition("::")
+    target = (root / file).resolve()
+    if not target.is_relative_to(root):
+        raise SystemExit(f"--at {at} is outside the analyzed path {root}")
+    if not target.exists():
+        raise SystemExit(f"--at {at} does not exist under the analyzed path {root}")
+    return f"{target.relative_to(root).as_posix() or '.'}{sep}{symbol}"
 
 
 def _resolve_target_path(path: str | None) -> Path:
@@ -296,6 +296,13 @@ def _run_headless(argv: list[str]) -> None:
         default="none",
         help="Exit non-zero if findings at this priority or higher are present.",
     )
+    report_parser.add_argument(
+        "--include-class",
+        action="append",
+        choices=[c for c in file_classes.CLASSES if c != "code"],
+        default=[],
+        help="Also rank this file class (test, docs, fixture, generated, vendored, config). May be repeated.",
+    )
     report_parser.add_argument("--tree-depth", type=_positive_int, default=3, help="Maximum depth in tree.summary.json.")
     report_parser.add_argument("--tree-top", type=_positive_int, default=6, help="Maximum children per tree level.")
     report_parser.add_argument("--include-tree", action="store_true", help="Also write/include the full raw tree.json artifact.")
@@ -331,7 +338,9 @@ def _run_headless(argv: list[str]) -> None:
         "--verbose", action="store_true", help="Print per-file scan progress to stderr. Quiet by default."
     )
 
-    explain_parser = subparsers.add_parser("explain", help="Print a focused report for one file or subtree.")
+    explain_parser = subparsers.add_parser(
+        "explain", help="Drill into one scope of the analysis: the repo, a folder, a file, or file::symbol."
+    )
     explain_parser.add_argument(
         "--activity-window",
         choices=list(activity.WINDOWS),
@@ -340,7 +349,28 @@ def _run_headless(argv: list[str]) -> None:
     )
     explain_parser.add_argument("path", nargs="?", help="Path to analyze. Defaults to the enclosing Git repo root.")
     explain_parser.add_argument(
-        "--file", required=True, help="File to explain, relative to the analyzed path (or absolute)."
+        "--at",
+        "--file",
+        dest="at",
+        default=".",
+        help="Folder, file, or file::symbol, relative to the analyzed path (default: the whole root).",
+    )
+    explain_parser.add_argument("--limit", type=_positive_int, default=10, help="Rows per table.")
+    explain_parser.add_argument(
+        "--profile",
+        choices=["general", "frontend", "backend", "typescript", "python", "docs"],
+        default="general",
+        help="Profile behind the file scores.",
+    )
+    explain_parser.add_argument(
+        "--refresh", action="store_true", help="Rescan and rerun lint and type checks instead of reusing cached results."
+    )
+    explain_parser.add_argument(
+        "--include-class",
+        action="append",
+        choices=[c for c in file_classes.CLASSES if c != "code"],
+        default=[],
+        help="Also rank this file class (test, docs, fixture, generated, vendored, config). May be repeated.",
     )
     explain_parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format.")
     explain_parser.add_argument(
@@ -421,6 +451,7 @@ def _run_headless(argv: list[str]) -> None:
                 activity_window=args.activity_window,
                 quadrant=args.quadrant,
                 quadrant_cohort=args.quadrant_cohort,
+                include_classes=("code", *args.include_class),
             )
             print(reporting._json_dumps(payload))
         else:
@@ -445,6 +476,7 @@ def _run_headless(argv: list[str]) -> None:
                 activity_window=args.activity_window,
                 quadrant=args.quadrant,
                 quadrant_cohort=args.quadrant_cohort,
+                include_classes=("code", *args.include_class),
             )
             if args.verbose:
                 print(f"Wrote Srcly report artifacts to {out_dir}")
@@ -478,14 +510,23 @@ def _run_headless(argv: list[str]) -> None:
         return
 
     if args.command == "explain":
-        target_path = _resolve_target_path(args.path)
-        file_path = _resolve_explain_file(target_path, args.file)
-        tree = reporting.scan_tree(target_path, activity_window=args.activity_window, verbose=args.verbose)
-        payload = _explain_file(tree, file_path, target_path)
+        target_path = _resolve_target_path(args.path).resolve()
+        at = _resolve_scope(target_path, args.at)
+        tree = reporting.scan_tree(
+            target_path, activity_window=args.activity_window, verbose=args.verbose, refresh=args.refresh
+        )
+        ranked = reporting.rank_nodes(tree, profile=args.profile, cohort="file", root_path=target_path)
+        classes = ("code", *args.include_class)
+        try:
+            payload = scopes.explain(
+                tree, target_path, at, {item["path"]: item for item in ranked}, limit=args.limit, classes=classes
+            )
+        except LookupError as exc:
+            raise SystemExit(str(exc)) from None
         if args.format == "json":
             print(reporting._json_dumps(payload))
         else:
-            print(_render_explain_markdown(payload))
+            print(scopes.render_markdown(payload), end="")
         return
 
 
@@ -553,50 +594,6 @@ def _enforce_fail_on_payload(data: dict, fail_on: str) -> None:
     ]
     if offenders:
         raise SystemExit(f"Srcly found {len(offenders)} findings at priority {fail_on} or higher.")
-
-
-def _explain_file(tree, file_path: Path, root_path: Path) -> dict:
-    target = None
-    for node in reporting.iter_nodes(tree):
-        try:
-            node_path = Path(node.path).resolve()
-        except Exception:
-            continue
-        if node_path == file_path:
-            target = node
-            break
-
-    if target is None:
-        raise SystemExit(f"File not found in analysis tree: {file_path}")
-
-    # Inside one file, rank its functions against each other.
-    ranked = reporting.rank_nodes(target, cohort="function")
-    return {
-        "path": file_path.relative_to(root_path.resolve()).as_posix(),
-        "summary": reporting.summarize_tree(target, ranked, root_path=root_path, max_depth=3, top_children=20),
-        "hotspots": ranked[:10],
-    }
-
-
-def _render_explain_markdown(payload: dict) -> str:
-    lines = [
-        f"# Srcly Explain: {payload['path']}",
-        "",
-        "## Tree",
-        "",
-        "```text",
-        *reporting.render_tree_lines(payload["summary"]),
-        "```",
-        "",
-        "## Hotspots",
-        "",
-    ]
-    for item in payload["hotspots"]:
-        location = item["path"]
-        if item.get("start_line") and item.get("end_line"):
-            location = f"{location}:{item['start_line']}-{item['end_line']}"
-        lines.append(f"- score={item['score']} `{location}`: {item['reason']}")
-    return "\n".join(lines) + "\n"
 
 
 if __name__ == "__main__":

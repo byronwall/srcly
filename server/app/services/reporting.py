@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Any, Iterable, Literal
 
 from app.models import Metrics, Node
-from app.services import activity, analysis, findings as lint_findings, metric_catalog, quadrants
+from app.services import activity, analysis, findings as lint_findings, metric_catalog, quadrants, scopes
+from app.services.file_classes import classify
 
 ARTIFACT_VERSION = 1
 
@@ -102,6 +103,7 @@ def build_report_payload(
     activity_window: str | None = None,
     quadrant: str | None = None,
     quadrant_cohort: str | None = None,
+    include_classes: Iterable[str] = ("code",),
 ) -> dict[str, Any]:
     if profile not in PROFILE_WEIGHTS:
         raise ValueError(f"Unknown profile: {profile}")
@@ -113,7 +115,10 @@ def build_report_payload(
     by_metric = {
         cohort: rank_by_metric(tree, metric, cohort=cohort, root_path=root_path) for cohort in ("file", "function")
     }
-    findings = build_findings(ranked, limit=limit)
+    findings = build_findings(ranked, limit=limit, classes=include_classes)
+    folders = scopes.explain(
+        tree, root_path, ".", {item["path"]: item for item in ranked}, limit=8, classes=tuple(include_classes)
+    )
     quadrant_result = (
         quadrants.build_quadrants(
             tree,
@@ -125,7 +130,9 @@ def build_report_payload(
         if quadrant
         else None
     )
-    summary_tree = summarize_tree(tree, ranked, root_path=root_path, max_depth=tree_depth, top_children=tree_top)
+    summary_tree = summarize_tree(
+        tree, ranked, root_path=root_path, max_depth=tree_depth, top_children=tree_top, classes=include_classes
+    )
     manifest = build_manifest(root_path=root_path, profile=profile)
     manifest["activity"] = tree.activity.model_dump() if tree.activity else None
     manifest["checks"] = tree.findings.model_dump() if tree.findings else None
@@ -150,7 +157,7 @@ def build_report_payload(
             manifest=manifest,
             findings=findings,
             by_metric=by_metric,
-            summary_tree=summary_tree,
+            folders=folders,
             profile=profile,
             focus_paths=focus_paths,
             deprioritize_paths=deprioritize_paths,
@@ -194,6 +201,7 @@ def write_report(
     activity_window: str | None = None,
     quadrant: str | None = None,
     quadrant_cohort: str | None = None,
+    include_classes: Iterable[str] = ("code",),
 ) -> dict[str, Path]:
     payload = build_report_payload(
         root_path,
@@ -213,6 +221,7 @@ def write_report(
         activity_window=activity_window,
         quadrant=quadrant,
         quadrant_cohort=quadrant_cohort,
+        include_classes=include_classes,
     )
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -361,12 +370,15 @@ def rank_nodes(
         path_priority = _path_priority(display_path, focus_prefixes=focus_prefixes, deprioritize_prefixes=deprioritize_prefixes)
         adjusted_score = max(0.0, min(1.0, score * path_priority["multiplier"]))
         witness = node.metrics.complexity_witness
+        file_class, class_reason = classify(display_path)
         ranked.append(
             {
-                "path": node.path,
+                "path": display_path,
                 "name": node.name,
                 "node_type": node.type,
                 "cohort": cohort,
+                "file_class": file_class,
+                "class_reason": class_reason,
                 "start_line": node.start_line,
                 "end_line": node.end_line,
                 "score": round(adjusted_score, 4),
@@ -380,19 +392,25 @@ def rank_nodes(
             }
         )
 
-    ranked.sort(key=lambda item: item["score"], reverse=True)
+    ranked.sort(key=lambda item: (-item["score"], item["path"], item["start_line"]))
     for index, item in enumerate(ranked, start=1):
         item["rank"] = index
     return ranked
 
 
-def build_findings(ranked: list[dict[str, Any]], *, limit: int = 50) -> list[dict[str, Any]]:
+def build_findings(
+    ranked: list[dict[str, Any]], *, limit: int = 50, classes: Iterable[str] = ("code",)
+) -> list[dict[str, Any]]:
+    """The triage queue: ranked items of the given file classes (``code`` by default)."""
     findings: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
+    classes = set(classes)
 
     for item in ranked:
         if len(findings) >= limit:
             break
+        if item.get("file_class", "code") not in classes:
+            continue
         metrics = item.get("metrics", {})
         category = _category_for_metrics(metrics)
         key = (item["path"], category)
@@ -408,6 +426,7 @@ def build_findings(ranked: list[dict[str, Any]], *, limit: int = 50) -> list[dic
                 "priority": priority,
                 "category": category,
                 "path": item["path"],
+                "file_class": item.get("file_class", "code"),
                 "node_type": item["node_type"],
                 "start_line": item["start_line"],
                 "end_line": item["end_line"],
@@ -415,6 +434,7 @@ def build_findings(ranked: list[dict[str, Any]], *, limit: int = 50) -> list[dic
                 "raw_score": item.get("raw_score", item["score"]),
                 "path_priority": item.get("path_priority", "neutral"),
                 "title": title,
+                "reason": item["reason"],
                 "evidence": metrics,
                 "complexity_witness": item.get("complexity_witness"),
                 "witnesses": item.get("witnesses") or {},
@@ -433,17 +453,29 @@ def summarize_tree(
     root_path: Path,
     max_depth: int = 4,
     top_children: int = 12,
+    classes: Iterable[str] = ("code",),
 ) -> dict[str, Any]:
-    score_by_identity = {
-        _node_identity(item["path"], item["start_line"], item["end_line"], item["node_type"]): item["score"]
-        for item in ranked
-    }
+    """Folders and files ranked by score (a folder scores as its worst file), then functions and classes.
+
+    ``ranked`` items carry root-relative paths. Only files of the ranked ``classes`` score;
+    the rest (docs, fixtures...) stay listed at 0, so they never lead a folder.
+    """
+    classes = set(classes)
+    score_by_path = {item["path"]: item["score"] for item in ranked if item.get("file_class", "code") in classes}
+    base = root_path.resolve()
 
     def convert(node: Node, depth: int) -> dict[str, Any]:
         metrics = node.metrics or Metrics()
+        path = scopes.rel(node.path, base)
+        if node.type == "folder":
+            children = [convert(child, depth + 1) for child in node.children if child.type in ("folder", "file")]
+        else:
+            children = [convert(child, depth + 1) for child in scopes.symbols_below(node)]
+        own = score_by_path.get(path, 0.0)
+        score = max([own] + [c["hotspot_score"] for c in children]) if node.type == "folder" else own
         summary = {
             "name": node.name,
-            "path": _display_path(node.path, root_path),
+            "path": path,
             "type": node.type,
             "start_line": node.start_line,
             "end_line": node.end_line,
@@ -451,22 +483,13 @@ def summarize_tree(
             "complexity": metrics.complexity,
             "function_count": metrics.function_count,
             "file_count": metrics.file_count,
-            "hotspot_score": score_by_identity.get(_node_identity(node.path, node.start_line, node.end_line, node.type), 0.0),
+            "hotspot_score": score,
             "top_metrics": _top_nonzero_metrics(metrics),
             "children": [],
         }
-        if depth >= max_depth:
-            return summary
-
-        children = sorted(
-            node.children,
-            key=lambda child: (
-                score_by_identity.get(_node_identity(child.path, child.start_line, child.end_line, child.type), 0.0),
-                child.metrics.loc if child.metrics else 0,
-            ),
-            reverse=True,
-        )
-        summary["children"] = [convert(child, depth + 1) for child in children[:top_children]]
+        if depth < max_depth:
+            children.sort(key=lambda c: (-c["hotspot_score"], -(c["complexity"] or 0), -(c["loc"] or 0), c["path"]))
+            summary["children"] = children[:top_children]
         return summary
 
     return convert(root, 0)
@@ -477,7 +500,7 @@ def render_markdown_report(
     manifest: dict[str, Any],
     findings: list[dict[str, Any]],
     by_metric: dict[str, dict[str, Any]],
-    summary_tree: dict[str, Any],
+    folders: dict[str, Any],
     profile: str,
     focus_paths: Iterable[str] | None = None,
     deprioritize_paths: Iterable[str] | None = DEFAULT_DEPRIORITIZED_PATHS,
@@ -500,7 +523,7 @@ def render_markdown_report(
         f"- Focus paths: `{', '.join(focus_paths or []) or 'none'}`",
         f"- Deprioritized paths: `{', '.join(deprioritize_paths or []) or 'none'}`",
         "",
-        "Read first: `report.md`, then `findings.top.json`, then `action-plan.md`. Load full JSON artifacts only when you need detail beyond the top findings.",
+        "Read first: `report.md`, then `findings.top.json`. Paths are relative to the root.",
         "",
     ]
     for result, noun in ((files, "Files"), (functions, "Functions")):
@@ -529,27 +552,37 @@ def render_markdown_report(
         [
             "## Findings",
             "",
-            f"The `{profile}` profile's weighted mix of risk metrics, one triage queue across files.",
+            f"The `{profile}` profile's weighted mix of risk metrics, one triage queue over "
+            f"{', '.join(folders['classes'])} files. Start at the named function, then its tests.",
             "",
-            "| Rank | Priority | Path priority | Path | Why | Suggested next action |",
-            "| --- | --- | --- | --- | --- | --- |",
+            "| Rank | Priority | File | Why | Start at |",
+            "| --- | --- | --- | --- | --- |",
         ]
     )
     for finding in findings[:10]:
-        location = _format_location(finding)
-        evidence = _format_evidence(finding)
+        witness = finding.get("complexity_witness")
+        start = f"`{finding['path']}:{witness['start_line']}` `{witness['name']}`" if witness else f"`{finding['path']}`"
+        lowered = " (deprioritized path)" if finding.get("path_priority") == "deprioritized" else ""
         lines.append(
-            f"| {finding['id']} | {finding['priority']} | {finding.get('path_priority', 'neutral')} | `{location}` | {finding['title']} ({evidence}) | {finding['suggested_action']} |"
+            f"| {finding['id']} | {finding['priority']} | `{finding['path']}` | {finding['reason']}{lowered} | {start} |"
         )
+    lines.extend(["", *scopes.left_out_lines(folders["left_out"])])
 
     lines.extend(
         [
             "",
-            "## Tree Summary",
+            "## Folders",
             "",
-            "```text",
-            *render_tree_lines(summary_tree),
-            "```",
+            "Each folder ranks by its worst file. Drill in with `srcly explain --at <folder>`, then a file, then `file::function`.",
+            "",
+            "| Folder | Files | LOC | Findings | Worst file |",
+            "| --- | ---: | ---: | ---: | --- |",
+            *(
+                f"| `{'(root files)' if f['path'] == '.' else f['path'] + '/'}` | {f['code_files']} | {f['loc']} | {f['queue']} "
+                f"| {f['worst']['score']} `{f['worst']['path']}` |"
+                for f in folders["folders"]
+            ),
+            *([f"| +{folders['folders_omitted']} more | | | | |"] if folders["folders_omitted"] else []),
             "",
             "## Agent Notes",
             "",
@@ -594,12 +627,11 @@ Use this skill when asked to review, prioritize, or improve a codebase using Src
 ## Workflow
 
 1. Run `uvx srcly report . --out .srcly --format both` from the repository root.
-2. Read `.srcly/report.md`.
-3. Load `.srcly/findings.json` and sort by `priority`, then `score`.
+2. Read `.srcly/report.md`: findings rank code files and name the function to start at.
+3. Drill in with `uvx srcly explain . --at <folder | file | file::symbol>`; it reuses the saved analysis.
 4. For each selected finding, inspect the source file and nearby tests before proposing or making edits.
-5. Use `.srcly/tree.summary.json` to understand whether a target is an isolated hotspot or part of a broader subsystem.
-6. Use `uvx srcly scan . --out .srcly/tree.json` or `uvx srcly report . --include-tree` only when the compact summary is insufficient.
-7. Add `--verbose` to `uvx srcly report` only when per-file scan progress is useful; reports are quiet by default.
+5. Use `uvx srcly scan . --out .srcly/tree.json` or `uvx srcly report . --include-tree` only when `explain` is not enough.
+6. Add `--verbose` only when per-file scan progress is useful; every command is quiet by default.
 
 ## Interpretation Rules
 
