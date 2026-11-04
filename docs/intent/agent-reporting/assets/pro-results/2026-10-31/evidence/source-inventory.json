@@ -1,0 +1,3694 @@
+{
+  "schema": "srcly.repository-audit.source-inventory.v1",
+  "repository": {
+    "full_name": "byronwall/srcly",
+    "url": "https://github.com/byronwall/srcly",
+    "baseline_commit": "aa56155c9268ce9da3a54180cb6a77ae6635d190",
+    "commit_url": "https://github.com/byronwall/srcly/commit/aa56155c9268ce9da3a54180cb6a77ae6635d190"
+  },
+  "access": {
+    "status": "verified_exact_baseline",
+    "retrieval": "Connected GitHub explicit-ref file reads and complete recursive Git tree",
+    "tree_ref": "aa56155c9268ce9da3a54180cb6a77ae6635d190",
+    "tree_url": "https://api.github.com/repos/byronwall/srcly/git/trees/aa56155c9268ce9da3a54180cb6a77ae6635d190",
+    "tree_truncated": false,
+    "tree_entry_count": 1471,
+    "tree_blob_count": 1299
+  },
+  "review_summary": {
+    "unique_files_reviewed": 103,
+    "review_records_preserved": 107,
+    "duplicate_path_records_merged": 4,
+    "full_file_review_count": 102,
+    "full_text_review_count": 101,
+    "full_data_review_count": 1,
+    "partial_only_file_count": 1,
+    "tree_blobs_not_claimed_as_reviewed": 1196,
+    "all_reviewed_files_hash_verified": true,
+    "required_named_files_count": 14,
+    "required_named_files_covered": 14,
+    "required_directory_files_count": 14,
+    "required_directory_files_covered": 14
+  },
+  "review_semantics": {
+    "read_counts": "Counts are de-duplicated by original repository path. Full text, full structured data, and partial-only review are reported separately. Full-file coverage does not claim exhaustive correctness verification of every code path.",
+    "line_ranges": "One-based inclusive source lines; the final unterminated line is counted. Every reviewer extent is preserved, even when another reviewer read the whole file.",
+    "data_review": "The pilot TSV was fully parsed as data; its duplicated case prose was reviewed through the complete pilot README. This is distinguished from an independent full text read of the TSV.",
+    "execution": "Static source/data review only. No downloaded repository artifact, import, test, build, analyzer, or product CLI was executed.",
+    "tree_scope": "The recursive tree establishes repository membership. Blobs absent from this inventory are not claimed as read."
+  },
+  "verification": {
+    "status": "passed",
+    "method": "Compute SHA-1 over the Git blob header (blob, space, decimal byte length, NUL) followed by exact evidence bytes; compare with the pinned recursive tree and every reviewer manifest SHA claim. Byte sizes are also compared.",
+    "files_verified": 103,
+    "all_evidence_blob_hashes_match_tree": true,
+    "all_reviewer_sha_claims_match_tree": true,
+    "all_evidence_sizes_match_tree": true,
+    "missing_files": [],
+    "hash_conflicts": [],
+    "size_conflicts": []
+  },
+  "required_reading_route": {
+    "status": "complete_for_required_scope",
+    "named_files": [
+      {
+        "path": "AGENTS.md",
+        "requirement": "full file",
+        "covered": true,
+        "review_status": "full_text_review"
+      },
+      {
+        "path": "README.md",
+        "requirement": "full file",
+        "covered": true,
+        "review_status": "full_text_review"
+      },
+      {
+        "path": "docs/CODE_MAP.md",
+        "requirement": "headless reports and dataflow sections",
+        "covered": true,
+        "review_status": "partial_text_review",
+        "required_sections": [
+          {
+            "section": "Headless reports for agents",
+            "line_ranges": [
+              [
+                132,
+                141
+              ]
+            ],
+            "covered": true
+          },
+          {
+            "section": "Data flow (engine)",
+            "line_ranges": [
+              [
+                293,
+                350
+              ]
+            ],
+            "covered": true
+          }
+        ]
+      },
+      {
+        "path": "server/app/run.py",
+        "requirement": "full file",
+        "covered": true,
+        "review_status": "full_text_review"
+      },
+      {
+        "path": "server/app/services/reporting.py",
+        "requirement": "full file",
+        "covered": true,
+        "review_status": "full_text_review"
+      },
+      {
+        "path": "server/app/services/metric_catalog.py",
+        "requirement": "full file",
+        "covered": true,
+        "review_status": "full_text_review"
+      },
+      {
+        "path": "server/app/services/quadrants.py",
+        "requirement": "full file",
+        "covered": true,
+        "review_status": "full_text_review"
+      },
+      {
+        "path": "server/app/services/compare/service.py",
+        "requirement": "full file",
+        "covered": true,
+        "review_status": "full_text_review"
+      },
+      {
+        "path": "server/app/services/analysis.py",
+        "requirement": "full file",
+        "covered": true,
+        "review_status": "full_text_review"
+      },
+      {
+        "path": "server/app/models.py",
+        "requirement": "full file",
+        "covered": true,
+        "review_status": "full_text_review"
+      },
+      {
+        "path": "server/tests/test_reporting.py",
+        "requirement": "full file",
+        "covered": true,
+        "review_status": "full_text_review"
+      },
+      {
+        "path": "server/tests/test_ranking_parity.py",
+        "requirement": "full file",
+        "covered": true,
+        "review_status": "full_text_review"
+      },
+      {
+        "path": "skills/srcly-code-quality/SKILL.md",
+        "requirement": "full file",
+        "covered": true,
+        "review_status": "full_text_review"
+      },
+      {
+        "path": "docs/analysis/2026-05-03-product-grid-prod-run-retrospective.md",
+        "requirement": "full file",
+        "covered": true,
+        "review_status": "full_text_review"
+      }
+    ],
+    "directories": [
+      {
+        "path": "docs/intent/metric-trust/",
+        "tree_blob_count": 4,
+        "reviewed_file_count": 4,
+        "full_text_review_count": 4,
+        "full_data_review_count": 0,
+        "complete_for_required_scope": true,
+        "missing_files": [],
+        "partial_only_files": [],
+        "files": [
+          "docs/intent/metric-trust/implementation-plan.md",
+          "docs/intent/metric-trust/initiative-map.json",
+          "docs/intent/metric-trust/intent-brief.md",
+          "docs/intent/metric-trust/shape-brief.md"
+        ]
+      },
+      {
+        "path": "docs/intent/metric-portfolio/",
+        "tree_blob_count": 4,
+        "reviewed_file_count": 4,
+        "full_text_review_count": 4,
+        "full_data_review_count": 0,
+        "complete_for_required_scope": true,
+        "missing_files": [],
+        "partial_only_files": [],
+        "files": [
+          "docs/intent/metric-portfolio/implementation-plan.md",
+          "docs/intent/metric-portfolio/initiative-map.json",
+          "docs/intent/metric-portfolio/intent-brief.md",
+          "docs/intent/metric-portfolio/shape-brief.md"
+        ]
+      },
+      {
+        "path": "docs/research/metric-pilot-2026-10/",
+        "tree_blob_count": 6,
+        "reviewed_file_count": 6,
+        "full_text_review_count": 5,
+        "full_data_review_count": 1,
+        "complete_for_required_scope": true,
+        "missing_files": [],
+        "partial_only_files": [],
+        "files": [
+          "docs/research/metric-pilot-2026-10/README.md",
+          "docs/research/metric-pilot-2026-10/cases.tsv",
+          "docs/research/metric-pilot-2026-10/strata/context-recorder.md",
+          "docs/research/metric-pilot-2026-10/strata/explorEDA.md",
+          "docs/research/metric-pilot-2026-10/strata/recipes-modern.md",
+          "docs/research/metric-pilot-2026-10/strata/srcly.md"
+        ]
+      }
+    ]
+  },
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/AGENTS.md",
+      "git_blob_sha": "6581fd5e6f2e500c509784b8cd2da79b6ada5bd8",
+      "verified_evidence_git_blob_sha": "6581fd5e6f2e500c509784b8cd2da79b6ada5bd8",
+      "blob_matches_tree": true,
+      "size_bytes": 11322,
+      "tree_size_bytes": 11322,
+      "line_count": 87,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          87
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "lead_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full",
+          "line_ranges": [
+            [
+              1,
+              87
+            ]
+          ],
+          "claimed_git_blob_sha": "6581fd5e6f2e500c509784b8cd2da79b6ada5bd8",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "README.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/README.md",
+      "git_blob_sha": "48147c2d7ac6be64a48f5a075fec54b17aab0e42",
+      "verified_evidence_git_blob_sha": "48147c2d7ac6be64a48f5a075fec54b17aab0e42",
+      "blob_matches_tree": true,
+      "size_bytes": 13954,
+      "tree_size_bytes": 13954,
+      "line_count": 216,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          216
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "lead_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full",
+          "line_ranges": [
+            [
+              1,
+              216
+            ]
+          ],
+          "claimed_git_blob_sha": "48147c2d7ac6be64a48f5a075fec54b17aab0e42",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "build-srcly.sh",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/build-srcly.sh",
+      "git_blob_sha": "3039dfafeb66f0efbc96f430e5331d6fc28ccc4a",
+      "verified_evidence_git_blob_sha": "3039dfafeb66f0efbc96f430e5331d6fc28ccc4a",
+      "blob_matches_tree": true,
+      "size_bytes": 1075,
+      "tree_size_bytes": 1075,
+      "line_count": 45,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          45
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_plan_review",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              45
+            ]
+          ],
+          "claimed_git_blob_sha": "3039dfafeb66f0efbc96f430e5331d6fc28ccc4a",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "client/package.json",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/client/package.json",
+      "git_blob_sha": "1bb13eb02b6219ede62fc02b3e9166a016ce6866",
+      "verified_evidence_git_blob_sha": "1bb13eb02b6219ede62fc02b3e9166a016ce6866",
+      "blob_matches_tree": true,
+      "size_bytes": 960,
+      "tree_size_bytes": 960,
+      "line_count": 39,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          39
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_plan_review",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              39
+            ]
+          ],
+          "claimed_git_blob_sha": "1bb13eb02b6219ede62fc02b3e9166a016ce6866",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "client/src/utils/hotSpotRanking.ts",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/client/src/utils/hotSpotRanking.ts",
+      "git_blob_sha": "8b45409546379aa9dbca9531dd3a17bd654e22d5",
+      "verified_evidence_git_blob_sha": "8b45409546379aa9dbca9531dd3a17bd654e22d5",
+      "blob_matches_tree": true,
+      "size_bytes": 2926,
+      "tree_size_bytes": 2926,
+      "line_count": 83,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          83
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "cli_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full",
+          "line_ranges": [
+            [
+              1,
+              83
+            ]
+          ],
+          "claimed_git_blob_sha": "8b45409546379aa9dbca9531dd3a17bd654e22d5",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "client/src/utils/metricApplicability.ts",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/client/src/utils/metricApplicability.ts",
+      "git_blob_sha": "6bbbc990515c4f0604e977305bd95254764f9b4a",
+      "verified_evidence_git_blob_sha": "6bbbc990515c4f0604e977305bd95254764f9b4a",
+      "blob_matches_tree": true,
+      "size_bytes": 4200,
+      "tree_size_bytes": 4200,
+      "line_count": 96,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          96
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 96 lines read",
+          "line_ranges": [
+            [
+              1,
+              96
+            ]
+          ],
+          "claimed_git_blob_sha": "6bbbc990515c4f0604e977305bd95254764f9b4a",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/CODE_MAP.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/CODE_MAP.md",
+      "git_blob_sha": "5e5e173406dadb1e47d3c52f077eef41f025ccb8",
+      "verified_evidence_git_blob_sha": "5e5e173406dadb1e47d3c52f077eef41f025ccb8",
+      "blob_matches_tree": true,
+      "size_bytes": 69801,
+      "tree_size_bytes": 69801,
+      "line_count": 368,
+      "review_status": "partial_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          164
+        ],
+        [
+          293,
+          350
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "lead_audit",
+          "review_mode": "partial_text_review",
+          "read_extent": "sections CLI/process, scan/API index, metrics, headless reporting, compare, dataflow (lines 1-164 and 293-350)",
+          "line_ranges": [
+            [
+              1,
+              164
+            ],
+            [
+              293,
+              350
+            ]
+          ],
+          "claimed_git_blob_sha": "5e5e173406dadb1e47d3c52f077eef41f025ccb8",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/adding-a-metric.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/adding-a-metric.md",
+      "git_blob_sha": "8f012105830a1bfd01e9a66cc4c23e87c65cec4b",
+      "verified_evidence_git_blob_sha": "8f012105830a1bfd01e9a66cc4c23e87c65cec4b",
+      "blob_matches_tree": true,
+      "size_bytes": 4656,
+      "tree_size_bytes": 4656,
+      "line_count": 32,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          32
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "lead_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full",
+          "line_ranges": [
+            [
+              1,
+              32
+            ]
+          ],
+          "claimed_git_blob_sha": "8f012105830a1bfd01e9a66cc4c23e87c65cec4b",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        },
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 32 lines read",
+          "line_ranges": [
+            [
+              1,
+              32
+            ]
+          ],
+          "claimed_git_blob_sha": "8f012105830a1bfd01e9a66cc4c23e87c65cec4b",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/analysis/2026-05-03-product-grid-prod-run-retrospective.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/analysis/2026-05-03-product-grid-prod-run-retrospective.md",
+      "git_blob_sha": "a89c4922ef7e588191e0ca6aa556e10b47c8fc2b",
+      "verified_evidence_git_blob_sha": "a89c4922ef7e588191e0ca6aa556e10b47c8fc2b",
+      "blob_matches_tree": true,
+      "size_bytes": 25740,
+      "tree_size_bytes": 25740,
+      "line_count": 601,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          601
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "lead_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full",
+          "line_ranges": [
+            [
+              1,
+              601
+            ]
+          ],
+          "claimed_git_blob_sha": "a89c4922ef7e588191e0ca6aa556e10b47c8fc2b",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/dataflow-coverage.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/dataflow-coverage.md",
+      "git_blob_sha": "82fe16af26d74609f98d833db233cf66d92e97c4",
+      "verified_evidence_git_blob_sha": "82fe16af26d74609f98d833db233cf66d92e97c4",
+      "blob_matches_tree": true,
+      "size_bytes": 12567,
+      "tree_size_bytes": 12567,
+      "line_count": 59,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          59
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              59
+            ]
+          ],
+          "claimed_git_blob_sha": "82fe16af26d74609f98d833db233cf66d92e97c4",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/intent/metric-portfolio/implementation-plan.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/intent/metric-portfolio/implementation-plan.md",
+      "git_blob_sha": "9f56dccbc1bcf125d00748fb57eccdbefff8f0b7",
+      "verified_evidence_git_blob_sha": "9f56dccbc1bcf125d00748fb57eccdbefff8f0b7",
+      "blob_matches_tree": true,
+      "size_bytes": 4846,
+      "tree_size_bytes": 4846,
+      "line_count": 58,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          58
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 58 lines read",
+          "line_ranges": [
+            [
+              1,
+              58
+            ]
+          ],
+          "claimed_git_blob_sha": "9f56dccbc1bcf125d00748fb57eccdbefff8f0b7",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/intent/metric-portfolio/initiative-map.json",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/intent/metric-portfolio/initiative-map.json",
+      "git_blob_sha": "9feb020b758d64937add2f9a9aed945cb7f7b829",
+      "verified_evidence_git_blob_sha": "9feb020b758d64937add2f9a9aed945cb7f7b829",
+      "blob_matches_tree": true,
+      "size_bytes": 10109,
+      "tree_size_bytes": 10109,
+      "line_count": 267,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          267
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 267 lines read",
+          "line_ranges": [
+            [
+              1,
+              267
+            ]
+          ],
+          "claimed_git_blob_sha": "9feb020b758d64937add2f9a9aed945cb7f7b829",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/intent/metric-portfolio/intent-brief.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/intent/metric-portfolio/intent-brief.md",
+      "git_blob_sha": "654ea665c8e90dfd7e8fc2e586f55f1b9c28b3c6",
+      "verified_evidence_git_blob_sha": "654ea665c8e90dfd7e8fc2e586f55f1b9c28b3c6",
+      "blob_matches_tree": true,
+      "size_bytes": 2755,
+      "tree_size_bytes": 2755,
+      "line_count": 32,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          32
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 32 lines read",
+          "line_ranges": [
+            [
+              1,
+              32
+            ]
+          ],
+          "claimed_git_blob_sha": "654ea665c8e90dfd7e8fc2e586f55f1b9c28b3c6",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/intent/metric-portfolio/shape-brief.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/intent/metric-portfolio/shape-brief.md",
+      "git_blob_sha": "cdbb08c68e0a5a0662679a88cf2f8b7a54f7f730",
+      "verified_evidence_git_blob_sha": "cdbb08c68e0a5a0662679a88cf2f8b7a54f7f730",
+      "blob_matches_tree": true,
+      "size_bytes": 2217,
+      "tree_size_bytes": 2217,
+      "line_count": 42,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          42
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 42 lines read",
+          "line_ranges": [
+            [
+              1,
+              42
+            ]
+          ],
+          "claimed_git_blob_sha": "cdbb08c68e0a5a0662679a88cf2f8b7a54f7f730",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/intent/metric-system-overhaul/implementation-plan.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/intent/metric-system-overhaul/implementation-plan.md",
+      "git_blob_sha": "0a1d37cdbc8470b9b996801e2eb2e7376c8e9c82",
+      "verified_evidence_git_blob_sha": "0a1d37cdbc8470b9b996801e2eb2e7376c8e9c82",
+      "blob_matches_tree": true,
+      "size_bytes": 8330,
+      "tree_size_bytes": 8330,
+      "line_count": 106,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          106
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 106 lines read",
+          "line_ranges": [
+            [
+              1,
+              106
+            ]
+          ],
+          "claimed_git_blob_sha": "0a1d37cdbc8470b9b996801e2eb2e7376c8e9c82",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/intent/metric-system-overhaul/initiative-map.json",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/intent/metric-system-overhaul/initiative-map.json",
+      "git_blob_sha": "e0ee8da4dab9526b51245b4541dade2c1cdffd6f",
+      "verified_evidence_git_blob_sha": "e0ee8da4dab9526b51245b4541dade2c1cdffd6f",
+      "blob_matches_tree": true,
+      "size_bytes": 20219,
+      "tree_size_bytes": 20219,
+      "line_count": 558,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          558
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 558 lines read",
+          "line_ranges": [
+            [
+              1,
+              558
+            ]
+          ],
+          "claimed_git_blob_sha": "e0ee8da4dab9526b51245b4541dade2c1cdffd6f",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/intent/metric-system-overhaul/intent-brief.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/intent/metric-system-overhaul/intent-brief.md",
+      "git_blob_sha": "bbbf038614f7ba108e7a53d194e8eedcaf09fff7",
+      "verified_evidence_git_blob_sha": "bbbf038614f7ba108e7a53d194e8eedcaf09fff7",
+      "blob_matches_tree": true,
+      "size_bytes": 3280,
+      "tree_size_bytes": 3280,
+      "line_count": 64,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          64
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 64 lines read",
+          "line_ranges": [
+            [
+              1,
+              64
+            ]
+          ],
+          "claimed_git_blob_sha": "bbbf038614f7ba108e7a53d194e8eedcaf09fff7",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/intent/metric-system-overhaul/shape-brief.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/intent/metric-system-overhaul/shape-brief.md",
+      "git_blob_sha": "b0079e3a9d30ceca0a938d479d6f3cd2662f2752",
+      "verified_evidence_git_blob_sha": "b0079e3a9d30ceca0a938d479d6f3cd2662f2752",
+      "blob_matches_tree": true,
+      "size_bytes": 4994,
+      "tree_size_bytes": 4994,
+      "line_count": 80,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          80
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 80 lines read",
+          "line_ranges": [
+            [
+              1,
+              80
+            ]
+          ],
+          "claimed_git_blob_sha": "b0079e3a9d30ceca0a938d479d6f3cd2662f2752",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/intent/metric-trust/implementation-plan.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/intent/metric-trust/implementation-plan.md",
+      "git_blob_sha": "6cedbe2373bd07d8c82f4c928236145f46cdc938",
+      "verified_evidence_git_blob_sha": "6cedbe2373bd07d8c82f4c928236145f46cdc938",
+      "blob_matches_tree": true,
+      "size_bytes": 4663,
+      "tree_size_bytes": 4663,
+      "line_count": 57,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          57
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 57 lines read",
+          "line_ranges": [
+            [
+              1,
+              57
+            ]
+          ],
+          "claimed_git_blob_sha": "6cedbe2373bd07d8c82f4c928236145f46cdc938",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/intent/metric-trust/initiative-map.json",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/intent/metric-trust/initiative-map.json",
+      "git_blob_sha": "9f13e9cf17a35e4f600acfbd8d8a986052220c77",
+      "verified_evidence_git_blob_sha": "9f13e9cf17a35e4f600acfbd8d8a986052220c77",
+      "blob_matches_tree": true,
+      "size_bytes": 10267,
+      "tree_size_bytes": 10267,
+      "line_count": 265,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          265
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 265 lines read",
+          "line_ranges": [
+            [
+              1,
+              265
+            ]
+          ],
+          "claimed_git_blob_sha": "9f13e9cf17a35e4f600acfbd8d8a986052220c77",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/intent/metric-trust/intent-brief.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/intent/metric-trust/intent-brief.md",
+      "git_blob_sha": "4fde014baa75309a2e12fa6cde167eed36cb18c0",
+      "verified_evidence_git_blob_sha": "4fde014baa75309a2e12fa6cde167eed36cb18c0",
+      "blob_matches_tree": true,
+      "size_bytes": 2769,
+      "tree_size_bytes": 2769,
+      "line_count": 34,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          34
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 34 lines read",
+          "line_ranges": [
+            [
+              1,
+              34
+            ]
+          ],
+          "claimed_git_blob_sha": "4fde014baa75309a2e12fa6cde167eed36cb18c0",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/intent/metric-trust/shape-brief.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/intent/metric-trust/shape-brief.md",
+      "git_blob_sha": "f6bdc4c5093cd66bb3ced4cbb2d1164a470c4c67",
+      "verified_evidence_git_blob_sha": "f6bdc4c5093cd66bb3ced4cbb2d1164a470c4c67",
+      "blob_matches_tree": true,
+      "size_bytes": 2566,
+      "tree_size_bytes": 2566,
+      "line_count": 51,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          51
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 51 lines read",
+          "line_ranges": [
+            [
+              1,
+              51
+            ]
+          ],
+          "claimed_git_blob_sha": "f6bdc4c5093cd66bb3ced4cbb2d1164a470c4c67",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/research/metric-pilot-2026-10/README.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/research/metric-pilot-2026-10/README.md",
+      "git_blob_sha": "4b33264503d55fe7c3c87e590a2fbcb068bcab1e",
+      "verified_evidence_git_blob_sha": "4b33264503d55fe7c3c87e590a2fbcb068bcab1e",
+      "blob_matches_tree": true,
+      "size_bytes": 108263,
+      "tree_size_bytes": 108263,
+      "line_count": 812,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          812
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 812 lines read",
+          "line_ranges": [
+            [
+              1,
+              812
+            ]
+          ],
+          "claimed_git_blob_sha": "4b33264503d55fe7c3c87e590a2fbcb068bcab1e",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/research/metric-pilot-2026-10/cases.tsv",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/research/metric-pilot-2026-10/cases.tsv",
+      "git_blob_sha": "faf55ee4d043bef0a1641cb61772bcbb79776320",
+      "verified_evidence_git_blob_sha": "faf55ee4d043bef0a1641cb61772bcbb79776320",
+      "blob_matches_tree": true,
+      "size_bytes": 92754,
+      "tree_size_bytes": 92754,
+      "line_count": 730,
+      "review_status": "full_data_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          730
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_data_review",
+          "read_extent": "full data parse of header and all 729 cases; schema, field completeness, row tallies, first/last rows inspected; individual case prose reviewed through the complete equivalent pilot README",
+          "line_ranges": [
+            [
+              1,
+              730
+            ]
+          ],
+          "claimed_git_blob_sha": "faf55ee4d043bef0a1641cb61772bcbb79776320",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false,
+          "data_review": {
+            "format": "TSV",
+            "records": 729,
+            "all_records_parsed": true,
+            "case_prose_reviewed_in": "docs/research/metric-pilot-2026-10/README.md",
+            "limitation": "Full structured-data review; do not interpret this as separate line-by-line prose reading of the duplicated TSV evidence."
+          }
+        }
+      ]
+    },
+    {
+      "path": "docs/research/metric-pilot-2026-10/strata/context-recorder.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/research/metric-pilot-2026-10/strata/context-recorder.md",
+      "git_blob_sha": "4f45451f62213e01529fd4c1de33c47b0eb24fca",
+      "verified_evidence_git_blob_sha": "4f45451f62213e01529fd4c1de33c47b0eb24fca",
+      "blob_matches_tree": true,
+      "size_bytes": 3478,
+      "tree_size_bytes": 3478,
+      "line_count": 87,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          87
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 87 lines read",
+          "line_ranges": [
+            [
+              1,
+              87
+            ]
+          ],
+          "claimed_git_blob_sha": "4f45451f62213e01529fd4c1de33c47b0eb24fca",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/research/metric-pilot-2026-10/strata/explorEDA.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/research/metric-pilot-2026-10/strata/explorEDA.md",
+      "git_blob_sha": "deebeac7af78954fefcd8169006534a8edf31b73",
+      "verified_evidence_git_blob_sha": "deebeac7af78954fefcd8169006534a8edf31b73",
+      "blob_matches_tree": true,
+      "size_bytes": 11782,
+      "tree_size_bytes": 11782,
+      "line_count": 267,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          267
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 267 lines read",
+          "line_ranges": [
+            [
+              1,
+              267
+            ]
+          ],
+          "claimed_git_blob_sha": "deebeac7af78954fefcd8169006534a8edf31b73",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/research/metric-pilot-2026-10/strata/recipes-modern.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/research/metric-pilot-2026-10/strata/recipes-modern.md",
+      "git_blob_sha": "594fa9a7c4fe6e8f26329be1ebc9e281a686de81",
+      "verified_evidence_git_blob_sha": "594fa9a7c4fe6e8f26329be1ebc9e281a686de81",
+      "blob_matches_tree": true,
+      "size_bytes": 10547,
+      "tree_size_bytes": 10547,
+      "line_count": 241,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          241
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 241 lines read",
+          "line_ranges": [
+            [
+              1,
+              241
+            ]
+          ],
+          "claimed_git_blob_sha": "594fa9a7c4fe6e8f26329be1ebc9e281a686de81",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "docs/research/metric-pilot-2026-10/strata/srcly.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/docs/research/metric-pilot-2026-10/strata/srcly.md",
+      "git_blob_sha": "b215dfb37fc8cf2371b980f424697b90b6d5ecb1",
+      "verified_evidence_git_blob_sha": "b215dfb37fc8cf2371b980f424697b90b6d5ecb1",
+      "blob_matches_tree": true,
+      "size_bytes": 12151,
+      "tree_size_bytes": 12151,
+      "line_count": 273,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          273
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 273 lines read",
+          "line_ranges": [
+            [
+              1,
+              273
+            ]
+          ],
+          "claimed_git_blob_sha": "b215dfb37fc8cf2371b980f424697b90b6d5ecb1",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "engine/package.json",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/engine/package.json",
+      "git_blob_sha": "62462395d1b4ae0b0af53cafae03807e55fd5239",
+      "verified_evidence_git_blob_sha": "62462395d1b4ae0b0af53cafae03807e55fd5239",
+      "blob_matches_tree": true,
+      "size_bytes": 1331,
+      "tree_size_bytes": 1331,
+      "line_count": 39,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          39
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_plan_review",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              39
+            ]
+          ],
+          "claimed_git_blob_sha": "62462395d1b4ae0b0af53cafae03807e55fd5239",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "engine/src/srcly/contracts/anchor-graph.ts",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/engine/src/srcly/contracts/anchor-graph.ts",
+      "git_blob_sha": "ecc1adccd5afaaf81b58c8c2d8cf1ee41d2d2717",
+      "verified_evidence_git_blob_sha": "ecc1adccd5afaaf81b58c8c2d8cf1ee41d2d2717",
+      "blob_matches_tree": true,
+      "size_bytes": 7067,
+      "tree_size_bytes": 7067,
+      "line_count": 145,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          145
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              145
+            ]
+          ],
+          "claimed_git_blob_sha": "ecc1adccd5afaaf81b58c8c2d8cf1ee41d2d2717",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "engine/src/srcly/contracts/function-effects.ts",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/engine/src/srcly/contracts/function-effects.ts",
+      "git_blob_sha": "d2682a72b859ef9622e3c75c2a0314201f6b8c8d",
+      "verified_evidence_git_blob_sha": "d2682a72b859ef9622e3c75c2a0314201f6b8c8d",
+      "blob_matches_tree": true,
+      "size_bytes": 4447,
+      "tree_size_bytes": 4447,
+      "line_count": 112,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          112
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              112
+            ]
+          ],
+          "claimed_git_blob_sha": "d2682a72b859ef9622e3c75c2a0314201f6b8c8d",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "engine/src/srcly/contracts/registry.ts",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/engine/src/srcly/contracts/registry.ts",
+      "git_blob_sha": "6af5bcf1788d436f5c9e0cf2197d8486e51a8482",
+      "verified_evidence_git_blob_sha": "6af5bcf1788d436f5c9e0cf2197d8486e51a8482",
+      "blob_matches_tree": true,
+      "size_bytes": 1718,
+      "tree_size_bytes": 1718,
+      "line_count": 28,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          28
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              28
+            ]
+          ],
+          "claimed_git_blob_sha": "6af5bcf1788d436f5c9e0cf2197d8486e51a8482",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "engine/src/srcly/fingerprint.ts",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/engine/src/srcly/fingerprint.ts",
+      "git_blob_sha": "6f7685f0ad312041fad9aa13785dcbcef153e07f",
+      "verified_evidence_git_blob_sha": "6f7685f0ad312041fad9aa13785dcbcef153e07f",
+      "blob_matches_tree": true,
+      "size_bytes": 1557,
+      "tree_size_bytes": 1557,
+      "line_count": 49,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          49
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              49
+            ]
+          ],
+          "claimed_git_blob_sha": "6f7685f0ad312041fad9aa13785dcbcef153e07f",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "engine/src/srcly/ops/function-effects.ts",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/engine/src/srcly/ops/function-effects.ts",
+      "git_blob_sha": "0c272ed8321a368b510b3db00a51b4a1c721ad47",
+      "verified_evidence_git_blob_sha": "0c272ed8321a368b510b3db00a51b4a1c721ad47",
+      "blob_matches_tree": true,
+      "size_bytes": 3003,
+      "tree_size_bytes": 3003,
+      "line_count": 55,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          55
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              55
+            ]
+          ],
+          "claimed_git_blob_sha": "0c272ed8321a368b510b3db00a51b4a1c721ad47",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "engine/src/srcly/protocol.ts",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/engine/src/srcly/protocol.ts",
+      "git_blob_sha": "89cbd85c1e6e3027f909b60aa155efdf3c1465a0",
+      "verified_evidence_git_blob_sha": "89cbd85c1e6e3027f909b60aa155efdf3c1465a0",
+      "blob_matches_tree": true,
+      "size_bytes": 3935,
+      "tree_size_bytes": 3935,
+      "line_count": 102,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          102
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              102
+            ]
+          ],
+          "claimed_git_blob_sha": "89cbd85c1e6e3027f909b60aa155efdf3c1465a0",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "engine/src/srcly/python/session.ts",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/engine/src/srcly/python/session.ts",
+      "git_blob_sha": "1e02bf02ad2654b8bcce6cc41e316ad03d25b174",
+      "verified_evidence_git_blob_sha": "1e02bf02ad2654b8bcce6cc41e316ad03d25b174",
+      "blob_matches_tree": true,
+      "size_bytes": 2305,
+      "tree_size_bytes": 2305,
+      "line_count": 52,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          52
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              52
+            ]
+          ],
+          "claimed_git_blob_sha": "1e02bf02ad2654b8bcce6cc41e316ad03d25b174",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "engine/src/srcly/selection.ts",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/engine/src/srcly/selection.ts",
+      "git_blob_sha": "6d216a37eba4acb778feeb73e4164261dcf68fec",
+      "verified_evidence_git_blob_sha": "6d216a37eba4acb778feeb73e4164261dcf68fec",
+      "blob_matches_tree": true,
+      "size_bytes": 5243,
+      "tree_size_bytes": 5243,
+      "line_count": 95,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          95
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_plan_review",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              95
+            ]
+          ],
+          "claimed_git_blob_sha": "6d216a37eba4acb778feeb73e4164261dcf68fec",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "engine/src/srcly/session.ts",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/engine/src/srcly/session.ts",
+      "git_blob_sha": "573c74f6784b189b8fca8686f07de254b6cd4dd5",
+      "verified_evidence_git_blob_sha": "573c74f6784b189b8fca8686f07de254b6cd4dd5",
+      "blob_matches_tree": true,
+      "size_bytes": 12190,
+      "tree_size_bytes": 12190,
+      "line_count": 266,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          266
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              266
+            ]
+          ],
+          "claimed_git_blob_sha": "573c74f6784b189b8fca8686f07de254b6cd4dd5",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "scripts/test_package.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/scripts/test_package.py",
+      "git_blob_sha": "4d8833e41358aa182faba0d84ab750fdb386a992",
+      "verified_evidence_git_blob_sha": "4d8833e41358aa182faba0d84ab750fdb386a992",
+      "blob_matches_tree": true,
+      "size_bytes": 2774,
+      "tree_size_bytes": 2774,
+      "line_count": 70,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          70
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_plan_review",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              70
+            ]
+          ],
+          "claimed_git_blob_sha": "4d8833e41358aa182faba0d84ab750fdb386a992",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/config.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/config.py",
+      "git_blob_sha": "ff00555bcf8873a7030061ee43b19cf1b0a2d78f",
+      "verified_evidence_git_blob_sha": "ff00555bcf8873a7030061ee43b19cf1b0a2d78f",
+      "blob_matches_tree": true,
+      "size_bytes": 2981,
+      "tree_size_bytes": 2981,
+      "line_count": 149,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          149
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 149 lines read",
+          "line_ranges": [
+            [
+              1,
+              149
+            ]
+          ],
+          "claimed_git_blob_sha": "ff00555bcf8873a7030061ee43b19cf1b0a2d78f",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/models.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/models.py",
+      "git_blob_sha": "512f9dab3035986c6014f89da1729d00a15be596",
+      "verified_evidence_git_blob_sha": "512f9dab3035986c6014f89da1729d00a15be596",
+      "blob_matches_tree": true,
+      "size_bytes": 7748,
+      "tree_size_bytes": 7748,
+      "line_count": 207,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          207
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "lead_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full",
+          "line_ranges": [
+            [
+              1,
+              207
+            ]
+          ],
+          "claimed_git_blob_sha": "512f9dab3035986c6014f89da1729d00a15be596",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        },
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "partial_text_review",
+          "read_extent": "partial text range listed",
+          "line_ranges": [
+            [
+              1,
+              175
+            ]
+          ],
+          "claimed_git_blob_sha": "512f9dab3035986c6014f89da1729d00a15be596",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/routers/analysis.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/routers/analysis.py",
+      "git_blob_sha": "e435fae3dad38729f3448ef767f0038c3cdcd5dd",
+      "verified_evidence_git_blob_sha": "e435fae3dad38729f3448ef767f0038c3cdcd5dd",
+      "blob_matches_tree": true,
+      "size_bytes": 6284,
+      "tree_size_bytes": 6284,
+      "line_count": 157,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          157
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              157
+            ]
+          ],
+          "claimed_git_blob_sha": "e435fae3dad38729f3448ef767f0038c3cdcd5dd",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/routers/compare.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/routers/compare.py",
+      "git_blob_sha": "35b437cddceb26bdff54236dc1dddff4a2f9f90c",
+      "verified_evidence_git_blob_sha": "35b437cddceb26bdff54236dc1dddff4a2f9f90c",
+      "blob_matches_tree": true,
+      "size_bytes": 5896,
+      "tree_size_bytes": 5896,
+      "line_count": 171,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          171
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              171
+            ]
+          ],
+          "claimed_git_blob_sha": "35b437cddceb26bdff54236dc1dddff4a2f9f90c",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/routers/dataflow.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/routers/dataflow.py",
+      "git_blob_sha": "1581b8d68e6bbc373bac5677bcccc6b7b65ca23a",
+      "verified_evidence_git_blob_sha": "1581b8d68e6bbc373bac5677bcccc6b7b65ca23a",
+      "blob_matches_tree": true,
+      "size_bytes": 17573,
+      "tree_size_bytes": 17573,
+      "line_count": 389,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          389
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              389
+            ]
+          ],
+          "claimed_git_blob_sha": "1581b8d68e6bbc373bac5677bcccc6b7b65ca23a",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/routers/files.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/routers/files.py",
+      "git_blob_sha": "ae749a200c8ea47876f0bf3ad55d71e2693a0657",
+      "verified_evidence_git_blob_sha": "ae749a200c8ea47876f0bf3ad55d71e2693a0657",
+      "blob_matches_tree": true,
+      "size_bytes": 7071,
+      "tree_size_bytes": 7071,
+      "line_count": 189,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          189
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              189
+            ]
+          ],
+          "claimed_git_blob_sha": "ae749a200c8ea47876f0bf3ad55d71e2693a0657",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/run.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/run.py",
+      "git_blob_sha": "d31e6d9fdf35535dfd3ae905a951acfa3c781b85",
+      "verified_evidence_git_blob_sha": "d31e6d9fdf35535dfd3ae905a951acfa3c781b85",
+      "blob_matches_tree": true,
+      "size_bytes": 22033,
+      "tree_size_bytes": 22033,
+      "line_count": 564,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          564
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "cli_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full",
+          "line_ranges": [
+            [
+              1,
+              564
+            ]
+          ],
+          "claimed_git_blob_sha": "d31e6d9fdf35535dfd3ae905a951acfa3c781b85",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/activity.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/activity.py",
+      "git_blob_sha": "3fdf9953bdbe487b11d80670d23c41791e355e0f",
+      "verified_evidence_git_blob_sha": "3fdf9953bdbe487b11d80670d23c41791e355e0f",
+      "blob_matches_tree": true,
+      "size_bytes": 16437,
+      "tree_size_bytes": 16437,
+      "line_count": 435,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          435
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "cli_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full",
+          "line_ranges": [
+            [
+              1,
+              435
+            ]
+          ],
+          "claimed_git_blob_sha": "3fdf9953bdbe487b11d80670d23c41791e355e0f",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/analysis.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis.py",
+      "git_blob_sha": "75f233d357a2616014490b60b9d597a340f6197a",
+      "verified_evidence_git_blob_sha": "75f233d357a2616014490b60b9d597a340f6197a",
+      "blob_matches_tree": true,
+      "size_bytes": 45610,
+      "tree_size_bytes": 45610,
+      "line_count": 1230,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          1230
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 1230 lines read",
+          "line_ranges": [
+            [
+              1,
+              1230
+            ]
+          ],
+          "claimed_git_blob_sha": "75f233d357a2616014490b60b9d597a340f6197a",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/analysis_types.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/analysis_types.py",
+      "git_blob_sha": "074c4734078ce53aaa87657ad6524763ba8f64c7",
+      "verified_evidence_git_blob_sha": "074c4734078ce53aaa87657ad6524763ba8f64c7",
+      "blob_matches_tree": true,
+      "size_bytes": 7374,
+      "tree_size_bytes": 7374,
+      "line_count": 205,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          205
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 205 lines read",
+          "line_ranges": [
+            [
+              1,
+              205
+            ]
+          ],
+          "claimed_git_blob_sha": "074c4734078ce53aaa87657ad6524763ba8f64c7",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/cache.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/cache.py",
+      "git_blob_sha": "8973fb4355153046feefce5d1743b4af9cf1025d",
+      "verified_evidence_git_blob_sha": "8973fb4355153046feefce5d1743b4af9cf1025d",
+      "blob_matches_tree": true,
+      "size_bytes": 9666,
+      "tree_size_bytes": 9666,
+      "line_count": 261,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          261
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 261 lines read",
+          "line_ranges": [
+            [
+              1,
+              261
+            ]
+          ],
+          "claimed_git_blob_sha": "8973fb4355153046feefce5d1743b4af9cf1025d",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/compare/diff.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/compare/diff.py",
+      "git_blob_sha": "5f3dbc74b39d3a3b9dd100008b645b06a431409d",
+      "verified_evidence_git_blob_sha": "5f3dbc74b39d3a3b9dd100008b645b06a431409d",
+      "blob_matches_tree": true,
+      "size_bytes": 11530,
+      "tree_size_bytes": 11530,
+      "line_count": 298,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          298
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "partial_text_review",
+          "read_extent": "partial text ranges listed; whole-file rg for aggregation/null/rounding symbols",
+          "line_ranges": [
+            [
+              1,
+              215
+            ],
+            [
+              247,
+              285
+            ]
+          ],
+          "claimed_git_blob_sha": "5f3dbc74b39d3a3b9dd100008b645b06a431409d",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        },
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              298
+            ]
+          ],
+          "claimed_git_blob_sha": "5f3dbc74b39d3a3b9dd100008b645b06a431409d",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/compare/git_refs.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/compare/git_refs.py",
+      "git_blob_sha": "d3d23baee1aaa1754ac0c445be76d626fd9d5f1a",
+      "verified_evidence_git_blob_sha": "d3d23baee1aaa1754ac0c445be76d626fd9d5f1a",
+      "blob_matches_tree": true,
+      "size_bytes": 16461,
+      "tree_size_bytes": 16461,
+      "line_count": 436,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          436
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              436
+            ]
+          ],
+          "claimed_git_blob_sha": "d3d23baee1aaa1754ac0c445be76d626fd9d5f1a",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/compare/service.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/compare/service.py",
+      "git_blob_sha": "1fc113ba75a4f5b96db9f6f80334cf6e8a9e278b",
+      "verified_evidence_git_blob_sha": "1fc113ba75a4f5b96db9f6f80334cf6e8a9e278b",
+      "blob_matches_tree": true,
+      "size_bytes": 7788,
+      "tree_size_bytes": 7788,
+      "line_count": 202,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          202
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              202
+            ]
+          ],
+          "claimed_git_blob_sha": "1fc113ba75a4f5b96db9f6f80334cf6e8a9e278b",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/compare/snapshots.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/compare/snapshots.py",
+      "git_blob_sha": "45d96de9a1fe8d91ac60ae659ea9f2516271c23b",
+      "verified_evidence_git_blob_sha": "45d96de9a1fe8d91ac60ae659ea9f2516271c23b",
+      "blob_matches_tree": true,
+      "size_bytes": 11844,
+      "tree_size_bytes": 11844,
+      "line_count": 338,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          338
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              338
+            ]
+          ],
+          "claimed_git_blob_sha": "45d96de9a1fe8d91ac60ae659ea9f2516271c23b",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/compare/sources.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/compare/sources.py",
+      "git_blob_sha": "fee6148b855dd360c16c82551bc866254441d503",
+      "verified_evidence_git_blob_sha": "fee6148b855dd360c16c82551bc866254441d503",
+      "blob_matches_tree": true,
+      "size_bytes": 8477,
+      "tree_size_bytes": 8477,
+      "line_count": 216,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          216
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              216
+            ]
+          ],
+          "claimed_git_blob_sha": "fee6148b855dd360c16c82551bc866254441d503",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/dataflow/availability.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/dataflow/availability.py",
+      "git_blob_sha": "35f67d46e9045e49817309dc68a8b4ff55fc68c1",
+      "verified_evidence_git_blob_sha": "35f67d46e9045e49817309dc68a8b4ff55fc68c1",
+      "blob_matches_tree": true,
+      "size_bytes": 9012,
+      "tree_size_bytes": 9012,
+      "line_count": 221,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          221
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              221
+            ]
+          ],
+          "claimed_git_blob_sha": "35f67d46e9045e49817309dc68a8b4ff55fc68c1",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/dataflow/engine.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/dataflow/engine.py",
+      "git_blob_sha": "b8c46ba1a0c5798c15d119d8f5d1c88979d8fa25",
+      "verified_evidence_git_blob_sha": "b8c46ba1a0c5798c15d119d8f5d1c88979d8fa25",
+      "blob_matches_tree": true,
+      "size_bytes": 20864,
+      "tree_size_bytes": 20864,
+      "line_count": 553,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          553
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              553
+            ]
+          ],
+          "claimed_git_blob_sha": "b8c46ba1a0c5798c15d119d8f5d1c88979d8fa25",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/dataflow/models.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/dataflow/models.py",
+      "git_blob_sha": "81370f6c59ac3f1e62c048dbf46e694f27e3707a",
+      "verified_evidence_git_blob_sha": "81370f6c59ac3f1e62c048dbf46e694f27e3707a",
+      "blob_matches_tree": true,
+      "size_bytes": 16893,
+      "tree_size_bytes": 16893,
+      "line_count": 719,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          719
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              719
+            ]
+          ],
+          "claimed_git_blob_sha": "81370f6c59ac3f1e62c048dbf46e694f27e3707a",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/deps/common.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/deps/common.py",
+      "git_blob_sha": "c41ff529639ebbc6c0ecf613bb345be18b2321e9",
+      "verified_evidence_git_blob_sha": "c41ff529639ebbc6c0ecf613bb345be18b2321e9",
+      "blob_matches_tree": true,
+      "size_bytes": 6213,
+      "tree_size_bytes": 6213,
+      "line_count": 191,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          191
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              191
+            ]
+          ],
+          "claimed_git_blob_sha": "c41ff529639ebbc6c0ecf613bb345be18b2321e9",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/deps/graph.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/deps/graph.py",
+      "git_blob_sha": "c767dd8e42a3f046075a955a47a0490c9879b1a9",
+      "verified_evidence_git_blob_sha": "c767dd8e42a3f046075a955a47a0490c9879b1a9",
+      "blob_matches_tree": true,
+      "size_bytes": 6042,
+      "tree_size_bytes": 6042,
+      "line_count": 171,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          171
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              171
+            ]
+          ],
+          "claimed_git_blob_sha": "c767dd8e42a3f046075a955a47a0490c9879b1a9",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/deps/python_deps.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/deps/python_deps.py",
+      "git_blob_sha": "74b0f95d6a9b37724177a9e4bd65574a444efddf",
+      "verified_evidence_git_blob_sha": "74b0f95d6a9b37724177a9e4bd65574a444efddf",
+      "blob_matches_tree": true,
+      "size_bytes": 17963,
+      "tree_size_bytes": 17963,
+      "line_count": 402,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          402
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              402
+            ]
+          ],
+          "claimed_git_blob_sha": "74b0f95d6a9b37724177a9e4bd65574a444efddf",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/deps/tsconfig.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/deps/tsconfig.py",
+      "git_blob_sha": "41101be3ca8f22d26365904df619fcad8942d3a9",
+      "verified_evidence_git_blob_sha": "41101be3ca8f22d26365904df619fcad8942d3a9",
+      "blob_matches_tree": true,
+      "size_bytes": 6786,
+      "tree_size_bytes": 6786,
+      "line_count": 181,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          181
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              181
+            ]
+          ],
+          "claimed_git_blob_sha": "41101be3ca8f22d26365904df619fcad8942d3a9",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/deps/typescript_deps.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/deps/typescript_deps.py",
+      "git_blob_sha": "410c424add3c0e2085df0f30571163bbd5542866",
+      "verified_evidence_git_blob_sha": "410c424add3c0e2085df0f30571163bbd5542866",
+      "blob_matches_tree": true,
+      "size_bytes": 19426,
+      "tree_size_bytes": 19426,
+      "line_count": 466,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          466
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              466
+            ]
+          ],
+          "claimed_git_blob_sha": "410c424add3c0e2085df0f30571163bbd5542866",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/findings/builtin_ts.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/findings/builtin_ts.py",
+      "git_blob_sha": "3fff8c34e3199f66bb29098f3c9752137335717a",
+      "verified_evidence_git_blob_sha": "3fff8c34e3199f66bb29098f3c9752137335717a",
+      "blob_matches_tree": true,
+      "size_bytes": 4885,
+      "tree_size_bytes": 4885,
+      "line_count": 135,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          135
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              135
+            ]
+          ],
+          "claimed_git_blob_sha": "3fff8c34e3199f66bb29098f3c9752137335717a",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/findings/model.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/findings/model.py",
+      "git_blob_sha": "6631187ff68f6d022517baa6ab83b2583ba8ca01",
+      "verified_evidence_git_blob_sha": "6631187ff68f6d022517baa6ab83b2583ba8ca01",
+      "blob_matches_tree": true,
+      "size_bytes": 5089,
+      "tree_size_bytes": 5089,
+      "line_count": 157,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          157
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              157
+            ]
+          ],
+          "claimed_git_blob_sha": "6631187ff68f6d022517baa6ab83b2583ba8ca01",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/findings/overlay.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/findings/overlay.py",
+      "git_blob_sha": "233c4e3a2822ba446efda3867c8fb2951857e5c9",
+      "verified_evidence_git_blob_sha": "233c4e3a2822ba446efda3867c8fb2951857e5c9",
+      "blob_matches_tree": true,
+      "size_bytes": 5600,
+      "tree_size_bytes": 5600,
+      "line_count": 133,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          133
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              133
+            ]
+          ],
+          "claimed_git_blob_sha": "233c4e3a2822ba446efda3867c8fb2951857e5c9",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/findings/ruff.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/findings/ruff.py",
+      "git_blob_sha": "f8e2124033854b6ffbf4086698a6138640ad2aa9",
+      "verified_evidence_git_blob_sha": "f8e2124033854b6ffbf4086698a6138640ad2aa9",
+      "blob_matches_tree": true,
+      "size_bytes": 5579,
+      "tree_size_bytes": 5579,
+      "line_count": 142,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          142
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              142
+            ]
+          ],
+          "claimed_git_blob_sha": "f8e2124033854b6ffbf4086698a6138640ad2aa9",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/findings/runner.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/findings/runner.py",
+      "git_blob_sha": "46dcee0bc7a74fcbfd63a57c6ce8f1761a78d5e2",
+      "verified_evidence_git_blob_sha": "46dcee0bc7a74fcbfd63a57c6ce8f1761a78d5e2",
+      "blob_matches_tree": true,
+      "size_bytes": 7128,
+      "tree_size_bytes": 7128,
+      "line_count": 186,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          186
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              186
+            ]
+          ],
+          "claimed_git_blob_sha": "46dcee0bc7a74fcbfd63a57c6ce8f1761a78d5e2",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/findings/tools.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/findings/tools.py",
+      "git_blob_sha": "864b5287f0ba694cc6d5b8d122a66289897b4132",
+      "verified_evidence_git_blob_sha": "864b5287f0ba694cc6d5b8d122a66289897b4132",
+      "blob_matches_tree": true,
+      "size_bytes": 6719,
+      "tree_size_bytes": 6719,
+      "line_count": 198,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          198
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              198
+            ]
+          ],
+          "claimed_git_blob_sha": "864b5287f0ba694cc6d5b8d122a66289897b4132",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/findings/typescript.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/findings/typescript.py",
+      "git_blob_sha": "baea563c90a333eecab5c4b27a3fb19519685b3e",
+      "verified_evidence_git_blob_sha": "baea563c90a333eecab5c4b27a3fb19519685b3e",
+      "blob_matches_tree": true,
+      "size_bytes": 10712,
+      "tree_size_bytes": 10712,
+      "line_count": 269,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          269
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              269
+            ]
+          ],
+          "claimed_git_blob_sha": "baea563c90a333eecab5c4b27a3fb19519685b3e",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/metric_catalog.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/metric_catalog.py",
+      "git_blob_sha": "b28e3071c8ea0aa7583402a6f95dd182ae590d68",
+      "verified_evidence_git_blob_sha": "b28e3071c8ea0aa7583402a6f95dd182ae590d68",
+      "blob_matches_tree": true,
+      "size_bytes": 16557,
+      "tree_size_bytes": 16557,
+      "line_count": 343,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          343
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 343 lines read",
+          "line_ranges": [
+            [
+              1,
+              343
+            ]
+          ],
+          "claimed_git_blob_sha": "b28e3071c8ea0aa7583402a6f95dd182ae590d68",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/python/python_analysis.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/python/python_analysis.py",
+      "git_blob_sha": "ae1e84ddfca2a25de5be911ee457b53d9658f471",
+      "verified_evidence_git_blob_sha": "ae1e84ddfca2a25de5be911ee457b53d9658f471",
+      "blob_matches_tree": true,
+      "size_bytes": 16887,
+      "tree_size_bytes": 16887,
+      "line_count": 399,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          399
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 399 lines read",
+          "line_ranges": [
+            [
+              1,
+              399
+            ]
+          ],
+          "claimed_git_blob_sha": "ae1e84ddfca2a25de5be911ee457b53d9658f471",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/quadrants.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/quadrants.py",
+      "git_blob_sha": "4767304410ece77eeea783259562c1af3796718a",
+      "verified_evidence_git_blob_sha": "4767304410ece77eeea783259562c1af3796718a",
+      "blob_matches_tree": true,
+      "size_bytes": 14912,
+      "tree_size_bytes": 14912,
+      "line_count": 382,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          382
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 382 lines read",
+          "line_ranges": [
+            [
+              1,
+              382
+            ]
+          ],
+          "claimed_git_blob_sha": "4767304410ece77eeea783259562c1af3796718a",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/reporting.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/reporting.py",
+      "git_blob_sha": "114c3d35afdcfc3f34cc7c1142df9c1525e8cace",
+      "verified_evidence_git_blob_sha": "114c3d35afdcfc3f34cc7c1142df9c1525e8cace",
+      "blob_matches_tree": true,
+      "size_bytes": 36438,
+      "tree_size_bytes": 36438,
+      "line_count": 906,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          906
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "cli_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full",
+          "line_ranges": [
+            [
+              1,
+              906
+            ]
+          ],
+          "claimed_git_blob_sha": "114c3d35afdcfc3f34cc7c1142df9c1525e8cace",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        },
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "partial_text_review",
+          "read_extent": "partial text ranges listed; whole-file rg for ranking/rounding/projection symbols",
+          "line_ranges": [
+            [
+              1,
+              441
+            ],
+            [
+              700,
+              884
+            ]
+          ],
+          "claimed_git_blob_sha": "114c3d35afdcfc3f34cc7c1142df9c1525e8cace",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/scan_workers.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/scan_workers.py",
+      "git_blob_sha": "8630dd903579fa2b27365824c99e0db53199bfa8",
+      "verified_evidence_git_blob_sha": "8630dd903579fa2b27365824c99e0db53199bfa8",
+      "blob_matches_tree": true,
+      "size_bytes": 11657,
+      "tree_size_bytes": 11657,
+      "line_count": 342,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          342
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 342 lines read",
+          "line_ranges": [
+            [
+              1,
+              342
+            ]
+          ],
+          "claimed_git_blob_sha": "8630dd903579fa2b27365824c99e0db53199bfa8",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/services/typescript/typescript_analysis.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/services/typescript/typescript_analysis.py",
+      "git_blob_sha": "e08b253ec2b3c69cc71c7e9d6be90c74f090fb19",
+      "verified_evidence_git_blob_sha": "e08b253ec2b3c69cc71c7e9d6be90c74f090fb19",
+      "blob_matches_tree": true,
+      "size_bytes": 35232,
+      "tree_size_bytes": 35232,
+      "line_count": 801,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          801
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 801 lines read",
+          "line_ranges": [
+            [
+              1,
+              801
+            ]
+          ],
+          "claimed_git_blob_sha": "e08b253ec2b3c69cc71c7e9d6be90c74f090fb19",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/app/startup_info.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/app/startup_info.py",
+      "git_blob_sha": "bd70f4f7cb019d40d29bc46d564f09fe70df2c6c",
+      "verified_evidence_git_blob_sha": "bd70f4f7cb019d40d29bc46d564f09fe70df2c6c",
+      "blob_matches_tree": true,
+      "size_bytes": 2361,
+      "tree_size_bytes": 2361,
+      "line_count": 62,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          62
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "cli_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full",
+          "line_ranges": [
+            [
+              1,
+              62
+            ]
+          ],
+          "claimed_git_blob_sha": "bd70f4f7cb019d40d29bc46d564f09fe70df2c6c",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/pyproject.toml",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/pyproject.toml",
+      "git_blob_sha": "e71588a109d83f0aeb140421ba7ca677322e3c7e",
+      "verified_evidence_git_blob_sha": "e71588a109d83f0aeb140421ba7ca677322e3c7e",
+      "blob_matches_tree": true,
+      "size_bytes": 1343,
+      "tree_size_bytes": 1343,
+      "line_count": 60,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          60
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "lead_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full",
+          "line_ranges": [
+            [
+              1,
+              60
+            ]
+          ],
+          "claimed_git_blob_sha": "e71588a109d83f0aeb140421ba7ca677322e3c7e",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/scripts/evaluate_metric_portfolio.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/scripts/evaluate_metric_portfolio.py",
+      "git_blob_sha": "ccc6f8cc40ad127b2f532b94ccda957c869f6074",
+      "verified_evidence_git_blob_sha": "ccc6f8cc40ad127b2f532b94ccda957c869f6074",
+      "blob_matches_tree": true,
+      "size_bytes": 15700,
+      "tree_size_bytes": 15700,
+      "line_count": 385,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          385
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 385 lines read",
+          "line_ranges": [
+            [
+              1,
+              385
+            ]
+          ],
+          "claimed_git_blob_sha": "ccc6f8cc40ad127b2f532b94ccda957c869f6074",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_analysis_cache.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_analysis_cache.py",
+      "git_blob_sha": "4aaa86104c2520ddb7a30337e9c4b33056c89d88",
+      "verified_evidence_git_blob_sha": "4aaa86104c2520ddb7a30337e9c4b33056c89d88",
+      "blob_matches_tree": true,
+      "size_bytes": 10867,
+      "tree_size_bytes": 10867,
+      "line_count": 301,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          301
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 301 lines read",
+          "line_ranges": [
+            [
+              1,
+              301
+            ]
+          ],
+          "claimed_git_blob_sha": "4aaa86104c2520ddb7a30337e9c4b33056c89d88",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_cli_repo_root_detection.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_cli_repo_root_detection.py",
+      "git_blob_sha": "0c0e6cde736170650f60ac64aaa3298c00f15e14",
+      "verified_evidence_git_blob_sha": "0c0e6cde736170650f60ac64aaa3298c00f15e14",
+      "blob_matches_tree": true,
+      "size_bytes": 2153,
+      "tree_size_bytes": 2153,
+      "line_count": 68,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          68
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "cli_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full",
+          "line_ranges": [
+            [
+              1,
+              68
+            ]
+          ],
+          "claimed_git_blob_sha": "0c0e6cde736170650f60ac64aaa3298c00f15e14",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_compare_api.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_compare_api.py",
+      "git_blob_sha": "9dc22517851e2d05ef54a80e6bf2c1b8b291e09f",
+      "verified_evidence_git_blob_sha": "9dc22517851e2d05ef54a80e6bf2c1b8b291e09f",
+      "blob_matches_tree": true,
+      "size_bytes": 2631,
+      "tree_size_bytes": 2631,
+      "line_count": 61,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          61
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              61
+            ]
+          ],
+          "claimed_git_blob_sha": "9dc22517851e2d05ef54a80e6bf2c1b8b291e09f",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_compare_diff.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_compare_diff.py",
+      "git_blob_sha": "61e79127e4ded353f31eea676118d7a0b99978cd",
+      "verified_evidence_git_blob_sha": "61e79127e4ded353f31eea676118d7a0b99978cd",
+      "blob_matches_tree": true,
+      "size_bytes": 6173,
+      "tree_size_bytes": 6173,
+      "line_count": 132,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          132
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              132
+            ]
+          ],
+          "claimed_git_blob_sha": "61e79127e4ded353f31eea676118d7a0b99978cd",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_compare_snapshots.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_compare_snapshots.py",
+      "git_blob_sha": "7b12d25698164a8f06554ab3a4695bc505b23342",
+      "verified_evidence_git_blob_sha": "7b12d25698164a8f06554ab3a4695bc505b23342",
+      "blob_matches_tree": true,
+      "size_bytes": 5488,
+      "tree_size_bytes": 5488,
+      "line_count": 143,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          143
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              143
+            ]
+          ],
+          "claimed_git_blob_sha": "7b12d25698164a8f06554ab3a4695bc505b23342",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_compare_worktree_head.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_compare_worktree_head.py",
+      "git_blob_sha": "0c553d2a75f96a81f0b3d7a0f39380ad970e2b9a",
+      "verified_evidence_git_blob_sha": "0c553d2a75f96a81f0b3d7a0f39380ad970e2b9a",
+      "blob_matches_tree": true,
+      "size_bytes": 3949,
+      "tree_size_bytes": 3949,
+      "line_count": 91,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          91
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              91
+            ]
+          ],
+          "claimed_git_blob_sha": "0c553d2a75f96a81f0b3d7a0f39380ad970e2b9a",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_dataflow_models.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_dataflow_models.py",
+      "git_blob_sha": "c284d00e85304ac220cd2813ba940c6fd6237a6c",
+      "verified_evidence_git_blob_sha": "c284d00e85304ac220cd2813ba940c6fd6237a6c",
+      "blob_matches_tree": true,
+      "size_bytes": 5856,
+      "tree_size_bytes": 5856,
+      "line_count": 108,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          108
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              108
+            ]
+          ],
+          "claimed_git_blob_sha": "c284d00e85304ac220cd2813ba940c6fd6237a6c",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_dataflow_outcomes.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_dataflow_outcomes.py",
+      "git_blob_sha": "740cf329d39fd322d154515ad7afff323a0a8aa9",
+      "verified_evidence_git_blob_sha": "740cf329d39fd322d154515ad7afff323a0a8aa9",
+      "blob_matches_tree": true,
+      "size_bytes": 5764,
+      "tree_size_bytes": 5764,
+      "line_count": 136,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          136
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              136
+            ]
+          ],
+          "claimed_git_blob_sha": "740cf329d39fd322d154515ad7afff323a0a8aa9",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_dataflow_router.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_dataflow_router.py",
+      "git_blob_sha": "0f788ae45196fb47198397d6f2abc145288009d5",
+      "verified_evidence_git_blob_sha": "0f788ae45196fb47198397d6f2abc145288009d5",
+      "blob_matches_tree": true,
+      "size_bytes": 12319,
+      "tree_size_bytes": 12319,
+      "line_count": 215,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          215
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              215
+            ]
+          ],
+          "claimed_git_blob_sha": "0f788ae45196fb47198397d6f2abc145288009d5",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_dependency_graph_py.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_dependency_graph_py.py",
+      "git_blob_sha": "db7ac5062ad3fb58c6c6f306406a555bbda82cf4",
+      "verified_evidence_git_blob_sha": "db7ac5062ad3fb58c6c6f306406a555bbda82cf4",
+      "blob_matches_tree": true,
+      "size_bytes": 6002,
+      "tree_size_bytes": 6002,
+      "line_count": 132,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          132
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              132
+            ]
+          ],
+          "claimed_git_blob_sha": "db7ac5062ad3fb58c6c6f306406a555bbda82cf4",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_dependency_graph_symbols.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_dependency_graph_symbols.py",
+      "git_blob_sha": "563ec927acd5fee96fd82ad64cc48d79548fa889",
+      "verified_evidence_git_blob_sha": "563ec927acd5fee96fd82ad64cc48d79548fa889",
+      "blob_matches_tree": true,
+      "size_bytes": 4137,
+      "tree_size_bytes": 4137,
+      "line_count": 94,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          94
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              94
+            ]
+          ],
+          "claimed_git_blob_sha": "563ec927acd5fee96fd82ad64cc48d79548fa889",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_dependency_graph_ts.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_dependency_graph_ts.py",
+      "git_blob_sha": "3ae3d3435c8259ff4af51547c52667e125ba100f",
+      "verified_evidence_git_blob_sha": "3ae3d3435c8259ff4af51547c52667e125ba100f",
+      "blob_matches_tree": true,
+      "size_bytes": 7420,
+      "tree_size_bytes": 7420,
+      "line_count": 164,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          164
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              164
+            ]
+          ],
+          "claimed_git_blob_sha": "3ae3d3435c8259ff4af51547c52667e125ba100f",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_evaluate_metric_portfolio.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_evaluate_metric_portfolio.py",
+      "git_blob_sha": "327e9f5316c3405c55a768cf45e4fba4f6bafff8",
+      "verified_evidence_git_blob_sha": "327e9f5316c3405c55a768cf45e4fba4f6bafff8",
+      "blob_matches_tree": true,
+      "size_bytes": 4983,
+      "tree_size_bytes": 4983,
+      "line_count": 123,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          123
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 123 lines read",
+          "line_ranges": [
+            [
+              1,
+              123
+            ]
+          ],
+          "claimed_git_blob_sha": "327e9f5316c3405c55a768cf45e4fba4f6bafff8",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_file_discovery.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_file_discovery.py",
+      "git_blob_sha": "01c2e5ae4e46463ea2c13aec9260e7192d85e3ab",
+      "verified_evidence_git_blob_sha": "01c2e5ae4e46463ea2c13aec9260e7192d85e3ab",
+      "blob_matches_tree": true,
+      "size_bytes": 6886,
+      "tree_size_bytes": 6886,
+      "line_count": 181,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          181
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 181 lines read",
+          "line_ranges": [
+            [
+              1,
+              181
+            ]
+          ],
+          "claimed_git_blob_sha": "01c2e5ae4e46463ea2c13aec9260e7192d85e3ab",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_findings.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_findings.py",
+      "git_blob_sha": "c4b7df4ce47611d93745ed699068117204359074",
+      "verified_evidence_git_blob_sha": "c4b7df4ce47611d93745ed699068117204359074",
+      "blob_matches_tree": true,
+      "size_bytes": 19257,
+      "tree_size_bytes": 19257,
+      "line_count": 436,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          436
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "integration_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full source text, static review",
+          "line_ranges": [
+            [
+              1,
+              436
+            ]
+          ],
+          "claimed_git_blob_sha": "c4b7df4ce47611d93745ed699068117204359074",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_large_and_unparsed_files.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_large_and_unparsed_files.py",
+      "git_blob_sha": "f0df03caa4f99bb0232fb16c8cac9a3285dfe951",
+      "verified_evidence_git_blob_sha": "f0df03caa4f99bb0232fb16c8cac9a3285dfe951",
+      "blob_matches_tree": true,
+      "size_bytes": 4379,
+      "tree_size_bytes": 4379,
+      "line_count": 124,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          124
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 124 lines read",
+          "line_ranges": [
+            [
+              1,
+              124
+            ]
+          ],
+          "claimed_git_blob_sha": "f0df03caa4f99bb0232fb16c8cac9a3285dfe951",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_metric_catalog.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_metric_catalog.py",
+      "git_blob_sha": "afda8dc9e394cd661e200c62e471b2f2b914cd0f",
+      "verified_evidence_git_blob_sha": "afda8dc9e394cd661e200c62e471b2f2b914cd0f",
+      "blob_matches_tree": true,
+      "size_bytes": 3579,
+      "tree_size_bytes": 3579,
+      "line_count": 86,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          86
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 86 lines read",
+          "line_ranges": [
+            [
+              1,
+              86
+            ]
+          ],
+          "claimed_git_blob_sha": "afda8dc9e394cd661e200c62e471b2f2b914cd0f",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_metric_trust.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_metric_trust.py",
+      "git_blob_sha": "eed4a04a55476f7308f401bbdf3f507335aedc12",
+      "verified_evidence_git_blob_sha": "eed4a04a55476f7308f401bbdf3f507335aedc12",
+      "blob_matches_tree": true,
+      "size_bytes": 5033,
+      "tree_size_bytes": 5033,
+      "line_count": 121,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          121
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 121 lines read",
+          "line_ranges": [
+            [
+              1,
+              121
+            ]
+          ],
+          "claimed_git_blob_sha": "eed4a04a55476f7308f401bbdf3f507335aedc12",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_quadrants.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_quadrants.py",
+      "git_blob_sha": "229c0fd10929361545c0085568d5ff424fa8568c",
+      "verified_evidence_git_blob_sha": "229c0fd10929361545c0085568d5ff424fa8568c",
+      "blob_matches_tree": true,
+      "size_bytes": 11223,
+      "tree_size_bytes": 11223,
+      "line_count": 248,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          248
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 248 lines read",
+          "line_ranges": [
+            [
+              1,
+              248
+            ]
+          ],
+          "claimed_git_blob_sha": "229c0fd10929361545c0085568d5ff424fa8568c",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_ranking_parity.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_ranking_parity.py",
+      "git_blob_sha": "f704cfcf9f6e4b60d2b2d977cfe3d8f6223a0cec",
+      "verified_evidence_git_blob_sha": "f704cfcf9f6e4b60d2b2d977cfe3d8f6223a0cec",
+      "blob_matches_tree": true,
+      "size_bytes": 2771,
+      "tree_size_bytes": 2771,
+      "line_count": 68,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          68
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "cli_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full",
+          "line_ranges": [
+            [
+              1,
+              68
+            ]
+          ],
+          "claimed_git_blob_sha": "f704cfcf9f6e4b60d2b2d977cfe3d8f6223a0cec",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_reporting.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_reporting.py",
+      "git_blob_sha": "4ba22cebdc35a13cc45072f1725ca389c9e25bdb",
+      "verified_evidence_git_blob_sha": "4ba22cebdc35a13cc45072f1725ca389c9e25bdb",
+      "blob_matches_tree": true,
+      "size_bytes": 16624,
+      "tree_size_bytes": 16624,
+      "line_count": 446,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          446
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "cli_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full",
+          "line_ranges": [
+            [
+              1,
+              446
+            ]
+          ],
+          "claimed_git_blob_sha": "4ba22cebdc35a13cc45072f1725ca389c9e25bdb",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_scan_determinism.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_scan_determinism.py",
+      "git_blob_sha": "8e8fe59c471602c7de573a03aad594d3a00ce19a",
+      "verified_evidence_git_blob_sha": "8e8fe59c471602c7de573a03aad594d3a00ce19a",
+      "blob_matches_tree": true,
+      "size_bytes": 1691,
+      "tree_size_bytes": 1691,
+      "line_count": 39,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          39
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 39 lines read",
+          "line_ranges": [
+            [
+              1,
+              39
+            ]
+          ],
+          "claimed_git_blob_sha": "8e8fe59c471602c7de573a03aad594d3a00ce19a",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "server/tests/test_scan_error_handling.py",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/server/tests/test_scan_error_handling.py",
+      "git_blob_sha": "9496c26e5d0d9e30b28ba14bf99b0a7a3ab63835",
+      "verified_evidence_git_blob_sha": "9496c26e5d0d9e30b28ba14bf99b0a7a3ab63835",
+      "blob_matches_tree": true,
+      "size_bytes": 4600,
+      "tree_size_bytes": 4600,
+      "line_count": 123,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          123
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "metrics_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full text; all 123 lines read",
+          "line_ranges": [
+            [
+              1,
+              123
+            ]
+          ],
+          "claimed_git_blob_sha": "9496c26e5d0d9e30b28ba14bf99b0a7a3ab63835",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    },
+    {
+      "path": "skills/srcly-code-quality/SKILL.md",
+      "source_url": "https://github.com/byronwall/srcly/blob/aa56155c9268ce9da3a54180cb6a77ae6635d190/skills/srcly-code-quality/SKILL.md",
+      "git_blob_sha": "3c01f0d2f4a5770fa4a084778828338d722fc6db",
+      "verified_evidence_git_blob_sha": "3c01f0d2f4a5770fa4a084778828338d722fc6db",
+      "blob_matches_tree": true,
+      "size_bytes": 3961,
+      "tree_size_bytes": 3961,
+      "line_count": 92,
+      "review_status": "full_text_review",
+      "reviewed_line_ranges": [
+        [
+          1,
+          92
+        ]
+      ],
+      "reviews": [
+        {
+          "reviewer": "lead_audit",
+          "review_mode": "full_text_review",
+          "read_extent": "full",
+          "line_ranges": [
+            [
+              1,
+              92
+            ]
+          ],
+          "claimed_git_blob_sha": "3c01f0d2f4a5770fa4a084778828338d722fc6db",
+          "manifest_sha_matches_tree": true,
+          "repository_artifact_executed": false
+        }
+      ]
+    }
+  ]
+}
