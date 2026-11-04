@@ -25,7 +25,7 @@ Use this skill when asked to review a codebase, find refactor targets, prioritiz
    uvx srcly explain . --at 'server/app/run.py::_main'    # one symbol: lines, every measured metric
    ```
 
-   `--at` is relative to the analyzed path. Without it, `explain` reads the folder you are in. A method can be named by its bare name (`file.py::parse`) when only one symbol in the file has it; otherwise the error lists the full paths. Every answer ends with a `Next:` command you can run as-is. "Start at" is `path:line name`, and an anonymous callback also names its enclosing function.
+   `--at` (and every path that `explain` and `hotspots` print) is relative to the analyzed path: `hotspots server` prints `app/...`, so pass it to `explain server --at app/...`, or analyze `.` throughout. Without it, `explain` reads the folder you are in. A method can be named by its bare name (`file.py::parse`) when only one symbol in the file has it; otherwise the error lists the full paths. Every answer ends with a `Next:` command you can run as-is. "Start at" is `path:line name`, and an anonymous callback also names its enclosing function.
 
 4. Inspect the referenced source files and nearby tests before proposing or making changes.
 5. Treat metrics as triage signals, not proof of defects.

@@ -213,7 +213,7 @@ def _file(
         "score": item["score"] if item else None,
         "why": item["reason"] if item else None,
         "metrics": measured(node, path),
-        "symbols": [_symbol_row(s, root) for s in symbols[:limit]],
+        "symbols": [_symbol_row(s, root, path, symbols) for s in symbols[:limit]],
         "symbols_omitted": max(0, len(symbols) - limit),
     }
 
@@ -226,9 +226,12 @@ def _all_symbols(node: Node) -> list[Node]:
     return out
 
 
-def _symbol_row(node: Node, root: Path) -> dict[str, Any]:
+def _symbol_row(node: Node, root: Path, file: str, peers: list[Node]) -> dict[str, Any]:
+    """``at`` is the shortest ``--at`` that finds it: ``file::name`` when the name is unique in the file."""
+    unique = sum(1 for p in peers if p.name == node.name) == 1 and _named(node.name)
     return {
         "symbol": rel(node.path, root),
+        "at": f"{file}::{node.name}" if unique else rel(node.path, root),
         "lines": [node.start_line, node.end_line],
         "complexity": node.metrics.complexity,
         "loc": node.metrics.loc,
@@ -238,13 +241,16 @@ def _symbol_row(node: Node, root: Path) -> dict[str, Any]:
 
 def _symbol(node: Node, root: Path, limit: int) -> dict[str, Any]:
     inner = sorted(_all_symbols(node), key=lambda n: (-(n.metrics.complexity or 0), n.start_line))
+    scope = rel(node.path, root)
+    file = scope.split("::", 1)[0]
     return {
-        "scope": rel(node.path, root),
+        "scope": scope,
+        "file": file,
         "kind": "symbol",
         "symbol_kind": node.kind,
         "lines": [node.start_line, node.end_line],
         "metrics": measured(node, rel(node.path, root), symbol=True),
-        "symbols": [_symbol_row(s, root) for s in inner[:limit]],
+        "symbols": [_symbol_row(s, root, file, inner) for s in inner[:limit]],
         "symbols_omitted": max(0, len(inner) - limit),
     }
 
@@ -348,7 +354,13 @@ def render_markdown(payload: dict[str, Any], *, command: str = "srcly explain") 
                 lines.append(f"| +{payload['symbols_omitted']} more | | | | |")
         else:
             lines += ["", "No functions or classes inside."]
-        next_at = payload["symbols"][0]["symbol"] if payload["symbols"] else None
+        if kind == "symbol":
+            # The function itself is the next thing to read, not its smallest closure.
+            start, end = payload["lines"]
+            lines += ["", f"Next: read it with `sed -n '{start},{end}p' {shlex.quote(payload['file'])}`"]
+            next_at = None
+        else:
+            next_at = payload["symbols"][0]["at"] if payload["symbols"] else None
     if next_at:
         lines += ["", f"Next: `{command} --at {shlex.quote(next_at)}`"]
     return "\n".join(lines) + "\n"
