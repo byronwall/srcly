@@ -212,7 +212,7 @@ class AnalysisCache:
         try:
             self._write_disk(root, entry)
         except OSError as exc:
-            print(f"⚠️  Could not write analysis cache for {root}: {exc}", flush=True)
+            print(f"⚠️  Could not write analysis cache for {root}: {exc}", file=sys.stderr, flush=True)
         return entry
 
     def _write_disk(self, root: Path, entry: CachedAnalysis) -> None:

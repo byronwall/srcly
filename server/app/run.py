@@ -155,6 +155,27 @@ def _main(argv: list[str] | None = None) -> None:
     )
 
 
+def _positive_int(text: str) -> int:
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a whole number, got {text!r}") from None
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"must be 1 or more, got {value}")
+    return value
+
+
+def _resolve_explain_file(root: Path, file: str) -> Path:
+    """``--file`` is relative to the analyzed root, not the cwd, and must lie inside it."""
+    root = root.resolve()
+    file_path = (root / file).resolve()
+    if not file_path.is_relative_to(root):
+        raise SystemExit(f"--file {file} is outside the analyzed path {root}")
+    if not file_path.is_file():
+        raise SystemExit(f"--file {file} does not exist under the analyzed path {root}")
+    return file_path
+
+
 def _resolve_target_path(path: str | None) -> Path:
     if path is None:
         target_path = Path(_find_repo_root(os.getcwd()))
@@ -182,7 +203,9 @@ def _run_headless(argv: list[str]) -> None:
     )
     scan_parser.add_argument("path", nargs="?", help="Path to analyze. Defaults to the enclosing Git repo root.")
     scan_parser.add_argument("--out", default="codebase_mri.json", help="Output JSON file.")
-    scan_parser.add_argument("--refresh", action="store_true", help="Ignore cache when cache support is available.")
+    scan_parser.add_argument(
+        "--refresh", action="store_true", help="Rerun lint and type checks instead of reading their cache."
+    )
     scan_parser.add_argument("--format", choices=["json", "jsonl"], default="json", help="Output format. JSONL is reserved.")
     scan_parser.add_argument(
         "--include-source",
@@ -205,8 +228,10 @@ def _run_headless(argv: list[str]) -> None:
         action="store_true",
         help="Emit one compact bundled JSON report to stdout instead of writing artifact files.",
     )
-    report_parser.add_argument("--refresh", action="store_true", help="Ignore cache when cache support is available.")
-    report_parser.add_argument("--limit", type=int, default=50, help="Maximum ranked findings to emit.")
+    report_parser.add_argument(
+        "--refresh", action="store_true", help="Rerun lint and type checks instead of reading their cache."
+    )
+    report_parser.add_argument("--limit", type=_positive_int, default=50, help="Maximum ranked findings to emit.")
     report_parser.add_argument(
         "--verbose",
         action="store_true",
@@ -268,8 +293,8 @@ def _run_headless(argv: list[str]) -> None:
         default="none",
         help="Exit non-zero if findings at this priority or higher are present.",
     )
-    report_parser.add_argument("--tree-depth", type=int, default=3, help="Maximum depth in tree.summary.json.")
-    report_parser.add_argument("--tree-top", type=int, default=6, help="Maximum children per tree level.")
+    report_parser.add_argument("--tree-depth", type=_positive_int, default=3, help="Maximum depth in tree.summary.json.")
+    report_parser.add_argument("--tree-top", type=_positive_int, default=6, help="Maximum children per tree level.")
     report_parser.add_argument("--include-tree", action="store_true", help="Also write/include the full raw tree.json artifact.")
     report_parser.add_argument(
         "--include-dependencies",
@@ -291,7 +316,7 @@ def _run_headless(argv: list[str]) -> None:
         default="complexity",
         help="Metric to rank by, worst first (the explorer's Hot Spots list).",
     )
-    hotspots_parser.add_argument("--limit", type=int, default=25, help="Maximum hotspots to print.")
+    hotspots_parser.add_argument("--limit", type=_positive_int, default=25, help="Maximum hotspots to print.")
     hotspots_parser.add_argument(
         "--cohort",
         choices=["file", "function"],
@@ -308,7 +333,9 @@ def _run_headless(argv: list[str]) -> None:
         help="Git history window for commit_count / churn_lines (default 90d).",
     )
     explain_parser.add_argument("path", nargs="?", help="Path to analyze. Defaults to the enclosing Git repo root.")
-    explain_parser.add_argument("--file", required=True, help="File path to explain.")
+    explain_parser.add_argument(
+        "--file", required=True, help="File to explain, relative to the analyzed path (or absolute)."
+    )
     explain_parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format.")
 
     compare_parser = subparsers.add_parser(
@@ -342,7 +369,7 @@ def _run_headless(argv: list[str]) -> None:
         help="Include both full trees and dependency graphs in the JSON.",
     )
     compare_parser.add_argument("--refresh", action="store_true", help="Rescan both sides instead of using the cache.")
-    compare_parser.add_argument("--limit", type=int, default=40, help="Maximum files in the markdown summary.")
+    compare_parser.add_argument("--limit", type=_positive_int, default=40, help="Maximum files in the markdown summary.")
 
     args = parser.parse_args(argv)
 
@@ -441,8 +468,9 @@ def _run_headless(argv: list[str]) -> None:
 
     if args.command == "explain":
         target_path = _resolve_target_path(args.path)
+        file_path = _resolve_explain_file(target_path, args.file)
         tree = reporting.scan_tree(target_path, activity_window=args.activity_window)
-        payload = _explain_file(tree, Path(args.file).resolve(), target_path)
+        payload = _explain_file(tree, file_path, target_path)
         if args.format == "json":
             print(reporting._json_dumps(payload))
         else:
@@ -493,7 +521,7 @@ def _deprioritize_paths(args) -> tuple[str, ...]:
 
 def _format_quiet_report_summary(out_dir: Path, written: dict[str, Path]) -> str:
     names = ", ".join(path.name for path in written.values())
-    read_first = out_dir / "report.md"
+    read_first = written.get("report") or written["findings_top"]
     return f"Wrote {len(written)} Srcly artifacts to {out_dir}: {names}\nRead first: {read_first}"
 
 
@@ -533,7 +561,7 @@ def _explain_file(tree, file_path: Path, root_path: Path) -> dict:
     # Inside one file, rank its functions against each other.
     ranked = reporting.rank_nodes(target, cohort="function")
     return {
-        "path": str(file_path),
+        "path": file_path.relative_to(root_path.resolve()).as_posix(),
         "summary": reporting.summarize_tree(target, ranked, root_path=root_path, max_depth=3, top_children=20),
         "hotspots": ranked[:10],
     }

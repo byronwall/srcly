@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -444,3 +445,60 @@ def test_report_defaults_to_the_profile_lead_metric(tmp_path: Path, monkeypatch:
 
     assert reporting.build_report_payload(root, verbose=False)["hotspots"]["metric"] == "complexity"
     assert reporting.build_report_payload(root, profile="frontend", verbose=False)["hotspots"]["metric"] == "component_loc"
+
+
+def test_cli_report_stdout_stays_json_when_cache_writes_fail(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # A file where the cache directory should be makes every cache write fail.
+    blocked = tmp_path / "not-a-dir"
+    blocked.write_text("", encoding="utf-8")
+    monkeypatch.setenv("SRCLY_CACHE_DIR", str(blocked / "analysis"))
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / "a.py").write_text("def f(x):\n    return x if x else 0\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "add", "."], cwd=root, check=True)
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init"], cwd=root, check=True
+    )
+
+    main(["report", str(root), "--stdout"])
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload["manifest"]
+    assert "Could not cache Git activity" in captured.err
+    assert "Could not cache findings" in captured.err
+
+
+def test_cli_explain_file_resolves_against_the_analyzed_path_not_the_cwd(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = tmp_path / "repo"
+    file_path = root / "client/src/Dashboard.tsx"
+    file_path.parent.mkdir(parents=True)
+    file_path.write_text("export function Dashboard() { return null }\n", encoding="utf-8")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    tree = _sample_tree(root.resolve())
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: tree)
+
+    main(["explain", str(root), "--file", "client/src/Dashboard.tsx", "--format", "json"])
+
+    assert json.loads(capsys.readouterr().out)["path"] == "client/src/Dashboard.tsx"
+    with pytest.raises(SystemExit, match="outside the analyzed path"):
+        main(["explain", str(root), "--file", "../elsewhere/x.py"])
+
+
+@pytest.mark.parametrize("command", [["report", "--limit"], ["hotspots", "--limit"], ["report", "--tree-top"]])
+@pytest.mark.parametrize("value", ["0", "-3"])
+def test_cli_rejects_zero_and_negative_limits(tmp_path: Path, command: list[str], value: str) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main([command[0], str(tmp_path), command[1], value])
+    assert exc.value.code == 2

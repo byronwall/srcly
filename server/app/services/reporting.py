@@ -22,10 +22,14 @@ DEFAULT_DEPRIORITIZED_PATHS = (".agents/", "docs/idea/", "vendor/", "vendors/", 
 PROFILE_WEIGHTS: dict[str, dict[str, float]] = metric_catalog.profile_weights()
 
 
-def scan_tree(root_path: Path, *, verbose: bool = True, activity_window: str | None = None) -> Node:
+def scan_tree(
+    root_path: Path, *, verbose: bool = True, activity_window: str | None = None, refresh: bool = False
+) -> Node:
     """
     Scan ``root_path`` and lay Git activity for ``activity_window`` (default
     90d) and lint/type-check findings over it. The checks run beside the scan.
+    The scan itself is never cached; ``refresh`` reruns the checks instead of
+    reading their cache.
     """
     from concurrent.futures import ThreadPoolExecutor
 
@@ -33,7 +37,9 @@ def scan_tree(root_path: Path, *, verbose: bool = True, activity_window: str | N
 
     root = root_path.resolve()
     with ThreadPoolExecutor(max_workers=1) as pool:
-        checks = pool.submit(lambda: lint_findings.collect(root, fingerprint=cache.fingerprint(root)))
+        checks = pool.submit(
+            lambda: lint_findings.collect(root, fingerprint=cache.fingerprint(root), use_cache=not refresh)
+        )
         tree = analysis.scan_codebase(root_path, verbose=verbose)
         data = activity.apply_to_scan(json.loads(tree.model_dump_json(by_alias=True)), root_path, activity_window)
         lint_findings.apply_to_tree(data, checks.result())
@@ -41,8 +47,7 @@ def scan_tree(root_path: Path, *, verbose: bool = True, activity_window: str | N
 
 
 def write_scan(root_path: Path, out_path: Path, *, refresh: bool = False, activity_window: str | None = None) -> Path:
-    del refresh  # Cache support is currently a no-op in app.services.cache.
-    tree = scan_tree(root_path, activity_window=activity_window)
+    tree = scan_tree(root_path, activity_window=activity_window, refresh=refresh)
     if str(out_path) == "-":
         print(_json_dumps(_node_to_json(tree)), end="")
         return out_path
@@ -71,12 +76,11 @@ def build_report_payload(
     quadrant: str | None = None,
     quadrant_cohort: str | None = None,
 ) -> dict[str, Any]:
-    del refresh  # Cache support is currently a no-op in app.services.cache.
     if profile not in PROFILE_WEIGHTS:
         raise ValueError(f"Unknown profile: {profile}")
     metric = metric or metric_catalog.profile_lead(profile)
 
-    tree = scan_tree(root_path, verbose=verbose, activity_window=activity_window)
+    tree = scan_tree(root_path, verbose=verbose, activity_window=activity_window, refresh=refresh)
     rank_options = dict(profile=profile, root_path=root_path, focus_paths=focus_paths, deprioritize_paths=deprioritize_paths)
     ranked = rank_nodes(tree, cohort="file", **rank_options)
     by_metric = {
