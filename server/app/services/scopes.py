@@ -15,7 +15,8 @@ repo, so a file ranks the same in every scope. Paths are relative to the root.
 
 from __future__ import annotations
 
-from pathlib import Path
+import shlex
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from app.models import Node
@@ -54,12 +55,20 @@ def symbols_below(node: Node) -> list[Node]:
 
 
 def find(tree: Node, root: Path, at: str) -> Node | None:
+    """Exact scope first. ``file::name`` also finds a method or nested function by its last name
+    (``file::(class) Parser::parse``) when exactly one symbol in the file has it."""
     target = at.strip().strip("/") or "."
     if target == ".":
         return tree
     for node in _walk(tree):
         if rel(node.path, root) == target:
             return node
+    file, sep, name = target.partition("::")
+    if sep and "::" not in name:
+        parent = find(tree, root, file)
+        matches = [n for n in _all_symbols(parent) if n.name == name] if parent is not None else []
+        if len(matches) == 1:
+            return matches[0]
     return None
 
 
@@ -82,12 +91,26 @@ def explain(
     root = root.resolve()
     node = find(tree, root, at)
     if node is None:
-        raise LookupError(f"{at} is not in the analysis of {root} (paths are relative to it; symbols are file::name)")
+        raise LookupError(_not_found(tree, root, at))
     if node.type == "folder":
         return _folder(node, root, scores, limit, classes)
     if node.type == "file":
-        return _file(node, root, scores, limit)
+        return _file(node, root, scores, limit, classes)
     return _symbol(node, root, limit)
+
+
+def _not_found(tree: Node, root: Path, at: str) -> str:
+    """Name the closest valid scopes: the symbols of the file, or the analyzed root."""
+    file, sep, name = at.partition("::")
+    parent = find(tree, root, file) if sep else None
+    if parent is not None:
+        same = [rel(s.path, root) for s in _all_symbols(parent) if s.name == name]
+        if len(same) > 1:
+            return f"{at} matches {len(same)} symbols; use the full path: " + ", ".join(f"`{n}`" for n in same[:6]) + "."
+        names = [rel(s.path, root)[len(file) :] for s in symbols_below(parent)][:8]
+        listed = ", ".join(f"`{n}`" for n in names) or "none"
+        return f"{at} is not a function or class in {file}. Its top-level symbols: {listed}."
+    return f"{at} is not in the analysis of {root}. Paths are relative to it; symbols are file::name."
 
 
 def _folder(
@@ -152,19 +175,35 @@ def left_out(files: list[dict[str, Any]], *, keep: tuple[str, ...] = ("code",)) 
 
 
 def _brief(item: dict[str, Any]) -> dict[str, Any]:
+    return {"path": item["path"], "score": item["score"], "why": item["reason"], "start_at": start_at(item)}
+
+
+def start_at(item: dict[str, Any]) -> str:
+    """``path:line name`` of the complexity witness; an anonymous callback also names its enclosing function."""
     witness = item.get("complexity_witness")
-    return {
-        "path": item["path"],
-        "score": item["score"],
-        "why": item["reason"],
-        "start_at": f"{item['path']}:{witness['start_line']} {witness['name']}" if witness else item["path"],
-    }
+    if not witness:
+        return item["path"]
+    where = f"{item['path']}:{witness['start_line']} {witness['name']}"
+    if not _named(witness["name"]):
+        owner = next((part for part in reversed(witness["path"].split("::")[1:-1]) if _named(part)), None)
+        if owner:
+            where += f" in {owner}"
+    return where
 
 
-def _file(node: Node, root: Path, scores: dict[str, dict[str, Any]], limit: int) -> dict[str, Any]:
+def _named(name: str) -> bool:
+    """A real identifier, not ``<For>(ƒ)``, ``(anonymous)`` or ``<div>``."""
+    bare = name.removeprefix("(class) ")
+    return bool(bare) and bare[0] not in "<(" and "(ƒ)" not in bare
+
+
+def _file(
+    node: Node, root: Path, scores: dict[str, dict[str, Any]], limit: int, classes: tuple[str, ...]
+) -> dict[str, Any]:
     path = rel(node.path, root)
-    item = scores.get(path)
     cls, reason = classify(path)
+    # A file outside the ranked classes has no score to show: it is not in the queue.
+    item = scores.get(path) if cls in classes else None
     symbols = sorted(_all_symbols(node), key=lambda n: (-(n.metrics.complexity or 0), -(n.metrics.loc or 0), n.start_line))
     return {
         "scope": path,
@@ -173,7 +212,7 @@ def _file(node: Node, root: Path, scores: dict[str, dict[str, Any]], limit: int)
         "class_reason": reason,
         "score": item["score"] if item else None,
         "why": item["reason"] if item else None,
-        "metrics": measured(node),
+        "metrics": measured(node, path),
         "symbols": [_symbol_row(s, root) for s in symbols[:limit]],
         "symbols_omitted": max(0, len(symbols) - limit),
     }
@@ -204,34 +243,71 @@ def _symbol(node: Node, root: Path, limit: int) -> dict[str, Any]:
         "kind": "symbol",
         "symbol_kind": node.kind,
         "lines": [node.start_line, node.end_line],
-        "metrics": measured(node),
+        "metrics": measured(node, rel(node.path, root), symbol=True),
         "symbols": [_symbol_row(s, root) for s in inner[:limit]],
         "symbols_omitted": max(0, len(inner) - limit),
     }
 
 
-def measured(node: Node) -> dict[str, Any]:
-    """Every catalog metric the node has a value for. 0 is kept; risk metrics that are N/A are named."""
+# Metric id prefix → file suffixes it can apply to. Others apply to any source file.
+_LANGUAGE_METRICS = {
+    "component_": {".tsx", ".jsx"},
+    "ts_": {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"},
+    "python_": {".py"},
+    "md_": {".md", ".mdx"},
+}
+# Measured once per file (history, checkers, rollups), never per function.
+_FILE_ONLY = {"commit_count", "churn_lines", "finding_count", "error_count", "complexity_avg", "average_function_length"}
+
+
+def _applies(metric: str, suffix: str, symbol: bool) -> bool:
+    if symbol and metric in _FILE_ONLY:
+        return False
+    for prefix, suffixes in _LANGUAGE_METRICS.items():
+        if metric.startswith(prefix):
+            return suffix in suffixes
+    return suffix not in {".md", ".mdx"}
+
+
+def measured(node: Node, path: str, *, symbol: bool = False) -> dict[str, Any]:
+    """Every catalog metric the node has a value for (0 is kept), and the risk metrics that
+    could apply to this language but are N/A here."""
+    suffix = PurePosixPath(path.split("::", 1)[0]).suffix.lower()
     values: dict[str, Any] = {}
     na: list[str] = []
     for spec in metric_catalog.METRICS:
+        if spec.id == "file_count":
+            continue
         value = getattr(node.metrics, spec.id, None)
         if value is None:
-            if spec.direction != "neutral":
+            if spec.direction != "neutral" and _applies(spec.id, suffix, symbol):
                 na.append(spec.id)
         elif value or spec.direction != "neutral":
             values[spec.id] = value
     return {"values": values, "na": na}
 
 
-def render_markdown(payload: dict[str, Any]) -> str:
+def render_markdown(payload: dict[str, Any], *, command: str = "srcly explain") -> str:
+    """``command`` is how the user ran it (with the root argument), so the Next line runs as-is."""
     kind, scope = payload["kind"], payload["scope"]
     lines = [f"# srcly explain {scope} ({kind})", ""]
     if kind == "folder":
-        lines.append(f"{payload['code_files']} ranked files ({', '.join(payload['classes'])}). Scores are repo-wide (0–1); {QUEUE_SCORE}+ is a finding.")
-        if payload["folders"]:
-            lines += ["", "## Folders, worst first", "", "| Folder | Code files | LOC | Findings | Worst file | Start at |", "| --- | ---: | ---: | ---: | --- | --- |"]
-            for f in payload["folders"]:
+        ranked = ", ".join(payload["classes"])
+        if not payload["files"]:
+            lines.append(f"No {ranked} files here.")
+            hint = max(payload["left_out"], key=lambda r: r["files"], default=None)
+            if hint:
+                lines.append(f"Rank the {hint['files']} {hint['class']} files with `--include-class {hint['class']}`.")
+            lines += ["", *left_out_lines(payload["left_out"])] if payload["left_out"] else []
+            return "\n".join(lines).rstrip() + "\n"
+        lines.append(
+            f"{payload['code_files']} ranked files ({ranked}). Score: the profile's weighted mix of complexity, size, "
+            f"nesting and history, 1.0 = the repo's worst; {QUEUE_SCORE}+ is a finding."
+        )
+        folders = payload["folders"]
+        if folders and not (len(folders) == 1 and folders[0]["path"] == scope):
+            lines += ["", "## Folders, worst first", "", "| Folder | Files | LOC | Findings | Worst file | Start at |", "| --- | ---: | ---: | ---: | --- | --- |"]
+            for f in folders:
                 w = f["worst"]
                 label = "(files here)" if f["path"] == scope else f"{f['path']}/"
                 lines.append(f"| `{label}` | {f['code_files']} | {f['loc']} | {f['queue']} | {w['score']} `{w['path']}` | `{w['start_at']}` |")
@@ -243,27 +319,38 @@ def render_markdown(payload: dict[str, Any]) -> str:
         if payload["files_omitted"]:
             lines.append(f"| | +{payload['files_omitted']} more | | |")
         lines += ["", *left_out_lines(payload["left_out"])]
-        sub = [f["path"] for f in payload["folders"] if f["path"] != scope]
-        next_at = sub[0] if sub else (payload["files"][0]["path"] if payload["files"] else None)
+        sub = [f["path"] for f in folders if f["path"] != scope]
+        next_at = sub[0] if sub else payload["files"][0]["path"]
     else:
         if kind == "file":
-            score = f"score {payload['score']}: {payload['why']}" if payload["score"] is not None else "not scored"
-            lines.append(f"Class: {payload['class']} ({payload['class_reason']}); {score}.")
+            if payload["score"] is not None:
+                standing = f"score {payload['score']}: {payload['why']}"
+            else:
+                standing = f"not ranked ({payload['class']} files are left out of the queue)"
+            lines.append(f"Class: {payload['class']} ({payload['class_reason']}); {standing}.")
         else:
-            lines.append(f"{payload['symbol_kind']}, lines {payload['lines'][0]}–{payload['lines'][1]}.")
-        values = ", ".join(f"{k}={_na(v)}" for k, v in payload["metrics"]["values"].items())
+            start, end = payload["lines"]
+            where = f"line {start}" if start == end else f"lines {start}–{end}"
+            lines.append(f"{payload['symbol_kind']}, {where}.")
+        rollup = _ROLLUP if kind == "file" else {}
+        values = ", ".join(f"{k}={_na(v)}{rollup.get(k, '')}" for k, v in payload["metrics"]["values"].items())
         lines += ["", f"Measured: {values or 'nothing'}."]
         if payload["metrics"]["na"]:
-            lines.append(f"Risk metrics N/A here (not 0): {', '.join(payload['metrics']['na'])}.")
-        lines += ["", "## Functions and classes, most complex first", "", "| Symbol | Lines | CCN | LOC | Nesting |", "| --- | --- | ---: | ---: | ---: |"]
-        for s in payload["symbols"]:
-            name = s["symbol"][len(scope) :] if s["symbol"].startswith(scope + "::") else s["symbol"]
-            lines.append(f"| `{name}` | {s['lines'][0]}–{s['lines'][1]} | {_na(s['complexity'])} | {_na(s['loc'])} | {_na(s['max_nesting_depth'])} |")
-        if payload["symbols_omitted"]:
-            lines.append(f"| +{payload['symbols_omitted']} more | | | | |")
+            lines.append(f"N/A here (not 0): {', '.join(payload['metrics']['na'])}.")
+        if payload["symbols"]:
+            lines += ["", "## Functions and classes, most complex first", "", "| Symbol | Lines | CCN | LOC | Nesting |", "| --- | --- | ---: | ---: | ---: |"]
+            for s in payload["symbols"]:
+                name = s["symbol"][len(scope) :] if s["symbol"].startswith(scope + "::") else s["symbol"]
+                start, end = s["lines"]
+                span = f"{start}" if start == end else f"{start}–{end}"
+                lines.append(f"| `{name}` | {span} | {_na(s['complexity'])} | {_na(s['loc'])} | {_na(s['max_nesting_depth'])} |")
+            if payload["symbols_omitted"]:
+                lines.append(f"| +{payload['symbols_omitted']} more | | | | |")
+        else:
+            lines += ["", "No functions or classes inside."]
         next_at = payload["symbols"][0]["symbol"] if payload["symbols"] else None
     if next_at:
-        lines += ["", f"Next: `srcly explain --at '{next_at}'`"]
+        lines += ["", f"Next: `{command} --at {shlex.quote(next_at)}`"]
     return "\n".join(lines) + "\n"
 
 
@@ -274,7 +361,19 @@ def left_out_lines(rows: list[dict[str, Any]]) -> list[str]:
     return [f"Not ranked as code: {'; '.join(parts)}. Add `--include-class <class>` to rank one."]
 
 
+# File values that roll up from its functions, labeled so a sum is not read as one function's value.
+_ROLLUP = {
+    "complexity": " (worst function)",
+    "max_nesting_depth": " (deepest function)",
+    "parameter_count": " (sum over functions)",
+    "complexity_avg": " (mean per function)",
+    "average_function_length": " (mean per function)",
+}
+
+
 def _na(value: Any) -> str:
     if value is None:
         return "N/A"
-    return str(int(value)) if isinstance(value, float) and value.is_integer() else str(value)
+    if isinstance(value, float):
+        return str(int(value)) if value.is_integer() else f"{value:.2f}".rstrip("0")
+    return str(value)
