@@ -204,7 +204,10 @@ def _run_headless(argv: list[str]) -> None:
     scan_parser.add_argument("path", nargs="?", help="Path to analyze. Defaults to the enclosing Git repo root.")
     scan_parser.add_argument("--out", default="codebase_mri.json", help="Output JSON file.")
     scan_parser.add_argument(
-        "--refresh", action="store_true", help="Rerun lint and type checks instead of reading their cache."
+        "--verbose", action="store_true", help="Print per-file scan progress to stderr. Quiet by default."
+    )
+    scan_parser.add_argument(
+        "--refresh", action="store_true", help="Rescan and rerun lint and type checks instead of reusing cached results."
     )
     scan_parser.add_argument("--format", choices=["json", "jsonl"], default="json", help="Output format. JSONL is reserved.")
     scan_parser.add_argument(
@@ -229,7 +232,7 @@ def _run_headless(argv: list[str]) -> None:
         help="Emit one compact bundled JSON report to stdout instead of writing artifact files.",
     )
     report_parser.add_argument(
-        "--refresh", action="store_true", help="Rerun lint and type checks instead of reading their cache."
+        "--refresh", action="store_true", help="Rescan and rerun lint and type checks instead of reusing cached results."
     )
     report_parser.add_argument("--limit", type=_positive_int, default=50, help="Maximum ranked findings to emit.")
     report_parser.add_argument(
@@ -324,6 +327,9 @@ def _run_headless(argv: list[str]) -> None:
         help="Rank files against files, or functions against functions.",
     )
     hotspots_parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format.")
+    hotspots_parser.add_argument(
+        "--verbose", action="store_true", help="Print per-file scan progress to stderr. Quiet by default."
+    )
 
     explain_parser = subparsers.add_parser("explain", help="Print a focused report for one file or subtree.")
     explain_parser.add_argument(
@@ -337,6 +343,9 @@ def _run_headless(argv: list[str]) -> None:
         "--file", required=True, help="File to explain, relative to the analyzed path (or absolute)."
     )
     explain_parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format.")
+    explain_parser.add_argument(
+        "--verbose", action="store_true", help="Print per-file scan progress to stderr. Quiet by default."
+    )
 
     compare_parser = subparsers.add_parser(
         "compare",
@@ -384,7 +393,9 @@ def _run_headless(argv: list[str]) -> None:
             raise SystemExit("--include-source snippets is reserved and not implemented yet.")
         target_path = _resolve_target_path(args.path)
         out_path = Path("-") if args.out == "-" else Path(args.out).resolve()
-        reporting.write_scan(target_path, out_path, refresh=args.refresh, activity_window=args.activity_window)
+        reporting.write_scan(
+            target_path, out_path, refresh=args.refresh, activity_window=args.activity_window, verbose=args.verbose
+        )
         if str(args.out) != "-":
             print(f"Wrote Srcly tree JSON to {out_path}")
         return
@@ -450,7 +461,7 @@ def _run_headless(argv: list[str]) -> None:
 
     if args.command == "hotspots":
         target_path = _resolve_target_path(args.path)
-        tree = reporting.scan_tree(target_path, activity_window=args.activity_window)
+        tree = reporting.scan_tree(target_path, activity_window=args.activity_window, verbose=args.verbose)
         result = reporting.rank_by_metric(tree, args.metric, cohort=args.cohort, root_path=target_path)
         result["ranked"] = result["ranked"][: args.limit]
         if args.format == "json":
@@ -469,7 +480,7 @@ def _run_headless(argv: list[str]) -> None:
     if args.command == "explain":
         target_path = _resolve_target_path(args.path)
         file_path = _resolve_explain_file(target_path, args.file)
-        tree = reporting.scan_tree(target_path, activity_window=args.activity_window)
+        tree = reporting.scan_tree(target_path, activity_window=args.activity_window, verbose=args.verbose)
         payload = _explain_file(tree, file_path, target_path)
         if args.format == "json":
             print(reporting._json_dumps(payload))

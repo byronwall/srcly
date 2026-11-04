@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import math
+import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Literal
@@ -23,31 +25,56 @@ PROFILE_WEIGHTS: dict[str, dict[str, float]] = metric_catalog.profile_weights()
 
 
 def scan_tree(
-    root_path: Path, *, verbose: bool = True, activity_window: str | None = None, refresh: bool = False
+    root_path: Path, *, verbose: bool = False, activity_window: str | None = None, refresh: bool = False
 ) -> Node:
     """
     Scan ``root_path`` and lay Git activity for ``activity_window`` (default
     90d) and lint/type-check findings over it. The checks run beside the scan.
-    The scan itself is never cached; ``refresh`` reruns the checks instead of
-    reading their cache.
+
+    The analysis tree is shared with the app's cache: while no file under the
+    root has changed, a second command (or the app) reuses it instead of
+    rescanning. ``refresh`` rescans and reruns the checks.
     """
     from concurrent.futures import ThreadPoolExecutor
 
     from app.services import cache
 
     root = root_path.resolve()
+    fingerprint = cache.fingerprint(root)
     with ThreadPoolExecutor(max_workers=1) as pool:
         checks = pool.submit(
-            lambda: lint_findings.collect(root, fingerprint=cache.fingerprint(root), use_cache=not refresh)
+            lambda: lint_findings.collect(root, fingerprint=fingerprint, use_cache=not refresh)
         )
-        tree = analysis.scan_codebase(root_path, verbose=verbose)
-        data = activity.apply_to_scan(json.loads(tree.model_dump_json(by_alias=True)), root_path, activity_window)
+        entry = None if refresh else cache.analysis_cache.load(root, fingerprint)
+        if entry is not None:
+            data = json.loads(entry.data)
+            if verbose:
+                print(f"♻️  Reusing the cached analysis of {root} (files unchanged)", file=sys.stderr, flush=True)
+        else:
+            started = time.monotonic()
+            raw = analysis.scan_codebase(root, verbose=verbose).model_dump_json(by_alias=True).encode()
+            data = json.loads(raw)
+            cache.analysis_cache.save(
+                root,
+                fingerprint,
+                raw,
+                files_total=int(data.get("metrics", {}).get("file_count") or 0),
+                scan_seconds=time.monotonic() - started,
+            )
+        data = activity.apply_to_scan(data, root, activity_window)
         lint_findings.apply_to_tree(data, checks.result())
     return Node.model_validate(data)
 
 
-def write_scan(root_path: Path, out_path: Path, *, refresh: bool = False, activity_window: str | None = None) -> Path:
-    tree = scan_tree(root_path, activity_window=activity_window, refresh=refresh)
+def write_scan(
+    root_path: Path,
+    out_path: Path,
+    *,
+    refresh: bool = False,
+    activity_window: str | None = None,
+    verbose: bool = False,
+) -> Path:
+    tree = scan_tree(root_path, activity_window=activity_window, refresh=refresh, verbose=verbose)
     if str(out_path) == "-":
         print(_json_dumps(_node_to_json(tree)), end="")
         return out_path
