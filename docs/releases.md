@@ -2,7 +2,7 @@
 
 ## Normal changes
 
-Use a Conventional Commit PR title. Squash merge after the `PR title` and `build` checks pass.
+Use a Conventional Commit PR title. Squash merge after the required `PR title`, `build`, `browser` and `survey` checks pass.
 GitHub uses the PR title as the squash commit title.
 
 | PR title prefix | Version change |
@@ -50,9 +50,12 @@ Release Please uses GitHub's temporary `GITHUB_TOKEN`. No GitHub user token is s
 Its job grants contents, issues, pull-request, and Actions write permissions.
 
 GitHub does not automatically run tag workflows for tags created with `GITHUB_TOKEN`.
-Generated PR workflows can also need manual approval.
-Release Please explicitly dispatches title and build checks on its PR branch, and publication on its release tag.
-Dispatch events work with `GITHUB_TOKEN` and need no extra credential.
+Release Please dispatches publication on its release tag. Dispatch events work with `GITHUB_TOKEN`.
+
+PR workflows on a PR that `GITHUB_TOKEN` opened or updated wait with `action_required`.
+Branch protection counts only runs linked to the PR, not dispatched runs on its branch.
+After it opens or updates its PR, the Release Please job approves the PR's waiting `PR title`, `Release` and `Survey` runs.
+Its log names each approved run. If it cannot approve one, it prints the command to approve it.
 The normal PR and tag triggers remain available.
 
 Renew the PyPI secret in Settings > Secrets and variables > Actions if it expires or is revoked.
@@ -62,11 +65,11 @@ Apply these repository settings after owner approval:
 
 - Allow squash merges. Disable merge commits and rebase merges.
 - Use the PR title as the squash commit title. Use no commit-message body.
-- Require the `PR title` and `build` checks on `main`, including for administrators.
+- Require the `PR title`, `build`, `browser` and `survey` checks on `main`, including for administrators.
 - Do not require extra reviews or an up-to-date branch.
 - Enable Settings > Actions > General > Allow GitHub Actions to create and approve pull requests.
 
-The Actions setting permits PR creation. This workflow does not approve or merge PRs.
+The Actions setting permits PR creation. The workflow approves its own release PR's check runs; it never approves reviews or merges PRs.
 Until these settings are applied, the checks report failures but do not block merging.
 Use these commands to apply the approved settings:
 
@@ -80,7 +83,7 @@ gh api --method PUT repos/byronwall/srcly/actions/permissions/workflow \
 
 gh api --method PUT repos/byronwall/srcly/branches/main/protection --input - <<'JSON'
 {
-  "required_status_checks": {"strict": false, "contexts": ["PR title", "build"]},
+  "required_status_checks": {"strict": false, "contexts": ["PR title", "build", "browser", "survey"]},
   "enforce_admins": true,
   "required_pull_request_reviews": null,
   "restrictions": null
@@ -93,7 +96,14 @@ JSON
 If no release PR appears, check the Release Please action.
 Hidden maintenance types do not create a release by themselves.
 Run Release Please manually on `main` to retry PR or tag creation.
-If dispatched PR checks fail to start, run PR title and Release manually on the release PR branch.
+If the release PR stays blocked, list its waiting runs and approve each one:
+
+```bash
+gh run list --branch release-please--branches--main--components--srcly --status action_required --json databaseId,workflowName
+gh api -X POST repos/byronwall/srcly/actions/runs/<id>/approve
+```
+
+Dispatched runs on the release branch do not satisfy branch protection.
 
 If a PR title fails, edit it. The title check runs again on title edits.
 If a release PR fails the lock check, investigate the updater before merging.
