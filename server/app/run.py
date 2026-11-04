@@ -1,5 +1,6 @@
 import argparse
 import os
+import shlex
 import socket
 import sys
 import threading
@@ -91,6 +92,15 @@ def _main(argv: list[str] | None = None) -> None:
             "Interactive codebase treemap and metrics viewer. "
             "By default, analyzes the enclosing Git repository root."
         ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "headless commands for agents and CI (run `srcly <command> --help`):\n"
+            "  report    write report.md and JSON artifacts: findings, folders, hotspots\n"
+            "  explain   drill into the repo, a folder, a file, or file::symbol\n"
+            "  hotspots  rank files or functions by one metric\n"
+            "  compare   metric and dependency changes between two git refs\n"
+            "  scan      write the raw analysis tree as JSON"
+        ),
     )
     parser.add_argument(
         "path",
@@ -163,6 +173,14 @@ def _positive_int(text: str) -> int:
     if value < 1:
         raise argparse.ArgumentTypeError(f"must be 1 or more, got {value}")
     return value
+
+
+def _cwd_scope(root: Path, path_arg: str | None) -> str:
+    """With no path argument, explain the folder you are in (inside the repo), not the whole repo."""
+    cwd = Path(os.getcwd()).resolve()
+    if path_arg is None and cwd != root and cwd.is_relative_to(root):
+        return cwd.relative_to(root).as_posix()
+    return "."
 
 
 def _resolve_scope(root: Path, at: str) -> str:
@@ -301,7 +319,7 @@ def _run_headless(argv: list[str]) -> None:
         action="append",
         choices=[c for c in file_classes.CLASSES if c != "code"],
         default=[],
-        help="Also rank this file class (test, docs, fixture, generated, vendored, config). May be repeated.",
+        help="Also rank this file class. May be repeated.",
     )
     report_parser.add_argument("--tree-depth", type=_positive_int, default=3, help="Maximum depth in tree.summary.json.")
     report_parser.add_argument("--tree-top", type=_positive_int, default=6, help="Maximum children per tree level.")
@@ -352,8 +370,8 @@ def _run_headless(argv: list[str]) -> None:
         "--at",
         "--file",
         dest="at",
-        default=".",
-        help="Folder, file, or file::symbol, relative to the analyzed path (default: the whole root).",
+        default=None,
+        help="Folder, file, or file::symbol, relative to the analyzed path (default: the folder you are in).",
     )
     explain_parser.add_argument("--limit", type=_positive_int, default=10, help="Rows per table.")
     explain_parser.add_argument(
@@ -370,7 +388,7 @@ def _run_headless(argv: list[str]) -> None:
         action="append",
         choices=[c for c in file_classes.CLASSES if c != "code"],
         default=[],
-        help="Also rank this file class (test, docs, fixture, generated, vendored, config). May be repeated.",
+        help="Also rank this file class. May be repeated.",
     )
     explain_parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format.")
     explain_parser.add_argument(
@@ -411,6 +429,16 @@ def _run_headless(argv: list[str]) -> None:
     compare_parser.add_argument("--limit", type=_positive_int, default=40, help="Maximum files in the markdown summary.")
 
     args = parser.parse_args(argv)
+    try:
+        _dispatch(args)
+    except SystemExit as exc:
+        # Every error names its command, like argparse's own ("srcly explain: error: ...").
+        if isinstance(exc.code, str) and not exc.code.lower().startswith("srcly"):
+            raise SystemExit(f"srcly {args.command}: {exc.code}") from None
+        raise
+
+
+def _dispatch(args) -> None:
 
     if args.command == "compare":
         _run_compare(args)
@@ -453,7 +481,10 @@ def _run_headless(argv: list[str]) -> None:
                 quadrant_cohort=args.quadrant_cohort,
                 include_classes=("code", *args.include_class),
             )
-            print(reporting._json_dumps(payload))
+            # Static reference (metric schema, agent guide) and the findings_top prefix are artifacts,
+            # not per-run evidence; `report --out` still writes them.
+            bundle = {k: v for k, v in payload.items() if k not in ("metrics_schema", "agent_skill_markdown", "findings_top")}
+            print(reporting._json_dumps(bundle))
         else:
             out_dir = Path(args.out).resolve()
             output_format = "both" if args.fail_on != "none" and args.format == "markdown" else args.format
@@ -505,18 +536,22 @@ def _run_headless(argv: list[str]) -> None:
                     location = f"{location}:{item['start_line']}-{item['end_line']}"
                 where = f" in {item['witness']['name']} (line {item['witness']['start_line']})" if item["witness"] else ""
                 print(f"{item['rank']}. {item['value']} {item['unit']} {location}{where}")
+            if not result["ranked"]:
+                print(f"No {args.cohort}s measure {args.metric}.")
             if result["na_count"]:
                 print(f"({result['na_count']} N/A for {args.metric}, not ranked)")
         return
 
     if args.command == "explain":
         target_path = _resolve_target_path(args.path).resolve()
-        at = _resolve_scope(target_path, args.at)
+        at = _resolve_scope(target_path, args.at or _cwd_scope(target_path, args.path))
         tree = reporting.scan_tree(
             target_path, activity_window=args.activity_window, verbose=args.verbose, refresh=args.refresh
         )
-        ranked = reporting.rank_nodes(tree, profile=args.profile, cohort="file", root_path=target_path)
         classes = ("code", *args.include_class)
+        ranked = reporting.rank_nodes(
+            tree, profile=args.profile, cohort="file", root_path=target_path, classes=classes
+        )
         try:
             payload = scopes.explain(
                 tree, target_path, at, {item["path"]: item for item in ranked}, limit=args.limit, classes=classes
@@ -526,7 +561,8 @@ def _run_headless(argv: list[str]) -> None:
         if args.format == "json":
             print(reporting._json_dumps(payload))
         else:
-            print(scopes.render_markdown(payload), end="")
+            command = "srcly explain" + (f" {shlex.quote(args.path)}" if args.path else "")
+            print(scopes.render_markdown(payload, command=command), end="")
         return
 
 

@@ -110,7 +110,13 @@ def build_report_payload(
     metric = metric or metric_catalog.profile_lead(profile)
 
     tree = scan_tree(root_path, verbose=verbose, activity_window=activity_window, refresh=refresh)
-    rank_options = dict(profile=profile, root_path=root_path, focus_paths=focus_paths, deprioritize_paths=deprioritize_paths)
+    rank_options = dict(
+        profile=profile,
+        root_path=root_path,
+        focus_paths=focus_paths,
+        deprioritize_paths=deprioritize_paths,
+        classes=include_classes,
+    )
     ranked = rank_nodes(tree, cohort="file", **rank_options)
     by_metric = {
         cohort: rank_by_metric(tree, metric, cohort=cohort, root_path=root_path) for cohort in ("file", "function")
@@ -325,16 +331,26 @@ def rank_nodes(
     root_path: Path | None = None,
     focus_paths: Iterable[str] | None = None,
     deprioritize_paths: Iterable[str] | None = DEFAULT_DEPRIORITIZED_PATHS,
+    classes: Iterable[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Rank one cohort by the profile's weighted, max-normalized metrics.
 
     A measured 0 counts toward the denominator: it is evidence the node is
     fine on that metric. Only N/A (``None``) metrics drop out, so raising any
     one input with the peers fixed never lowers a node's score.
+
+    With ``classes``, the maxima come from files of those classes only, so a
+    2,000-line snapshot never shrinks every code file's score. Other files are
+    still scored against the same maxima (capped at 1) and keep their class.
     """
     weights = PROFILE_WEIGHTS.get(profile, PROFILE_WEIGHTS["general"])
     nodes = cohort_nodes(root, cohort)
-    maxima = _metric_maxima(nodes, weights.keys())
+    if classes is not None and root_path is not None:
+        keep = set(classes)
+        peers = [n for n in nodes if classify(_display_path(n.path, root_path))[0] in keep]
+    else:
+        peers = nodes
+    maxima = _metric_maxima(peers, weights.keys())
     focus_prefixes = tuple(_normalize_path_filter(path) for path in (focus_paths or ()) if path)
     deprioritize_prefixes = tuple(_normalize_path_filter(path) for path in (deprioritize_paths or ()) if path)
     ranked: list[dict[str, Any]] = []
@@ -349,7 +365,7 @@ def rank_nodes(
                 continue
             value = float(raw)
             max_value = maxima.get(metric, 0.0)
-            normalized = value / max_value if max_value > 0 else 0.0
+            normalized = min(1.0, value / max_value) if max_value > 0 else 0.0
             weighted_sum += normalized * weight
             weight_sum += weight
             if value > 0:
@@ -560,8 +576,7 @@ def render_markdown_report(
         ]
     )
     for finding in findings[:10]:
-        witness = finding.get("complexity_witness")
-        start = f"`{finding['path']}:{witness['start_line']}` `{witness['name']}`" if witness else f"`{finding['path']}`"
+        start = f"`{scopes.start_at(finding)}`"
         lowered = " (deprioritized path)" if finding.get("path_priority") == "deprioritized" else ""
         lines.append(
             f"| {finding['id']} | {finding['priority']} | `{finding['path']}` | {finding['reason']}{lowered} | {start} |"

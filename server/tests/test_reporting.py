@@ -370,7 +370,7 @@ def test_report_names_the_complexity_witness(tmp_path: Path, monkeypatch: pytest
 
     finding = payload["findings"]["findings"][0]
     assert finding["complexity_witness"]["name"] == "Dashboard"
-    assert "`client/src/Dashboard.tsx:10` `Dashboard`" in payload["report_markdown"]
+    assert "`client/src/Dashboard.tsx:10 Dashboard`" in payload["report_markdown"]
     assert payload["hotspots"]["function_rankings"][0]["name"] == "Dashboard"
 
 
@@ -581,3 +581,38 @@ def test_scan_tree_reuses_the_cached_analysis_until_files_change(tmp_path: Path,
     (root / "b.py").write_text("x = 1\n", encoding="utf-8")
     reporting.scan_tree(root)
     assert len(scans) == 2
+
+
+def test_scores_normalize_over_ranked_classes_and_unranked_files_show_no_score(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path.resolve()
+    (root / "README.md").write_text("# x\n", encoding="utf-8")
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: _audit_tree(root))
+
+    # The 2,000-line snapshot no longer sets the LOC maximum, so the worst code file scores 1.0.
+    ranked = reporting.rank_nodes(_audit_tree(root), root_path=root, classes=("code",))
+    assert next(i for i in ranked if i["path"] == "src/core/parse.py")["score"] == 1.0
+
+    main(["explain", str(root), "--at", "README.md"])
+    assert "not ranked (docs files are left out of the queue)" in capsys.readouterr().out
+
+
+def test_explain_finds_a_method_by_its_bare_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path.resolve()
+    (root / "src/core").mkdir(parents=True)
+    (root / "src/core/parse.py").write_text("class Parser: pass\n", encoding="utf-8")
+    tree = _audit_tree(root)
+    parse_file = tree.children[1].children[0].children[0]
+    method = parse_file.children[0]
+    method.path = str(root / "src/core/parse.py") + "::(class) Parser::parse"
+    parse_file.children = [
+        Node(name="(class) Parser", type="function", kind="class", path=str(root / "src/core/parse.py") + "::(class) Parser",
+             start_line=5, end_line=95, metrics=Metrics(complexity=30), children=[method])
+    ]
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: tree)
+
+    main(["explain", str(root), "--at", "src/core/parse.py::parse", "--format", "json"])
+    assert json.loads(capsys.readouterr().out)["scope"] == "src/core/parse.py::(class) Parser::parse"

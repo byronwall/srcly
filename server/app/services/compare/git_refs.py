@@ -99,7 +99,12 @@ def run_git(repo: Path, *args: str, input: Optional[str] = None, timeout: Option
 def repo_root(path: Path) -> Path:
     """The top level of the git work tree containing ``path``."""
     start = path if path.is_dir() else path.parent
-    return Path(run_git(start, "rev-parse", "--show-toplevel").strip()).resolve()
+    try:
+        return Path(run_git(start, "rev-parse", "--show-toplevel").strip()).resolve()
+    except GitError as exc:
+        if "not a git repository" in str(exc):
+            raise GitError(f"{start} is not inside a git repository") from None
+        raise
 
 
 def default_branch(repo: Path) -> str:
@@ -140,7 +145,10 @@ def resolve_ref(repo: Path, ref: str, side: Side = "head") -> ResolvedRef:
     target = ref
     if ref == MERGE_BASE:
         target = run_git(repo, "merge-base", default_branch(repo), "HEAD").strip()
-    sha = run_git(repo, "rev-parse", "--verify", f"{target}^{{commit}}").strip()
+    try:
+        sha = run_git(repo, "rev-parse", "--verify", f"{target}^{{commit}}").strip()
+    except GitError:
+        raise GitError(f"{ref} is not a branch, tag or commit in {repo.name}") from None
     subject = run_git(repo, "log", "-1", "--format=%s", sha).strip()
     return ResolvedRef(ref=ref, sha=sha, label=sha[:7], subject=subject)
 
