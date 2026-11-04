@@ -19,7 +19,8 @@ export function formatValue(name: string, value: number | null | undefined): str
   return formatMetricValue(name, value);
 }
 
-export function formatDelta(_name: string, delta: number): string {
+export function formatDelta(_name: string, delta: number | null): string {
+  if (delta === null) return "—";
   if (delta === 0) return "±0";
   const sign = delta > 0 ? "+" : "−";
   const magnitude = Math.abs(delta);

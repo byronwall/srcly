@@ -7,6 +7,11 @@ per-file before/after metrics with a better / worse / neutral verdict per
 metric, per-metric totals over the changed files, and the file-level
 dependency edges gained and lost.
 
+Unavailable (None) is never zero. A file on both sides whose metric is
+measured on one side only is a coverage change, not a source change: it gets
+no delta, stays out of the totals, and is counted as coverage lost or gained.
+A file missing from a side's dependency graph has unknown fan-in and fan-out.
+
 "Better" and "worse" come from one table, ``COMPARE_METRICS``, shared by the
 CLI and the UI, built from the metric catalog (``services/metric_catalog.py``):
 higher-worse metrics are better lower, neutral detail (counts of functions,
@@ -149,7 +154,9 @@ def _side_values(
     values: dict[str, float] = {}
     for m in COMPARE_METRICS:
         if m.source == "graph":
-            values[m.name] = (fan_in if m.name == "fan_in" else fan_out).get(path, 0)
+            # Absent from the graph is unknown coupling, not zero imports.
+            fan = fan_in if m.name == "fan_in" else fan_out
+            values[m.name] = fan.get(path, 0) if path in present_in_graph else None
         else:
             # None is N/A (doesn't apply, skipped or failed), not 0.
             value = raw.get(m.name)
@@ -190,13 +197,16 @@ def diff_sides(
         before = _side_values(change.base_path, base_metrics, base_fan_in, base_fan_out, base_graph_files)
         after = _side_values(change.head_path, head_metrics, head_fan_in, head_fan_out, head_graph_files)
         deltas: dict[str, dict[str, Any]] = {}
+        coverage: dict[str, list[str]] = {"lost": [], "gained": []}
         for m in COMPARE_METRICS:
             b = before.get(m.name) if before else None
             a = after.get(m.name) if after else None
+            if before is not None and after is not None and (a is None) != (b is None):
+                # Measured on one side only: a coverage change, no like-for-like delta.
+                coverage["lost" if a is None else "gained"].append(m.name)
+                continue
             if (b or 0) == 0 and (a or 0) == 0:
                 continue
-            if before is not None and after is not None and (a is None or b is None):
-                continue  # N/A on one side: there's no like-for-like change to judge
             deltas[m.name] = {
                 "before": b,
                 "after": a,
@@ -213,6 +223,8 @@ def diff_sides(
             "after": after,
             "deltas": deltas,
         }
+        if coverage["lost"] or coverage["gained"]:
+            entry["coverage"] = coverage
         if change.old_path:
             entry["oldPath"] = change.old_path
         files.append(entry)
@@ -251,30 +263,40 @@ def _summary(
 
     metric_totals: dict[str, dict[str, Any]] = {}
     for m in COMPARE_METRICS:
-        befores = [f["before"][m.name] for f in files if f["before"] is not None and f["before"][m.name] is not None]
-        afters = [f["after"][m.name] for f in files if f["after"] is not None and f["after"][m.name] is not None]
+        lost = [f for f in files if m.name in f.get("coverage", {}).get("lost", ())]
+        gained = [f for f in files if m.name in f.get("coverage", {}).get("gained", ())]
+        # Coverage changes stay out of both sides, so totals compare measured code only.
+        moved = {id(f) for f in lost + gained}
+        counted = [f for f in files if id(f) not in moved]
+        befores = [f["before"][m.name] for f in counted if f["before"] is not None and f["before"][m.name] is not None]
+        afters = [f["after"][m.name] for f in counted if f["after"] is not None and f["after"][m.name] is not None]
         b, a = _total(befores, m.aggregation), _total(afters, m.aggregation)
         file_verdicts = [f["deltas"][m.name]["verdict"] for f in files if m.name in f["deltas"]]
-        if (b or 0) == 0 and (a or 0) == 0 and not file_verdicts:
+        if (b or 0) == 0 and (a or 0) == 0 and not file_verdicts and not lost and not gained:
             continue
         better, worse = file_verdicts.count("better"), file_verdicts.count("worse")
         if m.aggregation == "sum" and m.direction != "neutral":
             # A sum grows with every added file, so judge like for like:
             # files present on both sides that moved one way or the other.
-            total_verdict: Verdict = "same" if better == worse == 0 else (
-                "better" if better > worse else "worse" if worse > better else "neutral"
-            )
+            if better == worse == 0:
+                # Nothing measured on both sides is not "same".
+                total_verdict: Verdict = "neutral" if (lost or gained) and not file_verdicts else "same"
+            else:
+                total_verdict = "better" if better > worse else "worse" if worse > better else "neutral"
         else:
             # Max and mean already normalize for file count; a new file with
             # a complexity of 40 should raise the max.
-            total_verdict = verdict(m.direction, b if b is not None else 0, a if a is not None else 0)
+            # An unavailable side has no total to judge against.
+            total_verdict = verdict(m.direction, b, a)
         metric_totals[m.name] = {
             "before": b,
             "after": a,
-            "delta": _round((a or 0) - (b or 0)),
+            "delta": None if a is None or b is None else _round(a - b),
             "verdict": total_verdict,
             "filesBetter": better,
             "filesWorse": worse,
+            "coverageLost": len(lost),
+            "coverageGained": len(gained),
         }
 
     net = {"better": 0, "worse": 0, "same": 0, "neutral": 0}
@@ -286,6 +308,10 @@ def _summary(
         "lines": {
             "additions": sum(c.additions for c in changes),
             "deletions": sum(c.deletions for c in changes),
+        },
+        "coverage": {
+            "filesLost": sum(1 for f in files if f.get("coverage", {}).get("lost")),
+            "filesGained": sum(1 for f in files if f.get("coverage", {}).get("gained")),
         },
         "metrics": metric_totals,
         "net": net,

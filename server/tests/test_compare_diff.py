@@ -130,3 +130,56 @@ def test_edge_diff_follows_renames_and_flags_cross_folder_edges():
     a = next(f for f in payload["files"] if f["path"] == "src/a.ts")
     assert a["deltas"]["fan_out"] == {"before": 2, "after": 2, "delta": 0, "verdict": "same"}
     assert payload["summary"]["edges"]["added"] == 1
+
+
+def _complexity(payload: dict) -> dict:
+    return payload["summary"]["metrics"]["complexity"]
+
+
+def test_measured_to_unavailable_is_coverage_lost_not_an_improvement():
+    base = _tree(_file("a.py", complexity=12))
+    head = _tree(_file("a.py"))
+    payload = diff_sides(base, head, _graph([], []), _graph([], []), [FileChange("a.py", "modified")])
+    a = payload["files"][0]
+    assert "complexity" not in a["deltas"]
+    assert a["coverage"]["lost"] == ["complexity"]
+    total = _complexity(payload)
+    assert (total["before"], total["after"], total["delta"]) == (None, None, None)
+    assert total["verdict"] == "neutral"
+    assert total["coverageLost"] == 1
+    assert payload["summary"]["coverage"] == {"filesLost": 1, "filesGained": 0}
+
+
+def test_unavailable_to_measured_is_coverage_gained_not_a_regression():
+    base = _tree(_file("a.py"))
+    head = _tree(_file("a.py", complexity=12))
+    payload = diff_sides(base, head, _graph([], []), _graph([], []), [FileChange("a.py", "modified")])
+    assert payload["files"][0]["coverage"]["gained"] == ["complexity"]
+    total = _complexity(payload)
+    assert total["verdict"] == "neutral"
+    assert total["coverageGained"] == 1
+
+
+def test_totals_compare_only_files_measured_on_both_sides():
+    # b.py's 30 drops out of measurement; it must not make the max look better.
+    base = _tree(_file("a.py", complexity=10), _file("b.py", complexity=30))
+    head = _tree(_file("a.py", complexity=14), _file("b.py"))
+    changes = [FileChange("a.py", "modified"), FileChange("b.py", "modified")]
+    total = _complexity(diff_sides(base, head, _graph([], []), _graph([], []), changes))
+    assert (total["before"], total["after"], total["delta"]) == (10, 14, 4)
+    assert total["verdict"] == "worse"
+    assert total["coverageLost"] == 1
+
+
+def test_file_missing_from_the_graph_has_unknown_coupling():
+    # The head graph failed to include a.ts: fan-out is unknown, not a drop to zero.
+    base_graph = _graph(["a.ts", "b.ts", "c.ts"], [("a.ts", "b.ts"), ("a.ts", "c.ts")])
+    head_graph = _graph(["b.ts", "c.ts"], [])
+    scanned = _tree(_file("a.ts", loc=10))
+    payload = diff_sides(scanned, scanned, base_graph, head_graph, [FileChange("a.ts", "modified")])
+    a = payload["files"][0]
+    assert a["after"]["fan_out"] is None
+    assert "fan_out" in a["coverage"]["lost"]
+    fan_out = payload["summary"]["metrics"]["fan_out"]
+    assert fan_out["verdict"] == "neutral"
+    assert fan_out["filesBetter"] == 0
