@@ -145,10 +145,11 @@ export function symbolPathToViewModel(path: SymbolPath): SymbolViewModel {
     };
   });
   const edgeById = new Map<string, SymbolEdge>();
+  // The chain is the drawing: every step is bold and its word stays on, however sure it is.
   const edges: ViewEdge[] = path.edges.map((e) => {
     const id = edgeId(e);
     edgeById.set(id, e);
-    return viewEdge(e, id);
+    return { ...viewEdge(e, id), faint: false, bold: true, label: REF_KIND_SPEC[e.kind].verb };
   });
   return {
     vm: { focusId: path.start, focusKind: "symbol", focusLabel: byId.get(path.start) ? labelOf(byId.get(path.start)!) : qualifiedOf(path.start), breadcrumbs: [], nodes, edges, rolledUp: 0, expanded: [] },

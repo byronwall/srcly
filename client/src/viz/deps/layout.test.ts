@@ -577,3 +577,12 @@ describe("an opened folder bigger than a column", () => {
     for (const n of opened.l.nodes) expect(inFrame(n)).toBe(n.node.group?.id === opened.id);
   });
 });
+
+describe("unfold", () => {
+  it("keeps every depth level in its own column whatever the viewport's shape", () => {
+    const counts = [[], [1], [1, 1, 1]];
+    const tall = { width: 400, height: 900 };
+    expect(rankPackings(counts, tall)[0].folds[2]).toBeLessThan(3);
+    expect(rankPackings(counts, tall, undefined, true)[0].folds[2]).toBe(3);
+  });
+});

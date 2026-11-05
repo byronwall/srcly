@@ -59,7 +59,7 @@ describe("symbolPathToViewModel", () => {
       ["b.ts#b", "out", "step 1"],
       ["c.ts#c", "out", "end · 2 steps"],
     ]);
-    expect(vm.edges.map((e) => [e.source, e.target, e.weight])).toEqual([["a.ts#a", "b.ts#b", 1], ["b.ts#b", "c.ts#c", 2]]);
+    expect(vm.edges.map((e) => [e.source, e.target, e.weight, e.bold, e.faint, e.label])).toEqual([["a.ts#a", "b.ts#b", 1, true, false, "calls"], ["b.ts#b", "c.ts#c", 2, true, false, "calls"]]);
     const back = symbolPathToViewModel({ ...chain, direction: "backward" });
     expect(back.vm.nodes[1].region).toBe("in");
   });

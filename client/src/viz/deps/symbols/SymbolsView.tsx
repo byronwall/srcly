@@ -149,7 +149,7 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
     const previous = anchorId ? (untrack(layout) ?? undefined) : undefined;
     void Promise.resolve().then(() => {
       if (mine !== token) return;
-      const next = layoutWithHubs(m.vm, { aspectRatio, viewport, previous });
+      const next = layoutWithHubs(m.vm, { aspectRatio, viewport, previous, unfold: Boolean(to()) });
       batch(() => {
         setAnchor(previous ? anchorId : null);
         setLayout(next);
