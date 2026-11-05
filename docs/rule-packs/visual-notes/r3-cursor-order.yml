@@ -1,0 +1,19 @@
+id: paged-order-no-tiebreak
+language: typescript
+message: paged query ordered by a timestamp alone; equal timestamps split across pages. Order by [{ ts }, { id }]
+severity: warning
+rule:
+  kind: pair
+  all:
+    - has: { field: key, regex: ^orderBy$ }
+    - has:
+        field: value
+        kind: object
+        has:
+          kind: pair
+          has: { field: key, regex: ^(createdAt|updatedAt|at|timestamp|startedAt)$ }
+    - inside:
+        kind: object
+        has:
+          kind: pair
+          has: { field: key, regex: ^(cursor|skip)$ }

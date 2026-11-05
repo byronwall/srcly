@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional, Sequence
 
-from app.services.findings import async_loops, builtin_ts, reachability, ruff, solid, typescript
+from app.services.findings import astgrep, async_loops, builtin_ts, reachability, ruff, solid, typescript
 from app.services.findings.model import Finding, FindingsResult, ToolRun
 from app.services.findings.tools import Tool, run
 
@@ -35,7 +35,8 @@ def plan_tools(root: Path, *, portable: bool = False, stop: Optional[Path] = Non
     - srcly's TS rules for TS files outside every project tsc/eslint folder;
     - srcly's reachability check over the whole TS import graph, and its
       Solid rules on every file that imports ``solid-js``, and its
-      await-in-loop rule on every non-test JS/TS file.
+      await-in-loop rule on every non-test JS/TS file;
+    - the project's ast-grep rule pack in ``.srcly/rules/``, when it has one.
     """
     root = root.resolve()
     if stop is None:
@@ -46,6 +47,7 @@ def plan_tools(root: Path, *, portable: bool = False, stop: Optional[Path] = Non
     return [
         *project_ts,
         *ruff.plan(root, stop),
+        *astgrep.plan(root, stop),
         builtin_ts.BuiltinTsTool(root, skip_dirs=typescript.project_dirs(project_ts)),
         reachability.ReachabilityTool(root),
         solid.SolidTool(root),
