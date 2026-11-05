@@ -1,0 +1,314 @@
+"""
+The symbol index of a root: every language's symbols and references merged,
+member references settled, built once and cached by the files' mtimes (like
+the dependency graph), and queried for a symbol's neighbourhood.
+"""
+
+from __future__ import annotations
+
+import threading
+import time
+from collections import defaultdict, deque
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional, Set, Tuple
+
+from app.models import SymbolGraph, SymbolGraphEdge, SymbolGraphNode, SymbolIndexInfo, SymbolSearchHit
+from app.services.deps.common import is_test_path, walk_source_files
+from app.services.deps.typescript_deps import TS_EXTENSIONS
+from app.services.symbols.model import BUILTIN_MEMBERS, REF_KINDS, FileSymbols, PendingMember, RefKind, Reference, Symbol
+
+# Lines kept per merged edge in a response.
+MAX_EDGE_LINES = 12
+# Nodes a neighbourhood answers with before it reports itself truncated.
+MAX_NEIGHBOURHOOD = 400
+
+
+@dataclass
+class SymbolIndex:
+    root: Path
+    symbols: Dict[str, Symbol]
+    references: List[Reference]
+    out: Dict[str, List[int]] = field(default_factory=lambda: defaultdict(list))
+    inc: Dict[str, List[int]] = field(default_factory=lambda: defaultdict(list))
+    files: int = 0
+    unresolved_members: int = 0
+    built_ms: int = 0
+    # member name → ids of every method / field with that name, for name-only resolution
+    members_by_name: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list))
+
+    def __post_init__(self) -> None:
+        for i, r in enumerate(self.references):
+            self.out[r.source].append(i)
+            self.inc[r.target].append(i)
+
+    def is_test(self, sym: Symbol) -> bool:
+        return is_test_path(sym.file)
+
+    # ---- queries ----
+
+    def neighbourhood(
+        self,
+        focus: str,
+        hops: int = 1,
+        kinds: Optional[Iterable[RefKind]] = None,
+        include_tests: bool = True,
+        direction: str = "both",
+    ) -> Optional[SymbolGraph]:
+        """The focus, every symbol within `hops` references of it, and the references among them."""
+        if focus not in self.symbols:
+            return None
+        allowed: Set[str] = set(kinds) if kinds else set(REF_KINDS)
+        seen: Dict[str, int] = {focus: 0}
+        queue = deque([focus])
+        truncated = False
+        while queue:
+            cur = queue.popleft()
+            depth = seen[cur]
+            if depth >= hops:
+                continue
+            nexts: List[str] = []
+            if direction in ("both", "out"):
+                nexts += [self.references[i].target for i in self.out[cur] if self.references[i].kind in allowed]
+            if direction in ("both", "in"):
+                nexts += [self.references[i].source for i in self.inc[cur] if self.references[i].kind in allowed]
+            for n in nexts:
+                if n in seen:
+                    continue
+                sym = self.symbols.get(n)
+                if sym is None or (not include_tests and self.is_test(sym)):
+                    continue
+                if len(seen) >= MAX_NEIGHBOURHOOD:
+                    truncated = True
+                    break
+                seen[n] = depth + 1
+                queue.append(n)
+            if truncated:
+                break
+        return self._graph(focus, seen, allowed, truncated)
+
+    def _graph(self, focus: str, chosen: Dict[str, int], allowed: Set[str], truncated: bool) -> SymbolGraph:
+        nodes = [self._node(self.symbols[sid], hop) for sid, hop in chosen.items()]
+        merged: Dict[Tuple[str, str, str], SymbolGraphEdge] = {}
+        for sid in chosen:
+            for i in self.out[sid]:
+                r = self.references[i]
+                if r.target not in chosen or r.kind not in allowed:
+                    continue
+                key = (r.source, r.target, r.kind)
+                e = merged.get(key)
+                if e is None:
+                    merged[key] = SymbolGraphEdge(source=r.source, target=r.target, kind=r.kind, lines=[r.line], count=1, resolution=r.resolution)
+                else:
+                    e.count += 1
+                    if r.line not in e.lines and len(e.lines) < MAX_EDGE_LINES:
+                        e.lines.append(r.line)
+                    # One name-only reference makes the merged edge name-only: say the weakest.
+                    e.resolution = _weaker(e.resolution, r.resolution)
+        for e in merged.values():
+            e.lines.sort()
+        return SymbolGraph(root=str(self.root), focus=focus, nodes=nodes, edges=list(merged.values()), truncated=truncated or None, index=self.info())
+
+    def _node(self, sym: Symbol, hop: Optional[int] = None) -> SymbolGraphNode:
+        in_refs = self.inc.get(sym.id, [])
+        out_refs = self.out.get(sym.id, [])
+        return SymbolGraphNode(
+            id=sym.id,
+            name=sym.name,
+            kind=sym.kind,
+            file=sym.file,
+            line=sym.line,
+            end_line=sym.end_line,
+            container=sym.container,
+            exported=sym.exported or None,
+            is_test=self.is_test(sym) or None,
+            language=sym.language,
+            in_count=len({self.references[i].source for i in in_refs}),
+            out_count=len({self.references[i].target for i in out_refs}),
+            hop=hop,
+        )
+
+    def search(self, query: str, limit: int = 30, include_tests: bool = True) -> List[SymbolSearchHit]:
+        """Symbols whose name or qualified name contains the query, best match first."""
+        q = query.strip().lower()
+        if not q:
+            return []
+        scored: List[Tuple[int, int, str, Symbol]] = []
+        for sym in self.symbols.values():
+            if sym.kind == "module" or (not include_tests and self.is_test(sym)):
+                continue
+            name = sym.name.lower()
+            qualified = sym.qualified.lower()
+            if name == q:
+                rank = 0
+            elif name.startswith(q):
+                rank = 1
+            elif qualified.startswith(q) or f".{q}" in f".{qualified}":
+                rank = 2
+            elif q in name:
+                rank = 3
+            elif q in qualified or q in sym.file.lower():
+                rank = 4
+            else:
+                continue
+            refs = len(self.inc.get(sym.id, ())) + len(self.out.get(sym.id, ()))
+            scored.append((rank, -refs, sym.id, sym))
+        scored.sort()
+        return [
+            SymbolSearchHit(id=s.id, name=s.name, kind=s.kind, file=s.file, line=s.line, container=s.container, in_count=len(self.inc.get(s.id, ())), out_count=len(self.out.get(s.id, ())))
+            for _r, _n, _i, s in scored[:limit]
+        ]
+
+    def info(self) -> SymbolIndexInfo:
+        return SymbolIndexInfo(
+            symbols=sum(1 for s in self.symbols.values() if s.kind != "module"),
+            references=len(self.references),
+            files=self.files,
+            unresolved_members=self.unresolved_members,
+            built_ms=self.built_ms,
+        )
+
+
+_ORDER = {"exact": 0, "typed": 1, "name": 2}
+
+
+def _weaker(a: str, b: str) -> str:
+    return a if _ORDER.get(a, 0) >= _ORDER.get(b, 0) else b
+
+
+# ---- building ----
+
+
+def assemble(root: Path, parts: List[FileSymbols]) -> SymbolIndex:
+    """Merge every file's symbols, settle member references, drop references to nothing."""
+    started = time.monotonic()
+    symbols: Dict[str, Symbol] = {}
+    for part in parts:
+        for sym in part.symbols:
+            symbols.setdefault(sym.id, sym)
+    for part in parts:
+        for cls, bases in part.bases.items():
+            if cls in symbols:
+                symbols[cls].bases = [b for b in bases if b in symbols]
+    members_by_name: Dict[str, List[str]] = defaultdict(list)
+    for sym in symbols.values():
+        if sym.kind in ("method", "field"):
+            members_by_name[sym.name].append(sym.id)
+
+    references: List[Reference] = []
+    unresolved = 0
+    for part in parts:
+        for r in part.references:
+            if r.target in symbols and r.source in symbols:
+                references.append(r)
+        for p in part.pending:
+            settled = _settle(p, symbols, members_by_name)
+            if settled is None:
+                # Only a member some symbol of the index has is "unresolved"; `console.log` is a library.
+                if p.member in members_by_name:
+                    unresolved += 1
+            elif settled.source in symbols and settled.source != settled.target:
+                references.append(settled)
+
+    index = SymbolIndex(root=root, symbols=symbols, references=references, files=len(parts), unresolved_members=unresolved)
+    index.members_by_name = members_by_name
+    index.built_ms = int((time.monotonic() - started) * 1000)
+    return index
+
+
+def _member_of(cls: Symbol, name: str, symbols: Dict[str, Symbol], skip_self: bool = False, depth: int = 0) -> Optional[str]:
+    """A member by name on a class or on the classes it extends."""
+    if depth > 12:
+        return None
+    if not skip_self and name in cls.members:
+        return cls.members[name]
+    for base in cls.bases:
+        b = symbols.get(base)
+        if b is not None:
+            hit = _member_of(b, name, symbols, False, depth + 1)
+            if hit:
+                return hit
+    return None
+
+
+def _settle(p: PendingMember, symbols: Dict[str, Symbol], members_by_name: Dict[str, List[str]]) -> Optional[Reference]:
+    receiver = symbols.get(p.receiver) if p.receiver else None
+    if receiver is not None:
+        resolution = "typed" if p.receiver_note == "typed" else "exact"
+        if receiver.kind == "module":
+            hit = symbols.get(f"{receiver.id}#{p.member}")
+            if hit is not None:
+                return Reference(p.source, hit.id, p.kind, p.line, resolution)
+            return None
+        if receiver.kind == "class":
+            hit = _member_of(receiver, p.member, symbols, skip_self=p.receiver_note == "super")
+            if hit:
+                return Reference(p.source, hit, p.kind, p.line, resolution)
+            if p.receiver_note in ("this", "super"):
+                return None  # an inherited member from outside the index, or a library base
+        elif receiver.kind in ("variable", "field"):
+            if p.member in receiver.members:
+                return Reference(p.source, receiver.members[p.member], p.kind, p.line, resolution)
+            cls = symbols.get(receiver.typed_as or "")
+            if cls is not None and cls.kind == "class":
+                hit = _member_of(cls, p.member, symbols)
+                if hit:
+                    return Reference(p.source, hit, p.kind, p.line, "typed")
+            elif receiver.typed_as is None and p.receiver_note == "":
+                # An untyped import or module variable: reading a property is a read of it.
+                return Reference(p.source, receiver.id, _demote(p.kind), p.line, resolution)
+        elif receiver.kind == "enum":
+            return Reference(p.source, receiver.id, "read", p.line, resolution)
+        elif receiver.kind in ("function", "type"):
+            return Reference(p.source, receiver.id, _demote(p.kind), p.line, resolution)
+    # By name alone: a call (not a property read, which `.id` or `.name` would match everywhere) of a
+    # member no builtin has, when exactly one symbol of the index has it.
+    if p.kind in ("call", "instantiate") and p.member not in BUILTIN_MEMBERS:
+        candidates = members_by_name.get(p.member, [])
+        if len(candidates) == 1:
+            return Reference(p.source, candidates[0], p.kind, p.line, "name")
+    return None
+
+
+def _demote(kind: RefKind) -> RefKind:
+    """A property of a non-class symbol: `helper.calls = 2` writes helper; `helper.calls()` reads it."""
+    return "write" if kind == "write" else "read"
+
+
+_cache: Dict[Path, Tuple[Tuple[int, int], SymbolIndex]] = {}
+_lock = threading.Lock()
+
+SOURCE_EXTENSIONS = TS_EXTENSIONS | {".py"}
+
+
+def _signature(files: List[Path]) -> Tuple[int, int]:
+    total = 0
+    for f in files:
+        try:
+            total ^= hash((str(f), f.stat().st_mtime_ns))
+        except OSError:
+            continue
+    return len(files), total
+
+
+def build_symbol_index(root: Path, use_cache: bool = True) -> SymbolIndex:
+    root = root.resolve()
+    files = walk_source_files(root, SOURCE_EXTENSIONS)
+    sig = _signature(files)
+    if use_cache:
+        with _lock:
+            hit = _cache.get(root)
+        if hit is not None and hit[0] == sig:
+            return hit[1]
+    parts: List[FileSymbols] = []
+    ts_files = [f for f in files if f.suffix in TS_EXTENSIONS]
+    if ts_files:
+        from app.services.symbols.typescript import extract_ts
+
+        ts_parts, _program = extract_ts(root, ts_files)
+        parts.extend(ts_parts)
+    index = assemble(root, parts)
+    if use_cache:
+        with _lock:
+            _cache[root] = (sig, index)
+    return index

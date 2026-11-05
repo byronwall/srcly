@@ -318,55 +318,92 @@ def _is_external_spec(spec: str) -> bool:
     return not (spec.startswith(".") or spec.startswith("/"))
 
 
-def build_ts_edges(root: Path, files: List[Path]) -> Tuple[List[DepEdge], Dict[Path, TsFileInfo]]:
-    """Parse TS/JS files and return importer → imported edges (barrels passed through)."""
-    file_set = set(files)
-    infos: Dict[Path, TsFileInfo] = {}
-    for f in files:
-        try:
-            infos[f] = parse_ts_file(f)
-        except Exception as e:  # pragma: no cover - parse failures are skipped
-            print(f"[deps] failed to parse {f}: {e}", file=sys.stderr)
-    resolver = TsModuleResolver(root, file_set)
-    resolved_cache: Dict[Tuple[Path, str], Optional[Path]] = {}
+class TsProgram:
+    """Every TS/JS file of a root parsed once, with module resolution and re-export passing."""
 
-    def resolve(spec: str, from_file: Path) -> Optional[Path]:
+    def __init__(self, root: Path, files: List[Path]):
+        self.root = root
+        self.files = set(files)
+        self.infos: Dict[Path, TsFileInfo] = {}
+        for f in files:
+            try:
+                self.infos[f] = parse_ts_file(f)
+            except Exception as e:  # pragma: no cover - parse failures are skipped
+                print(f"[deps] failed to parse {f}: {e}", file=sys.stderr)
+        self.resolver = TsModuleResolver(root, self.files)
+        self._resolved: Dict[Tuple[Path, str], Optional[Path]] = {}
+        self.declared: Dict[Path, Set[str]] = {f: {d.name for d in i.declarations} for f, i in self.infos.items()}
+
+    def resolve(self, spec: str, from_file: Path) -> Optional[Path]:
         key = (from_file.parent, spec) if not spec.startswith(".") else (from_file, spec)
-        if key not in resolved_cache:
-            resolved_cache[key] = resolver.resolve(spec, from_file)
-        return resolved_cache[key]
+        if key not in self._resolved:
+            self._resolved[key] = self.resolver.resolve(spec, from_file)
+        return self._resolved[key]
 
-    def find_definer(file: Path, name: str, depth: int = 0, seen: Optional[Set[Tuple[Path, str]]] = None) -> Tuple[Path, str]:
+    def find_definer(self, file: Path, name: str, depth: int = 0, seen: Optional[Set[Tuple[Path, str]]] = None) -> Tuple[Path, str]:
         """Follow re-exports until the file that declares `name`."""
         seen = seen or set()
         if depth > 12 or (file, name) in seen or name in ("*",):
             return file, name
         seen.add((file, name))
-        info = infos.get(file)
+        info = self.infos.get(file)
         if info is None:
             return file, name
         if name in info.local_exports:
             return file, info.local_exports[name]
         if name in info.reexports:
             spec, imported = info.reexports[name]
-            target = resolve(spec, file)
+            target = self.resolve(spec, file)
             if target is not None and imported != "*":
-                return find_definer(target, imported, depth + 1, seen)
+                return self.find_definer(target, imported, depth + 1, seen)
             return file, name
         for spec in info.star_reexports:
-            target = resolve(spec, file)
+            target = self.resolve(spec, file)
             if target is None:
                 continue
-            t_file, t_name = find_definer(target, name, depth + 1, seen)
-            t_info = infos.get(t_file)
+            t_file, t_name = self.find_definer(target, name, depth + 1, seen)
+            t_info = self.infos.get(t_file)
             if t_info is not None and (t_name in t_info.local_exports.values() or t_name in t_info.local_exports):
                 return t_file, t_name
         return file, name
 
-    declared: Dict[Path, Set[str]] = {f: {d.name for d in i.declarations} for f, i in infos.items()}
+    def bindings_for(self, f: Path) -> Dict[str, ImportBinding]:
+        """The local names a file's static, default and namespace imports bind, to their defining file and symbol."""
+        info = self.infos.get(f)
+        bindings: Dict[str, ImportBinding] = {}
+        if info is None:
+            return bindings
+        for imp in info.imports:
+            target = self.resolve(imp.source, f)
+            if target is None or target == f:
+                continue
+            if imp.kind == "static" and imp.names:
+                for n in imp.names:
+                    d_file, d_local = self.find_definer(target, n.imported)
+                    bindings[n.local] = ImportBinding(
+                        target_file=d_file,
+                        target_symbol=d_local,
+                        display=n.imported,
+                        type_only=imp.type_only or n.type_only,
+                        via_barrel=d_file != target,
+                    )
+            elif imp.kind == "namespace" and imp.names:
+                bindings[imp.names[0].local] = ImportBinding(
+                    target_file=target, target_symbol=None, display="*", type_only=imp.type_only, namespace=True
+                )
+        return bindings
+
+
+def build_ts_edges(root: Path, files: List[Path]) -> Tuple[List[DepEdge], Dict[Path, TsFileInfo]]:
+    """Parse TS/JS files and return importer → imported edges (barrels passed through)."""
+    program = TsProgram(root, files)
+    infos = program.infos
+    resolve = program.resolve
+    find_definer = program.find_definer
+    declared = program.declared
     edges: List[DepEdge] = []
     for f, info in infos.items():
-        bindings: Dict[str, ImportBinding] = {}
+        bindings = program.bindings_for(f)
         for imp in info.imports:
             target = resolve(imp.source, f)
             if target is None:
@@ -382,22 +419,9 @@ def build_ts_edges(root: Path, files: List[Path]) -> Tuple[List[DepEdge], Dict[P
                 continue
             if target == f:
                 continue
-            if imp.kind == "static" and imp.names:
-                # Bind each local name to its defining file (through barrels).
-                for n in imp.names:
-                    d_file, d_local = find_definer(target, n.imported)
-                    bindings[n.local] = ImportBinding(
-                        target_file=d_file,
-                        target_symbol=d_local,
-                        display=n.imported,
-                        type_only=imp.type_only or n.type_only,
-                        via_barrel=d_file != target,
-                    )
-            elif imp.kind == "namespace" and imp.names:
-                bindings[imp.names[0].local] = ImportBinding(
-                    target_file=target, target_symbol=None, display="*", type_only=imp.type_only, namespace=True
-                )
-            elif imp.kind == "reexport" and imp.names:
+            if imp.kind in ("static", "namespace") and imp.names:
+                continue  # bound above
+            if imp.kind == "reexport" and imp.names:
                 # A barrel depends on what it re-exports (file level).
                 by_definer: Dict[Path, List[ImportedName]] = {}
                 for n in imp.names:

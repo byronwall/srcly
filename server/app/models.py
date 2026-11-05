@@ -219,3 +219,75 @@ class DepGraph(BaseModel):
     root: str
     nodes: List[DepGraphNode]
     edges: List[DepGraphEdge]
+
+
+class SymbolGraphNode(BaseModel):
+    """A declaration in the symbol reference graph, or a file's module-level code (`kind: module`)."""
+
+    model_config = {"populate_by_name": True}
+
+    id: str
+    name: str
+    kind: str
+    file: str
+    line: int
+    end_line: int = Field(alias="endLine")
+    container: str | None = None
+    exported: bool | None = None
+    is_test: bool | None = Field(default=None, alias="isTest")
+    language: str
+    # Distinct symbols that reference it, and that it references, over the whole index.
+    in_count: int = Field(alias="inCount")
+    out_count: int = Field(alias="outCount")
+    # Hops from the focus in a neighbourhood (0 for the focus).
+    hop: int | None = None
+
+
+class SymbolGraphEdge(BaseModel):
+    """source references target: `call`, `instantiate`, `read`, `write`, `type`, `extends` or `implements`."""
+
+    source: str
+    target: str
+    kind: str
+    # Where in the source's file, ascending; at most MAX_EDGE_LINES of them.
+    lines: List[int]
+    count: int
+    # How the reference was resolved: `exact`, `typed` (through a declared type) or `name` (member name alone).
+    resolution: str
+
+
+class SymbolIndexInfo(BaseModel):
+    model_config = {"populate_by_name": True}
+
+    symbols: int
+    references: int
+    files: int
+    unresolved_members: int = Field(alias="unresolvedMembers")
+    built_ms: int = Field(alias="builtMs")
+
+
+class SymbolGraph(BaseModel):
+    root: str
+    focus: str
+    nodes: List[SymbolGraphNode]
+    edges: List[SymbolGraphEdge]
+    truncated: bool | None = None
+    index: SymbolIndexInfo
+
+
+class SymbolSearchHit(BaseModel):
+    model_config = {"populate_by_name": True}
+
+    id: str
+    name: str
+    kind: str
+    file: str
+    line: int
+    container: str | None = None
+    in_count: int = Field(alias="inCount")
+    out_count: int = Field(alias="outCount")
+
+
+class SymbolSearch(BaseModel):
+    hits: List[SymbolSearchHit]
+    index: SymbolIndexInfo

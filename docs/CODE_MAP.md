@@ -94,6 +94,8 @@ Browser
 | `GET /api/analysis/context` | `routers/analysis.py:get_analysis_context` | Cwd + repo root with rough file counts (first-run screen) |
 | `GET /api/analysis/fan-in?path=` | `routers/analysis.py:get_fan_in` → `services/quadrants.py:fan_in_by_path` | Distinct importing files per file (Blast radius 2x2) |
 | `GET /api/analysis/dependency-graph?path=` | `routers/analysis.py:get_dependency_graph` → `services/deps/graph.py` | Hierarchical import graph (folders → files → symbols), tsconfig `paths` aliases, barrels passed through |
+| `GET /api/symbols/graph?path=&at=&hops=&kinds=&direction=&tests=` | `routers/symbols.py:get_symbol_graph` → `services/symbols/index.py` | A symbol's neighbourhood in the symbol reference graph (nodes with in/out counts and hop, merged edges with kind, lines, resolution); 404 for an unknown id |
+| `GET /api/symbols/search?path=&q=` | `routers/symbols.py:search_symbols` | Symbols by name, qualified name or file, best match first, with reference counts |
 | `GET /api/dataflow/status?path=` | `routers/dataflow.py:get_status` | Whether data flow can run (`available`, `state`, N/A `reason`), engine progress, generation, RSS. Never starts the engine |
 | `POST /api/dataflow/start` | `routers/dataflow.py:start` | Start the engine and build tier 1 in the background; poll `status` |
 | `GET /api/dataflow/routes?path=&expectedGeneration=` | `routers/dataflow.py:get_routes` | Routes the engine discovered; `outcome` names `not-analyzed` / `stale` instead of failing |
@@ -264,6 +266,18 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist is `
 | Metric overlay: lines behind a metric (marked lines, notes, overview ruler, stepping) | `GET /api/files/markers` → `server/app/services/markers.py` (`MarkerSink`, `collect_markers`; analyzers call `_mark`); client `hooks/useMetricMarkers.ts`, `utils/metricMarkers.ts`, `CodePane.tsx` |
 | File fetching | `client/src/services/fileContent.ts`, `hooks/useFileContent.ts` |
 | Line-range slicing / indent reduction | `client/src/utils/lineRange.ts`, `utils/indentation.ts` |
+
+### Symbol graph (server)
+
+Plan: `docs/intent/symbol-graph/`. Backlog area `area-symbol-graph` in `pgm/data`.
+
+| Feature | Where |
+| --- | --- |
+| Symbol and reference model: ids `file#Qualified.name`, kinds (function, class, method, field, variable, type, enum, module), reference kinds (call, instantiate, read, write, type, extends, implements), resolution (`exact`, `typed`, `name`), the builtin member stop list | `server/app/services/symbols/model.py` |
+| TypeScript extractor: scope stack (enclosing symbol, class for `this`, shadowing locals, nested symbols), members and object-literal methods as nodes, typed receivers from annotations and `new`, pending member references; reuses `TsProgram` for parsing, module resolution and barrels | `server/app/services/symbols/typescript.py`, `server/app/services/deps/typescript_deps.py` (`TsProgram`) |
+| Index: merge files, settle member references (`this`/`super`, class-qualified, module attribute, typed receiver, else a unique non-builtin member name for calls), mtime cache, neighbourhood BFS with hop and direction, merged edges, search | `server/app/services/symbols/index.py` |
+| Response models | `server/app/models.py` (`SymbolGraph`, `SymbolGraphNode`, `SymbolGraphEdge`, `SymbolSearch`) |
+| Tests: extractor rules and queries; router | `server/tests/test_symbol_index_ts.py`, `server/tests/test_symbols_router.py` |
 
 ### Client: Graph views
 
