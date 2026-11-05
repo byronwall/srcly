@@ -629,7 +629,7 @@ def test_explain_tells_same_named_symbols_apart_by_line(
     path = str(root / "src/core/parse.py") + "::(anonymous)"
     parse_file.children = [
         Node(name="(anonymous)", type="function", kind="function", path=path, start_line=line, end_line=line + 5,
-             metrics=Metrics(complexity=ccn))
+             metrics=Metrics(complexity=ccn, loc=6))
         for line, ccn in ((5, 1), (50, 20))
     ]
     monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: tree)
@@ -682,6 +682,7 @@ def test_explain_symbol_shows_branch_shape_and_tests_and_takes_a_start_at_value(
         "export function route(m: string, p: string) {\n"
         "  if (m === 'GET' && (p === '/a' || p === '/b' || p === '/c')) return 1;\n"
         "  if (m === 'POST' && (p === '/d' || p === '/e')) return 2;\n"
+        "  if (m === 'PUT' && (p === '/f' || p === '/g')) return 3;\n"
         "  return 0;\n"
         "}\n",
         encoding="utf-8",
@@ -689,18 +690,25 @@ def test_explain_symbol_shows_branch_shape_and_tests_and_takes_a_start_at_value(
     (root / "tests/route.test.ts").write_text(
         "import { route } from '../src/route';\nroute('GET', '/a');\n", encoding="utf-8"
     )
+    # Names `route` but never imports the module: its own local, not a lead.
+    (root / "tests/other.test.ts").write_text("const route = 1;\n", encoding="utf-8")
 
     # A pasted "start at" value with a stale line still finds the named function.
     main(["explain", str(root), "--at", "src/route.ts:3 route", "--format", "json"])
     symbol = json.loads(capsys.readouterr().out)
     assert symbol["scope"] == "src/route.ts::route"
-    assert symbol["branches"]["kinds"] == {"||": 3, "&&": 2, "if": 2}
+    assert symbol["branches"]["kinds"] == {"||": 4, "&&": 3, "if": 3}
     assert symbol["tests"]["files"] == [{"path": "tests/route.test.ts", "line": 1, "lines": 2}]
+    assert symbol["tests"]["name_only"] == 1
 
     main(["explain", str(root), "--at", "src/route.ts:3 route"])
     out = capsys.readouterr().out
     assert "Most of the CCN is short-circuit and ternary operators, not nested control flow." in out
-    assert "Tests that name `route` (matching lines): `tests/route.test.ts:1` (2)." in out
+    assert "Tests that import `route` (matching lines): `tests/route.test.ts:1` (2)." in out
+    assert "`route` starts at line 1, not 3." not in out  # line 3 is inside it
+
+    with pytest.raises(SystemExit, match=r"Line 99 is past the end of src/route.ts \(6 lines\)"):
+        main(["explain", str(root), "--at", "src/route.ts:99"])
 
     main(["explain", str(root), "--at", "src/route.ts"])
     assert "Tests that import `route` (matching lines): `tests/route.test.ts:1` (1)." in capsys.readouterr().out

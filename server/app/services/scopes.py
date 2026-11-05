@@ -38,10 +38,12 @@ def rel(path: str, root: Path) -> str:
 
 
 def is_symbol(node: Node) -> bool:
-    """Functions and classes; one-line lambdas are noise at every scope."""
+    """Functions and classes; one-line lambdas and unnamed callbacks (``then(ƒ)``) with at most one
+    branch are noise at every scope."""
     if node.type != "function" or node.kind not in SYMBOL_KINDS:
         return False
-    return not (node.name == "(lambda)" and (node.metrics.loc or 0) <= 1)
+    one_liner = (node.metrics.loc or 0) <= 1 and (node.metrics.complexity or 0) <= 2
+    return not (one_liner and (node.name == "(lambda)" or not _named(node.name)))
 
 
 def symbols_below(node: Node) -> list[Node]:
@@ -61,9 +63,6 @@ def find(tree: Node, root: Path, at: str) -> Node | None:
     target = at.strip().strip("/") or "."
     if target == ".":
         return tree
-    line_at = _LINE_AT.match(target)
-    if line_at and "::" not in target:
-        return _at_line(find(tree, root, line_at["file"]), int(line_at["line"]), line_at["name"])
     target, at_sep, line = target.rpartition("@") if "::" in target and target.rpartition("@")[2].isdigit() else (target, "", "")
     exact = [node for node in _walk(tree) if rel(node.path, root) == target]
     if at_sep:
@@ -88,17 +87,39 @@ def find(tree: Node, root: Path, at: str) -> Node | None:
 _LINE_AT = re.compile(r"^(?P<file>[^:\s]+):(?P<line>\d+)(?:\s+(?P<name>\S+).*)?$")
 
 
-def _at_line(file: Node | None, line: int, name: str | None = None) -> Node | None:
-    """The symbol called ``name`` nearest ``line`` (the line may be stale after an edit), else the
-    innermost symbol whose lines hold ``line``, else the file itself."""
-    if file is None or file.type != "file":
+def _at_line(tree: Node, root: Path, at: str) -> tuple[Node, str | None] | None:
+    """``path:line [name]``: the symbol called ``name`` nearest ``line`` (lines move after edits), else
+    the innermost symbol holding ``line``, else the file. The note says when the answer differs from
+    what was asked. None when ``at`` is not that form; LookupError for a line that cannot exist."""
+    m = _LINE_AT.match(at.strip())
+    if not m or "::" in at:
         return None
+    path, line, name = m["file"], int(m["line"]), m["name"]
+    file = find(tree, root, path)
+    if file is None:
+        raise LookupError(_not_found(tree, root, path))
+    if file.type != "file":
+        raise LookupError(f"{path} is a folder; a line needs a file, such as `{path}/<file>:{line}`.")
+    if line < 1:
+        raise LookupError(f"Line {line} is not in {path}: lines start at 1.")
+    try:
+        total = len((root / path).read_bytes().splitlines())
+    except OSError:
+        total = None
+    if total is not None and line > total:
+        raise LookupError(f"Line {line} is past the end of {path} ({total} lines).")
     symbols = _all_symbols(file)
     named = [s for s in symbols if name and s.name.removeprefix("(class) ") == name]
     if named:
-        return min(named, key=lambda s: (abs(s.start_line - line), s.start_line))
+        hit = min(named, key=lambda s: (abs(s.start_line - line), s.start_line))
+        moved = not hit.start_line <= line <= hit.end_line
+        return hit, f"`{name}` starts at line {hit.start_line}, not {line}." if moved else None
     holding = [s for s in symbols if s.start_line <= line <= s.end_line]
-    return min(holding, key=lambda s: (s.end_line - s.start_line, -s.start_line)) if holding else file
+    if not holding:
+        missing = f"No symbol in {path} is named `{name}`. " if name else ""
+        return file, f"{missing}Line {line} is outside every function and class; showing the file."
+    hit = min(holding, key=lambda s: (s.end_line - s.start_line, -s.start_line))
+    return hit, f"No symbol in {path} is named `{name}`; showing the one at line {line}." if name else None
 
 
 def _walk(node: Node):
@@ -118,7 +139,8 @@ def explain(
 ) -> dict[str, Any]:
     """``scores`` is ``rank_nodes`` over files keyed by relative path; ``classes`` are ranked."""
     root = root.resolve()
-    node = find(tree, root, at)
+    by_line = _at_line(tree, root, at)
+    node, note = by_line if by_line else (find(tree, root, at), None)
     if node is None:
         raise LookupError(_not_found(tree, root, at))
     if node.type == "folder":
@@ -130,6 +152,7 @@ def explain(
         else:
             payload = _symbol(node, root, limit, tests)
     payload["analysis"] = provenance(tree, root)
+    payload["note"] = note
     return payload
 
 
@@ -191,7 +214,9 @@ def provenance_line(p: dict[str, Any]) -> str:
             parts.append(f"{name} ({', '.join(detail)})" if detail else name)
         parts += [f"{t['label']} N/A ({t['reason']})" for t in tools if t["status"] != "ok"]
         checks = f"lint/type checks: {', '.join(parts) or 'none apply'}"
-        if p["code_files_unchecked"]:
+        if not parts:
+            checks += " (finding_count N/A)"
+        elif p["code_files_unchecked"]:
             checks += f"; {p['code_files_unchecked']} of {p['code_files']} code files have none (finding_count N/A)"
     failed = f"; {_files(p['files_failed'])} failed analysis (LOC only)" if p["files_failed"] else ""
     return f"Analysis: {scan}; {history}; {checks}{failed}."
@@ -215,9 +240,10 @@ def _not_found(tree: Node, root: Path, at: str) -> str:
             options = list(dict.fromkeys(f"`{_at(s, root, file, symbols)}`" for s in same))
             more = f" and {len(options) - 6} more" if len(options) > 6 else ""
             return f"{at} matches {len(same)} symbols; pick one (most complex first): {', '.join(options[:6])}{more}."
-        names = [rel(s.path, root)[len(file) :] for s in symbols_below(parent)][:8]
+        worst = sorted((s for s in symbols if _named(s.name)), key=lambda s: (-(s.metrics.complexity or 0), s.start_line))
+        names = list(dict.fromkeys(rel(s.path, root)[len(file) :] for s in worst))[:8]
         listed = ", ".join(f"`{n}`" for n in names) or "none"
-        return f"{at} is not a function or class in {file}. Its top-level symbols: {listed}."
+        return f"{at} is not a function or class in {file}. Its most complex named symbols: {listed}."
     return f"{at} is not in the analysis of {root}. Paths are relative to it; symbols are file::name."
 
 
@@ -323,7 +349,7 @@ def _file(
         "metrics": measured(node, path),
         "symbols": [_symbol_row(s, root, path, symbols) for s in symbols[:limit]],
         "symbols_omitted": max(0, len(symbols) - limit),
-        "tests": scope_evidence.tests_naming(root, tests, module=path) if cls != "test" else None,
+        "tests": scope_evidence.tests_naming(root, tests, module=path) if cls == "code" else None,
     }
 
 
@@ -369,9 +395,24 @@ def _symbol(node: Node, root: Path, limit: int, tests: list[str]) -> dict[str, A
         "metrics": measured(node, rel(node.path, root), symbol=True),
         "symbols": [_symbol_row(s, root, file, inner) for s in inner[:limit]],
         "symbols_omitted": max(0, len(inner) - limit),
-        "branches": scope_evidence.branches(node.path.split("::", 1)[0], node.start_line, node.end_line),
-        "tests": scope_evidence.tests_naming(root, tests, module=file, symbol=name) if _named(name) else None,
+        "branches": _branches(node, len(inner)),
+        "tests": (
+            scope_evidence.tests_naming(root, tests, module=file, symbol=name)
+            if _named(name) and classify(file)[0] == "code"
+            else None
+        ),
     }
+
+
+def _branches(node: Node, nested: int) -> dict[str, Any] | None:
+    """The symbol's branch shape, or why there is none (lizard languages have no decision markers)."""
+    file = node.path.split("::", 1)[0]
+    found = scope_evidence.branches(file, node.start_line, node.end_line)
+    if found is not None:
+        return {**found, "nested_symbols": nested}
+    if (node.metrics.complexity or 0) > 1:
+        return {"na": f"no decision markers for {PurePosixPath(file).suffix or 'these'} files"}
+    return None
 
 
 # Metric id prefix → file suffixes it can apply to. Others apply to any source file.
@@ -416,6 +457,8 @@ def render_markdown(payload: dict[str, Any], *, command: str = "srcly explain") 
     """``command`` is how the user ran it (with the root argument), so the Next line runs as-is."""
     kind, scope = payload["kind"], payload["scope"]
     lines = [f"# srcly explain {scope} ({kind})", ""]
+    if payload.get("note"):
+        lines += [payload["note"], ""]
     next_at = next_line = None
     if kind == "folder":
         ranked = ", ".join(payload["classes"])
@@ -428,7 +471,7 @@ def render_markdown(payload: dict[str, Any], *, command: str = "srcly explain") 
             lines += ["", provenance_line(payload["analysis"])] if payload.get("analysis") else []
             return "\n".join(lines).rstrip() + "\n"
         lines.append(
-            f"{payload['code_files']} ranked files ({ranked}). Score: the profile's weighted mix of complexity, size, "
+            f"{payload['code_files']} ranked {'file' if payload['code_files'] == 1 else 'files'} ({ranked}). Score: the profile's weighted mix of complexity, size, "
             f"nesting and history, 1.0 = the repo's worst; {QUEUE_SCORE}+ is a finding. "
             "Pass any \"start at\" value to `--at`."
         )
@@ -446,7 +489,7 @@ def render_markdown(payload: dict[str, Any], *, command: str = "srcly explain") 
             lines.append(f"| {f['score']} | `{f['start_at']}` | {f['why']} |")
         if payload["files_omitted"]:
             lines.append(f"| | +{payload['files_omitted']} more | |")
-        lines += ["", *left_out_lines(payload["left_out"])]
+        lines += ["", *left_out_lines(payload["left_out"])] if payload["left_out"] else []
         sub = [f["path"] for f in folders if f["path"] != scope]
         next_at = sub[0] if sub else payload["files"][0]["path"]
     else:
