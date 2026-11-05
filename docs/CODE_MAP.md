@@ -140,6 +140,7 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist is `
 | Feature | Where |
 | --- | --- |
 | Artifact writing (`report.md`, `findings.json`, …) | `server/app/services/reporting.py` (`write_report`, `build_report_payload`) |
+| Size-budget ratchet: `report` writes `size_budget.json` (code files over 5,000 tokens = bytes/4, baseline only ratchets down); `srcly check --ratchet` exits 1 when one grows or a new one goes over | `server/app/services/size_budget.py` (`build`, `write`, `check`); written at the end of `reporting.py:write_report`; CLI in `run.py` |
 | Single-metric ranking (one cohort, worst first, ties by path; N/A counted apart): report "Top Files/Functions", `hotspots.json`, `srcly hotspots --metric` | `server/app/services/reporting.py` (`rank_by_metric`, `cohort_nodes`, `witness_of`); client mirror `client/src/utils/hotSpotRanking.ts` (`rankHotSpots`), checked by `tests/test_ranking_parity.py` + `hotSpotRanking.parity.test.ts` |
 | Findings queue (profile-weighted mix; zeros count, N/A drops out) / tree summary | `server/app/services/reporting.py` (`rank_nodes`, `build_findings`, `summarize_tree`) |
 | Named 2x2 presets (axes, absolute cut-offs, quadrant names), quadrant assignment, fan-in; `report --quadrant` section + `quadrants.json` | `server/app/services/quadrants.py`; served in the catalog as `quadrant_presets`; client mirror `client/src/viz/scatter/quadrants.ts` |

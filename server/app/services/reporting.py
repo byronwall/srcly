@@ -267,6 +267,10 @@ def write_artifacts(payload: dict[str, Any], out_dir: Path, *, output_format: Ou
         written["action_plan"] = _write_text(out_dir / "action-plan.md", payload["action_plan_markdown"])
         written["agent_skill"] = _write_text(out_dir / "agent-skill.md", payload["agent_skill_markdown"])
 
+    # The ratchet's state, always: `srcly check --ratchet` compares against it.
+    from app.services import size_budget
+
+    written["size_budget"] = size_budget.write(root_path, out_dir)
     return written
 
 

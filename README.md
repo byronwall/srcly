@@ -87,6 +87,8 @@ Machine-readable output (`report --stdout`, `--format json`, `scan --out -`, `co
 
 `uvx srcly fix` prints a diff of the safe fixes for srcly's own findings, and `--write` applies them: it drops an `export` that only its own file uses, and rewrites a cleanup function returned from `onMount`/`createEffect` (which Solid ignores) to `onCleanup()`. Deleting unreachable files runs only when you name the rule: `srcly fix --rule unreachable-file --write`. Reachability walks the TS import graph from detected entries; add entry globs in `srcly.toml` at the Git root under `[reachability] entries = [...]`.
 
+`srcly report` also writes `size_budget.json`: each code file over 5,000 tokens (bytes / 4), with a baseline that only goes down. `uvx srcly check --ratchet` exits 1 when one of those files grows, or a new file goes over the budget, so a pre-commit or CI step can stop big files from getting bigger.
+
 ## What Srcly shows you
 
 - **Treemap of your codebase**

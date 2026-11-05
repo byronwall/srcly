@@ -80,7 +80,7 @@ def _main(argv: list[str] | None = None) -> None:
     - Opens the default browser to the app URL.
     """
     argv = list(argv) if argv is not None else sys.argv[1:]
-    if argv and argv[0] in {"scan", "report", "hotspots", "explain", "compare", "fix"}:
+    if argv and argv[0] in {"scan", "report", "hotspots", "explain", "compare", "fix", "check"}:
         # stderr, so JSON on stdout stays clean.
         print(startup_info.version_line(), file=sys.stderr, flush=True)
         _run_headless(argv)
@@ -100,6 +100,7 @@ def _main(argv: list[str] | None = None) -> None:
             "  hotspots  rank files or functions by one metric\n"
             "  compare   metric and dependency changes between two git refs\n"
             "  fix       show, then apply (--write), safe fixes for srcly's own findings\n"
+            "  check     --ratchet: fail when a file over the size budget grows\n"
             "  scan      write the raw analysis tree as JSON"
         ),
     )
@@ -447,6 +448,15 @@ def _run_headless(argv: list[str]) -> None:
     )
     fix_parser.add_argument("--write", action="store_true", help="Apply the fixes. Without it, print the diff.")
 
+    check_parser = subparsers.add_parser("check", help="Fail when a code file over the size budget grows.")
+    check_parser.add_argument("path", nargs="?", help="Path to check. Defaults to the enclosing Git repo root.")
+    check_parser.add_argument(
+        "--ratchet", action="store_true", required=True, help="Compare file sizes with size_budget.json."
+    )
+    check_parser.add_argument(
+        "--budget", default=None, help="The size_budget.json to compare with. Defaults to <path>/.srcly/size_budget.json."
+    )
+
     args = parser.parse_args(argv)
     try:
         _dispatch(args)
@@ -463,6 +473,13 @@ def _dispatch(args) -> None:
 
         print(fixes.run(_resolve_target_path(args.path), set(args.rule or ()), apply=args.write))
         return
+    if args.command == "check":
+        from app.services import size_budget
+
+        root = _resolve_target_path(args.path)
+        code, text = size_budget.check(root, Path(args.budget) if args.budget else root / ".srcly" / size_budget.FILE_NAME)
+        print(text)
+        raise SystemExit(code)
 
     if args.command == "compare":
         _run_compare(args)

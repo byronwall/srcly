@@ -123,6 +123,7 @@ def test_write_report_creates_agent_artifacts(tmp_path: Path, monkeypatch: pytes
         "report",
         "action_plan",
         "agent_skill",
+        "size_budget",
     }
     assert expected == set(written)
     assert (out_dir / "report.md").exists()
