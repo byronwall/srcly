@@ -61,6 +61,7 @@ Browser
 | React/Solid component detection + per-component metrics (hooks, effects, JSX depth, props, inline handlers, JSX conditionals) | `server/app/services/typescript/components.py`; copied onto component scopes in `typescript_analysis.py` (`_attach_components`); file/folder max + `witnesses` in `analysis.py` |
 | Comment noise (narrated functions, oversized docblocks, commented-out code; absolute thresholds) | `server/app/services/comment_noise.py`; fed by `typescript_analysis.py` / `python_analysis.py` (`_apply_comment_noise`) |
 | Python metrics | `server/app/services/python/python_analysis.py` |
+| Cognitive complexity (Sonar's rules: structural breaks cost 1 + nesting, `else`/`else if`/operator runs cost 1; `try` never nests): per function in both tree-sitter analyzers (`_cognitive`), the max and its witness per file | `server/app/services/analysis_types.py` (`add_cognitive`, `cognitive_nesting`), `typescript_analysis.py` / `python_analysis.py` (`_cognitive`, `_COGNITIVE_STRUCTURAL`); file max in `analysis.py` (`attach_file_metrics`); fixture `server/tests/test_cognitive_complexity.py` |
 | CSS / SCSS metrics | `server/app/services/css/css_analysis.py` |
 | Markdown metrics | `server/app/services/markdown/markdown_analysis.py` |
 | Jupyter notebook metrics | `server/app/services/ipynb/ipynb_analysis.py` |

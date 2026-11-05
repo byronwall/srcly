@@ -12,6 +12,8 @@ class FunctionMetrics:
     max_nesting_depth: int = 0
     comment_lines: int = 0
     todo_count: int = 0
+    # Cognitive complexity (Sonar's rules; see add_cognitive).
+    cognitive_complexity: int = 0
     # Comment noise flags in this scope (see comment_noise.py).
     comment_noise: int = 0
     comment_noise_ratio: int = 0
@@ -87,6 +89,35 @@ def is_executable_scope(func) -> bool:
     return scope_kind(func) == "function"
 
 
+def cognitive_nesting(node, breaks: frozenset[str], functions: frozenset[str], chained) -> int:
+    """How many structural breaks enclose ``node`` inside its own function (Sonar's nesting level).
+
+    ``try`` and plain blocks never nest; ``chained(n)`` is true for an ``else if`` that continues
+    its chain at the same level."""
+    depth, parent = 0, node.parent
+    while parent is not None and parent.type not in functions:
+        if parent.type in breaks and not chained(parent):
+            depth += 1
+        parent = parent.parent
+    return depth
+
+
+def add_cognitive(active_scopes: list[dict], amount: int, *, propagate: bool) -> None:
+    """Add a cognitive-complexity increment to the innermost scope, and with ``propagate`` to the
+    nearest executable scope when the innermost is a display scope (JSX, object literal).
+
+    Sonar's rules: a structural break (``if``, loop, ``catch``, ternary, ``switch``) costs 1 plus
+    its nesting level; ``else``, ``else if`` and each run of one boolean operator cost 1. So a flat
+    chain of route checks stays low and nested code grows fast.
+    """
+    active_scopes[-1]["metrics"].cognitive_complexity += amount
+    if propagate and not is_executable_scope(active_scopes[-1]["metrics"]):
+        for scope in reversed(active_scopes[:-1]):
+            if is_executable_scope(scope["metrics"]):
+                scope["metrics"].cognitive_complexity += amount
+                break
+
+
 def iter_executable_scopes(funcs):
     """Every executable scope at any depth, display scopes skipped but descended."""
     for func in funcs:
@@ -122,7 +153,7 @@ COMMENT_NOISE_METRICS = frozenset({
     "comment_noise_docblock",
     "comment_noise_commented_code",
 })
-_TREE_SITTER_CODE = _CODE_CORE | COMMENT_NOISE_METRICS | {"comment_lines", "max_nesting_depth", "todo_count", "classes_count"}
+_TREE_SITTER_CODE = _CODE_CORE | COMMENT_NOISE_METRICS | {"comment_lines", "max_nesting_depth", "todo_count", "classes_count", "cognitive_complexity"}
 _TS = _TREE_SITTER_CODE | {
     "ts_any_usage_count",
     "ts_ignore_count",
@@ -154,7 +185,7 @@ MEASURED_FILE_METRICS: dict[str, frozenset[str]] = {
     "text": frozenset(),
 }
 
-_TREE_SITTER_SCOPE = frozenset({"complexity", "parameter_count", "max_nesting_depth", "comment_lines", "todo_count"}) | COMMENT_NOISE_METRICS
+_TREE_SITTER_SCOPE = frozenset({"complexity", "cognitive_complexity", "parameter_count", "max_nesting_depth", "comment_lines", "todo_count"}) | COMMENT_NOISE_METRICS
 MEASURED_SCOPE_METRICS: dict[str, frozenset[str]] = {
     "ts": _TREE_SITTER_SCOPE | {"ts_type_interface_count"},
     "tsx": _TREE_SITTER_SCOPE | {"ts_type_interface_count"} | COMPONENT_METRICS,

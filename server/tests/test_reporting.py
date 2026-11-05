@@ -661,7 +661,7 @@ def test_report_prints_top_findings_and_what_the_analysis_covers(
 
     main(["report", str(root), "--out", str(tmp_path / "out")])
     out = capsys.readouterr().out
-    assert "- high 0.7647 `src/core/parse.py`: High complexity 30, 300 LOC. Start at `src/core/parse.py:10 parse`" in out
+    assert "- medium 0.6981 `src/core/parse.py`: High complexity 30, 300 LOC. Start at `src/core/parse.py:10 parse`" in out
     assert (
         "Analysis: reused the scan from 2026-11-04 10:00 UTC (no file has changed since); Git history at `abc1234` "
         "(1 file has uncommitted changes, not counted); lint/type checks: ruff (1 file); 1 of 2 code files have none "

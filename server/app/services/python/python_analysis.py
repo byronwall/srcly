@@ -5,7 +5,7 @@ from typing import List
 import textwrap
 
 from app.services import comment_noise
-from app.services.analysis_types import FileMetrics, FunctionMetrics, iter_executable_scopes
+from app.services.analysis_types import FileMetrics, FunctionMetrics, add_cognitive, cognitive_nesting, iter_executable_scopes
 from app.services.markers import MarkerSink
 
 # Load Python grammar
@@ -16,6 +16,14 @@ _COMPLEXITY_NOTES = {
     'except_clause': 'except', 'with_statement': 'with', 'match_statement': 'match',
     'case_pattern': 'case',
 }
+
+# Cognitive complexity's structural breaks (they cost 1 + nesting).
+_COGNITIVE_STRUCTURAL = {
+    'if_statement': 'if', 'for_statement': 'for', 'while_statement': 'while', 'except_clause': 'except',
+    'match_statement': 'match', 'conditional_expression': 'if-else expression',
+}
+_COGNITIVE_NESTS = frozenset(_COGNITIVE_STRUCTURAL)
+_FUNCTION_NODES = frozenset({'function_definition', 'async_function_definition', 'lambda', 'class_definition'})
 
 # Statements only code has, for telling commented-out code from prose.
 _PY_CODE_NODES = frozenset({
@@ -55,6 +63,30 @@ class PythonTreeSitterAnalyzer:
         self.parser = Parser(PYTHON_LANGUAGE)
         # A MarkerSink records where each metric fires (code viewer overlay).
         self.markers: MarkerSink | None = None
+
+    def _cognitive(self, node: Node, active_scopes: List[dict]) -> None:
+        """Cognitive complexity increments (``add_cognitive``) for one node."""
+        if not active_scopes:
+            return
+        node_type = node.type
+        parent = node.parent
+        if node_type == 'elif_clause' or (node_type == 'else_clause' and parent is not None and parent.type == 'if_statement'):
+            amount, note = 1, 'elif' if node_type == 'elif_clause' else 'else'
+        elif node_type in _COGNITIVE_STRUCTURAL:
+            amount = 1 + cognitive_nesting(node, _COGNITIVE_NESTS, _FUNCTION_NODES, lambda n: False)
+            note = _COGNITIVE_STRUCTURAL[node_type]
+        elif node_type == 'boolean_operator':
+            op = node.child_by_field_name('operator')
+            # One increment per run of the same operator: `a and b and c` is one.
+            if parent is not None and parent.type == 'boolean_operator':
+                parent_op = parent.child_by_field_name('operator')
+                if op is not None and parent_op is not None and parent_op.text == op.text:
+                    return
+            amount, note = 1, op.text.decode() if op else 'and/or'
+        else:
+            return
+        add_cognitive(active_scopes, amount, propagate=False)
+        self._mark('cognitive_complexity', node, f"+{amount} {note}")
 
     def _mark(self, metric: str, node: Node, note: str = "", *, span: bool = False) -> None:
         if self.markers is not None:
@@ -239,6 +271,7 @@ class PythonTreeSitterAnalyzer:
                      current_scope.cyclomatic_complexity += 1
                      op = node.child_by_field_name('operator')
                      self._mark('complexity', node, op.text.decode() if op else 'and/or')
+            self._cognitive(node, active_scopes)
         
         # 5. Handle Scope Creation
         scope_created = False
