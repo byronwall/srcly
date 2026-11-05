@@ -270,7 +270,7 @@ def write_artifacts(payload: dict[str, Any], out_dir: Path, *, output_format: Ou
     # The ratchet's state, always: `srcly check --ratchet` compares against it.
     from app.services import size_budget
 
-    written["size_budget"] = size_budget.write(root_path, out_dir)
+    written["size_budget"] = size_budget.write(Path(payload["manifest"]["root_path"]), out_dir)
     return written
 
 
