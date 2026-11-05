@@ -11,7 +11,9 @@ export type Run = {
   id: string; source: string; sourceRoot: string; commit: string; worktree: string;
   status: string; applied: number; steps: RunStep[]; graph?: Graph; error: string | null;
   diagnostics?: Diagnostic[]; typeDiagnostics?: Diagnostic[]; baselineDiagnostics?: Diagnostic[];
+  reviewPath: string; updatedAt?: string;
 };
+export type RunSummary = Pick<Run, "id" | "sourceRoot" | "status" | "applied" | "reviewPath"> & { stepCount: number; operation: string; label: string; updatedAt: string };
 
 export async function request<T>(url: string, body?: unknown): Promise<T> {
   const response = await fetch(`/api/refactor${url}`, body === undefined ? undefined : {

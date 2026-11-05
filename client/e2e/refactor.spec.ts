@@ -37,20 +37,25 @@ test.beforeAll(() => {
 
 test("Python modules use the same visual chain and test checkpoint", async ({ page }) => {
   await page.goto(`/?${new URLSearchParams({ repo: pythonRoot, view: "refactor" })}`);
+  await page.locator("[data-refactor-new-step]").click();
   await page.locator("[data-refactor-language]").selectOption("python");
   await page.locator("[data-refactor-load]").click();
   await page.locator('[data-refactor-file="pkg/state.py"]').click();
   await page.locator("[data-refactor-destination]").fill("pkg/value.py");
   await page.locator("[data-refactor-add]").click();
+  await page.locator("[data-refactor-new-step]").click();
   await page.locator("[data-refactor-operation]").selectOption("checkpoint");
   await page.locator("[data-refactor-destination]").fill("unit");
   await page.locator("[data-refactor-add]").click();
   await page.locator("[data-refactor-preview]").click();
-  await expect(page.locator("[data-refactor-run-status]")).toHaveText("ready", { timeout: 90_000 });
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "ready", { timeout: 90_000 });
+  await page.locator(".rf-evidence summary").click();
   await expect(page.locator("[data-refactor-checkpoint]")).toContainText("Python consumers verified");
   await page.locator("[data-refactor-all]").click();
-  await expect(page.locator("[data-refactor-run-status]")).toHaveText("complete");
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "complete");
+  await page.locator("[data-refactor-agent-tab]").click();
   const worktree = (await page.locator("[data-refactor-worktree]").textContent())!;
+  await page.locator('[data-refactor-tab="changes"]').click();
   expect(fs.readFileSync(path.join(worktree, "consumer.py"), "utf8")).toContain("pkg.value");
   expect(fs.readFileSync(path.join(pythonRoot, "consumer.py"), "utf8")).toContain("pkg.state");
   await page.screenshot({ path: path.resolve("../tmp/e2e/refactor-python-checkpoint.png"), fullPage: true });
@@ -58,6 +63,7 @@ test("Python modules use the same visual chain and test checkpoint", async ({ pa
 
 test("conditional reducers become an inspectable executable state machine", async ({ page }) => {
   await page.goto(`/?${new URLSearchParams({ repo: root, view: "refactor" })}`);
+  await page.locator("[data-refactor-new-step]").click();
   await page.locator("[data-refactor-load]").click();
   await page.locator('[data-refactor-file="src/machine.ts"]').click();
   await page.locator("[data-refactor-operation]").selectOption("state-machine");
@@ -65,16 +71,18 @@ test("conditional reducers become an inspectable executable state machine", asyn
   await page.locator("[data-refactor-destination]").fill("transitions");
   await page.locator("[data-refactor-add]").click();
   await page.locator("[data-refactor-preview]").click();
-  await expect(page.locator("[data-refactor-run-status]")).toHaveText("ready", { timeout: 90_000 });
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "ready", { timeout: 90_000 });
+  await page.locator(".rf-evidence summary").click();
   await expect(page.locator("[data-refactor-machine-state]")).toHaveCount(3);
   await expect(page.locator("[data-refactor-machine]")).toContainText("9 state/event pairs");
   await page.locator("[data-refactor-all]").click();
-  await expect(page.locator("[data-refactor-run-status]")).toHaveText("complete");
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "complete");
   await page.screenshot({ path: path.resolve("../tmp/e2e/refactor-state-machine.png"), fullPage: true });
 });
 
 test("global Solid state migrates to a provider with hook consumers", async ({ page }) => {
   await page.goto(`/?${new URLSearchParams({ repo: solidRoot, view: "refactor" })}`);
+  await page.locator("[data-refactor-new-step]").click();
   await page.locator("[data-refactor-load]").click();
   await page.locator('[data-refactor-file="src/state.ts"]').click();
   await page.locator("[data-refactor-operation]").selectOption("solid-context");
@@ -83,17 +91,21 @@ test("global Solid state migrates to a provider with hook consumers", async ({ p
   await page.locator("[data-refactor-hook]").fill("useCounter");
   await page.locator("[data-refactor-add]").click();
   await page.locator("[data-refactor-preview]").click();
-  await expect(page.locator("[data-refactor-run-status]")).toHaveText("ready", { timeout: 90_000 });
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "ready", { timeout: 90_000 });
+  await page.locator(".rf-evidence summary").click();
   await expect(page.locator("[data-refactor-ownership]")).toContainText("CounterProvider → useCounter");
   await page.locator("[data-refactor-all]").click();
-  await expect(page.locator("[data-refactor-run-status]")).toHaveText("complete");
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "complete");
+  await page.locator("[data-refactor-agent-tab]").click();
   const worktree = (await page.locator("[data-refactor-worktree]").textContent())!;
+  await page.locator('[data-refactor-tab="changes"]').click();
   expect(fs.readFileSync(path.join(worktree, "src/App.tsx"), "utf8")).toContain("useCounter()");
   await page.screenshot({ path: path.resolve("../tmp/e2e/refactor-solid-context.png"), fullPage: true });
 });
 
 test("type edits deliberately produce a repair list and remain executable", async ({ page }) => {
   await page.goto(`/?${new URLSearchParams({ repo: root, view: "refactor" })}`);
+  await page.locator("[data-refactor-new-step]").click();
   await page.locator("[data-refactor-load]").click();
   await page.locator('[data-refactor-file="src/types.ts"]').click();
   await page.locator("[data-refactor-operation]").selectOption("add-member");
@@ -101,16 +113,18 @@ test("type edits deliberately produce a repair list and remain executable", asyn
   await page.locator("[data-refactor-destination]").fill("age: number");
   await page.locator("[data-refactor-add]").click();
   await page.locator("[data-refactor-preview]").click();
-  await expect(page.locator("[data-refactor-run-status]")).toHaveText("ready-with-errors", { timeout: 90_000 });
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "ready-with-errors", { timeout: 90_000 });
+  await page.locator("[data-refactor-issues-toggle]").click();
   await expect(page.locator("[data-refactor-type-errors]")).toContainText("Property 'age' is missing");
   await page.locator("[data-refactor-next]").click();
-  await expect(page.locator("[data-refactor-run-status]")).toHaveText("complete-with-errors");
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "complete-with-errors");
   expect(fs.readFileSync(path.join(root, "src/types.ts"), "utf8")).not.toContain("age");
   await page.screenshot({ path: path.resolve("../tmp/e2e/refactor-type-errors.png"), fullPage: true });
 });
 
 test("a symbol move proposes dependencies as actionable DSL steps", async ({ page }) => {
   await page.goto(`/?${new URLSearchParams({ repo: root, view: "refactor" })}`);
+  await page.locator("[data-refactor-new-step]").click();
   await page.locator("[data-refactor-load]").click();
   await page.locator('[data-refactor-file="src/math.ts"]').click();
   await page.locator("[data-refactor-operation]").selectOption("move-symbol");
@@ -118,14 +132,14 @@ test("a symbol move proposes dependencies as actionable DSL steps", async ({ pag
   await page.locator("[data-refactor-destination]").fill("src/model/math.ts");
   await page.locator("[data-refactor-add]").click();
   await page.locator("[data-refactor-preview]").click();
-  await expect(page.locator("[data-refactor-run-status]")).toHaveText("blocked", { timeout: 90_000 });
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "blocked", { timeout: 90_000 });
   await expect(page.locator(".rf-suggestion")).toContainText("move-symbol $offset");
   await page.locator(".rf-suggestion button").click();
   await page.locator("[data-refactor-preview]").click();
-  await expect(page.locator("[data-refactor-run-status]")).toHaveText("ready", { timeout: 90_000 });
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "ready", { timeout: 90_000 });
   await expect(page.locator("[data-refactor-step]")).toHaveCount(2);
   await page.locator("[data-refactor-all]").click();
-  await expect(page.locator("[data-refactor-run-status]")).toHaveText("complete");
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "complete");
   await page.screenshot({ path: path.resolve("../tmp/e2e/refactor-symbol-chain.png"), fullPage: true });
 });
 
@@ -134,29 +148,104 @@ test("refactoring vertical slice: visual plan, compiler preview, apply, undo and
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`/?${new URLSearchParams({ repo: root, view: "refactor" })}`);
   await expect(page.locator("[data-refactor-view]")).toBeVisible();
+  await page.locator("[data-refactor-new-step]").click();
   await page.locator("[data-refactor-load]").click();
   await page.locator('[data-refactor-file="src/state.ts"]').click();
   await page.locator("[data-refactor-destination]").fill("src/model/state.ts");
   await page.locator("[data-refactor-add]").click();
+  await page.locator('[data-refactor-tab="dsl"]').click();
   await expect(page.locator("[data-refactor-dsl]")).toHaveValue(/move-file \$file_1 -> "src\/model\/state.ts"/);
   await page.locator("[data-refactor-preview]").click();
-  await expect(page.locator("[data-refactor-run-status]")).toHaveText("ready", { timeout: 90_000 });
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "ready", { timeout: 90_000 });
   await expect(page.locator("[data-refactor-diff]")).toContainText("model/state");
+  await page.locator('[data-refactor-tab="relationships"]').click();
   await expect(page.locator('[data-refactor-node="src/model/state.ts"]')).toBeVisible();
+  await page.locator('[data-refactor-tab="changes"]').click();
   const shots = path.resolve("../tmp/e2e");
   fs.mkdirSync(shots, { recursive: true });
   await page.screenshot({ path: path.join(shots, "refactor-preview.png"), fullPage: true });
   await page.locator("[data-refactor-next]").click();
-  await expect(page.locator("[data-refactor-run-status]")).toHaveText("complete");
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "complete");
+  await page.locator("[data-refactor-agent-tab]").click();
   const worktree = (await page.locator("[data-refactor-worktree]").textContent())!;
+  await page.locator('[data-refactor-tab="changes"]').click();
   expect(fs.existsSync(path.join(worktree, "src/model/state.ts"))).toBe(true);
   expect(fs.readFileSync(path.join(worktree, "src/consumer.ts"), "utf8")).toContain("./model/state");
   expect(fs.readFileSync(path.join(root, "src/consumer.ts"), "utf8")).toContain('"./state"');
   await page.reload();
-  await expect(page.locator("[data-refactor-run-status]")).toHaveText("complete");
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "complete");
   await page.locator("[data-refactor-undo]").click();
-  await expect(page.locator("[data-refactor-run-status]")).toHaveText("ready");
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "ready");
   expect(fs.existsSync(path.join(worktree, "src/state.ts"))).toBe(true);
   await page.screenshot({ path: path.join(shots, "refactor-checkpoint.png"), fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test("agent runs open from shared history and links while preserving local drafts", async ({ page, request, context }) => {
+  const source = 'refactor 1\nlet state = file "src/state.ts"\nmove-file $state -> "src/agent/state.ts"\n';
+  const response = await request.post("/api/refactor/preview", { data: { path: root, source } });
+  expect(response.ok()).toBe(true);
+  const run = await response.json();
+  await page.goto(`/?${new URLSearchParams({ repo: root, view: "refactor" })}`);
+  await page.locator('[data-refactor-tab="dsl"]').click();
+  const draft = 'refactor 1\nadd-type "src/new.ts" "export interface Draft { value: string }"\n';
+  await page.locator("[data-refactor-dsl]").fill(draft);
+  await page.locator("[data-refactor-agent-tab]").click();
+  await page.locator(`[data-refactor-recent="${run.id}"]`).click();
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "ready");
+  await expect(page.locator("[data-refactor-diff]")).toContainText("agent/state");
+  await page.locator('[data-refactor-tab="dsl"]').click();
+  await expect(page.locator("[data-refactor-dsl]")).toHaveValue(source);
+  await page.locator("[data-refactor-restore-draft]").click();
+  await expect(page.locator("[data-refactor-dsl]")).toHaveValue(draft);
+  await page.reload();
+  await page.locator('[data-refactor-tab="dsl"]').click();
+  await expect(page.locator("[data-refactor-dsl]")).toHaveValue(draft);
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "draft");
+  await page.locator("[data-refactor-agent-tab]").click();
+  await page.locator("[data-refactor-run-id]").fill(run.reviewPath);
+  await page.locator("[data-refactor-open-run]").click();
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "ready");
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.locator("[data-refactor-agent-tab]").click();
+  await page.locator("[data-refactor-copy-brief]").click();
+  const brief = await page.evaluate(() => navigator.clipboard.readText());
+  expect(brief).toContain(source);
+  expect(brief).toContain("srcly refactor preview");
+  await page.screenshot({ path: path.resolve("../tmp/e2e/refactor-agent-handoff.png"), fullPage: true });
+  await page.locator("[data-refactor-next]").click();
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "complete");
+});
+
+test("narrow workbench keeps review, editing and execution reachable", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/?${new URLSearchParams({ repo: root, view: "refactor" })}`);
+  await page.locator('[data-refactor-tab="dsl"]').click();
+  await page.locator("[data-refactor-dsl]").fill('refactor 1\nlet state = file "src/state.ts"\nmove-file $state -> "src/model/state.ts"\nmove-file $state -> "src/domain/state.ts"\n');
+  await page.locator("[data-refactor-preview]").click();
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "ready");
+  await expect(page.locator("[data-refactor-step-select]")).toHaveValue("1");
+  await page.locator("[data-refactor-step-select]").selectOption("0");
+  await page.getByLabel("Filter changed files").fill("consumer");
+  await expect(page.locator("[data-refactor-change]")).toHaveCount(1);
+  await expect(page.locator("[data-refactor-diff]")).toContainText("model/state");
+  await page.locator('[data-refactor-tab="relationships"]').click();
+  await expect(page.locator('[data-refactor-node="src/model/state.ts"]')).toBeAttached();
+  await page.locator('[data-refactor-tab="changes"]').click();
+  await expect(page.getByLabel("Filter changed files")).toHaveValue("consumer");
+  const action = await page.locator("[data-refactor-next]").boundingBox();
+  expect(action!.x + action!.width).toBeLessThanOrEqual(390);
+  expect(action!.y + action!.height).toBeLessThanOrEqual(844);
+  await page.screenshot({ path: path.resolve("../tmp/e2e/refactor-review-390.png"), fullPage: true });
+  await page.locator("[data-refactor-show-plan]").click();
+  await page.locator('[data-refactor-remove="1"]').click();
+  await expect(page.locator("[data-refactor-step]")).toHaveCount(1);
+  await page.locator('[data-refactor-step="0"]').click();
+  await expect(page.locator("[data-refactor-run-status]")).toHaveAttribute("data-status", "draft");
+  await page.locator("[data-refactor-new-step]").click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".rf-dialog")).not.toBeVisible();
   expect(errors).toEqual([]);
 });

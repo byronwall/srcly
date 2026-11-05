@@ -165,3 +165,51 @@ def test_agent_api_exposes_grammar_and_structured_plan_diagnostics():
         assert diagnostic["code"] == "invalid-plan"
         assert diagnostic["line"] == 2
         assert "Unknown handle" in diagnostic["message"]
+
+
+def test_cli_preview_is_discoverable_and_reviewable_in_the_app(project, tmp_path, capsys):
+    from urllib.parse import parse_qs, urlsplit
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.services.refactor.cli import main
+
+    plan_file = tmp_path / "agent.srcly"
+    plan_file.write_text(CHAIN)
+    main(["preview", str(plan_file), "--path", str(project)])
+    preview = json.loads(capsys.readouterr().out)
+    link = parse_qs(urlsplit(preview["reviewPath"]).query)
+    assert link == {"repo": [str(project)], "view": ["refactor"], "run": [preview["id"]]}
+    with TestClient(app) as client:
+        recent = client.get("/api/refactor/runs", params={"path": str(project)}).json()
+        assert [item["id"] for item in recent] == [preview["id"]]
+        assert recent[0]["stepCount"] == 2
+        assert "source" not in recent[0]  # Listing doesn't ship every diff/source.
+        assert client.get("/api/refactor/runs", params={"path": str(tmp_path)}).json() == []
+        reopened = client.get(f'/api/refactor/runs/{preview["id"]}').json()
+        assert reopened["source"] == CHAIN
+        assert reopened["steps"] == preview["steps"]
+        applied = client.post(f'/api/refactor/runs/{preview["id"]}/execute', json={"mode": "next"}).json()
+        assert applied["applied"] == 1
+        assert applied["updatedAt"] >= applied["createdAt"]
+        assert client.get("/api/refactor/runs", params={"path": str(project)}).json()[0]["applied"] == 1
+    assert (project / "src/state.ts").exists()
+
+
+def test_recent_runs_filter_sort_and_leave_pending_journals_untouched(tmp_path, monkeypatch):
+    monkeypatch.setattr(runs, "directory", lambda: tmp_path)
+    for number in range(23):
+        folder = tmp_path / f"{number:032x}"
+        folder.mkdir()
+        (folder / "run.json").write_text(json.dumps({
+            "id": folder.name, "sourceRoot": str(tmp_path), "status": "running", "applied": 0,
+            "plan": parse(CHAIN), "pending": {"index": 0}, "updatedAt": f"2026-11-{number + 1:02}T12:00:00+00:00",
+        }))
+    broken = tmp_path / ("f" * 32)
+    broken.mkdir()
+    (broken / "run.json").write_text("incomplete")
+    before = {p: p.read_bytes() for p in tmp_path.glob("*/run.json")}
+    recent = runs.recent(tmp_path)
+    assert len(recent) == 20
+    assert recent[0]["id"] == f"{22:032x}"
+    assert recent[-1]["id"] == f"{3:032x}"
+    assert {p: p.read_bytes() for p in before} == before
