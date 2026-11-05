@@ -36,6 +36,9 @@ class SymbolIndex:
     files: int = 0
     unresolved_members: int = 0
     built_ms: int = 0
+    # Client requests matched to a handler, and ones no handler of the index answers.
+    http_links: int = 0
+    http_unmatched: int = 0
     # member name → ids of every method / field with that name, for name-only resolution
     members_by_name: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list))
 
@@ -195,7 +198,7 @@ class SymbolIndex:
                 continue
             e = merged.get(r.kind)
             if e is None:
-                merged[r.kind] = SymbolGraphEdge(source=source, target=target, kind=r.kind, lines=[r.line], count=1, resolution=r.resolution)
+                merged[r.kind] = SymbolGraphEdge(source=source, target=target, kind=r.kind, lines=[r.line], count=1, resolution=r.resolution, via=r.via)
             else:
                 e.count += 1
                 if r.line not in e.lines and len(e.lines) < MAX_EDGE_LINES:
@@ -216,7 +219,7 @@ class SymbolIndex:
                 key = (r.source, r.target, r.kind)
                 e = merged.get(key)
                 if e is None:
-                    merged[key] = SymbolGraphEdge(source=r.source, target=r.target, kind=r.kind, lines=[r.line], count=1, resolution=r.resolution)
+                    merged[key] = SymbolGraphEdge(source=r.source, target=r.target, kind=r.kind, lines=[r.line], count=1, resolution=r.resolution, via=r.via)
                 else:
                     e.count += 1
                     if r.line not in e.lines and len(e.lines) < MAX_EDGE_LINES:
@@ -335,6 +338,8 @@ class SymbolIndex:
             files=self.files,
             unresolved_members=self.unresolved_members,
             built_ms=self.built_ms,
+            http_links=self.http_links,
+            http_unmatched=self.http_unmatched,
         )
 
 
@@ -390,10 +395,93 @@ def assemble(root: Path, parts: List[FileSymbols]) -> SymbolIndex:
             elif settled.source in symbols and settled.source != settled.target:
                 references.append(settled)
 
+    http_links, http_unmatched = _link_http(parts, symbols, references)
     index = SymbolIndex(root=root, symbols=symbols, references=references, files=len(parts), unresolved_members=unresolved)
     index.members_by_name = members_by_name
+    index.http_links, index.http_unmatched = http_links, http_unmatched
     index.built_ms = int((time.monotonic() - started) * 1000)
     return index
+
+
+def _link_http(parts: List[FileSymbols], symbols: Dict[str, Symbol], references: List[Reference]) -> Tuple[int, int]:
+    """
+    Join each client request to the handler whose method and path answer it. A handler's
+    full path is its router's mount chain, the router's prefix, then its own path; a
+    `{param}` or `<param>` segment matches anything, a client `*` segment too.
+    """
+    routers: Dict[str, str] = {}
+    mounts: Dict[str, Tuple[str, str]] = {}  # child router → (parent router, prefix it is mounted under)
+    for part in parts:
+        routers.update(part.routers)
+        for parent, child, prefix in part.includes:
+            mounts[child] = (parent, prefix)
+
+    def mounted(router: str, depth: int = 0) -> str:
+        if depth > 8 or router not in mounts:
+            return ""
+        parent, prefix = mounts[router]
+        return mounted(parent, depth + 1) + routers.get(parent, "") + prefix
+
+    handlers: List[Tuple[Symbol, str, List[str]]] = []
+    for sym in symbols.values():
+        if sym.http_path is None:
+            continue
+        router = sym.http_router or ""
+        full = (mounted(router) + routers.get(router, "") + sym.http_path) or "/"
+        handlers.append((sym, full, _segments(full)))
+
+    def matches(method: str, segments: List[str]) -> List[Tuple[Symbol, str]]:
+        """The handlers answering a request; a literal segment beats a parameter, as the router would resolve it."""
+        found: List[Tuple[int, Symbol, str]] = []
+        for sym, full, pattern in handlers:
+            if method not in sym.http_methods or len(pattern) != len(segments):
+                continue
+            # Cost: a literal to literal or parameter to wildcard segment is exact; a parameter
+            # taking a literal, or a wildcard standing for a literal, is one step looser.
+            cost = 0
+            ok = True
+            for p, c in zip(pattern, segments):
+                param = p.startswith("{") or p.startswith("<")
+                if p == c or (param and c == "*"):
+                    continue
+                if param or c == "*":
+                    cost += 1
+                    continue
+                ok = False
+                break
+            if ok:
+                found.append((cost, sym, full))
+        if not found:
+            return []
+        best = min(cost for cost, _s, _f in found)
+        return [(sym, full) for cost, sym, full in found if cost == best]
+
+    linked = unmatched = 0
+    for part in parts:
+        if not part.requests:
+            continue
+        # A method-only hint (`fetch(url, {method: "DELETE"})`) names the method of a pathless request in the same symbol.
+        hints: Dict[str, Set[str]] = defaultdict(set)
+        for req in part.requests:
+            if req.path is None and req.method:
+                hints[req.source].add(req.method)
+        for req in part.requests:
+            if req.path is None:
+                continue
+            method = req.method or (next(iter(hints[req.source])) if len(hints[req.source]) == 1 else "GET")
+            found = matches(method, _segments(req.path))
+            if not found:
+                unmatched += 1
+                continue
+            linked += 1
+            for sym, full in found:
+                references.append(Reference(req.source, sym.id, "http", req.line, "exact" if len(found) == 1 else "name", via=f"{method} {full}"))
+    return linked, unmatched
+
+
+def _segments(path: str) -> List[str]:
+    """`/api/items/{id}/` → [api, items, {id}] (an `HttpRequest` path is split the same way)."""
+    return [s for s in path.strip("/").split("/") if s]
 
 
 def _note_base(r: Reference, symbols: Dict[str, Symbol]) -> None:

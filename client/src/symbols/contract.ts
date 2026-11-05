@@ -3,7 +3,7 @@
 // `<file>#<Qualified.name>`; a file's module-level code is `<file>`.
 
 export type SymbolKind = "function" | "class" | "method" | "field" | "variable" | "type" | "enum" | "module";
-export type RefKind = "call" | "instantiate" | "read" | "write" | "type" | "extends" | "implements";
+export type RefKind = "call" | "instantiate" | "read" | "write" | "type" | "extends" | "implements" | "http";
 /** How the extractor resolved a reference: through a binding or declaration, through a declared type, or by member name alone. */
 export type Resolution = "exact" | "typed" | "name";
 
@@ -35,6 +35,8 @@ export interface SymbolEdge {
   lines: number[];
   count: number;
   resolution: Resolution;
+  /** An `http` reference: the request as matched, `GET /api/items/{id}`. */
+  via?: string;
 }
 
 export interface SymbolIndexInfo {
@@ -43,6 +45,9 @@ export interface SymbolIndexInfo {
   files: number;
   unresolvedMembers: number;
   builtMs: number;
+  /** Client requests joined to a handler of the index, and ones nothing answers. */
+  httpLinks?: number;
+  httpUnmatched?: number;
 }
 
 export interface SymbolGraph {
@@ -102,7 +107,7 @@ export interface SymbolSearch {
   index: SymbolIndexInfo;
 }
 
-export const REF_KINDS: RefKind[] = ["call", "instantiate", "read", "write", "type", "extends", "implements"];
+export const REF_KINDS: RefKind[] = ["call", "instantiate", "read", "write", "type", "extends", "implements", "http"];
 
 /** Each reference kind's word on chips, edges and cards, and what it means. */
 export const REF_KIND_SPEC: Record<RefKind, { label: string; verb: string; hint: string }> = {
@@ -113,6 +118,7 @@ export const REF_KIND_SPEC: Record<RefKind, { label: string; verb: string; hint:
   type: { label: "Types", verb: "names the type", hint: "a type named in an annotation or a type alias" },
   extends: { label: "Extends", verb: "extends", hint: "a class or interface extended" },
   implements: { label: "Implements", verb: "implements", hint: "an interface implemented" },
+  http: { label: "HTTP", verb: "requests", hint: "a client request (fetch, new URL, api.post) matched to the server handler by method and path" },
 };
 
 export const RESOLUTION_SPEC: Record<Resolution, { label: string; hint: string }> = {

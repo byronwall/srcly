@@ -20,7 +20,7 @@ from typing import Dict, Iterator, List, Optional, Set, Tuple
 from tree_sitter import Node
 
 from app.services.deps.python_deps import PyFileInfo, PyModuleIndex, _text, parse_py_file
-from app.services.symbols.model import FileSymbols, PendingMember, RefKind, Reference, Symbol, SymbolKind
+from app.services.symbols.model import HTTP_METHODS, ROUTER_CLASSES, FileSymbols, PendingMember, RefKind, Reference, Symbol, SymbolKind
 
 
 @dataclass
@@ -463,6 +463,8 @@ class PyFileExtractor:
                 stack.extend(node.named_children)
 
     def _visit_call(self, n: Node) -> None:
+        if len(self.scopes) == 1:
+            self._note_include(n)
         fn = n.child_by_field_name("function")
         if fn is not None:
             if fn.type == "identifier":
@@ -498,6 +500,8 @@ class PyFileExtractor:
                 owner = self.top.get(name)
             elif self.scope.is_class:
                 owner = self.scope.named.get(name)
+        if owner is not None and len(self.scopes) == 1 and right is not None:
+            self._note_router(owner, right)
         if owner is not None:
             self._push(owner)
         if type_node is not None:
@@ -506,6 +510,89 @@ class PyFileExtractor:
             self.visit(right)
         if owner is not None:
             self._pop()
+
+    def _note_router(self, owner: str, value: Node) -> None:
+        """`router = APIRouter(prefix="/api")`, `app = FastAPI()`, `bp = Blueprint("x", __name__, url_prefix="/x")`."""
+        if value.type != "call":
+            return
+        fn = value.child_by_field_name("function")
+        callee = _text(fn.child_by_field_name("attribute") if fn is not None and fn.type == "attribute" else fn)
+        if callee not in ROUTER_CLASSES:
+            return
+        prefix = ""
+        args = value.child_by_field_name("arguments")
+        for kw in args.named_children if args is not None else []:
+            if kw.type == "keyword_argument" and _text(kw.child_by_field_name("name")) in ("prefix", "url_prefix"):
+                prefix = _string_text(kw.child_by_field_name("value")) or ""
+        self.out.routers[owner] = prefix
+
+    def _note_include(self, n: Node) -> None:
+        """`app.include_router(router, prefix="/api")`, `app.register_blueprint(bp, url_prefix="/x")`: the child mounts under the parent."""
+        fn = n.child_by_field_name("function")
+        if fn is None or fn.type != "attribute" or _text(fn.child_by_field_name("attribute")) not in ("include_router", "register_blueprint"):
+            return
+        parent_node = fn.child_by_field_name("object")
+        args = n.child_by_field_name("arguments")
+        if parent_node is None or parent_node.type != "identifier" or args is None:
+            return
+        parent = self.resolve_name(_text(parent_node))
+        child_node = next((a for a in args.named_children if a.type != "keyword_argument"), None)
+        child = self._router_id(child_node) if child_node is not None else None
+        prefix = ""
+        for kw in args.named_children:
+            if kw.type == "keyword_argument" and _text(kw.child_by_field_name("name")) in ("prefix", "url_prefix"):
+                prefix = _string_text(kw.child_by_field_name("value")) or ""
+        if parent and child:
+            self.out.includes.append((parent, child, prefix))
+
+    def _router_id(self, node: Node) -> Optional[str]:
+        """A router named bare (`router`) or through a module (`items.router`), as a symbol id."""
+        if node.type == "identifier":
+            return self.resolve_name(_text(node))
+        if node.type == "attribute":
+            chain = self._chain(node)
+            if chain and len(chain) == 2 and chain[0].type == "identifier":
+                sid, _t, binding = self._lookup(_text(chain[0]))
+                if binding is not None and binding.symbol is None:
+                    return f"{binding.file}#{_text(chain[1])}"
+                if sid is not None:
+                    return f"{sid}.{_text(chain[1])}"
+        return None
+
+    def _note_route(self, inner: Node) -> bool:
+        """`@router.get("/items/{id}")`, `@app.route("/x", methods=["POST"])`: the decorated function is a handler."""
+        if inner.type != "call":
+            return False
+        fn = inner.child_by_field_name("function")
+        if fn is None or fn.type != "attribute":
+            return False
+        verb = _text(fn.child_by_field_name("attribute"))
+        if verb not in HTTP_METHODS and verb != "route":
+            return False
+        owner = fn.child_by_field_name("object")
+        if owner is None:
+            return False
+        router = self._router_id(owner)
+        sym = self.by_id.get(self.scope.symbol or "")
+        if sym is None or sym.kind not in ("function", "method"):
+            return False
+        args = inner.child_by_field_name("arguments")
+        path = ""
+        methods = [verb.upper()] if verb != "route" else []
+        for a in args.named_children if args is not None else []:
+            if a.type == "keyword_argument":
+                key = _text(a.child_by_field_name("name"))
+                value = a.child_by_field_name("value")
+                if key in ("path", "rule"):
+                    path = _string_text(value) or path
+                elif key == "methods" and value is not None and value.type in ("list", "tuple", "set"):
+                    methods = [m.upper() for m in (_string_text(c) for c in value.named_children) if m]
+            elif not path:
+                path = _string_text(a) or ""
+        sym.http_methods = methods or ["GET"]
+        sym.http_path = path
+        sym.http_router = router
+        return True
 
     def _visit_write_target(self, target: Node) -> None:
         t = target.type
@@ -589,6 +676,16 @@ class PyFileExtractor:
     def _visit_decorator(self, d: Node) -> None:
         inner = next((c for c in d.named_children), None)
         if inner is None:
+            return
+        if self._note_route(inner):
+            # The router is read by the decorator; the handler is called by the framework, not by the router.
+            fn = inner.child_by_field_name("function")
+            owner = fn.child_by_field_name("object") if fn is not None else None
+            if owner is not None and owner.type == "identifier":
+                self._ref(self.resolve_name(_text(owner)), "read", owner)
+            args = inner.child_by_field_name("arguments")
+            if args is not None:
+                self.visit(args)
             return
         if inner.type == "identifier":
             self._ref(self.resolve_name(_text(inner)), "call", inner)
@@ -687,6 +784,15 @@ class PyFileExtractor:
             elif t in ("import_statement", "import_from_statement"):
                 continue
             stack.extend(node.named_children)
+
+
+def _string_text(node: Optional[Node]) -> Optional[str]:
+    """A plain string literal's text, or None (an f-string with substitutions is not a route path)."""
+    if node is None or node.type != "string":
+        return None
+    if any(c.type == "interpolation" for c in node.named_children):
+        return None
+    return "".join(_text(c) for c in node.named_children if c.type == "string_content")
 
 
 def _is_super(call: Node) -> bool:

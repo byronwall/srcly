@@ -106,7 +106,7 @@ export function SymbolInspector(props: {
                   {(e) => (
                     <span class="flex items-baseline gap-1" title={`${REF_KIND_SPEC[e.kind].hint} · ${RESOLUTION_SPEC[e.resolution].label}: ${RESOLUTION_SPEC[e.resolution].hint}`}>
                       <span classList={{ "text-[var(--plc-warning)]": e.resolution === "name", "text-[var(--plc-on-muted)]": e.resolution !== "name" }}>
-                        {REF_KIND_SPEC[e.kind].verb}
+                        {e.kind === "http" && e.via ? e.via : REF_KIND_SPEC[e.kind].verb}
                         {e.resolution === "name" ? "?" : ""}
                       </span>
                       <For each={e.lines}>

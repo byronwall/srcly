@@ -226,12 +226,12 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
   };
   /** One chip per kind, but extends and implements share one: both are heritage. */
   const CHIPS: { kinds: RefKind[]; label: string; hint: string }[] = [
-    { kinds: ["call"], label: "Calls", hint: REF_KIND_SPEC.call.hint },
-    { kinds: ["instantiate"], label: "New", hint: REF_KIND_SPEC.instantiate.hint },
+    { kinds: ["call", "instantiate"], label: "Calls", hint: `${REF_KIND_SPEC.call.hint}; ${REF_KIND_SPEC.instantiate.hint}` },
     { kinds: ["read"], label: "Reads", hint: REF_KIND_SPEC.read.hint },
     { kinds: ["write"], label: "Writes", hint: REF_KIND_SPEC.write.hint },
     { kinds: ["type"], label: "Types", hint: REF_KIND_SPEC.type.hint },
     { kinds: ["extends", "implements"], label: "Extends", hint: `${REF_KIND_SPEC.extends.hint}; ${REF_KIND_SPEC.implements.hint}` },
+    { kinds: ["http"], label: "HTTP", hint: REF_KIND_SPEC.http.hint },
   ];
   const toggleKinds = (list: RefKind[]) => {
     const next = new Set(kinds());
@@ -315,6 +315,7 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
     if (m.hiddenByKind) parts.push(`${m.hiddenByKind} hidden by the kind filters`);
     if (g.truncated) parts.push("cut at the neighbourhood limit: hide kinds or tests");
     parts.push(`index: ${g.index.symbols.toLocaleString("en-US")} symbols, ${g.index.references.toLocaleString("en-US")} references in ${g.index.files} files`);
+    if (g.index.httpLinks) parts.push(`${g.index.httpLinks} HTTP link${g.index.httpLinks === 1 ? "" : "s"} client → server${g.index.httpUnmatched ? `, ${g.index.httpUnmatched} unanswered` : ""}`);
     return parts.join(" · ");
   };
   const notFound = () => {

@@ -25,13 +25,17 @@ cannot always be sure:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Literal, Optional, Tuple
 
 SymbolKind = Literal["function", "class", "method", "field", "variable", "type", "enum", "module"]
-RefKind = Literal["call", "instantiate", "read", "write", "type", "extends", "implements"]
+RefKind = Literal["call", "instantiate", "read", "write", "type", "extends", "implements", "http"]
 Resolution = Literal["exact", "typed", "name"]
 
-REF_KINDS: tuple[RefKind, ...] = ("call", "instantiate", "read", "write", "type", "extends", "implements")
+REF_KINDS: tuple[RefKind, ...] = ("call", "instantiate", "read", "write", "type", "extends", "implements", "http")
+
+HTTP_METHODS = frozenset({"get", "post", "put", "delete", "patch", "options", "head"})
+# Classes whose instances register routes; a variable holding one is a router, with its prefix.
+ROUTER_CLASSES = frozenset({"APIRouter", "FastAPI", "Flask", "Blueprint"})
 
 # Members every JavaScript or Python value may have. A `receiver.member` whose receiver is unknown and
 # whose member is one of these is a library call until proven otherwise, never resolved by name.
@@ -79,6 +83,10 @@ class Symbol:
     members: Dict[str, str] = field(default_factory=dict)  # member name → symbol id
     # Classes: the ids of the classes it extends (after resolution).
     bases: List[str] = field(default_factory=list)
+    # A route handler: its methods (upper case), the path as decorated, and the router symbol it is registered on.
+    http_methods: List[str] = field(default_factory=list)
+    http_path: Optional[str] = None
+    http_router: Optional[str] = None
 
     @property
     def qualified(self) -> str:
@@ -92,6 +100,20 @@ class Reference:
     kind: RefKind
     line: int
     resolution: Resolution = "exact"
+    # An HTTP reference: the request as matched, `GET /api/items/{id}`.
+    via: Optional[str] = None
+
+
+@dataclass
+class HttpRequest:
+    """A client request seen in a symbol: `fetch("/api/x")`, `new URL("/api/x", …)`, `api.post("/x")`."""
+
+    source: str
+    line: int
+    # Upper case, or None when the call does not say (a `new URL` whose fetch is elsewhere in the function).
+    method: Optional[str]
+    # Same-origin path with `${…}` segments as `*`; None for a method-only hint (`fetch(url, {method: "DELETE"})`).
+    path: Optional[str]
 
 
 @dataclass
@@ -121,3 +143,7 @@ class FileSymbols:
     bases: Dict[str, List[str]] = field(default_factory=dict)
     # Variables whose declared type names a symbol id already (resolved in-file).
     unresolved_members: int = 0
+    # Routers declared in this file: symbol id → its prefix; and `A.include_router(B, prefix=…)`: (A id, B id, prefix).
+    routers: Dict[str, str] = field(default_factory=dict)
+    includes: List[Tuple[str, str, str]] = field(default_factory=list)
+    requests: List[HttpRequest] = field(default_factory=list)

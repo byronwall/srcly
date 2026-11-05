@@ -24,7 +24,7 @@ export interface SymbolViewModel {
 }
 
 /** The canvas style each kind is drawn with: dashes and color the import and flow views already know. */
-const STYLE: Partial<Record<RefKind, ViewEdge["style"]>> = { write: "field", type: "structural", extends: "handoff", implements: "handoff" };
+const STYLE: Partial<Record<RefKind, ViewEdge["style"]>> = { write: "field", type: "structural", extends: "handoff", implements: "handoff", http: "handoff" };
 /** The word drawn along the edge where there is room (calls, the most common, stay bare). */
 const LABEL: Partial<Record<RefKind, string>> = { instantiate: "new", write: "writes", type: "type", extends: "extends", implements: "implements", read: "reads" };
 
@@ -152,7 +152,7 @@ export function symbolPathToViewModel(path: SymbolPath): SymbolViewModel {
     const id = edgeId(e);
     edgeById.set(id, e);
     const { style: _style, ...plain } = viewEdge(e, id);
-    return { ...plain, faint: false, bold: true, label: LABEL[e.kind] ?? "calls", ...(e.kind === "write" ? { style: "field" as const } : {}) };
+    return { ...plain, faint: false, bold: true, label: e.kind === "http" ? (e.via ?? "http") : LABEL[e.kind] ?? "calls", ...(e.kind === "write" ? { style: "field" as const } : {}) };
   });
   return {
     vm: { focusId: path.start, focusKind: "symbol", focusLabel: byId.get(path.start) ? labelOf(byId.get(path.start)!) : qualifiedOf(path.start), breadcrumbs: [], nodes, edges, rolledUp: 0, expanded: [] },
@@ -167,6 +167,8 @@ function viewEdge(e: SymbolEdge, id: string): ViewEdge {
   const guess = e.resolution === "name";
   const times = e.count === 1 ? `once` : `${e.count} times`;
   const lines = e.lines.length ? ` at line${e.lines.length === 1 ? "" : "s"} ${e.lines.join(", ")}` : "";
+  const label = e.kind === "http" ? e.via : LABEL[e.kind];
+  const how = e.kind === "http" ? (guess ? "a guess: more than one handler answers this path" : "matched by method and path") : `${RESOLUTION_SPEC[e.resolution].label}: ${RESOLUTION_SPEC[e.resolution].hint}`;
   return {
     id,
     source: e.source,
@@ -175,10 +177,10 @@ function viewEdge(e: SymbolEdge, id: string): ViewEdge {
     faint: guess || e.kind === "read" || e.kind === "type",
     symbols: [],
     ...(STYLE[e.kind] ? { style: STYLE[e.kind] } : {}),
-    ...(LABEL[e.kind] ? { label: LABEL[e.kind] } : {}),
+    ...(label ? { label } : {}),
     status: guess ? "partial" : "proven",
-    relation: e.kind,
-    detail: `${REF_KIND_SPEC[e.kind].verb} it ${times}${lines} · ${RESOLUTION_SPEC[e.resolution].label}: ${RESOLUTION_SPEC[e.resolution].hint}`,
+    relation: e.kind === "http" ? `http · ${e.via ?? ""}` : e.kind,
+    detail: `${REF_KIND_SPEC[e.kind].verb} it ${times}${lines} · ${how}`,
   };
 }
 
