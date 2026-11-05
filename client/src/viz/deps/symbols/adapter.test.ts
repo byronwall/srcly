@@ -26,6 +26,7 @@ const graph: SymbolGraph = {
     node("a.ts#caller", "function", 1, { inCount: 3, outCount: 1 }),
     node("b.ts#Shape", "type", 1, { inCount: 1 }),
     node("d.ts#dead", "function", 1, { inCount: 0, outCount: 1, refs: "none" }),
+    node("h.py#handler", "function", 2, { inCount: 1, language: "py" }),
     node("t/a.test.ts#spec", "function", 1, { isTest: true, outCount: 1 }),
   ],
   edges: [
@@ -34,6 +35,7 @@ const graph: SymbolGraph = {
     { source: "s.ts#Store", target: "b.ts#Shape", kind: "implements", lines: [1], count: 1, resolution: "exact" },
     { source: "t/a.test.ts#spec", target: "s.ts#Store.bump", kind: "call", lines: [9], count: 1, resolution: "name" },
     { source: "d.ts#dead", target: "s.ts#Store", kind: "type", lines: [2], count: 1, resolution: "exact" },
+    { source: "a.ts#caller", target: "h.py#handler", kind: "http", lines: [12], count: 1, resolution: "exact", via: "GET /api/items/{id}" },
   ],
   index: { symbols: 6, references: 4, files: 4, unresolvedMembers: 0, builtMs: 1 },
 };
@@ -104,7 +106,7 @@ describe("symbolGraphToViewModel", () => {
   it("drops hidden kinds, the symbols only they reach, and says how many", () => {
     const model = symbolGraphToViewModel(graph, { kinds: ["call", "instantiate"], expanded: [] });
     expect(model.vm.nodes.map((n) => n.id)).not.toContain("b.ts#Shape");
-    expect(model.hiddenByKind).toBe(2);
+    expect(model.hiddenByKind).toBe(3);
     expect(model.vm.edges.map((e) => e.relation)).not.toContain("implements");
   });
 
@@ -123,5 +125,14 @@ describe("symbolGraphToViewModel", () => {
     expect(guess.status).toBe("partial");
     expect(guess.detail).toContain("by name");
     expect(model.edgeById.get(guess.id)?.resolution).toBe("name");
+  });
+
+  it("draws an HTTP reference dashed with the request as its label", () => {
+    const model = symbolGraphToViewModel(graph, { kinds: ["http"], expanded: [] });
+    const edge = model.vm.edges.find((e) => e.relation?.startsWith("http"))!;
+    expect(edge.style).toBe("handoff");
+    expect(edge.label).toBe("GET /api/items/{id}");
+    expect(edge.detail).toContain("matched by method and path");
+    expect(model.vm.nodes.find((n) => n.id === "h.py#handler")!.region).toBe("out");
   });
 });

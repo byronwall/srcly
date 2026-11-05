@@ -57,6 +57,7 @@ const ROWS: { swatch: () => JSX.Element; label: string; hint: string }[] = [
   { swatch: () => <EdgeSwatch accent />, label: "writes", hint: "an assignment to a variable or field" },
   { swatch: () => <EdgeSwatch dash={STRUCTURAL_EDGE_DASH} muted />, label: "type", hint: "a type named in an annotation" },
   { swatch: () => <EdgeSwatch dash={HANDOFF_EDGE_DASH} />, label: "extends · implements", hint: "a class or interface extended or implemented" },
+  { swatch: () => <EdgeSwatch dash={HANDOFF_EDGE_DASH} />, label: "GET /api/x", hint: "a client request matched to the server handler by method and path: TypeScript to Python in one graph" },
   { swatch: () => <EdgeSwatch partial faint />, label: "a guess", hint: "resolved by member name alone: the one member of the index with that name" },
   { swatch: () => <BoxSwatch glyph="method" />, label: "box", hint: "a function, class, method, field, variable, type or module; the note counts its references in the whole index" },
   { swatch: () => <BoxSwatch frame />, label: "frame", hint: "the focus with its members; a file on either side, its classes grouped inside" },

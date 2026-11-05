@@ -23,7 +23,7 @@ from tree_sitter import Node
 
 from app.services.deps.common import ImportBinding
 from app.services.deps.typescript_deps import TsFileInfo, TsProgram, _text
-from app.services.symbols.model import FileSymbols, PendingMember, RefKind, Reference, Symbol, SymbolKind
+from app.services.symbols.model import HTTP_METHODS, FileSymbols, HttpRequest, PendingMember, RefKind, Reference, Symbol, SymbolKind
 
 _FUNCTION_LIKE = {"function_declaration", "generator_function_declaration", "arrow_function", "function_expression", "function", "generator_function"}
 _CLASS_LIKE = {"class_declaration", "abstract_class_declaration"}
@@ -642,7 +642,34 @@ class TsFileExtractor:
                 self.visit(c)
         self._pop()
 
+    def _note_request(self, n: Node, kind: RefKind) -> None:
+        """`fetch("/api/x", {method})`, `x.fetch(...)`, `new URL("/api/x", base)`, `api.post("/x")`: a same-origin request."""
+        fn = n.child_by_field_name("function") if kind == "call" else n.child_by_field_name("constructor")
+        args = n.child_by_field_name("arguments")
+        if fn is None or args is None:
+            return
+        first = next((a for a in args.named_children), None)
+        name = _text(fn) if fn.type == "identifier" else _text(fn.child_by_field_name("property")) if fn.type == "member_expression" else ""
+        method: Optional[str] = None
+        if kind == "instantiate":
+            if name != "URL":
+                return
+        elif name == "fetch":
+            second = args.named_children[1] if len(args.named_children) > 1 else None
+            method = _literal_method(second)
+        elif fn.type == "member_expression" and name in HTTP_METHODS:
+            method = name.upper()
+        else:
+            return
+        path = _path_text(first)
+        if path is None and method is None:
+            return
+        if path is None and name != "fetch":
+            return
+        self.out.requests.append(HttpRequest(source=self.scope.symbol or self.rel, line=n.start_point[0] + 1, method=method, path=path))
+
     def _visit_call(self, n: Node, kind: RefKind) -> None:
+        self._note_request(n, kind)
         fn = n.child_by_field_name("function") if kind == "call" else n.child_by_field_name("constructor")
         if fn is not None:
             if fn.type == "identifier":
@@ -675,6 +702,41 @@ class TsFileExtractor:
 def _same(a: Optional[Node], b: Optional[Node]) -> bool:
     """tree-sitter hands out a new Node object on every access, so identity is by node id."""
     return a is not None and b is not None and a.id == b.id
+
+
+def _path_text(node: Optional[Node]) -> Optional[str]:
+    """A same-origin request path from a string or template literal, `${…}` as `*`; None otherwise."""
+    if node is None:
+        return None
+    if node.type == "string":
+        raw = _text(node)
+        text = raw[1:-1] if len(raw) >= 2 else ""
+    elif node.type == "template_string":
+        parts: List[str] = []
+        for c in node.children:
+            if c.type == "string_fragment":
+                parts.append(_text(c))
+            elif c.type == "template_substitution":
+                parts.append("*")
+        text = "".join(parts)
+    else:
+        return None
+    if not text.startswith("/") or text.startswith("//"):
+        return None
+    return text.split("?", 1)[0].split("#", 1)[0]
+
+
+def _literal_method(options: Optional[Node]) -> Optional[str]:
+    """The `method: "POST"` of a fetch options object literal, upper case; None when absent or not literal."""
+    if options is None or options.type != "object":
+        return None
+    for prop in options.named_children:
+        if prop.type == "pair" and _text(prop.child_by_field_name("key")).strip("\"'") == "method":
+            value = prop.child_by_field_name("value")
+            if value is not None and value.type in ("string", "template_string") and "${" not in _text(value):
+                return _text(value)[1:-1].upper()
+            return None
+    return None
 
 
 def _pattern_names(pattern: Node) -> Iterator[str]:

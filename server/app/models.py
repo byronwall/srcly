@@ -256,6 +256,8 @@ class SymbolGraphEdge(BaseModel):
     count: int
     # How the reference was resolved: `exact`, `typed` (through a declared type) or `name` (member name alone).
     resolution: str
+    # An `http` reference: the request as matched, `GET /api/items/{id}`.
+    via: str | None = None
 
 
 class SymbolIndexInfo(BaseModel):
@@ -266,6 +268,9 @@ class SymbolIndexInfo(BaseModel):
     files: int
     unresolved_members: int = Field(alias="unresolvedMembers")
     built_ms: int = Field(alias="builtMs")
+    # Client requests joined to a handler of the index, and ones nothing answers.
+    http_links: int = Field(0, alias="httpLinks")
+    http_unmatched: int = Field(0, alias="httpUnmatched")
 
 
 class SymbolGraph(BaseModel):
