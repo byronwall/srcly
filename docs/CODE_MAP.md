@@ -275,9 +275,10 @@ Plan: `docs/intent/symbol-graph/`. Backlog area `area-symbol-graph` in `pgm/data
 | --- | --- |
 | Symbol and reference model: ids `file#Qualified.name`, kinds (function, class, method, field, variable, type, enum, module), reference kinds (call, instantiate, read, write, type, extends, implements), resolution (`exact`, `typed`, `name`), the builtin member stop list | `server/app/services/symbols/model.py` |
 | TypeScript extractor: scope stack (enclosing symbol, class for `this`, shadowing locals, nested symbols), members and object-literal methods as nodes, typed receivers from annotations and `new`, pending member references; reuses `TsProgram` for parsing, module resolution and barrels | `server/app/services/symbols/typescript.py`, `server/app/services/deps/typescript_deps.py` (`TsProgram`) |
+| Python extractor: the same contract; class scopes seen only from the class body, `self`/`cls` (the first parameter of a method) and `super()` as the class receiver, fields from class-body and `self.x = …` assignments, `global`, function-local imports, module attribute chains descended to the deepest known module; `PyProgram` reuses `PyModuleIndex` and `parse_py_file` with `__init__` re-exports passed through | `server/app/services/symbols/python.py` |
 | Index: merge files, settle member references (`this`/`super`, class-qualified, module attribute, typed receiver, else a unique non-builtin member name for calls), mtime cache, neighbourhood BFS with hop and direction, merged edges, search | `server/app/services/symbols/index.py` |
 | Response models | `server/app/models.py` (`SymbolGraph`, `SymbolGraphNode`, `SymbolGraphEdge`, `SymbolSearch`) |
-| Tests: extractor rules and queries; router | `server/tests/test_symbol_index_ts.py`, `server/tests/test_symbols_router.py` |
+| Tests: extractor rules and queries; router | `server/tests/test_symbol_index_ts.py`, `server/tests/test_symbol_index_py.py`, `server/tests/test_symbols_router.py` |
 
 ### Client: Graph views
 

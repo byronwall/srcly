@@ -200,7 +200,18 @@ def assemble(root: Path, parts: List[FileSymbols]) -> SymbolIndex:
     for part in parts:
         for r in part.references:
             if r.target in symbols and r.source in symbols:
+                if r.kind == "call" and symbols[r.target].kind == "class":
+                    r.kind = "instantiate"  # Python: a class called is a class instantiated
                 references.append(r)
+                _note_base(r, symbols)
+    # Bases written as members (`class Sub(models.Node)`) settle before anything that walks bases.
+    for part in parts:
+        for p in part.pending:
+            if p.kind == "extends":
+                settled = _settle(p, symbols, members_by_name)
+                if settled is not None:
+                    _note_base(settled, symbols)
+    for part in parts:
         for p in part.pending:
             settled = _settle(p, symbols, members_by_name)
             if settled is None:
@@ -214,6 +225,13 @@ def assemble(root: Path, parts: List[FileSymbols]) -> SymbolIndex:
     index.members_by_name = members_by_name
     index.built_ms = int((time.monotonic() - started) * 1000)
     return index
+
+
+def _note_base(r: Reference, symbols: Dict[str, Symbol]) -> None:
+    if r.kind == "extends":
+        cls = symbols.get(r.source)
+        if cls is not None and cls.kind == "class" and r.target not in cls.bases:
+            cls.bases.append(r.target)
 
 
 def _member_of(cls: Symbol, name: str, symbols: Dict[str, Symbol], skip_self: bool = False, depth: int = 0) -> Optional[str]:
@@ -307,6 +325,12 @@ def build_symbol_index(root: Path, use_cache: bool = True) -> SymbolIndex:
 
         ts_parts, _program = extract_ts(root, ts_files)
         parts.extend(ts_parts)
+    py_files = [f for f in files if f.suffix == ".py"]
+    if py_files:
+        from app.services.symbols.python import extract_py
+
+        py_parts, _py_program = extract_py(root, py_files)
+        parts.extend(py_parts)
     index = assemble(root, parts)
     if use_cache:
         with _lock:
