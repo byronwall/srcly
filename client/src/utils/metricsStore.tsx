@@ -19,7 +19,7 @@ import type { QuadrantPreset } from "../viz/scatter/quadrants";
 export type MetricId = string;
 
 /** Languages as the analyzers see them (see `languageForPath`). */
-export type MetricLanguage = "ts" | "tsx" | "python" | "notebook" | "markdown" | "css" | "code" | "text";
+export type MetricLanguage = "ts" | "tsx" | "js" | "jsx" | "python" | "notebook" | "markdown" | "css" | "code" | "text";
 
 /** "higher-worse" and "lower-worse" metrics can rank Hot Spots; "neutral" detail never does. */
 export type MetricDirection = "higher-worse" | "lower-worse" | "neutral";

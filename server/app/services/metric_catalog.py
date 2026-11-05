@@ -69,8 +69,8 @@ class MetricSpec:
     def languages(self) -> list[str] | None:
         """Languages whose analyzers measure it; ``None`` when every file has it."""
         if self.id in FINDINGS_METRICS:
-            # Checkers exist for these; eslint can also check plain JS ("code").
-            return ["ts", "tsx", "python", "code"]
+            # Checkers exist for these: tsc and eslint, eslint for plain JS, ruff.
+            return ["ts", "tsx", "js", "jsx", "python"]
         langs = [lang for lang, measured in MEASURED_FILE_METRICS.items() if self.id in measured]
         return langs or None
 

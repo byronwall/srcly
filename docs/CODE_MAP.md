@@ -57,14 +57,14 @@ Browser
 | Background scan jobs, progress snapshots, dedupe by path | `server/app/services/scan_jobs.py` (`ScanJob`, `ScanJobManager`) |
 | Compact tree on the wire (no defaults, derived child paths, gzip); cache, compare and CLI keep the full tree | `server/app/services/scan_jobs.py` (`compact_tree`, `expand_tree`, `ScanJob.result_response`); client inverse `client/src/utils/normalizeTree.ts` (in `fetchScanResult`) |
 | Language dispatch by extension | `server/app/services/analysis.py` (`analyze_single_file`) |
-| TypeScript / TSX metrics + nested scopes | `server/app/services/typescript/typescript_analysis.py` |
+| TypeScript / TSX and JavaScript / JSX metrics + nested scopes (JS parses with the TSX grammar; languages `js`/`jsx` measure no `ts_*` metrics) | `server/app/services/typescript/typescript_analysis.py`; dispatch in `analysis.py` (`analyze_single_file`, `language_for_path`) |
 | React/Solid component detection + per-component metrics (hooks, effects, JSX depth, props, inline handlers, JSX conditionals) | `server/app/services/typescript/components.py`; copied onto component scopes in `typescript_analysis.py` (`_attach_components`); file/folder max + `witnesses` in `analysis.py` |
 | Comment noise (narrated functions, oversized docblocks, commented-out code; absolute thresholds) | `server/app/services/comment_noise.py`; fed by `typescript_analysis.py` / `python_analysis.py` (`_apply_comment_noise`) |
 | Python metrics | `server/app/services/python/python_analysis.py` |
 | CSS / SCSS metrics | `server/app/services/css/css_analysis.py` |
 | Markdown metrics | `server/app/services/markdown/markdown_analysis.py` |
 | Jupyter notebook metrics | `server/app/services/ipynb/ipynb_analysis.py` |
-| Everything else lizard has a reader for (Go, PHP, JS, …) | `lizard.analyze_file` fallback in `analyze_single_file` |
+| Everything else lizard has a reader for (Go, PHP, Java, …) | `lizard.analyze_file` fallback in `analyze_single_file` |
 | No reader (YAML, MDX, shell, HTML, dotfiles): streaming line count, no lizard | `analysis.py` (`count_lizard_style_nloc`) |
 | Analyzer result dataclasses; scope kinds (`scope_kind`, executable vs display scopes); which metrics each language measures (`MEASURED_FILE_METRICS`, `MEASURED_SCOPE_METRICS`) | `server/app/services/analysis_types.py` |
 | Folder rollups of metrics (N/A children skipped; complexity and component witnesses carried up) | `server/app/services/analysis.py` (`aggregate_metrics`) |
