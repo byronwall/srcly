@@ -11,7 +11,46 @@ test.beforeAll(() => {
   fs.writeFileSync(path.join(root, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, target: "ES2022", module: "ESNext", moduleResolution: "Bundler" }, include: ["src"] }));
   fs.writeFileSync(path.join(root, "src/state.ts"), "export const count = 1;\n");
   fs.writeFileSync(path.join(root, "src/consumer.ts"), 'import { count } from "./state";\nexport const double = () => count * 2;\n');
+  fs.writeFileSync(path.join(root, "src/types.ts"), 'export interface Person { name: string }\nexport const person: Person = { name: "Ada" };\n');
+  fs.writeFileSync(path.join(root, "src/math.ts"), 'const offset = 2;\nexport function total(x: number) { return x + offset; }\n');
   for (const args of [["init", "-q"], ["config", "user.email", "test@srcly.invalid"], ["config", "user.name", "Srcly test"], ["add", "."], ["commit", "-qm", "fixture"]]) execFileSync("git", args, { cwd: root });
+});
+
+test("type edits deliberately produce a repair list and remain executable", async ({ page }) => {
+  await page.goto(`/?${new URLSearchParams({ repo: root, view: "refactor" })}`);
+  await page.locator("[data-refactor-load]").click();
+  await page.locator('[data-refactor-file="src/types.ts"]').click();
+  await page.locator("[data-refactor-operation]").selectOption("add-member");
+  await page.locator("[data-refactor-symbol]").fill("Person");
+  await page.locator("[data-refactor-destination]").fill("age: number");
+  await page.locator("[data-refactor-add]").click();
+  await page.locator("[data-refactor-preview]").click();
+  await expect(page.locator("[data-refactor-run-status]")).toHaveText("ready-with-errors", { timeout: 90_000 });
+  await expect(page.locator("[data-refactor-type-errors]")).toContainText("Property 'age' is missing");
+  await page.locator("[data-refactor-next]").click();
+  await expect(page.locator("[data-refactor-run-status]")).toHaveText("complete-with-errors");
+  expect(fs.readFileSync(path.join(root, "src/types.ts"), "utf8")).not.toContain("age");
+  await page.screenshot({ path: path.resolve("../tmp/e2e/refactor-type-errors.png"), fullPage: true });
+});
+
+test("a symbol move proposes dependencies as actionable DSL steps", async ({ page }) => {
+  await page.goto(`/?${new URLSearchParams({ repo: root, view: "refactor" })}`);
+  await page.locator("[data-refactor-load]").click();
+  await page.locator('[data-refactor-file="src/math.ts"]').click();
+  await page.locator("[data-refactor-operation]").selectOption("move-symbol");
+  await page.locator("[data-refactor-symbol]").fill("total");
+  await page.locator("[data-refactor-destination]").fill("src/model/math.ts");
+  await page.locator("[data-refactor-add]").click();
+  await page.locator("[data-refactor-preview]").click();
+  await expect(page.locator("[data-refactor-run-status]")).toHaveText("blocked", { timeout: 90_000 });
+  await expect(page.locator(".rf-suggestion")).toContainText("move-symbol $offset");
+  await page.locator(".rf-suggestion button").click();
+  await page.locator("[data-refactor-preview]").click();
+  await expect(page.locator("[data-refactor-run-status]")).toHaveText("ready", { timeout: 90_000 });
+  await expect(page.locator("[data-refactor-step]")).toHaveCount(2);
+  await page.locator("[data-refactor-all]").click();
+  await expect(page.locator("[data-refactor-run-status]")).toHaveText("complete");
+  await page.screenshot({ path: path.resolve("../tmp/e2e/refactor-symbol-chain.png"), fullPage: true });
 });
 
 test("refactoring vertical slice: visual plan, compiler preview, apply, undo and reload", async ({ page }) => {

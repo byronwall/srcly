@@ -26,7 +26,9 @@ def inspect(root: Path, config: str, action: dict | None = None) -> dict:
                                     text=True, capture_output=True, timeout=120)
         payload = json.loads(result.stdout)
         if result.returncode or "error" in payload:
-            raise RefactorError(payload.get("error", "The refactoring compiler failed."), code="compiler-refused")
+            error = RefactorError(payload.get("error", "The refactoring compiler failed."), code="compiler-refused")
+            error.diagnostic.update(payload.get("diagnostic", {}))
+            raise error
         return payload
     except subprocess.TimeoutExpired as exc:
         raise RefactorError("The refactoring compiler exceeded 120 seconds.") from exc

@@ -35,6 +35,15 @@ def test_installed_cli():
     assert "Interactive codebase treemap" in result.stdout
 
 
+def test_installed_refactor_cli():
+    import json
+
+    result = subprocess.run(["srcly", "refactor", "catalog"], capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stderr
+    catalog = json.loads(result.stdout)
+    assert {"move-symbol", "extract-function", "add-member"} <= {op["name"] for op in catalog["operations"]}
+
+
 def test_bundled_engine(tmp_path, monkeypatch):
     """The wheel's engine answers on a copy of solid-route, with no checkout to fall back on."""
     import json

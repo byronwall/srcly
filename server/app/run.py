@@ -12,6 +12,7 @@ import uvicorn
 
 from app import startup_info
 from app.services import activity, file_classes, metric_catalog, quadrants, reporting, scopes
+from app.services.refactor import cli as refactor_cli
 from app.services.scan_workers import ScanCancelled
 
 # Seconds uvicorn waits for open connections after Ctrl+C before closing them.
@@ -80,6 +81,9 @@ def _main(argv: list[str] | None = None) -> None:
     - Opens the default browser to the app URL.
     """
     argv = list(argv) if argv is not None else sys.argv[1:]
+    if argv and argv[0] == "refactor":
+        refactor_cli.main(argv[1:])
+        return
     if argv and argv[0] in {"scan", "report", "hotspots", "explain", "compare"}:
         # stderr, so JSON on stdout stays clean.
         print(startup_info.version_line(), file=sys.stderr, flush=True)
@@ -99,6 +103,7 @@ def _main(argv: list[str] | None = None) -> None:
             "  explain   drill into the repo, a folder, a file, or file::symbol\n"
             "  hotspots  rank files or functions by one metric\n"
             "  compare   metric and dependency changes between two git refs\n"
+            "  refactor  compile a DSL plan and execute its recorded codemod\n"
             "  scan      write the raw analysis tree as JSON"
         ),
     )

@@ -227,6 +227,8 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist is `
 | Refactoring DSL parser and isolated worktree preview/execution; durable write-ahead journal, exact source/edit preconditions, reversible checkpoints | `server/app/services/refactor/plan.py`, `runs.py`; API `server/app/routers/refactor.py` (`/api/refactor`) |
 | Deterministic TypeScript compiler edits and per-step diagnostics; separate bounded process, included in the wheel | `engine/src/refactor/typescript.ts`, `engine/bin/srcly-refactor.ts`; `server/app/services/refactor/compiler.py` |
 | Real compiler/journal acceptance and browser workflow screenshots | `server/tests/test_refactor.py`, `client/e2e/refactor.spec.ts` |
+| Symbol and interface-member rename, dependency-guided symbol moves, function and display-only JSX extraction; interface/type declaration and member edits with explicit downstream diagnostics | `engine/src/refactor/symbols.ts`, `type-edits.ts`; acceptance `server/tests/test_refactor_operations.py` |
+| Headless agent DSL → structured diagnostics → exact codemod → apply/undo; shared catalog and cross-process journal locks | `server/app/services/refactor/cli.py`, `catalog.py`, `runs.py`; entry `server/app/run.py` (`_main`) |
 
 ### Client: Treemap
 

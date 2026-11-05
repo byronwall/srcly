@@ -85,3 +85,69 @@ Acceptance: `server/tests/test_refactor.py` exercises real compiler edits throug
 aliases, re-exports and TSX, chained handle moves, stale-input refusals, failed
 preview rollback and interrupted execution recovery. `client/e2e/refactor.spec.ts`
 drives the real app through preview, apply, reload and undo and captures screenshots.
+
+## Symbols, extraction and type edits
+
+The operation picker and `srcly refactor catalog` now expose symbol moves,
+symbol/interface-property renames, function and display-only component extraction,
+and adding, updating or removing types and type members. Use symbol handles for
+declarations (`"Props.title"` names an interface member) and selection handles for
+unique exact source text. Quoted strings use JSON escapes, including `\n` for a
+multiline selection. An extraction changes its handle into the generated symbol;
+a nested extracted component has a qualified handle such as `Card.Details`.
+
+```text
+refactor 1
+project "tsconfig.json"
+let formula = selection "src/math.ts" "x * 2 + 1"
+extract-function $formula -> calculate
+rename $formula -> compute
+move-symbol $formula -> "src/math/compute.ts"
+```
+
+Moves refuse local dependencies with the `dependencies-required` diagnostic,
+listing names and suggested declarations/steps. The UI can insert a suggestion
+before the blocked move. `reexport` on a named symbol move retains its old public
+entry point. A move of a nested closure requires an explicit interface for its
+captured variables. Initial component extraction accepts intrinsic display-only
+markup with lexical reads; calls, child components, refs, directives and spreads
+are named refusals. These constraints are part of the operation, not guesses made
+by the agent. `server/tests/test_refactor_operations.py` covers the real compiler.
+
+Type edits deliberately differ from structural operations. The user can add a
+required member and let TypeScript enumerate the broken consumers:
+
+```text
+refactor 1
+let person = symbol "src/types.ts" "Person"
+add-member $person "age: number"
+```
+
+The result is `ready-with-errors`, then `complete-with-errors` when applied. Every
+diagnostic is visible by file, line, code and message. These are executable type
+edits and explicit repair work. `update-member $person "age?: number"` can resolve
+those errors in a later step. `remove-member`, `add-type`, `update-type` and
+`remove-type` use the same policy. Syntax/config errors always block. Other
+operations cannot introduce new compiler errors. Default-value insertion is not
+implemented; it needs a separate value-generation policy.
+
+![Required type member applied with an explicit TypeScript repair list](assets/type-member-errors.png)
+
+## Headless agent workflow
+
+```sh
+srcly refactor catalog
+srcly refactor project --path /absolute/project --config tsconfig.json
+srcly refactor parse plan.srcly
+srcly refactor preview plan.srcly --path /absolute/project
+srcly refactor codemod RUN_ID > codemod.json
+srcly refactor apply RUN_ID             # next step
+srcly refactor apply RUN_ID --all
+srcly refactor undo RUN_ID
+srcly refactor show RUN_ID
+```
+
+All output is JSON. Invalid or blocked plans exit with status 2 and structured
+diagnostics. The codemod artifact includes its execution command. The CLI and
+server use the same persistent runs, with an OS file lock per run so an agent and
+the UI cannot apply a step simultaneously. There is no model call in execution.

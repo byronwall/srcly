@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.services.refactor import compiler, runs
+from app.services.refactor.catalog import catalog as operation_catalog
 from app.services.refactor.plan import RefactorError, parse, safe_path
 
 router = APIRouter(prefix="/api/refactor", tags=["refactor"])
@@ -12,16 +13,7 @@ router = APIRouter(prefix="/api/refactor", tags=["refactor"])
 
 @router.get("/catalog")
 def catalog():
-    return {
-        "dslVersion": 1,
-        "workflow": ["catalog", "project", "parse", "preview", "codemod", "execute"],
-        "operations": [{"name": "move-file", "syntax": 'move-file <path|$handle> -> "destination.ts"',
-                        "preconditions": ["clean source commit", "one leaf tsconfig", "unused destination", "unchanged file extension", "no computed imports or location-sensitive source"],
-                        "updates": ["source location", "imports", "re-exports", "file handles"],
-                        "validation": "TypeScript diagnostics before and after each step"}],
-        "example": 'refactor 1\nproject "tsconfig.json"\nlet state = file "src/state.ts"\nmove-file $state -> "src/model/state.ts"\n',
-        "execution": "Preview first; execute its registered codemod in the returned isolated worktree. Unknown operations and failed preconditions block execution.",
-    }
+    return operation_catalog()
 
 
 class PlanRequest(BaseModel):
@@ -59,8 +51,10 @@ def preview(request: PlanRequest):
 
 @router.get("/runs/{run_id}")
 def get_run(run_id: str):
-    with runs._lock:
-        return _call(lambda: runs.public(runs.load(run_id)))
+    def result():
+        with runs.locked(run_id):
+            return runs.public(runs.load(run_id))
+    return _call(result)
 
 
 @router.post("/runs/{run_id}/execute")
@@ -70,10 +64,7 @@ def execute(run_id: str, request: ExecuteRequest):
 
 @router.get("/runs/{run_id}/codemod")
 def codemod(run_id: str):
-    with runs._lock:
-        def artifact():
-            run = runs.load(run_id)
-            return {"format": "srcly-codemod-1", "base": run["commit"], "source": run["source"],
-                    "status": run["status"], "steps": run["steps"],
-                    "execute": {"method": "POST", "path": f"/api/refactor/runs/{run_id}/execute", "body": {"mode": "all"}}}
-        return _call(artifact)
+    def artifact():
+        with runs.locked(run_id):
+            return runs.codemod(runs.load(run_id))
+    return _call(artifact)
