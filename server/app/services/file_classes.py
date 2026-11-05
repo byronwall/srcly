@@ -12,14 +12,16 @@ from __future__ import annotations
 from pathlib import PurePosixPath
 from typing import Literal
 
-FileClass = Literal["code", "test", "docs", "fixture", "generated", "vendored", "config", "data"]
-CLASSES: tuple[FileClass, ...] = ("code", "test", "docs", "fixture", "generated", "vendored", "config", "data")
+FileClass = Literal["code", "test", "docs", "style", "fixture", "generated", "vendored", "config", "data"]
+CLASSES: tuple[FileClass, ...] = ("code", "test", "docs", "style", "fixture", "generated", "vendored", "config", "data")
 
 _VENDORED_DIRS = {"vendor", "vendors", "third_party", "third-party", "node_modules", "bower_components"}
 _GENERATED_DIRS = {"dist", "build", "generated", "__generated__", "out"}
 _FIXTURE_DIRS = {"fixtures", "__fixtures__", "fixture", "testdata", "__snapshots__", "snapshots", "examples", "golden"}
 _TEST_DIRS = {"test", "tests", "__tests__", "e2e", "spec", "specs"}
 _DOC_SUFFIXES = {".md", ".mdx", ".mdc", ".markdown", ".rst", ".txt", ".adoc"}
+# Stylesheets have no functions to start at, and their size is not a refactor signal for code.
+_STYLE_SUFFIXES = {".css", ".scss", ".sass", ".less", ".styl"}
 _DATA_SUFFIXES = {".csv", ".tsv", ".jsonl", ".ndjson", ".parquet", ".sql"}
 _CONFIG_SUFFIXES = {".json", ".jsonc", ".yml", ".yaml", ".toml", ".ini", ".cfg", ".lock", ".env"}
 _LOCKFILES = {"package-lock.json", "pnpm-lock.yaml", "yarn.lock", "uv.lock", "poetry.lock", "Cargo.lock", "Gemfile.lock"}
@@ -47,6 +49,8 @@ def classify(path: str) -> tuple[FileClass, str]:
         return "fixture", f"under {hit}/"
     if suffix in _DOC_SUFFIXES:
         return "docs", f"{suffix} document"
+    if suffix in _STYLE_SUFFIXES:
+        return "style", f"{suffix} stylesheet"
     if hit := next((d for d in dirs if d in _TEST_DIRS), None):
         return "test", f"under {hit}/"
     if name.startswith("test_") or name.endswith(("_test.py", "_test.go")) or ".test." in name or ".spec." in name:
