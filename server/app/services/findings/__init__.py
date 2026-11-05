@@ -7,7 +7,9 @@ Each tool runs as its own job with a timeout, outside the scan path:
   ``node_modules/.bin`` has the tool and the config exists;
 - ``ruff`` (bundled with srcly) for Python, with the project's config or
   srcly's default rule set ("srcly defaults");
-- srcly's tree-sitter TS rules for TS files no project tool checks.
+- srcly's tree-sitter TS rules for TS files no project tool checks;
+- srcly's reachability check: TS files no entry reaches and exports nothing
+  else uses (``reachability.py``).
 
 Results become two per-file metrics, ``finding_count`` and ``error_count``
 (summed into folders), plus a source-linked list for the code viewer. Every
