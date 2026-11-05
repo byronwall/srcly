@@ -3,7 +3,9 @@ export type Step = { kind: string; target: string; to: string; line: number; lab
 export type SymbolInfo = { file: string; name: string; kind: string; line: number };
 export type Diagnostic = { code: string | number; message: string; file?: string; line: number | null; suggestions?: string[] };
 export type Plan = { version: number; config: string; handles: Record<string, { file: string; kind?: string; name?: string; text?: string }>; steps: Step[] };
-export type RunStep = Step & { status: string; graph?: Graph; symbols?: SymbolInfo[]; diagnostics?: Diagnostic[]; files: { path: string; status: string; diff: string }[] };
+export type Machine = { states: string[]; events: string[]; transitions: { from: string; event: string; to: string }[]; proof: string };
+export type Ownership = { provider: string; hook: string; root: { file: string; name: string }; consumers: { file: string; name: string }[]; values: string[]; scope: string };
+export type RunStep = Step & { status: string; graph?: Graph; symbols?: SymbolInfo[]; diagnostics?: Diagnostic[]; machine?: Machine; ownership?: Ownership; files: { path: string; status: string; diff: string }[] };
 export type Run = {
   id: string; source: string; sourceRoot: string; commit: string; worktree: string;
   status: string; applied: number; steps: RunStep[]; graph?: Graph; error: string | null;

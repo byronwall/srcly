@@ -151,3 +151,49 @@ All output is JSON. Invalid or blocked plans exit with status 2 and structured
 diagnostics. The codemod artifact includes its execution command. The CLI and
 server use the same persistent runs, with an OS file lock per run so an agent and
 the UI cannot apply a step simultaneously. There is no model call in execution.
+
+## Solid ownership and finite state machines
+
+A context step moves a whole state module into a factory evaluated inside a Solid
+provider. The selected root becomes a provider facade around its original content,
+so state reads in the root also run below the provider. Named consumer imports
+become hook calls at the start of their owning component or hook. Signal accessors
+are retained; setup order, effect bodies and cleanup bodies are copied unchanged.
+This deliberately changes singleton state to one instance per provider.
+
+```text
+refactor 1
+let app = symbol "src/App.tsx" "App"
+solid-context "src/state.ts" -> "src/CounterContext.tsx" provider CounterProvider hook useCounter within $app
+```
+
+The prototype accepts named function components/hooks and const signal/store
+modules. It checks direct component/hook reachability from the selected root and
+refuses uncovered consumers, escaping callbacks, state re-exports, module-scope
+reads and unsupported roots. Higher-order components, namespace imports, arrow
+component owners and arbitrary provider topology require additional evidence.
+Imported dependencies keep their existing module lifetimes. The preview records
+the ownership change and every rewritten consumer. Runtime acceptance compiles
+the emitted TSX with Solid's JSX transform and verifies independent state,
+reactive effects, disposal and missing-provider errors against the reactive core.
+File/symbol handles follow the factory conversion and later moves/renames.
+
+```text
+refactor 1
+let reducer = symbol "src/machine.ts" "transition"
+state-machine $reducer -> transitions
+```
+
+The machine operation accepts a synchronous function over two explicit finite
+string unions: state and event (at most 32 values each). Its pure grammar is
+if/else, blocks, returns, strict comparisons and boolean guards. It interprets all
+state/event pairs without evaluating user code, preserves branch priority and
+requires a total result in the state domain. Effects, unknown predicates and
+missing returns block. The generated typed table lives inside the function to
+preserve initialization/hoisting behavior. Computed keys preserve literal keys
+such as `__proto__`. The app shows the entire transition matrix and the exact diff.
+Equivalence is established over the declared TypeScript input domain; untyped
+runtime inputs and effectful state machines need a separate model.
+
+![Solid context migration](assets/solid-context.png)
+![Finite transition matrix](assets/state-machine.png)

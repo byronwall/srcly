@@ -17,9 +17,12 @@ export function identifier(name: string) {
 }
 
 type Named = { name: ts.Identifier; declaration: ts.Declaration; statement: ts.Statement };
+function bindingNames(name: ts.BindingName): ts.Identifier[] {
+  return ts.isIdentifier(name) ? [name] : name.elements.flatMap((element) => ts.isOmittedExpression(element) ? [] : bindingNames(element.name));
+}
 export function topNames(source: ts.SourceFile | ts.Block): Named[] {
   return source.statements.flatMap<Named>((statement) => {
-    if (ts.isVariableStatement(statement)) return statement.declarationList.declarations.flatMap((declaration) => ts.isIdentifier(declaration.name) ? [{ name: declaration.name, declaration, statement }] : []);
+    if (ts.isVariableStatement(statement)) return statement.declarationList.declarations.flatMap((declaration) => bindingNames(declaration.name).map((name) => ({ name, declaration, statement })));
     if ((ts.isFunctionDeclaration(statement) || ts.isInterfaceDeclaration(statement) || ts.isTypeAliasDeclaration(statement) || ts.isClassDeclaration(statement) || ts.isEnumDeclaration(statement)) && statement.name) return [{ name: statement.name, declaration: statement as ts.Declaration, statement }];
     return [];
   });

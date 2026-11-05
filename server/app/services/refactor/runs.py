@@ -242,9 +242,12 @@ def preview(root: Path, source: str) -> dict:
             handle = handles[step["target"][1:]] if step["target"].startswith("$") else {"file": step["target"]}
             target = handle["file"]
             action = {**handle, "kind": step["kind"], "to": step["to"], "reexport": step.get("reexport", False)}
+            if step["kind"] == "solid-context":
+                action.update(provider=step["provider"], hook=step["hook"], owner=handles[step["owner"][1:]])
             entry = {**step, "status": "blocked", "changes": []}
             run["steps"].append(entry)
             proposal = compiler.inspect(project_root, plan["config"], action)
+            entry.update({key: proposal[key] for key in ("machine", "ownership") if key in proposal})
             changes = proposal["changes"]
             old_file = contained(project_root, target)
             old_mode = stat.S_IMODE(old_file.stat().st_mode) if old_file.exists() else 0o644
@@ -297,6 +300,10 @@ def update_handles(handles: dict, step: dict, action: dict, proposal: dict) -> N
             continue
         if step["kind"] == "move-file":
             handle["file"] = step["to"]
+        elif step["kind"] == "solid-context":
+            handle["file"] = step["to"]
+            if handle.get("name") in proposal["ownership"]["values"]:
+                handle["name"] = "createSrclyState." + handle["name"]
         elif action.get("name") and (handle.get("name") == action["name"] or handle.get("name", "").startswith(action["name"] + ".")):
             if step["kind"] == "move-symbol":
                 handle["file"] = step["to"]
