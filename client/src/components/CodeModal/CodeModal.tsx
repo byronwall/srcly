@@ -13,6 +13,9 @@ import { DialogShell } from "../dialog/DialogShell";
 import { MarkdownPane } from "./MarkdownPane";
 import { MetricsSidebar } from "./MetricsSidebar";
 import { InspectMenu } from "./InspectMenu";
+import { searchSymbols } from "../../symbols/api";
+import { identifierAt } from "../../symbols/identifier";
+import { refsPatch } from "../../navigation/nodeActions";
 import { ValueFlowLedger } from "./ValueFlowLedger";
 import { createEffectsQuery, EffectsPanel } from "../../dataflow/EffectsPanel";
 import { createValueFlowInspector } from "../../investigation/valueFlowInspector";
@@ -203,6 +206,20 @@ export default function CodeModal(props: CodeModalProps) {
       if (at === null) return;
       props.onClose();
       go({ view: "graph", flow: undefined, field: undefined, dest: undefined, open: undefined, anchor: encodeAnchor({ file: at, span: candidate.span }), dir: direction });
+    },
+    // Show references: the identifier under the caret, looked up in the symbol index (this file's symbol first).
+    onReferences: ({ line, column }) => {
+      const at = props.rootPath && props.filePath ? atFromTreePath(props.filePath, props.rootPath) : null;
+      const text = (rawCode() ?? "").split("\n")[line - 1] ?? "";
+      const name = identifierAt(text, column);
+      if (at === null || !name || !props.rootPath) return;
+      void searchSymbols({ path: props.rootPath, q: name, limit: 50 }).then((res) => {
+        const exact = res.hits.filter((h) => h.name === name);
+        const hit = exact.find((h) => h.file === at) ?? exact[0] ?? res.hits[0];
+        if (!hit) return;
+        props.onClose();
+        go(refsPatch({ at: hit.id }));
+      });
     },
   });
   /** The ledger's rows are marked through the metric overlay while this is on. */

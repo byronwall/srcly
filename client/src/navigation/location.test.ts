@@ -1,24 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  encodeAnchors,
-  MAX_ANCHORS,
-  parseAnchors,
-  ancestorsOf,
-  baseName,
-  atFromTreePath,
-  crumbsFor,
-  encodeAnchor,
-  isDataFlow,
-  parseAnchor,
-  graphIdFor,
-  normalizeScopeName,
-  parentAt,
-  parseLocation,
-  sameLocation,
-  samePlace,
-  toSearch,
-  treePathFromAt,
-} from "./location";
+import { MAX_ANCHORS, ancestorsOf, atFromTreePath, baseName, crumbsFor, encodeAnchor, encodeAnchors, graphIdFor, isDataFlow, isSymbols, normalizeScopeName, parentAt, parseAnchor, parseAnchors, parseLocation, sameLocation, samePlace, symbolIdOf, toSearch, treePathFromAt } from "./location";
 import { resolveTreeAt } from "./resolveTree";
 
 describe("parseLocation / toSearch", () => {
@@ -260,5 +241,31 @@ describe("several anchors in one value (T20)", () => {
     expect(loc.anchor).toBe("src/a.tsx@A:3|src/c.ts@c:10");
     expect(loc.dir).toBe("forward");
     expect(parseLocation(`?repo=/r&view=graph&anchor=${encodeURIComponent("src/a.tsx@A:3|bad")}`).anchor).toBeUndefined();
+  });
+});
+
+describe("Symbols mode (`symbols`)", () => {
+  it("round-trips the focus, yields to an anchor or a route, and is its own place", () => {
+    const loc = parseLocation("?repo=/r&view=graph&symbols=src%2Fstore.ts%23Store.bump&open=src%2Fa.ts%23caller");
+    expect(loc.symbols).toBe("src/store.ts#Store.bump");
+    expect(loc.open).toEqual(["src/a.ts#caller"]);
+    expect(loc.flow).toBeUndefined();
+    expect(toSearch(loc)).toBe("?repo=%2Fr&view=graph&open=src%2Fa.ts%23caller&symbols=src%2Fstore.ts%23Store.bump");
+    expect(parseLocation("?repo=/r&view=graph&symbols=").symbols).toBe("");
+    expect(parseLocation("?repo=/r&view=graph&symbols=x&flow=%2Fhome").symbols).toBeUndefined();
+    expect(parseLocation("?repo=/r&view=graph&symbols=x&anchor=src%2Fa.tsx%40A%3A3").symbols).toBeUndefined();
+    expect(parseLocation("?repo=/r&view=treemap&symbols=x").symbols).toBeUndefined();
+    expect(isSymbols(loc)).toBe(true);
+    expect(isSymbols({ ...loc, symbols: undefined })).toBe(false);
+    expect(samePlace(loc, { ...loc, symbols: "src/store.ts#Store" })).toBe(false);
+  });
+
+  it("names the symbol an `at` stands for", () => {
+    expect(symbolIdOf("src/store.ts")).toBe("src/store.ts");
+    expect(symbolIdOf("src/store.ts#Store")).toBe("src/store.ts#Store");
+    expect(symbolIdOf("a.py#Foo (class)::run")).toBe("a.py#Foo.run");
+    expect(symbolIdOf("src/a.tsx#<Panel>")).toBeNull();
+    expect(symbolIdOf("")).toBeNull();
+    expect(symbolIdOf("ext:react")).toBeNull();
   });
 });

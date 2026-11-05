@@ -81,6 +81,8 @@ export interface ViewEdge {
   bold?: boolean;
   /** Symbol view: not value flow but what a function calls, reads or writes; drawn thin and dotted. */
   link?: "calls" | "reads" | "writes";
+  /** Symbols mode: one sentence for the edge's card (what the reference is, how often, where, how sure). */
+  detail?: string;
 }
 
 export interface ViewModel {

@@ -5,6 +5,7 @@ const MENU_ITEMS: { action: InspectAction; label: string; hint: string; title: s
   { action: "ledger", label: "Inspect value flow", hint: "", title: "The value's history as a ledger in the rail" },
   { action: "forward", label: "Trace where it goes", hint: "graph", title: "Open the graph anchored here, forward: render slots, effects, returns" },
   { action: "backward", label: "Trace where it comes from", hint: "graph", title: "Open the graph anchored here, backward: the origins it is proven to come from" },
+  { action: "references", label: "Show references", hint: "symbols", title: "Symbols mode centred on the name under the caret: who calls, reads, writes or extends it" },
 ];
 
 /**

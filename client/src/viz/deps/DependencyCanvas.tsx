@@ -126,6 +126,9 @@ const SYMBOL_GLYPH: Record<string, string> = {
   enum: "E",
   variable: "v",
   value: "v",
+  method: "ƒ",
+  field: "·",
+  module: "M",
 };
 
 /** The 12px kind icon boxes use; the go-to palette draws the same ones. Data flow nodes get their kind's mark (`flow/marks.ts`). */
@@ -1757,11 +1760,24 @@ function EdgeCard(props: { edge: PositionedEdge; nodes: Map<string, PositionedNo
         <span class="px-1 font-normal text-[var(--plc-on-subtle)]">→</span>
         {t()?.label}
       </div>
-      <Show when={flow()} fallback={
-        <div class={HINT}>
-          {e().weight} import link{e().weight === 1 ? "" : "s"}
-          {e().faint ? " · context" : ""}
-        </div>
+      <Show when={e().detail}>
+        {(detail) => (
+          <div class="flex flex-wrap items-baseline gap-x-2 text-[11px]">
+            <span class="font-semibold text-[var(--plc-on-surface)]">{e().relation}</span>
+            <Show when={e().status}>
+              {(st) => <span class="font-semibold" style={{ color: STATUS_COLOR[st()] }}>{st() === "proven" ? "sure" : "a guess"}</span>}
+            </Show>
+            <span class="basis-full text-[var(--plc-on-subtle)]">{detail()}</span>
+          </div>
+        )}
+      </Show>
+      <Show when={!e().detail && flow()} fallback={
+        <Show when={!e().detail}>
+          <div class={HINT}>
+            {e().weight} import link{e().weight === 1 ? "" : "s"}
+            {e().faint ? " · context" : ""}
+          </div>
+        </Show>
       }>
         {(kind) => (
           <>

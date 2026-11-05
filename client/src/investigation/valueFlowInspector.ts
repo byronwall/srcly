@@ -11,7 +11,7 @@ import { caretSpan } from "./selectionSpan";
 export type Candidate = SelectExpressionResult["candidates"][number];
 export type MenuState = { x: number; y: number; line: number; column: number };
 /** What a picked expression does: the ledger in the rail, or the anchor graph traced one way. */
-export type InspectAction = "ledger" | "forward" | "backward";
+export type InspectAction = "ledger" | "forward" | "backward" | "references";
 export type PickerState = { x: number; y: number; loading: boolean; candidates: Candidate[]; message: string | null; action: InspectAction };
 export type LedgerState =
   | { phase: "loading"; text: string }
@@ -23,6 +23,8 @@ export function createValueFlowInspector(opts: {
   file: () => string | null;
   /** "Trace where it goes / comes from": open the graph anchored at the candidate. */
   onTrace?: (candidate: Candidate, direction: "forward" | "backward") => void;
+  /** "Show references": Symbols mode centred on the name at the caret (no engine needed). */
+  onReferences?: (at: { line: number; column: number }) => void;
 }) {
   const [menu, setMenu] = createSignal<MenuState | null>(null);
   const [picker, setPicker] = createSignal<PickerState | null>(null);
@@ -42,6 +44,10 @@ export function createValueFlowInspector(opts: {
     const req = request();
     setMenu(null);
     if (!at || !req) return;
+    if (action === "references") {
+      opts.onReferences?.({ line: at.line, column: at.column });
+      return;
+    }
     pending = action;
     const mine = ++token;
     setPicker({ x: at.x, y: at.y, loading: true, candidates: [], message: null, action });
@@ -66,7 +72,7 @@ export function createValueFlowInspector(opts: {
     const req = request();
     setPicker(null);
     if (!req) return;
-    if (pending !== "ledger") {
+    if (pending === "forward" || pending === "backward") {
       opts.onTrace?.(candidate, pending);
       return;
     }

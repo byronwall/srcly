@@ -21,7 +21,7 @@ import TreemapHeader from "../viz/treemap/components/TreemapHeader";
 import TreemapTooltip from "../viz/treemap/components/TreemapTooltip";
 import { useTreemapTooltip } from "../viz/treemap/hooks/useTreemapTooltip";
 import { atFromTreePath, baseName, folderOf } from "../navigation/location";
-import { addAnchorPatch, tracePatch } from "../navigation/nodeActions";
+import { addAnchorPatch, refsPatch, tracePatch } from "../navigation/nodeActions";
 import NodeActionsMenu, { type NodeMenuTarget } from "../navigation/NodeActionsMenu";
 import { go, location } from "../navigation/store";
 import { buildMetricsIndex } from "../viz/deps/metrics";
@@ -304,6 +304,7 @@ export default function Treemap(props: TreemapProps) {
               if (id === "focus") go({ at });
               else if (id === "open") props.onOpenAt(at);
               else if (id === "traceTo" || id === "traceFrom") go(tracePatch({ at, line: m().line }, id));
+              else if (id === "refs") go(refsPatch({ at }));
               else if (id === "traceAdd") {
                 const patch = addAnchorPatch({ at, line: m().line }, location());
                 if (patch) go(patch);

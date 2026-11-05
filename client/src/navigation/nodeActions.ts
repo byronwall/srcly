@@ -1,10 +1,10 @@
-import { encodeAnchor, encodeAnchors, folderOf, MAX_ANCHORS, normalizeScopeName, parseAnchors, splitAt, type Direction, type Location } from "./location";
+import { encodeAnchor, encodeAnchors, folderOf, MAX_ANCHORS, normalizeScopeName, parseAnchors, splitAt, symbolIdOf, type Direction, type Location } from "./location";
 
 // The actions every node offers in both views, whatever opened the menu.
 
 export type NodeKind = "folder" | "file" | "symbol" | "external";
 
-export type NodeActionId = "focus" | "expand" | "open" | "folder" | "traceTo" | "traceFrom" | "traceAdd";
+export type NodeActionId = "focus" | "expand" | "open" | "folder" | "refs" | "traceTo" | "traceFrom" | "traceAdd";
 
 /** The two trace actions: the graph anchored at this symbol, one way. */
 export const TRACE_DIRECTION: Record<"traceTo" | "traceFrom", Direction> = { traceTo: "forward", traceFrom: "backward" };
@@ -50,6 +50,24 @@ export function addAnchorPatch(target: { at: string; line?: number }, current: L
   const next = { file, name, line: target.line };
   if (anchors.some((a) => encodeAnchor(a) === encodeAnchor(next))) return null;
   return { anchor: encodeAnchors([...anchors, next]) };
+}
+
+/**
+ * Where "Show references" takes the view: Symbols mode centred on the
+ * symbol `at` names (a file shows its module and top-level symbols).
+ */
+export function refsPatch(target: { at: string }): Partial<Location> {
+  return {
+    view: "graph",
+    flow: undefined,
+    anchor: undefined,
+    dir: undefined,
+    field: undefined,
+    dest: undefined,
+    lens: undefined,
+    open: undefined,
+    symbols: symbolIdOf(target.at) ?? "",
+  };
 }
 
 export interface NodeAction {
@@ -109,6 +127,12 @@ export function nodeActions(target: {
             : folderOf(at) === currentAt
               ? "Already showing it"
               : undefined,
+    },
+    {
+      id: "refs",
+      label: "Show references",
+      disabledReason:
+        kind === "external" ? "Outside this repo" : kind === "folder" ? "Pick a file or symbol" : symbolIdOf(at) === null ? "No name to look up" : current?.symbols !== undefined && current.symbols === symbolIdOf(at) ? "Already showing them" : undefined,
     },
     { id: "traceTo", label: "Trace where it goes", disabledReason: traceReason },
     { id: "traceFrom", label: "Trace where it comes from", disabledReason: traceReason },

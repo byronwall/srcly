@@ -152,3 +152,18 @@ def test_index_is_cached_by_mtime(tmp_path: Path):
 
     os.utime(tmp_path / "c.ts", (0, 10**9))
     assert build_symbol_index(tmp_path) is not first
+
+
+def test_neighbourhood_draws_members_with_the_focus_and_opens_hops(tmp_path: Path):
+    write(tmp_path, "s.ts", "export class Store { bump() { this.save(); } save() {} }\nexport function caller() { new Store().bump(); }\nexport function outer() { caller(); }\nexport function far() { outer(); }\n")
+    idx = build_symbol_index(tmp_path, use_cache=False)
+    g = idx.neighbourhood("s.ts#Store", hops=1)
+    ids = {n.id: n for n in g.nodes}
+    assert ids["s.ts#Store.bump"].hop == 0 and ids["s.ts#Store.save"].hop == 0  # members drawn with the class
+    assert ids["s.ts#caller"].hop == 1 and "s.ts#outer" not in ids
+    without = idx.neighbourhood("s.ts#Store", hops=1, members=False)
+    assert {n.id for n in without.nodes} == {"s.ts#Store", "s.ts#caller"}
+    opened = idx.neighbourhood("s.ts#Store", hops=1, more=["s.ts#caller"])
+    assert "s.ts#outer" in {n.id for n in opened.nodes} and "s.ts#far" not in {n.id for n in opened.nodes}
+    module = idx.neighbourhood("s.ts", hops=1)
+    assert {n.id for n in module.nodes if n.hop == 0} == {"s.ts", "s.ts#Store", "s.ts#caller", "s.ts#outer", "s.ts#far"}

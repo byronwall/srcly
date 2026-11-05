@@ -52,6 +52,12 @@ export interface Location {
   depth?: number;
   /** Anchor mode's symbol view: `off` hides the links for what each function calls, reads and writes. */
   links?: "off";
+  /**
+   * Graph only: Symbols mode, centred on a symbol of the reference index
+   * (`file#Qualified.name`, or a file for its module-level code and top-level
+   * symbols). "" derives the focus from `at`; absent is not Symbols mode.
+   */
+  symbols?: string;
 }
 
 export type Direction = "forward" | "backward" | "both";
@@ -125,6 +131,7 @@ const LENS_PARAM = "lens";
 const MODEL_PARAM = "model";
 const DEPTH_PARAM = "depth";
 const LINKS_PARAM = "links";
+const SYMBOLS_PARAM = "symbols";
 /** Pre-location graph focus parameter. Read as an alias of `at` + graph view. */
 const LEGACY_FOCUS_PARAM = "depFocus";
 
@@ -150,7 +157,9 @@ export function parseLocation(search: string): Location {
   const rawDepth = anchor !== null && model === null ? Number(params.get(DEPTH_PARAM)) : NaN;
   const depth = Number.isInteger(rawDepth) && rawDepth > 0 ? rawDepth : null;
   const links = anchor !== null && model === null && params.get(LINKS_PARAM) === "off" ? "off" : null;
-  const flow = view === "graph" && anchor === null ? params.get(FLOW_PARAM) : null;
+  // Symbols mode is the third graph mode: it yields to an anchor or a route in the same URL.
+  const symbols = view === "graph" && anchor === null && params.get(FLOW_PARAM) === null ? params.get(SYMBOLS_PARAM) : null;
+  const flow = view === "graph" && anchor === null && symbols === null ? params.get(FLOW_PARAM) : null;
   const field = flow !== null ? params.get(FIELD_PARAM) : null;
   const dest = field !== null ? params.get(DEST_PARAM) : null;
   const lens = flow !== null && params.get(LENS_PARAM) === "components" ? "components" : null;
@@ -168,6 +177,7 @@ export function parseLocation(search: string): Location {
     ...(model ? { model } : {}),
     ...(depth ? { depth } : {}),
     ...(links ? { links } : {}),
+    ...(symbols !== null ? { symbols } : {}),
   };
 }
 
@@ -192,6 +202,7 @@ export function toSearch(loc: Location, currentSearch = ""): string {
   params.delete(MODEL_PARAM);
   params.delete(DEPTH_PARAM);
   params.delete(LINKS_PARAM);
+  params.delete(SYMBOLS_PARAM);
   if (loc.repo) params.set(REPO_PARAM, loc.repo);
   if (loc.at) params.set(AT_PARAM, loc.at);
   if (loc.view !== "treemap") params.set(VIEW_PARAM, loc.view);
@@ -204,6 +215,8 @@ export function toSearch(loc: Location, currentSearch = ""): string {
       if (loc.depth) params.set(DEPTH_PARAM, String(loc.depth));
       if (loc.links) params.set(LINKS_PARAM, loc.links);
     }
+  } else if (loc.view === "graph" && loc.symbols !== undefined) {
+    params.set(SYMBOLS_PARAM, loc.symbols);
   } else if (loc.view === "graph" && loc.flow !== undefined) {
     params.set(FLOW_PARAM, loc.flow);
     if (loc.lens) params.set(LENS_PARAM, loc.lens);
@@ -224,7 +237,27 @@ export function sameLocation(a: Location, b: Location): boolean {
 
 /** Same repo, focus, view and graph mode, whatever is opened in place or selected in Data flow mode (one history entry per place). */
 export function samePlace(a: Location, b: Location): boolean {
-  return a.repo === b.repo && a.at === b.at && a.view === b.view && a.flow === b.flow && a.lens === b.lens && a.anchor === b.anchor;
+  return a.repo === b.repo && a.at === b.at && a.view === b.view && a.flow === b.flow && a.lens === b.lens && a.anchor === b.anchor && a.symbols === b.symbols;
+}
+
+/** Symbols mode: the reference graph centred on a symbol. */
+export function isSymbols(loc: Pick<Location, "symbols">): boolean {
+  return loc.symbols !== undefined;
+}
+
+/**
+ * The symbol id `at` names in the reference index: a file is its module,
+ * a scope chain (`a.py#Foo (class)::run`) its qualified name (`a.py#Foo.run`).
+ * Null for the root, a folder-looking path with scopes, an external package
+ * or a scope with no name (a JSX tag, a lambda).
+ */
+export function symbolIdOf(at: string): string | null {
+  if (!at || isExternal(at)) return null;
+  const { file, scopes } = splitAt(at);
+  if (!scopes.length) return file;
+  const names = scopes.map((s) => normalizeScopeName(s));
+  if (names.some((n) => !/^[A-Za-z_$#][\w$#]*$/.test(n))) return null;
+  return `${file}#${names.join(".")}`;
 }
 
 /** Data flow mode: a route, or an anchor. */
