@@ -8,7 +8,7 @@ import { canReturn, go, location, replace, returnBack } from "../../../navigatio
 import NodeActionsMenu, { type NodeMenuTarget } from "../../../navigation/NodeActionsMenu";
 import { addAnchorPatch, refsPatch, tracePatch } from "../../../navigation/nodeActions";
 import { registerViewState } from "../../../navigation/viewState";
-import { fetchSymbolGraph, fetchSymbolPath, SymbolApiError } from "../../../symbols/api";
+import { fetchSymbolGraph, fetchSymbolPath, fetchSymbolStats, SymbolApiError } from "../../../symbols/api";
 import { atOf, baseName, qualifiedOf, REF_KIND_SPEC, REF_KINDS, type RefKind, type SymbolGraph, type SymbolPath } from "../../../symbols/contract";
 import { ViewTools } from "../../viewToolbar";
 import { DependencyCanvas, type Camera, type CanvasApi } from "../DependencyCanvas";
@@ -119,6 +119,9 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
     const [path, from, end, kindList, withTests] = key.split("\n");
     return fetchSymbolPath({ path, from, to: end, kinds: kindList.split(","), tests: withTests === "1" });
   });
+  // What stands out in the whole index, once per root (the index is cached by mtimes; a stale list only names one more or fewer symbol).
+  const statsKey = createMemo(() => (root() ? root() : null));
+  const statsFetch = createFetch(statsKey, (path) => fetchSymbolStats({ path }));
   const currentPath = (): SymbolPath | null => {
     const p = pathFetch.value();
     return p && p.start === focus() && p.end === to() ? p : null;
@@ -454,6 +457,7 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
             onFocus={focusOn}
             onExpand={expand}
             onPath={to() ? undefined : pathTo}
+            stats={statsFetch.value() ?? null}
             onClose={toggleInspector}
           />
         </Show>

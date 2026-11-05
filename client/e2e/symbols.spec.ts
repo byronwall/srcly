@@ -42,6 +42,12 @@ test.describe("Symbols mode on solid-route", () => {
     await expect(page.locator("[data-symbol-inspector]")).toContainText("Selected symbol");
     await expect(page.locator("[data-symbol-inspector]")).toContainText(/Referenced by · \d+/);
     await shot(page, "symbols-inspector");
+    // With nothing selected, the rail lists the repo's hubs and unreferenced symbols; a row centres on it.
+    await page.keyboard.press("Escape");
+    const lists = page.locator("[data-symbol-stats-lists]");
+    await expect(lists).toContainText("Hubs");
+    await expect(lists).toContainText(/Unreferenced · \d+/);
+    await shot(page, "symbols-stats");
 
     // Shift-click on a box with more references than drawn opens its own hop in place: the URL lists it.
     const expandable = page.locator("[data-box][data-expandable]").first();

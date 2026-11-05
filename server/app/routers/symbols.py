@@ -10,7 +10,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.models import SymbolGraph, SymbolPath, SymbolSearch
+from app.models import SymbolGraph, SymbolPath, SymbolSearch, SymbolStats
 from app.services.symbols.index import build_symbol_index
 from app.services.symbols.model import REF_KINDS
 
@@ -76,3 +76,9 @@ def get_symbol_path(
         missing = start if start not in index.symbols else end
         raise HTTPException(status_code=404, detail=f"No symbol {missing!r} in the index")
     return result
+
+
+@router.get("/stats", response_model=SymbolStats, response_model_exclude_none=True, response_model_by_alias=True)
+def get_symbol_stats(path: str | None = None, limit: int = Query(50, ge=1, le=500), hubs: int = Query(30, ge=1, le=200)):
+    """Symbols nothing references (private first, then largest), the ones only test files reference, and the top hubs."""
+    return build_symbol_index(_root(path)).stats(limit=limit, hubs=hubs)

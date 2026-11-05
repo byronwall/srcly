@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
-from app.models import SymbolGraph, SymbolGraphEdge, SymbolGraphNode, SymbolIndexInfo, SymbolPath, SymbolSearchHit
+from app.models import SymbolGraph, SymbolGraphEdge, SymbolGraphNode, SymbolIndexInfo, SymbolPath, SymbolSearchHit, SymbolStats
 from app.services.deps.common import is_test_path, walk_source_files
 from app.services.deps.typescript_deps import TS_EXTENSIONS
 from app.services.symbols.model import BUILTIN_MEMBERS, REF_KINDS, FileSymbols, PendingMember, RefKind, Reference, Symbol
@@ -227,6 +227,59 @@ class SymbolIndex:
             e.lines.sort()
         return SymbolGraph(root=str(self.root), focus=focus, nodes=nodes, edges=list(merged.values()), truncated=truncated or None, index=self.info())
 
+    def refs_of(self, sym: Symbol) -> Optional[str]:
+        """`none` when nothing references a symbol, `tests` when only test files do; None otherwise, and for modules and test symbols."""
+        if sym.kind == "module" or self.is_test(sym):
+            return None
+        sources = {self.references[i].source for i in self.inc.get(sym.id, [])}
+        if not sources:
+            return "none"
+        if all(is_test_path(self.symbols[s].file) for s in sources if s in self.symbols):
+            return "tests"
+        return None
+
+    def stats(self, limit: int = 50, hubs: int = 30) -> SymbolStats:
+        """Unreferenced symbols (private first, then largest), the test-only ones, and the top hubs."""
+        unreferenced: List[Symbol] = []
+        test_only: List[Symbol] = []
+        for sym in self.symbols.values():
+            refs = self.refs_of(sym)
+            if refs == "none":
+                unreferenced.append(sym)
+            elif refs == "tests":
+                test_only.append(sym)
+        size = lambda s: s.end_line - s.line + 1  # noqa: E731
+        unreferenced.sort(key=lambda s: (s.exported, -size(s), s.id))
+        test_only.sort(key=lambda s: (-size(s), s.id))
+        by_fan_in = sorted(
+            (s for s in self.symbols.values() if s.kind != "module"),
+            key=lambda s: (-len({self.references[i].source for i in self.inc.get(s.id, [])}), s.id),
+        )
+        return SymbolStats(
+            root=str(self.root),
+            unreferenced=[self._hit(s) for s in unreferenced[:limit]],
+            unreferenced_count=len(unreferenced),
+            unreferenced_private=sum(1 for s in unreferenced if not s.exported),
+            test_only=[self._hit(s) for s in test_only[:limit]],
+            test_only_count=len(test_only),
+            hubs=[self._hit(s) for s in by_fan_in[:hubs] if self.inc.get(s.id)],
+            index=self.info(),
+        )
+
+    def _hit(self, s: Symbol) -> SymbolSearchHit:
+        return SymbolSearchHit(
+            id=s.id,
+            name=s.name,
+            kind=s.kind,
+            file=s.file,
+            line=s.line,
+            container=s.container,
+            in_count=len({self.references[i].source for i in self.inc.get(s.id, [])}),
+            out_count=len({self.references[i].target for i in self.out.get(s.id, [])}),
+            exported=s.exported,
+            lines=s.end_line - s.line + 1,
+        )
+
     def _node(self, sym: Symbol, hop: Optional[int] = None) -> SymbolGraphNode:
         in_refs = self.inc.get(sym.id, [])
         out_refs = self.out.get(sym.id, [])
@@ -244,6 +297,7 @@ class SymbolIndex:
             in_count=len({self.references[i].source for i in in_refs}),
             out_count=len({self.references[i].target for i in out_refs}),
             hop=hop,
+            refs=self.refs_of(sym),
         )
 
     def search(self, query: str, limit: int = 30, include_tests: bool = True) -> List[SymbolSearchHit]:
@@ -272,10 +326,7 @@ class SymbolIndex:
             refs = len(self.inc.get(sym.id, ())) + len(self.out.get(sym.id, ()))
             scored.append((rank, -refs, sym.id, sym))
         scored.sort()
-        return [
-            SymbolSearchHit(id=s.id, name=s.name, kind=s.kind, file=s.file, line=s.line, container=s.container, in_count=len(self.inc.get(s.id, ())), out_count=len(self.out.get(s.id, ())))
-            for _r, _n, _i, s in scored[:limit]
-        ]
+        return [self._hit(s) for _r, _n, _i, s in scored[:limit]]
 
     def info(self) -> SymbolIndexInfo:
         return SymbolIndexInfo(

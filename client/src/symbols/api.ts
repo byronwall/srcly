@@ -1,4 +1,4 @@
-import type { SymbolGraph, SymbolPath, SymbolSearch } from "./contract";
+import type { SymbolGraph, SymbolPath, SymbolSearch, SymbolStats } from "./contract";
 
 export class SymbolApiError extends Error {
   status: number;
@@ -32,6 +32,11 @@ export function fetchSymbolGraph(req: { path: string; at: string; hops?: number;
 /** The shortest chain of references from one symbol to another (forward, else backward), or that there is none. */
 export function fetchSymbolPath(req: { path: string; from: string; to: string; kinds?: string[]; tests?: boolean }): Promise<SymbolPath> {
   return get<SymbolPath>("/api/symbols/path", { path: req.path, from: req.from, to: req.to, kinds: req.kinds?.join(","), tests: req.tests });
+}
+
+/** Unreferenced symbols, test-only ones and the top hubs of the whole index. */
+export function fetchSymbolStats(req: { path: string; limit?: number; hubs?: number }): Promise<SymbolStats> {
+  return get<SymbolStats>("/api/symbols/stats", { path: req.path, limit: req.limit, hubs: req.hubs });
 }
 
 export function searchSymbols(req: { path: string; q: string; limit?: number; tests?: boolean }): Promise<SymbolSearch> {

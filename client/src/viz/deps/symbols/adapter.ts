@@ -77,7 +77,7 @@ export function symbolGraphToViewModel(graph: SymbolGraph, options: SymbolViewOp
       label: labelOf(n),
       title: [n.kind, qualifiedOf(n.id) || baseName(n.file), `${n.file}:${n.line}`, n.isTest ? "test" : "", `${n.inCount} referencing · ${n.outCount} referenced`].filter(Boolean).join(" · "),
       subtitle: n.kind === "module" ? n.file : container ? `${container.name} · ${where}` : where,
-      note: `${n.inCount} in · ${n.outCount} out`,
+      note: noteOf(n),
       memberCount: 1,
       isFocus: n.id === graph.focus,
       ...(r === "center"
@@ -87,6 +87,7 @@ export function symbolGraphToViewModel(graph: SymbolGraph, options: SymbolViewOp
         : { group: { id: `file:${n.file}`, label: baseName(n.file), ...(expanded.has(n.id) ? { opened: true } : {}) }, subgroup: n.container ?? undefined }),
       ...(r !== "center" && !expanded.has(n.id) && beyond > 0 ? { expandable: true } : {}),
       ...(n.isTest ? { outline: "dotted" as const } : {}),
+      ...(statusOf(n) ? { status: statusOf(n) } : {}),
     };
     return node;
   });
@@ -138,6 +139,7 @@ export function symbolPathToViewModel(path: SymbolPath): SymbolViewModel {
       title: [n.kind, qualifiedOf(n.id) || baseName(n.file), `${n.file}:${n.line}`, path.found ? `step ${step} of ${path.steps}` : ""].filter(Boolean).join(" · "),
       subtitle: n.kind === "module" ? n.file : container ? `${container.name} · ${where}` : where,
       note: path.found ? (n.id === path.start ? "start" : n.id === path.end ? `end · ${path.steps} step${path.steps === 1 ? "" : "s"}` : `step ${step}`) : n.id === path.start ? "start" : "end · no path",
+      ...(statusOf(n) ? { status: statusOf(n) } : {}),
       memberCount: 1,
       isFocus: n.id === path.start,
       ...(n.id !== path.start ? { group: { id: `file:${n.file}`, label: baseName(n.file) }, subgroup: n.container ?? undefined } : {}),
@@ -178,6 +180,17 @@ function viewEdge(e: SymbolEdge, id: string): ViewEdge {
     relation: e.kind,
     detail: `${REF_KIND_SPEC[e.kind].verb} it ${times}${lines} · ${RESOLUTION_SPEC[e.resolution].label}: ${RESOLUTION_SPEC[e.resolution].hint}`,
   };
+}
+
+/** The counts, and what stands out: nothing references it, or only tests do. */
+export function noteOf(n: SymbolNode): string {
+  const counts = `${n.inCount} in · ${n.outCount} out`;
+  return n.refs === "none" ? `${counts} · unreferenced` : n.refs === "tests" ? `${counts} · tests only` : counts;
+}
+
+/** The box stroke for what stands out: unreferenced is the stronger warning, tests-only the lighter. */
+export function statusOf(n: SymbolNode): ViewNode["status"] | undefined {
+  return n.refs === "none" ? "unsupported" : n.refs === "tests" ? "partial" : undefined;
 }
 
 /** A module box is named by its file; anything else by its name. */

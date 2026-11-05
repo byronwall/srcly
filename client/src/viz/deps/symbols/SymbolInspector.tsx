@@ -2,7 +2,7 @@ import { Crosshair, ExternalLink, Maximize2, Route, X } from "lucide-solid";
 import { createMemo, For, Show } from "solid-js";
 import { Button } from "../../../components/ui/Button";
 import { IconButton } from "../../../components/ui/IconButton";
-import { baseName, REF_KIND_SPEC, RESOLUTION_SPEC, qualifiedOf, type RefKind, type SymbolEdge, type SymbolGraph, type SymbolNode } from "../../../symbols/contract";
+import { baseName, REF_KIND_SPEC, RESOLUTION_SPEC, qualifiedOf, type RefKind, type SymbolEdge, type SymbolGraph, type SymbolNode, type SymbolSearchHit, type SymbolStats } from "../../../symbols/contract";
 import { labelOf, type SymbolViewModel } from "./adapter";
 
 const SECTION = "border-b border-[var(--plc-divider)] px-3 py-2";
@@ -51,6 +51,8 @@ export function SymbolInspector(props: {
   onExpand: (id: string) => void;
   /** Draw the shortest chain of references from the focus to this symbol. */
   onPath?: (id: string) => void;
+  /** The whole index's unreferenced symbols and hubs, listed under the focus. */
+  stats?: SymbolStats | null;
   onClose: () => void;
 }) {
   const id = () => props.selected ?? props.graph.focus;
@@ -63,6 +65,26 @@ export function SymbolInspector(props: {
     const n = node();
     return n?.container ? props.model.byId.get(n.container) ?? null : null;
   };
+  const standing = (n: SymbolNode) => (n.refs === "none" ? "nothing references it" : n.refs === "tests" ? "only tests reference it" : null);
+
+  const HitRows = (p: { list: SymbolSearchHit[]; what: "hubs" | "unreferenced" | "testOnly" }) => (
+    <ul class="py-1">
+      <For each={p.list}>
+        {(hit) => (
+          <li class="flex items-baseline gap-1.5 px-3 py-0.5 text-[12px]" data-stat-row={hit.id}>
+            <button type="button" class="min-w-0 truncate text-left font-medium text-[var(--plc-on-surface)] hover:underline" title={`Show references of ${qualifiedOf(hit.id) || hit.file}`} onClick={() => props.onFocus(hit.id)}>
+              {hit.kind === "module" ? baseName(hit.file) : hit.name}
+            </button>
+            <span class="min-w-0 truncate text-[11px] text-[var(--plc-on-subtle)]">
+              {hit.kind} · {baseName(hit.file)}
+              {p.what === "unreferenced" && hit.exported === false ? " · private" : ""}
+            </span>
+            <span class="ml-auto shrink-0 tabular-nums text-[11px] text-[var(--plc-on-subtle)]">{p.what === "hubs" ? `${hit.inCount} in` : `${hit.lines ?? "?"} lines`}</span>
+          </li>
+        )}
+      </For>
+    </ul>
+  );
 
   const RefRows = (p: { list: Row[]; side: "in" | "out" }) => (
     <Show when={p.list.length} fallback={<div class="px-3 py-1.5 text-[11.5px] text-[var(--plc-on-subtle)]">{p.side === "in" ? "Nothing in the index references it." : "It references nothing the index knows."}</div>}>
@@ -136,6 +158,7 @@ export function SymbolInspector(props: {
                 </div>
                 <div class="mt-1 text-[11.5px] text-[var(--plc-on-muted)]">
                   {n().inCount} symbol{n().inCount === 1 ? "" : "s"} reference it · it references {n().outCount}
+                  <Show when={standing(n())}>{(word) => <span class="ml-1 font-semibold text-[var(--plc-warning)]">· {word()}</span>}</Show>
                 </div>
                 <div class="mt-1.5 flex flex-wrap gap-1">
                   <Button variant="ghost" size="sm" class="gap-1 px-2" onClick={() => props.onOpen(n().file, n().line, n().id)} title="Open in the code viewer (O)">
@@ -172,6 +195,30 @@ export function SymbolInspector(props: {
               <RefRows list={outgoing()} side="out" />
               <Show when={incoming().some((r) => r.hidden) || outgoing().some((r) => r.hidden)}>
                 <div class="px-3 py-2 text-[11px] text-[var(--plc-on-subtle)]">Dimmed rows are of kinds the filters hide; they are listed, not drawn.</div>
+              </Show>
+              <Show when={!props.selected && props.stats}>
+                {(stats) => (
+                  <div data-symbol-stats-lists>
+                    <div class={SECTION}>
+                      <div class={HEAD}>Hubs · most referenced in the repo</div>
+                    </div>
+                    <HitRows list={stats().hubs.slice(0, 10)} what="hubs" />
+                    <div class={SECTION}>
+                      <div class={HEAD}>
+                        Unreferenced · {stats().unreferencedCount}
+                        {stats().unreferencedPrivate ? ` (${stats().unreferencedPrivate} private)` : ""}
+                      </div>
+                      <div class="mt-0.5 text-[11px] text-[var(--plc-on-subtle)]">Nothing in the index references them. An exported one may be used from outside this root or by a framework; a private one is a candidate for deletion.</div>
+                    </div>
+                    <HitRows list={stats().unreferenced.slice(0, 12)} what="unreferenced" />
+                    <Show when={stats().testOnlyCount}>
+                      <div class={SECTION}>
+                        <div class={HEAD}>Only tests reference · {stats().testOnlyCount}</div>
+                      </div>
+                      <HitRows list={stats().testOnly.slice(0, 8)} what="testOnly" />
+                    </Show>
+                  </div>
+                )}
               </Show>
             </>
           )}
