@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.11.0](https://github.com/byronwall/srcly/compare/v1.10.0...v1.11.0) (2026-11-05)
+
+
+### Features
+
+* **cli:** explain and report show what the analysis rests on; milestone 2 results ([#343](https://github.com/byronwall/srcly/issues/343)) ([0389887](https://github.com/byronwall/srcly/commit/03898873423e5a6ce26bdce77c34328c4c4bf2ca))
+* **cli:** explain takes start-at values, shows branch shape and tests that name a symbol ([#345](https://github.com/byronwall/srcly/issues/345)) ([2ddf77f](https://github.com/byronwall/srcly/commit/2ddf77f30417a5a82bd005cdb761f914594194bb))
+* **cli:** size-budget ratchet in srcly report and srcly check --ratchet ([#360](https://github.com/byronwall/srcly/issues/360)) ([c1bb9da](https://github.com/byronwall/srcly/commit/c1bb9da2be22729c7ecab7fa8a12ce80a148ba6c))
+* **cli:** srcly fix applies safe fixes, starting with export, unreachable files and Solid cleanup ([#356](https://github.com/byronwall/srcly/issues/356)) ([3a73b99](https://github.com/byronwall/srcly/commit/3a73b9909484d4ba584e344d137cced1904bfe50))
+* **findings:** await-in-loop flags awaits that run one by one in a loop ([#359](https://github.com/byronwall/srcly/issues/359)) ([dad17e0](https://github.com/byronwall/srcly/commit/dad17e0fbd35637001ca92e8a75fbbee46a347c2))
+* **findings:** reachability findings from the TS import graph ([#355](https://github.com/byronwall/srcly/issues/355)) ([af2405c](https://github.com/byronwall/srcly/commit/af2405c5c56b9efc9748ead40b1dc361fa8bdb81))
+* **findings:** run a project's ast-grep rule pack from .srcly/rules ([#361](https://github.com/byronwall/srcly/issues/361)) ([149b45a](https://github.com/byronwall/srcly/commit/149b45aaaa749a5e15288c4806a10cd75492d373))
+* **scan:** cognitive complexity, ranked beside CCN ([#351](https://github.com/byronwall/srcly/issues/351)) ([b506861](https://github.com/byronwall/srcly/commit/b5068619aea36086f339fb6871778541d820df5b))
+* **symbols:** dead and hub overlays ([#354](https://github.com/byronwall/srcly/issues/354)) ([5a8a9c3](https://github.com/byronwall/srcly/commit/5a8a9c38d486ede411339a129172bb8eadd3e35f))
+* **symbols:** HTTP seam between client requests and server routes ([#358](https://github.com/byronwall/srcly/issues/358)) ([6c11522](https://github.com/byronwall/srcly/commit/6c1152280305bfa89ad707443a0d06692b92e724))
+* **symbols:** path between two symbols ([#353](https://github.com/byronwall/srcly/issues/353)) ([2781c87](https://github.com/byronwall/srcly/commit/2781c8787d665a377c42e1cb28bd3e118641335d))
+* **symbols:** Python extractor for the symbol index ([#349](https://github.com/byronwall/srcly/issues/349)) ([5250188](https://github.com/byronwall/srcly/commit/5250188f7fb0563efc03dd5077e6246bd2aa6183))
+* **symbols:** symbol reference index and neighbourhood API ([#348](https://github.com/byronwall/srcly/issues/348)) ([4db0cd8](https://github.com/byronwall/srcly/commit/4db0cd8dfedb2c852f75121c35d7adf5f0cb8c46))
+* **symbols:** Symbols mode in the graph view ([#352](https://github.com/byronwall/srcly/issues/352)) ([dfd0560](https://github.com/byronwall/srcly/commit/dfd0560a529dcdde49e2d04ec5fc554eb17f0874))
+
+
+### Bug Fixes
+
+* **cli:** explain says when a lookup is not what was asked; test leads need the module import ([#347](https://github.com/byronwall/srcly/issues/347)) ([0e4fc2b](https://github.com/byronwall/srcly/commit/0e4fc2bb161359b73933448f25aa54f10b16cc59))
+* **report:** stylesheets are their own file class, counted but not ranked ([#350](https://github.com/byronwall/srcly/issues/350)) ([be7f1db](https://github.com/byronwall/srcly/commit/be7f1dbf43df3fc1da6875b6edfa23abefc7ddaa))
+* **scan:** analyze JS with tree-sitter, not lizard ([#344](https://github.com/byronwall/srcly/issues/344)) ([2daab2d](https://github.com/byronwall/srcly/commit/2daab2d54d74a29aee84b3cc1700b7f2d8c19f45))
+
 ## [1.10.0](https://github.com/byronwall/srcly/compare/v1.9.0...v1.10.0) (2026-11-04)
 
 
