@@ -65,8 +65,9 @@ partially applied step restore its prior checkpoint after interruption; unknown
 edits are refused. A failed preview reverses its completed steps and remains
 non-executable. Preview interruption also remains non-executable.
 
-Installed `node_modules` directories are linked into the worktree for type
-resolution. They are never edit targets. One tsconfig, source files up to 2 MB
+Installed packages are linked inside ordinary `node_modules` directories in the
+worktree, retaining directory-based Git ignore rules. They are never edit targets.
+One tsconfig, source files up to 2 MB
 per edited file, and at most 100 steps are supported initially. Project references
 require choosing a leaf config. Computed dynamic imports and files observing
 their own location (`import.meta`, `__dirname`, `__filename`) are refused.

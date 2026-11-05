@@ -209,8 +209,11 @@ def _link_dependencies(repo: Path, worktree: Path) -> None:
         source = repo / parent / "node_modules"
         target = worktree / parent / "node_modules"
         if source.is_dir() and not target.exists():
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.symlink_to(source, target_is_directory=True)
+            # Git's common node_modules/ rule matches directories, not a symlink
+            # at that path. Keep a real ignored directory and link its entries.
+            target.mkdir(parents=True)
+            for entry in source.iterdir():
+                (target / entry.name).symlink_to(entry, target_is_directory=entry.is_dir())
 
 
 def preview(root: Path, source: str) -> dict:
