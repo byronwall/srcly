@@ -32,15 +32,18 @@ def get_symbol_graph(
     kinds: str | None = Query(None, description="Comma-separated reference kinds to follow; default all"),
     direction: str = Query("both", pattern="^(both|in|out)$"),
     tests: bool = True,
+    members: bool = Query(True, description="Draw the focus's members (a class's methods, a file's top-level symbols) with it"),
+    more: str | None = Query(None, description="Comma-separated symbol ids whose own one-hop neighbourhoods join the graph (hops opened in place)"),
 ):
-    """The focus symbol, every symbol within `hops` references of it, and the references among them."""
+    """The focus symbol (and its members), every symbol within `hops` references of them, and the references among them."""
     chosen = None
     if kinds:
         chosen = [k for k in kinds.split(",") if k in REF_KINDS]
         if not chosen:
             raise HTTPException(status_code=400, detail=f"kinds must be some of {', '.join(REF_KINDS)}")
     index = build_symbol_index(_root(path))
-    graph = index.neighbourhood(at, hops=hops, kinds=chosen, include_tests=tests, direction=direction)
+    opened = [m for m in (more or "").split(",") if m]
+    graph = index.neighbourhood(at, hops=hops, kinds=chosen, include_tests=tests, direction=direction, members=members, more=opened)
     if graph is None:
         raise HTTPException(status_code=404, detail=f"No symbol {at!r} in the index")
     return graph

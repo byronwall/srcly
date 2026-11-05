@@ -280,6 +280,18 @@ Plan: `docs/intent/symbol-graph/`. Backlog area `area-symbol-graph` in `pgm/data
 | Response models | `server/app/models.py` (`SymbolGraph`, `SymbolGraphNode`, `SymbolGraphEdge`, `SymbolSearch`) |
 | Tests: extractor rules and queries; router | `server/tests/test_symbol_index_ts.py`, `server/tests/test_symbol_index_py.py`, `server/tests/test_symbols_router.py` |
 
+### Client: Symbols mode
+
+| Feature | Where |
+| --- | --- |
+| Symbols mode of the graph view (`?view=graph&symbols=<id>`; Imports / Data flow / Symbols switch): the focus and its members in one frame, referrers left, referenced right, framed by file and class; kind chips and Tests toggle (localStorage); Shift-click or `E` opens a box's own hop in place (`open=`); `F` centres; `/` finds a symbol; status line with `data-symbol-stats` | `client/src/viz/deps/symbols/SymbolsView.tsx`; mode switch in `viz/deps/flow/FlowTools.tsx` (`FlowModeSwitch`); `symbols` in `client/src/navigation/location.ts` (`isSymbols`, `symbolIdOf`) |
+| Neighbourhood → ViewModel: sides by shortest hop to the centre, edge style per kind (write accent, type dotted, extends dashed), a name-only reference drawn faint as a partial proof with a `detail` sentence for its card, `expandable` where the index holds more than drawn | `client/src/viz/deps/symbols/adapter.ts`; `detail` on `ViewEdge` and the edge card in `viz/deps/DependencyCanvas.tsx` |
+| Rail: the selected (else focus) symbol, where it is declared, references to and from it grouped by the other symbol with each line opening the code viewer; dimmed rows for hidden kinds | `client/src/viz/deps/symbols/SymbolInspector.tsx` |
+| Legend (edge kinds, sureness, boxes, gestures) and the `/` palette over `/api/symbols/search` | `client/src/viz/deps/symbols/SymbolLegend.tsx`, `SymbolPalette.tsx` |
+| Entry points: "Show references" in the node menus (treemap tiles, import graph boxes, symbol boxes) and the code viewer's right-click menu (the identifier under the caret looked up in the index, this file's symbol first) | `client/src/navigation/nodeActions.ts` (`refsPatch`), `client/src/components/CodeModal/InspectMenu.tsx`, `investigation/valueFlowInspector.ts` (`onReferences`), `client/src/symbols/identifier.ts` |
+| Client API and contract | `client/src/symbols/api.ts`, `client/src/symbols/contract.ts` |
+| Browser smoke for Symbols mode (focus, filters, a hop opened, inspector, palette, a file focus, a missing symbol) | `client/e2e/symbols.spec.ts` |
+
 ### Client: Graph views
 
 | Feature | Where |

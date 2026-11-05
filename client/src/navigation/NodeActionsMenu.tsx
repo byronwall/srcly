@@ -1,6 +1,6 @@
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { Portal } from "solid-js/web";
-import { ArrowLeftFromLine, ArrowRightFromLine, Crosshair, FileCode2, FolderOpen, Maximize2 } from "lucide-solid";
+import { ArrowLeftFromLine, ArrowRightFromLine, Crosshair, Network, FileCode2, FolderOpen, Maximize2 } from "lucide-solid";
 import type { Location } from "./location";
 import { nodeActions, type NodeActionId, type NodeKind } from "./nodeActions";
 
@@ -30,6 +30,7 @@ const ICONS: Record<NodeActionId, typeof Crosshair> = {
   traceTo: ArrowRightFromLine,
   traceFrom: ArrowLeftFromLine,
   traceAdd: Crosshair,
+  refs: Network,
 };
 
 const MENU_WIDTH = 224;

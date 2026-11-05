@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { folderOf } from "./location";
-import { addAnchorPatch, nodeActions, tracePatch } from "./nodeActions";
+import { addAnchorPatch, nodeActions, refsPatch, tracePatch } from "./nodeActions";
 
 const enabled = (t: Parameters<typeof nodeActions>[0]) =>
   nodeActions(t).filter((a) => !a.disabledReason).map((a) => a.id);
@@ -18,8 +18,8 @@ describe("folderOf", () => {
 
 describe("nodeActions", () => {
   it("offers all three for files and symbols", () => {
-    expect(enabled({ at: "a/b.ts", kind: "file", currentAt: "elsewhere" })).toEqual(["focus", "open", "folder", "traceTo", "traceFrom"]);
-    expect(enabled({ at: "a/b.ts#X", kind: "symbol", currentAt: "elsewhere" })).toEqual(["focus", "open", "folder"]);
+    expect(enabled({ at: "a/b.ts", kind: "file", currentAt: "elsewhere" })).toEqual(["focus", "open", "folder", "refs", "traceTo", "traceFrom"]);
+    expect(enabled({ at: "a/b.ts#X", kind: "symbol", currentAt: "elsewhere" })).toEqual(["focus", "open", "folder", "refs"]);
   });
 
   it("has no code for folders and nothing above the root", () => {
@@ -28,8 +28,8 @@ describe("nodeActions", () => {
   });
 
   it("disables Show folder when that folder is already shown", () => {
-    expect(enabled({ at: "a/b.ts#X", kind: "symbol", currentAt: "a" })).toEqual(["focus", "open"]);
-    expect(enabled({ at: "a/b.ts", kind: "file", currentAt: "a/b.ts" })).toEqual(["open", "folder", "traceTo", "traceFrom"]);
+    expect(enabled({ at: "a/b.ts#X", kind: "symbol", currentAt: "a" })).toEqual(["focus", "open", "refs"]);
+    expect(enabled({ at: "a/b.ts", kind: "file", currentAt: "a/b.ts" })).toEqual(["open", "folder", "refs", "traceTo", "traceFrom"]);
   });
 
   it("only focuses external packages", () => {
@@ -42,13 +42,27 @@ describe("nodeActions", () => {
   });
 
   it("keeps the order stable so the menu never reflows", () => {
-    expect(nodeActions({ at: "", kind: "folder", currentAt: "" }).map((a) => a.id)).toEqual(["focus", "open", "folder", "traceTo", "traceFrom"]);
+    expect(nodeActions({ at: "", kind: "folder", currentAt: "" }).map((a) => a.id)).toEqual(["focus", "open", "folder", "refs", "traceTo", "traceFrom"]);
+  });
+});
+
+describe("Show references", () => {
+  it("opens Symbols mode on the symbol or file, and is disabled where there is nothing to look up or it is already shown", () => {
+    expect(refsPatch({ at: "a/b.ts#X" })).toMatchObject({ view: "graph", symbols: "a/b.ts#X", flow: undefined, anchor: undefined, open: undefined });
+    expect(refsPatch({ at: "a.py#Foo (class)::run" }).symbols).toBe("a.py#Foo.run");
+    expect(refsPatch({ at: "a/b.ts" }).symbols).toBe("a/b.ts");
+    const reason = (target: Parameters<typeof nodeActions>[0]) => nodeActions(target).find((a) => a.id === "refs")?.disabledReason;
+    expect(reason({ at: "a", kind: "folder", currentAt: "" })).toBe("Pick a file or symbol");
+    expect(reason({ at: "ext:react", kind: "external", currentAt: "" })).toBe("Outside this repo");
+    expect(reason({ at: "a/b.tsx#<Panel>", kind: "symbol", currentAt: "" })).toBe("No name to look up");
+    expect(reason({ at: "a/b.ts#X", kind: "symbol", currentAt: "", current: { repo: "/r", at: "a/b.ts#X", view: "graph", symbols: "a/b.ts#X" } })).toBe("Already showing them");
+    expect(reason({ at: "a/b.ts#X", kind: "symbol", currentAt: "", current: { repo: "/r", at: "", view: "graph", symbols: "a/b.ts#Y" } })).toBeUndefined();
   });
 });
 
 describe("trace actions", () => {
   it("traces only a symbol with a known declaration line", () => {
-    expect(enabled({ at: "a/b.ts#X", kind: "symbol", currentAt: "", line: 12 })).toEqual(["focus", "open", "folder", "traceTo", "traceFrom"]);
+    expect(enabled({ at: "a/b.ts#X", kind: "symbol", currentAt: "", line: 12 })).toEqual(["focus", "open", "folder", "refs", "traceTo", "traceFrom"]);
     expect(nodeActions({ at: "a/b.ts#X", kind: "symbol", currentAt: "" }).find((a) => a.id === "traceTo")?.disabledReason).toBe("No line for it");
     // A file (or folder) traces through its exports (T19): no line needed.
     expect(nodeActions({ at: "a/b.ts", kind: "file", currentAt: "", line: 1 }).find((a) => a.id === "traceFrom")?.disabledReason).toBeUndefined();

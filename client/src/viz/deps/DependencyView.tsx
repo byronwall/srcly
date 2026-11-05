@@ -8,6 +8,7 @@ import type { DependencyGraphContract } from "./contract";
 import { DependencyCanvas, type CanvasApi } from "./DependencyCanvas";
 import { DependencyLegend } from "./DependencyLegend";
 import FlowView from "./flow/FlowView";
+import SymbolsView from "./symbols/SymbolsView";
 import { FlowModeSwitch } from "./flow/FlowTools";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { GoToPalette, type GoToMode } from "./GoToPalette";
@@ -23,8 +24,8 @@ import { layoutWithHubs } from "./hubs";
 import type { ViewLayout } from "./layout";
 import { viewContents, viewMetrics, type MetricsIndex } from "./metrics";
 import { buildViewModel, DEFAULT_BUDGET, type ViewNode } from "./viewModel";
-import { folderOf, graphIdFor, isDataFlow } from "../../navigation/location";
-import { addAnchorPatch, tracePatch } from "../../navigation/nodeActions";
+import { folderOf, graphIdFor, isDataFlow, isSymbols } from "../../navigation/location";
+import { addAnchorPatch, refsPatch, tracePatch } from "../../navigation/nodeActions";
 import NodeActionsMenu, { type NodeMenuTarget } from "../../navigation/NodeActionsMenu";
 import { go, graphFilters as filters, location, replace, setGraphFilters as setFilters } from "../../navigation/store";
 
@@ -36,11 +37,15 @@ async function fetchGraph(path: string | undefined): Promise<DependencyGraphCont
   return (await res.json()) as DependencyGraphContract;
 }
 
-/** The graph view: the import graph, or Data flow mode when the URL names `flow`. */
+/** The graph view: the import graph, Data flow mode when the URL names `flow` or `anchor`, Symbols mode when it names `symbols`. */
 export default function DependencyView(props: Parameters<typeof ImportView>[0]) {
   return (
-    <Show when={isDataFlow(location())} fallback={<ImportView {...props} />}>
-      <FlowView rootPath={props.rootPath} onOpen={props.onOpen} />
+    <Show when={isSymbols(location())} fallback={
+      <Show when={isDataFlow(location())} fallback={<ImportView {...props} />}>
+        <FlowView rootPath={props.rootPath} onOpen={props.onOpen} />
+      </Show>
+    }>
+      <SymbolsView rootPath={props.rootPath} onOpen={props.onOpen} />
     </Show>
   );
 }
@@ -474,6 +479,7 @@ function ImportView(props: {
               else if (id === "expand") n.expandable ? expand(n.graphId) : n.group && collapse(n.group.id);
               else if (id === "open") onOpenNode(n);
               else if (id === "traceTo" || id === "traceFrom") go(tracePatch({ at: n.graphId, line: m().line }, id));
+              else if (id === "refs") go(refsPatch({ at: n.graphId }));
               else if (id === "traceAdd") {
                 const patch = addAnchorPatch({ at: n.graphId, line: m().line }, location());
                 if (patch) go(patch);

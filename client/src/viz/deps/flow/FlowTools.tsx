@@ -6,7 +6,7 @@ import { OptionRow, PopoverPanel, PopoverSectionTitle } from "../../../component
 import { segmentedKeyDown } from "../../../components/ui/segmentedKeys";
 import { recentFlowPlaces } from "../../../navigation/flowPlaces";
 import { shortAge } from "../../../navigation/history";
-import { isDataFlow, samePlace, type Direction } from "../../../navigation/location";
+import { isDataFlow, isSymbols, samePlace, type Direction } from "../../../navigation/location";
 import { go, history, location } from "../../../navigation/store";
 import { REACH_MODES, type ReachMode } from "./reach";
 
@@ -173,19 +173,20 @@ export function ReachModeSwitch(props: { mode: ReachMode; onChange: (mode: Reach
   );
 }
 
-type Mode = "imports" | "flow";
+type Mode = "imports" | "flow" | "symbols";
 const MODES: { id: Mode; label: string; title: string }[] = [
   { id: "imports", label: "Imports", title: "What imports what" },
   { id: "flow", label: "Data flow", title: "How values reach what a route renders" },
+  { id: "symbols", label: "Symbols", title: "Who calls, instantiates, reads, writes or extends what: every function, class, method and field as a box" },
 ];
 const MODE_IDS = MODES.map((m) => m.id);
 
 /** The graph's two modes, in the view toolbar. Data flow keeps its route in the URL (`flow`). */
 export function FlowModeSwitch() {
-  const mode = (): Mode => (isDataFlow(location()) ? "flow" : "imports");
+  const mode = (): Mode => (isSymbols(location()) ? "symbols" : isDataFlow(location()) ? "flow" : "imports");
   const select = (next: Mode) => {
     if (next === mode()) return;
-    go({ flow: next === "flow" ? "" : undefined, anchor: undefined, dir: undefined, open: undefined });
+    go({ flow: next === "flow" ? "" : undefined, symbols: next === "symbols" ? "" : undefined, anchor: undefined, dir: undefined, open: undefined, field: undefined, dest: undefined });
   };
   return (
     <div

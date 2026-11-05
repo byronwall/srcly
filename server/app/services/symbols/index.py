@@ -47,6 +47,15 @@ class SymbolIndex:
 
     # ---- queries ----
 
+    def members_of(self, focus: str) -> List[str]:
+        """A class's or variable's members, or a module's top-level symbols: drawn with the focus, as its frame."""
+        sym = self.symbols.get(focus)
+        if sym is None:
+            return []
+        if sym.kind == "module":
+            return [s.id for s in self.symbols.values() if s.file == sym.file and s.kind != "module" and s.container is None]
+        return list(sym.members.values())
+
     def neighbourhood(
         self,
         focus: str,
@@ -54,19 +63,33 @@ class SymbolIndex:
         kinds: Optional[Iterable[RefKind]] = None,
         include_tests: bool = True,
         direction: str = "both",
+        members: bool = True,
+        more: Iterable[str] = (),
     ) -> Optional[SymbolGraph]:
-        """The focus, every symbol within `hops` references of it, and the references among them."""
+        """
+        The focus (with its members at hop 0 when `members`), every symbol within `hops`
+        references of them, the one-hop neighbourhoods of the `more` symbols (hops opened
+        in place), and the references among them all.
+        """
         if focus not in self.symbols:
             return None
         allowed: Set[str] = set(kinds) if kinds else set(REF_KINDS)
         seen: Dict[str, int] = {focus: 0}
-        queue = deque([focus])
+        if members:
+            for m in self.members_of(focus):
+                seen.setdefault(m, 0)
+        queue = deque(seen)
+        # An opened hop: its own neighbourhood, one hop deep, whatever the focus's hops.
+        limit: Dict[str, int] = {}
         truncated = False
         while queue:
             cur = queue.popleft()
             depth = seen[cur]
-            if depth >= hops:
-                continue
+            if depth >= limit.get(cur, hops):
+                if cur in more and cur not in limit:
+                    limit[cur] = depth + 1
+                else:
+                    continue
             nexts: List[str] = []
             if direction in ("both", "out"):
                 nexts += [self.references[i].target for i in self.out[cur] if self.references[i].kind in allowed]
@@ -83,6 +106,30 @@ class SymbolIndex:
                     break
                 seen[n] = depth + 1
                 queue.append(n)
+            if truncated:
+                break
+        for opened in more:
+            if opened in seen and opened not in limit and seen[opened] >= hops:
+                limit[opened] = seen[opened] + 1
+                queue.append(opened)
+        while queue:
+            cur = queue.popleft()
+            depth = seen[cur]
+            if depth >= limit.get(cur, hops):
+                continue
+            nexts = [self.references[i].target for i in self.out[cur] if self.references[i].kind in allowed] + [
+                self.references[i].source for i in self.inc[cur] if self.references[i].kind in allowed
+            ]
+            for n in nexts:
+                if n in seen:
+                    continue
+                sym = self.symbols.get(n)
+                if sym is None or (not include_tests and self.is_test(sym)):
+                    continue
+                if len(seen) >= MAX_NEIGHBOURHOOD:
+                    truncated = True
+                    break
+                seen[n] = depth + 1
             if truncated:
                 break
         return self._graph(focus, seen, allowed, truncated)

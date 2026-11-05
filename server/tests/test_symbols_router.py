@@ -51,3 +51,14 @@ def test_search(client, repo):
     body = client.get("/api/symbols/search", params={"path": str(repo), "q": "a"}).json()
     assert body["hits"][0]["id"] == "src/a.ts#a" and body["hits"][0]["inCount"] == 1
     assert body["index"]["symbols"] == 2
+
+
+def test_graph_draws_members_and_opens_hops_on_request(client, tmp_path: Path):
+    (tmp_path / "s.ts").write_text("export class S { m() {} }\nexport function a() { new S().m(); }\nexport function b() { a(); }\n", encoding="utf-8")
+    body = client.get("/api/symbols/graph", params={"path": str(tmp_path), "at": "s.ts#S"}).json()
+    hops = {n["id"]: n["hop"] for n in body["nodes"]}
+    assert hops == {"s.ts#S": 0, "s.ts#S.m": 0, "s.ts#a": 1}
+    opened = client.get("/api/symbols/graph", params={"path": str(tmp_path), "at": "s.ts#S", "more": "s.ts#a"}).json()
+    assert "s.ts#b" in {n["id"] for n in opened["nodes"]}
+    bare = client.get("/api/symbols/graph", params={"path": str(tmp_path), "at": "s.ts#S", "members": "false"}).json()
+    assert {n["id"] for n in bare["nodes"]} == {"s.ts#S", "s.ts#a"}
