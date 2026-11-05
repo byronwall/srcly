@@ -81,6 +81,13 @@ def test_effectful_component_extraction_is_blocked(project):
     assert preview["diagnostics"][0]["code"] == "effectful-jsx"
 
 
+def test_symbol_move_refuses_module_location_dependencies(project):
+    add(project, "src/resource.ts", "export function resource() { return import.meta.url; }\n")
+    preview = runs.preview(project, 'refactor 1\nlet resource = symbol "src/resource.ts" "resource"\nmove-symbol $resource -> "src/model/resource.ts"\n')
+    assert preview["status"] == "blocked"
+    assert preview["diagnostics"][0]["code"] == "location-dependent-symbol"
+
+
 def test_exact_multiline_selection_is_json_decoded():
     from app.services.refactor.plan import parse
 

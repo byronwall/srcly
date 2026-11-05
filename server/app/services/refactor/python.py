@@ -124,7 +124,7 @@ def inspect(root: Path, action: dict | None = None) -> dict:
                         collect(child)
                 elif isinstance(change, ChangeContents):
                     name = safe_path(change.resource.path)
-                    changes[name] = {"path": name, "before": (root / name).read_text(), "after": change.new_contents}
+                    changes[name] = {"path": name, "before": (root / name).read_bytes().decode("utf-8"), "after": change.new_contents}
                 elif isinstance(change, MoveResource):
                     if change.resource.path != old or change.new_resource.path != new:
                         raise RefactorError("Rope proposed a different module destination.", code="python-unexpected-move")
@@ -132,7 +132,7 @@ def inspect(root: Path, action: dict | None = None) -> dict:
                     raise RefactorError("Rope proposed an unsupported edit kind.", code="python-unsupported-edit")
 
             collect(change_set)
-            before = (root / old).read_text()
+            before = (root / old).read_bytes().decode("utf-8")
             moved = changes.pop(old, {"after": before})["after"]
             changes[old] = {"path": old, "before": before, "after": None}
             changes[new] = {"path": new, "before": None, "after": moved}

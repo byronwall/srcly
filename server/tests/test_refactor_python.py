@@ -104,6 +104,19 @@ def test_effectful_package_initialization_blocks_module_relocation(python_projec
     assert preview["diagnostics"][0]["code"] == "python-package-effects"
 
 
+def test_python_journal_preserves_exact_crlf_preimages(python_project):
+    for file in python_project.rglob("*.py"):
+        file.write_bytes(file.read_bytes().replace(b"\n", b"\r\n"))
+    commit(python_project)
+    before = runs.fingerprint(python_project)
+    preview = runs.preview(python_project, CHAIN)
+    assert preview["status"] == "ready", preview["error"]
+    runs.execute(preview["id"], "all")
+    for _ in range(3):
+        runs.execute(preview["id"], "undo")
+    assert runs.fingerprint(Path(preview["projectRoot"])) == before
+
+
 def test_incomplete_import_rewrite_is_refused(python_project, monkeypatch):
     real_inspect = compiler.inspect
 
