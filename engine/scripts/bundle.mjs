@@ -24,6 +24,7 @@ const shared = {
   logLevel: "warning",
 };
 await build({ ...shared, entryPoints: [path.join(engineDir, "bin/srcly-engine.ts")], outfile: path.join(outDir, "srcly-engine.mjs") });
+await build({ ...shared, entryPoints: [path.join(engineDir, "bin/srcly-refactor.ts")], outfile: path.join(outDir, "srcly-refactor.mjs") });
 // analysis-service.ts starts `./analysis-worker.js` beside the entry.
 await build({ ...shared, entryPoints: [path.join(engineDir, "bin/engine-worker.ts")], outfile: path.join(outDir, "analysis-worker.js") });
 fs.writeFileSync(path.join(outDir, "package.json"), `${JSON.stringify({ type: "module", private: true }, null, 2)}\n`);

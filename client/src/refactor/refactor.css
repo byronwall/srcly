@@ -1,0 +1,53 @@
+.rf-workbench { height: 100%; display: flex; flex-direction: column; background: var(--plc-surface); color: var(--plc-on-surface); font-size: 12px; }
+.rf-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border-bottom: 1px solid var(--plc-border); }
+.rf-heading h2 { font-size: 15px; font-weight: 650; }
+.rf-badge { display: inline-flex; align-items: center; padding: 2px 6px; background: var(--plc-surface-muted); border: 1px solid var(--plc-border); border-radius: 4px; font-size: 10px; }
+.rf-status { min-height: 32px; padding: 7px 12px; background: var(--plc-surface-subtle); border-bottom: 1px solid var(--plc-border); }
+.rf-muted { color: var(--plc-on-subtle); font-size: 11px; line-height: 1.5; }
+.rf-error { padding: 10px 12px; color: var(--plc-error); background: var(--plc-error-subtle); white-space: pre-wrap; overflow: auto; max-height: 150px; }
+.rf-body { display: grid; grid-template-columns: minmax(180px, 220px) minmax(280px, 1fr) minmax(270px, 320px); flex: 1; min-height: 0; overflow: auto; }
+.rf-files, .rf-plan, .rf-main { min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.rf-files { border-right: 1px solid var(--plc-border); }
+.rf-plan { border-left: 1px solid var(--plc-border); overflow: auto; }
+.rf-panel-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--plc-border); font-size: 10px; letter-spacing: .06em; font-weight: 650; }
+.rf-workbench input { width: 100%; min-width: 0; border: 1px solid var(--plc-border-strong); background: var(--plc-surface); border-radius: 4px; height: 30px; padding: 4px 7px; color: var(--plc-on-surface); font-size: 12px; }
+.rf-workbench input:focus, .rf-workbench textarea:focus { outline: 2px solid var(--plc-border-focus); outline-offset: -1px; }
+.rf-project-form { display: grid; gap: 8px; padding: 10px; }
+.rf-workbench label { display: grid; gap: 5px; font-size: 11px; color: var(--plc-on-muted); }
+.rf-file-list { overflow: auto; flex: 1; }
+.rf-file-list button { width: 100%; display: flex; gap: 6px; align-items: center; text-align: left; padding: 8px; border-bottom: 1px solid var(--plc-divider); font: 11px 'IBM Plex Mono', monospace; }
+.rf-file-list button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-file-list button svg { flex-shrink: 0; }
+.rf-file-list button:hover, .rf-before:hover { background: var(--plc-surface-hover); }
+.rf-file-list button.selected, .rf-step.selected { background: var(--plc-surface-selected); }
+.rf-graph { background: var(--plc-surface-inset); min-height: 180px; max-height: 320px; overflow: auto; border-bottom: 1px solid var(--plc-border); }
+.rf-graph svg { width: 100%; min-width: 400px; max-height: 270px; }
+.rf-node { cursor: pointer; }
+.rf-node:focus { outline: none; }
+.rf-node:hover rect, .rf-node:focus rect { stroke: var(--plc-accent); }
+.rf-move-form { display: flex; gap: 10px; padding: 12px; border-bottom: 1px solid var(--plc-border); align-items: end; }
+.rf-move-form label { flex: 1; min-width: 0; }
+.rf-target { font: 11px 'IBM Plex Mono', monospace; overflow-wrap: anywhere; min-height: 30px; }
+.rf-diffs { overflow: auto; flex: 1; min-height: 150px; }
+.rf-diffs summary { padding: 8px 12px; border-bottom: 1px solid var(--plc-border); background: var(--plc-surface-subtle); cursor: pointer; overflow-wrap: anywhere; }
+.rf-diffs pre { padding: 8px 0; overflow: auto; font: 11px/1.7 'IBM Plex Mono', monospace; }
+.rf-diffs pre span { display: block; padding: 0 12px; min-height: 1em; white-space: pre; }
+.rf-added { color: var(--plc-success); background: var(--plc-success-subtle); }
+.rf-removed { color: var(--plc-error); background: var(--plc-error-subtle); }
+.rf-hunk { color: var(--plc-accent); }
+.rf-before { text-align: left; padding: 9px 12px; color: var(--plc-on-muted); border-bottom: 1px solid var(--plc-border); }
+.rf-step-list { max-height: 250px; overflow: auto; flex-shrink: 0; }
+.rf-step { display: flex; align-items: center; padding: 8px; gap: 6px; border-bottom: 1px solid var(--plc-border); }
+.rf-step > button { min-width: 0; display: flex; align-items: start; gap: 8px; text-align: left; flex: 1; }
+.rf-step strong, .rf-step code, .rf-step small { display: block; overflow-wrap: anywhere; }
+.rf-step code { margin: 4px 0; font-size: 10px; }
+.rf-step small { color: var(--plc-on-subtle); }
+.rf-step-number { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex-shrink: 0; border: 1px solid var(--plc-border-strong); border-radius: 4px; background: var(--plc-surface); }
+.rf-step-order { display: flex; flex-direction: column; gap: 2px; }
+.rf-step-order button { height: 20px; padding: 3px; }
+.rf-plan textarea { flex: 1; min-height: 160px; width: 100%; resize: vertical; padding: 12px; background: var(--plc-surface-inset); font: 11px/1.7 'IBM Plex Mono', monospace; color: var(--plc-on-surface); }
+.rf-parse-error { padding: 8px 12px; border-top: 1px solid var(--plc-border); }
+.rf-execution { display: grid; gap: 10px; padding: 12px; border-top: 1px solid var(--plc-border); }
+.rf-execution a { color: var(--plc-accent); }
+.rf-worktree { font: 10px/1.5 'IBM Plex Mono', monospace; overflow-wrap: anywhere; color: var(--plc-on-subtle); }
+@media (max-width: 1050px) { .rf-body { grid-template-columns: 160px minmax(280px, 1fr) 280px; } .rf-move-form { flex-wrap: wrap; } }

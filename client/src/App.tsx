@@ -192,7 +192,7 @@ function AppContent(props: { active: boolean }) {
   const { excludedPaths } = useMetricsStore();
   const sidebar = useSidebarLayout();
   // Data flow needs its width for the graph and the inspector; the file tree folds to its rail on a narrow window.
-  sidebar.autoCollapse(() => location().view === "graph" && isDataFlow(location()) && sidebar.windowWidth() < FLOW_NARROW_WIDTH);
+  sidebar.autoCollapse(() => location().view === "refactor" || (location().view === "graph" && isDataFlow(location()) && sidebar.windowWidth() < FLOW_NARROW_WIDTH));
   const [analysisPath, setAnalysisPath] = createSignal(location().repo);
   let resolveTreemapPaint: (() => void) | null = null;
   let pendingNotice: string | null = null;

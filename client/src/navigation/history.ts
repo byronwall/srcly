@@ -47,7 +47,7 @@ export class HistoryRing {
             !!e.loc &&
             typeof e.loc.repo === "string" &&
             typeof e.loc.at === "string" &&
-            (e.loc.view === "treemap" || e.loc.view === "graph")
+            (e.loc.view === "treemap" || e.loc.view === "graph" || e.loc.view === "scatter" || e.loc.view === "refactor")
         )
       : [];
     return new HistoryRing(capacity, valid);

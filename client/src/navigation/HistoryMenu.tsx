@@ -1,5 +1,5 @@
 import { createSignal, For, Show } from "solid-js";
-import { ChevronDown, GitFork, History, LayoutGrid } from "lucide-solid";
+import { ChevronDown, GitFork, History, LayoutGrid, Workflow } from "lucide-solid";
 import Popover from "../components/Popover";
 import { Button } from "../components/ui/Button";
 import { OptionRow, PopoverPanel, PopoverSectionTitle } from "../components/ui/PopoverPanel";
@@ -83,8 +83,8 @@ export default function HistoryMenu() {
                       go(entry.loc);
                     }}
                   >
-                    <span class="mt-[2px] flex text-[var(--plc-on-subtle)]" title={entry.loc.view === "graph" ? "Graph" : "Treemap"}>
-                      {entry.loc.view === "graph" ? (
+                    <span class="mt-[2px] flex text-[var(--plc-on-subtle)]" title={entry.loc.view}>
+                      {entry.loc.view === "refactor" ? <Workflow size={13} aria-label="Refactor" /> : entry.loc.view === "graph" ? (
                         <GitFork size={13} aria-label="Graph" />
                       ) : (
                         <LayoutGrid size={13} aria-label="Treemap" />

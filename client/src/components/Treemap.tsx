@@ -29,6 +29,7 @@ import { linkedPathFor, setHoverFrom } from "../utils/hoverLink";
 
 const DependencyView = lazy(() => import("../viz/deps/DependencyView"));
 const ScatterView = lazy(() => import("../viz/scatter/ScatterView"));
+const RefactorView = lazy(() => import("../refactor/RefactorView"));
 
 interface TreemapProps {
   data: any;
@@ -65,7 +66,7 @@ export default function Treemap(props: TreemapProps) {
   const showDependencyGraph = () => location().view === "graph";
   const showScatter = () => location().view === "scatter";
   /** The treemap canvas is covered by another view. */
-  const covered = () => showDependencyGraph() || showScatter();
+  const covered = () => showDependencyGraph() || showScatter() || location().view === "refactor";
   const [menu, setMenu] = createSignal<NodeMenuTarget | null>(null);
 
   const openTileMenu = (event: MouseEvent, tile: TreemapTile) => {
@@ -249,6 +250,9 @@ export default function Treemap(props: TreemapProps) {
 
       <div ref={containerRef} class="relative flex-1 overflow-hidden">
         <Suspense fallback={<div class="p-3 text-[var(--plc-on-subtle)]">Loading dependencies…</div>}>
+          <Show when={location().view === "refactor"}>
+            <RefactorView rootPath={props.rootPath} />
+          </Show>
           <Show when={showDependencyGraph()}>
             <DependencyView
               rootPath={props.rootPath}

@@ -15,6 +15,7 @@ def test_bundled_client():
     assert (static / "index.html").is_file()
     assert list((static / "assets").glob("highlight.worker-*.js"))
     assert list((static / "assets").glob("DependencyView-*.js"))
+    assert list((static / "assets").glob("RefactorView-*.js"))
     with TestClient(api) as client:
         response = client.get("/")
         assert response.status_code == 200
@@ -68,3 +69,18 @@ def test_bundled_engine(tmp_path, monkeypatch):
             assert status["typescriptFrom"] == "bundled"
     finally:
         registry.close_all()
+
+
+def test_bundled_refactoring_compiler(tmp_path, monkeypatch):
+    import json
+
+    from app.services.refactor import compiler
+
+    monkeypatch.delenv("SRCLY_ENGINE_DEV", raising=False)
+    (tmp_path / "tsconfig.json").write_text(json.dumps({"compilerOptions": {"strict": True}, "include": ["*.ts"]}))
+    (tmp_path / "state.ts").write_text("export const count = 1;\n")
+    (tmp_path / "consumer.ts").write_text('import { count } from "./state";\nexport const twice = count * 2;\n')
+    assert compiler.inspect(tmp_path, "tsconfig.json")["diagnostics"] == []
+    edits = compiler.inspect(tmp_path, "tsconfig.json", {"kind": "move-file", "file": "state.ts", "to": "model.ts"})["changes"]
+    assert {edit["path"] for edit in edits} == {"state.ts", "model.ts", "consumer.ts"}
+    assert "./model" in next(edit["after"] for edit in edits if edit["path"] == "consumer.ts")
