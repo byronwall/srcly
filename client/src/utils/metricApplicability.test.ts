@@ -28,6 +28,7 @@ describe("applicableMetrics", () => {
   it("keeps only per-scope metrics for a Python function", () => {
     expect(ids("/r/pipeline.py", true)).toEqual([
       "complexity",
+      "cognitive_complexity",
       "loc",
       "comment_noise",
       "max_nesting_depth",
