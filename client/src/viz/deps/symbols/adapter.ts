@@ -149,7 +149,8 @@ export function symbolPathToViewModel(path: SymbolPath): SymbolViewModel {
   const edges: ViewEdge[] = path.edges.map((e) => {
     const id = edgeId(e);
     edgeById.set(id, e);
-    return { ...viewEdge(e, id), faint: false, bold: true, label: REF_KIND_SPEC[e.kind].verb };
+    const { style: _style, ...plain } = viewEdge(e, id);
+    return { ...plain, faint: false, bold: true, label: LABEL[e.kind] ?? "calls", ...(e.kind === "write" ? { style: "field" as const } : {}) };
   });
   return {
     vm: { focusId: path.start, focusKind: "symbol", focusLabel: byId.get(path.start) ? labelOf(byId.get(path.start)!) : qualifiedOf(path.start), breadcrumbs: [], nodes, edges, rolledUp: 0, expanded: [] },
