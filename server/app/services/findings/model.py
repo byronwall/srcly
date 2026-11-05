@@ -23,6 +23,10 @@ class Finding:
     severity: Severity
     tool: str
     """The ``ToolRun.id`` that reported it."""
+    fix: Optional[dict[str, Any]] = None
+    """A safe mechanical fix for ``srcly fix``: ``{"title", "edits": [{"start",
+    "end", "text"}]}`` with byte offsets into the file, or ``{"title",
+    "delete": True}`` to delete the file."""
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)

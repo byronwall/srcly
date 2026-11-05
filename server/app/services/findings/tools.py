@@ -31,7 +31,7 @@ def _env_timeout(name: str, default: float) -> float:
 
 # Generous: these run in the background, never in front of the treemap.
 # ``SRCLY_FINDINGS_TIMEOUT`` overrides every tool's limit.
-DEFAULT_TIMEOUTS = {"tsc": 120.0, "eslint": 120.0, "ruff": 60.0, "srcly-ts": 60.0, "srcly-reach": 60.0}
+DEFAULT_TIMEOUTS = {"tsc": 120.0, "eslint": 120.0, "ruff": 60.0, "srcly-ts": 60.0, "srcly-reach": 60.0, "srcly-solid": 60.0}
 
 
 def timeout_for(tool: str) -> float:

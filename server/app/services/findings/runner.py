@@ -13,11 +13,11 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional, Sequence
 
-from app.services.findings import builtin_ts, reachability, ruff, typescript
+from app.services.findings import builtin_ts, reachability, ruff, solid, typescript
 from app.services.findings.model import Finding, FindingsResult, ToolRun
 from app.services.findings.tools import Tool, run
 
-FINDINGS_FORMAT = 1
+FINDINGS_FORMAT = 2
 MAX_MEMORY_ENTRIES = 8
 MAX_DISK_ENTRIES = 40
 # A thread that outlives its tool's own timeout by this much is abandoned.
@@ -33,7 +33,8 @@ def plan_tools(root: Path, *, portable: bool = False, stop: Optional[Path] = Non
       for compare snapshots that have no ``node_modules``);
     - ``ruff`` for Python, with the project's config or srcly's defaults;
     - srcly's TS rules for TS files outside every project tsc/eslint folder;
-    - srcly's reachability check over the whole TS import graph.
+    - srcly's reachability check over the whole TS import graph, and its
+      Solid rules on every file that imports ``solid-js``.
     """
     root = root.resolve()
     if stop is None:
@@ -46,6 +47,7 @@ def plan_tools(root: Path, *, portable: bool = False, stop: Optional[Path] = Non
         *ruff.plan(root, stop),
         builtin_ts.BuiltinTsTool(root, skip_dirs=typescript.project_dirs(project_ts)),
         reachability.ReachabilityTool(root),
+        solid.SolidTool(root),
     ]
 
 
