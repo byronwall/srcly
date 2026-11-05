@@ -633,6 +633,8 @@ def _format_quiet_report_summary(
         lines += [f"- {f['priority']} {f['score']} `{f['path']}`: {f['reason']}. Start at `{scopes.start_at(f)}`" for f in top]
     elif findings:
         lines += ["", f"No high or medium findings; {len(findings)} low ones in findings.json."]
+    else:
+        lines += ["", "No findings: no code files were ranked."]
     analysis = payload["manifest"].get("analysis")
     if analysis:
         lines += ["", scopes.provenance_line(analysis)]
