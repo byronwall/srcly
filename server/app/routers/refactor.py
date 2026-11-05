@@ -57,6 +57,11 @@ def get_run(run_id: str):
     return _call(result)
 
 
+@router.get("/runs")
+def recent_runs(path: str):
+    return _call(lambda: runs.recent(Path(path)))
+
+
 @router.post("/runs/{run_id}/execute")
 def execute(run_id: str, request: ExecuteRequest):
     return _call(lambda: runs.execute(run_id, request.mode))

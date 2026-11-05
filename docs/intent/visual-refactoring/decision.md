@@ -245,3 +245,11 @@ security sandbox. Test checkpoints are repeatable gates, not reversible external
 actions.
 
 ![Python module chain and executed test checkpoint](assets/python-checkpoint.png)
+
+### Review workspace and agent handoff
+
+The Refactor view keeps the ordered plan beside a focused review surface. **Add step** opens a target picker and operation editor. **Changes** shows one file's exact diff at a selected step; validation evidence and type-repair diagnostics expand in place. **Relationships** inspects that same step's graph. **DSL** supports direct editing, import/export, error feedback and Ctrl/⌘ Enter to preview. Step controls reorder, remove, or select the corresponding DSL line. Narrow screens expose the same plan through a Plan button and step selector.
+
+**Agent handoff → Copy agent brief** includes the current DSL, project path, compiler feedback and catalog/parse/preview commands. An agent runs `srcly refactor preview plan.srcly --path <project>`; its JSON result now contains `reviewPath`. Open that path on the running app's origin, paste its run ID/link into the handoff panel, or select it from recent runs. CLI and app must use the same machine and cache configuration. `GET /api/refactor/runs?path=<project>` lists the latest 20 journals for that exact source root without recovering or changing their worktrees. Opening a run uses the existing recovery path.
+
+The action bar advances from preview to apply-next/run-all, with undo for applied steps. Editing a plan invalidates its preview. Opening a different saved run or importing a plan preserves the previous draft for restoration in the DSL editor; reloading a changed local draft does not replace it with its old run. Run links identify the exact journal, not a recompiled approximation. A changed source checkout still blocks execution through the executor's existing fingerprint checks.

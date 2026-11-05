@@ -17,7 +17,9 @@ import threading
 import uuid
 from collections import Counter
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlencode
 
 from app.services import cache
 from app.services.compare.git_refs import repo_root, run_git
@@ -108,6 +110,8 @@ def source_state(root: Path) -> tuple[str, str]:
 
 
 def save(run: dict) -> None:
+    run["updatedAt"] = datetime.now(timezone.utc).isoformat()
+    run.setdefault("createdAt", run["updatedAt"])
     target = directory() / run["id"] / "run.json"
     temp = target.with_suffix(".tmp")
     with temp.open("w") as stream:
@@ -131,11 +135,46 @@ def load(run_id: str) -> dict:
 
 def public(run: dict) -> dict:
     result = {k: v for k, v in run.items() if k not in {"pending", "sourceFingerprint", "workFingerprint"}}
+    result["reviewPath"] = review_path(run)
     result["steps"] = [{**{k: v for k, v in step.items() if k != "changes"}, "files": [
         {"path": c["path"], "status": "added" if c["before"] is None else "removed" if c["after"] is None else "modified",
          "diff": "".join(difflib.unified_diff((c["before"] or "").splitlines(keepends=True), (c["after"] or "").splitlines(keepends=True), fromfile=f'a/{c["path"]}', tofile=f'b/{c["path"]}'))}
         for c in step.get("changes", [])]} for step in run["steps"]]
     return result
+
+
+def review_path(run: dict) -> str:
+    return "/?" + urlencode({"repo": run["sourceRoot"], "view": "refactor", "run": run["id"]})
+
+
+def recent(root: Path, limit: int = 20) -> list[dict]:
+    """Share CLI/UI journals without recovering or mutating any worktree.
+
+    Journals are atomically replaced by save(); listing can read a consistent
+    snapshot while an executor owns the lock. Opening a run performs recovery.
+    """
+    source_root = str(root.resolve())
+    found = []
+    for journal in directory().glob("*/run.json"):
+        if not re.fullmatch(r"[a-f0-9]{32}", journal.parent.name) or journal.is_symlink():
+            continue
+        try:
+            run = json.loads(journal.read_text())
+            if run["sourceRoot"] != source_root or run["id"] != journal.parent.name:
+                continue
+            steps = run["plan"]["steps"]
+            first = steps[0] if steps else {}
+            handle = run["plan"].get("handles", {}).get(first.get("target", "").removeprefix("$"), {})
+            target = " · ".join(filter(None, (handle.get("file"), handle.get("name")))) or first.get("target", "")
+            label = f"{target} → {first['to']}" if first.get("to") else target
+            updated = run.get("updatedAt") or datetime.fromtimestamp(journal.stat().st_mtime, timezone.utc).isoformat()
+            found.append({"id": run["id"], "sourceRoot": source_root, "status": run["status"],
+                          "applied": run["applied"], "stepCount": len(steps), "updatedAt": updated,
+                          "operation": first.get("kind", ""), "label": label, "reviewPath": review_path(run)})
+        except (OSError, ValueError, KeyError, TypeError):
+            # An old or incomplete journal must not hide other usable runs.
+            continue
+    return sorted(found, key=lambda item: (item["updatedAt"], item["id"]), reverse=True)[:limit]
 
 
 def codemod(run: dict) -> dict:
