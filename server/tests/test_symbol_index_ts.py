@@ -167,3 +167,21 @@ def test_neighbourhood_draws_members_with_the_focus_and_opens_hops(tmp_path: Pat
     assert "s.ts#outer" in {n.id for n in opened.nodes} and "s.ts#far" not in {n.id for n in opened.nodes}
     module = idx.neighbourhood("s.ts", hops=1)
     assert {n.id for n in module.nodes if n.hop == 0} == {"s.ts", "s.ts#Store", "s.ts#caller", "s.ts#outer", "s.ts#far"}
+
+
+def test_path_finds_the_shortest_chain_forward_then_backward(tmp_path: Path):
+    write(tmp_path, "p.ts", "export function a() { b(); c(); }\nexport function b() { d(); }\nexport function c() { d(); d(); }\nexport function d() { e(); }\nexport function e() {}\nexport function lone() {}\n")
+    idx = build_symbol_index(tmp_path, use_cache=False)
+    p = idx.path("p.ts#a", "p.ts#e")
+    assert p.found and p.direction == "forward" and p.steps == 3
+    assert [n.id for n in p.nodes] == ["p.ts#a", "p.ts#b", "p.ts#d", "p.ts#e"]
+    assert [n.hop for n in p.nodes] == [0, 1, 2, 3]
+    assert [(e.source, e.target, e.kind) for e in p.edges] == [("p.ts#a", "p.ts#b", "call"), ("p.ts#b", "p.ts#d", "call"), ("p.ts#d", "p.ts#e", "call")]
+    back = idx.path("p.ts#e", "p.ts#a")
+    assert back.found and back.direction == "backward" and [n.id for n in back.nodes] == ["p.ts#e", "p.ts#d", "p.ts#b", "p.ts#a"]
+    assert back.edges[0].source == "p.ts#d" and back.edges[0].target == "p.ts#e"
+    none = idx.path("p.ts#a", "p.ts#lone")
+    assert not none.found and none.direction is None and [n.id for n in none.nodes] == ["p.ts#a", "p.ts#lone"] and none.edges == []
+    assert idx.path("p.ts#a", "p.ts#a").steps == 0
+    assert idx.path("p.ts#a", "p.ts#nope") is None
+    assert not idx.path("p.ts#a", "p.ts#e", kinds=["read"]).found

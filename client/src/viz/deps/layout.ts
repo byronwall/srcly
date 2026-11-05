@@ -119,6 +119,11 @@ export interface LayoutOptions {
    * takes its box's slot and only pushes its neighbors along.
    */
   previous?: ViewLayout;
+  /**
+   * Keep every depth level in its own column, whatever the viewport's shape:
+   * a chain of steps reads left to right or not at all.
+   */
+  unfold?: boolean;
 }
 
 /** Where a box sat in the previous layout, by graph id. */
@@ -321,13 +326,14 @@ export function rankPackings(
   levelCounts: number[][],
   viewport: { width: number; height: number },
   box: BoxSize = DEFAULT_BOX,
+  unfold = false,
 ): Packing[] {
   const total = levelCounts.flat().reduce((a, b) => a + b, 0);
   const target = Math.max(0.3, viewport.width / Math.max(1, viewport.height));
   const boundaries = levelCounts.reduce((a, c) => a + Math.max(0, c.length - 1), 0);
   const options: (Packing & { cost: number })[] = [];
   for (let rows = 1; rows <= Math.max(1, total); rows++) {
-    for (const t of UNFOLD_STEPS) {
+    for (const t of unfold ? [1] : UNFOLD_STEPS) {
       let cols = 0;
       let tallest = 0;
       let lost = 0;
@@ -588,6 +594,7 @@ function layoutComponent(vm: ViewModel, opts: LayoutOptions): ViewLayout {
     regions.map((lvls) => lvls.map((l) => l.length)),
     viewport,
     opts.box,
+    opts.unfold,
   );
   // After one folder opened or closed in place, every box keeps its old
   // column and row count: the opened folder fills its box's column and spills

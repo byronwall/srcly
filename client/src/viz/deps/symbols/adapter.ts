@@ -3,7 +3,7 @@
 // the center inside one frame; what references them is on the left (`in`),
 // what they reference on the right (`out`), framed by file and, inside a
 // file, grouped by class. Edges keep their kind and how sure the index is.
-import { baseName, fileOf, qualifiedOf, REF_KIND_SPEC, RESOLUTION_SPEC, type RefKind, type SymbolEdge, type SymbolGraph, type SymbolNode } from "../../../symbols/contract";
+import { baseName, fileOf, qualifiedOf, REF_KIND_SPEC, RESOLUTION_SPEC, type RefKind, type SymbolEdge, type SymbolGraph, type SymbolNode, type SymbolPath } from "../../../symbols/contract";
 import type { ViewEdge, ViewModel, ViewNode } from "../viewModel";
 
 export interface SymbolViewOptions {
@@ -96,22 +96,7 @@ export function symbolGraphToViewModel(graph: SymbolGraph, options: SymbolViewOp
     .map((e) => {
       const id = edgeId(e);
       edgeById.set(id, e);
-      const guess = e.resolution === "name";
-      const times = e.count === 1 ? `once` : `${e.count} times`;
-      const lines = e.lines.length ? ` at line${e.lines.length === 1 ? "" : "s"} ${e.lines.join(", ")}` : "";
-      return {
-        id,
-        source: e.source,
-        target: e.target,
-        weight: e.count,
-        faint: guess || e.kind === "read" || e.kind === "type",
-        symbols: [],
-        ...(STYLE[e.kind] ? { style: STYLE[e.kind] } : {}),
-        ...(LABEL[e.kind] ? { label: LABEL[e.kind] } : {}),
-        status: guess ? "partial" : "proven",
-        relation: e.kind,
-        detail: `${REF_KIND_SPEC[e.kind].verb} it ${times}${lines} · ${RESOLUTION_SPEC[e.resolution].label}: ${RESOLUTION_SPEC[e.resolution].hint}`,
-      } satisfies ViewEdge;
+      return viewEdge(e, id);
     });
   return {
     vm: {
@@ -127,6 +112,71 @@ export function symbolGraphToViewModel(graph: SymbolGraph, options: SymbolViewOp
     byId,
     edgeById,
     hiddenByKind: graph.nodes.length - kept.length,
+  };
+}
+
+/**
+ * A path between two symbols as a chain: the start in the centre, each step
+ * one layer further on the side the chain runs to (right when the start
+ * references its way to the end, left when the end references its way to
+ * the start), framed by file. Without a chain, the two ends sit apart.
+ */
+export function symbolPathToViewModel(path: SymbolPath): SymbolViewModel {
+  const byId = new Map(path.nodes.map((n) => [n.id, n]));
+  const side: ViewNode["region"] = path.direction === "backward" ? "in" : "out";
+  const nodes: ViewNode[] = path.nodes.map((n) => {
+    const container = n.container ? byId.get(n.container) : undefined;
+    const where = `${baseName(n.file)}:${n.line}`;
+    const step = n.hop ?? 0;
+    return {
+      id: n.id,
+      graphId: n.id,
+      region: n.id === path.start ? "center" : side,
+      kind: "symbol",
+      symbolKind: n.kind,
+      label: labelOf(n),
+      title: [n.kind, qualifiedOf(n.id) || baseName(n.file), `${n.file}:${n.line}`, path.found ? `step ${step} of ${path.steps}` : ""].filter(Boolean).join(" · "),
+      subtitle: n.kind === "module" ? n.file : container ? `${container.name} · ${where}` : where,
+      note: path.found ? (n.id === path.start ? "start" : n.id === path.end ? `end · ${path.steps} step${path.steps === 1 ? "" : "s"}` : `step ${step}`) : n.id === path.start ? "start" : "end · no path",
+      memberCount: 1,
+      isFocus: n.id === path.start,
+      ...(n.id !== path.start ? { group: { id: `file:${n.file}`, label: baseName(n.file) }, subgroup: n.container ?? undefined } : {}),
+      ...(n.isTest ? { outline: "dotted" as const } : {}),
+    };
+  });
+  const edgeById = new Map<string, SymbolEdge>();
+  // The chain is the drawing: every step is bold and its word stays on, however sure it is.
+  const edges: ViewEdge[] = path.edges.map((e) => {
+    const id = edgeId(e);
+    edgeById.set(id, e);
+    const { style: _style, ...plain } = viewEdge(e, id);
+    return { ...plain, faint: false, bold: true, label: LABEL[e.kind] ?? "calls", ...(e.kind === "write" ? { style: "field" as const } : {}) };
+  });
+  return {
+    vm: { focusId: path.start, focusKind: "symbol", focusLabel: byId.get(path.start) ? labelOf(byId.get(path.start)!) : qualifiedOf(path.start), breadcrumbs: [], nodes, edges, rolledUp: 0, expanded: [] },
+    byId,
+    edgeById,
+    hiddenByKind: 0,
+  };
+}
+
+/** A merged reference as the canvas draws it: kind and sureness in the style, a sentence for its card. */
+function viewEdge(e: SymbolEdge, id: string): ViewEdge {
+  const guess = e.resolution === "name";
+  const times = e.count === 1 ? `once` : `${e.count} times`;
+  const lines = e.lines.length ? ` at line${e.lines.length === 1 ? "" : "s"} ${e.lines.join(", ")}` : "";
+  return {
+    id,
+    source: e.source,
+    target: e.target,
+    weight: e.count,
+    faint: guess || e.kind === "read" || e.kind === "type",
+    symbols: [],
+    ...(STYLE[e.kind] ? { style: STYLE[e.kind] } : {}),
+    ...(LABEL[e.kind] ? { label: LABEL[e.kind] } : {}),
+    status: guess ? "partial" : "proven",
+    relation: e.kind,
+    detail: `${REF_KIND_SPEC[e.kind].verb} it ${times}${lines} · ${RESOLUTION_SPEC[e.resolution].label}: ${RESOLUTION_SPEC[e.resolution].hint}`,
   };
 }
 

@@ -58,6 +58,8 @@ export interface Location {
    * symbols). "" derives the focus from `at`; absent is not Symbols mode.
    */
   symbols?: string;
+  /** Symbols mode: draw the shortest chain of references from the focus to this symbol instead of the neighbourhood. */
+  to?: string;
 }
 
 export type Direction = "forward" | "backward" | "both";
@@ -132,6 +134,7 @@ const MODEL_PARAM = "model";
 const DEPTH_PARAM = "depth";
 const LINKS_PARAM = "links";
 const SYMBOLS_PARAM = "symbols";
+const TO_PARAM = "to";
 /** Pre-location graph focus parameter. Read as an alias of `at` + graph view. */
 const LEGACY_FOCUS_PARAM = "depFocus";
 
@@ -159,6 +162,7 @@ export function parseLocation(search: string): Location {
   const links = anchor !== null && model === null && params.get(LINKS_PARAM) === "off" ? "off" : null;
   // Symbols mode is the third graph mode: it yields to an anchor or a route in the same URL.
   const symbols = view === "graph" && anchor === null && params.get(FLOW_PARAM) === null ? params.get(SYMBOLS_PARAM) : null;
+  const to = symbols ? params.get(TO_PARAM) : null;
   const flow = view === "graph" && anchor === null && symbols === null ? params.get(FLOW_PARAM) : null;
   const field = flow !== null ? params.get(FIELD_PARAM) : null;
   const dest = field !== null ? params.get(DEST_PARAM) : null;
@@ -178,6 +182,7 @@ export function parseLocation(search: string): Location {
     ...(depth ? { depth } : {}),
     ...(links ? { links } : {}),
     ...(symbols !== null ? { symbols } : {}),
+    ...(to ? { to } : {}),
   };
 }
 
@@ -203,6 +208,7 @@ export function toSearch(loc: Location, currentSearch = ""): string {
   params.delete(DEPTH_PARAM);
   params.delete(LINKS_PARAM);
   params.delete(SYMBOLS_PARAM);
+  params.delete(TO_PARAM);
   if (loc.repo) params.set(REPO_PARAM, loc.repo);
   if (loc.at) params.set(AT_PARAM, loc.at);
   if (loc.view !== "treemap") params.set(VIEW_PARAM, loc.view);
@@ -217,6 +223,7 @@ export function toSearch(loc: Location, currentSearch = ""): string {
     }
   } else if (loc.view === "graph" && loc.symbols !== undefined) {
     params.set(SYMBOLS_PARAM, loc.symbols);
+    if (loc.to && loc.symbols) params.set(TO_PARAM, loc.to);
   } else if (loc.view === "graph" && loc.flow !== undefined) {
     params.set(FLOW_PARAM, loc.flow);
     if (loc.lens) params.set(LENS_PARAM, loc.lens);
@@ -237,7 +244,7 @@ export function sameLocation(a: Location, b: Location): boolean {
 
 /** Same repo, focus, view and graph mode, whatever is opened in place or selected in Data flow mode (one history entry per place). */
 export function samePlace(a: Location, b: Location): boolean {
-  return a.repo === b.repo && a.at === b.at && a.view === b.view && a.flow === b.flow && a.lens === b.lens && a.anchor === b.anchor && a.symbols === b.symbols;
+  return a.repo === b.repo && a.at === b.at && a.view === b.view && a.flow === b.flow && a.lens === b.lens && a.anchor === b.anchor && a.symbols === b.symbols && a.to === b.to;
 }
 
 /** Symbols mode: the reference graph centred on a symbol. */

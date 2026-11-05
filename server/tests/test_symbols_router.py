@@ -62,3 +62,12 @@ def test_graph_draws_members_and_opens_hops_on_request(client, tmp_path: Path):
     assert "s.ts#b" in {n["id"] for n in opened["nodes"]}
     bare = client.get("/api/symbols/graph", params={"path": str(tmp_path), "at": "s.ts#S", "members": "false"}).json()
     assert {n["id"] for n in bare["nodes"]} == {"s.ts#S", "s.ts#a"}
+
+
+def test_path(client, repo):
+    body = client.get("/api/symbols/path", params={"path": str(repo), "from": "src/a.ts#a", "to": "src/a.ts#b"}).json()
+    assert body["found"] and body["direction"] == "forward" and body["steps"] == 1
+    assert [n["id"] for n in body["nodes"]] == ["src/a.ts#a", "src/a.ts#b"] and body["edges"][0]["lines"] == [1]
+    assert client.get("/api/symbols/path", params={"path": str(repo), "from": "src/a.ts#a", "to": "src/a.ts#zzz"}).status_code == 404
+    missing = client.get("/api/symbols/path", params={"path": str(repo), "from": "src/a.ts#b", "to": "src/a.test.ts", "tests": "false"}).json()
+    assert missing["found"] is True  # the end itself may be a test file; only steps through tests are skipped

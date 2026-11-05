@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
-from app.models import SymbolGraph, SymbolGraphEdge, SymbolGraphNode, SymbolIndexInfo, SymbolSearchHit
+from app.models import SymbolGraph, SymbolGraphEdge, SymbolGraphNode, SymbolIndexInfo, SymbolPath, SymbolSearchHit
 from app.services.deps.common import is_test_path, walk_source_files
 from app.services.deps.typescript_deps import TS_EXTENSIONS
 from app.services.symbols.model import BUILTIN_MEMBERS, REF_KINDS, FileSymbols, PendingMember, RefKind, Reference, Symbol
@@ -22,6 +22,8 @@ from app.services.symbols.model import BUILTIN_MEMBERS, REF_KINDS, FileSymbols, 
 MAX_EDGE_LINES = 12
 # Nodes a neighbourhood answers with before it reports itself truncated.
 MAX_NEIGHBOURHOOD = 400
+# Steps a path search gives up after.
+MAX_PATH_STEPS = 16
 
 
 @dataclass
@@ -133,6 +135,75 @@ class SymbolIndex:
             if truncated:
                 break
         return self._graph(focus, seen, allowed, truncated)
+
+    def path(self, start: str, end: str, kinds: Optional[Iterable[RefKind]] = None, include_tests: bool = True, max_steps: int = MAX_PATH_STEPS) -> Optional[SymbolPath]:
+        """
+        The shortest chain of references from `start` to `end`: forward first (start
+        references … references end), else backward, else none. Each step's merged
+        edge carries its lines; the nodes' `hop` is their position on the chain.
+        """
+        if start not in self.symbols or end not in self.symbols:
+            return None
+        allowed: Set[str] = set(kinds) if kinds else set(REF_KINDS)
+        for direction in ("forward", "backward"):
+            chain = self._shortest(start, end, allowed, include_tests, max_steps, direction)
+            if chain is not None:
+                nodes = [self._node(self.symbols[sid], i) for i, sid in enumerate(chain)]
+                edges: List[SymbolGraphEdge] = []
+                for a, b in zip(chain, chain[1:]):
+                    source, target = (a, b) if direction == "forward" else (b, a)
+                    edges.extend(self._merged_edges(source, target, allowed))
+                return SymbolPath(root=str(self.root), start=start, end=end, found=True, direction=direction, steps=len(chain) - 1, nodes=nodes, edges=edges, index=self.info())
+        return SymbolPath(root=str(self.root), start=start, end=end, found=False, direction=None, steps=0, nodes=[self._node(self.symbols[start], 0), self._node(self.symbols[end], 0)], edges=[], index=self.info())
+
+    def _shortest(self, start: str, end: str, allowed: Set[str], include_tests: bool, max_steps: int, direction: str) -> Optional[List[str]]:
+        """Breadth-first over references in one direction; the chain of ids, or None within `max_steps`."""
+        if start == end:
+            return [start]
+        parent: Dict[str, Optional[str]] = {start: None}
+        queue = deque([(start, 0)])
+        while queue:
+            cur, depth = queue.popleft()
+            if depth >= max_steps:
+                continue
+            refs = self.out[cur] if direction == "forward" else self.inc[cur]
+            for i in refs:
+                r = self.references[i]
+                if r.kind not in allowed:
+                    continue
+                n = r.target if direction == "forward" else r.source
+                if n in parent:
+                    continue
+                sym = self.symbols.get(n)
+                if sym is None or (not include_tests and self.is_test(sym) and n != end):
+                    continue
+                parent[n] = cur
+                if n == end:
+                    chain = [n]
+                    while parent[chain[-1]] is not None:
+                        chain.append(parent[chain[-1]])  # type: ignore[arg-type]
+                    return list(reversed(chain))
+                queue.append((n, depth + 1))
+        return None
+
+    def _merged_edges(self, source: str, target: str, allowed: Set[str]) -> List[SymbolGraphEdge]:
+        """Every kind of reference from source to target as one merged edge each."""
+        merged: Dict[str, SymbolGraphEdge] = {}
+        for i in self.out[source]:
+            r = self.references[i]
+            if r.target != target or r.kind not in allowed:
+                continue
+            e = merged.get(r.kind)
+            if e is None:
+                merged[r.kind] = SymbolGraphEdge(source=source, target=target, kind=r.kind, lines=[r.line], count=1, resolution=r.resolution)
+            else:
+                e.count += 1
+                if r.line not in e.lines and len(e.lines) < MAX_EDGE_LINES:
+                    e.lines.append(r.line)
+                e.resolution = _weaker(e.resolution, r.resolution)
+        for e in merged.values():
+            e.lines.sort()
+        return list(merged.values())
 
     def _graph(self, focus: str, chosen: Dict[str, int], allowed: Set[str], truncated: bool) -> SymbolGraph:
         nodes = [self._node(self.symbols[sid], hop) for sid, hop in chosen.items()]

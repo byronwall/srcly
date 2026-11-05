@@ -258,6 +258,12 @@ describe("Symbols mode (`symbols`)", () => {
     expect(isSymbols(loc)).toBe(true);
     expect(isSymbols({ ...loc, symbols: undefined })).toBe(false);
     expect(samePlace(loc, { ...loc, symbols: "src/store.ts#Store" })).toBe(false);
+    // A path to another symbol is its own place, only with a focus.
+    const path = parseLocation("?repo=/r&view=graph&symbols=a.ts%23a&to=b.ts%23b");
+    expect(path.to).toBe("b.ts#b");
+    expect(toSearch(path)).toBe("?repo=%2Fr&view=graph&symbols=a.ts%23a&to=b.ts%23b");
+    expect(parseLocation("?repo=/r&view=graph&symbols=&to=b.ts%23b").to).toBeUndefined();
+    expect(samePlace(path, { ...path, to: undefined })).toBe(false);
   });
 
   it("names the symbol an `at` stands for", () => {

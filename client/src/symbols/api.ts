@@ -1,4 +1,4 @@
-import type { SymbolGraph, SymbolSearch } from "./contract";
+import type { SymbolGraph, SymbolPath, SymbolSearch } from "./contract";
 
 export class SymbolApiError extends Error {
   status: number;
@@ -27,6 +27,11 @@ async function get<T>(path: string, params: Record<string, string | number | boo
 /** A symbol's neighbourhood: the focus and its members, the symbols within `hops` of them, the opened hops (`more`), and the references among them. */
 export function fetchSymbolGraph(req: { path: string; at: string; hops?: number; more?: string[]; tests?: boolean }): Promise<SymbolGraph> {
   return get<SymbolGraph>("/api/symbols/graph", { path: req.path, at: req.at, hops: req.hops, more: req.more?.join(","), tests: req.tests });
+}
+
+/** The shortest chain of references from one symbol to another (forward, else backward), or that there is none. */
+export function fetchSymbolPath(req: { path: string; from: string; to: string; kinds?: string[]; tests?: boolean }): Promise<SymbolPath> {
+  return get<SymbolPath>("/api/symbols/path", { path: req.path, from: req.from, to: req.to, kinds: req.kinds?.join(","), tests: req.tests });
 }
 
 export function searchSymbols(req: { path: string; q: string; limit?: number; tests?: boolean }): Promise<SymbolSearch> {

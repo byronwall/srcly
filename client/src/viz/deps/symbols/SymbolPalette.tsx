@@ -4,13 +4,21 @@ import { searchSymbols } from "../../../symbols/api";
 import { baseName, qualifiedOf, type SymbolSearchHit } from "../../../symbols/contract";
 import { KindGlyph } from "../DependencyCanvas";
 
-export type SymbolPickMode = "focus" | "code";
+export type SymbolPickMode = "focus" | "code" | "path";
 
 const MAX_ROWS = 40;
 const DEBOUNCE_MS = 120;
 
 /** `/` in Symbols mode: find any symbol of the index by name, qualified name or file. */
-export function SymbolPalette(props: { open: boolean; rootPath: string; tests: boolean; onClose: () => void; onPick: (hit: SymbolSearchHit, mode: SymbolPickMode) => void }) {
+export function SymbolPalette(props: {
+  open: boolean;
+  rootPath: string;
+  tests: boolean;
+  /** The focus a Shift+Enter pick draws the path from; none hides that gesture. */
+  pathFrom?: string;
+  onClose: () => void;
+  onPick: (hit: SymbolSearchHit, mode: SymbolPickMode) => void;
+}) {
   const [query, setQuery] = createSignal("");
   const [hits, setHits] = createSignal<SymbolSearchHit[]>([]);
   const [total, setTotal] = createSignal<number | null>(null);
@@ -75,7 +83,7 @@ export function SymbolPalette(props: { open: boolean; rootPath: string; tests: b
     const n = hits().length;
     if (e.key === "ArrowDown") setActive((i) => (n ? (i + 1) % n : 0));
     else if (e.key === "ArrowUp") setActive((i) => (n ? (i - 1 + n) % n : 0));
-    else if (e.key === "Enter") pick(hits()[active()], e.metaKey || e.ctrlKey ? "code" : "focus");
+    else if (e.key === "Enter") pick(hits()[active()], e.metaKey || e.ctrlKey ? "code" : e.shiftKey && props.pathFrom ? "path" : "focus");
     else if (e.key === "Escape") props.onClose();
     else return;
     e.preventDefault();
@@ -119,7 +127,7 @@ export function SymbolPalette(props: { open: boolean; rootPath: string; tests: b
                 class="flex cursor-pointer items-baseline gap-2 px-3 py-1 text-[12.5px]"
                 classList={{ "bg-[var(--plc-surface-selected)]": i() === active() }}
                 onMouseMove={() => setActive(i())}
-                onClick={(e) => pick(hit, e.metaKey || e.ctrlKey ? "code" : "focus")}
+                onClick={(e) => pick(hit, e.metaKey || e.ctrlKey ? "code" : e.shiftKey && props.pathFrom ? "path" : "focus")}
               >
                 <svg width="13" height="13" viewBox="0 -1 13 13" class="shrink-0 self-center" aria-hidden="true">
                   <KindGlyph node={{ kind: "symbol", symbolKind: hit.kind }} x={0} y={0} />
@@ -140,6 +148,11 @@ export function SymbolPalette(props: { open: boolean; rootPath: string; tests: b
         <span>
           <b class="font-medium text-[var(--plc-on-muted)]">Enter</b> show references
         </span>
+        <Show when={props.pathFrom}>
+          <span>
+            <b class="font-medium text-[var(--plc-on-muted)]">⇧Enter</b> path from {props.pathFrom}
+          </span>
+        </Show>
         <span>
           <b class="font-medium text-[var(--plc-on-muted)]">⌘Enter</b> open code
         </span>
