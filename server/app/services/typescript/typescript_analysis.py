@@ -58,8 +58,9 @@ class TreeSitterAnalyzer:
         with open(file_path, 'rb') as f:
             content = f.read()
         
+        # Components only in .tsx/.jsx; plain JS still parses with the TSX grammar, since it may hold JSX.
         is_tsx = file_path.endswith('x')
-        parser = self.tsx_parser if is_tsx else self.ts_parser
+        parser = self.ts_parser if file_path.endswith('ts') else self.tsx_parser
         tree = parser.parse(content)
         
         lines = content.splitlines()

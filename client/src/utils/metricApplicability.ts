@@ -3,7 +3,7 @@ import { metricDefs, metricGroups, type MetricDef, type MetricLanguage } from ".
 // Extensions lizard has a reader for (functions, CCN, params). Anything not
 // listed and not handled by a dedicated analyzer only gets a line count.
 const LIZARD_CODE_EXTENSIONS = new Set([
-  "js", "jsx", "mjs", "cjs", "go", "java", "kt", "kts", "scala", "c", "h", "cc", "cpp", "cxx",
+  "go", "java", "kt", "kts", "scala", "c", "h", "cc", "cpp", "cxx",
   "hpp", "hh", "m", "mm", "cs", "rb", "php", "rs", "swift", "lua", "erl", "f90", "f", "gd", "pl", "r", "sol", "zig",
 ]);
 
@@ -13,7 +13,9 @@ export function languageForPath(path: string): MetricLanguage {
   const dot = file.lastIndexOf(".");
   const ext = dot > 0 ? file.slice(dot + 1).toLowerCase() : "";
   if (ext === "tsx") return "tsx";
-  if (ext === "ts") return "ts";
+  if (ext === "ts" || ext === "mts" || ext === "cts") return "ts";
+  if (ext === "jsx") return "jsx";
+  if (ext === "js" || ext === "mjs" || ext === "cjs") return "js";
   if (ext === "py") return "python";
   if (ext === "ipynb") return "notebook";
   if (ext === "md" || ext === "markdown") return "markdown";

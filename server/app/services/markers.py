@@ -74,7 +74,7 @@ def collect_markers(file_path: str) -> dict[str, list[dict]]:
     from app.services.typescript.typescript_analysis import TreeSitterAnalyzer
 
     path = Path(file_path)
-    if path.suffix in {".ts", ".tsx"}:
+    if path.suffix in {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}:
         analyzer = TreeSitterAnalyzer()
     elif path.suffix == ".py":
         analyzer = PythonTreeSitterAnalyzer()

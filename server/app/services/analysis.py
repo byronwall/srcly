@@ -125,6 +125,9 @@ def create_node(name: str, node_type: str, path: str) -> Node:
         children=[]
     )
 
+JS_SUFFIXES = (".js", ".mjs", ".cjs")
+
+
 def language_for_path(path: str) -> str:
     """Which analyzer handles ``path``; mirrors ``analyze_single_file``."""
     lower = path.lower()
@@ -132,6 +135,10 @@ def language_for_path(path: str) -> str:
         return "tsx"
     if lower.endswith(".ts"):
         return "ts"
+    if lower.endswith(".jsx"):
+        return "jsx"
+    if lower.endswith(JS_SUFFIXES):
+        return "js"
     if lower.endswith(".py"):
         return "python"
     if lower.endswith(".ipynb"):
@@ -897,7 +904,9 @@ def analyze_single_file(file_path: str):
     Must be top-level for multiprocessing pickling.
     """
     try:
-        if file_path.endswith(".ts") or file_path.endswith(".tsx"):
+        # Lizard misreads JS template literals (a one-line arrow function took in 1,300 lines),
+        # so JS goes through the same tree-sitter analyzer as TypeScript.
+        if file_path.endswith((".ts", ".tsx", ".jsx", *JS_SUFFIXES)):
             analyzer = get_ts_analyzer()
             return analyzer.analyze_file(file_path)
         if file_path.endswith(".css") or file_path.endswith(".scss"):

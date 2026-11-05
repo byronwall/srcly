@@ -65,6 +65,8 @@
       "languages": [
         "ts",
         "tsx",
+        "js",
+        "jsx",
         "python",
         "code"
       ],
@@ -92,6 +94,8 @@
       "languages": [
         "ts",
         "tsx",
+        "js",
+        "jsx",
         "python",
         "code"
       ],
@@ -163,6 +167,8 @@
       "languages": [
         "ts",
         "tsx",
+        "js",
+        "jsx",
         "python"
       ],
       "picker": true,
@@ -189,6 +195,8 @@
       "languages": [
         "ts",
         "tsx",
+        "js",
+        "jsx",
         "python"
       ],
       "picker": true,
@@ -215,6 +223,8 @@
       "languages": [
         "ts",
         "tsx",
+        "js",
+        "jsx",
         "python",
         "code"
       ],
@@ -242,6 +252,8 @@
       "languages": [
         "ts",
         "tsx",
+        "js",
+        "jsx",
         "python",
         "code"
       ],
@@ -267,7 +279,8 @@
       "id": "component_loc",
       "label": "Component LOC",
       "languages": [
-        "tsx"
+        "tsx",
+        "jsx"
       ],
       "picker": true,
       "scope": "any",
@@ -291,7 +304,8 @@
       "id": "component_hook_count",
       "label": "Hooks",
       "languages": [
-        "tsx"
+        "tsx",
+        "jsx"
       ],
       "picker": true,
       "scope": "any",
@@ -315,7 +329,8 @@
       "id": "component_effect_count",
       "label": "Effects",
       "languages": [
-        "tsx"
+        "tsx",
+        "jsx"
       ],
       "picker": true,
       "scope": "any",
@@ -339,7 +354,8 @@
       "id": "component_jsx_depth",
       "label": "JSX Depth",
       "languages": [
-        "tsx"
+        "tsx",
+        "jsx"
       ],
       "picker": true,
       "scope": "any",
@@ -363,7 +379,8 @@
       "id": "component_prop_count",
       "label": "Props",
       "languages": [
-        "tsx"
+        "tsx",
+        "jsx"
       ],
       "picker": true,
       "scope": "any",
@@ -387,7 +404,8 @@
       "id": "component_inline_handler_count",
       "label": "Inline Handlers",
       "languages": [
-        "tsx"
+        "tsx",
+        "jsx"
       ],
       "picker": true,
       "scope": "any",
@@ -411,7 +429,8 @@
       "id": "component_jsx_conditional_count",
       "label": "JSX Conditionals",
       "languages": [
-        "tsx"
+        "tsx",
+        "jsx"
       ],
       "picker": true,
       "scope": "any",
@@ -555,8 +574,9 @@
       "languages": [
         "ts",
         "tsx",
-        "python",
-        "code"
+        "js",
+        "jsx",
+        "python"
       ],
       "picker": true,
       "scope": "file",
@@ -582,8 +602,9 @@
       "languages": [
         "ts",
         "tsx",
-        "python",
-        "code"
+        "js",
+        "jsx",
+        "python"
       ],
       "picker": true,
       "scope": "file",
@@ -609,6 +630,8 @@
       "languages": [
         "ts",
         "tsx",
+        "js",
+        "jsx",
         "python"
       ],
       "picker": true,
@@ -635,6 +658,8 @@
       "languages": [
         "ts",
         "tsx",
+        "js",
+        "jsx",
         "python"
       ],
       "picker": true,
@@ -661,6 +686,8 @@
       "languages": [
         "ts",
         "tsx",
+        "js",
+        "jsx",
         "python"
       ],
       "picker": true,
@@ -687,6 +714,8 @@
       "languages": [
         "ts",
         "tsx",
+        "js",
+        "jsx",
         "python"
       ],
       "picker": true,
@@ -713,6 +742,8 @@
       "languages": [
         "ts",
         "tsx",
+        "js",
+        "jsx",
         "python"
       ],
       "picker": true,
@@ -739,6 +770,8 @@
       "languages": [
         "ts",
         "tsx",
+        "js",
+        "jsx",
         "python",
         "code"
       ],
@@ -766,6 +799,8 @@
       "languages": [
         "ts",
         "tsx",
+        "js",
+        "jsx",
         "python"
       ],
       "picker": true,

@@ -344,7 +344,7 @@ def _symbol(node: Node, root: Path, limit: int) -> dict[str, Any]:
 # Metric id prefix → file suffixes it can apply to. Others apply to any source file.
 _LANGUAGE_METRICS = {
     "component_": {".tsx", ".jsx"},
-    "ts_": {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"},
+    "ts_": {".ts", ".tsx", ".mts", ".cts"},
     "python_": {".py"},
     "md_": {".md", ".mdx"},
 }

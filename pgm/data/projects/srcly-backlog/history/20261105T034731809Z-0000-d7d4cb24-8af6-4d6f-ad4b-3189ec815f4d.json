@@ -1,0 +1,14 @@
+{
+  "id": "d7d4cb24-8af6-4d6f-ad4b-3189ec815f4d",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:50f1c4",
+    "label": "Agent token ...50f1c4"
+  },
+  "createdAt": "2026-11-05T03:47:31.809Z",
+  "summary": "Deleted \"Metrics: analyzers\".",
+  "nodeIds": [
+    "area-metrics-analyzers"
+  ]
+}

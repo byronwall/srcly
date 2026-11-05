@@ -41,11 +41,11 @@ def test_languages_and_scope_come_from_the_analyzer_tables() -> None:
     get = metric_catalog.get
     assert get("loc").languages is None and get("loc").scope == "any"
     assert get("file_size").scope == "file"
-    assert get("component_hook_count").languages == ["tsx"]
+    assert get("component_hook_count").languages == ["tsx", "jsx"]
     assert get("component_hook_count").scope == "any"
     assert get("ts_any_usage_count").languages == ["ts", "tsx"]
     assert get("ts_any_usage_count").scope == "file"
-    assert set(get("complexity").languages or []) == {"ts", "tsx", "python", "code"}
+    assert set(get("complexity").languages or []) == {"ts", "tsx", "js", "jsx", "python", "code"}
     assert get("md_data_url_count").languages == ["markdown"]
 
 

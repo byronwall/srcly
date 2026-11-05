@@ -97,11 +97,13 @@ def iter_executable_scopes(funcs):
 
 # Which analyzer handled a file, mirroring ``analysis.analyze_single_file``.
 # The client keeps the same ids (``metricApplicability.ts``: ``MetricLanguage``).
-Language = str  # "ts" | "tsx" | "python" | "notebook" | "markdown" | "css" | "code" | "text"
+Language = str  # "ts" | "tsx" | "js" | "jsx" | "python" | "notebook" | "markdown" | "css" | "code" | "text"
 
 LANGUAGE_LABELS: dict[str, str] = {
     "ts": "TypeScript",
     "tsx": "TSX",
+    "js": "JavaScript",
+    "jsx": "JSX",
     "python": "Python",
     "notebook": "notebook",
     "markdown": "Markdown",
@@ -142,6 +144,8 @@ COMPONENT_METRICS = frozenset({
 MEASURED_FILE_METRICS: dict[str, frozenset[str]] = {
     "ts": frozenset(_TS),
     "tsx": frozenset(_TS | COMPONENT_METRICS),
+    "js": frozenset(_TREE_SITTER_CODE),
+    "jsx": frozenset(_TREE_SITTER_CODE | COMPONENT_METRICS),
     "python": frozenset(_TREE_SITTER_CODE | {"python_import_count"}),
     "code": _CODE_CORE,
     "markdown": frozenset({"md_data_url_count"}),
@@ -154,6 +158,8 @@ _TREE_SITTER_SCOPE = frozenset({"complexity", "parameter_count", "max_nesting_de
 MEASURED_SCOPE_METRICS: dict[str, frozenset[str]] = {
     "ts": _TREE_SITTER_SCOPE | {"ts_type_interface_count"},
     "tsx": _TREE_SITTER_SCOPE | {"ts_type_interface_count"} | COMPONENT_METRICS,
+    "js": _TREE_SITTER_SCOPE,
+    "jsx": _TREE_SITTER_SCOPE | COMPONENT_METRICS,
     "python": _TREE_SITTER_SCOPE,
     "code": frozenset({"complexity", "parameter_count"}),
     "markdown": frozenset({"md_data_url_count"}),

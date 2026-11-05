@@ -65,7 +65,7 @@ A warm srcly step spends about 0.35 s starting Python, 0.07 s on the fingerprint
 
 **Found on the corpus.**
 
-- Lizard misreads plain JS. In plan-viewer `public/code.js` it folds lines 99–1430 into the one-line `bytes` helper (CCN 584). srcly's tree-sitter analyzer reads the file's worst function as `renderDiff` (CCN 86). The pgm backlog has the repro and fix: `task-analyze-js-with-tree-sitter-not-lizard-bytes-ccn-584`.
+- Lizard misreads plain JS. In plan-viewer `public/code.js` it folds lines 99–1430 into the one-line `bytes` helper (CCN 584). srcly's tree-sitter analyzer reads the file's worst function as `renderDiff` (CCN 86). Fixed in the next layer: JS now goes through the tree-sitter analyzer (`server/tests/test_js_analysis.py` keeps the repro).
 - `findings.json` puts an absolute path in `complexity_witness.path`; every other path is relative to the root.
 
 **Moved to milestone 3.**

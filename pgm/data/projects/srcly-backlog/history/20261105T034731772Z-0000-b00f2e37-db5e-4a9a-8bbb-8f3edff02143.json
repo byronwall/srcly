@@ -1,0 +1,14 @@
+{
+  "id": "b00f2e37-db5e-4a9a-8bbb-8f3edff02143",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:50f1c4",
+    "label": "Agent token ...50f1c4"
+  },
+  "createdAt": "2026-11-05T03:47:31.772Z",
+  "summary": "Deleted \"Analyze JS with tree-sitter, not lizard (bytes CCN 584)\".",
+  "nodeIds": [
+    "task-analyze-js-with-tree-sitter-not-lizard-bytes-ccn-584"
+  ]
+}

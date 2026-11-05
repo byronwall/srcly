@@ -417,7 +417,7 @@ def test_findings_metrics_are_in_the_catalog() -> None:
         spec = metric_catalog.get(metric_id)
         assert (spec.group, spec.direction, spec.scope, spec.aggregation) == ("Findings", "higher-worse", "file", "sum")
         assert spec.compare == "direction"
-        assert spec.languages == ["ts", "tsx", "python", "code"]
+        assert spec.languages == ["ts", "tsx", "js", "jsx", "python"]
 
 
 @pytest.mark.skipif(os.name == "nt", reason="process groups")
