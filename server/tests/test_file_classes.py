@@ -11,6 +11,8 @@ from app.services.file_classes import classify
         ("server/tests/test_run.py", "test"),
         ("client/src/viz/layout.test.ts", "test"),
         ("docs/CODE_MAP.md", "docs"),
+        ("public/styles.css", "style"),
+        ("client/src/theme.scss", "style"),
         ("engine/test/integration/__snapshots__/golden.test.ts.snap", "fixture"),
         ("engine/examples/bad-ish-solid/src/App.tsx", "fixture"),
         ("client/src/dataflow/contract.generated.ts", "generated"),

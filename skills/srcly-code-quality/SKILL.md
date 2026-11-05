@@ -15,7 +15,7 @@ Use this skill when asked to review a codebase, find refactor targets, prioritiz
    uvx srcly report . --out .srcly --format both
    ```
 
-2. `report` prints its top high and medium findings, an `Analysis:` line and a `Next:` explain command. Read `.srcly/report.md` for the rest. Its findings rank code files only; each row names the function to start at. A "Not ranked as code" line counts tests, docs, fixtures, generated, vendored, config and data files with the reason.
+2. `report` prints its top high and medium findings, an `Analysis:` line and a `Next:` explain command. Read `.srcly/report.md` for the rest. Its findings rank code files only; each row names the function to start at. A "Not ranked as code" line counts tests, docs, stylesheets, fixtures, generated, vendored, config and data files with the reason.
 3. Drill down with `explain`, one scope at a time. Each call reuses the saved analysis (about a second) while no file has changed:
 
    ```bash
