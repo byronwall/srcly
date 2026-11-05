@@ -8,7 +8,7 @@ import os
 import signal
 import threading
 
-from app.routers import analysis, compare, dataflow, files, metrics, scans
+from app.routers import analysis, compare, dataflow, files, metrics, scans, symbols
 from app.services.dataflow import engine as dataflow_engine
 from app.services.scan_workers import cancel_all_scans
 
@@ -84,6 +84,7 @@ app.include_router(scans.router)
 app.include_router(compare.router)
 app.include_router(metrics.router)
 app.include_router(dataflow.router)
+app.include_router(symbols.router)
 
 
 @app.get("/api-status")
