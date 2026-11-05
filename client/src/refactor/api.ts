@@ -1,10 +1,13 @@
 export type Graph = { files: string[]; edges: { from: string; to: string }[] };
 export type Step = { kind: string; target: string; to: string; line: number; label: string };
-export type Plan = { version: number; config: string; handles: Record<string, { file: string }>; steps: Step[] };
-export type RunStep = Step & { status: string; graph?: Graph; files: { path: string; status: string; diff: string }[] };
+export type SymbolInfo = { file: string; name: string; kind: string; line: number };
+export type Diagnostic = { code: string | number; message: string; file?: string; line: number | null; suggestions?: string[] };
+export type Plan = { version: number; config: string; handles: Record<string, { file: string; kind?: string; name?: string; text?: string }>; steps: Step[] };
+export type RunStep = Step & { status: string; graph?: Graph; symbols?: SymbolInfo[]; diagnostics?: Diagnostic[]; files: { path: string; status: string; diff: string }[] };
 export type Run = {
   id: string; source: string; sourceRoot: string; commit: string; worktree: string;
   status: string; applied: number; steps: RunStep[]; graph?: Graph; error: string | null;
+  diagnostics?: Diagnostic[]; typeDiagnostics?: Diagnostic[]; baselineDiagnostics?: Diagnostic[];
 };
 
 export async function request<T>(url: string, body?: unknown): Promise<T> {

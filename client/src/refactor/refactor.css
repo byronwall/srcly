@@ -10,7 +10,7 @@
 .rf-files { border-right: 1px solid var(--plc-border); }
 .rf-plan { border-left: 1px solid var(--plc-border); overflow: auto; }
 .rf-panel-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--plc-border); font-size: 10px; letter-spacing: .06em; font-weight: 650; }
-.rf-workbench input { width: 100%; min-width: 0; border: 1px solid var(--plc-border-strong); background: var(--plc-surface); border-radius: 4px; height: 30px; padding: 4px 7px; color: var(--plc-on-surface); font-size: 12px; }
+.rf-workbench input, .rf-workbench select { width: 100%; min-width: 0; border: 1px solid var(--plc-border-strong); background: var(--plc-surface); border-radius: 4px; height: 30px; padding: 4px 7px; color: var(--plc-on-surface); font-size: 12px; }
 .rf-workbench input:focus, .rf-workbench textarea:focus { outline: 2px solid var(--plc-border-focus); outline-offset: -1px; }
 .rf-project-form { display: grid; gap: 8px; padding: 10px; }
 .rf-workbench label { display: grid; gap: 5px; font-size: 11px; color: var(--plc-on-muted); }
@@ -25,8 +25,15 @@
 .rf-node { cursor: pointer; }
 .rf-node:focus { outline: none; }
 .rf-node:hover rect, .rf-node:focus rect { stroke: var(--plc-accent); }
-.rf-move-form { display: flex; gap: 10px; padding: 12px; border-bottom: 1px solid var(--plc-border); align-items: end; }
-.rf-move-form label { flex: 1; min-width: 0; }
+.rf-move-form { display: flex; flex-wrap: wrap; gap: 10px; padding: 12px; border-bottom: 1px solid var(--plc-border); align-items: end; }
+.rf-move-form label { flex: 1 1 160px; min-width: 0; }
+.rf-move-form textarea { min-height: 60px; background: var(--plc-surface-inset); border: 1px solid var(--plc-border-strong); padding: 6px; font-family: 'IBM Plex Mono', monospace; }
+.rf-move-form .rf-compat { display: flex; align-items: center; flex: 1 1 200px; }
+.rf-compat input { width: 14px; height: 14px; }
+.rf-type-errors { padding: 10px 12px; max-height: 180px; overflow: auto; color: var(--plc-warning); background: var(--plc-warning-subtle); border-bottom: 1px solid var(--plc-warning-border); }
+.rf-type-errors li { padding-top: 8px; }
+.rf-suggestion { padding: 10px 12px; display: flex; gap: 12px; align-items: center; border-bottom: 1px solid var(--plc-border); }
+.rf-suggestion code { white-space: pre-wrap; }
 .rf-target { font: 11px 'IBM Plex Mono', monospace; overflow-wrap: anywhere; min-height: 30px; }
 .rf-diffs { overflow: auto; flex: 1; min-height: 150px; }
 .rf-diffs summary { padding: 8px 12px; border-bottom: 1px solid var(--plc-border); background: var(--plc-surface-subtle); cursor: pointer; overflow-wrap: anywhere; }

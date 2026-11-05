@@ -1,10 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
+import { symbolOperations, type SymbolAction } from "./symbols";
+import { editType, type TypeAction } from "./type-edits";
 
 export type Change = { path: string; before: string | null; after: string | null };
 export type MoveFile = { kind: "move-file"; file: string; to: string };
 export type Graph = { files: string[]; edges: { from: string; to: string }[] };
+export type Compiler = {
+  root: string; config: string; program: ts.Program; service: ts.LanguageService; files: ts.SourceFile[];
+  inside: (name: string) => { absolute: string; relative: string };
+  changes: (edits: readonly ts.FileTextChanges[]) => Change[];
+  stage: (changes: Change[]) => void;
+};
 
 /** Compiler edits are proposals. Only the journal executor writes them, inside its own worktree. */
 export function project(root: string, config: string) {
@@ -22,13 +30,18 @@ export function project(root: string, config: string) {
   const parsed = ts.parseJsonConfigFileContent(loaded.config, ts.sys, path.dirname(configPath), { noEmit: true }, configPath);
   if (parsed.errors.length) throw new Error(parsed.errors.map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n")).join("\n"));
   if (parsed.projectReferences?.length) throw new Error("Choose one leaf tsconfig; project references are not supported yet.");
+  const snapshots = new Map<string, string | null>();
+  let revision = 0;
+  const readFile = (file: string) => snapshots.has(path.resolve(file)) ? snapshots.get(path.resolve(file)) ?? undefined : ts.sys.readFile(file);
   const host: ts.LanguageServiceHost = {
     ...ts.sys,
+    readFile,
     getCompilationSettings: () => parsed.options,
     getScriptFileNames: () => parsed.fileNames,
-    getScriptVersion: () => "0",
+    getScriptVersion: () => String(revision),
+    getProjectVersion: () => String(revision),
     useCaseSensitiveFileNames: () => ts.sys.useCaseSensitiveFileNames,
-    getScriptSnapshot: (file) => { const text = ts.sys.readFile(file); return text === undefined ? undefined : ts.ScriptSnapshot.fromString(text); },
+    getScriptSnapshot: (file) => { const text = readFile(file); return text === undefined ? undefined : ts.ScriptSnapshot.fromString(text); },
     getCurrentDirectory: () => root,
     getDefaultLibFileName: ts.getDefaultLibFilePath,
   };
@@ -51,7 +64,10 @@ export function project(root: string, config: string) {
     }
     return { files: files.map((f) => inside(f.fileName).relative).sort(), edges: edges.sort((a, b) => `${a.from}:${a.to}`.localeCompare(`${b.from}:${b.to}`)) };
   };
+  const diagnosticKey = (d: ts.Diagnostic) => `${d.file?.fileName}:${d.start}:${d.code}`;
+  const syntax = new Set(program.getSyntacticDiagnostics().map(diagnosticKey));
   const diagnostics = () => ts.getPreEmitDiagnostics(program).filter((d) => d.category === ts.DiagnosticCategory.Error).map((d) => ({
+    phase: syntax.has(diagnosticKey(d)) ? "syntax" : d.file ? "type" : "config",
     code: d.code,
     file: d.file ? path.relative(root, d.file.fileName).replaceAll(path.sep, "/") : config,
     line: d.file && d.start !== undefined ? d.file.getLineAndCharacterOfPosition(d.start).line + 1 : 0,
@@ -87,16 +103,27 @@ export function project(root: string, config: string) {
       { path: to.relative, before: null, after: moved?.after ?? before },
     ].sort((a, b) => a.path.localeCompare(b.path));
   }
-  return { graph, diagnostics, moveFile, dispose: () => service.dispose() };
+  const context: Compiler = { root, config, program, service, files, inside,
+    changes: (edits) => editsToChanges(edits, inside, readFile),
+    stage: (changes) => { for (const change of changes) snapshots.set(inside(change.path).absolute, change.after); revision++; },
+  };
+  const operations = symbolOperations(context);
+  return { graph, diagnostics, symbols: operations.catalog,
+    transform: (action: MoveFile | SymbolAction | TypeAction) => {
+      if (action.kind === "move-file") return { changes: moveFile(action) };
+      if (["add-member", "update-member", "remove-member", "add-type", "update-type", "remove-type"].includes(action.kind)) return editType(context, action as TypeAction);
+      return operations.transform(action as SymbolAction);
+    },
+    dispose: () => service.dispose() };
 }
 
-function editsToChanges(edits: readonly ts.FileTextChanges[], inside: (name: string) => { absolute: string; relative: string }): Change[] {
+function editsToChanges(edits: readonly ts.FileTextChanges[], inside: (name: string) => { absolute: string; relative: string }, readFile: (file: string) => string | undefined = ts.sys.readFile): Change[] {
   return edits.map((edit) => {
     const file = inside(edit.fileName);
-    const before = fs.existsSync(file.absolute) ? fs.readFileSync(file.absolute, "utf8") : null;
+    const before = readFile(file.absolute) ?? null;
     let after = before ?? "";
     let boundary = after.length;
-    for (const change of [...edit.textChanges].sort((a, b) => b.span.start - a.span.start)) {
+    for (const { change } of edit.textChanges.map((change, index) => ({ change, index })).sort((a, b) => b.change.span.start - a.change.span.start || b.change.span.length - a.change.span.length || b.index - a.index)) {
       const end = change.span.start + change.span.length;
       if (end > boundary) throw new Error(`Overlapping compiler edits: ${file.relative}`);
       after = after.slice(0, change.span.start) + change.newText + after.slice(end);

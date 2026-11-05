@@ -1,12 +1,18 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import { ArrowDown, ArrowUp, Check, Download, FileCode, Play, RotateCcw, Workflow } from "lucide-solid";
 import { Button } from "../components/ui/Button";
-import { download, request, type Graph, type Plan, type Run } from "./api";
+import { download, request, type Graph, type Plan, type Run, type SymbolInfo } from "./api";
 import RefactorGraph from "./RefactorGraph";
 import "./refactor.css";
 
 const EMPTY: Graph = { files: [], edges: [] };
 const INITIAL = 'refactor 1\nproject "tsconfig.json"\n\n# Select a file and add a move, or write your plan here.\n';
+const OPERATIONS = [
+  ["move-file", "Move file"], ["move-symbol", "Move symbol"], ["rename", "Rename symbol / member"],
+  ["extract-function", "Extract function"], ["extract-component", "Extract component"],
+  ["add-member", "Add type member"], ["update-member", "Update type member"], ["remove-member", "Remove type member"],
+  ["add-type", "Add interface / type"], ["update-type", "Update interface / type"], ["remove-type", "Remove interface / type"],
+];
 
 export default function RefactorView(props: { rootPath: string }) {
   const [source, setSource] = createSignal(INITIAL);
@@ -16,6 +22,11 @@ export default function RefactorView(props: { rootPath: string }) {
   const [graph, setGraph] = createSignal<Graph>(EMPTY);
   const [selected, setSelected] = createSignal("");
   const [destination, setDestination] = createSignal("");
+  const [operation, setOperation] = createSignal("move-file");
+  const [symbol, setSymbol] = createSignal("");
+  const [snippet, setSnippet] = createSignal("");
+  const [reexport, setReexport] = createSignal(false);
+  const [projectSymbols, setProjectSymbols] = createSignal<SymbolInfo[]>([]);
   const [search, setSearch] = createSignal("");
   const [run, setRun] = createSignal<Run>();
   const [stepIndex, setStepIndex] = createSignal(-1);
@@ -53,33 +64,51 @@ export default function RefactorView(props: { rootPath: string }) {
     const version = ++loadVersion;
     setBusy("Reading TypeScript project…"); setError("");
     try {
-      const result = await request<{ graph: Graph }>(`/project?${new URLSearchParams({ path: props.rootPath, config: config() })}`);
-      if (version === loadVersion) { setGraph(result.graph); if (!selected()) setSelected(result.graph.files[0] ?? ""); }
+      const result = await request<{ graph: Graph; symbols: SymbolInfo[] }>(`/project?${new URLSearchParams({ path: props.rootPath, config: config() })}`);
+      if (version === loadVersion) { setGraph(result.graph); setProjectSymbols(result.symbols); if (!selected()) setSelected(result.graph.files[0] ?? ""); }
     } catch (reason) { setError(String(reason)); }
     finally { if (version === loadVersion) setBusy(""); }
   }
 
   const validRun = () => run()?.source === source() && run()?.sourceRoot === props.rootPath;
-  const executable = () => validRun() && ["ready", "running", "complete"].includes(run()!.status);
+  const executable = () => validRun() && ["ready", "running", "complete"].includes(run()!.status.replace("-with-errors", ""));
   const activeStep = () => validRun() ? run()?.steps[stepIndex()] : undefined;
   const activeGraph = () => activeStep()?.graph ?? (validRun() ? run()?.graph : undefined) ?? graph();
   const visibleFiles = createMemo(() => activeGraph().files.filter((file) => file.toLowerCase().includes(search().toLowerCase())));
   const changes = () => activeStep()?.files ?? [];
+  const symbols = () => (activeStep()?.symbols ?? projectSymbols()).filter((item) => item.file === selected());
+  const typeErrors = () => activeStep()?.diagnostics ?? (validRun() && stepIndex() < 0 ? run()?.baselineDiagnostics ?? [] : []);
+  const selectionOperation = () => operation().startsWith("extract-");
+  const needsSymbol = () => !["move-file", "add-type"].includes(operation()) && !selectionOperation();
+  const destinationLabel = () => operation().startsWith("move-") ? "Destination" : ["add-member", "update-member", "add-type", "update-type"].includes(operation()) ? "Declaration" : operation() === "remove-member" ? "Member name" : "New name";
 
   function addMove() {
-    if (!selected() || !destination()) return;
+    if (!selected() || (!destination() && operation() !== "remove-type")) return;
     let draft = source().trimEnd();
-    const existing = Object.entries(plan()?.handles ?? {}).find(([, handle]) => handle.file === selected());
+    if (operation() === "add-type") { setSource(`${draft}\nadd-type ${JSON.stringify(selected())} ${JSON.stringify(destination())}\n`); setDestination(""); return; }
+    const kind = selectionOperation() ? "selection" : needsSymbol() ? "symbol" : "file";
+    const existing = Object.entries(plan()?.handles ?? {}).find(([, handle]) => handle.file === selected() && (handle.kind ?? "file") === kind && (kind === "file" || (kind === "symbol" ? handle.name === symbol() : handle.text === snippet())));
     let handle = existing?.[0];
     if (!handle) {
-      handle = `file_${Object.keys(plan()?.handles ?? {}).length + 1}`;
+      let sequence = 1;
+      while (new RegExp(`\\blet ${kind}_${sequence}\\b`).test(draft)) sequence++;
+      handle = `${kind}_${sequence}`;
       const lines = draft.split("\n");
-      const firstStep = lines.findIndex((line) => line.trim().startsWith("move-file "));
-      lines.splice(firstStep < 0 ? lines.length : firstStep, 0, `let ${handle} = file ${JSON.stringify(selected())}`);
+      const firstStep = plan()?.steps[0]?.line ? plan()!.steps[0].line - 1 : lines.length;
+      lines.splice(firstStep, 0, `let ${handle} = ${kind} ${JSON.stringify(selected())}${kind === "file" ? "" : ` ${JSON.stringify(kind === "symbol" ? symbol() : snippet())}`}`);
       draft = lines.join("\n");
     }
-    setSource(`${draft}\nmove-file $${handle} -> ${JSON.stringify(destination())}\n`);
+    const arrow = ["move-file", "move-symbol", "rename", "extract-function", "extract-component"].includes(operation()) ? " ->" : "";
+    setSource(`${draft}\n${operation()} $${handle}${arrow}${operation() === "remove-type" ? "" : ` ${JSON.stringify(destination())}`}${operation() === "move-symbol" && reexport() ? " reexport" : ""}\n`);
     setDestination("");
+  }
+
+  function addSuggestion(suggestion: string, line: number | null) {
+    const [declaration, ...steps] = suggestion.split("\n");
+    const lines = source().split("\n");
+    lines.splice((line ?? plan()?.steps[0]?.line ?? lines.length + 1) - 1, 0, ...steps);
+    lines.splice((plan()?.steps[0]?.line ?? 1) - 1, 0, declaration);
+    setSource(lines.join("\n"));
   }
 
   function reorder(index: number, delta: number) {
@@ -118,6 +147,7 @@ export default function RefactorView(props: { rootPath: string }) {
       </Show>}>{busy()}</Show>
     </div>
     <Show when={error() || (validRun() && run()?.error)}><div class="rf-error" role="alert">{error() || run()?.error}</div></Show>
+    <Show when={validRun()}><For each={run()?.diagnostics ?? []}>{(diagnostic) => <For each={diagnostic.suggestions ?? []}>{(suggestion) => <div class="rf-suggestion"><code>{suggestion}</code><Button onClick={() => addSuggestion(suggestion, diagnostic.line)}>Add suggested dependency</Button></div>}</For>}</For></Show>
     <div class="rf-body">
       <aside class="rf-files">
         <div class="rf-panel-title">PROJECT</div>
@@ -133,10 +163,15 @@ export default function RefactorView(props: { rootPath: string }) {
         <div class="rf-panel-title"><span>RELATIONSHIPS</span><span class="rf-muted">{stepIndex() < 0 ? "Before" : `After step ${stepIndex() + 1}`}</span></div>
         <RefactorGraph graph={activeGraph()} selected={selected()} changed={changes().map((file) => file.path)} onSelect={setSelected} />
         <div class="rf-move-form">
-          <label>Move file<span class="rf-target">{selected() || "Select a file in the graph or list"}</span></label>
-          <label>Destination<input aria-label="Move destination" data-refactor-destination placeholder="src/features/example.ts" value={destination()} onInput={(event) => setDestination(event.currentTarget.value)} /></label>
-          <Button disabled={!selected() || !destination() || !!busy()} data-refactor-add onClick={addMove}>Add move</Button>
+          <label>Operation<select data-refactor-operation aria-label="Refactoring operation" value={operation()} onChange={(event) => { setOperation(event.currentTarget.value); setDestination(""); }}><For each={OPERATIONS}>{([value, label]) => <option value={value}>{label}</option>}</For></select></label>
+          <label>File<input data-refactor-target aria-label="Refactoring file" value={selected()} placeholder="Select a file or enter a new path" onInput={(event) => setSelected(event.currentTarget.value)} /></label>
+          <Show when={needsSymbol()}><label>Symbol / interface member<input data-refactor-symbol aria-label="Symbol" list="refactor-symbols" value={symbol()} placeholder="Props or Props.title" onInput={(event) => setSymbol(event.currentTarget.value)} /><datalist id="refactor-symbols"><For each={symbols()}>{(item) => <option value={item.name}>{item.kind}</option>}</For></datalist></label></Show>
+          <Show when={selectionOperation()}><label>Exact source selection<textarea data-refactor-selection aria-label="Exact source selection" value={snippet()} onInput={(event) => setSnippet(event.currentTarget.value)} /></label></Show>
+          <Show when={operation() !== "remove-type"}><label>{destinationLabel()}<input aria-label={destinationLabel()} data-refactor-destination placeholder={operation().startsWith("move-") ? "src/features/example.ts" : operation().includes("member") ? "title: string" : "Name or declaration"} value={destination()} onInput={(event) => setDestination(event.currentTarget.value)} /></label></Show>
+          <Show when={operation() === "move-symbol"}><label class="rf-compat"><input type="checkbox" checked={reexport()} onChange={(event) => setReexport(event.currentTarget.checked)} />Compatibility re-export</label></Show>
+          <Button disabled={!selected() || (!destination() && operation() !== "remove-type") || (needsSymbol() && !symbol()) || (selectionOperation() && !snippet()) || !!busy()} data-refactor-add onClick={addMove}>Add step</Button>
         </div>
+        <Show when={typeErrors().length}><details class="rf-type-errors" open data-refactor-type-errors><summary>{typeErrors().length}{" TypeScript diagnostics · type edits may leave these for repair"}</summary><ul><For each={typeErrors()}>{(diagnostic) => <li><code>{diagnostic.file}:{diagnostic.line} · TS{diagnostic.code}</code><p>{diagnostic.message}</p></li>}</For></ul></details></Show>
         <div class="rf-panel-title"><span>CODEMOD DIFF</span><span class="rf-muted">{changes().length} files · {activeStep() ? `step ${stepIndex() + 1}` : "select a previewed step"}</span></div>
         <div class="rf-diffs" data-refactor-diff>
           <Show when={changes().length} fallback={<p class="rf-muted p-4">Preview the plan to inspect exact edits and validation at each step.</p>}>
