@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional, Sequence
 
-from app.services.findings import builtin_ts, ruff, typescript
+from app.services.findings import builtin_ts, reachability, ruff, typescript
 from app.services.findings.model import Finding, FindingsResult, ToolRun
 from app.services.findings.tools import Tool, run
 
@@ -32,7 +32,8 @@ def plan_tools(root: Path, *, portable: bool = False, stop: Optional[Path] = Non
       project has both the binary and the config (skipped when ``portable``,
       for compare snapshots that have no ``node_modules``);
     - ``ruff`` for Python, with the project's config or srcly's defaults;
-    - srcly's TS rules for TS files outside every project tsc/eslint folder.
+    - srcly's TS rules for TS files outside every project tsc/eslint folder;
+    - srcly's reachability check over the whole TS import graph.
     """
     root = root.resolve()
     if stop is None:
@@ -44,6 +45,7 @@ def plan_tools(root: Path, *, portable: bool = False, stop: Optional[Path] = Non
         *project_ts,
         *ruff.plan(root, stop),
         builtin_ts.BuiltinTsTool(root, skip_dirs=typescript.project_dirs(project_ts)),
+        reachability.ReachabilityTool(root),
     ]
 
 
