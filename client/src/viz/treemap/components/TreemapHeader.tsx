@@ -1,5 +1,5 @@
 import { For, Show, type Accessor } from "solid-js";
-import { ChartScatter, GitFork, LayoutGrid } from "lucide-solid";
+import { ChartScatter, GitFork, LayoutGrid, Workflow } from "lucide-solid";
 import {
   metricLabel,
   type MetricId,
@@ -40,6 +40,7 @@ const VIEWS: { id: View; label: string; icon: typeof GitFork }[] = [
   { id: "treemap", label: "Treemap", icon: LayoutGrid },
   { id: "graph", label: "Graph", icon: GitFork },
   { id: "scatter", label: "2x2", icon: ChartScatter },
+  { id: "refactor", label: "Refactor", icon: Workflow },
 ];
 
 const VIEW_IDS = VIEWS.map((v) => v.id);
@@ -79,6 +80,7 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
       <div class="min-w-0 flex-1" />
 
       {/* Filters */}
+      <Show when={props.view() !== "refactor"}>
       <div class="shrink-0">
         <FileTypeFilter
           data={props.data}
@@ -129,6 +131,7 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
             N/A: doesn't apply, skipped, or failed
           </div>
         </div>
+      </Show>
       </Show>
     </div>
   );

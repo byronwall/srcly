@@ -219,6 +219,15 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist is `
 | Scan state that outlives the view (data, progress, cancel, superseded-request guard) | `client/src/state/scanStore.ts` |
 | Compare ⇄ normal without remount (normal view stays mounted, hidden) | `client/src/App.tsx` (`App`) |
 
+### Visual refactoring
+
+| Feature | Where |
+| --- | --- |
+| Refactor view (`?view=refactor`): file import graph, ordered chain, editable `.srcly` DSL, per-step codemod diffs, apply/undo and resume | `client/src/refactor/RefactorView.tsx`, `RefactorGraph.tsx`, `api.ts`, `refactor.css` |
+| Refactoring DSL parser and isolated worktree preview/execution; durable write-ahead journal, exact source/edit preconditions, reversible checkpoints | `server/app/services/refactor/plan.py`, `runs.py`; API `server/app/routers/refactor.py` (`/api/refactor`) |
+| Deterministic TypeScript compiler edits and per-step diagnostics; separate bounded process, included in the wheel | `engine/src/refactor/typescript.ts`, `engine/bin/srcly-refactor.ts`; `server/app/services/refactor/compiler.py` |
+| Real compiler/journal acceptance and browser workflow screenshots | `server/tests/test_refactor.py`, `client/e2e/refactor.spec.ts` |
+
 ### Client: Treemap
 
 | Feature | Where |

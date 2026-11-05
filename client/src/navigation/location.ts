@@ -12,7 +12,7 @@
 // The file part ends at the first "#". Scope names may contain "#" (TS private
 // members); file names with "#" are not supported.
 
-export type View = "treemap" | "graph" | "scatter";
+export type View = "treemap" | "graph" | "scatter" | "refactor";
 
 export interface Location {
   /** Absolute path of the analyzed codebase; "" before one is chosen. */
@@ -136,7 +136,7 @@ export function parseLocation(search: string): Location {
   const rawAt = params.get(AT_PARAM) ?? (legacy !== null ? legacy : "");
   const rawView = params.get(VIEW_PARAM);
   const view: View =
-    rawView === "graph" || rawView === "treemap" || rawView === "scatter"
+    rawView === "graph" || rawView === "treemap" || rawView === "scatter" || rawView === "refactor"
       ? rawView
       : legacy !== null
         ? "graph"

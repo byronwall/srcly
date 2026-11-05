@@ -33,6 +33,7 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${CLIENT_PORT}`,
     trace: "retain-on-failure",
+    launchOptions: process.env.SRCLY_CHROMIUM ? { executablePath: process.env.SRCLY_CHROMIUM } : {},
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: [
