@@ -15,12 +15,13 @@ repo, so a file ranks the same in every scope. Paths are relative to the root.
 
 from __future__ import annotations
 
+import re
 import shlex
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 from app.models import Node
-from app.services import metric_catalog
+from app.services import metric_catalog, scope_evidence
 from app.services.file_classes import CLASSES, classify
 
 # A file at or above this profile score is a medium or high finding.
@@ -60,6 +61,9 @@ def find(tree: Node, root: Path, at: str) -> Node | None:
     target = at.strip().strip("/") or "."
     if target == ".":
         return tree
+    line_at = _LINE_AT.match(target)
+    if line_at and "::" not in target:
+        return _at_line(find(tree, root, line_at["file"]), int(line_at["line"]), line_at["name"])
     target, at_sep, line = target.rpartition("@") if "::" in target and target.rpartition("@")[2].isdigit() else (target, "", "")
     exact = [node for node in _walk(tree) if rel(node.path, root) == target]
     if at_sep:
@@ -78,6 +82,23 @@ def find(tree: Node, root: Path, at: str) -> Node | None:
         if len(matches) == 1 or (matches and at_sep):
             return matches[0]
     return None
+
+
+# ``path:line`` or a whole "Start at" value (``path:line name in owner``).
+_LINE_AT = re.compile(r"^(?P<file>[^:\s]+):(?P<line>\d+)(?:\s+(?P<name>\S+).*)?$")
+
+
+def _at_line(file: Node | None, line: int, name: str | None = None) -> Node | None:
+    """The symbol called ``name`` nearest ``line`` (the line may be stale after an edit), else the
+    innermost symbol whose lines hold ``line``, else the file itself."""
+    if file is None or file.type != "file":
+        return None
+    symbols = _all_symbols(file)
+    named = [s for s in symbols if name and s.name.removeprefix("(class) ") == name]
+    if named:
+        return min(named, key=lambda s: (abs(s.start_line - line), s.start_line))
+    holding = [s for s in symbols if s.start_line <= line <= s.end_line]
+    return min(holding, key=lambda s: (s.end_line - s.start_line, -s.start_line)) if holding else file
 
 
 def _walk(node: Node):
@@ -102,10 +123,12 @@ def explain(
         raise LookupError(_not_found(tree, root, at))
     if node.type == "folder":
         payload = _folder(node, root, scores, limit, classes)
-    elif node.type == "file":
-        payload = _file(node, root, scores, limit, classes)
     else:
-        payload = _symbol(node, root, limit)
+        tests = [rel(f.path, root) for f in _walk(tree) if f.type == "file" and classify(rel(f.path, root))[0] == "test"]
+        if node.type == "file":
+            payload = _file(node, root, scores, limit, classes, tests)
+        else:
+            payload = _symbol(node, root, limit, tests)
     payload["analysis"] = provenance(tree, root)
     return payload
 
@@ -124,7 +147,7 @@ def provenance(tree: Node, root: Path) -> dict[str, Any]:
         "git": {"status": act.status, "reason": act.reason, "head": act.head, "note": act.note} if act else None,
         "checks": (
             [
-                {"label": t.label, "status": t.status, "reason": t.reason, "files_checked": t.files_checked}
+                {"tool": t.tool, "label": t.label, "status": t.status, "reason": t.reason, "files_checked": t.files_checked}
                 for t in checks.tools
                 if t.files_checked != 0
             ]
@@ -155,15 +178,21 @@ def provenance_line(p: dict[str, Any]) -> str:
     if tools is None:
         checks = "checks: not run"
     else:
-        parts = [
-            (f"{t['label']} ({_files(t['files_checked'])})" if t["files_checked"] else t["label"])
-            if t["status"] == "ok"
-            else f"{t['label']} N/A ({t['reason']})"
-            for t in tools
-        ]
-        checks = f"checks: {', '.join(parts) or 'none apply'}"
+        # One entry per tool: six tsconfigs read as "tsc (6 configs, 259 files)".
+        groups: dict[str, list[dict[str, Any]]] = {}
+        for t in tools:
+            if t["status"] == "ok":
+                groups.setdefault(t["label"].split(" (", 1)[0], []).append(t)
+        parts = []
+        for name, runs in groups.items():
+            files = sum(t["files_checked"] or 0 for t in runs)
+            detail = [f"{len(runs)} configs"] if len(runs) > 1 else []
+            detail += [_files(files)] if files else []
+            parts.append(f"{name} ({', '.join(detail)})" if detail else name)
+        parts += [f"{t['label']} N/A ({t['reason']})" for t in tools if t["status"] != "ok"]
+        checks = f"lint/type checks: {', '.join(parts) or 'none apply'}"
         if p["code_files_unchecked"]:
-            checks += f"; no checker covers {p['code_files_unchecked']} of {p['code_files']} code files"
+            checks += f"; {p['code_files_unchecked']} of {p['code_files']} code files have none (finding_count N/A)"
     failed = f"; {_files(p['files_failed'])} failed analysis (LOC only)" if p["files_failed"] else ""
     return f"Analysis: {scan}; {history}; {checks}{failed}."
 
@@ -277,7 +306,7 @@ def _named(name: str) -> bool:
 
 
 def _file(
-    node: Node, root: Path, scores: dict[str, dict[str, Any]], limit: int, classes: tuple[str, ...]
+    node: Node, root: Path, scores: dict[str, dict[str, Any]], limit: int, classes: tuple[str, ...], tests: list[str]
 ) -> dict[str, Any]:
     path = rel(node.path, root)
     cls, reason = classify(path)
@@ -294,6 +323,7 @@ def _file(
         "metrics": measured(node, path),
         "symbols": [_symbol_row(s, root, path, symbols) for s in symbols[:limit]],
         "symbols_omitted": max(0, len(symbols) - limit),
+        "tests": scope_evidence.tests_naming(root, tests, module=path) if cls != "test" else None,
     }
 
 
@@ -325,10 +355,11 @@ def _symbol_row(node: Node, root: Path, file: str, peers: list[Node]) -> dict[st
     }
 
 
-def _symbol(node: Node, root: Path, limit: int) -> dict[str, Any]:
+def _symbol(node: Node, root: Path, limit: int, tests: list[str]) -> dict[str, Any]:
     inner = sorted(_all_symbols(node), key=lambda n: (-(n.metrics.complexity or 0), n.start_line))
     scope = rel(node.path, root)
     file = scope.split("::", 1)[0]
+    name = node.name.removeprefix("(class) ")
     return {
         "scope": scope,
         "file": file,
@@ -338,6 +369,8 @@ def _symbol(node: Node, root: Path, limit: int) -> dict[str, Any]:
         "metrics": measured(node, rel(node.path, root), symbol=True),
         "symbols": [_symbol_row(s, root, file, inner) for s in inner[:limit]],
         "symbols_omitted": max(0, len(inner) - limit),
+        "branches": scope_evidence.branches(node.path.split("::", 1)[0], node.start_line, node.end_line),
+        "tests": scope_evidence.tests_naming(root, tests, module=file, symbol=name) if _named(name) else None,
     }
 
 
@@ -396,22 +429,23 @@ def render_markdown(payload: dict[str, Any], *, command: str = "srcly explain") 
             return "\n".join(lines).rstrip() + "\n"
         lines.append(
             f"{payload['code_files']} ranked files ({ranked}). Score: the profile's weighted mix of complexity, size, "
-            f"nesting and history, 1.0 = the repo's worst; {QUEUE_SCORE}+ is a finding."
+            f"nesting and history, 1.0 = the repo's worst; {QUEUE_SCORE}+ is a finding. "
+            "Pass any \"start at\" value to `--at`."
         )
         folders = payload["folders"]
         if folders and not (len(folders) == 1 and folders[0]["path"] == scope):
-            lines += ["", "## Folders, worst first", "", "| Folder | Files | LOC | Findings | Worst file | Start at |", "| --- | ---: | ---: | ---: | --- | --- |"]
+            lines += ["", "## Folders, worst first", "", "| Folder | Files | LOC | Findings | Worst | Its worst file: start at |", "| --- | ---: | ---: | ---: | ---: | --- |"]
             for f in folders:
                 w = f["worst"]
                 label = "(files here)" if f["path"] == scope else f"{f['path']}/"
-                lines.append(f"| `{label}` | {f['code_files']} | {f['loc']} | {f['queue']} | {w['score']} `{w['path']}` | `{w['start_at']}` |")
+                lines.append(f"| `{label}` | {f['code_files']} | {f['loc']} | {f['queue']} | {w['score']} | `{w['start_at']}` |")
             if payload["folders_omitted"]:
                 lines.append(f"| +{payload['folders_omitted']} more | | | | | |")
-        lines += ["", "## Files below, worst first", "", "| Score | File | Why | Start at |", "| ---: | --- | --- | --- |"]
+        lines += ["", "## Files below, worst first", "", "| Score | Start at | Why |", "| ---: | --- | --- |"]
         for f in payload["files"]:
-            lines.append(f"| {f['score']} | `{f['path']}` | {f['why']} | `{f['start_at']}` |")
+            lines.append(f"| {f['score']} | `{f['start_at']}` | {f['why']} |")
         if payload["files_omitted"]:
-            lines.append(f"| | +{payload['files_omitted']} more | | |")
+            lines.append(f"| | +{payload['files_omitted']} more | |")
         lines += ["", *left_out_lines(payload["left_out"])]
         sub = [f["path"] for f in folders if f["path"] != scope]
         next_at = sub[0] if sub else payload["files"][0]["path"]
@@ -431,6 +465,10 @@ def render_markdown(payload: dict[str, Any], *, command: str = "srcly explain") 
         lines += ["", f"Measured: {values or 'nothing'}."]
         if payload["metrics"]["na"]:
             lines.append(f"N/A here (not 0): {', '.join(payload['metrics']['na'])}.")
+        if payload.get("branches"):
+            lines += ["", scope_evidence.branches_line(payload["branches"])]
+        if payload.get("tests"):
+            lines += ["", scope_evidence.tests_line(payload["tests"])]
         if payload["symbols"]:
             lines += ["", "## Functions and classes, most complex first", "", "| Symbol | Lines | CCN | LOC | Nesting |", "| --- | --- | ---: | ---: | ---: |"]
             for s in payload["symbols"]:

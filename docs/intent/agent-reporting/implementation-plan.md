@@ -68,10 +68,22 @@ A warm srcly step spends about 0.35 s starting Python, 0.07 s on the fingerprint
 - Lizard misreads plain JS. In plan-viewer `public/code.js` it folds lines 99–1430 into the one-line `bytes` helper (CCN 584). srcly's tree-sitter analyzer reads the file's worst function as `renderDiff` (CCN 86). Fixed in the next layer: JS now goes through the tree-sitter analyzer (`server/tests/test_js_analysis.py` keeps the repro).
 - `findings.json` puts an absolute path in `complexity_witness.path`; every other path is relative to the root.
 
+**10x pass (stacked on milestone 2).** A clean-room agent audited plan-viewer with the milestone 2 CLI. Its most costly friction was the lizard bug: two of its top functions did not exist. Next came test coverage it had to grep for by hand, and "Start at" values it could not pass back to `--at`. The pass changes:
+
+- JS goes through the tree-sitter analyzer (its own layer).
+- `--at` takes any printed "Start at" value (`path:line name`). The name finds the function when the line has moved.
+- A symbol answer prints `Branches:`: its decision points split into statements and `&&`/`||`/`??`/`?:` operators, with the deepest lines. It comes from the analyzer's markers, so there is no new ranked metric. plan-viewer's `handleRequest` (CCN 196) is 136 operators and 62 statements, nested at most to depth 4, so it reads as flat matching. srcly's `_get_function_name` (CCN 66) is 49 statements, nested to depth 7.
+- File and symbol answers list test files that import the module or name the symbol, labeled as name matches.
+- The folder table drops the duplicated "Worst file" column. The `Analysis:` line groups checkers by tool (`tsc (6 configs, 259 files)`).
+
+On the same 4-step walk, output went from 10.2 KB to 9.3 KB on srcly and from 6.3 KB to 6.8 KB on plan-viewer, with the new lines included.
+
 **Moved to milestone 3.**
 
-- Link findings to tests. `explain` on a file could list the test files that import it, labeled as imports, not proof of coverage (see section 4). The dependency graph covers TS and TSX only, and building it on every call has not been measured. Measure that cost first, and add Python imports.
-- Tell flat dispatch from tangled control flow. plan-viewer's `server.ts::handleRequest` (CCN 196, nesting 4) is a flat router. srcly's `viewModel.ts::buildViewModel` (CCN 135, nesting 5) is not. CCN alone ranks them alike. A signal needs a measured metric in both tree-sitter analyzers (for example, branches at the function's own top level against nested branches), added through `docs/adding-a-metric.md` with fixture cases. Do this before it changes any ranking.
+- Ranking still uses CCN alone, so flat dispatch and tangled code rank alike. If `Branches:` proves useful, add a measured metric (for example, operator share or nested decision points) in both tree-sitter analyzers through `docs/adding-a-metric.md`, with fixture cases, before it changes any ranking.
+- Tests by import graph instead of by name. The dependency graph covers TS and TSX only, and building it on every call has not been measured.
+- Say why a scan was fresh: which files changed since the saved one. One extra rescan of srcly happened with no visible cause during this pass.
+- A CSS file can be the top finding (plan-viewer's `styles.css`, 2,532 LOC) and has no function to start at.
 - Name the code files that no checker covers, with their reason, in `explain` for a folder.
 - Make `complexity_witness.path` in `findings.json` relative.
 

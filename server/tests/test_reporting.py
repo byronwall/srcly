@@ -664,7 +664,43 @@ def test_report_prints_top_findings_and_what_the_analysis_covers(
     assert "- high 0.7647 `src/core/parse.py`: High complexity 30, 300 LOC. Start at `src/core/parse.py:10 parse`" in out
     assert (
         "Analysis: reused the scan from 2026-11-04 10:00 UTC (no file has changed since); Git history at `abc1234` "
-        "(1 file has uncommitted changes, not counted); checks: ruff (1 file); no checker covers 1 of 2 code files."
+        "(1 file has uncommitted changes, not counted); lint/type checks: ruff (1 file); 1 of 2 code files have none "
+        "(finding_count N/A)."
     ) in out
     assert out.rstrip().endswith(f"Next: `srcly explain {root} --at src/core/parse.py`")
     assert json.loads((tmp_path / "out/manifest.json").read_text())["cache_used"] is True
+
+
+def test_explain_symbol_shows_branch_shape_and_tests_and_takes_a_start_at_value(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("SRCLY_CACHE_DIR", str(tmp_path / "cache"))
+    root = (tmp_path / "repo").resolve()
+    (root / "src").mkdir(parents=True)
+    (root / "tests").mkdir()
+    (root / "src/route.ts").write_text(
+        "export function route(m: string, p: string) {\n"
+        "  if (m === 'GET' && (p === '/a' || p === '/b' || p === '/c')) return 1;\n"
+        "  if (m === 'POST' && (p === '/d' || p === '/e')) return 2;\n"
+        "  return 0;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    (root / "tests/route.test.ts").write_text(
+        "import { route } from '../src/route';\nroute('GET', '/a');\n", encoding="utf-8"
+    )
+
+    # A pasted "start at" value with a stale line still finds the named function.
+    main(["explain", str(root), "--at", "src/route.ts:3 route", "--format", "json"])
+    symbol = json.loads(capsys.readouterr().out)
+    assert symbol["scope"] == "src/route.ts::route"
+    assert symbol["branches"]["kinds"] == {"||": 3, "&&": 2, "if": 2}
+    assert symbol["tests"]["files"] == [{"path": "tests/route.test.ts", "line": 1, "lines": 2}]
+
+    main(["explain", str(root), "--at", "src/route.ts:3 route"])
+    out = capsys.readouterr().out
+    assert "Most of the CCN is short-circuit and ternary operators, not nested control flow." in out
+    assert "Tests that name `route` (matching lines): `tests/route.test.ts:1` (2)." in out
+
+    main(["explain", str(root), "--at", "src/route.ts"])
+    assert "Tests that import `route` (matching lines): `tests/route.test.ts:1` (1)." in capsys.readouterr().out
