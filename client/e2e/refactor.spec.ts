@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 let root: string;
+let solidRoot: string;
 test.beforeAll(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), "srcly-refactor-browser-"));
   fs.mkdirSync(path.join(root, "src"));
@@ -13,7 +14,52 @@ test.beforeAll(() => {
   fs.writeFileSync(path.join(root, "src/consumer.ts"), 'import { count } from "./state";\nexport const double = () => count * 2;\n');
   fs.writeFileSync(path.join(root, "src/types.ts"), 'export interface Person { name: string }\nexport const person: Person = { name: "Ada" };\n');
   fs.writeFileSync(path.join(root, "src/math.ts"), 'const offset = 2;\nexport function total(x: number) { return x + offset; }\n');
+  fs.writeFileSync(path.join(root, "src/machine.ts"), 'type State = "idle" | "running" | "done";\ntype Event = "start" | "finish" | "reset";\nexport function transition(state: State, event: Event): State {\n  if (event === "reset") return "idle";\n  if (state === "idle" && event === "start") return "running";\n  if (state === "running" && event === "finish") return "done";\n  return state;\n}\n');
   for (const args of [["init", "-q"], ["config", "user.email", "test@srcly.invalid"], ["config", "user.name", "Srcly test"], ["add", "."], ["commit", "-qm", "fixture"]]) execFileSync("git", args, { cwd: root });
+  solidRoot = fs.mkdtempSync(path.join(os.tmpdir(), "srcly-solid-browser-"));
+  fs.mkdirSync(path.join(solidRoot, "src"));
+  fs.symlinkSync(path.resolve("node_modules"), path.join(solidRoot, "node_modules"), "dir");
+  fs.writeFileSync(path.join(solidRoot, ".gitignore"), "node_modules\n");
+  fs.writeFileSync(path.join(solidRoot, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, target: "ES2022", module: "ESNext", moduleResolution: "Bundler", jsx: "preserve", jsxImportSource: "solid-js", types: [], skipLibCheck: true }, include: ["src"] }));
+  fs.writeFileSync(path.join(solidRoot, "src/state.ts"), 'import { createSignal } from "solid-js";\nexport const [count, setCount] = createSignal(0);\nexport function increment() { setCount(n => n + 1); }\n');
+  fs.writeFileSync(path.join(solidRoot, "src/App.tsx"), 'import { count, increment } from "./state";\nexport function Counter() { return <button onClick={increment}>{count()}</button>; }\nexport function App() { return <Counter />; }\n');
+  for (const args of [["init", "-q"], ["config", "user.email", "test@srcly.invalid"], ["config", "user.name", "Srcly test"], ["add", "."], ["commit", "-qm", "fixture"]]) execFileSync("git", args, { cwd: solidRoot });
+});
+
+test("conditional reducers become an inspectable executable state machine", async ({ page }) => {
+  await page.goto(`/?${new URLSearchParams({ repo: root, view: "refactor" })}`);
+  await page.locator("[data-refactor-load]").click();
+  await page.locator('[data-refactor-file="src/machine.ts"]').click();
+  await page.locator("[data-refactor-operation]").selectOption("state-machine");
+  await page.locator("[data-refactor-symbol]").fill("transition");
+  await page.locator("[data-refactor-destination]").fill("transitions");
+  await page.locator("[data-refactor-add]").click();
+  await page.locator("[data-refactor-preview]").click();
+  await expect(page.locator("[data-refactor-run-status]")).toHaveText("ready", { timeout: 90_000 });
+  await expect(page.locator("[data-refactor-machine-state]")).toHaveCount(3);
+  await expect(page.locator("[data-refactor-machine]")).toContainText("9 state/event pairs");
+  await page.locator("[data-refactor-all]").click();
+  await expect(page.locator("[data-refactor-run-status]")).toHaveText("complete");
+  await page.screenshot({ path: path.resolve("../tmp/e2e/refactor-state-machine.png"), fullPage: true });
+});
+
+test("global Solid state migrates to a provider with hook consumers", async ({ page }) => {
+  await page.goto(`/?${new URLSearchParams({ repo: solidRoot, view: "refactor" })}`);
+  await page.locator("[data-refactor-load]").click();
+  await page.locator('[data-refactor-file="src/state.ts"]').click();
+  await page.locator("[data-refactor-operation]").selectOption("solid-context");
+  await page.locator("[data-refactor-destination]").fill("src/CounterContext.tsx");
+  await page.locator("[data-refactor-provider]").fill("CounterProvider");
+  await page.locator("[data-refactor-hook]").fill("useCounter");
+  await page.locator("[data-refactor-add]").click();
+  await page.locator("[data-refactor-preview]").click();
+  await expect(page.locator("[data-refactor-run-status]")).toHaveText("ready", { timeout: 90_000 });
+  await expect(page.locator("[data-refactor-ownership]")).toContainText("CounterProvider → useCounter");
+  await page.locator("[data-refactor-all]").click();
+  await expect(page.locator("[data-refactor-run-status]")).toHaveText("complete");
+  const worktree = (await page.locator("[data-refactor-worktree]").textContent())!;
+  expect(fs.readFileSync(path.join(worktree, "src/App.tsx"), "utf8")).toContain("useCounter()");
+  await page.screenshot({ path: path.resolve("../tmp/e2e/refactor-solid-context.png"), fullPage: true });
 });
 
 test("type edits deliberately produce a repair list and remain executable", async ({ page }) => {

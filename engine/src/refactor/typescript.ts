@@ -3,6 +3,8 @@ import path from "node:path";
 import ts from "typescript";
 import { symbolOperations, type SymbolAction } from "./symbols";
 import { editType, type TypeAction } from "./type-edits";
+import { stateMachine, type MachineAction } from "./machine";
+import { solidContext, type ContextAction } from "./solid-context";
 
 export type Change = { path: string; before: string | null; after: string | null };
 export type MoveFile = { kind: "move-file"; file: string; to: string };
@@ -109,8 +111,10 @@ export function project(root: string, config: string) {
   };
   const operations = symbolOperations(context);
   return { graph, diagnostics, symbols: operations.catalog,
-    transform: (action: MoveFile | SymbolAction | TypeAction) => {
+    transform: (action: MoveFile | SymbolAction | TypeAction | MachineAction | ContextAction) => {
       if (action.kind === "move-file") return { changes: moveFile(action) };
+      if (action.kind === "state-machine") return stateMachine(context, action);
+      if (action.kind === "solid-context") return solidContext(context, action);
       if (["add-member", "update-member", "remove-member", "add-type", "update-type", "remove-type"].includes(action.kind)) return editType(context, action as TypeAction);
       return operations.transform(action as SymbolAction);
     },

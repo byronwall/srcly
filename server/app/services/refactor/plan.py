@@ -74,7 +74,17 @@ def parse(source: str) -> dict:
                 if kind != "file":
                     handles[name]["name" if kind == "symbol" else "text"] = words[5]
                 kinds[name] = kind
-            elif words[0] in {"move-file", "move-symbol", "rename", "extract-function", "extract-component"} and len(words) in {4, 5} and words[2] == "->":
+            elif words[0] == "solid-context" and len(words) == 10 and words[2] == "->" and words[4] == "provider" and words[6] == "hook" and words[8] == "within":
+                target, owner = words[1], words[9]
+                if target.startswith("$"):
+                    if kinds.get(target[1:]) != "file":
+                        raise RefactorError("solid-context needs a file handle or path for the state module.")
+                else:
+                    safe_path(target)
+                if not owner.startswith("$") or kinds.get(owner[1:]) != "symbol":
+                    raise RefactorError("The provider root must be a declared symbol handle.")
+                steps.append({"kind": "solid-context", "target": target, "to": safe_path(words[3]), "provider": words[5], "hook": words[7], "owner": owner, "line": number, "label": line.strip()})
+            elif words[0] in {"move-file", "move-symbol", "rename", "extract-function", "extract-component", "state-machine"} and len(words) in {4, 5} and words[2] == "->":
                 operation = words[0]
                 target = words[1]
                 if target.startswith("$"):
@@ -82,7 +92,7 @@ def parse(source: str) -> dict:
                         raise RefactorError(f"Unknown handle {target}; declare it before the first step.")
                 else:
                     safe_path(target)
-                expected = "selection" if operation.startswith("extract-") else "symbol" if operation in {"move-symbol", "rename"} else None
+                expected = "selection" if operation.startswith("extract-") else "symbol" if operation in {"move-symbol", "rename", "state-machine"} else None
                 if expected and (not target.startswith("$") or kinds[target[1:]] != expected):
                     raise RefactorError(f"{operation} needs a ${expected} handle.")
                 if len(words) == 5 and (operation != "move-symbol" or words[4] != "reexport"):

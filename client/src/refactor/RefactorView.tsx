@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Check, Download, FileCode, Play, RotateCcw, Workflo
 import { Button } from "../components/ui/Button";
 import { download, request, type Graph, type Plan, type Run, type SymbolInfo } from "./api";
 import RefactorGraph from "./RefactorGraph";
+import SemanticPreview from "./SemanticPreview";
 import "./refactor.css";
 
 const EMPTY: Graph = { files: [], edges: [] };
@@ -12,9 +13,13 @@ const OPERATIONS = [
   ["extract-function", "Extract function"], ["extract-component", "Extract component"],
   ["add-member", "Add type member"], ["update-member", "Update type member"], ["remove-member", "Remove type member"],
   ["add-type", "Add interface / type"], ["update-type", "Update interface / type"], ["remove-type", "Remove interface / type"],
+  ["solid-context", "Global state → context + hook"], ["state-machine", "If/else → state machine"],
 ];
 
 export default function RefactorView(props: { rootPath: string }) {
+  // Scans replace the tree object while retaining its path. Only a different
+  // path should discard an in-flight compiler load or reset this draft.
+  const projectPath = createMemo(() => props.rootPath);
   const [source, setSource] = createSignal(INITIAL);
   const [config, setConfig] = createSignal("tsconfig.json");
   const [plan, setPlan] = createSignal<Plan>();
@@ -26,6 +31,10 @@ export default function RefactorView(props: { rootPath: string }) {
   const [symbol, setSymbol] = createSignal("");
   const [snippet, setSnippet] = createSignal("");
   const [reexport, setReexport] = createSignal(false);
+  const [provider, setProvider] = createSignal("StateProvider");
+  const [hook, setHook] = createSignal("useState");
+  const [ownerFile, setOwnerFile] = createSignal("src/App.tsx");
+  const [ownerName, setOwnerName] = createSignal("App");
   const [projectSymbols, setProjectSymbols] = createSignal<SymbolInfo[]>([]);
   const [search, setSearch] = createSignal("");
   const [run, setRun] = createSignal<Run>();
@@ -37,10 +46,11 @@ export default function RefactorView(props: { rootPath: string }) {
   let loadVersion = 0;
 
   createEffect(() => {
-    const root = props.rootPath;
+    const root = projectPath();
     ++loadVersion;
     const saved = localStorage.getItem(`srcly.refactor:${root}`);
     setSource(saved ?? INITIAL);
+    setBusy(""); setError("");
     setGraph(EMPTY); setRun(undefined); setPlan(undefined); setSelected(""); setStepIndex(-1);
     const savedRun = localStorage.getItem(`srcly.refactor:${root}:run`);
     if (savedRun) void request<Run>(`/runs/${savedRun}`).then((value) => { if (props.rootPath === root) setRun(value); }).catch(() => {});
@@ -79,12 +89,20 @@ export default function RefactorView(props: { rootPath: string }) {
   const symbols = () => (activeStep()?.symbols ?? projectSymbols()).filter((item) => item.file === selected());
   const typeErrors = () => activeStep()?.diagnostics ?? (validRun() && stepIndex() < 0 ? run()?.baselineDiagnostics ?? [] : []);
   const selectionOperation = () => operation().startsWith("extract-");
-  const needsSymbol = () => !["move-file", "add-type"].includes(operation()) && !selectionOperation();
-  const destinationLabel = () => operation().startsWith("move-") ? "Destination" : ["add-member", "update-member", "add-type", "update-type"].includes(operation()) ? "Declaration" : operation() === "remove-member" ? "Member name" : "New name";
+  const needsSymbol = () => !["move-file", "add-type", "solid-context"].includes(operation()) && !selectionOperation();
+  const destinationLabel = () => operation().startsWith("move-") || operation() === "solid-context" ? "Destination" : ["add-member", "update-member", "add-type", "update-type"].includes(operation()) ? "Declaration" : operation() === "remove-member" ? "Member name" : "New name";
 
   function addMove() {
     if (!selected() || (!destination() && operation() !== "remove-type")) return;
     let draft = source().trimEnd();
+    if (operation() === "solid-context") {
+      let sequence = 1;
+      while (new RegExp(`\\blet owner_${sequence}\\b`).test(draft)) sequence++;
+      const lines = draft.split("\n");
+      lines.splice((plan()?.steps[0]?.line ?? lines.length + 1) - 1, 0, `let owner_${sequence} = symbol ${JSON.stringify(ownerFile())} ${JSON.stringify(ownerName())}`);
+      setSource(`${lines.join("\n")}\nsolid-context ${JSON.stringify(selected())} -> ${JSON.stringify(destination())} provider ${provider()} hook ${hook()} within $owner_${sequence}\n`);
+      setDestination(""); return;
+    }
     if (operation() === "add-type") { setSource(`${draft}\nadd-type ${JSON.stringify(selected())} ${JSON.stringify(destination())}\n`); setDestination(""); return; }
     const kind = selectionOperation() ? "selection" : needsSymbol() ? "symbol" : "file";
     const existing = Object.entries(plan()?.handles ?? {}).find(([, handle]) => handle.file === selected() && (handle.kind ?? "file") === kind && (kind === "file" || (kind === "symbol" ? handle.name === symbol() : handle.text === snippet())));
@@ -98,7 +116,7 @@ export default function RefactorView(props: { rootPath: string }) {
       lines.splice(firstStep, 0, `let ${handle} = ${kind} ${JSON.stringify(selected())}${kind === "file" ? "" : ` ${JSON.stringify(kind === "symbol" ? symbol() : snippet())}`}`);
       draft = lines.join("\n");
     }
-    const arrow = ["move-file", "move-symbol", "rename", "extract-function", "extract-component"].includes(operation()) ? " ->" : "";
+    const arrow = ["move-file", "move-symbol", "rename", "extract-function", "extract-component", "state-machine"].includes(operation()) ? " ->" : "";
     setSource(`${draft}\n${operation()} $${handle}${arrow}${operation() === "remove-type" ? "" : ` ${JSON.stringify(destination())}`}${operation() === "move-symbol" && reexport() ? " reexport" : ""}\n`);
     setDestination("");
   }
@@ -169,8 +187,15 @@ export default function RefactorView(props: { rootPath: string }) {
           <Show when={selectionOperation()}><label>Exact source selection<textarea data-refactor-selection aria-label="Exact source selection" value={snippet()} onInput={(event) => setSnippet(event.currentTarget.value)} /></label></Show>
           <Show when={operation() !== "remove-type"}><label>{destinationLabel()}<input aria-label={destinationLabel()} data-refactor-destination placeholder={operation().startsWith("move-") ? "src/features/example.ts" : operation().includes("member") ? "title: string" : "Name or declaration"} value={destination()} onInput={(event) => setDestination(event.currentTarget.value)} /></label></Show>
           <Show when={operation() === "move-symbol"}><label class="rf-compat"><input type="checkbox" checked={reexport()} onChange={(event) => setReexport(event.currentTarget.checked)} />Compatibility re-export</label></Show>
+          <Show when={operation() === "solid-context"}>
+            <label>Provider<input data-refactor-provider value={provider()} onInput={(event) => setProvider(event.currentTarget.value)} /></label>
+            <label>Hook<input data-refactor-hook value={hook()} onInput={(event) => setHook(event.currentTarget.value)} /></label>
+            <label>Root file<input data-refactor-owner-file value={ownerFile()} onInput={(event) => setOwnerFile(event.currentTarget.value)} /></label>
+            <label>Root component<input data-refactor-owner-name value={ownerName()} onInput={(event) => setOwnerName(event.currentTarget.value)} /></label>
+          </Show>
           <Button disabled={!selected() || (!destination() && operation() !== "remove-type") || (needsSymbol() && !symbol()) || (selectionOperation() && !snippet()) || !!busy()} data-refactor-add onClick={addMove}>Add step</Button>
         </div>
+        <SemanticPreview step={activeStep()} />
         <Show when={typeErrors().length}><details class="rf-type-errors" open data-refactor-type-errors><summary>{typeErrors().length}{" TypeScript diagnostics · type edits may leave these for repair"}</summary><ul><For each={typeErrors()}>{(diagnostic) => <li><code>{diagnostic.file}:{diagnostic.line} · TS{diagnostic.code}</code><p>{diagnostic.message}</p></li>}</For></ul></details></Show>
         <div class="rf-panel-title"><span>CODEMOD DIFF</span><span class="rf-muted">{changes().length} files · {activeStep() ? `step ${stepIndex() + 1}` : "select a previewed step"}</span></div>
         <div class="rf-diffs" data-refactor-diff>
