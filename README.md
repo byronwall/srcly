@@ -67,7 +67,7 @@ uvx srcly report . --out .srcly --quadrant activity
 
 **Data flow** (routes, value flow, function effects) runs srcly's bundled engine with Node.js 18 or newer from your PATH (set `SRCLY_NODE` to pick one). Without Node it shows N/A with the reason; the rest of srcly works without it.
 
-`report` is quiet by default and prints only a compact artifact summary. Add `--verbose` when you want per-file scan progress on stderr:
+`report` is quiet by default and prints a compact summary: the artifacts, the top findings and the `Analysis:` line. Add `--verbose` when you want per-file scan progress on stderr:
 
 ```bash
 uvx srcly report . --out .srcly --verbose
@@ -75,7 +75,7 @@ uvx srcly report . --out .srcly --verbose
 
 Use `uvx srcly scan . --out .srcly/tree.json` or `uvx srcly report . --include-tree` when you need the full raw tree. Use `--include-dependencies` to add the TypeScript/TSX dependency graph artifact.
 
-`explain --at` reads one scope of the analysis: the repo or a folder (child folders ranked by their worst file, then the worst files below), a file (its functions and classes), or `file::symbol` (its lines and every measured metric). Commands share the app's analysis cache, so after the first scan each call takes about a second while no file has changed; `--refresh` rescans.
+`explain --at` reads one scope of the analysis: the repo or a folder (child folders ranked by their worst file, then the worst files below), a file (its functions and classes), or `file::symbol` (its lines and every measured metric). Commands share the app's analysis cache, so after the first scan each call takes about a second while no file has changed; `--refresh` rescans. Each answer ends with an `Analysis:` line: reused or fresh scan, the Git HEAD and uncommitted files, the checkers that ran, and how many code files none covers. Same-named symbols are `file::name@line`.
 
 Findings rank **code** files. Each file is also classed as test, docs, fixture, generated, vendored, config or data from its path, and the report names how many of each it left out and why (`--include-class test` ranks one too). A long README or a test snapshot is never a refactor target by accident, and never silently dropped.
 

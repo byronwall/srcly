@@ -15,7 +15,7 @@ Use this skill when asked to review a codebase, find refactor targets, prioritiz
    uvx srcly report . --out .srcly --format both
    ```
 
-2. Read `.srcly/report.md` first. Its findings rank code files only; each row names the function to start at. A "Not ranked as code" line counts tests, docs, fixtures, generated, vendored, config and data files with the reason.
+2. `report` prints its top high and medium findings, an `Analysis:` line and a `Next:` explain command. Read `.srcly/report.md` for the rest. Its findings rank code files only; each row names the function to start at. A "Not ranked as code" line counts tests, docs, fixtures, generated, vendored, config and data files with the reason.
 3. Drill down with `explain`, one scope at a time. Each call reuses the saved analysis (about a second) while no file has changed:
 
    ```bash
@@ -25,7 +25,9 @@ Use this skill when asked to review a codebase, find refactor targets, prioritiz
    uvx srcly explain . --at 'server/app/run.py::_main'    # one symbol: lines, every measured metric
    ```
 
-   `--at` (and every path that `explain` and `hotspots` print) is relative to the analyzed path: `hotspots server` prints `app/...`, so pass it to `explain server --at app/...`, or analyze `.` throughout. Without it, `explain` reads the folder you are in. A method can be named by its bare name (`file.py::parse`) when only one symbol in the file has it; otherwise the error lists the full paths. Every answer ends with a `Next:` command you can run as-is. "Start at" is `path:line name`, and an anonymous callback also names its enclosing function.
+   `--at` (and every path that `explain` and `hotspots` print) is relative to the analyzed path: `hotspots server` prints `app/...`, so pass it to `explain server --at app/...`, or analyze `.` throughout. Without it, `explain` reads the folder you are in. A method can be named by its bare name (`file.py::parse`) when only one symbol in the file has it. When several share a name (`(anonymous)`), the file table gives `file::name@line`, and a bare name lists each match, most complex first. Every answer ends with a `Next:` command you can run as-is. "Start at" is `path:line name`, and an anonymous callback also names its enclosing function.
+
+   The `Analysis:` line says what the answer rests on: a reused or a fresh scan, the Git HEAD that history counts come from (and uncommitted files it leaves out), each checker that ran, and how many code files no checker covers. `finding_count` is N/A, not 0, for those files. Quote the line when you report findings.
 
 4. Inspect the referenced source files and nearby tests before proposing or making changes.
 5. Treat metrics as triage signals, not proof of defects.
