@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SymbolGraph } from "../../../symbols/contract";
-import { edgeId, symbolGraphToViewModel } from "./adapter";
+import { edgeId, symbolGraphToViewModel, symbolPathToViewModel } from "./adapter";
 
 const node = (id: string, kind: SymbolGraph["nodes"][number]["kind"], hop: number, extra: Partial<SymbolGraph["nodes"][number]> = {}) => ({
   id,
@@ -35,6 +35,41 @@ const graph: SymbolGraph = {
   ],
   index: { symbols: 6, references: 4, files: 4, unresolvedMembers: 0, builtMs: 1 },
 };
+
+describe("symbolPathToViewModel", () => {
+  const chain = {
+    root: "/r",
+    start: "a.ts#a",
+    end: "c.ts#c",
+    found: true,
+    direction: "forward" as const,
+    steps: 2,
+    nodes: [node("a.ts#a", "function", 0), node("b.ts#b", "function", 1), node("c.ts#c", "function", 2)],
+    edges: [
+      { source: "a.ts#a", target: "b.ts#b", kind: "call" as const, lines: [3], count: 1, resolution: "exact" as const },
+      { source: "b.ts#b", target: "c.ts#c", kind: "call" as const, lines: [7, 9], count: 2, resolution: "typed" as const },
+    ],
+    index: { symbols: 3, references: 3, files: 3, unresolvedMembers: 0, builtMs: 1 },
+  };
+
+  it("puts the start in the centre and the steps on the side the chain runs to", () => {
+    const { vm } = symbolPathToViewModel(chain);
+    expect(vm.nodes.map((n) => [n.id, n.region, n.note])).toEqual([
+      ["a.ts#a", "center", "start"],
+      ["b.ts#b", "out", "step 1"],
+      ["c.ts#c", "out", "end · 2 steps"],
+    ]);
+    expect(vm.edges.map((e) => [e.source, e.target, e.weight])).toEqual([["a.ts#a", "b.ts#b", 1], ["b.ts#b", "c.ts#c", 2]]);
+    const back = symbolPathToViewModel({ ...chain, direction: "backward" });
+    expect(back.vm.nodes[1].region).toBe("in");
+  });
+
+  it("draws the two ends apart when there is no chain", () => {
+    const { vm } = symbolPathToViewModel({ ...chain, found: false, direction: undefined, steps: 0, nodes: [chain.nodes[0], chain.nodes[2]], edges: [] });
+    expect(vm.nodes.map((n) => n.note)).toEqual(["start", "end · no path"]);
+    expect(vm.edges).toEqual([]);
+  });
+});
 
 describe("symbolGraphToViewModel", () => {
   it("centers the focus and its members in one frame, referrers left, referenced right", () => {

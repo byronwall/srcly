@@ -1,5 +1,5 @@
 import { batch, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, untrack } from "solid-js";
-import { Crosshair, PanelRight, Redo2, Search, Undo2 } from "lucide-solid";
+import { Crosshair, PanelRight, Redo2, Route, Search, Undo2, X } from "lucide-solid";
 import { EmptyState, ErrorState, LoadingState } from "../../../components/feedback/States";
 import { Button } from "../../../components/ui/Button";
 import { IconButton } from "../../../components/ui/IconButton";
@@ -8,8 +8,8 @@ import { canReturn, go, location, replace, returnBack } from "../../../navigatio
 import NodeActionsMenu, { type NodeMenuTarget } from "../../../navigation/NodeActionsMenu";
 import { addAnchorPatch, refsPatch, tracePatch } from "../../../navigation/nodeActions";
 import { registerViewState } from "../../../navigation/viewState";
-import { fetchSymbolGraph, SymbolApiError } from "../../../symbols/api";
-import { atOf, baseName, qualifiedOf, REF_KIND_SPEC, REF_KINDS, type RefKind, type SymbolGraph } from "../../../symbols/contract";
+import { fetchSymbolGraph, fetchSymbolPath, SymbolApiError } from "../../../symbols/api";
+import { atOf, baseName, qualifiedOf, REF_KIND_SPEC, REF_KINDS, type RefKind, type SymbolGraph, type SymbolPath } from "../../../symbols/contract";
 import { ViewTools } from "../../viewToolbar";
 import { DependencyCanvas, type Camera, type CanvasApi } from "../DependencyCanvas";
 import { createFetch } from "../flow/fetchSignal";
@@ -17,7 +17,7 @@ import { FlowModeSwitch } from "../flow/FlowTools";
 import { layoutWithHubs } from "../hubs";
 import type { ViewLayout } from "../layout";
 import type { ViewNode } from "../viewModel";
-import { labelOf, symbolGraphToViewModel } from "./adapter";
+import { labelOf, symbolGraphToViewModel, symbolPathToViewModel } from "./adapter";
 import { SymbolInspector } from "./SymbolInspector";
 import { SymbolLegend } from "./SymbolLegend";
 import { SymbolPalette } from "./SymbolPalette";
@@ -85,6 +85,8 @@ function derivedFocus(at: string): string {
 export default function SymbolsView(props: { rootPath: string; onOpen: (at: string, line?: number) => void }) {
   const root = () => props.rootPath;
   const focus = createMemo(() => location().symbols || derivedFocus(location().at));
+  /** Path mode: the symbol the chain from the focus is drawn to. */
+  const to = () => location().to;
   const openList = () => location().open ?? [];
   const [kinds, setKinds] = createSignal<Set<RefKind>>(readKinds());
   const [tests, setTests] = createSignal(readFlag(TESTS_KEY, false));
@@ -100,7 +102,7 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
   let host!: HTMLDivElement;
   let pendingAnchor: string | null = null;
 
-  const graphKey = createMemo(() => (root() && focus() ? `${root()}\n${focus()}\n${openList().join(",")}\n${tests() ? 1 : 0}` : null));
+  const graphKey = createMemo(() => (root() && focus() && !to() ? `${root()}\n${focus()}\n${openList().join(",")}\n${tests() ? 1 : 0}` : null));
   const graphFetch = createFetch(graphKey, (key) => {
     const [path, at, more, withTests] = key.split("\n");
     return fetchSymbolGraph({ path, at, more: more ? more.split(",") : [], tests: withTests === "1" });
@@ -111,7 +113,25 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
     const g = graph();
     return g && g.focus === focus() ? g : null;
   };
+  // Path mode: the chain is searched over the chosen kinds, so the chips refetch it.
+  const pathKey = createMemo(() => (root() && focus() && to() ? `${root()}\n${focus()}\n${to()}\n${[...kinds()].sort().join(",")}\n${tests() ? 1 : 0}` : null));
+  const pathFetch = createFetch(pathKey, (key) => {
+    const [path, from, end, kindList, withTests] = key.split("\n");
+    return fetchSymbolPath({ path, from, to: end, kinds: kindList.split(","), tests: withTests === "1" });
+  });
+  const currentPath = (): SymbolPath | null => {
+    const p = pathFetch.value();
+    return p && p.start === focus() && p.end === to() ? p : null;
+  };
+  /** What the rail reads: the neighbourhood, or the chain as a graph of its own. */
+  const shown = (): SymbolGraph | null => {
+    const p = currentPath();
+    if (p) return { root: p.root, focus: p.start, nodes: p.nodes, edges: p.edges, index: p.index };
+    return current();
+  };
   const model = createMemo(() => {
+    const p = currentPath();
+    if (p) return symbolPathToViewModel(p);
     const g = current();
     return g ? symbolGraphToViewModel(g, { kinds: kinds(), expanded: openList() }) : null;
   });
@@ -159,7 +179,17 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
   const focusOn = (id: string) => {
     if (id === focus()) return;
     setSelected(null);
-    go({ symbols: id, open: undefined });
+    go({ symbols: id, open: undefined, to: undefined });
+  };
+  /** Draw the chain from the focus to a symbol; its own place, so Back returns to the neighbourhood. */
+  const pathTo = (id: string) => {
+    if (!focus() || id === focus()) return;
+    setSelected(null);
+    go({ symbols: focus(), to: id, open: undefined });
+  };
+  const clearPath = () => {
+    setSelected(null);
+    go({ to: undefined });
   };
   const setOpen = (ids: string[]) => replace({ open: [...new Set(ids)].sort() });
   const expand = (id: string) => {
@@ -214,9 +244,10 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
     writeFlag(TESTS_KEY, next);
   };
   const onBoxClick = (n: ViewNode) => setSelected(selected() === n.id ? null : n.id);
-  const pickFromPalette = (id: string, mode: "focus" | "code") => {
+  const pickFromPalette = (id: string, mode: "focus" | "code" | "path") => {
     const hit = model()?.byId.get(id);
     if (mode === "code" && hit) return openAt(hit.file, hit.line, hit.id);
+    if (mode === "path") return pathTo(id);
     focusOn(id);
   };
 
@@ -240,6 +271,8 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
       else if (key === "i") toggleInspector();
       else if (key === "t") toggleTests();
       else if (key === "Escape" && selected()) setSelected(null);
+      else if (key === "Escape" && to()) clearPath();
+      else if (n && key === "p" && !to()) pathTo(n.id);
       else if (n && key === "f") focusOn(n.id);
       else if (n && (key === "o" || key === "Enter")) openNode(n);
       else if (n && (key === "e" || key === " ")) toggleOpen(n);
@@ -257,15 +290,24 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
     });
   });
 
-  const focusNode = () => current()?.nodes.find((n) => n.id === focus()) ?? null;
+  const focusNode = () => shown()?.nodes.find((n) => n.id === focus()) ?? null;
+  const toText = () => {
+    const n = shown()?.nodes.find((x) => x.id === to());
+    return n ? labelOf(n) : qualifiedOf(to() ?? "") || baseName(to() ?? "");
+  };
   const focusText = () => {
     const n = focusNode();
     return n ? labelOf(n) : qualifiedOf(focus()) || baseName(focus());
   };
   const stats = () => {
     const m = model();
-    const g = current();
+    const g = shown();
     if (!m || !g) return "";
+    const p = currentPath();
+    if (p) {
+      const word = p.direction === "backward" ? `${toText()} reaches ${focusText()}` : `${focusText()} reaches ${toText()}`;
+      return `${p.found ? `${word} in ${p.steps} step${p.steps === 1 ? "" : "s"}` : `no chain of references between ${focusText()} and ${toText()} either way`} · index: ${g.index.symbols.toLocaleString("en-US")} symbols, ${g.index.references.toLocaleString("en-US")} references`;
+    }
     const parts = [`${m.vm.nodes.length} symbol${m.vm.nodes.length === 1 ? "" : "s"}`, `${m.vm.edges.length} reference${m.vm.edges.length === 1 ? "" : "s"}`];
     if (m.hiddenByKind) parts.push(`${m.hiddenByKind} hidden by the kind filters`);
     if (g.truncated) parts.push("cut at the neighbourhood limit: hide kinds or tests");
@@ -273,16 +315,20 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
     return parts.join(" · ");
   };
   const notFound = () => {
-    const e = graphFetch.error();
+    const e = to() ? pathFetch.error() : graphFetch.error();
     return e instanceof SymbolApiError && e.status === 404 ? e.message : null;
   };
-  const loading = () => graphFetch.loading() && !current();
-  const failure = () => (notFound() ? null : graphFetch.error());
+  const loading = () => (to() ? pathFetch.loading() && !currentPath() : graphFetch.loading() && !current());
+  const failure = () => (notFound() ? null : to() ? pathFetch.error() : graphFetch.error());
   /** The status line's bold part: the hovered or selected box, else the focus. */
   const statusText = () => {
     const n = hovered() ?? (selected() ? model()?.vm.nodes.find((v) => v.id === selected()) : null);
     const s = n ? model()?.byId.get(n.id) : null;
-    if (!s) return `${focusText()} · click a box to list its references · ⇧click opens a hop · F centres · / finds a symbol`;
+    const p = currentPath();
+    if (!s) {
+      if (p) return p.found ? `Path ${focusText()} → ${toText()} · each box one step · Esc back to the neighbourhood` : `No path · Esc back to the neighbourhood`;
+      return `${focusText()} · click a box to list its references · ⇧click opens a hop · F centres · P draws the path to it · / finds a symbol`;
+    }
     return `${labelOf(s)} · ${s.kind} · ${s.inCount} in · ${s.outCount} out${n?.expandable ? " · ⇧click or E opens its hop" : ""}`;
   };
 
@@ -296,6 +342,16 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
           <span class="text-[var(--plc-on-muted)]">Symbol</span>
           <span class="min-w-0 truncate font-mono text-[11.5px] font-medium">{focus() ? focusText() : "none"}</span>
         </Button>
+        <Show when={to()}>
+          <span class="flex max-w-[16rem] shrink-0 items-center gap-0.5 rounded-md border border-[var(--plc-accent)] pl-1.5 text-[11.5px]" data-symbol-path>
+            <Route size={12} aria-hidden="true" class="shrink-0 text-[var(--plc-accent)]" />
+            <span class="text-[var(--plc-on-muted)]">Path to</span>
+            <span class="min-w-0 truncate font-mono font-medium">{toText()}</span>
+            <IconButton label="Back to the neighbourhood" title="Back to the neighbourhood (Esc)" size="xs" onClick={clearPath}>
+              <X size={11} aria-hidden="true" />
+            </IconButton>
+          </span>
+        </Show>
         <div role="group" aria-label="Reference kinds" class="flex shrink-0 items-center gap-0.5 rounded-md border border-[var(--plc-border)] bg-[var(--plc-surface-muted)] p-0.5">
           <For each={CHIPS}>
             {(chip) => (
@@ -387,9 +443,9 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
             )}
           </Show>
         </div>
-        <Show when={inspector() && current() && model()}>
+        <Show when={inspector() && shown() && model()}>
           <SymbolInspector
-            graph={current()!}
+            graph={shown()!}
             model={model()!}
             selected={selected()}
             kinds={kinds()}
@@ -397,6 +453,7 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
             onSelect={setSelected}
             onFocus={focusOn}
             onExpand={expand}
+            onPath={to() ? undefined : pathTo}
             onClose={toggleInspector}
           />
         </Show>
@@ -411,7 +468,7 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
         </span>
       </div>
 
-      <SymbolPalette open={palette()} rootPath={root()} tests={tests()} onClose={() => setPalette(false)} onPick={(hit, mode) => (mode === "code" ? openAt(hit.file, hit.line, hit.id) : pickFromPalette(hit.id, mode))} />
+      <SymbolPalette open={palette()} rootPath={root()} tests={tests()} pathFrom={focus() ? focusText() : undefined} onClose={() => setPalette(false)} onPick={(hit, mode) => (mode === "code" ? openAt(hit.file, hit.line, hit.id) : pickFromPalette(hit.id, mode))} />
 
       <Show when={menu()}>
         {(m) => (

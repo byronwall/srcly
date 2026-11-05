@@ -275,6 +275,23 @@ class SymbolGraph(BaseModel):
     index: SymbolIndexInfo
 
 
+class SymbolPath(BaseModel):
+    """The shortest chain of references between two symbols, or that there is none."""
+
+    root: str
+    start: str
+    end: str
+    found: bool
+    # `forward`: start references … references end; `backward`: the chain runs the other way; None: no chain.
+    direction: str | None = None
+    steps: int
+    # On a chain, in order (`hop` is the position); otherwise the two ends.
+    nodes: List[SymbolGraphNode]
+    # The merged references of each step.
+    edges: List[SymbolGraphEdge]
+    index: SymbolIndexInfo
+
+
 class SymbolSearchHit(BaseModel):
     model_config = {"populate_by_name": True}
 

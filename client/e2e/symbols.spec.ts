@@ -79,3 +79,20 @@ test.describe("Symbols mode on solid-route", () => {
     await expect(page.getByText("Not in the index")).toBeVisible({ timeout: 90_000 });
   });
 });
+
+test.describe("Symbols mode paths on solid-route", () => {
+  test("draws the chain from one symbol to another, says when there is none, and clears", async ({ page }) => {
+    await page.goto(url({ view: "graph", symbols: "src/routes/records.tsx#RecordsRoute", to: "src/data/types.ts#RecordItem" }));
+    await expect(stats(page)).toHaveAttribute("data-symbol-stats", "ready", { timeout: 90_000 });
+    await expect(stats(page)).toContainText(/reaches .* in \d+ steps?/);
+    await expect(page.locator("[data-symbol-path]")).toBeVisible();
+    expect(await page.locator("[data-box]").count()).toBeGreaterThanOrEqual(3);
+    await shot(page, "symbols-path");
+    // × leaves path mode for the neighbourhood of the same focus.
+    await page.locator("[data-symbol-path]").getByRole("button", { name: "Back to the neighbourhood" }).click();
+    await expect(page).not.toHaveURL(/to=/);
+    await expect(stats(page)).toContainText("index:");
+    await page.goto(url({ view: "graph", symbols: "src/components/ViewerCard.tsx#ViewerCard", to: "src/data/types.ts#RecordItem" }));
+    await expect(stats(page)).toContainText("no chain of references", { timeout: 90_000 });
+  });
+});

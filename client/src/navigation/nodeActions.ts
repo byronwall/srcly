@@ -67,6 +67,7 @@ export function refsPatch(target: { at: string }): Partial<Location> {
     lens: undefined,
     open: undefined,
     symbols: symbolIdOf(target.at) ?? "",
+    to: undefined,
   };
 }
 

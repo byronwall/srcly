@@ -10,7 +10,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.models import SymbolGraph, SymbolSearch
+from app.models import SymbolGraph, SymbolPath, SymbolSearch
 from app.services.symbols.index import build_symbol_index
 from app.services.symbols.model import REF_KINDS
 
@@ -54,3 +54,25 @@ def search_symbols(path: str | None = None, q: str = Query("", max_length=200), 
     """Symbols whose name, qualified name or file contains `q`, best match first, with their reference counts."""
     index = build_symbol_index(_root(path))
     return SymbolSearch(hits=index.search(q, limit=limit, include_tests=tests), index=index.info())
+
+
+@router.get("/path", response_model=SymbolPath, response_model_exclude_none=True, response_model_by_alias=True)
+def get_symbol_path(
+    path: str | None = None,
+    start: str = Query(..., alias="from", description="A symbol id"),
+    end: str = Query(..., alias="to", description="A symbol id"),
+    kinds: str | None = Query(None, description="Comma-separated reference kinds to follow; default all"),
+    tests: bool = True,
+):
+    """The shortest chain of references from one symbol to another (forward, else backward), or that there is none."""
+    chosen = None
+    if kinds:
+        chosen = [k for k in kinds.split(",") if k in REF_KINDS]
+        if not chosen:
+            raise HTTPException(status_code=400, detail=f"kinds must be some of {', '.join(REF_KINDS)}")
+    index = build_symbol_index(_root(path))
+    result = index.path(start, end, kinds=chosen, include_tests=tests)
+    if result is None:
+        missing = start if start not in index.symbols else end
+        raise HTTPException(status_code=404, detail=f"No symbol {missing!r} in the index")
+    return result

@@ -1,4 +1,4 @@
-import { Crosshair, ExternalLink, Maximize2, X } from "lucide-solid";
+import { Crosshair, ExternalLink, Maximize2, Route, X } from "lucide-solid";
 import { createMemo, For, Show } from "solid-js";
 import { Button } from "../../../components/ui/Button";
 import { IconButton } from "../../../components/ui/IconButton";
@@ -49,6 +49,8 @@ export function SymbolInspector(props: {
   onSelect: (id: string | null) => void;
   onFocus: (id: string) => void;
   onExpand: (id: string) => void;
+  /** Draw the shortest chain of references from the focus to this symbol. */
+  onPath?: (id: string) => void;
   onClose: () => void;
 }) {
   const id = () => props.selected ?? props.graph.focus;
@@ -145,6 +147,12 @@ export function SymbolInspector(props: {
                       <Crosshair size={12} aria-hidden="true" />
                       Focus
                     </Button>
+                    <Show when={props.onPath}>
+                      <Button variant="ghost" size="sm" class="gap-1 px-2" onClick={() => props.onPath!(n().id)} title="The shortest chain of references from the focus to it">
+                        <Route size={12} aria-hidden="true" />
+                        Path from the focus
+                      </Button>
+                    </Show>
                     <Show when={drawn() && props.model.vm.nodes.find((v) => v.id === n().id)?.expandable}>
                       <Button variant="ghost" size="sm" class="gap-1 px-2" onClick={() => props.onExpand(n().id)} title="Open its own hop in place (E)">
                         <Maximize2 size={12} aria-hidden="true" />

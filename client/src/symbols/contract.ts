@@ -52,6 +52,21 @@ export interface SymbolGraph {
   index: SymbolIndexInfo;
 }
 
+/** The shortest chain of references between two symbols, or that there is none. */
+export interface SymbolPath {
+  root: string;
+  start: string;
+  end: string;
+  found: boolean;
+  /** `forward`: start references … references end; `backward`: the chain runs the other way; absent: no chain. */
+  direction?: "forward" | "backward";
+  steps: number;
+  /** On a chain, in order (`hop` is the position); otherwise the two ends. */
+  nodes: SymbolNode[];
+  edges: SymbolEdge[];
+  index: SymbolIndexInfo;
+}
+
 export interface SymbolSearchHit {
   id: string;
   name: string;
