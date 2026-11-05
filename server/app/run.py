@@ -488,9 +488,8 @@ def _dispatch(args) -> None:
         else:
             out_dir = Path(args.out).resolve()
             output_format = "both" if args.fail_on != "none" and args.format == "markdown" else args.format
-            written = reporting.write_report(
+            payload = reporting.build_report_payload(
                 target_path,
-                out_dir,
                 profile=args.profile,
                 metric=args.metric,
                 limit=args.limit,
@@ -509,12 +508,14 @@ def _dispatch(args) -> None:
                 quadrant_cohort=args.quadrant_cohort,
                 include_classes=("code", *args.include_class),
             )
+            written = reporting.write_artifacts(payload, out_dir, output_format=output_format)
             if args.verbose:
                 print(f"Wrote Srcly report artifacts to {out_dir}")
                 for path in written.values():
                     print(f"- {path}")
             else:
-                print(_format_quiet_report_summary(out_dir, written))
+                command = "srcly explain" + (f" {shlex.quote(args.path)}" if args.path else "")
+                print(_format_quiet_report_summary(out_dir, written, payload, command=command))
         if args.fail_on != "none":
             if args.stdout:
                 _enforce_fail_on_payload(payload["findings"], args.fail_on)
@@ -607,10 +608,31 @@ def _deprioritize_paths(args) -> tuple[str, ...]:
     return tuple(reporting.DEFAULT_DEPRIORITIZED_PATHS) + tuple(args.deprioritize or ())
 
 
-def _format_quiet_report_summary(out_dir: Path, written: dict[str, Path]) -> str:
+# Findings printed by a quiet `report`: enough to pick a first `explain --at` without opening an artifact.
+REPORT_PRINTED_FINDINGS = 5
+
+
+def _format_quiet_report_summary(
+    out_dir: Path, written: dict[str, Path], payload: dict, *, command: str = "srcly explain"
+) -> str:
+    from app.services import scopes
+
     names = ", ".join(path.name for path in written.values())
     read_first = written.get("report") or written["findings_top"]
-    return f"Wrote {len(written)} Srcly artifacts to {out_dir}: {names}\nRead first: {read_first}"
+    lines = [f"Wrote {len(written)} Srcly artifacts to {out_dir}: {names}", f"Read first: {read_first}"]
+    findings = payload["findings"]["findings"]
+    top = [f for f in findings if f["priority"] in ("high", "medium")][:REPORT_PRINTED_FINDINGS]
+    if top:
+        lines += ["", f"Top findings ({len(top)} of {len(findings)}):", ""]
+        lines += [f"- {f['priority']} {f['score']} `{f['path']}`: {f['reason']}. Start at `{scopes.start_at(f)}`" for f in top]
+    elif findings:
+        lines += ["", f"No high or medium findings; {len(findings)} low ones in findings.json."]
+    analysis = payload["manifest"].get("analysis")
+    if analysis:
+        lines += ["", scopes.provenance_line(analysis)]
+    if top:
+        lines += ["", f"Next: `{command} --at {shlex.quote(top[0]['path'])}`"]
+    return "\n".join(lines)
 
 
 def _enforce_fail_on(findings_path: Path, fail_on: str) -> None:

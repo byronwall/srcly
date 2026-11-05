@@ -14,6 +14,67 @@ Measure a complete repository → folder → file → symbol investigation on a 
 
 Acceptance: a real agent can inspect two scopes from one captured analysis, identify unavailable data, and see the source revision or dirty-state limitation. Compare total work and tokens with the baseline; no numerical improvement is assumed.
 
+### Milestone 2 results (2026-11-04)
+
+**Corpus.** srcly at `e169c3d` (1,373 tracked files, 540 ranked code files), in a detached worktree with the client's `node_modules` linked so `tsc` runs. plan-viewer at `a82aef1` (117 files, 44 code files, mostly plain JS). Each run used its own empty `SRCLY_CACHE_DIR`. A harness ran each command in-process and counted scans, checker runs, `git log` runs and child processes.
+
+**Audit.** Repository → folder → file → symbol. srcly: `.` → `server/app/services` → `typescript/typescript_analysis.py` → `::_get_function_name`. plan-viewer: `.` → `public` → `public/app.js` → its CCN 33 `(anonymous)`. Latency is from a quiet machine on the old code. The new code adds one 0.02 s tree walk, timed directly. Later runs on a loaded machine were up to 2x slower on both code paths.
+
+| Step | srcly wall | plan-viewer wall | Scans | Checkers | `git log` | Child processes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| First `explain` (cold) | 5.1 s | 1.6 s | 1 | 4 / 2 | 1 | 23 / 21 |
+| Each later `explain` step | 1.06–1.11 s | 0.53–0.55 s | 0 | 0 | 0 | 8 |
+| `report --out` cold | 5.9 s | 1.7 s | 1 | 4 / 2 | 1 | 23 / 21 |
+| `report --out` warm | 1.8 s | 0.6 s | 0 | 0 | 0 | 8 |
+| After a one-line edit | 4.9 s | | 1 | 4 | 0 | |
+| After reverting it | 5.5 s | | 1 | 4 | 0 | |
+
+A warm srcly step spends about 0.35 s starting Python, 0.07 s on the fingerprint, and about 0.6 s parsing the cached tree (2 MB gzip, 47 MB JSON). The 8 child processes are git: the file listing for the fingerprint, `HEAD`, and the dirty check. Cold time is the checkers: they take 4.1 s beside a 2.5 s scan. `report` and `explain` share one cache entry, so a `report` makes every later `explain` warm.
+
+| Output to an agent | srcly before → after | plan-viewer before → after |
+| --- | ---: | ---: |
+| `explain` walk, 4 steps | 9.9 KB → 11.1 KB | 5.0 KB → 5.8 KB |
+| `report --out` stdout | 0.5 KB → 1.9 KB | 0.5 KB → 1.3 KB |
+| `report` artifacts | 237 KB | 221 KB |
+| `report --stdout` | 202 KB | 191 KB |
+
+`report` alone has no file or symbol scope. Reaching the same symbol from artifacts means reading `report.md`, `tree.summary.json` and `hotspots.json`: about 118 KB for srcly. The mixed walk now costs 4.7 KB in three calls and one scan: `report`, then `explain` on the printed file, then on its symbol. The 1.2 KB the `explain` walk gained is the `Analysis:` line, about 300 B a step.
+
+**Freshness and coverage, before this milestone.**
+
+- `report.md` showed the Git HEAD, uncommitted files and each checker. `manifest.json` said `"cache_used": false` on every run, including reused ones.
+- `explain` showed none of it. It did not say whether it reused a scan, which HEAD the history came from, that files were uncommitted, or what the checkers covered. It listed `finding_count` as N/A per file with no reason.
+- Neither command counted code files that no checker covers: 26 of 44 in plan-viewer, because no eslint covers its `.js` files.
+
+**Decision: the fingerprinted cache is enough; no snapshot artifact.**
+
+- Warm steps already make no provider calls.
+- A snapshot would hold the same tree, so it would cost the same parse. It would save only the 0.07 s fingerprint and would lose the guarantee that an answer matches the files on disk.
+- The cost that matters is the invalidation unit, which a snapshot does not change. Any edit to a tracked file rescans everything and reruns every checker. A revert does the same, because each root keeps one entry. Reuse per file is a milestone 3 or 4 question, and only if edit-and-recheck audits need it.
+- The gap was visibility, so this milestone builds that.
+
+**Built.**
+
+- `explain` and `report` end with one `Analysis:` line. It gives the reused or fresh scan with its time, the Git HEAD, the uncommitted-files note, each checker with its file count, how many code files no checker covers, and files that failed analysis. `explain --format json` carries it as `analysis`, and `manifest.json` carries it too. `cache_used` is now true when the scan was reused.
+- Same-named symbols: the walk on plan-viewer found a wrong answer. `public/app.js` has 149 `(anonymous)` functions. Its file table pointed at the CCN 33 one at line 2988, but `--at 'public/app.js::(anonymous)'` returned the one at line 73 with no warning. The table now gives `file::name@line`, and a bare ambiguous name lists each match, most complex first.
+- `report` prints its top 5 high and medium findings, the `Analysis:` line and a `Next:` explain command for the first finding. Of the three follow-ups the clean-room audits asked for, this one had the clearest value: it removes the first artifact read (7 KB of `report.md`) from every audit and needs no new data.
+
+**Invalidation limits.** The cache key is the resolved root path. A subfolder or another worktree analyzed as its own root is a separate full scan. The fingerprint is path, mtime and size over the git listing, so a `touch` rescans but a result is never stale. Checker results share the fingerprint, and Git activity is keyed by HEAD and window. A checkout reports its version as `dev`, so a change to the stored tree's shape must bump `CACHE_FORMAT`. The cache keeps 20 entries on disk.
+
+**Still not visible.** Which code files no checker covers, and why (only a count). Which files failed analysis (only a count). A content identity for the scan (only its time). `report.md` does not say whether the scan was reused; stdout and `manifest.json` do.
+
+**Found on the corpus.**
+
+- Lizard misreads plain JS. In plan-viewer `public/code.js` it folds lines 99–1430 into the one-line `bytes` helper (CCN 584). srcly's tree-sitter analyzer reads the file's worst function as `renderDiff` (CCN 86). The pgm backlog has the repro and fix: `task-analyze-js-with-tree-sitter-not-lizard-bytes-ccn-584`.
+- `findings.json` puts an absolute path in `complexity_witness.path`; every other path is relative to the root.
+
+**Moved to milestone 3.**
+
+- Link findings to tests. `explain` on a file could list the test files that import it, labeled as imports, not proof of coverage (see section 4). The dependency graph covers TS and TSX only, and building it on every call has not been measured. Measure that cost first, and add Python imports.
+- Tell flat dispatch from tangled control flow. plan-viewer's `server.ts::handleRequest` (CCN 196, nesting 4) is a flat router. srcly's `viewModel.ts::buildViewModel` (CCN 135, nesting 5) is not. CCN alone ranks them alike. A signal needs a measured metric in both tree-sitter analyzers (for example, branches at the function's own top level against nested branches), added through `docs/adding-a-metric.md` with fixture cases. Do this before it changes any ranking.
+- Name the code files that no checker covers, with their reason, in `explain` for a folder.
+- Make `complexity_witness.path` in `findings.json` relative.
+
 ## 3. Deliver scoped investigation
 
 Use the prototype to choose a coherent command surface. Provide folder rollups and file/symbol detail with located witnesses, deterministic ordering and bounded output. Show actual checker diagnostics separately from metrics and retain their coverage. Separate application code, docs, fixtures and generated files with visible reasons; avoid hiding them. Replace generic advice and peer-relative severity only after an evaluated alternative answers the same jobs. Preserve the single-metric ranking and witnesses until replacement paths work.

@@ -1,0 +1,14 @@
+{
+  "id": "3a36abda-5d93-4b0b-84e9-72f0d8b22341",
+  "kind": "node.priority.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:bf653b",
+    "label": "Agent token ...bf653b"
+  },
+  "createdAt": "2026-11-05T03:13:19.258Z",
+  "summary": "Set \"Analyze JS with tree-sitter, not lizard (bytes CCN 584)\" priority to medium.",
+  "nodeIds": [
+    "task-analyze-js-with-tree-sitter-not-lizard-bytes-ccn-584"
+  ]
+}
