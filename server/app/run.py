@@ -184,7 +184,13 @@ def _cwd_scope(root: Path, path_arg: str | None) -> str:
 
 
 def _resolve_scope(root: Path, at: str) -> str:
-    """``--at`` relative to the analyzed root (an absolute path inside it also works); keeps ``::symbol``."""
+    """``--at`` relative to the analyzed root (an absolute path inside it also works); keeps ``::symbol``
+    and a ``:line`` with any name after it (a pasted "start at" value such as ``a.py:12 parse``)."""
+    import re
+
+    line_at = re.match(r"^([^:\s]+):(\d+)(?:\s.*)?$", at.strip())
+    if line_at and "::" not in at:
+        return f"{_resolve_scope(root, line_at[1])}:{line_at[2]}{at.strip()[line_at.end(2):]}"
     file, sep, symbol = at.partition("::")
     target = (root / file).resolve()
     if not target.is_relative_to(root):
