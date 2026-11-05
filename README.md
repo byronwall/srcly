@@ -85,6 +85,8 @@ Machine-readable output (`report --stdout`, `--format json`, `scan --out -`, `co
 
 `uvx srcly compare [base] [head]` compares two refs (default: merge-base → working tree; `pr:<n>` for a PR). A metric that is unavailable stays `null`, never 0. A file measured on one side only is a coverage change: it has no delta, stays out of the totals, and is counted under `coverage` (and `coverageLost` / `coverageGained` per metric), so lost measurement never looks like an improvement. A file missing from a side's dependency graph has unknown fan-in and fan-out.
 
+`uvx srcly fix` prints a diff of the safe fixes for srcly's own findings, and `--write` applies them: it drops an `export` that only its own file uses, and rewrites a cleanup function returned from `onMount`/`createEffect` (which Solid ignores) to `onCleanup()`. Deleting unreachable files runs only when you name the rule: `srcly fix --rule unreachable-file --write`. Reachability walks the TS import graph from detected entries; add entry globs in `srcly.toml` at the Git root under `[reachability] entries = [...]`.
+
 ## What Srcly shows you
 
 - **Treemap of your codebase**

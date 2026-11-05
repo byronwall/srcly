@@ -153,6 +153,7 @@ def test_plain_repo_runs_srcly_defaults(plain_repo: Path) -> None:
         ("ruff", "ruff (srcly defaults)", "srcly defaults"),
         ("srcly-ts", "srcly TS rules", "srcly defaults"),
         ("srcly-reach", "srcly reachability", "srcly defaults"),
+        ("srcly-solid", "srcly Solid rules", "srcly defaults"),
     ]
     result = run_tools(plain_repo, tools)
     assert result.status == "ok" and all(t.ok for t in result.tools)
@@ -174,7 +175,7 @@ def test_plain_repo_runs_srcly_defaults(plain_repo: Path) -> None:
     # Folders sum their checked files; the root says which tools ran.
     assert tree["metrics"]["finding_count"] == 3 + 4
     assert tree["metrics"]["error_count"] == 1
-    assert [t["label"] for t in tree["findings"]["tools"]] == ["ruff (srcly defaults)", "srcly TS rules", "srcly reachability"]
+    assert [t["label"] for t in tree["findings"]["tools"]] == ["ruff (srcly defaults)", "srcly TS rules", "srcly reachability", "srcly Solid rules"]
     assert tree["findings"]["status"] == "ok"
     Node.model_validate(tree)
 
@@ -210,6 +211,7 @@ def test_project_tsc_and_eslint_run_and_srcly_rules_cover_the_rest(tools_repo: P
         ("ruff", "srcly defaults"),
         ("srcly-ts", "srcly defaults"),
         ("srcly-reach", "srcly defaults"),
+        ("srcly-solid", "srcly defaults"),
     ]
     # Reachability has its own tests; here it would flag the unimported files.
     result = run_tools(tools_repo, [t for t in tools if t.id != "srcly-reach"])
@@ -238,7 +240,7 @@ def test_project_tsc_and_eslint_run_and_srcly_rules_cover_the_rest(tools_repo: P
 
 def test_portable_mode_skips_project_tools(tools_repo: Path) -> None:
     """Compare snapshots have no node_modules: both sides use only portable checkers."""
-    assert [t.id for t in plan_tools(tools_repo, portable=True)] == ["ruff", "srcly-ts", "srcly-reach"]
+    assert [t.id for t in plan_tools(tools_repo, portable=True)] == ["ruff", "srcly-ts", "srcly-reach", "srcly-solid"]
 
 
 def test_solution_tsconfig_expands_to_its_references(tmp_path: Path) -> None:

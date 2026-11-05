@@ -339,6 +339,24 @@ def _export_line(info: TsFileInfo, name: str, local: str) -> tuple[int, int, int
     return line, line, 1
 
 
+def _drop_export_fix(info: TsFileInfo, local: str) -> Optional[dict]:
+    """Delete the ``export`` keyword, when that keeps the file a module and touches no other name."""
+    decl = info.decl_nodes.get(local)
+    if decl is None:
+        return None
+    target = decl.parent if decl.type == "variable_declarator" else decl
+    if target is None or decl.type == "variable_declarator" and len(target.named_children) != 1:
+        return None
+    stmt = target.parent
+    if stmt is None or stmt.type != "export_statement" or any(c.type == "default" for c in stmt.children):
+        return None
+    root = info.tree_root
+    others = [c for c in root.children if c.type in ("import_statement", "export_statement") and c.id != stmt.id]
+    if not others:
+        return None  # with no import or export left, TS would read the file as a global script
+    return {"title": f"drop `export` from `{local}`", "edits": [{"start": stmt.start_byte, "end": target.start_byte, "text": ""}]}
+
+
 def analyze(root: Path, files: Optional[list[Path]] = None, tool_id: str = "srcly-reach", deadline: float = float("inf")) -> Optional[list[Finding]]:
     """Findings for ``root``, or ``None`` when it has no production entry to walk from."""
     root = root.resolve()
@@ -353,12 +371,15 @@ def analyze(root: Path, files: Optional[list[Path]] = None, tool_id: str = "srcl
     entries = prod | tests
     findings: list[Finding] = []
 
-    def add(path: Path, line: int, end: int, col: int, rule: str, message: str) -> None:
-        findings.append(Finding(str(path), line, end, col, rule, message, "warning", tool_id))
+    def add(path: Path, line: int, end: int, col: int, rule: str, message: str, fix: Optional[dict] = None) -> None:
+        findings.append(Finding(str(path), line, end, col, rule, message, "warning", tool_id, fix))
 
     for f, info in sorted(graph.infos.items()):
         if f not in from_any:
-            add(f, 1, 1, 1, "unreachable-file", "No entry imports this file, directly or through other files")
+            add(
+                f, 1, 1, 1, "unreachable-file", "No entry imports this file, directly or through other files",
+                {"title": f"delete {_rel(f, root)}", "delete": True},
+            )
             continue
         if f in entries or f in graph.whole:
             continue
@@ -377,7 +398,8 @@ def analyze(root: Path, files: Optional[list[Path]] = None, tool_id: str = "srcl
                 via = ", ".join(sorted(_rel(p, root) for p in passers))
                 add(f, line, end, col, "unused-export", f"`{name}` is re-exported by {via} but never imported")
             elif _used_in_own_file(info, local):
-                add(f, line, end, col, "export-used-in-file-only", f"`{name}` is used only in this file: drop `export`")
+                fix = _drop_export_fix(info, local) if name == local else None
+                add(f, line, end, col, "export-used-in-file-only", f"`{name}` is used only in this file: drop `export`", fix)
             else:
                 add(f, line, end, col, "unused-export", f"`{name}` is exported but never used")
     return findings

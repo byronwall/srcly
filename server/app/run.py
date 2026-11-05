@@ -80,7 +80,7 @@ def _main(argv: list[str] | None = None) -> None:
     - Opens the default browser to the app URL.
     """
     argv = list(argv) if argv is not None else sys.argv[1:]
-    if argv and argv[0] in {"scan", "report", "hotspots", "explain", "compare"}:
+    if argv and argv[0] in {"scan", "report", "hotspots", "explain", "compare", "fix"}:
         # stderr, so JSON on stdout stays clean.
         print(startup_info.version_line(), file=sys.stderr, flush=True)
         _run_headless(argv)
@@ -99,6 +99,7 @@ def _main(argv: list[str] | None = None) -> None:
             "  explain   drill into the repo, a folder, a file, or file::symbol\n"
             "  hotspots  rank files or functions by one metric\n"
             "  compare   metric and dependency changes between two git refs\n"
+            "  fix       show, then apply (--write), safe fixes for srcly's own findings\n"
             "  scan      write the raw analysis tree as JSON"
         ),
     )
@@ -434,6 +435,18 @@ def _run_headless(argv: list[str]) -> None:
     compare_parser.add_argument("--refresh", action="store_true", help="Rescan both sides instead of using the cache.")
     compare_parser.add_argument("--limit", type=_positive_int, default=40, help="Maximum files in the markdown summary.")
 
+    fix_parser = subparsers.add_parser(
+        "fix", help="Show, then apply, the safe mechanical fixes for srcly's own findings."
+    )
+    fix_parser.add_argument("path", nargs="?", help="Path to fix. Defaults to the enclosing Git repo root.")
+    fix_parser.add_argument(
+        "--rule",
+        action="append",
+        default=None,
+        help="Only this rule's fixes. May be repeated. unreachable-file (deletes files) runs only when named.",
+    )
+    fix_parser.add_argument("--write", action="store_true", help="Apply the fixes. Without it, print the diff.")
+
     args = parser.parse_args(argv)
     try:
         _dispatch(args)
@@ -445,6 +458,11 @@ def _run_headless(argv: list[str]) -> None:
 
 
 def _dispatch(args) -> None:
+    if args.command == "fix":
+        from app.services.findings import fixes
+
+        print(fixes.run(_resolve_target_path(args.path), set(args.rule or ()), apply=args.write))
+        return
 
     if args.command == "compare":
         _run_compare(args)
