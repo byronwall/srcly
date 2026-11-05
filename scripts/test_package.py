@@ -42,6 +42,31 @@ def test_installed_refactor_cli():
     assert result.returncode == 0, result.stderr
     catalog = json.loads(result.stdout)
     assert {"move-symbol", "extract-function", "add-member"} <= {op["name"] for op in catalog["operations"]}
+    assert "python" in catalog["languages"]
+
+
+def test_installed_python_refactor(tmp_path, monkeypatch):
+    import json
+    import sys
+
+    monkeypatch.setenv("SRCLY_CACHE_DIR", str(tmp_path / "cache"))
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / "state.py").write_text("value = 42\n")
+    (root / "consumer.py").write_text("from state import value\n")
+    (root / ".srcly-refactor.json").write_text(json.dumps({"checks": {"unit": [sys.executable, "-c", "from consumer import value; assert value == 42"]}}))
+    for args in [["init", "-q"], ["config", "user.email", "test@srcly.invalid"], ["config", "user.name", "Package test"], ["add", "."], ["commit", "-qm", "fixture"]]:
+        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+    plan = tmp_path / "plan.srcly"
+    plan.write_text('refactor 1\nlanguage python\nmove-file "state.py" -> "model.py"\ncheckpoint unit\n')
+    result = subprocess.run(["srcly", "refactor", "preview", str(plan), "--path", str(root)], cwd=tmp_path, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+    preview = json.loads(result.stdout)
+    assert preview["status"] == "ready"
+    result = subprocess.run(["srcly", "refactor", "apply", preview["id"], "--all"], cwd=tmp_path, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout)["status"] == "complete"
+    assert (root / "state.py").exists() and not (root / "model.py").exists()
 
 
 def test_bundled_engine(tmp_path, monkeypatch):

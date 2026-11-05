@@ -74,12 +74,12 @@ TypeScript validation is a compiler check, not a proof of runtime equivalence.
 Asset loading, build-tool conventions, external consumers and test commands are
 outside this first operation's guarantees.
 
-The intended semantic acceptance cases are global state → owner-scoped context
-→ consumer hook, code extraction that preserves Solid ownership and reactive
-reads, and explicit state machines derived from reducer-style conditional trees.
-Those operations need their own preconditions; their availability must be named
-by the compiler. Python uses the same plan and journal model with a language
-adapter for module moves and imports.
+The semantic operations below cover global state → provider-owned context →
+consumer hook, constrained code extraction, and finite state machines derived
+from reducer-style conditional trees. Each names its supported shapes and refuses
+missing evidence. Python uses the same plan and journal with a module/import
+adapter. The graph currently shows file imports plus ownership/transition
+evidence; it does not yet overlay the full data-flow analysis graph.
 
 Acceptance: `server/tests/test_refactor.py` exercises real compiler edits through
 aliases, re-exports and TSX, chained handle moves, stale-input refusals, failed
@@ -197,3 +197,50 @@ runtime inputs and effectful state machines need a separate model.
 
 ![Solid context migration](assets/solid-context.png)
 ![Finite transition matrix](assets/state-machine.png)
+
+## Python adapter and named test checkpoints
+
+The same plan model now has a Python adapter. Select the Python import root in
+srcly (the repository root or its `src` directory), then choose Python modules.
+Rope proposes module edits without writing them; the existing journal owns all
+writes, preconditions, replay, undo and crash recovery. Moves and renames use the
+same file handle. A combined move and rename is expressed as two steps.
+
+```text
+refactor 1
+language python
+let maths = file "pkg/math.py"
+move-file $maths -> "pkg/model/math.py"
+move-file $maths -> "pkg/model/arithmetic.py"
+checkpoint unit
+```
+
+The initial adapter supports ordinary UTF-8 `.py` modules and existing regular
+packages with inert `__init__.py` files. Aliased imports, from-imports and relative
+imports are rewritten. Python parsing and local import-edge preservation gate
+every step. This is not a Python type checker: configure mypy as a checkpoint when
+needed. Dynamic imports/evaluation, module-identity reads, namespace packages,
+package-directory moves, package initialization effects and missing destinations
+are named refusals. No project code is executed to infer Python imports. Both
+adapters run in bounded child processes. The catalog names the supported language
+operations; `srcly refactor project --language python --path /project` is headless.
+
+Configure test gates in a committed `.srcly-refactor.json` at the selected root:
+
+```json
+{"checks":{"unit":["pnpm","test"],"types":["pnpm","typecheck"]}}
+```
+
+A `checkpoint unit` step runs that argv in the isolated worktree during both
+preview and execution, with no shell and a 120-second timeout. The journal records
+the exit code, duration and bounded output. Failures stop before the next step;
+earlier applied steps remain reversible. A type-edit plan can intentionally leave
+compiler errors, but an explicit type-check checkpoint still fails on them.
+Commands that change tracked or nonignored files are refused. Unknown command
+edits are retained for inspection rather than overwritten during rollback. Test
+commands can have external effects; use the repository's normal test commands.
+Ignored caches and linked installed dependencies are shared conveniences, not a
+security sandbox. Test checkpoints are repeatable gates, not reversible external
+actions.
+
+![Python module chain and executed test checkpoint](assets/python-checkpoint.png)

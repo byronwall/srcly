@@ -231,14 +231,23 @@ def preview(root: Path, source: str) -> dict:
     applied_changes = []
     try:
         _link_dependencies(repo, worktree)
-        baseline = compiler.inspect(project_root, plan["config"])
+        baseline = compiler.inspect(project_root, plan["config"], language=plan["language"])
         run["graph"] = baseline["graph"]
         run["baselineDiagnostics"] = baseline["diagnostics"]
         if any(d.get("phase") != "type" for d in baseline["diagnostics"]) or (baseline["diagnostics"] and not any(step["kind"] in TYPE_EDITS for step in plan["steps"])):
-            raise RefactorError("Fix baseline TypeScript errors before refactoring: " + json.dumps(baseline["diagnostics"][:10]), code="baseline-errors")
+            raise RefactorError("Fix baseline compiler errors before refactoring: " + json.dumps(baseline["diagnostics"][:10]), code="baseline-errors")
         previous_diagnostics = baseline["diagnostics"]
+        checked = baseline
         handles = copy.deepcopy(plan["handles"])
         for step in plan["steps"]:
+            if step["kind"] == "checkpoint":
+                from app.services.refactor import checkpoints
+                entry = {**step, **checked, "status": "blocked", "changes": []}
+                run["steps"].append(entry)
+                argv = checkpoints.resolve(project_root, step["target"])
+                entry["checkpoint"] = checkpoints.run(project_root, step["target"], argv)
+                entry["status"] = "validated"
+                continue
             handle = handles[step["target"][1:]] if step["target"].startswith("$") else {"file": step["target"]}
             target = handle["file"]
             action = {**handle, "kind": step["kind"], "to": step["to"], "reexport": step.get("reexport", False)}
@@ -246,7 +255,7 @@ def preview(root: Path, source: str) -> dict:
                 action.update(provider=step["provider"], hook=step["hook"], owner=handles[step["owner"][1:]])
             entry = {**step, "status": "blocked", "changes": []}
             run["steps"].append(entry)
-            proposal = compiler.inspect(project_root, plan["config"], action)
+            proposal = compiler.inspect(project_root, plan["config"], action, language=plan["language"])
             entry.update({key: proposal[key] for key in ("machine", "ownership") if key in proposal})
             changes = proposal["changes"]
             old_file = contained(project_root, target)
@@ -260,15 +269,22 @@ def preview(root: Path, source: str) -> dict:
             save(run)
             write_changes(project_root, changes)
             applied_changes.append(changes)
-            checked = compiler.inspect(project_root, plan["config"])
+            previous_graph = checked["graph"]
+            checked = compiler.inspect(project_root, plan["config"], language=plan["language"])
             entry.update(checked)
+            if plan["language"] == "python" and step["kind"] == "move-file":
+                actual = {(edge["from"], edge["to"]) for edge in checked["graph"]["edges"]}
+                expected = {(step["to"] if edge["from"] == target else edge["from"], step["to"] if edge["to"] == target else edge["to"])
+                            for edge in previous_graph["edges"] if target in {edge["from"], edge["to"]}}
+                if expected - actual:
+                    raise RefactorError("Python import relationships were not preserved: " + repr(sorted(expected - actual)), code="python-import-proof-required", line=step["line"])
             for change in changes:
                 if (change["after"] is not None and change["path"].endswith((".ts", ".tsx", ".mts", ".cts"))
                         and not change["path"].endswith((".d.ts", ".d.mts", ".d.cts")) and change["path"] not in checked["graph"]["files"]):
                     raise RefactorError(f"The edited source is outside this tsconfig's checked project: {change['path']}", code="target-not-in-project", line=step["line"])
             unexpected = diagnostic_counts(checked["diagnostics"]) - diagnostic_counts(previous_diagnostics)
             if any(d.get("phase") != "type" for d in checked["diagnostics"]) or (unexpected and not proposal.get("intentionalTypeErrors")):
-                raise RefactorError(f"Line {step['line']}: TypeScript validation failed: " + json.dumps(checked["diagnostics"][:10]), code="validation-failed", line=step["line"])
+                raise RefactorError(f"Line {step['line']}: Compiler validation failed: " + json.dumps(checked["diagnostics"][:10]), code="validation-failed", line=step["line"])
             entry["status"] = "type-errors" if checked["diagnostics"] else "validated"
             entry["intentionalTypeErrors"] = bool(proposal.get("intentionalTypeErrors"))
             previous_diagnostics = checked["diagnostics"]
@@ -283,9 +299,16 @@ def preview(root: Path, source: str) -> dict:
         run["diagnostics"] = [getattr(exc, "diagnostic", {"code": "execution-error", "message": str(exc), "line": None})]
         if run["steps"] and run["diagnostics"][0]["line"] is None:
             run["diagnostics"][0]["line"] = run["steps"][-1]["line"]
+        if run["steps"] and "checkpoint" in run["diagnostics"][0]:
+            run["steps"][-1]["checkpoint"] = run["diagnostics"][0]["checkpoint"]
     finally:
         for changes in reversed(applied_changes):
-            write_changes(project_root, changes, reverse=True)
+            try:
+                write_changes(project_root, changes, reverse=True)
+            except (ValueError, OSError) as exc:
+                run["status"] = "blocked"
+                run["error"] = f"Preview rollback needs inspection in {worktree}: {exc}"
+                break
         run["workFingerprint"] = fingerprint(worktree)
         save(run)
     return public(run)
@@ -333,6 +356,20 @@ def execute(run_id: str, mode: str) -> dict:
         for index in indices:
             if mode != "undo" and source_state(repo) != (run["commit"], run["sourceFingerprint"]):
                 raise RefactorError("Source changed during execution. Revalidate before continuing.", code="stale-source")
+            step = run["steps"][index]
+            if mode != "undo" and step["kind"] == "checkpoint":
+                from app.services.refactor import checkpoints
+                try:
+                    step["executionCheck"] = checkpoints.run(Path(run["projectRoot"]), step["target"], step["checkpoint"]["argv"])
+                except (ValueError, OSError) as exc:
+                    run["error"] = str(exc)
+                    run["diagnostics"] = [getattr(exc, "diagnostic", {"code": "checkpoint-failed", "message": str(exc), "line": step["line"]})]
+                    if "checkpoint" in run["diagnostics"][0]:
+                        step["executionCheck"] = run["diagnostics"][0]["checkpoint"]
+                    save(run)
+                    raise
+            run["error"] = None
+            run["diagnostics"] = []
             run["pending"] = {"index": index, "reverse": mode == "undo"}
             save(run)
             write_changes(Path(run["projectRoot"]), run["steps"][index]["changes"], reverse=mode == "undo")

@@ -17,7 +17,7 @@ export default function RefactorGraph(props: { graph: Graph; selected: string; c
     return from && to ? [{ from, to }] : [];
   }));
   return <div class="rf-graph" data-refactor-graph>
-    <Show when={nodes().length} fallback={<p class="rf-muted p-4">Load a TypeScript project to explore its files and imports.</p>}>
+      <Show when={nodes().length} fallback={<p class="rf-muted p-4">Load a project to explore its files and imports.</p>}>
       <svg viewBox={`0 0 738 ${Math.max(190, Math.ceil(nodes().length / 3) * 92 + 20)}`} role="img" aria-label="File import relationships">
         <defs><marker id="refactor-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 8 4 L 0 8 z" fill="var(--plc-on-subtle)" /></marker></defs>
         <For each={edges()}>{(edge) => <path d={`M${edge.from.x + 110},${edge.from.y + 52} C${edge.from.x + 110},${edge.from.y + 85} ${edge.to.x + 110},${edge.to.y - 20} ${edge.to.x + 110},${edge.to.y}`} fill="none" stroke="var(--plc-border-strong)" stroke-width="1.5" marker-end="url(#refactor-arrow)" data-refactor-edge={`${edge.from.file}->${edge.to.file}`} />}</For>

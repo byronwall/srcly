@@ -16,8 +16,9 @@ def catalog() -> dict:
         ("remove-type", 'remove-type $type', "Removes a type declaration and reports downstream errors."),
         ("solid-context", 'solid-context "src/state.ts" -> "src/StateContext.tsx" provider StateProvider hook useState within $app', "Migrates a whole Solid state module into a provider-owned factory and rewrites named consumers to a hook. Requires a named function root covering all known component/hook consumers."),
         ("state-machine", 'state-machine $reducer -> transitions', "Converts a pure if/else reducer over finite string state/event unions into a total typed table; every pair is evaluated without executing project code. Effects and unknown guards block."),
+        ("checkpoint", 'checkpoint unit', "Runs a named argv check from tracked .srcly-refactor.json during preview and execution. Failures, timeouts and source writes block advancement."),
     ]
-    return {"dslVersion": 1, "workflow": ["catalog", "project", "parse", "preview", "codemod", "execute"],
+    return {"dslVersion": 1, "languages": {"typescript": "All operations; one leaf tsconfig.", "python": "move-file (move or rename a regular .py module), checkpoint. Select the import root; existing regular packages only."}, "workflow": ["catalog", "project", "parse", "preview", "codemod", "execute"],
             "handles": ['let f = file "src/state.ts"', 'let s = symbol "src/Card.tsx" "Props.title"', 'let x = selection "src/math.ts" "a + b"'],
             "operations": [{"name": name, "syntax": syntax, "description": description} for name, syntax, description in operations],
             "validation": "Clean source commit; one leaf tsconfig. Syntax errors always block. Type edits explicitly permit compiler diagnostics; other operations cannot introduce new errors.",

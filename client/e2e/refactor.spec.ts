@@ -6,6 +6,7 @@ import path from "node:path";
 
 let root: string;
 let solidRoot: string;
+let pythonRoot: string;
 test.beforeAll(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), "srcly-refactor-browser-"));
   fs.mkdirSync(path.join(root, "src"));
@@ -24,6 +25,35 @@ test.beforeAll(() => {
   fs.writeFileSync(path.join(solidRoot, "src/state.ts"), 'import { createSignal } from "solid-js";\nexport const [count, setCount] = createSignal(0);\nexport function increment() { setCount(n => n + 1); }\n');
   fs.writeFileSync(path.join(solidRoot, "src/App.tsx"), 'import { count, increment } from "./state";\nexport function Counter() { return <button onClick={increment}>{count()}</button>; }\nexport function App() { return <Counter />; }\n');
   for (const args of [["init", "-q"], ["config", "user.email", "test@srcly.invalid"], ["config", "user.name", "Srcly test"], ["add", "."], ["commit", "-qm", "fixture"]]) execFileSync("git", args, { cwd: solidRoot });
+  pythonRoot = fs.mkdtempSync(path.join(os.tmpdir(), "srcly-python-browser-"));
+  fs.mkdirSync(path.join(pythonRoot, "pkg"));
+  fs.writeFileSync(path.join(pythonRoot, "pkg/__init__.py"), "");
+  fs.writeFileSync(path.join(pythonRoot, "pkg/state.py"), "count = 3\n");
+  fs.writeFileSync(path.join(pythonRoot, "consumer.py"), "from pkg.state import count\ndef doubled():\n    return count * 2\n");
+  const python = execFileSync("uv", ["run", "--directory", path.resolve("../server"), "python", "-c", "import sys; print(sys.executable)"], { encoding: "utf8" }).trim();
+  fs.writeFileSync(path.join(pythonRoot, ".srcly-refactor.json"), JSON.stringify({ checks: { unit: [python, "-c", "from consumer import doubled; assert doubled() == 6; print('Python consumers verified')"] } }));
+  for (const args of [["init", "-q"], ["config", "user.email", "test@srcly.invalid"], ["config", "user.name", "Srcly test"], ["add", "."], ["commit", "-qm", "fixture"]]) execFileSync("git", args, { cwd: pythonRoot });
+});
+
+test("Python modules use the same visual chain and test checkpoint", async ({ page }) => {
+  await page.goto(`/?${new URLSearchParams({ repo: pythonRoot, view: "refactor" })}`);
+  await page.locator("[data-refactor-language]").selectOption("python");
+  await page.locator("[data-refactor-load]").click();
+  await page.locator('[data-refactor-file="pkg/state.py"]').click();
+  await page.locator("[data-refactor-destination]").fill("pkg/value.py");
+  await page.locator("[data-refactor-add]").click();
+  await page.locator("[data-refactor-operation]").selectOption("checkpoint");
+  await page.locator("[data-refactor-destination]").fill("unit");
+  await page.locator("[data-refactor-add]").click();
+  await page.locator("[data-refactor-preview]").click();
+  await expect(page.locator("[data-refactor-run-status]")).toHaveText("ready", { timeout: 90_000 });
+  await expect(page.locator("[data-refactor-checkpoint]")).toContainText("Python consumers verified");
+  await page.locator("[data-refactor-all]").click();
+  await expect(page.locator("[data-refactor-run-status]")).toHaveText("complete");
+  const worktree = (await page.locator("[data-refactor-worktree]").textContent())!;
+  expect(fs.readFileSync(path.join(worktree, "consumer.py"), "utf8")).toContain("pkg.value");
+  expect(fs.readFileSync(path.join(pythonRoot, "consumer.py"), "utf8")).toContain("pkg.state");
+  await page.screenshot({ path: path.resolve("../tmp/e2e/refactor-python-checkpoint.png"), fullPage: true });
 });
 
 test("conditional reducers become an inspectable executable state machine", async ({ page }) => {

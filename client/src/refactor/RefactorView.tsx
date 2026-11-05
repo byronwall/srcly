@@ -14,6 +14,7 @@ const OPERATIONS = [
   ["add-member", "Add type member"], ["update-member", "Update type member"], ["remove-member", "Remove type member"],
   ["add-type", "Add interface / type"], ["update-type", "Update interface / type"], ["remove-type", "Remove interface / type"],
   ["solid-context", "Global state → context + hook"], ["state-machine", "If/else → state machine"],
+  ["checkpoint", "Run named test checkpoint"],
 ];
 
 export default function RefactorView(props: { rootPath: string }) {
@@ -22,6 +23,7 @@ export default function RefactorView(props: { rootPath: string }) {
   const projectPath = createMemo(() => props.rootPath);
   const [source, setSource] = createSignal(INITIAL);
   const [config, setConfig] = createSignal("tsconfig.json");
+  const [language, setLanguage] = createSignal<"typescript" | "python">("typescript");
   const [plan, setPlan] = createSignal<Plan>();
   const [parseError, setParseError] = createSignal("");
   const [graph, setGraph] = createSignal<Graph>(EMPTY);
@@ -58,13 +60,14 @@ export default function RefactorView(props: { rootPath: string }) {
 
   createEffect(() => {
     const draft = source();
+    setLanguage(/^language\s+(?:python|"python"|'python')\s*(?:#.*)?$/m.test(draft) ? "python" : "typescript");
     const root = props.rootPath;
     localStorage.setItem(key(), draft);
     setPlan(undefined);
     const timer = setTimeout(() => {
       void request<Plan>("/parse", { path: root, source: draft }).then((value) => {
         if (draft !== source() || root !== props.rootPath) return;
-        setPlan(value); setParseError(""); setConfig(value.config);
+        setPlan(value); setParseError(""); setConfig(value.config); setLanguage(value.language);
       }).catch((reason) => { if (draft === source()) setParseError(reason.message); });
     }, 250);
     onCleanup(() => clearTimeout(timer));
@@ -72,12 +75,19 @@ export default function RefactorView(props: { rootPath: string }) {
 
   async function loadProject() {
     const version = ++loadVersion;
-    setBusy("Reading TypeScript project…"); setError("");
+    setBusy("Reading project…"); setError("");
     try {
-      const result = await request<{ graph: Graph; symbols: SymbolInfo[] }>(`/project?${new URLSearchParams({ path: props.rootPath, config: config() })}`);
+      const result = await request<{ graph: Graph; symbols: SymbolInfo[] }>(`/project?${new URLSearchParams({ path: props.rootPath, config: config(), language: language() })}`);
       if (version === loadVersion) { setGraph(result.graph); setProjectSymbols(result.symbols); if (!selected()) setSelected(result.graph.files[0] ?? ""); }
     } catch (reason) { setError(String(reason)); }
     finally { if (version === loadVersion) setBusy(""); }
+  }
+
+  function changeLanguage(value: "typescript" | "python") {
+    setLanguage(value); setOperation("move-file"); setGraph(EMPTY); setProjectSymbols([]); setSelected("");
+    let draft = source().replace(/^language .+\n?/m, "").replace(/^project .+\n?/m, "");
+    draft = draft.replace(/^refactor 1/, `refactor 1\nlanguage ${value}${value === "typescript" ? `\nproject ${JSON.stringify(config())}` : ""}`);
+    setSource(draft);
   }
 
   const validRun = () => run()?.source === source() && run()?.sourceRoot === props.rootPath;
@@ -89,12 +99,14 @@ export default function RefactorView(props: { rootPath: string }) {
   const symbols = () => (activeStep()?.symbols ?? projectSymbols()).filter((item) => item.file === selected());
   const typeErrors = () => activeStep()?.diagnostics ?? (validRun() && stepIndex() < 0 ? run()?.baselineDiagnostics ?? [] : []);
   const selectionOperation = () => operation().startsWith("extract-");
-  const needsSymbol = () => !["move-file", "add-type", "solid-context"].includes(operation()) && !selectionOperation();
-  const destinationLabel = () => operation().startsWith("move-") || operation() === "solid-context" ? "Destination" : ["add-member", "update-member", "add-type", "update-type"].includes(operation()) ? "Declaration" : operation() === "remove-member" ? "Member name" : "New name";
+  const needsSymbol = () => !["move-file", "add-type", "solid-context", "checkpoint"].includes(operation()) && !selectionOperation();
+  const destinationLabel = () => operation() === "checkpoint" ? "Check name" : operation().startsWith("move-") || operation() === "solid-context" ? "Destination" : ["add-member", "update-member", "add-type", "update-type"].includes(operation()) ? "Declaration" : operation() === "remove-member" ? "Member name" : "New name";
+  const operations = () => OPERATIONS.filter(([name]) => language() === "typescript" || ["move-file", "checkpoint"].includes(name));
 
   function addMove() {
-    if (!selected() || (!destination() && operation() !== "remove-type")) return;
+    if ((!selected() && operation() !== "checkpoint") || (!destination() && operation() !== "remove-type")) return;
     let draft = source().trimEnd();
+    if (operation() === "checkpoint") { setSource(`${draft}\ncheckpoint ${JSON.stringify(destination())}\n`); setDestination(""); return; }
     if (operation() === "solid-context") {
       let sequence = 1;
       while (new RegExp(`\\blet owner_${sequence}\\b`).test(draft)) sequence++;
@@ -147,13 +159,19 @@ export default function RefactorView(props: { rootPath: string }) {
       if (root !== props.rootPath || draft !== source()) return;
       setRun(result); localStorage.setItem(`${key()}:run`, result.id);
       setStepIndex(mode === "preview" ? Math.max(0, result.steps.length - 1) : result.applied - 1);
-    } catch (reason) { setError(String(reason)); }
+    } catch (reason) {
+      setError(String(reason));
+      if (mode !== "preview" && run() && root === props.rootPath && draft === source()) {
+        const current = await request<Run>(`/runs/${run()!.id}`).catch(() => undefined);
+        if (current && root === props.rootPath && draft === source()) { setRun(current); setStepIndex(Math.min(current.applied, current.steps.length - 1)); }
+      }
+    }
     finally { setBusy(""); }
   }
 
   return <section class="rf-workbench" data-refactor-view data-refactor-status={busy() ? "busy" : validRun() ? run()!.status : "draft"}>
     <header class="rf-heading">
-      <div class="flex items-center gap-2"><Workflow size={17} /><h2>Refactor workbench</h2><span class="rf-badge">TypeScript · prototype</span></div>
+      <div class="flex items-center gap-2"><Workflow size={17} /><h2>Refactor workbench</h2><span class="rf-badge">{language() === "python" ? "Python" : "TypeScript"} · prototype</span></div>
       <div class="flex items-center gap-2">
         <Button data-refactor-export onClick={() => download("plan.srcly", source())}><Download size={13} />Plan</Button>
         <Button variant="primary" data-refactor-preview disabled={!!busy() || !plan()} onClick={() => void act("preview")}><Play size={13} />Preview plan</Button>
@@ -169,20 +187,21 @@ export default function RefactorView(props: { rootPath: string }) {
     <div class="rf-body">
       <aside class="rf-files">
         <div class="rf-panel-title">PROJECT</div>
-        <div class="rf-project-form"><label>TypeScript config<input value={config()} data-refactor-config onInput={(event) => setConfig(event.currentTarget.value)} /></label>
+        <div class="rf-project-form"><label>Language<select data-refactor-language value={language()} onChange={(event) => changeLanguage(event.currentTarget.value as "typescript" | "python")}><option value="typescript">TypeScript / Solid</option><option value="python">Python modules</option></select></label>
+          <Show when={language() === "typescript"}><label>TypeScript config<input value={config()} data-refactor-config onInput={(event) => setConfig(event.currentTarget.value)} /></label></Show>
           <Button disabled={!!busy()} data-refactor-load onClick={() => { setSource(source().replace(/^project .+$/m, `project ${JSON.stringify(config())}`)); void loadProject(); }}>Load project</Button>
         </div>
         <input aria-label="Filter files" placeholder="Filter files…" value={search()} onInput={(event) => setSearch(event.currentTarget.value)} />
         <div class="rf-file-list"><For each={visibleFiles()}>{(file) => <button classList={{ selected: file === selected() }} data-refactor-file={file} onClick={() => setSelected(file)} title={file}><FileCode size={13} /><span>{file}</span></button>}</For>
-          <Show when={!activeGraph().files.length}><p class="rf-muted p-3">Load one tsconfig project to select targets.</p></Show>
+          <Show when={!activeGraph().files.length}><p class="rf-muted p-3">Load {language() === "typescript" ? "one tsconfig project" : "a Python import root"} to select targets.</p></Show>
         </div>
       </aside>
       <main class="rf-main">
         <div class="rf-panel-title"><span>RELATIONSHIPS</span><span class="rf-muted">{stepIndex() < 0 ? "Before" : `After step ${stepIndex() + 1}`}</span></div>
         <RefactorGraph graph={activeGraph()} selected={selected()} changed={changes().map((file) => file.path)} onSelect={setSelected} />
         <div class="rf-move-form">
-          <label>Operation<select data-refactor-operation aria-label="Refactoring operation" value={operation()} onChange={(event) => { setOperation(event.currentTarget.value); setDestination(""); }}><For each={OPERATIONS}>{([value, label]) => <option value={value}>{label}</option>}</For></select></label>
-          <label>File<input data-refactor-target aria-label="Refactoring file" value={selected()} placeholder="Select a file or enter a new path" onInput={(event) => setSelected(event.currentTarget.value)} /></label>
+          <label>Operation<select data-refactor-operation aria-label="Refactoring operation" value={operation()} onChange={(event) => { setOperation(event.currentTarget.value); setDestination(""); }}><For each={operations()}>{([value, label]) => <option value={value}>{label}</option>}</For></select></label>
+          <Show when={operation() !== "checkpoint"}><label>File<input data-refactor-target aria-label="Refactoring file" value={selected()} placeholder="Select a file or enter a new path" onInput={(event) => setSelected(event.currentTarget.value)} /></label></Show>
           <Show when={needsSymbol()}><label>Symbol / interface member<input data-refactor-symbol aria-label="Symbol" list="refactor-symbols" value={symbol()} placeholder="Props or Props.title" onInput={(event) => setSymbol(event.currentTarget.value)} /><datalist id="refactor-symbols"><For each={symbols()}>{(item) => <option value={item.name}>{item.kind}</option>}</For></datalist></label></Show>
           <Show when={selectionOperation()}><label>Exact source selection<textarea data-refactor-selection aria-label="Exact source selection" value={snippet()} onInput={(event) => setSnippet(event.currentTarget.value)} /></label></Show>
           <Show when={operation() !== "remove-type"}><label>{destinationLabel()}<input aria-label={destinationLabel()} data-refactor-destination placeholder={operation().startsWith("move-") ? "src/features/example.ts" : operation().includes("member") ? "title: string" : "Name or declaration"} value={destination()} onInput={(event) => setDestination(event.currentTarget.value)} /></label></Show>
@@ -193,7 +212,7 @@ export default function RefactorView(props: { rootPath: string }) {
             <label>Root file<input data-refactor-owner-file value={ownerFile()} onInput={(event) => setOwnerFile(event.currentTarget.value)} /></label>
             <label>Root component<input data-refactor-owner-name value={ownerName()} onInput={(event) => setOwnerName(event.currentTarget.value)} /></label>
           </Show>
-          <Button disabled={!selected() || (!destination() && operation() !== "remove-type") || (needsSymbol() && !symbol()) || (selectionOperation() && !snippet()) || !!busy()} data-refactor-add onClick={addMove}>Add step</Button>
+          <Button disabled={(!selected() && operation() !== "checkpoint") || (!destination() && operation() !== "remove-type") || (needsSymbol() && !symbol()) || (selectionOperation() && !snippet()) || !!busy()} data-refactor-add onClick={addMove}>Add step</Button>
         </div>
         <SemanticPreview step={activeStep()} />
         <Show when={typeErrors().length}><details class="rf-type-errors" open data-refactor-type-errors><summary>{typeErrors().length}{" TypeScript diagnostics · type edits may leave these for repair"}</summary><ul><For each={typeErrors()}>{(diagnostic) => <li><code>{diagnostic.file}:{diagnostic.line} · TS{diagnostic.code}</code><p>{diagnostic.message}</p></li>}</For></ul></details></Show>

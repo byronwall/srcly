@@ -48,6 +48,7 @@ def parse(source: str) -> dict:
     if len(source) > 100_000:
         raise RefactorError("Plan exceeds 100 KB.")
     config = "tsconfig.json"
+    language = "typescript"
     handles: dict[str, dict] = {}
     kinds: dict[str, str] = {}
     steps = []
@@ -63,6 +64,12 @@ def parse(source: str) -> dict:
                 version = True
             elif words[0] == "project" and len(words) == 2 and not steps:
                 config = safe_path(words[1])
+            elif words[0] == "language" and len(words) == 2 and words[1] in {"typescript", "python"} and not steps:
+                language = words[1]
+            elif words[0] == "checkpoint" and len(words) == 2:
+                if not re.fullmatch(r"[A-Za-z_]\w*", words[1]):
+                    raise RefactorError("A checkpoint needs a named check from .srcly-refactor.json.")
+                steps.append({"kind": "checkpoint", "target": words[1], "to": "", "line": number, "label": line.strip()})
             elif words[0] == "let" and len(words) in {5, 6} and words[2] == "=" and not steps:
                 name = words[1]
                 if not re.fullmatch(r"[A-Za-z_]\w*", name) or name in handles:
@@ -116,4 +123,6 @@ def parse(source: str) -> dict:
         raise RefactorError("Add at least one refactoring step.")
     if len(steps) > 100:
         raise RefactorError("A plan can contain at most 100 steps.")
-    return {"version": 1, "config": config, "handles": handles, "steps": steps}
+    if language == "python" and any(step["kind"] not in {"move-file", "checkpoint"} for step in steps):
+        raise RefactorError("Python currently supports move-file (including module renames) and checkpoint.", code="python-operation-unavailable")
+    return {"version": 1, "language": language, "config": config, "handles": handles, "steps": steps}
