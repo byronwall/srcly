@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Literal
 
-from app.models import Metrics, Node
+from app.models import AnalysisInfo, Metrics, Node
 from app.services import activity, analysis, findings as lint_findings, metric_catalog, quadrants, scopes
 from app.services.file_classes import classify
 
@@ -49,22 +49,31 @@ def scan_tree(
         entry = None if refresh else cache.analysis_cache.load(root, fingerprint)
         if entry is not None:
             data = json.loads(entry.data)
+            scanned_at, scan_seconds = entry.created_at, entry.scan_seconds
             if verbose:
                 print(f"♻️  Reusing the cached analysis of {root} (files unchanged)", file=sys.stderr, flush=True)
         else:
-            started = time.monotonic()
+            scanned_at, started = time.time(), time.monotonic()
             raw = analysis.scan_codebase(root, verbose=verbose).model_dump_json(by_alias=True).encode()
             data = json.loads(raw)
+            scan_seconds = time.monotonic() - started
             cache.analysis_cache.save(
                 root,
                 fingerprint,
                 raw,
                 files_total=int(data.get("metrics", {}).get("file_count") or 0),
-                scan_seconds=time.monotonic() - started,
+                scan_seconds=scan_seconds,
             )
         data = activity.apply_to_scan(data, root, activity_window)
         lint_findings.apply_to_tree(data, checks.result())
-    return Node.model_validate(data)
+    tree = Node.model_validate(data)
+    tree._analysis = AnalysisInfo(
+        reused=entry is not None,
+        scanned_at=datetime.fromtimestamp(scanned_at, timezone.utc).isoformat(timespec="seconds"),
+        scan_seconds=round(scan_seconds, 2),
+        files_failed=tree.metrics.analysis_failed_count,
+    )
+    return tree
 
 
 def write_scan(
@@ -142,6 +151,8 @@ def build_report_payload(
     manifest = build_manifest(root_path=root_path, profile=profile)
     manifest["activity"] = tree.activity.model_dump() if tree.activity else None
     manifest["checks"] = tree.findings.model_dump() if tree.findings else None
+    manifest["analysis"] = scopes.provenance(tree, root_path.resolve())
+    manifest["cache_used"] = bool(tree._analysis and tree._analysis.reused)
     metrics_schema = build_metrics_schema()
     top_findings_limit = min(limit, 20 if agent_compact else 10)
     top_findings = {"findings": findings[:top_findings_limit]}
@@ -229,7 +240,11 @@ def write_report(
         quadrant_cohort=quadrant_cohort,
         include_classes=include_classes,
     )
+    return write_artifacts(payload, out_dir, output_format=output_format)
 
+
+def write_artifacts(payload: dict[str, Any], out_dir: Path, *, output_format: OutputFormat = "both") -> dict[str, Path]:
+    """Write ``build_report_payload``'s artifacts to ``out_dir``; returns each artifact's path."""
     out_dir.mkdir(parents=True, exist_ok=True)
 
     written: dict[str, Path] = {}
@@ -242,9 +257,9 @@ def write_report(
         written["metrics_schema"] = _write_json(out_dir / "metrics.schema.json", payload["metrics_schema"])
         if "quadrants" in payload:
             written["quadrants"] = _write_json(out_dir / "quadrants.json", payload["quadrants"])
-        if include_tree:
+        if "tree" in payload:
             written["tree"] = _write_json(out_dir / "tree.json", payload["tree"])
-        if include_dependencies:
+        if "dependencies" in payload:
             written["dependencies"] = _write_json(out_dir / "dependencies.json", payload["dependencies"])
 
     if output_format in ("markdown", "both"):

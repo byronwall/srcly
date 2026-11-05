@@ -1,5 +1,5 @@
 from typing import List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 class Witness(BaseModel):
     """The function responsible for a max-type metric, so the UI can open it."""
@@ -148,6 +148,15 @@ class FindingsInfo(BaseModel):
     finding_count: int = 0
 
 
+class AnalysisInfo(BaseModel):
+    """Where a CLI command's tree came from (root node only; set by ``reporting.scan_tree``)."""
+
+    reused: bool  # True: the saved scan matched the files' fingerprint, so nothing was rescanned
+    scanned_at: str  # ISO time of the scan the tree came from
+    scan_seconds: float = 0.0
+    files_failed: int = 0  # analyzer timeouts, crashes and errors (fallback LOC only)
+
+
 class Node(BaseModel):
     name: str
     type: str  # "folder", "file", "function", "function_body"
@@ -165,6 +174,8 @@ class Node(BaseModel):
     activity: ActivityInfo | None = None
     # Root only: whether the checks finished, and which tools ran.
     findings: FindingsInfo | None = None
+    # Root only, CLI only (never on the wire): whether ``reporting.scan_tree`` reused the saved scan.
+    _analysis: AnalysisInfo | None = PrivateAttr(default=None)
 
     model_config = {
         "populate_by_name": True

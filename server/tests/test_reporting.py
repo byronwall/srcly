@@ -575,11 +575,11 @@ def test_scan_tree_reuses_the_cached_analysis_until_files_change(tmp_path: Path,
     scans: list[Path] = []
     monkeypatch.setattr(analysis, "scan_codebase", lambda path, **kw: scans.append(path) or real_scan(path, **kw))
 
-    reporting.scan_tree(root)
-    reporting.scan_tree(root)
+    assert reporting.scan_tree(root)._analysis.reused is False
+    assert reporting.scan_tree(root)._analysis.reused is True
     assert len(scans) == 1
     (root / "b.py").write_text("x = 1\n", encoding="utf-8")
-    reporting.scan_tree(root)
+    assert reporting.scan_tree(root)._analysis.reused is False
     assert len(scans) == 2
 
 
@@ -616,3 +616,55 @@ def test_explain_finds_a_method_by_its_bare_name(
 
     main(["explain", str(root), "--at", "src/core/parse.py::parse", "--format", "json"])
     assert json.loads(capsys.readouterr().out)["scope"] == "src/core/parse.py::(class) Parser::parse"
+
+
+def test_explain_tells_same_named_symbols_apart_by_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path.resolve()
+    (root / "src/core").mkdir(parents=True)
+    (root / "src/core/parse.py").write_text("x = 1\n", encoding="utf-8")
+    tree = _audit_tree(root)
+    parse_file = tree.children[1].children[0].children[0]
+    path = str(root / "src/core/parse.py") + "::(anonymous)"
+    parse_file.children = [
+        Node(name="(anonymous)", type="function", kind="function", path=path, start_line=line, end_line=line + 5,
+             metrics=Metrics(complexity=ccn))
+        for line, ccn in ((5, 1), (50, 20))
+    ]
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: tree)
+
+    main(["explain", str(root), "--at", "src/core/parse.py", "--format", "json"])
+    worst = json.loads(capsys.readouterr().out)["symbols"][0]
+    assert worst["at"] == "src/core/parse.py::(anonymous)@50"
+    main(["explain", str(root), "--at", worst["at"], "--format", "json"])
+    assert json.loads(capsys.readouterr().out)["lines"] == [50, 55]
+    # The bare name is ambiguous: it names every match, worst first, instead of picking the first.
+    with pytest.raises(SystemExit, match=r"matches 2 symbols; pick one \(most complex first\): `src/core/parse.py::\(anonymous\)@50`"):
+        main(["explain", str(root), "--at", "src/core/parse.py::(anonymous)"])
+
+
+def test_report_prints_top_findings_and_what_the_analysis_covers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from app.models import ActivityInfo, AnalysisInfo, FindingsInfo, FindingsTool
+
+    root = tmp_path.resolve()
+    tree = _audit_tree(root)
+    tree._analysis = AnalysisInfo(reused=True, scanned_at="2026-11-04T10:00:00+00:00")
+    tree.activity = ActivityInfo(window="90d", window_label="last 90 days", status="ok", head="abc1234",
+                                 note="1 file has uncommitted changes, not counted")
+    tree.findings = FindingsInfo(status="ok", tools=[FindingsTool(id="ruff", tool="ruff", label="ruff", source="project",
+                                                                  status="ok", files_checked=1)])
+    tree.children[1].children[0].children[0].metrics.finding_count = 0  # parse.py checked; app.py not
+    monkeypatch.setattr(reporting, "scan_tree", lambda root_path, **kwargs: tree)
+
+    main(["report", str(root), "--out", str(tmp_path / "out")])
+    out = capsys.readouterr().out
+    assert "- high 0.7647 `src/core/parse.py`: High complexity 30, 300 LOC. Start at `src/core/parse.py:10 parse`" in out
+    assert (
+        "Analysis: reused the scan from 2026-11-04 10:00 UTC (no file has changed since); Git history at `abc1234` "
+        "(1 file has uncommitted changes, not counted); checks: ruff (1 file); no checker covers 1 of 2 code files."
+    ) in out
+    assert out.rstrip().endswith(f"Next: `srcly explain {root} --at src/core/parse.py`")
+    assert json.loads((tmp_path / "out/manifest.json").read_text())["cache_used"] is True

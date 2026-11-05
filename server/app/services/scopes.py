@@ -60,14 +60,22 @@ def find(tree: Node, root: Path, at: str) -> Node | None:
     target = at.strip().strip("/") or "."
     if target == ".":
         return tree
-    for node in _walk(tree):
-        if rel(node.path, root) == target:
-            return node
+    target, at_sep, line = target.rpartition("@") if "::" in target and target.rpartition("@")[2].isdigit() else (target, "", "")
+    exact = [node for node in _walk(tree) if rel(node.path, root) == target]
+    if at_sep:
+        exact = [node for node in exact if node.start_line == int(line)]
+    # Two closures can share a line; @line then takes the first, which is the one the tables list.
+    if len(exact) == 1 or (exact and (at_sep or exact[0].type != "function")):
+        return exact[0]
+    if exact:
+        return None  # same-named siblings: ``_not_found`` lists each with its @line
     file, sep, name = target.partition("::")
     if sep and "::" not in name:
         parent = find(tree, root, file)
         matches = [n for n in _all_symbols(parent) if n.name == name] if parent is not None else []
-        if len(matches) == 1:
+        if at_sep:
+            matches = [n for n in matches if n.start_line == int(line)]
+        if len(matches) == 1 or (matches and at_sep):
             return matches[0]
     return None
 
@@ -93,10 +101,75 @@ def explain(
     if node is None:
         raise LookupError(_not_found(tree, root, at))
     if node.type == "folder":
-        return _folder(node, root, scores, limit, classes)
-    if node.type == "file":
-        return _file(node, root, scores, limit, classes)
-    return _symbol(node, root, limit)
+        payload = _folder(node, root, scores, limit, classes)
+    elif node.type == "file":
+        payload = _file(node, root, scores, limit, classes)
+    else:
+        payload = _symbol(node, root, limit)
+    payload["analysis"] = provenance(tree, root)
+    return payload
+
+
+def provenance(tree: Node, root: Path) -> dict[str, Any]:
+    """What the answer rests on: the scan (reused or fresh), the Git history and the checkers that ran."""
+    info = tree._analysis
+    act = tree.activity
+    checks = tree.findings
+    code = [f for f in _walk(tree) if f.type == "file" and classify(rel(f.path, root))[0] == "code"]
+    return {
+        "reused": info.reused if info else None,
+        "scanned_at": info.scanned_at if info else None,
+        "scan_seconds": info.scan_seconds if info else None,
+        "files_failed": info.files_failed if info else tree.metrics.analysis_failed_count,
+        "git": {"status": act.status, "reason": act.reason, "head": act.head, "note": act.note} if act else None,
+        "checks": (
+            [
+                {"label": t.label, "status": t.status, "reason": t.reason, "files_checked": t.files_checked}
+                for t in checks.tools
+                if t.files_checked != 0
+            ]
+            if checks
+            else None
+        ),
+        "code_files": len(code),
+        "code_files_unchecked": sum(1 for f in code if f.metrics.finding_count is None),
+    }
+
+
+def provenance_line(p: dict[str, Any]) -> str:
+    """One line an agent can quote: is the scan current, what revision is history from, what was not covered."""
+    if p["reused"] is None:
+        scan = "scan source unknown"
+    elif p["reused"]:
+        scan = f"reused the scan from {p['scanned_at'].replace('T', ' ')[:16]} UTC (no file has changed since)"
+    else:
+        scan = f"fresh scan ({p['scan_seconds']:g} s)"
+    git = p["git"]
+    if not git:
+        history = "Git history: not collected"
+    elif git["status"] != "ok":
+        history = f"Git history: N/A ({git['reason']})"
+    else:
+        history = f"Git history at `{git['head']}`" + (f" ({git['note']})" if git["note"] else "")
+    tools = p["checks"]
+    if tools is None:
+        checks = "checks: not run"
+    else:
+        parts = [
+            (f"{t['label']} ({_files(t['files_checked'])})" if t["files_checked"] else t["label"])
+            if t["status"] == "ok"
+            else f"{t['label']} N/A ({t['reason']})"
+            for t in tools
+        ]
+        checks = f"checks: {', '.join(parts) or 'none apply'}"
+        if p["code_files_unchecked"]:
+            checks += f"; no checker covers {p['code_files_unchecked']} of {p['code_files']} code files"
+    failed = f"; {_files(p['files_failed'])} failed analysis (LOC only)" if p["files_failed"] else ""
+    return f"Analysis: {scan}; {history}; {checks}{failed}."
+
+
+def _files(n: int) -> str:
+    return f"{n} file" if n == 1 else f"{n} files"
 
 
 def _not_found(tree: Node, root: Path, at: str) -> str:
@@ -104,9 +177,15 @@ def _not_found(tree: Node, root: Path, at: str) -> str:
     file, sep, name = at.partition("::")
     parent = find(tree, root, file) if sep else None
     if parent is not None:
-        same = [rel(s.path, root) for s in _all_symbols(parent) if s.name == name]
+        symbols = _all_symbols(parent)
+        same = sorted(
+            (s for s in symbols if rel(s.path, root) == at or s.name == name),
+            key=lambda s: (-(s.metrics.complexity or 0), s.start_line),
+        )
         if len(same) > 1:
-            return f"{at} matches {len(same)} symbols; use the full path: " + ", ".join(f"`{n}`" for n in same[:6]) + "."
+            options = list(dict.fromkeys(f"`{_at(s, root, file, symbols)}`" for s in same))
+            more = f" and {len(options) - 6} more" if len(options) > 6 else ""
+            return f"{at} matches {len(same)} symbols; pick one (most complex first): {', '.join(options[:6])}{more}."
         names = [rel(s.path, root)[len(file) :] for s in symbols_below(parent)][:8]
         listed = ", ".join(f"`{n}`" for n in names) or "none"
         return f"{at} is not a function or class in {file}. Its top-level symbols: {listed}."
@@ -226,12 +305,19 @@ def _all_symbols(node: Node) -> list[Node]:
     return out
 
 
+def _at(node: Node, root: Path, file: str, peers: list[Node]) -> str:
+    """The shortest ``--at`` that finds ``node``: ``file::name`` when the name is unique in the file,
+    else its full path, else the full path ``@`` its first line."""
+    if sum(1 for p in peers if p.name == node.name) == 1 and _named(node.name):
+        return f"{file}::{node.name}"
+    path = rel(node.path, root)
+    return path if sum(1 for p in peers if p.path == node.path) == 1 else f"{path}@{node.start_line}"
+
+
 def _symbol_row(node: Node, root: Path, file: str, peers: list[Node]) -> dict[str, Any]:
-    """``at`` is the shortest ``--at`` that finds it: ``file::name`` when the name is unique in the file."""
-    unique = sum(1 for p in peers if p.name == node.name) == 1 and _named(node.name)
     return {
         "symbol": rel(node.path, root),
-        "at": f"{file}::{node.name}" if unique else rel(node.path, root),
+        "at": _at(node, root, file, peers),
         "lines": [node.start_line, node.end_line],
         "complexity": node.metrics.complexity,
         "loc": node.metrics.loc,
@@ -297,6 +383,7 @@ def render_markdown(payload: dict[str, Any], *, command: str = "srcly explain") 
     """``command`` is how the user ran it (with the root argument), so the Next line runs as-is."""
     kind, scope = payload["kind"], payload["scope"]
     lines = [f"# srcly explain {scope} ({kind})", ""]
+    next_at = next_line = None
     if kind == "folder":
         ranked = ", ".join(payload["classes"])
         if not payload["files"]:
@@ -305,6 +392,7 @@ def render_markdown(payload: dict[str, Any], *, command: str = "srcly explain") 
             if hint:
                 lines.append(f"Rank the {hint['files']} {hint['class']} files with `--include-class {hint['class']}`.")
             lines += ["", *left_out_lines(payload["left_out"])] if payload["left_out"] else []
+            lines += ["", provenance_line(payload["analysis"])] if payload.get("analysis") else []
             return "\n".join(lines).rstrip() + "\n"
         lines.append(
             f"{payload['code_files']} ranked files ({ranked}). Score: the profile's weighted mix of complexity, size, "
@@ -357,12 +445,15 @@ def render_markdown(payload: dict[str, Any], *, command: str = "srcly explain") 
         if kind == "symbol":
             # The function itself is the next thing to read, not its smallest closure.
             start, end = payload["lines"]
-            lines += ["", f"Next: read it with `sed -n '{start},{end}p' {shlex.quote(payload['file'])}`"]
-            next_at = None
-        else:
-            next_at = payload["symbols"][0]["at"] if payload["symbols"] else None
+            next_line = f"Next: read it with `sed -n '{start},{end}p' {shlex.quote(payload['file'])}`"
+        elif payload["symbols"]:
+            next_at = payload["symbols"][0]["at"]
+    if payload.get("analysis"):
+        lines += ["", provenance_line(payload["analysis"])]
     if next_at:
-        lines += ["", f"Next: `{command} --at {shlex.quote(next_at)}`"]
+        next_line = f"Next: `{command} --at {shlex.quote(next_at)}`"
+    if next_line:
+        lines += ["", next_line]
     return "\n".join(lines) + "\n"
 
 
