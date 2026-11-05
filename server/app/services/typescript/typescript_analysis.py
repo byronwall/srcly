@@ -7,7 +7,7 @@ TYPESCRIPT_LANGUAGE = Language(tstypescript.language_typescript())
 TSX_LANGUAGE = Language(tstypescript.language_tsx())
 
 from app.services import comment_noise
-from app.services.analysis_types import FileMetrics, FunctionMetrics, is_executable_scope, iter_executable_scopes
+from app.services.analysis_types import FileMetrics, FunctionMetrics, add_cognitive, cognitive_nesting, is_executable_scope, iter_executable_scopes
 from app.services.markers import MarkerSink
 from app.services.typescript.components import find_components
 
@@ -16,6 +16,23 @@ _COMPLEXITY_NOTES = {
     'for_of_statement': 'for', 'while_statement': 'while', 'do_statement': 'do',
     'catch_clause': 'catch', 'ternary_expression': '?:', 'case_clause': 'case',
 }
+
+# Cognitive complexity's structural breaks (they cost 1 + nesting).
+_COGNITIVE_STRUCTURAL = {
+    'if_statement': 'if', 'for_statement': 'for', 'for_in_statement': 'for', 'for_of_statement': 'for',
+    'while_statement': 'while', 'do_statement': 'do', 'catch_clause': 'catch', 'ternary_expression': '?:',
+    'switch_statement': 'switch',
+}
+# Breaks that raise the nesting level of what they hold (a catch does; its try does not).
+_COGNITIVE_NESTS = frozenset(_COGNITIVE_STRUCTURAL)
+_FUNCTION_NODES = frozenset({
+    'function_declaration', 'method_definition', 'arrow_function', 'function_expression',
+    'generator_function', 'generator_function_declaration', 'class_declaration', 'class_expression',
+})
+
+
+def _else_if(node: Node) -> bool:
+    return node.type == 'if_statement' and node.parent is not None and node.parent.type == 'else_clause'
 
 # Statements only code has, for telling commented-out code from prose.
 _TS_CODE_NODES = frozenset({
@@ -287,6 +304,7 @@ class TreeSitterAnalyzer:
                 if op and op.text in {b'&&', b'||', b'??'}:
                      _add_decision_point(active_scopes)
                      self._mark('complexity', node, op.text.decode())
+            self._cognitive(node, active_scopes)
             if node_type in {'interface_declaration', 'type_alias_declaration'}:
                 current_scope_metrics.ts_type_interface_count += 1
 
@@ -372,6 +390,34 @@ class TreeSitterAnalyzer:
             
         if scope_created:
             active_scopes.pop()
+
+    def _cognitive(self, node: Node, active_scopes: List[dict]) -> None:
+        """Cognitive complexity increments (``add_cognitive``) for one node."""
+        node_type = node.type
+        parent = node.parent
+        if _else_if(node):
+            amount, note = 1, 'else if'
+        elif node_type == 'else_clause':
+            if any(child.type == 'if_statement' for child in node.named_children):
+                return  # the `else if` counts on its if_statement
+            amount, note = 1, 'else'
+        elif node_type in _COGNITIVE_STRUCTURAL:
+            amount = 1 + cognitive_nesting(node, _COGNITIVE_NESTS, _FUNCTION_NODES, _else_if)
+            note = _COGNITIVE_STRUCTURAL[node_type]
+        elif node_type == 'binary_expression':
+            op = node.child_by_field_name('operator')
+            if not op or op.text not in {b'&&', b'||', b'??'}:
+                return
+            # One increment per run of the same operator: `a && b && c` is one.
+            if parent is not None and parent.type == 'binary_expression':
+                parent_op = parent.child_by_field_name('operator')
+                if parent_op is not None and parent_op.text == op.text:
+                    return
+            amount, note = 1, op.text.decode()
+        else:
+            return
+        add_cognitive(active_scopes, amount, propagate=True)
+        self._mark('cognitive_complexity', node, f"+{amount} {note}")
 
     def _mark(self, metric: str, node: Node, note: str = "", *, span: bool = False) -> None:
         if self.markers is not None:

@@ -80,10 +80,10 @@ On the same 4-step walk, output went from 10.2 KB to 9.3 KB on srcly and from 6.
 
 **Moved to milestone 3.**
 
-- Ranking still uses CCN alone, so flat dispatch and tangled code rank alike. If `Branches:` proves useful, add a measured metric (for example, operator share or nested decision points) in both tree-sitter analyzers through `docs/adding-a-metric.md`, with fixture cases, before it changes any ranking.
 - Tests by import graph instead of by name. The dependency graph covers TS and TSX only, and building it on every call has not been measured.
 - Say why a scan was fresh: which files changed since the saved one. One extra rescan of srcly happened with no visible cause during this pass.
-- A CSS file can be the top finding (plan-viewer's `styles.css`, 2,532 LOC) and has no function to start at.
+
+**Follow-up layers (done).** Stylesheets are now a `style` file class, counted but not ranked, so plan-viewer's `styles.css` is no longer the top finding. Cognitive complexity (Sonar's rules) is a measured metric in both tree-sitter analyzers. It shares CCN's old weight in every profile, and CCN stays the lead. On plan-viewer, `renderDiff` (CCN 86, cognitive 143) and `activity.js::rows` move up. On srcly's client, `placeAndRoute` (cognitive 134) passes `FlowView` (CCN 44, cognitive 32). `handleRequest` stays the top function: its 83 separate `x || ""` defaults each cost 1 under Sonar's rules.
 - Name the code files that no checker covers, with their reason, in `explain` for a folder.
 - Make `complexity_witness.path` in `findings.json` relative.
 

@@ -152,7 +152,7 @@ def language_for_path(path: str) -> str:
 
 # Computed here from the executable scopes, not taken from the analyzer, so
 # every language counts functions the same way.
-_FROM_SCOPES = frozenset({"complexity", "complexity_avg", "function_count", "average_function_length", "parameter_count"})
+_FROM_SCOPES = frozenset({"complexity", "cognitive_complexity", "complexity_avg", "function_count", "average_function_length", "parameter_count"})
 
 
 def _scope_value(func, name: str):
@@ -246,6 +246,10 @@ def attach_file_metrics(node: Node, file_info) -> None:
         witness = _most_complex_function(node)
         m.complexity = witness.metrics.complexity if witness else 0
         m.complexity_witness = _witness_for(witness) if witness else None
+    cognitive_witness = None
+    if "cognitive_complexity" in file_measured:
+        cognitive_witness = _most_complex_function(node, "cognitive_complexity")
+        m.cognitive_complexity = cognitive_witness.metrics.cognitive_complexity if cognitive_witness else 0
 
     # Component metrics: the max over the file's components, each naming its
     # component. N/A when the file has none.
@@ -256,6 +260,8 @@ def attach_file_metrics(node: Node, file_info) -> None:
             top = max(components, key=lambda c: getattr(c.metrics, name))  # first in source order on ties
             setattr(m, name, getattr(top.metrics, name))
             m.witnesses[name] = _witness_for(top)
+    if cognitive_witness is not None:
+        m.witnesses = {**(m.witnesses or {}), "cognitive_complexity": _witness_for(cognitive_witness)}
 
     reasons = []
     if any(getattr(m, name) is None for name in OPTIONAL_METRIC_FIELDS if name not in file_measured | OVERLAY_METRICS):
@@ -267,14 +273,15 @@ def attach_file_metrics(node: Node, file_info) -> None:
     m.na_reason = "; ".join(reasons)
 
 
-def _most_complex_function(node: Node) -> Node | None:
-    """The executable function with the highest CCN below ``node`` (first in source order on ties)."""
+def _most_complex_function(node: Node, metric: str = "complexity") -> Node | None:
+    """The executable function with the highest ``metric`` below ``node`` (first in source order on ties)."""
     best: Node | None = None
     stack = list(reversed(node.children))
     while stack:
         child = stack.pop()
-        if child.kind == "function" and child.metrics.complexity is not None:
-            if best is None or child.metrics.complexity > best.metrics.complexity:
+        value = getattr(child.metrics, metric)
+        if child.kind == "function" and value is not None:
+            if best is None or value > getattr(best.metrics, metric):
                 best = child
         stack.extend(reversed(child.children))
     return best
@@ -846,7 +853,9 @@ def _should_log_file_progress(completed_count: int, total_count: int) -> bool:
 # How folders roll up each N/A-able metric. N/A children are skipped, so a
 # folder of Markdown and Python files gets the Python files' complexity, and a
 # folder is N/A only when no child measured the metric.
-_MAX_ROLLUP = frozenset({"complexity", "max_nesting_depth"}) | COMPONENT_METRICS
+_MAX_ROLLUP = frozenset({"complexity", "cognitive_complexity", "max_nesting_depth"}) | COMPONENT_METRICS
+# Max metrics that name the scope behind them in ``Metrics.witnesses``.
+_WITNESSED = COMPONENT_METRICS | {"cognitive_complexity"}
 _MEAN_ROLLUP = frozenset({"complexity_avg", "average_function_length"})  # weighted by function_count
 
 
@@ -887,7 +896,7 @@ def aggregate_metrics(node: Node) -> Metrics:
     m.complexity_witness = witness_source.complexity_witness if witness_source else None
 
     witnesses = {}
-    for name in COMPONENT_METRICS:
+    for name in _WITNESSED:
         value = getattr(m, name)
         source = next((c for c in child_metrics if c.witnesses and name in c.witnesses and getattr(c, name) == value), None)
         if source is not None:

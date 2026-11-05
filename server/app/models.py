@@ -32,6 +32,9 @@ class Metrics(BaseModel):
     # Mean CCN over executable functions (any depth), weighted by function
     # count for folders.
     complexity_avg: float | None = None
+    # Cognitive complexity (Sonar's rules): exact for a function; a file or folder
+    # holds its worst function's value and names it in ``witnesses``.
+    cognitive_complexity: int | None = None
     # Executable functions at any depth (methods, nested functions, arrows);
     # classes, types, object literals and JSX containers don't count.
     function_count: int | None = None

@@ -79,6 +79,34 @@
       "witness": true
     },
     {
+      "aggregation": "max",
+      "color_domain": [
+        0,
+        15,
+        60
+      ],
+      "color_per_file": false,
+      "description": "How hard a function is to follow (Sonar's cognitive complexity): each if, loop, catch or ternary costs 1 plus its nesting, and each run of && or || costs 1, so a flat chain of checks stays low. A file or folder holds its worst function, which it names.",
+      "direction": "higher-worse",
+      "group": "General",
+      "id": "cognitive_complexity",
+      "label": "Cognitive complexity (max)",
+      "languages": [
+        "ts",
+        "tsx",
+        "js",
+        "jsx",
+        "python"
+      ],
+      "picker": true,
+      "scope": "any",
+      "short_label": "Cog",
+      "unit": "points",
+      "unit_one": "point",
+      "viewer_label": null,
+      "witness": true
+    },
+    {
       "aggregation": "mean",
       "color_domain": [
         0,

@@ -25,6 +25,7 @@ export const DEFAULT_METRICS = {
   complexity: null,
   complexity_witness: null,
   complexity_avg: null,
+  cognitive_complexity: null,
   function_count: null,
   comment_lines: null,
   comment_noise: null,

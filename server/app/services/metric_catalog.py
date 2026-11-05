@@ -136,8 +136,19 @@ METRICS: tuple[MetricSpec, ...] = (
         "complexity", "Complexity (max)", "CCN", "CCN", "CCN", "General", "higher-worse", "max",
         "Cyclomatic complexity: exact for a function; for a file or folder, its most complex function, which it names.",
         witness=True,
-        # The default metric: useful cases in all four pilot repos (M7).
-        weights={"general": 1.5, "frontend": 1.0, "backend": 1.6, "typescript": 1.2, "python": 1.4},
+        # The default metric: useful cases in all four pilot repos (M7). It shares its old weight
+        # with cognitive complexity, so a flat route table no longer ranks like tangled code; on a
+        # tie the lead stays CCN (catalog order), which is all lizard languages measure.
+        weights={"general": 0.75, "frontend": 0.5, "backend": 0.8, "typescript": 0.6, "python": 0.7},
+    ),
+    MetricSpec(
+        "cognitive_complexity", "Cognitive complexity (max)", "Cog", "points", "point", "General", "higher-worse", "max",
+        "How hard a function is to follow (Sonar's cognitive complexity): each if, loop, catch or ternary costs "
+        "1 plus its nesting, and each run of && or || costs 1, so a flat chain of checks stays low. A file or "
+        "folder holds its worst function, which it names.",
+        witness=True,
+        color_domain=(0, 15, 60),
+        weights={"general": 0.75, "frontend": 0.5, "backend": 0.8, "typescript": 0.6, "python": 0.7},
     ),
     MetricSpec(
         "complexity_avg", "Complexity (avg)", "CCNμ", "CCN", "CCN", "General", "higher-worse", "mean",
@@ -326,8 +337,12 @@ def profile_weights() -> dict[str, dict[str, float]]:
 
 
 def profile_lead(profile: str) -> str:
-    """The metric a profile weights most (first in catalog order on ties)."""
-    weights = profile_weights()[profile]
+    """The metric a profile weights most (first in catalog order on ties). Cognitive complexity
+    shares CCN's weight, so the two count as one CCN weight here: CCN is the lead lizard
+    languages can measure too."""
+    weights = dict(profile_weights()[profile])
+    if "cognitive_complexity" in weights:
+        weights["complexity"] = weights.get("complexity", 0) + weights.pop("cognitive_complexity")
     return max(weights, key=lambda metric: weights[metric])
 
 

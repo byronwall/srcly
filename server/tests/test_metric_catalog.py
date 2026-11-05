@@ -51,7 +51,7 @@ def test_languages_and_scope_come_from_the_analyzer_tables() -> None:
 
 def test_witnessed_metrics_are_complexity_and_components() -> None:
     witnessed = {m.id for m in metric_catalog.METRICS if m.witness}
-    assert witnessed == {"complexity"} | {m for m in metric_catalog.METRICS_BY_ID if m.startswith("component_")}
+    assert witnessed == {"complexity", "cognitive_complexity"} | {m for m in metric_catalog.METRICS_BY_ID if m.startswith("component_")}
 
 
 def test_profile_lead_is_the_heaviest_weight() -> None:
