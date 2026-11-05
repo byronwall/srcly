@@ -23,6 +23,8 @@ export interface SymbolNode {
   outCount: number;
   /** Hops from the focus in a neighbourhood; 0 for the focus and its members. */
   hop?: number;
+  /** `none`: nothing in the index references it; `tests`: only test files do. Absent otherwise. */
+  refs?: "none" | "tests";
 }
 
 export interface SymbolEdge {
@@ -76,6 +78,23 @@ export interface SymbolSearchHit {
   container?: string;
   inCount: number;
   outCount: number;
+  exported?: boolean;
+  /** Declared lines. */
+  lines?: number;
+}
+
+/** What stands out in the whole index. */
+export interface SymbolStats {
+  root: string;
+  /** Nothing references them (modules and test files aside): private ones first, then by size. */
+  unreferenced: SymbolSearchHit[];
+  unreferencedCount: number;
+  unreferencedPrivate: number;
+  testOnly: SymbolSearchHit[];
+  testOnlyCount: number;
+  /** Most distinct referencing symbols first. */
+  hubs: SymbolSearchHit[];
+  index: SymbolIndexInfo;
 }
 
 export interface SymbolSearch {

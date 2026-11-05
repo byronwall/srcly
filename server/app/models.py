@@ -241,6 +241,8 @@ class SymbolGraphNode(BaseModel):
     out_count: int = Field(alias="outCount")
     # Hops from the focus in a neighbourhood (0 for the focus).
     hop: int | None = None
+    # `none`: nothing in the index references it; `tests`: only test files do. Absent otherwise (and for modules).
+    refs: str | None = None
 
 
 class SymbolGraphEdge(BaseModel):
@@ -303,8 +305,29 @@ class SymbolSearchHit(BaseModel):
     container: str | None = None
     in_count: int = Field(alias="inCount")
     out_count: int = Field(alias="outCount")
+    exported: bool | None = None
+    # Declared lines, for ranking what is unreferenced by its size.
+    lines: int | None = None
 
 
 class SymbolSearch(BaseModel):
     hits: List[SymbolSearchHit]
+    index: SymbolIndexInfo
+
+
+class SymbolStats(BaseModel):
+    """What stands out in the whole index: symbols nothing references, and the ones everything does."""
+
+    model_config = {"populate_by_name": True}
+
+    root: str
+    # Nothing in the index references them (modules and test files aside): private ones first, then by size.
+    unreferenced: List[SymbolSearchHit]
+    unreferenced_count: int = Field(alias="unreferencedCount")
+    unreferenced_private: int = Field(alias="unreferencedPrivate")
+    # Referenced from test files only.
+    test_only: List[SymbolSearchHit] = Field(alias="testOnly")
+    test_only_count: int = Field(alias="testOnlyCount")
+    # Most distinct referencing symbols first.
+    hubs: List[SymbolSearchHit]
     index: SymbolIndexInfo

@@ -35,10 +35,10 @@ function EdgeSwatch(props: { dash?: string; accent?: boolean; muted?: boolean; p
   );
 }
 
-function BoxSwatch(props: { dash?: string; frame?: boolean; glyph?: string }) {
+function BoxSwatch(props: { dash?: string; frame?: boolean; glyph?: string; stroke?: string }) {
   return (
     <svg width={SW} height={SH} viewBox={`0 0 ${SW} ${SH}`} aria-hidden="true">
-      <rect x="1.5" y="1.5" width={SW - 3} height={SH - 3} rx="2.5" fill={props.frame ? "none" : "var(--plc-surface)"} stroke={props.frame ? "var(--plc-border)" : "var(--plc-border-strong)"} stroke-dasharray={props.dash} />
+      <rect x="1.5" y="1.5" width={SW - 3} height={SH - 3} rx="2.5" fill={props.frame ? "none" : "var(--plc-surface)"} stroke={props.stroke ?? (props.frame ? "var(--plc-border)" : "var(--plc-border-strong)")} stroke-width={props.stroke ? 1.6 : 1} stroke-dasharray={props.dash} />
       <Show when={props.glyph}>
         <KindGlyph node={{ kind: "symbol", symbolKind: props.glyph }} x={SW / 2 - 6} y={1} />
       </Show>
@@ -61,6 +61,8 @@ const ROWS: { swatch: () => JSX.Element; label: string; hint: string }[] = [
   { swatch: () => <BoxSwatch glyph="method" />, label: "box", hint: "a function, class, method, field, variable, type or module; the note counts its references in the whole index" },
   { swatch: () => <BoxSwatch frame />, label: "frame", hint: "the focus with its members; a file on either side, its classes grouped inside" },
   { swatch: () => <BoxSwatch dash={DOTTED_BOX_DASH} />, label: "test", hint: "a symbol in a test file" },
+  { swatch: () => <BoxSwatch stroke="var(--plc-error)" />, label: "unreferenced", hint: "nothing in the index references it; the rail lists them all" },
+  { swatch: () => <BoxSwatch stroke="var(--plc-warning)" />, label: "tests only", hint: "only test files reference it" },
   { swatch: () => <KeySwatch keys="⇧click" />, label: "open a hop", hint: "a box with more references than drawn opens its own hop in place (E)" },
   { swatch: () => <KeySwatch keys="F" />, label: "focus", hint: "centre the graph on the hovered or selected box; / finds any symbol" },
 ];

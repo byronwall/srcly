@@ -185,3 +185,21 @@ def test_path_finds_the_shortest_chain_forward_then_backward(tmp_path: Path):
     assert idx.path("p.ts#a", "p.ts#a").steps == 0
     assert idx.path("p.ts#a", "p.ts#nope") is None
     assert not idx.path("p.ts#a", "p.ts#e", kinds=["read"]).found
+
+
+def test_refs_flags_and_stats(tmp_path: Path):
+    write(tmp_path, "s.ts", "export function used() {}\nexport function big() {\n  return 1;\n}\nfunction small() {}\nexport function tested() {}\nexport function hub() {}\nfunction a() { used(); hub(); }\nfunction b() { hub(); a(); }\n")
+    write(tmp_path, "s.test.ts", 'import { tested, hub } from "./s";\ntested(); hub();\n')
+    idx = build_symbol_index(tmp_path, use_cache=False)
+    by = {n.id: n for n in idx.neighbourhood("s.ts", hops=1).nodes}
+    assert by["s.ts#big"].refs == "none" and by["s.ts#small"].refs == "none"
+    assert by["s.ts#tested"].refs == "tests"
+    assert by["s.ts#used"].refs is None and by["s.ts"].refs is None
+    assert by["s.ts#b"].refs == "none"
+    stats = idx.stats(limit=2)
+    assert [h.id for h in stats.unreferenced] == ["s.ts#b", "s.ts#small"]  # private first, then by size, then id
+    assert stats.unreferenced_count == 3 and stats.unreferenced_private == 2
+    assert [h.id for h in stats.test_only] == ["s.ts#tested"] and stats.test_only_count == 1
+    assert stats.hubs[0].id == "s.ts#hub" and stats.hubs[0].in_count == 3
+    assert "s.ts#big" not in {h.id for h in stats.hubs}
+    assert stats.unreferenced[0].lines == 1 and stats.unreferenced[0].exported is False

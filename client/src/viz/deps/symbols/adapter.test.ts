@@ -25,6 +25,7 @@ const graph: SymbolGraph = {
     node("s.ts#Store.save", "method", 0, { container: "s.ts#Store", inCount: 1 }),
     node("a.ts#caller", "function", 1, { inCount: 3, outCount: 1 }),
     node("b.ts#Shape", "type", 1, { inCount: 1 }),
+    node("d.ts#dead", "function", 1, { inCount: 0, outCount: 1, refs: "none" }),
     node("t/a.test.ts#spec", "function", 1, { isTest: true, outCount: 1 }),
   ],
   edges: [
@@ -32,6 +33,7 @@ const graph: SymbolGraph = {
     { source: "s.ts#Store.bump", target: "s.ts#Store.save", kind: "call", lines: [2, 3], count: 2, resolution: "exact" },
     { source: "s.ts#Store", target: "b.ts#Shape", kind: "implements", lines: [1], count: 1, resolution: "exact" },
     { source: "t/a.test.ts#spec", target: "s.ts#Store.bump", kind: "call", lines: [9], count: 1, resolution: "name" },
+    { source: "d.ts#dead", target: "s.ts#Store", kind: "type", lines: [2], count: 1, resolution: "exact" },
   ],
   index: { symbols: 6, references: 4, files: 4, unresolvedMembers: 0, builtMs: 1 },
 };
@@ -83,6 +85,9 @@ describe("symbolGraphToViewModel", () => {
     expect(by.get("a.ts#caller")!.group).toEqual({ id: "file:a.ts", label: "a.ts" });
     expect(by.get("b.ts#Shape")!.region).toBe("out");
     expect(by.get("t/a.test.ts#spec")!.outline).toBe("dotted");
+    expect(by.get("d.ts#dead")!.status).toBe("unsupported");
+    expect(by.get("d.ts#dead")!.note).toBe("0 in · 1 out · unreferenced");
+    expect(by.get("a.ts#caller")!.status).toBeUndefined();
   });
 
   it("marks a side box expandable when the index holds references beyond the drawn ones", () => {
@@ -99,7 +104,7 @@ describe("symbolGraphToViewModel", () => {
   it("drops hidden kinds, the symbols only they reach, and says how many", () => {
     const model = symbolGraphToViewModel(graph, { kinds: ["call", "instantiate"], expanded: [] });
     expect(model.vm.nodes.map((n) => n.id)).not.toContain("b.ts#Shape");
-    expect(model.hiddenByKind).toBe(1);
+    expect(model.hiddenByKind).toBe(2);
     expect(model.vm.edges.map((e) => e.relation)).not.toContain("implements");
   });
 

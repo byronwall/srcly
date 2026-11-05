@@ -71,3 +71,11 @@ def test_path(client, repo):
     assert client.get("/api/symbols/path", params={"path": str(repo), "from": "src/a.ts#a", "to": "src/a.ts#zzz"}).status_code == 404
     missing = client.get("/api/symbols/path", params={"path": str(repo), "from": "src/a.ts#b", "to": "src/a.test.ts", "tests": "false"}).json()
     assert missing["found"] is True  # the end itself may be a test file; only steps through tests are skipped
+
+
+def test_stats(client, repo):
+    body = client.get("/api/symbols/stats", params={"path": str(repo)}).json()
+    assert body["unreferencedCount"] == 0 and body["testOnlyCount"] == 1  # `a` is called by the test file only
+    assert {h["id"] for h in body["hubs"]} == {"src/a.ts#a", "src/a.ts#b"} and "unreferencedPrivate" in body
+    node = next(n for n in client.get("/api/symbols/graph", params={"path": str(repo), "at": "src/a.ts#a"}).json()["nodes"] if n["id"] == "src/a.ts#a")
+    assert node["refs"] == "tests"
