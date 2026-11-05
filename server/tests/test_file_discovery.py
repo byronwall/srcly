@@ -179,3 +179,10 @@ def test_landing_estimate_matches_scan(repo: Path) -> None:
 
     assert file_count == root_node.metrics.file_count == 3
     assert folder_count == count_folders(root_node) == 3
+
+
+def test_anchored_gitignore_pattern_stays_in_its_folder() -> None:
+    # `/data` in app/.gitignore is app/data only, not app/src/features/data.
+    assert analysis._translate_gitignore_pattern("/data", "app") == "app/data"
+    assert analysis._translate_gitignore_pattern("data", "app") == "app/**/data"
+    assert analysis._translate_gitignore_pattern("dist/", "") == "**/dist/"

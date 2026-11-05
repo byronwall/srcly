@@ -326,15 +326,16 @@ def _translate_gitignore_pattern(raw_line: str, base_rel: str) -> str | None:
     body = line[1:] if negated else line
 
     # Strip leading slash: anchored to the directory containing the .gitignore
-    if body.startswith("/"):
+    anchored = body.startswith("/")
+    if anchored:
         body = body[1:]
 
     # Compute prefix for this .gitignore directory
     prefix = f"{base_rel}/" if base_rel else ""
 
-    # If the pattern contains a slash, it's relative to the directory root.
-    # Otherwise, it should match that name anywhere under the directory.
-    if "/" in body:
+    # If the pattern is anchored or contains a slash, it's relative to the
+    # directory root. Otherwise, it matches that name anywhere under the directory.
+    if anchored or "/" in body.rstrip("/"):
         pat = prefix + body
     else:
         if base_rel:
