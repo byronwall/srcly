@@ -20,6 +20,7 @@ dependencies = [
     "httpx>=0.28.1",
     "ruff>=0.17.1",
     "mypy>=1.18",
+    "rope>=1.14,<2",
 ]
 
 [project.scripts]

@@ -17,6 +17,7 @@ def main(argv: list[str]) -> None:
     project = commands.add_parser("project", help="Inspect targets and compiler diagnostics.")
     project.add_argument("--path", default=".")
     project.add_argument("--config", default="tsconfig.json")
+    project.add_argument("--language", choices=["typescript", "python"], default="typescript")
     for name in ("parse", "preview"):
         command = commands.add_parser(name)
         command.add_argument("plan", type=Path)
@@ -31,7 +32,7 @@ def main(argv: list[str]) -> None:
         if args.command == "catalog":
             result = catalog()
         elif args.command == "project":
-            result = compiler.inspect(Path(args.path).resolve(), safe_path(args.config))
+            result = compiler.inspect(Path(args.path).resolve(), safe_path(args.config), language=args.language)
         elif args.command in {"parse", "preview"}:
             source = args.plan.read_text()
             result = parse(source) if args.command == "parse" else runs.preview(Path(args.path), source)

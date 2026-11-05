@@ -1,5 +1,6 @@
 import json
 import re
+import sys
 from pathlib import Path
 
 from app.services.compare.git_refs import run_git
@@ -80,6 +81,13 @@ def test_effectful_component_extraction_is_blocked(project):
     assert preview["diagnostics"][0]["code"] == "effectful-jsx"
 
 
+def test_symbol_move_refuses_module_location_dependencies(project):
+    add(project, "src/resource.ts", "export function resource() { return import.meta.url; }\n")
+    preview = runs.preview(project, 'refactor 1\nlet resource = symbol "src/resource.ts" "resource"\nmove-symbol $resource -> "src/model/resource.ts"\n')
+    assert preview["status"] == "blocked"
+    assert preview["diagnostics"][0]["code"] == "location-dependent-symbol"
+
+
 def test_exact_multiline_selection_is_json_decoded():
     from app.services.refactor.plan import parse
 
@@ -117,6 +125,20 @@ def test_syntax_errors_are_never_an_executable_type_edit(project):
     preview = runs.preview(project, 'refactor 1\nlet person = symbol "src/types.ts" "Person"\nadd-member $person "age: Missing<"\n')
     assert preview["status"] == "blocked"
     assert "age" not in (project / "src/types.ts").read_text()
+
+
+def test_configured_checkpoint_can_gate_an_intentional_type_error(project):
+    from app.services.dataflow.availability import locate_node
+
+    add(project, "src/types.ts", 'export interface Person { name: string }\nexport const value: Person = { name: "Ada" };\n')
+    compiler = Path(__file__).parents[2] / "engine/node_modules/typescript/bin/tsc"
+    add(project, ".srcly-refactor.json", json.dumps({"checks": {"types": [locate_node() or sys.executable, str(compiler), "--noEmit", "-p", "tsconfig.json"]}}))
+    preview = runs.preview(project, 'refactor 1\nlet person = symbol "src/types.ts" "Person"\nadd-member $person "age: number"\ncheckpoint types\n')
+    assert preview["status"] == "blocked"
+    assert preview["steps"][0]["status"] == "type-errors"
+    assert preview["steps"][1]["checkpoint"]["status"] == "failed"
+    assert "age" in preview["steps"][1]["checkpoint"]["output"]
+    assert "age" not in (Path(preview["projectRoot"]) / "src/types.ts").read_text()
 
 
 def test_add_update_and_remove_type_declarations(project):

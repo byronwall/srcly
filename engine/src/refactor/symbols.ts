@@ -107,6 +107,14 @@ export function symbolOperations(ctx: Compiler) {
     if (target.statement.parent !== target.source) throw new Refusal("closure-dependencies", "Moving a nested closure requires an explicit interface for its captured bindings. Extract a top-level function first.");
     if (ts.isPropertySignature(target.declaration) || ts.isMethodSignature(target.declaration)) throw new Refusal("unsupported-target", "Move a whole top-level declaration; interface members can be renamed.");
     if (!declarationCanMove(target.statement)) throw new Refusal("initializer-effects", "Move supports functions, types, components and literal constants. State initializers need an explicit ownership operation.");
+    const checkLocation = (node: ts.Node) => {
+      if (ts.isMetaProperty(node) || (ts.isIdentifier(node) && ["__dirname", "__filename"].includes(node.text)) ||
+          (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === "require")))) {
+        throw new Refusal("location-dependent-symbol", "This declaration observes its module location or loads modules at runtime. Supply an explicit resource/import strategy before moving it.");
+      }
+      ts.forEachChild(node, checkLocation);
+    };
+    checkLocation(target.statement);
     if (action.file === action.to) throw new Refusal("same-destination", "Choose a different module for this symbol.");
     const dependencies = requiredLocals(ctx, target.source, target.statement);
     if (dependencies.length) throw new Refusal("dependencies-required", `Move the required local dependencies first: ${dependencies.join(", ")}.`, { dependencies: dependencies.map((name) => ({ file: action.file, name })) }, dependencies.map((name) => `let ${name} = symbol ${JSON.stringify(action.file)} ${JSON.stringify(name)}\nmove-symbol $${name} -> ${JSON.stringify(action.to)}`));

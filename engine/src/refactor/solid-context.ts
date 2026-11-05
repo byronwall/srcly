@@ -69,6 +69,7 @@ export function solidContext(ctx: Compiler, action: ContextAction) {
   // Location-sensitive and escaping module initialization cannot be certified by an owner migration.
   let reactive = false;
   const inspectSetup = (node: ts.Node) => {
+    if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === "require"))) return fail("Runtime module loading needs an explicit resource/import strategy before relocating state.");
     if (ts.isAwaitExpression(node) || ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node) || node.kind === ts.SyntaxKind.ThisKeyword || ts.isMetaProperty(node) || (ts.isIdentifier(node) && ["__dirname", "__filename", "arguments"].includes(node.text))) return fail("The state module contains JSX or location/call-context-sensitive code. Separate it from state setup first.");
     if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
       const declaration = unalias(checker.getSymbolAtLocation(node.expression))?.declarations?.[0];

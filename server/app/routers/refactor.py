@@ -35,8 +35,8 @@ def _call(action):
 
 
 @router.get("/project")
-def project(path: str, config: str = "tsconfig.json"):
-    return _call(lambda: compiler.inspect(Path(path).resolve(), safe_path(config)))
+def project(path: str, config: str = "tsconfig.json", language: Literal["typescript", "python"] = "typescript"):
+    return _call(lambda: compiler.inspect(Path(path).resolve(), safe_path(config), language=language))
 
 
 @router.post("/parse")

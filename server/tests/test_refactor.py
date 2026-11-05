@@ -88,6 +88,24 @@ def test_stale_source_and_unknown_worktree_edits_block_without_overwrite(project
     assert (work / "src/other.ts").read_text() == "// user's own work\n"
 
 
+def test_dependency_links_remain_ignored_by_directory_patterns(project):
+    (project / ".gitignore").write_text("node_modules/\n")
+    dependency = project / "node_modules/example"
+    dependency.mkdir(parents=True)
+    (dependency / "package.json").write_text('{"name":"example"}')
+    run_git(project, "add", ".gitignore")
+    run_git(project, "commit", "-qm", "directory ignore fixture")
+    preview = runs.preview(project, CHAIN)
+    assert preview["status"] == "ready", preview["error"]
+    work = Path(preview["projectRoot"])
+    assert not (work / "node_modules").is_symlink()
+    assert (work / "node_modules/example").is_symlink()
+    assert run_git(work, "status", "--porcelain") == ""
+    runs.execute(preview["id"], "next")
+    runs.execute(preview["id"], "undo")
+    assert run_git(work, "status", "--porcelain") == ""
+
+
 def test_failed_chain_restores_preview_and_is_never_executable(project):
     source = CHAIN + 'move-file $state -> "src/App.tsx"\n'
     preview = runs.preview(project, source)

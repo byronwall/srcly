@@ -205,3 +205,11 @@ def test_context_refuses_uncovered_consumers_and_barrels(solid_project, consumer
     preview = runs.preview(solid_project, CONTEXT_PLAN)
     assert preview["status"] == "blocked"
     assert preview["diagnostics"][0]["code"] == "context-proof-required", preview["error"]
+
+
+def test_context_refuses_runtime_relative_module_loading(solid_project):
+    add(solid_project, "src/lazy.ts", "export const value = 1;\n")
+    add(solid_project, "src/state.ts", (solid_project / "src/state.ts").read_text() + 'export function load() { return import("./lazy"); }\n')
+    preview = runs.preview(solid_project, CONTEXT_PLAN)
+    assert preview["status"] == "blocked"
+    assert preview["diagnostics"][0]["code"] == "context-proof-required"

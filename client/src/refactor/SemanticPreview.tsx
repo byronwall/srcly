@@ -3,6 +3,12 @@ import type { RunStep } from "./api";
 
 export default function SemanticPreview(props: { step?: RunStep }) {
   return <>
+    <Show when={props.step?.executionCheck ?? props.step?.checkpoint}>{(check) => <section class="rf-semantic" data-refactor-checkpoint>
+      <h3>Checkpoint {check().name} · {check().status}</h3>
+      <p>{check().seconds}s · exit {check().exitCode}</p>
+      <code>{check().argv.join(" ")}</code><pre>{check().output}</pre>
+      <Show when={check().truncated}><p>Output truncated at 100 KB.</p></Show>
+    </section>}</Show>
     <Show when={props.step?.machine}>{(machine) => <section class="rf-semantic" data-refactor-machine>
       <h3>State machine · {machine().states.length} states · {machine().events.length} events</h3>
       <p>{machine().proof}</p>
