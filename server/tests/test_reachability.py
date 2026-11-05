@@ -16,8 +16,10 @@ def test_reachability_follows_imports_and_config_strings(tmp_path: Path) -> None
         app / "vitest.config.ts",
         'import { resolve } from "path";\nexport default { alias: { "server-only": resolve(__dirname, "src/test/server-only.ts") } };\n',
     )
-    _write(app / "src" / "routes" / "index.tsx", 'import { format, forBoth } from "../lib/barrel";\nimport { other } from "../lib/b";\nexport default () => format(other, forBoth);\n')
-    _write(app / "src" / "lib" / "barrel.ts", 'export * from "./a";\n')
+    _write(app / "src" / "routes" / "index.tsx", 'import { format, forBoth } from "../lib/barrel";\nimport { other } from "../lib/b";\nimport { kept } from "../lib/c";\nexport default () => format(other, forBoth + kept);\n')
+    _write(app / "src" / "lib" / "barrel.ts", 'export * from "./a";\nexport { passed } from "./c";\n')
+    # Only the barrel names `passed`: dropping its `export` would break the barrel.
+    _write(app / "src" / "lib" / "c.ts", "export const passed = 1;\nexport const kept = passed;\n")
     _write(
         app / "src" / "lib" / "a.ts",
         "export function format(a: number, b: number) { return a + b + local; }\n"
@@ -40,6 +42,7 @@ def test_reachability_follows_imports_and_config_strings(tmp_path: Path) -> None
         ("src/lib/a.ts", "export-used-in-file-only", 2),
         ("src/lib/a.ts", "test-only-export", 3),
         ("src/lib/b.ts", "unused-export", 2),
+        ("src/lib/c.ts", "unused-export", 1),
     }
 
 

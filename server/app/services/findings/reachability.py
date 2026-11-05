@@ -92,6 +92,8 @@ class Graph:
         self.edges: dict[Path, set[Path]] = {f: set() for f in self.infos}
         # (declaring file, local name) -> files that import it
         self.users: dict[tuple[Path, str], set[Path]] = {}
+        # (declaring file, local name) -> barrels that re-export it by name
+        self.passers: dict[tuple[Path, str], set[Path]] = {}
         self.whole: set[Path] = set()
         """Files imported as a whole (namespace, dynamic, ``require``): every export counts as used."""
         for f, info in self.infos.items():
@@ -161,8 +163,13 @@ class Graph:
                 self._star_targets(target, seen)
                 self.whole |= seen
                 self.edges[f] |= seen
-            # `export {a} from` / `export *` only pass names through; the
-            # importer of the barrel is the user.
+            elif imp.kind == "reexport":
+                # `export {a} from` only passes the name through: the barrel's
+                # importer is the user, but the barrel needs the export to stay.
+                for n in imp.names:
+                    hit = self.definer(target, n.imported)
+                    if hit is not None:
+                        self.passers.setdefault(hit, set()).add(f)
 
     def reach(self, starts: Iterable[Path]) -> set[Path]:
         seen: set[Path] = set()
@@ -359,13 +366,17 @@ def analyze(root: Path, files: Optional[list[Path]] = None, tool_id: str = "srcl
             if local == "default" and name == "default":
                 continue
             users = graph.users.get((f, local), set()) - {f}
+            passers = graph.passers.get((f, local), set()) - {f}
             line, end, col = _export_line(info, name, local)
             if users:
                 # Exports of test helpers (reached only from tests) are for tests.
                 if all(u in tests for u in users) and f in from_prod:
                     add(f, line, end, col, "test-only-export", f"`{name}` is imported only by tests")
                 continue
-            if _used_in_own_file(info, local):
+            if passers:
+                via = ", ".join(sorted(_rel(p, root) for p in passers))
+                add(f, line, end, col, "unused-export", f"`{name}` is re-exported by {via} but never imported")
+            elif _used_in_own_file(info, local):
                 add(f, line, end, col, "export-used-in-file-only", f"`{name}` is used only in this file: drop `export`")
             else:
                 add(f, line, end, col, "unused-export", f"`{name}` is exported but never used")
