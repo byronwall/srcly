@@ -1,0 +1,21 @@
+id: solid-cleanup-return
+language: tsx
+message: onMount/createEffect ignore a returned cleanup; use onCleanup()
+severity: error
+rule:
+  kind: return_statement
+  has:
+    any:
+      - kind: arrow_function
+      - kind: function_expression
+  inside:
+    stopBy:
+      kind: arrow_function
+    kind: arrow_function
+    inside:
+      kind: arguments
+      inside:
+        kind: call_expression
+        has:
+          field: function
+          regex: ^(onMount|createEffect|createRenderEffect|createComputed)$

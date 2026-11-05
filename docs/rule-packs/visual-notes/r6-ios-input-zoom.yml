@@ -1,0 +1,10 @@
+id: small-text-input
+language: tsx
+message: "iOS zooms on focus of an input under 16px; use a responsive base md size"
+severity: warning
+rule:
+  kind: jsx_attribute
+  regex: ^fontSize=["{]*"?(xs|sm|2xs)"?\}?$
+  inside:
+    any: [{kind: jsx_opening_element}, {kind: jsx_self_closing_element}]
+    regex: ^<(input|textarea|Input|Textarea|Editable\.Input|styled\.input|styled\.textarea|Field\.Input)\b

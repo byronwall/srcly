@@ -89,6 +89,8 @@ Machine-readable output (`report --stdout`, `--format json`, `scan --out -`, `co
 
 `srcly report` also writes `size_budget.json`: each code file over 5,000 tokens (bytes / 4), with a baseline that only goes down. `uvx srcly check --ratchet` exits 1 when one of those files grows, or a new file goes over the budget, so a pre-commit or CI step can stop big files from getting bigger.
 
+Your own lint rules: put ast-grep YAML rules in `.srcly/rules/`, and srcly reports their matches beside tsc, eslint and ruff (see [docs/rule-packs](docs/rule-packs/README.md)).
+
 ## What Srcly shows you
 
 - **Treemap of your codebase**
