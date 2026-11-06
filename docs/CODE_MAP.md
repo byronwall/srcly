@@ -28,6 +28,14 @@ Browser
 
 ## Features
 
+### Public site
+
+| Feature | Where |
+| --- | --- |
+| Landing page, interactive treemap example, shared navigation | `site/src/App.tsx`, `site/src/Landing.tsx`, `site/src/site.css` |
+| User guides, search, table of contents | `site/src/App.tsx`, `site/src/docs/` |
+| Static HTML, page metadata, sitemap, and GitHub Pages base path | `site/src/server.tsx`, `site/scripts/prerender.mjs`, `site/vite.config.ts` |
+
 ### CLI and process lifecycle
 
 | Feature | Where |
