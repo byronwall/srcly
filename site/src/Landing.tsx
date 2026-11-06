@@ -34,14 +34,14 @@ export function Landing(props: { base: string }) {
         <div class="section-heading"><h2>A map you can follow.</h2><p>Area shows lines of code. Color shows a selected metric. Click a file to see what the sample contains.</p></div>
         <div class="explore-row"><div class="flow-step"><span class="step-mark"><Layers3 size={18}/></span><div><h3>Start at the whole tree</h3><p>Folders contain files. Files can contain functions and nested scopes. Zoom in when a region needs a closer look.</p></div></div><ArrowDownRight class="flow-arrow" size={23}/><div class="flow-step"><span class="step-mark"><Compass size={18}/></span><div><h3>Compare useful signals</h3><p>Rank hotspots by complexity, size, structure, or supported language signals. A missing measurement stays named as unavailable.</p></div></div><ArrowDownRight class="flow-arrow" size={23}/><div class="flow-step"><span class="step-mark"><FileCode2 size={18}/></span><div><h3>Open the source</h3><p>Inspect a file or function with its metrics and findings in context. Srcly points to code; you decide what to change.</p></div></div></div>
       </section>
-      <section class="workflow-section"><div class="workflow-copy"><h2>From a quick look to a repeatable review.</h2><p>Use the browser to explore a project. Use the CLI to produce evidence that fits into a pull request or an agent's working context.</p><a class="text-link" href={`${props.base}docs/reports/`}>See report output <ArrowRight size={15}/></a></div><div class="workflow-code"><div class="code-title"><span>terminal</span><span>local analysis</span></div><pre><code><span class="terminal-muted">$</span> uvx srcly report . --out .srcly
+      <section class="workflow-section"><div class="workflow-copy"><h2>From a quick look to a repeatable review.</h2><p>Use the browser to explore a project. Use the CLI to produce evidence that fits into a pull request or an agent's working context.</p><a class="text-link" href={`${props.base}docs/reports/`}>See report output <ArrowRight size={15}/></a></div><div class="workflow-code"><div class="code-title"><span>terminal</span><span>local analysis</span></div><pre><code>{`$ uvx srcly report . --out .srcly
 
-<span class="terminal-green">✓</span> report.md
-<span class="terminal-green">✓</span> findings.json
-<span class="terminal-green">✓</span> hotspots.json
-<span class="terminal-green">✓</span> metrics.schema.json
+report.md
+findings.json
+hotspots.json
+metrics.schema.json
 
-<span class="terminal-muted">Analysis:</span> 1,248 files · 6 tools · 42 unavailable</code></pre><p class="sample-caption">Illustrative terminal output</p></div></section>
+Analysis: 1,248 files · 6 tools · 42 unavailable`}</code></pre><p class="sample-caption">Illustrative terminal output</p></div></section>
       <section class="coverage-section"><h2>Useful signals, with their limits in view.</h2><div class="coverage-copy"><p>Srcly combines broad source metrics with language-aware analysis where available. The supported signals vary by language and tool setup; a metric that does not apply is N/A, never zero.</p><p>Data-flow analysis covers TypeScript, JavaScript, and Python. It runs with Node.js 18 or newer. Without Node, the rest of Srcly still works and data flow shows the reason it was not analyzed.</p><a class="text-link" href={`${props.base}docs/metrics/`}>How to read the metrics <ArrowRight size={15}/></a></div></section>
       <section class="docs-cta"><div><h2>Start with your codebase.</h2><p>One command opens the local explorer. The guides cover reports, findings, metrics, and configuration.</p></div><a class="button button-primary" href={`${props.base}docs/get-started/`}>Read the guide <ArrowRight size={16}/></a></section>
     </main>

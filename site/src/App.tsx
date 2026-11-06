@@ -38,7 +38,7 @@ function DocsPage(props: { page: (typeof pages)[number]; base: string }) {
   const docKey = `./docs/pages/${props.page.slug}.md`;
   const source = docs[docKey] ?? `# ${props.page.title}\n\nThis guide is being prepared. Start with [Get started](${props.base}docs/get-started/).`;
   const normalizedSource = source.replace(/\]\(\.\.\/([a-z0-9-]+)\/?(#[^)]+)?\)/gi, (_match, target: string, hash = '') => `](${props.base}docs/${target}/${hash})`);
-  const parsed = marked.parse(normalizedSource) as string;
+  const parsed = marked.parse(normalizedSource.replace(/^# .+\n+/, '')) as string;
   const headings: { title: string; id: string; depth: number }[] = [];
   const body = parsed.replace(/<h([23])>(.*?)<\/h\1>/g, (_full, level: string, raw: string) => {
     const title = raw.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"');
