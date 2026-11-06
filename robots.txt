@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://byronwall.github.io/srcly/sitemap.xml
