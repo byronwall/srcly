@@ -32,8 +32,9 @@ Browser
 
 | Feature | Where |
 | --- | --- |
-| Landing page, interactive treemap example, shared navigation | `site/src/App.tsx`, `site/src/Landing.tsx`, `site/src/site.css` |
-| User guides, search, table of contents | `site/src/App.tsx`, `site/src/docs/` |
+| Landing page, product screenshots, shared navigation | `site/src/Landing.tsx`, `site/src/SiteChrome.tsx`, `site/src/site.css`, `site/public/screenshots/` |
+| Product tour, design decisions, user guides, search, table of contents | `site/src/App.tsx`, `site/src/docs/` |
+| Full-size screenshot viewer and zoom controls | `site/src/ScreenshotViewer.tsx` |
 | Static HTML, page metadata, sitemap, and GitHub Pages base path | `site/src/server.tsx`, `site/scripts/prerender.mjs`, `site/vite.config.ts` |
 
 ### CLI and process lifecycle

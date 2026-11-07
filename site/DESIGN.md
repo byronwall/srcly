@@ -1,11 +1,12 @@
 # Public site
 
-The public site extends Srcly's light application palette and Draftably's demonstration-first structure.
-It serves developers who want to inspect a local codebase or generate a report for an agent.
+The public site extends Srcly's light application palette. It serves developers who want to inspect a local codebase or create a report for an agent.
 
-The landing page pairs a direct setup command with an interactive, labeled example.
-The example explains tile area, metric color, and file selection before the longer product copy.
-Guides use grouped navigation, content search, section links, and previous/next links.
+## Surface modes
+
+- Landing: Persuade. Lead with real Srcly views, then give two paths: see the product or use it.
+- Guides: Read. Group navigation by the visitor's task, keep the article easy to scan, and link search results to the matching section.
+- Screenshot viewer: Experience. Let the captured application view fill the screen. Keep zoom, reset, close, keyboard focus, and native image-link fallback.
 
 ## Tokens
 
@@ -16,5 +17,16 @@ Guides use grouped navigation, content search, section links, and previous/next 
 - Page width: 1160px; hero type: 42–68px; body: 15px.
 - Controls have visible focus outlines. Motion respects reduced-motion settings.
 
-The treemap and terminal output are illustrations. Keep that labeling visible.
-Do not imply the public site scans files or that missing measurements equal zero.
+## Product proof
+
+- Use screenshots captured from the running application. Keep captions specific to the view and the action it supports.
+- The hero uses the repository treemap. The gallery uses the treemap, code inspector, and data-flow views.
+- The site must not imply that it scans files or that missing measurements equal zero.
+- Do not invent metrics or terminal output to fill space.
+
+## Guides
+
+- Navigation groups: Discover, Use Srcly, and Automate & configure.
+- Keep the page title, short summary, and edit link in one compact heading area.
+- Search results show matching text and link to a matching section when one exists.
+- Screenshot figures can open at full size. Keep the image link usable without JavaScript.

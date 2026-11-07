@@ -22,7 +22,8 @@ for (const filename of (await readdir("src/docs/pages")).filter((name) => name.e
   const description = markdown.split(/\n\s*\n/).find((block) => !block.startsWith("#"))
     ?.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/[`*_]/g, "").replace(/\s+/g, " ").slice(0, 200);
   assert(description, `Missing page introduction: ${filename}`);
-  pages.push({ route: `docs/${filename.slice(0, -3)}/`, title: `${title} · Srcly docs`, description });
+  const slug = filename.slice(0, -3);
+  pages.push({ route: slug === "overview" ? "docs/" : `docs/${slug}/`, title: `${title} · Srcly docs`, description });
 }
 
 function html(page) {
@@ -35,7 +36,9 @@ function html(page) {
     `<meta property="og:title" content="${escape(page.title)}" />`,
     `<meta property="og:description" content="${escape(page.description)}" />`,
     `<meta property="og:url" content="${canonical}" />`,
-    `<meta name="twitter:card" content="summary" />`,
+    `<meta property="og:image" content="${origin}${base}screenshots/treemap.jpg" />`,
+    `<meta property="og:image:alt" content="Srcly inspecting its own client code in the treemap view" />`,
+    `<meta name="twitter:card" content="summary_large_image" />`,
   ].join("\n    ");
   assert.equal(template.match(/<title>.*?<\/title>/g)?.length, 1);
   assert.equal(template.match(/<!-- page-meta -->/g)?.length, 1);
@@ -49,13 +52,19 @@ function html(page) {
 for (const page of pages) {
   const directory = `dist/${page.route}`;
   await mkdir(directory, { recursive: true });
-  await writeFile(`${directory}/index.html`, html(page));
+  const content = html(page);
+  for (const match of content.matchAll(/<img[^>]+src="(\/srcly\/screenshots\/[^"?#]+)"/g)) {
+    const asset = await readFile(`dist/${match[1].slice(base.length)}`);
+    assert(asset.length > 0, `Missing screenshot in ${page.route}: ${match[1]}`);
+  }
+  await writeFile(`${directory}/index.html`, content);
 }
 
-// Keep the docs entry point readable on static hosts, including without JavaScript.
-const start = pages.find((page) => page.route === "docs/get-started/");
-assert(start, "The docs need a get-started page");
-await writeFile("dist/docs/index.html", html(start));
+// Keep the overview alias readable on static hosts, including without JavaScript.
+const overview = pages.find((page) => page.route === "docs/");
+assert(overview, "The docs need an overview page");
+await mkdir("dist/docs/overview", { recursive: true });
+await writeFile("dist/docs/overview/index.html", html(overview));
 await writeFile("dist/404.html", html({ route: "404/", title: "Page not found · Srcly", description: "Find Srcly documentation and setup guides." }).replace('<meta property="og:type"', '<meta name="robots" content="noindex" /><meta property="og:type"'));
 await writeFile("dist/.nojekyll", "");
 await writeFile("dist/robots.txt", `User-agent: *\nAllow: /\nSitemap: ${origin}${base}sitemap.xml\n`);
