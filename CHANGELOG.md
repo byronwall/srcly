@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.12.0](https://github.com/byronwall/srcly/compare/v1.11.0...v1.12.0) (2026-11-07)
+
+
+### Features
+
+* **site:** add illustrated product tour and practical guides ([#372](https://github.com/byronwall/srcly/issues/372)) ([0bfb05b](https://github.com/byronwall/srcly/commit/0bfb05bab5bc4193c84ab816eba3ff91b689e62e))
+* **site:** add public landing page and user guides ([#371](https://github.com/byronwall/srcly/issues/371)) ([c9e87be](https://github.com/byronwall/srcly/commit/c9e87be08d0e179eba1b1b6d809dc36896743e07))
+
 ## [1.11.0](https://github.com/byronwall/srcly/compare/v1.10.0...v1.11.0) (2026-11-05)
 
 
