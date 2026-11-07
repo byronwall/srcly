@@ -174,7 +174,7 @@ function slugify(text: string) { return text.toLowerCase().replace(/<[^>]*>/g, '
 function excerpt(text: string, at: number) {
   const start = Math.max(0, at - 52);
   const from = start ? text.lastIndexOf(' ', start) + 1 : 0;
-  return text.slice(from, at + 105).replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[#*`\[\]()>]/g, ' ').replace(/\s+/g, ' ').trim();
+  return text.slice(from, at + 105).replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[#*`\[\]()>|]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 function decodeEntities(text: string) { return text.replace(/&amp;/g, '&').replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"'); }
 
