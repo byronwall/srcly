@@ -4,6 +4,8 @@ Srcly is an interactive codebase treemap and metrics viewer. It combines [Lizard
 
 Project background and screenshots: [Srcly project page](https://byroni.us/projects/srcly).
 
+[Website and user guides](https://byronwall.github.io/srcly/) · [Get started](https://byronwall.github.io/srcly/docs/get-started/) · [CLI reference](https://byronwall.github.io/srcly/docs/cli/)
+
 To try it in your current folder, run:
 
 ```
