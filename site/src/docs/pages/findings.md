@@ -1,36 +1,55 @@
 # Findings and check coverage
 
-Findings bring selected checker results into Srcly's explorer, code viewer, and reports. Use them to locate code that may need attention, then inspect the source and confirm the issue. A finding is a triage signal, not a confirmed bug.
+Findings bring selected checker results into Srcly's explorer, code viewer, and reports. Use them to find code worth reviewing, then confirm the issue with its source and tool. A finding is a triage signal, not a confirmed bug.
 
-## Checks Srcly can run
+## Check coverage before reading the queue
 
-Srcly selects checks based on the code and tools it finds:
+Srcly selects checks based on the files and tools it finds. Checks run independently and have time limits. Missing tools, failures, and timeouts leave measurements unavailable with a reason. They do not count as zero findings. Read the coverage summary in the report or the checker status in the app before treating the queue as complete.
 
-- For TypeScript projects, it runs the project's TypeScript compiler when `tsc` and a TypeScript configuration are available.
-- It runs ESLint when the project has ESLint and its configuration.
-- It runs Ruff for Python. Srcly uses the project's Ruff configuration when present; otherwise it uses a small built-in set of bug-finding rules, identified as Srcly defaults.
-- For TypeScript files outside project checker coverage, Srcly has rules for selected patterns, including explicit `any`, suppression directives without a reason, and chains of non-null assertions.
-- Srcly also checks selected TypeScript patterns, including Solid-specific rules, await-in-loop patterns, and import-graph reachability.
-- Optional ast-grep YAML rules under `.srcly/rules/` can add project-specific checks when ast-grep is installed.
+| Check | When Srcly runs it | What an unavailable result means |
+| --- | --- | --- |
+| TypeScript compiler (`tsc --noEmit`) | TypeScript project configuration and compiler are available | The project configuration or compiler was not available, or the run failed or timed out. |
+| ESLint | The project has ESLint and its configuration | ESLint was not detected, or its run failed or timed out. |
+| Ruff | Python files are present; Srcly ships Ruff | The run failed or timed out. Srcly uses project Ruff settings when present, otherwise labeled Srcly defaults. |
+| Srcly TypeScript rules | TS files are outside project checker coverage | A selected built-in pattern matched, or that rule set did not cover the file. |
+| Reachability and Solid rules | Supported TypeScript graph and patterns are available | Entry-point detection or language coverage may not match the project. Configure entries when needed. |
+| ast-grep rules | `.srcly/rules/` files exist and ast-grep is available | The optional binary or rule run is unavailable. |
 
-Checks run independently and have time limits. If a required tool is missing, fails, or times out, Srcly reports that status and reason. It does not turn a missing check into a clean result or a count of zero. Check the tool coverage line in the report before using findings as a complete review.
+The exact checks vary by project. Srcly runs `tsc` per detected TypeScript project, expands solution configurations, runs ESLint when configured, and runs Ruff for Python. Its built-in TS checks include selected patterns such as explicit `any`, suppression directives without a reason, and non-null assertion chains when project tools do not cover those files. It also reports selected reachability, Solid, and await-in-loop signals. Optional ast-grep YAML rules can add project-specific checks. See [Configuration](../configuration/) for setup.
 
-## Understand the findings queue
+## Read a finding
 
-The report queue ranks code files using a selected profile. Profiles include `general`, `frontend`, `backend`, `typescript`, `python`, and `docs`. They weight available risk-related metrics to help choose a review order. You can also rank files and functions by one metric with `hotspots`.
+When you open a finding, check these fields:
 
-Some paths are classified as tests, documentation, styles, fixtures, generated files, vendored code, configuration, or data. The report explains which classes it left out and why. Use `--include-class` when you want one of those classes ranked too.
+| Field | Review question |
+| --- | --- |
+| Tool and rule | Which checker produced this result, and what pattern does the rule detect? |
+| Location | Where should you inspect the source? |
+| Message and evidence | What specific code caused the result? |
+| Coverage | Which files did this checker analyze, and which did it leave unavailable? |
+| Profile or rank | Why did this file appear in the queue, and which metric drove its position? |
 
-When you open a finding, review its location, checker, rule, message, and evidence. Different checkers can have different assumptions and coverage. A finding score does not replace the checker's own output or your review.
+The report's findings queue uses a profile such as `general`, `frontend`, `backend`, `typescript`, `python`, or `docs`. A profile weights available risk-related metrics to suggest a review order. It does not replace the checker's diagnostic. Hot Spots ranks one selected metric. A queue score and a checker message are different kinds of evidence.
 
-## Improve coverage
+## Files outside the default queue
 
-Install and configure the checkers your project uses, then rerun with `--refresh` to bypass cached results:
+The report classifies files as code, tests, docs, styles, fixtures, generated, vendored, config, or data based on their paths. It explains which classes were left out and why. This keeps a README, fixture, or generated file from becoming a refactor target by accident, while preserving the count and reason. Use `--include-class` when you intentionally want to rank one class.
+
+Example: in the included `solid-route` project at revision `653037aa`, the `frontend` profile reported five ranked findings. Its first row pointed to `src/data/records.ts::isRecordItem` with complexity 8 and 24 LOC. That is an example of a review starting point, not a claim that the function contains a defect. Inspect the named source and tests before deciding what to do.
+
+## Improve coverage when the answer matters
+
+If a result is unavailable, use the stated reason to decide whether to install or configure the relevant checker. For TypeScript reachability, Srcly detects common entries from routes, package metadata, scripts, and configuration. If the app has an entry pattern Srcly does not detect, add it to `srcly.toml`:
+
+```toml
+[reachability]
+entries = ["app/scripts/**/*.ts"]
+```
+
+Then rescan so the result reflects the new setup:
 
 ```bash
 uvx srcly report . --refresh --out .srcly
 ```
 
-For reachability findings, Srcly detects common entries from routes, package metadata, scripts, and configuration. If your TypeScript entry points are not detected, add them under `[reachability] entries` in `srcly.toml`; see [Configuration](../configuration/).
-
-See [Metrics](../metrics/) for N/A values and [Reports](../reports/) for checker coverage artifacts.
+For a particular report run, check `Analysis:`. It names the scan state, Git HEAD, uncommitted files, checkers and their coverage, code files no checker covers, and files that failed analysis. If you need source-level review, use [Reports](../reports/) to find the relevant artifact, then [Metrics](../metrics/) for N/A and aggregation rules.
