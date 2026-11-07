@@ -40,6 +40,8 @@ Verify three real families, two intentional duplicates, and stale/overlapping-re
 
 ## Milestone 3: Typed diagnostics supply concrete rule evidence
 
+Reuse the [custom results initiative](../custom-metrics-and-repo-config/implementation-plan.md), milestones 1, 2, and 4, for the import contract and adapter. This milestone owns the typed-rule usefulness proof. It does not create another ingestion path. Its format choice follows a real artifact; the shared plan defaults to SARIF.
+
 Import one existing project report, initially typed ESLint JSON if suitable. Preserve tool/rule/config identity, location, suppression and source match. Compare explicit-any tokens with unsafe assignments that token counting misses. Distinguish negative type tests and duplicate reports.
 
 Prefer the existing project's diagnostics over a new type checker. Inspect actual rule output before declaring support. Defer baseline persistence and cross-tool semantic deduplication; collapse exact duplicates only. Reject default visibility when source matching fails or style noise overwhelms useful findings.

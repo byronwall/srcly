@@ -33,6 +33,8 @@ Complementary evidence
 
 ## Decisions and boundaries
 
+**Shared ownership:** Use the [custom results initiative](../custom-metrics-and-repo-config/implementation-plan.md) for diagnostics imports and source association. Do not build a second importer here. Graph, clone, and coverage proofs remain independent. Current native checks already run during scans; these imported workflows add no automatic execution.
+
 **Appetite:** One independently rejectable workflow at a time, using existing local inputs.
 
 **Key decision:** Import artifacts before building engines. The first graph proof extends the existing dependency-view contract and keeps its ≤50-box focus and routing rules.
