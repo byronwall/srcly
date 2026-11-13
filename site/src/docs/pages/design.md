@@ -36,7 +36,7 @@ This prevents missing analysis from looking like improvement. Rankings can use d
 
 The TypeScript and TSX dependency graph shows imports. Data flow traces modeled values, function effects, or supported routes. An import edge does not prove value movement; a data-flow edge is not a general runtime trace. The [integration brief](https://github.com/byronwall/srcly/blob/main/docs/intent/tsx-dataflow-integration/intent-brief.md) and [logic visibility brief](https://github.com/byronwall/srcly/blob/main/docs/intent/dataflow-logic-visibility/intent-brief.md) explain the boundary.
 
-Symbols mode shows which functions, classes, fields, or types reference a symbol. Edges carry a resolution label: exact, typed, or name-based. This gives more detail than imports without claiming value flow. See the [symbol graph brief](https://github.com/byronwall/srcly/blob/main/docs/intent/symbol-graph/intent-brief.md).
+Symbols mode shows which functions, classes, fields, or types reference a symbol. Edges carry a resolution label: exact, typed, or name-based. This gives more detail than imports without claiming value flow. See the [symbol graph brief](https://github.com/byronwall/srcly/blob/0bfb05ba/docs/intent/symbol-graph/intent-brief.md).
 
 Data flow is optional. It runs through a bundled engine that requires Node.js 18 or newer. The engine's results carry outcomes and provenance, including partial, assumed, stale, and unavailable states. The rest of the scan does not depend on that engine. This keeps the base map usable when the optional analysis cannot run. Read [Data-flow analysis](../data-flow/) before relying on a trace.
 
