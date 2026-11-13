@@ -138,5 +138,19 @@
     "follow_ups": [
       "The pilot README lists its own follow-ups, including a second reviewer and a non-author repository."
     ]
+  },
+  {
+    "title": "Local activity as review context",
+    "slug": "git-activity",
+    "outcome": "completed",
+    "retired_at": "2026-11-12",
+    "summary": "Git activity shipped inside the metric system overhaul as commit_count and churn_lines over a chosen window, with N/A reasons when history can't be trusted, and the pilot showed it changes review priority. Reconciled against origin/main 0bfb05ba.",
+    "reason": "Replaced by the metric system overhaul: #76 shipped Git activity and #79 evaluated it.",
+    "documentation": [
+      "docs/adding-a-metric.md",
+      "docs/research/metrics-2026-10-15/README.md"
+    ],
+    "revision": "0bfb05ba",
+    "follow_ups": []
   }
 ]
