@@ -184,3 +184,11 @@ M8 bundles the engine into the wheel. Until then, a released wheel shows data fl
 - Links from import-graph files to the routes they feed.
 - Python effects, runtime traces, incremental invalidation, and saved evidence artifacts.
 - Narrow layouts beyond keeping the source, Return, and status visible.
+
+## Preserved Pro result materials
+
+[Original Pro reports and artifacts for #103](assets/pro-results/effects-async-test-seams-2026-10-23/ASSET_INDEX.md)
+
+All extracted result materials are preserved without ZIP containers. Original bytes and attribution are unchanged.
+
+[Original Pro reports and artifacts for #102](assets/pro-results/value-investigation-2026-10-23/ASSET_INDEX.md)
