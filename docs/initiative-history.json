@@ -56,5 +56,18 @@
     ],
     "revision": "0bfb05ba",
     "follow_ups": []
+  },
+  {
+    "title": "Multi-scale dependency view",
+    "slug": "dependency-view",
+    "outcome": "completed",
+    "retired_at": "2026-11-12",
+    "summary": "A multi-scale dependency view replaced the legacy graph: one language-neutral folder → file → symbol contract for TypeScript and Python, client-side roll-up, a custom grid and channel layout, and symbol-level focus. Reconciled against origin/main 0bfb05ba.",
+    "reason": "All five milestones were marked completed and their PRs merged on 2026-10-15 (#14, #16, #18, #21, #26).",
+    "documentation": [
+      "docs/CODE_MAP.md"
+    ],
+    "revision": "0bfb05ba",
+    "follow_ups": []
   }
 ]

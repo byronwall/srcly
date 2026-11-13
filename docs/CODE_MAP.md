@@ -345,6 +345,15 @@ Plan: `docs/intent/symbol-graph/`. Backlog area `area-symbol-graph` in `pgm/data
 | Folder contents on graph boxes (children by LOC as a colored strip; "Largest inside" in the hover card) | `viz/deps/metrics.ts` (`viewContents`, `stripSegments`); `ContentsStrip` and `NodeCard` in `viz/deps/DependencyCanvas.tsx` |
 | Local dependency-graph fixtures for layout tests (gitignored `__fixtures__/local/`) | `scripts/capture-dep-graph.sh` |
 
+Dependency view design:
+
+- The server emits one language-neutral graph at the finest level it can resolve: a folder → file → symbol hierarchy plus edges flagged type-only, test, external or barrel. TypeScript and Python differ only in how they fill this contract.
+- The client does all roll-up and budgeting (about 30–50 labeled boxes). A drill stays local and makes no request. The server caches the graph with the analysis.
+- Groups come from folders and module boundaries, never from auto-clustering. Focus sits in the center, dependents to the left and dependencies to the right. Extra columns come from layering inside a side, still one hop out.
+- External packages, tests and type-only imports are hidden by default. Barrels and `__init__` re-exports pass through to the defining module. External packages roll up by package, not by import string.
+- Layout is our own grid and channel router in three pure stages: view model, grid layout, render. ELK was tried and dropped, because its packing and bundling could not be steered. Boxes never move after layout, because moving them is what made edges cross boxes.
+- Edge thickness or a count shows aggregation, not color.
+
 Graph legibility rules (keep these when you change the layout or canvas):
 
 - Speed comes first. No legibility change may slow loading, focus or drill.
