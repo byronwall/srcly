@@ -1,5 +1,13 @@
 # Agent reporting plan
 
+Status on 2026-11-12, checked against origin/main `0bfb05ba`:
+
+- Step 1 shipped in #338.
+- Step 2 shipped in #339 and #343. The fingerprinted cache was enough, so no snapshot artifact was built.
+- Step 3 shipped in #339, #341, #345 and #347.
+- Step 4 is partial. #345 and #347 add test leads and branch shape. Import, history and data-flow evidence per scope are not built.
+- Step 5 is open. `skills/srcly-code-quality/SKILL.md` and the README document `explain --at`, but the frozen-repo evaluation is not recorded.
+
 Build a concise, evidence-first CLI for repository, folder, file and symbol investigation. Fix misleading results first. Then prove that saved analysis and scoped queries improve a real agent audit before committing to a larger contract. The [research summary](../../research/agent-reporting-2026-10/README.md) records the decision and review. The [original Pro materials](assets/pro-results/2026-10-31/INDEX.md) include detailed examples and a 100-case craft ledger.
 
 ## 1. Repair the current commands

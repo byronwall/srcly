@@ -1,6 +1,6 @@
 # JavaScript, React, and SolidJS data-flow correctness
 
-Status: researched; implementation has not started. Reviewed on 2026-11-01 at `e07cc510087b5c028273cad785b97ee36c6c3b35`.
+Status on 2026-11-12: Stages 1–4 shipped in #316–#337, and `docs/dataflow-coverage.md` records their rules. One Stage 4 gap is open: graph and ledger still differ on 9 of 137 anchors (pgm `task-ledger-and-graph-agree-on-every-shared-expression`). Stages 5 and 6 have not started. Reviewed on 2026-11-01 at `e07cc510087b5c028273cad785b97ee36c6c3b35`.
 
 Start with the [research summary](../../research/dataflow-js-react-solid-2026-11-01/README.md), then the [implementation plan](implementation-plan.md). The [review ledger](review.md) records accepted findings, limits, and recommendation dispositions. Preserve the [seven original Pro assets](assets/pro-results/2026-11-01/README.md) as research evidence.
 
