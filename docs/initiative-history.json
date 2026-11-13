@@ -184,5 +184,21 @@
       "Not built: a model passed to a serializer (model_validate, jsonable_encoder) as a use of its class. Nothing tracks it.",
       "Not built for Python: following values across methods through instance state (self.x = ...). Partly tracked as pgm task-writers-of-a-model-field."
     ]
+  },
+  {
+    "title": "Show the logic, not only the components, in TS/TSX data flow",
+    "slug": "dataflow-logic-visibility",
+    "outcome": "completed",
+    "retired_at": "2026-11-12",
+    "summary": "Anchor traces in TS/TSX data flow now draw one box per symbol, name what happens along each edge, color symbols by kind, give frames a role, open on the main path and grow by depth, and link functions to what they call, read and write. Reconciled against origin/main 0bfb05ba.",
+    "reason": "All five milestones merged on 2026-10-29 (#268, #272, #274, #278, #279).",
+    "documentation": [
+      "docs/dataflow-coverage.md"
+    ],
+    "revision": "0bfb05ba",
+    "follow_ups": [
+      "Run audit round 3 on visual-notes against the symbol view. Nothing tracks it.",
+      "Below the cut line and not built: a types overlay, the symbol view in the Components lens, Python frame roles. Hub summaries are tracked as pgm task-hub-summaries-for-size-limited-slices."
+    ]
   }
 ]
