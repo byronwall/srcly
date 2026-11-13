@@ -1,0 +1,17 @@
+[
+  {
+    "title": "Dependency graph legibility",
+    "slug": "dependency-graph-legibility",
+    "outcome": "completed",
+    "retired_at": "2026-11-12",
+    "summary": "The dependency graph now packs mid-level views to the viewport, draws two-line boxes with distinct, size-aware folders, groups neighbors by package then file, takes color and LOC from the treemap, and spreads edge bundles. Reconciled against origin/main 0bfb05ba.",
+    "reason": "All five milestones merged on 2026-10-15 (#50, #56, #58, #60, #61).",
+    "documentation": [
+      "docs/CODE_MAP.md"
+    ],
+    "revision": "0bfb05ba",
+    "follow_ups": [
+      "Peripheral ideas C13-C15 (peek in context, surface a folder's most-used items, quieter dashed edges) were not planned milestones. Later work covers part of them: expand in place (#84, #91) and hub badges (#64)."
+    ]
+  }
+]
