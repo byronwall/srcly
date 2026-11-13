@@ -69,5 +69,20 @@
     ],
     "revision": "0bfb05ba",
     "follow_ups": []
+  },
+  {
+    "title": "PR compare mode",
+    "slug": "pr-compare",
+    "outcome": "completed",
+    "retired_at": "2026-11-12",
+    "summary": "srcly compare and a compare mode UI landed: a CLI with commit snapshots and metric deltas, a changed-files table, side-by-side treemaps and before/after dependency graphs on shared union layouts. Reconciled against origin/main 0bfb05ba.",
+    "reason": "All four milestones were marked completed and their PRs merged on 2026-10-15 (#38, #39, #40, #41).",
+    "documentation": [
+      "docs/CODE_MAP.md"
+    ],
+    "revision": "0bfb05ba",
+    "follow_ups": [
+      "Longer-horizon ideas in claim C8 (change islands, PR splittability, ripple frontier) were never planned and are not tracked."
+    ]
   }
 ]
