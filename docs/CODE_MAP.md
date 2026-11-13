@@ -245,6 +245,15 @@ Ref picker rules:
 | Scan state that outlives the view (data, progress, cancel, superseded-request guard) | `client/src/state/scanStore.ts` |
 | Compare ⇄ normal without remount (normal view stays mounted, hidden) | `client/src/App.tsx` (`App`) |
 
+Navigation rules:
+
+- The URL is the source of truth. Treemap zoom and graph focus are one location (`at`), so a drill in either view moves both. The view switch changes only the projection.
+- Every move is a real `pushState` entry. Browser Back restores the previous place with no new scan and never drops the analyzed repo.
+- Refresh restores the repo, location and view from the URL. Local paths in the URL are fine, because srcly runs on localhost.
+- The graph is fetched once for the repo root, so dependents outside the current folder are never missing. Focus selects inside that graph, and a drill does not refetch.
+- `popstate` and the compare switch never remount the app. The scan lives in a store that outlives the view.
+- Compare keeps its own `?compare=` parameter, outside the location model. The Explorer tree follows the location but keeps its own expand state.
+
 ### Client: Treemap
 
 | Feature | Where |
