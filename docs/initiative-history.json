@@ -28,5 +28,20 @@
     "follow_ups": [
       "Evaluate dependency compare on a real PR (claim C7). Nothing tracks it."
     ]
+  },
+  {
+    "title": "Unified navigation",
+    "slug": "unified-navigation",
+    "outcome": "completed",
+    "retired_at": "2026-11-12",
+    "summary": "Treemap zoom and graph focus are now one URL location with real Back, refresh and compare keep the repo, a History dropdown lists recent places, and one view switch plus visible node actions replace the old controls. Reconciled against origin/main 0bfb05ba.",
+    "reason": "All three milestones merged on 2026-10-15 (#45, #49, #55).",
+    "documentation": [
+      "docs/CODE_MAP.md"
+    ],
+    "revision": "0bfb05ba",
+    "follow_ups": [
+      "Peripheral idea C8 (animated canvas transition between treemap and graph) was never planned and is not tracked."
+    ]
   }
 ]
