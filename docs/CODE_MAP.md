@@ -308,7 +308,14 @@ Graph-to-code rule: there is one `CodeModal`. Opening from the graph resolves th
 
 ### Symbol graph (server)
 
-Plan: `docs/intent/symbol-graph/`. Backlog area `area-symbol-graph` in `pgm/data`.
+Design rules:
+
+- Matching is name-based first, and every edge says how sure it is: `resolution` is `exact`, `typed` or `name`. The client draws `name` edges as partial proof. The intended upgrade is to re-resolve a neighbourhood with the data-flow engine's checker.
+- The server holds the index. The client asks only for a neighbourhood (up to 4 hops). Past 400 symbols the answer says `truncated`, and the client offers filters.
+- Symbol ids are `file#Qualified.name`. A top-level symbol's id equals the import graph's id, so `at`, Open code and Trace work on it. Members add `.member`.
+- Symbols is a third mode of the graph view. It reuses the dependency canvas, layout, palette, node menus and rail through an adapter. Nothing new is drawn by hand.
+
+Open work: backlog area `area-symbol-graph` in `pgm/data`.
 
 | Feature | Where |
 | --- | --- |
