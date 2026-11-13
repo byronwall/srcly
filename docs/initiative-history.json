@@ -167,5 +167,22 @@
     "follow_ups": [
       "Re-resolve name and typed edges with the data-flow engine's checker. The backlog area area-symbol-graph in pgm/data holds any open work."
     ]
+  },
+  {
+    "title": "Python data flow in the engine",
+    "slug": "python-dataflow",
+    "outcome": "completed",
+    "retired_at": "2026-11-12",
+    "summary": "Data flow works on Python roots: an ast + mypy evidence provider, a per-language session that names python-checker-not-found, and anchor flow from FastAPI routes. This folder held only decision.md and had no initiative map; a minimal one was written only to run the retirement check. Reconciled against origin/main 0bfb05ba.",
+    "reason": "All three planned slices merged on 2026-10-25 (#119, #120, #122), with many follow-on Python fixes after.",
+    "documentation": [
+      "docs/dataflow-coverage.md",
+      "AGENTS.md"
+    ],
+    "revision": "0bfb05ba",
+    "follow_ups": [
+      "Not built: a model passed to a serializer (model_validate, jsonable_encoder) as a use of its class. Nothing tracks it.",
+      "Not built for Python: following values across methods through instance state (self.x = ...). Partly tracked as pgm task-writers-of-a-model-field."
+    ]
   }
 ]
