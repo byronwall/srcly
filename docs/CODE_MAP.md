@@ -267,6 +267,10 @@ Navigation rules:
 | Scope `(body)` nodes with shared unchanged branches, path lookup | `client/src/viz/treemap/utils/tree.ts`, `viz/treemap/utils/path.ts` |
 | Label text fitting | `client/src/utils/svgText.ts` |
 
+Treemap rules: labels are dark monospace. Every `TREEMAP_RAMP` stop keeps label contrast at 4.5:1 or more (`colors.test.ts`). Compare mode uses the same ramp, so check a ramp change in compare too, and do not fork it.
+
+Graph-to-code rule: there is one `CodeModal`. Opening from the graph resolves the file and scope on the client, through the treemap tree (`absPath` equals the tree's `path`). The scope's end line comes from the treemap, so the graph contract needs no extra field.
+
 ### Client: 2x2 view
 
 | Feature | Where |
