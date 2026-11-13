@@ -324,6 +324,18 @@ Plan: `docs/intent/symbol-graph/`. Backlog area `area-symbol-graph` in `pgm/data
 | Folder contents on graph boxes (children by LOC as a colored strip; "Largest inside" in the hover card) | `viz/deps/metrics.ts` (`viewContents`, `stripSegments`); `ContentsStrip` and `NodeCard` in `viz/deps/DependencyCanvas.tsx` |
 | Local dependency-graph fixtures for layout tests (gitignored `__fixtures__/local/`) | `scripts/capture-dep-graph.sh` |
 
+Graph legibility rules (keep these when you change the layout or canvas):
+
+- Speed comes first. No legibility change may slow loading, focus or drill.
+- Every box is one uniform grid cell. A box never spans rows, because the router needs free gutters from end to end. A folder shows its size with a bar and summary lines inside its cell.
+- `rankPackings` packs a mid-level view to the viewport's shape (aspect within 0.5–2×), not into a long strip.
+- Neighbors group by package or folder, then by owning file, from the hierarchy, not from clustering. Each group is contiguous in its column with a labeled frame. Ordering runs per group first, then inside the group.
+- A file that exports one used symbol draws as that symbol, with the file name as quiet context.
+- Color and LOC join on the client by `absPath` against the treemap tree (`metrics.ts`). The graph payload carries no metrics. A metric switch re-tints without relayout. A box with no treemap match gets a neutral fill and no LOC.
+- Edge bundles spread by edge count (`bundleOffsets` in `layout.ts`), capped so a large trunk stays one trunk.
+- Compare mode shares `layoutViewSync`, so its tests must stay green after a layout change.
+- Commit no private repository's graph JSON. Use srcly's own fixture, small synthetic graphs, or the gitignored local fixtures.
+
 ### Client: UI primitives
 
 | Primitive | Where |
