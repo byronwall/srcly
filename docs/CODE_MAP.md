@@ -181,6 +181,14 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist is `
 | Before/after dependency graphs on one union layout (changed files center, importers left, imports right; added/removed edges; ghosts for absent files; "used by N" hubs; linked pan/zoom; expand) | `client/src/compare/CompareGraph.tsx`, model in `client/src/compare/graphModel.ts` (feeds `viz/deps/layout.ts:layoutViewSync`) |
 | Shared bits (status icon, diffstat, health, magnitude and split bars), labels/formatting/health | `client/src/compare/bits.tsx`, `client/src/compare/metrics.ts` |
 
+Ref picker rules:
+
+- A PR's base is the merge-base of its own `baseRefName` and its head, as GitHub diffs it. PRs are often stacked, so the default branch is the wrong base.
+- `gh` is a seam with a timeout and a stated failure reason. Without `gh` or a network, the picker still lists worktrees and branches, and free-text refs still work.
+- The picker hides prunable worktrees. A worktree head is scanned in place. Compare never changes any worktree's state.
+- A commit's result is cached by SHA. The stepper pre-warms the next commit, so stepping through a PR does not repeat cold scans.
+- Phase timings show where a slow first run spends its time.
+
 ### Client: app shell and first run
 
 | Feature | Where |

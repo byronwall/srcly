@@ -13,5 +13,20 @@
     "follow_ups": [
       "Peripheral ideas C13-C15 (peek in context, surface a folder's most-used items, quieter dashed edges) were not planned milestones. Later work covers part of them: expand in place (#84, #91) and hub badges (#64)."
     ]
+  },
+  {
+    "title": "Compare ref picker: PRs, worktrees, commits",
+    "slug": "compare-ref-picker",
+    "outcome": "completed",
+    "retired_at": "2026-11-12",
+    "summary": "Compare now resolves pr:<n> refs through a gh seam with phase timings, offers a picker over PRs, worktrees and branches, compares another worktree on disk as the head, and steps through a PR commit by commit. Reconciled against origin/main 0bfb05ba.",
+    "reason": "All four milestones merged on 2026-10-15 (#47, #52, #54, #59).",
+    "documentation": [
+      "docs/CODE_MAP.md"
+    ],
+    "revision": "0bfb05ba",
+    "follow_ups": [
+      "Evaluate dependency compare on a real PR (claim C7). Nothing tracks it."
+    ]
   }
 ]
