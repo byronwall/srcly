@@ -4,11 +4,11 @@
     "title": "Bring tsx-data-flow into srcly",
     "slug": "tsx-dataflow-integration",
     "scale": "program",
-    "current_phase": "plan",
-    "last_updated": "2026-10-23",
+    "current_phase": "execution",
+    "last_updated": "2026-11-12",
     "summary": "One engine (tsx-data-flow analysis moved into engine/, one lazy Node child) feeds three srcly surfaces: route -> terminal graph in the dependency viewer (headline), value-path ledger from graph destinations or code-viewer expressions (PR #102), and a function-effects panel (PR #103); findings/metrics/markers/reports follow. detailed-plan.md adds the file-level design, contracts, two-tier engine session, view-state registry and the corrections a code review of both repositories forced.",
-    "status": "planned",
-    "next_action": "User approval to start M1 (three PRs). D1-D8 defaults accepted 2026-10-23; PR #101 stays docs only."
+    "status": "active",
+    "next_action": "Only M7 remains: data-flow evidence in srcly pipelines (fileSignals, findings tool, catalog metrics, markers, work packets, skill). Nothing on main yet. Reconciled 2026-11-12 against origin/main 0bfb05ba."
   },
   "artifacts": {
     "intent_brief": {
@@ -563,8 +563,10 @@
         "proof": "pnpm --filter engine test; uv run pytest tests/test_dataflow_engine.py (fake engine lifecycle + real smoke)",
         "valid_intermediate_state": "No UI; base scan unchanged; status names N/A reasons.",
         "rollback": "Remove engine/ and routers/dataflow.py.",
-        "status": "planned",
-        "evidence": [],
+        "status": "completed",
+        "evidence": [
+          "#104, #105, #106 merged; engine/bin/srcly-engine.ts, server/app/services/dataflow/engine.py."
+        ],
         "track": "foundation"
       },
       {
@@ -575,8 +577,10 @@
         "proof": "engine contract tests on solid-route; client adapter vitest; screenshots of solid-route and /time-blocks; layout spike decision.",
         "valid_intermediate_state": "Mode hidden when engine N/A.",
         "rollback": "Revert mode switch + routeGraph op.",
-        "status": "planned",
-        "evidence": [],
+        "status": "completed",
+        "evidence": [
+          "#107, #110, #111, #112, #130 merged; engine/src/srcly/ops/route-graph.ts, client/src/viz/deps/flow/."
+        ],
         "track": "A"
       },
       {
@@ -587,8 +591,10 @@
         "proof": "engine fixtures + HotSpotItem anchor contract tests; client investigation tests; browser journey 1440/1024 with Back/Forward/Return.",
         "valid_intermediate_state": "Entry hidden when engine N/A.",
         "rollback": "Revert investigation/ + valueFlow op.",
-        "status": "planned",
-        "evidence": [],
+        "status": "completed",
+        "evidence": [
+          "#108, #109, #114, #115, #116, #117 merged."
+        ],
         "track": "B"
       },
       {
@@ -599,8 +605,10 @@
         "proof": "routePath contract test on /time-blocks; browser journey.",
         "valid_intermediate_state": "Graph still works without ledger link.",
         "rollback": "Revert routePath op and link.",
-        "status": "planned",
-        "evidence": [],
+        "status": "completed",
+        "evidence": [
+          "#136 merged; GET /api/dataflow/route-path."
+        ],
         "track": "A+B"
       },
       {
@@ -611,8 +619,10 @@
         "proof": "precision fixtures (two-call identity helper, returns-other-arg) + anchor tests.",
         "valid_intermediate_state": "M3 ledger unaffected for local paths.",
         "rollback": "Revert pairing; paths fall back to frontier rows.",
-        "status": "planned",
-        "evidence": [],
+        "status": "completed",
+        "evidence": [
+          "#132 merged."
+        ],
         "track": "B"
       },
       {
@@ -623,8 +633,10 @@
         "proof": "compact semantic fixture + three anchor contract tests; panel scenario test.",
         "valid_intermediate_state": "Panel shows unavailable without engine.",
         "rollback": "Revert EffectsPanel + functionEffects op.",
-        "status": "planned",
-        "evidence": [],
+        "status": "completed",
+        "evidence": [
+          "#134, #135 merged; POST /api/dataflow/function-effects."
+        ],
         "track": "C"
       },
       {
@@ -649,8 +661,10 @@
         "proof": "build-srcly.sh then clean-venv smoke on examples/solid-route; wheel size recorded.",
         "valid_intermediate_state": "Pre-M8 wheels show N/A.",
         "rollback": "Drop bundle step.",
-        "status": "planned",
-        "evidence": [],
+        "status": "completed",
+        "evidence": [
+          "#149 merged; engine/scripts/bundle.mjs."
+        ],
         "track": "release"
       }
     ],
@@ -812,6 +826,10 @@
       "date": "2026-10-23",
       "event": "User accepted the D1-D8 defaults; PR #101 remains docs only, M1 awaits separate approval.",
       "phase": "plan"
+    },
+    {
+      "date": "2026-11-12",
+      "change": "Set true milestone statuses from merged PRs: M1-M6 and M8 completed; M7 still planned."
     }
   ],
   "closure": null

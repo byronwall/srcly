@@ -3,10 +3,12 @@ title: "Data-flow library models as data — plan"
 slug: "dataflow-library-models"
 phase: plan
 status: in-progress
-last_updated: "2026-10-26"
+last_updated: "2026-11-12"
 ---
 
 # Library models as data
+
+Status on 2026-11-12: steps 1–3 shipped (#206, #212, #211). Steps 4–7 shipped in part, and their remaining work is open in the pgm area "Data flow: library models as data". Step 8 (user rows) has not started.
 
 **2026-11-01 follow-up:** the [JavaScript, React, and SolidJS research](../../research/dataflow-js-react-solid-2026-11-01/README.md) reviews incorrect summaries as well as missing models. Its [reviewed plan](../dataflow-js-react-solid/implementation-plan.md) extends this loader with finite callback/result roles. The original research assets are preserved; no new model behavior is implemented by that documentation.
 

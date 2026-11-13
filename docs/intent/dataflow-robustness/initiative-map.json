@@ -4,11 +4,11 @@
     "title": "Data flow robustness",
     "slug": "dataflow-robustness",
     "scale": "program",
-    "current_phase": "plan",
-    "last_updated": "2026-10-24",
+    "current_phase": "execution",
+    "last_updated": "2026-11-12",
     "summary": "Make srcly's Data flow mode dependable after the #104-#117 stack: never wrong (per-box status, no proof-less proven edges, dead ends named), never broken (fake-engine outcome shapes, Playwright smoke, stale end to end), then fast (<=10 s cold on visual-notes). Then carry M6, M4, M8, M7, call identity (M5 edits 1-2), Return, anchor extensions and two visual fixes. Graph is primary; ledger is detail.",
-    "status": "planned",
-    "next_action": "Maintainer approval, then T1 (per-box status in routeGraph) as a PR stacked on the docs PR."
+    "status": "active",
+    "next_action": "Remaining: T4 field lineage, T24 data-flow evidence in metrics and findings, T25 fork-ledger close-out, T26 registry stress test. Reconciled 2026-11-12 against origin/main 0bfb05ba."
   },
   "artifacts": {
     "intent_brief": {
@@ -361,7 +361,7 @@
       {
         "id": "E1",
         "title": "Never wrong",
-        "status": "planned",
+        "status": "active",
         "tickets": [
           "T1",
           "T2",
@@ -374,12 +374,14 @@
         "valid_intermediate_state": "Projection-only changes; analysis untouched until T4.",
         "rollback": "Revert each ticket PR; contracts re-emitted.",
         "dependencies_introduced": [],
-        "evidence": []
+        "evidence": [
+          "T1 #121, T2 #123, T3 #124 merged. T4 (field lineage from non-filesystem origins) not built: engine/test/srcly/route-graph-source.test.ts still expects lineage unavailable."
+        ]
       },
       {
         "id": "E2",
         "title": "Never broken",
-        "status": "planned",
+        "status": "completed",
         "tickets": [
           "T5",
           "T6",
@@ -393,12 +395,14 @@
         "valid_intermediate_state": "Tests only plus fake engine changes; product unchanged.",
         "rollback": "Revert the test PRs.",
         "dependencies_introduced": [],
-        "evidence": []
+        "evidence": [
+          "T5 #125, T6 #126, T7 #127 merged."
+        ]
       },
       {
         "id": "E3",
         "title": "Fast",
-        "status": "planned",
+        "status": "completed",
         "tickets": [
           "T8",
           "T9",
@@ -416,12 +420,14 @@
         "dependencies_introduced": [
           "node-engine"
         ],
-        "evidence": []
+        "evidence": [
+          "T8 #128, T9 #130, T10 #129, T11 #131 merged; T12 scoped Program measured and kept off (#133)."
+        ]
       },
       {
         "id": "E4",
         "title": "Call identity",
-        "status": "planned",
+        "status": "completed",
         "tickets": [
           "T13"
         ],
@@ -433,12 +439,14 @@
         "valid_intermediate_state": "Older facts without callId keep the one-call-site rule.",
         "rollback": "Revert the two analysis edits; UPSTREAM.md row removed.",
         "dependencies_introduced": [],
-        "evidence": []
+        "evidence": [
+          "T13 #132 merged."
+        ]
       },
       {
         "id": "E5",
         "title": "Effects (M6)",
-        "status": "planned",
+        "status": "completed",
         "tickets": [
           "T14",
           "T15"
@@ -451,12 +459,14 @@
         "valid_intermediate_state": "Op available before UI.",
         "rollback": "Revert op and panel.",
         "dependencies_introduced": [],
-        "evidence": []
+        "evidence": [
+          "T14 #134, T15 #135 merged."
+        ]
       },
       {
         "id": "E6",
         "title": "Graph surface",
-        "status": "planned",
+        "status": "completed",
         "tickets": [
           "T16",
           "T17",
@@ -474,12 +484,14 @@
         "valid_intermediate_state": "Each ticket independent behind its own entry point.",
         "rollback": "Revert per ticket.",
         "dependencies_introduced": [],
-        "evidence": []
+        "evidence": [
+          "T16 #136, T17 #137, T18 #138, T19 #139, T20 #142, T21 #140, T22 #141 merged."
+        ]
       },
       {
         "id": "E7",
         "title": "Ship",
-        "status": "planned",
+        "status": "active",
         "tickets": [
           "T23",
           "T24"
@@ -492,12 +504,14 @@
         "valid_intermediate_state": "Released wheel shows N/A until M8 lands.",
         "rollback": "Revert build change; metrics N/A.",
         "dependencies_introduced": [],
-        "evidence": []
+        "evidence": [
+          "T23 wheel bundling #149 merged. T24 (metrics, findings, packets; same as tsx-dataflow-integration M7) not built."
+        ]
       },
       {
         "id": "E8",
         "title": "Engine hygiene",
-        "status": "planned",
+        "status": "active",
         "tickets": [
           "T25",
           "T26"
@@ -508,7 +522,9 @@
         "valid_intermediate_state": "Docs and tests only.",
         "rollback": "Revert.",
         "dependencies_introduced": [],
-        "evidence": []
+        "evidence": [
+          "engine/UPSTREAM.md exists; T25 close-out waits on T4. T26 registry stress test not built."
+        ]
       }
     ],
     "cut_line": [
@@ -535,6 +551,10 @@
       "event": "created",
       "phase": "plan",
       "note": "Intent, shape, research, decision log, plan (T1-T3 ready), backlog after three question rounds."
+    },
+    {
+      "date": "2026-11-12",
+      "change": "Set true milestone statuses from merged PRs: E2-E6 completed; E1, E7, E8 active with open tickets T4, T24, T25, T26."
     }
   ],
   "closure": null

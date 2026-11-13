@@ -4,11 +4,11 @@
     "title": "Complementary evidence without another analyzer platform",
     "slug": "imported-quality-evidence",
     "scale": "capability",
-    "current_phase": "plan",
-    "last_updated": "2026-10-15",
+    "current_phase": "execution",
+    "last_updated": "2026-11-12",
     "summary": "Test original dependency edges and artifact-based clone, typed-finding and coverage workflows separately.",
-    "status": "planned",
-    "next_action": "After metric-trust, prove original dependency-edge witnesses without changing existing graph geometry."
+    "status": "active",
+    "next_action": "m1 (cycles with original-edge witnesses), m2 (clone families) and m4 (coverage, then CRAP) are not built; the metric overhaul put clones, coverage and CRAP below its cut line. Byron decides whether to cancel them or keep them open. Reconciled 2026-11-12 against origin/main 0bfb05ba."
   },
   "artifacts": {
     "intent_brief": {
@@ -331,8 +331,10 @@
         "proof": "Unsafe flow versus token count, expected errors, exact duplicates and a real configured report.",
         "valid_intermediate_state": "One typed report joins rule evidence without running a new engine. Existing source-only scanning remains usable.",
         "rollback": "Revert the scoped milestone commit or omit optional evidence; no stored-data migration.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "Replaced by #78 (merged 2026-10-16): findings run the project tsc and eslint, else ruff and srcly TS rules, instead of importing a report; #361 later added ast-grep rule packs."
+        ]
       },
       {
         "id": "m4",
@@ -371,6 +373,10 @@
     {
       "date": "2026-10-15",
       "change": "Created planned initiative from collected Pro research and independent source checks. Application proofs remain unrun."
+    },
+    {
+      "date": "2026-11-12",
+      "change": "Marked m3 completed as replaced by #78. m1, m2 and m4 remain open."
     }
   ],
   "closure": null
