@@ -1,0 +1,3413 @@
+{
+  "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8",
+  "research_date": "2026-10-28",
+  "research_timezone": "America/Indianapolis",
+  "external": [
+    {
+      "id": "IDE01",
+      "title": "IntelliJ IDEA: Analyze data flow",
+      "url": "https://www.jetbrains.com/help/idea/analyzing-data-flow.html",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "IntelliJ IDEA 2026.2 help; 2026-08-14",
+      "evidence_mode": "documentation + inspected official figure",
+      "web_ref": "turn2view0",
+      "claim_mapping": [
+        "upstream/downstream value tree",
+        "scope/test filtering",
+        "value/null grouping",
+        "source preview and refresh"
+      ],
+      "limitations": [
+        "No hands-on; algorithmic sensitivity not specified"
+      ]
+    },
+    {
+      "id": "IDE02",
+      "title": "IntelliJ IDEA: Source code hierarchy",
+      "url": "https://www.jetbrains.com/help/idea/viewing-structure-and-hierarchy-of-the-source-code.html",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "2026.2 help",
+      "evidence_mode": "documentation",
+      "web_ref": "turn40view0",
+      "claim_mapping": [
+        "call/type hierarchy distinctions",
+        "pinning",
+        "project/test/library scope",
+        "single-click source"
+      ],
+      "limitations": [
+        "Same JetBrains family; not independent evidence from WebStorm/PyCharm"
+      ]
+    },
+    {
+      "id": "IDE03",
+      "title": "WebStorm: Source code hierarchy",
+      "url": "https://www.jetbrains.com/help/webstorm/viewing-structure-and-hierarchy-of-the-source-code.html",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "2026.2 help; 2026-08-17",
+      "evidence_mode": "documentation",
+      "web_ref": "turn2view1",
+      "claim_mapping": [
+        "caller/callee navigation",
+        "pin tab",
+        "scope and direction"
+      ],
+      "limitations": [
+        "Does not prove value slicing for arbitrary JS/TS expressions"
+      ]
+    },
+    {
+      "id": "IDE04",
+      "title": "WebStorm: Search for usages",
+      "url": "https://www.jetbrains.com/help/webstorm/find-highlight-usages.html",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "2026.2 help; 2026-09-09",
+      "evidence_mode": "documentation + inspected official figure",
+      "web_ref": "turn7view0",
+      "claim_mapping": [
+        "read/write/import/dynamic-string filters",
+        "usage preview",
+        "call hierarchy preview",
+        "incremental display of usages"
+      ],
+      "limitations": [
+        "Generic data-flow-for-field wording insufficient to establish Java-style value slicing"
+      ]
+    },
+    {
+      "id": "IDE05",
+      "title": "WebStorm feature request WEB-28992",
+      "url": "https://youtrack.jetbrains.com/projects/WEB/issues/WEB-28992/Support-Analyze-Data-Flow-to-here-from-here-actions-in-Typescript-JavaScript",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "Submitted state in retrieved current official search result",
+      "evidence_mode": "primary tracker search evidence",
+      "web_ref": "turn21search4",
+      "claim_mapping": [
+        "JS/TS Data Flow to/from Here feature request remains submitted in retrieved evidence"
+      ],
+      "limitations": [
+        "Full page yielded no readable lines; search result is weaker evidence; no hands-on"
+      ]
+    },
+    {
+      "id": "IDE06",
+      "title": "IntelliJ IDEA: Dependencies analysis",
+      "url": "https://www.jetbrains.com/help/idea/dependencies-analysis.html",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "2026.2 help",
+      "evidence_mode": "documentation",
+      "web_ref": "turn15search0",
+      "claim_mapping": [
+        "classes/packages/modules",
+        "transitive depth",
+        "three-pane source/target/usages",
+        "backward analysis cost caution"
+      ],
+      "limitations": [
+        "Separate relation semantics from value flow"
+      ]
+    },
+    {
+      "id": "IDE07",
+      "title": "PyCharm: Source code hierarchy",
+      "url": "https://www.jetbrains.com/help/pycharm/viewing-structure-and-hierarchy-of-the-source-code.html",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "2026.2 help; 2026-08-17",
+      "evidence_mode": "documentation",
+      "web_ref": "turn2view2",
+      "claim_mapping": [
+        "Python caller/callee hierarchy",
+        "scope",
+        "pinning and source navigation"
+      ],
+      "limitations": [
+        "No verified arbitrary-expression value slicing; sensitivity unknown"
+      ]
+    },
+    {
+      "id": "IDE08",
+      "title": "VS Code current release",
+      "url": "https://code.visualstudio.com/updates/v1_144",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "1.144.0 stable; 2026-10-28",
+      "evidence_mode": "release documentation",
+      "web_ref": "turn9view1",
+      "claim_mapping": [
+        "current VS Code version"
+      ],
+      "limitations": [
+        "Does not establish every provider version"
+      ]
+    },
+    {
+      "id": "IDE09",
+      "title": "VS Code: Code Navigation",
+      "url": "https://code.visualstudio.com/docs/editing/editingevolved",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "living docs retrieved 2026-10-28",
+      "evidence_mode": "documentation + inspected official figure",
+      "web_ref": "turn2view4",
+      "claim_mapping": [
+        "peek source and result list",
+        "go-to/reference/implementation distinctions",
+        "breadcrumbs",
+        "back navigation"
+      ],
+      "limitations": [
+        "Official peek figure uses C#; not TS/Python precision evidence"
+      ]
+    },
+    {
+      "id": "IDE10",
+      "title": "TypeScript: Announcing TypeScript 3.8",
+      "url": "https://devblogs.microsoft.com/typescript/announcing-typescript-3-8/",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "2020 introduction",
+      "evidence_mode": "maintainer explanation",
+      "web_ref": "turn4search2",
+      "claim_mapping": [
+        "call hierarchy retains root through caller expansion",
+        "TS 3.8 call hierarchy origin"
+      ],
+      "limitations": [
+        "Historical release; not current release claim"
+      ]
+    },
+    {
+      "id": "IDE11",
+      "title": "VS Code 1.43 release: JS/TS call hierarchy",
+      "url": "https://code.visualstudio.com/updates/v1_43",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "February 2020 / VS Code 1.43; TS 3.8",
+      "evidence_mode": "documentation + inspected official figure",
+      "web_ref": "turn16view4",
+      "claim_mapping": [
+        "JS/TS call-hierarchy availability",
+        "historical UI figure"
+      ],
+      "limitations": [
+        "Figure explicitly historical, not installed current UI"
+      ]
+    },
+    {
+      "id": "IDE12",
+      "title": "VS Code: Editing Python",
+      "url": "https://code.visualstudio.com/docs/python/editing",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "living docs retrieved 2026-10-28",
+      "evidence_mode": "documentation",
+      "web_ref": "turn0search4",
+      "claim_mapping": [
+        "Pylance default Python language server",
+        "Pyright and type stubs",
+        "environment-dependent navigation"
+      ],
+      "limitations": [
+        "Not Pylance implementation source"
+      ]
+    },
+    {
+      "id": "IDE13",
+      "title": "LSP 3.17: Call hierarchy specification source",
+      "url": "https://github.com/microsoft/language-server-protocol/blob/gh-pages/_specifications/lsp/3.17/language/callHierarchy.md",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "LSP 3.17; feature since 3.16",
+      "evidence_mode": "specification source inspection",
+      "web_ref": "turn31view1",
+      "claim_mapping": [
+        "prepare then incoming/outgoing",
+        "fromRanges",
+        "selectionRange",
+        "opaque data",
+        "partial-result batches"
+      ],
+      "limitations": [
+        "Transport partial result differs from incomplete semantic analysis; protocol does not ensure provider support"
+      ]
+    },
+    {
+      "id": "IDE14",
+      "title": "VS Code API: CallHierarchyProvider",
+      "url": "https://code.visualstudio.com/api/references/vscode-api#CallHierarchyProvider",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "living API docs retrieved 2026-10-28",
+      "evidence_mode": "API documentation",
+      "web_ref": "turn4search3",
+      "claim_mapping": [
+        "cancellation tokens",
+        "null/undefined lack of result",
+        "incoming/outgoing ranges"
+      ],
+      "limitations": [
+        "No whole-program completeness or value-path guarantee"
+      ]
+    },
+    {
+      "id": "IDE15",
+      "title": "Pylance: python.analysis.indexing",
+      "url": "https://github.com/microsoft/pylance-release/blob/main/docs/settings/python_analysis_indexing.md",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "living docs retrieved 2026-10-28",
+      "evidence_mode": "documentation",
+      "web_ref": "turn19view1",
+      "claim_mapping": [
+        "symbol indexing",
+        "CPU/memory cost",
+        "indexing vs analysis distinction"
+      ],
+      "limitations": [
+        "Does not establish all semantic queries depend on indexing switch"
+      ]
+    },
+    {
+      "id": "IDE16",
+      "title": "VS Code: Python settings reference",
+      "url": "https://code.visualstudio.com/docs/python/settings-reference",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "living docs retrieved 2026-10-28",
+      "evidence_mode": "documentation",
+      "web_ref": "turn40view2",
+      "claim_mapping": [
+        "interpreter/environment and language-server settings"
+      ],
+      "limitations": [
+        "Settings defaults may evolve"
+      ]
+    },
+    {
+      "id": "IDE17",
+      "title": "Eclipse JDT: Call Hierarchy View",
+      "url": "https://help.eclipse.org/latest/topic/org.eclipse.jdt.doc.user/reference/views/ref-call-hierarchy.htm",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "current latest help retrieved 2026-10-28",
+      "evidence_mode": "documentation",
+      "web_ref": "turn2view3",
+      "claim_mapping": [
+        "caller/callee view",
+        "history and pin",
+        "scope",
+        "cancel",
+        "read/write filter",
+        "constructor expansion"
+      ],
+      "limitations": [
+        "No numerical performance or sensitivity specification"
+      ]
+    },
+    {
+      "id": "IDE18",
+      "title": "Eclipse JDT: Tips and Tricks",
+      "url": "https://help.eclipse.org/latest/topic/org.eclipse.jdt.doc.user/tips/jdt_tips.html",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "current latest help; historical screenshot retained",
+      "evidence_mode": "documentation + inspected official figure",
+      "web_ref": "turn15view0",
+      "claim_mapping": [
+        "constructor/caller distinction",
+        "source navigation",
+        "potential reference matches"
+      ],
+      "limitations": [
+        "Figure chrome not current-version measurement"
+      ]
+    },
+    {
+      "id": "IDE19",
+      "title": "Eclipse 2026-09 (4.41) release",
+      "url": "https://eclipseide.org/release/noteworthy/2026-09/",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "2026-09 / 4.41",
+      "evidence_mode": "release documentation",
+      "web_ref": "turn12search0",
+      "claim_mapping": [
+        "current Eclipse release edition"
+      ],
+      "limitations": [
+        "Page date differs from other schedule sources; report edition without asserting day"
+      ]
+    },
+    {
+      "id": "IDE20",
+      "title": "Visual Studio: View call hierarchy",
+      "url": "https://learn.microsoft.com/en-us/visualstudio/ide/call-hierarchy?view=vs-2022",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "workflow page dated 2025-09-23; version-labelled vs-2022 view",
+      "evidence_mode": "documentation + inspected official figure",
+      "web_ref": "turn19view2",
+      "claim_mapping": [
+        "C++ explicit incoming/outgoing",
+        "C#/VB incoming",
+        "call-site details",
+        "scope",
+        "reroot",
+        "implicit/delegate limitations"
+      ],
+      "limitations": [
+        "Current release version verified separately; no hands-on 2026 parity check"
+      ]
+    },
+    {
+      "id": "IDE21",
+      "title": "Visual Studio: Use the right type of breakpoint",
+      "url": "https://learn.microsoft.com/en-us/visualstudio/debugger/using-breakpoints?view=vs-2022",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "living docs retrieved 2026-10-28",
+      "evidence_mode": "documentation",
+      "web_ref": "turn19view3",
+      "claim_mapping": [
+        "data breakpoints observe changes during execution",
+        "supported C++/.NET runtime distinctions"
+      ],
+      "limitations": [
+        "Observed run is not static completeness"
+      ]
+    },
+    {
+      "id": "IDE22",
+      "title": "Visual Studio 2026 release notes",
+      "url": "https://learn.microsoft.com/en-us/visualstudio/releases/2026/release-notes",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "18.11.2; 2026-10-25",
+      "evidence_mode": "release documentation",
+      "web_ref": "turn34view1",
+      "claim_mapping": [
+        "current Visual Studio version"
+      ],
+      "limitations": [
+        "Not a guarantee of workflow parity across all installed workloads"
+      ]
+    },
+    {
+      "id": "IDE23",
+      "title": "VS Code issue #190116: direction switch root confusion",
+      "url": "https://github.com/microsoft/vscode/issues/190116",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "opened 2023-08-10; closed not planned 2023-10-10",
+      "evidence_mode": "primary failure report and disposition",
+      "web_ref": "turn25view0",
+      "claim_mapping": [
+        "root versus selected-node direction complaint",
+        "closed for vote threshold"
+      ],
+      "limitations": [
+        "Single report, not user study; not evidence proposed change fails"
+      ]
+    },
+    {
+      "id": "IDE24",
+      "title": "Eclipse JDT issue #724: inexact call matches",
+      "url": "https://github.com/eclipse-jdt/eclipse.jdt.core/issues/724",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "opened 2023-02-10; open when retrieved",
+      "evidence_mode": "maintainer/contributor issue discussion",
+      "web_ref": "turn25view1",
+      "claim_mapping": [
+        "empty call tree can coexist with potential references",
+        "proposal for labelled inexact matches"
+      ],
+      "limitations": [
+        "Specific issue; not exhaustive defect inventory"
+      ]
+    },
+    {
+      "id": "IDE25",
+      "title": "Pylance issue #4102: calls versus imports/navigation",
+      "url": "https://github.com/microsoft/pylance-release/issues/4102",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "2023 maintainer discussion",
+      "evidence_mode": "primary maintainer issue explanation",
+      "web_ref": "turn28search6",
+      "claim_mapping": [
+        "import reference is not call",
+        "host handles navigation focus"
+      ],
+      "limitations": [
+        "Historical bug context; do not assume all alias problems persist"
+      ]
+    },
+    {
+      "id": "IDE26",
+      "title": "Pylance issue #7910: workspace/library call noise",
+      "url": "https://github.com/microsoft/pylance-release/issues/7910",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "2026-02-27; closed/fixed-in-next-version label retrieved",
+      "evidence_mode": "primary issue and resolution status",
+      "web_ref": "turn40view3",
+      "claim_mapping": [
+        "historical mixed-origin noise",
+        "source-origin labels as repair"
+      ],
+      "limitations": [
+        "Do not present as current unfixed defect"
+      ]
+    },
+    {
+      "id": "IDE27",
+      "title": "Pyright callHierarchyProvider.ts",
+      "url": "https://github.com/microsoft/pyright/blob/1.1.414/packages/pyright-internal/src/languageService/callHierarchyProvider.ts",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "Pyright 1.1.414; release 2026-09-09",
+      "evidence_mode": "public implementation inspection",
+      "web_ref": null,
+      "claim_mapping": [
+        "incoming user/open files",
+        "type-based outgoing declarations",
+        "property calls",
+        "preserve all fromRanges during grouping",
+        "Workspace/Library/Standard library labels"
+      ],
+      "limitations": [
+        "Source downloaded through raw URL; proprietary Pylance binary not inspected; no execution"
+      ]
+    },
+    {
+      "id": "IDE28",
+      "title": "rust-analyzer call_hierarchy.rs",
+      "url": "https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/ide/src/call_hierarchy.rs",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "2026-10-26 / v0.3.3097",
+      "evidence_mode": "public implementation inspection",
+      "web_ref": null,
+      "claim_mapping": [
+        "incoming routine based on function usages",
+        "outgoing callable syntax and resolved targets",
+        "ranges preserved by target grouping"
+      ],
+      "limitations": [
+        "No behavioral execution; unsupported callable kinds may be omitted"
+      ]
+    },
+    {
+      "id": "IDE29",
+      "title": "rust-analyzer architecture",
+      "url": "https://rust-analyzer.github.io/book/contributing/architecture.html",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "living architecture docs retrieved 2026-10-28",
+      "evidence_mode": "maintainer design documentation",
+      "web_ref": "turn34view2",
+      "claim_mapping": [
+        "immutable Analysis snapshots",
+        "on-demand incremental facts",
+        "revision cancellation",
+        "crate configuration context"
+      ],
+      "limitations": [
+        "Architecture claims not benchmarks or sensitivity proof"
+      ]
+    },
+    {
+      "id": "IDE30",
+      "title": "rust-analyzer features",
+      "url": "https://rust-analyzer.github.io/book/features.html",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "living docs retrieved 2026-10-28",
+      "evidence_mode": "documentation",
+      "web_ref": "turn7view3",
+      "claim_mapping": [
+        "references",
+        "macro source features",
+        "separate crate dependency tree"
+      ],
+      "limitations": [
+        "Some UI syntax features vary by editor"
+      ]
+    },
+    {
+      "id": "IDE31",
+      "title": "rust-analyzer 2026-10-26 release",
+      "url": "https://github.com/rust-lang/rust-analyzer/releases/tag/2026-10-26",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "2026-10-26 / v0.3.3097; commit prefix 0c4d746",
+      "evidence_mode": "release documentation",
+      "web_ref": "turn15view1",
+      "claim_mapping": [
+        "version and release date"
+      ],
+      "limitations": [
+        "No benchmark"
+      ]
+    },
+    {
+      "id": "IDE32",
+      "title": "Pylance stable release metadata",
+      "url": "https://api.github.com/repos/microsoft/pylance-release/releases/latest",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "stable 2026.4.1 published 2026-09-23T21:36:53Z",
+      "evidence_mode": "public GitHub release API inspection",
+      "web_ref": null,
+      "claim_mapping": [
+        "latest stable version at retrieval"
+      ],
+      "limitations": [
+        "Endpoint moves; exact returned version retained in local source record; web HTML release open failed"
+      ]
+    },
+    {
+      "id": "IDE33",
+      "title": "Register IntelliJ IDEA",
+      "url": "https://www.jetbrains.com/help/idea/register.html",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "2026.2 help",
+      "evidence_mode": "official access documentation",
+      "web_ref": "turn25view3",
+      "claim_mapping": [
+        "free feature set",
+        "Ultimate trial/subscription"
+      ],
+      "limitations": [
+        "Specific free-tier entitlement of analysis action not established"
+      ]
+    },
+    {
+      "id": "IDE34",
+      "title": "Register WebStorm",
+      "url": "https://www.jetbrains.com/help/webstorm/register.html",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "2026.2 help",
+      "evidence_mode": "official access documentation",
+      "web_ref": "turn25view4",
+      "claim_mapping": [
+        "noncommercial/trial/commercial access"
+      ],
+      "limitations": [
+        "No price quote or purchase advice"
+      ]
+    },
+    {
+      "id": "IDE35",
+      "title": "Register PyCharm",
+      "url": "https://www.jetbrains.com/help/pycharm/register.html",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "2026.2 help",
+      "evidence_mode": "official access documentation",
+      "web_ref": "turn25view5",
+      "claim_mapping": [
+        "Pro trial/subscription"
+      ],
+      "limitations": [
+        "Exact feature entitlement not separately checked"
+      ]
+    },
+    {
+      "id": "IDE36",
+      "title": "rust-analyzer README license",
+      "url": "https://github.com/rust-lang/rust-analyzer/blob/master/README.md",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "current repo docs at retrieval",
+      "evidence_mode": "source/license declaration",
+      "web_ref": "turn31search5",
+      "claim_mapping": [
+        "MIT/Apache-2.0"
+      ],
+      "limitations": [
+        "General license declaration only"
+      ]
+    },
+    {
+      "id": "IDE37",
+      "title": "Eclipse IDE official home",
+      "url": "https://eclipseide.org/",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "current at retrieval",
+      "evidence_mode": "official product/access documentation",
+      "web_ref": "turn31search4",
+      "claim_mapping": [
+        "free/open source under EPL-2.0"
+      ],
+      "limitations": [
+        "No pricing assumptions"
+      ]
+    },
+    {
+      "id": "IDE38",
+      "title": "Visual Studio Community",
+      "url": "https://visualstudio.microsoft.com/vs/community/",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "current at retrieval",
+      "evidence_mode": "official product/access documentation",
+      "web_ref": "turn31search2",
+      "claim_mapping": [
+        "qualifying individual free use",
+        "workload setup"
+      ],
+      "limitations": [
+        "General access summary; not legal advice"
+      ]
+    },
+    {
+      "id": "IDE39",
+      "title": "IntelliJ source navigation",
+      "url": "https://www.jetbrains.com/help/idea/navigating-through-the-source-code.html",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "2026.2 help",
+      "evidence_mode": "documentation",
+      "web_ref": "turn40view1",
+      "claim_mapping": [
+        "Navigate Back/Forward returns to caret"
+      ],
+      "limitations": [
+        "Keyboard mappings configurable"
+      ]
+    },
+    {
+      "id": "IDE40",
+      "title": "Pylance changelog",
+      "url": "https://raw.githubusercontent.com/microsoft/pylance-release/main/CHANGELOG.md",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "latest retrieved prerelease 2026.4.101, 2026-10-15",
+      "evidence_mode": "official changelog inspection",
+      "web_ref": null,
+      "claim_mapping": [
+        "stable/prerelease distinction"
+      ],
+      "limitations": [
+        "Main changes over time; no binary used"
+      ]
+    },
+    {
+      "id": "IDE41",
+      "title": "Pylance README",
+      "url": "https://github.com/microsoft/pylance-release",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "current repo docs at retrieval",
+      "evidence_mode": "official repository documentation",
+      "web_ref": "turn4search5",
+      "claim_mapping": [
+        "Pylance proprietary; public repo docs/issues",
+        "Pyright core relationship"
+      ],
+      "limitations": [
+        "Pylance not identical to every Pyright build"
+      ]
+    },
+    {
+      "id": "IDE42",
+      "title": "VS Code license",
+      "url": "https://code.visualstudio.com/license",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "current terms at retrieval",
+      "evidence_mode": "official access documentation",
+      "web_ref": "turn9view5",
+      "claim_mapping": [
+        "Microsoft product license"
+      ],
+      "limitations": [
+        "No interpretation beyond product access summary"
+      ]
+    },
+    {
+      "id": "IDE43",
+      "title": "Editing TypeScript in VS Code",
+      "url": "https://code.visualstudio.com/docs/typescript/typescript-editing",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "current docs at retrieval",
+      "evidence_mode": "documentation",
+      "web_ref": "turn0search3",
+      "claim_mapping": [
+        "TS/TSX/JSX support",
+        "references and definition navigation"
+      ],
+      "limitations": [
+        "Not data-flow proof"
+      ]
+    },
+    {
+      "id": "SPC01",
+      "title": "Thin Slicing (Sridharan, Fink, Bodík), PLDI 2007",
+      "url": "https://manu.sridharan.net/files/pldi07.pdf",
+      "version": "PLDI 2007; sections 2–6",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Original paper; PDF text and figures inspected",
+      "claims": [
+        "Producer/expansion semantics; Java pointer assumptions; context and algorithm tradeoffs; simulated statement-inspection evaluation and threats"
+      ],
+      "limitations": [
+        "Historical Java/WALA study; not a runnable slice, JS guarantee, or measured developer speedup"
+      ],
+      "web_refs": [
+        "turn3view0",
+        "turn6view0",
+        "turn6view1",
+        "turn6view2",
+        "turn6view3",
+        "turn13view0",
+        "turn13view1",
+        "turn13view2",
+        "turn13view3",
+        "turn13view4"
+      ]
+    },
+    {
+      "id": "SPC02",
+      "title": "WALA Slicer.DataDependenceOptions API",
+      "url": "https://wala.github.io/javadoc/com/ibm/wala/ipa/slicer/Slicer.DataDependenceOptions.html",
+      "version": "1.9.0-SNAPSHOT as displayed",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official API documentation",
+      "claims": [
+        "NO_BASE_PTRS and other dependence policies are distinct selectable analysis options"
+      ],
+      "limitations": [
+        "Snapshot API; no Srcly equivalence or benchmark"
+      ],
+      "web_refs": [
+        "turn27search1"
+      ]
+    },
+    {
+      "id": "SPC03",
+      "title": "WALA PLDI tutorial",
+      "url": "https://wala.github.io/tutorials/PLDI_WALA_Tutorial.pdf",
+      "version": "Historical tutorial; version not fixed",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official tutorial PDF",
+      "claims": [
+        "Thin-slicing configurations distinguish no-base-pointer data from no-control options and CISlicer"
+      ],
+      "limitations": [
+        "Tutorial is not verification of current JS frontend behavior"
+      ],
+      "web_refs": [
+        "turn27search6"
+      ]
+    },
+    {
+      "id": "SPC04",
+      "title": "Analyzing data flow in JavaScript and TypeScript",
+      "url": "https://codeql.github.com/docs/codeql-language-guides/analyzing-data-flow-in-javascript-and-typescript/",
+      "version": "Current docs; modular API",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "SSA and property nodes; local/global distinction; modelled libraries and taint; global cost/precision limits"
+      ],
+      "limitations": [
+        "No single universal field/context-sensitivity guarantee for all libraries"
+      ],
+      "web_refs": [
+        "turn3view3",
+        "turn30view3"
+      ]
+    },
+    {
+      "id": "SPC05",
+      "title": "About data flow analysis",
+      "url": "https://codeql.github.com/docs/writing-codeql-queries/about-data-flow-analysis/",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "Semantic data-flow graph differs from AST; taint tracks derived values; source/sink restriction"
+      ],
+      "limitations": [
+        "Static model, not an observed execution"
+      ],
+      "web_refs": [
+        "turn23view1"
+      ]
+    },
+    {
+      "id": "SPC06",
+      "title": "Creating path queries",
+      "url": "https://codeql.github.com/docs/writing-codeql-queries/creating-path-queries/",
+      "version": "Modular API introduced in CodeQL 2.13",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "path-problem metadata; PathNode/PathGraph; flowPath source/sink witness rendering"
+      ],
+      "limitations": [
+        "Rendered path is not a promise to enumerate all feasible executions"
+      ],
+      "web_refs": [
+        "turn1search2"
+      ]
+    },
+    {
+      "id": "SPC07",
+      "title": "Explore data flow with CodeQL for VS Code",
+      "url": "https://docs.github.com/en/code-security/how-tos/find-and-fix-code-vulnerabilities/scan-from-vs-code/explore-data-flow",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation; workflow reconstruction, not exercised",
+      "claims": [
+        "Open path-problem query; run on selected database; expand alert steps; inspect source"
+      ],
+      "limitations": [
+        "Extension version not independently pinned; no local run"
+      ],
+      "web_refs": [
+        "turn1search0",
+        "turn6view4",
+        "turn26search0"
+      ]
+    },
+    {
+      "id": "SPC08",
+      "title": "Running CodeQL queries",
+      "url": "https://docs.github.com/en/code-security/how-tos/find-and-fix-code-vulnerabilities/scan-from-vs-code/running-codeql-queries",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "Query history retains database, query and duration; quick evaluation; source navigation; query comparisons"
+      ],
+      "limitations": [
+        "No measured latency in this assignment"
+      ],
+      "web_refs": [
+        "turn26search2"
+      ]
+    },
+    {
+      "id": "SPC09",
+      "title": "Debugging data-flow queries using partial flow",
+      "url": "https://codeql.github.com/docs/writing-codeql-queries/debugging-data-flow-queries-using-partial-flow/",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "Validate sources/sinks; fieldFlowBranchLimit affects discovered paths and cost; partial exploration"
+      ],
+      "limitations": [
+        "Absence of results under a model/budget is not a proof of independence"
+      ],
+      "web_refs": [
+        "turn23view2",
+        "turn42view1"
+      ]
+    },
+    {
+      "id": "SPC10",
+      "title": "Prepare code for CodeQL analysis",
+      "url": "https://docs.github.com/en/code-security/tutorials/customize-code-scanning/prepare-code-for-analysis",
+      "version": "Current CLI documentation",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "database create; javascript-typescript language; source-root; JS/Python database setup"
+      ],
+      "limitations": [
+        "Proposed setup only; extraction not run"
+      ],
+      "web_refs": [
+        "turn37view0"
+      ]
+    },
+    {
+      "id": "SPC11",
+      "title": "CodeQL CLI releases",
+      "url": "https://github.com/github/codeql-cli-binaries/releases",
+      "version": "Reviewed v2.27.3, 2026-10-20",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Maintainer release page",
+      "claims": [
+        "Version anchor for workflow review"
+      ],
+      "limitations": [
+        "Current documentation may advance independently"
+      ],
+      "web_refs": [
+        "turn20search0"
+      ]
+    },
+    {
+      "id": "SPC12",
+      "title": "CodeQL for VS Code repository",
+      "url": "https://github.com/github/vscode-codeql",
+      "version": "Repository inspected on retrieval date",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Primary implementation/readme/license inspection",
+      "claims": [
+        "Extension MIT; CodeQL itself has separate licensing and research terms"
+      ],
+      "limitations": [
+        "Do not infer unrestricted commercial engine use from extension license"
+      ],
+      "web_refs": [
+        "turn23view0",
+        "turn24view5"
+      ]
+    },
+    {
+      "id": "SPC13",
+      "title": "Assess code scanning alerts / multiple paths figure",
+      "url": "https://docs.github.com/en/code-security/how-tos/manage-security-alerts/manage-code-scanning-alerts/assess-alerts",
+      "version": "Current docs; image version not stated",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official UI screenshot actually downloaded and visually inspected",
+      "claims": [
+        "Show paths; numbered source steps; alternate paths selected separately"
+      ],
+      "limitations": [
+        "This figure is GitHub code scanning web UI, not the VS Code extension; no hands-on alert investigation"
+      ],
+      "web_refs": [
+        "turn26search3",
+        "turn29view1",
+        "turn32view0"
+      ]
+    },
+    {
+      "id": "SPC14",
+      "title": "Semgrep taint analysis overview",
+      "url": "https://docs.semgrep.dev/writing-rules/data-flow/taint-mode/overview",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "Sources/sinks/sanitizers/propagators; one trace per finding; CE/Pro scope; reproducible Playground trace exercise"
+      ],
+      "limitations": [
+        "Single returned trace does not enumerate alternate paths"
+      ],
+      "web_refs": [
+        "turn3view2",
+        "turn37view2"
+      ]
+    },
+    {
+      "id": "SPC15",
+      "title": "Semgrep advanced taint analysis",
+      "url": "https://docs.semgrep.dev/writing-rules/data-flow/taint-mode/advanced",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "Basic field sensitivity; variable rather than heap-object taint; Pro index/control options; side-effect modelling"
+      ],
+      "limitations": [
+        "Control taint is reachability, not a complete guard predicate; no heap-alias precision implied"
+      ],
+      "web_refs": [
+        "turn22view0",
+        "turn24view3",
+        "turn37view3"
+      ]
+    },
+    {
+      "id": "SPC16",
+      "title": "Semgrep CLI reference",
+      "url": "https://docs.semgrep.dev/cli-reference",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "scan --config; --dataflow-traces text/SARIF output; --pro-path-sensitive option"
+      ],
+      "limitations": [
+        "CLI command proposed, not executed; JSON output does not expose the same trace flag behavior"
+      ],
+      "web_refs": [
+        "turn29view0",
+        "turn30view4"
+      ]
+    },
+    {
+      "id": "SPC17",
+      "title": "Semgrep Pro Engine introduction",
+      "url": "https://docs.semgrep.dev/semgrep-code/semgrep-pro-engine-intro",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "Cross-function/cross-file and paid-account setup boundaries; modelling limitations and resource costs"
+      ],
+      "limitations": [
+        "Language and scanning-mode coverage vary; no universal whole-program guarantee"
+      ],
+      "web_refs": [
+        "turn22view1",
+        "turn24view4"
+      ]
+    },
+    {
+      "id": "SPC18",
+      "title": "Semgrep releases",
+      "url": "https://github.com/semgrep/semgrep/releases",
+      "version": "Reviewed v1.182.0, 2026-10-20",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Maintainer release page",
+      "claims": [
+        "Version anchor"
+      ],
+      "limitations": [
+        "Other distribution channels can advance; not a guaranteed latest build"
+      ],
+      "web_refs": [
+        "turn20search1"
+      ]
+    },
+    {
+      "id": "SPC19",
+      "title": "Semgrep repository",
+      "url": "https://github.com/semgrep/semgrep",
+      "version": "Repository inspected on retrieval date",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Primary implementation/readme/license inspection",
+      "claims": [
+        "CE LGPL 2.1; JS/TS/TSX/Python relevance; proprietary components separately licensed"
+      ],
+      "limitations": [
+        "Community engine license does not grant Pro service or rule-pack access"
+      ],
+      "web_refs": [
+        "turn30view0",
+        "turn32view5"
+      ]
+    },
+    {
+      "id": "SPC20",
+      "title": "Semgrep spring 2025 release marketing kit",
+      "url": "https://semgrep.dev/assets/release-marketing/spring-2025-semgrep-release-marketing-kit.pdf",
+      "version": "Spring 2025; page 7",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official UI figure actually rendered and visually inspected",
+      "claims": [
+        "Cross-file trace cards retain line, file and highlighted argument/assignment source"
+      ],
+      "limitations": [
+        "Historical vendor figure, not current app session or independent usability evidence"
+      ],
+      "web_refs": [
+        "turn10view4",
+        "turn13view5",
+        "turn14view0"
+      ]
+    },
+    {
+      "id": "SPC21",
+      "title": "In-app snippets for cross-file dataflow traces",
+      "url": "https://semgrep.dev/products/product-updates/in-app-code-snippets-are-now-supported-for-cross-file-dataflow-traces/",
+      "version": "2025-04-02",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official product update and official screenshot downloaded and visually inspected",
+      "claims": [
+        "Inline cross-file code snippets reduce navigation required by the earlier UI; code access required"
+      ],
+      "limitations": [
+        "Vendor rationale, not a controlled usability result"
+      ],
+      "web_refs": [
+        "turn26search4"
+      ],
+      "asset_url": "https://semgrep.dev/assets/screenshot-2025-04-02-at-2.32.07-pm.png",
+      "evidence_file": "assets/evidence/semgrep-cross-file-official.png"
+    },
+    {
+      "id": "SPC22",
+      "title": "Joern releases",
+      "url": "https://github.com/joernio/joern/releases/",
+      "version": "Reviewed v4.0.666, 2026-10-27, commit 346d3e6",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Maintainer release page",
+      "claims": [
+        "Version anchor"
+      ],
+      "limitations": [
+        "Documentation examples span older releases"
+      ],
+      "web_refs": [
+        "turn8search5"
+      ]
+    },
+    {
+      "id": "SPC23",
+      "title": "Joern repository",
+      "url": "https://github.com/joernio/joern",
+      "version": "Repository inspected on retrieval date",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Primary implementation/readme/license inspection",
+      "claims": [
+        "Apache 2.0; CPG and Scala query shell; documented current JDK 21 prerequisite"
+      ],
+      "limitations": [
+        "Not installed or executed"
+      ],
+      "web_refs": [
+        "turn8search6",
+        "turn30view5"
+      ]
+    },
+    {
+      "id": "SPC24",
+      "title": "Joern quickstart",
+      "url": "https://docs.joern.io/quickstart/",
+      "version": "Current docs; x42 C fixture",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation and REPL transcript inspection",
+      "claims": [
+        "importCode; project/database workflow; security question over C example"
+      ],
+      "limitations": [
+        "No screenshot of an interactive flow UI obtained"
+      ],
+      "web_refs": [
+        "turn22view2"
+      ]
+    },
+    {
+      "id": "SPC25",
+      "title": "Joern data-flow steps",
+      "url": "https://docs.joern.io/cpgql/data-flow-steps/",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation and tabular REPL output inspected",
+      "claims": [
+        "reachableBy versus reachableByFlows; source-to-sink table with line/method/file witnesses"
+      ],
+      "limitations": [
+        "A traversal result is model-dependent; not evidence of observed execution"
+      ],
+      "web_refs": [
+        "turn1search5",
+        "turn38view1"
+      ]
+    },
+    {
+      "id": "SPC26",
+      "title": "Joern control-flow steps",
+      "url": "https://docs.joern.io/cpgql/control-flow-steps/",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "controlledBy/controls and dominance distinguish execution dependence from value propagation"
+      ],
+      "limitations": [
+        "No proof of complete feasible path condition"
+      ],
+      "web_refs": [
+        "turn24view0",
+        "turn39view0"
+      ]
+    },
+    {
+      "id": "SPC27",
+      "title": "Joern custom data-flow semantics",
+      "url": "https://docs.joern.io/dataflow-semantics/",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "Unknown external call conservative all-argument/return default; custom semantics eliminate unspecified flows"
+      ],
+      "limitations": [
+        "Incorrect custom model can remove a true flow; context/alias guarantees not specified by this page"
+      ],
+      "web_refs": [
+        "turn3view1"
+      ]
+    },
+    {
+      "id": "SPC28",
+      "title": "Joern CPG slicing",
+      "url": "https://docs.joern.io/cpg-slicing/",
+      "version": "Current docs; some prerequisite text older than release",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "Backward data-flow from call arguments; usage slices; JSON; scope/type-recovery options"
+      ],
+      "limitations": [
+        "Not a full semantic guarantee for all frontends"
+      ],
+      "web_refs": [
+        "turn24view1",
+        "turn39view1"
+      ]
+    },
+    {
+      "id": "SPC29",
+      "title": "Joern JavaScript frontend",
+      "url": "https://docs.joern.io/frontends/javascript/",
+      "version": "Current jssrc2cpg docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "JS/TS frontend, type information/type-recovery options, dynamic-call argument conventions"
+      ],
+      "limitations": [
+        "TSX/framework/promise completeness not established"
+      ],
+      "web_refs": [
+        "turn38view2"
+      ]
+    },
+    {
+      "id": "SPC30",
+      "title": "Joern Python frontend",
+      "url": "https://docs.joern.io/frontends/python/",
+      "version": "Current pysrc2cpg docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "Python import/virtual-environment filters and type-recovery options"
+      ],
+      "limitations": [
+        "All-language field/flow/context sensitivity undocumented in inspected source"
+      ],
+      "web_refs": [
+        "turn38view3"
+      ]
+    },
+    {
+      "id": "SPC31",
+      "title": "Joern graph export",
+      "url": "https://docs.joern.io/export/",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "AST/CFG/PDG and CPG export; ossdataflow overlay; DOT graph workflow"
+      ],
+      "limitations": [
+        "Exported graph is not evidence of interactive usability or precision"
+      ],
+      "web_refs": [
+        "turn8search4",
+        "turn33view0"
+      ]
+    },
+    {
+      "id": "SPC32",
+      "title": "Understand: what are dependencies?",
+      "url": "https://docs.scitools.com/help/dependencies/what-are-dependencies.html",
+      "version": "Understand 8 documentation",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "Dependencies aggregate actual references to parent entities; language-specific edge kinds; include settings and exclusions"
+      ],
+      "limitations": [
+        "Reference dependency is not value-flow proof; indirect C-family calls excluded from dependency counts"
+      ],
+      "web_refs": [
+        "turn32view4",
+        "turn33view1"
+      ]
+    },
+    {
+      "id": "SPC33",
+      "title": "Understand: browse and export dependencies",
+      "url": "https://docs.scitools.com/help/dependencies/browse-and-export-dependencies.html",
+      "version": "Understand 8 documentation",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation; official UI screenshot actually downloaded and visually inspected",
+      "claims": [
+        "Two-pane dependency/reference browser; count-to-source drill-down; graph/matrix routes share dependency data"
+      ],
+      "limitations": [
+        "Figure does not establish analysis completeness; no app exercise"
+      ],
+      "web_refs": [
+        "turn17search4",
+        "turn23view4",
+        "turn24view2",
+        "turn42view0"
+      ],
+      "evidence_file": "assets/evidence/understand-dependency-browser.png",
+      "asset_url": "https://docs.scitools.com/help/assets/screenshots/dependencies/dependency-browser.png",
+      "published_or_updated": "2026-07-28"
+    },
+    {
+      "id": "SPC34",
+      "title": "Understand: open a graph",
+      "url": "https://docs.scitools.com/help/graphs/open-a-graph.html",
+      "version": "Understand 8 documentation",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "Context menu Graphical Views; graph variant and relationship selection"
+      ],
+      "limitations": [
+        "No measured layout or navigation benefit"
+      ],
+      "web_refs": [
+        "turn17search5"
+      ]
+    },
+    {
+      "id": "SPC35",
+      "title": "Understand build notes",
+      "url": "https://docs.scitools.com/buildnotes/",
+      "version": "Reviewed Understand 8.0 build 1265, 2026-10-09",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Maintainer release notes",
+      "claims": [
+        "Version anchor"
+      ],
+      "limitations": [
+        "No current executable installed"
+      ],
+      "web_refs": [
+        "turn18search4"
+      ]
+    },
+    {
+      "id": "SPC36",
+      "title": "Understand supported languages",
+      "url": "https://docs.scitools.com/help/getting-started/supported-languages.html",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "Java, C-family, JS/TS and Python support; version-specific language coverage"
+      ],
+      "limitations": [
+        "Specific construct and type-system coverage requires a fixture"
+      ],
+      "web_refs": [
+        "turn32view2",
+        "turn33view2"
+      ]
+    },
+    {
+      "id": "SPC37",
+      "title": "Understand open-source license",
+      "url": "https://docs.scitools.com/help/licensing/open-source-license.html",
+      "version": "Available from build 1258",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official licensing documentation",
+      "claims": [
+        "No-cost per-public-Git-repository mode with online checks; commercial/trial modes separate"
+      ],
+      "limitations": [
+        "Not a permissive open-source software license; not applicable to private repositories"
+      ],
+      "web_refs": [
+        "turn32view3",
+        "turn39view4"
+      ]
+    },
+    {
+      "id": "SPC38",
+      "title": "Sourcegraph code navigation",
+      "url": "https://sourcegraph.com/docs/code-navigation",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "Hover/definition/reference/implementation navigation; search-based versus precise navigation"
+      ],
+      "limitations": [
+        "Symbol navigation is not value-flow analysis"
+      ],
+      "web_refs": [
+        "turn17search1"
+      ]
+    },
+    {
+      "id": "SPC39",
+      "title": "Sourcegraph precise code navigation",
+      "url": "https://sourcegraph.com/docs/code-navigation/precise-code-navigation",
+      "version": "Current docs; Enterprise feature",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "SCIP compiler indexes, per-repository setup, search fallback, TS/Python indexers"
+      ],
+      "limitations": [
+        "Missing/old indexes can change evidence mode; no general sensitivity claim"
+      ],
+      "web_refs": [
+        "turn17search0"
+      ]
+    },
+    {
+      "id": "SPC40",
+      "title": "Sourcegraph 8.1.0 release",
+      "url": "https://sourcegraph.com/changelog/releases/8.1.0",
+      "version": "2026-10-14; newer 8.1.1335 linked",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Maintainer release notes",
+      "claims": [
+        "Revision-aware code navigation UI improvements"
+      ],
+      "limitations": [
+        "Installed service/version not inspected"
+      ],
+      "web_refs": [
+        "turn37view1"
+      ]
+    },
+    {
+      "id": "SPC41",
+      "title": "Sourcegraph latest changelog",
+      "url": "https://sourcegraph.com/changelog/latest",
+      "version": "2026-10-26 entries reviewed",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Maintainer release notes",
+      "claims": [
+        "Partial search results with warning for unavailable search backend; result warnings remain visible"
+      ],
+      "limitations": [
+        "Search incompleteness mechanism, not an analyzed flow path guarantee"
+      ],
+      "web_refs": [
+        "turn35search5"
+      ]
+    },
+    {
+      "id": "SPC42",
+      "title": "Sourcetrail repository",
+      "url": "https://github.com/CoatiSoftware/Sourcetrail",
+      "version": "Archived 2021-12-14; historical 2021.4",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Primary archived implementation/readme/license inspection",
+      "claims": [
+        "GPL 3; C/C++/Java/Python; discontinued maintenance; coordinated graph/code navigation"
+      ],
+      "limitations": [
+        "Native TS/TSX not listed; abandonment does not prove UI failed"
+      ],
+      "web_refs": [
+        "turn17search6",
+        "turn35search2",
+        "turn39view2"
+      ]
+    },
+    {
+      "id": "SPC43",
+      "title": "Sourcetrail documentation",
+      "url": "https://github.com/CoatiSoftware/Sourcetrail/blob/master/DOCUMENTATION.md?plain=1",
+      "version": "2021.4 historical docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official archived documentation",
+      "claims": [
+        "Search, graph/source synchronization, bundled relations, history, partial indexing"
+      ],
+      "limitations": [
+        "Symbol relationships, not general semantic value-flow evidence"
+      ],
+      "web_refs": [
+        "turn35search1"
+      ]
+    },
+    {
+      "id": "SPC44",
+      "title": "NDepend dependency structure matrix",
+      "url": "https://www.ndepend.com/docs/dependency-structure-matrix-dsm/",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation and documented UI behavior",
+      "claims": [
+        "Row/column relationships, weighted counts, cycle blocks, direct/indirect coupling, drill-down"
+      ],
+      "limitations": [
+        "Structural .NET dependency view, not ordered feasible value paths"
+      ],
+      "web_refs": [
+        "turn17search7",
+        "turn17search8"
+      ]
+    },
+    {
+      "id": "SPC45",
+      "title": "NDepend analysis inputs",
+      "url": "https://www.ndepend.com/docs/ndepend-analysis-inputs-explanation",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        ".NET assemblies mandatory; PDB/source optional; source matching and warnings"
+      ],
+      "limitations": [
+        "Cannot directly adopt as JS/TS/Python analyzer"
+      ],
+      "web_refs": [
+        "turn36view1"
+      ]
+    },
+    {
+      "id": "SPC46",
+      "title": "NDepend purchase and access",
+      "url": "https://www.ndepend.com/purchase",
+      "version": "Current page",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official pricing/licensing page",
+      "claims": [
+        "Commercial licenses; Developer UI Windows; build-machine platform/access distinction"
+      ],
+      "limitations": [
+        "No price recommendation or purchase performed"
+      ],
+      "web_refs": [
+        "turn36view2"
+      ]
+    },
+    {
+      "id": "SPC47",
+      "title": "NDepend release notes",
+      "url": "https://www.ndepend.com/release-notes",
+      "version": "Reviewed 2026.1.6, 2026-06-01",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Maintainer release notes",
+      "claims": [
+        "Version anchor"
+      ],
+      "limitations": [
+        "Version-specific current app UI untested"
+      ],
+      "web_refs": [
+        "turn18search5",
+        "turn18search7"
+      ]
+    },
+    {
+      "id": "SPC48",
+      "title": "dependency-cruiser repository",
+      "url": "https://github.com/sverweij/dependency-cruiser",
+      "version": "Repository inspected on retrieval date",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Primary implementation/readme/license inspection",
+      "claims": [
+        "MIT; JS/TS module dependency extraction, rules, graph outputs"
+      ],
+      "limitations": [
+        "Module dependency, not symbol/value/control/alias proof"
+      ],
+      "web_refs": [
+        "turn18search2",
+        "turn30view6"
+      ]
+    },
+    {
+      "id": "SPC49",
+      "title": "dependency-cruiser options reference",
+      "url": "https://github.com/sverweij/dependency-cruiser/blob/main/doc/options-reference.md",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "Focus is output selection; doNotFollow/includeOnly/exclude may restrict traversal/input; collapse and reach filters"
+      ],
+      "limitations": [
+        "Display filtering does not automatically save analysis work"
+      ],
+      "web_refs": [
+        "turn38view0"
+      ]
+    },
+    {
+      "id": "SPC50",
+      "title": "dependency-cruiser CLI reference",
+      "url": "https://github.com/sverweij/dependency-cruiser/blob/main/doc/cli.md",
+      "version": "Current docs",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation",
+      "claims": [
+        "focus/focus-depth/reaches/affected/collapse and export flags"
+      ],
+      "limitations": [
+        "Proposed commands unexecuted; config determines module resolution"
+      ],
+      "web_refs": [
+        "turn18search0"
+      ]
+    },
+    {
+      "id": "SPC51",
+      "title": "dependency-cruiser releases",
+      "url": "https://github.com/sverweij/dependency-cruiser/releases",
+      "version": "Reviewed v18.6.0, 2026-10-11",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Maintainer release notes",
+      "claims": [
+        "Version anchor"
+      ],
+      "limitations": [
+        "No performance benchmark"
+      ],
+      "web_refs": [
+        "turn20search2"
+      ]
+    },
+    {
+      "id": "SPC52",
+      "title": "Madge repository",
+      "url": "https://github.com/pahen/madge",
+      "version": "Repository inspected on retrieval date",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Primary implementation/readme/license inspection",
+      "claims": [
+        "Module dependency graph/cycles; filters and unresolved-file warnings; TS config/extensions and Graphviz setup"
+      ],
+      "limitations": [
+        "No general symbol, dataflow, control or alias semantics"
+      ],
+      "web_refs": [
+        "turn18search3"
+      ]
+    },
+    {
+      "id": "SPC53",
+      "title": "Madge package manifest",
+      "url": "https://github.com/pahen/madge/blob/master/package.json",
+      "version": "Reviewed manifest 8.0.0; Node >=18",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Primary package/license inspection",
+      "claims": [
+        "Version and MIT license"
+      ],
+      "limitations": [
+        "Not claiming this is the newest package-registry release"
+      ],
+      "web_refs": [
+        "turn22view3"
+      ]
+    },
+    {
+      "id": "SPC54",
+      "title": "Whyline for Java (Ko and Myers), CHI 2009",
+      "url": "https://faculty.washington.edu/ajko/papers/Ko2009JavaWhylineUI.pdf",
+      "version": "CHI 2009; author-hosted paper",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Original research paper inspected",
+      "claims": [
+        "Recorded-output/time selection; why-did/why-didn't questions; scaling failures of earlier Alice global question menu"
+      ],
+      "limitations": [
+        "Historical instrumented-runtime research; not evidence Srcly has dynamic trace support"
+      ],
+      "web_refs": [
+        "turn29view3",
+        "turn27search7"
+      ]
+    },
+    {
+      "id": "SPC55",
+      "title": "CodeQL built-in JavaScript TaintedPath query",
+      "url": "https://github.com/github/codeql/blob/main/javascript/ql/src/Security/CWE-022/TaintedPath.ql",
+      "version": "Current primary source inspected",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation / implementation inspection",
+      "claims": [
+        "Exact built-in query path, js/path-injection ID, path-problem metadata, deduplicated path graph"
+      ],
+      "limitations": [
+        "Not executed; package/database setup and version matching must be recorded"
+      ],
+      "web_refs": [
+        "turn51view0"
+      ]
+    },
+    {
+      "id": "SPC56",
+      "title": "CodeQL js/path-injection query help",
+      "url": "https://codeql.github.com/codeql-query-help/javascript/js-path-injection/",
+      "version": "Current primary source inspected",
+      "retrieved": "2026-10-28",
+      "retrieved_timezone": "America/Indianapolis",
+      "evidence_mode": "Official documentation / implementation inspection",
+      "claims": [
+        "Official bad/good HTTP request path fixture; source query link; alternate replay using built-in query"
+      ],
+      "limitations": [
+        "Not executed; package/database setup and version matching must be recorded"
+      ],
+      "web_refs": [
+        "turn43search6",
+        "turn50view0"
+      ]
+    },
+    {
+      "id": "EXT01",
+      "title": "Solid createResource API",
+      "url": "https://docs.solidjs.com/reference/basic-reactivity/create-resource",
+      "retrieved": "2026-10-28",
+      "timezone": "America/Indianapolis",
+      "version_or_date": "Living Solid documentation retrieved on research date; local fixture must pin installed version",
+      "evidence_mode": "official documentation inspected; no resource run",
+      "claim_mapping": [
+        "False/null/undefined source suppresses source-triggered fetch; other source values supplied as first fetcher argument",
+        "F1 oracle separates value delivery from activation and retained resource value"
+      ],
+      "limitations": [
+        "No hands-on; SSR/hydration/refetch behavior beyond scoped fixture not asserted"
+      ],
+      "web_ref": "turn49view0"
+    }
+  ],
+  "repository": [
+    {
+      "id": "R-UPSTREAM",
+      "path": "engine/UPSTREAM.md",
+      "symbol": "embedded fork provenance",
+      "lines": [
+        1,
+        35
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/UPSTREAM.md#L1-L35",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Embedded engine is the authority at this baseline; upstream is provenance, not parity."
+    },
+    {
+      "id": "R-DESIGN",
+      "path": "DESIGN.md",
+      "symbol": "design principles and component guidance",
+      "lines": [
+        1,
+        165
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/DESIGN.md#L1-L165",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Reuse the existing source-focused desktop interaction and visual system."
+    },
+    {
+      "id": "R-MAP",
+      "path": "docs/CODE_MAP.md",
+      "symbol": "code map",
+      "lines": [
+        1,
+        367
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/docs/CODE_MAP.md#L1-L367",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Navigation guide; actual implementation checked independently."
+    },
+    {
+      "id": "R-TSX",
+      "path": "docs/research/tsx-dataflow-audit-2026-10/README.md",
+      "symbol": "T1–T4 / round two",
+      "lines": [
+        17,
+        136
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/docs/research/tsx-dataflow-audit-2026-10/README.md#L17-L136",
+      "evidence_mode": "historical repository report",
+      "claim": "Historical author-scored audit, questions, noise and existing task ownership."
+    },
+    {
+      "id": "R-PY",
+      "path": "docs/research/python-dataflow-audit-2026-10/README.md",
+      "symbol": "rounds five and six",
+      "lines": [
+        255,
+        327
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/docs/research/python-dataflow-audit-2026-10/README.md#L255-L327",
+      "evidence_mode": "historical repository report",
+      "claim": "Historical Python folding, closure and task-queue observations."
+    },
+    {
+      "id": "R-DECISIONS",
+      "path": "docs/intent/dataflow-robustness/decision-log.md",
+      "symbol": "R1, R8, R18",
+      "lines": [
+        1,
+        32
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/docs/intent/dataflow-robustness/decision-log.md#L1-L32",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Graph remains primary; prior workspace and export-union alternatives have explicit decisions."
+    },
+    {
+      "id": "R-IMPORT",
+      "path": "server/app/services/deps/graph.py",
+      "symbol": "collect_edges / build_graph",
+      "lines": [
+        27,
+        171
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/server/app/services/deps/graph.py#L27-L171",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Import graph collection, caching, hierarchy and endpoint aggregation."
+    },
+    {
+      "id": "R-TSIMPORT",
+      "path": "server/app/services/deps/typescript_deps.py",
+      "symbol": "imports_in / resolve / collect_usages",
+      "lines": [
+        74,
+        466
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/server/app/services/deps/typescript_deps.py#L74-L466",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Tree-sitter import and syntactic usage collection; literal dynamic imports; heuristic resolution."
+    },
+    {
+      "id": "R-PYIMPORT",
+      "path": "server/app/services/deps/python_deps.py",
+      "symbol": "module_index / find_definer / collect_usages",
+      "lines": [
+        51,
+        402
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/server/app/services/deps/python_deps.py#L51-L402",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Python AST import and syntactic symbol-use collection."
+    },
+    {
+      "id": "R-IMPORTFILTER",
+      "path": "server/app/services/deps/common.py",
+      "symbol": "source_files / emit_symbol_edges",
+      "lines": [
+        53,
+        191
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/server/app/services/deps/common.py#L53-L191",
+      "evidence_mode": "pinned source inspection",
+      "claim": "File eligibility, file-level unused-import edges and same-file exclusion."
+    },
+    {
+      "id": "R-IMPORTCONTRACT",
+      "path": "client/src/viz/deps/contract.ts",
+      "symbol": "GraphEdge",
+      "lines": [
+        1,
+        46
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/contract.ts#L1-L46",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Imports contract does not carry value-flow path proof or coverage outcome."
+    },
+    {
+      "id": "R-KINDS",
+      "path": "engine/src/srcly/kinds.ts",
+      "symbol": "RELATION_TRAITS / PROOF_TRAITS / proofStrength",
+      "lines": [
+        8,
+        211
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/kinds.ts#L8-L211",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Structural versus value/call matching; proof strength classification including unknown null."
+    },
+    {
+      "id": "R-SLICE",
+      "path": "engine/src/analysis/evidence-slice.ts",
+      "symbol": "queryEvidenceSlice / addElement / pairInvocation",
+      "lines": [
+        92,
+        562
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/evidence-slice.ts#L92-L562",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Call/field state in traversal and element/relation maps in returned slice."
+    },
+    {
+      "id": "R-ANCHORSLICE",
+      "path": "engine/src/srcly/anchor-slice.ts",
+      "symbol": "ANCHOR_LIMITS / undrawn / walkFollows",
+      "lines": [
+        17,
+        134
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/anchor-slice.ts#L17-L134",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Budget and relationship filtering; structural membership is not value transfer."
+    },
+    {
+      "id": "R-ANCHOROP",
+      "path": "engine/src/srcly/ops/anchor-graph.ts",
+      "symbol": "anchorGraphOp / AnchorGraphBuilder",
+      "lines": [
+        47,
+        205
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L47-L205",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Anchor selection, directional runs, landing and outcome construction."
+    },
+    {
+      "id": "R-ENGINEPROJECT",
+      "path": "engine/src/srcly/ops/anchor-graph.ts",
+      "symbol": "AnchorGraphBuilder.addElement / addEdge / pushEdge",
+      "lines": [
+        634,
+        683
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L634-L683",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Engine edge construction and endpoint deduplication before the client."
+    },
+    {
+      "id": "R-ANCHORCONTRACT",
+      "path": "engine/src/srcly/contracts/anchor-graph.ts",
+      "symbol": "anchorGraphResultSchema / anchorEdgeSchema",
+      "lines": [
+        39,
+        125
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/contracts/anchor-graph.ts#L39-L125",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Public anchor result carries nodes, edges, status, proof and generation, not traversal-state witnesses."
+    },
+    {
+      "id": "R-PRIMITIVES",
+      "path": "engine/src/srcly/contracts/primitives.ts",
+      "symbol": "generationFields",
+      "lines": [
+        1,
+        19
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/contracts/primitives.ts#L1-L19",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Generation, program hash and compiler configuration identity."
+    },
+    {
+      "id": "R-ADAPTER",
+      "path": "client/src/viz/deps/flow/anchorAdapter.ts",
+      "symbol": "anchorGraphToViewModel / folds / passThroughs",
+      "lines": [
+        21,
+        207
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/anchorAdapter.ts#L21-L207",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Projection, function folding, pass-through reference removal, first-wins endpoint edge deduplication."
+    },
+    {
+      "id": "R-MULTI",
+      "path": "client/src/viz/deps/flow/multiAnchorAdapter.ts",
+      "symbol": "anchorsToViewModel",
+      "lines": [
+        1,
+        64
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/multiAnchorAdapter.ts#L1-L64",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Independent anchor graph union; endpoint dedup; no per-query membership in ViewEdge."
+    },
+    {
+      "id": "R-REACH",
+      "path": "client/src/viz/deps/flow/reach.ts",
+      "symbol": "reachFrom / walk",
+      "lines": [
+        1,
+        85
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/reach.ts#L1-L85",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Reachability over the displayed graph, with faint/structural handling."
+    },
+    {
+      "id": "R-VIEWMODEL",
+      "path": "client/src/viz/deps/viewModel.ts",
+      "symbol": "ViewEdge",
+      "lines": [
+        59,
+        78
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/viewModel.ts#L59-L78",
+      "evidence_mode": "pinned source inspection",
+      "claim": "One proof/relation/status bundle rather than contributing raw members."
+    },
+    {
+      "id": "R-FLOWQUERY",
+      "path": "client/src/viz/deps/flow/FlowView.tsx",
+      "symbol": "query keys and anchorGraph requests",
+      "lines": [
+        50,
+        177
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/FlowView.tsx#L50-L177",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Generation-keyed asynchronous graph and additional-anchor requests."
+    },
+    {
+      "id": "R-FLOWSTATE",
+      "path": "client/src/viz/deps/flow/FlowView.tsx",
+      "symbol": "edgePath / reach / view state / open source",
+      "lines": [
+        286,
+        408
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/FlowView.tsx#L286-L408",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Route path precedent, projected reach, preserved camera and source-return state."
+    },
+    {
+      "id": "R-FLOWKEYS",
+      "path": "client/src/viz/deps/flow/FlowView.tsx",
+      "symbol": "keyboard handler",
+      "lines": [
+        445,
+        492
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/FlowView.tsx#L445-L492",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Existing history, source-open and expansion keyboard support."
+    },
+    {
+      "id": "R-INSPECTOR",
+      "path": "client/src/viz/deps/flow/FlowInspector.tsx",
+      "symbol": "FlowInspector / EdgeStepsView",
+      "lines": [
+        116,
+        240
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/FlowInspector.tsx#L116-L240",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Existing inspector, trace-from and TS-only effects; route ordered-step precedent later in file."
+    },
+    {
+      "id": "R-EDGESTEPS",
+      "path": "client/src/viz/deps/flow/FlowInspector.tsx",
+      "symbol": "EdgeStepsView",
+      "lines": [
+        334,
+        393
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/FlowInspector.tsx#L334-L393",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Route-only ordered source-linked path presentation precedent."
+    },
+    {
+      "id": "R-INSPECTORMODEL",
+      "path": "client/src/viz/deps/flow/inspectorModel.ts",
+      "symbol": "stopsOf / routeOverview / neighborsOf",
+      "lines": [
+        95,
+        167
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/inspectorModel.ts#L95-L167",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Anchor stops grouped already, route gaps ungrouped; neighbors follow drawn edges."
+    },
+    {
+      "id": "R-LEDGER",
+      "path": "client/src/components/CodeModal/ValueFlowLedger.tsx",
+      "symbol": "ValueFlowLedger",
+      "lines": [
+        1,
+        121
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/components/CodeModal/ValueFlowLedger.tsx#L1-L121",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Existing source-first value ledger; cross-file rows disabled in current component."
+    },
+    {
+      "id": "R-SELECT",
+      "path": "client/src/investigation/valueFlowInspector.ts",
+      "symbol": "createValueFlowInspector",
+      "lines": [
+        1,
+        108
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/investigation/valueFlowInspector.ts#L1-L108",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Caret-to-selection-to-ledger or graph flow and request token handling."
+    },
+    {
+      "id": "R-FETCH",
+      "path": "client/src/viz/deps/flow/fetchSignal.ts",
+      "symbol": "createFetchSignal",
+      "lines": [
+        1,
+        40
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/fetchSignal.ts#L1-L40",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Superseded-response guard without network cancellation."
+    },
+    {
+      "id": "R-ROUTEADAPTER",
+      "path": "client/src/viz/deps/flow/adapter.ts",
+      "symbol": "routeGraphToFlowViewModel",
+      "lines": [
+        16,
+        222
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/adapter.ts#L16-L222",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Route node budget, transparent wrappers, structural edges and edge projection."
+    },
+    {
+      "id": "R-EXPORTS",
+      "path": "client/src/viz/deps/flow/exportsAdapter.ts",
+      "symbol": "exportsToFlowViewModel",
+      "lines": [
+        16,
+        143
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/exportsAdapter.ts#L16-L143",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Lazy file/export views and per-export graph namespacing."
+    },
+    {
+      "id": "R-EFFECTS",
+      "path": "engine/src/srcly/ops/function-effects.ts",
+      "symbol": "functionEffectsOp",
+      "lines": [
+        1,
+        55
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/function-effects.ts#L1-L55",
+      "evidence_mode": "pinned source inspection",
+      "claim": "TypeScript-only effects operation and generation checks."
+    },
+    {
+      "id": "R-EFFECTSCONTRACT",
+      "path": "engine/src/srcly/contracts/function-effects.ts",
+      "symbol": "effect result schemas",
+      "lines": [
+        1,
+        112
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/contracts/function-effects.ts#L1-L112",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Activation, handling, witnesses, assumptions and frontiers."
+    },
+    {
+      "id": "R-ROUTER",
+      "path": "server/app/routers/dataflow.py",
+      "symbol": "anchor_graph / value_flow / function_effects",
+      "lines": [
+        285,
+        389
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/server/app/routers/dataflow.py#L285-L389",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Server validation and engine request/response bridge."
+    },
+    {
+      "id": "R-ADAPTERTEST",
+      "path": "client/src/viz/deps/flow/anchorAdapter.test.ts",
+      "symbol": "adapter fixtures",
+      "lines": [
+        1,
+        140
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/anchorAdapter.test.ts#L1-L140",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Existing folding and layout unit tests; not executed here."
+    },
+    {
+      "id": "R-RETURNTEST",
+      "path": "client/e2e/return-latency.spec.ts",
+      "symbol": "return navigation measurement",
+      "lines": [
+        1,
+        59
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/e2e/return-latency.spec.ts#L1-L59",
+      "evidence_mode": "pinned source inspection",
+      "claim": "Existing browser-return test source; not executed here."
+    }
+  ],
+  "engine_detail": [
+    {
+      "id": "ENG-S001",
+      "label": "Decision log R1/R8, lines 11–29",
+      "path": "docs/intent/dataflow-robustness/decision-log.md",
+      "lines": [
+        11,
+        29
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/docs/intent/dataflow-robustness/decision-log.md#L11-L29",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S002",
+      "label": "session.ts",
+      "path": "engine/src/srcly/session.ts",
+      "lines": [
+        92,
+        154
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/session.ts#L92-L154",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S003",
+      "label": "generation check",
+      "path": "engine/src/srcly/session.ts",
+      "lines": [
+        208,
+        232
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/session.ts#L208-L232",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S004",
+      "label": "program-evidence-collector.ts",
+      "path": "engine/src/analysis/program-evidence-collector.ts",
+      "lines": [
+        10,
+        132
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/program-evidence-collector.ts#L10-L132",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S005",
+      "label": "kinds.ts",
+      "path": "engine/src/srcly/kinds.ts",
+      "lines": [
+        8,
+        207
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/kinds.ts#L8-L207",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S006",
+      "label": "anchor-slice.ts",
+      "path": "engine/src/srcly/anchor-slice.ts",
+      "lines": [
+        30,
+        129
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/anchor-slice.ts#L30-L129",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S007",
+      "label": "evidence-slice.ts",
+      "path": "engine/src/analysis/evidence-slice.ts",
+      "lines": [
+        92,
+        163
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/evidence-slice.ts#L92-L163",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S008",
+      "label": "context pairing",
+      "path": "engine/src/analysis/evidence-slice.ts",
+      "lines": [
+        243,
+        337
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/evidence-slice.ts#L243-L337",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S009",
+      "label": "evidence-slice.ts",
+      "path": "engine/src/analysis/evidence-slice.ts",
+      "lines": [
+        485,
+        562
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/evidence-slice.ts#L485-L562",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S010",
+      "label": "anchor-graph.ts",
+      "path": "engine/src/srcly/ops/anchor-graph.ts",
+      "lines": [
+        47,
+        202
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L47-L202",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S011",
+      "label": "walk",
+      "path": "engine/src/srcly/ops/anchor-graph.ts",
+      "lines": [
+        414,
+        493
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L414-L493",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S012",
+      "label": "contract",
+      "path": "engine/src/srcly/contracts/anchor-graph.ts",
+      "lines": [
+        39,
+        119
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/contracts/anchor-graph.ts#L39-L119",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S013",
+      "label": "finish",
+      "path": "engine/src/srcly/ops/anchor-graph.ts",
+      "lines": [
+        718,
+        745
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L718-L745",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S014",
+      "label": "anchorAdapter.ts",
+      "path": "client/src/viz/deps/flow/anchorAdapter.ts",
+      "lines": [
+        28,
+        181
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/anchorAdapter.ts#L28-L181",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S015",
+      "label": "reach.ts",
+      "path": "client/src/viz/deps/flow/reach.ts",
+      "lines": [
+        33,
+        84
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/reach.ts#L33-L84",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S016",
+      "label": "kinds.ts, lines 23–69",
+      "path": "engine/src/srcly/kinds.ts",
+      "lines": [
+        23,
+        69
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/kinds.ts#L23-L69",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S017",
+      "label": "declarationRuns",
+      "path": "engine/src/srcly/ops/anchor-graph.ts",
+      "lines": [
+        311,
+        402
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L311-L402",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S018",
+      "label": "anchor-graph.test.ts, lines 240–255",
+      "path": "engine/test/srcly/anchor-graph.test.ts",
+      "lines": [
+        240,
+        255
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/test/srcly/anchor-graph.test.ts#L240-L255",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S019",
+      "label": "evidence-slice.ts, lines 280–337",
+      "path": "engine/src/analysis/evidence-slice.ts",
+      "lines": [
+        280,
+        337
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/evidence-slice.ts#L280-L337",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S020",
+      "label": "value-flow.test.ts, lines 65–90",
+      "path": "engine/test/srcly/value-flow.test.ts",
+      "lines": [
+        65,
+        90
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/test/srcly/value-flow.test.ts#L65-L90",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S021",
+      "label": "anchor graph walk",
+      "path": "engine/src/srcly/ops/anchor-graph.ts",
+      "lines": [
+        414,
+        489
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L414-L489",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S022",
+      "label": "evidence-slice.ts, lines 243–277",
+      "path": "engine/src/analysis/evidence-slice.ts",
+      "lines": [
+        243,
+        277
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/evidence-slice.ts#L243-L277",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S023",
+      "label": "pairedInSlice",
+      "path": "engine/src/srcly/facts.ts",
+      "lines": [
+        24,
+        40
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/facts.ts#L24-L40",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S024",
+      "label": "CallSiteIndex.sitesOf",
+      "path": "engine/src/srcly/call-sites.ts",
+      "lines": [
+        27,
+        54
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/call-sites.ts#L27-L54",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S025",
+      "label": "evidence-slice-fields.ts",
+      "path": "engine/src/analysis/evidence-slice-fields.ts",
+      "lines": [
+        1,
+        61
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/evidence-slice-fields.ts#L1-L61",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S026",
+      "label": "addElement",
+      "path": "engine/src/analysis/evidence-slice.ts",
+      "lines": [
+        243,
+        251
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/evidence-slice.ts#L243-L251",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S027",
+      "label": "declarations, lines 218–234",
+      "path": "engine/src/analysis/program-evidence-collector-declarations.ts",
+      "lines": [
+        218,
+        234
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/program-evidence-collector-declarations.ts#L218-L234",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S028",
+      "label": "connectMemberState, lines 437–451",
+      "path": "engine/src/analysis/program-evidence-collector-jsx-support.ts",
+      "lines": [
+        437,
+        451
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/program-evidence-collector-jsx-support.ts#L437-L451",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S029",
+      "label": "member-state.ts",
+      "path": "engine/examples/value-flow-basics/src/member-state.ts",
+      "lines": [
+        1,
+        32
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/examples/value-flow-basics/src/member-state.ts#L1-L32",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S030",
+      "label": "collectNodes",
+      "path": "engine/src/analysis/program-evidence-collector-jsx-support.ts",
+      "lines": [
+        26,
+        95
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/program-evidence-collector-jsx-support.ts#L26-L95",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S031",
+      "label": "processSelection",
+      "path": "engine/src/analysis/program-evidence-collector-boundary-processing.ts",
+      "lines": [
+        336,
+        375
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/program-evidence-collector-boundary-processing.ts#L336-L375",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S032",
+      "label": "facts.ts, lines 155–179",
+      "path": "engine/src/srcly/facts.ts",
+      "lines": [
+        155,
+        179
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/facts.ts#L155-L179",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S033",
+      "label": "ends-in-place.tsx",
+      "path": "engine/examples/value-flow-basics/src/ends-in-place.tsx",
+      "lines": [
+        1,
+        10
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/examples/value-flow-basics/src/ends-in-place.tsx#L1-L10",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S034",
+      "label": "program-evidence-reaching-bindings.ts",
+      "path": "engine/src/analysis/program-evidence-reaching-bindings.ts",
+      "lines": [
+        1,
+        40
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/program-evidence-reaching-bindings.ts#L1-L40",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S035",
+      "label": "call-support.ts, lines 149–169",
+      "path": "engine/src/analysis/program-evidence-collector-call-support.ts",
+      "lines": [
+        149,
+        169
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/program-evidence-collector-call-support.ts#L149-L169",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S036",
+      "label": "framework-flows.ts",
+      "path": "engine/src/analysis/framework-flows.ts",
+      "lines": [
+        1,
+        30
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/framework-flows.ts#L1-L30",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S037",
+      "label": "connectExternalCallbacks",
+      "path": "engine/src/analysis/program-evidence-collector-call-support.ts",
+      "lines": [
+        481,
+        538
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/program-evidence-collector-call-support.ts#L481-L538",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S038",
+      "label": "resource-source.tsx",
+      "path": "engine/examples/value-flow-basics/src/resource-source.tsx",
+      "lines": [
+        1,
+        12
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/examples/value-flow-basics/src/resource-source.tsx#L1-L12",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S039",
+      "label": "kinds.ts, lines 133–207",
+      "path": "engine/src/srcly/kinds.ts",
+      "lines": [
+        133,
+        207
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/kinds.ts#L133-L207",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S040",
+      "label": "analysis/library-models.ts",
+      "path": "engine/src/analysis/library-models.ts",
+      "lines": [
+        1,
+        88
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/library-models.ts#L1-L88",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S041",
+      "label": "anchor-graph.ts, lines 660–674",
+      "path": "engine/src/srcly/ops/anchor-graph.ts",
+      "lines": [
+        660,
+        674
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L660-L674",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S042",
+      "label": "outcome",
+      "path": "engine/src/srcly/ops/anchor-graph.ts",
+      "lines": [
+        171,
+        185
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L171-L185",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S043",
+      "label": "external-calls.tsx",
+      "path": "engine/examples/value-flow-basics/src/external-calls.tsx",
+      "lines": [
+        1,
+        36
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/examples/value-flow-basics/src/external-calls.tsx#L1-L36",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S044",
+      "label": "438–454",
+      "path": "engine/src/srcly/ops/anchor-graph.ts",
+      "lines": [
+        438,
+        454
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L438-L454",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S045",
+      "label": "446–454",
+      "path": "engine/src/srcly/ops/anchor-graph.ts",
+      "lines": [
+        446,
+        454
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L446-L454",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S046",
+      "label": "634–658",
+      "path": "engine/src/srcly/ops/anchor-graph.ts",
+      "lines": [
+        634,
+        658
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L634-L658",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S047",
+      "label": "677–683",
+      "path": "engine/src/srcly/ops/anchor-graph.ts",
+      "lines": [
+        677,
+        683
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L677-L683",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S048",
+      "label": "204–240",
+      "path": "engine/src/srcly/ops/anchor-graph.ts",
+      "lines": [
+        204,
+        240
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L204-L240",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S049",
+      "label": "68–107",
+      "path": "client/src/viz/deps/flow/anchorAdapter.ts",
+      "lines": [
+        68,
+        107
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/anchorAdapter.ts#L68-L107",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S050",
+      "label": "113–181",
+      "path": "client/src/viz/deps/flow/anchorAdapter.ts",
+      "lines": [
+        113,
+        181
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/client/src/viz/deps/flow/anchorAdapter.ts#L113-L181",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S051",
+      "label": "value-flow.ts, lines 182–256",
+      "path": "engine/src/srcly/ops/value-flow.ts",
+      "lines": [
+        182,
+        256
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/value-flow.ts#L182-L256",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S052",
+      "label": "existing tests",
+      "path": "engine/test/srcly/value-flow.test.ts",
+      "lines": [
+        54,
+        63
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/test/srcly/value-flow.test.ts#L54-L63",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S053",
+      "label": "walk, lines 318–390",
+      "path": "engine/src/srcly/ops/value-flow.ts",
+      "lines": [
+        318,
+        390
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/value-flow.ts#L318-L390",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S054",
+      "label": "MAX_ROWS",
+      "path": "engine/src/srcly/ops/value-flow.ts",
+      "lines": [
+        23,
+        32
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/value-flow.ts#L23-L32",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S055",
+      "label": "ledger contract",
+      "path": "engine/src/srcly/contracts/value-flow.ts",
+      "lines": [
+        1,
+        74
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/contracts/value-flow.ts#L1-L74",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S056",
+      "label": "route-path.ts, lines 16–105",
+      "path": "engine/src/srcly/ops/route-path.ts",
+      "lines": [
+        16,
+        105
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/route-path.ts#L16-L105",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S057",
+      "label": "chainTransfers",
+      "path": "engine/src/srcly/ops/route-path.ts",
+      "lines": [
+        133,
+        152
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/route-path.ts#L133-L152",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S058",
+      "label": "RowBuilder.path",
+      "path": "engine/src/srcly/ops/route-path.ts",
+      "lines": [
+        229,
+        253
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/route-path.ts#L229-L253",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S059",
+      "label": "relationBetween",
+      "path": "engine/src/srcly/ops/route-path.ts",
+      "lines": [
+        276,
+        282
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/route-path.ts#L276-L282",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S060",
+      "label": "function-effects analysis, lines 1–60",
+      "path": "engine/src/analysis/effects/function-effects.ts",
+      "lines": [
+        1,
+        60
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/effects/function-effects.ts#L1-L60",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S061",
+      "label": "contract",
+      "path": "engine/src/srcly/contracts/function-effects.ts",
+      "lines": [
+        1,
+        90
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/contracts/function-effects.ts#L1-L90",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S062",
+      "label": "operation",
+      "path": "engine/src/srcly/ops/function-effects.ts",
+      "lines": [
+        10,
+        54
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/function-effects.ts#L10-L54",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S063",
+      "label": "visit/follow/nestedActivation",
+      "path": "engine/src/analysis/effects/function-effects.ts",
+      "lines": [
+        271,
+        377
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/effects/function-effects.ts#L271-L377",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S064",
+      "label": "python/host.ts, lines 46–60",
+      "path": "engine/src/srcly/python/host.ts",
+      "lines": [
+        46,
+        60
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/python/host.ts#L46-L60",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S065",
+      "label": "python/facts.ts, lines 94–140",
+      "path": "engine/src/srcly/python/facts.ts",
+      "lines": [
+        94,
+        140
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/python/facts.ts#L94-L140",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S066",
+      "label": "unknown strength",
+      "path": "engine/src/srcly/kinds.ts",
+      "lines": [
+        196,
+        207
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/kinds.ts#L196-L207",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S067",
+      "label": "statement visitor",
+      "path": "engine/python/srcly_pyfacts.py",
+      "lines": [
+        1442,
+        1552
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/python/srcly_pyfacts.py#L1442-L1552",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S068",
+      "label": "test",
+      "path": "engine/python/srcly_pyfacts.py",
+      "lines": [
+        1610,
+        1616
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/python/srcly_pyfacts.py#L1610-L1616",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S069",
+      "label": "BoolOp / IfExp",
+      "path": "engine/python/srcly_pyfacts.py",
+      "lines": [
+        1801,
+        1816
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/python/srcly_pyfacts.py#L1801-L1816",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S070",
+      "label": "Celery model",
+      "path": "engine/python/srcly_pyfacts.py",
+      "lines": [
+        1883,
+        1920
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/python/srcly_pyfacts.py#L1883-L1920",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S071",
+      "label": "expr_Call",
+      "path": "engine/python/srcly_pyfacts.py",
+      "lines": [
+        1922,
+        2042
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/python/srcly_pyfacts.py#L1922-L2042",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S072",
+      "label": "bind_arguments",
+      "path": "engine/python/srcly_pyfacts.py",
+      "lines": [
+        2072,
+        2109
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/python/srcly_pyfacts.py#L2072-L2109",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S073",
+      "label": "PythonRelationProvider",
+      "path": "engine/src/srcly/python/facts.ts",
+      "lines": [
+        151,
+        207
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/python/facts.ts#L151-L207",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S074",
+      "label": "limits",
+      "path": "engine/src/srcly/anchor-slice.ts",
+      "lines": [
+        10,
+        28
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/anchor-slice.ts#L10-L28",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S075",
+      "label": "gaps/frontier",
+      "path": "engine/src/srcly/ops/anchor-graph.ts",
+      "lines": [
+        533,
+        607
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L533-L607",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S076",
+      "label": "hub test",
+      "path": "engine/test/srcly/anchor-graph.test.ts",
+      "lines": [
+        169,
+        178
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/test/srcly/anchor-graph.test.ts#L169-L178",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S077",
+      "label": "facts.ts naturalEnd/isNaturalStart",
+      "path": "engine/src/srcly/facts.ts",
+      "lines": [
+        90,
+        139
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/facts.ts#L90-L139",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S078",
+      "label": "outcome",
+      "path": "engine/src/srcly/ops/anchor-graph.ts",
+      "lines": [
+        159,
+        200
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L159-L200",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S079",
+      "label": "slice coverage",
+      "path": "engine/src/analysis/evidence-slice.ts",
+      "lines": [
+        533,
+        562
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/analysis/evidence-slice.ts#L533-L562",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S080",
+      "label": "anchor coverage",
+      "path": "engine/src/srcly/ops/anchor-graph.ts",
+      "lines": [
+        138,
+        158
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/ops/anchor-graph.ts#L138-L158",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S081",
+      "label": "session generation/release",
+      "path": "engine/src/srcly/session.ts",
+      "lines": [
+        105,
+        116
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/src/srcly/session.ts#L105-L116",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S082",
+      "label": "closures.ts",
+      "path": "engine/examples/value-flow-basics/src/closures.ts",
+      "lines": [
+        1,
+        12
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/examples/value-flow-basics/src/closures.ts#L1-L12",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S083",
+      "label": "fixture-annotations.test.ts, lines 10–30",
+      "path": "engine/test/srcly/fixture-annotations.test.ts",
+      "lines": [
+        10,
+        30
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/test/srcly/fixture-annotations.test.ts#L10-L30",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S084",
+      "label": "check, lines 101–139",
+      "path": "engine/test/srcly/fixture-annotations.test.ts",
+      "lines": [
+        101,
+        139
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/test/srcly/fixture-annotations.test.ts#L101-L139",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S085",
+      "label": "edgeMatches / matching",
+      "path": "engine/test/srcly/fixture-annotations.test.ts",
+      "lines": [
+        91,
+        137
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/test/srcly/fixture-annotations.test.ts#L91-L137",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S086",
+      "label": "proof nonempty test",
+      "path": "engine/test/srcly/anchor-graph.test.ts",
+      "lines": [
+        204,
+        209
+      ],
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/engine/test/srcly/anchor-graph.test.ts#L204-L209",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S087",
+      "label": "task-send-proof-strength-to-the-client-through-the-contract",
+      "path": "pgm/data/projects/srcly-backlog/nodes/task-send-proof-strength-to-the-client-through-the-contract.md",
+      "lines": null,
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-send-proof-strength-to-the-client-through-the-contract.md",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S088",
+      "label": "task-collectors-record-end-attributes-for-typescript",
+      "path": "pgm/data/projects/srcly-backlog/nodes/task-collectors-record-end-attributes-for-typescript.md",
+      "lines": null,
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-collectors-record-end-attributes-for-typescript.md",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S089",
+      "label": "task-ledger-classify-reads-kind-traits",
+      "path": "pgm/data/projects/srcly-backlog/nodes/task-ledger-classify-reads-kind-traits.md",
+      "lines": null,
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-ledger-classify-reads-kind-traits.md",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S090",
+      "label": "task-calls-through-function-typed-params-and-props",
+      "path": "pgm/data/projects/srcly-backlog/nodes/task-calls-through-function-typed-params-and-props.md",
+      "lines": null,
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-calls-through-function-typed-params-and-props.md",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S091",
+      "label": "task-library-write-into-a-non-local-receiver",
+      "path": "pgm/data/projects/srcly-backlog/nodes/task-library-write-into-a-non-local-receiver.md",
+      "lines": null,
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-library-write-into-a-non-local-receiver.md",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S092",
+      "label": "task-action-parameters-walk-into-their-useaction-sites",
+      "path": "pgm/data/projects/srcly-backlog/nodes/task-action-parameters-walk-into-their-useaction-sites.md",
+      "lines": null,
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-action-parameters-walk-into-their-useaction-sites.md",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S093",
+      "label": "task-walk-into-nested-functions",
+      "path": "pgm/data/projects/srcly-backlog/nodes/task-walk-into-nested-functions.md",
+      "lines": null,
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-walk-into-nested-functions.md",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S094",
+      "label": "task-writers-of-a-model-field",
+      "path": "pgm/data/projects/srcly-backlog/nodes/task-writers-of-a-model-field.md",
+      "lines": null,
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-writers-of-a-model-field.md",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S095",
+      "label": "task-move-the-remaining-alias-resolution-sites-to-the-value-origin-resolver",
+      "path": "pgm/data/projects/srcly-backlog/nodes/task-move-the-remaining-alias-resolution-sites-to-the-value-origin-resolver.md",
+      "lines": null,
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/task-move-the-remaining-alias-resolution-sites-to-the-value-origin-resolver.md",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    },
+    {
+      "id": "ENG-S096",
+      "label": "area-data-flow-tsx-usability-audit-2026-10",
+      "path": "pgm/data/projects/srcly-backlog/nodes/area-data-flow-tsx-usability-audit-2026-10.md",
+      "lines": null,
+      "url": "https://github.com/byronwall/srcly/blob/ee8a771ce94fb59573492445d0f5fa2411ad83c8/pgm/data/projects/srcly-backlog/nodes/area-data-flow-tsx-usability-audit-2026-10.md",
+      "evidence_mode": "pinned source inspection",
+      "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8"
+    }
+  ],
+  "limitations": "Metadata records inspected sources, not hands-on product execution. Repository authority is fixed baseline; external living docs are retrieval snapshots."
+}
