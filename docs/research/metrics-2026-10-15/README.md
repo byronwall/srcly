@@ -9,7 +9,7 @@ The research covers 32 API fields, 27 report definitions, 22 selectable metrics,
 | Initiative | Result | First proof |
 | --- | --- | --- |
 | [Metric trust](https://github.com/byronwall/srcly/blob/0bfb05ba/docs/intent/metric-trust/shape-brief.md) | Correct scope, units, support, rollups, and ranking | A measured zero differs from unavailable data in one real scan and report |
-| [Portfolio evaluation](../../intent/metric-portfolio/shape-brief.md) | Evidence for a compact default and useful diagnostics | Three pinned repositories reveal retained and rejected decision cases |
+| [Portfolio evaluation](https://github.com/byronwall/srcly/blob/0bfb05ba/docs/intent/metric-portfolio/shape-brief.md) | Evidence for a compact default and useful diagnostics | Three pinned repositories reveal retained and rejected decision cases |
 | [Git activity](../../intent/git-activity/shape-brief.md) | Explain why difficult code deserves attention now | Verified file histories change a justified priority decision |
 | [Imported quality evidence](../../intent/imported-quality-evidence/shape-brief.md) | Inspect cycles, clones, diagnostics, and test gaps | An existing graph edge leads to its original source declaration |
 
