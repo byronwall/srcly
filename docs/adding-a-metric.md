@@ -52,6 +52,16 @@ Check a new metric against these decisions before you add it.
 - Keep or cut a metric on decision cases: read each top-ranked case in source and record a verdict. Correlation alone does not decide. `evaluate_metric_portfolio.py` reports support, N/A and zero rates, Spearman correlation and top-10 overlap per language and scope as input to that review.
 - Tune defaults with evidence. The October 2026 pilot adjudicated 729 top-10 cases on four repositories, then set the defaults (for example, `comment_noise` flags 1.0 comment line per code line or more). Its method, results and open follow-ups are in `docs/research/metric-pilot-2026-10/README.md`. Rerun a pilot with `server/scripts/evaluate_metric_portfolio.py`.
 
+## Imported quality evidence: out of scope
+
+srcly does not import reports from other analyzers. Byron cancelled this work on 2026-11-12, after the metric overhaul (#73–#79) put it below its cut line. Do not add these without a new decision:
+
+- Cycle and degree findings with original-edge witnesses. The import graph has hub badges and reachability findings, but no cycle quality claims. A cycle claim would need to trace each graph edge back to its source declarations, including type-only, barrel, lazy and unresolved imports.
+- Clone families from a CPD or jscpd report.
+- Coverage from an lcov or similar report, and CRAP built on it. Coverage that a report does not list would be unknown, not zero.
+
+Typed diagnostics took a different path: findings run the project's own `tsc` and `eslint`, else `ruff` and srcly's TypeScript rules (#78), plus a project's ast-grep rule pack (#361). srcly does not import a diagnostics report.
+
 ## Activity metrics
 
 Git activity (`server/app/services/activity.py`) is review context beside source structure. It is not a source metric.

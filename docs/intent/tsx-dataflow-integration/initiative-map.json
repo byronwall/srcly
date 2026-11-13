@@ -111,7 +111,7 @@
     {
       "id": "S9",
       "type": "repo",
-      "location": "docs/intent/imported-quality-evidence/shape-brief.md",
+      "location": "https://github.com/byronwall/srcly/blob/0a1c1133/docs/intent/imported-quality-evidence/shape-brief.md",
       "anchor": "import artifacts before building engines",
       "authority": "user"
     },

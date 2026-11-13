@@ -11,7 +11,7 @@ The research covers 32 API fields, 27 report definitions, 22 selectable metrics,
 | [Metric trust](https://github.com/byronwall/srcly/blob/0bfb05ba/docs/intent/metric-trust/shape-brief.md) | Correct scope, units, support, rollups, and ranking | A measured zero differs from unavailable data in one real scan and report |
 | [Portfolio evaluation](https://github.com/byronwall/srcly/blob/0bfb05ba/docs/intent/metric-portfolio/shape-brief.md) | Evidence for a compact default and useful diagnostics | Three pinned repositories reveal retained and rejected decision cases |
 | [Git activity](https://github.com/byronwall/srcly/blob/0bfb05ba/docs/intent/git-activity/shape-brief.md) | Explain why difficult code deserves attention now | Verified file histories change a justified priority decision |
-| [Imported quality evidence](../../intent/imported-quality-evidence/shape-brief.md) | Inspect cycles, clones, diagnostics, and test gaps | An existing graph edge leads to its original source declaration |
+| [Imported quality evidence](https://github.com/byronwall/srcly/blob/0a1c1133/docs/intent/imported-quality-evidence/shape-brief.md) | Inspect cycles, clones, diagnostics, and test gaps | An existing graph edge leads to its original source declaration |
 
 These are planned initiatives, with implementation plans and validated maps. This PR implements none of them. The first investment is metric trust and a small portfolio pilot. The other initiatives define independently gated next steps.
 
