@@ -106,5 +106,21 @@
       "Detect components that return .map(...) of JSX (explorEDA DslCode.tsx).",
       "Run the next pilot on a TS repo without tsc or eslint and a non-author repo, with a second reviewer."
     ]
+  },
+  {
+    "title": "Trustworthy metrics and ranking",
+    "slug": "metric-trust",
+    "outcome": "completed",
+    "retired_at": "2026-11-12",
+    "summary": "The metric-trust plan was carried out inside the metric system overhaul rather than on its own. Measured zero versus N/A, executable-scope counts, witnesses and one consistent ranking story all shipped in #73 and #75. Reconciled against origin/main 0bfb05ba.",
+    "reason": "Replaced by the metric system overhaul: its milestones shipped as #73 (zero vs N/A, witnesses, cohorts) and #75 (one catalog, report and client parity).",
+    "documentation": [
+      "docs/adding-a-metric.md",
+      "docs/research/metrics-2026-10-15/README.md"
+    ],
+    "revision": "0bfb05ba",
+    "follow_ups": [
+      "Dropped: a declared display-area ownership rule with area-union fixtures (m2). Nothing tracks it."
+    ]
   }
 ]

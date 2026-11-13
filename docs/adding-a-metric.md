@@ -31,6 +31,13 @@ For a metric that flows end to end (analyzer → API → treemap, Hot Spots, exp
 - Confirm the metric appears in the **Color** and **Rank by** pickers (Rank by only when it isn't neutral), ranks Hot Spots with its unit and N/A group, and shows in the tooltip and code viewer for the languages that measure it.
 - Avoid `// @ts-ignore` / `// @ts-expect-error`; instead, update types so the pipeline is type-safe from API response through to the UI.
 
+## How ranking treats a metric
+
+- Ranking works on one cohort at a time: files or functions, never both mixed.
+- A measured zero stays in the denominator. N/A drops out of the ranking and is listed apart.
+- The client (`client/src/utils/hotSpotRanking.ts`) and the report (`server/app/services/reporting.py`) must give the same order. `tests/test_ranking_parity.py` checks this. `client/src/utils/hotSpotRanking.test.ts` covers cohorts, zeros, N/A and neutral metrics.
+- Treemap areas: a scope with children gets a `(body)` child for its remaining LOC (`client/src/viz/treemap/utils/tree.ts`), so leaf areas add up to the scope.
+
 ## What the catalog keeps, and why
 
 Check a new metric against these decisions before you add it.
