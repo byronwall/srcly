@@ -51,3 +51,13 @@ Check a new metric against these decisions before you add it.
 - Below the cut line: clones, coverage, CRAP, temporal coupling and trends.
 - Keep or cut a metric on decision cases: read each top-ranked case in source and record a verdict. Correlation alone does not decide. `evaluate_metric_portfolio.py` reports support, N/A and zero rates, Spearman correlation and top-10 overlap per language and scope as input to that review.
 - Tune defaults with evidence. The October 2026 pilot adjudicated 729 top-10 cases on four repositories, then set the defaults (for example, `comment_noise` flags 1.0 comment line per code line or more). Its method, results and open follow-ups are in `docs/research/metric-pilot-2026-10/README.md`. Rerun a pilot with `server/scripts/evaluate_metric_portfolio.py`.
+
+## Activity metrics
+
+Git activity (`server/app/services/activity.py`) is review context beside source structure. It is not a source metric.
+
+- It gives two metrics: `commit_count` and `churn_lines`. Churn stays a separate metric, because one bulk rewrite gives high churn in a single commit.
+- The window is 30 days, 90 days (the default), 1 year or all history. History follows renames to the file's current path.
+- No `.git`, a shallow clone, no commits, a git error or a timeout gives N/A with a reason. Source metrics stay as they are. Uncommitted edits add a note only.
+- Activity is laid over a finished tree when the tree is served. It is never part of the analysis cache, so a window change does not rerun the analyzers.
+- Out of scope: co-change, author scores and remote fetches.
