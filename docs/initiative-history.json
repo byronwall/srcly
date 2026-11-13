@@ -122,5 +122,21 @@
     "follow_ups": [
       "Dropped: a declared display-area ownership rule with area-union fixtures (m2). Nothing tracks it."
     ]
+  },
+  {
+    "title": "A metric portfolio that earns its attention",
+    "slug": "metric-portfolio",
+    "outcome": "completed",
+    "retired_at": "2026-11-12",
+    "summary": "The portfolio evaluation and catalog choice shipped inside the metric system overhaul: an evaluation script, a four-repo pilot with source-backed verdicts, and the cuts and weights it justified. Reconciled against origin/main 0bfb05ba.",
+    "reason": "Replaced by the metric system overhaul: #74 and #75 applied the catalog choice and #79 ran the multi-repo evaluation.",
+    "documentation": [
+      "docs/adding-a-metric.md",
+      "docs/research/metric-pilot-2026-10/README.md"
+    ],
+    "revision": "0bfb05ba",
+    "follow_ups": [
+      "The pilot README lists its own follow-ups, including a second reviewer and a non-author repository."
+    ]
   }
 ]

@@ -49,4 +49,5 @@ Check a new metric against these decisions before you add it.
 - Findings come from the project's own `tsc` and `eslint` when present. Otherwise srcly runs `ruff` and its own TypeScript rules. Each finding names its tool.
 - Named 2x2 presets use absolute cut-offs, not cut-offs relative to the repo.
 - Below the cut line: clones, coverage, CRAP, temporal coupling and trends.
+- Keep or cut a metric on decision cases: read each top-ranked case in source and record a verdict. Correlation alone does not decide. `evaluate_metric_portfolio.py` reports support, N/A and zero rates, Spearman correlation and top-10 overlap per language and scope as input to that review.
 - Tune defaults with evidence. The October 2026 pilot adjudicated 729 top-10 cases on four repositories, then set the defaults (for example, `comment_noise` flags 1.0 comment line per code line or more). Its method, results and open follow-ups are in `docs/research/metric-pilot-2026-10/README.md`. Rerun a pilot with `server/scripts/evaluate_metric_portfolio.py`.
