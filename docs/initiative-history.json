@@ -84,5 +84,27 @@
     "follow_ups": [
       "Longer-horizon ideas in claim C8 (change islands, PR splittability, ripple frontier) were never planned and are not tracked."
     ]
+  },
+  {
+    "title": "Metric system overhaul",
+    "slug": "metric-system-overhaul",
+    "outcome": "completed",
+    "retired_at": "2026-11-12",
+    "summary": "The metric system overhaul landed as seven stacked PRs: trust fixes, catalog cuts with comment noise and component metrics, one server-owned catalog with a single-metric list, Git activity, 2x2 presets, zero-config findings, and a four-repo pilot that tuned the defaults.",
+    "reason": "All seven milestones merged on 2026-10-16 (#73-#79); the map already recorded completion.",
+    "documentation": [
+      "docs/adding-a-metric.md",
+      "docs/CODE_MAP.md",
+      "docs/research/metric-pilot-2026-10/README.md"
+    ],
+    "revision": "0bfb05ba",
+    "follow_ups": [
+      "Scope LOC (and commit count) to code languages, so Markdown, HTML and CSS stop ranking beside code.",
+      "Make parameter_count's file and folder value the max arity with a witness instead of a sum.",
+      "Fix the LOC description or count: TS and Python LOC include comment lines; then revisit comment_ratio.",
+      "Weight findings by severity, or set stylistic rules (eslint curly) apart, so one project rule can't fill the Findings preset.",
+      "Detect components that return .map(...) of JSX (explorEDA DslCode.tsx).",
+      "Run the next pilot on a TS repo without tsc or eslint and a non-author repo, with a second reviewer."
+    ]
   }
 ]

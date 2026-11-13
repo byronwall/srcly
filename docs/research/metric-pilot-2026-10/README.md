@@ -7,7 +7,7 @@ status: decided
 
 # Metric pilot, October 2026
 
-Milestone 7 of the [metric system overhaul](../../intent/metric-system-overhaul/implementation-plan.md). It is the hybrid pilot chosen in the [shape brief](../../intent/metric-system-overhaul/shape-brief.md). A script measured redundancy, missing rates and top-k overlap. Then every case in the top 10 of each Hot Spots lens and each 2x2 preset was read in source and given a verdict. The defaults were tuned from those verdicts.
+Milestone 7 of the [metric system overhaul](https://github.com/byronwall/srcly/blob/0bfb05ba/docs/intent/metric-system-overhaul/implementation-plan.md). It is the hybrid pilot chosen in the [shape brief](https://github.com/byronwall/srcly/blob/0bfb05ba/docs/intent/metric-system-overhaul/shape-brief.md). A script measured redundancy, missing rates and top-k overlap. Then every case in the top 10 of each Hot Spots lens and each 2x2 preset was read in source and given a verdict. The defaults were tuned from those verdicts.
 
 Byron was away and asked the agent to make these calls. One reviewer (Claude) adjudicated every case. The review was not blind: the reviewer knew which metric surfaced each case.
 

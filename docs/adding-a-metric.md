@@ -30,3 +30,16 @@ For a metric that flows end to end (analyzer → API → treemap, Hot Spots, exp
 
 - Confirm the metric appears in the **Color** and **Rank by** pickers (Rank by only when it isn't neutral), ranks Hot Spots with its unit and N/A group, and shows in the tooltip and code viewer for the languages that measure it.
 - Avoid `// @ts-ignore` / `// @ts-expect-error`; instead, update types so the pipeline is type-safe from API response through to the UI.
+
+## What the catalog keeps, and why
+
+Check a new metric against these decisions before you add it.
+
+- Each metric must give its own actionable signal. A metric that mostly repeats another one is cut, not kept as a variant.
+- Removed on purpose: the Low Comments penalty (replaced by `comment_noise`), hardcoded and duplicated TSX string counts, and the class, type and import risk weights. Removed metrics get no compatibility layer.
+- TODO counts are neutral detail, never risk.
+- React and Solid components have their own component-scoped metrics, such as hooks, effects, JSX depth and props.
+- Findings come from the project's own `tsc` and `eslint` when present. Otherwise srcly runs `ruff` and its own TypeScript rules. Each finding names its tool.
+- Named 2x2 presets use absolute cut-offs, not cut-offs relative to the repo.
+- Below the cut line: clones, coverage, CRAP, temporal coupling and trends.
+- Tune defaults with evidence. The October 2026 pilot adjudicated 729 top-10 cases on four repositories, then set the defaults (for example, `comment_noise` flags 1.0 comment line per code line or more). Its method, results and open follow-ups are in `docs/research/metric-pilot-2026-10/README.md`. Rerun a pilot with `server/scripts/evaluate_metric_portfolio.py`.
