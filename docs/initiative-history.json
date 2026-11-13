@@ -152,5 +152,20 @@
     ],
     "revision": "0bfb05ba",
     "follow_ups": []
+  },
+  {
+    "title": "Symbol graph",
+    "slug": "symbol-graph",
+    "outcome": "completed",
+    "retired_at": "2026-11-12",
+    "summary": "A symbol reference graph shipped for TypeScript and Python: a server index with a neighbourhood API, Symbols mode in the graph view, a path between two symbols, dead and hub overlays, and the HTTP seam between client requests and server routes. This folder had no initiative map; a minimal one was written only to run the retirement check. Reconciled against origin/main 0bfb05ba.",
+    "reason": "All six PRs of the shape brief's stack merged on 2026-11-05 (#348, #349, #352, #353, #354, #358).",
+    "documentation": [
+      "docs/CODE_MAP.md"
+    ],
+    "revision": "0bfb05ba",
+    "follow_ups": [
+      "Re-resolve name and typed edges with the data-flow engine's checker. The backlog area area-symbol-graph in pgm/data holds any open work."
+    ]
   }
 ]
