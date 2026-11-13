@@ -181,6 +181,15 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist is `
 | Before/after dependency graphs on one union layout (changed files center, importers left, imports right; added/removed edges; ghosts for absent files; "used by N" hubs; linked pan/zoom; expand) | `client/src/compare/CompareGraph.tsx`, model in `client/src/compare/graphModel.ts` (feeds `viz/deps/layout.ts:layoutViewSync`) |
 | Shared bits (status icon, diffstat, health, magnitude and split bars), labels/formatting/health | `client/src/compare/bits.tsx`, `client/src/compare/metrics.ts` |
 
+Compare design:
+
+- The diff runs on the server, and the client only draws. `diff.py` is a pure module that turns two cached trees and two graphs into one payload, so the UI and `srcly compare` share one definition of better and worse.
+- Compare gives each metric and each file its own better, worse or neutral verdict. It gives no single verdict for the whole change. A metric that is N/A on either side gets no delta.
+- Views focus on changed files by default. The output comes from disk and the git diff only, with no LLM in the path.
+- The treemap and the graph each lay out the union of both sides once, then filter per side. Unchanged nodes keep the same position on both sides.
+- A commit snapshot is a `git worktree add --detach` in srcly's cache directory. It never touches your checkout, branch or stash, and real paths keep tsconfig and package roots working.
+- Compare is its own view beside the normal one. Non-git folders and commits outside the local clone are out of scope.
+
 Ref picker rules:
 
 - A PR's base is the merge-base of its own `baseRefName` and its head, as GitHub diffs it. PRs are often stacked, so the default branch is the wrong base.
