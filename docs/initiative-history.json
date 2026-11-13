@@ -43,5 +43,18 @@
     "follow_ups": [
       "Peripheral idea C8 (animated canvas transition between treemap and graph) was never planned and is not tracked."
     ]
+  },
+  {
+    "title": "Dependency and treemap quick fixes",
+    "slug": "dependency-and-treemap-quick-fixes",
+    "outcome": "completed",
+    "retired_at": "2026-11-12",
+    "summary": "Opening code from the graph now uses the app's code viewer at the right scope, the graph has a legend and no side headers, the treemap has dark mono labels and a stronger ramp, popovers open one at a time, and the code viewer shows one table of applicable metrics. Reconciled against origin/main 0bfb05ba.",
+    "reason": "All five milestones merged on 2026-10-15 (#46, #48, #51, #53, #57).",
+    "documentation": [
+      "docs/CODE_MAP.md"
+    ],
+    "revision": "0bfb05ba",
+    "follow_ups": []
   }
 ]
