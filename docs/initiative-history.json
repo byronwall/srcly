@@ -200,5 +200,18 @@
       "Run audit round 3 on visual-notes against the symbol view. Nothing tracks it.",
       "Below the cut line and not built: a types overlay, the symbol view in the Components lens, Python frame roles. Hub summaries are tracked as pgm task-hub-summaries-for-size-limited-slices."
     ]
+  },
+  {
+    "title": "Complementary evidence without another analyzer platform",
+    "slug": "imported-quality-evidence",
+    "outcome": "cancelled",
+    "retired_at": "2026-11-12",
+    "summary": "Cancelled and retired. Only m3 shipped, in a different form: findings run the project tsc and eslint, else ruff and srcly TS rules (#78), instead of importing a diagnostics report. Cycle witnesses (m1), clone families (m2) and coverage then CRAP (m4) were never built. Reconciled against origin/main 0a1c1133.",
+    "reason": "Byron cancelled m1, m2 and m4 on 2026-11-12. The metric system overhaul (#73-#79) put cycle witnesses, clone families, coverage and CRAP below its cut line. m3 shipped in another form: #78 runs typed diagnostics directly.",
+    "documentation": [
+      "docs/adding-a-metric.md"
+    ],
+    "revision": "0a1c1133",
+    "follow_ups": []
   }
 ]
