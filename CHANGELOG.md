@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.12.0](https://github.com/byronwall/srcly/compare/v1.11.0...v1.12.0) (2026-11-13)
+
+
+### Features
+
+* **site:** add illustrated product tour and practical guides ([#372](https://github.com/byronwall/srcly/issues/372)) ([0bfb05b](https://github.com/byronwall/srcly/commit/0bfb05bab5bc4193c84ab816eba3ff91b689e62e))
+* **site:** add public landing page and user guides ([#371](https://github.com/byronwall/srcly/issues/371)) ([c9e87be](https://github.com/byronwall/srcly/commit/c9e87be08d0e179eba1b1b6d809dc36896743e07))
+
+
+### Documentation
+
+* retire compare-ref-picker ([#376](https://github.com/byronwall/srcly/issues/376)) ([eba78b6](https://github.com/byronwall/srcly/commit/eba78b648b623c9a7a60ace865f57e7ac1f20c12))
+* retire dataflow-logic-visibility ([#387](https://github.com/byronwall/srcly/issues/387)) ([3f57d8b](https://github.com/byronwall/srcly/commit/3f57d8b2f2c587b664d1c56d7c42fb9c8ccd77e9))
+* retire dependency-and-treemap-quick-fixes ([#378](https://github.com/byronwall/srcly/issues/378)) ([a279af8](https://github.com/byronwall/srcly/commit/a279af858e0c8975bfb7f3cf5d3ab587bf6d9e73))
+* retire dependency-graph-legibility ([#375](https://github.com/byronwall/srcly/issues/375)) ([0f14552](https://github.com/byronwall/srcly/commit/0f14552bfee6cd5e5b919d631b331ed4dc20f3d1))
+* retire dependency-view ([#379](https://github.com/byronwall/srcly/issues/379)) ([8fc0387](https://github.com/byronwall/srcly/commit/8fc0387eb0eafcb617cdb5b3ac2ae46c58abac5e))
+* retire git-activity ([#384](https://github.com/byronwall/srcly/issues/384)) ([5d33775](https://github.com/byronwall/srcly/commit/5d33775f8fd5ef2f613019218027b982db79b769))
+* retire imported-quality-evidence ([#390](https://github.com/byronwall/srcly/issues/390)) ([c51ab7a](https://github.com/byronwall/srcly/commit/c51ab7aeb9c1c3ab50d4f4ccb11cb279c678dd46))
+* retire metric-portfolio ([#383](https://github.com/byronwall/srcly/issues/383)) ([250b889](https://github.com/byronwall/srcly/commit/250b88953db1ad62d71edc6940073fdc40c52a19))
+* retire metric-system-overhaul ([#381](https://github.com/byronwall/srcly/issues/381)) ([5cee33c](https://github.com/byronwall/srcly/commit/5cee33c7a6a565a8f28d925cdfb2572a04e74db0))
+* retire metric-trust ([#382](https://github.com/byronwall/srcly/issues/382)) ([799be56](https://github.com/byronwall/srcly/commit/799be56106381ccd894a00d0c3db9884dc3dfb2d))
+* retire pr-compare ([#380](https://github.com/byronwall/srcly/issues/380)) ([0e4cea1](https://github.com/byronwall/srcly/commit/0e4cea1a9190968044b87133c51ebcf2e6c0c779))
+* retire python-dataflow ([#386](https://github.com/byronwall/srcly/issues/386)) ([b6b406c](https://github.com/byronwall/srcly/commit/b6b406c8fcf4942a65ff3af826e03e84d4d6b856))
+* retire symbol-graph ([#385](https://github.com/byronwall/srcly/issues/385)) ([3d58c36](https://github.com/byronwall/srcly/commit/3d58c36dd86d9465a97ab7ae2d12506dd9f2ee50))
+* retire unified-navigation ([#377](https://github.com/byronwall/srcly/issues/377)) ([c73f5b1](https://github.com/byronwall/srcly/commit/c73f5b1e0e5c01f81785ea54e11976438689aa6e))
+* set true statuses for partly shipped initiatives ([#388](https://github.com/byronwall/srcly/issues/388)) ([0a1c113](https://github.com/byronwall/srcly/commit/0a1c1133f30445ccbfa11c5c1322de78d026e3f8))
+
 ## [1.11.0](https://github.com/byronwall/srcly/compare/v1.10.0...v1.11.0) (2026-11-05)
 
 
