@@ -56,6 +56,37 @@ test("the landing page draws the real treemap and every image and local link res
   await context.close();
 });
 
+test("site search, the hero metric switch and the agent files work", async ({ page, request }) => {
+  await page.goto("./");
+  await page.keyboard.press("/");
+  await expect(page.locator("[data-site-search]")).toBeFocused();
+  await page.keyboard.type("churn");
+  await expect(page.locator(".site-results [role=option]").first()).toContainText("Churn");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/#metric-churn_lines$/);
+  await expect(page.locator("#metric-churn_lines")).toBeInViewport();
+
+  const tile = page.locator(".map-wide .tile").first();
+  const before = await tile.evaluate((node) => getComputedStyle(node).backgroundColor);
+  await page.getByRole("radio", { name: "Commits" }).click();
+  const legend = (await page.locator(".hero-legend").boundingBox())!.height;
+  await expect.poll(() => tile.evaluate((node) => getComputedStyle(node).backgroundColor)).not.toBe(before);
+  const map = (await page.locator(".map-wide").boundingBox())!;
+  await page.mouse.move(map.x + map.width * 0.8, map.y + map.height * 0.6);
+  await expect(page.locator(".readout-path")).toBeVisible();
+  expect((await page.locator(".hero-legend").boundingBox())!.height).toBe(legend);
+
+  for (const path of ["llms.txt", "llms-full.txt", "metrics.md", "docs/cli/index.md", "docs/index.md"]) {
+    const response = await request.get(path);
+    expect(response.status(), path).toBe(200);
+    expect(await response.text(), path).toContain("Srcly");
+  }
+  const index = await (await request.get("llms.txt")).text();
+  for (const link of index.match(/https:\/\/byronwall\.github\.io\/srcly\/[^)\s]+/g) ?? []) {
+    expect((await request.get(link.replace("https://byronwall.github.io/srcly/", ""))).status(), link).toBe(200);
+  }
+});
+
 test("real screenshots open at full size, zoom, and close by keyboard", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));

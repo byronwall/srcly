@@ -19,13 +19,16 @@ The browser adds section-linked guide search, copy buttons, and a full-size scre
 
 - The landing page (`src/Landing.tsx`) is the user guide in one page: install, how to read the treemap, the views, workflows, the command line, a reference, and a short "How I built it".
 - The reference tables (`src/Reference.tsx`) read `src/data/catalog.json`, Srcly's own metric catalog. Do not retype metric definitions.
-- The longer guides are Markdown in `src/docs/pages/`. Add a new page to the navigation in `src/App.tsx`.
+- The longer guides are Markdown in `src/docs/pages/`. Add a new page to the navigation in `src/App.tsx`. Also add it to the `order` list in `scripts/prerender.mjs`, which writes the agent files.
+- The build writes files for agents: `llms.txt` (an index), `llms-full.txt` (every guide plus the metric reference), `metrics.md`, and an `index.md` beside each guide.
+- The landing header search (`src/SiteSearch.tsx`) indexes the guide sections, every docs heading, every metric and every command. `/` focuses it.
+- The hero treemap recolors by complexity, commits or findings and reads out the tile under the pointer. `src/data/tree.json` holds those three values per file.
 - Keep command examples in sync with `server/app/run.py`.
 
 ## Screenshots and data
 
-`node scripts/capture.mjs [name,name…]` captures everything from a real Srcly run on Srcly's own source.
-It clones this checkout's HEAD to a temporary `srcly` folder, starts the API and client on free ports with a temporary cache, and writes:
+`node scripts/capture.mjs [name,name… | data] [--ref <git ref>]` captures everything from a real Srcly run on Srcly's own source (`data` skips the screenshots).
+It clones this checkout at `origin/main` (or `--ref`) to a temporary `srcly` folder, starts the API and client on free ports with a temporary cache, and writes:
 
 - `public/screenshots/*.jpg`: the app at 1440 × 900 CSS pixels, 1.5x.
 - `src/data/tree.json`: folder and file LOC and complexity, for the treemaps drawn on the page.

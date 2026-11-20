@@ -1,22 +1,30 @@
 import { ArrowRight, ExternalLink } from 'lucide-solid';
-import { For, createSignal, onCleanup, type JSX } from 'solid-js';
+import { For, Show, createSignal, onCleanup, type JSX } from 'solid-js';
 import { marked } from 'marked';
 import { Footer, Header } from './SiteChrome';
 import { ScreenshotViewer } from './ScreenshotViewer';
 import { Scope, Source } from './Scope';
-import { SourceTreemap } from './treemap';
+import { MAP_METRICS, SourceTreemap, type MapMetric, type Tile } from './treemap';
 import { Architecture } from './Architecture';
 import { Reference } from './Reference';
+import { COMMANDS } from './commands';
 import meta from './data/meta.json';
 import cli from './data/cli.json';
 import catalog from './data/catalog.json';
 
 const num = (value: number) => value.toLocaleString('en-US');
-const sections = ['start', 'read', 'views', 'workflows', 'cli', 'reference', 'built'];
+const sections = ['start', 'read', 'views', 'workflows', 'cli', 'agents', 'reference', 'built'];
+const ABOUT: Record<string, string> = {
+  c: 'the most complex function in each file',
+  m: 'commits in the last 90 days',
+  f: 'lint and type-check findings',
+};
 
 export function Landing(props: { base: string }) {
   const doc = (slug: string) => `${props.base}docs/${slug}/`;
   const shot = (name: string) => `${props.base}screenshots/${name}.jpg`;
+  const [metric, setMetric] = createSignal<MapMetric>(MAP_METRICS[0]);
+  const [hovered, setHovered] = createSignal<Tile>();
   return <ScreenshotViewer><div class="site-shell landing-shell">
     <a class="skip-link" href="#main">Skip to content</a>
     <Header base={props.base} active="tour"/>
@@ -31,8 +39,8 @@ export function Landing(props: { base: string }) {
           <span class="source-num">{num(meta.loc)} LOC · {num(meta.files)} files · {num(meta.functions)} functions</span>
         </header>
         <div class="hero-map">
-          <SourceTreemap width={1400} height={640} depth={8} class="map-wide"/>
-          <SourceTreemap width={390} height={460} depth={8} class="map-narrow"/>
+          <SourceTreemap width={1400} height={640} depth={8} class="map-wide" metric={metric} onHover={setHovered}/>
+          <SourceTreemap width={390} height={460} depth={8} class="map-narrow" metric={metric} onHover={setHovered}/>
           <div class="hero-label">
             <h1 id="hero-title">See where the code gets hard.</h1>
             <p class="hero-deck">Srcly maps a repository into folders, files, functions and nested scopes, then colors the map by the metric you pick. Start with the whole tree, then open the code behind a signal.</p>
@@ -41,11 +49,19 @@ export function Landing(props: { base: string }) {
               <a class="button" href="#start">Get started <ArrowRight size={15}/></a>
             </div>
             <p class="hero-note">Runs on your machine. No account and no upload.</p>
+            <p class="hero-facts">Version {meta.version}. Full analysis for TypeScript, JavaScript and Python; size and complexity for Go, Java, C, C++ and every other language Lizard reads.</p>
           </div>
         </div>
         <footer class="hero-legend">
-          <p>This map is Srcly's own source at <a href={`https://github.com/byronwall/srcly/tree/${meta.sha}`} target="_blank" rel="noreferrer"><code>{meta.sha}</code></a>, drawn from its scan. Area is lines of code. Color is the most complex function in each file.</p>
-          <Legend/>
+          <p class="readout">
+            <Show when={hovered()} fallback={<>Srcly's own source at <a href={`https://github.com/byronwall/srcly/tree/${meta.sha}`} target="_blank" rel="noreferrer"><code>{meta.sha}</code></a>. Area is lines of code; color is {ABOUT[metric().key]}. Point at a tile to read it.</>}>
+              {tile => <><code class="readout-path">{tile().path}{tile().folder ? '/' : ''}</code><span class="readout-num">{num(tile().node.l)} LOC · {MAP_METRICS.map(m => tile().node[m.key] === undefined ? `${m.unit} N/A` : `${num(tile().node[m.key]!)} ${m.unit}`).join(' · ')}</span></>}
+            </Show>
+          </p>
+          <div class="metric-switch" role="radiogroup" aria-label="Color the map by">
+            <For each={MAP_METRICS}>{m => <button type="button" role="radio" aria-checked={metric().key === m.key} classList={{ on: metric().key === m.key }} onClick={() => setMetric(m)}>{m.label}</button>}</For>
+          </div>
+          <Legend metric={metric()}/>
         </footer>
       </section>
 
@@ -148,11 +164,6 @@ export function Landing(props: { base: string }) {
             <li>Read the risk metrics that got worse, then the changed files. The <b>Dependencies</b> tab shows the import graph before and after.</li>
             <li>A file measured on one side only counts as a coverage change, not as an improvement.</li>
           </Workflow>
-          <Workflow title="Give a coding agent a map">
-            <li>Run <code>uvx srcly report . --out .srcly</code>.</li>
-            <li>Point the agent at <code>.srcly/report.md</code> and <code>agent-skill.md</code>.</li>
-            <li>It drills in with <code>uvx srcly explain . --at &lt;path&gt;</code>, which reuses the cached scan and answers in about a second.</li>
-          </Workflow>
           <Workflow title="Stop big files from getting bigger">
             <li><code>report</code> writes <code>size_budget.json</code>: each code file over 5,000 tokens (bytes ÷ 4).</li>
             <li>Add <code>uvx srcly check . --ratchet</code> to a pre-commit hook or CI.</li>
@@ -171,7 +182,7 @@ export function Landing(props: { base: string }) {
         <table class="table commands">
           <thead><tr><th>Command</th><th>What it does</th></tr></thead>
           <tbody>
-            <For each={commands}>{([cmd, text]) => <tr><td><code>{cmd}</code></td><td>{text}</td></tr>}</For>
+            <For each={COMMANDS}>{([cmd, text]) => <tr><td><code>{cmd}</code></td><td>{text}</td></tr>}</For>
           </tbody>
         </table>
         <div class="outputs">
@@ -185,6 +196,38 @@ export function Landing(props: { base: string }) {
           </figure>
         </div>
         <p class="aside">Both outputs are real, from Srcly scanning itself at <code>{meta.sha}</code>. <a href={doc('cli')}>Every command and flag</a> · <a href={doc('reports')}>What each report file holds</a></p>
+      </Scope>
+
+      <Scope id="agents" title="For coding agents" source="skills/srcly-code-quality"
+        lead="Srcly runs headless, so an agent can scan a repository, read a ranked report, and drill into one scope at a time without loading the whole tree.">
+        <div class="agent-grid">
+          <ol class="agent-steps">
+            <li>
+              <h3>Write the report</h3>
+              <pre><code>uvx srcly report . --out .srcly</code></pre>
+              <p>Writes <code>report.md</code>, <code>findings.json</code>, <code>hotspots.json</code>, <code>tree.summary.json</code>, <code>metrics.schema.json</code> and <code>agent-skill.md</code>. The terminal prints the top findings and the next command to run.</p>
+            </li>
+            <li>
+              <h3>Drill in, one scope at a time</h3>
+              <pre><code>{'uvx srcly explain . --at server/app\nuvx srcly explain . --at "server/app/run.py::_main"'}</code></pre>
+              <p>Each answer reuses the cached scan, takes about a second, and ends with a <code>Next:</code> command. Any printed "start at" value works as <code>--at</code>.</p>
+            </li>
+            <li>
+              <h3>Check a change</h3>
+              <pre><code>{'uvx srcly compare --json\nuvx srcly check . --ratchet'}</code></pre>
+              <p><code>compare</code> diffs the merge base against the working tree. A metric that is unavailable stays <code>null</code>, never 0.</p>
+            </li>
+          </ol>
+          <dl class="agent-links">
+            <dt>Agent skill</dt>
+            <dd><a href="https://github.com/byronwall/srcly/blob/main/skills/srcly-code-quality/SKILL.md" target="_blank" rel="noreferrer"><code>skills/srcly-code-quality/SKILL.md</code></a>: the workflow above as a skill file. Copy it into your agent's skills folder.</dd>
+            <dt>These docs, for a model</dt>
+            <dd><a href={`${props.base}llms.txt`}><code>llms.txt</code></a> indexes every guide as Markdown. <a href={`${props.base}llms-full.txt`}><code>llms-full.txt</code></a> is all of it in one file, with the metric catalog.</dd>
+            <dd>Every guide has a Markdown copy beside it: <a href={`${props.base}docs/cli/index.md`}><code>docs/cli/index.md</code></a>.</dd>
+            <dt>Output contract</dt>
+            <dd>Machine-readable output (<code>--format json</code>, <code>report --stdout</code>, <code>scan --out -</code>, <code>compare --json</code>) is the only thing on stdout. Progress goes to stderr.</dd>
+          </dl>
+        </div>
       </Scope>
 
       <Scope id="reference" title="Reference" source="server/app/services/metric_catalog.py"
@@ -216,16 +259,6 @@ export function Landing(props: { base: string }) {
   </div></ScreenshotViewer>;
 }
 
-const commands: [string, string][] = [
-  ['srcly [path]', 'Scan and open the app. --host and --port pick the bind address.'],
-  ['srcly report', 'Write report.md and JSON artifacts: findings, folders, hotspots, a tree summary, the metric schema and an agent guide. --quadrant adds a 2×2.'],
-  ['srcly explain --at', 'Drill into the repo, a folder, a file, or file::symbol. Any printed "start at" value works.'],
-  ['srcly hotspots', 'Rank files or functions by one metric. --format json for scripts.'],
-  ['srcly compare [base] [head]', 'Metric and dependency changes between two refs. Defaults to the merge base against the working tree; pr:<n> names a PR.'],
-  ['srcly fix', 'Print a diff of safe fixes for srcly\'s own findings; --write applies them.'],
-  ['srcly check --ratchet', 'Exit 1 when a file over the size budget grows.'],
-  ['srcly scan', 'Write the raw analysis tree as JSON.'],
-];
 
 function View(props: { shot: string; title: string; alt: string; source: string; guide: string; children: JSX.Element }) {
   return <article class="view">
@@ -244,11 +277,11 @@ function Workflow(props: { title: string; children: JSX.Element }) {
   return <article class="workflow"><h3>{props.title}</h3><ol>{props.children}</ol></article>;
 }
 
-function Legend() {
+function Legend(props: { metric: MapMetric }) {
   return <div class="legend" aria-label="Color legend">
     <span class="legend-ramp" aria-hidden="true"/>
-    <span class="legend-stops"><span>CCN 0</span><span>10</span><span>50+</span></span>
-    <span class="legend-na"><i class="swatch na" aria-hidden="true"/> N/A: not measured</span>
+    <span class="legend-stops"><span>{props.metric.domain[0]}</span><span>{props.metric.domain[1]}</span><span>{props.metric.domain[2]}+ {props.metric.unit}</span></span>
+    <span class="legend-na"><i class="swatch na" aria-hidden="true"/> N/A</span>
   </div>;
 }
 

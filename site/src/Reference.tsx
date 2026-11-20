@@ -66,7 +66,7 @@ export function Reference(props: { doc: (slug: string) => string }) {
           <thead><tr><th>Metric</th><th>Rollup</th><th>Languages</th><th>What it measures</th></tr></thead>
           <For each={groups}>{group => <tbody>
             <tr class="group-row"><th colspan="4">{group.id} <span>{group.description}</span></th></tr>
-            <For each={group.metrics}>{metric => <tr>
+            <For each={group.metrics}>{metric => <tr id={`metric-${metric.id}`}>
               <td class="metric-name">{metric.label}</td>
               <td>{rollup(metric)}</td>
               <td>{languages(metric)}</td>
