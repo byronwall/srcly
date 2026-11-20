@@ -1,0 +1,92 @@
+{
+  "runStatus": "executed-isolated-pure-projection-check",
+  "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8",
+  "node": "v24.22.1",
+  "sourceHashes": {
+    "client/src/viz/deps/flow/anchorAdapter.ts": "ee8a12c989515f7d26654e68918a69e2c9bca4dba67295b7c57f589fcfcde385",
+    "client/src/viz/deps/flow/multiAnchorAdapter.ts": "315ce3620c4c618a82cc8e271492977f0eabd462de7fd4f7bdb4f3effbb00467",
+    "client/src/viz/deps/flow/reach.ts": "fbf2ef48a739472de8f3910b296bcfa62bc5ad12e0717dd83c8873a42e970800"
+  },
+  "limitations": [
+    "Synthetic graph inputs; collector and engine not executed.",
+    "UI layout, browser behavior and real-repository frequency not measured.",
+    "Visual label/color imports stubbed; actual projection and reach function bodies executed.",
+    "These checks demonstrate projection properties, not end-to-end bug incidence. Input counts are placeholders, and no engine/schema validation was run."
+  ],
+  "results": [
+    {
+      "id": "P1",
+      "name": "folded disconnected members",
+      "inputNodes": 45,
+      "rawReach": [
+        "A",
+        "u"
+      ],
+      "projectedReach": [
+        "A",
+        "B",
+        "remote"
+      ],
+      "manufacturedReachToB": true
+    },
+    {
+      "id": "P2",
+      "name": "parallel evidence order",
+      "forwardOrder": [
+        {
+          "id": "proven",
+          "status": "proven"
+        }
+      ],
+      "reverseOrder": [
+        {
+          "id": "partial",
+          "status": "partial"
+        }
+      ]
+    },
+    {
+      "id": "P3",
+      "name": "removed reference proof",
+      "rawProvenEligibleReach": [
+        "A"
+      ],
+      "projectedReach": [
+        "A",
+        "B"
+      ],
+      "retainedEdges": [
+        {
+          "id": "sa",
+          "source": "S",
+          "target": "A",
+          "status": "proven"
+        },
+        {
+          "id": "rb",
+          "source": "A",
+          "target": "B",
+          "status": "proven"
+        }
+      ]
+    },
+    {
+      "id": "P4",
+      "name": "multi-query union",
+      "graphOneReach": [
+        "A",
+        "X"
+      ],
+      "mergedReach": [
+        "A",
+        "B",
+        "X"
+      ],
+      "shared": [
+        "X"
+      ],
+      "nodeNote": "where A and B meet",
+      "implication": "The union has reachability that neither query individually certifies; invocation compatibility remains unevaluated."
+    }
+  ]
+}

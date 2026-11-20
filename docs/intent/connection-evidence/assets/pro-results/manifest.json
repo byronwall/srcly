@@ -1,0 +1,172 @@
+{
+  "topic_id": "srcly.dependency-analysis-tool-ui-deep-dive.v1",
+  "baseline": "ee8a771ce94fb59573492445d0f5fa2411ad83c8",
+  "required_standalone_deliverables": [
+    "research-report.md",
+    "tool-survey.md",
+    "ui-patterns.md",
+    "srcly-gap-map.json",
+    "evaluation-plan.md",
+    "recommendations.md",
+    "handoff.md",
+    "sources.md"
+  ],
+  "authority": "Research proposals only; Codex owns integration. No repository changes.",
+  "experiment_status": "P1\u2013P4 isolated pure projection checks executed; engine/application/benchmark/user studies unrun.",
+  "files": [
+    {
+      "path": "assets/evidence/codeql-multiple-paths.png",
+      "bytes": 340783,
+      "sha256": "8af91a45503b0c5915de49694653cd3e79ed6414bf9cfde9c37ca01f2a433a0d"
+    },
+    {
+      "path": "assets/evidence/semgrep-cross-file-official.png",
+      "bytes": 149397,
+      "sha256": "cbb839af2e56ca730b60da223744ac6fdbe07df66461fcb3681261560e508bc6"
+    },
+    {
+      "path": "assets/evidence/srcly-python-r5-folded.png",
+      "bytes": 701336,
+      "sha256": "c8d137d920771c42b28ff23dfc1814990a18638186b0447b925bfd847e0da1fb"
+    },
+    {
+      "path": "assets/evidence/srcly-python-r6-closure.png",
+      "bytes": 629562,
+      "sha256": "4e7fbff600c7cf4813fdf3045f372f0b7082e1b8bd8a575996102854eb1f71ad"
+    },
+    {
+      "path": "assets/evidence/srcly-tsx-r2-route.png",
+      "bytes": 650278,
+      "sha256": "121a1f3e453c8767a51cee83cbb0cde9dfd5630f85e887e85c61b79256c9afd9"
+    },
+    {
+      "path": "assets/evidence/srcly-tsx-r2-save.png",
+      "bytes": 617275,
+      "sha256": "13d750eb010195040553eb11fde4f5ca4368918ceff94b99fe259270ce7b9642"
+    },
+    {
+      "path": "assets/evidence/understand-dependency-browser.png",
+      "bytes": 28127,
+      "sha256": "a1eb0805cce4ee0a1eedf2819373cbd4dc9248cf1dc8d803aad04bd7ca3bda8f"
+    },
+    {
+      "path": "assets/experiments/projection-check-results.json",
+      "bytes": 2386,
+      "sha256": "219b58038399aeb31e73f4938377e27fd12eb8398db7fcc9b7e28acc0f606e89"
+    },
+    {
+      "path": "assets/experiments/projection-check.mjs",
+      "bytes": 6313,
+      "sha256": "5a18891ec4b87d29497f98ad520862a84f2b8e4fcfbf8c8ffaea5a0665ccaee1"
+    },
+    {
+      "path": "assets/ide-ui/eclipse-call-hierarchy.png",
+      "bytes": 7466,
+      "sha256": "cfba49eaba995be63dc70c86a1e525ff6af800edda843da65c07e70aaa6d2e7d"
+    },
+    {
+      "path": "assets/ide-ui/intellij-dataflow.png",
+      "bytes": 62269,
+      "sha256": "388ac3fca80599f0b6b1773510be107ebdf844cc1707f6c3abb361f612db8e9f"
+    },
+    {
+      "path": "assets/ide-ui/visualstudio-calls.png",
+      "bytes": 8230,
+      "sha256": "b38a439c203184dd4f13c6ab5673b89d7ef543f0d1a97bc51a6b1f65566e2d91"
+    },
+    {
+      "path": "assets/ide-ui/vscode-call-hierarchy.png",
+      "bytes": 252286,
+      "sha256": "79a13111be6ef415be42b9d6da59336a4c1cb0deb7fae79bbf72915c21e5e0e7"
+    },
+    {
+      "path": "assets/ide-ui/vscode-peek.png",
+      "bytes": 14840,
+      "sha256": "c2bb63dd724063949002cd618fc24a44a688f5da119360952a51d2817339f21a"
+    },
+    {
+      "path": "assets/ide-ui/webstorm-call-preview.png",
+      "bytes": 146074,
+      "sha256": "1aecc7c8cbe8046e383337542efd3dbac7267b851f374b980e0674c385a77671"
+    },
+    {
+      "path": "assets/mockups/alternative-a1.png",
+      "bytes": 311119,
+      "sha256": "6379159ec769f4f5fc150e5a28cd680d8c3ccdaa9d2045d15b6de0450e205641"
+    },
+    {
+      "path": "assets/mockups/alternative-a1.svg",
+      "bytes": 8697,
+      "sha256": "af128d7112ea68ed2db50e8f24a378fee860078b43f9ca300349c542855b6d8d"
+    },
+    {
+      "path": "assets/mockups/alternative-b.png",
+      "bytes": 311064,
+      "sha256": "2fdba7225e0b8b8f8f9836dd0536327ba36dc86f966ba56b7236044f43bb40f1"
+    },
+    {
+      "path": "assets/mockups/alternative-b.svg",
+      "bytes": 7989,
+      "sha256": "95726a6e86a5220e04051b94549907f6c30289b87c5be8e9ae518ba9fcb638e9"
+    },
+    {
+      "path": "assets/mockups/alternative-c.png",
+      "bytes": 335270,
+      "sha256": "fe84cac64d6ddb9355277f3928039aadcb49beb3802a8eed3a326a668f0b3984"
+    },
+    {
+      "path": "assets/mockups/alternative-c.svg",
+      "bytes": 7257,
+      "sha256": "8001945ca669c0262544cb378731c434d436b985d9e0f0c47fae0fa894c423f3"
+    },
+    {
+      "path": "assets/source-register.json",
+      "bytes": 125108,
+      "sha256": "ee667e0a806f2fac743378c46caffb245b4045f30849eb395b040968b0451f65"
+    },
+    {
+      "path": "evaluation-plan.md",
+      "bytes": 31043,
+      "sha256": "443e972bc0866ac843251d7f2f8d869231b50e8c6ea3a8a1552290833a27bc71"
+    },
+    {
+      "path": "handoff.md",
+      "bytes": 32323,
+      "sha256": "3af8f7d74cfa49d2b4a603f87037c4fc94aa862d32fb89163c2d02e4807eff71"
+    },
+    {
+      "path": "recommendations.md",
+      "bytes": 23705,
+      "sha256": "5730c15e2c490b1bbf12c77c6b8aa3d61578bba1c3f8ee76633018b99c16d283"
+    },
+    {
+      "path": "research-report.md",
+      "bytes": 35637,
+      "sha256": "4b0b87a7313076ab71b43faa1451d93e68af89b5e4acd11d7448b21b31a65c72"
+    },
+    {
+      "path": "sources.md",
+      "bytes": 100296,
+      "sha256": "3ebba128c398ea04d1e8e3a8f65c3f079c46111cef7e09e4993af70f10f1ce7d"
+    },
+    {
+      "path": "srcly-gap-map.json",
+      "bytes": 59755,
+      "sha256": "f5c80788e7b4e2edf3bc517433341a3ea5f07dff6b8541aa8f882f09a1f3fa8e"
+    },
+    {
+      "path": "tool-survey.md",
+      "bytes": 79879,
+      "sha256": "b6888249cd65488f9858eb7da2313cf262e9f52211401b3622e65adeb424d388"
+    },
+    {
+      "path": "ui-patterns.md",
+      "bytes": 22863,
+      "sha256": "ffc4f61c753b1d8115c61bbd5437f19527076caf82454a4783f8311038da9071"
+    }
+  ],
+  "manifest_excludes": [
+    "manifest.json",
+    "outer ZIP"
+  ]
+}
