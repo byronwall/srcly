@@ -5,7 +5,7 @@ Srcly helps you move from a broad view of a repository to the exact code behind 
 - **Discover Srcly:** [Product tour](../tour/) and [Design decisions](../design/).
 - **Use Srcly:** [Get started](../get-started/) and [Reports](../reports/).
 
-<figure><a href="/srcly/screenshots/treemap.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/treemap.jpg" alt="Srcly showing a codebase in its treemap view" width="1440" height="960" loading="lazy" /></a><figcaption>Srcly maps a repository into folders, files, and code scopes. The screenshot shows the treemap view; inspect a tile to see its source and evidence.</figcaption></figure>
+<figure><a href="/srcly/screenshots/treemap.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/treemap.jpg" alt="Srcly showing a codebase in its treemap view" width="1440" height="900" loading="lazy" /></a><figcaption>Srcly maps a repository into folders, files, and code scopes. The screenshot shows the treemap view; inspect a tile to see its source and evidence.</figcaption></figure>
 
 ## Choose your path
 

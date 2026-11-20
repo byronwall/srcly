@@ -1,0 +1,756 @@
+{
+ "groups": [
+  {
+   "id": "General",
+   "description": "Size, complexity and comment noise for any code file."
+  },
+  {
+   "id": "Components",
+   "description": "React/Solid components in TSX: a file holds the max over its components and names it."
+  },
+  {
+   "id": "TypeScript",
+   "description": "Type-safety escapes in .ts and .tsx files."
+  },
+  {
+   "id": "Markdown",
+   "description": "Markdown documents."
+  },
+  {
+   "id": "Activity",
+   "description": "Git history per file in the selected window (90 days by default). On whenever the folder is a Git repo."
+  },
+  {
+   "id": "Findings",
+   "description": "Lint and type-check results: the project's own tsc and eslint when it has them, otherwise srcly's bundled ruff and TS rules. No setup."
+  },
+  {
+   "id": "Detail",
+   "description": "Counts that describe code without saying it needs work: shown and colorable, never ranked."
+  }
+ ],
+ "metrics": [
+  {
+   "id": "complexity",
+   "label": "Complexity (max)",
+   "short_label": "CCN",
+   "unit": "CCN",
+   "group": "General",
+   "direction": "higher-worse",
+   "aggregation": "max",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "python",
+    "code"
+   ],
+   "description": "Cyclomatic complexity: exact for a function; for a file or folder, its most complex function, which it names.",
+   "witness": true
+  },
+  {
+   "id": "cognitive_complexity",
+   "label": "Cognitive complexity (max)",
+   "short_label": "Cog",
+   "unit": "points",
+   "group": "General",
+   "direction": "higher-worse",
+   "aggregation": "max",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "python"
+   ],
+   "description": "How hard a function is to follow (Sonar's cognitive complexity): each if, loop, catch or ternary costs 1 plus its nesting, and each run of && or || costs 1, so a flat chain of checks stays low. A file or folder holds its worst function, which it names.",
+   "witness": true
+  },
+  {
+   "id": "complexity_avg",
+   "label": "Complexity (avg)",
+   "short_label": "CCNμ",
+   "unit": "CCN",
+   "group": "General",
+   "direction": "higher-worse",
+   "aggregation": "mean",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "python",
+    "code"
+   ],
+   "description": "Mean cyclomatic complexity per function; folders weight by function count.",
+   "witness": false
+  },
+  {
+   "id": "loc",
+   "label": "LOC",
+   "short_label": "LOC",
+   "unit": "lines",
+   "group": "General",
+   "direction": "higher-worse",
+   "aggregation": "sum",
+   "languages": null,
+   "description": "Lines of code, excluding comments and blanks where the analyzer can tell.",
+   "witness": false
+  },
+  {
+   "id": "file_size",
+   "label": "Size",
+   "short_label": "Size",
+   "unit": "bytes",
+   "group": "General",
+   "direction": "neutral",
+   "aggregation": "sum",
+   "languages": null,
+   "description": "File size in bytes.",
+   "witness": false
+  },
+  {
+   "id": "comment_noise",
+   "label": "Comment Noise",
+   "short_label": "Noise",
+   "unit": "flags",
+   "group": "General",
+   "direction": "higher-worse",
+   "aggregation": "sum",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "python"
+   ],
+   "description": "Over-commenting flags: functions with more comment lines than code lines (10+ code lines), docblocks over 1.5x their body (8+ lines), and 3+ line runs of commented-out code.",
+   "witness": false
+  },
+  {
+   "id": "max_nesting_depth",
+   "label": "Nesting",
+   "short_label": "Nest",
+   "unit": "levels",
+   "group": "General",
+   "direction": "higher-worse",
+   "aggregation": "max",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "python"
+   ],
+   "description": "Deepest control-flow nesting.",
+   "witness": false
+  },
+  {
+   "id": "parameter_count",
+   "label": "Params",
+   "short_label": "Prm",
+   "unit": "params",
+   "group": "General",
+   "direction": "higher-worse",
+   "aggregation": "sum",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "python",
+    "code"
+   ],
+   "description": "Function parameters; a file sums its functions, so rank the Functions cohort for arity.",
+   "witness": false
+  },
+  {
+   "id": "average_function_length",
+   "label": "Function Length (avg)",
+   "short_label": "FnLen",
+   "unit": "lines",
+   "group": "Detail",
+   "direction": "neutral",
+   "aggregation": "mean",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "python",
+    "code"
+   ],
+   "description": "Mean function length in LOC; folders weight by function count. Detail: the M7 pilot's queues were tests, markup and one-function files.",
+   "witness": false
+  },
+  {
+   "id": "component_loc",
+   "label": "Component LOC",
+   "short_label": "CLOC",
+   "unit": "lines",
+   "group": "Components",
+   "direction": "higher-worse",
+   "aggregation": "max",
+   "languages": [
+    "tsx",
+    "jsx"
+   ],
+   "description": "Lines in one React/Solid component. A file or folder holds the max over its components and names it.",
+   "witness": true
+  },
+  {
+   "id": "component_hook_count",
+   "label": "Hooks",
+   "short_label": "Hooks",
+   "unit": "hooks",
+   "group": "Components",
+   "direction": "higher-worse",
+   "aggregation": "max",
+   "languages": [
+    "tsx",
+    "jsx"
+   ],
+   "description": "Hooks (`use*`) and Solid primitives (`create*`) in one component. A file or folder holds the max over its components and names it.",
+   "witness": true
+  },
+  {
+   "id": "component_effect_count",
+   "label": "Effects",
+   "short_label": "Eff",
+   "unit": "effects",
+   "group": "Components",
+   "direction": "higher-worse",
+   "aggregation": "max",
+   "languages": [
+    "tsx",
+    "jsx"
+   ],
+   "description": "`useEffect`/`useLayoutEffect`/`createEffect` calls in one component. A file or folder holds the max over its components and names it.",
+   "witness": true
+  },
+  {
+   "id": "component_jsx_depth",
+   "label": "JSX Depth",
+   "short_label": "JSXd",
+   "unit": "levels",
+   "group": "Components",
+   "direction": "higher-worse",
+   "aggregation": "max",
+   "languages": [
+    "tsx",
+    "jsx"
+   ],
+   "description": "Deepest JSX nesting inside one component. A file or folder holds the max over its components and names it.",
+   "witness": true
+  },
+  {
+   "id": "component_prop_count",
+   "label": "Props",
+   "short_label": "Props",
+   "unit": "props",
+   "group": "Components",
+   "direction": "higher-worse",
+   "aggregation": "max",
+   "languages": [
+    "tsx",
+    "jsx"
+   ],
+   "description": "Declared props of one component (props type members or destructured names). A file or folder holds the max over its components and names it.",
+   "witness": true
+  },
+  {
+   "id": "component_inline_handler_count",
+   "label": "Inline Handlers",
+   "short_label": "Hndl",
+   "unit": "handlers",
+   "group": "Components",
+   "direction": "higher-worse",
+   "aggregation": "max",
+   "languages": [
+    "tsx",
+    "jsx"
+   ],
+   "description": "Inline `on*={() => ...}` handlers in one component. A file or folder holds the max over its components and names it.",
+   "witness": true
+  },
+  {
+   "id": "component_jsx_conditional_count",
+   "label": "JSX Conditionals",
+   "short_label": "JSX?",
+   "unit": "conditionals",
+   "group": "Components",
+   "direction": "higher-worse",
+   "aggregation": "max",
+   "languages": [
+    "tsx",
+    "jsx"
+   ],
+   "description": "JSX conditionals (`?:`, `&&`, `<Show>`, `<Match>`) in one component. A file or folder holds the max over its components and names it.",
+   "witness": true
+  },
+  {
+   "id": "ts_any_usage_count",
+   "label": "any Usage",
+   "short_label": "any",
+   "unit": "uses",
+   "group": "TypeScript",
+   "direction": "higher-worse",
+   "aggregation": "sum",
+   "languages": [
+    "ts",
+    "tsx"
+   ],
+   "description": "Explicit `any` types.",
+   "witness": false
+  },
+  {
+   "id": "ts_ignore_count",
+   "label": "TS Ignores",
+   "short_label": "Ign@",
+   "unit": "directives",
+   "group": "TypeScript",
+   "direction": "higher-worse",
+   "aggregation": "sum",
+   "languages": [
+    "ts",
+    "tsx"
+   ],
+   "description": "`@ts-ignore` / `@ts-expect-error` / `@ts-nocheck` directives.",
+   "witness": false
+  },
+  {
+   "id": "md_data_url_count",
+   "label": "Markdown Data URLs",
+   "short_label": "DURL",
+   "unit": "data URLs",
+   "group": "Markdown",
+   "direction": "higher-worse",
+   "aggregation": "sum",
+   "languages": [
+    "markdown"
+   ],
+   "description": "Inline `data:` URLs (embedded images) in Markdown.",
+   "witness": false
+  },
+  {
+   "id": "commit_count",
+   "label": "Commits",
+   "short_label": "Cmts",
+   "unit": "commits",
+   "group": "Activity",
+   "direction": "higher-worse",
+   "aggregation": "sum",
+   "languages": null,
+   "description": "Non-merge commits that touched the file in the activity window, following renames. Frequent change in complex code is where refactoring pays off.",
+   "witness": false
+  },
+  {
+   "id": "churn_lines",
+   "label": "Churn",
+   "short_label": "Churn",
+   "unit": "lines",
+   "group": "Activity",
+   "direction": "higher-worse",
+   "aggregation": "sum",
+   "languages": null,
+   "description": "Lines added plus removed by those commits. Kept apart from commit count: one bulk rewrite churns a lot in a single commit.",
+   "witness": false
+  },
+  {
+   "id": "finding_count",
+   "label": "Findings",
+   "short_label": "Find",
+   "unit": "findings",
+   "group": "Findings",
+   "direction": "higher-worse",
+   "aggregation": "sum",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "python"
+   ],
+   "description": "Everything the checkers reported for the file: the project's tsc and eslint, or srcly's ruff and TS rules. The code viewer lists each one with its rule and tool.",
+   "witness": false
+  },
+  {
+   "id": "error_count",
+   "label": "Errors",
+   "short_label": "Err",
+   "unit": "errors",
+   "group": "Findings",
+   "direction": "higher-worse",
+   "aggregation": "sum",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "python"
+   ],
+   "description": "Findings the checker calls errors: type errors, eslint errors, syntax errors and undefined names. Warnings aren't counted.",
+   "witness": false
+  },
+  {
+   "id": "todo_count",
+   "label": "TODOs",
+   "short_label": "TODO",
+   "unit": "TODOs",
+   "group": "Detail",
+   "direction": "neutral",
+   "aggregation": "sum",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "python"
+   ],
+   "description": "TODO/FIXME-style comments.",
+   "witness": false
+  },
+  {
+   "id": "comment_noise_ratio",
+   "label": "Narrated Code",
+   "short_label": "NRat",
+   "unit": "flags",
+   "group": "Detail",
+   "direction": "neutral",
+   "aggregation": "sum",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "python"
+   ],
+   "description": "Comment noise part: functions (or a whole file) with more comment lines than code lines and 10+ code lines.",
+   "witness": false
+  },
+  {
+   "id": "comment_noise_docblock",
+   "label": "Oversized Docblocks",
+   "short_label": "NDoc",
+   "unit": "flags",
+   "group": "Detail",
+   "direction": "neutral",
+   "aggregation": "sum",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "python"
+   ],
+   "description": "Comment noise part: docblocks or docstrings of 8+ lines that are over 1.5x their function's code lines.",
+   "witness": false
+  },
+  {
+   "id": "comment_noise_commented_code",
+   "label": "Commented-out Code",
+   "short_label": "NCode",
+   "unit": "flags",
+   "group": "Detail",
+   "direction": "neutral",
+   "aggregation": "sum",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "python"
+   ],
+   "description": "Comment noise part: runs of 3+ line comments that parse as code.",
+   "witness": false
+  },
+  {
+   "id": "comment_lines",
+   "label": "Comment Lines",
+   "short_label": "Cmt",
+   "unit": "lines",
+   "group": "Detail",
+   "direction": "neutral",
+   "aggregation": "sum",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "python"
+   ],
+   "description": "Comment lines.",
+   "witness": false
+  },
+  {
+   "id": "function_count",
+   "label": "Functions",
+   "short_label": "Fns",
+   "unit": "functions",
+   "group": "Detail",
+   "direction": "neutral",
+   "aggregation": "sum",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "python",
+    "code"
+   ],
+   "description": "Executable functions at any depth (methods, nested functions, arrows).",
+   "witness": false
+  },
+  {
+   "id": "classes_count",
+   "label": "Classes",
+   "short_label": "Cls",
+   "unit": "classes",
+   "group": "Detail",
+   "direction": "neutral",
+   "aggregation": "sum",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "python"
+   ],
+   "description": "Class declarations.",
+   "witness": false
+  },
+  {
+   "id": "ts_import_coupling_count",
+   "label": "TS Imports",
+   "short_label": "Imp",
+   "unit": "sources",
+   "group": "Detail",
+   "direction": "neutral",
+   "aggregation": "sum",
+   "languages": [
+    "ts",
+    "tsx"
+   ],
+   "description": "Distinct import sources.",
+   "witness": false
+  },
+  {
+   "id": "ts_type_interface_count",
+   "label": "Types/Interfaces",
+   "short_label": "Type",
+   "unit": "declarations",
+   "group": "Detail",
+   "direction": "neutral",
+   "aggregation": "sum",
+   "languages": [
+    "ts",
+    "tsx"
+   ],
+   "description": "Type and interface declarations.",
+   "witness": false
+  },
+  {
+   "id": "ts_export_count",
+   "label": "Exports",
+   "short_label": "Exp",
+   "unit": "exports",
+   "group": "Detail",
+   "direction": "neutral",
+   "aggregation": "sum",
+   "languages": [
+    "ts",
+    "tsx"
+   ],
+   "description": "Export declarations.",
+   "witness": false
+  },
+  {
+   "id": "python_import_count",
+   "label": "Python Imports",
+   "short_label": "PyImp",
+   "unit": "imports",
+   "group": "Detail",
+   "direction": "neutral",
+   "aggregation": "sum",
+   "languages": [
+    "python"
+   ],
+   "description": "Import statements.",
+   "witness": false
+  },
+  {
+   "id": "file_count",
+   "label": "Files",
+   "short_label": "Files",
+   "unit": "files",
+   "group": "Detail",
+   "direction": "neutral",
+   "aggregation": "sum",
+   "languages": null,
+   "description": "Files a node represents.",
+   "witness": false
+  }
+ ],
+ "windows": [
+  {
+   "id": "30d",
+   "label": "last 30 days"
+  },
+  {
+   "id": "90d",
+   "label": "last 90 days"
+  },
+  {
+   "id": "1y",
+   "label": "last year"
+  },
+  {
+   "id": "all",
+   "label": "all history"
+  }
+ ],
+ "presets": [
+  {
+   "id": "activity",
+   "label": "Activity",
+   "description": "Complex files that keep changing are where a refactor pays off first.",
+   "x": "Complexity (max)",
+   "y": "Commits",
+   "cohorts": [
+    "file"
+   ],
+   "quadrants": [
+    {
+     "name": "Hot mess",
+     "text": "Complex and changing often: refactor first."
+    },
+    {
+     "name": "Sleeping giant",
+     "text": "Complex but rarely touched: leave it until it wakes."
+    },
+    {
+     "name": "Busy, fine",
+     "text": "Changes often and stays simple."
+    },
+    {
+     "name": "Quiet",
+     "text": "Simple and stable."
+    }
+   ]
+  },
+  {
+   "id": "blast_radius",
+   "label": "Blast radius",
+   "description": "Complex files that many others import break the most when they change.",
+   "x": "Complexity (max)",
+   "y": "Fan-in",
+   "cohorts": [
+    "file"
+   ],
+   "quadrants": [
+    {
+     "name": "Load-bearing tangle",
+     "text": "Complex and widely imported: change with tests."
+    },
+    {
+     "name": "Isolated mess",
+     "text": "Complex, few importers: safe to rework."
+    },
+    {
+     "name": "Hub",
+     "text": "Widely imported and simple: keep it that way."
+    },
+    {
+     "name": "Leaf",
+     "text": "Simple, few importers."
+    }
+   ]
+  },
+  {
+   "id": "component_weight",
+   "label": "Component weight",
+   "description": "React/Solid components that are long, hook-heavy, or both.",
+   "x": "Component LOC",
+   "y": "Hooks",
+   "cohorts": [
+    "component"
+   ],
+   "quadrants": [
+    {
+     "name": "God component",
+     "text": "Long and hook-heavy: split state from markup."
+    },
+    {
+     "name": "Long markup",
+     "text": "Long with few hooks: extract subcomponents."
+    },
+    {
+     "name": "Hook soup",
+     "text": "Short but hook-heavy: pull logic into a custom hook."
+    },
+    {
+     "name": "Lean",
+     "text": "Short with few hooks."
+    }
+   ]
+  },
+  {
+   "id": "comment_noise",
+   "label": "Comment noise",
+   "description": "Whether comments sit on the complex code that needs them.",
+   "x": "Comment ratio",
+   "y": "Complexity (max)",
+   "cohorts": [
+    "file",
+    "function"
+   ],
+   "quadrants": [
+    {
+     "name": "Narrated complexity",
+     "text": "Complex, with as many comment lines as code: check the comments still match it."
+    },
+    {
+     "name": "Narrated trivia",
+     "text": "Simple code with as many comment lines as code: trim the comments."
+    },
+    {
+     "name": "Complex code",
+     "text": "Complex, with more code than comments: simplify before explaining."
+    },
+    {
+     "name": "Clean",
+     "text": "Simple, with more code than comments."
+    }
+   ]
+  },
+  {
+   "id": "findings",
+   "label": "Findings",
+   "description": "Whether the lint and type checkers flag the complex files or the simple ones.",
+   "x": "Complexity (max)",
+   "y": "Findings",
+   "cohorts": [
+    "file"
+   ],
+   "quadrants": [
+    {
+     "name": "Flagged tangle",
+     "text": "Complex and flagged by the checkers: fix the findings before refactoring."
+    },
+    {
+     "name": "Clean but complex",
+     "text": "Complex with quiet checkers: a refactor starts from solid ground."
+    },
+    {
+     "name": "Quick cleanup",
+     "text": "Simple code with findings: cheap fixes."
+    },
+    {
+     "name": "Clean",
+     "text": "Simple and clean."
+    }
+   ]
+  }
+ ]
+}

@@ -18,7 +18,7 @@ uvx srcly /path/to/repository
 
 The packaged release requires Python 3.13 or newer. The code you analyze can use another Python version. Srcly starts a local web server and opens the app in your browser. The default bind address is `127.0.0.1`, and Srcly selects an available port. Keep the terminal open while you use the app. Press `Ctrl+C` in that terminal to stop it.
 
-<figure><a href="/srcly/screenshots/treemap.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/treemap.jpg" alt="The Srcly app showing a repository treemap" width="1440" height="960" loading="lazy" /></a><figcaption>Repository treemap in the Srcly app. Use the path bar to choose a root, then select Analyze to scan it.</figcaption></figure>
+<figure><a href="/srcly/screenshots/treemap.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/treemap.jpg" alt="The Srcly app showing a repository treemap" width="1440" height="900" loading="lazy" /></a><figcaption>Repository treemap in the Srcly app. Use the path bar to choose a root, then select Analyze to scan it.</figcaption></figure>
 
 ## 2. Scan a repository
 
@@ -37,7 +37,7 @@ Start with a question. For example: “Which function has the highest complexity
 5. Check whether the measurement applies and whether a checker finding or dependency adds useful context.
 6. Confirm a suspected problem against the source and your project's own tools.
 
-<figure><a href="/srcly/screenshots/code-inspector.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/code-inspector.jpg" alt="Srcly's source inspector with metrics and findings" width="1440" height="960" loading="lazy" /></a><figcaption>Source inspection in Srcly. A metric directs attention; use its definition and witness to understand the value.</figcaption></figure>
+<figure><a href="/srcly/screenshots/code-inspector.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/code-inspector.jpg" alt="Srcly's source inspector with metrics and findings" width="1440" height="900" loading="lazy" /></a><figcaption>Source inspection in Srcly. A metric directs attention; use its definition and witness to understand the value.</figcaption></figure>
 
 The measurement helps you choose where to look. It does not say that code is defective or must be changed. A folder complexity value is the maximum among its functions, not the sum. A checker result depends on that tool's rules and coverage. Read [Explore](../explore/) and [Metrics](../metrics/) for more.
 

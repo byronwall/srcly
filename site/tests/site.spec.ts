@@ -33,6 +33,29 @@ test("every guide has readable static HTML and valid local links", async ({ brow
   await context.close();
 });
 
+test("the landing page draws the real treemap and every image and local link resolves", async ({ browser, request }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  await page.goto("http://127.0.0.1:18588/srcly/");
+  await expect(page.locator("h1")).toHaveText("See where the code gets hard.");
+  expect(await page.locator(".hero .map-wide .tile").count()).toBeGreaterThan(200);
+  for (const id of ["start", "read", "views", "workflows", "cli", "reference", "built"]) {
+    await expect(page.locator(`#${id}-title`)).toBeVisible();
+  }
+  for (const image of await page.locator("img").all()) {
+    await image.scrollIntoViewIfNeeded();
+    await expect.poll(() => image.evaluate((node) => (node as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  }
+  const links = await page.locator("a[href]").evaluateAll((nodes) => nodes.map((node) => (node as HTMLAnchorElement).href));
+  for (const link of new Set(links.filter((href) => href.startsWith("http://127.0.0.1:18588/")).map((href) => href.split("#")[0]))) {
+    expect((await request.get(link)).status(), link).toBe(200);
+  }
+  for (const hash of links.filter((href) => href.startsWith("http://127.0.0.1:18588/srcly/#")).map((href) => href.split("#")[1])) {
+    expect(await page.locator(`[id="${hash}"]`).count(), hash).toBe(1);
+  }
+  await context.close();
+});
+
 test("real screenshots open at full size, zoom, and close by keyboard", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
