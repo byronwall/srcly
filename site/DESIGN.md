@@ -1,32 +1,33 @@
 # Public site
 
-The public site extends Srcly's light application palette. It serves developers who want to inspect a local codebase or create a report for an agent.
+The site serves developers who want to try Srcly on their own code, and readers who want to know how it works.
+Its look comes from Srcly itself: the page is drawn like a scan.
 
-## Surface modes
+## The scope motif
 
-- Landing: Persuade. Lead with real Srcly views, then give two paths: see the product or use it.
-- Guides: Read. Group navigation by the visitor's task, keep the article easy to scan, and link search results to the matching section.
-- Screenshot viewer: Experience. Let the captured application view fill the screen. Keep zoom, reset, close, keyboard focus, and native image-link fallback.
+- Each landing section is a treemap scope: a 1px frame with a mono header strip (`views/`).
+- The strip's right side names the part of Srcly's source that implements the section, with its real LOC and maximum complexity from `src/data/tree.json`, and links to it on GitHub. These numbers are never typed by hand.
+- Blocks inside a section share 1px rules like treemap tiles (`.steps`, `.views`, `.workflows`). Do not use floating cards with gaps or shadows.
+- The hero is a real treemap of Srcly's own source at the captured revision, with the headline in a label block cut into it.
 
 ## Tokens
 
-- Canvas: `#f8fafc`; paper: `#fff`; ink: `#17212e`.
-- Body detail: `#526273`; rules: `#dce3ea`.
-- Links and actions: `#1769aa`; hover: `#0e548d`.
-- Type: Inter for text; IBM Plex Mono for code and measurements.
-- Page width: 1160px; hero type: 42–68px; body: 15px.
-- Controls have visible focus outlines. Motion respects reduced-motion settings.
+- Light follows the app's DESIGN.md (Precision Light Console): canvas `#f4f6f9`, paper `#fff`, ink `#0f172a`, rules `#e2e8f0` and `#cbd5e1`, links `#2563eb`.
+- Dark is ink: canvas `#0b1220`, paper `#0f172a`, links `#8ab4ff`. The heat ramp stays the same, so tiles read the same in both themes.
+- Heat ramp: Srcly's `TREEMAP_RAMP` (`#bfdbfe` → `#e9eef3` → `#fcd34d` → `#fb923c` → `#f87171`), sampled with the app's Lab interpolation in `src/treemap.tsx`. Use it only for data marks: tiles, swatches, the legend, the logo.
+- N/A is gray diagonal hatching, never a ramp color.
+- Type: Inter for prose; IBM Plex Mono for paths, numbers, scope names and commands.
 
-## Product proof
+## Content rules
 
-- Use screenshots captured from the running application. Keep captions specific to the view and the action it supports.
-- The hero uses the repository treemap. The gallery uses the treemap, code inspector, and data-flow views.
-- The site must not imply that it scans files or that missing measurements equal zero.
-- Do not invent metrics or terminal output to fill space.
+- Every claim matches the code. Metric definitions come from the catalog; command output comes from a real run.
+- Screenshots come from `scripts/capture.mjs`. Captions name the subject and revision.
+- The site must not imply that it scans visitor files, or that a missing measurement is 0.
+- "How I built it" is Byron's voice. Keep its first-person claims to what the project page and its posts support.
 
-## Guides
+## Docs pages
 
 - Navigation groups: Discover, Use Srcly, and Automate & configure.
-- Keep the page title, short summary, and edit link in one compact heading area.
-- Search results show matching text and link to a matching section when one exists.
-- Screenshot figures can open at full size. Keep the image link usable without JavaScript.
+- Keep the page title, summary, and edit link in one heading area.
+- Search results show matching text and link to the matching section.
+- Screenshot figures open at full size; the image link still works without JavaScript.

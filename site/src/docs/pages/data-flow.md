@@ -2,7 +2,7 @@
 
 Data flow traces how values move through supported source code. Use it to investigate where a request is handled, what a function does with an input, or where a value is written or returned. It is separate from the TypeScript and TSX import dependency graph.
 
-<figure><a href="/srcly/screenshots/data-flow.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/data-flow.jpg" alt="Partial route trace for /notes/[id] in Srcly's included symbol-graph example" width="1440" height="960" loading="lazy" /></a><figcaption>The <code>/notes/[id]</code> route trace in the included symbol-graph example is anchored at <code>NotePage</code>. It is partial: one callback handoff has no call sites to pair its values. Inspect the unproven handoff before relying on the path.</figcaption></figure>
+<figure><a href="/srcly/screenshots/data-flow.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/data-flow.jpg" alt="Partial route trace for /notes/[id] in Srcly's included symbol-graph example" width="1440" height="900" loading="lazy" /></a><figcaption>The <code>/notes/[id]</code> route trace in the included symbol-graph example is anchored at <code>NotePage</code>. It is partial: one callback handoff has no call sites to pair its values. Inspect the unproven handoff before relying on the path.</figcaption></figure>
 
 ## Open a trace
 

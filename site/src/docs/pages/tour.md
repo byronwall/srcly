@@ -2,7 +2,7 @@
 
 Srcly is designed for one practical loop: orient yourself in a codebase, choose a useful signal, inspect the code behind it, and decide what to do next. The browser keeps those steps connected. The CLI makes a similar investigation repeatable for scripts and coding agents.
 
-<figure><a href="/srcly/screenshots/treemap.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/treemap.jpg" alt="Srcly's treemap with a repository selection" width="1440" height="960" loading="lazy" /></a><figcaption>Treemap view of a repository in Srcly. Area shows lines of code; tile color follows the selected metric.</figcaption></figure>
+<figure><a href="/srcly/screenshots/treemap.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/treemap.jpg" alt="Srcly's treemap with a repository selection" width="1440" height="900" loading="lazy" /></a><figcaption>Treemap view of a repository in Srcly. Area shows lines of code; tile color follows the selected metric.</figcaption></figure>
 
 ## 1. Start with the shape of the repository
 
@@ -26,7 +26,7 @@ Open Hot Spots when you want a ranked list, or use the 2×2 view to compare two 
 
 Select a file or function tile, or select its row in the explorer. Srcly opens the source with available metrics, findings, and line evidence. For an aggregated value, check which rule produced it. For maximum complexity, Srcly carries the function that sets the maximum as a witness. For a checker result, read the tool, rule, location, and message.
 
-<figure><a href="/srcly/screenshots/code-inspector.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/code-inspector.jpg" alt="Srcly's code inspector showing source and analysis evidence" width="1440" height="960" loading="lazy" /></a><figcaption>Code inspector for a selected source item. Use the source location and witness to check why the metric or finding appears.</figcaption></figure>
+<figure><a href="/srcly/screenshots/code-inspector.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/code-inspector.jpg" alt="Srcly's code inspector showing source and analysis evidence" width="1440" height="900" loading="lazy" /></a><figcaption>Code inspector for a selected source item. Use the source location and witness to check why the metric or finding appears.</figcaption></figure>
 
 Ask what the evidence supports. A complexity value describes branching structure. A checker finding reports what that checker detected under its configuration. Neither says whether a change is needed. Read the relevant code, then confirm a suspected issue with the project's tests or checker.
 
@@ -36,11 +36,11 @@ Use the dependency graph to inspect TypeScript and TSX import relationships. It 
 
 The graph also has **Symbols** mode for symbol-level references. It centers one symbol, shows referrers on the left and referenced symbols on the right, and frames the focus by file and class. Press `/` to find a symbol. Select a box to inspect references and source lines. Shift-click a box or press `E` to open that symbol's hop in place. Kind filters and the Tests control help narrow the view. These are static references; check the displayed resolution and source locations before treating a link as exact.
 
-<figure><a href="/srcly/screenshots/symbols.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/symbols.jpg" alt="Symbols graph for NotePage in the included symbol-graph example" width="1440" height="960" loading="lazy" /></a><figcaption>Symbols mode centers <code>NotePage</code> and shows its references to <code>fetchNote</code> and <code>NoteView</code>. The inspector provides source locations and reference counts.</figcaption></figure>
+<figure><a href="/srcly/screenshots/symbols.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/symbols.jpg" alt="Symbols graph for NotePage in the included symbol-graph example" width="1440" height="900" loading="lazy" /></a><figcaption>Symbols mode centers <code>NotePage</code> and shows its references to <code>fetchNote</code> and <code>NoteView</code>. The inspector provides source locations and reference counts.</figcaption></figure>
 
 Use Data flow when you have a supported route or symbol and want to follow modeled values, function effects, or route handling. Select a file or function, open Data flow, and choose an anchor available for that code. Inspect graph items and their source locations. For a route or value path, read the outcome and any assumptions or stops before drawing a conclusion. The bundled engine requires Node.js 18 or newer. See [Data-flow analysis](../data-flow/) for language limits and outcome meanings.
 
-<figure><a href="/srcly/screenshots/data-flow.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/data-flow.jpg" alt="Partial route trace for /notes/[id] in Srcly's included symbol-graph example" width="1440" height="960" loading="lazy" /></a><figcaption>The <code>/notes/[id]</code> route trace in the included symbol-graph example is anchored at <code>NotePage</code>. It is partial: one callback handoff has no call sites to pair its values. Inspect the unproven handoff before relying on the path.</figcaption></figure>
+<figure><a href="/srcly/screenshots/data-flow.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/data-flow.jpg" alt="Partial route trace for /notes/[id] in Srcly's included symbol-graph example" width="1440" height="900" loading="lazy" /></a><figcaption>The <code>/notes/[id]</code> route trace in the included symbol-graph example is anchored at <code>NotePage</code>. It is partial: one callback handoff has no call sites to pair its values. Inspect the unproven handoff before relying on the path.</figcaption></figure>
 
 ## 5. Repeat the investigation in a terminal
 

@@ -110,7 +110,7 @@ function DocsPage(props: { page: (typeof pages)[number]; base: string }) {
           <Show when={query()} fallback={<For each={groups}>{group => <section class="nav-group"><h2>{group.title}</h2><For each={group.slugs}>{s => { const p = pages.find(x => x.slug === s)!; return <a class="side-link" classList={{ current: p.slug === props.page.slug }} href={`${props.base}docs/${p.slug}/`} aria-current={p.slug === props.page.slug ? 'page' : undefined}>{p.title}</a>; }}</For></section>}</For>}>
             <SearchContent query={query} results={searchResults}/>
           </Show>
-          <div class="sidebar-bottom"><a href="https://github.com/byronwall/srcly/tree/codex/product-guide/site/src/docs/pages" target="_blank" rel="noreferrer"><Code2 size={14}/> Edit guides <ExternalLink size={12}/></a></div>
+          <div class="sidebar-bottom"><a href="https://github.com/byronwall/srcly/tree/main/site/src/docs/pages" target="_blank" rel="noreferrer"><Code2 size={14}/> Edit guides <ExternalLink size={12}/></a></div>
         </aside>
         <main id="article" class="docs-article">
           <div class="mobile-doc-tools">
@@ -121,7 +121,7 @@ function DocsPage(props: { page: (typeof pages)[number]; base: string }) {
           </div>
           <div class="article-head">
             <div><h1>{props.page.title}</h1><p class="article-summary">{props.page.description}</p></div>
-            <a class="edit-link" href={`https://github.com/byronwall/srcly/blob/codex/product-guide/site/src/docs/pages/${props.page.slug}.md`} target="_blank" rel="noreferrer">Edit page <ExternalLink size={13}/></a>
+            <a class="edit-link" href={`https://github.com/byronwall/srcly/blob/main/site/src/docs/pages/${props.page.slug}.md`} target="_blank" rel="noreferrer">Edit page <ExternalLink size={13}/></a>
           </div>
           <div class="article-grid">
             <article class="markdown" innerHTML={contentHtml} ref={el => {

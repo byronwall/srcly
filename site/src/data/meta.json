@@ -1,0 +1,11 @@
+{
+ "sha": "e4485453",
+ "date": "2026-11-14",
+ "loc": 156914,
+ "files": 1136,
+ "functions": 14382,
+ "topCcn": 135,
+ "topCcnName": "buildViewModel",
+ "topCcnPath": "client/src/viz/deps/viewModel.ts",
+ "findings": 872
+}

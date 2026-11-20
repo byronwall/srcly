@@ -2,7 +2,7 @@
 
 Use Srcly's linked views to move from a broad signal to the source behind it. This guide helps you choose a view, inspect its evidence, and decide whether the result needs follow-up.
 
-<figure><a href="/srcly/screenshots/treemap.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/treemap.jpg" alt="Srcly's treemap view of a scanned repository" width="1440" height="960" loading="lazy" /></a><figcaption>Treemap view of a repository in Srcly. Area represents LOC; color follows the selected metric.</figcaption></figure>
+<figure><a href="/srcly/screenshots/treemap.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/treemap.jpg" alt="Srcly's treemap view of a scanned repository" width="1440" height="900" loading="lazy" /></a><figcaption>Treemap view of a repository in Srcly. Area represents LOC; color follows the selected metric.</figcaption></figure>
 
 ## Choose the view for your question
 
@@ -20,7 +20,7 @@ These views are not interchangeable. The dependency graph describes imports; it 
 
 Switch the graph from Imports to **Symbols** to inspect references around one symbol. The focus appears in the middle; referrers appear on the left and referenced symbols on the right, grouped by their source files and classes. Press `/` to search symbols. Select a box to read its reference lines in the inspector. Shift-click a box or press `E` to open its own hop in place. Use the kind chips and Tests control to narrow the graph. The edge's resolution label matters: exact, typed, and name-based matches are different levels of evidence. Follow an edge into source before relying on it.
 
-<figure><a href="/srcly/screenshots/symbols.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/symbols.jpg" alt="Symbols graph for NotePage in the included symbol-graph example" width="1440" height="960" loading="lazy" /></a><figcaption>Symbols mode centers <code>NotePage</code> and shows its references to <code>fetchNote</code> and <code>NoteView</code>. The inspector provides source locations and reference counts.</figcaption></figure>
+<figure><a href="/srcly/screenshots/symbols.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/symbols.jpg" alt="Symbols graph for NotePage in the included symbol-graph example" width="1440" height="900" loading="lazy" /></a><figcaption>Symbols mode centers <code>NotePage</code> and shows its references to <code>fetchNote</code> and <code>NoteView</code>. The inspector provides source locations and reference counts.</figcaption></figure>
 
 ## Read the treemap
 
@@ -38,7 +38,7 @@ Open a row to focus the corresponding source. Check the metric definition and co
 
 The 2×2 view places files, functions, or supported components on two metric axes. Presets include activity, blast radius, component weight, comment noise, and findings. Choose the preset and cohort, then read the axis labels. Drag the cut-offs to explore how different thresholds change quadrant membership. Select a group or point to inspect its members.
 
-<figure><a href="/srcly/screenshots/quadrant.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/quadrant.jpg" alt="Activity 2×2 for Srcly's client source, with the Hot mess quadrant selected" width="1440" height="960" loading="lazy" /></a><figcaption>Activity 2×2 of Srcly's client source: maximum complexity against commits. The selected Hot mess group lists files beyond both cut-offs.</figcaption></figure>
+<figure><a href="/srcly/screenshots/quadrant.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/quadrant.jpg" alt="Activity 2×2 for Srcly's own repository, with the Hot mess quadrant selected" width="1440" height="900" loading="lazy" /></a><figcaption>Activity 2×2 of Srcly's own repository: maximum complexity against commits. The selected Hot mess group lists files beyond both cut-offs.</figcaption></figure>
 
 The cut-offs help you ask a question; they are not universal risk boundaries. A preset can omit unavailable points or show that it has no usable data. Read the selected metrics, cohort, and cut-offs before comparing groups. A point's position is not an overall quality grade.
 
