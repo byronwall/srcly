@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.13.0](https://github.com/byronwall/srcly/compare/v1.12.0...v1.13.0) (2026-11-20)
+
+
+### Features
+
+* **site:** redesign the landing page around Srcly's own treemap ([#391](https://github.com/byronwall/srcly/issues/391)) ([744216f](https://github.com/byronwall/srcly/commit/744216f71fcbde58a419730ac3973a71f4ad776a))
+* **site:** search, an interactive hero and agent files ([#392](https://github.com/byronwall/srcly/issues/392)) ([c5f1434](https://github.com/byronwall/srcly/commit/c5f1434a2c5a3a0d871116465338bab94b71b4ec))
+
 ## [1.12.0](https://github.com/byronwall/srcly/compare/v1.11.0...v1.12.0) (2026-11-13)
 
 
