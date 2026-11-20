@@ -40,7 +40,7 @@ test("the landing page draws the real treemap and every image and local link res
   await expect(page.locator("h1")).toHaveText("See where the code gets hard.");
   expect(await page.locator(".hero .map-wide .tile").count()).toBeGreaterThan(200);
   for (const id of ["start", "read", "views", "workflows", "cli", "reference", "built"]) {
-    await expect(page.locator(`section#${id} h2`)).toBeVisible();
+    await expect(page.locator(`#${id}-title`)).toBeVisible();
   }
   for (const image of await page.locator("img").all()) {
     await image.scrollIntoViewIfNeeded();

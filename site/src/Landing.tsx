@@ -128,8 +128,8 @@ export function Landing(props: { base: string }) {
             <p>Traces how a value moves through calls in TypeScript, JavaScript and Python: from a route, a function or one expression, forward, backward or both. Each trace names its outcome and the places it stops. It needs Node.js 18 or newer.</p>
           </View>
           <View shot={shot('compare')} title="Compare" source="client/src/compare" guide={doc('reports')}
-            alt="Compare mode showing the metric changes of one Srcly pull request.">
-            <p>Shows what a change did to the codebase: side-by-side treemaps, a table of metric changes, and before-and-after import graphs. Pick an open PR, a branch or a worktree, and step through a PR one commit at a time.</p>
+            alt="Compare mode for Srcly pull request 354: 6 risk metrics worse, 1 better, with the changed files and SymbolInspector.tsx selected.">
+            <p>Shows what a change did to the codebase: which risk metrics got worse or better, and every changed file with its metric changes. The Treemap and Dependencies tabs show the before and after. Pick an open PR, a branch or a worktree, and step through a PR one commit at a time.</p>
           </View>
         </div>
         <p class="aside">The symbols and data-flow shots use <code>engine/examples/symbol-graph</code>, a small app in the repository. A trace over the whole Srcly repository takes minutes.</p>
@@ -145,7 +145,7 @@ export function Landing(props: { base: string }) {
           </Workflow>
           <Workflow title="Review what a pull request did">
             <li>Click <b>Compare</b> and pick the PR, or run <code>uvx srcly compare main pr:42</code>.</li>
-            <li>Read the table of changed files and their metric changes, then the before-and-after import graphs.</li>
+            <li>Read the risk metrics that got worse, then the changed files. The <b>Dependencies</b> tab shows the import graph before and after.</li>
             <li>A file measured on one side only counts as a coverage change, not as an improvement.</li>
           </Workflow>
           <Workflow title="Give a coding agent a map">
@@ -181,7 +181,7 @@ export function Landing(props: { base: string }) {
           </figure>
           <figure class="output">
             <figcaption><code>uvx srcly explain . --at client/src/viz/treemap</code></figcaption>
-            <div class="rendered" innerHTML={marked.parse(cli.explain.replace(/^# .+\n+/, '')) as string}/>
+            <div class="rendered" innerHTML={(marked.parse(cli.explain.replace(/^# .+\n+/, '')) as string).replace(/<(\/?)h2>/g, '<$1h4>')}/>
           </figure>
         </div>
         <p class="aside">Both outputs are real, from Srcly scanning itself at <code>{meta.sha}</code>. <a href={doc('cli')}>Every command and flag</a> · <a href={doc('reports')}>What each report file holds</a></p>

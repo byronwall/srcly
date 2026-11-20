@@ -18,7 +18,7 @@ Common measurements include:
 | Comment noise | Selected comment patterns | Check the flagged lines; this heuristic is not a style verdict. |
 | Git activity | Commit count and churn in a selected history window | Add history to code structure when repository history is available. |
 
-Other metrics include file size, imports, exports, TODOs, type signals, and language-specific measures. Detail metrics can provide context without being ranked as risk. See [Findings](../findings/) for checker results, which are separate evidence.
+Other metrics include file size, imports, exports, TODOs, type signals, and language-specific measures. The [reference table](/srcly/#reference) lists every metric with its rollup, languages, and definition, straight from Srcly's metric catalog. Detail metrics can provide context without being ranked as risk. See [Findings](../findings/) for checker results, which are separate evidence.
 
 ## Example: a maximum with a witness
 

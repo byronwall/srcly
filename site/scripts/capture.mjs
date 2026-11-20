@@ -1,9 +1,9 @@
 // Captures the site's screenshots and data from a real Srcly run on Srcly's own source.
 //
-//   cd site && node scripts/capture.mjs [name,name…]
+//   cd site && node scripts/capture.mjs [name,name…] [--ref <git ref>]
 //
 // Needs the server venv (`cd server && uv sync`), client node_modules, and Google Chrome.
-// It clones this checkout's HEAD to a temporary `srcly` folder (so the shots show the
+// It clones this checkout at `origin/main` (or --ref) to a temporary `srcly` folder (so the shots show the
 // repository's own name and Git history), starts the API and the client dev server on
 // free ports with a temporary cache, then writes:
 //
@@ -27,7 +27,10 @@ const site = fileURLToPath(new URL("..", import.meta.url));
 const repo = join(site, "..");
 const shots = join(site, "public/screenshots");
 const data = join(site, "src/data");
-const only = process.argv[2]?.split(",");
+const args = process.argv.slice(2);
+const refAt = args.indexOf("--ref");
+const ref = refAt >= 0 ? args.splice(refAt, 2)[1] : "origin/main";
+const only = args[0]?.split(",");
 
 // realpath: macOS reports /var/folders/… as /private/var/folders/… in the scan.
 const root = await realpath(await mkdtemp(join(tmpdir(), "srcly-site-")));
@@ -35,6 +38,8 @@ const clone = join(root, "srcly");
 const fixture = join(clone, "engine/examples/symbol-graph");
 const env = { ...process.env, SRCLY_CACHE_DIR: join(root, "cache"), SRCLY_ENGINE_DEV: "1" };
 execFileSync("git", ["clone", "-q", repo, clone]);
+const commit = execFileSync("git", ["-C", repo, "rev-parse", ref], { encoding: "utf8" }).trim();
+execFileSync("git", ["-C", clone, "checkout", "-q", "--detach", commit]);
 const sha = execFileSync("git", ["-C", clone, "rev-parse", "--short=8", "HEAD"], { encoding: "utf8" }).trim();
 const date = execFileSync("git", ["-C", clone, "log", "-1", "--format=%cs"], { encoding: "utf8" }).trim();
 console.log(`source ${sha} (${date}) in ${clone}`);
@@ -59,6 +64,7 @@ const children = [
 ];
 const stop = () => children.forEach((child) => child.kill());
 process.on("exit", stop);
+for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => process.exit(130));
 
 async function waitFor(url) {
   for (let i = 0; i < 120; i++) {
@@ -121,7 +127,11 @@ const views = [
     ready: '[role="dialog"]', delay: 3000,
   },
   { name: "graph", url: app(clone, { view: "graph", at: "client/src/viz/treemap" }), delay: 2500 },
-  { name: "compare", url: app(clone, { view: "treemap", compare: "5a8a9c38~1..5a8a9c38" }), ready: "[data-compare-coverage]", delay: 3000, timeout: 600_000 },
+  {
+    // Compare checks out and scans both revisions, then shows the risk metrics summary.
+    name: "compare", url: app(clone, { view: "treemap", compare: "5a8a9c38~1..5a8a9c38" }), delay: 3000, timeout: 600_000,
+    steps: async (page) => page.getByText("Risk metrics", { exact: true }).first().waitFor(),
+  },
   { name: "symbols", url: app(fixture, { view: "graph", symbols: "src/routes/notes/[id].tsx#NotePage" }), delay: 4000 },
   { name: "data-flow", url: app(fixture, { view: "graph", anchor: "src/routes/notes/[id].tsx@NotePage:6", dir: "forward" }), ready: "text=Where the trace stops", delay: 2000 },
 ];

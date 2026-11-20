@@ -182,7 +182,7 @@ p, li, dd { text-wrap: pretty; }
 .output figcaption code { background: none; padding: 0; color: var(--muted); }
 .output pre { border: 0; border-radius: 0; font-size: 12px; }
 .rendered { padding: 4px 14px 12px; font-size: 13px; color: var(--muted); max-height: 520px; overflow: auto; background: var(--tint); }
-.rendered h2 { margin: 14px 0 6px; font-size: 14px; letter-spacing: 0; color: var(--ink); }
+.rendered h4 { margin: 14px 0 6px; font-size: 14px; letter-spacing: 0; color: var(--ink); }
 .rendered p { margin: 8px 0; }
 .rendered table { border-collapse: collapse; font-size: 12px; width: 100%; }
 .rendered th, .rendered td { padding: 4px 6px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
