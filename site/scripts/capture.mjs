@@ -1,6 +1,6 @@
 // Captures the site's screenshots and data from a real Srcly run on Srcly's own source.
 //
-//   cd site && node scripts/capture.mjs [name,name…] [--ref <git ref>]
+//   cd site && node scripts/capture.mjs [name,name… | data] [--ref <git ref>]   (data: no screenshots)
 //
 // Needs the server venv (`cd server && uv sync`), client node_modules, and Google Chrome.
 // It clones this checkout at `origin/main` (or --ref) to a temporary `srcly` folder (so the shots show the
@@ -16,7 +16,7 @@
 // The data-flow and symbols shots use the checked-in engine/examples/symbol-graph fixture:
 // a small app with a route, because a trace over the whole repository takes minutes.
 import { execFileSync, spawn } from "node:child_process";
-import { mkdtemp, mkdir, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -82,8 +82,11 @@ const full = JSON.parse(srcly("scan", clone, "--out", "-"));
 const fileTypes = new Set(["file"]);
 const slim = (node) => {
   const out = { n: node.name, l: node.metrics?.loc ?? 0 };
-  const ccn = node.metrics?.complexity;
-  if (ccn !== null && ccn !== undefined) out.c = Math.round(ccn);
+  // Short keys keep the file small: c = max complexity, m = commits (90 days), f = findings. Absent is N/A.
+  for (const [key, id] of [["c", "complexity"], ["m", "commit_count"], ["f", "finding_count"]]) {
+    const value = node.metrics?.[id];
+    if (value !== null && value !== undefined) out[key] = Math.round(value);
+  }
   if (node.type === "folder") out.k = (node.children ?? []).filter((child) => child.type === "folder" || fileTypes.has(child.type)).map(slim).filter((child) => child.l > 0);
   return out;
 };
@@ -92,8 +95,8 @@ await writeFile(join(data, "tree.json"), JSON.stringify({ ...slim(full), n: "src
 const catalog = await (await fetch(`http://127.0.0.1:${api}/api/metrics/catalog`)).json();
 await writeFile(join(data, "catalog.json"), JSON.stringify({
   groups: catalog.groups,
-  metrics: catalog.metrics.map(({ id, label, short_label, unit, group, direction, aggregation, languages, description, witness }) =>
-    ({ id, label, short_label, unit, group, direction, aggregation, languages, description, witness })),
+  metrics: catalog.metrics.map(({ id, label, short_label, unit, group, direction, aggregation, languages, description, witness, color_domain, color_per_file }) =>
+    ({ id, label, short_label, unit, group, direction, aggregation, languages, description, witness, color_domain, color_per_file })),
   windows: catalog.activity_windows,
   presets: catalog.quadrant_presets.map(({ id, label, description, x, y, cohorts, quadrants }) =>
     ({ id, label, description, x: x.label, y: y.label, cohorts, quadrants: quadrants.map(({ name, description: text }) => ({ name, text })) })),
@@ -108,7 +111,8 @@ await writeFile(join(data, "cli.json"), JSON.stringify(Object.fromEntries(Object
 
 const m = full.metrics;
 await writeFile(join(data, "meta.json"), JSON.stringify({
-  sha, date, loc: m.loc, files: m.file_count, functions: m.function_count,
+  sha, date, version: (await readFile(join(clone, "server/pyproject.toml"), "utf8")).match(/^version = "(.+)"/m)?.[1],
+  loc: m.loc, files: m.file_count, functions: m.function_count,
   topCcn: Math.round(m.complexity), topCcnName: m.complexity_witness?.name,
   topCcnPath: m.complexity_witness?.path.split("::")[0].replace(`${clone}/`, ""),
   findings: m.finding_count,

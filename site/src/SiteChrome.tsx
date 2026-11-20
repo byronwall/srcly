@@ -1,12 +1,14 @@
 import { ExternalLink } from 'lucide-solid';
+import { SiteSearch } from './SiteSearch';
 
 export function Header(props: { base: string; active?: 'tour' | 'docs' }) {
   return <header class="site-header">
     <a class="brand" href={props.base} aria-label="Srcly home"><Mark/><span>srcly</span></a>
+    {props.active === 'tour' ? <SiteSearch base={props.base}/> : null}
     <nav aria-label="Main navigation">
-      <a href={`${props.base}#views`} classList={{ active: props.active === 'tour' }}>Guide</a>
-      <a href={`${props.base}#reference`}>Reference</a>
+      {props.active === 'docs' ? <a href={props.base}>Guide</a> : null}
       <a href={`${props.base}docs/`} classList={{ active: props.active === 'docs' }}>Docs</a>
+      <a href={`${props.base}#agents`}>Agents</a>
       <a href="https://github.com/byronwall/srcly" target="_blank" rel="noreferrer">GitHub <ExternalLink size={12}/></a>
     </nav>
   </header>;

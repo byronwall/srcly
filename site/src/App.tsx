@@ -121,7 +121,10 @@ function DocsPage(props: { page: (typeof pages)[number]; base: string }) {
           </div>
           <div class="article-head">
             <div><h1>{props.page.title}</h1><p class="article-summary">{props.page.description}</p></div>
-            <a class="edit-link" href={`https://github.com/byronwall/srcly/blob/main/site/src/docs/pages/${props.page.slug}.md`} target="_blank" rel="noreferrer">Edit page <ExternalLink size={13}/></a>
+            <div class="article-links">
+              <a class="edit-link" href={`${props.base}docs/${props.page.slug}/index.md`}>Markdown</a>
+              <a class="edit-link" href={`https://github.com/byronwall/srcly/blob/main/site/src/docs/pages/${props.page.slug}.md`} target="_blank" rel="noreferrer">Edit page <ExternalLink size={13}/></a>
+            </div>
           </div>
           <div class="article-grid">
             <article class="markdown" innerHTML={contentHtml} ref={el => {
