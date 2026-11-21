@@ -592,3 +592,34 @@ export type RoutePathResult = {
     label: string;
   } | null;
 };
+
+/** Result of the `fileSignals` op. */
+export type FileSignalsResult = {
+  outcome: "ok" | "assumed" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  generation: number;
+  programHash: string;
+  tsconfig: string;
+  typescript: string;
+  nullProof: boolean;
+  reason: string | null;
+  files: {
+    file: string;
+    metrics: {
+      impossibleDefenses: number;
+      relayHops: number;
+      fanOut: number;
+      representationChanges: number;
+      pathDepth: number;
+    };
+  }[];
+  findings: {
+    rule: "impossible-defense" | "repeated-fork";
+    file: string;
+    line: number;
+    column: number;
+    endLine: number;
+    message: string;
+  }[];
+  unplacedDefenses: number;
+  markdown: string;
+};
