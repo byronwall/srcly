@@ -226,6 +226,20 @@ def test_time_window_leaves_out_what_an_upstream_merge_brought_in(tmp_path):
     assert "-  const v = x + 50;" in diff and "+  const v = x + 51;" in diff
 
 
+def test_pr_merges_count_on_a_default_branch_ahead_of_its_upstream(tmp_path):
+    repo = Mini(tmp_path / "r")
+    repo.commit("base", {"a.ts": fn("a", 1), "b.ts": fn("b", 1)})
+    repo.git("checkout", "--quiet", "-b", "pr")
+    repo.commit("pr edits a", {"a.ts": fn("a", 9)})
+    repo.git("checkout", "--quiet", "main")
+    repo.git("merge", "--quiet", "--no-ff", "-m", "Merge PR", "pr")
+    repo.git("update-ref", "refs/remotes/origin/main", "HEAD")
+    repo.commit("local edit b", {"b.ts": fn("b", 5)})
+    payload = repo.lens(**AFTER_BASE)
+    assert set(by_id(payload)) == {"a.ts::a", "b.ts::b"}
+    assert not any("upstream" in note for note in payload["selection"]["notes"])
+
+
 def test_models_mirror_the_client_types():
     """Each interface in types.ts has a model with the same field names on the wire."""
     import re

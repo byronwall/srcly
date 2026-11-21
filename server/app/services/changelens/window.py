@@ -341,9 +341,12 @@ def _mark_upstream_merges(window: Window, default: Optional[str]) -> None:
     if not merges:
         return
     repo = window.repo
-    if default and not _is_ancestor(repo, window.tip.sha, default):
+    if default:
         for commit in merges:
-            commit.upstream_merge = all(_is_ancestor(repo, parent, default) for parent in commit.parents[1:])
+            # A merge that is on the default branch itself (a merged PR) is that branch's own history.
+            commit.upstream_merge = not _is_ancestor(repo, commit.sha, default) and all(
+                _is_ancestor(repo, parent, default) for parent in commit.parents[1:]
+            )
     upstream = [c for c in merges if c.upstream_merge]
     counted = len(merges) - len(upstream)
     if counted:
