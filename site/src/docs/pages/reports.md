@@ -34,9 +34,10 @@ The default report writes these artifacts:
 | `hotspots.json` | Which files or functions rank highest for the selected single metric? |
 | `metrics.schema.json` | What do metrics mean, and how should an agent interpret them? |
 | `agent-skill.md` | What guidance should an agent follow when it consumes the report? |
+| `dataflow.md` | With `--dataflow`: which render paths in TypeScript and TSX are worth cleaning up, and where does cleanup stop paying off? |
 | `size_budget.json` | Which code files exceed the token-size threshold, and what baseline does the ratchet use? |
 
-The manifest identifies artifact paths and scan provenance. `report.md` is a practical first read; the JSON files support targeted tools and agent workflows. Use `--include-tree` to include the full raw tree or `--include-dependencies` to include the TypeScript and TSX import graph.
+The manifest identifies artifact paths and scan provenance. `report.md` is a practical first read; the JSON files support targeted tools and agent workflows. Use `--include-tree` to include the full raw tree or `--include-dependencies` to include the TypeScript and TSX import graph. Use `--dataflow` to add `dataflow.md` and a Data flow section in `report.md`; it needs Node 18 or newer and takes minutes on a large app.
 
 If you add `--quadrant <preset>`, Srcly also writes `quadrants.json` with the full member lists for the selected 2×2. The report's Markdown section gives a compact readable summary.
 

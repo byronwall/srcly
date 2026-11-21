@@ -14,14 +14,21 @@ Data flow traces how values move through supported source code. Use it to invest
 
 Depending on the anchor and language, Srcly can show a route, value-flow trace, or function effects. A route graph may show where a route's values move; an anchor graph starts from a selected symbol. The exact view depends on available code facts and supported language constructs.
 
-For a repository summary or agent workflow, use a report and scoped explanation:
+## Data-flow reports and findings
+
+For a repository summary or an agent workflow, add `--dataflow` to a report:
 
 ```bash
-uvx srcly report . --out .srcly
-uvx srcly explain . --at src/app.tsx
+uvx srcly report . --out .srcly --dataflow
 ```
 
-These commands provide scan and scope context. The interactive Data flow view currently carries the graph exploration.
+The engine traces every render path in the TypeScript and TSX program, from a prop, signal, or local to the JSX that renders it. This takes minutes on a large app, so it runs only when you ask. It adds:
+
+- `dataflow.md`: ranked work packets with candidate edits, the risk queue and a stop recommendation, then the defensive ledger, repeated forks, prop relay, context relay, and fan-out.
+- Two finding rules in the Data flow section of `report.md`. `impossible-defense` is a `??` or `?.` whose guarded value the types say is never null or undefined. `repeated-fork` is a component that tests the same discriminant at several sibling branch sites, including Solid `<Show>` and `<Match>`.
+- Six metrics per TS/TSX file in the Data flow group: impossible defenses, repeated forks, prop relay, shape changes, path depth, and value fan-out. After the run, the app colors the treemap and marks the code viewer with them while the files stay unchanged.
+
+`uvx srcly compare --dataflow` runs the engine on both sides and diffs these metrics.
 
 ## Requirements and language support
 

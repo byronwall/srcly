@@ -62,6 +62,7 @@ Use `uvx srcly scan . --out -` only when a caller explicitly wants raw tree JSON
 - Drill into a folder, file or `file::symbol`: `uvx srcly explain . --at <path>` (relative to the analyzed path, not the cwd; `--file` still works)
 - Rank another file class too: `--include-class test` (also `docs`, `fixture`, `generated`, `vendored`, `config`, `data`)
 - Compare two refs: `uvx srcly compare` (merge-base → working tree) or `uvx srcly compare pr:<n>`
+- TypeScript/TSX data flow (needs Node 18+, takes minutes on a big app): `uvx srcly report . --out .srcly --dataflow`; diff its metrics with `uvx srcly compare --dataflow`
 - Full raw tree: `uvx srcly scan . --out .srcly/tree.json`
 - CI gate: `uvx srcly report . --out .srcly --fail-on high`
 
@@ -93,6 +94,34 @@ Progress, version banners and cache warnings go to stderr, so stdout stays parse
 - TODOs in complex files: maintenance markers worth validating.
 - Low comment density only matters when paired with complexity, public API behavior, or non-obvious domain logic.
 - Compare: `null` is unavailable, never zero. A file measured on one side only shows under `coverage` (lost or gained) and stays out of the metric totals; report coverage changes apart from real improvements or regressions. A file missing from a side's dependency graph has unknown `fan_in`/`fan_out`.
+
+## Data Flow
+
+`--dataflow` runs the TypeScript checker over every render path, from a prop, signal or local to the JSX that renders it. It adds:
+
+- `dataflow.md`: ranked work packets with candidate edits and the risk queue, then the defensive ledger, repeated forks, prop relay, context relay and fan-out.
+- A `## Data flow` section in `report.md` that lists each finding by line.
+- Metrics per TS/TSX file: `dataflow_impossible_defenses`, `dataflow_repeated_forks`, `dataflow_relay_hops`, `dataflow_representation_changes`, `dataflow_path_depth` and `dataflow_fan_out`. The app colors the treemap and marks the code viewer from them while the files stay unchanged.
+
+The two finding rules:
+
+- `impossible-defense`: a `??` or `?.` whose guarded value the types say is never null or undefined. Remove it only when the runtime contract agrees with the types (no external JSON, no unchecked cast, no SSR first render).
+- `repeated-fork`: a component tests the same discriminant at several sibling branch sites (ternary, `&&`, Solid `<Show>` or `<Match>`). Split it into one sub-component per branch, and move each branch-only value into its sub-component.
+
+Read `dataflow.md` in this order, and fix one slice at a time:
+
+1. Pick the worst grounded ownership problem, not the highest-scored sink. Prefer prop relay, repeated shape changes across components, wide fan-out, broad prop bundles, and state that a feature store or context should own. Skip a compact local parser or style object next to JSX unless nothing larger is left.
+2. Read **Feature Clusters**. Treat "Provider/Context audit" as work only when its Evidence column shows provider, context, feature-hook or same-feature relay evidence.
+3. Prefer a **Grouped Recommendation** (such as `BarTick[]` or `BarRectangle[]`) to edits on each attribute sink.
+4. Read the **Pack verdict** before you create or delete a render model. Keep a `normalization boundary` or `cohesive render model`. Split an `overpacked bag`, `mirror object` or `relay bag` by render responsibility.
+5. Follow the **Extraction shape check**: build a cohesive repeated item, never a mirror singleton. A generic name such as `renderValue` or `ItemModel` is a reason to rename, not a design.
+6. For repeated optional Solid prop defaults, use one `mergeProps(defaults, props)` boundary. Keep a caller-precedence fallback (`tooltip ?? user.name`) where it states the API's priority.
+7. Keep SVG shell values (`width`, `height`, `viewBox`) inline or in a small local thunk; they are not fields of the repeated item. Use local aliases for repeated scalar geometry such as `size() / 2`.
+8. Leave **Background Findings** alone: they are true paths, not cleanup work.
+9. When you add or extend a feature Provider/Context, finish the job: convert children that receive context-owned state or actions through props to the feature hook. Check every Context Relay row and call it converted, a presentational leaf, or a follow-up.
+10. Stop when the **Stop Recommendation** says `yes`. More local flattening after that is churn.
+
+After a fix, run the project's checks, run `report --dataflow` again, and compare `dataflow.md` and the metrics with `uvx srcly compare --dataflow`.
 
 ## Response Pattern
 
