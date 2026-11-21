@@ -16,8 +16,9 @@ export const FLOW_SIGNATURE_MAX_ENDS = 12;
 type Scope = { span: Span; name: string; role: string | null; facts: ProgramElement[] };
 
 /**
- * The flow signature of each function of `file` (of those that overlap
- * `lines`, when given). Nothing here traces by itself: a function's status,
+ * The flow signature of each function of `file`: of those that overlap
+ * `lines` or are named in `names`, when `lines` is given (the other side of a
+ * compare names the functions it traced). Nothing here traces by itself: a function's status,
  * stops and what its result reaches come from the anchor graph of its
  * declaration, each origin-to-end pair from the anchor graph walked backward
  * from an end the evidence places in the function, and its effects from
@@ -30,7 +31,8 @@ export function flowSignatureOp(session: EngineSession, params: Record<string, u
   const { relative: file } = tier1.host.file(params.file);
   const ranges = parseLines(params.lines);
   const all = scopesOf(tier1, file, cancellation);
-  const asked = ranges ? all.filter((scope) => ranges.some(([from, to]) => from <= scope.span.endLine && to >= scope.span.startLine)) : all;
+  const names = Array.isArray(params.names) ? new Set(params.names.filter((item): item is string => typeof item === "string")) : new Set<string>();
+  const asked = ranges ? all.filter((scope) => names.has(scope.name) || ranges.some(([from, to]) => from <= scope.span.endLine && to >= scope.span.startLine)) : all;
   const seen = new Map<string, number>();
   const scopes = asked.slice(0, FLOW_SIGNATURE_MAX_SCOPES).map((scope) => {
     cancellation?.throwIfCancelled();

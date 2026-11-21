@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from app.services import activity
+from app.services.compare import dataflow_changes
 from app.services.compare.diff import diff_sides
 from app.services.compare.git_refs import (
     AUTO,
@@ -139,10 +140,28 @@ def build_compare(
     for side in (base_side, head_side):
         result = activity.collect(side.ref.root(repo), activity_window, rev=side.ref.sha)
         activity.apply_to_tree(side.tree, result, lambda path: path)
+    flow: dict[str, dict[str, Any]] = {}
     if dataflow:
         phase("dataflow")
-        for side in (base_side, head_side):
-            with_dataflow(repo, side)
+        lines = dataflow_changes.changed_lines(repo, base_ref, head_ref, changes)
+        by_head = {change.path: change for change in changes}
+
+        def signatures(name: str, root: Path, signals: Any, close: bool) -> None:
+            # Each side is keyed by its own path; the head also traces the functions the base traced.
+            files: dict[str, Any] = {}
+            names: dict[str, list[str]] = {}
+            for path, (old, new) in lines.items():
+                change = by_head[path]
+                if name == "base" and change.status != "added":
+                    files[change.old_path or path] = old
+                elif name == "head" and change.status != "removed":
+                    files[path] = new
+                    traced = flow["base"]["signatures"].get(change.old_path or path) or {}
+                    names[path] = list(traced.get("scopes") or {})
+            flow[name] = {"signals": signals, "signatures": dataflow_changes.collect_side(root, files, names=names, close_after=close)}
+
+        for name, side in (("base", base_side), ("head", head_side)):
+            with_dataflow(repo, side, lambda root, signals, close, name=name: signatures(name, root, signals, close))
 
     phase("diffing")
     payload: dict[str, Any] = {
@@ -152,6 +171,8 @@ def build_compare(
         "head": _side_meta(head_side),
         **diff_sides(base_side.tree, head_side.tree, base_side.graph, head_side.graph, changes),
     }
+    if dataflow:
+        payload["dataflowChanges"] = dataflow_changes.build(repo, base_ref, head_ref, changes, flow)
     timer.close_all()
     payload["timings"] = timer.snapshot()
     if include_sides:
@@ -198,7 +219,10 @@ def render_markdown(payload: dict[str, Any], *, limit: int = 40) -> str:
         lines.append(f"| {name} | {f['status']} | +{f['additions']}/-{f['deletions']} | {worse} | {better} |")
     if len(payload["files"]) > limit:
         lines.append(f"| … {len(payload['files']) - limit} more | | | | |")
-    return "\n".join(lines) + "\n"
+    text = "\n".join(lines) + "\n"
+    if payload.get("dataflowChanges"):
+        text += "\n" + dataflow_changes.render_markdown(payload["dataflowChanges"], limit=limit)
+    return text
 
 
 def _fmt(value: Optional[float]) -> str:
