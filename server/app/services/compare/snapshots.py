@@ -233,6 +233,28 @@ def _with_checks(tree_json: dict[str, Any], root: Path, *, fingerprint: Optional
     return findings.apply_to_tree(tree_json, result)
 
 
+def with_dataflow(repo: Path, side: Side) -> None:
+    """
+    Lay data-flow metrics over a loaded side (``compare --dataflow``). A
+    commit side gets its own throwaway checkout, since the side cache keeps no
+    files; its engine is closed after. Like compare's checks, a checkout has
+    no ``node_modules``, so both sides use srcly's bundled TypeScript.
+    """
+    from app.services.dataflow import signals
+
+    def apply(root: Path, *, fingerprint: Optional[str], close: bool) -> None:
+        result = signals.collect(root, fingerprint=fingerprint, close_after=close)
+        root_str = str(root.resolve())
+        signals.apply_to_tree(side.tree, result, lambda p: os.path.join(root_str, p) if p else root_str)
+
+    if side.ref.is_worktree or side.ref.sha is None:
+        root = side.ref.root(repo)
+        apply(root, fingerprint=cache.fingerprint(root), close=False)
+        return
+    with snapshot_checkout(repo, side.ref.sha) as checkout:
+        apply(checkout, fingerprint=None, close=True)
+
+
 def load_side(
     repo: Path,
     ref: ResolvedRef,

@@ -94,6 +94,7 @@ def get_file_markers(
         else:
             markers = collect_markers(str(file_path))
             markers.update(_findings_markers(file_path))
+            markers.update(_dataflow_markers(file_path))
     except HTTPException:
         raise
     except Exception as e:
@@ -113,6 +114,13 @@ def _findings_markers(file_path: Path) -> dict:
     from app.services import findings
 
     return findings.markers_for(str(file_path), _findings_job_result(file_path))
+
+
+def _dataflow_markers(file_path: Path) -> dict:
+    """Lines behind the data-flow counts, from the last ``--dataflow`` result, while the file is unchanged."""
+    from app.services.dataflow import signals
+
+    return signals.markers_for(str(file_path.resolve()), signals.latest_for_file(file_path))
 
 
 @router.get("/findings")

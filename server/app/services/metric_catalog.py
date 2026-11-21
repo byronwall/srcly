@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from app.services.analysis_types import FINDINGS_METRICS, MEASURED_FILE_METRICS, MEASURED_SCOPE_METRICS, OVERLAY_METRICS
+from app.services.analysis_types import DATAFLOW_METRICS, FINDINGS_METRICS, MEASURED_FILE_METRICS, MEASURED_SCOPE_METRICS, OVERLAY_METRICS
 
 Direction = Literal["higher-worse", "lower-worse", "neutral"]
 Aggregation = Literal["sum", "max", "mean"]
@@ -30,6 +30,7 @@ GROUPS: tuple[tuple[str, str], ...] = (
     ("Markdown", "Markdown documents."),
     ("Activity", "Git history per file in the selected window (90 days by default). On whenever the folder is a Git repo."),
     ("Findings", "Lint and type-check results: the project's own tsc and eslint when it has them, otherwise srcly's bundled ruff and TS rules. No setup."),
+    ("Data flow", "Render-path evidence from the TypeScript checker, after `srcly report --dataflow`: dead `??` guards, repeated forks and the worst value path in each TS/TSX file."),
     ("Detail", "Counts that describe code without saying it needs work: shown and colorable, never ranked."),
 )
 
@@ -71,6 +72,8 @@ class MetricSpec:
         if self.id in FINDINGS_METRICS:
             # Checkers exist for these: tsc and eslint, eslint for plain JS, ruff.
             return ["ts", "tsx", "js", "jsx", "python"]
+        if self.id in DATAFLOW_METRICS:
+            return ["ts", "tsx"]
         langs = [lang for lang, measured in MEASURED_FILE_METRICS.items() if self.id in measured]
         return langs or None
 
@@ -260,6 +263,39 @@ METRICS: tuple[MetricSpec, ...] = (
         "error_count", "Errors", "Err", "errors", "error", "Findings", "higher-worse", "sum",
         "Findings the checker calls errors: type errors, eslint errors, syntax errors and undefined names. Warnings aren't counted.",
         color_domain=(0, 1, 5), color_per_file=True,
+    ),
+    # Data flow: from the engine's render-path report (services/dataflow/signals), per file.
+    MetricSpec(
+        "dataflow_impossible_defenses", "Impossible Defenses", "Dead?", "guards", "guard", "Data flow", "higher-worse", "sum",
+        "`??` and `?.` whose guarded value the TypeScript types say is never null or undefined, so the fallback never runs. Only a type checker can prove this.",
+        color_domain=(0, 1, 5), color_per_file=True,
+        weights={"frontend": 0.8, "typescript": 0.8},
+    ),
+    MetricSpec(
+        "dataflow_repeated_forks", "Repeated Forks", "Forks", "forks", "fork", "Data flow", "higher-worse", "sum",
+        "Components that test the same discriminant at several sibling branch sites (ternaries, `&&`, Solid `<Show>` and `<Match>`): each wants one sub-component per branch.",
+        color_domain=(0, 1, 3), color_per_file=True,
+        weights={"frontend": 0.5},
+    ),
+    MetricSpec(
+        "dataflow_relay_hops", "Prop Relay", "Relay", "boundaries", "boundary", "Data flow", "higher-worse", "max",
+        "The most component boundaries a value crosses on its way to one of the file's render sinks.",
+        color_domain=(0, 3, 8),
+    ),
+    MetricSpec(
+        "dataflow_representation_changes", "Shape Changes", "Shape", "steps", "step", "Data flow", "higher-worse", "max",
+        "The most representation-only steps (alias, object pack, spread) on one of the file's render paths.",
+        color_domain=(0, 3, 8),
+    ),
+    MetricSpec(
+        "dataflow_path_depth", "Path Depth", "Depth", "steps", "step", "Data flow", "higher-worse", "max",
+        "The most steps from a source (prop, signal, local) to one of the file's JSX sinks.",
+        color_domain=(0, 6, 15),
+    ),
+    MetricSpec(
+        "dataflow_fan_out", "Value Fan-Out", "FanO", "sinks", "sink", "Data flow", "neutral", "max",
+        "The most render sinks that one of the file's sink sources also feeds. Wide reach is a fact, not a fault.",
+        color_domain=(0, 5, 20), compare="neutral",
     ),
     # Detail: describes code without saying it needs work.
     MetricSpec(
