@@ -295,11 +295,11 @@ class Graph:
         return [n for n in self.nodes.values() if n["kind"] != "scope"]
 
     def origins(self) -> list[dict]:
-        """The engine's origins, then upstream boxes nothing flows into (a literal, a parameter no caller fills)."""
+        """The engine's origins, then upstream literals and parameters nothing flows into (a parameter no caller fills)."""
         named = [n for n in self.boxes() if n["kind"] == "origin"]
         leaves = [
             n for n in self.boxes()
-            if n["side"] == "up" and n["kind"] in ("value", "transform", "control") and not self.into.get(n["id"]) and self.out.get(n["id"])
+            if n["side"] == "up" and n["kind"] == "value" and n.get("elementKind") in ("literal", "parameter") and not self.into.get(n["id"]) and self.out.get(n["id"])
         ]
         return named + leaves
 
@@ -459,23 +459,43 @@ def render_trace(result: dict, title: str, limit: int, depth: Optional[int]) -> 
     lines += ["", f"## Ends ({len(ends)})"]
     lines += _capped(ends, limit, row, "ends") or ["- none drawn"]
 
-    pairs = [(o["id"], e["id"]) for o in (origins or [graph.nodes[graph.anchor]]) for e in (ends or [graph.nodes[graph.anchor]]) if o["id"] != e["id"]]
-    lines += ["", f"## Paths ({len(pairs)})"]
-    for start, end in pairs[:limit]:
-        first = graph.path(start, graph.anchor) if graph.anchor else None
-        second = graph.path(graph.anchor, end) if graph.anchor else None
-        if first is None or second is None:
-            direct = graph.path(start, end)
-            steps = direct
-        else:
-            steps = first + second[1:]
-        lines.append(f"- {clip(graph.nodes[start]['label'], 40)} → {clip(graph.nodes[end]['label'], 40)}")
-        lines += _step_lines(graph, steps) if steps else ["    no drawn route joins them"]
-    if len(pairs) > limit:
-        lines.append(f"- … {len(pairs) - limit} more pairs (see `--format json`)")
+    # Every origin→end pair runs through the anchor, so a pair's path is its origin's path in plus its end's path out.
+    anchor_id = graph.anchor
+    ins = [o for o in origins if o["id"] != anchor_id]
+    outs = [e for e in ends if e["id"] != anchor_id]
+    pairs = max(len(ins), 1) * max(len(outs), 1) if ins or outs else 0
+    lines += ["", f"## Paths ({pairs} origin→end pairs: {len(ins)} in × {len(outs)} out; a pair's path is its in, then its out)"]
+    previous: list = []
+    for label, items, forward in (("in", ins, False), ("out", outs, True)):
+        for node in items[:limit]:
+            steps = (graph.path(anchor_id, node["id"]) if forward else graph.path(node["id"], anchor_id)) if anchor_id else None
+            lines.append(f"- {label}: {clip(node['label'], 50)} {where(node)}")
+            if not steps:
+                lines.append("    no drawn route joins it to the anchor")
+                continue
+            # Paths out share their start, paths in their end: print only where one parts from the one before.
+            ids = [step[1] for step in (steps if forward else steps[::-1])]
+            shared = 0
+            while shared < min(len(ids), len(previous)) and ids[shared] == previous[shared]:
+                shared += 1
+            previous = ids
+            if 3 <= shared < len(steps):
+                if forward:
+                    lines.append(f"    (the first {shared} steps as above)")
+                    lines += _step_lines(graph, steps[shared:])
+                else:
+                    lines += _step_lines(graph, steps[: len(steps) - shared])
+                    lines.append(f"    (then the last {shared} steps as above)")
+            else:
+                lines += _step_lines(graph, steps)
+        if len(items) > limit:
+            lines.append(f"- … {len(items) - limit} more paths {label} (see `--format json`)")
+        previous = []
 
     lines += ["", f"## Stops ({len(stops)})"]
-    stop_row = lambda n: f"- {n.get('reason') or n['kind']} at {where(n)} `{clip(n['label'], 50)}`: {clip(n.get('note') or '', 160)}"  # noqa: E731
+    stop_row = lambda n: f"- {n.get('reason') or n['kind']} at {where(n)} `{clip(n['label'], 50)}`" + (  # noqa: E731
+        f": {clip(n['note'], 160)}" if n.get("note") and n["note"] != n["label"] else ""
+    )
     lines += _capped(stops, limit, stop_row, "stops") or ["- none"]
 
     scopes = graph.scopes()
