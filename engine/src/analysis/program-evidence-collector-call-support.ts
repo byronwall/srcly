@@ -317,6 +317,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       const argumentId = this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId);
       // The flow moves these: a passed value goes through whole, so a field stays that field, and a resource's source reaches the fetcher's parameter, never the resource.
       if (flow?.passes === "*" || flow?.passes?.includes(index) || (flow?.source === index && isResourceFactory(this.ts, this.checker, node))) continue;
+      // A row that names the one argument its call hands on leaves the others out of its value (`makePersisted(pair, options)`, `splitProps(props, keys)`).
+      if (Array.isArray(flow?.passes)) continue;
       // A rejection reason is not the promise's value: it reaches a rejection handler, or ends there.
       if (this.settles(node) === "reject") continue;
       // A state pair's initial value seeds its state directly (`seedArgument`), not through the factory's call.

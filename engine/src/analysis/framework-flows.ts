@@ -73,7 +73,8 @@ export function wrappedPosition(module: string, name: string): number | null {
 export function yieldsFirstFunction(module: string, name: string): boolean {
   const row = frameworkRow(module, name);
   if (row?.model === "wraps") return wrappedPosition(module, name) === 0;
-  return row?.model !== "calls-back" || (row.accessor === true && row.returns === "callback");
+  // An accessor of a later argument's return (`mapArray(list, fn)`) is not a call of the first: the accessor's own call carries the value.
+  return row?.model !== "calls-back" || (row.accessor === true && row.returns === "callback" && (argument(row) ?? 0) === 0);
 }
 
 /** Whether calling what the factory makes tests a key against its source (`createSelector`), rather than yields the source's value. */
