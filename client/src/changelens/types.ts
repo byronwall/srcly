@@ -38,6 +38,8 @@ export interface LensSelection {
   notes: string[];
   /** Absolute path of the git repo. Every `path` in the payload is relative to it. */
   repoRoot: string;
+  /** The analyzed folder inside the repo (`server/app`); "" when it is the repo root. Only files under it are read. */
+  scope: string;
 }
 
 export interface LensCommit {

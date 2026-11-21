@@ -17,7 +17,8 @@ export interface Size {
 }
 
 export interface GroupTile {
-  kind: "folder" | "file";
+  /** `pool`: a file's smaller chunks drawn as one tile. */
+  kind: "folder" | "file" | "pool";
   /** Repo-relative path of the folder or file. */
   path: string;
   /** Label: a collapsed chain reads `server/app/services`. */
@@ -72,7 +73,7 @@ export function flooredWeights(values: number[], area: number, minArea: number):
 interface TreeNode<T> {
   name: string;
   path: string;
-  kind: "folder" | "file" | "leaf";
+  kind: "folder" | "file" | "pool" | "leaf";
   children?: TreeNode<T>[];
   leaf?: T;
   weight?: number;
@@ -151,7 +152,7 @@ function settleSides<T>(tree: TreeNode<T>, size: Size) {
     let grew = false;
     for (const node of squarify(tree, size, 2).leaves()) {
       const side = Math.min(node.x1 - node.x0, node.y1 - node.y0);
-      if (node.data.kind !== "leaf" || side >= MIN_TILE_SIDE) continue;
+      if ((node.data.kind !== "leaf" && node.data.kind !== "pool") || side >= MIN_TILE_SIDE) continue;
       node.data.weight = (node.data.weight ?? 0) * Math.min(4, (MIN_TILE_SIDE + 1) / Math.max(side, 1));
       grew = true;
     }
@@ -165,28 +166,60 @@ const rectOf = (n: { x0: number; y0: number; x1: number; y1: number }): Rect => 
  * Only edits. `scope` is the folder or file the map is zoomed to ("" for the
  * repo); `collapsed` holds the paths of the groups drawn as one tile.
  */
-export function layoutEdits(chunks: LensChunk[], size: Size, scope = "", collapsed: ReadonlySet<string> = new Set(), minArea = MIN_TILE_AREA): EditsLayout {
+export function layoutEdits(
+  chunks: LensChunk[],
+  size: Size,
+  scope = "",
+  collapsed: ReadonlySet<string> = new Set(),
+  pooled: ReadonlySet<string> = new Set(),
+  minArea = MIN_TILE_AREA
+): EditsLayout {
   const shown = chunks.filter((c) => inScope(c.path, scope));
   if (!shown.length || size.width <= 0 || size.height <= 0) return { groups: [], chunks: [] };
+  // The floor applies to what is drawn: each open chunk, and each pool as one tile with its chunks' lines.
   // Group strips and padding take a share of the map, so aim the floor a little high.
-  const weights = flooredWeights(shown.map((c) => c.added + c.deleted), size.width * size.height * 0.8, minArea);
+  const lines = (c: LensChunk) => c.added + c.deleted;
+  const poolLines = new Map<string, number>();
+  const poolCount = new Map<string, number>();
+  for (const c of shown)
+    if (pooled.has(c.id)) {
+      poolLines.set(c.path, (poolLines.get(c.path) ?? 0) + lines(c));
+      poolCount.set(c.path, (poolCount.get(c.path) ?? 0) + 1);
+    }
+  const open = shown.filter((c) => !pooled.has(c.id));
+  const floored = flooredWeights([...open.map(lines), ...poolLines.values()], size.width * size.height * 0.8, minArea);
+  const openWeight = new Map(open.map((c, i) => [c.id, floored[i]]));
+  const poolWeight = new Map([...poolLines.keys()].map((path, i) => [path, floored[open.length + i]]));
+  const weights = shown.map((c) => openWeight.get(c.id) ?? (poolWeight.get(c.path)! * (lines(c) + 1)) / (poolLines.get(c.path)! + poolCount.get(c.path)!));
   const byFile = new Map<string, TreeNode<LensChunk>>();
+  const pools = new Map<string, TreeNode<LensChunk>>();
   shown.forEach((chunk, i) => {
     let file = byFile.get(chunk.path);
     if (!file) byFile.set(chunk.path, (file = { name: chunk.path.split("/").pop() ?? chunk.path, path: chunk.path, kind: "file", children: [] }));
-    file.children!.push({ name: chunk.name, path: chunk.id, kind: "leaf", leaf: chunk, weight: weights[i] });
+    const leaf: TreeNode<LensChunk> = { name: chunk.name, path: chunk.id, kind: "leaf", leaf: chunk, weight: weights[i] };
+    if (!pooled.has(chunk.id)) return void file.children!.push(leaf);
+    let pool = pools.get(chunk.path);
+    if (!pool) {
+      pools.set(chunk.path, (pool = { name: "more", path: poolPath(chunk.path), kind: "pool", children: [] }));
+      file.children!.push(pool);
+    }
+    pool.children!.push(leaf);
   });
   const tree = folderTree(scope, [...byFile].map(([path, node]) => ({ path, node })));
   const ids = new Map<string, string[]>();
   // A collapsed group becomes one leaf with the weight of everything under it.
-  const fold = (node: TreeNode<LensChunk>): TreeNode<LensChunk> => {
-    if (node.kind === "leaf") return node;
-    ids.set(node.path, leavesOf(node).map((c) => c.id));
-    if (collapsed.has(node.path) && node.path !== scope) return { ...node, children: undefined, weight: weightOf(node) };
-    return { ...node, children: node.children!.map(fold) };
+  // A pool, or a group the user collapsed, becomes one leaf with the weight of everything under it.
+  // Pools fold before the sides settle, so a pool is widened as one tile; collapsed groups fold after,
+  // so collapsing keeps the area the open tiles had.
+  const fold = (node: TreeNode<LensChunk>, which: (n: TreeNode<LensChunk>) => boolean): TreeNode<LensChunk> => {
+    if (node.kind === "leaf" || !node.children) return node;
+    if (!ids.has(node.path)) ids.set(node.path, leavesOf(node).map((c) => c.id));
+    if (which(node) && node.path !== scope) return { ...node, children: undefined, weight: weightOf(node) };
+    return { ...node, children: node.children.map((c) => fold(c, which)) };
   };
-  settleSides(tree, size);
-  const laid = squarify(fold(tree), size, 2);
+  const withPools = fold(tree, (n) => n.kind === "pool");
+  settleSides(withPools, size);
+  const laid = squarify(fold(withPools, (n) => collapsed.has(n.path)), size, 2);
 
   const groups: GroupTile[] = [];
   const tiles: ChunkTile[] = [];
@@ -198,6 +231,28 @@ export function layoutEdits(chunks: LensChunk[], size: Size, scope = "", collaps
       groups.push({ kind: data.kind, path: data.path, name: data.name, rect, depth: node.depth, header: hasHeader(rect), collapsed: !data.children, chunkIds: ids.get(data.path) ?? [] });
   }
   return { groups, chunks: tiles };
+}
+
+/** Open chunk tiles the map aims for, per px² of map: room for a name and a value in each. */
+export const TILE_BUDGET_AREA = MIN_TILE_AREA * 7;
+
+/** Path of the tile that pools a file's smaller chunks. */
+export const poolPath = (file: string) => `${file}#more`;
+
+/**
+ * The chunks to pool into one "N more" tile per file, so a window with
+ * hundreds of chunks stays readable. The chunks with the most churn stay
+ * open, up to the map's budget; a file keeps a pool only for two or more.
+ * Files in `expanded` pool nothing.
+ */
+export function pooledChunks(chunks: LensChunk[], size: Size, scope = "", expanded: ReadonlySet<string> = new Set()): Set<string> {
+  const shown = chunks.filter((c) => inScope(c.path, scope));
+  const budget = Math.max(12, Math.floor((size.width * size.height) / TILE_BUDGET_AREA));
+  if (shown.length <= budget) return new Set();
+  const ranked = [...shown].sort((a, b) => b.added + b.deleted - (a.added + a.deleted) || a.id.localeCompare(b.id));
+  const byFile = new Map<string, string[]>();
+  for (const c of ranked.slice(budget)) if (!expanded.has(c.path)) byFile.set(c.path, [...(byFile.get(c.path) ?? []), c.id]);
+  return new Set([...byFile.values()].filter((ids) => ids.length > 1).flat());
 }
 
 // --- Show in repo -----------------------------------------------------------------

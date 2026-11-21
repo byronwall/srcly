@@ -399,6 +399,8 @@ export const samplePayload: ChangeLensPayload = {
     timezone: "America/Chicago",
     includesWorktree: true,
     notes: [],
+    repoRoot: "/Users/you/projects/jobs",
+    scope: "",
   },
   commits,
   chunks,

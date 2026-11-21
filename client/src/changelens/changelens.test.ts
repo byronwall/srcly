@@ -3,8 +3,9 @@ import { parseLocation, toSearch } from "../navigation/location";
 import { ADDED_FILL, tileLook } from "./colors";
 import { folderLabel } from "./labels";
 import { bandRect, flooredWeights, layoutEdits, MIN_TILE_AREA, MIN_TILE_SIDE } from "./layout";
-import { samplePayload } from "./sample";
-import type { LensChunk } from "./types";
+import touched from "./fixture.json";
+import net from "./fixture.net.json";
+import type { ChangeLensPayload, LensChunk } from "./types";
 import { DEFAULT_LENS, parseLens, serializeLens, type LensState } from "./urlState";
 
 const chunk = (over: Partial<LensChunk>): LensChunk => ({
@@ -61,18 +62,18 @@ describe("only-edits packing", () => {
   });
 
   it("collapses a group in place and zooms to a scope", () => {
-    const chunks = samplePayload({ path: "/repo", window: "branch", mode: "touched" }).chunks;
+    const chunks = (touched as ChangeLensPayload).chunks;
     const size = { width: 1200, height: 700 };
     const open = layoutEdits(chunks, size);
-    const folded = layoutEdits(chunks, size, "", new Set(["server/tests"]));
+    const folded = layoutEdits(chunks, size, "", new Set(["src/worker.ts"]));
     const rect = (l: typeof open, path: string) => l.groups.find((g) => g.path === path)!.rect;
-    expect(rect(folded, "server/tests")).toEqual(rect(open, "server/tests"));
-    expect(rect(folded, "client/src")).toEqual(rect(open, "client/src"));
-    expect(folded.chunks.some((t) => t.chunk.path.startsWith("server/tests/"))).toBe(false);
-    expect(folded.groups.find((g) => g.path === "server/tests")!.chunkIds.length).toBeGreaterThan(3);
+    expect(rect(folded, "src/worker.ts")).toEqual(rect(open, "src/worker.ts"));
+    expect(rect(folded, "config")).toEqual(rect(open, "config"));
+    expect(folded.chunks.some((t) => t.chunk.path === "src/worker.ts")).toBe(false);
+    expect(folded.groups.find((g) => g.path === "src/worker.ts")!.chunkIds.length).toBe(4);
 
-    const zoomed = layoutEdits(chunks, size, "server/app/routers");
-    expect(new Set(zoomed.chunks.map((t) => t.chunk.path))).toEqual(new Set(["server/app/routers/scans.py"]));
+    const zoomed = layoutEdits(chunks, size, "src/util");
+    expect(new Set(zoomed.chunks.map((t) => t.chunk.path))).toEqual(new Set(["src/util/text.ts"]));
   });
 
   it("places a band by its lines and keeps a one-line band visible", () => {
@@ -149,15 +150,20 @@ describe("tile state under a lens", () => {
   });
 });
 
-describe("the sample payload", () => {
-  it("covers every status, kind and match, and drops reverted work in net mode", () => {
-    const touched = samplePayload({ path: "/repo", window: "branch", mode: "touched" });
-    const all = <K extends keyof LensChunk>(key: K) => [...new Set(touched.chunks.map((c) => c[key]))].sort();
-    expect(all("status")).toEqual(["added", "deleted", "modified", "moved", "reverted"]);
-    expect(all("kind")).toEqual(["class", "file", "function", "heading", "range"]);
-    expect(all("match")).toEqual(["exact", "moved", "none", "renamed-file", "uncertain"]);
-    const net = samplePayload({ path: "/repo", window: "branch", mode: "net" });
-    expect(net.chunks.some((c) => c.status === "reverted")).toBe(false);
-    expect(net.chunks.every((c) => c.touches.length === 0)).toBe(true);
+describe("the server's payload for the acceptance repo", () => {
+  const t = touched as ChangeLensPayload;
+  const n = net as ChangeLensPayload;
+
+  it("keeps reverted work in touched mode only", () => {
+    expect(t.chunks.filter((c) => c.status === "reverted").map((c) => c.id)).toEqual(["src/scheduler.ts::pickNext"]);
+    expect(n.chunks.some((c) => c.id === "src/scheduler.ts::pickNext")).toBe(false);
+    expect(n.chunks.every((c) => c.touches.length === 0)).toBe(true);
+  });
+
+  it("draws the pure rename as a move with no change, and the config hunk as not measured", () => {
+    const rename = t.chunks.find((c) => c.id === "src/util/text.ts")!;
+    expect(tileLook(rename, { metric: "complexity", color: "delta" })).toMatchObject({ state: "moved", value: 0 });
+    const config = t.chunks.find((c) => c.path === "config/settings.yaml")!;
+    expect(tileLook(config, { metric: "complexity", color: "now" })).toMatchObject({ state: "not-measured", value: null });
   });
 });
