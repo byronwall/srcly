@@ -77,6 +77,8 @@ class Lineage:
     net: list[Hunk] = field(default_factory=list)
     file_class: str = "code"
     gave_chunk: bool = False
+    broken: str = ""
+    """``head`` or ``base`` when the file has a syntax error at that end."""
     """A chunk of this file was paired with one in another file (a move)."""
 
     @property
@@ -133,6 +135,7 @@ class Built:
     has_worktree: bool
     left_out: int
     """Changed files not read: binary, or skipped by srcly's ignore rules."""
+    notes: list[str] = field(default_factory=list)
 
 
 # -- lineages -----------------------------------------------------------------
@@ -444,6 +447,13 @@ def _drafts_for(store: BlobStore, line: Lineage, mode: str) -> list[Draft]:
     if store.text(line.head) is None and store.text(line.base) is None and (line.head or line.base):
         return [_file_draft(line, "Not analyzed: binary content")]
     if language_for_path(line.shown_path) in SYMBOL_LANGUAGES:
+        head, base = store.parsed(line.head), store.parsed(line.base)
+        line.broken = "head" if head and head.broken else "base" if base and base.broken else ""
+        if line.broken:
+            # The scopes of a file that does not parse are guesses: one honest chunk, no symbols.
+            if line.base is None or line.head is None:
+                return [_file_draft(line, f"Syntax error at {line.broken}: scopes are not read")]
+            return _range_drafts(store, line, mode, f"Syntax error at {line.broken}: scopes are not read")
         return _symbol_drafts(store, line)
     parsed = store.parsed(line.head) or store.parsed(line.base)
     reason = (parsed.reason if parsed else None) or "No analyzer reads this file type"
@@ -738,7 +748,14 @@ def build(window: Window, mode: str) -> Built:
 
     files = _files(store, lineages, finished, mode)
     commits = _commits(window, steps, finished, has_worktree)
-    return Built(window, mode, store, commits, [d.chunk for d in finished], files, by_id, has_worktree, len(left_out))
+    notes = []
+    for end in ("head", "base"):
+        broken = sorted({d.lineage.shown_path for d in finished if d.lineage.broken == end})
+        if broken:
+            names = ", ".join(broken[:3]) + (f" and {len(broken) - 3} more" if len(broken) > 3 else "")
+            verb = "has" if len(broken) == 1 else "have"
+            notes.append(f"{names} {verb} a syntax error at {end}: the changed lines are shown with no symbols and no metrics.")
+    return Built(window, mode, store, commits, [d.chunk for d in finished], files, by_id, has_worktree, len(left_out), notes)
 
 
 def _files(store: BlobStore, lineages: list[Lineage], drafts: list[Draft], mode: str) -> list[LensFile]:

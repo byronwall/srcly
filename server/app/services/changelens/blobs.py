@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 from app.config import MAX_ANALYZED_FILE_BYTES
-from app.services.analysis import _scope_value, analyze_single_file, language_for_path
+from app.services.analysis import _scope_value, analyze_single_file, get_python_analyzer, get_ts_analyzer, language_for_path
 from app.services.analysis_types import MEASURED_SCOPE_METRICS, iter_executable_scopes, scope_kind
 from app.services.changelens.hunks import split_lines
 from app.services.compare.git_refs import GitError
@@ -86,6 +86,8 @@ class Parsed:
     """Why no scopes were read, when none were."""
     file_metrics: dict[str, Optional[float]] = field(default_factory=dict)
     dupes: bool = False
+    broken: bool = False
+    """The grammar found a syntax error: the scopes around it can be wrong."""
     """Two scopes share a qualified name, so one key holds an ordinal (``load#2``)."""
 
     def owners(self, start: int, count: int) -> list[str]:
@@ -123,6 +125,18 @@ def _unique(key: str, taken: dict[str, Scope]) -> str:
     return f"{key}#{n}"
 
 
+def _syntax_error(text: str, path: str, language: str) -> bool:
+    """True when the grammar the analyzer uses for ``path`` cannot parse ``text``."""
+    if language == "python":
+        parser = get_python_analyzer().parser
+    elif language in ("ts", "tsx", "js", "jsx"):
+        analyzer = get_ts_analyzer()
+        parser = analyzer.ts_parser if path.endswith("ts") else analyzer.tsx_parser
+    else:
+        return False
+    return parser.parse(text.encode("utf-8")).root_node.has_error
+
+
 def parse_text(text: str, path: str) -> Parsed:
     """Run the scan's analyzer for ``path`` on ``text`` and index its named scopes by line."""
     language = language_for_path(path)
@@ -149,6 +163,7 @@ def parse_text(text: str, path: str) -> Parsed:
         parsed.reason = f"Analysis failed: {info.get('error', 'unknown error')}"
         return parsed
     parsed.loc = int(getattr(info, "nloc", parsed.loc) or 0)
+    parsed.broken = _syntax_error(text, path, language)
 
     measured = MEASURED_SCOPE_METRICS[language]
     display: list[Scope] = []

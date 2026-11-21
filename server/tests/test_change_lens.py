@@ -290,12 +290,12 @@ def test_a_class_diff_leaves_out_the_lines_of_its_methods(tmp_path):
 
 
 def test_only_a_newline_ends_a_line(tmp_path):
-    odd = "// a\x0cb\u2028c\rd\n\n"
+    odd = "/* a\x0cb\u2028c\rd */\n\n"
     repo = Mini(tmp_path / "r")
     repo.commit("base", {"a.ts": fn("a", 1), "c.ts": odd + fn("c", 1)})
     repo.git("checkout", "--quiet", "-b", "feature")
     # A lone CR in an added line once read as the start of a new file in the diff.
-    repo.commit("edit", {"a.ts": fn("a", 2) + "// log:\rdiff --git a/x b/x\n", "c.ts": odd + fn("c", 2)})
+    repo.commit("edit", {"a.ts": fn("a", 2) + "/* log:\rdiff --git a/x b/x */\n", "c.ts": odd + fn("c", 2)})
     chunks = by_id(repo.lens())
     assert set(chunks) == {"a.ts", "a.ts::a", "c.ts::c"}
     assert (chunks["c.ts::c"]["startLine"], chunks["c.ts::c"]["added"], chunks["c.ts::c"]["deleted"]) == (3, 1, 1)
@@ -311,6 +311,19 @@ def test_a_renamed_markdown_heading_is_one_section(tmp_path):
     (section,) = repo.lens()["chunks"]
     assert (section["id"], section["status"], section["match"]) == ("README.md::## How to use", "modified", "uncertain")
     assert (section["netAdded"], section["netDeleted"]) == (1, 1)
+
+
+def test_a_syntax_error_at_head_gives_one_unmeasured_chunk_and_a_note(tmp_path):
+    good = fn("ok", 1) + "\n" + fn("other", 1)
+    repo = Mini(tmp_path / "r")
+    repo.commit("base", {"s.ts": good})
+    repo.git("checkout", "--quiet", "-b", "feature")
+    repo.commit("break", {"s.ts": good.replace("const v = x + 1;\n  return v;\n}\n\n", "const v = x + ;\n  return v;\n\n")})
+    payload = repo.lens()
+    (chunk,) = payload["chunks"]
+    assert (chunk["kind"], chunk["measured"], chunk["metrics"]) == ("range", False, {})
+    assert chunk["naReason"].startswith("Syntax error at head")
+    assert any("s.ts has a syntax error at head" in note for note in payload["selection"]["notes"])
 
 
 def test_models_mirror_the_client_types():

@@ -104,7 +104,7 @@ def build_payload(path: Path, params: Params) -> dict:
         raise LensError(f"Unknown mode: {params.mode}")
     built, files_total = build_lens(path, params)
     window = built.window
-    notes = list(window.notes)
+    notes = [*window.notes, *built.notes]
     if built.left_out:
         plural = "s" if built.left_out != 1 else ""
         notes.append(f"{built.left_out} changed file{plural} left out: binary, or skipped by srcly's ignore rules (lockfiles, .json, images).")
