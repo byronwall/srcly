@@ -204,7 +204,8 @@ export default function ChangeLensView(props: {
                 <span class="shrink-0">Times in {p().selection.timezone}</span>
               </Show>
               <span class="shrink-0">{p().selection.mode === "touched" ? "Touched: every chunk a commit changed" : "Net: what differs from start to end"}</span>
-              <For each={p().selection.notes}>{(note) => <span class="text-[var(--plc-on-subtle)]" data-lens-note>{note}</span>}</For>
+              {/* An empty window says why in the middle of the view, not twice. */}
+              <For each={p().chunks.length ? p().selection.notes : []}>{(note) => <span class="text-[var(--plc-on-subtle)]" data-lens-note>{note}</span>}</For>
             </>
           )}
         </Show>

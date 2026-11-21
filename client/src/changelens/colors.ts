@@ -33,7 +33,7 @@ export interface TileLook {
 export const ADDED_FILL = "#d3f0de";
 export const DELETED_FILL = "repeating-linear-gradient(135deg, rgba(190, 60, 60, 0.42) 0 1px, #fbecec 1px 5px)";
 /** Dots on white: work that came and went. It must not read as an empty part of the map. */
-export const REVERTED_FILL = "radial-gradient(rgba(100, 116, 139, 0.45) 0.8px, transparent 1.1px) 0 0 / 6px 6px, #fbfcfd";
+export const REVERTED_FILL = "radial-gradient(rgba(100, 116, 139, 0.34) 0.8px, transparent 1.1px) 0 0 / 6px 6px, #fbfcfd";
 export const NOT_MEASURED_FILL = TREEMAP_NA_BACKGROUND;
 
 // The delta scale keeps the treemap's meaning: the ramp's pale middle is "no

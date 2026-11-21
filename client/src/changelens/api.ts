@@ -47,6 +47,7 @@ async function getJson<T>(url: string): Promise<T> {
   } catch {
     // No JSON body: keep the status text.
   }
+  if (res.status === 404 && reason === "Not Found") reason = "This srcly server has no /api/change-lens endpoint (404). It is older than the Changes view.";
   throw new LensError(res.status, reason);
 }
 
