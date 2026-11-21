@@ -178,6 +178,11 @@ def _shallow_boundary(repo: Path) -> set[str]:
         return set()
 
 
+def _label(name: str, sha: str) -> str:
+    """`main @ e17633f`; a bare sha reads as its short form only."""
+    return sha[:7] if sha.startswith(name) and len(name) >= 7 else f"{name} @ {sha[:7]}"
+
+
 def resolve(path: Path, params: Params) -> Window:
     try:
         repo = repo_root(path)
@@ -193,7 +198,7 @@ def resolve(path: Path, params: Params) -> Window:
     tip_ref = params.head if params.window == "custom" and params.head else params.ref
     tip_sha = _sha(repo, tip_ref)
     tip_name = branch_of(repo, tip_ref) or tip_ref
-    tip = Endpoint(tip_ref, tip_sha, f"{tip_name} @ {tip_sha[:7]}", _commit_ts(repo, tip_sha))
+    tip = Endpoint(tip_ref, tip_sha, _label(tip_name, tip_sha), _commit_ts(repo, tip_sha))
 
     wants_worktree = params.worktree if params.worktree is not None else tip_sha == head_commit
     if wants_worktree and tip_sha != head_commit:
@@ -220,7 +225,7 @@ def resolve(path: Path, params: Params) -> Window:
     elif params.window == "custom":
         if params.base:
             base_sha = _sha(repo, params.base)
-            window.base = Endpoint(params.base, base_sha, f"{branch_of(repo, params.base) or params.base} @ {base_sha[:7]}", _commit_ts(repo, base_sha))
+            window.base = Endpoint(params.base, base_sha, _label(branch_of(repo, params.base) or params.base, base_sha), _commit_ts(repo, base_sha))
             window.commits = _log(repo, f"{base_sha}..{tip_sha}")[::-1]
             if not _is_ancestor(repo, base_sha, tip_sha):
                 notes.append(
