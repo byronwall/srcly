@@ -248,7 +248,7 @@ export default function ChangeLensView(props: {
       </ViewTools>
 
       {/* What the window resolved to. One fixed-height row at rest; notes wrap under it. */}
-      <div class="flex min-h-[28px] shrink-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-[var(--plc-border)] px-3 py-1 text-[12px] text-[var(--plc-on-muted)]" data-lens-status>
+      <div class="relative flex min-h-[28px] shrink-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-[var(--plc-border)] px-3 py-1 text-[12px] text-[var(--plc-on-muted)]" data-lens-status>
         <Show when={payload()} fallback={<span class="text-[var(--plc-on-subtle)]">{loading() ? "Reading the history of this window…" : " "}</span>}>
           {(p) => (
             <>
@@ -271,7 +271,8 @@ export default function ChangeLensView(props: {
             </>
           )}
         </Show>
-        <span class="ml-auto w-[5.5rem] shrink-0 text-right text-[var(--plc-on-subtle)]" aria-live="polite">
+        {/* Out of the flow, so the line never wraps differently while a window loads. */}
+        <span class="absolute right-2 top-1 rounded bg-[var(--plc-surface)] px-1.5 text-[var(--plc-on-subtle)] empty:hidden" aria-live="polite" data-lens-updating>
           {loading() && payload() ? "Updating…" : ""}
         </span>
       </div>
@@ -347,7 +348,7 @@ export default function ChangeLensView(props: {
                   {p().summary.reverted ? ` · ${p().summary.reverted} reverted` : ""}
                 </span>
               </div>
-              <div class="relative min-h-0 flex-1">
+              <div class="relative min-h-0 flex-1 transition-opacity duration-150" classList={{ "opacity-50": state() === "refreshing" }} aria-busy={state() === "refreshing"}>
                 <LensMap
                   payload={p()}
                   layout={lens().layout}
