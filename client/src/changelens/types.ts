@@ -32,10 +32,12 @@ export interface LensSelection {
   until: string | null;
   /** IANA name the server used to print times. */
   timezone: string;
-  /** True when staged and unstaged edits are part of the result. */
+  /** True when staged and unstaged edits are part of the result. Then `head` is the working tree. */
   includesWorktree: boolean;
   /** Plain sentences the UI shows as is: shallow history, clipped commit list, how merges were walked. */
   notes: string[];
+  /** Absolute path of the git repo. Every `path` in the payload is relative to it. */
+  repoRoot: string;
 }
 
 export interface LensCommit {
@@ -57,21 +59,21 @@ export type ChunkKind =
   | "function" // an executable scope the analyzer named (function, method, component, arrow const)
   | "class" // a display scope: class, type, object literal
   | "heading" // a Markdown heading section
-  | "file" // hunks outside any symbol, or a file with no symbols (config, JSON)
-  | "range"; // nearby hunks in a file the analyzers can't read, grouped by line range
+  | "file" // hunks outside any symbol; or a whole file: added, deleted, renamed with no edit, generated
+  | "range"; // nearby hunks in a file the analyzers can't read (YAML, CSS), grouped by line range
 
 export type ChunkStatus =
   | "modified"
   | "added" // not in base
   | "deleted" // not in head; lines are base lines
-  | "moved" // same symbol, other file or renamed file, body unchanged or changed
+  | "moved" // same symbol in another file, a renamed file, or another place in its file; body unchanged or changed
   | "reverted"; // touched in the window, identical at base and head (touched mode only)
 
 /** How the chunk at head was paired with base. */
 export type ChunkMatch =
   | "exact" // same path, same qualified name
   | "renamed-file" // git reports the file as renamed; same qualified name
-  | "moved" // same name and near-identical body in another file
+  | "moved" // same name and near-identical body in another file or scope
   | "uncertain" // best guess; the UI labels it
   | "none"; // added or deleted: nothing to pair
 
@@ -117,7 +119,7 @@ export interface LensChunk {
   baseEndLine?: number;
   status: ChunkStatus;
   match: ChunkMatch;
-  /** Sum over every touch (churn = added + deleted). */
+  /** Sum over every touch (churn = added + deleted). In net mode, the same as netAdded and netDeleted. */
   added: number;
   deleted: number;
   /** Lines that differ between base and head for this chunk. 0 for reverted. */
@@ -144,6 +146,7 @@ export interface LensFile {
   path: string;
   oldPath?: string;
   status: "added" | "deleted" | "modified" | "renamed";
+  /** Touched mode: lines summed over the window's commits. Net mode: base against head. */
   added: number;
   deleted: number;
   /** Lines of code at head; null for deleted files. Area of the file in Show in repo. */

@@ -22,9 +22,13 @@ The payload types are in `client/src/changelens/types.ts`. That file is the cont
 
 Returns `ChangeLensPayload`. A folder that is not a git repo returns 409 with a reason. An empty window returns 200 with empty lists and a note.
 
+Every `path` in the payload is relative to `selection.repoRoot`. When `path` is a folder inside the repo, only files below it are read, and a note says so.
+
 ### `GET /api/change-lens/hunk`
 
 `path`, the same selection params, `chunk` (a chunk id), and an optional `commit` (a sha or `WORKTREE`). Returns `LensHunkDiff`. Without `commit`, the diff runs from the selection's base to its head. With `commit`, it runs from that commit's first parent to the commit.
+
+The diff holds only the chunk's own lines. A symbol's diff compares its body on the two sides, so a moved symbol shows only what changed in it. A `file` chunk's diff leaves out the lines inside named scopes. An unknown chunk id returns 404.
 
 ### `srcly changes [path]`
 
@@ -32,22 +36,24 @@ Prints the same result as Markdown: the resolved selection, the review buckets, 
 
 ## Time rules
 
-1. **One history.** Read `git log --first-parent <ref>`. A merge commit counts once, as its diff against its first parent. Activity from other branches never mixes in. Say this in `selection.notes` when the window holds a merge.
+1. **One history.** Read `git log --first-parent <ref>`. A merge commit counts once, as its diff against its first parent. Activity from other branches never mixes in. Say this in `selection.notes` when the window holds a merge. A merge of the default branch into a feature branch is listed, but its diff is not read: those are upstream changes. A note names it.
 2. **Branch window.** Base is the merge-base of `ref` and the default branch, found the way `compare/git_refs.py` (`resolve_auto_base`) finds it. Head is `ref`. On the default branch itself, the base is the upstream tip (`origin/<default>`); when that equals head, the window is empty and a note says so.
 3. **Time windows.** Commits whose committer date is inside `[since, until]`. Base is the first parent of the oldest commit in the window. Head is the newest. `24h` and `7d` count back from now.
-4. **Working tree.** Staged and unstaged edits are one entry, `WORKTREE`, after the last commit. It has no time. Untracked files count as added, unless srcly's ignore rules skip them.
+4. **Working tree.** Staged and unstaged edits are one entry, `WORKTREE`, after the last commit. It has no time. Untracked files count as added, unless srcly's ignore rules skip them. The entry exists only when the tree holds edits; then `selection.head` is the working tree.
 5. **Touched against net.** Touched is the union of chunks that any commit in the window changed. Net compares the base snapshot with the head snapshot (the working tree, when included). A chunk that was changed and then put back has status `reverted` in touched mode and is absent in net mode.
-6. **Shallow or incomplete history.** State it in `selection.notes`. Never guess a base.
+6. **Shallow or incomplete history.** State it in `selection.notes`. Never guess a base. A window never reads past the oldest commit a shallow clone holds.
+7. **Long windows.** A window keeps its newest 200 commits. The base moves to the parent of the oldest one kept, and a note says so.
+8. **Files left out.** Binary files and files that srcly's ignore rules skip (lockfiles, `.json`, images) are not in the payload. A note gives their count.
 
 ## Chunk rules
 
 1. Parse each changed file once per side (base and head) with the analyzer the scan uses for it. Parse the blob (`git show <sha>:<path>`), not a checkout. Do not scan whole snapshots.
-2. A hunk belongs to the innermost named scope that holds its lines: on the new side for added and changed lines, on the old side for deleted lines. Executable scopes win over display scopes.
-3. Hunks outside every scope form one `file` chunk for that file. In Markdown, a hunk belongs to its nearest heading section (`heading`). In a file no analyzer reads, hunks within 10 lines of each other form one `range` chunk.
-4. Never invent a symbol. A chunk with no analyzer has `measured: false`, an empty `metrics`, and a `naReason`.
-5. Pair head and base chunks by path and qualified name (`exact`). When git reports a rename, pair by qualified name across the two paths (`renamed-file`). A symbol that left one file and appeared in another with a near-identical body is `moved`. A line-number overlap alone is never a match. A weaker guess is `uncertain`. Unpaired chunks are `added` or `deleted`.
-6. A pure rename with an unchanged body has equal `before` and `after`. It is not an improvement or a regression.
-7. Deleted chunks stay in touched mode, with their base lines.
+2. A hunk belongs to the innermost named scope that holds its lines: on the new side for added and changed lines, on the old side for deleted lines. Executable scopes win over display scopes. A callback with no name belongs to the named scope around it. A nested named scope has a qualified name (`Outer.inner`, `Class.method`). Comment and decorator lines right above a scope belong to it.
+3. Hunks outside every scope form one `file` chunk for that file. In Markdown, a hunk belongs to its nearest heading section (`heading`). In a file no analyzer reads (YAML, CSS, shell), hunks within 10 lines of each other form one `range` chunk; when such a file is added or deleted, it is one `file` chunk. A generated or vendored file is one `file` chunk and is not analyzed.
+4. Never invent a symbol. A chunk with no analyzer has `measured: false`, an empty `metrics`, and a `naReason`. So do `heading` chunks and `file` chunks: no code metric applies to them.
+5. Pair head and base chunks by path and qualified name (`exact`). When git reports a rename, pair by qualified name across the two paths (`renamed-file`). A symbol that left one file and appeared in another with a near-identical body is `moved` (same name, 90% of body lines equal). A line-number overlap alone is never a match. A weaker guess is `uncertain`: the same name with 60% to 90% equal, or a new name on an unchanged body in the same file. Unpaired chunks are `added` or `deleted`.
+6. A pure rename with an unchanged body has equal `before` and `after`. It is not an improvement or a regression. A file renamed with no edit is one `file` chunk with status `moved`, no changed lines, and file-level metrics (`loc`, max `complexity`) that are equal on both sides.
+7. Deleted chunks stay in touched mode, with their base lines. A symbol added and removed inside the window is `reverted`, with no metrics.
 8. Touches come from mapping each commit's hunks to the chunk through the file's symbols at that commit. `touches.length` is the number of commits that changed the chunk.
 9. Use one analysis version for both sides.
 
