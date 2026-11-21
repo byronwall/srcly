@@ -379,6 +379,19 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(boxes(seed, "terminal").map((node) => `${node.elementKind}@${node.line}`)).toEqual(["return@30"]);
   });
 
+  it("ends an argument at the request or command that sends it, and begins the answer there", () => {
+    for (const [name, line, answer] of [["note", 6, 8], ["flag", 11, 13]] as const) {
+      const sent = anchorGraphOp(session, { file: "app/sends.py", name, line, direction: "forward" });
+      expect(sent.outcome, name).toBe("ok");
+      expect(boxes(sent, "terminal").map((node) => `${node.elementKind}@${node.line}`), name).toEqual([`external-effect@${line + 1}`]);
+      // The answer is the other side's: the argument does not reach the return.
+      expect(boxes(sent).some((node) => node.line === answer), name).toBe(false);
+    }
+    const answer = anchorGraphOp(session, { ...at("app/sends.py", "response", "return response.text"), direction: "backward" });
+    expect(boxes(answer, "origin").map((node) => node.elementKind)).toEqual(["fetch-input"]);
+    expect(boxes(answer).some((node) => node.label === "note")).toBe(false);
+  });
+
   it("names a file that did not parse, and a name that is not on its line", () => {
     expect(() => anchor("app/broken.py", "broken", 1)).toThrow(/No broken on line 1 of broken\.py: the file did not parse \(syntax error on line 1/);
     expect(() => anchor("app/models.py", "Order", 5)).toThrow(/^No Order on line 5 of models\.py$/);

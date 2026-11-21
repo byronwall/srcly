@@ -117,6 +117,8 @@ def builtin_model_files() -> list[Path]:
 
 
 FASTAPI_PARAM_FUNCS = {"Query": "query", "Path": "path", "Body": "body", "Header": "header", "Cookie": "cookie", "Form": "form", "File": "file", "Depends": "dependency", "Security": "dependency"}
+# Origins whose call sends its arguments out first (a network request, a database query, a command): the arguments end there.
+SENDING_ORIGINS = {"fetch-input", "external-read"}
 FASTAPI_REQUEST_TYPES = {"Request", "WebSocket", "HTTPConnection"}
 FASTAPI_RUNTIME_TYPES = {"Response", "BackgroundTasks"}
 # Decorators that wrap a function without registering it anywhere: a function they decorate is not entered from outside.
@@ -1986,8 +1988,18 @@ class BodyWalker:
                                    proof={"kind": proof_kind, "detail": proof_name or callee_text, "locations": [source.location(span)]},
                                    attributes={**attributes, "callee": target_name or callee_text})
             self.note(node, "Call")
+            sent = None
+            if kind in SENDING_ORIGINS:
+                # A request, a query or a command takes its arguments out of the program: they end in that effect,
+                # and the call's result is the other side's answer, an origin of its own.
+                sent = self.element("external-effect", node, f"sent: {clip(source.segment(node), 80)}", suffix="sent",
+                                    proof={"kind": proof_kind, "detail": proof_name or callee_text, "locations": [source.location(span)]},
+                                    attributes={"libraryModel": attributes.get("libraryModel"), "callee": target_name or callee_text})
             for child, value in inputs:
-                self.relate(value, element, "call-input", f"handed to {callee_text}", child)
+                if sent is not None and child is not node.func:
+                    self.relate(value, sent, "call-input", f"sent by {callee_text}", child)
+                else:
+                    self.relate(value, element, "call-input", f"handed to {callee_text}", child)
             return element
 
         if function is not None or klass is not None:
