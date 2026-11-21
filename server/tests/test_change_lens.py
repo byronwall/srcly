@@ -11,7 +11,7 @@ from app.main import app
 from app.services.changelens import service
 from app.services.changelens.models import WORKTREE
 from app.services.changelens.window import LensError, Params
-from tests.fixtures.change_lens_repo import BASE_DATE, COMMITS, build
+from tests.fixtures.change_lens_repo import BASE_DATE, COMMITS, _git, _write, build
 
 
 @pytest.fixture(scope="module")
@@ -173,6 +173,57 @@ def test_api_serves_the_payload_and_refuses_a_folder_outside_git(repo, tmp_path)
     assert hunk.status_code == 200 and "audit" in hunk.json()["diff"] and hunk.json()["from"].startswith("main")
 
     assert client.get("/api/change-lens", params={"path": str(tmp_path)}).status_code == 409
+
+
+# -- small repos, one per rule ---------------------------------------------------
+
+
+class Mini:
+    """A tiny repo. Each git call is one hour after the last, from a fixed start."""
+
+    def __init__(self, path):
+        path.mkdir(parents=True)
+        self.path, self.n = path.resolve(), 0
+        self.git("init", "--quiet", "--initial-branch=main")
+
+    def git(self, *args: str) -> str:
+        self.n += 1
+        return _git(self.path, *args, date=f"2026-03-{1 + self.n // 24:02d}T{self.n % 24:02d}:00:00+00:00")
+
+    def commit(self, subject: str, files: dict) -> str:
+        _write(self.path, files)
+        self.git("add", "-A")
+        self.git("commit", "--quiet", "-m", subject)
+        return self.git("rev-parse", "HEAD")
+
+    def lens(self, **params) -> dict:
+        return service.build_payload(self.path, Params(**params))
+
+
+AFTER_BASE = {"window": "custom", "since": "2026-03-01T03:30:00+00:00", "until": "2026-03-30T00:00:00+00:00"}
+"""A time window that starts after a repo's first commit (made at 03:00)."""
+
+
+def fn(name: str, k: int) -> str:
+    return f"export function {name}(x: number) {{\n  const v = x + {k};\n  return v;\n}}\n"
+
+
+def test_time_window_leaves_out_what_an_upstream_merge_brought_in(tmp_path):
+    repo = Mini(tmp_path / "r")
+    repo.commit("base", {"a.ts": fn("a", 1), "c.ts": fn("c", 1), "up.ts": fn("up", 1)})
+    repo.git("checkout", "--quiet", "-b", "feature")
+    repo.commit("edit a", {"a.ts": fn("a", 2)})
+    repo.git("checkout", "--quiet", "main")
+    repo.commit("main edits up and c", {"up.ts": fn("up", 50), "c.ts": fn("c", 50)})
+    repo.git("checkout", "--quiet", "feature")
+    repo.git("merge", "--quiet", "--no-ff", "-m", "Merge main", "main")
+    repo.commit("edit c", {"c.ts": fn("c", 51)})
+    for mode in ("touched", "net"):
+        chunks = by_id(repo.lens(mode=mode, **AFTER_BASE))
+        assert set(chunks) == {"a.ts::a", "c.ts::c"}, mode
+        assert (chunks["c.ts::c"]["netAdded"], chunks["c.ts::c"]["netDeleted"]) == (1, 1)
+    diff = service.hunk_diff(repo.path, Params(**AFTER_BASE), "c.ts::c")["diff"]
+    assert "-  const v = x + 50;" in diff and "+  const v = x + 51;" in diff
 
 
 def test_models_mirror_the_client_types():

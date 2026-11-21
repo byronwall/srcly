@@ -87,10 +87,12 @@ class Window:
     since: Optional[int] = None
     until: Optional[int] = None
     notes: list[str] = field(default_factory=list)
+    upstream_tree: Optional[str] = None
+    """The base with the window's upstream merges applied, when it holds any: what "before" is read from."""
 
     @property
     def base_tree(self) -> str:
-        return self.base.sha or EMPTY_TREE
+        return self.upstream_tree or self.base.sha or EMPTY_TREE
 
 
 def local_timezone() -> tuple[str, timezone | ZoneInfo]:
@@ -353,3 +355,28 @@ def _mark_upstream_merges(window: Window, default: Optional[str]) -> None:
         window.notes.append(
             f"{names} merged {default} into this branch. Those upstream changes are not counted as work on this branch."
         )
+        _apply_upstream(window, upstream)
+
+
+def _apply_upstream(window: Window, upstream: list[Commit]) -> None:
+    """Move the base forward over each upstream merge, so "before" holds what the merge brought in.
+
+    The base tree takes the merge's own diff (first parent to merge) through a
+    three-way merge. Git writes the merged tree to the object store; no ref changes.
+    """
+    repo, base = window.repo, window.base.sha
+    tree = window.base_tree
+    for commit in upstream:
+        if base and all(_is_ancestor(repo, parent, base) for parent in commit.parents[1:]):
+            continue  # The base already holds this merge (a branch window).
+        try:
+            tree = _git(repo, "merge-tree", "--write-tree", f"--merge-base={commit.parents[0]}", tree, commit.sha).split()[0]
+        except (GitError, IndexError):
+            window.notes.append(
+                f"The changes of {commit.short} overlap this branch's own edits and could not be set apart: "
+                "before values and net lines can include upstream changes."
+            )
+            return
+    if tree != window.base_tree:
+        window.upstream_tree = tree
+        window.notes.append(f"Before values are read from {window.base.label} with those upstream changes applied.")
