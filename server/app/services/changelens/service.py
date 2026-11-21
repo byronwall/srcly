@@ -234,7 +234,8 @@ def hunk_diff(path: Path, params: Params, chunk_id: str, commit: Optional[str] =
     if body:
         old_name = f"a/{old_ref.path}" if old_ref and (old_scope or not draft.is_symbol) else "/dev/null"
         new_name = f"b/{new_ref.path}" if new_ref and (new_scope or not draft.is_symbol) else "/dev/null"
-        text = "\n".join([f"--- {old_name}", f"+++ {new_name}", *body[:MAX_DIFF_LINES]]) + "\n"
+        # A CRLF file's lines end in a CR: it is no part of what the reader compares.
+        text = "\n".join([f"--- {old_name}", f"+++ {new_name}", *(line.removesuffix("\r") for line in body[:MAX_DIFF_LINES])]) + "\n"
     return LensHunkDiff(
         chunk_id=chunk_id,
         path=chunk.path,

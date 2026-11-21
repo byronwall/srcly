@@ -537,9 +537,12 @@ def _pair_moves(drafts: list[Draft]) -> list[Draft]:
 
 
 def _slice(store: BlobStore, ref: Optional[BlobRef], scope: Optional[Scope]) -> list[str]:
-    if ref is None or scope is None:
+    """The lines of ``scope`` that it owns: a nested named scope's lines are that scope's chunk."""
+    parsed = store.parsed(ref)
+    if parsed is None or scope is None:
         return []
-    return _lines(store, ref)[scope.start - 1 : scope.end]
+    lines = _lines(store, ref)
+    return [lines[n - 1] for n in range(scope.start, min(scope.end, len(lines)) + 1) if parsed.owner[n] == scope.key]
 
 
 def _metrics(before: Optional[dict], after: Optional[dict]) -> dict[str, BeforeAfter]:
