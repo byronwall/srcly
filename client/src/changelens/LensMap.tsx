@@ -2,7 +2,7 @@
 // boxes: the layout memo depends on the data, the size, the scope and the
 // collapsed groups only, so a color change repaints fills and moves nothing.
 
-import { createMemo, createSignal, For, onCleanup, onMount, Show, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, untrack, type JSX } from "solid-js";
 import { ChevronDown, ChevronRight } from "lucide-solid";
 import type { Rect } from "../compare/treemapLayout";
 import { metricLabel } from "../utils/metricsStore";
@@ -61,7 +61,13 @@ export default function LensMap(props: {
   const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set());
   // Files whose pooled smaller chunks the user opened.
   const [expanded, setExpanded] = createSignal<ReadonlySet<string>>(new Set());
-  const pooled = createMemo(() => (props.layout === "edits" ? pooledChunks(props.payload.chunks, size(), props.scope, expanded()) : new Set<string>()));
+  // A selected chunk leaves its pool and stays out, so a later click elsewhere moves nothing.
+  const [kept, setKept] = createSignal<ReadonlySet<string>>(new Set());
+  createEffect(() => {
+    const id = props.selected;
+    if (id && !untrack(kept).has(id)) setKept((prev) => new Set(prev).add(id));
+  });
+  const pooled = createMemo(() => (props.layout === "edits" ? pooledChunks(props.payload.chunks, size(), props.scope, expanded(), kept()) : new Set<string>()));
   const [hover, setHover] = createSignal<Hover | null>(null);
 
   onMount(() => {

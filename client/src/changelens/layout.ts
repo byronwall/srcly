@@ -243,15 +243,15 @@ export const poolPath = (file: string) => `${file}#more`;
  * The chunks to pool into one "N more" tile per file, so a window with
  * hundreds of chunks stays readable. The chunks with the most churn stay
  * open, up to the map's budget; a file keeps a pool only for two or more.
- * Files in `expanded` pool nothing.
+ * Files in `expanded` pool nothing, and chunks in `keep` (ones the user selected) stay open.
  */
-export function pooledChunks(chunks: LensChunk[], size: Size, scope = "", expanded: ReadonlySet<string> = new Set()): Set<string> {
+export function pooledChunks(chunks: LensChunk[], size: Size, scope = "", expanded: ReadonlySet<string> = new Set(), keep: ReadonlySet<string> = new Set()): Set<string> {
   const shown = chunks.filter((c) => inScope(c.path, scope));
   const budget = Math.max(12, Math.floor((size.width * size.height) / TILE_BUDGET_AREA));
   if (shown.length <= budget) return new Set();
   const ranked = [...shown].sort((a, b) => b.added + b.deleted - (a.added + a.deleted) || a.id.localeCompare(b.id));
   const byFile = new Map<string, string[]>();
-  for (const c of ranked.slice(budget)) if (!expanded.has(c.path)) byFile.set(c.path, [...(byFile.get(c.path) ?? []), c.id]);
+  for (const c of ranked.slice(budget)) if (!expanded.has(c.path) && !keep.has(c.id)) byFile.set(c.path, [...(byFile.get(c.path) ?? []), c.id]);
   return new Set([...byFile.values()].filter((ids) => ids.length > 1).flat());
 }
 
