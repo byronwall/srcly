@@ -76,7 +76,7 @@ const absolute = (markdown) => markdown
   .replace(/\]\(\.\.\/([a-z0-9-]+)\/?(#[^)]+)?\)/gi, (_m, slug, hash = "") => `](${origin}${base}docs/${slug}/${hash})`)
   .replace(/\]\(\/srcly\//g, `](${origin}${base}`);
 const guides = [];
-const order = ["overview", "tour", "design", "get-started", "explore", "metrics", "findings", "data-flow", "reports", "cli", "configuration"];
+const order = ["overview", "tour", "design", "get-started", "explore", "changes", "metrics", "findings", "data-flow", "reports", "cli", "configuration"];
 const slugs = (await readdir("src/docs/pages")).filter((name) => name.endsWith(".md")).map((name) => name.slice(0, -3));
 assert.deepEqual([...slugs].sort(), [...order].sort(), "Add new guides to the llms.txt order");
 for (const slug of order) {
