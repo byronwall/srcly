@@ -20,7 +20,10 @@
     src/function-body.ts:7  effect-input  browser write: store.setItem(…)
 - saveName → return
     src/function-body.ts:6  anchor  saveName
-    src/function-body.ts:8  returns  return
+    src/function-body.ts:6  parameter  name
+    src/function-body.ts:8  references  name
+    src/function-body.ts:8  field-input .length  length
+    src/function-body.ts:8  return-expression  return
 
 ## Stops (0)
 - none

@@ -341,7 +341,8 @@ class Graph:
             if cost > best.get(current, cost):
                 continue
             for edge in self.out.get(current, []):
-                step = cost + (5 if edge["status"] == "structural" else 1)
+                # A declaration's own `returns` link is a shortcut with nothing traced on it: take it only when no traced route exists.
+                step = cost + (1000 if edge["kind"] == "returns" else 5 if edge["status"] == "structural" else 1)
                 if step < best.get(edge["target"], step + 1):
                     best[edge["target"]] = step
                     back[edge["target"]] = (current, edge)
