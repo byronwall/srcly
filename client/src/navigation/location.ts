@@ -12,7 +12,7 @@
 // The file part ends at the first "#". Scope names may contain "#" (TS private
 // members); file names with "#" are not supported.
 
-export type View = "treemap" | "graph" | "scatter";
+export type View = "treemap" | "graph" | "scatter" | "changes";
 
 export interface Location {
   /** Absolute path of the analyzed codebase; "" before one is chosen. */
@@ -60,6 +60,11 @@ export interface Location {
   symbols?: string;
   /** Symbols mode: draw the shortest chain of references from the focus to this symbol instead of the neighbourhood. */
   to?: string;
+  /**
+   * Changes view only: its own parameters (`CHANGES_PARAMS`) as one query
+   * string in a fixed order. `client/src/changelens/urlState.ts` reads and writes it.
+   */
+  changes?: string;
 }
 
 export type Direction = "forward" | "backward" | "both";
@@ -135,6 +140,8 @@ const DEPTH_PARAM = "depth";
 const LINKS_PARAM = "links";
 const SYMBOLS_PARAM = "symbols";
 const TO_PARAM = "to";
+/** The Changes view's parameters, in the order `changes` keeps them. */
+export const CHANGES_PARAMS = ["cw", "cm", "cl", "cc", "cs", "cbase", "chead", "csince", "cuntil", "clens"] as const;
 /** Pre-location graph focus parameter. Read as an alias of `at` + graph view. */
 const LEGACY_FOCUS_PARAM = "depFocus";
 
@@ -146,7 +153,7 @@ export function parseLocation(search: string): Location {
   const rawAt = params.get(AT_PARAM) ?? (legacy !== null ? legacy : "");
   const rawView = params.get(VIEW_PARAM);
   const view: View =
-    rawView === "graph" || rawView === "treemap" || rawView === "scatter"
+    rawView === "graph" || rawView === "treemap" || rawView === "scatter" || rawView === "changes"
       ? rawView
       : legacy !== null
         ? "graph"
@@ -167,6 +174,8 @@ export function parseLocation(search: string): Location {
   const field = flow !== null ? params.get(FIELD_PARAM) : null;
   const dest = field !== null ? params.get(DEST_PARAM) : null;
   const lens = flow !== null && params.get(LENS_PARAM) === "components" ? "components" : null;
+  const changes = new URLSearchParams();
+  if (view === "changes") for (const key of CHANGES_PARAMS) if (params.get(key)) changes.set(key, params.get(key)!);
   return {
     repo: params.get(REPO_PARAM) ?? "",
     at: normalizeAt(rawAt),
@@ -183,6 +192,7 @@ export function parseLocation(search: string): Location {
     ...(links ? { links } : {}),
     ...(symbols !== null ? { symbols } : {}),
     ...(to ? { to } : {}),
+    ...(changes.size ? { changes: changes.toString() } : {}),
   };
 }
 
@@ -209,6 +219,8 @@ export function toSearch(loc: Location, currentSearch = ""): string {
   params.delete(LINKS_PARAM);
   params.delete(SYMBOLS_PARAM);
   params.delete(TO_PARAM);
+  for (const key of CHANGES_PARAMS) params.delete(key);
+  if (loc.view === "changes" && loc.changes) for (const [key, value] of new URLSearchParams(loc.changes)) params.set(key, value);
   if (loc.repo) params.set(REPO_PARAM, loc.repo);
   if (loc.at) params.set(AT_PARAM, loc.at);
   if (loc.view !== "treemap") params.set(VIEW_PARAM, loc.view);
@@ -238,7 +250,8 @@ export function toSearch(loc: Location, currentSearch = ""): string {
 
 export function sameLocation(a: Location, b: Location): boolean {
   return (
-    samePlace(a, b) && (a.open ?? []).join(",") === (b.open ?? []).join(",") && a.field === b.field && a.dest === b.dest && (a.dir ?? "both") === (b.dir ?? "both") && a.model === b.model && a.depth === b.depth && a.links === b.links
+    samePlace(a, b) && (a.open ?? []).join(",") === (b.open ?? []).join(",") && a.field === b.field && a.dest === b.dest && (a.dir ?? "both") === (b.dir ?? "both") && a.model === b.model && a.depth === b.depth && a.links === b.links &&
+    (a.view !== "changes" || (a.changes ?? "") === (b.changes ?? ""))
   );
 }
 

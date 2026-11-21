@@ -1,5 +1,5 @@
 import { For, Show, type Accessor } from "solid-js";
-import { ChartScatter, GitFork, LayoutGrid } from "lucide-solid";
+import { ChartScatter, GitCommitHorizontal, GitFork, LayoutGrid } from "lucide-solid";
 import {
   metricLabel,
   type MetricId,
@@ -40,6 +40,7 @@ const VIEWS: { id: View; label: string; icon: typeof GitFork }[] = [
   { id: "treemap", label: "Treemap", icon: LayoutGrid },
   { id: "graph", label: "Graph", icon: GitFork },
   { id: "scatter", label: "2x2", icon: ChartScatter },
+  { id: "changes", label: "Changes", icon: GitCommitHorizontal },
 ];
 
 const VIEW_IDS = VIEWS.map((v) => v.id);
@@ -78,6 +79,8 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
       <ViewToolSlot />
       <div class="min-w-0 flex-1" />
 
+      {/* The Changes view colors by its own lenses and shows every edit, so it has no use for these two. */}
+      <Show when={props.view() !== "changes"}>
       {/* Filters */}
       <div class="shrink-0">
         <FileTypeFilter
@@ -105,6 +108,7 @@ export default function TreemapHeader(props: TreemapHeaderProps) {
           class="max-w-[220px]"
         />
       </div>
+      </Show>
 
       {/* Legend: shown while hovering the Color control */}
       <Show when={props.showLegend() && !isAnyPopoverOpen()}>

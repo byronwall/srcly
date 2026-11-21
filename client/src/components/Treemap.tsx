@@ -29,6 +29,7 @@ import { linkedPathFor, setHoverFrom } from "../utils/hoverLink";
 
 const DependencyView = lazy(() => import("../viz/deps/DependencyView"));
 const ScatterView = lazy(() => import("../viz/scatter/ScatterView"));
+const ChangeLensView = lazy(() => import("../changelens/ChangeLensView"));
 
 interface TreemapProps {
   data: any;
@@ -65,7 +66,8 @@ export default function Treemap(props: TreemapProps) {
   const showDependencyGraph = () => location().view === "graph";
   const showScatter = () => location().view === "scatter";
   /** The treemap canvas is covered by another view. */
-  const covered = () => showDependencyGraph() || showScatter();
+  const showChanges = () => location().view === "changes";
+  const covered = () => showDependencyGraph() || showScatter() || showChanges();
   const [menu, setMenu] = createSignal<NodeMenuTarget | null>(null);
 
   const openTileMenu = (event: MouseEvent, tile: TreemapTile) => {
@@ -265,6 +267,9 @@ export default function Treemap(props: TreemapProps) {
               onFileSelect={(path, start, end, node) => props.onFileSelect?.(path, start, end, node)}
               onZoom={(node) => props.onZoom?.(node)}
             />
+          </Show>
+          <Show when={showChanges()}>
+            <ChangeLensView data={props.data} rootPath={props.rootPath} onOpenAt={props.onOpenAt} />
           </Show>
         </Suspense>
         <Show when={!covered() && layoutRoot()}>
