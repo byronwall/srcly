@@ -11,6 +11,7 @@ import os
 import re
 import subprocess
 import tempfile
+import threading
 from collections import OrderedDict
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
@@ -106,10 +107,28 @@ class Parsed:
 
 _ORDINAL = re.compile(r"#\d+(?=\.|$)")
 _cache: OrderedDict[tuple, Parsed] = OrderedDict()
+_cache_lock = threading.Lock()
+"""Requests run in a thread pool; an ``OrderedDict`` is not safe to reorder from two threads."""
 
 
 def clear_cache() -> None:
-    _cache.clear()
+    with _cache_lock:
+        _cache.clear()
+
+
+def _cached(key: tuple) -> Optional[Parsed]:
+    with _cache_lock:
+        hit = _cache.get(key)
+        if hit is not None:
+            _cache.move_to_end(key)
+        return hit
+
+
+def _remember(key: tuple, parsed: Parsed) -> None:
+    with _cache_lock:
+        _cache[key] = parsed
+        while len(_cache) > PARSE_CACHE_SIZE:
+            _cache.popitem(last=False)
 
 
 def _clean(name: str) -> str:
@@ -353,7 +372,7 @@ class BlobStore:
             if text is None:
                 continue
             key = self._cache_key(ref, text)
-            if key not in _cache and key not in jobs:
+            if key not in jobs and _cached(key) is None:
                 jobs[key] = (text, ref.path)
         if len(jobs) < POOL_AT:
             return
@@ -361,7 +380,7 @@ class BlobStore:
         try:
             with ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("spawn")) as pool:
                 for key, parsed in zip(jobs, pool.map(_parse_job, jobs.values(), chunksize=8)):
-                    _cache[key] = parsed
+                    _remember(key, parsed)
         except Exception:
             # No pool (a sandbox, a dying worker): `parsed` reads each blob in this process instead.
             return
@@ -371,12 +390,8 @@ class BlobStore:
         if ref is None or text is None:
             return None
         key = self._cache_key(ref, text)
-        hit = _cache.get(key)
+        hit = _cached(key)
         if hit is None:
             hit = parse_text(text, ref.path)
-            _cache[key] = hit
-            while len(_cache) > PARSE_CACHE_SIZE:
-                _cache.popitem(last=False)
-        else:
-            _cache.move_to_end(key)
+            _remember(key, hit)
         return hit

@@ -326,6 +326,28 @@ def test_a_syntax_error_at_head_gives_one_unmeasured_chunk_and_a_note(tmp_path):
     assert any("s.ts has a syntax error at head" in note for note in payload["selection"]["notes"])
 
 
+def test_empty_added_file_bad_commit_and_bad_times(tmp_path):
+    repo = Mini(tmp_path / "r")
+    repo.commit("base", {"a.ts": fn("a", 1)})
+    repo.git("checkout", "--quiet", "-b", "feature")
+    sha = repo.commit("edit a, add empty files", {"a.ts": fn("a", 2), "e.py": "", "e.yaml": ""})
+    for mode in ("touched", "net"):
+        chunks = by_id(repo.lens(mode=mode))
+        assert {(i, c["status"], c["kind"]) for i, c in chunks.items() if i != "a.ts::a"} == {
+            ("e.py", "added", "file"),
+            ("e.yaml", "added", "file"),
+        }, mode
+
+    assert "x + 2" in service.hunk_diff(repo.path, Params(), "a.ts::a", sha[:8])["diff"]
+    for commit, status in (("0" * 40, 404), (sha[:5], 400)):
+        with pytest.raises(LensError) as err:
+            service.hunk_diff(repo.path, Params(), "a.ts::a", commit)
+        assert err.value.status == status
+    with pytest.raises(LensError, match="later than until") as err:
+        repo.lens(window="custom", since="2026-03-05T00:00:00+00:00", until="2026-03-01T00:00:00+00:00")
+    assert err.value.status == 400
+
+
 def test_models_mirror_the_client_types():
     """Each interface in types.ts has a model with the same field names on the wire."""
     import re

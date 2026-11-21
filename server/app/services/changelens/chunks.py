@@ -434,7 +434,8 @@ def _file_draft(line: Lineage, reason: str) -> Draft:
     """The whole file as one chunk."""
     draft = Draft(line, "", "file", line.shown_path.rsplit("/", 1)[-1], measured=False, reason=reason)
     for change in line.changes:
-        if change.hunks or change.renamed:
+        # A commit that adds or deletes the file touches it, also when the file is empty.
+        if change.hunks or change.renamed or change.old is None or change.new is None:
             draft.touches.setdefault(change.sha, Tally()).add(_whole(change.hunks))
     draft.net = _whole(line.net)
     return draft
@@ -454,7 +455,10 @@ def _drafts_for(store: BlobStore, line: Lineage, mode: str) -> list[Draft]:
             if line.base is None or line.head is None:
                 return [_file_draft(line, f"Syntax error at {line.broken}: scopes are not read")]
             return _range_drafts(store, line, mode, f"Syntax error at {line.broken}: scopes are not read")
-        return _symbol_drafts(store, line)
+        drafts = _symbol_drafts(store, line)
+        if not drafts and (line.base is None) != (line.head is None):
+            return [_file_draft(line, "The file is empty")]
+        return drafts
     parsed = store.parsed(line.head) or store.parsed(line.base)
     reason = (parsed.reason if parsed else None) or "No analyzer reads this file type"
     if line.base is None or line.head is None:

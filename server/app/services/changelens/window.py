@@ -281,6 +281,8 @@ def _branch_window(window: Window, default: Optional[str]) -> None:
 
 def _time_window(window: Window, since: int, until: int) -> None:
     """Commits on the ref whose committer time is in [since, until]: one unbroken first-parent run."""
+    if since > until:
+        raise LensError(f"since ({iso(since)}) is later than until ({iso(until)})")
     window.since, window.until = since, until
     listed = _log(window.repo, "-n", str(MAX_LISTED), window.tip.sha)
     run: list[Commit] = []
@@ -292,6 +294,9 @@ def _time_window(window: Window, since: int, until: int) -> None:
         if commit.ts < since:
             break
         run.append(commit)
+    else:
+        if len(listed) >= MAX_LISTED:
+            window.notes.append(f"Only the newest {MAX_LISTED} commits of {window.tip.ref} were read: the window can start later than asked.")
     if not run:
         window.notes.append(f"No commits on {window.tip.ref} between {iso(since)} and {iso(until)}.")
         return

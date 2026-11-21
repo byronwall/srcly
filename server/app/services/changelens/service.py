@@ -184,7 +184,11 @@ def hunk_diff(path: Path, params: Params, chunk_id: str, commit: Optional[str] =
         recorded = draft.net.hunks
         label_from, label_to = window.base.label, _head_endpoint(built).label
     else:
-        sha = next((s for s in draft.touches if s == commit or (len(commit) >= 7 and s.startswith(commit))), None)
+        if commit != WORKTREE and len(commit) < 7:
+            raise LensError("commit needs a sha of 7 characters or more, or WORKTREE")
+        if not any(c.sha.startswith(commit) for c in built.commits):
+            raise LensError(f"No commit {commit} in this selection", status=404)
+        sha = next((s for s in draft.touches if s.startswith(commit)), None)
         if commit == WORKTREE:
             label_from, label_to = window.tip.label, "Working tree"
         else:
