@@ -366,6 +366,19 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(rows.map((row) => `${row.module}#${row.name ?? row.member}`).filter((key) => !resolved.has(key))).toEqual([]);
   });
 
+  it("carries a generator's yields to its caller, and a `@contextmanager`'s yield to `with … as`", () => {
+    // `numbered` yields to `again`, which re-yields with `yield from`; `show` prints each entry.
+    const lines = anchorGraphOp(session, { file: "app/generators.py", name: "lines", line: 14, direction: "forward" });
+    expect(lines.outcome).toBe("ok");
+    expect(boxes(lines, "terminal").map((node) => `${node.elementKind}@${node.line}`)).toEqual(["stdout@16"]);
+    const label = anchorGraphOp(session, { file: "app/generators.py", name: "label", line: 24, direction: "forward" });
+    expect(boxes(label, "terminal").map((node) => `${node.elementKind}@${node.line}`)).toEqual(["stdout@26"]);
+    // `reply = yield seed` binds what the caller sends, not `seed`: the yield leaves, and nothing reaches the print.
+    const seed = anchorGraphOp(session, { file: "app/generators.py", name: "seed", line: 29, direction: "forward" });
+    expect(boxes(seed).some((node) => node.line === 31)).toBe(false);
+    expect(boxes(seed, "terminal").map((node) => `${node.elementKind}@${node.line}`)).toEqual(["return@30"]);
+  });
+
   it("names a file that did not parse, and a name that is not on its line", () => {
     expect(() => anchor("app/broken.py", "broken", 1)).toThrow(/No broken on line 1 of broken\.py: the file did not parse \(syntax error on line 1/);
     expect(() => anchor("app/models.py", "Order", 5)).toThrow(/^No Order on line 5 of models\.py$/);

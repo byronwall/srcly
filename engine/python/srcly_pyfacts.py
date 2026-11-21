@@ -938,8 +938,7 @@ class Program:
             parameter = element_id("parameter", info.source.rel, info.source.span(param))
             for result in own_nodes(target.node, (ast.Return, ast.Yield)):
                 if getattr(result, "value", None) is not None:
-                    kind = "return" if isinstance(result, ast.Return) else "value"
-                    self.relate(info.source, element_id(kind, target.source.rel, target.source.span(result)), parameter, "return-value", detail, info.source.span(param), proof_kind="fastapi")
+                    self.relate(info.source, element_id("return", target.source.rel, target.source.span(result)), parameter, "return-value", detail, info.source.span(param), proof_kind="fastapi")
             return True
         return False
 
@@ -1051,8 +1050,12 @@ def all_params(args: ast.arguments) -> list[ast.arg]:
 
 
 def own_returns(fn: ast.AST) -> list[ast.Return]:
-    """Return statements of `fn` itself, not of functions nested in it."""
-    return own_nodes(fn, ast.Return)  # type: ignore[return-value]
+    """
+    Return statements of `fn` itself, not of functions nested in it, and its
+    `yield` and `yield from` expressions: a generator's caller receives what it
+    yields, and a `@contextmanager` binds the yielded value to `with … as`.
+    """
+    return own_nodes(fn, (ast.Return, ast.Yield, ast.YieldFrom))  # type: ignore[return-value]
 
 
 def own_nodes(fn: ast.AST, kinds: type | tuple[type, ...]) -> list[ast.AST]:
@@ -1797,6 +1800,26 @@ class BodyWalker:
     def expr_NamedExpr(self, node: ast.NamedExpr) -> str | None:
         value = self.expr(node.value)
         return self.bind(node.target, value, node.value, "carrier")
+
+    def expr_Yield(self, node: ast.Yield | ast.YieldFrom) -> str | None:
+        """
+        A yielded value leaves the generator as a return does (`own_returns`). The
+        `yield` expression itself evaluates to what the caller sends, which this
+        code does not see: it carries nothing.
+        """
+        if node.value is None:
+            return None
+        value = self.expr(node.value)
+        if isinstance(node, ast.YieldFrom):
+            # `yield from inner()` yields each item of `inner()`, whose items are its own yields.
+            detail = f"yields each item of {clip(self.source.segment(node.value), 40)}"
+        else:
+            detail = f"yielded from {self.function.qualname if self.function else 'the module'}"
+        ret = self.element("return-expression", None, self.source.segment(node), span=self.span(node), id_kind="return")
+        self.relate(value, ret, "return-expression", detail, node.value)
+        return None
+
+    expr_YieldFrom = expr_Yield
 
     def expr_Starred(self, node: ast.Starred) -> str | None:
         return self.expr(node.value)
