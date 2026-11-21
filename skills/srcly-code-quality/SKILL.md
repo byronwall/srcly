@@ -123,6 +123,15 @@ Read `dataflow.md` in this order, and fix one slice at a time:
 
 After a fix, run the project's checks, run `report --dataflow` again, and compare `dataflow.md` and the metrics with `uvx srcly compare --dataflow`.
 
+### Trace from the terminal
+
+Use these during a change, before you edit a function or a field.
+
+- `srcly trace src/Card.tsx --symbol Card` shows where the values of `Card` come from and where they go. Add `:line:col` to anchor one expression, and `--direction back` or `forward` for one side.
+- `srcly trace src/save.ts --symbol saveNote --effects` shows what the function reads, writes and calls. TypeScript only.
+- `srcly impact src/format.ts --symbol formatPrice` lists the call sites and the ends that a change can reach.
+- Read the status first. `ok` is proven. `partial` and `assumed` name each stop. Do not call a change safe when its trace is partial: check each place under "Not proven".
+
 ## Response Pattern
 
 When reporting back:
