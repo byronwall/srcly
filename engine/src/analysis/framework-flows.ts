@@ -54,6 +54,17 @@ export function frameworkFlow(module: string, name: string): FrameworkFlow | und
   return undefined;
 }
 
+/**
+ * Whether the row says the call's value is what a callback returns
+ * (`useMemo`, a data hook's option function with a result `field`), so an
+ * argument the row does not name (a dependency list, a query's key) is not in it.
+ */
+export function yieldsOnlyCallback(module: string, name: string): boolean {
+  const row = frameworkRow(module, name);
+  if (row?.model !== "calls-back") return false;
+  return row.option !== undefined ? row.field !== undefined : row.returns === "callback" && row.accessor !== true && row.source === undefined;
+}
+
 /** Whether the call has no value (`useEffect`): nothing it is given, and nothing its callback returns, reaches what binds it. */
 export function hasNoValue(module: string, name: string): boolean {
   return yieldsNothing(frameworkRow(module, name));
@@ -98,6 +109,18 @@ export function optionFlow(module: string, name: string): string | null {
 export function optionResult(module: string, name: string): { field: string; selector: string | null } | null {
   const row = frameworkRow(module, name);
   return row?.model === "calls-back" && row.option && row.field ? { field: row.field, selector: row.selector ?? null } : null;
+}
+
+/**
+ * What else a data hook does with its options (a row's `hands`, `observers`
+ * and `contextFrom`): the fields it fills of the object it hands the option
+ * callback, and the other functions it calls with the callback's result, its
+ * input, or the context function's return. Null for a call with no such row.
+ */
+export function optionLifecycle(module: string, name: string): { hands: Record<string, string[]>; observers: Record<string, ("result" | "input" | "context" | "none")[]>; contextFrom: string | null } | null {
+  const row = frameworkRow(module, name);
+  if (row?.model !== "calls-back" || !row.option || (!row.hands && !row.observers)) return null;
+  return { hands: row.hands ?? {}, observers: row.observers ?? {}, contextFrom: row.contextFrom ?? null };
 }
 
 /** Whether the call makes a state pair (`createSignal`, `useState`). */

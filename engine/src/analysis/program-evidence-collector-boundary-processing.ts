@@ -13,8 +13,8 @@ import {
   responseReturnRole,
 } from "./program-evidence-support";
 import { indexReadAttributes } from "./program-index-read-metadata";
-import { optionFlow, optionResult } from "./framework-flows";
-import type { CollectorCallInfo } from "./program-evidence-collector-support";
+import { optionFlow, optionLifecycle, optionResult } from "./framework-flows";
+import type { CollectorCallInfo, CollectorFunctionInfo } from "./program-evidence-collector-support";
 
 export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceCollectorCallSupport {
   protected processProperty(
@@ -540,6 +540,7 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
     const where = [this.location(node)];
     const result = optionResult(imported.module, imported.name);
     let returns = this.returnsByFunction.get(fn.id) ?? [];
+    this.connectOptionLifecycle(call, node, option, fn, returns);
     if (!result) {
       if (option !== "queryFn") return;
       for (const returnId of returns) this.addRelation(returnId, call.id, "framework-flow", where, proof("framework-state", "The query's value is what its queryFn returns.", where), "proven");
@@ -559,6 +560,61 @@ export class ProgramEvidenceCollectorBoundaryProcessing extends ProgramEvidenceC
     const packId = this.ensureElement(property.name, "object-pack", call.ownerId, { operation: "object-pack", fields: JSON.stringify({ [`${at.span.startLine}:${at.span.startColumn}`]: result.field }) }, null, null, null, "proven", proof("framework-state", `The hook's result holds this in its ${result.field} field.`, [at]));
     for (const returnId of returns) this.addRelation(returnId, packId, "pack-field", [at], proof("framework-state", `The hook's ${result.field} is what ${property.name.getText()} returns.`, [at]), "proven");
     this.addRelation(packId, call.id, "framework-flow", where, proof("framework-state", `The hook's result holds ${result.field}; its other fields do not hold this value.`, where), "proven");
+  }
+
+  /**
+   * What else a data hook does with its options (`optionLifecycle`). It fills
+   * fields of the object it hands the option function (`queryKey` reaches
+   * `queryFn`'s `queryKey`), and it calls other option functions with the
+   * option function's result, its input, or a context function's return
+   * (`onSuccess(data, variables, context)`).
+   */
+  private connectOptionLifecycle(call: CollectorCallInfo, node: TypeScript.CallExpression, option: string, fn: CollectorFunctionInfo, returns: readonly string[]): void {
+    const imported = importedCallee(this.ts, this.checker, node.expression);
+    const lifecycle = imported ? optionLifecycle(imported.module, imported.name) : null;
+    if (!lifecycle) return;
+    // A parameter written as one name holds the whole value. A destructured one holds fields, so only `hands` binds it, by the field's own name.
+    const parameterId = (info: CollectorFunctionInfo, index: number, field?: string) => {
+      const name = info.declaration.parameters[index]?.name;
+      const binding = !name || this.ts.isIdentifier(name) ? name : field && this.ts.isObjectBindingPattern(name) ? name.elements.find((item) => (item.propertyName ?? item.name).getText() === field && !item.dotDotDotToken)?.name : undefined;
+      return binding && this.ts.isIdentifier(binding) ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
+    };
+    const first = fn.declaration.parameters[0]?.name;
+    const whole = first !== undefined && this.ts.isIdentifier(first);
+    for (const [field, keys] of Object.entries(lifecycle.hands)) {
+      const inputId = parameterId(fn, 0, field);
+      for (const key of inputId ? keys : []) {
+        const property = this.optionProperty(node, key);
+        if (!property) continue;
+        const filler = this.optionFunction(node, key);
+        const value = this.ts.isPropertyAssignment(property) ? property.initializer : property.name;
+        const at = this.location(property.name);
+        const detail = `The hook hands its ${option} an object whose ${field} is ${filler ? `what ${key} returns` : `the options' ${key}`}.`;
+        const fromIds = filler ? this.returnsByFunction.get(filler.id) ?? [] : [this.expression(value, call.ownerId)];
+        // `({ queryKey }) => …` binds the field itself; `(context) => …` binds an object that holds it.
+        if (!whole) {
+          for (const fromId of fromIds) this.addRelation(fromId, inputId!, "framework-flow", [at], proof("framework-state", detail, [at]), "proven");
+          continue;
+        }
+        const packId = this.ensureElement(property, "object-pack", call.ownerId, { operation: "object-pack", fields: JSON.stringify({ [`${at.span.startLine}:${at.span.startColumn}`]: field }) }, null, null, null, "proven", proof("framework-state", detail, [at]));
+        for (const fromId of fromIds) this.addRelation(fromId, packId, "pack-field", [at], proof("framework-state", detail, [at]), "proven");
+        this.addRelation(packId, inputId!, "framework-flow", [at], proof("framework-state", detail, [at]), "proven");
+      }
+    }
+    const context = lifecycle.contextFrom ? this.optionFunction(node, lifecycle.contextFrom) : null;
+    const inputId = parameterId(fn, 0);
+    const sources = { result: returns, input: inputId ? [inputId] : [], context: context ? this.returnsByFunction.get(context.id) ?? [] : [], none: [] as string[] };
+    const words = { result: `what its ${option} returns`, input: `what its ${option} is called with`, context: `what its ${lifecycle.contextFrom} returns`, none: "" };
+    for (const [key, roles] of Object.entries(lifecycle.observers)) {
+      const observer = this.optionFunction(node, key);
+      if (!observer) continue;
+      roles.forEach((role, index) => {
+        const toId = parameterId(observer, index);
+        if (!toId) return;
+        const at = [this.location(observer.declaration.parameters[index])];
+        for (const fromId of sources[role]) this.addRelation(fromId, toId, "framework-flow", at, proof("framework-state", `The hook calls ${key} with ${words[role]}.`, at), "proven");
+      });
+    }
   }
 
   protected processExitStatusAssignment(
