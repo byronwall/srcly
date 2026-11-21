@@ -11,7 +11,7 @@ from app.services.changelens import chunks as engine
 from app.services.changelens import textdiff
 from app.services.changelens.blobs import BlobRef, Scope
 from app.services.changelens.chunks import Built, Lineage
-from app.services.changelens.hunks import GIT_TIMEOUT, Hunk, is_skipped
+from app.services.changelens.hunks import GIT_TIMEOUT, Hunk, is_skipped, split_lines
 from app.services.changelens.models import (
     WORKTREE,
     ChangeLensPayload,
@@ -198,8 +198,8 @@ def hunk_diff(path: Path, params: Params, chunk_id: str, commit: Optional[str] =
                 if change is not None:
                     old_ref, new_ref = change.old, change.new
 
-    old_lines = (store.text(old_ref) or "").splitlines()
-    new_lines = (store.text(new_ref) or "").splitlines()
+    old_lines = split_lines(store.text(old_ref) or "")
+    new_lines = split_lines(store.text(new_ref) or "")
     # A chunk's diff holds only the lines it owns: a nested scope's edits belong to that scope's chunk.
     sides = {"old": (store.parsed(old_ref), old_scope), "new": (store.parsed(new_ref), new_scope)}
 

@@ -20,6 +20,7 @@ from typing import Iterable, Optional
 from app.config import MAX_ANALYZED_FILE_BYTES
 from app.services.analysis import _scope_value, analyze_single_file, language_for_path
 from app.services.analysis_types import MEASURED_SCOPE_METRICS, iter_executable_scopes, scope_kind
+from app.services.changelens.hunks import split_lines
 from app.services.compare.git_refs import GitError
 
 SYMBOL_LANGUAGES = frozenset({"ts", "tsx", "js", "jsx", "python", "code", "markdown"})
@@ -125,7 +126,7 @@ def _unique(key: str, taken: dict[str, Scope]) -> str:
 def parse_text(text: str, path: str) -> Parsed:
     """Run the scan's analyzer for ``path`` on ``text`` and index its named scopes by line."""
     language = language_for_path(path)
-    lines = text.splitlines()
+    lines = split_lines(text)
     n = len(lines)
     blank = bytearray(n + 2)
     for i, line in enumerate(lines, start=1):

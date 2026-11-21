@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import re
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
 from app.config import BINARY_EXTENSIONS, IGNORE_FILES
 from app.services.analysis import _has_ignored_extension, _is_pruned_dir_name, classify_candidate
-from app.services.compare.git_refs import run_git
+from app.services.compare.git_refs import GitError, GitTimeout
 
 GIT_TIMEOUT = 60.0
 RECORD = "\x1e"
@@ -18,6 +19,27 @@ _DIFF_FLAGS = ("--raw", "--no-abbrev", "-p", "-U0", "-M", "--no-color", "--no-ex
 _HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 _NULL_SHA = "0" * 40
 _FILE_MODES = {"100644", "100755"}
+
+
+def git(repo: Path, *args: str, timeout: float = GIT_TIMEOUT) -> str:
+    """Git output with its bytes kept. Text mode would turn a lone CR in a file's content into a line break."""
+    try:
+        proc = subprocess.run(["git", "-c", "core.quotepath=off", *args], cwd=repo, capture_output=True, check=False, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        raise GitTimeout(f"git {' '.join(args)} timed out after {timeout:g}s") from exc
+    except OSError as exc:
+        raise GitError(f"git is not available: {exc}") from exc
+    if proc.returncode != 0:
+        raise GitError(f"git {' '.join(args)} failed: {proc.stderr.decode('utf-8', 'replace').strip()}")
+    return proc.stdout.decode("utf-8", "replace")
+
+
+def split_lines(text: str) -> list[str]:
+    """Lines as git counts them: a line ends at ``\\n`` only, never at a CR, a form feed or U+2028."""
+    lines = text.split("\n")
+    if lines[-1] == "":
+        lines.pop()
+    return lines
 
 
 @dataclass(frozen=True)
@@ -152,17 +174,14 @@ def commit_diffs(repo: Path, shas: list[str], scope: str) -> dict[str, list[File
     """Each commit's diff against its first parent."""
     if not shas:
         return {}
-    text = run_git(
-        repo, "log", "--no-walk=unsorted", "--diff-merges=first-parent", _LOG_FORMAT, *_DIFF_FLAGS, *shas, *_pathspec(scope),
-        timeout=GIT_TIMEOUT,
-    )
+    text = git(repo, "log", "--no-walk=unsorted", "--diff-merges=first-parent", _LOG_FORMAT, *_DIFF_FLAGS, *shas, *_pathspec(scope))
     return parse(text)
 
 
 def tree_diff(repo: Path, base: str, head: Optional[str], scope: str) -> list[FileDiff]:
     """``base`` against ``head``, or against the files on disk (untracked files count as added) when ``head`` is None."""
     revs = [base] if head is None else [base, head]
-    text = run_git(repo, "diff", *_DIFF_FLAGS, *revs, *_pathspec(scope), timeout=GIT_TIMEOUT)
+    text = git(repo, "diff", *_DIFF_FLAGS, *revs, *_pathspec(scope))
     diffs = parse(text).get("", [])
     if head is None:
         diffs.extend(_untracked(repo, scope))
@@ -170,7 +189,7 @@ def tree_diff(repo: Path, base: str, head: Optional[str], scope: str) -> list[Fi
 
 
 def _untracked(repo: Path, scope: str) -> list[FileDiff]:
-    raw = run_git(repo, "ls-files", "-z", "--others", "--exclude-standard", *_pathspec(scope), timeout=GIT_TIMEOUT)
+    raw = git(repo, "ls-files", "-z", "--others", "--exclude-standard", *_pathspec(scope))
     out = []
     for path in filter(None, raw.split("\0")):
         if is_skipped(path):
@@ -180,7 +199,8 @@ def _untracked(repo: Path, scope: str) -> list[FileDiff]:
             continue
         try:
             with open(full, "rb") as f:
-                lines = len(f.read().splitlines())
+                data = f.read()
+            lines = data.count(b"\n") + (1 if data and not data.endswith(b"\n") else 0)
         except OSError:
             continue
         diff = FileDiff("A", None, path, None, None)

@@ -47,7 +47,7 @@ Prints the same result as Markdown: the resolved selection, the review buckets, 
 
 ## Chunk rules
 
-1. Parse each changed file once per side (base and head) with the analyzer the scan uses for it. Parse the blob (`git show <sha>:<path>`), not a checkout. Do not scan whole snapshots.
+1. Parse each changed file once per side (base and head) with the analyzer the scan uses for it. Parse the blob (`git show <sha>:<path>`), not a checkout. Do not scan whole snapshots. A line ends at a newline only, as git counts lines: a lone CR, a form feed or U+2028 is content.
 2. A hunk belongs to the innermost named scope that holds its lines: on the new side for added and changed lines, on the old side for deleted lines. Executable scopes win over display scopes. A callback or an object literal with no name belongs to the named scope around it, and so does an object under a key of such a literal. A nested named scope has a qualified name (`Outer.inner`, `Class.method`). Comment and decorator lines right above a scope belong to it, also when a class around the scope holds those lines.
 3. Hunks outside every scope form one `file` chunk for that file. In Markdown, a hunk belongs to its nearest heading section (`heading`). In a file no analyzer reads (YAML, CSS, shell), hunks within 10 lines of each other form one `range` chunk; when such a file is added or deleted, it is one `file` chunk. A generated or vendored file is one `file` chunk and is not analyzed.
 4. Never invent a symbol. A chunk with no analyzer has `measured: false`, an empty `metrics`, and a `naReason`. So do `heading` chunks and `file` chunks: no code metric applies to them.

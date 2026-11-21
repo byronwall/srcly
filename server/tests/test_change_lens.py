@@ -289,6 +289,19 @@ def test_a_class_diff_leaves_out_the_lines_of_its_methods(tmp_path):
     assert "+    return x + 2;" in service.hunk_diff(repo.path, Params(), "s.ts::Store.add")["diff"]
 
 
+def test_only_a_newline_ends_a_line(tmp_path):
+    odd = "// a\x0cb\u2028c\rd\n\n"
+    repo = Mini(tmp_path / "r")
+    repo.commit("base", {"a.ts": fn("a", 1), "c.ts": odd + fn("c", 1)})
+    repo.git("checkout", "--quiet", "-b", "feature")
+    # A lone CR in an added line once read as the start of a new file in the diff.
+    repo.commit("edit", {"a.ts": fn("a", 2) + "// log:\rdiff --git a/x b/x\n", "c.ts": odd + fn("c", 2)})
+    chunks = by_id(repo.lens())
+    assert set(chunks) == {"a.ts", "a.ts::a", "c.ts::c"}
+    assert (chunks["c.ts::c"]["startLine"], chunks["c.ts::c"]["added"], chunks["c.ts::c"]["deleted"]) == (3, 1, 1)
+    assert "@@ -3,4 +3,4 @@" in service.hunk_diff(repo.path, Params(), "c.ts::c")["diff"]
+
+
 def test_models_mirror_the_client_types():
     """Each interface in types.ts has a model with the same field names on the wire."""
     import re

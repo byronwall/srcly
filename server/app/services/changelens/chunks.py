@@ -17,7 +17,7 @@ from app.services import file_classes, metric_catalog
 from app.services.analysis import language_for_path
 from app.services.changelens import textdiff
 from app.services.changelens.blobs import SYMBOL_LANGUAGES, BlobRef, BlobStore, Parsed, Scope
-from app.services.changelens.hunks import FileDiff, Hunk, commit_diffs, kept, tree_diff
+from app.services.changelens.hunks import FileDiff, Hunk, commit_diffs, kept, split_lines, tree_diff
 from app.services.changelens.models import WORKTREE, BeforeAfter, LensChunk, LensCommit, LensFile, LensHunk, LensTouch
 from app.services.changelens.window import Window, iso
 
@@ -217,7 +217,7 @@ def _resolve_ends(window: Window, store: BlobStore, lineages: list[Lineage], net
 
 
 def _lines(store: BlobStore, ref: Optional[BlobRef]) -> list[str]:
-    return (store.text(ref) or "").splitlines()
+    return split_lines(store.text(ref) or "")
 
 
 # -- attribution ---------------------------------------------------------------

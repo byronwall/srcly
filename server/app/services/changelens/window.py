@@ -153,7 +153,7 @@ def _log(repo: Path, *revs: str) -> list[Commit]:
     """First-parent commits, newest first."""
     raw = _git(repo, "log", "--first-parent", f"--format={_FORMAT}", *revs)
     commits = []
-    for line in raw.splitlines():
+    for line in raw.split("\n"):
         sha, short, subject, author, ts, parents = (line.split("\x1f") + [""] * 6)[:6]
         if sha:
             commits.append(Commit(sha, short, subject, author, int(ts or 0), parents.split()))
