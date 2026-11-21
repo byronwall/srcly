@@ -1,8 +1,10 @@
 import * as TypeScript from "typescript";
 import type { CollectorFunctionInfo } from "./program-evidence-collector-support";
 import { ProgramEvidenceCollectorBoundaryProcessing } from "./program-evidence-collector-boundary-processing";
-import { importedCallee, proof, unwrap } from "./program-evidence-support";
-import { frameworkFlow } from "./framework-flows";
+import { importedCallee, nodeKey, proof, unwrap } from "./program-evidence-support";
+import { frameworkFlow, makesAccessor, makesPredicate } from "./framework-flows";
+import { stateRoleOf } from "./program-evidence-state-pairs";
+import { resolveValue } from "./value-origin";
 
 export type PendingComponentPropBinding = {
   opening: TypeScript.JsxOpeningLikeElement;
@@ -97,10 +99,46 @@ export class ProgramEvidenceCollectorComponentBindingSupport extends ProgramEvid
           ),
           "proven",
         );
+        // `props.count()` where every occurrence binds an accessor: the call reads what the accessor yields, modelled, not a call of unknown code.
+        const call = receiver.node.parent;
+        const callId = this.ts.isCallExpression(call) && call.expression === receiver.node && call.arguments.length === 0 && this.accessorProp(pending.target, propName) ? this.elementIfPresent(call, "call") : null;
+        if (callId) {
+          const detail = "Every occurrence of the component binds this prop to an accessor: calling it yields the accessor's value.";
+          this.addRelation(receiver.elementId, callId, "accessor-call", [this.location(call)], proof("framework-state", detail, [this.location(call), this.location(pending.attribute)]), "proven");
+        }
       }
     }
     this.pendingComponentPropBindings.length = 0;
     this.checkCancellation();
+  }
+
+  /**
+   * Whether every value the program binds to this component prop is an
+   * accessor: a state pair's getter, what an `accessor` row's call makes
+   * (`createMemo`), or another component's accessor prop handed on
+   * (`value={props.value}`). One occurrence that binds anything else, and a
+   * prop nothing binds, is not.
+   */
+  private accessorProp(target: CollectorFunctionInfo, propName: string, seen = new Set<string>()): boolean {
+    const key = `${target.id}#${propName}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    const bound = this.componentPropBindings.filter((item) => item.target === target && staticPropName(this.ts, item.attribute) === propName);
+    return bound.length > 0 && bound.every((item) => {
+      const initializer = item.attribute.initializer;
+      const value = initializer && this.ts.isJsxExpression(initializer) && initializer.expression ? unwrap(this.ts, initializer.expression) : null;
+      if (!value) return false;
+      if (stateRoleOf(this.ts, this.checker, value)?.role === "getter") return true;
+      const origin = this.ts.isIdentifier(value) ? resolveValue(this.ts, this.checker, value)?.origin : null;
+      if (origin && this.ts.isCallExpression(origin)) {
+        const made = importedCallee(this.ts, this.checker, origin.expression);
+        return !!made && makesAccessor(made.module, made.name) && !makesPredicate(made.module, made.name);
+      }
+      if (!this.ts.isPropertyAccessExpression(value) || !this.ts.isIdentifier(value.expression)) return false;
+      const props = this.checker.getSymbolAtLocation(value.expression)?.valueDeclaration;
+      const owner = props && this.ts.isParameter(props) && props.parent.parameters[0] === props ? this.functionsByNode.get(nodeKey(this.root, props.parent)) : undefined;
+      return !!owner && this.accessorProp(owner, value.name.text, seen);
+    });
   }
 
   private componentPropReceivers(
