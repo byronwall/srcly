@@ -21,9 +21,9 @@ The view reads the checked-out branch. Staged and unstaged edits are included as
 - **24 hours** and **7 days** read the commits whose committer date falls in that time, counted back from now. The base is the first parent of the oldest commit in the window.
 - **Custom** takes two revisions, a time range, or both.
 
-Srcly reads one history: the first-parent log of the branch. A merge commit counts once, as its diff against its first parent, so merged work is never counted twice and other branches never mix in. A merge of the default branch into your branch is listed but not read, because those are upstream changes. A note names it.
+Srcly reads one history: the first-parent log of the branch. A merge commit counts once, as its diff against its first parent, so merged work is never counted twice and other branches never mix in. A merge of the default branch into your branch is listed but not read, because those are upstream changes. A note names it. When the base is older than such a merge, "before" is the base with that merge's changes applied, so upstream work never reads as yours. If the merge overlaps your own earlier edits, the base stays as it is and a note says so. On the default branch itself, no merge is an upstream merge.
 
-A window keeps its newest 200 commits. In a shallow clone, Srcly never reads past the oldest commit the clone holds, and a note says so. Binary files and files that Srcly's ignore rules skip (lockfiles, `.json`, images) are left out, and a note gives their count.
+A window keeps its newest 200 commits. A time window reads at most the newest 5,000 commits to find its start, and a note says when that cuts it short. In a shallow clone, Srcly never reads past the oldest commit the clone holds, and a note says so. Binary files and files that Srcly's ignore rules skip (lockfiles, `.json`, images) are left out, and a note gives their count.
 
 ## Touched and Net
 
@@ -35,15 +35,17 @@ The two differ when work was tried and put back. A function that a commit change
 
 A chunk is the unit the map draws. Srcly parses each changed file on both sides with the same analyzer the scan uses, then groups hunks this way:
 
-- A hunk belongs to the innermost named function, method or class that holds its lines. A callback with no name belongs to the named scope around it. Nested names are qualified, such as `Class.method`.
+- A hunk belongs to the innermost named function, method or class that holds its lines. A callback or object literal with no name belongs to the named scope around it. Nested names are qualified, such as `Class.method`.
+- Comment and decorator lines right above a function or method belong to it, not to the class around it.
 - Hunks outside every named scope form one file-level chunk for that file.
 - In Markdown, a hunk belongs to its nearest heading section.
 - In a file no analyzer reads (YAML, CSS, shell), nearby hunks form one line-range chunk.
-- A generated or vendored file is one chunk and is not analyzed.
+- A generated or vendored file is one chunk and is not analyzed. So is an empty file that was added or deleted.
+- A file that does not parse at the base or the head gets no symbols. Its chunks say **Syntax error**, and a note names the file.
 
 Srcly never invents a symbol. A chunk with no analyzer says **not measured**, never 0. So do heading and file-level chunks: no code metric applies to them.
 
-Head and base chunks pair by path and name. When Git reports a renamed file, they pair by name across the two paths. A symbol that left one file and appeared in another with a near-identical body is **moved**. A weaker guess is labeled **uncertain**. A line-number overlap alone is never a match. A pure rename with an unchanged body has equal before and after values: it is not an improvement or a regression.
+Head and base chunks pair by path and name. When Git reports a renamed file, they pair by name across the two paths. Two scopes with the same name in one file pair by body: identical first, then closest. A symbol that left one file and appeared in another with a near-identical body is **moved**. A weaker guess is labeled **uncertain**, and so is a Markdown heading that was reworded above the same text. A file added in the window has no base, even when a renamed file held that path before. A line-number overlap alone is never a match. A pure rename with an unchanged body has equal before and after values: it is not an improvement or a regression.
 
 ## Read the map
 
@@ -68,7 +70,7 @@ Test, docs, generated and vendored files get no bucket. **All edits** lists ever
 
 The inspector shows the chunk's status, where it is, and each metric as base → head. Metrics that did not change fold into one line. **Touches** places one mark per commit that changed the chunk on the window's timeline, with churned lines against net lines. Six edits to one handler and one edit each to six handlers are different stories, and this is where you see which one you have.
 
-**Open diff** shows only the chunk's own lines. A symbol's diff compares its body on the two sides, so a moved symbol shows only what changed in it. Select a touch mark to see that one commit's diff.
+**Open diff** shows only the chunk's own lines. Changed lines of a nested named scope are in that scope's diff, not in its parent's. A symbol's diff compares its body on the two sides, so a moved symbol shows only what changed in it. Select a touch mark to see that one commit's diff.
 
 ## Step through commits
 
