@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { anchorGraphOp } from "../src/srcly/ops/anchor-graph";
 import { createEngineSession } from "../src/srcly/session";
 import { chooseTypescript } from "../src/srcly/typescript-choice";
+import { pythonForCatalog } from "./pattern-catalog-python";
 
 // How many everyday patterns trace to an end? Runs every `@trace` in the
 // pattern catalog (`examples/pattern-catalog/<framework>/src`) and prints each
@@ -11,7 +12,7 @@ import { chooseTypescript } from "../src/srcly/typescript-choice";
 // `node_modules` with that library's types (see the catalog's README): the
 // patterns are graded against the types a real app has.
 //
-//   node --import tsx scripts/pattern-catalog.ts [--only <id>] [--json out.json] [-v]
+//   node --import tsx scripts/pattern-catalog.ts [--root <framework>] [--only <id>] [--json out.json] [-v]
 //
 // `// @trace <id> <forward|backward|both> <text> @want <kind|kind>` anchors at
 // `text` on its own line or one of the next few (`symbol <name>` at a
@@ -25,35 +26,41 @@ import { chooseTypescript } from "../src/srcly/typescript-choice";
 // out, and each row names its language so actual JavaScript stays apart from
 // TypeScript.
 
-type Row = { framework: string; language: "ts" | "js"; id: string; file: string; outcome: string; reason?: string | null; stops: string[]; ends: string[]; want: string[]; correct: boolean };
+type Row = { framework: string; language: "ts" | "js" | "py"; id: string; file: string; outcome: string; reason?: string | null; stops: string[]; ends: string[]; want: string[]; correct: boolean };
 
 const args = process.argv.slice(2);
 const flag = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
 const only = flag("--only");
+const onlyRoot = flag("--root");
 const verbose = args.includes("-v");
 const catalog = fileURLToPath(new URL("../examples/pattern-catalog", import.meta.url));
 const rows: Row[] = [];
 // These roots have no library types to grade against, so they need no `node_modules`.
-const NEEDS_NO_LIBRARIES = new Set(["vanilla", "javascript"]);
-const SOURCE = /\.[cm]?[jt]sx?$/;
+// `python` is read by the Python helper (ast + mypy): it needs an interpreter with mypy, not the libraries.
+const NEEDS_NO_LIBRARIES = new Set(["vanilla", "javascript", "python"]);
+const SOURCE = /\.(?:[cm]?[jt]sx?|py)$/;
 const TRACE = /@trace\s+(\S+)\s+(forward|backward|both)\s+(.*?)(?:\s+@want\s+(\S+))?\s*$/;
-const languageOf = (name: string) => (/\.[cm]?jsx?$/.test(name) ? "js" as const : "ts" as const);
+const languageOf = (name: string) => (name.endsWith(".py") ? "py" as const : /\.[cm]?jsx?$/.test(name) ? "js" as const : "ts" as const);
 const sources = (src: string) => fs.readdirSync(src).filter((item) => SOURCE.test(item) && !/\.d\.[cm]?ts$/.test(item)).sort();
 
-for (const framework of fs.readdirSync(catalog).filter((name) => fs.statSync(path.join(catalog, name)).isDirectory()).sort()) {
+for (const framework of fs.readdirSync(catalog).filter((name) => fs.statSync(path.join(catalog, name)).isDirectory() && (!onlyRoot || name === onlyRoot)).sort()) {
   const root = path.join(catalog, framework);
   const src = path.join(root, "src");
-  if (!NEEDS_NO_LIBRARIES.has(framework) && !fs.existsSync(path.join(root, "node_modules"))) {
-    process.stderr.write(`${framework}: skipped, no node_modules (see examples/pattern-catalog/README.md)\n`);
+  const python = framework === "python" ? pythonForCatalog() : undefined;
+  const missing = python === null ? "no Python with mypy" : !NEEDS_NO_LIBRARIES.has(framework) && !fs.existsSync(path.join(root, "node_modules")) ? "no node_modules" : null;
+  if (missing) {
+    process.stderr.write(`${framework}: skipped, ${missing} (see examples/pattern-catalog/README.md)\n`);
     for (const name of sources(src)) {
       for (const line of fs.readFileSync(path.join(src, name), "utf8").split("\n")) {
         const match = TRACE.exec(line);
-        if (match && (!only || match[1] === only)) rows.push({ framework, language: languageOf(name), id: match[1], file: `src/${name}`, outcome: "skipped", reason: "no node_modules", stops: [], ends: [], want: match[4]?.split("|") ?? [], correct: false });
+        if (match && (!only || match[1] === only)) rows.push({ framework, language: languageOf(name), id: match[1], file: `src/${name}`, outcome: "skipped", reason: missing, stops: [], ends: [], want: match[4]?.split("|") ?? [], correct: false });
       }
     }
     continue;
   }
-  const session = createEngineSession({ root, source: src, tsconfig: null, typescriptFrom: chooseTypescript(root, src).from });
+  const session = python
+    ? createEngineSession({ root, source: src, tsconfig: null, typescriptFrom: fileURLToPath(new URL("..", import.meta.url)), language: "python", python })
+    : createEngineSession({ root, source: src, tsconfig: null, typescriptFrom: chooseTypescript(root, src).from });
   for (const name of sources(src)) {
     const file = `src/${name}`;
     const language = languageOf(name);
@@ -66,7 +73,7 @@ for (const framework of fs.readdirSync(catalog).filter((name) => fs.statSync(pat
       let anchor: Record<string, unknown>;
       if (rest.startsWith("symbol ")) anchor = { file, name: rest.slice(7).trim(), line: index + 1, direction };
       else {
-        const at = lines.slice(index, index + 8).findIndex((text) => text.split("//")[0].includes(rest));
+        const at = lines.slice(index, index + 8).findIndex((text) => text.split(language === "py" ? "#" : "//")[0].includes(rest));
         if (at < 0) throw new Error(`${file}:${index + 1} @trace ${id}: \`${rest}\` is not on this line or the next few`);
         const column = lines[index + at].indexOf(rest) + 1;
         anchor = { file, text: rest, span: { startLine: index + at + 1, startColumn: column, endLine: index + at + 1, endColumn: column + rest.length }, direction };
