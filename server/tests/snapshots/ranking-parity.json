@@ -14,6 +14,10 @@
         1
       ],
       [
+        "change_lens_repo.py",
+        0
+      ],
+      [
         "components/react/OrderDashboard.tsx",
         0
       ],
@@ -64,23 +68,27 @@
         1
       ],
       [
-        "comment_noise/commented_out.ts::loadUser::then(\u0192)",
+        "change_lens_repo.py::_git",
         0
       ],
       [
-        "comment_noise/commented_out.ts::saveUser",
+        "change_lens_repo.py::_write",
         0
       ],
       [
-        "comment_noise/narrated.ts::tidy",
+        "change_lens_repo.py::build",
         0
       ],
       [
-        "comment_noise/narrated.ts::tidy::map(\u0192)",
+        "change_lens_repo.py::worker",
         0
       ]
     ],
     "complexity/file": [
+      [
+        "change_lens_repo.py",
+        5
+      ],
       [
         "components/react/OrderDashboard.tsx",
         5
@@ -120,6 +128,10 @@
     ],
     "complexity/function": [
       [
+        "change_lens_repo.py::build",
+        5
+      ],
+      [
         "components/react/OrderDashboard.tsx::OrderDashboard",
         5
       ],
@@ -130,6 +142,14 @@
       [
         "metric_trust/src/jobs.py::schedule::backoff",
         4
+      ],
+      [
+        "change_lens_repo.py::_git",
+        3
+      ],
+      [
+        "change_lens_repo.py::_write",
+        3
       ],
       [
         "comment_noise/narrated.py::explained",
@@ -146,18 +166,6 @@
       [
         "metric_trust/src/Panel.tsx::Panel::label",
         3
-      ],
-      [
-        "metric_trust/src/jobs.py::schedule",
-        3
-      ],
-      [
-        "comment_noise/narrated.py::total",
-        2
-      ],
-      [
-        "components/solid/Counter.tsx::Counter::<div>::<button>::onClick",
-        2
       ]
     ],
     "component_hook_count/file": [
@@ -330,6 +338,10 @@
     ],
     "loc/file": [
       [
+        "change_lens_repo.py",
+        291
+      ],
+      [
         "components/react/OrderDashboard.tsx",
         81
       ],
@@ -364,10 +376,6 @@
       [
         "metric_trust/src/flat.ts",
         5
-      ],
-      [
-        "metric_trust/docs/notes.md",
-        2
       ]
     ],
     "loc/function": [
@@ -388,6 +396,10 @@
         22
       ],
       [
+        "change_lens_repo.py::build",
+        21
+      ],
+      [
         "components/react/OrderDashboard.tsx::OrderDashboard::<section>::<section>::<tbody>::map(\u0192)",
         18
       ],
@@ -404,15 +416,15 @@
         14
       ],
       [
-        "comment_noise/narrated.py::total",
-        9
-      ],
-      [
-        "components/react/Small.tsx::Toggle",
-        9
+        "change_lens_repo.py::_git",
+        11
       ]
     ],
     "max_nesting_depth/file": [
+      [
+        "change_lens_repo.py",
+        2
+      ],
       [
         "comment_noise/narrated.py",
         2
@@ -452,6 +464,14 @@
     ],
     "max_nesting_depth/function": [
       [
+        "change_lens_repo.py::_write",
+        2
+      ],
+      [
+        "change_lens_repo.py::build",
+        2
+      ],
+      [
         "comment_noise/narrated.py::explained",
         2
       ],
@@ -464,6 +484,14 @@
         2
       ],
       [
+        "change_lens_repo.py::_git",
+        1
+      ],
+      [
+        "change_lens_repo.py::write_payloads",
+        1
+      ],
+      [
         "comment_noise/narrated.py::total",
         1
       ],
@@ -474,25 +502,13 @@
       [
         "metric_trust/src/Panel.tsx::Panel::label",
         1
-      ],
-      [
-        "metric_trust/src/Panel.tsx::Store (class)::add",
-        1
-      ],
-      [
-        "metric_trust/src/jobs.py::(class) Queue::pop",
-        1
-      ],
-      [
-        "metric_trust/src/jobs.py::schedule::backoff",
-        1
-      ],
-      [
-        "comment_noise/commented_out.ts::loadUser",
-        0
       ]
     ],
     "parameter_count/file": [
+      [
+        "change_lens_repo.py",
+        13
+      ],
       [
         "components/react/OrderDashboard.tsx",
         7
@@ -532,6 +548,26 @@
     ],
     "parameter_count/function": [
       [
+        "change_lens_repo.py::worker",
+        4
+      ],
+      [
+        "change_lens_repo.py::_git",
+        3
+      ],
+      [
+        "change_lens_repo.py::_write",
+        2
+      ],
+      [
+        "change_lens_repo.py::build",
+        2
+      ],
+      [
+        "change_lens_repo.py::write_payloads",
+        2
+      ],
+      [
         "components/react/OrderDashboard.tsx::OrderDashboard::useReducer(\u0192)",
         2
       ],
@@ -550,32 +586,146 @@
       [
         "metric_trust/src/jobs.py::schedule",
         2
-      ],
-      [
-        "comment_noise/commented_out.ts::loadUser",
-        1
-      ],
-      [
-        "comment_noise/commented_out.ts::loadUser::then(\u0192)",
-        1
-      ],
-      [
-        "comment_noise/commented_out.ts::saveUser",
-        1
-      ],
-      [
-        "comment_noise/narrated.py::explained",
-        1
-      ],
-      [
-        "comment_noise/narrated.py::mean",
-        1
       ]
     ]
   },
   "top": 10,
   "tree": {
     "children": [
+      {
+        "children": [
+          {
+            "children": [],
+            "end_line": 20,
+            "kind": "imports",
+            "metrics": {
+              "comment_noise": 0,
+              "complexity": 0.0,
+              "component_hook_count": null,
+              "component_jsx_conditional_count": null,
+              "component_loc": null,
+              "loc": 7,
+              "max_nesting_depth": 0,
+              "parameter_count": 0
+            },
+            "name": "(imports)",
+            "path": "change_lens_repo.py::(imports)",
+            "start_line": 16,
+            "type": "function"
+          },
+          {
+            "children": [],
+            "end_line": 291,
+            "kind": "function",
+            "metrics": {
+              "comment_noise": 0,
+              "complexity": 3.0,
+              "component_hook_count": null,
+              "component_jsx_conditional_count": null,
+              "component_loc": null,
+              "loc": 11,
+              "max_nesting_depth": 1,
+              "parameter_count": 3
+            },
+            "name": "_git",
+            "path": "change_lens_repo.py::_git",
+            "start_line": 281,
+            "type": "function"
+          },
+          {
+            "children": [],
+            "end_line": 301,
+            "kind": "function",
+            "metrics": {
+              "comment_noise": 0,
+              "complexity": 3.0,
+              "component_hook_count": null,
+              "component_jsx_conditional_count": null,
+              "component_loc": null,
+              "loc": 8,
+              "max_nesting_depth": 2,
+              "parameter_count": 2
+            },
+            "name": "_write",
+            "path": "change_lens_repo.py::_write",
+            "start_line": 294,
+            "type": "function"
+          },
+          {
+            "children": [],
+            "end_line": 324,
+            "kind": "function",
+            "metrics": {
+              "comment_noise": 0,
+              "complexity": 5.0,
+              "component_hook_count": null,
+              "component_jsx_conditional_count": null,
+              "component_loc": null,
+              "loc": 21,
+              "max_nesting_depth": 2,
+              "parameter_count": 2
+            },
+            "name": "build",
+            "path": "change_lens_repo.py::build",
+            "start_line": 304,
+            "type": "function"
+          },
+          {
+            "children": [],
+            "end_line": 135,
+            "kind": "function",
+            "metrics": {
+              "comment_noise": 0,
+              "complexity": 1.0,
+              "component_hook_count": null,
+              "component_jsx_conditional_count": null,
+              "component_loc": null,
+              "loc": 2,
+              "max_nesting_depth": 0,
+              "parameter_count": 4
+            },
+            "name": "worker",
+            "path": "change_lens_repo.py::worker",
+            "start_line": 134,
+            "type": "function"
+          },
+          {
+            "children": [],
+            "end_line": 336,
+            "kind": "function",
+            "metrics": {
+              "comment_noise": 0,
+              "complexity": 2.0,
+              "component_hook_count": null,
+              "component_jsx_conditional_count": null,
+              "component_loc": null,
+              "loc": 10,
+              "max_nesting_depth": 1,
+              "parameter_count": 2
+            },
+            "name": "write_payloads",
+            "path": "change_lens_repo.py::write_payloads",
+            "start_line": 327,
+            "type": "function"
+          }
+        ],
+        "end_line": 0,
+        "kind": null,
+        "metrics": {
+          "comment_noise": 0,
+          "complexity": 5.0,
+          "component_hook_count": null,
+          "component_jsx_conditional_count": null,
+          "component_loc": null,
+          "loc": 291,
+          "max_nesting_depth": 2,
+          "parameter_count": 13
+        },
+        "name": "change_lens_repo.py",
+        "path": "change_lens_repo.py",
+        "start_line": 0,
+        "type": "file"
+      },
       {
         "children": [
           {
@@ -3208,9 +3358,9 @@
       "component_hook_count": 11,
       "component_jsx_conditional_count": 6,
       "component_loc": 67,
-      "loc": 302,
+      "loc": 593,
       "max_nesting_depth": 2,
-      "parameter_count": 38
+      "parameter_count": 51
     },
     "name": "root",
     "path": "",

@@ -173,3 +173,19 @@ def test_api_serves_the_payload_and_refuses_a_folder_outside_git(repo, tmp_path)
     assert hunk.status_code == 200 and "audit" in hunk.json()["diff"] and hunk.json()["from"].startswith("main")
 
     assert client.get("/api/change-lens", params={"path": str(tmp_path)}).status_code == 409
+
+
+def test_models_mirror_the_client_types():
+    """Each interface in types.ts has a model with the same field names on the wire."""
+    import re
+    from pathlib import Path
+
+    from app.services.changelens import models
+
+    source = (Path(__file__).resolve().parents[2] / "client/src/changelens/types.ts").read_text(encoding="utf-8")
+    interfaces = re.findall(r"export interface (\w+) \{\n(.*?)\n\}", source, flags=re.S)
+    assert len(interfaces) >= 10
+    for name, body in interfaces:
+        fields = set(re.findall(r"^  (\w+)\??:", body, flags=re.M))
+        model = getattr(models, name)
+        assert {f.alias or n for n, f in model.model_fields.items()} == fields, name

@@ -1,0 +1,909 @@
+{
+  "selection": {
+    "window": "branch",
+    "mode": "net",
+    "ref": "HEAD",
+    "base": {
+      "ref": "merge-base(main, feature)",
+      "sha": "97e5cf7df943e4232f3d2efcdd499dd7d0a70d63",
+      "label": "main @ 97e5cf7",
+      "date": "2026-01-05T09:00:00+00:00"
+    },
+    "head": {
+      "ref": "WORKTREE",
+      "sha": null,
+      "label": "Working tree on feature @ 0c1943e",
+      "date": null
+    },
+    "since": null,
+    "until": null,
+    "timezone": "UTC",
+    "includesWorktree": true,
+    "notes": [],
+    "repoRoot": "/repo/change-lens-fixture"
+  },
+  "commits": [
+    {
+      "sha": "2036666a05e59375b6a19dff1e41f8a914133451",
+      "short": "2036666",
+      "subject": "retry: back off between attempts",
+      "author": "Fixture Author",
+      "date": "2026-01-06T10:00:00+00:00",
+      "files": 1,
+      "added": 2,
+      "deleted": 0,
+      "chunkIds": [
+        "src/worker.ts::retryJob"
+      ]
+    },
+    {
+      "sha": "519844cbebcde3860bd926666ecd36517e396092",
+      "short": "519844c",
+      "subject": "retry: cap the attempt limit",
+      "author": "Fixture Author",
+      "date": "2026-01-06T11:00:00+00:00",
+      "files": 1,
+      "added": 1,
+      "deleted": 0,
+      "chunkIds": [
+        "src/worker.ts::retryJob"
+      ]
+    },
+    {
+      "sha": "8b98925caa5c902b877b0fa56a81ea9064306d46",
+      "short": "8b98925",
+      "subject": "scheduler: try a sorted pick",
+      "author": "Fixture Author",
+      "date": "2026-01-06T12:00:00+00:00",
+      "files": 1,
+      "added": 4,
+      "deleted": 3,
+      "chunkIds": []
+    },
+    {
+      "sha": "c19696660996461f9922f262e0c3a30245f143c9",
+      "short": "c196966",
+      "subject": "rename strings to text",
+      "author": "Fixture Author",
+      "date": "2026-01-06T13:00:00+00:00",
+      "files": 1,
+      "added": 0,
+      "deleted": 0,
+      "chunkIds": [
+        "src/util/text.ts"
+      ]
+    },
+    {
+      "sha": "2a74e4ce39f075a472e3c3c13b372d9beaa4b298",
+      "short": "2a74e4c",
+      "subject": "worker: remove legacyCleanup",
+      "author": "Fixture Author",
+      "date": "2026-01-06T14:00:00+00:00",
+      "files": 1,
+      "added": 0,
+      "deleted": 7,
+      "chunkIds": [
+        "src/worker.ts::legacyCleanup"
+      ]
+    },
+    {
+      "sha": "c9382753c54b7845c5b3aacef78a523c46ebcb4b",
+      "short": "c938275",
+      "subject": "docs: build step, more retries",
+      "author": "Fixture Author",
+      "date": "2026-01-06T15:00:00+00:00",
+      "files": 2,
+      "added": 2,
+      "deleted": 2,
+      "chunkIds": [
+        "README.md::## Install"
+      ]
+    },
+    {
+      "sha": "4dd738aba8d2e93cf29326ff849ca1e531182a4f",
+      "short": "4dd738a",
+      "subject": "scheduler: back to the first idle job",
+      "author": "Fixture Author",
+      "date": "2026-01-06T16:00:00+00:00",
+      "files": 1,
+      "added": 3,
+      "deleted": 4,
+      "chunkIds": []
+    },
+    {
+      "sha": "fa015dd3440f3cbacd27376749f5cd0187dd6b73",
+      "short": "fa015dd",
+      "subject": "args: accept --dry-run",
+      "author": "Fixture Author",
+      "date": "2026-01-06T17:00:00+00:00",
+      "files": 1,
+      "added": 2,
+      "deleted": 1,
+      "chunkIds": [
+        "src/worker.ts::parseArgs"
+      ]
+    },
+    {
+      "sha": "cd07328565c1c06f90eb5a440bbfaf1647c00c58",
+      "short": "cd07328",
+      "subject": "retry: add jitter",
+      "author": "Fixture Author",
+      "date": "2026-01-06T18:00:00+00:00",
+      "files": 1,
+      "added": 3,
+      "deleted": 1,
+      "chunkIds": [
+        "src/worker.ts::retryJob"
+      ]
+    },
+    {
+      "sha": "0c1943eb48825c52ff0ff143f5dbf8c95a029b60",
+      "short": "0c1943e",
+      "subject": "planner: route stops; router: audit jobs",
+      "author": "Fixture Author",
+      "date": "2026-01-06T19:00:00+00:00",
+      "files": 2,
+      "added": 30,
+      "deleted": 0,
+      "chunkIds": [
+        "src/planner.ts",
+        "src/planner.ts::planRoute",
+        "src/router.ts::dispatch"
+      ]
+    },
+    {
+      "sha": "WORKTREE",
+      "short": "worktree",
+      "subject": "Uncommitted changes",
+      "author": "",
+      "date": null,
+      "files": 1,
+      "added": 2,
+      "deleted": 1,
+      "chunkIds": [
+        "src/worker.ts::formatLog"
+      ]
+    }
+  ],
+  "chunks": [
+    {
+      "id": "README.md::## Install",
+      "path": "README.md",
+      "kind": "heading",
+      "name": "## Install",
+      "startLine": 5,
+      "endLine": 8,
+      "baseStartLine": 5,
+      "baseEndLine": 8,
+      "status": "modified",
+      "match": "exact",
+      "added": 1,
+      "deleted": 1,
+      "netAdded": 1,
+      "netDeleted": 1,
+      "touches": [],
+      "firstTouched": "2026-01-06T15:00:00+00:00",
+      "lastTouched": "2026-01-06T15:00:00+00:00",
+      "metrics": {},
+      "measured": false,
+      "naReason": "Markdown sections have no code metrics",
+      "buckets": [],
+      "fileClass": "docs",
+      "hunks": [
+        {
+          "sha": null,
+          "oldStart": 7,
+          "oldLines": 1,
+          "newStart": 7,
+          "newLines": 1
+        }
+      ]
+    },
+    {
+      "id": "config/settings.yaml::L3-3",
+      "path": "config/settings.yaml",
+      "kind": "range",
+      "name": "line 3",
+      "startLine": 3,
+      "endLine": 3,
+      "status": "modified",
+      "match": "exact",
+      "added": 1,
+      "deleted": 1,
+      "netAdded": 1,
+      "netDeleted": 1,
+      "touches": [],
+      "firstTouched": null,
+      "lastTouched": null,
+      "metrics": {},
+      "measured": false,
+      "naReason": "No analyzer reads this file type",
+      "buckets": [],
+      "fileClass": "config",
+      "hunks": [
+        {
+          "sha": null,
+          "oldStart": 3,
+          "oldLines": 1,
+          "newStart": 3,
+          "newLines": 1
+        }
+      ]
+    },
+    {
+      "id": "src/planner.ts",
+      "path": "src/planner.ts",
+      "kind": "file",
+      "name": "planner.ts",
+      "startLine": 1,
+      "endLine": 29,
+      "status": "added",
+      "match": "none",
+      "added": 6,
+      "deleted": 0,
+      "netAdded": 6,
+      "netDeleted": 0,
+      "touches": [],
+      "firstTouched": "2026-01-06T19:00:00+00:00",
+      "lastTouched": "2026-01-06T19:00:00+00:00",
+      "metrics": {},
+      "measured": false,
+      "naReason": "Lines outside every named scope",
+      "buckets": [],
+      "fileClass": "code",
+      "hunks": [
+        {
+          "sha": null,
+          "oldStart": 0,
+          "oldLines": 0,
+          "newStart": 1,
+          "newLines": 29
+        }
+      ]
+    },
+    {
+      "id": "src/planner.ts::planRoute",
+      "path": "src/planner.ts",
+      "kind": "function",
+      "name": "planRoute",
+      "startLine": 8,
+      "endLine": 29,
+      "status": "added",
+      "match": "none",
+      "added": 23,
+      "deleted": 0,
+      "netAdded": 23,
+      "netDeleted": 0,
+      "touches": [],
+      "firstTouched": "2026-01-06T19:00:00+00:00",
+      "lastTouched": "2026-01-06T19:00:00+00:00",
+      "metrics": {
+        "parameter_count": {
+          "before": null,
+          "after": 2
+        },
+        "ts_type_interface_count": {
+          "before": null,
+          "after": 0
+        },
+        "comment_noise_docblock": {
+          "before": null,
+          "after": 0
+        },
+        "comment_noise": {
+          "before": null,
+          "after": 0
+        },
+        "comment_noise_ratio": {
+          "before": null,
+          "after": 0
+        },
+        "cognitive_complexity": {
+          "before": null,
+          "after": 17
+        },
+        "max_nesting_depth": {
+          "before": null,
+          "after": 3
+        },
+        "complexity": {
+          "before": null,
+          "after": 12
+        },
+        "comment_noise_commented_code": {
+          "before": null,
+          "after": 0
+        },
+        "todo_count": {
+          "before": null,
+          "after": 0
+        },
+        "comment_lines": {
+          "before": null,
+          "after": 0
+        },
+        "loc": {
+          "before": null,
+          "after": 22
+        }
+      },
+      "measured": true,
+      "buckets": [
+        "new-hotspot"
+      ],
+      "fileClass": "code",
+      "hunks": [
+        {
+          "sha": null,
+          "oldStart": 0,
+          "oldLines": 0,
+          "newStart": 1,
+          "newLines": 29
+        }
+      ]
+    },
+    {
+      "id": "src/router.ts::dispatch",
+      "path": "src/router.ts",
+      "kind": "function",
+      "name": "dispatch",
+      "startLine": 1,
+      "endLine": 13,
+      "baseStartLine": 1,
+      "baseEndLine": 12,
+      "status": "modified",
+      "match": "exact",
+      "added": 1,
+      "deleted": 0,
+      "netAdded": 1,
+      "netDeleted": 0,
+      "touches": [],
+      "firstTouched": "2026-01-06T19:00:00+00:00",
+      "lastTouched": "2026-01-06T19:00:00+00:00",
+      "metrics": {
+        "parameter_count": {
+          "before": 2,
+          "after": 2
+        },
+        "ts_type_interface_count": {
+          "before": 0,
+          "after": 0
+        },
+        "comment_noise_docblock": {
+          "before": 0,
+          "after": 0
+        },
+        "comment_noise": {
+          "before": 0,
+          "after": 0
+        },
+        "comment_noise_ratio": {
+          "before": 0,
+          "after": 0
+        },
+        "cognitive_complexity": {
+          "before": 13,
+          "after": 16
+        },
+        "max_nesting_depth": {
+          "before": 2,
+          "after": 2
+        },
+        "complexity": {
+          "before": 11,
+          "after": 13
+        },
+        "comment_noise_commented_code": {
+          "before": 0,
+          "after": 0
+        },
+        "todo_count": {
+          "before": 0,
+          "after": 0
+        },
+        "comment_lines": {
+          "before": 0,
+          "after": 0
+        },
+        "loc": {
+          "before": 12,
+          "after": 13
+        }
+      },
+      "measured": true,
+      "buckets": [
+        "complex-and-changed",
+        "new-hotspot"
+      ],
+      "fileClass": "code",
+      "hunks": [
+        {
+          "sha": null,
+          "oldStart": 10,
+          "oldLines": 0,
+          "newStart": 11,
+          "newLines": 1
+        }
+      ]
+    },
+    {
+      "id": "src/util/text.ts",
+      "path": "src/util/text.ts",
+      "oldPath": "src/util/strings.ts",
+      "kind": "file",
+      "name": "text.ts",
+      "startLine": 1,
+      "endLine": 11,
+      "baseStartLine": 1,
+      "baseEndLine": 11,
+      "status": "moved",
+      "match": "renamed-file",
+      "added": 0,
+      "deleted": 0,
+      "netAdded": 0,
+      "netDeleted": 0,
+      "touches": [],
+      "firstTouched": "2026-01-06T13:00:00+00:00",
+      "lastTouched": "2026-01-06T13:00:00+00:00",
+      "metrics": {
+        "loc": {
+          "before": 10,
+          "after": 10
+        },
+        "complexity": {
+          "before": 2,
+          "after": 2
+        },
+        "cognitive_complexity": {
+          "before": 1,
+          "after": 1
+        }
+      },
+      "measured": true,
+      "buckets": [],
+      "fileClass": "code",
+      "hunks": []
+    },
+    {
+      "id": "src/worker.ts::parseArgs",
+      "path": "src/worker.ts",
+      "kind": "function",
+      "name": "parseArgs",
+      "startLine": 9,
+      "endLine": 17,
+      "baseStartLine": 9,
+      "baseEndLine": 16,
+      "status": "modified",
+      "match": "exact",
+      "added": 2,
+      "deleted": 1,
+      "netAdded": 2,
+      "netDeleted": 1,
+      "touches": [],
+      "firstTouched": "2026-01-06T17:00:00+00:00",
+      "lastTouched": "2026-01-06T17:00:00+00:00",
+      "metrics": {
+        "parameter_count": {
+          "before": 1,
+          "after": 1
+        },
+        "ts_type_interface_count": {
+          "before": 0,
+          "after": 0
+        },
+        "comment_noise_docblock": {
+          "before": 0,
+          "after": 0
+        },
+        "comment_noise": {
+          "before": 0,
+          "after": 0
+        },
+        "comment_noise_ratio": {
+          "before": 0,
+          "after": 0
+        },
+        "cognitive_complexity": {
+          "before": 4,
+          "after": 5
+        },
+        "max_nesting_depth": {
+          "before": 2,
+          "after": 2
+        },
+        "complexity": {
+          "before": 4,
+          "after": 5
+        },
+        "comment_noise_commented_code": {
+          "before": 0,
+          "after": 0
+        },
+        "todo_count": {
+          "before": 0,
+          "after": 0
+        },
+        "comment_lines": {
+          "before": 0,
+          "after": 0
+        },
+        "loc": {
+          "before": 8,
+          "after": 9
+        }
+      },
+      "measured": true,
+      "buckets": [],
+      "fileClass": "code",
+      "hunks": [
+        {
+          "sha": null,
+          "oldStart": 10,
+          "oldLines": 1,
+          "newStart": 10,
+          "newLines": 1
+        },
+        {
+          "sha": null,
+          "oldStart": 12,
+          "oldLines": 0,
+          "newStart": 13,
+          "newLines": 1
+        }
+      ]
+    },
+    {
+      "id": "src/worker.ts::retryJob",
+      "path": "src/worker.ts",
+      "kind": "function",
+      "name": "retryJob",
+      "startLine": 19,
+      "endLine": 36,
+      "baseStartLine": 18,
+      "baseEndLine": 30,
+      "status": "modified",
+      "match": "exact",
+      "added": 5,
+      "deleted": 0,
+      "netAdded": 5,
+      "netDeleted": 0,
+      "touches": [],
+      "firstTouched": "2026-01-06T10:00:00+00:00",
+      "lastTouched": "2026-01-06T18:00:00+00:00",
+      "metrics": {
+        "parameter_count": {
+          "before": 2,
+          "after": 2
+        },
+        "ts_type_interface_count": {
+          "before": 0,
+          "after": 0
+        },
+        "comment_noise_docblock": {
+          "before": 0,
+          "after": 0
+        },
+        "comment_noise": {
+          "before": 0,
+          "after": 0
+        },
+        "comment_noise_ratio": {
+          "before": 0,
+          "after": 0
+        },
+        "cognitive_complexity": {
+          "before": 9,
+          "after": 24
+        },
+        "max_nesting_depth": {
+          "before": 4,
+          "after": 4
+        },
+        "complexity": {
+          "before": 5,
+          "after": 11
+        },
+        "comment_noise_commented_code": {
+          "before": 0,
+          "after": 0
+        },
+        "todo_count": {
+          "before": 0,
+          "after": 0
+        },
+        "comment_lines": {
+          "before": 0,
+          "after": 0
+        },
+        "loc": {
+          "before": 13,
+          "after": 18
+        }
+      },
+      "measured": true,
+      "buckets": [
+        "new-hotspot"
+      ],
+      "fileClass": "code",
+      "hunks": [
+        {
+          "sha": null,
+          "oldStart": 18,
+          "oldLines": 0,
+          "newStart": 20,
+          "newLines": 1
+        },
+        {
+          "sha": null,
+          "oldStart": 26,
+          "oldLines": 0,
+          "newStart": 29,
+          "newLines": 4
+        }
+      ]
+    },
+    {
+      "id": "src/worker.ts::legacyCleanup",
+      "path": "src/worker.ts",
+      "kind": "function",
+      "name": "legacyCleanup",
+      "startLine": 32,
+      "endLine": 37,
+      "baseStartLine": 32,
+      "baseEndLine": 37,
+      "status": "deleted",
+      "match": "none",
+      "added": 0,
+      "deleted": 7,
+      "netAdded": 0,
+      "netDeleted": 7,
+      "touches": [],
+      "firstTouched": "2026-01-06T14:00:00+00:00",
+      "lastTouched": "2026-01-06T14:00:00+00:00",
+      "metrics": {
+        "parameter_count": {
+          "before": 1,
+          "after": null
+        },
+        "ts_type_interface_count": {
+          "before": 0,
+          "after": null
+        },
+        "comment_noise_docblock": {
+          "before": 0,
+          "after": null
+        },
+        "comment_noise": {
+          "before": 0,
+          "after": null
+        },
+        "comment_noise_ratio": {
+          "before": 0,
+          "after": null
+        },
+        "cognitive_complexity": {
+          "before": 3,
+          "after": null
+        },
+        "max_nesting_depth": {
+          "before": 2,
+          "after": null
+        },
+        "complexity": {
+          "before": 3,
+          "after": null
+        },
+        "comment_noise_commented_code": {
+          "before": 0,
+          "after": null
+        },
+        "todo_count": {
+          "before": 0,
+          "after": null
+        },
+        "comment_lines": {
+          "before": 0,
+          "after": null
+        },
+        "loc": {
+          "before": 6,
+          "after": null
+        }
+      },
+      "measured": true,
+      "buckets": [],
+      "fileClass": "code",
+      "hunks": [
+        {
+          "sha": null,
+          "oldStart": 32,
+          "oldLines": 7,
+          "newStart": 37,
+          "newLines": 0
+        }
+      ]
+    },
+    {
+      "id": "src/worker.ts::formatLog",
+      "path": "src/worker.ts",
+      "kind": "function",
+      "name": "formatLog",
+      "startLine": 38,
+      "endLine": 41,
+      "baseStartLine": 39,
+      "baseEndLine": 41,
+      "status": "modified",
+      "match": "exact",
+      "added": 2,
+      "deleted": 1,
+      "netAdded": 2,
+      "netDeleted": 1,
+      "touches": [],
+      "firstTouched": null,
+      "lastTouched": null,
+      "metrics": {
+        "parameter_count": {
+          "before": 2,
+          "after": 2
+        },
+        "ts_type_interface_count": {
+          "before": 0,
+          "after": 0
+        },
+        "comment_noise_docblock": {
+          "before": 0,
+          "after": 0
+        },
+        "comment_noise": {
+          "before": 0,
+          "after": 0
+        },
+        "comment_noise_ratio": {
+          "before": 0,
+          "after": 0
+        },
+        "cognitive_complexity": {
+          "before": 1,
+          "after": 2
+        },
+        "max_nesting_depth": {
+          "before": 0,
+          "after": 0
+        },
+        "complexity": {
+          "before": 2,
+          "after": 3
+        },
+        "comment_noise_commented_code": {
+          "before": 0,
+          "after": 0
+        },
+        "todo_count": {
+          "before": 0,
+          "after": 0
+        },
+        "comment_lines": {
+          "before": 0,
+          "after": 0
+        },
+        "loc": {
+          "before": 3,
+          "after": 4
+        }
+      },
+      "measured": true,
+      "buckets": [],
+      "fileClass": "code",
+      "hunks": [
+        {
+          "sha": null,
+          "oldStart": 40,
+          "oldLines": 1,
+          "newStart": 39,
+          "newLines": 2
+        }
+      ]
+    }
+  ],
+  "files": [
+    {
+      "path": "README.md",
+      "status": "modified",
+      "added": 1,
+      "deleted": 1,
+      "loc": 6,
+      "fileClass": "docs",
+      "chunkIds": [
+        "README.md::## Install"
+      ],
+      "outOfScope": false
+    },
+    {
+      "path": "config/settings.yaml",
+      "status": "modified",
+      "added": 1,
+      "deleted": 1,
+      "loc": 5,
+      "fileClass": "config",
+      "chunkIds": [
+        "config/settings.yaml::L3-3"
+      ],
+      "outOfScope": false
+    },
+    {
+      "path": "src/planner.ts",
+      "status": "added",
+      "added": 29,
+      "deleted": 0,
+      "loc": 28,
+      "fileClass": "code",
+      "chunkIds": [
+        "src/planner.ts",
+        "src/planner.ts::planRoute"
+      ],
+      "outOfScope": false
+    },
+    {
+      "path": "src/router.ts",
+      "status": "modified",
+      "added": 1,
+      "deleted": 0,
+      "loc": 13,
+      "fileClass": "code",
+      "chunkIds": [
+        "src/router.ts::dispatch"
+      ],
+      "outOfScope": false
+    },
+    {
+      "path": "src/util/text.ts",
+      "oldPath": "src/util/strings.ts",
+      "status": "renamed",
+      "added": 0,
+      "deleted": 0,
+      "loc": 10,
+      "fileClass": "code",
+      "chunkIds": [
+        "src/util/text.ts"
+      ],
+      "outOfScope": false
+    },
+    {
+      "path": "src/worker.ts",
+      "status": "modified",
+      "added": 9,
+      "deleted": 9,
+      "loc": 135,
+      "fileClass": "code",
+      "chunkIds": [
+        "src/worker.ts::parseArgs",
+        "src/worker.ts::retryJob",
+        "src/worker.ts::legacyCleanup",
+        "src/worker.ts::formatLog"
+      ],
+      "outOfScope": false
+    }
+  ],
+  "summary": {
+    "filesEdited": 6,
+    "filesTotal": 7,
+    "chunks": 10,
+    "churnLines": 52,
+    "netLines": 52,
+    "reverted": 0
+  },
+  "metricIds": [
+    "complexity",
+    "cognitive_complexity",
+    "loc",
+    "comment_noise",
+    "max_nesting_depth",
+    "parameter_count",
+    "todo_count",
+    "comment_noise_ratio",
+    "comment_noise_docblock",
+    "comment_noise_commented_code",
+    "comment_lines",
+    "ts_type_interface_count"
+  ]
+}

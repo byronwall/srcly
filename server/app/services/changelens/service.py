@@ -10,7 +10,7 @@ from typing import Optional
 from app.services.changelens import chunks as engine
 from app.services.changelens import textdiff
 from app.services.changelens.blobs import BlobRef, Scope
-from app.services.changelens.chunks import Built, Draft, Lineage
+from app.services.changelens.chunks import Built, Lineage
 from app.services.changelens.hunks import GIT_TIMEOUT, Hunk, is_skipped
 from app.services.changelens.models import (
     WORKTREE,
