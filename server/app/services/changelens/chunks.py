@@ -173,8 +173,13 @@ def _resolve_ends(window: Window, store: BlobStore, lineages: list[Lineage], net
     at_base = store.lookup(window.base_tree, [line.first_path for line in lineages])
     at_tip = store.lookup(window.tip.sha, [line.path for line in lineages if line.path not in dirty])
     for line in lineages:
-        line.base = at_base.get(line.first_path)
-        if has_worktree and line.path in dirty:
+        # A file that a commit of the window added has no base, and one it deleted has no head,
+        # though another file can hold the same path at that end (a rename away, then a new file).
+        if line.changes[0].old is not None:
+            line.base = at_base.get(line.first_path)
+        if line.changes[-1].new is None:
+            line.head = None
+        elif has_worktree and line.path in dirty:
             full = repo / line.path
             line.head = BlobRef(line.path, disk=str(full)) if full.is_file() else None
         else:
@@ -739,10 +744,22 @@ def _files(store: BlobStore, lineages: list[Lineage], drafts: list[Draft], mode:
     chunk_ids: dict[int, list[str]] = defaultdict(list)
     for draft in drafts:
         chunk_ids[id(draft.lineage)].append(draft.chunk.id)
-    files = []
-    for line in lineages:
+    files: list[LensFile] = []
+    by_path: dict[str, LensFile] = {}
+    # A file at head comes first: a deleted file whose path a renamed file took joins that file's entry.
+    for line in sorted(lineages, key=lambda line: line.head is None):
         ids = chunk_ids.get(id(line), [])
         if not ids and not line.gave_chunk:
+            continue
+        shared = by_path.get(line.shown_path)
+        if shared is not None:
+            shared.chunk_ids.extend(ids)
+            if mode == "net":
+                shared.added += sum(h.new_lines for h in line.net)
+                shared.deleted += sum(h.old_lines for h in line.net)
+            else:
+                shared.added += sum(h.new_lines for c in line.changes for h in c.hunks)
+                shared.deleted += sum(h.old_lines for c in line.changes for h in c.hunks)
             continue
         if line.base is None and line.head is None:
             status = "deleted"
@@ -765,7 +782,7 @@ def _files(store: BlobStore, lineages: list[Lineage], drafts: list[Draft], mode:
                 parsed = store.parsed(line.head)
                 loc = parsed.loc if parsed else 0
         files.append(
-            LensFile(
+            by_path.setdefault(line.shown_path, LensFile(
                 path=line.shown_path,
                 old_path=line.base.path if line.renamed else None,
                 status=status,
@@ -775,7 +792,7 @@ def _files(store: BlobStore, lineages: list[Lineage], drafts: list[Draft], mode:
                 file_class=line.file_class,
                 chunk_ids=ids,
                 out_of_scope=line.file_class in OUT_OF_SCOPE_CLASSES,
-            )
+            ))
         )
     files.sort(key=lambda f: f.path)
     return files

@@ -254,6 +254,20 @@ def test_same_named_scopes_pair_by_body_and_anonymous_objects_are_no_chunks(tmp_
     assert [(c["kind"], c["id"]) for c in chunks.values() if c["path"] == "conf.ts"] == [("file", "conf.ts")]
 
 
+def test_a_path_reused_after_a_rename_is_a_new_file(tmp_path):
+    body = "".join(fn(name, 1) for name in ("one", "two", "three"))
+    repo = Mini(tmp_path / "r")
+    repo.commit("base", {"a.ts": body})
+    repo.git("checkout", "--quiet", "-b", "feature")
+    repo.git("mv", "a.ts", "b.ts")
+    repo.commit("rename a to b", {})
+    repo.commit("a new a", {"a.ts": fn("fresh", 7)})
+    for mode in ("touched", "net"):
+        payload = repo.lens(mode=mode)
+        assert [(f["path"], f["status"]) for f in payload["files"]] == [("a.ts", "added"), ("b.ts", "renamed")]
+        assert {(c["id"], c["status"]) for c in payload["chunks"]} == {("a.ts::fresh", "added"), ("b.ts", "moved")}
+
+
 def test_models_mirror_the_client_types():
     """Each interface in types.ts has a model with the same field names on the wire."""
     import re
