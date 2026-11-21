@@ -5,10 +5,10 @@
     "slug": "tsx-dataflow-integration",
     "scale": "program",
     "current_phase": "execution",
-    "last_updated": "2026-11-12",
+    "last_updated": "2026-11-21",
     "summary": "One engine (tsx-data-flow analysis moved into engine/, one lazy Node child) feeds three srcly surfaces: route -> terminal graph in the dependency viewer (headline), value-path ledger from graph destinations or code-viewer expressions (PR #102), and a function-effects panel (PR #103); findings/metrics/markers/reports follow. detailed-plan.md adds the file-level design, contracts, two-tier engine session, view-state registry and the corrections a code review of both repositories forced.",
     "status": "active",
-    "next_action": "Only M7 remains: data-flow evidence in srcly pipelines (fileSignals, findings tool, catalog metrics, markers, work packets, skill). Nothing on main yet. Reconciled 2026-11-12 against origin/main 0bfb05ba."
+    "next_action": "M7 shipped in part (2026-11-21): fileSignals op, report --dataflow (dataflow.md, report.md section), six dataflow_* metrics with compare --dataflow, impossible-defense and repeated-fork findings with code-viewer marks, skill section. Left: context-relay and broad-prop-bundle finding rules, dataflow_defensive_ops, and an in-app way to start the tier-2 run (today only the CLI starts it). Retire the plan when those land or are dropped."
   },
   "artifacts": {
     "intent_brief": {
@@ -647,7 +647,7 @@
         "proof": "test_metric_catalog snapshots; markers count tests; report artifact test.",
         "valid_intermediate_state": "Metrics N/A when engine absent.",
         "rollback": "Remove dataflow tool + catalog entries.",
-        "status": "planned",
+        "status": "active",
         "evidence": [],
         "track": "D"
       },
@@ -830,6 +830,10 @@
     {
       "date": "2026-11-12",
       "change": "Set true milestone statuses from merged PRs: M1-M6 and M8 completed; M7 still planned."
+    },
+    {
+      "date": "2026-11-21",
+      "change": "M7 shipped in part: fileSignals, report/compare --dataflow, data-flow metrics, findings and marks, skill. Context-relay and broad-prop-bundle rules and an in-app trigger remain."
     }
   ],
   "closure": null

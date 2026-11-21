@@ -14,6 +14,7 @@ Srcly selects checks based on the files and tools it finds. Checks run independe
 | Srcly TypeScript rules | TS files are outside project checker coverage | A selected built-in pattern matched, or that rule set did not cover the file. |
 | Reachability and Solid rules | Supported TypeScript graph and patterns are available | Entry-point detection or language coverage may not match the project. Configure entries when needed. |
 | ast-grep rules | `.srcly/rules/` files exist and ast-grep is available | The optional binary or rule run is unavailable. |
+| Data-flow rules (`impossible-defense`, `repeated-fork`) | You pass `--dataflow` to `report` or `compare`, and Node 18+ is available | The engine is missing, the root is not TypeScript, or the run failed. The reason is in `report.md`. |
 
 The exact checks vary by project. Srcly runs `tsc` per detected TypeScript project, expands solution configurations, runs ESLint when configured, and runs Ruff for Python. Its built-in TS checks include selected patterns such as explicit `any`, suppression directives without a reason, and non-null assertion chains when project tools do not cover those files. It also reports selected reachability, Solid, and await-in-loop signals. Optional ast-grep YAML rules can add project-specific checks. See [Configuration](../configuration/) for setup.
 

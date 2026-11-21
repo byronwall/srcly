@@ -25,7 +25,7 @@ uvx srcly scan . --out tree.json
 uvx srcly report . --out .srcly --profile frontend
 ```
 
-Use `--stdout` for a bundled JSON payload, `--refresh` to rescan and rerun checks, and `--verbose` to print per-file progress to stderr. To include the full raw tree, use `--include-tree`; to include TypeScript and TSX imports, use `--include-dependencies`. Select the output format with `--format markdown`, `--format json`, or `--format both`.
+Use `--stdout` for a bundled JSON payload, `--refresh` to rescan and rerun checks, and `--verbose` to print per-file progress to stderr. To include the full raw tree, use `--include-tree`; to include TypeScript and TSX imports, use `--include-dependencies`. Select the output format with `--format markdown`, `--format json`, or `--format both`. Add `--dataflow` to run the TypeScript data-flow engine too: it writes `dataflow.md` and adds data-flow metrics and findings (see [Data-flow analysis](../data-flow/)).
 
 The findings profile and the top-table metric are different settings. Use `--profile` for the weighted findings queue; use `--metric` for top files and functions. For example:
 
@@ -61,6 +61,7 @@ You can also pass a `path:line name` Start at location printed by the report. `e
 uvx srcly compare
 uvx srcly compare main HEAD --json
 uvx srcly compare main pr:42 --json
+uvx srcly compare --dataflow
 ```
 
 Unavailable measurements stay null. If a file is measured on one side only, Srcly records a coverage change and does not count the missing value as a zero delta. A file absent from one dependency graph has unknown fan-in and fan-out.
