@@ -23,6 +23,7 @@ CONTRACTS = Path(models.__file__).with_name("contracts")
         ("functionEffects", models.FunctionEffectsResult),
         ("routePath", models.RoutePathResult),
         ("fileExports", models.FileExportsResult),
+        ("fileSignals", models.FileSignalsResult),
     ],
 )
 def test_model_fields_match_the_schema(op, model):
@@ -106,3 +107,9 @@ def test_anchor_graph_nested_fields_match():
     assert set(schema["nodes"]["items"]["properties"]["kind"]["enum"]) == set(
         models.AnchorNode.model_fields["kind"].annotation.__args__
     )
+
+
+def test_file_signals_nested_fields_match():
+    schema = json.loads((CONTRACTS / "fileSignals.schema.json").read_text())["properties"]
+    assert set(models.DataflowFinding.model_fields) == set(schema["findings"]["items"]["properties"])
+    assert set(models.DataflowFileMetrics.model_fields) == set(schema["files"]["items"]["properties"]["metrics"]["properties"])

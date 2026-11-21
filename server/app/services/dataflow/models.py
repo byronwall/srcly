@@ -724,3 +724,42 @@ class AnchorGraphResponse(BaseModel):
     generation: int | None = None
     programHash: str | None = None
     graph: AnchorGraphResult | None = None
+
+
+# ---- file signals (contracts/fileSignals.schema.json) ------------------------
+
+
+class DataflowFinding(BaseModel):
+    rule: Literal["impossible-defense", "repeated-fork"]
+    file: str
+    line: int
+    column: int
+    endLine: int
+    message: str
+
+
+class DataflowFileMetrics(BaseModel):
+    impossibleDefenses: int
+    relayHops: int
+    fanOut: int
+    representationChanges: int
+    pathDepth: int
+
+
+class DataflowFileSignals(BaseModel):
+    file: str
+    metrics: DataflowFileMetrics
+
+
+class FileSignalsResult(BaseModel):
+    outcome: Outcome
+    generation: int
+    programHash: str
+    tsconfig: str
+    typescript: str
+    nullProof: bool
+    reason: str | None
+    files: list[DataflowFileSignals]
+    findings: list[DataflowFinding]
+    unplacedDefenses: int
+    markdown: str

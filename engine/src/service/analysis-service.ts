@@ -78,7 +78,9 @@ export type AnalysisOperation =
   | { kind: "anchor-graph"; params: Record<string, unknown> }
   | { kind: "function-effects"; params: Record<string, unknown> }
   | { kind: "route-path"; params: Record<string, unknown> }
-  | { kind: "file-exports"; params: Record<string, unknown> };
+  | { kind: "file-exports"; params: Record<string, unknown> }
+  /** Tier 2: the legacy report as per-file metrics, findings and `dataflow.md`. */
+  | { kind: "file-signals"; params: Record<string, unknown> };
 
 export function createAnalysisService(args: AnalyzerArgs, engine: EngineConfig | null = null) {
   let workerUrl = import.meta.url.endsWith(".ts")
