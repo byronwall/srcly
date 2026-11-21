@@ -62,7 +62,7 @@ Prints the same result as Markdown: the resolved selection, the review buckets, 
 Buckets are plain rules. There is no single score.
 
 - `complex-and-changed`: the chunk existed at base with cyclomatic complexity of 10 or more, and its body changed.
-- `new-hotspot`: the chunk is `added`, or its complexity rose, and its complexity at head is 10 or more.
+- `new-hotspot`: the chunk crossed the line in the window. Its complexity at head is 10 or more, and at base it was below 10 or the chunk was absent. A chunk that was already at 10 or more is only `complex-and-changed`.
 
 Test, docs, generated and vendor files get no bucket. The thresholds are constants in one place.
 

@@ -547,7 +547,7 @@ def _slice(store: BlobStore, ref: Optional[BlobRef], scope: Optional[Scope]) -> 
 
 def _metrics(before: Optional[dict], after: Optional[dict]) -> dict[str, BeforeAfter]:
     out = {}
-    for name in dict.fromkeys([*(before or {}), *(after or {})]):
+    for name in sorted({*(before or {}), *(after or {})}):
         pair = BeforeAfter(before=(before or {}).get(name), after=(after or {}).get(name))
         if pair.before is not None or pair.after is not None:
             out[name] = pair
@@ -563,7 +563,8 @@ def _buckets(chunk: LensChunk) -> list[str]:
     changed = chunk.net_added + chunk.net_deleted > 0
     if before is not None and after is not None and before >= COMPLEX_AT and changed:
         out.append("complex-and-changed")
-    if after is not None and after >= COMPLEX_AT and (chunk.status == "added" or (before is not None and after > before)):
+    # A new hotspot crossed the line in this window: absent or below it at base, at or above it at head.
+    if after is not None and after >= COMPLEX_AT and (before is None or before < COMPLEX_AT):
         out.append("new-hotspot")
     return out
 

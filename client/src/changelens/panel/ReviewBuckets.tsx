@@ -131,7 +131,7 @@ export function ReviewBuckets(props: { payload: ChangeLensPayload; selected: str
         <Section
           title="New hotspot"
           count={hotspots().length}
-          rule={`New, or complexity rose, and complexity ≥ ${HOTSPOT_COMPLEXITY} at head.`}
+          rule={`Complexity crossed ${HOTSPOT_COMPLEXITY}: below it or absent at base, ${HOTSPOT_COMPLEXITY} or more at head.`}
         >
           {list(hotspots(), "No new hotspot.")}
         </Section>
