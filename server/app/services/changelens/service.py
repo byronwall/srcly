@@ -200,6 +200,16 @@ def hunk_diff(path: Path, params: Params, chunk_id: str, commit: Optional[str] =
 
     old_lines = (store.text(old_ref) or "").splitlines()
     new_lines = (store.text(new_ref) or "").splitlines()
+    # A chunk's diff holds only the lines it owns: a nested scope's edits belong to that scope's chunk.
+    sides = {"old": (store.parsed(old_ref), old_scope), "new": (store.parsed(new_ref), new_scope)}
+
+    def owned(side: str, start: int, count: int) -> list[bool]:
+        parsed, scope = sides[side]
+        if parsed is None:
+            return [True] * count
+        at, key = (scope.start - 1, scope.key) if scope else (0, "")
+        return [owner == key for owner in parsed.owners(at + start, count)]
+
     if draft.is_symbol:
         old_at = old_scope.start - 1 if old_scope else 0
         new_at = new_scope.start - 1 if new_scope else 0
@@ -208,15 +218,9 @@ def hunk_diff(path: Path, params: Params, chunk_id: str, commit: Optional[str] =
             new_lines[new_at : new_scope.end] if new_scope else [],
             old_at,
             new_at,
+            owned=owned,
         )
     elif draft.kind == "file" and draft.reason == engine.OUTSIDE_SCOPES:
-        # Lines outside every named scope: the edits inside functions belong to other chunks.
-        sides = {"old": store.parsed(old_ref), "new": store.parsed(new_ref)}
-
-        def owned(side: str, start: int, count: int) -> list[bool]:
-            parsed = sides[side]
-            return [not key for key in parsed.owners(start, count)] if parsed else [True] * count
-
         body = textdiff.unified(old_lines, new_lines, owned=owned) if recorded else []
     else:
         body = textdiff.unified(old_lines, new_lines, keep=_near(recorded)) if recorded else []

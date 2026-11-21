@@ -28,7 +28,7 @@ Every `path` in the payload is relative to `selection.repoRoot`. When `path` is 
 
 `path`, the same selection params, `chunk` (a chunk id), and an optional `commit` (a sha or `WORKTREE`). Returns `LensHunkDiff`. Without `commit`, the diff runs from the selection's base to its head. With `commit`, it runs from that commit's first parent to the commit.
 
-The diff holds only the chunk's own lines. A symbol's diff compares its body on the two sides, so a moved symbol shows only what changed in it. A `file` chunk's diff leaves out the lines inside named scopes. An unknown chunk id returns 404.
+The diff holds only the chunk's own lines. A symbol's diff compares its body on the two sides, so a moved symbol shows only what changed in it. It leaves out the changed lines of the named scopes nested in it: those are in the nested chunks' diffs. A `file` chunk's diff leaves out the lines inside named scopes. An unknown chunk id returns 404.
 
 ### `srcly changes [path]`
 

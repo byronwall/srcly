@@ -278,6 +278,17 @@ def test_doc_comment_and_decorator_above_a_method_belong_to_the_method(tmp_path)
     assert set(chunks) == {"api.ts::Api.load"} and chunks["api.ts::Api.load"]["added"] == 2
 
 
+def test_a_class_diff_leaves_out_the_lines_of_its_methods(tmp_path):
+    store = "export class Store {\n  private n = 0;\n\n  add(x: number) {\n    return x + 1;\n  }\n}\n"
+    repo = Mini(tmp_path / "r")
+    repo.commit("base", {"s.ts": store})
+    repo.git("checkout", "--quiet", "-b", "feature")
+    repo.commit("edit field and method", {"s.ts": store.replace("n = 0", "n = 5").replace("x + 1", "x + 2")})
+    diff = service.hunk_diff(repo.path, Params(), "s.ts::Store")["diff"]
+    assert "+  private n = 5;" in diff and "x + 2" not in diff
+    assert "+    return x + 2;" in service.hunk_diff(repo.path, Params(), "s.ts::Store.add")["diff"]
+
+
 def test_models_mirror_the_client_types():
     """Each interface in types.ts has a model with the same field names on the wire."""
     import re
