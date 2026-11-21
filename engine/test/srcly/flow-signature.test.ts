@@ -98,8 +98,8 @@ describe.skipIf(!python.python)(`flowSignature on Python (${python.reason})`, ()
     expect(keyed(handler("head"))).toEqual({
       status: "ok",
       origins: ["database:connection.execute"],
-      ends: ["stdout:print"],
-      pairs: ["parameter:name -> stdout:print [ok]"],
+      ends: ["effect:connection.execute", "stdout:print"],
+      pairs: ["parameter:price -> effect:connection.execute [ok]", "parameter:name -> effect:connection.execute [ok]", "parameter:name -> stdout:print [ok]"],
       reads: null,
       effects: null,
       stops: [],

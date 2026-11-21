@@ -65,7 +65,7 @@ def test_fixture_change_list_is_exact_and_ordered_for_a_reviewer(payload):
         ("boundary-pair", "saveNote", "request:request.body.title -> database:db.note.update"),
         ("boundary-pair", "usageUrl", "environment:process.env.USAGE_KEY -> network:fetch"),
     ]
-    assert len(rows) == 31
+    assert len(rows) == 33
     for row in [
         ("origin-added", "loadRows", "network:fetch"),
         ("effect-added", "formatPrice", "write/module-write:lastPrice"),
