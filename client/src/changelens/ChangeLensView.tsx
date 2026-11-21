@@ -185,12 +185,24 @@ export default function ChangeLensView(props: {
       );
     })
   );
+  /** The selected commit's step when that commit changed the chunk, else the whole window. */
+  const stepOf = (chunk: string) => (commit()?.chunkIds.includes(chunk) ? commit()!.sha : undefined);
   const openHunk = (chunk: string, sha?: string) => {
-    setHunk({ chunk, commit: sha });
+    setHunk({ chunk, commit: sha ?? stepOf(chunk) });
     if (lens().chunk !== chunk) setLens({ chunk });
   };
-  /** From the map: the selected commit's step when that commit changed the chunk, else the whole window. */
-  const openFromMap = (chunk: string) => openHunk(chunk, commit()?.chunkIds.includes(chunk) ? commit()!.sha : undefined);
+  const openFromMap = (chunk: string) => openHunk(chunk);
+  // An open diff follows the selected commit.
+  createEffect(
+    on(
+      commit,
+      () => {
+        const open = untrack(hunk);
+        if (open) setHunk({ chunk: open.chunk, commit: stepOf(open.chunk) });
+      },
+      { defer: true }
+    )
+  );
   // An open diff follows the selection, so the arrow keys step through diffs.
   createEffect(
     on(
@@ -198,7 +210,7 @@ export default function ChangeLensView(props: {
       (chunk) => {
         const open = hunk();
         if (!open || open.chunk === chunk) return;
-        setHunk(chunk ? { chunk } : null);
+        setHunk(chunk ? { chunk, commit: stepOf(chunk) } : null);
       },
       { defer: true }
     )
