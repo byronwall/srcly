@@ -14,6 +14,7 @@ import { errorPayload } from "../srcly/protocol";
 import { anchorGraphOp } from "../srcly/ops/anchor-graph";
 import { fileExportsOp } from "../srcly/ops/file-exports";
 import { fileSignalsOp } from "../srcly/ops/file-signals";
+import { flowSignatureOp } from "../srcly/ops/flow-signature";
 import { functionEffectsOp } from "../srcly/ops/function-effects";
 import { routeGraphOp, routeSurfaceOp } from "../srcly/ops/route-graph";
 import { routePathOp } from "../srcly/ops/route-path";
@@ -92,6 +93,7 @@ function perform(operation: AnalysisOperation, requestId: number, cancellation: 
   if (operation.kind === "function-effects") return announce(functionEffectsOp(requireSession(), operation.params, cancellation));
   if (operation.kind === "file-exports") return announce(fileExportsOp(requireSession(), operation.params, cancellation));
   if (operation.kind === "file-signals") return announce(fileSignalsOp(requireSession(), operation.params));
+  if (operation.kind === "flow-signature") return announce(flowSignatureOp(requireSession(), operation.params, cancellation));
   if (operation.kind === "route-path") return announce(routePathOp(requireSession(), operation.params, cancellation));
   if (operation.kind === "refresh") {
     const report = cache.refresh();

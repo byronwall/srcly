@@ -2,6 +2,7 @@ import type { z } from "zod";
 import { anchorGraphResultSchema } from "./anchor-graph";
 import { fileExportsResultSchema } from "./file-exports";
 import { fileSignalsResultSchema } from "./file-signals";
+import { flowSignatureResultSchema } from "./flow-signature";
 import { functionEffectsResultSchema } from "./function-effects";
 import { helloResultSchema } from "./hello";
 import { routeGraphResultSchema } from "./route-graph";
@@ -27,4 +28,5 @@ export const CONTRACTS: { op: string; typeName: string; schema: z.ZodType }[] = 
   { op: "fileExports", typeName: "FileExportsResult", schema: fileExportsResultSchema },
   { op: "routePath", typeName: "RoutePathResult", schema: routePathResultSchema },
   { op: "fileSignals", typeName: "FileSignalsResult", schema: fileSignalsResultSchema },
+  { op: "flowSignature", typeName: "FlowSignatureResult", schema: flowSignatureResultSchema },
 ];

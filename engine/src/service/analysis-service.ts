@@ -80,7 +80,9 @@ export type AnalysisOperation =
   | { kind: "route-path"; params: Record<string, unknown> }
   | { kind: "file-exports"; params: Record<string, unknown> }
   /** Tier 2: the legacy report as per-file metrics, findings and `dataflow.md`. */
-  | { kind: "file-signals"; params: Record<string, unknown> };
+  | { kind: "file-signals"; params: Record<string, unknown> }
+  /** A file's functions as flow signatures, for the compare report's data-flow changes. */
+  | { kind: "flow-signature"; params: Record<string, unknown> };
 
 export function createAnalysisService(args: AnalyzerArgs, engine: EngineConfig | null = null) {
   let workerUrl = import.meta.url.endsWith(".ts")
