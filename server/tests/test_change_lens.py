@@ -302,6 +302,17 @@ def test_only_a_newline_ends_a_line(tmp_path):
     assert "@@ -3,4 +3,4 @@" in service.hunk_diff(repo.path, Params(), "c.ts::c")["diff"]
 
 
+def test_a_renamed_markdown_heading_is_one_section(tmp_path):
+    readme = "# Tool\n\nIntro.\n\n## Usage\n\nUse it.\n\n## More\n\nText.\n"
+    repo = Mini(tmp_path / "r")
+    repo.commit("base", {"README.md": readme})
+    repo.git("checkout", "--quiet", "-b", "feature")
+    repo.commit("rename heading", {"README.md": readme.replace("## Usage", "## How to use")})
+    (section,) = repo.lens()["chunks"]
+    assert (section["id"], section["status"], section["match"]) == ("README.md::## How to use", "modified", "uncertain")
+    assert (section["netAdded"], section["netDeleted"]) == (1, 1)
+
+
 def test_models_mirror_the_client_types():
     """Each interface in types.ts has a model with the same field names on the wire."""
     import re

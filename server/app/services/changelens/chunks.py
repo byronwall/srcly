@@ -455,8 +455,9 @@ def _drafts_for(store: BlobStore, line: Lineage, mode: str) -> list[Draft]:
 # -- pairing -------------------------------------------------------------------
 
 
-def _leaf(key: str) -> str:
-    return _ORDINAL.sub("", key.rsplit(".", 1)[-1])
+def _leaf(draft: Draft) -> str:
+    """The name a moved symbol keeps: the last part of a qualified name, the whole of a heading."""
+    return _ORDINAL.sub("", draft.key if draft.kind == "heading" else draft.key.rsplit(".", 1)[-1])
 
 
 def _similar(a: tuple[str, ...], b: tuple[str, ...]) -> float:
@@ -474,28 +475,28 @@ def _pair_moves(drafts: list[Draft]) -> list[Draft]:
     Same name and a near-identical body is ``moved``. A looser body match, or a
     new name on an unchanged body in the same file, is ``uncertain``.
     """
-    gone = [d for d in drafts if d.kind in ("function", "class") and d.base and not d.head]
-    new = [d for d in drafts if d.kind in ("function", "class") and d.head and not d.base]
+    gone = [d for d in drafts if d.is_symbol and d.base and not d.head]
+    new = [d for d in drafts if d.is_symbol and d.head and not d.base]
     if not gone or not new:
         return drafts
     by_leaf: dict[str, list[Draft]] = defaultdict(list)
     by_file: dict[int, list[Draft]] = defaultdict(list)
     for draft in gone:
-        by_leaf[_leaf(draft.key)].append(draft)
+        by_leaf[_leaf(draft)].append(draft)
         by_file[id(draft.lineage)].append(draft)
     taken: set[int] = set()
     for arrival in new:
         body = arrival.head.body
         best: Optional[tuple[float, Draft, str]] = None
         if len(body) >= 2:
-            for source in by_leaf[_leaf(arrival.key)]:
+            for source in by_leaf[_leaf(arrival)]:
                 if id(source) in taken or source.kind != arrival.kind:
                     continue
                 ratio = _similar(source.base.body, body)
                 if ratio >= UNCERTAIN_AT and (best is None or ratio > best[0]):
                     best = (ratio, source, "moved" if ratio >= MOVED_AT else "uncertain")
-        if best is None and len(body) >= 4:
-            # A renamed symbol: compare the bodies without their first lines, which hold the names.
+        if best is None and len(body) >= (2 if arrival.kind == "heading" else 4):
+            # A renamed symbol or heading: compare the bodies without their first lines, which hold the names.
             for source in by_file[id(arrival.lineage)]:
                 if id(source) in taken or source.kind != arrival.kind:
                     continue

@@ -206,7 +206,12 @@ def parse_text(text: str, path: str) -> Parsed:
         for scope in sorted(group, key=lambda s: s.start - s.end):
             for line in range(scope.start, scope.end + 1):
                 parsed.owner[line] = scope.key
-    if language != "markdown":
+    if language == "markdown":
+        # A section's body is its own text: a subsection is another chunk.
+        for scope in display:
+            own = (lines[i - 1].strip() for i in range(scope.start, scope.end + 1) if parsed.owner[i] == scope.key)
+            scope.body = tuple(text for text in own if text)
+    else:
         lead_in = _LEAD_IN_PYTHON if language == "python" else _LEAD_IN
         def free(line: int, scope: Scope) -> bool:
             """No scope owns the line, or one around ``scope`` does (a class above its method's doc comment)."""
