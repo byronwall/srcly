@@ -56,6 +56,7 @@ Use `uvx srcly scan . --out -` only when a caller explicitly wants raw tree JSON
 ## Command Selection
 
 - Broad review: `uvx srcly report . --out .srcly --format both`
+- Review a branch or a coding session: `uvx srcly changes . --window branch` (or `24h`, `7d`; `--mode net` drops work that was put back; `--json` for the payload). It lists the edited functions and sections, before → after complexity, and two review buckets: already complex and changed, and new hotspots (complexity crossed 10). Paths are relative to the Git repo root.
 - Single metric list: `uvx srcly hotspots . --metric complexity --limit 20` (any non-neutral id from `metrics.schema.json`; `--cohort function` ranks functions)
 - Report ranked by another metric: `uvx srcly report . --out .srcly --metric comment_noise`
 - Named 2x2 (members per quadrant in `report.md` + `quadrants.json`): `uvx srcly report . --out .srcly --quadrant activity` ("Hot mess" = complex and changing often; also `blast_radius`, `component_weight`, `comment_noise`)

@@ -48,7 +48,10 @@ uvx srcly scan . --out .srcly/tree.json
 uvx srcly hotspots . --metric complexity --limit 25
 uvx srcly explain . --at client/src
 uvx srcly explain . --at "client/src/App.tsx::App"
+uvx srcly changes . --window 7d
 ```
+
+`srcly changes` lists the code chunks a branch or a time window edited (`--window branch|24h|7d|custom`, `--mode touched|net`), with before → after complexity and what to review first. The app shows the same result in its **Changes** view.
 
 By default, `uvx srcly report` writes compact artifacts intended to be safe for agents to inspect:
 

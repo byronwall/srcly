@@ -43,7 +43,7 @@ Browser
 | --- | --- |
 | CLI entry point, arg parsing, port pick, browser open | `server/app/run.py` (`main`) |
 | Startup banner and `--version`: version, paths, client build, cache, data-flow engine, `SRCLY_*` overrides | `server/app/startup_info.py` |
-| Headless commands (`scan`, `report`, `hotspots`, `explain`; `report --quadrant <preset>`) | `server/app/run.py` (`_run_headless`) → `server/app/services/reporting.py` |
+| Headless commands (`scan`, `report`, `hotspots`, `explain`, `changes`; `report --quadrant <preset>`) | `server/app/run.py` (`_run_headless`) → `server/app/services/reporting.py` |
 | `explain --at` scopes (folder rollups, file symbols, `file::symbol`, `file::name@line` for same-named symbols, a pasted `path:line name` start-at value), file classes (code/test/docs/style/fixture/…) that the findings queue and folder scores use; the `Analysis:` provenance line (reused or fresh scan, HEAD, uncommitted files, checker coverage) that `explain` and `report` print | `server/app/services/scopes.py` (`find`, `_at_line`, `provenance`, `provenance_line`); per-symbol branch shape (statements vs `&&`/`||`/`?:`, deepest lines, from the analyzer markers) and tests that import or name a file or symbol in `server/app/services/scope_evidence.py`; `server/app/services/file_classes.py`; CLI reuses the analysis cache in `reporting.py` (`scan_tree` sets the root's private `_analysis`); `report`'s printed summary in `run.py` (`_format_quiet_report_summary`) |
 | FastAPI app, CORS, static SPA mount | `server/app/main.py` |
 | Ctrl+C / SIGTERM: cancel running scans, then uvicorn shutdown | `server/app/main.py` (`lifespan`, `_install_scan_cancelling_signal_handlers`); CLI exit code in `server/app/run.py` (`main`) |
@@ -117,6 +117,8 @@ Browser
 | `POST /api/dataflow/anchor-graph` | `routers/dataflow.py:anchor_graph` | A value's neighbourhood from any expression (`span` + `text`, or `name` + `line`), `direction` backward / forward / both; 404 for a name not on its line |
 | `GET /api/files/content` | `routers/files.py:get_file_content` | Raw file text; `ref=<sha>` reads it from a git commit (`git show`) |
 | `GET /api/files/markers` | `routers/files.py:get_file_markers` → `services/markers.py` | Lines behind each metric (`{metric: [{line, end_line, note}]}`) for the code viewer overlay; `ref=` as above |
+| `GET /api/change-lens?path=&window=&mode=&ref=&base=&head=&since=&until=&worktree=` | `routers/changelens.py:get_change_lens` → `services/changelens/service.py:build_payload` | The window's commits, edited chunks and files (`ChangeLensPayload`); paths are relative to `selection.repoRoot`; 409 with a reason outside a Git repo |
+| `GET /api/change-lens/hunk?path=&chunk=&commit=` (+ the same selection params) | `routers/changelens.py:get_change_lens_hunk` → `service.py:hunk_diff` | One chunk's unified diff, base → head or one commit's step (`commit` = sha or `WORKTREE`); 404 for an unknown chunk |
 | `GET /api/compare/refs` | `routers/compare.py:list_refs` | Branches + recent commits for the compare ref picker |
 | `GET /api/compare/sources?kind=prs\|worktrees\|branches` | `routers/compare.py:list_sources` → `services/compare/sources.py` | One picker section each (PRs with worktree/needs-fetch context, live worktrees newest first, branches with ahead/behind); a source that can't load returns `available: false` + reason |
 | `GET /api/compare/commits?base=&head=` | `routers/compare.py:get_commits` → `git_refs.list_commits` | First-parent commits in a range, oldest first, each with its first parent (commit stepper; capped at 100) |
@@ -199,6 +201,25 @@ Ref picker rules:
 - The picker hides prunable worktrees. A worktree head is scanned in place. Compare never changes any worktree's state.
 - A commit's result is cached by SHA. The stepper pre-warms the next commit, so stepping through a PR does not repeat cold scans.
 - Phase timings show where a slow first run spends its time.
+
+### Change Lens (`?view=changes`, `srcly changes`)
+
+Which code chunks a branch or a time window edited. User guide: `site/src/docs/pages/changes.md` (window, touched/net, chunk and bucket rules). The payload contract is `client/src/changelens/types.ts`; the server's Pydantic models mirror it.
+
+| Feature | Where |
+| --- | --- |
+| `srcly changes [path]` (Markdown, `--json`) | `server/app/run.py` → `server/app/services/changelens/service.py` (`build_payload`, `render_markdown`) |
+| Window resolution: first-parent history of `ref`, branch base (merge base, or the upstream tip on the default branch), 24h/7d/custom, 200-commit cap, shallow clones, working tree entry, the scan root's `scope` inside the repo | `server/app/services/changelens/window.py` (`resolve`) |
+| Hunks per commit and base → head (`git diff -U0`), renames | `server/app/services/changelens/hunks.py` |
+| Blob parsing with the scan's analyzers (one parse per side, by blob sha), Markdown headings, generated/vendored files | `server/app/services/changelens/blobs.py` |
+| Chunks: hunk → innermost named scope, file/heading/range chunks, base ↔ head pairing (exact, renamed-file, moved, uncertain), touches, reverted, metrics before → after, review buckets (`COMPLEX_AT`) | `server/app/services/changelens/chunks.py` |
+| Chunk-limited unified diff for one chunk | `server/app/services/changelens/textdiff.py`, `service.py` (`hunk_diff`) |
+| Acceptance repo (every case of the issue) and the client's fixture payloads | `server/tests/fixtures/change_lens_repo.py` (`--write-payloads` writes `client/src/changelens/fixture*.json`), `server/tests/test_change_lens.py` |
+| The view: fetches, URL state (`cw`, `cm`, `cl`, `cc`, `cs`, `clens`, custom refs), selection kept across results, repo ↔ scan paths | `client/src/changelens/ChangeLensView.tsx`, `api.ts`, `urlState.ts` |
+| Toolbar: window presets and Custom form, Touched/Net, Only edits/In repo, color metric with Now/Δ | `client/src/changelens/WindowBar.tsx` |
+| Maps: Only edits packing (floored area, pooled small chunks, collapse), In repo bands, tile states and the delta scale, legend | `client/src/changelens/LensMap.tsx`, `layout.ts`, `colors.ts`, `labels.ts`, `Legend.tsx` |
+| Review panel (props only): `ReviewBuckets`, `ChunkInspector`, `HunkDiff`, `CommitRail`; dev harness `client/panel-harness.html` | `client/src/changelens/panel/` |
+| Browser smoke on the acceptance repo | `client/e2e/changes.spec.ts` |
 
 ### Client: app shell and first run
 
