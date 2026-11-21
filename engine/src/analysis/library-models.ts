@@ -27,6 +27,7 @@ export const libraryModelRowSchema = z
     model: z.enum(LIBRARY_MODEL_TYPES).describe("What the member does."),
     args: z.string().regex(/^(\*|this|\d+)$/).optional().describe("Which arguments the model is about: `0`, `1`, `*` (the default) or `this` for the receiver."),
     role: z.string().min(1).optional().describe("An origin or terminal role."),
+    result: z.string().regex(/^(call|\d+)$/).optional().describe("For a `terminal`: the terminal is not this call but a call of what it returns (`call`, as `useNavigate`'s `navigate`), or of the tuple element it returns at that index (`1`)."),
     with: z.enum(["element", "receiver", "awaited"]).optional().describe("What a callback receives."),
     returns: z.enum(["element", "boolean", "same", "callback", "void"]).optional().describe("What the call yields: `callback` is what the callback at `args` returns; `boolean` a test of it, not it (with `accessor`, on each call of the accessor); `void` is nothing, whatever its callback returns."),
     source: z.string().regex(/^\d+$/).optional().describe("For `calls-back` and `wraps`: the argument whose value (or return) the callback's first parameter receives."),
@@ -133,7 +134,8 @@ export function standardMemberModel(models: LibraryModels, member: { owner: stri
 
 /** An origin's or terminal's role, the element kind it marks, else null. */
 export function boundaryRole(row: LibraryModelRow | null): string | null {
-  return row && (row.model === "origin" || row.model === "terminal") ? row.role ?? null : null;
+  // A row with a `result` marks a function the call hands back (`returnedTerminal`), not the call.
+  return row && (row.model === "origin" || row.model === "terminal") && row.result === undefined ? row.role ?? null : null;
 }
 
 /** The global members a row gives a role to (`process.env`, `process.argv`), for reads matched by the member they name. */

@@ -59,6 +59,11 @@
             "type": "string",
             "minLength": 1
           },
+          "result": {
+            "description": "For a `terminal`: the terminal is not this call but a call of what it returns (`call`, as `useNavigate`'s `navigate`), or of the tuple element it returns at that index (`1`).",
+            "type": "string",
+            "pattern": "^(call|\\d+)$"
+          },
           "with": {
             "description": "What a callback receives.",
             "type": "string",

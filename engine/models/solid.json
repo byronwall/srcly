@@ -202,6 +202,24 @@
     {
       "language": "ts",
       "module": "@solidjs/router",
+      "name": "useNavigate",
+      "model": "terminal",
+      "role": "external-effect",
+      "result": "call",
+      "note": "Calling the function it returns sends the page to that URL: the value leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
+      "name": "useSearchParams",
+      "model": "terminal",
+      "role": "external-effect",
+      "result": "1",
+      "note": "Calling the setter it returns writes the page's query string: the value leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
       "name": "query",
       "model": "wraps",
       "args": "0",
