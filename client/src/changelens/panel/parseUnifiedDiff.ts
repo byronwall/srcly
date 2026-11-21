@@ -90,23 +90,60 @@ function pairWords(lines: DiffLine[]) {
 
 const TOKEN = /\w+|\s+|[^\w\s]/g;
 
-/** Common prefix and suffix tokens stay plain; the middle is the change. */
+/** Most token pairs compared by the LCS; longer pairs fall back to prefix and suffix. */
+const MAX_LCS = 20000;
+
+/** Tokens both lines share (a token LCS) stay plain; the rest is the change. */
 export function markWords(del: DiffLine, add: DiffLine) {
   if (del.text.length > MAX_HIGHLIGHT || add.text.length > MAX_HIGHLIGHT) return;
   const a = del.text.match(TOKEN) ?? [];
   const b = add.text.match(TOKEN) ?? [];
+  const [keepA, keepB] = a.length * b.length <= MAX_LCS ? lcs(a, b) : prefixSuffix(a, b);
+  // Lines that share less than half their text were rewritten; scattered highlights would only add noise.
+  const solid = (tokens: string[], keep?: boolean[]) =>
+    tokens.reduce((n, t, i) => n + (keep && !keep[i] ? 0 : t.replace(/\s/g, "").length), 0);
+  if (solid(a, keepA) < 0.5 * Math.min(solid(a), solid(b))) return;
+  del.spans = spans(a, keepA);
+  add.spans = spans(b, keepB);
+}
+
+function spans(tokens: string[], keep: boolean[]): DiffSpan[] {
+  const out: DiffSpan[] = [];
+  tokens.forEach((text, i) => {
+    const hit = !keep[i];
+    const last = out[out.length - 1];
+    if (last && last.hit === hit) last.text += text;
+    else out.push({ text, hit });
+  });
+  return out;
+}
+
+function lcs(a: string[], b: string[]): [boolean[], boolean[]] {
+  const n = a.length;
+  const m = b.length;
+  const table = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+  for (let i = n - 1; i >= 0; i--)
+    for (let j = m - 1; j >= 0; j--)
+      table[i][j] = a[i] === b[j] ? table[i + 1][j + 1] + 1 : Math.max(table[i + 1][j], table[i][j + 1]);
+  const keepA = new Array<boolean>(n).fill(false);
+  const keepB = new Array<boolean>(m).fill(false);
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) {
+      keepA[i++] = true;
+      keepB[j++] = true;
+    } else if (table[i + 1][j] >= table[i][j + 1]) i++;
+    else j++;
+  }
+  return [keepA, keepB];
+}
+
+function prefixSuffix(a: string[], b: string[]): [boolean[], boolean[]] {
   let pre = 0;
   while (pre < a.length && pre < b.length && a[pre] === b[pre]) pre++;
   let suf = 0;
   while (suf < a.length - pre && suf < b.length - pre && a[a.length - 1 - suf] === b[b.length - 1 - suf]) suf++;
-  // Nothing in common: the whole line changed, and a highlight would only add noise.
-  if (pre + suf === 0) return;
-  const split = (tokens: string[]): DiffSpan[] =>
-    [
-      { text: tokens.slice(0, pre).join(""), hit: false },
-      { text: tokens.slice(pre, tokens.length - suf).join(""), hit: true },
-      { text: tokens.slice(tokens.length - suf).join(""), hit: false },
-    ].filter((s) => s.text);
-  del.spans = split(a);
-  add.spans = split(b);
+  const keep = (len: number) => Array.from({ length: len }, (_, i) => i < pre || i >= len - suf);
+  return [keep(a.length), keep(b.length)];
 }

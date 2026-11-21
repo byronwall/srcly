@@ -46,8 +46,8 @@ describe("parseUnifiedDiff", () => {
 
   it("highlights only the changed words of a paired line", () => {
     const [del, add] = hunks[0].lines.slice(1, 3);
-    expect(del.spans?.filter((s) => s.hit).map((s) => s.text)).toEqual(["0; i <"]);
-    expect(add.spans?.filter((s) => s.hit).map((s) => s.text)).toEqual(["1; i <="]);
+    expect(del.spans?.filter((s) => s.hit).map((s) => s.text)).toEqual(["0"]);
+    expect(add.spans?.filter((s) => s.hit).map((s) => s.text)).toEqual(["1", "="]);
     // The unpaired added line gets no highlight.
     expect(hunks[0].lines[3].spans).toBeUndefined();
   });
