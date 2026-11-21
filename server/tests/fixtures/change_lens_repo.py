@@ -1,4 +1,4 @@
-"""The Change Lens acceptance repo (docs/intent/change-lens/contract.md, "Acceptance fixture").
+"""The Change Lens acceptance repo (issue #397, "Small acceptance fixture").
 
 ``build(folder)`` makes a git repo with a ``main`` commit and a ``feature``
 branch whose commits hold each case the contract names. Dates, names and

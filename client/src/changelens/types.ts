@@ -1,5 +1,6 @@
 // Change Lens payload contract. The server builds it in
-// server/app/services/changelens/; docs/intent/change-lens/contract.md explains each field.
+// server/app/services/changelens/ and mirrors these types in models.py.
+// The window, chunk and bucket rules are in site/src/docs/pages/changes.md.
 // Field names are camelCase on the wire.
 
 export type LensWindow = "branch" | "24h" | "7d" | "custom";

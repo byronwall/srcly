@@ -1,4 +1,4 @@
-"""Change Lens on the acceptance repo (docs/intent/change-lens/contract.md)."""
+"""Change Lens on the acceptance repo (rules: site/src/docs/pages/changes.md)."""
 
 from __future__ import annotations
 
