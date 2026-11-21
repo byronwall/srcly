@@ -29,6 +29,7 @@ MAX_LISTED = 5000
 GIT_TIMEOUT = 30.0
 WINDOW_SPANS = {"24h": timedelta(hours=24), "7d": timedelta(days=7)}
 
+_ROOT_NOTE = "The window reaches the first commit of the repository: its base is the empty tree."
 _FORMAT = "%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1f%P"
 
 
@@ -309,7 +310,7 @@ def _base_from_oldest(window: Window) -> None:
         window.base = Endpoint(f"{oldest.short}^", parent, parent[:7], _commit_ts(window.repo, parent))
     else:
         window.base = Endpoint("empty tree", None, "before the first commit", None)
-        window.notes.append("The window reaches the first commit of the repository: its base is the empty tree.")
+        window.notes.append(_ROOT_NOTE)
 
 
 def _trim(window: Window, boundary: set[str]) -> None:
@@ -321,6 +322,8 @@ def _trim(window: Window, boundary: set[str]) -> None:
         edge = commits[cut]
         window.commits = commits = commits[cut + 1 :]
         window.base = Endpoint(edge.sha, edge.sha, edge.short, edge.ts)
+        if _ROOT_NOTE in window.notes:
+            window.notes.remove(_ROOT_NOTE)
         window.notes.append(f"The window starts at {edge.short}, the oldest commit this shallow clone holds.")
     if len(commits) > MAX_COMMITS:
         total = len(commits)

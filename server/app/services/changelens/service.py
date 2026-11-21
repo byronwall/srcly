@@ -120,7 +120,7 @@ def build_payload(path: Path, params: Params) -> dict:
         since=iso(window.since),
         until=iso(window.until),
         timezone=local_timezone()[0],
-        includes_worktree=window.wants_worktree,
+        includes_worktree=built.has_worktree,
         notes=notes,
         repo_root=str(window.repo),
     )
