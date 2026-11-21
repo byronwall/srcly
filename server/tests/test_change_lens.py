@@ -240,6 +240,20 @@ def test_pr_merges_count_on_a_default_branch_ahead_of_its_upstream(tmp_path):
     assert not any("upstream" in note for note in payload["selection"]["notes"])
 
 
+def test_same_named_scopes_pair_by_body_and_anonymous_objects_are_no_chunks(tmp_path):
+    load = "def load(x):\n    if x:\n        return 1\n    return 0\n"
+    config = 'register({\n  name: "a",\n  retries: 1,\n});\n'
+    repo = Mini(tmp_path / "r")
+    repo.commit("base", {"m.py": load, "conf.ts": config})
+    repo.git("checkout", "--quiet", "-b", "feature")
+    stubs = "@overload\ndef load(x: int) -> int: ...\n@overload\ndef load(x: str) -> str: ...\n"
+    repo.commit("overloads above load, one retry more", {"m.py": stubs + load, "conf.ts": config.replace("1", "2")})
+    chunks = by_id(repo.lens())
+    # The untouched `load` is not listed, wherever it now is in the file.
+    assert {c["status"] for c in chunks.values() if c["path"] == "m.py"} == {"added"}
+    assert [(c["kind"], c["id"]) for c in chunks.values() if c["path"] == "conf.ts"] == [("file", "conf.ts")]
+
+
 def test_models_mirror_the_client_types():
     """Each interface in types.ts has a model with the same field names on the wire."""
     import re

@@ -35,7 +35,7 @@ OUT_OF_SCOPE_CLASSES = frozenset({"generated", "vendored"})
 
 OUTSIDE_SCOPES = "Lines outside every named scope"
 
-_ORDINAL = re.compile(r"#\d+$")
+_ORDINAL = re.compile(r"#\d+(?=\.|$)")
 
 
 @dataclass
@@ -108,7 +108,8 @@ class Draft:
     match: Optional[str] = None
     measured: bool = True
     reason: Optional[str] = None
-    sources: dict[str, list[tuple[Lineage, str]]] = field(default_factory=dict)
+    at: dict[str, tuple[Optional[BlobRef], Optional[Scope], Optional[BlobRef], Optional[Scope]]] = field(default_factory=dict)
+    """Per commit that touched a symbol: the old blob and scope, the new blob and scope."""
     chunk: Optional[LensChunk] = None
 
     @property
@@ -217,11 +218,17 @@ def _lines(store: BlobStore, ref: Optional[BlobRef]) -> list[str]:
 # -- attribution ---------------------------------------------------------------
 
 
-def _attribute(old: Optional[Parsed], new: Optional[Parsed], hunks: list[Hunk]) -> dict[str, Tally]:
+Names = dict[str, str]
+"""A blob's scope keys to the keys the file's chunks have. Empty when the two are the same."""
+
+
+def _attribute(
+    old: Optional[Parsed], new: Optional[Parsed], hunks: list[Hunk], old_names: Names = {}, new_names: Names = {}
+) -> dict[str, Tally]:
     out: dict[str, Tally] = defaultdict(Tally)
     for hunk in hunks:
-        new_keys = new.owners(hunk.new_start, hunk.new_lines) if new else [""] * hunk.new_lines
-        old_keys = old.owners(hunk.old_start, hunk.old_lines) if old else [""] * hunk.old_lines
+        new_keys = [new_names.get(k, k) for k in new.owners(hunk.new_start, hunk.new_lines)] if new else [""] * hunk.new_lines
+        old_keys = [old_names.get(k, k) for k in old.owners(hunk.old_start, hunk.old_lines)] if old else [""] * hunk.old_lines
         for key in new_keys:
             out[key].added += 1
         for key in old_keys:
@@ -235,29 +242,121 @@ def _whole(hunks: list[Hunk]) -> Tally:
     return Tally(sum(h.new_lines for h in hunks), sum(h.old_lines for h in hunks), list(hunks))
 
 
+def _align(a: Parsed, b: Parsed) -> Names:
+    """Each scope key of ``a`` to the key of its scope in ``b``.
+
+    Scopes pair by qualified name. When a name is held more than once (overloads,
+    a getter and its setter), identical bodies pair first, then the closest
+    bodies: position in the file never decides.
+    """
+    theirs: dict[str, list[Scope]] = defaultdict(list)
+    for scope in b.scopes.values():
+        theirs[scope.group].append(scope)
+    mine: dict[str, list[Scope]] = defaultdict(list)
+    for scope in a.scopes.values():
+        mine[scope.group].append(scope)
+    out: Names = {}
+    for group, left in mine.items():
+        right = list(theirs.get(group, []))
+        if len(left) == 1 and len(right) == 1:
+            out[left[0].key] = right[0].key
+            continue
+        rest = []
+        for scope in left:
+            same = next((other for other in right if other.body == scope.body), None)
+            if same is None:
+                rest.append(scope)
+            else:
+                out[scope.key] = same.key
+                right.remove(same)
+        ranked = sorted(
+            ((-SequenceMatcher(None, s.body, o.body, autojunk=False).ratio(), i, j) for i, s in enumerate(rest) for j, o in enumerate(right)),
+        )
+        used: set[int] = set()
+        for _, i, j in ranked:
+            if rest[i].key not in out and j not in used:
+                out[rest[i].key] = right[j].key
+                used.add(j)
+    return out
+
+
+def _chunk_names(base: Optional[Parsed], head: Optional[Parsed], others: list[Parsed]) -> dict[int, Names]:
+    """For each parsed blob of one file (by ``id``): its scope keys as chunk keys.
+
+    A chunk has its key at head. A scope that is not at head has its key at
+    base; one that is at neither end has its own key. A key already taken gets a new ordinal.
+    """
+    if not any(p.dupes for p in (base, head, *others) if p):
+        return {}
+    taken = set(head.scopes) if head else set()
+    spare: dict[tuple[bool, str], str] = {}
+
+    def fresh(key: str, at_base: bool = False) -> str:
+        slot = (at_base, key)
+        if slot not in spare:
+            name, n = _ORDINAL.sub("", key), 2
+            spare[slot] = name
+            while spare[slot] in taken:
+                spare[slot] = f"{name}#{n}"
+                n += 1
+            taken.add(spare[slot])
+        return spare[slot]
+
+    out: dict[int, Names] = {}
+    if head:
+        out[id(head)] = {key: key for key in head.scopes}
+    base_names: Names = {}
+    if base and id(base) not in out:
+        to_head = _align(base, head) if head else {}
+        base_names = out[id(base)] = {key: to_head.get(key) or fresh(key, at_base=True) for key in base.scopes}
+    for parsed in others:
+        if id(parsed) in out:
+            continue
+        to_head = _align(parsed, head) if head else {}
+        to_base = _align(parsed, base) if base else {}
+        out[id(parsed)] = {
+            key: to_head.get(key) or (base_names[to_base[key]] if key in to_base and base_names else None) or fresh(key)
+            for key in parsed.scopes
+        }
+    return out
+
+
+def _scope_at(parsed: Optional[Parsed], names: Names, key: str) -> Optional[Scope]:
+    if parsed is None:
+        return None
+    if not names:
+        return parsed.scopes.get(key)
+    return next((scope for raw, scope in parsed.scopes.items() if names[raw] == key), None)
+
+
 def _symbol_drafts(store: BlobStore, line: Lineage) -> list[Draft]:
-    touches: dict[str, dict[str, Tally]] = defaultdict(dict)
-    seen: dict[str, Scope] = {}
-    for change in line.changes:
-        old, new = store.parsed(change.old), store.parsed(change.new)
-        for key, tally in _attribute(old, new, change.hunks).items():
-            touches[key][change.sha] = tally
-            scope = (new and new.scopes.get(key)) or (old and old.scopes.get(key))
-            if scope:
-                seen[key] = scope
     base, head = store.parsed(line.base), store.parsed(line.head)
-    net = _attribute(base, head, line.net)
+    sides = [(change, store.parsed(change.old), store.parsed(change.new)) for change in line.changes]
+    names = _chunk_names(base, head, [p for _, old, new in sides for p in (old, new) if p])
+    touches: dict[str, dict[str, Tally]] = defaultdict(dict)
+    at: dict[str, dict] = defaultdict(dict)
+    seen: dict[str, Scope] = {}
+    for change, old, new in sides:
+        old_names, new_names = names.get(id(old), {}), names.get(id(new), {})
+        for key, tally in _attribute(old, new, change.hunks, old_names, new_names).items():
+            touches[key][change.sha] = tally
+            old_scope, new_scope = _scope_at(old, old_names, key), _scope_at(new, new_names, key)
+            at[key][change.sha] = (change.old, old_scope, change.new, new_scope)
+            if new_scope or old_scope:
+                seen[key] = new_scope or old_scope
+    base_names = names.get(id(base), {})
+    net = _attribute(base, head, line.net, base_names)
 
     drafts = []
     for key in dict.fromkeys([*touches, *net]):
-        base_scope = base.scopes.get(key) if base else None
+        base_scope = _scope_at(base, base_names, key)
         head_scope = head.scopes.get(key) if head else None
         scope = head_scope or base_scope or seen.get(key)
         if key and scope is None:
             continue
         draft = Draft(line, key, scope.kind if scope else "file", key or line.shown_path.rsplit("/", 1)[-1])
         draft.base, draft.head, draft.seen = base_scope, head_scope, scope
-        draft.touches, draft.net = touches.get(key, {}), net.get(key, Tally())
+        draft.touches, draft.net, draft.at = touches.get(key, {}), net.get(key, Tally()), at.get(key, {})
         if not key:
             draft.measured, draft.reason = False, OUTSIDE_SCOPES
             parsed = head or base
@@ -352,7 +451,7 @@ def _drafts_for(store: BlobStore, line: Lineage, mode: str) -> list[Draft]:
 
 
 def _leaf(key: str) -> str:
-    return _ORDINAL.sub("", key).rsplit(".", 1)[-1]
+    return _ORDINAL.sub("", key.rsplit(".", 1)[-1])
 
 
 def _similar(a: tuple[str, ...], b: tuple[str, ...]) -> float:
@@ -405,7 +504,9 @@ def _pair_moves(drafts: list[Draft]) -> list[Draft]:
         arrival.base, arrival.base_lineage, arrival.base_key, arrival.match = source.base, source.lineage, source.key, match
         for sha, tally in source.touches.items():
             arrival.touches.setdefault(sha, Tally()).add(tally)
-            arrival.sources.setdefault(sha, []).append((source.lineage, source.key))
+            # The commit's two sides: the arrival's own, and the source's where the arrival has none.
+            mine, theirs = arrival.at.get(sha, (None,) * 4), source.at.get(sha, (None,) * 4)
+            arrival.at[sha] = (*(mine[:2] if mine[1] else theirs[:2]), *(mine[2:] if mine[3] else theirs[2:]))
         arrival.net.hunks.extend(source.net.hunks)
         if source.lineage is not arrival.lineage:
             source.lineage.gave_chunk = True

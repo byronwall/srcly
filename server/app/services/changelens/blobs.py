@@ -68,6 +68,8 @@ class Scope:
     metrics: dict[str, Optional[float]]
     body: tuple[str, ...]
     """Stripped, non-blank lines: what move detection compares."""
+    group: str = ""
+    """The qualified name with no ordinal: scopes that share it are told apart by their bodies."""
 
 
 @dataclass
@@ -82,6 +84,8 @@ class Parsed:
     reason: Optional[str] = None
     """Why no scopes were read, when none were."""
     file_metrics: dict[str, Optional[float]] = field(default_factory=dict)
+    dupes: bool = False
+    """Two scopes share a qualified name, so one key holds an ordinal (``load#2``)."""
 
     def owners(self, start: int, count: int) -> list[str]:
         """Scope key of each line in a hunk side.
@@ -97,6 +101,7 @@ class Parsed:
         return keys
 
 
+_ORDINAL = re.compile(r"#\d+(?=\.|$)")
 _cache: OrderedDict[tuple, Parsed] = OrderedDict()
 
 
@@ -151,34 +156,40 @@ def parse_text(text: str, path: str) -> Parsed:
     def body(start: int, end: int) -> tuple[str, ...]:
         return tuple(s for s in (line.strip() for line in lines[start - 1 : end]) if s)
 
-    def walk(funcs, prefix: str) -> None:
+    def add(key: str, name: str, kind: str, start: int, end: int, metrics: dict) -> Scope:
+        scope = Scope(_unique(key, parsed.scopes), name, kind, start, min(end, n), metrics, body(start, end), _ORDINAL.sub("", key))
+        parsed.dupes = parsed.dupes or scope.key != key
+        parsed.scopes[scope.key] = scope
+        return scope
+
+    def walk(funcs, prefix: str, anonymous: bool = False) -> None:
         for func in funcs or []:
             start, end = int(getattr(func, "start_line", 0) or 0), int(getattr(func, "end_line", 0) or 0)
             children = getattr(func, "children", None) or []
             if language == "markdown":
                 if getattr(func, "origin_type", "") == "markdown_section" and 0 < start <= end:
-                    key = _unique(func.name, parsed.scopes)
-                    scope = Scope(key, func.name, "heading", start, min(end, n), {}, body(start, end))
-                    parsed.scopes[key] = scope
-                    display.append(scope)
+                    display.append(add(func.name, func.name, "heading", start, end, {}))
                 walk(children, prefix)
                 continue
             kind = scope_kind(func)
             name = _clean(func.name or "")
-            if kind not in ("function", "class", "type", "object") or not _NAME.match(name) or not 0 < start <= end:
-                walk(children, prefix)
+            # An object literal with no binding has the analyzer's placeholder name. It is no symbol,
+            # and neither is an object under one of its keys: their lines stay with the scope around them.
+            if kind == "object" and (anonymous or func.name == "object"):
+                walk(children, prefix, anonymous=True)
                 continue
-            key = _unique(prefix + name, parsed.scopes)
+            if kind not in ("function", "class", "type", "object") or not _NAME.match(name) or not 0 < start <= end:
+                walk(children, prefix, anonymous)
+                continue
             if kind == "function":
                 metrics = {m: _scope_value(func, m) for m in measured}
                 metrics["loc"] = func.nloc
-                scope = Scope(key, name, "function", start, min(end, n), metrics, body(start, end))
+                scope = add(prefix + name, name, "function", start, end, metrics)
                 executable.append(scope)
             else:
-                scope = Scope(key, name, "class", start, min(end, n), {"loc": func.nloc}, body(start, end))
+                scope = add(prefix + name, name, "class", start, end, {"loc": func.nloc})
                 display.append(scope)
-            parsed.scopes[key] = scope
-            walk(children, key + ".")
+            walk(children, scope.key + ".")
 
     walk(info.function_list, "")
     if language == "markdown":

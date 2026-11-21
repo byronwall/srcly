@@ -191,19 +191,12 @@ def hunk_diff(path: Path, params: Params, chunk_id: str, commit: Optional[str] =
             label_from, label_to = f"{commit[:7]}^", commit[:7]
         if sha is not None:
             recorded = draft.touches[sha].hunks
-            places: list[tuple[Lineage, str]] = [(line, draft.key), *draft.sources.get(sha, [])]
-            for place, key in places:
-                change = _change_at(place, sha)
-                if change is None:
-                    continue
-                if not draft.is_symbol:
+            if draft.is_symbol:
+                old_ref, old_scope, new_ref, new_scope = draft.at.get(sha, (None,) * 4)
+            else:
+                change = _change_at(line, sha)
+                if change is not None:
                     old_ref, new_ref = change.old, change.new
-                    break
-                before, after = store.parsed(change.old), store.parsed(change.new)
-                if old_scope is None and before and key in before.scopes:
-                    old_ref, old_scope = change.old, before.scopes[key]
-                if new_scope is None and after and key in after.scopes:
-                    new_ref, new_scope = change.new, after.scopes[key]
 
     old_lines = (store.text(old_ref) or "").splitlines()
     new_lines = (store.text(new_ref) or "").splitlines()
