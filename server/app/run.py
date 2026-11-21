@@ -80,7 +80,7 @@ def _main(argv: list[str] | None = None) -> None:
     - Opens the default browser to the app URL.
     """
     argv = list(argv) if argv is not None else sys.argv[1:]
-    if argv and argv[0] in {"scan", "report", "hotspots", "explain", "compare", "fix", "check", "trace", "impact"}:
+    if argv and argv[0] in {"scan", "report", "hotspots", "explain", "compare", "changes", "fix", "check", "trace", "impact"}:
         # stderr, so JSON on stdout stays clean.
         print(startup_info.version_line(), file=sys.stderr, flush=True)
         _run_headless(argv)
@@ -99,6 +99,7 @@ def _main(argv: list[str] | None = None) -> None:
             "  explain   drill into the repo, a folder, a file, or file::symbol\n"
             "  hotspots  rank files or functions by one metric\n"
             "  compare   metric and dependency changes between two git refs\n"
+            "  changes   the code chunks a branch or time window edited, and what to review first\n"
             "  fix       show, then apply (--write), safe fixes for srcly's own findings\n"
             "  check     --ratchet: fail when a file over the size budget grows\n"
             "  trace     where a value comes from and goes (data flow), or --effects\n"
@@ -455,6 +456,31 @@ def _run_headless(argv: list[str]) -> None:
     )
     compare_parser.add_argument("--limit", type=_positive_int, default=40, help="Maximum files in the markdown summary.")
 
+    changes_parser = subparsers.add_parser(
+        "changes",
+        help="Change Lens: the code chunks a branch or time window edited, with before → after complexity.",
+    )
+    changes_parser.add_argument("path", nargs="?", default=None, help="Folder to read. Defaults to the enclosing Git repo root.")
+    changes_parser.add_argument(
+        "--window",
+        choices=["branch", "24h", "7d", "custom"],
+        default=None,
+        help="branch (default): this branch against its base. 24h, 7d: commits in that time. custom: use --base/--head or --since/--until.",
+    )
+    changes_parser.add_argument(
+        "--mode",
+        choices=["touched", "net"],
+        default="touched",
+        help="touched (default): every chunk a commit in the window changed. net: the base snapshot against the head.",
+    )
+    changes_parser.add_argument("--ref", default="HEAD", help="Branch or revision whose first-parent history is read. Defaults to HEAD.")
+    changes_parser.add_argument("--base", default=None, help="Base revision of a custom window.")
+    changes_parser.add_argument("--head", default=None, help="Head revision of a custom window. Defaults to --ref.")
+    changes_parser.add_argument("--since", default=None, help="Start of a custom time window (ISO 8601).")
+    changes_parser.add_argument("--until", default=None, help="End of a custom time window (ISO 8601). Defaults to now.")
+    changes_parser.add_argument("--no-worktree", action="store_true", help="Leave staged and unstaged edits out.")
+    changes_parser.add_argument("--json", action="store_true", help="Print the Change Lens payload as JSON.")
+
     fix_parser = subparsers.add_parser(
         "fix", help="Show, then apply, the safe mechanical fixes for srcly's own findings."
     )
@@ -508,6 +534,9 @@ def _dispatch(args) -> None:
 
     if args.command == "compare":
         _run_compare(args)
+        return
+    if args.command == "changes":
+        _run_changes(args)
         return
 
     if args.command == "scan":
@@ -695,6 +724,28 @@ def _run_compare(args) -> None:
         print(reporting._json_dumps(payload))
     elif not args.out:
         print(render_markdown(payload, limit=args.limit), end="")
+
+
+def _run_changes(args) -> None:
+    from app.services.changelens import service
+    from app.services.changelens.window import LensError, Params
+
+    custom = any((args.base, args.head, args.since, args.until))
+    params = Params(
+        window=args.window or ("custom" if custom else "branch"),
+        mode=args.mode,
+        ref=args.ref,
+        base=args.base,
+        head=args.head,
+        since=args.since,
+        until=args.until,
+        worktree=False if args.no_worktree else None,
+    )
+    try:
+        payload = service.build_payload(_resolve_target_path(args.path), params)
+    except LensError as exc:
+        raise SystemExit(str(exc)) from exc
+    print(reporting._json_dumps(payload) if args.json else service.render_markdown(payload), end="" if args.json else "\n")
 
 
 def _deprioritize_paths(args) -> tuple[str, ...]:
