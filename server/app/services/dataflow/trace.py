@@ -658,7 +658,7 @@ def render_impact_value(graphs: list[tuple[str, Graph]], title: str, limit: int)
         if result["outcome"] not in order or order.index(result["outcome"]) > order.index(worst):
             worst = result["outcome"]
         for n in graph.origins():
-            if n.get("elementKind") == "parameter" and n["side"] == "up" and graph.into.get(n["id"]) is None and len(graphs) and n["id"] != graph.anchor:
+            if n.get("elementKind") == "parameter":
                 continue  # the reading function's own parameter, not a writer
             writers[where(n)] = f"{kind_of(n)} `{clip(n['label'], 50)}`"
         for n in graph.boxes():
