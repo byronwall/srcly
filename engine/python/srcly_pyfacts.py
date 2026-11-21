@@ -1626,7 +1626,12 @@ class BodyWalker:
             alias = self.element(alias_kind, target, target.id, type_text=type_text, type_source=type_source, proof=proof, operation="alias" if alias_kind == "alias" else None,
                                  attributes={"name": target.id} if alias_kind == "parameter" else None)
             self.note(target, "Name", ty=type_text, tsrc=type_source, n=target.id, d=1, f=[list(self.span(value_node).values())] if value_node is not target else None)
-            self.scope.bind(target.id, (target.lineno, target.col_offset), alias)
+            # The binding takes effect after its value is read: in `frame = frame.dropna()`, the read sees the earlier `frame`.
+            position = (target.lineno, target.col_offset)
+            end = (getattr(value_node, "end_lineno", None), getattr(value_node, "end_col_offset", None))
+            if value_node is not target and end[0] is not None and end[1] is not None:
+                position = max(position, (end[0], end[1]))
+            self.scope.bind(target.id, position, alias)
             words = {"carrier": f"assigned to `{target.id}`", "for-element": f"each item of {clip(self.source.segment(value_node), 40)} becomes `{target.id}`"}
             self.relate(value, alias, kind, words.get(kind, kind), target)
             return alias

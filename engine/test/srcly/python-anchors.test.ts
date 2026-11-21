@@ -408,6 +408,15 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(ends("row", 32)).not.toContain("external-effect@35");
   });
 
+  it("lets a read in a binding's own value see the earlier binding", () => {
+    // `text = text.strip()` reads the `text` bound on the line before, not itself.
+    const tidy = anchorGraphOp(session, { ...at("app/rebind.py", "text", "    return text"), direction: "backward" });
+    expect([...new Set(boxes(tidy).filter((node) => node.elementKind === "parameter").map((node) => `${node.label}@${node.line}`))]).toEqual(["raw@1"]);
+    // A later binding is not seen by an earlier read: `other` holds `raw.lower()`, never the literal.
+    const other = anchorGraphOp(session, { ...at("app/rebind.py", "other", "    return other"), direction: "backward" });
+    expect(boxes(other).some((node) => node.line === 10)).toBe(false);
+  });
+
   it("names a file that did not parse, and a name that is not on its line", () => {
     expect(() => anchor("app/broken.py", "broken", 1)).toThrow(/No broken on line 1 of broken\.py: the file did not parse \(syntax error on line 1/);
     expect(() => anchor("app/models.py", "Order", 5)).toThrow(/^No Order on line 5 of models\.py$/);
