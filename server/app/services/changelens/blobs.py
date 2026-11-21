@@ -207,9 +207,18 @@ def parse_text(text: str, path: str) -> Parsed:
                 parsed.owner[line] = scope.key
     if language != "markdown":
         lead_in = _LEAD_IN_PYTHON if language == "python" else _LEAD_IN
+        def free(line: int, scope: Scope) -> bool:
+            """No scope owns the line, or one around ``scope`` does (a class above its method's doc comment)."""
+            around = parsed.scopes.get(parsed.owner[line])
+            if around is None:
+                return True
+            return around.start <= scope.start and scope.end <= around.end and around is not scope and not (
+                around.kind == "function" and scope.kind != "function"
+            )
+
         for scope in sorted(parsed.scopes.values(), key=lambda s: s.start):
             line = scope.start - 1
-            while line >= 1 and not parsed.owner[line] and lines[line - 1].lstrip().startswith(lead_in):
+            while line >= 1 and free(line, scope) and lines[line - 1].lstrip().startswith(lead_in):
                 parsed.owner[line] = scope.key
                 line -= 1
             scope.start = line + 1

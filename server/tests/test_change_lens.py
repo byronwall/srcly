@@ -268,6 +268,16 @@ def test_a_path_reused_after_a_rename_is_a_new_file(tmp_path):
         assert {(c["id"], c["status"]) for c in payload["chunks"]} == {("a.ts::fresh", "added"), ("b.ts", "moved")}
 
 
+def test_doc_comment_and_decorator_above_a_method_belong_to_the_method(tmp_path):
+    api = "export class Api {\n  /** Loads one. */\n  @log()\n  load(id: string) {\n    return id;\n  }\n}\n"
+    repo = Mini(tmp_path / "r")
+    repo.commit("base", {"api.ts": api})
+    repo.git("checkout", "--quiet", "-b", "feature")
+    repo.commit("reword, trace", {"api.ts": api.replace("Loads one", "Loads one item").replace("@log()", "@trace()")})
+    chunks = by_id(repo.lens())
+    assert set(chunks) == {"api.ts::Api.load"} and chunks["api.ts::Api.load"]["added"] == 2
+
+
 def test_models_mirror_the_client_types():
     """Each interface in types.ts has a model with the same field names on the wire."""
     import re
