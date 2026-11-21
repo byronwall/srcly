@@ -26,7 +26,12 @@ PROFILE_WEIGHTS: dict[str, dict[str, float]] = metric_catalog.profile_weights()
 
 
 def scan_tree(
-    root_path: Path, *, verbose: bool = False, activity_window: str | None = None, refresh: bool = False
+    root_path: Path,
+    *,
+    verbose: bool = False,
+    activity_window: str | None = None,
+    refresh: bool = False,
+    dataflow: bool = False,
 ) -> Node:
     """
     Scan ``root_path`` and lay Git activity for ``activity_window`` (default
@@ -34,7 +39,9 @@ def scan_tree(
 
     The analysis tree is shared with the app's cache: while no file under the
     root has changed, a second command (or the app) reuses it instead of
-    rescanning. ``refresh`` rescans and reruns the checks.
+    rescanning. ``refresh`` rescans and reruns the checks. ``dataflow`` also
+    runs the data-flow engine's render-path report (minutes on a big app)
+    and lays its metrics over the tree; ``tree._dataflow`` keeps the result.
     """
     from concurrent.futures import ThreadPoolExecutor
 
@@ -42,9 +49,16 @@ def scan_tree(
 
     root = root_path.resolve()
     fingerprint = cache.fingerprint(root)
-    with ThreadPoolExecutor(max_workers=1) as pool:
+    from app.services.dataflow import signals as dataflow_signals
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
         checks = pool.submit(
             lambda: lint_findings.collect(root, fingerprint=fingerprint, use_cache=not refresh)
+        )
+        flow = (
+            pool.submit(lambda: dataflow_signals.collect(root, fingerprint=fingerprint, use_cache=not refresh))
+            if dataflow
+            else None
         )
         entry = None if refresh else cache.analysis_cache.load(root, fingerprint)
         if entry is not None:
@@ -66,7 +80,11 @@ def scan_tree(
             )
         data = activity.apply_to_scan(data, root, activity_window)
         lint_findings.apply_to_tree(data, checks.result())
+        signals = flow.result() if flow else None
+        if signals is not None:
+            dataflow_signals.apply_to_tree(data, signals)
     tree = Node.model_validate(data)
+    tree._dataflow = signals
     tree._analysis = AnalysisInfo(
         reused=entry is not None,
         scanned_at=datetime.fromtimestamp(scanned_at, timezone.utc).isoformat(timespec="seconds"),
@@ -113,12 +131,13 @@ def build_report_payload(
     quadrant: str | None = None,
     quadrant_cohort: str | None = None,
     include_classes: Iterable[str] = ("code",),
+    dataflow: bool = False,
 ) -> dict[str, Any]:
     if profile not in PROFILE_WEIGHTS:
         raise ValueError(f"Unknown profile: {profile}")
     metric = metric or metric_catalog.profile_lead(profile)
 
-    tree = scan_tree(root_path, verbose=verbose, activity_window=activity_window, refresh=refresh)
+    tree = scan_tree(root_path, verbose=verbose, activity_window=activity_window, refresh=refresh, dataflow=dataflow)
     rank_options = dict(
         profile=profile,
         root_path=root_path,
@@ -151,6 +170,12 @@ def build_report_payload(
     manifest = build_manifest(root_path=root_path, profile=profile)
     manifest["activity"] = tree.activity.model_dump() if tree.activity else None
     manifest["checks"] = tree.findings.model_dump() if tree.findings else None
+    signals = tree._dataflow
+    manifest["dataflow"] = (
+        {"status": signals.status, "reason": signals.reason, "findings": len(signals.result.findings) if signals.result else 0}
+        if signals
+        else None
+    )
     manifest["analysis"] = scopes.provenance(tree, root_path.resolve())
     manifest["cache_used"] = bool(tree._analysis and tree._analysis.reused)
     metrics_schema = build_metrics_schema()
@@ -179,12 +204,15 @@ def build_report_payload(
             focus_paths=focus_paths,
             deprioritize_paths=deprioritize_paths,
         )
-        + (f"\n{quadrants.render_markdown(quadrant_result)}" if quadrant_result else ""),
+        + (f"\n{quadrants.render_markdown(quadrant_result)}" if quadrant_result else "")
+        + (f"\n{render_dataflow_section(signals, root_path)}" if signals else ""),
         "action_plan_markdown": action_plan_markdown,
         "agent_skill_markdown": render_agent_skill(),
     }
     if quadrant_result:
         payload["quadrants"] = quadrant_result
+    if signals is not None and signals.result is not None:
+        payload["dataflow_markdown"] = signals.result.markdown
     if include_tree:
         payload["tree"] = _node_to_json(tree)
     if include_dependencies:
@@ -219,6 +247,7 @@ def write_report(
     quadrant: str | None = None,
     quadrant_cohort: str | None = None,
     include_classes: Iterable[str] = ("code",),
+    dataflow: bool = False,
 ) -> dict[str, Path]:
     payload = build_report_payload(
         root_path,
@@ -239,6 +268,7 @@ def write_report(
         quadrant=quadrant,
         quadrant_cohort=quadrant_cohort,
         include_classes=include_classes,
+        dataflow=dataflow,
     )
     return write_artifacts(payload, out_dir, output_format=output_format)
 
@@ -266,6 +296,8 @@ def write_artifacts(payload: dict[str, Any], out_dir: Path, *, output_format: Ou
         written["report"] = _write_text(out_dir / "report.md", payload["report_markdown"])
         written["action_plan"] = _write_text(out_dir / "action-plan.md", payload["action_plan_markdown"])
         written["agent_skill"] = _write_text(out_dir / "agent-skill.md", payload["agent_skill_markdown"])
+        if "dataflow_markdown" in payload:
+            written["dataflow"] = _write_text(out_dir / "dataflow.md", payload["dataflow_markdown"])
 
     # The ratchet's state, always: `srcly check --ratchet` compares against it.
     from app.services import size_budget
@@ -629,6 +661,32 @@ def render_markdown_report(
     return "\n".join(lines) + "\n"
 
 
+def render_dataflow_section(signals: Any, root_path: Path, limit: int = 15) -> str:
+    """``report.md``'s data-flow section: the findings by line, then where the work packets are."""
+    lines = ["## Data flow", ""]
+    if signals.status != "ok" or signals.result is None:
+        return "\n".join([*lines, f"Not analyzed: {signals.reason}", ""])
+    result = signals.result
+    counts = {rule: sum(1 for f in result.findings if f.rule == rule) for rule in ("impossible-defense", "repeated-fork")}
+    lines.append(
+        f"The TypeScript checker found {counts['impossible-defense']} type-impossible `??`/`?.` guards and "
+        f"{counts['repeated-fork']} repeated {'fork' if counts['repeated-fork'] == 1 else 'forks'}. Read `dataflow.md` for ranked work packets, candidate edits, "
+        "the risk queue and the stop recommendation."
+    )
+    if result.unplacedDefenses:
+        lines.append(f"{result.unplacedDefenses} more impossible guards could not be placed in a file and are not listed.")
+    lines.extend(["", "| Rule | Where | Finding |", "| --- | --- | --- |"])
+    prefix = _display_path(signals.root, root_path)
+    for f in result.findings[:limit]:
+        where = f.file if prefix in (".", "") else f"{prefix}/{f.file}"
+        lines.append(f"| {f.rule} | `{where}:{f.line}` | {f.message.replace('|', '\\|')} |")
+    if not result.findings:
+        lines.append("| – | | No data-flow findings |")
+    elif len(result.findings) > limit:
+        lines.append(f"| +{len(result.findings) - limit} more | | Each one is also a code-viewer mark. |")
+    return "\n".join([*lines, ""])
+
+
 def _activity_line(info: dict[str, Any] | None) -> str:
     if not info:
         return "- Git activity: not collected"
@@ -776,6 +834,8 @@ def enrich_manifest_with_artifacts(
                 ("agent_skill", "agent-skill.md", payload["agent_skill_markdown"], 10, "reference"),
             ]
         )
+        if "dataflow_markdown" in payload:
+            artifact_specs.append(("dataflow", "dataflow.md", payload["dataflow_markdown"], 4, "top_n"))
     manifest["artifacts"] = [
         {
             "name": name,

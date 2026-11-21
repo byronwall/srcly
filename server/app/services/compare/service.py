@@ -18,7 +18,7 @@ from app.services.compare.git_refs import (
     resolve_auto_base,
     resolve_ref,
 )
-from app.services.compare.snapshots import Side, load_side
+from app.services.compare.snapshots import Side, load_side, with_dataflow
 from app.services.scan_progress import NULL_OBSERVER, ScanObserver
 from app.services.scan_workers import CancelToken
 
@@ -98,12 +98,14 @@ def build_compare(
     on_phase: Callable[[str], None] = lambda _phase: None,
     timer: Optional[StepTimer] = None,
     activity_window: Optional[str] = None,
+    dataflow: bool = False,
 ) -> dict[str, Any]:
     """
     Compare ``base`` → ``head`` for the git repo containing ``path``.
 
     ``include_sides`` adds both full trees and graphs (what the UI draws);
-    the CLI omits them by default to keep the JSON small.
+    the CLI omits them by default to keep the JSON small. ``dataflow`` also
+    runs the data-flow engine on both sides, so its metrics are diffed.
     """
     timer = timer or StepTimer()
 
@@ -137,6 +139,10 @@ def build_compare(
     for side in (base_side, head_side):
         result = activity.collect(side.ref.root(repo), activity_window, rev=side.ref.sha)
         activity.apply_to_tree(side.tree, result, lambda path: path)
+    if dataflow:
+        phase("dataflow")
+        for side in (base_side, head_side):
+            with_dataflow(repo, side)
 
     phase("diffing")
     payload: dict[str, Any] = {

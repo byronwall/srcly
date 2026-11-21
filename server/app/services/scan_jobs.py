@@ -28,6 +28,7 @@ from starlette.responses import Response
 
 from app.models import Metrics, Node
 from app.services import activity, analysis, cache, findings
+from app.services.dataflow import signals as dataflow_signals
 from app.services.scan_progress import ScanObserver
 from app.services.scan_workers import CancelToken, ScanCancelled
 
@@ -282,9 +283,12 @@ class ScanJob(ScanObserver):
         window = activity.normalize_window(window)
         result = activity.collect(self.root_path, window)
         checks = self.findings_result()
+        # Data-flow metrics only from a `--dataflow` run on these very files: the engine never starts here.
+        flow = dataflow_signals.cached(self.root_path)
+        flow = flow if flow is not None and flow.status == "ok" and flow.fingerprint == self.fingerprint else None
         signature = (
             result.status, result.reason, result.note, result.head, result.repo_root, len(result.files),
-            checks.status, id(self.findings_job),
+            checks.status, id(self.findings_job), id(flow),
         )
         with self._result_json_lock:
             hit = self._overlay_json.get(window)
@@ -293,6 +297,8 @@ class ScanJob(ScanObserver):
         tree = json.loads(self.result_json())
         activity.apply_to_tree(tree, result, activity.scan_path_mapper(self.root_path, result))
         findings.apply_to_tree(tree, checks)
+        if flow is not None:
+            dataflow_signals.apply_to_tree(tree, flow)
         data = json.dumps(compact_tree(tree), separators=(",", ":")).encode()
         with self._result_json_lock:
             self._overlay_json[window] = (signature, data)

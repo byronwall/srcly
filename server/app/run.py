@@ -329,6 +329,14 @@ def _run_headless(argv: list[str]) -> None:
         default=[],
         help="Also rank this file class. May be repeated.",
     )
+    report_parser.add_argument(
+        "--dataflow",
+        action="store_true",
+        help=(
+            "Also run the TypeScript data-flow engine (needs Node 18+): data-flow metrics and findings, "
+            "and dataflow.md with ranked work packets. Takes minutes on a big app."
+        ),
+    )
     report_parser.add_argument("--tree-depth", type=_positive_int, default=3, help="Maximum depth in tree.summary.json.")
     report_parser.add_argument("--tree-top", type=_positive_int, default=6, help="Maximum children per tree level.")
     report_parser.add_argument("--include-tree", action="store_true", help="Also write/include the full raw tree.json artifact.")
@@ -434,6 +442,11 @@ def _run_headless(argv: list[str]) -> None:
         help="Include both full trees and dependency graphs in the JSON.",
     )
     compare_parser.add_argument("--refresh", action="store_true", help="Rescan both sides instead of using the cache.")
+    compare_parser.add_argument(
+        "--dataflow",
+        action="store_true",
+        help="Also diff the data-flow metrics (runs the TypeScript data-flow engine on both sides; minutes on a big app).",
+    )
     compare_parser.add_argument("--limit", type=_positive_int, default=40, help="Maximum files in the markdown summary.")
 
     fix_parser = subparsers.add_parser(
@@ -521,6 +534,7 @@ def _dispatch(args) -> None:
                 quadrant=args.quadrant,
                 quadrant_cohort=args.quadrant_cohort,
                 include_classes=("code", *args.include_class),
+                dataflow=args.dataflow,
             )
             # Static reference (metric schema, agent guide) and the findings_top prefix are artifacts,
             # not per-run evidence; `report --out` still writes them.
@@ -548,6 +562,7 @@ def _dispatch(args) -> None:
                 quadrant=args.quadrant,
                 quadrant_cohort=args.quadrant_cohort,
                 include_classes=("code", *args.include_class),
+                dataflow=args.dataflow,
             )
             written = reporting.write_artifacts(payload, out_dir, output_format=output_format)
             if args.verbose:
@@ -622,6 +637,7 @@ def _run_compare(args) -> None:
             head,
             include_sides=args.include_sides,
             force=args.refresh,
+            dataflow=args.dataflow,
             on_phase=lambda phase: print(f"srcly compare: {phase}", file=sys.stderr, flush=True),
         )
     except GitError as exc:

@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, List
 from pydantic import BaseModel, Field, PrivateAttr
 
 class Witness(BaseModel):
@@ -92,6 +92,15 @@ class Metrics(BaseModel):
     finding_count: int | None = None
     error_count: int | None = None
 
+    # Data-flow signals (``services/dataflow/signals``), laid over the tree
+    # after ``srcly report --dataflow``: TS/TSX files and folders; scopes N/A.
+    dataflow_impossible_defenses: int | None = None
+    dataflow_repeated_forks: int | None = None
+    dataflow_relay_hops: int | None = None
+    dataflow_fan_out: int | None = None
+    dataflow_representation_changes: int | None = None
+    dataflow_path_depth: int | None = None
+
     na_reason: str = ""
     # Per-metric reasons that override ``na_reason`` (activity has its own:
     # "Not a Git repository", "Shallow clone", ...).
@@ -151,6 +160,13 @@ class FindingsInfo(BaseModel):
     finding_count: int = 0
 
 
+class DataflowInfo(BaseModel):
+    """Whether the data-flow signals ran for a tree (root node only, after ``--dataflow``)."""
+
+    status: str  # "ok" | "na"
+    reason: str = ""
+
+
 class AnalysisInfo(BaseModel):
     """Where a CLI command's tree came from (root node only; set by ``reporting.scan_tree``)."""
 
@@ -177,8 +193,12 @@ class Node(BaseModel):
     activity: ActivityInfo | None = None
     # Root only: whether the checks finished, and which tools ran.
     findings: FindingsInfo | None = None
+    # Root only: whether the data-flow signals ran (``services/dataflow/signals``).
+    dataflow: DataflowInfo | None = None
     # Root only, CLI only (never on the wire): whether ``reporting.scan_tree`` reused the saved scan.
     _analysis: AnalysisInfo | None = PrivateAttr(default=None)
+    # Root only, CLI only: the data-flow signals ``scan_tree(dataflow=True)`` laid over the tree.
+    _dataflow: Any = PrivateAttr(default=None)
 
     model_config = {
         "populate_by_name": True

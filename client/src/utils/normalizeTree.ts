@@ -56,6 +56,12 @@ export const DEFAULT_METRICS = {
   churn_lines: null,
   finding_count: null,
   error_count: null,
+  dataflow_impossible_defenses: null,
+  dataflow_repeated_forks: null,
+  dataflow_relay_hops: null,
+  dataflow_fan_out: null,
+  dataflow_representation_changes: null,
+  dataflow_path_depth: null,
   na_reason: "",
   na_reasons: null,
   analysis_status: "ok",
@@ -70,6 +76,7 @@ export const DEFAULT_NODE = {
   end_line: 0,
   activity: null,
   findings: null,
+  dataflow: null,
 } as const;
 
 type RawNode = {

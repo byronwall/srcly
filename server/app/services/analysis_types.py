@@ -205,8 +205,20 @@ ACTIVITY_METRICS = frozenset({"commit_count", "churn_lines"})
 # Lint and type-check findings: from external tools (``services/findings``),
 # laid over the tree when it is served, per file.
 FINDINGS_METRICS = frozenset({"finding_count", "error_count"})
+# Data-flow signals from the engine's tier-2 report (``services/dataflow/signals``):
+# TypeScript and TSX only, laid over the tree when a ``--dataflow`` run left a result.
+DATAFLOW_METRICS = frozenset(
+    {
+        "dataflow_impossible_defenses",
+        "dataflow_repeated_forks",
+        "dataflow_relay_hops",
+        "dataflow_fan_out",
+        "dataflow_representation_changes",
+        "dataflow_path_depth",
+    }
+)
 # Filled after the scan, so never "not measured for <language>".
-OVERLAY_METRICS = ACTIVITY_METRICS | FINDINGS_METRICS
+OVERLAY_METRICS = ACTIVITY_METRICS | FINDINGS_METRICS | DATAFLOW_METRICS
 
 # Means over a file's functions; with no functions there is nothing to average.
 MEAN_OVER_FUNCTIONS = frozenset({"complexity_avg", "average_function_length"})
