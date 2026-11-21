@@ -118,6 +118,8 @@ These came from the Python data-flow usability audit (`docs/research/python-data
 
 ## Engine structure
 
+- `flowSignature` reduces each function of a file to line-free keys (origins, ends, origin→end pairs, parameter reads, effects, stops, status). `srcly compare --dataflow` diffs them as "Data-flow changes". Python has no parameter reads or effects (not measured), and a caller of a changed function is not re-traced.
+
 - Every evidence kind is classified once in `engine/src/srcly/kinds.ts` (#200). Rules read traits, not lists of kind names.
 - Library models load as data rows (#206). Python origins and terminals read from rows (#212). The plan and its progress are in `docs/intent/dataflow-library-models/plan.md`.
 - Memory: the engine holds one Program and bounds what it keeps (#165). The checker truncates the type text in facts (#193).

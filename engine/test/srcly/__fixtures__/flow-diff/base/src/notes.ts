@@ -7,6 +7,7 @@ export async function saveNote(request: SaveRequest) {
   return db.note.update({ where: { id }, data: {} });
 }
 
+// eslint-disable-next-line prefer-const -- the head side writes it
 let lastPrice = "";
 
 export function formatPrice(cents: number) {

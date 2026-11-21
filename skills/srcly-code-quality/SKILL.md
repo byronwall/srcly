@@ -132,6 +132,19 @@ Use these during a change, before you edit a function or a field.
 - `srcly impact src/format.ts --symbol formatPrice` lists the call sites and the ends that a change can reach.
 - Read the status first. `ok` is proven. `partial` and `assumed` name each stop. Do not call a change safe when its trace is partial: check each place under "Not proven".
 
+### Data-flow changes in a PR review
+
+`uvx srcly compare <base> <head> --dataflow` adds a "Data-flow changes" section and writes `dataflow-changes.json`. It traces each changed function on both sides and lists what moved.
+
+- Read "New boundary-to-boundary flows" first. Each line is a value from outside (environment, request, file, network, database) that now reaches a place where values leave (network, database, file, stdout, the DOM).
+- Then read new flows, ends, origins, effects and reads. "became impure" means the function now writes state that outlives the call.
+- Then read "Removed", and "Proof status and stops".
+- Each line gives the file and line on both sides. Open both before you comment.
+- `proven` is the engine's `ok`. Treat a line labelled **assumed** or **partial** as a lead, not as a fact.
+- "Not measured" is N/A. It never means "no change". Python has no parameter reads or effects.
+- Only changed functions are traced. Check the callers of a changed function yourself.
+- The section has a cap. It says how many items it hid; the JSON file holds all of them.
+
 ## Response Pattern
 
 When reporting back:
