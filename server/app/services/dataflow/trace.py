@@ -29,6 +29,7 @@ FOLD_STEPS = 6
 # The web view folds a function at 40 boxes.
 FOLD_BOXES = 40
 STOP_KINDS = ("boundary", "frontier")
+PRIMITIVES = {"string", "number", "boolean", "bigint", "symbol", "undefined", "null", "str", "int", "float", "bool", "None"}
 
 
 class TraceError(Exception):
@@ -318,11 +319,13 @@ class Graph:
     def scopes(self) -> list[dict]:
         return [n for n in self.nodes.values() if n["kind"] == "scope"]
 
-    def reach(self, start: str) -> set[str]:
+    def reach(self, start: str, proven_only: bool = False) -> set[str]:
         seen = {start}
         queue = deque([start])
         while queue:
             for edge in self.out.get(queue.popleft(), []):
+                if proven_only and edge["status"] not in ("proven", "structural"):
+                    continue
                 if edge["target"] not in seen:
                     seen.add(edge["target"])
                     queue.append(edge["target"])
@@ -340,14 +343,17 @@ class Graph:
                 break
             if cost > best.get(current, cost):
                 continue
-            for edge in self.out.get(current, []):
+            # A structural link (a declaration to its own parameter) is syntax, not flow: walk it either way.
+            links = [(e, e["target"]) for e in self.out.get(current, [])]
+            links += [(e, e["source"]) for e in self.into.get(current, []) if e["status"] == "structural"]
+            for edge, target in links:
                 # A declaration's own `returns` link is a shortcut with nothing traced on it: take it only when no traced route exists.
                 step = cost + (1000 if edge["kind"] == "returns" else 5 if edge["status"] == "structural" else 1)
-                if step < best.get(edge["target"], step + 1):
-                    best[edge["target"]] = step
-                    back[edge["target"]] = (current, edge)
+                if step < best.get(target, step + 1):
+                    best[target] = step
+                    back[target] = (current, edge)
                     tick += 1
-                    heapq.heappush(heap, (step, tick, edge["target"]))
+                    heapq.heappush(heap, (step, tick, target))
         if end not in best:
             return None
         steps: list[tuple[Optional[dict], str]] = []
@@ -493,9 +499,7 @@ def render_trace(result: dict, title: str, limit: int, depth: Optional[int]) -> 
         previous = []
 
     lines += ["", f"## Stops ({len(stops)})"]
-    stop_row = lambda n: f"- {n.get('reason') or n['kind']} at {where(n)} `{clip(n['label'], 50)}`" + (  # noqa: E731
-        f": {clip(n['note'], 160)}" if n.get("note") and n["note"] != n["label"] else ""
-    )
+    stop_row = lambda n: f"- {stop_text(n)}" + (f": {clip(n['note'], 160)}" if n.get("note") else "")  # noqa: E731
     lines += _capped(stops, limit, stop_row, "stops") or ["- none"]
 
     scopes = graph.scopes()
@@ -582,15 +586,29 @@ def run_effects(session: Session, file: Path, rel: str, line: Optional[int], col
 # -- impact ---------------------------------------------------------------------
 
 
-def _ends_from(graph: Graph, starts: Iterable[str]) -> tuple[list[dict], list[dict]]:
-    """Ends and stops reachable from ``starts``."""
-    seen: set[str] = set()
+def _ends_from(graph: Graph, starts: Iterable[str]) -> tuple[list[dict], list[dict], list[dict]]:
+    """Ends reached along proven steps only, ends reached only through a partial step, and stops reached either way."""
+    proven: set[str] = set()
+    every: set[str] = set()
     for start in starts:
-        seen |= graph.reach(start)
+        proven |= graph.reach(start, proven_only=True)
+        every |= graph.reach(start)
     ends_ids = {n["id"] for n in graph.ends()}
-    ends = [graph.nodes[i] for i in seen if i in ends_ids]
-    stops = [graph.nodes[i] for i in seen if graph.nodes[i]["kind"] in STOP_KINDS]
-    return sorted(ends, key=where), sorted(stops, key=where)
+    ends = [graph.nodes[i] for i in proven if i in ends_ids]
+    weak = [graph.nodes[i] for i in every - proven if i in ends_ids]
+    stops = [graph.nodes[i] for i in every if graph.nodes[i]["kind"] in STOP_KINDS]
+    return sorted(ends, key=where), sorted(weak, key=where), sorted(stops, key=where)
+
+
+def stop_text(n: dict) -> str:
+    """A stop's reason, place and what is there; the source line when the engine's label is only its note."""
+    label = n["label"]
+    if label == n.get("note"):
+        try:
+            label = Path(n["absPath"]).read_text(encoding="utf-8").splitlines()[n["line"] - 1].strip()
+        except (OSError, IndexError):
+            pass
+    return f"{n.get('reason') or n['kind']} at {where(n)} `{clip(label, 60)}`"
 
 
 def render_impact_function(graph: Graph, title: str, limit: int) -> str:
@@ -602,33 +620,43 @@ def render_impact_function(graph: Graph, title: str, limit: int) -> str:
     calls = [graph.nodes[e["target"]] for e in graph.out.get(graph.anchor, []) if e["kind"] == "used-by"]
     check: dict[str, str] = {}
     safe: list[str] = []
-    unproven: list[str] = []
+    # A stop or a partial end → who reaches it.
+    unproven: dict[str, list[str]] = {}
     row = lambda n: f"  - {kind_of(n)} `{clip(n['label'])}` {where(n)}" + ("" if n["status"] == "proven" else f" ({n['status']})")  # noqa: E731
+
+    def note(ends: list[dict], weak: list[dict], stops: list[dict], who: str) -> None:
+        for n in ends:
+            check[where(n)] = f"{kind_of(n)} `{clip(n['label'], 50)}`"
+        for n in weak:
+            unproven.setdefault(f"reached only through a partial step: {kind_of(n)} at {where(n)} `{clip(n['label'], 50)}`", []).append(who)
+        for n in stops:
+            unproven.setdefault(stop_text(n), []).append(who)
 
     lines += ["", f"## Parameters ({len(params)})"]
     for param in params:
-        ends, stops = _ends_from(graph, [param["id"]])
-        fields = sorted({e.get("label") for e in graph.into.get(param["id"], []) + graph.out.get(param["id"], []) if e["kind"] == "prop-read" and e.get("label")})
-        fields = sorted(set(fields) | {n["field"] for n in graph.boxes() if param.get("symbol") and n.get("symbol") == param["symbol"] and n.get("field")})
-        lines.append(f"- `{param['label']}` ({param.get('typeText') or '?'}): {len(ends)} ends, {len(stops)} stops")
+        ends, weak, stops = _ends_from(graph, [param["id"]])
+        # Fields read off the parameter, not methods called on it.
+        reads = [n for n in graph.boxes() if param.get("symbol") and n.get("symbol") == param["symbol"] and n.get("field")]
+        fields = sorted({n["field"] for n in reads if "=>" not in (n.get("typeText") or "")})
+        props = {e["label"] for e in graph.into.get(param["id"], []) + graph.out.get(param["id"], []) if e["kind"] == "prop-read" and e.get("label")}
+        fields += sorted(props - set(fields))
+        if {t.strip() for t in (param.get("typeText") or "object").split("|")} <= PRIMITIVES:
+            fields = []  # `.split` on a string is a method, not a field the caller passes
+        counts = f"{len(ends)} proven ends, {len(weak)} through a partial step, {len(stops)} stops"
+        lines.append(f"- `{param['label']}` ({param.get('typeText') or '?'}): {counts}")
         if fields:
             lines.append(f"  - fields read: {', '.join(f'`{f}`' for f in fields)} (a caller may stop passing the others)")
         lines += _capped(ends, limit, row, "ends")
-        for n in ends:
-            check[where(n)] = f"{kind_of(n)} `{clip(n['label'], 50)}`"
-        for n in stops:
-            unproven.append(f"parameter `{param['label']}`: {n.get('reason')} at {where(n)} `{clip(n['label'], 50)}`")
-        if ok and not ends and not stops and not fields:
+        note(ends, weak, stops, f"parameter `{param['label']}`")
+        if ok and not ends and not weak and not stops and not fields:
             safe.append(f"parameter `{param['label']}`: the body reads it nowhere")
 
     lines += ["", f"## Return ({len(returns)} return statements, {len(calls)} call sites)"]
-    ret_ends, ret_stops = _ends_from(graph, [c["id"] for c in calls])
-    lines += [f"- reaches {len(ret_ends)} ends in callers:"] + _capped(ret_ends, limit, row, "ends")
-    for n in ret_ends:
-        check[where(n)] = f"{kind_of(n)} `{clip(n['label'], 50)}`"
-    for n in ret_stops:
-        unproven.append(f"return: {n.get('reason')} at {where(n)} `{clip(n['label'], 50)}`")
-    if ok and calls and not ret_ends and not ret_stops:
+    ret_ends, ret_weak, ret_stops = _ends_from(graph, [c["id"] for c in calls])
+    lines += [f"- reaches {len(ret_ends)} proven ends in callers ({len(ret_weak)} more through a partial step):"]
+    lines += _capped(ret_ends, limit, row, "ends")
+    note(ret_ends, ret_weak, ret_stops, "return")
+    if ok and calls and not ret_ends and not ret_weak and not ret_stops:
         safe.append("return value: no caller's result reaches an end")
 
     by_file: dict[str, list[str]] = {}
@@ -639,10 +667,9 @@ def render_impact_function(graph: Graph, title: str, limit: int) -> str:
     lines += ["", f"## Callers ({len(calls)})"]
     lines += [f"- {file}: {', '.join(sites)}" for file, sites in sorted(by_file.items())] or ["- none drawn"]
     for n in graph.stops():
-        text = f"{n.get('reason')} at {where(n)} `{clip(n['label'], 50)}`"
-        if not any(text in u for u in unproven):
-            unproven.append(text)
-    return "\n".join(lines + _verdict(result, check, safe, unproven, limit)) + "\n"
+        unproven.setdefault(stop_text(n), [])
+    listed = [what + (f" (from {', '.join(dict.fromkeys(who))})" if who else "") for what, who in unproven.items()]
+    return "\n".join(lines + _verdict(result, check, safe, listed, limit)) + "\n"
 
 
 def _verdict(result: dict, check: dict[str, str], safe: list[str], unproven: list[str], limit: int) -> list[str]:
@@ -688,7 +715,7 @@ def render_impact_value(graphs: list[tuple[str, Graph]], title: str, limit: int)
         for n in graph.ends():
             readers[where(n)] = f"{kind_of(n)} `{clip(n['label'], 50)}`"
         for n in graph.stops():
-            unproven.append(f"{n.get('reason')} at {where(n)} `{clip(n['label'], 50)}`")
+            unproven.append(stop_text(n))
     lines += ["", f"## Writers ({len(writers)})"] + [f"- {at} {what}" for at, what in sorted(writers.items())[:limit]]
     if not writers:
         lines.append("- none drawn")
