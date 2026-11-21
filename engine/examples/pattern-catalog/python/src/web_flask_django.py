@@ -52,8 +52,8 @@ def rename_article(request, pk: int):
 
 
 # W6 Django template context
-def show_article(request, pk: int):  # @trace w-django-template forward symbol pk @want http-response
-    article = Article.objects.get(pk=pk)
+def show_article(request, pk: int):
+    article = Article.objects.get(pk=pk)  # @trace w-django-template forward article @want http-response
     return render(request, "detail.html", {"article": article})
 
 

@@ -392,6 +392,22 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(boxes(answer).some((node) => node.label === "note")).toBe(false);
   });
 
+  it("finds a library method by the class a name was built or annotated with, and a manager a model inherits", () => {
+    const ends = (name: string, line: number) => boxes(anchorGraphOp(session, { file: "app/stores.py", name, line, direction: "forward" }), "terminal").map((node) => `${node.elementKind}@${node.line}`);
+    // `Note.objects.create` is Django's `Model.objects.create`: a database write that also sets the field.
+    expect(ends("text", 13)).toEqual(["external-effect@14"]);
+    // A query sends its filter value; what it returns is the database's answer.
+    expect(ends("term", 17)).toEqual(["external-effect@18"]);
+    const found = anchorGraphOp(session, { ...at("app/stores.py", "found", "    return found"), direction: "backward" });
+    expect(boxes(found, "origin").map((node) => node.elementKind)).toEqual(["external-read"]);
+    // `with Session(engine) as session`: `session.add` is SQLAlchemy's.
+    expect(ends("row", 22)).toEqual(["external-effect@24"]);
+    // An annotation names the class too: `frame: pd.DataFrame`.
+    expect(ends("frame", 38)).toEqual(["file-write@39"]);
+    // Rebound to something else, `session` is no longer a Session: its `add` is no database write.
+    expect(ends("row", 32)).not.toContain("external-effect@35");
+  });
+
   it("names a file that did not parse, and a name that is not on its line", () => {
     expect(() => anchor("app/broken.py", "broken", 1)).toThrow(/No broken on line 1 of broken\.py: the file did not parse \(syntax error on line 1/);
     expect(() => anchor("app/models.py", "Order", 5)).toThrow(/^No Order on line 5 of models\.py$/);

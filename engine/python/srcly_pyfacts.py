@@ -722,6 +722,35 @@ class Program:
             return None
         return ".".join([head, *parts])
 
+    def outside(self, name: str | None) -> bool:
+        """Whether a dotted name is code outside the program (a package, the stdlib)."""
+        return bool(name) and name.split(".")[0] not in self.packages  # type: ignore[union-attr]
+
+    def inherited_name(self, name: str | None, depth: int = 0) -> str | None:
+        """
+        `app.Article.objects.create`, where first-party `Article` does not declare
+        `objects` and derives from `django.db.models.Model`: the name in that base,
+        `django.db.models.Model.objects.create`. Null when no prefix is such a class.
+        """
+        if not name or depth > 8:
+            return None
+        parts = name.split(".")
+        for cut in range(len(parts) - 1, 0, -1):
+            klass = self.resolve_class(".".join(parts[:cut]))
+            if klass is None:
+                continue
+            rest = parts[cut:]
+            if rest[0] in klass.fields or rest[0] in klass.methods:
+                return None
+            for base in klass.bases:
+                if self.outside(base):
+                    return ".".join([base, *rest])
+                found = self.inherited_name(".".join([base, *rest]), depth + 1)
+                if found:
+                    return found
+            return None
+        return None
+
     def resolve_function(self, name: str | None) -> FunctionInfo | None:
         if not name:
             return None
@@ -1163,6 +1192,8 @@ class BodyWalker:
         self.inner_scopes: list[Scope] = []
         self.straight: dict[str, bool] = {}
         self.owner = function.entry_id if function else None
+        # Names bound to an instance of a class by import, where the checker has no type: `session = Session(engine)`, `frame: pd.DataFrame`.
+        self.instances: dict[str, str] = {}
 
     # ---- helpers
 
@@ -1367,6 +1398,8 @@ class BodyWalker:
                                attributes=attributes)
         self.note(param, "arg", ty=type_text, tsrc=type_source, n=param.arg, d=1)
         self.scope.bind(param.arg, (param.lineno, param.col_offset), element)
+        if param.annotation is not None:
+            self.note_instance(ast.Name(id=param.arg), param.annotation)
         self.annotated_use(param, element)
         if info is not None and info.route is not None:
             self.request_origin(param, element, info)
@@ -1466,6 +1499,7 @@ class BodyWalker:
                 return
             for target in node.targets:
                 self.bind(target, value, node.value, "carrier")
+                self.note_instance(target, node.value)
             return
         if isinstance(node, ast.AnnAssign):
             value = self.expr(node.value) if node.value is not None else None
@@ -1524,6 +1558,8 @@ class BodyWalker:
                 value = self.expr(item.context_expr)
                 if item.optional_vars is not None:
                     self.bind(item.optional_vars, value, item.context_expr, "carrier")
+                    # `with Session(engine) as session`: the class's `__enter__` gives the instance, as these classes do.
+                    self.note_instance(item.optional_vars, item.context_expr)
             self.walk_body(node.body)
             return
         if isinstance(node, (ast.Try, getattr(ast, "TryStar", ast.Try))):
@@ -1557,6 +1593,28 @@ class BodyWalker:
         if isinstance(node, ast.Delete):
             return
         # Import, Global, Nonlocal, Pass, Break, Continue: no values move.
+
+    def note_instance(self, target: ast.expr, made_by: ast.AST | None) -> None:
+        """
+        Remember that `target` names an instance of an imported class when `made_by`
+        constructs one (`Session(engine)`) or annotates one (`pd.DataFrame`): a class
+        name by convention starts with a capital. Any other binding forgets it.
+        """
+        if not isinstance(target, ast.Name):
+            return
+        node = made_by.func if isinstance(made_by, ast.Call) else made_by
+        name = self.program.dotted(self.source, strip_optional(node)) if isinstance(node, (ast.Name, ast.Attribute, ast.Subscript)) else None
+        if name and name.rsplit(".", 1)[-1][:1].isupper() and (self.program.outside(name) or self.program.resolve_class(name) is not None):
+            self.instances[target.id] = name
+        else:
+            self.instances.pop(target.id, None)
+
+    def instance_method(self, node: ast.Call) -> str | None:
+        """`session.add(…)` on a name `note_instance` saw constructed or annotated: the method's name on that class."""
+        func = node.func
+        if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.value.id in self.instances:
+            return f"{self.instances[func.value.id]}.{func.attr}"
+        return None
 
     def bind(self, target: ast.expr, value: str | None, value_node: ast.AST, kind: str, *, alias_kind: str = "alias", annotation: ast.expr | None = None) -> str | None:
         if isinstance(target, ast.Name):
@@ -1955,7 +2013,7 @@ class BodyWalker:
             return self.queue_task(task, node)
         callee_text = source.segment(node.func)
         checked = self.program.checked.callees.get(source.rel, {}).get(span_key(span))
-        dotted = self.program.dotted(source, node.func)
+        dotted = self.program.dotted(source, node.func) or (None if checked else self.instance_method(node))
         target_name = checked or dotted
         function = self.program.resolve_function(target_name) or self.method_target(node)
         klass = None if function else self.program.resolve_class(target_name)
@@ -1976,6 +2034,9 @@ class BodyWalker:
 
         # mypy's name first; the import's name when mypy has none (a package that is not installed) or names no row.
         by_import = MODELS.call(dotted) if dotted and dotted != target_name else None
+        if by_import is None and not checked and self.program.inherited_name(dotted):
+            # A method or manager the first-party class inherits from a library base: `Article.objects.create`.
+            by_import = MODELS.call(self.program.inherited_name(dotted))
         recognized = MODELS.call(target_name) or by_import
         if recognized is not None and by_import is not None and by_import is not recognized:
             # The row the import's name also matches, kept so a test can see that every row resolves somewhere.
@@ -2000,6 +2061,7 @@ class BodyWalker:
                     self.relate(value, sent, "call-input", f"sent by {callee_text}", child)
                 else:
                     self.relate(value, element, "call-input", f"handed to {callee_text}", child)
+            self.keyword_fields(node, callee_text, element, keywords)
             return element
 
         if function is not None or klass is not None:
@@ -2072,12 +2134,15 @@ class BodyWalker:
                 self.relate(value, element, "call-input", f"handed to the built-in {callee_text}; its result derives from it", child, status="partial", proof_kind="host-api")
             else:
                 self.relate(value, element, "call-input", f"handed to {callee_text}, outside the program; its result is assumed to carry it", child, status="partial", proof_kind="external-call")
+        self.keyword_fields(node, callee_text, element, keywords)
+        return element
+
+    def keyword_fields(self, node: ast.Call, callee_text: str, element: str, keywords: list[tuple[ast.keyword, str | None]]) -> None:
         model = self.keyword_model(node)
         if model is not None:
             # `Article.objects.create(title=…)` builds an Article: a use of the class, and each keyword sets its field.
             self.relate(element, model.entry_id, "definition", f"{callee_text} creates {model.qualname}", node.func, proof_kind="syntax")
             self.bind_fields(model, [], [(kw, value or self.literal(kw.value)) for kw, value in keywords])
-        return element
 
     def keyword_model(self, node: ast.Call) -> ClassInfo | None:
         """The first-party model a manager call (`Model.objects.create(…)`, `MODEL_KEYWORD_CALLS`) builds from keyword arguments."""
