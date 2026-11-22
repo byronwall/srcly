@@ -144,7 +144,11 @@ export class ProgramEvidenceCollectorComponentBindingSupport extends ProgramEvid
   private componentPropReceivers(
     target: CollectorFunctionInfo,
     propName: string,
+    seen = new Set<string>(),
   ): ComponentPropReceiver[] {
+    const key = `${target.id}#${propName}`;
+    if (seen.has(key)) return [];
+    seen.add(key);
     this.checkCancellation();
     // A component's props are its first parameter; `forwardRef`'s render takes the ref second.
     if (target.declaration.parameters.length < 1) return [];
@@ -160,12 +164,15 @@ export class ProgramEvidenceCollectorComponentBindingSupport extends ProgramEvid
         return !item.dotDotDotToken && this.ts.isIdentifier(item.name) && (this.ts.isIdentifier(key) || this.ts.isStringLiteral(key)) && key.text === propName;
       });
       const bindingId = element ? this.parametersBySymbol.get(this.symbolId(element.name) ?? "") : undefined;
-      return element && bindingId ? [{ node: element, elementId: bindingId, parameterId: bindingId, parameter }] : [];
+      if (element) return bindingId ? [{ node: element, elementId: bindingId, parameterId: bindingId, parameter }] : [];
     }
-    if (!this.ts.isIdentifier(parameter.name)) return [];
-    const parameterSymbol = this.checker.getSymbolAtLocation(parameter.name);
+    // A destructured parameter's `...rest` holds every prop it does not name: a view of the props, as `props` is.
+    const rest = this.ts.isObjectBindingPattern(parameter.name) ? parameter.name.elements.find((item) => item.dotDotDotToken && this.ts.isIdentifier(item.name)) : undefined;
+    const name = rest ? rest.name : parameter.name;
+    if (!this.ts.isIdentifier(name)) return [];
+    const parameterSymbol = this.checker.getSymbolAtLocation(name);
     const parameterId = parameterSymbol
-      ? this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "") ?? null
+      ? this.parametersBySymbol.get(this.symbolId(name) ?? "") ?? null
       : null;
     if (!parameterSymbol || !parameterId) return [];
 
@@ -173,6 +180,10 @@ export class ProgramEvidenceCollectorComponentBindingSupport extends ProgramEvid
     const receivers: ComponentPropReceiver[] = [];
     const visit = (node: TypeScript.Node) => {
       this.checkCancellation();
+      if (this.ts.isJsxSpreadAttribute(node)) {
+        const forwarded = this.spreadReceiver(node, propName, views, target, parameterId, parameter, seen);
+        if (forwarded) receivers.push(forwarded);
+      }
       const receiver = this.ts.isPropertyAccessExpression(node) && this.ts.isIdentifier(node.expression) ? this.checker.getSymbolAtLocation(node.expression) : undefined;
       if (
         this.ts.isPropertyAccessExpression(node)
@@ -180,7 +191,7 @@ export class ProgramEvidenceCollectorComponentBindingSupport extends ProgramEvid
         && node.name.text === propName
         && receiver
         // `props.label` reads the prop itself; a view's `local.label` reads the field of the same name, when the view holds it.
-        && (sameCompilerSymbol(receiver, parameterSymbol) ? sameCompilerSymbol(this.checker.getSymbolAtLocation(node.name), expectedProperty) : views.get(receiver)?.(propName))
+        && (sameCompilerSymbol(receiver, parameterSymbol) && !rest ? sameCompilerSymbol(this.checker.getSymbolAtLocation(node.name), expectedProperty) : views.get(receiver)?.(propName))
       ) {
         this.prepareComponentReceiver(node);
         receivers.push({
@@ -195,6 +206,80 @@ export class ProgramEvidenceCollectorComponentBindingSupport extends ProgramEvid
     visit(target.declaration);
     this.checkCancellation();
     return receivers;
+  }
+
+  /** What a JSX opening renders: the in-project components, or an intrinsic element. The JSX collector fills this in. */
+  protected openingRenders(_opening: TypeScript.JsxOpeningLikeElement): { targets: CollectorFunctionInfo[]; intrinsic: boolean } {
+    return { targets: [], intrinsic: false };
+  }
+
+  /**
+   * Where a spread of a props view hands a prop on, when the view holds it
+   * and no later attribute of the same tag sets it: to an intrinsic
+   * element's attributes (`<input {...rest} />`), or into the child
+   * component's own receivers for that prop (`<Leaf {...rest} />`), through
+   * a binding at the spread. Null for a child the program cannot see, or
+   * one that never reads the prop.
+   */
+  private spreadReceiver(
+    spread: TypeScript.JsxSpreadAttribute,
+    propName: string,
+    views: Map<TypeScript.Symbol, PropsFields>,
+    owner: CollectorFunctionInfo,
+    parameterId: string,
+    parameter: TypeScript.ParameterDeclaration,
+    seen: Set<string>,
+  ): ComponentPropReceiver | null {
+    const value = unwrap(this.ts, spread.expression);
+    const symbol = this.ts.isIdentifier(value) ? this.checker.getSymbolAtLocation(value) : undefined;
+    if (!symbol || !views.get(symbol)?.(propName)) return null;
+    const opening = spread.parent.parent;
+    const properties = opening.attributes.properties;
+    const later = properties.slice(properties.indexOf(spread) + 1);
+    if (later.some((item) => this.ts.isJsxAttribute(item) && this.ts.isIdentifier(item.name) && item.name.text === propName)) return null;
+    const rendered = this.openingRenders(opening);
+    if (rendered.intrinsic) {
+      // The spread's own DOM terminal: every field it holds is an attribute of the element.
+      this.elementFor(opening, "jsx-occurrence");
+      const terminalId = this.elementIfPresent(spread.expression, "dom-terminal");
+      return terminalId ? { node: spread, elementId: terminalId, parameterId, parameter } : null;
+    }
+    if (!rendered.targets.length) return null;
+    const children = rendered.targets.flatMap((child) => this.componentPropReceivers(child, propName, new Set(seen)));
+    if (!children.length) return null;
+    const occurrenceId = this.elementFor(opening, "component-occurrence");
+    const locations = [this.location(spread), ...children.map((child) => this.location(child.node))];
+    const forwardId = this.ensureElement(
+      spread,
+      "component-prop-binding",
+      owner.id,
+      {
+        propName,
+        valueMode: null,
+        sourceFieldName: propName,
+        componentOccurrenceElementId: occurrenceId,
+        componentDefinitionId: rendered.targets.length === 1 ? rendered.targets[0].id : null,
+        parameterElementId: children[0].parameterId,
+        receiverElementId: children[0].elementId,
+        candidateCount: children.length,
+      },
+      null,
+      null,
+      rendered.targets.length === 1 ? rendered.targets[0].id : null,
+      "proven",
+      proof("component-prop-binding", "The JSX spread hands on a props view that holds this prop, and no later attribute sets it.", locations),
+    );
+    for (const child of children) {
+      this.addRelation(
+        forwardId,
+        child.elementId,
+        "component-prop-binding",
+        [this.location(spread), this.location(child.node)],
+        proof("component-prop-binding", "The spread prop reaches the child component's receiver for the same prop.", [this.location(spread), this.location(child.node)]),
+        "proven",
+      );
+    }
+    return { node: spread, elementId: forwardId, parameterId, parameter };
   }
 
   /**

@@ -20,6 +20,7 @@ import {
   importedCallee,
   isAssignmentOperator,
   firstBindingIdentifier,
+  functionNameNode,
   isExitStatusAssignment,
   isSelectionOperator,
   jsxOpeningAncestor,
@@ -135,13 +136,10 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   ): void {
     const opening = this.ts.isJsxElement(node) ? node.openingElement : node;
     const tag = opening.tagName.getText(node.getSourceFile());
-    // A provider (`<Ctx.Provider>`, React 19's `<Ctx>`) hands its value to the context's readers, not to a component.
-    const provided = this.providedContext(opening.tagName);
-    const rendered = provided ? { target: null, aliasId: null } : this.renderedComponent(opening.tagName);
-    // `<Dynamic component={Card} title={…} />` renders `Card`, and hands it the other attributes.
-    const dynamic = rendered.target || provided ? undefined : this.dynamicComponent(opening);
-    const { target, aliasId } = dynamic ? { target: this.targetFunction(dynamic), aliasId: null } : rendered;
-    const component = Boolean(target || aliasId);
+    const { provided, dynamic, targets, aliasId } = this.occurrenceTargets(opening);
+    // One component the tag renders is its definition; a tag that renders one of several (`<Dynamic component={kinds[kind]}>`) names none.
+    const target = targets.length === 1 ? targets[0] : null;
+    const component = Boolean(targets.length || aliasId);
     const kind: ProgramElementKind = component
       ? "component-occurrence"
       : "jsx-occurrence";
@@ -158,7 +156,9 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         component ? "compiler-symbol" : "jsx-tag",
         target
           ? "The JSX tag resolves to an in-project component definition."
-          : aliasId
+          : targets.length
+            ? "The JSX tag renders one of several in-project component definitions."
+            : aliasId
             ? "The JSX tag names a component value the program declares."
             : "The JSX tag is a source-backed render occurrence.",
         [this.location(opening)],
@@ -182,10 +182,10 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     if (aliasId) {
       this.addRelation(aliasId, occurrenceId, "references", [this.location(opening.tagName)], proof("compiler-symbol", "The JSX tag names this value and renders it here.", [this.location(opening.tagName)]), "proven");
     }
-    if (target) {
+    for (const each of targets) {
       this.addRelation(
         occurrenceId,
-        target.id,
+        each.id,
         "component-occurrence",
         [this.location(opening.tagName)],
         proof(
@@ -211,7 +211,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
           component ? "proven" : "partial",
         );
         if (!component) this.addTerminal(attribute.expression, ownerId, "dom-attribute", "...", spreadId);
-        if (target) this.bindSpreadProps(attribute, spreadId, target);
+        for (const each of targets) this.bindSpreadProps(attribute, spreadId, each);
         continue;
       }
       if (!this.ts.isJsxAttribute(attribute)) continue;
@@ -241,9 +241,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         ),
         component ? "proven" : "partial",
       );
-      if (target) {
-        this.queueComponentPropBinding(opening, attribute, valueId, occurrenceId, ownerId, target);
-      }
+      for (const each of targets) this.queueComponentPropBinding(opening, attribute, valueId, occurrenceId, ownerId, each);
       // A context's provided value goes to its readers (`connectContexts`), not into the page.
       // Solid's `<For each>` and `<Index each>` hand their items to the render callback (`connectSolidFor`); the list is no DOM attribute.
       const listed = attribute.name.getText() === "each"
@@ -309,11 +307,110 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
    * renders that component too. The compiler checks every tag's value as a
    * component, so the tag's own symbol is the whole proof.
    */
-  protected renderedComponent(tagName: TypeScript.JsxTagNameExpression): { target: CollectorFunctionInfo | null; aliasId: string | null } {
+  protected renderedComponent(tagName: TypeScript.JsxTagNameExpression): { target: CollectorFunctionInfo | null; targets: CollectorFunctionInfo[]; aliasId: string | null } {
     const named = this.functionsBySymbol.get(this.symbolId(tagName) ?? "");
-    if (named) return { target: named, aliasId: null };
-    // `targetFunction` follows the value to the one function it is, through `const` copies and imports.
-    return { target: this.targetFunction(tagName), aliasId: this.variablesBySymbol.get(this.symbolId(tagName) ?? "") ?? null };
+    // `lazy(() => import("./chart"))` names its loader, which is no component: the module's default export is.
+    if (named && !loadsModule(this.ts, named.declaration)) return { target: named, targets: [named], aliasId: null };
+    const targets = this.ts.isJsxNamespacedName(tagName) ? [] : this.componentsOf(tagName);
+    return { target: targets.length === 1 ? targets[0] : null, targets, aliasId: this.variablesBySymbol.get(this.symbolId(tagName) ?? "") ?? null };
+  }
+
+  protected override openingRenders(opening: TypeScript.JsxOpeningLikeElement): { targets: CollectorFunctionInfo[]; intrinsic: boolean } {
+    const { provided, targets, aliasId } = this.occurrenceTargets(opening);
+    return { targets, intrinsic: !provided && !targets.length && !aliasId };
+  }
+
+  /** What a JSX opening renders: a provided context, or the in-project components (with `<Dynamic>`'s `component` expression). */
+  protected occurrenceTargets(opening: TypeScript.JsxOpeningLikeElement): { provided: string | null; dynamic: TypeScript.Expression | undefined; targets: CollectorFunctionInfo[]; aliasId: string | null } {
+    // A provider (`<Ctx.Provider>`, React 19's `<Ctx>`) hands its value to the context's readers, not to a component.
+    const provided = this.providedContext(opening.tagName);
+    if (provided) return { provided, dynamic: undefined, targets: [], aliasId: null };
+    const rendered = this.renderedComponent(opening.tagName);
+    // `<Dynamic component={Card} title={…} />` renders `Card`, and hands it the other attributes.
+    const dynamic = rendered.targets.length ? undefined : this.dynamicComponent(opening);
+    return dynamic ? { provided, dynamic, targets: this.componentsOf(dynamic), aliasId: null } : { provided, dynamic, ...rendered };
+  }
+
+  /**
+   * The in-project components a value is, by what the checker proves of it:
+   * the one function it names (`targetFunction`); each component a key of
+   * the key's literal type picks from an object (`kinds[props.kind]`); the
+   * default export of the module a loader imports (`lazy(() => import(m))`);
+   * the function an in-project factory returns (`withTitle(Heading)`); and,
+   * for a parameter of an in-project function, what every call passes in
+   * its place. Empty unless every case resolves.
+   */
+  protected componentsOf(expression: TypeScript.Expression, depth = 0): CollectorFunctionInfo[] {
+    if (depth > 4) return [];
+    const one = this.targetFunction(expression);
+    if (one && !loadsModule(this.ts, one.declaration)) return [one];
+    const unwrapped = unwrap(this.ts, expression);
+    const origin = this.ts.isElementAccessExpression(unwrapped) || this.ts.isCallExpression(unwrapped) ? unwrapped : resolveValue(this.ts, this.checker, unwrapped)?.origin;
+    if (!origin) return [];
+    const all = (items: readonly TypeScript.Expression[]) => {
+      const found = items.map((item) => this.componentsOf(item, depth + 1));
+      return found.length && found.every((list) => list.length) ? [...new Set(found.flat())] : [];
+    };
+    if (this.ts.isElementAccessExpression(origin)) {
+      const key = this.checker.getTypeAtLocation(origin.argumentExpression);
+      const keys = key.isUnion() ? key.types : [key];
+      if (!keys.every((item) => item.isStringLiteral())) return [];
+      const object = this.checker.getTypeAtLocation(origin.expression);
+      const values = keys.map((item) => {
+        const declaration = this.checker.getPropertyOfType(object, (item as TypeScript.StringLiteralType).value)?.valueDeclaration;
+        if (declaration && this.ts.isPropertyAssignment(declaration)) return declaration.initializer;
+        if (declaration && this.ts.isShorthandPropertyAssignment(declaration)) return declaration.name;
+        return null;
+      });
+      return values.every((value): value is TypeScript.Expression => value !== null) ? all(values) : [];
+    }
+    if (this.ts.isCallExpression(origin)) {
+      const loaded = origin.arguments.map((argument) => importedModule(this.ts, unwrap(this.ts, argument))).find((item) => item);
+      if (loaded) return this.defaultExportComponents(loaded, depth);
+      const factory = this.targetFunction(origin.expression);
+      return factory ? all(returnedExpressions(this.ts, factory.declaration)) : [];
+    }
+    if (this.ts.isParameter(origin) && this.ts.isIdentifier(origin.name)) return all(this.argumentsFor(origin) ?? []);
+    return [];
+  }
+
+  /** The components a module's default export is (`export default function Chart`, `export default Chart`). */
+  private defaultExportComponents(specifier: TypeScript.Expression, depth: number): CollectorFunctionInfo[] {
+    const module = this.checker.getSymbolAtLocation(specifier);
+    let symbol = module ? this.checker.tryGetMemberInModuleExports("default", module) : undefined;
+    if (symbol && symbol.flags & this.ts.SymbolFlags.Alias) symbol = this.checker.getAliasedSymbol(symbol);
+    const declaration = symbol?.valueDeclaration ?? symbol?.declarations?.[0];
+    if (!declaration) return [];
+    const fn = this.functionsByNode.get(nodeKey(this.root, declaration));
+    if (fn) return [fn];
+    if (this.ts.isExportAssignment(declaration)) return this.componentsOf(declaration.expression, depth + 1);
+    if (this.ts.isVariableDeclaration(declaration) && declaration.initializer) return this.componentsOf(declaration.initializer, depth + 1);
+    return [];
+  }
+
+  /**
+   * What every call of an in-project function passes for this parameter, or
+   * null when the function is used any other way than called by its name
+   * (passed on, stored), so a caller the program cannot see may pass anything.
+   */
+  private argumentsFor(parameter: TypeScript.ParameterDeclaration): TypeScript.Expression[] | null {
+    const fn = parameter.parent;
+    if (!this.functionsByNode.get(nodeKey(this.root, fn)) || parameter.dotDotDotToken) return null;
+    const index = fn.parameters.indexOf(parameter);
+    const name = functionNameNode(this.ts, fn as TypeScript.FunctionLikeDeclaration);
+    if (!name) return null;
+    const references = programEvidenceCandidateIndex(this.ts, this.program, this.root).referencesFor(name).filter((item) => item !== name);
+    const values: TypeScript.Expression[] = [];
+    for (const reference of references) {
+      const call = reference.parent;
+      // An import or export renames the function; the calls through that name are references too.
+      if (this.ts.isImportSpecifier(call) || this.ts.isExportSpecifier(call) || this.ts.isImportClause(call) || this.ts.isExportAssignment(call)) continue;
+      if (!this.ts.isCallExpression(call) || call.expression !== reference) return null;
+      const argument = call.arguments[index];
+      if (!argument || call.arguments.some((item) => this.ts.isSpreadElement(item))) return null;
+      values.push(argument);
+    }
+    return values.length ? values : null;
   }
 
   protected processJsxExpression(
@@ -325,8 +422,8 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     const valueId = this.expression(node.expression, ownerId);
     const opening = jsxOpeningAncestor(this.ts, node);
     if (!opening) return;
-    const { target, aliasId } = this.renderedComponent(opening.tagName);
-    if (target || aliasId) {
+    const { targets, aliasId } = this.renderedComponent(opening.tagName);
+    if (targets.length || aliasId) {
       this.addRelation(
         valueId,
         this.elementFor(opening, "component-occurrence"),
@@ -567,6 +664,23 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
    * function was handed in, and the slice follows it only from that call or
    * occurrence (`evidence-slice.ts`), so two callers' handlers never cross.
    */
+  /**
+   * What the program's occurrences of a component hand in for one prop. A
+   * prop a caller hands on from its own props (`onRemove={props.onRemove}`)
+   * is what that caller's own occurrences hand in, a few levels up.
+   */
+  private handedProps(props: ReadonlyMap<string, readonly PendingComponentPropBinding[]>, ownerId: string, name: string, depth: number): { value: TypeScript.Node; paired: boolean }[] {
+    return (props.get(ownerId) ?? []).flatMap((pending) => {
+      const value = pending.attribute.initializer && this.ts.isJsxExpression(pending.attribute.initializer) ? pending.attribute.initializer.expression : undefined;
+      if (pending.target.id !== ownerId || pending.attribute.name.getText() !== name || !value) return [];
+      const read = unwrap(this.ts, value);
+      const receiver = this.ts.isPropertyAccessExpression(read) && this.ts.isIdentifier(read.expression) ? this.checker.getSymbolAtLocation(read.expression)?.valueDeclaration : undefined;
+      const caller = receiver && this.ts.isParameter(receiver) && receiver.parent.parameters[0] === receiver ? this.functionsByNode.get(nodeKey(this.root, receiver.parent)) : undefined;
+      const outer = caller && depth < 4 && this.ts.isPropertyAccessExpression(read) ? this.handedProps(props, caller.id, read.name.text, depth + 1) : [];
+      return outer.length ? outer : [{ value, paired: true }];
+    });
+  }
+
   private connectBoundHandlers(call: CollectorCallInfo, props: ReadonlyMap<string, readonly PendingComponentPropBinding[]>): void {
     if (!this.ts.isCallExpression(call.node)) return;
     const node = call.node;
@@ -576,10 +690,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       ? [...this.contextMethod(node.expression), ...this.storeMethod(node.expression)].map((value) => ({ value, paired: false }))
       : typeof slot.index === "number"
         ? this.calls.flatMap((outer) => outer.target?.id === slot.owner.id && this.ts.isCallExpression(outer.node) && outer.node.arguments[slot.index as number] ? [{ value: outer.node.arguments[slot.index as number], paired: true }] : [])
-        : (props.get(slot.owner.id) ?? []).flatMap((pending) => {
-          const value = pending.attribute.initializer && this.ts.isJsxExpression(pending.attribute.initializer) ? pending.attribute.initializer.expression : undefined;
-          return pending.target.id === slot.owner.id && pending.attribute.name.getText() === slot.index && value ? [{ value, paired: true }] : [];
-        });
+        : this.handedProps(props, slot.owner.id, slot.index, 0);
     for (const { value, paired } of handed) {
       const boundAt = this.location(value);
       const handledBy = (detail: string, where: ProgramEvidenceLocation[]) => paired ? proof("bound-handler", detail, [...where, boundAt]) : proof("argument-binding", detail, where);
@@ -797,6 +908,23 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     return null;
   }
 
+  /**
+   * The `state` member a static `getDerivedStateFromError` or
+   * `getDerivedStateFromProps` writes: the one its class declares, when the
+   * class extends React's `Component` or `PureComponent`. Null otherwise.
+   */
+  private derivedStateMember(declaration: TypeScript.SignatureDeclaration): string | null {
+    if (!this.ts.isMethodDeclaration(declaration) || !this.ts.isIdentifier(declaration.name) || !/^getDerivedStateFrom(Error|Props)$/.test(declaration.name.text)) return null;
+    if (!this.ts.getModifiers(declaration)?.some((modifier) => modifier.kind === this.ts.SyntaxKind.StaticKeyword)) return null;
+    const owner = declaration.parent;
+    if (!this.ts.isClassLike(owner)) return null;
+    const base = owner.heritageClauses?.find((clause) => clause.token === this.ts.SyntaxKind.ExtendsKeyword)?.types[0]?.expression;
+    const imported = base ? importedCallee(this.ts, this.checker, base) : null;
+    if (imported?.module !== "react" || !/^(Component|PureComponent)$/.test(imported.name)) return null;
+    const state = owner.members.find((member) => this.ts.isPropertyDeclaration(member) && !this.ts.getModifiers(member)?.some((modifier) => modifier.kind === this.ts.SyntaxKind.StaticKeyword) && this.ts.isIdentifier(member.name) && member.name.text === "state");
+    return state?.name ? this.symbolId(state.name) : null;
+  }
+
   /** Every read of a member the project declares sees what was written into it (`memberWrites`). */
   private connectMemberState(): void {
     // A parameter property (`constructor(public label: string)`) writes its member, as `this.label = label` would.
@@ -806,6 +934,9 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         const key = this.symbolId(fn.declaration.name);
         if (key) this.memberWrites.set(key, [...(this.memberWrites.get(key) ?? []), ...(this.returnsByFunction.get(fn.id) ?? [])]);
       }
+      // React merges what a class component's static `getDerivedStateFromError` or `getDerivedStateFromProps` returns into its `state`.
+      const stateKey = this.derivedStateMember(fn.declaration);
+      if (stateKey) this.memberWrites.set(stateKey, [...(this.memberWrites.get(stateKey) ?? []), ...(this.returnsByFunction.get(fn.id) ?? [])]);
       if (!this.ts.isConstructorDeclaration(fn.declaration)) continue;
       for (const parameter of fn.declaration.parameters) {
         if (!this.ts.isParameterPropertyDeclaration(parameter, fn.declaration) || !this.ts.isIdentifier(parameter.name)) continue;
@@ -874,4 +1005,32 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       }
     }
   }
+}
+
+/** The module specifier a loader imports (`() => import("./chart")`), or null. */
+function importedModule(ts: typeof TypeScript, value: TypeScript.Expression): TypeScript.Expression | null {
+  if (!ts.isArrowFunction(value) && !ts.isFunctionExpression(value)) return null;
+  const returned = returnedExpressions(ts, value);
+  const call = returned.length === 1 ? unwrap(ts, returned[0]) : null;
+  return call && ts.isCallExpression(call) && call.expression.kind === ts.SyntaxKind.ImportKeyword && call.arguments[0] ? call.arguments[0] : null;
+}
+
+/** Whether a function only loads a module (`() => import("./chart")`). */
+function loadsModule(ts: typeof TypeScript, fn: TypeScript.SignatureDeclaration): boolean {
+  return (ts.isArrowFunction(fn) || ts.isFunctionExpression(fn)) && importedModule(ts, fn) !== null;
+}
+
+/** What a function's own returns hand back (not a nested function's). */
+function returnedExpressions(ts: typeof TypeScript, fn: TypeScript.SignatureDeclaration): TypeScript.Expression[] {
+  const body = (fn as { body?: TypeScript.Node }).body;
+  if (!body) return [];
+  if (!ts.isBlock(body)) return [body as TypeScript.Expression];
+  const found: TypeScript.Expression[] = [];
+  const visit = (node: TypeScript.Node) => {
+    if (asFunctionLike(ts, node) || ts.isClassLike(node)) return;
+    if (ts.isReturnStatement(node) && node.expression) found.push(node.expression);
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(body, visit);
+  return found;
 }
