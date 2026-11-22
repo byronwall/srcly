@@ -248,6 +248,24 @@ export function resourceFlow(ts: typeof TypeScript, checker: TypeScript.TypeChec
   return !second || options ? { returns: 0 } : { returns: 1, source: 0, callback: 1 };
 }
 
+/**
+ * The resource action a callee names: `mutate` or `refetch` destructured from
+ * the second element of a `createResource` binding
+ * (`const [data, { mutate, refetch }] = createResource(…)`), with that call.
+ * Null for any other callee.
+ */
+export function resourceAction(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): { name: "mutate" | "refetch"; factory: TypeScript.CallExpression } | null {
+  if (!ts.isIdentifier(callee)) return null;
+  const element = checker.getSymbolAtLocation(callee)?.valueDeclaration;
+  if (!element || !ts.isBindingElement(element) || element.dotDotDotToken || !ts.isObjectBindingPattern(element.parent)) return null;
+  const key = (element.propertyName ?? element.name).getText();
+  const actions = element.parent.parent;
+  if ((key !== "mutate" && key !== "refetch") || !ts.isBindingElement(actions) || !ts.isArrayBindingPattern(actions.parent) || actions.parent.elements.indexOf(actions) !== 1) return null;
+  const declaration = actions.parent.parent;
+  const factory = ts.isVariableDeclaration(declaration) && declaration.initializer ? unwrap(ts, declaration.initializer) : undefined;
+  return factory && ts.isCallExpression(factory) && isResourceFactory(ts, checker, factory) ? { name: key, factory } : null;
+}
+
 /** A UI framework's own reactive and routing calls: what they do with a value is the framework's model, never an external effect. */
 const FRAMEWORK_CALLS: Record<string, RegExp> = {
   "solid-js": /^(createResource|createEffect|createRenderEffect|createComputed|createMemo|createSignal|createSelector|createContext|useContext|onMount|onCleanup|on|batch|untrack|mergeProps|splitProps|children|lazy|Show|For)$/,

@@ -23,6 +23,7 @@ import {
   isResourceFactory,
   nodeKey,
   readsThis,
+  resourceAction,
   resourceFlow,
   thisContainer,
   proof,
@@ -223,6 +224,40 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (symbol) this.itemAccessors.set(symbol, parameterId);
   }
 
+  /**
+   * A resource's actions. `mutate(v)` sets the resource's value, so every read
+   * of the resource sees `v`, as a setter's getter does (order and time are not
+   * proven); a function given to it is an updater, not the value. `refetch(x)`
+   * runs the fetcher again with `x` as its second parameter's `refetching`.
+   */
+  private connectResourceAction(node: TypeScript.CallExpression, resourceId: string, ownerId: string | null): boolean {
+    const action = resourceAction(this.ts, this.checker, node.expression);
+    if (!action) return false;
+    const value = node.arguments[0] && unwrap(this.ts, node.arguments[0]);
+    if (!value || this.ts.isArrowFunction(value) || this.ts.isFunctionExpression(value)) return true;
+    const where = [this.location(value)];
+    if (action.name === "mutate") {
+      // Into the resource's binding, past the fetch boundary: what the accessor's calls read.
+      const binding = this.ts.isVariableDeclaration(action.factory.parent) ? firstBindingIdentifier(this.ts, action.factory.parent.name) : undefined;
+      const holderId = binding ? this.variablesBySymbol.get(this.symbolId(binding) ?? "") : undefined;
+      if (!holderId) return true;
+      this.addRelation(this.expression(value, ownerId), holderId, "references", where, frameworkState("mutate sets the resource's value, which its reads see; order and time are not proven.", this.location(node)), "partial");
+      return true;
+    }
+    const fetcher = action.factory.arguments[resourceFlow(this.ts, this.checker, action.factory).returns!];
+    const fn = fetcher && unwrap(this.ts, fetcher);
+    const info = fn && (this.ts.isArrowFunction(fn) || this.ts.isFunctionExpression(fn) ? this.functionsByNode.get(nodeKey(this.root, fn)) : this.ts.isIdentifier(fn) ? this.targetFunction(fn) : null);
+    const parameter = info?.declaration.parameters[1];
+    const parameterId = parameter && this.ts.isIdentifier(parameter.name) ? this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "") : undefined;
+    if (!parameter || !parameterId) return true;
+    const at = this.location(value);
+    const detail = "refetch runs the fetcher again: its second parameter's refetching is this value.";
+    const packId = this.ensureElement(parameter, "object-pack", ownerId, { operation: "object-pack", fields: JSON.stringify({ [`${at.span.startLine}:${at.span.startColumn}`]: "refetching" }) }, null, null, null, "proven", frameworkState(detail, at));
+    this.addRelation(this.expression(value, ownerId), packId, "pack-field", where, frameworkState(detail, at), "proven");
+    this.addRelation(packId, parameterId, "framework-flow", where, frameworkState(detail, at), "proven");
+    return true;
+  }
+
   /** Item parameters a library declares as accessors (`connectItemAccessor`), read when the callback's own calls are collected. */
   private readonly itemAccessors = new Map<TypeScript.Symbol, string>();
 
@@ -335,7 +370,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     // A store's `set` (or `useStore.setState`) is modelled as a state setter is: what it receives is the store (`connectStores`), never its call's value.
     const storeWrite = writesStore(this.ts, this.checker, node);
     const handled = (this.settles(node) === "then" && this.promiseHandler(node, 0)) || storeMember(this.ts, this.checker, node.expression).length > 0;
-    if (!role && !storeWrite && !target && !handled && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
+    if (!role && !storeWrite && !target && !handled && !resourceAction(this.ts, this.checker, node.expression) && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
       this.addRelation(
         this.expression(node.expression, ownerId),
         callId,
@@ -370,6 +405,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       if (index === 0 && seedArgument(this.ts, this.checker, node)) continue;
       // `useContext(Ctx)` returns what a provider or the default holds, never the context object.
       if (index === 0 && this.readsContext(node)) continue;
+      // A resource's `mutate(v)` and `refetch(x)` hand their argument to the resource or its fetcher (`connectResourceAction`), never to the call's value.
+      if (resourceAction(this.ts, this.checker, node.expression)) continue;
       this.addRelation(
         argumentId,
         callId,
@@ -426,6 +463,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     }
     this.processCallBoundary(node, callId, ownerId);
     const resourceId = this.resourceBySymbol.get(this.symbolId(node.expression) ?? "");
+    if (resourceId && this.connectResourceAction(node, resourceId, ownerId)) return;
     if (resourceId) {
       const resultId = this.ensureElement(
         node,

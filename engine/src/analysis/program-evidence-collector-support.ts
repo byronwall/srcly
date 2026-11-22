@@ -58,6 +58,7 @@ import {
   discardsValue,
   isEffectName,
   isFrameworkCall,
+  resourceAction,
   nodeLocation,
   expressionText,
   nodeKey,
@@ -658,6 +659,8 @@ export class ProgramEvidenceCollectorSupport {
     if (stateFactory(this.ts, this.checker, node)) return false;
     // A store's `set` and `useStore.setState(…)` are modelled (`connectStores`): what they receive is the store.
     if (writesStore(this.ts, this.checker, node)) return false;
+    // A resource's `mutate` and `refetch` are modelled (`connectResourceAction`).
+    if (resourceAction(this.ts, this.checker, node.expression)) return false;
     const module = this.moduleFor(node.expression);
     const imported = importedCallee(this.ts, this.checker, node.expression);
     // A call a flow row describes (`createDeferred`, `makePersisted`) is modelled: what it does with its arguments is the row's, never an assumed effect.
