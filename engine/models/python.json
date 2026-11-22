@@ -1010,6 +1010,13 @@
       "member": "ModelSerializer.is_valid",
       "model": "passes-through",
       "note": "tests the data the serializer holds"
+    },
+    {
+      "language": "py",
+      "module": "concurrent.futures._base",
+      "member": "Future.result",
+      "model": "passes-through",
+      "note": "returns the value the future holds"
     }
   ]
 }

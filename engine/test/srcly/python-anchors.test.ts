@@ -486,6 +486,10 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
         expect(graph.outcome, fn).toBe("ok");
         expect(ends(graph), fn).toEqual([`terminal stdout@${def("audit") + 1}`]);
       }
+      // `pool.submit(upper, note)` returns a future that holds `upper`'s return; `future.result()` gives it back.
+      const pooled = forward("pooled", "note");
+      expect(pooled.outcome).toBe("ok");
+      expect(ends(pooled)).toEqual([`terminal stdout@${def("pooled") + 3}`]);
     });
 
     it("fills a route dependency's marked parameter from the request, through a dependency chain", () => {

@@ -3,6 +3,7 @@
 # resolve through their imports, as on a project without its venv.
 import argparse
 import asyncio
+import concurrent.futures
 import io
 import json
 import logging
@@ -132,4 +133,5 @@ async def passes(value: str) -> object:
         flask.request.args.get(value), flask.globals.request.args.get(value),
         rest_framework.serializers.BaseSerializer.is_valid(value), rest_framework.serializers.Serializer.is_valid(value),
         rest_framework.serializers.ModelSerializer.is_valid(value),
+        concurrent.futures.Future.result(value),  # type: ignore[arg-type]
     ]

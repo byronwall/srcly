@@ -161,13 +161,14 @@ SENDING_TERMINALS = {"external-effect", "file-write", "stdout", "http-response"}
 
 # Library calls that call a function they are given with the arguments after it, by mypy's name: the index of the
 # function argument, and what the call returns. `partial` makes a callable that binds them first at each of its calls;
-# `later` runs the function after the call (its result is a handle, never the function's return); `result` returns
-# what the function returns.
+# `later` runs the function after the call (its result is never the function's return); `result` returns what the
+# function returns, or a future that holds it.
 FORWARDING_CALLS: dict[str, tuple[int, str]] = {
     "functools.partial": (0, "partial"),
     "fastapi.background.BackgroundTasks.add_task": (0, "later"),
     "starlette.background.BackgroundTasks.add_task": (0, "later"),
-    "concurrent.futures._base.Executor.submit": (0, "later"),
+    # The future holds what the function returns; its `result()` is a `passes-through` row.
+    "concurrent.futures._base.Executor.submit": (0, "result"),
     "asyncio.threads.to_thread": (0, "result"),
 }
 

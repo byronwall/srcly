@@ -5,6 +5,7 @@
 import asyncio
 import functools
 import io
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Header
 
@@ -128,6 +129,16 @@ def audit(message: str) -> None:
 
 async def threaded(note: str) -> None:
     await asyncio.to_thread(audit, note)
+
+
+def upper(text: str) -> str:
+    return text.upper()
+
+
+def pooled(note: str) -> None:
+    with ThreadPoolExecutor() as pool:
+        future = pool.submit(upper, note)
+    print(future.result())
 
 
 @app.post("/audit")
