@@ -157,6 +157,34 @@ test.describe("Data flow on solid-route", () => {
     await shot(page, "anchor-from-code");
   });
 
+  test("whole-file code waits for a function selection before requesting effects", async ({ page }) => {
+    const requests: number[] = [];
+    page.on("request", (request) => {
+      if (request.url().endsWith("/api/dataflow/function-effects")) requests.push(request.postDataJSON().line);
+    });
+    await page.goto(url({ view: "treemap", at: "src/components" }));
+    await page.getByRole("treeitem", { name: /ViewerCard\.tsx/ }).click();
+    const dialog = page.getByRole("dialog");
+    const effects = dialog.getByLabel("Function effects");
+    await expect(effects).toHaveAttribute("data-effects-state", "unselected");
+    await expect(effects).toContainText("Choose a function from the outline");
+    expect(requests).toEqual([]);
+
+    await dialog.getByRole("button", { name: "Outline", exact: true }).click();
+    await page.getByPlaceholder("Go to symbol…").fill("ViewerCard");
+    await page.getByRole("listbox").locator('[data-row="0"]').click();
+    await expect(effects).toContainText(/Closed|known effect/);
+    await expect(effects).toContainText("ViewerCard");
+    expect(requests).toEqual([3]);
+
+    await dialog.getByRole("button", { name: "Outline", exact: true }).click();
+    // Reopening clears the search, so row 0 is the whole-file entry again.
+    await expect(page.getByPlaceholder("Go to symbol…")).toHaveValue("");
+    await page.getByRole("listbox").locator('[data-row="0"]').click();
+    await expect(effects).toHaveAttribute("data-effects-state", "unselected");
+    expect(requests).toEqual([3]);
+  });
+
   test("a selected box in anchor mode shows what its function touches", async ({ page }) => {
     await page.goto(url({ view: "graph", anchor: "src/components/ViewerCard.tsx@ViewerCard:3" }));
     await expect(status(page)).toContainText("upstream", { timeout: 90_000 });

@@ -227,11 +227,17 @@ export default function CodeModal(props: CodeModalProps) {
   /** The ledger's rows are marked through the metric overlay while this is on. */
   const [ledgerMarked, setLedgerMarked] = createSignal(false);
   // What the selected scope touches (M6): keyed on the scope's start line; nothing at a git ref.
-  // With no scope picked, the function enclosing the line the viewer opened at (the engine finds it).
-  const effectsLine = () => coerceLine(selectedScopeNode()?.start_line) ?? targetStartLine() ?? cursorLine();
+  // With no scope picked, use the function enclosing an explicit source line.
+  // A whole-file selection has no position (file nodes use a start line of 0).
+  const effectsLine = () => {
+    const scope = selectedScopeNode();
+    return [scope?.type === "file" ? null : coerceLine(scope?.start_line), targetStartLine(), cursorLine()]
+      .find((line): line is number => line !== null && Number.isInteger(line) && line > 0);
+  };
+  const effectsFile = () => !props.gitRef && props.rootPath && props.filePath && /\.(tsx?|mts|cts|jsx?)$/.test(props.filePath);
   const effects = createEffectsQuery(() => {
     const line = effectsLine();
-    if (props.gitRef || !props.rootPath || !props.filePath || line === null || !/\.(tsx?|mts|cts|jsx?)$/.test(props.filePath)) return null;
+    if (!effectsFile() || line === undefined || !props.rootPath || !props.filePath) return null;
     return { root: props.rootPath, file: props.filePath, line };
   });
   const ledgerRows = createMemo(() => {
@@ -458,7 +464,14 @@ export default function CodeModal(props: CodeModalProps) {
               gitRef={props.gitRef}
               onJumpToFinding={jumpToFinding}
               effects={
-                <Show when={effects()}>
+                <Show when={effects()} fallback={
+                  <Show when={effectsFile() && effectsLine() === undefined}>
+                    <section aria-label="Function effects" data-effects-state="unselected" class="mt-3 text-[12px]">
+                      <h3 class="pb-0.5 pt-2 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--plc-on-subtle)]">Effects</h3>
+                      <p class="pl-1.5 text-[11px] text-[var(--plc-on-muted)]">Choose a function from the outline to see what it touches.</p>
+                    </section>
+                  </Show>
+                }>
                   {(state) => (
                     <div class="mt-3">
                       <EffectsPanel state={state()} title={selectedScopeNode()?.name ? `Effects of ${selectedScopeNode().name}` : `Effects of the function at line ${effectsLine()}`} onOpen={(absPath, line) => { if (absPath === props.filePath) jumpToLedgerRow(line); }} />
