@@ -1,3 +1,4 @@
+import type { InstanceTag } from "./scope-seam";
 import type {
   EvidenceConfidence,
   ProgramProofKind,
@@ -18,6 +19,7 @@ export type CompactRelationProof = Readonly<{
   kind: ProgramProofKind;
   detail: string;
   locations: readonly CompactRelationLocationToken[];
+  instance?: InstanceTag;
 }>;
 export type CompactRelationDescriptorInput = {
   from: string;
@@ -65,6 +67,7 @@ export function createCompactRelationDescriptor(
     kind: input.proof.kind,
     detail: input.proof.detail,
     locations: freezeLocations(input.proof.locations),
+    ...(input.proof.instance ? { instance: input.proof.instance } : {}),
   });
   const contributingFiles = freezeFiles(input.contributingFiles);
   const descriptor = {

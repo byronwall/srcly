@@ -757,6 +757,8 @@ class AnchorGraphBuilder {
     const key = `${edge.source}|${edge.target}|${edge.kind}|${edge.label}|${edge.status}|${edge.proof.map((item) => item?.kind).join(",")}`;
     if (this.edgeKeys.has(key) || !this.nodes.has(edge.source) || !this.nodes.has(edge.target)) return;
     this.edgeKeys.add(key);
+    // The instance tag steers the walk (`InstanceTag`); it is not part of the edge.
+    edge = { ...edge, proof: edge.proof.map((item) => (item && "instance" in item ? (({ instance: _, ...rest }) => rest)(item as typeof item & { instance?: unknown }) : item)) };
     this.edges.push(edge);
     this.countDrawn(edge);
   }

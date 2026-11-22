@@ -168,6 +168,7 @@ export function relationIndexSink(index: CompactRelationIndex): RelationSink {
         kind: input.proof.kind,
         detail: input.proof.detail,
         locations: input.proof.locations.map(compactLocation),
+        ...(input.proof.instance ? { instance: input.proof.instance } : {}),
       },
       confidence: input.confidence,
       sourceSequence,
@@ -234,6 +235,7 @@ function recipeFromDescriptor(descriptor: CompactRelationDescriptor): RelationRe
       kind: descriptor.proof.kind,
       detail: descriptor.proof.detail,
       locations: descriptor.proof.locations.map(expandLocation),
+      ...(descriptor.proof.instance ? { instance: descriptor.proof.instance } : {}),
     },
     confidence: descriptor.confidence,
   };

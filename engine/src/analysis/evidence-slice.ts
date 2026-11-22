@@ -1,5 +1,5 @@
 import type { ProgramEvidence } from "./program-evidence";
-import type { SourceSpan } from "./scope-seam";
+import type { InstanceTag, SourceSpan } from "./scope-seam";
 import { stepFieldPath, type FieldPath, type PackFieldCache } from "./evidence-slice-fields";
 import {
   NO_ANALYSIS_CANCELLATION,
@@ -288,10 +288,13 @@ export function queryEvidenceSlice(
 
   const isOccurrence = (id: string): boolean => indexed.elementFor(id)?.kind === "component-occurrence";
   const isMarker = (id: string): boolean => id.startsWith("@");
+  /** An instance on the stack (`#s:` or `#u:` and its key): the walk is in that instance's state, shared or not (`InstanceTag`). */
+  const isInstance = (id: string): boolean => id.startsWith("#");
+  const instanceMarker = (key: string, shared: boolean): string => `#${shared ? "s" : "u"}:${key}`;
   /** The newest call on a stack and its index, past any occurrence or marker above it. */
   const topCall = (stack: readonly string[]): [number, string | undefined] => {
     let index = stack.length - 1;
-    while (index >= 0 && (isOccurrence(stack[index]!) || isMarker(stack[index]!))) index -= 1;
+    while (index >= 0 && (isOccurrence(stack[index]!) || isMarker(stack[index]!) || isInstance(stack[index]!))) index -= 1;
     return [index, index >= 0 ? stack[index] : undefined];
   };
   const markerOf = (at: { file: string; span: SourceSpan }): string => `@${JSON.stringify([at.file, at.span])}`;
@@ -335,11 +338,83 @@ export function queryEvidenceSlice(
     return null;
   };
 
+  /** The location key of an element: how an instance is named (`InstanceTag`). */
+  const keyOf = (id: string): string | null => {
+    const where = indexed.elementFor(id)?.location;
+    return where ? locationKey(where) : null;
+  };
+  /** The instance each call the walk crossed runs its target in, from its bindings' and returns' tags (`InstanceTag.call`). */
+  const callInstances = new Map<string, string>();
+  /** The instance a call runs its target in: a key, `this`, or null when no tag the walk crossed names it. */
+  const instanceAt = (callId: string): string | null => callInstances.get(callId) ?? null;
+  /**
+   * The instance the function the walk is in runs in, from the stack: an
+   * instance marker, or the call on top (through `this`, the frame below).
+   * Undefined on an empty stack: the seed is inside, so every instance is a
+   * true one. Null when the stack does not say.
+   */
+  const frameInstance = (calls: readonly string[]): string | null | undefined => {
+    if (calls.length === 0) return undefined;
+    for (let index = calls.length - 1; index >= 0; index--) {
+      const id = calls[index]!;
+      if (isInstance(id)) return id.slice(3);
+      if (isMarker(id) || isOccurrence(id)) continue;
+      const at = instanceAt(id);
+      if (at !== "this") return at;
+    }
+    return null;
+  };
+  /** The function an element is written in. */
+  const ownerOf = (id: string): string | null => indexed.elementFor(id)?.ownerId ?? null;
+  /** Calls of closures that read what their factory captured, and whether that factory has more than one call site. */
+  const closureCalls = new Map<string, boolean>();
+  /**
+   * Backward out of a factory's parameter (or a sibling closure's) into its
+   * caller, from inside a closure that factory call made: the stack after
+   * leaving through `call`, or null when the closure on top came from
+   * another call.
+   */
+  const closureEntry = (call: string, stack: readonly string[], index: number, top: string): readonly string[] | null => {
+    const shared = closureCalls.get(top);
+    const entered = invokedBy(top);
+    const callee = invokedBy(call);
+    if (shared === undefined || !entered || !callee || entered === callee) return null;
+    const popped = stack.filter((_, at) => at !== index);
+    const mine = instanceAt(top);
+    if (nestedIn(entered, callee)) {
+      // The closure was called in the factory's own body (a local helper): leave through the call of that frame, below it on the stack.
+      if (ownerOf(top) === callee) {
+        const [belowIndex, below] = topCall(popped);
+        if (below === undefined) return popped;
+        return below === call ? popped.filter((_, at) => at !== belowIndex) : null;
+      }
+      if (mine !== null) return mine === keyOf(call) ? popped : null;
+      unpinned = shared;
+      return popped;
+    }
+    const factory = indexed.elementFor(entered)?.ownerId;
+    if (!factory || indexed.elementFor(callee)?.ownerId !== factory) return null;
+    if (ownerOf(top) === factory && ownerOf(call) === factory) return popped;
+    const theirs = instanceAt(call);
+    if (mine !== null && theirs !== null) return mine === theirs ? popped : null;
+    unpinned = shared;
+    return popped;
+  };
+  /** Set by `pairInvocation` when it lets a step through without pinning its instance, on a factory or class with more than one site: the step is assumed. */
+  let unpinned = false;
+
   /**
    * The invocation stack after following `relation` from `calls`, or null when
    * the relation crosses to another call than the one the walk came through.
    */
   const pairInvocation = (relation: ProgramRelation, calls: readonly string[]): readonly string[] | null => {
+    unpinned = false;
+    const tag = relation.proof.instance;
+    if (tag?.call) {
+      const call = relation.kind === "argument-binding" ? callOfArgument(relation.from) : relation.kind === "return-value" ? relation.to : null;
+      if (call) callInstances.set(call, tag.call);
+    }
+    if (tag?.closure && relation.kind === "return-value") closureCalls.set(relation.to, tag.shared);
     const forward = normalizedRequest.direction === "forward";
     // A component occurrence on the stack is the props the walk came in by, and a marker (backward) is where a handler was handed in: both pair handlers, never a return.
     const [callIndex, top] = topCall(calls);
@@ -361,17 +436,27 @@ export function queryEvidenceSlice(
       if (!call) return calls;
       if (forward && !handedInHere(relation, calls)) return null;
       if (forward) return [...calls.slice(-(MAX_CALL_STACK - 1)), call];
+      // Backward out of a method of one instance: only through a call on that instance.
+      const last = calls[calls.length - 1];
+      if (last && isInstance(last)) {
+        const at = instanceAt(call);
+        if (at === "this") return calls;
+        if (at !== null && at !== last.slice(3)) return null;
+        unpinned = at === null && last[1] === "s";
+        return calls.slice(0, -1);
+      }
       // Backward out of a handed-in handler: remember where it was handed in.
       const at = relation.proof.kind === "bound-handler" ? relation.proof.locations[2] : undefined;
       const out = at ? calls : leaves(call);
       if (!out) return null;
       const [outIndex, outTop] = topCall(out);
-      const popped = outTop === undefined ? out : outTop === call ? out.filter((_, index) => index !== outIndex) : null;
+      const popped = outTop === undefined ? out : outTop === call ? out.filter((_, index) => index !== outIndex) : closureEntry(call, out, outIndex, outTop);
       if (!popped) return null;
       return at ? [...popped.slice(-(MAX_CALL_STACK - 1)), markerOf(at)] : popped;
     }
     // Through a member's state the walk is in no one call: whoever reads the member, from any call.
-    if (relation.kind === "member-state") return [];
+    // An instance member keeps the walk in the instance it was written in (`InstanceTag`).
+    if (relation.kind === "member-state") return memberStep(relation.proof.instance, calls, forward);
     // Forward through a framework's state (a setter's write, a getter's read: order and time not proven): any reader, from any call.
     // Backward keeps the stack, as before: a getter read is still paired with the calls the walk came through.
     if (forward && relation.proof.kind === "framework-state" && relation.status === "partial") return [];
@@ -379,16 +464,65 @@ export function queryEvidenceSlice(
       // Forward: out of the callee to its call, which must be the one on top. Backward: into the callee from `to`'s call.
       const call = relation.to;
       if (forward) {
+        const last = calls[calls.length - 1];
+        // A method of one instance returns only to calls on that instance; a call on `this` stays in it.
+        if (last && isInstance(last)) {
+          const at = instanceAt(call);
+          if (at === "this") return calls;
+          if (at !== null && at !== last.slice(3)) return null;
+          unpinned = at === null && last[1] === "s";
+          return calls.slice(0, -1);
+        }
         if (top === undefined) return calls;
         if (top === call) return calls.filter((_, index) => index !== callIndex);
-        // A closure the callee made (`factory(v).read()`) returns from a function nested inside the one the call on top entered: it leaves through its own calls.
+        const popped = calls.filter((_, index) => index !== callIndex);
         const returning = indexed.elementFor(relation.from)?.ownerId;
         const entered = invokedBy(top);
-        return returning && entered && returning !== entered && nestedIn(returning, entered) ? calls : null;
+        if (!returning || !entered || returning === entered) return null;
+        // A closure the callee made (`factory(v).read()`) returns from a function nested inside the one the call on top entered: it leaves through the calls of the closures that call made.
+        if (nestedIn(returning, entered)) {
+          if (!tag?.closure) return calls;
+          // Called in the factory's own body (a local helper): the same frame, the same instance.
+          if (ownerOf(call) === entered) return calls;
+          const at = instanceAt(call);
+          if (at !== null) return at === keyOf(top) ? popped : null;
+          unpinned = tag.shared;
+          return calls;
+        }
+        // A closure that one factory call made beside the one on top (`set` writes what `get` reads): it leaves through the calls of that same factory call's closures.
+        const factory = indexed.elementFor(returning)?.ownerId;
+        if (!tag?.closure || !factory || indexed.elementFor(entered)?.ownerId !== factory) return null;
+        if (ownerOf(call) === factory && ownerOf(top) === factory) return popped;
+        const mine = instanceAt(call);
+        const theirs = instanceAt(top);
+        if (mine !== null && theirs !== null) return mine === theirs ? popped : null;
+        unpinned = tag.shared;
+        return popped;
       }
       return [...calls.slice(-(MAX_CALL_STACK - 1)), call];
     }
     return calls;
+  };
+
+  /**
+   * The stack after a step through an instance member's state. The write's
+   * instance (its receiver, or through `this` the instance the stack is in)
+   * must be the read's; a read through `this` puts that instance on the
+   * stack, so the method's return goes only to calls on it. An instance the
+   * walk cannot name lets any reader through, assumed when the class has
+   * more than one `new`.
+   */
+  const memberStep = (tag: InstanceTag | undefined, calls: readonly string[], forward: boolean): readonly string[] | null => {
+    if (!tag) return [];
+    const [from, to] = forward ? [tag.write, tag.read] : [tag.read, tag.write];
+    const here = from === "this" ? frameInstance(calls) : from ?? null;
+    if (here === undefined) return [];
+    if (here === null || to === null || to === undefined) {
+      unpinned = tag.shared;
+      return [];
+    }
+    if (to === "this") return [instanceMarker(here, tag.shared)];
+    return to === here ? [] : null;
   };
 
   const entry = indexed.elementFor(normalizedRequest.seed.entryElementId);
@@ -554,9 +688,12 @@ export function queryEvidenceSlice(
       }
 
       acceptedCandidate = true;
+      const assumedStep = unpinned;
       const targetAdded = addElement(target, current.depth + 1, nextCalls, nextFields);
       if (!targetAdded) continue;
-      includedRelations.set(candidate.relation.id, candidate.relation);
+      // A step the walk could not pin to one instance is assumed, however else it was walked.
+      if (assumedStep) includedRelations.set(candidate.relation.id, sharedInstance(candidate.relation));
+      else if (includedRelations.get(candidate.relation.id)?.proof.kind !== "shared-instance") includedRelations.set(candidate.relation.id, candidate.relation);
 
       if (hasBoundary(target) && boundary.stopAtBoundary) {
         addGap({
@@ -619,6 +756,17 @@ export function queryEvidenceSlice(
       budgetExhausted,
     ),
   };
+}
+
+/** How the collector names an instance: the location key of the call or `new` that made it. */
+function locationKey(location: { file: string; span: SourceSpan }): string {
+  return `${location.file}:${location.span.startLine}:${location.span.startColumn}:${location.span.endLine}:${location.span.endColumn}`;
+}
+
+/** The relation, assumed: the walk could not tell which instance's state it moves (`InstanceTag`). */
+function sharedInstance(relation: ProgramRelation): ProgramRelation {
+  const detail = "Assumed: this state is kept per call or per instance, and the walk cannot tell which call or instance this value belongs to.";
+  return { ...relation, proof: { ...relation.proof, kind: "shared-instance", detail } };
 }
 
 function relationProviderFor(source: EvidenceSliceSource): EvidenceRelationSource {
