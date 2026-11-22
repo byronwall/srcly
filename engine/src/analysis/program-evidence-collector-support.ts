@@ -312,6 +312,7 @@ export class ProgramEvidenceCollectorSupport {
   protected bodyRoots(): readonly TypeScript.Node[] { return this.files; }
   protected bodyCollected(_node: TypeScript.Node): boolean { return true; }
   protected requireReferences(_node: TypeScript.Node): void {}
+  protected requireComponentPropSites(_name: TypeScript.Node, _prop: string): void {}
   protected prepareComponentReceiver(_node: TypeScript.PropertyAccessExpression): void {}
   protected shouldConnectCall(_call: CollectorCallInfo): boolean { return true; }
   protected addReference(reference: CollectorReferenceInfo): void {
