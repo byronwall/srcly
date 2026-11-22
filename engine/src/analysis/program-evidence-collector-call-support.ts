@@ -1,4 +1,5 @@
 import * as TypeScript from "typescript";
+import { storeMember, writesStore } from "./zustand-store";
 import type { ProgramElementKind, ProgramEvidenceLocation } from "./program-evidence";
 import { processProgramCallBoundary } from "./program-evidence-boundary-support";
 import {
@@ -297,8 +298,11 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       }
     }
     // A callee with no body to enter (a library method, a callback, an accessor) is consumed by its call, as its arguments are. A `then` with a handler holds what the handler returns, not its receiver.
-    const handled = this.settles(node) === "then" && this.promiseHandler(node, 0);
-    if (!role && !target && !handled && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
+    // A store member read through its hook (`addFish` after `const { addFish } = useStore()`) has one: the call enters it (`connectBoundHandlers`).
+    // A store's `set` (or `useStore.setState`) is modelled as a state setter is: what it receives is the store (`connectStores`), never its call's value.
+    const storeWrite = writesStore(this.ts, this.checker, node);
+    const handled = (this.settles(node) === "then" && this.promiseHandler(node, 0)) || storeMember(this.ts, this.checker, node.expression).length > 0;
+    if (!role && !storeWrite && !target && !handled && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
       this.addRelation(
         this.expression(node.expression, ownerId),
         callId,
@@ -313,7 +317,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       );
     }
     const flow = this.flowOf(node);
-    for (const [index, argument] of (role ? [] : node.arguments).entries()) {
+    for (const [index, argument] of (role || storeWrite ? [] : node.arguments).entries()) {
       // `f.apply(t, [a, b])`: each listed value is an argument of its own, never the list.
       if (argument === adapter?.list) {
         for (const item of adapter.args) if (item) this.addRelation(this.expression(item, ownerId), callId, "argument", [this.location(item)], proof("ast-node", "The listed value is passed at this call occurrence.", [this.location(item)]), "proven");
