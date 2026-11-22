@@ -73,14 +73,26 @@ class LibraryModels:
     def __init__(self) -> None:
         self.exact: dict[str, tuple[str, Recognition]] = {}
         self.prefixes: list[tuple[str, str, Recognition]] = []
+        # `passes-through` rows: library code whose result derives from its receiver and arguments, by fullname (or prefix), with its note.
+        self.through: dict[str, str] = {}
+        self.through_prefixes: list[tuple[str, str]] = []
 
     def load(self, files: list[Path]) -> None:
         for file in files:
             for row in json.loads(file.read_text(encoding="utf-8")).get("rows", []):
-                if row.get("language") != "py" or row.get("model") not in ("origin", "terminal"):
+                if row.get("language") != "py":
                     continue
                 path = row.get("name") or row.get("member")
                 key = f"{row['module']}.{path}"
+                if row.get("model") == "passes-through":
+                    note = row.get("note") or "its result derives from what it is given"
+                    if key.endswith("*"):
+                        self.through_prefixes.append((key[:-1], note))
+                    else:
+                        self.through[key] = note
+                    continue
+                if row.get("model") not in ("origin", "terminal"):
+                    continue
                 kind, attributes = ROLE_ELEMENTS.get(row["role"], (row["role"], {}))
                 found = (row["model"], (kind, row.get("note") or kind, {**attributes, "libraryModel": f"{row['module']}#{path}"}))
                 if key.endswith("*"):
@@ -104,6 +116,12 @@ class LibraryModels:
     def read(self, name: str | None) -> Recognition | None:
         """A read that is an origin: `os.environ`, `sys.argv`, Flask's `request`."""
         return self.find(name, ("origin",))
+
+    def passes(self, name: str | None) -> str | None:
+        """The note of a `passes-through` row: `asyncio.gather`, Flask's `request.args.get`."""
+        if not name:
+            return None
+        return self.through.get(name) or next((note for prefix, note in self.through_prefixes if name.startswith(prefix)), None)
 
 
 MODELS = LibraryModels()
@@ -132,6 +150,26 @@ MODEL_BASES = {"BaseModel", "pydantic.BaseModel", "pydantic.main.BaseModel", "SQ
 SETTINGS_BASES = {"pydantic_settings.BaseSettings", "pydantic_settings.main.BaseSettings", "pydantic.BaseSettings", "pydantic.env_settings.BaseSettings"}
 # Calls on a model class's manager that set its fields by keyword: `Article.objects.create(title=…)` (Django).
 MODEL_KEYWORD_CALLS = {"objects.create", "objects.get_or_create"}
+# Manager calls that return one instance of their model: `article = Article.objects.get(pk=pk)` names an Article.
+MODEL_INSTANCE_CALLS = {"objects.get", "objects.create", "objects.first", "objects.last", "objects.latest", "objects.earliest"}
+# A query result's methods (`.scalars()`, `.all()`) read the rows a database origin row returned, by the origin row's package.
+QUERY_RESULT_PACKAGES = ("sqlalchemy", "sqlmodel", "sqlite3")
+QUERY_RESULT_METHODS = {"scalars", "scalar", "scalar_one", "scalar_one_or_none", "all", "first", "one", "one_or_none",
+                        "fetchall", "fetchone", "fetchmany", "unique", "mappings", "tuples", "partitions"}
+# Terminal kinds that send what they are given (the receiver too): a field written on it before goes with it.
+SENDING_TERMINALS = {"external-effect", "file-write", "stdout", "http-response"}
+
+# Library calls that call a function they are given with the arguments after it, by mypy's name: the index of the
+# function argument, and what the call returns. `partial` makes a callable that binds them first at each of its calls;
+# `later` runs the function after the call (its result is a handle, never the function's return); `result` returns
+# what the function returns.
+FORWARDING_CALLS: dict[str, tuple[int, str]] = {
+    "functools.partial": (0, "partial"),
+    "fastapi.background.BackgroundTasks.add_task": (0, "later"),
+    "starlette.background.BackgroundTasks.add_task": (0, "later"),
+    "concurrent.futures._base.Executor.submit": (0, "later"),
+    "asyncio.threads.to_thread": (0, "result"),
+}
 
 
 # --------------------------------------------------------------------------- sources
@@ -543,6 +581,15 @@ class Program:
         self.aliases: dict[str, tuple[Source, ast.expr]] = {}
         self.injected: set[str] = set()  # entry ids whose results a framework passes on (`Depends(get_db)`): their returns are not exits  # "module.Name" -> its module-level subscript value
         self.routes: list[dict[str, Any]] = []
+        # entry id -> entry ids of the functions that return it as a value (`return apply`): a closure handed to their callers.
+        self.returned_by: dict[str, set[str]] = {}
+        self.decorators: set[str] = set()  # entry ids of first-party functions used as a decorator
+        # entry ids of dependencies FastAPI calls for a route: `Depends(f)` on a handler, or on such a dependency.
+        self.rooted: set[str] = set()
+        # (entry id, parameter) -> the argument each first-party call binds to it, by the call's source (None: spread).
+        self.param_args: dict[tuple[str, str], list[tuple[Source, ast.expr | None]]] = {}
+        # Calls of a parameter (`fn(item)`), settled once every call site is known (`finish_callbacks`).
+        self.callback_calls: list[tuple[BodyWalker, str, str, ast.Call, list[tuple[ast.expr, str | None]], list[tuple[ast.keyword, str | None]]]] = []
 
     # ---- index
 
@@ -582,6 +629,13 @@ class Program:
             self.index_defs(source, source.tree.body, prefix="", class_info=None)
         for info in self.classes.values():
             info.is_model = self.is_model(info)
+        for item in [*self.functions.values(), *self.classes.values()]:
+            if isinstance(item.node, ast.Lambda):
+                continue
+            for decorator in item.node.decorator_list:
+                used = self.resolve_function(self.dotted(item.source, decorator.func if isinstance(decorator, ast.Call) else decorator))
+                if used is not None:
+                    self.decorators.add(used.entry_id)
         for source, name, value, callee in self.pending_routers:
             kind = self.router_kind(self.resolve_class(callee))
             if kind:
@@ -819,9 +873,78 @@ class Program:
         sites = self.calls.setdefault(callee.entry_id, {"calls": [], "escapes": False, "name": callee.qualname})
         sites["calls"].append(f"{source.rel}:{line}")
 
-    def record_escape(self, callee: FunctionInfo) -> None:
+    def record_escape(self, callee: FunctionInfo, returned_from: FunctionInfo | None = None) -> None:
         sites = self.calls.setdefault(callee.entry_id, {"calls": [], "escapes": False, "name": callee.qualname})
-        sites["escapes"] = True
+        if returned_from is not None:
+            self.returned_by.setdefault(callee.entry_id, set()).add(returned_from.entry_id)
+        else:
+            sites["escapes"] = True
+
+    def finish_callbacks(self) -> None:
+        """
+        `fn(item)` inside `apply_each(items, fn)`: when every call of `apply_each` in the program passes the same
+        function for `fn` (`apply_each(items, print)`), and nothing else holds `apply_each`, the call is a call of that
+        function. A library function with a terminal row makes the call that terminal; a first-party one binds its
+        parameters. Any other call of a parameter stays code the walk cannot see.
+        """
+        for walker, name, element, node, positional, keywords in self.callback_calls:
+            fn = walker.function
+            assert fn is not None
+            sites = self.calls.get(fn.entry_id, {"calls": [], "escapes": False})
+            args = self.param_args.get((fn.entry_id, name), [])
+            if not sites["calls"] or sites["escapes"] or len(args) != len(sites["calls"]) or fn.entry_id in self.registrations or fn.entry_id in self.decorators:
+                continue
+            names = {self.dotted(site, arg) if isinstance(arg, (ast.Name, ast.Attribute)) else None for site, arg in args}
+            if len(names) != 1 or None in names:
+                continue
+            handed = names.pop()
+            assert handed is not None
+            where = ", ".join(sites["calls"][:3])
+            detail = f"every call of {fn.qualname} ({where}) passes {handed} as {name}"
+            target = self.resolve_function(handed)
+            if target is not None:
+                call = self.elements[element]
+                call["attributes"] = {"callee": target.entry_id, "calleeName": target.qualname}
+                call["proof"] = {"kind": "syntax", "detail": detail, "locations": [target.source.location(target.source.span(target.node))]}
+                for key in [key for key, relation in self.relations.items() if relation["to"] == element and relation["proof"]["kind"] == "external-call"]:
+                    del self.relations[key]
+                self.relate(walker.source, element, target.entry_id, "definition", detail, walker.span(node.func))
+                self.record_call(target, walker.source, node.lineno)
+                walker.bind_arguments(target, None, node, positional, keywords, call=element)
+                for ret in target.returns:
+                    if ret.value is not None:
+                        self.relate(walker.source, element_id("return", target.source.rel, target.source.span(ret)), element, "return-value",
+                                    f"{target.qualname} returns {clip(target.source.segment(ret.value), 40)} to this call", walker.span(node))
+                continue
+            recognized = MODELS.call(handed)
+            if recognized is None or recognized[0] not in SENDING_TERMINALS:
+                continue
+            kind, label, attributes = recognized
+            call = self.elements[element]
+            call.update({"kind": kind, "label": clip(f"{label}: {walker.source.segment(node)}")})
+            call["attributes"] = {**attributes, "callee": handed}
+            call["proof"] = {"kind": "syntax", "detail": detail, "locations": [walker.source.location(walker.span(node))]}
+            for relation in self.relations.values():
+                if relation["to"] == element and relation["proof"]["kind"] == "external-call":
+                    relation["status"] = "proven"
+                    relation["proof"] = {**relation["proof"], "kind": "syntax", "status": "proven", "detail": f"handed to {handed}: {detail}"}
+
+    def finish_closures(self) -> None:
+        """
+        A function returned as a value (`return apply`) goes to whoever calls the function that returns it. When
+        that function is an entry (no call in the program names it, nothing else holds it, no decorator wraps or
+        registers it), its caller is outside the program, and so is the closure's: the closure's returns leave the
+        program as the entry's do (`finish_returns`). Returned by any other function, it escapes.
+        """
+        def leaves(entry: str) -> bool:
+            info = self.functions_by_entry.get(entry)
+            sites = self.calls.get(entry, {"calls": [], "escapes": False})
+            return (info is not None and not isinstance(info.node, ast.Lambda) and not info.node.decorator_list and info.route is None
+                    and not sites["calls"] and not sites["escapes"] and entry not in self.injected and entry not in self.decorators
+                    and entry not in self.returned_by and entry not in self.registrations)
+        for entry, owners in self.returned_by.items():
+            if not all(leaves(owner) for owner in owners):
+                self.calls[entry]["escapes"] = True
 
     def checked_type(self, source: Source, span: dict[str, int]) -> str | None:
         return self.checked.types.get(source.rel, {}).get(span_key(span))
@@ -843,11 +966,14 @@ class Program:
             if source.tree is None:
                 continue
             ModuleWalker(self, source).run()
-        # A dependency found while entering one function registers another: repeat until none is new.
-        seen = -1
-        while seen != len(self.registrations):
-            seen = len(self.registrations)
-            self.finish_entries()
+        self.finish_callbacks()
+        # A dependency found while entering one function registers another: repeat until none is new, then enter each.
+        seen: tuple[int, int] = (-1, -1)
+        while seen != (len(self.registrations), len(self.rooted)):
+            seen = (len(self.registrations), len(self.rooted))
+            self.finish_entries(emit=False)
+        self.finish_entries(emit=True)
+        self.finish_closures()
         self.finish_returns()
 
     def mount_routers(self) -> None:
@@ -902,7 +1028,7 @@ class Program:
             return (self.dotted(source, owner) or "") in self.routers
         return False
 
-    def finish_entries(self) -> None:
+    def finish_entries(self, emit: bool) -> None:
         """
         A function nothing in the program calls, registered with a framework by a decorator
         (a CLI command, a signal receiver, a hook) or handed to code outside the program
@@ -930,7 +1056,9 @@ class Program:
                 if info.is_method and param is info.params[0]:
                     continue
                 target = element_id("parameter", source.rel, source.span(param))
-                if target not in self.elements or self.dependency_results(info, param, info.qualname):
+                if target not in self.elements or self.dependency_results(info, param, info.qualname, rooted=info.entry_id in self.rooted) or not emit:
+                    continue
+                if info.entry_id in self.rooted and self.dependency_origin(info, param, target):
                     continue
                 detail = (f"Assumed: {words} has no source to read, so it is taken to call {info.qualname}, passing {param.arg}" if assumed
                           else f"{words} calls {info.qualname} from outside the program, passing {param.arg}")
@@ -947,7 +1075,38 @@ class Program:
                 self.relate(source, origin, target, "request-binding", detail, source.span(param),
                             status="partial" if assumed else "proven", proof_kind="external-call" if assumed else "syntax")
 
-    def dependency_results(self, info: FunctionInfo, param: ast.arg, why: str) -> bool:
+    def dependency_origin(self, info: FunctionInfo, param: ast.arg, target: str) -> bool:
+        """
+        A dependency FastAPI calls for a route fills its own parameters from the request, as a handler's: an explicit
+        marker (`authorization: str = Header()`) or a `Request` annotation says which part. False for any other parameter.
+        """
+        source = info.source
+        kind, _ = fastapi_binding(self, source, param, info, {"framework": "fastapi", "parameters": [], "key": f"Depends({info.qualname})"})
+        if kind not in ("path", "query", "body", "header", "cookie", "form", "file", "request") or (kind in ("path", "query", "body") and not self.explicit_marker(info, param)):
+            return False
+        detail = f"FastAPI calls {info.qualname} as a dependency of a route and fills {param.arg} from the request ({kind})"
+        at = source.span(param)
+        origin = self.add_element({
+            "id": element_id("request", source.rel, at, f"#{info.qualname}"),
+            "kind": "parameter",
+            "operationKind": None,
+            "label": clip(f"Depends({info.qualname}) {kind} {param.arg}" if kind != "request" else f"Depends({info.qualname}) the request"),
+            "location": source.location(at),
+            "ownerId": info.entry_id,
+            "attributes": {"binding": kind, "name": param.arg, "originRole": "request"},
+            "proof": {"kind": "fastapi", "detail": detail, "locations": [source.location(at)]},
+        })
+        self.relate(source, origin, target, "request-binding", detail, at, proof_kind="fastapi")
+        return True
+
+    def explicit_marker(self, info: FunctionInfo, param: ast.arg) -> bool:
+        """Whether a FastAPI marker (`Query()`, `Body()`, …) declares how the parameter is filled."""
+        node = info.node
+        assert not isinstance(node, ast.Lambda)
+        return any(isinstance(marker, ast.Call) and dotted_name(marker.func).split(".")[-1] in FASTAPI_PARAM_FUNCS
+                   for _, marker in fastapi_markers(self, info.source, param_default(node.args, param), param.annotation))
+
+    def dependency_results(self, info: FunctionInfo, param: ast.arg, why: str, rooted: bool) -> bool:
         """
         `Depends(get_db)` on a parameter of a function FastAPI calls: FastAPI calls `get_db` (which it
         thereby registers) and passes what it returns or yields to the parameter. False when the
@@ -964,6 +1123,8 @@ class Program:
             if target is None:
                 return False
             self.injected.add(target.entry_id)
+            if rooted:
+                self.rooted.add(target.entry_id)
             self.registrations.setdefault(target.entry_id, (site, marker))
             detail = f"FastAPI calls {target.qualname} for {why} and passes its result to {param.arg}"
             parameter = element_id("parameter", info.source.rel, info.source.span(param))
@@ -1151,13 +1312,23 @@ class Scope:
         self.kind = kind
         self.defs: dict[str, list[tuple[tuple[int, int], str]]] = {}
         self.loads: list[tuple[str, tuple[int, int], str, dict[str, int]]] = []
+        # Names a `global` or `nonlocal` statement hands to an outer scope: bound and read there.
+        self.outer: dict[str, Scope] = {}
+
+    def root(self) -> Scope:
+        scope = self
+        while scope.parent is not None:
+            scope = scope.parent
+        return scope
 
     def bind(self, name: str, position: tuple[int, int], element: str) -> None:
-        self.defs.setdefault(name, []).append((position, element))
+        self.outer.get(name, self).defs.setdefault(name, []).append((position, element))
 
     def owner_of(self, name: str) -> Scope | None:
         scope: Scope | None = self
         while scope is not None:
+            if name in scope.outer:
+                return scope.outer[name]
             if name in scope.defs:
                 return scope
             # Class bodies do not enclose their methods.
@@ -1174,16 +1345,25 @@ class ModuleWalker:
         source = self.source
         assert source.tree is not None
         module_scope = Scope(None, "module")
-        walker = BodyWalker(self.program, source, module_scope, function=None)
+        links: list[tuple[BodyWalker, Scope]] = []
+        walker = BodyWalker(self.program, source, module_scope, function=None, links=links)
         walker.walk_body(source.tree.body)
         walker.close()
+        # Loads join their bindings once every body is walked: a function's `global` write binds a module name another function reads.
+        for owner, scope in links:
+            owner.link_loads(scope)
+        walker.link_containers()
 
 
 class BodyWalker:
     """Facts for one body. Nested functions are walked after this body, with this scope as their parent."""
 
-    def __init__(self, program: Program, source: Source, scope: Scope, function: FunctionInfo | None, class_info: ClassInfo | None = None):
+    def __init__(self, program: Program, source: Source, scope: Scope, function: FunctionInfo | None, class_info: ClassInfo | None = None,
+                 links: list[tuple[BodyWalker, Scope]] | None = None, containers: dict[tuple[int, str, str], tuple[list[str], list[str]]] | None = None):
         self.program = program
+        self.links = links if links is not None else []
+        # A module name's constant key or attribute (`CURRENT["theme"]`), by its scope, name and key: the writes to it and the reads of it.
+        self.containers = containers if containers is not None else {}
         self.source = source
         self.scope = scope
         self.function = function
@@ -1194,6 +1374,13 @@ class BodyWalker:
         self.owner = function.entry_id if function else None
         # Names bound to an instance of a class by import, where the checker has no type: `session = Session(engine)`, `frame: pd.DataFrame`.
         self.instances: dict[str, str] = {}
+        # The value of the `return` being walked: a function named there is returned, not otherwise handed on.
+        self.returning: ast.expr | None = None
+        # `to_ops = functools.partial(send, "ops")`: the name, the function and the arguments it binds first.
+        self.partials: dict[str, tuple[FunctionInfo, list[tuple[ast.expr, str | None]], list[tuple[ast.keyword, str | None]]]] = {}
+        self.made_partials: dict[int, tuple[FunctionInfo, list[tuple[ast.expr, str | None]], list[tuple[ast.keyword, str | None]]]] = {}
+        # `article.title = …`: each write to a field or key of a local name, by the name, with where it is.
+        self.field_writes: dict[str, list[tuple[tuple[int, int], str]]] = {}
 
     # ---- helpers
 
@@ -1252,20 +1439,20 @@ class BodyWalker:
             self.stmt(stmt)
 
     def close(self) -> None:
-        """Join every load to the bindings it can see, then walk nested functions."""
-        self.link_loads(self.scope)
+        """Queue every load to join the bindings it can see, then walk nested functions."""
+        self.links.append((self, self.scope))
         for scope in self.inner_scopes:
-            self.link_loads(scope)
+            self.links.append((self, scope))
         while self.pending:
             node, parent, class_info = self.pending.pop(0)
             if isinstance(node, ast.ClassDef):
                 scope = Scope(parent, "class")
-                walker = BodyWalker(self.program, self.source, scope, self.function, class_info=self.program.classes_by_node.get(id(node)))
+                walker = BodyWalker(self.program, self.source, scope, self.function, class_info=self.program.classes_by_node.get(id(node)), links=self.links, containers=self.containers)
                 walker.walk_body(node.body)
                 walker.close()
                 continue
             info = self.program.functions_by_node.get(id(node))
-            walker = BodyWalker(self.program, self.source, Scope(parent, "function"), info, class_info)
+            walker = BodyWalker(self.program, self.source, Scope(parent, "function"), info, class_info, links=self.links, containers=self.containers)
             walker.walk_function(node)  # type: ignore[arg-type]
             walker.close()
 
@@ -1334,6 +1521,12 @@ class BodyWalker:
         if isinstance(node, ast.Lambda):
             self.expr(node.body)
             return
+        for statement in own_nodes(node, (ast.Global, ast.Nonlocal)):
+            for name in statement.names:  # type: ignore[attr-defined]
+                # `global X` binds and reads the module's X; `nonlocal X` the nearest enclosing function's.
+                outer = self.scope.root() if isinstance(statement, ast.Global) else (self.scope.parent.owner_of(name) if self.scope.parent else None)
+                if outer is not None:
+                    self.scope.outer[name] = outer
         self.walk_body(node.body)
 
     def class_entry(self, node: ast.ClassDef) -> None:
@@ -1439,7 +1632,7 @@ class BodyWalker:
         if param.arg in ("self", "cls"):
             return
         kind, detail = fastapi_binding(self.program, self.source, param, info, route)
-        if kind is None or (kind == "dependency" and self.program.dependency_results(info, param, route["key"])):
+        if kind is None or (kind == "dependency" and self.program.dependency_results(info, param, route["key"], rooted=route["framework"] == "fastapi")):
             return
         labels = {
             "path": f"path {{{param.arg}}}",
@@ -1500,6 +1693,9 @@ class BodyWalker:
             for target in node.targets:
                 self.bind(target, value, node.value, "carrier")
                 self.note_instance(target, node.value)
+            made = self.made_partials.get(id(node.value))
+            if made is not None and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) and self.single_store(node.targets[0].id):
+                self.partials[node.targets[0].id] = made
             return
         if isinstance(node, ast.AnnAssign):
             value = self.expr(node.value) if node.value is not None else None
@@ -1524,7 +1720,11 @@ class BodyWalker:
         if isinstance(node, ast.Return):
             if node.value is None:
                 return
-            value = self.expr(node.value)
+            self.returning = node.value
+            try:
+                value = self.expr(node.value)
+            finally:
+                self.returning = None
             span = self.span(node)
             type_text, type_source = self.type_of(node.value)
             if type_text is None and self.function and not isinstance(self.function.node, ast.Lambda) and self.function.node.returns is not None:
@@ -1584,8 +1784,9 @@ class BodyWalker:
             self.test(node.test)
             return
         if isinstance(node, ast.Match):
-            self.expr(node.subject)
+            subject = self.expr(node.subject)
             for case in node.cases:
+                self.bind_pattern(case.pattern, subject, node.subject, nested=False)
                 if case.guard is not None:
                     self.test(case.guard)
                 self.walk_body(case.body)
@@ -1593,6 +1794,91 @@ class BodyWalker:
         if isinstance(node, ast.Delete):
             return
         # Import, Global, Nonlocal, Pass, Break, Continue: no values move.
+
+    def bind_pattern(self, pattern: ast.pattern, subject: str | None, subject_node: ast.expr, nested: bool) -> None:
+        """
+        A `case` pattern's captures bind parts of the subject: `case x` or `case P() as x` the subject itself, a
+        capture inside a sequence, mapping or class pattern (`case ("say", text)`) an element of it, as unpacking does.
+        """
+        name = getattr(pattern, "name", None)
+        if isinstance(pattern, (ast.MatchAs, ast.MatchStar)) and name:
+            # The name is the pattern's last word: `text`, `*rest`, `Point() as p`.
+            end_line, end_col = pattern.end_lineno or pattern.lineno, pattern.end_col_offset or 0
+            target = ast.Name(id=name, ctx=ast.Store(), lineno=end_line, col_offset=end_col - len(name.encode("utf-8")), end_lineno=end_line, end_col_offset=end_col)
+            kind = "collection-element" if nested or isinstance(pattern, ast.MatchStar) else "carrier"
+            self.bind(target, subject, subject_node, kind)
+        if isinstance(pattern, ast.MatchAs) and pattern.pattern is not None:
+            self.bind_pattern(pattern.pattern, subject, subject_node, nested)
+        for child in [*getattr(pattern, "patterns", []), *getattr(pattern, "kwd_patterns", [])]:
+            self.bind_pattern(child, subject, subject_node, nested=True)
+
+    def sent_writes(self, node: ast.Call, children: list[ast.expr], element: str, callee_text: str) -> None:
+        """
+        `article.title = …` then `article.save()`, or `row["k"] = …` then `print(row)`: a local object handed to a call
+        that sends it carries what was written into it before. Proven when the name has one binding, else partial.
+        """
+        here = (node.lineno, node.col_offset)
+        for child in children:
+            if not isinstance(child, ast.Name) or child.id not in self.field_writes or self.scope.owner_of(child.id) is not self.scope:
+                continue
+            status = "proven" if self.single_store(child.id) else "partial"
+            for position, write in self.field_writes[child.id]:
+                if position < here:
+                    self.relate(write, element, "call-input", f"written into {child.id}, which {callee_text} sends", child, status=status)
+
+    def single_store(self, name: str) -> bool:
+        """Whether this body binds `name` exactly once, so a read of it here sees that binding."""
+        body = self.function.node if self.function else self.source.tree
+        nodes = own_nodes(body, ast.Name) if body is not None else []
+        return sum(1 for item in nodes if isinstance(item, ast.Name) and item.id == name and isinstance(item.ctx, ast.Store)) == 1
+
+    def local_function(self, func: ast.expr) -> FunctionInfo | None:
+        """`twice(text)`, where `twice` is a `def` in this function or one enclosing it: the checker names it only by its bare name."""
+        if not isinstance(func, ast.Name):
+            return None
+        owner = self.scope.owner_of(func.id)
+        bound = owner.defs.get(func.id, []) if owner is not None else []
+        if len(bound) != 1 or not bound[0][1].startswith("py:function-entry:"):
+            return None
+        return self.program.functions_by_entry.get(bound[0][1])
+
+    def handed_function(self, node: ast.expr | None) -> FunctionInfo | None:
+        """The first-party function an argument names (`write_audit`, `module.task`, a local `def`)."""
+        if not isinstance(node, (ast.Name, ast.Attribute)):
+            return None
+        return self.local_function(node) or self.program.resolve_function(self.program.dotted(self.source, node))
+
+    def forward_call(self, node: ast.Call, name: str, index: int, mode: str, function: FunctionInfo) -> str:
+        """
+        A library call that calls the first-party function it is given with the arguments after it
+        (`FORWARDING_CALLS`): they bind its parameters as a call's would. A `partial` binds them at each call of
+        the callable it makes (`expr_Call`); `later` runs the function after the call; `result` returns what it returns.
+        """
+        source = self.source
+        callee_text = source.segment(node.func)
+        if not isinstance(node.func, ast.Name) and isinstance(node.func, ast.Attribute) and not self.is_module_ref(node.func.value):
+            self.expr(node.func.value)
+        rest = [arg for i, arg in enumerate(node.args) if i != index]
+        positional = [(arg, self.expr(arg) or self.literal(arg)) for arg in rest]
+        keywords = [(kw, self.expr(kw.value) or self.literal(kw.value)) for kw in node.keywords]
+        detail = f"{callee_text} ({name}) calls {function.qualname} with the arguments after it"
+        attributes: dict[str, Any] = {"calleeName": function.qualname, "callee": name}
+        if mode == "later":
+            attributes["queues"] = function.entry_id
+        element = self.element("call-result", node, f"{callee_text}(…)", attributes=attributes,
+                               proof={"kind": "syntax", "detail": detail, "locations": [function.source.location(function.source.span(function.node))]})
+        self.note(node, "Call")
+        if mode == "partial":
+            self.made_partials[id(node)] = (function, positional, keywords)
+            return element
+        self.program.record_call(function, source, node.lineno)
+        self.bind_arguments(function, None, node, positional, keywords, call=element if mode == "result" else None)
+        if mode == "result":
+            for ret in function.returns:
+                if ret.value is not None:
+                    ret_id = element_id("return", function.source.rel, function.source.span(ret))
+                    self.program.relate(source, ret_id, element, "return-value", f"{function.qualname} returns {clip(function.source.segment(ret.value), 40)} to this call", self.span(node))
+        return element
 
     def note_instance(self, target: ast.expr, made_by: ast.AST | None) -> None:
         """
@@ -1603,6 +1889,9 @@ class BodyWalker:
         if not isinstance(target, ast.Name):
             return
         node = made_by.func if isinstance(made_by, ast.Call) else made_by
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Attribute) and f"{node.value.attr}.{node.attr}" in MODEL_INSTANCE_CALLS:
+            # `Article.objects.get(pk=pk)` returns an Article.
+            node = node.value.value
         name = self.program.dotted(self.source, strip_optional(node)) if isinstance(node, (ast.Name, ast.Attribute, ast.Subscript)) else None
         if name and name.rsplit(".", 1)[-1][:1].isupper() and (self.program.outside(name) or self.program.resolve_class(name) is not None):
             self.instances[target.id] = name
@@ -1648,10 +1937,36 @@ class BodyWalker:
                                  attributes={"property": field_name, "write": True, "endsInPlace": "write"} if field_name else {"write": True, "endsInPlace": "write"})
             self.relate(value, write, "pack-field", f"stored in {clip(self.source.segment(target), 60)}", target)
             self.relate(base, write, "carrier", "the object written to", target.value, status="partial")
+            self.note_container(target, field_name, write, written=True)
+            if isinstance(target.value, ast.Name) and self.scope.owner_of(target.value.id) is self.scope:
+                self.field_writes.setdefault(target.value.id, []).append(((target.lineno, target.col_offset), write))
             if isinstance(target, ast.Subscript):
                 self.expr(target.slice)
             return write
         return None
+
+    def note_container(self, node: ast.Attribute | ast.Subscript, key: str | None, element: str, written: bool) -> None:
+        """A write to or a read of a module name's constant key or attribute (`CURRENT["theme"]`, `STATE.theme`), from any function of the module."""
+        if key is None or not isinstance(node.value, ast.Name):
+            return
+        owner = self.scope.owner_of(node.value.id)
+        if owner is None or owner.kind != "module":
+            return
+        slot = (id(owner), node.value.id, f"{'.' if isinstance(node, ast.Attribute) else '[]'}{key}")
+        writes, reads = self.containers.setdefault(slot, ([], []))
+        (writes if written else reads).append(element)
+
+    def link_containers(self) -> None:
+        """
+        Module state is shared by every function of the module: a write to `CURRENT["theme"]` can be what any
+        read of `CURRENT["theme"]` sees. Flow-insensitive, as a field read of any instance is: partial.
+        """
+        for (_, name, key), (writes, reads) in self.containers.items():
+            shown = f"{name}{key}" if key.startswith(".") else f"{name}[{key[2:]!r}]"
+            for write in writes:
+                for read in reads:
+                    at = self.program.elements[read]["location"]["span"]
+                    self.relate(write, read, "carrier", f"module state {shown}: the value written there can be the one read here", at, status="partial")
 
     def settings_origin(self, target: ast.expr, field_element: str | None) -> None:
         """A settings model's field (`SECRET_KEY: str` on a `BaseSettings`) is read from the environment variable of its name."""
@@ -1731,7 +2046,7 @@ class BodyWalker:
             for _, entry in bound:
                 target = self.program.functions_by_entry.get(entry)
                 if target is not None:
-                    self.program.record_escape(target)
+                    self.program.record_escape(target, returned_from=self.function if node is self.returning else None)
             return None
         element = self.load_name(node)
         # A plain read of a name repeats its binding: the anchor graph walks through it without a box of its own.
@@ -1771,6 +2086,7 @@ class BodyWalker:
                                attributes={"property": node.attr})
         self.note(node, "Attribute", ty=type_text, tsrc=type_source)
         self.relate(base, element, "field-input", f"reads .{node.attr} from {clip(self.source.segment(node.value), 60)}", node)
+        self.note_container(node, node.attr, element, written=False)
         declaring = self.field_class(node)
         if declaring is not None:
             # Flow-insensitive across instances, like a name read seeing every binding that can reach it: partial.
@@ -1849,6 +2165,7 @@ class BodyWalker:
             metadata = {"indexKind": "dynamic", "indexValue": None}
         element = self.element("index-read", node, self.source.segment(node), operation="index-read", attributes={"operation": "index-read", **metadata})
         self.note(node, "Subscript")
+        self.note_container(node, constant_key(node.slice), element, written=False)
         self.relate(base, element, "field-input", f"reads [{clip(self.source.segment(node.slice), 30)}] from {clip(self.source.segment(node.value), 60)}", node)
         self.relate(index, element, "carrier", "the index chooses what is read", node.slice, status="partial")
         return element
@@ -2020,7 +2337,19 @@ class BodyWalker:
         checked = self.program.checked.callees.get(source.rel, {}).get(span_key(span))
         dotted = self.program.dotted(source, node.func) or (None if checked else self.instance_method(node))
         target_name = checked or dotted
-        function = self.program.resolve_function(target_name) or self.method_target(node)
+        forwarding = FORWARDING_CALLS.get(target_name or "") or FORWARDING_CALLS.get(dotted or "")
+        if forwarding is not None:
+            index, mode = forwarding
+            handed = self.handed_function(node.args[index]) if len(node.args) > index else None
+            if handed is not None:
+                return self.forward_call(node, target_name or dotted or "", index, mode, handed)
+        bound_first: tuple[list[tuple[ast.expr, str | None]], list[tuple[ast.keyword, str | None]]] = ([], [])
+        function = self.program.resolve_function(target_name) or self.method_target(node) or self.local_function(node.func)
+        if function is None and isinstance(node.func, ast.Name) and node.func.id in self.partials and self.scope.owner_of(node.func.id) is self.scope:
+            # `to_ops(message)`, where `to_ops = functools.partial(send, "ops")`: a call of `send` with "ops" first.
+            function, *bound = self.partials[node.func.id]
+            bound_first = (bound[0], bound[1])
+            proof_partial = f"{callee_text} is functools.partial({function.qualname}, …)"
         klass = None if function else self.program.resolve_class(target_name)
         receiver = None
         origin_receiver = isinstance(node.func, ast.Attribute) and MODELS.read(self.program.dotted(source, node.func.value)) is not None
@@ -2034,7 +2363,10 @@ class BodyWalker:
         positional = [(arg, self.expr(arg)) for arg in node.args]
         keywords = [(kw, self.expr(kw.value)) for kw in node.keywords]
         inputs = ([(node.func, receiver)] if receiver else []) + positional + [(kw.value, value) for kw, value in keywords]
+        positional, keywords = bound_first[0] + positional, bound_first[1] + keywords
         proof_name = f"mypy resolves {callee_text} to {checked}" if checked else (f"{callee_text} resolves to {dotted} through its imports" if dotted else None)
+        if bound_first[0] or bound_first[1]:
+            proof_name = proof_partial
         proof_kind = "mypy" if checked else "import"
 
         # mypy's name first; the import's name when mypy has none (a package that is not installed) or names no row.
@@ -2042,6 +2374,11 @@ class BodyWalker:
         if by_import is None and not checked and self.program.inherited_name(dotted):
             # A method or manager the first-party class inherits from a library base: `Article.objects.create`.
             by_import = MODELS.call(self.program.inherited_name(dotted))
+        if by_import is None and isinstance(node.func, ast.Attribute):
+            # The row of the receiver's own class, where mypy names the base that declares the method: `handle.write`
+            # on a `TextIOWrapper` is `_io._TextIOBase.write`, which a `StringIO` shares.
+            own_class = self.program.checked.receivers.get(source.rel, {}).get(span_key(self.span(node.func.value)))
+            by_import = MODELS.call(f"{own_class}.{node.func.attr}") if own_class else None
         recognized = MODELS.call(target_name) or by_import
         if recognized is not None and by_import is not None and by_import is not recognized:
             # The row the import's name also matches, kept so a test can see that every row resolves somewhere.
@@ -2066,6 +2403,8 @@ class BodyWalker:
                     self.relate(value, sent, "call-input", f"sent by {callee_text}", child)
                 else:
                     self.relate(value, element, "call-input", f"handed to {callee_text}", child)
+            if kind in SENDING_TERMINALS:
+                self.sent_writes(node, [child.value if isinstance(child, ast.Attribute) and child is node.func else child for child, _ in inputs], element, callee_text)
             self.keyword_fields(node, callee_text, element, keywords)
             return element
 
@@ -2134,13 +2473,35 @@ class BodyWalker:
         # its receiver and arguments by definition (modelled). Any other library code is assumed to carry the
         # value, so a trace that lands only through it is partial, not ok.
         builtin = bool(target_name and target_name.startswith(("builtins.", "typing.", "collections.abc.", "_collections_abc.")))
+        # A `passes-through` row, by mypy's name, the import's, a library base's, or the receiver's class: the same, modelled by the row.
+        own_class = self.program.checked.receivers.get(source.rel, {}).get(span_key(self.span(node.func.value))) if isinstance(node.func, ast.Attribute) else None
+        through = next((note for name in (target_name, dotted, self.program.inherited_name(dotted), f"{own_class}.{node.func.attr}" if own_class else None)  # type: ignore[union-attr]
+                        if (note := MODELS.passes(name))), None)
+        result_of = self.query_result(node, receiver)
+        if through is None and result_of is not None:
+            through = f"reads the rows of a {result_of} query result"
+            self.program.elements[element]["attributes"]["resultOf"] = result_of
         for child, value in inputs:
             if builtin:
                 self.relate(value, element, "call-input", f"handed to the built-in {callee_text}; its result derives from it", child, status="partial", proof_kind="host-api")
+            elif through is not None:
+                self.relate(value, element, "call-input", f"handed to {callee_text}, which {through}", child, status="partial", proof_kind="host-api")
             else:
                 self.relate(value, element, "call-input", f"handed to {callee_text}, outside the program; its result is assumed to carry it", child, status="partial", proof_kind="external-call")
         self.keyword_fields(node, callee_text, element, keywords)
+        if isinstance(node.func, ast.Name) and self.function is not None and self.scope.owner_of(node.func.id) is self.scope:
+            bound = self.scope.defs.get(node.func.id, [])
+            if len(bound) == 1 and bound[0][1].startswith("py:parameter:"):
+                self.program.callback_calls.append((self, node.func.id, element, node, positional, keywords))
         return element
+
+    def query_result(self, node: ast.Call, receiver: str | None) -> str | None:
+        """`session.execute(…).scalars().all()`: a result method called on what a database origin row (or such a method) returned; its package."""
+        if not (isinstance(node.func, ast.Attribute) and node.func.attr in QUERY_RESULT_METHODS and isinstance(node.func.value, ast.Call) and receiver):
+            return None
+        attributes = self.program.elements.get(receiver, {}).get("attributes", {})
+        package = attributes.get("resultOf") or str(attributes.get("libraryModel") or "").split(".")[0].split("#")[0]
+        return package if package in QUERY_RESULT_PACKAGES else None
 
     def keyword_fields(self, node: ast.Call, callee_text: str, element: str, keywords: list[tuple[ast.keyword, str | None]]) -> None:
         model = self.keyword_model(node)
@@ -2192,6 +2553,7 @@ class BodyWalker:
         returns_value = call is not None and any(ret.value is not None for ret in function.returns)
 
         def bind(value: str | None, param: ast.arg, detail: str, at: ast.AST, status: str = "proven") -> None:
+            self.program.param_args.setdefault((function.entry_id, param.arg), []).append((self.source, at if status == "proven" else None))  # type: ignore[arg-type]
             self.relate(value, element_id("parameter", source.rel, source.span(param)), "argument-binding", detail, at, status=status)
             if returns_value:
                 self.relate(value, call, "argument", f"passed to {function.qualname} at this call", at)
@@ -2211,10 +2573,29 @@ class BodyWalker:
             if param is not None:
                 status = "proven" if index < len(positional_params) else "partial"
                 bind(value, param, f"argument {index + 1} binds {function.qualname}({param.arg})", child, status)
+        bound: set[str] = set()
+        for index, (child, _) in enumerate(positional):
+            if not isinstance(child, ast.Starred) and index < len(positional_params):
+                bound.add(positional_params[index].arg)
         for kw, value in keywords:
             param = named.get(kw.arg or "")
             if param is not None:
+                bound.add(param.arg)
                 bind(value, param, f"{kw.arg}= binds {function.qualname}({param.arg})", kw.value)
+        # `f(*items)` and `f(**options)` fill the parameters nothing else binds. A parameter with no default must
+        # come from them (the call fails otherwise): proven. One with a default, or one both could fill, may: partial.
+        spread = [(child.value, value, "*") for child, value in positional if isinstance(child, ast.Starred)]
+        spread += [(kw.value, value, "**") for kw, value in keywords if kw.arg is None]
+        if spread:
+            keyword_params = [*fn.args.args[offset:], *fn.args.kwonlyargs]
+            defaults = {param.arg for param in params if param_default(fn.args, param) is not None}
+            for child, value, stars in spread:
+                fills = positional_params if stars == "*" else keyword_params
+                for param in [*fills, *([fn.args.vararg] if stars == "*" and fn.args.vararg else []), *([fn.args.kwarg] if stars == "**" and fn.args.kwarg else [])]:
+                    if param is None or param.arg in bound:
+                        continue
+                    sure = len(spread) == 1 and param.arg not in defaults and param is not fn.args.vararg and param is not fn.args.kwarg
+                    bind(value, param, f"{stars}{clip(self.source.segment(child), 30)} fills {function.qualname}({param.arg})", child, "proven" if sure else "partial")
 
 
 def assigned_names(stmt: ast.stmt) -> list[ast.Name]:
