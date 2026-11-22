@@ -1,7 +1,7 @@
 import type * as TypeScript from "typescript";
 import { importedCallee } from "./program-evidence-support";
 import { resolveValue } from "./value-origin";
-import { callsInitialValue, frameworkFlow, makesStatePair, reducerArgument } from "./framework-flows";
+import { callsInitialValue, frameworkFlow, makesAccessor, makesStatePair, reducerArgument } from "./framework-flows";
 
 /**
  * Reactive state pairs: a factory (a `state-pair` row) that returns
@@ -22,15 +22,22 @@ export function stateFactory(ts: typeof TypeScript, checker: TypeScript.TypeChec
   return !!passed && stateFactory(ts, checker, passed);
 }
 
-export type StateRole = { getter: TypeScript.Identifier; role: "getter" | "setter" };
+/** `through`: found through what a callback returns (`createRoot`), so the callee is also a value the call consumes. */
+export type StateRole = { getter: TypeScript.Identifier; role: "getter" | "setter"; through?: true };
 
 /**
  * Which half of a state pair this expression is, resolved through the
  * checker: the binding itself, a property that holds it (`{ setDoc }`,
  * `{ set: setDoc }`), or a `const` that copies either. Null otherwise.
  */
-export function stateRoleOf(ts: typeof TypeScript, checker: TypeScript.TypeChecker, expression: TypeScript.Expression): StateRole | null {
+export function stateRoleOf(ts: typeof TypeScript, checker: TypeScript.TypeChecker, expression: TypeScript.Expression, depth = 0): StateRole | null {
   const binding = resolveValue(ts, checker, expression)?.origin;
+  // A call whose value is what its callback returns (`createRoot(() => { …; return n; })`, a `returns: callback` row that makes no accessor): that return.
+  if (binding && ts.isCallExpression(binding) && depth < 3) {
+    const returned = callbackReturn(ts, checker, binding);
+    const role = returned ? stateRoleOf(ts, checker, returned, depth + 1) : null;
+    return role ? { ...role, through: true } : null;
+  }
   if (!binding || !ts.isBindingElement(binding) || !ts.isArrayBindingPattern(binding.parent) || !ts.isVariableDeclaration(binding.parent.parent)) return null;
   const index = binding.parent.elements.indexOf(binding);
   const first = binding.parent.elements[0];
@@ -38,6 +45,23 @@ export function stateRoleOf(ts: typeof TypeScript, checker: TypeScript.TypeCheck
   if (index > 1 || !pair.initializer || !stateFactory(ts, checker, pair.initializer)) return null;
   if (!first || ts.isOmittedExpression(first) || !ts.isIdentifier(first.name)) return null;
   return { getter: first.name, role: index === 0 ? "getter" : "setter" };
+}
+
+/** The one expression a callback returns, when a row says the call's value is that return (`createRoot`, `batch`, `untrack`) and the call makes no accessor; null otherwise. */
+function callbackReturn(ts: typeof TypeScript, checker: TypeScript.TypeChecker, call: TypeScript.CallExpression): TypeScript.Expression | null {
+  const imported = importedCallee(ts, checker, call.expression);
+  const flow = imported ? frameworkFlow(imported.module, imported.name) : undefined;
+  if (!imported || flow?.returns === undefined || flow.source !== undefined || flow.compares || makesAccessor(imported.module, imported.name)) return null;
+  const fn = call.arguments[flow.returns];
+  if (!fn || !(ts.isArrowFunction(fn) || ts.isFunctionExpression(fn))) return null;
+  if (!ts.isBlock(fn.body)) return fn.body;
+  const returns: TypeScript.ReturnStatement[] = [];
+  const visit = (node: TypeScript.Node) => {
+    if (ts.isReturnStatement(node)) returns.push(node);
+    else if (!ts.isFunctionLike(node)) ts.forEachChild(node, visit);
+  };
+  visit(fn.body);
+  return returns.length === 1 && returns[0].expression ? returns[0].expression : null;
 }
 
 /** The reducer of a reducer pair (`useReducer(reducer, …)`, the row's `args`), which its dispatch calls with the action; null for any other pair. */
