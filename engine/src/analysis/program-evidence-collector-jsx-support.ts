@@ -5,7 +5,7 @@ import type { PendingComponentPropBinding } from "./program-evidence-collector-c
 import { ProgramEvidenceCollectorFieldTransferSupport } from "./program-evidence-collector-field-transfers";
 import { reachingBindings } from "./program-evidence-reaching-bindings";
 import { resolveValue, wrapperFillsParameters } from "./value-origin";
-import { stateRoleOf } from "./program-evidence-state-pairs";
+import { stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { watchedFunction } from "./framework-flows";
 import { isImmerDraft, storeApiCall, storeCreators, storeMember } from "./zustand-store";
 import type { ProgramEvidenceLocation } from "./program-evidence";
@@ -539,6 +539,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
 
   protected connectCalls(): void {
     this.connectContexts();
+    this.connectContextPairs();
     this.connectStores();
     this.connectWatchedFunctions();
     const props = new Map<string, PendingComponentPropBinding[]>();
@@ -897,11 +898,79 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         name = key.text;
       }
     }
-    if (!holder || !this.ts.isCallExpression(holder) || !holder.arguments[0]) return null;
-    const imported = importedCallee(this.ts, this.checker, holder.expression);
-    if (imported?.name !== "useContext" || (imported.module !== "solid-js" && imported.module !== "react")) return null;
-    const context = this.contextKey(holder.arguments[0]);
+    const read = holder ? this.contextRead(holder) : null;
+    const context = read ? this.contextKey(read.arguments[0]) : null;
     return context ? { context, name } : null;
+  }
+
+  /** The context read and position a callee takes from a context's tuple (`const [, setName] = useContext(Ctx)`), or null. */
+  private contextTupleElement(callee: TypeScript.Expression): { read: TypeScript.CallExpression; index: number } | null {
+    const node = unwrap(this.ts, callee);
+    const element = this.ts.isIdentifier(node) ? this.checker.getSymbolAtLocation(node)?.valueDeclaration : undefined;
+    if (!element || !this.ts.isBindingElement(element) || element.dotDotDotToken || !this.ts.isArrayBindingPattern(element.parent)) return null;
+    const declaration = element.parent.parent;
+    const read = this.ts.isVariableDeclaration(declaration) && declaration.initializer ? this.contextRead(declaration.initializer) : null;
+    const index = element.parent.elements.indexOf(element);
+    return read && index <= 1 ? { read, index } : null;
+  }
+
+  protected override contextPairHalf(callee: TypeScript.Expression): boolean {
+    return this.contextTupleElement(callee) !== null;
+  }
+
+  /**
+   * A state pair provided whole through a context (`value={pair}` after
+   * `const pair = createSignal("")`): a reader's element 0 is its getter and
+   * element 1 its setter, so the setter's argument becomes the state the
+   * getter's calls read, as for a destructured pair. Order and time are not proven.
+   */
+  private connectContextPairs(): void {
+    for (const call of this.calls) {
+      if (!this.ts.isCallExpression(call.node)) continue;
+      const half = this.contextTupleElement(call.node.expression);
+      const context = half ? this.contextKey(half.read.arguments[0]) : null;
+      if (!half || !context) continue;
+      const above = this.contextAncestry.above(half.read, context);
+      const where = [this.location(call.node)];
+      for (const provided of this.contextValues.get(context) ?? []) {
+        if (!contextApplies(above, provided)) continue;
+        const value = unwrap(this.ts, provided);
+        const declaration = this.ts.isIdentifier(value) ? this.checker.getSymbolAtLocation(value)?.valueDeclaration : undefined;
+        if (!declaration || !this.ts.isVariableDeclaration(declaration) || !this.ts.isIdentifier(declaration.name) || !declaration.initializer || !stateFactory(this.ts, this.checker, declaration.initializer)) continue;
+        const stateId = this.stateElement(declaration.name);
+        if (half.index === 0) {
+          this.addRelation(stateId, call.id, "references", where, proof("framework-state", "The context's getter reads the state its setter writes; order and time are not proven.", where), "partial");
+          continue;
+        }
+        const argument = call.node.arguments.length === 1 ? unwrap(this.ts, call.node.arguments[0]) : undefined;
+        if (!argument || this.ts.isArrowFunction(argument) || this.ts.isFunctionExpression(argument)) continue;
+        const at = [this.location(argument)];
+        this.addRelation(this.expression(argument, call.ownerId), stateId, "references", at, proof("framework-state", "The context's setter's argument becomes the state its getter reads; order and time are not proven.", at), "partial");
+      }
+    }
+  }
+
+  /**
+   * The `useContext(Ctx)` call an expression is: the call itself, or a call of
+   * a hook of the program's whose one return is that call
+   * (`const useCart = () => useContext(CartContext)!`). Null otherwise.
+   */
+  private contextRead(expression: TypeScript.Expression): TypeScript.CallExpression | null {
+    const call = unwrap(this.ts, expression);
+    if (!this.ts.isCallExpression(call)) return null;
+    const imported = importedCallee(this.ts, this.checker, call.expression);
+    if (imported?.name === "useContext" && (imported.module === "solid-js" || imported.module === "react")) return call.arguments[0] ? call : null;
+    if (imported) return null;
+    const hook = this.targetFunction(call.expression)?.declaration;
+    const body = hook && "body" in hook ? hook.body : undefined;
+    if (!body) return null;
+    const returned = this.ts.isBlock(body)
+      ? body.statements.length === 1 && this.ts.isReturnStatement(body.statements[0]) ? body.statements[0].expression : undefined
+      : body;
+    const inner = returned ? unwrap(this.ts, returned) : undefined;
+    if (!inner || !this.ts.isCallExpression(inner)) return null;
+    const read = importedCallee(this.ts, this.checker, inner.expression);
+    return read?.name === "useContext" && (read.module === "solid-js" || read.module === "react") && inner.arguments[0] ? inner : null;
   }
 
   /**

@@ -375,7 +375,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     // A store's `set` (or `useStore.setState`) is modelled as a state setter is: what it receives is the store (`connectStores`), never its call's value.
     const storeWrite = writesStore(this.ts, this.checker, node);
     const handled = (this.settles(node) === "then" && this.promiseHandler(node, 0)) || storeMember(this.ts, this.checker, node.expression).length > 0;
-    if (!role && !storeWrite && !target && !handled && !resourceAction(this.ts, this.checker, node.expression) && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
+    if (!role && !storeWrite && !target && !handled && !resourceAction(this.ts, this.checker, node.expression) && !this.contextPairHalf(node.expression) && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
       this.addRelation(
         this.expression(node.expression, ownerId),
         callId,
@@ -414,6 +414,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       if (resourceAction(this.ts, this.checker, node.expression)) continue;
       // A watched function (`useSubmission(action)`) fills the result's fields (`connectWatchedFunctions`); the function itself is not the value.
       if (this.watchesFunction(node)) continue;
+      // Half of a context's state pair writes or reads that state (`connectContextPairs`), never the call's value.
+      if (this.contextPairHalf(node.expression)) continue;
       this.addRelation(
         argumentId,
         callId,
