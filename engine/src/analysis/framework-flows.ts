@@ -75,7 +75,7 @@ const isAccessor = (row: LibraryModelRow | null) => row?.model === "calls-back" 
  * return the hook keeps, or that it enters or hands fields to, and that no
  * other option's function feeds (an observer such as `onSuccess` is fed).
  */
-function primaryOption(row: LibraryModelRow | null): string | null {
+export function primaryOption(row: LibraryModelRow | null): string | null {
   if (row?.model !== "calls-back") return null;
   const candidates = new Set<string>();
   const fed = new Set<string>();
