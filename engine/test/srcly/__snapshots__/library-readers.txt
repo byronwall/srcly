@@ -158,11 +158,11 @@ py:rest_framework.serializers#ModelSerializer.is_valid (passes-through)
   rowFlow: {"passes":"*"}
 py:concurrent.futures._base#Future.result (passes-through)
   rowFlow: {"passes":"*"}
-ts:react#useState (state-pair)
+ts:react#useState (cell)
   yieldsFirstFunction: true
   makesStatePair: true
   callsInitialValue: true
-ts:react#useReducer (state-pair)
+ts:react#useReducer (cell)
   rowFlow: {"returns":0}
   yieldsFirstFunction: true
   makesStatePair: true
@@ -201,12 +201,16 @@ ts:@tanstack/react-query#useMutation (calls-back)
   optionFlow: "mutationFn"
 ts:@tanstack/react-query#useQueryClient (origin)
   yieldsFirstFunction: true
-ts:zustand#create (store)
+ts:zustand#create (cell)
   yieldsFirstFunction: true
   makesStore: true
-ts:solid-js#createSignal (state-pair)
+  callsInitialValue: true
+ts:solid-js#createSignal (cell)
   yieldsFirstFunction: true
   makesStatePair: true
+ts:solid-js#createResource (cell)
+  yieldsFirstFunction: true
+  settlesAsync: true
 ts:solid-js#createMemo (calls-back)
   rowFlow: {"returns":0}
   yieldsFirstFunction: true
@@ -262,7 +266,7 @@ ts:solid-js#onMount (calls-back)
 ts:solid-js#onCleanup (wraps)
   wrappedPosition: 0
   yieldsFirstFunction: true
-ts:solid-js/store#createStore (state-pair)
+ts:solid-js/store#createStore (cell)
   yieldsFirstFunction: true
   makesStatePair: true
 ts:solid-js/store#unwrap (passes-through)
@@ -295,7 +299,7 @@ ts:@solidjs/router#action (wraps)
 ts:@solidjs/router#useAction (wraps)
   wrappedPosition: 0
   yieldsFirstFunction: true
-ts:@solidjs/router#useSubmission (calls-back)
+ts:@solidjs/router#useSubmission (cell)
   watchedFunction: {"at":0,"field":"result","input":"input"}
 ts:@solid-primitives/storage#makePersisted (passes-through)
   rowFlow: {"passes":[0]}

@@ -1,6 +1,6 @@
 import path from "node:path";
 import * as TypeScript from "typescript";
-import type { FrameworkFlow } from "./framework-flows";
+import { asyncCellCall } from "./cells";
 import type {
   ProgramElement,
   ProgramEvidenceLocation,
@@ -187,7 +187,7 @@ export function callOperation(
   if (name === "JSON.stringify" || /(^|\.)(serialize|stringify|encode)$/.test(name)) return "serialize";
   if (named(/^(validate|assert|check|safeParse|is[A-Z])/)) return "validate";
   if (named(/^(select|pick|omit|filter|map|flatMap|find|reduce|aggregate|pack)$/)) return "selection";
-  if (isResourceFactory(ts, checker, node)) return "resource";
+  if (asyncCellCall(ts, checker, node)) return "resource";
   return null;
 }
 
@@ -225,45 +225,6 @@ function resolveImportedCallee(ts: typeof TypeScript, checker: TypeScript.TypeCh
   }
   const module = ts.isPropertyAccessExpression(callee) ? importModule(ts, checker, callee.expression) : null;
   return module && ts.isPropertyAccessExpression(callee) ? { module, name: callee.name.text } : null;
-}
-
-/** Solid's `createResource`, by the module its import names. */
-export function isResourceFactory(ts: typeof TypeScript, checker: TypeScript.TypeChecker, node: TypeScript.Expression) {
-  if (!ts.isCallExpression(node)) return false;
-  const imported = importedCallee(ts, checker, node.expression);
-  return imported?.module === "solid-js" && imported.name === "createResource";
-}
-
-/**
- * The flow of one `createResource` call: `(fetcher, options?)` has no source,
- * `(source, fetcher, options?)` has one, and only the fetcher's return is the
- * resource's value. As in Solid, a second of two arguments that is an object
- * is the options; one the checker cannot type counts as a fetcher.
- */
-export function resourceFlow(ts: typeof TypeScript, checker: TypeScript.TypeChecker, call: TypeScript.CallExpression): FrameworkFlow {
-  const second = call.arguments[1] ? unwrap(ts, call.arguments[1]) : undefined;
-  const type = second && checker.getTypeAtLocation(second);
-  const options = second && call.arguments.length === 2 && (ts.isObjectLiteralExpression(second)
-    || !(type!.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown)) && type!.getCallSignatures().length === 0);
-  return !second || options ? { returns: 0 } : { returns: 1, source: 0, callback: 1 };
-}
-
-/**
- * The resource action a callee names: `mutate` or `refetch` destructured from
- * the second element of a `createResource` binding
- * (`const [data, { mutate, refetch }] = createResource(…)`), with that call.
- * Null for any other callee.
- */
-export function resourceAction(ts: typeof TypeScript, checker: TypeScript.TypeChecker, callee: TypeScript.Expression): { name: "mutate" | "refetch"; factory: TypeScript.CallExpression } | null {
-  if (!ts.isIdentifier(callee)) return null;
-  const element = checker.getSymbolAtLocation(callee)?.valueDeclaration;
-  if (!element || !ts.isBindingElement(element) || element.dotDotDotToken || !ts.isObjectBindingPattern(element.parent)) return null;
-  const key = (element.propertyName ?? element.name).getText();
-  const actions = element.parent.parent;
-  if ((key !== "mutate" && key !== "refetch") || !ts.isBindingElement(actions) || !ts.isArrayBindingPattern(actions.parent) || actions.parent.elements.indexOf(actions) !== 1) return null;
-  const declaration = actions.parent.parent;
-  const factory = ts.isVariableDeclaration(declaration) && declaration.initializer ? unwrap(ts, declaration.initializer) : undefined;
-  return factory && ts.isCallExpression(factory) && isResourceFactory(ts, checker, factory) ? { name: key, factory } : null;
 }
 
 /**

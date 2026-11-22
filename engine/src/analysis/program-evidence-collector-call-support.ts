@@ -1,5 +1,4 @@
 import * as TypeScript from "typescript";
-import { storeMember, writesStore } from "./zustand-store";
 import type { ProgramElementKind, ProgramEvidenceLocation } from "./program-evidence";
 import { processProgramCallBoundary } from "./program-evidence-boundary-support";
 import {
@@ -7,9 +6,9 @@ import {
   constructorExpressionElementEvidence,
   type ProgramEvidenceExpressionContext,
 } from "./program-evidence-collector-expression-support";
-import { lazyFactoryGetter, reducerOf, seedArgument, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
+import { asyncCellCall, asyncCellFlow, cellHas, cellYields, holdsState, lazyCellAnchor, pairCall, reducerArgument, reducerOf, seedArgument, writesByName } from "./cells";
 import { jsonValueMember, namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
-import { frameworkFlow, frameworkRow, makesAccessor, makesPredicate, primaryOption, promiseChannels, reducerArgument, rowFlow, rowPaths, standardCallback, watchedFunction, yieldsOnlyCallback, type Flow, type FrameworkFlow } from "./framework-flows";
+import { frameworkFlow, frameworkRow, makesAccessor, makesPredicate, primaryOption, promiseChannels, rowFlow, rowPaths, standardCallback, watchedFunction, yieldsOnlyCallback, type Flow, type FrameworkFlow } from "./framework-flows";
 import { boundaryRole, builtinLibraryModels, standardMemberModel, type LibraryModelRow } from "./library-models";
 import { locationKey } from "./program-value-summary-support";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
@@ -21,11 +20,8 @@ import {
   callOperation,
   firstBindingIdentifier,
   isKnownGlobal,
-  isResourceFactory,
   nodeKey,
   readsThis,
-  resourceAction,
-  resourceFlow,
   thisContainer,
   proof,
   discardsValue,
@@ -64,7 +60,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (!initializer) return;
     const aliasId = this.variableId(node) ?? this.elementFor(node, "alias");
     const initializerId = this.expression(initializer, ownerId);
-    const factory = stateFactory(this.ts, this.checker, initializer);
+    const factory = pairCall(this.ts, this.checker, initializer);
     const first = this.ts.isArrayBindingPattern(node.name) ? node.name.elements[0] : undefined;
     const getter = factory && first && this.ts.isBindingElement(first) && this.ts.isIdentifier(first.name) ? first.name : null;
     if (getter) {
@@ -94,8 +90,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         "proven",
       );
     }
-    if (!isResourceFactory(this.ts, this.checker, initializer)) return;
-    if (!this.ts.isCallExpression(initializer)) return;
+    const resource = this.asyncCell(initializer);
+    if (!resource || !this.ts.isCallExpression(initializer)) return;
     const resourceId = this.specialInput(
       initializer,
       "resource-input",
@@ -147,7 +143,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       const symbolId = this.symbolId(binding);
       if (symbolId) this.resourceBySymbol.set(symbolId, resourceId);
     }
-    const loader = initializer.arguments[resourceFlow(this.ts, this.checker, initializer).returns!];
+    const loader = initializer.arguments[asyncCellFlow(this.ts, this.checker, initializer, resource).returns!];
     this.httpResources.push({
       node: initializer,
       elementId: resourceId,
@@ -172,7 +168,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
 
   /** How a framework call moves values: its row, or for a resource the overload this call uses. */
   private flowOf(node: TypeScript.CallExpression): FrameworkFlow | undefined {
-    if (isResourceFactory(this.ts, this.checker, node)) return resourceFlow(this.ts, this.checker, node);
+    const resource = this.asyncCell(node);
+    if (resource) return asyncCellFlow(this.ts, this.checker, node, resource);
     const imported = importedCallee(this.ts, this.checker, node.expression);
     if (imported) return frameworkFlow(imported.module, imported.name);
     // A standard-library member's row (`Object.assign` passes its objects through, a field staying that field).
@@ -205,21 +202,23 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
 
   /**
    * The access paths a call follows: its row's (`rowPaths`), a resource's
-   * overload (`resourceFlow`), or a reducer pair's reducer, whose return is
+   * overload (`asyncCellFlow`), or a reducer cell's reducer, whose return is
    * the state. A member row counts only for `passes-through` and a promise's
    * channels; a standard callback is `connectStandardCallback`'s.
    */
   private callPaths(node: TypeScript.CallExpression): { row: LibraryModelRow | null; flows: Flow[] } | null {
     const path = (from: string, to: string): Flow => ({ from, to, test: false });
-    if (isResourceFactory(this.ts, this.checker, node)) {
-      const flow = resourceFlow(this.ts, this.checker, node);
+    const resource = this.asyncCell(node);
+    if (resource) {
+      const flow = asyncCellFlow(this.ts, this.checker, node, resource);
       return { row: null, flows: [...(flow.source !== undefined ? [path(`Argument[${flow.source}].ReturnValue`, `Argument[${flow.callback}].Parameter[0]`)] : []), path(`Argument[${flow.returns}].ReturnValue`, "ReturnValue")] };
     }
     const imported = importedCallee(this.ts, this.checker, node.expression);
     if (imported) {
       const row = frameworkRow(imported.module, imported.name);
-      const reducer = reducerArgument(imported.module, imported.name);
-      return row && { row, flows: reducer !== null ? [path(`Argument[${reducer}].ReturnValue`, "ReturnValue")] : rowPaths(row) };
+      // A cell's paths are its own rule's (`connectCells`, the pair rules); only a reducer's return is the call's value.
+      const reducer = row?.model === "cell" ? reducerArgument(row) : null;
+      return row && { row, flows: reducer !== null ? [path(`Argument[${reducer}].ReturnValue`, "ReturnValue")] : holdsState(row) ? [] : rowPaths(row) };
     }
     const row = standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression));
     return row && (row.model === "passes-through" || promiseChannels(row)) ? { row, flows: rowPaths(row) } : null;
@@ -445,6 +444,11 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (symbol) this.itemAccessors.set(symbol, parameterId);
   }
 
+  /** The `cell` row of a call whose state a fetcher settles (`createResource`), or null. */
+  protected asyncCell(node: TypeScript.Expression): LibraryModelRow | null {
+    return asyncCellCall(this.ts, this.checker, node);
+  }
+
   /**
    * A resource's actions. `mutate(v)` sets the resource's value, so every read
    * of the resource sees `v`, as a setter's getter does (order and time are not
@@ -452,28 +456,33 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
    * runs the fetcher again with `x` as its second parameter's `refetching`.
    */
   private connectResourceAction(node: TypeScript.CallExpression, resourceId: string, ownerId: string | null): boolean {
-    const action = resourceAction(this.ts, this.checker, node.expression);
+    const action = this.asyncAction(node.expression);
     if (!action) return false;
+    const factory = action.site.node;
+    const into = `${action.path}.Parameter[0]`;
     const value = node.arguments[0] && unwrap(this.ts, node.arguments[0]);
     if (!value || this.ts.isArrowFunction(value) || this.ts.isFunctionExpression(value)) return true;
     const where = [this.location(value)];
-    if (action.name === "mutate") {
+    if (cellHas(action.site.row, "writes", into)) {
       // Into the resource's binding, past the fetch boundary: what the accessor's calls read.
-      const binding = this.ts.isVariableDeclaration(action.factory.parent) ? firstBindingIdentifier(this.ts, action.factory.parent.name) : undefined;
+      const binding = this.ts.isVariableDeclaration(factory.parent) ? firstBindingIdentifier(this.ts, factory.parent.name) : undefined;
       const holderId = binding ? this.variablesBySymbol.get(this.symbolId(binding) ?? "") : undefined;
       if (!holderId) return true;
       this.addRelation(this.expression(value, ownerId), holderId, "references", where, frameworkState("mutate sets the resource's value, which its reads see; order and time are not proven.", this.location(node)), "partial");
       return true;
     }
-    const fetcher = action.factory.arguments[resourceFlow(this.ts, this.checker, action.factory).returns!];
+    // `refetch(x)`: a `yields` flow into a field of a parameter of the fetcher (`Argument[1].Parameter[1].Member[refetching]`).
+    const target = cellYields(action.site.row).map((flow) => (flow.from === into ? /^Argument\[\d+\]\.Parameter\[(\d+)\]\.Member\[(\w+)\]$/.exec(flow.to) : null)).find(Boolean);
+    if (!target) return true;
+    const fetcher = factory.arguments[asyncCellFlow(this.ts, this.checker, factory, action.site.row).returns!];
     const fn = fetcher && unwrap(this.ts, fetcher);
     const info = fn && (this.ts.isArrowFunction(fn) || this.ts.isFunctionExpression(fn) ? this.functionsByNode.get(nodeKey(this.root, fn)) : this.ts.isIdentifier(fn) ? this.targetFunction(fn) : null);
-    const parameter = info?.declaration.parameters[1];
+    const parameter = info?.declaration.parameters[Number(target[1])];
     const parameterId = parameter && this.ts.isIdentifier(parameter.name) ? this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "") : undefined;
     if (!parameter || !parameterId) return true;
     const at = this.location(value);
     const detail = "refetch runs the fetcher again: its second parameter's refetching is this value.";
-    const packId = this.ensureElement(parameter, "object-pack", ownerId, { operation: "object-pack", fields: JSON.stringify({ [`${at.span.startLine}:${at.span.startColumn}`]: "refetching" }) }, null, null, null, "proven", frameworkState(detail, at));
+    const packId = this.ensureElement(parameter, "object-pack", ownerId, { operation: "object-pack", fields: JSON.stringify({ [`${at.span.startLine}:${at.span.startColumn}`]: target[2] }) }, null, null, null, "proven", frameworkState(detail, at));
     this.addRelation(this.expression(value, ownerId), packId, "pack-field", where, frameworkState(detail, at), "proven");
     this.addRelation(packId, parameterId, "framework-flow", where, frameworkState(detail, at), "proven");
     return true;
@@ -590,7 +599,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     }
     // Half of a state pair, resolved through the checker: a setter's argument becomes the state, and a getter's call reads it.
     // The framework's model says what the call does, so its callee is not consumed by a call with no body.
-    const role = stateRoleOf(this.ts, this.checker, node.expression);
+    const role = this.pairRoleOf(node.expression);
     if (role) {
       const stateId = this.stateElement(role.getter);
       if (role.role === "getter") {
@@ -614,9 +623,9 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     // A callee with no body to enter (a library method, a callback, an accessor) is consumed by its call, as its arguments are. A `then` with a handler holds what the handler returns, not its receiver.
     // A store member read through its hook (`addFish` after `const { addFish } = useStore()`) has one: the call enters it (`connectBoundHandlers`).
     // A store's `set` (or `useStore.setState`) is modelled as a state setter is: what it receives is the store (`connectStores`), never its call's value.
-    const storeWrite = writesStore(this.ts, this.checker, node);
-    const handled = (this.channels(node)?.fulfilled === 0 && this.promiseHandler(node, 0)) || storeMember(this.ts, this.checker, node.expression).length > 0;
-    if ((!role || role.through) && !storeWrite && !target && !handled && !resourceAction(this.ts, this.checker, node.expression) && !this.contextPairHalf(node.expression) && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
+    const storeWrite = writesByName(this.cellHandle(node.expression));
+    const handled = (this.channels(node)?.fulfilled === 0 && this.promiseHandler(node, 0)) || this.cells.memberOf(node.expression).length > 0;
+    if ((!role || role.through) && !storeWrite && !target && !handled && !this.asyncAction(node.expression) && !this.contextPairHalf(node.expression) && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
       this.addRelation(
         this.expression(node.expression, ownerId),
         callId,
@@ -640,7 +649,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       // A spread argument passes its elements: the value is what it spreads.
       const argumentId = this.expression(this.ts.isSpreadElement(argument) ? argument.expression : argument, ownerId);
       // The flow moves these: a passed value goes through whole, so a field stays that field, and a resource's source reaches the fetcher's parameter, never the resource.
-      if (flow?.passes === "*" || flow?.passes?.includes(index) || (flow?.source === index && isResourceFactory(this.ts, this.checker, node))) continue;
+      if (flow?.passes === "*" || flow?.passes?.includes(index) || (flow?.source === index && this.asyncCell(node))) continue;
       // A row that names the one argument its call hands on leaves the others out of its value (`makePersisted(pair, options)`, `splitProps(props, keys)`).
       if (Array.isArray(flow?.passes)) continue;
       // A rejection reason is not the promise's value: it reaches a rejection handler, or ends there.
@@ -652,7 +661,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       // `useContext(Ctx)` returns what a provider or the default holds, never the context object.
       if (index === 0 && this.readsContext(node)) continue;
       // A resource's `mutate(v)` and `refetch(x)` hand their argument to the resource or its fetcher (`connectResourceAction`), never to the call's value.
-      if (resourceAction(this.ts, this.checker, node.expression)) continue;
+      if (this.asyncAction(node.expression)) continue;
       // A watched function (`useSubmission(action)`) fills the result's fields (`connectWatchedFunctions`); the function itself is not the value.
       if (this.watchesFunction(node)) continue;
       // Half of a context's state pair writes or reads that state (`connectContextPairs`), never the call's value.
@@ -963,8 +972,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
    */
   private connectStateFunctions(node: TypeScript.CallExpression, ownerId: string | null): Set<TypeScript.Node> {
     const handled = new Set<TypeScript.Node>();
-    const role = stateRoleOf(this.ts, this.checker, node.expression);
-    const getter = role?.role === "setter" ? role.getter : lazyFactoryGetter(this.ts, this.checker, node);
+    const role = this.pairRoleOf(node.expression);
+    const getter = role?.role === "setter" ? role.getter : lazyCellAnchor(this.ts, this.checker, node);
     if (!getter) return handled;
     const dispatches = role && reducerOf(this.ts, this.checker, getter);
     const stateId = this.stateElement(getter);

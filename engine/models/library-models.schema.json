@@ -39,20 +39,13 @@
             "enum": [
               "origin",
               "terminal",
-              "state-pair",
               "passes-through",
               "consumes",
               "calls-back",
-              "resource",
               "wraps",
-              "store"
+              "cell"
             ],
             "description": "What the member does."
-          },
-          "args": {
-            "description": "For a `state-pair`: the argument its reducer is at (`useReducer`).",
-            "type": "string",
-            "pattern": "^\\d+$"
           },
           "role": {
             "description": "An origin or terminal role.",
@@ -63,16 +56,6 @@
             "description": "For a `terminal`: the terminal is not this call but a call of what it returns (`call`, as `useNavigate`'s `navigate`), or of the tuple element it returns at that index (`1`).",
             "type": "string",
             "pattern": "^(call|\\d+)$"
-          },
-          "lazy": {
-            "description": "For `state-pair`: a function initial value is called, and what it returns seeds the state (`useState(() => …)`).",
-            "type": "boolean",
-            "const": true
-          },
-          "writes": {
-            "description": "For `consumes`: the receiver keeps the arguments (`push`, `set`). A `consumes` row without it keeps nothing (`concat`).",
-            "type": "string",
-            "const": "this"
           },
           "settles": {
             "description": "For `consumes`: the call makes a promise that only rejects, with its first argument (`Promise.reject`).",
@@ -87,6 +70,55 @@
               "pattern": "^((?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*) -> ((?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*)(?: : (test))?$",
               "description": "`<input> -> <output>`: the value at the input path reaches the output path. An optional ` : test` says the output holds a test of the input (a boolean), not the input. A path is a root (`Argument[n]`, `Argument[n..]`, `Argument[this]`, `ReturnValue`) and then steps (`Parameter[n]`, `Parameter[n..]`, `ReturnValue`, `Member[name]`, `Awaited`, `Awaited[error]`, `ArrayElement`), as CodeQL's models-as-data write them: `Argument[0].Member[queryFn].ReturnValue -> ReturnValue.Member[data]`."
             }
+          },
+          "init": {
+            "description": "For a `cell`: the paths whose value seeds the call's one state (`Argument[0]`; `Argument[0].ReturnValue` when a function initial value is called; `Argument[1].ReturnValue.Awaited` for a fetcher).",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*$",
+              "description": "One access path, as a `flows` entry writes either side: `ReturnValue.Member[1].Parameter[0]`."
+            }
+          },
+          "writes": {
+            "description": "For `consumes`: `this`, the receiver keeps the arguments (`push`, `set`); a `consumes` row without it keeps nothing (`concat`). For a `cell`: the paths whose value merges into the state, through the handles the call makes or hands its function (`ReturnValue.Member[1].Parameter[0]` a setter's argument, `….Parameter[0].ReturnValue` an updater's return, `Argument[0].Parameter[0].Parameter[0]` what a store's `set` receives, `….Parameter[0..]` a store path's keys and value).",
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "this"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^(?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*$",
+                  "description": "One access path, as a `flows` entry writes either side: `ReturnValue.Member[1].Parameter[0]`."
+                }
+              }
+            ]
+          },
+          "reads": {
+            "description": "For a `cell`: the paths that see the state (`ReturnValue.Member[0].ReturnValue` a getter's call, `ReturnValue.Member[0]` the value itself, `ReturnValue.Parameter[0].Parameter[0]` a selector's parameter, `ReturnValue.Member[getState].ReturnValue`).",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*$",
+              "description": "One access path, as a `flows` entry writes either side: `ReturnValue.Member[1].Parameter[0]`."
+            }
+          },
+          "yields": {
+            "description": "For a `cell`: other moves, as `flows` write them: what a read returns (`ReturnValue.Parameter[0].ReturnValue -> ReturnValue.ReturnValue`), where a dispatch puts its action (`ReturnValue.Member[1].Parameter[0] -> Argument[0].Parameter[1]`), a watched function's result fields.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^((?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*) -> ((?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*)(?: : (test))?$",
+              "description": "`<input> -> <output>`: the value at the input path reaches the output path. An optional ` : test` says the output holds a test of the input (a boolean), not the input. A path is a root (`Argument[n]`, `Argument[n..]`, `Argument[this]`, `ReturnValue`) and then steps (`Parameter[n]`, `Parameter[n..]`, `ReturnValue`, `Member[name]`, `Awaited`, `Awaited[error]`, `ArrayElement`), as CodeQL's models-as-data write them: `Argument[0].Member[queryFn].ReturnValue -> ReturnValue.Member[data]`."
+            }
+          },
+          "optional": {
+            "description": "For a `cell`: the first argument may be left out (`createResource(fetcher)` has no source); a call that leaves it out has every later argument one place earlier.",
+            "type": "string",
+            "const": "Argument[0]"
           },
           "proof": {
             "description": "The proof kind its relations carry, so existing proof names survive.",

@@ -9,12 +9,11 @@ import {
   asFunctionLike,
   calleeName,
   callOperation,
-  isResourceFactory,
   proof,
-  resourceFlow,
   unwrap,
 } from "./program-evidence-support";
 import { resolveValue } from "./value-origin";
+import { asyncCellCall, asyncCellFlow } from "./cells";
 
 type FunctionInfo = {
   id: string;
@@ -333,10 +332,11 @@ function collectResourceResultCarriers(
 ): void {
   for (const variable of variables) {
     const initializer = initializerExpression(context.ts, variable);
-    if (!initializer || !context.ts.isCallExpression(initializer) || !isResourceFactory(context.ts, context.checker, initializer)) continue;
+    const row = initializer ? asyncCellCall(context.ts, context.checker, initializer) : null;
+    if (!row || !initializer || !context.ts.isCallExpression(initializer)) continue;
     const resourceId = context.elementFor(initializer, "resource-input");
     if (!resourceId) continue;
-    const fetcher = initializer.arguments[resourceFlow(context.ts, context.checker, initializer).returns!];
+    const fetcher = initializer.arguments[asyncCellFlow(context.ts, context.checker, initializer, row).returns!];
     const loader = fetcher ? unwrap(context.ts, fetcher) : null;
     if (!loader || !context.ts.isFunctionLike(loader)) continue;
     const returns = calls.filter((call) =>

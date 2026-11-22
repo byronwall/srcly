@@ -6,16 +6,12 @@
 // that moves an answer shows here as a diff to review.
 import { describe, expect, it } from "vitest";
 import {
-  callsInitialValue,
   frameworkRow,
   hasNoValue,
   makesAccessor,
   makesPredicate,
-  makesStatePair,
-  makesStore,
   optionFlow,
   promiseChannels,
-  reducerArgument,
   rowFlow,
   standardCallback,
   watchedFunction,
@@ -23,6 +19,7 @@ import {
   yieldsFirstFunction,
   yieldsOnlyCallback,
 } from "../../src/analysis/framework-flows";
+import { callsInitialValue, holdsState, pairShaped, reducerArgument, settlesAsync } from "../../src/analysis/cells";
 import { builtinLibraryModels, libraryFlowSchema, libraryModelKey, type LibraryModelRow } from "../../src/analysis/library-models";
 
 const keyOf = (row: LibraryModelRow) => libraryModelKey(row.language, row.module, (row.name ?? row.member)!);
@@ -30,14 +27,20 @@ const keyOf = (row: LibraryModelRow) => libraryModelKey(row.language, row.module
 /** Every reader's answer for a row, leaving out the ones that say nothing (false, null, undefined). */
 function answers(row: LibraryModelRow): Record<string, unknown> {
   // `rowFlow` reads a member row only for `passes-through` (`flowOf`); a promise's `settles` stays a field only for `reject`.
-  const out: Record<string, unknown> = { rowFlow: row.name || row.model === "passes-through" ? rowFlow(row) : undefined, standardCallback: standardCallback(row), promiseChannels: promiseChannels(row), settles: row.settles === "reject" ? row.settles : undefined, writes: row.writes };
+  const out: Record<string, unknown> = { rowFlow: row.name || row.model === "passes-through" ? rowFlow(row) : undefined, standardCallback: standardCallback(row), promiseChannels: promiseChannels(row), settles: row.settles === "reject" ? row.settles : undefined, writes: row.writes === "this" ? row.writes : undefined };
   if (row.language === "ts" && row.name && frameworkRow(row.module, row.name) === row) {
     const { module, name } = row;
     Object.assign(out, {
       yieldsOnlyCallback: yieldsOnlyCallback(module, name), hasNoValue: hasNoValue(module, name), wrappedPosition: wrappedPosition(module, name),
       yieldsFirstFunction: yieldsFirstFunction(module, name), makesPredicate: makesPredicate(module, name), makesAccessor: makesAccessor(module, name), optionFlow: optionFlow(module, name),
-      watchedFunction: watchedFunction(module, name), makesStatePair: makesStatePair(module, name),
-      makesStore: makesStore(module, name), callsInitialValue: callsInitialValue(module, name), reducerArgument: reducerArgument(module, name),
+      watchedFunction: watchedFunction(module, name),
+    });
+  }
+  // A cell's shape, read from its paths (migration stage 3: the `state-pair` and `store` rows became cells).
+  if (holdsState(row)) {
+    Object.assign(out, {
+      makesStatePair: pairShaped(row), makesStore: !pairShaped(row) && !settlesAsync(row), settlesAsync: settlesAsync(row),
+      callsInitialValue: callsInitialValue(row), reducerArgument: reducerArgument(row),
     });
   }
   return Object.fromEntries(Object.entries(out).filter(([, value]) => value !== undefined && value !== null && value !== false));
