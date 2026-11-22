@@ -572,6 +572,10 @@ export default function FlowView(props: {
     return null;
   };
 
+  const requestError = () => startError() ?? graphFetch.error()?.message ?? anchorFetch.error()?.message ??
+    exportsFetch.error()?.message ?? expansionFetch.error()?.message ?? routesFetch.error()?.message;
+  const noRoutes = () => !requestError() && !routeKey() && !anchorKey() && routes()?.outcome === "ok" && routeList().length === 0;
+
   return (
     <div class="flex h-full flex-col bg-[var(--plc-surface)]">
       <ViewTools>
@@ -678,10 +682,7 @@ export default function FlowView(props: {
 
       <div class="flex min-h-0 flex-1">
       <div ref={host} class="relative min-h-0 flex-1">
-        <Show when={startError()}>
-          {(message) => <ErrorState message={message()} class="absolute inset-0" />}
-        </Show>
-        <Show when={availability() === "na"}>
+        <Show when={!requestError() && availability() === "na"}>
           <EmptyState
             class="absolute inset-0"
             title="Data flow N/A"
@@ -689,22 +690,22 @@ export default function FlowView(props: {
             actions={<PythonApps root={root()} apps={status()?.pythonApps} class="justify-center" />}
           />
         </Show>
-        <Show when={!startError() && availability() !== "na" && waitingOn()}>
+        <Show when={!requestError() && availability() !== "na" && waitingOn()}>
           {(what) => <FlowProgress title={what()} progress={status()?.progress} class="absolute inset-0" />}
         </Show>
-        <Show when={routes()?.outcome === "ok" && routeList().length === 0 && !anchorKey()}>
+        <Show when={noRoutes()}>
           <EmptyState
             class="absolute inset-0"
             title="No routes here"
             description={
               python()
                 ? "Data flow found no FastAPI or Flask route here. Trace any value instead: open a file, right-click a line, and pick Trace where it goes."
-                : "Data flow starts from a route: a file under a routes/ folder that default-exports a component. Open a folder that has one."
+                : "No route components were found here. Trace a value instead: open a file, right-click a line, and pick Trace where it goes."
             }
             actions={<PythonApps root={root()} apps={status()?.pythonApps} class="justify-center" />}
           />
         </Show>
-        <Show when={unanswered()}>
+        <Show when={!requestError() && !noRoutes() && unanswered()}>
           {(u) => (
             <EmptyState
               class="absolute inset-0"
@@ -719,8 +720,8 @@ export default function FlowView(props: {
             />
           )}
         </Show>
-        <Show when={graphFetch.error() ?? anchorFetch.error() ?? exportsFetch.error() ?? expansionFetch.error() ?? routesFetch.error()}>
-          {(e) => <ErrorState message={e().message} class="absolute inset-0" />}
+        <Show when={requestError()}>
+          {(message) => <ErrorState message={message()} class="absolute inset-0" />}
         </Show>
         <Show when={(stale() || refreshing() || refreshError()) && availability() === "ready"}>
           <div

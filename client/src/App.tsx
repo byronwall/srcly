@@ -197,11 +197,14 @@ function AppContent(props: { active: boolean }) {
   let resolveTreemapPaint: (() => void) | null = null;
   let pendingNotice: string | null = null;
 
+  // A URL change can precede the scan effect. Never apply the new location to the old tree.
+  const scanOwnsLocation = () => !location().repo || location().repo === scannedPath();
+
   // The scan root's absolute path; locations are relative to it.
   const rootPath = () => visualizationData()?.path ?? "";
   // Where the treemap is zoomed, read from the location.
   const resolved = createMemo(() => {
-    const data = visualizationData();
+    const data = scanOwnsLocation() ? visualizationData() : null;
     return data ? resolveTreeAt(data, rootPath(), location().at) : null;
   });
   const currentRoot = () => resolved()?.node ?? null;
@@ -294,7 +297,10 @@ function AppContent(props: { active: boolean }) {
   createEffect(() => {
     const repo = location().repo;
     if (!props.active || !repo || repo === untrack(scannedPath)) return;
-    untrack(() => analyze(repo));
+    untrack(() => {
+      setIsCodeModalOpen(false);
+      analyze(repo);
+    });
   });
 
   /** A codebase chosen in the picker or on the landing page. */
@@ -304,7 +310,21 @@ function AppContent(props: { active: boolean }) {
     if (target === location().repo) return analyze(target);
     // A different codebase starts at its root. A URL that had a place but no
     // repo yet (an old link) keeps that place.
-    go(location().repo ? { repo: target, at: "" } : { repo: target });
+    const here = location();
+    go(here.repo ? {
+      repo: target,
+      at: "",
+      open: undefined,
+      flow: isDataFlow(here) ? "" : undefined,
+      anchor: undefined,
+      field: undefined,
+      dest: undefined,
+      lens: undefined,
+      dir: undefined,
+      model: undefined,
+      depth: undefined,
+      links: undefined,
+    } : { repo: target });
   };
 
   const handleCancelScan = () => scanStore.cancel();
@@ -414,7 +434,7 @@ function AppContent(props: { active: boolean }) {
           Srcly
         </h1>
         <Show
-          when={visualizationData()}
+          when={scanOwnsLocation() && visualizationData()}
           fallback={
             <div class="min-w-0 flex-1">
               <FilePickerWithExternal onSelect={handleFileSelect} externalPath={analysisPath()} />
@@ -472,7 +492,7 @@ function AppContent(props: { active: boolean }) {
         </DialogShell>
 
         <Show
-          when={visualizationData()}
+          when={scanOwnsLocation() && visualizationData()}
           fallback={
             <div class="h-full w-full">
               <Show
@@ -617,7 +637,7 @@ function AppContent(props: { active: boolean }) {
       <Show when={showToast()}>
         <Toast message={toastMessage()} type={toastType()} duration={4000} />
       </Show>
-      <Show when={isCodeModalOpen()}>
+      <Show when={scanOwnsLocation() && isCodeModalOpen()}>
         <CodeModal
           isOpen={true}
           filePath={selectedFilePath()}
