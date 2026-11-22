@@ -460,21 +460,20 @@ export default function CodeModal(props: CodeModalProps) {
               gitRef={props.gitRef}
               onJumpToFinding={jumpToFinding}
               effects={
-                <>
-                  <Show when={effectsFile() && effectsLine() === undefined && !effects()}>
+                <Show when={effects()} fallback={
+                  <Show when={effectsFile() && effectsLine() === undefined}>
                     <section aria-label="Function effects" data-effects-state="unselected" class="mt-3 text-[12px]">
                       <h3 class="pb-0.5 pt-2 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--plc-on-subtle)]">Effects</h3>
                       <p class="pl-1.5 text-[11px] text-[var(--plc-on-muted)]">Choose a function from the outline to see what it touches.</p>
                     </section>
                   </Show>
-                  <Show when={effects()}>
-                    {(state) => (
-                      <div class="mt-3">
-                        <EffectsPanel state={state()} title={selectedScopeNode()?.name ? `Effects of ${selectedScopeNode().name}` : `Effects of the function at line ${effectsLine()}`} onOpen={(absPath, line) => { if (absPath === props.filePath) jumpToLedgerRow(line); }} />
-                      </div>
-                    )}
-                  </Show>
-                </>
+                }>
+                  {(state) => (
+                    <div class="mt-3">
+                      <EffectsPanel state={state()} title={selectedScopeNode()?.name ? `Effects of ${selectedScopeNode().name}` : `Effects of the function at line ${effectsLine()}`} onOpen={(absPath, line) => { if (absPath === props.filePath) jumpToLedgerRow(line); }} />
+                    </div>
+                  )}
+                </Show>
               }
               ledger={
                 <Show when={inspector.ledger()}>
