@@ -44,7 +44,7 @@ type Run = {
 /** The declaration anchor's own links: they place its parameters, reads, returns and uses, and never carry a run's landing. */
 const DECLARATION_LINKS = new Set(["parameter", "prop-read", "returns", "used-by", "state"]);
 /** Relations a return carries on by: to its paired call, a framework (a hook's `select`), or a hook's result field (`pack-field`). */
-const CARRIES_RETURN = new Set(["return-value", "framework-flow", "member-state", "pack-field", "predicate-return"]);
+const CARRIES_RETURN = new Set(["return-value", "framework-flow", "member-state", "pack-field", "predicate-return", "render-terminal"]);
 
 /**
  * The field a relation moves, from its own field end, never from the side the

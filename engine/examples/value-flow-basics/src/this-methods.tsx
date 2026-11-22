@@ -9,7 +9,7 @@ const counter = { // @never-reaches second-back
   },
 };
 
-export function Receivers(props: { other: typeof counter }) { // @stop second-back untraced parameter
+export function Receivers(props: { other: typeof counter }) { // @visits second-back parameter
   const first = counter; // @never-reaches second-back
   const second = props.other; // @visits second-back field-read "other"
   return (

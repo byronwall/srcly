@@ -201,3 +201,30 @@ Still not `ok`:
 | `v-observer` | assumed | `onSeen(entry.target.id)` calls a callback that `watch`'s caller hands in, and nothing in the program calls `watch`. A call through a callback no caller supplies is assumed on purpose (`callback-not-service.tsx`, `draft-save`). |
 
 Closing `js-reduce` and `js-require` needs a type source for JavaScript parameters (JSDoc, or the types at every call site of a function nothing exports). A rule that reads the method name alone would be a false `ok` whenever a project's own object has a method of that name.
+
+## React root (November 2026, React hooks round)
+
+| Root | Patterns | `ok` before | `ok` after | `assumed` | `partial` | Wanted end before | Wanted end after |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| react | 81 | 70 | 80 | 1 (5 before) | 0 (6 before) | 73 | 80 |
+
+Closed, by principle (the rules are in `docs/dataflow-coverage.md`):
+
+| Principle | Patterns |
+| --- | --- |
+| Rows in today's vocabulary: `useSyncExternalStore` (`calls-back`), `useRef` (`passes-through` with a `field`), `cloneElement` (`passes-through`), Next's `AppRouterInstance.push` and `replace` (`terminal` member rows), `URLSearchParams.set`, `append`, `delete` (`consumes`, `writes: this`) | `r-external-store`, `r-ref-latest`, `r-router-push`, `n-router-replace` |
+| A hook input ends in place: an effect's dependency list (no value) and a wrapper's (`useCallback(fn, deps)`) | `r-storage-init`, `r-memo-chain` |
+| `useMemo(fn)`'s binding is not an accessor of `fn` | `r-memo-chain` |
+| Class component state: `this.setState(x)` or an updater's return is merged into `state` | `r-class-state` |
+| Imperative handle: `handle.current?.fill(x)` runs the `fill` that `useImperativeHandle` returns for the element given `ref={handle}` | `r-imperative` |
+| A component's return renders at its occurrence | `r-clone` |
+| A callback inside a handler handed in returns to its own call (the walk used to stop at its return, a wrong `ok` at `return`) | `r-list-edit` |
+| A parameter of an exported function nothing calls begins at the module's API | `r-debounce-hook` |
+
+Still not `ok`, or not at the wanted end:
+
+| Pattern | Outcome | Why it stays |
+| --- | --- | --- |
+| `r-filter-derived` | `ok` at `return` | `query` only decides which items `filter` keeps: a control dependency, not a value in the render. The honest end is a named "filters the list" end kind, the same one the Solid case `s-filter-memo` needs. It is left for the Solid round, so the two do not add the kind twice. |
+| `r-children-fn` | assumed | `props.children(value)` calls a function written as a JSX child. A JSX child function is not yet bound to the `children` prop, so the call is an assumed library call. The Solid round adds this slot for `s-render-prop`; the React pattern has the same shape. |
+

@@ -5,7 +5,7 @@ import { createStore } from "solid-js/store";
 // `nested.inner.right`'s slot; `props.right` reaches `nested.inner.right`
 // (through a nested pack), never `copy.left`'s. Read back, each slot enters
 // the pack through its own field alone.
-export function Paired(props: { left: string; right: string }) { // @stop fp-lb,fp-rb untraced parameter
+export function Paired(props: { left: string; right: string }) { // @visits fp-lb,fp-rb parameter
   const pair = { left: props.left, right: props.right }; // @trace fp-left forward props.left @trace fp-right forward props.right @visits fp-lb field-read * "left" @never-reaches fp-lb field-read "right" @visits fp-rb field-read * "right" @never-reaches fp-rb field-read "left"
   const copy = { ...pair, extra: 1 };
   const nested = { inner: pair };

@@ -29,10 +29,35 @@
     {
       "language": "ts",
       "module": "react",
+      "name": "useRef",
+      "model": "passes-through",
+      "args": "0",
+      "field": "current",
+      "note": "A ref object: its `current` field holds the initial value until the program writes another."
+    },
+    {
+      "language": "ts",
+      "module": "react",
+      "name": "cloneElement",
+      "model": "passes-through",
+      "note": "The copy holds the element and the props it is given."
+    },
+    {
+      "language": "ts",
+      "module": "react",
       "name": "useDeferredValue",
       "model": "passes-through",
       "args": "0",
       "note": "The deferred value is the value it is given."
+    },
+    {
+      "language": "ts",
+      "module": "react",
+      "name": "useSyncExternalStore",
+      "model": "calls-back",
+      "args": "1",
+      "returns": "callback",
+      "note": "The store's value is what its `getSnapshot` (at `args`) returns. `subscribe` only tells React when to read it again; nothing it is given or returns is the value."
     },
     {
       "language": "ts",
@@ -250,6 +275,22 @@
       "model": "terminal",
       "role": "external-effect",
       "note": "Changes the query cache's entries that match the filters (marks them stale, refetches, resets or drops them)."
+    },
+    {
+      "language": "ts",
+      "module": "next",
+      "member": "AppRouterInstance.push",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "`useRouter().push(href)` sends the page to that URL: the value leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "next",
+      "member": "AppRouterInstance.replace",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "`useRouter().replace(href)` sends the page to that URL in place of the current history entry: the value leaves the program."
     },
     {
       "language": "ts",

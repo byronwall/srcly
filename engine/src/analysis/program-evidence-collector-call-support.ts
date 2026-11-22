@@ -9,7 +9,7 @@ import {
 } from "./program-evidence-collector-expression-support";
 import { lazyFactoryGetter, reducerOf, seedArgument, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { jsonValueMember, namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
-import { frameworkFlow, makesAccessor, makesPredicate, PROMISE_CHANNELS, watchedFunction, yieldsOnlyCallback, type FrameworkFlow } from "./framework-flows";
+import { frameworkFlow, hasNoValue, makesAccessor, makesPredicate, PROMISE_CHANNELS, watchedFunction, wrappedPosition, yieldsOnlyCallback, type FrameworkFlow } from "./framework-flows";
 import { boundaryRole, builtinLibraryModels, standardMemberModel } from "./library-models";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo, CollectorFunctionInfo } from "./program-evidence-collector-support";
@@ -176,6 +176,19 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     return imported !== null && watchedFunction(imported.module, imported.name) !== null;
   }
 
+  /** Whether a row says the call has no value (`useEffect`): it keeps what it is given, and nothing binds it. */
+  private effectInput(node: TypeScript.CallExpression): boolean {
+    const imported = importedCallee(this.ts, this.checker, node.expression);
+    return imported !== null && hasNoValue(imported.module, imported.name);
+  }
+
+  /** Whether an argument comes after the function a `wraps` row's call returns (`useCallback(fn, [deps])`, `debounce(fn, ms)`): the call keeps it, and its value does not hold it. */
+  private wrapperInput(node: TypeScript.CallExpression, index: number): boolean {
+    const imported = importedCallee(this.ts, this.checker, node.expression);
+    const at = imported ? wrappedPosition(imported.module, imported.name) : null;
+    return at !== null && index > at;
+  }
+
   /** Whether a row names where the call's value comes from (`useMemo`'s callback, `useQuery`'s `queryFn`), so no other argument is in it. */
   private yieldsOnlyItsCallback(node: TypeScript.CallExpression): boolean {
     const imported = importedCallee(this.ts, this.checker, node.expression);
@@ -201,6 +214,15 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     for (const index of passed) {
       const value = argument(index);
       if (value) relate(value, callId, "The framework call yields a value carrying this argument.");
+    }
+    // `useRef(x)`: the call's value holds the argument in one field (`current`), packed as `{ current: x }` would be.
+    const packed = flow.packs ? argument(flow.packs.argument) : undefined;
+    if (flow.packs && packed) {
+      const at = this.location(packed);
+      const detail = `The call's value holds this argument in its \`${flow.packs.field}\` field.`;
+      const packId = this.ensureElement(packed, "object-pack", ownerId, { operation: "object-pack", fields: JSON.stringify({ [`${at.span.startLine}:${at.span.startColumn}`]: flow.packs.field }) }, null, null, null, "proven", frameworkState(detail, at));
+      this.addRelation(this.expression(packed, ownerId), packId, "pack-field", [at], frameworkState(detail, at), "proven");
+      this.addRelation(packId, callId, "framework-flow", [at], frameworkState("The framework call yields this object.", this.location(node)), "proven");
     }
     // A source that is a value, not a function (`on(count, …)`): what it is reaches the callback now; a function's returns reach it after collection.
     const source = flow.source !== undefined ? argument(flow.source) : undefined;
@@ -373,7 +395,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     // A callee with no body to enter (a library method, a callback, an accessor) is consumed by its call, as its arguments are. A `then` with a handler holds what the handler returns, not its receiver.
     // A store member read through its hook (`addFish` after `const { addFish } = useStore()`) has one: the call enters it (`connectBoundHandlers`).
     // A store's `set` (or `useStore.setState`) is modelled as a state setter is: what it receives is the store (`connectStores`), never its call's value.
-    const storeWrite = writesStore(this.ts, this.checker, node);
+    // `this.setState(x)` in a class component is modelled the same way: `x` is merged into `state` (`connectClassSetState`).
+    const storeWrite = writesStore(this.ts, this.checker, node) || this.classSetState(node) !== null;
     const handled = (this.settles(node) === "then" && this.promiseHandler(node, 0)) || storeMember(this.ts, this.checker, node.expression).length > 0;
     if ((!role || role.through) && !storeWrite && !target && !handled && !resourceAction(this.ts, this.checker, node.expression) && !this.contextPairHalf(node.expression) && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
       this.addRelation(
@@ -401,11 +424,12 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       // The flow moves these: a passed value goes through whole, so a field stays that field, and a resource's source reaches the fetcher's parameter, never the resource.
       if (flow?.passes === "*" || flow?.passes?.includes(index) || (flow?.source === index && isResourceFactory(this.ts, this.checker, node))) continue;
       // A row that names the one argument its call hands on leaves the others out of its value (`makePersisted(pair, options)`, `splitProps(props, keys)`).
-      if (Array.isArray(flow?.passes)) continue;
+      if (Array.isArray(flow?.passes) || flow?.packs) continue;
       // A rejection reason is not the promise's value: it reaches a rejection handler, or ends there.
       if (this.settles(node) === "reject") continue;
       // A row that says what the call yields (its callback's return, an option function's) leaves every other argument out of it: a dependency list, a query's key.
-      if (this.yieldsOnlyItsCallback(node)) continue;
+      // A call with no value (`useEffect(fn, [deps])`) holds none of them either, and a wrapper (`useCallback(fn, [deps])`) only the function it wraps.
+      if (this.yieldsOnlyItsCallback(node) || this.effectInput(node) || this.wrapperInput(node, index)) continue;
       // A state pair's initial value seeds its state directly (`seedArgument`), not through the factory's call.
       if (index === 0 && seedArgument(this.ts, this.checker, node)) continue;
       // `useContext(Ctx)` returns what a provider or the default holds, never the context object.
@@ -832,6 +856,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
    * the call's value. Both are assumed, so both are `partial`.
    */
   private connectExternalCallbacks(call: CollectorCallInfo, node: TypeScript.CallExpression, stateFunctions: ReadonlySet<TypeScript.Node>): void {
+    // A class component's `this.setState(updater)` and a store's `set(updater)`: the updater's return is the state (`connectClassSetState`, `connectStores`), never the call's value.
+    if (this.classSetState(node) || writesStore(this.ts, this.checker, node)) return;
     // A framework call whose flow is modelled (`flowOf`) needs no assumption.
     const flow = this.flowOf(node);
     if (flow) {

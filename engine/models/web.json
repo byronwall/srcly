@@ -122,6 +122,30 @@
       "member": "Node.contains",
       "model": "consumes",
       "note": "A read of the page: dropping its value changes nothing, and what it is given stays in the program."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "URLSearchParams.set",
+      "model": "consumes",
+      "writes": "this",
+      "note": "A query string object the program holds: the receiver keeps the arguments. It is not the page's URL until the program hands it on."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "URLSearchParams.append",
+      "model": "consumes",
+      "writes": "this",
+      "note": "A query string object the program holds: the receiver keeps the arguments. It is not the page's URL until the program hands it on."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
+      "member": "URLSearchParams.delete",
+      "model": "consumes",
+      "writes": "this",
+      "note": "A query string object the program holds: the receiver keeps the arguments. It is not the page's URL until the program hands it on."
     }
   ]
 }

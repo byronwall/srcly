@@ -610,6 +610,25 @@ export class ProgramEvidenceCollectorSupport {
     return hook && this.ts.isExpression(hook) ? this.optionFunction(hook, "mutationFn") : null;
   }
 
+  /**
+   * The class of a `this.setState(…)` call made in a class's own method,
+   * property initializer or arrow (where `this` is the instance), when the
+   * class extends React's `Component` or `PureComponent` and declares no
+   * `setState` of its own; null for any other call.
+   */
+  protected classSetState(node: TypeScript.CallExpression | TypeScript.NewExpression): TypeScript.ClassLikeDeclaration | null {
+    if (!this.ts.isCallExpression(node)) return null;
+    const callee = unwrap(this.ts, node.expression);
+    if (!this.ts.isPropertyAccessExpression(callee) || callee.expression.kind !== this.ts.SyntaxKind.ThisKeyword || callee.name.text !== "setState") return null;
+    // `this` is the instance up to the first function that is not an arrow.
+    const scope = this.ts.findAncestor(callee, (item) => this.ts.isClassLike(item) || (this.ts.isFunctionLike(item) && !this.ts.isArrowFunction(item) && !(this.ts.isMethodDeclaration(item) && this.ts.isClassLike(item.parent))));
+    if (!scope || !this.ts.isClassLike(scope)) return null;
+    const own = scope.members.some((member) => member.name && this.ts.isIdentifier(member.name) && member.name.text === "setState");
+    const base = scope.heritageClauses?.find((clause) => clause.token === this.ts.SyntaxKind.ExtendsKeyword)?.types[0]?.expression;
+    const imported = base ? importedCallee(this.ts, this.checker, base) : null;
+    return !own && imported?.module === "react" && /^(Component|PureComponent)$/.test(imported.name) ? scope : null;
+  }
+
   /** Whether a call has no value: a row says so (`useEffect`), or it is `mutate`, which hands nothing back as `mutateAsync` does. */
   protected callHasNoValue(node: TypeScript.CallExpression): boolean {
     const imported = importedCallee(this.ts, this.checker, node.expression);

@@ -9,10 +9,11 @@ import { builtinLibraryModels, tsModelModule, type LibraryModelRow } from "./lib
  * or with `compares` a boolean test of it;
  * `passes` the call's value carries those arguments (`*` every one);
  * `source` and `callback` the callback's first parameter receives what the
- * source returns (or is). A flow with none of these is a call with no value:
+ * source returns (or is); `packs` the call's value is an object that holds
+ * that argument in one field (`useRef(x).current`). A flow with none of these is a call with no value:
  * its callback runs for what it does (`useEffect`), and nothing comes back.
  */
-export type FrameworkFlow = { returns?: number; compares?: boolean; passes?: number[] | "*"; source?: number; callback?: number };
+export type FrameworkFlow = { returns?: number; compares?: boolean; passes?: number[] | "*"; source?: number; callback?: number; packs?: { argument: number; field: string } };
 
 /**
  * A promise's outcomes are separate channels. `fulfilled` and `rejected` name
@@ -41,7 +42,7 @@ export function frameworkFlow(module: string, name: string): FrameworkFlow | und
   const row = frameworkRow(module, name);
   if (!row) return undefined;
   const at = argument(row);
-  if (row.model === "passes-through") return { passes: at === undefined ? "*" : [at] };
+  if (row.model === "passes-through") return row.field !== undefined && at !== undefined ? { packs: { argument: at, field: row.field } } : { passes: at === undefined ? "*" : [at] };
   if (yieldsNothing(row)) return {};
   if (row.model === "calls-back" && row.returns === "boolean" && at !== undefined) return { returns: at, compares: true };
   // A wrapper that fills its function's first parameter from a source (`on(source, fn)`).
