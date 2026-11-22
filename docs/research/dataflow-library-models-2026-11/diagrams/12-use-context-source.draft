@@ -1,0 +1,27 @@
+diagram "useContext: what the source says"
+subtitle "The provider's value comes first; the default only when none exists"
+
+node src "solid-js/dist/solid.js (reformatted)" shape=code lang=js numbers=on start=558 <<JS
+function createContext(defaultValue, options) {
+  const id = Symbol("context");
+  return { id, Provider: createProvider(id), defaultValue };
+}
+function useContext(context) {
+  let value;
+  return Owner && Owner.context &&
+    (value = Owner.context[context.id])
+      !== undefined
+      ? value
+      : context.defaultValue;
+}
+JS
+range src.key lines=565 color=violet
+range src.def lines=568 color=slate
+
+note "Provider value, looked up by the context's id: the keyed-store rule models this." near=src.key side=right
+note "Default value: the only flow useContext<T>(ctx: Context<T>): T shows." near=src.def side=below
+
+legend violet "Provider value (keyed store)"
+legend slate "Default value (what the types see)"
+
+layout root flow gap=48 fit=slide

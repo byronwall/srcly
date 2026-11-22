@@ -1,0 +1,35 @@
+diagram "What each modelled library is made of"
+subtitle "35 of 58 framework rows describe code we could read instead"
+
+group built "Built on primitives · 35 rows, about 420 lines of custom code" color=amber
+node b_solidui "Solid For, Index, Show\n5 to 15 lines each" in=built
+node b_res "createResource, createAsync\nsignals plus a Promise" in=built
+node b_router "Router query, cache, action\na Map keyed by name" in=built
+node b_zus "zustand\n80 lines of closure" in=built
+node b_rq "React Query, Solid Query\n1,800 lines of classes" in=built
+node b_util "lodash, solid-primitives\ndebounce, throttle, storage" in=built
+
+group prim "Primitives with no readable body · 23 rows, keep as rows" color=mint
+node p_react "React hooks\ndispatcher set by the renderer" in=prim
+node p_signal "Solid signal and memo\nscheduler" in=prim
+node p_ctx "Context lookup\nkeyed store" in=prim
+node p_sync "useSyncExternalStore\nReact dispatcher" in=prim
+node p_js "JS built-ins\nPromise, Map, setTimeout" in=prim
+node p_io "I/O boundaries · 161 rows\nfetch, fs, DB, print" in=prim
+
+edge e1 b_solidui -> p_signal "createMemo, mapArray"
+edge e2 b_res -> p_signal
+edge e3 b_res -> p_js "Promise"
+edge e4 b_router -> p_js "Map"
+edge e5 b_zus -> p_sync
+edge e6 b_rq -> p_sync
+edge e7 b_rq -> p_js "Map keyed by hash"
+edge e8 b_util -> p_js "setTimeout"
+edge e9 b_util -> p_io "localStorage"
+
+legend amber "Read from source (summaries)"
+legend mint "Hand rows: cell, slot, keyed store, boundaries"
+
+layout root flow gap=72 direction=down
+layout built engine=grid node-gap=24
+layout prim engine=grid node-gap=24

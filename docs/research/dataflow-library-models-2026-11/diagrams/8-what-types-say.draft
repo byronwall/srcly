@@ -1,5 +1,5 @@
 diagram "What the .d.ts types already say"
-subtitle "Types find the right path, but one shared T can still lie"
+subtitle "Types find a path, but can miss where the value really comes from"
 
 group right "Types match the value" color=mint
 node memo "@types/react" shape=code lang=ts in=right <<TS
@@ -14,7 +14,7 @@ function indexArray<T, U>(
 TS
 range idx.u lines=3-4 color=mint "U in, U[] out"
 
-group wrong "Types match, value does not" color=red
+group wrong "Types see half the flow" color=red
 node ctx_t "solid-js signal.d.ts" shape=code lang=ts in=wrong <<TS
 function useContext<T>(context: Context<T>): T;
 TS
@@ -31,13 +31,13 @@ range ctx_user.def lines=1 color=red
 range ctx_user.prov lines=3 color=mint
 range ctx_user.read lines=7
 
-edge t1 ctx_user.def -> ctx_user.read "type tie" kind=async
-edge t2 ctx_user.prov -> ctx_user.read "value flow"
+edge t1 ctx_user.def -> ctx_user.read "types: default only" kind=async
+edge t2 ctx_user.prov -> ctx_user.read "source: provider first"
 
-note "Spike: types imply 25 of 47 rows fully; about 1 in 20 type flows on unrowed exports is false. So a type step stays assumed until a row confirms it." near=wrong side=below
+note "Spike: types imply 25 of 47 rows fully; about 1 in 20 type flows on unrowed exports is wrong or incomplete. So a type step stays assumed until a row confirms it." near=wrong side=below
 
 legend mint "Right"
-legend red "Wrong"
+legend red "Missed by the types"
 legend line dashed "What the types claim"
 legend line solid "Where the value comes from"
 

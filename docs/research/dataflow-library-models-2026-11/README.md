@@ -24,7 +24,7 @@ These five pictures show the scope on real code. Read them before the numbers.
 
 ![Access paths replace one-off fields](diagrams/7-access-paths.png)
 
-**What the types can and cannot do.** `useMemo` and `indexArray` say in their signatures that the callback's return becomes the result, so no row is needed to find the path. `useContext` says the result has the default value's type, but the value comes from the nearest provider. So a type-proposed step stays `assumed`.
+**What the types can and cannot do.** `useMemo` and `indexArray` say in their signatures that the callback's return becomes the result, so no row is needed to find the path. `useContext` ties the result only to the context object, which holds the default. Solid's source shows the value is the nearest provider's value, and the default only when no provider exists. The types see half the flow, so a type-proposed step stays `assumed`.
 
 ![What the .d.ts types already say](diagrams/8-what-types-say.png)
 
@@ -185,10 +185,10 @@ So 25 of 47 resolved rows (53%) are redundant with the types, and 12 more (26%) 
 Of 146 callable exports in these modules with no row, 57 show a type flow. Spot checks:
 
 - Right, and useful: `indexArray` (the open `s-index-array` gap), `useSyncExternalStore`, `catchError`, `runWithOwner`, `reconcile`, zustand `useStore`, `useRef`, `createElement`.
-- Wrong: `useContext` in React and in Solid. `useContext<T>(ctx: Context<T>): T` ties the result's type to the argument, but the value comes from the nearest provider, not from the default in `createContext`. `useSubmission` is half right: its `result` holds the action's awaited return, but the type ties the whole result to the action.
+- Incomplete: `useContext` in React and in Solid. `useContext<T>(ctx: Context<T>): T` ties the result to the context object, so only the default in `createContext` reaches it. The source (`Owner.context[context.id] ?? context.defaultValue` in Solid) shows the nearest provider's value comes first; the types miss that flow. `useSubmission` is half right: its `result` holds the action's awaited return, but the type ties the whole result to the action.
 - Too wide: the option scan finds `queryFn`, but also `select`, `placeholderData`, `initialData` and `structuralSharing`, and on Solid Query every `QueryClient` method. Some of those do feed `data`; some do not.
 
-The key result for honesty: **a shared type parameter proves the same type, not the same value.** About 1 in 20 type flows is false, and `useContext` is a common call. A type-inferred step can make a trace's path right. It must never make the outcome `ok` by itself.
+The key result for honesty: **a shared type parameter proves the same type, not the same value.** About 1 in 20 type flows is wrong or incomplete, and `useContext` is a common call. A type-inferred step can make a trace's path right. It must never make the outcome `ok` by itself.
 
 ![Types propose, rows confirm](diagrams/2-types-propose-rows-confirm.png)
 
@@ -199,19 +199,19 @@ Scores: coverage is patterns that work with no new row; risk is the chance of a 
 | Option | Coverage without new rows | False-`ok` risk | Code deleted | Residue |
 | --- | --- | --- | --- | --- |
 | **A. Access-path vocabulary.** Replace the 20 ad hoc fields with CodeQL-style paths: `Argument[0].ReturnValue → ReturnValue`, `Argument[1] → Argument[0].Parameter[0]`, `Argument[0].Member[queryFn].ReturnValue → ReturnValue.Member[data]`. One emitter interprets every path. | Same as today; new libraries in shapes 1 to 7 become rows-only | None: a row is still a claim a person reviewed | `framework-flows.ts` readers (about 110 of 146), option emitters (85), `connectFrameworkFlow`, row-specific branches in `value-origin.ts`; about 250 lines, offset by a path emitter of about 100 | Shapes 8 to 10 |
-| **B. Type-proposed flow.** Derive candidate paths from generics at each unmodelled library call. Emit them with a new proof kind (`type-signature`, strength `assumed`). | High: the 25 implied rows, plus `indexArray`, `useSyncExternalStore` and other unrowed exports, gain the right path | Low if the strength stays `assumed`; about 5% of proposals are false paths | None at first. Each implied row becomes a 1-line confirmation; its shape fields go | Terminals, origins, cells, slots, context, and choosing among option keys |
+| **B. Type-proposed flow.** Derive candidate paths from generics at each unmodelled library call. Emit them with a new proof kind (`type-signature`, strength `assumed`). | High: the 25 implied rows, plus `indexArray`, `useSyncExternalStore` and other unrowed exports, gain the right path | Low if the strength stays `assumed`; about 5% of proposals are wrong or incomplete | None at first. Each implied row becomes a 1-line confirmation; its shape fields go | Terminals, origins, cells, slots, context, and choosing among option keys |
 | **C. Summaries from `node_modules` JS.** Analyse library code and cache a summary per package version. | Medium for small utilities (lodash, debounce); low for React, Solid and zustand, whose behaviour lives in a scheduler or a runtime | Medium: dynamic code and bundles defeat the analysis; a wrong summary looks proven | None | Every framework; plus memory cost on top of a 2 to 3 GB Program |
 | **D. Wider default rule.** Treat every unmodelled package call as an `assumed` pass-through of all arguments. | Already true for dropped calls (`connectExternalCall`) and library-typed callees (`isExternalCall`) | None (stays `assumed`) | None | Gives wrong ends: the React Query diagnosis shows `getQueryData` ending at the key literal, not the cache |
 | **E. Generated rows for review.** A script prints proposed rows for a package from its types, or from the stops a survey reports. | Same as B, but only after a person merges the rows | None: a person reviews each row | None | Review time per package |
 | **F. Cell and slot concepts.** Two engine concepts with row shapes: a *cell* (a call makes a value; named handles write it; named handles read it) and a *slot* (the framework calls a component's attribute or child function with named values). | zustand, signals, stores, reducers, resources, `useSubmission` and `mutate`/`refetch` become cell rows; `For`, `Index`, `Show`, `Dynamic`, `ErrorBoundary`, `Suspense` become slot rows | None: rows are claims | Most of the 245 cell lines and 210 slot lines, offset by two emitters of about 150 lines together | Context (shape 10) stays code; it is one rule for both frameworks |
-| **G. Summaries down to a primitive floor.** Analyse library JS only until it reaches primitives the engine models (`useSyncExternalStore`, `createSignal`, closures, `Promise`). zustand's `vanilla.ts` is about 100 lines of closure over `setState` and `getState`. | Good for small stores built on primitives (zustand); poor for Solid's compiled JSX runtime | Medium: a summary looks proven when the analysis misses dynamic code | None | Needs the installed library at the right version; slots stay code |
+| **G. Summaries down to a primitive floor.** Analyse library JS only until it reaches primitives the engine models (`useSyncExternalStore`, `createSignal`, closures, `Promise`). zustand's `vanilla.ts` is about 100 lines of closure over `setState` and `getState`. | Good for libraries built on primitives: zustand, lodash, the router's `createAsync`, and Solid's own `For`, `Index` and `Show`, which are 5 to 15 lines on `createMemo` and `mapArray` (see 5c) | Medium: a summary looks proven when the analysis misses dynamic code | None | Needs the installed library at the right version; slots stay code |
 | **H. Keyed-store shape.** One rule: a write and a read join when they reach the same store identity with the same constant key. | Context (Provider to `useContext`, keyed by the context object), the query cache (`setQueryData`, `getQueryData`, `invalidateQueries`), `localStorage`, event emitters, the open `v-map-set` gap | Low if a computed key (`["items", props.listId]`) stays `assumed` | The 107 context lines, offset by one emitter | Rows that say which calls write, read or clear a keyed store |
 | **I. Runtime observation.** Wrap library exports during tests or catalog runs; record which argument shows up in which callback parameter or result; propose rows. | Medium, only for code paths that run | Medium: seen on some inputs is not proven | None | Needs runnable code; review of every proposal |
 | **J. Rows written by an agent, gated by fixtures.** An agent writes each row with a negative annotated fixture; the exhaustive `@reaches` and `@stop` check is the gate. | Same as today's rows | Low: the negative fixture must fail without the row's limit | None | It fills the vocabulary; it does not shrink it |
 
 ### Recommendation
 
-Do A, B, F and H, and use E and J to write rows. Skip C, G and I for now: a summary or an observation looks proven when it is not, and both need installed or running code.
+Do A, B, F and H, and use E and J to write rows. Skip C and I: C analyses too much, and I needs running code. G (summaries down to a primitive floor) is the strongest later step; section 5c shows which modelled libraries it would cover.
 
 - **A** stops vocabulary growth. Every new library step that fits shapes 1 to 7 becomes data.
 - **B** makes unmodelled libraries trace along the right path, so a trace reaches its real end with an honest `assumed`. A 1-line confirmation row then promotes a proposal to `ok`. Types propose; rows confirm.
@@ -254,6 +254,38 @@ React and Solid themselves are different. `useState` in `react.development.js` c
 This changes option C's score. Analysing *all* of `node_modules` is still too costly, but **summarising userland libraries down to a short list of framework primitives** is source-only, needs no rows for zustand-like libraries, and matches what Pysa and CodeQL do. A summary computed from source is a proof, so it can be `ok` where the analysis is complete, and `assumed` where it meets dynamic code.
 
 Suggested spike: summarise `zustand` from `node_modules` source down to a `useSyncExternalStore` row, and compare the edges with today's `connectStores` on the `zustand-store.tsx` fixture. It needs the closure-variable rule first.
+
+## 5c. Library intake applied to what we model today
+
+The intake question: does this library have a body we can read, or is it a primitive (a runtime, a renderer's dispatcher, a scheduler, I/O)? Only primitives need hand rows. I read the installed source of each modelled library (`solid-js` 1.x in bible-daily, `@tanstack/react-query` 4.44 and `zustand` in family-finances, `lodash` in recipes-modern).
+
+![What each modelled library is made of](diagrams/10-library-layers.png)
+
+| Library | What its source is | Rows today | Custom code today | Verdict |
+| --- | --- | ---: | ---: | --- |
+| React hooks, `memo`, `forwardRef` | Calls into `dispatcher`, which the renderer sets at run time | 9 | state pairs 33 | Primitive: keep rows |
+| Solid `createSignal`, `createMemo`, effects, `createStore`, `splitProps`, `mergeProps` | The reactive core: a scheduler and `Proxy` objects | 14 | | Primitive: keep rows |
+| Context (React and Solid) | Solid: `Owner.context[context.id] ?? context.defaultValue`. React: the dispatcher | 0 | 107 | Primitive: one keyed-store row |
+| I/O (fetch, fs, DB, print, Python boundaries) | Ends in native code or the network | 161 | | Primitive: keep rows |
+| Solid `For`, `Index`, `Show`, `children` | 5 to 15 lines each on `createMemo` and `mapArray` | 0 | 128 | Built on primitives |
+| Solid `createSelector`, `on`, `mapArray`, `createDeferred`, `onMount` | Plain JS on the reactive core | 6 | | Built on primitives |
+| Router `createAsync`, `query`, `cache`, `action` | `createAsync` is `createResource(() => fn())`; `query` keeps a module `Map` keyed by name and arguments | 8 | resource 140 (shared with Solid) | Built on primitives; the `Map` is a keyed store with a computed key |
+| zustand | 80 lines: a closure `let state` and `useSyncExternalStoreWithSelector` | 1 | 70 | Built on primitives |
+| React Query, Solid Query | About 1,800 lines of classes in `query-core`: an observer on `useSyncExternalStore`, a cache `Map` keyed by a hash of the query key, a `Promise` retryer | 9 | options 85 | Built on primitives, but deep; the hashed key stays `assumed` |
+| lodash, `@solid-primitives` | Closures on `setTimeout`; storage on `localStorage` | 11 | | Built on primitives |
+
+What this shows:
+
+- **23 of 58 framework rows are at the right layer.** They describe primitives that no source analysis can see through.
+- **35 of 58 rows, and about 420 of the 650 hard lines, describe code we could read.** Solid's own components are the plainest case:
+
+![Solid's For is five lines](diagrams/11-solid-for-is-five-lines.png)
+
+- **Reading the source corrects a claim.** The types made `useContext` look like "the default flows in". The source says the provider's value comes first and the default only when no provider exists. A hand rule written from types or from docs alone can get this wrong in either direction:
+
+![useContext: what the source says](diagrams/12-use-context-source.png)
+
+- **Computed keys are where honest `assumed` steps remain.** The router's `query` cache and React Query's cache both key a `Map` by a value computed at run time. Source analysis reaches the `Map` and stops there, which is the right answer.
 
 ## 6. Migration plan
 
