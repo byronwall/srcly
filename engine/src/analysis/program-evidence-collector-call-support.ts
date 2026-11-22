@@ -928,6 +928,17 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       const [called, calledStatus] = this.libraryProof(node, `${name} calls this function with ${receiver.getText()}${role === "element" ? "'s elements" : ""}.`, where);
       this.addRelation(this.expression(receiver, call.ownerId), parameterId, "callback-parameter", where, called, calledStatus);
     });
+    // A callback of one element whose return the call does not yield (`filter`, `find`, `some`, `every`) tests that element:
+    // its return decides which elements count, a branch, not a value. A comparator (`sort`, two elements) orders them instead.
+    const tests = row.returns !== "callback" && row.returns !== "void" && row.parameters.filter((item) => item === "element").length === 1;
+    if (tests && returns.length) {
+      const at = this.location(fn);
+      const testId = this.ensureElement(fn, "branch-condition", call.ownerId, { terminalKind: "branch-condition", label: `${name} test` }, null, null, null, "proven", proof("standard-library", `${name} tests each element with what this function returns.`, [at]));
+      for (const returnId of returns) {
+        const [tested, testedStatus] = this.libraryProof(node, `${name} tests each element with what this function returns; the value is not kept.`, [at]);
+        this.addRelation(returnId, testId, "predicate-return", [at], tested, testedStatus);
+      }
+    }
     if (row.returns !== "callback") return true;
     const where = [this.location(argument)];
     for (const returnId of returns) {
