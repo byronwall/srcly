@@ -4,11 +4,12 @@ import { asFunctionLike } from "./program-evidence-support";
 type Site = TypeScript.CallExpression | TypeScript.NewExpression;
 
 /**
- * Whether state kept per call or per instance can belong to more than one
- * instance: a factory with more than one call site, or a class with more than
- * one `new` (its own or a subclass's). Until the walk tells instances apart,
- * a value kept in one instance's closure or field reaches every instance's
- * reads, so those steps are assumed, not proven.
+ * Instances of state kept per call or per instance (a closure's captured
+ * variables, a class's fields). `madeBy` names the call or `new` a receiver
+ * came from, which the slice uses to keep a walk in one instance
+ * (`InstanceTag`). `manyInstances` says whether a factory has more than one
+ * call site, or a class more than one `new` (its own or a subclass's): a step
+ * the walk cannot pin to one instance is then assumed, not proven.
  *
  * Sites are found by the callee's name in one syntactic pass, then resolved
  * by the checker; a function reached only through an alias is not counted.
@@ -17,6 +18,7 @@ export class InstanceSites {
   private byName: Map<string, Site[]> | null = null;
   private subclassesByName: Map<string, TypeScript.ClassLikeDeclaration[]> | null = null;
   private readonly many = new Map<TypeScript.Node, boolean>();
+  private readonly factories = new Map<TypeScript.Node, TypeScript.FunctionLikeDeclaration | null>();
 
   constructor(
     private readonly ts: typeof TypeScript,
@@ -40,6 +42,14 @@ export class InstanceSites {
    * function that captures nothing from an enclosing function.
    */
   capturingFactory(fn: TypeScript.FunctionLikeDeclaration): TypeScript.FunctionLikeDeclaration | null {
+    const known = this.factories.get(fn);
+    if (known !== undefined) return known;
+    const factory = this.findCapturingFactory(fn);
+    this.factories.set(fn, factory);
+    return factory;
+  }
+
+  private findCapturingFactory(fn: TypeScript.FunctionLikeDeclaration): TypeScript.FunctionLikeDeclaration | null {
     let factory: TypeScript.FunctionLikeDeclaration | null = null;
     for (let node: TypeScript.Node | undefined = fn.parent; node; node = node.parent) {
       factory = asFunctionLike(this.ts, node);
@@ -61,6 +71,36 @@ export class InstanceSites {
     };
     if (fn.body) visit(fn.body);
     return captures ? outer : null;
+  }
+
+  /**
+   * The call or `new` whose result `expression` holds: the expression itself,
+   * `x` after `const x = make(…)`, `get` after `const { get } = make(…)`, an
+   * imported `const`. `this` for the `this` keyword. Null for anything else:
+   * a `let`, a parameter, a field, an element of an array.
+   */
+  madeBy(expression: TypeScript.Expression): Site | "this" | null {
+    const ts = this.ts;
+    let node: TypeScript.Node = expression;
+    for (let step = 0; step < 8; step++) {
+      while (ts.isParenthesizedExpression(node) || ts.isNonNullExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression?.(node)) node = (node as TypeScript.ParenthesizedExpression).expression;
+      if (node.kind === ts.SyntaxKind.ThisKeyword) return "this";
+      if (ts.isCallExpression(node) || ts.isNewExpression(node)) return node;
+      if (!ts.isIdentifier(node)) return null;
+      let symbol = this.checker.getSymbolAtLocation(node);
+      if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = this.checker.getAliasedSymbol(symbol);
+      if (symbol?.declarations?.length !== 1) return null;
+      let declaration: TypeScript.Node = symbol.declarations[0]!;
+      // `const { get } = make(…)`: each destructured name came from that one call's object.
+      if (ts.isBindingElement(declaration)) {
+        if (declaration.dotDotDotToken || !ts.isObjectBindingPattern(declaration.parent)) return null;
+        declaration = declaration.parent.parent;
+      }
+      if (!ts.isVariableDeclaration(declaration) || !declaration.initializer) return null;
+      if (!(ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const)) return null;
+      node = declaration.initializer;
+    }
+    return null;
   }
 
   private count(declaration: TypeScript.Node, limit: number): number {

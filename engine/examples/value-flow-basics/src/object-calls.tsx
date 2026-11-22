@@ -32,11 +32,12 @@ export function Labeled(props: { name: string; title: string; note: string; tag:
 }
 
 // Two objects from one factory hold their own state: what `first.set`
-// stores is never read back through `second.get`: `get` has two callers,
-// so the held value ends at its return.
+// stores is read back through `first.get`, never through `second.get`. Each
+// call of `makeSlot` is its own context: `first` and `second` name the call
+// that made them.
 function makeSlot() {
   let held = "";
-  return { set: (value: string) => { held = value; }, get: () => held }; // @reaches slot return
+  return { set: (value: string) => { held = value; }, get: () => held };
 }
 
 const first = makeSlot();
@@ -46,7 +47,7 @@ export function Slots(props: { a: string }) {
   first.set(props.a); // @trace slot forward props.a @edge slot argument-binding proven
   return (
     <p>
-      <span>{first.get()}</span>
+      <span>{first.get()}</span> {/* @reaches slot */}
       <em>{second.get()}</em> {/* @never-reaches slot */}
     </p>
   );

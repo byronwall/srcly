@@ -11,6 +11,7 @@ import { lazyFactoryGetter, reducerOf, seedArgument, stateFactory, stateRoleOf }
 import { jsonValueMember, namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
 import { frameworkFlow, rowFlow, makesAccessor, makesPredicate, PROMISE_CHANNELS, watchedFunction, yieldsOnlyCallback, type FrameworkFlow } from "./framework-flows";
 import { boundaryRole, builtinLibraryModels, standardMemberModel } from "./library-models";
+import { locationKey } from "./program-value-summary-support";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo, CollectorFunctionInfo } from "./program-evidence-collector-support";
 import {
@@ -269,6 +270,31 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
   /** Item parameters a library declares as accessors (`connectItemAccessor`), read when the callback's own calls are collected. */
   private readonly itemAccessors = new Map<TypeScript.Symbol, string>();
 
+  /**
+   * The instance a call runs its target in (`InstanceTag`): for a closure that
+   * reads what its factory captured, the factory call its callee came from
+   * (`ra.read()` after `const ra = makeReader(a)`); for an instance method,
+   * the `new` its receiver came from, or `this`. Null when the target keeps
+   * no per-instance state or the instance is not known.
+   */
+  protected instanceAt(node: TypeScript.CallExpression | TypeScript.NewExpression, target: CollectorFunctionInfo): string | null {
+    const ts = this.ts;
+    if (ts.isNewExpression(node)) return locationKey(this.location(node));
+    if (node.expression.kind === ts.SyntaxKind.SuperKeyword) return "this";
+    const callee = unwrap(ts, node.expression);
+    const receiver = ts.isPropertyAccessExpression(callee) ? callee.expression : callee;
+    const declaration = target.declaration;
+    const factory = this.instanceSites.capturingFactory(declaration);
+    if (factory) {
+      const made = this.instanceSites.madeBy(receiver);
+      return made && made !== "this" && ts.isCallExpression(made) && this.checker.getResolvedSignature(made)?.declaration === factory ? locationKey(this.location(made)) : null;
+    }
+    const method = ts.isMethodDeclaration(declaration) || ts.isGetAccessorDeclaration(declaration) || ts.isSetAccessorDeclaration(declaration);
+    if (!method || !ts.isClassLike(declaration.parent) || ts.getCombinedModifierFlags(declaration) & ts.ModifierFlags.Static || !ts.isPropertyAccessExpression(callee)) return null;
+    const made = this.instanceSites.madeBy(receiver);
+    return made === "this" ? made : made && ts.isNewExpression(made) ? locationKey(this.location(made)) : null;
+  }
+
   private connectItemAccessorCall(node: TypeScript.CallExpression, callId: string): void {
     if (node.arguments.length || !this.ts.isIdentifier(node.expression)) return;
     const symbol = this.checker.getSymbolAtLocation(node.expression);
@@ -288,6 +314,11 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     node: TypeScript.CallExpression,
     ownerId: string | null,
   ): void {
+    // `super(name)` runs the base class's constructor.
+    // `f.call(t, a)`, `f.apply(t, [a])`, `g(a)` after `g = f.bind(t)`: the call runs `f` (`callAdapter`).
+    const direct = this.targetFunction(node.expression) ?? (node.expression.kind === this.ts.SyntaxKind.SuperKeyword ? this.constructorTarget(node) : null) ?? this.mutationFunction(node);
+    const adapter = direct ? null : this.callAdapter(node);
+    const target = direct ?? adapter?.target ?? null;
     const callId = this.ensureElement(
       node,
       "call",
@@ -303,11 +334,6 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         [this.location(node)],
       ),
     );
-    // `super(name)` runs the base class's constructor.
-    // `f.call(t, a)`, `f.apply(t, [a])`, `g(a)` after `g = f.bind(t)`: the call runs `f` (`callAdapter`).
-    const direct = this.targetFunction(node.expression) ?? (node.expression.kind === this.ts.SyntaxKind.SuperKeyword ? this.constructorTarget(node) : null) ?? this.mutationFunction(node);
-    const adapter = direct ? null : this.callAdapter(node);
-    const target = direct ?? adapter?.target ?? null;
     this.calls.push({ node, id: callId, target, ownerId, ...(adapter ? { adapter } : {}) });
     this.connectFrameworkFlow(node, callId, ownerId);
     this.connectItemAccessorCall(node, callId);

@@ -20,6 +20,7 @@ import {
   proof,
 } from "./program-evidence-support";
 import { jsonValueMember } from "./value-origin";
+import { locationKey } from "./program-value-summary-support";
 
 export class ProgramEvidenceCollectorDeclarations extends ProgramEvidenceCollectorSupport {
   /** Register source declarations without asking for their parameter types. */
@@ -286,6 +287,8 @@ export class ProgramEvidenceCollectorDeclarations extends ProgramEvidenceCollect
 
   /** What is written into a member the project declares (`this.items`, a shared shape's `title`), by its property symbol: every read of that member sees it. */
   protected readonly memberWrites = new Map<string, string[]>();
+  /** The instance each member write's receiver is, by `${member}|${value}` (`receiverInstance`). */
+  protected readonly memberWriteInstance = new Map<string, string | null>();
   /** Reads of members the project declares, matched to `memberWrites` once every write is known. */
   protected readonly memberReads: { node: TypeScript.PropertyAccessExpression; ownerId: string | null }[] = [];
 
@@ -299,7 +302,15 @@ export class ProgramEvidenceCollectorDeclarations extends ProgramEvidenceCollect
 
   protected addMemberWrite(access: TypeScript.PropertyAccessExpression, valueId: string): void {
     const key = this.memberSymbol(access);
-    if (key) this.memberWrites.set(key, [...(this.memberWrites.get(key) ?? []), valueId]);
+    if (!key) return;
+    this.memberWrites.set(key, [...(this.memberWrites.get(key) ?? []), valueId]);
+    this.memberWriteInstance.set(`${key}|${valueId}`, this.receiverInstance(access.expression));
+  }
+
+  /** The instance a member access's receiver is (`InstanceTag`): `this`, the location key of the `new` it came from, or null. */
+  protected receiverInstance(receiver: TypeScript.Expression): string | null {
+    const made = this.instanceSites.madeBy(receiver);
+    return made === "this" ? made : made && this.ts.isNewExpression(made) ? locationKey(this.location(made)) : null;
   }
 
   /** The proof for what library code is taken to do: modelled for TypeScript's own library (a JSON value's method included, `jsonValueMember`), assumed (and `partial`) for any other. */

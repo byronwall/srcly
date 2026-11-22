@@ -116,6 +116,7 @@ function toSliceProof(proof: ProgramProof, status: EvidenceStatus): EvidenceProo
     detail: proof.detail,
     locations: proof.locations.map(toSliceLocation),
     status,
+    ...(proof.instance ? { instance: proof.instance } : {}),
   };
 }
 

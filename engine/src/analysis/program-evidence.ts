@@ -11,6 +11,7 @@ import type {
 import type { AnalysisCancellationToken } from "./cancellation";
 import type { LibraryModels } from "./library-models";
 import type { ComponentBindingMetadata } from "./program-component-binding-metadata";
+import type { InstanceTag } from "./scope-seam";
 export type EvidenceConfidence = "proven" | "partial";
 export type ProgramEvidenceLocation = {
   file: string;
@@ -74,6 +75,7 @@ export type ProgramProof = {
   kind: ProgramProofKind;
   detail: string;
   locations: ProgramEvidenceLocation[];
+  instance?: InstanceTag;
 };
 export type ProgramOperationKind =
   | "alias"

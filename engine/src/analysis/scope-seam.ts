@@ -35,6 +35,27 @@ export type EvidenceProof = {
   detail: string;
   locations: SourceLocation[];
   status: EvidenceStatus;
+  instance?: InstanceTag;
+};
+
+/**
+ * Which instance's state a step moves: a closure's return that reads what its
+ * factory captured, or a class's instance member. The slice keeps each walk
+ * in one instance (`evidence-slice.ts`). An instance is named by the location
+ * key of the call or `new` that made it, or `this` (the instance the method
+ * on the stack runs in); null when it is not known.
+ */
+export type InstanceTag = {
+  /** The factory or class has more than one call or `new` site, so a step the walk cannot pin to one instance is assumed. */
+  shared: boolean;
+  /** argument-binding and return-value: the instance the call runs its target in. */
+  call?: string | null;
+  /** return-value: the returning function is a closure that reads what its factory's call captured. */
+  closure?: boolean;
+  /** member-state: the instance the write's receiver is. */
+  write?: string | null;
+  /** member-state: the instance the read's receiver is. */
+  read?: string | null;
 };
 
 export type ProgramElement = {
