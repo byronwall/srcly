@@ -23,18 +23,24 @@ const boxLabelled = (page: Page, label: string) => page.locator(`[data-box][data
 
 test.describe("Data flow on solid-route", () => {
   test("a failed new anchor request does not redisplay the previous graph", async ({ page }) => {
-    await page.goto(url({ view: "graph", anchor: "src/components/ViewerCard.tsx@ViewerCard:3", dir: "forward" }));
-    await expect(page.locator("[data-box]").first()).toBeVisible({ timeout: 90_000 });
+    const originalAnchor = "src/components/ViewerCard.tsx@ViewerCard:3";
+    await page.goto(url({ view: "graph", anchor: originalAnchor, dir: "backward" }));
+    await expect(status(page)).toContainText("upstream", { timeout: 90_000 });
+    await page.locator('[data-box][data-label="viewer"]').first().click();
+    const trace = page.getByLabel("Data flow inspector").locator("[data-trace-from]");
+    await expect(trace).toBeVisible();
     await page.route("**/api/dataflow/anchor-graph", (route) => route.fulfill({
       status: 404, contentType: "application/json", body: JSON.stringify({ detail: "No program element test-missing-anchor" }),
     }));
-    await page.locator('[data-trace-direction="backward"]').click();
+    // Re-anchoring is navigation; the direction toggle only replaces the current entry.
+    await trace.click();
+    await expect(page).toHaveURL(/anchor=[^&]*%40el%3A/);
     await expect(page.getByText(/Anchor graph failed.*test-missing-anchor/)).toBeVisible();
     await expect(page.locator("[data-box]")).toHaveCount(0);
     await expect(page.getByLabel("Data flow inspector")).toHaveCount(0);
     await page.unroute("**/api/dataflow/anchor-graph");
     await page.goBack();
-    await expect(page).toHaveURL(/dir=forward/);
+    await expect(page).toHaveURL((url) => url.searchParams.get("anchor") === originalAnchor && url.searchParams.get("dir") === "backward");
     await expect(page.locator("[data-box]").first()).toBeVisible({ timeout: 90_000 });
   });
 
