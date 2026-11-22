@@ -364,6 +364,8 @@ export function queryEvidenceSlice(
     }
     return null;
   };
+  /** The function an element is written in. */
+  const ownerOf = (id: string): string | null => indexed.elementFor(id)?.ownerId ?? null;
   /** Calls of closures that read what their factory captured, and whether that factory has more than one call site. */
   const closureCalls = new Map<string, boolean>();
   /**
@@ -380,12 +382,19 @@ export function queryEvidenceSlice(
     const popped = stack.filter((_, at) => at !== index);
     const mine = instanceAt(top);
     if (nestedIn(entered, callee)) {
+      // The closure was called in the factory's own body (a local helper): leave through the call of that frame, below it on the stack.
+      if (ownerOf(top) === callee) {
+        const [belowIndex, below] = topCall(popped);
+        if (below === undefined) return popped;
+        return below === call ? popped.filter((_, at) => at !== belowIndex) : null;
+      }
       if (mine !== null) return mine === keyOf(call) ? popped : null;
       unpinned = shared;
       return popped;
     }
     const factory = indexed.elementFor(entered)?.ownerId;
     if (!factory || indexed.elementFor(callee)?.ownerId !== factory) return null;
+    if (ownerOf(top) === factory && ownerOf(call) === factory) return popped;
     const theirs = instanceAt(call);
     if (mine !== null && theirs !== null) return mine === theirs ? popped : null;
     unpinned = shared;
@@ -473,6 +482,8 @@ export function queryEvidenceSlice(
         // A closure the callee made (`factory(v).read()`) returns from a function nested inside the one the call on top entered: it leaves through the calls of the closures that call made.
         if (nestedIn(returning, entered)) {
           if (!tag?.closure) return calls;
+          // Called in the factory's own body (a local helper): the same frame, the same instance.
+          if (ownerOf(call) === entered) return calls;
           const at = instanceAt(call);
           if (at !== null) return at === keyOf(top) ? popped : null;
           unpinned = tag.shared;
@@ -481,6 +492,7 @@ export function queryEvidenceSlice(
         // A closure that one factory call made beside the one on top (`set` writes what `get` reads): it leaves through the calls of that same factory call's closures.
         const factory = indexed.elementFor(returning)?.ownerId;
         if (!tag?.closure || !factory || indexed.elementFor(entered)?.ownerId !== factory) return null;
+        if (ownerOf(call) === factory && ownerOf(top) === factory) return popped;
         const mine = instanceAt(call);
         const theirs = instanceAt(top);
         if (mine !== null && theirs !== null) return mine === theirs ? popped : null;

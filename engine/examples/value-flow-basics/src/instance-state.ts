@@ -87,3 +87,17 @@ export function pileArray(tval: string) {
   console.log("A", pile[0]!.peek()); // @reaches pile-array
   console.warn("B", pile[1]!.peek()); // @reaches pile-array
 }
+
+// A closure called in its factory's own body (a local helper) runs in the
+// frame that called the factory: it adds no instance of its own.
+function exclaim(word: string) {
+  const echo = () => word;
+  return `${echo()}!`;
+}
+
+export function twoExclaims(mval: string, nval: string) { // @stop exclaims-back untraced parameter "mval"
+  const em = exclaim(mval); // @trace exclaims forward mval @outcome exclaims ok @visits exclaims-back value "mval"
+  const en = exclaim(nval); // @never-reaches exclaims-back
+  console.log("M", em); // @reaches exclaims @trace exclaims-back backward em @outcome exclaims-back partial @no-edge exclaims-back * * shared-instance
+  console.warn("N", en); // @never-reaches exclaims
+}
