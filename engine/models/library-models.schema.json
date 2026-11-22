@@ -44,7 +44,8 @@
               "calls-back",
               "wraps",
               "cell",
-              "slot"
+              "slot",
+              "keyed"
             ],
             "description": "What the member does."
           },
@@ -116,7 +117,7 @@
             }
           },
           "writes": {
-            "description": "For `consumes`: `this`, the receiver keeps the arguments (`push`, `set`); a `consumes` row without it keeps nothing (`concat`). For a `cell`: the paths whose value merges into the state, through the handles the call makes or hands its function (`ReturnValue.Member[1].Parameter[0]` a setter's argument, `….Parameter[0].ReturnValue` an updater's return, `Argument[0].Parameter[0].Parameter[0]` what a store's `set` receives, `….Parameter[0..]` a store path's keys and value).",
+            "description": "For `consumes`: `this`, the receiver keeps the arguments (`push`, `set`); a `consumes` row without it keeps nothing (`concat`). For a `keyed` row: the paths whose value becomes the entry under the key (`Argument[1]`, `Argument[1].ReturnValue` an updater's return; for a context, its provider's props: `ReturnValue.Member[Provider].Parameter[0].Member[value]`). For a `cell`: the paths whose value merges into the state, through the handles the call makes or hands its function (`ReturnValue.Member[1].Parameter[0]` a setter's argument, `….Parameter[0].ReturnValue` an updater's return, `Argument[0].Parameter[0].Parameter[0]` what a store's `set` receives, `….Parameter[0..]` a store path's keys and value).",
             "anyOf": [
               {
                 "type": "string",
@@ -133,7 +134,7 @@
             ]
           },
           "reads": {
-            "description": "For a `cell`: the paths that see the state (`ReturnValue.Member[0].ReturnValue` a getter's call, `ReturnValue.Member[0]` the value itself, `ReturnValue.Parameter[0].Parameter[0]` a selector's parameter, `ReturnValue.Member[getState].ReturnValue`).",
+            "description": "For a `keyed` row: the paths that see the entry under the key (`ReturnValue`, `Argument[1].Parameter[0]` an updater's old value). For a `cell`: the paths that see the state (`ReturnValue.Member[0].ReturnValue` a getter's call, `ReturnValue.Member[0]` the value itself, `ReturnValue.Parameter[0].Parameter[0]` a selector's parameter, `ReturnValue.Member[getState].ReturnValue`).",
             "type": "array",
             "items": {
               "type": "string",
@@ -149,6 +150,33 @@
               "pattern": "^((?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*) -> ((?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*)(?: : (test))?$",
               "description": "`<input> -> <output>`: the value at the input path reaches the output path. An optional ` : test` says the output holds a test of the input (a boolean), not the input. A path is a root (`Argument[n]`, `Argument[n..]`, `Argument[this]`, `ReturnValue`) and then steps (`Parameter[n]`, `Parameter[n..]`, `ReturnValue`, `Member[name]`, `Awaited`, `Awaited[error]`, `ArrayElement`), as CodeQL's models-as-data write them: `Argument[0].Member[queryFn].ReturnValue -> ReturnValue.Member[data]`."
             }
+          },
+          "store": {
+            "description": "For a `keyed` row: which store holds the entry. `Argument[this]`: the receiver (`localStorage`, a `QueryClient`), the same store when both receivers name one global or come from one call row (`useQueryClient()`). `providers`: the key is a context object, and a write reaches a read only from a provider above the read in the render tree.",
+            "type": "string",
+            "enum": [
+              "Argument[this]",
+              "providers"
+            ]
+          },
+          "key": {
+            "description": "For a `keyed` row: where the key is (`Argument[0]`, `Argument[0].Member[queryKey]`; `ReturnValue` for the call that makes a context, which is its own key). A constant key (a literal, a `const`, an array of them) joins as proven; any other key joins as assumed.",
+            "type": "string",
+            "pattern": "^(?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*$"
+          },
+          "fallback": {
+            "description": "For a `keyed` row of a `providers` store: the paths a read sees only when no provider is above it (`createContext`'s `Argument[0]`).",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*$",
+              "description": "One access path, as a `flows` entry writes either side: `ReturnValue.Member[1].Parameter[0]`."
+            }
+          },
+          "clears": {
+            "description": "For a `keyed` row: the call drops or refreshes the entries under the key (`invalidateQueries`, `removeItem`); it moves no value.",
+            "type": "boolean",
+            "const": true
           },
           "optional": {
             "description": "For a `cell`: the first argument may be left out (`createResource(fetcher)` has no source); a call that leaves it out has every later argument one place earlier.",

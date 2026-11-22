@@ -16,6 +16,7 @@ import { resolveValue } from "./value-origin";
 import { asyncCellCall, asyncCellFlow } from "./cells";
 import { rowPaths } from "./framework-flows";
 import { slotCalls, slotRow } from "./slots";
+import { readsContext } from "./keyed-stores";
 
 type FunctionInfo = {
   id: string;
@@ -116,7 +117,13 @@ function collectSyntax(
   if (context.ts.isJsxElement(node) || context.ts.isJsxSelfClosingElement(node)) {
     collectProviderMember(context, node, providers);
   }
-  if (context.ts.isCallExpression(node)) collectContextRead(context, node, contextReads);
+  // A Solid context read, as its `keyed` row says (`useContext(Ctx)`), with the context named directly.
+  if (context.ts.isCallExpression(node) && readsContext(context.modelFor(node.expression)) && context.moduleFor(node.expression) === "solid-js") {
+    const argument = node.arguments.length === 1 ? unwrap(context.ts, node.arguments[0]) : null;
+    const contextSymbolId = argument && context.ts.isIdentifier(argument) ? context.symbolId(argument) : null;
+    const functionInfo = nearestFunction(context, node);
+    if (contextSymbolId && functionInfo) contextReads.push({ contextSymbolId, call: node, function: functionInfo });
+  }
   context.ts.forEachChild(node, (child) => collectSyntax(context, child, variables, returns, providers, contextReads));
 }
 
@@ -155,20 +162,6 @@ function collectProviderMember(
   if (!context.ts.isIdentifier(sourceField.expression)) return;
   if (!context.symbolId(sourceField.expression)) return;
   providers.push({ contextSymbolId, provider: opening, member, sourceField });
-}
-
-function collectContextRead(
-  context: CarrierContext,
-  node: TypeScript.CallExpression,
-  reads: ContextRead[],
-): void {
-  if (calleeName(context.ts, node.expression) !== "useContext" || context.moduleFor(node.expression) !== "solid-js") return;
-  const argument = node.arguments.length === 1 ? unwrap(context.ts, node.arguments[0]) : null;
-  if (!argument || !context.ts.isIdentifier(argument)) return;
-  const contextSymbolId = context.symbolId(argument);
-  const functionInfo = nearestFunction(context, node);
-  if (!contextSymbolId || !functionInfo) return;
-  reads.push({ contextSymbolId, call: node, function: functionInfo });
 }
 
 function collectJsonParseCarriers(context: CarrierContext, calls: readonly CallExpressionInfo[]): void {

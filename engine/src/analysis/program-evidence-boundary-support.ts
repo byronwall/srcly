@@ -22,6 +22,7 @@ import type {
   ProgramRelationKind,
 } from "./program-evidence";
 import { returnedTerminal } from "./program-evidence-returned-terminals";
+import { keyedRow } from "./keyed-stores";
 import type { HttpBridgeFetch, HttpBridgeResponse } from "./http-bridge-evidence";
 
 type Attributes = Record<string, string | number | boolean | null>;
@@ -100,7 +101,9 @@ export function processProgramCallBoundary(
   const member = browserMember(ts, context.checker, node.expression);
   // A DOM member a row says keeps nothing (`querySelector`) is a read, even with its value dropped.
   const reads = standardMemberModel(builtinLibraryModels(), member)?.model === "consumes";
-  const browser = browserCall(member) ?? (!reads && pageEffectCall(ts, context.checker, node) ? "write" : null);
+  // Browser storage is a keyed store: its rows say which calls read it.
+  const stored = keyedRow(standardMemberModel(builtinLibraryModels(), member));
+  const browser = stored ? (stored.role === "external-read" ? "read" : "write") : browserCall(member) ?? (!reads && pageEffectCall(ts, context.checker, node) ? "write" : null);
   const returned = browser ? null : returnedTerminal(ts, context.checker, node.expression);
   if (returned?.row.role === "external-effect") {
     // A function a library call handed back, which a row says is where the value leaves (`navigate(url)`).

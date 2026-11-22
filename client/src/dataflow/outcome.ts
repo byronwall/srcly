@@ -69,7 +69,7 @@ export function outcomeClass(outcome: Outcome): string {
  * proof strength, engine/src/srcly/kinds.ts): an edge carrying one is an
  * assumed step.
  */
-const ASSUMED_PROOF_KINDS = new Set(["external-call", "partial-classification", "shared-instance"]);
+const ASSUMED_PROOF_KINDS = new Set(["external-call", "partial-classification", "shared-instance", "computed-key"]);
 
 export function isAssumedProof(kind: string): boolean {
   return ASSUMED_PROOF_KINDS.has(kind);

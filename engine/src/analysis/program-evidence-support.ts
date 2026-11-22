@@ -614,10 +614,9 @@ export function browserMember(ts: typeof TypeScript, checker: TypeScript.TypeChe
   return { owner: owner.name.text, name: node.name.text };
 }
 
-/** What the browser keeps outside the program: the URL and the cookie are read as a page's input; storage, history and navigation are read and written. */
+/** What the browser keeps outside the program: the URL and the cookie are read as a page's input; history and navigation are written. Storage is its `keyed` rows'. */
 export function browserCall(member: { owner: string; name: string } | null): "read" | "write" | null {
   if (!member) return null;
-  if (member.owner === "Storage") return member.name === "getItem" || member.name === "key" ? "read" : "write";
   if (member.owner === "History") return /^(pushState|replaceState)$/.test(member.name) ? "write" : null;
   if (member.owner === "Location") return /^(assign|replace|reload)$/.test(member.name) ? "write" : null;
   return null;

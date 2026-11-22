@@ -205,6 +205,10 @@ ts:zustand#create (cell)
   yieldsFirstFunction: true
   makesStore: true
   callsInitialValue: true
+ts:react#createContext (keyed)
+  yieldsFirstFunction: true
+ts:react#useContext (keyed)
+  yieldsFirstFunction: true
 ts:solid-js#createSignal (cell)
   yieldsFirstFunction: true
   makesStatePair: true
@@ -347,6 +351,10 @@ ts:@tanstack/solid-query#createMutation (calls-back)
   optionFlow: "mutationFn"
 ts:@tanstack/solid-query#useMutation (calls-back)
   optionFlow: "mutationFn"
+ts:solid-js#createContext (keyed)
+  yieldsFirstFunction: true
+ts:solid-js#useContext (keyed)
+  yieldsFirstFunction: true
 ts:lodash#debounce (wraps)
   wrappedPosition: 0
   yieldsFirstFunction: true

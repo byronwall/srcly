@@ -11,6 +11,8 @@ import { watchedFunction } from "./framework-flows";
 import type { ProgramEvidenceLocation } from "./program-evidence";
 import { handsProp, renderedProp, testsProp } from "./slots";
 import { ContextAncestry, contextApplies } from "./program-evidence-context-ancestry";
+import { fallbackArgument, keyExpression, keyOf, keyedRow, keysJoin, makesContext, providesAs, readsContext, receiverStore, type Key } from "./keyed-stores";
+import { builtinLibraryModels, standardMemberModel } from "./library-models";
 import { programEvidenceCandidateIndex } from "./program-evidence-candidate-index";
 import {
   asFunctionLike,
@@ -36,8 +38,8 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   private readonly contextProviders = new Map<string, string[]>();
   /** Each context's provided values as written (`value={{ save }}`), to find the function a context method names. */
   private readonly contextValues = new Map<string, TypeScript.Expression[]>();
-  /** Each context's `createContext()` call, by its key: its argument is the default. */
-  private readonly contextCalls = new Map<string, TypeScript.CallExpression>();
+  /** Each context's call (`createContext()`), by its key, and its row: the row's `fallback` is the default. */
+  private readonly contextCalls = new Map<string, { call: TypeScript.CallExpression; row: LibraryModelRow }>();
   private readonly contextAncestry = new ContextAncestry({
     ts: this.ts,
     provided: (tag) => this.providedContext(tag),
@@ -249,7 +251,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         component ? "proven" : "partial",
       );
       for (const each of targets) this.queueComponentPropBinding(opening, attribute, valueId, occurrenceId, ownerId, each);
-      // A context's provided value goes to its readers (`connectContexts`), not into the page.
+      // A context's provided value goes to its readers (`connectKeyedStores`), not into the page.
       // A slot's props go where its row says (`slots.ts`): a `<Show when>` decides which branch renders,
       // and a `<For each>` hands its items to the render callback (`connectSlot`); neither is a DOM attribute.
       const slot = component || context ? null : this.modelFor(opening.tagName);
@@ -489,40 +491,42 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     );
   }
 
-  /** The `createContext()` call (Solid's or React's) a context expression is, as a key, or null. */
-  private contextKey(expression: TypeScript.Expression, modules = ["solid-js", "react"]): string | null {
+  /** The context a context expression is (a call a `keyed` row says makes one, `createContext()`), as a key, or null. */
+  private contextKey(expression: TypeScript.Expression): string | null {
     const origin = resolveValue(this.ts, this.checker, expression)?.origin;
     if (!origin || !this.ts.isCallExpression(origin)) return null;
-    const imported = importedCallee(this.ts, this.checker, origin.expression);
-    const factory = imported?.name === "createContext" && modules.includes(imported.module ?? "");
-    if (factory) this.requireReferences(expression);
-    if (factory) this.contextCalls.set(nodeKey(this.root, origin), origin);
-    return factory ? nodeKey(this.root, origin) : null;
+    const row = this.modelFor(origin.expression);
+    if (!row || !makesContext(row)) return null;
+    this.requireReferences(expression);
+    const key = nodeKey(this.root, origin);
+    this.contextCalls.set(key, { call: origin, row });
+    return key;
   }
 
   protected override readsContext(node: TypeScript.CallExpression): boolean {
-    const imported = importedCallee(this.ts, this.checker, node.expression);
-    if (imported?.name !== "useContext" || (imported.module !== "solid-js" && imported.module !== "react")) return false;
-    return Boolean(node.arguments[0] && this.contextKey(node.arguments[0]));
+    return readsContext(this.modelFor(node.expression)) && Boolean(node.arguments[0] && this.contextKey(node.arguments[0]));
   }
 
-  /** The context a JSX tag provides: `<Ctx.Provider>`, or React 19's `<Ctx>`, which is its own provider. */
+  /** The context a JSX tag provides, as its row's writes say: `<Ctx.Provider>`, or React 19's `<Ctx>`, which is its own provider. */
   private providedContext(tag: TypeScript.JsxTagNameExpression): string | null {
-    if (this.ts.isPropertyAccessExpression(tag) && tag.name.text === "Provider") return this.contextKey(tag.expression);
+    const provider = this.ts.isPropertyAccessExpression(tag) && tag.name.text === "Provider";
     if (this.ts.isIdentifier(tag) && /^[a-z]/.test(tag.text)) return null;
-    return this.ts.isIdentifier(tag) || this.ts.isPropertyAccessExpression(tag) ? this.contextKey(tag, ["react"]) : null;
+    if (!provider && !this.ts.isIdentifier(tag) && !this.ts.isPropertyAccessExpression(tag)) return null;
+    const context = this.contextKey(provider ? (tag as TypeScript.PropertyAccessExpression).expression : tag as TypeScript.Expression);
+    const row = context ? this.contextCalls.get(context)!.row : null;
+    return row && providesAs(row, provider ? "Provider" : null) ? context : null;
   }
 
   /**
-   * `useContext(Ctx)` returns what the nearest `Ctx` provider above the reader
-   * hands in, or the context's default where none is (`ContextAncestry`).
-   * Where a reader's mounts are not known, every provider and the default may be.
+   * Keyed stores (`keyed` rows). A context: `useContext(Ctx)` returns what the
+   * nearest `Ctx` provider above the reader hands in, or the context's default
+   * where none is (`ContextAncestry`); where a reader's mounts are not known,
+   * every provider and the default may be. A receiver's store (the query
+   * cache, `localStorage`): `connectReceiverStores`.
    */
-  private connectContexts(): void {
+  private connectKeyedStores(): void {
     for (const call of this.calls) {
-      if (!this.ts.isCallExpression(call.node)) continue;
-      const imported = importedCallee(this.ts, this.checker, call.node.expression);
-      if (imported?.name !== "useContext" || (imported.module !== "solid-js" && imported.module !== "react")) continue;
+      if (!this.ts.isCallExpression(call.node) || !readsContext(this.modelFor(call.node.expression))) continue;
       const context = call.node.arguments[0] ? this.contextKey(call.node.arguments[0]) : null;
       if (!context) continue;
       const above = this.contextAncestry.above(call.node, context);
@@ -532,15 +536,74 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         if (!contextApplies(above, values[index])) return;
         this.addRelation(valueId, call.id, "context-value", at, proof("framework-state", "The context's provider supplies the value useContext returns.", at), "proven");
       });
-      const fallback = this.contextCalls.get(context)?.arguments[0];
+      const made = this.contextCalls.get(context)!;
+      const index = fallbackArgument(made.row);
+      const fallback = index === null ? undefined : made.call.arguments[index];
       if (fallback && above.fallback) {
         this.addRelation(this.expression(fallback, this.ownerId(fallback)), call.id, "context-value", at, proof("framework-state", "No provider is above this reader, so useContext returns the context's default.", at), "proven");
       }
     }
+    this.connectReceiverStores();
+  }
+
+  /**
+   * A receiver's store (`store: "Argument[this]"`: `client.setQueryData`,
+   * `localStorage.setItem`): what a call writes under a key is what a read of
+   * the same store and key sees. A constant key on both sides joins as
+   * modelled; a computed one may be any key, so it joins as assumed
+   * (`computed-key`). Order and time are not proven.
+   */
+  private connectReceiverStores(): void {
+    type Use = { call: CollectorCallInfo; node: TypeScript.CallExpression; row: LibraryModelRow; store: string; key: Key };
+    const uses: Use[] = [];
+    for (const call of this.calls) {
+      const node = call.node;
+      if (!this.ts.isCallExpression(node) || !this.ts.isPropertyAccessExpression(node.expression)) continue;
+      const callee = node.expression;
+      const row = keyedRow(this.modelFor(callee) ?? standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, callee)));
+      if (!row || row.store !== "Argument[this]" || !row.key || row.clears) continue;
+      const store = receiverStore(this.ts, this.checker, callee.expression, (at) => this.modelFor(at), (at) => nodeKey(this.root, at));
+      const written = keyExpression(this.ts, node, row.key);
+      if (store && written) uses.push({ call, node, row, store, key: keyOf(this.ts, this.checker, written) });
+    }
+    for (const write of uses) {
+      const values = (Array.isArray(write.row.writes) ? write.row.writes : []).flatMap((path) => this.keyedPathIds(write, path, "write"));
+      if (!values.length) continue;
+      for (const read of uses) {
+        if (read === write || read.store !== write.store) continue;
+        const join = keysJoin(write.key, read.key);
+        if (join === "none") continue;
+        const at = [this.location(write.node), this.location(read.node)];
+        const computed = [write.key, read.key].find((key) => key.parts.includes(null));
+        const detail = join === "proven"
+          ? `The entry this call writes under ${write.key.text} is what the read of the same key sees; order and time are not proven.`
+          : `Assumed: the key ${computed!.text} is computed, so the walk cannot tell whether it is the key the other call names.`;
+        for (const target of (read.row.reads ?? []).flatMap((path) => this.keyedPathIds(read, path, "read"))) {
+          for (const value of values) this.addRelation(value, target, "context-value", at, proof(join === "proven" ? "framework-state" : "computed-key", detail, at), "partial");
+        }
+      }
+    }
+  }
+
+  /** The elements at a keyed row's path of one call: a written value (`Argument[1]`, an updater's returns at `Argument[1].ReturnValue`), or what sees a read (`ReturnValue`, an updater's `Argument[1].Parameter[0]`). */
+  private keyedPathIds(use: { call: CollectorCallInfo; node: TypeScript.CallExpression }, path: string, side: "write" | "read"): string[] {
+    if (path === "ReturnValue") return side === "read" ? [use.call.id] : [];
+    const match = /^Argument\[(\d+)\](\.ReturnValue|\.Parameter\[0\])?$/.exec(path);
+    const argument = match ? use.node.arguments[Number(match[1])] : undefined;
+    if (!argument) return [];
+    const value = unwrap(this.ts, argument);
+    const fn = this.ts.isArrowFunction(value) || this.ts.isFunctionExpression(value) ? this.functionsByNode.get(nodeKey(this.root, value)) : undefined;
+    if (!match![2]) return !fn && side === "write" ? [this.expression(argument, use.call.ownerId)] : [];
+    if (!fn) return [];
+    if (match![2] === ".ReturnValue") return side === "write" ? this.returnsByFunction.get(fn.id) ?? [] : [];
+    const parameter = fn.declaration.parameters[0];
+    const binding = parameter && side === "read" ? firstBindingIdentifier(this.ts, parameter.name) : null;
+    const id = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
+    return id ? [id] : [];
   }
 
   protected connectCalls(): void {
-    this.connectContexts();
+    this.connectKeyedStores();
     this.connectContextPairs();
     this.connectCells();
     this.connectWatchedFunctions();
@@ -984,9 +1047,8 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   private contextRead(expression: TypeScript.Expression): TypeScript.CallExpression | null {
     const call = unwrap(this.ts, expression);
     if (!this.ts.isCallExpression(call)) return null;
-    const imported = importedCallee(this.ts, this.checker, call.expression);
-    if (imported?.name === "useContext" && (imported.module === "solid-js" || imported.module === "react")) return call.arguments[0] ? call : null;
-    if (imported) return null;
+    if (readsContext(this.modelFor(call.expression))) return call.arguments[0] ? call : null;
+    if (importedCallee(this.ts, this.checker, call.expression)) return null;
     const hook = this.targetFunction(call.expression)?.declaration;
     const body = hook && "body" in hook ? hook.body : undefined;
     if (!body) return null;
@@ -995,8 +1057,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       : body;
     const inner = returned ? unwrap(this.ts, returned) : undefined;
     if (!inner || !this.ts.isCallExpression(inner)) return null;
-    const read = importedCallee(this.ts, this.checker, inner.expression);
-    return read?.name === "useContext" && (read.module === "solid-js" || read.module === "react") && inner.arguments[0] ? inner : null;
+    return readsContext(this.modelFor(inner.expression)) && inner.arguments[0] ? inner : null;
   }
 
   /**
