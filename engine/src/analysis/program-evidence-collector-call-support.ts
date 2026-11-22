@@ -736,6 +736,15 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         if (inline) handled.add(fn);
         continue;
       }
+      // `produce(fn)` (Solid's store): `fn` takes a draft of the current state, and what it writes into the draft is the new state.
+      const draft = role && !dispatches ? this.producedDraft(fn) : null;
+      if (draft) {
+        const where = [this.location(draft.parameter)];
+        this.addRelation(path ? this.readStorePath(node, stateId, ownerId) : stateId, draft.id, "references", where, frameworkState("produce hands its function a draft of the current state.", this.location(draft.parameter)), "partial");
+        if (path) this.writeStorePath(node, draft.id, stateId, ownerId, this.location(draft.parameter));
+        else this.addRelation(draft.id, stateId, "references", where, frameworkState("What produce's function writes into its draft becomes the state its getter reads; order and time are not proven.", this.location(draft.parameter)), "partial");
+        continue;
+      }
       const info = inline ? this.functionsByNode.get(nodeKey(this.root, fn)) : role ? this.stateUpdater(fn) : null;
       if (!info) continue;
       handled.add(fn);
@@ -752,6 +761,17 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       if (parameterId) this.addRelation(path ? this.readStorePath(node, stateId, ownerId) : stateId, parameterId, "references", [this.location(fn)], frameworkState("The updater receives the current state.", this.location(fn)), "partial");
     }
     return handled;
+  }
+
+  /** The draft parameter of the function a `produce(fn)` call (`solid-js/store`) is given, or null for any other value. */
+  private producedDraft(value: TypeScript.Expression): { parameter: TypeScript.ParameterDeclaration; id: string } | null {
+    if (!this.ts.isCallExpression(value)) return null;
+    const imported = importedCallee(this.ts, this.checker, value.expression);
+    if (imported?.module !== "solid-js/store" || imported.name !== "produce" || !value.arguments[0]) return null;
+    const fn = this.stateUpdater(value.arguments[0]);
+    const parameter = fn?.declaration.parameters[0];
+    const id = parameter && this.ts.isIdentifier(parameter.name) ? this.parametersBySymbol.get(this.symbolId(parameter.name) ?? "") : undefined;
+    return parameter && id ? { parameter, id } : null;
   }
 
   /** The function a setter's value names (`setDoc("title", rename)`), called as an updater; null for any other value. */

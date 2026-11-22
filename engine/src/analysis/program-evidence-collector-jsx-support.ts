@@ -1069,11 +1069,15 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   /** Every read of a member the project declares sees what was written into it (`memberWrites`). */
   private connectMemberState(): void {
     // A parameter property (`constructor(public label: string)`) writes its member, as `this.label = label` would.
+    // A getter that reads `this` reads it from the receiver of each read of its member (`state.full` binds `this` to `state`).
+    const getterThis = new Map<string, string>();
     for (const fn of this.functionsById.values()) {
       // A getter's returns are what each read of its member sees (`named.shout`).
       if (this.ts.isGetAccessorDeclaration(fn.declaration)) {
         const key = this.symbolId(fn.declaration.name);
         if (key) this.memberWrites.set(key, [...(this.memberWrites.get(key) ?? []), ...(this.returnsByFunction.get(fn.id) ?? [])]);
+        const thisId = key ? this.thisBinding(fn.declaration) : null;
+        if (key && thisId) getterThis.set(key, thisId);
       }
       // React merges what a class component's static `getDerivedStateFromError` or `getDerivedStateFromProps` returns into its `state`.
       const stateKey = this.derivedStateMember(fn.declaration);
@@ -1094,6 +1098,11 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       const writes = key ? this.memberWrites.get(key) : undefined;
       if (!writes) continue;
       const readId = this.elementIfPresent(read.node, "field-read") ?? this.expression(read.node, read.ownerId);
+      const thisId = getterThis.get(key!);
+      if (thisId) {
+        const where = [this.location(read.node.expression)];
+        this.addRelation(this.expression(read.node.expression, read.ownerId), thisId, "argument-binding", where, proof("argument-binding", "Reading the member runs its getter with this receiver as `this`.", where), "proven");
+      }
       for (const valueId of writes) {
         if (valueId === readId) continue;
         this.addRelation(valueId, readId, "member-state", [this.location(read.node)], proof("compiler-symbol", "The checker names the same member this value was written into.", [this.location(read.node)]), "proven");
