@@ -249,6 +249,7 @@ export function samplePayload(q: LensQuery): ChangeLensPayload {
       window: q.window,
       mode: q.mode,
       ref: "scan-retries",
+      repoRoot: "/repo/srcly",
       base,
       head: q.window === "custom" && q.head ? { ref: q.head, sha: C8, label: `${short(q.head)} @ 3f6e2ad`, date: dateOf(C8) } : { ref: WORKTREE, sha: null, label: "Working tree", date: null },
       since,
