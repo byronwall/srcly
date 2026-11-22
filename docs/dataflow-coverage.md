@@ -148,6 +148,7 @@ These came from the Python data-flow usability audit (`docs/research/python-data
 ## Engine structure
 
 - Design rules, decisions, measurements and the batch evidence behind reports and the treemap (`fileSignals`): `docs/dataflow-engine.md`.
+- Function effects follow bounded local `const` alias chains for modeled receiver mutations. A write through an unchanged parameter is reported; a fresh array literal or built-in array slice is not an outside write. When ownership cannot be determined (for example through a mutable alias or a field on a local object), the result names that gap instead of reporting the function as closed.
 - `flowSignature` reduces each function of a file to line-free keys (origins, ends, origin→end pairs, parameter reads, effects, stops, status). `srcly compare --dataflow` diffs them as "Data-flow changes". Python has no parameter reads or effects (not measured), and a caller of a changed function is not re-traced.
 
 - Every evidence kind is classified once in `engine/src/srcly/kinds.ts` (#200). Rules read traits, not lists of kind names.

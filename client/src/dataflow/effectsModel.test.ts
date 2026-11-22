@@ -30,6 +30,11 @@ describe("the effects view", () => {
     expect(closed.groups).toEqual([]);
   });
 
+  it("does not imply closed coverage for a partial report without facts or listed frontiers", () => {
+    const partial = effectsView({ ...(effectsPartial as FunctionEffectsResult), facts: [], frontiers: [] });
+    expect(partial.headline).toBe("Partial analysis: no effects were confirmed");
+  });
+
   it("words the via chain", () => {
     expect(viaText([])).toBeNull();
     expect(viaText([{ callable: "row", file: "a.tsx", line: 1 }, { callable: "stamp", file: "b.ts", line: 2 }])).toBe("via row › stamp");

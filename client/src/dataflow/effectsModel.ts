@@ -37,6 +37,7 @@ export const HANDLING_WORDS: Record<FunctionEffectsResult["resultHandling"][numb
 export const FRONTIER_WORDS: Record<string, string> = {
   "callback-parameter": "a callback the caller supplies",
   "dynamic-dispatch": "a computed callee",
+  "receiver-ownership": "a receiver whose ownership is unknown",
   "unresolved-callee": "a callee the checker cannot name",
   recursion: "already on the call chain",
   budget: "past the budget",
@@ -81,7 +82,9 @@ export function effectsView(result: FunctionEffectsResult): EffectsView {
     result.coverage === "not-analyzed"
       ? "No function at this position"
       : known === 0 && partial === 0
-        ? "Closed: nothing it touches is visible from outside, under the assumptions below"
+        ? result.coverage === "complete-for-supported-scope"
+          ? "Closed: nothing it touches is visible from outside, under the assumptions below"
+          : "Partial analysis: no effects were confirmed"
         : `${known} known effect${known === 1 ? "" : "s"}${partial ? ` · ${partial} place${partial === 1 ? "" : "s"} the analysis could not follow` : ""}`;
   return {
     callable: result.callable,

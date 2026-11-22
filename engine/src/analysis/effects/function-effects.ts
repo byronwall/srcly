@@ -47,6 +47,7 @@ export const EFFECTS_BUDGET = { callables: 64, depth: 6 };
 
 export const ASSUMPTIONS = [
   "ECMAScript and DOM intrinsics (TypeScript's own lib) are taken as pure unless named here: console, fetch, timers, Promise, Date.now and Math.random are effects; Array.prototype.sort, push, splice, pop, shift, unshift, reverse and fill and Map and Set set, add, delete and clear write their receiver; a callback handed to map, filter, reduce, forEach, some, every or find runs at once.",
+  "An array literal or intrinsic Array/ReadonlyArray slice makes a fresh receiver under standard array behavior. Receiver ownership follows bounded local const aliases; other unresolved receiver origins stay partial.",
   "A call that resolves to a declaration file outside the program is external: that it runs is a fact; what it does is not followed.",
   "A function the callable returns or hands to another call runs later, if at all: its effects are latent.",
   "Code after the first await runs once the function has yielded: its effects are after-await.",
@@ -237,11 +238,11 @@ export function analyzeFunctionEffects(ts: typeof TypeScript, program: TypeScrip
         if (AMBIENT_INPUTS[name]) return fact("input", "ambient-read", name, `${name} reads ${AMBIENT_INPUTS[name]}.`);
         const method = lastName(name);
         if (ts.isPropertyAccessExpression(expression) && MODELLED_PURE.has(method) && place !== "none") return;
-        if (ts.isPropertyAccessExpression(expression) && MODELLED_RECEIVER_WRITES.has(method) && place !== "none") {
-          const receiver = receiverSymbol(expression.expression);
-          const target = receiver && parameters.has(receiver) ? "parameter" : receiver && isModuleLevel(receiver, moduleScope) ? "module" : "local";
-          if (target === "local") return;
-          push(out.facts, { id: nextId("fact"), family: "write", kind: `${target}-write`, label: clip(expression.getText(sourceFile)), detail: `${method} writes its receiver, ${target === "parameter" ? "a parameter the caller owns" : "module-level state"}.`, status: "proven", activation: act, via, witness, ...(target === "parameter" ? { param: parameterIndex(receiver!) } : {}) });
+        if (ts.isPropertyAccessExpression(expression) && MODELLED_RECEIVER_WRITES.has(method) && place === "intrinsic") {
+          const origin = receiverOrigin(expression.expression);
+          if (origin.kind === "fresh") return;
+          if (origin.kind === "unknown") return frontier("receiver-ownership", clip(expression.getText(sourceFile)), `${method} writes its receiver, but the analysis could not tell who owns it.`);
+          push(out.facts, { id: nextId("fact"), family: "write", kind: `${origin.kind}-write`, label: clip(expression.getText(sourceFile)), detail: `${method} writes its receiver, ${origin.kind === "parameter" ? "a parameter the caller owns" : "module-level state"}.`, status: "proven", activation: act, via, witness, ...(origin.kind === "parameter" ? { param: origin.index } : {}) });
           return;
         }
         if (place === "none") return frontier("unresolved-callee", name, "The callee has no compiler-resolved symbol.");
@@ -267,6 +268,77 @@ export function analyzeFunctionEffects(ts: typeof TypeScript, program: TypeScrip
       let node: TypeScript.Node | undefined = declaration;
       while (node && !ts.isFunctionLike(node) && !ts.isSourceFile(node)) node = node.parent;
       return node !== undefined && ts.isSourceFile(node);
+    };
+
+    // A binding can keep the same name while no longer denoting what the caller
+    // passed. Conservatively exclude any parameter rebound within this body.
+    let rebound: Set<TypeScript.Symbol> | undefined;
+    const reboundParameters = () => {
+      if (rebound) return rebound;
+      const writes = new Set<TypeScript.Symbol>();
+      const collectTarget = (target: TypeScript.Expression) => {
+        if (ts.isIdentifier(target)) {
+          const symbol = resolvedSymbol(target);
+          if (symbol && parameters.has(symbol)) writes.add(symbol);
+        } else if (ts.isParenthesizedExpression(target) || ts.isNonNullExpression(target) || ts.isAsExpression(target) || ts.isTypeAssertionExpression(target) || ts.isSpreadElement(target)) {
+          collectTarget(target.expression);
+        } else if (ts.isArrayLiteralExpression(target)) {
+          target.elements.forEach(collectTarget);
+        } else if (ts.isObjectLiteralExpression(target)) {
+          for (const property of target.properties) {
+            if (ts.isShorthandPropertyAssignment(property)) {
+              const symbol = checker.getShorthandAssignmentValueSymbol(property);
+              if (symbol && parameters.has(symbol)) writes.add(symbol);
+            } else if (ts.isPropertyAssignment(property)) collectTarget(property.initializer);
+            else if (ts.isSpreadAssignment(property)) collectTarget(property.expression);
+          }
+        } else if (ts.isBinaryExpression(target) && target.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+          collectTarget(target.left);
+        }
+      };
+      const collect = (node: TypeScript.Node) => {
+        cancellation?.throwIfCancelled();
+        if (ts.isBinaryExpression(node) && isAssignment(ts, node.operatorToken.kind)) collectTarget(node.left);
+        if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
+            (node.operator === ts.SyntaxKind.PlusPlusToken || node.operator === ts.SyntaxKind.MinusMinusToken)) collectTarget(node.operand);
+        if ((ts.isForInStatement(node) || ts.isForOfStatement(node)) && !ts.isVariableDeclarationList(node.initializer)) collectTarget(node.initializer);
+        ts.forEachChild(node, collect);
+      };
+      const body = (fn as TypeScript.FunctionLikeDeclaration).body;
+      if (body) collect(body);
+      return rebound = writes;
+    };
+
+    const receiverOrigin = (expression: TypeScript.Expression): { kind: "parameter"; index: number } | { kind: "module" | "fresh" | "unknown" } => {
+      let current = unparen(ts, expression);
+      for (let depth = 0; depth <= 8; depth += 1) {
+        if (ts.isArrayLiteralExpression(current)) return { kind: "fresh" };
+        if (ts.isCallExpression(current) && ts.isPropertyAccessExpression(current.expression) && current.expression.name.text === "slice") {
+          const symbol = resolvedSymbol(current.expression.name);
+          if (placeOf(symbol) === "intrinsic" && (symbol?.declarations ?? []).every((d) => ts.isMethodSignature(d) && ts.isInterfaceDeclaration(d.parent) && ["Array", "ReadonlyArray"].includes(d.parent.name.text))) return { kind: "fresh" };
+        }
+        const symbol = receiverSymbol(current);
+        if (!symbol) break;
+        if (parameters.has(symbol)) {
+          const index = parameterIndex(symbol);
+          if (fn.parameters[index]?.dotDotDotToken || reboundParameters().has(symbol)) break;
+          return { kind: "parameter", index };
+        }
+        // Keep direct module receivers; captured prior values of mutable
+        // module bindings are not followed as local aliases.
+        if (isModuleLevel(symbol, moduleScope)) return { kind: depth === 0 ? "module" : "unknown" };
+        // Do not infer that a field of a fresh object is also fresh.
+        if (!ts.isIdentifier(current)) break;
+        const declaration = symbol.valueDeclaration;
+        if (!declaration || !ts.isVariableDeclaration(declaration) || !declaration.initializer ||
+            !ts.isVariableDeclarationList(declaration.parent) || !(declaration.parent.flags & ts.NodeFlags.Const) ||
+            declaration.getSourceFile() !== sourceFile || declaration.getEnd() > current.getStart(sourceFile)) break;
+        let owner: TypeScript.Node = declaration.parent;
+        while (!ts.isFunctionLike(owner) && !ts.isSourceFile(owner)) owner = owner.parent;
+        if (owner !== fn) break;
+        current = unparen(ts, declaration.initializer);
+      }
+      return { kind: "unknown" };
     };
 
     const visit = (node: TypeScript.Node, activation: Activation) => {
