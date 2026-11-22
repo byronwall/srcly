@@ -21,7 +21,6 @@ ts:lib#Array.map (calls-back)
 ts:lib#Array.flatMap (calls-back)
   standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"callback"}
 ts:lib#Array.forEach (calls-back)
-  rowFlow: {}
   standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"nothing"}
 ts:lib#Array.filter (calls-back)
   standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"other"}
@@ -50,7 +49,6 @@ ts:lib#ReadonlyArray.map (calls-back)
 ts:lib#ReadonlyArray.flatMap (calls-back)
   standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"callback"}
 ts:lib#ReadonlyArray.forEach (calls-back)
-  rowFlow: {}
   standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"nothing"}
 ts:lib#ReadonlyArray.filter (calls-back)
   standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"other"}
@@ -74,13 +72,10 @@ ts:lib#ReadonlyArray.reduceRight (calls-back)
   standardCallback: {"at":0,"parameters":["accumulator","element","index","receiver"],"seed":1,"yields":"callback"}
 ts:lib#Promise.then (calls-back)
   promiseChannels: {"fulfilled":0,"rejected":1,"returns":[0,1],"keeps":false}
-  settles: "then"
 ts:lib#Promise.catch (calls-back)
   promiseChannels: {"rejected":0,"returns":[0],"keeps":true}
-  settles: "catch"
 ts:lib#Promise.finally (calls-back)
   promiseChannels: {"returns":[],"keeps":true}
-  settles: "finally"
 ts:lib#PromiseConstructor.reject (consumes)
   settles: "reject"
 ts:fs#readFile (origin)

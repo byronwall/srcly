@@ -25,13 +25,14 @@ import {
   yieldsFirstFunction,
   yieldsOnlyCallback,
 } from "../../src/analysis/framework-flows";
-import { builtinLibraryModels, libraryModelKey, type LibraryModelRow } from "../../src/analysis/library-models";
+import { builtinLibraryModels, libraryFlowSchema, libraryModelKey, type LibraryModelRow } from "../../src/analysis/library-models";
 
 const keyOf = (row: LibraryModelRow) => libraryModelKey(row.language, row.module, (row.name ?? row.member)!);
 
 /** Every reader's answer for a row, leaving out the ones that say nothing (false, null, undefined). */
 function answers(row: LibraryModelRow): Record<string, unknown> {
-  const out: Record<string, unknown> = { rowFlow: rowFlow(row), standardCallback: standardCallback(row), promiseChannels: promiseChannels(row), settles: row.settles, writes: row.writes };
+  // `rowFlow` reads a member row only for `passes-through` (`flowOf`); a promise's `settles` stays a field only for `reject`.
+  const out: Record<string, unknown> = { rowFlow: row.name || row.model === "passes-through" ? rowFlow(row) : undefined, standardCallback: standardCallback(row), promiseChannels: promiseChannels(row), settles: row.settles === "reject" ? row.settles : undefined, writes: row.writes };
   if (row.language === "ts" && row.name && frameworkRow(row.module, row.name) === row) {
     const { module, name } = row;
     Object.assign(out, {
@@ -45,6 +46,15 @@ function answers(row: LibraryModelRow): Record<string, unknown> {
 }
 
 describe("library row readers", () => {
+  it("checks the path grammar", () => {
+    for (const flow of ["Argument[0].Member[queryFn].ReturnValue -> ReturnValue.Member[data]", "Argument[1] -> Argument[0].Parameter[0]", "Argument[0..] -> Argument[this]", "Argument[0].ReturnValue -> ReturnValue.ReturnValue : test", "Argument[this].Awaited[error] -> Argument[1].Parameter[0]"]) {
+      expect(libraryFlowSchema.safeParse(flow).success, flow).toBe(true);
+    }
+    for (const flow of ["Argument[0] ReturnValue", "Parameter[0] -> ReturnValue", "Argument[x] -> ReturnValue", "Argument[0] -> ReturnValue : taint", "Argument[0].Member[] -> ReturnValue"]) {
+      expect(libraryFlowSchema.safeParse(flow).success, flow).toBe(false);
+    }
+  });
+
   it("give every built-in row the answers pinned before stage 2", async () => {
     const lines: string[] = [];
     for (const row of builtinLibraryModels().rows()) {

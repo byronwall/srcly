@@ -50,9 +50,9 @@
             "description": "What the member does."
           },
           "args": {
-            "description": "Which arguments the model is about: `0`, `1`, `*` (the default) or `this` for the receiver.",
+            "description": "For a `state-pair`: the argument its reducer is at (`useReducer`).",
             "type": "string",
-            "pattern": "^(\\*|this|\\d+)$"
+            "pattern": "^\\d+$"
           },
           "role": {
             "description": "An origin or terminal role.",
@@ -63,107 +63,6 @@
             "description": "For a `terminal`: the terminal is not this call but a call of what it returns (`call`, as `useNavigate`'s `navigate`), or of the tuple element it returns at that index (`1`).",
             "type": "string",
             "pattern": "^(call|\\d+)$"
-          },
-          "with": {
-            "description": "What a callback receives.",
-            "type": "string",
-            "enum": [
-              "element",
-              "receiver",
-              "awaited"
-            ]
-          },
-          "returns": {
-            "description": "What the call yields: `callback` is what the callback at `args` returns; `boolean` a test of it, not it (with `accessor`, on each call of the accessor); `void` is nothing, whatever its callback returns.",
-            "type": "string",
-            "enum": [
-              "element",
-              "boolean",
-              "same",
-              "callback",
-              "void"
-            ]
-          },
-          "source": {
-            "description": "For `calls-back` and `wraps`: the argument whose value (or return) the callback's first parameter receives.",
-            "type": "string",
-            "pattern": "^\\d+$"
-          },
-          "parameters": {
-            "description": "For a standard method's `calls-back`: what each callback parameter takes, in order. An `index` takes no value; an `accumulator` takes the `source` argument and what the callback returned before.",
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "element",
-                "index",
-                "receiver",
-                "accumulator"
-              ]
-            }
-          },
-          "accessor": {
-            "description": "For `calls-back`: the call makes an accessor, and calling it yields the callback's return (or, with `returns: boolean`, a test of it).",
-            "type": "boolean",
-            "const": true
-          },
-          "option": {
-            "description": "For `calls-back`: the options key that holds the callback (`queryFn`).",
-            "type": "string",
-            "minLength": 1
-          },
-          "field": {
-            "description": "For an `option` row: the result field that holds what the callback returns (`data`). The result's other fields (`status`, `error`) do not hold it. For a `calls-back` row with no `option`: the result field that holds what the function at `args` returns, awaited (`useSubmission`'s `result`).",
-            "type": "string",
-            "minLength": 1
-          },
-          "input": {
-            "description": "For a `calls-back` row with a `field` and no `option`: the result field that holds the argument list of each call of the function at `args` (`useSubmission`'s `input`).",
-            "type": "string",
-            "minLength": 1
-          },
-          "selector": {
-            "description": "For an `option` row with a `field`: the options key of a function that takes what the callback returns, and whose return the field holds instead (`select`).",
-            "type": "string",
-            "minLength": 1
-          },
-          "hands": {
-            "description": "For an `option` row: fields of the object the callback's first parameter is, each with the options keys that fill it (`queryKey` from `queryKey`). A key that holds a function fills the field with what that function returns.",
-            "type": "object",
-            "propertyNames": {
-              "type": "string"
-            },
-            "additionalProperties": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1
-              }
-            }
-          },
-          "observers": {
-            "description": "For an `option` row: other options keys that hold a function the hook calls, and what each of its parameters takes: `result` is what the option callback returns, `input` what the option callback is called with, `context` what the `contextFrom` function returns.",
-            "type": "object",
-            "propertyNames": {
-              "type": "string"
-            },
-            "additionalProperties": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "result",
-                  "input",
-                  "context",
-                  "none"
-                ]
-              }
-            }
-          },
-          "contextFrom": {
-            "description": "For an `option` row with `observers`: the options key of the function whose return is their `context` (`onMutate`).",
-            "type": "string",
-            "minLength": 1
           },
           "lazy": {
             "description": "For `state-pair`: a function initial value is called, and what it returns seeds the state (`useState(() => …)`).",
@@ -176,17 +75,12 @@
             "const": "this"
           },
           "settles": {
-            "description": "For a promise's member: which outcome each callback takes and what the new promise holds (`PROMISE_CHANNELS`); `reject` makes a promise that only rejects.",
+            "description": "For `consumes`: the call makes a promise that only rejects, with its first argument (`Promise.reject`).",
             "type": "string",
-            "enum": [
-              "then",
-              "catch",
-              "finally",
-              "reject"
-            ]
+            "const": "reject"
           },
           "flows": {
-            "description": "Where the call moves values, as access paths. Not read yet: `rowFlows` (`library-flows.ts`) derives each built-in row's paths from its other fields, and a later stage replaces those fields with this one. A `calls-back` row with no flow that touches `ReturnValue` has no value (`useEffect`).",
+            "description": "For `calls-back`, `wraps` and `passes-through` (required there, and only there): where the call moves values, as access paths (`framework-flows.ts` reads them). A `calls-back` row with no flow that touches `ReturnValue` has no value (`useEffect`).",
             "type": "array",
             "items": {
               "type": "string",

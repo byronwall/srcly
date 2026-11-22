@@ -9,7 +9,7 @@ import {
 } from "./program-evidence-collector-expression-support";
 import { lazyFactoryGetter, reducerOf, seedArgument, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { jsonValueMember, namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
-import { frameworkFlow, rowFlow, makesAccessor, makesPredicate, PROMISE_CHANNELS, watchedFunction, yieldsOnlyCallback, type FrameworkFlow } from "./framework-flows";
+import { frameworkFlow, rowFlow, makesAccessor, makesPredicate, promiseChannels, standardCallback, watchedFunction, yieldsOnlyCallback, type FrameworkFlow } from "./framework-flows";
 import { boundaryRole, builtinLibraryModels, standardMemberModel } from "./library-models";
 import { locationKey } from "./program-value-summary-support";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
@@ -403,7 +403,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     // A store member read through its hook (`addFish` after `const { addFish } = useStore()`) has one: the call enters it (`connectBoundHandlers`).
     // A store's `set` (or `useStore.setState`) is modelled as a state setter is: what it receives is the store (`connectStores`), never its call's value.
     const storeWrite = writesStore(this.ts, this.checker, node);
-    const handled = (this.settles(node) === "then" && this.promiseHandler(node, 0)) || storeMember(this.ts, this.checker, node.expression).length > 0;
+    const handled = (this.channels(node)?.fulfilled === 0 && this.promiseHandler(node, 0)) || storeMember(this.ts, this.checker, node.expression).length > 0;
     if ((!role || role.through) && !storeWrite && !target && !handled && !resourceAction(this.ts, this.checker, node.expression) && !this.contextPairHalf(node.expression) && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
       this.addRelation(
         this.expression(node.expression, ownerId),
@@ -432,7 +432,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       // A row that names the one argument its call hands on leaves the others out of its value (`makePersisted(pair, options)`, `splitProps(props, keys)`).
       if (Array.isArray(flow?.passes)) continue;
       // A rejection reason is not the promise's value: it reaches a rejection handler, or ends there.
-      if (this.settles(node) === "reject") continue;
+      if (this.rejects(node)) continue;
       // A row that says what the call yields (its callback's return, an option function's) leaves every other argument out of it: a dependency list, a query's key.
       if (this.yieldsOnlyItsCallback(node)) continue;
       // A state pair's initial value seeds its state directly (`seedArgument`), not through the factory's call.
@@ -883,9 +883,9 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     }
     const callee = calleeName(this.ts, node.expression);
     const calleeNode = unwrap(this.ts, node.expression);
-    const settles = this.settles(node);
-    if (settles && settles !== "reject" && this.ts.isPropertyAccessExpression(calleeNode)) {
-      this.connectPromiseChannels(call, node, calleeNode.expression, settles);
+    const channels = this.channels(node);
+    if (channels && this.ts.isPropertyAccessExpression(calleeNode)) {
+      this.connectPromiseChannels(call, node, calleeNode.expression, channels);
       return;
     }
     const receiver = this.ts.isPropertyAccessExpression(calleeNode) ? calleeNode.expression : null;
@@ -927,18 +927,18 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
    * and `sort`'s only test or order elements. False for any other call.
    */
   private connectStandardCallback(call: CollectorCallInfo, node: TypeScript.CallExpression, receiver: TypeScript.Expression): boolean {
-    const row = standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression) ?? jsonValueMember(this.ts, this.checker, node.expression));
-    if (row?.model !== "calls-back" || !row.parameters) return false;
-    const argument = node.arguments[Number(row.args ?? 0)];
+    const row = standardCallback(standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression) ?? jsonValueMember(this.ts, this.checker, node.expression)));
+    if (!row) return false;
+    const argument = node.arguments[row.at];
     const fn = argument && unwrap(this.ts, argument);
     // Only a function written here, as before: a named one is joined where it is declared.
     const info = fn && (this.ts.isArrowFunction(fn) || this.ts.isFunctionExpression(fn)) ? this.functionsByNode.get(nodeKey(this.root, fn)) : undefined;
     if (!info) return true;
     const name = calleeName(this.ts, node.expression);
     const returns = this.returnsByFunction.get(info.id) ?? [];
-    const seed = row.source !== undefined ? node.arguments[Number(row.source)] : undefined;
+    const seed = row.seed !== undefined ? node.arguments[row.seed] : undefined;
     info.declaration.parameters.forEach((parameter, index) => {
-      const role = row.parameters![index];
+      const role = row.parameters[index];
       const binding = firstBindingIdentifier(this.ts, parameter.name);
       const parameterId = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
       if (!parameterId || !role || role === "index") return;
@@ -959,7 +959,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     });
     // A callback of one element whose return the call does not yield (`filter`, `find`, `some`, `every`) tests that element:
     // its return decides which elements count, a branch, not a value. A comparator (`sort`, two elements) orders them instead.
-    const tests = row.returns !== "callback" && row.returns !== "void" && row.parameters.filter((item) => item === "element").length === 1;
+    const tests = row.yields === "other" && row.parameters.filter((item) => item === "element").length === 1;
     if (tests && returns.length) {
       const at = this.location(fn);
       const testId = this.ensureElement(fn, "branch-condition", call.ownerId, { terminalKind: "branch-condition", label: `${name} test` }, null, null, null, "proven", proof("standard-library", `${name} tests each element with what this function returns.`, [at]));
@@ -968,7 +968,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         this.addRelation(returnId, testId, "predicate-return", [at], tested, testedStatus);
       }
     }
-    if (row.returns !== "callback") return true;
+    if (row.yields !== "callback") return true;
     const where = [this.location(argument)];
     for (const returnId of returns) {
       const [derived, derivedStatus] = this.libraryProof(node, `${name}'s value derives from what this function returns.`, where);
@@ -977,14 +977,19 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     return true;
   }
 
-  /** How a standard promise member settles (its row's `settles`), or undefined for any other call. */
   /** Whether a call reads a context (`useContext(Ctx)`); the JSX support knows contexts. */
   protected readsContext(_node: TypeScript.CallExpression): boolean {
     return false;
   }
 
-  private settles(node: TypeScript.CallExpression) {
-    return standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression))?.settles;
+  /** A standard promise member's channels (`promiseChannels`), or null for any other call. */
+  private channels(node: TypeScript.CallExpression) {
+    return promiseChannels(standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression)));
+  }
+
+  /** Whether the call makes a promise that only rejects (`Promise.reject`, a row's `settles: reject`). */
+  private rejects(node: TypeScript.CallExpression) {
+    return standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression))?.settles === "reject";
   }
 
   /** The function a promise method is given at this argument, written there or named. */
@@ -993,9 +998,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     return handler ? this.functionsByNode.get(nodeKey(this.root, handler)) ?? this.targetFunction(handler) : null;
   }
 
-  /** Each of a promise method's callbacks on its own channel (`PROMISE_CHANNELS`). */
-  private connectPromiseChannels(call: CollectorCallInfo, node: TypeScript.CallExpression, receiver: TypeScript.Expression, settles: keyof typeof PROMISE_CHANNELS): void {
-    const channels = PROMISE_CHANNELS[settles];
+  /** Each of a promise method's callbacks on its own channel (`promiseChannels`). */
+  private connectPromiseChannels(call: CollectorCallInfo, node: TypeScript.CallExpression, receiver: TypeScript.Expression, channels: NonNullable<ReturnType<typeof promiseChannels>>): void {
     const name = calleeName(this.ts, node.expression);
     const fill = (value: TypeScript.Expression | null, index: number | undefined, outcome: string) => {
       const parameter = this.promiseHandler(node, index)?.declaration.parameters[0];
@@ -1008,8 +1012,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     };
     fill(receiver, channels.fulfilled, "fulfilled value");
     fill(this.rejectionOf(receiver), channels.rejected, "rejection");
-    // No callback takes the fulfilled value, so the new promise holds it, each field still that field.
-    if (!this.promiseHandler(node, channels.fulfilled)) {
+    // The member keeps the fulfilled value (`catch`, `finally`), or no callback takes it: the new promise holds it, each field still that field.
+    if (channels.keeps || !this.promiseHandler(node, channels.fulfilled)) {
       const where = [this.location(receiver)];
       const [kept, keptStatus] = this.libraryProof(node, `${name} keeps the fulfilled value.`, where);
       this.addRelation(this.expression(receiver, call.ownerId), call.id, "framework-flow", where, kept, keptStatus);
@@ -1035,10 +1039,11 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         continue;
       }
       if (!this.ts.isCallExpression(value)) return null;
-      const settles = this.settles(value);
-      if (settles === "reject") return value.arguments[0] ?? null;
+      if (this.rejects(value)) return value.arguments[0] ?? null;
       const method = unwrap(this.ts, value.expression);
-      const skips = settles === "finally" || (settles === "then" && !value.arguments[1]);
+      // A link with no rejection handler passes the rejection on (`finally`, `then(onFulfilled)`).
+      const channels = this.channels(value);
+      const skips = channels !== null && (channels.rejected === undefined || !value.arguments[channels.rejected]);
       if (!skips || !this.ts.isPropertyAccessExpression(method)) return null;
       value = unwrap(this.ts, method.expression);
     }

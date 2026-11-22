@@ -974,6 +974,10 @@
       "module": "asyncio.tasks",
       "name": "gather",
       "model": "passes-through",
+      "flows": [
+        "Argument[this] -> ReturnValue",
+        "Argument[0..] -> ReturnValue"
+      ],
       "note": "returns the results of the awaitables it is given"
     },
     {
@@ -981,6 +985,10 @@
       "module": "flask",
       "name": "request.*",
       "model": "passes-through",
+      "flows": [
+        "Argument[this] -> ReturnValue",
+        "Argument[0..] -> ReturnValue"
+      ],
       "note": "reads the request"
     },
     {
@@ -988,6 +996,10 @@
       "module": "flask.globals",
       "name": "request.*",
       "model": "passes-through",
+      "flows": [
+        "Argument[this] -> ReturnValue",
+        "Argument[0..] -> ReturnValue"
+      ],
       "note": "reads the request"
     },
     {
@@ -995,6 +1007,10 @@
       "module": "rest_framework.serializers",
       "member": "BaseSerializer.is_valid",
       "model": "passes-through",
+      "flows": [
+        "Argument[this] -> ReturnValue",
+        "Argument[0..] -> ReturnValue"
+      ],
       "note": "tests the data the serializer holds"
     },
     {
@@ -1002,6 +1018,10 @@
       "module": "rest_framework.serializers",
       "member": "Serializer.is_valid",
       "model": "passes-through",
+      "flows": [
+        "Argument[this] -> ReturnValue",
+        "Argument[0..] -> ReturnValue"
+      ],
       "note": "tests the data the serializer holds"
     },
     {
@@ -1009,6 +1029,10 @@
       "module": "rest_framework.serializers",
       "member": "ModelSerializer.is_valid",
       "model": "passes-through",
+      "flows": [
+        "Argument[this] -> ReturnValue",
+        "Argument[0..] -> ReturnValue"
+      ],
       "note": "tests the data the serializer holds"
     },
     {
@@ -1016,6 +1040,10 @@
       "module": "concurrent.futures._base",
       "member": "Future.result",
       "model": "passes-through",
+      "flows": [
+        "Argument[this] -> ReturnValue",
+        "Argument[0..] -> ReturnValue"
+      ],
       "note": "returns the value the future holds"
     }
   ]

@@ -13,9 +13,9 @@
       "module": "solid-js",
       "name": "createMemo",
       "model": "calls-back",
-      "args": "0",
-      "returns": "callback",
-      "accessor": true,
+      "flows": [
+        "Argument[0].ReturnValue -> ReturnValue.ReturnValue"
+      ],
       "note": "The call makes an accessor that yields what its callback returns."
     },
     {
@@ -23,9 +23,9 @@
       "module": "solid-js",
       "name": "createSelector",
       "model": "calls-back",
-      "args": "0",
-      "returns": "boolean",
-      "accessor": true,
+      "flows": [
+        "Argument[0].ReturnValue -> ReturnValue.ReturnValue : test"
+      ],
       "note": "The call makes a predicate: calling it tests a key against what its source returns, and yields a boolean."
     },
     {
@@ -33,9 +33,9 @@
       "module": "solid-js",
       "name": "children",
       "model": "calls-back",
-      "args": "0",
-      "returns": "callback",
-      "accessor": true,
+      "flows": [
+        "Argument[0].ReturnValue -> ReturnValue.ReturnValue"
+      ],
       "note": "The call makes an accessor that yields what its callback returns."
     },
     {
@@ -43,9 +43,9 @@
       "module": "solid-js",
       "name": "createDeferred",
       "model": "calls-back",
-      "args": "0",
-      "returns": "callback",
-      "accessor": true,
+      "flows": [
+        "Argument[0].ReturnValue -> ReturnValue.ReturnValue"
+      ],
       "note": "The call makes an accessor that yields what its callback returns, later."
     },
     {
@@ -53,8 +53,9 @@
       "module": "solid-js",
       "name": "createRoot",
       "model": "calls-back",
-      "args": "0",
-      "returns": "callback",
+      "flows": [
+        "Argument[0].ReturnValue -> ReturnValue"
+      ],
       "note": "The call's value is what its callback returns."
     },
     {
@@ -62,11 +63,10 @@
       "module": "solid-js",
       "name": "mapArray",
       "model": "calls-back",
-      "args": "1",
-      "source": "0",
-      "with": "element",
-      "returns": "callback",
-      "accessor": true,
+      "flows": [
+        "Argument[0].ReturnValue.ArrayElement -> Argument[1].Parameter[0]",
+        "Argument[1].ReturnValue -> ReturnValue.ReturnValue"
+      ],
       "note": "The call makes an accessor of a list: the callback takes each item of what the source returns, and the list holds what it returns."
     },
     {
@@ -74,11 +74,10 @@
       "module": "solid-js",
       "name": "indexArray",
       "model": "calls-back",
-      "args": "1",
-      "source": "0",
-      "with": "element",
-      "returns": "callback",
-      "accessor": true,
+      "flows": [
+        "Argument[0].ReturnValue.ArrayElement -> Argument[1].Parameter[0]",
+        "Argument[1].ReturnValue -> ReturnValue.ReturnValue"
+      ],
       "note": "The call makes an accessor of a list: the callback takes each item of what the source returns as an accessor, and the list holds what it returns."
     },
     {
@@ -86,8 +85,9 @@
       "module": "solid-js",
       "name": "untrack",
       "model": "calls-back",
-      "args": "0",
-      "returns": "callback",
+      "flows": [
+        "Argument[0].ReturnValue -> ReturnValue"
+      ],
       "note": "The call's value is what its callback returns."
     },
     {
@@ -95,8 +95,9 @@
       "module": "solid-js",
       "name": "batch",
       "model": "calls-back",
-      "args": "0",
-      "returns": "callback",
+      "flows": [
+        "Argument[0].ReturnValue -> ReturnValue"
+      ],
       "note": "The call's value is what its callback returns."
     },
     {
@@ -104,8 +105,10 @@
       "module": "solid-js",
       "name": "on",
       "model": "wraps",
-      "args": "1",
-      "source": "0",
+      "flows": [
+        "Argument[0].ReturnValue -> Argument[1].Parameter[0]",
+        "Argument[1].ReturnValue -> ReturnValue.ReturnValue"
+      ],
       "note": "The call returns a new function: calling it runs the callback with what the source returns, and yields the callback's return."
     },
     {
@@ -113,7 +116,9 @@
       "module": "solid-js",
       "name": "splitProps",
       "model": "passes-through",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The split objects carry the props they are given."
     },
     {
@@ -121,7 +126,9 @@
       "module": "solid-js",
       "name": "mergeProps",
       "model": "passes-through",
-      "args": "*",
+      "flows": [
+        "Argument[0..] -> ReturnValue"
+      ],
       "note": "The merged object carries every object it is given."
     },
     {
@@ -129,8 +136,7 @@
       "module": "solid-js",
       "name": "createEffect",
       "model": "calls-back",
-      "args": "0",
-      "returns": "void",
+      "flows": [],
       "note": "The framework runs the callback for what it does. The call itself has no value."
     },
     {
@@ -138,8 +144,7 @@
       "module": "solid-js",
       "name": "createRenderEffect",
       "model": "calls-back",
-      "args": "0",
-      "returns": "void",
+      "flows": [],
       "note": "The framework runs the callback for what it does. The call itself has no value."
     },
     {
@@ -147,8 +152,7 @@
       "module": "solid-js",
       "name": "createComputed",
       "model": "calls-back",
-      "args": "0",
-      "returns": "void",
+      "flows": [],
       "note": "The framework runs the callback for what it does. The call itself has no value."
     },
     {
@@ -156,8 +160,7 @@
       "module": "solid-js",
       "name": "onMount",
       "model": "calls-back",
-      "args": "0",
-      "returns": "void",
+      "flows": [],
       "note": "The framework runs the callback for what it does. The call itself has no value."
     },
     {
@@ -165,7 +168,9 @@
       "module": "solid-js",
       "name": "onCleanup",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The call returns the function it is given, and the framework runs that function when its owner is disposed."
     },
     {
@@ -180,7 +185,9 @@
       "module": "solid-js/store",
       "name": "unwrap",
       "model": "passes-through",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The plain object is the store it is given."
     },
     {
@@ -188,7 +195,9 @@
       "module": "solid-js/store",
       "name": "createMutable",
       "model": "passes-through",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The mutable store carries the object it is given."
     },
     {
@@ -196,9 +205,9 @@
       "module": "@solidjs/router",
       "name": "createAsync",
       "model": "calls-back",
-      "args": "0",
-      "returns": "callback",
-      "accessor": true,
+      "flows": [
+        "Argument[0].ReturnValue -> ReturnValue.ReturnValue"
+      ],
       "note": "The call makes an accessor that yields what its callback returns."
     },
     {
@@ -206,9 +215,9 @@
       "module": "@solidjs/router",
       "name": "createAsyncStore",
       "model": "calls-back",
-      "args": "0",
-      "returns": "callback",
-      "accessor": true,
+      "flows": [
+        "Argument[0].ReturnValue -> ReturnValue.ReturnValue"
+      ],
       "note": "The call makes an accessor that yields what its callback returns."
     },
     {
@@ -234,7 +243,9 @@
       "module": "@solidjs/router",
       "name": "query",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
     },
     {
@@ -242,7 +253,9 @@
       "module": "@solidjs/router",
       "name": "cache",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
     },
     {
@@ -250,7 +263,9 @@
       "module": "@solidjs/router",
       "name": "action",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
     },
     {
@@ -258,7 +273,9 @@
       "module": "@solidjs/router",
       "name": "useAction",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
     },
     {
@@ -266,9 +283,10 @@
       "module": "@solidjs/router",
       "name": "useSubmission",
       "model": "calls-back",
-      "args": "0",
-      "field": "result",
-      "input": "input",
+      "flows": [
+        "Argument[0].ReturnValue.Awaited -> ReturnValue.Member[result]",
+        "Argument[0].Parameter[0..] -> ReturnValue.Member[input]"
+      ],
       "note": "The submission's `result` is what the action's function returns, and its `input` the arguments of each call of the action."
     },
     {
@@ -276,7 +294,9 @@
       "module": "@solid-primitives/storage",
       "name": "makePersisted",
       "model": "passes-through",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The persisted pair is the signal or store pair it is given."
     },
     {
@@ -284,7 +304,9 @@
       "module": "@solid-primitives/scheduled",
       "name": "debounce",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
     },
     {
@@ -292,7 +314,9 @@
       "module": "@solid-primitives/scheduled",
       "name": "throttle",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
     },
     {
@@ -300,7 +324,9 @@
       "module": "@solid-primitives/scheduled",
       "name": "leading",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
     },
     {
@@ -308,7 +334,9 @@
       "module": "@solid-primitives/scheduled",
       "name": "leadingAndTrailing",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
     },
     {
@@ -316,7 +344,9 @@
       "module": "@tanstack/solid-query",
       "name": "createQuery",
       "model": "calls-back",
-      "option": "queryFn",
+      "flows": [
+        "Argument[0].Member[queryFn].ReturnValue -> ReturnValue"
+      ],
       "note": "The query's value is what its `queryFn` returns."
     },
     {
@@ -324,7 +354,9 @@
       "module": "@tanstack/solid-query",
       "name": "createInfiniteQuery",
       "model": "calls-back",
-      "option": "queryFn",
+      "flows": [
+        "Argument[0].Member[queryFn].ReturnValue -> ReturnValue"
+      ],
       "note": "The query's value is what its `queryFn` returns."
     },
     {
@@ -332,7 +364,9 @@
       "module": "@tanstack/solid-query",
       "name": "useQuery",
       "model": "calls-back",
-      "option": "queryFn",
+      "flows": [
+        "Argument[0].Member[queryFn].ReturnValue -> ReturnValue"
+      ],
       "note": "The query's value is what its `queryFn` returns."
     },
     {
@@ -340,7 +374,11 @@
       "module": "@tanstack/solid-query",
       "name": "createMutation",
       "model": "calls-back",
-      "option": "mutationFn",
+      "flows": [
+        "ReturnValue.Member[mutate].Parameter[0] -> Argument[0].Member[mutationFn].Parameter[0]",
+        "ReturnValue.Member[mutateAsync].Parameter[0] -> Argument[0].Member[mutationFn].Parameter[0]",
+        "Argument[0].Member[mutationFn].ReturnValue -> ReturnValue.Member[mutateAsync].ReturnValue.Awaited"
+      ],
       "note": "`mutate(x)` calls the `mutationFn` with `x`."
     },
     {
@@ -348,7 +386,11 @@
       "module": "@tanstack/solid-query",
       "name": "useMutation",
       "model": "calls-back",
-      "option": "mutationFn",
+      "flows": [
+        "ReturnValue.Member[mutate].Parameter[0] -> Argument[0].Member[mutationFn].Parameter[0]",
+        "ReturnValue.Member[mutateAsync].Parameter[0] -> Argument[0].Member[mutationFn].Parameter[0]",
+        "Argument[0].Member[mutationFn].ReturnValue -> ReturnValue.Member[mutateAsync].ReturnValue.Awaited"
+      ],
       "note": "`mutate(x)` calls the `mutationFn` with `x`."
     }
   ]

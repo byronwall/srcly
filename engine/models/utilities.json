@@ -6,7 +6,9 @@
       "module": "lodash",
       "name": "debounce",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
     },
     {
@@ -14,7 +16,9 @@
       "module": "lodash",
       "name": "throttle",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
     },
     {
@@ -22,7 +26,9 @@
       "module": "lodash-es",
       "name": "debounce",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
     },
     {
@@ -30,7 +36,9 @@
       "module": "lodash-es",
       "name": "throttle",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
     },
     {
@@ -38,7 +46,9 @@
       "module": "lodash.debounce",
       "name": "default",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
     },
     {
@@ -46,7 +56,9 @@
       "module": "lodash.throttle",
       "name": "default",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
     }
   ]
