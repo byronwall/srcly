@@ -80,7 +80,7 @@ def _main(argv: list[str] | None = None) -> None:
     - Opens the default browser to the app URL.
     """
     argv = list(argv) if argv is not None else sys.argv[1:]
-    if argv and argv[0] in {"scan", "report", "hotspots", "explain", "compare", "fix", "check"}:
+    if argv and argv[0] in {"scan", "report", "hotspots", "explain", "compare", "fix", "check", "trace", "impact"}:
         # stderr, so JSON on stdout stays clean.
         print(startup_info.version_line(), file=sys.stderr, flush=True)
         _run_headless(argv)
@@ -101,6 +101,8 @@ def _main(argv: list[str] | None = None) -> None:
             "  compare   metric and dependency changes between two git refs\n"
             "  fix       show, then apply (--write), safe fixes for srcly's own findings\n"
             "  check     --ratchet: fail when a file over the size budget grows\n"
+            "  trace     where a value comes from and goes (data flow), or --effects\n"
+            "  impact    what a change to a function, field or prop affects\n"
             "  scan      write the raw analysis tree as JSON"
         ),
     )
@@ -470,6 +472,8 @@ def _run_headless(argv: list[str]) -> None:
         "--budget", default=None, help="The size_budget.json to compare with. Defaults to <path>/.srcly/size_budget.json."
     )
 
+    _add_trace_parsers(subparsers)
+
     args = parser.parse_args(argv)
     try:
         _dispatch(args)
@@ -481,6 +485,10 @@ def _run_headless(argv: list[str]) -> None:
 
 
 def _dispatch(args) -> None:
+    if args.command in ("trace", "impact"):
+        from app.services.dataflow import trace
+
+        raise SystemExit(trace.run(args))
     if args.command == "fix":
         from app.services.findings import fixes
 
@@ -621,6 +629,25 @@ def _dispatch(args) -> None:
             command = "srcly explain" + (f" {shlex.quote(args.path)}" if args.path else "")
             print(scopes.render_markdown(payload, command=command), end="")
         return
+
+
+def _add_trace_parsers(subparsers) -> None:
+    """``srcly trace`` and ``srcly impact``: the data-flow engine from the terminal (``services/dataflow/trace.py``)."""
+    for name, help_text in (
+        ("trace", "Trace a value: where it comes from, where it goes, what stops the proof. --effects: what a function touches."),
+        ("impact", "What a change to a function, field or prop affects, from proven facts only."),
+    ):
+        sub = subparsers.add_parser(name, help=help_text)
+        sub.add_argument("target", help="path[:line[:col]] of a TypeScript, TSX, JavaScript or Python file.")
+        sub.add_argument("--symbol", help="The name to anchor at (function, component, variable, parameter, field, export).")
+        sub.add_argument("--format", choices=("md", "json"), default="md", help="md (compact, default) or json (the full engine result).")
+        sub.add_argument("--root", help="The project folder. Defaults to the nearest folder above the file with a project file.")
+        sub.add_argument("--limit", type=_positive_int, default=12, help="Maximum rows per list; the rest are counted (default 12).")
+        if name == "trace":
+            sub.add_argument("--direction", choices=("back", "forward", "both"), default="both", help="back, forward or both (default).")
+            sub.add_argument("--depth", type=_positive_int, default=None, help="Hide origins, ends and stops more than N hops from the anchor.")
+            sub.add_argument("--effects", action="store_true", help="The function-effects view: reads, writes, calls, pure or not.")
+            sub.add_argument("--impact", action="store_true", help="Same as `srcly impact`.")
 
 
 def _run_compare(args) -> None:

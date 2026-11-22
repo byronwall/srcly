@@ -59,6 +59,12 @@ The symbol view is the default drawing of an anchor trace. `?model=steps` (the S
 - Plain TypeScript modules with no routes or components are an equal target.
 - Tune the view on `engine/examples/symbol-graph/`. Use a large app such as visual-notes to check scale and find engine errors.
 
+## From the terminal
+
+- `srcly trace <path>[:line[:col]] [--symbol NAME]` prints an anchor's origins, ends, paths and stops as compact markdown, or the full contract with `--format json`. It works on TypeScript, TSX, JavaScript and Python. `--effects` prints a function's reads, writes and calls (TypeScript only: the engine's effects view has no Python side).
+- `srcly impact <path> --symbol NAME` answers the refactoring question: each parameter's ends, the return's ends in each caller, and the call sites. It lists a place as proven only when the trace is proven. A partial trace goes under "Not proven" with its stop.
+- The logic is in `server/app/services/dataflow/trace.py`. The engine is unchanged.
+
 ## Python type source
 
 A Python root uses the same engine contracts as TypeScript. `engine/python/srcly_pyfacts.py` provides the evidence. The engine runs it once per generation.

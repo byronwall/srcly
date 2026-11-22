@@ -162,6 +162,7 @@ A metric is its analyzer plus one catalog entry; the step-by-step checklist is `
 
 | Feature | Where |
 | --- | --- |
+| `srcly trace`, `srcly trace --effects`, `srcly impact` (data-flow answers in the terminal: origins, ends, paths, stops, call sites) | `server/app/run.py` (`_add_trace_parsers`) → `server/app/services/dataflow/trace.py` |
 | `srcly compare [base] [head]` (markdown summary, `--json`, `--out`) | `server/app/run.py` (`_run_compare`) → `server/app/services/compare/service.py` (`build_compare`, `render_markdown`) |
 | Ref resolution (`merge-base`, `WORKTREE`, `pr:<n>` with its own base and an objects-only fetch of a missing head), changed files with renames + line counts | `server/app/services/compare/git_refs.py` |
 | GitHub PR metadata via the `gh` CLI (`run_gh` seam with timeout + failure reasons, `list_prs`, `pr_info`, 60s cache, checks summary) | `server/app/services/compare/github.py` |
