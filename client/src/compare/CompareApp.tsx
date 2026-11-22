@@ -12,6 +12,8 @@ import {
   navigateCompare,
   PICK_PARAM,
   readCompareParam,
+  readPathHandoff,
+  exitPathCompare,
   startCompare,
   watchCompare,
   type CompareSnapshot,
@@ -51,7 +53,7 @@ function writeParam(name: string, value: string | null) {
   const url = new URL(window.location.href);
   if (value) url.searchParams.set(name, value);
   else url.searchParams.delete(name);
-  window.history.replaceState(null, "", url.pathname + url.search);
+  window.history.replaceState(window.history.state, "", url.pathname + url.search);
 }
 
 /** PR compare mode: two refs, scanned and diffed, shown as focused before/after views. */
@@ -63,6 +65,7 @@ export default function CompareApp() {
   const [error, setError] = createSignal<string | null>(null);
   const [columns, setColumns] = createSignal(DEFAULT_COMPARE_COLUMNS);
   const [sort, setSort] = createSignal<RowSort>(readParam(SORT_PARAM) ?? "tree");
+  const [handoff, setHandoff] = createSignal(readPathHandoff());
   const [selected, setSelected] = createSignal<string | null>(readParam(FILE_PARAM));
   const [view, setView] = createSignal<CompareView>((readParam(VIEW_PARAM) as CompareView) ?? "files");
   const [colorMetric, setColorMetric] = createSignal("complexity");
@@ -106,7 +109,11 @@ export default function CompareApp() {
               });
               // Keep a selection from the URL if it's still a changed file;
               // otherwise start on the most regressed file.
-              if (!result.files.some((f) => f.path === selected())) {
+              const path = handoff();
+              if (path && !result.files.some((f) => f.path === selected())) {
+                const match = path.touchedOnly ? null : result.files.find((f) => f.path === path.path || Boolean(path.oldPath && f.oldPath === path.oldPath));
+                select(match?.path ?? path.path);
+              } else if (!result.files.some((f) => f.path === selected())) {
                 const first = buildRows(collectFiles(result.files, new Map(), false), {
                   showUnchanged: false,
                   sort: "regressed",
@@ -176,6 +183,7 @@ export default function CompareApp() {
 
   const onPopState = () => {
     setRange(readRangeParam());
+    setHandoff(readPathHandoff());
     const next = readCompareParam();
     if (next && (next.base !== refs().base || next.head !== refs().head)) void run(next.base, next.head);
   };
@@ -212,7 +220,8 @@ export default function CompareApp() {
   };
   const openSide = (path: string, side?: "base" | "head") => {
     const f = payload()?.files.find((x) => x.path === path);
-    setOpenFile({ path, side: side ?? (f?.status === "removed" ? "base" : "head") });
+    const carried = handoff()?.path === path ? handoff()?.source?.side : undefined;
+    setOpenFile({ path, side: side ?? carried ?? (f?.status === "removed" ? "base" : "head") });
   };
 
   // The code viewer reads the base side from its commit and the head side
@@ -225,10 +234,16 @@ export default function CompareApp() {
     const path = target.side === "base" ? (change?.oldPath ?? target.path) : target.path;
     const side = target.side === "base" ? p.base : p.head;
     const tree = target.side === "base" ? p.trees?.base : p.trees?.head;
+    const carried = handoff()?.source;
+    const range = carried && carried.path === path && carried.side === target.side && carried.revision === side.sha ? carried : undefined;
     return {
+      startLine: range?.startLine,
+      endLine: range?.endLine,
+      revisionSide: target.side,
       // Another worktree's files live in its own directory.
       filePath: `${side.dir ?? p.repo.root}/${path}`,
       gitRef: side.sha,
+      rootPath: side.sha ? p.repo.root : undefined,
       fileNode: indexFiles(tree).get(path) ?? null,
     };
   };
@@ -262,13 +277,25 @@ export default function CompareApp() {
             Rescan
           </Button>
         </Show>
-        <Button variant="ghost" class="shrink-0 gap-1.5" onClick={() => navigateCompare(null)}>
+        <Button variant="ghost" class="shrink-0 gap-1.5" onClick={() => handoff() ? exitPathCompare() : navigateCompare(null)}>
           <X size={13} aria-hidden="true" />
-          Exit compare
+          {handoff() ? "Back to Changes" : "Exit compare"}
         </Button>
       </header>
 
       <main class="flex min-h-0 flex-1 flex-col">
+        <Show when={handoff()}>{(path) => (
+          <div class="shrink-0 border-b border-[var(--plc-border)] px-4 py-2 text-[12px]" data-compare-path-handoff>
+            <span class="plc-data-sm break-all">{path().path}</span>
+            <Show when={path().scope}> · Changes scope: {path().scope}. Compare shows repository endpoints.</Show>
+            <Show when={path().touchedOnly || (payload() && !payload()!.files.some((f) => f.path === path().path || Boolean(path().oldPath && f.oldPath === path().oldPath)))}>
+              <p data-compare-no-endpoint role="status">
+                {path().touchedOnly ? "Touched in Changes, but this path has no endpoint diff." : "This path has no entry in the endpoint comparison."}
+                {" "}Return to Changes for the original evidence.
+              </p>
+            </Show>
+          </div>
+        )}</Show>
         <Show when={!ran()}>
           <EmptyState
             title="Choose what to compare"
@@ -388,6 +415,10 @@ export default function CompareApp() {
             isOpen={true}
             filePath={v().filePath}
             gitRef={v().gitRef}
+            rootPath={v().rootPath}
+            revisionSide={v().revisionSide}
+            startLine={v().startLine}
+            endLine={v().endLine}
             fileNode={v().fileNode}
             onClose={() => setOpenFile(null)}
           />

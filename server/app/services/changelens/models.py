@@ -152,6 +152,28 @@ class LensSummary(LensModel):
     reverted: int
 
 
+ChangedPathStatus = Literal["added", "deleted", "modified", "renamed", "reverted"]
+
+
+class LensChangedPath(LensModel):
+    id: str
+    path: str
+    old_path: Optional[str] = None
+    status: ChangedPathStatus
+    commits: list[str]
+    has_net_diff: bool
+    measured: bool
+    metric_reason: Optional[str] = None
+
+
+class LensChangedPaths(LensModel):
+    rows: list[LensChangedPath]
+    base_revision: Optional[str]
+    head_revision: Optional[str]
+    compare_unavailable_reason: Optional[str]
+    unavailable_reason: Optional[str]
+
+
 class ChangeLensPayload(LensModel):
     selection: LensSelection
     commits: list[LensCommit]
@@ -159,6 +181,7 @@ class ChangeLensPayload(LensModel):
     files: list[LensFile]
     summary: LensSummary
     metric_ids: list[str]
+    changed_paths: LensChangedPaths
 
 
 class LensSourceLocation(LensModel):
@@ -184,3 +207,22 @@ class LensHunkDiff(LensModel):
     model_config = ConfigDict(
         alias_generator=lambda name: "from" if name == "from_" else to_camel(name), populate_by_name=True
     )
+
+
+class LensPathDiff(LensModel):
+    id: str
+    path: str
+    old_path: Optional[str] = None
+    status: ChangedPathStatus
+    from_: str
+    to: str
+    diff: str = ""
+    truncated: bool = False
+    reason: Optional[str] = None
+    base_revision: str
+    head_revision: str
+    compare_unavailable_reason: Optional[str] = None
+    base_source: Optional[LensSourceLocation] = None
+    head_source: Optional[LensSourceLocation] = None
+
+    model_config = LensHunkDiff.model_config

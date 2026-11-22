@@ -63,6 +63,12 @@ class FileDiff:
     """None when the side is absent, or when the new side is a file on disk."""
     hunks: list[Hunk] = field(default_factory=list)
     binary: bool = False
+    old_mode: str = ""
+    new_mode: str = ""
+
+    @property
+    def regular(self) -> bool:
+        return all(m in _FILE_MODES for m in (self.old_mode, self.new_mode) if m != "000000")
 
     @property
     def path(self) -> str:
@@ -91,10 +97,13 @@ def is_skipped(path: str) -> bool:
 def _unquote(path: str) -> str:
     """Git quotes a path with a tab, a newline or a quote in it, C style."""
     if len(path) >= 2 and path.startswith('"') and path.endswith('"'):
-        try:
-            return path[1:-1].encode("latin-1", "backslashreplace").decode("unicode_escape").encode("latin-1").decode("utf-8")
-        except (UnicodeError, ValueError):
-            return path[1:-1]
+        controls = dict(zip(b'abfnrtv\\"', (b'\a', b'\b', b'\f', b'\n', b'\r', b'\t', b'\v', b'\\', b'"')))
+
+        def expand(match: re.Match[bytes]) -> bytes:
+            escape = match[1]
+            return bytes((int(escape, 8),)) if len(escape) == 3 else controls[escape[0]]
+
+        return re.sub(rb'\\([0-7]{3}|[abfnrtv\\"])', expand, path[1:-1].encode("utf-8")).decode("utf-8", "replace")
     return path
 
 
@@ -121,10 +130,11 @@ def _raw_entry(line: str) -> Optional[FileDiff]:
         None if status == "D" else new_path,
         None if status == "A" or old_sha == _NULL_SHA else old_sha,
         None if status == "D" or new_sha == _NULL_SHA else new_sha,
+        old_mode=old_mode,
+        new_mode=new_mode,
     )
     # Symlinks and submodules are not files to read. Marked like binaries, so they are left out.
-    live_modes = [m for m in (old_mode, new_mode) if m != "000000"]
-    if any(m not in _FILE_MODES for m in live_modes):
+    if not diff.regular:
         diff.binary = True
     return diff
 
@@ -167,7 +177,7 @@ def parse(text: str) -> dict[str, list[FileDiff]]:
 
 
 def _pathspec(scope: str) -> list[str]:
-    return ["--", scope] if scope else []
+    return ["--", f":(literal){scope}"] if scope else []
 
 
 def commit_diffs(repo: Path, shas: list[str], scope: str) -> dict[str, list[FileDiff]]:

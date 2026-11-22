@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from app.services.changelens import chunks as engine
-from app.services.changelens import textdiff
+from app.services.changelens import inventory, textdiff
 from app.services.changelens.blobs import BlobRef, Scope
 from app.services.changelens.chunks import Built, Lineage
 from app.services.changelens.hunks import GIT_TIMEOUT, Hunk, is_skipped, split_lines
@@ -42,7 +42,8 @@ def _pathspec(scope: str) -> list[str]:
 def _worktree_print(window: Window) -> tuple:
     """Changes when any uncommitted edit does: the status lines, and each listed file's size and mtime."""
     status = run_git(
-        window.repo, "status", "--porcelain=v1", "-z", "--untracked-files=all", *_pathspec(window.scope), timeout=GIT_TIMEOUT
+        window.repo, "status", "--porcelain=v1", "-z", "--untracked-files=all",
+        *(["--", f":(literal){window.scope}"] if window.scope else []), timeout=GIT_TIMEOUT,
     )
     stats = []
     for entry in status.split("\0"):
@@ -70,6 +71,7 @@ def build_lens(path: Path, params: Params) -> tuple[Built, int]:
     """The built window and the count of files at its head. Cached until a commit or an uncommitted edit changes."""
     try:
         window = resolve(Path(path), params)
+        worktree = _worktree_print(window) if window.wants_worktree else None
         key = (
             str(window.repo),
             window.scope,
@@ -77,7 +79,7 @@ def build_lens(path: Path, params: Params) -> tuple[Built, int]:
             window.base_tree,
             window.tip.sha,
             tuple((c.sha, c.upstream_merge) for c in window.commits),
-            _worktree_print(window) if window.wants_worktree else None,
+            worktree,
         )
         hit = _cache.get(key)
         if hit is not None:
@@ -85,6 +87,7 @@ def build_lens(path: Path, params: Params) -> tuple[Built, int]:
             hit[0].window = window
             return hit
         built = engine.build(window, params.mode)
+        built.scoped_worktree_dirty = bool(worktree and worktree[0])
         result = (built, _files_total(window, built.has_worktree))
     except GitError as exc:
         raise LensError(str(exc)) from exc
@@ -106,11 +109,14 @@ def build_payload(path: Path, params: Params) -> dict:
         raise LensError(f"Unknown mode: {params.mode}")
     built, files_total = build_lens(path, params)
     window = built.window
+    changed_paths = inventory.payload(built)
     notes = [*window.notes, *built.notes]
     if built.left_out:
         plural = "s" if built.left_out != 1 else ""
-        notes.append(f"{built.left_out} changed file{plural} left out: binary, or skipped by srcly's ignore rules (lockfiles, .json, images).")
-    if not built.chunks and not any("no commits" in n.lower() or "empty" in n.lower() or "no base" in n.lower() for n in notes):
+        notes.append(f"{built.left_out} changed file{plural} left out of structural analysis: binary, or skipped by srcly's ignore rules (lockfiles, .json, images).")
+    if not built.chunks and not changed_paths.rows and not changed_paths.unavailable_reason and not any(
+        "no commits" in n.lower() or "empty" in n.lower() or "no base" in n.lower() for n in notes
+    ):
         notes.append("Nothing changed in this window.")
     base = window.base
     selection = LensSelection(
@@ -144,8 +150,14 @@ def build_payload(path: Path, params: Params) -> dict:
             reverted=sum(1 for c in chunks if c.status == "reverted"),
         ),
         metric_ids=engine.metric_ids(chunks),
+        changed_paths=changed_paths,
     )
     return payload.wire()
+
+
+def path_diff(path: Path, params: Params, row_id: str, commit: Optional[str] = None) -> dict:
+    built, _ = build_lens(path, params)
+    return inventory.path_diff(built, row_id, commit).wire()
 
 
 # -- hunk diff -----------------------------------------------------------------

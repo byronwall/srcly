@@ -110,6 +110,15 @@ describe("URL state", () => {
     expect(new URLSearchParams(search).get("compare")).toBe("a..b");
   });
 
+  it("keeps the changed-path receipt and selected source side across URL round trips", () => {
+    const receipt: LensState = { ...state, chunk: null, changedPaths: true, changedPath: "scope/model.with spaces.json", pathSide: "base", pathLine: 42, committedOnly: true };
+    const href = toSearch({ repo: "/r/scope", at: "config", view: "changes", changes: serializeLens(receipt) }, "?compare=a..b");
+    const loc = parseLocation(href);
+    expect(loc.at).toBe("config");
+    expect(parseLens(loc.changes)).toEqual(receipt);
+    expect(new URLSearchParams(href).get("cpath")).toBe("scope/model.with spaces.json");
+  });
+
   it("keeps the default view a bare URL and drops its parameters in other views", () => {
     expect(serializeLens(DEFAULT_LENS)).toBe("");
     expect(parseLens(undefined)).toEqual(DEFAULT_LENS);

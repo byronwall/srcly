@@ -211,6 +211,7 @@ const emptySide = (): SideProgress => ({ files_total: 0, files_done: 0, current_
 // -- URL state: ?compare=<base>..<head> ---------------------------------------
 
 export const COMPARE_PARAM = "compare";
+const PATH_HANDOFF_PARAM = "cchanges";
 /**
  * The analyzed repo, shared with the main app's location (`navigation/location.ts`).
  * Compare URLs keep it, so the compare runs on the repo the user is looking at
@@ -234,6 +235,7 @@ export function compareHref(base: string | null, head?: string): string {
   const url = new URL(window.location.href);
   url.searchParams.delete(PICK_PARAM);
   url.searchParams.delete(RANGE_PARAM);
+  url.searchParams.delete(PATH_HANDOFF_PARAM);
   if (base === null) url.searchParams.delete(COMPARE_PARAM);
   else url.searchParams.set(COMPARE_PARAM, `${base}..${head ?? DEFAULT_HEAD}`);
   return url.pathname + url.search;
@@ -274,4 +276,43 @@ export function navigateCompare(base: string | null, head?: string, replace = fa
   if (replace) window.history.replaceState(null, "", href);
   else window.history.pushState(null, "", href);
   window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+type PathHandoffSource = { side: "base" | "head"; revision: string; path: string; startLine: number; endLine: number };
+export type PathHandoff = {
+  path: string;
+  oldPath?: string;
+  scope: string;
+  touchedOnly: boolean;
+  source?: PathHandoffSource;
+};
+
+export function readPathHandoff(search = window.location.search): PathHandoff | null {
+  const raw = new URLSearchParams(search).get(PATH_HANDOFF_PARAM);
+  if (!raw) return null;
+  try {
+    const data = JSON.parse(raw) as Partial<PathHandoff>;
+    if (!data || typeof data.path !== "string" || !data.path || typeof data.scope !== "string" || typeof data.touchedOnly !== "boolean") return null;
+    const src = data.source;
+    const source = src && (src.side === "base" || src.side === "head") && typeof src.revision === "string" && typeof src.path === "string" &&
+      Number.isInteger(src.startLine) && Number.isInteger(src.endLine) && src.startLine > 0 && src.endLine >= src.startLine ? src : undefined;
+    return { path: data.path, scope: data.scope, touchedOnly: data.touchedOnly, oldPath: typeof data.oldPath === "string" ? data.oldPath : undefined, source };
+  } catch {
+    return null;
+  }
+}
+
+/** Open the exact committed range without replacing the Changes receipt beneath it. */
+export function enterPathCompare({ base, head, ...handoff }: PathHandoff & { base: string; head: string }) {
+  const url = new URL(compareHref(base, head), window.location.origin);
+  url.searchParams.set(PATH_HANDOFF_PARAM, JSON.stringify(handoff));
+  url.searchParams.set("cfile", handoff.path);
+  url.searchParams.delete("cview");
+  window.history.pushState({ changesPathEntry: true }, "", url.pathname + url.search);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+export function exitPathCompare() {
+  if (window.history.state?.changesPathEntry) window.history.back();
+  else navigateCompare(null);
 }

@@ -136,6 +136,9 @@ class Built:
     left_out: int
     """Changed files not read: binary, or skipped by srcly's ignore rules."""
     notes: list[str] = field(default_factory=list)
+    path_steps: list[tuple[str, list[FileDiff]]] = field(default_factory=list)
+    path_net: list[FileDiff] = field(default_factory=list)
+    scoped_worktree_dirty: bool = False
 
 
 # -- lineages -----------------------------------------------------------------
@@ -684,7 +687,8 @@ def build(window: Window, mode: str) -> Built:
 
     read = [c for c in window.commits if not c.upstream_merge]
     per_commit = commit_diffs(repo, [c.sha for c in read], scope)
-    steps = [(c.sha, keep(per_commit.get(c.sha, []))) for c in read]
+    path_steps = [(c.sha, per_commit.get(c.sha, [])) for c in read]
+    steps = [(sha, keep(diffs)) for sha, diffs in path_steps]
     dirty: set[str] = set()
     has_worktree = False
     if window.wants_worktree:
@@ -694,8 +698,10 @@ def build(window: Window, mode: str) -> Built:
             steps.append((WORKTREE, diffs))
             dirty = {p for d in diffs for p in (d.old_path, d.new_path) if p}
     net: list[FileDiff] = []
+    path_net: list[FileDiff] = []
     if has_worktree or window.base_tree != window.tip.sha:
-        net = keep(tree_diff(repo, window.base_tree, None if has_worktree else window.tip.sha, scope))
+        path_net = tree_diff(repo, window.base_tree, None if has_worktree else window.tip.sha, scope)
+        net = keep(path_net)
 
     lineages = _follow(window, steps)
     _resolve_ends(window, store, lineages, net, dirty, has_worktree)
@@ -763,7 +769,7 @@ def build(window: Window, mode: str) -> Built:
             names = ", ".join(broken[:3]) + (f" and {len(broken) - 3} more" if len(broken) > 3 else "")
             verb = "has" if len(broken) == 1 else "have"
             notes.append(f"{names} {verb} a syntax error at {end}: the changed lines are shown with no symbols and no metrics.")
-    return Built(window, mode, store, commits, [d.chunk for d in finished], files, by_id, has_worktree, len(left_out), notes)
+    return Built(window, mode, store, commits, [d.chunk for d in finished], files, by_id, has_worktree, len(left_out), notes, path_steps, path_net)
 
 
 def _files(store: BlobStore, lineages: list[Lineage], drafts: list[Draft], mode: str) -> list[LensFile]:
