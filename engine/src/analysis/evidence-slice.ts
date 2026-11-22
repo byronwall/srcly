@@ -372,8 +372,9 @@ export function queryEvidenceSlice(
     }
     // Through a member's state the walk is in no one call: whoever reads the member, from any call.
     if (relation.kind === "member-state") return [];
-    // So through a framework's state (a setter's write, a getter's read: order and time not proven): any reader, from any call.
-    if (relation.proof.kind === "framework-state" && relation.status === "partial") return [];
+    // Forward through a framework's state (a setter's write, a getter's read: order and time not proven): any reader, from any call.
+    // Backward keeps the stack, as before: a getter read is still paired with the calls the walk came through.
+    if (forward && relation.proof.kind === "framework-state" && relation.status === "partial") return [];
     if (relation.kind === "return-value") {
       // Forward: out of the callee to its call, which must be the one on top. Backward: into the callee from `to`'s call.
       const call = relation.to;
