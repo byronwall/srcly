@@ -210,6 +210,9 @@ export class ProgramEvidenceDemandCollector extends ProgramEvidenceCollector {
           if (fact.kind !== "field-read" || this.mayWriteMember(reference)) roots.add(this.partition(reference));
         }
       }
+      // A value written into a member (`this.owner = owner`): the member's reads may sit in another statement (`Account.prototype.describe = function () { … this.owner … }`).
+      const written = direction !== "backward" ? memberWritten(this.ts, node) : null;
+      if (discover && written && this.isProjectSymbol(written)) for (const reference of this.referenceCandidates(written, false)) roots.add(this.partition(reference));
       if (direction !== "forward" || fact.kind === "return" && !returnTo) add(fact.ownerId, direction === "backward" || fact.kind === "parameter" || fact.kind === "return");
       // Declaration links are already emitted when the call or JSX occurrence is collected.
       // Their bodies are needed only when a value enters that declaration.
@@ -273,6 +276,8 @@ export class ProgramEvidenceDemandCollector extends ProgramEvidenceCollector {
     if (this.ts.isVariableDeclaration(node) || this.ts.isParameter(node)) return firstBindingIdentifier(this.ts, node.name);
     if (this.ts.isCallExpression(node) || this.ts.isNewExpression(node)) return this.referenceNode(node.expression);
     if (this.ts.isPropertyAccessExpression(node)) return node.name;
+    // An assignment's binding (`current = name`): its reads, in any function, see it.
+    if (this.ts.isBinaryExpression(node) && this.ts.isIdentifier(node.left)) return node.left;
     return this.ts.isIdentifier(node) ? node : null;
   }
 
@@ -335,4 +340,13 @@ export class ProgramEvidenceDemandCollector extends ProgramEvidenceCollector {
       this.collecting = false;
     }
   }
+}
+
+/** The member name a value is assigned into (`this.owner = owner` gives `owner` of `this.owner`), else null. */
+function memberWritten(ts: typeof TypeScript, node: TypeScript.Node): TypeScript.Identifier | null {
+  let value = node;
+  while (value.parent && (ts.isParenthesizedExpression(value.parent) || ts.isAsExpression(value.parent) || ts.isNonNullExpression(value.parent))) value = value.parent;
+  const parent = value.parent;
+  if (!parent || !ts.isBinaryExpression(parent) || parent.right !== value || !isAssignmentOperator(ts, parent.operatorToken.kind)) return null;
+  return ts.isPropertyAccessExpression(parent.left) && ts.isIdentifier(parent.left.name) ? parent.left.name : null;
 }

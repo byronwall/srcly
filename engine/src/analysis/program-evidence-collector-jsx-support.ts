@@ -603,7 +603,9 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
           this.addRelation(receiverId, call.id, "argument", at, proof("ast-node", "The receiver is passed to this call as `this`.", at), "proven");
           this.addRelation(receiverId, thisId, "argument-binding", at, proof("argument-binding", "The call's receiver binds to the method's `this`.", at), "proven");
         }
-        for (const returnId of callNode && this.callHasNoValue(callNode) ? [] : this.returnsByFunction.get(call.target.id) ?? []) {
+        // `new F(…)` yields the object it made, never what a constructor function returns.
+        const yieldsReturn = !this.ts.isNewExpression(call.node) && !(callNode && this.callHasNoValue(callNode));
+        for (const returnId of yieldsReturn ? this.returnsByFunction.get(call.target.id) ?? [] : []) {
           this.checkCancellation();
           this.addRelation(
             returnId,

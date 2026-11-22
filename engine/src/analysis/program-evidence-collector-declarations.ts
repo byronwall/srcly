@@ -19,6 +19,7 @@ import {
   parameterOriginRole,
   proof,
 } from "./program-evidence-support";
+import { jsonValueMember } from "./value-origin";
 
 export class ProgramEvidenceCollectorDeclarations extends ProgramEvidenceCollectorSupport {
   /** Register source declarations without asking for their parameter types. */
@@ -301,9 +302,11 @@ export class ProgramEvidenceCollectorDeclarations extends ProgramEvidenceCollect
     if (key) this.memberWrites.set(key, [...(this.memberWrites.get(key) ?? []), valueId]);
   }
 
-  /** The proof for what library code is taken to do: modelled for TypeScript's own library, assumed (and `partial`) for any other. */
+  /** The proof for what library code is taken to do: modelled for TypeScript's own library (a JSON value's method included, `jsonValueMember`), assumed (and `partial`) for any other. */
   protected libraryProof(node: TypeScript.CallExpression | TypeScript.NewExpression, detail: string, locations: ProgramEvidenceLocation[]): [ReturnType<typeof proof>, "proven" | "partial"] {
     if (isStandardLibraryCallee(this.ts, this.checker, node.expression)) return [proof("standard-library", `The standard library: ${detail}`, locations), "proven"];
+    const json = jsonValueMember(this.ts, this.checker, node.expression);
+    if (json) return [proof("standard-library", `The standard library (a value parsed from JSON has no methods of its own, so this is ${json.owner}.${json.name}): ${detail}`, locations), "proven"];
     return [assumedProof(`Assumed: it has no source to read, so ${detail}`, locations), "partial"];
   }
 
