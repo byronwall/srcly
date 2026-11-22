@@ -225,11 +225,17 @@ export default function CodeModal(props: CodeModalProps) {
   /** The ledger's rows are marked through the metric overlay while this is on. */
   const [ledgerMarked, setLedgerMarked] = createSignal(false);
   // What the selected scope touches (M6): keyed on the scope's start line; nothing at a git ref.
-  // With no scope picked, the function enclosing the line the viewer opened at (the engine finds it).
-  const effectsLine = () => coerceLine(selectedScopeNode()?.start_line) ?? targetStartLine() ?? cursorLine();
+  // With no scope picked, use the function enclosing an explicit source line.
+  // A whole-file selection has no position (file nodes use a start line of 0).
+  const effectsLine = () => {
+    const scope = selectedScopeNode();
+    return [scope?.type === "file" ? null : coerceLine(scope?.start_line), targetStartLine(), cursorLine()]
+      .find((line): line is number => line !== null && Number.isInteger(line) && line > 0);
+  };
+  const effectsFile = () => !props.gitRef && props.rootPath && props.filePath && /\.(tsx?|mts|cts|jsx?)$/.test(props.filePath);
   const effects = createEffectsQuery(() => {
     const line = effectsLine();
-    if (props.gitRef || !props.rootPath || !props.filePath || line === null || !/\.(tsx?|mts|cts|jsx?)$/.test(props.filePath)) return null;
+    if (!effectsFile() || line === undefined || !props.rootPath || !props.filePath) return null;
     return { root: props.rootPath, file: props.filePath, line };
   });
   const ledgerRows = createMemo(() => {
@@ -454,12 +460,14 @@ export default function CodeModal(props: CodeModalProps) {
               gitRef={props.gitRef}
               onJumpToFinding={jumpToFinding}
               effects={
-                <Show when={effects()}>
-                  {(state) => (
-                    <div class="mt-3">
-                      <EffectsPanel state={state()} title={selectedScopeNode()?.name ? `Effects of ${selectedScopeNode().name}` : `Effects of the function at line ${effectsLine()}`} onOpen={(absPath, line) => { if (absPath === props.filePath) jumpToLedgerRow(line); }} />
-                    </div>
-                  )}
+                <Show when={effectsFile()}>
+                  <div class="mt-3">
+                    <EffectsPanel
+                      state={effectsLine() === undefined ? { phase: "unselected" } : effects() ?? { phase: "loading" }}
+                      title={effectsLine() === undefined ? undefined : selectedScopeNode()?.type !== "file" && selectedScopeNode()?.name ? `Effects of ${selectedScopeNode().name}` : `Effects of the function at line ${effectsLine()}`}
+                      onOpen={(absPath, line) => { if (absPath === props.filePath) jumpToLedgerRow(line); }}
+                    />
+                  </div>
                 </Show>
               }
               ledger={

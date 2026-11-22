@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.services.dataflow import engine as dataflow_engine
 from app.services.dataflow.engine import EngineCrashed, EngineError
@@ -220,7 +220,7 @@ class FunctionEffectsRequest(BaseModel):
 
     path: str
     file: str
-    line: int
+    line: int = Field(ge=1)
     column: int | None = None
     expectedGeneration: int | None = None
 

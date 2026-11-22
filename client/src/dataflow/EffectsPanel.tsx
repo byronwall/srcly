@@ -12,6 +12,7 @@ import { ACTIVATION_WORDS, effectsView, FRONTIER_WORDS, HANDLING_WORDS, viaText,
 import { labelFor, reasonText } from "./outcome";
 
 export type EffectsState =
+  | { phase: "unselected" }
   | { phase: "loading" }
   | { phase: "done"; view: EffectsView; generation: number | null }
   | { phase: "na"; message: string };
@@ -90,9 +91,12 @@ export function EffectsPanel(props: { state: EffectsState; onOpen?: (absPath: st
     </li>
   );
   return (
-    <section class="text-[12px]" aria-label="Function effects">
+    <section class="text-[12px]" aria-label="Function effects" data-effects-state={props.state.phase}>
       <Show when={!props.compact}>
         <h3 class={H}>{props.title ?? "Effects"}</h3>
+      </Show>
+      <Show when={props.state.phase === "unselected"}>
+        <p class="pl-1.5 text-[11px] text-[var(--plc-on-muted)]">Choose a function from the outline to see what it touches.</p>
       </Show>
       <Show when={props.state.phase === "loading"}>
         <p class="pl-1.5 text-[11px] text-[var(--plc-on-muted)]">Reading what it touches…</p>

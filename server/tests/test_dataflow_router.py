@@ -37,6 +37,18 @@ def client():
     return TestClient(app)
 
 
+@pytest.mark.parametrize("line", [0, -1])
+def test_function_effects_rejects_nonpositive_lines_before_starting_engine(client, use_fake, tmp_path, line):
+    registry = use_fake()
+    (tmp_path / "file.ts").write_text("export function f() {}\n")
+    response = client.post(
+        "/api/dataflow/function-effects", json={"path": str(tmp_path), "file": "file.ts", "line": line}
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["body", "line"]
+    assert registry.live_count() == 0
+
+
 def test_status_never_spawns(client, use_fake, tmp_path):
     registry = use_fake()
     body = client.get("/api/dataflow/status", params={"path": str(tmp_path)}).json()
