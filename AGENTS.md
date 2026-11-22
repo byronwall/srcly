@@ -66,6 +66,10 @@ Open work lives in a Product Grid project in `pgm/data` (project `srcly-backlog`
 - Open a data-flow PR, then run `gh pr merge <n> --squash --auto` and stop: auto-merge lands it when the checks pass. Don't run your own multi-repo surveys to prove a rule unless it targets code the gate's corpus doesn't contain.
 - A new relation, element or proof kind gets one entry in `engine/src/srcly/kinds.ts` (`RELATION_TRAITS`, `ELEMENT_TRAITS`, `PROOF_TRAITS`); the engine does not build until it has one. Rules read its traits (`structural`, `crossCall`, `terminal`, a proof's `strength`), never their own lists of kind names.
 - Never edit `engine/src/analysis` to recognise srcly-specific code. An analysis edit that a rule needs comes with a negative fixture.
+- Library intake comes before the first rule for a library. Read the library's installed source and `.d.ts`, then put it in one of two groups:
+  - It keeps state once per call (`createSignal`, zustand's `create`), a runtime picks the function (React's dispatcher), or the value leaves the program (I/O). It gets a row in `engine/models/*.json`, in the existing shapes.
+  - It is plain code over such things (Solid's `For`, `debounce`). Name the general rule that is missing; do not write a rule for the library.
+- A diagnosis of a library gap answers two questions: what general rule is missing, and which other patterns it would fix; and, if the fix names a package, why a general rule will not do. Code that names a package in `engine/src/analysis` is the last choice, and its PR says why. The reasons are in `docs/research/dataflow-library-models-2026-11/README.md`.
 
 ## Client Package Management
 
