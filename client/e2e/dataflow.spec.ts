@@ -21,6 +21,59 @@ const box = (page: Page, label: string) => page.locator("[data-box]").filter({ h
 /** A drawn box by the start of its full label: the drawn text truncates to the font's width, which differs by platform. */
 const boxLabelled = (page: Page, label: string) => page.locator(`[data-box][data-label^="${label}"]`).first();
 
+test.describe("Flow across folders", () => {
+  const otherRepo = path.resolve(here, "../../engine/examples/bad-ish-solid");
+  const originalAnchor = "src/components/ViewerCard.tsx@ViewerCard:3";
+
+  for (const mode of ["route", "anchor"] as const) {
+    test(`folder switch drops the old ${mode}; Back restores it`, async ({ page }) => {
+      const compare: Record<string, string> = mode === "route" ? { flow: "/records", lens: "components" } : { anchor: originalAnchor, dir: "backward" };
+      const graphEndpoint = mode === "route" ? "route-graph" : "anchor-graph";
+      const requests: { root: string | null; endpoint: string }[] = [];
+      page.on("request", (request) => {
+        const target = new URL(request.url());
+        const endpoint = target.pathname.split("/").at(-1)!;
+        if (!target.pathname.startsWith("/api/dataflow/") || !["routes", "route-surface", "route-graph", "anchor-graph"].includes(endpoint)) return;
+        const root = request.method() === "POST" ? request.postDataJSON()?.path ?? null : target.searchParams.get("path");
+        requests.push({ root, endpoint });
+      });
+      // Hold the old root's first graph reply until the new root has settled.
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => { release = resolve; });
+      const graphPattern = `**/api/dataflow/${graphEndpoint}*`;
+      await page.route(graphPattern, async (route) => {
+        await held;
+        await route.fulfill({ status: 503, json: { detail: "late old-root test response" } });
+      }, { times: 1 });
+      const oldGraph = page.waitForRequest((r) => new URL(r.url()).pathname.endsWith(`/dataflow/${graphEndpoint}`));
+      await page.goto(url({ view: "graph", ...compare }));
+      await oldGraph;
+      const folder = page.getByRole("button", { name: "Switch folder, rescan, or open a recent one" });
+      await folder.click();
+      await page.getByRole("textbox", { name: "Folder to analyze" }).fill(otherRepo);
+      await page.getByRole("button", { name: "Analyze", exact: true }).click();
+      await expect(page).toHaveURL((u) => u.searchParams.get("repo") === otherRepo && u.searchParams.get("flow") === "" && !u.searchParams.has("anchor") && !u.searchParams.has("lens"));
+      const empty = page.getByRole("heading", { name: "No routes here" });
+      await expect(empty).toBeVisible();
+      const oldReply = page.waitForResponse((r) => new URL(r.url()).pathname.endsWith(`/dataflow/${graphEndpoint}`) && r.status() === 503);
+      release();
+      await (await oldReply).finished();
+      await expect(empty).toHaveCount(1);
+      await expect(page.getByText("late old-root test response", { exact: false })).toHaveCount(0);
+      await expect(page.locator("[data-box]")).toHaveCount(0);
+      await expect(page.getByLabel("Data flow inspector")).toHaveCount(0);
+      expect(requests.filter((r) => r.root === otherRepo).map((r) => r.endpoint)).toEqual(["routes"]);
+
+      await page.goBack();
+      await expect(page).toHaveURL((u) => u.searchParams.get("repo") === REPO && Object.entries(compare).every(([k, v]) => u.searchParams.get(k) === v));
+      await expect(status(page)).toContainText(mode === "route" ? "4 origins" : "upstream", { timeout: 90_000 });
+      await page.goForward();
+      await expect(empty).toBeVisible();
+      await expect(page.locator("[data-box]")).toHaveCount(0);
+    });
+  }
+});
+
 test.describe("Data flow on solid-route", () => {
   test("a failed new anchor request does not redisplay the previous graph", async ({ page }) => {
     const originalAnchor = "src/components/ViewerCard.tsx@ViewerCard:3";
