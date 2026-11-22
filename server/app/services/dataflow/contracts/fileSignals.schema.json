@@ -102,7 +102,9 @@
             "type": "string",
             "enum": [
               "impossible-defense",
-              "repeated-fork"
+              "repeated-fork",
+              "context-relay",
+              "broad-prop-bundle"
             ]
           },
           "file": {

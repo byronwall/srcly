@@ -25,7 +25,7 @@ export function fileSignalsOp(session: EngineSession, params: { expectedGenerati
     tier1.inputs.files.map((file) => [rel(file), { impossibleDefenses: 0, relayHops: 0, fanOut: 0, representationChanges: 0, pathDepth: 0 }]),
   );
   const { findings: defenses, unplaced } = impossibleDefenses(tier1, report);
-  const findings: DataflowFinding[] = [...defenses, ...repeatedForks(report)];
+  const findings: DataflowFinding[] = [...defenses, ...repeatedForks(report), ...contextRelays(report)];
   for (const finding of defenses) {
     const metrics = files.get(finding.file);
     if (metrics) metrics.impossibleDefenses += 1;
@@ -128,6 +128,29 @@ function repeatedForks(report: AnalysisReport): DataflowFinding[] {
       column: fork.column,
       endLine: Math.max(fork.line, ...lines),
       message: `${component} tests \`${oneLine(fork.discriminant)}\` at ${fork.siteCount} sibling branch sites (lines ${lines.join(", ")}). Split it into one sub-component per branch${branches}.`,
+    };
+  });
+}
+
+/**
+ * One finding per JSX site where a parent that reads context hands a bundle of
+ * props to a child in the same feature: `context-relay` when the props carry
+ * shared, context-like names, `broad-prop-bundle` when there are only many.
+ */
+function contextRelays(report: AnalysisReport): DataflowFinding[] {
+  return (report.contextRelay ?? []).map((relay) => {
+    const hooks = relay.contextHooks.map((hook) => `\`${hook}\``).join(", ");
+    const shared = relay.sharedProps.length > 0;
+    const named = (shared ? relay.sharedProps : relay.props).map((prop) => `\`${prop}\``).join(", ");
+    return {
+      rule: shared ? "context-relay" : "broad-prop-bundle",
+      file: relay.parentFile,
+      line: relay.line,
+      column: relay.column,
+      endLine: relay.line,
+      message: shared
+        ? `Relays ${named} to \`${relay.childComponent}\` (${relay.childFile}) while this file reads ${hooks}. Let the child read them from context.`
+        : `Passes ${relay.props.length} props (${named}) to \`${relay.childComponent}\` (${relay.childFile}) while this file reads ${hooks}. Pass one model or read shared values from context.`,
     };
   });
 }

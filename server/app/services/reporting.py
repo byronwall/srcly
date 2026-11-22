@@ -667,10 +667,13 @@ def render_dataflow_section(signals: Any, root_path: Path, limit: int = 15) -> s
     if signals.status != "ok" or signals.result is None:
         return "\n".join([*lines, f"Not analyzed: {signals.reason}", ""])
     result = signals.result
-    counts = {rule: sum(1 for f in result.findings if f.rule == rule) for rule in ("impossible-defense", "repeated-fork")}
+    rules = ("impossible-defense", "repeated-fork", "context-relay", "broad-prop-bundle")
+    counts = {rule: sum(1 for f in result.findings if f.rule == rule) for rule in rules}
+    relays = counts["context-relay"] + counts["broad-prop-bundle"]
     lines.append(
-        f"The TypeScript checker found {counts['impossible-defense']} type-impossible `??`/`?.` guards and "
-        f"{counts['repeated-fork']} repeated {'fork' if counts['repeated-fork'] == 1 else 'forks'}. Read `dataflow.md` for ranked work packets, candidate edits, "
+        f"The TypeScript checker found {counts['impossible-defense']} type-impossible `??`/`?.` guards, "
+        f"{counts['repeated-fork']} repeated {'fork' if counts['repeated-fork'] == 1 else 'forks'} and "
+        f"{relays} prop {'relay' if relays == 1 else 'relays'} to same-feature children. Read `dataflow.md` for ranked work packets, candidate edits, "
         "the risk queue and the stop recommendation."
     )
     if result.unplacedDefenses:

@@ -42,6 +42,18 @@ describe("fileSignals carries tsx-data-flow's reporting into srcly (M7)", () => 
     expect(forks[0].message).toContain("`props.type` at 4 sibling branch sites (lines 37, 38, 45, 48)");
   });
 
+  it("reports a parent that relays context-like props, or a broad prop bundle, to a same-feature child", () => {
+    const root = fileURLToPath(new URL("./__fixtures__/context-relay", import.meta.url));
+    const source = path.join(root, "src");
+    const relay = fileSignalsOp(createEngineSession({ root, source, tsconfig: null, typescriptFrom: chooseTypescript(root, source).from }), {});
+    expect(relay.findings.map((f) => `${f.rule} ${f.file}:${f.line}`)).toEqual([
+      "broad-prop-bundle src/notes/NotesPage.tsx:10",
+      "context-relay src/notes/NotesPage.tsx:11",
+    ]);
+    expect(relay.findings[1].message).toContain("Relays `workspace`, `settings` to `NoteList`");
+    expect(result.findings.some((f) => f.rule === "context-relay" || f.rule === "broad-prop-bundle")).toBe(false);
+  });
+
   it("measures every program file, the worst render path per file", () => {
     expect(result.files.map((f) => f.file)).toEqual(["src/Chart.tsx", "src/DashboardShell.tsx", "src/types.ts", "src/view-models.ts"]);
     const shell = result.files.find((f) => f.file === "src/DashboardShell.tsx")!.metrics;

@@ -36,7 +36,13 @@ FIELDS: dict[str, tuple[str, str]] = {
     "dataflow_path_depth": ("pathDepth", "max"),
 }
 REPEATED_FORKS = "dataflow_repeated_forks"
-RULE_METRIC = {"impossible-defense": "dataflow_impossible_defenses", "repeated-fork": REPEATED_FORKS}
+# Rule → the metric whose code-viewer marks show it. Relay findings mark under Prop Relay.
+RULE_METRIC = {
+    "impossible-defense": "dataflow_impossible_defenses",
+    "repeated-fork": REPEATED_FORKS,
+    "context-relay": "dataflow_relay_hops",
+    "broad-prop-bundle": "dataflow_relay_hops",
+}
 
 
 @dataclass
@@ -249,7 +255,7 @@ def apply_to_tree(
 
 
 def markers_for(path: str, signals: Optional[Signals]) -> dict[str, list[dict]]:
-    """Code viewer lines behind the impossible-defense and repeated-fork counts."""
+    """Code viewer lines behind each finding: the dead guards, repeated forks and prop relays."""
     if signals is None or signals.status != "ok":
         return {}
     out: dict[str, list[dict]] = {}
