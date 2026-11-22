@@ -183,6 +183,11 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     if (aliasId) {
       this.addRelation(aliasId, occurrenceId, "references", [this.location(opening.tagName)], proof("compiler-symbol", "The JSX tag names this value and renders it here.", [this.location(opening.tagName)]), "proven");
     }
+    // One function written as the element's child (`<Mouse>{(x) => …}</Mouse>`) is its `children` prop.
+    const element = opening.parent;
+    const written = this.ts.isJsxElement(element) ? element.children.filter((child) => !this.ts.isJsxText(child) || child.text.trim() !== "") : [];
+    const child = written.length === 1 && this.ts.isJsxExpression(written[0]) && written[0].expression ? unwrap(this.ts, written[0].expression) : undefined;
+    if (child && (this.ts.isArrowFunction(child) || this.ts.isFunctionExpression(child))) for (const each of targets) this.childFunctions.push({ target: each.id, value: child });
     for (const each of targets) {
       this.addRelation(
         occurrenceId,
@@ -675,7 +680,12 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
    * is what that caller's own occurrences hand in, a few levels up.
    */
   private handedProps(props: ReadonlyMap<string, readonly PendingComponentPropBinding[]>, ownerId: string, name: string, depth: number): { value: TypeScript.Node; paired: boolean }[] {
-    return (props.get(ownerId) ?? []).flatMap((pending) => {
+    // The children a component's elements hand in are written where it is rendered: load those places.
+    const owner = name === "children" ? this.functionsById.get(ownerId) : undefined;
+    const named = owner ? functionNameNode(this.ts, owner.declaration as TypeScript.FunctionLikeDeclaration) : null;
+    if (named) this.requireReferences(named);
+    const children = name === "children" ? this.childFunctions.filter((item) => item.target === ownerId).map((item) => ({ value: item.value as TypeScript.Node, paired: true })) : [];
+    return [...children, ...(props.get(ownerId) ?? []).flatMap((pending) => {
       const value = pending.attribute.initializer && this.ts.isJsxExpression(pending.attribute.initializer) ? pending.attribute.initializer.expression : undefined;
       if (pending.target.id !== ownerId || pending.attribute.name.getText() !== name || !value) return [];
       const read = unwrap(this.ts, value);
@@ -683,8 +693,11 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
       const caller = receiver && this.ts.isParameter(receiver) && receiver.parent.parameters[0] === receiver ? this.functionsByNode.get(nodeKey(this.root, receiver.parent)) : undefined;
       const outer = caller && depth < 4 && this.ts.isPropertyAccessExpression(read) ? this.handedProps(props, caller.id, read.name.text, depth + 1) : [];
       return outer.length ? outer : [{ value, paired: true }];
-    });
+    })];
   }
+
+  /** Functions written as a component element's one child, by the component they are handed to (its `children` prop). */
+  private readonly childFunctions: { target: string; value: TypeScript.Expression }[] = [];
 
   private connectBoundHandlers(call: CollectorCallInfo, props: ReadonlyMap<string, readonly PendingComponentPropBinding[]>): void {
     if (!this.ts.isCallExpression(call.node)) return;
