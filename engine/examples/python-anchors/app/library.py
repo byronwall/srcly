@@ -1,6 +1,7 @@
 # One use of every Python library model row (`engine/models/python.json`), so a
 # test can check each row resolves. Packages that are not installed here
 # resolve through their imports, as on a project without its venv.
+import argparse
 import io
 import json
 import logging
@@ -14,6 +15,9 @@ import urllib.request
 from pathlib import Path
 
 import _io
+import django.db.models
+import django.http
+import django.shortcuts
 import fastapi
 import fastapi.exceptions
 import fastapi.responses
@@ -23,13 +27,18 @@ import flask.helpers
 import flask.json
 import flask.templating
 import httpx
+import pandas
 import requests
+import rest_framework.response
+import sqlmodel
+import sqlmodel.orm.session
 import starlette.exceptions
 import starlette.responses
 import yaml
 from httpx._client import AsyncClient, Client
 from requests.sessions import Session as HttpSession
 from sqlalchemy.ext.asyncio.session import AsyncSession
+from sqlalchemy.orm import Session as OrmSession
 from sqlalchemy.orm.session import Session as DbSession
 
 log = logging.getLogger(__name__)
@@ -47,6 +56,13 @@ def origins(path: Path, cursor: sqlite3.Cursor, connection: sqlite3.Connection, 
         DbSession.execute(db, "q"), DbSession.scalars(db, "q"), DbSession.get(db, "q"), DbSession.query(db, "q"),
         flask.request.json, flask.globals.request.args,
         os._Environ.get(os.environ, "D"),
+        argparse.ArgumentParser.parse_args(argparse.ArgumentParser()), argparse.ArgumentParser.parse_known_args(argparse.ArgumentParser()),
+        OrmSession.execute(db, "q"), OrmSession.scalars(db, "q"), OrmSession.get(db, "q"), OrmSession.query(db, "q"),
+        sqlmodel.Session.execute(db, "q"), sqlmodel.Session.scalars(db, "q"), sqlmodel.Session.get(db, "q"), sqlmodel.Session.query(db, "q"),
+        sqlmodel.Session.exec(db, "q"), sqlmodel.orm.session.Session.exec(db, "q"),
+        pandas.read_csv("f"), pandas.read_json("f"), pandas.read_parquet("f"), pandas.read_excel("f"), pandas.read_table("f"),
+        django.db.models.Model.objects.filter(), django.db.models.Model.objects.get(), django.db.models.Model.objects.all(),
+        django.db.models.Model.objects.exclude(), django.db.models.Model.objects.first(),
     ]
 
 
@@ -76,11 +92,32 @@ def terminals(value: str, path: Path, stream: typing.IO[str], text: typing.TextI
     AsyncSession.add(adb, value)
     AsyncSession.delete(adb, value)
     flask.abort(400)
+    OrmSession.add(db, value)
+    OrmSession.add_all(db, [value])
+    OrmSession.delete(db, value)
+    OrmSession.merge(db, value)
+    sqlmodel.Session.add(db, value)
+    sqlmodel.Session.add_all(db, [value])
+    sqlmodel.Session.delete(db, value)
+    sqlmodel.Session.merge(db, value)
+    pandas.DataFrame.to_csv(value)
+    pandas.DataFrame.to_json(value)
+    pandas.DataFrame.to_parquet(value)
+    pandas.DataFrame.to_excel(value)
+    django.db.models.Model.objects.create()
+    django.db.models.Model.objects.get_or_create()
+    django.db.models.Model.objects.update_or_create()
+    django.db.models.Model.objects.bulk_create()
+    django.db.models.Model.save(value)
+    django.db.models.Model.delete(value)
     responses = [
         fastapi.HTTPException(400), fastapi.exceptions.HTTPException(400), starlette.exceptions.HTTPException(400),
         fastapi.responses.JSONResponse(value), starlette.responses.JSONResponse(value),
         flask.json.jsonify(value), flask.jsonify(value), flask.helpers.make_response(value), flask.make_response(value),
         flask.templating.render_template(value), flask.render_template(value),
+        django.shortcuts.render(value), django.shortcuts.redirect(value),
+        django.http.HttpResponse(value), django.http.JsonResponse(value), django.http.HttpResponseRedirect(value),
+        rest_framework.response.Response(value),
     ]
     sys.exit(value)
     return responses

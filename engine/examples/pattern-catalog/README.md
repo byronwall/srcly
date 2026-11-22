@@ -17,6 +17,8 @@ ln -s ~/Projects/<a Solid app>/node_modules engine/examples/pattern-catalog/soli
 
 React needs `react`, `@types/react`, `@tanstack/react-query` and `zustand`. Solid needs `solid-js` and `@solidjs/router`. A root without `node_modules` is skipped, and each of its traces counts as `Skipped`. An anchor the engine refuses counts as `Refused`.
 
+The `python` root needs no packages. It needs the interpreter the Python tests use (`SRCLY_PYTHON`, else `server/.venv`); without one, each trace counts as `Skipped`. `--root python` runs one root.
+
 `vanilla` is typed; `javascript` is actual `.js`. The last table row counts actual JavaScript alone.
 
 `any wanted end` is the historical score: a trace passes when any end has a wanted kind. It does not show that the path was right. Exact claims live in the annotated fixtures (`@path`, `@no-path`, exhaustive `@reaches`).

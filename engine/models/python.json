@@ -600,6 +600,374 @@
       "model": "terminal",
       "role": "http-response",
       "note": "HTTP error"
+    },
+    {
+      "language": "py",
+      "module": "argparse",
+      "member": "ArgumentParser.parse_args",
+      "model": "origin",
+      "role": "argument",
+      "note": "command-line arguments"
+    },
+    {
+      "language": "py",
+      "module": "argparse",
+      "member": "ArgumentParser.parse_known_args",
+      "model": "origin",
+      "role": "argument",
+      "note": "command-line arguments"
+    },
+    {
+      "language": "py",
+      "module": "sqlalchemy.orm",
+      "member": "Session.add",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "sqlalchemy.orm",
+      "member": "Session.add_all",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "sqlalchemy.orm",
+      "member": "Session.delete",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "sqlalchemy.orm",
+      "member": "Session.merge",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "sqlalchemy.orm",
+      "member": "Session.execute",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database query"
+    },
+    {
+      "language": "py",
+      "module": "sqlalchemy.orm",
+      "member": "Session.scalars",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database query"
+    },
+    {
+      "language": "py",
+      "module": "sqlalchemy.orm",
+      "member": "Session.get",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database row"
+    },
+    {
+      "language": "py",
+      "module": "sqlalchemy.orm",
+      "member": "Session.query",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database query"
+    },
+    {
+      "language": "py",
+      "module": "sqlmodel",
+      "member": "Session.add",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "sqlmodel",
+      "member": "Session.add_all",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "sqlmodel",
+      "member": "Session.delete",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "sqlmodel",
+      "member": "Session.merge",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "sqlmodel",
+      "member": "Session.execute",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database query"
+    },
+    {
+      "language": "py",
+      "module": "sqlmodel",
+      "member": "Session.scalars",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database query"
+    },
+    {
+      "language": "py",
+      "module": "sqlmodel",
+      "member": "Session.get",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database row"
+    },
+    {
+      "language": "py",
+      "module": "sqlmodel",
+      "member": "Session.query",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database query"
+    },
+    {
+      "language": "py",
+      "module": "sqlmodel",
+      "member": "Session.exec",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database query"
+    },
+    {
+      "language": "py",
+      "module": "sqlmodel.orm.session",
+      "member": "Session.exec",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database query"
+    },
+    {
+      "language": "py",
+      "module": "pandas",
+      "name": "read_csv",
+      "model": "origin",
+      "role": "file-input",
+      "note": "file read"
+    },
+    {
+      "language": "py",
+      "module": "pandas",
+      "name": "read_json",
+      "model": "origin",
+      "role": "file-input",
+      "note": "file read"
+    },
+    {
+      "language": "py",
+      "module": "pandas",
+      "name": "read_parquet",
+      "model": "origin",
+      "role": "file-input",
+      "note": "file read"
+    },
+    {
+      "language": "py",
+      "module": "pandas",
+      "name": "read_excel",
+      "model": "origin",
+      "role": "file-input",
+      "note": "file read"
+    },
+    {
+      "language": "py",
+      "module": "pandas",
+      "name": "read_table",
+      "model": "origin",
+      "role": "file-input",
+      "note": "file read"
+    },
+    {
+      "language": "py",
+      "module": "pandas",
+      "member": "DataFrame.to_csv",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "file write"
+    },
+    {
+      "language": "py",
+      "module": "pandas",
+      "member": "DataFrame.to_json",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "file write"
+    },
+    {
+      "language": "py",
+      "module": "pandas",
+      "member": "DataFrame.to_parquet",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "file write"
+    },
+    {
+      "language": "py",
+      "module": "pandas",
+      "member": "DataFrame.to_excel",
+      "model": "terminal",
+      "role": "file-write",
+      "note": "file write"
+    },
+    {
+      "language": "py",
+      "module": "django.db.models",
+      "member": "Model.objects.filter",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database query"
+    },
+    {
+      "language": "py",
+      "module": "django.db.models",
+      "member": "Model.objects.get",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database row"
+    },
+    {
+      "language": "py",
+      "module": "django.db.models",
+      "member": "Model.objects.all",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database query"
+    },
+    {
+      "language": "py",
+      "module": "django.db.models",
+      "member": "Model.objects.exclude",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database query"
+    },
+    {
+      "language": "py",
+      "module": "django.db.models",
+      "member": "Model.objects.first",
+      "model": "origin",
+      "role": "external-read",
+      "note": "database row"
+    },
+    {
+      "language": "py",
+      "module": "django.db.models",
+      "member": "Model.objects.create",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "django.db.models",
+      "member": "Model.objects.get_or_create",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "django.db.models",
+      "member": "Model.objects.update_or_create",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "django.db.models",
+      "member": "Model.objects.bulk_create",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "django.db.models",
+      "member": "Model.save",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "django.db.models",
+      "member": "Model.delete",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "database write"
+    },
+    {
+      "language": "py",
+      "module": "django.shortcuts",
+      "name": "render",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP response"
+    },
+    {
+      "language": "py",
+      "module": "django.shortcuts",
+      "name": "redirect",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP response"
+    },
+    {
+      "language": "py",
+      "module": "django.http",
+      "name": "HttpResponse",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP response"
+    },
+    {
+      "language": "py",
+      "module": "django.http",
+      "name": "JsonResponse",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP response"
+    },
+    {
+      "language": "py",
+      "module": "django.http",
+      "name": "HttpResponseRedirect",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP response"
+    },
+    {
+      "language": "py",
+      "module": "rest_framework.response",
+      "name": "Response",
+      "model": "terminal",
+      "role": "http-response",
+      "note": "HTTP response"
     }
   ]
 }

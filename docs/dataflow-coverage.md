@@ -93,6 +93,12 @@ A Python root uses the same engine contracts as TypeScript. `engine/python/srcly
 - A first-party Celery task's `delay(…)` and `apply_async(args=…, kwargs=…)` bind its parameters like a call, so a task's inputs trace back to every place that queues it, and a queued value walks into the task. The call's result is the task's handle, never its return.
 - A file or folder anchor lists a Python module's public top-level functions and classes as its exports, each one opening into its trace.
 
+- Catalog: `engine/examples/pattern-catalog/python` holds 75 everyday Python patterns (plain Python, boundaries, FastAPI, Flask, Django, DRF, SQLAlchemy, Celery, click, pandas). The first run reached 44 wanted ends, and the run after the rules below reaches 64.
+- A `yield` or `yield from` leaves a generator as a return does, and the yield of a `@contextmanager` function reaches the `with ... as` name.
+- An argument to a network, database or subprocess call ends at the call as an external effect.
+- A method call finds its library row through the class its receiver was built from or annotated with, or through a library base class of a first-party class. The packages do not need to be installed. New rows cover argparse, SQLAlchemy and SQLModel `Session`, pandas, Django and DRF `Response`.
+- In `x = f(x)`, the read on the right sees the earlier `x`.
+
 ## Python roots in the UI
 
 These came from the Python data-flow usability audit (`docs/research/python-dataflow-audit-2026-10/`).

@@ -1,0 +1,5 @@
+[project]
+name = "pattern-catalog-python"
+version = "0.0.0"
+description = "Everyday Python patterns, one trace each, for the data-flow engine's pattern catalog. Nothing here runs."
+requires-python = ">=3.11"

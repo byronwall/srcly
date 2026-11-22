@@ -117,6 +117,8 @@ def builtin_model_files() -> list[Path]:
 
 
 FASTAPI_PARAM_FUNCS = {"Query": "query", "Path": "path", "Body": "body", "Header": "header", "Cookie": "cookie", "Form": "form", "File": "file", "Depends": "dependency", "Security": "dependency"}
+# Origins whose call sends its arguments out first (a network request, a database query, a command): the arguments end there.
+SENDING_ORIGINS = {"fetch-input", "external-read"}
 FASTAPI_REQUEST_TYPES = {"Request", "WebSocket", "HTTPConnection"}
 FASTAPI_RUNTIME_TYPES = {"Response", "BackgroundTasks"}
 # Decorators that wrap a function without registering it anywhere: a function they decorate is not entered from outside.
@@ -720,6 +722,35 @@ class Program:
             return None
         return ".".join([head, *parts])
 
+    def outside(self, name: str | None) -> bool:
+        """Whether a dotted name is code outside the program (a package, the stdlib)."""
+        return bool(name) and name.split(".")[0] not in self.packages  # type: ignore[union-attr]
+
+    def inherited_name(self, name: str | None, depth: int = 0) -> str | None:
+        """
+        `app.Article.objects.create`, where first-party `Article` does not declare
+        `objects` and derives from `django.db.models.Model`: the name in that base,
+        `django.db.models.Model.objects.create`. Null when no prefix is such a class.
+        """
+        if not name or depth > 8:
+            return None
+        parts = name.split(".")
+        for cut in range(len(parts) - 1, 0, -1):
+            klass = self.resolve_class(".".join(parts[:cut]))
+            if klass is None:
+                continue
+            rest = parts[cut:]
+            if rest[0] in klass.fields or rest[0] in klass.methods:
+                return None
+            for base in klass.bases:
+                if self.outside(base):
+                    return ".".join([base, *rest])
+                found = self.inherited_name(".".join([base, *rest]), depth + 1)
+                if found:
+                    return found
+            return None
+        return None
+
     def resolve_function(self, name: str | None) -> FunctionInfo | None:
         if not name:
             return None
@@ -938,8 +969,7 @@ class Program:
             parameter = element_id("parameter", info.source.rel, info.source.span(param))
             for result in own_nodes(target.node, (ast.Return, ast.Yield)):
                 if getattr(result, "value", None) is not None:
-                    kind = "return" if isinstance(result, ast.Return) else "value"
-                    self.relate(info.source, element_id(kind, target.source.rel, target.source.span(result)), parameter, "return-value", detail, info.source.span(param), proof_kind="fastapi")
+                    self.relate(info.source, element_id("return", target.source.rel, target.source.span(result)), parameter, "return-value", detail, info.source.span(param), proof_kind="fastapi")
             return True
         return False
 
@@ -1051,8 +1081,12 @@ def all_params(args: ast.arguments) -> list[ast.arg]:
 
 
 def own_returns(fn: ast.AST) -> list[ast.Return]:
-    """Return statements of `fn` itself, not of functions nested in it."""
-    return own_nodes(fn, ast.Return)  # type: ignore[return-value]
+    """
+    Return statements of `fn` itself, not of functions nested in it, and its
+    `yield` and `yield from` expressions: a generator's caller receives what it
+    yields, and a `@contextmanager` binds the yielded value to `with … as`.
+    """
+    return own_nodes(fn, (ast.Return, ast.Yield, ast.YieldFrom))  # type: ignore[return-value]
 
 
 def own_nodes(fn: ast.AST, kinds: type | tuple[type, ...]) -> list[ast.AST]:
@@ -1158,6 +1192,8 @@ class BodyWalker:
         self.inner_scopes: list[Scope] = []
         self.straight: dict[str, bool] = {}
         self.owner = function.entry_id if function else None
+        # Names bound to an instance of a class by import, where the checker has no type: `session = Session(engine)`, `frame: pd.DataFrame`.
+        self.instances: dict[str, str] = {}
 
     # ---- helpers
 
@@ -1362,6 +1398,8 @@ class BodyWalker:
                                attributes=attributes)
         self.note(param, "arg", ty=type_text, tsrc=type_source, n=param.arg, d=1)
         self.scope.bind(param.arg, (param.lineno, param.col_offset), element)
+        if param.annotation is not None:
+            self.note_instance(ast.Name(id=param.arg), param.annotation)
         self.annotated_use(param, element)
         if info is not None and info.route is not None:
             self.request_origin(param, element, info)
@@ -1461,6 +1499,7 @@ class BodyWalker:
                 return
             for target in node.targets:
                 self.bind(target, value, node.value, "carrier")
+                self.note_instance(target, node.value)
             return
         if isinstance(node, ast.AnnAssign):
             value = self.expr(node.value) if node.value is not None else None
@@ -1519,6 +1558,8 @@ class BodyWalker:
                 value = self.expr(item.context_expr)
                 if item.optional_vars is not None:
                     self.bind(item.optional_vars, value, item.context_expr, "carrier")
+                    # `with Session(engine) as session`: the class's `__enter__` gives the instance, as these classes do.
+                    self.note_instance(item.optional_vars, item.context_expr)
             self.walk_body(node.body)
             return
         if isinstance(node, (ast.Try, getattr(ast, "TryStar", ast.Try))):
@@ -1553,6 +1594,28 @@ class BodyWalker:
             return
         # Import, Global, Nonlocal, Pass, Break, Continue: no values move.
 
+    def note_instance(self, target: ast.expr, made_by: ast.AST | None) -> None:
+        """
+        Remember that `target` names an instance of an imported class when `made_by`
+        constructs one (`Session(engine)`) or annotates one (`pd.DataFrame`): a class
+        name by convention starts with a capital. Any other binding forgets it.
+        """
+        if not isinstance(target, ast.Name):
+            return
+        node = made_by.func if isinstance(made_by, ast.Call) else made_by
+        name = self.program.dotted(self.source, strip_optional(node)) if isinstance(node, (ast.Name, ast.Attribute, ast.Subscript)) else None
+        if name and name.rsplit(".", 1)[-1][:1].isupper() and (self.program.outside(name) or self.program.resolve_class(name) is not None):
+            self.instances[target.id] = name
+        else:
+            self.instances.pop(target.id, None)
+
+    def instance_method(self, node: ast.Call) -> str | None:
+        """`session.add(…)` on a name `note_instance` saw constructed or annotated: the method's name on that class."""
+        func = node.func
+        if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.value.id in self.instances:
+            return f"{self.instances[func.value.id]}.{func.attr}"
+        return None
+
     def bind(self, target: ast.expr, value: str | None, value_node: ast.AST, kind: str, *, alias_kind: str = "alias", annotation: ast.expr | None = None) -> str | None:
         if isinstance(target, ast.Name):
             type_text, type_source = self.type_of(target)
@@ -1563,7 +1626,12 @@ class BodyWalker:
             alias = self.element(alias_kind, target, target.id, type_text=type_text, type_source=type_source, proof=proof, operation="alias" if alias_kind == "alias" else None,
                                  attributes={"name": target.id} if alias_kind == "parameter" else None)
             self.note(target, "Name", ty=type_text, tsrc=type_source, n=target.id, d=1, f=[list(self.span(value_node).values())] if value_node is not target else None)
-            self.scope.bind(target.id, (target.lineno, target.col_offset), alias)
+            # The binding takes effect after its value is read: in `frame = frame.dropna()`, the read sees the earlier `frame`.
+            position = (target.lineno, target.col_offset)
+            end = (getattr(value_node, "end_lineno", None), getattr(value_node, "end_col_offset", None))
+            if value_node is not target and end[0] is not None and end[1] is not None:
+                position = max(position, (end[0], end[1]))
+            self.scope.bind(target.id, position, alias)
             words = {"carrier": f"assigned to `{target.id}`", "for-element": f"each item of {clip(self.source.segment(value_node), 40)} becomes `{target.id}`"}
             self.relate(value, alias, kind, words.get(kind, kind), target)
             return alias
@@ -1798,6 +1866,26 @@ class BodyWalker:
         value = self.expr(node.value)
         return self.bind(node.target, value, node.value, "carrier")
 
+    def expr_Yield(self, node: ast.Yield | ast.YieldFrom) -> str | None:
+        """
+        A yielded value leaves the generator as a return does (`own_returns`). The
+        `yield` expression itself evaluates to what the caller sends, which this
+        code does not see: it carries nothing.
+        """
+        if node.value is None:
+            return None
+        value = self.expr(node.value)
+        if isinstance(node, ast.YieldFrom):
+            # `yield from inner()` yields each item of `inner()`, whose items are its own yields.
+            detail = f"yields each item of {clip(self.source.segment(node.value), 40)}"
+        else:
+            detail = f"yielded from {self.function.qualname if self.function else 'the module'}"
+        ret = self.element("return-expression", None, self.source.segment(node), span=self.span(node), id_kind="return")
+        self.relate(value, ret, "return-expression", detail, node.value)
+        return None
+
+    expr_YieldFrom = expr_Yield
+
     def expr_Starred(self, node: ast.Starred) -> str | None:
         return self.expr(node.value)
 
@@ -1930,7 +2018,7 @@ class BodyWalker:
             return self.queue_task(task, node)
         callee_text = source.segment(node.func)
         checked = self.program.checked.callees.get(source.rel, {}).get(span_key(span))
-        dotted = self.program.dotted(source, node.func)
+        dotted = self.program.dotted(source, node.func) or (None if checked else self.instance_method(node))
         target_name = checked or dotted
         function = self.program.resolve_function(target_name) or self.method_target(node)
         klass = None if function else self.program.resolve_class(target_name)
@@ -1951,6 +2039,9 @@ class BodyWalker:
 
         # mypy's name first; the import's name when mypy has none (a package that is not installed) or names no row.
         by_import = MODELS.call(dotted) if dotted and dotted != target_name else None
+        if by_import is None and not checked and self.program.inherited_name(dotted):
+            # A method or manager the first-party class inherits from a library base: `Article.objects.create`.
+            by_import = MODELS.call(self.program.inherited_name(dotted))
         recognized = MODELS.call(target_name) or by_import
         if recognized is not None and by_import is not None and by_import is not recognized:
             # The row the import's name also matches, kept so a test can see that every row resolves somewhere.
@@ -1963,8 +2054,19 @@ class BodyWalker:
                                    proof={"kind": proof_kind, "detail": proof_name or callee_text, "locations": [source.location(span)]},
                                    attributes={**attributes, "callee": target_name or callee_text})
             self.note(node, "Call")
+            sent = None
+            if kind in SENDING_ORIGINS:
+                # A request, a query or a command takes its arguments out of the program: they end in that effect,
+                # and the call's result is the other side's answer, an origin of its own.
+                sent = self.element("external-effect", node, f"sent: {clip(source.segment(node), 80)}", suffix="sent",
+                                    proof={"kind": proof_kind, "detail": proof_name or callee_text, "locations": [source.location(span)]},
+                                    attributes={"libraryModel": attributes.get("libraryModel"), "callee": target_name or callee_text})
             for child, value in inputs:
-                self.relate(value, element, "call-input", f"handed to {callee_text}", child)
+                if sent is not None and child is not node.func:
+                    self.relate(value, sent, "call-input", f"sent by {callee_text}", child)
+                else:
+                    self.relate(value, element, "call-input", f"handed to {callee_text}", child)
+            self.keyword_fields(node, callee_text, element, keywords)
             return element
 
         if function is not None or klass is not None:
@@ -2037,12 +2139,15 @@ class BodyWalker:
                 self.relate(value, element, "call-input", f"handed to the built-in {callee_text}; its result derives from it", child, status="partial", proof_kind="host-api")
             else:
                 self.relate(value, element, "call-input", f"handed to {callee_text}, outside the program; its result is assumed to carry it", child, status="partial", proof_kind="external-call")
+        self.keyword_fields(node, callee_text, element, keywords)
+        return element
+
+    def keyword_fields(self, node: ast.Call, callee_text: str, element: str, keywords: list[tuple[ast.keyword, str | None]]) -> None:
         model = self.keyword_model(node)
         if model is not None:
             # `Article.objects.create(title=…)` builds an Article: a use of the class, and each keyword sets its field.
             self.relate(element, model.entry_id, "definition", f"{callee_text} creates {model.qualname}", node.func, proof_kind="syntax")
             self.bind_fields(model, [], [(kw, value or self.literal(kw.value)) for kw, value in keywords])
-        return element
 
     def keyword_model(self, node: ast.Call) -> ClassInfo | None:
         """The first-party model a manager call (`Model.objects.create(…)`, `MODEL_KEYWORD_CALLS`) builds from keyword arguments."""
