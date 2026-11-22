@@ -62,6 +62,21 @@ The Zod schemas in `engine/src/srcly/contracts/` are the source of truth. `pnpm 
 
 The last result per root is saved on disk. The app colors the treemap and marks code-viewer lines from it while the file is unchanged. The app never starts tier 2 itself.
 
+## Library models
+
+What a library does is data: rows in `engine/models/*.json`, checked against `engine/models/library-models.schema.json`. The engine names no framework in code. The research behind this is in `docs/research/dataflow-library-models-2026-11/README.md`.
+
+- A row names a member the checker resolves (a module and export, or `Type.method`) and one of nine models: `origin`, `terminal`, `passes-through`, `consumes`, `calls-back`, `wraps`, `cell`, `slot` and `keyed`.
+- Rows say where values go with access paths (`Argument[0].Member[queryFn].ReturnValue -> ReturnValue.Member[data]`), as CodeQL's models-as-data write them. One emitter reads them.
+- A `cell` (`createSignal`, zustand's `create`) makes one state per call. A cell made inside a function keeps one state per call of that function. A step the walk cannot pin to one call is assumed, never `ok`.
+- A `keyed` store (a context, the query cache, `localStorage`) joins a write and a read under one key. A constant key joins as modelled; a computed key joins as assumed.
+- A `slot` is a JSX component that calls a function it is given (`<For each>`).
+- A package call that no row names is an assumed effect. Where its generic signature ties an argument or a callback's return to the result, the engine proposes that path as a `type-signature` hint: assumed, never `ok`.
+- Labels come from rows too: `state` (what a binding's state is), `scopes` (a handed function's scope role, `fetcher` or `server`) and `input: "url"` (a router hook that reads the URL). A framework call is one a row names.
+- The scan Program holds no dependency JavaScript. Reading library source inside the scan erased user types and doubled the heap. Library source can only inform rows written offline.
+
+To support a library, add rows. If a library needs a new shape, add the shape to the schema and one reader, never a rule that names the package. `AGENTS.md` (Engine) has the intake steps.
+
 ## Decisions
 
 | Decision | Choice | What would change it |
