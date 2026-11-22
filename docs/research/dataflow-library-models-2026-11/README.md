@@ -1,0 +1,207 @@
+# Library-specific code in the data-flow engine
+
+Byron's question: "I am worried that extending this to cover more patterns requires adding huge amounts of custom code for every library that is supported. Can we do better?"
+
+Short answer: yes. Most library knowledge is already data (286 rows in `engine/models/*.json`). The cost does not come from the rows. It comes from the row vocabulary: each new library shape adds a new row field, a new TypeScript reader, and a new emitter. A fixed vocabulary of access paths, plus flow edges that the libraries' own `.d.ts` generics propose, would make most new library support rows-only. Two engine concepts (a state cell and a component slot) would absorb the imperative code that remains.
+
+Read on `origin/main` at `40cd9a68` (after #417 and #418), 2026-11-22. No engine file changed. The spike scripts and their raw output are outside the repo, in the session notes folder `lib-model-audit/`.
+
+## 1. Inventory
+
+### Declarative rows
+
+| File | Rows | Libraries | What the rows encode |
+| --- | ---: | --- | --- |
+| `engine/models/python.json` | 128 | stdlib, logging, requests, httpx, sqlalchemy, sqlmodel, django, flask, starlette, pandas, rest_framework | 60 origins, 61 terminals, 7 pass-throughs |
+| `engine/models/ecmascript.json` | 48 | TypeScript `lib.*.d.ts` | 30 `calls-back` (`map`, `then`, timers), 18 `consumes` |
+| `engine/models/solid.json` | 38 | solid-js, solid-js/store, @solidjs/router, @tanstack/solid-query, @solid-primitives | 12 `calls-back`, 10 `wraps`, 5 query options, 5 pass-throughs, 2 state pairs, 2 terminals |
+| `engine/models/node.json` | 35 | node:fs, http, https, globals | 18 origins, 17 terminals |
+| `engine/models/web.json` | 17 | DOM lib, globals | 14 `consumes`, 2 origins, 1 terminal |
+| `engine/models/react.json` | 14 | react, @tanstack/react-query, zustand | 4 query options, 3 `wraps`, 3 `calls-back`, 2 state pairs, 1 store, 1 pass-through |
+| `engine/models/utilities.json` | 6 | lodash, lodash-es, lodash.debounce, lodash.throttle | 6 `wraps` |
+| **All** | **286** | | **161 origin or terminal rows (56%)** |
+
+Rows cost little: about 1 to 4 JSON lines each, with a `note`. The 121 Python origin and terminal rows show the good case. #403 added 368 row lines and closed most of the Python catalog's boundary patterns with no new engine code.
+
+### The row vocabulary
+
+The schema (`engine/models/library-models.schema.json`, `engine/src/analysis/library-models.ts`, 171 lines) has 9 models and 20 fields. Usage is very uneven:
+
+| Field | Rows that use it |
+| --- | ---: |
+| `role` | 161 |
+| `returns` | 44 |
+| `args` | 43 |
+| `parameters` | 27 |
+| `option` | 9 |
+| `writes` | 8 |
+| `accessor` | 7 |
+| `source` | 6 |
+| `settles` | 4 |
+| `hands`, `field` | 3 each |
+| `selector`, `result`, `observers` | 2 each |
+| `with`, `lazy`, `contextFrom` | 1 each |
+
+Nine fields serve 3 rows or fewer. Each one has its own reader in `engine/src/analysis/framework-flows.ts` (146 lines, 17 exported readers) and its own emitter in the collector. The `store` model has 1 row (`zustand.create`) and 70 lines of emitter (`connectStores`, `storeMethod`).
+
+### Imperative TypeScript
+
+An AST scan of `engine/src` found 114 functions and top-level constants that name a package, a framework API as a string literal, or call a row reader. They hold 2,714 lines. The count is an upper bound: a large function counts in full when one line names a library (`processJsx`, 130 lines; `processVariable`, 116 lines).
+
+| Area | Lines | Functions |
+| --- | ---: | ---: |
+| Trace path (`program-evidence-*`, `value-origin.ts`, `framework-flows.ts`, `library-models.ts`, `srcly/`) | 1,228 | 65 |
+| Legacy route report (`route-*`, `solid-route-*`, `scope-adapters/`, `repeated-forks/`, `semantic-context.ts`, `reports/`) | 1,470 | 48 |
+
+The legacy route report is SolidStart-specific by design (about 16,000 lines in `route-*` and `solid-*` files). It is not on the trace path that the catalog grades. This study leaves it out.
+
+The trace-path code, by library, without the large functions that only mention one name:
+
+| Library | Lines | Code | What it encodes |
+| --- | ---: | --- | --- |
+| Solid JSX components and props | 210 | `connectSolidFor` (82), `connectSolidShow` (46), `propsViews` (`splitProps`, `mergeProps`, 43), `isSolidShow`, `isSolidComponent`, `dynamicComponent` | The framework calls a child or attribute function with a value (`<For each>`, `<Show when>`); props pass through |
+| Solid `createResource` | 140 | `transportCandidates` (99), `collectResourceResultCarriers` (29), `resourceFlow`, `isResourceFactory` | A loader's return becomes a cell that an accessor reads |
+| React and Solid context | 107 | `contextMethodBinding`, `connectContexts`, `contextMethod`, `collectContextRead`, `contextKey`, `readsContext`, `providedContext`, `derivedStateMember` | A provider's value reaches each `useContext` read |
+| React Query and Solid Query options | 85 | `connectOptionLifecycle` (47), `connectOptionFlows` (29), `optionProperty` | An options key's function return becomes a result field; observers get the result |
+| zustand | 70 | `connectStores` (45), `storeMethod` (25) | A creator's return and its `set` writes become a store that a selector reads |
+| State pairs (React and Solid) | 33 | `program-evidence-state-pairs.ts` | Setter writes reach getter reads |
+| Shared row readers and emitters | about 300 | `framework-flows.ts`, `connectFrameworkFlow`, `connectPromiseChannels`, `value-origin.ts` readers, `accessorProp` | Turns a row's fields into relations |
+| Name lists | about 60 | `FRAMEWORK_CALLS`, `STATE_CALLS` and `FRAMEWORK_PACKAGE` (`srcly/typescript-host.ts`), `URL_READS`, `FETCHER_CALLS`, `SERVER_WRAPPERS` (`srcly/scope-roles.ts`) | Names that duplicate rows, for labels and scope roles |
+
+### Imperative Python
+
+`engine/python/srcly_pyfacts.py` (2,850 lines) holds about 300 lines of framework code: FastAPI and Flask route discovery (`route_of`, 59), FastAPI parameter binding (`fastapi_binding`, `fastapi_markers`, about 60), about 40 lines of tables (`FASTAPI_*`, `MODEL_BASES`, `SETTINGS_BASES`, Django manager calls, `QUERY_RESULT_*`, `FORWARDING_CALLS`), and about 140 lines of uses spread through the walker. Its origins and terminals are already rows.
+
+## 2. Shapes
+
+What every row and every imperative rule says fits 10 shapes. The first 6 are value summaries: a fact about one call. The last 4 relate several program points.
+
+| # | Shape | Example | Rows | Imperative code |
+| --- | --- | --- | ---: | --- |
+| 1 | **Origin**: the result is where a value enters | `os.getenv`, `fs.readFile` | 81 | none |
+| 2 | **Terminal**: an argument leaves the program | `print`, `res.send`, `useNavigate()(…)` | 80 | none |
+| 3 | **Pass-through**: the result derives from arguments or the receiver | `trim`, `unwrap`, `useDeferredValue` | 13 | none |
+| 4 | **Consumes**: arguments are used; the result is unrelated, or the receiver keeps them | `push`, `Map.set` | 32 | none |
+| 5 | **Callback**: argument N reaches callback parameter M, and/or the callback's return is the result | `map`, `then`, `createMemo`, `on(src, fn)`, `useEffect` | 47 | `connectPromiseChannels`, readers |
+| 6 | **Wraps**: the result is a function that runs argument N | `useCallback`, `debounce`, `action` | 19 | readers in `value-origin.ts` |
+| 7 | **Option path**: an options key's function return becomes a result field | `useQuery({ queryFn })` → `data` | 9 | 85 lines |
+| 8 | **Cell**: writes through one handle reach reads through another | `createSignal`, `useReducer`, zustand `create`, `createResource` | 5 | about 245 lines |
+| 9 | **Component slot**: the framework calls a JSX attribute or child function with a value | `<For each>`, `<Show when>`, `<Dynamic>`, `<ErrorBoundary fallback>` | 0 | about 210 lines |
+| 10 | **Context**: a provided value reaches every read below it | `useContext` | 0 | 107 lines |
+
+Shapes 1 to 6 hold 272 of the 286 rows (95%) and almost no library-specific code. Shapes 7 to 10 hold 14 rows and about 650 lines of imperative TypeScript. That is where per-library cost grows.
+
+## 3. Growth
+
+Lines added per recent catalog PR, by area. "Engine TS" includes general rules, not only library code.
+
+| PR | Rows | Row readers | Python helper | Engine TS | Fixtures |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| #418 Python scope, closures, partial, library rows | 49 | 0 | 411 | 0 | 0 |
+| #417 props across spread, lazy, HOC, Dynamic | 0 | 0 | 0 | 273 | 113 |
+| #405 a hook's result holds only what its row names | 54 | 64 | 0 | 75 | 61 |
+| #404 58 Solid patterns, router ends, model rows | 57 | 10 | 0 | 90 | 118 |
+| #403 Python catalog and five Python rules | 368 | 0 | 113 | 0 | 0 |
+| #336 a query's data holds the fetched value | 8 | 18 | 0 | 49 | 49 |
+| #331 standard callback parameters by role | 356 | 14 | 0 | 48 | 6 |
+| #328 a promise's outcomes on separate channels | 32 | 24 | 0 | 82 | 95 |
+| #319 each Solid call its own kind of result | 14 | 33 | 0 | 48 | 67 |
+| #318 a React effect has no value | 4 | 15 | 0 | 42 | 38 |
+| #304 trace a value through a zustand store | 7 | 9 | 0 | 98 | 15 |
+| #276 framework calls are library-model rows | 432 | 80 | 0 | 30 | 0 |
+
+Two patterns show:
+
+- Where a library step fits shapes 1 to 6, the fix is rows. #403 and #331 added more than 350 row lines each and little code.
+- Where a step needs a new field or shape 7 to 10, each pattern costs 40 to 100 lines of reader and emitter code. zustand (#304) took 98 lines for 1 pattern. React Query took #250, #318, #336 and #405.
+
+### What the open workers plan
+
+The three parked diagnoses (`zustand`, `react-query`, `solid-router`) cover 25 catalog patterns:
+
+| Kind of fix | Patterns | Examples |
+| --- | ---: | --- |
+| General rule, no library name | 9 | destructured hook result, context through a custom hook, `this` in a store getter, `createRoot` return pairing, JSX child as `children` |
+| Catalog anchor or `@want` fix | 4 | `q-closure` re-anchor, `s-index`, `s-filter-memo` |
+| Rows only, in today's vocabulary | 5 | `indexArray`, `QueryClient` methods (about 11 rows) |
+| New field or model | 3 | `useSubmission` (new `submission` model), `with: accessor-element`, `returns: parameter` |
+| Imperative library code | 4 | zustand middleware, slices and `getState`/`setState`; resource `mutate`/`refetch` |
+
+Two workers already reach for types. The zustand plan finds middleware by the `StateCreator` alias in the signature, not by a name list. The React Query plan reads a library class method's package from its `.d.ts` path. Both are type-driven rules, but each is written for one library.
+
+## 4. Spike: what the `.d.ts` generics already say
+
+`typeshape.cjs` (in the notes folder) builds a small Program that imports every module the TypeScript rows name, from a real app's `node_modules` (family-finances for React, bible-daily for Solid). For each export's call signatures it reports:
+
+- `returns:N`: argument N is a function whose return type uses a type parameter that the call's return type also uses (`createMemo<T>(fn: () => T): Accessor<T>`).
+- `wraps:N` or `passes:N`: argument N's type is a type parameter that the return type uses (`useCallback<T>(cb: T): T`).
+- `source:K->N.M`: argument K and callback N's parameter M share a type parameter.
+- `effect:N`: the call returns `void` and takes a function at N.
+- `option:N.key`: a function-typed key of an options argument ties its return to the result.
+
+It does not build a Program on a repo; it reads only library types.
+
+### Rows the types imply
+
+| Result | Rows | Which |
+| --- | ---: | --- |
+| Types imply the whole row | 25 | `useMemo`, `useDeferredValue`, `useEffect`, `useLayoutEffect`, `useCallback`, `memo`, `createMemo`, `createDeferred`, `createRoot`, `untrack`, `batch`, `mergeProps`, `createEffect`, `createRenderEffect`, `createComputed`, `onMount`, `onCleanup`, `unwrap`, `createMutable`, `createAsync`, `createAsyncStore`, `query`, `cache`, `action`, `useAction` |
+| Types imply part; a cell or option row still needed | 12 | `useState`, `createSignal`, `createStore`, `useReducer` (initial value only, not setter → getter); zustand `create` (creator return only); `mapArray`, `on` (return, not source); the 4 React Query hooks (`queryFn` among 4 to 5 candidate keys); `forwardRef` |
+| Types imply nothing useful | 10 | `createSelector`, `children`, `splitProps`, `useNavigate`, `useSearchParams` (terminals), the 5 Solid Query hooks (options come from an accessor) |
+| Not resolved (no types installed) | 11 | `@solid-primitives/*`, `lodash*` |
+
+So 25 of 47 resolved rows (53%) are redundant with the types, and 12 more (26%) are partly redundant.
+
+### Exports with no row
+
+Of 146 callable exports in these modules with no row, 57 show a type flow. Spot checks:
+
+- Right, and useful: `indexArray` (the open `s-index-array` gap), `useSyncExternalStore`, `catchError`, `runWithOwner`, `reconcile`, zustand `useStore`, `useRef`, `createElement`.
+- Wrong: `useContext` in React and in Solid. `useContext<T>(ctx: Context<T>): T` ties the result's type to the argument, but the value comes from the nearest provider, not from the default in `createContext`. `useSubmission` is half right: its `result` holds the action's awaited return, but the type ties the whole result to the action.
+- Too wide: the option scan finds `queryFn`, but also `select`, `placeholderData`, `initialData` and `structuralSharing`, and on Solid Query every `QueryClient` method. Some of those do feed `data`; some do not.
+
+The key result for honesty: **a shared type parameter proves the same type, not the same value.** About 1 in 20 type flows is false, and `useContext` is a common call. A type-inferred step can make a trace's path right. It must never make the outcome `ok` by itself.
+
+## 5. Options
+
+Scores: coverage is patterns that work with no new row; risk is the chance of a false `ok`; deletion is existing code removed; residue is what still needs a hand row or code.
+
+| Option | Coverage without new rows | False-`ok` risk | Code deleted | Residue |
+| --- | --- | --- | --- | --- |
+| **A. Access-path vocabulary.** Replace the 20 ad hoc fields with CodeQL-style paths: `Argument[0].ReturnValue → ReturnValue`, `Argument[1] → Argument[0].Parameter[0]`, `Argument[0].Member[queryFn].ReturnValue → ReturnValue.Member[data]`. One emitter interprets every path. | Same as today; new libraries in shapes 1 to 7 become rows-only | None: a row is still a claim a person reviewed | `framework-flows.ts` readers (about 110 of 146), option emitters (85), `connectFrameworkFlow`, row-specific branches in `value-origin.ts`; about 250 lines, offset by a path emitter of about 100 | Shapes 8 to 10 |
+| **B. Type-proposed flow.** Derive candidate paths from generics at each unmodelled library call. Emit them with a new proof kind (`type-signature`, strength `assumed`). | High: the 25 implied rows, plus `indexArray`, `useSyncExternalStore` and other unrowed exports, gain the right path | Low if the strength stays `assumed`; about 5% of proposals are false paths | None at first. Each implied row becomes a 1-line confirmation; its shape fields go | Terminals, origins, cells, slots, context, and choosing among option keys |
+| **C. Summaries from `node_modules` JS.** Analyse library code and cache a summary per package version. | Medium for small utilities (lodash, debounce); low for React, Solid and zustand, whose behaviour lives in a scheduler or a runtime | Medium: dynamic code and bundles defeat the analysis; a wrong summary looks proven | None | Every framework; plus memory cost on top of a 2 to 3 GB Program |
+| **D. Wider default rule.** Treat every unmodelled package call as an `assumed` pass-through of all arguments. | Already true for dropped calls (`connectExternalCall`) and library-typed callees (`isExternalCall`) | None (stays `assumed`) | None | Gives wrong ends: the React Query diagnosis shows `getQueryData` ending at the key literal, not the cache |
+| **E. Generated rows for review.** A script prints proposed rows for a package from its types, or from the stops a survey reports. | Same as B, but only after a person merges the rows | None: a person reviews each row | None | Review time per package |
+| **F. Cell and slot concepts.** Two engine concepts with row shapes: a *cell* (a call makes a value; named handles write it; named handles read it) and a *slot* (the framework calls a component's attribute or child function with named values). | zustand, signals, stores, reducers, resources, `useSubmission` and `mutate`/`refetch` become cell rows; `For`, `Index`, `Show`, `Dynamic`, `ErrorBoundary`, `Suspense` become slot rows | None: rows are claims | Most of the 245 cell lines and 210 slot lines, offset by two emitters of about 150 lines together | Context (shape 10) stays code; it is one rule for both frameworks |
+
+### Recommendation
+
+Do A, B and F, in that order, and use E as B's review tool. Skip C for now.
+
+- **A** stops vocabulary growth. Every new library step that fits shapes 1 to 7 becomes data.
+- **B** makes unmodelled libraries trace along the right path, so a trace reaches its real end with an honest `assumed`. A 1-line confirmation row then promotes a proposal to `ok`. Types propose; rows confirm.
+- **F** turns the remaining per-library emitters into two general ones.
+
+After all three, a new library costs rows only, unless it adds a genuinely new shape. Shape 10 (context) and the Python FastAPI binding stay code, because they are rules about program structure, not library members.
+
+## 6. Migration plan
+
+Each stage is one PR. Each must keep `engine/test/srcly/fixture-annotations.test.ts` green and run `cd engine && pnpm survey-gate`. Run the pattern catalog (`node --import tsx scripts/pattern-catalog.ts`) before and after, and diff it.
+
+| Stage | Change | Deletes | Proof of no regression |
+| --- | --- | --- | --- |
+| 1 | Add a `flows` field (access paths) to the schema. Write a converter from today's fields to paths. Add a test that, for every built-in row, the old readers and the path reader give the same answer. | Nothing yet | The equivalence test over all 286 rows; survey gate with no moves |
+| 2 | One path emitter in the collector. Rows carry `flows` only. | The ad hoc fields, most of `framework-flows.ts`, `connectOptionFlows`, `connectOptionLifecycle`, `connectFrameworkFlow` | Survey gate: no moves. Catalog: same ends for every trace |
+| 3 | Cell shape: `{ model: "cell", writes: [...paths], reads: [...paths] }`. Move `createSignal`, `useState`, `createStore`, `useReducer`, zustand `create`, `createResource` onto it. | `connectStores`, `storeMethod`, most of `program-evidence-state-pairs.ts`, `collectResourceResultCarriers` | Survey gate: no moves. The existing state, store, reducer and resource fixtures pass unchanged. Then add `useSubmission` and `mutate`/`refetch` as rows, with the negative cases the Solid diagnosis lists |
+| 4 | Slot shape for JSX components. Move `For`, `Index`, `Show`, `Dynamic`; add `ErrorBoundary` and `Suspense`. | `connectSolidFor`, `connectSolidShow`, `isSolidShow`, `isSolidComponent`, `dynamicComponent` | Survey gate: no moves for the moved components. `solid-render-callbacks.tsx` fixtures pass unchanged |
+| 5 | Type proposals. At an unmodelled call into a package, derive paths from the signature. Emit them with proof `type-signature` (a `PROOF_TRAITS` entry in `kinds.ts`, strength `assumed`). | Nothing | Survey gate: the `ok` list must not grow from this stage alone; the PR explains moves in `assumed` ends. Negative fixture: a `useContext` default never reaches the read. Negative fixture: a non-generic `(fn) => fn` shape gets no proposal |
+| 6 | `pnpm models-propose <package>` prints proposed rows from types. Replace each implied row with a 1-line confirmation (`{ module, name, confirm: "types" }`). | The shape fields of about 25 rows | Survey gate: no moves (a confirmation must give the same edges as the row it replaces) |
+| 7 | Drop name lists that duplicate rows: `FRAMEWORK_CALLS`, `STATE_CALLS`, `FETCHER_CALLS`, `SERVER_WRAPPERS`. Read the row's model instead. | About 60 lines | Survey gate; scope-role tests |
+
+**First step:** stage 1. It changes no behaviour, it is small, and its equivalence test pins every row before stage 2 rewrites the readers. Hold it until tonight's zustand, React Query and Solid workers merge, because they edit the same readers.
+
+## 7. Open questions
+
+- Should a type proposal (stage 5) show in the UI as its own kind of `assumed` step ("follows the types")? It gives a better path than an opaque library step, but the outcome stays `assumed`. This study assumes yes; it needs no product decision before stage 1.
+- The legacy route report (about 16,000 SolidStart-specific lines) is outside this study. If it is retired, the library-specific line count roughly halves.
