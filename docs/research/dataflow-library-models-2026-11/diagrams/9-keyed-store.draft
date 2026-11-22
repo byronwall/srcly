@@ -1,0 +1,44 @@
+diagram "One keyed-store rule for context and caches"
+subtitle "A write and a read join on the same store and key"
+
+node ctx "Context (React or Solid)" shape=code lang=ts <<TS
+<Cart.Provider value={liveCart}>          
+...
+const cart = useContext(Cart);            
+TS
+range ctx.w lines=1 color=amber
+range ctx.r lines=3 color=violet
+
+node q "React Query cache" shape=code lang=ts <<TS
+client.setQueryData(["user", 7], saved);          
+...
+const prev = client.getQueryData(["user", 7]);    
+client.invalidateQueries({ queryKey: ["user", 7] });
+TS
+range q.w lines=1 color=amber "write"
+range q.r lines=3 color=violet "read"
+
+node computed "Computed key: may differ" shape=code lang=ts <<TS
+client.setQueryData(["user", props.id], saved);                
+const prev = client.getQueryData(["user", otherId]);
+TS
+range computed.both lines=1-2 color=orange
+
+node s_ctx "store: Cart context" color=slate shape=pill
+node s_q "store: query cache\nkey [user, 7]" color=slate shape=pill
+node s_maybe "assumed join\nnever ok" color=orange
+
+edge a ctx.w -> s_ctx
+edge b s_ctx -> ctx.r
+edge c q.w -> s_q
+edge d s_q -> q.r
+edge e computed.both -> s_maybe
+
+note "Also fits localStorage, event emitters and a module-level Map (the open v-map-set gap)." near=s_q side=right
+
+legend amber "Write"
+legend violet "Read"
+legend slate "Joined store (proven)"
+legend orange "Join the key cannot prove"
+
+layout root flow gap=44 fit=slide

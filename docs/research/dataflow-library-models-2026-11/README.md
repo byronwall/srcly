@@ -8,6 +8,30 @@ Read on `origin/main` at `40cd9a68` (after #417 and #418), 2026-11-22. No engine
 
 ![Where library knowledge lives today](diagrams/1-where-library-code-lives.png)
 
+## Worked examples
+
+These five pictures show the scope on real code. Read them before the numbers.
+
+**What "custom code per library" means.** A Python `os.getenv` call needs one JSON row. A zustand store needs one row that only switches on 70 lines of TypeScript. Every hard library today looks like the right side.
+
+![One row versus seventy lines](diagrams/5-one-row-vs-seventy-lines.png)
+
+**Why the hard ones are hard.** The engine must invent a node that no line of code names (the store's state), then join every `set(...)` write to every selector read. The proposed cell row says the same thing as data. The same row shape covers `createSignal`, `useState`, `useReducer`, `createStore` and `createResource`.
+
+![What the engine must prove for a store](diagrams/6-what-a-store-needs.png)
+
+**How the vocabulary grows.** Today a row for a new library often needs a new field (`option`, `field`, `selector`, `hands`), and each field needs its own reader and emitter. With access paths, the same facts are a list of strings that one emitter reads.
+
+![Access paths replace one-off fields](diagrams/7-access-paths.png)
+
+**What the types can and cannot do.** `useMemo` and `indexArray` say in their signatures that the callback's return becomes the result, so no row is needed to find the path. `useContext` says the result has the default value's type, but the value comes from the nearest provider. So a type-proposed step stays `assumed`.
+
+![What the .d.ts types already say](diagrams/8-what-types-say.png)
+
+**One rule for context and caches.** Context, the React Query cache, `localStorage` and event emitters all write a value under a key and read it back elsewhere. One keyed-store rule joins them. A key that the code computes cannot prove the join, so it stays `assumed`.
+
+![One keyed-store rule for context and caches](diagrams/9-keyed-store.png)
+
 ## 1. Inventory
 
 ### Declarative rows
