@@ -32,15 +32,30 @@ A separate review (Fable 5.2, read-only; full text in the notes folder as `lib-m
 **Inline test result: fail, so the source route is shelved.** A separate session copied zustand 4.5.7's code in as user code (typed `.tsx` app, untyped `.js` library, two stores) and traced it with no zustand row. Full report: `lib-model-audit/inline-test.md` in the notes folder.
 
 - Store A's `set` never reaches store A's selector or render. No trace enters `vanilla.js`.
-- It needed 6 changes: 5 new rules and 1 fix. Stop 3 (resolving an `any`-typed callee by value flow) is JavaScript-only; it buys nothing in typed code. Both kill conditions hold.
+- It needed 6 changes: 5 new rules and 1 fix. The test reported stop 3 (resolving an `any`-typed callee by value flow) as JavaScript-only; the second review below disproves that.
 - Stop 2 (one closure state per factory call) is large, and every other rule is unsafe without it.
 
-It also found two false `ok`s in today's engine, in typed code, unrelated to libraries:
+A second review (Fable 5.2, read-only) re-ran every trace and found the same outputs. It keeps the conclusion but corrects the evidence:
 
-1. `functionNameNode` (`engine/src/analysis/program-evidence-support.ts:32`) names `fn` as `X` for every `const X = call(fn)`, not only for identity wrappers. A selector then gets the handler's argument, with a `proven` edge.
-2. Two calls of one factory share a closure: `makeReader(aval).read()` and `makeReader(bval).read()` both reach both terminals, with outcome `ok`. The `closures.ts` fixture has one factory call, so the gate never sees it.
+- Every anchor sat in the app, so no trace entered `vanilla.js`. Stops 2 and 5 were predicted from reading the code, not observed.
+- Stop 3 is not JavaScript-only: a typed interface member (`h.onSave(v)`) has a signature but no body, and stops the same way. Stop 5 already exists for typed callbacks; in JavaScript it is part of stop 3. So, by the letter, neither kill count holds (4 new rules, none JavaScript-only).
+- The route still fails, because stop 2 (one state per call) comes before everything else and is large.
+- The test did not try zustand's `.d.ts` types together with its source bodies, so "rows win outright" overstates it. Rows win for now.
 
-**What this changes:** rows win outright. The offline row generator is not worth building now. The per-call closure rule (stop 2) is still worth building, for user code first, because it fixes false `ok` 2 and it is the cell concept in general form.
+**Four false `ok`s in today's engine** (typed user code, unrelated to libraries; all reproduced):
+
+1. **Non-identity wrappers.** `const total = compute((s) => …); total(x)` binds `x` to the callback even though `compute` returns `() => 0`. Cause: `functionNameNode` (`engine/src/analysis/program-evidence-support.ts:32`) and `bindsItsFunction`, which returns true for any callee that is not imported (`program-evidence-collector-support.ts:578-583`).
+2. **Closures shared across factory calls.** `makeReader(aval).read()` and `makeReader(bval).read()` both reach both terminals.
+3. **Class instances shared.** `new Box(cval).get()` and `new Box(dval).get()` both reach both terminals. This is by design today (`evidence-slice.ts:375`, `member-state`; closures at `:381-384`).
+4. **`Object.assign` fields.** `Object.assign({}, { a: kval }, { b: "z" })` makes `kval` reach a read of `.b`. The spread form is correct.
+
+Severity: 2 and 3 are high, because any factory or class with two instances hits them. 1 is medium: most wrappers return their argument, but selector hooks that return functions do not.
+
+**What this changes:**
+
+1. Fix the four false `ok`s first, in one honesty PR with a negative fixture for each. Where the real rule does not exist yet, downgrade to `assumed` (for example, a captured variable or field whose factory or class has more than one call site). Expect survey moves.
+2. Then build per-call contexts for user code (closures and class fields), measured by the two-instance probe. The cell row is the same concept, so this comes before the row migration.
+3. Then migration stage 1 (access paths). The source route stays shelved; re-run the inline test with anchors inside the library only after these rules exist.
 
 **Numbers that moved since the audit's base** (`40cd9a68`): 297 rows on `origin/main` (#423 added 11 React Query rows); zustand's custom code is about 226 lines (#419); `library-models.ts` is 201 lines.
 
@@ -348,7 +363,7 @@ Each stage is one PR. Each must keep `engine/test/srcly/fixture-annotations.test
 
 **Revised after review:** the cell row in stage 3 names `getState`, `setState`, `subscribe` and middleware pass-through, so `zustand-store.ts` goes too. The inline test failed, so there is no offline row generator in this plan.
 
-**First step:** fix the two false `ok`s the inline test found (each with a negative fixture), then stage 1. Stage 1 changes no behaviour, and its equivalence test pins every row before stage 2 rewrites the readers. Hold it until tonight's workers merge, because they edit the same readers.
+**First step:** fix the four false `ok`s the inline test and its review found, then build per-call contexts for user code, then stage 1. Stage 1 changes no behaviour, and its equivalence test pins every row before stage 2 rewrites the readers. Hold it until tonight's workers merge, because they edit the same readers.
 
 ## 7. Open questions
 
