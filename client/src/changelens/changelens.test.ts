@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseLocation, toSearch } from "../navigation/location";
-import { ADDED_FILL, tileLook } from "./colors";
+import { deltaColor, tileLook } from "./colors";
 import { folderLabel } from "./labels";
 import { bandRect, flooredWeights, layoutEdits, MIN_TILE_AREA, MIN_TILE_SIDE } from "./layout";
 import touched from "./fixture.json";
@@ -132,9 +132,9 @@ describe("tile state under a lens", () => {
     expect(tileLook(chunk({ status: "moved", match: "renamed-file", metrics: { complexity: { before: 5, after: 5 } } }), delta)).toMatchObject({ state: "moved", value: 0 });
   });
 
-  it("gives an added chunk its own fill in a delta lens and its value in a now lens", () => {
+  it("colors an added chunk by its value at head, as a rise from nothing in a delta lens", () => {
     const added = chunk({ status: "added", match: "none", metrics: { complexity: { before: null, after: 12 } } });
-    expect(tileLook(added, delta)).toEqual({ state: "added", fill: ADDED_FILL, value: null });
+    expect(tileLook(added, delta)).toEqual({ state: "added", fill: deltaColor(12, 10), value: 12 });
     expect(tileLook(added, now)).toMatchObject({ state: "added", value: 12 });
   });
 

@@ -3,11 +3,11 @@
 import { For, Show } from "solid-js";
 import { formatMetricValue, metricDef, metricLabel } from "../utils/metricsStore";
 import { TREEMAP_GRADIENT } from "../viz/treemap/utils/colors";
-import { ADDED_FILL, DELETED_FILL, deltaGradient, deltaSpan, NOT_MEASURED_FILL, REVERTED_FILL, STATE_GLYPH, STATE_LABEL, type Lens, type TileState } from "./colors";
+import { ADDED_OUTLINE, DELETED_FILL, deltaGradient, deltaSpan, NOT_MEASURED_FILL, REVERTED_FILL, STATE_GLYPH, STATE_LABEL, type Lens, type TileState } from "./colors";
 import type { LensLayout } from "./urlState";
 
 const STATES: { id: Exclude<TileState, "value">; fill: (lens: Lens) => string; outline?: string; hint: string }[] = [
-  { id: "added", fill: (lens) => (lens.color === "delta" ? ADDED_FILL : "var(--plc-surface-muted)"), hint: "Not in the base. A delta lens has nothing to subtract from, so it gets its own fill." },
+  { id: "added", fill: () => "var(--plc-surface-muted)", outline: ADDED_OUTLINE, hint: "Not in the base. Its color is its value at head: in a delta lens, a rise from nothing." },
   { id: "deleted", fill: () => DELETED_FILL, hint: "Not in the head. Its lines are the base's." },
   { id: "moved", fill: () => "var(--plc-surface-muted)", outline: "1px dashed rgba(15, 23, 42, 0.65)", hint: "The same symbol in another file, or in a renamed file" },
   { id: "reverted", fill: () => REVERTED_FILL, outline: "1px dashed var(--plc-on-disabled)", hint: "Changed in the window, then put back: the base and the head are equal" },
