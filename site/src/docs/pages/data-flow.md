@@ -25,7 +25,7 @@ uvx srcly report . --out .srcly --dataflow
 The engine traces every render path in the TypeScript and TSX program, from a prop, signal, or local to the JSX that renders it. This takes minutes on a large app, so it runs only when you ask. It adds:
 
 - `dataflow.md`: ranked work packets with candidate edits, the risk queue and a stop recommendation, then the defensive ledger, repeated forks, prop relay, context relay, and fan-out.
-- Two finding rules in the Data flow section of `report.md`. `impossible-defense` is a `??` or `?.` whose guarded value the types say is never null or undefined. `repeated-fork` is a component that tests the same discriminant at several sibling branch sites, including Solid `<Show>` and `<Match>`.
+- Four finding rules in the Data flow section of `report.md`. `impossible-defense` is a `??` or `?.` whose guarded value the types say is never null or undefined. `repeated-fork` is a component that tests the same discriminant at several sibling branch sites, including Solid `<Show>` and `<Match>`. `context-relay` and `broad-prop-bundle` are a parent that reads a context hook and passes context-like props, or three or more plain props, to a child in the same feature.
 - Six metrics per TS/TSX file in the Data flow group: impossible defenses, repeated forks, prop relay, shape changes, path depth, and value fan-out. After the run, the app colors the treemap and marks the code viewer with them while the files stay unchanged.
 
 `uvx srcly compare --dataflow` runs the engine on both sides and diffs these metrics.

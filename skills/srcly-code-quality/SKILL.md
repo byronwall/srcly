@@ -104,10 +104,12 @@ Progress, version banners and cache warnings go to stderr, so stdout stays parse
 - A `## Data flow` section in `report.md` that lists each finding by line.
 - Metrics per TS/TSX file: `dataflow_impossible_defenses`, `dataflow_repeated_forks`, `dataflow_relay_hops`, `dataflow_representation_changes`, `dataflow_path_depth` and `dataflow_fan_out`. The app colors the treemap and marks the code viewer from them while the files stay unchanged.
 
-The two finding rules:
+The finding rules:
 
 - `impossible-defense`: a `??` or `?.` whose guarded value the types say is never null or undefined. Remove it only when the runtime contract agrees with the types (no external JSON, no unchecked cast, no SSR first render).
 - `repeated-fork`: a component tests the same discriminant at several sibling branch sites (ternary, `&&`, Solid `<Show>` or `<Match>`). Split it into one sub-component per branch, and move each branch-only value into its sub-component.
+- `context-relay`: a parent that reads a context hook passes context-like props (`settings`, `selection`, `on*` handlers and similar) to a child in the same feature. Let the child read them from context. The code viewer marks it under Prop Relay.
+- `broad-prop-bundle`: the same, with three or more plain props. Pass one model, or read shared values from context.
 
 Read `dataflow.md` in this order, and fix one slice at a time:
 

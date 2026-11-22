@@ -8,7 +8,12 @@ import { generationFields, outcomeSchema } from "./primitives";
  * comes from one legacy report (`fullReport()`), so it is slow: minutes on a
  * big app. Only a batch caller asks for it.
  */
-export const dataflowRuleSchema = z.enum(["impossible-defense", "repeated-fork"]);
+/**
+ * `context-relay`: a parent that reads context passes context-like props (`theme`,
+ * `user`, ...) to a same-feature child. `broad-prop-bundle`: it passes three or more
+ * plain props to one. Both come from the legacy report's context-relay pass.
+ */
+export const dataflowRuleSchema = z.enum(["impossible-defense", "repeated-fork", "context-relay", "broad-prop-bundle"]);
 
 export const dataflowFindingSchema = z.strictObject({
   rule: dataflowRuleSchema,

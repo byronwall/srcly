@@ -44,7 +44,7 @@ Open work lives in a Product Grid project in `pgm/data` (project `srcly-backlog`
 
 ## Engine
 
-`engine/` is the data-flow engine: tsx-data-flow's analysis behind a stdio protocol, a standalone pnpm package with its own lockfile. Provenance is in `engine/UPSTREAM.md`; the plan is `docs/intent/tsx-dataflow-integration/detailed-plan.md`.
+`engine/` is the data-flow engine: tsx-data-flow's analysis behind a stdio protocol, a standalone pnpm package with its own lockfile. Provenance is in `engine/UPSTREAM.md`; the design rules and decisions are in `docs/dataflow-engine.md`.
 
 - Install and check: `cd engine && pnpm install && pnpm test && pnpm typecheck && pnpm lint`.
 - Run it from the server in a checkout with `SRCLY_ENGINE_DEV=1` (`dev.sh` and `scripts/dev-server.sh api` set it). The server runs `engine/bin/srcly-engine.ts` through the engine's own `tsx`, ahead of any bundle.
@@ -65,7 +65,7 @@ Open work lives in a Product Grid project in `pgm/data` (project `srcly-backlog`
 - After merging, `survey-main` diffs each push to `main` against its first parent and compares that with the merged PR's own survey, so two PRs that move traces only together surface. It fails and keeps one issue, `Data-flow gate: unacknowledged moves on main`, up to date, and closes it on the next clean push.
 - Open a data-flow PR, then run `gh pr merge <n> --squash --auto` and stop: auto-merge lands it when the checks pass. Don't run your own multi-repo surveys to prove a rule unless it targets code the gate's corpus doesn't contain.
 - A new relation, element or proof kind gets one entry in `engine/src/srcly/kinds.ts` (`RELATION_TRAITS`, `ELEMENT_TRAITS`, `PROOF_TRAITS`); the engine does not build until it has one. Rules read its traits (`structural`, `crossCall`, `terminal`, a proof's `strength`), never their own lists of kind names.
-- Never edit `engine/src/analysis` to recognise srcly-specific code. The only planned analysis edits are M5's four invocation-identity changes, each with a negative fixture.
+- Never edit `engine/src/analysis` to recognise srcly-specific code. An analysis edit that a rule needs comes with a negative fixture.
 
 ## Client Package Management
 

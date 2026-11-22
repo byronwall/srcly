@@ -27,7 +27,7 @@ Every ticket is one PR stacked on the one before it, starting from `claude/dataf
   1. Fixture contract tests.
   2. The fake engine in every outcome shape.
   3. The real engine on solid-route in Playwright.
-  4. Local measurement on srcly `client/` and visual-notes `app/`, recorded in `../tsx-dataflow-integration/measurements.md`.
+  4. Local measurement on srcly `client/` and visual-notes `app/`, recorded in `https://github.com/byronwall/srcly/blob/4727bd56/docs/intent/tsx-dataflow-integration/measurements.md`.
 - **Rollback:** one revert per ticket. Performance tickets sit behind `SRCLY_DATAFLOW_*` switches until two measurements agree.
 
 ## Ticket graph
@@ -213,7 +213,7 @@ T25 `UPSTREAM.md` as the fork ledger (with T4), and T26 the registry under many 
 
 ## Status on 2026-10-24: where the stack stands
 
-Done, each as one PR in the stack (`claude/dataflow-t1-box-status` → … → `claude/dataflow-t20-multiple-anchors`): T1, T2, T3, T5, T6, T7, T8, T9, T10, T11, T12 (measured, decided off), T13, T14, T15, T16, T17, T18, T19, T20, T21, T22. Every ticket's backlog entry says what landed and where it was measured (`docs/intent/tsx-dataflow-integration/measurements.md`).
+Done, each as one PR in the stack (`claude/dataflow-t1-box-status` → … → `claude/dataflow-t20-multiple-anchors`): T1, T2, T3, T5, T6, T7, T8, T9, T10, T11, T12 (measured, decided off), T13, T14, T15, T16, T17, T18, T19, T20, T21, T22. Every ticket's backlog entry says what landed and where it was measured (`https://github.com/byronwall/srcly/blob/4727bd56/docs/intent/tsx-dataflow-integration/measurements.md`).
 
 Not done, and why they can wait:
 

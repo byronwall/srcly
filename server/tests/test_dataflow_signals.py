@@ -35,6 +35,7 @@ def _result() -> FileSignalsResult:
                 {"rule": "impossible-defense", "file": "src/a.tsx", "line": 8, "column": 5, "endLine": 8, "message": "`y ?? 2` is dead"},
                 {"rule": "repeated-fork", "file": "src/a.tsx", "line": 10, "column": 3, "endLine": 14, "message": "forks on props.kind"},
                 {"rule": "impossible-defense", "file": "src/b.ts", "line": 1, "column": 1, "endLine": 1, "message": "`z?.w` is dead"},
+                {"rule": "context-relay", "file": "src/a.tsx", "line": 20, "column": 7, "endLine": 20, "message": "Relays `workspace`"},
             ],
             "unplacedDefenses": 0,
             "markdown": "# Data flow\n",
@@ -84,6 +85,7 @@ def test_marks_match_the_counts():
     assert len(marks["dataflow_impossible_defenses"]) == values["dataflow_impossible_defenses"]
     assert len(marks["dataflow_repeated_forks"]) == values["dataflow_repeated_forks"]
     assert marks["dataflow_repeated_forks"][0] == {"line": 10, "end_line": 14, "note": "dataflow repeated-fork: forks on props.kind"}
+    assert [m["line"] for m in marks["dataflow_relay_hops"]] == [20]
 
 
 def test_report_dataflow_writes_dataflow_md(tmp_path: Path, monkeypatch):

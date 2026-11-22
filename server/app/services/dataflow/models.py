@@ -730,7 +730,7 @@ class AnchorGraphResponse(BaseModel):
 
 
 class DataflowFinding(BaseModel):
-    rule: Literal["impossible-defense", "repeated-fork"]
+    rule: Literal["impossible-defense", "repeated-fork", "context-relay", "broad-prop-bundle"]
     file: str
     line: int
     column: int

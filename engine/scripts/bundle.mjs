@@ -1,7 +1,7 @@
-// Bundle the engine into the wheel (docs/intent/tsx-dataflow-integration/detailed-plan.md, M8):
+// Bundle the engine into the wheel (docs/dataflow-engine.md):
 // `srcly-engine.mjs` and the worker it starts, the Python helper, and a trimmed
 // copy of the engine's TypeScript, which stays a real directory so the
-// Program finds its `lib.*.d.ts` files (decision D4).
+// Program finds its `lib.*.d.ts` files (TypeScript instance, docs/dataflow-engine.md).
 import { build } from "esbuild";
 import fs from "node:fs";
 import path from "node:path";

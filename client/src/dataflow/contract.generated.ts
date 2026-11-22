@@ -613,7 +613,7 @@ export type FileSignalsResult = {
     };
   }[];
   findings: {
-    rule: "impossible-defense" | "repeated-fork";
+    rule: "impossible-defense" | "repeated-fork" | "context-relay" | "broad-prop-bundle";
     file: string;
     line: number;
     column: number;

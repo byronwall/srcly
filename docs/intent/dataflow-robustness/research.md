@@ -8,7 +8,7 @@ last_updated: "2026-10-24"
 
 # Research record
 
-Baseline: the stack top `claude/dataflow-anchor-menus` (`b164b3c`). The source claims were verified by reading the code. The numbers come from `docs/intent/tsx-dataflow-integration/measurements.md`. Nothing new was run for this page.
+Baseline: the stack top `claude/dataflow-anchor-menus` (`b164b3c`). The source claims were verified by reading the code. The numbers come from `https://github.com/byronwall/srcly/blob/4727bd56/docs/intent/tsx-dataflow-integration/measurements.md`. Nothing new was run for this page.
 
 ## Verified source facts
 
