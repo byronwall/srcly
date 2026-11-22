@@ -2,6 +2,7 @@
 # test can check each row resolves. Packages that are not installed here
 # resolve through their imports, as on a project without its venv.
 import argparse
+import asyncio
 import io
 import json
 import logging
@@ -30,6 +31,7 @@ import httpx
 import pandas
 import requests
 import rest_framework.response
+import rest_framework.serializers
 import sqlmodel
 import sqlmodel.orm.session
 import starlette.exceptions
@@ -121,3 +123,13 @@ def terminals(value: str, path: Path, stream: typing.IO[str], text: typing.TextI
     ]
     sys.exit(value)
     return responses
+
+
+async def passes(value: str) -> object:
+    # Library code whose result derives from what it is given (`passes-through` rows).
+    return [
+        await asyncio.gather(asyncio.sleep(0, value)),
+        flask.request.args.get(value), flask.globals.request.args.get(value),
+        rest_framework.serializers.BaseSerializer.is_valid(value), rest_framework.serializers.Serializer.is_valid(value),
+        rest_framework.serializers.ModelSerializer.is_valid(value),
+    ]

@@ -73,9 +73,9 @@ class LibraryModels:
     def __init__(self) -> None:
         self.exact: dict[str, tuple[str, Recognition]] = {}
         self.prefixes: list[tuple[str, str, Recognition]] = []
-        # `passes-through` rows: library code whose result derives from its receiver and arguments, by fullname (or prefix), with its note.
-        self.through: dict[str, str] = {}
-        self.through_prefixes: list[tuple[str, str]] = []
+        # `passes-through` rows: library code whose result derives from its receiver and arguments, by fullname (or prefix): its note and row key.
+        self.through: dict[str, tuple[str, str]] = {}
+        self.through_prefixes: list[tuple[str, tuple[str, str]]] = []
 
     def load(self, files: list[Path]) -> None:
         for file in files:
@@ -85,7 +85,7 @@ class LibraryModels:
                 path = row.get("name") or row.get("member")
                 key = f"{row['module']}.{path}"
                 if row.get("model") == "passes-through":
-                    note = row.get("note") or "its result derives from what it is given"
+                    note = (row.get("note") or "its result derives from what it is given", f"{row['module']}#{path}")
                     if key.endswith("*"):
                         self.through_prefixes.append((key[:-1], note))
                     else:
@@ -117,8 +117,8 @@ class LibraryModels:
         """A read that is an origin: `os.environ`, `sys.argv`, Flask's `request`."""
         return self.find(name, ("origin",))
 
-    def passes(self, name: str | None) -> str | None:
-        """The note of a `passes-through` row: `asyncio.gather`, Flask's `request.args.get`."""
+    def passes(self, name: str | None) -> tuple[str, str] | None:
+        """The note and key of a `passes-through` row: `asyncio.gather`, Flask's `request.args.get`."""
         if not name:
             return None
         return self.through.get(name) or next((note for prefix, note in self.through_prefixes if name.startswith(prefix)), None)
@@ -2475,8 +2475,11 @@ class BodyWalker:
         builtin = bool(target_name and target_name.startswith(("builtins.", "typing.", "collections.abc.", "_collections_abc.")))
         # A `passes-through` row, by mypy's name, the import's, a library base's, or the receiver's class: the same, modelled by the row.
         own_class = self.program.checked.receivers.get(source.rel, {}).get(span_key(self.span(node.func.value))) if isinstance(node.func, ast.Attribute) else None
-        through = next((note for name in (target_name, dotted, self.program.inherited_name(dotted), f"{own_class}.{node.func.attr}" if own_class else None)  # type: ignore[union-attr]
-                        if (note := MODELS.passes(name))), None)
+        row = next((hit for name in (target_name, dotted, self.program.inherited_name(dotted), f"{own_class}.{node.func.attr}" if own_class else None)  # type: ignore[union-attr]
+                    if (hit := MODELS.passes(name))), None)
+        through = row[0] if row else None
+        if row:
+            self.program.elements[element]["attributes"]["libraryModel"] = row[1]
         result_of = self.query_result(node, receiver)
         if through is None and result_of is not None:
             through = f"reads the rows of a {result_of} query result"

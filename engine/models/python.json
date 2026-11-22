@@ -978,13 +978,6 @@
     },
     {
       "language": "py",
-      "module": "asyncio",
-      "name": "gather",
-      "model": "passes-through",
-      "note": "returns the results of the awaitables it is given"
-    },
-    {
-      "language": "py",
       "module": "flask",
       "name": "request.*",
       "model": "passes-through",

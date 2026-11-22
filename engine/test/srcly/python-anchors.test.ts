@@ -318,9 +318,9 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
     expect(up.origins.map((origin) => origin.label)).toEqual(["the request"]);
     const down = anchorGraphOp(session, { ...at("app/web.py", "payload", "payload = request.json"), direction: "forward" });
     expect(boxes(down, "terminal").map((node) => [node.line, node.elementKind])).toEqual([[14, "http-response"]]);
-    // The handler's body is walked too: `request.args.get(…)` is library code with no model, so its response lands only by assumption: `assumed`, not ok.
+    // The handler's body is walked too: `request.args.get(…)` reads the request (a `passes-through` row), so its response lands, proven.
     const greet = anchor("app/web.py", "greet", 18);
-    expect(greet.outcome).toBe("assumed");
+    expect(greet.outcome).toBe("ok");
     expect(greet.terminals.map((terminal) => terminal.label)).toEqual(['return request.args.get("name", "") → GET /greet']);
     // A parameter that happens to be called `request` is not Flask's.
     const local = anchorGraphOp(session, { ...at("app/web.py", "request", "    return request"), direction: "backward" });
@@ -420,5 +420,78 @@ describe.skipIf(!python.python)(`Python anchors by name (${python.reason})`, () 
   it("names a file that did not parse, and a name that is not on its line", () => {
     expect(() => anchor("app/broken.py", "broken", 1)).toThrow(/No broken on line 1 of broken\.py: the file did not parse \(syntax error on line 1/);
     expect(() => anchor("app/models.py", "Order", 5)).toThrow(/^No Order on line 5 of models\.py$/);
+  });
+
+  describe("scope bindings, callable values and destructuring (app/scopes.py)", () => {
+    const def = (name: string) => definitions("app/scopes.py").find((item) => item.name === name)!.line;
+    const forward = (fn: string, param: string) => anchorGraphOp(session, { file: "app/scopes.py", name: param, line: def(fn), direction: "forward" });
+    const ends = (graph: AnchorGraphResult) => boxes(graph).filter((node) => node.kind === "terminal" || node.kind === "boundary" || node.kind === "frontier").map((node) => `${node.kind} ${node.elementKind}@${node.line}`);
+
+    it("binds a `global` write in the module, where another function reads it, whichever is defined first", () => {
+      const graph = forward("set_label", "name");
+      expect(graph.outcome).toBe("ok");
+      expect(ends(graph)).toEqual([`terminal stdout@${def("show_label") + 1}`]);
+    });
+
+    it("joins a write to a module name's key to reads of that key only", () => {
+      const graph = forward("remember", "theme");
+      expect(graph.outcome).toBe("ok");
+      expect(ends(graph)).toEqual([`terminal stdout@${def("show_state") + 1}`]);
+    });
+
+    it("binds a `nonlocal` write in the enclosing function", () => {
+      expect(ends(forward("make_counter", "start"))).toEqual([`terminal return@${def("make_counter") + 6}`]);
+    });
+
+    it("leaves through a closure an entry returns, and stops at one a called function returns", () => {
+      const entry = forward("make_prefixer", "prefix");
+      expect(entry.outcome).toBe("ok");
+      expect(ends(entry)).toEqual([`terminal return@${def("make_prefixer") + 2}`]);
+      // `make_wrapper` is called by `use_prefixer`: its closure goes to that caller, which calls it, so where its result goes is not proven here.
+      expect(ends(forward("make_wrapper", "word"))).toEqual([`boundary return@${def("make_wrapper") + 2}`]);
+    });
+
+    it("enters a local def, a `functools.partial` and a spread `**options` as calls", () => {
+      expect(forward("shout", "text").outcome).toBe("ok");
+      const partial = forward("broadcast", "message");
+      expect(partial.outcome).toBe("ok");
+      expect(ends(partial)).toEqual([`terminal stdout@${def("send") + 1}`]);
+      const spread = forward("describe_all", "options");
+      expect(spread.outcome).toBe("ok");
+      // `title` has no default, so it must come from `**options`; `size` may.
+      const bindings = spread.edges.filter((edge) => edge.kind === "argument-binding").map((edge) => edge.status).sort();
+      expect(bindings).toEqual(["partial", "proven"]);
+    });
+
+    it("calls the function every call site passes for a parameter, and nothing when they differ", () => {
+      const same = forward("print_each", "items");
+      expect(same.outcome).toBe("ok");
+      expect(ends(same)).toEqual([`terminal stdout@${def("apply_each") + 2}`]);
+      // `run_twice` gets `print` once and `len` once: its `fn(item)` stays code the walk cannot see.
+      expect(ends(forward("run_both", "items"))).toEqual([`frontier call-result@${def("run_twice") + 2}`]);
+    });
+
+    it("binds a `match` capture from the subject", () => {
+      expect(ends(forward("handle", "command"))).toEqual([`terminal stdout@${def("handle") + 3}`]);
+    });
+
+    it("finds a write's row by the receiver's class: a file handle's, never a StringIO's", () => {
+      expect(ends(forward("save", "note"))).toEqual([`terminal file-write@${def("save") + 2}`]);
+      expect(ends(forward("buffer", "note"))).toEqual([`frontier call-result@${def("buffer") + 2}`]);
+    });
+
+    it("binds the arguments a library call hands to the function it is given", () => {
+      for (const fn of ["threaded", "queue_audit"]) {
+        const graph = forward(fn, "note");
+        expect(graph.outcome, fn).toBe("ok");
+        expect(ends(graph), fn).toEqual([`terminal stdout@${def("audit") + 1}`]);
+      }
+    });
+
+    it("fills a route dependency's marked parameter from the request, through a dependency chain", () => {
+      const who = anchor("app/scopes.py", "who", def("who"));
+      expect(who.outcome).toBe("ok");
+      expect(who.origins.map((origin) => origin.label)).toEqual(["Depends(bearer) header authorization"]);
+    });
   });
 });
