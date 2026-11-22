@@ -5,6 +5,7 @@ node st1 "1 · Access-path field [1]\nequivalence test, 286 rows" color=mint
 node st2 "2 · One path emitter\ndeletes readers, option emitters" color=mint
 node st3 "3 · Cell shape\ndeletes connectStores, state pairs" color=mint
 node st4 "4 · Slot shape\ndeletes connectSolidFor, Show" color=mint
+node st4b "4b · Keyed-store shape\ndeletes context code" color=mint
 node st5 "5 · Type proposals\nproof type-signature, assumed" color=amber shade=300
 node st6 "6 · Confirm rows\nabout 25 rows shrink to 1 line" color=mint
 node st7 "7 · Drop name lists\nFRAMEWORK_CALLS, STATE_CALLS" color=mint
@@ -12,7 +13,8 @@ node st7 "7 · Drop name lists\nFRAMEWORK_CALLS, STATE_CALLS" color=mint
 edge a st1 -> st2
 edge b st2 -> st3
 edge c st3 -> st4
-edge d st4 -> st5
+edge d st4 -> st4b
+edge d2 st4b -> st5
 edge e st5 -> st6
 edge f st6 -> st7
 
