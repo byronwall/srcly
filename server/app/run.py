@@ -447,7 +447,11 @@ def _run_headless(argv: list[str]) -> None:
     compare_parser.add_argument(
         "--dataflow",
         action="store_true",
-        help="Also diff the data-flow metrics (runs the TypeScript data-flow engine on both sides; minutes on a big app).",
+        help=(
+            "Also diff the data-flow metrics and list the data-flow changes of the changed functions: new and removed "
+            "origin-to-end flows, effects, proof status (runs the data-flow engine on both sides; minutes on a big app). "
+            "Writes dataflow-changes.json beside --out, else in .srcly/."
+        ),
     )
     compare_parser.add_argument("--limit", type=_positive_int, default=40, help="Maximum files in the markdown summary.")
 
@@ -680,6 +684,13 @@ def _run_compare(args) -> None:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(reporting._json_dumps(payload), encoding="utf-8")
         print(f"Wrote compare payload to {out_path}", file=sys.stderr)
+    if payload.get("dataflowChanges"):
+        from app.services.compare.dataflow_changes import default_json_path
+
+        changes_path = default_json_path(args.out)
+        changes_path.parent.mkdir(parents=True, exist_ok=True)
+        changes_path.write_text(reporting._json_dumps(payload["dataflowChanges"]), encoding="utf-8")
+        print(f"Wrote data-flow changes to {changes_path}", file=sys.stderr)
     if args.json:
         print(reporting._json_dumps(payload))
     elif not args.out:

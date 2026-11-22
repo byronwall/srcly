@@ -623,3 +623,86 @@ export type FileSignalsResult = {
   unplacedDefenses: number;
   markdown: string;
 };
+
+/** Result of the `flowSignature` op. */
+export type FlowSignatureResult = {
+  outcome: "ok" | "assumed" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+  generation: number;
+  programHash: string;
+  tsconfig: string;
+  typescript: string;
+  nullProof: boolean;
+  reason: string | null;
+  file: string;
+  language: "typescript" | "python";
+  scopes: {
+    name: string;
+    role: string | null;
+    line: number;
+    endLine: number;
+    status: "ok" | "assumed" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+    reason: string | null;
+    origins: {
+      key: string;
+      kind: string;
+      label: string;
+      file: string;
+      line: number;
+      status: string;
+    }[];
+    ends: {
+      key: string;
+      kind: string;
+      label: string;
+      file: string;
+      line: number;
+      status: string;
+    }[];
+    pairs: {
+      key: string;
+      origin: {
+        key: string;
+        kind: string;
+        label: string;
+        file: string;
+        line: number;
+        status: string;
+      };
+      end: {
+        key: string;
+        kind: string;
+        label: string;
+        file: string;
+        line: number;
+        status: string;
+      };
+      status: "ok" | "assumed" | "partial" | "not-analyzed" | "unsupported" | "stale" | "cancelled" | "budget";
+    }[];
+    reads: {
+      key: string;
+      kind: string;
+      label: string;
+      file: string;
+      line: number;
+      status: string;
+    }[] | null;
+    effects: {
+      key: string;
+      kind: string;
+      label: string;
+      file: string;
+      line: number;
+      status: string;
+    }[] | null;
+    stops: {
+      key: string;
+      kind: string;
+      label: string;
+      file: string;
+      line: number;
+      status: string;
+    }[];
+    untracedEnds: number;
+  }[];
+  skippedScopes: number;
+};

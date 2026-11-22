@@ -24,6 +24,7 @@ CONTRACTS = Path(models.__file__).with_name("contracts")
         ("routePath", models.RoutePathResult),
         ("fileExports", models.FileExportsResult),
         ("fileSignals", models.FileSignalsResult),
+        ("flowSignature", models.FlowSignatureResult),
     ],
 )
 def test_model_fields_match_the_schema(op, model):

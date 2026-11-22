@@ -763,3 +763,52 @@ class FileSignalsResult(BaseModel):
     findings: list[DataflowFinding]
     unplacedDefenses: int
     markdown: str
+
+
+# ---- flow signatures (contracts/flowSignature.schema.json) -------------------
+
+
+class FlowItem(BaseModel):
+    key: str
+    kind: str
+    label: str
+    file: str
+    line: int
+    status: str
+
+
+class FlowPair(BaseModel):
+    key: str
+    origin: FlowItem
+    end: FlowItem
+    status: Outcome
+
+
+class FlowScope(BaseModel):
+    name: str
+    role: str | None
+    line: int
+    endLine: int
+    status: Outcome
+    reason: str | None
+    origins: list[FlowItem]
+    ends: list[FlowItem]
+    pairs: list[FlowPair]
+    reads: list[FlowItem] | None
+    effects: list[FlowItem] | None
+    stops: list[FlowItem]
+    untracedEnds: int
+
+
+class FlowSignatureResult(BaseModel):
+    outcome: Outcome
+    generation: int
+    programHash: str
+    tsconfig: str
+    typescript: str
+    nullProof: bool
+    reason: str | None
+    file: str
+    language: Literal["typescript", "python"]
+    scopes: list[FlowScope]
+    skippedScopes: int

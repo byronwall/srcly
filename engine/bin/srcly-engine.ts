@@ -108,6 +108,7 @@ function workerOperation(frame: RequestFrame): AnalysisOperation | null {
   if (frame.op === "fileExports") return { kind: "file-exports", params };
   if (frame.op === "routePath") return { kind: "route-path", params };
   if (frame.op === "fileSignals") return { kind: "file-signals", params };
+  if (frame.op === "flowSignature") return { kind: "flow-signature", params };
   if (frame.op === "routeSurface") {
     if (typeof params.route !== "string") throw new EngineError("invalid-request", "routeSurface needs params.route");
     return { kind: "route-surface", route: params.route, expectedGeneration };
