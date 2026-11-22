@@ -8,7 +8,7 @@ import {
   type ProgramEvidenceExpressionContext,
 } from "./program-evidence-collector-expression-support";
 import { lazyFactoryGetter, reducerOf, seedArgument, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
-import { namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
+import { jsonValueMember, namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
 import { frameworkFlow, makesAccessor, makesPredicate, PROMISE_CHANNELS, yieldsOnlyCallback, type FrameworkFlow } from "./framework-flows";
 import { boundaryRole, builtinLibraryModels, standardMemberModel } from "./library-models";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
@@ -261,13 +261,17 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       this.gap(callId, "forward", "dynamic-dispatch", "The callee is one of several in-project values (a union): the call is not paired with one.", node.expression);
     } else if (
       !this.symbolId(node.expression) &&
-      !isKnownGlobal(calleeName(this.ts, node.expression))
+      !isKnownGlobal(calleeName(this.ts, node.expression)) &&
+      !jsonValueMember(this.ts, this.checker, node.expression)
     ) {
+      // An untyped receiver of unknown origin (a JavaScript parameter): any object may stand there, so a method's name does not say which function runs.
+      const callee = unwrap(this.ts, node.expression);
+      const untyped = this.ts.isPropertyAccessExpression(callee) && (this.checker.getTypeAtLocation(callee.expression).flags & this.ts.TypeFlags.Any) !== 0;
       this.gap(
         callId,
         "forward",
         "unresolved-symbol",
-        "The callee has no compiler-resolved symbol.",
+        untyped ? `The receiver of ${callee.getText()} is untyped (any) and its origin is not known, so which function this call runs is not known.` : "The callee has no compiler-resolved symbol.",
         node.expression,
       );
     }
@@ -795,7 +799,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
    * and `sort`'s only test or order elements. False for any other call.
    */
   private connectStandardCallback(call: CollectorCallInfo, node: TypeScript.CallExpression, receiver: TypeScript.Expression): boolean {
-    const row = standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression));
+    const row = standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression) ?? jsonValueMember(this.ts, this.checker, node.expression));
     if (row?.model !== "calls-back" || !row.parameters) return false;
     const argument = node.arguments[Number(row.args ?? 0)];
     const fn = argument && unwrap(this.ts, argument);

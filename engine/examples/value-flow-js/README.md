@@ -6,3 +6,5 @@ This root is apart from `value-flow-basics` so a `.ts` file of the same name can
 
 - `identity.js`: one helper called twice. Each call's value stays with that call.
 - `esm-entry.mjs`, `cjs-helper.cjs`: a `.mjs` file nothing imports, which is in the Program as a root, and a value that crosses `require` into CommonJS and comes back.
+- `constructor-functions.js`: `new Account(owner)` runs a constructor function, and a method assigned to `Account.prototype` reads the member back. A member nothing reads stops there.
+- `untyped-receivers.js`: a method call on an untyped parameter stays a named stop; one on a value parsed from JSON is the standard method.

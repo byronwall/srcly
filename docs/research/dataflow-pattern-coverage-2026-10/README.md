@@ -160,7 +160,7 @@ The rules remove stops, but whole-export traces have several stops each, and 40%
 
 - **Size budget:** 40% of real traces. This is the size-limits session.
 - **Unmodelled third-party methods** (`column.setFilterValue`, Prisma, `table.nextPage`): 51 traces. These need rows, or a "dropped call into a package is an assumed effect" rule extended to method calls.
-- **Calls with no resolved symbol** (tRPC proxies, `any`): 50 traces.
+- **Calls with no resolved symbol** (tRPC proxies, `any`): 50 traces. A value parsed from JSON is now resolved (November 2026, below); an `any` of unknown origin stays a named stop.
 - **Callback props that no caller hands a function to** (`onConfirm()`): 53 traces. Some are real unknowns. The rest are components that only a library renders.
 - **Solid `createResource` input and result boundaries:** 27 and 34 traces. The boundary is shown as framework runtime, not proven.
 
@@ -182,3 +182,22 @@ The `python` root of the catalog (75 patterns, `--root python`) went from 60 `ok
 | A route dependency's marked parameter is a request origin | `f-depends-chain` |
 
 No Python catalog gap is open.
+
+## JavaScript and vanilla roots (November 2026)
+
+| Root | Patterns | `ok` before | `ok` after | Wanted end before | Wanted end after |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| javascript | 21 | 17 | 19 | 18 | 19 |
+| vanilla | 38 | 36 | 37 | 37 | 38 |
+
+Closed: `js-prototype` (constructor functions and prototype methods), `js-await` (a JSON value's `map`), `v-module-state` (a module `let` read in another function). The rules are in `docs/dataflow-coverage.md`.
+
+Still not `ok`:
+
+| Pattern | Outcome | Why it stays |
+| --- | --- | --- |
+| `js-reduce` | partial | `items.reduce(…)` on an untyped parameter of an exported function. Any object may stand there, so the name `reduce` does not prove `Array.reduce`. Named stop: the receiver is untyped and its origin is not known. |
+| `js-require` | partial | The `require` resolves. The stop is inside `slugify`: `text.toLowerCase()` on an untyped parameter, the same gap as `js-reduce`. |
+| `v-observer` | assumed | `onSeen(entry.target.id)` calls a callback that `watch`'s caller hands in, and nothing in the program calls `watch`. A call through a callback no caller supplies is assumed on purpose (`callback-not-service.tsx`, `draft-save`). |
+
+Closing `js-reduce` and `js-require` needs a type source for JavaScript parameters (JSDoc, or the types at every call site of a function nothing exports). A rule that reads the method name alone would be a false `ok` whenever a project's own object has a method of that name.

@@ -88,9 +88,11 @@ export function resolveValue(ts: typeof TypeScript, checker: TypeScript.TypeChec
       symbol = checker.getTypeAtLocation(declaration.parent).getProperty(key.text);
       continue;
     }
-    const property = ts.isPropertyAssignment(declaration) || ts.isPropertyDeclaration(declaration);
+    // A property the checker declares by its one assignment (JavaScript's `Account.prototype.describe = function …`, an expando `f.x = …`): every assignment of such a property is a declaration, so one declaration is one value.
+    const assigned = ts.isPropertyAccessExpression(declaration) && ts.isBinaryExpression(declaration.parent) && declaration.parent.left === declaration && declaration.parent.operatorToken.kind === ts.SyntaxKind.EqualsToken ? declaration.parent.right : undefined;
+    const property = ts.isPropertyAssignment(declaration) || ts.isPropertyDeclaration(declaration) || assigned !== undefined;
     if (!property && !(ts.isVariableDeclaration(declaration) && isConst(ts, declaration))) return null;
-    const initializer = (declaration as TypeScript.PropertyAssignment | TypeScript.PropertyDeclaration | TypeScript.VariableDeclaration).initializer;
+    const initializer = assigned ?? (declaration as TypeScript.PropertyAssignment | TypeScript.PropertyDeclaration | TypeScript.VariableDeclaration).initializer;
     if (!initializer) return null;
     steps.push({ kind: property ? "property" : "const", node: declaration });
     value = unwrap(ts, initializer);
@@ -117,4 +119,52 @@ function isConst(ts: typeof TypeScript, declaration: TypeScript.Node): boolean {
 export function namesSeveralValues(ts: typeof TypeScript, checker: TypeScript.TypeChecker, expression: TypeScript.Expression): boolean {
   const declarations = symbolAtNode(checker, ts.isPropertyAccessExpression(expression) ? expression.name : expression)?.declarations ?? [];
   return declarations.length > 1 && declarations.every((declaration) => !declaration.getSourceFile().isDeclarationFile);
+}
+
+/** The prototypes a value parsed from JSON can have, besides `Object`'s, which all of them share. */
+const JSON_PROTOTYPES = ["Array", "String", "Number", "Boolean"] as const;
+const libInterfacesByChecker = new WeakMap<TypeScript.TypeChecker, Map<string, TypeScript.Type | null>>();
+
+/** The declared type of one of TypeScript's own lib interfaces (`Array`), found from a file's global scope. */
+function libInterface(ts: typeof TypeScript, checker: TypeScript.TypeChecker, at: TypeScript.Node, name: string): TypeScript.Type | null {
+  const known = libInterfacesByChecker.get(checker) ?? libInterfacesByChecker.set(checker, new Map()).get(checker)!;
+  if (!known.has(name)) {
+    // A package may augment a global interface; the lib's own declaration names it.
+    const symbol = checker.getSymbolsInScope(at.getSourceFile(), ts.SymbolFlags.Interface).find((item) => item.name === name && item.declarations?.some((declaration) => declaration.getSourceFile().hasNoDefaultLib));
+    known.set(name, symbol ? checker.getDeclaredTypeOfSymbol(symbol) : null);
+  }
+  return known.get(name)!;
+}
+
+/** Whether an expression's value is what JSON parsing made: `JSON.parse(text)` or a fetch `Response`'s `json()`, awaited or not, through `const` copies. */
+export function parsedFromJson(ts: typeof TypeScript, checker: TypeScript.TypeChecker, expression: TypeScript.Expression): boolean {
+  const value = unwrap(ts, expression);
+  const origin = ts.isCallExpression(value) ? value : resolveValue(ts, checker, value)?.origin;
+  const call = origin && ts.isExpression(origin) ? unwrap(ts, origin) : undefined;
+  if (!call || !ts.isCallExpression(call)) return false;
+  const callee = unwrap(ts, call.expression);
+  if (!ts.isPropertyAccessExpression(callee)) return false;
+  const declarations = checker.getSymbolAtLocation(callee.name)?.declarations ?? [];
+  const declaration = declarations.length === 1 ? declarations[0]! : null;
+  const owner = declaration && declaration.getSourceFile().hasNoDefaultLib && ts.isInterfaceDeclaration(declaration.parent) ? declaration.parent.name.text : null;
+  return (owner === "Body" && callee.name.text === "json") || (owner === "JSON" && callee.name.text === "parse");
+}
+
+/**
+ * The standard method a call on an untyped (`any`) value runs, when that
+ * value was parsed from JSON (`parsedFromJson`). Such a value is only ever
+ * null, a boolean, a number, a string, an array or a plain object, and none
+ * of them holds a function of its own: a method call that runs at all runs
+ * its prototype's method. When exactly one of those prototypes declares the
+ * name (`map` is only `Array`'s), the call is that method: `{ owner, name }`.
+ * Null for a typed receiver, any other origin, or a name several declare.
+ */
+export function jsonValueMember(ts: typeof TypeScript, checker: TypeScript.TypeChecker, access: TypeScript.Expression): { owner: string; name: string } | null {
+  const node = unwrap(ts, access);
+  if (!ts.isPropertyAccessExpression(node) || !(checker.getTypeAtLocation(node.expression).flags & ts.TypeFlags.Any)) return null;
+  if (!parsedFromJson(ts, checker, node.expression)) return null;
+  const name = node.name.text;
+  if (libInterface(ts, checker, node, "Object")?.getProperty(name)) return null;
+  const owners = JSON_PROTOTYPES.filter((owner) => libInterface(ts, checker, node, owner)?.getProperty(name));
+  return owners.length === 1 ? { owner: owners[0]!, name } : null;
 }

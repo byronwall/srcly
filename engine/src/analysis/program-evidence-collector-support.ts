@@ -617,10 +617,11 @@ export class ProgramEvidenceCollectorSupport {
     return this.ts.isPropertyAccessExpression(callee) && callee.name.text === "mutate" && this.mutationFunction(node) !== null;
   }
 
-  /** The in-project constructor a `new X(…)` or `super(…)` call runs, by the signature the checker resolves. */
+  /** The in-project constructor a `new X(…)` or `super(…)` call runs, by the signature the checker resolves: a class's, or a JavaScript constructor function (`function Account(owner) { this.owner = owner; }`). */
   protected constructorTarget(node: TypeScript.CallExpression | TypeScript.NewExpression): CollectorFunctionInfo | null {
     const declaration = this.checker.getResolvedSignature(node)?.declaration;
-    return declaration && this.ts.isConstructorDeclaration(declaration) ? this.functionsByNode.get(nodeKey(this.root, declaration)) ?? null : null;
+    const runs = declaration && (this.ts.isConstructorDeclaration(declaration) || this.ts.isFunctionDeclaration(declaration) || this.ts.isFunctionExpression(declaration));
+    return runs ? this.functionsByNode.get(nodeKey(this.root, declaration)) ?? null : null;
   }
 
   /**
