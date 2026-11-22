@@ -136,6 +136,11 @@ const views = [
     name: "compare", url: app(clone, { view: "treemap", compare: "5a8a9c38~1..5a8a9c38" }), delay: 3000, timeout: 600_000,
     steps: async (page) => page.getByText("Risk metrics", { exact: true }).first().waitFor(),
   },
+  {
+    // Change Lens over the commits that built it: a fixed range, so a rerun next month still has edits.
+    name: "changes", url: app(clone, { view: "changes", cw: "custom", cbase: "e17633f", cs: "client/src/navigation/location.ts::parseLocation" }),
+    ready: '[data-change-lens][data-lens-state="ready"]', delay: 1500,
+  },
   { name: "symbols", url: app(fixture, { view: "graph", symbols: "src/routes/notes/[id].tsx#NotePage" }), delay: 4000 },
   { name: "data-flow", url: app(fixture, { view: "graph", anchor: "src/routes/notes/[id].tsx@NotePage:6", dir: "forward" }), ready: "text=Where the trace stops", delay: 2000 },
 ];

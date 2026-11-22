@@ -42,7 +42,15 @@ Use Data flow when you have a supported route or symbol and want to follow model
 
 <figure><a href="/srcly/screenshots/data-flow.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/data-flow.jpg" alt="Partial route trace for /notes/[id] in Srcly's included symbol-graph example" width="1440" height="900" loading="lazy" /></a><figcaption>The <code>/notes/[id]</code> route trace in the included symbol-graph example is anchored at <code>NotePage</code>. It is partial: one callback handoff has no call sites to pair its values. Inspect the unproven handoff before relying on the path.</figcaption></figure>
 
-## 5. Repeat the investigation in a terminal
+## 5. Review what a session changed
+
+After a coding session, select **Changes** and pick **This branch**, **24 hours** or **7 days**. The map shows only the functions, sections and line ranges that the window edited, grouped by folder and file. Tile area is changed lines, so one edited handler in a 2,000-line file gets the footprint of that handler. The panel lists what to review first by plain rules: chunks that were already complex and changed, and chunks that crossed the complexity line. Select a chunk to see its before → after values and the commits that touched it, then open its diff.
+
+<figure><a href="/srcly/screenshots/changes.jpg" target="_blank" rel="noreferrer"><img src="/srcly/screenshots/changes.jpg" alt="The Changes view of Srcly's own repository, with parseLocation selected" width="1440" height="900" loading="lazy" /></a><figcaption>The Changes view over the commits that built it. <code>parseLocation</code> went from complexity 47 to 52 and leads the review list.</figcaption></figure>
+
+Switch **Touched** to **Net** to drop work that was tried and put back. See [Review changes](../changes/) for the window and chunk rules.
+
+## 6. Repeat the investigation in a terminal
 
 If you need a saved review or want to pass evidence to an agent, run:
 

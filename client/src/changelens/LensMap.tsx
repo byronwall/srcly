@@ -2,13 +2,13 @@
 // boxes: the layout memo depends on the data, the size, the scope and the
 // collapsed groups only, so a color change repaints fills and moves nothing.
 
-import { createMemo, createSignal, For, onCleanup, onMount, Show, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, untrack, type JSX } from "solid-js";
 import { ChevronDown, ChevronRight } from "lucide-solid";
 import type { Rect } from "../compare/treemapLayout";
 import { metricLabel } from "../utils/metricsStore";
 import { STATE_GLYPH, tileLook, type Lens, type TileLook } from "./colors";
 import { beforeAfter, folderLabel, matchNote, plural, signed, STATUS_LABEL } from "./labels";
-import { inScope, layoutEdits, layoutRepo, neighbour, repoTreeFromFiles, type ChunkTile, type GroupTile, type RepoFileTile, type RepoNode } from "./layout";
+import { inScope, layoutEdits, pooledChunks, layoutRepo, neighbour, repoTreeFromFiles, type ChunkTile, type GroupTile, type RepoFileTile, type RepoNode } from "./layout";
 import { WORKTREE, type ChangeLensPayload, type LensChunk, type LensCommit } from "./types";
 import type { LensLayout } from "./urlState";
 
@@ -59,6 +59,15 @@ export default function LensMap(props: {
   let host: HTMLDivElement | undefined;
   const [size, setSize] = createSignal({ width: 0, height: 0 });
   const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set());
+  // Files whose pooled smaller chunks the user opened.
+  const [expanded, setExpanded] = createSignal<ReadonlySet<string>>(new Set());
+  // A selected chunk leaves its pool and stays out, so a later click elsewhere moves nothing.
+  const [kept, setKept] = createSignal<ReadonlySet<string>>(new Set());
+  createEffect(() => {
+    const id = props.selected;
+    if (id && !untrack(kept).has(id)) setKept((prev) => new Set(prev).add(id));
+  });
+  const pooled = createMemo(() => (props.layout === "edits" ? pooledChunks(props.payload.chunks, size(), props.scope, expanded(), kept()) : new Set<string>()));
   const [hover, setHover] = createSignal<Hover | null>(null);
 
   onMount(() => {
@@ -71,7 +80,7 @@ export default function LensMap(props: {
     onCleanup(() => observer.disconnect());
   });
 
-  const edits = createMemo(() => (props.layout === "edits" ? layoutEdits(props.payload.chunks, size(), props.scope, collapsed()) : null));
+  const edits = createMemo(() => (props.layout === "edits" ? layoutEdits(props.payload.chunks, size(), props.scope, collapsed(), pooled()) : null));
   const repo = createMemo(() =>
     props.layout === "repo" ? layoutRepo(props.tree ?? repoTreeFromFiles(props.payload.files), props.payload.files, props.payload.chunks, size(), props.scope) : null
   );
@@ -80,12 +89,14 @@ export default function LensMap(props: {
   const inCommit = createMemo(() => (props.commit ? new Set(props.commit.chunkIds) : null));
   const dimmed = (id: string) => Boolean(inCommit() && !inCommit()!.has(id));
 
+  const flip = (set: ReadonlySet<string>, path: string) => {
+    const next = new Set(set);
+    if (!next.delete(path)) next.add(path);
+    return next;
+  };
+  /** A pool tile opens its file's smaller chunks; any other group folds or unfolds. */
   const toggle = (path: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(path)) next.add(path);
-      return next;
-    });
+    path.endsWith("#more") ? setExpanded((prev) => flip(prev, path.slice(0, -"#more".length))) : setCollapsed((prev) => flip(prev, path));
 
   const groupStats = (group: GroupTile) => {
     const files = props.payload.files.filter((f) => inScope(f.path, group.path));
@@ -175,6 +186,48 @@ export default function LensMap(props: {
             <For each={chunk.touches.slice(0, 12)}>
               {(touch) => <span class="h-[4px] w-[4px] rounded-[1px]" style={{ background: props.commit?.sha === touch.sha ? "var(--plc-accent)" : "rgba(15, 23, 42, 0.5)" }} />}
             </For>
+          </span>
+        </Show>
+      </button>
+    );
+  };
+
+  const byId = createMemo(() => new Map(props.payload.chunks.map((c) => [c.id, c])));
+
+  /** A file's smaller chunks as one tile: a count, their lines, and their names on hover. A click opens them. */
+  const PoolBox = (p: { group: GroupTile }) => {
+    const g = p.group;
+    const chunks = createMemo(() => g.chunkIds.map((id) => byId().get(id)!).filter(Boolean));
+    const lines = createMemo(() => chunks().reduce((n, c) => [n[0] + c.added, n[1] + c.deleted], [0, 0]));
+    const holdsSelection = () => Boolean(props.selected && g.chunkIds.includes(props.selected));
+    const isDim = () => Boolean(inCommit()) && g.chunkIds.every(dimmed);
+    const w = widthOf(g.rect);
+    const h = heightOf(g.rect);
+    return (
+      <button
+        type="button"
+        tabIndex={-1}
+        data-group={g.path}
+        data-group-kind="pool"
+        data-group-toggle={g.path}
+        class="absolute overflow-hidden rounded-[2px] border border-dashed border-[var(--plc-border-strong)] bg-[var(--plc-surface-subtle)] p-0 text-left text-[11px] leading-[14px] text-[var(--plc-on-muted)] hover:border-[var(--plc-on-subtle)] hover:bg-[var(--plc-surface-hover)]"
+        style={{ ...box(g.rect), opacity: isDim() ? 0.3 : 1, "box-shadow": holdsSelection() ? "0 0 0 2px var(--plc-accent)" : undefined, "z-index": 1 }}
+        title={`${plural(g.chunkIds.length, "smaller chunk")}: ${chunks()
+          .slice(0, 12)
+          .map((c) => c.name)
+          .join(", ")}${g.chunkIds.length > 12 ? ", …" : ""}\nClick to show them all.`}
+        aria-label={`Show ${plural(g.chunkIds.length, "more chunk")}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          toggle(g.path);
+        }}
+      >
+        <Show when={w >= 30 && h >= 15}>
+          <span class="absolute left-1 right-1 top-[2px] truncate font-medium">{w >= 56 ? `${g.chunkIds.length} more` : `+${g.chunkIds.length}`}</span>
+        </Show>
+        <Show when={w >= 56 && h >= 34}>
+          <span class="plc-data-sm absolute left-1 right-1 top-[16px] truncate">
+            <span class="text-[var(--plc-success)]">+{lines()[0]}</span> <span class="text-[var(--plc-error)]">−{lines()[1]}</span>
           </span>
         </Show>
       </button>
@@ -306,7 +359,7 @@ export default function LensMap(props: {
       <Show when={edits()}>
         {(l) => (
           <>
-            <For each={l().groups}>{(group) => <GroupBox group={group} />}</For>
+            <For each={l().groups}>{(group) => (group.kind === "pool" ? <PoolBox group={group} /> : <GroupBox group={group} />)}</For>
             <For each={l().chunks}>{(tile) => <ChunkBox tile={tile} />}</For>
           </>
         )}

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const guides = ["overview", "tour", "design", "get-started", "explore", "metrics", "findings", "data-flow", "reports", "cli", "configuration"];
+const guides = ["overview", "tour", "design", "get-started", "explore", "changes", "metrics", "findings", "data-flow", "reports", "cli", "configuration"];
 
 test("every guide has readable static HTML and valid local links", async ({ browser, request }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });

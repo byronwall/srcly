@@ -66,6 +66,20 @@ uvx srcly compare --dataflow
 
 Unavailable measurements stay null. If a file is measured on one side only, Srcly records a coverage change and does not count the missing value as a zero delta. A file absent from one dependency graph has unknown fan-in and fan-out.
 
+## Review recent changes
+
+`changes` prints the code chunks a window of Git history edited, as Markdown: the resolved base and head, the review buckets, then the chunks grouped by folder with before → after complexity. It is the text form of the app's **Changes** view.
+
+```bash
+uvx srcly changes
+uvx srcly changes . --window 7d
+uvx srcly changes . --window branch --mode net --json
+uvx srcly changes . --window custom --base main --head my-branch
+uvx srcly changes . --window custom --since 2026-11-01T00:00:00 --until 2026-11-08T00:00:00
+```
+
+`--window` is `branch` (the default: this branch against its merge base), `24h`, `7d`, or `custom` with `--base`/`--head` or `--since`/`--until`. `--mode touched` (the default) lists every chunk a commit changed, with reverted work; `--mode net` compares the base and head snapshots only. `--ref` picks the branch whose first-parent history is read. Uncommitted edits are included when the head is the checked-out commit; `--no-worktree` leaves them out. `--json` prints the same payload the app reads. See [Review changes](../changes/) for the window, chunk and bucket rules.
+
 ## Fix and check
 
 `fix` prints a diff of supported mechanical fixes. It applies changes only with `--write`:

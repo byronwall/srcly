@@ -1,5 +1,8 @@
-// Fetches for the Changes view. `?clmock=1` answers from sample.ts instead of
-// the server (`clmock=empty|nogit|error` show the other states).
+// Fetches for the Changes view.
+//
+// The view never sends `ref` or `worktree`: it reads the checked-out branch
+// (HEAD) and includes uncommitted edits, which is what "after a coding
+// session" means. Custom windows pick other revisions through base and head.
 
 import type { ChangeLensPayload, LensHunkDiff, LensMode, LensWindow } from "./types";
 
@@ -22,9 +25,6 @@ export class LensError extends Error {
     this.status = status;
   }
 }
-
-export const mockKind = (): string | null =>
-  typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("clmock");
 
 function params(q: LensQuery): URLSearchParams {
   const p = new URLSearchParams({ path: q.path, window: q.window, mode: q.mode });
@@ -51,23 +51,9 @@ async function getJson<T>(url: string): Promise<T> {
   throw new LensError(res.status, reason);
 }
 
-const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+export const fetchChangeLens = (q: LensQuery) => getJson<ChangeLensPayload>(`/api/change-lens?${params(q)}`);
 
-export async function fetchChangeLens(q: LensQuery): Promise<ChangeLensPayload> {
-  const mock = mockKind();
-  if (!mock) return getJson<ChangeLensPayload>(`/api/change-lens?${params(q)}`);
-  await pause(120);
-  if (mock === "nogit") throw new LensError(409, `${q.path} is not inside a git repository.`);
-  if (mock === "error") throw new LensError(500, "git log failed: fatal: bad revision 'HEAD'");
-  const sample = await import("./sample");
-  return mock === "empty" ? sample.emptyPayload(q) : sample.samplePayload(q);
-}
-
-export async function fetchHunk(q: LensQuery, chunk: string, commit?: string): Promise<LensHunkDiff> {
-  if (mockKind()) {
-    await pause(120);
-    return (await import("./sample")).sampleHunk(q, chunk, commit);
-  }
+export function fetchHunk(q: LensQuery, chunk: string, commit?: string): Promise<LensHunkDiff> {
   const p = params(q);
   p.set("chunk", chunk);
   if (commit) p.set("commit", commit);

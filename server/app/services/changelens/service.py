@@ -123,6 +123,7 @@ def build_payload(path: Path, params: Params) -> dict:
         includes_worktree=built.has_worktree,
         notes=notes,
         repo_root=str(window.repo),
+        scope=window.scope,
     )
     chunks = built.chunks
     payload = ChangeLensPayload(

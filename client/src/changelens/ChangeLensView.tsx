@@ -2,7 +2,7 @@
 // It owns the fetches and the URL state; the map and the panel pieces get
 // everything through props.
 
-import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack, type JSX } from "solid-js";
 import { ArrowRight } from "lucide-solid";
 import { Button } from "../components/ui/Button";
 import { atFromTreePath, baseName, splitAt } from "../navigation/location";
@@ -13,7 +13,7 @@ import { plural, timeLimits } from "./labels";
 import { inScope, type RepoNode } from "./layout";
 import Legend from "./Legend";
 import LensMap from "./LensMap";
-import { ChunkInspector, CommitRail, HunkDiff, ReviewBuckets } from "./slots";
+import { ChunkInspector, CommitRail, HunkDiff, ReviewBuckets } from "./panel";
 import type { ChangeLensPayload, LensChunk, LensHunkDiff } from "./types";
 import { lens, setLens } from "./urlState";
 import WindowBar from "./WindowBar";
@@ -29,12 +29,19 @@ interface ScanNode {
   metrics?: { loc?: number; file_count?: number };
 }
 
-/** The scan tree as folders and files with repo-relative paths, and each folder's file count. */
-function repoTree(data: ScanNode | null, root: string): { tree: RepoNode | null; fileCounts: Map<string, number> } {
+/** `at` (relative to the scan root) as a repo path, when the scan root is the folder `scope` of the repo. */
+export const repoPath = (scope: string, at: string) => (scope && at ? `${scope}/${at}` : scope || at);
+
+/** A repo path as an `at` relative to the scan root. Every payload path lies under the scope. */
+export const scanPath = (scope: string, path: string) => (scope && inScope(path, scope) ? path.slice(scope.length + 1) : path);
+
+/** The scan tree as folders and files with repo paths, and each folder's file count. */
+function repoTree(data: ScanNode | null, root: string, scope: string): { tree: RepoNode | null; fileCounts: Map<string, number> } {
   const fileCounts = new Map<string, number>();
   const walk = (node: ScanNode): RepoNode | null => {
-    const path = atFromTreePath(node.path, root);
-    if (path === null) return null;
+    const at = atFromTreePath(node.path, root);
+    if (at === null) return null;
+    const path = repoPath(scope, at);
     if (node.type === "file") return { name: node.name, path, loc: node.metrics?.loc ?? 0 };
     if (node.type !== "folder") return null;
     const children = (node.children ?? []).map(walk).filter((c): c is RepoNode => c !== null && (!c.children || c.children.length > 0));
@@ -43,6 +50,13 @@ function repoTree(data: ScanNode | null, root: string): { tree: RepoNode | null;
     return { name: node.name, path, loc: node.metrics?.loc ?? 0, children };
   };
   return { tree: data ? walk(data) : null, fileCounts };
+}
+
+/** `5 of 43 files · 2 deleted`: the total counts files at head, so deleted files are counted apart. */
+function fileCount(p: ChangeLensPayload): string {
+  const deleted = p.files.filter((f) => f.status === "deleted").length;
+  const kept = `${(p.summary.filesEdited - deleted).toLocaleString("en-US")} of ${plural(p.summary.filesTotal, "file")}`;
+  return deleted ? `${kept} · ${deleted} deleted` : kept;
 }
 
 function Message(props: { title: string; children?: JSX.Element; state: string }) {
@@ -99,11 +113,36 @@ export default function ChangeLensView(props: {
   };
   createEffect(on(query, load));
 
-  const scope = () => splitAt(location().at).file;
-  const scan = createMemo(() => repoTree(props.data, props.rootPath));
+  // Payload paths are repo paths; `location().at` is relative to the scan root, which can be a folder of the repo.
+  const base = () => payload()?.selection.scope ?? "";
+  /** The folder or file the map is zoomed to, as a repo path. */
+  const scope = () => repoPath(base(), splitAt(location().at).file);
+  const scan = createMemo(() => repoTree(props.data, props.rootPath, base()));
   const selected = createMemo<LensChunk | null>(() => payload()?.chunks.find((c) => c.id === lens().chunk) ?? null);
   const commit = createMemo(() => payload()?.commits.find((c) => c.sha === lens().commit) ?? null);
   const inView = createMemo(() => payload()?.chunks.filter((c) => inScope(c.path, scope())).length ?? 0);
+  const zoom = (path: string) => go({ at: scanPath(base(), path) });
+
+  let lastSelected: LensChunk | null = null;
+  createEffect(() => {
+    if (selected()) lastSelected = selected();
+  });
+  // A new result keeps the selected chunk and commit when they still exist. A range chunk's id holds its
+  // lines, which differ between touched and net: it moves to the range of the same file that overlaps it.
+  createEffect(
+    on(payload, (p) => {
+      if (!p) return;
+      const s = lens();
+      const patch: { chunk?: string | null; commit?: string | null } = {};
+      if (s.chunk && !p.chunks.some((c) => c.id === s.chunk)) {
+        const old = lastSelected;
+        const twin = old && p.chunks.find((c) => c.path === old.path && c.kind === old.kind && c.startLine <= old.endLine && old.startLine <= c.endLine);
+        patch.chunk = twin?.id ?? null;
+      }
+      if (s.commit && !p.commits.some((c) => c.sha === s.commit)) patch.commit = null;
+      if (Object.keys(patch).length) setLens(patch, "step");
+    })
+  );
 
   // --- the open diff ----------------------------------------------------------------
   const [hunk, setHunk] = createSignal<{ chunk: string; commit?: string } | null>(null);
@@ -111,11 +150,21 @@ export default function ChangeLensView(props: {
   const [diffError, setDiffError] = createSignal<string>();
   const [diffLoading, setDiffLoading] = createSignal(false);
   let diffRequest = 0;
+  // The diff reloads when a new result arrives, not when the query changes: until then the chunk may not exist.
   createEffect(
-    on([hunk, query], ([h, q]) => {
+    on([hunk, payload], ([h, p]) => {
       const id = ++diffRequest;
+      const q = untrack(query);
       setDiffError(undefined);
-      if (!h || !q) {
+      if (h && p && !p.chunks.some((c) => c.id === h.chunk)) {
+        setHunk(null);
+        return;
+      }
+      if (h?.commit && p && !p.commits.some((c) => c.sha === h.commit)) {
+        setHunk({ chunk: h.chunk });
+        return;
+      }
+      if (!h || !q || !p) {
         setDiff(null);
         setDiffLoading(false);
         return;
@@ -136,12 +185,24 @@ export default function ChangeLensView(props: {
       );
     })
   );
+  /** The selected commit's step when that commit changed the chunk, else the whole window. */
+  const stepOf = (chunk: string) => (commit()?.chunkIds.includes(chunk) ? commit()!.sha : undefined);
   const openHunk = (chunk: string, sha?: string) => {
-    setHunk({ chunk, commit: sha });
+    setHunk({ chunk, commit: sha ?? stepOf(chunk) });
     if (lens().chunk !== chunk) setLens({ chunk });
   };
-  /** From the map: the selected commit's step when that commit changed the chunk, else the whole window. */
-  const openFromMap = (chunk: string) => openHunk(chunk, commit()?.chunkIds.includes(chunk) ? commit()!.sha : undefined);
+  const openFromMap = (chunk: string) => openHunk(chunk);
+  // An open diff follows the selected commit.
+  createEffect(
+    on(
+      commit,
+      () => {
+        const open = untrack(hunk);
+        if (open) setHunk({ chunk: open.chunk, commit: stepOf(open.chunk) });
+      },
+      { defer: true }
+    )
+  );
   // An open diff follows the selection, so the arrow keys step through diffs.
   createEffect(
     on(
@@ -149,7 +210,7 @@ export default function ChangeLensView(props: {
       (chunk) => {
         const open = hunk();
         if (!open || open.chunk === chunk) return;
-        setHunk(chunk ? { chunk } : null);
+        setHunk(chunk ? { chunk, commit: stepOf(chunk) } : null);
       },
       { defer: true }
     )
@@ -170,11 +231,12 @@ export default function ChangeLensView(props: {
   const crumbs = createMemo(() => {
     const out: { label: string; at: string; inScope: boolean }[] = [{ label: baseName(props.rootPath) || "repo", at: "", inScope: true }];
     const chunk = selected();
-    const path = chunk && inScope(chunk.path, scope()) ? chunk.path : scope();
+    const here = scanPath(base(), scope());
+    const path = chunk && inScope(chunk.path, scope()) ? scanPath(base(), chunk.path) : here;
     const parts = path ? path.split("/") : [];
     parts.forEach((label, i) => {
       const at = parts.slice(0, i + 1).join("/");
-      out.push({ label, at, inScope: inScope(scope(), at) });
+      out.push({ label, at, inScope: inScope(here, at) });
     });
     return out;
   });
@@ -186,7 +248,7 @@ export default function ChangeLensView(props: {
       </ViewTools>
 
       {/* What the window resolved to. One fixed-height row at rest; notes wrap under it. */}
-      <div class="flex min-h-[28px] shrink-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-[var(--plc-border)] px-3 py-1 text-[12px] text-[var(--plc-on-muted)]" data-lens-status>
+      <div class="relative flex min-h-[28px] shrink-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-[var(--plc-border)] px-3 py-1 text-[12px] text-[var(--plc-on-muted)]" data-lens-status>
         <Show when={payload()} fallback={<span class="text-[var(--plc-on-subtle)]">{loading() ? "Reading the history of this window…" : " "}</span>}>
           {(p) => (
             <>
@@ -209,7 +271,8 @@ export default function ChangeLensView(props: {
             </>
           )}
         </Show>
-        <span class="ml-auto w-[5.5rem] shrink-0 text-right text-[var(--plc-on-subtle)]" aria-live="polite">
+        {/* Out of the flow, so the line never wraps differently while a window loads. */}
+        <span class="absolute right-2 top-1 rounded bg-[var(--plc-surface)] px-1.5 text-[var(--plc-on-subtle)] empty:hidden" aria-live="polite" data-lens-updating>
           {loading() && payload() ? "Updating…" : ""}
         </span>
       </div>
@@ -242,7 +305,7 @@ export default function ChangeLensView(props: {
         {(p) => (
           <div class="flex min-h-0 flex-1" classList={{ "flex-col": narrow() }}>
             <div class="flex min-h-0 min-w-0 flex-1 flex-col">
-              {/* The diff opens over the map and its legend; the commit rail under them stays in reach. */}
+              {/* The diff opens under the map, which shrinks to make room, so the selected chunk stays in view. */}
               <div class="relative flex min-h-0 flex-1 flex-col">
               <div class="flex h-[26px] shrink-0 items-center gap-3 px-3 text-[12px]">
                 <nav aria-label="Map scope" class="flex max-w-[75%] shrink-0 items-center overflow-hidden whitespace-nowrap" data-lens-crumbs>
@@ -257,8 +320,8 @@ export default function ChangeLensView(props: {
                         <button
                           type="button"
                           class="rounded px-0.5 hover:text-[var(--plc-accent)]"
-                          classList={{ "text-[var(--plc-on-surface)]": crumb.inScope, "text-[var(--plc-on-subtle)]": !crumb.inScope, "font-semibold": crumb.at === scope() }}
-                          title={crumb.at === scope() ? "The map shows this" : `Zoom the map to ${crumb.at || "the whole repo"}`}
+                          classList={{ "text-[var(--plc-on-surface)]": crumb.inScope, "text-[var(--plc-on-subtle)]": !crumb.inScope, "font-semibold": crumb.at === scanPath(base(), scope()) }}
+                          title={crumb.at === scanPath(base(), scope()) ? "The map shows this" : `Zoom the map to ${crumb.at || baseName(props.rootPath)}`}
                           data-crumb={crumb.at}
                           onClick={() => go({ at: crumb.at })}
                         >
@@ -281,11 +344,11 @@ export default function ChangeLensView(props: {
                   </Show>
                 </nav>
                 <span class="min-w-0 flex-1 truncate text-right tabular-nums text-[var(--plc-on-subtle)]" data-lens-summary>
-                  {plural(p().summary.filesEdited, "file")} of {p().summary.filesTotal.toLocaleString("en-US")} · {plural(p().summary.chunks, "chunk")} · {p().summary.churnLines.toLocaleString("en-US")} lines churned / {p().summary.netLines.toLocaleString("en-US")} net
+                  {fileCount(p())} · {plural(p().summary.chunks, "chunk")} · {p().summary.churnLines.toLocaleString("en-US")} lines churned / {p().summary.netLines.toLocaleString("en-US")} net
                   {p().summary.reverted ? ` · ${p().summary.reverted} reverted` : ""}
                 </span>
               </div>
-              <div class="relative min-h-0 flex-1">
+              <div class="relative min-h-0 flex-1 transition-opacity duration-150" classList={{ "opacity-50": state() === "refreshing" }} aria-busy={state() === "refreshing"}>
                 <LensMap
                   payload={p()}
                   layout={lens().layout}
@@ -297,12 +360,12 @@ export default function ChangeLensView(props: {
                   filesIn={(folder) => scan().fileCounts.get(folder) ?? null}
                   onSelect={(chunk, how) => setLens({ chunk }, how)}
                   onOpen={openFromMap}
-                  onZoom={(at) => go({ at })}
+                  onZoom={zoom}
                 />
                 <Show when={lens().layout === "edits" && inView() === 0}>
                   <div class="absolute inset-0 flex items-center justify-center text-[13px] text-[var(--plc-on-muted)]" data-lens-message="empty-scope">
                     <span>
-                      No edits under <span class="plc-data-sm text-[12px] text-[var(--plc-on-surface)]">{scope()}</span> in this window.{" "}
+                      No edits under <span class="plc-data-sm text-[12px] text-[var(--plc-on-surface)]">{scanPath(base(), scope())}</span> in this window.{" "}
                       <button type="button" class="text-[var(--plc-accent)] hover:text-[var(--plc-accent-hover)]" onClick={() => go({ at: "" })}>
                         Show the whole repo
                       </button>
@@ -312,7 +375,7 @@ export default function ChangeLensView(props: {
               </div>
               <Legend lens={{ metric: lens().metric, color: lens().color }} layout={lens().layout} />
               <Show when={hunk()}>
-                <div class="plc-floating absolute inset-x-0 bottom-0 z-20 h-[58%] border-t" data-lens-hunk>
+                <div class="h-[50%] min-h-[220px] shrink-0 border-t border-[var(--plc-border)]" data-lens-hunk>
                   <HunkDiff diff={diff()} loading={diffLoading()} error={diffError()} onClose={() => setHunk(null)} />
                 </div>
               </Show>
@@ -326,7 +389,7 @@ export default function ChangeLensView(props: {
                 <ReviewBuckets payload={p()} selected={lens().chunk} onSelect={(chunk) => setLens({ chunk })} />
               </div>
               <div class="min-h-0 flex-1 overflow-auto">
-                <ChunkInspector payload={p()} chunk={selected()} onOpenHunk={openHunk} onOpenCode={(chunk) => props.onOpenAt(chunk.path, chunk.startLine)} />
+                <ChunkInspector payload={p()} chunk={selected()} onOpenHunk={openHunk} onOpenCode={(chunk) => props.onOpenAt(scanPath(base(), chunk.path), chunk.startLine)} />
               </div>
             </aside>
           </div>

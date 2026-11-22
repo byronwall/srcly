@@ -13,6 +13,7 @@ export const pages = [
   { slug: 'design', title: 'Design decisions', description: 'Learn what Srcly measures, how it presents evidence, and where its limits are.' },
   { slug: 'get-started', title: 'Get started', description: 'Install Srcly and analyze your first codebase.' },
   { slug: 'explore', title: 'Explore a codebase', description: 'Navigate the treemap, hotspots, explorer, and code view.' },
+  { slug: 'changes', title: 'Review changes', description: 'See the code a branch or a time window edited, and what to review first.' },
   { slug: 'metrics', title: 'Metrics', description: 'Understand metric values, scope, and coverage.' },
   { slug: 'findings', title: 'Findings', description: 'Read checker findings and understand what Srcly measured.' },
   { slug: 'data-flow', title: 'Data flow', description: 'Trace TypeScript, JavaScript, and Python values through the codebase.' },
@@ -23,7 +24,7 @@ export const pages = [
 
 const groups = [
   { title: 'Discover', slugs: ['overview', 'tour', 'design'] },
-  { title: 'Use Srcly', slugs: ['get-started', 'explore', 'metrics', 'findings', 'data-flow'] },
+  { title: 'Use Srcly', slugs: ['get-started', 'explore', 'changes', 'metrics', 'findings', 'data-flow'] },
   { title: 'Automate & configure', slugs: ['reports', 'cli', 'configuration'] },
 ];
 const base = import.meta.env.BASE_URL;

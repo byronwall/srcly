@@ -20,7 +20,8 @@
     "timezone": "UTC",
     "includesWorktree": true,
     "notes": [],
-    "repoRoot": "/repo/change-lens-fixture"
+    "repoRoot": "/repo/change-lens-fixture",
+    "scope": ""
   },
   "commits": [
     {
@@ -278,15 +279,11 @@
       "firstTouched": "2026-01-06T19:00:00+00:00",
       "lastTouched": "2026-01-06T19:00:00+00:00",
       "metrics": {
-        "parameter_count": {
+        "cognitive_complexity": {
           "before": null,
-          "after": 2
+          "after": 17
         },
-        "ts_type_interface_count": {
-          "before": null,
-          "after": 0
-        },
-        "comment_noise_docblock": {
+        "comment_lines": {
           "before": null,
           "after": 0
         },
@@ -294,37 +291,41 @@
           "before": null,
           "after": 0
         },
-        "comment_noise_ratio": {
+        "comment_noise_commented_code": {
           "before": null,
           "after": 0
         },
-        "cognitive_complexity": {
+        "comment_noise_docblock": {
           "before": null,
-          "after": 17
+          "after": 0
         },
-        "max_nesting_depth": {
+        "comment_noise_ratio": {
           "before": null,
-          "after": 3
+          "after": 0
         },
         "complexity": {
           "before": null,
           "after": 12
         },
-        "comment_noise_commented_code": {
+        "loc": {
           "before": null,
-          "after": 0
+          "after": 22
+        },
+        "max_nesting_depth": {
+          "before": null,
+          "after": 3
+        },
+        "parameter_count": {
+          "before": null,
+          "after": 2
         },
         "todo_count": {
           "before": null,
           "after": 0
         },
-        "comment_lines": {
+        "ts_type_interface_count": {
           "before": null,
           "after": 0
-        },
-        "loc": {
-          "before": null,
-          "after": 22
         }
       },
       "measured": true,
@@ -361,15 +362,11 @@
       "firstTouched": "2026-01-06T19:00:00+00:00",
       "lastTouched": "2026-01-06T19:00:00+00:00",
       "metrics": {
-        "parameter_count": {
-          "before": 2,
-          "after": 2
+        "cognitive_complexity": {
+          "before": 13,
+          "after": 16
         },
-        "ts_type_interface_count": {
-          "before": 0,
-          "after": 0
-        },
-        "comment_noise_docblock": {
+        "comment_lines": {
           "before": 0,
           "after": 0
         },
@@ -377,43 +374,46 @@
           "before": 0,
           "after": 0
         },
-        "comment_noise_ratio": {
+        "comment_noise_commented_code": {
           "before": 0,
           "after": 0
         },
-        "cognitive_complexity": {
-          "before": 13,
-          "after": 16
+        "comment_noise_docblock": {
+          "before": 0,
+          "after": 0
         },
-        "max_nesting_depth": {
-          "before": 2,
-          "after": 2
+        "comment_noise_ratio": {
+          "before": 0,
+          "after": 0
         },
         "complexity": {
           "before": 11,
           "after": 13
         },
-        "comment_noise_commented_code": {
-          "before": 0,
-          "after": 0
+        "loc": {
+          "before": 12,
+          "after": 13
+        },
+        "max_nesting_depth": {
+          "before": 2,
+          "after": 2
+        },
+        "parameter_count": {
+          "before": 2,
+          "after": 2
         },
         "todo_count": {
           "before": 0,
           "after": 0
         },
-        "comment_lines": {
+        "ts_type_interface_count": {
           "before": 0,
           "after": 0
-        },
-        "loc": {
-          "before": 12,
-          "after": 13
         }
       },
       "measured": true,
       "buckets": [
-        "complex-and-changed",
-        "new-hotspot"
+        "complex-and-changed"
       ],
       "fileClass": "code",
       "hunks": [
@@ -446,17 +446,17 @@
       "firstTouched": "2026-01-06T13:00:00+00:00",
       "lastTouched": "2026-01-06T13:00:00+00:00",
       "metrics": {
-        "loc": {
-          "before": 10,
-          "after": 10
+        "cognitive_complexity": {
+          "before": 1,
+          "after": 1
         },
         "complexity": {
           "before": 2,
           "after": 2
         },
-        "cognitive_complexity": {
-          "before": 1,
-          "after": 1
+        "loc": {
+          "before": 10,
+          "after": 10
         }
       },
       "measured": true,
@@ -483,15 +483,11 @@
       "firstTouched": "2026-01-06T17:00:00+00:00",
       "lastTouched": "2026-01-06T17:00:00+00:00",
       "metrics": {
-        "parameter_count": {
-          "before": 1,
-          "after": 1
+        "cognitive_complexity": {
+          "before": 4,
+          "after": 5
         },
-        "ts_type_interface_count": {
-          "before": 0,
-          "after": 0
-        },
-        "comment_noise_docblock": {
+        "comment_lines": {
           "before": 0,
           "after": 0
         },
@@ -499,37 +495,41 @@
           "before": 0,
           "after": 0
         },
-        "comment_noise_ratio": {
+        "comment_noise_commented_code": {
           "before": 0,
           "after": 0
         },
-        "cognitive_complexity": {
-          "before": 4,
-          "after": 5
+        "comment_noise_docblock": {
+          "before": 0,
+          "after": 0
         },
-        "max_nesting_depth": {
-          "before": 2,
-          "after": 2
+        "comment_noise_ratio": {
+          "before": 0,
+          "after": 0
         },
         "complexity": {
           "before": 4,
           "after": 5
         },
-        "comment_noise_commented_code": {
-          "before": 0,
-          "after": 0
+        "loc": {
+          "before": 8,
+          "after": 9
+        },
+        "max_nesting_depth": {
+          "before": 2,
+          "after": 2
+        },
+        "parameter_count": {
+          "before": 1,
+          "after": 1
         },
         "todo_count": {
           "before": 0,
           "after": 0
         },
-        "comment_lines": {
+        "ts_type_interface_count": {
           "before": 0,
           "after": 0
-        },
-        "loc": {
-          "before": 8,
-          "after": 9
         }
       },
       "measured": true,
@@ -571,15 +571,11 @@
       "firstTouched": "2026-01-06T10:00:00+00:00",
       "lastTouched": "2026-01-06T18:00:00+00:00",
       "metrics": {
-        "parameter_count": {
-          "before": 2,
-          "after": 2
+        "cognitive_complexity": {
+          "before": 9,
+          "after": 24
         },
-        "ts_type_interface_count": {
-          "before": 0,
-          "after": 0
-        },
-        "comment_noise_docblock": {
+        "comment_lines": {
           "before": 0,
           "after": 0
         },
@@ -587,37 +583,41 @@
           "before": 0,
           "after": 0
         },
-        "comment_noise_ratio": {
+        "comment_noise_commented_code": {
           "before": 0,
           "after": 0
         },
-        "cognitive_complexity": {
-          "before": 9,
-          "after": 24
+        "comment_noise_docblock": {
+          "before": 0,
+          "after": 0
         },
-        "max_nesting_depth": {
-          "before": 4,
-          "after": 4
+        "comment_noise_ratio": {
+          "before": 0,
+          "after": 0
         },
         "complexity": {
           "before": 5,
           "after": 11
         },
-        "comment_noise_commented_code": {
-          "before": 0,
-          "after": 0
+        "loc": {
+          "before": 13,
+          "after": 18
+        },
+        "max_nesting_depth": {
+          "before": 4,
+          "after": 4
+        },
+        "parameter_count": {
+          "before": 2,
+          "after": 2
         },
         "todo_count": {
           "before": 0,
           "after": 0
         },
-        "comment_lines": {
+        "ts_type_interface_count": {
           "before": 0,
           "after": 0
-        },
-        "loc": {
-          "before": 13,
-          "after": 18
         }
       },
       "measured": true,
@@ -661,15 +661,11 @@
       "firstTouched": "2026-01-06T14:00:00+00:00",
       "lastTouched": "2026-01-06T14:00:00+00:00",
       "metrics": {
-        "parameter_count": {
-          "before": 1,
+        "cognitive_complexity": {
+          "before": 3,
           "after": null
         },
-        "ts_type_interface_count": {
-          "before": 0,
-          "after": null
-        },
-        "comment_noise_docblock": {
+        "comment_lines": {
           "before": 0,
           "after": null
         },
@@ -677,36 +673,40 @@
           "before": 0,
           "after": null
         },
-        "comment_noise_ratio": {
+        "comment_noise_commented_code": {
           "before": 0,
           "after": null
         },
-        "cognitive_complexity": {
-          "before": 3,
+        "comment_noise_docblock": {
+          "before": 0,
           "after": null
         },
-        "max_nesting_depth": {
-          "before": 2,
+        "comment_noise_ratio": {
+          "before": 0,
           "after": null
         },
         "complexity": {
           "before": 3,
           "after": null
         },
-        "comment_noise_commented_code": {
-          "before": 0,
+        "loc": {
+          "before": 6,
+          "after": null
+        },
+        "max_nesting_depth": {
+          "before": 2,
+          "after": null
+        },
+        "parameter_count": {
+          "before": 1,
           "after": null
         },
         "todo_count": {
           "before": 0,
           "after": null
         },
-        "comment_lines": {
+        "ts_type_interface_count": {
           "before": 0,
-          "after": null
-        },
-        "loc": {
-          "before": 6,
           "after": null
         }
       },
@@ -742,15 +742,11 @@
       "firstTouched": null,
       "lastTouched": null,
       "metrics": {
-        "parameter_count": {
-          "before": 2,
+        "cognitive_complexity": {
+          "before": 1,
           "after": 2
         },
-        "ts_type_interface_count": {
-          "before": 0,
-          "after": 0
-        },
-        "comment_noise_docblock": {
+        "comment_lines": {
           "before": 0,
           "after": 0
         },
@@ -758,15 +754,15 @@
           "before": 0,
           "after": 0
         },
-        "comment_noise_ratio": {
+        "comment_noise_commented_code": {
           "before": 0,
           "after": 0
         },
-        "cognitive_complexity": {
-          "before": 1,
-          "after": 2
+        "comment_noise_docblock": {
+          "before": 0,
+          "after": 0
         },
-        "max_nesting_depth": {
+        "comment_noise_ratio": {
           "before": 0,
           "after": 0
         },
@@ -774,21 +770,25 @@
           "before": 2,
           "after": 3
         },
-        "comment_noise_commented_code": {
+        "loc": {
+          "before": 3,
+          "after": 4
+        },
+        "max_nesting_depth": {
           "before": 0,
           "after": 0
+        },
+        "parameter_count": {
+          "before": 2,
+          "after": 2
         },
         "todo_count": {
           "before": 0,
           "after": 0
         },
-        "comment_lines": {
+        "ts_type_interface_count": {
           "before": 0,
           "after": 0
-        },
-        "loc": {
-          "before": 3,
-          "after": 4
         }
       },
       "measured": true,

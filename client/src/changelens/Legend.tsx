@@ -19,7 +19,7 @@ export default function Legend(props: { lens: Lens; layout: LensLayout }) {
   const domain = () => metricDef(props.lens.metric)?.color_domain ?? [0, 10, 50];
   const value = (n: number) => formatMetricValue(props.lens.metric, n);
   return (
-    <div class="flex h-[26px] shrink-0 items-center gap-x-4 overflow-hidden whitespace-nowrap border-t border-[var(--plc-border)] px-3 text-[11px] text-[var(--plc-on-muted)]" data-lens-legend={props.lens.color}>
+    <div class="flex min-h-[26px] shrink-0 flex-wrap items-center gap-x-4 gap-y-0.5 whitespace-nowrap border-t py-1 border-[var(--plc-border)] px-3 text-[11px] text-[var(--plc-on-muted)]" data-lens-legend={props.lens.color}>
       <span class="flex shrink-0 items-center gap-1.5">
         <span class="font-semibold text-[var(--plc-on-surface)]">
           {metricLabel(props.lens.metric)} {props.lens.color === "delta" ? "delta" : "now"}
@@ -56,7 +56,7 @@ export default function Legend(props: { lens: Lens; layout: LensLayout }) {
           </span>
         )}
       </For>
-      <span class="min-w-0 flex-1 truncate text-right text-[var(--plc-on-subtle)]">
+      <span class="ml-auto text-[var(--plc-on-subtle)]">
         {props.layout === "edits" ? "Area: changed lines · dots: commits that touched the chunk" : "Area: file LOC · bands: edited chunks at their lines"}
       </span>
     </div>

@@ -13,4 +13,5 @@ Each JPEG is 2160 × 1350 pixels: a 1440 × 900 viewport at 1.5x, quality 82.
 - `graph.jpg`: the import graph around `client/src/viz/treemap`.
 - `compare.jpg`: compare mode for commit `5a8a9c38` (symbols dead and hub overlays).
 - `symbols.jpg`: Symbols mode centered on `NotePage`.
+- `changes.jpg`: the Changes view over a fixed range (`e17633f` to the capture revision), with `parseLocation` selected. It was first captured with `--ref` on the Change Lens branch, before the view reached `main`.
 - `data-flow.jpg`: the `/notes/[id]` trace from `NotePage`, with where it stops.

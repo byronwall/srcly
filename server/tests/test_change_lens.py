@@ -1,4 +1,4 @@
-"""Change Lens on the acceptance repo (docs/intent/change-lens/contract.md)."""
+"""Change Lens on the acceptance repo (rules: site/src/docs/pages/changes.md)."""
 
 from __future__ import annotations
 
@@ -119,7 +119,10 @@ def test_review_buckets(touched):
     plan = chunks["src/planner.ts::planRoute"]
     assert plan["status"] == "added" and plan["buckets"] == ["new-hotspot"]
     assert plan["metrics"]["complexity"] == {"before": None, "after": plan["metrics"]["complexity"]["after"]}
-    assert "complex-and-changed" in chunks["src/router.ts::dispatch"]["buckets"]
+    # dispatch was already at the line and rose: it is complex and changed, not a new hotspot.
+    dispatch = chunks["src/router.ts::dispatch"]
+    assert dispatch["metrics"]["complexity"]["before"] >= 10
+    assert dispatch["buckets"] == ["complex-and-changed"]
     assert chunks["src/worker.ts::retryJob"]["buckets"] == ["new-hotspot"]
     assert chunks["src/worker.ts::parseArgs"]["buckets"] == []
 

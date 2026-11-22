@@ -185,8 +185,8 @@ function WindowPicker(props: { state: LensState; onChange: (patch: Partial<LensS
   );
 }
 
-/** Which metric drives the color. Only metrics with a before and after in this window. */
-function MetricMenu(props: { metricIds: string[]; selected: string; onSelect: (id: string) => void }) {
+/** Which metric drives the color, and whether it shows the value now or its change. */
+function MetricMenu(props: { metricIds: string[]; selected: string; onSelect: (id: string) => void; color: ColorMode; onColor: (c: ColorMode) => void }) {
   const [open, setOpen] = createSignal(false);
   return (
     <Popover
@@ -195,14 +195,22 @@ function MetricMenu(props: { metricIds: string[]; selected: string; onSelect: (i
       placement="bottom-start"
       offset={{ x: 0, y: 4 }}
       trigger={(trigger) => (
-        <Button ref={trigger.ref} class="max-w-[13rem] shrink gap-1.5" aria-haspopup="listbox" aria-expanded={open()} data-lens-metric onClick={(e) => trigger.onClick(e)}>
+        <Button ref={trigger.ref} class="max-w-[15rem] shrink gap-1.5" aria-haspopup="listbox" aria-expanded={open()} data-lens-metric onClick={(e) => trigger.onClick(e)}>
           <span class="plc-collapsible-label font-normal text-[var(--plc-on-subtle)]">Color</span>
           <span class="min-w-0 truncate">{metricLabel(props.selected)}</span>
+          <span class="shrink-0 font-normal text-[var(--plc-on-subtle)]" data-lens-color-mode={props.color}>
+            {props.color === "delta" ? "Δ" : "now"}
+          </span>
           <ChevronDown size={14} class="shrink-0 text-[var(--plc-on-subtle)]" aria-hidden="true" />
         </Button>
       )}
     >
-      <PopoverPanel class="w-[22rem] max-w-[92vw] p-1" role="listbox" aria-label="Color metric">
+      <PopoverPanel class="w-[22rem] max-w-[92vw] p-1" aria-label="Color">
+        <div class="flex items-center justify-between gap-2 px-2 pb-1.5 pt-1 text-[12px] text-[var(--plc-on-muted)]">
+          Color by
+          <Segmented label="Color by" name="color" options={COLORS} value={props.color} onChange={props.onColor} />
+        </div>
+        <div role="listbox" aria-label="Color metric" class="border-t border-[var(--plc-border)] pt-1">
         <For each={props.metricIds} fallback={<div class="px-2 py-1.5 text-[12px] text-[var(--plc-on-subtle)]">No metric has a value in this window.</div>}>
           {(id) => (
             <OptionRow
@@ -224,6 +232,7 @@ function MetricMenu(props: { metricIds: string[]; selected: string; onSelect: (i
             </OptionRow>
           )}
         </For>
+        </div>
       </PopoverPanel>
     </Popover>
   );
@@ -241,8 +250,13 @@ export default function WindowBar(props: { state: LensState; metricIds: string[]
       <Segmented label="Changes to show" name="mode" options={MODES} value={props.state.mode} onChange={(mode) => props.onChange({ mode })} />
       <Segmented label="Map" name="layout" options={LAYOUTS} value={props.state.layout} onChange={(layout) => props.onChange({ layout })} />
       <Divider />
-      <MetricMenu metricIds={metricIds()} selected={props.state.metric} onSelect={(metric) => props.onChange({ metric })} />
-      <Segmented label="Color by" name="color" options={COLORS} value={props.state.color} onChange={(color) => props.onChange({ color })} />
+      <MetricMenu
+        metricIds={metricIds()}
+        selected={props.state.metric}
+        onSelect={(metric) => props.onChange({ metric })}
+        color={props.state.color}
+        onColor={(color) => props.onChange({ color })}
+      />
     </>
   );
 }

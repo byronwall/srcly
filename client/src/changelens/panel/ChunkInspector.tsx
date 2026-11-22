@@ -31,6 +31,9 @@ function Section(props: { title: string; detail?: JSX.Element; children: JSX.Ele
   );
 }
 
+/** No change worth a row: equal sides, or a new or gone value of 0. */
+const quiet = (v: BeforeAfter) => v.before === v.after || (v.before ?? 0) === (v.after ?? 0);
+
 function verdict(id: string, v: BeforeAfter): Verdict {
   if (v.before === null || v.after === null || v.before === v.after) return "same";
   const dir = metricDef(id)?.direction;
@@ -209,9 +212,21 @@ export function ChunkInspector(props: {
                 when={metricRows().length}
                 fallback={<p class="text-[12px] text-[var(--plc-on-subtle)]">No metrics for this kind of chunk.</p>}
               >
-                <For each={metricRows()}>
+                <For each={metricRows().filter(([id, v]) => id === "complexity" || !quiet(v))}>
                   {([id, v]) => <MetricRow id={id} value={v} max={maxAbs().get(id) ?? 1} chunk={c()} />}
                 </For>
+                <Show when={metricRows().filter(([id, v]) => id !== "complexity" && quiet(v))}>
+                  {(rest) => (
+                    <Show when={rest().length}>
+                      <p class="mt-1 text-[12px] leading-snug text-[var(--plc-on-subtle)]" data-quiet-metrics>
+                        Same on both sides:{" "}
+                        {rest()
+                          .map(([id, v]) => `${metricLabel(id)} ${formatMetricValue(id, (v.after ?? v.before)!)}`)
+                          .join(" · ")}
+                      </p>
+                    </Show>
+                  )}
+                </Show>
               </Show>
               <Show when={c().naReason}>
                 <p class="mt-1 text-[11px] text-[var(--plc-on-subtle)]">{c().naReason}</p>

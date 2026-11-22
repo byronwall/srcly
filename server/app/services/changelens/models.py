@@ -57,6 +57,7 @@ class LensSelection(LensModel):
     includes_worktree: bool
     notes: list[str]
     repo_root: str
+    scope: str
 
 
 class LensCommit(LensModel):
