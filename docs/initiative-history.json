@@ -213,5 +213,25 @@
     ],
     "revision": "0a1c1133",
     "follow_ups": []
+  },
+  {
+    "title": "Bring tsx-data-flow into srcly",
+    "slug": "tsx-dataflow-integration",
+    "outcome": "completed",
+    "retired_at": "2026-11-21",
+    "summary": "The tsx-data-flow analysis lives in engine/ as one lazy Node child per scan root. It feeds the route graph, the value ledger with Return, the effects panel, data-flow metrics, findings and code-viewer marks, srcly report --dataflow (dataflow.md work packets) and compare --dataflow, and it ships bundled in the wheel. The strict-tsconfig refusal became nullProof=false. Reconciled against origin/main 4727bd56 plus the retirement PR's context-relay and broad-prop-bundle findings.",
+    "reason": "All eight milestones shipped. M7 closed on 2026-11-21 (#398, #399, #400, #406 and the retirement PR). Byron approved retirement.",
+    "documentation": [
+      "docs/dataflow-engine.md",
+      "docs/dataflow-coverage.md",
+      "docs/CODE_MAP.md",
+      "AGENTS.md",
+      "skills/srcly-code-quality/SKILL.md"
+    ],
+    "revision": "4727bd56",
+    "follow_ups": [
+      "pgm task-start-the-data-flow-batch-run-from-the-app: start the tier-2 run from the app. Today only the CLI starts it.",
+      "Dropped: dataflow_defensive_ops (a per-sink count double-counts shared guards) and a findings/dataflow.py tool (findings reach report.md and marks from the saved result)."
+    ]
   }
 ]

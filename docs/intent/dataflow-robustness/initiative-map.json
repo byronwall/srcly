@@ -58,14 +58,14 @@
     {
       "id": "S2",
       "type": "doc",
-      "location": "docs/intent/tsx-dataflow-integration/detailed-plan.md",
+      "location": "https://github.com/byronwall/srcly/blob/4727bd56/docs/intent/tsx-dataflow-integration/detailed-plan.md",
       "anchor": "sections 6, 8, 11 (M4-M8, D1-D8, stop rules)",
       "authority": "repo"
     },
     {
       "id": "S3",
       "type": "doc",
-      "location": "docs/intent/tsx-dataflow-integration/measurements.md",
+      "location": "https://github.com/byronwall/srcly/blob/4727bd56/docs/intent/tsx-dataflow-integration/measurements.md",
       "anchor": "M1-M3 tables",
       "authority": "repo"
     },

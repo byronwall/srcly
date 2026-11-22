@@ -1,0 +1,15 @@
+{
+  "id": "b42af349-7ec7-4573-aa83-c6fb23dfc94f",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:6176ad",
+    "label": "Agent token ...6176ad"
+  },
+  "createdAt": "2026-11-22T04:20:55.895Z",
+  "summary": "Created \"Start the data-flow batch run from the app\" under \"Data flow: engine structure\".",
+  "nodeIds": [
+    "task-start-the-data-flow-batch-run-from-the-app",
+    "area-data-flow-engine-structure"
+  ]
+}

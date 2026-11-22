@@ -118,6 +118,7 @@ These came from the Python data-flow usability audit (`docs/research/python-data
 
 ## Engine structure
 
+- Design rules, decisions, measurements and the batch evidence behind reports and the treemap (`fileSignals`): `docs/dataflow-engine.md`.
 - `flowSignature` reduces each function of a file to line-free keys (origins, ends, origin→end pairs, parameter reads, effects, stops, status). `srcly compare --dataflow` diffs them as "Data-flow changes". Python has no parameter reads or effects (not measured), and a caller of a changed function is not re-traced.
 
 - Every evidence kind is classified once in `engine/src/srcly/kinds.ts` (#200). Rules read traits, not lists of kind names.

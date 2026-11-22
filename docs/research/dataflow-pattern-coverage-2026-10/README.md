@@ -154,7 +154,7 @@ The rules remove stops, but whole-export traces have several stops each, and 40%
 
 ### Open product decision
 
-`user-flow-workbench` (Solid, `strict: false`) is refused by design (R3 in `docs/intent/tsx-dataflow-integration/detailed-plan.md`): a loose tsconfig makes null verdicts unsound. Data flow itself does not need `strictNullChecks`. One option is to analyze loose projects with `strictNullChecks` forced on and mark their null verdicts as unproven. Byron decides whether to do that.
+`user-flow-workbench` (Solid, `strict: false`) is refused by design (R3 in `https://github.com/byronwall/srcly/blob/4727bd56/docs/intent/tsx-dataflow-integration/detailed-plan.md`): a loose tsconfig makes null verdicts unsound. Data flow itself does not need `strictNullChecks`. One option is to analyze loose projects with `strictNullChecks` forced on and mark their null verdicts as unproven. Byron decides whether to do that.
 
 ### Gaps that remain
 

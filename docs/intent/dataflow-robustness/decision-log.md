@@ -8,7 +8,7 @@ last_updated: "2026-10-24"
 
 # Decision log
 
-Each decision stays open only to the evidence named in its last column. Decisions R1–R12 came from three rounds of questions to the maintainer on 2026-10-24. The rest are planning defaults. The earlier initiative's D1–D8 (`../tsx-dataflow-integration/detailed-plan.md` §8) still stand unless one is superseded here.
+Each decision stays open only to the evidence named in its last column. Decisions R1–R12 came from three rounds of questions to the maintainer on 2026-10-24. The rest are planning defaults. The earlier initiative's D1–D8 (`https://github.com/byronwall/srcly/blob/4727bd56/docs/intent/tsx-dataflow-integration/detailed-plan.md` §8) still stand unless one is superseded here.
 
 | Id | Decision | Accepted | Evidence that would reopen it |
 | --- | --- | --- | --- |
