@@ -1,0 +1,48 @@
+diagram "What the engine must prove for a store"
+subtitle "Writes reach reads through a value no line of code names"
+
+node user "counter.tsx" shape=code lang=ts numbers=on <<TS
+const useCount = create((set) => ({
+  count: 0,
+  inc: (by) =>
+    set((s) => ({ count: s.count + by })),                  
+}));
+
+function Button() {
+  const inc = useCount((s) => s.inc);
+  return <button onClick={() => inc(1)}>+</button>;        
+}
+
+function Label() {
+  const n = useCount((s) => s.count);
+  return <span>{n}</span>;
+}
+TS
+range user.init lines=1-2 color=blue "init"
+range user.write lines=4 color=amber "write"
+range user.call lines=9 color=amber
+range user.read lines=13 color=violet "read"
+range user.show lines=14 color=violet "render"
+
+node state "store state\nmade by the engine" color=slate shape=pill
+
+edge a user.init -> state "starts as"
+edge b user.write -> state "merges into"
+edge c user.call -> user.write "runs inc (storeMethod)"
+edge d state -> user.read "selector receives"
+
+node cell "Proposed cell row" shape=code lang=json <<JSON
+{ "module": "zustand", "name": "create", "model": "cell",
+  "init":   "Argument[0].ReturnValue",
+  "writes": ["Argument[0].Parameter[0].Argument[0]"],
+  "reads":  ["ReturnValue.Call.Argument[0].Parameter[0]"],
+  "yields": "ReturnValue.Call.Argument[0].ReturnValue" }
+JSON
+note "The same row shape covers createSignal, useState, useReducer, createStore and createResource." near=cell side=below
+
+legend blue "Initial value"
+legend amber "Write path"
+legend violet "Read path"
+legend slate "Engine-made node"
+
+layout root flow gap=48 fit=slide

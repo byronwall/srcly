@@ -1,0 +1,40 @@
+diagram "Access paths replace one-off fields"
+subtitle "Four fields used by one or two rows become one path list"
+
+node today "useQuery row today (react.json)" shape=code lang=json <<JSON
+{ "module": "@tanstack/react-query",
+  "name": "useQuery",
+  "model": "calls-back",
+  "option": "queryFn",
+  "field": "data",
+  "selector": "select",
+  "hands": { "queryKey": ["queryKey"] } }
+JSON
+range today.f lines=4-7 color=orange "each field has its own reader"
+
+node readers "framework-flows.ts\noptionFlow, optionResult,\noptionLifecycle" color=orange shade=300
+node emitters "connectOptionFlows\nconnectOptionLifecycle\n85 lines" color=orange shade=300
+
+node paths "Same row with access paths" shape=code lang=json <<JSON
+{ "module": "@tanstack/react-query", "name": "useQuery",
+  "flows": [
+    "Argument[0].Member[queryFn].ReturnValue.Awaited
+       -> ReturnValue.Member[data]",
+    "Argument[0].Member[queryFn].ReturnValue.Awaited
+       -> Argument[0].Member[select].Parameter[0]",
+    "Argument[0].Member[select].ReturnValue
+       -> ReturnValue.Member[data]",
+    "Argument[0].Member[queryKey]
+       -> Argument[0].Member[queryFn].Parameter[0].Member[queryKey]"
+  ] }
+JSON
+node emitter "One path emitter\nevery row, every library" color=mint
+
+edge e1 today.f -> readers
+edge e2 readers -> emitters
+edge e3 paths -> emitter "read by"
+
+legend orange "Grows with each new field" shade=300
+legend mint "Fixed size"
+
+layout root flow gap=48 fit=slide

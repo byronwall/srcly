@@ -1,0 +1,44 @@
+diagram "What the .d.ts types already say"
+subtitle "Types find the right path, but one shared T can still lie"
+
+group right "Types match the value" color=mint
+node memo "@types/react" shape=code lang=ts in=right <<TS
+function useMemo<T>(factory: () => T, deps): T;                
+TS
+range memo.t lines=1 color=mint
+node idx "solid-js array.d.ts" shape=code lang=ts in=right <<TS
+function indexArray<T, U>(
+  list: Accessor<readonly T[]>,
+  mapFn: (v: Accessor<T>, i: number) => U,                
+): () => U[];
+TS
+range idx.u lines=3-4 color=mint "U in, U[] out"
+
+group wrong "Types match, value does not" color=red
+node ctx_t "solid-js signal.d.ts" shape=code lang=ts in=wrong <<TS
+function useContext<T>(context: Context<T>): T;
+TS
+node ctx_user "cart.tsx" shape=code lang=ts in=wrong numbers=on <<TS
+const Cart = createContext(emptyCart);              
+
+<Cart.Provider value={liveCart}>                    
+  <Checkout />
+</Cart.Provider>
+
+const cart = useContext(Cart);              
+TS
+range ctx_user.def lines=1 color=red
+range ctx_user.prov lines=3 color=mint
+range ctx_user.read lines=7
+
+edge t1 ctx_user.def -> ctx_user.read "type tie" kind=async
+edge t2 ctx_user.prov -> ctx_user.read "value flow"
+
+note "Spike: types imply 25 of 47 rows fully; about 1 in 20 type flows on unrowed exports is false. So a type step stays assumed until a row confirms it." near=wrong side=below
+
+legend mint "Right"
+legend red "Wrong"
+legend line dashed "What the types claim"
+legend line solid "Where the value comes from"
+
+layout root flow gap=48 fit=slide
