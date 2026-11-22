@@ -8,10 +8,11 @@
 //   cs     selected chunk id
 //   cbase, chead, csince, cuntil   the custom window
 //   clens  color: `<metric id>.now` or `<metric id>.delta`
+//   chist  history of a time window: head | main (unset: the server picks)
 
 import { createMemo } from "solid-js";
 import { go, location, replace } from "../navigation/store";
-import type { LensMode, LensWindow } from "./types";
+import type { LensHistory, LensMode, LensWindow } from "./types";
 
 export type LensLayout = "edits" | "repo";
 export type ColorMode = "now" | "delta";
@@ -28,6 +29,8 @@ export interface LensState {
   until: string;
   metric: string;
   color: ColorMode;
+  /** Null: HEAD, or main when HEAD is off it and empty in the window. */
+  history: LensHistory | null;
 }
 
 export const DEFAULT_LENS: LensState = {
@@ -42,6 +45,7 @@ export const DEFAULT_LENS: LensState = {
   until: "",
   metric: "complexity",
   color: "delta",
+  history: null,
 };
 
 const WINDOWS: readonly LensWindow[] = ["branch", "24h", "7d", "custom"];
@@ -65,6 +69,7 @@ export function parseLens(changes: string | undefined): LensState {
     until: custom ? (p.get("cuntil") ?? "") : "",
     metric: dot > 0 ? lens.slice(0, dot) : DEFAULT_LENS.metric,
     color: dot > 0 && (color === "now" || color === "delta") ? color : DEFAULT_LENS.color,
+    history: p.get("chist") === "head" ? "head" : p.get("chist") === "main" ? "main" : null,
   };
 }
 
@@ -82,6 +87,7 @@ export function serializeLens(s: LensState): string {
     if (s.since) p.set("csince", s.since);
     if (s.until) p.set("cuntil", s.until);
   }
+  if (s.history) p.set("chist", s.history);
   if (s.metric !== DEFAULT_LENS.metric || s.color !== DEFAULT_LENS.color) p.set("clens", `${s.metric}.${s.color}`);
   return p.toString();
 }
