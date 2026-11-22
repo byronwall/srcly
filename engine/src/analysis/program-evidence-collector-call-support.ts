@@ -55,10 +55,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
   ): void {
     const initializer = node.initializer;
     if (!initializer) return;
-    const aliasId =
-      this.variablesBySymbol.get(
-        this.symbolId(firstBindingIdentifier(this.ts, node.name)) ?? "",
-      ) ?? this.elementFor(node, "alias");
+    const aliasId = this.variableId(node) ?? this.elementFor(node, "alias");
     const initializerId = this.expression(initializer, ownerId);
     const factory = stateFactory(this.ts, this.checker, initializer);
     const first = this.ts.isArrayBindingPattern(node.name) ? node.name.elements[0] : undefined;
