@@ -21,6 +21,7 @@ import type {
   ProgramProofKind,
   ProgramRelationKind,
 } from "./program-evidence";
+import { returnedTerminal } from "./program-evidence-returned-terminals";
 import type { HttpBridgeFetch, HttpBridgeResponse } from "./http-bridge-evidence";
 
 type Attributes = Record<string, string | number | boolean | null>;
@@ -100,7 +101,13 @@ export function processProgramCallBoundary(
   // A DOM member a row says keeps nothing (`querySelector`) is a read, even with its value dropped.
   const reads = standardMemberModel(builtinLibraryModels(), member)?.model === "consumes";
   const browser = browserCall(member) ?? (!reads && pageEffectCall(ts, context.checker, node) ? "write" : null);
-  if (browser) {
+  const returned = browser ? null : returnedTerminal(ts, context.checker, node.expression);
+  if (returned?.row.role === "external-effect") {
+    // A function a library call handed back, which a row says is where the value leaves (`navigate(url)`).
+    const detail = returned.row.note ?? `Calling what ${returned.hook} returns is an effect outside the program.`;
+    const id = context.specialInput(node, "external-effect", ownerId, { operation: exported, name: `${returned.hook}: ${node.expression.getText(node.getSourceFile())}(…)` }, "framework-state", detail);
+    context.addRelation(callId, id, "effect-input", [context.location(node)], proof("framework-state", detail, [context.location(node)]), "proven");
+  } else if (browser) {
     // Browser storage, history and navigation: outside the program, named by what they are.
     const text = `${node.expression.getText(node.getSourceFile())}(…)`;
     const id = context.specialInput(

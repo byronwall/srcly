@@ -68,11 +68,12 @@ import {
   symbolAtNode,
   unwrap,
 } from "./program-evidence-support";
-import { hasNoValue, optionFlow, yieldsFirstFunction } from "./framework-flows";
+import { frameworkFlow, hasNoValue, optionFlow, yieldsFirstFunction } from "./framework-flows";
 import { resolveValue } from "./value-origin";
 import { NO_ANALYSIS_CANCELLATION, type AnalysisCancellationToken } from "./cancellation";
 import { builtinLibraryModels, globalReads, tsModel, type GlobalReads, type LibraryModelRow, type LibraryModels } from "./library-models";
 import { stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
+import { returnedTerminal } from "./program-evidence-returned-terminals";
 import { DeferredMap } from "./deferred-map";
 import { strictNulls } from "../project/typescript";
 
@@ -654,7 +655,12 @@ export class ProgramEvidenceCollectorSupport {
     // A state factory is modelled (`program-evidence-state-pairs.ts`): what it does with its argument is the pair's state, not an external effect.
     if (stateFactory(this.ts, this.checker, node)) return false;
     const module = this.moduleFor(node.expression);
-    const name = importedCallee(this.ts, this.checker, node.expression)?.name ?? calleeName(this.ts, node.expression);
+    const imported = importedCallee(this.ts, this.checker, node.expression);
+    // A call a flow row describes (`createDeferred`, `makePersisted`) is modelled: what it does with its arguments is the row's, never an assumed effect.
+    if (imported && frameworkFlow(imported.module, imported.name)) return false;
+    // A function a row says is a terminal (`navigate` after `useNavigate()`) is modelled too.
+    if (returnedTerminal(this.ts, this.checker, node.expression)) return false;
+    const name = imported?.name ?? calleeName(this.ts, node.expression);
     return Boolean(
       (module && !isFrameworkCall(module, name)) ||
         isEffectName(calleeName(this.ts, node.expression)) ||

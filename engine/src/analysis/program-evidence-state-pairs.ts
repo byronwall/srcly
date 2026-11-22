@@ -1,7 +1,7 @@
 import type * as TypeScript from "typescript";
 import { importedCallee } from "./program-evidence-support";
 import { resolveValue } from "./value-origin";
-import { callsInitialValue, makesStatePair, reducerArgument } from "./framework-flows";
+import { callsInitialValue, frameworkFlow, makesStatePair, reducerArgument } from "./framework-flows";
 
 /**
  * Reactive state pairs: a factory (a `state-pair` row) that returns
@@ -14,7 +14,12 @@ import { callsInitialValue, makesStatePair, reducerArgument } from "./framework-
 export function stateFactory(ts: typeof TypeScript, checker: TypeScript.TypeChecker, call: TypeScript.Expression): boolean {
   if (!ts.isCallExpression(call)) return false;
   const factory = importedCallee(ts, checker, call.expression);
-  return !!factory && makesStatePair(factory.module, factory.name);
+  if (!factory) return false;
+  if (makesStatePair(factory.module, factory.name)) return true;
+  // A call that hands on the one pair it is given (`makePersisted(createSignal(…))`, a `passes-through` row at one argument) is that pair.
+  const passes = frameworkFlow(factory.module, factory.name)?.passes;
+  const passed = Array.isArray(passes) && passes.length === 1 ? call.arguments[passes[0]] : undefined;
+  return !!passed && stateFactory(ts, checker, passed);
 }
 
 export type StateRole = { getter: TypeScript.Identifier; role: "getter" | "setter" };

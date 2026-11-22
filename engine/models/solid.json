@@ -41,6 +41,37 @@
     {
       "language": "ts",
       "module": "solid-js",
+      "name": "createDeferred",
+      "model": "calls-back",
+      "args": "0",
+      "returns": "callback",
+      "accessor": true,
+      "note": "The call makes an accessor that yields what its callback returns, later."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "createRoot",
+      "model": "calls-back",
+      "args": "0",
+      "returns": "callback",
+      "note": "The call's value is what its callback returns."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "mapArray",
+      "model": "calls-back",
+      "args": "1",
+      "source": "0",
+      "with": "element",
+      "returns": "callback",
+      "accessor": true,
+      "note": "The call makes an accessor of a list: the callback takes each item of what the source returns, and the list holds what it returns."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
       "name": "untrack",
       "model": "calls-back",
       "args": "0",
@@ -171,6 +202,24 @@
     {
       "language": "ts",
       "module": "@solidjs/router",
+      "name": "useNavigate",
+      "model": "terminal",
+      "role": "external-effect",
+      "result": "call",
+      "note": "Calling the function it returns sends the page to that URL: the value leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
+      "name": "useSearchParams",
+      "model": "terminal",
+      "role": "external-effect",
+      "result": "1",
+      "note": "Calling the setter it returns writes the page's query string: the value leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
       "name": "query",
       "model": "wraps",
       "args": "0",
@@ -199,6 +248,14 @@
       "model": "wraps",
       "args": "0",
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
+    },
+    {
+      "language": "ts",
+      "module": "@solid-primitives/storage",
+      "name": "makePersisted",
+      "model": "passes-through",
+      "args": "0",
+      "note": "The persisted pair is the signal or store pair it is given."
     },
     {
       "language": "ts",
