@@ -656,6 +656,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       if (this.rejects(node)) continue;
       // A row that says what the call yields (its callback's return, an option function's) leaves every other argument out of it: a dependency list, a query's key.
       if (this.yieldsOnlyItsCallback(node)) continue;
+      // A signature that says where the call's value comes from (`typePaths`) replaces the opaque argument edge: its paths are connected after collection.
+      if (this.typePaths(node).some((path) => path.to === "ReturnValue")) continue;
       // A state pair's initial value seeds its state directly (`seedArgument`), not through the factory's call.
       if (index === 0 && seedArgument(this.ts, this.checker, node)) continue;
       // `useContext(Ctx)` returns what a provider or the default holds, never the context object.
@@ -1085,6 +1087,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     this.connectCallPaths("connect", node, call.id, call.ownerId);
     // A call whose flow is modelled (`flowOf`) needs no assumption.
     if (this.flowOf(node)) return;
+    // A signature that says where the call's value comes from (`typePaths`) needs no other assumption.
+    if (this.connectTypePaths(node, call.id, call.ownerId)) return;
     const callee = calleeName(this.ts, node.expression);
     const calleeNode = unwrap(this.ts, node.expression);
     // A promise member's channels are its paths (`connectPromisePaths`).
@@ -1118,6 +1122,45 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         this.addRelation(returnId, call.id, "return-value", where, derived, derivedStatus);
       }
     }
+  }
+
+  /**
+   * The paths a package call's generic signature proposes (`typePaths`), each
+   * a `type-signature` hint: assumed, so `partial`. True when one says where
+   * the call's value comes from, so no other assumption is needed.
+   */
+  private connectTypePaths(node: TypeScript.CallExpression, callId: string, ownerId: string | null): boolean {
+    const paths = this.typePaths(node);
+    const callee = calleeName(this.ts, node.expression);
+    const hint = (detail: string, where: TypeScript.Node[]) => proof("type-signature", `Assumed from ${callee}'s type parameters, the same type, not a proven value: ${detail}`, where.map((item) => this.location(item)));
+    const fnAt = (index: number) => {
+      const fn = node.arguments[index] && unwrap(this.ts, node.arguments[index]);
+      const info = fn ? this.functionsByNode.get(nodeKey(this.root, fn)) ?? this.targetFunction(fn) ?? undefined : undefined;
+      return fn && info ? { fn, info } : null;
+    };
+    for (const { from, to } of paths) {
+      const passed = num(/^Argument\[(\d+)\]$/, from);
+      const returned = num(/^Argument\[(\d+)\]\.ReturnValue$/, from);
+      const taker = /^Argument\[(\d+)\]\.Parameter\[(\d+)\]$/.exec(to);
+      if (passed !== undefined && to === "ReturnValue") {
+        const value = unwrap(this.ts, node.arguments[passed]);
+        this.addRelation(this.expression(value, ownerId), callId, "framework-flow", [this.location(value)], hint("its value is this argument.", [value]), "partial");
+      } else if (returned !== undefined && to === "ReturnValue") {
+        const target = fnAt(returned);
+        for (const returnId of target ? this.returnsByFunction.get(target.info.id) ?? [] : []) {
+          this.addRelation(returnId, callId, "return-value", [this.location(target!.fn)], hint("its value is what this function returns.", [target!.fn]), "partial");
+        }
+      } else if (passed !== undefined && taker) {
+        const target = fnAt(Number(taker[1]));
+        const parameter = target?.info.declaration.parameters[Number(taker[2])];
+        const binding = parameter && firstBindingIdentifier(this.ts, parameter.name);
+        const parameterId = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
+        if (!parameter || !parameterId) continue;
+        const value = unwrap(this.ts, node.arguments[passed]);
+        this.addRelation(this.expression(value, ownerId), parameterId, "callback-parameter", [this.location(value), this.location(parameter)], hint("it calls this function with this argument.", [value, parameter]), "partial");
+      }
+    }
+    return paths.some((path) => path.to === "ReturnValue");
   }
 
   /**
