@@ -162,6 +162,9 @@ class TscTool(Tool):
 # -- eslint ------------------------------------------------------------------
 
 
+_ESLINT_ALL_IGNORED = re.compile(r"\ball of the files matching\s+the glob pattern [^\r\n]+ are ignored\.")
+
+
 def eslint_configs(root: Path, stop: Optional[Path]) -> list[Path]:
     found = find_within(root, ESLINT_CONFIGS)
     if not found:
@@ -235,7 +238,11 @@ class EslintTool(Tool):
         target = str(self.root) if self.root != cwd and cwd in self.root.parents else "."
         out = run_process([str(self.binary), "--format", "json", target], cwd, self.timeout)
         if out.returncode not in (0, 1):
-            raise ToolFailed(first_line(out.stderr or out.stdout) or f"exit code {out.returncode}")
+            # ESLint's generic banner precedes the real error, which can contain
+            # absolute paths. Only return fixed summaries to the Findings UI.
+            if any(_ESLINT_ALL_IGNORED.search(stream) for stream in (out.stderr, out.stdout)):
+                raise ToolFailed("all selected files are ignored; check ignore and file patterns in the ESLint config")
+            raise ToolFailed(f"exit code {out.returncode}; run ESLint directly for details")
         findings, files = parse_eslint(out.stdout or "[]", self.id)
         scope = str(self.root)
         return [f for f in findings if f.path.startswith(scope)], [f for f in files if f.startswith(scope)]

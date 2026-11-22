@@ -19,7 +19,7 @@ from app.services import analysis, findings, quadrants
 from app.services.findings import builtin_ts, ruff, typescript
 from app.services.findings.model import Finding
 from app.services.findings.runner import FindingsCache, collect, plan_tools, run_tools
-from app.services.findings.tools import Tool, ToolFailed, run_process
+from app.services.findings.tools import ProcessOutput, Tool, ToolFailed, run_process
 
 PY_SOURCE = textwrap.dedent(
     """\
@@ -259,6 +259,40 @@ def test_tsc_global_config_error_is_a_failure() -> None:
 
 
 # -- failures: never zero -------------------------------------------------------
+
+
+@pytest.mark.parametrize("stream", ["stderr", "stdout"])
+def test_eslint_ignored_files_explain_unassessed_result(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stream: str,
+) -> None:
+    config = tmp_path / "eslint.config.js"
+    tool = typescript.EslintTool(tmp_path, config, tmp_path / "eslint", tmp_path)
+    output = textwrap.dedent("""\
+        Oops! Something went wrong! :(
+
+        ESLint: 9.39.5
+
+        You are linting "/private/project/src", but all of the files matching
+        the glob pattern "/private/project/src" are ignored.
+    """)
+    process = ProcessOutput(2, output if stream == "stdout" else "", output if stream == "stderr" else "")
+    monkeypatch.setattr(typescript, "run_process", lambda *_: process)
+    run, checked = findings.tools.run(tool)
+    assert run.status == "na" and not run.ok and run.files is None and checked == []
+    assert run.reason == (
+        "eslint (eslint.config.js) failed: all selected files are ignored; "
+        "check ignore and file patterns in the ESLint config"
+    )
+
+
+def test_eslint_unknown_failure_reports_exit_without_raw_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    config = tmp_path / "eslint.config.js"
+    tool = typescript.EslintTool(tmp_path, config, tmp_path / "eslint", tmp_path)
+    process = ProcessOutput(2, "", "Error loading /private/project/unknown-plugin.js")
+    monkeypatch.setattr(typescript, "run_process", lambda *_: process)
+    run, checked = findings.tools.run(tool)
+    assert run.status == "na" and not run.ok and run.files is None and checked == []
+    assert run.reason == "eslint (eslint.config.js) failed: exit code 2; run ESLint directly for details"
 
 
 class _SlowTool(Tool):
