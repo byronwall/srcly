@@ -1,8 +1,8 @@
 import path from "node:path";
 import type * as TypeScript from "typescript";
 import type { AnalysisCancellationToken } from "../cancellation";
-import { boundaryRole, builtinLibraryModels, tsModel } from "../library-models";
-import { calleeName, importModule, lastName } from "../program-evidence-support";
+import { boundaryRole, builtinTsModel } from "../library-models";
+import { calleeName, lastName } from "../program-evidence-support";
 
 /**
  * What a function touches (M6, T14). A walk over the callable's own body
@@ -222,7 +222,7 @@ export function analyzeFunctionEffects(ts: typeof TypeScript, program: TypeScrip
 
       // Host and library behaviour, by resolved identity.
       // The boundary a library model row gives the callee, by its import module (or `global`) and dotted name.
-      const role = boundaryRole(tsModel(builtinLibraryModels(), ts, checker, importModule(ts, checker, expression), expression));
+      const role = boundaryRole(builtinTsModel(ts, checker, expression));
       if (place === "library" || place === "none" || place === "intrinsic") {
         if (role === "fetch-input") return fact("external", "network-request", name, "A network request leaves the program.", place === "none" ? "partial" : "proven");
         if (role === "file-write") return fact("external", "filesystem-write", name, "A filesystem write leaves the program.");

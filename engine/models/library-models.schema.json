@@ -183,6 +183,38 @@
             "type": "string",
             "const": "Argument[0]"
           },
+          "state": {
+            "description": "A label: the kind of state a variable this call initializes holds (`const [doc] = createResource(…)` is a `resource`).",
+            "type": "string",
+            "enum": [
+              "signal",
+              "store",
+              "resource",
+              "memo",
+              "context"
+            ]
+          },
+          "scopes": {
+            "description": "A label: the scope role of a function the call is handed at that path (`Argument[1]`: `fetcher`; `query(fn)`: `server`). A `Member[key]` path's key names that role for a function under the key in any object (`queryFn`).",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^(?:Argument\\[(?:this|\\d+(?:\\.\\.)?)\\]|ReturnValue)(?:\\.(?:Parameter\\[\\d+(?:\\.\\.)?\\]|ReturnValue|Member\\[[A-Za-z0-9_$]+\\]|Awaited(?:\\[error\\])?|ArrayElement))*$",
+              "description": "One access path, as a `flows` entry writes either side: `ReturnValue.Member[1].Parameter[0]`."
+            },
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "fetcher",
+                "server"
+              ]
+            }
+          },
+          "input": {
+            "description": "The call reads the page's URL (`useParams`): where a page's input starts, an `external-read`.",
+            "type": "string",
+            "const": "url"
+          },
           "proof": {
             "description": "The proof kind its relations carry, so existing proof names survive.",
             "type": "string",

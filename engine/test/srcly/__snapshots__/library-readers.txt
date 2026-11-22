@@ -205,6 +205,40 @@ ts:zustand#create (cell)
   yieldsFirstFunction: true
   makesStore: true
   callsInitialValue: true
+ts:react#useRef (consumes)
+  yieldsFirstFunction: true
+ts:react#useId (consumes)
+  yieldsFirstFunction: true
+ts:react#useTransition (consumes)
+  yieldsFirstFunction: true
+ts:react-router#useParams (origin)
+  yieldsFirstFunction: true
+ts:react-router#useSearchParams (origin)
+  yieldsFirstFunction: true
+ts:react-router#useLocation (origin)
+  yieldsFirstFunction: true
+ts:react-router-dom#useParams (origin)
+  yieldsFirstFunction: true
+ts:react-router-dom#useSearchParams (origin)
+  yieldsFirstFunction: true
+ts:react-router-dom#useLocation (origin)
+  yieldsFirstFunction: true
+ts:next/navigation#useParams (origin)
+  yieldsFirstFunction: true
+ts:next/navigation#useSearchParams (origin)
+  yieldsFirstFunction: true
+ts:next/navigation#usePathname (origin)
+  yieldsFirstFunction: true
+ts:@tanstack/react-router#useParams (origin)
+  yieldsFirstFunction: true
+ts:@tanstack/react-router#useSearch (origin)
+  yieldsFirstFunction: true
+ts:@tanstack/react-router#useLocation (origin)
+  yieldsFirstFunction: true
+ts:@tanstack/react-start#createServerFn (consumes)
+  yieldsFirstFunction: true
+ts:@tanstack/solid-start#createServerFn (consumes)
+  yieldsFirstFunction: true
 ts:react#createContext (keyed)
   yieldsFirstFunction: true
 ts:react#useContext (keyed)
@@ -291,6 +325,8 @@ ts:solid-js#onMount (calls-back)
 ts:solid-js#onCleanup (wraps)
   wrappedPosition: 0
   yieldsFirstFunction: true
+ts:solid-js#lazy (consumes)
+  yieldsFirstFunction: true
 ts:solid-js/store#createStore (cell)
   yieldsFirstFunction: true
   makesStatePair: true
@@ -299,6 +335,10 @@ ts:solid-js/store#unwrap (passes-through)
   yieldsFirstFunction: true
 ts:solid-js/store#createMutable (passes-through)
   rowFlow: {"passes":[0]}
+  yieldsFirstFunction: true
+ts:solid-js/store#produce (consumes)
+  yieldsFirstFunction: true
+ts:solid-js/store#reconcile (consumes)
   yieldsFirstFunction: true
 ts:@solidjs/router#createAsync (calls-back)
   rowFlow: {"returns":0}
@@ -311,6 +351,10 @@ ts:@solidjs/router#createAsyncStore (calls-back)
 ts:@solidjs/router#useNavigate (terminal)
   yieldsFirstFunction: true
 ts:@solidjs/router#useSearchParams (terminal)
+  yieldsFirstFunction: true
+ts:@solidjs/router#useParams (origin)
+  yieldsFirstFunction: true
+ts:@solidjs/router#useLocation (origin)
   yieldsFirstFunction: true
 ts:@solidjs/router#query (wraps)
   wrappedPosition: 0
@@ -326,6 +370,18 @@ ts:@solidjs/router#useAction (wraps)
   yieldsFirstFunction: true
 ts:@solidjs/router#useSubmission (cell)
   watchedFunction: {"at":0,"field":"result","input":"input"}
+ts:@solidjs/router#useSubmissions (consumes)
+  yieldsFirstFunction: true
+ts:@solidjs/router#useBeforeLeave (consumes)
+  yieldsFirstFunction: true
+ts:@solidjs/router#redirect (consumes)
+  yieldsFirstFunction: true
+ts:@solidjs/router#revalidate (consumes)
+  yieldsFirstFunction: true
+ts:@solidjs/router#reload (consumes)
+  yieldsFirstFunction: true
+ts:solid-start/server#default (consumes)
+  yieldsFirstFunction: true
 ts:@solid-primitives/storage#makePersisted (passes-through)
   rowFlow: {"passes":[0]}
   yieldsFirstFunction: true
@@ -351,6 +407,8 @@ ts:@tanstack/solid-query#createMutation (calls-back)
   optionFlow: "mutationFn"
 ts:@tanstack/solid-query#useMutation (calls-back)
   optionFlow: "mutationFn"
+ts:@tanstack/solid-query#useQueryClient (origin)
+  yieldsFirstFunction: true
 ts:solid-js#createContext (keyed)
   yieldsFirstFunction: true
 ts:solid-js#useContext (keyed)

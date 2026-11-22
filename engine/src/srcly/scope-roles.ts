@@ -3,27 +3,21 @@
 // helper never reads as a component. Conventions of the frameworks srcly
 // draws, read from syntax and the checker; never part of the analysis.
 import type * as TypeScript from "typescript";
+import { builtinLibraryModels, builtinTsModel, type LibraryModelRow } from "../analysis/library-models";
 
 export type ScopeRole = "component" | "hook" | "handler" | "fetcher" | "server" | "callback" | "helper";
 
-/** Calls whose function argument fetches a resource's value. */
-const FETCHER_CALLS = new Set(["createResource", "createAsync", "useQuery", "useSWR", "createQuery", "useMutation", "createMutation"]);
-/** Calls that make a server function of the function they wrap. */
-const SERVER_WRAPPERS = new Set(["query", "action", "createServerFn", "server$"]);
-/** Object keys whose function fetches (`useQuery({ queryFn })`). */
-const FETCHER_KEYS = new Set(["queryFn", "mutationFn", "fetcher"]);
-
-export function scopeRole(ts: typeof TypeScript, fn: TypeScript.SignatureDeclaration, sourceFile: TypeScript.SourceFile): ScopeRole {
+export function scopeRole(ts: typeof TypeScript, checker: TypeScript.TypeChecker, fn: TypeScript.SignatureDeclaration, sourceFile: TypeScript.SourceFile): ScopeRole {
   if (usesServer(ts, fn, sourceFile)) return "server";
   const name = bindingName(ts, fn);
   let parent: TypeScript.Node = fn.parent;
   while (ts.isParenthesizedExpression(parent) || ts.isAsExpression(parent)) parent = parent.parent;
   const call = ts.isCallExpression(parent) && parent.arguments.includes(fn as TypeScript.Expression) ? parent : null;
   const callee = call ? calleeName(ts, call) : null;
-  if (callee && SERVER_WRAPPERS.has(callee)) return "server";
-  // `createResource(source, fetcher)`: with two functions, the first only says what to fetch. `createResource(fetcher, { … })` has no source.
-  if (callee && FETCHER_CALLS.has(callee) && (callee !== "createResource" || call!.arguments.length < 2 || call!.arguments[1] === fn || ts.isObjectLiteralExpression(call!.arguments[1]))) return "fetcher";
-  if (ts.isPropertyAssignment(parent) && FETCHER_KEYS.has(parent.name.getText(sourceFile))) return "fetcher";
+  // The callee's row says what a function it is handed is for (`scopes`): `query(fn)` makes a server function, `createResource(fetcher)` fetches.
+  const handed = call ? handedRole(ts, checker, call, fn) : null;
+  if (handed) return handed;
+  if (ts.isPropertyAssignment(parent) && fetcherKeys().has(parent.name.getText(sourceFile))) return "fetcher";
   if (ts.isCallExpression(parent) && callee === "addEventListener") return "handler";
   if (ts.isJsxExpression(parent) && ts.isJsxAttribute(parent.parent) && /^on[A-Z:]/.test(parent.parent.name.getText(sourceFile))) return "handler";
   if (name && /^use[A-Z]/.test(name)) return "hook";
@@ -40,6 +34,30 @@ function bindingName(ts: typeof TypeScript, fn: TypeScript.SignatureDeclaration)
   // `const save = async () => …`, also through a wrapper call: `const getDoc = query(async () => …)`.
   if (ts.isCallExpression(parent)) parent = parent.parent;
   return ts.isVariableDeclaration(parent) && ts.isIdentifier(parent.name) ? parent.name.text : null;
+}
+
+/** The role a row's `scopes` gives the function at the argument it is (`Argument[n]`). An optional first argument the call leaves out (`createResource(fetcher, options?)`) puts each later one a place earlier. */
+function handedRole(ts: typeof TypeScript, checker: TypeScript.TypeChecker, call: TypeScript.CallExpression, fn: TypeScript.SignatureDeclaration): "fetcher" | "server" | null {
+  let row: LibraryModelRow | null;
+  try {
+    row = builtinTsModel(ts, checker, call.expression);
+  } catch {
+    return null;
+  }
+  const shifted = row?.optional === "Argument[0]" && (call.arguments.length < 2 || ts.isObjectLiteralExpression(call.arguments[1]));
+  for (const [path, role] of Object.entries(row?.scopes ?? {})) {
+    const at = /^Argument\[(\d+)\]$/.exec(path);
+    if (at && call.arguments[Number(at[1]) - (shifted ? 1 : 0)] === fn) return role;
+  }
+  return null;
+}
+
+let fetchers: Set<string> | null = null;
+
+/** Object keys whose function fetches (`useQuery({ queryFn })`): the key of each `Member[key]` path a row's `scopes` calls a `fetcher`, in any object. */
+function fetcherKeys(): Set<string> {
+  fetchers ??= new Set(builtinLibraryModels().rows().flatMap((row) => Object.entries(row.scopes ?? {}).filter(([, role]) => role === "fetcher").map(([path]) => /\.Member\[([^\]]+)\]$/.exec(path)?.[1]).filter((key): key is string => !!key)));
+  return fetchers;
 }
 
 function calleeName(ts: typeof TypeScript, call: TypeScript.CallExpression): string | null {

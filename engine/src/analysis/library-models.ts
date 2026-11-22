@@ -9,7 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type * as TypeScript from "typescript";
 import { z } from "zod";
-import { calleeName, importedCallee } from "./program-evidence-support";
+import { calleeName, importedCallee, importModule } from "./program-evidence-support";
 
 // The bundle (`scripts/bundle.mjs`) is one flat folder: the built-in rows sit in `models/` beside the entry.
 declare const __SRCLY_ENGINE_BUNDLE__: boolean | undefined;
@@ -80,6 +80,9 @@ export const libraryModelRowSchema = z
     fallback: z.array(libraryPathSchema).optional().describe("For a `keyed` row of a `providers` store: the paths a read sees only when no provider is above it (`createContext`'s `Argument[0]`)."),
     clears: z.literal(true).optional().describe("For a `keyed` row: the call drops or refreshes the entries under the key (`invalidateQueries`, `removeItem`); it moves no value."),
     optional: z.literal("Argument[0]").optional().describe("For a `cell`: the first argument may be left out (`createResource(fetcher)` has no source); a call that leaves it out has every later argument one place earlier."),
+    state: z.enum(["signal", "store", "resource", "memo", "context"]).optional().describe("A label: the kind of state a variable this call initializes holds (`const [doc] = createResource(…)` is a `resource`)."),
+    scopes: z.record(libraryPathSchema, z.enum(["fetcher", "server"])).optional().describe("A label: the scope role of a function the call is handed at that path (`Argument[1]`: `fetcher`; `query(fn)`: `server`). A `Member[key]` path's key names that role for a function under the key in any object (`queryFn`)."),
+    input: z.literal("url").optional().describe("The call reads the page's URL (`useParams`): where a page's input starts, an `external-read`."),
     proof: z.string().min(1).optional().describe("The proof kind its relations carry, so existing proof names survive."),
     note: z.string().optional().describe("One line for the code map and the proof detail."),
   })
@@ -172,6 +175,11 @@ export function tsModel(models: LibraryModels, ts: typeof TypeScript, checker: T
   const imported = ts.isExpression(expression) ? importedCallee(ts, checker, expression) : null;
   if (imported) return models.lookup("ts", tsModelModule(imported.module), imported.name);
   return models.lookup("ts", tsModelModule(module), calleeName(ts, expression)) ?? libraryMemberModel(models, ts, checker, expression);
+}
+
+/** The built-in row for a TypeScript callee, by its import module (or `global`) and name. */
+export function builtinTsModel(ts: typeof TypeScript, checker: TypeScript.TypeChecker, expression: TypeScript.Expression): LibraryModelRow | null {
+  return tsModel(builtinLibraryModels(), ts, checker, importModule(ts, checker, expression), expression);
 }
 
 /**
