@@ -4,6 +4,14 @@
     {
       "language": "ts",
       "module": "lib",
+      "member": "ObjectConstructor.assign",
+      "model": "passes-through",
+      "args": "*",
+      "note": "The result carries every object it is given, each field under its own name, as a spread does."
+    },
+    {
+      "language": "ts",
+      "module": "lib",
       "member": "Array.push",
       "model": "consumes",
       "writes": "this",

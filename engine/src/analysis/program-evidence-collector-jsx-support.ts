@@ -616,18 +616,21 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         }
         // `new F(…)` yields the object it made, never what a constructor function returns.
         const yieldsReturn = !this.ts.isNewExpression(call.node) && !(callNode && this.callHasNoValue(callNode));
-        for (const returnId of yieldsReturn ? this.returnsByFunction.get(call.target.id) ?? [] : []) {
+        // A closure's return reads what its factory's call captured: with more than one factory call, the walk cannot tell which call made this closure.
+        const returns = yieldsReturn ? this.returnsByFunction.get(call.target.id) ?? [] : [];
+        const factory = returns.length > 0 ? this.instanceSites.capturingFactory(call.target.declaration) : null;
+        const shared = factory !== null && this.instanceSites.manyInstances(factory);
+        for (const returnId of returns) {
           this.checkCancellation();
+          const at = [this.location(call.node)];
           this.addRelation(
             returnId,
             call.id,
             "return-value",
-            [this.location(call.node)],
-            proof(
-              "return-expression",
-              "The call target has a source-backed return expression.",
-              [this.location(call.node)],
-            ),
+            at,
+            shared
+              ? proof("shared-instance", "Assumed: this closure reads state its factory captured, and the factory has more than one call site, so the value may come from another call's closure.", at)
+              : proof("return-expression", "The call target has a source-backed return expression.", at),
             "proven",
           );
         }
@@ -1104,11 +1107,25 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         const where = [this.location(read.node.expression)];
         this.addRelation(this.expression(read.node.expression, read.ownerId), thisId, "argument-binding", where, proof("argument-binding", "Reading the member runs its getter with this receiver as `this`.", where), "proven");
       }
+      const at = [this.location(read.node)];
+      // An instance member of a class with more than one `new`: the walk cannot tell which instance was written.
+      const shared = this.sharedMember(read.node);
+      const why = shared
+        ? proof("shared-instance", "Assumed: the checker names the same member, but its class has more than one `new` site, so the value may be another instance's.", at)
+        : proof("compiler-symbol", "The checker names the same member this value was written into.", at);
       for (const valueId of writes) {
         if (valueId === readId) continue;
-        this.addRelation(valueId, readId, "member-state", [this.location(read.node)], proof("compiler-symbol", "The checker names the same member this value was written into.", [this.location(read.node)]), "proven");
+        this.addRelation(valueId, readId, "member-state", at, why, "proven");
       }
     }
+  }
+
+  /** Whether a member read names an instance member of a class with more than one `new` site (its own or a subclass's). */
+  private sharedMember(node: TypeScript.PropertyAccessExpression): boolean {
+    const declaration = this.checker.getSymbolAtLocation(node.name)?.valueDeclaration;
+    if (!declaration || this.ts.getCombinedModifierFlags(declaration as TypeScript.Declaration) & this.ts.ModifierFlags.Static) return false;
+    const owner = this.ts.findAncestor(declaration, this.ts.isClassLike);
+    return owner !== undefined && this.instanceSites.manyInstances(owner);
   }
 
   protected connectPendingReferences(references = this.references): void {

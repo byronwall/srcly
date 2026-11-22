@@ -68,7 +68,8 @@ export type ProgramProofKind =
   | "http-bridge"
   | "external-call"
   | "standard-library"
-  | "framework-state";
+  | "framework-state"
+  | "shared-instance";
 export type ProgramProof = {
   kind: ProgramProofKind;
   detail: string;

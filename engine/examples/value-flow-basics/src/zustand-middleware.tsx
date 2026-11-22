@@ -53,6 +53,6 @@ const useWrapped = create<{ label: string; relabel: (label: string) => void }>()
 export function Wrapped(props: { label: string }) {
   const label = useWrapped((state) => state.label);
   const relabel = useWrapped((state) => state.relabel);
-  return <button onClick={() => relabel(props.label)}>{label}</button>; // @trace z-not-creator forward props.label @outcome z-not-creator partial @stop z-not-creator untraced call @never-reaches z-not-creator render-terminal
+  return <button onClick={() => relabel(props.label)}>{label}</button>; // @trace z-not-creator forward props.label @outcome z-not-creator partial @stop z-not-creator disconnected call @never-reaches z-not-creator render-terminal
 }
 

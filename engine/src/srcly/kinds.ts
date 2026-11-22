@@ -190,6 +190,8 @@ export const PROOF_TRAITS: Record<ProgramProofKind, { strength: ProofStrength }>
   "external-call": { strength: "assumed" },
   "standard-library": { strength: "modelled" },
   "framework-state": { strength: "modelled" },
+  // A closure or field of a factory or class with more than one call or `new` site: the walk does not tell its instances apart (`InstanceSites`).
+  "shared-instance": { strength: "assumed" },
 };
 
 const NONE = {};
