@@ -15,6 +15,7 @@ from app.services.changelens.hunks import GIT_TIMEOUT, Hunk, is_skipped, split_l
 from app.services.changelens.models import (
     WORKTREE,
     ChangeLensPayload,
+    LensBranch,
     LensEndpoint,
     LensHunkDiff,
     LensSelection,
@@ -114,7 +115,9 @@ def build_payload(path: Path, params: Params) -> dict:
     selection = LensSelection(
         window=params.window,
         mode=params.mode,
-        ref=params.ref,
+        ref=window.branch.default_ref if window.history == "main" and window.branch else params.ref,
+        history=window.history,
+        branch=LensBranch(**vars(window.branch)) if window.branch else None,
         base=LensEndpoint(ref=base.ref, sha=base.sha, label=base.label, date=iso(base.ts)),
         head=_head_endpoint(built),
         since=iso(window.since),

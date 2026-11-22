@@ -27,8 +27,9 @@ def _params(
     since: Optional[str] = None,
     until: Optional[str] = None,
     worktree: Optional[bool] = None,
+    history: Optional[Literal["head", "main"]] = None,
 ) -> Params:
-    return Params(window, mode, ref, base or None, head or None, since or None, until or None, worktree)
+    return Params(window, mode, ref, base or None, head or None, since or None, until or None, worktree, history)
 
 
 def _folder(path: str) -> Path:
@@ -50,9 +51,10 @@ def get_change_lens(
     since: Optional[str] = None,
     until: Optional[str] = None,
     worktree: Optional[bool] = None,
+    history: Optional[Literal["head", "main"]] = None,
 ):
     try:
-        return service.build_payload(_folder(path), _params(window, mode, ref, base, head, since, until, worktree))
+        return service.build_payload(_folder(path), _params(window, mode, ref, base, head, since, until, worktree, history))
     except LensError as exc:
         raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
 
@@ -70,10 +72,11 @@ def get_change_lens_hunk(
     since: Optional[str] = None,
     until: Optional[str] = None,
     worktree: Optional[bool] = None,
+    history: Optional[Literal["head", "main"]] = None,
 ):
     try:
         return service.hunk_diff(
-            _folder(path), _params(window, mode, ref, base, head, since, until, worktree), chunk, commit or None
+            _folder(path), _params(window, mode, ref, base, head, since, until, worktree, history), chunk, commit or None
         )
     except LensError as exc:
         raise HTTPException(status_code=exc.status, detail=str(exc)) from exc

@@ -9,6 +9,7 @@ import { atFromTreePath, baseName, splitAt } from "../navigation/location";
 import { go, location } from "../navigation/store";
 import { ViewTools } from "../viz/viewToolbar";
 import { fetchChangeLens, fetchHunk, LensError, type LensQuery } from "./api";
+import BranchNotice, { historyApplies, isOffMain } from "./BranchNotice";
 import { plural, timeLimits } from "./labels";
 import { inScope, type RepoNode } from "./layout";
 import Legend from "./Legend";
@@ -81,7 +82,7 @@ export default function ChangeLensView(props: {
   const query = createMemo<LensQuery | null>(
     () => {
       const s = lens();
-      return props.rootPath ? { path: props.rootPath, window: s.window, mode: s.mode, base: s.base, head: s.head, since: s.since, until: s.until } : null;
+      return props.rootPath ? { path: props.rootPath, window: s.window, mode: s.mode, base: s.base, head: s.head, since: s.since, until: s.until, history: historyApplies(s) ? s.history : null } : null;
     },
     null,
     { equals: (a, b) => JSON.stringify(a) === JSON.stringify(b) }
@@ -225,6 +226,17 @@ export default function ChangeLensView(props: {
     onCleanup(() => observer.disconnect());
   });
 
+  /** For an empty window off main: the button that reads main's history instead, when main has commits there. */
+  const mainOffer = createMemo(() => {
+    const p = payload();
+    const b = p?.selection.branch ?? null;
+    if (!p || p.chunks.length || !isOffMain(b) || p.selection.history !== "head" || !b.defaultCommits) return null;
+    const commits = plural(b.defaultCommits, "commit");
+    return p.selection.window === "branch"
+      ? { label: `Show ${b.defaultRef}'s last 7 days (${commits})`, patch: { window: "7d" as const, history: "main" as const, commit: null } }
+      : { label: `Show ${b.defaultRef}'s history (${commits})`, patch: { history: "main" as const, commit: null } };
+  });
+
   const state = () => (error() ? (error()!.status === 409 ? "not-git" : "error") : !payload() ? "loading" : !payload()!.chunks.length ? "empty" : loading() ? "refreshing" : "ready");
 
   /** Root › scope › the selected chunk's folders, file and name. Every folder and file zooms. */
@@ -248,10 +260,13 @@ export default function ChangeLensView(props: {
       </ViewTools>
 
       {/* What the window resolved to. One fixed-height row at rest; notes wrap under it. */}
-      <div class="relative flex min-h-[28px] shrink-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-[var(--plc-border)] px-3 py-1 text-[12px] text-[var(--plc-on-muted)]" data-lens-status>
+      <div class="relative flex min-h-[28px] shrink-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-[var(--plc-border)] px-3 py-0.5 text-[12px] text-[var(--plc-on-muted)]" data-lens-status>
         <Show when={payload()} fallback={<span class="text-[var(--plc-on-subtle)]">{loading() ? "Reading the history of this window…" : " "}</span>}>
           {(p) => (
             <>
+              <Show when={isOffMain(p().selection.branch)}>
+                <BranchNotice selection={p().selection} toggle={historyApplies(lens())} onHistory={(history) => setLens({ history, commit: null })} />
+              </Show>
               <span class="plc-data-sm flex shrink-0 items-center gap-1.5 text-[12px] font-semibold text-[var(--plc-on-surface)]" title={`${p().selection.base.ref} → ${p().selection.head.ref}, history of ${p().selection.ref}`}>
                 {p().selection.base.label}
                 <ArrowRight size={12} class="text-[var(--plc-on-subtle)]" aria-label="to" />
@@ -297,6 +312,16 @@ export default function ChangeLensView(props: {
       <Show when={state() === "empty"}>
         <Message state="empty" title="No edits in this window">
           <For each={payload()!.selection.notes}>{(note) => <p>{note}</p>}</For>
+          <Show when={mainOffer()}>
+            {(offer) => (
+              <>
+                <p class="mt-1">This checkout is not on {payload()!.selection.branch!.default}, so its own history misses the work that landed there.</p>
+                <Button class="mt-2" variant="primary" data-lens-main-offer onClick={() => setLens(offer().patch)}>
+                  {offer().label}
+                </Button>
+              </>
+            )}
+          </Show>
           <p class="mt-1">Pick another window in the toolbar: 7 days reaches further back, and Custom takes any two revisions.</p>
         </Message>
       </Show>

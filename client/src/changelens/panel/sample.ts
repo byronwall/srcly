@@ -391,6 +391,8 @@ export const samplePayload: ChangeLensPayload = {
     window: "branch",
     mode: "touched",
     ref: "HEAD",
+    history: "head",
+    branch: null,
     base: { ref: "merge-base(main, HEAD)", sha: sha("3f9a"), label: "main @ 3f9a3f9", date: "2026-11-17T14:02:00Z" },
     head: { ref: WORKTREE, sha: null, label: "Working tree", date: null },
     since: null,

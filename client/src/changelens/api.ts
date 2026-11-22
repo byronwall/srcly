@@ -3,8 +3,9 @@
 // The view never sends `ref` or `worktree`: it reads the checked-out branch
 // (HEAD) and includes uncommitted edits, which is what "after a coding
 // session" means. Custom windows pick other revisions through base and head.
+// `history: main` makes a time window read the default branch instead of HEAD.
 
-import type { ChangeLensPayload, LensHunkDiff, LensMode, LensWindow } from "./types";
+import type { ChangeLensPayload, LensHistory, LensHunkDiff, LensMode, LensWindow } from "./types";
 
 export interface LensQuery {
   /** Absolute path of the scan root. */
@@ -15,6 +16,7 @@ export interface LensQuery {
   head?: string;
   since?: string;
   until?: string;
+  history?: LensHistory | null;
 }
 
 /** A failed request. Status 409 means the folder is not a git repo. */
@@ -28,6 +30,7 @@ export class LensError extends Error {
 
 function params(q: LensQuery): URLSearchParams {
   const p = new URLSearchParams({ path: q.path, window: q.window, mode: q.mode });
+  if (q.history) p.set("history", q.history);
   if (q.window === "custom") {
     if (q.base) p.set("base", q.base);
     if (q.head) p.set("head", q.head);

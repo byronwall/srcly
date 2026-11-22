@@ -51,6 +51,9 @@ class Params:
     since: Optional[str] = None
     until: Optional[str] = None
     worktree: Optional[bool] = None
+    history: Optional[str] = None
+    """Whose history a time window reads: ``head`` or ``main`` (the default branch). None: HEAD, or the
+    default branch when HEAD is off it and has no commits in the window."""
 
 
 @dataclass
@@ -74,6 +77,30 @@ class Endpoint:
 
 
 @dataclass
+class Branch:
+    """Where HEAD stands against the default branch."""
+
+    name: Optional[str]
+    """The checked-out branch; None for a detached HEAD."""
+    default: str
+    """The default branch's name (``main``)."""
+    default_ref: str
+    """What main history reads: ``origin/main`` when it exists and is not behind local ``main``."""
+    on_default: bool
+    ahead: int
+    """Commits on HEAD that the default ref does not hold."""
+    behind: int
+    """Commits on the default ref that HEAD does not hold."""
+    default_commits: Optional[int] = None
+    """Set only for an empty HEAD window off the default branch: commits on the default ref in the
+    window's time span (the last 7 days for the branch window)."""
+
+    @property
+    def off(self) -> bool:
+        return not self.on_default or self.behind > 0
+
+
+@dataclass
 class Window:
     repo: Path
     scope: str
@@ -89,6 +116,9 @@ class Window:
     notes: list[str] = field(default_factory=list)
     upstream_tree: Optional[str] = None
     """The base with the window's upstream merges applied, when it holds any: what "before" is read from."""
+    history: str = "head"
+    """``main`` when the window read the default branch's history instead of HEAD's."""
+    branch: Optional[Branch] = None
 
     @property
     def base_tree(self) -> str:
@@ -183,6 +213,31 @@ def _label(name: str, sha: str) -> str:
     return sha[:7] if sha.startswith(name) and len(name) >= 7 else f"{name} @ {sha[:7]}"
 
 
+def _default_ref(repo: Path, default: str) -> Optional[str]:
+    """``origin/main`` unless local ``main`` is ahead of it; local ``main`` when there is no remote."""
+    name = default.removeprefix("origin/")
+    local, remote = _try_sha(repo, name), _try_sha(repo, f"origin/{name}")
+    if remote and not (local and local != remote and _is_ancestor(repo, remote, local)):
+        return f"origin/{name}"
+    return name if local else None
+
+
+def _branch(repo: Path, default: Optional[str]) -> Optional[Branch]:
+    if default is None:
+        return None
+    ref = _default_ref(repo, default)
+    if ref is None:
+        return None
+    name = branch_of(repo, "HEAD")
+    ahead, behind = (int(n) for n in _git(repo, "rev-list", "--left-right", "--count", f"HEAD...{ref}").split())
+    short = default.removeprefix("origin/")
+    return Branch(name, short, ref, name == short, ahead, behind)
+
+
+def _count_since(repo: Path, ref: str, since: int, until: int) -> int:
+    return int(_git(repo, "rev-list", "--count", "--first-parent", f"--since={since}", f"--until={until}", ref).strip())
+
+
 def resolve(path: Path, params: Params) -> Window:
     try:
         repo = repo_root(path)
@@ -191,13 +246,44 @@ def resolve(path: Path, params: Params) -> Window:
     head_commit = _try_sha(repo, "HEAD")
     if head_commit is None:
         raise LensError(f"{repo.name} has no commits yet", status=409)
+    if params.history not in (None, "head", "main"):
+        raise LensError(f"Unknown history: {params.history}")
     start = (path if path.is_dir() else path.parent).resolve()
     scope = "" if start == repo else start.relative_to(repo).as_posix()
+    try:
+        default = default_branch(repo)
+    except GitError:
+        default = None
+    branch = _branch(repo, default)
 
+    # History picks the ref of a time window. Branch and revision windows name their own refs.
+    timed = params.window in WINDOW_SPANS or (params.window == "custom" and not params.base and not params.head)
+    can_switch = timed and params.ref == "HEAD" and branch is not None and params.history != "head"
+    if can_switch and params.history == "main":
+        window = _resolve_on(repo, scope, params, head_commit, default, branch, branch.default_ref)
+    else:
+        window = _resolve_on(repo, scope, params, head_commit, default, branch, None)
+        if can_switch and not window.commits and branch.off:
+            window = _resolve_on(repo, scope, params, head_commit, default, branch, branch.default_ref)
+            window.notes.insert(0, f"This branch has no commits in this window, so this shows {branch.default_ref}'s history.")
+    window.branch = branch
+    if branch and branch.off and window.history == "head" and not window.commits:
+        if timed and window.since is not None and window.until is not None:
+            branch.default_commits = _count_since(repo, branch.default_ref, window.since, window.until)
+        elif params.window == "branch":
+            now = int(time.time())
+            branch.default_commits = _count_since(repo, branch.default_ref, now - int(WINDOW_SPANS["7d"].total_seconds()), now)
+    return window
+
+
+def _resolve_on(
+    repo: Path, scope: str, params: Params, head_commit: str, default: Optional[str], branch: Optional[Branch], main_ref: Optional[str]
+) -> Window:
+    """The window on HEAD's history, or on ``main_ref``'s when it is set."""
     notes: list[str] = []
-    tip_ref = params.head if params.window == "custom" and params.head else params.ref
+    tip_ref = main_ref or (params.head if params.window == "custom" and params.head else params.ref)
     tip_sha = _sha(repo, tip_ref)
-    tip_name = branch_of(repo, tip_ref) or tip_ref
+    tip_name = main_ref or branch_of(repo, tip_ref) or tip_ref
     tip = Endpoint(tip_ref, tip_sha, _label(tip_name, tip_sha), _commit_ts(repo, tip_sha))
 
     wants_worktree = params.worktree if params.worktree is not None else tip_sha == head_commit
@@ -206,16 +292,13 @@ def resolve(path: Path, params: Params) -> Window:
         notes.append(f"The working tree is left out: {tip_ref} is not the checked-out commit.")
 
     window = Window(repo, scope, params, base=tip, tip=tip, commits=[], wants_worktree=wants_worktree, notes=notes)
+    if main_ref:
+        window.history = "main"
     if scope:
         notes.append(f"Only files under {scope}/ are read.")
     boundary = _shallow_boundary(repo)
     if boundary:
         notes.append("This clone is shallow: history before its oldest commits is not available.")
-
-    try:
-        default = default_branch(repo)
-    except GitError:
-        default = None
 
     if params.window == "branch":
         _branch_window(window, default)
@@ -243,7 +326,8 @@ def resolve(path: Path, params: Params) -> Window:
         raise LensError(f"Unknown window: {params.window}")
 
     _trim(window, boundary)
-    _mark_upstream_merges(window, default)
+    # Merges of the newest default ref are upstream work; a stale local main would miss some.
+    _mark_upstream_merges(window, branch.default_ref if branch else default)
     return window
 
 

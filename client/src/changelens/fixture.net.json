@@ -3,6 +3,16 @@
     "window": "branch",
     "mode": "net",
     "ref": "HEAD",
+    "history": "head",
+    "branch": {
+      "name": "feature",
+      "default": "main",
+      "defaultRef": "main",
+      "onDefault": false,
+      "ahead": 10,
+      "behind": 0,
+      "defaultCommits": null
+    },
     "base": {
       "ref": "merge-base(main, feature)",
       "sha": "97e5cf7df943e4232f3d2efcdd499dd7d0a70d63",

@@ -19,6 +19,12 @@ The view reads the checked-out branch. Staged and unstaged edits are included as
 
 - **This branch** compares the branch with the commit where it left the default branch (the merge base). On the default branch itself, the base is the upstream tip. When the two are equal, the window is empty and a note says so.
 - **24 hours** and **7 days** read the commits whose committer date falls in that time, counted back from now. The base is the first parent of the oldest commit in the window.
+
+### Off the default branch
+
+When the checkout is on another branch, or on the default branch but behind its upstream, the status row names the branch and how far it is behind and ahead of the default branch (`origin/main` when it exists and is not behind local `main`). A time window then gets a **History** toggle: **Branch** reads the checked-out branch, and **origin/main** reads the default branch's commits. Srcly reads Git objects only. It never checks out a branch or touches the working tree, so main history leaves out uncommitted edits.
+
+When the branch has no commits in a time window, the window reads the default branch and a note says so. Pick **Branch** to go back. When a window on the branch is empty and the default branch has commits in the same time (the last 7 days for **This branch**), the empty view offers a button that shows them. **This branch** always compares the branch with its merge base.
 - **Custom** takes two revisions, a time range, or both.
 
 Srcly reads one history: the first-parent log of the branch. A merge commit counts once, as its diff against its first parent, so merged work is never counted twice and other branches never mix in. A merge of the default branch into your branch is listed but not read, because those are upstream changes. A note names it. When the base is older than such a merge, "before" is the base with that merge's changes applied, so upstream work never reads as yours. If the merge overlaps your own earlier edits, the base stays as it is and a note says so. On the default branch itself, no merge is an upstream merge.
