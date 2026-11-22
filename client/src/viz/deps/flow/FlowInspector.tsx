@@ -7,7 +7,7 @@ import { Button } from "../../../components/ui/Button";
 import { IconButton } from "../../../components/ui/IconButton";
 import type { FlowBox, FlowViewModel } from "./adapter";
 import { FlowMarkGlyph } from "./FlowMark";
-import { anchorOverview, nodeDetails, routeOverview, STATUS_WORD, type AnchorOverview, type GapGroup, type GapPlace, type NeighborRow } from "./inspectorModel";
+import { canAnchorBox, anchorOverview, nodeDetails, routeOverview, STATUS_WORD, type AnchorOverview, type GapGroup, type GapPlace, type NeighborRow } from "./inspectorModel";
 import { FLOW_MARKS, REPETITION_BADGE, STOP_REASONS, type FlowMark } from "./marks";
 import type { Reach } from "./reach";
 import { createEffectsQuery, EffectsPanel } from "../../../dataflow/EffectsPanel";
@@ -184,7 +184,7 @@ export function FlowInspector(props: {
               {/* A stop srcly words is already said by its detail line; any other reason shows as the engine names it. */}
               <Show when={d().node.reason && !STOP_REASONS[d().node.reason!] ? d().node.reason : null}>{(r) => <div class="pl-5 text-[11px] text-[var(--plc-warning)]">{r()}</div>}</Show>
               <Where file={d().node.file} line={d().node.line} onOpen={() => props.onOpen(d().node.absPath, d().node.line)} />
-              <Show when={(props.onTraceFrom || props.onAddAnchor) && d().node.kind !== "anchor"}>
+              <Show when={(props.onTraceFrom || props.onAddAnchor) && d().node.kind !== "anchor" && canAnchorBox(d().node)}>
                 <div class="flex gap-1.5 pl-5 pt-1">
                   {/* A folded function opens instead: its own anchor shows only its parameters and returns. */}
                   <Show when={props.onTraceFrom && d().node.kind !== "scope"}>
@@ -197,6 +197,12 @@ export function FlowInspector(props: {
                       Add to the trace
                     </Button>
                   </Show>
+                </div>
+              </Show>
+
+              <Show when={(props.onTraceFrom || props.onAddAnchor) && d().node.kind === "frontier"}>
+                <div data-trace-unavailable="" class="pl-5 pt-1 text-[11px] text-[var(--plc-on-muted)]">
+                  This stop is not a traceable program element. Open its source to select an expression to trace.
                 </div>
               </Show>
 

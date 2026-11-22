@@ -22,6 +22,22 @@ const box = (page: Page, label: string) => page.locator("[data-box]").filter({ h
 const boxLabelled = (page: Page, label: string) => page.locator(`[data-box][data-label^="${label}"]`).first();
 
 test.describe("Data flow on solid-route", () => {
+  test("a failed new anchor request does not redisplay the previous graph", async ({ page }) => {
+    await page.goto(url({ view: "graph", anchor: "src/components/ViewerCard.tsx@ViewerCard:3", dir: "forward" }));
+    await expect(page.locator("[data-box]").first()).toBeVisible({ timeout: 90_000 });
+    await page.route("**/api/dataflow/anchor-graph", (route) => route.fulfill({
+      status: 404, contentType: "application/json", body: JSON.stringify({ detail: "No program element test-missing-anchor" }),
+    }));
+    await page.locator('[data-trace-direction="backward"]').click();
+    await expect(page.getByText(/Anchor graph failed.*test-missing-anchor/)).toBeVisible();
+    await expect(page.locator("[data-box]")).toHaveCount(0);
+    await expect(page.getByLabel("Data flow inspector")).toHaveCount(0);
+    await page.unroute("**/api/dataflow/anchor-graph");
+    await page.goBack();
+    await expect(page).toHaveURL(/dir=forward/);
+    await expect(page.locator("[data-box]").first()).toBeVisible({ timeout: 90_000 });
+  });
+
   test("switches trace direction without stale canvas work", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));

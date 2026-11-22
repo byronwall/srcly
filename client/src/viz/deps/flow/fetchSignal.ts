@@ -5,7 +5,7 @@ import { createEffect, createSignal, on } from "solid-js";
  * reading it never suspends: the graph view sits under the treemap's
  * Suspense, which would swap the whole view for its fallback.
  */
-export function createFetch<S, T>(source: () => S | null | undefined, fetcher: (key: S) => Promise<T>) {
+export function createFetch<S, T>(source: () => S | null | undefined, fetcher: (key: S) => Promise<T>, options: { keepPrevious?: boolean } = {}) {
   const [value, setValue] = createSignal<T | undefined>();
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<Error | null>(null);
@@ -16,6 +16,8 @@ export function createFetch<S, T>(source: () => S | null | undefined, fetcher: (
     on([source, attempt], ([key]) => {
       const mine = ++token;
       setError(null);
+      // Anchor requests must not present a previous graph as the new request.
+      if (options.keepPrevious === false) setValue(undefined);
       if (key === null || key === undefined) {
         setValue(undefined);
         setLoading(false);
