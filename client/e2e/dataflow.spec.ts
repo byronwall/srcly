@@ -74,6 +74,31 @@ test.describe("Flow across folders", () => {
   }
 });
 
+test("trace question keeps a notes field and its source on return", async ({ page }) => {
+  const notesRepo = path.resolve(here, "../../engine/examples/symbol-graph");
+  const field = "src/components/NoteView.tsx:7:50-7:66";
+  await page.goto(url({ repo: notesRepo, view: "graph", anchor: field, dir: "backward" }));
+  const question = page.getByRole("region", { name: "Trace question" });
+  await expect(question).toContainText("Source expression");
+  await expect(question).toContainText("props.note.title");
+  await expect(question.locator("[data-trace-direct-read]")).toBeVisible({ timeout: 60_000 });
+  await expect(question).toContainText("not the field’s earlier producer");
+  await expect(question).not.toContainText("tags");
+  await question.locator("[data-trace-witness]").first().click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.locator("span.line").filter({ hasText: "props.note.title" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL((u) => u.searchParams.get("anchor") === field && u.searchParams.get("dir") === "backward");
+  await expect(question.locator("[data-trace-direct-read]")).toBeVisible();
+
+  // Tags is legitimate evidence if that is the selected expression, not a
+  // blanket word filter to make the preceding title assertion pass.
+  await page.goto(url({ repo: notesRepo, view: "graph", anchor: "src/components/NoteView.tsx:8:45-8:60", dir: "backward" }));
+  await expect(question).toContainText("props.note.tags");
+  await expect(question.locator("[data-trace-direct-read]")).toBeVisible({ timeout: 60_000 });
+});
+
 test.describe("Data flow on solid-route", () => {
   test("a failed new anchor request does not redisplay the previous graph", async ({ page }) => {
     const originalAnchor = "src/components/ViewerCard.tsx@ViewerCard:3";
@@ -261,6 +286,7 @@ test.describe("Data flow on solid-route", () => {
     await page.locator("path[data-edge][data-active][data-selectable]").first().dispatchEvent("click");
     const inspector = page.getByLabel("Data flow inspector");
     await expect(inspector).toContainText("Selected edge");
+    await expect(inspector.getByRole("region", { name: "Trace question" })).toContainText("Selected route origin");
     await expect(inspector).toContainText(/\d+ steps/, { timeout: 60_000 });
     await expect(inspector).toContainText("origin");
     const rows = inspector.locator("ol li");
@@ -270,6 +296,39 @@ test.describe("Data flow on solid-route", () => {
     await shot(page, "edge-steps");
     await page.keyboard.press("Escape");
     await expect(inspector).not.toContainText("Selected edge");
+  });
+
+  test("an unanswered route edge does not inherit the previous explanation", async ({ page }) => {
+    await page.goto(url({ view: "graph", flow: "/records", lens: "components" }));
+    await expect(status(page)).toContainText("occurrences", { timeout: 90_000 });
+    await page.getByLabel("Origin whose proven destinations light up").selectOption({ label: "createResource(loadViewer)" });
+    await expect(page.getByText(/reaches \d+ proven/)).toBeVisible({ timeout: 90_000 });
+    const edges = page.locator("path[data-edge][data-active][data-selectable]");
+    const inspector = page.getByLabel("Data flow inspector");
+    const rows = inspector.locator("ol li");
+    await edges.first().dispatchEvent("click");
+    await expect(rows.first()).toBeVisible({ timeout: 60_000 });
+
+    let resume!: () => void;
+    const held = new Promise<void>((resolve) => { resume = resolve; });
+    await page.route("**/api/dataflow/route-path?*", async (route) => {
+      await held;
+      await route.fulfill({ status: 503, json: { detail: "route edge test unavailable" } });
+    }, { times: 1 });
+    try {
+      const request = page.waitForRequest((r) => new URL(r.url()).pathname.endsWith("/dataflow/route-path"));
+      await edges.nth(1).dispatchEvent("click");
+      await request;
+      await expect(inspector).toContainText("Explaining the edge");
+      await expect(rows).toHaveCount(0);
+      const response = page.waitForResponse((r) => new URL(r.url()).pathname.endsWith("/dataflow/route-path") && r.status() === 503);
+      resume();
+      await response;
+      await expect(inspector).not.toContainText("Explaining the edge");
+      await expect(rows).toHaveCount(0);
+    } finally {
+      resume();
+    }
   });
 
   test("Return restores the place as it was left: camera, selection, metric", async ({ page }) => {

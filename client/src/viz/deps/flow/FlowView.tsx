@@ -304,10 +304,14 @@ export default function FlowView(props: {
     const g = graph()?.graph;
     return id && g && !anchorKey() ? `${root()}\n${g.route.key}\n${g.selectedSource ?? ""}\n${id}\n${g.generation}` : null;
   });
-  const edgePath = createFetch(edgePathKey, (key) => {
+  const edgePath = createFetch(edgePathKey, async (key) => {
     const [path, route, source, edge, gen] = key.split("\n");
-    return fetchRoutePath({ path, route, edge, source: source || undefined, expectedGeneration: Number(gen) });
-  });
+    return { key, response: await fetchRoutePath({ path, route, edge, source: source || undefined, expectedGeneration: Number(gen) }) };
+  }, { keepPrevious: false });
+  const currentEdgePath = () => {
+    const value = edgePath.value();
+    return value?.key === edgePathKey() ? value?.response : undefined;
+  };
   const [hovered, setHovered] = createSignal<ViewNode | null>(null);
   const [reachMode, setReachMode] = createSignal<ReachMode>("both");
   /** Anchor mode has one direction control: a selected box's reach follows the trace's direction. */
@@ -778,11 +782,13 @@ export default function FlowView(props: {
           graph={anchorKey() ? null : (graph()?.graph ?? null)}
           anchor={anchorKey() ? (anchorGraph()?.graph ?? null) : null}
           model={model()!}
+          showQuestion={!stale()}
+          showSingleQuestion={anchorSpecs().length < 2}
           rootPath={root()}
           language={status()?.language}
           selected={location().dest ?? selected()}
           edge={selectedEdge()}
-          edgePath={{ loading: edgePath.loading(), value: edgePath.value(), error: edgePath.error() }}
+          edgePath={{ loading: edgePath.loading(), value: currentEdgePath(), error: edgePath.error() }}
           onSelectEdge={setSelectedEdge}
           reach={reach()}
           open={openList()}

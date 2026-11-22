@@ -10,6 +10,8 @@ import { FlowMarkGlyph } from "./FlowMark";
 import { canAnchorBox, anchorOverview, nodeDetails, routeOverview, STATUS_WORD, type AnchorOverview, type GapGroup, type GapPlace, type NeighborRow } from "./inspectorModel";
 import { FLOW_MARKS, REPETITION_BADGE, STOP_REASONS, type FlowMark } from "./marks";
 import type { Reach } from "./reach";
+import { TraceQuestion } from "./TraceQuestion";
+import { anchorQuestion, matchingRoutePath, routeQuestion } from "./traceQuestionModel";
 import { createEffectsQuery, EffectsPanel } from "../../../dataflow/EffectsPanel";
 
 const STATUS_CLASS: Record<"proven" | "partial" | "unsupported" | "structural", string> = {
@@ -92,6 +94,8 @@ export function FlowInspector(props: {
   /** The anchor graph, in anchor mode. */
   anchor?: AnchorGraphResult | null;
   model: FlowViewModel;
+  showQuestion?: boolean;
+  showSingleQuestion?: boolean;
   rootPath: string;
   /** Function effects is TypeScript-only: a Python root says so instead of asking. */
   language?: "typescript" | "python";
@@ -126,6 +130,8 @@ export function FlowInspector(props: {
   });
   const overview = createMemo(() => (props.graph ? routeOverview(props.graph, props.model, props.rootPath) : null));
   const anchor = createMemo(() => (props.anchor ? anchorOverview(props.anchor) : null));
+  const question = createMemo(() => props.showSingleQuestion !== false && props.anchor ? anchorQuestion(props.anchor) : null);
+  const routeScope = createMemo(() => props.graph ? routeQuestion(props.graph) : null);
   const repetition = (n: FlowBox) => ("repetition" in n && (n.repetition === "conditional" || n.repetition === "collection") ? n.repetition : null);
   const external = (n: FlowBox) => "external" in n && n.external;
   const typeText = (n: FlowBox) => ("typeText" in n ? n.typeText : null);
@@ -152,8 +158,11 @@ export function FlowInspector(props: {
         </div>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+        <Show when={props.showQuestion !== false}>
+          <TraceQuestion anchor={question()} route={routeScope()} onOpen={props.onOpen} />
+        </Show>
         <Show when={props.edge && props.edgePath}>
-          {(_) => <EdgeStepsView edgeId={props.edge!} state={props.edgePath!} onOpen={props.onOpen} onSelect={props.onSelect} model={props.model} />}
+          {(_) => <EdgeStepsView graph={props.graph} edgeId={props.edge!} state={props.edgePath!} onOpen={props.onOpen} onSelect={props.onSelect} model={props.model} />}
         </Show>
         <Show
           when={props.edge ? null : details()}
@@ -356,8 +365,8 @@ const EDGE_WORD: Record<RoutePathResult["edge"]["kind"], string> = { field: "fie
 const ROW_WORD: Record<RoutePathResult["rows"][number]["kind"], string> = { input: "origin", transfer: "carries", fallback: "fallback", branch: "branch", transform: "transform", terminal: "terminal", boundary: "stops" };
 
 /** One lit edge, explained in order: the steps the engine walked, each opening its line. Steps are never invented. */
-function EdgeStepsView(props: { edgeId: string; state: NonNullable<Parameters<typeof FlowInspector>[0]["edgePath"]>; model: FlowViewModel; onOpen: (absPath: string, line: number) => void; onSelect: (id: string | null) => void }) {
-  const result = () => props.state.value?.path ?? null;
+function EdgeStepsView(props: { graph: RouteGraphResult | null; edgeId: string; state: NonNullable<Parameters<typeof FlowInspector>[0]["edgePath"]>; model: FlowViewModel; onOpen: (absPath: string, line: number) => void; onSelect: (id: string | null) => void }) {
+  const result = () => props.state.loading || props.state.error ? null : matchingRoutePath(props.graph, props.edgeId, props.state.value?.path);
   // The boxes the graph drew the edge between; the engine's edge may name a terminal the graph folded into its box.
   const drawn = () => props.model.vm.edges.find((e) => e.id.replace(/^(handoff|field|render):/, "") === props.edgeId) ?? null;
   const endpoints = () => ({ source: drawn()?.source ?? result()?.edge.source ?? "", target: drawn()?.target ?? result()?.edge.target ?? "" });
