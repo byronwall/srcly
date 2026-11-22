@@ -99,4 +99,23 @@ test.describe("Changes view on the acceptance repo", () => {
     await expect(code.locator(".code-modal-content")).toHaveCount(0);
     expect(requests).toEqual([base]);
   });
+
+  test("Open code follows a commit diff opened from the chunk's touch strip", async ({ page }) => {
+    const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
+    const removedAt = git("log", "-1", "--format=%H", "--grep=worker: remove legacyCleanup");
+    const previous = git("rev-parse", `${removedAt}^`);
+    expect(previous).not.toBe(git("rev-parse", "main"));
+    const id = "src/worker.ts::legacyCleanup";
+    await page.goto(`/?${new URLSearchParams({ repo, view: "changes" })}`);
+    await lensReady(page);
+    await chunk(page, id).click();
+    const inspector = page.locator(`[data-chunk-inspector="${id}"]`);
+    await inspector.locator(`[data-touch="${removedAt}"]`).click();
+    const diff = page.locator("[data-hunk-diff]");
+    await expect(diff).toContainText(removedAt.slice(0, 7));
+    await inspector.locator('[data-action="open-code"]').click();
+    const code = page.getByRole("dialog");
+    await expect(code.locator('[data-source-side="base"]')).toHaveAttribute("title", previous);
+    await expect(code.locator(".code-modal-content")).toContainText("export function legacyCleanup");
+  });
 });

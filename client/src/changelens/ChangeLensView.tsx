@@ -192,7 +192,7 @@ export default function ChangeLensView(props: {
   const [sourceError, setSourceError] = createSignal<string>();
   const [sourceLoading, setSourceLoading] = createSignal(false);
   let sourceRequest = 0;
-  createEffect(on([query, selected, commit], () => {
+  createEffect(on([query, selected, commit, hunk], () => {
     sourceRequest++;
     setSource(null);
     setSourceError(undefined);
@@ -205,7 +205,9 @@ export default function ChangeLensView(props: {
     setSourceError(undefined);
     setSourceLoading(true);
     try {
-      const target = (await fetchHunk(q, chunk.id, stepOf(chunk.id))).source;
+      const active = hunk();
+      const step = active?.chunk === chunk.id ? active.commit : stepOf(chunk.id);
+      const target = (await fetchHunk(q, chunk.id, step)).source;
       if (id !== sourceRequest) return;
       if (target) setSource(target);
       else setSourceError("No source is available for this chunk at the selected revisions.");
