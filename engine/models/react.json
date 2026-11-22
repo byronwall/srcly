@@ -84,7 +84,12 @@
       "option": "queryFn",
       "field": "data",
       "selector": "select",
-      "note": "The query's `data` is what its `queryFn` returns, or what `select` makes of it. Its other fields (`status`, `error`, `isLoading`) do not hold that value."
+      "note": "The query's `data` is what its `queryFn` returns, or what `select` makes of it. Its other fields (`status`, `error`, `isLoading`) do not hold that value. The `queryFn` gets the `queryKey`.",
+      "hands": {
+        "queryKey": [
+          "queryKey"
+        ]
+      }
     },
     {
       "language": "ts",
@@ -94,7 +99,12 @@
       "option": "queryFn",
       "field": "data",
       "selector": "select",
-      "note": "The query's `data` is what its `queryFn` returns, or what `select` makes of it. Its other fields (`status`, `error`, `isLoading`) do not hold that value."
+      "note": "The query's `data` is what its `queryFn` returns, or what `select` makes of it. Its other fields (`status`, `error`, `isLoading`) do not hold that value. The `queryFn` gets the `queryKey`.",
+      "hands": {
+        "queryKey": [
+          "queryKey"
+        ]
+      }
     },
     {
       "language": "ts",
@@ -102,7 +112,25 @@
       "name": "useInfiniteQuery",
       "model": "calls-back",
       "option": "queryFn",
-      "note": "The query's value is what its `queryFn` returns."
+      "note": "The query's value is what its `queryFn` returns. The `queryFn` gets the `queryKey`, and as `pageParam` what `getNextPageParam` makes of a fetched page.",
+      "hands": {
+        "queryKey": [
+          "queryKey"
+        ],
+        "pageParam": [
+          "getNextPageParam",
+          "getPreviousPageParam",
+          "initialPageParam"
+        ]
+      },
+      "observers": {
+        "getNextPageParam": [
+          "result"
+        ],
+        "getPreviousPageParam": [
+          "result"
+        ]
+      }
     },
     {
       "language": "ts",
@@ -111,7 +139,29 @@
       "model": "calls-back",
       "option": "mutationFn",
       "field": "data",
-      "note": "`mutate(x)` calls the `mutationFn` with `x`. The mutation's `data` is what that function returns; its other fields do not hold it."
+      "note": "`mutate(x)` calls the `mutationFn` with `x`. The mutation's `data` is what that function returns; its other fields do not hold it. `onMutate`, `onSuccess`, `onError` and `onSettled` get the variables; what `onMutate` returns is their context.",
+      "observers": {
+        "onMutate": [
+          "input"
+        ],
+        "onSuccess": [
+          "result",
+          "input",
+          "context"
+        ],
+        "onError": [
+          "none",
+          "input",
+          "context"
+        ],
+        "onSettled": [
+          "result",
+          "none",
+          "input",
+          "context"
+        ]
+      },
+      "contextFrom": "onMutate"
     },
     {
       "language": "ts",

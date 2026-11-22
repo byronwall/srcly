@@ -122,6 +122,44 @@
             "type": "string",
             "minLength": 1
           },
+          "hands": {
+            "description": "For an `option` row: fields of the object the callback's first parameter is, each with the options keys that fill it (`queryKey` from `queryKey`). A key that holds a function fills the field with what that function returns.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "observers": {
+            "description": "For an `option` row: other options keys that hold a function the hook calls, and what each of its parameters takes: `result` is what the option callback returns, `input` what the option callback is called with, `context` what the `contextFrom` function returns.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "result",
+                  "input",
+                  "context",
+                  "none"
+                ]
+              }
+            }
+          },
+          "contextFrom": {
+            "description": "For an `option` row with `observers`: the options key of the function whose return is their `context` (`onMutate`).",
+            "type": "string",
+            "minLength": 1
+          },
           "lazy": {
             "description": "For `state-pair`: a function initial value is called, and what it returns seeds the state (`useState(() => …)`).",
             "type": "boolean",

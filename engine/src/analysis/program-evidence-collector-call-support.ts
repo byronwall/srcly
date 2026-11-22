@@ -8,7 +8,7 @@ import {
 } from "./program-evidence-collector-expression-support";
 import { lazyFactoryGetter, reducerOf, seedArgument, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
-import { frameworkFlow, makesAccessor, makesPredicate, PROMISE_CHANNELS, type FrameworkFlow } from "./framework-flows";
+import { frameworkFlow, makesAccessor, makesPredicate, PROMISE_CHANNELS, yieldsOnlyCallback, type FrameworkFlow } from "./framework-flows";
 import { builtinLibraryModels, standardMemberModel } from "./library-models";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo, CollectorFunctionInfo } from "./program-evidence-collector-support";
@@ -172,6 +172,12 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     return imported ? frameworkFlow(imported.module, imported.name) : undefined;
   }
 
+  /** Whether a row names where the call's value comes from (`useMemo`'s callback, `useQuery`'s `queryFn`), so no other argument is in it. */
+  private yieldsOnlyItsCallback(node: TypeScript.CallExpression): boolean {
+    const imported = importedCallee(this.ts, this.checker, node.expression);
+    return imported !== null && yieldsOnlyCallback(imported.module, imported.name);
+  }
+
   /** The values a framework call moves (its row, `frameworkFlow`), and an accessor call of a value one made. */
   private connectFrameworkFlow(node: TypeScript.CallExpression, callId: string, ownerId: string | null): void {
     const relate = (from: TypeScript.Expression, to: string, detail: string) => this.addRelation(
@@ -321,6 +327,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       if (Array.isArray(flow?.passes)) continue;
       // A rejection reason is not the promise's value: it reaches a rejection handler, or ends there.
       if (this.settles(node) === "reject") continue;
+      // A row that says what the call yields (its callback's return, an option function's) leaves every other argument out of it: a dependency list, a query's key.
+      if (this.yieldsOnlyItsCallback(node)) continue;
       // A state pair's initial value seeds its state directly (`seedArgument`), not through the factory's call.
       if (index === 0 && seedArgument(this.ts, this.checker, node)) continue;
       // `useContext(Ctx)` returns what a provider or the default holds, never the context object.

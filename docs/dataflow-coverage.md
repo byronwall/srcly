@@ -52,6 +52,10 @@ The work came from the data-flow experience audit (October 2026). The audit trac
 - A terminal row can name the function a hook hands back (`result`: the call, or a tuple index). A call of what `useNavigate` returns, or of the setter from `useSearchParams`, is a proven end.
 - `props.count()` reads the accessor's value when each occurrence of the component binds an accessor to that prop.
 
+- React catalog: 81 patterns (46 new), 62 `ok`, 9 assumed, 10 partial, 60 at the wanted end. The actual-JavaScript root has 21 patterns (18 new), 17 `ok`.
+- A hook's result holds only what its row names. A `useMemo` dependency list and a `useQuery` options object end in place as a hook input. Before, a dependency and a `queryKey` reached the result as `ok`.
+- Row fields `hands`, `observers` and `contextFrom` join option callbacks: `queryKey` reaches `queryFn`, `getNextPageParam` reaches `pageParam`, and a mutation's variables, result and `onMutate` context reach `onSuccess`, `onError` and `onSettled`. An observer with a destructured parameter gets no binding yet.
+
 ## Symbol view of an anchor trace
 
 The symbol view is the default drawing of an anchor trace. `?model=steps` (the Steps toggle in `FlowTools.tsx`) keeps the old one-box-per-step view.

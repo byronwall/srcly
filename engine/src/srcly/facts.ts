@@ -4,7 +4,8 @@
 import path from "node:path";
 import type * as TypeScript from "typescript";
 import { builtinLibraryModels, standardMemberModel } from "../analysis/library-models";
-import { browserMember, isStandardLibraryCallee } from "../analysis/program-evidence-support";
+import { yieldsOnlyCallback } from "../analysis/framework-flows";
+import { browserMember, importedCallee, isStandardLibraryCallee } from "../analysis/program-evidence-support";
 import { programEvidenceCandidateIndex, type ProgramEvidenceCandidateIndex } from "../analysis/program-evidence-candidate-index";
 import type { ProgramElement, ProgramRelation } from "../analysis/scope-seam";
 import { assumedThrough } from "./anchor-slice";
@@ -220,7 +221,7 @@ function namesCallee(tier1: Tier1, element: Pick<ProgramElement, "location">): b
 /** The note on a value the code ends in place, by how it ends there. */
 const TIMERS = new Set(["setTimeout", "setInterval", "setImmediate", "queueMicrotask", "requestAnimationFrame", "requestIdleCallback"]);
 
-export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: "ends here · written, not read", key: "ends here · picks a field", discard: "ends here · its result is not used", schedule: "ends here · the callback runs later", throw: "ends here · thrown", "exported-api": "ends here · exported, and nothing in the program reads it", unused: "ends here · never read", "handed-back": "ends here · handed back to the library" };
+export const IN_PLACE_NOTES = { branch: "ends here · decides a branch", write: "ends here · written, not read", key: "ends here · picks a field", discard: "ends here · its result is not used", schedule: "ends here · the callback runs later", throw: "ends here · thrown", "exported-api": "ends here · exported, and nothing in the program reads it", unused: "ends here · never read", "handed-back": "ends here · handed back to the library", "hook-input": "ends here · the hook keeps it, and its result does not hold it" };
 
 /**
  * How the code ends the value at this element where it is used, without
@@ -262,6 +263,11 @@ export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "locatio
   if (ts.isThrowStatement(parent) && parent.expression === node) return "throw";
   // `Promise.reject(reason)` throws it too, for a handler the code may not show.
   if (ts.isCallExpression(parent) && parent.arguments[0] === node && standardMemberModel(builtinLibraryModels(), browserMember(ts, tier1.program.getTypeChecker(), parent.expression))?.settles === "reject") return "throw";
+  // An argument of a hook whose row says its value is what a callback returns (a dependency list, a query's options): the hook keeps it, and the result does not hold it.
+  if (ts.isCallExpression(parent) && parent.arguments.includes(node as TypeScript.Expression) && !ts.isFunctionLike(node)) {
+    const imported = importedCallee(ts, tier1.program.getTypeChecker(), parent.expression);
+    if (imported && yieldsOnlyCallback(imported.module, imported.name)) return "hook-input";
+  }
   const candidates = programEvidenceCandidateIndex(ts, tier1.program, tier1.root);
   if (sourceFile && exportedDeclaration(ts, tier1.program.getTypeChecker(), sourceFile, node, candidates)) return "exported-api";
   if (unreadBinding(ts, tier1.program.getTypeChecker(), node, candidates)) return "unused";
