@@ -9,8 +9,8 @@ import {
 } from "./program-evidence-collector-expression-support";
 import { lazyFactoryGetter, reducerOf, seedArgument, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { jsonValueMember, namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
-import { frameworkFlow, rowFlow, makesAccessor, makesPredicate, PROMISE_CHANNELS, watchedFunction, yieldsOnlyCallback, type FrameworkFlow } from "./framework-flows";
-import { boundaryRole, builtinLibraryModels, standardMemberModel } from "./library-models";
+import { frameworkFlow, frameworkRow, makesAccessor, makesPredicate, primaryOption, promiseChannels, reducerArgument, rowFlow, rowPaths, standardCallback, watchedFunction, yieldsOnlyCallback, type Flow, type FrameworkFlow } from "./framework-flows";
+import { boundaryRole, builtinLibraryModels, standardMemberModel, type LibraryModelRow } from "./library-models";
 import { locationKey } from "./program-value-summary-support";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo, CollectorFunctionInfo } from "./program-evidence-collector-support";
@@ -33,6 +33,11 @@ import {
   unwrap,
 } from "./program-evidence-support";
 
+
+const num = (pattern: RegExp, text: string) => {
+  const match = pattern.exec(text);
+  return match ? Number(match[1]) : undefined;
+};
 
 function frameworkState(detail: string, location: ProgramEvidenceLocation) {
   return proof("framework-state", detail, [location]);
@@ -186,11 +191,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     return imported !== null && yieldsOnlyCallback(imported.module, imported.name);
   }
 
-  /** The values a framework call moves (its row, `frameworkFlow`), and an accessor call of a value one made. */
+  /** The values a framework call moves (its paths, `connectCallPaths`), and an accessor call of a value one made. */
   private connectFrameworkFlow(node: TypeScript.CallExpression, callId: string, ownerId: string | null): void {
-    const relate = (from: TypeScript.Expression, to: string, detail: string) => this.addRelation(
-      this.expression(from, ownerId), to, "framework-flow", [this.location(from)], frameworkState(detail, this.location(node)), "proven",
-    );
     const accessor = this.ts.isIdentifier(node.expression) ? resolveValue(this.ts, this.checker, node.expression)?.origin : null;
     if (accessor && this.ts.isCallExpression(accessor)) {
       const made = importedCallee(this.ts, this.checker, accessor.expression);
@@ -198,19 +200,229 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       const predicate = made && makesPredicate(made.module, made.name);
       if (holderId) this.addRelation(holderId, callId, "accessor-call", [this.location(node)], frameworkState(predicate ? "Calling the selector tests its key against the source: a boolean, not the source's value." : "Calling the accessor yields the value its factory computes.", this.location(node)), "proven");
     }
-    const flow = this.flowOf(node);
-    if (!flow) return;
-    const argument = (index: number) => (node.arguments[index] ? unwrap(this.ts, node.arguments[index]) : undefined);
-    const passed = flow.passes === "*" ? node.arguments.map((_, index) => index) : flow.passes ?? [];
-    for (const index of passed) {
-      const value = argument(index);
-      if (value) relate(value, callId, "The framework call yields a value carrying this argument.");
+    this.connectCallPaths("collect", node, callId, ownerId);
+  }
+
+  /**
+   * The access paths a call follows: its row's (`rowPaths`), a resource's
+   * overload (`resourceFlow`), or a reducer pair's reducer, whose return is
+   * the state. A member row counts only for `passes-through` and a promise's
+   * channels; a standard callback is `connectStandardCallback`'s.
+   */
+  private callPaths(node: TypeScript.CallExpression): { row: LibraryModelRow | null; flows: Flow[] } | null {
+    const path = (from: string, to: string): Flow => ({ from, to, test: false });
+    if (isResourceFactory(this.ts, this.checker, node)) {
+      const flow = resourceFlow(this.ts, this.checker, node);
+      return { row: null, flows: [...(flow.source !== undefined ? [path(`Argument[${flow.source}].ReturnValue`, `Argument[${flow.callback}].Parameter[0]`)] : []), path(`Argument[${flow.returns}].ReturnValue`, "ReturnValue")] };
     }
-    // A source that is a value, not a function (`on(count, …)`): what it is reaches the callback now; a function's returns reach it after collection.
-    const source = flow.source !== undefined ? argument(flow.source) : undefined;
-    const parameterId = flow.callback !== undefined ? this.firstParameterId(argument(flow.callback)) : undefined;
-    if (source && parameterId && !this.ts.isArrowFunction(source) && !this.ts.isFunctionExpression(source)) relate(source, parameterId, "The framework calls the callback with the source's value.");
-    if (parameterId && flow.callback !== undefined) this.connectItemAccessor(node, flow.callback, parameterId);
+    const imported = importedCallee(this.ts, this.checker, node.expression);
+    if (imported) {
+      const row = frameworkRow(imported.module, imported.name);
+      const reducer = reducerArgument(imported.module, imported.name);
+      return row && { row, flows: reducer !== null ? [path(`Argument[${reducer}].ReturnValue`, "ReturnValue")] : rowPaths(row) };
+    }
+    const row = standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression));
+    return row && (row.model === "passes-through" || promiseChannels(row)) ? { row, flows: rowPaths(row) } : null;
+  }
+
+  /**
+   * What a call's access paths (`callPaths`) move. `collect` runs while the
+   * walk visits the call: a plain argument that reaches the call's value
+   * (`splitProps(props)`, `Object.assign`), and a source that is a value, not
+   * a function, reaching a callback (`on(count, …)`). `connect` runs once
+   * every function's returns are known: what a callback returns, what a
+   * source function returns, a data hook's option functions, and a promise's
+   * channels. Other rules read the paths this skips: a wrapper's own function
+   * (`wrappedPosition`), a watched function's fields
+   * (`connectWatchedFunctions`), and `mutate`'s argument (`mutationFunction`).
+   */
+  private connectCallPaths(phase: "collect" | "connect", node: TypeScript.CallExpression, callId: string, ownerId: string | null): void {
+    const paths = this.callPaths(node);
+    if (!paths) return;
+    const { row, flows } = paths;
+    const relate = (fromId: string, to: string, where: TypeScript.Node, detail: string) => this.addRelation(fromId, to, "framework-flow", [this.location(where)], frameworkState(detail, this.location(node)), "proven");
+    const argument = (index: number) => (node.arguments[index] ? unwrap(this.ts, node.arguments[index]) : undefined);
+    // A function argument's returns, through any wrapper (`createMemo(on(source, fn))`).
+    const returnsAt = (index: number) => {
+      const fn = argument(index) && throughWrappers(this.ts, this.checker, argument(index)!);
+      const info = fn ? this.functionsByNode.get(nodeKey(this.root, fn)) ?? this.targetFunction(fn) ?? undefined : undefined;
+      return { fn, ids: info ? this.returnsByFunction.get(info.id) ?? [] : [] };
+    };
+    const wraps = row?.model === "wraps";
+    if (promiseChannels(row)) {
+      if (phase === "connect") this.connectPromisePaths(node, callId, ownerId, flows);
+      return;
+    }
+    const option = primaryOption(row);
+    if (option) {
+      if (phase === "connect") this.connectOptionPaths(node, callId, ownerId, option, flows);
+      return;
+    }
+    for (const { from, to, test } of flows) {
+      const passed = /^Argument\[(\d+)(\.\.)?\]$/.exec(from);
+      const source = /^Argument\[(\d+)\]\.ReturnValue(\.ArrayElement)?$/.exec(from);
+      const callback = num(/^Argument\[(\d+)\]\.Parameter\[0\]$/, to);
+      // A wrapper's value is its function (`wrappedPosition`), read through the binding, never a relation.
+      if (wraps && to.startsWith("ReturnValue")) continue;
+      if (phase === "collect" && passed && to === "ReturnValue") {
+        const start = Number(passed[1]);
+        for (const [index, value] of node.arguments.entries()) {
+          if (index === start || (passed[2] && index > start)) relate(this.expression(unwrap(this.ts, value), ownerId), callId, unwrap(this.ts, value), "The framework call yields a value carrying this argument.");
+        }
+      }
+      if (source && callback !== undefined && Number(source[1]) !== callback) {
+        const parameterId = this.firstParameterId(argument(callback));
+        if (!parameterId) continue;
+        const value = argument(Number(source[1]));
+        if (phase === "collect") {
+          // A source that is a value, not a function (`on(count, …)`): what it is reaches the callback now; a function's returns reach it after collection.
+          if (value && !this.ts.isArrowFunction(value) && !this.ts.isFunctionExpression(value)) relate(this.expression(value, ownerId), parameterId, value, "The framework calls the callback with the source's value.");
+          this.connectItemAccessor(node, callback, parameterId);
+          continue;
+        }
+        const returns = returnsAt(Number(source[1]));
+        for (const returnId of returns.ids) relate(returnId, parameterId, returns.fn!, "The framework calls the callback with what the source returns.");
+      }
+      if (phase === "connect" && source && !source[2] && /^ReturnValue(\.ReturnValue)?$/.test(to)) {
+        const returns = returnsAt(Number(source[1]));
+        for (const returnId of returns.ids) relate(returnId, callId, returns.fn!, test ? "The framework call tests keys against what its callback returns." : "The framework call yields what its callback returns.");
+      }
+    }
+  }
+
+  /**
+   * A data hook's option paths (`Argument[0].Member[key]`). The option
+   * function's return is the call's value, or one field of it (`data`): a
+   * pack of that field, so the result's other fields hold none of it. A
+   * function that takes it and fills the same field (`select`) replaces it
+   * when the code gives one. A function it hands an object to gets fields
+   * from other options (`queryKey`), and an observer (`onSuccess`) takes the
+   * option function's return, its input, or another option's return.
+   * Nothing moves when the code gives no option function.
+   */
+  private connectOptionPaths(node: TypeScript.CallExpression, callId: string, ownerId: string | null, option: string, flows: Flow[]): void {
+    const fn = this.optionFunction(node, option);
+    if (!fn) return;
+    const where = [this.location(node)];
+    const key = (path: string, rest: string) => new RegExp(`^Argument\\[0\\]\\.Member\\[(\\w+)\\]${rest}$`).exec(path)?.[1];
+    const returnsOf = (name: string) => {
+      const info = this.optionFunction(node, name);
+      return info ? this.returnsByFunction.get(info.id) ?? [] : [];
+    };
+    // A parameter written as one name holds the whole value. A destructured one holds fields, so only a handed field binds it, by the field's own name.
+    const parameterId = (info: CollectorFunctionInfo, index: number, field?: string) => {
+      const name = info.declaration.parameters[index]?.name;
+      const binding = !name || this.ts.isIdentifier(name) ? name : field && this.ts.isObjectBindingPattern(name) ? name.elements.find((item) => (item.propertyName ?? item.name).getText() === field && !item.dotDotDotToken)?.name : undefined;
+      return binding && this.ts.isIdentifier(binding) ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
+    };
+    // A function that maps the option's return into a result field (`select`): its first parameter, by its first binding.
+    const fills = (name: string) => flows.some((flow) => flow.from === `Argument[0].Member[${name}].ReturnValue` && flow.to.startsWith("ReturnValue.Member["));
+    const mapperParameter = (name: string) => {
+      const mapper = this.optionFunction(node, name);
+      const binding = mapper?.declaration.parameters[0] && firstBindingIdentifier(this.ts, mapper.declaration.parameters[0].name);
+      const id = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
+      return mapper && id ? { mapper, id } : null;
+    };
+    for (const { from, to } of flows) {
+      const returner = key(from, "\\.ReturnValue");
+      const input = key(from, "\\.Parameter\\[0\\]");
+      const filler = key(from, "");
+      const field = /^ReturnValue\.Member\[(\w+)\]$/.exec(to)?.[1];
+      const called = /^Argument\[0\]\.Member\[(\w+)\]\.Parameter\[(\d+)\]$/.exec(to);
+      const handed = new RegExp(`^Argument\\[0\\]\\.Member\\[${option}\\]\\.Parameter\\[0\\]\\.Member\\[(\\w+)\\]$`).exec(to)?.[1];
+      if (returner && to === "ReturnValue") {
+        for (const returnId of returnsOf(returner)) this.addRelation(returnId, callId, "framework-flow", where, proof("framework-state", `The query's value is what its ${returner} returns.`, where), "proven");
+      } else if (returner && field) {
+        // Replaced by a mapper the code gives (`select`), or a mapper the code does not give.
+        const mapped = flows.some((flow) => {
+          const mapper = flow.from === from ? key(flow.to, "\\.Parameter\\[0\\]") : undefined;
+          return mapper !== undefined && flows.some((item) => item.from === `Argument[0].Member[${mapper}].ReturnValue` && item.to === to) && mapperParameter(mapper) !== null;
+        });
+        const fed = flows.some((flow) => flow.to === `Argument[0].Member[${returner}].Parameter[0]`);
+        if (mapped || (fed && !mapperParameter(returner))) continue;
+        const property = this.optionProperty(node, returner)!;
+        const at = this.location(property);
+        const packId = this.ensureElement(property.name, "object-pack", ownerId, { operation: "object-pack", fields: JSON.stringify({ [`${at.span.startLine}:${at.span.startColumn}`]: field }) }, null, null, null, "proven", proof("framework-state", `The hook's result holds this in its ${field} field.`, [at]));
+        for (const returnId of returnsOf(returner)) this.addRelation(returnId, packId, "pack-field", [at], proof("framework-state", `The hook's ${field} is what ${property.name.getText()} returns.`, [at]), "proven");
+        this.addRelation(packId, callId, "framework-flow", where, proof("framework-state", `The hook's result holds ${field}; its other fields do not hold this value.`, where), "proven");
+      } else if ((returner || input) && called) {
+        const mapper = fills(called[1]);
+        const target = mapper ? mapperParameter(called[1]) : null;
+        if (mapper && !target) continue;
+        const observer = target?.mapper ?? this.optionFunction(node, called[1]);
+        const index = Number(called[2]);
+        const toId = target?.id ?? (observer ? parameterId(observer, index) : undefined);
+        if (!observer || !toId) continue;
+        const inputId = input ? parameterId(fn, 0) : undefined;
+        const fromIds = returner ? returnsOf(returner) : inputId ? [inputId] : [];
+        const at = [this.location(observer.declaration.parameters[index])];
+        const words = returner ? `what its ${returner} returns` : `what its ${input} is called with`;
+        for (const fromId of fromIds) this.addRelation(fromId, toId, "framework-flow", at, proof("framework-state", `The hook calls ${called[1]} with ${words}.`, at), "proven");
+      } else if (filler && handed) {
+        const inputId = parameterId(fn, 0, handed);
+        const property = inputId ? this.optionProperty(node, filler) : null;
+        if (!property) continue;
+        const fillerFn = this.optionFunction(node, filler);
+        const value = this.ts.isPropertyAssignment(property) ? property.initializer : property.name;
+        const at = this.location(property.name);
+        const detail = `The hook hands its ${option} an object whose ${handed} is ${fillerFn ? `what ${filler} returns` : `the options' ${filler}`}.`;
+        const fromIds = fillerFn ? this.returnsByFunction.get(fillerFn.id) ?? [] : [this.expression(value, ownerId)];
+        // `({ queryKey }) => …` binds the field itself; `(context) => …` binds an object that holds it.
+        const first = fn.declaration.parameters[0]?.name;
+        if (!(first !== undefined && this.ts.isIdentifier(first))) {
+          for (const fromId of fromIds) this.addRelation(fromId, inputId!, "framework-flow", [at], proof("framework-state", detail, [at]), "proven");
+          continue;
+        }
+        const packId = this.ensureElement(property, "object-pack", ownerId, { operation: "object-pack", fields: JSON.stringify({ [`${at.span.startLine}:${at.span.startColumn}`]: handed }) }, null, null, null, "proven", proof("framework-state", detail, [at]));
+        for (const fromId of fromIds) this.addRelation(fromId, packId, "pack-field", [at], proof("framework-state", detail, [at]), "proven");
+        this.addRelation(packId, inputId!, "framework-flow", [at], proof("framework-state", detail, [at]), "proven");
+      }
+    }
+  }
+
+  /**
+   * A promise member's paths (`then`, `catch`, `finally`): each callback on
+   * its own outcome (`Argument[this].Awaited`, `Awaited[error]`), what a
+   * callback returns fulfilling the new promise, and the fulfilled value kept
+   * where the member keeps it or no callback takes it.
+   */
+  private connectPromisePaths(node: TypeScript.CallExpression, callId: string, ownerId: string | null, flows: Flow[]): void {
+    const callee = unwrap(this.ts, node.expression);
+    if (!this.ts.isPropertyAccessExpression(callee)) return;
+    const receiver = callee.expression;
+    const name = calleeName(this.ts, node.expression);
+    let keeps = false;
+    for (const { from, to } of flows) {
+      const taker = num(/^Argument\[(\d+)\]\.Parameter\[0\]$/, to);
+      const returner = num(/^Argument\[(\d+)\]\.ReturnValue$/, from);
+      if (from === "Argument[this].Awaited" && to === "ReturnValue.Awaited") keeps = true;
+      else if (taker !== undefined && from.startsWith("Argument[this].Awaited")) {
+        const handler = this.promiseHandler(node, taker);
+        const rejected = from === "Argument[this].Awaited[error]";
+        // No callback takes the fulfilled value, so the new promise holds it, each field still that field.
+        if (!handler && !rejected) keeps = true;
+        const value = rejected ? this.rejectionOf(receiver) : receiver;
+        const parameter = handler?.declaration.parameters[0];
+        const binding = parameter ? firstBindingIdentifier(this.ts, parameter.name) : null;
+        const parameterId = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
+        if (!value || !parameter || !parameterId) continue;
+        const where = [this.location(value), this.location(parameter)];
+        const [called, calledStatus] = this.libraryProof(node, `${name} calls this function with the promise's ${rejected ? "rejection" : "fulfilled value"}.`, where);
+        this.addRelation(this.expression(value, ownerId), parameterId, "framework-flow", where, called, calledStatus);
+      } else if (returner !== undefined && to === "ReturnValue.Awaited") {
+        const handler = this.promiseHandler(node, returner);
+        if (!handler) continue;
+        const where = [this.location(node.arguments[returner])];
+        for (const returnId of this.returnsByFunction.get(handler.id) ?? []) {
+          const [derived, derivedStatus] = this.libraryProof(node, `${name}'s promise fulfils with what this function returns.`, where);
+          this.addRelation(returnId, callId, "return-value", where, derived, derivedStatus);
+        }
+      }
+    }
+    if (!keeps) return;
+    const where = [this.location(receiver)];
+    const [kept, keptStatus] = this.libraryProof(node, `${name} keeps the fulfilled value.`, where);
+    this.addRelation(this.expression(receiver, ownerId), callId, "framework-flow", where, kept, keptStatus);
   }
 
   /**
@@ -403,7 +615,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     // A store member read through its hook (`addFish` after `const { addFish } = useStore()`) has one: the call enters it (`connectBoundHandlers`).
     // A store's `set` (or `useStore.setState`) is modelled as a state setter is: what it receives is the store (`connectStores`), never its call's value.
     const storeWrite = writesStore(this.ts, this.checker, node);
-    const handled = (this.settles(node) === "then" && this.promiseHandler(node, 0)) || storeMember(this.ts, this.checker, node.expression).length > 0;
+    const handled = (this.channels(node)?.fulfilled === 0 && this.promiseHandler(node, 0)) || storeMember(this.ts, this.checker, node.expression).length > 0;
     if ((!role || role.through) && !storeWrite && !target && !handled && !resourceAction(this.ts, this.checker, node.expression) && !this.contextPairHalf(node.expression) && node.expression.kind !== this.ts.SyntaxKind.SuperKeyword && node.expression.kind !== this.ts.SyntaxKind.ImportKeyword) {
       this.addRelation(
         this.expression(node.expression, ownerId),
@@ -432,7 +644,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       // A row that names the one argument its call hands on leaves the others out of its value (`makePersisted(pair, options)`, `splitProps(props, keys)`).
       if (Array.isArray(flow?.passes)) continue;
       // A rejection reason is not the promise's value: it reaches a rejection handler, or ends there.
-      if (this.settles(node) === "reject") continue;
+      if (this.rejects(node)) continue;
       // A row that says what the call yields (its callback's return, an option function's) leaves every other argument out of it: a dependency list, a query's key.
       if (this.yieldsOnlyItsCallback(node)) continue;
       // A state pair's initial value seeds its state directly (`seedArgument`), not through the factory's call.
@@ -861,33 +1073,13 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
    * the call's value. Both are assumed, so both are `partial`.
    */
   private connectExternalCallbacks(call: CollectorCallInfo, node: TypeScript.CallExpression, stateFunctions: ReadonlySet<TypeScript.Node>): void {
-    // A framework call whose flow is modelled (`flowOf`) needs no assumption.
-    const flow = this.flowOf(node);
-    if (flow) {
-      // What a function argument returns goes where the flow says: the call's value, or the callback's parameter.
-      const returnsOf = (index: number | undefined) => {
-        const fn = index !== undefined && node.arguments[index] ? throughWrappers(this.ts, this.checker, unwrap(this.ts, node.arguments[index])) : undefined;
-        const info = fn ? this.functionsByNode.get(nodeKey(this.root, fn)) ?? this.targetFunction(fn) ?? undefined : undefined;
-        return { fn, ids: info ? this.returnsByFunction.get(info.id) ?? [] : [] };
-      };
-      const result = returnsOf(flow.returns);
-      for (const returnId of result.ids) {
-        this.addRelation(returnId, call.id, "framework-flow", [this.location(result.fn!)], frameworkState(flow.compares ? "The framework call tests keys against what its callback returns." : "The framework call yields what its callback returns.", this.location(node)), "proven");
-      }
-      const source = returnsOf(flow.source);
-      const parameterId = flow.callback !== undefined ? this.firstParameterId(node.arguments[flow.callback] && unwrap(this.ts, node.arguments[flow.callback])) : undefined;
-      for (const returnId of parameterId ? source.ids : []) {
-        this.addRelation(returnId, parameterId!, "framework-flow", [this.location(source.fn!)], frameworkState("The framework calls the callback with what the source returns.", this.location(node)), "proven");
-      }
-      return;
-    }
+    this.connectCallPaths("connect", node, call.id, call.ownerId);
+    // A call whose flow is modelled (`flowOf`) needs no assumption.
+    if (this.flowOf(node)) return;
     const callee = calleeName(this.ts, node.expression);
     const calleeNode = unwrap(this.ts, node.expression);
-    const settles = this.settles(node);
-    if (settles && settles !== "reject" && this.ts.isPropertyAccessExpression(calleeNode)) {
-      this.connectPromiseChannels(call, node, calleeNode.expression, settles);
-      return;
-    }
+    // A promise member's channels are its paths (`connectPromisePaths`).
+    if (this.channels(node) && this.ts.isPropertyAccessExpression(calleeNode)) return;
     const receiver = this.ts.isPropertyAccessExpression(calleeNode) ? calleeNode.expression : null;
     if (receiver && this.connectStandardCallback(call, node, receiver)) return;
     const receiverType = receiver ? this.checker.getTypeAtLocation(receiver) : null;
@@ -927,18 +1119,18 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
    * and `sort`'s only test or order elements. False for any other call.
    */
   private connectStandardCallback(call: CollectorCallInfo, node: TypeScript.CallExpression, receiver: TypeScript.Expression): boolean {
-    const row = standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression) ?? jsonValueMember(this.ts, this.checker, node.expression));
-    if (row?.model !== "calls-back" || !row.parameters) return false;
-    const argument = node.arguments[Number(row.args ?? 0)];
+    const row = standardCallback(standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression) ?? jsonValueMember(this.ts, this.checker, node.expression)));
+    if (!row) return false;
+    const argument = node.arguments[row.at];
     const fn = argument && unwrap(this.ts, argument);
     // Only a function written here, as before: a named one is joined where it is declared.
     const info = fn && (this.ts.isArrowFunction(fn) || this.ts.isFunctionExpression(fn)) ? this.functionsByNode.get(nodeKey(this.root, fn)) : undefined;
     if (!info) return true;
     const name = calleeName(this.ts, node.expression);
     const returns = this.returnsByFunction.get(info.id) ?? [];
-    const seed = row.source !== undefined ? node.arguments[Number(row.source)] : undefined;
+    const seed = row.seed !== undefined ? node.arguments[row.seed] : undefined;
     info.declaration.parameters.forEach((parameter, index) => {
-      const role = row.parameters![index];
+      const role = row.parameters[index];
       const binding = firstBindingIdentifier(this.ts, parameter.name);
       const parameterId = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
       if (!parameterId || !role || role === "index") return;
@@ -959,7 +1151,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     });
     // A callback of one element whose return the call does not yield (`filter`, `find`, `some`, `every`) tests that element:
     // its return decides which elements count, a branch, not a value. A comparator (`sort`, two elements) orders them instead.
-    const tests = row.returns !== "callback" && row.returns !== "void" && row.parameters.filter((item) => item === "element").length === 1;
+    const tests = row.yields === "other" && row.parameters.filter((item) => item === "element").length === 1;
     if (tests && returns.length) {
       const at = this.location(fn);
       const testId = this.ensureElement(fn, "branch-condition", call.ownerId, { terminalKind: "branch-condition", label: `${name} test` }, null, null, null, "proven", proof("standard-library", `${name} tests each element with what this function returns.`, [at]));
@@ -968,7 +1160,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         this.addRelation(returnId, testId, "predicate-return", [at], tested, testedStatus);
       }
     }
-    if (row.returns !== "callback") return true;
+    if (row.yields !== "callback") return true;
     const where = [this.location(argument)];
     for (const returnId of returns) {
       const [derived, derivedStatus] = this.libraryProof(node, `${name}'s value derives from what this function returns.`, where);
@@ -977,52 +1169,25 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     return true;
   }
 
-  /** How a standard promise member settles (its row's `settles`), or undefined for any other call. */
   /** Whether a call reads a context (`useContext(Ctx)`); the JSX support knows contexts. */
   protected readsContext(_node: TypeScript.CallExpression): boolean {
     return false;
   }
 
-  private settles(node: TypeScript.CallExpression) {
-    return standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression))?.settles;
+  /** A standard promise member's channels (`promiseChannels`), or null for any other call. */
+  private channels(node: TypeScript.CallExpression) {
+    return promiseChannels(standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression)));
+  }
+
+  /** Whether the call makes a promise that only rejects (`Promise.reject`, a row's `settles: reject`). */
+  private rejects(node: TypeScript.CallExpression) {
+    return standardMemberModel(builtinLibraryModels(), browserMember(this.ts, this.checker, node.expression))?.settles === "reject";
   }
 
   /** The function a promise method is given at this argument, written there or named. */
   private promiseHandler(node: TypeScript.CallExpression, index: number | undefined) {
     const handler = index !== undefined && node.arguments[index] ? unwrap(this.ts, node.arguments[index]) : null;
     return handler ? this.functionsByNode.get(nodeKey(this.root, handler)) ?? this.targetFunction(handler) : null;
-  }
-
-  /** Each of a promise method's callbacks on its own channel (`PROMISE_CHANNELS`). */
-  private connectPromiseChannels(call: CollectorCallInfo, node: TypeScript.CallExpression, receiver: TypeScript.Expression, settles: keyof typeof PROMISE_CHANNELS): void {
-    const channels = PROMISE_CHANNELS[settles];
-    const name = calleeName(this.ts, node.expression);
-    const fill = (value: TypeScript.Expression | null, index: number | undefined, outcome: string) => {
-      const parameter = this.promiseHandler(node, index)?.declaration.parameters[0];
-      const binding = parameter ? firstBindingIdentifier(this.ts, parameter.name) : null;
-      const parameterId = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
-      if (!value || !parameter || !parameterId) return;
-      const where = [this.location(value), this.location(parameter)];
-      const [called, calledStatus] = this.libraryProof(node, `${name} calls this function with the promise's ${outcome}.`, where);
-      this.addRelation(this.expression(value, call.ownerId), parameterId, "framework-flow", where, called, calledStatus);
-    };
-    fill(receiver, channels.fulfilled, "fulfilled value");
-    fill(this.rejectionOf(receiver), channels.rejected, "rejection");
-    // No callback takes the fulfilled value, so the new promise holds it, each field still that field.
-    if (!this.promiseHandler(node, channels.fulfilled)) {
-      const where = [this.location(receiver)];
-      const [kept, keptStatus] = this.libraryProof(node, `${name} keeps the fulfilled value.`, where);
-      this.addRelation(this.expression(receiver, call.ownerId), call.id, "framework-flow", where, kept, keptStatus);
-    }
-    for (const index of channels.returns) {
-      const handler = this.promiseHandler(node, index);
-      if (!handler) continue;
-      const where = [this.location(node.arguments[index])];
-      for (const returnId of this.returnsByFunction.get(handler.id) ?? []) {
-        const [derived, derivedStatus] = this.libraryProof(node, `${name}'s promise fulfils with what this function returns.`, where);
-        this.addRelation(returnId, call.id, "return-value", where, derived, derivedStatus);
-      }
-    }
   }
 
   /** The reason a promise rejects with, where the code says so: `Promise.reject(reason)`, through bindings and the links it skips. Null for a promise that may settle any way. */
@@ -1035,10 +1200,11 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
         continue;
       }
       if (!this.ts.isCallExpression(value)) return null;
-      const settles = this.settles(value);
-      if (settles === "reject") return value.arguments[0] ?? null;
+      if (this.rejects(value)) return value.arguments[0] ?? null;
       const method = unwrap(this.ts, value.expression);
-      const skips = settles === "finally" || (settles === "then" && !value.arguments[1]);
+      // A link with no rejection handler passes the rejection on (`finally`, `then(onFulfilled)`).
+      const channels = this.channels(value);
+      const skips = channels !== null && (channels.rejected === undefined || !value.arguments[channels.rejected]);
       if (!skips || !this.ts.isPropertyAccessExpression(method)) return null;
       value = unwrap(this.ts, method.expression);
     }

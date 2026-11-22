@@ -1,0 +1,352 @@
+ts:lib#ObjectConstructor.assign (passes-through)
+  rowFlow: {"passes":"*"}
+ts:lib#Array.push (consumes)
+  writes: "this"
+ts:lib#Array.unshift (consumes)
+  writes: "this"
+ts:lib#Array.splice (consumes)
+  writes: "this"
+ts:lib#Array.fill (consumes)
+  writes: "this"
+ts:lib#Map.set (consumes)
+  writes: "this"
+ts:lib#Set.add (consumes)
+  writes: "this"
+ts:lib#WeakMap.set (consumes)
+  writes: "this"
+ts:lib#WeakSet.add (consumes)
+  writes: "this"
+ts:lib#Array.map (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"callback"}
+ts:lib#Array.flatMap (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"callback"}
+ts:lib#Array.forEach (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"nothing"}
+ts:lib#Array.filter (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"other"}
+ts:lib#Array.find (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"other"}
+ts:lib#Array.findLast (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"other"}
+ts:lib#Array.findIndex (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"other"}
+ts:lib#Array.findLastIndex (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"other"}
+ts:lib#Array.some (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"other"}
+ts:lib#Array.every (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"other"}
+ts:lib#Array.sort (calls-back)
+  standardCallback: {"at":0,"parameters":["element","element"],"yields":"other"}
+ts:lib#Array.toSorted (calls-back)
+  standardCallback: {"at":0,"parameters":["element","element"],"yields":"other"}
+ts:lib#Array.reduce (calls-back)
+  standardCallback: {"at":0,"parameters":["accumulator","element","index","receiver"],"seed":1,"yields":"callback"}
+ts:lib#Array.reduceRight (calls-back)
+  standardCallback: {"at":0,"parameters":["accumulator","element","index","receiver"],"seed":1,"yields":"callback"}
+ts:lib#ReadonlyArray.map (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"callback"}
+ts:lib#ReadonlyArray.flatMap (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"callback"}
+ts:lib#ReadonlyArray.forEach (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"nothing"}
+ts:lib#ReadonlyArray.filter (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"other"}
+ts:lib#ReadonlyArray.find (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"other"}
+ts:lib#ReadonlyArray.findLast (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"other"}
+ts:lib#ReadonlyArray.findIndex (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"other"}
+ts:lib#ReadonlyArray.findLastIndex (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"other"}
+ts:lib#ReadonlyArray.some (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"other"}
+ts:lib#ReadonlyArray.every (calls-back)
+  standardCallback: {"at":0,"parameters":["element","index","receiver"],"yields":"other"}
+ts:lib#ReadonlyArray.toSorted (calls-back)
+  standardCallback: {"at":0,"parameters":["element","element"],"yields":"other"}
+ts:lib#ReadonlyArray.reduce (calls-back)
+  standardCallback: {"at":0,"parameters":["accumulator","element","index","receiver"],"seed":1,"yields":"callback"}
+ts:lib#ReadonlyArray.reduceRight (calls-back)
+  standardCallback: {"at":0,"parameters":["accumulator","element","index","receiver"],"seed":1,"yields":"callback"}
+ts:lib#Promise.then (calls-back)
+  promiseChannels: {"fulfilled":0,"rejected":1,"returns":[0,1],"keeps":false}
+ts:lib#Promise.catch (calls-back)
+  promiseChannels: {"rejected":0,"returns":[0],"keeps":true}
+ts:lib#Promise.finally (calls-back)
+  promiseChannels: {"returns":[],"keeps":true}
+ts:lib#PromiseConstructor.reject (consumes)
+  settles: "reject"
+ts:fs#readFile (origin)
+  yieldsFirstFunction: true
+ts:fs#readdir (origin)
+  yieldsFirstFunction: true
+ts:fs#stat (origin)
+  yieldsFirstFunction: true
+ts:fs#access (origin)
+  yieldsFirstFunction: true
+ts:fs#readFileSync (origin)
+  yieldsFirstFunction: true
+ts:fs#createReadStream (origin)
+  yieldsFirstFunction: true
+ts:fs#writeFile (terminal)
+  yieldsFirstFunction: true
+ts:fs#appendFile (terminal)
+  yieldsFirstFunction: true
+ts:fs#writeFileSync (terminal)
+  yieldsFirstFunction: true
+ts:fs#appendFileSync (terminal)
+  yieldsFirstFunction: true
+ts:fs#createWriteStream (terminal)
+  yieldsFirstFunction: true
+ts:fs/promises#readFile (origin)
+  yieldsFirstFunction: true
+ts:fs/promises#readdir (origin)
+  yieldsFirstFunction: true
+ts:fs/promises#stat (origin)
+  yieldsFirstFunction: true
+ts:fs/promises#access (origin)
+  yieldsFirstFunction: true
+ts:fs/promises#writeFile (terminal)
+  yieldsFirstFunction: true
+ts:fs/promises#appendFile (terminal)
+  yieldsFirstFunction: true
+ts:http#request (origin)
+  yieldsFirstFunction: true
+ts:http#get (origin)
+  yieldsFirstFunction: true
+ts:http#post (origin)
+  yieldsFirstFunction: true
+ts:https#request (origin)
+  yieldsFirstFunction: true
+ts:https#get (origin)
+  yieldsFirstFunction: true
+ts:https#post (origin)
+  yieldsFirstFunction: true
+ts:global#console.log (terminal)
+  yieldsFirstFunction: true
+ts:global#console.info (terminal)
+  yieldsFirstFunction: true
+ts:global#console.debug (terminal)
+  yieldsFirstFunction: true
+ts:global#console.warn (terminal)
+  yieldsFirstFunction: true
+ts:global#console.error (terminal)
+  yieldsFirstFunction: true
+ts:global#process.stdout.write (terminal)
+  yieldsFirstFunction: true
+ts:global#process.stderr.write (terminal)
+  yieldsFirstFunction: true
+ts:global#process.exit (terminal)
+  yieldsFirstFunction: true
+ts:global#process.exitCode (terminal)
+  yieldsFirstFunction: true
+ts:global#process.env (origin)
+  yieldsFirstFunction: true
+ts:global#process.argv (origin)
+  yieldsFirstFunction: true
+ts:global#process.stdin (origin)
+  yieldsFirstFunction: true
+py:asyncio.tasks#gather (passes-through)
+  rowFlow: {"passes":"*"}
+py:rest_framework.serializers#BaseSerializer.is_valid (passes-through)
+  rowFlow: {"passes":"*"}
+py:rest_framework.serializers#Serializer.is_valid (passes-through)
+  rowFlow: {"passes":"*"}
+py:rest_framework.serializers#ModelSerializer.is_valid (passes-through)
+  rowFlow: {"passes":"*"}
+py:concurrent.futures._base#Future.result (passes-through)
+  rowFlow: {"passes":"*"}
+ts:react#useState (state-pair)
+  yieldsFirstFunction: true
+  makesStatePair: true
+  callsInitialValue: true
+ts:react#useReducer (state-pair)
+  rowFlow: {"returns":0}
+  yieldsFirstFunction: true
+  makesStatePair: true
+  reducerArgument: 0
+ts:react#useMemo (calls-back)
+  rowFlow: {"returns":0}
+  yieldsOnlyCallback: true
+ts:react#useDeferredValue (passes-through)
+  rowFlow: {"passes":[0]}
+  yieldsFirstFunction: true
+ts:react#useEffect (calls-back)
+  rowFlow: {}
+  hasNoValue: true
+ts:react#useLayoutEffect (calls-back)
+  rowFlow: {}
+  hasNoValue: true
+ts:react#useCallback (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:react#memo (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:react#forwardRef (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:@tanstack/react-query#useQuery (calls-back)
+  yieldsOnlyCallback: true
+  optionFlow: "queryFn"
+ts:@tanstack/react-query#useSuspenseQuery (calls-back)
+  yieldsOnlyCallback: true
+  optionFlow: "queryFn"
+ts:@tanstack/react-query#useInfiniteQuery (calls-back)
+  optionFlow: "queryFn"
+ts:@tanstack/react-query#useMutation (calls-back)
+  yieldsOnlyCallback: true
+  optionFlow: "mutationFn"
+ts:@tanstack/react-query#useQueryClient (origin)
+  yieldsFirstFunction: true
+ts:zustand#create (store)
+  yieldsFirstFunction: true
+  makesStore: true
+ts:solid-js#createSignal (state-pair)
+  yieldsFirstFunction: true
+  makesStatePair: true
+ts:solid-js#createMemo (calls-back)
+  rowFlow: {"returns":0}
+  yieldsFirstFunction: true
+  makesAccessor: true
+ts:solid-js#createSelector (calls-back)
+  rowFlow: {"returns":0,"compares":true}
+  makesPredicate: true
+  makesAccessor: true
+ts:solid-js#children (calls-back)
+  rowFlow: {"returns":0}
+  yieldsFirstFunction: true
+  makesAccessor: true
+ts:solid-js#createDeferred (calls-back)
+  rowFlow: {"returns":0}
+  yieldsFirstFunction: true
+  makesAccessor: true
+ts:solid-js#createRoot (calls-back)
+  rowFlow: {"returns":0}
+  yieldsOnlyCallback: true
+ts:solid-js#mapArray (calls-back)
+  rowFlow: {"returns":1,"source":0,"callback":1}
+  makesAccessor: true
+ts:solid-js#indexArray (calls-back)
+  rowFlow: {"returns":1,"source":0,"callback":1}
+  makesAccessor: true
+ts:solid-js#untrack (calls-back)
+  rowFlow: {"returns":0}
+  yieldsOnlyCallback: true
+ts:solid-js#batch (calls-back)
+  rowFlow: {"returns":0}
+  yieldsOnlyCallback: true
+ts:solid-js#on (wraps)
+  rowFlow: {"source":0,"callback":1}
+  wrappedPosition: 1
+ts:solid-js#splitProps (passes-through)
+  rowFlow: {"passes":[0]}
+  yieldsFirstFunction: true
+ts:solid-js#mergeProps (passes-through)
+  rowFlow: {"passes":"*"}
+  yieldsFirstFunction: true
+ts:solid-js#createEffect (calls-back)
+  rowFlow: {}
+  hasNoValue: true
+ts:solid-js#createRenderEffect (calls-back)
+  rowFlow: {}
+  hasNoValue: true
+ts:solid-js#createComputed (calls-back)
+  rowFlow: {}
+  hasNoValue: true
+ts:solid-js#onMount (calls-back)
+  rowFlow: {}
+  hasNoValue: true
+ts:solid-js#onCleanup (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:solid-js/store#createStore (state-pair)
+  yieldsFirstFunction: true
+  makesStatePair: true
+ts:solid-js/store#unwrap (passes-through)
+  rowFlow: {"passes":[0]}
+  yieldsFirstFunction: true
+ts:solid-js/store#createMutable (passes-through)
+  rowFlow: {"passes":[0]}
+  yieldsFirstFunction: true
+ts:@solidjs/router#createAsync (calls-back)
+  rowFlow: {"returns":0}
+  yieldsFirstFunction: true
+  makesAccessor: true
+ts:@solidjs/router#createAsyncStore (calls-back)
+  rowFlow: {"returns":0}
+  yieldsFirstFunction: true
+  makesAccessor: true
+ts:@solidjs/router#useNavigate (terminal)
+  yieldsFirstFunction: true
+ts:@solidjs/router#useSearchParams (terminal)
+  yieldsFirstFunction: true
+ts:@solidjs/router#query (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:@solidjs/router#cache (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:@solidjs/router#action (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:@solidjs/router#useAction (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:@solidjs/router#useSubmission (calls-back)
+  watchedFunction: {"at":0,"field":"result","input":"input"}
+ts:@solid-primitives/storage#makePersisted (passes-through)
+  rowFlow: {"passes":[0]}
+  yieldsFirstFunction: true
+ts:@solid-primitives/scheduled#debounce (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:@solid-primitives/scheduled#throttle (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:@solid-primitives/scheduled#leading (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:@solid-primitives/scheduled#leadingAndTrailing (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:@tanstack/solid-query#createQuery (calls-back)
+  optionFlow: "queryFn"
+ts:@tanstack/solid-query#createInfiniteQuery (calls-back)
+  optionFlow: "queryFn"
+ts:@tanstack/solid-query#useQuery (calls-back)
+  optionFlow: "queryFn"
+ts:@tanstack/solid-query#createMutation (calls-back)
+  optionFlow: "mutationFn"
+ts:@tanstack/solid-query#useMutation (calls-back)
+  optionFlow: "mutationFn"
+ts:lodash#debounce (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:lodash#throttle (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:lodash-es#debounce (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:lodash-es#throttle (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:lodash.debounce#default (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:lodash.throttle#default (wraps)
+  wrappedPosition: 0
+  yieldsFirstFunction: true
+ts:global#fetch (origin)
+  yieldsFirstFunction: true
+ts:global#Response.json (terminal)
+  yieldsFirstFunction: true
+ts:global#import.meta.env (origin)
+  yieldsFirstFunction: true
+py:flask.globals#request.* (passes-through)
+  rowFlow: {"passes":"*"}
+py:flask#request.* (passes-through)
+  rowFlow: {"passes":"*"}

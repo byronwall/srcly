@@ -6,7 +6,9 @@
       "module": "lib",
       "member": "ObjectConstructor.assign",
       "model": "passes-through",
-      "args": "*",
+      "flows": [
+        "Argument[0..] -> ReturnValue"
+      ],
       "note": "The result carries every object it is given, each field under its own name, as a spread does."
     },
     {
@@ -78,12 +80,11 @@
       "module": "lib",
       "member": "Array.map",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[0].ReturnValue -> ReturnValue"
       ],
-      "returns": "callback",
       "note": "The callback takes each element and its index. The new array holds what it returns."
     },
     {
@@ -91,12 +92,11 @@
       "module": "lib",
       "member": "Array.flatMap",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[0].ReturnValue -> ReturnValue"
       ],
-      "returns": "callback",
       "note": "The callback takes each element and its index. The new array holds what it returns, flattened once."
     },
     {
@@ -104,12 +104,10 @@
       "module": "lib",
       "member": "Array.forEach",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]"
       ],
-      "returns": "void",
       "note": "The callback takes each element and its index. Its return is dropped, and the call yields nothing."
     },
     {
@@ -117,12 +115,11 @@
       "module": "lib",
       "member": "Array.filter",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[this] -> ReturnValue"
       ],
-      "returns": "same",
       "note": "The callback takes each element and its index. Its return only tests the element; the new array holds the kept elements."
     },
     {
@@ -130,12 +127,11 @@
       "module": "lib",
       "member": "Array.find",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[this].ArrayElement -> ReturnValue"
       ],
-      "returns": "element",
       "note": "The callback takes each element and its index. Its return only tests the element; the call yields the element found."
     },
     {
@@ -143,12 +139,11 @@
       "module": "lib",
       "member": "Array.findLast",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[this].ArrayElement -> ReturnValue"
       ],
-      "returns": "element",
       "note": "The callback takes each element and its index. Its return only tests the element; the call yields the element found."
     },
     {
@@ -156,12 +151,11 @@
       "module": "lib",
       "member": "Array.findIndex",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[0].ReturnValue -> ReturnValue : test"
       ],
-      "returns": "boolean",
       "note": "The callback takes each element and its index. Its return only tests the element; the call yields a position."
     },
     {
@@ -169,12 +163,11 @@
       "module": "lib",
       "member": "Array.findLastIndex",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[0].ReturnValue -> ReturnValue : test"
       ],
-      "returns": "boolean",
       "note": "The callback takes each element and its index. Its return only tests the element; the call yields a position."
     },
     {
@@ -182,12 +175,11 @@
       "module": "lib",
       "member": "Array.some",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[0].ReturnValue -> ReturnValue : test"
       ],
-      "returns": "boolean",
       "note": "The callback takes each element and its index. The call yields a test of what it returns."
     },
     {
@@ -195,12 +187,11 @@
       "module": "lib",
       "member": "Array.every",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[0].ReturnValue -> ReturnValue : test"
       ],
-      "returns": "boolean",
       "note": "The callback takes each element and its index. The call yields a test of what it returns."
     },
     {
@@ -208,11 +199,11 @@
       "module": "lib",
       "member": "Array.sort",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "element"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this].ArrayElement -> Argument[0].Parameter[1]",
+        "Argument[this] -> ReturnValue"
       ],
-      "returns": "same",
       "note": "The comparator takes two elements. Its return only orders them; the call yields the sorted receiver."
     },
     {
@@ -220,11 +211,11 @@
       "module": "lib",
       "member": "Array.toSorted",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "element"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this].ArrayElement -> Argument[0].Parameter[1]",
+        "Argument[this] -> ReturnValue"
       ],
-      "returns": "same",
       "note": "The comparator takes two elements. Its return only orders them; the new array holds the receiver's elements."
     },
     {
@@ -232,14 +223,13 @@
       "module": "lib",
       "member": "Array.reduce",
       "model": "calls-back",
-      "parameters": [
-        "accumulator",
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[1] -> Argument[0].Parameter[0]",
+        "Argument[0].ReturnValue -> Argument[0].Parameter[0]",
+        "Argument[this].ArrayElement -> Argument[0].Parameter[1]",
+        "Argument[this] -> Argument[0].Parameter[3]",
+        "Argument[0].ReturnValue -> ReturnValue"
       ],
-      "returns": "callback",
-      "source": "1",
       "note": "The callback takes the seed or its own last return, then each element. The call yields its last return."
     },
     {
@@ -247,14 +237,13 @@
       "module": "lib",
       "member": "Array.reduceRight",
       "model": "calls-back",
-      "parameters": [
-        "accumulator",
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[1] -> Argument[0].Parameter[0]",
+        "Argument[0].ReturnValue -> Argument[0].Parameter[0]",
+        "Argument[this].ArrayElement -> Argument[0].Parameter[1]",
+        "Argument[this] -> Argument[0].Parameter[3]",
+        "Argument[0].ReturnValue -> ReturnValue"
       ],
-      "returns": "callback",
-      "source": "1",
       "note": "The callback takes the seed or its own last return, then each element. The call yields its last return."
     },
     {
@@ -262,12 +251,11 @@
       "module": "lib",
       "member": "ReadonlyArray.map",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[0].ReturnValue -> ReturnValue"
       ],
-      "returns": "callback",
       "note": "The callback takes each element and its index. The new array holds what it returns."
     },
     {
@@ -275,12 +263,11 @@
       "module": "lib",
       "member": "ReadonlyArray.flatMap",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[0].ReturnValue -> ReturnValue"
       ],
-      "returns": "callback",
       "note": "The callback takes each element and its index. The new array holds what it returns, flattened once."
     },
     {
@@ -288,12 +275,10 @@
       "module": "lib",
       "member": "ReadonlyArray.forEach",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]"
       ],
-      "returns": "void",
       "note": "The callback takes each element and its index. Its return is dropped, and the call yields nothing."
     },
     {
@@ -301,12 +286,11 @@
       "module": "lib",
       "member": "ReadonlyArray.filter",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[this] -> ReturnValue"
       ],
-      "returns": "same",
       "note": "The callback takes each element and its index. Its return only tests the element; the new array holds the kept elements."
     },
     {
@@ -314,12 +298,11 @@
       "module": "lib",
       "member": "ReadonlyArray.find",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[this].ArrayElement -> ReturnValue"
       ],
-      "returns": "element",
       "note": "The callback takes each element and its index. Its return only tests the element; the call yields the element found."
     },
     {
@@ -327,12 +310,11 @@
       "module": "lib",
       "member": "ReadonlyArray.findLast",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[this].ArrayElement -> ReturnValue"
       ],
-      "returns": "element",
       "note": "The callback takes each element and its index. Its return only tests the element; the call yields the element found."
     },
     {
@@ -340,12 +322,11 @@
       "module": "lib",
       "member": "ReadonlyArray.findIndex",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[0].ReturnValue -> ReturnValue : test"
       ],
-      "returns": "boolean",
       "note": "The callback takes each element and its index. Its return only tests the element; the call yields a position."
     },
     {
@@ -353,12 +334,11 @@
       "module": "lib",
       "member": "ReadonlyArray.findLastIndex",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[0].ReturnValue -> ReturnValue : test"
       ],
-      "returns": "boolean",
       "note": "The callback takes each element and its index. Its return only tests the element; the call yields a position."
     },
     {
@@ -366,12 +346,11 @@
       "module": "lib",
       "member": "ReadonlyArray.some",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[0].ReturnValue -> ReturnValue : test"
       ],
-      "returns": "boolean",
       "note": "The callback takes each element and its index. The call yields a test of what it returns."
     },
     {
@@ -379,12 +358,11 @@
       "module": "lib",
       "member": "ReadonlyArray.every",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this] -> Argument[0].Parameter[2]",
+        "Argument[0].ReturnValue -> ReturnValue : test"
       ],
-      "returns": "boolean",
       "note": "The callback takes each element and its index. The call yields a test of what it returns."
     },
     {
@@ -392,11 +370,11 @@
       "module": "lib",
       "member": "ReadonlyArray.toSorted",
       "model": "calls-back",
-      "parameters": [
-        "element",
-        "element"
+      "flows": [
+        "Argument[this].ArrayElement -> Argument[0].Parameter[0]",
+        "Argument[this].ArrayElement -> Argument[0].Parameter[1]",
+        "Argument[this] -> ReturnValue"
       ],
-      "returns": "same",
       "note": "The comparator takes two elements. Its return only orders them; the new array holds the receiver's elements."
     },
     {
@@ -404,14 +382,13 @@
       "module": "lib",
       "member": "ReadonlyArray.reduce",
       "model": "calls-back",
-      "parameters": [
-        "accumulator",
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[1] -> Argument[0].Parameter[0]",
+        "Argument[0].ReturnValue -> Argument[0].Parameter[0]",
+        "Argument[this].ArrayElement -> Argument[0].Parameter[1]",
+        "Argument[this] -> Argument[0].Parameter[3]",
+        "Argument[0].ReturnValue -> ReturnValue"
       ],
-      "returns": "callback",
-      "source": "1",
       "note": "The callback takes the seed or its own last return, then each element. The call yields its last return."
     },
     {
@@ -419,14 +396,13 @@
       "module": "lib",
       "member": "ReadonlyArray.reduceRight",
       "model": "calls-back",
-      "parameters": [
-        "accumulator",
-        "element",
-        "index",
-        "receiver"
+      "flows": [
+        "Argument[1] -> Argument[0].Parameter[0]",
+        "Argument[0].ReturnValue -> Argument[0].Parameter[0]",
+        "Argument[this].ArrayElement -> Argument[0].Parameter[1]",
+        "Argument[this] -> Argument[0].Parameter[3]",
+        "Argument[0].ReturnValue -> ReturnValue"
       ],
-      "returns": "callback",
-      "source": "1",
       "note": "The callback takes the seed or its own last return, then each element. The call yields its last return."
     },
     {
@@ -497,7 +473,12 @@
       "module": "lib",
       "member": "Promise.then",
       "model": "calls-back",
-      "settles": "then",
+      "flows": [
+        "Argument[this].Awaited -> Argument[0].Parameter[0]",
+        "Argument[this].Awaited[error] -> Argument[1].Parameter[0]",
+        "Argument[0].ReturnValue -> ReturnValue.Awaited",
+        "Argument[1].ReturnValue -> ReturnValue.Awaited"
+      ],
       "note": "The first callback takes the fulfilled value and the second the rejection. The new promise holds what they return."
     },
     {
@@ -505,7 +486,11 @@
       "module": "lib",
       "member": "Promise.catch",
       "model": "calls-back",
-      "settles": "catch",
+      "flows": [
+        "Argument[this].Awaited[error] -> Argument[0].Parameter[0]",
+        "Argument[0].ReturnValue -> ReturnValue.Awaited",
+        "Argument[this].Awaited -> ReturnValue.Awaited"
+      ],
       "note": "The callback takes the rejection. The new promise holds the fulfilled value or what the callback returns."
     },
     {
@@ -513,7 +498,9 @@
       "module": "lib",
       "member": "Promise.finally",
       "model": "calls-back",
-      "settles": "finally",
+      "flows": [
+        "Argument[this].Awaited -> ReturnValue.Awaited"
+      ],
       "note": "The callback takes nothing and its return is dropped. The new promise holds the fulfilled value."
     },
     {

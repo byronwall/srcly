@@ -18,6 +18,9 @@ const IS_BUNDLE = typeof __SRCLY_ENGINE_BUNDLE__ !== "undefined" && __SRCLY_ENGI
 /** The model types (plan §3), `wraps`: a call that returns the function it is given, and `store`: a call that makes a store hook from the function it is given. */
 export const LIBRARY_MODEL_TYPES = ["origin", "terminal", "state-pair", "passes-through", "consumes", "calls-back", "resource", "wraps", "store"] as const;
 
+/** The models that say what they do only with `flows` access paths. */
+const FLOW_MODELS = new Set<(typeof LIBRARY_MODEL_TYPES)[number]>(["calls-back", "wraps", "passes-through"]);
+
 /**
  * An access path (CodeQL's models-as-data tokens): a root, then steps.
  * Roots: `Argument[n]`, `Argument[n..]` (argument n and every later one),
@@ -46,30 +49,19 @@ export const libraryModelRowSchema = z
     name: z.string().min(1).optional().describe("An exported name (`createSignal`). A trailing `*` matches a prefix."),
     member: z.string().min(1).optional().describe("`Type.method` for a method on an instance (`Session.get`, `Array.find`). A trailing `*` matches a prefix."),
     model: z.enum(LIBRARY_MODEL_TYPES).describe("What the member does."),
-    args: z.string().regex(/^(\*|this|\d+)$/).optional().describe("Which arguments the model is about: `0`, `1`, `*` (the default) or `this` for the receiver."),
+    args: z.string().regex(/^\d+$/).optional().describe("For a `state-pair`: the argument its reducer is at (`useReducer`)."),
     role: z.string().min(1).optional().describe("An origin or terminal role."),
     result: z.string().regex(/^(call|\d+)$/).optional().describe("For a `terminal`: the terminal is not this call but a call of what it returns (`call`, as `useNavigate`'s `navigate`), or of the tuple element it returns at that index (`1`)."),
-    with: z.enum(["element", "receiver", "awaited"]).optional().describe("What a callback receives."),
-    returns: z.enum(["element", "boolean", "same", "callback", "void"]).optional().describe("What the call yields: `callback` is what the callback at `args` returns; `boolean` a test of it, not it (with `accessor`, on each call of the accessor); `void` is nothing, whatever its callback returns."),
-    source: z.string().regex(/^\d+$/).optional().describe("For `calls-back` and `wraps`: the argument whose value (or return) the callback's first parameter receives."),
-    parameters: z.array(z.enum(["element", "index", "receiver", "accumulator"])).optional().describe("For a standard method's `calls-back`: what each callback parameter takes, in order. An `index` takes no value; an `accumulator` takes the `source` argument and what the callback returned before."),
-    accessor: z.literal(true).optional().describe("For `calls-back`: the call makes an accessor, and calling it yields the callback's return (or, with `returns: boolean`, a test of it)."),
-    option: z.string().min(1).optional().describe("For `calls-back`: the options key that holds the callback (`queryFn`)."),
-    field: z.string().min(1).optional().describe("For an `option` row: the result field that holds what the callback returns (`data`). The result's other fields (`status`, `error`) do not hold it. For a `calls-back` row with no `option`: the result field that holds what the function at `args` returns, awaited (`useSubmission`'s `result`)."),
-    input: z.string().min(1).optional().describe("For a `calls-back` row with a `field` and no `option`: the result field that holds the argument list of each call of the function at `args` (`useSubmission`'s `input`)."),
-    selector: z.string().min(1).optional().describe("For an `option` row with a `field`: the options key of a function that takes what the callback returns, and whose return the field holds instead (`select`)."),
-    hands: z.record(z.string(), z.array(z.string().min(1))).optional().describe("For an `option` row: fields of the object the callback's first parameter is, each with the options keys that fill it (`queryKey` from `queryKey`). A key that holds a function fills the field with what that function returns."),
-    observers: z.record(z.string(), z.array(z.enum(["result", "input", "context", "none"]))).optional().describe("For an `option` row: other options keys that hold a function the hook calls, and what each of its parameters takes: `result` is what the option callback returns, `input` what the option callback is called with, `context` what the `contextFrom` function returns."),
-    contextFrom: z.string().min(1).optional().describe("For an `option` row with `observers`: the options key of the function whose return is their `context` (`onMutate`)."),
     lazy: z.literal(true).optional().describe("For `state-pair`: a function initial value is called, and what it returns seeds the state (`useState(() => …)`)."),
     writes: z.literal("this").optional().describe("For `consumes`: the receiver keeps the arguments (`push`, `set`). A `consumes` row without it keeps nothing (`concat`)."),
-    settles: z.enum(["then", "catch", "finally", "reject"]).optional().describe("For a promise's member: which outcome each callback takes and what the new promise holds (`PROMISE_CHANNELS`); `reject` makes a promise that only rejects."),
-    flows: z.array(libraryFlowSchema).optional().describe("Where the call moves values, as access paths. Not read yet: `rowFlows` (`library-flows.ts`) derives each built-in row's paths from its other fields, and a later stage replaces those fields with this one. A `calls-back` row with no flow that touches `ReturnValue` has no value (`useEffect`)."),
+    settles: z.literal("reject").optional().describe("For `consumes`: the call makes a promise that only rejects, with its first argument (`Promise.reject`)."),
+    flows: z.array(libraryFlowSchema).optional().describe("For `calls-back`, `wraps` and `passes-through` (required there, and only there): where the call moves values, as access paths (`framework-flows.ts` reads them). A `calls-back` row with no flow that touches `ReturnValue` has no value (`useEffect`)."),
     proof: z.string().min(1).optional().describe("The proof kind its relations carry, so existing proof names survive."),
     note: z.string().optional().describe("One line for the code map and the proof detail."),
   })
   .strict()
-  .refine((row) => (row.name === undefined) !== (row.member === undefined), { message: "a row names exactly one of `name` or `member`" });
+  .refine((row) => (row.name === undefined) !== (row.member === undefined), { message: "a row names exactly one of `name` or `member`" })
+  .refine((row) => (row.flows !== undefined) === FLOW_MODELS.has(row.model), { message: "a `calls-back`, `wraps` or `passes-through` row names its `flows`, and no other row does" });
 
 export const libraryModelFileSchema = z
   .object({

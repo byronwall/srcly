@@ -22,8 +22,9 @@
       "module": "react",
       "name": "useMemo",
       "model": "calls-back",
-      "args": "0",
-      "returns": "callback",
+      "flows": [
+        "Argument[0].ReturnValue -> ReturnValue"
+      ],
       "note": "The call's value is what its callback returns."
     },
     {
@@ -31,7 +32,9 @@
       "module": "react",
       "name": "useDeferredValue",
       "model": "passes-through",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The deferred value is the value it is given."
     },
     {
@@ -39,8 +42,7 @@
       "module": "react",
       "name": "useEffect",
       "model": "calls-back",
-      "args": "0",
-      "returns": "void",
+      "flows": [],
       "note": "The framework runs the callback for what it does, and may run the function it returns later. The call itself has no value."
     },
     {
@@ -48,8 +50,7 @@
       "module": "react",
       "name": "useLayoutEffect",
       "model": "calls-back",
-      "args": "0",
-      "returns": "void",
+      "flows": [],
       "note": "The framework runs the callback for what it does, and may run the function it returns later. The call itself has no value."
     },
     {
@@ -57,7 +58,9 @@
       "module": "react",
       "name": "useCallback",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
     },
     {
@@ -65,7 +68,9 @@
       "module": "react",
       "name": "memo",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The component it is given, wrapped: its props are the first argument."
     },
     {
@@ -73,7 +78,9 @@
       "module": "react",
       "name": "forwardRef",
       "model": "wraps",
-      "args": "0",
+      "flows": [
+        "Argument[0] -> ReturnValue"
+      ],
       "note": "The render function it is given, wrapped: its props are the first argument."
     },
     {
@@ -81,87 +88,64 @@
       "module": "@tanstack/react-query",
       "name": "useQuery",
       "model": "calls-back",
-      "option": "queryFn",
-      "field": "data",
-      "selector": "select",
-      "note": "The query's `data` is what its `queryFn` returns, or what `select` makes of it. Its other fields (`status`, `error`, `isLoading`) do not hold that value. The `queryFn` gets the `queryKey`.",
-      "hands": {
-        "queryKey": [
-          "queryKey"
-        ]
-      }
+      "flows": [
+        "Argument[0].Member[queryFn].ReturnValue -> ReturnValue.Member[data]",
+        "Argument[0].Member[queryFn].ReturnValue -> Argument[0].Member[select].Parameter[0]",
+        "Argument[0].Member[select].ReturnValue -> ReturnValue.Member[data]",
+        "Argument[0].Member[queryKey] -> Argument[0].Member[queryFn].Parameter[0].Member[queryKey]"
+      ],
+      "note": "The query's `data` is what its `queryFn` returns, or what `select` makes of it. Its other fields (`status`, `error`, `isLoading`) do not hold that value. The `queryFn` gets the `queryKey`."
     },
     {
       "language": "ts",
       "module": "@tanstack/react-query",
       "name": "useSuspenseQuery",
       "model": "calls-back",
-      "option": "queryFn",
-      "field": "data",
-      "selector": "select",
-      "note": "The query's `data` is what its `queryFn` returns, or what `select` makes of it. Its other fields (`status`, `error`, `isLoading`) do not hold that value. The `queryFn` gets the `queryKey`.",
-      "hands": {
-        "queryKey": [
-          "queryKey"
-        ]
-      }
+      "flows": [
+        "Argument[0].Member[queryFn].ReturnValue -> ReturnValue.Member[data]",
+        "Argument[0].Member[queryFn].ReturnValue -> Argument[0].Member[select].Parameter[0]",
+        "Argument[0].Member[select].ReturnValue -> ReturnValue.Member[data]",
+        "Argument[0].Member[queryKey] -> Argument[0].Member[queryFn].Parameter[0].Member[queryKey]"
+      ],
+      "note": "The query's `data` is what its `queryFn` returns, or what `select` makes of it. Its other fields (`status`, `error`, `isLoading`) do not hold that value. The `queryFn` gets the `queryKey`."
     },
     {
       "language": "ts",
       "module": "@tanstack/react-query",
       "name": "useInfiniteQuery",
       "model": "calls-back",
-      "option": "queryFn",
-      "note": "The query's value is what its `queryFn` returns. The `queryFn` gets the `queryKey`, and as `pageParam` what `getNextPageParam` makes of a fetched page.",
-      "hands": {
-        "queryKey": [
-          "queryKey"
-        ],
-        "pageParam": [
-          "getNextPageParam",
-          "getPreviousPageParam",
-          "initialPageParam"
-        ]
-      },
-      "observers": {
-        "getNextPageParam": [
-          "result"
-        ],
-        "getPreviousPageParam": [
-          "result"
-        ]
-      }
+      "flows": [
+        "Argument[0].Member[queryFn].ReturnValue -> ReturnValue",
+        "Argument[0].Member[queryKey] -> Argument[0].Member[queryFn].Parameter[0].Member[queryKey]",
+        "Argument[0].Member[getNextPageParam] -> Argument[0].Member[queryFn].Parameter[0].Member[pageParam]",
+        "Argument[0].Member[getPreviousPageParam] -> Argument[0].Member[queryFn].Parameter[0].Member[pageParam]",
+        "Argument[0].Member[initialPageParam] -> Argument[0].Member[queryFn].Parameter[0].Member[pageParam]",
+        "Argument[0].Member[queryFn].ReturnValue -> Argument[0].Member[getNextPageParam].Parameter[0]",
+        "Argument[0].Member[queryFn].ReturnValue -> Argument[0].Member[getPreviousPageParam].Parameter[0]"
+      ],
+      "note": "The query's value is what its `queryFn` returns. The `queryFn` gets the `queryKey`, and as `pageParam` what `getNextPageParam` makes of a fetched page."
     },
     {
       "language": "ts",
       "module": "@tanstack/react-query",
       "name": "useMutation",
       "model": "calls-back",
-      "option": "mutationFn",
-      "field": "data",
-      "note": "`mutate(x)` calls the `mutationFn` with `x`. The mutation's `data` is what that function returns; its other fields do not hold it. `onMutate`, `onSuccess`, `onError` and `onSettled` get the variables; what `onMutate` returns is their context.",
-      "observers": {
-        "onMutate": [
-          "input"
-        ],
-        "onSuccess": [
-          "result",
-          "input",
-          "context"
-        ],
-        "onError": [
-          "none",
-          "input",
-          "context"
-        ],
-        "onSettled": [
-          "result",
-          "none",
-          "input",
-          "context"
-        ]
-      },
-      "contextFrom": "onMutate"
+      "flows": [
+        "Argument[0].Member[mutationFn].ReturnValue -> ReturnValue.Member[data]",
+        "ReturnValue.Member[mutate].Parameter[0] -> Argument[0].Member[mutationFn].Parameter[0]",
+        "ReturnValue.Member[mutateAsync].Parameter[0] -> Argument[0].Member[mutationFn].Parameter[0]",
+        "Argument[0].Member[mutationFn].ReturnValue -> ReturnValue.Member[mutateAsync].ReturnValue.Awaited",
+        "Argument[0].Member[mutationFn].Parameter[0] -> Argument[0].Member[onMutate].Parameter[0]",
+        "Argument[0].Member[mutationFn].ReturnValue -> Argument[0].Member[onSuccess].Parameter[0]",
+        "Argument[0].Member[mutationFn].Parameter[0] -> Argument[0].Member[onSuccess].Parameter[1]",
+        "Argument[0].Member[onMutate].ReturnValue -> Argument[0].Member[onSuccess].Parameter[2]",
+        "Argument[0].Member[mutationFn].Parameter[0] -> Argument[0].Member[onError].Parameter[1]",
+        "Argument[0].Member[onMutate].ReturnValue -> Argument[0].Member[onError].Parameter[2]",
+        "Argument[0].Member[mutationFn].ReturnValue -> Argument[0].Member[onSettled].Parameter[0]",
+        "Argument[0].Member[mutationFn].Parameter[0] -> Argument[0].Member[onSettled].Parameter[2]",
+        "Argument[0].Member[onMutate].ReturnValue -> Argument[0].Member[onSettled].Parameter[3]"
+      ],
+      "note": "`mutate(x)` calls the `mutationFn` with `x`. The mutation's `data` is what that function returns; its other fields do not hold it. `onMutate`, `onSuccess`, `onError` and `onSettled` get the variables; what `onMutate` returns is their context."
     },
     {
       "language": "ts",
