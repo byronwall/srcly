@@ -143,7 +143,7 @@ test.describe("Data flow on solid-route", () => {
     await page.goto(url({ view: "treemap", at: "src/components" }));
     await page.getByRole("treeitem", { name: /ViewerCard\.tsx/ }).click();
     const dialog = page.getByRole("dialog");
-    const effects = dialog.locator("[data-effects-state]");
+    const effects = dialog.getByLabel("Function effects");
     await expect(effects).toHaveAttribute("data-effects-state", "unselected");
     await expect(effects).toContainText("Choose a function from the outline");
     expect(requests).toEqual([]);
@@ -151,7 +151,7 @@ test.describe("Data flow on solid-route", () => {
     await dialog.getByRole("button", { name: "Outline", exact: true }).click();
     await page.getByPlaceholder("Go to symbol…").fill("ViewerCard");
     await page.getByRole("listbox").locator('[data-row="0"]').click();
-    await expect(effects).toHaveAttribute("data-effects-state", "done");
+    await expect(effects).toContainText(/Closed|known effect/);
     await expect(effects).toContainText("ViewerCard");
     expect(requests).toEqual([3]);
 
