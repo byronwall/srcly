@@ -194,6 +194,8 @@ export const PROOF_TRAITS: Record<ProgramProofKind, { strength: ProofStrength }>
   "shared-instance": { strength: "assumed" },
   // A keyed store's write and read where a key is computed (`["items", props.id]`): the walk cannot prove it is the other call's key (`keyed-stores.ts`).
   "computed-key": { strength: "assumed" },
+  // A package call with no row whose generic signature ties two positions (`type-signature.ts`): the same type, not proven the same value.
+  "type-signature": { strength: "assumed" },
 };
 
 const NONE = {};

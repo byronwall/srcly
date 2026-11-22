@@ -1,3 +1,4 @@
+import { typeSignaturePaths, type TypePath } from "./type-signature";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import * as TypeScript from "typescript";
@@ -703,7 +704,28 @@ export class ProgramEvidenceCollectorSupport {
     return false;
   }
 
+  /** A call with no body, row or model: an assumed effect, unless its signature proposes where its value comes from (`typePaths`). */
   protected isExternalCall(node: TypeScript.CallExpression): boolean {
+    return this.opaqueCall(node) && !this.typePaths(node).some((path) => path.to === "ReturnValue");
+  }
+
+  /**
+   * What a package call no row describes moves, by its generic signature
+   * (`typeSignaturePaths`): assumed hints, never proof. Empty for any call
+   * a row, a model or a body explains.
+   */
+  protected typePaths(node: TypeScript.CallExpression): TypePath[] {
+    let paths = this.typePathsByCall.get(node);
+    if (!paths) {
+      paths = this.opaqueCall(node) && this.moduleFor(node.expression) && !this.modelFor(node.expression) ? typeSignaturePaths(this.ts, this.checker, node) : [];
+      this.typePathsByCall.set(node, paths);
+    }
+    return paths;
+  }
+
+  private readonly typePathsByCall = new Map<TypeScript.CallExpression, TypePath[]>();
+
+  private opaqueCall(node: TypeScript.CallExpression): boolean {
     if (this.targetFunction(node.expression) || this.mutationFunction(node) || this.callAdapter(node)) return false;
     // A state pair's call is modelled (a `cell` row): what it does with its argument is the pair's state, not an external effect.
     if (pairCall(this.ts, this.checker, node)) return false;

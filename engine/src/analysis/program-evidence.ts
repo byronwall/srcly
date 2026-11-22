@@ -71,7 +71,8 @@ export type ProgramProofKind =
   | "standard-library"
   | "framework-state"
   | "shared-instance"
-  | "computed-key";
+  | "computed-key"
+  | "type-signature";
 export type ProgramProof = {
   kind: ProgramProofKind;
   detail: string;
