@@ -9,7 +9,7 @@ node b_zus "zustand\n80 lines of closure" in=built
 node b_rq "React Query, Solid Query\n1,800 lines of classes" in=built
 node b_util "lodash, solid-primitives\ndebounce, throttle, storage" in=built
 
-group prim "Primitives with no readable body · 23 rows, keep as rows" color=mint
+group prim "Primitives: the flow runs through a runtime · 23 rows, keep as rows" color=mint
 node p_react "React hooks\ndispatcher set by the renderer" in=prim
 node p_signal "Solid signal and memo\nscheduler" in=prim
 node p_ctx "Context lookup\nkeyed store" in=prim

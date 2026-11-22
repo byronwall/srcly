@@ -257,7 +257,9 @@ Suggested spike: summarise `zustand` from `node_modules` source down to a `useSy
 
 ## 5c. Library intake applied to what we model today
 
-The intake question: does this library have a body we can read, or is it a primitive (a runtime, a renderer's dispatcher, a scheduler, I/O)? Only primitives need hand rows. I read the installed source of each modelled library (`solid-js` 1.x in bible-daily, `@tanstack/react-query` 4.44 and `zustand` in family-finances, `lodash` in recipes-modern).
+The intake question: can a source analysis follow the value through this library's code, or does the path run through a runtime? A *primitive* is the second kind. Its code exists, but which function runs is chosen at run time (React's dispatcher), the write waits in a queue for a scheduler, or the value leaves the program (I/O). Only primitives need hand rows.
+
+![What "primitive" means here](diagrams/13-what-primitive-means.png) I read the installed source of each modelled library (`solid-js` 1.x in bible-daily, `@tanstack/react-query` 4.44 and `zustand` in family-finances, `lodash` in recipes-modern).
 
 ![What each modelled library is made of](diagrams/10-library-layers.png)
 
@@ -276,7 +278,7 @@ The intake question: does this library have a body we can read, or is it a primi
 
 What this shows:
 
-- **23 of 58 framework rows are at the right layer.** They describe primitives that no source analysis can see through.
+- **23 of 58 framework rows are at the right layer.** They describe primitives: the flow runs through a runtime, so no source analysis can follow it.
 - **35 of 58 rows, and about 420 of the 650 hard lines, describe code we could read.** Solid's own components are the plainest case:
 
 ![Solid's For is five lines](diagrams/11-solid-for-is-five-lines.png)
