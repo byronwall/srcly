@@ -157,3 +157,15 @@ export function reducerArgument(module: string, name: string): number | null {
   const row = frameworkRow(module, name);
   return row?.model === "state-pair" ? argument(row) ?? null : null;
 }
+
+/** A standard method's callback (`rows.map`, `rows.reduce`): the argument it is at, what each parameter takes, the argument that seeds an accumulator, and whether the call yields the callback's return, nothing, or something else (the receiver or an element). Null for any other row. */
+export function standardCallback(row: LibraryModelRow | null): { at: number; parameters: NonNullable<LibraryModelRow["parameters"]>; seed: number | undefined; yields: "callback" | "nothing" | "other" } | null {
+  if (row?.model !== "calls-back" || !row.parameters) return null;
+  return { at: Number(row.args ?? 0), parameters: row.parameters, seed: row.source !== undefined ? Number(row.source) : undefined, yields: row.returns === "callback" ? "callback" : row.returns === "void" ? "nothing" : "other" };
+}
+
+/** A promise member's channels (`then`, `catch`, `finally`): the callback that takes each outcome, the callbacks whose return fulfils the new promise, and whether it keeps the fulfilled value whatever its callbacks do. Null for any other row. */
+export function promiseChannels(row: LibraryModelRow | null): { fulfilled?: number; rejected?: number; returns: readonly number[]; keeps: boolean } | null {
+  if (row?.model !== "calls-back" || !row.settles || row.settles === "reject") return null;
+  return { ...PROMISE_CHANNELS[row.settles], keeps: row.settles !== "then" };
+}
