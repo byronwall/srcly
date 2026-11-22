@@ -12,7 +12,9 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 1000 } } }],
   webServer: {
-    command: "pnpm preview --port 18588 --strictPort",
+    // Build first so a clean checkout can run the tests.
+    command: "pnpm build && pnpm preview --port 18588 --strictPort",
+    timeout: 180_000,
     url: "http://127.0.0.1:18588/srcly/",
     reuseExistingServer: !process.env.CI,
   },
