@@ -202,9 +202,20 @@ function libraryFilledParameter(ts: typeof TypeScript, checker: TypeScript.TypeC
   if (!ts.isArrowFunction(fn) && !ts.isFunctionExpression(fn)) return false;
   while (ts.isParenthesizedExpression(fn.parent)) fn = fn.parent;
   const call = fn.parent;
+  // A function written as a prop of a package's component (`<ErrorBoundary fallback={(err) => …}>`): the component calls it.
+  if (ts.isJsxExpression(call) && ts.isJsxAttribute(call.parent)) return packageComponent(ts, checker, call.parent.parent.parent.tagName);
   if (!ts.isCallExpression(call) || !call.arguments.includes(fn as TypeScript.Expression) || isStandardLibraryCallee(ts, checker, call.expression)) return false;
   const declaration = checker.getResolvedSignature(call)?.declaration;
   return !!declaration && declaration.getSourceFile().isDeclarationFile && !declaration.getSourceFile().hasNoDefaultLib;
+}
+
+/** Whether a JSX tag names a component a package declares (not a page element, not one of the program's own). */
+function packageComponent(ts: typeof TypeScript, checker: TypeScript.TypeChecker, tag: TypeScript.JsxTagNameExpression): boolean {
+  if (ts.isIdentifier(tag) && /^[a-z]/.test(tag.text)) return false;
+  let symbol = checker.getSymbolAtLocation(tag);
+  if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
+  const declarations = symbol?.declarations ?? [];
+  return declarations.length > 0 && declarations.every((item) => item.getSourceFile().isDeclarationFile && !item.getSourceFile().hasNoDefaultLib);
 }
 
 /** Whether the element is the callee expression of a call or `new`. */

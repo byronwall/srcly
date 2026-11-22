@@ -72,6 +72,18 @@
     {
       "language": "ts",
       "module": "solid-js",
+      "name": "indexArray",
+      "model": "calls-back",
+      "args": "1",
+      "source": "0",
+      "with": "element",
+      "returns": "callback",
+      "accessor": true,
+      "note": "The call makes an accessor of a list: the callback takes each item of what the source returns as an accessor, and the list holds what it returns."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
       "name": "untrack",
       "model": "calls-back",
       "args": "0",

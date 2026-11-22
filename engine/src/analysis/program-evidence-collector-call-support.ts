@@ -200,6 +200,37 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     const source = flow.source !== undefined ? argument(flow.source) : undefined;
     const parameterId = flow.callback !== undefined ? this.firstParameterId(argument(flow.callback)) : undefined;
     if (source && parameterId && !this.ts.isArrowFunction(source) && !this.ts.isFunctionExpression(source)) relate(source, parameterId, "The framework calls the callback with the source's value.");
+    if (parameterId && flow.callback !== undefined) this.connectItemAccessor(node, flow.callback, parameterId);
+  }
+
+  /**
+   * A callback whose item the library declares as a function of no arguments
+   * (`indexArray`'s `Accessor<T>`, not `mapArray`'s `T`): each call of that
+   * parameter in the callback reads the item. Read from the library's own
+   * declaration, so an item that is itself a function is still called.
+   */
+  private connectItemAccessor(node: TypeScript.CallExpression, at: number, parameterId: string): void {
+    const fn = node.arguments[at] && unwrap(this.ts, node.arguments[at]);
+    const item = fn && (this.ts.isArrowFunction(fn) || this.ts.isFunctionExpression(fn)) ? fn.parameters[0] : undefined;
+    if (!item || !this.ts.isIdentifier(item.name)) return;
+    const declared = this.checker.getResolvedSignature(node)?.declaration;
+    const slot = declared && !this.ts.isJSDocSignature(declared) ? declared.parameters[at]?.type : undefined;
+    const callback = slot ? this.checker.getTypeFromTypeNode(slot).getCallSignatures()[0] : undefined;
+    const itemSymbol = callback?.parameters[0];
+    const itemType = itemSymbol && this.checker.getTypeOfSymbol(itemSymbol);
+    if (!itemType || itemType.flags & this.ts.TypeFlags.TypeParameter || !itemType.getCallSignatures().some((signature) => signature.parameters.length === 0)) return;
+    const symbol = this.checker.getSymbolAtLocation(item.name);
+    if (symbol) this.itemAccessors.set(symbol, parameterId);
+  }
+
+  /** Item parameters a library declares as accessors (`connectItemAccessor`), read when the callback's own calls are collected. */
+  private readonly itemAccessors = new Map<TypeScript.Symbol, string>();
+
+  private connectItemAccessorCall(node: TypeScript.CallExpression, callId: string): void {
+    if (node.arguments.length || !this.ts.isIdentifier(node.expression)) return;
+    const symbol = this.checker.getSymbolAtLocation(node.expression);
+    const parameterId = symbol && this.itemAccessors.get(symbol);
+    if (parameterId) this.addRelation(parameterId, callId, "accessor-call", [this.location(node)], frameworkState("The library declares the item as an accessor: calling it reads the item.", this.location(node)), "proven");
   }
 
   /** The action parameter of a reducer pair's reducer: where `dispatch(action)` puts its argument, however it reaches the dispatch. Null for any other pair, or a reducer the checker cannot name. */
@@ -236,6 +267,7 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     const target = direct ?? adapter?.target ?? null;
     this.calls.push({ node, id: callId, target, ownerId, ...(adapter ? { adapter } : {}) });
     this.connectFrameworkFlow(node, callId, ownerId);
+    this.connectItemAccessorCall(node, callId);
     if (target) {
       this.addRelation(
         callId,
