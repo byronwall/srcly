@@ -25,7 +25,7 @@ export default function BranchNotice(props: { selection: LensSelection; toggle: 
     return parts.length ? `${parts.join(", ")} ${b().defaultRef}` : `level with ${b().defaultRef}`;
   };
   const options = (): { id: LensHistory; label: string; title: string }[] => [
-    { id: "head", label: b().name ?? "HEAD", title: `Read the commits on ${name()}` },
+    { id: "head", label: "Branch", title: `Read the commits on ${name()}` },
     { id: "main", label: b().defaultRef, title: `Read the commits on ${b().defaultRef}, without checking anything out` },
   ];
   return (

@@ -209,14 +209,15 @@ Which code chunks a branch or a time window edited. User guide: `site/src/docs/p
 | Feature | Where |
 | --- | --- |
 | `srcly changes [path]` (Markdown, `--json`) | `server/app/run.py` → `server/app/services/changelens/service.py` (`build_payload`, `render_markdown`) |
-| Window resolution: first-parent history of `ref`, branch base (merge base, or the upstream tip on the default branch), 24h/7d/custom, 200-commit cap, shallow clones, working tree entry, the scan root's `scope` inside the repo | `server/app/services/changelens/window.py` (`resolve`) |
+| Window resolution: first-parent history of `ref`, branch base (merge base, or the upstream tip on the default branch), 24h/7d/custom, 200-commit cap, shallow clones, working tree entry, the scan root's `scope` inside the repo; off the default branch: ahead/behind and main history for time windows (`history`, `Branch`) | `server/app/services/changelens/window.py` (`resolve`, `_branch`) |
 | Hunks per commit and base → head (`git diff -U0`), renames | `server/app/services/changelens/hunks.py` |
 | Blob parsing with the scan's analyzers (one parse per side, by blob sha), Markdown headings, generated/vendored files | `server/app/services/changelens/blobs.py` |
 | Chunks: hunk → innermost named scope, file/heading/range chunks, base ↔ head pairing (exact, renamed-file, moved, uncertain), touches, reverted, metrics before → after, review buckets (`COMPLEX_AT`) | `server/app/services/changelens/chunks.py` |
 | Chunk-limited unified diff for one chunk | `server/app/services/changelens/textdiff.py`, `service.py` (`hunk_diff`) |
 | Acceptance repo (every case of the issue) and the client's fixture payloads | `server/tests/fixtures/change_lens_repo.py` (`--write-payloads` writes `client/src/changelens/fixture*.json`), `server/tests/test_change_lens.py` |
-| The view: fetches, URL state (`cw`, `cm`, `cl`, `cc`, `cs`, `clens`, custom refs), selection kept across results, repo ↔ scan paths | `client/src/changelens/ChangeLensView.tsx`, `api.ts`, `urlState.ts` |
+| The view: fetches, URL state (`cw`, `cm`, `cl`, `cc`, `cs`, `clens`, `chist`, custom refs), selection kept across results, repo ↔ scan paths | `client/src/changelens/ChangeLensView.tsx`, `api.ts`, `urlState.ts` |
 | Toolbar: window presets and Custom form, Touched/Net, Only edits/In repo, color metric with Now/Δ | `client/src/changelens/WindowBar.tsx` |
+| Off-main notice in the status row: branch, behind/ahead of the default ref, Branch/origin/main history toggle (`chist`) | `client/src/changelens/BranchNotice.tsx` |
 | Maps: Only edits packing (floored area, pooled small chunks, collapse), In repo bands, tile states and the delta scale, legend | `client/src/changelens/LensMap.tsx`, `layout.ts`, `colors.ts`, `labels.ts`, `Legend.tsx` |
 | Review panel (props only): `ReviewBuckets`, `ChunkInspector`, `HunkDiff`, `CommitRail`; dev harness `client/panel-harness.html` | `client/src/changelens/panel/` |
 | Browser smoke on the acceptance repo | `client/e2e/changes.spec.ts` |

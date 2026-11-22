@@ -265,7 +265,7 @@ def resolve(path: Path, params: Params) -> Window:
         window = _resolve_on(repo, scope, params, head_commit, default, branch, None)
         if can_switch and not window.commits and branch.off:
             window = _resolve_on(repo, scope, params, head_commit, default, branch, branch.default_ref)
-            window.notes.insert(0, f"{branch.name or 'HEAD'} has no commits in this window, so it reads {branch.default_ref}'s history.")
+            window.notes.insert(0, f"This branch has no commits in this window, so this shows {branch.default_ref}'s history.")
     window.branch = branch
     if branch and branch.off and window.history == "head" and not window.commits:
         if timed and window.since is not None and window.until is not None:
