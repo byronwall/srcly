@@ -4,7 +4,9 @@ Byron's question: "I am worried that extending this to cover more patterns requi
 
 Short answer: yes. Most library knowledge is already data (286 rows in `engine/models/*.json`). The cost does not come from the rows. It comes from the row vocabulary: each new library shape adds a new row field, a new TypeScript reader, and a new emitter. A fixed vocabulary of access paths, plus flow edges that the libraries' own `.d.ts` generics propose, would make most new library support rows-only. Two engine concepts (a state cell and a component slot) would absorb the imperative code that remains.
 
-Read on `origin/main` at `40cd9a68` (after #417 and #418), 2026-11-22. No engine file changed. The spike scripts and their raw output are outside the repo, in the session notes folder `lib-model-audit/`.
+Read on `origin/main` at `40cd9a68` (after #417 and #418), 2026-11-22. No engine file changed. The diagrams in `diagrams/` are Draftably 0.16.0 files; each PNG carries its `.draft` source (`npx draftably@0.16.0 extract`). The spike scripts and their raw output are outside the repo, in the session notes folder `lib-model-audit/`.
+
+![Where library knowledge lives today](diagrams/1-where-library-code-lives.png)
 
 ## 1. Inventory
 
@@ -91,6 +93,8 @@ What every row and every imperative rule says fits 10 shapes. The first 6 are va
 
 Shapes 1 to 6 hold 272 of the 286 rows (95%) and almost no library-specific code. Shapes 7 to 10 hold 14 rows and about 650 lines of imperative TypeScript. That is where per-library cost grows.
 
+![Ten shapes cover every library rule](diagrams/3-shapes.png)
+
 ## 3. Growth
 
 Lines added per recent catalog PR, by area. "Engine TS" includes general rules, not only library code.
@@ -162,6 +166,8 @@ Of 146 callable exports in these modules with no row, 57 show a type flow. Spot 
 
 The key result for honesty: **a shared type parameter proves the same type, not the same value.** About 1 in 20 type flows is false, and `useContext` is a common call. A type-inferred step can make a trace's path right. It must never make the outcome `ok` by itself.
 
+![Types propose, rows confirm](diagrams/2-types-propose-rows-confirm.png)
+
 ## 5. Options
 
 Scores: coverage is patterns that work with no new row; risk is the chance of a false `ok`; deletion is existing code removed; residue is what still needs a hand row or code.
@@ -198,6 +204,8 @@ Each stage is one PR. Each must keep `engine/test/srcly/fixture-annotations.test
 | 5 | Type proposals. At an unmodelled call into a package, derive paths from the signature. Emit them with proof `type-signature` (a `PROOF_TRAITS` entry in `kinds.ts`, strength `assumed`). | Nothing | Survey gate: the `ok` list must not grow from this stage alone; the PR explains moves in `assumed` ends. Negative fixture: a `useContext` default never reaches the read. Negative fixture: a non-generic `(fn) => fn` shape gets no proposal |
 | 6 | `pnpm models-propose <package>` prints proposed rows from types. Replace each implied row with a 1-line confirmation (`{ module, name, confirm: "types" }`). | The shape fields of about 25 rows | Survey gate: no moves (a confirmation must give the same edges as the row it replaces) |
 | 7 | Drop name lists that duplicate rows: `FRAMEWORK_CALLS`, `STATE_CALLS`, `FETCHER_CALLS`, `SERVER_WRAPPERS`. Read the row's model instead. | About 60 lines | Survey gate; scope-role tests |
+
+![Migration to rows-only library support](diagrams/4-migration.png)
 
 **First step:** stage 1. It changes no behaviour, it is small, and its equivalence test pins every row before stage 2 rewrites the readers. Hold it until tonight's zustand, React Query and Solid workers merge, because they edit the same readers.
 

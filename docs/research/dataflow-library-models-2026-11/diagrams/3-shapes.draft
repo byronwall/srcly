@@ -1,0 +1,23 @@
+diagram "Ten shapes cover every library rule"
+subtitle "Four shapes hold 14 rows and about 650 lines of code"
+
+group simple "Value summaries · 272 rows, almost no code" color=mint
+layout simple cells columns=2
+node s1 "Origin · 81\nos.getenv, fs.readFile" in=simple
+node s2 "Terminal · 80\nprint, res.send" in=simple
+node s3 "Pass-through · 13\ntrim, unwrap" in=simple
+node s4 "Consumes · 32\npush, Map.set" in=simple
+node s5 "Callback · 47\nmap, then, createMemo" in=simple
+node s6 "Wraps · 19\nuseCallback, debounce" in=simple
+
+group hard "Relations across program points · 14 rows, about 650 lines" color=orange
+layout hard cells columns=2
+node h7 "Option path · 9 rows · 85 lines\nqueryFn return fills data" in=hard
+node h8 "Cell · 5 rows · 245 lines\ncreateSignal, zustand create" in=hard
+node h9 "Slot · 0 rows · 210 lines\nFor, Show, Dynamic" in=hard
+node h10 "Context · 0 rows · 107 lines\nuseContext" in=hard
+
+legend mint "Rows only today"
+legend orange "Imperative per-library code today"
+
+layout root flow gap=40 fit=slide

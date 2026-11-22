@@ -1,0 +1,39 @@
+diagram "Where library knowledge lives today"
+subtitle "Rows are cheap; each new row field adds a reader and an emitter"
+config link-base="../../../.."
+
+group data "Rows (data)" color=mint
+node rows_simple "272 rows, 6 simple shapes\norigin, terminal, pass-through, consumes, callback, wraps" in=data
+node rows_hard "14 rows, 4 hard shapes\noption path, cell" in=data
+
+group vocab "Row vocabulary" color=amber
+node schema "library-models.ts\n9 models, 20 fields" in=vocab href="engine/src/analysis/library-models.ts"
+node readers "framework-flows.ts\n17 readers, 146 lines" in=vocab href="engine/src/analysis/framework-flows.ts"
+
+group emit "Emitters (imperative TS)" color=slate
+node generic "Shared emitters\nabout 300 lines" in=emit
+node opt "Option paths\nReact Query, Solid Query · 85" in=emit color=orange shade=300
+node cell "Cells\nsignals, stores, zustand, resources · 245" in=emit color=orange shade=300
+node slot "Component slots\nFor, Show, Dynamic · 210" in=emit color=orange shade=300
+node ctx "Context\nuseContext · 107" in=emit color=orange shade=300
+
+node rel "Relations\nthe trace graph" color=blue
+
+legend mint "Declarative rows"
+legend amber "Vocabulary that grows per library"
+legend orange "Per-library emitter code" shade=300
+legend blue "Engine output"
+
+edge e1 rows_simple -> schema
+edge e2 rows_hard -> schema
+edge e3 schema -> readers
+edge e4 readers -> generic
+edge e5 readers -> opt
+edge e6 readers -> cell
+edge e7 generic -> rel
+edge e8 opt -> rel
+edge e9 cell -> rel
+edge e10 slot -> rel "no rows"
+edge e11 ctx -> rel "no rows"
+
+layout root flow gap=48 fit=slide
