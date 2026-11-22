@@ -432,7 +432,7 @@ function ImportView(props: {
       <Show when={unindexedFile()}>
         {(file) => (
           <p data-imports-excluded role="status" class="border-b border-[var(--plc-border)] px-3 py-2 text-xs text-[var(--plc-on-muted)]">
-            <code>{file()}</code> is in the tree but not in Imports. Imports covers JavaScript, TypeScript and Python source up to 1 MB, excluding <code>.d.ts</code> files and hidden or pruned folders.
+            <code>{file()}</code> is in the tree but not in Imports. Imports covers JavaScript, TypeScript and Python source up to 1 MB. It excludes <code>.d.ts</code> files, hidden or pruned folders, and links outside this root.
           </p>
         )}
       </Show>

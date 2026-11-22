@@ -4,9 +4,12 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from app.models import DepGraph
 from app.services.analysis import git_inventory_files, scan_codebase
 from app.services.cache import fingerprint
+from app.services.deps.common import walk_source_files
 from app.services.deps.graph import build_dependency_graph
 from app.services.symbols.index import SymbolIndex, build_symbol_index
 
@@ -102,3 +105,60 @@ def test_non_git_source_inventory_still_honors_gitignore(tmp_path: Path, monkeyp
     fixture(tmp_path)
     assert git_inventory_files(tmp_path) is None
     assert_views(tmp_path, visible=False)
+
+
+def assert_cached_sources(root: Path, *paths: str) -> None:
+    imports = build_dependency_graph(root)
+    assert {n.id for n in imports.nodes if n.kind == "file"} == set(paths)
+    assert {s.file for s in build_symbol_index(root).symbols.values()} == set(paths)
+
+
+def test_cache_notices_equal_mtime_source_swap(tmp_path: Path) -> None:
+    git(tmp_path, "init", "-q")
+    (tmp_path / ".gitignore").write_text("*.ts\n", encoding="utf-8")
+    stamp = 1_700_000_000_000_000_000
+    for name in ("a", "b"):
+        source = tmp_path / f"{name}.ts"
+        source.write_text(f"export function {name}() {{}}\n", encoding="utf-8")
+        os.utime(source, ns=(stamp, stamp))
+    git(tmp_path, "add", "-f", "--", "a.ts")
+    assert_cached_sources(tmp_path, "a.ts")
+    git(tmp_path, "rm", "--cached", "-f", "--", "a.ts")
+    git(tmp_path, "add", "-f", "--", "b.ts")
+    assert (tmp_path / "a.ts").stat().st_mtime_ns == (tmp_path / "b.ts").stat().st_mtime_ns == stamp
+    assert_cached_sources(tmp_path, "b.ts")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="requires Git worktree symlinks")
+def test_structural_sources_do_not_follow_symlink_outside_root(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    git(root, "init", "-q")
+    (root / ".gitignore").write_text("lib/\n", encoding="utf-8")
+    outside = tmp_path / "outside.ts"
+    outside.write_text("export function outside() {}\n", encoding="utf-8")
+    (root / "lib").mkdir()
+    (root / "lib/external.ts").symlink_to(outside)
+    git(root, "add", "-f", "--", "lib/external.ts")
+    assert outside not in walk_source_files(root, {".ts"})
+    assert_cached_sources(root)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="requires Git worktree symlinks")
+def test_in_root_symlinks_do_not_alias_cache_keys(tmp_path: Path) -> None:
+    root = tmp_path
+    git(root, "init", "-q")
+    (root / ".gitignore").write_text("alias*.ts\n", encoding="utf-8")
+    # In-root links keep pointing at the resolved source. Two aliases for each
+    # target used to cancel out in each graph's XOR cache signature.
+    sources = root / ".sources"
+    sources.mkdir()
+    for name in ("a", "b"):
+        (sources / f"{name}.ts").write_text(f"export function {name}() {{}}\n", encoding="utf-8")
+        for number in (1, 2):
+            (root / f"alias-{name}{number}.ts").symlink_to(f".sources/{name}.ts")
+    git(root, "add", "-f", "--", "alias-a1.ts", "alias-a2.ts")
+    assert_cached_sources(root, ".sources/a.ts")
+    git(root, "rm", "--cached", "-f", "--", "alias-a1.ts", "alias-a2.ts")
+    git(root, "add", "-f", "--", "alias-b1.ts", "alias-b2.ts")
+    assert_cached_sources(root, ".sources/b.ts")

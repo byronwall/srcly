@@ -406,7 +406,7 @@ export default function SymbolsView(props: { rootPath: string; onOpen: (at: stri
               <EmptyState
                 class="absolute inset-0"
                 title="Not in the index"
-                description={`${message()}. Symbols indexes JavaScript, TypeScript and Python source up to 1 MB, excluding .d.ts files and hidden or pruned folders.`}
+                description={`${message()}. Symbols indexes JavaScript, TypeScript and Python source up to 1 MB. It excludes .d.ts files, hidden or pruned folders, and links outside this root.`}
                 actions={
                   <Button variant="ghost" class="gap-1 px-2" onClick={() => setPalette(true)} title="Find a symbol (/)">
                     <Search size={13} aria-hidden="true" />

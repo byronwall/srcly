@@ -7,12 +7,12 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from app.models import DepGraph, DepGraphEdge, DepGraphNode
-from app.services.deps.common import DepEdge, is_test_path, unique, walk_source_files
+from app.services.deps.common import DepEdge, SourceSignature, is_test_path, source_signature, unique, walk_source_files
 from app.services.deps.typescript_deps import TS_EXTENSIONS, build_ts_edges
 
 EXTERNAL_ROOT_ID = "ext:"
 
-_cache: Dict[Path, Tuple[Tuple[int, int], DepGraph]] = {}
+_cache: Dict[Path, Tuple[SourceSignature, DepGraph]] = {}
 _lock = threading.Lock()
 
 
@@ -22,16 +22,6 @@ def _language(path: Path) -> str:
     if path.suffix == ".py":
         return "py"
     return "other"
-
-
-def _signature(files: List[Path]) -> Tuple[int, int]:
-    total = 0
-    for f in files:
-        try:
-            total ^= hash((str(f), f.stat().st_mtime_ns))
-        except OSError:
-            continue
-    return len(files), total
 
 
 def collect_edges(root: Path, files: List[Path]) -> Tuple[List[DepEdge], Dict[str, list]]:
@@ -64,7 +54,7 @@ def build_dependency_graph(root: Path, use_cache: bool = True) -> DepGraph:
     root = root.resolve()
     files = walk_source_files(root, TS_EXTENSIONS | {".py"})
     if use_cache:
-        sig = _signature(files)
+        sig = source_signature(files)
         with _lock:
             hit = _cache.get(root)
         if hit is not None and hit[0] == sig:
