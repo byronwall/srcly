@@ -34,7 +34,7 @@ export function MetricsSidebar(props: {
           fallback={
             <EmptyState
               title="No metrics available"
-              description="This file does not have metrics to inspect."
+              description={props.gitRef ? "Current-tree metrics and flow analysis are not shown for historical source." : "This file does not have metrics to inspect."}
               class="h-auto py-6 text-xs"
             />
           }

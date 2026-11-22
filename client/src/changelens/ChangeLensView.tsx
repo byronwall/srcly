@@ -2,11 +2,12 @@
 // It owns the fetches and the URL state; the map and the panel pieces get
 // everything through props.
 
-import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, For, lazy, on, onCleanup, onMount, Show, untrack, type JSX } from "solid-js";
 import { ArrowRight } from "lucide-solid";
 import { Button } from "../components/ui/Button";
 import { atFromTreePath, baseName, splitAt } from "../navigation/location";
 import { go, location } from "../navigation/store";
+import { findTreeNodeByPath } from "../utils/dataProcessing";
 import { ViewTools } from "../viz/viewToolbar";
 import { fetchChangeLens, fetchHunk, LensError, type LensQuery } from "./api";
 import BranchNotice, { historyApplies, isOffMain } from "./BranchNotice";
@@ -15,12 +16,13 @@ import { inScope, type RepoNode } from "./layout";
 import Legend from "./Legend";
 import LensMap from "./LensMap";
 import { ChunkInspector, CommitRail, HunkDiff, ReviewBuckets } from "./panel";
-import type { ChangeLensPayload, LensChunk, LensHunkDiff } from "./types";
+import type { ChangeLensPayload, LensChunk, LensHunkDiff, LensSourceLocation } from "./types";
 import { lens, setLens } from "./urlState";
 import WindowBar from "./WindowBar";
 
 /** Below this width the panel moves under the map. */
 const NARROW_PX = 900;
+const CodeModal = lazy(() => import("../components/CodeModal/CodeModal"));
 
 interface ScanNode {
   name: string;
@@ -76,8 +78,6 @@ export default function ChangeLensView(props: {
   data: ScanNode | null;
   /** Absolute path of the scan root. */
   rootPath: string;
-  /** Open a file or scope in the code viewer. */
-  onOpenAt: (at: string, line?: number) => void;
 }) {
   const query = createMemo<LensQuery | null>(
     () => {
@@ -188,6 +188,35 @@ export default function ChangeLensView(props: {
   );
   /** The selected commit's step when that commit changed the chunk, else the whole window. */
   const stepOf = (chunk: string) => (commit()?.chunkIds.includes(chunk) ? commit()!.sha : undefined);
+  const [source, setSource] = createSignal<LensSourceLocation | null>(null);
+  const [sourceError, setSourceError] = createSignal<string>();
+  const [sourceLoading, setSourceLoading] = createSignal(false);
+  let sourceRequest = 0;
+  createEffect(on([query, selected, commit, hunk], () => {
+    sourceRequest++;
+    setSource(null);
+    setSourceError(undefined);
+    setSourceLoading(false);
+  }));
+  const openCode = async (chunk: LensChunk) => {
+    const q = query();
+    if (!q || loading()) return;
+    const id = ++sourceRequest;
+    setSourceError(undefined);
+    setSourceLoading(true);
+    try {
+      const active = hunk();
+      const step = active?.chunk === chunk.id ? active.commit : stepOf(chunk.id);
+      const target = (await fetchHunk(q, chunk.id, step)).source;
+      if (id !== sourceRequest) return;
+      if (target) setSource(target);
+      else setSourceError("No source is available for this chunk at the selected revisions.");
+    } catch (e) {
+      if (id === sourceRequest) setSourceError(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (id === sourceRequest) setSourceLoading(false);
+    }
+  };
   const openHunk = (chunk: string, sha?: string) => {
     setHunk({ chunk, commit: sha ?? stepOf(chunk) });
     if (lens().chunk !== chunk) setLens({ chunk });
@@ -401,7 +430,7 @@ export default function ChangeLensView(props: {
               <Legend lens={{ metric: lens().metric, color: lens().color }} layout={lens().layout} />
               <Show when={hunk()}>
                 <div class="h-[50%] min-h-[220px] shrink-0 border-t border-[var(--plc-border)]" data-lens-hunk>
-                  <HunkDiff diff={diff()} loading={diffLoading()} error={diffError()} onClose={() => setHunk(null)} />
+                  <HunkDiff diff={diff()} loading={diffLoading()} error={diffError()} ignoreEscape={Boolean(source())} onClose={() => setHunk(null)} />
                 </div>
               </Show>
               </div>
@@ -414,11 +443,32 @@ export default function ChangeLensView(props: {
                 <ReviewBuckets payload={p()} selected={lens().chunk} onSelect={(chunk) => setLens({ chunk })} />
               </div>
               <div class="min-h-0 flex-1 overflow-auto">
-                <ChunkInspector payload={p()} chunk={selected()} onOpenHunk={openHunk} onOpenCode={(chunk) => props.onOpenAt(scanPath(base(), chunk.path), chunk.startLine)} />
+                <ChunkInspector payload={p()} chunk={selected()} onOpenHunk={openHunk} onOpenCode={openCode} sourceBusy={sourceLoading() || loading()} />
+                <Show when={sourceError()}>
+                  <p role="alert" class="px-3 pb-3 text-[12px] text-[var(--plc-warning)]">{sourceError()}</p>
+                </Show>
               </div>
             </aside>
           </div>
         )}
+      </Show>
+      <Show when={source()} keyed>
+        {(target) => {
+          const filePath = `${target.repoRoot.replace(/\/$/, "")}/${target.path}`;
+          return (
+            <CodeModal
+              isOpen={true}
+              filePath={filePath}
+              rootPath={target.revision ? target.repoRoot : props.rootPath}
+              gitRef={target.revision}
+              revisionSide={target.side}
+              startLine={target.startLine}
+              endLine={target.endLine}
+              fileNode={target.revision ? null : findTreeNodeByPath(props.data, filePath)}
+              onClose={() => setSource(null)}
+            />
+          );
+        }}
       </Show>
     </div>
   );

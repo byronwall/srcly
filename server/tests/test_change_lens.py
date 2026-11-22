@@ -179,6 +179,35 @@ def test_api_serves_the_payload_and_refuses_a_folder_outside_git(repo, tmp_path)
     assert client.get("/api/change-lens", params={"path": str(tmp_path)}).status_code == 409
 
 
+def test_source_follows_the_exact_diff_side_and_revision(repo, touched):
+    client = TestClient(app)
+    chunk = "src/worker.ts::legacyCleanup"
+    removed = by_id(touched)[chunk]
+    source = service.hunk_diff(repo, Params(), chunk)["source"]
+    assert source == {
+        "repoRoot": str(repo),
+        "path": "src/worker.ts",
+        "side": "base",
+        "revision": _rev(repo, "main"),
+        "startLine": removed["baseStartLine"],
+        "endLine": removed["baseEndLine"],
+    }
+    params = {"path": str(repo / source["path"])}
+    old = client.get("/api/files/content", params={**params, "ref": source["revision"]})
+    assert old.status_code == 200
+    assert "export function legacyCleanup" in old.text.splitlines()[source["startLine"] - 1]
+    assert "legacyCleanup" not in client.get("/api/files/content", params=params).text
+
+    deletion = next(c for c in touched["commits"] if c["subject"] == "worker: remove legacyCleanup")
+    step = service.hunk_diff(repo, Params(), chunk, deletion["sha"])["source"]
+    assert step["side"] == "base" and step["revision"] == _rev(repo, f"{deletion['sha']}^")
+    cap = next(c for c in touched["commits"] if c["subject"] == "retry: cap the attempt limit")
+    head = service.hunk_diff(repo, Params(), "src/worker.ts::retryJob", cap["sha"])["source"]
+    assert head["side"] == "head" and head["revision"] == cap["sha"]
+    worktree = service.hunk_diff(repo, Params(), "src/worker.ts::formatLog", WORKTREE)["source"]
+    assert worktree["side"] == "head" and worktree["revision"] is None
+
+
 # -- small repos, one per rule ---------------------------------------------------
 
 
@@ -210,6 +239,23 @@ AFTER_BASE = {"window": "custom", "since": "2026-03-01T03:30:00+00:00", "until":
 
 def fn(name: str, k: int) -> str:
     return f"export function {name}(x: number) {{\n  const v = x + {k};\n  return v;\n}}\n"
+
+
+def test_deleted_source_uses_its_base_path_after_a_rename(tmp_path):
+    repo = Mini(tmp_path / "r")
+    base = repo.commit("base", {"old.ts": fn("stay", 1) + fn("gone", 2)})
+    repo.git("checkout", "--quiet", "-b", "feature")
+    repo.git("mv", "old.ts", "new.ts")
+    repo.git("commit", "--quiet", "-m", "rename")
+    head = repo.commit("remove gone", {"new.ts": fn("stay", 1)})
+    params = Params(window="custom", mode="net", base=base, head=head)
+    payload = service.build_payload(repo.path, params)
+    gone = next(c for c in payload["chunks"] if c["name"] == "gone")
+    source = service.hunk_diff(repo.path, params, gone["id"])["source"]
+    assert source["side"] == "base"
+    assert source["revision"] == base
+    assert source["path"] == "old.ts"
+    assert (source["startLine"], source["endLine"]) == (5, 8)
 
 
 def test_time_window_leaves_out_what_an_upstream_merge_brought_in(tmp_path):

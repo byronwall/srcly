@@ -31,8 +31,10 @@ interface CodeModalProps {
   onClose: () => void;
   fileNode?: any;
   scopeNode?: any;
-  /** Read the file from this git commit (compare mode) instead of the disk. */
+  /** Read the file from this Git revision instead of the disk. */
   gitRef?: string | null;
+  /** The side selected in Changes, shown beside the source path. */
+  revisionSide?: "base" | "head";
   /** The scanned root, so the header can show a repo-relative path. */
   rootPath?: string;
 }
@@ -124,7 +126,7 @@ export default function CodeModal(props: CodeModalProps) {
       eLine >= sLine;
     setLineFilterEnabled(hasRange);
 
-    if (guessLangFromPath(props.filePath) === "md") {
+    if (guessLangFromPath(props.filePath) === "md" && !props.revisionSide) {
       setViewMode("preview");
     } else {
       setViewMode("code");
@@ -427,6 +429,8 @@ export default function CodeModal(props: CodeModalProps) {
             filePath={props.filePath!}
             rootPath={props.rootPath}
             baseName={baseName()}
+            gitRef={props.gitRef}
+            revisionSide={props.revisionSide}
             onClose={props.onClose}
             rawCode={rawCode}
             hasLineRange={hasLineRange}
@@ -501,7 +505,13 @@ export default function CodeModal(props: CodeModalProps) {
                 fallback={
                   <CodePane
                     loading={loading}
-                    error={() => error() ?? highlightError()}
+                    error={() => {
+                      const failure = error();
+                      if (failure && props.gitRef && props.revisionSide) {
+                        return `Source unavailable at ${props.revisionSide} ${props.gitRef.slice(0, 7)}. ${failure}`;
+                      }
+                      return failure ?? highlightError();
+                    }}
                     highlightedHtml={highlightedHtml}
                     filePath={() => props.filePath}
                     baseName={baseName()}

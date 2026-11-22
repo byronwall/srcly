@@ -205,6 +205,16 @@ export interface ChangeLensPayload {
 }
 
 /** `GET /api/change-lens/hunk`: the diff text behind one chunk. */
+export interface LensSourceLocation {
+  repoRoot: string;
+  path: string;
+  side: "base" | "head";
+  /** Null only for a working-tree file. */
+  revision: string | null;
+  startLine: number;
+  endLine: number;
+}
+
 export interface LensHunkDiff {
   chunkId: string;
   path: string;
@@ -216,4 +226,6 @@ export interface LensHunkDiff {
   diff: string;
   /** Set when the diff was clipped. */
   truncated: boolean;
+  /** The side containing the chunk, or null when neither side has source. */
+  source?: LensSourceLocation | null;
 }

@@ -64,6 +64,8 @@ export function CodeModalHeader(props: {
   /** The scanned root; the path shows relative to it. */
   rootPath?: string;
   baseName: string;
+  gitRef?: string | null;
+  revisionSide?: "base" | "head";
   onClose: () => void;
   rawCode: () => string;
 
@@ -100,6 +102,13 @@ export function CodeModalHeader(props: {
         >
           <span dir="ltr">{dir()}</span>
         </span>
+        <Show when={props.revisionSide}>
+          {(side) => (
+            <span class="shrink-0 rounded bg-[var(--plc-surface-muted)] px-1.5 text-[11px]" data-source-side={side()} title={props.gitRef ?? "Working tree"}>
+              {side() === "base" ? "Base" : "Head"} · {props.gitRef?.slice(0, 7) ?? "Working tree"}
+            </span>
+          )}
+        </Show>
       </div>
 
       <Show when={props.isMarkdown()}>
@@ -184,6 +193,7 @@ export function CodeModalHeader(props: {
           icon={<Copy size={15} aria-hidden="true" />}
           onClick={() => navigator.clipboard.writeText(props.rawCode())}
         />
+        <Show when={!props.gitRef}>
         <a
           href={`vscode://file/${props.filePath}`}
           target="_blank"
@@ -193,6 +203,7 @@ export function CodeModalHeader(props: {
         >
           <ExternalLink size={15} aria-hidden="true" />
         </a>
+        </Show>
         <IconButton label="Close (Esc)" onClick={props.onClose}>
           <X size={16} aria-hidden="true" />
         </IconButton>
