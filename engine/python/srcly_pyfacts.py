@@ -1869,6 +1869,8 @@ class BodyWalker:
                                proof={"kind": "syntax", "detail": detail, "locations": [function.source.location(function.source.span(function.node))]})
         self.note(node, "Call")
         if mode == "partial":
+            # Whoever holds the callable can call the function: it escapes, as a function read as a value does.
+            self.program.record_escape(function)
             self.made_partials[id(node)] = (function, positional, keywords)
             return element
         self.program.record_call(function, source, node.lineno)
