@@ -26,10 +26,21 @@ A separate review (Fable 5.2, read-only; full text in the notes folder as `lib-m
 
 1. **Rows are the only interface.** Do migration stages 1 to 4b: access paths, then the cell, slot and keyed-store shapes. The cell row must name extra handles (`getState`, `setState`, `subscribe`, middleware pass-through), so `engine/src/analysis/zustand-store.ts` (177 lines, added by #419) can go too.
 2. **No dependency JS in the scan Program.** The `SRCLY_DEP_SOURCE` slice is dropped.
-3. **Reading source becomes an offline row generator** (option Q in the review): `engine/scripts/summarise-package.ts <package dir>` builds a small Program on one package and prints rows with provenance `generated`, a version range and a hash of the entry file. Generated rows are checked in, reviewed as a diff, and pass the same survey gate as hand rows. Build it only if the inline test below shows the gap is small.
+3. **Reading source becomes an offline row generator** (option Q in the review): `engine/scripts/summarise-package.ts <package dir>` builds a small Program on one package and prints rows with provenance `generated`, a version range and a hash of the entry file. Generated rows are checked in, reviewed as a diff, and pass the same survey gate as hand rows. The inline test below failed, so this is shelved.
 4. **Types stay `assumed` hints** (stage 5). They need today's `.d.ts` Program, which is one more reason to keep it as it is.
 
-**First step, running now:** the inline test. Copy zustand 4.5.7's 88 lines in as user code, trace two stores, and count the engine's stops. Few stops, all fixed by general rules that also help typed user code, means the offline generator is worth building. More than about five new rules, any JavaScript-only rule, or any cross-store join means rows win outright. The result goes to `lib-model-audit/inline-test.md`.
+**Inline test result: fail, so the source route is shelved.** A separate session copied zustand 4.5.7's code in as user code (typed `.tsx` app, untyped `.js` library, two stores) and traced it with no zustand row. Full report: `lib-model-audit/inline-test.md` in the notes folder.
+
+- Store A's `set` never reaches store A's selector or render. No trace enters `vanilla.js`.
+- It needed 6 changes: 5 new rules and 1 fix. Stop 3 (resolving an `any`-typed callee by value flow) is JavaScript-only; it buys nothing in typed code. Both kill conditions hold.
+- Stop 2 (one closure state per factory call) is large, and every other rule is unsafe without it.
+
+It also found two false `ok`s in today's engine, in typed code, unrelated to libraries:
+
+1. `functionNameNode` (`engine/src/analysis/program-evidence-support.ts:32`) names `fn` as `X` for every `const X = call(fn)`, not only for identity wrappers. A selector then gets the handler's argument, with a `proven` edge.
+2. Two calls of one factory share a closure: `makeReader(aval).read()` and `makeReader(bval).read()` both reach both terminals, with outcome `ok`. The `closures.ts` fixture has one factory call, so the gate never sees it.
+
+**What this changes:** rows win outright. The offline row generator is not worth building now. The per-call closure rule (stop 2) is still worth building, for user code first, because it fixes false `ok` 2 and it is the cell concept in general form.
 
 **Numbers that moved since the audit's base** (`40cd9a68`): 297 rows on `origin/main` (#423 added 11 React Query rows); zustand's custom code is about 226 lines (#419); `library-models.ts` is 201 lines.
 
@@ -335,9 +346,9 @@ Each stage is one PR. Each must keep `engine/test/srcly/fixture-annotations.test
 
 ![Migration to rows-only library support](diagrams/4-migration.png)
 
-**Revised after review:** the cell row in stage 3 names `getState`, `setState`, `subscribe` and middleware pass-through, so `zustand-store.ts` goes too. If the inline test passes, add an offline row generator after stage 4b; its rows pass the same survey gate as hand rows.
+**Revised after review:** the cell row in stage 3 names `getState`, `setState`, `subscribe` and middleware pass-through, so `zustand-store.ts` goes too. The inline test failed, so there is no offline row generator in this plan.
 
-**First step:** the inline test (running now), then stage 1. Stage 1 changes no behaviour, and its equivalence test pins every row before stage 2 rewrites the readers. Hold it until tonight's workers merge, because they edit the same readers.
+**First step:** fix the two false `ok`s the inline test found (each with a negative fixture), then stage 1. Stage 1 changes no behaviour, and its equivalence test pins every row before stage 2 rewrites the readers. Hold it until tonight's workers merge, because they edit the same readers.
 
 ## 7. Open questions
 
