@@ -1,0 +1,17 @@
+{
+  "id": "14c2d4cb-ec3d-4882-9d07-2a027ab4fbbf",
+  "kind": "node.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:9515fd",
+    "label": "Agent token ...9515fd"
+  },
+  "createdAt": "2026-11-22T14:08:40.781Z",
+  "summary": "Updated context on \"Data flow: library models as data\".",
+  "nodeIds": [
+    "area-data-flow-library-models-as-data"
+  ],
+  "metadata": {
+    "fields": "context"
+  }
+}
