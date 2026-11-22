@@ -165,6 +165,94 @@
     },
     {
       "language": "ts",
+      "module": "@tanstack/react-query",
+      "name": "useQueryClient",
+      "model": "origin",
+      "role": "external-read",
+      "note": "The QueryClient the nearest QueryClientProvider holds: the library hands the program this object, which holds the query cache."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/query-core",
+      "member": "QueryClient.getQueryData",
+      "model": "origin",
+      "role": "external-read",
+      "note": "The value is what the query cache holds for the key: whatever a queryFn or setQueryData put there, read outside the program's own values."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/query-core",
+      "member": "QueryClient.getQueriesData",
+      "model": "origin",
+      "role": "external-read",
+      "note": "The value is what the query cache holds for the key: whatever a queryFn or setQueryData put there, read outside the program's own values."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/query-core",
+      "member": "QueryClient.getQueryState",
+      "model": "origin",
+      "role": "external-read",
+      "note": "The value is what the query cache holds for the key: whatever a queryFn or setQueryData put there, read outside the program's own values."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/query-core",
+      "member": "QueryClient.setQueryData",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "Writes the value into the query cache for the key; later reads of that key see it."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/query-core",
+      "member": "QueryClient.setQueriesData",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "Writes the value into the query cache for the key; later reads of that key see it."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/query-core",
+      "member": "QueryClient.invalidateQueries",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "Changes the query cache's entries that match the filters (marks them stale, refetches, resets or drops them)."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/query-core",
+      "member": "QueryClient.refetchQueries",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "Changes the query cache's entries that match the filters (marks them stale, refetches, resets or drops them)."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/query-core",
+      "member": "QueryClient.resetQueries",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "Changes the query cache's entries that match the filters (marks them stale, refetches, resets or drops them)."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/query-core",
+      "member": "QueryClient.removeQueries",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "Changes the query cache's entries that match the filters (marks them stale, refetches, resets or drops them)."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/query-core",
+      "member": "QueryClient.cancelQueries",
+      "model": "terminal",
+      "role": "external-effect",
+      "note": "Changes the query cache's entries that match the filters (marks them stale, refetches, resets or drops them)."
+    },
+    {
+      "language": "ts",
       "module": "zustand",
       "name": "create",
       "model": "store",

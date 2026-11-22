@@ -127,7 +127,35 @@ export function tsModelModule(module: string | null): string {
 export function tsModel(models: LibraryModels, ts: typeof TypeScript, checker: TypeScript.TypeChecker, module: string | null, expression: TypeScript.Node): LibraryModelRow | null {
   const imported = ts.isExpression(expression) ? importedCallee(ts, checker, expression) : null;
   if (imported) return models.lookup("ts", tsModelModule(imported.module), imported.name);
-  return models.lookup("ts", tsModelModule(module), calleeName(ts, expression));
+  return models.lookup("ts", tsModelModule(module), calleeName(ts, expression)) ?? libraryMemberModel(models, ts, checker, expression);
+}
+
+/**
+ * The row for a method a library's class or interface declares
+ * (`client.invalidateQueries`), found by the checker: the declaring type's
+ * name and the package that declares it (a `declare module`, or the
+ * `node_modules` folder of its `.d.ts`), as a `member` row names them.
+ */
+export function libraryMemberModel(models: LibraryModels, ts: typeof TypeScript, checker: TypeScript.TypeChecker, expression: TypeScript.Node): LibraryModelRow | null {
+  if (!ts.isPropertyAccessExpression(expression)) return null;
+  for (const declaration of checker.getSymbolAtLocation(expression.name)?.declarations ?? []) {
+    const owner = declaration.parent;
+    if (!declaration.getSourceFile().isDeclarationFile || !(ts.isClassDeclaration(owner) || ts.isInterfaceDeclaration(owner)) || !owner.name) continue;
+    const pkg = declaringPackage(ts, owner);
+    const row = pkg ? models.lookup("ts", pkg, `${owner.name.text}.${expression.name.text}`) : null;
+    if (row) return row;
+  }
+  return null;
+}
+
+function declaringPackage(ts: typeof TypeScript, node: TypeScript.Node): string | null {
+  const module = ts.findAncestor(node, ts.isModuleDeclaration);
+  if (module && ts.isStringLiteral(module.name)) return module.name.text;
+  const file = node.getSourceFile().fileName;
+  const at = file.lastIndexOf("/node_modules/");
+  if (at < 0) return null;
+  const parts = file.slice(at + "/node_modules/".length).split("/");
+  return parts[0].startsWith("@") ? `${parts[0]}/${parts[1]}` : parts[0];
 }
 
 /** The row for a method the standard library declares (`rows.push`), found by its interface (`Array.push`, a `lib` row). */

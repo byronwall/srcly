@@ -17,8 +17,13 @@ export function UserName(props: { id: string }) { // @trace q-key-to-fn forward 
 }
 
 // R59 a queryFn that closes over a prop, with `enabled`
-export function UserPosts(props: { id: string }) { // @trace q-closure forward props.id @want external-effect
-  const posts = useQuery({ queryKey: ["posts", props.id], queryFn: () => fetch(`/api/posts?user=${props.id}`).then((r) => r.json() as Promise<string[]>), enabled: props.id !== "" });
+// The trace starts at the closure's own read: the key's copy of `props.id` ends at the options object, since this queryFn never reads its key.
+export function UserPosts(props: { id: string }) {
+  const posts = useQuery({
+    queryKey: ["posts", props.id],
+    queryFn: () => fetch(`/api/posts?user=${props.id}`).then((r) => r.json() as Promise<string[]>), // @trace q-closure forward props.id @want external-effect
+    enabled: props.id !== "",
+  });
   return <ul>{posts.data?.map((p) => <li key={p}>{p}</li>)}</ul>;
 }
 
