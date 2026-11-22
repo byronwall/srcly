@@ -4,11 +4,11 @@
     "title": "Srcly UX review follow-through",
     "slug": "srcly-ux-review",
     "scale": "program",
-    "current_phase": "intent",
+    "current_phase": "shape",
     "last_updated": "2026-11-22",
     "summary": "Preserve source-backed investigation while fixing trust defects and separating analysis scope, revision identity, and provenance.",
-    "status": "planned",
-    "next_action": "Verify and land narrow fixes. Shape the linked workflows independently starting with a falsifiable user-visible proof."
+    "status": "active",
+    "next_action": "Review the two independent proof-sized shapes. Start with complete Changes inventory and retain the separate trace explanation proof. No broader implementation approval is recorded."
   },
   "artifacts": {
     "intent_brief": {
@@ -23,8 +23,8 @@
     },
     "shape_brief": {
       "path": "shape-brief.md",
-      "status": "not-created",
-      "updated_at": null
+      "status": "current",
+      "updated_at": "2026-11-22"
     },
     "implementation_plan": {
       "path": "implementation-plan.md",
@@ -119,13 +119,30 @@
     "selected_option": null
   },
   "shape": {
-    "status": "not-started",
-    "appetite": null,
-    "problem": null,
-    "recommended_shape": null,
-    "success_moves": [],
-    "first_proof": null,
-    "rabbit_holes": [],
+    "status": "current",
+    "appetite": "Two narrow first slices, each with an exact before/after proof.",
+    "problem": "Srcly can silently omit changed paths or make context look like exact field ancestry.",
+    "recommended_shape": {
+      "primary": "Complete the Git-backed Changes footprint and preserve exact revision identity through source and Back.",
+      "independent": "Project a compact field evidence summary in the existing trace inspector."
+    },
+    "success_moves": [
+      "Show all 15 changed paths and honest metric gaps on the historical fixture.",
+      "Open the exact added model row at its head revision and return to the same selection.",
+      "Keep Touched and Net distinct for a metadata-only edit reverted within the range.",
+      "Distinguish actual title carriage from incidental tags and keep trace limits visible."
+    ],
+    "first_proof": {
+      "question": "Can the tool expose the complete change footprint and explain a focused field trace without losing source identity or inventing evidence?",
+      "artifact": "Two tiny fixture walkthroughs with an expected/actual table and same-revision source witnesses.",
+      "decision_rule": "Proceed only when all paths, revision selection, Touched/Net and both title/tags positive and negative controls hold."
+    },
+    "rabbit_holes": [
+      "Unify Changes and Compare into a new workspace",
+      "Infer quality from complexity deltas",
+      "Treat subscriptions as the same as value provenance",
+      "Infer agent attribution or collect receipts in either slice."
+    ],
     "open_decisions": []
   },
   "implementation": {
@@ -145,6 +162,12 @@
       "event": "created",
       "phase": "intent",
       "note": "Summarized the UX review and mapped findings to independent issues or small PR lanes without pre-approving the candidate shapes."
+    },
+    {
+      "date": "2026-11-22",
+      "event": "shape-drafted",
+      "phase": "shape",
+      "note": "Captured proposed first proofs for #444 and #442. The remaining product choices stay separate and this does not approve broad implementation."
     }
   ]
 }
