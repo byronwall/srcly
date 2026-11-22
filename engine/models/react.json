@@ -5,17 +5,39 @@
       "language": "ts",
       "module": "react",
       "name": "useState",
-      "model": "state-pair",
-      "lazy": true,
-      "note": "A state value and its setter: what the setter receives, the state reads. A function initial value is called for the state."
+      "model": "cell",
+      "init": [
+        "Argument[0]",
+        "Argument[0].ReturnValue"
+      ],
+      "writes": [
+        "ReturnValue.Member[1].Parameter[0]",
+        "ReturnValue.Member[1].Parameter[0].ReturnValue"
+      ],
+      "reads": [
+        "ReturnValue.Member[0]",
+        "ReturnValue.Member[1].Parameter[0].Parameter[0]"
+      ],
+      "note": "One state per call: the setter's argument (or an updater's return) is the state the value reads. A function initial value is called for the state."
     },
     {
       "language": "ts",
       "module": "react",
       "name": "useReducer",
-      "model": "state-pair",
-      "args": "0",
-      "note": "A reducer pair: dispatch calls the reducer (at `args`) with the action, and what it returns is the state."
+      "model": "cell",
+      "init": [
+        "Argument[1]"
+      ],
+      "writes": [
+        "Argument[0].ReturnValue"
+      ],
+      "reads": [
+        "ReturnValue.Member[0]"
+      ],
+      "yields": [
+        "ReturnValue.Member[1].Parameter[0] -> Argument[0].Parameter[1]"
+      ],
+      "note": "One state per call: dispatch calls the reducer with the action, and only what the reducer returns is the state. A function given to dispatch is an action, not an updater."
     },
     {
       "language": "ts",
@@ -239,8 +261,29 @@
       "language": "ts",
       "module": "zustand",
       "name": "create",
-      "model": "store",
-      "note": "A store hook: what its function returns and what its set receives are the store, and calling the hook with a selector reads it."
+      "model": "cell",
+      "init": [
+        "Argument[0].ReturnValue"
+      ],
+      "writes": [
+        "Argument[0].Parameter[0].Parameter[0]",
+        "Argument[0].Parameter[0].Parameter[0].ReturnValue",
+        "Argument[0].Parameter[0].Parameter[0].Parameter[0]",
+        "ReturnValue.Member[setState].Parameter[0]",
+        "ReturnValue.Member[setState].Parameter[0].ReturnValue",
+        "ReturnValue.Member[setState].Parameter[0].Parameter[0]"
+      ],
+      "reads": [
+        "ReturnValue.ReturnValue",
+        "ReturnValue.Parameter[0].Parameter[0]",
+        "ReturnValue.Member[getState].ReturnValue",
+        "Argument[0].Parameter[1].ReturnValue",
+        "ReturnValue.Member[subscribe].Parameter[0].Parameter[0]"
+      ],
+      "yields": [
+        "ReturnValue.Parameter[0].ReturnValue -> ReturnValue.ReturnValue"
+      ],
+      "note": "One store per call: what its function returns and what its set (or setState) receives are the store; an updater's draft writes it. The hook's call, its selector's parameter, getState(), get() and a subscriber read it; a selector's return is the hook call's value."
     }
   ]
 }

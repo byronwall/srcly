@@ -3,7 +3,6 @@ import type { CollectorFunctionInfo } from "./program-evidence-collector-support
 import { ProgramEvidenceCollectorBoundaryProcessing } from "./program-evidence-collector-boundary-processing";
 import { importedCallee, nodeKey, proof, unwrap } from "./program-evidence-support";
 import { frameworkFlow, makesAccessor, makesPredicate } from "./framework-flows";
-import { stateRoleOf } from "./program-evidence-state-pairs";
 import { resolveValue } from "./value-origin";
 
 export type PendingComponentPropBinding = {
@@ -128,7 +127,7 @@ export class ProgramEvidenceCollectorComponentBindingSupport extends ProgramEvid
       const initializer = item.attribute.initializer;
       const value = initializer && this.ts.isJsxExpression(initializer) && initializer.expression ? unwrap(this.ts, initializer.expression) : null;
       if (!value) return false;
-      if (stateRoleOf(this.ts, this.checker, value)?.role === "getter") return true;
+      if (this.pairRoleOf(value)?.role === "getter") return true;
       const origin = this.ts.isIdentifier(value) ? resolveValue(this.ts, this.checker, value)?.origin : null;
       if (origin && this.ts.isCallExpression(origin)) {
         const made = importedCallee(this.ts, this.checker, origin.expression);

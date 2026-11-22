@@ -21,10 +21,10 @@ describe("library models", () => {
     const models = loadLibraryModels([rowsFile([
       { language: "py", module: "requests", member: "Session.*", model: "origin", role: "fetch-input" },
       { language: "py", module: "requests", member: "Session.close", model: "consumes" },
-      { language: "ts", module: "solid-js", name: "createSignal", model: "state-pair", args: "0" },
+      { language: "ts", module: "solid-js", name: "createSignal", model: "cell", init: ["Argument[0]"] },
     ])]);
     expect(models.size).toBe(3);
-    expect(models.lookup("ts", "solid-js", "createSignal")?.model).toBe("state-pair");
+    expect(models.lookup("ts", "solid-js", "createSignal")?.model).toBe("cell");
     expect(models.lookup("py", "requests", "Session.get")?.model).toBe("origin");
     expect(models.lookup("py", "requests", "Session.close")?.model).toBe("consumes");
     // Never across languages or modules.

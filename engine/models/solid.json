@@ -5,8 +5,40 @@
       "language": "ts",
       "module": "solid-js",
       "name": "createSignal",
-      "model": "state-pair",
-      "note": "A getter and setter: what the setter receives, the getter reads."
+      "model": "cell",
+      "init": [
+        "Argument[0]"
+      ],
+      "writes": [
+        "ReturnValue.Member[1].Parameter[0]",
+        "ReturnValue.Member[1].Parameter[0].ReturnValue"
+      ],
+      "reads": [
+        "ReturnValue.Member[0].ReturnValue",
+        "ReturnValue.Member[1].Parameter[0].Parameter[0]"
+      ],
+      "note": "One state per call: the setter's argument (or an updater's return) is what the getter's calls read."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js",
+      "name": "createResource",
+      "model": "cell",
+      "optional": "Argument[0]",
+      "init": [
+        "Argument[1].ReturnValue.Awaited"
+      ],
+      "writes": [
+        "ReturnValue.Member[1].Member[mutate].Parameter[0]"
+      ],
+      "reads": [
+        "ReturnValue.Member[0].ReturnValue"
+      ],
+      "yields": [
+        "Argument[0].ReturnValue -> Argument[1].Parameter[0]",
+        "ReturnValue.Member[1].Member[refetch].Parameter[0] -> Argument[1].Parameter[1].Member[refetching]"
+      ],
+      "note": "One resource per call: what the fetcher settles to, or what mutate receives, is what the accessor reads. The source (or what it returns) is the fetcher's first parameter, and refetch's argument its second's `refetching`. The source may be left out."
     },
     {
       "language": "ts",
@@ -177,8 +209,20 @@
       "language": "ts",
       "module": "solid-js/store",
       "name": "createStore",
-      "model": "state-pair",
-      "note": "A store and its setter: what the setter receives, the store reads."
+      "model": "cell",
+      "init": [
+        "Argument[0]"
+      ],
+      "writes": [
+        "ReturnValue.Member[1].Parameter[0]",
+        "ReturnValue.Member[1].Parameter[0].ReturnValue",
+        "ReturnValue.Member[1].Parameter[0..]"
+      ],
+      "reads": [
+        "ReturnValue.Member[0]",
+        "ReturnValue.Member[1].Parameter[0].Parameter[0]"
+      ],
+      "note": "One store per call: the setter's argument (or an updater's return, or a value at a path of keys) is what the store reads."
     },
     {
       "language": "ts",
@@ -282,12 +326,12 @@
       "language": "ts",
       "module": "@solidjs/router",
       "name": "useSubmission",
-      "model": "calls-back",
-      "flows": [
+      "model": "cell",
+      "yields": [
         "Argument[0].ReturnValue.Awaited -> ReturnValue.Member[result]",
         "Argument[0].Parameter[0..] -> ReturnValue.Member[input]"
       ],
-      "note": "The submission's `result` is what the action's function returns, and its `input` the arguments of each call of the action."
+      "note": "One submission per call: its `result` is what the action's function returns, and its `input` the arguments of each call of the action."
     },
     {
       "language": "ts",

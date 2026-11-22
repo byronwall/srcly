@@ -15,8 +15,8 @@ import { calleeName, importedCallee } from "./program-evidence-support";
 declare const __SRCLY_ENGINE_BUNDLE__: boolean | undefined;
 const IS_BUNDLE = typeof __SRCLY_ENGINE_BUNDLE__ !== "undefined" && __SRCLY_ENGINE_BUNDLE__;
 
-/** The model types (plan §3), `wraps`: a call that returns the function it is given, and `store`: a call that makes a store hook from the function it is given. */
-export const LIBRARY_MODEL_TYPES = ["origin", "terminal", "state-pair", "passes-through", "consumes", "calls-back", "resource", "wraps", "store"] as const;
+/** The model types (plan §3), `wraps`: a call that returns the function it is given, and `cell`: a call that makes one state each time it runs (`createSignal`, zustand's `create`). */
+export const LIBRARY_MODEL_TYPES = ["origin", "terminal", "passes-through", "consumes", "calls-back", "wraps", "cell"] as const;
 
 /** The models that say what they do only with `flows` access paths. */
 const FLOW_MODELS = new Set<(typeof LIBRARY_MODEL_TYPES)[number]>(["calls-back", "wraps", "passes-through"]);
@@ -33,7 +33,13 @@ const FLOW_MODELS = new Set<(typeof LIBRARY_MODEL_TYPES)[number]>(["calls-back",
 const STEP = String.raw`(?:Parameter\[\d+(?:\.\.)?\]|ReturnValue|Member\[[A-Za-z0-9_$]+\]|Awaited(?:\[error\])?|ArrayElement)`;
 const ROOT = String.raw`(?:Argument\[(?:this|\d+(?:\.\.)?)\]|ReturnValue)`;
 const PATH = `${ROOT}(?:\\.${STEP})*`;
+export const LIBRARY_PATH_PATTERN = new RegExp(`^${PATH}$`);
 export const LIBRARY_FLOW_PATTERN = new RegExp(`^(${PATH}) -> (${PATH})(?: : (test))?$`);
+
+export const libraryPathSchema = z
+  .string()
+  .regex(LIBRARY_PATH_PATTERN)
+  .describe("One access path, as a `flows` entry writes either side: `ReturnValue.Member[1].Parameter[0]`.");
 
 export const libraryFlowSchema = z
   .string()
@@ -49,19 +55,22 @@ export const libraryModelRowSchema = z
     name: z.string().min(1).optional().describe("An exported name (`createSignal`). A trailing `*` matches a prefix."),
     member: z.string().min(1).optional().describe("`Type.method` for a method on an instance (`Session.get`, `Array.find`). A trailing `*` matches a prefix."),
     model: z.enum(LIBRARY_MODEL_TYPES).describe("What the member does."),
-    args: z.string().regex(/^\d+$/).optional().describe("For a `state-pair`: the argument its reducer is at (`useReducer`)."),
     role: z.string().min(1).optional().describe("An origin or terminal role."),
     result: z.string().regex(/^(call|\d+)$/).optional().describe("For a `terminal`: the terminal is not this call but a call of what it returns (`call`, as `useNavigate`'s `navigate`), or of the tuple element it returns at that index (`1`)."),
-    lazy: z.literal(true).optional().describe("For `state-pair`: a function initial value is called, and what it returns seeds the state (`useState(() => …)`)."),
-    writes: z.literal("this").optional().describe("For `consumes`: the receiver keeps the arguments (`push`, `set`). A `consumes` row without it keeps nothing (`concat`)."),
     settles: z.literal("reject").optional().describe("For `consumes`: the call makes a promise that only rejects, with its first argument (`Promise.reject`)."),
     flows: z.array(libraryFlowSchema).optional().describe("For `calls-back`, `wraps` and `passes-through` (required there, and only there): where the call moves values, as access paths (`framework-flows.ts` reads them). A `calls-back` row with no flow that touches `ReturnValue` has no value (`useEffect`)."),
+    init: z.array(libraryPathSchema).optional().describe("For a `cell`: the paths whose value seeds the call's one state (`Argument[0]`; `Argument[0].ReturnValue` when a function initial value is called; `Argument[1].ReturnValue.Awaited` for a fetcher)."),
+    writes: z.union([z.literal("this"), z.array(libraryPathSchema)]).optional().describe("For `consumes`: `this`, the receiver keeps the arguments (`push`, `set`); a `consumes` row without it keeps nothing (`concat`). For a `cell`: the paths whose value merges into the state, through the handles the call makes or hands its function (`ReturnValue.Member[1].Parameter[0]` a setter's argument, `….Parameter[0].ReturnValue` an updater's return, `Argument[0].Parameter[0].Parameter[0]` what a store's `set` receives, `….Parameter[0..]` a store path's keys and value)."),
+    reads: z.array(libraryPathSchema).optional().describe("For a `cell`: the paths that see the state (`ReturnValue.Member[0].ReturnValue` a getter's call, `ReturnValue.Member[0]` the value itself, `ReturnValue.Parameter[0].Parameter[0]` a selector's parameter, `ReturnValue.Member[getState].ReturnValue`)."),
+    yields: z.array(libraryFlowSchema).optional().describe("For a `cell`: other moves, as `flows` write them: what a read returns (`ReturnValue.Parameter[0].ReturnValue -> ReturnValue.ReturnValue`), where a dispatch puts its action (`ReturnValue.Member[1].Parameter[0] -> Argument[0].Parameter[1]`), a watched function's result fields."),
+    optional: z.literal("Argument[0]").optional().describe("For a `cell`: the first argument may be left out (`createResource(fetcher)` has no source); a call that leaves it out has every later argument one place earlier."),
     proof: z.string().min(1).optional().describe("The proof kind its relations carry, so existing proof names survive."),
     note: z.string().optional().describe("One line for the code map and the proof detail."),
   })
   .strict()
   .refine((row) => (row.name === undefined) !== (row.member === undefined), { message: "a row names exactly one of `name` or `member`" })
-  .refine((row) => (row.flows !== undefined) === FLOW_MODELS.has(row.model), { message: "a `calls-back`, `wraps` or `passes-through` row names its `flows`, and no other row does" });
+  .refine((row) => (row.flows !== undefined) === FLOW_MODELS.has(row.model), { message: "a `calls-back`, `wraps` or `passes-through` row names its `flows`, and no other row does" })
+  .refine((row) => (row.model === "cell") === [row.init, Array.isArray(row.writes) ? row.writes : undefined, row.reads, row.yields, row.optional].some((field) => field !== undefined), { message: "a `cell` row names its paths (`init`, `writes`, `reads`, `yields`), and no other row does" });
 
 export const libraryModelFileSchema = z
   .object({

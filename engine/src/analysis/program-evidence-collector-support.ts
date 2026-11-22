@@ -1,5 +1,4 @@
 import path from "node:path";
-import { writesStore } from "./zustand-store";
 import { performance } from "node:perf_hooks";
 import * as TypeScript from "typescript";
 import type {
@@ -19,6 +18,7 @@ import type {
   ProgramRelation,
   ProgramRelationKind,
 } from "./program-evidence";
+import type { InstanceTag } from "./scope-seam";
 import {
   compactLocation,
   expandLocation,
@@ -58,7 +58,6 @@ import {
   discardsValue,
   isEffectName,
   isFrameworkCall,
-  resourceAction,
   nodeLocation,
   expressionText,
   nodeKey,
@@ -74,7 +73,7 @@ import { frameworkFlow, hasNoValue, optionFlow, yieldsFirstFunction } from "./fr
 import { resolveValue } from "./value-origin";
 import { NO_ANALYSIS_CANCELLATION, type AnalysisCancellationToken } from "./cancellation";
 import { builtinLibraryModels, globalReads, tsModel, type GlobalReads, type LibraryModelRow, type LibraryModels } from "./library-models";
-import { stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
+import { CellSites, cellHas, pairCall, pairRole, settlesAsync, writesByName, type CellHandle, type PairRole } from "./cells";
 import { returnedTerminal } from "./program-evidence-returned-terminals";
 import { DeferredMap } from "./deferred-map";
 import { InstanceSites } from "./instance-sites";
@@ -508,6 +507,9 @@ export class ProgramEvidenceCollectorSupport {
       return;
     }
     if (!from || !to || from === to) return;
+    // A step through the state of a cell inside a function is that call's state (`cellInstances`).
+    const cell = proofValue.kind === "framework-state" && !proofValue.instance ? this.cellInstances.get(to) ?? this.cellInstances.get(from) : undefined;
+    if (cell) proofValue = { ...proofValue, instance: cell };
     if (instrumented) {
       this.collectionStats.relation.acceptedCandidates += 1;
       this.collectionStats.relation.proofCount += 1;
@@ -580,6 +582,40 @@ export class ProgramEvidenceCollectorSupport {
   /** Call and `new` sites by callee, found once, on first use. */
   protected get instanceSites(): InstanceSites {
     return (this.instanceSitesValue ??= new InstanceSites(this.ts, this.checker, this.files));
+  }
+
+  private cellSitesValue: CellSites | null = null;
+  /**
+   * The instance tag of each state element of a cell made inside a function
+   * (`createSignal` in a factory): each call of that function makes its own
+   * state, so a step through it keeps the walk in the call it came from, as
+   * an instance member's state does (`InstanceTag`, the slice's `memberStep`).
+   */
+  protected readonly cellInstances = new Map<string, InstanceTag>();
+  private readonly cellHandles = new WeakMap<TypeScript.Expression, CellHandle | null>();
+
+  /** Cells (`cell` rows) and their creators, found once, on first use. */
+  protected get cells(): CellSites {
+    return (this.cellSitesValue ??= new CellSites(this.ts, this.checker, this.files));
+  }
+
+  /** The handle of a cell an expression names (`CellSites.handleOf`), once per expression. */
+  protected cellHandle(expression: TypeScript.Expression): CellHandle | null {
+    if (!this.cellHandles.has(expression)) this.cellHandles.set(expression, this.cells.handleOf(expression));
+    return this.cellHandles.get(expression) ?? null;
+  }
+
+  /** Which half of a state pair an expression names (`pairRole`). */
+  protected pairRoleOf(expression: TypeScript.Expression): PairRole | null {
+    return pairRole(this.cellHandle(expression));
+  }
+
+  /** An action of an asynchronous cell a callee names (a resource's `mutate` or `refetch`): its argument goes to the state or the fetcher, never the call's value. */
+  protected asyncAction(callee: TypeScript.Expression): CellHandle | null {
+    const handle = this.cellHandle(callee);
+    if (!handle || !settlesAsync(handle.site.row)) return null;
+    const into = `${handle.path}.Parameter[0]`;
+    return cellHas(handle.site.row, "writes", into) || (handle.site.row.yields ?? []).some((flow) => flow.startsWith(`${into} -> `)) ? handle : null;
   }
 
   /** A function named by the declaration around the call it is given (`functionNameNode`) is what that name holds, unless a row says the call makes something else. */
@@ -669,14 +705,14 @@ export class ProgramEvidenceCollectorSupport {
 
   protected isExternalCall(node: TypeScript.CallExpression): boolean {
     if (this.targetFunction(node.expression) || this.mutationFunction(node) || this.callAdapter(node)) return false;
-    // A state factory is modelled (`program-evidence-state-pairs.ts`): what it does with its argument is the pair's state, not an external effect.
-    if (stateFactory(this.ts, this.checker, node)) return false;
-    // A store's `set` and `useStore.setState(…)` are modelled (`connectStores`): what they receive is the store.
-    if (writesStore(this.ts, this.checker, node)) return false;
+    // A state pair's call is modelled (a `cell` row): what it does with its argument is the pair's state, not an external effect.
+    if (pairCall(this.ts, this.checker, node)) return false;
+    // A store's `set` and `useStore.setState(…)` are modelled (`connectCells`): what they receive is the store.
+    if (writesByName(this.cellHandle(node.expression))) return false;
     // Half of a state pair read from a context's tuple (`const [, setName] = useContext(Ctx)`) is modelled (`connectContextPairs`).
     if (this.contextPairHalf(node.expression)) return false;
     // A resource's `mutate` and `refetch` are modelled (`connectResourceAction`).
-    if (resourceAction(this.ts, this.checker, node.expression)) return false;
+    if (this.asyncAction(node.expression)) return false;
     const module = this.moduleFor(node.expression);
     const imported = importedCallee(this.ts, this.checker, node.expression);
     // A call a flow row describes (`createDeferred`, `makePersisted`) is modelled: what it does with its arguments is the row's, never an assumed effect.
@@ -699,7 +735,7 @@ export class ProgramEvidenceCollectorSupport {
    * whose value the code uses is a read, not an effect.
    */
   private droppedLibraryCall(node: TypeScript.CallExpression): boolean {
-    if (!discardsValue(this.ts, node, this.checker) || stateRoleOf(this.ts, this.checker, node.expression)) return false;
+    if (!discardsValue(this.ts, node, this.checker) || this.pairRoleOf(node.expression)) return false;
     const file = this.checker.getResolvedSignature(node)?.declaration?.getSourceFile();
     return Boolean(file && file.isDeclarationFile && !file.hasNoDefaultLib);
   }

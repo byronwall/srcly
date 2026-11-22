@@ -3,6 +3,7 @@
 // (`engine/models/*.json`). Adding a library is adding rows; these readers
 // turn a row's paths into the shape each collector rule needs.
 import { builtinLibraryModels, LIBRARY_FLOW_PATTERN, tsModelModule, type LibraryModelRow } from "./library-models";
+import { cellFlow, holdsState } from "./cells";
 
 /**
  * `returns` the call's value is what its callback (at that argument) returns,
@@ -21,10 +22,11 @@ const parsed = new WeakMap<LibraryModelRow, Flow[]>();
 
 /** A row's access paths, parsed once. */
 export function rowPaths(row: LibraryModelRow | null): Flow[] {
-  if (!row?.flows) return [];
+  const written = row?.flows ?? row?.yields;
+  if (!row || !written) return [];
   let flows = parsed.get(row);
   if (!flows) {
-    flows = row.flows.map((flow) => {
+    flows = written.map((flow) => {
       const match = LIBRARY_FLOW_PATTERN.exec(flow)!;
       return { from: match[1], to: match[2], test: match[3] === "test" };
     });
@@ -44,9 +46,6 @@ const member = (path: string) => /^Argument\[0\]\.Member\[(\w+)\]/.exec(path)?.[
 export function frameworkRow(module: string, name: string): LibraryModelRow | null {
   return builtinLibraryModels().lookup("ts", tsModelModule(module), name);
 }
-
-/** A reducer pair's reducer argument (`state-pair` rows keep `args` until they become cells). */
-const reducerAt = (row: LibraryModelRow) => (row.model === "state-pair" && row.args !== undefined && /^\d+$/.test(row.args) ? Number(row.args) : undefined);
 
 /** Whether a path touches the call's value: a `calls-back` row with none has no value (`useEffect`). */
 const touchesResult = (flows: Flow[]) => flows.some((flow) => flow.from.startsWith("ReturnValue") || flow.to.startsWith("ReturnValue"));
@@ -124,9 +123,8 @@ export function rowFlow(row: LibraryModelRow | null): FrameworkFlow | undefined 
       return source ? { returns, source: source[0], callback: returns } : { returns };
     }
   }
-  // A reducer pair names its reducer: what the reducer returns is the state.
-  const reducer = reducerAt(row);
-  if (reducer !== undefined) return { returns: reducer };
+  // A reducer cell names its reducer: what the reducer returns is the call's value.
+  if (row.model === "cell") return cellFlow(row);
   return undefined;
 }
 
@@ -165,6 +163,8 @@ export function wrappedPosition(module: string, name: string): number | null {
 export function yieldsFirstFunction(module: string, name: string): boolean {
   const row = frameworkRow(module, name);
   if (row?.model === "wraps") return wrappedPosition(module, name) === 0;
+  // A cell that only watches a function (`useSubmission`) yields its result fields, never the function.
+  if (row?.model === "cell" && !holdsState(row)) return false;
   // An accessor of a later argument's return (`mapArray(list, fn)`) is not a call of the first: the accessor's own call carries the value.
   return row?.model !== "calls-back" || (isAccessor(row) && callbackInto(rowPaths(row), /^ReturnValue\.ReturnValue$/, false) === 0);
 }
@@ -190,7 +190,7 @@ export function optionFlow(module: string, name: string): string | null {
  */
 export function watchedFunction(module: string, name: string): { at: number; field: string; input: string | null } | null {
   const row = frameworkRow(module, name);
-  if (row?.model !== "calls-back" || primaryOption(row)) return null;
+  if (row?.model !== "cell" || holdsState(row)) return null;
   const flows = rowPaths(row);
   for (const flow of flows) {
     const at = num(/^Argument\[(\d+)\]\.ReturnValue\.Awaited$/, flow.from);
@@ -248,26 +248,4 @@ export function promiseChannels(row: LibraryModelRow | null): { fulfilled?: numb
     returns: flows.filter((flow) => flow.to === "ReturnValue.Awaited").flatMap((flow) => num(/^Argument\[(\d+)\]\.ReturnValue$/, flow.from) ?? []),
     keeps: flows.some((flow) => flow.from === "Argument[this].Awaited" && flow.to === "ReturnValue.Awaited"),
   };
-}
-
-/** Whether the call makes a state pair (`createSignal`, `useState`). */
-export function makesStatePair(module: string, name: string): boolean {
-  return frameworkRow(module, name)?.model === "state-pair";
-}
-
-/** Whether the call makes a store hook (`zustand`'s `create`): its function's return and what its `set` receives are the store, and calling the hook with a selector reads it. */
-export function makesStore(module: string, name: string): boolean {
-  return frameworkRow(module, name)?.model === "store";
-}
-
-/** Whether a state factory calls a function initial value for the state (`useState(() => …)`), as Solid's `createSignal` does not. */
-export function callsInitialValue(module: string, name: string): boolean {
-  const row = frameworkRow(module, name);
-  return row?.model === "state-pair" && row.lazy === true;
-}
-
-/** The argument a reducer pair's reducer is at (`useReducer(reducer, …)`), or null for any other pair. */
-export function reducerArgument(module: string, name: string): number | null {
-  const row = frameworkRow(module, name);
-  return row ? reducerAt(row) ?? null : null;
 }
