@@ -1,0 +1,14 @@
+{
+  "id": "d31152a3-6e52-4835-9237-5a72c87a6791",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:17970f",
+    "label": "Agent token ...17970f"
+  },
+  "createdAt": "2026-11-22T14:08:42.538Z",
+  "summary": "Deleted \"Step 4: state pairs and resources as rows\".",
+  "nodeIds": [
+    "task-step-4-state-pairs-and-resources-as-rows"
+  ]
+}

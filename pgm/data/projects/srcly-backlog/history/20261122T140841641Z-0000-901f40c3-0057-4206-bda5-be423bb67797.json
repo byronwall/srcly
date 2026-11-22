@@ -1,0 +1,17 @@
+{
+  "id": "901f40c3-0057-4206-bda5-be423bb67797",
+  "kind": "node.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:5f85ae",
+    "label": "Agent token ...5f85ae"
+  },
+  "createdAt": "2026-11-22T14:08:41.641Z",
+  "summary": "Updated title on \"Library models: last name lists in effects and call operations\".",
+  "nodeIds": [
+    "task-step-5-passes-through-and-consumes-rows"
+  ],
+  "metadata": {
+    "fields": "title"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "af7d4663-2868-4a13-bd43-7c39934302f3",
+  "kind": "node.deleted",
+  "actor": {
+    "kind": "agent",
+    "id": "token:17970f",
+    "label": "Agent token ...17970f"
+  },
+  "createdAt": "2026-11-22T14:08:42.568Z",
+  "summary": "Deleted \"Step 6: calls-back rows\".",
+  "nodeIds": [
+    "task-step-6-calls-back-rows"
+  ]
+}
