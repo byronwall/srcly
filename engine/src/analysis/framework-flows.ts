@@ -123,6 +123,15 @@ export function optionLifecycle(module: string, name: string): { hands: Record<s
   return { hands: row.hands ?? {}, observers: row.observers ?? {}, contextFrom: row.contextFrom ?? null };
 }
 
+/**
+ * The result fields of a call that watches a function it is given (`useSubmission(action)`):
+ * `field` holds what the function returns, and `input` the arguments of each call of it. Null for any other call.
+ */
+export function watchedFunction(module: string, name: string): { at: number; field: string; input: string | null } | null {
+  const row = frameworkRow(module, name);
+  return row?.model === "calls-back" && !row.option && row.field ? { at: argument(row) ?? 0, field: row.field, input: row.input ?? null } : null;
+}
+
 /** Whether the call makes a state pair (`createSignal`, `useState`). */
 export function makesStatePair(module: string, name: string): boolean {
   return frameworkRow(module, name)?.model === "state-pair";

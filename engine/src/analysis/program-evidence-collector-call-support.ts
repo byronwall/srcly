@@ -9,7 +9,7 @@ import {
 } from "./program-evidence-collector-expression-support";
 import { lazyFactoryGetter, reducerOf, seedArgument, stateFactory, stateRoleOf } from "./program-evidence-state-pairs";
 import { jsonValueMember, namesSeveralValues, resolveValue, throughWrappers, wrappedArgument } from "./value-origin";
-import { frameworkFlow, makesAccessor, makesPredicate, PROMISE_CHANNELS, yieldsOnlyCallback, type FrameworkFlow } from "./framework-flows";
+import { frameworkFlow, makesAccessor, makesPredicate, PROMISE_CHANNELS, watchedFunction, yieldsOnlyCallback, type FrameworkFlow } from "./framework-flows";
 import { boundaryRole, builtinLibraryModels, standardMemberModel } from "./library-models";
 import { ProgramEvidenceCollectorDeclarations } from "./program-evidence-collector-declarations";
 import type { CollectorCallInfo, CollectorFunctionInfo } from "./program-evidence-collector-support";
@@ -169,6 +169,11 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
     if (isResourceFactory(this.ts, this.checker, node)) return resourceFlow(this.ts, this.checker, node);
     const imported = importedCallee(this.ts, this.checker, node.expression);
     return imported ? frameworkFlow(imported.module, imported.name) : undefined;
+  }
+
+  private watchesFunction(node: TypeScript.CallExpression): boolean {
+    const imported = importedCallee(this.ts, this.checker, node.expression);
+    return imported !== null && watchedFunction(imported.module, imported.name) !== null;
   }
 
   /** Whether a row names where the call's value comes from (`useMemo`'s callback, `useQuery`'s `queryFn`), so no other argument is in it. */
@@ -407,6 +412,8 @@ export class ProgramEvidenceCollectorCallSupport extends ProgramEvidenceCollecto
       if (index === 0 && this.readsContext(node)) continue;
       // A resource's `mutate(v)` and `refetch(x)` hand their argument to the resource or its fetcher (`connectResourceAction`), never to the call's value.
       if (resourceAction(this.ts, this.checker, node.expression)) continue;
+      // A watched function (`useSubmission(action)`) fills the result's fields (`connectWatchedFunctions`); the function itself is not the value.
+      if (this.watchesFunction(node)) continue;
       this.addRelation(
         argumentId,
         callId,

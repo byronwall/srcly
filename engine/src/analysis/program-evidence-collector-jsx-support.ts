@@ -6,6 +6,7 @@ import { ProgramEvidenceCollectorFieldTransferSupport } from "./program-evidence
 import { reachingBindings } from "./program-evidence-reaching-bindings";
 import { resolveValue, wrapperFillsParameters } from "./value-origin";
 import { stateRoleOf } from "./program-evidence-state-pairs";
+import { watchedFunction } from "./framework-flows";
 import { isImmerDraft, storeApiCall, storeCreators, storeMember } from "./zustand-store";
 import type { ProgramEvidenceLocation } from "./program-evidence";
 import { isSolidComponent } from "./program-evidence-collector-field-transfer-ast";
@@ -539,6 +540,7 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
   protected connectCalls(): void {
     this.connectContexts();
     this.connectStores();
+    this.connectWatchedFunctions();
     const props = new Map<string, PendingComponentPropBinding[]>();
     for (const prop of this.componentPropBindings) {
       const bindings = props.get(prop.target.id) ?? [];
@@ -743,6 +745,39 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
    * is the call's value; without one, the call is the state, as
    * `useStore.getState()` is. Order and time are not proven, as for a state pair.
    */
+  /**
+   * A call that watches a function it is given (`useSubmission(action)`, a
+   * `watchedFunction` row): its result's `field` holds what the function
+   * returns, and its `input` each call's arguments, by position. The function
+   * is the one the action wraps, however it is reached (`resolveValue`).
+   */
+  private connectWatchedFunctions(): void {
+    for (const call of this.calls) {
+      if (!this.ts.isCallExpression(call.node)) continue;
+      const imported = importedCallee(this.ts, this.checker, call.node.expression);
+      const fields = imported ? watchedFunction(imported.module, imported.name) : null;
+      const argument = fields ? call.node.arguments[fields.at] : undefined;
+      const fn = argument ? this.targetFunction(unwrap(this.ts, argument)) : null;
+      if (!fields || !argument || !fn) continue;
+      const node = call.node;
+      const key = (item: TypeScript.Node) => { const { span } = this.location(item); return `${span.startLine}:${span.startColumn}`; };
+      const detail = (words: string, at: TypeScript.Node = node) => proof("framework-state", words, [this.location(at)]);
+      const packed = { [key(argument)]: fields.field, ...(fields.input ? { [key(node.expression)]: fields.input } : {}) };
+      const packId = this.ensureElement(node, "object-pack", call.ownerId, { operation: "object-pack", fields: JSON.stringify(packed) }, null, null, null, "proven", detail("The call's result is an object of fields the watched function fills."));
+      for (const returnId of this.returnsByFunction.get(fn.id) ?? []) {
+        this.addRelation(returnId, packId, "pack-field", [this.location(argument)], detail(`The result's ${fields.field} is what the watched function returns.`, argument), "proven");
+      }
+      for (const other of fields.input ? this.calls : []) {
+        if (other.target?.id !== fn.id || !this.ts.isCallExpression(other.node) || other.node.arguments.length === 0) continue;
+        const args = other.node.arguments;
+        const listId = this.ensureElement(other.node, "object-pack", other.ownerId, { operation: "object-pack", fields: JSON.stringify(Object.fromEntries(args.map((item, index) => [key(item), String(index)]))) }, null, null, null, "proven", detail("The call's arguments, as a list."));
+        for (const item of args) this.addRelation(this.expression(item, other.ownerId), listId, "pack-field", [this.location(item)], detail("This call of the watched function passes this argument.", item), "proven");
+        this.addRelation(listId, packId, "pack-field", [this.location(node.expression)], detail(`The result's ${fields.input} holds the arguments of each call of the watched function.`, node.expression), "proven");
+      }
+      this.addRelation(packId, call.id, "framework-flow", [this.location(node)], detail("The call yields the watched function's result fields."), "proven");
+    }
+  }
+
   private connectStores(): void {
     for (const call of this.calls) {
       if (!this.ts.isCallExpression(call.node)) continue;
