@@ -206,7 +206,7 @@ Closing `js-reduce` and `js-require` needs a type source for JavaScript paramete
 
 | Root | Patterns | `ok` before | `ok` after | `assumed` | `partial` | Wanted end before | Wanted end after |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| react | 81 | 70 | 80 | 1 (5 before) | 0 (6 before) | 73 | 80 |
+| react | 81 | 70 | 81 | 0 (5 before) | 0 (6 before) | 73 | 80 |
 
 Closed, by principle (the rules are in `docs/dataflow-coverage.md`):
 
@@ -221,10 +221,4 @@ Closed, by principle (the rules are in `docs/dataflow-coverage.md`):
 | A callback inside a handler handed in returns to its own call (the walk used to stop at its return, a wrong `ok` at `return`) | `r-list-edit` |
 | A parameter of an exported function nothing calls begins at the module's API | `r-debounce-hook` |
 
-Still not `ok`, or not at the wanted end:
-
-| Pattern | Outcome | Why it stays |
-| --- | --- | --- |
-| `r-filter-derived` | `ok` at `return` | `query` only decides which items `filter` keeps: a control dependency, not a value in the render. The honest end is a named "filters the list" end kind, the same one the Solid case `s-filter-memo` needs. It is left for the Solid round, so the two do not add the kind twice. |
-| `r-children-fn` | assumed | `props.children(value)` calls a function written as a JSX child. A JSX child function is not yet bound to the `children` prop, so the call is an assumed library call. The Solid round adds this slot for `s-render-prop`; the React pattern has the same shape. |
-
+`r-children-fn` closed through #424's rule for a function written as a JSX child (the `children` prop). The one pattern not at its wanted end is `r-filter-derived`: `query` only decides which items `filter` keeps, a control dependency. It ends at `branch-condition` (#424), and #426 sets its `@want` to that end.
