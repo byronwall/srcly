@@ -5,7 +5,7 @@ import path from "node:path";
 import type * as TypeScript from "typescript";
 import { builtinLibraryModels, standardMemberModel } from "../analysis/library-models";
 import { yieldsOnlyCallback } from "../analysis/framework-flows";
-import { browserMember, importedCallee, isStandardLibraryCallee } from "../analysis/program-evidence-support";
+import { browserMember, importedCallee, isBoundHandlerPair, isStandardLibraryCallee } from "../analysis/program-evidence-support";
 import { programEvidenceCandidateIndex, type ProgramEvidenceCandidateIndex } from "../analysis/program-evidence-candidate-index";
 import type { ProgramElement, ProgramRelation } from "../analysis/scope-seam";
 import { assumedThrough } from "./anchor-slice";
@@ -284,6 +284,8 @@ export function endsInPlace(tier1: Tier1, element: Pick<ProgramElement, "locatio
   if (unreadBinding(ts, tier1.program.getTypeChecker(), node, candidates)) return "unused";
   if (testedOnly(ts, tier1.program.getTypeChecker(), node)) return "branch";
   if (sourceFile && apiCallback(ts, tier1.program.getTypeChecker(), sourceFile, node, candidates)) return "exported-api";
+  // A handler written with its data (`onClick={[remove, id]}`): the page takes the pair and calls the handler with the data (`bindsEventData`).
+  if (isBoundHandlerPair(ts, tier1.program.getTypeChecker(), node)) return "handed-back";
   // A call through a function the library supplied (`resolve(value)` in `new Promise((resolve) => …)`) hands its argument back to that library.
   if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && suppliedByLibrary(ts, tier1.program.getTypeChecker(), node.expression)) return "handed-back";
   const test = ts.isIfStatement(parent) || ts.isWhileStatement(parent) || ts.isDoStatement(parent) || ts.isSwitchStatement(parent) || ts.isCaseClause(parent) ? parent.expression : ts.isForStatement(parent) ? parent.condition : undefined;

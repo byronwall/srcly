@@ -266,6 +266,24 @@ export function resourceAction(ts: typeof TypeScript, checker: TypeScript.TypeCh
   return factory && ts.isCallExpression(factory) && isResourceFactory(ts, checker, factory) ? { name: key, factory } : null;
 }
 
+/**
+ * Whether a JSX attribute's value is a handler written with its data
+ * (`onClick={[remove, id]}`) where the attribute's own type says so: a tuple
+ * whose first element is a function (Solid's `BoundEventHandler`).
+ */
+export function isBoundHandlerPair(ts: typeof TypeScript, checker: TypeScript.TypeChecker, node: TypeScript.Node): node is TypeScript.ArrayLiteralExpression {
+  if (!ts.isArrayLiteralExpression(node) || node.elements.length !== 2 || node.elements.some((item) => ts.isSpreadElement(item))) return false;
+  let holder: TypeScript.Node = node.parent;
+  while (ts.isParenthesizedExpression(holder)) holder = holder.parent;
+  if (!ts.isJsxExpression(holder) || !ts.isJsxAttribute(holder.parent)) return false;
+  const expected = checker.getContextualType(node);
+  const types = expected?.isUnion() ? expected.types : expected ? [expected] : [];
+  return types.some((type) => {
+    const first = type.getProperty("0");
+    return !!first && !!type.getProperty("1") && checker.getTypeOfSymbol(first).getCallSignatures().length > 0;
+  });
+}
+
 /** A UI framework's own reactive and routing calls: what they do with a value is the framework's model, never an external effect. */
 const FRAMEWORK_CALLS: Record<string, RegExp> = {
   "solid-js": /^(createResource|createEffect|createRenderEffect|createComputed|createMemo|createSignal|createSelector|createContext|useContext|onMount|onCleanup|on|batch|untrack|mergeProps|splitProps|children|lazy|Show|For)$/,

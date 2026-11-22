@@ -21,6 +21,7 @@ import {
   importedCallee,
   isAssignmentOperator,
   firstBindingIdentifier,
+  isBoundHandlerPair,
   functionNameNode,
   isExitStatusAssignment,
   isSelectionOperator,
@@ -227,6 +228,8 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
         ? attribute.initializer.expression
         : component ? attribute.initializer : undefined;
       if (!value || !this.ts.isExpression(value)) continue;
+      // Solid's bound handler (`onClick={[remove, id]}`): the page calls `remove(id, event)`; the pair is no DOM attribute.
+      if (!component && this.bindsEventData(value, ownerId)) continue;
       const valueId = this.expression(value, ownerId);
       const context = attribute.name.getText() === "value" ? provided : null;
       if (context) {
@@ -914,6 +917,26 @@ export class ProgramEvidenceCollectorJsxSupport extends ProgramEvidenceCollector
     const read = holder ? this.contextRead(holder) : null;
     const context = read ? this.contextKey(read.arguments[0]) : null;
     return context ? { context, name } : null;
+  }
+
+  /**
+   * A handler written with its data (`[remove, id]`) where the attribute's
+   * own type says so: a tuple whose first element is a function (Solid's
+   * `BoundEventHandler`). The data binds the handler's first parameter.
+   */
+  private bindsEventData(value: TypeScript.Expression, ownerId: string | null): boolean {
+    const pair = unwrap(this.ts, value);
+    if (!isBoundHandlerPair(this.ts, this.checker, pair)) return false;
+    const [handlerNode, data] = pair.elements;
+    const handler = this.targetFunction(unwrap(this.ts, handlerNode));
+    const parameter = handler?.declaration.parameters[0];
+    const binding = parameter ? firstBindingIdentifier(this.ts, parameter.name) : null;
+    const parameterId = binding ? this.parametersBySymbol.get(this.symbolId(binding) ?? "") : undefined;
+    if (parameterId) {
+      const where = [this.location(data), this.location(parameter!)];
+      this.addRelation(this.expression(data, ownerId), parameterId, "argument-binding", where, proof("argument-binding", "The page calls the bound handler with this data as its first argument.", where), "proven");
+    }
+    return true;
   }
 
   /** The context read and position a callee takes from a context's tuple (`const [, setName] = useContext(Ctx)`), or null. */
