@@ -76,15 +76,6 @@ export type ProgramEvidenceBoundaryContext = {
   addHttpResponse: (response: HttpBridgeResponse) => void;
 };
 
-/** Router hooks that read the page's URL: route parameters, the query string, the location. */
-const URL_READS: Record<string, readonly string[]> = {
-  "@solidjs/router": ["useParams", "useSearchParams", "useLocation"],
-  "react-router": ["useParams", "useSearchParams", "useLocation"],
-  "react-router-dom": ["useParams", "useSearchParams", "useLocation"],
-  "next/navigation": ["useParams", "useSearchParams", "usePathname"],
-  "@tanstack/react-router": ["useParams", "useSearch", "useLocation"],
-};
-
 /** Collect host, external, resource, and HTTP boundary facts for one call. */
 export function processProgramCallBoundary(
   context: ProgramEvidenceBoundaryContext,
@@ -97,7 +88,8 @@ export function processProgramCallBoundary(
   const exported = imported?.name ?? name;
   // A library model row says which boundary the call is; the role is the element kind it marks.
   const role = boundaryRole(context.model);
-  const urlRead = imported && URL_READS[imported.module]?.includes(imported.name);
+  // A row says the call reads the page's URL (`useParams`).
+  const urlRead = context.model?.input === "url";
   const member = browserMember(ts, context.checker, node.expression);
   // A DOM member a row says keeps nothing (`querySelector`) is a read, even with its value dropped.
   const reads = standardMemberModel(builtinLibraryModels(), member)?.model === "consumes";

@@ -18,6 +18,7 @@
         "ReturnValue.Member[0]",
         "ReturnValue.Member[1].Parameter[0].Parameter[0]"
       ],
+      "state": "signal",
       "note": "One state per call: the setter's argument (or an updater's return) is the state the value reads. A function initial value is called for the state."
     },
     {
@@ -37,6 +38,7 @@
       "yields": [
         "ReturnValue.Member[1].Parameter[0] -> Argument[0].Parameter[1]"
       ],
+      "state": "store",
       "note": "One state per call: dispatch calls the reducer with the action, and only what the reducer returns is the state. A function given to dispatch is an action, not an updater."
     },
     {
@@ -47,6 +49,7 @@
       "flows": [
         "Argument[0].ReturnValue -> ReturnValue"
       ],
+      "state": "memo",
       "note": "The call's value is what its callback returns."
     },
     {
@@ -116,6 +119,11 @@
         "Argument[0].Member[select].ReturnValue -> ReturnValue.Member[data]",
         "Argument[0].Member[queryKey] -> Argument[0].Member[queryFn].Parameter[0].Member[queryKey]"
       ],
+      "state": "resource",
+      "scopes": {
+        "Argument[0]": "fetcher",
+        "Argument[0].Member[queryFn]": "fetcher"
+      },
       "note": "The query's `data` is what its `queryFn` returns, or what `select` makes of it. Its other fields (`status`, `error`, `isLoading`) do not hold that value. The `queryFn` gets the `queryKey`."
     },
     {
@@ -167,6 +175,10 @@
         "Argument[0].Member[mutationFn].Parameter[0] -> Argument[0].Member[onSettled].Parameter[2]",
         "Argument[0].Member[onMutate].ReturnValue -> Argument[0].Member[onSettled].Parameter[3]"
       ],
+      "scopes": {
+        "Argument[0]": "fetcher",
+        "Argument[0].Member[mutationFn]": "fetcher"
+      },
       "note": "`mutate(x)` calls the `mutationFn` with `x`. The mutation's `data` is what that function returns; its other fields do not hold it. `onMutate`, `onSuccess`, `onError` and `onSettled` get the variables; what `onMutate` returns is their context."
     },
     {
@@ -317,6 +329,173 @@
     {
       "language": "ts",
       "module": "react",
+      "name": "useRef",
+      "model": "consumes",
+      "note": "A framework call, not an effect: the ref's `current` starts as the argument (no path yet)."
+    },
+    {
+      "language": "ts",
+      "module": "react",
+      "name": "useId",
+      "model": "consumes",
+      "note": "A framework call, not an effect: a stable id for the component."
+    },
+    {
+      "language": "ts",
+      "module": "react",
+      "name": "useTransition",
+      "model": "consumes",
+      "note": "A framework call, not an effect: a pending flag and a function that runs its argument as a transition (no path yet)."
+    },
+    {
+      "language": "ts",
+      "module": "react-router",
+      "name": "useParams",
+      "model": "origin",
+      "role": "external-read",
+      "input": "url",
+      "note": "The route's parameters, read from the page's URL."
+    },
+    {
+      "language": "ts",
+      "module": "react-router",
+      "name": "useSearchParams",
+      "model": "origin",
+      "role": "external-read",
+      "input": "url",
+      "note": "The page's query string, read from its URL."
+    },
+    {
+      "language": "ts",
+      "module": "react-router",
+      "name": "useLocation",
+      "model": "origin",
+      "role": "external-read",
+      "input": "url",
+      "note": "The page's location, read from its URL."
+    },
+    {
+      "language": "ts",
+      "module": "react-router-dom",
+      "name": "useParams",
+      "model": "origin",
+      "role": "external-read",
+      "input": "url",
+      "note": "The route's parameters, read from the page's URL."
+    },
+    {
+      "language": "ts",
+      "module": "react-router-dom",
+      "name": "useSearchParams",
+      "model": "origin",
+      "role": "external-read",
+      "input": "url",
+      "note": "The page's query string, read from its URL."
+    },
+    {
+      "language": "ts",
+      "module": "react-router-dom",
+      "name": "useLocation",
+      "model": "origin",
+      "role": "external-read",
+      "input": "url",
+      "note": "The page's location, read from its URL."
+    },
+    {
+      "language": "ts",
+      "module": "next/navigation",
+      "name": "useParams",
+      "model": "origin",
+      "role": "external-read",
+      "input": "url",
+      "note": "The route's parameters, read from the page's URL."
+    },
+    {
+      "language": "ts",
+      "module": "next/navigation",
+      "name": "useSearchParams",
+      "model": "origin",
+      "role": "external-read",
+      "input": "url",
+      "note": "The page's query string, read from its URL."
+    },
+    {
+      "language": "ts",
+      "module": "next/navigation",
+      "name": "usePathname",
+      "model": "origin",
+      "role": "external-read",
+      "input": "url",
+      "note": "The page's path, read from its URL."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/react-router",
+      "name": "useParams",
+      "model": "origin",
+      "role": "external-read",
+      "input": "url",
+      "note": "The route's parameters, read from the page's URL."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/react-router",
+      "name": "useSearch",
+      "model": "origin",
+      "role": "external-read",
+      "input": "url",
+      "note": "The page's query string, read from its URL."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/react-router",
+      "name": "useLocation",
+      "model": "origin",
+      "role": "external-read",
+      "input": "url",
+      "note": "The page's location, read from its URL."
+    },
+    {
+      "language": "ts",
+      "module": "swr",
+      "name": "useSWR",
+      "model": "calls-back",
+      "flows": [
+        "Argument[0] -> Argument[1].Parameter[0]",
+        "Argument[1].ReturnValue -> ReturnValue.Member[data]"
+      ],
+      "state": "resource",
+      "scopes": {
+        "Argument[1]": "fetcher",
+        "Argument[2].Member[fetcher]": "fetcher"
+      },
+      "note": "The fetcher gets the key; its value is the result's `data`."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/react-start",
+      "name": "createServerFn",
+      "model": "consumes",
+      "scopes": {
+        "Argument[0]": "server",
+        "Argument[1]": "server"
+      },
+      "note": "Makes a server function of the function it is handed (no path yet)."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/solid-start",
+      "name": "createServerFn",
+      "model": "consumes",
+      "scopes": {
+        "Argument[0]": "server",
+        "Argument[1]": "server"
+      },
+      "note": "Makes a server function of the function it is handed (no path yet)."
+    },
+    {
+      "language": "ts",
+      "module": "react",
       "name": "createContext",
       "model": "keyed",
       "store": "providers",
@@ -340,6 +519,7 @@
       "reads": [
         "ReturnValue"
       ],
+      "state": "context",
       "note": "Reads the context's entry: the value of the nearest provider above the reader, or the default where none is."
     }
   ]

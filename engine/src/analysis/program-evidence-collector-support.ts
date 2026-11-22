@@ -58,7 +58,6 @@ import {
   inside,
   discardsValue,
   isEffectName,
-  isFrameworkCall,
   nodeLocation,
   expressionText,
   nodeKey,
@@ -741,9 +740,9 @@ export class ProgramEvidenceCollectorSupport {
     if (imported && frameworkFlow(imported.module, imported.name)) return false;
     // A function a row says is a terminal (`navigate` after `useNavigate()`) is modelled too.
     if (returnedTerminal(this.ts, this.checker, node.expression)) return false;
-    const name = imported?.name ?? calleeName(this.ts, node.expression);
     return Boolean(
-      (module && !isFrameworkCall(module, name)) ||
+      // A call into a package no row names is an assumed effect; a row says what the framework does with it.
+      (module && !this.modelFor(node.expression)) ||
         isEffectName(calleeName(this.ts, node.expression)) ||
         (!module && this.droppedLibraryCall(node)),
     );

@@ -17,6 +17,7 @@
         "ReturnValue.Member[0].ReturnValue",
         "ReturnValue.Member[1].Parameter[0].Parameter[0]"
       ],
+      "state": "signal",
       "note": "One state per call: the setter's argument (or an updater's return) is what the getter's calls read."
     },
     {
@@ -38,6 +39,10 @@
         "Argument[0].ReturnValue -> Argument[1].Parameter[0]",
         "ReturnValue.Member[1].Member[refetch].Parameter[0] -> Argument[1].Parameter[1].Member[refetching]"
       ],
+      "state": "resource",
+      "scopes": {
+        "Argument[1]": "fetcher"
+      },
       "note": "One resource per call: what the fetcher settles to, or what mutate receives, is what the accessor reads. The source (or what it returns) is the fetcher's first parameter, and refetch's argument its second's `refetching`. The source may be left out."
     },
     {
@@ -48,6 +53,7 @@
       "flows": [
         "Argument[0].ReturnValue -> ReturnValue.ReturnValue"
       ],
+      "state": "memo",
       "note": "The call makes an accessor that yields what its callback returns."
     },
     {
@@ -334,6 +340,13 @@
     },
     {
       "language": "ts",
+      "module": "solid-js",
+      "name": "lazy",
+      "model": "consumes",
+      "note": "A framework call, not an effect: a component that loads the module it is handed (no path yet)."
+    },
+    {
+      "language": "ts",
       "module": "solid-js/store",
       "name": "createStore",
       "model": "cell",
@@ -349,6 +362,7 @@
         "ReturnValue.Member[0]",
         "ReturnValue.Member[1].Parameter[0].Parameter[0]"
       ],
+      "state": "store",
       "note": "One store per call: the setter's argument (or an updater's return, or a value at a path of keys) is what the store reads."
     },
     {
@@ -369,7 +383,22 @@
       "flows": [
         "Argument[0] -> ReturnValue"
       ],
+      "state": "store",
       "note": "The mutable store carries the object it is given."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js/store",
+      "name": "produce",
+      "model": "consumes",
+      "note": "A framework call, not an effect: a store updater that runs its argument on a draft (no path yet)."
+    },
+    {
+      "language": "ts",
+      "module": "solid-js/store",
+      "name": "reconcile",
+      "model": "consumes",
+      "note": "A framework call, not an effect: a store updater that diffs in its argument (no path yet)."
     },
     {
       "language": "ts",
@@ -379,6 +408,10 @@
       "flows": [
         "Argument[0].ReturnValue -> ReturnValue.ReturnValue"
       ],
+      "state": "resource",
+      "scopes": {
+        "Argument[0]": "fetcher"
+      },
       "note": "The call makes an accessor that yields what its callback returns."
     },
     {
@@ -407,7 +440,26 @@
       "model": "terminal",
       "role": "external-effect",
       "result": "1",
+      "input": "url",
       "note": "Calling the setter it returns writes the page's query string: the value leaves the program."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
+      "name": "useParams",
+      "model": "origin",
+      "role": "external-read",
+      "input": "url",
+      "note": "The route's parameters, read from the page's URL."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
+      "name": "useLocation",
+      "model": "origin",
+      "role": "external-read",
+      "input": "url",
+      "note": "The page's location, read from its URL."
     },
     {
       "language": "ts",
@@ -417,6 +469,9 @@
       "flows": [
         "Argument[0] -> ReturnValue"
       ],
+      "scopes": {
+        "Argument[0]": "server"
+      },
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
     },
     {
@@ -437,6 +492,9 @@
       "flows": [
         "Argument[0] -> ReturnValue"
       ],
+      "scopes": {
+        "Argument[0]": "server"
+      },
       "note": "The call returns the function it is given, wrapped: calling the result runs it with the same arguments."
     },
     {
@@ -459,6 +517,51 @@
         "Argument[0].Parameter[0..] -> ReturnValue.Member[input]"
       ],
       "note": "One submission per call: its `result` is what the action's function returns, and its `input` the arguments of each call of the action."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
+      "name": "useSubmissions",
+      "model": "consumes",
+      "note": "A framework call, not an effect: every submission of an action (no path yet)."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
+      "name": "useBeforeLeave",
+      "model": "consumes",
+      "note": "A framework call, not an effect: runs its argument before the page leaves (no path yet)."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
+      "name": "redirect",
+      "model": "consumes",
+      "note": "A framework call, not an effect: a response the router reads as a redirect."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
+      "name": "revalidate",
+      "model": "consumes",
+      "note": "A framework call, not an effect: the router refetches the queries under its keys."
+    },
+    {
+      "language": "ts",
+      "module": "@solidjs/router",
+      "name": "reload",
+      "model": "consumes",
+      "note": "A framework call, not an effect: a response the router reads as a reload."
+    },
+    {
+      "language": "ts",
+      "module": "solid-start/server",
+      "name": "default",
+      "model": "consumes",
+      "scopes": {
+        "Argument[0]": "server"
+      },
+      "note": "`server$`: makes a server function of the function it is handed (no path yet)."
     },
     {
       "language": "ts",
@@ -518,6 +621,9 @@
       "flows": [
         "Argument[0].Member[queryFn].ReturnValue -> ReturnValue"
       ],
+      "scopes": {
+        "Argument[0]": "fetcher"
+      },
       "note": "The query's value is what its `queryFn` returns."
     },
     {
@@ -538,6 +644,11 @@
       "flows": [
         "Argument[0].Member[queryFn].ReturnValue -> ReturnValue"
       ],
+      "state": "resource",
+      "scopes": {
+        "Argument[0]": "fetcher",
+        "Argument[0].ReturnValue.Member[queryFn]": "fetcher"
+      },
       "note": "The query's value is what its `queryFn` returns."
     },
     {
@@ -550,6 +661,10 @@
         "ReturnValue.Member[mutateAsync].Parameter[0] -> Argument[0].Member[mutationFn].Parameter[0]",
         "Argument[0].Member[mutationFn].ReturnValue -> ReturnValue.Member[mutateAsync].ReturnValue.Awaited"
       ],
+      "scopes": {
+        "Argument[0]": "fetcher",
+        "Argument[0].ReturnValue.Member[mutationFn]": "fetcher"
+      },
       "note": "`mutate(x)` calls the `mutationFn` with `x`."
     },
     {
@@ -562,7 +677,18 @@
         "ReturnValue.Member[mutateAsync].Parameter[0] -> Argument[0].Member[mutationFn].Parameter[0]",
         "Argument[0].Member[mutationFn].ReturnValue -> ReturnValue.Member[mutateAsync].ReturnValue.Awaited"
       ],
+      "scopes": {
+        "Argument[0]": "fetcher"
+      },
       "note": "`mutate(x)` calls the `mutationFn` with `x`."
+    },
+    {
+      "language": "ts",
+      "module": "@tanstack/solid-query",
+      "name": "useQueryClient",
+      "model": "origin",
+      "role": "external-read",
+      "note": "The QueryClient the nearest QueryClientProvider holds: the library hands the program this object, which holds the query cache."
     },
     {
       "language": "ts",
@@ -589,6 +715,7 @@
       "reads": [
         "ReturnValue"
       ],
+      "state": "context",
       "note": "Reads the context's entry: the value of the nearest provider above the reader, or the default where none is."
     }
   ]

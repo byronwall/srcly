@@ -4,6 +4,7 @@ import path from "node:path";
 import type * as TypeScript from "typescript";
 import { createCallSiteIndex, type CallSiteIndex } from "./call-sites";
 import { compilerSymbolId } from "../analysis/program-evidence-support";
+import { builtinTsModel } from "../analysis/library-models";
 import { scopeRole } from "./scope-roles";
 import { callSitesOfElement, enclosingFunction, functionName, nodeAtSpan } from "./facts";
 import type { BindingState, HostCandidate, LanguageHost } from "./host";
@@ -74,7 +75,7 @@ export function createTypescriptHost(tier1: TsTier1): LanguageHost {
       if (!fn || !at) return null;
       let scope = scopes.get(fn);
       if (!scope) {
-        scope = { span: spanOf(at.sourceFile, fn), name: functionName(ts, fn, at.sourceFile), role: scopeRole(ts, fn, at.sourceFile) };
+        scope = { span: spanOf(at.sourceFile, fn), name: functionName(ts, fn, at.sourceFile), role: scopeRole(ts, checker, fn, at.sourceFile) };
         scopes.set(fn, scope);
       }
       return scope;
@@ -171,23 +172,6 @@ function bindingOf(ts: typeof TypeScript, checker: TypeScript.TypeChecker, root:
   return { symbol: id, field: fields.length ? fields.join(".") : null, attribute, state: stateOf(ts, checker, declaration) };
 }
 
-/** The framework calls that make state, by name, when the callee is declared in a framework package. */
-const STATE_CALLS: Record<string, BindingState> = {
-  createSignal: "signal",
-  useState: "signal",
-  createStore: "store",
-  createMutable: "store",
-  useReducer: "store",
-  createResource: "resource",
-  createAsync: "resource",
-  useQuery: "resource",
-  useSWR: "resource",
-  createMemo: "memo",
-  useMemo: "memo",
-  useContext: "context",
-};
-const FRAMEWORK_PACKAGE = /node_modules\/(solid-js|react|@solidjs\/router|@tanstack\/[^/]+-query|swr)\//;
-
 /** `const [doc] = createResource(…)`: the state the declaration's initializer makes, else null. */
 function stateOf(ts: typeof TypeScript, checker: TypeScript.TypeChecker, declaration: TypeScript.Declaration): BindingState | null {
   let at: TypeScript.Node = declaration;
@@ -196,14 +180,9 @@ function stateOf(ts: typeof TypeScript, checker: TypeScript.TypeChecker, declara
   const init = skipWrappers(ts, at.initializer);
   if (!ts.isCallExpression(init)) return null;
   const callee = skipWrappers(ts, init.expression);
-  const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : null;
-  const state = name ? STATE_CALLS[name] : undefined;
-  if (!state) return null;
+  // The callee's row names the state it makes (`state`).
   try {
-    let symbol = checker.getSymbolAtLocation(ts.isPropertyAccessExpression(callee) ? callee.name : callee);
-    if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
-    const file = symbol?.declarations?.[0]?.getSourceFile().fileName ?? "";
-    return FRAMEWORK_PACKAGE.test(file) ? state : null;
+    return builtinTsModel(ts, checker, callee)?.state ?? null;
   } catch {
     return null;
   }
