@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -241,6 +242,44 @@ def test_pr_merges_count_on_a_default_branch_ahead_of_its_upstream(tmp_path):
     payload = repo.lens(**AFTER_BASE)
     assert set(by_id(payload)) == {"a.ts::a", "b.ts::b"}
     assert not any("upstream" in note for note in payload["selection"]["notes"])
+
+
+def _stale_feature(tmp_path) -> tuple[Mini, dict]:
+    """HEAD on `feature`, one commit behind origin/main; local main is older still. The window holds main's edit only."""
+    repo = Mini(tmp_path / "r")
+    first = repo.commit("base", {"a.ts": fn("a", 1), "b.ts": fn("b", 1)})
+    repo.git("checkout", "--quiet", "-b", "feature")
+    repo.commit("feature edits a", {"a.ts": fn("a", 2)})
+    since = int(repo.git("log", "-1", "--format=%ct")) + 60
+    repo.git("checkout", "--quiet", "main")
+    repo.commit("main edits b", {"b.ts": fn("b", 7)})
+    repo.git("update-ref", "refs/remotes/origin/main", "HEAD")
+    repo.git("checkout", "--quiet", "feature")
+    repo.git("branch", "--force", "main", first)
+    after = {"window": "custom", "since": datetime.fromtimestamp(since, timezone.utc).isoformat(), "until": "2026-03-30T00:00:00+00:00"}
+    return repo, after
+
+
+def test_a_time_window_off_main_reads_main_history_when_head_has_none(tmp_path):
+    repo, after = _stale_feature(tmp_path)
+    payload = repo.lens(**after)
+    sel = payload["selection"]
+    assert sel["history"] == "main" and sel["ref"] == "origin/main"
+    assert sel["branch"] == {
+        "name": "feature", "default": "main", "defaultRef": "origin/main", "onDefault": False,
+        "ahead": 1, "behind": 1, "defaultCommits": None,
+    }
+    assert set(by_id(payload)) == {"b.ts::b"}
+    assert not sel["includesWorktree"]
+    # The branch window keeps meaning this branch against its merge-base.
+    assert set(by_id(repo.lens())) == {"a.ts::a"}
+
+
+def test_head_history_off_main_is_empty_and_counts_main_commits(tmp_path):
+    repo, after = _stale_feature(tmp_path)
+    payload = repo.lens(history="head", **after)
+    assert payload["chunks"] == [] and payload["selection"]["history"] == "head"
+    assert payload["selection"]["branch"]["defaultCommits"] == 1
 
 
 def test_same_named_scopes_pair_by_body_and_anonymous_objects_are_no_chunks(tmp_path):

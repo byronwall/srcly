@@ -11,6 +11,7 @@ WORKTREE = "WORKTREE"
 
 LensWindow = Literal["branch", "24h", "7d", "custom"]
 LensMode = Literal["touched", "net"]
+LensHistory = Literal["head", "main"]
 ChunkKind = Literal["function", "class", "heading", "file", "range"]
 ChunkStatus = Literal["modified", "added", "deleted", "moved", "reverted"]
 ChunkMatch = Literal["exact", "renamed-file", "moved", "uncertain", "none"]
@@ -45,10 +46,22 @@ class LensEndpoint(LensModel):
     date: Optional[str]
 
 
+class LensBranch(LensModel):
+    name: Optional[str]
+    default: str
+    default_ref: str
+    on_default: bool
+    ahead: int
+    behind: int
+    default_commits: Optional[int]
+
+
 class LensSelection(LensModel):
     window: LensWindow
     mode: LensMode
     ref: str
+    history: LensHistory
+    branch: Optional[LensBranch]
     base: LensEndpoint
     head: LensEndpoint
     since: Optional[str]

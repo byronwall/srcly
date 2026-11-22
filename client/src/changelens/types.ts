@@ -6,6 +6,8 @@
 export type LensWindow = "branch" | "24h" | "7d" | "custom";
 /** touched: union of chunks changed by the window's commits. net: base snapshot against head snapshot. */
 export type LensMode = "touched" | "net";
+/** Whose history a time window reads: the checked-out HEAD or the default branch. */
+export type LensHistory = "head" | "main";
 
 /** The literal head and commit id of uncommitted work. */
 export const WORKTREE = "WORKTREE";
@@ -21,11 +23,32 @@ export interface LensEndpoint {
   date: string | null;
 }
 
+/** Where HEAD stands against the default branch. */
+export interface LensBranch {
+  /** The checked-out branch; null for a detached HEAD. */
+  name: string | null;
+  /** The default branch's name, e.g. `main`. */
+  default: string;
+  /** What main history reads: `origin/main` unless local `main` is ahead of it. */
+  defaultRef: string;
+  onDefault: boolean;
+  /** Commits on HEAD that `defaultRef` does not hold. */
+  ahead: number;
+  /** Commits on `defaultRef` that HEAD does not hold. */
+  behind: number;
+  /** Only for an empty HEAD window off the default branch: commits on `defaultRef` in the same time span (the last 7 days for the branch window). */
+  defaultCommits: number | null;
+}
+
 export interface LensSelection {
   window: LensWindow;
   mode: LensMode;
   /** The branch or revision whose first-parent history was read. */
   ref: string;
+  /** `main` when a time window read the default branch instead of HEAD: asked for, or HEAD had no commits in it. */
+  history: LensHistory;
+  /** Null when no default branch was found. */
+  branch: LensBranch | null;
   base: LensEndpoint;
   head: LensEndpoint;
   /** Time limits of a time window (ISO 8601); null for `branch` and for ref-only custom ranges. */
