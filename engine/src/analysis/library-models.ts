@@ -1,4 +1,4 @@
-// Library models as data (docs/intent/dataflow-library-models/plan.md): what
+// Library models as data (docs/dataflow-engine.md, Library models): what
 // library code does, as rows both collectors read, instead of tables and
 // predicates in each. A row names a library member the checker resolves
 // (TypeScript: module and symbol; Python: mypy fullname) and one of a small

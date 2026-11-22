@@ -1,0 +1,17 @@
+{
+  "id": "3aa22b40-5d57-4279-b85d-3d3cf17c24c4",
+  "kind": "node.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:bd559b",
+    "label": "Agent token ...bd559b"
+  },
+  "createdAt": "2026-11-22T14:08:41.223Z",
+  "summary": "Updated context on \"Step 5: passes-through and consumes rows\".",
+  "nodeIds": [
+    "task-step-5-passes-through-and-consumes-rows"
+  ],
+  "metadata": {
+    "fields": "context"
+  }
+}

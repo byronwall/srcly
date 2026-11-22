@@ -1,0 +1,15 @@
+{
+  "id": "565782d9-b0fa-47c3-8695-18b87f214295",
+  "kind": "node.created",
+  "actor": {
+    "kind": "agent",
+    "id": "token:e1f1c7",
+    "label": "Agent token ...e1f1c7"
+  },
+  "createdAt": "2026-11-22T14:08:42.081Z",
+  "summary": "Created \"Library models: user rows\" under \"Data flow: library models as data\".",
+  "nodeIds": [
+    "task-library-models-user-rows",
+    "area-data-flow-library-models-as-data"
+  ]
+}
