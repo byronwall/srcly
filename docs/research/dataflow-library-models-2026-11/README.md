@@ -2,11 +2,86 @@
 
 Byron's question: "I am worried that extending this to cover more patterns requires adding huge amounts of custom code for every library that is supported. Can we do better?"
 
-Short answer: yes. Most library knowledge is already data (286 rows in `engine/models/*.json`). The cost does not come from the rows. It comes from the row vocabulary: each new library shape adds a new row field, a new TypeScript reader, and a new emitter. A fixed vocabulary of access paths, plus flow edges that the libraries' own `.d.ts` generics propose, would make most new library support rows-only. Two engine concepts (a state cell and a component slot) would absorb the imperative code that remains.
+Short answer: yes. Most library knowledge is already data (286 rows in `engine/models/*.json`). The cost does not come from the rows. It comes from the row vocabulary: each new library shape adds a new row field, a new TypeScript reader, and a new emitter. A fixed vocabulary of access paths, with cell and keyed-store shapes for state that exists once per call, makes new library support rows-only. Reading library source can later *generate* rows offline; it must not run inside the scan. The "Revised direction" section below records why.
 
 Read on `origin/main` at `40cd9a68` (after #417 and #418), 2026-11-22. No engine file changed. The diagrams in `diagrams/` are Draftably 0.16.0 files; each PNG carries its `.draft` source (`npx draftably@0.16.0 extract`). The spike scripts and their raw output are outside the repo, in the session notes folder `lib-model-audit/`.
 
 ![Where library knowledge lives today](diagrams/1-where-library-code-lives.png)
+
+## Revised direction after an independent review
+
+A separate review (Fable 5.2, read-only; full text in the notes folder as `lib-model-audit/review-fable.md`) re-measured this audit. The inventory holds. It rejected one part of the plan and corrected one framing. This section supersedes the recommendation in section 5 and the conclusions of sections 5b and 5c where they differ.
+
+**What the review measured:**
+
+- **Dependency JS inside the scan Program erases user types.** TypeScript reaches package JS only with `noDtsResolution`, which applies to the whole Program. On family-finances, the share of user-code identifiers typed `any` rose from 10.4% to 46.1%. The engine resolves calls through the checker, so most rules would stop, including the `QueryClient.*` member rows from #423 (`libraryMemberModel` requires a declaration file).
+- **The heap doubles.** Family-finances went from 509 MB to 1,120 MB at `maxNodeModuleJsDepth: 4`, which pulled in 2,345 files from 118 packages (TypeScript, ESLint, Next, react-dom). TypeScript has no per-package depth limit. A repo already at 2 to 3 GB cannot take this.
+- **Builds disagree.** TypeScript bound zustand's shim to React's minified production build by branch order. Solid's server build makes `createEffect` a no-op and signals plain closures. A summary from the wrong build is a confident false `ok`.
+- **Library JS is untyped,** and the engine stops by rule at an untyped receiver of unknown origin (#420). Reading zustand needs a value-based call resolver for JavaScript, not "two general abilities and one row".
+- **Nothing defined a complete summary.** A summary may be `ok` only if every call on its path has one resolved callee; there is no computed access, `Proxy`, getter, `apply` or `eval` on the path; every write to each closure variable and field is found; every build agrees or one is named as the truth; and state is kept per call.
+
+**The corrected framing.** A hand row is needed where **state exists once per call** (every `createSignal`, every zustand `create`), or where the build picks the function at run time (React's dispatcher). "The runtime decides the path" was only half of it: Solid's `createSignal` is 15 lines of plain code, but every signal shares `readSignal` and `writeSignal`, so an analysis without per-call instances joins every write to every read. A correct source summary of zustand must say exactly what a cell row says. Source reading can generate cell rows; it cannot replace them.
+
+**The revised plan:**
+
+1. **Rows are the only interface.** Do migration stages 1 to 4b: access paths, then the cell, slot and keyed-store shapes. The cell row must name extra handles (`getState`, `setState`, `subscribe`, middleware pass-through), so `engine/src/analysis/zustand-store.ts` (177 lines, added by #419) can go too.
+2. **No dependency JS in the scan Program.** The `SRCLY_DEP_SOURCE` slice is dropped.
+3. **Reading source becomes an offline row generator** (option Q in the review): `engine/scripts/summarise-package.ts <package dir>` builds a small Program on one package and prints rows with provenance `generated`, a version range and a hash of the entry file. Generated rows are checked in, reviewed as a diff, and pass the same survey gate as hand rows. The inline test below failed, so this is shelved.
+4. **Types stay `assumed` hints** (stage 5). They need today's `.d.ts` Program, which is one more reason to keep it as it is.
+
+**Inline test result: fail, so the source route is shelved.** A separate session copied zustand 4.5.7's code in as user code (typed `.tsx` app, untyped `.js` library, two stores) and traced it with no zustand row. Full report: `lib-model-audit/inline-test.md` in the notes folder.
+
+- Store A's `set` never reaches store A's selector or render. No trace enters `vanilla.js`.
+- It needed 6 changes: 5 new rules and 1 fix. The test reported stop 3 (resolving an `any`-typed callee by value flow) as JavaScript-only; the second review below disproves that.
+- Stop 2 (one closure state per factory call) is large, and every other rule is unsafe without it.
+
+A second review (Fable 5.2, read-only) re-ran every trace and found the same outputs. It keeps the conclusion but corrects the evidence:
+
+- Every anchor sat in the app, so no trace entered `vanilla.js`. Stops 2 and 5 were predicted from reading the code, not observed.
+- Stop 3 is not JavaScript-only: a typed interface member (`h.onSave(v)`) has a signature but no body, and stops the same way. Stop 5 already exists for typed callbacks; in JavaScript it is part of stop 3. So, by the letter, neither kill count holds (4 new rules, none JavaScript-only).
+- The route still fails, because stop 2 (one state per call) comes before everything else and is large.
+- The test did not try zustand's `.d.ts` types together with its source bodies, so "rows win outright" overstates it. Rows win for now.
+
+**Four false `ok`s in today's engine** (typed user code, unrelated to libraries; all reproduced):
+
+1. **Non-identity wrappers.** `const total = compute((s) => …); total(x)` binds `x` to the callback even though `compute` returns `() => 0`. Cause: `functionNameNode` (`engine/src/analysis/program-evidence-support.ts:32`) and `bindsItsFunction`, which returns true for any callee that is not imported (`program-evidence-collector-support.ts:578-583`).
+2. **Closures shared across factory calls.** `makeReader(aval).read()` and `makeReader(bval).read()` both reach both terminals.
+3. **Class instances shared.** `new Box(cval).get()` and `new Box(dval).get()` both reach both terminals. This is by design today (`evidence-slice.ts:375`, `member-state`; closures at `:381-384`).
+4. **`Object.assign` fields.** `Object.assign({}, { a: kval }, { b: "z" })` makes `kval` reach a read of `.b`. The spread form is correct.
+
+Severity: 2 and 3 are high, because any factory or class with two instances hits them. 1 is medium: most wrappers return their argument, but selector hooks that return functions do not.
+
+**What this changes:**
+
+1. Fix the four false `ok`s first, in one honesty PR with a negative fixture for each. Where the real rule does not exist yet, downgrade to `assumed` (for example, a captured variable or field whose factory or class has more than one call site). Expect survey moves.
+2. Then build per-call contexts for user code (closures and class fields), measured by the two-instance probe. The cell row is the same concept, so this comes before the row migration.
+3. Then migration stage 1 (access paths). The source route stays shelved; re-run the inline test with anchors inside the library only after these rules exist.
+
+**Numbers that moved since the audit's base** (`40cd9a68`): 297 rows on `origin/main` (#423 added 11 React Query rows); zustand's custom code is about 226 lines (#419); `library-models.ts` is 201 lines.
+
+## Worked examples
+
+These five pictures show the scope on real code. Read them before the numbers.
+
+**What "custom code per library" means.** A Python `os.getenv` call needs one JSON row. A zustand store needs one row that only switches on 70 lines of TypeScript. Every hard library today looks like the right side.
+
+![One row versus seventy lines](diagrams/5-one-row-vs-seventy-lines.png)
+
+**Why the hard ones are hard.** The engine must invent a node that no line of code names (the store's state), then join every `set(...)` write to every selector read. The proposed cell row says the same thing as data. The same row shape covers `createSignal`, `useState`, `useReducer`, `createStore` and `createResource`.
+
+![What the engine must prove for a store](diagrams/6-what-a-store-needs.png)
+
+**How the vocabulary grows.** Today a row for a new library often needs a new field (`option`, `field`, `selector`, `hands`), and each field needs its own reader and emitter. With access paths, the same facts are a list of strings that one emitter reads.
+
+![Access paths replace one-off fields](diagrams/7-access-paths.png)
+
+**What the types can and cannot do.** `useMemo` and `indexArray` say in their signatures that the callback's return becomes the result, so no row is needed to find the path. `useContext` ties the result only to the context object, which holds the default. Solid's source shows the value is the nearest provider's value, and the default only when no provider exists. The types see half the flow, so a type-proposed step stays `assumed`.
+
+![What the .d.ts types already say](diagrams/8-what-types-say.png)
+
+**One rule for context and caches.** Context, the React Query cache, `localStorage` and event emitters all write a value under a key and read it back elsewhere. One keyed-store rule joins them. A key that the code computes cannot prove the join, so it stays `assumed`.
+
+![One keyed-store rule for context and caches](diagrams/9-keyed-store.png)
 
 ## 1. Inventory
 
@@ -17,7 +92,7 @@ Read on `origin/main` at `40cd9a68` (after #417 and #418), 2026-11-22. No engine
 | `engine/models/python.json` | 128 | stdlib, logging, requests, httpx, sqlalchemy, sqlmodel, django, flask, starlette, pandas, rest_framework | 60 origins, 61 terminals, 7 pass-throughs |
 | `engine/models/ecmascript.json` | 48 | TypeScript `lib.*.d.ts` | 30 `calls-back` (`map`, `then`, timers), 18 `consumes` |
 | `engine/models/solid.json` | 38 | solid-js, solid-js/store, @solidjs/router, @tanstack/solid-query, @solid-primitives | 12 `calls-back`, 10 `wraps`, 5 query options, 5 pass-throughs, 2 state pairs, 2 terminals |
-| `engine/models/node.json` | 35 | node:fs, http, https, globals | 18 origins, 17 terminals |
+| `engine/models/node.json` | 35 | node:fs, http, https, globals | 19 origins, 16 terminals |
 | `engine/models/web.json` | 17 | DOM lib, globals | 14 `consumes`, 2 origins, 1 terminal |
 | `engine/models/react.json` | 14 | react, @tanstack/react-query, zustand | 4 query options, 3 `wraps`, 3 `calls-back`, 2 state pairs, 1 store, 1 pass-through |
 | `engine/models/utilities.json` | 6 | lodash, lodash-es, lodash.debounce, lodash.throttle | 6 `wraps` |
@@ -161,10 +236,10 @@ So 25 of 47 resolved rows (53%) are redundant with the types, and 12 more (26%) 
 Of 146 callable exports in these modules with no row, 57 show a type flow. Spot checks:
 
 - Right, and useful: `indexArray` (the open `s-index-array` gap), `useSyncExternalStore`, `catchError`, `runWithOwner`, `reconcile`, zustand `useStore`, `useRef`, `createElement`.
-- Wrong: `useContext` in React and in Solid. `useContext<T>(ctx: Context<T>): T` ties the result's type to the argument, but the value comes from the nearest provider, not from the default in `createContext`. `useSubmission` is half right: its `result` holds the action's awaited return, but the type ties the whole result to the action.
+- Incomplete: `useContext` in React and in Solid. `useContext<T>(ctx: Context<T>): T` ties the result to the context object, so only the default in `createContext` reaches it. The source (`Owner.context[context.id] ?? context.defaultValue` in Solid) shows the nearest provider's value comes first; the types miss that flow. `useSubmission` is half right: its `result` holds the action's awaited return, but the type ties the whole result to the action.
 - Too wide: the option scan finds `queryFn`, but also `select`, `placeholderData`, `initialData` and `structuralSharing`, and on Solid Query every `QueryClient` method. Some of those do feed `data`; some do not.
 
-The key result for honesty: **a shared type parameter proves the same type, not the same value.** About 1 in 20 type flows is false, and `useContext` is a common call. A type-inferred step can make a trace's path right. It must never make the outcome `ok` by itself.
+The key result for honesty: **a shared type parameter proves the same type, not the same value.** About 1 in 20 type flows is wrong or incomplete, and `useContext` is a common call. A type-inferred step can make a trace's path right. It must never make the outcome `ok` by itself.
 
 ![Types propose, rows confirm](diagrams/2-types-propose-rows-confirm.png)
 
@@ -175,26 +250,99 @@ Scores: coverage is patterns that work with no new row; risk is the chance of a 
 | Option | Coverage without new rows | False-`ok` risk | Code deleted | Residue |
 | --- | --- | --- | --- | --- |
 | **A. Access-path vocabulary.** Replace the 20 ad hoc fields with CodeQL-style paths: `Argument[0].ReturnValue → ReturnValue`, `Argument[1] → Argument[0].Parameter[0]`, `Argument[0].Member[queryFn].ReturnValue → ReturnValue.Member[data]`. One emitter interprets every path. | Same as today; new libraries in shapes 1 to 7 become rows-only | None: a row is still a claim a person reviewed | `framework-flows.ts` readers (about 110 of 146), option emitters (85), `connectFrameworkFlow`, row-specific branches in `value-origin.ts`; about 250 lines, offset by a path emitter of about 100 | Shapes 8 to 10 |
-| **B. Type-proposed flow.** Derive candidate paths from generics at each unmodelled library call. Emit them with a new proof kind (`type-signature`, strength `assumed`). | High: the 25 implied rows, plus `indexArray`, `useSyncExternalStore` and other unrowed exports, gain the right path | Low if the strength stays `assumed`; about 5% of proposals are false paths | None at first. Each implied row becomes a 1-line confirmation; its shape fields go | Terminals, origins, cells, slots, context, and choosing among option keys |
+| **B. Type-proposed flow.** Derive candidate paths from generics at each unmodelled library call. Emit them with a new proof kind (`type-signature`, strength `assumed`). | High: the 25 implied rows, plus `indexArray`, `useSyncExternalStore` and other unrowed exports, gain the right path | Low if the strength stays `assumed`; about 5% of proposals are wrong or incomplete | None at first. Each implied row becomes a 1-line confirmation; its shape fields go | Terminals, origins, cells, slots, context, and choosing among option keys |
 | **C. Summaries from `node_modules` JS.** Analyse library code and cache a summary per package version. | Medium for small utilities (lodash, debounce); low for React, Solid and zustand, whose behaviour lives in a scheduler or a runtime | Medium: dynamic code and bundles defeat the analysis; a wrong summary looks proven | None | Every framework; plus memory cost on top of a 2 to 3 GB Program |
 | **D. Wider default rule.** Treat every unmodelled package call as an `assumed` pass-through of all arguments. | Already true for dropped calls (`connectExternalCall`) and library-typed callees (`isExternalCall`) | None (stays `assumed`) | None | Gives wrong ends: the React Query diagnosis shows `getQueryData` ending at the key literal, not the cache |
 | **E. Generated rows for review.** A script prints proposed rows for a package from its types, or from the stops a survey reports. | Same as B, but only after a person merges the rows | None: a person reviews each row | None | Review time per package |
 | **F. Cell and slot concepts.** Two engine concepts with row shapes: a *cell* (a call makes a value; named handles write it; named handles read it) and a *slot* (the framework calls a component's attribute or child function with named values). | zustand, signals, stores, reducers, resources, `useSubmission` and `mutate`/`refetch` become cell rows; `For`, `Index`, `Show`, `Dynamic`, `ErrorBoundary`, `Suspense` become slot rows | None: rows are claims | Most of the 245 cell lines and 210 slot lines, offset by two emitters of about 150 lines together | Context (shape 10) stays code; it is one rule for both frameworks |
-| **G. Summaries down to a primitive floor.** Analyse library JS only until it reaches primitives the engine models (`useSyncExternalStore`, `createSignal`, closures, `Promise`). zustand's `vanilla.ts` is about 100 lines of closure over `setState` and `getState`. | Good for small stores built on primitives (zustand); poor for Solid's compiled JSX runtime | Medium: a summary looks proven when the analysis misses dynamic code | None | Needs the installed library at the right version; slots stay code |
+| **G. Summaries down to a primitive floor.** Analyse library JS only until it reaches primitives the engine models (`useSyncExternalStore`, `createSignal`, closures, `Promise`). zustand's `vanilla.ts` is about 100 lines of closure over `setState` and `getState`. | Good for libraries built on primitives: zustand, lodash, the router's `createAsync`, and Solid's own `For`, `Index` and `Show`, which are 5 to 15 lines on `createMemo` and `mapArray` (see 5c) | Medium: a summary looks proven when the analysis misses dynamic code | None | Needs the installed library at the right version; slots stay code |
 | **H. Keyed-store shape.** One rule: a write and a read join when they reach the same store identity with the same constant key. | Context (Provider to `useContext`, keyed by the context object), the query cache (`setQueryData`, `getQueryData`, `invalidateQueries`), `localStorage`, event emitters, the open `v-map-set` gap | Low if a computed key (`["items", props.listId]`) stays `assumed` | The 107 context lines, offset by one emitter | Rows that say which calls write, read or clear a keyed store |
 | **I. Runtime observation.** Wrap library exports during tests or catalog runs; record which argument shows up in which callback parameter or result; propose rows. | Medium, only for code paths that run | Medium: seen on some inputs is not proven | None | Needs runnable code; review of every proposal |
 | **J. Rows written by an agent, gated by fixtures.** An agent writes each row with a negative annotated fixture; the exhaustive `@reaches` and `@stop` check is the gate. | Same as today's rows | Low: the negative fixture must fail without the row's limit | None | It fills the vocabulary; it does not shrink it |
 
 ### Recommendation
 
-Do A, B, F and H, and use E and J to write rows. Skip C, G and I for now: a summary or an observation looks proven when it is not, and both need installed or running code.
+*Superseded in part by "Revised direction" at the top: G moves out of the scan and becomes an offline row generator.*
+
+Do A, B, F and H, and use E and J to write rows. Skip C and I: C analyses too much, and I needs running code.
 
 - **A** stops vocabulary growth. Every new library step that fits shapes 1 to 7 becomes data.
 - **B** makes unmodelled libraries trace along the right path, so a trace reaches its real end with an honest `assumed`. A 1-line confirmation row then promotes a proposal to `ok`. Types propose; rows confirm.
 - **F** turns the cell and slot emitters into two general ones.
 - **H** turns context, and the cache patterns of query libraries, into one keyed-store rule.
 
-After these four, a new library costs rows only, unless it adds a genuinely new shape. The Python FastAPI binding stays code, because it is a rule about program structure, not a library member. G is worth one spike on zustand later, to see whether its summary matches the cell row.
+After these four, a new library costs rows only, unless it adds a genuinely new shape. The Python FastAPI binding stays code, because it is a rule about program structure, not a library member. The inline test decides whether an offline row generator is worth building.
+
+## 5b. Other engines, and analysing dependency source
+
+Constraint from Byron: decide value flow from source only, the target's code and its dependencies' code. No runtime analysis and no traces. This rules out TASER (it runs test suites) and Jelly's approximate interpretation (a dynamic pre-pass).
+
+| Engine | What it does better than srcly | Library knowledge | Fit |
+| --- | --- | --- | --- |
+| [CodeQL](https://codeql.github.com/docs/codeql-language-guides/customizing-library-models-for-javascript/) | Mature models-as-data with access paths (`Member[x].Parameter[0].ReturnValue`). Type models name a type once (`mysql.Connection` = `Member[createConnection].ReturnValue`), so every later use of that type is covered. For Java, C# and Go it generates summary models from library source (provenance `df-generated`), and hand rows override them. | Rows plus generated summaries | Cannot ship inside srcly: free only for open-source code on GitHub. Weak on React flow ([ReactAppScan](https://yinzhicao.org/reactappscan/reactappscan.pdf)); its newest hook model is `useRef` (CLI 2.24.0). No Solid. |
+| [Pysa](https://pyre-check.org/docs/pysa-basics/) | Infers propagation automatically for any function whose body it can see, dependencies included. Models (`.pysa`) are needed only for code it cannot see. | Inferred from bodies; hand models for stubs | Python only, taint not values, same "unseen code propagates" default srcly uses. |
+| [Jelly](https://github.com/cs-au-dk/jelly) | Analyses `node_modules` packages as code (points-to plus access paths), so calls through library code resolve with no model. | None needed for call resolution | BSD. Call graphs and library usage, not value traces. |
+| [Joern](https://docs.joern.io/) | One code property graph for many languages; fuzzy parsing handles partial code. | Hand "semantics"; unknown externals over-approximate | Apache-2.0. Same library problem as srcly, with weaker JS types. |
+| [Graph.js](https://github.com/formalsec/graphjs) | Fast npm package scanning with multiversion dependency graphs. | None | Does not follow external modules. |
+| [StubDroid](https://dx.doi.org/10.1145/2884781.2884816) (research) | Infers data-flow summaries for a whole library statically, once, and reuses them. More precise and cheaper than hand models in its evaluation. | Generated, cached per library | Android, not JS. The method is the point. |
+
+What the engines agree on:
+
+- **Access paths are the standard row format.** CodeQL's tokens match option A almost word for word. Adopt its vocabulary rather than invent one.
+- **Analyse what you can see; model only what you cannot.** Pysa and CodeQL's generated models both do this. Hand rows exist for code with no body: native code, runtimes, schedulers.
+- **Type models multiply a row.** One row that says "`useQueryClient()` returns a `QueryClient`" lets the `QueryClient.*` method rows apply everywhere that type flows.
+
+### What dependency source shows
+
+zustand's whole runtime is about 80 lines of plain JS (`node_modules/zustand/esm/vanilla.mjs` and `index.mjs`). `setState` merges into a closure `let state`; `getState` returns it; the hook is `useSyncExternalStoreWithSelector(api.subscribe, api.getState, …, selector)`. Source analysis of zustand would reach the store with **no zustand row**, as long as the engine has two general abilities and one row:
+
+1. A closure variable written by one function and read by another (`let state` in `createStoreImpl`): a general rule that also helps user code.
+2. Following calls into `node_modules` packages, as Jelly does, with a per-version cache of summaries (StubDroid).
+3. One row for the floor: `useSyncExternalStore` yields what `getSnapshot` returns (the `WithSelector` shim is also plain JS).
+
+Middleware (`persist`, `immer`) is plain JS too, so it would come free. The open zustand worker instead recognises middleware by the `StateCreator` type alias.
+
+React and Solid themselves are different. `useState` in `react.development.js` calls `dispatcher.useState`, which is set by the renderer at run time; Solid's reactive core is a scheduler. No source analysis sees through those, so the framework primitives stay hand rows (the cell, slot and keyed-store shapes).
+
+This changes option C's score. Analysing *all* of `node_modules` is still too costly, but **summarising userland libraries down to a short list of framework primitives** is source-only, needs no rows for zustand-like libraries, and matches what Pysa and CodeQL do. A summary computed from source is a proof, so it can be `ok` where the analysis is complete, and `assumed` where it meets dynamic code.
+
+**Measured limits (from the review).** Doing this inside the scan Program fails: `noDtsResolution` erases user types (10.4% to 46.1% of identifiers typed `any` on family-finances), the heap doubles, and TypeScript picks a build by accident. The idea survives only as an offline generator of rows, decided by the inline test (see "Revised direction").
+
+## 5c. Library intake applied to what we model today
+
+The intake question: does this library hold state that exists once per call, or does a runtime pick the function? Then it needs a hand row (a cell, a keyed store, or a boundary). Otherwise it is plain code over such rows, and a row generator could describe it. *Corrected after review:* an earlier draft said "the path runs through a runtime"; the real divider is per-call state.
+
+![What "primitive" means here](diagrams/13-what-primitive-means.png)
+
+I read the installed source of each modelled library (`solid-js` 1.x in bible-daily, `@tanstack/react-query` 4.44 and `zustand` in family-finances, `lodash` in recipes-modern).
+
+![What each modelled library is made of](diagrams/10-library-layers.png)
+
+| Library | What its source is | Rows today | Custom code today | Verdict |
+| --- | --- | ---: | ---: | --- |
+| React hooks, `memo`, `forwardRef` | Calls into `dispatcher`, which the renderer sets at run time | 9 | state pairs 33 | Primitive: keep rows |
+| Solid `createSignal`, `createMemo`, effects, `createStore`, `splitProps`, `mergeProps` | `createSignal` is 15 lines: one object per call, read and written through shared `readSignal` and `writeSignal`. Stores use `Proxy`. `splitProps`, `mergeProps`, `untrack` and `batch` are plain code | 14 | | Per-call state: cell rows |
+| Context (React and Solid) | Solid: `Owner.context[context.id] ?? context.defaultValue`. React: the dispatcher | 0 | 107 | Primitive: one keyed-store row |
+| I/O (fetch, fs, DB, print, Python boundaries) | Ends in native code or the network | 161 | | Primitive: keep rows |
+| Solid `For`, `Index`, `Show`, `children` | `For` and `Index` are 5 lines on `createMemo` and `mapArray` (95 lines, with per-item state). `Show` is 20 lines and branches on `keyed` | 1 | 128 | Plain code over cells |
+| Solid `createSelector`, `on`, `mapArray`, `createDeferred`, `onMount` | `on` and `onMount` are plain code; `mapArray` and `createSelector` keep per-call state | 5 | | Mixed |
+| Router `createAsync`, `query`, `cache`, `action` | `createAsync` is `createResource(() => fn())`; `query` keeps a module `Map` keyed by name and arguments | 8 | resource 140 (models Solid's `createResource`, a cell) | Plain code over cells; the `Map` is a keyed store with a computed key |
+| zustand | 88 lines (4.5.7): one closure `let state` per `create` call, and `useSyncExternalStoreWithSelector` | 1 | 70 at the audit's base; about 226 after #419 | Per-call state: a cell row (a generator could write it) |
+| React Query, Solid Query | About 1,800 lines of classes in `query-core`: an observer on `useSyncExternalStore`, a cache `Map` keyed by a hash of the query key, a `Promise` retryer | 9 | options 85 | Built on primitives, but deep; the hashed key stays `assumed` |
+| lodash, `@solid-primitives` | Closures on `setTimeout`; storage on `localStorage` | 11 | | Built on primitives |
+
+What this shows:
+
+- **The 23 core rows are at the right layer.** They describe per-call state or a runtime-chosen function.
+- **About 200 of the 650 hard lines describe plain code over those rows:** Solid's `For` and `Show` (128) and zustand's emitter (70 at base). An earlier draft said 420; the 140 resource lines model `createResource`, which is itself a cell, and React Query (85) is too deep to count. Solid's components are the plainest case:
+
+![Solid's For is five lines](diagrams/11-solid-for-is-five-lines.png)
+
+- **Reading the source corrects a claim.** The types made `useContext` look like "the default flows in". The source says the provider's value comes first and the default only when no provider exists. A hand rule written from types or from docs alone can get this wrong in either direction:
+
+![useContext: what the source says](diagrams/12-use-context-source.png)
+
+- **Computed keys are where honest `assumed` steps remain.** The router's `query` cache and React Query's cache both key a `Map` by a value computed at run time. Source analysis reaches the `Map` and stops there, which is the right answer.
 
 ## 6. Migration plan
 
@@ -213,9 +361,13 @@ Each stage is one PR. Each must keep `engine/test/srcly/fixture-annotations.test
 
 ![Migration to rows-only library support](diagrams/4-migration.png)
 
-**First step:** stage 1. It changes no behaviour, it is small, and its equivalence test pins every row before stage 2 rewrites the readers. Hold it until tonight's zustand, React Query and Solid workers merge, because they edit the same readers.
+**Revised after review:** the cell row in stage 3 names `getState`, `setState`, `subscribe` and middleware pass-through, so `zustand-store.ts` goes too. The inline test failed, so there is no offline row generator in this plan.
+
+**First step:** fix the four false `ok`s the inline test and its review found, then build per-call contexts for user code, then stage 1. Stage 1 changes no behaviour, and its equivalence test pins every row before stage 2 rewrites the readers. Hold it until tonight's workers merge, because they edit the same readers.
 
 ## 7. Open questions
+
+- Which build is the truth for a row generator (browser or server, development or production)? The review found Solid's builds disagree on `createEffect`. The generator must name one and report a conflict when builds differ.
 
 - Should a type proposal (stage 5) show in the UI as its own kind of `assumed` step ("follows the types")? It gives a better path than an opaque library step, but the outcome stays `assumed`. This study assumes yes; it needs no product decision before stage 1.
 - The legacy route report (about 16,000 SolidStart-specific lines) is outside this study. If it is retired, the library-specific line count roughly halves.

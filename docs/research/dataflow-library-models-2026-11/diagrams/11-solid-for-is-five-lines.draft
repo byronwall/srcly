@@ -1,0 +1,37 @@
+diagram "Solid's For is five lines"
+subtitle "128 lines of ours for components Solid writes in a few lines"
+
+node src "solid-js/dist/solid.js" shape=code lang=js numbers=on start=1448 <<JS
+function For(props) {
+  const fallback = "fallback" in props && {
+    fallback: () => props.fallback
+  };
+  return createMemo(mapArray(() => props.each, props.children, fallback || undefined));
+}
+function Index(props) {
+  const fallback = "fallback" in props && {
+    fallback: () => props.fallback
+  };
+  return createMemo(indexArray(() => props.each, props.children, fallback || undefined));
+}
+JS
+range src.for lines=1452 color=amber
+range src.idx lines=1458 color=amber
+
+node ours "srcly today: 128 lines\nconnectSolidFor 82, connectSolidShow 46\nmatch For and Show by name" color=orange shade=300
+
+node prims "Two primitives [1]\ncreateMemo · mapArray or indexArray" color=mint
+
+edge a src.for -> prims "reduces to"
+edge b src.idx -> prims
+edge c ours -> prims "would become" kind=async
+
+footnote 1 "mapArray (95 lines) keeps state per item, so it is a cell row. With it, <For each={list}>{(item) => …}</For> is mapArray(list, child), and the item flow comes from that row, not from For's. Show is 20 lines and branches on keyed."
+near ours prims side=right
+
+legend amber "Library source"
+legend orange "Custom engine code" shade=300
+legend mint "Rows that stay"
+legend line dashed "Proposed change"
+
+layout root flow gap=48 fit=slide

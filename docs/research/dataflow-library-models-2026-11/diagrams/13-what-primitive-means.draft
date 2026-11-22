@@ -1,0 +1,45 @@
+diagram "What \"primitive\" means here"
+subtitle "Both keep state once per call, so both need a cell row"
+
+group follow "Readable: zustand's write and read share a variable" color=mint
+node z "zustand/esm/vanilla.mjs" shape=code lang=js in=follow <<JS
+let state;
+const setState = (partial) => {
+  const next = typeof partial === "function" ? partial(state) : partial;
+  state = Object.assign({}, state, next);
+};
+const getState = () => state;
+JS
+range z.w lines=4 color=amber
+range z.r lines=6 color=violet
+note "The path is in the code, but let state exists once per create call: two stores must never mix. A generator could read this and write the cell row." near=z side=below
+
+group proto "Runtime protocol: React's useState" color=orange
+node r1 "react: the call" shape=code lang=js in=proto <<JS
+function useState(initialState) {
+  return resolveDispatcher().useState(initialState);
+}
+JS
+node r2 "react-dom: picked during render (simplified)" shape=code lang=js in=proto <<JS
+ReactCurrentDispatcher.current =
+  isMount ? HooksDispatcherOnMount : HooksDispatcherOnUpdate;
+JS
+node r3 "react-dom: the setter only queues" shape=code lang=js in=proto <<JS
+queue.dispatch = dispatchSetState.bind(null, fiber, queue);
+JS
+node sched "scheduler re-renders\nlater, by priority lane" color=orange shade=300 in=proto
+node slot "next render: hook #N\nmatched by call order" color=orange shade=300 in=proto
+
+edge p1 r1 -> r2 "which function? set at run time"
+edge p4 r2 -> r3 "mountState returns the setter"
+edge p2 r3 -> sched "update waits in a queue"
+edge p3 sched -> slot "Rules of Hooks, not a variable"
+
+note "react-dom is 30,000 lines, and the link from setter to next read is a convention. So we model what it means (a cell), not its code." near=slot side=below
+
+legend mint "Path visible in the source"
+legend orange "Path decided by the runtime" shade=300
+legend amber "Write"
+legend violet "Read"
+
+layout root flow gap=56 fit=slide

@@ -1,0 +1,51 @@
+diagram "One row versus seventy lines"
+subtitle "A boundary step is one row; a zustand store is custom code"
+
+group easy "Python: read an environment variable" color=mint
+node py_user "settings.py" shape=code lang=python in=easy <<PY
+token = os.getenv("API_TOKEN")
+requests.get(url, headers={"Auth": token})
+PY
+node py_row "engine/models/python.json" shape=code lang=json in=easy <<JSON
+{ "module": "os", "name": "getenv",
+  "model": "origin", "role": "environment-input" }
+JSON
+
+group hard "React: read a zustand store" color=orange
+node z_user "counter.tsx" shape=code lang=ts in=hard <<TS
+const useCount = create((set) => ({
+  count: 0,
+  inc: (by) => set((s) => ({ count: s.count + by })),
+}));
+const n = useCount((s) => s.count);
+TS
+node z_row "engine/models/react.json" shape=code lang=json in=hard <<JSON
+{ "module": "zustand", "name": "create",
+  "model": "store" }
+JSON
+node z_code "connectStores + storeMethod (condensed)" shape=code lang=ts in=hard <<TS
+for (const call of calls) {
+  if (!makesStore(module, name)) continue;
+  const fn = call.arguments[0];      // must be a function literal
+  state = stateElement(holder);       // invent a "store" node
+  link(returnsOf(fn), state);         // creator return -> store
+  const set = fn.parameters[0];
+  walk(fn.body, (c) => {              // every set(...) call
+    if (calls(c, set)) link(argOrUpdaterReturn(c), state);
+  });
+}
+for (const read of callsOf(hook)) {   // useCount(selector)
+  link(state, read.selector.parameters[0]);
+  link(returnsOf(read.selector), read);
+}
+// + storeMethod: resolve s.inc back to the literal's member
+TS
+
+edge e1 py_user -> py_row "matched by name"
+edge e2 z_user -> z_row "matched by name"
+edge e3 z_row -> z_code "selects 70 lines of TS"
+
+legend mint "Rows only"
+legend orange "Row plus custom emitter"
+
+layout root flow gap=44 fit=slide

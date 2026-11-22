@@ -1,5 +1,5 @@
 diagram "Types propose, rows confirm"
-subtitle "A shared type parameter proves the same type, not the same value"
+subtitle "A shared type parameter proves the same type, not the whole flow"
 
 node call "Call into a package\nuseMemo(fn), indexArray(list, fn)" color=blue
 node row "Row names it?" shape=diamond
@@ -16,7 +16,7 @@ edge t_yes types -> typed "yes · 25 of 47 rows implied [1]"
 edge t_no types -> opaque "no · today's fallback"
 edge promote confirm -> typed "promotes to ok" kind=async
 
-footnote 1 "About 1 in 20 type flows is false. useContext<T>(ctx: Context<T>): T ties to the default value, but the value comes from the nearest provider."
+footnote 1 "About 1 in 20 type flows is wrong or incomplete. useContext<T>(ctx: Context<T>): T ties only to the default value; the nearest provider's value comes first."
 near confirm typed side=below
 
 legend mint "Proven (ok)"
